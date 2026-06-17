@@ -4,6 +4,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
@@ -12,7 +13,7 @@ import type { Translations } from "@/i18n";
 import {
   ClipboardList, Clock, AlertTriangle, CheckCircle2, Loader2, Check,
   ChevronRight, Zap, Building2, PhoneIncoming, Inbox, Wrench, HelpCircle,
-  MessageSquare, CornerDownLeft, Activity, Send, Hand, User, Phone, Mail,
+  MessageSquare, Activity, Send, Hand, User, Phone, Mail,
   MapPin, ExternalLink, Stethoscope,
   Trophy, PartyPopper, Sparkles, X, CalendarClock, Hourglass,
 } from "lucide-react";
@@ -148,7 +149,7 @@ const STATE_CONFIG: Record<BOState, {
 const KIND_CONFIG: Record<ThreadComment["kind"], { icon: typeof MessageSquare; color: string; ring: string }> = {
   comment: { icon: MessageSquare, color: "text-muted-foreground", ring: "bg-muted-foreground/40" },
   question: { icon: HelpCircle, color: "text-purple-600 dark:text-purple-400", ring: "bg-purple-500" },
-  answer: { icon: CornerDownLeft, color: "text-blue-600 dark:text-blue-400", ring: "bg-blue-500" },
+  answer: { icon: Building2, color: "text-blue-600 dark:text-blue-400", ring: "bg-blue-500" },
   state_change: { icon: Activity, color: "text-emerald-600 dark:text-emerald-400", ring: "bg-emerald-500" },
 };
 
@@ -390,6 +391,7 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
   const { toast } = useToast();
   const [note, setNote] = useState("");
   const [question, setQuestion] = useState("");
+  const [askHighPriority, setAskHighPriority] = useState(false);
   const [confirmNote, setConfirmNote] = useState("");
   const [detailEntity, setDetailEntity] = useState<EntityRef | null>(null);
   const [recap, setRecap] = useState<{ createdAt: string; dueDate: string | null; completedAt: string } | null>(null);
@@ -420,8 +422,8 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
   });
 
   const askMutation = useMutation({
-    mutationFn: () => apiRequest("POST", `/api/back-office/tasks/${taskId}/ask-agent`, { content: question }).then(r => r.json()),
-    onSuccess: () => { setQuestion(""); invalidate(); toast({ title: t.backOffice.toastQuestionSent }); },
+    mutationFn: () => apiRequest("POST", `/api/back-office/tasks/${taskId}/ask-agent`, { content: question, highPriority: askHighPriority }).then(r => r.json()),
+    onSuccess: () => { setQuestion(""); setAskHighPriority(false); invalidate(); toast({ title: t.backOffice.toastQuestionSent }); },
     onError: () => toast({ title: t.backOffice.toastQuestionError, variant: "destructive" }),
   });
 
@@ -588,6 +590,25 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                       onChange={e => setQuestion(e.target.value)}
                       data-testid="textarea-bo-question"
                     />
+                    <div
+                      role="checkbox"
+                      aria-checked={askHighPriority}
+                      tabIndex={0}
+                      onClick={() => setAskHighPriority(v => !v)}
+                      onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); setAskHighPriority(v => !v); } }}
+                      className="flex items-center gap-2 cursor-pointer select-none rounded-md border border-rose-200 dark:border-rose-900 bg-rose-50/60 dark:bg-rose-950/20 px-2 py-1.5"
+                      data-testid="label-bo-ask-high-priority"
+                    >
+                      <Checkbox
+                        checked={askHighPriority}
+                        tabIndex={-1}
+                        className="pointer-events-none data-[state=checked]:bg-rose-600 data-[state=checked]:border-rose-600"
+                        data-testid="checkbox-bo-ask-high-priority"
+                      />
+                      <span className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3" /> {t.backOffice.askHighPriority}
+                      </span>
+                    </div>
                     <Button
                       size="sm" className="w-full gap-2 bg-purple-600 hover:bg-purple-700 text-white"
                       onClick={() => askMutation.mutate()}

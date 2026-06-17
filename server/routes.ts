@@ -27848,6 +27848,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const userId = req.session.user!.id;
       const content = (req.body?.content || "").toString().trim();
       if (!content) return res.status(400).json({ error: "Question content is required" });
+      const highPriority = req.body?.highPriority === true;
       const task = await getBackOfficeTask(taskId);
       if (!task) return res.status(404).json({ error: "Task not found" });
       if (!canAccessBoTask(req, task)) return res.status(403).json({ error: "Access denied" });
@@ -27855,7 +27856,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       if (!task.createdByUserId) return res.status(400).json({ error: "Task has no originating agent" });
       const comment = await db.transaction(async (tx) => {
         const [c] = await tx.insert(taskComments).values({
-          taskId, userId, content, kind: "question", metadata: { askedBy: userId } as any,
+          taskId, userId, content, kind: "question", metadata: { askedBy: userId, highPriority } as any,
         }).returning();
         await tx.update(tasks).set({ boState: "waiting_agent", status: "in_progress" }).where(eq(tasks.id, taskId));
         return c;
@@ -27865,7 +27866,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           type: "back_office_question",
           title: `Back Office sa pýta: ${task.title}`,
           message: content.length > 140 ? content.slice(0, 140) + "…" : content,
-          priority: "high",
+          priority: highPriority ? "urgent" : "high",
           entityType: "task",
           entityId: taskId,
           metadata: { taskId, taskTitle: task.title } as any,
@@ -27937,6 +27938,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           userId: taskComments.userId,
           userName: users.fullName,
           avatarUrl: users.avatarUrl,
+          metadata: taskComments.metadata,
         })
           .from(taskComments)
           .leftJoin(users, eq(users.id, taskComments.userId))
@@ -27947,7 +27949,15 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         const { reason, clinic, hospital } = await enrichBoTask(task, customer);
         result.push({
           task,
-          question: q || null,
+          question: q ? {
+            id: q.id,
+            content: q.content,
+            createdAt: q.createdAt,
+            userId: q.userId,
+            userName: q.userName,
+            avatarUrl: q.avatarUrl,
+            highPriority: !!((q.metadata as any)?.highPriority),
+          } : null,
           customer,
           comments: commentsByTask.get(task.id) || [],
           creator: task.createdByUserId ? (creatorMap.get(task.createdByUserId) || null) : null,

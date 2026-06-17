@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/i18n";
-import { HelpCircle, Loader2, CornerDownLeft, ChevronDown, ChevronUp, ChevronRight, Send, User, ExternalLink, Phone, Mail, MapPin, Building2, Clock, MessageSquare, Zap, Stethoscope } from "lucide-react";
+import { HelpCircle, Loader2, CornerDownLeft, ChevronDown, ChevronUp, ChevronRight, Send, User, ExternalLink, Phone, Mail, MapPin, Building2, Clock, MessageSquare, Zap, Stethoscope, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { Timeline, type ThreadData, type ThreadComment } from "./back-office-panel";
 import { EntityDetailDrawer, type EntityRef } from "./entity-detail-drawer";
@@ -22,6 +22,7 @@ type BOQuestion = {
     userId: string;
     userName: string | null;
     avatarUrl?: string | null;
+    highPriority?: boolean;
   } | null;
   customer?: ThreadData["customer"];
   comments?: ThreadComment[];
@@ -37,20 +38,29 @@ function customerName(c: { firstName: string | null; lastName: string | null } |
 }
 
 function QuestionTile({ item, onClick }: { item: BOQuestion; onClick: () => void }) {
+  const { t } = useI18n();
   const custName = customerName(item.customer);
+  const urgent = !!item.question?.highPriority;
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className="w-full text-left rounded-lg border border-purple-200 dark:border-purple-900 bg-card p-2.5 transition-all hover:border-purple-400 dark:hover:border-purple-700 hover:shadow-sm active:scale-[0.99]"
+      className={`w-full text-left rounded-lg border p-2.5 transition-all hover:shadow-sm active:scale-[0.99] ${urgent ? "border-2 border-rose-400 dark:border-rose-600 bg-rose-50/60 dark:bg-rose-950/20 animate-bo-urgent" : "border-purple-200 dark:border-purple-900 bg-card hover:border-purple-400 dark:hover:border-purple-700"}`}
       data-testid={`bo-question-${item.task.id}`}
     >
       <div className="flex items-start gap-2">
-        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/40 shrink-0 mt-0.5">
-          <HelpCircle className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+        <span className={`flex items-center justify-center w-6 h-6 rounded-full shrink-0 mt-0.5 ${urgent ? "bg-rose-100 dark:bg-rose-900/40" : "bg-purple-100 dark:bg-purple-900/40"}`}>
+          {urgent
+            ? <AlertTriangle className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
+            : <HelpCircle className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />}
         </span>
         <div className="flex-1 min-w-0">
+          {urgent && (
+            <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-600 text-white animate-bo-blink mb-1" data-testid={`badge-bo-urgent-${item.task.id}`}>
+              <AlertTriangle className="h-2.5 w-2.5" /> {t.backOffice.urgentBadge}
+            </span>
+          )}
           <div className="text-xs font-medium leading-snug truncate" data-testid={`text-bo-question-title-${item.task.id}`}>{item.task.title}</div>
           {custName ? (
             <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground" data-testid={`text-bo-question-customer-name-${item.task.id}`}>
@@ -249,8 +259,13 @@ function QuestionDrawerContent({ item, onClose }: { item: BOQuestion; onClose: (
                 <div>
                   <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
                     <MessageSquare className="h-3 w-3" /> {t.backOffice.questionForAgent}
+                    {item.question.highPriority && (
+                      <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-600 text-white animate-bo-blink" data-testid="badge-bo-question-detail-urgent">
+                        <AlertTriangle className="h-2.5 w-2.5" /> {t.backOffice.urgentBadge}
+                      </span>
+                    )}
                   </div>
-                  <div className="rounded-lg border border-purple-200 dark:border-purple-900 bg-purple-50 dark:bg-purple-950/20 p-3">
+                  <div className={`rounded-lg border p-3 ${item.question.highPriority ? "border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/20" : "border-purple-200 dark:border-purple-900 bg-purple-50 dark:bg-purple-950/20"}`}>
                     {item.question.userName && (
                       <div className="flex items-center gap-1.5 mb-1.5">
                         <UserAvatar name={item.question.userName} avatarUrl={item.question.avatarUrl} className="h-5 w-5" testId="avatar-question-detail-author" />
@@ -314,6 +329,7 @@ export function BackOfficeQuestionsInbox() {
 
   if (questions.length === 0) return null;
 
+  const hasUrgent = questions.some(q => !!q.question?.highPriority);
   const activeItem = openTaskId ? questions.find(q => q.task.id === openTaskId) || null : null;
 
   return (
@@ -326,7 +342,7 @@ export function BackOfficeQuestionsInbox() {
       >
         <CornerDownLeft className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
         <span className="text-xs font-semibold text-purple-700 dark:text-purple-300">{t.backOffice.questionsInboxTitle}</span>
-        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-purple-500 text-white">{questions.length}</span>
+        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white ${hasUrgent ? "bg-rose-500 animate-bo-blink" : "bg-purple-500"}`}>{questions.length}</span>
         {collapsed ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground ml-auto" /> : <ChevronUp className="h-3.5 w-3.5 text-muted-foreground ml-auto" />}
       </button>
       {!collapsed && (

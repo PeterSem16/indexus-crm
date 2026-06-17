@@ -104,12 +104,22 @@ export default {
           "0%, 100%": { boxShadow: "0 0 0 0 rgba(249, 115, 22, 0.3)" },
           "50%": { boxShadow: "0 0 0 4px rgba(249, 115, 22, 0.15)" },
         },
+        "bo-urgent": {
+          "0%, 100%": { boxShadow: "0 0 0 0 rgba(244, 63, 94, 0.55)", borderColor: "rgb(244 63 94)" },
+          "50%": { boxShadow: "0 0 0 6px rgba(244, 63, 94, 0)", borderColor: "rgb(251 113 133)" },
+        },
+        "bo-blink": {
+          "0%, 49%": { opacity: "1" },
+          "50%, 100%": { opacity: "0.4" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "timeline-pulse": "timeline-pulse 2s ease-in-out infinite",
         "field-pulse": "field-pulse 2s ease-in-out infinite",
+        "bo-urgent": "bo-urgent 1.3s ease-in-out infinite",
+        "bo-blink": "bo-blink 1s steps(1, end) infinite",
       },
     },
   },
