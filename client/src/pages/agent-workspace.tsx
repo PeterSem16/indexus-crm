@@ -2474,6 +2474,10 @@ function CommunicationCanvas({
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
+      // The scheduled-call queue (panel + badge) is backed by /api/agent/scheduled-queue,
+      // so a status-list set_callback must invalidate it too, otherwise the rescheduled
+      // call won't appear until a manual refresh.
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
     } catch {
       toast({ title: slt("actionFailed", locale), variant: "destructive" });
     } finally {
