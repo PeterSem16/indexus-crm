@@ -194,6 +194,10 @@ const SL: Record<string, Record<string, string>> = {
   emailRecipientsHelp: { sk: "Príjemcovia = tieto pevné adresy + používatelia zvolenej role. Nechajte prázdne ak chcete poslať len role.", en: "Recipients = these fixed addresses + users of the selected role. Leave empty to send only to the role.", cs: "Příjemci = tyto pevné adresy + uživatelé zvolené role. Nechte prázdné pro odeslání jen roli.", hu: "Címzettek = ezek a fix címek + a kiválasztott szerepkör felhasználói. Hagyja üresen, ha csak a szerepkörnek küld.", ro: "Destinatari = aceste adrese fixe + utilizatorii rolului selectat. Lăsați gol pentru a trimite doar rolului.", it: "Destinatari = questi indirizzi fissi + utenti del ruolo selezionato. Lasciare vuoto per inviare solo al ruolo.", de: "Empfänger = diese festen Adressen + Benutzer der gewählten Rolle. Leer lassen, um nur an die Rolle zu senden." },
   callbackOffsetLbl:   { sk: "Odklad (pracovné dni)", en: "Offset (business days)", cs: "Odklad (pracovní dny)", hu: "Eltolás (munkanapok)", ro: "Decalaj (zile lucrătoare)", it: "Ritardo (giorni lavorativi)", de: "Versatz (Werktage)" },
   callbackOffsetHelp:  { sk: "Za koľko pracovných dní sa kontakt znova objaví vo fronte (o 09:00).", en: "After how many business days the contact re-appears in the queue (at 09:00).", cs: "Za kolik pracovních dnů se kontakt znovu objeví ve frontě (v 09:00).", hu: "Hány munkanap múlva jelenik meg újra a kontakt a sorban (09:00-kor).", ro: "După câte zile lucrătoare reapare contactul în coadă (la 09:00).", it: "Dopo quanti giorni lavorativi il contatto riappare nella coda (alle 09:00).", de: "Nach wie vielen Werktagen erscheint der Kontakt erneut in der Warteschlange (um 09:00 Uhr)." },
+  callbackTimeLbl:     { sk: "Čas (hodina)", en: "Time (hour)", cs: "Čas (hodina)", hu: "Idő (óra)", ro: "Oră", it: "Orario", de: "Uhrzeit" },
+  statusCallbackHelp:  { sk: "Kedy sa kontakt znova objaví vo fronte agenta — počet pracovných dní a presný čas.", en: "When the contact re-appears in the agent's queue — number of business days and the exact time.", cs: "Kdy se kontakt znovu objeví ve frontě agenta — počet pracovních dnů a přesný čas.", hu: "Mikor jelenik meg újra a kontakt az ügynök sorában — munkanapok száma és a pontos idő.", ro: "Când reapare contactul în coada agentului — numărul de zile lucrătoare și ora exactă.", it: "Quando il contatto riappare nella coda dell'agente — numero di giorni lavorativi e l'orario esatto.", de: "Wann der Kontakt erneut in der Warteschlange des Agenten erscheint — Anzahl der Werktage und die genaue Uhrzeit." },
+  notifyPulseLbl:      { sk: "Upozorniť agenta v Nexus Pulse", en: "Notify agent in Nexus Pulse", cs: "Upozornit agenta v Nexus Pulse", hu: "Értesítés az ügynöknek a Nexus Pulse-ban", ro: "Notifică agentul în Nexus Pulse", it: "Avvisa l'agente in Nexus Pulse", de: "Agent in Nexus Pulse benachrichtigen" },
+  notifyPulseHint:     { sk: "Callback sa agentovi automaticky objaví vo fronte spätných volaní v nastavenom čase (bez zvuku).", en: "The callback will automatically appear in the agent's callback queue at the set time (no sound).", cs: "Callback se agentovi automaticky objeví ve frontě zpětných volání v nastaveném čase (bez zvuku).", hu: "A visszahívás a beállított időpontban automatikusan megjelenik az ügynök visszahívási sorában (hang nélkül).", ro: "Apelul invers va apărea automat în coada de apeluri a agentului la ora setată (fără sunet).", it: "La richiamata apparirà automaticamente nella coda di richiamate dell'agente all'orario impostato (senza suono).", de: "Der Rückruf erscheint zur eingestellten Zeit automatisch in der Rückrufliste des Agenten (ohne Ton)." },
   noDisps:       { sk: "Žiadne dispozície v tejto kampani", en: "No dispositions in this campaign", cs: "Žádné dispozice v této kampani", hu: "Nincs diszpozíció ebben a kampányban", ro: "Nicio dispoziție în această campanie", it: "Nessuna disposizione in questa campagna", de: "Keine Dispositionen in dieser Kampagne" },
 
   requiredBadge:   { sk: "Povinný", en: "Required", cs: "Povinný", hu: "Kötelező", ro: "Obligatoriu", it: "Obbligatorio", de: "Pflicht" },
@@ -1178,6 +1182,8 @@ function AutomationForm({
     dispositionId: automation?.dispositionId || "",
     emailRecipients: (automation?.emailRecipients ?? []).join("\n"),
     callbackOffsetDays: automation?.callbackOffsetDays != null ? String(automation.callbackOffsetDays) : "1",
+    callbackTime: (automation as any)?.callbackTime || "09:00",
+    notifyAgentPulse: (automation as any)?.notifyAgentPulse ?? false,
     webhookTarget: automation?.webhookTarget || "",
     taskGroupId: automation?.taskGroupId || "",
     assignNotify: (automation as any)?.assignNotify ?? false,
@@ -1204,6 +1210,11 @@ function AutomationForm({
     queryKey: ["/api/task-groups"],
     enabled: form.actionType === "assign_task",
   });
+
+  // A disposition is a "callback" type when its actionType schedules a follow-up;
+  // these mirror SL_DISP_STATUS_MAP server-side (callback/schedule_email/schedule_sms).
+  const selectedSlDisp = (campaignDispositions as any[]).find((d: any) => String(d.id) === String(form.dispositionId));
+  const isCallbackDisp = !!selectedSlDisp && ["callback", "schedule_email", "schedule_sms"].includes(selectedSlDisp.actionType);
 
   const { data: rolesList = [] } = useQuery<any[]>({
     queryKey: ["/api/roles"],
@@ -1246,9 +1257,11 @@ function AutomationForm({
         emailRecipients: form.actionType === "send_email_group"
           ? form.emailRecipients.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean)
           : [],
-        callbackOffsetDays: form.actionType === "set_callback"
+        callbackOffsetDays: (form.actionType === "set_callback" || (form.actionType === "set_contact_status" && isCallbackDisp))
           ? (Number.isFinite(parseInt(form.callbackOffsetDays, 10)) ? parseInt(form.callbackOffsetDays, 10) : 1)
           : null,
+        callbackTime: form.actionType === "set_contact_status" && isCallbackDisp ? (form.callbackTime || "09:00") : null,
+        notifyAgentPulse: form.actionType === "set_contact_status" && isCallbackDisp ? form.notifyAgentPulse : false,
         conditionField: (form.conditionType === "compound" || form.conditionType === "always" || form.conditionType === "field_changed_to") ? null : form.conditionType,
         conditionOperator: (form.conditionType === "always" || form.conditionType === "compound" || form.conditionType === "field_changed_to") ? null : "eq",
         conditionValue: (form.conditionType === "always" || form.conditionType === "compound" || form.conditionType === "field_changed_to") ? null : (form.conditionType === "country" ? form.conditionCountry : null),
@@ -1641,6 +1654,51 @@ function AutomationForm({
                 )}
               </SelectContent>
             </Select>
+
+            {isCallbackDisp && (
+              <div className="mt-3 space-y-3 rounded-md border border-violet-200 dark:border-violet-800/50 bg-violet-50/50 dark:bg-violet-950/20 p-2.5">
+                <div className="flex flex-wrap gap-3">
+                  <div>
+                    <Label className="text-xs mb-1 block">{sl("callbackOffsetLbl", locale)}</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={form.callbackOffsetDays}
+                      onChange={e => setForm(f => ({ ...f, callbackOffsetDays: e.target.value }))}
+                      className="h-8 text-xs w-28"
+                      data-testid="input-status-callback-offset"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs mb-1 block">{sl("callbackTimeLbl", locale)}</Label>
+                    <Input
+                      type="time"
+                      value={form.callbackTime}
+                      onChange={e => setForm(f => ({ ...f, callbackTime: e.target.value }))}
+                      className="h-8 text-xs w-28"
+                      data-testid="input-status-callback-time"
+                    />
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground leading-snug">{sl("statusCallbackHelp", locale)}</p>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-input accent-violet-600 cursor-pointer"
+                    checked={form.notifyAgentPulse}
+                    onChange={e => setForm(f => ({ ...f, notifyAgentPulse: e.target.checked }))}
+                    data-testid="checkbox-notify-pulse"
+                  />
+                  <span className="text-xs font-medium flex items-center gap-1.5">
+                    <Bell className="h-3.5 w-3.5 text-violet-600" />
+                    {sl("notifyPulseLbl", locale)}
+                  </span>
+                </label>
+                {form.notifyAgentPulse && (
+                  <p className="text-[10px] text-muted-foreground pl-6 leading-snug">{sl("notifyPulseHint", locale)}</p>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

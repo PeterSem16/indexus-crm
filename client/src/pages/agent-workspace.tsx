@@ -204,13 +204,33 @@ const SL_ACTION_T: Record<string, Record<string, string>> = {
 };
 const slt = (key: string, locale: string): string => SL_ACTION_T[key]?.[locale] ?? SL_ACTION_T[key]?.en ?? key;
 
+// Prefill value for the reschedule picker: N business days out at the rule's
+// configured time-of-day (callbackTime "HH:MM", default 09:00). Format matches
+// DateTimePicker's "YYYY-MM-DDTHH:MM".
+function slPrefillDt(automation: any): string {
+  const offset = Math.max(1, automation?.callbackOffsetDays ?? 1);
+  const d = addBusinessDays(new Date(), offset);
+  let hh = 9, mm = 0;
+  const t = automation?.callbackTime;
+  if (typeof t === "string" && /^\d{1,2}:\d{2}$/.test(t)) {
+    const [h, m] = t.split(":").map(Number);
+    if (h >= 0 && h < 24 && m >= 0 && m < 60) { hh = h; mm = m; }
+  }
+  d.setHours(hh, mm, 0, 0);
+  const yyyy = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mo}-${dd}T${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+}
+
 // Per-item manual action buttons rendered on the agent's mission status list.
 // Only appear for items that have a configured send_email_group / set_contact_status / set_callback automation.
-function SlActionButtons({ automations, onRun, running, locale }: {
+function SlActionButtons({ automations, onRun, running, locale, dispositions }: {
   automations: any[];
   onRun: (automation: any, opts?: { callbackDate?: string }) => void;
   running: Set<string>;
   locale: string;
+  dispositions: any[];
 }) {
   const actionable = (automations || []).filter((a: any) =>
     a.actionType === "send_email_group" || a.actionType === "set_contact_status" || a.actionType === "set_callback"
@@ -230,17 +250,57 @@ function SlActionButtons({ automations, onRun, running, locale }: {
           );
         }
         if (a.actionType === "set_contact_status") {
-          return (
-            <Button key={a.id} type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px] gap-1"
-              disabled={isRunning} onClick={() => onRun(a)} data-testid={`btn-sl-status-${a.id}`}>
-              {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Tag className="h-3 w-3 text-purple-600" />}
-              {slt("runStatus", locale)}
-            </Button>
-          );
+          const disp = (dispositions || []).find((d: any) => String(d.id) === String(a.dispositionId));
+          const isCallback = !!disp && ["callback", "schedule_email", "schedule_sms"].includes(disp.actionType);
+          return <SlStatusButton key={a.id} automation={a} isRunning={isRunning} onRun={onRun} locale={locale} isCallback={isCallback} />;
         }
         return <SlCallbackButton key={a.id} automation={a} isRunning={isRunning} onRun={onRun} locale={locale} />;
       })}
     </div>
+  );
+}
+
+// "Set status" button. For a plain disposition it just runs the action; for a
+// callback-type disposition it opens a reschedule picker (prefilled from the rule's
+// term) so the agent can override the callback time before scheduling.
+function SlStatusButton({ automation, isRunning, onRun, locale, isCallback }: {
+  automation: any; isRunning: boolean; onRun: (automation: any, opts?: { callbackDate?: string }) => void; locale: string; isCallback: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [dt, setDt] = useState("");
+  useEffect(() => {
+    if (open) setDt(slPrefillDt(automation));
+  }, [open, automation.callbackOffsetDays, automation.callbackTime]);
+
+  if (!isCallback) {
+    return (
+      <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px] gap-1"
+        disabled={isRunning} onClick={() => onRun(automation)} data-testid={`btn-sl-status-${automation.id}`}>
+        {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Tag className="h-3 w-3 text-purple-600" />}
+        {slt("runStatus", locale)}
+      </Button>
+    );
+  }
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px] gap-1"
+          disabled={isRunning} data-testid={`btn-sl-status-${automation.id}`}>
+          {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Tag className="h-3 w-3 text-purple-600" />}
+          {slt("runStatus", locale)}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-3" align="start">
+        <div className="space-y-3">
+          <DateTimePicker value={dt} onChange={(v) => setDt(v)} includeTime data-testid={`input-sl-status-callback-${automation.id}`} />
+          <Button size="sm" className="w-full h-8 text-xs" disabled={!dt || isRunning}
+            onClick={() => { onRun(automation, { callbackDate: dt }); setOpen(false); }}
+            data-testid={`btn-sl-status-confirm-${automation.id}`}>
+            {slt("cbConfirm", locale)}
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -250,16 +310,8 @@ function SlCallbackButton({ automation, isRunning, onRun, locale }: {
   const [open, setOpen] = useState(false);
   const [dt, setDt] = useState("");
   useEffect(() => {
-    if (open) {
-      const offset = Math.max(1, automation.callbackOffsetDays ?? 1);
-      const d = addBusinessDays(new Date(), offset);
-      d.setHours(9, 0, 0, 0);
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, "0");
-      const dd = String(d.getDate()).padStart(2, "0");
-      setDt(`${yyyy}-${mm}-${dd}T09:00`);
-    }
-  }, [open, automation.callbackOffsetDays]);
+    if (open) setDt(slPrefillDt(automation));
+  }, [open, automation.callbackOffsetDays, automation.callbackTime]);
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -2358,6 +2410,14 @@ function CommunicationCanvas({
     queryKey: ["/api/campaigns", campaign?.id, "contacts", campaignContactId, "status-list-state"],
     enabled: !!campaign?.id && !!campaignContactId,
   });
+  // Resolve each status-list automation's disposition so the "Set status" button can
+  // open a reschedule picker for callback-type dispositions (legacy table the builder
+  // writes to and the server reads from).
+  const { data: slDispositions = [] } = useQuery<any[]>({
+    queryKey: ["/api/campaigns", campaign?.id, "dispositions-sl"],
+    queryFn: () => fetch(`/api/campaigns/${campaign?.id}/dispositions`, { credentials: "include" }).then(r => { if (!r.ok) throw new Error(`Request failed: ${r.status}`); return r.json(); }),
+    enabled: !!campaign?.id && (dbStatusList as any[]).length > 0,
+  });
 
   useEffect(() => {
     // All rows in dbSlState are confirmed (existence-based model)
@@ -2408,6 +2468,7 @@ function CommunicationCanvas({
       let msg = slt("statusSet", locale);
       if (automation.actionType === "send_email_group") msg = okFlag ? slt("emailSent", locale) : slt("emailFailed", locale);
       else if (automation.actionType === "set_callback") msg = slt("callbackSet", locale);
+      else if (automation.actionType === "set_contact_status" && data?.callbackDate) msg = slt("callbackSet", locale);
       toast({ title: msg, variant: okFlag ? undefined : "destructive" });
       // Refresh contact lists/queue so a scheduled callback re-appears and status changes show
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
@@ -3879,7 +3940,7 @@ function CommunicationCanvas({
                           </p>
                         ) : null;
                       })()}
-                      <SlActionButtons automations={item.automations} onRun={handleSlRunAction} running={slRunningAuto} locale={locale} />
+                      <SlActionButtons automations={item.automations} onRun={handleSlRunAction} running={slRunningAuto} locale={locale} dispositions={slDispositions} />
                     </div>
                     <span className="text-[10px] font-mono text-muted-foreground/40 shrink-0 pt-0.5">{item.stepId}</span>
                   </div>

@@ -680,9 +680,10 @@ const SL_DISP_STATUS_MAP: Record<string, string> = {
   send_email: "contacted", send_sms: "contacted", none: "contacted",
 };
 
-// Compute a callback date N business days out at 09:00 local (same rule as the
-// disposition callback path). Used when no explicit date is supplied.
-function computeStatusListCallbackDate(offsetDays: number): Date {
+// Compute a callback date N business days out at a configurable time-of-day
+// (defaults to 09:00 local). Used when no explicit date is supplied. `timeStr`
+// is an optional "HH:MM" string; invalid/empty values fall back to 09:00.
+function computeStatusListCallbackDate(offsetDays: number, timeStr?: string | null): Date {
   const d = new Date();
   let added = 0;
   const target = Math.max(1, offsetDays);
@@ -691,7 +692,12 @@ function computeStatusListCallbackDate(offsetDays: number): Date {
     const dow = d.getDay();
     if (dow !== 0 && dow !== 6) added++;
   }
-  d.setHours(9, 0, 0, 0);
+  let hh = 9, mm = 0;
+  if (typeof timeStr === "string" && /^\d{1,2}:\d{2}$/.test(timeStr)) {
+    const [h, m] = timeStr.split(":").map(Number);
+    if (h >= 0 && h < 24 && m >= 0 && m < 60) { hh = h; mm = m; }
+  }
+  d.setHours(hh, mm, 0, 0);
   return d;
 }
 
@@ -843,7 +849,7 @@ async function runStatusListEmailGroup(automation: any, ctx: StatusListActionCtx
 }
 
 // Apply the configured disposition to the contact (status + dispositionCode).
-async function runStatusListSetStatus(automation: any, ctx: StatusListActionCtx): Promise<{ ok: boolean }> {
+async function runStatusListSetStatus(automation: any, ctx: StatusListActionCtx, overrideCallbackDate?: string | null): Promise<{ ok: boolean; callbackDate?: string }> {
   if (!automation.dispositionId) {
     console.warn("[status-list:set_status] no disposition configured");
     return { ok: false };
@@ -860,17 +866,39 @@ async function runStatusListSetStatus(automation: any, ctx: StatusListActionCtx)
   if (mapped) update.status = mapped;
   if (mapped === "contacted") update.contactedAt = new Date();
   if (mapped === "completed") update.completedAt = new Date();
+
+  // Callback-type dispositions: schedule a concrete callbackDate so the contact
+  // re-appears in the agent's Nexus Pulse queue. Use the agent's manual override
+  // when supplied (the Set-status picker), otherwise the rule's predefined term —
+  // but only when "notify agent in Nexus Pulse" (notifyAgentPulse) is enabled.
+  let scheduledCb: string | undefined;
+  if (mapped === "callback_scheduled") {
+    let cb: Date | null = null;
+    if (overrideCallbackDate) {
+      const parsed = new Date(overrideCallbackDate);
+      cb = isNaN(parsed.getTime()) ? null : parsed;
+    }
+    if (!cb && automation.notifyAgentPulse) {
+      cb = computeStatusListCallbackDate(automation.callbackOffsetDays ?? 1, automation.callbackTime);
+    }
+    if (cb) {
+      update.callbackDate = cb;
+      update.status = "callback_scheduled";
+      scheduledCb = cb.toISOString();
+    }
+  }
+
   await db.update(campaignContacts).set(update).where(eq(campaignContacts.id, ctx.campaignContactId));
-  console.log(`[status-list:set_status] disposition=${disp.code} status=${update.status ?? "(unchanged)"} contact=${ctx.campaignContactId}`);
+  console.log(`[status-list:set_status] disposition=${disp.code} status=${update.status ?? "(unchanged)"} callbackDate=${scheduledCb ?? "(none)"} contact=${ctx.campaignContactId}`);
   try {
     await db.insert(campaignContactHistory).values({
       campaignContactId: ctx.campaignContactId,
       userId: ctx.userId,
       action: "status_list_action",
-      metadata: { actionType: "set_contact_status", automationId: automation.id, dispositionCode: disp.code, status: update.status ?? null, campaignId: ctx.campaignId },
+      metadata: { actionType: "set_contact_status", automationId: automation.id, dispositionCode: disp.code, status: update.status ?? null, callbackDate: scheduledCb ?? null, campaignId: ctx.campaignId },
     });
   } catch (e) { console.error("[status-list:set_status] history log failed:", e); }
-  return { ok: true };
+  return { ok: true, callbackDate: scheduledCb };
 }
 
 // Schedule a callback so the contact re-appears in the agent queue on that date.
@@ -879,9 +907,9 @@ async function runStatusListSetCallback(automation: any, ctx: StatusListActionCt
   let cb: Date;
   if (overrideCallbackDate) {
     const parsed = new Date(overrideCallbackDate);
-    cb = isNaN(parsed.getTime()) ? computeStatusListCallbackDate(automation.callbackOffsetDays ?? 1) : parsed;
+    cb = isNaN(parsed.getTime()) ? computeStatusListCallbackDate(automation.callbackOffsetDays ?? 1, automation.callbackTime) : parsed;
   } else {
-    cb = computeStatusListCallbackDate(automation.callbackOffsetDays ?? 1);
+    cb = computeStatusListCallbackDate(automation.callbackOffsetDays ?? 1, automation.callbackTime);
   }
   await db.update(campaignContacts)
     .set({ callbackDate: cb, status: "callback_scheduled", updatedAt: new Date() })
@@ -29157,8 +29185,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         const r = await runStatusListEmailGroup(automation, ctx);
         return res.json({ ok: r.ok, actionType: automation.actionType, sent: r.sent, provider: r.provider });
       } else if (automation.actionType === "set_contact_status") {
-        const r = await runStatusListSetStatus(automation, ctx);
-        return res.json({ ok: r.ok, actionType: automation.actionType });
+        const r = await runStatusListSetStatus(automation, ctx, callbackDate ?? null);
+        return res.json({ ok: r.ok, actionType: automation.actionType, callbackDate: r.callbackDate ?? null });
       } else if (automation.actionType === "set_callback") {
         const r = await runStatusListSetCallback(automation, ctx, callbackDate ?? null);
         return res.json({ ok: r.ok, actionType: automation.actionType, callbackDate: r.callbackDate });
