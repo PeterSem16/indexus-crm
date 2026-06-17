@@ -3116,6 +3116,9 @@ export const campaignContacts = pgTable("campaign_contacts", {
   contactedAt: timestamp("contacted_at"),
   completedAt: timestamp("completed_at"),
   currentScriptStepId: text("current_script_step_id"),
+  // Status-list item (the "question") whose automation scheduled the current callback.
+  // Surfaced in the agent's scheduled-queue Step column alongside the callback status.
+  callbackStatusListItemId: varchar("callback_status_list_item_id"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 }, (table) => ({

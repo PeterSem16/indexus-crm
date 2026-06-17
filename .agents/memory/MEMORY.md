@@ -21,3 +21,4 @@
 - [Vite React.lazy import order](vite-lazy-import-tdz.md) — `const X = lazy(...)` above the `import {lazy} from "react"` line throws "Cannot access 'lazy' before initialization" (TDZ) in Vite dev; the react import must precede the lazy consts.
 - [Runtime perf-index ensure](runtime-index-ensure.md) — add perf indexes at runtime via background CREATE INDEX CONCURRENTLY IF NOT EXISTS; advisory lock + CONCURRENTLY are session-scoped so hold one dedicated pooled client; drop invalid leftovers first.
 - [Prod deploy skips npm install](prod-deploy-no-npm-install.md) — prod deploy is git pull+build+pm2 restart with NO npm install; new npm deps break the build — prefer Node built-ins (used zlib over the compression pkg).
+- [Callback wall-clock timezone](callback-timezone.md) — prod server is UTC; build/parse callback instants in app timezone (Europe/Bratislava), never the server clock, or 9:00 shows as 11:00 in the browser.

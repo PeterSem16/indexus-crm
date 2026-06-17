@@ -683,22 +683,88 @@ const SL_DISP_STATUS_MAP: Record<string, string> = {
 // Compute a callback date N business days out at a configurable time-of-day
 // (defaults to 09:00 local). Used when no explicit date is supplied. `timeStr`
 // is an optional "HH:MM" string; invalid/empty values fall back to 09:00.
-function computeStatusListCallbackDate(offsetDays: number, timeStr?: string | null): Date {
-  const d = new Date();
-  let added = 0;
-  const target = Math.max(1, offsetDays);
-  while (added < target) {
-    d.setDate(d.getDate() + 1);
-    const dow = d.getDay();
-    if (dow !== 0 && dow !== 6) added++;
+//
+// ── Timezone handling ───────────────────────────────────────────────────────
+// The production server runs in UTC (process.env.TZ is unset). Callback times are
+// meant as a wall-clock time in the operation's local timezone (Slovakia), but
+// the agent UI renders the stored instant in the *browser's* timezone (CEST/CET).
+// Building a callback with the server's UTC clock (`setHours(9)` → 09:00Z) made a
+// "9:00" callback display as 11:00 in the browser. These helpers convert a local
+// wall-clock to the correct absolute UTC instant so it round-trips correctly.
+const APP_TIMEZONE = "Europe/Bratislava";
+
+// Offset (in minutes) of `tz` from UTC at the given instant; positive = ahead of UTC.
+function tzOffsetMinutes(instant: Date, tz: string): number {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz, hour12: false,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  });
+  const p: Record<string, string> = {};
+  for (const part of dtf.formatToParts(instant)) p[part.type] = part.value;
+  const hour = p.hour === "24" ? 0 : Number(p.hour);
+  const asUTC = Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day), hour, Number(p.minute), Number(p.second));
+  return Math.round((asUTC - instant.getTime()) / 60000);
+}
+
+// Convert a wall-clock (Y / M0(0-based) / D, H:M) in `tz` to the correct UTC Date.
+// Two passes settle the offset around DST boundaries.
+function zonedWallClockToUtc(year: number, month0: number, day: number, hh: number, mm: number, tz: string = APP_TIMEZONE): Date {
+  const guess = Date.UTC(year, month0, day, hh, mm, 0, 0);
+  const off1 = tzOffsetMinutes(new Date(guess), tz);
+  const candidate = guess - off1 * 60000;
+  const off2 = tzOffsetMinutes(new Date(candidate), tz);
+  return new Date(guess - off2 * 60000);
+}
+
+// Calendar date (year / month0 / day) of an instant as seen in `tz`.
+function tzCalendarParts(instant: Date, tz: string = APP_TIMEZONE): { year: number; month0: number; day: number } {
+  const dtf = new Intl.DateTimeFormat("en-US", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" });
+  const p: Record<string, string> = {};
+  for (const part of dtf.formatToParts(instant)) p[part.type] = part.value;
+  return { year: Number(p.year), month0: Number(p.month) - 1, day: Number(p.day) };
+}
+
+// Parse a callback datetime coming from a client. A full ISO string with an
+// explicit zone (trailing Z or ±HH:MM) is trusted as an absolute instant (this is
+// what the reschedule popover sends). A *naive* "YYYY-MM-DDTHH:MM(:SS)" string is
+// interpreted as a wall-clock in the app timezone (Europe/Bratislava), NOT the
+// UTC server clock — this is the fix for "9:00 saved, 11:00 shown".
+function parseCallbackDateInput(input?: string | null): Date | null {
+  if (!input || typeof input !== "string") return null;
+  const s = input.trim();
+  if (!s) return null;
+  if (/(?:[zZ]|[+-]\d{2}:?\d{2})$/.test(s)) {
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
   }
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{1,2}):(\d{2})(?::\d{2})?(?:\.\d+)?$/);
+  if (m) {
+    return zonedWallClockToUtc(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), APP_TIMEZONE);
+  }
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function computeStatusListCallbackDate(offsetDays: number, timeStr?: string | null): Date {
   let hh = 9, mm = 0;
   if (typeof timeStr === "string" && /^\d{1,2}:\d{2}$/.test(timeStr)) {
     const [h, m] = timeStr.split(":").map(Number);
     if (h >= 0 && h < 24 && m >= 0 && m < 60) { hh = h; mm = m; }
   }
-  d.setHours(hh, mm, 0, 0);
-  return d;
+  // Walk the business-day calendar in the app timezone so the day boundary and the
+  // weekend skip match the agent's local date (not the UTC server date), then anchor
+  // the wall-clock time and convert to the correct absolute UTC instant.
+  const todayLocal = tzCalendarParts(new Date(), APP_TIMEZONE);
+  const cursor = new Date(Date.UTC(todayLocal.year, todayLocal.month0, todayLocal.day));
+  let added = 0;
+  const target = Math.max(1, offsetDays);
+  while (added < target) {
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+    const dow = cursor.getUTCDay();
+    if (dow !== 0 && dow !== 6) added++;
+  }
+  return zonedWallClockToUtc(cursor.getUTCFullYear(), cursor.getUTCMonth(), cursor.getUTCDate(), hh, mm, APP_TIMEZONE);
 }
 
 // Derive a campaign-contact's country code server-side from its linked polymorphic
@@ -872,11 +938,9 @@ async function runStatusListSetStatus(automation: any, ctx: StatusListActionCtx,
   // when supplied (the Set-status picker), otherwise the rule's predefined term.
   let scheduledCb: string | undefined;
   if (mapped === "callback_scheduled") {
-    let cb: Date | null = null;
-    if (overrideCallbackDate) {
-      const parsed = new Date(overrideCallbackDate);
-      cb = isNaN(parsed.getTime()) ? null : parsed;
-    }
+    // Trust an explicit ISO instant from the client; interpret a naive wall-clock
+    // string in the app timezone (never the UTC server clock).
+    let cb: Date | null = overrideCallbackDate ? parseCallbackDateInput(overrideCallbackDate) : null;
     // A "callback_scheduled" status is only meaningful with a concrete callbackDate — the
     // agent's Nexus Pulse queue requires callbackDate IS NOT NULL, so setting the status
     // without a date produces a contact that is silently invisible in the queue. Always
@@ -887,6 +951,9 @@ async function runStatusListSetStatus(automation: any, ctx: StatusListActionCtx,
     }
     update.callbackDate = cb;
     update.status = "callback_scheduled";
+    // Remember which status-list item (the "question") triggered this callback so the
+    // agent's scheduled-queue can show it in the Step column alongside the status.
+    update.callbackStatusListItemId = ctx.itemId ?? null;
     scheduledCb = cb.toISOString();
   }
 
@@ -906,15 +973,14 @@ async function runStatusListSetStatus(automation: any, ctx: StatusListActionCtx,
 // Schedule a callback so the contact re-appears in the agent queue on that date.
 // Uses an explicit override date when supplied (manual picker), else the configured offset.
 async function runStatusListSetCallback(automation: any, ctx: StatusListActionCtx, overrideCallbackDate?: string | null): Promise<{ ok: boolean; callbackDate: string }> {
-  let cb: Date;
-  if (overrideCallbackDate) {
-    const parsed = new Date(overrideCallbackDate);
-    cb = isNaN(parsed.getTime()) ? computeStatusListCallbackDate(automation.callbackOffsetDays ?? 1, automation.callbackTime) : parsed;
-  } else {
+  // Trust an explicit ISO instant from the client; interpret a naive wall-clock
+  // string in the app timezone (never the UTC server clock).
+  let cb: Date | null = overrideCallbackDate ? parseCallbackDateInput(overrideCallbackDate) : null;
+  if (!cb) {
     cb = computeStatusListCallbackDate(automation.callbackOffsetDays ?? 1, automation.callbackTime);
   }
   await db.update(campaignContacts)
-    .set({ callbackDate: cb, status: "callback_scheduled", updatedAt: new Date() })
+    .set({ callbackDate: cb, status: "callback_scheduled", callbackStatusListItemId: ctx.itemId ?? null, updatedAt: new Date() })
     .where(eq(campaignContacts.id, ctx.campaignContactId));
   console.log(`[status-list:set_callback] callbackDate=${cb.toISOString()} contact=${ctx.campaignContactId}`);
   try {
@@ -23314,6 +23380,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           ccCurrentStepId: campaignContacts.currentScriptStepId,
           ccDispositionCode: campaignContacts.dispositionCode,
           ccDispositionChecklistCodes: campaignContacts.dispositionChecklistCodes,
+          ccCallbackSlItemId: campaignContacts.callbackStatusListItemId,
         })
         .from(campaignContacts)
         .leftJoin(customers, eq(campaignContacts.customerId, customers.id))
@@ -23449,6 +23516,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           stepIndex: stepInfo.stepIndex,
           dispositionCode: row.ccDispositionCode || null,
           dispositionChecklistCodes: (row.ccDispositionChecklistCodes as string[] | null) || [],
+          callbackStatusListItemId: row.ccCallbackSlItemId || null,
           campaignQueueDisplayMode: (() => { try { return row.campaignSettings ? (JSON.parse(row.campaignSettings).queueDisplayMode || null) : null; } catch { return null; } })(),
         });
       }
@@ -23518,6 +23586,23 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           if (Array.isArray(item.dispositionChecklistCodes) && item.dispositionChecklistCodes.length > 0) {
             item.dispositionChecklistNames = item.dispositionChecklistCodes
               .map((code: string) => queueDispLookup.get(`${item.campaignId}::${code}`) || code);
+          }
+        }
+      }
+
+      // Resolve the status-list item ("question") label for callbacks scheduled by a
+      // status-list automation, so the queue Step column can show the question name
+      // alongside the callback status.
+      const queueSlItemIds = [...new Set((items as any[]).map(i => i.callbackStatusListItemId).filter(Boolean))] as string[];
+      if (queueSlItemIds.length > 0) {
+        const slItems = await db.select({ id: campaignStatusListItems.id, label: campaignStatusListItems.label })
+          .from(campaignStatusListItems)
+          .where(inArray(campaignStatusListItems.id, queueSlItemIds));
+        const slLabelLookup = new Map<string, string>();
+        for (const it of slItems) slLabelLookup.set(it.id, it.label);
+        for (const item of items as any[]) {
+          if (item.callbackStatusListItemId) {
+            item.callbackStatusListLabel = slLabelLookup.get(item.callbackStatusListItemId) || null;
           }
         }
       }
@@ -23605,11 +23690,10 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const user = req.session.user!;
       console.log("[InboundCallback] POST body:", JSON.stringify(req.body));
       const body: any = { ...req.body, userId: user.id, calledBack: false };
-      // Normalize callbackDate string to Date object (drizzle-zod expects Date for timestamp columns)
+      // Normalize callbackDate string to Date object (drizzle-zod expects Date for timestamp columns).
+      // A naive wall-clock is interpreted in the app timezone, not the UTC server clock.
       if (body.callbackDate && typeof body.callbackDate === "string") {
-        const dateStr = body.callbackDate.length === 16 ? body.callbackDate + ":00" : body.callbackDate;
-        const parsedDate = new Date(dateStr);
-        body.callbackDate = isNaN(parsedDate.getTime()) ? null : parsedDate;
+        body.callbackDate = parseCallbackDateInput(body.callbackDate);
       }
       console.log("[InboundCallback] Normalized body:", JSON.stringify({ ...body, callbackDate: body.callbackDate?.toISOString?.() }));
       const parsed = insertInboundCallbackSchema.safeParse(body);
@@ -23638,7 +23722,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const { calledBack, callbackDate, notes, assignedTo } = req.body;
       const updates: Partial<typeof inboundCallbacks.$inferInsert> = {};
       if (calledBack !== undefined) updates.calledBack = Boolean(calledBack);
-      if (callbackDate !== undefined) updates.callbackDate = callbackDate ? new Date(callbackDate) : null;
+      if (callbackDate !== undefined) updates.callbackDate = callbackDate ? parseCallbackDateInput(callbackDate) : null;
       if (notes !== undefined) updates.notes = notes;
       if (assignedTo !== undefined) updates.assignedTo = assignedTo;
       const [updated] = await db.update(inboundCallbacks).set(updates).where(eq(inboundCallbacks.id, id)).returning();
@@ -26542,7 +26626,18 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       if (lastContactedAt && !updatePayload.lastAttemptAt) {
         updatePayload.lastAttemptAt = lastContactedAt;
       }
-      
+
+      // Normalize an agent-supplied callback datetime. The disposition modal sends a
+      // naive "YYYY-MM-DDTHH:MM" wall-clock; interpret it in the app timezone instead
+      // of the UTC server clock (the reschedule popover already sends a full ISO Z,
+      // which is trusted as-is). Clearing the callback also clears its status-list link.
+      if (typeof updatePayload.callbackDate === "string" && updatePayload.callbackDate.trim()) {
+        const parsedCb = parseCallbackDateInput(updatePayload.callbackDate);
+        if (parsedCb) updatePayload.callbackDate = parsedCb.toISOString();
+      } else if (updatePayload.callbackDate === null) {
+        updatePayload.callbackStatusListItemId = null;
+      }
+
       // ── Server-side disposition automation ──────────────────────────────
       // Look up the actual disposition definition to reliably apply its
       // actionType + callbackOffsetDays, regardless of what the client sent.
@@ -26576,11 +26671,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           // Auto-compute callback date from offset when agent did not pick one
           if (['callback','schedule_email','schedule_sms'].includes(actionType) && !updatePayload.callbackDate) {
             const offsetDays = effectiveDisp.callbackOffsetDays ?? 1;
-            const cbDate = new Date();
-            let added = 0;
-            while (added < offsetDays) { cbDate.setDate(cbDate.getDate() + 1); const d = cbDate.getDay(); if (d !== 0 && d !== 6) added++; }
-            cbDate.setHours(9, 0, 0, 0);
-            updatePayload.callbackDate = cbDate.toISOString();
+            // Build the +N business-day 09:00 callback in the app timezone (not the UTC
+            // server clock) so it displays at 09:00 in the agent's browser, not 11:00.
+            updatePayload.callbackDate = computeStatusListCallbackDate(offsetDays).toISOString();
             updatePayload.status = "callback_scheduled";
           }
           console.log(`[Disposition] actionType=${actionType} callbackOffsetDays=${effectiveDisp.callbackOffsetDays ?? 'none'} → status=${updatePayload.status}`);

@@ -5871,6 +5871,7 @@ interface ScheduledItem {
   dispositionName?: string | null;
   dispositionChecklistCodes?: string[] | null;
   dispositionChecklistNames?: string[] | null;
+  callbackStatusListLabel?: string | null;
   campaignQueueDisplayMode?: string | null;
   isOutsideMission?: boolean;
   inboundCallbackId?: number;
@@ -6565,7 +6566,19 @@ function ScheduledQueuePanel({
                         </div>
 
                         <div className="flex items-center">
-                          {item.campaignQueueDisplayMode === "last_status" ? (
+                          {item.callbackStatusListLabel ? (
+                            <div className="flex flex-col gap-0.5 items-start" data-testid={`text-scheduled-step-${item.id}`}>
+                              <span
+                                className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 max-w-[170px] truncate"
+                                title={item.callbackStatusListLabel}
+                              >
+                                {item.callbackStatusListLabel}
+                              </span>
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400">
+                                ↳ {item.dispositionName || item.dispositionCode || getTypeLabel(item.type)}
+                              </span>
+                            </div>
+                          ) : item.campaignQueueDisplayMode === "last_status" ? (
                             item.dispositionCode ? (
                               <div className="flex flex-col gap-0.5 items-start" data-testid={`text-scheduled-step-${item.id}`}>
                                 <span
