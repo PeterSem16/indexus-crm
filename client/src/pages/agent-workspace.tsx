@@ -9976,7 +9976,7 @@ export default function AgentWorkspacePage() {
 
       {/* ── PULSE — štandardné rozloženie ── */}
       <div className={`flex flex-1 overflow-hidden ${agentSession.isSessionActive && backOfficeModeActive && mainWorkspaceTab === "back_office" ? "hidden" : ""}`} style={{ minHeight: 0 }}>
-        <div className="flex flex-col h-full shrink-0">
+        <div className="flex flex-col h-full shrink-0 w-72">
           <BackOfficeQuestionsInbox />
           <div className="flex-1 min-h-0 flex">
         <TaskListPanel

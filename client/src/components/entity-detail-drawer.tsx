@@ -2,19 +2,15 @@ import { useQuery } from "@tanstack/react-query";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n";
 import {
   Building2, MapPin, Phone, Mail, Link2, User, Stethoscope, Hospital,
-  Loader2, ExternalLink, Smartphone,
+  Loader2, Smartphone,
 } from "lucide-react";
+import type { Customer } from "@shared/schema";
+import { CustomerDetailsContent } from "@/pages/customers";
 
 export type EntityRef = { type: "hospital" | "clinic" | "customer"; id: string };
-
-function fullPageUrl(entity: EntityRef): string {
-  if (entity.type === "customer") return `/customers?view=${encodeURIComponent(entity.id)}`;
-  return `/medical-partner-network?entityType=${entity.type}&entityId=${encodeURIComponent(entity.id)}`;
-}
 
 function Row({ icon: Icon, children }: { icon: typeof Phone; children: React.ReactNode }) {
   return (
@@ -25,14 +21,16 @@ function Row({ icon: Icon, children }: { icon: typeof Phone; children: React.Rea
   );
 }
 
-export function EntityDetailDrawer({ entity, onClose }: { entity: EntityRef | null; onClose: () => void }) {
+// Hospital / clinic: lightweight reference card. It has no nested portal UI, so it can
+// safely sit at z-[10030] above the Back Office drawers.
+function InstitutionDetailDrawer({ entity, onClose }: { entity: EntityRef | null; onClose: () => void }) {
   const { t } = useI18n();
 
   const { data, isLoading } = useQuery<any>({
     queryKey: ["/api/entity-detail", entity?.type, entity?.id],
     queryFn: async () => {
       if (!entity) return null;
-      const endpoint = entity.type === "hospital" ? "hospitals" : entity.type === "clinic" ? "clinics" : "customers";
+      const endpoint = entity.type === "hospital" ? "hospitals" : "clinics";
       const res = await fetch(`/api/${endpoint}/${entity.id}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load entity");
       return res.json();
@@ -40,17 +38,8 @@ export function EntityDetailDrawer({ entity, onClose }: { entity: EntityRef | nu
     enabled: !!entity,
   });
 
-  const isInstitution = entity?.type === "hospital" || entity?.type === "clinic";
-  const typeLabel = entity?.type === "hospital" ? t.backOffice.hospitalLabel
-    : entity?.type === "clinic" ? t.backOffice.clinicLabel
-    : t.backOffice.customerLabel;
-
-  const name = data
-    ? (isInstitution
-      ? (data.fullName || data.name || "—")
-      : `${data.firstName || ""} ${data.lastName || ""}`.trim() || "—")
-    : "—";
-
+  const typeLabel = entity?.type === "hospital" ? t.backOffice.hospitalLabel : t.backOffice.clinicLabel;
+  const name = data ? (data.fullName || data.name || "—") : "—";
   const address = data ? [data.address, data.city, data.postalCode].filter(Boolean).join(", ") : "";
   const country = data?.country || data?.countryCode;
 
@@ -63,9 +52,9 @@ export function EntityDetailDrawer({ entity, onClose }: { entity: EntityRef | nu
       >
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2 pr-6 min-w-0">
-            {entity?.type === "hospital" ? <Hospital className="h-5 w-5 text-blue-600 shrink-0" /> :
-             entity?.type === "clinic" ? <Stethoscope className="h-5 w-5 text-emerald-600 shrink-0" /> :
-             <User className="h-5 w-5 text-violet-600 shrink-0" />}
+            {entity?.type === "hospital"
+              ? <Hospital className="h-5 w-5 text-blue-600 shrink-0" />
+              : <Stethoscope className="h-5 w-5 text-emerald-600 shrink-0" />}
             <span className="truncate">{isLoading ? "…" : name}</span>
           </SheetTitle>
         </SheetHeader>
@@ -90,8 +79,7 @@ export function EntityDetailDrawer({ entity, onClose }: { entity: EntityRef | nu
 
             <Card>
               <CardContent className="p-4 space-y-2 text-sm">
-                {isInstitution && data.name && <Row icon={Building2}><span className="font-medium">{data.name}</span></Row>}
-                {!isInstitution && <Row icon={User}><span className="font-medium">{name}</span></Row>}
+                {data.name && <Row icon={Building2}><span className="font-medium">{data.name}</span></Row>}
                 {address && <Row icon={MapPin}>{address}</Row>}
                 {data.phone && (
                   <Row icon={Phone}>
@@ -118,23 +106,76 @@ export function EntityDetailDrawer({ entity, onClose }: { entity: EntityRef | nu
                 )}
               </CardContent>
             </Card>
-
-            {entity?.type === "customer" && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full gap-1.5"
-                onClick={() => window.open(fullPageUrl(entity), "_blank", "noopener,noreferrer")}
-                data-testid="btn-entity-open-full"
-              >
-                <ExternalLink className="h-3.5 w-3.5" /> {t.backOffice.openContact}
-              </Button>
-            )}
           </div>
         ) : (
           <div className="py-12 text-center text-sm text-muted-foreground" data-testid="text-entity-no-data">{t.common.noData}</div>
         )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+// Customer: the FULL client card (all tabs + fields), reused verbatim from the customers
+// page so the agent can actually work with the client without leaving Back Office.
+//
+// Z-INDEX: the host sheet is z-[9994] on purpose — above the Back Office drawer (content
+// z-[9991]) but BELOW the card's own portalled popups (Dialog z-[9996], Popover z-[9999],
+// Select z-[10000]). That keeps every dropdown/dialog inside the card clickable on top of
+// the sheet. Do NOT raise this above 9995 or the card's selects/dialogs will hide behind it.
+function CustomerFullCardDrawer({ customerId, onClose }: { customerId: string | null; onClose: () => void }) {
+  const { t } = useI18n();
+
+  const { data: customer, isLoading } = useQuery<Customer>({
+    queryKey: ["/api/customers", customerId],
+    enabled: !!customerId,
+  });
+
+  const name = customer
+    ? `${customer.firstName || ""} ${customer.lastName || ""}`.trim() || "—"
+    : "—";
+
+  return (
+    <Sheet open={!!customerId} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <SheetContent
+        side="right"
+        className="w-full sm:max-w-3xl lg:max-w-5xl xl:max-w-6xl p-0 gap-0 overflow-hidden flex flex-col z-[9994]"
+        data-testid="drawer-customer-full"
+      >
+        <div className="shrink-0 flex items-center gap-3 px-5 py-3.5 border-b bg-muted/30 pr-12">
+          <div className="h-9 w-9 rounded-xl bg-violet-500/10 flex items-center justify-center shrink-0">
+            <User className="h-[18px] w-[18px] text-violet-600" />
+          </div>
+          <div className="min-w-0">
+            <SheetTitle className="text-base font-semibold truncate" data-testid="text-customer-full-name">
+              {isLoading ? "…" : name}
+            </SheetTitle>
+            <p className="text-xs text-muted-foreground">{t.backOffice.customerLabel}</p>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto p-6">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : customer ? (
+            <CustomerDetailsContent customer={customer} onEdit={() => {}} hideEditButton />
+          ) : (
+            <div className="py-12 text-center text-sm text-muted-foreground" data-testid="text-customer-no-data">{t.common.noData}</div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+export function EntityDetailDrawer({ entity, onClose }: { entity: EntityRef | null; onClose: () => void }) {
+  const institutionEntity = entity && entity.type !== "customer" ? entity : null;
+  const customerId = entity && entity.type === "customer" ? entity.id : null;
+  return (
+    <>
+      <InstitutionDetailDrawer entity={institutionEntity} onClose={onClose} />
+      <CustomerFullCardDrawer customerId={customerId} onClose={onClose} />
+    </>
   );
 }
