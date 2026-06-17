@@ -27670,6 +27670,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         metadata: taskComments.metadata,
         createdAt: taskComments.createdAt,
         userName: users.fullName,
+        avatarUrl: users.avatarUrl,
       })
         .from(taskComments)
         .leftJoin(users, eq(users.id, taskComments.userId))
@@ -27678,7 +27679,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const [confirmation] = await db.select().from(taskBackOfficeConfirmations).where(eq(taskBackOfficeConfirmations.taskId, taskId)).limit(1);
       let creator: any = null;
       if (task.createdByUserId) {
-        const [c] = await db.select({ id: users.id, fullName: users.fullName }).from(users).where(eq(users.id, task.createdByUserId)).limit(1);
+        const [c] = await db.select({ id: users.id, fullName: users.fullName, avatarUrl: users.avatarUrl }).from(users).where(eq(users.id, task.createdByUserId)).limit(1);
         creator = c || null;
       }
       // Full customer context so the back-office agent knows WHO the task is about and can
@@ -27813,6 +27814,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             metadata: taskComments.metadata,
             createdAt: taskComments.createdAt,
             userName: users.fullName,
+            avatarUrl: users.avatarUrl,
           })
             .from(taskComments)
             .leftJoin(users, eq(users.id, taskComments.userId))
@@ -27827,7 +27829,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       }
       const creatorIds = Array.from(new Set(rows.map(t => t.createdByUserId).filter(Boolean))) as string[];
       const creatorList = creatorIds.length
-        ? await db.select({ id: users.id, fullName: users.fullName }).from(users).where(inArray(users.id, creatorIds))
+        ? await db.select({ id: users.id, fullName: users.fullName, avatarUrl: users.avatarUrl }).from(users).where(inArray(users.id, creatorIds))
         : [];
       const creatorMap = new Map(creatorList.map(c => [c.id, c]));
       const result: any[] = [];
@@ -27838,6 +27840,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           createdAt: taskComments.createdAt,
           userId: taskComments.userId,
           userName: users.fullName,
+          avatarUrl: users.avatarUrl,
         })
           .from(taskComments)
           .leftJoin(users, eq(users.id, taskComments.userId))

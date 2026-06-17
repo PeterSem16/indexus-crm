@@ -11,6 +11,7 @@ import { HelpCircle, Loader2, CornerDownLeft, ChevronDown, ChevronUp, ChevronRig
 import { format } from "date-fns";
 import { Timeline, type ThreadData, type ThreadComment } from "./back-office-panel";
 import { EntityDetailDrawer, type EntityRef } from "./entity-detail-drawer";
+import { UserAvatar } from "./user-avatar";
 
 type BOQuestion = {
   task: ThreadData["task"];
@@ -20,6 +21,7 @@ type BOQuestion = {
     createdAt: string;
     userId: string;
     userName: string | null;
+    avatarUrl?: string | null;
   } | null;
   customer?: ThreadData["customer"];
   comments?: ThreadComment[];
@@ -67,7 +69,12 @@ function QuestionTile({ item, onClick }: { item: BOQuestion; onClick: () => void
             <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 leading-snug">{item.question.content}</p>
           )}
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-            {item.question?.userName && <span className="text-[10px] text-muted-foreground">{item.question.userName}</span>}
+            {item.question?.userName && (
+              <span className="flex items-center gap-1 min-w-0">
+                <UserAvatar name={item.question.userName} avatarUrl={item.question.avatarUrl} className="h-4 w-4" testId={`avatar-question-author-${item.task.id}`} />
+                <span className="text-[10px] text-muted-foreground truncate">{item.question.userName}</span>
+              </span>
+            )}
             {item.question && <span className="text-[10px] text-muted-foreground">· {format(new Date(item.question.createdAt), "d.M. HH:mm")}</span>}
             {item.task.country && <span className="text-[10px] text-muted-foreground">· {item.task.country}</span>}
           </div>
@@ -244,7 +251,12 @@ function QuestionDrawerContent({ item, onClose }: { item: BOQuestion; onClose: (
                     <MessageSquare className="h-3 w-3" /> {t.backOffice.questionForAgent}
                   </div>
                   <div className="rounded-lg border border-purple-200 dark:border-purple-900 bg-purple-50 dark:bg-purple-950/20 p-3">
-                    {item.question.userName && <div className="text-[10px] text-muted-foreground mb-1">{item.question.userName}</div>}
+                    {item.question.userName && (
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <UserAvatar name={item.question.userName} avatarUrl={item.question.avatarUrl} className="h-5 w-5" testId="avatar-question-detail-author" />
+                        <div className="text-[10px] text-muted-foreground">{item.question.userName}</div>
+                      </div>
+                    )}
                     <p className="text-xs leading-relaxed whitespace-pre-wrap break-words" data-testid="text-bo-question-detail-content">{item.question.content}</p>
                   </div>
                 </div>

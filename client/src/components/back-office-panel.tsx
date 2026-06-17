@@ -18,6 +18,7 @@ import {
 import { format, isToday, isTomorrow, isPast, formatDistanceToNow } from "date-fns";
 import { enUS, sk, cs, hu, ro, it, de } from "date-fns/locale";
 import { EntityDetailDrawer, type EntityRef } from "./entity-detail-drawer";
+import { UserAvatar } from "./user-avatar";
 
 const DF_LOCALES: Record<string, typeof enUS> = { en: enUS, sk, cs, hu, ro, it, de };
 function dfLocale(locale: string) {
@@ -78,13 +79,14 @@ export type ThreadComment = {
   metadata: any;
   createdAt: string;
   userName: string | null;
+  avatarUrl?: string | null;
 };
 
 export type ThreadData = {
   task: BOTask["task"];
   comments: ThreadComment[];
   confirmation: BOTask["confirmation"];
-  creator: { id: string; fullName: string } | null;
+  creator: { id: string; fullName: string; avatarUrl?: string | null } | null;
   customer?: BOCustomerFull;
   reason?: string | null;
   clinic?: { id: string; name: string } | null;
@@ -266,7 +268,7 @@ function KanbanCard({ item, onClick }: { item: BOTask; onClick: () => void }) {
 
 export function Timeline({ thread }: { thread: ThreadData }) {
   const { t } = useI18n();
-  const events: { id: string; ring: string; icon: typeof MessageSquare; color: string; label: string; who: string | null; at: string; content?: string }[] = [];
+  const events: { id: string; ring: string; icon: typeof MessageSquare; color: string; label: string; who: string | null; avatarUrl?: string | null; at: string; content?: string }[] = [];
 
   events.push({
     id: "created",
@@ -275,6 +277,7 @@ export function Timeline({ thread }: { thread: ThreadData }) {
     color: "text-blue-600 dark:text-blue-400",
     label: t.backOffice.taskReceivedEvent,
     who: thread.creator?.fullName ?? null,
+    avatarUrl: thread.creator?.avatarUrl ?? null,
     at: thread.task.createdAt,
   });
 
@@ -287,6 +290,7 @@ export function Timeline({ thread }: { thread: ThreadData }) {
       color: cfg.color,
       label: kindLabel(t, c.kind),
       who: c.userName,
+      avatarUrl: c.avatarUrl ?? null,
       at: c.createdAt,
       content: c.kind === "state_change" ? stateChangeContent(t, c.content) : c.content,
     });
@@ -309,7 +313,12 @@ export function Timeline({ thread }: { thread: ThreadData }) {
             <div className="pb-3 min-w-0 flex-1">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className={`text-xs font-medium ${e.color}`}>{e.label}</span>
-                {e.who && <span className="text-[10px] text-muted-foreground">· {e.who}</span>}
+                {e.who && (
+                  <span className="flex items-center gap-1 min-w-0">
+                    <UserAvatar name={e.who} avatarUrl={e.avatarUrl} className="h-4 w-4" testId={`avatar-timeline-${e.id}`} />
+                    <span className="text-[10px] text-muted-foreground truncate">{e.who}</span>
+                  </span>
+                )}
                 <span className="text-[10px] text-muted-foreground ml-auto">{format(new Date(e.at), "d.M. HH:mm")}</span>
               </div>
               {e.content && <p className="text-xs mt-0.5 leading-relaxed whitespace-pre-wrap break-words">{e.content}</p>}
