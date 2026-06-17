@@ -43,6 +43,9 @@ export interface Translations {
     attachLabel: string;
     attachmentUploading: string;
     attachmentError: string;
+    attachmentDownload: string;
+    attachmentOpenTab: string;
+    attachmentPreviewUnavailable: string;
     kindStateChange: string;
     taskReceivedEvent: string;
     descriptionLabel: string;
@@ -6549,6 +6552,9 @@ export const translations: Record<Locale, Translations> = {
       attachLabel: 'Attach file',
       attachmentUploading: 'Uploading…',
       attachmentError: 'Failed to upload attachment',
+      attachmentDownload: 'Download',
+      attachmentOpenTab: 'Open in new tab',
+      attachmentPreviewUnavailable: 'Preview not available',
       kindStateChange: 'Status change',
       taskReceivedEvent: 'Task received',
       descriptionLabel: 'Task description',
@@ -13107,6 +13113,9 @@ export const translations: Record<Locale, Translations> = {
       attachLabel: 'Priložiť súbor',
       attachmentUploading: 'Nahrávam prílohu…',
       attachmentError: 'Prílohu sa nepodarilo nahrať',
+      attachmentDownload: 'Stiahnuť',
+      attachmentOpenTab: 'Otvoriť na novej karte',
+      attachmentPreviewUnavailable: 'Náhľad nie je k dispozícii',
       kindStateChange: 'Zmena stavu',
       taskReceivedEvent: 'Úloha prijatá',
       descriptionLabel: 'Popis úlohy',
@@ -19601,6 +19610,9 @@ export const translations: Record<Locale, Translations> = {
       attachLabel: 'Připojit soubor',
       attachmentUploading: 'Nahrávám přílohu…',
       attachmentError: 'Nepodařilo se nahrát přílohu',
+      attachmentDownload: 'Stáhnout',
+      attachmentOpenTab: 'Otevřít na nové kartě',
+      attachmentPreviewUnavailable: 'Náhled není k dispozici',
       kindStateChange: 'Změna stavu',
       taskReceivedEvent: 'Úkol přijat',
       descriptionLabel: 'Popis úkolu',
@@ -26021,6 +26033,9 @@ export const translations: Record<Locale, Translations> = {
       attachLabel: 'Fájl csatolása',
       attachmentUploading: 'Melléklet feltöltése…',
       attachmentError: 'Nem sikerült feltölteni a mellékletet',
+      attachmentDownload: 'Letöltés',
+      attachmentOpenTab: 'Megnyitás új lapon',
+      attachmentPreviewUnavailable: 'Az előnézet nem érhető el',
       kindStateChange: 'Állapotváltozás',
       taskReceivedEvent: 'Feladat beérkezett',
       descriptionLabel: 'Feladat leírása',
@@ -32396,6 +32411,9 @@ export const translations: Record<Locale, Translations> = {
       attachLabel: 'Atașează fișier',
       attachmentUploading: 'Se încarcă atașamentul…',
       attachmentError: 'Încărcarea atașamentului a eșuat',
+      attachmentDownload: 'Descarcă',
+      attachmentOpenTab: 'Deschide într-o filă nouă',
+      attachmentPreviewUnavailable: 'Previzualizarea nu este disponibilă',
       kindStateChange: 'Schimbare de stare',
       taskReceivedEvent: 'Sarcină primită',
       descriptionLabel: 'Descrierea sarcinii',
@@ -38691,6 +38709,9 @@ export const translations: Record<Locale, Translations> = {
       attachLabel: 'Allega file',
       attachmentUploading: 'Caricamento allegato…',
       attachmentError: 'Caricamento allegato non riuscito',
+      attachmentDownload: 'Scarica',
+      attachmentOpenTab: 'Apri in una nuova scheda',
+      attachmentPreviewUnavailable: 'Anteprima non disponibile',
       kindStateChange: 'Cambio di stato',
       taskReceivedEvent: 'Attività ricevuta',
       descriptionLabel: 'Descrizione attività',
@@ -44988,6 +45009,9 @@ export const translations: Record<Locale, Translations> = {
       attachLabel: 'Datei anhängen',
       attachmentUploading: 'Anhang wird hochgeladen…',
       attachmentError: 'Anhang konnte nicht hochgeladen werden',
+      attachmentDownload: 'Herunterladen',
+      attachmentOpenTab: 'In neuem Tab öffnen',
+      attachmentPreviewUnavailable: 'Vorschau nicht verfügbar',
       kindStateChange: 'Statusänderung',
       taskReceivedEvent: 'Aufgabe eingegangen',
       descriptionLabel: 'Aufgabenbeschreibung',

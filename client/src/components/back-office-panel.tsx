@@ -14,7 +14,7 @@ import {
   ClipboardList, Clock, AlertTriangle, CheckCircle2, Loader2, Check,
   ChevronRight, Zap, Building2, PhoneIncoming, Inbox, Wrench, HelpCircle,
   MessageSquare, Activity, Send, Hand, User, Phone, Mail,
-  MapPin, ExternalLink, Stethoscope, Paperclip,
+  MapPin, ExternalLink, Stethoscope, Paperclip, Download,
   Trophy, PartyPopper, Sparkles, X, CalendarClock, Hourglass,
 } from "lucide-react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
@@ -286,24 +286,123 @@ export async function uploadBoAttachment(taskId: string, file: File): Promise<Bo
   return res.json();
 }
 
+function isImageAttachment(a: BoAttachment): boolean {
+  return (a.type || "").startsWith("image/") || /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i.test(a.url);
+}
+function isPdfAttachment(a: BoAttachment): boolean {
+  return (a.type || "") === "application/pdf" || /\.pdf$/i.test(a.url);
+}
+// Server (sanitizeBoAttachments) only ever stores same-origin /data/ or /uploads/ paths.
+// Mirror that allowlist before feeding a.url into href/img/iframe sinks so a tampered
+// metadata blob can never inject javascript:/data:/external URLs.
+function isSafeAttachmentUrl(url: string): boolean {
+  return /^\/(data|uploads)\//.test(url || "");
+}
+
+// Preview modal — opens attachments in-app (image inline, PDF in an iframe, anything else
+// a download prompt) instead of navigating away to a new browser tab. Rendered above the
+// back-office Sheet, so it uses a higher z-index than the recap modal.
+function AttachmentPreviewModal({ attachment, onClose }: { attachment: BoAttachment | null; onClose: () => void }) {
+  const { t } = useI18n();
+  if (!attachment) return null;
+  const a = attachment;
+  const safe = isSafeAttachmentUrl(a.url);
+  const image = safe && isImageAttachment(a);
+  const pdf = safe && isPdfAttachment(a);
+  return (
+    <DialogPrimitive.Root open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay
+          className="fixed inset-0 z-[10040] bg-black/70 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+          data-testid="overlay-bo-attachment"
+        />
+        <DialogPrimitive.Content
+          aria-describedby={undefined}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          className="fixed left-1/2 top-1/2 z-[10041] flex max-h-[90vh] w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border bg-background shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+          data-testid="modal-bo-attachment"
+        >
+          <div className="flex items-center gap-2 border-b px-4 py-2.5">
+            <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <DialogPrimitive.Title className="min-w-0 flex-1 truncate text-sm font-medium" data-testid="text-bo-attachment-name">{a.name}</DialogPrimitive.Title>
+            {safe && (
+              <>
+                <a
+                  href={a.url}
+                  download={a.name}
+                  className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                  data-testid="btn-bo-attachment-download"
+                >
+                  <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">{t.backOffice.attachmentDownload}</span>
+                </a>
+                <a
+                  href={a.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                  data-testid="btn-bo-attachment-newtab"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" /> <span className="hidden sm:inline">{t.backOffice.attachmentOpenTab}</span>
+                </a>
+              </>
+            )}
+            <DialogPrimitive.Close
+              className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={t.backOffice.recapClose}
+              data-testid="btn-bo-attachment-close"
+            >
+              <X className="h-4 w-4" />
+            </DialogPrimitive.Close>
+          </div>
+          <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-muted/30 p-3">
+            {image ? (
+              <img src={a.url} alt={a.name} className="max-h-[75vh] max-w-full rounded object-contain" data-testid="img-bo-attachment" />
+            ) : pdf ? (
+              <iframe src={a.url} title={a.name} className="h-[75vh] w-full rounded border-0" data-testid="iframe-bo-attachment" />
+            ) : (
+              <div className="flex flex-col items-center gap-3 py-12 text-center">
+                <Paperclip className="h-10 w-10 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">{t.backOffice.attachmentPreviewUnavailable}</p>
+                {safe && (
+                  <a
+                    href={a.url}
+                    download={a.name}
+                    className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
+                    data-testid="btn-bo-attachment-download-fallback"
+                  >
+                    <Download className="h-4 w-4" /> {t.backOffice.attachmentDownload}
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  );
+}
+
 export function AttachmentChips({ attachments }: { attachments?: BoAttachment[] }) {
+  const [preview, setPreview] = useState<BoAttachment | null>(null);
   if (!attachments || attachments.length === 0) return null;
   return (
-    <div className="flex flex-wrap gap-1.5 mt-1.5">
-      {attachments.map((a, i) => (
-        <a
-          key={i}
-          href={a.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 max-w-full rounded-md border bg-muted/40 px-1.5 py-0.5 text-[10px] hover:bg-muted hover:underline"
-          data-testid={`link-timeline-attachment-${i}`}
-        >
-          <Paperclip className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />
-          <span className="truncate max-w-[140px]">{a.name}</span>
-        </a>
-      ))}
-    </div>
+    <>
+      <div className="flex flex-wrap gap-1.5 mt-1.5">
+        {attachments.map((a, i) => (
+          <button
+            type="button"
+            key={i}
+            onClick={() => setPreview(a)}
+            className="inline-flex items-center gap-1 max-w-full rounded-md border bg-muted/40 px-1.5 py-0.5 text-[10px] hover:bg-muted hover:underline"
+            data-testid={`link-timeline-attachment-${i}`}
+          >
+            <Paperclip className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />
+            <span className="truncate max-w-[140px]">{a.name}</span>
+          </button>
+        ))}
+      </div>
+      <AttachmentPreviewModal attachment={preview} onClose={() => setPreview(null)} />
+    </>
   );
 }
 
@@ -385,33 +484,64 @@ export function BoAttachmentComposer({
   );
 }
 
+// Tone styling for chat bubbles: back-office authored messages (questions) are purple and
+// align right ("us" in the BO panel), agent replies (answers) are blue and align left,
+// generic comments are neutral. Created/state_change render as compact centered rail markers.
+const BUBBLE_TONES = {
+  bo: { bubble: "bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-900", label: "text-purple-700 dark:text-purple-300", icon: "text-purple-600 dark:text-purple-400" },
+  agent: { bubble: "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900", label: "text-blue-700 dark:text-blue-300", icon: "text-blue-600 dark:text-blue-400" },
+  neutral: { bubble: "bg-muted/50 border-border", label: "text-muted-foreground", icon: "text-muted-foreground" },
+} as const;
+
+type TimelineEvent =
+  | { variant: "system"; id: string; at: string; icon: typeof Inbox; ring: string; color: string; label: string; who: string | null; content?: string }
+  | { variant: "bubble"; id: string; at: string; icon: typeof MessageSquare; tone: keyof typeof BUBBLE_TONES; side: "left" | "right"; label: string; who: string | null; avatarUrl?: string | null; content?: string; attachments?: BoAttachment[] };
+
 export function Timeline({ thread }: { thread: ThreadData }) {
   const { t } = useI18n();
-  const events: { id: string; ring: string; icon: typeof MessageSquare; color: string; label: string; who: string | null; avatarUrl?: string | null; at: string; content?: string; attachments?: BoAttachment[] }[] = [];
+  const events: TimelineEvent[] = [];
 
+  // Task received from the agent — compact system marker.
   events.push({
+    variant: "system",
     id: "created",
-    ring: "bg-blue-500",
+    at: thread.task.createdAt,
     icon: Inbox,
+    ring: "bg-blue-500",
     color: "text-blue-600 dark:text-blue-400",
     label: t.backOffice.taskReceivedEvent,
     who: thread.creator?.fullName ?? null,
-    avatarUrl: thread.creator?.avatarUrl ?? null,
-    at: thread.task.createdAt,
   });
 
   for (const c of thread.comments) {
+    if (c.kind === "state_change") {
+      const cfg = KIND_CONFIG.state_change;
+      events.push({
+        variant: "system",
+        id: c.id,
+        at: c.createdAt,
+        icon: cfg.icon,
+        ring: cfg.ring,
+        color: cfg.color,
+        label: kindLabel(t, c.kind),
+        who: c.userName,
+        content: stateChangeContent(t, c.content),
+      });
+      continue;
+    }
+    const tone: keyof typeof BUBBLE_TONES = c.kind === "question" ? "bo" : c.kind === "answer" ? "agent" : "neutral";
     const cfg = KIND_CONFIG[c.kind] || KIND_CONFIG.comment;
     events.push({
+      variant: "bubble",
       id: c.id,
-      ring: cfg.ring,
+      at: c.createdAt,
       icon: cfg.icon,
-      color: cfg.color,
+      tone,
+      side: tone === "bo" ? "right" : "left",
       label: kindLabel(t, c.kind),
       who: c.userName,
       avatarUrl: c.avatarUrl ?? null,
-      at: c.createdAt,
-      content: c.kind === "state_change" ? stateChangeContent(t, c.content) : c.content,
+      content: c.content,
       attachments: (c.metadata as any)?.attachments as BoAttachment[] | undefined,
     });
   }
@@ -419,30 +549,39 @@ export function Timeline({ thread }: { thread: ThreadData }) {
   events.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
 
   return (
-    <div className="space-y-0">
-      {events.map((e, idx) => {
+    <div className="space-y-2.5">
+      {events.map((e) => {
         const Icon = e.icon;
-        return (
-          <div key={e.id} className="flex gap-2.5" data-testid={`timeline-event-${e.id}`}>
-            <div className="flex flex-col items-center">
-              <span className={`flex items-center justify-center w-5 h-5 rounded-full ${e.ring} text-white shrink-0`}>
-                <Icon className="h-3 w-3" />
+        if (e.variant === "system") {
+          return (
+            <div key={e.id} className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 py-0.5" data-testid={`timeline-event-${e.id}`}>
+              <span className={`flex items-center justify-center w-4 h-4 rounded-full ${e.ring} text-white shrink-0`}>
+                <Icon className="h-2.5 w-2.5" />
               </span>
-              {idx < events.length - 1 && <span className="w-px flex-1 bg-border my-0.5" />}
+              <span className={`text-[11px] font-medium ${e.color}`}>{e.label}</span>
+              {e.content && <span className="text-[11px] text-muted-foreground">· {e.content}</span>}
+              {e.who && <span className="text-[10px] text-muted-foreground">· {e.who}</span>}
+              <span className="text-[10px] text-muted-foreground">· {format(new Date(e.at), "d.M. HH:mm")}</span>
             </div>
-            <div className="pb-3 min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className={`text-xs font-medium ${e.color}`}>{e.label}</span>
-                {e.who && (
-                  <span className="flex items-center gap-1 min-w-0">
-                    <UserAvatar name={e.who} avatarUrl={e.avatarUrl} className="h-4 w-4" testId={`avatar-timeline-${e.id}`} />
-                    <span className="text-[10px] text-muted-foreground truncate">{e.who}</span>
-                  </span>
-                )}
-                <span className="text-[10px] text-muted-foreground ml-auto">{format(new Date(e.at), "d.M. HH:mm")}</span>
+          );
+        }
+        const ts = BUBBLE_TONES[e.tone];
+        const right = e.side === "right";
+        return (
+          <div key={e.id} className={`flex gap-2 ${right ? "flex-row-reverse" : "flex-row"}`} data-testid={`timeline-event-${e.id}`}>
+            <UserAvatar name={e.who ?? ""} avatarUrl={e.avatarUrl} className="h-6 w-6 shrink-0 mt-0.5" testId={`avatar-timeline-${e.id}`} />
+            <div className={`flex flex-col min-w-0 max-w-[82%] ${right ? "items-end" : "items-start"}`}>
+              <div className={`flex items-center gap-1.5 mb-0.5 ${right ? "flex-row-reverse" : ""}`}>
+                <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${ts.label}`}>
+                  <Icon className={`h-3 w-3 ${ts.icon}`} /> {e.label}
+                </span>
+                {e.who && <span className="text-[10px] text-muted-foreground truncate max-w-[110px]">{e.who}</span>}
+                <span className="text-[10px] text-muted-foreground">{format(new Date(e.at), "d.M. HH:mm")}</span>
               </div>
-              {e.content && <p className="text-xs mt-0.5 leading-relaxed whitespace-pre-wrap break-words">{e.content}</p>}
-              <AttachmentChips attachments={e.attachments} />
+              <div className={`rounded-2xl border px-3 py-2 ${ts.bubble} ${right ? "rounded-tr-sm" : "rounded-tl-sm"}`}>
+                {e.content && <p className="text-xs leading-relaxed whitespace-pre-wrap break-words text-left">{e.content}</p>}
+                <AttachmentChips attachments={e.attachments} />
+              </div>
             </div>
           </div>
         );

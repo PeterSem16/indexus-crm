@@ -5,7 +5,7 @@ import { createServer, type Server } from "http";
 import crypto from "crypto";
 import { WebSocketServer, WebSocket } from "ws";
 import { startOfDay, endOfDay, subDays } from "date-fns";
-import { eq, desc, and, gte, lte, inArray, isNotNull, isNull, or, count, sql, asc } from "drizzle-orm";
+import { eq, ne, desc, and, gte, lte, inArray, isNotNull, isNull, or, count, sql, asc } from "drizzle-orm";
 import { db, pool } from "./db";
 import { evaluateAutomationCondition, updateFieldSnapshot } from "./lib/condition-evaluator";
 import { storage } from "./storage";
@@ -27559,7 +27559,39 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const custMap = new Map(custList.map(c => [c.id, c]));
       const enriched = raw.map(r => ({ ...r, customer: r.task.customerId ? (custMap.get(r.task.customerId) || null) : null }));
 
-      res.json(enriched);
+      // ── De-duplicate the shared board ──
+      // Status-list confirmations can produce several task rows for the SAME logical work
+      // (one per back-office group member, plus extra rows from repeated confirm/unconfirm).
+      // The board is a shared team queue, so those must collapse to ONE card. We key by the
+      // originating status-list item + customer + title and keep a single representative,
+      // preferring the most-progressed workflow state (done > waiting_agent > in_progress >
+      // received), then the earliest-created row. Tasks without a status-list origin are left
+      // untouched (each is genuinely distinct).
+      const boRank = (r: any) =>
+        (r.task.status === "completed" || r.task.boState === "done" || r.confirmation) ? 3
+          : r.task.boState === "waiting_agent" ? 2
+          : r.task.boState === "in_progress" ? 1
+          : 0;
+      const repByKey = new Map<string, any>();
+      for (const r of enriched) {
+        const t = r.task;
+        if (!(t.relatedEntityType === "status_list_item" && t.relatedEntityId)) continue;
+        const key = `${t.relatedEntityId}|${t.customerId ?? ""}|${t.title}`;
+        const cur = repByKey.get(key);
+        if (!cur) { repByKey.set(key, r); continue; }
+        const better = boRank(r) > boRank(cur)
+          || (boRank(r) === boRank(cur)
+              && new Date(t.createdAt).getTime() < new Date(cur.task.createdAt).getTime());
+        if (better) repByKey.set(key, r);
+      }
+      const chosen = new Set<any>(repByKey.values());
+      const deduped = enriched.filter(r => {
+        const t = r.task;
+        if (t.relatedEntityType === "status_list_item" && t.relatedEntityId) return chosen.has(r);
+        return true;
+      });
+
+      res.json(deduped);
     } catch (error) {
       console.error("Failed to fetch BO tasks:", error);
       res.status(500).json({ error: "Failed to fetch BO tasks" });
@@ -27810,6 +27842,24 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           taskId, userId, content: note || "Úloha vybavená", kind: "state_change",
           metadata: { toState: "done" } as any,
         });
+        // Sync sibling duplicates → completed. Legacy data (and any pre-dedup rows) may hold
+        // several back-office task rows for the SAME status-list work (one per group member).
+        // Completing only this row would leave the twins "pending" in Nexus Omni, so resolve
+        // them together. New single-task creation makes this a no-op going forward.
+        if (task.relatedEntityType === "status_list_item" && task.relatedEntityId) {
+          await tx.update(tasks).set({
+            status: "completed", boState: "done", resolvedAt: new Date(),
+            resolvedByUserId: userId, resolution: note || "Confirmed by Back Office (sibling)",
+          }).where(and(
+            sql`${tasks.tags} @> ARRAY['back_office']::text[]`,
+            eq(tasks.relatedEntityType, "status_list_item"),
+            eq(tasks.relatedEntityId, task.relatedEntityId),
+            eq(tasks.title, task.title),
+            ne(tasks.id, taskId),
+            or(isNull(tasks.boState), ne(tasks.boState, "done")),
+            task.customerId ? eq(tasks.customerId, task.customerId) : isNull(tasks.customerId),
+          ));
+        }
         return conf;
       });
       res.json(confirmation);
@@ -27876,7 +27926,10 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       if (task.boState === "done") return res.status(409).json({ error: "Task already completed" });
       if (task.boState === "in_progress") return res.json({ ok: true, unchanged: true });
       await db.transaction(async (tx) => {
-        await tx.update(tasks).set({ boState: "in_progress", status: "in_progress" }).where(eq(tasks.id, taskId));
+        // Re-assign to the claimer: a back-office status-list task is created as a single
+        // shared-queue row owned by a nominal member, so claiming must move ownership (and
+        // thus per-user score attribution) to whoever actually picks it up.
+        await tx.update(tasks).set({ boState: "in_progress", status: "in_progress", assignedUserId: userId }).where(eq(tasks.id, taskId));
         await tx.insert(taskComments).values({
           taskId, userId, content: "Prevzaté do vybavovania", kind: "state_change",
           metadata: { toState: "in_progress" } as any,
@@ -28194,6 +28247,44 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           // reference (broken deep-link / wrong customer lookup). Null is safe.
           const taskCustomerId: string | null = ccRow?.customerId ?? null;
 
+          // Resolve human-readable names for the client / clinic / hospital ONCE per
+          // confirmation, reused by the assignment email & SMS so back-office staff see
+          // exactly which contact a task concerns. Per explicit product decision these names
+          // are included on external channels (email + SMS); see notification-pii memo.
+          let boNotifContext = "";
+          try {
+            const nameParts: string[] = [];
+            if (taskCustomerId) {
+              const cuRes: any = await db.execute<any>(
+                sql`SELECT first_name, last_name FROM customers WHERE id = ${taskCustomerId} LIMIT 1`
+              );
+              const cu = cuRes?.rows?.[0];
+              const cn = cu ? `${cu.first_name || ""} ${cu.last_name || ""}`.trim() : "";
+              if (cn) nameParts.push(`Klient: ${cn}`);
+            }
+            let clinicNm = "";
+            let hospitalNm = "";
+            if (ccRow?.contactType === "clinic" && ccRow.clinicId) {
+              const r: any = await db.execute<any>(sql`SELECT name FROM clinics WHERE id = ${ccRow.clinicId} LIMIT 1`);
+              clinicNm = r?.rows?.[0]?.name || "";
+            } else if (ccRow?.contactType === "hospital" && ccRow.hospitalId) {
+              const r: any = await db.execute<any>(sql`SELECT name FROM hospitals WHERE id = ${ccRow.hospitalId} LIMIT 1`);
+              hospitalNm = r?.rows?.[0]?.name || "";
+            }
+            if ((!clinicNm && !hospitalNm) && taskCustomerId) {
+              const r: any = await db.execute<any>(
+                sql`SELECT h.name AS hospital_name, c.name AS clinic_name FROM potential_cases pc LEFT JOIN hospitals h ON h.id = pc.hospital_id LEFT JOIN clinics c ON c.id = pc.clinic_id WHERE pc.customer_id = ${taskCustomerId} ORDER BY pc.created_at DESC LIMIT 1`
+              );
+              clinicNm = r?.rows?.[0]?.clinic_name || "";
+              hospitalNm = r?.rows?.[0]?.hospital_name || "";
+            }
+            if (clinicNm) nameParts.push(`Klinika: ${clinicNm}`);
+            if (hospitalNm) nameParts.push(`Nemocnica: ${hospitalNm}`);
+            boNotifContext = nameParts.join(" · ");
+          } catch (nameErr) {
+            console.error("[assign_task] notif name resolution error:", nameErr);
+          }
+
           // Execute automations for this item (F8)
           const automations = await db.select()
             .from(campaignStatusListAutomations)
@@ -28321,7 +28412,13 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                 // Only surface in the Nexus Puls → Back Office tab when the group is flagged as back office
                 if (groupRow?.isBackOffice) taskTags.push("back_office");
                 const assignees = groupMembersRows.length > 0 ? groupMembersRows.map(m => m.userId) : [userId];
-                for (const assigneeId of assignees) {
+                // Back-office groups feed a SHARED claim queue (Nexus Puls → Back Office), so a
+                // single confirmation must create exactly ONE task — otherwise the same work
+                // shows up once per group member on the shared board. The nominal owner is the
+                // first member; claiming re-assigns it. Non-back-office groups keep the
+                // per-member model (personal assignment for the Task Groups feature).
+                const taskOwners = groupRow?.isBackOffice ? [assignees[0]] : assignees;
+                for (const assigneeId of taskOwners) {
                   await db.insert(tasks).values({
                     title: taskTitle,
                     description: resolvedDescription,
@@ -28459,12 +28556,18 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                         const refreshTok = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
                         const tokenResult = await getValidAccessToken(accessTok, ms365Connection.tokenExpiresAt, refreshTok);
                         if (tokenResult) {
-                          // Body intentionally excludes the resolved task description — it can
-                          // contain customer PII (name/phone/email). The title is the static
-                          // status-list label; full detail lives behind CRM auth.
+                          // Per product decision the assignment email now includes the client /
+                          // clinic / hospital NAME so back-office staff can triage at a glance.
+                          // We still omit the full resolved description (phone/email/free-text);
+                          // richer detail stays behind CRM auth.
+                          const esc = (s: string) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
                           const recipients = assigneeRows.filter(r => !!r.email);
+                          const ctxHtml = boNotifContext
+                            ? `<p>${boNotifContext.split(" · ").map(esc).join("<br/>")}</p>`
+                            : "";
                           const bodyHtml = `<p>Bola vám pridelená nová úloha v INDEXUS CRM.</p>`
-                            + `<p><strong>${taskTitle}</strong></p>`
+                            + `<p><strong>${esc(taskTitle)}</strong></p>`
+                            + ctxHtml
                             + `<p>Detaily nájdete v aplikácii INDEXUS CRM.</p>`;
                           for (const r of recipients) {
                             try {
@@ -28486,11 +28589,12 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                       const { sendTransactionalSms, isBulkGateConfigured } = await import("./lib/bulkgate");
                       if (isBulkGateConfigured()) {
                         const smsRecipients = assigneeRows.filter(r => !!r.phone);
+                        const smsCtx = boNotifContext ? ` (${boNotifContext})` : "";
                         for (const r of smsRecipients) {
                           try {
                             await sendTransactionalSms({
                               number: r.phone!,
-                              text: `INDEXUS: Nová úloha - ${taskTitle}`,
+                              text: `INDEXUS: Nová úloha - ${taskTitle}${smsCtx}`,
                               country: contactCountry ?? undefined,
                             });
                           } catch (e) { console.error("[assign_task] sms send failed for user", r.id, e instanceof Error ? e.message : String(e)); }
