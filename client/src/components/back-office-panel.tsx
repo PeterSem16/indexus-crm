@@ -18,7 +18,7 @@ import {
   MessageSquare, Activity, Send, Hand, User, Phone, Mail,
   MapPin, ExternalLink, Stethoscope, Paperclip, Download,
   Trophy, PartyPopper, Sparkles, X, CalendarClock, Hourglass, Forward,
-  Bell, BellOff,
+  Bell, BellOff, CornerDownLeft,
 } from "lucide-react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { format, isToday, isTomorrow, isPast, formatDistanceToNow } from "date-fns";
@@ -78,6 +78,7 @@ type BOTask = {
     note: string | null;
   } | null;
   customer?: BOCustomerMini;
+  agentAnswered?: boolean;
 };
 
 export type ThreadComment = {
@@ -249,6 +250,11 @@ function KanbanCard({ item, onClick }: { item: BOTask; onClick: () => void }) {
             </div>
           )}
           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+            {item.agentAnswered && state !== "done" && (
+              <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 ring-1 ring-blue-300 dark:ring-blue-700 animate-bo-blink" data-testid={`badge-bo-agent-answered-${task.id}`}>
+                <CornerDownLeft className="h-2.5 w-2.5" /> {t.backOffice.agentAnsweredBadge}
+              </span>
+            )}
             {state === "waiting_agent" && (
               <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">
                 <HelpCircle className="h-2.5 w-2.5" /> {t.backOffice.questionBadge}
@@ -750,6 +756,12 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
   const sConfig = STATE_CONFIG[state];
   const pConfig = task ? (PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.medium) : PRIORITY_CONFIG.medium;
   const StateIcon = sConfig.icon;
+  // "Agent answered" badge mirrors the board card: latest thread comment is an agent
+  // answer and the task is still open. Computed order-independently from comment timestamps.
+  const lastBoComment = thread?.comments?.length
+    ? thread.comments.reduce((a, b) => (new Date(a.createdAt) >= new Date(b.createdAt) ? a : b))
+    : null;
+  const agentAnswered = !!lastBoComment && lastBoComment.kind === "answer" && state !== "done";
 
   return (
     <>
@@ -767,6 +779,11 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
               </span>
             </div>
             <div className="flex flex-wrap gap-1.5 mt-2.5">
+              {agentAnswered && (
+                <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 ring-1 ring-blue-300 dark:ring-blue-700 animate-bo-blink" data-testid="badge-bo-detail-agent-answered">
+                  <CornerDownLeft className="h-3 w-3" /> {t.backOffice.agentAnsweredBadge}
+                </span>
+              )}
               <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium bg-background/60 ${pConfig.color}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${pConfig.dot}`} /> {priorityLabel(t, task.priority)} {t.backOffice.prioritySuffix}
               </span>

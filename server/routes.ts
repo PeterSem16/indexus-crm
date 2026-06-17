@@ -27912,7 +27912,33 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       }
       const deduped = enriched.filter(r => !hiddenIds.has(r.task.id));
 
-      res.json(deduped);
+      // ── "Agent answered" signal ──
+      // Surface a dynamic badge on the Back Office board when the originating agent has
+      // replied to a question and Back Office hasn't acted on it yet. Reliable trigger: the
+      // task's MOST RECENT thread comment is an agent answer (kind='answer') and the task is
+      // still open. As soon as Back Office comments / asks again / completes, a newer comment
+      // (or done state) supersedes it and the badge clears — no read-state tracking needed.
+      const visibleIds = deduped.map(r => r.task.id);
+      const answeredSet = new Set<string>();
+      if (visibleIds.length) {
+        const latest: any = await db.execute(sql`
+          SELECT DISTINCT ON (task_id) task_id, kind
+          FROM task_comments
+          WHERE task_id IN (${sql.join(visibleIds.map(id => sql`${id}`), sql`, `)})
+          ORDER BY task_id, created_at DESC`);
+        for (const row of latest?.rows ?? []) {
+          if (row.kind === "answer") answeredSet.add(row.task_id);
+        }
+      }
+      const withFlags = deduped.map(r => ({
+        ...r,
+        agentAnswered: answeredSet.has(r.task.id)
+          && r.task.status !== "completed"
+          && r.task.boState !== "done"
+          && !r.confirmation,
+      }));
+
+      res.json(withFlags);
     } catch (error) {
       console.error("Failed to fetch BO tasks:", error);
       res.status(500).json({ error: "Failed to fetch BO tasks" });

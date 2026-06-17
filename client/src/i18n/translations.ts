@@ -38,6 +38,7 @@ export interface Translations {
     kindAnswer: string;
     askHighPriority: string;
     urgentBadge: string;
+    agentAnsweredBadge: string;
     sendingLabel: string;
     sentForProcessing: string;
     attachLabel: string;
@@ -6561,6 +6562,7 @@ export const translations: Record<Locale, Translations> = {
       kindAnswer: 'Agent reply',
       askHighPriority: 'High priority (urgent reply)',
       urgentBadge: 'URGENT',
+      agentAnsweredBadge: 'Agent replied',
       sendingLabel: 'Sending…',
       sentForProcessing: 'Sent for processing',
       attachLabel: 'Attach file',
@@ -13136,6 +13138,7 @@ export const translations: Record<Locale, Translations> = {
       kindAnswer: 'Odpoveď agenta',
       askHighPriority: 'Vysoká priorita (urgentná odpoveď)',
       urgentBadge: 'URGENTNÉ',
+      agentAnsweredBadge: 'Agent odpovedal',
       sendingLabel: 'Odosielam…',
       sentForProcessing: 'Odoslané na spracovanie',
       attachLabel: 'Priložiť súbor',
@@ -19647,6 +19650,7 @@ export const translations: Record<Locale, Translations> = {
       kindAnswer: 'Odpověď agenta',
       askHighPriority: 'Vysoká priorita (urgentní odpověď)',
       urgentBadge: 'URGENTNÍ',
+      agentAnsweredBadge: 'Agent odpověděl',
       sendingLabel: 'Odesílám…',
       sentForProcessing: 'Odesláno ke zpracování',
       attachLabel: 'Připojit soubor',
@@ -26084,6 +26088,7 @@ export const translations: Record<Locale, Translations> = {
       kindAnswer: 'Ügynök válasza',
       askHighPriority: 'Magas prioritás (sürgős válasz)',
       urgentBadge: 'SÜRGŐS',
+      agentAnsweredBadge: 'Ügynök válaszolt',
       sendingLabel: 'Küldés…',
       sentForProcessing: 'Feldolgozásra elküldve',
       attachLabel: 'Fájl csatolása',
@@ -32476,6 +32481,7 @@ export const translations: Record<Locale, Translations> = {
       kindAnswer: 'Răspunsul agentului',
       askHighPriority: 'Prioritate ridicată (răspuns urgent)',
       urgentBadge: 'URGENT',
+      agentAnsweredBadge: 'Agent a răspuns',
       sendingLabel: 'Se trimite…',
       sentForProcessing: 'Trimis spre procesare',
       attachLabel: 'Atașează fișier',
@@ -38788,6 +38794,7 @@ export const translations: Record<Locale, Translations> = {
       kindAnswer: 'Risposta dell\'agente',
       askHighPriority: 'Alta priorità (risposta urgente)',
       urgentBadge: 'URGENTE',
+      agentAnsweredBadge: 'Agente ha risposto',
       sendingLabel: 'Invio…',
       sentForProcessing: 'Inviato per l\'elaborazione',
       attachLabel: 'Allega file',
@@ -45102,6 +45109,7 @@ export const translations: Record<Locale, Translations> = {
       kindAnswer: 'Antwort des Agenten',
       askHighPriority: 'Hohe Priorität (dringende Antwort)',
       urgentBadge: 'DRINGEND',
+      agentAnsweredBadge: 'Agent hat geantwortet',
       sendingLabel: 'Senden…',
       sentForProcessing: 'Zur Bearbeitung gesendet',
       attachLabel: 'Datei anhängen',
