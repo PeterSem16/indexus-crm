@@ -24,13 +24,21 @@ import { useSessionHeartbeat } from "@/hooks/use-session-heartbeat";
 import { NotificationBell, NotificationCenterPage } from "@/components/notification-center";
 import { NexusButton } from "@/components/nexus/nexus-button";
 import LandingPage from "@/pages/landing";
-import { Component as ReactComponent, lazy, Suspense, type ErrorInfo, type ReactNode } from "react";
+import { Component as ReactComponent, lazy, Suspense, useEffect, type ErrorInfo, type ReactNode } from "react";
 
-// Route pages are lazy-loaded so the initial bundle stays small; each page is
-// fetched on demand when its route is first visited (see <Suspense> below).
+// Landing pages are eagerly imported (NOT lazy): users are redirected straight
+// to one of these right after login, so deferring them only shows a loading
+// spinner with no benefit. Dashboard is the default landing ("/"); the agent
+// workspace is the landing for call-center agents (where Nexus Pulse lives).
+import Dashboard from "@/pages/dashboard";
+import AgentWorkspacePage from "@/pages/agent-workspace";
+
+// The remaining route pages are lazy-loaded so the initial bundle stays small;
+// each page is fetched on demand when its route is first visited (see <Suspense>
+// below). They are also prefetched on idle after login (see prefetchRoutes) so
+// later navigation does not show a loading spinner.
 const PublicSigningPage = lazy(() => import("@/pages/public-signing"));
 const AuditTimelinePublic = lazy(() => import("@/pages/audit-timeline-public"));
-const Dashboard = lazy(() => import("@/pages/dashboard"));
 const UsersPage = lazy(() => import("@/pages/users"));
 const CustomersPage = lazy(() => import("@/pages/customers"));
 const ProductsPage = lazy(() => import("@/pages/products"));
@@ -55,7 +63,6 @@ const MobilePreview = lazy(() => import("@/pages/mobile-preview"));
 const CollectionsPage = lazy(() => import("@/pages/collections"));
 const CampaignReportsPage = lazy(() => import("@/pages/campaign-reports"));
 const CustomerInvoicesPage = lazy(() => import("@/pages/customer-invoices"));
-const AgentWorkspacePage = lazy(() => import("@/pages/agent-workspace"));
 const SopManagementPage = lazy(() => import("@/pages/sop-management"));
 const MedicalPartnerNetworkPage = lazy(() => import("@/pages/medical-partner-network"));
 const ReportsPage = lazy(() => import("@/pages/reports"));
@@ -74,6 +81,43 @@ function PageLoader() {
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
     </div>
   );
+}
+
+// Warm the lazy route chunks in the background after login so that navigating
+// to a page does not show a loading spinner. Runs once, during browser idle
+// time, so it never competes with the initial render. Failures are ignored —
+// the chunk will simply load on demand when the route is visited.
+let routesPrefetched = false;
+function prefetchRoutes() {
+  if (routesPrefetched) return;
+  routesPrefetched = true;
+  const load = () => {
+    const thunks = [
+      () => import("@/pages/customers"),
+      () => import("@/pages/campaigns"),
+      () => import("@/pages/campaign-detail"),
+      () => import("@/pages/collections"),
+      () => import("@/pages/invoices"),
+      () => import("@/pages/hospitals"),
+      () => import("@/pages/tasks"),
+      () => import("@/pages/contracts"),
+      () => import("@/pages/pipeline"),
+      () => import("@/pages/reports"),
+      () => import("@/pages/email-client"),
+      () => import("@/pages/medical-partner-network"),
+    ];
+    for (const thunk of thunks) {
+      thunk().catch(() => {});
+    }
+  };
+  const ric = (window as any).requestIdleCallback as
+    | ((cb: () => void, opts?: { timeout?: number }) => number)
+    | undefined;
+  if (typeof ric === "function") {
+    ric(load, { timeout: 4000 });
+  } else {
+    setTimeout(load, 2000);
+  }
 }
 
 class ErrorBoundary extends ReactComponent<{ children: ReactNode; fallback?: ReactNode }, { hasError: boolean; error: Error | null; componentStack: string | null }> {
@@ -174,6 +218,9 @@ function AuthenticatedApp() {
   const sipContext = useSip();
   const [location] = useLocation();
   useSessionHeartbeat();
+  useEffect(() => {
+    prefetchRoutes();
+  }, []);
   const style = {
     "--sidebar-width": "18rem",
     "--sidebar-width-icon": "4rem",
