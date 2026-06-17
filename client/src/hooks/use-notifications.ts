@@ -7,12 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { useI18n } from "@/i18n";
 import { playBackOfficeChime, installBackOfficeAudioUnlock } from "@/lib/back-office-chime";
-
-// Fire the Back Office sound + toast exactly once per notification id. useNotifications
-// can be mounted more than once (NotificationBell + the notifications page) and each
-// mount has its own WebSocket delivering the same notification; this module-level set
-// dedupes across all of them (check-then-add is atomic — no awaits in between).
-const processedBoNotificationIds = new Set<string>();
+import { dispatchBackOfficeAlert } from "@/lib/back-office-alert";
 
 interface Notification {
   id: string;
@@ -138,33 +133,33 @@ export function useNotifications() {
                   queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
                 }
                 const notif = message.notification;
-                // New Back Office task → pleasant chime + clickable toast, once per task.
-                if (notif && (notif.metadata?.isBackOffice === true) && !processedBoNotificationIds.has(notif.id)) {
-                  processedBoNotificationIds.add(notif.id);
-                  if (processedBoNotificationIds.size > 300) {
-                    processedBoNotificationIds.clear();
-                    processedBoNotificationIds.add(notif.id);
-                  }
+                // New Back Office task → pleasant chime + clickable toast, exactly once
+                // per task across all concurrent mounts (see dispatchBackOfficeAlert).
+                const fired = dispatchBackOfficeAlert(notif, {
+                  playChime: playBackOfficeChime,
+                  showToast: () => {
+                    const tt = tRef.current;
+                    const openBackOffice = () => {
+                      try { sessionStorage.setItem("indexus:pendingOpenBackOffice", "1"); } catch {}
+                      try { window.dispatchEvent(new CustomEvent("indexus:open-back-office")); } catch {}
+                      try { setLocationRef.current("/agent-workspace"); } catch {}
+                    };
+                    toastRef.current({
+                      title: tt.backOffice.newTaskToastTitle,
+                      description: notif!.metadata?.taskTitle || notif!.title || tt.backOffice.newTaskToastDesc,
+                      action: createElement(
+                        ToastAction,
+                        { altText: tt.backOffice.openBackOffice, onClick: openBackOffice },
+                        tt.backOffice.openBackOffice,
+                      ),
+                    });
+                  },
+                });
+                if (fired) {
                   // Refresh both the BO board (panel uses ["/api/back-office/tasks", country];
-                  // prefix match covers it) and the personal task list.
+                  // prefix match covers it) and the personal task list — once per task.
                   queryClient.invalidateQueries({ queryKey: ["/api/back-office/tasks"] });
                   queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
-                  playBackOfficeChime();
-                  const tt = tRef.current;
-                  const openBackOffice = () => {
-                    try { sessionStorage.setItem("indexus:pendingOpenBackOffice", "1"); } catch {}
-                    try { window.dispatchEvent(new CustomEvent("indexus:open-back-office")); } catch {}
-                    try { setLocationRef.current("/agent-workspace"); } catch {}
-                  };
-                  toastRef.current({
-                    title: tt.backOffice.newTaskToastTitle,
-                    description: notif.metadata?.taskTitle || notif.title || tt.backOffice.newTaskToastDesc,
-                    action: createElement(
-                      ToastAction,
-                      { altText: tt.backOffice.openBackOffice, onClick: openBackOffice },
-                      tt.backOffice.openBackOffice,
-                    ),
-                  });
                 }
                 break;
               }
