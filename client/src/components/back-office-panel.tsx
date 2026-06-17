@@ -1210,7 +1210,7 @@ function AgentScorePanel() {
   const hasTrend = !!data && data.trend.some(b => b.onTime + b.late > 0);
 
   return (
-    <div className="hidden lg:flex w-72 xl:w-80 shrink-0 border-l bg-gradient-to-b from-muted/30 to-background flex-col h-full overflow-hidden" data-testid="agent-score-panel">
+    <div className="hidden lg:flex w-72 xl:w-80 shrink-0 border-l bg-background bg-gradient-to-b from-muted/30 to-background flex-col h-full overflow-hidden relative z-10" data-testid="agent-score-panel">
       <div className="px-3 py-2.5 border-b flex items-center gap-2 shrink-0 bg-gradient-to-r from-amber-500/10 via-purple-500/5 to-transparent">
         <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow-sm shadow-amber-500/30">
           <Trophy className="h-4 w-4" />

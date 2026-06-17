@@ -27630,7 +27630,16 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         .from(tasks)
         .leftJoin(taskBackOfficeConfirmations, eq(taskBackOfficeConfirmations.taskId, tasks.id))
         .where(and(
-          eq(tasks.assignedUserId, userId),
+          // Shared BO queue: a status-list task is created once and assigned to a nominal
+          // owner, but it may actually be completed by whoever picks it up. Fetch tasks I'm
+          // assigned OR I resolved OR I confirmed (legacy rows that never set resolvedByUserId),
+          // then attribute per-row below (done → resolver, open → assignee) so credit lands on
+          // the agent who actually did the work.
+          or(
+            eq(tasks.assignedUserId, userId),
+            eq(tasks.resolvedByUserId, userId),
+            eq(taskBackOfficeConfirmations.confirmedByUserId, userId),
+          ),
           sql`${tasks.tags} @> ARRAY['back_office']::text[]`
         ));
 
@@ -27663,6 +27672,11 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         const t: any = r.task;
         const c: any = r.confirmation;
         if (isDone(t, c)) {
+          // Credit a completion to whoever actually resolved it; legacy rows without a
+          // resolver fall back to the confirmer, then the assignee. This stops the nominal
+          // owner from being credited for work another agent finished on the shared queue.
+          const creditUserId = t.resolvedByUserId ?? c?.confirmedByUserId ?? t.assignedUserId;
+          if (creditUserId !== userId) continue;
           const ct = completionTime(t, c);
           if (ct && ct >= start && ct <= now) {
             const due = t.dueDate ? new Date(t.dueDate) : null;
@@ -27674,6 +27688,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             unknownCompleted++; // done without a completion timestamp (legacy) — excluded from rate
           }
         } else {
+          // Open work counts only for the agent it is currently assigned to.
+          if (t.assignedUserId !== userId) continue;
           openTotal++;
           if (t.dueDate && new Date(t.dueDate).getTime() < now.getTime()) openOverdue++;
         }
