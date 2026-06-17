@@ -12171,7 +12171,22 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   app.delete("/api/entity-notes/:entityType/:entityId/:noteId", requireAuth, async (req, res) => {
     try {
-      const deleted = await storage.deleteEntityNote(req.params.noteId);
+      const { entityType, entityId, noteId } = req.params;
+      if (!ENTITY_NOTE_TYPES.includes(entityType as any)) {
+        return res.status(400).json({ error: `entityType must be one of: ${ENTITY_NOTE_TYPES.join(", ")}` });
+      }
+      // Scope the lookup to the requested entity so a known note id from another
+      // entity (or wrong type) cannot be deleted out of context.
+      const notes = await storage.getEntityNotes(entityType, entityId);
+      const note = notes.find(n => n.id === noteId);
+      if (!note) {
+        return res.status(404).json({ error: "Note not found" });
+      }
+      // Only the note's author or an admin may delete it.
+      if (note.userId !== req.session.user!.id && req.session.user!.role !== "admin") {
+        return res.status(403).json({ error: "Not allowed to delete this note" });
+      }
+      const deleted = await storage.deleteEntityNote(noteId);
       if (!deleted) {
         return res.status(404).json({ error: "Note not found" });
       }
