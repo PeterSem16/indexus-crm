@@ -545,6 +545,15 @@ function NetworkExplorer() {
   const [selectedResult, setSelectedResult] = useState<{ type: "institution" | "person"; entityType?: string; id: string; name: string } | null>(null);
   const [drawerEntity, setDrawerEntity] = useState<{ type: "hospital" | "clinic" | "person"; id: string } | null>(null);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const et = params.get("entityType");
+    const eid = params.get("entityId");
+    if (eid && (et === "hospital" || et === "clinic" || et === "person")) {
+      setDrawerEntity({ type: et, id: eid });
+    }
+  }, []);
+
   const searchTimeout = useRef<any>(null);
   const handleSearch = (val: string) => {
     setSearch(val);

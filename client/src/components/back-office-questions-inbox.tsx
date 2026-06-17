@@ -37,6 +37,14 @@ function openContact(customerId: string) {
   window.open(`/customers?view=${encodeURIComponent(customerId)}`, "_blank", "noopener,noreferrer");
 }
 
+function openHospital(hospitalId: string) {
+  window.open(`/medical-partner-network?entityType=hospital&entityId=${encodeURIComponent(hospitalId)}`, "_blank", "noopener,noreferrer");
+}
+
+function openClinic(clinicId: string) {
+  window.open(`/medical-partner-network?entityType=clinic&entityId=${encodeURIComponent(clinicId)}`, "_blank", "noopener,noreferrer");
+}
+
 function QuestionTile({ item, onClick }: { item: BOQuestion; onClick: () => void }) {
   const custName = customerName(item.customer);
 
@@ -53,11 +61,19 @@ function QuestionTile({ item, onClick }: { item: BOQuestion; onClick: () => void
         </span>
         <div className="flex-1 min-w-0">
           <div className="text-xs font-medium leading-snug truncate" data-testid={`text-bo-question-title-${item.task.id}`}>{item.task.title}</div>
-          {custName && (
+          {custName ? (
             <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground" data-testid={`text-bo-question-customer-name-${item.task.id}`}>
               <User className="h-2.5 w-2.5 shrink-0" /> <span className="truncate">{custName}</span>
             </div>
-          )}
+          ) : item.hospital ? (
+            <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground" data-testid={`text-bo-question-hospital-name-${item.task.id}`}>
+              <Building2 className="h-2.5 w-2.5 shrink-0" /> <span className="truncate">{item.hospital.name}</span>
+            </div>
+          ) : item.clinic ? (
+            <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground" data-testid={`text-bo-question-clinic-name-${item.task.id}`}>
+              <Stethoscope className="h-2.5 w-2.5 shrink-0" /> <span className="truncate">{item.clinic.name}</span>
+            </div>
+          ) : null}
           {item.question && (
             <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 leading-snug">{item.question.content}</p>
           )}
@@ -126,51 +142,93 @@ function QuestionDrawerContent({ item, onClose }: { item: BOQuestion; onClose: (
       </div>
 
       <ScrollArea className="flex-1 min-h-0">
-        <div className="p-5 space-y-5">
-          {item.customer ? (
-            <div className="rounded-lg border bg-muted/20 p-3" data-testid="bo-question-customer-card">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">{t.backOffice.customerLabel}</div>
-                  <div className="text-sm font-medium flex items-center gap-1.5" data-testid="text-bo-question-detail-customer-name">
-                    <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span className="truncate">{custName || "—"}</span>
-                  </div>
-                  <div className="mt-1.5 space-y-1 text-xs text-muted-foreground">
-                    {phone && (
-                      <a href={`tel:${phone}`} className="flex items-center gap-1.5 hover:text-foreground" data-testid="link-bo-question-customer-phone">
-                        <Phone className="h-3 w-3 shrink-0" /> <span className="truncate">{phone}</span>
-                      </a>
-                    )}
-                    {item.customer.email && (
-                      <a href={`mailto:${item.customer.email}`} className="flex items-center gap-1.5 hover:text-foreground" data-testid="link-bo-question-customer-email">
-                        <Mail className="h-3 w-3 shrink-0" /> <span className="truncate">{item.customer.email}</span>
-                      </a>
-                    )}
-                    {location && (
-                      <div className="flex items-center gap-1.5" data-testid="text-bo-question-customer-location">
-                        <MapPin className="h-3 w-3 shrink-0" /> <span className="truncate">{location}</span>
+        <div className="p-5">
+          <div className="grid grid-cols-1 lg:grid-cols-2 lg:gap-x-6 gap-y-6 items-start">
+            <div className="space-y-5 lg:border-r lg:border-border lg:pr-6 min-w-0">
+              {(item.customer || item.hospital || item.clinic) ? (
+                <div className="space-y-2">
+                  {item.customer && (
+                    <div className="rounded-lg border bg-muted/20 p-3" data-testid="bo-question-customer-card">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">{t.backOffice.customerLabel}</div>
+                          <button
+                            type="button"
+                            onClick={() => openContact(item.customer!.id)}
+                            className="text-sm font-medium flex items-center gap-1.5 text-primary hover:underline text-left min-w-0 max-w-full"
+                            data-testid="link-bo-question-detail-customer-name"
+                          >
+                            <User className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">{custName || "—"}</span>
+                          </button>
+                          <div className="mt-1.5 space-y-1 text-xs text-muted-foreground">
+                            {phone && (
+                              <a href={`tel:${phone}`} className="flex items-center gap-1.5 hover:text-foreground" data-testid="link-bo-question-customer-phone">
+                                <Phone className="h-3 w-3 shrink-0" /> <span className="truncate">{phone}</span>
+                              </a>
+                            )}
+                            {item.customer.email && (
+                              <a href={`mailto:${item.customer.email}`} className="flex items-center gap-1.5 hover:text-foreground" data-testid="link-bo-question-customer-email">
+                                <Mail className="h-3 w-3 shrink-0" /> <span className="truncate">{item.customer.email}</span>
+                              </a>
+                            )}
+                            {location && (
+                              <div className="flex items-center gap-1.5" data-testid="text-bo-question-customer-location">
+                                <MapPin className="h-3 w-3 shrink-0" /> <span className="truncate">{location}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 shrink-0"
+                          onClick={() => openContact(item.customer!.id)}
+                          data-testid="btn-bo-question-open-contact"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" /> {t.backOffice.openContact}
+                        </Button>
                       </div>
-                    )}
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1.5 shrink-0"
-                  onClick={() => openContact(item.customer!.id)}
-                  data-testid="btn-bo-question-open-contact"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" /> {t.backOffice.openContact}
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="text-xs text-muted-foreground italic" data-testid="text-bo-question-no-customer">{t.backOffice.noCustomer}</div>
-          )}
+                    </div>
+                  )}
 
-          {(item.reason || item.clinic || item.hospital) && (
-            <div className="space-y-2">
+                  {(item.hospital || item.clinic) && (
+                    <div className="rounded-lg border bg-muted/20 p-3 space-y-1.5" data-testid="bo-question-entity-card">
+                      {item.hospital && (
+                        <div className="flex items-center gap-1.5 text-xs min-w-0" data-testid="text-bo-question-hospital">
+                          <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="text-muted-foreground shrink-0">{t.backOffice.hospitalLabel}:</span>
+                          <button
+                            type="button"
+                            onClick={() => openHospital(item.hospital!.id)}
+                            className="font-medium text-primary hover:underline truncate text-left min-w-0"
+                            data-testid="link-bo-question-hospital"
+                          >
+                            {item.hospital.name}
+                          </button>
+                        </div>
+                      )}
+                      {item.clinic && (
+                        <div className="flex items-center gap-1.5 text-xs min-w-0" data-testid="text-bo-question-clinic">
+                          <Stethoscope className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="text-muted-foreground shrink-0">{t.backOffice.clinicLabel}:</span>
+                          <button
+                            type="button"
+                            onClick={() => openClinic(item.clinic!.id)}
+                            className="font-medium text-primary hover:underline truncate text-left min-w-0"
+                            data-testid="link-bo-question-clinic"
+                          >
+                            {item.clinic.name}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground italic" data-testid="text-bo-question-no-customer">{t.backOffice.noCustomer}</div>
+              )}
+
               {item.reason && (
                 <div>
                   <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{t.backOffice.reasonLabel}</div>
@@ -182,72 +240,56 @@ function QuestionDrawerContent({ item, onClose }: { item: BOQuestion; onClose: (
                   </span>
                 </div>
               )}
-              {(item.clinic || item.hospital) && (
-                <div className="flex flex-col gap-1 text-xs">
-                  {item.clinic && (
-                    <div className="flex items-center gap-1.5" data-testid="text-bo-question-clinic">
-                      <Stethoscope className="h-3 w-3 shrink-0 text-muted-foreground" />
-                      <span className="text-muted-foreground">{t.backOffice.clinicLabel}:</span>
-                      <span className="truncate font-medium">{item.clinic.name}</span>
-                    </div>
-                  )}
-                  {item.hospital && (
-                    <div className="flex items-center gap-1.5" data-testid="text-bo-question-hospital">
-                      <Building2 className="h-3 w-3 shrink-0 text-muted-foreground" />
-                      <span className="text-muted-foreground">{t.backOffice.hospitalLabel}:</span>
-                      <span className="truncate font-medium">{item.hospital.name}</span>
-                    </div>
-                  )}
+
+              {item.task.description && (
+                <div>
+                  <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{t.backOffice.descriptionLabel}</div>
+                  <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap break-words" data-testid="text-bo-question-detail-description">{item.task.description}</p>
                 </div>
               )}
-            </div>
-          )}
 
-          {item.task.description && (
-            <div>
-              <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{t.backOffice.descriptionLabel}</div>
-              <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap break-words" data-testid="text-bo-question-detail-description">{item.task.description}</p>
-            </div>
-          )}
+              {item.question && (
+                <div>
+                  <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                    <MessageSquare className="h-3 w-3" /> {t.backOffice.questionForAgent}
+                  </div>
+                  <div className="rounded-lg border border-purple-200 dark:border-purple-900 bg-purple-50 dark:bg-purple-950/20 p-3">
+                    {item.question.userName && <div className="text-[10px] text-muted-foreground mb-1">{item.question.userName}</div>}
+                    <p className="text-xs leading-relaxed whitespace-pre-wrap break-words" data-testid="text-bo-question-detail-content">{item.question.content}</p>
+                  </div>
+                </div>
+              )}
 
-          {item.question && (
-            <div>
-              <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
-                <MessageSquare className="h-3 w-3" /> {t.backOffice.questionForAgent}
-              </div>
-              <div className="rounded-lg border border-purple-200 dark:border-purple-900 bg-purple-50 dark:bg-purple-950/20 p-3">
-                {item.question.userName && <div className="text-[10px] text-muted-foreground mb-1">{item.question.userName}</div>}
-                <p className="text-xs leading-relaxed whitespace-pre-wrap break-words" data-testid="text-bo-question-detail-content">{item.question.content}</p>
+              <div>
+                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2.5" data-testid="text-bo-question-history-label">{t.backOffice.historyLabel}</div>
+                <Timeline thread={thread} />
               </div>
             </div>
-          )}
 
-          <div>
-            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2.5" data-testid="text-bo-question-history-label">{t.backOffice.historyLabel}</div>
-            <Timeline thread={thread} />
-          </div>
-
-          <div className="rounded-lg border border-purple-200 dark:border-purple-900 bg-purple-50/50 dark:bg-purple-950/10 p-3 space-y-2">
-            <div className="text-[11px] font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide flex items-center gap-1.5">
-              <CornerDownLeft className="h-3.5 w-3.5" /> {t.backOffice.answerButton}
+            <div className="space-y-3 min-w-0">
+              <div className="rounded-lg border border-purple-200 dark:border-purple-900 bg-purple-50/50 dark:bg-purple-950/10 p-3 space-y-2">
+                <div className="text-[11px] font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide flex items-center gap-1.5">
+                  <CornerDownLeft className="h-3.5 w-3.5" /> {t.backOffice.answerButton}
+                </div>
+                <Textarea
+                  className="text-xs min-h-[90px] resize-none bg-background"
+                  placeholder={t.backOffice.answerPlaceholder}
+                  value={answer}
+                  onChange={e => setAnswer(e.target.value)}
+                  data-testid={`textarea-bo-answer-${item.task.id}`}
+                />
+                <Button
+                  size="sm"
+                  className="w-full gap-2 bg-purple-600 hover:bg-purple-700 text-white"
+                  onClick={() => answerMutation.mutate()}
+                  disabled={answerMutation.isPending || !answer.trim()}
+                  data-testid={`btn-bo-answer-${item.task.id}`}
+                >
+                  {answerMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                  {t.backOffice.answerButton}
+                </Button>
+              </div>
             </div>
-            <Textarea
-              className="text-xs min-h-[90px] resize-none bg-background"
-              placeholder={t.backOffice.answerPlaceholder}
-              value={answer}
-              onChange={e => setAnswer(e.target.value)}
-              data-testid={`textarea-bo-answer-${item.task.id}`}
-            />
-            <Button
-              size="sm"
-              className="w-full gap-2 bg-purple-600 hover:bg-purple-700 text-white"
-              onClick={() => answerMutation.mutate()}
-              disabled={answerMutation.isPending || !answer.trim()}
-              data-testid={`btn-bo-answer-${item.task.id}`}
-            >
-              {answerMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-              {t.backOffice.answerButton}
-            </Button>
           </div>
         </div>
       </ScrollArea>
@@ -294,7 +336,7 @@ export function BackOfficeQuestionsInbox() {
       <Sheet open={!!activeItem} onOpenChange={(o) => { if (!o) setOpenTaskId(null); }}>
         <SheetContent
           side="right"
-          className="w-full sm:max-w-lg p-0 gap-0 overflow-hidden flex flex-col"
+          className="w-full sm:max-w-xl lg:max-w-4xl xl:max-w-5xl p-0 gap-0 overflow-hidden flex flex-col"
           data-testid="drawer-bo-question-detail"
         >
           <SheetTitle className="sr-only">{activeItem?.task.title || t.backOffice.questionsInboxTitle}</SheetTitle>
