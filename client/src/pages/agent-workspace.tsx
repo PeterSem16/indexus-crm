@@ -3934,11 +3934,33 @@ function CommunicationCanvas({
                       {item.description && <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>}
                       {(() => {
                         const itemState = (dbSlState as any[]).find((s: any) => String(s.statusListItemId) === String(item.id));
-                        return itemState?.confirmedAt ? (
-                          <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5">
-                            ✓ {new Date(itemState.confirmedAt).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
-                          </p>
-                        ) : null;
+                        if (!itemState?.confirmedAt) return null;
+                        const statusAuto = (item.automations || []).find((a: any) => a.actionType === "set_contact_status" && a.dispositionId);
+                        const disp = statusAuto ? (slDispositions as any[]).find((d: any) => String(d.id) === String(statusAuto.dispositionId)) : null;
+                        const dispName = disp ? (DISPOSITION_NAME_TRANSLATIONS[disp.code]?.[locale] || disp.name) : null;
+                        const dispColor = disp?.color || "gray";
+                        const dispColorMap: Record<string, string> = {
+                          green: "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800",
+                          red: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800",
+                          blue: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800",
+                          orange: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800",
+                          yellow: "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/40 dark:text-yellow-300 dark:border-yellow-800",
+                          purple: "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-800",
+                          gray: "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700",
+                        };
+                        const dispBadgeCls = dispColorMap[dispColor] || dispColorMap.gray;
+                        return (
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1" data-testid={`sl-status-set-${item.id}`}>
+                            {dispName && (
+                              <span className={`inline-flex items-center gap-1 text-[10px] h-4 px-1.5 rounded-full border font-semibold ${dispBadgeCls}`} data-testid={`sl-status-name-${item.id}`}>
+                                <Tag className="h-2.5 w-2.5" />{dispName}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400" data-testid={`sl-status-time-${item.id}`}>
+                              ✓ {new Date(itemState.confirmedAt).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          </div>
+                        );
                       })()}
                       <SlActionButtons automations={item.automations} onRun={handleSlRunAction} running={slRunningAuto} locale={locale} dispositions={slDispositions} />
                     </div>
