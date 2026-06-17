@@ -232,6 +232,19 @@ app.use((req, res, next) => {
     console.log('[migration] callback_time/notify_agent_pulse ensured on automations');
 
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS entity_notes (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        entity_type text NOT NULL,
+        entity_id varchar NOT NULL,
+        user_id varchar NOT NULL,
+        content text NOT NULL,
+        created_at timestamp NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_entity_notes_entity ON entity_notes (entity_type, entity_id);
+    `);
+    console.log('[migration] entity_notes table ensured');
+
+    await pool.query(`
       UPDATE hospitals SET full_name = name WHERE (full_name IS NULL OR full_name = '' OR full_name = '-') AND name IS NOT NULL AND name != '' AND name != '-';
       UPDATE hospitals SET name = full_name WHERE (name IS NULL OR name = '' OR name = '-') AND full_name IS NOT NULL AND full_name != '' AND full_name != '-';
     `);

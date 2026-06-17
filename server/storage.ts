@@ -1,6 +1,6 @@
 import { 
   users, customers, products, customerProducts, invoices, billingDetails, invoiceItems, scheduledInvoices,
-  customerNotes, activityLogs, communicationMessages,
+  customerNotes, entityNotes, activityLogs, communicationMessages,
   complaintTypes, cooperationTypes, vipStatuses, collectionStatuses, healthInsuranceCompanies,
   laboratories, hospitals, clinics, visitEvents, voiceNotes, mobilePushTokens,
   collaborators, collaboratorAddresses, collaboratorOtherData, collaboratorAgreements, collaboratorActivities,
@@ -25,6 +25,7 @@ import {
   type InvoiceItem, type InsertInvoiceItem,
   type ScheduledInvoice, type InsertScheduledInvoice,
   type CustomerNote, type InsertCustomerNote,
+  type EntityNote, type InsertEntityNote,
   type ActivityLog, type InsertActivityLog,
   type CommunicationMessage, type InsertCommunicationMessage,
   type ComplaintType, type InsertComplaintType,
@@ -334,6 +335,11 @@ export interface IStorage {
   getAllCustomerNotes(): Promise<CustomerNote[]>;
   createCustomerNote(note: InsertCustomerNote): Promise<CustomerNote>;
   deleteCustomerNote(id: string): Promise<boolean>;
+
+  // Entity Notes (clinic | hospital | collaborator)
+  getEntityNotes(entityType: string, entityId: string): Promise<EntityNote[]>;
+  createEntityNote(note: InsertEntityNote): Promise<EntityNote>;
+  deleteEntityNote(id: string): Promise<boolean>;
 
   // Activity Logs
   createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
@@ -2258,6 +2264,22 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCustomerNote(id: string): Promise<boolean> {
     const result = await db.delete(customerNotes).where(eq(customerNotes.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async getEntityNotes(entityType: string, entityId: string): Promise<EntityNote[]> {
+    return db.select().from(entityNotes)
+      .where(and(eq(entityNotes.entityType, entityType), eq(entityNotes.entityId, entityId)))
+      .orderBy(desc(entityNotes.createdAt));
+  }
+
+  async createEntityNote(note: InsertEntityNote): Promise<EntityNote> {
+    const [created] = await db.insert(entityNotes).values(note).returning();
+    return created;
+  }
+
+  async deleteEntityNote(id: string): Promise<boolean> {
+    const result = await db.delete(entityNotes).where(eq(entityNotes.id, id)).returning();
     return result.length > 0;
   }
 

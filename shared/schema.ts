@@ -1092,6 +1092,18 @@ export const customerNotes = pgTable("customer_notes", {
   idxCustomerNotesCustomer: index("idx_customer_notes_customer").on(table.customerId),
 }));
 
+// Entity notes - free-text notes for non-customer contacts (clinic | hospital | collaborator)
+export const entityNotes = pgTable("entity_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  entityType: text("entity_type").notNull(), // clinic | hospital | collaborator
+  entityId: varchar("entity_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+}, (table) => ({
+  idxEntityNotesEntity: index("idx_entity_notes_entity").on(table.entityType, table.entityId),
+}));
+
 // Tasks - tasks assigned to users, optionally linked to customers
 export const tasks = pgTable("tasks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1858,6 +1870,11 @@ export const insertCustomerNoteSchema = createInsertSchema(customerNotes).omit({
   createdAt: true,
 });
 
+export const insertEntityNoteSchema = createInsertSchema(entityNotes).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Activity logs schemas
 export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({
   id: true,
@@ -1928,6 +1945,8 @@ export type InsertScheduledInvoice = z.infer<typeof insertScheduledInvoiceSchema
 export type ScheduledInvoice = typeof scheduledInvoices.$inferSelect;
 export type InsertCustomerNote = z.infer<typeof insertCustomerNoteSchema>;
 export type CustomerNote = typeof customerNotes.$inferSelect;
+export type InsertEntityNote = z.infer<typeof insertEntityNoteSchema>;
+export type EntityNote = typeof entityNotes.$inferSelect;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 export type ActivityLog = typeof activityLogs.$inferSelect;
 export type InsertCommunicationMessage = z.infer<typeof insertCommunicationMessageSchema>;

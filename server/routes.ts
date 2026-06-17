@@ -14,7 +14,7 @@ import {
   insertUserSchema, insertCustomerSchema, updateUserSchema, loginSchema, userSessions, communicationMessages,
   invoices, invoiceItems, invoicePayments, scheduledInvoices,
   insertProductSchema, insertCustomerProductSchema, insertBillingDetailsSchema,
-  insertCustomerNoteSchema, insertActivityLogSchema, sendEmailSchema, sendSmsSchema,
+  insertCustomerNoteSchema, insertEntityNoteSchema, insertActivityLogSchema, sendEmailSchema, sendSmsSchema,
   insertComplaintTypeSchema, insertCooperationTypeSchema, insertVipStatusSchema, insertHealthInsuranceSchema,
   insertLaboratorySchema, insertHospitalSchema, insertClinicSchema,
   insertCollaboratorSchema, insertCollaboratorAddressSchema, insertCollaboratorOtherDataSchema, insertCollaboratorAgreementSchema,
@@ -869,8 +869,7 @@ async function runStatusListSetStatus(automation: any, ctx: StatusListActionCtx,
 
   // Callback-type dispositions: schedule a concrete callbackDate so the contact
   // re-appears in the agent's Nexus Pulse queue. Use the agent's manual override
-  // when supplied (the Set-status picker), otherwise the rule's predefined term —
-  // but only when "notify agent in Nexus Pulse" (notifyAgentPulse) is enabled.
+  // when supplied (the Set-status picker), otherwise the rule's predefined term.
   let scheduledCb: string | undefined;
   if (mapped === "callback_scheduled") {
     let cb: Date | null = null;
@@ -878,14 +877,17 @@ async function runStatusListSetStatus(automation: any, ctx: StatusListActionCtx,
       const parsed = new Date(overrideCallbackDate);
       cb = isNaN(parsed.getTime()) ? null : parsed;
     }
-    if (!cb && automation.notifyAgentPulse) {
+    // A "callback_scheduled" status is only meaningful with a concrete callbackDate — the
+    // agent's Nexus Pulse queue requires callbackDate IS NOT NULL, so setting the status
+    // without a date produces a contact that is silently invisible in the queue. Always
+    // fall back to the rule's configured term (default +1 day) so scheduled callbacks
+    // reliably surface in the queue regardless of the notifyAgentPulse flag.
+    if (!cb) {
       cb = computeStatusListCallbackDate(automation.callbackOffsetDays ?? 1, automation.callbackTime);
     }
-    if (cb) {
-      update.callbackDate = cb;
-      update.status = "callback_scheduled";
-      scheduledCb = cb.toISOString();
-    }
+    update.callbackDate = cb;
+    update.status = "callback_scheduled";
+    scheduledCb = cb.toISOString();
   }
 
   await db.update(campaignContacts).set(update).where(eq(campaignContacts.id, ctx.campaignContactId));
@@ -12098,6 +12100,84 @@ Return ONLY valid JSON, no markdown code blocks.`,
       res.json({ message: "Note deleted successfully" });
     } catch (error) {
       console.error("Error deleting customer note:", error);
+      res.status(500).json({ error: "Failed to delete note" });
+    }
+  });
+
+  // ===== Entity Notes API (clinic | hospital | collaborator) =====
+  const ENTITY_NOTE_TYPES = ["clinic", "hospital", "collaborator"] as const;
+  const getEntityRecord = async (entityType: string, entityId: string) => {
+    if (entityType === "clinic") return storage.getClinic(entityId);
+    if (entityType === "hospital") return storage.getHospital(entityId);
+    if (entityType === "collaborator") return storage.getCollaborator(entityId);
+    return undefined;
+  };
+
+  app.get("/api/entity-notes/:entityType/:entityId", requireAuth, async (req, res) => {
+    try {
+      const { entityType, entityId } = req.params;
+      if (!ENTITY_NOTE_TYPES.includes(entityType as any)) {
+        return res.status(400).json({ error: `entityType must be one of: ${ENTITY_NOTE_TYPES.join(", ")}` });
+      }
+      const notes = await storage.getEntityNotes(entityType, entityId);
+      const users = await storage.getAllUsers();
+      const userMap = new Map(users.map(u => [u.id, u]));
+      const notesWithUser = notes.map(note => ({
+        ...note,
+        userName: userMap.get(note.userId)?.name || userMap.get(note.userId)?.username || note.userId || "Unknown",
+      }));
+      res.json(notesWithUser);
+    } catch (error) {
+      console.error("Error fetching entity notes:", error);
+      res.status(500).json({ error: "Failed to fetch notes" });
+    }
+  });
+
+  app.post("/api/entity-notes/:entityType/:entityId", requireAuth, async (req, res) => {
+    try {
+      const { entityType, entityId } = req.params;
+      if (!ENTITY_NOTE_TYPES.includes(entityType as any)) {
+        return res.status(400).json({ error: `entityType must be one of: ${ENTITY_NOTE_TYPES.join(", ")}` });
+      }
+      const entity = await getEntityRecord(entityType, entityId);
+      if (!entity) {
+        return res.status(404).json({ error: `${entityType} not found` });
+      }
+      const { content } = req.body;
+      if (!content || typeof content !== "string" || !content.trim()) {
+        return res.status(400).json({ error: "Note content is required" });
+      }
+      const note = await storage.createEntityNote({
+        entityType,
+        entityId,
+        userId: req.session.user!.id,
+        content,
+      });
+      await logActivity(
+        req.session.user!.id,
+        "note_added",
+        entityType,
+        entityId,
+        (entity as any).name || (entity as any).clinicName || `${(entity as any).firstName ?? ""} ${(entity as any).lastName ?? ""}`.trim() || entityId,
+        { noteId: note.id, content },
+        req.ip
+      );
+      res.status(201).json(note);
+    } catch (error) {
+      console.error("Error creating entity note:", error);
+      res.status(500).json({ error: "Failed to create note" });
+    }
+  });
+
+  app.delete("/api/entity-notes/:entityType/:entityId/:noteId", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteEntityNote(req.params.noteId);
+      if (!deleted) {
+        return res.status(404).json({ error: "Note not found" });
+      }
+      res.json({ message: "Note deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting entity note:", error);
       res.status(500).json({ error: "Failed to delete note" });
     }
   });

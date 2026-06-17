@@ -4537,6 +4537,7 @@ function CustomerDocumentsPanel({ customerId }: { customerId: string }) {
 
 function CustomerInfoPanel({
   contact,
+  contactType,
   campaign,
   callNotes,
   onAddNote,
@@ -4579,6 +4580,7 @@ function CustomerInfoPanel({
   onCloseAcwTask,
 }: {
   contact: Customer | null;
+  contactType?: string;
   campaign: Campaign | null;
   callNotes: string;
   onAddNote: (note: string) => Promise<void> | void;
@@ -4653,9 +4655,21 @@ function CustomerInfoPanel({
 
   const [selectedNote, setSelectedNote] = useState<{ content: string; userName: string; createdAt: string } | null>(null);
 
+  // Notes endpoint depends on contact type: customers keep the legacy customer-notes
+  // table; clinic/hospital/collaborator use the generic entity-notes endpoint.
+  const notesEndpoint = contact?.id
+    ? (contactType && contactType !== "customer"
+        ? `/api/entity-notes/${contactType}/${contact.id}`
+        : `/api/customers/${contact.id}/notes`)
+    : null;
+
   const { data: customerNotes = [], refetch: refetchNotes } = useQuery<Array<{ id: string; content: string; userId: string; userName: string; createdAt: string }>>({
-    queryKey: [`/api/customers/${contact?.id}/notes`],
-    enabled: !!contact?.id,
+    queryKey: [notesEndpoint],
+    queryFn: async () => {
+      const res = await fetch(notesEndpoint!, { credentials: "include" });
+      return res.ok ? res.json() : [];
+    },
+    enabled: !!notesEndpoint,
     staleTime: 0,
   });
 
@@ -8594,8 +8608,13 @@ export default function AgentWorkspacePage() {
         content: note,
       },
     ]);
-    // Notes API only exists for customers — skip for hospital/clinic/collaborator virtual contacts
-    if (currentContactType !== "customer") return;
+    // Customers persist to the legacy customer-notes table; clinic/hospital/collaborator
+    // contacts persist to the generic entity-notes endpoint. The query key must match the
+    // one CustomerInfoPanel uses so the optimistic update lands in the right cache.
+    const noteType = currentContactType || "customer";
+    const notesUrl = noteType !== "customer"
+      ? `/api/entity-notes/${noteType}/${currentContact.id}`
+      : `/api/customers/${currentContact.id}/notes`;
     const tempNote = {
       id: `temp-${Date.now()}`,
       content: note,
@@ -8603,10 +8622,10 @@ export default function AgentWorkspacePage() {
       userName: user?.name || user?.username || "Ja",
       createdAt: new Date().toISOString(),
     };
-    const notesKey = [`/api/customers/${currentContact.id}/notes`];
+    const notesKey = [notesUrl];
     queryClient.setQueryData(notesKey, (old: any) => [tempNote, ...(old || [])]);
     try {
-      await apiRequest("POST", `/api/customers/${currentContact.id}/notes`, { content: note });
+      await apiRequest("POST", notesUrl, { content: note });
       queryClient.refetchQueries({ queryKey: notesKey });
       queryClient.invalidateQueries({ queryKey: ["/api/customers", currentContact.id, "activity-logs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/entity-history", currentContact.id] });
@@ -10496,6 +10515,7 @@ export default function AgentWorkspacePage() {
 
         <CustomerInfoPanel
           contact={currentContact}
+          contactType={currentContactType}
           campaign={selectedCampaign}
           callNotes={callNotes}
           onAddNote={handleAddNote}

@@ -32,3 +32,13 @@ date lower-bound (past + future both included). `runStatusListSetCallback` does
 NOT touch `assignedTo` — intentional: changing it on reschedule would silently
 steal/route ownership, so a callback on a contact owned by another specific agent
 correctly surfaces only in that agent's queue.
+
+**Write-side invariant (zombie rows):** any server path that sets
+`status="callback_scheduled"` MUST set a non-null `callbackDate` in the SAME update,
+or it creates a "zombie" row that the queue silently excludes (the inclusion query
+requires `callbackDate IS NOT NULL`). The status-list `set_contact_status`
+(disposition→status map) path originally gated the date behind a flag
+(`notifyAgentPulse`/override) while setting the status unconditionally → zombies.
+**How to apply:** never set the callback status without computing a fallback date
+(weekday-aware `computeStatusListCallbackDate`, default +1 business day) — there is
+no valid `callback_scheduled` state with a NULL date.
