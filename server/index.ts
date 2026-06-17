@@ -5,6 +5,7 @@ import { createServer } from "http";
 import { startAlertEvaluator } from "./alert-evaluator";
 import { startSessionCleanup } from "./session-cleanup";
 import { startScheduledReportRunner } from "./scheduled-report-runner";
+import { ensureIndexes } from "./ensure-indexes";
 import { pool } from "./db";
 
 process.on('SIGHUP', () => {
@@ -287,6 +288,11 @@ app.use((req, res, next) => {
       startAlertEvaluator(60 * 1000);
       startSessionCleanup();
       startScheduledReportRunner();
+
+      // Build performance indexes in the background (non-blocking, CONCURRENTLY).
+      ensureIndexes().catch((err) =>
+        console.error("[index] ensure error:", err?.message || err),
+      );
 
       import("./variable-registry-seed").then(({ seedVariableRegistry }) => {
         seedVariableRegistry().catch(err => console.error("[Variable Registry] Seed error:", err));

@@ -23,47 +23,58 @@ import { ChatContainer } from "@/components/chat-container";
 import { useSessionHeartbeat } from "@/hooks/use-session-heartbeat";
 import { NotificationBell, NotificationCenterPage } from "@/components/notification-center";
 import { NexusButton } from "@/components/nexus/nexus-button";
-import PublicSigningPage from "@/pages/public-signing";
-import AuditTimelinePublic from "@/pages/audit-timeline-public";
-import Dashboard from "@/pages/dashboard";
-import UsersPage from "@/pages/users";
-import CustomersPage from "@/pages/customers";
-import ProductsPage from "@/pages/products";
-import InvoicesPage from "@/pages/invoices";
-import SettingsPage from "@/pages/settings";
-import HospitalsPage from "@/pages/hospitals";
-import VisitEventsPage from "@/pages/visit-events";
-import CollaboratorsPage from "@/pages/collaborators";
-import CollaboratorReportsPage from "@/pages/collaborator-reports";
-import ConfiguratorPage from "@/pages/configurator";
-import CampaignsPage from "@/pages/campaigns";
-import CampaignDetailPage from "@/pages/campaign-detail";
-import TasksPage from "@/pages/tasks";
-import TaskGroupsPage from "@/pages/task-groups";
-import ContractsPage from "@/pages/contracts";
-import ContractDetailPage from "@/pages/contract-detail";
-import TemplateEditorPage from "@/pages/template-editor";
-import PipelinePage from "@/pages/pipeline";
-import MS365IntegrationPage from "@/pages/ms365-integration";
-import EmailClientPage from "@/pages/email-client";
 import LandingPage from "@/pages/landing";
-import MobilePreview from "@/pages/mobile-preview";
-import CollectionsPage from "@/pages/collections";
-import CampaignReportsPage from "@/pages/campaign-reports";
-import CustomerInvoicesPage from "@/pages/customer-invoices";
-import AgentWorkspacePage from "@/pages/agent-workspace";
-import SopManagementPage from "@/pages/sop-management";
-import MedicalPartnerNetworkPage from "@/pages/medical-partner-network";
-import ReportsPage from "@/pages/reports";
-import TrainingRoomPage from "@/pages/training-room";
-import StatusManagementPage from "@/pages/status-management";
-import AutomationsPage from "@/pages/automations";
-import ScrapingPage from "@/pages/scraping";
-import PublicFormPage from "@/pages/public-form";
+import { Component as ReactComponent, lazy, Suspense, type ErrorInfo, type ReactNode } from "react";
+
+// Route pages are lazy-loaded so the initial bundle stays small; each page is
+// fetched on demand when its route is first visited (see <Suspense> below).
+const PublicSigningPage = lazy(() => import("@/pages/public-signing"));
+const AuditTimelinePublic = lazy(() => import("@/pages/audit-timeline-public"));
+const Dashboard = lazy(() => import("@/pages/dashboard"));
+const UsersPage = lazy(() => import("@/pages/users"));
+const CustomersPage = lazy(() => import("@/pages/customers"));
+const ProductsPage = lazy(() => import("@/pages/products"));
+const InvoicesPage = lazy(() => import("@/pages/invoices"));
+const SettingsPage = lazy(() => import("@/pages/settings"));
+const HospitalsPage = lazy(() => import("@/pages/hospitals"));
+const VisitEventsPage = lazy(() => import("@/pages/visit-events"));
+const CollaboratorsPage = lazy(() => import("@/pages/collaborators"));
+const CollaboratorReportsPage = lazy(() => import("@/pages/collaborator-reports"));
+const ConfiguratorPage = lazy(() => import("@/pages/configurator"));
+const CampaignsPage = lazy(() => import("@/pages/campaigns"));
+const CampaignDetailPage = lazy(() => import("@/pages/campaign-detail"));
+const TasksPage = lazy(() => import("@/pages/tasks"));
+const TaskGroupsPage = lazy(() => import("@/pages/task-groups"));
+const ContractsPage = lazy(() => import("@/pages/contracts"));
+const ContractDetailPage = lazy(() => import("@/pages/contract-detail"));
+const TemplateEditorPage = lazy(() => import("@/pages/template-editor"));
+const PipelinePage = lazy(() => import("@/pages/pipeline"));
+const MS365IntegrationPage = lazy(() => import("@/pages/ms365-integration"));
+const EmailClientPage = lazy(() => import("@/pages/email-client"));
+const MobilePreview = lazy(() => import("@/pages/mobile-preview"));
+const CollectionsPage = lazy(() => import("@/pages/collections"));
+const CampaignReportsPage = lazy(() => import("@/pages/campaign-reports"));
+const CustomerInvoicesPage = lazy(() => import("@/pages/customer-invoices"));
+const AgentWorkspacePage = lazy(() => import("@/pages/agent-workspace"));
+const SopManagementPage = lazy(() => import("@/pages/sop-management"));
+const MedicalPartnerNetworkPage = lazy(() => import("@/pages/medical-partner-network"));
+const ReportsPage = lazy(() => import("@/pages/reports"));
+const TrainingRoomPage = lazy(() => import("@/pages/training-room"));
+const StatusManagementPage = lazy(() => import("@/pages/status-management"));
+const AutomationsPage = lazy(() => import("@/pages/automations"));
+const ScrapingPage = lazy(() => import("@/pages/scraping"));
+const PublicFormPage = lazy(() => import("@/pages/public-form"));
 import { AgentSessionProvider } from "@/contexts/agent-session-context";
 import NotFound from "@/pages/not-found";
 import { Loader2 } from "lucide-react";
-import { Component as ReactComponent, type ErrorInfo, type ReactNode } from "react";
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center py-20">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>
+  );
+}
 
 class ErrorBoundary extends ReactComponent<{ children: ReactNode; fallback?: ReactNode }, { hasError: boolean; error: Error | null; componentStack: string | null }> {
   constructor(props: { children: ReactNode; fallback?: ReactNode }) {
@@ -194,6 +205,7 @@ function AuthenticatedApp() {
               </header>
               <main className={`flex-1 overflow-auto ${location === "/email" ? "p-0" : "p-4"}`}>
                 <div>
+                  <Suspense fallback={<PageLoader />}>
                   <Switch>
                     <Route path="/" component={Dashboard} />
                     <Route path="/users" component={UsersPage} />
@@ -244,6 +256,7 @@ function AuthenticatedApp() {
                     </Route>
                     <Route component={NotFound} />
                   </Switch>
+                  </Suspense>
                 </div>
               </main>
             </div>
@@ -298,7 +311,9 @@ function AppShell() {
   if (isPublicRoute) {
     return (
       <ErrorBoundary>
-        <PublicRoutes />
+        <Suspense fallback={<PageLoader />}>
+          <PublicRoutes />
+        </Suspense>
       </ErrorBoundary>
     );
   }
