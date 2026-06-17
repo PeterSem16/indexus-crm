@@ -27560,36 +27560,61 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const enriched = raw.map(r => ({ ...r, customer: r.task.customerId ? (custMap.get(r.task.customerId) || null) : null }));
 
       // ── De-duplicate the shared board ──
-      // Status-list confirmations can produce several task rows for the SAME logical work
-      // (one per back-office group member, plus extra rows from repeated confirm/unconfirm).
-      // The board is a shared team queue, so those must collapse to ONE card. We key by the
-      // originating status-list item + customer + title and keep a single representative,
-      // preferring the most-progressed workflow state (done > waiting_agent > in_progress >
-      // received), then the earliest-created row. Tasks without a status-list origin are left
-      // untouched (each is genuinely distinct).
+      // A single status-list confirmation can create several task rows for the SAME logical
+      // work (one per back-office group member). Those member-twins are created together in a
+      // tight insert loop (milliseconds apart) and must collapse to ONE card on the shared
+      // team queue. However, SEPARATE confirmations of the same item+customer happen seconds-
+      // to-days apart and each may carry its OWN question/answer thread — collapsing those
+      // would let a finished older twin shadow a newer in_progress/answered task, so the
+      // agent's reply would never surface in Back Office. We therefore group by the logical
+      // key (item + customer + title) and then CLUSTER each group by creation time, collapsing
+      // only twins within a small window. Within a cluster we keep the most-progressed row
+      // (done > waiting_agent > in_progress > received), then the earliest-created.
       const boRank = (r: any) =>
         (r.task.status === "completed" || r.task.boState === "done" || r.confirmation) ? 3
           : r.task.boState === "waiting_agent" ? 2
           : r.task.boState === "in_progress" ? 1
           : 0;
-      const repByKey = new Map<string, any>();
+      const TWIN_GAP_MS = 15000; // member-twins of one confirmation are inserted ms apart
+      const groups = new Map<string, any[]>();
       for (const r of enriched) {
         const t = r.task;
         if (!(t.relatedEntityType === "status_list_item" && t.relatedEntityId)) continue;
         const key = `${t.relatedEntityId}|${t.customerId ?? ""}|${t.title}`;
-        const cur = repByKey.get(key);
-        if (!cur) { repByKey.set(key, r); continue; }
-        const better = boRank(r) > boRank(cur)
-          || (boRank(r) === boRank(cur)
-              && new Date(t.createdAt).getTime() < new Date(cur.task.createdAt).getTime());
-        if (better) repByKey.set(key, r);
+        const arr = groups.get(key) || [];
+        arr.push(r);
+        groups.set(key, arr);
       }
-      const chosen = new Set<any>(repByKey.values());
-      const deduped = enriched.filter(r => {
-        const t = r.task;
-        if (t.relatedEntityType === "status_list_item" && t.relatedEntityId) return chosen.has(r);
-        return true;
-      });
+      const hiddenIds = new Set<string>();
+      for (const arr of Array.from(groups.values())) {
+        if (arr.length < 2) continue;
+        arr.sort((a, b) => new Date(a.task.createdAt).getTime() - new Date(b.task.createdAt).getTime());
+        const flush = (cl: any[]) => {
+          if (cl.length < 2) return;
+          let rep = cl[0];
+          for (const r of cl) {
+            const better = boRank(r) > boRank(rep)
+              || (boRank(r) === boRank(rep)
+                  && new Date(r.task.createdAt).getTime() < new Date(rep.task.createdAt).getTime());
+            if (better) rep = r;
+          }
+          for (const r of cl) if (r !== rep) hiddenIds.add(r.task.id);
+        };
+        let cluster: any[] = [];
+        let prevTs = 0;
+        for (const r of arr) {
+          const ts = new Date(r.task.createdAt).getTime();
+          if (cluster.length === 0 || ts - prevTs <= TWIN_GAP_MS) {
+            cluster.push(r);
+          } else {
+            flush(cluster);
+            cluster = [r];
+          }
+          prevTs = ts;
+        }
+        flush(cluster);
+      }
+      const deduped = enriched.filter(r => !hiddenIds.has(r.task.id));
 
       res.json(deduped);
     } catch (error) {
@@ -27858,11 +27883,17 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           taskId, userId, content: note || "Úloha vybavená", kind: "state_change",
           metadata: { toState: "done" } as any,
         });
-        // Sync sibling duplicates → completed. Legacy data (and any pre-dedup rows) may hold
-        // several back-office task rows for the SAME status-list work (one per group member).
-        // Completing only this row would leave the twins "pending" in Nexus Omni, so resolve
-        // them together. New single-task creation makes this a no-op going forward.
-        if (task.relatedEntityType === "status_list_item" && task.relatedEntityId) {
+        // Sync sibling duplicates → completed. A single status-list confirmation can create
+        // several back-office task rows (one per group member), inserted within ~milliseconds.
+        // Completing only this row would leave its member-twins "pending" in Nexus Omni, so
+        // resolve them together. We scope to the SAME time-cluster (±TWIN_GAP_MS) so confirming
+        // one card never completes a DISTINCT earlier/later confirmation of the same item —
+        // those are separate work cycles (each may carry its own Q&A) shown as separate cards.
+        if (task.relatedEntityType === "status_list_item" && task.relatedEntityId && task.createdAt) {
+          const TWIN_GAP_MS = 15000;
+          const base = new Date(task.createdAt).getTime();
+          const lo = new Date(base - TWIN_GAP_MS);
+          const hi = new Date(base + TWIN_GAP_MS);
           await tx.update(tasks).set({
             status: "completed", boState: "done", resolvedAt: new Date(),
             resolvedByUserId: userId, resolution: note || "Confirmed by Back Office (sibling)",
@@ -27874,6 +27905,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             ne(tasks.id, taskId),
             or(isNull(tasks.boState), ne(tasks.boState, "done")),
             task.customerId ? eq(tasks.customerId, task.customerId) : isNull(tasks.customerId),
+            sql`${tasks.createdAt} BETWEEN ${lo} AND ${hi}`,
           ));
         }
         return conf;
