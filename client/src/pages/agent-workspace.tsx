@@ -7113,6 +7113,14 @@ export default function AgentWorkspacePage() {
 
   const { canAccessModule } = usePermissions();
   const hasModuleAccess = user && canAccessModule("nexusPulse");
+  const canBackOfficeAgenda = !!user && canAccessModule("back_office_agenda");
+  useEffect(() => {
+    if (!canBackOfficeAgenda) {
+      setLoginBackOffice(false);
+      setBackOfficeModeActive(false);
+      setMainWorkspaceTab("pulse");
+    }
+  }, [canBackOfficeAgenda]);
 
   const { data: workspaceAccess = [] } = useQuery<any[]>({
     queryKey: ["/api/agent-workspace-access/current"],
@@ -8392,6 +8400,7 @@ export default function AgentWorkspacePage() {
   };
 
   const handleSwitchToBackOffice = async () => {
+    if (!canBackOfficeAgenda) return;
     if (mainWorkspaceTab === "back_office") return;
     setMainWorkspaceTab("back_office");
     if (agentSession.isSessionActive && !allowInboundInBO) {
@@ -8405,8 +8414,12 @@ export default function AgentWorkspacePage() {
   // is consumed on mount; a custom event handles the already-mounted case.
   const switchToBoRef = useRef(handleSwitchToBackOffice);
   switchToBoRef.current = handleSwitchToBackOffice;
+  const canBackOfficeAgendaRef = useRef(canBackOfficeAgenda);
+  canBackOfficeAgendaRef.current = canBackOfficeAgenda;
   useEffect(() => {
     const openBo = () => {
+      // Len pre role s povoleným modulom Back Office Agenda.
+      if (!canBackOfficeAgendaRef.current) return;
       // Clear the navigation flag on every open path so a same-page toast click does not
       // leave a stale flag that re-opens BO on a later remount.
       try { sessionStorage.removeItem("indexus:pendingOpenBackOffice"); } catch { /* ignore */ }
@@ -8483,7 +8496,7 @@ export default function AgentWorkspacePage() {
         });
       if (shouldDefaultOnlyAssigned) setShowOnlyAssigned(true);
       setSessionLoginOpen(false);
-      if (loginBackOffice) {
+      if (loginBackOffice && canBackOfficeAgenda) {
         setBackOfficeModeActive(true);
         setMainWorkspaceTab("back_office");
         prevStatusBeforeBackOffice.current = "available";
@@ -10139,7 +10152,8 @@ export default function AgentWorkspacePage() {
                   );
                 })()}
 
-                {/* Back Office sekcia */}
+                {/* Back Office sekcia — len pre role s povoleným modulom "Back Office Agenda" */}
+                {canBackOfficeAgenda && (
                 <div
                   className={`rounded-xl px-3 py-2.5 mb-3 border cursor-pointer transition-all ${loginBackOffice ? "bg-primary/5 border-primary/30" : "bg-card border-border"}`}
                   onClick={() => setLoginBackOffice(v => !v)}
@@ -10163,6 +10177,7 @@ export default function AgentWorkspacePage() {
                     </p>
                   )}
                 </div>
+                )}
 
                 <Button
                   className="w-full gap-2 h-11 font-semibold"
@@ -10213,7 +10228,7 @@ export default function AgentWorkspacePage() {
       {/* ── Hlavné záložky: PULSE / BACK OFFICE ── */}
       {(() => {
         const hasMissions = sessionCampaignIds.length > 0 || sessionInboundQueueIds.length > 0;
-        if (!agentSession.isSessionActive || !backOfficeModeActive) return null;
+        if (!agentSession.isSessionActive || !backOfficeModeActive || !canBackOfficeAgenda) return null;
         if (!hasMissions) return null;
         return (
           <div className="flex items-center gap-0 border-b bg-card shrink-0 px-4" style={{ minHeight: 36 }}>
@@ -10254,7 +10269,7 @@ export default function AgentWorkspacePage() {
       })()}
 
       {/* ── BACK OFFICE — celá obrazovka ── */}
-      {agentSession.isSessionActive && backOfficeModeActive && mainWorkspaceTab === "back_office" && (
+      {agentSession.isSessionActive && backOfficeModeActive && canBackOfficeAgenda && mainWorkspaceTab === "back_office" && (
         <div className="flex flex-1 overflow-hidden" style={{ minHeight: 0 }}>
           <BackOfficePanel
             country={((user as any)?.countries || []).join(",") || undefined}

@@ -284,6 +284,14 @@ export const CRM_MODULES: ModuleDefinition[] = [
       { key: "campaign_templates", label: "Campaign Templates", defaultPermission: "editable" },
     ],
   },
+  {
+    key: "back_office_agenda",
+    label: "Back Office Agenda",
+    icon: "ClipboardList",
+    category: "nexus",
+    defaultAccess: "hidden",
+    fields: [],
+  },
 
   {
     key: "users",
