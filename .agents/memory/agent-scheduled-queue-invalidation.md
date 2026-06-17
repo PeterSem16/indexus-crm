@@ -42,3 +42,13 @@ requires `callbackDate IS NOT NULL`). The status-list `set_contact_status`
 **How to apply:** never set the callback status without computing a fallback date
 (weekday-aware `computeStatusListCallbackDate`, default +1 business day) — there is
 no valid `callback_scheduled` state with a NULL date.
+
+**Backfill, not just the write path:** fixing the code that creates zombies does NOT
+help callbacks already scheduled before the fix — they keep callback_date=NULL and
+stay invisible forever. Pair the code fix with an idempotent one-time repair
+(`UPDATE campaign_contacts SET callback_date = updated_at WHERE
+status='callback_scheduled' AND callback_date IS NULL`) in the server/index.ts
+startup block so it runs on both dev and (after redeploy) prod. Self-hosted prod
+(CORPCRM01) only gets code+migrations via the documented `git pull && build && pm2
+restart` — the Replit merge does NOT touch the prod server, so "still broken in
+prod" usually just means it hasn't been redeployed.

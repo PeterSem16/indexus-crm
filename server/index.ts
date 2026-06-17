@@ -244,6 +244,19 @@ app.use((req, res, next) => {
     `);
     console.log('[migration] entity_notes table ensured');
 
+    // One-time repair for "zombie" callbacks: a previous bug could set
+    // status='callback_scheduled' without a callback_date, which the agent queue
+    // silently excludes (it requires callback_date IS NOT NULL). Fill the missing
+    // date with when it was scheduled (updated_at) so these already-pending
+    // callbacks reappear in the queue. Idempotent: once filled there are no NULL
+    // rows left, so reruns touch nothing.
+    const zombieFix = await pool.query(`
+      UPDATE campaign_contacts
+        SET callback_date = updated_at
+      WHERE status = 'callback_scheduled' AND callback_date IS NULL;
+    `);
+    console.log(`[migration] callback_scheduled zombie dates backfilled: ${zombieFix.rowCount ?? 0}`);
+
     await pool.query(`
       UPDATE hospitals SET full_name = name WHERE (full_name IS NULL OR full_name = '' OR full_name = '-') AND name IS NOT NULL AND name != '' AND name != '-';
       UPDATE hospitals SET name = full_name WHERE (name IS NULL OR name = '' OR name = '-') AND full_name IS NOT NULL AND full_name != '' AND full_name != '-';
