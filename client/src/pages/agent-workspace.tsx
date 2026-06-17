@@ -6218,6 +6218,16 @@ function ScheduledQueuePanel({
     refetchInterval: open ? 30000 : false,
   });
 
+  // Reset filters every time the queue opens so a previously selected type/time
+  // filter (e.g. "Emails") never hides the items the user expects to see.
+  useEffect(() => {
+    if (open) {
+      setFilterType("all");
+      setTimeFilter("all");
+      setSearchQuery("");
+    }
+  }, [open]);
+
   const now = new Date();
   const todayStart = startOfDay(now);
   const todayEnd = endOfDay(now);
@@ -6457,7 +6467,22 @@ function ScheduledQueuePanel({
               ) : filteredItems.length === 0 ? (
                 <div className="text-center py-16 text-muted-foreground">
                   <CalendarClock className="h-10 w-10 mx-auto mb-3 opacity-15" />
-                  <p className="text-sm">{t.agentWorkspace.noScheduledItems}</p>
+                  {scheduledItems.length > 0 ? (
+                    <>
+                      <p className="text-sm">{t.agentWorkspace.noFilteredItems}</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-3"
+                        onClick={() => { setFilterType("all"); setTimeFilter("all"); setSearchQuery(""); }}
+                        data-testid="btn-clear-scheduled-filters"
+                      >
+                        {t.agentWorkspace.scheduledAll}
+                      </Button>
+                    </>
+                  ) : (
+                    <p className="text-sm">{t.agentWorkspace.noScheduledItems}</p>
+                  )}
                 </div>
               ) : (
                 <div>

@@ -3236,6 +3236,7 @@ export interface Translations {
     scheduledEmails: string;
     scheduledSms: string;
     noScheduledItems: string;
+    noFilteredItems: string;
     unknownContact: string;
     callbackLabel: string;
     overdueLabel: string;
@@ -10275,6 +10276,7 @@ export const translations: Record<Locale, Translations> = {
       scheduledEmails: 'Emails',
       scheduledSms: 'SMS',
       noScheduledItems: 'No scheduled items',
+      noFilteredItems: 'No items match this filter',
       unknownContact: 'Unknown contact',
       callbackLabel: 'Callback',
       overdueLabel: 'Overdue',
@@ -16764,6 +16766,7 @@ export const translations: Record<Locale, Translations> = {
       scheduledEmails: 'Emaily',
       scheduledSms: 'SMS',
       noScheduledItems: 'Žiadne naplánované položky',
+      noFilteredItems: 'Žiadne položky nezodpovedajú tomuto filtru',
       unknownContact: 'Neznámy kontakt',
       callbackLabel: 'Spätné volanie',
       overdueLabel: 'Po termíne',
@@ -23239,6 +23242,7 @@ export const translations: Record<Locale, Translations> = {
       scheduledEmails: 'E-maily',
       scheduledSms: 'SMS',
       noScheduledItems: 'Žádné naplánované položky',
+      noFilteredItems: 'Žádné položky neodpovídají tomuto filtru',
       unknownContact: 'Neznámý kontakt',
       callbackLabel: 'Zpětné volání',
       overdueLabel: 'Po termínu',
@@ -29670,6 +29674,7 @@ export const translations: Record<Locale, Translations> = {
       scheduledEmails: 'E-mailek',
       scheduledSms: 'SMS',
       noScheduledItems: 'Nincsenek ütemezett elemek',
+      noFilteredItems: 'Egyetlen elem sem felel meg ennek a szűrőnek',
       unknownContact: 'Ismeretlen kapcsolat',
       callbackLabel: 'Visszahívás',
       overdueLabel: 'Lejárt',
@@ -35983,6 +35988,7 @@ export const translations: Record<Locale, Translations> = {
       scheduledEmails: 'E-mailuri',
       scheduledSms: 'SMS',
       noScheduledItems: 'Niciun element programat',
+      noFilteredItems: 'Niciun element nu corespunde acestui filtru',
       unknownContact: 'Contact necunoscut',
       callbackLabel: 'Reapelare',
       overdueLabel: 'Întârziat',
@@ -42298,6 +42304,7 @@ export const translations: Record<Locale, Translations> = {
       scheduledEmails: 'Email',
       scheduledSms: 'SMS',
       noScheduledItems: 'Nessun elemento programmato',
+      noFilteredItems: 'Nessun elemento corrisponde a questo filtro',
       unknownContact: 'Contatto sconosciuto',
       callbackLabel: 'Richiamata',
       overdueLabel: 'Scaduto',
@@ -48613,6 +48620,7 @@ export const translations: Record<Locale, Translations> = {
       scheduledEmails: 'E-Mails',
       scheduledSms: 'SMS',
       noScheduledItems: 'Keine geplanten Einträge',
+      noFilteredItems: 'Keine Einträge entsprechen diesem Filter',
       unknownContact: 'Unbekannter Kontakt',
       callbackLabel: 'Rückruf',
       overdueLabel: 'Überfällig',
