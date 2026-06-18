@@ -4641,6 +4641,7 @@ function CustomerInfoPanel({
   onEndForwardedCall,
   acwStartedAt,
   onCloseAcwTask,
+  isStatusListMode,
 }: {
   contact: Customer | null;
   contactType?: string;
@@ -4684,6 +4685,7 @@ function CustomerInfoPanel({
   onEndForwardedCall?: () => void;
   acwStartedAt?: number | null;
   onCloseAcwTask?: () => void;
+  isStatusListMode?: boolean;
 }) {
   const { t, locale } = useI18n();
   const callContext = useCall();
@@ -5022,7 +5024,7 @@ function CustomerInfoPanel({
               <Button
                 size="sm"
                 variant="destructive"
-                onClick={() => { onEndCall(); onOpenDispositionFromCall(); }}
+                onClick={() => { onEndCall(); if (!isStatusListMode) onOpenDispositionFromCall(); }}
                 className="gap-1 ml-auto"
                 data-testid="button-card-end-call"
               >
@@ -5036,7 +5038,7 @@ function CustomerInfoPanel({
             <Button
               size="sm"
               variant="destructive"
-              onClick={() => { onEndCall(); onOpenDispositionFromCall(); }}
+              onClick={() => { onEndCall(); if (!isStatusListMode) onOpenDispositionFromCall(); }}
               className="w-full gap-1.5"
               data-testid="button-card-cancel-call"
             >
@@ -5045,7 +5047,7 @@ function CustomerInfoPanel({
             </Button>
           )}
 
-          {callState === "ended" && hungUpBy && (
+          {!isStatusListMode && callState === "ended" && hungUpBy && (
             <div className="space-y-1">
               {(wrapUpElapsed ?? 0) > 0 && (
                 <div
@@ -7754,6 +7756,11 @@ export default function AgentWorkspacePage() {
     return campaigns.find((c) => c.id === selectedCampaignId) || null;
   }, [campaigns, selectedCampaignId]);
 
+  const isStatusListMode = useMemo(() => {
+    try { return selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings).workflowMode === "status_list" : false; }
+    catch { return false; }
+  }, [selectedCampaign?.settings]);
+
   const campaignAutoSettings = useMemo(() => {
     if (!selectedCampaign?.settings) return { autoMode: false, autoDelaySeconds: 5, contactSortField: "createdAt", contactSortOrder: "desc", contactSortRules: [] as any[], assignmentMode: "global", agentContactFilters: [] as any[] };
     try {
@@ -9235,9 +9242,11 @@ export default function AgentWorkspacePage() {
             // If this was a forwarded call the agent was working on, prompt disposition
             if (forwardedCallActiveRef.current?.callId === data.callId) {
               setForwardedCallActive(null);
-              setDispositionChannelFilter("phone");
-              setMandatoryDisposition(true);
-              setDispositionModalOpen(true);
+              if (!isStatusListMode) {
+                setDispositionChannelFilter("phone");
+                setMandatoryDisposition(true);
+                setDispositionModalOpen(true);
+              }
             }
             queryClient.invalidateQueries({ queryKey: ["/api/agent/abandoned-calls"] });
             const reason = data.reason || "caller_hangup";
@@ -10448,7 +10457,7 @@ export default function AgentWorkspacePage() {
                           if (custRes.ok) setCurrentContact(await custRes.json());
                         }
                         // Open disposition only if call already ended; otherwise let the call-end handler do it
-                        if (!["connecting", "ringing", "active", "on_hold"].includes(callContext.callState)) {
+                        if (!isStatusListMode && !["connecting", "ringing", "active", "on_hold"].includes(callContext.callState)) {
                           setDispositionChannelFilter("phone");
                           setMandatoryDisposition(true);
                           setDispositionModalOpen(true);
@@ -10470,7 +10479,7 @@ export default function AgentWorkspacePage() {
                       setCreateFromCallType(null);
                       setPendingUnknownCaller(null);
                       queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] });
-                      if (!["connecting", "ringing", "active", "on_hold"].includes(callContext.callState)) {
+                      if (!isStatusListMode && !["connecting", "ringing", "active", "on_hold"].includes(callContext.callState)) {
                         setDispositionChannelFilter("phone");
                         setMandatoryDisposition(true);
                         setDispositionModalOpen(true);
@@ -10488,7 +10497,7 @@ export default function AgentWorkspacePage() {
                       setCreateFromCallType(null);
                       setPendingUnknownCaller(null);
                       queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
-                      if (!["connecting", "ringing", "active", "on_hold"].includes(callContext.callState)) {
+                      if (!isStatusListMode && !["connecting", "ringing", "active", "on_hold"].includes(callContext.callState)) {
                         setDispositionChannelFilter("phone");
                         setMandatoryDisposition(true);
                         setDispositionModalOpen(true);
@@ -10504,7 +10513,7 @@ export default function AgentWorkspacePage() {
                       setCreateFromCallType(null);
                       setPendingUnknownCaller(null);
                       queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
-                      if (!["connecting", "ringing", "active", "on_hold"].includes(callContext.callState)) {
+                      if (!isStatusListMode && !["connecting", "ringing", "active", "on_hold"].includes(callContext.callState)) {
                         setDispositionChannelFilter("phone");
                         setMandatoryDisposition(true);
                         setDispositionModalOpen(true);
@@ -10650,7 +10659,7 @@ export default function AgentWorkspacePage() {
           ringDuration={ringDuration}
           hungUpBy={callContext.callTiming.hungUpBy}
           onEndCall={() => callContext.endCallFn.current?.()}
-          onOpenDispositionFromCall={() => { setDispositionChannelFilter("phone"); setMandatoryDisposition(true); setDispositionModalOpen(true); }}
+          onOpenDispositionFromCall={() => { if (isStatusListMode) return; setDispositionChannelFilter("phone"); setMandatoryDisposition(true); setDispositionModalOpen(true); }}
           isMuted={callContext.isMuted}
           isOnHold={callContext.isOnHold}
           volume={callContext.volume}
@@ -10674,6 +10683,7 @@ export default function AgentWorkspacePage() {
           onEndForwardedCall={() => { setForwardedCallActive(null); setDispositionChannelFilter("phone"); setMandatoryDisposition(true); setDispositionModalOpen(true); }}
           acwStartedAt={acwStartedAt}
           onCloseAcwTask={handleCloseAcwTask}
+          isStatusListMode={isStatusListMode}
         />
         </div>{/* end center+right relative wrapper */}
       </div>
