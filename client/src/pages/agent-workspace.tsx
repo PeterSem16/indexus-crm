@@ -7464,8 +7464,12 @@ export default function AgentWorkspacePage() {
       }
       callWasActiveRef.current = false;
       const isInboundCall = wasInboundCallRef.current || callContext.callDirection === "inbound";
-      // Inbound: show disposition regardless of contact match; outbound: require campaignContactId
-      if (isInboundCall || (currentContact && currentCampaignContactId)) {
+      const campSettings = (() => { try { return selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {}; } catch { return {}; } })();
+      if (campSettings.workflowMode === "status_list") {
+        // status_list mode: always start ACW immediately for any call (inbound or outbound)
+        setAcwStartedAt(Date.now());
+      } else if (isInboundCall || (currentContact && currentCampaignContactId)) {
+        // Normal mode: open disposition modal
         dispositionContextRef.current = {
           taskId: activeTaskId,
           contactId: currentContact?.id ?? null,
@@ -7481,13 +7485,9 @@ export default function AgentWorkspacePage() {
         setMandatoryDisposition(!isNMInbound);
         // Auto-open disposition based on campaign setting autoOpenDisposition (default true).
         // Opens regardless of who hung up — the agent always needs to record the call outcome.
-        const campSettings = (() => { try { return selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {}; } catch { return {}; } })();
-        const autoOpenDisposition = campSettings.autoOpenDisposition !== false && campSettings.workflowMode !== "status_list";
+        const autoOpenDisposition = campSettings.autoOpenDisposition !== false;
         if (autoOpenDisposition) {
           setDispositionModalOpen(true);
-        }
-        if (campSettings.workflowMode === "status_list") {
-          setAcwStartedAt(Date.now());
         }
       }
       if (pendingCallbackAbandonedIdRef.current) {
