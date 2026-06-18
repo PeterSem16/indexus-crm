@@ -79,6 +79,7 @@ type BOTask = {
   } | null;
   customer?: BOCustomerMini;
   agentAnswered?: boolean;
+  agentAnsweredAt?: string | null;
   creator?: { id: string; fullName: string; avatarUrl?: string | null } | null;
 };
 
@@ -227,12 +228,14 @@ function KanbanCard({ item, onClick }: { item: BOTask; onClick: () => void }) {
   const dueBadge = getDueBadge(task.dueDate, state === "done");
   const sConfig = STATE_CONFIG[state];
   const custName = customerName(item.customer);
+  const isRecentAnswer = !!(item.agentAnswered && item.agentAnsweredAt
+    && (Date.now() - new Date(item.agentAnsweredAt).getTime() < 10 * 60 * 1000));
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`w-full text-left rounded-lg border border-l-4 ${pConfig.border} bg-card ${state === "done" ? "" : pConfig.tint} p-2.5 transition-colors shadow-sm hover-elevate ${sConfig.cardRing} ${state === "done" ? "opacity-60" : ""}`}
+      className={`w-full text-left rounded-lg border border-l-4 p-2.5 transition-colors shadow-sm hover-elevate ${sConfig.cardRing} ${state === "done" ? "opacity-60" : ""} ${isRecentAnswer ? "border-indigo-400 dark:border-indigo-500 border-l-indigo-500 bg-indigo-50 dark:bg-indigo-950/30 animate-bo-answer-glow" : `${pConfig.border} bg-card ${state === "done" ? "" : pConfig.tint}`}`}
       data-testid={`bo-card-${task.id}`}
     >
       <div className="flex items-start gap-2">
@@ -671,6 +674,7 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
   const fxTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (fxTimer.current) clearTimeout(fxTimer.current); }, []);
   const [confirmNote, setConfirmNote] = useState("");
+  const [notifyAgent, setNotifyAgent] = useState(true);
   const [detailEntity, setDetailEntity] = useState<EntityRef | null>(null);
   const [recap, setRecap] = useState<{ createdAt: string; dueDate: string | null; completedAt: string } | null>(null);
 
@@ -714,6 +718,7 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
     mutationFn: () => apiRequest("POST", `/api/back-office/tasks/${taskId}/confirm`, {
       note: confirmNote || null,
       statusListItemId: thread?.task.relatedEntityId || null,
+      notifyAgent,
     }).then(r => r.json()),
     onSuccess: (data: any) => {
       invalidate();
@@ -1031,6 +1036,21 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                       onChange={e => setConfirmNote(e.target.value)}
                       data-testid="textarea-bo-confirm-note"
                     />
+                    <div
+                      className="flex items-center gap-2 px-1 cursor-pointer select-none"
+                      onClick={() => setNotifyAgent(v => !v)}
+                      data-testid="bo-notify-agent-toggle"
+                    >
+                      <Checkbox
+                        checked={notifyAgent}
+                        onCheckedChange={v => setNotifyAgent(!!v)}
+                        id="bo-notify-agent"
+                        data-testid="checkbox-bo-notify-agent"
+                      />
+                      <label htmlFor="bo-notify-agent" className="text-xs text-muted-foreground cursor-pointer">
+                        Upozorniť agenta o uzavretí
+                      </label>
+                    </div>
                     <Button
                       className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
                       onClick={() => confirmMutation.mutate()}
@@ -1414,6 +1434,8 @@ export function BackOfficePanel({ country, fullScreen, hasInboundQueues, allowIn
   const { t } = useI18n();
   const [boSoundMuted, setBoSoundMuted] = useBackOfficeSoundMuted();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<"dueDate" | "agent">("dueDate");
+  const [sortAsc, setSortAsc] = useState(true);
 
   const { data: rawTasks = [], isLoading } = useQuery<BOTask[]>({
     queryKey: ["/api/back-office/tasks", country],
@@ -1421,10 +1443,17 @@ export function BackOfficePanel({ country, fullScreen, hasInboundQueues, allowIn
     refetchInterval: 15000,
   });
 
-  const grouped: Record<BOState, BOTask[]> = { received: [], in_progress: [], waiting_agent: [], done: [] };
-  for (const item of rawTasks) grouped[effectiveState(item)].push(item);
+  const sortedTasks = sortBy === "agent" ? [...rawTasks].sort((a, b) => {
+    const nameA = (a.creator?.fullName || "").toLowerCase();
+    const nameB = (b.creator?.fullName || "").toLowerCase();
+    const cmp = nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+    return sortAsc ? cmp : -cmp;
+  }) : rawTasks;
 
-  const urgentCount = rawTasks.filter(i => i.task.priority === "urgent" && effectiveState(i) !== "done").length;
+  const grouped: Record<BOState, BOTask[]> = { received: [], in_progress: [], waiting_agent: [], done: [] };
+  for (const item of sortedTasks) grouped[effectiveState(item)].push(item);
+
+  const urgentCount = sortedTasks.filter(i => i.task.priority === "urgent" && effectiveState(i) !== "done").length;
   const waitingCount = grouped.waiting_agent.length;
 
   return (
@@ -1442,6 +1471,27 @@ export function BackOfficePanel({ country, fullScreen, hasInboundQueues, allowIn
             <HelpCircle className="h-3 w-3" /> {waitingCount} {t.backOffice.waitingLabel}
           </span>
         )}
+        <div className="flex items-center rounded-md border border-border overflow-hidden shrink-0" data-testid="bo-sort-controls">
+          <button
+            type="button"
+            onClick={() => setSortBy(s => s === "dueDate" ? "agent" : "dueDate")}
+            className={`flex items-center gap-1 px-1.5 py-1 text-[10px] transition-colors ${sortBy === "agent" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/60"}`}
+            title={sortBy === "dueDate" ? "Kliknúť: radiť podľa agenta" : "Kliknúť: radiť podľa dátumu"}
+            data-testid="btn-bo-sort-field"
+          >
+            {sortBy === "agent" ? <User className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+          </button>
+          {sortBy === "agent" && (
+            <button
+              type="button"
+              onClick={() => setSortAsc(a => !a)}
+              className="px-1.5 py-1 text-[10px] text-primary border-l border-border hover:bg-muted/60 transition-colors"
+              data-testid="btn-bo-sort-dir"
+            >
+              {sortAsc ? "↑ A→Z" : "↓ Z→A"}
+            </button>
+          )}
+        </div>
         <div className="ml-auto flex items-center gap-2">
           <button
             type="button"

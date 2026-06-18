@@ -171,6 +171,14 @@ export function useNotifications() {
                     description: (notif.metadata?.taskTitle || notif.title || "").slice(0, 120) || undefined,
                   });
                 }
+                // Back Office resolved the agent's task — show a beautiful notification and
+                // dispatch a window event so BackOfficeQuestionsInbox can render a resolved card.
+                if (notif?.type === "back_office_resolved") {
+                  queryClient.invalidateQueries({ queryKey: ["/api/agent/bo-questions"] });
+                  try {
+                    window.dispatchEvent(new CustomEvent("indexus:bo-resolved", { detail: notif }));
+                  } catch {}
+                }
                 break;
               }
               case "unreadCount":

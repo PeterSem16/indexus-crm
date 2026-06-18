@@ -7,12 +7,55 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/i18n";
-import { HelpCircle, Loader2, CornerDownLeft, ChevronDown, ChevronUp, ChevronRight, Send, User, ExternalLink, Phone, Mail, MapPin, Building2, Clock, MessageSquare, Zap, Stethoscope, AlertTriangle } from "lucide-react";
+import { HelpCircle, Loader2, CornerDownLeft, ChevronDown, ChevronUp, ChevronRight, Send, User, ExternalLink, Phone, Mail, MapPin, Building2, Clock, MessageSquare, Zap, Stethoscope, AlertTriangle, CheckCircle2, X } from "lucide-react";
 import { format } from "date-fns";
 import { Timeline, BoAttachmentComposer, type ThreadData, type ThreadComment, type BoAttachment } from "./back-office-panel";
 import { SendProcessingOverlay } from "./send-processing-animation";
 import { EntityDetailDrawer, type EntityRef } from "./entity-detail-drawer";
 import { UserAvatar } from "./user-avatar";
+
+type ResolvedItem = {
+  id: string;
+  taskTitle: string;
+  resolution: string | null;
+  at: number;
+};
+
+function ResolvedCard({ item, onDismiss }: { item: ResolvedItem; onDismiss: () => void }) {
+  return (
+    <div
+      className="relative rounded-lg border-2 border-emerald-400 dark:border-emerald-600 bg-gradient-to-br from-emerald-50 via-teal-50 to-emerald-100 dark:from-emerald-950/50 dark:via-teal-950/30 dark:to-emerald-950/40 p-3 overflow-hidden animate-bo-resolved-in animate-bo-resolved-shimmer"
+      data-testid={`bo-resolved-card-${item.id}`}
+    >
+      <div className="absolute -top-3 -right-3 w-16 h-16 rounded-full bg-emerald-300/30 dark:bg-emerald-600/20 blur-xl pointer-events-none" />
+      <div className="absolute -bottom-2 -left-2 w-12 h-12 rounded-full bg-teal-300/30 dark:bg-teal-600/20 blur-lg pointer-events-none" />
+      <div className="relative flex items-start gap-2.5">
+        <div className="flex items-center justify-center w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-900/70 border-2 border-emerald-400 dark:border-emerald-600 shrink-0">
+          <CheckCircle2 className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" style={{ width: 18, height: 18 }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[9px] font-black text-emerald-700 dark:text-emerald-300 uppercase tracking-widest mb-0.5">
+            ✅ Back Office vyriešil
+          </div>
+          <div className="text-xs font-semibold text-foreground leading-snug">{item.taskTitle}</div>
+          {item.resolution && (
+            <p className="text-[11px] text-emerald-700 dark:text-emerald-300 mt-1 leading-relaxed line-clamp-2 italic">
+              „{item.resolution}"
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="shrink-0 text-muted-foreground hover:text-foreground transition-colors mt-0.5"
+          data-testid={`btn-dismiss-bo-resolved-${item.id}`}
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 type BOQuestion = {
   task: ThreadData["task"];
@@ -340,6 +383,7 @@ export function BackOfficeQuestionsInbox() {
   const { t } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
+  const [resolvedItems, setResolvedItems] = useState<ResolvedItem[]>([]);
 
   const { data: questions = [] } = useQuery<BOQuestion[]>({
     queryKey: ["/api/agent/bo-questions"],
@@ -347,7 +391,35 @@ export function BackOfficeQuestionsInbox() {
     refetchInterval: 20000,
   });
 
-  if (questions.length === 0) return null;
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const notif = (e as CustomEvent).detail;
+      if (!notif) return;
+      setResolvedItems(prev => {
+        const id = notif.id || String(Date.now());
+        if (prev.some(r => r.id === id)) return prev;
+        return [...prev, {
+          id,
+          taskTitle: notif.metadata?.taskTitle || notif.title || "Úloha",
+          resolution: notif.metadata?.resolution || null,
+          at: Date.now(),
+        }];
+      });
+    };
+    window.addEventListener("indexus:bo-resolved", handler);
+    return () => window.removeEventListener("indexus:bo-resolved", handler);
+  }, []);
+
+  useEffect(() => {
+    if (resolvedItems.length === 0) return;
+    const id = setInterval(() => {
+      const cutoff = Date.now() - 120_000;
+      setResolvedItems(prev => prev.filter(r => r.at > cutoff));
+    }, 10_000);
+    return () => clearInterval(id);
+  }, [resolvedItems.length]);
+
+  if (questions.length === 0 && resolvedItems.length === 0) return null;
 
   const hasUrgent = questions.some(q => !!q.question?.highPriority);
   const activeItem = openTaskId ? questions.find(q => q.task.id === openTaskId) || null : null;
@@ -367,6 +439,13 @@ export function BackOfficeQuestionsInbox() {
       </button>
       {!collapsed && (
         <div className="px-2 pb-2 space-y-2 max-h-[40vh] overflow-y-auto">
+          {resolvedItems.map(item => (
+            <ResolvedCard
+              key={item.id}
+              item={item}
+              onDismiss={() => setResolvedItems(prev => prev.filter(r => r.id !== item.id))}
+            />
+          ))}
           {questions.map(item => (
             <QuestionTile key={item.task.id} item={item} onClick={() => setOpenTaskId(item.task.id)} />
           ))}

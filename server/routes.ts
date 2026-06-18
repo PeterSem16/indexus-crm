@@ -28113,14 +28113,18 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       // (or done state) supersedes it and the badge clears — no read-state tracking needed.
       const visibleIds = deduped.map(r => r.task.id);
       const answeredSet = new Set<string>();
+      const answeredAtMap = new Map<string, string>();
       if (visibleIds.length) {
         const latest: any = await db.execute(sql`
-          SELECT DISTINCT ON (task_id) task_id, kind
+          SELECT DISTINCT ON (task_id) task_id, kind, created_at
           FROM task_comments
           WHERE task_id IN (${sql.join(visibleIds.map(id => sql`${id}`), sql`, `)})
           ORDER BY task_id, created_at DESC`);
         for (const row of latest?.rows ?? []) {
-          if (row.kind === "answer") answeredSet.add(row.task_id);
+          if (row.kind === "answer") {
+            answeredSet.add(row.task_id);
+            answeredAtMap.set(row.task_id, row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at));
+          }
         }
       }
       // Batch-load creator info (originating agent) so kanban cards can show
@@ -28138,6 +28142,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           && r.task.status !== "completed"
           && r.task.boState !== "done"
           && !r.confirmation,
+        agentAnsweredAt: (answeredSet.has(r.task.id) && r.task.status !== "completed" && r.task.boState !== "done" && !r.confirmation)
+          ? (answeredAtMap.get(r.task.id) || null)
+          : null,
         creator: r.task.createdByUserId ? (creatorMap.get(r.task.createdByUserId) || null) : null,
       }));
 
@@ -28388,7 +28395,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     try {
       const { taskId } = req.params;
       const userId = req.session.user!.id;
-      const { note, statusListItemId, campaignContactId } = req.body;
+      const { note, statusListItemId, campaignContactId, notifyAgent } = req.body;
       const task = await getBackOfficeTask(taskId);
       if (!task) return res.status(404).json({ error: "Task not found" });
       if (!canAccessBoTask(req, task)) return res.status(403).json({ error: "Access denied" });
@@ -28435,6 +28442,21 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         }
         return conf;
       });
+      // Notify originating agent that BO resolved their task.
+      if (notifyAgent && task.createdByUserId) {
+        try {
+          await notificationService.sendNotificationToUsers([task.createdByUserId], {
+            type: "back_office_resolved",
+            title: task.title,
+            message: note || "Úloha bola vyriešená Back Office tímom",
+            priority: "high",
+            metadata: { taskId, taskTitle: task.title, resolution: note || null },
+          });
+        } catch (e) {
+          console.warn("[BO] Failed to send resolution notification to agent:", e);
+        }
+      }
+
       res.json(confirmation);
     } catch (error) {
       console.error("Failed to confirm BO task:", error);
