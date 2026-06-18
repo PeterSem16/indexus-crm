@@ -2367,6 +2367,12 @@ function StatusListItemRow({
     onError: () => toast({ title: sl("saveErr", locale), variant: "destructive" }),
   });
 
+  const quickHideMutation = useMutation({
+    mutationFn: () => apiRequest("PUT", `/api/campaigns/${campaignId}/status-list/${item.id}`, { isHidden: !item.isHidden }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] }),
+    onError: () => toast({ title: sl("saveErr", locale), variant: "destructive" }),
+  });
+
   const deleteMutation = useMutation({
     mutationFn: () => apiRequest("DELETE", `/api/campaigns/${campaignId}/status-list/${item.id}`),
     onSuccess: () => {
@@ -2444,6 +2450,17 @@ function StatusListItemRow({
               {item.questions.length}
             </span>
           )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={`h-6 w-6 p-0 transition-opacity ${item.isHidden ? "opacity-100 text-muted-foreground" : "opacity-0 group-hover:opacity-100"}`}
+            onClick={() => quickHideMutation.mutate()}
+            title={item.isHidden ? "Zobraziť pre agenta" : "Skryť pre agenta"}
+            data-testid={`btn-toggle-hide-${item.id}`}
+          >
+            {quickHideMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : item.isHidden ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+          </Button>
           <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100" onClick={() => { setEditMode(e => !e); setExpanded(true); }}>
             <PenLine className="h-3 w-3" />
           </Button>

@@ -4069,6 +4069,21 @@ function CommunicationCanvas({
                         {item.required && <span className="ml-1 text-rose-500 text-[10px]">*</span>}
                       </div>
                       {item.description && <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>}
+                      {(item.questions || []).filter((q: any) => !q.isHidden).length > 0 && (
+                        <div className="mt-1.5 flex flex-wrap gap-1" data-testid={`sl-questions-${item.id}`}>
+                          {(item.questions as any[]).filter((q: any) => !q.isHidden).map((q: any) => (
+                            <span
+                              key={q.id}
+                              className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border bg-muted/40 text-muted-foreground leading-none"
+                              data-testid={`sl-question-chip-${q.id}`}
+                            >
+                              {q.groupName ? (
+                                <><span className="font-semibold">{q.groupName}</span></>
+                              ) : q.questionText}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       {(() => {
                         const itemState = (dbSlState as any[]).find((s: any) => String(s.statusListItemId) === String(item.id));
                         if (!itemState?.confirmedAt) return null;
