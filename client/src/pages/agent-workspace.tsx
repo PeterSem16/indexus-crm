@@ -4641,6 +4641,7 @@ function CustomerInfoPanel({
   onEndForwardedCall,
   acwStartedAt,
   onCloseAcwTask,
+  onCloseCallAfterStatusList,
   isStatusListMode,
 }: {
   contact: Customer | null;
@@ -4685,6 +4686,7 @@ function CustomerInfoPanel({
   onEndForwardedCall?: () => void;
   acwStartedAt?: number | null;
   onCloseAcwTask?: () => void;
+  onCloseCallAfterStatusList?: () => void;
   isStatusListMode?: boolean;
 }) {
   const { t, locale } = useI18n();
@@ -5080,6 +5082,33 @@ function CustomerInfoPanel({
               >
                 <FileText className="h-3.5 w-3.5 shrink-0" />
                 {t.agentWorkspace.enterDisposition}
+              </Button>
+            </div>
+          )}
+
+          {isStatusListMode && callState === "ended" && hungUpBy && (
+            <div className="space-y-1.5" data-testid="status-list-call-ended-section">
+              <div className="flex items-center justify-center gap-1.5 text-[11px] text-stone-500 dark:text-stone-400">
+                <PhoneOff className="h-3 w-3 shrink-0" />
+                <span>
+                  {hungUpBy === "customer"
+                    ? (t.callBar.customerHungUp || "Zákazník položil")
+                    : (t.callBar.callEnded || "Hovor ukončený")}
+                </span>
+                {(wrapUpElapsed ?? 0) > 0 && (
+                  <span className="font-mono ml-1" data-testid="text-status-list-wrapup-elapsed">
+                    {String(Math.floor((wrapUpElapsed ?? 0) / 60)).padStart(2, "0")}:{String((wrapUpElapsed ?? 0) % 60).padStart(2, "0")}
+                  </span>
+                )}
+              </div>
+              <Button
+                size="sm"
+                onClick={onCloseCallAfterStatusList}
+                className="w-full gap-1.5 bg-stone-700 hover:bg-stone-600 text-white"
+                data-testid="button-close-status-list-call"
+              >
+                <PhoneOff className="h-3.5 w-3.5 shrink-0" />
+                {t.agentWorkspace.acwCloseTask || "Zatvoriť"}
               </Button>
             </div>
           )}
@@ -8256,6 +8285,12 @@ export default function AgentWorkspacePage() {
     }
   };
 
+  const handleCloseCallAfterStatusList = useCallback(() => {
+    callContext.resetCallTiming();
+    setCallEndTimestamp(null);
+    setMandatoryDisposition(false);
+  }, [callContext]);
+
   const handleCloseAcwTask = useCallback(async () => {
     const acwSeconds = acwStartedAt ? Math.round((Date.now() - acwStartedAt) / 1000) : null;
     setAcwStartedAt(null);
@@ -10683,6 +10718,7 @@ export default function AgentWorkspacePage() {
           onEndForwardedCall={() => { setForwardedCallActive(null); setDispositionChannelFilter("phone"); setMandatoryDisposition(true); setDispositionModalOpen(true); }}
           acwStartedAt={acwStartedAt}
           onCloseAcwTask={handleCloseAcwTask}
+          onCloseCallAfterStatusList={handleCloseCallAfterStatusList}
           isStatusListMode={isStatusListMode}
         />
         </div>{/* end center+right relative wrapper */}
