@@ -18,7 +18,7 @@ import {
   MessageSquare, Activity, Send, Hand, User, Phone, Mail,
   MapPin, ExternalLink, Stethoscope, Paperclip, Download,
   Trophy, PartyPopper, Sparkles, X, CalendarClock, Hourglass, Forward,
-  Bell, BellOff, CornerDownLeft,
+  Bell, BellOff, CornerDownLeft, ListChecks,
 } from "lucide-react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { format, isToday, isTomorrow, isPast, formatDistanceToNow } from "date-fns";
@@ -79,6 +79,7 @@ type BOTask = {
   } | null;
   customer?: BOCustomerMini;
   agentAnswered?: boolean;
+  creator?: { id: string; fullName: string; avatarUrl?: string | null } | null;
 };
 
 export type ThreadComment = {
@@ -272,9 +273,17 @@ function KanbanCard({ item, onClick }: { item: BOTask; onClick: () => void }) {
               <span className="text-[10px] text-muted-foreground">{format(new Date(task.dueDate), "d.M. HH:mm")}</span>
             )}
             {task.tags?.includes("status_list") && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">SL</span>
+              <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
+                <ListChecks className="h-2.5 w-2.5" /> Status list
+              </span>
             )}
           </div>
+          {item.creator && (
+            <div className="flex items-center gap-1.5 mt-2 pt-1.5 border-t border-border/50" data-testid={`bo-card-creator-${task.id}`}>
+              <UserAvatar name={item.creator.fullName} avatarUrl={item.creator.avatarUrl ?? undefined} className="h-4 w-4" />
+              <span className="text-[10px] text-muted-foreground truncate">{item.creator.fullName}</span>
+            </div>
+          )}
         </div>
       </div>
     </button>
@@ -801,6 +810,13 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                 </span>
               )}
             </div>
+            {thread?.creator && (
+              <div className="flex items-center gap-2 mt-3 pt-2.5 border-t border-border/40" data-testid="bo-detail-creator">
+                <span className="text-[11px] text-muted-foreground shrink-0">Odoslal:</span>
+                <UserAvatar name={thread.creator.fullName} avatarUrl={thread.creator.avatarUrl ?? undefined} className="h-5 w-5" />
+                <span className="text-[11px] font-medium truncate">{thread.creator.fullName}</span>
+              </div>
+            )}
           </div>
 
           <ScrollArea className="flex-1 min-h-0">

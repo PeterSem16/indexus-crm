@@ -28123,12 +28123,22 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           if (row.kind === "answer") answeredSet.add(row.task_id);
         }
       }
+      // Batch-load creator info (originating agent) so kanban cards can show
+      // who sent the task from the status list.
+      const creatorIds = Array.from(new Set(deduped.map(r => r.task.createdByUserId).filter(Boolean))) as string[];
+      const creatorList = creatorIds.length
+        ? await db.select({ id: users.id, fullName: users.fullName, avatarUrl: users.avatarUrl })
+            .from(users).where(inArray(users.id, creatorIds))
+        : [];
+      const creatorMap = new Map(creatorList.map(c => [c.id, c]));
+
       const withFlags = deduped.map(r => ({
         ...r,
         agentAnswered: answeredSet.has(r.task.id)
           && r.task.status !== "completed"
           && r.task.boState !== "done"
           && !r.confirmation,
+        creator: r.task.createdByUserId ? (creatorMap.get(r.task.createdByUserId) || null) : null,
       }));
 
       res.json(withFlags);

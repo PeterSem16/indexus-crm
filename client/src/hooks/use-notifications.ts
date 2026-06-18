@@ -161,6 +161,16 @@ export function useNotifications() {
                   queryClient.invalidateQueries({ queryKey: ["/api/back-office/tasks"] });
                   queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
                 }
+                // Back Office sent a question to the originating agent — refresh the agent
+                // questions inbox immediately regardless of whether the agent has BO access.
+                if (notif?.type === "back_office_question") {
+                  queryClient.invalidateQueries({ queryKey: ["/api/agent/bo-questions"] });
+                  const tt = tRef.current;
+                  toastRef.current({
+                    title: tt.backOffice?.questionToastTitle || "Back Office sa pýta",
+                    description: (notif.metadata?.taskTitle || notif.title || "").slice(0, 120) || undefined,
+                  });
+                }
                 break;
               }
               case "unreadCount":
