@@ -24,3 +24,4 @@
 - [Prod deploy skips npm install](prod-deploy-no-npm-install.md) — prod deploy is git pull+build+pm2 restart with NO npm install; new npm deps break the build — prefer Node built-ins (used zlib over the compression pkg).
 - [Callback wall-clock timezone](callback-timezone.md) — prod server is UTC; build/parse callback instants in app timezone (Europe/Bratislava), never the server clock, or 9:00 shows as 11:00 in the browser.
 - [Status List Options pattern](status-list-options.md) — options are campaign_status_list_items with itemType='option'; color stored in color col; automations via same infrastructure; options panel in CustomerInfoPanel above tabs; closes contact when set_contact_status returns no callbackDate.
+- [Status-list ccId null outbound](status-list-ccid-outbound.md) — effectiveCampaignContactId must try all 4 CC fields as fallback when contactType is wrong; add red PhoneOff button to compact header for active/connecting calls.
