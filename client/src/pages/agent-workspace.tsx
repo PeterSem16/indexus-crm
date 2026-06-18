@@ -2464,7 +2464,10 @@ function CommunicationCanvas({
 
   const [slRunningOption, setSlRunningOption] = useState<string | null>(null);
   const handleSlOptionSelect = useCallback(async (option: any) => {
-    if (!campaign?.id || !campaignContactId) return;
+    if (!campaign?.id || !campaignContactId) {
+      toast({ title: "Kontakt nie je prepojený s kampaňou", description: `campaign=${campaign?.id ?? "null"} ccId=${campaignContactId ?? "null"}`, variant: "destructive" });
+      return;
+    }
     setSlRunningOption(option.id);
     let isDefinitive = false;
     try {
@@ -2524,12 +2527,15 @@ function CommunicationCanvas({
         return next;
       });
     }
-  }, [campaign?.id, campaignContactId, contactCountry]);
+  }, [campaign?.id, campaignContactId, contactCountry, toast]);
 
   // Manual ("run now") trigger for a single configured status-list automation.
   const [slRunningAuto, setSlRunningAuto] = useState<Set<string>>(new Set());
   const handleSlRunAction = useCallback(async (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => {
-    if (!campaign?.id || !campaignContactId) return;
+    if (!campaign?.id || !campaignContactId) {
+      toast({ title: "Kontakt nie je prepojený s kampaňou", description: `campaign=${campaign?.id ?? "null"} ccId=${campaignContactId ?? "null"}`, variant: "destructive" });
+      return;
+    }
     const autoId = String(automation.id);
     setSlRunningAuto(prev => new Set(prev).add(autoId));
     try {
@@ -7841,10 +7847,11 @@ export default function AgentWorkspacePage() {
     if (currentCampaignContactId) return currentCampaignContactId;
     if (!currentContact?.id || !selectedCampaignId) return null;
     const matched = rawCampaignContacts.find((cc: any) => {
-      if (currentContactType === "hospital") return cc.hospitalId === currentContact.id;
-      if (currentContactType === "clinic") return cc.clinicId === currentContact.id;
-      if (currentContactType === "collaborator") return cc.collaboratorId === currentContact.id;
-      return cc.customerId === currentContact.id;
+      // Use string comparison to handle potential number/string type mismatch from JSON
+      if (currentContactType === "hospital") return String(cc.hospitalId) === String(currentContact.id);
+      if (currentContactType === "clinic") return String(cc.clinicId) === String(currentContact.id);
+      if (currentContactType === "collaborator") return String(cc.collaboratorId) === String(currentContact.id);
+      return String(cc.customerId) === String(currentContact.id);
     });
     return matched?.id || null;
   }, [currentCampaignContactId, currentContact?.id, currentContactType, rawCampaignContacts, selectedCampaignId]);
@@ -8409,10 +8416,13 @@ export default function AgentWorkspacePage() {
   }, [callContext, callEndTimestamp, currentCampaignContactId, selectedCampaignId, activeTaskId, isAutoMode, campaignAutoSettings, agentSession]);
 
   const handleCloseAcwTask = useCallback(async () => {
-    // If the call is still in "ended" state (preventAutoReset=true blocked the idle timer),
-    // force-reset the SIP state back to idle before clearing the card.
-    if (callContext.callState === "ended" || callContext.callState === "ringing" || callContext.callState === "connecting") {
-      callContext.forceResetCallFn.current?.();
+    // If the call is still in a non-idle state (preventAutoReset=true blocked the idle timer),
+    // reset the SIP context directly — calling forceResetCallFn on an already-terminated
+    // session triggers a second SessionState.Terminated event which briefly shows "Ukončiť hovor".
+    if (["ended", "ringing", "connecting"].includes(callContext.callState)) {
+      callContext.setCallState("idle");
+      callContext.setCallInfo(null);
+      callContext.resetCallTiming();
     }
     const acwSeconds = acwStartedAt ? Math.round((Date.now() - acwStartedAt) / 1000) : null;
     setAcwStartedAt(null);
@@ -8440,7 +8450,7 @@ export default function AgentWorkspacePage() {
         if (isAuto) handleNextContact(true);
       } catch {}
     }, wrapUpDelay);
-  }, [acwStartedAt, currentCampaignContactId, selectedCampaignId, activeTaskId, isAutoMode, campaignAutoSettings]);
+  }, [callContext, acwStartedAt, currentCampaignContactId, selectedCampaignId, activeTaskId, isAutoMode, campaignAutoSettings, agentSession]);
 
   const sendEmailMutation = useMutation({
     mutationFn: async (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; customerId?: string; contactType?: string; compositionDurationSeconds?: number | null }) => {

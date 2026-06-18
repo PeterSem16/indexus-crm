@@ -1615,7 +1615,7 @@ export function SipPhone({
       try {
         if (sessionRef.current.state === SessionState.Established) {
           sessionRef.current.bye();
-        } else {
+        } else if (sessionRef.current.state !== SessionState.Terminated) {
           (sessionRef.current as Inviter).cancel?.();
         }
       } catch (e) {
