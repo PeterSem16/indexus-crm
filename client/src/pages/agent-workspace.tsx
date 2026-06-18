@@ -3968,7 +3968,7 @@ function CommunicationCanvas({
 
       {activeChannel === "checklist" && (() => {
         if (dbStatusList.length > 0) {
-          const dbVisibleItems = (dbStatusList as any[]).filter((i: any) => !i.isHidden);
+          const dbVisibleItems = (dbStatusList as any[]).filter((i: any) => !i.isHidden && i.itemType !== "option");
           const dbConfirmed = dbVisibleItems.filter((i: any) => dbSlChecked.has(String(i.id))).length;
           const dbTotal = dbVisibleItems.length;
           const dbRequiredMissing = dbVisibleItems.filter((i: any) => i.required && !dbSlChecked.has(String(i.id)));
@@ -4886,7 +4886,7 @@ function CustomerInfoPanel({
         </div>
       </div>
 
-      {acwStartedAt && !hasCall && (
+      {acwStartedAt && !["active", "ringing", "connecting", "on_hold"].includes(callState) && (
         <div className="border-b px-3 py-2 bg-amber-50 dark:bg-amber-950/30" data-testid="acw-banner">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
@@ -8409,6 +8409,11 @@ export default function AgentWorkspacePage() {
   }, [callContext, callEndTimestamp, currentCampaignContactId, selectedCampaignId, activeTaskId, isAutoMode, campaignAutoSettings, agentSession]);
 
   const handleCloseAcwTask = useCallback(async () => {
+    // If the call is still in "ended" state (preventAutoReset=true blocked the idle timer),
+    // force-reset the SIP state back to idle before clearing the card.
+    if (callContext.callState === "ended" || callContext.callState === "ringing" || callContext.callState === "connecting") {
+      callContext.forceResetCallFn.current?.();
+    }
     const acwSeconds = acwStartedAt ? Math.round((Date.now() - acwStartedAt) / 1000) : null;
     setAcwStartedAt(null);
     if (currentCampaignContactId && selectedCampaignId && acwSeconds !== null) {
