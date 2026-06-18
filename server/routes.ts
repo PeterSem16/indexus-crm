@@ -972,15 +972,17 @@ async function runStatusListSetStatus(automation: any, ctx: StatusListActionCtx,
 
 // Schedule a callback so the contact re-appears in the agent queue on that date.
 // Uses an explicit override date when supplied (manual picker), else the configured offset.
-async function runStatusListSetCallback(automation: any, ctx: StatusListActionCtx, overrideCallbackDate?: string | null): Promise<{ ok: boolean; callbackDate: string }> {
+async function runStatusListSetCallback(automation: any, ctx: StatusListActionCtx, overrideCallbackDate?: string | null, callbackNote?: string | null): Promise<{ ok: boolean; callbackDate: string }> {
   // Trust an explicit ISO instant from the client; interpret a naive wall-clock
   // string in the app timezone (never the UTC server clock).
   let cb: Date | null = overrideCallbackDate ? parseCallbackDateInput(overrideCallbackDate) : null;
   if (!cb) {
     cb = computeStatusListCallbackDate(automation.callbackOffsetDays ?? 1, automation.callbackTime);
   }
+  const setFields: Record<string, any> = { callbackDate: cb, status: "callback_scheduled", callbackStatusListItemId: ctx.itemId ?? null, updatedAt: new Date() };
+  if (callbackNote !== undefined && callbackNote !== null && callbackNote.trim() !== "") setFields.callbackNote = callbackNote.trim();
   await db.update(campaignContacts)
-    .set({ callbackDate: cb, status: "callback_scheduled", callbackStatusListItemId: ctx.itemId ?? null, updatedAt: new Date() })
+    .set(setFields)
     .where(eq(campaignContacts.id, ctx.campaignContactId));
   console.log(`[status-list:set_callback] callbackDate=${cb.toISOString()} contact=${ctx.campaignContactId}`);
   try {
@@ -28882,7 +28884,20 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const rows = await db.select()
         .from(campaignContactStatusListState)
         .where(eq(campaignContactStatusListState.campaignContactId, campaignContactId));
-      res.json(rows);
+
+      const userIds = [...new Set(rows.map((r: any) => r.confirmedByUserId).filter(Boolean))] as string[];
+      const usersList = userIds.length > 0
+        ? await db.select({ id: users.id, fullName: users.fullName, avatarUrl: users.avatarUrl }).from(users).where(inArray(users.id, userIds))
+        : [];
+      const userMap: Record<string, { fullName: string | null; avatarUrl: string | null }> = {};
+      for (const u of usersList) userMap[u.id] = { fullName: u.fullName, avatarUrl: u.avatarUrl ?? null };
+
+      const enriched = rows.map((r: any) => ({
+        ...r,
+        confirmedByName: r.confirmedByUserId ? (userMap[r.confirmedByUserId]?.fullName ?? null) : null,
+        confirmedByAvatar: r.confirmedByUserId ? (userMap[r.confirmedByUserId]?.avatarUrl ?? null) : null,
+      }));
+      res.json(enriched);
     } catch (error) {
       console.error("Failed to fetch status list state:", error);
       res.status(500).json({ error: "Failed to fetch status list state" });
@@ -29383,7 +29398,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     try {
       const { campaignId, campaignContactId, automationId } = req.params;
       const userId = req.session.user!.id;
-      const { callbackDate } = req.body as { callbackDate?: string | null };
+      const { callbackDate, callbackNote } = req.body as { callbackDate?: string | null; callbackNote?: string | null };
 
       // Validate the contact belongs to the campaign
       const [ccRow] = await db.select().from(campaignContacts)
@@ -29431,7 +29446,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         const r = await runStatusListSetStatus(automation, ctx, callbackDate ?? null);
         return res.json({ ok: r.ok, actionType: automation.actionType, callbackDate: r.callbackDate ?? null });
       } else if (automation.actionType === "set_callback") {
-        const r = await runStatusListSetCallback(automation, ctx, callbackDate ?? null);
+        const r = await runStatusListSetCallback(automation, ctx, callbackDate ?? null, callbackNote ?? null);
         return res.json({ ok: r.ok, actionType: automation.actionType, callbackDate: r.callbackDate });
       }
       return res.status(400).json({ error: `Action type not supported for manual run: ${automation.actionType}` });

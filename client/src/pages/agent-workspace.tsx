@@ -195,6 +195,9 @@ const SL_ACTION_T: Record<string, Record<string, string>> = {
   runStatus:     { sk: "Nastaviť status", en: "Set status", cs: "Nastavit stav", hu: "Státusz beállítása", ro: "Setează status", it: "Imposta stato", de: "Status setzen" },
   runCallback:   { sk: "Naplánovať callback", en: "Schedule callback", cs: "Naplánovat callback", hu: "Visszahívás ütemezése", ro: "Programează callback", it: "Pianifica richiamo", de: "Rückruf planen" },
   cbConfirm:     { sk: "Naplánovať", en: "Schedule", cs: "Naplánovat", hu: "Ütemezés", ro: "Programează", it: "Pianifica", de: "Planen" },
+  cbNoteLabel:   { sk: "Poznámka k preplánovanému hovoru", en: "Callback note", cs: "Poznámka k přeplánování", hu: "Visszahívás megjegyzése", ro: "Notă callback", it: "Nota richiamo", de: "Rückruf-Notiz" },
+  cbNotePh:      { sk: "Dôvod preplánov., čo povedal zákazník...", en: "Reason, what customer said...", cs: "Důvod přeplánování...", hu: "Visszahívás oka...", ro: "Motiv reprogramare...", it: "Motivo ripianificazione...", de: "Grund für Umplanung..." },
+  forEveryone:   { sk: "pre všetkých agentov", en: "for all agents", cs: "pro všechny agenty", hu: "minden ügynöknek", ro: "pentru toți agenții", it: "per tutti gli agenti", de: "für alle Agenten" },
   emailSent:     { sk: "E-mail odoslaný", en: "Email sent", cs: "E-mail odeslán", hu: "E-mail elküldve", ro: "Email trimis", it: "Email inviata", de: "E-Mail gesendet" },
   emailFailed:   { sk: "E-mail sa nepodarilo odoslať", en: "Email could not be sent", cs: "E-mail se nepodařilo odeslat", hu: "Az e-mailt nem sikerült elküldeni", ro: "E-mailul nu a putut fi trimis", it: "Impossibile inviare l'email", de: "E-Mail konnte nicht gesendet werden" },
   statusSet:     { sk: "Status nastavený", en: "Status set", cs: "Stav nastaven", hu: "Státusz beállítva", ro: "Status setat", it: "Stato impostato", de: "Status gesetzt" },
@@ -227,7 +230,7 @@ function slPrefillDt(automation: any): string {
 // Only appear for items that have a configured send_email_group / set_contact_status / set_callback automation.
 function SlActionButtons({ automations, onRun, running, locale, dispositions }: {
   automations: any[];
-  onRun: (automation: any, opts?: { callbackDate?: string }) => void;
+  onRun: (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => void;
   running: Set<string>;
   locale: string;
   dispositions: any[];
@@ -264,12 +267,13 @@ function SlActionButtons({ automations, onRun, running, locale, dispositions }: 
 // callback-type disposition it opens a reschedule picker (prefilled from the rule's
 // term) so the agent can override the callback time before scheduling.
 function SlStatusButton({ automation, isRunning, onRun, locale, isCallback }: {
-  automation: any; isRunning: boolean; onRun: (automation: any, opts?: { callbackDate?: string }) => void; locale: string; isCallback: boolean;
+  automation: any; isRunning: boolean; onRun: (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => void; locale: string; isCallback: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [dt, setDt] = useState("");
+  const [note, setNote] = useState("");
   useEffect(() => {
-    if (open) setDt(slPrefillDt(automation));
+    if (open) { setDt(slPrefillDt(automation)); setNote(""); }
   }, [open, automation.callbackOffsetDays, automation.callbackTime]);
 
   if (!isCallback) {
@@ -290,11 +294,27 @@ function SlStatusButton({ automation, isRunning, onRun, locale, isCallback }: {
           {slt("runStatus", locale)}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-3" align="start">
-        <div className="space-y-3">
+      <PopoverContent className="w-72 p-0 overflow-hidden" align="start">
+        <div className="bg-purple-50 dark:bg-purple-900/30 px-3 py-2 flex items-center gap-2 border-b border-purple-200 dark:border-purple-700">
+          <Tag className="h-3.5 w-3.5 text-purple-600" />
+          <span className="text-xs font-semibold text-purple-800 dark:text-purple-200">{slt("runStatus", locale)}</span>
+          <span className="ml-auto text-[9px] text-purple-500 font-medium">{slt("forEveryone", locale)}</span>
+        </div>
+        <div className="p-3 space-y-2.5">
           <DateTimePicker value={dt} onChange={(v) => setDt(v)} includeTime data-testid={`input-sl-status-callback-${automation.id}`} />
-          <Button size="sm" className="w-full h-8 text-xs" disabled={!dt || isRunning}
-            onClick={() => { onRun(automation, { callbackDate: dt }); setOpen(false); }}
+          <div>
+            <label className="text-[10px] font-medium text-muted-foreground block mb-1">{slt("cbNoteLabel", locale)}</label>
+            <textarea
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              placeholder={slt("cbNotePh", locale)}
+              rows={2}
+              className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+              data-testid={`input-sl-status-note-${automation.id}`}
+            />
+          </div>
+          <Button size="sm" className="w-full h-8 text-xs bg-purple-600 hover:bg-purple-700 text-white" disabled={!dt || isRunning}
+            onClick={() => { onRun(automation, { callbackDate: dt, callbackNote: note || undefined }); setNote(""); setOpen(false); }}
             data-testid={`btn-sl-status-confirm-${automation.id}`}>
             {slt("cbConfirm", locale)}
           </Button>
@@ -305,12 +325,13 @@ function SlStatusButton({ automation, isRunning, onRun, locale, isCallback }: {
 }
 
 function SlCallbackButton({ automation, isRunning, onRun, locale }: {
-  automation: any; isRunning: boolean; onRun: (automation: any, opts?: { callbackDate?: string }) => void; locale: string;
+  automation: any; isRunning: boolean; onRun: (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => void; locale: string;
 }) {
   const [open, setOpen] = useState(false);
   const [dt, setDt] = useState("");
+  const [note, setNote] = useState("");
   useEffect(() => {
-    if (open) setDt(slPrefillDt(automation));
+    if (open) { setDt(slPrefillDt(automation)); setNote(""); }
   }, [open, automation.callbackOffsetDays, automation.callbackTime]);
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -321,11 +342,27 @@ function SlCallbackButton({ automation, isRunning, onRun, locale }: {
           {slt("runCallback", locale)}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-3" align="start">
-        <div className="space-y-3">
+      <PopoverContent className="w-72 p-0 overflow-hidden" align="start">
+        <div className="bg-cyan-50 dark:bg-cyan-900/30 px-3 py-2 flex items-center gap-2 border-b border-cyan-200 dark:border-cyan-700">
+          <Phone className="h-3.5 w-3.5 text-cyan-600" />
+          <span className="text-xs font-semibold text-cyan-800 dark:text-cyan-200">{slt("runCallback", locale)}</span>
+          <span className="ml-auto text-[9px] text-cyan-500 font-medium">{slt("forEveryone", locale)}</span>
+        </div>
+        <div className="p-3 space-y-2.5">
           <DateTimePicker value={dt} onChange={(v) => setDt(v)} includeTime data-testid={`input-sl-callback-${automation.id}`} />
-          <Button size="sm" className="w-full h-8 text-xs" disabled={!dt || isRunning}
-            onClick={() => { onRun(automation, { callbackDate: dt }); setOpen(false); }}
+          <div>
+            <label className="text-[10px] font-medium text-muted-foreground block mb-1">{slt("cbNoteLabel", locale)}</label>
+            <textarea
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              placeholder={slt("cbNotePh", locale)}
+              rows={2}
+              className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+              data-testid={`input-sl-callback-note-${automation.id}`}
+            />
+          </div>
+          <Button size="sm" className="w-full h-8 text-xs bg-cyan-600 hover:bg-cyan-700 text-white" disabled={!dt || isRunning}
+            onClick={() => { onRun(automation, { callbackDate: dt, callbackNote: note || undefined }); setNote(""); setOpen(false); }}
             data-testid={`btn-sl-callback-confirm-${automation.id}`}>
             {slt("cbConfirm", locale)}
           </Button>
@@ -2316,6 +2353,8 @@ function CommunicationCanvas({
   onScriptAction,
   backOfficeModeActive,
   contactCountry,
+  ccCallbackNote,
+  ccCallbackStatusListItemId,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -2362,6 +2401,8 @@ function CommunicationCanvas({
   onScriptAction?: (action: string, data?: any) => void;
   backOfficeModeActive?: boolean;
   contactCountry?: string | null;
+  ccCallbackNote?: string | null;
+  ccCallbackStatusListItemId?: string | null;
 }) {
   const { t, locale } = useI18n();
   const { user } = useAuth();
@@ -2453,7 +2494,7 @@ function CommunicationCanvas({
 
   // Manual ("run now") trigger for a single configured status-list automation.
   const [slRunningAuto, setSlRunningAuto] = useState<Set<string>>(new Set());
-  const handleSlRunAction = useCallback(async (automation: any, opts?: { callbackDate?: string }) => {
+  const handleSlRunAction = useCallback(async (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => {
     if (!campaign?.id || !campaignContactId) return;
     const autoId = String(automation.id);
     setSlRunningAuto(prev => new Set(prev).add(autoId));
@@ -2461,7 +2502,7 @@ function CommunicationCanvas({
       const res = await apiRequest(
         "POST",
         `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-actions/${autoId}/run`,
-        { callbackDate: opts?.callbackDate ?? null, contactCountry: contactCountry ?? null },
+        { callbackDate: opts?.callbackDate ?? null, callbackNote: opts?.callbackNote ?? null, contactCountry: contactCountry ?? null },
       );
       const data = await res.json().catch(() => ({}));
       const okFlag = data?.ok !== false;
@@ -3931,7 +3972,7 @@ function CommunicationCanvas({
                       </button>
                     )}
                     <div className="flex-1 min-w-0">
-                      <div className={`text-sm font-medium leading-snug ${dbSlChecked.has(String(item.id)) ? "line-through text-muted-foreground" : ""}`}>
+                      <div className={`text-sm leading-snug ${dbSlChecked.has(String(item.id)) ? "font-semibold text-emerald-700 dark:text-emerald-300" : "font-medium"}`}>
                         {item.label}
                         {item.required && <span className="ml-1 text-rose-500 text-[10px]">*</span>}
                       </div>
@@ -3953,16 +3994,38 @@ function CommunicationCanvas({
                           gray: "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700",
                         };
                         const dispBadgeCls = dispColorMap[dispColor] || dispColorMap.gray;
+                        const agentInitial = itemState.confirmedByName
+                          ? itemState.confirmedByName.charAt(0).toUpperCase()
+                          : "?";
+                        const hasCallbackNote = ccCallbackStatusListItemId === String(item.id) && !!ccCallbackNote;
                         return (
-                          <div className="flex flex-wrap items-center gap-1.5 mt-1" data-testid={`sl-status-set-${item.id}`}>
+                          <div className="mt-1.5 space-y-1" data-testid={`sl-status-set-${item.id}`}>
                             {dispName && (
                               <span className={`inline-flex items-center gap-1 text-[10px] h-4 px-1.5 rounded-full border font-semibold ${dispBadgeCls}`} data-testid={`sl-status-name-${item.id}`}>
                                 <Tag className="h-2.5 w-2.5" />{dispName}
                               </span>
                             )}
-                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400" data-testid={`sl-status-time-${item.id}`}>
-                              ✓ {new Date(itemState.confirmedAt).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
-                            </span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <div className="h-4 w-4 rounded-full bg-emerald-200 dark:bg-emerald-800 flex items-center justify-center overflow-hidden shrink-0" data-testid={`sl-agent-avatar-${item.id}`}>
+                                {itemState.confirmedByAvatar ? (
+                                  <img src={itemState.confirmedByAvatar} alt="" className="h-full w-full object-cover" />
+                                ) : (
+                                  <span className="text-[8px] font-bold text-emerald-700 dark:text-emerald-300">{agentInitial}</span>
+                                )}
+                              </div>
+                              {itemState.confirmedByName && (
+                                <span className="text-[10px] font-medium text-muted-foreground" data-testid={`sl-agent-name-${item.id}`}>{itemState.confirmedByName}</span>
+                              )}
+                              <span className="text-[10px] text-emerald-600 dark:text-emerald-400" data-testid={`sl-status-time-${item.id}`}>
+                                ✓ {new Date(itemState.confirmedAt).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            </div>
+                            {hasCallbackNote && (
+                              <div className="flex items-start gap-1.5 px-2 py-1 rounded border bg-cyan-50 border-cyan-200 dark:bg-cyan-900/20 dark:border-cyan-800" data-testid={`sl-callback-note-${item.id}`}>
+                                <Phone className="h-2.5 w-2.5 text-cyan-500 mt-0.5 shrink-0" />
+                                <p className="text-[10px] text-cyan-700 dark:text-cyan-300 leading-relaxed">{ccCallbackNote}</p>
+                              </div>
+                            )}
                           </div>
                         );
                       })()}
@@ -10498,6 +10561,8 @@ export default function AgentWorkspacePage() {
               onPendingEmailTemplateHandled={() => setPendingEmailTemplateId(null)}
               backOfficeModeActive={backOfficeModeActive}
               contactCountry={currentContact?.country || null}
+              ccCallbackNote={currentCampaignContact?.callbackNote ?? null}
+              ccCallbackStatusListItemId={currentCampaignContact?.callbackStatusListItemId ?? null}
               onScriptAction={(action, data) => {
                 if (action === "openEmail") {
                   setActiveChannel("email");
