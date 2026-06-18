@@ -48,25 +48,30 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   
   const canAccessModule = (moduleKey: string): boolean => {
     if (!user) return false;
-    
-    if (user.role === "admin") return true;
-    
-    if (!user.roleId || !roleData) {
-      const moduleDef = CRM_MODULES.find(m => m.key === moduleKey);
-      return moduleDef?.defaultAccess !== "hidden";
+
+    const moduleDef = CRM_MODULES.find(m => m.key === moduleKey);
+    const isHiddenByDefault = moduleDef?.defaultAccess === "hidden";
+
+    // For modules that are hidden by default, admin bypass does NOT apply —
+    // the role must explicitly enable the module (even for admins / legacyRole admins).
+    if (!isHiddenByDefault) {
+      if (user.role === "admin") return true;
     }
-    
-    if (roleData.legacyRole === "admin") {
+
+    if (!user.roleId || !roleData) {
+      return !isHiddenByDefault;
+    }
+
+    if (!isHiddenByDefault && roleData.legacyRole === "admin") {
       return true;
     }
-    
+
     const modulePerm = roleData.modulePermissions.find(p => p.moduleKey === moduleKey);
-    
+
     if (!modulePerm) {
-      const moduleDef = CRM_MODULES.find(m => m.key === moduleKey);
-      return moduleDef?.defaultAccess !== "hidden";
+      return !isHiddenByDefault;
     }
-    
+
     return modulePerm.access === "visible";
   };
   
