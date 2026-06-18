@@ -820,14 +820,14 @@ export function SipPhone({
       setCurrentCallLogId(null);
       setLocalCallerIdNumber("");
       activeInboundMetaRef.current = null;
-      if (!ctxNow.preventAutoReset) {
-        setTimeout(() => {
+      setTimeout(() => {
+        if (!callContextRef.current.preventAutoReset) {
           setCallStateLocal((prev) => { if (prev === "ended") { callContextRef.current.setCallState("idle"); callContextRef.current.setCallInfo(null); callContextRef.current.resetCallTiming(); return "idle"; } return prev; });
           setCallDuration(0);
           callContextRef.current.setCallDuration(0);
           sessionRef.current = null;
-        }, 3000);
-      }
+        }
+      }, 3000);
     };
 
     if (session.stateChange) {
@@ -1261,8 +1261,8 @@ export function SipPhone({
             callContextRef.current.setAutoRecord(true);
             onCallEnd?.(duration, duration > 0 ? "completed" : "failed", callLogId);
             setCurrentCallLogId(null);
-            if (!callContextRef.current.preventAutoReset) {
-              setTimeout(() => {
+            setTimeout(() => {
+              if (!callContextRef.current.preventAutoReset) {
                 setCallStateLocal((prev) => {
                   if (prev === "ended") {
                     callContextRef.current.setCallState("idle");
@@ -1275,8 +1275,8 @@ export function SipPhone({
                 setCallDuration(0);
                 callContextRef.current.setCallDuration(0);
                 sessionRef.current = null;
-              }, 3000);
-            }
+              }
+            }, 3000);
             break;
         }
       });

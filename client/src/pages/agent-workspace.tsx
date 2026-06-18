@@ -7485,6 +7485,9 @@ export default function AgentWorkspacePage() {
         if (autoOpenDisposition) {
           setDispositionModalOpen(true);
         }
+        if (campSettings.workflowMode === "status_list") {
+          callContext.setPreventAutoReset(true);
+        }
       }
       if (pendingCallbackAbandonedIdRef.current) {
         const abandonedId = pendingCallbackAbandonedIdRef.current;
@@ -7541,6 +7544,7 @@ export default function AgentWorkspacePage() {
       wasInboundCallRef.current = false;
       callContext.setCallDirection(null);
       setRingDuration(0);
+      callContext.setPreventAutoReset(false);
     }
     prevCallStateRef.current = curr;
   }, [callContext.callState, callContext.callDirection, currentContact, currentCampaignContactId]);
@@ -8359,6 +8363,7 @@ export default function AgentWorkspacePage() {
     prevCallStateRef.current = "idle";
 
     // Force-reset call context (callState→idle, hungUpBy→null) + clear wrapup state
+    callContext.setPreventAutoReset(false);
     callContext.forceResetCallFn.current?.();
     callContext.resetCallTiming();
     setCallEndTimestamp(null);
