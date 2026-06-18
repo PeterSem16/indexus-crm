@@ -3121,7 +3121,7 @@ function CommunicationCanvas({
           <StatusBadge status={(contact.status as any) || "pending"} className="text-[10px] h-5 shrink-0" />
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {contact.phone && (() => {
+          {(localPhoneOverride || contact.phone) && (() => {
             const cs = callState || "idle";
             const fmtDur = (s?: number) => `${String(Math.floor((s||0)/60)).padStart(2,"0")}:${String((s||0)%60).padStart(2,"0")}`;
             const isCustomerHungUp = cs === "ended" && hungUpBy === "customer";
@@ -3390,7 +3390,12 @@ function CommunicationCanvas({
                     open={true}
                     onOpenChange={() => {}}
                     initialData={clinicData}
-                    onSuccess={() => {}}
+                    onSuccess={async () => {
+                      try {
+                        const r = await fetch(`/api/clinics/${contact.id}`, { credentials: "include" });
+                        if (r.ok) { const d = await r.json(); setLocalPhoneOverride(d.phone || null); }
+                      } catch {}
+                    }}
                     onPhoneChange={(p) => setLocalPhoneOverride(p || null)}
                     mode="inline"
                   />
@@ -3401,7 +3406,12 @@ function CommunicationCanvas({
                     key={collaboratorData.id}
                     mode="inline"
                     initialData={collaboratorData}
-                    onSuccess={() => {}}
+                    onSuccess={async () => {
+                      try {
+                        const r = await fetch(`/api/collaborators/${contact.id}`, { credentials: "include" });
+                        if (r.ok) { const d = await r.json(); setLocalPhoneOverride(d.phone || null); }
+                      } catch {}
+                    }}
                     onPhoneChange={(p) => setLocalPhoneOverride(p || null)}
                   />
                 </div>
@@ -8631,10 +8641,13 @@ export default function AgentWorkspacePage() {
       };
       return apiRequest("PATCH", `/api/customers/${currentContact.id}`, serializedData);
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
       if (currentContact?.id) {
         queryClient.invalidateQueries({ queryKey: ["/api/customers", currentContact.id] });
+      }
+      if (variables.phone !== undefined) {
+        setCurrentContact(prev => prev ? { ...prev, phone: variables.phone || null } : prev);
       }
       toast({ title: t.agentWorkspace.customerUpdated });
     },
