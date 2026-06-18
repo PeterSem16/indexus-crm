@@ -9880,8 +9880,8 @@ export default function AgentWorkspacePage() {
                       );
                     })()}
 
-                    {/* Back Office agenda — grafické počítadlá */}
-                    {(() => {
+                    {/* Back Office agenda — grafické počítadlá — len pre role s povoleným modulom */}
+                    {canBackOfficeAgenda && (() => {
                       const isDone = (it: BOAgendaItem) => it.task.status === "completed" || !!it.confirmation || it.task.boState === "done";
                       const newCount = boAgendaItems.filter(it => !isDone(it) && (it.task.boState === null || it.task.boState === "received")).length;
                       const pendingCount = boAgendaItems.filter(it => !isDone(it) && (it.task.boState === "in_progress" || it.task.boState === "waiting_agent")).length;
