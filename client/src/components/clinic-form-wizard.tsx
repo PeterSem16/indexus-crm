@@ -274,6 +274,7 @@ interface ClinicFormSheetProps {
   onOpenChange: (open: boolean) => void;
   initialData?: Clinic | null;
   onSuccess: () => void;
+  onPhoneChange?: (phone: string) => void;
   mode?: "sheet" | "inline";
   prefillData?: Partial<ClinicFormData>;
   onCreated?: (clinic: { id: string; name: string; doctorTitle?: string | null; doctorFirstName?: string | null; doctorLastName?: string | null; doctorName?: string | null }) => void | Promise<void>;
@@ -439,7 +440,7 @@ export function ClinicFormWizard({ initialData, onSuccess, onCancel }: { initial
   );
 }
 
-export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mode = "sheet", prefillData, onCreated, sheetContentClassName }: ClinicFormSheetProps) {
+export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, onPhoneChange, mode = "sheet", prefillData, onCreated, sheetContentClassName }: ClinicFormSheetProps) {
   const { t } = useI18n();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -1446,7 +1447,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                           <div className="space-y-1">
                             <Label className="text-[11px]">{t.clinics.phone}</Label>
                             <div className="flex items-center gap-1">
-                              <div className="flex-1 min-w-0"><PhoneNumberField value={formData.phone} onChange={(v) => setFormData({ ...formData, phone: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-clinic-phone" /></div>
+                              <div className="flex-1 min-w-0"><PhoneNumberField value={formData.phone} onChange={(v) => { setFormData({ ...formData, phone: v }); onPhoneChange?.(v); }} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-clinic-phone" /></div>
                               <CallSlot phoneNumber={formData.phone} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} />
                             </div>
                           </div>

@@ -2561,7 +2561,12 @@ function CommunicationCanvas({
   }, [campaign?.id, campaignContactId, contactCountry, locale, toast]);
 
   const [phoneSubTab, setPhoneSubTab] = useState<"card" | "details" | "documents" | "sop" | "history">(externalPhoneSubTab || "card");
-  
+  const [localPhoneOverride, setLocalPhoneOverride] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLocalPhoneOverride(null);
+  }, [contact?.id]);
+
   useEffect(() => {
     if (externalPhoneSubTab) {
       setPhoneSubTab(externalPhoneSubTab);
@@ -3123,7 +3128,7 @@ function CommunicationCanvas({
             const isEnded = cs === "ended";
             const isActive = cs === "active" || cs === "on_hold";
             const isConnecting = cs === "connecting" || cs === "ringing";
-            const phone = contact.phone!;
+            const phone = localPhoneOverride || contact.phone!;
 
             if (isCustomerHungUp) {
               return (
@@ -3386,6 +3391,7 @@ function CommunicationCanvas({
                     onOpenChange={() => {}}
                     initialData={clinicData}
                     onSuccess={() => {}}
+                    onPhoneChange={(p) => setLocalPhoneOverride(p || null)}
                     mode="inline"
                   />
                 </div>
@@ -4070,17 +4076,18 @@ function CommunicationCanvas({
                       </div>
                       {item.description && <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>}
                       {(item.questions || []).filter((q: any) => !q.isHidden).length > 0 && (
-                        <div className="mt-1.5 flex flex-wrap gap-1" data-testid={`sl-questions-${item.id}`}>
+                        <div className="mt-2 pt-1.5 border-t border-dashed space-y-1.5" data-testid={`sl-questions-${item.id}`}>
                           {(item.questions as any[]).filter((q: any) => !q.isHidden).map((q: any) => (
-                            <span
-                              key={q.id}
-                              className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border bg-muted/40 text-muted-foreground leading-none"
-                              data-testid={`sl-question-chip-${q.id}`}
-                            >
-                              {q.groupName ? (
-                                <><span className="font-semibold">{q.groupName}</span></>
-                              ) : q.questionText}
-                            </span>
+                            <div key={q.id} data-testid={`sl-question-${q.id}`}>
+                              <p className="text-[10px] font-semibold text-foreground/70 leading-none mb-0.5">{q.groupName || q.questionText}</p>
+                              <SlActionButtons
+                                automations={q.automations || []}
+                                onRun={handleSlRunAction}
+                                running={slRunningAuto}
+                                locale={locale}
+                                dispositions={slDispositions}
+                              />
+                            </div>
                           ))}
                         </div>
                       )}
