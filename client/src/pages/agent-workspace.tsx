@@ -2494,7 +2494,6 @@ function CommunicationCanvas({
 
   // Manual ("run now") trigger for a single configured status-list automation.
   const [slRunningAuto, setSlRunningAuto] = useState<Set<string>>(new Set());
-  const [slRunningOption, setSlRunningOption] = useState<string | null>(null);
   const handleSlRunAction = useCallback(async (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => {
     if (!campaign?.id || !campaignContactId) return;
     const autoId = String(automation.id);
@@ -2526,37 +2525,6 @@ function CommunicationCanvas({
       setSlRunningAuto(prev => { const n = new Set(prev); n.delete(autoId); return n; });
     }
   }, [campaign?.id, campaignContactId, contactCountry, locale, toast]);
-
-  const handleSlOptionSelect = useCallback(async (option: any) => {
-    if (!campaign?.id || !campaignContactId) return;
-    setSlRunningOption(option.id);
-    let isDefinitive = false;
-    try {
-      for (const automation of (option.automations || [])) {
-        const autoId = String(automation.id);
-        const res = await apiRequest(
-          "POST",
-          `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-actions/${autoId}/run`,
-          { callbackDate: null, callbackNote: null, contactCountry: contactCountry ?? null },
-        );
-        const data = await res.json().catch(() => ({}));
-        if (automation.actionType === "set_contact_status" && !data?.callbackDate) {
-          isDefinitive = true;
-        }
-      }
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
-      toast({ title: option.label, description: "Možnosť vykonaná" });
-      if (isDefinitive) {
-        onCloseCallAfterStatusList?.();
-      }
-    } catch {
-      toast({ title: "Chyba pri vykonaní možnosti", variant: "destructive" });
-    } finally {
-      setSlRunningOption(null);
-    }
-  }, [campaign?.id, campaignContactId, contactCountry, onCloseCallAfterStatusList, toast]);
 
   const [phoneSubTab, setPhoneSubTab] = useState<"card" | "details" | "documents" | "sop" | "history">(externalPhoneSubTab || "card");
   
@@ -4675,6 +4643,7 @@ function CustomerInfoPanel({
   onCloseAcwTask,
   onCloseCallAfterStatusList,
   isStatusListMode,
+  campaignContactId,
 }: {
   contact: Customer | null;
   contactType?: string;
@@ -4720,8 +4689,10 @@ function CustomerInfoPanel({
   onCloseAcwTask?: () => void;
   onCloseCallAfterStatusList?: () => void;
   isStatusListMode?: boolean;
+  campaignContactId?: string | null;
 }) {
   const { t, locale } = useI18n();
+  const { toast } = useToast();
   const callContext = useCall();
   const [acwElapsed, setAcwElapsed] = useState(0);
   useEffect(() => {
@@ -4779,6 +4750,42 @@ function CustomerInfoPanel({
     await onAddNote(noteText);
     refetchNotes();
   };
+
+  const { data: dbStatusList = [] } = useQuery<any[]>({
+    queryKey: ["/api/campaigns", campaign?.id, "status-list"],
+    enabled: !!campaign?.id,
+  });
+  const [slRunningOption, setSlRunningOption] = useState<string | null>(null);
+  const handleSlOptionSelect = useCallback(async (option: any) => {
+    if (!campaign?.id || !campaignContactId) return;
+    setSlRunningOption(option.id);
+    let isDefinitive = false;
+    try {
+      for (const automation of (option.automations || [])) {
+        const autoId = String(automation.id);
+        const res = await apiRequest(
+          "POST",
+          `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-actions/${autoId}/run`,
+          { callbackDate: null, callbackNote: null, contactCountry: contact?.country ?? null },
+        );
+        const data = await res.json().catch(() => ({}));
+        if (automation.actionType === "set_contact_status" && !data?.callbackDate) {
+          isDefinitive = true;
+        }
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+      toast({ title: option.label, description: "Možnosť vykonaná" });
+      if (isDefinitive) {
+        onCloseCallAfterStatusList?.();
+      }
+    } catch {
+      toast({ title: "Chyba pri vykonaní možnosti", variant: "destructive" });
+    } finally {
+      setSlRunningOption(null);
+    }
+  }, [campaign?.id, campaignContactId, contact?.country, onCloseCallAfterStatusList, toast]);
 
   if (!contact) {
     if (unknownCallerPhone) {
@@ -10825,6 +10832,7 @@ export default function AgentWorkspacePage() {
           onCloseAcwTask={handleCloseAcwTask}
           onCloseCallAfterStatusList={handleCloseCallAfterStatusList}
           isStatusListMode={isStatusListMode}
+          campaignContactId={effectiveCampaignContactId}
         />
         </div>{/* end center+right relative wrapper */}
       </div>
