@@ -266,8 +266,8 @@ function SlActionButtons({ automations, onRun, running, locale, dispositions }: 
 // "Set status" button. For a plain disposition it just runs the action; for a
 // callback-type disposition it opens a reschedule picker (prefilled from the rule's
 // term) so the agent can override the callback time before scheduling.
-function SlStatusButton({ automation, isRunning, onRun, locale, isCallback }: {
-  automation: any; isRunning: boolean; onRun: (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => void; locale: string; isCallback: boolean;
+function SlStatusButton({ automation, isRunning, onRun, locale, isCallback, label }: {
+  automation: any; isRunning: boolean; onRun: (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => void; locale: string; isCallback: boolean; label?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [dt, setDt] = useState("");
@@ -281,7 +281,7 @@ function SlStatusButton({ automation, isRunning, onRun, locale, isCallback }: {
       <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px] gap-1"
         disabled={isRunning} onClick={() => onRun(automation)} data-testid={`btn-sl-status-${automation.id}`}>
         {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Tag className="h-3 w-3 text-purple-600" />}
-        {slt("runStatus", locale)}
+        {label ?? slt("runStatus", locale)}
       </Button>
     );
   }
@@ -291,7 +291,7 @@ function SlStatusButton({ automation, isRunning, onRun, locale, isCallback }: {
         <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px] gap-1"
           disabled={isRunning} data-testid={`btn-sl-status-${automation.id}`}>
           {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Tag className="h-3 w-3 text-purple-600" />}
-          {slt("runStatus", locale)}
+          {label ?? slt("runStatus", locale)}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-0 overflow-hidden" align="start">
@@ -324,8 +324,8 @@ function SlStatusButton({ automation, isRunning, onRun, locale, isCallback }: {
   );
 }
 
-function SlCallbackButton({ automation, isRunning, onRun, locale }: {
-  automation: any; isRunning: boolean; onRun: (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => void; locale: string;
+function SlCallbackButton({ automation, isRunning, onRun, locale, label }: {
+  automation: any; isRunning: boolean; onRun: (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => void; locale: string; label?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [dt, setDt] = useState("");
@@ -339,7 +339,7 @@ function SlCallbackButton({ automation, isRunning, onRun, locale }: {
         <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px] gap-1"
           disabled={isRunning} data-testid={`btn-sl-callback-${automation.id}`}>
           {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Phone className="h-3 w-3 text-cyan-600" />}
-          {slt("runCallback", locale)}
+          {label ?? slt("runCallback", locale)}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-0 overflow-hidden" align="start">
@@ -2528,6 +2528,7 @@ function CommunicationCanvas({
 
   // Manual ("run now") trigger for a single configured status-list automation.
   const [slRunningAuto, setSlRunningAuto] = useState<Set<string>>(new Set());
+  const [slQuestionAnswers, setSlQuestionAnswers] = useState<Record<string, any>>({});
   const handleSlRunAction = useCallback(async (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => {
     if (!campaign?.id || !campaignContactId) return;
     const autoId = String(automation.id);
@@ -2560,6 +2561,25 @@ function CommunicationCanvas({
     }
   }, [campaign?.id, campaignContactId, contactCountry, locale, toast]);
 
+  // Toggle a status-list question answer locally. For radio fields, clears all
+  // other radio answers in the same group first (exclusive-select semantics).
+  const handleSlQuestionAnswer = useCallback((q: any, value: any, allGroupQs: any[]) => {
+    const ft = q.fieldType || "checkbox";
+    setSlQuestionAnswers(prev => {
+      const next = { ...prev };
+      if (ft === "radio") {
+        allGroupQs.filter((gq: any) => (gq.fieldType || "checkbox") === "radio")
+          .forEach((gq: any) => { delete next[gq.id]; });
+      }
+      if ((ft === "checkbox" || ft === "radio") && next[q.id] === value) {
+        delete next[q.id];
+      } else {
+        next[q.id] = value;
+      }
+      return next;
+    });
+  }, []);
+
   const [phoneSubTab, setPhoneSubTab] = useState<"card" | "details" | "documents" | "sop" | "history">(externalPhoneSubTab || "card");
   const [localPhoneOverride, setLocalPhoneOverride] = useState<string | null>(null);
 
@@ -2590,6 +2610,7 @@ function CommunicationCanvas({
     setShowSmsCcField(false);
     setSelectedDocuments([]);
     setDbSlChecked(new Set());
+    setSlQuestionAnswers({});
   }, [contact?.id]);
 
   useEffect(() => {
@@ -4087,22 +4108,114 @@ function CommunicationCanvas({
                         {item.required && <span className="ml-1 text-rose-500 text-[10px]">*</span>}
                       </div>
                       {item.description && <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>}
-                      {(item.questions || []).filter((q: any) => !q.isHidden).length > 0 && (
-                        <div className="mt-2 pt-1.5 border-t border-dashed space-y-1.5" data-testid={`sl-questions-${item.id}`}>
-                          {(item.questions as any[]).filter((q: any) => !q.isHidden).map((q: any) => (
-                            <div key={q.id} data-testid={`sl-question-${q.id}`}>
-                              <p className="text-[10px] font-semibold text-foreground/70 leading-none mb-0.5">{q.groupName || q.questionText}</p>
-                              <SlActionButtons
-                                automations={q.automations || []}
-                                onRun={handleSlRunAction}
-                                running={slRunningAuto}
-                                locale={locale}
-                                dispositions={slDispositions}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      {(() => {
+                        const visibleQs = (item.questions || []).filter((q: any) => !q.isHidden);
+                        if (visibleQs.length === 0) return null;
+                        // Group by groupName so radio/checkbox sets stay together
+                        const groups: Record<string, any[]> = {};
+                        visibleQs.forEach((q: any) => {
+                          const k = q.groupName || "__ungrouped__";
+                          if (!groups[k]) groups[k] = [];
+                          groups[k].push(q);
+                        });
+                        return (
+                          <div className="mt-2 pt-1.5 border-t border-dashed space-y-2" data-testid={`sl-questions-${item.id}`}>
+                            {Object.entries(groups).map(([gk, gqs]) => (
+                              <div key={gk}>
+                                {gk !== "__ungrouped__" && (
+                                  <p className="text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-wider mb-1.5">{gk}</p>
+                                )}
+                                <div className="flex flex-wrap gap-1">
+                                  {(gqs as any[]).map((q: any) => {
+                                    const ft = q.fieldType || "checkbox";
+                                    const answered = slQuestionAnswers[q.id] !== undefined;
+                                    const hasActionable = (q.automations || []).some((a: any) =>
+                                      a.actionType === "set_contact_status" || a.actionType === "set_callback" || a.actionType === "send_email_group"
+                                    );
+                                    if (ft === "yesno") {
+                                      return (
+                                        <div key={q.id} className="w-full" data-testid={`sl-question-${q.id}`}>
+                                          {q.questionText && <p className="text-[10px] text-foreground/70 mb-1">{q.questionText}</p>}
+                                          <div className="flex gap-1">
+                                            <button type="button"
+                                              onClick={() => { handleSlQuestionAnswer(q, "yes", gqs as any[]); if (hasActionable) for (const a of (q.automations || [])) handleSlRunAction(a); }}
+                                              className={`px-2.5 py-1 text-xs rounded border font-semibold transition-colors ${slQuestionAnswers[q.id] === "yes" ? "bg-green-500 border-green-500 text-white" : "border-border hover:bg-green-50 dark:hover:bg-green-950/20 text-foreground"}`}
+                                              data-testid={`btn-sl-q-yes-${q.id}`}>Áno</button>
+                                            <button type="button"
+                                              onClick={() => { handleSlQuestionAnswer(q, "no", gqs as any[]); if (hasActionable) for (const a of (q.automations || [])) handleSlRunAction(a); }}
+                                              className={`px-2.5 py-1 text-xs rounded border font-semibold transition-colors ${slQuestionAnswers[q.id] === "no" ? "bg-red-500 border-red-500 text-white" : "border-border hover:bg-red-50 dark:hover:bg-red-950/20 text-foreground"}`}
+                                              data-testid={`btn-sl-q-no-${q.id}`}>Nie</button>
+                                          </div>
+                                        </div>
+                                      );
+                                    }
+                                    // checkbox / radio — render as styled choice pill
+                                    const cbAuto = (q.automations || []).find((a: any) => a.actionType === "set_callback");
+                                    const stAuto = (q.automations || []).find((a: any) => a.actionType === "set_contact_status");
+                                    if (cbAuto) {
+                                      // Callback automation: render as SlCallbackButton with question text as label
+                                      return (
+                                        <div key={q.id} data-testid={`sl-question-${q.id}`}>
+                                          <SlCallbackButton
+                                            automation={cbAuto}
+                                            isRunning={slRunningAuto.has(String(cbAuto.id))}
+                                            onRun={(a, opts) => { handleSlQuestionAnswer(q, true, gqs as any[]); handleSlRunAction(a, opts); }}
+                                            locale={locale}
+                                            label={q.questionText}
+                                          />
+                                        </div>
+                                      );
+                                    }
+                                    if (stAuto) {
+                                      const stDisp = (slDispositions as any[]).find((d: any) => String(d.id) === String(stAuto.dispositionId));
+                                      const isCallback = !!stDisp && ["callback", "schedule_email", "schedule_sms"].includes(stDisp.actionType);
+                                      return (
+                                        <div key={q.id} data-testid={`sl-question-${q.id}`}>
+                                          <SlStatusButton
+                                            automation={stAuto}
+                                            isRunning={slRunningAuto.has(String(stAuto.id))}
+                                            onRun={(a, opts) => { handleSlQuestionAnswer(q, true, gqs as any[]); handleSlRunAction(a, opts); }}
+                                            locale={locale}
+                                            isCallback={isCallback}
+                                            label={q.questionText}
+                                          />
+                                        </div>
+                                      );
+                                    }
+                                    // No actionable automations: plain interactive choice chip
+                                    return (
+                                      <button
+                                        key={q.id}
+                                        type="button"
+                                        onClick={() => handleSlQuestionAnswer(q, true, gqs as any[])}
+                                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${
+                                          answered
+                                            ? "bg-primary text-primary-foreground border-primary"
+                                            : "bg-background border-border hover:border-primary/50 text-foreground"
+                                        }`}
+                                        style={q.color ? (answered ? { backgroundColor: q.color, borderColor: q.color, color: "#fff" } : { borderColor: q.color, color: q.color }) : undefined}
+                                        data-testid={`btn-sl-q-${q.id}`}
+                                      >
+                                        {ft === "radio" && (
+                                          <div className={`w-2.5 h-2.5 rounded-full border-2 flex items-center justify-center shrink-0 ${answered ? "border-white" : "border-current"}`}>
+                                            {answered && <div className="w-1 h-1 rounded-full bg-white" />}
+                                          </div>
+                                        )}
+                                        {ft === "checkbox" && (
+                                          <div className={`w-2.5 h-2.5 rounded border-2 flex items-center justify-center shrink-0 ${answered ? "border-white" : "border-current"}`}>
+                                            {answered && <Check className="h-1.5 w-1.5 text-white" />}
+                                          </div>
+                                        )}
+                                        {q.questionText}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
                       {(() => {
                         const itemState = (dbSlState as any[]).find((s: any) => String(s.statusListItemId) === String(item.id));
                         if (!itemState?.confirmedAt) return null;

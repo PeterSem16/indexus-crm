@@ -954,6 +954,8 @@ async function runStatusListSetStatus(automation: any, ctx: StatusListActionCtx,
     // Remember which status-list item (the "question") triggered this callback so the
     // agent's scheduled-queue can show it in the Step column alongside the status.
     update.callbackStatusListItemId = ctx.itemId ?? null;
+    // Assign to the agent who scheduled the callback so it appears in their queue.
+    update.assignedTo = ctx.userId;
     scheduledCb = cb.toISOString();
   }
 
@@ -979,7 +981,7 @@ async function runStatusListSetCallback(automation: any, ctx: StatusListActionCt
   if (!cb) {
     cb = computeStatusListCallbackDate(automation.callbackOffsetDays ?? 1, automation.callbackTime);
   }
-  const setFields: Record<string, any> = { callbackDate: cb, status: "callback_scheduled", callbackStatusListItemId: ctx.itemId ?? null, updatedAt: new Date() };
+  const setFields: Record<string, any> = { callbackDate: cb, status: "callback_scheduled", callbackStatusListItemId: ctx.itemId ?? null, assignedTo: ctx.userId, updatedAt: new Date() };
   if (callbackNote !== undefined && callbackNote !== null && callbackNote.trim() !== "") setFields.callbackNote = callbackNote.trim();
   await db.update(campaignContacts)
     .set(setFields)
