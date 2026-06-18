@@ -7751,6 +7751,7 @@ export type InsertInboundCallback = z.infer<typeof insertInboundCallbackSchema>;
 export const STATUS_LIST_ACTION_TYPES = [
   "assign_task",
   "send_email_group",
+  "notify_email",
   "send_sms",
   "set_contact_status",
   "set_callback",

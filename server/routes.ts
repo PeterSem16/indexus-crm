@@ -29309,7 +29309,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
               } catch (notifyErr) {
                 console.error("[assign_task] notification dispatch error:", notifyErr);
               }
-            } else if (automation.actionType === "send_email_group") {
+            } else if (automation.actionType === "send_email_group" || automation.actionType === "notify_email") {
               try {
                 await runStatusListEmailGroup(automation, { campaignContactId, campaignId: campaignId ?? null, contactCountry: contactCountry ?? null, userId, itemId });
               } catch (e) { console.error("[status-list:email_group] firing failed:", e); }
@@ -29424,7 +29424,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       }
       const ctx = { campaignContactId, campaignId, contactCountry: country, userId, itemId: automation.statusListItemId };
 
-      if (automation.actionType === "send_email_group") {
+      if (automation.actionType === "send_email_group" || automation.actionType === "notify_email") {
         const r = await runStatusListEmailGroup(automation, ctx);
         return res.json({ ok: r.ok, actionType: automation.actionType, sent: r.sent, provider: r.provider });
       } else if (automation.actionType === "set_contact_status") {
