@@ -23522,6 +23522,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       }
 
       for (const row of scheduledSessions) {
+        // Skip if this contact is already present via scheduledContacts (cross-source dedup)
+        if (seenIds.has(`cc-${row.sessionCampaignContactId}`)) continue;
         const key = `session-${row.sessionId}`;
         if (seenIds.has(key)) continue;
         seenIds.add(key);
@@ -23616,6 +23618,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             and(
               gte(inboundCallbacks.createdAt, startOfDay(new Date())),
               isNotNull(inboundCallbacks.callbackDate),
+              eq(inboundCallbacks.calledBack, false),
               or(
                 eq(inboundCallbacks.userId, user.id),
                 eq(inboundCallbacks.assignedTo, user.id),

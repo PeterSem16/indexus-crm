@@ -7170,7 +7170,7 @@ export default function AgentWorkspacePage() {
   const hasAccess = user && hasModuleAccess;
 
   const { data: scheduledQueueItems = [] } = useQuery<ScheduledItem[]>({
-    queryKey: ["/api/agent/scheduled-queue", "badge"],
+    queryKey: ["/api/agent/scheduled-queue"],
     queryFn: async () => {
       const res = await fetch("/api/agent/scheduled-queue", { credentials: "include" });
       return res.ok ? res.json() : [];
