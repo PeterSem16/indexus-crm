@@ -7782,6 +7782,8 @@ export const campaignStatusListItems = pgTable("campaign_status_list_items", {
   nextStepId: varchar("next_step_id"),
   restrictions: text("restrictions"),
   isHidden: boolean("is_hidden").notNull().default(false),
+  itemType: text("item_type").notNull().default("step"),
+  color: text("color"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -7797,6 +7799,8 @@ export const insertCampaignStatusListItemSchema = createInsertSchema(campaignSta
   nextStepId: z.string().optional().nullable(),
   restrictions: z.string().optional().nullable(),
   isHidden: z.boolean().optional().default(false),
+  itemType: z.string().optional().default("step"),
+  color: z.string().optional().nullable(),
 });
 export type CampaignStatusListItem = typeof campaignStatusListItems.$inferSelect;
 export type InsertCampaignStatusListItem = z.infer<typeof insertCampaignStatusListItemSchema>;

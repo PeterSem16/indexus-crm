@@ -74,6 +74,8 @@ type StatusListItem = {
   nextStepId: string | null;
   restrictions: string | null;
   isHidden?: boolean;
+  itemType?: string;
+  color?: string | null;
   automations: StatusListAutomation[];
   questions: StatusListQuestion[];
 };
@@ -2903,10 +2905,112 @@ function AddItemForm({
   );
 }
 
+const OPTION_COLORS = [
+  { value: "#ef4444" }, { value: "#f97316" }, { value: "#eab308" }, { value: "#22c55e" },
+  { value: "#3b82f6" }, { value: "#8b5cf6" }, { value: "#ec4899" }, { value: "#6b7280" },
+];
+
+function AddOptionForm({ campaignId, existingCount, onSaved, onCancel }: {
+  campaignId: string;
+  existingCount: number;
+  onSaved: () => void;
+  onCancel: () => void;
+}) {
+  const { toast } = useToast();
+  const { locale } = useI18n();
+  const [form, setForm] = useState({ label: "", color: "#3b82f6", description: "" });
+
+  const addMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/campaigns/${campaignId}/status-list`, {
+      stepId: `OPT-${String(existingCount + 1).padStart(2, "0")}`,
+      label: form.label,
+      description: form.description || null,
+      confirmationType: "checkbox",
+      required: false,
+      sortOrder: 1000 + existingCount,
+      itemType: "option",
+      color: form.color,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
+      toast({ title: "Možnosť pridaná" });
+      onSaved();
+    },
+    onError: () => toast({ title: sl("saveErr", locale), variant: "destructive" }),
+  });
+
+  return (
+    <div className="border-2 border-dashed border-amber-300 dark:border-amber-700 rounded-lg p-3 space-y-2 bg-amber-50/50 dark:bg-amber-950/20 mb-2">
+      <div className="grid grid-cols-2 gap-2">
+        <div className="col-span-2">
+          <Label className="text-xs mb-1 block">Názov možnosti *</Label>
+          <Input
+            className="h-8 text-xs"
+            value={form.label}
+            onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
+            placeholder="napr. Nezáujem, Callback, Záujem..."
+            autoFocus
+            data-testid="input-option-label"
+          />
+        </div>
+        <div>
+          <Label className="text-xs mb-1 block">Popis (voliteľné)</Label>
+          <Input
+            className="h-8 text-xs"
+            value={form.description}
+            onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+            placeholder="Krátky popis..."
+          />
+        </div>
+        <div>
+          <Label className="text-xs mb-1 block">Farba tlačidla</Label>
+          <div className="flex flex-wrap gap-1.5 mt-1">
+            {OPTION_COLORS.map(c => (
+              <button
+                key={c.value}
+                type="button"
+                onClick={() => setForm(f => ({ ...f, color: c.value }))}
+                className={`w-5 h-5 rounded-full border-2 transition-all ${form.color === c.value ? "border-foreground scale-110" : "border-transparent hover:border-muted-foreground/40"}`}
+                style={{ backgroundColor: c.value }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <span>Náhľad:</span>
+          <span className="px-2 py-0.5 rounded text-white text-[11px] font-semibold" style={{ backgroundColor: form.color }}>
+            {form.label || "Možnosť"}
+          </span>
+        </div>
+        <div className="flex gap-2">
+          <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={onCancel}>
+            <X className="h-3 w-3 mr-1" /> Zrušiť
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="h-7 text-xs text-white"
+            style={{ backgroundColor: form.color }}
+            onClick={() => addMutation.mutate()}
+            disabled={addMutation.isPending || !form.label.trim()}
+            data-testid="btn-confirm-add-option"
+          >
+            {addMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />}
+            Pridať možnosť
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }) {
   const { toast } = useToast();
   const { locale } = useI18n();
   const [addingItem, setAddingItem] = useState(false);
+  const [addingOption, setAddingOption] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
   const [templateTab, setTemplateTab] = useState<"CLA" | "CLB">("CLA");
   const [importOpen, setImportOpen] = useState(false);
@@ -3099,17 +3203,64 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
       {previewMode ? (
         <StatusListPreview items={items} locale={locale} />
       ) : (
-        <div className="space-y-1.5">
-          {items.map(item => (
-            <StatusListItemRow
-              key={item.id}
-              item={item}
-              campaignId={campaignId}
-              allItems={items}
-              onDeleted={() => {}}
-            />
-          ))}
-        </div>
+        <>
+          <div className="space-y-1.5">
+            {items.filter(i => i.itemType !== "option").map(item => (
+              <StatusListItemRow
+                key={item.id}
+                item={item}
+                campaignId={campaignId}
+                allItems={items}
+                onDeleted={() => {}}
+              />
+            ))}
+          </div>
+
+          <div className="mt-5 pt-4 border-t border-dashed border-amber-300 dark:border-amber-700">
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center gap-1.5">
+                <Zap className="h-3.5 w-3.5 text-amber-500" />
+                <span className="text-xs font-semibold text-foreground">Quick Options</span>
+                <span className="text-[10px] text-muted-foreground ml-1">(náhrada dispozícií v Status List móde agenta)</span>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                onClick={() => setAddingOption(true)}
+                disabled={addingOption}
+                data-testid="btn-add-status-list-option"
+              >
+                <Plus className="h-3 w-3" /> Pridať možnosť
+              </Button>
+            </div>
+            {addingOption && (
+              <AddOptionForm
+                campaignId={campaignId}
+                existingCount={items.filter(i => i.itemType === "option").length}
+                onSaved={() => setAddingOption(false)}
+                onCancel={() => setAddingOption(false)}
+              />
+            )}
+            <div className="space-y-1.5">
+              {items.filter(i => i.itemType === "option").map(item => (
+                <StatusListItemRow
+                  key={item.id}
+                  item={item}
+                  campaignId={campaignId}
+                  allItems={items}
+                  onDeleted={() => {}}
+                />
+              ))}
+              {items.filter(i => i.itemType === "option").length === 0 && !addingOption && (
+                <p className="text-xs text-muted-foreground text-center py-4 border border-dashed rounded-lg border-amber-200 dark:border-amber-800">
+                  Žiadne možnosti. Pridajte aspoň jednu pre agentov v NexusPulse.
+                </p>
+              )}
+            </div>
+          </div>
+        </>
       )}
 
       {/* ── Template Dialog ─────────────────────────────────── */}

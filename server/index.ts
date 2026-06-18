@@ -210,6 +210,13 @@ app.use((req, res, next) => {
     console.log('[migration] is_hidden column ensured on status list items');
 
     await pool.query(`
+      ALTER TABLE campaign_status_list_items
+        ADD COLUMN IF NOT EXISTS item_type TEXT NOT NULL DEFAULT 'step',
+        ADD COLUMN IF NOT EXISTS color TEXT;
+    `);
+    console.log('[migration] item_type/color columns ensured on status list items');
+
+    await pool.query(`
       ALTER TABLE campaign_status_list_automations
         ADD COLUMN IF NOT EXISTS condition_json text,
         ADD COLUMN IF NOT EXISTS webhook_target text,

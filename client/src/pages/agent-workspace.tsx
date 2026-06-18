@@ -2494,6 +2494,7 @@ function CommunicationCanvas({
 
   // Manual ("run now") trigger for a single configured status-list automation.
   const [slRunningAuto, setSlRunningAuto] = useState<Set<string>>(new Set());
+  const [slRunningOption, setSlRunningOption] = useState<string | null>(null);
   const handleSlRunAction = useCallback(async (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => {
     if (!campaign?.id || !campaignContactId) return;
     const autoId = String(automation.id);
@@ -2525,6 +2526,37 @@ function CommunicationCanvas({
       setSlRunningAuto(prev => { const n = new Set(prev); n.delete(autoId); return n; });
     }
   }, [campaign?.id, campaignContactId, contactCountry, locale, toast]);
+
+  const handleSlOptionSelect = useCallback(async (option: any) => {
+    if (!campaign?.id || !campaignContactId) return;
+    setSlRunningOption(option.id);
+    let isDefinitive = false;
+    try {
+      for (const automation of (option.automations || [])) {
+        const autoId = String(automation.id);
+        const res = await apiRequest(
+          "POST",
+          `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-actions/${autoId}/run`,
+          { callbackDate: null, callbackNote: null, contactCountry: contactCountry ?? null },
+        );
+        const data = await res.json().catch(() => ({}));
+        if (automation.actionType === "set_contact_status" && !data?.callbackDate) {
+          isDefinitive = true;
+        }
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+      toast({ title: option.label, description: "Možnosť vykonaná" });
+      if (isDefinitive) {
+        onCloseCallAfterStatusList?.();
+      }
+    } catch {
+      toast({ title: "Chyba pri vykonaní možnosti", variant: "destructive" });
+    } finally {
+      setSlRunningOption(null);
+    }
+  }, [campaign?.id, campaignContactId, contactCountry, onCloseCallAfterStatusList, toast]);
 
   const [phoneSubTab, setPhoneSubTab] = useState<"card" | "details" | "documents" | "sop" | "history">(externalPhoneSubTab || "card");
   
@@ -5150,6 +5182,31 @@ function CustomerInfoPanel({
               <PhoneOff className="h-3 w-3 shrink-0" />
               Ukončiť prácu
             </Button>
+          </div>
+        </div>
+      )}
+
+      {isStatusListMode && (dbStatusList as any[]).filter((i: any) => i.itemType === "option" && !i.isHidden).length > 0 && (
+        <div className="border-b px-3 py-2.5 bg-amber-50/60 dark:bg-amber-950/20" data-testid="status-list-options-panel">
+          <div className="flex items-center gap-1.5 mb-2">
+            <Zap className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">Možnosti</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {(dbStatusList as any[]).filter((i: any) => i.itemType === "option" && !i.isHidden).map((opt: any) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => handleSlOptionSelect(opt)}
+                disabled={slRunningOption === opt.id}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-white shadow-sm transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+                style={{ backgroundColor: opt.color || "#6b7280" }}
+                data-testid={`option-btn-${opt.id}`}
+              >
+                {slRunningOption === opt.id && <Loader2 className="h-3 w-3 animate-spin" />}
+                {opt.label}
+              </button>
+            ))}
           </div>
         </div>
       )}
