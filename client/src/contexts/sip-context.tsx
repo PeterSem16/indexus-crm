@@ -79,7 +79,7 @@ interface SipContextType {
 
 const SipContext = createContext<SipContextType | undefined>(undefined);
 
-const REGISTER_EXPIRES = 90;
+const REGISTER_EXPIRES = 600;
 const RE_REGISTER_INTERVAL = 30_000;
 const RECONNECT_BASE_DELAY = 1_000;
 const RECONNECT_MAX_DELAY = 15_000;
@@ -502,7 +502,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
 
       const registerer = new Registerer(userAgent, {
         expires: REGISTER_EXPIRES,
-        refreshFrequency: 90,
+        refreshFrequency: 70,
         regId: 1,
         extraHeaders: [
           "X-CRM-Client: indexus",
@@ -520,7 +520,18 @@ export function SipProvider({ children }: { children: ReactNode }) {
         } else if (newState === RegistererState.Unregistered) {
           setRegisteredState(false);
           if (!intentionalDisconnectRef.current) {
-            scheduleReconnect();
+            // If transport is still up, the server dropped our registration —
+            // re-register immediately instead of going through slow reconnect backoff.
+            const transport = userAgentRef.current?.transport;
+            if (transport?.isConnected()) {
+              setTimeout(() => {
+                if (!intentionalDisconnectRef.current && registererRef.current) {
+                  registererRef.current.register().catch(() => {});
+                }
+              }, 300);
+            } else {
+              scheduleReconnect();
+            }
           }
         } else if (newState === RegistererState.Terminated) {
           setRegisteredState(false);
@@ -609,7 +620,10 @@ export function SipProvider({ children }: { children: ReactNode }) {
   }, [clearTimers, setRegisteredState]);
 
   useEffect(() => {
-    if (user && canRegister() && !isRegistered && !isRegistering && !isConnectingRef.current) {
+    // Use refs for the guard — state values (isRegistered, isRegistering) can be
+    // stale at the moment the effect re-runs due to sipSettings reference changes,
+    // leading to a spurious register() that tears down a live UA. Refs are always current.
+    if (user && canRegister() && !isRegisteredRef.current && !isConnectingRef.current && !userAgentRef.current) {
       register();
     }
   }, [user, sipSettings]);
