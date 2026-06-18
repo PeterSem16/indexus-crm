@@ -259,6 +259,7 @@ interface CollaboratorFormData {
 interface CollaboratorFormWizardProps {
   initialData?: Collaborator | null;
   onSuccess: () => void;
+  onPhoneChange?: (phone: string) => void;
   onCancel?: () => void;
   positionScopeFilter?: string;
   hideSvetZdravia?: boolean;
@@ -3564,7 +3565,7 @@ function DocumentsPanel({ collaboratorId, t }: { collaboratorId: string; t: any 
   );
 }
 
-export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, positionScopeFilter, hideSvetZdravia, prefillData, onCreated, mode }: CollaboratorFormWizardProps) {
+export function CollaboratorFormWizard({ initialData, onSuccess, onPhoneChange, onCancel, positionScopeFilter, hideSvetZdravia, prefillData, onCreated, mode }: CollaboratorFormWizardProps) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
   const { isHidden, isReadonly } = useModuleFieldPermissions("collaborators");
@@ -4976,7 +4977,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel, posit
                   <Label>{t.collaborators.fields.phone}</Label>
                   <PhoneNumberField
                     value={formData.phone}
-                    onChange={(value) => setFormData({ ...formData, phone: value })}
+                    onChange={(value) => { setFormData({ ...formData, phone: value }); onPhoneChange?.(value); }}
                     defaultCountryCode={formData.countryCode || "SK"}
                     data-testid="wizard-input-collaborator-phone"
                     disabled={isReadonly("phone")}

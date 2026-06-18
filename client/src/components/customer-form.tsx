@@ -269,9 +269,10 @@ interface CustomerFormProps {
   isLoading?: boolean;
   onCancel?: () => void;
   useCardLayout?: boolean;
+  onPhoneChange?: (phone: string) => void;
 }
 
-export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCardLayout = false }: CustomerFormProps) {
+export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCardLayout = false, onPhoneChange }: CustomerFormProps) {
   const { t, locale } = useI18n();
   const [activeSection, setActiveSection] = useState("status");
   const [districtKey, setDistrictKey] = useState(0);
@@ -670,7 +671,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                     {!isHidden("phone") && (
                       <FormField control={form.control} name="phone" render={({ field }) => (
                         <FormItem><FormLabel>{t.customers.phone}</FormLabel>
-                          <div className="flex gap-2"><FormControl><PhoneNumberField value={field.value} onChange={field.onChange} defaultCountryCode={form.watch("country") || "SK"} data-testid="input-phone" disabled={isReadonly("phone")} /></FormControl>
+                          <div className="flex gap-2"><FormControl><PhoneNumberField value={field.value} onChange={(v) => { field.onChange(v); onPhoneChange?.(v); }} defaultCountryCode={form.watch("country") || "SK"} data-testid="input-phone" disabled={isReadonly("phone")} /></FormControl>
                             {initialData?.id && field.value && <CallCustomerButton phoneNumber={field.value} customerId={initialData.id} customerName={`${initialData.firstName} ${initialData.lastName}`} leadScore={initialData.leadScore} clientStatus={initialData.clientStatus} variant="icon" />}
                           </div><FormMessage />
                         </FormItem>

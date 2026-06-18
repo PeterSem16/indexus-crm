@@ -3402,6 +3402,7 @@ function CommunicationCanvas({
                     mode="inline"
                     initialData={collaboratorData}
                     onSuccess={() => {}}
+                    onPhoneChange={(p) => setLocalPhoneOverride(p || null)}
                   />
                 </div>
               ) : (
@@ -3413,6 +3414,7 @@ function CommunicationCanvas({
                       onSubmit={(data) => onUpdateContact?.(data)}
                       isLoading={isUpdatingContact}
                       useCardLayout
+                      onPhoneChange={(p) => setLocalPhoneOverride(p || null)}
                     />
                   </div>
                 </ScrollArea>
