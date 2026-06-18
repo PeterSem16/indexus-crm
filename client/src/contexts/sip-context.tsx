@@ -85,6 +85,7 @@ const RECONNECT_BASE_DELAY = 1_000;
 const RECONNECT_MAX_DELAY = 15_000;
 const KEEPALIVE_INTERVAL = 15_000;
 const ENSURE_REGISTERED_TIMEOUT = 8_000;
+const WATCHDOG_INTERVAL = 55_000;
 
 export function SipProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -536,6 +537,14 @@ export function SipProvider({ children }: { children: ReactNode }) {
         } else if (newState === RegistererState.Terminated) {
           setRegisteredState(false);
           setIsRegistering(false);
+          if (!intentionalDisconnectRef.current) {
+            console.warn("[SIP] Registerer terminated unexpectedly — rebuilding UA in 2s...");
+            setTimeout(() => {
+              if (!intentionalDisconnectRef.current && !isConnectingRef.current) {
+                register();
+              }
+            }, 2_000);
+          }
         }
       });
 
@@ -665,6 +674,22 @@ export function SipProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("online", handleOnline);
     };
   }, [scheduleReconnect]);
+
+  // Watchdog: every WATCHDOG_INTERVAL check if we're still registered.
+  // Catches cases where the Registerer silently dies (e.g. server-side expiry,
+  // 401 auth loop, Terminated state with no recovery), without depending on
+  // transport-disconnect events that may not fire.
+  useEffect(() => {
+    if (!canRegister()) return;
+    const id = setInterval(() => {
+      if (intentionalDisconnectRef.current || isConnectingRef.current) return;
+      if (!isRegisteredRef.current) {
+        console.log("[SIP] Watchdog: not registered — triggering full re-registration");
+        register();
+      }
+    }, WATCHDOG_INTERVAL);
+    return () => clearInterval(id);
+  }, [canRegister, register]);
 
   useEffect(() => {
     return () => {
