@@ -8285,11 +8285,59 @@ export default function AgentWorkspacePage() {
     }
   };
 
-  const handleCloseCallAfterStatusList = useCallback(() => {
+  const handleCloseCallAfterStatusList = useCallback(async () => {
+    // Capture timing BEFORE reset so we can persist call meta
+    const timing = callContext.callTiming;
+    const dispositionElapsed = callEndTimestamp ? Math.round((Date.now() - callEndTimestamp) / 1000) : null;
+
+    // Prevent the callState→idle useEffect from auto-opening disposition
+    callWasActiveRef.current = false;
+    prevCallStateRef.current = "idle";
+
+    // Force-reset call context (callState→idle, hungUpBy→null) + clear wrapup state
+    callContext.forceResetCallFn.current?.();
     callContext.resetCallTiming();
     setCallEndTimestamp(null);
     setMandatoryDisposition(false);
-  }, [callContext]);
+    setRingDuration(0);
+
+    // Persist call meta to campaign contact (non-critical)
+    if (currentCampaignContactId && selectedCampaignId) {
+      try {
+        await apiRequest("PATCH", `/api/campaigns/${selectedCampaignId}/contacts/${currentCampaignContactId}`, {
+          callMeta: {
+            ringDurationSeconds: timing.ringDurationSeconds,
+            talkDurationSeconds: timing.talkDurationSeconds,
+            dispositionDurationSeconds: dispositionElapsed,
+            hungUpBy: timing.hungUpBy,
+            ringStartTime: timing.ringStartTime ? new Date(timing.ringStartTime).toISOString() : null,
+            callStartTime: timing.callStartTime ? new Date(timing.callStartTime).toISOString() : null,
+            callEndTime: timing.callEndTime ? new Date(timing.callEndTime).toISOString() : null,
+          },
+        });
+      } catch { /* non-critical */ }
+    }
+
+    // Clear task / contact state (same as handleCloseAcwTask)
+    if (activeTaskId) {
+      setTasks((prev) => prev.filter((t) => t.id !== activeTaskId));
+      setActiveTaskId(null);
+    }
+    setCurrentContact(null);
+    setCurrentCampaignContactId(null);
+    setCallNotes("");
+    setTimeline([]);
+    setActiveChannel("phone");
+
+    const isAuto = isAutoMode || campaignAutoSettings.autoMode;
+    const wrapUpDelay = isAuto ? (campaignAutoSettings.autoDelaySeconds || 5) * 1000 : 2000;
+    setTimeout(async () => {
+      try {
+        await agentSession.updateStatus("available");
+        if (isAuto) handleNextContact(true);
+      } catch {}
+    }, wrapUpDelay);
+  }, [callContext, callEndTimestamp, currentCampaignContactId, selectedCampaignId, activeTaskId, isAutoMode, campaignAutoSettings, agentSession]);
 
   const handleCloseAcwTask = useCallback(async () => {
     const acwSeconds = acwStartedAt ? Math.round((Date.now() - acwStartedAt) / 1000) : null;
