@@ -32,6 +32,14 @@ import { Component as ReactComponent, lazy, Suspense, useEffect, type ErrorInfo,
 // workspace is the landing for call-center agents (where Nexus Pulse lives).
 import Dashboard from "@/pages/dashboard";
 import AgentWorkspacePage from "@/pages/agent-workspace";
+// These pages are also eagerly imported because other components statically
+// import from them (CustomerDetailsContent, HospitalEditDrawer, CollaboratorsContent).
+// Making them lazy() has no effect — Vite can't split a module that is already
+// pulled into the main bundle by a static import elsewhere, and only produces
+// a build warning.
+import CustomersPage from "@/pages/customers";
+import HospitalsPage from "@/pages/hospitals";
+import CollaboratorsPage from "@/pages/collaborators";
 
 // The remaining route pages are lazy-loaded so the initial bundle stays small;
 // each page is fetched on demand when its route is first visited (see <Suspense>
@@ -40,13 +48,10 @@ import AgentWorkspacePage from "@/pages/agent-workspace";
 const PublicSigningPage = lazy(() => import("@/pages/public-signing"));
 const AuditTimelinePublic = lazy(() => import("@/pages/audit-timeline-public"));
 const UsersPage = lazy(() => import("@/pages/users"));
-const CustomersPage = lazy(() => import("@/pages/customers"));
 const ProductsPage = lazy(() => import("@/pages/products"));
 const InvoicesPage = lazy(() => import("@/pages/invoices"));
 const SettingsPage = lazy(() => import("@/pages/settings"));
-const HospitalsPage = lazy(() => import("@/pages/hospitals"));
 const VisitEventsPage = lazy(() => import("@/pages/visit-events"));
-const CollaboratorsPage = lazy(() => import("@/pages/collaborators"));
 const CollaboratorReportsPage = lazy(() => import("@/pages/collaborator-reports"));
 const ConfiguratorPage = lazy(() => import("@/pages/configurator"));
 const CampaignsPage = lazy(() => import("@/pages/campaigns"));
