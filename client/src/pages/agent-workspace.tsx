@@ -2356,6 +2356,8 @@ function CommunicationCanvas({
   ccCallbackNote,
   ccCallbackStatusListItemId,
   onCloseCallAfterStatusList,
+  phoneOverride,
+  onPhoneOverrideChange,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -2405,6 +2407,8 @@ function CommunicationCanvas({
   ccCallbackNote?: string | null;
   ccCallbackStatusListItemId?: string | null;
   onCloseCallAfterStatusList?: () => void;
+  phoneOverride?: string | null;
+  onPhoneOverrideChange?: (p: string | null) => void;
 }) {
   const { t, locale } = useI18n();
   const { user } = useAuth();
@@ -2581,11 +2585,7 @@ function CommunicationCanvas({
   }, []);
 
   const [phoneSubTab, setPhoneSubTab] = useState<"card" | "details" | "documents" | "sop" | "history">(externalPhoneSubTab || "card");
-  const [localPhoneOverride, setLocalPhoneOverride] = useState<string | null>(null);
-
-  useEffect(() => {
-    setLocalPhoneOverride(null);
-  }, [contact?.id]);
+  const localPhoneOverride = phoneOverride ?? null;
 
   useEffect(() => {
     if (externalPhoneSubTab) {
@@ -3414,10 +3414,10 @@ function CommunicationCanvas({
                     onSuccess={async () => {
                       try {
                         const r = await fetch(`/api/clinics/${contact.id}`, { credentials: "include" });
-                        if (r.ok) { const d = await r.json(); setLocalPhoneOverride(d.phone || null); }
+                        if (r.ok) { const d = await r.json(); onPhoneOverrideChange?.(d.phone || null); }
                       } catch {}
                     }}
-                    onPhoneChange={(p) => setLocalPhoneOverride(p || null)}
+                    onPhoneChange={(p) => onPhoneOverrideChange?.(p || null)}
                     mode="inline"
                   />
                 </div>
@@ -3430,10 +3430,10 @@ function CommunicationCanvas({
                     onSuccess={async () => {
                       try {
                         const r = await fetch(`/api/collaborators/${contact.id}`, { credentials: "include" });
-                        if (r.ok) { const d = await r.json(); setLocalPhoneOverride(d.phone || null); }
+                        if (r.ok) { const d = await r.json(); onPhoneOverrideChange?.(d.phone || null); }
                       } catch {}
                     }}
-                    onPhoneChange={(p) => setLocalPhoneOverride(p || null)}
+                    onPhoneChange={(p) => onPhoneOverrideChange?.(p || null)}
                   />
                 </div>
               ) : (
@@ -3445,7 +3445,7 @@ function CommunicationCanvas({
                       onSubmit={(data) => onUpdateContact?.(data)}
                       isLoading={isUpdatingContact}
                       useCardLayout
-                      onPhoneChange={(p) => setLocalPhoneOverride(p || null)}
+                      onPhoneChange={(p) => onPhoneOverrideChange?.(p || null)}
                     />
                   </div>
                 </ScrollArea>
@@ -6039,9 +6039,9 @@ function CustomerInfoPanel({
               </h4>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { key: "call", icon: Phone, label: t.agentWorkspace.callAction, color: "#B5622E", disabled: !contact.phone, testId: "btn-quick-call" },
+                  { key: "call", icon: Phone, label: t.agentWorkspace.callAction, color: "#B5622E", disabled: !(contact.phone || localPhoneOverride), testId: "btn-quick-call" },
                   { key: "email", icon: Mail, label: t.agentWorkspace.emailAction, color: "#5B4FCF", disabled: !contact.email, testId: "btn-quick-email" },
-                  { key: "sms", icon: MessageSquare, label: t.agentWorkspace.smsAction, color: "#2E75B6", disabled: !contact.phone, testId: "btn-quick-sms" },
+                  { key: "sms", icon: MessageSquare, label: t.agentWorkspace.smsAction, color: "#2E75B6", disabled: !(contact.phone || localPhoneOverride), testId: "btn-quick-sms" },
                   { key: "task", icon: CalendarPlus, label: t.agentWorkspace.taskAction, color: "#7A6858", disabled: false, testId: "btn-quick-task" },
                 ].map(({ key, icon: Icon, label, color, disabled, testId }) => (
                   <button
@@ -7089,6 +7089,7 @@ export default function AgentWorkspacePage() {
   const agentSession = useAgentSession();
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [currentContact, setCurrentContact] = useState<Customer | null>(null);
+  const [currentPhoneOverride, setCurrentPhoneOverride] = useState<string | null>(null);
   const [currentContactType, setCurrentContactType] = useState<string>("customer");
   const [currentHospitalData, setCurrentHospitalData] = useState<Hospital | null>(null);
   const [currentClinicData, setCurrentClinicData] = useState<Clinic | null>(null);
@@ -8524,6 +8525,7 @@ export default function AgentWorkspacePage() {
       }
       if (!isNewContactActive) {
         setCurrentContact(null);
+        setCurrentPhoneOverride(null);
         setCurrentCampaignContactId(null);
         setCallNotes("");
         setTimeline([]);
@@ -8582,6 +8584,7 @@ export default function AgentWorkspacePage() {
       setActiveTaskId(null);
     }
     setCurrentContact(null);
+    setCurrentPhoneOverride(null);
     setCurrentCampaignContactId(null);
     setCallNotes("");
     setTimeline([]);
@@ -8620,6 +8623,7 @@ export default function AgentWorkspacePage() {
       setActiveTaskId(null);
     }
     setCurrentContact(null);
+    setCurrentPhoneOverride(null);
     setCurrentCampaignContactId(null);
     setCallNotes("");
     setTimeline([]);
@@ -8950,6 +8954,7 @@ export default function AgentWorkspacePage() {
       setSidebarOpen(prevSidebarOpenRef.current);
       setSessionLoginOpen(true);
       setCurrentContact(null);
+      setCurrentPhoneOverride(null);
       setCurrentCampaignContactId(null);
       setTasks([]);
       setActiveTaskId(null);
@@ -9243,6 +9248,7 @@ export default function AgentWorkspacePage() {
   const handleSelectTask = (task: TaskItem) => {
     setActiveTaskId(task.id);
     setCurrentContact(task.contact);
+    setCurrentPhoneOverride(null);
     setCurrentContactType((task.contactType || "customer") as any);
     setCurrentHospitalData(task.hospitalData || null);
     setCurrentClinicData(task.clinicData || null);
@@ -9256,6 +9262,7 @@ export default function AgentWorkspacePage() {
     if (activeTaskId === taskId) {
       setActiveTaskId(null);
       setCurrentContact(null);
+      setCurrentPhoneOverride(null);
       setCurrentCampaignContactId(null);
       setCallNotes("");
       setTimeline([]);
@@ -9327,12 +9334,14 @@ export default function AgentWorkspacePage() {
 
   const handleQuickAction = (action: string) => {
     switch (action) {
-      case "call":
+      case "call": {
         setActiveChannel("phone");
-        if (currentContact?.phone && isSipRegistered) {
-          handleMakeCall(currentContact.phone);
+        const phoneToCall = currentPhoneOverride || currentContact?.phone;
+        if (phoneToCall && isSipRegistered) {
+          handleMakeCall(phoneToCall);
         }
         break;
+      }
       case "email":
         setActiveChannel("email");
         break;
@@ -10925,6 +10934,8 @@ export default function AgentWorkspacePage() {
               ccCallbackNote={currentCampaignContact?.callbackNote ?? null}
               ccCallbackStatusListItemId={currentCampaignContact?.callbackStatusListItemId ?? null}
               onCloseCallAfterStatusList={handleCloseCallAfterStatusList}
+              phoneOverride={currentPhoneOverride}
+              onPhoneOverrideChange={setCurrentPhoneOverride}
               onScriptAction={(action, data) => {
                 if (action === "openEmail") {
                   setActiveChannel("email");
@@ -11037,6 +11048,8 @@ export default function AgentWorkspacePage() {
           acwStartedAt={acwStartedAt}
           onCloseAcwTask={handleCloseAcwTask}
           onCloseCallAfterStatusList={handleCloseCallAfterStatusList}
+          phoneOverride={currentPhoneOverride}
+          onPhoneOverrideChange={setCurrentPhoneOverride}
           isStatusListMode={isStatusListMode}
           campaignContactId={effectiveCampaignContactId}
         />
