@@ -28504,13 +28504,21 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       });
       // Notify originating agent that BO resolved their task.
       if (notifyAgent && task.createdByUserId) {
+        let resolvedCustomerName: string | null = null;
+        if (task.customerId) {
+          try {
+            const [cu] = await db.select({ firstName: customers.firstName, lastName: customers.lastName })
+              .from(customers).where(eq(customers.id, task.customerId)).limit(1);
+            if (cu) resolvedCustomerName = `${cu.firstName || ""} ${cu.lastName || ""}`.trim() || null;
+          } catch {}
+        }
         try {
           await notificationService.sendNotificationToUsers([task.createdByUserId], {
             type: "back_office_resolved",
             title: task.title,
             message: note || "Úloha bola vyriešená Back Office tímom",
             priority: "high",
-            metadata: { taskId, taskTitle: task.title, resolution: note || null },
+            metadata: { taskId, taskTitle: task.title, resolution: note || null, customerName: resolvedCustomerName },
           });
         } catch (e) {
           console.warn("[BO] Failed to send resolution notification to agent:", e);
@@ -28638,6 +28646,14 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         await tx.update(tasks).set({ boState: "waiting_agent", status: "in_progress" }).where(eq(tasks.id, taskId));
         return c;
       });
+      let askCustomerName: string | null = null;
+      if (task.customerId) {
+        try {
+          const [cu] = await db.select({ firstName: customers.firstName, lastName: customers.lastName })
+            .from(customers).where(eq(customers.id, task.customerId)).limit(1);
+          if (cu) askCustomerName = `${cu.firstName || ""} ${cu.lastName || ""}`.trim() || null;
+        } catch {}
+      }
       try {
         await notificationService.sendNotificationToUsers([task.createdByUserId], {
           type: "back_office_question",
@@ -28646,7 +28662,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           priority: highPriority ? "urgent" : "high",
           entityType: "task",
           entityId: taskId,
-          metadata: { taskId, taskTitle: task.title } as any,
+          metadata: { taskId, taskTitle: task.title, customerName: askCustomerName } as any,
         });
       } catch (err) { console.error("[BO ask-agent] notify error:", err); }
       res.status(201).json(comment);

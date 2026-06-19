@@ -18,6 +18,7 @@ type ResolvedItem = {
   id: string;
   taskTitle: string;
   resolution: string | null;
+  customerName: string | null;
   at: number;
 };
 
@@ -37,6 +38,12 @@ function ResolvedCard({ item, onDismiss }: { item: ResolvedItem; onDismiss: () =
           <div className="text-[9px] font-black text-emerald-700 dark:text-emerald-300 uppercase tracking-widest mb-0.5">
             ✅ Back Office vyriešil
           </div>
+          {item.customerName && (
+            <div className="text-[10px] font-semibold text-emerald-800 dark:text-emerald-200 mb-0.5 flex items-center gap-1">
+              <User className="shrink-0" style={{ width: 10, height: 10 }} />
+              {item.customerName}
+            </div>
+          )}
           <div className="text-xs font-semibold text-foreground leading-snug">{item.taskTitle}</div>
           {item.resolution && (
             <p className="text-[11px] text-emerald-700 dark:text-emerald-300 mt-1 leading-relaxed line-clamp-2 italic">
@@ -402,6 +409,7 @@ export function BackOfficeQuestionsInbox() {
           id,
           taskTitle: notif.metadata?.taskTitle || notif.title || "Úloha",
           resolution: notif.metadata?.resolution || null,
+          customerName: notif.metadata?.customerName || null,
           at: Date.now(),
         }];
       });

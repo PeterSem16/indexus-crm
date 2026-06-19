@@ -166,9 +166,11 @@ export function useNotifications() {
                 if (notif?.type === "back_office_question") {
                   queryClient.invalidateQueries({ queryKey: ["/api/agent/bo-questions"] });
                   const tt = tRef.current;
+                  const taskLabel = (notif.metadata?.taskTitle || notif.title || "").slice(0, 120);
+                  const custLabel = notif.metadata?.customerName ? notif.metadata.customerName : null;
                   toastRef.current({
                     title: tt.backOffice?.questionToastTitle || "Back Office sa pýta",
-                    description: (notif.metadata?.taskTitle || notif.title || "").slice(0, 120) || undefined,
+                    description: custLabel ? `${custLabel} — ${taskLabel}` : taskLabel || undefined,
                   });
                 }
                 // Back Office resolved the agent's task — show a beautiful notification and
