@@ -11177,6 +11177,7 @@ export default function AgentWorkspacePage() {
               onEndSession={handleEndSession}
               onStartBreak={handleStartBreak}
               onEndBreak={handleEndBreak}
+              contactType={currentContactType}
               onClearContact={() => {
                 pendingCcIdRef.current = null;
                 setCurrentCampaignContactId(null);
