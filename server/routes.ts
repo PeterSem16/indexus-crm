@@ -23945,24 +23945,65 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
       const ccIds = [...new Set(calls.filter(c => c.campaignContactId).map(c => c.campaignContactId as string))];
       let dispositionMap: Record<string, string | null> = {};
+      let ccContactTypeMap: Record<string, { contactType: string; clinicId?: string | null; hospitalId?: string | null; collaboratorId?: string | null }> = {};
       if (ccIds.length > 0) {
-        const ccRows = await db.select({ id: campaignContacts.id, dispositionCode: campaignContacts.dispositionCode }).from(campaignContacts).where(inArray(campaignContacts.id, ccIds));
-        for (const cc of ccRows) dispositionMap[cc.id] = cc.dispositionCode;
+        const ccRows = await db.select({ id: campaignContacts.id, dispositionCode: campaignContacts.dispositionCode, contactType: campaignContacts.contactType, clinicId: campaignContacts.clinicId, hospitalId: campaignContacts.hospitalId, collaboratorId: campaignContacts.collaboratorId }).from(campaignContacts).where(inArray(campaignContacts.id, ccIds));
+        for (const cc of ccRows) {
+          dispositionMap[cc.id] = cc.dispositionCode;
+          ccContactTypeMap[cc.id] = { contactType: cc.contactType, clinicId: cc.clinicId, hospitalId: cc.hospitalId, collaboratorId: cc.collaboratorId };
+        }
       }
 
-      const callItems = calls.map(c => ({
-        id: c.id,
-        itemType: "call" as const,
-        direction: c.direction,
-        status: c.status,
-        phoneNumber: c.phoneNumber,
-        durationSeconds: c.durationSeconds,
-        startedAt: c.startedAt,
-        sortTime: c.startedAt,
-        customerName: c.customerId ? (customerMap[c.customerId] || null) : null,
-        dispositionCode: c.campaignContactId ? (dispositionMap[c.campaignContactId] ?? null) : null,
-        inboundQueueName: c.inboundQueueName,
-      }));
+      // Batch resolve entity names from clinics/hospitals/collaborators
+      const clinicIds = [...new Set(Object.values(ccContactTypeMap).filter(r => r.clinicId).map(r => r.clinicId as string))];
+      const hospitalIds = [...new Set(Object.values(ccContactTypeMap).filter(r => r.hospitalId).map(r => r.hospitalId as string))];
+      const collaboratorIds = [...new Set(Object.values(ccContactTypeMap).filter(r => r.collaboratorId).map(r => r.collaboratorId as string))];
+      let clinicNameMap: Record<string, string> = {};
+      let hospitalNameMap: Record<string, string> = {};
+      let collaboratorNameMap: Record<string, string> = {};
+      if (clinicIds.length > 0) {
+        const rows = await db.select({ id: clinics.id, name: clinics.name, doctorFirstName: clinics.doctorFirstName, doctorLastName: clinics.doctorLastName, doctorTitle: clinics.doctorTitle }).from(clinics).where(inArray(clinics.id, clinicIds));
+        for (const r of rows) {
+          const doctorPart = [r.doctorTitle, r.doctorFirstName, r.doctorLastName].filter(Boolean).join(" ");
+          clinicNameMap[r.id] = doctorPart ? `${doctorPart} (${r.name})` : r.name;
+        }
+      }
+      if (hospitalIds.length > 0) {
+        const rows = await db.select({ id: hospitals.id, name: hospitals.name }).from(hospitals).where(inArray(hospitals.id, hospitalIds));
+        for (const r of rows) hospitalNameMap[r.id] = r.name;
+      }
+      if (collaboratorIds.length > 0) {
+        const rows = await db.select({ id: collaborators.id, firstName: collaborators.firstName, lastName: collaborators.lastName, titleBefore: collaborators.titleBefore }).from(collaborators).where(inArray(collaborators.id, collaboratorIds));
+        for (const r of rows) collaboratorNameMap[r.id] = [r.titleBefore, r.firstName, r.lastName].filter(Boolean).join(" ");
+      }
+
+      const callItems = calls.map(c => {
+        let entityName: string | null = c.customerId ? (customerMap[c.customerId] || null) : null;
+        let contactType: string | null = null;
+        if (c.campaignContactId && ccContactTypeMap[c.campaignContactId]) {
+          const cc = ccContactTypeMap[c.campaignContactId];
+          contactType = cc.contactType;
+          if (!entityName) {
+            if (cc.clinicId) entityName = clinicNameMap[cc.clinicId] || null;
+            else if (cc.hospitalId) entityName = hospitalNameMap[cc.hospitalId] || null;
+            else if (cc.collaboratorId) entityName = collaboratorNameMap[cc.collaboratorId] || null;
+          }
+        }
+        return {
+          id: c.id,
+          itemType: "call" as const,
+          direction: c.direction,
+          status: c.status,
+          phoneNumber: c.phoneNumber,
+          durationSeconds: c.durationSeconds,
+          startedAt: c.startedAt,
+          sortTime: c.startedAt,
+          customerName: entityName,
+          contactType,
+          dispositionCode: c.campaignContactId ? (dispositionMap[c.campaignContactId] ?? null) : null,
+          inboundQueueName: c.inboundQueueName,
+        };
+      });
 
       // 2. Fetch email + SMS from activity logs
       const activities = await db

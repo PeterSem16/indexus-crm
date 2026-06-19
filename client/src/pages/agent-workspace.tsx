@@ -6398,10 +6398,12 @@ function MyActivityPanel({
   open,
   onOpenChange,
   stats,
+  onMakeCall,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   stats: { calls: number; emails: number; sms: number };
+  onMakeCall?: (phone: string) => void;
 }) {
   const { t } = useI18n();
   const [filterType, setFilterType] = useState<"all" | "call" | "email" | "sms" | "missed">("all");
@@ -6562,11 +6564,24 @@ function MyActivityPanel({
                           )}
                         </div>
                       </div>
-                      <div className="text-right shrink-0 flex flex-col items-end gap-1">
-                        <div className="text-xs font-medium text-foreground">{format(new Date(sortTime), "HH:mm")}</div>
-                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 font-normal ${isIn ? "border-blue-300 text-blue-600 dark:text-blue-400" : "border-indigo-300 text-indigo-600 dark:text-indigo-400"}`}>
-                          {isIn ? t.agentWorkspace.todayCallsInboundBadge : t.agentWorkspace.todayCallsOutboundBadge}
-                        </Badge>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {onMakeCall && item.phoneNumber && (
+                          <button
+                            type="button"
+                            onClick={() => { onMakeCall(item.phoneNumber); onOpenChange(false); }}
+                            className="flex h-7 w-7 items-center justify-center rounded-full bg-green-600 hover:bg-green-700 text-white transition-colors"
+                            title={item.phoneNumber}
+                            data-testid={`btn-shift-call-again-${item.id}`}
+                          >
+                            <Phone className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        <div className="text-right flex flex-col items-end gap-1">
+                          <div className="text-xs font-medium text-foreground">{format(new Date(sortTime), "HH:mm")}</div>
+                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 font-normal ${isIn ? "border-blue-300 text-blue-600 dark:text-blue-400" : "border-indigo-300 text-indigo-600 dark:text-indigo-400"}`}>
+                            {isIn ? t.agentWorkspace.todayCallsInboundBadge : t.agentWorkspace.todayCallsOutboundBadge}
+                          </Badge>
+                        </div>
                       </div>
                     </div>
                   );
@@ -12191,7 +12206,7 @@ export default function AgentWorkspacePage() {
       </Sheet>
 
       <ScheduledQueuePanel open={scheduledQueueOpen} onOpenChange={setScheduledQueueOpen} onOpenContact={handleOpenScheduledContact} />
-      <MyActivityPanel open={myActivityOpen} onOpenChange={setMyActivityOpen} stats={stats} />
+      <MyActivityPanel open={myActivityOpen} onOpenChange={setMyActivityOpen} stats={stats} onMakeCall={handleMakeCall} />
 
       <Dialog open={createTaskDialogOpen} onOpenChange={setCreateTaskDialogOpen}>
         <DialogContent className="sm:max-w-md">
