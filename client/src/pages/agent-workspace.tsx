@@ -11186,6 +11186,7 @@ export default function AgentWorkspacePage() {
               onFullLogout={logout}
               t={t}
               locale={locale}
+              currentUserId={user?.id}
             />
           </div>
         )}

@@ -4,7 +4,7 @@ import { Phone, PhoneOff, PhoneIncoming, Mic, MicOff, PauseCircle, PlayCircle,
   Hash, Check, ChevronDown, ChevronUp, Info, Zap, Coffee, LogOut, User,
   Clock, ChevronRight, AlertCircle, FileText, ListChecks,
   Mail, MapPin, Calendar, ArrowLeft, Search, X, Baby, Building2,
-  History, PhoneCall, Stethoscope, UserX } from "lucide-react";
+  History, PhoneCall, Stethoscope, UserX, Globe, Share2, UserCheck } from "lucide-react";
 import { format } from "date-fns";
 
 /* ── helpers ────────────────────────────────────────────────────────── */
@@ -390,28 +390,32 @@ function StatusListPanel({ items, checked, onToggle, np }: {
 }
 
 /* ── ContactRow ─────────────────────────────────────────────────────── */
-function ContactRow({ cc, onSelect, isOverdue, isUpcoming, callbackDate, np }: {
+function ContactRow({ cc, onSelect, isOverdue, isUpcoming, callbackDate, np, currentUserId }: {
   cc: any; onSelect: (cc: any) => void;
   isOverdue?: boolean; isUpcoming?: boolean;
   callbackDate?: string; np: any;
+  currentUserId?: string;
 }) {
   const name = ccName(cc);
   const phone = ccPhone(cc);
   const initials = ccInitials(cc);
   const isCallback = isOverdue || isUpcoming;
+  const isOtherAgent = !!(cc.assignedTo && cc.assignedTo !== "all" && currentUserId && cc.assignedTo !== currentUserId);
 
   return (
     <button
       onClick={() => onSelect(cc)}
       className={`w-full flex items-center gap-3 p-3 rounded-2xl border text-left active:scale-[0.98] transition-all ${
-        isOverdue ? "border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/10"
+        isOtherAgent ? "border-amber-200 dark:border-amber-800/50 bg-amber-50/60 dark:bg-amber-950/15"
+        : isOverdue ? "border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/10"
         : isUpcoming ? "border-blue-200 dark:border-blue-800/50 bg-blue-50/50 dark:bg-blue-950/10"
         : "bg-card"
       }`}
       data-testid={`btn-contact-row-${cc.id}`}
     >
       <div className={`h-11 w-11 rounded-xl flex items-center justify-center text-sm font-bold text-white shrink-0 ${
-        isOverdue ? "bg-red-400"
+        isOtherAgent ? "bg-amber-400"
+        : isOverdue ? "bg-red-400"
         : isUpcoming ? "bg-blue-500"
         : "bg-gradient-to-br from-primary/80 to-primary"
       }`}>
@@ -422,16 +426,22 @@ function ContactRow({ cc, onSelect, isOverdue, isUpcoming, callbackDate, np }: {
         {phone && <p className="text-xs text-muted-foreground truncate">{phone}</p>}
         {callbackDate && (
           <div className="flex items-center gap-1 mt-0.5">
-            <Calendar className={`h-3 w-3 ${isOverdue ? "text-red-500" : "text-blue-500"}`} />
-            <p className={`text-xs font-semibold ${isOverdue ? "text-red-500" : "text-blue-500"}`}>
-              {isOverdue ? (np.overdue || "Overdue") + " · " : ""}
+            <Calendar className={`h-3 w-3 ${isOtherAgent ? "text-amber-500" : isOverdue ? "text-red-500" : "text-blue-500"}`} />
+            <p className={`text-xs font-semibold ${isOtherAgent ? "text-amber-600 dark:text-amber-400" : isOverdue ? "text-red-500" : "text-blue-500"}`}>
+              {isOverdue && !isOtherAgent ? (np.overdue || "Overdue") + " · " : ""}
               {(() => { try { return format(new Date(callbackDate), "d. M. HH:mm"); } catch { return callbackDate; } })()}
             </p>
           </div>
         )}
+        {isOtherAgent && (
+          <div className="flex items-center gap-1 mt-0.5">
+            <Share2 className="h-2.5 w-2.5 text-amber-500 shrink-0" />
+            <p className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">{np.otherAgentCallback || "Preplánovaný iným agentom"}</p>
+          </div>
+        )}
       </div>
       {isCallback
-        ? <PhoneCall className={`h-4 w-4 shrink-0 ${isOverdue ? "text-red-400" : "text-blue-400"}`} />
+        ? <PhoneCall className={`h-4 w-4 shrink-0 ${isOtherAgent ? "text-amber-400" : isOverdue ? "text-red-400" : "text-blue-400"}`} />
         : <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0" />
       }
     </button>
@@ -451,7 +461,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
     dbStatusList, dbSlChecked, onSlToggle,
     agentStatus, isOnBreak, workTime, breakTypes,
     onEndSession, onStartBreak, onEndBreak,
-    onFullLogout, t,
+    onFullLogout, t, currentUserId,
   } = props;
 
   const np = t?.nexusPulse || {};
@@ -791,6 +801,20 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                     </div>
                   </div>
                 )}
+                {contact.website && (
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground">Web</p>
+                      <a
+                        href={contact.website.startsWith("http") ? contact.website : `https://${contact.website}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="font-semibold text-primary truncate block hover:underline"
+                        onClick={e => e.stopPropagation()}
+                      >{contact.website}</a>
+                    </div>
+                  </div>
+                )}
                 {contact.dateOfBirth && (
                   <div className="flex items-center gap-3 px-4 py-3">
                     <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -817,7 +841,14 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                     <div className="min-w-0">
                       <p className="text-xs text-muted-foreground">{np.address || "Address"}</p>
                       <p className="font-semibold leading-snug">
-                        {[contact.address || contact.street, contact.city, contact.postalCode, contact.country].filter(Boolean).join(", ")}
+                        {[
+                          contact.address || contact.street,
+                          (contact.postalCode && contact.city)
+                            ? `${contact.postalCode} ${contact.city}`
+                            : (contact.postalCode || contact.city),
+                          contact.district ? contact.district : null,
+                          contact.country,
+                        ].filter(Boolean).join(", ")}
                       </p>
                     </div>
                   </div>
@@ -853,8 +884,8 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                   </div>
                 )}
                 {contact.leadSource && (
-                  <div className="flex items-center gap-3 px-4 py-3">
-                    <Info className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div className="flex items-start gap-3 px-4 py-3">
+                    <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                     <div className="min-w-0">
                       <p className="text-xs text-muted-foreground">{np.leadSource || "Lead source"}</p>
                       <p className="font-semibold">{contact.leadSource}</p>
@@ -862,6 +893,27 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {(() => { try { return format(new Date(contact.leadSourceDate), "d. M. yyyy"); } catch { return contact.leadSourceDate; } })()}
                         </p>
+                      )}
+                      {contact.leadSourceNotes && (
+                        <p className="text-xs text-muted-foreground mt-1 leading-snug">{contact.leadSourceNotes}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {(contact.isReferredByDoctor || (contact.registrationSource === "referral" && contact.leadSourceNotes)) && (
+                  <div className="flex items-start gap-3 px-4 py-3">
+                    <UserCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <p className="text-xs text-muted-foreground">{np.referral || "Odporúčanie"}</p>
+                        {contact.isReferredByDoctor && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
+                            {np.referredByDoctor || "Doktor"}
+                          </span>
+                        )}
+                      </div>
+                      {contact.leadSourceNotes && (
+                        <p className="font-semibold text-sm leading-snug">{contact.leadSourceNotes}</p>
                       )}
                     </div>
                   </div>
@@ -877,10 +929,10 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                 )}
                 {contact.notes && (
                   <div className="flex items-start gap-3 px-4 py-3">
-                    <FileText className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                    <FileText className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                     <div className="min-w-0">
-                      <p className="text-xs text-muted-foreground">{np.notes || "Notes"}</p>
-                      <p className="leading-relaxed text-sm">{contact.notes}</p>
+                      <p className="text-xs text-muted-foreground font-medium">{np.notes || "Poznámky"}</p>
+                      <p className="leading-relaxed text-sm mt-0.5 whitespace-pre-line">{contact.notes}</p>
                     </div>
                   </div>
                 )}
@@ -1039,7 +1091,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                   <div className="h-px flex-1 bg-red-200 dark:bg-red-900/40" />
                 </div>
                 {filteredOverdue.map(cc => (
-                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} isOverdue callbackDate={cc.callbackDate} np={np} />
+                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} isOverdue callbackDate={cc.callbackDate} np={np} currentUserId={currentUserId} />
                 ))}
               </>
             )}
@@ -1054,7 +1106,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                   <div className="h-px flex-1 bg-blue-200 dark:bg-blue-900/40" />
                 </div>
                 {filteredUpcoming.map(cc => (
-                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} isUpcoming callbackDate={cc.callbackDate} np={np} />
+                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} isUpcoming callbackDate={cc.callbackDate} np={np} currentUserId={currentUserId} />
                 ))}
               </>
             )}
