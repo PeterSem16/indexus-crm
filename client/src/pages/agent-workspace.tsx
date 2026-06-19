@@ -4236,6 +4236,11 @@ function CommunicationCanvas({
                           if (!groups[k]) groups[k] = [];
                           groups[k].push(q);
                         });
+                        // Step-level exclusivity: when EVERY group in this step uses "ONE" mode,
+                        // selecting any question clears ALL sub-questions across all groups.
+                        const allGroupsAreOne = Object.values(groups).every(
+                          (gList: any[]) => gList[0]?.logicOperator === "ONE"
+                        );
                         return (
                           <div className="mt-2 pt-1.5 border-t border-dashed space-y-2" data-testid={`sl-questions-${item.id}`}>
                             {Object.entries(groups).map(([gk, gqs]) => (
@@ -4253,6 +4258,11 @@ function CommunicationCanvas({
                                     const ft = q.fieldType || "checkbox";
                                     const answered = slQuestionAnswers[q.id] !== undefined;
                                     const groupMode = (gqs as any[])[0]?.logicOperator === "ONE" ? "ONE" : undefined;
+                                    // When all groups are 1× mode, pass ALL step questions so that
+                                    // selecting one option clears every other option in the step.
+                                    const exclusiveQs = (groupMode === "ONE" && allGroupsAreOne)
+                                      ? visibleQs
+                                      : gqs as any[];
                                     const hasActionable = (q.automations || []).some((a: any) =>
                                       a.actionType === "set_contact_status" || a.actionType === "set_callback" || a.actionType === "send_email_group"
                                     );
@@ -4268,11 +4278,11 @@ function CommunicationCanvas({
                                           {q.questionText && <p className="text-[10px] text-foreground/70 mb-1">{q.questionText}</p>}
                                           <div className="flex gap-1">
                                             <button type="button"
-                                              onClick={() => { handleSlQuestionAnswer(q, "yes", gqs as any[], groupMode); if (hasActionable) for (const a of (q.automations || [])) handleSlRunAction(a); doAutoConfirmParent(); }}
+                                              onClick={() => { handleSlQuestionAnswer(q, "yes", exclusiveQs, groupMode); if (hasActionable) for (const a of (q.automations || [])) handleSlRunAction(a); doAutoConfirmParent(); }}
                                               className={`px-2.5 py-1 text-xs rounded border font-semibold transition-colors ${slQuestionAnswers[q.id] === "yes" ? "bg-green-500 border-green-500 text-white" : "border-border hover:bg-green-50 dark:hover:bg-green-950/20 text-foreground"}`}
                                               data-testid={`btn-sl-q-yes-${q.id}`}>Áno</button>
                                             <button type="button"
-                                              onClick={() => { handleSlQuestionAnswer(q, "no", gqs as any[], groupMode); if (hasActionable) for (const a of (q.automations || [])) handleSlRunAction(a); doAutoConfirmParent(); }}
+                                              onClick={() => { handleSlQuestionAnswer(q, "no", exclusiveQs, groupMode); if (hasActionable) for (const a of (q.automations || [])) handleSlRunAction(a); doAutoConfirmParent(); }}
                                               className={`px-2.5 py-1 text-xs rounded border font-semibold transition-colors ${slQuestionAnswers[q.id] === "no" ? "bg-red-500 border-red-500 text-white" : "border-border hover:bg-red-50 dark:hover:bg-red-950/20 text-foreground"}`}
                                               data-testid={`btn-sl-q-no-${q.id}`}>Nie</button>
                                           </div>
@@ -4288,7 +4298,7 @@ function CommunicationCanvas({
                                           <SlCallbackButton
                                             automation={cbAuto}
                                             isRunning={slRunningAuto.has(String(cbAuto.id))}
-                                            onRun={(a, opts) => { handleSlQuestionAnswer(q, true, gqs as any[], groupMode); handleSlRunAction(a, opts); doAutoConfirmParent(); }}
+                                            onRun={(a, opts) => { handleSlQuestionAnswer(q, true, exclusiveQs, groupMode); handleSlRunAction(a, opts); doAutoConfirmParent(); }}
                                             locale={locale}
                                             label={q.questionText}
                                           />
@@ -4303,7 +4313,7 @@ function CommunicationCanvas({
                                           <SlStatusButton
                                             automation={stAuto}
                                             isRunning={slRunningAuto.has(String(stAuto.id))}
-                                            onRun={(a, opts) => { handleSlQuestionAnswer(q, true, gqs as any[], groupMode); handleSlRunAction(a, opts); doAutoConfirmParent(); }}
+                                            onRun={(a, opts) => { handleSlQuestionAnswer(q, true, exclusiveQs, groupMode); handleSlRunAction(a, opts); doAutoConfirmParent(); }}
                                             locale={locale}
                                             isCallback={isCallback}
                                             label={q.questionText}
@@ -4318,7 +4328,7 @@ function CommunicationCanvas({
                                       <button
                                         key={q.id}
                                         type="button"
-                                        onClick={() => { handleSlQuestionAnswer(q, true, gqs as any[], groupMode); doAutoConfirmParent(); }}
+                                        onClick={() => { handleSlQuestionAnswer(q, true, exclusiveQs, groupMode); doAutoConfirmParent(); }}
                                         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${
                                           answered
                                             ? "bg-primary text-primary-foreground border-primary"
