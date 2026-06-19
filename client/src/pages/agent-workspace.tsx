@@ -3214,23 +3214,23 @@ function CommunicationCanvas({
           {autoSaveStatus === "saving" && (
             <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" />
-              Ukladám...
+              {t.agentWorkspace.savingPhone}
             </span>
           )}
           {autoSaveStatus === "saved" && (
             <span className="flex items-center gap-1 text-[10px] text-green-600 dark:text-green-400">
               <CheckCircle className="h-3 w-3" />
-              Uložené
+              {t.agentWorkspace.savedPhone}
             </span>
           )}
           {localPhoneOverride && localPhoneOverride !== lastAutoSavedPhoneRef.current && autoSaveStatus === "idle" && (
             <button
               onClick={handleManualSavePhone}
-              title="Uložiť telefónne číslo"
+              title={t.agentWorkspace.savePhoneLabel}
               className="flex items-center gap-1 text-[10px] h-6 px-2 rounded-md bg-amber-500 hover:bg-amber-600 text-white font-medium transition-colors shrink-0"
             >
               <Save className="h-3 w-3" />
-              Uložiť číslo
+              {t.agentWorkspace.savePhoneLabel}
             </button>
           )}
           {(() => {

@@ -3408,6 +3408,9 @@ export interface Translations {
     myShiftFilterEmail: string;
     myShiftFilterSms: string;
     myShiftFilterMissed: string;
+    savePhoneLabel: string;
+    savingPhone: string;
+    savedPhone: string;
   };
   sop: {
     title: string;
@@ -10443,6 +10446,9 @@ export const translations: Record<Locale, Translations> = {
       myShiftFilterEmail: 'Email',
       myShiftFilterSms: 'SMS',
       myShiftFilterMissed: 'Missed',
+      savePhoneLabel: 'Save number',
+      savingPhone: 'Saving...',
+      savedPhone: 'Saved',
     },
     sop: {
         title: 'SOP & Procedures',
@@ -16933,6 +16939,9 @@ export const translations: Record<Locale, Translations> = {
       myShiftFilterEmail: 'Email',
       myShiftFilterSms: 'SMS',
       myShiftFilterMissed: 'Zmeškaná',
+      savePhoneLabel: 'Uložiť číslo',
+      savingPhone: 'Ukladám...',
+      savedPhone: 'Uložené',
     },
     sop: {
         title: 'SOP & Postupy',
@@ -23409,6 +23418,9 @@ export const translations: Record<Locale, Translations> = {
       myShiftFilterEmail: 'Email',
       myShiftFilterSms: 'SMS',
       myShiftFilterMissed: 'Zmeškaný',
+      savePhoneLabel: 'Uložit číslo',
+      savingPhone: 'Ukládám...',
+      savedPhone: 'Uloženo',
     },
     sop: {
         title: 'SOP & Postupy',
@@ -29828,6 +29840,9 @@ export const translations: Record<Locale, Translations> = {
       todayCallsInboundBadge: 'Bejövő',
       todayCallsOutboundBadge: 'Kimenő',
       todayCallsRefresh: 'Frissítés',
+      savePhoneLabel: 'Szám mentése',
+      savingPhone: 'Mentés...',
+      savedPhone: 'Elmentve',
     },
     sop: {
         title: 'SOP & Eljárások',
@@ -36142,6 +36157,9 @@ export const translations: Record<Locale, Translations> = {
       todayCallsInboundBadge: 'Primit',
       todayCallsOutboundBadge: 'Efectuat',
       todayCallsRefresh: 'Reîncărcați',
+      savePhoneLabel: 'Salvați numărul',
+      savingPhone: 'Se salvează...',
+      savedPhone: 'Salvat',
     },
     sop: {
         title: 'SOP & Proceduri',
@@ -42458,6 +42476,9 @@ export const translations: Record<Locale, Translations> = {
       todayCallsInboundBadge: 'In entrata',
       todayCallsOutboundBadge: 'In uscita',
       todayCallsRefresh: 'Aggiorna',
+      savePhoneLabel: 'Salva numero',
+      savingPhone: 'Salvataggio...',
+      savedPhone: 'Salvato',
     },
     sop: {
         title: 'SOP & Procedure',
@@ -48774,6 +48795,9 @@ export const translations: Record<Locale, Translations> = {
       todayCallsInboundBadge: 'Eingehend',
       todayCallsOutboundBadge: 'Ausgehend',
       todayCallsRefresh: 'Aktualisieren',
+      savePhoneLabel: 'Nummer speichern',
+      savingPhone: 'Wird gespeichert...',
+      savedPhone: 'Gespeichert',
     },
     sop: {
         title: 'SOP & Verfahren',
