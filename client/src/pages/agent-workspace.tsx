@@ -148,6 +148,7 @@ import {
   Code2,
   CheckCheck,
   ClipboardList,
+  Save,
 } from "lucide-react";
 import type { CSSProperties } from "react";
 import {
@@ -2590,8 +2591,10 @@ function CommunicationCanvas({
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
 
   useEffect(() => {
-    lastAutoSavedPhoneRef.current = null;
+    const entityPhone = clinicData?.phone || collaboratorData?.phone || null;
+    lastAutoSavedPhoneRef.current = entityPhone;
     setAutoSaveStatus("idle");
+    if (entityPhone) onPhoneOverrideChange?.(entityPhone);
   }, [contact?.id, clinicData?.id, collaboratorData?.id]);
 
   useEffect(() => {
@@ -2625,6 +2628,34 @@ function CommunicationCanvas({
     }, 1500);
     return () => clearTimeout(timer);
   }, [phoneOverride, clinicData?.id, collaboratorData?.id, contact?.id]);
+
+  const handleManualSavePhone = async () => {
+    if (!localPhoneOverride) return;
+    let url = "";
+    let method = "PATCH";
+    if (clinicData) { url = `/api/clinics/${clinicData.id}`; method = "PUT"; }
+    else if (collaboratorData) { url = `/api/collaborators/${collaboratorData.id}`; method = "PUT"; }
+    else if (contact) { url = `/api/customers/${contact.id}`; method = "PATCH"; }
+    if (!url) return;
+    setAutoSaveStatus("saving");
+    try {
+      const r = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ phone: localPhoneOverride }),
+      });
+      if (r.ok) {
+        lastAutoSavedPhoneRef.current = localPhoneOverride;
+        setAutoSaveStatus("saved");
+        setTimeout(() => setAutoSaveStatus("idle"), 2500);
+      } else {
+        setAutoSaveStatus("idle");
+      }
+    } catch {
+      setAutoSaveStatus("idle");
+    }
+  };
 
   useEffect(() => {
     if (externalPhoneSubTab) {
@@ -3193,14 +3224,26 @@ function CommunicationCanvas({
               Uložené
             </span>
           )}
-          {(localPhoneOverride || contact.phone) && (() => {
+          {localPhoneOverride && localPhoneOverride !== lastAutoSavedPhoneRef.current && autoSaveStatus === "idle" && (
+            <button
+              onClick={handleManualSavePhone}
+              title="Uložiť telefónne číslo"
+              className="flex items-center gap-1 text-[10px] h-6 px-2 rounded-md bg-amber-500 hover:bg-amber-600 text-white font-medium transition-colors shrink-0"
+            >
+              <Save className="h-3 w-3" />
+              Uložiť číslo
+            </button>
+          )}
+          {(() => {
+            const effectivePhone = localPhoneOverride || clinicData?.phone || collaboratorData?.phone || contact?.phone;
+            if (!effectivePhone) return null;
             const cs = callState || "idle";
             const fmtDur = (s?: number) => `${String(Math.floor((s||0)/60)).padStart(2,"0")}:${String((s||0)%60).padStart(2,"0")}`;
             const isCustomerHungUp = cs === "ended" && hungUpBy === "customer";
             const isEnded = cs === "ended";
             const isActive = cs === "active" || cs === "on_hold";
             const isConnecting = cs === "connecting" || cs === "ringing";
-            const phone = localPhoneOverride || contact.phone!;
+            const phone = effectivePhone;
 
             if (isCustomerHungUp) {
               return (
@@ -9387,7 +9430,7 @@ export default function AgentWorkspacePage() {
     switch (action) {
       case "call": {
         setActiveChannel("phone");
-        const phoneToCall = currentPhoneOverride || currentContact?.phone;
+        const phoneToCall = currentPhoneOverride || currentClinicData?.phone || currentCollaboratorData?.phone || currentContact?.phone;
         if (phoneToCall && isSipRegistered) {
           handleMakeCall(phoneToCall);
         }
