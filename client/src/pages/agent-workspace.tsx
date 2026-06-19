@@ -188,6 +188,8 @@ import { getCountryFlag } from "@/lib/countries";
 import { COUNTRY_TO_LOCALE } from "@/i18n/translations";
 import { BackOfficePanel } from "@/components/back-office-panel";
 import { BackOfficeQuestionsInbox } from "@/components/back-office-questions-inbox";
+import { MobileAgentWorkspace } from "@/components/mobile-agent-workspace";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // Inline i18n for status-list manual action buttons (mission status list).
 // Kept local (like the builder's sl() helper) to avoid editing 7 locale blocks in translations.ts.
@@ -7418,6 +7420,7 @@ export default function AgentWorkspacePage() {
   const [wrapUpElapsed, setWrapUpElapsed] = useState(0);
   const wrapUpTimerRef = useRef<NodeJS.Timeout | null>(null);
   const prevCallStateRef = useRef(callContext.callState);
+  const isMobile = useIsMobile();
 
   const inboundPhone = callContext.callInfo?.direction === "inbound" ? callContext.callInfo?.phoneNumber : null;
   const { data: inboundPhoneMatches = [] } = useQuery<PhoneMatch[]>({
@@ -8273,6 +8276,45 @@ export default function AgentWorkspacePage() {
   const selectedCampaign = useMemo(() => {
     return campaigns.find((c) => c.id === selectedCampaignId) || null;
   }, [campaigns, selectedCampaignId]);
+
+  // Page-level status list state — hoisted here so MobileAgentWorkspace can access it
+  const [mobileDbSlChecked, setMobileDbSlChecked] = useState<Set<string>>(new Set());
+  const { data: mobileDbStatusList = [] } = useQuery<any[]>({
+    queryKey: ["/api/campaigns", selectedCampaignId, "status-list"],
+    enabled: !!selectedCampaignId && isMobile,
+  });
+  const { data: mobileDbSlState = [] } = useQuery<any[]>({
+    queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-state"],
+    enabled: !!selectedCampaignId && !!effectiveCampaignContactId && isMobile,
+  });
+  useEffect(() => {
+    if (!isMobile) return;
+    const confirmedIds = new Set<string>((mobileDbSlState as any[]).map((s: any) => String(s.statusListItemId)));
+    const autoItems = (mobileDbStatusList as any[]).filter((i: any) => i.confirmationType === "auto" && !i.isHidden);
+    const autoChecked = autoItems.filter((i: any) => confirmedIds.has(String(i.id)));
+    setMobileDbSlChecked(new Set([...Array.from(confirmedIds), ...autoChecked.map((i: any) => String(i.id))]));
+  }, [mobileDbSlState, mobileDbStatusList, isMobile]);
+  const handleMobileSlToggle = useCallback(async (itemId: string, newChecked: boolean) => {
+    if (!selectedCampaignId || !effectiveCampaignContactId) return;
+    setMobileDbSlChecked(prev => {
+      const next = new Set(prev);
+      if (newChecked) next.add(itemId); else next.delete(itemId);
+      return next;
+    });
+    try {
+      await apiRequest("POST", `/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}/status-list-state`, {
+        statusListItemId: itemId,
+        checked: newChecked,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-state"] });
+    } catch {
+      setMobileDbSlChecked(prev => {
+        const next = new Set(prev);
+        if (newChecked) next.delete(itemId); else next.add(itemId);
+        return next;
+      });
+    }
+  }, [selectedCampaignId, effectiveCampaignContactId]);
 
   const isStatusListMode = useMemo(() => {
     try { return selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings).workflowMode === "status_list" : false; }
@@ -10947,7 +10989,7 @@ export default function AgentWorkspacePage() {
 
       {/* ── PULSE — štandardné rozloženie ── */}
       <div className={`flex flex-1 overflow-hidden ${agentSession.isSessionActive && backOfficeModeActive && mainWorkspaceTab === "back_office" ? "hidden" : ""}`} style={{ minHeight: 0 }}>
-        <div className="flex flex-col h-full shrink-0 w-72">
+        <div className={`flex flex-col h-full shrink-0 w-72${isMobile ? " hidden" : ""}`}>
           <BackOfficeQuestionsInbox />
           <div className="flex-1 min-h-0 flex">
         <TaskListPanel
@@ -10994,7 +11036,46 @@ export default function AgentWorkspacePage() {
 
         <div className="flex flex-1 overflow-hidden relative" style={{ minHeight: 0 }}>
 
-        {isLoadingInboundContact && (
+        {/* ── MOBILE LAYOUT ─────────────────────────────────────── */}
+        {isMobile && (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <MobileAgentWorkspace
+              contact={currentContact}
+              campaign={selectedCampaign}
+              callState={callContext.callState}
+              callDuration={callContext.callDuration}
+              ringDuration={ringDuration}
+              hungUpBy={callContext.callTiming.hungUpBy}
+              isMuted={callContext.isMuted}
+              isOnHold={callContext.isOnHold}
+              callerNumber={callContext.callInfo?.phoneNumber || ""}
+              onEndCall={() => callContext.endCallFn.current?.()}
+              onToggleMute={() => callContext.toggleMuteFn.current?.()}
+              onToggleHold={() => callContext.toggleHoldFn.current?.()}
+              onSendDtmf={(digit) => callContext.sendDtmfFn.current?.(digit)}
+              onOpenDisposition={() => { setDispositionChannelFilter("phone"); setMandatoryDisposition(true); setDispositionModalOpen(true); }}
+              onMakeCall={handleMakeCall}
+              isSipRegistered={isSipRegistered}
+              sipIncomingCall={sipIncomingCall}
+              onAnswerIncoming={answerIncomingCall}
+              onRejectIncoming={rejectIncomingCall}
+              dbStatusList={mobileDbStatusList}
+              dbSlChecked={mobileDbSlChecked}
+              onSlToggle={handleMobileSlToggle}
+              campaignContacts={rawCampaignContacts}
+              currentCampaignContactId={effectiveCampaignContactId}
+              onSelectContact={(cc) => handleSelectCampaignContact(cc)}
+              locale={locale}
+              contactHistory={contactHistory}
+              onSendSms={handleSendSms}
+              isSendingSms={sendSmsMutation.isPending}
+              campaignDispositions={campaignDispositions}
+              isStatusListMode={isStatusListMode}
+            />
+          </div>
+        )}
+
+        {!isMobile && isLoadingInboundContact && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
             <div className="flex flex-col items-center gap-6 select-none">
               <div className="relative flex items-center justify-center">
@@ -11026,7 +11107,7 @@ export default function AgentWorkspacePage() {
           </div>
         )}
 
-        {(() => {
+        {!isMobile && (() => {
           const parsedPhone = parseInboundPhone(pendingUnknownCaller?.phone || "");
           if (createFromCallType !== null) {
             /* ── Inline create form — shown in CENTER panel ── */
@@ -11235,55 +11316,57 @@ export default function AgentWorkspacePage() {
           );
         })()}
 
-        <CustomerInfoPanel
-          contact={currentContact}
-          contactType={currentContactType}
-          campaign={selectedCampaign}
-          callNotes={callNotes}
-          onAddNote={handleAddNote}
-          onDisposition={handleDisposition}
-          onQuickAction={handleQuickAction}
-          rightTab={rightTab}
-          onRightTabChange={setRightTab}
-          contactHistory={contactHistory}
-          dispositions={campaignDispositions}
-          currentUserId={user?.id}
-          onOpenDispositionModal={() => { setDispositionChannelFilter(null); setDispositionModalOpen(true); }}
-          callState={callContext.callState}
-          callDuration={callContext.callDuration}
-          ringDuration={ringDuration}
-          hungUpBy={callContext.callTiming.hungUpBy}
-          onEndCall={() => callContext.endCallFn.current?.()}
-          onOpenDispositionFromCall={() => { if (isStatusListMode) return; setDispositionChannelFilter("phone"); setMandatoryDisposition(true); setDispositionModalOpen(true); }}
-          isMuted={callContext.isMuted}
-          isOnHold={callContext.isOnHold}
-          volume={callContext.volume}
-          micVolume={callContext.micVolume}
-          onToggleMute={() => callContext.toggleMuteFn.current?.()}
-          onToggleHold={() => callContext.toggleHoldFn.current?.()}
-          onSendDtmf={(digit) => callContext.sendDtmfFn.current?.(digit)}
-          onVolumeChange={(vol) => callContext.onVolumeChangeFn.current?.(vol)}
-          onMicVolumeChange={(vol) => callContext.onMicVolumeChangeFn.current?.(vol)}
-          callerNumber={callContext.callInfo?.phoneNumber || ""}
-          onEditCustomer={() => { setActiveChannel("phone"); setPhoneSubTabOverride("card"); setTimeout(() => setPhoneSubTabOverride(null), 100); }}
-          onViewCustomer={() => { setActiveChannel("phone"); setPhoneSubTabOverride("details"); setTimeout(() => setPhoneSubTabOverride(null), 100); }}
-          onOpenHistoryDetail={(entry) => setHistoryDetailModal(entry)}
-          wrapUpElapsed={wrapUpElapsed}
-          inboundMatches={inboundPhoneMatches}
-          onSelectMatch={handleSelectInboundMatch}
-          unknownCallerPhone={pendingUnknownCaller?.phone}
-          onCreateFromCall={(type) => setCreateFromCallType(type)}
-          forwardedCallActive={forwardedCallActive}
-          onOpenDispositionFromForwardedCall={() => { setDispositionChannelFilter("phone"); setMandatoryDisposition(true); setDispositionModalOpen(true); }}
-          onEndForwardedCall={() => { setForwardedCallActive(null); setDispositionChannelFilter("phone"); setMandatoryDisposition(true); setDispositionModalOpen(true); }}
-          acwStartedAt={acwStartedAt}
-          onCloseAcwTask={handleCloseAcwTask}
-          onCloseCallAfterStatusList={handleCloseCallAfterStatusList}
-          phoneOverride={currentPhoneOverride}
-          onPhoneOverrideChange={setCurrentPhoneOverride}
-          isStatusListMode={isStatusListMode}
-          campaignContactId={effectiveCampaignContactId}
-        />
+        {!isMobile && (
+          <CustomerInfoPanel
+            contact={currentContact}
+            contactType={currentContactType}
+            campaign={selectedCampaign}
+            callNotes={callNotes}
+            onAddNote={handleAddNote}
+            onDisposition={handleDisposition}
+            onQuickAction={handleQuickAction}
+            rightTab={rightTab}
+            onRightTabChange={setRightTab}
+            contactHistory={contactHistory}
+            dispositions={campaignDispositions}
+            currentUserId={user?.id}
+            onOpenDispositionModal={() => { setDispositionChannelFilter(null); setDispositionModalOpen(true); }}
+            callState={callContext.callState}
+            callDuration={callContext.callDuration}
+            ringDuration={ringDuration}
+            hungUpBy={callContext.callTiming.hungUpBy}
+            onEndCall={() => callContext.endCallFn.current?.()}
+            onOpenDispositionFromCall={() => { if (isStatusListMode) return; setDispositionChannelFilter("phone"); setMandatoryDisposition(true); setDispositionModalOpen(true); }}
+            isMuted={callContext.isMuted}
+            isOnHold={callContext.isOnHold}
+            volume={callContext.volume}
+            micVolume={callContext.micVolume}
+            onToggleMute={() => callContext.toggleMuteFn.current?.()}
+            onToggleHold={() => callContext.toggleHoldFn.current?.()}
+            onSendDtmf={(digit) => callContext.sendDtmfFn.current?.(digit)}
+            onVolumeChange={(vol) => callContext.onVolumeChangeFn.current?.(vol)}
+            onMicVolumeChange={(vol) => callContext.onMicVolumeChangeFn.current?.(vol)}
+            callerNumber={callContext.callInfo?.phoneNumber || ""}
+            onEditCustomer={() => { setActiveChannel("phone"); setPhoneSubTabOverride("card"); setTimeout(() => setPhoneSubTabOverride(null), 100); }}
+            onViewCustomer={() => { setActiveChannel("phone"); setPhoneSubTabOverride("details"); setTimeout(() => setPhoneSubTabOverride(null), 100); }}
+            onOpenHistoryDetail={(entry) => setHistoryDetailModal(entry)}
+            wrapUpElapsed={wrapUpElapsed}
+            inboundMatches={inboundPhoneMatches}
+            onSelectMatch={handleSelectInboundMatch}
+            unknownCallerPhone={pendingUnknownCaller?.phone}
+            onCreateFromCall={(type) => setCreateFromCallType(type)}
+            forwardedCallActive={forwardedCallActive}
+            onOpenDispositionFromForwardedCall={() => { setDispositionChannelFilter("phone"); setMandatoryDisposition(true); setDispositionModalOpen(true); }}
+            onEndForwardedCall={() => { setForwardedCallActive(null); setDispositionChannelFilter("phone"); setMandatoryDisposition(true); setDispositionModalOpen(true); }}
+            acwStartedAt={acwStartedAt}
+            onCloseAcwTask={handleCloseAcwTask}
+            onCloseCallAfterStatusList={handleCloseCallAfterStatusList}
+            phoneOverride={currentPhoneOverride}
+            onPhoneOverrideChange={setCurrentPhoneOverride}
+            isStatusListMode={isStatusListMode}
+            campaignContactId={effectiveCampaignContactId}
+          />
+        )}
         </div>{/* end center+right relative wrapper */}
       </div>
 
