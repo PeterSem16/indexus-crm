@@ -112,20 +112,17 @@ function QuestionTile({ item, onClick }: { item: BOQuestion; onClick: () => void
               <AlertTriangle className="h-2.5 w-2.5" /> {t.backOffice.urgentBadge}
             </span>
           )}
+          {(custName || item.hospital?.name || item.clinic?.name) && (
+            <div className="mb-1" data-testid={`text-bo-question-customer-name-${item.task.id}`}>
+              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 border border-purple-200 dark:border-purple-800 max-w-full">
+                <User className="h-3 w-3 shrink-0 text-purple-600 dark:text-purple-400" />
+                <span className="text-[11px] font-bold text-purple-700 dark:text-purple-300 truncate">
+                  {custName || item.hospital?.name || item.clinic?.name}
+                </span>
+              </div>
+            </div>
+          )}
           <div className="text-xs font-medium leading-snug truncate" data-testid={`text-bo-question-title-${item.task.id}`}>{item.task.title}</div>
-          {custName ? (
-            <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground" data-testid={`text-bo-question-customer-name-${item.task.id}`}>
-              <User className="h-2.5 w-2.5 shrink-0" /> <span className="truncate">{custName}</span>
-            </div>
-          ) : item.hospital ? (
-            <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground" data-testid={`text-bo-question-hospital-name-${item.task.id}`}>
-              <Building2 className="h-2.5 w-2.5 shrink-0" /> <span className="truncate">{item.hospital.name}</span>
-            </div>
-          ) : item.clinic ? (
-            <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground" data-testid={`text-bo-question-clinic-name-${item.task.id}`}>
-              <Stethoscope className="h-2.5 w-2.5 shrink-0" /> <span className="truncate">{item.clinic.name}</span>
-            </div>
-          ) : null}
           {item.question && (
             <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 leading-snug">{item.question.content}</p>
           )}

@@ -28175,6 +28175,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const entityMap = new Map<string, { clinic: { id: string; name: string } | null; hospital: { id: string; name: string } | null }>();
       if (noCustomerSlTaskIds.length) {
         try {
+          const idList = sql.join(noCustomerSlTaskIds.map(id => sql`${id}::uuid`), sql`, `);
           const entRes: any = await db.execute(sql`
             SELECT t.id AS task_id,
                    h.id AS hospital_id, h.name AS hospital_name,
@@ -28190,14 +28191,16 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             JOIN campaign_contacts cc ON cc.id = s.campaign_contact_id
             LEFT JOIN hospitals h ON h.id = cc.hospital_id
             LEFT JOIN clinics cl ON cl.id = cc.clinic_id
-            WHERE t.id = ANY(${noCustomerSlTaskIds})`);
+            WHERE t.id IN (${idList})`);
           for (const row of entRes?.rows ?? []) {
             entityMap.set(row.task_id, {
               clinic: row.clinic_id ? { id: row.clinic_id, name: row.clinic_name } : null,
               hospital: row.hospital_id ? { id: row.hospital_id, name: row.hospital_name } : null,
             });
           }
-        } catch { /* non-fatal */ }
+        } catch (err) {
+          console.error("[BO tasks] entity enrichment failed:", err);
+        }
       }
 
       // ── "Agent answered" signal ──

@@ -243,20 +243,22 @@ function KanbanCard({ item, onClick }: { item: BOTask; onClick: () => void }) {
       <div className="flex items-start gap-2">
         <span className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${pConfig.dot}`} />
         <div className="flex-1 min-w-0">
+          {(custName || item.hospital?.name || item.clinic?.name) && (
+            <div className="flex items-center gap-1.5 mb-1.5" data-testid={`text-bo-customer-${task.id}`}>
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 dark:bg-primary/20 border border-primary/20 min-w-0 max-w-full">
+                <User className="h-3 w-3 shrink-0 text-primary" />
+                <span className="text-[11px] font-bold text-primary truncate">
+                  {custName || item.hospital?.name || item.clinic?.name}
+                </span>
+              </div>
+            </div>
+          )}
           <div className="flex items-start justify-between gap-1">
             <span className={`text-xs font-medium leading-snug ${state === "done" ? "line-through" : ""}`} data-testid={`text-bo-title-${task.id}`}>
               {task.title}
             </span>
             <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
           </div>
-          {(custName || item.hospital || item.clinic) && (
-            <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground min-w-0" data-testid={`text-bo-customer-${task.id}`}>
-              <User className="h-2.5 w-2.5 shrink-0" />
-              <span className="truncate font-medium">
-                {custName || item.hospital?.name || item.clinic?.name}
-              </span>
-            </div>
-          )}
           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
             {item.agentAnswered && state !== "done" && (
               <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 ring-1 ring-blue-300 dark:ring-blue-700 animate-bo-blink" data-testid={`badge-bo-agent-answered-${task.id}`}>
