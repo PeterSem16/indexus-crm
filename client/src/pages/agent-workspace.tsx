@@ -208,6 +208,18 @@ const SL_ACTION_T: Record<string, Record<string, string>> = {
 };
 const slt = (key: string, locale: string): string => SL_ACTION_T[key]?.[locale] ?? SL_ACTION_T[key]?.en ?? key;
 
+const SLU: Record<string, Record<string, string>> = {
+  statusListTitle: { sk: "Status list kampane", en: "Campaign Status List", cs: "Status list kampaně", hu: "Kampány állapotlista", ro: "Status list campanie", it: "Lista stato campagna", de: "Kampagnen-Statusliste" },
+  options: { sk: "Možnosti", en: "Options", cs: "Možnosti", hu: "Lehetőségek", ro: "Opțiuni", it: "Opzioni", de: "Optionen" },
+  notLinked: { sk: "Tento kontakt nie je prepojený s touto kampaňou. Uloženie stavu nie je k dispozícii.", en: "This contact is not linked to this campaign. Status saving is not available.", cs: "Tento kontakt není spojen s touto kampaní. Uložení stavu není k dispozici.", hu: "Ez a kapcsolat nincs összekapcsolva ezzel a kampánnyal. Az állapot mentése nem elérhető.", ro: "Acest contact nu este legat de această campanie. Salvarea nu e disponibilă.", it: "Questo contatto non è collegato a questa campagna. Il salvataggio non è disponibile.", de: "Dieser Kontakt ist nicht mit dieser Kampagne verknüpft. Status-Speichern nicht verfügbar." },
+  requiredMissing: { sk: "Povinné nevyplnené:", en: "Required missing:", cs: "Povinné nevyplněné:", hu: "Kötelező hiányzó:", ro: "Obligatoriu lipsă:", it: "Obbligatorio mancante:", de: "Pflichtfeld fehlt:" },
+  stepsAutoSaved: { sk: "krokov uložených automaticky", en: "steps saved automatically", cs: "kroků uloženo automaticky", hu: "lépés automatikusan mentve", ro: "pași salvați automat", it: "passi salvati automaticamente", de: "Schritte automatisch gespeichert" },
+  clickToSave: { sk: "Kliknutím na krok ho okamžite uložíte", en: "Click a step to save it immediately", cs: "Kliknutím na krok ho okamžitě uložíte", hu: "Kattintson egy lépésre az azonnali mentéshez", ro: "Faceți clic pe un pas pentru a-l salva imediat", it: "Fai clic su un passo per salvarlo immediatamente", de: "Klicken Sie auf einen Schritt, um ihn sofort zu speichern" },
+  notConfigured: { sk: "Status list nie je nakonfigurovaný", en: "Status list is not configured", cs: "Status list není nakonfigurován", hu: "Az állapotlista nincs konfigurálva", ro: "Lista de stare nu este configurată", it: "Lista stato non configurata", de: "Statusliste nicht konfiguriert" },
+  notConfiguredHint: { sk: "Nakonfigurujte ho v Nastaveniach kampane", en: "Configure it in Campaign Settings", cs: "Nakonfigurujte ho v Nastavení kampaně", hu: "Konfigurálja a kampánybeállításokban", ro: "Configurați-o în Setările campaniei", it: "Configuralo nelle Impostazioni della campagna", de: "In den Kampagneneinstellungen konfigurieren" },
+};
+const slu = (key: string, locale: string): string => SLU[key]?.[locale] ?? SLU[key]?.en ?? key;
+
 // Prefill value for the reschedule picker: N business days out at the rule's
 // configured time-of-day (callbackTime "HH:MM", default 09:00). Format matches
 // DateTimePicker's "YYYY-MM-DDTHH:MM".
@@ -4151,40 +4163,62 @@ function CommunicationCanvas({
           const dbConfirmed = dbVisibleItems.filter((i: any) => dbSlChecked.has(String(i.id))).length;
           const dbTotal = dbVisibleItems.length;
           const dbRequiredMissing = dbVisibleItems.filter((i: any) => i.required && !dbSlChecked.has(String(i.id)));
+          const progress = dbTotal > 0 ? Math.round((dbConfirmed / dbTotal) * 100) : 0;
           return (
             <div className="flex flex-col flex-1 overflow-hidden">
-              <div className="px-4 py-2.5 border-b bg-muted/30 flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-2">
-                  <ListChecks className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                  <span className="text-sm font-semibold">Status list kampane</span>
+              {/* ── Nexus Pulse Header ─────────────────────────────── */}
+              <div className="px-4 py-3 border-b bg-gradient-to-r from-primary/5 via-background to-background flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-7 w-7 rounded-lg bg-primary/10 border border-primary/15 flex items-center justify-center shrink-0">
+                    <ListChecks className="h-3.5 w-3.5 text-primary" />
+                  </div>
+                  <div>
+                    <span className="text-sm font-bold tracking-tight">{slu("statusListTitle", locale)}</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <div className="h-1 w-16 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 transition-all duration-500 rounded-full" style={{ width: `${progress}%` }} />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground font-medium tabular-nums">{progress}%</span>
+                    </div>
+                  </div>
                 </div>
-                <span className="text-xs text-muted-foreground font-medium">{dbConfirmed}/{dbTotal}</span>
+                <span className={`inline-flex items-center justify-center min-w-[40px] h-6 px-2.5 rounded-full text-xs font-bold tabular-nums transition-colors ${
+                  dbConfirmed === dbTotal && dbTotal > 0
+                    ? "bg-emerald-500 text-white"
+                    : "bg-muted text-muted-foreground"
+                }`}>
+                  {dbConfirmed}/{dbTotal}
+                </span>
               </div>
+
+              {/* ── Not linked warning ─────────────────────────────── */}
               {!campaignContactId && (
-                <div className="px-4 py-2.5 border-b bg-amber-50 dark:bg-amber-950/30 flex items-center gap-2.5 shrink-0">
+                <div className="mx-3 mt-2 rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/30 flex items-center gap-2.5 px-3 py-2.5 shrink-0">
                   <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                  <span className="text-xs text-amber-800 dark:text-amber-300">
-                    Tento kontakt nie je prepojený s touto kampaňou. Uloženie stavu nie je k dispozícii.
-                  </span>
+                  <span className="text-xs text-amber-800 dark:text-amber-300">{slu("notLinked", locale)}</span>
                 </div>
               )}
+
+              {/* ── Options panel ──────────────────────────────────── */}
               {(() => {
                 const dbOptions = (dbStatusList as any[]).filter((i: any) => i.itemType === "option" && !i.isHidden);
                 if (dbOptions.length === 0) return null;
                 return (
-                  <div className="px-3 py-2 border-b bg-amber-50/60 dark:bg-amber-950/20 shrink-0" data-testid="status-list-options-panel">
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <Zap className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">Možnosti</span>
+                  <div className="mx-3 mt-2 rounded-xl border border-amber-200 dark:border-amber-800/60 bg-gradient-to-br from-amber-50 to-amber-50/30 dark:from-amber-950/30 dark:to-transparent shrink-0 overflow-hidden" data-testid="status-list-options-panel">
+                    <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
+                      <div className="h-5 w-5 rounded-md bg-amber-500/15 flex items-center justify-center shrink-0">
+                        <Zap className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                      </div>
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-amber-700 dark:text-amber-400">{slu("options", locale)}</span>
                     </div>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-1.5 px-3 pb-3">
                       {dbOptions.map((opt: any) => (
                         <button
                           key={opt.id}
                           type="button"
                           onClick={() => handleSlOptionSelect(opt)}
                           disabled={slRunningOption === opt.id}
-                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-white shadow-sm transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-md shadow-black/10 transition-all hover:scale-105 hover:shadow-lg active:scale-95 disabled:opacity-50 disabled:scale-100"
                           style={{ backgroundColor: opt.color || "#6b7280" }}
                           data-testid={`option-btn-${opt.id}`}
                         >
@@ -4196,36 +4230,53 @@ function CommunicationCanvas({
                   </div>
                 );
               })()}
-              <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
-                {dbVisibleItems.map((item: any) => (
+
+              {/* ── Items list ─────────────────────────────────────── */}
+              <div className="flex-1 overflow-y-auto px-3 py-2.5 space-y-2">
+                {dbVisibleItems.map((item: any) => {
+                  const isChecked = dbSlChecked.has(String(item.id));
+                  const isInfo = item.confirmationType === "info";
+                  return (
                   <div
                     key={item.id}
-                    className={`flex items-start gap-3 px-3 py-2.5 rounded-lg border transition-all ${
-                      dbSlChecked.has(String(item.id))
-                        ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700"
-                        : "bg-card border-border hover:border-emerald-300 dark:hover:border-emerald-700"
+                    className={`relative rounded-xl border transition-all duration-200 overflow-hidden ${
+                      isChecked
+                        ? "bg-emerald-50/80 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700/60 shadow-sm"
+                        : "bg-card border-border hover:border-primary/25 dark:hover:border-primary/35 hover:shadow-sm"
                     }`}
                   >
-                    {item.confirmationType === "info" ? (
-                      <Info className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleSlToggle(String(item.id), !dbSlChecked.has(String(item.id)))}
-                        className={`mt-0.5 h-4 w-4 rounded border-2 shrink-0 flex items-center justify-center transition-all cursor-pointer ${
-                          dbSlChecked.has(String(item.id)) ? "bg-emerald-500 border-emerald-500" : "border-muted-foreground/40 bg-background"
-                        }`}
-                        data-testid={`sl-check-${item.id}`}
-                      >
-                        {dbSlChecked.has(String(item.id)) && <Check className="h-2.5 w-2.5 text-white" />}
-                      </button>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className={`text-sm leading-snug ${dbSlChecked.has(String(item.id)) ? "font-semibold text-emerald-700 dark:text-emerald-300" : "font-medium"}`}>
-                        {item.label}
-                        {item.required && <span className="ml-1 text-rose-500 text-[10px]">*</span>}
+                    {/* Left accent bar */}
+                    <div className={`absolute inset-y-0 left-0 w-[3px] rounded-l-xl transition-all duration-300 ${
+                      isChecked ? "bg-emerald-500" : isInfo ? "bg-blue-400" : "bg-muted-foreground/15"
+                    }`} />
+                    <div className="flex items-start gap-3 pl-4 pr-3 py-3">
+                      {/* Checkbox / Info icon */}
+                      <div className="shrink-0 mt-0.5">
+                        {isInfo ? (
+                          <div className="h-5 w-5 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
+                            <Info className="h-3 w-3 text-blue-500" />
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleSlToggle(String(item.id), !isChecked)}
+                            className={`h-5 w-5 rounded-md border-2 flex items-center justify-center transition-all cursor-pointer ${
+                              isChecked
+                                ? "bg-emerald-500 border-emerald-500 shadow-sm shadow-emerald-200 dark:shadow-emerald-900/30"
+                                : "border-muted-foreground/30 bg-background hover:border-emerald-400 dark:hover:border-emerald-600"
+                            }`}
+                            data-testid={`sl-check-${item.id}`}
+                          >
+                            {isChecked && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                          </button>
+                        )}
                       </div>
-                      {item.description && <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>}
+                      <div className="flex-1 min-w-0">
+                        <div className={`text-sm leading-snug ${isChecked ? "font-bold text-emerald-700 dark:text-emerald-300" : "font-semibold"}`}>
+                          {item.label}
+                          {item.required && <span className="ml-1 text-rose-500 text-[10px] font-bold">*</span>}
+                        </div>
+                        {item.description && <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{item.description}</p>}
                       {(() => {
                         const visibleQs = (item.questions || []).filter((q: any) => !q.isHidden);
                         if (visibleQs.length === 0) return null;
@@ -4411,25 +4462,31 @@ function CommunicationCanvas({
                       })()}
                       <SlActionButtons automations={item.automations} onRun={handleSlRunAction} running={slRunningAuto} locale={locale} dispositions={slDispositions} />
                     </div>
-                    <span className="text-[10px] font-mono text-muted-foreground/40 shrink-0 pt-0.5">{item.stepId}</span>
+                    <span className="text-[9px] font-mono text-muted-foreground/30 shrink-0 pt-0.5">{item.stepId}</span>
                   </div>
-                ))}
+                </div>
+                ); })}
               </div>
-              <div className="p-3 border-t bg-card/80 shrink-0 space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-muted rounded-full h-1.5 overflow-hidden">
-                    <div className="h-full bg-emerald-500 transition-all duration-300" style={{ width: `${dbTotal > 0 ? (dbConfirmed / dbTotal) * 100 : 0}%` }} />
+
+              {/* ── Nexus Pulse Footer ─────────────────────────────── */}
+              <div className="px-4 pb-3 pt-2.5 border-t bg-gradient-to-b from-transparent to-muted/20 shrink-0 space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${progress === 100 ? "bg-emerald-500" : "bg-primary"}`}
+                      style={{ width: `${progress}%` }}
+                    />
                   </div>
-                  <span className="text-xs text-muted-foreground shrink-0">{dbTotal > 0 ? Math.round((dbConfirmed / dbTotal) * 100) : 0}%</span>
+                  <span className={`text-xs font-bold shrink-0 tabular-nums ${progress === 100 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>{progress}%</span>
                 </div>
                 {dbRequiredMissing.length > 0 && (
-                  <p className="text-[10px] text-rose-500 text-center">Povinné nevyplnené: {dbRequiredMissing.map((i: any) => i.label).join(", ")}</p>
+                  <p className="text-[10px] text-rose-500 font-semibold text-center">{slu("requiredMissing", locale)} {dbRequiredMissing.map((i: any) => i.label).join(", ")}</p>
                 )}
-                <div className="flex items-center gap-2 text-[10px] text-muted-foreground justify-center py-0.5">
+                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/70 justify-center">
                   <Check className="h-3 w-3 text-emerald-500 shrink-0" />
                   {dbConfirmed > 0
-                    ? `${dbConfirmed} z ${dbTotal} krokov uložených automaticky`
-                    : "Kliknutím na krok ho okamžite uložíte"}
+                    ? `${dbConfirmed} ${slu("stepsAutoSaved", locale)}`
+                    : slu("clickToSave", locale)}
                 </div>
               </div>
             </div>
@@ -4451,10 +4508,14 @@ function CommunicationCanvas({
 
         if (!internalChecklistConfig.enabled || totalClItems === 0) {
           return (
-            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground py-16">
-              <ListChecks className="h-10 w-10 mb-3 opacity-20" />
-              <p className="text-sm font-medium">Status list nie je nakonfigurovaný</p>
-              <p className="text-xs mt-1">Nakonfigurujte ho v Nastaveniach kampane</p>
+            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground py-16 px-6 gap-3">
+              <div className="h-14 w-14 rounded-2xl bg-muted/50 border border-border flex items-center justify-center">
+                <ListChecks className="h-7 w-7 opacity-30" />
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-semibold">{slu("notConfigured", locale)}</p>
+                <p className="text-xs text-muted-foreground/70 mt-1">{slu("notConfiguredHint", locale)}</p>
+              </div>
             </div>
           );
         }
