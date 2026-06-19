@@ -7307,7 +7307,7 @@ function ScheduledQueuePanel({
 
 export default function AgentWorkspacePage() {
   const { t, locale } = useI18n();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { toast } = useToast();
   const nContacts = (n: number) => {
     const s = n === 1 ? t.agentWorkspace.contactSingular : (n >= 2 && n <= 4) ? t.agentWorkspace.contactFew : t.agentWorkspace.contactPlural;
@@ -11177,6 +11177,13 @@ export default function AgentWorkspacePage() {
               onEndSession={handleEndSession}
               onStartBreak={handleStartBreak}
               onEndBreak={handleEndBreak}
+              onClearContact={() => {
+                pendingCcIdRef.current = null;
+                setCurrentCampaignContactId(null);
+                setCurrentContact(null);
+              }}
+              onFullLogout={logout}
+              t={t}
               locale={locale}
             />
           </div>

@@ -4887,6 +4887,20 @@ export interface Translations {
     callForwardingActive: string;
     callForwardingWarning: string;
   };
+  nexusPulse: {
+    pauseBtn: string; pauseActive: string; endShiftBtn: string;
+    endBreak: string; backToWork: string;
+    endShiftTitle: string; endShiftDesc: string; endShiftConfirm: string;
+    logoutIndexus: string; cancel: string; noCampaigns: string;
+    sectionOverdue: string; sectionScheduled: string; sectionNew: string;
+    noContacts: string; noContactsInCampaign: string; noContactsNoCampaign: string;
+    backToList: string; viewDetails: string; noPhone: string;
+    callRinging: string; callConnecting: string; callActive: string; callHeld: string;
+    callEnded: string; callerHungUp: string; evaluateCall: string;
+    mute: string; unmute: string; hangup: string; hold: string; resume: string; keyboard: string;
+    incomingCall: string; answer: string; reject: string;
+    statusList: string; statusListOptions: string;
+  };
   contractsModule: {
     title: string;
     description: string;
@@ -11973,6 +11987,21 @@ export const translations: Record<Locale, Translations> = {
       callForwardingActive: 'Call Forwarding Active',
       callForwardingWarning: 'Inbound calls will be redirected to',
     },
+    nexusPulse: {
+      pauseBtn: 'Break', pauseActive: 'On Break', endShiftBtn: 'End',
+      endBreak: 'End break', backToWork: 'Back to work',
+      endShiftTitle: 'End shift?', endShiftDesc: 'You will be logged out from all campaigns and queues.',
+      endShiftConfirm: 'Yes, end shift', logoutIndexus: 'Log out from INDEXUS', cancel: 'Cancel',
+      noCampaigns: 'No campaigns available',
+      sectionOverdue: 'Overdue', sectionScheduled: 'Scheduled', sectionNew: 'New',
+      noContacts: 'No contacts', noContactsInCampaign: 'No contacts to call in this campaign.', noContactsNoCampaign: 'Select a campaign in the filter.',
+      backToList: 'Back to list', viewDetails: 'View details', noPhone: 'No phone number',
+      callRinging: 'Ringing', callConnecting: 'Connecting...', callActive: 'Active', callHeld: 'On Hold',
+      callEnded: 'Call ended', callerHungUp: 'Customer hung up', evaluateCall: 'Evaluate call',
+      mute: 'Mute', unmute: 'Unmute', hangup: 'Hang up', hold: 'Hold', resume: 'Resume', keyboard: 'Keyboard',
+      incomingCall: 'Incoming call', answer: 'Answer', reject: 'Reject',
+      statusList: 'Status list', statusListOptions: 'Options',
+    },
     contractsModule: {
       title: 'Contracts',
       description: 'Contract management and templates',
@@ -18466,6 +18495,21 @@ export const translations: Record<Locale, Translations> = {
       callForwardingActive: 'Presmerovanie hovorov aktívne',
       callForwardingWarning: 'Prichádzajúce hovory budú presmerované na',
     },
+    nexusPulse: {
+      pauseBtn: 'Pauza', pauseActive: 'Prestávka', endShiftBtn: 'Koniec',
+      endBreak: 'Ukončiť prestávku', backToWork: 'Vrátiť sa k práci',
+      endShiftTitle: 'Ukončiť zmenu?', endShiftDesc: 'Odhlásite sa zo všetkých misií a frônt.',
+      endShiftConfirm: 'Áno, odhlásiť sa', logoutIndexus: 'Odhlásiť z INDEXUS', cancel: 'Zrušiť',
+      noCampaigns: 'Žiadne dostupné kampane',
+      sectionOverdue: 'Po termíne', sectionScheduled: 'Naplánované', sectionNew: 'Nové',
+      noContacts: 'Žiadne kontakty', noContactsInCampaign: 'V tejto misii nie sú žiadne kontakty na volanie.', noContactsNoCampaign: 'Vyberte misiu vo filtri.',
+      backToList: 'Späť na zoznam', viewDetails: 'Zobraziť údaje', noPhone: 'Žiadne telefónne číslo',
+      callRinging: 'Zvonenie', callConnecting: 'Pripájanie...', callActive: 'Aktívny', callHeld: 'Podržaný',
+      callEnded: 'Hovor ukončený', callerHungUp: 'Zákazník zavesil', evaluateCall: 'Hodnotiť hovor',
+      mute: 'Stíšiť', unmute: 'Zapnúť mikrofón', hangup: 'Zavesiť', hold: 'Podržať', resume: 'Pokračovať', keyboard: 'Klávesnica',
+      incomingCall: 'Prichádzajúci hovor', answer: 'Prijať', reject: 'Odmietnuť',
+      statusList: 'Status list', statusListOptions: 'Možnosti',
+    },
     callBar: {
       connecting: 'Pripájam...',
       ringing: 'Vyzváňa...',
@@ -24908,6 +24952,21 @@ export const translations: Record<Locale, Translations> = {
       callForwardingActive: 'Přesměrování hovorů aktivní',
       callForwardingWarning: 'Příchozí hovory budou přesměrovány na',
     },
+    nexusPulse: {
+      pauseBtn: 'Pauza', pauseActive: 'Přestávka', endShiftBtn: 'Konec',
+      endBreak: 'Ukončit přestávku', backToWork: 'Zpět do práce',
+      endShiftTitle: 'Ukončit směnu?', endShiftDesc: 'Odhlásíte se ze všech misí a front.',
+      endShiftConfirm: 'Ano, odhlásit se', logoutIndexus: 'Odhlásit z INDEXUS', cancel: 'Zrušit',
+      noCampaigns: 'Žádné dostupné kampaně',
+      sectionOverdue: 'Po termínu', sectionScheduled: 'Naplánované', sectionNew: 'Nové',
+      noContacts: 'Žádné kontakty', noContactsInCampaign: 'V této misi nejsou žádné kontakty k volání.', noContactsNoCampaign: 'Vyberte misi ve filtru.',
+      backToList: 'Zpět na seznam', viewDetails: 'Zobrazit údaje', noPhone: 'Žádné telefonní číslo',
+      callRinging: 'Vyzvání', callConnecting: 'Připojování...', callActive: 'Aktivní', callHeld: 'Podržen',
+      callEnded: 'Hovor ukončen', callerHungUp: 'Zákazník zavěsil', evaluateCall: 'Hodnotit hovor',
+      mute: 'Ztlumit', unmute: 'Zapnout mikrofon', hangup: 'Zavěsit', hold: 'Podržet', resume: 'Pokračovat', keyboard: 'Klávesnice',
+      incomingCall: 'Příchozí hovor', answer: 'Přijmout', reject: 'Odmítnout',
+      statusList: 'Status list', statusListOptions: 'Možnosti',
+    },
     callBar: {
       connecting: 'Připojuji...',
       ringing: 'Vyzvání...',
@@ -31305,6 +31364,21 @@ export const translations: Record<Locale, Translations> = {
       callForwardingActive: 'Hívásátirányítás aktív',
       callForwardingWarning: 'A bejövő hívások ide lesznek átirányítva',
     },
+    nexusPulse: {
+      pauseBtn: 'Szünet', pauseActive: 'Szünetben', endShiftBtn: 'Vége',
+      endBreak: 'Szünet vége', backToWork: 'Vissza a munkához',
+      endShiftTitle: 'Műszak vége?', endShiftDesc: 'Kijelentkezik az összes kampányból és sorból.',
+      endShiftConfirm: 'Igen, kijelentkezés', logoutIndexus: 'Kijelentkezés az INDEXUS-ból', cancel: 'Mégse',
+      noCampaigns: 'Nincsenek elérhető kampányok',
+      sectionOverdue: 'Lejárt', sectionScheduled: 'Ütemezett', sectionNew: 'Új',
+      noContacts: 'Nincsenek névjegyek', noContactsInCampaign: 'Ebben a kampányban nincsenek hívható névjegyek.', noContactsNoCampaign: 'Válasszon kampányt a szűrőben.',
+      backToList: 'Vissza a listához', viewDetails: 'Részletek megtekintése', noPhone: 'Nincs telefonszám',
+      callRinging: 'Csörög', callConnecting: 'Kapcsolódás...', callActive: 'Aktív', callHeld: 'Tartásban',
+      callEnded: 'Hívás vége', callerHungUp: 'Az ügyfél letette', evaluateCall: 'Hívás értékelése',
+      mute: 'Némítás', unmute: 'Mikrofon be', hangup: 'Letesz', hold: 'Tartásba', resume: 'Folytatás', keyboard: 'Billentyűzet',
+      incomingCall: 'Bejövő hívás', answer: 'Fogad', reject: 'Elutasít',
+      statusList: 'Állapot lista', statusListOptions: 'Lehetőségek',
+    },
     callBar: {
       connecting: 'Csatlakozás...',
       ringing: 'Csörög...',
@@ -37621,6 +37695,21 @@ export const translations: Record<Locale, Translations> = {
       backOfficeAgendaEmpty: 'Nicio sarcină back office',
       callForwardingActive: 'Redirecționare apeluri activă',
       callForwardingWarning: 'Apelurile primite vor fi redirecționate la',
+    },
+    nexusPulse: {
+      pauseBtn: 'Pauză', pauseActive: 'În pauză', endShiftBtn: 'Sfârșit',
+      endBreak: 'Termină pauza', backToWork: 'Înapoi la muncă',
+      endShiftTitle: 'Termini tura?', endShiftDesc: 'Vă deconectați din toate campaniile și cozile.',
+      endShiftConfirm: 'Da, deconectează-mă', logoutIndexus: 'Deconectare din INDEXUS', cancel: 'Anulează',
+      noCampaigns: 'Nicio campanie disponibilă',
+      sectionOverdue: 'Depășit', sectionScheduled: 'Programate', sectionNew: 'Noi',
+      noContacts: 'Niciun contact', noContactsInCampaign: 'Nu există contacte de apelat în această campanie.', noContactsNoCampaign: 'Selectați o campanie în filtru.',
+      backToList: 'Înapoi la listă', viewDetails: 'Vezi detalii', noPhone: 'Fără număr de telefon',
+      callRinging: 'Apelează', callConnecting: 'Conectare...', callActive: 'Activ', callHeld: 'În așteptare',
+      callEnded: 'Apel încheiat', callerHungUp: 'Clientul a închis', evaluateCall: 'Evaluează apelul',
+      mute: 'Dezactivează micro', unmute: 'Activează micro', hangup: 'Închide', hold: 'Ține', resume: 'Continuă', keyboard: 'Tastatură',
+      incomingCall: 'Apel primit', answer: 'Răspunde', reject: 'Respinge',
+      statusList: 'Listă status', statusListOptions: 'Opțiuni',
     },
     callBar: {
       connecting: 'Se conectează...',
@@ -43941,6 +44030,21 @@ export const translations: Record<Locale, Translations> = {
       callForwardingActive: 'Deviazione chiamate attiva',
       callForwardingWarning: 'Le chiamate in entrata verranno deviate al',
     },
+    nexusPulse: {
+      pauseBtn: 'Pausa', pauseActive: 'In pausa', endShiftBtn: 'Fine',
+      endBreak: 'Termina pausa', backToWork: 'Torna al lavoro',
+      endShiftTitle: 'Termina turno?', endShiftDesc: 'Verrai disconnesso da tutte le campagne e code.',
+      endShiftConfirm: 'Sì, disconnettiti', logoutIndexus: 'Disconnetti da INDEXUS', cancel: 'Annulla',
+      noCampaigns: 'Nessuna campagna disponibile',
+      sectionOverdue: 'Scaduti', sectionScheduled: 'Programmati', sectionNew: 'Nuovi',
+      noContacts: 'Nessun contatto', noContactsInCampaign: 'Nessun contatto da chiamare in questa campagna.', noContactsNoCampaign: 'Seleziona una campagna nel filtro.',
+      backToList: 'Torna alla lista', viewDetails: 'Vedi dettagli', noPhone: 'Nessun numero di telefono',
+      callRinging: 'In chiamata', callConnecting: 'Connessione...', callActive: 'Attivo', callHeld: 'In attesa',
+      callEnded: 'Chiamata terminata', callerHungUp: 'Il cliente ha riagganciato', evaluateCall: 'Valuta chiamata',
+      mute: 'Silenzia', unmute: 'Attiva microfono', hangup: 'Riaggancia', hold: 'Attendi', resume: 'Riprendi', keyboard: 'Tastiera',
+      incomingCall: 'Chiamata in arrivo', answer: 'Rispondi', reject: 'Rifiuta',
+      statusList: 'Lista status', statusListOptions: 'Opzioni',
+    },
     callBar: {
       connecting: 'Connessione...',
       ringing: 'Squilla...',
@@ -50246,6 +50350,21 @@ export const translations: Record<Locale, Translations> = {
       backOfficeAgendaEmpty: 'Keine Back-Office-Aufgaben',
       callForwardingActive: 'Anrufweiterleitung aktiv',
       callForwardingWarning: 'Eingehende Anrufe werden weitergeleitet an',
+    },
+    nexusPulse: {
+      pauseBtn: 'Pause', pauseActive: 'In Pause', endShiftBtn: 'Ende',
+      endBreak: 'Pause beenden', backToWork: 'Zurück zur Arbeit',
+      endShiftTitle: 'Schicht beenden?', endShiftDesc: 'Sie werden von allen Kampagnen und Warteschlangen abgemeldet.',
+      endShiftConfirm: 'Ja, abmelden', logoutIndexus: 'Von INDEXUS abmelden', cancel: 'Abbrechen',
+      noCampaigns: 'Keine Kampagnen verfügbar',
+      sectionOverdue: 'Überfällig', sectionScheduled: 'Geplant', sectionNew: 'Neu',
+      noContacts: 'Keine Kontakte', noContactsInCampaign: 'In dieser Kampagne gibt es keine Kontakte zum Anrufen.', noContactsNoCampaign: 'Wählen Sie eine Kampagne im Filter.',
+      backToList: 'Zurück zur Liste', viewDetails: 'Details anzeigen', noPhone: 'Keine Telefonnummer',
+      callRinging: 'Klingelt', callConnecting: 'Verbinde...', callActive: 'Aktiv', callHeld: 'In der Warteschleife',
+      callEnded: 'Anruf beendet', callerHungUp: 'Kunde hat aufgelegt', evaluateCall: 'Anruf bewerten',
+      mute: 'Stummschalten', unmute: 'Mikrofon ein', hangup: 'Auflegen', hold: 'Halten', resume: 'Fortsetzen', keyboard: 'Wähltastatur',
+      incomingCall: 'Eingehender Anruf', answer: 'Annehmen', reject: 'Ablehnen',
+      statusList: 'Status-Liste', statusListOptions: 'Optionen',
     },
     callBar: {
       connecting: 'Verbindung wird hergestellt...',
