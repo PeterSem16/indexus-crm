@@ -2586,6 +2586,45 @@ function CommunicationCanvas({
 
   const [phoneSubTab, setPhoneSubTab] = useState<"card" | "details" | "documents" | "sop" | "history">(externalPhoneSubTab || "card");
   const localPhoneOverride = phoneOverride ?? null;
+  const lastAutoSavedPhoneRef = useRef<string | null>(null);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+
+  useEffect(() => {
+    lastAutoSavedPhoneRef.current = null;
+    setAutoSaveStatus("idle");
+  }, [contact?.id, clinicData?.id, collaboratorData?.id]);
+
+  useEffect(() => {
+    if (!phoneOverride || phoneOverride === lastAutoSavedPhoneRef.current) return;
+    const timer = setTimeout(async () => {
+      if (!phoneOverride || phoneOverride === lastAutoSavedPhoneRef.current) return;
+      let url = "";
+      let method = "PATCH";
+      if (clinicData) { url = `/api/clinics/${clinicData.id}`; method = "PUT"; }
+      else if (collaboratorData) { url = `/api/collaborators/${collaboratorData.id}`; method = "PUT"; }
+      else if (contact) { url = `/api/customers/${contact.id}`; method = "PATCH"; }
+      if (!url) return;
+      setAutoSaveStatus("saving");
+      try {
+        const r = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ phone: phoneOverride }),
+        });
+        if (r.ok) {
+          lastAutoSavedPhoneRef.current = phoneOverride;
+          setAutoSaveStatus("saved");
+          setTimeout(() => setAutoSaveStatus("idle"), 2500);
+        } else {
+          setAutoSaveStatus("idle");
+        }
+      } catch {
+        setAutoSaveStatus("idle");
+      }
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [phoneOverride, clinicData?.id, collaboratorData?.id, contact?.id]);
 
   useEffect(() => {
     if (externalPhoneSubTab) {
@@ -3142,6 +3181,18 @@ function CommunicationCanvas({
           <StatusBadge status={(contact.status as any) || "pending"} className="text-[10px] h-5 shrink-0" />
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {autoSaveStatus === "saving" && (
+            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Ukladám...
+            </span>
+          )}
+          {autoSaveStatus === "saved" && (
+            <span className="flex items-center gap-1 text-[10px] text-green-600 dark:text-green-400">
+              <CheckCircle className="h-3 w-3" />
+              Uložené
+            </span>
+          )}
           {(localPhoneOverride || contact.phone) && (() => {
             const cs = callState || "idle";
             const fmtDur = (s?: number) => `${String(Math.floor((s||0)/60)).padStart(2,"0")}:${String((s||0)%60).padStart(2,"0")}`;
