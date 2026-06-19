@@ -3254,7 +3254,6 @@ function CommunicationCanvas({
                 >
                   <PhoneOff className="h-3.5 w-3.5 shrink-0" />
                   <span>{t.agentWorkspace.callStateHungUp}</span>
-                  <span className="opacity-70 font-normal">· {phone}</span>
                 </button>
               );
             }
@@ -3314,7 +3313,6 @@ function CommunicationCanvas({
                         ? `${t.agentWorkspace.callStateRinging}${ringDuration ? " " + ringDuration + "s" : ""}`
                         : t.agentWorkspace.callStateConnecting}
                     </span>
-                    <span className="opacity-70 font-normal">· {phone}</span>
                   </button>
                   <button
                     data-testid="btn-call-from-canvas"
@@ -6399,11 +6397,13 @@ function MyActivityPanel({
   onOpenChange,
   stats,
   onMakeCall,
+  onOpenEntity,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   stats: { calls: number; emails: number; sms: number };
   onMakeCall?: (phone: string) => void;
+  onOpenEntity?: (type: string, id: string) => void;
 }) {
   const { t } = useI18n();
   const [filterType, setFilterType] = useState<"all" | "call" | "email" | "sms" | "missed">("all");
@@ -6542,7 +6542,19 @@ function MyActivityPanel({
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium truncate">{displayName}</span>
+                          {item.customerName && onOpenEntity && item.entityId && item.contactType ? (
+                            <button
+                              type="button"
+                              onClick={() => { onOpenEntity(item.contactType, item.entityId); onOpenChange(false); }}
+                              className="text-sm font-medium truncate text-left hover:underline hover:text-primary transition-colors"
+                              data-testid={`btn-shift-open-entity-${item.id}`}
+                              title={item.customerName}
+                            >
+                              {item.customerName}
+                            </button>
+                          ) : (
+                            <span className="text-sm font-medium truncate">{displayName}</span>
+                          )}
                           {item.customerName && <span className="text-[11px] text-muted-foreground truncate">{item.phoneNumber}</span>}
                         </div>
                         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -12206,7 +12218,23 @@ export default function AgentWorkspacePage() {
       </Sheet>
 
       <ScheduledQueuePanel open={scheduledQueueOpen} onOpenChange={setScheduledQueueOpen} onOpenContact={handleOpenScheduledContact} />
-      <MyActivityPanel open={myActivityOpen} onOpenChange={setMyActivityOpen} stats={stats} onMakeCall={handleMakeCall} />
+      <MyActivityPanel
+        open={myActivityOpen}
+        onOpenChange={setMyActivityOpen}
+        stats={stats}
+        onMakeCall={handleMakeCall}
+        onOpenEntity={(type, id) => {
+          setMyActivityOpen(false);
+          const routes: Record<string, string> = {
+            customer: "/customers",
+            hospital: "/hospitals",
+            collaborator: "/collaborators",
+            clinic: "/medical-partner-network",
+          };
+          const path = routes[type];
+          if (path) setLocation(path);
+        }}
+      />
 
       <Dialog open={createTaskDialogOpen} onOpenChange={setCreateTaskDialogOpen}>
         <DialogContent className="sm:max-w-md">

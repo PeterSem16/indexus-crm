@@ -23936,31 +23936,36 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         .orderBy(desc(callLogs.startedAt))
         .limit(200);
 
-      const customerIds = [...new Set(calls.filter(c => c.customerId).map(c => c.customerId as string))];
+      // We collect customerIds both from callLogs.customerId AND from campaignContacts.customerId (customer-type CC contacts)
+      // The second batch is resolved after ccContactTypeMap is built; customerIds here is a placeholder set
+      const directCustomerIds = [...new Set(calls.filter(c => c.customerId).map(c => c.customerId as string))];
       let customerMap: Record<string, string> = {};
-      if (customerIds.length > 0) {
-        const custs = await db.select({ id: customers.id, firstName: customers.firstName, lastName: customers.lastName }).from(customers).where(inArray(customers.id, customerIds));
-        for (const c of custs) customerMap[c.id] = `${c.firstName || ""} ${c.lastName || ""}`.trim();
-      }
 
       const ccIds = [...new Set(calls.filter(c => c.campaignContactId).map(c => c.campaignContactId as string))];
       let dispositionMap: Record<string, string | null> = {};
-      let ccContactTypeMap: Record<string, { contactType: string; clinicId?: string | null; hospitalId?: string | null; collaboratorId?: string | null }> = {};
+      let ccContactTypeMap: Record<string, { contactType: string; customerId?: string | null; clinicId?: string | null; hospitalId?: string | null; collaboratorId?: string | null }> = {};
       if (ccIds.length > 0) {
-        const ccRows = await db.select({ id: campaignContacts.id, dispositionCode: campaignContacts.dispositionCode, contactType: campaignContacts.contactType, clinicId: campaignContacts.clinicId, hospitalId: campaignContacts.hospitalId, collaboratorId: campaignContacts.collaboratorId }).from(campaignContacts).where(inArray(campaignContacts.id, ccIds));
+        const ccRows = await db.select({ id: campaignContacts.id, dispositionCode: campaignContacts.dispositionCode, contactType: campaignContacts.contactType, customerId: campaignContacts.customerId, clinicId: campaignContacts.clinicId, hospitalId: campaignContacts.hospitalId, collaboratorId: campaignContacts.collaboratorId }).from(campaignContacts).where(inArray(campaignContacts.id, ccIds));
         for (const cc of ccRows) {
           dispositionMap[cc.id] = cc.dispositionCode;
-          ccContactTypeMap[cc.id] = { contactType: cc.contactType, clinicId: cc.clinicId, hospitalId: cc.hospitalId, collaboratorId: cc.collaboratorId };
+          ccContactTypeMap[cc.id] = { contactType: cc.contactType, customerId: cc.customerId, clinicId: cc.clinicId, hospitalId: cc.hospitalId, collaboratorId: cc.collaboratorId };
         }
       }
 
-      // Batch resolve entity names from clinics/hospitals/collaborators
+      // Batch resolve entity names from clinics/hospitals/collaborators + customers via CC
       const clinicIds = [...new Set(Object.values(ccContactTypeMap).filter(r => r.clinicId).map(r => r.clinicId as string))];
       const hospitalIds = [...new Set(Object.values(ccContactTypeMap).filter(r => r.hospitalId).map(r => r.hospitalId as string))];
       const collaboratorIds = [...new Set(Object.values(ccContactTypeMap).filter(r => r.collaboratorId).map(r => r.collaboratorId as string))];
+      // Customer IDs: from callLogs.customerId + from campaignContacts.customerId for customer-type contacts
+      const ccCustomerIds = [...new Set(Object.values(ccContactTypeMap).filter(r => r.contactType === 'customer' && r.customerId).map(r => r.customerId as string))];
+      const allCustomerIds = [...new Set([...directCustomerIds, ...ccCustomerIds])];
       let clinicNameMap: Record<string, string> = {};
       let hospitalNameMap: Record<string, string> = {};
       let collaboratorNameMap: Record<string, string> = {};
+      if (allCustomerIds.length > 0) {
+        const custs = await db.select({ id: customers.id, firstName: customers.firstName, lastName: customers.lastName }).from(customers).where(inArray(customers.id, allCustomerIds));
+        for (const c of custs) customerMap[c.id] = `${c.firstName || ""} ${c.lastName || ""}`.trim();
+      }
       if (clinicIds.length > 0) {
         const rows = await db.select({ id: clinics.id, name: clinics.name, doctorFirstName: clinics.doctorFirstName, doctorLastName: clinics.doctorLastName, doctorTitle: clinics.doctorTitle }).from(clinics).where(inArray(clinics.id, clinicIds));
         for (const r of rows) {
@@ -23980,13 +23985,24 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const callItems = calls.map(c => {
         let entityName: string | null = c.customerId ? (customerMap[c.customerId] || null) : null;
         let contactType: string | null = null;
+        let entityId: string | null = c.customerId || null;
         if (c.campaignContactId && ccContactTypeMap[c.campaignContactId]) {
           const cc = ccContactTypeMap[c.campaignContactId];
           contactType = cc.contactType;
           if (!entityName) {
-            if (cc.clinicId) entityName = clinicNameMap[cc.clinicId] || null;
-            else if (cc.hospitalId) entityName = hospitalNameMap[cc.hospitalId] || null;
-            else if (cc.collaboratorId) entityName = collaboratorNameMap[cc.collaboratorId] || null;
+            if (cc.contactType === 'customer' && cc.customerId) {
+              entityName = customerMap[cc.customerId] || null;
+              entityId = cc.customerId;
+            } else if (cc.clinicId) {
+              entityName = clinicNameMap[cc.clinicId] || null;
+              entityId = cc.clinicId;
+            } else if (cc.hospitalId) {
+              entityName = hospitalNameMap[cc.hospitalId] || null;
+              entityId = cc.hospitalId;
+            } else if (cc.collaboratorId) {
+              entityName = collaboratorNameMap[cc.collaboratorId] || null;
+              entityId = cc.collaboratorId;
+            }
           }
         }
         return {
@@ -24000,6 +24016,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           sortTime: c.startedAt,
           customerName: entityName,
           contactType,
+          entityId,
           dispositionCode: c.campaignContactId ? (dispositionMap[c.campaignContactId] ?? null) : null,
           inboundQueueName: c.inboundQueueName,
         };
