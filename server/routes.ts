@@ -28165,6 +28165,41 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       }
       const deduped = enriched.filter(r => !hiddenIds.has(r.task.id));
 
+      // ── Enrich clinic/hospital for status-list tasks without a customer ──
+      // Tasks created by a status-list automation for a clinic/hospital campaign contact
+      // have customerId = null. Recover the entity via the same LATERAL join used in
+      // enrichBoTask, but batch all eligible tasks in one query for efficiency.
+      const noCustomerSlTaskIds = deduped
+        .filter(r => !r.customer && r.task.relatedEntityType === "status_list_item" && r.task.relatedEntityId)
+        .map(r => r.task.id);
+      const entityMap = new Map<string, { clinic: { id: string; name: string } | null; hospital: { id: string; name: string } | null }>();
+      if (noCustomerSlTaskIds.length) {
+        try {
+          const entRes: any = await db.execute(sql`
+            SELECT t.id AS task_id,
+                   h.id AS hospital_id, h.name AS hospital_name,
+                   cl.id AS clinic_id, cl.name AS clinic_name
+            FROM tasks t
+            JOIN LATERAL (
+              SELECT s.* FROM campaign_contact_status_list_state s
+              WHERE s.status_list_item_id = t.related_entity_id
+                AND s.confirmed_by_user_id = t.created_by_user_id
+              ORDER BY ABS(EXTRACT(EPOCH FROM (s.confirmed_at - t.created_at))) ASC
+              LIMIT 1
+            ) s ON true
+            JOIN campaign_contacts cc ON cc.id = s.campaign_contact_id
+            LEFT JOIN hospitals h ON h.id = cc.hospital_id
+            LEFT JOIN clinics cl ON cl.id = cc.clinic_id
+            WHERE t.id = ANY(${noCustomerSlTaskIds})`);
+          for (const row of entRes?.rows ?? []) {
+            entityMap.set(row.task_id, {
+              clinic: row.clinic_id ? { id: row.clinic_id, name: row.clinic_name } : null,
+              hospital: row.hospital_id ? { id: row.hospital_id, name: row.hospital_name } : null,
+            });
+          }
+        } catch { /* non-fatal */ }
+      }
+
       // ── "Agent answered" signal ──
       // Surface a dynamic badge on the Back Office board when the originating agent has
       // replied to a question and Back Office hasn't acted on it yet. Reliable trigger: the
@@ -28206,6 +28241,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           ? (answeredAtMap.get(r.task.id) || null)
           : null,
         creator: r.task.createdByUserId ? (creatorMap.get(r.task.createdByUserId) || null) : null,
+        clinic: entityMap.get(r.task.id)?.clinic ?? null,
+        hospital: entityMap.get(r.task.id)?.hospital ?? null,
       }));
 
       res.json(withFlags);
@@ -28512,6 +28549,13 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             if (cu) resolvedCustomerName = `${cu.firstName || ""} ${cu.lastName || ""}`.trim() || null;
           } catch {}
         }
+        // For clinic/hospital tasks (customerId = null), recover entity name via enrichBoTask
+        if (!resolvedCustomerName) {
+          try {
+            const { clinic, hospital } = await enrichBoTask(task, null);
+            resolvedCustomerName = hospital?.name || clinic?.name || null;
+          } catch {}
+        }
         try {
           await notificationService.sendNotificationToUsers([task.createdByUserId], {
             type: "back_office_resolved",
@@ -28652,6 +28696,13 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           const [cu] = await db.select({ firstName: customers.firstName, lastName: customers.lastName })
             .from(customers).where(eq(customers.id, task.customerId)).limit(1);
           if (cu) askCustomerName = `${cu.firstName || ""} ${cu.lastName || ""}`.trim() || null;
+        } catch {}
+      }
+      // For clinic/hospital tasks (customerId = null), recover entity name via enrichBoTask
+      if (!askCustomerName) {
+        try {
+          const { clinic, hospital } = await enrichBoTask(task, null);
+          askCustomerName = hospital?.name || clinic?.name || null;
         } catch {}
       }
       try {

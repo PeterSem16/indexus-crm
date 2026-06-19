@@ -78,6 +78,8 @@ type BOTask = {
     note: string | null;
   } | null;
   customer?: BOCustomerMini;
+  clinic?: { id: string; name: string } | null;
+  hospital?: { id: string; name: string } | null;
   agentAnswered?: boolean;
   agentAnsweredAt?: string | null;
   creator?: { id: string; fullName: string; avatarUrl?: string | null } | null;
@@ -247,10 +249,12 @@ function KanbanCard({ item, onClick }: { item: BOTask; onClick: () => void }) {
             </span>
             <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
           </div>
-          {custName && (
+          {(custName || item.hospital || item.clinic) && (
             <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground min-w-0" data-testid={`text-bo-customer-${task.id}`}>
               <User className="h-2.5 w-2.5 shrink-0" />
-              <span className="truncate">{custName}</span>
+              <span className="truncate font-medium">
+                {custName || item.hospital?.name || item.clinic?.name}
+              </span>
             </div>
           )}
           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
