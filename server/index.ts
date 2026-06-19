@@ -348,6 +348,16 @@ app.use((req, res, next) => {
     console.error('[migration] contact_field_snapshots error:', e.message);
   }
 
+  try {
+    await pool.query(`
+      ALTER TABLE campaign_status_list_items
+        ADD COLUMN IF NOT EXISTS auto_confirm_on_sub_question BOOLEAN NOT NULL DEFAULT FALSE;
+    `);
+    console.log('[migration] campaign_status_list_items auto_confirm_on_sub_question ensured');
+  } catch (e: any) {
+    console.error('[migration] campaign_status_list_items auto_confirm col error:', e.message);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

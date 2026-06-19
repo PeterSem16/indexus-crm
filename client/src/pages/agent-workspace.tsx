@@ -2509,6 +2509,28 @@ function CommunicationCanvas({
     }
   }, [dbSlState]);
 
+  // Auto-run: items with confirmationType === "auto" fire their actions when the
+  // status list loads and are hidden from the agent view.
+  const slAutoRunRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!Array.isArray(dbStatusList) || !dbStatusList.length || !campaignContactId || !campaign?.id) return;
+    const confirmedIds = new Set<string>((dbSlState as any[]).map((s: any) => String(s.statusListItemId)));
+    const autoItems = (dbStatusList as any[]).filter((i: any) => i.confirmationType === "auto" && !i.isHidden);
+    for (const autoItem of autoItems) {
+      const key = `${campaign.id}:${campaignContactId}:${autoItem.id}`;
+      if (!confirmedIds.has(String(autoItem.id)) && !slAutoRunRef.current.has(key)) {
+        slAutoRunRef.current.add(key);
+        void apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${autoItem.id}`, {
+          confirm: true, contactCountry: null,
+        });
+        for (const auto of (autoItem.automations || [])) {
+          handleSlRunAction(auto);
+        }
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [campaign?.id, campaignContactId, dbStatusList, dbSlState]);
+
   const handleSlToggle = useCallback(async (itemId: string, newChecked: boolean) => {
     setDbSlChecked(prev => {
       const next = new Set(prev);
@@ -2568,16 +2590,20 @@ function CommunicationCanvas({
 
   // Toggle a status-list question answer locally. For radio fields, clears all
   // other radio answers in the same group first (exclusive-select semantics).
-  const handleSlQuestionAnswer = useCallback((q: any, value: any, allGroupQs: any[]) => {
+  const handleSlQuestionAnswer = useCallback((q: any, value: any, allGroupQs: any[], groupMode?: string) => {
     const ft = q.fieldType || "checkbox";
     setSlQuestionAnswers(prev => {
       const next = { ...prev };
       if (ft === "radio") {
         allGroupQs.filter((gq: any) => (gq.fieldType || "checkbox") === "radio")
           .forEach((gq: any) => { delete next[gq.id]; });
+      } else if (groupMode === "ONE") {
+        allGroupQs.forEach((gq: any) => { delete next[gq.id]; });
       }
       if ((ft === "checkbox" || ft === "radio") && next[q.id] === value) {
         delete next[q.id];
+      } else if (groupMode === "ONE" && prev[q.id] !== undefined) {
+        // was answered → keep cleared (deselect completed above)
       } else {
         next[q.id] = value;
       }
@@ -4121,7 +4147,7 @@ function CommunicationCanvas({
 
       {activeChannel === "checklist" && (() => {
         if (dbStatusList.length > 0) {
-          const dbVisibleItems = (dbStatusList as any[]).filter((i: any) => !i.isHidden && i.itemType !== "option");
+          const dbVisibleItems = (dbStatusList as any[]).filter((i: any) => !i.isHidden && i.itemType !== "option" && i.confirmationType !== "auto");
           const dbConfirmed = dbVisibleItems.filter((i: any) => dbSlChecked.has(String(i.id))).length;
           const dbTotal = dbVisibleItems.length;
           const dbRequiredMissing = dbVisibleItems.filter((i: any) => i.required && !dbSlChecked.has(String(i.id)));
@@ -4215,26 +4241,38 @@ function CommunicationCanvas({
                             {Object.entries(groups).map(([gk, gqs]) => (
                               <div key={gk}>
                                 {gk !== "__ungrouped__" && (
-                                  <p className="text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-wider mb-1.5">{gk}</p>
+                                  <div className="flex items-center gap-1.5 mb-1.5">
+                                    <p className="text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-wider">{gk}</p>
+                                    {(gqs as any[])[0]?.logicOperator === "ONE" && (
+                                      <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300">1×</span>
+                                    )}
+                                  </div>
                                 )}
                                 <div className="flex flex-wrap gap-1">
                                   {(gqs as any[]).map((q: any) => {
                                     const ft = q.fieldType || "checkbox";
                                     const answered = slQuestionAnswers[q.id] !== undefined;
+                                    const groupMode = (gqs as any[])[0]?.logicOperator === "ONE" ? "ONE" : undefined;
                                     const hasActionable = (q.automations || []).some((a: any) =>
                                       a.actionType === "set_contact_status" || a.actionType === "set_callback" || a.actionType === "send_email_group"
                                     );
+                                    const doAutoConfirmParent = () => {
+                                      if (item.autoConfirmOnSubQuestion && !dbSlChecked.has(String(item.id))) {
+                                        handleSlToggle(String(item.id), true);
+                                        for (const a of (item.automations || [])) handleSlRunAction(a);
+                                      }
+                                    };
                                     if (ft === "yesno") {
                                       return (
                                         <div key={q.id} className="w-full" data-testid={`sl-question-${q.id}`}>
                                           {q.questionText && <p className="text-[10px] text-foreground/70 mb-1">{q.questionText}</p>}
                                           <div className="flex gap-1">
                                             <button type="button"
-                                              onClick={() => { handleSlQuestionAnswer(q, "yes", gqs as any[]); if (hasActionable) for (const a of (q.automations || [])) handleSlRunAction(a); }}
+                                              onClick={() => { handleSlQuestionAnswer(q, "yes", gqs as any[], groupMode); if (hasActionable) for (const a of (q.automations || [])) handleSlRunAction(a); doAutoConfirmParent(); }}
                                               className={`px-2.5 py-1 text-xs rounded border font-semibold transition-colors ${slQuestionAnswers[q.id] === "yes" ? "bg-green-500 border-green-500 text-white" : "border-border hover:bg-green-50 dark:hover:bg-green-950/20 text-foreground"}`}
                                               data-testid={`btn-sl-q-yes-${q.id}`}>Áno</button>
                                             <button type="button"
-                                              onClick={() => { handleSlQuestionAnswer(q, "no", gqs as any[]); if (hasActionable) for (const a of (q.automations || [])) handleSlRunAction(a); }}
+                                              onClick={() => { handleSlQuestionAnswer(q, "no", gqs as any[], groupMode); if (hasActionable) for (const a of (q.automations || [])) handleSlRunAction(a); doAutoConfirmParent(); }}
                                               className={`px-2.5 py-1 text-xs rounded border font-semibold transition-colors ${slQuestionAnswers[q.id] === "no" ? "bg-red-500 border-red-500 text-white" : "border-border hover:bg-red-50 dark:hover:bg-red-950/20 text-foreground"}`}
                                               data-testid={`btn-sl-q-no-${q.id}`}>Nie</button>
                                           </div>
@@ -4245,13 +4283,12 @@ function CommunicationCanvas({
                                     const cbAuto = (q.automations || []).find((a: any) => a.actionType === "set_callback");
                                     const stAuto = (q.automations || []).find((a: any) => a.actionType === "set_contact_status");
                                     if (cbAuto) {
-                                      // Callback automation: render as SlCallbackButton with question text as label
                                       return (
                                         <div key={q.id} data-testid={`sl-question-${q.id}`}>
                                           <SlCallbackButton
                                             automation={cbAuto}
                                             isRunning={slRunningAuto.has(String(cbAuto.id))}
-                                            onRun={(a, opts) => { handleSlQuestionAnswer(q, true, gqs as any[]); handleSlRunAction(a, opts); }}
+                                            onRun={(a, opts) => { handleSlQuestionAnswer(q, true, gqs as any[], groupMode); handleSlRunAction(a, opts); doAutoConfirmParent(); }}
                                             locale={locale}
                                             label={q.questionText}
                                           />
@@ -4266,7 +4303,7 @@ function CommunicationCanvas({
                                           <SlStatusButton
                                             automation={stAuto}
                                             isRunning={slRunningAuto.has(String(stAuto.id))}
-                                            onRun={(a, opts) => { handleSlQuestionAnswer(q, true, gqs as any[]); handleSlRunAction(a, opts); }}
+                                            onRun={(a, opts) => { handleSlQuestionAnswer(q, true, gqs as any[], groupMode); handleSlRunAction(a, opts); doAutoConfirmParent(); }}
                                             locale={locale}
                                             isCallback={isCallback}
                                             label={q.questionText}
@@ -4275,11 +4312,13 @@ function CommunicationCanvas({
                                       );
                                     }
                                     // No actionable automations: plain interactive choice chip
+                                    // ONE mode: show radio-dot indicator regardless of fieldType
+                                    const isOneMode = groupMode === "ONE";
                                     return (
                                       <button
                                         key={q.id}
                                         type="button"
-                                        onClick={() => handleSlQuestionAnswer(q, true, gqs as any[])}
+                                        onClick={() => { handleSlQuestionAnswer(q, true, gqs as any[], groupMode); doAutoConfirmParent(); }}
                                         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${
                                           answered
                                             ? "bg-primary text-primary-foreground border-primary"
@@ -4288,12 +4327,12 @@ function CommunicationCanvas({
                                         style={q.color ? (answered ? { backgroundColor: q.color, borderColor: q.color, color: "#fff" } : { borderColor: q.color, color: q.color }) : undefined}
                                         data-testid={`btn-sl-q-${q.id}`}
                                       >
-                                        {ft === "radio" && (
+                                        {(ft === "radio" || isOneMode) && (
                                           <div className={`w-2.5 h-2.5 rounded-full border-2 flex items-center justify-center shrink-0 ${answered ? "border-white" : "border-current"}`}>
                                             {answered && <div className="w-1 h-1 rounded-full bg-white" />}
                                           </div>
                                         )}
-                                        {ft === "checkbox" && (
+                                        {ft === "checkbox" && !isOneMode && (
                                           <div className={`w-2.5 h-2.5 rounded border-2 flex items-center justify-center shrink-0 ${answered ? "border-white" : "border-current"}`}>
                                             {answered && <Check className="h-1.5 w-1.5 text-white" />}
                                           </div>

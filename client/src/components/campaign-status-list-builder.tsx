@@ -76,6 +76,7 @@ type StatusListItem = {
   isHidden?: boolean;
   itemType?: string;
   color?: string | null;
+  autoConfirmOnSubQuestion?: boolean;
   automations: StatusListAutomation[];
   questions: StatusListQuestion[];
 };
@@ -134,6 +135,10 @@ const SL: Record<string, Record<string, string>> = {
   ct_checkbox: { sk: "Zaškrtávacie políčko", en: "Checkbox", cs: "Zaškrtávací políčko", hu: "Jelölőnégyzet", ro: "Casetă de bifare", it: "Casella di spunta", de: "Kontrollkästchen" },
   ct_radio:    { sk: "Výber (CircleDot)", en: "CircleDot selection", cs: "Výběr (CircleDot)", hu: "Rádiógomb", ro: "Selecție (CircleDot)", it: "Selezione (CircleDot)", de: "Auswahl (CircleDot)" },
   ct_info:     { sk: "Informácia (len čítanie)", en: "Information (read-only)", cs: "Informace (jen čtení)", hu: "Tájékoztató (csak olvasható)", ro: "Informație (doar citire)", it: "Informazione (sola lettura)", de: "Information (nur lesen)" },
+  ct_auto:     { sk: "Automaticky (pri načítaní)", en: "Auto-run (on load)", cs: "Automaticky (při načtení)", hu: "Automatikus (betöltéskor)", ro: "Automat (la încărcare)", it: "Automatico (al caricamento)", de: "Automatisch (beim Laden)" },
+  qLogicOne:   { sk: "Iba jeden (exkluzívny)", en: "One (exclusive)", cs: "Pouze jeden (exkluzivní)", hu: "Csak egy (kizárólagos)", ro: "Unul singur (exclusiv)", it: "Uno solo (esclusivo)", de: "Nur einer (exklusiv)" },
+  autoConfirmSubLbl:  { sk: "Auto-potvrdiť pri podotázke", en: "Auto-confirm on sub-answer", cs: "Auto-potvrdit při podotázce", hu: "Automatikus megerősítés al-válasz esetén", ro: "Confirmare auto la sub-răspuns", it: "Conferma auto al sotto-risposta", de: "Auto-Bestätigung bei Unterantwort" },
+  autoConfirmSubHint: { sk: "Hlavný krok sa automaticky potvrdí a jeho akcie sa spustia hneď ako agent odpovie na akúkoľvek podotázku.", en: "The parent step is auto-confirmed and its actions run as soon as the agent answers any sub-question.", cs: "Hlavní krok se automaticky potvrdí a jeho akce se spustí, jakmile agent odpoví na jakoukoli podotázku.", hu: "A fő lépés automatikusan megerősítésre kerül és műveletek futnak, amint az ügynök bármely alkérdésre válaszol.", ro: "Pasul principal este auto-confirmat și acțiunile sale rulează imediat ce agentul răspunde la orice sub-întrebare.", it: "Il passo principale viene auto-confermato e le sue azioni vengono eseguite non appena l'agente risponde a qualsiasi sotto-domanda.", de: "Der Hauptschritt wird automatisch bestätigt und seine Aktionen werden ausgeführt, sobald der Agent eine Unterfrage beantwortet." },
 
   ctr_SK: { sk: "Slovensko (SK)", en: "Slovakia (SK)", cs: "Slovensko (SK)", hu: "Szlovákia (SK)", ro: "Slovacia (SK)", it: "Slovacchia (SK)", de: "Slowakei (SK)" },
   ctr_CZ: { sk: "Česko (CZ)", en: "Czech Republic (CZ)", cs: "Česko (CZ)", hu: "Csehország (CZ)", ro: "Cehia (CZ)", it: "Repubblica Ceca (CZ)", de: "Tschechien (CZ)" },
@@ -860,6 +865,7 @@ const CONFIRM_TYPE_OPTIONS = [
   { value: "checkbox", slKey: "ct_checkbox", icon: SquareCheck },
   { value: "radio",    slKey: "ct_radio",    icon: CircleDot },
   { value: "info",     slKey: "ct_info",     icon: Info },
+  { value: "auto",     slKey: "ct_auto",     icon: Zap },
 ];
 
 const COUNTRY_OPTIONS = [
@@ -2110,7 +2116,7 @@ function QuestionEditor({
         <div>
           <Label className="text-xs mb-1 block">{sl("qLogicLbl", locale)}</Label>
           <div className="flex gap-1 h-8">
-            {(["OR", "AND"] as const).map(op => (
+            {(["OR", "AND", "ONE"] as const).map(op => (
               <button
                 key={op}
                 type="button"
@@ -2119,14 +2125,20 @@ function QuestionEditor({
                   form.logicOperator === op
                     ? op === "OR"
                       ? "bg-blue-500 text-white border-blue-500"
-                      : "bg-purple-500 text-white border-purple-500"
+                      : op === "AND"
+                        ? "bg-purple-500 text-white border-purple-500"
+                        : "bg-orange-500 text-white border-orange-500"
                     : "bg-background text-muted-foreground border-border hover:bg-muted"
                 }`}
+                title={op === "ONE" ? sl("qLogicOne", locale) : op}
               >
-                {op}
+                {op === "ONE" ? "1×" : op}
               </button>
             ))}
           </div>
+          {form.logicOperator === "ONE" && (
+            <p className="text-[10px] text-orange-600 dark:text-orange-400 mt-1">{sl("qLogicOne", locale)}</p>
+          )}
         </div>
       </div>
 
@@ -2355,6 +2367,7 @@ function StatusListItemRow({
     nextStepId: item.nextStepId || "",
     restrictions: item.restrictions || "",
     isHidden: item.isHidden ?? false,
+    autoConfirmOnSubQuestion: item.autoConfirmOnSubQuestion ?? false,
   });
 
   const updateMutation = useMutation({
@@ -2523,6 +2536,10 @@ function StatusListItemRow({
                   <Switch checked={!!form.isHidden} onCheckedChange={v => setForm(f => ({ ...f, isHidden: v }))} data-testid="switch-item-hidden" />
                   <Label className="text-xs" title={sl("itemHiddenHint", locale)}>{sl("itemHiddenLbl", locale)}</Label>
                 </div>
+                <div className="flex items-center gap-2 pt-4" title={sl("autoConfirmSubHint", locale)}>
+                  <Switch checked={!!form.autoConfirmOnSubQuestion} onCheckedChange={v => setForm(f => ({ ...f, autoConfirmOnSubQuestion: v }))} data-testid="switch-auto-confirm-sub" />
+                  <Label className="text-xs">{sl("autoConfirmSubLbl", locale)}</Label>
+                </div>
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setEditMode(false)}>
@@ -2665,8 +2682,10 @@ function StatusListItemRow({
                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
                             gqs[0].logicOperator === "AND"
                               ? "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300"
-                              : "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
-                          }`}>{gqs[0].logicOperator}</span>
+                              : gqs[0].logicOperator === "ONE"
+                                ? "bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300"
+                                : "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
+                          }`}>{gqs[0].logicOperator === "ONE" ? "1×" : gqs[0].logicOperator}</span>
                         </div>
                       )}
                       {gqs.map(q => (
@@ -2849,6 +2868,7 @@ function AddItemForm({
     sortOrder: existingCount,
     nextStepId: "",
     restrictions: "",
+    autoConfirmOnSubQuestion: false,
   });
 
   const addMutation = useMutation({
@@ -2907,6 +2927,10 @@ function AddItemForm({
         <div className="flex items-center gap-2 pt-4">
           <Switch checked={form.required} onCheckedChange={v => setForm(f => ({ ...f, required: v }))} />
           <Label className="text-xs">{sl("requiredSwitch", locale)}</Label>
+        </div>
+        <div className="flex items-center gap-2 pt-4" title={sl("autoConfirmSubHint", locale)}>
+          <Switch checked={form.autoConfirmOnSubQuestion} onCheckedChange={v => setForm(f => ({ ...f, autoConfirmOnSubQuestion: v }))} data-testid="switch-add-auto-confirm-sub" />
+          <Label className="text-xs">{sl("autoConfirmSubLbl", locale)}</Label>
         </div>
       </div>
       <div className="flex justify-end gap-2">
