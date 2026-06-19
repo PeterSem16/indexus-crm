@@ -8302,9 +8302,8 @@ export default function AgentWorkspacePage() {
       return next;
     });
     try {
-      await apiRequest("POST", `/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}/status-list-state`, {
-        statusListItemId: itemId,
-        checked: newChecked,
+      await apiRequest("POST", `/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}/status-list-state/${itemId}`, {
+        confirm: newChecked,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-state"] });
     } catch {
@@ -11182,6 +11181,7 @@ export default function AgentWorkspacePage() {
                 pendingCcIdRef.current = null;
                 setCurrentCampaignContactId(null);
                 setCurrentContact(null);
+                agentSession.updateStatus("available").catch(() => {});
               }}
               onFullLogout={logout}
               t={t}

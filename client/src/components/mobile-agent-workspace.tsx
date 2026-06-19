@@ -219,11 +219,11 @@ function StatusListPanel({ items, checked, onToggle, np }: {
   onToggle: (id: string, v: boolean) => void;
   np: any;
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [yesno, setYesno] = useState<Record<string, "yes" | "no">>({});
 
-  const topLevel = items.filter((i: any) => !i.parentId && i.itemType !== "option" && i.confirmationType !== "auto" && !i.isHidden);
+  const topLevel = items.filter((i: any) => i.itemType !== "option" && i.confirmationType !== "auto" && !i.isHidden);
   const options = items.filter((i: any) => !i.isHidden && i.itemType === "option");
-  const getChildren = (parentId: string) => items.filter((i: any) => String(i.parentId) === String(parentId) && !i.isHidden);
 
   const confirmed = topLevel.filter((i: any) => checked.has(String(i.id))).length;
   const total = topLevel.length;
@@ -254,11 +254,14 @@ function StatusListPanel({ items, checked, onToggle, np }: {
           {topLevel.map((item: any) => {
             const isChecked = checked.has(String(item.id));
             const isInfo = item.confirmationType === "info";
-            const subs = getChildren(String(item.id));
+            // Sub-questions come from item.questions[] (nested array from API), not flat parentId
+            const questions: any[] = Array.isArray(item.questions)
+              ? item.questions.filter((q: any) => !q.isHidden)
+              : [];
 
             return (
               <div key={item.id} className="border-b last:border-b-0">
-                {/* Parent row — split into icon button + text button so full row is tappable */}
+                {/* Parent row */}
                 <div className={`flex items-stretch ${isChecked ? "bg-emerald-50/60 dark:bg-emerald-900/15" : ""}`}>
                   <button
                     disabled={isInfo}
@@ -289,40 +292,71 @@ function StatusListPanel({ items, checked, onToggle, np }: {
                   </button>
                 </div>
 
-                {/* Sub-questions — only visible when parent is checked */}
-                {isChecked && subs.length > 0 && (
+                {/* Sub-questions — from item.questions[], visible when parent is checked */}
+                {isChecked && questions.length > 0 && (
                   <div className="bg-muted/30 border-t">
-                    {subs.map((sub: any) => {
-                      const subChecked = checked.has(String(sub.id));
-                      const subIsInfo = sub.confirmationType === "info";
+                    {questions.map((q: any) => {
+                      const ft = q.fieldType || "checkbox";
+                      const qChecked = checked.has(String(q.id));
+                      const ynAnswer = yesno[q.id];
+
+                      if (ft === "yesno") {
+                        return (
+                          <div key={q.id} className="pl-6 pr-4 py-3 border-b last:border-b-0">
+                            <p className="text-xs font-semibold text-foreground mb-2 leading-snug">
+                              ↳ {q.questionText}
+                              {q.required && <span className="ml-1 text-rose-500">*</span>}
+                            </p>
+                            {q.description && <p className="text-[11px] text-muted-foreground/70 mb-2">{q.description}</p>}
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => {
+                                  setYesno(p => ({ ...p, [q.id]: "yes" }));
+                                  if (!qChecked) onToggle(String(q.id), true);
+                                }}
+                                className={`flex-1 h-10 rounded-xl text-xs font-bold border-2 transition-all active:scale-95 ${
+                                  ynAnswer === "yes" ? "bg-emerald-500 border-emerald-500 text-white" : "border-muted-foreground/30 text-foreground"
+                                }`}
+                                data-testid={`sl-mobile-yes-${q.id}`}
+                              >Áno</button>
+                              <button
+                                onClick={() => {
+                                  setYesno(p => ({ ...p, [q.id]: "no" }));
+                                  if (qChecked) onToggle(String(q.id), false);
+                                }}
+                                className={`flex-1 h-10 rounded-xl text-xs font-bold border-2 transition-all active:scale-95 ${
+                                  ynAnswer === "no" ? "bg-red-500 border-red-500 text-white" : "border-muted-foreground/30 text-foreground"
+                                }`}
+                                data-testid={`sl-mobile-no-${q.id}`}
+                              >Nie</button>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      // Default: checkbox
                       return (
-                        <div key={sub.id} className={`flex items-stretch border-b last:border-b-0 pl-4 ${subChecked ? "bg-emerald-50/40 dark:bg-emerald-900/10" : ""}`}>
+                        <div key={q.id} className={`flex items-stretch border-b last:border-b-0 pl-4 ${qChecked ? "bg-emerald-50/40 dark:bg-emerald-900/10" : ""}`}>
                           <button
-                            disabled={subIsInfo}
-                            onClick={() => !subIsInfo && onToggle(String(sub.id), !subChecked)}
-                            className={`shrink-0 flex items-center justify-center w-12 min-h-[48px] ${subIsInfo ? "cursor-default opacity-60" : "active:bg-muted/60"}`}
-                            data-testid={`sl-mobile-sub-${sub.id}`}
+                            onClick={() => onToggle(String(q.id), !qChecked)}
+                            className="shrink-0 flex items-center justify-center w-12 min-h-[48px] active:bg-muted/60"
+                            data-testid={`sl-mobile-sub-${q.id}`}
                           >
-                            {subIsInfo ? (
-                              <Info className="h-4 w-4 text-blue-400" />
-                            ) : (
-                              <div className={`h-6 w-6 rounded-md border-2 flex items-center justify-center transition-all ${
-                                subChecked ? "bg-emerald-400 border-emerald-400" : "border-muted-foreground/30 bg-background"
-                              }`}>
-                                {subChecked && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
-                              </div>
-                            )}
+                            <div className={`h-6 w-6 rounded-md border-2 flex items-center justify-center transition-all ${
+                              qChecked ? "bg-emerald-400 border-emerald-400" : "border-muted-foreground/30 bg-background"
+                            }`}>
+                              {qChecked && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                            </div>
                           </button>
                           <button
-                            disabled={subIsInfo}
-                            onClick={() => !subIsInfo && onToggle(String(sub.id), !subChecked)}
+                            onClick={() => onToggle(String(q.id), !qChecked)}
                             className="flex-1 py-3 pr-4 text-left min-h-[48px]"
                           >
-                            <p className={`text-xs leading-snug ${subChecked ? "font-bold text-emerald-600 dark:text-emerald-400" : "font-medium text-muted-foreground"}`}>
-                              ↳ {sub.label}
-                              {sub.required && <span className="ml-1 text-rose-500">*</span>}
+                            <p className={`text-xs leading-snug ${qChecked ? "font-bold text-emerald-600 dark:text-emerald-400" : "font-medium text-muted-foreground"}`}>
+                              ↳ {q.questionText}
+                              {q.required && <span className="ml-1 text-rose-500">*</span>}
                             </p>
-                            {sub.description && <p className="text-[11px] text-muted-foreground/70 mt-0.5">{sub.description}</p>}
+                            {q.description && <p className="text-[11px] text-muted-foreground/70 mt-0.5">{q.description}</p>}
                           </button>
                         </div>
                       );
@@ -608,7 +642,6 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
       <div className="flex flex-col h-full">
         <MobileHeader {...headerProps} onLogout={() => setLogoutConfirm(true)} />
         {breakMenuOpen && <BreakMenu {...breakMenuProps} />}
-        <BackBar onBack={onClearContact} label={np.backToList || "Back to list"} />
         <div className="flex-1 overflow-y-auto flex flex-col gap-3 px-4 pt-3 pb-4">
           <div className="rounded-2xl border bg-card p-4 text-center">
             <div className="h-16 w-16 rounded-full bg-muted mx-auto flex items-center justify-center mb-3">
@@ -631,6 +664,12 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
             </button>
           )}
           <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} />
+          <button onClick={onClearContact}
+            className="w-full flex items-center justify-center gap-2 h-11 rounded-xl border border-dashed border-amber-400 text-amber-600 dark:text-amber-400 text-sm font-semibold bg-amber-50/50 dark:bg-amber-950/10 active:scale-[0.98] transition-all"
+            data-testid="btn-mobile-release-contact-ended">
+            <UserX className="h-4 w-4" />
+            {np.releaseContact || "Release contact / skip"}
+          </button>
         </div>
       </div>
     );
@@ -659,8 +698,6 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
         <MobileHeader {...headerProps} onLogout={() => setLogoutConfirm(true)} />
         {breakMenuOpen && <BreakMenu {...breakMenuProps} />}
 
-        <BackBar onBack={onClearContact} label={np.backToList || "Back to list"} />
-
         <div className="flex-1 overflow-y-auto flex flex-col gap-3 px-4 pt-3 pb-4">
           {/* Contact card */}
           <div className="rounded-2xl border bg-card p-4 flex items-center gap-4">
@@ -682,15 +719,13 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
             </div>
           </div>
 
-          {/* Release contact — status list mode */}
-          {isStatusListMode && (
-            <button onClick={onClearContact}
-              className="w-full flex items-center justify-center gap-2 h-11 rounded-xl border border-dashed border-amber-400 text-amber-600 dark:text-amber-400 text-sm font-semibold bg-amber-50/50 dark:bg-amber-950/10 active:scale-[0.98] transition-all"
-              data-testid="btn-mobile-release-contact">
-              <UserX className="h-4 w-4" />
-              {np.releaseContact || "Release contact / skip"}
-            </button>
-          )}
+          {/* Release contact — always visible */}
+          <button onClick={onClearContact}
+            className="w-full flex items-center justify-center gap-2 h-11 rounded-xl border border-dashed border-amber-400 text-amber-600 dark:text-amber-400 text-sm font-semibold bg-amber-50/50 dark:bg-amber-950/10 active:scale-[0.98] transition-all"
+            data-testid="btn-mobile-release-contact">
+            <UserX className="h-4 w-4" />
+            {np.releaseContact || "Release contact / skip"}
+          </button>
 
           {/* Phone buttons */}
           {phoneNumbers.length > 0 ? (
@@ -728,6 +763,16 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
             </button>
             {showDetails && (
               <div className="border-t divide-y text-sm">
+                {/* Phone numbers */}
+                {phoneNumbers.map(({ label, value }) => (
+                  <div key={value} className="flex items-center gap-3 px-4 py-3">
+                    <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground">{label}</p>
+                      <p className="font-semibold">{value}</p>
+                    </div>
+                  </div>
+                ))}
                 {contact.email && (
                   <div className="flex items-center gap-3 px-4 py-3">
                     <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -777,6 +822,17 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                     </div>
                   </div>
                 )}
+                {contact.expectedDeliveryDate && (
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <Baby className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground">{np.expectedDelivery || "Expected delivery"}</p>
+                      <p className="font-semibold">
+                        {(() => { try { return format(new Date(contact.expectedDeliveryDate), "d. M. yyyy"); } catch { return contact.expectedDeliveryDate; } })()}
+                      </p>
+                    </div>
+                  </div>
+                )}
                 {contact.gynecologistName && (
                   <div className="flex items-center gap-3 px-4 py-3">
                     <Stethoscope className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -796,14 +852,26 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                     </div>
                   </div>
                 )}
-                {contact.expectedDeliveryDate && (
+                {contact.leadSource && (
                   <div className="flex items-center gap-3 px-4 py-3">
-                    <Baby className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <Info className="h-4 w-4 text-muted-foreground shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-xs text-muted-foreground">{np.expectedDelivery || "Expected delivery"}</p>
-                      <p className="font-semibold">
-                        {(() => { try { return format(new Date(contact.expectedDeliveryDate), "d. M. yyyy"); } catch { return contact.expectedDeliveryDate; } })()}
-                      </p>
+                      <p className="text-xs text-muted-foreground">{np.leadSource || "Lead source"}</p>
+                      <p className="font-semibold">{contact.leadSource}</p>
+                      {contact.leadSourceDate && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {(() => { try { return format(new Date(contact.leadSourceDate), "d. M. yyyy"); } catch { return contact.leadSourceDate; } })()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {contact.registrationSource && (
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <Info className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground">{np.registrationSource || "Registration source"}</p>
+                      <p className="font-semibold capitalize">{contact.registrationSource}</p>
                     </div>
                   </div>
                 )}
@@ -835,34 +903,46 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
               {showHistory ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
             </button>
             {showHistory && (
-              <div className="border-t divide-y">
+              <div className="border-t divide-y max-h-72 overflow-y-auto">
                 {recentCalls.length === 0 ? (
                   <div className="px-4 py-5 text-center text-sm text-muted-foreground">{np.noCallHistory || "No call history"}</div>
-                ) : recentCalls.map((entry: any, idx: number) => (
-                  <div key={idx} className="px-4 py-3 flex items-start gap-3">
-                    <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0 mt-0.5">
-                      <PhoneCall className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-semibold text-muted-foreground">
-                          {(entry.date || entry.createdAt)
-                            ? (() => { try { return format(new Date(entry.date || entry.createdAt), "d. M. yyyy HH:mm"); } catch { return "—"; } })()
-                            : "—"}
-                        </p>
-                        {entry.duration != null && (
-                          <span className="text-xs text-muted-foreground shrink-0">{fmtDur(Number(entry.duration))}</span>
+                ) : recentCalls.map((entry: any, idx: number) => {
+                  const isInbound = entry.direction === "inbound";
+                  return (
+                    <div key={idx} className="px-4 py-3 flex items-start gap-3">
+                      <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                        isInbound ? "bg-blue-50 dark:bg-blue-950/30" : "bg-muted"
+                      }`}>
+                        <PhoneCall className={`h-4 w-4 ${isInbound ? "text-blue-500" : "text-muted-foreground"}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-semibold text-muted-foreground">
+                            {(entry.timestamp || entry.date || entry.createdAt)
+                              ? (() => { try { return format(new Date(entry.timestamp || entry.date || entry.createdAt), "d. M. yyyy HH:mm"); } catch { return "—"; } })()
+                              : "—"}
+                          </p>
+                          {(entry.duration != null) && (
+                            <span className="text-xs text-muted-foreground shrink-0">{fmtDur(Number(entry.duration))}</span>
+                          )}
+                        </div>
+                        {/* Phone number / content — most important field */}
+                        {entry.content && (
+                          <p className="text-xs font-bold mt-0.5 truncate">{entry.content}</p>
+                        )}
+                        {entry.status && (
+                          <p className="text-xs text-muted-foreground mt-0.5">{entry.status}</p>
+                        )}
+                        {entry.agentName && (
+                          <p className="text-[10px] text-muted-foreground/70 mt-0.5">{entry.agentName}</p>
+                        )}
+                        {(entry.notes || entry.callNotes) && (
+                          <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed line-clamp-2">{entry.notes || entry.callNotes}</p>
                         )}
                       </div>
-                      {(entry.disposition || entry.outcome || entry.status) && (
-                        <p className="text-xs font-bold mt-0.5">{entry.disposition || entry.outcome || entry.status}</p>
-                      )}
-                      {(entry.notes || entry.callNotes) && (
-                        <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{entry.notes || entry.callNotes}</p>
-                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
