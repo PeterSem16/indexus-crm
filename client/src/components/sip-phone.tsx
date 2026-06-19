@@ -154,6 +154,8 @@ export function SipPhone({
   const collaboratorCallerIdRef = useRef<string>("");
   const [callState, setCallStateLocal] = useState<CallState>("idle");
   const [phoneNumber, setPhoneNumber] = useState(initialNumber);
+  const phoneNumberRef = useRef(initialNumber);
+  useEffect(() => { phoneNumberRef.current = phoneNumber; }, [phoneNumber]);
   const [isMutedLocal, setIsMutedLocal] = useState(false);
   const [isOnHoldLocal, setIsOnHoldLocal] = useState(false);
   
@@ -1076,7 +1078,8 @@ export function SipPhone({
       return;
     }
     
-    if (!phoneNumber) {
+    const currentPhone = phoneNumberRef.current;
+    if (!currentPhone) {
       makeCallGuardRef.current = false;
       return;
     }
@@ -1100,7 +1103,7 @@ export function SipPhone({
       callContextRef.current.resetCallTiming();
       
       const callLogData = await createCallLogMutation.mutateAsync({
-        phoneNumber,
+        phoneNumber: currentPhone,
         direction: "outbound",
         status: "initiated",
         userId: userId || currentUser?.id,
@@ -1111,8 +1114,8 @@ export function SipPhone({
       setCurrentCallLogId(callLogData.id);
       
       const realm = sipConfig.realm || sipConfig.server;
-      const cleanedPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
-      console.log(`[SIP] makeCall → raw="${phoneNumber}" cleaned="${cleanedPhone}" realm="${realm}"`);
+      const cleanedPhone = currentPhone.replace(/[\s\-\(\)]/g, "");
+      console.log(`[SIP] makeCall → raw="${currentPhone}" cleaned="${cleanedPhone}" realm="${realm}"`);
       const targetUri = UserAgent.makeURI(`sip:${cleanedPhone}@${realm}`);
       if (!targetUri) {
         console.error(`[SIP] Invalid target URI: sip:${cleanedPhone}@${realm}`);
@@ -1335,6 +1338,7 @@ export function SipPhone({
         sessionRef.current = null;
       }
       const callData = pendingCall;
+      phoneNumberRef.current = callData.phoneNumber;
       setPhoneNumber(callData.phoneNumber);
       setLocalCustomerId(callData.customerId?.toString());
       localCustomerIdRef.current = callData.customerId?.toString();
