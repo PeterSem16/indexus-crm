@@ -1,0 +1,26 @@
+= Spawn extension (route-sk, 421948519438, 6) exited non-zero on 'PJSIP/2001-0000008a'
+    -- Executing [+421948519438@webrtc-indexus:1] NoOp("PJSIP/2001-0000008c", "WebRTC outbound PLUS caller=2001 dest=+421948519438") in new stack
+    -- Executing [+421948519438@webrtc-indexus:2] Set("PJSIP/2001-0000008c", "OUTNUM=421948519438") in new stack
+    -- Executing [+421948519438@webrtc-indexus:3] Goto("PJSIP/2001-0000008c", "indexus-outbound,421948519438,1") in new stack
+    -- Goto (indexus-outbound,421948519438,1)
+    -- Executing [421948519438@indexus-outbound:1] NoOp("PJSIP/2001-0000008c", "Indexus outbound caller=2001 dest=421948519438") in new stack
+    -- Executing [421948519438@indexus-outbound:2] Set("PJSIP/2001-0000008c", "ORIG_EXT=2001") in new stack
+    -- Executing [421948519438@indexus-outbound:3] Set("PJSIP/2001-0000008c", "COLLAB_CID=") in new stack
+    -- Executing [421948519438@indexus-outbound:4] ExecIf("PJSIP/2001-0000008c", "0?Set(CALLERID(num)=)") in new stack
+    -- Executing [421948519438@indexus-outbound:5] Set("PJSIP/2001-0000008c", "CAMPAIGN_CID=") in new stack
+    -- Executing [421948519438@indexus-outbound:6] ExecIf("PJSIP/2001-0000008c", "0?Set(CALLERID(num)=)") in new stack
+    -- Executing [421948519438@indexus-outbound:7] NoOp("PJSIP/2001-0000008c", "Outbound CID: ext=2001 collab= campaign= final=2001") in new stack
+    -- Executing [421948519438@indexus-outbound:8] GotoIf("PJSIP/2001-0000008c", "1?route-sk,421948519438,1") in new stack
+    -- Goto (route-sk,421948519438,1)
+    -- Executing [421948519438@route-sk:1] NoOp("PJSIP/2001-0000008c", "Route via SK legacy server caller=2001 orig_ext=2001 dest=421948519438") in new stack
+    -- Executing [421948519438@route-sk:2] Set("PJSIP/2001-0000008c", "OUTNUM=421948519438") in new stack
+    -- Executing [421948519438@route-sk:3] ExecIf("PJSIP/2001-0000008c", "1?Set(OUTNUM=0948519438)") in new stack
+    -- Executing [421948519438@route-sk:4] NoOp("PJSIP/2001-0000008c", "Normalized SK outbound number=0948519438") in new stack
+    -- Executing [421948519438@route-sk:5] ExecIf("PJSIP/2001-0000008c", "0?Set(PJSIP_HEADER(add,X-Campaign-CallerID)=)") in new stack
+    -- Executing [421948519438@route-sk:6] Dial("PJSIP/2001-0000008c", "PJSIP/0948519438@trunk-sk-endpoint,60") in new stack
+    -- Called PJSIP/0948519438@trunk-sk-endpoint
+    -- PJSIP/trunk-sk-endpoint-0000008d is ringing
+    -- PJSIP/trunk-sk-endpoint-0000008d is ringing
+    -- PJSIP/trunk-sk-endpoint-0000008d is making progress passing it to PJSIP/2001-0000008c
+  == Spawn extension (route-sk, 421948519438, 6) exited non-zero on 'PJSIP/2001-0000008c'
+mediagtw*CLI>

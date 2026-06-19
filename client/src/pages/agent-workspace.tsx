@@ -7834,6 +7834,14 @@ export default function AgentWorkspacePage() {
     }
   }, [callContext.callState, currentContact?.id]);
 
+  // Sync currentPhoneOverride with the phone actually being called — covers CallSlot / direct makeCall paths
+  useEffect(() => {
+    const isActive = ["connecting", "ringing", "active", "on_hold"].includes(callContext.callState);
+    if (isActive && callContext.callInfo?.phoneNumber) {
+      setCurrentPhoneOverride(callContext.callInfo.phoneNumber);
+    }
+  }, [callContext.callState, callContext.callInfo?.phoneNumber]);
+
   // Post-call wrap-up timer: count seconds elapsed since call ended, until disposition is submitted
   useEffect(() => {
     if (callEndTimestamp !== null) {
