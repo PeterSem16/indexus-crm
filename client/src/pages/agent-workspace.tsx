@@ -10410,10 +10410,23 @@ export default function AgentWorkspacePage() {
         />
       )}
       <Dialog open={sessionLoginOpen && !agentSession.isSessionActive} onOpenChange={(open) => { if (!open) { setSessionLoginOpen(false); setLocation("/"); } }}>
-        <DialogContent className="sm:max-w-3xl p-0 overflow-hidden gap-0 flex flex-col max-h-[90vh]" hideCloseButton>
+        <DialogContent className={isMobile ? "w-full max-w-full h-full max-h-full rounded-none p-0 overflow-hidden gap-0 flex flex-col" : "sm:max-w-3xl p-0 overflow-hidden gap-0 flex flex-col max-h-[90vh]"} hideCloseButton>
           <DialogTitle className="sr-only">{t.agentSession.shiftLogin}</DialogTitle>
 
-          {/* ── Hlavička — kompaktná ── */}
+          {/* ── MOBILE: zjednodušená hlavička ── */}
+          {isMobile ? (
+            <div className="shrink-0 px-5 pt-6 pb-4 border-b bg-gradient-to-br from-card to-muted/30">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                  <Headphones className="h-6 w-6 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-lg font-bold leading-tight">Prihlásiť sa na zmenu</p>
+                  <p className="text-sm text-muted-foreground truncate">{(user as any)?.fullName || user?.username || ""}</p>
+                </div>
+              </div>
+            </div>
+          ) : (
           <div className="relative px-5 pt-4 pb-4 shrink-0 overflow-hidden bg-gradient-to-br from-card via-card to-muted/40 dark:from-card dark:to-muted/20">
             <div className="absolute -top-10 -right-10 w-44 h-44 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, hsl(355 85% 42% / 0.08) 0%, transparent 70%)" }} />
             <div className="absolute bottom-0 left-0 w-36 h-20 pointer-events-none" style={{ background: "radial-gradient(ellipse, hsl(355 85% 42% / 0.05) 0%, transparent 70%)" }} />
@@ -10425,7 +10438,6 @@ export default function AgentWorkspacePage() {
                 <h2 className="font-bold text-sm leading-tight text-foreground">{t.agentSession.shiftLogin}</h2>
                 <p className="text-[11px] mt-0.5 text-muted-foreground">{t.agentSession.shiftLoginDesc}</p>
               </div>
-              {/* User info inline v hlavičke */}
               <div className="flex items-center gap-2.5 bg-card border border-border rounded-xl px-3 py-2 shrink-0">
                 <div className="relative shrink-0">
                   <Avatar className="h-7 w-7 border border-border">
@@ -10442,15 +10454,104 @@ export default function AgentWorkspacePage() {
                 </div>
                 <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">{t.agentSession.onlineStatus}</span>
               </div>
-              {/* X button — priamo v flex riadku, vždy klikateľný */}
               <DialogClose className="shrink-0 rounded-md p-1.5 opacity-70 hover:opacity-100 hover:bg-accent transition-opacity focus:outline-none focus:ring-2 focus:ring-ring">
                 <X className="h-4 w-4" />
                 <span className="sr-only">Close</span>
               </DialogClose>
             </div>
           </div>
+          )}
 
-          {/* ── Telo — 2 stĺpce ── */}
+          {/* ── MOBILE: jednoduchý obsah (len výber misií + frônt) ── */}
+          {isMobile ? (
+            <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+                {/* Kampane */}
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">{t.agentWorkspace.campaigns}</p>
+                  <div className="space-y-2">
+                    {loginCampaigns.length === 0 ? (
+                      <p className="text-sm text-muted-foreground px-1">Žiadne dostupné kampane</p>
+                    ) : loginCampaigns.map((campaign) => {
+                      const isChecked = selectedLoginCampaignIds.includes(campaign.id);
+                      return (
+                        <button
+                          key={campaign.id}
+                          onClick={() => setSelectedLoginCampaignIds(prev => prev.includes(campaign.id) ? prev.filter(id => id !== campaign.id) : [...prev, campaign.id])}
+                          className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl border text-left transition-all active:scale-[0.98] ${
+                            isChecked ? "bg-primary/5 border-primary/30" : "bg-card border-border"
+                          }`}
+                          data-testid={`login-campaign-${campaign.id}`}
+                        >
+                          <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${isChecked ? "bg-primary/10" : "bg-muted"}`}>
+                            <Headphones className={`h-5 w-5 ${isChecked ? "text-primary" : "text-muted-foreground"}`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-base font-semibold truncate">{campaign.name}</p>
+                            {campaign.countryCodes?.length > 0 && (
+                              <p className="text-xs text-muted-foreground">{campaign.countryCodes.map((c: string) => getCountryFlag(c)).join(" ")}</p>
+                            )}
+                          </div>
+                          <div className={`h-6 w-6 rounded-lg border-2 flex items-center justify-center shrink-0 ${isChecked ? "bg-primary border-primary" : "border-muted-foreground/30"}`}>
+                            {isChecked && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Inbound fronty */}
+                {myQueues.length > 0 && (
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">{t.agentSession.inboundQueues}</p>
+                    <div className="space-y-2">
+                      {myQueues.map((queue) => {
+                        const isChecked = selectedLoginQueueIds.includes(queue.id);
+                        return (
+                          <button
+                            key={queue.id}
+                            onClick={() => setSelectedLoginQueueIds(prev => prev.includes(queue.id) ? prev.filter(id => id !== queue.id) : [...prev, queue.id])}
+                            className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl border text-left transition-all active:scale-[0.98] ${
+                              isChecked ? "bg-green-500/5 border-green-500/30" : "bg-card border-border"
+                            }`}
+                            data-testid={`login-queue-${queue.id}`}
+                          >
+                            <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${isChecked ? "bg-green-500/10" : "bg-muted"}`}>
+                              <PhoneIncoming className={`h-5 w-5 ${isChecked ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-base font-semibold truncate">{queue.name}</p>
+                              {queue.didNumber && <p className="text-xs text-muted-foreground">{queue.didNumber}</p>}
+                            </div>
+                            <div className={`h-6 w-6 rounded-lg border-2 flex items-center justify-center shrink-0 ${isChecked ? "bg-green-500 border-green-500" : "border-muted-foreground/30"}`}>
+                              {isChecked && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Štart tlačidlo */}
+              <div className="px-4 pb-6 pt-3 shrink-0 border-t bg-card/80">
+                <button
+                  onClick={handleStartSession}
+                  disabled={selectedLoginCampaignIds.length === 0 && selectedLoginQueueIds.length === 0}
+                  className="w-full h-16 rounded-2xl bg-primary text-primary-foreground font-bold text-lg flex items-center justify-center gap-3 shadow-xl shadow-primary/25 active:scale-[0.98] transition-all disabled:opacity-40"
+                  data-testid="button-start-session"
+                >
+                  <Headphones className="h-6 w-6" />
+                  Spustiť zmenu
+                </button>
+                {selectedLoginCampaignIds.length === 0 && selectedLoginQueueIds.length === 0 && (
+                  <p className="text-center text-sm mt-2 text-muted-foreground">Vyberte aspoň jednu misiu alebo frontu</p>
+                )}
+              </div>
+            </div>
+          ) : (
           <div className="grid grid-cols-2 flex-1 min-h-0 overflow-hidden divide-x divide-border">
 
             {/* ─── Ľavý stĺpec: Today's Activities + Scheduled Calls ─── */}
@@ -10901,9 +11002,11 @@ export default function AgentWorkspacePage() {
               </div>
             </div>
           </div>
+          )}
         </DialogContent>
       </Dialog>
 
+      {!isMobile && (
       <TopBar
         status={agentSession.status}
         onStatusChange={handleStatusChange}
@@ -10930,6 +11033,7 @@ export default function AgentWorkspacePage() {
         inboundRingtoneEnabled={inboundRingtoneEnabled}
         onToggleInboundRingtone={toggleInboundRingtone}
       />
+      )}
 
       {/* ── Hlavné záložky: PULSE / BACK OFFICE ── */}
       {(() => {
@@ -11042,6 +11146,9 @@ export default function AgentWorkspacePage() {
             <MobileAgentWorkspace
               contact={currentContact}
               campaign={selectedCampaign}
+              campaignContacts={sortedPendingContacts}
+              currentCampaignContactId={effectiveCampaignContactId}
+              onSelectContact={(cc) => handleSelectCampaignContact(cc)}
               callState={callContext.callState}
               callDuration={callContext.callDuration}
               ringDuration={ringDuration}
@@ -11053,24 +11160,24 @@ export default function AgentWorkspacePage() {
               onToggleMute={() => callContext.toggleMuteFn.current?.()}
               onToggleHold={() => callContext.toggleHoldFn.current?.()}
               onSendDtmf={(digit) => callContext.sendDtmfFn.current?.(digit)}
-              onOpenDisposition={() => { setDispositionChannelFilter("phone"); setMandatoryDisposition(true); setDispositionModalOpen(true); }}
               onMakeCall={handleMakeCall}
               isSipRegistered={isSipRegistered}
               sipIncomingCall={sipIncomingCall}
               onAnswerIncoming={answerIncomingCall}
               onRejectIncoming={rejectIncomingCall}
+              onOpenDisposition={() => { setDispositionChannelFilter("phone"); setMandatoryDisposition(true); setDispositionModalOpen(true); }}
+              isStatusListMode={isStatusListMode}
               dbStatusList={mobileDbStatusList}
               dbSlChecked={mobileDbSlChecked}
               onSlToggle={handleMobileSlToggle}
-              campaignContacts={rawCampaignContacts}
-              currentCampaignContactId={effectiveCampaignContactId}
-              onSelectContact={(cc) => handleSelectCampaignContact(cc)}
+              agentStatus={agentSession.status}
+              isOnBreak={!!agentSession.activeBreak}
+              workTime={agentSession.workTime}
+              breakTypes={agentSession.breakTypes}
+              onEndSession={handleEndSession}
+              onStartBreak={handleStartBreak}
+              onEndBreak={handleEndBreak}
               locale={locale}
-              contactHistory={contactHistory}
-              onSendSms={handleSendSms}
-              isSendingSms={sendSmsMutation.isPending}
-              campaignDispositions={campaignDispositions}
-              isStatusListMode={isStatusListMode}
             />
           </div>
         )}
