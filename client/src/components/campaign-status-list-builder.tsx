@@ -239,6 +239,9 @@ const SL: Record<string, Record<string, string>> = {
   tplSteps:        { sk: "krokov", en: "steps", cs: "kroků", hu: "lépés", ro: "pași", it: "passi", de: "Schritte" },
   tplAutomations:  { sk: "automatizácií", en: "automations", cs: "automatizací", hu: "automatizáció", ro: "automatizări", it: "automazioni", de: "Automatisierungen" },
   applyTplBtn:     { sk: "Aplikovať template", en: "Apply template", cs: "Použít šablonu", hu: "Sablon alkalmazása", ro: "Aplicare șablon", it: "Applica template", de: "Vorlage anwenden" },
+  tplSelectAll:    { sk: "Vybrať všetko", en: "Select all" },
+  tplDeselectAll:  { sk: "Zrušiť výber", en: "Deselect all" },
+  deleteSelectedBtn: { sk: "Zmazať vybrané", en: "Delete selected" },
 
   importTitle:     { sk: "Import zo Dispozície", en: "Import from Disposition", cs: "Import z dispozice", hu: "Importálás diszpozícióból", ro: "Import din Dispoziție", it: "Importa da Disposizione", de: "Import aus Disposition" },
   loadingMsg:      { sk: "Načítavam...", en: "Loading...", cs: "Načítám...", hu: "Betöltés...", ro: "Se încarcă...", it: "Caricamento...", de: "Wird geladen..." },
@@ -2337,12 +2340,14 @@ function QuestionEditor({
 }
 
 function StatusListItemRow({
-  item, campaignId, allItems, onDeleted,
+  item, campaignId, allItems, onDeleted, isSelected, onToggleSelect,
 }: {
   item: StatusListItem;
   campaignId: string;
   allItems: StatusListItem[];
   onDeleted: () => void;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   const { toast } = useToast();
   const { locale } = useI18n();
@@ -2438,6 +2443,16 @@ function StatusListItemRow({
   return (
     <div className="border rounded-lg bg-card overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-2.5 group">
+        {onToggleSelect && (
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); onToggleSelect(); }}
+            className={`shrink-0 w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors ${isSelected ? "bg-primary border-primary" : "border-border opacity-0 group-hover:opacity-100"}`}
+            data-testid={`chk-select-item-${item.id}`}
+          >
+            {isSelected && <Check className="h-2 w-2 text-primary-foreground" />}
+          </button>
+        )}
         <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0 cursor-grab" />
         <button
           type="button"
@@ -3062,6 +3077,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
   const [templateProgress, setTemplateProgress] = useState<string | null>(null);
   const [selectedDisps, setSelectedDisps] = useState<Set<string>>(new Set());
   const [previewMode, setPreviewMode] = useState(false);
+  const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(new Set());
 
   const { data: items = [], isLoading } = useQuery<StatusListItem[]>({
     queryKey: ["/api/campaigns", campaignId, "status-list"],
@@ -3179,6 +3195,22 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
     onError: () => { setTemplateProgress(null); toast({ title: sl("saveErr", locale), variant: "destructive" }); },
   });
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async () => {
+      const ids = Array.from(bulkSelectedIds);
+      for (const id of ids) {
+        await apiRequest("DELETE", `/api/campaigns/${campaignId}/status-list/${id}`);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
+      const count = bulkSelectedIds.size;
+      setBulkSelectedIds(new Set());
+      toast({ title: `🗑 ${sl("deleteSelectedBtn", locale)} (${count})` });
+    },
+    onError: () => toast({ title: sl("saveErr", locale), variant: "destructive" }),
+  });
+
   const importMutation = useMutation({
     mutationFn: async () => {
       const base = items.length;
@@ -3237,7 +3269,23 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
           {previewMode ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
           {previewMode ? sl("previewClose", locale) : sl("previewBtn", locale)}
         </Button>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          {bulkSelectedIds.size > 0 && (
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              className="h-7 text-xs gap-1"
+              disabled={bulkDeleteMutation.isPending}
+              onClick={() => {
+                if (window.confirm(`${sl("deleteSelectedBtn", locale)} (${bulkSelectedIds.size})?`)) bulkDeleteMutation.mutate();
+              }}
+              data-testid="btn-delete-selected-items"
+            >
+              {bulkDeleteMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+              {sl("deleteSelectedBtn", locale)} ({bulkSelectedIds.size})
+            </Button>
+          )}
           <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => setAddingItem(true)} disabled={addingItem} data-testid="btn-add-status-list-item">
             <Plus className="h-3 w-3" /> {sl("addStepBtn", locale)}
           </Button>
@@ -3265,6 +3313,12 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
                 campaignId={campaignId}
                 allItems={items}
                 onDeleted={() => {}}
+                isSelected={bulkSelectedIds.has(String(item.id))}
+                onToggleSelect={() => setBulkSelectedIds(prev => {
+                  const next = new Set(prev);
+                  if (next.has(String(item.id))) next.delete(String(item.id)); else next.add(String(item.id));
+                  return next;
+                })}
               />
             ))}
           </div>
@@ -3304,6 +3358,12 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
                   campaignId={campaignId}
                   allItems={items}
                   onDeleted={() => {}}
+                  isSelected={bulkSelectedIds.has(String(item.id))}
+                  onToggleSelect={() => setBulkSelectedIds(prev => {
+                    const next = new Set(prev);
+                    if (next.has(String(item.id))) next.delete(String(item.id)); else next.add(String(item.id));
+                    return next;
+                  })}
                 />
               ))}
               {items.filter(i => i.itemType === "option").length === 0 && !addingOption && (
@@ -3349,6 +3409,23 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
               className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${templateTab === "MPN" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
             >
               {sl("tplTabMPN", locale)}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const allIds = activeTemplate.map(s => s.stepId);
+                const allSelected = allIds.every(id => selectedSteps.has(id));
+                if (allSelected) {
+                  setSelectedSteps(new Set());
+                  setSelectedAutos(new Map());
+                } else {
+                  setSelectedSteps(new Set(allIds));
+                }
+              }}
+              className="ml-auto text-xs px-2.5 py-1.5 rounded-md font-medium text-primary hover:bg-primary/10 transition-colors"
+              data-testid="btn-tpl-select-all"
+            >
+              {activeTemplate.every(s => selectedSteps.has(s.stepId)) ? sl("tplDeselectAll", locale) : sl("tplSelectAll", locale)}
             </button>
           </div>
 
