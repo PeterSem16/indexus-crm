@@ -1,0 +1,95 @@
+Status list
+
+
+- Assigned healthcare provider. 
+/dtb saetts – mamanger len musi vedeit komu je tento kontakt priradený  / HIDE
+Unassigned to a medical representative
+Assigned to a medical representative
+
+-	To whome the HP is assigned ( detto ) HIDE
+	Hodnoty: koordinator odberov alebo 0 (none)
+
+-	Contacted healthcare provider reachable at least once or allways unreachable  HIDE. / taskovanie na admina 
+	Hodnoty:
+		Not defined yet
+Unreachable
+		Reachable
+		
+	Po desiatich za sebou iducich pokusoch dovolat sa v priebehu 1 roka povazujeme za unreachable a task pre HP database administratora preverit/zrusit/najst iny kontakt HP.
+	V pripade, ze sa dovolame, zmeni sa status na reachable. 
+
+-	Qualified or Unqualified Medical Partner.  
+Unknow yet
+Qualified – The healthcare provider provides healthcare to pregrant women
+Unqualified – The healthcare provider does not provide healthcare to pregnat women
+V pripade, ze je unqualified, nenastavuje sa žiaden callback
+
+-	Willingness of healthcare provider to provide ordered services by CBC to a Client of CBC. / coordinator OR
+Coopearation not offered  yet
+Cooperation offered considering
+Cooperation offered agreed
+Cooperation offered disagreed
+
+-Contract proposal with healthcare provider offer. /. Cordinatoor OR
+Contract is not nesserary
+Contract proposal not offered yet
+Contract proposal offered considering
+Contract proposal offered accepted
+Contract proposal Offered unaccepted
+
+-	Contract proposal (template) sent via email? HIDE
+Contract proposal not sent
+Contract proposal sent
+
+-	Contract signing management
+
+Contract for signing sent?
+Contract for signing not sent
+Contract for signing sent.  (BO posle ako to vyriesit , emails )
+
+How many times was contract sent (number).  Evidencia poctu poziadaviek zaslanie cantractu !!  eskalacia po x poslania na mangment   (len informativne zobrazi sa )
+
+Contract for signing received by partner?    Coordinator 
+unknown whether contract for signing received 
+Contract for signing not received by partner
+Contract for signing received by partner
+Contract signed received by CBC?  BO – a validacia 
+Yes
+No
+Signed returned contract validated?  BO validacia 
+Signed and filled contract returned not validated yet
+Contract did not pass validation
+Contract not resent
+Contract resent
+Contract validated
+
+
+
+Information materials about cord blood, placental blood, cord tissue and placenta banking - 
+Not offered yet
+Offered and offer accepted
+	Not sent yet
+	Sent (when), Send again when new version is released
+Offered and offer not accepted
+
+Letáky do čakárne
+Not offered yet
+Offered and offer accepted
+	Not sent yet
+	Sent, Check at rutinue callback to Medical partner 
+Offered and offer not accepted
+
+Tehotenské knižky
+Not offered yet
+Offered and offer accepted
+	Not sent yet
+	Sent, Check at rutinue callback to Medical partner 
+Offered and offer not accepted
+
+Poster formátu A3 do čakárne
+Not offered yet
+Offered and offer accepted
+	Not sent yet
+	Sent, Send again when new version is released
+Offered and offer not accepted
+

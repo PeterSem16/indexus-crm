@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { CLA_TEMPLATE, CLB_TEMPLATE, ROLE_BADGE_MAP, getStepLabel, getAutoLabel, getStepDescription, getAutoTaskDescription } from "@/data/cla-template";
+import { CLA_TEMPLATE, CLB_TEMPLATE, MPN_TEMPLATE, ROLE_BADGE_MAP, getStepLabel, getAutoLabel, getStepDescription, getAutoTaskDescription } from "@/data/cla-template";
 import { useI18n } from "@/i18n";
 import {
   Plus, Trash2, ChevronDown, ChevronRight, GripVertical, Zap,
@@ -289,6 +289,7 @@ const SL: Record<string, Record<string, string>> = {
   itemHiddenBadge: { sk: "Skryté", en: "Hidden" },
   tplLabel:        { sk: "Šablóny", en: "Templates" },
   tplHint:         { sk: "Kliknutím vložíte šablónu — text môžete ďalej upraviť.", en: "Click to apply a template — you can still edit the text." },
+  tplTabMPN:       { sk: "MPN — Sieť partnerov", en: "MPN — Partner Network", cs: "MPN — Síť partnerů", hu: "MPN — Partnerhálózat", ro: "MPN — Rețea Parteneri", it: "MPN — Rete Partner", de: "MPN — Partnernetzwerk" },
   boTag:           { sk: "Back Office", en: "Back Office", cs: "Back Office", hu: "Back Office", ro: "Back Office", it: "Back Office", de: "Back Office" },
   boRouteHint:     { sk: "Táto úloha sa zobrazí v agende Back Office.", en: "This task will appear in the Back Office agenda.", cs: "Tento úkol se zobrazí v agendě Back Office.", hu: "Ez a feladat megjelenik a Back Office listában.", ro: "Această sarcină va apărea în agenda Back Office.", it: "Questo compito apparirà nell'agenda Back Office.", de: "Diese Aufgabe erscheint in der Back-Office-Agenda." },
   prDescLbl:       { sk: "Popis priority", en: "Priority description" },
@@ -3053,7 +3054,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
   const [addingItem, setAddingItem] = useState(false);
   const [addingOption, setAddingOption] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
-  const [templateTab, setTemplateTab] = useState<"CLA" | "CLB">("CLA");
+  const [templateTab, setTemplateTab] = useState<"CLA" | "CLB" | "MPN">("CLA");
   const [importOpen, setImportOpen] = useState(false);
   const [selectedSteps, setSelectedSteps] = useState<Set<string>>(new Set());
   const [selectedAutos, setSelectedAutos] = useState<Map<string, Set<string>>>(new Map());
@@ -3111,7 +3112,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
     });
   }
 
-  const activeTemplate = templateTab === "CLA" ? CLA_TEMPLATE : CLB_TEMPLATE;
+  const activeTemplate = templateTab === "CLA" ? CLA_TEMPLATE : templateTab === "CLB" ? CLB_TEMPLATE : MPN_TEMPLATE;
 
   const selectedStepCount = selectedSteps.size;
   const selectedAutoCount = Array.from(selectedAutos.entries())
@@ -3121,15 +3122,23 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
   const templateMutation = useMutation({
     mutationFn: async () => {
       const stepsToCreate = activeTemplate.filter(s => selectedSteps.has(s.stepId));
+      // Sort: parents before children so parentId lookup works
+      const sorted = [...stepsToCreate].sort((a, b) => {
+        if (!a.parentStepId && b.parentStepId) return -1;
+        if (a.parentStepId && !b.parentStepId) return 1;
+        return 0;
+      });
       const base = items.length;
+      const createdIdMap = new Map<string, string>(); // stepId → DB id
       setTemplateProgress(null);
-      for (let i = 0; i < stepsToCreate.length; i++) {
-        const step = stepsToCreate[i];
-        setTemplateProgress(`${sl("applyTplBtn", locale)} ${i + 1}/${stepsToCreate.length}: ${step.stepId}…`);
+      for (let i = 0; i < sorted.length; i++) {
+        const step = sorted[i];
+        setTemplateProgress(`${sl("applyTplBtn", locale)} ${i + 1}/${sorted.length}: ${step.stepId}…`);
         const stepDesc = getStepDescription(step, locale);
         const condPart = step.conditionIf && step.conditionIf !== "—" ? `IF: ${step.conditionIf}` : "";
-        const thenPart = step.actionThen ? `THEN: ${step.actionThen}` : "";
+        const thenPart = step.actionThen && step.actionThen !== "—" ? `THEN: ${step.actionThen}` : "";
         const timePart = step.callbackTiming && step.callbackTiming !== "—" ? `⏱ ${step.callbackTiming}` : "";
+        const parentId = step.parentStepId ? (createdIdMap.get(step.parentStepId) ?? null) : null;
         const res = await apiRequest("POST", `/api/campaigns/${campaignId}/status-list`, {
           stepId: step.stepId,
           label: getStepLabel(step, locale),
@@ -3137,12 +3146,15 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
           confirmationType: step.confirmationType,
           required: false,
           sortOrder: base + i,
-          nextStepId: step.nextStepId || null,
+          nextStepId: step.nextStepId && step.nextStepId !== "—" ? step.nextStepId : null,
           restrictions: step.restrictions || null,
+          isHidden: step.isHidden ?? false,
+          parentId: parentId || null,
         });
         const created = await res.json();
         const itemId = created.id;
         if (!itemId) continue;
+        createdIdMap.set(step.stepId, String(itemId));
 
         const autoSet = selectedAutos.get(step.stepId) ?? new Set();
         const autosToCreate = step.automations.filter(a => autoSet.has(a.triggerId));
@@ -3331,6 +3343,13 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
             >
               {sl("tplTabCLB", locale)}
             </button>
+            <button
+              type="button"
+              onClick={() => { setTemplateTab("MPN"); setSelectedSteps(new Set()); setSelectedAutos(new Map()); }}
+              className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${templateTab === "MPN" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+            >
+              {sl("tplTabMPN", locale)}
+            </button>
           </div>
 
           {/* Step list */}
@@ -3341,14 +3360,16 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
               const autoSet = selectedAutos.get(step.stepId) ?? new Set();
               const roleBadge = ROLE_BADGE_MAP[step.role] ?? { label: step.role, color: "bg-muted text-muted-foreground" };
               const isSys = step.confirmationType === "info";
+              const isChild = !!step.parentStepId;
+              const isRadio = step.confirmationType === "radio";
 
               return (
-                <div key={step.stepId} className={`rounded-lg border transition-colors ${isSelected ? "border-primary/30 bg-primary/5" : "border-border bg-background"}`}>
+                <div key={step.stepId} className={`rounded-lg border transition-colors ${isChild ? "ml-6 border-dashed" : ""} ${isSelected ? "border-primary/30 bg-primary/5" : "border-border bg-background"}`}>
                   <div className="flex items-start gap-2 px-3 py-2.5">
                     <button
                       type="button"
                       onClick={() => toggleStep(step.stepId)}
-                      className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${isSelected ? "bg-primary border-primary" : "border-border"}`}
+                      className={`mt-0.5 w-4 h-4 rounded${isRadio ? "-full" : ""} border flex items-center justify-center shrink-0 transition-colors ${isSelected ? "bg-primary border-primary" : "border-border"}`}
                       data-testid={`tpl-step-${step.stepId}`}
                     >
                       {isSelected && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
@@ -3358,6 +3379,8 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
                         <span className="text-xs font-mono font-bold text-muted-foreground">{step.stepId}</span>
                         <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${roleBadge.color}`}>{roleBadge.label}</span>
                         {isSys && <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-medium">AUTO</span>}
+                        {step.isHidden && <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 font-medium flex items-center gap-0.5"><EyeOff className="h-2.5 w-2.5" />HIDDEN</span>}
+                        {isRadio && <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 font-medium">option</span>}
                         <span className={`text-sm font-medium ${isSelected ? "text-foreground" : "text-muted-foreground"}`}>{getStepLabel(step, locale)}</span>
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">{localizeText(getStepDescription(step, locale), locale)}</p>
