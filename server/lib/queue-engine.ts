@@ -100,6 +100,10 @@ export class QueueEngine extends EventEmitter {
   private overflowInProgress: Set<string> = new Set();
   private agentOriginateCooldown: Map<string, number> = new Map();
   private ringAllPending: Map<string, { callId: string; agentChannelIds: Map<string, string>; agentIds: Set<string> }> = new Map();
+  // Synchronous claim guard: callerChannelId is added here before the first await in
+  // handleAgentChannelAnswer, so concurrent Up-events from other ring-all agents that
+  // slip in at an await boundary see the claim and bail out immediately.
+  private ringAllClaimedCallers: Set<string> = new Set();
   private pendingOutboundCallerIds: Map<string, { callerIdNumber: string; expiresAt: number }> = new Map();
   private subscribedEndpoints: Set<string> = new Set();
   // RO hairpin: inbound channel stays in Stasis, outbound originated via ARI, bridged in ARI
@@ -3323,6 +3327,48 @@ export class QueueEngine extends EventEmitter {
   private async handleAgentChannelAnswer(agentChannelId: string, pending: PendingAgentCall): Promise<void> {
     this.pendingAgentCalls.delete(agentChannelId);
     const isTransfer = pending.agentId === "transfer-target";
+
+    // ── Ring-all: synchronous claim BEFORE the first await ──────────────────────
+    // JavaScript is single-threaded; everything up to the first `await` runs
+    // atomically. Two concurrent handleAgentChannelAnswer calls can only interleave
+    // at await points. By writing the claim synchronously here we guarantee exactly
+    // one agent wins the bridge race regardless of how fast multiple Up events arrive.
+    if (!isTransfer) {
+      const ringAllState = this.ringAllPending.get(pending.callerChannelId);
+      if (ringAllState || this.ringAllClaimedCallers.has(pending.callerChannelId)) {
+        if (this.ringAllClaimedCallers.has(pending.callerChannelId)) {
+          // Another agent already claimed this call — we are a late answer; bail out.
+          console.log(`[QueueEngine] RING-ALL race: agent ${pending.agentId} lost the claim race, hanging up late channel ${agentChannelId}`);
+          this.ariClient.hangupChannel(agentChannelId, "normal").catch(() => {});
+          return;
+        }
+        // We are the winner — claim synchronously (no await until after this block).
+        this.ringAllClaimedCallers.add(pending.callerChannelId);
+        this.ringAllPending.delete(pending.callerChannelId);
+        this.assignedCalls.delete(pending.callerChannelId);
+
+        // Cancel every other ring-all agent's channel — fire-and-forget so we stay
+        // synchronous (no await means no interleave window for a second winner).
+        if (ringAllState) {
+          for (const [aId, aChId] of ringAllState.agentChannelIds.entries()) {
+            if (aId === pending.agentId) continue;
+            this.pendingAgentCalls.delete(aChId);
+            this.ariClient.hangupChannel(aChId, "normal").catch(() => {});
+          }
+          for (const aId of ringAllState.agentIds) {
+            if (aId === pending.agentId) continue;
+            this.emit("call-cancelled-for-agent", {
+              callId: ringAllState.callId,
+              agentId: aId,
+              callerChannelId: pending.callerChannelId,
+            });
+          }
+          console.log(`[QueueEngine] RING-ALL: agent ${pending.agentId} claimed the call, ${ringAllState.agentChannelIds.size - 1} other agent(s) cancelled`);
+        }
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────────
+
     console.log(`[QueueEngine] ${isTransfer ? "Transfer target" : "Agent"} answered! Bridging caller ${pending.callerChannelId} with channel ${agentChannelId}`);
 
     try {
@@ -3381,6 +3427,15 @@ export class QueueEngine extends EventEmitter {
         callId: pending.callId,
         agentId: pending.agentId,
       });
+      // activeBridges is now the authoritative guard; release the ring-all claim Set entry.
+      this.ringAllClaimedCallers.delete(pending.callerChannelId);
+
+      // For ring-all: mark winner as busy now that the bridge is confirmed.
+      // (connectCallToAllAgents intentionally left agents in "available" so they
+      //  all ring; the winner is marked busy only after a successful bridge.)
+      if (!isTransfer && this.agentStates.has(pending.agentId)) {
+        this.updateAgentStatus(pending.agentId, "busy", pending.callId).catch(() => {});
+      }
 
       if (!isTransfer && !pending.callId.startsWith("transfer-")) {
         await db.update(inboundCallLogs)
@@ -3398,6 +3453,7 @@ export class QueueEngine extends EventEmitter {
       });
     } catch (err: any) {
       console.error(`[QueueEngine] Failed to bridge channels:`, err.message);
+      this.ringAllClaimedCallers.delete(pending.callerChannelId);
       try { await this.ariClient.hangupChannel(agentChannelId, "normal"); } catch {}
       if (!isTransfer) {
         this.updateAgentStatus(pending.agentId, "available", null);
