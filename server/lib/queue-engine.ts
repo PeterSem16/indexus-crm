@@ -3346,6 +3346,10 @@ export class QueueEngine extends EventEmitter {
         this.ringAllClaimedCallers.add(pending.callerChannelId);
         this.ringAllPending.delete(pending.callerChannelId);
         this.assignedCalls.delete(pending.callerChannelId);
+        // Also clear waitingCalls — a rejected agent's handleChannelDestroyed may
+        // have already put the call back there; leaving it would cause a duplicate
+        // ring-all on the next queue tick and tear down the winner's bridge.
+        this.waitingCalls.delete(pending.callerChannelId);
 
         // Cancel every other ring-all agent's channel — fire-and-forget so we stay
         // synchronous (no await means no interleave window for a second winner).
@@ -3682,6 +3686,47 @@ export class QueueEngine extends EventEmitter {
       }
       console.log(`[QueueEngine] Agent channel ${channelId} destroyed before answer (agent rejected/unavailable)`);
       this.pendingAgentCalls.delete(channelId);
+
+      // ── Ring-all guard ────────────────────────────────────────────────────
+      // When a ring-all agent's channel is destroyed (endpoint rejected the SIP
+      // INVITE, or the winner already hung it up), we must NOT re-queue the call
+      // or start MOH. The ring-all is either still in progress with the remaining
+      // agents, or a winner is already bridging. Re-queuing would restart a second
+      // ring-all on the next queue tick, leading to bridge collisions that instantly
+      // hang up the winner.
+      const ringAllState = this.ringAllPending.get(pending.callerChannelId);
+      if (ringAllState || this.ringAllClaimedCallers.has(pending.callerChannelId)) {
+        console.log(`[QueueEngine] RING-ALL: agent ${pending.agentId} channel destroyed, removing from ring-all (remaining=${ringAllState ? ringAllState.agentChannelIds.size - 1 : 0})`);
+        this.agentOriginateCooldown.set(pending.agentId, Date.now() + 5000);
+        if (ringAllState) {
+          ringAllState.agentChannelIds.delete(pending.agentId);
+          ringAllState.agentIds.delete(pending.agentId);
+          if (ringAllState.agentChannelIds.size === 0) {
+            // Every ring-all agent rejected — give up and put call back in queue.
+            console.log(`[QueueEngine] RING-ALL: all channels rejected for call ${pending.callId}, re-queuing`);
+            this.ringAllPending.delete(pending.callerChannelId);
+            this.assignedCalls.delete(pending.callerChannelId);
+            const call: QueuedCall = {
+              id: pending.callId,
+              channelId: pending.callerChannelId,
+              callerNumber: pending.callerNumber,
+              callerName: pending.callerName,
+              queueId: pending.queueId,
+              customerId: pending.customerId,
+              enteredAt: pending.enteredAt,
+              position: this.getQueueSize(pending.queueId) + 1,
+              originateFailures: 0,
+            };
+            this.waitingCalls.set(pending.callerChannelId, call);
+            this.recalculatePositions(pending.queueId);
+            await this.startMohForChannel(pending.callerChannelId, pending.queueId);
+          }
+        }
+        this.updateAgentStatus(pending.agentId, "available", null);
+        return;
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
       const assignedCall = this.assignedCalls.get(pending.callerChannelId);
       const originalEnteredAt = assignedCall?.call.enteredAt || pending.enteredAt;
       const prevFailures = assignedCall?.call.originateFailures || 0;
