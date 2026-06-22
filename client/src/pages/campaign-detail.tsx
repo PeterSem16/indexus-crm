@@ -6071,6 +6071,36 @@ export default function CampaignDetailPage() {
                       </Card>
                       <Card>
                         <CardHeader>
+                          <CardTitle>Script tab pre agentov</CardTitle>
+                          <CardDescription>
+                            Ak je vypnuté, agenti nevidia záložku SCRIPT vo svojom pracovnom priestore.
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <Switch
+                            checked={(() => {
+                              try {
+                                const s = campaign.settings ? JSON.parse(campaign.settings) : {};
+                                return s.showScript !== false;
+                              } catch { return true; }
+                            })()}
+                            onCheckedChange={(v) => {
+                              let existing: any = {};
+                              try { if (campaign.settings) existing = JSON.parse(campaign.settings); } catch {}
+                              const merged = { ...existing, showScript: v };
+                              apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { settings: JSON.stringify(merged) })
+                                .then(() => {
+                                  toast({ title: t.campaigns.detail.settingsSaved });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
+                                })
+                                .catch(() => toast({ title: t.campaigns.detail.error, variant: "destructive" }));
+                            }}
+                            data-testid="switch-show-script"
+                          />
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader>
                           <CardTitle>Workflow mód</CardTitle>
                           <CardDescription>
                             Ako agenti zaznamenávajú výsledky kontaktov — cez klasickú Disposíciu alebo cez Status List (kroky s automatizáciami).

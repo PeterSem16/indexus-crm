@@ -2787,6 +2787,10 @@ function CommunicationCanvas({
     } catch { return { enabled: false, sections: [] }; }
   }, [campaign?.settings]);
 
+  const showScript = useMemo(() => {
+    try { return JSON.parse(campaign?.settings || "{}").showScript !== false; } catch { return true; }
+  }, [campaign?.settings]);
+
   useEffect(() => {
     setClChecked(new Set());
     setClYesNo({});
@@ -3407,6 +3411,7 @@ function CommunicationCanvas({
             <Phone className="h-3.5 w-3.5" />
             HOVOR
           </button>
+          {showScript && (
           <button
             className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
               activeChannel === "script"
@@ -3419,6 +3424,7 @@ function CommunicationCanvas({
             <FileText className="h-3.5 w-3.5" />
             SCRIPT
           </button>
+          )}
           <button
             className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
               activeChannel === "email"
@@ -3463,7 +3469,7 @@ function CommunicationCanvas({
       </div>
 
 
-      {activeChannel === "script" && (
+      {showScript && activeChannel === "script" && (
         <div className="flex flex-col flex-1 relative overflow-y-auto">
           <Button
             size="icon"

@@ -7,14 +7,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useClinics, useUpdateClinic, Clinic } from '@/hooks/useClinics';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useSipStore } from '@/stores/sipStore';
 import { api } from '@/lib/api';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
 
-type DetailTab = 'info' | 'personnel' | 'midwives';
+type DetailTab = 'info' | 'personnel' | 'midwives' | 'notes';
 
 interface PersonnelPerson {
   person_id: string;
@@ -149,6 +149,9 @@ export default function ClinicDetailScreen() {
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState<Partial<Clinic>>({});
   const [saving, setSaving] = useState(false);
+  const [noteText, setNoteText] = useState('');
+  const [addingNote, setAddingNote] = useState(false);
+  const qc = useQueryClient();
 
   const th = translations.hospitals;
 
@@ -161,6 +164,13 @@ export default function ClinicDetailScreen() {
     queryKey: ['/api/mobile/institutions/clinic', id, 'personnel'],
     queryFn: () => api.get(`/api/mobile/institutions/clinic/${id}/personnel`),
     enabled: !!id && (activeTab === 'personnel' || activeTab === 'midwives'),
+    retry: 1,
+  });
+
+  const { data: entityNotes = [] } = useQuery<any[]>({
+    queryKey: ['/api/entity-notes/clinic', id],
+    queryFn: () => api.get(`/api/entity-notes/clinic/${id}`),
+    enabled: !!id && activeTab === 'notes',
     retry: 1,
   });
 
@@ -258,6 +268,20 @@ export default function ClinicDetailScreen() {
     Linking.openURL(url);
   };
 
+  const addNote = async () => {
+    if (!noteText.trim() || !id) return;
+    setAddingNote(true);
+    try {
+      await api.post(`/api/entity-notes/clinic/${id}`, { content: noteText.trim() });
+      setNoteText('');
+      qc.invalidateQueries({ queryKey: ['/api/entity-notes/clinic', id] });
+    } catch (e: any) {
+      Alert.alert(translations.common.error, e?.message || 'Chyba pri ukladaní poznámky');
+    } finally {
+      setAddingNote(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -337,6 +361,15 @@ export default function ClinicDetailScreen() {
               >
                 <Text style={[styles.detailTabText, activeTab === 'midwives' && styles.detailTabTextActive]}>
                   {th.midwivesTab}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.detailTab, activeTab === 'notes' && styles.detailTabActive]}
+                onPress={() => setActiveTab('notes')}
+                testID="tab-notes"
+              >
+                <Text style={[styles.detailTabText, activeTab === 'notes' && styles.detailTabTextActive]}>
+                  Zápisky
                 </Text>
               </TouchableOpacity>
             </View>
@@ -593,7 +626,7 @@ export default function ClinicDetailScreen() {
               />
             ))
           )
-        ) : (
+        ) : activeTab === 'midwives' ? (
           /* Midwives tab */
           personnelLoading ? (
             <View style={styles.centeredBox}>
@@ -614,6 +647,45 @@ export default function ClinicDetailScreen() {
               />
             ))
           )
+        ) : (
+          /* Notes tab */
+          <>
+            <View style={styles.noteInputCard}>
+              <TextInput
+                style={styles.noteInputField}
+                value={noteText}
+                onChangeText={setNoteText}
+                placeholder="Napísať poznámku..."
+                placeholderTextColor={Colors.textSecondary}
+                multiline
+                numberOfLines={3}
+                testID="input-note-text"
+              />
+              <TouchableOpacity
+                style={[styles.addNoteBtn, { backgroundColor: CLINIC_GREEN, opacity: noteText.trim() ? 1 : 0.5 }]}
+                onPress={addNote}
+                disabled={addingNote || !noteText.trim()}
+                testID="button-add-note"
+              >
+                {addingNote
+                  ? <ActivityIndicator size="small" color={Colors.white} />
+                  : <Text style={styles.addNoteBtnText}>Uložiť poznámku</Text>}
+              </TouchableOpacity>
+            </View>
+            {(entityNotes as any[]).length === 0 ? (
+              <View style={styles.centeredBox}>
+                <Ionicons name="document-text-outline" size={48} color={Colors.textSecondary} />
+                <Text style={styles.emptyText}>Žiadne poznámky</Text>
+              </View>
+            ) : (
+              (entityNotes as any[]).map((note: any) => (
+                <View key={note.id} style={styles.noteItem}>
+                  <Text style={styles.noteContent}>{note.content}</Text>
+                  <Text style={styles.noteMeta}>{note.userName}{note.createdAt ? ` · ${new Date(note.createdAt).toLocaleDateString('sk-SK')}` : ''}</Text>
+                </View>
+              ))
+            )}
+          </>
         )}
 
         <View style={styles.footerSpace} />
@@ -694,4 +766,11 @@ const styles = StyleSheet.create({
   primaryBadgeText: { fontSize: 13 },
   personnelActions: { flexDirection: 'row', gap: 8, marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F0F2F6' },
   personnelActionBtn: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  noteInputCard: { backgroundColor: Colors.white, borderRadius: 14, padding: Spacing.md, marginBottom: Spacing.md, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 },
+  noteInputField: { borderWidth: 1.5, borderColor: '#E0E5EF', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: FontSizes.md, color: Colors.text, backgroundColor: '#FAFBFC', minHeight: 80, textAlignVertical: 'top' },
+  addNoteBtn: { borderRadius: 10, paddingVertical: 10, alignItems: 'center', marginTop: 10 },
+  addNoteBtnText: { fontSize: FontSizes.sm, fontWeight: '700', color: Colors.white },
+  noteItem: { backgroundColor: Colors.white, borderRadius: 12, padding: 14, marginBottom: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
+  noteContent: { fontSize: FontSizes.md, color: Colors.text, lineHeight: 20, marginBottom: 4 },
+  noteMeta: { fontSize: FontSizes.xs, color: Colors.textSecondary },
 });
