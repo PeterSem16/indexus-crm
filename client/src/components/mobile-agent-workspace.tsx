@@ -673,91 +673,99 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
       <div className="flex flex-col h-full">
         <MobileHeader {...headerProps} onLogout={() => setLogoutConfirm(true)} />
         {breakMenuOpen && <BreakMenu {...breakMenuProps} />}
-        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col touch-pan-y">
-          <div className="flex flex-col items-center py-8 px-4 gap-4">
-            <div className={`h-24 w-24 rounded-full flex items-center justify-center text-2xl font-bold text-white shadow-xl ${
-              callState === "connecting" || callState === "ringing" ? "bg-amber-500 shadow-amber-500/30 animate-pulse"
-              : callState === "on_hold" ? "bg-orange-500 shadow-orange-500/30"
-              : "bg-green-500 shadow-green-500/30"
-            }`}>
-              {contact ? ((contact.firstName?.[0] || "") + (contact.lastName?.[0] || "")).toUpperCase() || <Phone className="h-10 w-10" /> : <Phone className="h-10 w-10" />}
-            </div>
-            <div className="text-center">
-              <p className="text-xl font-bold">{fullName}</p>
-              {phone && <p className="text-sm text-muted-foreground mt-0.5">{phone}</p>}
-              <p className={`text-sm font-semibold mt-1 ${
-                callState === "ringing" || callState === "connecting" ? "text-amber-500"
-                : callState === "on_hold" ? "text-orange-500" : "text-green-500"
+        <div className="flex-1 min-h-0 flex flex-col">
+          {/* ── Fixed top: avatar + call controls + sliders ── */}
+          <div className="shrink-0">
+            <div className="flex flex-col items-center py-6 px-4 gap-3">
+              <div className={`h-24 w-24 rounded-full flex items-center justify-center text-2xl font-bold text-white shadow-xl ${
+                callState === "connecting" || callState === "ringing" ? "bg-amber-500 shadow-amber-500/30 animate-pulse"
+                : callState === "on_hold" ? "bg-orange-500 shadow-orange-500/30"
+                : "bg-green-500 shadow-green-500/30"
               }`}>
-                {callState === "connecting" ? np.connecting || "Connecting…"
-                : callState === "ringing" ? `${np.ringing || "Ringing"} ${fmtDur(ringDuration)}`
-                : callState === "on_hold" ? np.onHold || "On hold"
-                : fmtDur(callDuration)}
-              </p>
+                {contact ? ((contact.firstName?.[0] || "") + (contact.lastName?.[0] || "")).toUpperCase() || <Phone className="h-10 w-10" /> : <Phone className="h-10 w-10" />}
+              </div>
+              <div className="text-center">
+                <p className="text-xl font-bold">{fullName}</p>
+                {phone && <p className="text-sm text-muted-foreground mt-0.5">{phone}</p>}
+                <p className={`text-sm font-semibold mt-1 ${
+                  callState === "ringing" || callState === "connecting" ? "text-amber-500"
+                  : callState === "on_hold" ? "text-orange-500" : "text-green-500"
+                }`}>
+                  {callState === "connecting" ? np.connecting || "Connecting…"
+                  : callState === "ringing" ? `${np.ringing || "Ringing"} ${fmtDur(ringDuration)}`
+                  : callState === "on_hold" ? np.onHold || "On hold"
+                  : fmtDur(callDuration)}
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="px-4 pb-4">
-            <div className="grid grid-cols-4 gap-3 mb-4">
-              {[
-                { icon: isMuted ? MicOff : Mic, label: isMuted ? np.unmute || "Unmute" : np.mute || "Mute", onClick: onToggleMute, active: isMuted, testId: "btn-mobile-mute" },
-                { icon: isOnHold ? PlayCircle : PauseCircle, label: isOnHold ? np.resume || "Resume" : np.hold || "Hold", onClick: onToggleHold, active: isOnHold, testId: "btn-mobile-hold" },
-                { icon: Hash, label: np.keyboard || "Keys", onClick: () => setDtmfOpen(v => !v), active: dtmfOpen, testId: "btn-mobile-dtmf" },
-                { icon: PhoneOff, label: np.hangup || "Hang up", onClick: onEndCall, active: false, testId: "btn-mobile-hangup", red: true },
-              ].map(({ icon: Icon, label, onClick, active, testId, red }: any) => (
-                <div key={testId} className="flex flex-col items-center gap-1.5">
-                  <button onClick={onClick}
-                    className={`h-14 w-14 rounded-2xl flex items-center justify-center active:scale-95 transition-all ${
-                      red ? "bg-red-500 text-white shadow-lg shadow-red-500/30"
-                      : active ? "bg-primary text-primary-foreground shadow-md"
-                      : "bg-muted text-foreground"
-                    }`}
-                    data-testid={testId}>
-                    <Icon className="h-6 w-6" />
-                  </button>
-                  <span className="text-[10px] font-semibold text-center leading-tight text-muted-foreground">{label}</span>
-                </div>
-              ))}
-            </div>
-            {dtmfOpen && (
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                {["1","2","3","4","5","6","7","8","9","*","0","#"].map(d => (
-                  <button key={d} onClick={() => onSendDtmf(d)}
-                    className="h-12 rounded-xl bg-muted font-bold text-lg active:scale-95 transition-all"
-                    data-testid={`btn-dtmf-${d}`}>{d}</button>
+            <div className="px-4 pb-3">
+              <div className="grid grid-cols-4 gap-3 mb-4">
+                {[
+                  { icon: isMuted ? MicOff : Mic, label: isMuted ? np.unmute || "Unmute" : np.mute || "Mute", onClick: onToggleMute, active: isMuted, testId: "btn-mobile-mute" },
+                  { icon: isOnHold ? PlayCircle : PauseCircle, label: isOnHold ? np.resume || "Resume" : np.hold || "Hold", onClick: onToggleHold, active: isOnHold, testId: "btn-mobile-hold" },
+                  { icon: Hash, label: np.keyboard || "Keys", onClick: () => setDtmfOpen(v => !v), active: dtmfOpen, testId: "btn-mobile-dtmf" },
+                  { icon: PhoneOff, label: np.hangup || "Hang up", onClick: onEndCall, active: false, testId: "btn-mobile-hangup", red: true },
+                ].map(({ icon: Icon, label, onClick, active, testId, red }: any) => (
+                  <div key={testId} className="flex flex-col items-center gap-1.5">
+                    <button onClick={onClick}
+                      className={`h-14 w-14 rounded-2xl flex items-center justify-center active:scale-95 transition-all ${
+                        red ? "bg-red-500 text-white shadow-lg shadow-red-500/30"
+                        : active ? "bg-primary text-primary-foreground shadow-md"
+                        : "bg-muted text-foreground"
+                      }`}
+                      data-testid={testId}>
+                      <Icon className="h-6 w-6" />
+                    </button>
+                    <span className="text-[10px] font-semibold text-center leading-tight text-muted-foreground">{label}</span>
+                  </div>
                 ))}
               </div>
-            )}
-            {/* Volume & mic sliders */}
-            <div className="rounded-2xl bg-muted/50 border px-4 py-3 space-y-3">
-              <div className="flex items-center gap-3">
-                <Volume2 className="h-4 w-4 text-muted-foreground shrink-0" />
-                <div className="flex-1 flex items-center gap-2">
-                  <Slider
-                    value={[volume]}
-                    onValueChange={([v]) => onVolumeChange?.(v)}
-                    min={0} max={100} step={1}
-                    className="flex-1"
-                    data-testid="slider-mobile-volume"
-                  />
-                  <span className="text-xs font-mono text-muted-foreground w-8 text-right">{volume}%</span>
+              {dtmfOpen && (
+                <div className="grid grid-cols-3 gap-2 mb-4">
+                  {["1","2","3","4","5","6","7","8","9","*","0","#"].map(d => (
+                    <button key={d} onClick={() => onSendDtmf(d)}
+                      className="h-12 rounded-xl bg-muted font-bold text-lg active:scale-95 transition-all"
+                      data-testid={`btn-dtmf-${d}`}>{d}</button>
+                  ))}
                 </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Mic className="h-4 w-4 text-muted-foreground shrink-0" />
-                <div className="flex-1 flex items-center gap-2">
-                  <Slider
-                    value={[micVolume]}
-                    onValueChange={([v]) => onMicVolumeChange?.(v)}
-                    min={0} max={100} step={1}
-                    className="flex-1"
-                    data-testid="slider-mobile-mic"
-                  />
-                  <span className="text-xs font-mono text-muted-foreground w-8 text-right">{micVolume}%</span>
+              )}
+              {/* Volume & mic sliders */}
+              <div className="rounded-2xl bg-muted/50 border px-4 py-3 space-y-3">
+                <div className="flex items-center gap-3">
+                  <Volume2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div className="flex-1 flex items-center gap-2">
+                    <Slider
+                      value={[volume]}
+                      onValueChange={([v]) => onVolumeChange?.(v)}
+                      min={0} max={100} step={1}
+                      className="flex-1"
+                      data-testid="slider-mobile-volume"
+                    />
+                    <span className="text-xs font-mono text-muted-foreground w-8 text-right">{volume}%</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Mic className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div className="flex-1 flex items-center gap-2">
+                    <Slider
+                      value={[micVolume]}
+                      onValueChange={([v]) => onMicVolumeChange?.(v)}
+                      min={0} max={100} step={1}
+                      className="flex-1"
+                      data-testid="slider-mobile-mic"
+                    />
+                    <span className="text-xs font-mono text-muted-foreground w-8 text-right">{micVolume}%</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-          <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} />
+          {/* ── Independent scroll area: only the status list ── */}
+          {dbStatusList.length > 0 && (
+            <div className="flex-1 min-h-0 overflow-y-auto" style={{ WebkitOverflowScrolling: "touch" }}>
+              <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} />
+            </div>
+          )}
         </div>
       </div>
     );
