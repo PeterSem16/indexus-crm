@@ -1,12 +1,13 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
+import { Slider } from "@/components/ui/slider";
 import { Phone, PhoneOff, PhoneIncoming, Mic, MicOff, PauseCircle, PlayCircle,
   Hash, Check, ChevronDown, ChevronUp, Info, Zap, Coffee, LogOut, User,
   Clock, ChevronRight, AlertCircle, FileText, ListChecks,
   Mail, MapPin, Calendar, ArrowLeft, Search, X, Baby, Building2,
   History, PhoneCall, Stethoscope, UserX, Globe, Share2, UserCheck,
-  MessageSquare, Send } from "lucide-react";
+  MessageSquare, Send, Volume2 } from "lucide-react";
 import { format } from "date-fns";
 
 /* ── helpers ────────────────────────────────────────────────────────── */
@@ -94,6 +95,12 @@ export interface MobileAgentWorkspaceProps {
 
   t: any;
   locale: string;
+  currentUserId?: string;
+
+  volume?: number;
+  micVolume?: number;
+  onVolumeChange?: (vol: number) => void;
+  onMicVolumeChange?: (vol: number) => void;
 }
 
 /* ── MobileHeader ───────────────────────────────────────────────────── */
@@ -505,6 +512,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
     agentStatus, isOnBreak, workTime, breakTypes,
     onEndSession, onStartBreak, onEndBreak,
     onFullLogout, t, currentUserId,
+    volume = 80, micVolume = 100, onVolumeChange, onMicVolumeChange,
   } = props;
 
   const np = t?.nexusPulse || {};
@@ -719,6 +727,35 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                 ))}
               </div>
             )}
+            {/* Volume & mic sliders */}
+            <div className="rounded-2xl bg-muted/50 border px-4 py-3 space-y-3">
+              <div className="flex items-center gap-3">
+                <Volume2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                <div className="flex-1 flex items-center gap-2">
+                  <Slider
+                    value={[volume]}
+                    onValueChange={([v]) => onVolumeChange?.(v)}
+                    min={0} max={100} step={1}
+                    className="flex-1"
+                    data-testid="slider-mobile-volume"
+                  />
+                  <span className="text-xs font-mono text-muted-foreground w-8 text-right">{volume}%</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <Mic className="h-4 w-4 text-muted-foreground shrink-0" />
+                <div className="flex-1 flex items-center gap-2">
+                  <Slider
+                    value={[micVolume]}
+                    onValueChange={([v]) => onMicVolumeChange?.(v)}
+                    min={0} max={100} step={1}
+                    className="flex-1"
+                    data-testid="slider-mobile-mic"
+                  />
+                  <span className="text-xs font-mono text-muted-foreground w-8 text-right">{micVolume}%</span>
+                </div>
+              </div>
+            </div>
           </div>
           <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} />
         </div>

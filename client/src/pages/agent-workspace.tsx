@@ -11306,6 +11306,10 @@ export default function AgentWorkspacePage() {
               t={t}
               locale={locale}
               currentUserId={user?.id}
+              volume={callContext.volume}
+              micVolume={callContext.micVolume}
+              onVolumeChange={(vol) => callContext.onVolumeChangeFn.current?.(vol)}
+              onMicVolumeChange={(vol) => callContext.onMicVolumeChangeFn.current?.(vol)}
             />
           </div>
         )}
