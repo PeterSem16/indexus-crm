@@ -2019,6 +2019,192 @@ function AutoModeCard({ campaign }: { campaign: Campaign }) {
   );
 }
 
+function DefaultTemplatesCard({ campaign }: { campaign: Campaign }) {
+  const { toast } = useToast();
+  const [hasChanges, setHasChanges] = useState(false);
+  const [defaultEmailCategoryId, setDefaultEmailCategoryId] = useState<string>("");
+  const [defaultEmailTemplateId, setDefaultEmailTemplateId] = useState<string>("");
+  const [defaultSmsCategoryId, setDefaultSmsCategoryId] = useState<string>("");
+  const [defaultSmsTemplateId, setDefaultSmsTemplateId] = useState<string>("");
+
+  const { data: templateCategories = [] } = useQuery<{ id: string; name: string; isActive: boolean }[]>({
+    queryKey: ["/api/template-categories"],
+  });
+
+  const { data: emailTemplatesRaw = [] } = useQuery<{ id: string; name: string; categoryId: string | null }[]>({
+    queryKey: ["/api/message-templates", "email"],
+    queryFn: async () => {
+      const res = await fetch(`/api/message-templates?type=email&isActive=true`, { credentials: "include" });
+      return res.ok ? res.json() : [];
+    },
+  });
+
+  const { data: smsTemplatesRaw = [] } = useQuery<{ id: string; name: string; categoryId: string | null }[]>({
+    queryKey: ["/api/message-templates", "sms"],
+    queryFn: async () => {
+      const res = await fetch(`/api/message-templates?type=sms&isActive=true`, { credentials: "include" });
+      return res.ok ? res.json() : [];
+    },
+  });
+
+  useEffect(() => {
+    try {
+      const s = campaign.settings ? JSON.parse(campaign.settings) : {};
+      setDefaultEmailCategoryId(s.defaultEmailCategoryId || "");
+      setDefaultEmailTemplateId(s.defaultEmailTemplateId || "");
+      setDefaultSmsCategoryId(s.defaultSmsCategoryId || "");
+      setDefaultSmsTemplateId(s.defaultSmsTemplateId || "");
+    } catch {
+      setDefaultEmailCategoryId("");
+      setDefaultEmailTemplateId("");
+      setDefaultSmsCategoryId("");
+      setDefaultSmsTemplateId("");
+    }
+    setHasChanges(false);
+  }, [campaign.settings]);
+
+  const activeCategories = templateCategories.filter(c => c.isActive);
+  const emailCats = activeCategories.filter(c => emailTemplatesRaw.some(t => t.categoryId === c.id));
+  const smsCats = activeCategories.filter(c => smsTemplatesRaw.some(t => t.categoryId === c.id));
+  const filteredEmailTemplates = defaultEmailCategoryId
+    ? emailTemplatesRaw.filter(t => t.categoryId === defaultEmailCategoryId)
+    : emailTemplatesRaw;
+  const filteredSmsTemplates = defaultSmsCategoryId
+    ? smsTemplatesRaw.filter(t => t.categoryId === defaultSmsCategoryId)
+    : smsTemplatesRaw;
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      let existing: Record<string, any> = {};
+      try { if (campaign.settings) existing = JSON.parse(campaign.settings); } catch {}
+      const merged = {
+        ...existing,
+        defaultEmailCategoryId: defaultEmailCategoryId || null,
+        defaultEmailTemplateId: defaultEmailTemplateId || null,
+        defaultSmsCategoryId: defaultSmsCategoryId || null,
+        defaultSmsTemplateId: defaultSmsTemplateId || null,
+      };
+      return apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { settings: JSON.stringify(merged) });
+    },
+    onSuccess: () => {
+      toast({ title: "Nastavenia uložené" });
+      setHasChanges(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
+    },
+    onError: () => {
+      toast({ title: "Chyba pri ukladaní", variant: "destructive" });
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <CardTitle>Predvolené šablóny (Email / SMS)</CardTitle>
+            <CardDescription>
+              Keď agent otvorí záložku Email alebo SMS, automaticky sa prednastaví vybraná kategória a šablóna.
+            </CardDescription>
+          </div>
+          {hasChanges && (
+            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} data-testid="button-save-default-templates">
+              {saveMutation.isPending ? "Ukladám..." : "Uložiť"}
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Mail className="h-4 w-4 text-blue-500" />
+            Email
+          </div>
+          <div className="grid grid-cols-2 gap-3 pl-6">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Kategória</Label>
+              <Select value={defaultEmailCategoryId || "__none__"} onValueChange={(v) => {
+                setDefaultEmailCategoryId(v === "__none__" ? "" : v);
+                setDefaultEmailTemplateId("");
+                setHasChanges(true);
+              }}>
+                <SelectTrigger data-testid="select-default-email-category">
+                  <SelectValue placeholder="— žiadna —" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— žiadna —</SelectItem>
+                  {emailCats.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Šablóna</Label>
+              <Select value={defaultEmailTemplateId || "__none__"} onValueChange={(v) => {
+                setDefaultEmailTemplateId(v === "__none__" ? "" : v);
+                setHasChanges(true);
+              }}>
+                <SelectTrigger data-testid="select-default-email-template">
+                  <SelectValue placeholder="— žiadna —" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— žiadna —</SelectItem>
+                  {filteredEmailTemplates.map(tmpl => (
+                    <SelectItem key={tmpl.id} value={tmpl.id}>{tmpl.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <MessageSquare className="h-4 w-4 text-green-500" />
+            SMS
+          </div>
+          <div className="grid grid-cols-2 gap-3 pl-6">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Kategória</Label>
+              <Select value={defaultSmsCategoryId || "__none__"} onValueChange={(v) => {
+                setDefaultSmsCategoryId(v === "__none__" ? "" : v);
+                setDefaultSmsTemplateId("");
+                setHasChanges(true);
+              }}>
+                <SelectTrigger data-testid="select-default-sms-category">
+                  <SelectValue placeholder="— žiadna —" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— žiadna —</SelectItem>
+                  {smsCats.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Šablóna</Label>
+              <Select value={defaultSmsTemplateId || "__none__"} onValueChange={(v) => {
+                setDefaultSmsTemplateId(v === "__none__" ? "" : v);
+                setHasChanges(true);
+              }}>
+                <SelectTrigger data-testid="select-default-sms-template">
+                  <SelectValue placeholder="— žiadna —" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— žiadna —</SelectItem>
+                  {filteredSmsTemplates.map(tmpl => (
+                    <SelectItem key={tmpl.id} value={tmpl.id}>{tmpl.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function SchedulingCard({ campaign }: { campaign: Campaign }) {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -6304,6 +6490,7 @@ export default function CampaignDetailPage() {
                       </Card>
                       <CampaignSopSettingsCard campaignId={campaign.id} />
                       <AutoModeCard campaign={campaign} />
+                      <DefaultTemplatesCard campaign={campaign} />
                       <CriteriaCard campaign={campaign} />
                     </div>
                   )}

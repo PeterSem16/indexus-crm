@@ -2746,6 +2746,58 @@ function CommunicationCanvas({
     }
   }, [activeChannel, contact?.id]);
 
+  const emailDefaultAppliedRef = useRef<string | null>(null);
+  const smsDefaultAppliedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (activeChannel !== "email" && activeChannel !== "sms") return;
+    if (!campaign?.id) return;
+    try {
+      const settings = JSON.parse(campaign.settings || "{}");
+      if (activeChannel === "email") {
+        const key = `${contact?.id ?? ""}-${campaign.id}-email`;
+        if (emailDefaultAppliedRef.current === key) return;
+        if (settings.defaultEmailCategoryId) {
+          setEmailTemplateCategoryId(settings.defaultEmailCategoryId);
+        }
+        if (settings.defaultEmailTemplateId && emailTemplates.length > 0) {
+          const tmpl = emailTemplates.find(t => t.id === settings.defaultEmailTemplateId);
+          if (tmpl) {
+            applyEmailTemplate(tmpl);
+            emailDefaultAppliedRef.current = key;
+          }
+        } else if (!settings.defaultEmailTemplateId && settings.defaultEmailCategoryId) {
+          emailDefaultAppliedRef.current = key;
+        }
+      } else if (activeChannel === "sms") {
+        const key = `${contact?.id ?? ""}-${campaign.id}-sms`;
+        if (smsDefaultAppliedRef.current === key) return;
+        if (settings.defaultSmsCategoryId) {
+          setSmsTemplateCategoryId(settings.defaultSmsCategoryId);
+        }
+        if (settings.defaultSmsTemplateId && smsTemplates.length > 0) {
+          const tmpl = smsTemplates.find(t => t.id === settings.defaultSmsTemplateId);
+          if (tmpl) {
+            const content = replaceTemplateVars(tmpl.content || "");
+            setSmsMessage(content);
+            setSelectedSmsTemplateName(tmpl.name);
+            setSmsTemplateSearch("");
+            setSmsTemplatePopoverOpen(false);
+            fetch(`/api/message-templates/${tmpl.id}/use`, { method: "POST", credentials: "include" });
+            smsDefaultAppliedRef.current = key;
+          }
+        } else if (!settings.defaultSmsTemplateId && settings.defaultSmsCategoryId) {
+          smsDefaultAppliedRef.current = key;
+        }
+      }
+    } catch {}
+  }, [activeChannel, contact?.id, campaign?.id, campaign?.settings, emailTemplates, smsTemplates, applyEmailTemplate, replaceTemplateVars]);
+
+  useEffect(() => {
+    emailDefaultAppliedRef.current = null;
+    smsDefaultAppliedRef.current = null;
+  }, [contact?.id]);
+
   const timelineEndRef = useRef<HTMLDivElement>(null);
   const clLoadedForContactRef = useRef<string | null>(null);
 
