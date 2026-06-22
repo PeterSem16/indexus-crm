@@ -222,11 +222,13 @@ function StatusListPanel({ items, checked, onToggle, np }: {
   const [open, setOpen] = useState(false);
   const [yesno, setYesno] = useState<Record<string, "yes" | "no">>({});
 
-  const topLevel = items.filter((i: any) => i.itemType !== "option" && i.confirmationType !== "auto" && !i.isHidden);
+  const topLevel = items.filter((i: any) => i.itemType !== "option" && i.confirmationType !== "auto" && !i.isHidden && !i.parentId);
   const options = items.filter((i: any) => !i.isHidden && i.itemType === "option");
+  const childrenOf = (pid: number) => items.filter((i: any) => i.parentId === pid && !i.isHidden);
 
-  const confirmed = topLevel.filter((i: any) => checked.has(String(i.id))).length;
-  const total = topLevel.length;
+  const allVisible = items.filter((i: any) => i.itemType !== "option" && i.confirmationType !== "auto" && !i.isHidden);
+  const confirmed = allVisible.filter((i: any) => checked.has(String(i.id))).length;
+  const total = allVisible.length;
 
   if (total === 0 && options.length === 0) return null;
 
@@ -291,6 +293,45 @@ function StatusListPanel({ items, checked, onToggle, np }: {
                     {item.description && <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{item.description}</p>}
                   </button>
                 </div>
+
+                {/* Child items via parentId — always visible */}
+                {childrenOf(item.id).length > 0 && (
+                  <div className="bg-muted/20 border-t border-dashed">
+                    {childrenOf(item.id).map((child: any) => {
+                      const childChecked = checked.has(String(child.id));
+                      const childInfo = child.confirmationType === "info";
+                      return (
+                        <div key={child.id} className={`flex items-stretch border-b last:border-b-0 pl-4 ${childChecked ? "bg-emerald-50/40 dark:bg-emerald-900/10" : ""}`}>
+                          <button
+                            disabled={childInfo}
+                            onClick={() => !childInfo && onToggle(String(child.id), !childChecked)}
+                            className="shrink-0 flex items-center justify-center w-12 min-h-[48px] active:bg-muted/60"
+                            data-testid={`sl-mobile-child-${child.id}`}
+                          >
+                            {childInfo ? (
+                              <Info className="h-4 w-4 text-blue-500" />
+                            ) : (
+                              <div className={`h-6 w-6 rounded-md border-2 flex items-center justify-center transition-all ${childChecked ? "bg-emerald-400 border-emerald-400" : "border-muted-foreground/30 bg-background"}`}>
+                                {childChecked && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                              </div>
+                            )}
+                          </button>
+                          <button
+                            disabled={childInfo}
+                            onClick={() => !childInfo && onToggle(String(child.id), !childChecked)}
+                            className="flex-1 py-3 pr-4 text-left min-h-[48px]"
+                          >
+                            <p className={`text-xs leading-snug ${childChecked ? "font-bold text-emerald-600 dark:text-emerald-400" : "font-medium text-muted-foreground"}`}>
+                              ↳ {child.label}
+                              {child.required && <span className="ml-1 text-rose-500">*</span>}
+                            </p>
+                            {child.description && <p className="text-[11px] text-muted-foreground/70 mt-0.5">{child.description}</p>}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {/* Sub-questions — from item.questions[], visible when parent is checked */}
                 {isChecked && questions.length > 0 && (
@@ -801,6 +842,26 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                     </div>
                   </div>
                 )}
+                {(contact.titleBefore || contact.titleAfter) && (
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground">{np.formalName || "Celé meno s titulom"}</p>
+                      <p className="font-semibold">
+                        {[contact.titleBefore, contact.firstName, contact.lastName, contact.titleAfter].filter(Boolean).join(" ")}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {(contact.fatherFirstName || contact.fatherLastName) && (
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground">{np.fatherName || "Partner / Otec"}</p>
+                      <p className="font-semibold">{[contact.fatherFirstName, contact.fatherLastName].filter(Boolean).join(" ")}</p>
+                    </div>
+                  </div>
+                )}
                 {contact.website && (
                   <div className="flex items-center gap-3 px-4 py-3">
                     <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -832,6 +893,24 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                     <div className="min-w-0">
                       <p className="text-xs text-muted-foreground">{np.nationalId || "National ID"}</p>
                       <p className="font-semibold">{contact.nationalId}</p>
+                    </div>
+                  </div>
+                )}
+                {contact.contractNumber && (
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <FileText className="h-4 w-4 text-primary shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground">{np.contractNumber || "Číslo zmluvy"}</p>
+                      <p className="font-semibold font-mono">{contact.contractNumber}</p>
+                    </div>
+                  </div>
+                )}
+                {contact.bankAccount && (
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground">{np.bankAccount || "Bankový účet (IBAN)"}</p>
+                      <p className="font-semibold font-mono text-sm">{contact.bankAccount}</p>
                     </div>
                   </div>
                 )}

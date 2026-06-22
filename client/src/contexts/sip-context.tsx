@@ -24,6 +24,12 @@ function forceDtlsActive(description: RTCSessionDescriptionInit): Promise<RTCSes
   return Promise.resolve({ ...description, sdp });
 }
 
+function stripSipDomain(s: string): string {
+  if (!s || s === "Unknown") return s;
+  const atIdx = s.indexOf("@");
+  return atIdx >= 0 ? s.substring(0, atIdx) : s;
+}
+
 interface SipSettingsData {
   server?: string;
   port?: number;
@@ -318,8 +324,8 @@ export function SipProvider({ children }: { children: ReactNode }) {
 
   const handleIncomingInvite = useCallback((invitation: any) => {
     const remoteIdentity = invitation.remoteIdentity;
-    const callerNumber = remoteIdentity?.uri?.user || "Unknown";
-    const callerName = remoteIdentity?.displayName || callerNumber;
+    const callerNumber = stripSipDomain(remoteIdentity?.uri?.user || remoteIdentity?.uri?.toString() || "Unknown");
+    const callerName = stripSipDomain(remoteIdentity?.displayName || callerNumber);
     console.log(`[SIP] Incoming call from ${callerName} <${callerNumber}>`);
 
     setIncomingCallWithRef({
@@ -438,12 +444,12 @@ export function SipProvider({ children }: { children: ReactNode }) {
             try {
               const fromHeader = invitation.request?.from;
               if (fromHeader) {
-                callerNumber = fromHeader.uri?.user || "Unknown";
-                callerName = fromHeader.friendlyName || fromHeader.displayName || callerNumber;
+                callerNumber = stripSipDomain(fromHeader.uri?.user || fromHeader.uri?.toString() || "Unknown");
+                callerName = stripSipDomain(fromHeader.friendlyName || fromHeader.displayName || callerNumber);
               } else {
                 const remoteId = invitation.remoteIdentity;
-                callerNumber = remoteId?.uri?.user || "Unknown";
-                callerName = remoteId?.displayName || callerNumber;
+                callerNumber = stripSipDomain(remoteId?.uri?.user || remoteId?.uri?.toString() || "Unknown");
+                callerName = stripSipDomain(remoteId?.displayName || callerNumber);
               }
             } catch (parseErr) {
               console.warn("[SIP] Error parsing caller identity:", parseErr);
