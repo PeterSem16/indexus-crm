@@ -1,10 +1,12 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useRef } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import { Phone, PhoneOff, PhoneIncoming, Mic, MicOff, PauseCircle, PlayCircle,
   Hash, Check, ChevronDown, ChevronUp, Info, Zap, Coffee, LogOut, User,
   Clock, ChevronRight, AlertCircle, FileText, ListChecks,
   Mail, MapPin, Calendar, ArrowLeft, Search, X, Baby, Building2,
-  History, PhoneCall, Stethoscope, UserX, Globe, Share2, UserCheck } from "lucide-react";
+  History, PhoneCall, Stethoscope, UserX, Globe, Share2, UserCheck,
+  MessageSquare, Send } from "lucide-react";
 import { format } from "date-fns";
 
 /* ── helpers ────────────────────────────────────────────────────────── */
@@ -512,6 +514,8 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
   const [logoutConfirm, setLogoutConfirm] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  const [newNoteText, setNewNoteText] = useState("");
   const [searchQ, setSearchQ] = useState("");
 
   const isCallActive = ["active", "on_hold", "connecting", "ringing"].includes(callState);
@@ -541,6 +545,41 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
     enabled: !!contact?.id,
   });
   const recentCalls = contactHistory.filter((e: any) => e.type === "call").slice(0, 8);
+
+  const notesEndpoint = contact?.id
+    ? (contactType && contactType !== "customer"
+        ? `/api/entity-notes/${contactType}/${contact.id}`
+        : `/api/customers/${contact.id}/notes`)
+    : null;
+
+  const { data: contactNotes = [], refetch: refetchNotes } = useQuery<Array<{ id: string; content: string; userId: string; userName: string; createdAt: string }>>({
+    queryKey: [notesEndpoint],
+    queryFn: async () => {
+      const res = await fetch(notesEndpoint!, { credentials: "include" });
+      return res.ok ? res.json() : [];
+    },
+    enabled: !!notesEndpoint,
+    staleTime: 0,
+  });
+
+  const addNoteMutation = useMutation({
+    mutationFn: async (content: string) => {
+      const res = await fetch(notesEndpoint!, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+      if (!res.ok) throw new Error("Failed to add note");
+      return res.json();
+    },
+    onSuccess: () => {
+      setNewNoteText("");
+      refetchNotes();
+    },
+  });
+
+  const noteTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   /* ── LOGOUT CONFIRM ─────────────────────────────────────────────── */
   if (logoutConfirm) {
@@ -1077,6 +1116,73 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
               </div>
             )}
           </div>
+
+          {/* Notes accordion */}
+          {contact?.id && (
+            <div className="rounded-2xl border bg-card overflow-hidden">
+              <button
+                onClick={() => setShowNotes(v => !v)}
+                className="w-full flex items-center justify-between px-4 py-3.5 active:bg-muted transition-colors"
+                data-testid="btn-mobile-notes">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-bold">{np.notes || "Poznámky"}</span>
+                  {contactNotes.length > 0 && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">{contactNotes.length}</span>
+                  )}
+                </div>
+                {showNotes ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+              </button>
+              {showNotes && (
+                <div className="border-t">
+                  {/* Existing notes list */}
+                  {contactNotes.length === 0 ? (
+                    <div className="px-4 py-4 text-center text-sm text-muted-foreground">{np.noNotes || "Žiadne poznámky"}</div>
+                  ) : (
+                    <div className="divide-y max-h-64 overflow-y-auto min-h-0">
+                      {contactNotes.map((note) => (
+                        <div key={note.id} className="px-4 py-3">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="text-xs font-semibold text-muted-foreground truncate">{note.userName || "—"}</span>
+                            <span className="text-[10px] text-muted-foreground/70 shrink-0">
+                              {(() => { try { return format(new Date(note.createdAt), "d. M. yyyy HH:mm"); } catch { return ""; } })()}
+                            </span>
+                          </div>
+                          <p className="text-sm leading-relaxed whitespace-pre-line">{note.content}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {/* Add new note */}
+                  <div className="px-3 pb-3 pt-2 border-t bg-muted/30">
+                    <div className="flex gap-2 items-end">
+                      <textarea
+                        ref={noteTextareaRef}
+                        value={newNoteText}
+                        onChange={e => setNewNoteText(e.target.value)}
+                        placeholder={np.addNotePlaceholder || "Napísať poznámku…"}
+                        rows={2}
+                        className="flex-1 text-sm rounded-xl border bg-background px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 min-h-[60px]"
+                        data-testid="input-mobile-new-note"
+                        onKeyDown={e => {
+                          if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && newNoteText.trim()) {
+                            addNoteMutation.mutate(newNoteText.trim());
+                          }
+                        }}
+                      />
+                      <button
+                        onClick={() => { if (newNoteText.trim()) addNoteMutation.mutate(newNoteText.trim()); }}
+                        disabled={!newNoteText.trim() || addNoteMutation.isPending}
+                        className="h-10 w-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40 active:scale-95 transition-all shrink-0"
+                        data-testid="btn-mobile-send-note">
+                        <Send className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Status list */}
           {dbStatusList.length > 0 && (
