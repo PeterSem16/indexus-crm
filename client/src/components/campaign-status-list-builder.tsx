@@ -2545,7 +2545,18 @@ function StatusListItemRow({
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <Label className="text-xs mb-1 block">{sl("nextStep", locale)}</Label>
-                  <Input className="h-8 text-xs font-mono" value={form.nextStepId} onChange={e => setForm(f => ({ ...f, nextStepId: e.target.value }))} placeholder={sl("nextStepPh", locale)} />
+                  <Select value={form.nextStepId || ""} onValueChange={v => setForm(f => ({ ...f, nextStepId: v }))}>
+                    <SelectTrigger className="h-8 text-xs font-mono"><SelectValue placeholder="—" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">—</SelectItem>
+                      {allItems.filter(i => i.id !== item.id && i.itemType !== "option" && !i.isHidden).map(i => (
+                        <SelectItem key={i.id} value={i.stepId}>
+                          <span className="font-mono text-muted-foreground mr-1.5">{i.stepId}</span>
+                          <span className="truncate">{i.label}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="col-span-2">
                   <Label className="text-xs mb-1 block">{sl("restrictions", locale)}</Label>
@@ -2891,10 +2902,11 @@ function StatusListItemRow({
 }
 
 function AddItemForm({
-  campaignId, existingCount, onSaved, onCancel,
+  campaignId, existingCount, allItems, onSaved, onCancel,
 }: {
   campaignId: string;
   existingCount: number;
+  allItems: StatusListItem[];
   onSaved: () => void;
   onCancel: () => void;
 }) {
@@ -2941,7 +2953,18 @@ function AddItemForm({
       <div className="grid grid-cols-3 gap-2">
         <div>
           <Label className="text-xs mb-1 block">{sl("nextStep", locale)}</Label>
-          <Input className="h-8 text-xs font-mono" value={form.nextStepId} onChange={e => setForm(f => ({ ...f, nextStepId: e.target.value }))} placeholder={sl("nextStepPh", locale)} />
+          <Select value={form.nextStepId || ""} onValueChange={v => setForm(f => ({ ...f, nextStepId: v }))}>
+            <SelectTrigger className="h-8 text-xs font-mono"><SelectValue placeholder="—" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">—</SelectItem>
+              {allItems.filter(i => i.itemType !== "option" && !i.isHidden).map(i => (
+                <SelectItem key={i.id} value={i.stepId}>
+                  <span className="font-mono text-muted-foreground mr-1.5">{i.stepId}</span>
+                  <span className="truncate">{i.label}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="col-span-2">
           <Label className="text-xs mb-1 block">{sl("restrictions", locale)}</Label>
@@ -3321,6 +3344,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
         <AddItemForm
           campaignId={campaignId}
           existingCount={items.length}
+          allItems={items}
           onSaved={() => setAddingItem(false)}
           onCancel={() => setAddingItem(false)}
         />

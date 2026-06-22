@@ -2570,6 +2570,16 @@ function CommunicationCanvas({
   // Manual ("run now") trigger for a single configured status-list automation.
   const [slRunningAuto, setSlRunningAuto] = useState<Set<string>>(new Set());
   const [slQuestionAnswers, setSlQuestionAnswers] = useState<Record<string, any>>({});
+  const [slHighlightedStep, setSlHighlightedStep] = useState<string | null>(null);
+
+  const scrollToSlStep = useCallback((targetStepId: string) => {
+    const el = document.getElementById(`sl-step-${targetStepId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      setSlHighlightedStep(targetStepId);
+      setTimeout(() => setSlHighlightedStep(s => s === targetStepId ? null : s), 1800);
+    }
+  }, []);
   const handleSlRunAction = useCallback(async (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => {
     if (!campaign?.id || !campaignContactId) return;
     const autoId = String(automation.id);
@@ -4242,10 +4252,13 @@ function CommunicationCanvas({
                   const isInfo = item.confirmationType === "info";
                   return (
                   <div
+                    id={`sl-step-${item.stepId}`}
                     key={item.id}
                     className={`relative rounded-xl border transition-all duration-200 overflow-hidden ${
                       isChecked
                         ? "bg-emerald-50/80 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700/60 shadow-sm"
+                        : slHighlightedStep === item.stepId
+                        ? "bg-primary/5 border-primary/60 shadow-md ring-2 ring-primary/30"
                         : "bg-card border-border hover:border-primary/25 dark:hover:border-primary/35 hover:shadow-sm"
                     }`}
                   >
@@ -4465,6 +4478,25 @@ function CommunicationCanvas({
                         );
                       })()}
                       <SlActionButtons automations={item.automations} onRun={handleSlRunAction} running={slRunningAuto} locale={locale} dispositions={slDispositions} />
+                      {item.nextStepId && item.nextStepId !== "—" && (() => {
+                        const targetItem = (dbStatusList as any[]).find((i: any) => i.stepId === item.nextStepId);
+                        const targetExists = !!targetItem;
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => scrollToSlStep(item.nextStepId)}
+                            disabled={!targetExists}
+                            className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-primary/70 hover:text-primary transition-colors disabled:opacity-40 disabled:cursor-default group"
+                            data-testid={`sl-nextstep-btn-${item.id}`}
+                          >
+                            <div className="flex items-center justify-center h-4 w-4 rounded bg-primary/10 group-hover:bg-primary/20 transition-colors shrink-0">
+                              <ArrowRight className="h-2.5 w-2.5" />
+                            </div>
+                            <span className="font-mono text-muted-foreground/70 group-hover:text-primary/70 transition-colors">{item.nextStepId}</span>
+                            {targetItem && <span className="truncate max-w-[160px] text-muted-foreground/60 group-hover:text-muted-foreground transition-colors">{targetItem.label}</span>}
+                          </button>
+                        );
+                      })()}
                     </div>
                     <span className="text-[9px] font-mono text-muted-foreground/30 shrink-0 pt-0.5">{item.stepId}</span>
                   </div>
