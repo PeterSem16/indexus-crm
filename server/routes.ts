@@ -24017,6 +24017,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           customerName: entityName,
           contactType,
           entityId,
+          campaignContactId: c.campaignContactId,
+          campaignId: c.campaignId,
           dispositionCode: c.campaignContactId ? (dispositionMap[c.campaignContactId] ?? null) : null,
           inboundQueueName: c.inboundQueueName,
         };
@@ -24053,8 +24055,30 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         };
       });
 
-      // 3. Combine and sort chronologically
-      const combined = [...callItems, ...commItems].sort((a, b) =>
+      // 3. Fetch breaks for today's agent sessions
+      const todaySessions = await db
+        .select({ id: agentSessions.id })
+        .from(agentSessions)
+        .where(and(eq(agentSessions.userId, user.id), gte(agentSessions.startedAt, todayStart), lte(agentSessions.startedAt, todayEnd)));
+      const sessionIds = todaySessions.map(s => s.id);
+      let breakItems: any[] = [];
+      if (sessionIds.length > 0) {
+        const breaks = await db.select().from(agentBreaks)
+          .where(inArray(agentBreaks.sessionId, sessionIds))
+          .orderBy(desc(agentBreaks.startedAt));
+        breakItems = breaks.map(b => ({
+          id: b.id,
+          itemType: "break" as const,
+          breakTypeName: b.breakTypeName || "Prestávka",
+          startedAt: b.startedAt,
+          endedAt: b.endedAt,
+          durationSeconds: b.durationSeconds,
+          sortTime: b.startedAt,
+        }));
+      }
+
+      // 4. Combine and sort chronologically
+      const combined = [...callItems, ...commItems, ...breakItems].sort((a, b) =>
         new Date(b.sortTime!).getTime() - new Date(a.sortTime!).getTime()
       );
 

@@ -6628,16 +6628,18 @@ function MyActivityPanel({
   onOpenChange,
   stats,
   onMakeCall,
+  onCallFromShift,
   onOpenEntity,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   stats: { calls: number; emails: number; sms: number };
   onMakeCall?: (phone: string) => void;
-  onOpenEntity?: (type: string, id: string) => void;
+  onCallFromShift?: (item: any) => void;
+  onOpenEntity?: (type: string, id: string, campaignContactId?: string | null, campaignId?: string | null) => void;
 }) {
   const { t } = useI18n();
-  const [filterType, setFilterType] = useState<"all" | "call" | "email" | "sms" | "missed">("all");
+  const [filterType, setFilterType] = useState<"all" | "call" | "email" | "sms" | "missed" | "break">("all");
 
   const { data: items = [], isLoading, refetch } = useQuery<any[]>({
     queryKey: ["/api/agent/today-activity"],
@@ -6670,6 +6672,7 @@ function MyActivityPanel({
   const callItems = items.filter(i => i.itemType === "call");
   const emailItems = items.filter(i => i.itemType === "email");
   const smsItems = items.filter(i => i.itemType === "sms");
+  const breakItems = items.filter(i => i.itemType === "break");
   const missedItems = callItems.filter(i => i.status === "no_answer" || i.status === "busy");
   const answeredCalls = callItems.filter(i => i.status === "answered" || i.status === "completed");
   const totalDur = answeredCalls.reduce((sum: number, c: any) => sum + (c.durationSeconds || 0), 0);
@@ -6678,6 +6681,7 @@ function MyActivityPanel({
     : filterType === "call" ? callItems
     : filterType === "email" ? emailItems
     : filterType === "sms" ? smsItems
+    : filterType === "break" ? breakItems
     : missedItems;
 
   const filterTabs: { key: typeof filterType; label: string; count: number }[] = [
@@ -6686,6 +6690,7 @@ function MyActivityPanel({
     { key: "email", label: t.agentWorkspace.myShiftFilterEmail, count: emailItems.length },
     { key: "sms", label: t.agentWorkspace.myShiftFilterSms, count: smsItems.length },
     { key: "missed", label: t.agentWorkspace.myShiftFilterMissed, count: missedItems.length },
+    { key: "break", label: "Prestávky", count: breakItems.length },
   ];
 
   return (
@@ -6776,7 +6781,7 @@ function MyActivityPanel({
                           {item.customerName && onOpenEntity && item.entityId && item.contactType ? (
                             <button
                               type="button"
-                              onClick={() => { onOpenEntity(item.contactType, item.entityId); onOpenChange(false); }}
+                              onClick={() => { onOpenEntity(item.contactType, item.entityId, item.campaignContactId, item.campaignId); onOpenChange(false); }}
                               className="text-sm font-medium truncate text-left hover:underline hover:text-primary transition-colors"
                               data-testid={`btn-shift-open-entity-${item.id}`}
                               title={item.customerName}
@@ -6808,10 +6813,14 @@ function MyActivityPanel({
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        {onMakeCall && item.phoneNumber && (
+                        {(onCallFromShift || onMakeCall) && item.phoneNumber && (
                           <button
                             type="button"
-                            onClick={() => { onMakeCall(item.phoneNumber); onOpenChange(false); }}
+                            onClick={() => {
+                              if (onCallFromShift) { onCallFromShift(item); }
+                              else { onMakeCall!(item.phoneNumber); }
+                              onOpenChange(false);
+                            }}
                             className="flex h-7 w-7 items-center justify-center rounded-full bg-green-600 hover:bg-green-700 text-white transition-colors"
                             title={item.phoneNumber}
                             data-testid={`btn-shift-call-again-${item.id}`}
@@ -6858,6 +6867,26 @@ function MyActivityPanel({
                       <div className="text-right shrink-0">
                         <div className="text-xs font-medium text-foreground">{format(new Date(sortTime), "HH:mm")}</div>
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-normal border-green-300 text-green-600 dark:text-green-400 mt-0.5">SMS</Badge>
+                      </div>
+                    </div>
+                  );
+                }
+                if (item.itemType === "break") {
+                  const isActive = !item.endedAt;
+                  const dur = item.durationSeconds ? formatDuration(item.durationSeconds) : null;
+                  return (
+                    <div key={item.id} data-testid={`my-shift-break-${item.id}`} className="flex items-center gap-3 px-5 py-2.5 border-b border-l-2 border-l-orange-300 transition-colors hover:bg-muted/30">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">
+                        <Coffee className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{item.breakTypeName || "Prestávka"}</div>
+                        {dur && <div className="text-[11px] text-muted-foreground mt-0.5">{dur}</div>}
+                        {isActive && <div className="text-[11px] text-orange-500 mt-0.5">Aktívna prestávka</div>}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-xs font-medium text-foreground">{format(new Date(sortTime), "HH:mm")}</div>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-normal border-orange-300 text-orange-600 dark:text-orange-400 mt-0.5">Break</Badge>
                       </div>
                     </div>
                   );
@@ -12704,17 +12733,45 @@ export default function AgentWorkspacePage() {
         open={myActivityOpen}
         onOpenChange={setMyActivityOpen}
         stats={stats}
-        onMakeCall={handleMakeCall}
-        onOpenEntity={(type, id) => {
+        onCallFromShift={async (item: any) => {
           setMyActivityOpen(false);
-          const routes: Record<string, string> = {
-            customer: "/customers",
-            hospital: "/hospitals",
-            collaborator: "/collaborators",
-            clinic: "/medical-partner-network",
-          };
-          const path = routes[type];
-          if (path) setLocation(path);
+          if (item.campaignId && item.campaignContactId && item.entityId && item.contactType) {
+            await handleOpenScheduledContact(
+              item.entityId,
+              item.campaignId,
+              item.campaignContactId,
+              "phone",
+              item.contactType,
+              item.phoneNumber
+            );
+            if (item.phoneNumber && makeCall) {
+              makeCall({
+                phoneNumber: item.phoneNumber,
+                customerId: item.entityId,
+                campaignId: item.campaignId,
+                customerName: item.customerName || undefined,
+                callerIdNumber: undefined,
+              });
+              setStats(prev => ({ ...prev, calls: prev.calls + 1 }));
+            }
+          } else {
+            handleMakeCall(item.phoneNumber);
+          }
+        }}
+        onOpenEntity={(type, id, campaignContactId, campaignId) => {
+          setMyActivityOpen(false);
+          if (campaignContactId && campaignId) {
+            handleOpenScheduledContact(id, campaignId, campaignContactId, "phone", type);
+          } else {
+            const routes: Record<string, string> = {
+              customer: "/customers",
+              hospital: "/hospitals",
+              collaborator: "/collaborators",
+              clinic: "/medical-partner-network",
+            };
+            const path = routes[type];
+            if (path) setLocation(path);
+          }
         }}
       />
 
