@@ -2545,12 +2545,12 @@ function StatusListItemRow({
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <Label className="text-xs mb-1 block">{sl("nextStep", locale)}</Label>
-                  <Select value={form.nextStepId || ""} onValueChange={v => setForm(f => ({ ...f, nextStepId: v }))}>
+                  <Select value={form.nextStepId || "__none__"} onValueChange={v => setForm(f => ({ ...f, nextStepId: v === "__none__" ? "" : v }))}>
                     <SelectTrigger className="h-8 text-xs font-mono"><SelectValue placeholder="—" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">—</SelectItem>
+                      <SelectItem value="__none__">—</SelectItem>
                       {allItems.filter(i => i.id !== item.id && i.itemType !== "option" && !i.isHidden).map(i => (
-                        <SelectItem key={i.id} value={i.stepId}>
+                        <SelectItem key={i.id} value={i.stepId || i.id}>
                           <span className="font-mono text-muted-foreground mr-1.5">{i.stepId}</span>
                           <span className="truncate">{i.label}</span>
                         </SelectItem>
@@ -2953,12 +2953,12 @@ function AddItemForm({
       <div className="grid grid-cols-3 gap-2">
         <div>
           <Label className="text-xs mb-1 block">{sl("nextStep", locale)}</Label>
-          <Select value={form.nextStepId || ""} onValueChange={v => setForm(f => ({ ...f, nextStepId: v }))}>
+          <Select value={form.nextStepId || "__none__"} onValueChange={v => setForm(f => ({ ...f, nextStepId: v === "__none__" ? "" : v }))}>
             <SelectTrigger className="h-8 text-xs font-mono"><SelectValue placeholder="—" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">—</SelectItem>
+              <SelectItem value="__none__">—</SelectItem>
               {allItems.filter(i => i.itemType !== "option" && !i.isHidden).map(i => (
-                <SelectItem key={i.id} value={i.stepId}>
+                <SelectItem key={i.id} value={i.stepId || i.id}>
                   <span className="font-mono text-muted-foreground mr-1.5">{i.stepId}</span>
                   <span className="truncate">{i.label}</span>
                 </SelectItem>

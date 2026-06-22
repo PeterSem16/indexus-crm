@@ -2057,8 +2057,9 @@ export default function CampaignsPage() {
               <div className="space-y-2 pt-3">
                 <Label className="text-sm font-medium">Použiť šablónu</Label>
                 <Select 
-                  value={selectedTemplate?.id || ""} 
+                  value={selectedTemplate?.id || "__none__"} 
                   onValueChange={(value) => {
+                    if (value === "__none__") { setSelectedTemplate(null); return; }
                     const template = templates.find(t => t.id === value);
                     setSelectedTemplate(template || null);
                   }}
@@ -2067,7 +2068,7 @@ export default function CampaignsPage() {
                     <SelectValue placeholder="Vybrať šablónu (voliteľné)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Bez šablóny</SelectItem>
+                    <SelectItem value="__none__">Bez šablóny</SelectItem>
                     {templates.map((template) => (
                       <SelectItem key={template.id} value={template.id}>
                         <div className="flex items-center gap-2">

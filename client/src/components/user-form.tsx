@@ -1705,14 +1705,14 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
             <div>
               <FormLabel>{t.users?.jira?.jiraAccount || "Jira účet"}</FormLabel>
               <Select 
-                value={selectedJiraUser} 
-                onValueChange={setSelectedJiraUser}
+                value={selectedJiraUser || "__none__"} 
+                onValueChange={v => setSelectedJiraUser(v === "__none__" ? "" : v)}
               >
                 <SelectTrigger data-testid="select-jira-user">
                   <SelectValue placeholder={t.users?.jira?.selectUser || "Vyberte Jira používateľa"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{t.users?.jira?.none || "Žiadny"}</SelectItem>
+                  <SelectItem value="__none__">{t.users?.jira?.none || "Žiadny"}</SelectItem>
                   {jiraUsers.map((jUser) => (
                     <SelectItem key={jUser.accountId} value={jUser.accountId}>
                       <div className="flex items-center gap-2">
