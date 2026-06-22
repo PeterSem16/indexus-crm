@@ -2749,6 +2749,34 @@ function CommunicationCanvas({
   const emailDefaultAppliedRef = useRef<string | null>(null);
   const smsDefaultAppliedRef = useRef<string | null>(null);
 
+  const { data: allEmailTemplatesRaw = [] } = useQuery<{ id: string; name: string; subject: string | null; content: string; contentHtml: string | null; categoryId: string | null; language: string | null }[]>({
+    queryKey: ["/api/message-templates", "email"],
+    queryFn: async () => {
+      const res = await fetch(`/api/message-templates?type=email&isActive=true`, { credentials: "include" });
+      return res.ok ? res.json() : [];
+    },
+    enabled: !!contact,
+  });
+
+  const { data: allSmsTemplatesRaw = [] } = useQuery<{ id: string; name: string; content: string; categoryId: string | null; language: string | null }[]>({
+    queryKey: ["/api/message-templates", "sms"],
+    queryFn: async () => {
+      const res = await fetch(`/api/message-templates?type=sms&isActive=true`, { credentials: "include" });
+      return res.ok ? res.json() : [];
+    },
+    enabled: !!contact,
+  });
+
+  const emailTemplates = useMemo(() => {
+    if (emailTemplateLangs.size === 0) return allEmailTemplatesRaw;
+    return allEmailTemplatesRaw.filter(t => !t.language || emailTemplateLangs.has(t.language));
+  }, [allEmailTemplatesRaw, emailTemplateLangs]);
+
+  const smsTemplates = useMemo(() => {
+    if (smsTemplateLangs.size === 0) return allSmsTemplatesRaw;
+    return allSmsTemplatesRaw.filter(t => !t.language || smsTemplateLangs.has(t.language));
+  }, [allSmsTemplatesRaw, smsTemplateLangs]);
+
   useEffect(() => {
     if (activeChannel !== "email" && activeChannel !== "sms") return;
     if (!campaign?.id) return;
@@ -2942,34 +2970,6 @@ function CommunicationCanvas({
       setSmsTemplateLangs(new Set([language]));
     }
   }, [language]);
-
-  const { data: allEmailTemplatesRaw = [] } = useQuery<{ id: string; name: string; subject: string | null; content: string; contentHtml: string | null; categoryId: string | null; language: string | null }[]>({
-    queryKey: ["/api/message-templates", "email"],
-    queryFn: async () => {
-      const res = await fetch(`/api/message-templates?type=email&isActive=true`, { credentials: "include" });
-      return res.ok ? res.json() : [];
-    },
-    enabled: !!contact,
-  });
-
-  const { data: allSmsTemplatesRaw = [] } = useQuery<{ id: string; name: string; content: string; categoryId: string | null; language: string | null }[]>({
-    queryKey: ["/api/message-templates", "sms"],
-    queryFn: async () => {
-      const res = await fetch(`/api/message-templates?type=sms&isActive=true`, { credentials: "include" });
-      return res.ok ? res.json() : [];
-    },
-    enabled: !!contact,
-  });
-
-  const emailTemplates = useMemo(() => {
-    if (emailTemplateLangs.size === 0) return allEmailTemplatesRaw;
-    return allEmailTemplatesRaw.filter(t => !t.language || emailTemplateLangs.has(t.language));
-  }, [allEmailTemplatesRaw, emailTemplateLangs]);
-
-  const smsTemplates = useMemo(() => {
-    if (smsTemplateLangs.size === 0) return allSmsTemplatesRaw;
-    return allSmsTemplatesRaw.filter(t => !t.language || smsTemplateLangs.has(t.language));
-  }, [allSmsTemplatesRaw, smsTemplateLangs]);
 
   const emailCategoriesWithTemplates = useMemo(() => {
     const catIds = new Set(emailTemplates.map(t => t.categoryId).filter(Boolean));
