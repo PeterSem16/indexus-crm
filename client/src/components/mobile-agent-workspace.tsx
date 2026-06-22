@@ -626,7 +626,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
       <div className="flex flex-col h-full">
         <MobileHeader {...headerProps} onLogout={() => setLogoutConfirm(true)} />
         {breakMenuOpen && <BreakMenu {...breakMenuProps} />}
-        <div className="flex-1 overflow-y-auto flex flex-col">
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
           <div className="flex flex-col items-center py-8 px-4 gap-4">
             <div className={`h-24 w-24 rounded-full flex items-center justify-center text-2xl font-bold text-white shadow-xl ${
               callState === "connecting" || callState === "ringing" ? "bg-amber-500 shadow-amber-500/30 animate-pulse"
@@ -693,7 +693,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
       <div className="flex flex-col h-full">
         <MobileHeader {...headerProps} onLogout={() => setLogoutConfirm(true)} />
         {breakMenuOpen && <BreakMenu {...breakMenuProps} />}
-        <div className="flex-1 overflow-y-auto flex flex-col gap-3 px-4 pt-3 pb-4">
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-3 px-4 pt-3 pb-4">
           <div className="rounded-2xl border bg-card p-4 text-center">
             <div className="h-16 w-16 rounded-full bg-muted mx-auto flex items-center justify-center mb-3">
               <PhoneOff className="h-7 w-7 text-muted-foreground" />
@@ -749,7 +749,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
         <MobileHeader {...headerProps} onLogout={() => setLogoutConfirm(true)} />
         {breakMenuOpen && <BreakMenu {...breakMenuProps} />}
 
-        <div className="flex-1 overflow-y-auto flex flex-col gap-3 px-4 pt-3 pb-4">
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-3 px-4 pt-3 pb-4">
           {/* Contact card */}
           <div className="rounded-2xl border bg-card p-4 flex items-center gap-4">
             <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center text-xl font-bold text-primary-foreground shrink-0">
@@ -1110,7 +1110,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
       <MobileHeader {...headerProps} onLogout={() => setLogoutConfirm(true)} />
       {breakMenuOpen && <BreakMenu {...breakMenuProps} />}
 
-      <div className="flex-1 overflow-y-auto flex flex-col">
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
         <div className="shrink-0 px-4 pt-3 pb-2 space-y-2">
           {campaign && (
             <div className="flex items-center gap-2">
