@@ -3306,21 +3306,46 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
       ) : (
         <>
           <div className="space-y-1.5">
-            {items.filter(i => i.itemType !== "option").map(item => (
-              <StatusListItemRow
-                key={item.id}
-                item={item}
-                campaignId={campaignId}
-                allItems={items}
-                onDeleted={() => {}}
-                isSelected={bulkSelectedIds.has(String(item.id))}
-                onToggleSelect={() => setBulkSelectedIds(prev => {
-                  const next = new Set(prev);
-                  if (next.has(String(item.id))) next.delete(String(item.id)); else next.add(String(item.id));
-                  return next;
-                })}
-              />
-            ))}
+            {(() => {
+              const nonOptions = items.filter(i => i.itemType !== "option");
+              const roots = nonOptions.filter(i => !i.parentId);
+              const childrenOf = (parentId: string) => nonOptions.filter(i => i.parentId === parentId);
+              return roots.map(item => (
+                <div key={item.id}>
+                  <StatusListItemRow
+                    item={item}
+                    campaignId={campaignId}
+                    allItems={items}
+                    onDeleted={() => {}}
+                    isSelected={bulkSelectedIds.has(String(item.id))}
+                    onToggleSelect={() => setBulkSelectedIds(prev => {
+                      const next = new Set(prev);
+                      if (next.has(String(item.id))) next.delete(String(item.id)); else next.add(String(item.id));
+                      return next;
+                    })}
+                  />
+                  {childrenOf(item.id).length > 0 && (
+                    <div className="ml-6 mt-1 space-y-1 pl-3 border-l-2 border-dashed border-border">
+                      {childrenOf(item.id).map(child => (
+                        <StatusListItemRow
+                          key={child.id}
+                          item={child}
+                          campaignId={campaignId}
+                          allItems={items}
+                          onDeleted={() => {}}
+                          isSelected={bulkSelectedIds.has(String(child.id))}
+                          onToggleSelect={() => setBulkSelectedIds(prev => {
+                            const next = new Set(prev);
+                            if (next.has(String(child.id))) next.delete(String(child.id)); else next.add(String(child.id));
+                            return next;
+                          })}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ));
+            })()}
           </div>
 
           <div className="mt-5 pt-4 border-t border-dashed border-amber-300 dark:border-amber-700">
