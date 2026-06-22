@@ -672,13 +672,17 @@ function StatusListPreview({ items, locale }: { items: StatusListItem[]; locale:
         <span className="text-sm font-semibold text-foreground">{sl("previewTitle", locale)}</span>
         <span className="ml-auto text-xs text-muted-foreground">{items.length} {sl("previewSteps", locale)}</span>
       </div>
-      {items.map((item, idx) => {
+      {(() => {
+        const previewRoots = items.filter(i => !i.parentId);
+        const previewChildrenOf = (pid: string) => items.filter(i => i.parentId === pid);
+        return previewRoots.map((item, idx) => {
         const ConfirmIcon = CONFIRM_TYPE_OPTIONS.find(o => o.value === item.confirmationType)?.icon || SquareCheck;
         const isChecked = checked.has(item.id);
         const autoCount = item.automations?.length ?? 0;
+        const previewChildren = previewChildrenOf(item.id);
         return (
+          <div key={item.id}>
           <div
-            key={item.id}
             className={`rounded-lg border p-3 transition-colors ${isChecked ? "border-primary/30 bg-primary/5" : "border-border bg-card"}`}
           >
             <div className="flex items-start gap-3">
@@ -723,8 +727,29 @@ function StatusListPreview({ items, locale }: { items: StatusListItem[]; locale:
               </div>
             </div>
           </div>
+          {previewChildren.length > 0 && (
+            <div className="ml-5 mt-1 space-y-1.5 pl-3 border-l-2 border-dashed border-border">
+              {previewChildren.map((child) => {
+                const ChildIcon = CONFIRM_TYPE_OPTIONS.find(o => o.value === child.confirmationType)?.icon || SquareCheck;
+                const childChecked = checked.has(child.id);
+                return (
+                  <div key={child.id} className={`rounded-lg border p-2.5 transition-colors ${childChecked ? "border-primary/30 bg-primary/5" : "border-border bg-card"}`}>
+                    <div className="flex items-center gap-2">
+                      <button type="button" onClick={() => setChecked(prev => { const next = new Set(prev); if (next.has(child.id)) next.delete(child.id); else next.add(child.id); return next; })} className="shrink-0">
+                        <ChildIcon className={`h-3.5 w-3.5 ${childChecked ? "text-primary" : "text-muted-foreground/50"}`} />
+                      </button>
+                      <span className={`text-xs font-medium ${childChecked ? "line-through text-muted-foreground" : ""}`}>{localizeText(child.label, locale)}</span>
+                    </div>
+                    {child.description && <p className="text-[11px] text-muted-foreground mt-1 whitespace-pre-line">{localizeText(child.description, locale)}</p>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          </div>
         );
-      })}
+      });
+      })()}
     </div>
   );
 }

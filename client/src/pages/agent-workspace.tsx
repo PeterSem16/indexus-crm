@@ -4236,6 +4236,8 @@ function CommunicationCanvas({
               {/* ── Items list ─────────────────────────────────────── */}
               <div className="flex-1 overflow-y-auto px-3 py-2.5 space-y-2">
                 {dbVisibleItems.map((item: any) => {
+                  if (item.parentId) return null;
+                  const childItems = (dbStatusList as any[]).filter((c: any) => !c.isHidden && c.parentId === String(item.id));
                   const isChecked = dbSlChecked.has(String(item.id));
                   const isInfo = item.confirmationType === "info";
                   return (
@@ -4466,6 +4468,33 @@ function CommunicationCanvas({
                     </div>
                     <span className="text-[9px] font-mono text-muted-foreground/30 shrink-0 pt-0.5">{item.stepId}</span>
                   </div>
+                {childItems.length > 0 && (
+                  <div className="border-t border-dashed border-border/40 bg-muted/20 px-4 py-2.5 space-y-2">
+                    {childItems.map((child: any) => {
+                      const childChecked = dbSlChecked.has(String(child.id));
+                      return (
+                        <div key={child.id} className="flex items-start gap-2.5">
+                          <div className="w-0.5 self-stretch bg-border/40 shrink-0 ml-1 rounded-full" />
+                          <button
+                            type="button"
+                            onClick={() => handleSlToggle(String(child.id), !childChecked)}
+                            className={`mt-0.5 h-4 w-4 rounded border-2 flex items-center justify-center transition-all shrink-0 ${childChecked ? "bg-emerald-500 border-emerald-500" : "border-muted-foreground/30 bg-background hover:border-emerald-400"}`}
+                            data-testid={`sl-check-${child.id}`}
+                          >
+                            {childChecked && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <span className={`text-xs leading-snug ${childChecked ? "font-semibold text-emerald-700 dark:text-emerald-300" : "text-foreground/90"}`}>
+                              {child.label}
+                              {child.required && <span className="ml-1 text-rose-500">*</span>}
+                            </span>
+                            {child.description && <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{child.description}</p>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
                 </div>
                 ); })}
               </div>
