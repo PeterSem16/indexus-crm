@@ -10108,6 +10108,44 @@ export default function AgentWorkspacePage() {
     return cleanup;
   }, [inboundRingtoneEnabled]);
 
+  // On mobile: always prime AudioContext on first gesture so ringtone can play
+  // without requiring the user to explicitly enable the opt-in toggle.
+  useEffect(() => {
+    if (!isMobile) return;
+    const prime = () => {
+      try {
+        const Ctor = (window as any).AudioContext || (window as any).webkitAudioContext;
+        if (!Ctor) return;
+        let c = inboundAudioCtxRef.current;
+        if (!c || c.state === "closed") {
+          c = new Ctor() as AudioContext;
+          inboundAudioCtxRef.current = c;
+        }
+        if (c.state === "suspended") { c.resume().catch(() => {}); }
+      } catch {}
+    };
+    const onGesture = () => { prime(); cleanup(); };
+    const cleanup = () => {
+      window.removeEventListener("touchstart", onGesture);
+      window.removeEventListener("pointerdown", onGesture);
+    };
+    window.addEventListener("touchstart", onGesture, { once: true, passive: true });
+    window.addEventListener("pointerdown", onGesture, { once: true });
+    return cleanup;
+  }, [isMobile]);
+
+  // On mobile: play ringtone for direct SIP incoming call (sipIncomingCall).
+  // Desktop is handled by the SipPhone component's own oscillator.
+  useEffect(() => {
+    if (!isMobile) return;
+    if (sipIncomingCall && agentSession.isSessionActive) {
+      stopInboundRingtone();
+      startInboundRingtone();
+    } else {
+      stopInboundRingtone();
+    }
+  }, [sipIncomingCall, isMobile, agentSession.isSessionActive, startInboundRingtone, stopInboundRingtone]);
+
   useEffect(() => {
     return () => {
       stopInboundRingtone();
