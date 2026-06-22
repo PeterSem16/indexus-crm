@@ -3449,7 +3449,7 @@ function CommunicationCanvas({
         </div>
       </div>
 
-      <div className="border-b bg-card">
+      <div className="border-b bg-card shrink-0">
         <div className="flex">
           <button
             className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
@@ -7758,9 +7758,17 @@ export default function AgentWorkspacePage() {
         ctx = new Ctor() as AudioContext;
         inboundAudioCtxRef.current = ctx;
       }
-      if (ctx.state === "suspended") { ctx.resume().catch(() => {}); }
-      const preset = getInboundRingtonePreset(presetId);
-      preset.play(ctx, ctx.currentTime);
+      const doPlay = (c: AudioContext) => {
+        try {
+          const preset = getInboundRingtonePreset(presetId);
+          preset.play(c, c.currentTime);
+        } catch {}
+      };
+      if (ctx.state === "suspended") {
+        ctx.resume().then(() => doPlay(ctx!)).catch(() => {});
+      } else {
+        doPlay(ctx);
+      }
     } catch (err) {
       console.warn("[Pulse] Inbound ringtone playback failed:", err);
     }
@@ -9581,6 +9589,10 @@ export default function AgentWorkspacePage() {
   const handleSelectCampaignContact = (enrichedContact: EnrichedCampaignContact) => {
     const currentStatus = agentSession.status;
     if (currentStatus === "wrap_up" || currentStatus === "break") return;
+    if (callContext.callState === "ended") {
+      callContext.resetCallTiming();
+      callContext.setCallState("idle");
+    }
     pendingCcIdRef.current = enrichedContact.id ? String(enrichedContact.id) : null;
     setCurrentCampaignContactId(enrichedContact.id);
     setCurrentHospitalData(null);
