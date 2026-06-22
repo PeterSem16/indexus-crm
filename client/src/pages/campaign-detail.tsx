@@ -1564,7 +1564,7 @@ function SortRulesDialog({ campaign, open, onOpenChange, contacts, allUsers, ass
           <SelectTrigger className="h-7 text-xs flex-1 min-w-[80px]"><SelectValue placeholder="Hodnota" /></SelectTrigger>
           <SelectContent className="max-h-52">
             <SelectItem value="__none__" className="text-muted-foreground italic text-xs">—</SelectItem>
-            {distinctVals.map(v => <SelectItem key={v} value={v} className="text-xs">{v}</SelectItem>)}
+            {distinctVals.filter(v => v !== "").map(v => <SelectItem key={v} value={v} className="text-xs">{v}</SelectItem>)}
           </SelectContent>
         </Select>
       );
@@ -1711,7 +1711,7 @@ function SortRulesDialog({ campaign, open, onOpenChange, contacts, allUsers, ass
                                         <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-cond-value`}><SelectValue placeholder={t.campaigns.detail.sortRuleConditionValue} /></SelectTrigger>
                                         <SelectContent className="max-h-52">
                                           <SelectItem value="__custom__" className="text-muted-foreground italic text-xs">— {t.campaigns.detail.sortRuleConditionValue} —</SelectItem>
-                                          {distinctVals.map(v => <SelectItem key={v} value={v} className="text-xs">{v}</SelectItem>)}
+                                          {distinctVals.filter(v => v !== "").map(v => <SelectItem key={v} value={v} className="text-xs">{v}</SelectItem>)}
                                         </SelectContent>
                                       </Select>
                                     );
