@@ -6778,10 +6778,10 @@ function MyActivityPanel({
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          {item.customerName && onOpenEntity && item.entityId && item.contactType ? (
+                          {item.customerName && onOpenEntity && item.entityId ? (
                             <button
                               type="button"
-                              onClick={() => { onOpenEntity(item.contactType, item.entityId, item.campaignContactId, item.campaignId); onOpenChange(false); }}
+                              onClick={() => { onOpenEntity(item.contactType || "customer", item.entityId, item.campaignContactId, item.campaignId); onOpenChange(false); }}
                               className="text-sm font-medium truncate text-left hover:underline hover:text-primary transition-colors"
                               data-testid={`btn-shift-open-entity-${item.id}`}
                               title={item.customerName}
@@ -12744,34 +12744,79 @@ export default function AgentWorkspacePage() {
               item.contactType,
               item.phoneNumber
             );
-            if (item.phoneNumber && makeCall) {
-              makeCall({
-                phoneNumber: item.phoneNumber,
-                customerId: item.entityId,
-                campaignId: item.campaignId,
-                customerName: item.customerName || undefined,
-                callerIdNumber: undefined,
-              });
-              setStats(prev => ({ ...prev, calls: prev.calls + 1 }));
-            }
-          } else {
-            handleMakeCall(item.phoneNumber);
+          }
+          if (item.phoneNumber && makeCall) {
+            makeCall({
+              phoneNumber: item.phoneNumber,
+              customerId: item.entityId || undefined,
+              campaignId: item.campaignId || undefined,
+              customerName: item.customerName || undefined,
+              callerIdNumber: undefined,
+            });
+            setStats(prev => ({ ...prev, calls: prev.calls + 1 }));
           }
         }}
-        onOpenEntity={(type, id, campaignContactId, campaignId) => {
+        onOpenEntity={async (type, id, campaignContactId, campaignId) => {
           setMyActivityOpen(false);
           if (campaignContactId && campaignId) {
             handleOpenScheduledContact(id, campaignId, campaignContactId, "phone", type);
-          } else {
-            const routes: Record<string, string> = {
-              customer: "/customers",
-              hospital: "/hospitals",
-              collaborator: "/collaborators",
-              clinic: "/medical-partner-network",
-            };
-            const path = routes[type];
-            if (path) setLocation(path);
+            return;
           }
+          // No campaign context — fetch entity directly and load into workspace
+          try {
+            if (type === "customer") {
+              const res = await fetch(`/api/customers/${id}`, { credentials: "include" });
+              if (res.ok) {
+                const customer = await res.json();
+                setCurrentContact(customer);
+                setCurrentContactType("customer");
+                setCurrentCampaignContactId(null);
+                setCurrentClinicData(null);
+                setCurrentHospitalData(null);
+                setCurrentCollaboratorData(null);
+                setRightTab("actions");
+              }
+            } else if (type === "clinic") {
+              const res = await fetch(`/api/clinics/${id}`, { credentials: "include" });
+              if (res.ok) {
+                const clinic = await res.json();
+                const virtual = { id: clinic.id, firstName: clinic.doctorFirstName || "", lastName: clinic.doctorLastName || clinic.name || "", phone: clinic.phone || "", email: clinic.email || "", displayName: clinic.name || "" };
+                setCurrentContact(virtual as any);
+                setCurrentContactType("clinic");
+                setCurrentCampaignContactId(null);
+                setCurrentClinicData(clinic);
+                setCurrentHospitalData(null);
+                setCurrentCollaboratorData(null);
+                setRightTab("actions");
+              }
+            } else if (type === "hospital") {
+              const res = await fetch(`/api/hospitals/${id}`, { credentials: "include" });
+              if (res.ok) {
+                const hospital = await res.json();
+                const virtual = { id: hospital.id, firstName: "", lastName: hospital.name || "", phone: hospital.phone || "", email: hospital.email || "", displayName: hospital.name || "" };
+                setCurrentContact(virtual as any);
+                setCurrentContactType("hospital");
+                setCurrentCampaignContactId(null);
+                setCurrentClinicData(null);
+                setCurrentHospitalData(hospital);
+                setCurrentCollaboratorData(null);
+                setRightTab("actions");
+              }
+            } else if (type === "collaborator") {
+              const res = await fetch(`/api/collaborators/${id}`, { credentials: "include" });
+              if (res.ok) {
+                const collab = await res.json();
+                const virtual = { id: collab.id, firstName: collab.firstName || "", lastName: collab.lastName || "", phone: collab.phone || "", email: collab.email || "", displayName: `${collab.firstName || ""} ${collab.lastName || ""}`.trim() };
+                setCurrentContact(virtual as any);
+                setCurrentContactType("collaborator");
+                setCurrentCampaignContactId(null);
+                setCurrentClinicData(null);
+                setCurrentHospitalData(null);
+                setCurrentCollaboratorData(collab);
+                setRightTab("actions");
+              }
+            }
+          } catch {}
         }}
       />
 

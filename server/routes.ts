@@ -24005,6 +24005,10 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             }
           }
         }
+        // For direct calls (no campaignContact context), customerId resolves to a customer
+        if (!contactType && entityId) {
+          contactType = "customer";
+        }
         return {
           id: c.id,
           itemType: "call" as const,
