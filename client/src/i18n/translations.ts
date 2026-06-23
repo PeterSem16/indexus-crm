@@ -3054,6 +3054,7 @@ export interface Translations {
       welcomeModeRingOnly: string;
       welcomeModeRingOnlyDesc: string;
       ringCount: string;
+      ringModeSystemToneNote: string;
       types: {
         welcome: string;
         hold_music: string;
@@ -10121,6 +10122,7 @@ export const translations: Record<Locale, Translations> = {
         welcomeModeRingOnly: 'Ringtone only (no message)',
         welcomeModeRingOnlyDesc: 'Caller hears only the ringtone, no welcome message.',
         ringCount: 'Ring count',
+        ringModeSystemToneNote: 'The ring uses the standard phone ring tone — no audio recording required.',
         types: {
           welcome: 'Welcome',
           hold_music: 'Hold Music',
@@ -16639,6 +16641,7 @@ export const translations: Record<Locale, Translations> = {
         welcomeModeRingOnly: 'Iba zvonenie (bez správy)',
         welcomeModeRingOnlyDesc: 'Volajúci počuje iba zvonenie, žiadna uvítacia správa.',
         ringCount: 'Počet zvonení',
+        ringModeSystemToneNote: 'Zvonenie je štandardný telefónny vyzváňací tón — nevyžaduje sa žiadna nahrávka.',
         types: {
           welcome: 'Uvítanie',
           hold_music: 'Hudba na čakanie',
@@ -23143,6 +23146,7 @@ export const translations: Record<Locale, Translations> = {
         welcomeModeRingOnly: 'Pouze zvonění (bez zprávy)',
         welcomeModeRingOnlyDesc: 'Volající slyší pouze zvonění, žádná uvítací zpráva.',
         ringCount: 'Počet zazvonění',
+        ringModeSystemToneNote: 'Vyzvánění je standardní telefonní tón — není potřeba žádná nahrávka.',
         types: {
           welcome: 'Uvítání',
           hold_music: 'Hudba na čekání',
@@ -29603,6 +29607,7 @@ export const translations: Record<Locale, Translations> = {
         welcomeModeRingOnly: 'Csak csengés (üzenet nélkül)',
         welcomeModeRingOnlyDesc: 'A hívó csak a csengőhangot hallja, nincs üdvözlő üzenet.',
         ringCount: 'Csengések száma',
+        ringModeSystemToneNote: 'A csengés a szabványos telefon csengőhangjával történik — nincs szükség hangfelvételre.',
         types: {
           welcome: 'Üdvözlés',
           hold_music: 'Várakozási zene',
@@ -35945,6 +35950,7 @@ export const translations: Record<Locale, Translations> = {
         welcomeModeRingOnly: 'Numai sonerie (fără mesaj)',
         welcomeModeRingOnlyDesc: 'Apelantul aude doar soneria, fără mesaj de bun venit.',
         ringCount: 'Număr de apeluri',
+        ringModeSystemToneNote: 'Soneria folosește tonul standard de apel telefonic — nu este necesară nicio înregistrare audio.',
         types: {
           welcome: 'Bun venit',
           hold_music: 'Muzică de așteptare',
@@ -42289,6 +42295,7 @@ export const translations: Record<Locale, Translations> = {
         welcomeModeRingOnly: 'Solo suoneria (senza messaggio)',
         welcomeModeRingOnlyDesc: 'Il chiamante sente solo la suoneria, nessun messaggio di benvenuto.',
         ringCount: 'Numero di squilli',
+        ringModeSystemToneNote: 'La suoneria utilizza il tono standard del telefono — non è necessaria alcuna registrazione audio.',
         types: {
           welcome: 'Benvenuto',
           hold_music: 'Musica di attesa',
@@ -48633,6 +48640,7 @@ export const translations: Record<Locale, Translations> = {
         welcomeModeRingOnly: 'Nur Klingelton (ohne Nachricht)',
         welcomeModeRingOnlyDesc: 'Der Anrufer hört nur den Klingelton, keine Begrüßungsnachricht.',
         ringCount: 'Anzahl der Klingelzeichen',
+        ringModeSystemToneNote: 'Das Klingeln verwendet den Standard-Telefon-Rufton — keine Audioaufnahme erforderlich.',
         types: {
           welcome: 'Begrüßung',
           hold_music: 'Wartemusik',

@@ -53,6 +53,7 @@ import {
   RefreshCw,
   Bell,
   PhoneCall,
+  Info,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -437,7 +438,7 @@ export function IvrMessagesTab() {
       fd.append("language", formData.language);
       fd.append("countryCode", formData.countryCode);
       fd.append("isActive", String(formData.isActive));
-      fd.append("prependRingtone", "true");
+      fd.append("prependRingtone", "false");
       fd.append("ringCount", String(formData.ringCount));
       fd.append("ringtoneOnly", "true");
       if (editingMessage) {
@@ -872,6 +873,12 @@ export function IvrMessagesTab() {
                       ))}
                     </div>
                   </div>
+                )}
+                {(welcomeMode === "ring_then_message" || welcomeMode === "ring_only") && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 px-2.5 py-2 mt-1">
+                    <Info className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+                    {ivr.ringModeSystemToneNote}
+                  </p>
                 )}
               </div>
             )}

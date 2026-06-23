@@ -961,21 +961,43 @@ export class QueueEngine extends EventEmitter {
       try {
         const [msg] = await db.select().from(ivrMessages).where(eq(ivrMessages.id, queue.welcomeMessageId)).limit(1);
         if (msg) {
-          const soundName = msg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-          const welcomePbId = `welcome-${channel.id}-${Date.now()}`;
-          console.log(`[QueueEngine] Playing welcome: sound:custom/${soundName} (pbId: ${welcomePbId})`);
-          this.pendingWelcome.set(welcomePbId, { channelId: channel.id, queueId: queue.id });
-          this.pendingWelcomeCallData.set(channel.id, {
-            channelId: channel.id,
-            queueId: queue.id,
-            callerNumber,
-            callerName,
-            customerId,
-            queueName: queue.name,
-          });
-          await this.ariClient.playMedia(channel.id, `sound:custom/${soundName}`, welcomePbId);
-          welcomePlayed = true;
-          console.log(`[QueueEngine] Welcome playing for ${channel.id}, call will be queued after welcome finishes`);
+          // Play ring tone N times if ring_then_message or ring_only mode
+          if (msg.prependRingtone || msg.ringtoneOnly) {
+            const ringCount = Math.max(1, Math.min(9, msg.ringCount || 3));
+            console.log(`[QueueEngine] Playing ${ringCount}x ring tone for channel ${channel.id} (mode: ${msg.ringtoneOnly ? 'ring_only' : 'ring_then_message'})`);
+            for (let i = 0; i < ringCount; i++) {
+              try {
+                const ringPbId = `ring-${channel.id}-${Date.now()}-${i}`;
+                await this.ariClient.playMedia(channel.id, `sound:ring`, ringPbId);
+                await this.waitForPlaybackFinished(ringPbId, 8000);
+              } catch { /* channel may have hung up, safe to ignore */ }
+            }
+          }
+
+          if (msg.ringtoneOnly) {
+            // Ring-only mode: no welcome audio, queue directly after rings
+            console.log(`[QueueEngine] Ring-only mode for channel ${channel.id}, queueing after rings`);
+            await this.startMohForChannel(channel.id, queue.id);
+            await this.addCallToQueue(channel.id, queue.id, queue.name, callerNumber, callerName, customerId);
+            welcomePlayed = true;
+          } else {
+            // message_only or ring_then_message: play welcome audio file
+            const soundName = msg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+            const welcomePbId = `welcome-${channel.id}-${Date.now()}`;
+            console.log(`[QueueEngine] Playing welcome: sound:custom/${soundName} (pbId: ${welcomePbId})`);
+            this.pendingWelcome.set(welcomePbId, { channelId: channel.id, queueId: queue.id });
+            this.pendingWelcomeCallData.set(channel.id, {
+              channelId: channel.id,
+              queueId: queue.id,
+              callerNumber,
+              callerName,
+              customerId,
+              queueName: queue.name,
+            });
+            await this.ariClient.playMedia(channel.id, `sound:custom/${soundName}`, welcomePbId);
+            welcomePlayed = true;
+            console.log(`[QueueEngine] Welcome playing for ${channel.id}, call will be queued after welcome finishes`);
+          }
         }
       } catch (err) {
         console.warn(`[QueueEngine] Welcome message playback failed, continuing:`, err instanceof Error ? err.message : err);
@@ -2539,19 +2561,41 @@ export class QueueEngine extends EventEmitter {
       try {
         const [msg] = await db.select().from(ivrMessages).where(eq(ivrMessages.id, queue.welcomeMessageId)).limit(1);
         if (msg) {
-          const soundName = msg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-          const welcomePbId = `welcome-${channel.id}-${Date.now()}`;
-          this.pendingWelcome.set(welcomePbId, { channelId: channel.id, queueId: queue.id });
-          this.pendingWelcomeCallData.set(channel.id, {
-            channelId: channel.id,
-            queueId: queue.id,
-            callerNumber,
-            callerName,
-            customerId,
-            queueName: queue.name,
-          });
-          await this.ariClient.playMedia(channel.id, `sound:custom/${soundName}`, welcomePbId);
-          welcomePlayed = true;
+          // Play ring tone N times if ring_then_message or ring_only mode
+          if (msg.prependRingtone || msg.ringtoneOnly) {
+            const ringCount = Math.max(1, Math.min(9, msg.ringCount || 3));
+            console.log(`[QueueEngine] Playing ${ringCount}x ring tone for channel ${channel.id} (mode: ${msg.ringtoneOnly ? 'ring_only' : 'ring_then_message'})`);
+            for (let i = 0; i < ringCount; i++) {
+              try {
+                const ringPbId = `ring-${channel.id}-${Date.now()}-${i}`;
+                await this.ariClient.playMedia(channel.id, `sound:ring`, ringPbId);
+                await this.waitForPlaybackFinished(ringPbId, 8000);
+              } catch { /* channel may have hung up, safe to ignore */ }
+            }
+          }
+
+          if (msg.ringtoneOnly) {
+            // Ring-only mode: no welcome audio, queue directly after rings
+            console.log(`[QueueEngine] Ring-only mode for channel ${channel.id}, queueing after rings`);
+            await this.startMohForChannel(channel.id, queue.id);
+            await this.addCallToQueue(channel.id, queue.id, queue.name, callerNumber, callerName, customerId);
+            welcomePlayed = true;
+          } else {
+            // message_only or ring_then_message: play welcome audio file
+            const soundName = msg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+            const welcomePbId = `welcome-${channel.id}-${Date.now()}`;
+            this.pendingWelcome.set(welcomePbId, { channelId: channel.id, queueId: queue.id });
+            this.pendingWelcomeCallData.set(channel.id, {
+              channelId: channel.id,
+              queueId: queue.id,
+              callerNumber,
+              callerName,
+              customerId,
+              queueName: queue.name,
+            });
+            await this.ariClient.playMedia(channel.id, `sound:custom/${soundName}`, welcomePbId);
+            welcomePlayed = true;
+          }
         }
       } catch (err) {
         console.warn(`[QueueEngine] Welcome message playback failed:`, err instanceof Error ? err.message : err);
