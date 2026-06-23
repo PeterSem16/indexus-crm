@@ -1,0 +1,110 @@
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 22.06s
+building server...
+▲ [WARNING] Duplicate key "rodné číslo" in object literal [duplicate-object-key]
+
+    server/routes.ts:34573:8:
+      34573 │         'rodné číslo': 'personalId',
+            ╵         ~~~~~~~~~~~~~
+
+  The original key "rodné číslo" is here:
+
+    server/routes.ts:34571:8:
+      34571 │         'rodné číslo': 'personalId', 'rč': 'personalId', 'r.č': 'personalId', 'r.č.': 'personalId',
+            ╵         ~~~~~~~~~~~~~
+
+▲ [WARNING] Duplicate key "trvalý pobyt" in object literal [duplicate-object-key]
+
+    server/routes.ts:34593:8:
+      34593 │         'trvalý pobyt': 'permanentAddress', 'bytem': 'permanentAddress', 'korespondenční adresa': 'correspondenceAddress',
+            ╵         ~~~~~~~~~~~~~~
+
+  The original key "trvalý pobyt" is here:
+
+    server/routes.ts:34588:8:
+      34588 │         'trvalý pobyt': 'permanentAddress', 'bytom': 'permanentAddress',
+            ╵         ~~~~~~~~~~~~~~
+
+▲ [WARNING] Duplicate key "telefon" in object literal [duplicate-object-key]
+
+    server/routes.ts:34617:8:
+      34617 │         'telefon': 'phone', 'nr. telefon': 'phone',
+            ╵         ~~~~~~~~~
+
+  The original key "telefon" is here:
+
+    server/routes.ts:34615:33:
+      34615 │         'telefonszám': 'phone', 'telefon': 'phone',
+            ╵                                 ~~~~~~~~~
+
+▲ [WARNING] Duplicate key "telefon" in object literal [duplicate-object-key]
+
+    server/routes.ts:34621:8:
+      34621 │         'telefon': 'phone', 'handy': 'phone', 'mobilnummer': 'phone',
+            ╵         ~~~~~~~~~
+
+  The original key "telefon" is here:
+
+    server/routes.ts:34617:8:
+      34617 │         'telefon': 'phone', 'nr. telefon': 'phone',
+            ╵         ~~~~~~~~~
+
+▲ [WARNING] Duplicate key "číslo účtu" in object literal [duplicate-object-key]
+
+    server/routes.ts:34627:8:
+      34627 │         'číslo účtu': 'IBAN', 'bankovní účet': 'IBAN', // CZ
+            ╵         ~~~~~~~~~~~~
+
+  The original key "číslo účtu" is here:
+
+    server/routes.ts:34626:24:
+      34626 │         'iban': 'IBAN', 'číslo účtu': 'IBAN', 'bankový účet': 'IBAN',
+            ╵                         ~~~~~~~~~~~~
+
+▲ [WARNING] Duplicate key "číslo op" in object literal [duplicate-object-key]
+
+    server/routes.ts:34638:8:
+      34638 │         'číslo op': 'idCardNumber', 'číslo občanského průkazu': 'idCardNumber',
+            ╵         ~~~~~~~~~~
+
+  The original key "číslo op" is here:
+
+    server/routes.ts:34636:8:
+      34636 │         'číslo op': 'idCardNumber', 'číslo občianskeho preukazu': 'idCardNumber', 'číslo dokladu': 'idCardNumber',
+            ╵         ~~~~~~~~~~
+
+▲ [WARNING] Duplicate key "dič" in object literal [duplicate-object-key]
+
+    server/routes.ts:34697:8:
+      34697 │         'dič': 'company.taxIdentificationNumber', 'název společnosti': 'company.name',
+            ╵         ~~~~~
+
+  The original key "dič" is here:
+
+    server/routes.ts:34690:8:
+      34690 │         'dič': 'company.taxIdentificationNumber', 'ič dph': 'company.vatNumber',
+            ╵         ~~~~~
+
+▲ [WARNING] Using direct eval with a bundler is not recommended and may cause problems [direct-eval]
+
+    server/routes.ts:46472:67:
+      46472 │       const _rq: any = (typeof require === "function") ? require : eval("require");
+            ╵                                                                    ~~~~
+
+  You can read more about direct eval and bundling here: https://esbuild.github.io/link/direct-eval
+
+8 warnings
+
+  dist/index.cjs  4.8mb ⚠️
+
+⚡ Done in 358ms
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.17.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.17.0
+npm notice To update run: npm install -g npm@11.17.0
+npm notice
+BUILD HOTOVY
+seman
