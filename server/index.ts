@@ -358,6 +358,18 @@ app.use((req, res, next) => {
     console.error('[migration] campaign_status_list_items auto_confirm col error:', e.message);
   }
 
+  try {
+    await pool.query(`
+      ALTER TABLE ivr_messages
+        ADD COLUMN IF NOT EXISTS prepend_ringtone BOOLEAN NOT NULL DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS ring_count INTEGER NOT NULL DEFAULT 3,
+        ADD COLUMN IF NOT EXISTS ringtone_only BOOLEAN NOT NULL DEFAULT FALSE;
+    `);
+    console.log('[migration] ivr_messages ringtone columns ensured');
+  } catch (e: any) {
+    console.error('[migration] ivr_messages ringtone columns error:', e.message);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

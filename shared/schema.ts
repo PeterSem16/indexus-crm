@@ -6205,6 +6205,9 @@ export const ivrMessages = pgTable("ivr_messages", {
   countryCode: text("country_code"), // SK, CZ, HU, etc.
   duration: integer("duration"), // duration in seconds
   fileSize: integer("file_size"), // file size in bytes
+  prependRingtone: boolean("prepend_ringtone").notNull().default(false), // play ringtone before welcome
+  ringCount: integer("ring_count").notNull().default(3), // number of rings (1-9)
+  ringtoneOnly: boolean("ringtone_only").notNull().default(false), // only play ringtone, no audio message
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),

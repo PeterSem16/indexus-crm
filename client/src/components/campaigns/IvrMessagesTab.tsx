@@ -51,6 +51,8 @@ import {
   Library,
   Check,
   RefreshCw,
+  Bell,
+  PhoneCall,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -68,6 +70,9 @@ interface IvrMessage {
   countryCode: string;
   duration: number | null;
   fileSize: number | null;
+  prependRingtone: boolean;
+  ringCount: number;
+  ringtoneOnly: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -119,6 +124,8 @@ const LANGUAGE_VOICE_RECOMMENDATIONS: Record<string, { female: string; male: str
 
 const ACCEPTED_AUDIO = ".wav,.mp3,.ogg,.gsm";
 
+type WelcomeMode = "message_only" | "ring_then_message" | "ring_only";
+
 interface FormData {
   name: string;
   type: string;
@@ -127,6 +134,7 @@ interface FormData {
   isActive: boolean;
   textContent: string;
   ttsVoice: string;
+  ringCount: number;
 }
 
 const defaultFormData: FormData = {
@@ -137,6 +145,7 @@ const defaultFormData: FormData = {
   isActive: true,
   textContent: "",
   ttsVoice: "nova",
+  ringCount: 3,
 };
 
 export function IvrMessagesTab() {
@@ -146,6 +155,7 @@ export function IvrMessagesTab() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMessage, setEditingMessage] = useState<IvrMessage | null>(null);
   const [formData, setFormData] = useState<FormData>(defaultFormData);
+  const [welcomeMode, setWelcomeMode] = useState<WelcomeMode>("message_only");
   const [sourceMode, setSourceMode] = useState<"upload" | "tts" | "stock">("upload");
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
@@ -302,6 +312,7 @@ export function IvrMessagesTab() {
     setDialogOpen(false);
     setEditingMessage(null);
     setFormData(defaultFormData);
+    setWelcomeMode("message_only");
     setSourceMode("upload");
     setAudioFile(null);
     setSelectedStockId(null);
@@ -315,6 +326,7 @@ export function IvrMessagesTab() {
   const openCreate = () => {
     setEditingMessage(null);
     setFormData(defaultFormData);
+    setWelcomeMode("message_only");
     setSourceMode("upload");
     setAudioFile(null);
     setSelectedStockId(null);
@@ -331,7 +343,15 @@ export function IvrMessagesTab() {
       isActive: msg.isActive,
       textContent: msg.textContent || "",
       ttsVoice: msg.ttsVoice || "nova",
+      ringCount: msg.ringCount ?? 3,
     });
+    if (msg.type === "welcome") {
+      if (msg.ringtoneOnly) setWelcomeMode("ring_only");
+      else if (msg.prependRingtone) setWelcomeMode("ring_then_message");
+      else setWelcomeMode("message_only");
+    } else {
+      setWelcomeMode("message_only");
+    }
     if (msg.source === "stock") {
       setSourceMode("stock");
       setSelectedStockId(null);
@@ -376,6 +396,9 @@ export function IvrMessagesTab() {
   };
 
   const handleSubmit = () => {
+    const isWelcome = formData.type === "welcome";
+    const isRingOnly = isWelcome && welcomeMode === "ring_only";
+
     if (sourceMode === "stock") {
       if (!selectedStockId) {
         toast({ title: ivr.error, description: ivr.selectHoldMusic, variant: "destructive" });
@@ -406,11 +429,35 @@ export function IvrMessagesTab() {
       return;
     }
 
+    // Ring-only mode: no audio file needed — save directly
+    if (isRingOnly) {
+      const fd = new globalThis.FormData();
+      fd.append("name", formData.name);
+      fd.append("type", "welcome");
+      fd.append("language", formData.language);
+      fd.append("countryCode", formData.countryCode);
+      fd.append("isActive", String(formData.isActive));
+      fd.append("prependRingtone", "true");
+      fd.append("ringCount", String(formData.ringCount));
+      fd.append("ringtoneOnly", "true");
+      if (editingMessage) {
+        updateMutation.mutate({ id: editingMessage.id, data: fd });
+      } else {
+        createMutation.mutate(fd);
+      }
+      return;
+    }
+
     if (sourceMode === "tts") {
       if (!formData.textContent.trim()) {
         toast({ title: ivr.error, description: ivr.textRequired, variant: "destructive" });
         return;
       }
+      const ringtoneFields = isWelcome ? {
+        prependRingtone: welcomeMode === "ring_then_message",
+        ringCount: formData.ringCount,
+        ringtoneOnly: false,
+      } : {};
       if (editingMessage) {
         regenerateTtsMutation.mutate({
           id: editingMessage.id,
@@ -422,6 +469,7 @@ export function IvrMessagesTab() {
             countryCode: formData.countryCode,
             type: formData.type,
             isActive: formData.isActive,
+            ...ringtoneFields,
           },
         });
       } else {
@@ -432,6 +480,7 @@ export function IvrMessagesTab() {
           language: formData.language,
           countryCode: formData.countryCode,
           type: formData.type,
+          ...ringtoneFields,
         });
       }
       return;
@@ -448,6 +497,11 @@ export function IvrMessagesTab() {
     fd.append("language", formData.language);
     fd.append("countryCode", formData.countryCode);
     fd.append("isActive", String(formData.isActive));
+    if (isWelcome) {
+      fd.append("prependRingtone", String(welcomeMode === "ring_then_message"));
+      fd.append("ringCount", String(formData.ringCount));
+      fd.append("ringtoneOnly", "false");
+    }
     if (audioFile) {
       fd.append("audio", audioFile);
     }
@@ -600,9 +654,21 @@ export function IvrMessagesTab() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="text-xs" data-testid={`badge-type-${msg.id}`}>
-                      {typeLabel(msg.type)}
-                    </Badge>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <Badge variant="outline" className="text-xs" data-testid={`badge-type-${msg.id}`}>
+                        {typeLabel(msg.type)}
+                      </Badge>
+                      {msg.type === "welcome" && msg.ringtoneOnly && (
+                        <Badge variant="secondary" className="text-xs gap-1" data-testid={`badge-ring-only-${msg.id}`}>
+                          <Bell className="h-3 w-3" />{msg.ringCount}×
+                        </Badge>
+                      )}
+                      {msg.type === "welcome" && msg.prependRingtone && !msg.ringtoneOnly && (
+                        <Badge variant="secondary" className="text-xs gap-1" data-testid={`badge-ring-msg-${msg.id}`}>
+                          <PhoneCall className="h-3 w-3" />{msg.ringCount}×
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary" className="text-xs" data-testid={`badge-source-${msg.id}`}>
@@ -738,6 +804,79 @@ export function IvrMessagesTab() {
               </div>
             </div>
 
+            {formData.type === "welcome" && (
+              <div className="space-y-3">
+                <Label>Typ prehrávania</Label>
+                <div className="grid grid-cols-1 gap-2">
+                  {(
+                    [
+                      {
+                        mode: "message_only" as WelcomeMode,
+                        icon: <Volume2 className="h-4 w-4 text-primary" />,
+                        label: "Len uvítacia správa",
+                        desc: "Volajúci počuje iba uvítaciu správu.",
+                      },
+                      {
+                        mode: "ring_then_message" as WelcomeMode,
+                        icon: <PhoneCall className="h-4 w-4 text-primary" />,
+                        label: "Zvonenie + uvítacia správa",
+                        desc: "Najprv zaznie zvonenie (N-krát), potom sa prehrá uvítacia správa.",
+                      },
+                      {
+                        mode: "ring_only" as WelcomeMode,
+                        icon: <Bell className="h-4 w-4 text-primary" />,
+                        label: "Iba zvonenie (bez správy)",
+                        desc: "Volajúci počuje iba zvonenie, žiadna uvítacia správa.",
+                      },
+                    ] as const
+                  ).map(({ mode, icon, label, desc }) => (
+                    <div
+                      key={mode}
+                      onClick={() => setWelcomeMode(mode)}
+                      className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all hover:border-primary/60 ${
+                        welcomeMode === mode
+                          ? "border-primary bg-primary/5 ring-1 ring-primary"
+                          : "border-border"
+                      }`}
+                      data-testid={`welcome-mode-${mode}`}
+                    >
+                      <div className="p-1.5 rounded-md bg-primary/10 shrink-0 mt-0.5">{icon}</div>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium">{label}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">{desc}</div>
+                      </div>
+                      {welcomeMode === mode && (
+                        <Check className="h-4 w-4 text-primary shrink-0 mt-1" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {(welcomeMode === "ring_then_message" || welcomeMode === "ring_only") && (
+                  <div className="flex items-center gap-3 pt-1">
+                    <Label className="shrink-0">Počet zvonení</Label>
+                    <div className="flex items-center gap-1">
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => setFormData((f) => ({ ...f, ringCount: n }))}
+                          className={`w-8 h-8 rounded-md text-sm font-medium border transition-all ${
+                            formData.ringCount === n
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "border-border hover:border-primary/60 hover:bg-muted"
+                          }`}
+                          data-testid={`ring-count-${n}`}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!(formData.type === "welcome" && welcomeMode === "ring_only") && (
             <Tabs value={sourceMode} onValueChange={(v) => setSourceMode(v as "upload" | "tts" | "stock")}>
               <TabsList className="w-full">
                 {(formData.type === "hold_music" || (editingMessage && editingMessage.source === "stock")) && (
@@ -914,6 +1053,7 @@ export function IvrMessagesTab() {
                 </div>
               </TabsContent>
             </Tabs>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog} data-testid="btn-cancel-ivr">

@@ -613,6 +613,9 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         language: req.body.language || "sk",
         countryCode: req.body.countryCode,
         fileSize: fileObj ? fileObj.size : null,
+        prependRingtone: req.body.prependRingtone === "true" || req.body.prependRingtone === true,
+        ringCount: req.body.ringCount ? parseInt(req.body.ringCount, 10) : 3,
+        ringtoneOnly: req.body.ringtoneOnly === "true" || req.body.ringtoneOnly === true,
       }).returning();
 
       if (created[0]?.filePath) {
@@ -642,6 +645,15 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         isActive: req.body.isActive === "true" || req.body.isActive === true,
         updatedAt: new Date(),
       };
+      if (req.body.prependRingtone !== undefined) {
+        updateData.prependRingtone = req.body.prependRingtone === "true" || req.body.prependRingtone === true;
+      }
+      if (req.body.ringCount !== undefined) {
+        updateData.ringCount = parseInt(req.body.ringCount, 10) || 3;
+      }
+      if (req.body.ringtoneOnly !== undefined) {
+        updateData.ringtoneOnly = req.body.ringtoneOnly === "true" || req.body.ringtoneOnly === true;
+      }
 
       if ((req as any).file) {
         updateData.filePath = path.relative(process.cwd(), (req as any).file.path);
@@ -727,6 +739,9 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         language: language || "sk",
         countryCode: countryCode || null,
         fileSize: buffer.length,
+        prependRingtone: req.body.prependRingtone === true || req.body.prependRingtone === "true",
+        ringCount: req.body.ringCount ? parseInt(req.body.ringCount, 10) : 3,
+        ringtoneOnly: false,
       }).returning();
 
       if (created[0]?.filePath) {
