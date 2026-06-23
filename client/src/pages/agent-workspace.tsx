@@ -3595,11 +3595,11 @@ function CommunicationCanvas({
                   type="button"
                   onClick={onClearContact}
                   className="ml-auto mr-2 flex items-center gap-1.5 px-2 py-1 rounded text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                  title="Zatvoriť kartu"
+                  title={t.agentWorkspace.myShiftCloseCard}
                   data-testid="btn-close-contact-card"
                 >
                   <X className="h-3.5 w-3.5" />
-                  Zatvoriť
+                  {t.agentWorkspace.myShiftCloseCard}
                 </button>
               )}
             </div>
@@ -6832,11 +6832,11 @@ function MyActivityPanel({
                             type="button"
                             onClick={() => { onOpenEntity(item.contactType || "customer", item.entityId, item.campaignContactId, item.campaignId); onOpenChange(false); }}
                             className="flex items-center gap-1.5 h-7 px-2.5 rounded-md bg-primary/10 hover:bg-primary/20 text-primary text-[11px] font-medium border border-primary/20 transition-colors"
-                            title="Otvoriť kartu kontaktu"
+                            title={t.agentWorkspace.myShiftOpenCard}
                             data-testid={`btn-shift-open-card-${item.id}`}
                           >
                             <User className="h-3 w-3" />
-                            Otvoriť kartu
+                            {t.agentWorkspace.myShiftOpenCard}
                           </button>
                         )}
                         <div className="text-right flex flex-col items-end gap-1">

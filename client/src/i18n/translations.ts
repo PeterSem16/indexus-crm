@@ -3046,6 +3046,14 @@ export interface Translations {
       stockMohAdded: string;
       stockMohRegenerated: string;
       ttsRegenerated: string;
+      welcomePlaybackType: string;
+      welcomeModeMessageOnly: string;
+      welcomeModeMessageOnlyDesc: string;
+      welcomeModeRingThenMessage: string;
+      welcomeModeRingThenMessageDesc: string;
+      welcomeModeRingOnly: string;
+      welcomeModeRingOnlyDesc: string;
+      ringCount: string;
       types: {
         welcome: string;
         hold_music: string;
@@ -3408,6 +3416,8 @@ export interface Translations {
     myShiftFilterEmail: string;
     myShiftFilterSms: string;
     myShiftFilterMissed: string;
+    myShiftOpenCard: string;
+    myShiftCloseCard: string;
     savePhoneLabel: string;
     savingPhone: string;
     savedPhone: string;
@@ -10103,6 +10113,14 @@ export const translations: Record<Locale, Translations> = {
         stockMohAdded: 'Stock hold music added',
         stockMohRegenerated: 'Stock hold music regenerated',
         ttsRegenerated: 'TTS regenerated successfully',
+        welcomePlaybackType: 'Playback Type',
+        welcomeModeMessageOnly: 'Message only',
+        welcomeModeMessageOnlyDesc: 'Caller hears only the welcome message.',
+        welcomeModeRingThenMessage: 'Ringtone + message',
+        welcomeModeRingThenMessageDesc: 'Ringtone plays N times, then the welcome message plays.',
+        welcomeModeRingOnly: 'Ringtone only (no message)',
+        welcomeModeRingOnlyDesc: 'Caller hears only the ringtone, no welcome message.',
+        ringCount: 'Ring count',
         types: {
           welcome: 'Welcome',
           hold_music: 'Hold Music',
@@ -10460,6 +10478,8 @@ export const translations: Record<Locale, Translations> = {
       myShiftFilterEmail: 'Email',
       myShiftFilterSms: 'SMS',
       myShiftFilterMissed: 'Missed',
+      myShiftOpenCard: 'Open card',
+      myShiftCloseCard: 'Close',
       savePhoneLabel: 'Save number',
       savingPhone: 'Saving...',
       savedPhone: 'Saved',
@@ -16611,6 +16631,14 @@ export const translations: Record<Locale, Translations> = {
         stockMohAdded: 'Hudba na čakanie pridaná',
         stockMohRegenerated: 'Hudba na čakanie regenerovaná',
         ttsRegenerated: 'TTS úspešne regenerované',
+        welcomePlaybackType: 'Typ prehrávania',
+        welcomeModeMessageOnly: 'Len uvítacia správa',
+        welcomeModeMessageOnlyDesc: 'Volajúci počuje iba uvítaciu správu.',
+        welcomeModeRingThenMessage: 'Zvonenie + uvítacia správa',
+        welcomeModeRingThenMessageDesc: 'Najprv zaznie zvonenie (N-krát), potom sa prehrá uvítacia správa.',
+        welcomeModeRingOnly: 'Iba zvonenie (bez správy)',
+        welcomeModeRingOnlyDesc: 'Volajúci počuje iba zvonenie, žiadna uvítacia správa.',
+        ringCount: 'Počet zvonení',
         types: {
           welcome: 'Uvítanie',
           hold_music: 'Hudba na čakanie',
@@ -16968,6 +16996,8 @@ export const translations: Record<Locale, Translations> = {
       myShiftFilterEmail: 'Email',
       myShiftFilterSms: 'SMS',
       myShiftFilterMissed: 'Zmeškaná',
+      myShiftOpenCard: 'Otvoriť kartu',
+      myShiftCloseCard: 'Zatvoriť',
       savePhoneLabel: 'Uložiť číslo',
       savingPhone: 'Ukladám...',
       savedPhone: 'Uložené',
@@ -23105,6 +23135,14 @@ export const translations: Record<Locale, Translations> = {
         stockMohAdded: 'Hudba na čekání přidána',
         stockMohRegenerated: 'Hudba na čekání regenerována',
         ttsRegenerated: 'TTS úspěšně regenerováno',
+        welcomePlaybackType: 'Typ přehrávání',
+        welcomeModeMessageOnly: 'Pouze uvítací zpráva',
+        welcomeModeMessageOnlyDesc: 'Volající slyší pouze uvítací zprávu.',
+        welcomeModeRingThenMessage: 'Zvonění + uvítací zpráva',
+        welcomeModeRingThenMessageDesc: 'Nejprve zazní zvonění (N-krát), pak se přehraje uvítací zpráva.',
+        welcomeModeRingOnly: 'Pouze zvonění (bez zprávy)',
+        welcomeModeRingOnlyDesc: 'Volající slyší pouze zvonění, žádná uvítací zpráva.',
+        ringCount: 'Počet zazvonění',
         types: {
           welcome: 'Uvítání',
           hold_music: 'Hudba na čekání',
@@ -23462,6 +23500,8 @@ export const translations: Record<Locale, Translations> = {
       myShiftFilterEmail: 'Email',
       myShiftFilterSms: 'SMS',
       myShiftFilterMissed: 'Zmeškaný',
+      myShiftOpenCard: 'Otevřít kartu',
+      myShiftCloseCard: 'Zavřít',
       savePhoneLabel: 'Uložit číslo',
       savingPhone: 'Ukládám...',
       savedPhone: 'Uloženo',
@@ -29555,6 +29595,14 @@ export const translations: Record<Locale, Translations> = {
         stockMohAdded: 'Várakozási zene hozzáadva',
         stockMohRegenerated: 'Várakozási zene újragenerálva',
         ttsRegenerated: 'TTS sikeresen újragenerálva',
+        welcomePlaybackType: 'Lejátszás típusa',
+        welcomeModeMessageOnly: 'Csak üdvözlő üzenet',
+        welcomeModeMessageOnlyDesc: 'A hívó csak az üdvözlő üzenetet hallja.',
+        welcomeModeRingThenMessage: 'Csengés + üdvözlő üzenet',
+        welcomeModeRingThenMessageDesc: 'Először cseng N-szer, majd lejátssza az üdvözlő üzenetet.',
+        welcomeModeRingOnly: 'Csak csengés (üzenet nélkül)',
+        welcomeModeRingOnlyDesc: 'A hívó csak a csengőhangot hallja, nincs üdvözlő üzenet.',
+        ringCount: 'Csengések száma',
         types: {
           welcome: 'Üdvözlés',
           hold_music: 'Várakozási zene',
@@ -29899,6 +29947,8 @@ export const translations: Record<Locale, Translations> = {
       todayCallsInboundBadge: 'Bejövő',
       todayCallsOutboundBadge: 'Kimenő',
       todayCallsRefresh: 'Frissítés',
+      myShiftOpenCard: 'Kártya megnyitása',
+      myShiftCloseCard: 'Bezárás',
       savePhoneLabel: 'Szám mentése',
       savingPhone: 'Mentés...',
       savedPhone: 'Elmentve',
@@ -35887,6 +35937,14 @@ export const translations: Record<Locale, Translations> = {
         stockMohAdded: 'Muzică de așteptare adăugată',
         stockMohRegenerated: 'Muzică de așteptare regenerată',
         ttsRegenerated: 'TTS regenerat cu succes',
+        welcomePlaybackType: 'Tip redare',
+        welcomeModeMessageOnly: 'Numai mesaj de bun venit',
+        welcomeModeMessageOnlyDesc: 'Apelantul aude doar mesajul de bun venit.',
+        welcomeModeRingThenMessage: 'Sonerie + mesaj de bun venit',
+        welcomeModeRingThenMessageDesc: 'Mai întâi sună de N ori, apoi se redă mesajul de bun venit.',
+        welcomeModeRingOnly: 'Numai sonerie (fără mesaj)',
+        welcomeModeRingOnlyDesc: 'Apelantul aude doar soneria, fără mesaj de bun venit.',
+        ringCount: 'Număr de apeluri',
         types: {
           welcome: 'Bun venit',
           hold_music: 'Muzică de așteptare',
@@ -36231,6 +36289,8 @@ export const translations: Record<Locale, Translations> = {
       todayCallsInboundBadge: 'Primit',
       todayCallsOutboundBadge: 'Efectuat',
       todayCallsRefresh: 'Reîncărcați',
+      myShiftOpenCard: 'Deschide cardul',
+      myShiftCloseCard: 'Închide',
       savePhoneLabel: 'Salvați numărul',
       savingPhone: 'Se salvează...',
       savedPhone: 'Salvat',
@@ -42221,6 +42281,14 @@ export const translations: Record<Locale, Translations> = {
         stockMohAdded: 'Musica di attesa aggiunta',
         stockMohRegenerated: 'Musica di attesa rigenerata',
         ttsRegenerated: 'TTS rigenerato con successo',
+        welcomePlaybackType: 'Tipo di riproduzione',
+        welcomeModeMessageOnly: 'Solo messaggio di benvenuto',
+        welcomeModeMessageOnlyDesc: 'Il chiamante sente solo il messaggio di benvenuto.',
+        welcomeModeRingThenMessage: 'Suoneria + messaggio di benvenuto',
+        welcomeModeRingThenMessageDesc: 'Prima suona N volte, poi viene riprodotto il messaggio di benvenuto.',
+        welcomeModeRingOnly: 'Solo suoneria (senza messaggio)',
+        welcomeModeRingOnlyDesc: 'Il chiamante sente solo la suoneria, nessun messaggio di benvenuto.',
+        ringCount: 'Numero di squilli',
         types: {
           welcome: 'Benvenuto',
           hold_music: 'Musica di attesa',
@@ -42565,6 +42633,8 @@ export const translations: Record<Locale, Translations> = {
       todayCallsInboundBadge: 'In entrata',
       todayCallsOutboundBadge: 'In uscita',
       todayCallsRefresh: 'Aggiorna',
+      myShiftOpenCard: 'Apri scheda',
+      myShiftCloseCard: 'Chiudi',
       savePhoneLabel: 'Salva numero',
       savingPhone: 'Salvataggio...',
       savedPhone: 'Salvato',
@@ -48555,6 +48625,14 @@ export const translations: Record<Locale, Translations> = {
         stockMohAdded: 'Wartemusik hinzugefügt',
         stockMohRegenerated: 'Wartemusik regeneriert',
         ttsRegenerated: 'TTS erfolgreich regeneriert',
+        welcomePlaybackType: 'Wiedergabetyp',
+        welcomeModeMessageOnly: 'Nur Begrüßungsnachricht',
+        welcomeModeMessageOnlyDesc: 'Der Anrufer hört nur die Begrüßungsnachricht.',
+        welcomeModeRingThenMessage: 'Klingelton + Begrüßungsnachricht',
+        welcomeModeRingThenMessageDesc: 'Zuerst klingelt es N-mal, dann wird die Begrüßungsnachricht abgespielt.',
+        welcomeModeRingOnly: 'Nur Klingelton (ohne Nachricht)',
+        welcomeModeRingOnlyDesc: 'Der Anrufer hört nur den Klingelton, keine Begrüßungsnachricht.',
+        ringCount: 'Anzahl der Klingelzeichen',
         types: {
           welcome: 'Begrüßung',
           hold_music: 'Wartemusik',
@@ -48899,6 +48977,8 @@ export const translations: Record<Locale, Translations> = {
       todayCallsInboundBadge: 'Eingehend',
       todayCallsOutboundBadge: 'Ausgehend',
       todayCallsRefresh: 'Aktualisieren',
+      myShiftOpenCard: 'Karte öffnen',
+      myShiftCloseCard: 'Schließen',
       savePhoneLabel: 'Nummer speichern',
       savingPhone: 'Wird gespeichert...',
       savedPhone: 'Gespeichert',

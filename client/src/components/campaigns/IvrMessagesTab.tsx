@@ -459,19 +459,19 @@ export function IvrMessagesTab() {
         ringtoneOnly: false,
       } : {};
       if (editingMessage) {
-        regenerateTtsMutation.mutate({
-          id: editingMessage.id,
-          data: {
-            name: formData.name,
-            textContent: formData.textContent,
-            voice: formData.ttsVoice,
-            language: formData.language,
-            countryCode: formData.countryCode,
-            type: formData.type,
-            isActive: formData.isActive,
-            ...ringtoneFields,
-          },
-        });
+        const fd = new globalThis.FormData();
+        fd.append("name", formData.name);
+        fd.append("type", formData.type);
+        fd.append("language", formData.language);
+        fd.append("countryCode", formData.countryCode);
+        fd.append("isActive", String(formData.isActive));
+        fd.append("textContent", formData.textContent);
+        if (isWelcome) {
+          fd.append("prependRingtone", String(welcomeMode === "ring_then_message"));
+          fd.append("ringCount", String(formData.ringCount));
+          fd.append("ringtoneOnly", "false");
+        }
+        updateMutation.mutate({ id: editingMessage.id, data: fd });
       } else {
         ttsMutation.mutate({
           name: formData.name,
@@ -486,7 +486,7 @@ export function IvrMessagesTab() {
       return;
     }
 
-    if (!editingMessage && !audioFile) {
+    if (!editingMessage && !audioFile && sourceMode === "upload") {
       toast({ title: ivr.error, description: ivr.selectAudioFileError, variant: "destructive" });
       return;
     }
@@ -806,29 +806,29 @@ export function IvrMessagesTab() {
 
             {formData.type === "welcome" && (
               <div className="space-y-3">
-                <Label>Typ prehrávania</Label>
+                <Label>{ivr.welcomePlaybackType}</Label>
                 <div className="grid grid-cols-1 gap-2">
                   {(
                     [
                       {
                         mode: "message_only" as WelcomeMode,
                         icon: <Volume2 className="h-4 w-4 text-primary" />,
-                        label: "Len uvítacia správa",
-                        desc: "Volajúci počuje iba uvítaciu správu.",
+                        label: ivr.welcomeModeMessageOnly,
+                        desc: ivr.welcomeModeMessageOnlyDesc,
                       },
                       {
                         mode: "ring_then_message" as WelcomeMode,
                         icon: <PhoneCall className="h-4 w-4 text-primary" />,
-                        label: "Zvonenie + uvítacia správa",
-                        desc: "Najprv zaznie zvonenie (N-krát), potom sa prehrá uvítacia správa.",
+                        label: ivr.welcomeModeRingThenMessage,
+                        desc: ivr.welcomeModeRingThenMessageDesc,
                       },
                       {
                         mode: "ring_only" as WelcomeMode,
                         icon: <Bell className="h-4 w-4 text-primary" />,
-                        label: "Iba zvonenie (bez správy)",
-                        desc: "Volajúci počuje iba zvonenie, žiadna uvítacia správa.",
+                        label: ivr.welcomeModeRingOnly,
+                        desc: ivr.welcomeModeRingOnlyDesc,
                       },
-                    ] as const
+                    ]
                   ).map(({ mode, icon, label, desc }) => (
                     <div
                       key={mode}
@@ -853,7 +853,7 @@ export function IvrMessagesTab() {
                 </div>
                 {(welcomeMode === "ring_then_message" || welcomeMode === "ring_only") && (
                   <div className="flex items-center gap-3 pt-1">
-                    <Label className="shrink-0">Počet zvonení</Label>
+                    <Label className="shrink-0">{ivr.ringCount}</Label>
                     <div className="flex items-center gap-1">
                       {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
                         <button
@@ -1051,6 +1051,42 @@ export function IvrMessagesTab() {
                     {LANGUAGE_VOICE_RECOMMENDATIONS[formData.language]?.note || `OpenAI TTS — ${TTS_VOICES.find((v) => v.value === formData.ttsVoice)?.description || ""}`}
                   </p>
                 </div>
+                {editingMessage && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full gap-2"
+                    disabled={!formData.textContent.trim() || regenerateTtsMutation.isPending}
+                    onClick={() => {
+                      if (!formData.textContent.trim()) return;
+                      const rFields = isWelcome ? {
+                        prependRingtone: welcomeMode === "ring_then_message",
+                        ringCount: formData.ringCount,
+                        ringtoneOnly: false as const,
+                      } : {};
+                      regenerateTtsMutation.mutate({
+                        id: editingMessage.id,
+                        data: {
+                          name: formData.name,
+                          textContent: formData.textContent,
+                          voice: formData.ttsVoice,
+                          language: formData.language,
+                          countryCode: formData.countryCode,
+                          type: formData.type,
+                          isActive: formData.isActive,
+                          ...rFields,
+                        },
+                      });
+                    }}
+                    data-testid="btn-regenerate-tts"
+                  >
+                    {regenerateTtsMutation.isPending ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" />{ivr.generatingTts}</>
+                    ) : (
+                      <><RefreshCw className="h-4 w-4" />{ivr.regenerateTts}</>
+                    )}
+                  </Button>
+                )}
               </TabsContent>
             </Tabs>
             )}
@@ -1060,10 +1096,10 @@ export function IvrMessagesTab() {
               {ivr.cancel}
             </Button>
             <Button onClick={handleSubmit} disabled={isSaving} data-testid="btn-save-ivr">
-              {(ttsMutation.isPending || regenerateTtsMutation.isPending || stockMohMutation.isPending || regenerateStockMohMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {(ttsMutation.isPending || regenerateTtsMutation.isPending) ? ivr.generatingTts :
+              {(ttsMutation.isPending || stockMohMutation.isPending || regenerateStockMohMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {ttsMutation.isPending ? ivr.generatingTts :
                (stockMohMutation.isPending || regenerateStockMohMutation.isPending) ? ivr.generatingMoh :
-               editingMessage ? (sourceMode === "stock" && selectedStockId ? ivr.regenerate : sourceMode === "tts" ? ivr.regenerateTts : ivr.update) : ivr.create}
+               editingMessage ? (sourceMode === "stock" && selectedStockId ? ivr.regenerate : ivr.update) : ivr.create}
             </Button>
           </DialogFooter>
         </DialogContent>
