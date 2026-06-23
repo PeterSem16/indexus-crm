@@ -964,12 +964,12 @@ export class QueueEngine extends EventEmitter {
           // Play ring tone N times if ring_then_message or ring_only mode
           if (msg.prependRingtone || msg.ringtoneOnly) {
             const ringCount = Math.max(1, Math.min(9, msg.ringCount || 3));
-            console.log(`[QueueEngine] Playing ${ringCount}x ring tone for channel ${channel.id} (mode: ${msg.ringtoneOnly ? 'ring_only' : 'ring_then_message'})`);
+            console.log(`[QueueEngine] Playing ${ringCount}x tone:ring for channel ${channel.id} (mode: ${msg.ringtoneOnly ? 'ring_only' : 'ring_then_message'})`);
             for (let i = 0; i < ringCount; i++) {
               try {
                 const ringPbId = `ring-${channel.id}-${Date.now()}-${i}`;
-                await this.ariClient.playMedia(channel.id, `sound:ring`, ringPbId);
-                await this.waitForPlaybackFinished(ringPbId, 8000);
+                await this.ariClient.playMedia(channel.id, `tone:ring`, ringPbId);
+                await this.waitForPlaybackFinished(ringPbId, 10000);
               } catch { /* channel may have hung up, safe to ignore */ }
             }
           }
@@ -2564,12 +2564,12 @@ export class QueueEngine extends EventEmitter {
           // Play ring tone N times if ring_then_message or ring_only mode
           if (msg.prependRingtone || msg.ringtoneOnly) {
             const ringCount = Math.max(1, Math.min(9, msg.ringCount || 3));
-            console.log(`[QueueEngine] Playing ${ringCount}x ring tone for channel ${channel.id} (mode: ${msg.ringtoneOnly ? 'ring_only' : 'ring_then_message'})`);
+            console.log(`[QueueEngine] Playing ${ringCount}x tone:ring for channel ${channel.id} (mode: ${msg.ringtoneOnly ? 'ring_only' : 'ring_then_message'})`);
             for (let i = 0; i < ringCount; i++) {
               try {
                 const ringPbId = `ring-${channel.id}-${Date.now()}-${i}`;
-                await this.ariClient.playMedia(channel.id, `sound:ring`, ringPbId);
-                await this.waitForPlaybackFinished(ringPbId, 8000);
+                await this.ariClient.playMedia(channel.id, `tone:ring`, ringPbId);
+                await this.waitForPlaybackFinished(ringPbId, 10000);
               } catch { /* channel may have hung up, safe to ignore */ }
             }
           }
