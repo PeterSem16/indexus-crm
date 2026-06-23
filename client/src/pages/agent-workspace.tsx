@@ -2373,6 +2373,7 @@ function CommunicationCanvas({
   onCloseCallAfterStatusList,
   phoneOverride,
   onPhoneOverrideChange,
+  onClearContact,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -2424,6 +2425,7 @@ function CommunicationCanvas({
   onCloseCallAfterStatusList?: () => void;
   phoneOverride?: string | null;
   onPhoneOverrideChange?: (p: string | null) => void;
+  onClearContact?: () => void;
 }) {
   const { t, locale } = useI18n();
   const { user } = useAuth();
@@ -3588,6 +3590,18 @@ function CommunicationCanvas({
                 <BookOpen className="h-3 w-3" />
                 {t.agentWorkspace.sopTab || "SOP"}
               </button>
+              {onClearContact && (
+                <button
+                  type="button"
+                  onClick={onClearContact}
+                  className="ml-auto mr-2 flex items-center gap-1.5 px-2 py-1 rounded text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  title="Zatvoriť kartu"
+                  data-testid="btn-close-contact-card"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Zatvoriť
+                </button>
+              )}
             </div>
           )}
 
@@ -6813,19 +6827,16 @@ function MyActivityPanel({
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        {(onCallFromShift || onMakeCall) && item.phoneNumber && (
+                        {onOpenEntity && item.entityId && (
                           <button
                             type="button"
-                            onClick={() => {
-                              if (onCallFromShift) { onCallFromShift(item); }
-                              else { onMakeCall!(item.phoneNumber); }
-                              onOpenChange(false);
-                            }}
-                            className="flex h-7 w-7 items-center justify-center rounded-full bg-green-600 hover:bg-green-700 text-white transition-colors"
-                            title={item.phoneNumber}
-                            data-testid={`btn-shift-call-again-${item.id}`}
+                            onClick={() => { onOpenEntity(item.contactType || "customer", item.entityId, item.campaignContactId, item.campaignId); onOpenChange(false); }}
+                            className="flex items-center gap-1.5 h-7 px-2.5 rounded-md bg-primary/10 hover:bg-primary/20 text-primary text-[11px] font-medium border border-primary/20 transition-colors"
+                            title="Otvoriť kartu kontaktu"
+                            data-testid={`btn-shift-open-card-${item.id}`}
                           >
-                            <Phone className="h-3.5 w-3.5" />
+                            <User className="h-3 w-3" />
+                            Otvoriť kartu
                           </button>
                         )}
                         <div className="text-right flex flex-col items-end gap-1">
@@ -11566,6 +11577,11 @@ export default function AgentWorkspacePage() {
               onCloseCallAfterStatusList={handleCloseCallAfterStatusList}
               phoneOverride={currentPhoneOverride}
               onPhoneOverrideChange={setCurrentPhoneOverride}
+              onClearContact={() => {
+                pendingCcIdRef.current = null;
+                setCurrentCampaignContactId(null);
+                setCurrentContact(null);
+              }}
               onScriptAction={(action, data) => {
                 if (action === "openEmail") {
                   setActiveChannel("email");
