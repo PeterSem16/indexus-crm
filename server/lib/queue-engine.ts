@@ -966,16 +966,18 @@ export class QueueEngine extends EventEmitter {
             const ringCount = Math.max(1, Math.min(9, msg.ringCount || 3));
             console.log(`[QueueEngine] Playing ${ringCount}x tone:ring for channel ${channel.id} (mode: ${msg.ringtoneOnly ? 'ring_only' : 'ring_then_message'})`);
             // Initialize RTP by briefly starting/stopping MOH before tone playback
-            // (same pattern as RO hairpin — tone:ring fails on fresh channels without RTP flow)
             await this.startMohForChannel(channel.id, queue.id).catch(() => {});
             await new Promise(r => setTimeout(r, 300));
             await this.stopMohForChannel(channel.id).catch(() => {});
             for (let i = 0; i < ringCount; i++) {
+              const ringPbId = `ring-${channel.id}-${Date.now()}-${i}`;
               try {
-                const ringPbId = `ring-${channel.id}-${Date.now()}-${i}`;
                 await this.ariClient.playMedia(channel.id, `tone:ring`, ringPbId);
-                await this.waitForPlaybackFinished(ringPbId, 10000);
-              } catch { /* channel may have hung up, safe to ignore */ }
+                // tone:ring loops indefinitely — use fixed ring-cycle duration then stop explicitly
+                // SK ring cadence: ~1s ring + 4s silence per cycle
+                await new Promise(r => setTimeout(r, 4500));
+                await this.ariClient.stopPlayback(ringPbId).catch(() => {});
+              } catch { break; /* channel gone, abort ring loop */ }
             }
           }
 
@@ -2575,11 +2577,13 @@ export class QueueEngine extends EventEmitter {
             await new Promise(r => setTimeout(r, 300));
             await this.stopMohForChannel(channel.id).catch(() => {});
             for (let i = 0; i < ringCount; i++) {
+              const ringPbId = `ring-${channel.id}-${Date.now()}-${i}`;
               try {
-                const ringPbId = `ring-${channel.id}-${Date.now()}-${i}`;
                 await this.ariClient.playMedia(channel.id, `tone:ring`, ringPbId);
-                await this.waitForPlaybackFinished(ringPbId, 10000);
-              } catch { /* channel may have hung up, safe to ignore */ }
+                // tone:ring loops indefinitely — use fixed ring-cycle duration then stop explicitly
+                await new Promise(r => setTimeout(r, 4500));
+                await this.ariClient.stopPlayback(ringPbId).catch(() => {});
+              } catch { break; /* channel gone, abort ring loop */ }
             }
           }
 
