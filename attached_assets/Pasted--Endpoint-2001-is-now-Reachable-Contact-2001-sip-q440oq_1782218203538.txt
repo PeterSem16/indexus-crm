@@ -1,0 +1,23 @@
+ Endpoint 2001 is now Reachable
+    -- Contact 2001/sip:q440oqri@10.1.2.111:58040;transport=WS;x-ast-orig-host=u858cc1necb5.invalid:0 is now Reachable.  RTT: 34.154 msec
+    -- Executing [0232399030@from-sk-trunk:1] NoOp("PJSIP/trunk-sk-endpoint-00000116", "INBOUND from SK trunk DID=0232399030 CID="" <0421948519438>") in new stack
+    -- Executing [0232399030@from-sk-trunk:2] Set("PJSIP/trunk-sk-endpoint-00000116", "__CBC_SOURCE_TRUNK=SK") in new stack
+    -- Executing [0232399030@from-sk-trunk:3] Set("PJSIP/trunk-sk-endpoint-00000116", "__CBC_SOURCE_IP=10.9.33.2") in new stack
+    -- Executing [0232399030@from-sk-trunk:4] Set("PJSIP/trunk-sk-endpoint-00000116", "__CBC_DID=0232399030") in new stack
+    -- Executing [0232399030@from-sk-trunk:5] Set("PJSIP/trunk-sk-endpoint-00000116", "__CBC_CALLER=0421948519438") in new stack
+    -- Executing [0232399030@from-sk-trunk:6] Stasis("PJSIP/trunk-sk-endpoint-00000116", "indexus-inbound") in new stack
+    -- Called 2001
+    -- PJSIP/2001-00000117 is ringing
+    -- Called 2001
+    -- PJSIP/2001-00000118 is ringing
+    -- Called 2001
+    -- PJSIP/2001-00000119 is ringing
+[Jun 23 12:35:37] WARNING[521232][C-00000091]: res_stasis_playback.c:280 playback_final_update: 1782218074.448: Playback failed for tone:ring
+[Jun 23 12:35:37] WARNING[521232][C-00000091]: res_stasis_playback.c:280 playback_final_update: 1782218074.448: Playback failed for tone:ring
+[Jun 23 12:35:37] WARNING[521232][C-00000091]: res_stasis_playback.c:280 playback_final_update: 1782218074.448: Playback failed for tone:ring
+[Jun 23 12:35:37] NOTICE[521232][C-00000091]: res_stasis_playback.c:251 playback_first_update: 1782218074.448: Playback canceled for sound:custom/moh-slow-jazz
+[Jun 23 12:35:37] NOTICE[521232][C-00000091]: res_stasis_playback.c:251 playback_first_update: 1782218074.448: Playback canceled for sound:custom/moh-slow-jazz
+[Jun 23 12:35:37] NOTICE[521232][C-00000091]: res_stasis_playback.c:251 playback_first_update: 1782218074.448: Playback canceled for sound:custom/moh-slow-jazz
+    -- <PJSIP/trunk-sk-endpoint-00000116> Playing 'custom/ukoncenie-hovoru-koordinator-sk.slin' (language 'en')
+[Jun 23 12:35:37] WARNING[521232][C-00000091]: res_stasis_playback.c:280 playback_final_update: 1782218074.448: Playback failed for sound:custom/ukoncenie-hovoru-koordinator-sk
+mediagtw*CLI>

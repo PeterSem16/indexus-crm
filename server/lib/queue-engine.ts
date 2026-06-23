@@ -965,6 +965,11 @@ export class QueueEngine extends EventEmitter {
           if (msg.prependRingtone || msg.ringtoneOnly) {
             const ringCount = Math.max(1, Math.min(9, msg.ringCount || 3));
             console.log(`[QueueEngine] Playing ${ringCount}x tone:ring for channel ${channel.id} (mode: ${msg.ringtoneOnly ? 'ring_only' : 'ring_then_message'})`);
+            // Initialize RTP by briefly starting/stopping MOH before tone playback
+            // (same pattern as RO hairpin — tone:ring fails on fresh channels without RTP flow)
+            await this.startMohForChannel(channel.id, queue.id).catch(() => {});
+            await new Promise(r => setTimeout(r, 300));
+            await this.stopMohForChannel(channel.id).catch(() => {});
             for (let i = 0; i < ringCount; i++) {
               try {
                 const ringPbId = `ring-${channel.id}-${Date.now()}-${i}`;
@@ -2565,6 +2570,10 @@ export class QueueEngine extends EventEmitter {
           if (msg.prependRingtone || msg.ringtoneOnly) {
             const ringCount = Math.max(1, Math.min(9, msg.ringCount || 3));
             console.log(`[QueueEngine] Playing ${ringCount}x tone:ring for channel ${channel.id} (mode: ${msg.ringtoneOnly ? 'ring_only' : 'ring_then_message'})`);
+            // Initialize RTP by briefly starting/stopping MOH before tone playback
+            await this.startMohForChannel(channel.id, queue.id).catch(() => {});
+            await new Promise(r => setTimeout(r, 300));
+            await this.stopMohForChannel(channel.id).catch(() => {});
             for (let i = 0; i < ringCount; i++) {
               try {
                 const ringPbId = `ring-${channel.id}-${Date.now()}-${i}`;
