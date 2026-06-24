@@ -4291,9 +4291,16 @@ function CommunicationCanvas({
               labelColor: 'text-emerald-600 dark:text-emerald-400', dotColor: 'bg-emerald-500', pctColor: 'text-emerald-500',
               barGradient: 'linear-gradient(90deg, #34d399 0%, #059669 100%)' },
           ].map(ph => {
-            const items = dbVisibleItems.filter((i: any) => !i.tab || i.tab === ph.key);
-            const confirmed = items.filter((i: any) => dbSlChecked.has(String(i.id))).length;
-            return { ...ph, total: items.length, confirmed, pct: items.length > 0 ? Math.round((confirmed / items.length) * 100) : 0 };
+            const phItems = dbVisibleItems.filter((i: any) => {
+              if (i.tab) return i.tab === ph.key;
+              if (i.parentId) {
+                const parent = (dbStatusList as any[]).find((p: any) => p.id === i.parentId);
+                return (parent?.tab || null) === ph.key;
+              }
+              return false;
+            });
+            const confirmed = phItems.filter((i: any) => dbSlChecked.has(String(i.id))).length;
+            return { ...ph, total: phItems.length, confirmed, pct: phItems.length > 0 ? Math.round((confirmed / phItems.length) * 100) : 0 };
           });
 
           return (

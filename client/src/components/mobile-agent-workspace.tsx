@@ -279,7 +279,14 @@ function StatusListPanel({ items, checked, onToggle, np, activeTab, onTabChange 
               { key: 'contract'    as const, label: 'Contract',    barGradient: 'linear-gradient(90deg,#a78bfa,#7c3aed)', labelColor: 'text-violet-600 dark:text-violet-400', dotColor: 'bg-violet-500', cardActive: 'bg-violet-50 dark:bg-violet-950/40 border-violet-300 dark:border-violet-600 shadow-md ring-1 ring-violet-400/30' },
               { key: 'retention'  as const, label: 'Retention',   barGradient: 'linear-gradient(90deg,#34d399,#059669)', labelColor: 'text-emerald-600 dark:text-emerald-400', dotColor: 'bg-emerald-500', cardActive: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-600 shadow-md ring-1 ring-emerald-400/30' },
             ].map(ph => {
-              const phItems = allVisible.filter((i: any) => !i.tab || i.tab === ph.key);
+              const phItems = allVisible.filter((i: any) => {
+                if (i.tab) return i.tab === ph.key;
+                if (i.parentId) {
+                  const parent = items.find((p: any) => p.id === i.parentId);
+                  return (parent?.tab || null) === ph.key;
+                }
+                return false;
+              });
               const phConfirmed = phItems.filter((i: any) => checked.has(String(i.id))).length;
               const pct = phItems.length > 0 ? Math.round((phConfirmed / phItems.length) * 100) : 0;
               return { ...ph, total: phItems.length, confirmed: phConfirmed, pct };
