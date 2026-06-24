@@ -2466,7 +2466,7 @@ function CommunicationCanvas({
   const [clNotes, setClNotes] = useState<Record<string, string>>({});
   const [isSavingChecklist, setIsSavingChecklist] = useState(false);
   const [dbSlChecked, setDbSlChecked] = useState<Set<string>>(new Set());
-  const [slActiveTab, setSlActiveTab] = useState<'acquisition' | 'retention'>('acquisition');
+  const [slActiveTab, setSlActiveTab] = useState<'acquisition' | 'contract' | 'retention'>('acquisition');
   const { data: dbStatusList = [] } = useQuery<any[]>({
     queryKey: ["/api/campaigns", campaign?.id, "status-list"],
     enabled: !!campaign?.id,
@@ -2530,7 +2530,7 @@ function CommunicationCanvas({
   useEffect(() => {
     if (!campaign?.id || !campaignContactId) return;
     const stored = localStorage.getItem(`sl-tab-${campaign.id}-${campaignContactId}`);
-    if (stored === 'acquisition' || stored === 'retention') {
+    if (stored === 'acquisition' || stored === 'contract' || stored === 'retention') {
       setSlActiveTab(stored);
     } else {
       setSlActiveTab('acquisition');
@@ -2568,8 +2568,8 @@ function CommunicationCanvas({
     // Auto-switch to the tab of the item that was just checked
     if (newChecked) {
       const checkedItem = (dbStatusList as any[]).find((i: any) => String(i.id) === itemId);
-      if (checkedItem?.tab === 'acquisition' || checkedItem?.tab === 'retention') {
-        const tab = checkedItem.tab as 'acquisition' | 'retention';
+      if (checkedItem?.tab === 'acquisition' || checkedItem?.tab === 'contract' || checkedItem?.tab === 'retention') {
+        const tab = checkedItem.tab as 'acquisition' | 'contract' | 'retention';
         setSlActiveTab(tab);
         if (campaign?.id && campaignContactId) {
           localStorage.setItem(`sl-tab-${campaign.id}-${campaignContactId}`, tab);
@@ -4345,7 +4345,7 @@ function CommunicationCanvas({
               {/* ── Tab switcher ──────────────────────────────────── */}
               {hasSlTabAssignment && (
                 <div className="mx-3 mt-2 mb-1 shrink-0 flex gap-1 bg-muted/50 p-1 rounded-xl">
-                  {(['acquisition', 'retention'] as const).map(tab => (
+                  {(['acquisition', 'contract', 'retention'] as const).map(tab => (
                     <button
                       key={tab}
                       type="button"
@@ -4359,12 +4359,14 @@ function CommunicationCanvas({
                         slActiveTab === tab
                           ? tab === 'acquisition'
                             ? "bg-blue-500 text-white shadow-sm"
+                            : tab === 'contract'
+                            ? "bg-violet-500 text-white shadow-sm"
                             : "bg-emerald-500 text-white shadow-sm"
                           : "text-muted-foreground hover:text-foreground"
                       }`}
                       data-testid={`sl-tab-${tab}`}
                     >
-                      {tab === 'acquisition' ? 'Acquisition' : 'Retention'}
+                      {tab === 'acquisition' ? 'Acquisition' : tab === 'contract' ? 'Contract' : 'Retention'}
                     </button>
                   ))}
                 </div>
@@ -4388,6 +4390,8 @@ function CommunicationCanvas({
                         ? "bg-primary/5 border-primary/60 shadow-md ring-2 ring-primary/30"
                         : item.tab === 'acquisition'
                         ? "bg-blue-50/50 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900/40 hover:border-blue-300/60 dark:hover:border-blue-700/50 hover:shadow-sm"
+                        : item.tab === 'contract'
+                        ? "bg-violet-50/50 dark:bg-violet-950/20 border-violet-100 dark:border-violet-900/40 hover:border-violet-300/60 dark:hover:border-violet-700/50 hover:shadow-sm"
                         : item.tab === 'retention'
                         ? "bg-emerald-50/40 dark:bg-emerald-950/15 border-emerald-100 dark:border-emerald-900/30 hover:border-emerald-300/60 dark:hover:border-emerald-700/50 hover:shadow-sm"
                         : "bg-card border-border hover:border-primary/25 dark:hover:border-primary/35 hover:shadow-sm"
@@ -4397,6 +4401,7 @@ function CommunicationCanvas({
                     <div className={`absolute inset-y-0 left-0 w-[3px] rounded-l-xl transition-all duration-300 ${
                       isChecked ? "bg-emerald-500"
                       : item.tab === 'acquisition' ? "bg-blue-400/70"
+                      : item.tab === 'contract' ? "bg-violet-400/70"
                       : item.tab === 'retention' ? "bg-emerald-400/70"
                       : isInfo ? "bg-blue-400" : "bg-muted-foreground/15"
                     }`} />
@@ -8533,8 +8538,8 @@ export default function AgentWorkspacePage() {
     // Auto-switch to the tab of the item that was just checked
     if (newChecked) {
       const checkedItem = (mobileDbStatusList as any[]).find((i: any) => String(i.id) === itemId);
-      if (checkedItem?.tab === 'acquisition' || checkedItem?.tab === 'retention') {
-        const tab = checkedItem.tab as 'acquisition' | 'retention';
+      if (checkedItem?.tab === 'acquisition' || checkedItem?.tab === 'contract' || checkedItem?.tab === 'retention') {
+        const tab = checkedItem.tab as 'acquisition' | 'contract' | 'retention';
         setSlActiveTab(tab);
         if (selectedCampaignId && effectiveCampaignContactId) {
           localStorage.setItem(`sl-tab-${selectedCampaignId}-${effectiveCampaignContactId}`, tab);

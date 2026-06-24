@@ -136,6 +136,7 @@ const SL: Record<string, Record<string, string>> = {
   tabLbl:      { sk: "Záložka (tab)", en: "Tab", cs: "Záložka", hu: "Fül", ro: "Filă", it: "Scheda", de: "Registerkarte" },
   tabBoth:     { sk: "Obe záložky", en: "Both tabs", cs: "Obě záložky", hu: "Mindkét fül", ro: "Ambele file", it: "Entrambe", de: "Beide" },
   tabAcq:      { sk: "Acquisition", en: "Acquisition", cs: "Acquisition", hu: "Acquisition", ro: "Acquisition", it: "Acquisition", de: "Acquisition" },
+  tabContract: { sk: "Zmluva", en: "Contract", cs: "Smlouva", hu: "Szerződés", ro: "Contract", it: "Contratto", de: "Vertrag" },
   tabRet:      { sk: "Retention", en: "Retention", cs: "Retention", hu: "Retention", ro: "Retention", it: "Retention", de: "Retention" },
 
   ct_checkbox: { sk: "Zaškrtávacie políčko", en: "Checkbox", cs: "Zaškrtávací políčko", hu: "Jelölőnégyzet", ro: "Casetă de bifare", it: "Casella di spunta", de: "Kontrollkästchen" },
@@ -2606,6 +2607,7 @@ function StatusListItemRow({
                     <SelectContent>
                       <SelectItem value="__both__">{sl("tabBoth", locale)}</SelectItem>
                       <SelectItem value="acquisition">{sl("tabAcq", locale)}</SelectItem>
+                      <SelectItem value="contract">{sl("tabContract", locale)}</SelectItem>
                       <SelectItem value="retention">{sl("tabRet", locale)}</SelectItem>
                     </SelectContent>
                   </Select>
@@ -3022,6 +3024,7 @@ function AddItemForm({
             <SelectContent>
               <SelectItem value="__both__">{sl("tabBoth", locale)}</SelectItem>
               <SelectItem value="acquisition">{sl("tabAcq", locale)}</SelectItem>
+              <SelectItem value="contract">{sl("tabContract", locale)}</SelectItem>
               <SelectItem value="retention">{sl("tabRet", locale)}</SelectItem>
             </SelectContent>
           </Select>

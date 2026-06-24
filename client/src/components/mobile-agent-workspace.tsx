@@ -83,8 +83,8 @@ export interface MobileAgentWorkspaceProps {
   dbStatusList: any[];
   dbSlChecked: Set<string>;
   onSlToggle: (itemId: string, checked: boolean) => void;
-  slActiveTab?: 'acquisition' | 'retention';
-  onSlTabChange?: (tab: 'acquisition' | 'retention') => void;
+  slActiveTab?: 'acquisition' | 'contract' | 'retention';
+  onSlTabChange?: (tab: 'acquisition' | 'contract' | 'retention') => void;
 
   agentStatus: string;
   isOnBreak: boolean;
@@ -229,8 +229,8 @@ function StatusListPanel({ items, checked, onToggle, np, activeTab, onTabChange 
   checked: Set<string>;
   onToggle: (id: string, v: boolean) => void;
   np: any;
-  activeTab?: 'acquisition' | 'retention';
-  onTabChange?: (tab: 'acquisition' | 'retention') => void;
+  activeTab?: 'acquisition' | 'contract' | 'retention';
+  onTabChange?: (tab: 'acquisition' | 'contract' | 'retention') => void;
 }) {
   const [open, setOpen] = useState(false);
   const [yesno, setYesno] = useState<Record<string, "yes" | "no">>({});
@@ -275,7 +275,7 @@ function StatusListPanel({ items, checked, onToggle, np, activeTab, onTabChange 
           {/* Tab switcher */}
           {hasTabAssignment && (
             <div className="flex gap-1 bg-muted/50 mx-3 my-2 p-1 rounded-xl">
-              {(['acquisition', 'retention'] as const).map(tab => (
+              {(['acquisition', 'contract', 'retention'] as const).map(tab => (
                 <button
                   key={tab}
                   type="button"
@@ -284,12 +284,14 @@ function StatusListPanel({ items, checked, onToggle, np, activeTab, onTabChange 
                     currentTab === tab
                       ? tab === 'acquisition'
                         ? "bg-blue-500 text-white shadow-sm"
+                        : tab === 'contract'
+                        ? "bg-violet-500 text-white shadow-sm"
                         : "bg-emerald-500 text-white shadow-sm"
                       : "text-muted-foreground"
                   }`}
                   data-testid={`sl-mobile-tab-${tab}`}
                 >
-                  {tab === 'acquisition' ? 'Acquisition' : 'Retention'}
+                  {tab === 'acquisition' ? 'Acquisition' : tab === 'contract' ? 'Contract' : 'Retention'}
                 </button>
               ))}
             </div>
@@ -310,6 +312,8 @@ function StatusListPanel({ items, checked, onToggle, np, activeTab, onTabChange 
                     ? "bg-emerald-50/60 dark:bg-emerald-900/15"
                     : item.tab === 'acquisition'
                     ? "bg-blue-50/50 dark:bg-blue-950/20"
+                    : item.tab === 'contract'
+                    ? "bg-violet-50/50 dark:bg-violet-950/20"
                     : item.tab === 'retention'
                     ? "bg-emerald-50/35 dark:bg-emerald-950/10"
                     : ""
