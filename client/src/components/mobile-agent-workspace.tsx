@@ -881,7 +881,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
               {np.evaluateCall || "Evaluate call"}
             </button>
           )}
-          <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} activeTab={slActiveTab} onTabChange={onSlTabChange} />
+          <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} />
           <button onClick={onClearContact}
             className="w-full flex items-center justify-center gap-2 h-11 rounded-xl border border-dashed border-amber-400 text-amber-600 dark:text-amber-400 text-sm font-semibold bg-amber-50/50 dark:bg-amber-950/10 active:scale-[0.98] transition-all"
             data-testid="btn-mobile-release-contact-ended">
