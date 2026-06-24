@@ -83,9 +83,6 @@ export interface MobileAgentWorkspaceProps {
   dbStatusList: any[];
   dbSlChecked: Set<string>;
   onSlToggle: (itemId: string, checked: boolean) => void;
-  slActiveTab?: 'acquisition' | 'contract' | 'retention';
-  onSlTabChange?: (tab: 'acquisition' | 'contract' | 'retention') => void;
-
   agentStatus: string;
   isOnBreak: boolean;
   workTime: string;
@@ -224,19 +221,17 @@ function BackBar({ onBack, label }: { onBack: () => void; label: string }) {
 }
 
 /* ── StatusListPanel — hierarchical, large touch targets ────────────── */
-function StatusListPanel({ items, checked, onToggle, np, activeTab, onTabChange }: {
+function StatusListPanel({ items, checked, onToggle, np }: {
   items: any[];
   checked: Set<string>;
   onToggle: (id: string, v: boolean) => void;
   np: any;
-  activeTab?: 'acquisition' | 'contract' | 'retention';
-  onTabChange?: (tab: 'acquisition' | 'contract' | 'retention') => void;
 }) {
   const [open, setOpen] = useState(false);
   const [yesno, setYesno] = useState<Record<string, "yes" | "no">>({});
+  const [currentTab, setCurrentTab] = useState<'acquisition' | 'contract' | 'retention'>('acquisition');
 
   const hasTabAssignment = items.some((i: any) => !i.parentId && i.tab && i.itemType !== "option" && !i.isHidden);
-  const currentTab = activeTab ?? 'acquisition';
 
   const allVisible = items.filter((i: any) => i.itemType !== "option" && i.confirmationType !== "auto" && !i.isHidden);
   const topLevelAll = allVisible.filter((i: any) => !i.parentId);
@@ -309,7 +304,7 @@ function StatusListPanel({ items, checked, onToggle, np, activeTab, onTabChange 
                     <button
                       key={ph.key}
                       type="button"
-                      onClick={() => onTabChange?.(ph.key)}
+                      onClick={() => setCurrentTab(ph.key)}
                       className={`flex-1 rounded-xl border p-2 transition-all duration-200 text-left relative overflow-hidden ${
                         isActive ? ph.cardActive : 'bg-muted/20 dark:bg-muted/10 border-border/40 hover:bg-muted/40'
                       }`}
@@ -616,7 +611,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
     onEndCall, onToggleMute, onToggleHold, onSendDtmf, onMakeCall, isSipRegistered,
     sipIncomingCall, onAnswerIncoming, onRejectIncoming,
     onOpenDisposition, isStatusListMode,
-    dbStatusList, dbSlChecked, onSlToggle, slActiveTab, onSlTabChange,
+    dbStatusList, dbSlChecked, onSlToggle,
     agentStatus, isOnBreak, workTime, breakTypes,
     onEndSession, onStartBreak, onEndBreak,
     onFullLogout, t, currentUserId,
@@ -871,7 +866,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
           {/* ── Independent scroll area: only the status list ── */}
           {dbStatusList.length > 0 && (
             <div className="flex-1 min-h-0 overflow-y-auto" style={{ WebkitOverflowScrolling: "touch" }}>
-              <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} activeTab={slActiveTab} onTabChange={onSlTabChange} />
+              <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} />
             </div>
           )}
         </div>
@@ -1340,7 +1335,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
           {/* Status list */}
           {dbStatusList.length > 0 && (
             <div className="-mx-4">
-              <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} activeTab={slActiveTab} onTabChange={onSlTabChange} />
+              <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} />
             </div>
           )}
 

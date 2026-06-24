@@ -8605,17 +8605,6 @@ export default function AgentWorkspacePage() {
       if (newChecked) next.add(itemId); else next.delete(itemId);
       return next;
     });
-    // Auto-switch to the tab of the item that was just checked
-    if (newChecked) {
-      const checkedItem = (mobileDbStatusList as any[]).find((i: any) => String(i.id) === itemId);
-      if (checkedItem?.tab === 'acquisition' || checkedItem?.tab === 'contract' || checkedItem?.tab === 'retention') {
-        const tab = checkedItem.tab as 'acquisition' | 'contract' | 'retention';
-        setSlActiveTab(tab);
-        if (selectedCampaignId && effectiveCampaignContactId) {
-          localStorage.setItem(`sl-tab-${selectedCampaignId}-${effectiveCampaignContactId}`, tab);
-        }
-      }
-    }
     try {
       await apiRequest("POST", `/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}/status-list-state/${itemId}`, {
         confirm: newChecked,
@@ -11526,13 +11515,6 @@ export default function AgentWorkspacePage() {
               dbStatusList={mobileDbStatusList}
               dbSlChecked={mobileDbSlChecked}
               onSlToggle={handleMobileSlToggle}
-              slActiveTab={slActiveTab}
-              onSlTabChange={(tab) => {
-                setSlActiveTab(tab);
-                if (campaign?.id && campaignContactId) {
-                  localStorage.setItem(`sl-tab-${campaign.id}-${campaignContactId}`, tab);
-                }
-              }}
               agentStatus={agentSession.status}
               isOnBreak={!!agentSession.activeBreak}
               workTime={agentSession.workTime}
