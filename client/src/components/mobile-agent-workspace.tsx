@@ -227,7 +227,6 @@ function StatusListPanel({ items, checked, onToggle, np }: {
   onToggle: (id: string, v: boolean) => void;
   np: any;
 }) {
-  const [open, setOpen] = useState(false);
   const [yesno, setYesno] = useState<Record<string, "yes" | "no">>({});
   const [currentTab, setCurrentTab] = useState<'acquisition' | 'contract' | 'retention'>('acquisition');
 
@@ -248,25 +247,7 @@ function StatusListPanel({ items, checked, onToggle, np }: {
 
   return (
     <div className="mx-4 mb-4 rounded-2xl border bg-card overflow-hidden">
-      <button
-        className="w-full flex items-center justify-between px-4 py-3.5 active:bg-muted"
-        onClick={() => setOpen(v => !v)}
-        data-testid="btn-mobile-sl-toggle"
-      >
-        <div className="flex items-center gap-2">
-          <ListChecks className="h-4 w-4 text-primary" />
-          <span className="text-sm font-bold">{np.statusList || "Status list"}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-            confirmed === total && total > 0 ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"
-          }`}>{confirmed}/{total}</span>
-          {open ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-        </div>
-      </button>
-
-      {open && (
-        <div className="border-t">
+      <div>
           {/* Phase Journey Pipeline */}
           {hasTabAssignment && (() => {
             const mobilePhaseDefs = [
@@ -537,7 +518,6 @@ function StatusListPanel({ items, checked, onToggle, np }: {
             </div>
           )}
         </div>
-      )}
     </div>
   );
 }
