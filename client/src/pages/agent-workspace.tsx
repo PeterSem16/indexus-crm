@@ -4280,15 +4280,18 @@ function CommunicationCanvas({
           const phaseStats = [
             { key: 'acquisition' as const, label: 'Acquisition',
               cardActive: 'bg-blue-50 dark:bg-blue-950/40 border-blue-300 dark:border-blue-600 shadow-lg ring-1 ring-blue-400/40',
-              labelColor: 'text-blue-600 dark:text-blue-400', barColor: 'bg-blue-500', dotColor: 'bg-blue-500', pctColor: 'text-blue-500' },
+              labelColor: 'text-blue-600 dark:text-blue-400', dotColor: 'bg-blue-500', pctColor: 'text-blue-500',
+              barGradient: 'linear-gradient(90deg, #60a5fa 0%, #2563eb 100%)' },
             { key: 'contract' as const, label: 'Contract',
               cardActive: 'bg-violet-50 dark:bg-violet-950/40 border-violet-300 dark:border-violet-600 shadow-lg ring-1 ring-violet-400/40',
-              labelColor: 'text-violet-600 dark:text-violet-400', barColor: 'bg-violet-500', dotColor: 'bg-violet-500', pctColor: 'text-violet-500' },
+              labelColor: 'text-violet-600 dark:text-violet-400', dotColor: 'bg-violet-500', pctColor: 'text-violet-500',
+              barGradient: 'linear-gradient(90deg, #a78bfa 0%, #7c3aed 100%)' },
             { key: 'retention' as const, label: 'Retention',
               cardActive: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-600 shadow-lg ring-1 ring-emerald-400/40',
-              labelColor: 'text-emerald-600 dark:text-emerald-400', barColor: 'bg-emerald-500', dotColor: 'bg-emerald-500', pctColor: 'text-emerald-500' },
+              labelColor: 'text-emerald-600 dark:text-emerald-400', dotColor: 'bg-emerald-500', pctColor: 'text-emerald-500',
+              barGradient: 'linear-gradient(90deg, #34d399 0%, #059669 100%)' },
           ].map(ph => {
-            const items = dbVisibleItems.filter((i: any) => i.tab === ph.key);
+            const items = dbVisibleItems.filter((i: any) => !i.tab || i.tab === ph.key);
             const confirmed = items.filter((i: any) => dbSlChecked.has(String(i.id))).length;
             return { ...ph, total: items.length, confirmed, pct: items.length > 0 ? Math.round((confirmed / items.length) * 100) : 0 };
           });
@@ -4364,8 +4367,15 @@ function CommunicationCanvas({
                           {/* Mini progress bar */}
                           <div className="h-1.5 bg-black/5 dark:bg-white/8 rounded-full overflow-hidden mb-1.5">
                             <div
-                              className={`h-full rounded-full transition-all duration-700 ${isComplete ? 'bg-emerald-500' : ph.barColor}`}
-                              style={{ width: ph.total > 0 ? `${ph.pct}%` : '0%' }}
+                              className="h-full rounded-full transition-all duration-700"
+                              style={{
+                                width: ph.total > 0 ? `${ph.pct}%` : '0%',
+                                background: isComplete
+                                  ? '#10b981'
+                                  : ph.pct > 0
+                                  ? ph.barGradient
+                                  : 'transparent',
+                              }}
                             />
                           </div>
                           {/* Count + pct */}

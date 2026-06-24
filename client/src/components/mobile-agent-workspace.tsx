@@ -275,11 +275,11 @@ function StatusListPanel({ items, checked, onToggle, np, activeTab, onTabChange 
           {/* Phase Journey Pipeline */}
           {hasTabAssignment && (() => {
             const mobilePhaseDefs = [
-              { key: 'acquisition' as const, label: 'Acquisition', barColor: 'bg-blue-500', labelColor: 'text-blue-600 dark:text-blue-400', dotColor: 'bg-blue-500', cardActive: 'bg-blue-50 dark:bg-blue-950/40 border-blue-300 dark:border-blue-600 shadow-md ring-1 ring-blue-400/30' },
-              { key: 'contract'    as const, label: 'Contract',    barColor: 'bg-violet-500', labelColor: 'text-violet-600 dark:text-violet-400', dotColor: 'bg-violet-500', cardActive: 'bg-violet-50 dark:bg-violet-950/40 border-violet-300 dark:border-violet-600 shadow-md ring-1 ring-violet-400/30' },
-              { key: 'retention'  as const, label: 'Retention',   barColor: 'bg-emerald-500', labelColor: 'text-emerald-600 dark:text-emerald-400', dotColor: 'bg-emerald-500', cardActive: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-600 shadow-md ring-1 ring-emerald-400/30' },
+              { key: 'acquisition' as const, label: 'Acquisition', barGradient: 'linear-gradient(90deg,#60a5fa,#2563eb)', labelColor: 'text-blue-600 dark:text-blue-400', dotColor: 'bg-blue-500', cardActive: 'bg-blue-50 dark:bg-blue-950/40 border-blue-300 dark:border-blue-600 shadow-md ring-1 ring-blue-400/30' },
+              { key: 'contract'    as const, label: 'Contract',    barGradient: 'linear-gradient(90deg,#a78bfa,#7c3aed)', labelColor: 'text-violet-600 dark:text-violet-400', dotColor: 'bg-violet-500', cardActive: 'bg-violet-50 dark:bg-violet-950/40 border-violet-300 dark:border-violet-600 shadow-md ring-1 ring-violet-400/30' },
+              { key: 'retention'  as const, label: 'Retention',   barGradient: 'linear-gradient(90deg,#34d399,#059669)', labelColor: 'text-emerald-600 dark:text-emerald-400', dotColor: 'bg-emerald-500', cardActive: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-600 shadow-md ring-1 ring-emerald-400/30' },
             ].map(ph => {
-              const phItems = allVisible.filter((i: any) => i.tab === ph.key);
+              const phItems = allVisible.filter((i: any) => !i.tab || i.tab === ph.key);
               const phConfirmed = phItems.filter((i: any) => checked.has(String(i.id))).length;
               const pct = phItems.length > 0 ? Math.round((phConfirmed / phItems.length) * 100) : 0;
               return { ...ph, total: phItems.length, confirmed: phConfirmed, pct };
@@ -323,8 +323,15 @@ function StatusListPanel({ items, checked, onToggle, np, activeTab, onTabChange 
                       </div>
                       <div className="h-1.5 bg-black/5 dark:bg-white/5 rounded-full overflow-hidden mb-1">
                         <div
-                          className={`h-full rounded-full transition-all duration-700 ${isComplete ? 'bg-emerald-500' : ph.barColor}`}
-                          style={{ width: ph.total > 0 ? `${ph.pct}%` : '0%' }}
+                          className="h-full rounded-full transition-all duration-700"
+                          style={{
+                            width: ph.total > 0 ? `${ph.pct}%` : '0%',
+                            background: isComplete
+                              ? '#10b981'
+                              : ph.pct > 0
+                              ? ph.barGradient
+                              : 'transparent',
+                          }}
                         />
                       </div>
                       {ph.total > 0 ? (
