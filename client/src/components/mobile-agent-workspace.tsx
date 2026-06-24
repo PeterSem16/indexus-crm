@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Slider } from "@/components/ui/slider";
 import { Phone, PhoneOff, PhoneIncoming, Mic, MicOff, PauseCircle, PlayCircle,
-  Hash, Check, ChevronDown, ChevronUp, Info, Zap, Coffee, LogOut, User,
+  Hash, Check, CheckCircle, ChevronDown, ChevronUp, Info, Zap, Coffee, LogOut, User,
   Clock, ChevronRight, AlertCircle, FileText, ListChecks,
   Mail, MapPin, Calendar, ArrowLeft, Search, X, Baby, Building2,
   History, PhoneCall, Stethoscope, UserX, Globe, Share2, UserCheck,
@@ -272,30 +272,80 @@ function StatusListPanel({ items, checked, onToggle, np, activeTab, onTabChange 
 
       {open && (
         <div className="border-t">
-          {/* Tab switcher */}
-          {hasTabAssignment && (
-            <div className="flex gap-1 bg-muted/50 mx-3 my-2 p-1 rounded-xl">
-              {(['acquisition', 'contract', 'retention'] as const).map(tab => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => onTabChange?.(tab)}
-                  className={`flex-1 h-8 rounded-lg text-xs font-bold transition-all ${
-                    currentTab === tab
-                      ? tab === 'acquisition'
-                        ? "bg-blue-500 text-white shadow-sm"
-                        : tab === 'contract'
-                        ? "bg-violet-500 text-white shadow-sm"
-                        : "bg-emerald-500 text-white shadow-sm"
-                      : "text-muted-foreground"
-                  }`}
-                  data-testid={`sl-mobile-tab-${tab}`}
-                >
-                  {tab === 'acquisition' ? 'Acquisition' : tab === 'contract' ? 'Contract' : 'Retention'}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* Phase Journey Pipeline */}
+          {hasTabAssignment && (() => {
+            const mobilePhaseDefs = [
+              { key: 'acquisition' as const, label: 'Acquisition', barColor: 'bg-blue-500', labelColor: 'text-blue-600 dark:text-blue-400', dotColor: 'bg-blue-500', cardActive: 'bg-blue-50 dark:bg-blue-950/40 border-blue-300 dark:border-blue-600 shadow-md ring-1 ring-blue-400/30' },
+              { key: 'contract'    as const, label: 'Contract',    barColor: 'bg-violet-500', labelColor: 'text-violet-600 dark:text-violet-400', dotColor: 'bg-violet-500', cardActive: 'bg-violet-50 dark:bg-violet-950/40 border-violet-300 dark:border-violet-600 shadow-md ring-1 ring-violet-400/30' },
+              { key: 'retention'  as const, label: 'Retention',   barColor: 'bg-emerald-500', labelColor: 'text-emerald-600 dark:text-emerald-400', dotColor: 'bg-emerald-500', cardActive: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-600 shadow-md ring-1 ring-emerald-400/30' },
+            ].map(ph => {
+              const phItems = allVisible.filter((i: any) => i.tab === ph.key);
+              const phConfirmed = phItems.filter((i: any) => checked.has(String(i.id))).length;
+              const pct = phItems.length > 0 ? Math.round((phConfirmed / phItems.length) * 100) : 0;
+              return { ...ph, total: phItems.length, confirmed: phConfirmed, pct };
+            });
+            return (
+              <div className="flex items-stretch gap-1 px-3 pt-2.5 pb-1">
+                {mobilePhaseDefs.flatMap((ph, idx) => {
+                  const isActive = currentTab === ph.key;
+                  const isComplete = ph.total > 0 && ph.confirmed === ph.total;
+                  const isStarted = ph.confirmed > 0;
+                  const nodes: JSX.Element[] = [];
+                  if (idx > 0) {
+                    nodes.push(
+                      <div key={`sep-${ph.key}`} className="flex items-center shrink-0 self-center">
+                        <ChevronRight className="h-3 w-3 text-muted-foreground/30" />
+                      </div>
+                    );
+                  }
+                  nodes.push(
+                    <button
+                      key={ph.key}
+                      type="button"
+                      onClick={() => onTabChange?.(ph.key)}
+                      className={`flex-1 rounded-xl border p-2 transition-all duration-200 text-left relative overflow-hidden ${
+                        isActive ? ph.cardActive : 'bg-muted/20 dark:bg-muted/10 border-border/40 hover:bg-muted/40'
+                      }`}
+                      data-testid={`sl-mobile-phase-${ph.key}`}
+                    >
+                      {isComplete && (
+                        <div className="absolute top-1 right-1">
+                          <CheckCircle className={`h-3 w-3 ${ph.dotColor}`} />
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1 mb-1.5 pr-3">
+                        <div className={`h-1.5 w-1.5 rounded-full shrink-0 transition-colors ${
+                          isComplete ? 'bg-emerald-500' : isStarted ? ph.dotColor : 'bg-muted-foreground/20'
+                        }`} />
+                        <span className={`text-[8px] font-extrabold uppercase tracking-widest leading-none transition-colors ${
+                          isActive ? ph.labelColor : 'text-muted-foreground/45'
+                        }`}>{ph.label}</span>
+                      </div>
+                      <div className="h-1.5 bg-black/5 dark:bg-white/5 rounded-full overflow-hidden mb-1">
+                        <div
+                          className={`h-full rounded-full transition-all duration-700 ${isComplete ? 'bg-emerald-500' : ph.barColor}`}
+                          style={{ width: ph.total > 0 ? `${ph.pct}%` : '0%' }}
+                        />
+                      </div>
+                      {ph.total > 0 ? (
+                        <div className="flex items-center justify-between gap-0.5">
+                          <span className={`text-[8px] tabular-nums font-semibold leading-none ${isActive ? ph.labelColor : 'text-muted-foreground/35'}`}>
+                            {ph.confirmed}/{ph.total}
+                          </span>
+                          <span className={`text-[8px] font-bold tabular-nums leading-none ${isComplete ? 'text-emerald-500' : isActive ? ph.labelColor : 'text-muted-foreground/25'}`}>
+                            {ph.pct}%
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-[8px] text-muted-foreground/25 italic leading-none">—</span>
+                      )}
+                    </button>
+                  );
+                  return nodes;
+                })}
+              </div>
+            );
+          })()}
           {topLevel.map((item: any) => {
             const isChecked = checked.has(String(item.id));
             const isInfo = item.confirmationType === "info";
