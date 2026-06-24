@@ -7862,6 +7862,8 @@ export default function AgentWorkspacePage() {
   const [modalFilter, setModalFilter] = useState<"all" | "my_callbacks" | "team_callbacks" | "pending" | "due">("all");
   const [modalSort, setModalSort] = useState<"callback_asc" | "name_asc" | "attempts_desc">("callback_asc");
   const [modalSearch, setModalSearch] = useState("");
+  const [modalSearchField, setModalSearchField] = useState("all");
+  const [showModalFieldPicker, setShowModalFieldPicker] = useState(false);
   const [selectedLoginCampaignIds, setSelectedLoginCampaignIds] = useState<string[]>([]);
   const [selectedLoginQueueIds, setSelectedLoginQueueIds] = useState<string[]>([]);
   const [loginBackOffice, setLoginBackOffice] = useState(false);
@@ -11850,54 +11852,101 @@ export default function AgentWorkspacePage() {
       </div>
 
       <Dialog open={contactsModalOpen} onOpenChange={setContactsModalOpen}>
-        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col overflow-hidden">
-          <DialogHeader className="shrink-0">
-            <DialogTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" />
-              {t.agentWorkspace.campaignContacts}
-              {selectedCampaign && (
-                <Badge variant="secondary" className="ml-2">{selectedCampaign.name}</Badge>
-              )}
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="flex flex-wrap items-center gap-2 pb-3 border-b shrink-0">
-            <div className="flex-1 min-w-[200px]">
-              <Input
-                placeholder="Hľadať meno, telefón, email..."
-                value={modalSearch}
-                onChange={(e) => setModalSearch(e.target.value)}
-                className="h-9 text-sm"
-                data-testid="input-modal-search"
-              />
+        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col overflow-hidden p-0 gap-0">
+          {/* S&T Header */}
+          <div className="flex items-center gap-3 px-6 pt-5 pb-4 border-b shrink-0">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl shrink-0" style={{ background: "#B5622E18" }}>
+              <Users className="h-5 w-5" style={{ color: "#B5622E" }} />
             </div>
-            <Select value={modalFilter} onValueChange={(v) => setModalFilter(v as typeof modalFilter)}>
-              <SelectTrigger className="w-[180px] h-9 text-xs" data-testid="select-modal-filter">
-                <Filter className="h-3 w-3 mr-1.5 text-muted-foreground" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t.agentWorkspace.filterAll}</SelectItem>
-                <SelectItem value="my_callbacks">{t.agentWorkspace.filterMyCB}</SelectItem>
-                <SelectItem value="team_callbacks">{t.agentWorkspace.filterTeamCB}</SelectItem>
-                <SelectItem value="due">{t.agentWorkspace.filterDue}</SelectItem>
-                <SelectItem value="pending">{t.agentWorkspace.filterPending}</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={modalSort} onValueChange={(v) => setModalSort(v as typeof modalSort)}>
-              <SelectTrigger className="w-[170px] h-9 text-xs" data-testid="select-modal-sort">
-                <ArrowUpDown className="h-3 w-3 mr-1.5 text-muted-foreground" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="callback_asc">Callback (najskôr)</SelectItem>
-                <SelectItem value="name_asc">Meno (A-Z)</SelectItem>
-                <SelectItem value="attempts_desc">Pokusov (najviac)</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex-1 min-w-0">
+              <DialogTitle className="text-base font-semibold leading-tight">{t.agentWorkspace.campaignContacts}</DialogTitle>
+              {selectedCampaign && (
+                <p className="text-xs mt-0.5 font-medium truncate" style={{ color: "#9A8878" }}>{selectedCampaign.name}</p>
+              )}
+            </div>
           </div>
 
-          <div className="flex-1 min-h-0 -mx-6 px-6 overflow-y-auto">
+          {/* S&T Search + filter area */}
+          <div className="px-6 pt-3 pb-3 border-b shrink-0 space-y-2.5">
+            {/* Search bar + field picker + sort */}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder={modalSearchField === "all" ? "Hľadať meno, telefón, email, mesto…" : `Hľadať: ${["Meno","Telefón","Email","Mesto","Adresa"].find((_, i) => ["name","phone","email","city","address"][i] === modalSearchField) || "všetky polia"}`}
+                  value={modalSearch}
+                  onChange={(e) => setModalSearch(e.target.value)}
+                  className="w-full h-9 pl-9 pr-8 rounded-xl border bg-background text-sm focus:outline-none transition-colors"
+                  style={{ borderColor: modalSearch ? "#B5622E" : undefined }}
+                  data-testid="input-modal-search"
+                />
+                {modalSearch && (
+                  <button onClick={() => setModalSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              {/* Field picker */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowModalFieldPicker(v => !v)}
+                  className="h-9 px-3 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors whitespace-nowrap"
+                  style={modalSearchField !== "all" ? { background: "#B5622E", color: "#fff", borderColor: "#B5622E" } : {}}
+                  data-testid="btn-modal-field-picker"
+                >
+                  <SlidersHorizontal className="h-3.5 w-3.5" />
+                  {modalSearchField === "all" ? "Pole" : ["Meno","Telefón","Email","Mesto","Adresa"][["name","phone","email","city","address"].indexOf(modalSearchField)] || "Pole"}
+                </button>
+                {showModalFieldPicker && (
+                  <div className="absolute right-0 top-10 z-50 bg-background border rounded-xl shadow-xl py-1 w-40">
+                    {[["all","Všetky polia"],["name","Meno"],["phone","Telefón"],["email","Email"],["city","Mesto"],["address","Adresa"]].map(([val, lbl]) => (
+                      <button key={val} onClick={() => { setModalSearchField(val); setShowModalFieldPicker(false); }}
+                        className="w-full text-left px-3 py-2 text-xs hover:bg-muted flex items-center justify-between"
+                        style={modalSearchField === val ? { color: "#B5622E", fontWeight: 700 } : {}}>
+                        {lbl}
+                        {modalSearchField === val && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "#B5622E" }} />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* Sort */}
+              <Select value={modalSort} onValueChange={(v) => setModalSort(v as typeof modalSort)}>
+                <SelectTrigger className="h-9 text-xs w-[150px]" data-testid="select-modal-sort">
+                  <ArrowUpDown className="h-3 w-3 mr-1 text-muted-foreground" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="callback_asc">Callback (najskôr)</SelectItem>
+                  <SelectItem value="name_asc">Meno (A-Z)</SelectItem>
+                  <SelectItem value="attempts_desc">Pokusov (najviac)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {/* Filter tabs */}
+            <div className="flex gap-1.5">
+              {([
+                { key: "all", label: t.agentWorkspace.filterAll },
+                { key: "due", label: t.agentWorkspace.filterDue },
+                { key: "my_callbacks", label: t.agentWorkspace.filterMyCB },
+                { key: "team_callbacks", label: t.agentWorkspace.filterTeamCB },
+                { key: "pending", label: t.agentWorkspace.filterPending },
+              ] as const).map(tab => (
+                <button key={tab.key}
+                  onClick={() => setModalFilter(tab.key)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap"
+                  style={modalFilter === tab.key
+                    ? { background: "#B5622E", color: "#fff" }
+                    : { background: "hsl(var(--muted))", color: "hsl(var(--muted-foreground))" }}
+                  data-testid={`btn-modal-filter-${tab.key}`}>
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex-1 min-h-0 overflow-y-auto px-6">
             {(() => {
               const now = new Date();
               const isCbM = (cc: typeof sortedPendingContacts[0]) => cc.status === "callback_scheduled";
@@ -12037,7 +12086,18 @@ export default function AgentWorkspacePage() {
                 if (!entityInfo) return false;
                 if (modalSearch) {
                   const q = modalSearch.toLowerCase();
-                  if (![entityInfo.name, entityInfo.subtitle].filter(Boolean).join(" ").toLowerCase().includes(q)) return false;
+                  const ql = q.replace(/\s/g, "");
+                  const fieldChecks: Record<string, boolean> = {
+                    name:    (entityInfo?.name || "").toLowerCase().includes(q),
+                    phone:   [(cc.customer?.phone||""),(cc.customer?.mobile||""),(cc.hospital?.phone||""),(cc.clinic?.phone||""),(cc.collaborator?.phone||""),(cc.collaborator?.mobile||""),(entityInfo?.subtitle||"")].some(p => p.replace(/\s/g,"").includes(ql)),
+                    email:   (cc.customer?.email||cc.hospital?.email||cc.clinic?.email||cc.collaborator?.email||"").toLowerCase().includes(q),
+                    city:    (cc.customer?.city||cc.hospital?.city||cc.clinic?.city||cc.collaborator?.city||"").toLowerCase().includes(q),
+                    address: (cc.customer?.address||cc.hospital?.address||cc.clinic?.address||"").toLowerCase().includes(q),
+                  };
+                  const matches = modalSearchField === "all"
+                    ? Object.values(fieldChecks).some(Boolean)
+                    : (fieldChecks[modalSearchField] ?? false);
+                  if (!matches) return false;
                 }
                 switch (modalFilter) {
                   case "my_callbacks": return isCbM(cc) && isMineM(cc);
