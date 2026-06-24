@@ -4275,31 +4275,130 @@ function CommunicationCanvas({
           const dbTotal = dbVisibleItems.length;
           const dbRequiredMissing = dbVisibleItems.filter((i: any) => i.required && !dbSlChecked.has(String(i.id)));
           const progress = dbTotal > 0 ? Math.round((dbConfirmed / dbTotal) * 100) : 0;
+
+          // Per-phase stats for pipeline timeline
+          const phaseStats = [
+            { key: 'acquisition' as const, label: 'Acquisition',
+              cardActive: 'bg-blue-50 dark:bg-blue-950/40 border-blue-300 dark:border-blue-600 shadow-lg ring-1 ring-blue-400/40',
+              labelColor: 'text-blue-600 dark:text-blue-400', barColor: 'bg-blue-500', dotColor: 'bg-blue-500', pctColor: 'text-blue-500' },
+            { key: 'contract' as const, label: 'Contract',
+              cardActive: 'bg-violet-50 dark:bg-violet-950/40 border-violet-300 dark:border-violet-600 shadow-lg ring-1 ring-violet-400/40',
+              labelColor: 'text-violet-600 dark:text-violet-400', barColor: 'bg-violet-500', dotColor: 'bg-violet-500', pctColor: 'text-violet-500' },
+            { key: 'retention' as const, label: 'Retention',
+              cardActive: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-600 shadow-lg ring-1 ring-emerald-400/40',
+              labelColor: 'text-emerald-600 dark:text-emerald-400', barColor: 'bg-emerald-500', dotColor: 'bg-emerald-500', pctColor: 'text-emerald-500' },
+          ].map(ph => {
+            const items = dbVisibleItems.filter((i: any) => i.tab === ph.key);
+            const confirmed = items.filter((i: any) => dbSlChecked.has(String(i.id))).length;
+            return { ...ph, total: items.length, confirmed, pct: items.length > 0 ? Math.round((confirmed / items.length) * 100) : 0 };
+          });
+
           return (
             <div className="flex flex-col flex-1 overflow-hidden">
-              {/* ── Nexus Pulse Header ─────────────────────────────── */}
-              <div className="px-4 py-3 border-b bg-gradient-to-r from-primary/5 via-background to-background flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-2.5">
-                  <div className="h-7 w-7 rounded-lg bg-primary/10 border border-primary/15 flex items-center justify-center shrink-0">
-                    <ListChecks className="h-3.5 w-3.5 text-primary" />
-                  </div>
-                  <div>
-                    <span className="text-sm font-bold tracking-tight">{slu("statusListTitle", locale)}</span>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <div className="h-1 w-16 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500 transition-all duration-500 rounded-full" style={{ width: `${progress}%` }} />
-                      </div>
-                      <span className="text-[10px] text-muted-foreground font-medium tabular-nums">{progress}%</span>
+              {/* ── Nexus Pulse Header + Phase Pipeline ─────────────── */}
+              <div className="px-3 pt-3 pb-3 border-b bg-gradient-to-br from-primary/5 via-background to-background shrink-0 space-y-3">
+                {/* Title row */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-7 w-7 rounded-lg bg-primary/10 border border-primary/15 flex items-center justify-center shrink-0">
+                      <ListChecks className="h-3.5 w-3.5 text-primary" />
                     </div>
+                    <span className="text-sm font-bold tracking-tight">{slu("statusListTitle", locale)}</span>
                   </div>
+                  <span className={`inline-flex items-center justify-center min-w-[40px] h-6 px-2.5 rounded-full text-xs font-bold tabular-nums transition-colors ${
+                    dbConfirmed === dbTotal && dbTotal > 0
+                      ? "bg-emerald-500 text-white"
+                      : "bg-muted text-muted-foreground"
+                  }`}>
+                    {dbConfirmed}/{dbTotal}
+                  </span>
                 </div>
-                <span className={`inline-flex items-center justify-center min-w-[40px] h-6 px-2.5 rounded-full text-xs font-bold tabular-nums transition-colors ${
-                  dbConfirmed === dbTotal && dbTotal > 0
-                    ? "bg-emerald-500 text-white"
-                    : "bg-muted text-muted-foreground"
-                }`}>
-                  {dbConfirmed}/{dbTotal}
-                </span>
+
+                {/* ── Phase Journey Pipeline (tabs + progress) ─── */}
+                {hasSlTabAssignment ? (
+                  <div className="flex items-stretch gap-1">
+                    {phaseStats.flatMap((ph, idx) => {
+                      const isActive = slActiveTab === ph.key;
+                      const isComplete = ph.total > 0 && ph.confirmed === ph.total;
+                      const isStarted = ph.confirmed > 0;
+                      const nodes: JSX.Element[] = [];
+                      if (idx > 0) {
+                        nodes.push(
+                          <div key={`sep-${ph.key}`} className="flex items-center shrink-0 self-center px-0.5">
+                            <ChevronRight className="h-3 w-3 text-muted-foreground/30" />
+                          </div>
+                        );
+                      }
+                      nodes.push(
+                        <button
+                          key={ph.key}
+                          type="button"
+                          onClick={() => {
+                            setSlActiveTab(ph.key);
+                            if (campaign?.id && campaignContactId) {
+                              localStorage.setItem(`sl-tab-${campaign.id}-${campaignContactId}`, ph.key);
+                            }
+                          }}
+                          className={`flex-1 rounded-xl border p-2.5 transition-all duration-200 text-left relative overflow-hidden ${
+                            isActive ? ph.cardActive : 'bg-muted/20 dark:bg-muted/10 border-border/40 hover:bg-muted/50 hover:border-border/70'
+                          }`}
+                          data-testid={`sl-phase-${ph.key}`}
+                        >
+                          {/* Completion tick */}
+                          {isComplete && (
+                            <div className="absolute top-1.5 right-1.5">
+                              <CheckCircle className={`h-3 w-3 ${ph.dotColor}`} />
+                            </div>
+                          )}
+                          {/* Phase label row */}
+                          <div className="flex items-center gap-1.5 mb-2 pr-4">
+                            <div className={`h-1.5 w-1.5 rounded-full shrink-0 transition-colors ${
+                              isComplete ? 'bg-emerald-500' : isStarted ? ph.dotColor : 'bg-muted-foreground/20'
+                            }`} />
+                            <span className={`text-[9px] font-extrabold uppercase tracking-widest leading-none transition-colors ${
+                              isActive ? ph.labelColor : 'text-muted-foreground/50'
+                            }`}>
+                              {ph.label}
+                            </span>
+                          </div>
+                          {/* Mini progress bar */}
+                          <div className="h-1.5 bg-black/5 dark:bg-white/8 rounded-full overflow-hidden mb-1.5">
+                            <div
+                              className={`h-full rounded-full transition-all duration-700 ${isComplete ? 'bg-emerald-500' : ph.barColor}`}
+                              style={{ width: ph.total > 0 ? `${ph.pct}%` : '0%' }}
+                            />
+                          </div>
+                          {/* Count + pct */}
+                          {ph.total > 0 ? (
+                            <div className="flex items-center justify-between gap-1">
+                              <span className={`text-[9px] tabular-nums font-semibold leading-none transition-colors ${
+                                isActive ? ph.labelColor : 'text-muted-foreground/40'
+                              }`}>
+                                {ph.confirmed}/{ph.total}
+                              </span>
+                              <span className={`text-[9px] font-bold tabular-nums leading-none transition-colors ${
+                                isComplete ? 'text-emerald-500' : isActive ? ph.pctColor : 'text-muted-foreground/30'
+                              }`}>
+                                {ph.pct}%
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-[9px] text-muted-foreground/25 italic leading-none">—</span>
+                          )}
+                        </button>
+                      );
+                      return nodes;
+                    })}
+                  </div>
+                ) : (
+                  /* Fallback overall bar when no tab assignment */
+                  <div className="flex items-center gap-2">
+                    <div className="h-1.5 flex-1 bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500 transition-all duration-500 rounded-full" style={{ width: `${progress}%` }} />
+                    </div>
+                    <span className="text-[10px] text-muted-foreground font-medium tabular-nums">{progress}%</span>
+                  </div>
+                )}
               </div>
 
               {/* ── Not linked warning ─────────────────────────────── */}
@@ -4342,35 +4441,6 @@ function CommunicationCanvas({
                 );
               })()}
 
-              {/* ── Tab switcher ──────────────────────────────────── */}
-              {hasSlTabAssignment && (
-                <div className="mx-3 mt-2 mb-1 shrink-0 flex gap-1 bg-muted/50 p-1 rounded-xl">
-                  {(['acquisition', 'contract', 'retention'] as const).map(tab => (
-                    <button
-                      key={tab}
-                      type="button"
-                      onClick={() => {
-                        setSlActiveTab(tab);
-                        if (campaign?.id && campaignContactId) {
-                          localStorage.setItem(`sl-tab-${campaign.id}-${campaignContactId}`, tab);
-                        }
-                      }}
-                      className={`flex-1 h-7 rounded-lg text-xs font-bold transition-all ${
-                        slActiveTab === tab
-                          ? tab === 'acquisition'
-                            ? "bg-blue-500 text-white shadow-sm"
-                            : tab === 'contract'
-                            ? "bg-violet-500 text-white shadow-sm"
-                            : "bg-emerald-500 text-white shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                      data-testid={`sl-tab-${tab}`}
-                    >
-                      {tab === 'acquisition' ? 'Acquisition' : tab === 'contract' ? 'Contract' : 'Retention'}
-                    </button>
-                  ))}
-                </div>
-              )}
 
               {/* ── Items list ─────────────────────────────────────── */}
               <div className="flex-1 overflow-y-auto px-3 py-2.5 space-y-2">
