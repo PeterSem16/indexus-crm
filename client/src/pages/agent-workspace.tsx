@@ -8541,10 +8541,9 @@ export default function AgentWorkspacePage() {
       if (!(cc.customer || cc.hospital || cc.clinic || cc.collaborator)) return false;
       if (!(cc.status === "pending" || cc.status === "callback_scheduled")) return false;
       if (disposedContactIds.has(cc.id)) return false;
-      if (showOnlyAssigned && cc.status === "callback_scheduled" && cc.assignedTo && cc.assignedTo !== user?.id) return false;
       return true;
     });
-  }, [rawCampaignContacts, disposedContactIds, showOnlyAssigned, user?.id]);
+  }, [rawCampaignContacts, disposedContactIds]);
 
   const currentCampaignContact = useMemo(() => {
     if (!currentCampaignContactId) return null;
