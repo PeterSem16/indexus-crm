@@ -4306,24 +4306,7 @@ function CommunicationCanvas({
           return (
             <div className="flex flex-col flex-1 overflow-hidden">
               {/* ── Nexus Pulse Header + Phase Pipeline ─────────────── */}
-              <div className="px-3 pt-3 pb-3 border-b bg-gradient-to-br from-primary/5 via-background to-background shrink-0 space-y-3">
-                {/* Title row */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="h-7 w-7 rounded-lg bg-primary/10 border border-primary/15 flex items-center justify-center shrink-0">
-                      <ListChecks className="h-3.5 w-3.5 text-primary" />
-                    </div>
-                    <span className="text-sm font-bold tracking-tight">{slu("statusListTitle", locale)}</span>
-                  </div>
-                  <span className={`inline-flex items-center justify-center min-w-[40px] h-6 px-2.5 rounded-full text-xs font-bold tabular-nums transition-colors ${
-                    dbConfirmed === dbTotal && dbTotal > 0
-                      ? "bg-emerald-500 text-white"
-                      : "bg-muted text-muted-foreground"
-                  }`}>
-                    {dbConfirmed}/{dbTotal}
-                  </span>
-                </div>
-
+              <div className="px-3 pt-2.5 pb-2.5 border-b bg-gradient-to-br from-primary/5 via-background to-background shrink-0">
                 {/* ── Phase Journey Pipeline (tabs + progress) ─── */}
                 {hasSlTabAssignment ? (
                   <div className="flex items-stretch gap-1">
