@@ -5,7 +5,7 @@ import { Slider } from "@/components/ui/slider";
 import { Phone, PhoneOff, PhoneIncoming, Mic, MicOff, PauseCircle, PlayCircle,
   Hash, Check, CheckCircle, ChevronDown, ChevronUp, Info, Zap, Coffee, LogOut, User,
   Clock, ChevronRight, AlertCircle, FileText, ListChecks,
-  Mail, MapPin, Calendar, ArrowLeft, Search, X, Baby, Building2,
+  Mail, MapPin, Calendar, ArrowLeft, Search, X, Baby, Building2, SlidersHorizontal,
   History, PhoneCall, Stethoscope, UserX, Globe, Share2, UserCheck,
   MessageSquare, Send, Volume2 } from "lucide-react";
 import { format } from "date-fns";
@@ -31,14 +31,19 @@ function ccInitials(cc: any): string {
   const n = ccName(cc);
   return n.split(" ").filter(Boolean).map((w: string) => w[0]).slice(0, 2).join("").toUpperCase() || "?";
 }
-function ccSearchMatch(cc: any, q: string): boolean {
+function ccSearchMatch(cc: any, q: string, field = "all"): boolean {
   if (!q.trim()) return true;
   const lower = q.toLowerCase();
-  const name = ccName(cc).toLowerCase();
-  const phone = ccPhone(cc).replace(/\s/g, "");
-  const clinic = (cc.clinic?.clinicName || cc.clinic?.name || "").toLowerCase();
-  const hospital = (cc.hospital?.name || "").toLowerCase();
-  return name.includes(lower) || phone.includes(lower) || clinic.includes(lower) || hospital.includes(lower);
+  const ql = lower.replace(/\s/g, "");
+  const checks: Record<string, boolean> = {
+    name:    ccName(cc).toLowerCase().includes(lower),
+    phone:   [ccPhone(cc), cc.customer?.mobile||"", cc.collaborator?.mobile||"", cc.clinic?.phone2||"", cc.hospital?.phone2||""].some(p => p.replace(/\s/g,"").includes(ql)),
+    email:   (cc.customer?.email || cc.hospital?.email || cc.clinic?.email || cc.collaborator?.email || "").toLowerCase().includes(lower),
+    city:    (cc.customer?.city || cc.hospital?.city || cc.clinic?.city || cc.collaborator?.city || "").toLowerCase().includes(lower),
+    entity:  [(cc.clinic?.clinicName||cc.clinic?.name||""),(cc.hospital?.name||"")].some(s=>s.toLowerCase().includes(lower)),
+    address: (cc.customer?.address || cc.hospital?.address || cc.clinic?.address || "").toLowerCase().includes(lower),
+  };
+  return field === "all" ? Object.values(checks).some(Boolean) : (checks[field] ?? false);
 }
 
 const STATUS_DOT: Record<string, string> = {
@@ -608,6 +613,9 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
   const [showNotes, setShowNotes] = useState(false);
   const [newNoteText, setNewNoteText] = useState("");
   const [searchQ, setSearchQ] = useState("");
+  const [filterTab, setFilterTab] = useState<"callable"|"callbacks"|"pending"|"all">("callable");
+  const [searchField, setSearchField] = useState("all");
+  const [showFieldPicker, setShowFieldPicker] = useState(false);
 
   const isCallActive = ["active", "on_hold", "connecting", "ringing"].includes(callState);
   const isCallEnded = callState === "ended";
@@ -1313,10 +1321,35 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
   }
 
   /* ── CONTACT LIST VIEW ───────────────────────────────────────────── */
-  const filteredOverdue = overdueCallbacks.filter(cc => ccSearchMatch(cc, searchQ));
-  const filteredUpcoming = upcomingCallbacks.filter(cc => ccSearchMatch(cc, searchQ));
-  const filteredPending = pendingContacts.filter(cc => ccSearchMatch(cc, searchQ));
-  const totalFiltered = filteredOverdue.length + filteredUpcoming.length + filteredPending.length;
+  const ST = { terra: "#B5622E", sage: "#5E7A5A", sand: "#A0946A" };
+  const callableStatuses = ["callback_scheduled", "pending"];
+
+  const byTab = filterTab === "callable"  ? campaignContacts.filter((cc: any) => callableStatuses.includes(cc.status))
+    : filterTab === "callbacks" ? campaignContacts.filter((cc: any) => cc.status === "callback_scheduled")
+    : filterTab === "pending"   ? campaignContacts.filter((cc: any) => cc.status === "pending")
+    : campaignContacts;
+
+  const filteredOverdue  = byTab.filter((cc: any) => cc.status === "callback_scheduled" && cc.callbackDate && new Date(cc.callbackDate) <= now).filter(cc => ccSearchMatch(cc, searchQ, searchField));
+  const filteredUpcoming = byTab.filter((cc: any) => cc.status === "callback_scheduled" && cc.callbackDate && new Date(cc.callbackDate) > now).filter(cc => ccSearchMatch(cc, searchQ, searchField));
+  const filteredPending  = byTab.filter((cc: any) => cc.status === "pending").filter(cc => ccSearchMatch(cc, searchQ, searchField));
+  const filteredOthers   = byTab.filter((cc: any) => !callableStatuses.includes(cc.status)).filter(cc => ccSearchMatch(cc, searchQ, searchField));
+  const totalFiltered = filteredOverdue.length + filteredUpcoming.length + filteredPending.length + filteredOthers.length;
+
+  const tabCount = (tab: string) =>
+    tab === "callable"  ? campaignContacts.filter((cc: any) => callableStatuses.includes(cc.status)).length
+    : tab === "callbacks" ? campaignContacts.filter((cc: any) => cc.status === "callback_scheduled").length
+    : tab === "pending"   ? campaignContacts.filter((cc: any) => cc.status === "pending").length
+    : campaignContacts.length;
+
+  const SEARCH_FIELDS = [
+    { value: "all",     label: np.searchFieldAll     || "Všetky polia" },
+    { value: "name",    label: np.searchFieldName    || "Meno" },
+    { value: "phone",   label: np.searchFieldPhone   || "Telefón" },
+    { value: "email",   label: np.searchFieldEmail   || "Email" },
+    { value: "city",    label: np.searchFieldCity    || "Mesto" },
+    { value: "entity",  label: np.searchFieldEntity  || "Zariadenie" },
+    { value: "address", label: np.searchFieldAddress || "Adresa" },
+  ];
 
   return (
     <div className="flex flex-col h-full relative">
@@ -1324,35 +1357,88 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
       {breakMenuOpen && <BreakMenu {...breakMenuProps} />}
 
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
-        <div className="shrink-0 px-4 pt-3 pb-2 space-y-2">
+        {/* ── Search + filters ─────────────────────────────────── */}
+        <div className="shrink-0 px-4 pt-3 pb-2 space-y-2 border-b bg-background">
           {campaign && (
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-primary/10 text-primary">
-                <Zap className="h-3 w-3" />
-                {campaign.name}
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold"
+                style={{ background: `${ST.terra}15`, color: ST.terra, border: `1px solid ${ST.terra}30` }}>
+                <Zap className="h-3 w-3" />{campaign.name}
               </span>
-              <span className="text-xs text-muted-foreground">
-                {totalFiltered} {np.contacts || "contacts"}
-              </span>
+              <span className="text-xs text-muted-foreground">{totalFiltered} {np.contacts || "contacts"}</span>
             </div>
           )}
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-            <input
-              type="text"
-              value={searchQ}
-              onChange={e => setSearchQ(e.target.value)}
-              placeholder={np.searchContacts || "Search by name, phone…"}
-              className="w-full h-10 pl-9 pr-9 rounded-xl border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-              data-testid="input-mobile-search"
-            />
-            {searchQ && (
-              <button onClick={() => setSearchQ("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground p-1">
-                <X className="h-4 w-4" />
+
+          {/* Search bar + field picker */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <input
+                type="text"
+                value={searchQ}
+                onChange={e => setSearchQ(e.target.value)}
+                placeholder={searchField === "all"
+                  ? (np.searchContacts || "Hľadať meno, tel., email, mesto…")
+                  : `${np.searchIn || "Hľadať:"} ${SEARCH_FIELDS.find(f => f.value === searchField)?.label}`}
+                className="w-full h-10 pl-9 pr-8 rounded-xl border bg-background text-sm focus:outline-none transition-colors"
+                style={{ borderColor: searchQ ? ST.terra : undefined }}
+                data-testid="input-mobile-search"
+              />
+              {searchQ && (
+                <button onClick={() => setSearchQ("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            <div className="relative">
+              <button
+                onClick={() => setShowFieldPicker(v => !v)}
+                className="h-10 px-3 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                style={searchField !== "all"
+                  ? { background: ST.terra, color: "#fff", borderColor: ST.terra }
+                  : {}}
+                data-testid="btn-search-field-picker"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                {searchField === "all" ? (np.searchFieldBtn || "Pole") : SEARCH_FIELDS.find(f => f.value === searchField)?.label?.split(" ")[0]}
               </button>
-            )}
+              {showFieldPicker && (
+                <div className="absolute right-0 top-11 z-50 bg-background border rounded-xl shadow-xl py-1 w-44">
+                  {SEARCH_FIELDS.map(f => (
+                    <button key={f.value}
+                      onClick={() => { setSearchField(f.value); setShowFieldPicker(false); }}
+                      className="w-full text-left px-3 py-2 text-xs hover:bg-muted flex items-center justify-between"
+                      style={searchField === f.value ? { color: ST.terra, fontWeight: 700 } : {}}>
+                      {f.label}
+                      {searchField === f.value && <span className="w-1.5 h-1.5 rounded-full" style={{ background: ST.terra }} />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Filter tabs */}
+          <div className="flex gap-1.5">
+            {(["callable","callbacks","pending","all"] as const).map(tab => {
+              const labels: Record<string, string> = {
+                callable: np.tabCallable||"Na volanie",
+                callbacks: np.tabCallbacks||"Callbacky",
+                pending: np.tabPending||"Nové",
+                all: np.tabAll||"Všetky",
+              };
+              return (
+                <button key={tab} onClick={() => setFilterTab(tab)}
+                  className="flex-1 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
+                  style={filterTab === tab
+                    ? { background: ST.terra, color: "#fff" }
+                    : { background: "hsl(var(--muted))", color: "hsl(var(--muted-foreground))" }}
+                  data-testid={`btn-tab-${tab}`}>
+                  {labels[tab]}
+                  <span className="ml-1 text-[10px] opacity-70">({tabCount(tab)})</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -1371,50 +1457,61 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-2 px-4 pb-4">
-            {/* Overdue callbacks */}
+          <div className="flex flex-col gap-2 px-4 pb-4 pt-2">
             {filteredOverdue.length > 0 && (
               <>
-                <div className="flex items-center gap-2 mt-2 mb-1">
-                  <div className="h-px flex-1 bg-red-200 dark:bg-red-900/40" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-red-500 flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />{np.overdueCallbacks || "Overdue callbacks"}
+                <div className="flex items-center gap-2 mt-1 mb-0.5">
+                  <div className="h-px flex-1 rounded" style={{ background: `${ST.terra}40` }} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: ST.terra }}>
+                    <AlertCircle className="h-3 w-3" />{np.overdueCallbacks || "Premeškané callbacky"}
                   </span>
-                  <div className="h-px flex-1 bg-red-200 dark:bg-red-900/40" />
+                  <div className="h-px flex-1 rounded" style={{ background: `${ST.terra}40` }} />
                 </div>
                 {filteredOverdue.map(cc => (
                   <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} isOverdue callbackDate={cc.callbackDate} np={np} currentUserId={currentUserId} />
                 ))}
               </>
             )}
-            {/* Upcoming / planned callbacks */}
             {filteredUpcoming.length > 0 && (
               <>
-                <div className="flex items-center gap-2 mt-2 mb-1">
-                  <div className="h-px flex-1 bg-blue-200 dark:bg-blue-900/40" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-blue-500 flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />{np.plannedCallbacks || "Planned calls"}
+                <div className="flex items-center gap-2 mt-1 mb-0.5">
+                  <div className="h-px flex-1 rounded" style={{ background: `${ST.sage}40` }} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: ST.sage }}>
+                    <Calendar className="h-3 w-3" />{np.plannedCallbacks || "Naplánované callbacky"}
                   </span>
-                  <div className="h-px flex-1 bg-blue-200 dark:bg-blue-900/40" />
+                  <div className="h-px flex-1 rounded" style={{ background: `${ST.sage}40` }} />
                 </div>
                 {filteredUpcoming.map(cc => (
                   <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} isUpcoming callbackDate={cc.callbackDate} np={np} currentUserId={currentUserId} />
                 ))}
               </>
             )}
-            {/* New / pending contacts */}
             {filteredPending.length > 0 && (
               <>
                 {(filteredOverdue.length > 0 || filteredUpcoming.length > 0) && (
-                  <div className="flex items-center gap-2 mt-2 mb-1">
-                    <div className="h-px flex-1 bg-border" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      {np.newContacts || "New contacts"}
+                  <div className="flex items-center gap-2 mt-1 mb-0.5">
+                    <div className="h-px flex-1 rounded" style={{ background: `${ST.sand}40` }} />
+                    <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: ST.sand }}>
+                      {np.newContacts || "Nové kontakty"}
                     </span>
-                    <div className="h-px flex-1 bg-border" />
+                    <div className="h-px flex-1 rounded" style={{ background: `${ST.sand}40` }} />
                   </div>
                 )}
                 {filteredPending.map(cc => (
+                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} np={np} />
+                ))}
+              </>
+            )}
+            {filteredOthers.length > 0 && (
+              <>
+                <div className="flex items-center gap-2 mt-1 mb-0.5">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    {np.otherContacts || "Ostatné kontakty"}
+                  </span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+                {filteredOthers.map(cc => (
                   <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} np={np} />
                 ))}
               </>

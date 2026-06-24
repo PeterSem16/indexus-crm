@@ -6848,8 +6848,8 @@ function MyActivityPanel({
     <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
       <DialogContent className="sm:max-w-2xl max-h-[85vh] !flex !flex-col p-0">
         <div className="flex items-center gap-3 pl-5 pr-14 pt-5 pb-3 border-b flex-shrink-0">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-            <History className="h-5 w-5 text-primary" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: "#B5622E18" }}>
+            <History className="h-5 w-5" style={{ color: "#B5622E" }} />
           </div>
           <div className="flex-1 min-w-0">
             <DialogTitle className="text-base font-semibold">{t.agentWorkspace.todayCallsPanelTitle}</DialogTitle>
@@ -6867,15 +6867,15 @@ function MyActivityPanel({
             <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{t.agentWorkspace.myShiftFilterCalls}</div>
           </div>
           <div className="text-center border-l">
-            <div className="text-xl font-bold text-amber-600 dark:text-amber-400">{missedItems.length}</div>
+            <div className="text-xl font-bold" style={{ color: "#B5622E" }}>{missedItems.length}</div>
             <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{t.agentWorkspace.myShiftFilterMissed}</div>
           </div>
           <div className="text-center border-l">
-            <div className="text-xl font-bold text-blue-600 dark:text-blue-400">{emailItems.length}</div>
+            <div className="text-xl font-bold" style={{ color: "#5E7A5A" }}>{emailItems.length}</div>
             <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{t.agentWorkspace.myShiftFilterEmail}</div>
           </div>
           <div className="text-center border-l">
-            <div className="text-xl font-bold text-green-600 dark:text-green-400">{formatDuration(totalDur) || "0s"}</div>
+            <div className="text-xl font-bold" style={{ color: "#A0946A" }}>{formatDuration(totalDur) || "0s"}</div>
             <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{t.agentWorkspace.todayCallsDuration}</div>
           </div>
         </div>
@@ -6885,12 +6885,18 @@ function MyActivityPanel({
             <button
               key={tab.key}
               onClick={() => setFilterType(tab.key)}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium whitespace-nowrap transition-colors ${filterType === tab.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium whitespace-nowrap transition-colors"
+              style={filterType === tab.key
+                ? { background: "#B5622E", color: "#fff" }
+                : {}}
               data-testid={`btn-shift-filter-${tab.key}`}
             >
               {tab.label}
               {tab.count > 0 && (
-                <span className={`px-1 rounded text-[10px] ${filterType === tab.key ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                <span className="px-1 rounded text-[10px]"
+                  style={filterType === tab.key
+                    ? { background: "rgba(255,255,255,0.22)", color: "#fff" }
+                    : {}}>
                   {tab.count}
                 </span>
               )}
@@ -6922,7 +6928,8 @@ function MyActivityPanel({
                     <div
                       key={item.id}
                       data-testid={`my-shift-call-${item.id}`}
-                      className={`flex items-center gap-3 px-5 py-2.5 border-b border-l-2 transition-colors hover:bg-muted/30 ${isIn ? "border-l-blue-400" : "border-l-indigo-400"}`}
+                      className="flex items-center gap-3 px-5 py-2.5 border-b border-l-2 transition-colors hover:bg-muted/30"
+                      style={{ borderLeftColor: isIn ? "#5E7A5A" : "#B5622E" }}
                     >
                       <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${info.bg} ${info.color}`}>
                         {isIn ? <PhoneIncoming className="h-4 w-4" /> : <PhoneCall className="h-4 w-4" />}
@@ -6968,7 +6975,8 @@ function MyActivityPanel({
                           <button
                             type="button"
                             onClick={() => { onOpenEntity(item.contactType || "customer", item.entityId, item.campaignContactId, item.campaignId); onOpenChange(false); }}
-                            className="flex items-center gap-1.5 h-7 px-2.5 rounded-md bg-primary/10 hover:bg-primary/20 text-primary text-[11px] font-medium border border-primary/20 transition-colors"
+                            className="flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11px] font-medium border transition-colors"
+                            style={{ background: "#B5622E18", color: "#B5622E", borderColor: "#B5622E30" }}
                             title={t.agentWorkspace.myShiftOpenCard}
                             data-testid={`btn-shift-open-card-${item.id}`}
                           >
@@ -6978,7 +6986,8 @@ function MyActivityPanel({
                         )}
                         <div className="text-right flex flex-col items-end gap-1">
                           <div className="text-xs font-medium text-foreground">{format(new Date(sortTime), "HH:mm")}</div>
-                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 font-normal ${isIn ? "border-blue-300 text-blue-600 dark:text-blue-400" : "border-indigo-300 text-indigo-600 dark:text-indigo-400"}`}>
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-normal"
+                            style={isIn ? { borderColor: "#5E7A5A60", color: "#5E7A5A" } : { borderColor: "#B5622E60", color: "#B5622E" }}>
                             {isIn ? t.agentWorkspace.todayCallsInboundBadge : t.agentWorkspace.todayCallsOutboundBadge}
                           </Badge>
                         </div>
@@ -6988,7 +6997,7 @@ function MyActivityPanel({
                 }
                 if (item.itemType === "email") {
                   return (
-                    <div key={item.id} data-testid={`my-shift-email-${item.id}`} className="flex items-center gap-3 px-5 py-2.5 border-b border-l-2 border-l-blue-300 transition-colors hover:bg-muted/30">
+                    <div key={item.id} data-testid={`my-shift-email-${item.id}`} className="flex items-center gap-3 px-5 py-2.5 border-b border-l-2 transition-colors hover:bg-muted/30" style={{ borderLeftColor: "#A0946A" }}>
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
                         <Mail className="h-4 w-4" />
                       </div>
@@ -7005,7 +7014,7 @@ function MyActivityPanel({
                 }
                 if (item.itemType === "sms") {
                   return (
-                    <div key={item.id} data-testid={`my-shift-sms-${item.id}`} className="flex items-center gap-3 px-5 py-2.5 border-b border-l-2 border-l-green-300 transition-colors hover:bg-muted/30">
+                    <div key={item.id} data-testid={`my-shift-sms-${item.id}`} className="flex items-center gap-3 px-5 py-2.5 border-b border-l-2 transition-colors hover:bg-muted/30" style={{ borderLeftColor: "#5E7A5A" }}>
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
                         <MessageSquare className="h-4 w-4" />
                       </div>
@@ -13100,8 +13109,8 @@ export default function AgentWorkspacePage() {
         <DialogContent className="sm:max-w-[580px] max-h-[82vh] flex flex-col overflow-hidden p-0 gap-0">
           {/* Header */}
           <div className="flex items-center gap-3 px-5 pt-4 pb-4 pr-12 shrink-0">
-            <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center shrink-0">
-              <PhoneOff className="h-5 w-5 text-red-500 dark:text-red-400" />
+            <div className="h-10 w-10 rounded-full flex items-center justify-center shrink-0" style={{ background: "#B5622E18" }}>
+              <PhoneOff className="h-5 w-5" style={{ color: "#B5622E" }} />
             </div>
             <div>
               <DialogTitle className="text-lg font-bold leading-tight">{t.agentWorkspace.missedCallsTitle}</DialogTitle>
@@ -13118,11 +13127,10 @@ export default function AgentWorkspacePage() {
               const count = f === "all" ? abandonedCalls.length : f === "pending" ? abandonedCalls.filter((c: any) => !c.calledBack).length : abandonedCalls.filter((c: any) => !!c.calledBack).length;
               return (
                 <button key={f} onClick={() => setAbandonedCallsFilter(f)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-all border ${
-                    abandonedCallsFilter === f
-                      ? "bg-foreground text-background border-foreground"
-                      : "bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-foreground/40"
-                  }`}
+                  className="px-3 py-1 rounded-full text-xs font-medium transition-all border"
+                  style={abandonedCallsFilter === f
+                    ? { background: "#B5622E", color: "#fff", borderColor: "#B5622E" }
+                    : {}}
                 >
                   {labels[f]}{count > 0 ? ` ${count}` : ""}
                 </button>
@@ -13253,15 +13261,15 @@ export default function AgentWorkspacePage() {
                   {/* Pending section */}
                   {pendingCalls.length > 0 && (
                     <>
-                      <div className="flex items-center gap-3 mx-4 mt-4 mb-2 p-3 rounded-xl bg-red-50 dark:bg-red-950/30">
-                        <div className="h-9 w-9 rounded-full bg-red-500 flex items-center justify-center shrink-0">
+                      <div className="flex items-center gap-3 mx-4 mt-4 mb-2 p-3 rounded-xl" style={{ background: "#B5622E12" }}>
+                        <div className="h-9 w-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "#B5622E" }}>
                           <PhoneOff className="h-4 w-4 text-white" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-sm text-red-900 dark:text-red-200">{t.agentWorkspace.sectionUnhandled}</p>
-                          <p className="text-xs text-red-700/70 dark:text-red-300/70">{pendingCalls.length} {t.agentWorkspace.callsCount}</p>
+                          <p className="font-bold text-sm" style={{ color: "#3D2E20" }}>{t.agentWorkspace.sectionUnhandled}</p>
+                          <p className="text-xs" style={{ color: "#9A8878" }}>{pendingCalls.length} {t.agentWorkspace.callsCount}</p>
                         </div>
-                        <div className="h-7 w-7 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center shrink-0">
+                        <div className="h-7 w-7 rounded-full text-white text-xs font-bold flex items-center justify-center shrink-0" style={{ background: "#B5622E" }}>
                           {pendingCalls.length}
                         </div>
                       </div>
@@ -13274,15 +13282,15 @@ export default function AgentWorkspacePage() {
                   {/* Handled section */}
                   {handledCalls.length > 0 && (
                     <>
-                      <div className="flex items-center gap-3 mx-4 mt-4 mb-2 p-3 rounded-xl bg-green-50 dark:bg-green-950/30">
-                        <div className="h-9 w-9 rounded-full bg-green-500 flex items-center justify-center shrink-0">
+                      <div className="flex items-center gap-3 mx-4 mt-4 mb-2 p-3 rounded-xl" style={{ background: "#5E7A5A12" }}>
+                        <div className="h-9 w-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "#5E7A5A" }}>
                           <PhoneForwarded className="h-4 w-4 text-white" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-sm text-green-900 dark:text-green-200">{t.agentWorkspace.sectionHandled}</p>
-                          <p className="text-xs text-green-700/70 dark:text-green-300/70">{handledCalls.length} {t.agentWorkspace.callsCount}</p>
+                          <p className="font-bold text-sm" style={{ color: "#3D2E20" }}>{t.agentWorkspace.sectionHandled}</p>
+                          <p className="text-xs" style={{ color: "#9A8878" }}>{handledCalls.length} {t.agentWorkspace.callsCount}</p>
                         </div>
-                        <div className="h-7 w-7 rounded-full bg-green-500 text-white text-xs font-bold flex items-center justify-center shrink-0">
+                        <div className="h-7 w-7 rounded-full text-white text-xs font-bold flex items-center justify-center shrink-0" style={{ background: "#5E7A5A" }}>
                           {handledCalls.length}
                         </div>
                       </div>
