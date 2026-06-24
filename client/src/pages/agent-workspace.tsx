@@ -2466,6 +2466,7 @@ function CommunicationCanvas({
   const [clNotes, setClNotes] = useState<Record<string, string>>({});
   const [isSavingChecklist, setIsSavingChecklist] = useState(false);
   const [dbSlChecked, setDbSlChecked] = useState<Set<string>>(new Set());
+  const [slActiveTab, setSlActiveTab] = useState<'acquisition' | 'retention'>('acquisition');
   const { data: dbStatusList = [] } = useQuery<any[]>({
     queryKey: ["/api/campaigns", campaign?.id, "status-list"],
     enabled: !!campaign?.id,
@@ -2525,6 +2526,17 @@ function CommunicationCanvas({
     }
   }, [dbSlState]);
 
+  // Restore last active tab from localStorage when contact/campaign changes
+  useEffect(() => {
+    if (!campaign?.id || !campaignContactId) return;
+    const stored = localStorage.getItem(`sl-tab-${campaign.id}-${campaignContactId}`);
+    if (stored === 'acquisition' || stored === 'retention') {
+      setSlActiveTab(stored);
+    } else {
+      setSlActiveTab('acquisition');
+    }
+  }, [campaign?.id, campaignContactId]);
+
   // Auto-run: items with confirmationType === "auto" fire their actions when the
   // status list loads and are hidden from the agent view.
   const slAutoRunRef = useRef<Set<string>>(new Set());
@@ -2553,6 +2565,17 @@ function CommunicationCanvas({
       if (newChecked) next.add(itemId); else next.delete(itemId);
       return next;
     });
+    // Auto-switch to the tab of the item that was just checked
+    if (newChecked) {
+      const checkedItem = (dbStatusList as any[]).find((i: any) => String(i.id) === itemId);
+      if (checkedItem?.tab === 'acquisition' || checkedItem?.tab === 'retention') {
+        const tab = checkedItem.tab as 'acquisition' | 'retention';
+        setSlActiveTab(tab);
+        if (campaign?.id && campaignContactId) {
+          localStorage.setItem(`sl-tab-${campaign.id}-${campaignContactId}`, tab);
+        }
+      }
+    }
     if (!campaign?.id || !campaignContactId) return;
     try {
       await apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${itemId}`, {
@@ -4244,6 +4267,10 @@ function CommunicationCanvas({
       {activeChannel === "checklist" && (() => {
         if (dbStatusList.length > 0) {
           const dbVisibleItems = (dbStatusList as any[]).filter((i: any) => !i.isHidden && i.itemType !== "option" && i.confirmationType !== "auto");
+          const hasSlTabAssignment = (dbStatusList as any[]).some((i: any) => !i.parentId && i.tab && i.itemType !== "option" && !i.isHidden);
+          const slTabItems = hasSlTabAssignment
+            ? dbVisibleItems.filter((i: any) => !i.tab || i.tab === slActiveTab)
+            : dbVisibleItems;
           const dbConfirmed = dbVisibleItems.filter((i: any) => dbSlChecked.has(String(i.id))).length;
           const dbTotal = dbVisibleItems.length;
           const dbRequiredMissing = dbVisibleItems.filter((i: any) => i.required && !dbSlChecked.has(String(i.id)));
@@ -4315,9 +4342,37 @@ function CommunicationCanvas({
                 );
               })()}
 
+              {/* ── Tab switcher ──────────────────────────────────── */}
+              {hasSlTabAssignment && (
+                <div className="mx-3 mt-2 mb-1 shrink-0 flex gap-1 bg-muted/50 p-1 rounded-xl">
+                  {(['acquisition', 'retention'] as const).map(tab => (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => {
+                        setSlActiveTab(tab);
+                        if (campaign?.id && campaignContactId) {
+                          localStorage.setItem(`sl-tab-${campaign.id}-${campaignContactId}`, tab);
+                        }
+                      }}
+                      className={`flex-1 h-7 rounded-lg text-xs font-bold transition-all ${
+                        slActiveTab === tab
+                          ? tab === 'acquisition'
+                            ? "bg-blue-500 text-white shadow-sm"
+                            : "bg-emerald-500 text-white shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      data-testid={`sl-tab-${tab}`}
+                    >
+                      {tab === 'acquisition' ? 'Acquisition' : 'Retention'}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* ── Items list ─────────────────────────────────────── */}
               <div className="flex-1 overflow-y-auto px-3 py-2.5 space-y-2">
-                {dbVisibleItems.map((item: any) => {
+                {slTabItems.map((item: any) => {
                   if (item.parentId) return null;
                   const childItems = (dbStatusList as any[]).filter((c: any) => !c.isHidden && c.parentId === String(item.id));
                   const isChecked = dbSlChecked.has(String(item.id));
@@ -8468,6 +8523,17 @@ export default function AgentWorkspacePage() {
       if (newChecked) next.add(itemId); else next.delete(itemId);
       return next;
     });
+    // Auto-switch to the tab of the item that was just checked
+    if (newChecked) {
+      const checkedItem = (mobileDbStatusList as any[]).find((i: any) => String(i.id) === itemId);
+      if (checkedItem?.tab === 'acquisition' || checkedItem?.tab === 'retention') {
+        const tab = checkedItem.tab as 'acquisition' | 'retention';
+        setSlActiveTab(tab);
+        if (selectedCampaignId && effectiveCampaignContactId) {
+          localStorage.setItem(`sl-tab-${selectedCampaignId}-${effectiveCampaignContactId}`, tab);
+        }
+      }
+    }
     try {
       await apiRequest("POST", `/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}/status-list-state/${itemId}`, {
         confirm: newChecked,
@@ -11378,6 +11444,13 @@ export default function AgentWorkspacePage() {
               dbStatusList={mobileDbStatusList}
               dbSlChecked={mobileDbSlChecked}
               onSlToggle={handleMobileSlToggle}
+              slActiveTab={slActiveTab}
+              onSlTabChange={(tab) => {
+                setSlActiveTab(tab);
+                if (campaign?.id && campaignContactId) {
+                  localStorage.setItem(`sl-tab-${campaign.id}-${campaignContactId}`, tab);
+                }
+              }}
               agentStatus={agentSession.status}
               isOnBreak={!!agentSession.activeBreak}
               workTime={agentSession.workTime}

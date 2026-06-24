@@ -77,6 +77,7 @@ type StatusListItem = {
   itemType?: string;
   color?: string | null;
   autoConfirmOnSubQuestion?: boolean;
+  tab?: string | null;
   automations: StatusListAutomation[];
   questions: StatusListQuestion[];
 };
@@ -131,6 +132,11 @@ const SL: Record<string, Record<string, string>> = {
   pr_medium: { sk: "Stredná", en: "Medium", cs: "Střední", hu: "Közepes", ro: "Mediu", it: "Media", de: "Mittel" },
   pr_high:   { sk: "Vysoká", en: "High", cs: "Vysoká", hu: "Magas", ro: "Ridicat", it: "Alta", de: "Hoch" },
   pr_urgent: { sk: "Urgentná", en: "Urgent", cs: "Urgentní", hu: "Sürgős", ro: "Urgent", it: "Urgente", de: "Dringend" },
+
+  tabLbl:      { sk: "Záložka (tab)", en: "Tab", cs: "Záložka", hu: "Fül", ro: "Filă", it: "Scheda", de: "Registerkarte" },
+  tabBoth:     { sk: "Obe záložky", en: "Both tabs", cs: "Obě záložky", hu: "Mindkét fül", ro: "Ambele file", it: "Entrambe", de: "Beide" },
+  tabAcq:      { sk: "Acquisition", en: "Acquisition", cs: "Acquisition", hu: "Acquisition", ro: "Acquisition", it: "Acquisition", de: "Acquisition" },
+  tabRet:      { sk: "Retention", en: "Retention", cs: "Retention", hu: "Retention", ro: "Retention", it: "Retention", de: "Retention" },
 
   ct_checkbox: { sk: "Zaškrtávacie políčko", en: "Checkbox", cs: "Zaškrtávací políčko", hu: "Jelölőnégyzet", ro: "Casetă de bifare", it: "Casella di spunta", de: "Kontrollkästchen" },
   ct_radio:    { sk: "Výber (CircleDot)", en: "CircleDot selection", cs: "Výběr (CircleDot)", hu: "Rádiógomb", ro: "Selecție (CircleDot)", it: "Selezione (CircleDot)", de: "Auswahl (CircleDot)" },
@@ -2399,6 +2405,7 @@ function StatusListItemRow({
     restrictions: item.restrictions || "",
     isHidden: item.isHidden ?? false,
     autoConfirmOnSubQuestion: item.autoConfirmOnSubQuestion ?? false,
+    tab: item.tab ?? null as string | null,
   });
 
   const updateMutation = useMutation({
@@ -2591,6 +2598,17 @@ function StatusListItemRow({
                 <div className="flex items-center gap-2 pt-4" title={sl("autoConfirmSubHint", locale)}>
                   <Switch checked={!!form.autoConfirmOnSubQuestion} onCheckedChange={v => setForm(f => ({ ...f, autoConfirmOnSubQuestion: v }))} data-testid="switch-auto-confirm-sub" />
                   <Label className="text-xs">{sl("autoConfirmSubLbl", locale)}</Label>
+                </div>
+                <div>
+                  <Label className="text-xs mb-1 block">{sl("tabLbl", locale)}</Label>
+                  <Select value={form.tab ?? "__both__"} onValueChange={v => setForm(f => ({ ...f, tab: v === "__both__" ? null : v }))}>
+                    <SelectTrigger className="h-8 text-xs" data-testid="select-tab-assignment"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__both__">{sl("tabBoth", locale)}</SelectItem>
+                      <SelectItem value="acquisition">{sl("tabAcq", locale)}</SelectItem>
+                      <SelectItem value="retention">{sl("tabRet", locale)}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div className="flex justify-end gap-2">
@@ -2922,6 +2940,7 @@ function AddItemForm({
     nextStepId: "",
     restrictions: "",
     autoConfirmOnSubQuestion: false,
+    tab: null as string | null,
   });
 
   const addMutation = useMutation({
@@ -2995,6 +3014,17 @@ function AddItemForm({
         <div className="flex items-center gap-2 pt-4" title={sl("autoConfirmSubHint", locale)}>
           <Switch checked={form.autoConfirmOnSubQuestion} onCheckedChange={v => setForm(f => ({ ...f, autoConfirmOnSubQuestion: v }))} data-testid="switch-add-auto-confirm-sub" />
           <Label className="text-xs">{sl("autoConfirmSubLbl", locale)}</Label>
+        </div>
+        <div className="col-span-1">
+          <Label className="text-xs mb-1 block">{sl("tabLbl", locale)}</Label>
+          <Select value={form.tab ?? "__both__"} onValueChange={v => setForm(f => ({ ...f, tab: v === "__both__" ? null : v }))}>
+            <SelectTrigger className="h-8 text-xs" data-testid="select-add-tab-assignment"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__both__">{sl("tabBoth", locale)}</SelectItem>
+              <SelectItem value="acquisition">{sl("tabAcq", locale)}</SelectItem>
+              <SelectItem value="retention">{sl("tabRet", locale)}</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
       <div className="flex justify-end gap-2">
