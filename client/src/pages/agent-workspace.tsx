@@ -4386,12 +4386,19 @@ function CommunicationCanvas({
                         ? "bg-emerald-50/80 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700/60 shadow-sm"
                         : slHighlightedStep === item.stepId
                         ? "bg-primary/5 border-primary/60 shadow-md ring-2 ring-primary/30"
+                        : item.tab === 'acquisition'
+                        ? "bg-blue-50/50 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900/40 hover:border-blue-300/60 dark:hover:border-blue-700/50 hover:shadow-sm"
+                        : item.tab === 'retention'
+                        ? "bg-emerald-50/40 dark:bg-emerald-950/15 border-emerald-100 dark:border-emerald-900/30 hover:border-emerald-300/60 dark:hover:border-emerald-700/50 hover:shadow-sm"
                         : "bg-card border-border hover:border-primary/25 dark:hover:border-primary/35 hover:shadow-sm"
                     }`}
                   >
                     {/* Left accent bar */}
                     <div className={`absolute inset-y-0 left-0 w-[3px] rounded-l-xl transition-all duration-300 ${
-                      isChecked ? "bg-emerald-500" : isInfo ? "bg-blue-400" : "bg-muted-foreground/15"
+                      isChecked ? "bg-emerald-500"
+                      : item.tab === 'acquisition' ? "bg-blue-400/70"
+                      : item.tab === 'retention' ? "bg-emerald-400/70"
+                      : isInfo ? "bg-blue-400" : "bg-muted-foreground/15"
                     }`} />
                     <div className="flex items-start gap-3 pl-4 pr-3 py-3">
                       {/* Checkbox / Info icon */}

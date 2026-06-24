@@ -305,7 +305,15 @@ function StatusListPanel({ items, checked, onToggle, np, activeTab, onTabChange 
             return (
               <div key={item.id} className="border-b last:border-b-0">
                 {/* Parent row */}
-                <div className={`flex items-stretch ${isChecked ? "bg-emerald-50/60 dark:bg-emerald-900/15" : ""}`}>
+                <div className={`flex items-stretch ${
+                  isChecked
+                    ? "bg-emerald-50/60 dark:bg-emerald-900/15"
+                    : item.tab === 'acquisition'
+                    ? "bg-blue-50/50 dark:bg-blue-950/20"
+                    : item.tab === 'retention'
+                    ? "bg-emerald-50/35 dark:bg-emerald-950/10"
+                    : ""
+                }`}>
                   <button
                     disabled={isInfo}
                     onClick={() => !isInfo && onToggle(String(item.id), !isChecked)}
