@@ -323,6 +323,7 @@ export interface BulkGateWebhookData {
   number?: string;
   text?: string;
   timestamp?: string;
+  tag?: string;
   rawData: any;
 }
 
@@ -337,6 +338,7 @@ export function parseWebhook(body: any): BulkGateWebhookData {
       number: body.from || body.sender || body.number,
       text: body.message || body.text,
       timestamp: body.timestamp || new Date().toISOString(),
+      tag: body.tag,
       rawData: body,
     };
   }
@@ -359,6 +361,7 @@ export function parseWebhook(body: any): BulkGateWebhookData {
     number: body.from || body.sender || body.number,
     text: body.message || body.text,
     timestamp: body.timestamp || new Date().toISOString(),
+    tag: body.tag,
     rawData: body,
   };
 }
