@@ -2767,6 +2767,13 @@ function CommunicationCanvas({
     setSlQuestionAnswers({});
   }, [contact?.id]);
 
+  // Auto-select phone when it loads after contact (lazy hydration)
+  useEffect(() => {
+    if (contact?.phone) {
+      setSelectedPhones(prev => prev.length === 0 ? [contact.phone!] : prev);
+    }
+  }, [contact?.phone]);
+
   useEffect(() => {
     if (activeChannel === "email") {
       setEmailOpenedAt(Date.now());
@@ -4194,21 +4201,21 @@ function CommunicationCanvas({
               </div>
 
               {/* SMS Chat Timeline */}
-              <div className="flex-1 min-h-0 overflow-hidden flex flex-col bg-[#f0ede8] dark:bg-stone-950">
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col bg-[#eae7e2] dark:bg-stone-950">
                 {/* Search bar */}
-                <div className="shrink-0 px-3 pt-2 pb-1">
+                <div className="shrink-0 px-3 pt-2.5 pb-1.5">
                   <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50 pointer-events-none" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400 pointer-events-none" />
                     <input
                       type="text"
                       value={smsSearch}
                       onChange={e => setSmsSearch(e.target.value)}
-                      placeholder="Hľadať v SMS..."
-                      className="w-full pl-8 pr-3 py-1.5 text-[12px] rounded-lg bg-white/70 dark:bg-stone-800/70 border border-stone-200/60 dark:border-stone-700/50 outline-none focus:ring-1 focus:ring-blue-400/50 placeholder:text-muted-foreground/40"
+                      placeholder="Hľadať v správach..."
+                      className="w-full pl-9 pr-8 py-2 text-[12px] rounded-xl bg-white dark:bg-stone-800 border border-stone-300/70 dark:border-stone-700 shadow-sm outline-none focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400/60 placeholder:text-stone-400 dark:placeholder:text-stone-500 transition-all"
                       data-testid="input-sms-search"
                     />
                     {smsSearch && (
-                      <button onClick={() => setSmsSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground">
+                      <button onClick={() => setSmsSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 transition-colors">
                         <X className="h-3.5 w-3.5" />
                       </button>
                     )}
@@ -4288,58 +4295,70 @@ function CommunicationCanvas({
                       return (
                         <div key={msg.id || idx}>
                           {showDateSep && !msg._draft && (
-                            <div className="flex justify-center my-1.5">
-                              <span className="text-[9px] text-stone-400 dark:text-stone-600 bg-white/70 dark:bg-stone-800/70 px-2 py-0.5 rounded-full">
+                            <div className="flex justify-center my-2">
+                              <span className="text-[10px] font-medium text-stone-500 dark:text-stone-400 bg-white/80 dark:bg-stone-800/80 backdrop-blur-sm px-3 py-1 rounded-full shadow-sm">
                                 {format(new Date(msg.date), "d. M. yyyy, HH:mm", { locale: sk })}
                               </span>
                             </div>
                           )}
-                          <div className={`flex items-end gap-1.5 ${isOut ? "justify-end" : "justify-start"}`}>
+                          <div className={`flex items-end gap-2 ${isOut ? "justify-end" : "justify-start"}`}>
                             {!isOut && (
-                              <div className="flex flex-col items-center gap-0.5 shrink-0 mb-0.5">
-                                <Avatar className="h-6 w-6">
-                                  <AvatarFallback className="text-[9px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400">
+                              <div className="flex flex-col items-center gap-0.5 shrink-0 mb-1">
+                                <Avatar className="h-7 w-7 ring-2 ring-white dark:ring-stone-700 shadow-sm">
+                                  <AvatarFallback className="text-[10px] font-bold bg-gradient-to-br from-emerald-400 to-teal-500 text-white">
                                     {inboundInitial}
                                   </AvatarFallback>
                                 </Avatar>
-                                <span className="text-[8px] text-muted-foreground max-w-[44px] truncate leading-tight text-center">
+                                <span className="text-[8px] font-medium text-stone-500 dark:text-stone-400 max-w-[44px] truncate leading-tight text-center">
                                   {inboundFirstName}
                                 </span>
                               </div>
                             )}
-                            <div className={`max-w-[68%] px-3 py-1.5 shadow-sm ${
+                            <div className={`max-w-[70%] ${
                               isOut
                                 ? msg._draft
-                                  ? "bg-blue-50 border border-blue-200 dark:bg-blue-950/30 dark:border-blue-800/40 rounded-2xl rounded-br-sm"
-                                  : "bg-blue-500 dark:bg-blue-600 rounded-2xl rounded-br-sm"
-                                : "bg-white dark:bg-stone-800 rounded-2xl rounded-bl-sm border border-stone-200/60 dark:border-stone-700/60"
+                                  ? "px-4 py-2.5 bg-white/90 border-2 border-dashed border-blue-300 dark:bg-stone-800/80 dark:border-blue-700 rounded-2xl rounded-br-none shadow-sm"
+                                  : "px-4 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-indigo-700 rounded-2xl rounded-br-none shadow-md"
+                                : "px-4 py-2.5 bg-white dark:bg-stone-800 rounded-2xl rounded-bl-none shadow-md border-l-[3px] border-emerald-400 dark:border-emerald-500"
                             }`}>
-                              <p className={`text-[12px] leading-relaxed whitespace-pre-wrap break-words font-medium ${
-                                isOut ? (msg._draft ? "text-blue-600 dark:text-blue-400 italic" : "text-white") : "text-stone-800 dark:text-stone-100"
+                              <p className={`text-[13px] leading-relaxed whitespace-pre-wrap break-words ${
+                                isOut
+                                  ? msg._draft
+                                    ? "font-normal text-blue-700 dark:text-blue-300 italic"
+                                    : "font-semibold text-white"
+                                  : "font-semibold text-stone-800 dark:text-stone-100"
                               }`}>{text}</p>
                               {!msg._draft && (
-                                <div className={`flex items-center gap-0.5 mt-0.5 ${isOut ? "justify-end" : "justify-start"}`}>
-                                  <span className="text-[9px] opacity-50">{format(new Date(msg.date), "HH:mm")}</span>
-                                  {isOut && <span className="text-[9px] opacity-50">{msg.status === "delivered" || msg.status === "read" ? " ✓✓" : " ✓"}</span>}
+                                <div className={`flex items-center gap-1 mt-1 ${isOut ? "justify-end" : "justify-start"}`}>
+                                  <span className={`text-[10px] font-medium ${isOut ? "text-blue-100 dark:text-blue-300" : "text-stone-400 dark:text-stone-500"}`}>
+                                    {format(new Date(msg.date), "HH:mm")}
+                                  </span>
+                                  {isOut && (
+                                    <span className={`text-[10px] ${msg.status === "delivered" || msg.status === "read" ? "text-blue-100" : "text-blue-200/70"}`}>
+                                      {msg.status === "delivered" || msg.status === "read" ? "✓✓" : "✓"}
+                                    </span>
+                                  )}
                                 </div>
                               )}
-                              {msg._draft && <p className="text-[9px] text-blue-400 italic mt-0.5">náhľad</p>}
+                              {msg._draft && (
+                                <p className="text-[10px] font-medium text-blue-400 dark:text-blue-500 mt-0.5 italic">náhľad</p>
+                              )}
                             </div>
                             {isOut && (() => {
                               const isCurrentUser = msg._draft || msg.agentId === user?.id;
                               const agentInitial = ((msg._draft ? (user?.name || user?.username) : msg.agentName) || "?")[0]?.toUpperCase();
                               const agentFirstName = ((msg._draft ? (user?.name || user?.username) : msg.agentName) || "").split(" ")[0] || "—";
                               return (
-                                <div className="flex flex-col items-center gap-0.5 shrink-0 mb-0.5">
-                                  <Avatar className="h-6 w-6">
+                                <div className="flex flex-col items-center gap-0.5 shrink-0 mb-1">
+                                  <Avatar className="h-7 w-7 ring-2 ring-white dark:ring-stone-700 shadow-sm">
                                     {isCurrentUser && user?.avatarUrl && (
                                       <AvatarImage src={user.avatarUrl} alt={user?.name || user?.username || ""} />
                                     )}
-                                    <AvatarFallback className="text-[9px] font-bold bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400">
+                                    <AvatarFallback className="text-[10px] font-bold bg-gradient-to-br from-blue-400 to-indigo-500 text-white">
                                       {agentInitial}
                                     </AvatarFallback>
                                   </Avatar>
-                                  <span className="text-[8px] text-muted-foreground max-w-[44px] truncate leading-tight text-center">
+                                  <span className="text-[8px] font-medium text-stone-500 dark:text-stone-400 max-w-[44px] truncate leading-tight text-center">
                                     {agentFirstName}
                                   </span>
                                 </div>
