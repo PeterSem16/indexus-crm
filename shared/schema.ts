@@ -192,6 +192,7 @@ export const users = pgTable("users", {
   callForwardingNumber: text("call_forwarding_number"), // Mobile number to forward incoming calls to
   missedCallEmailNotification: boolean("missed_call_email_notification").notNull().default(false), // Send email on missed inbound call
   position: text("position"), // Job position / title shown in email templates
+  smsSenderId: text("sms_sender_id"), // Text sender ID for outbound SMS (e.g. "INDEXUS", max 11 chars)
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 

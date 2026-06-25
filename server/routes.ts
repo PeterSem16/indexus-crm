@@ -3020,6 +3020,23 @@ export async function registerRoutes(
   });
 
   // Update current user's SIP profile settings
+  app.patch("/api/users/me/sms-sender", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const { smsSenderId } = req.body;
+      const user = await storage.updateUser(userId, { smsSenderId: smsSenderId?.trim() || null } as any);
+      if (!user) return res.status(404).json({ error: "User not found" });
+      if (req.session.user) {
+        (req.session.user as any).smsSenderId = (user as any).smsSenderId;
+      }
+      res.json({ success: true, smsSenderId: (user as any).smsSenderId });
+    } catch (error) {
+      console.error("Error saving SMS sender:", error);
+      res.status(500).json({ error: "Failed to save SMS sender" });
+    }
+  });
+
   app.patch("/api/users/me/sip-profile", requireAuth, async (req, res) => {
     try {
       const userId = req.session?.user?.id;
@@ -13152,14 +13169,20 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
       // Try to send SMS via BulkGate or fallback to simulation
       const { sendTransactionalSms, isBulkGateConfigured } = await import("./lib/bulkgate");
+      // Append reference code for reply identification
+      const refCode = `\n[R:${customer.id.slice(0, 8)}]`;
+      const smsText = content + refCode;
+      // User-level text sender ID
+      const userSmsSenderId = (user as any).smsSenderId as string | null | undefined;
       
       if (isBulkGateConfigured()) {
         try {
           const result = await sendTransactionalSms({
             number: customer.phone,
-            text: content,
+            text: smsText,
             country: customer.country || undefined,
             tag: `customer-${customer.id}`,
+            ...(userSmsSenderId ? { senderId: "gText" as const, senderIdValue: userSmsSenderId } : {}),
           });
 
           if (result.success) {
@@ -13240,7 +13263,14 @@ Return ONLY valid JSON, no markdown code blocks.`,
       const { sendTransactionalSms, isBulkGateConfigured } = await import("./lib/bulkgate");
       const results: { phone: string; success: boolean; error?: string; smsId?: string }[] = [];
       
+      // User-level text sender ID for all SMS in this batch
+      const userSmsSenderId = (user as any).smsSenderId as string | null | undefined;
+
       for (const phone of toArray) {
+        // Build ref code: use customerId if present, else first recipient's phone-based fallback
+        const refEntityId = customerId || null;
+        const refSuffix = refEntityId ? `\n[R:${refEntityId.slice(0, 8)}]` : "";
+        const textWithRef = message + refSuffix;
         // Create message record
         const messageRecord = await storage.createCommunicationMessage({
           customerId: customerId || null,
@@ -13260,9 +13290,10 @@ Return ONLY valid JSON, no markdown code blocks.`,
           try {
             const result = await sendTransactionalSms({
               number: phone,
-              text: message,
+              text: textWithRef,
               country: customer?.country || undefined,
               tag: customerId ? `customer-${customerId}` : undefined,
+              ...(userSmsSenderId ? { senderId: "gText" as const, senderIdValue: userSmsSenderId } : {}),
             });
 
             if (result.success) {
@@ -13670,10 +13701,36 @@ Return ONLY valid JSON, no markdown code blocks.`,
         
         console.log(`[BulkGate DLR] Stored incoming SMS from ${webhookData.number}: ${incomingMessage.id}`);
         
-        // Try to link to any entity (customer / hospital / clinic / collaborator) by phone number
+        // Try to link to any entity (customer / hospital / clinic / collaborator)
+        // First: try ref code embedded in reply body  [R:XXXXXXXX]
         let linkedCustomerId: string | undefined;
-        if (webhookData.number) {
-          // Normalize for comparison
+        const refMatch = (webhookData.text || "").match(/\[R:([0-9a-f]{8})\]/i);
+        if (refMatch) {
+          const prefix = refMatch[1].toLowerCase();
+          // Search each entity table for UUID starting with this prefix
+          const cResult = await db.execute(sql`SELECT id FROM customers WHERE id LIKE ${prefix + '%'} LIMIT 1`) as any;
+          const cId = (cResult?.rows ?? cResult)?.[0]?.id;
+          if (cId) {
+            linkedCustomerId = cId;
+            await storage.updateCommunicationMessage(incomingMessage.id, { customerId: cId });
+            console.log(`[BulkGate DLR] Linked incoming SMS to entity via ref code [R:${prefix}]: ${cId}`);
+          } else {
+            // Try hospitals, clinics, collaborators
+            for (const tbl of ["hospitals", "clinics", "collaborators"] as const) {
+              const res2 = await db.execute(sql.raw(`SELECT id FROM ${tbl} WHERE id LIKE '${prefix}%' LIMIT 1`)) as any;
+              const rowId = (res2?.rows ?? res2)?.[0]?.id;
+              if (rowId) {
+                linkedCustomerId = rowId;
+                await storage.updateCommunicationMessage(incomingMessage.id, { customerId: rowId });
+                console.log(`[BulkGate DLR] Linked incoming SMS to ${tbl} via ref code: ${rowId}`);
+                break;
+              }
+            }
+          }
+        }
+
+        if (!linkedCustomerId && webhookData.number) {
+          // Fallback: normalize phone and search all entity tables
           const normPhone = (p: string) => p.replace(/[\s\-\(\)]/g, "").replace(/^\+?421/, "").replace(/^\+?420/, "").replace(/^00/, "");
           const inNorm = normPhone(webhookData.number);
 
@@ -13725,7 +13782,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
               console.log(`[BulkGate DLR] Linked incoming SMS to collaborator ${matchedCollab.firstName} ${matchedCollab.lastName}`);
             }
           }
-        }
+        } // end phone-fallback block
         
         // Run AI analysis for incoming SMS
         if (webhookData.text) {

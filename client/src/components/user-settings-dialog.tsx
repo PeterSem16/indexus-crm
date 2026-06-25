@@ -328,6 +328,8 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
   const [isSaving, setIsSaving] = useState(false);
   const [localRegistering, setLocalRegistering] = useState(false);
   const registerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [smsSenderId, setSmsSenderId] = useState("");
+  const [savingSmsSender, setSavingSmsSender] = useState(false);
 
   const { data: sipSettings } = useQuery<SipSettingsData | null>({
     queryKey: ["/api/sip-settings"],
@@ -339,6 +341,7 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
       setSipExtension((user as any).sipExtension || "");
       setSipPassword((user as any).sipPassword || "");
       setSipDisplayName((user as any).sipDisplayName || user.fullName || "");
+      setSmsSenderId((user as any).smsSenderId || "");
     }
   }, [user]);
 
@@ -378,6 +381,19 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
       });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSaveSmsSender = async () => {
+    setSavingSmsSender(true);
+    try {
+      await apiRequest("PATCH", "/api/users/me/sms-sender", { smsSenderId: smsSenderId.trim() || null });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      toast({ title: "SMS Sender uložený" });
+    } catch (err: any) {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    } finally {
+      setSavingSmsSender(false);
     }
   };
 
@@ -760,6 +776,53 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
         onChange={handleSaveMissedCallNotif}
         userEmail={(user as any)?.email}
       />
+
+      {/* SMS Sender ID */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex flex-row items-center gap-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <MessageSquare className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-base">SMS Sender</CardTitle>
+              <CardDescription className="text-sm">
+                Text sender ID pre odchádzajúce SMS (napr. "INDEXUS", max 11 znakov). Ak prázdne, použije sa systémové číslo.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="smsSenderIdInput">Sender name</Label>
+            <Input
+              id="smsSenderIdInput"
+              value={smsSenderId}
+              onChange={(e) => setSmsSenderId(e.target.value.slice(0, 11))}
+              placeholder="napr. INDEXUS"
+              maxLength={11}
+              data-testid="input-sms-sender-id"
+            />
+            <p className="text-xs text-muted-foreground">
+              Max 11 znakov, len písmená/čísla. Pozor: text sender neumožňuje prijímanie odpovedí od zákazníka.
+            </p>
+            {smsSenderId && smsSenderId.length > 0 && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                ⚠ Text sender je jednosmerný — zákazník nemôže odpovedať na toto číslo.
+              </p>
+            )}
+          </div>
+          <Button
+            onClick={handleSaveSmsSender}
+            disabled={savingSmsSender}
+            size="sm"
+            data-testid="button-save-sms-sender"
+          >
+            {savingSmsSender ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+            Uložiť sender
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -383,6 +383,15 @@ app.use((req, res, next) => {
 
   try {
     await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_sender_id TEXT;
+    `);
+    console.log('[migration] users sms_sender_id column ensured');
+  } catch (e: any) {
+    console.error('[migration] users sms_sender_id error:', e.message);
+  }
+
+  try {
+    await pool.query(`
       ALTER TABLE communication_messages
         ADD COLUMN IF NOT EXISTS sender_phone TEXT,
         ADD COLUMN IF NOT EXISTS contract_id VARCHAR,
