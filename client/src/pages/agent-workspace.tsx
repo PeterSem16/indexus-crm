@@ -4225,9 +4225,11 @@ function CommunicationCanvas({
                           <div className={`flex items-end gap-1.5 ${isOut ? "justify-end" : "justify-start"}`}>
                             {!isOut && (
                               <div className="flex flex-col items-center gap-0.5 shrink-0 mb-0.5">
-                                <div className="h-6 w-6 rounded-full bg-stone-300 dark:bg-stone-700 flex items-center justify-center text-[9px] font-bold text-stone-600 dark:text-stone-300">
-                                  {(contact?.name || "?")[0]?.toUpperCase()}
-                                </div>
+                                <Avatar className="h-6 w-6">
+                                  <AvatarFallback className="text-[9px] font-bold bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-300">
+                                    {(contact?.name || "?")[0]?.toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
                                 <span className="text-[8px] text-muted-foreground max-w-[44px] truncate leading-tight text-center">
                                   {(contact?.name || "?").split(" ")[0]}
                                 </span>
@@ -4236,12 +4238,12 @@ function CommunicationCanvas({
                             <div className={`max-w-[68%] px-3 py-1.5 shadow-sm ${
                               isOut
                                 ? msg._draft
-                                  ? "bg-[#c2673a]/10 border border-[#c2673a]/25 rounded-2xl rounded-br-sm"
-                                  : "bg-[#c2673a] rounded-2xl rounded-br-sm"
+                                  ? "bg-blue-50 border border-blue-200 dark:bg-blue-950/30 dark:border-blue-800/40 rounded-2xl rounded-br-sm"
+                                  : "bg-blue-500 dark:bg-blue-600 rounded-2xl rounded-br-sm"
                                 : "bg-white dark:bg-stone-800 rounded-2xl rounded-bl-sm border border-stone-200/60 dark:border-stone-700/60"
                             }`}>
                               <p className={`text-[12px] leading-relaxed whitespace-pre-wrap break-words ${
-                                isOut ? (msg._draft ? "text-[#c2673a] dark:text-[#c2673a]/80 italic" : "text-white") : "text-stone-800 dark:text-stone-100"
+                                isOut ? (msg._draft ? "text-blue-600 dark:text-blue-400 italic" : "text-white") : "text-stone-800 dark:text-stone-100"
                               }`}>{text}</p>
                               {!msg._draft && (
                                 <div className={`flex items-center gap-0.5 mt-0.5 ${isOut ? "justify-end" : "justify-start"}`}>
@@ -4249,18 +4251,28 @@ function CommunicationCanvas({
                                   {isOut && <span className="text-[9px] opacity-50">{msg.status === "delivered" || msg.status === "read" ? " ✓✓" : " ✓"}</span>}
                                 </div>
                               )}
-                              {msg._draft && <p className="text-[9px] text-[#c2673a]/60 italic mt-0.5">náhľad</p>}
+                              {msg._draft && <p className="text-[9px] text-blue-400 italic mt-0.5">náhľad</p>}
                             </div>
-                            {isOut && (
-                              <div className="flex flex-col items-center gap-0.5 shrink-0 mb-0.5">
-                                <div className="h-6 w-6 rounded-full bg-[#c2673a]/15 flex items-center justify-center text-[9px] font-bold text-[#c2673a]">
-                                  {((msg._draft ? (user?.name || user?.username) : msg.agentName) || "?")[0]?.toUpperCase()}
+                            {isOut && (() => {
+                              const isCurrentUser = msg._draft || msg.agentId === user?.id;
+                              const agentInitial = ((msg._draft ? (user?.name || user?.username) : msg.agentName) || "?")[0]?.toUpperCase();
+                              const agentFirstName = ((msg._draft ? (user?.name || user?.username) : msg.agentName) || "").split(" ")[0] || "—";
+                              return (
+                                <div className="flex flex-col items-center gap-0.5 shrink-0 mb-0.5">
+                                  <Avatar className="h-6 w-6">
+                                    {isCurrentUser && user?.avatarUrl && (
+                                      <AvatarImage src={user.avatarUrl} alt={user?.name || user?.username || ""} />
+                                    )}
+                                    <AvatarFallback className="text-[9px] font-bold bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400">
+                                      {agentInitial}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span className="text-[8px] text-muted-foreground max-w-[44px] truncate leading-tight text-center">
+                                    {agentFirstName}
+                                  </span>
                                 </div>
-                                <span className="text-[8px] text-muted-foreground max-w-[44px] truncate leading-tight text-center">
-                                  {((msg._draft ? (user?.name || user?.username) : msg.agentName) || "").split(" ")[0] || "—"}
-                                </span>
-                              </div>
-                            )}
+                              );
+                            })()}
                           </div>
                         </div>
                       );
