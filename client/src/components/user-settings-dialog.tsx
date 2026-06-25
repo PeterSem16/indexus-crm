@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Phone, PhoneOff, PhoneForwarded, Save, Loader2, Settings, User, Mail, Shield, PhoneCall, CheckCircle, XCircle, AlertCircle, Activity, Clock, MessageSquare, Smartphone } from "lucide-react";
+import { Phone, PhoneOff, PhoneForwarded, Save, Loader2, Settings, User, Mail, Shield, PhoneCall, CheckCircle, XCircle, AlertCircle, Activity, Clock, MessageSquare, Smartphone, Briefcase } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useSip } from "@/contexts/sip-context";
 import { useI18n } from "@/i18n";
@@ -142,6 +142,14 @@ function GeneralTab() {
             <div className="flex-1 min-w-0">
               <p className="text-xs text-muted-foreground">{t.common.phone}</p>
               <p className="text-sm font-medium truncate" data-testid="text-user-phone">{(user as any)?.phone || "-"}</p>
+            </div>
+          </div>
+          <Separator />
+          <div className="flex items-center gap-3">
+            <Briefcase className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-muted-foreground">{t.users.position}</p>
+              <p className="text-sm font-medium truncate" data-testid="text-user-position">{(user as any)?.position || "-"}</p>
             </div>
           </div>
           <Separator />

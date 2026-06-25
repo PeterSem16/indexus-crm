@@ -1202,6 +1202,8 @@ export interface Translations {
     enterPassword: string;
     phoneForNotifications: string;
     phoneForNotificationsHint: string;
+    position: string;
+    positionHint: string;
     selectRole: string;
     activeAccount: string;
     activeAccountHint: string;
@@ -7933,6 +7935,8 @@ export const translations: Record<Locale, Translations> = {
       enterPassword: 'Enter password',
       phoneForNotifications: 'Phone for notifications',
       phoneForNotificationsHint: 'This number will be used to send SMS notifications and alerts from the system.',
+      position: 'Position / Job Title',
+      positionHint: 'Used as the {{user.position}} variable in email and SMS templates.',
       profileTab: 'Profile',
       accessTab: 'Access',
       countriesTab: 'Countries',
@@ -14495,6 +14499,8 @@ export const translations: Record<Locale, Translations> = {
       enterPassword: 'Zadajte heslo',
       phoneForNotifications: 'Telefón pre notifikácie',
       phoneForNotificationsHint: 'Toto číslo bude použité na zasielanie SMS notifikácií a alertov zo systému.',
+      position: 'Pozícia / Funkcia',
+      positionHint: 'Používa sa ako premenná {{user.position}} v e-mailových a SMS šablónach.',
       profileTab: 'Profil',
       accessTab: 'Prístupy',
       countriesTab: 'Krajiny',
@@ -21037,6 +21043,8 @@ export const translations: Record<Locale, Translations> = {
       enterPassword: 'Zadejte heslo',
       phoneForNotifications: 'Telefon pro notifikace',
       phoneForNotificationsHint: 'Toto číslo bude použito k zasílání SMS notifikací a upozornění ze systému.',
+      position: 'Pozice / Funkce',
+      positionHint: 'Používá se jako proměnná {{user.position}} v e-mailových a SMS šablonách.',
       profileTab: 'Profil',
       accessTab: 'Přístupy',
       countriesTab: 'Země',
@@ -27499,6 +27507,8 @@ export const translations: Record<Locale, Translations> = {
       enterPassword: 'Adja meg a jelszót',
       phoneForNotifications: 'Telefon az értesítésekhez',
       phoneForNotificationsHint: 'Ez a szám lesz használva SMS értesítések és riasztások küldésére a rendszerből.',
+      position: 'Beosztás / Munkakör',
+      positionHint: 'A {{user.position}} változóként használható e-mail és SMS sablonokban.',
       profileTab: 'Profil',
       accessTab: 'Hozzáférések',
       countriesTab: 'Országok',
@@ -33844,6 +33854,8 @@ export const translations: Record<Locale, Translations> = {
       enterPassword: 'Introduceți parola',
       phoneForNotifications: 'Telefon pentru notificări',
       phoneForNotificationsHint: 'Acest număr va fi folosit pentru a trimite notificări SMS și alerte din sistem.',
+      position: 'Funcție / Post',
+      positionHint: 'Folosit ca variabilă {{user.position}} în șabloanele de e-mail și SMS.',
       profileTab: 'Profil',
       accessTab: 'Accese',
       countriesTab: 'Țări',
@@ -40188,6 +40200,8 @@ export const translations: Record<Locale, Translations> = {
       enterPassword: 'Inserisci password',
       phoneForNotifications: 'Telefono per notifiche',
       phoneForNotificationsHint: 'Questo numero verrà utilizzato per inviare notifiche SMS e avvisi dal sistema.',
+      position: 'Posizione / Ruolo',
+      positionHint: 'Utilizzato come variabile {{user.position}} nei modelli e-mail e SMS.',
       profileTab: 'Profilo',
       accessTab: 'Accessi',
       countriesTab: 'Paesi',
@@ -46533,6 +46547,8 @@ export const translations: Record<Locale, Translations> = {
       enterPassword: 'Passwort eingeben',
       phoneForNotifications: 'Telefon für Benachrichtigungen',
       phoneForNotificationsHint: 'Diese Nummer wird verwendet, um SMS-Benachrichtigungen und Warnungen aus dem System zu senden.',
+      position: 'Position / Funktion',
+      positionHint: 'Wird als Variable {{user.position}} in E-Mail- und SMS-Vorlagen verwendet.',
       profileTab: 'Profil',
       accessTab: 'Zugänge',
       countriesTab: 'Länder',

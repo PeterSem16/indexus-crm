@@ -552,7 +552,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
         </div>
       </div>
 
-      {/* Position / job title for email templates */}
+      {/* Position / job title for email and SMS templates */}
       <div className="mt-4 pt-4 border-t">
         <FormField
           control={form.control}
@@ -561,10 +561,10 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
             <FormItem>
               <FormLabel className="text-base font-medium flex items-center gap-2">
                 <Briefcase className="h-4 w-4" />
-                Pozícia / Funkcia
+                {t.users.position}
               </FormLabel>
               <FormDescription>
-                Používa sa ako premenná <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">{"{{user.position}}"}</code> v e-mailových šablónach.
+                {t.users.positionHint}
               </FormDescription>
               <FormControl>
                 <Input
