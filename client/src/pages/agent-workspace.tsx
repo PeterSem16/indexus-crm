@@ -3712,293 +3712,143 @@ function CommunicationCanvas({
 
       {activeChannel === "email" && (
         <div className="flex-1 flex overflow-hidden">
-          <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-            <div className="flex gap-4 p-4 flex-1">
-              <div className="w-2/5 space-y-3 border-r pr-4">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                    {t.customers?.details?.fromAccount || "FROM ACCOUNT"}
-                  </Label>
-                  <Select value={selectedFromAccount} onValueChange={setSelectedFromAccount}>
-                    <SelectTrigger data-testid="select-from-account" className="text-sm">
-                      <SelectValue placeholder={t.customers?.details?.selectAccount || "Select account"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {allEmailAccounts.map((account) => (
-                        <SelectItem key={account.id || "personal"} value={account.id || "personal"}>
-                          <div className="flex items-center gap-2">
-                            <span>{account.displayName}</span>
-                            {account.type === "personal" && (
-                              <Badge variant="outline" className="text-[10px] px-1 py-0">
-                                {t.customers?.details?.personalAccount || "Personal"}
-                              </Badge>
-                            )}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
 
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                    {t.configuration?.messageTemplates || "TEMPLATE"}
-                  </Label>
-                  <div className="flex items-center gap-1 flex-wrap">
-                    {[
-                      { code: "sk", flag: "🇸🇰" },
-                      { code: "cs", flag: "🇨🇿" },
-                      { code: "en", flag: "🇬🇧" },
-                      { code: "hu", flag: "🇭🇺" },
-                      { code: "ro", flag: "🇷🇴" },
-                      { code: "it", flag: "🇮🇹" },
-                      { code: "de", flag: "🇩🇪" },
-                    ].map(({ code, flag }) => (
-                      <button
-                        key={code}
-                        type="button"
-                        className={`text-base px-1 py-0.5 rounded border transition-all ${emailTemplateLangs.has(code) ? "border-primary bg-primary/10 shadow-sm" : "border-transparent opacity-40 hover:opacity-70"}`}
-                        onClick={() => {
-                          setEmailTemplateLangs(prev => {
-                            const next = new Set(prev);
-                            if (next.has(code)) next.delete(code);
-                            else next.add(code);
-                            return next;
-                          });
-                        }}
-                        title={code.toUpperCase()}
-                        data-testid={`email-lang-flag-${code}`}
-                      >
-                        {flag}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="space-y-1.5">
-                    {emailCategoriesWithTemplates.length > 0 && (
-                      <Select value={emailTemplateCategoryId} onValueChange={(val) => { setEmailTemplateCategoryId(val); }}>
-                        <SelectTrigger data-testid="select-email-template-category" className="text-sm">
-                          <SelectValue placeholder={t.configuration?.selectCategory || "Select category"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__all__">{t.sop?.all || "All"}</SelectItem>
-                          {emailCategoriesWithTemplates.map((cat) => (
-                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                    <Popover open={emailTemplatePopoverOpen} onOpenChange={setEmailTemplatePopoverOpen}>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" role="combobox" className="w-full justify-between text-sm font-normal h-10" data-testid="select-email-template" disabled={emailTemplates.length === 0}>
-                          <span className="truncate">{selectedEmailTemplateName || (emailTemplates.length === 0 ? (t.konfigurator?.noMessageTemplates || "No templates") : (t.configuration?.selectTemplate || "Select template"))}</span>
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-                        <div className="flex items-center border-b px-3 py-2">
-                          <Search className="h-4 w-4 mr-2 shrink-0 opacity-50" />
-                          <input
-                            className="flex h-8 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                            placeholder={t.configuration?.searchTemplate || "Search template..."}
-                            value={emailTemplateSearch}
-                            onChange={(e) => setEmailTemplateSearch(e.target.value)}
-                            data-testid="input-search-email-template"
-                          />
-                          {emailTemplateSearch && (
-                            <button onClick={() => setEmailTemplateSearch("")} className="ml-1 opacity-50 hover:opacity-100"><X className="h-3.5 w-3.5" /></button>
-                          )}
-                        </div>
-                        <div className="max-h-[200px] overflow-y-auto">
-                          {filteredEmailTemplates.length === 0 ? (
-                            <p className="text-sm text-muted-foreground text-center py-4">{t.konfigurator?.noMessageTemplates || "No templates"}</p>
-                          ) : (
-                            filteredEmailTemplates.map((template) => (
-                              <button
-                                key={template.id}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted/50 transition-colors"
-                                onClick={() => handleSelectEmailTemplate(template.id)}
-                                data-testid={`email-template-option-${template.id}`}
-                              >
-                                <Check className={`h-4 w-4 shrink-0 ${selectedEmailTemplateName === template.name ? "opacity-100" : "opacity-0"}`} />
-                                <span className="truncate flex-1">{template.name}</span>
-                                {(template as any).attachments?.length > 0 && <Paperclip className="h-3 w-3 text-muted-foreground shrink-0" />}
-                              </button>
-                            ))
-                          )}
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
+          {/* ── LEFT: Email body / preview — Stone & Terracotta ── */}
+          <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-stone-100 dark:bg-stone-950">
 
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                    {t.customers?.details?.to || "TO"}
-                  </Label>
-                  <div className="space-y-1.5">
-                    {contact?.email && (
-                      <div className="flex items-center gap-2">
-                        <Checkbox id="aw-email1" checked={selectedEmails.includes(contact.email)} onCheckedChange={(checked) => {
-                          if (checked) setSelectedEmails([...selectedEmails, contact.email!]);
-                          else setSelectedEmails(selectedEmails.filter(e => e !== contact.email));
-                        }} data-testid="checkbox-email-primary" />
-                        <Label htmlFor="aw-email1" className="font-normal cursor-pointer text-xs truncate">{contact.email}</Label>
-                      </div>
-                    )}
-                    {(contact as any)?.email2 && (
-                      <div className="flex items-center gap-2">
-                        <Checkbox id="aw-email2" checked={selectedEmails.includes((contact as any).email2)} onCheckedChange={(checked) => {
-                          if (checked) setSelectedEmails([...selectedEmails, (contact as any).email2!]);
-                          else setSelectedEmails(selectedEmails.filter(e => e !== (contact as any).email2));
-                        }} data-testid="checkbox-email-secondary" />
-                        <Label htmlFor="aw-email2" className="font-normal cursor-pointer text-xs truncate">{(contact as any).email2}</Label>
-                      </div>
-                    )}
-                  </div>
+            {/* Dark email-client header bar */}
+            <div className="bg-stone-800 dark:bg-stone-900 px-4 py-2.5 flex items-center gap-3 shrink-0 shadow-sm">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#c2673a]/25 shrink-0">
+                <Mail className="h-3.5 w-3.5 text-[#e8956d]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-white font-semibold text-sm truncate leading-tight">
+                  {emailSubject || <span className="text-stone-500 font-normal italic">— {t.customers?.details?.subject || "Subject"} —</span>}
                 </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">CC</Label>
-                    <Button variant="ghost" size="sm" onClick={() => setShowCcField(!showCcField)} className="h-5 px-1 text-xs" data-testid="button-toggle-cc">
-                      {showCcField ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                    </Button>
-                  </div>
-                  {showCcField && (
-                    <Input value={emailCc} onChange={(e) => setEmailCc(e.target.value)} placeholder={t.customers?.details?.ccPlaceholder || "email@example.com"} className="text-sm" data-testid="input-email-cc" />
-                  )}
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                    {t.customers?.details?.attachment || "ATTACHMENT"}
-                  </Label>
-                  {!emailAttachment ? (
-                    <label htmlFor="aw-email-attachment-input"
-                      className="flex flex-col items-center justify-center w-full h-20 border-2 border-dashed border-muted-foreground/25 rounded-lg cursor-pointer bg-muted/30 hover:bg-muted/50 transition-colors"
-                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); const file = e.dataTransfer.files?.[0]; if (file) setEmailAttachment(file); }}
-                      data-testid="dropzone-email-attachment"
-                    >
-                      <div className="flex flex-col items-center justify-center py-1">
-                        <Paperclip className="w-5 h-5 mb-1 text-muted-foreground" />
-                        <p className="text-[10px] text-muted-foreground text-center">
-                          <span className="font-medium text-primary">{t.common?.clickToUpload || "Click to upload"}</span> {t.common?.orDragDrop || "or drag and drop"}
-                        </p>
-                      </div>
-                      <input id="aw-email-attachment-input" type="file" className="hidden" onChange={(e) => setEmailAttachment(e.target.files?.[0] || null)} data-testid="input-email-attachment" />
-                    </label>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  {selectedEmails.length > 0 ? (
+                    <span className="text-stone-400 text-[11px] truncate">→ {selectedEmails.join(", ")}</span>
                   ) : (
-                    <div className="flex items-center gap-2 p-2 border rounded-lg bg-muted/30">
-                      <FileIcon className="w-4 h-4 text-primary flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">{emailAttachment.name}</p>
-                        <p className="text-[10px] text-muted-foreground">{(emailAttachment.size / 1024).toFixed(1)} KB</p>
-                      </div>
-                      <Button variant="ghost" size="icon" onClick={() => setEmailAttachment(null)} data-testid="button-remove-attachment">
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
+                    <span className="text-stone-600 text-[11px] italic">{t.customers?.details?.selectEmail || "No recipient selected"}</span>
+                  )}
+                  {selectedFromAccount && allEmailAccounts.find(a => (a.id || "personal") === selectedFromAccount) && (
+                    <span className="text-stone-600 text-[10px] shrink-0">
+                      via {allEmailAccounts.find(a => (a.id || "personal") === selectedFromAccount)?.displayName}
+                    </span>
                   )}
                 </div>
+              </div>
+              {/* Preview / Edit HTML toggles */}
+              {emailIsHtml && (
+                <div className="flex items-center gap-0.5 shrink-0 bg-stone-900/60 rounded-md p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setEmailHtmlEditMode(false)}
+                    className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${!emailHtmlEditMode ? "bg-[#c2673a] text-white shadow-sm" : "text-stone-400 hover:bg-stone-700 hover:text-white"}`}
+                  >
+                    Preview
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEmailHtmlEditMode(true)}
+                    className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${emailHtmlEditMode ? "bg-stone-600 text-white shadow-sm" : "text-stone-400 hover:bg-stone-700 hover:text-white"}`}
+                  >
+                    Edit HTML
+                  </button>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => setEmailPreviewExpanded(true)}
+                className="h-7 w-7 flex items-center justify-center rounded hover:bg-stone-700 text-stone-500 hover:text-white transition-colors shrink-0"
+                title="Zobraziť na celú obrazovku"
+                data-testid="btn-email-preview-expand"
+              >
+                <Maximize2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
 
-                {templateAttachments.length > 0 && (
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                      <Paperclip className="h-3 w-3" />
-                      {t.customers?.details?.templateAttachments || "TEMPLATE ATTACHMENTS"} ({templateAttachments.length})
-                    </Label>
-                    <div className="space-y-1">
-                      {templateAttachments.map((ta, idx) => (
-                        <div key={idx} className="flex items-center gap-2 p-1.5 border rounded-md bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
-                          <FileIcon className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[11px] font-medium truncate" data-testid={`template-att-name-${idx}`}>{ta.fileName}</p>
-                            <p className="text-[9px] text-muted-foreground">{(ta.size / 1024).toFixed(1)} KB</p>
-                          </div>
-                          <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setTemplateAttachments(prev => prev.filter((_, i) => i !== idx))} data-testid={`btn-remove-tpl-att-${idx}`}>
-                            <X className="h-2.5 w-2.5" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {customerDocuments.length > 0 && (
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                      {t.customers?.details?.customerDocuments || "CUSTOMER DOCUMENTS"}
-                    </Label>
-                    <div className="space-y-1 max-h-28 overflow-y-auto border rounded-md p-2">
-                      {customerDocuments.map((doc) => (
-                        <div key={doc.id} className="flex items-center gap-2">
-                          <Checkbox id={`aw-doc-${doc.id}`} checked={selectedDocuments.includes(doc.id)} onCheckedChange={(checked) => {
-                            if (checked) setSelectedDocuments([...selectedDocuments, doc.id]);
-                            else setSelectedDocuments(selectedDocuments.filter(d => d !== doc.id));
-                          }} data-testid={`checkbox-doc-${doc.id}`} />
-                          <Label htmlFor={`aw-doc-${doc.id}`} className="font-normal cursor-pointer text-[11px] truncate flex items-center gap-1">
-                            <FileText className="h-3 w-3 text-muted-foreground" />
-                            {doc.name}
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+            {/* Email body card */}
+            <div className="flex-1 min-h-0 flex flex-col p-3 overflow-hidden">
+              <div className="flex-1 min-h-0 rounded-xl shadow-lg overflow-hidden border border-stone-200/60 dark:border-stone-700/60" data-testid="wysiwyg-email-message">
+                {emailIsHtml ? (
+                  emailHtmlEditMode ? (
+                    <textarea
+                      className="flex-1 w-full h-full px-4 py-3 text-xs font-mono resize-none focus-visible:outline-none bg-[#1a1a1a] text-stone-300 dark:bg-stone-950"
+                      value={emailMessage}
+                      onChange={(e) => setEmailMessage(e.target.value)}
+                      spellCheck={false}
+                      data-testid="textarea-email-html-edit"
+                    />
+                  ) : (
+                    <iframe
+                      srcDoc={emailMessage}
+                      sandbox="allow-same-origin"
+                      className="w-full h-full bg-white"
+                      title="Email preview"
+                    />
+                  )
+                ) : (
+                  <textarea
+                    className="w-full h-full px-4 py-4 text-sm resize-none focus-visible:outline-none bg-white dark:bg-stone-900 text-foreground leading-relaxed"
+                    value={emailMessage}
+                    onChange={(e) => setEmailMessage(e.target.value)}
+                    placeholder={t.customers?.details?.writeEmailPlaceholder || "Write your email..."}
+                    disabled={isSendingEmail}
+                    data-testid="textarea-email-message"
+                  />
                 )}
               </div>
+            </div>
 
-              <div className="w-3/5 space-y-3 flex flex-col">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{t.customers?.details?.subject || "Subject"}</Label>
-                  <Input value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} placeholder={t.customers?.details?.emailSubjectPlaceholder || "Email subject..."} disabled={isSendingEmail} data-testid="input-email-subject" />
-                </div>
-                <div className="space-y-1.5 flex-1 flex flex-col">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{t.customers?.details?.message || "Message"}</Label>
-                    <button
-                      type="button"
-                      onClick={() => setEmailIsHtml(v => !v)}
-                      data-testid="btn-toggle-html"
-                      className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${emailIsHtml ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground border-border hover:bg-muted/80"}`}
-                      title={emailIsHtml ? "Prepnúť na plain text" : "Prepnúť na HTML editor"}
-                    >
-                      <Code2 className="h-3 w-3" />
-                      HTML
-                    </button>
+            {/* Bottom action bar */}
+            <div className="shrink-0 border-t border-stone-200 dark:border-stone-800 bg-stone-50/80 dark:bg-stone-900/80 px-4 py-2.5 flex items-center justify-between gap-3 backdrop-blur-sm">
+              <div className="text-[11px] space-y-0.5">
+                {selectedEmails.length === 0 && <div className="text-rose-500">• {t.customers?.details?.selectEmail || "Vyberte aspoň jeden email"}</div>}
+                {!emailSubject && <div className="text-amber-600 dark:text-amber-500">• {t.customers?.details?.enterSubject || "Zadajte predmet"}</div>}
+                {!emailMessage && <div className="text-amber-600 dark:text-amber-500">• {t.customers?.details?.enterMessage || "Zadajte správu"}</div>}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs h-8"
+                  onClick={() => { setEmailSubject(""); setEmailMessage(""); setEmailIsHtml(false); setEmailHtmlEditMode(false); setSelectedEmails([]); setEmailAttachment(null); setTemplateAttachments([]); setEmailCc(""); setShowCcField(false); setSelectedDocuments([]); }}
+                  data-testid="button-cancel-email"
+                >
+                  {t.common?.cancel || "Cancel"}
+                </Button>
+                <Button
+                  onClick={handleSendEmail}
+                  disabled={selectedEmails.length === 0 || !emailSubject || !emailMessage || isSendingEmail}
+                  className="h-8 px-4 text-xs font-semibold bg-[#c2673a] hover:bg-[#a8502a] text-white border-0 shadow-sm disabled:opacity-40"
+                  data-testid="btn-send-email"
+                >
+                  {isSendingEmail ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1.5" />}
+                  {t.customers?.details?.sendEmail || "Send Email"}
+                </Button>
+              </div>
+            </div>
+
+            {/* Expanded dialog */}
+            {emailPreviewExpanded && (
+              <Dialog open={emailPreviewExpanded} onOpenChange={setEmailPreviewExpanded}>
+                <DialogContent className="max-w-5xl w-full h-[90vh] !flex !flex-col p-0 gap-0 overflow-hidden rounded-xl">
+                  <div className="flex items-center gap-3 px-4 py-3 bg-stone-800 flex-shrink-0">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#c2673a]/25 shrink-0">
+                      <Mail className="h-3.5 w-3.5 text-[#e8956d]" />
+                    </div>
+                    <span className="text-sm font-semibold flex-1 truncate text-white">{emailSubject || "Email preview"}</span>
+                    <div className="flex items-center gap-0.5 bg-stone-900/60 rounded-md p-0.5">
+                      <button type="button" onClick={() => setEmailHtmlEditMode(false)} className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${!emailHtmlEditMode ? "bg-[#c2673a] text-white shadow-sm" : "text-stone-400 hover:bg-stone-700 hover:text-white"}`}>Preview</button>
+                      <button type="button" onClick={() => setEmailHtmlEditMode(true)} className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${emailHtmlEditMode ? "bg-stone-600 text-white shadow-sm" : "text-stone-400 hover:bg-stone-700 hover:text-white"}`}>Edit HTML</button>
+                    </div>
                   </div>
-                  {emailIsHtml ? (
-                    <>
-                    <div className="border rounded-md flex-1 flex flex-col overflow-hidden" data-testid="wysiwyg-email-message">
-                      <div className="flex items-center gap-1 px-2 py-1 border-b bg-muted/30">
-                        <button
-                          type="button"
-                          onClick={() => setEmailHtmlEditMode(false)}
-                          className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${!emailHtmlEditMode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
-                        >
-                          Preview
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEmailHtmlEditMode(true)}
-                          className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${emailHtmlEditMode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
-                        >
-                          Edit HTML
-                        </button>
-                        <div className="flex-1" />
-                        <button
-                          type="button"
-                          title="Zobraziť na celú obrazovku"
-                          onClick={() => setEmailPreviewExpanded(true)}
-                          className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                          data-testid="btn-email-preview-expand"
-                        >
-                          <Maximize2 className="h-3 w-3" />
-                        </button>
-                      </div>
+                  <div className="flex-1 min-h-0 overflow-hidden bg-stone-100 dark:bg-stone-950 p-3">
+                    <div className="h-full rounded-xl overflow-hidden shadow-lg border border-stone-200/60 dark:border-stone-700/60">
                       {emailHtmlEditMode ? (
                         <textarea
-                          className="flex-1 w-full min-h-[200px] px-3 py-2 text-xs font-mono resize-none focus-visible:outline-none bg-background"
+                          className="h-full w-full px-4 py-3 text-xs font-mono resize-none focus-visible:outline-none bg-[#1a1a1a] text-stone-300"
                           value={emailMessage}
                           onChange={(e) => setEmailMessage(e.target.value)}
                           spellCheck={false}
@@ -4007,71 +3857,296 @@ function CommunicationCanvas({
                         <iframe
                           srcDoc={emailMessage}
                           sandbox="allow-same-origin"
-                          className="flex-1 w-full min-h-[200px] bg-white"
-                          title="Email preview"
+                          className="h-full w-full bg-white"
+                          title="Email preview expanded"
                         />
                       )}
                     </div>
-                    {emailPreviewExpanded && (
-                      <Dialog open={emailPreviewExpanded} onOpenChange={setEmailPreviewExpanded}>
-                        <DialogContent className="max-w-5xl w-full h-[90vh] !flex !flex-col p-0 gap-0">
-                          <div className="flex items-center gap-2 px-4 py-3 border-b flex-shrink-0">
-                            <Mail className="h-4 w-4 text-primary" />
-                            <span className="text-sm font-semibold flex-1 truncate">{emailSubject || "Email preview"}</span>
-                            <div className="flex items-center gap-1">
-                              <button type="button" onClick={() => setEmailHtmlEditMode(false)} className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${!emailHtmlEditMode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>Preview</button>
-                              <button type="button" onClick={() => setEmailHtmlEditMode(true)} className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${emailHtmlEditMode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>Edit HTML</button>
-                            </div>
-                          </div>
-                          <div className="flex-1 min-h-0 overflow-hidden">
-                            {emailHtmlEditMode ? (
-                              <textarea
-                                className="h-full w-full px-4 py-3 text-xs font-mono resize-none focus-visible:outline-none bg-background"
-                                value={emailMessage}
-                                onChange={(e) => setEmailMessage(e.target.value)}
-                                spellCheck={false}
-                              />
-                            ) : (
-                              <iframe
-                                srcDoc={emailMessage}
-                                sandbox="allow-same-origin"
-                                className="h-full w-full bg-white"
-                                title="Email preview expanded"
-                              />
-                            )}
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    )}
-                    </>
-                  ) : (
-                    <textarea
-                      className="flex-1 w-full min-h-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                      value={emailMessage}
-                      onChange={(e) => setEmailMessage(e.target.value)}
-                      placeholder={t.customers?.details?.writeEmailPlaceholder || "Write your email..."}
-                      disabled={isSendingEmail}
-                      data-testid="textarea-email-message"
-                    />
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
+
+          {/* ── RIGHT: Compact form sidebar ── */}
+          <div className="w-[290px] shrink-0 flex flex-col border-l border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/60 overflow-y-auto">
+            <div className="p-4 space-y-4">
+
+              {/* FROM ACCOUNT */}
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-widest">
+                  {t.customers?.details?.fromAccount || "FROM ACCOUNT"}
+                </Label>
+                <Select value={selectedFromAccount} onValueChange={setSelectedFromAccount}>
+                  <SelectTrigger data-testid="select-from-account" className="text-sm h-9 bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700">
+                    <SelectValue placeholder={t.customers?.details?.selectAccount || "Select account"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allEmailAccounts.map((account) => (
+                      <SelectItem key={account.id || "personal"} value={account.id || "personal"}>
+                        <div className="flex items-center gap-2">
+                          <span>{account.displayName}</span>
+                          {account.type === "personal" && (
+                            <Badge variant="outline" className="text-[10px] px-1 py-0">
+                              {t.customers?.details?.personalAccount || "Personal"}
+                            </Badge>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="border-t border-stone-200 dark:border-stone-700/60" />
+
+              {/* SUBJECT */}
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-widest">
+                  {t.customers?.details?.subject || "SUBJECT"}
+                </Label>
+                <Input
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  placeholder={t.customers?.details?.emailSubjectPlaceholder || "Email subject..."}
+                  disabled={isSendingEmail}
+                  data-testid="input-email-subject"
+                  className="h-9 bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-sm"
+                />
+              </div>
+
+              <div className="border-t border-stone-200 dark:border-stone-700/60" />
+
+              {/* TEMPLATE */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[10px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-widest">
+                    {t.configuration?.messageTemplates || "TEMPLATE"}
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={() => setEmailIsHtml(v => !v)}
+                    data-testid="btn-toggle-html"
+                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${emailIsHtml ? "bg-[#c2673a] text-white border-[#c2673a]" : "bg-white dark:bg-stone-800 text-stone-500 border-stone-300 dark:border-stone-600 hover:bg-stone-100"}`}
+                    title={emailIsHtml ? "Prepnúť na plain text" : "Prepnúť na HTML editor"}
+                  >
+                    <Code2 className="h-3 w-3" />
+                    HTML
+                  </button>
+                </div>
+                <div className="flex items-center gap-0.5 flex-wrap">
+                  {[
+                    { code: "sk", flag: "🇸🇰" },
+                    { code: "cs", flag: "🇨🇿" },
+                    { code: "en", flag: "🇬🇧" },
+                    { code: "hu", flag: "🇭🇺" },
+                    { code: "ro", flag: "🇷🇴" },
+                    { code: "it", flag: "🇮🇹" },
+                    { code: "de", flag: "🇩🇪" },
+                  ].map(({ code, flag }) => (
+                    <button
+                      key={code}
+                      type="button"
+                      className={`text-base px-1 py-0.5 rounded border transition-all ${emailTemplateLangs.has(code) ? "border-[#c2673a] bg-[#c2673a]/10 shadow-sm" : "border-transparent opacity-40 hover:opacity-70"}`}
+                      onClick={() => {
+                        setEmailTemplateLangs(prev => {
+                          const next = new Set(prev);
+                          if (next.has(code)) next.delete(code);
+                          else next.add(code);
+                          return next;
+                        });
+                      }}
+                      title={code.toUpperCase()}
+                      data-testid={`email-lang-flag-${code}`}
+                    >
+                      {flag}
+                    </button>
+                  ))}
+                </div>
+                <div className="space-y-1.5">
+                  {emailCategoriesWithTemplates.length > 0 && (
+                    <Select value={emailTemplateCategoryId} onValueChange={(val) => { setEmailTemplateCategoryId(val); }}>
+                      <SelectTrigger data-testid="select-email-template-category" className="text-sm h-9 bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700">
+                        <SelectValue placeholder={t.configuration?.selectCategory || "Select category"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__all__">{t.sop?.all || "All"}</SelectItem>
+                        {emailCategoriesWithTemplates.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <Popover open={emailTemplatePopoverOpen} onOpenChange={setEmailTemplatePopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" className="w-full justify-between text-sm font-normal h-9 bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700" data-testid="select-email-template" disabled={emailTemplates.length === 0}>
+                        <span className="truncate">{selectedEmailTemplateName || (emailTemplates.length === 0 ? (t.konfigurator?.noMessageTemplates || "No templates") : (t.configuration?.selectTemplate || "Select template"))}</span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                      <div className="flex items-center border-b px-3 py-2">
+                        <Search className="h-4 w-4 mr-2 shrink-0 opacity-50" />
+                        <input
+                          className="flex h-8 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                          placeholder={t.configuration?.searchTemplate || "Search template..."}
+                          value={emailTemplateSearch}
+                          onChange={(e) => setEmailTemplateSearch(e.target.value)}
+                          data-testid="input-search-email-template"
+                        />
+                        {emailTemplateSearch && (
+                          <button onClick={() => setEmailTemplateSearch("")} className="ml-1 opacity-50 hover:opacity-100"><X className="h-3.5 w-3.5" /></button>
+                        )}
+                      </div>
+                      <div className="max-h-[200px] overflow-y-auto">
+                        {filteredEmailTemplates.length === 0 ? (
+                          <p className="text-sm text-muted-foreground text-center py-4">{t.konfigurator?.noMessageTemplates || "No templates"}</p>
+                        ) : (
+                          filteredEmailTemplates.map((template) => (
+                            <button
+                              key={template.id}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted/50 transition-colors"
+                              onClick={() => handleSelectEmailTemplate(template.id)}
+                              data-testid={`email-template-option-${template.id}`}
+                            >
+                              <Check className={`h-4 w-4 shrink-0 ${selectedEmailTemplateName === template.name ? "opacity-100" : "opacity-0"}`} />
+                              <span className="truncate flex-1">{template.name}</span>
+                              {(template as any).attachments?.length > 0 && <Paperclip className="h-3 w-3 text-muted-foreground shrink-0" />}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+
+              <div className="border-t border-stone-200 dark:border-stone-700/60" />
+
+              {/* TO */}
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-widest">
+                  {t.customers?.details?.to || "TO"}
+                </Label>
+                <div className="space-y-1.5">
+                  {contact?.email && (
+                    <div className="flex items-center gap-2">
+                      <Checkbox id="aw-email1" checked={selectedEmails.includes(contact.email)} onCheckedChange={(checked) => {
+                        if (checked) setSelectedEmails([...selectedEmails, contact.email!]);
+                        else setSelectedEmails(selectedEmails.filter(e => e !== contact.email));
+                      }} data-testid="checkbox-email-primary" />
+                      <Label htmlFor="aw-email1" className="font-normal cursor-pointer text-xs truncate">{contact.email}</Label>
+                    </div>
+                  )}
+                  {(contact as any)?.email2 && (
+                    <div className="flex items-center gap-2">
+                      <Checkbox id="aw-email2" checked={selectedEmails.includes((contact as any).email2)} onCheckedChange={(checked) => {
+                        if (checked) setSelectedEmails([...selectedEmails, (contact as any).email2!]);
+                        else setSelectedEmails(selectedEmails.filter(e => e !== (contact as any).email2));
+                      }} data-testid="checkbox-email-secondary" />
+                      <Label htmlFor="aw-email2" className="font-normal cursor-pointer text-xs truncate">{(contact as any).email2}</Label>
+                    </div>
                   )}
                 </div>
-                <div className="flex justify-end gap-2 pt-1">
-                  <Button variant="outline" size="sm" onClick={() => { setEmailSubject(""); setEmailMessage(""); setEmailIsHtml(false); setEmailHtmlEditMode(false); setSelectedEmails([]); setEmailAttachment(null); setTemplateAttachments([]); setEmailCc(""); setShowCcField(false); setSelectedDocuments([]); }} data-testid="button-cancel-email">
-                    {t.common?.cancel || "Cancel"}
-                  </Button>
-                  <Button onClick={handleSendEmail} disabled={selectedEmails.length === 0 || !emailSubject || !emailMessage || isSendingEmail} data-testid="btn-send-email">
-                    {isSendingEmail ? (<Loader2 className="h-4 w-4 mr-2 animate-spin" />) : (<Send className="h-4 w-4 mr-2" />)}
-                    {t.customers?.details?.sendEmail || "Send Email"}
+              </div>
+
+              {/* CC */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[10px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-widest">CC</Label>
+                  <Button variant="ghost" size="sm" onClick={() => setShowCcField(!showCcField)} className="h-5 px-1 text-xs text-stone-500 hover:text-stone-700" data-testid="button-toggle-cc">
+                    {showCcField ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                   </Button>
                 </div>
-                {(selectedEmails.length === 0 || !emailSubject || !emailMessage) && (
-                  <div className="text-xs text-destructive">
-                    {selectedEmails.length === 0 && <div>• {t.customers?.details?.selectEmail || "Vyberte aspoň jeden email"}</div>}
-                    {!emailSubject && <div>• {t.customers?.details?.enterSubject || "Zadajte predmet"}</div>}
-                    {!emailMessage && <div>• {t.customers?.details?.enterMessage || "Zadajte správu"}</div>}
+                {showCcField && (
+                  <Input value={emailCc} onChange={(e) => setEmailCc(e.target.value)} placeholder={t.customers?.details?.ccPlaceholder || "email@example.com"} className="h-9 text-sm bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700" data-testid="input-email-cc" />
+                )}
+              </div>
+
+              <div className="border-t border-stone-200 dark:border-stone-700/60" />
+
+              {/* ATTACHMENT */}
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-widest">
+                  {t.customers?.details?.attachment || "ATTACHMENT"}
+                </Label>
+                {!emailAttachment ? (
+                  <label
+                    htmlFor="aw-email-attachment-input"
+                    className="flex flex-col items-center justify-center w-full h-14 border-2 border-dashed border-stone-300 dark:border-stone-600 rounded-lg cursor-pointer bg-white dark:bg-stone-800 hover:bg-stone-50 dark:hover:bg-stone-750 transition-colors group"
+                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                    onDrop={(e) => { e.preventDefault(); e.stopPropagation(); const file = e.dataTransfer.files?.[0]; if (file) setEmailAttachment(file); }}
+                    data-testid="dropzone-email-attachment"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Paperclip className="w-3.5 h-3.5 text-stone-400 group-hover:text-[#c2673a] transition-colors" />
+                      <p className="text-[10px] text-stone-500 group-hover:text-stone-700 transition-colors">
+                        <span className="font-medium text-[#c2673a]">{t.common?.clickToUpload || "Click to upload"}</span> {t.common?.orDragDrop || "or drag and drop"}
+                      </p>
+                    </div>
+                    <input id="aw-email-attachment-input" type="file" className="hidden" onChange={(e) => setEmailAttachment(e.target.files?.[0] || null)} data-testid="input-email-attachment" />
+                  </label>
+                ) : (
+                  <div className="flex items-center gap-2 p-2 border border-stone-200 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800">
+                    <FileIcon className="w-4 h-4 text-[#c2673a] flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate">{emailAttachment.name}</p>
+                      <p className="text-[10px] text-muted-foreground">{(emailAttachment.size / 1024).toFixed(1)} KB</p>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setEmailAttachment(null)} data-testid="button-remove-attachment">
+                      <X className="h-3 w-3" />
+                    </Button>
                   </div>
                 )}
               </div>
+
+              {/* TEMPLATE ATTACHMENTS */}
+              {templateAttachments.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-widest flex items-center gap-1">
+                    <Paperclip className="h-3 w-3" />
+                    {t.customers?.details?.templateAttachments || "TEMPLATE ATTACHMENTS"} ({templateAttachments.length})
+                  </Label>
+                  <div className="space-y-1">
+                    {templateAttachments.map((ta, idx) => (
+                      <div key={idx} className="flex items-center gap-2 p-1.5 border rounded-md bg-amber-50 dark:bg-amber-950/20 border-amber-200/70 dark:border-amber-800/50">
+                        <FileIcon className="w-3.5 h-3.5 text-[#c2673a] flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-medium truncate" data-testid={`template-att-name-${idx}`}>{ta.fileName}</p>
+                          <p className="text-[9px] text-muted-foreground">{(ta.size / 1024).toFixed(1)} KB</p>
+                        </div>
+                        <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" onClick={() => setTemplateAttachments(prev => prev.filter((_, i) => i !== idx))} data-testid={`btn-remove-tpl-att-${idx}`}>
+                          <X className="h-2.5 w-2.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* CUSTOMER DOCUMENTS */}
+              {customerDocuments.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-widest">
+                    {t.customers?.details?.customerDocuments || "CUSTOMER DOCUMENTS"}
+                  </Label>
+                  <div className="space-y-1 max-h-28 overflow-y-auto border border-stone-200 dark:border-stone-700 rounded-md p-2 bg-white dark:bg-stone-800">
+                    {customerDocuments.map((doc) => (
+                      <div key={doc.id} className="flex items-center gap-2">
+                        <Checkbox id={`aw-doc-${doc.id}`} checked={selectedDocuments.includes(doc.id)} onCheckedChange={(checked) => {
+                          if (checked) setSelectedDocuments([...selectedDocuments, doc.id]);
+                          else setSelectedDocuments(selectedDocuments.filter(d => d !== doc.id));
+                        }} data-testid={`checkbox-doc-${doc.id}`} />
+                        <Label htmlFor={`aw-doc-${doc.id}`} className="font-normal cursor-pointer text-[11px] truncate flex items-center gap-1">
+                          <FileText className="h-3 w-3 text-muted-foreground" />
+                          {doc.name}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
             </div>
           </div>
         </div>
