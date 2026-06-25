@@ -4186,24 +4186,6 @@ function CommunicationCanvas({
 
               {/* SMS Chat Timeline */}
               <div className="flex-1 min-h-0 overflow-hidden flex flex-col bg-[#f0ede8] dark:bg-stone-950">
-                {/* Conversation header */}
-                <div className="shrink-0 flex items-center gap-2.5 px-4 py-2 bg-stone-700 dark:bg-stone-900 border-b border-stone-600/30">
-                  <div className="h-7 w-7 rounded-full bg-[#c2673a]/30 flex items-center justify-center shrink-0 font-bold text-[11px] text-[#c2673a]">
-                    {(contact?.name || selectedPhones[0] || "?")[0]?.toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-white text-xs font-semibold truncate leading-tight">
-                      {contact?.name || selectedPhones[0] || smsCc || "—"}
-                    </div>
-                    <div className="text-white/50 text-[10px] leading-tight truncate">
-                      {[...selectedPhones, ...(smsCc.trim() ? [smsCc] : [])].join(", ") || (t.customers?.details?.noRecipient || "No recipient")}
-                    </div>
-                  </div>
-                  <span className={`text-[10px] font-mono tabular-nums shrink-0 ${smsMessage.length >= 160 ? 'text-red-400 font-semibold' : smsMessage.length > 130 ? 'text-amber-400' : 'text-white/40'}`}>
-                    {smsCharCount}/160
-                  </span>
-                </div>
-
                 {/* Messages scroll area */}
                 <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5">
                   {(() => {
@@ -4242,11 +4224,16 @@ function CommunicationCanvas({
                           )}
                           <div className={`flex items-end gap-1.5 ${isOut ? "justify-end" : "justify-start"}`}>
                             {!isOut && (
-                              <div className="h-5 w-5 rounded-full bg-stone-300 dark:bg-stone-700 flex items-center justify-center text-[9px] font-bold text-stone-600 dark:text-stone-300 shrink-0 mb-0.5">
-                                {(contact?.name || "?")[0]?.toUpperCase()}
+                              <div className="flex flex-col items-center gap-0.5 shrink-0 mb-0.5">
+                                <div className="h-6 w-6 rounded-full bg-stone-300 dark:bg-stone-700 flex items-center justify-center text-[9px] font-bold text-stone-600 dark:text-stone-300">
+                                  {(contact?.name || "?")[0]?.toUpperCase()}
+                                </div>
+                                <span className="text-[8px] text-muted-foreground max-w-[44px] truncate leading-tight text-center">
+                                  {(contact?.name || "?").split(" ")[0]}
+                                </span>
                               </div>
                             )}
-                            <div className={`max-w-[72%] px-3 py-1.5 shadow-sm ${
+                            <div className={`max-w-[68%] px-3 py-1.5 shadow-sm ${
                               isOut
                                 ? msg._draft
                                   ? "bg-[#c2673a]/10 border border-[#c2673a]/25 rounded-2xl rounded-br-sm"
@@ -4264,9 +4251,14 @@ function CommunicationCanvas({
                               )}
                               {msg._draft && <p className="text-[9px] text-[#c2673a]/60 italic mt-0.5">náhľad</p>}
                             </div>
-                            {isOut && !msg._draft && msg.agentName && (
-                              <div className="h-5 w-5 rounded-full bg-[#c2673a]/15 flex items-center justify-center text-[9px] font-bold text-[#c2673a] shrink-0 mb-0.5">
-                                {(msg.agentName || "?")[0]?.toUpperCase()}
+                            {isOut && (
+                              <div className="flex flex-col items-center gap-0.5 shrink-0 mb-0.5">
+                                <div className="h-6 w-6 rounded-full bg-[#c2673a]/15 flex items-center justify-center text-[9px] font-bold text-[#c2673a]">
+                                  {((msg._draft ? (user?.name || user?.username) : msg.agentName) || "?")[0]?.toUpperCase()}
+                                </div>
+                                <span className="text-[8px] text-muted-foreground max-w-[44px] truncate leading-tight text-center">
+                                  {((msg._draft ? (user?.name || user?.username) : msg.agentName) || "").split(" ")[0] || "—"}
+                                </span>
                               </div>
                             )}
                           </div>
@@ -9133,7 +9125,7 @@ export default function AgentWorkspacePage() {
       return res.ok ? res.json() : [];
     },
     enabled: !!currentContact?.id || !!(currentContact as any)?._inboundPhone,
-    refetchInterval: 30000,
+    refetchInterval: 15000,
   });
 
   const contactHistory: ContactHistory[] = useMemo(() => {
