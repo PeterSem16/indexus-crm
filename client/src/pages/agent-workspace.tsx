@@ -4189,9 +4189,29 @@ function CommunicationCanvas({
                 {/* Messages scroll area */}
                 <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5">
                   {(() => {
-                    const smsThread = (contactHistory || [])
+                    const historySmsMsgIds = new Set<string>();
+                    const historySms = (contactHistory || [])
                       .filter((h: any) => h.type === "sms")
-                      .slice()
+                      .map((h: any) => {
+                        historySmsMsgIds.add(h.id.replace(/^msg-/, ""));
+                        return h;
+                      });
+                    // Merge fresh customerMessages (refetch every 5s) so inbound replies appear immediately
+                    const freshSms = (customerMessages || [])
+                      .filter((m: any) => m.type === "sms" && !historySmsMsgIds.has(m.id))
+                      .map((m: any) => ({
+                        id: m.id,
+                        type: "sms",
+                        direction: m.direction || "outbound",
+                        date: m.sentAt || m.createdAt,
+                        fullContent: (m.content || "").replace(/\s*\[R:[0-9a-f]+\]/gi, "").trim(),
+                        content: (m.content || "").replace(/\s*\[R:[0-9a-f]+\]/gi, "").trim().substring(0, 100),
+                        agentName: null,
+                        agentId: m.userId,
+                        status: m.status,
+                        statusCode: m.status,
+                      }));
+                    const smsThread = [...historySms, ...freshSms]
                       .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
                     const items: any[] = [...smsThread];
@@ -9119,6 +9139,7 @@ export default function AgentWorkspacePage() {
       return res.ok ? res.json() : [];
     },
     enabled: !!currentContact?.id,
+    refetchInterval: 5000,
   });
 
   const { data: persistentHistory = [] } = useQuery<any[]>({

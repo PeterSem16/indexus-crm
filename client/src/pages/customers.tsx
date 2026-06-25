@@ -4403,7 +4403,7 @@ export function CustomerDetailsContent({
                               </div>
                             </div>
                             {msg.subject && <p className="text-sm font-medium" data-testid={`message-subject-${msg.id}`}>{msg.subject}</p>}
-                            <p className="text-sm text-muted-foreground line-clamp-2" data-testid={`message-content-${msg.id}`}>{msg.content}</p>
+                            <p className="text-sm text-muted-foreground line-clamp-2" data-testid={`message-content-${msg.id}`}>{(msg.content || "").replace(/\s*\[R:[0-9a-f]+\]/gi, "").trim()}</p>
                             <p className="text-xs text-muted-foreground" data-testid={`message-date-${msg.id}`}>{format(new Date(msg.createdAt), "MMM dd, yyyy HH:mm")}</p>
                           </div>
                         ))}
@@ -4606,9 +4606,10 @@ export function CustomerDetailsContent({
                           size="icon"
                           className="h-7 w-7"
                           onClick={() => {
+                            const cleanContent = (msg.content || "").replace(/\s*\[R:[0-9a-f]+\]/gi, "").trim();
                             toast({
                               title: msg.type === "sms" ? "SMS správa" : "Email správa",
-                              description: msg.content?.substring(0, 100) + (msg.content && msg.content.length > 100 ? "..." : ""),
+                              description: cleanContent.substring(0, 100) + (cleanContent.length > 100 ? "..." : ""),
                             });
                           }}
                           data-testid={`button-view-message-${msg.id}`}

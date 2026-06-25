@@ -132,6 +132,12 @@ export function useNotifications() {
                 if (message.notification?.type === "group_task_assigned") {
                   queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
                 }
+                // Inbound SMS notification → immediately refresh customer messages + history
+                if (message.notification?.entityType === "sms" && message.notification?.metadata?.customerId) {
+                  const cid = message.notification.metadata.customerId;
+                  queryClient.invalidateQueries({ queryKey: ["/api/customers", cid, "messages"] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/entity-history", cid] });
+                }
                 const notif = message.notification;
                 // New Back Office task → pleasant chime + clickable toast, exactly once
                 // per task across all concurrent mounts (see dispatchBackOfficeAlert).
