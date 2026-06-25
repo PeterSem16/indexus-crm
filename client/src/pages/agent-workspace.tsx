@@ -12316,9 +12316,9 @@ export default function AgentWorkspacePage() {
                     <div className="absolute top-full left-0 right-0 mt-1 bg-background border border-border rounded-xl shadow-2xl z-[200] max-h-52 overflow-y-auto">
                       <div className="px-3 py-1.5 border-b border-border/50 flex items-center gap-1.5">
                         <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                          {({"name":"Meno","phone":"Telefón","email":"Email","city":"Mesto","address":"Adresa","zip":"PSČ","ico":"IČO"})[modalSearchField]}
+                          {({"name":t.agentWorkspace.fieldPickerName,"phone":t.agentWorkspace.fieldPickerPhone,"email":t.agentWorkspace.fieldPickerEmail,"city":t.agentWorkspace.fieldPickerCity,"address":t.agentWorkspace.fieldPickerAddress,"zip":t.agentWorkspace.fieldPickerZip,"ico":t.agentWorkspace.fieldPickerIco})[modalSearchField]}
                         </span>
-                        <span className="text-[10px] text-muted-foreground/60">— {suggestions.length} výsledkov</span>
+                        <span className="text-[10px] text-muted-foreground/60">— {suggestions.length} {t.agentWorkspace.resultsCount}</span>
                       </div>
                       {suggestions.slice(0, 15).map(s => (
                         <button
@@ -12346,11 +12346,11 @@ export default function AgentWorkspacePage() {
                   data-testid="btn-modal-field-picker"
                 >
                   <SlidersHorizontal className="h-3.5 w-3.5" />
-                  {({"all":"Pole","name":"Meno","phone":"Telefón","email":"Email","city":"Mesto","address":"Adresa","zip":"PSČ","region":"Kraj","district":"Okres","country":"Krajina","ico":"IČO"})[modalSearchField] ?? "Pole"}
+                  {({"all":t.agentWorkspace.fieldPickerAll,"name":t.agentWorkspace.fieldPickerName,"phone":t.agentWorkspace.fieldPickerPhone,"email":t.agentWorkspace.fieldPickerEmail,"city":t.agentWorkspace.fieldPickerCity,"address":t.agentWorkspace.fieldPickerAddress,"zip":t.agentWorkspace.fieldPickerZip,"region":t.agentWorkspace.fieldPickerRegion,"district":t.agentWorkspace.fieldPickerDistrict,"country":t.agentWorkspace.fieldPickerCountry,"ico":t.agentWorkspace.fieldPickerIco})[modalSearchField] ?? t.agentWorkspace.fieldPickerAll}
                 </button>
                 {showModalFieldPicker && (
                   <div className="absolute right-0 top-10 z-50 bg-background border rounded-xl shadow-xl py-1 w-40">
-                    {[["all","Všetky polia"],["name","Meno"],["phone","Telefón"],["email","Email"],["city","Mesto"],["address","Adresa"],["zip","PSČ"],["region","Kraj/Región"],["district","Okres"],["country","Krajina"],["ico","IČO"]].map(([val, lbl]) => (
+                    {([[  "all",t.agentWorkspace.fieldPickerAllFields],["name",t.agentWorkspace.fieldPickerName],["phone",t.agentWorkspace.fieldPickerPhone],["email",t.agentWorkspace.fieldPickerEmail],["city",t.agentWorkspace.fieldPickerCity],["address",t.agentWorkspace.fieldPickerAddress],["zip",t.agentWorkspace.fieldPickerZip],["region",t.agentWorkspace.fieldPickerRegion],["district",t.agentWorkspace.fieldPickerDistrict],["country",t.agentWorkspace.fieldPickerCountry],["ico",t.agentWorkspace.fieldPickerIco]] as [string,string][]).map(([val, lbl]) => (
                       <button key={val} onClick={() => { setModalSearchField(val); setShowModalFieldPicker(false); setModalSearch(""); setShowSearchSuggestions(false); }}
                         className="w-full text-left px-3 py-2 text-xs hover:bg-muted flex items-center justify-between"
                         style={modalSearchField === val ? { color: "#B5622E", fontWeight: 700 } : {}}>
@@ -12368,9 +12368,9 @@ export default function AgentWorkspacePage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="callback_asc">Callback (najskôr)</SelectItem>
-                  <SelectItem value="name_asc">Meno (A-Z)</SelectItem>
-                  <SelectItem value="attempts_desc">Pokusov (najviac)</SelectItem>
+                  <SelectItem value="callback_asc">{t.agentWorkspace.sortCallbackAsc}</SelectItem>
+                  <SelectItem value="name_asc">{t.agentWorkspace.sortNameAsc}</SelectItem>
+                  <SelectItem value="attempts_desc">{t.agentWorkspace.sortAttemptsDesc}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -12470,7 +12470,7 @@ export default function AgentWorkspacePage() {
                       )}
                       {!cc.dispositionCode && cc.status !== "pending" && cc.status !== "callback_scheduled" && (
                         <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "#88888820", color: "#888888" }}>
-                          {({ completed: "✓ Hotovo", not_interested: "Nezáujem", failed: "Neúspech" } as Record<string,string>)[cc.status] || cc.status}
+                          {({ completed: t.agentWorkspace.statusCompleted, not_interested: t.agentWorkspace.statusNotInterested, failed: t.agentWorkspace.statusFailed } as Record<string,string>)[cc.status] || cc.status}
                         </span>
                       )}
                       <div className="flex items-center gap-1.5">
@@ -12502,7 +12502,7 @@ export default function AgentWorkspacePage() {
                   return (
                     <div className="text-center py-12">
                       <Users className="h-10 w-10 mx-auto text-muted-foreground/20 mb-3" />
-                      <p className="text-sm text-muted-foreground">Žiadne kontakty</p>
+                      <p className="text-sm text-muted-foreground">{t.agentWorkspace.noContacts}</p>
                     </div>
                   );
                 }
@@ -12594,7 +12594,7 @@ export default function AgentWorkspacePage() {
                 return (
                   <div className="text-center py-12">
                     <Users className="h-10 w-10 mx-auto text-muted-foreground/20 mb-3" />
-                    <p className="text-sm text-muted-foreground">Žiadne kontakty zodpovedajúce filtru</p>
+                    <p className="text-sm text-muted-foreground">{t.agentWorkspace.noContactsFiltered}</p>
                   </div>
                 );
               }
