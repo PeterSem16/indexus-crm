@@ -2430,6 +2430,7 @@ function CommunicationCanvas({
   const { t, locale } = useI18n();
   const { user } = useAuth();
   const { toast } = useToast();
+  const smsChatEndRef = useRef<HTMLDivElement>(null);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailMessage, setEmailMessage] = useState("");
   const [emailIsHtml, setEmailIsHtml] = useState(false);
@@ -5651,7 +5652,6 @@ function CustomerInfoPanel({
   const [faqSearchQuery, setFaqSearchQuery] = useState("");
   const [historyMaximized, setHistoryMaximized] = useState(false);
   const [expandedSlItems, setExpandedSlItems] = useState<Set<string>>(new Set());
-  const smsChatEndRef = useRef<HTMLDivElement>(null);
   const [faqMaximized, setFaqMaximized] = useState(false);
   const [noteExpanded, setNoteExpanded] = useState(false);
   const [matchesExpanded, setMatchesExpanded] = useState(false);
