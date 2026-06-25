@@ -8159,6 +8159,7 @@ export default function AgentWorkspacePage() {
   const [modalSearch, setModalSearch] = useState("");
   const [modalSearchField, setModalSearchField] = useState("all");
   const [showModalFieldPicker, setShowModalFieldPicker] = useState(false);
+  const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
   const [selectedLoginCampaignIds, setSelectedLoginCampaignIds] = useState<string[]>([]);
   const [selectedLoginQueueIds, setSelectedLoginQueueIds] = useState<string[]>([]);
   const [loginBackOffice, setLoginBackOffice] = useState(false);
@@ -12169,18 +12170,76 @@ export default function AgentWorkspacePage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                 <input
                   type="text"
-                  placeholder={modalSearchField === "all" ? "Hľadať meno, telefón, email, mesto…" : `Hľadať: ${["Meno","Telefón","Email","Mesto","Adresa"].find((_, i) => ["name","phone","email","city","address"][i] === modalSearchField) || "všetky polia"}`}
+                  placeholder={modalSearchField === "all"
+                    ? "Hľadať meno, telefón, email, mesto…"
+                    : `Hľadať podľa: ${({"name":"Meno","phone":"Telefón","email":"Email","city":"Mesto","address":"Adresa","zip":"PSČ","ico":"IČO"})[modalSearchField] || "všetky polia"}`}
                   value={modalSearch}
-                  onChange={(e) => setModalSearch(e.target.value)}
+                  onChange={(e) => { setModalSearch(e.target.value); setShowSearchSuggestions(true); }}
+                  onFocus={() => modalSearch && setShowSearchSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSearchSuggestions(false), 180)}
                   className="w-full h-9 pl-9 pr-8 rounded-xl border bg-background text-sm focus:outline-none transition-colors"
                   style={{ borderColor: modalSearch ? "#B5622E" : undefined }}
                   data-testid="input-modal-search"
                 />
                 {modalSearch && (
-                  <button onClick={() => setModalSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">
+                  <button onClick={() => { setModalSearch(""); setShowSearchSuggestions(false); }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 )}
+                {/* Autocomplete suggestions dropdown */}
+                {showSearchSuggestions && modalSearchField !== "all" && modalSearch.trim() && (() => {
+                  const q = modalSearch.trim().toLowerCase().replace(/\s/g,"");
+                  const extractField = (cc: any): string[] => {
+                    switch (modalSearchField) {
+                      case "name": return [(getEntityDisplayInfo(cc)?.name || "")].filter(Boolean);
+                      case "phone": return [cc.customer?.phone, cc.customer?.mobile, cc.hospital?.phone, cc.clinic?.phone, cc.collaborator?.phone, cc.collaborator?.mobile].filter(Boolean);
+                      case "email": return [cc.customer?.email, cc.hospital?.email, cc.clinic?.email, cc.collaborator?.email].filter(Boolean);
+                      case "city": return [cc.customer?.city, cc.hospital?.city, cc.clinic?.city, cc.collaborator?.city].filter(Boolean);
+                      case "address": return [cc.customer?.address, cc.hospital?.address, cc.clinic?.address].filter(Boolean);
+                      case "zip": return [cc.customer?.zip, cc.hospital?.zip, cc.clinic?.zip].filter(Boolean);
+                      case "ico": return [cc.hospital?.ico, cc.clinic?.ico].filter(Boolean);
+                      default: return [];
+                    }
+                  };
+                  const seen = new Set<string>();
+                  const suggestions: { value: string; contactName: string }[] = [];
+                  rawCampaignContacts.forEach(cc => {
+                    const vals = extractField(cc);
+                    const name = getEntityDisplayInfo(cc)?.name || "";
+                    vals.forEach(v => {
+                      const vNorm = String(v).replace(/\s/g,"").toLowerCase();
+                      if (vNorm.includes(q) && !seen.has(String(v))) {
+                        seen.add(String(v));
+                        suggestions.push({ value: String(v), contactName: name });
+                      }
+                    });
+                  });
+                  suggestions.sort((a, b) => a.value.localeCompare(b.value, "sk"));
+                  if (suggestions.length === 0) return null;
+                  return (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-background border border-border rounded-xl shadow-2xl z-[200] max-h-52 overflow-y-auto">
+                      <div className="px-3 py-1.5 border-b border-border/50 flex items-center gap-1.5">
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                          {({"name":"Meno","phone":"Telefón","email":"Email","city":"Mesto","address":"Adresa","zip":"PSČ","ico":"IČO"})[modalSearchField]}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground/60">— {suggestions.length} výsledkov</span>
+                      </div>
+                      {suggestions.slice(0, 15).map(s => (
+                        <button
+                          key={s.value}
+                          type="button"
+                          onMouseDown={(e) => { e.preventDefault(); setModalSearch(s.value); setShowSearchSuggestions(false); }}
+                          className="w-full text-left px-3 py-2 text-xs hover:bg-muted transition-colors flex items-center justify-between gap-2"
+                        >
+                          <span className="font-medium truncate">{s.value}</span>
+                          {modalSearchField !== "name" && s.contactName && (
+                            <span className="text-muted-foreground/60 text-[10px] truncate max-w-[130px] shrink-0">{s.contactName}</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
               {/* Field picker */}
               <div className="relative">
@@ -12191,12 +12250,12 @@ export default function AgentWorkspacePage() {
                   data-testid="btn-modal-field-picker"
                 >
                   <SlidersHorizontal className="h-3.5 w-3.5" />
-                  {modalSearchField === "all" ? "Pole" : ["Meno","Telefón","Email","Mesto","Adresa"][["name","phone","email","city","address"].indexOf(modalSearchField)] || "Pole"}
+                  {({"all":"Pole","name":"Meno","phone":"Telefón","email":"Email","city":"Mesto","address":"Adresa","zip":"PSČ","ico":"IČO"})[modalSearchField] ?? "Pole"}
                 </button>
                 {showModalFieldPicker && (
                   <div className="absolute right-0 top-10 z-50 bg-background border rounded-xl shadow-xl py-1 w-40">
-                    {[["all","Všetky polia"],["name","Meno"],["phone","Telefón"],["email","Email"],["city","Mesto"],["address","Adresa"]].map(([val, lbl]) => (
-                      <button key={val} onClick={() => { setModalSearchField(val); setShowModalFieldPicker(false); }}
+                    {[["all","Všetky polia"],["name","Meno"],["phone","Telefón"],["email","Email"],["city","Mesto"],["address","Adresa"],["zip","PSČ"],["ico","IČO"]].map(([val, lbl]) => (
+                      <button key={val} onClick={() => { setModalSearchField(val); setShowModalFieldPicker(false); setModalSearch(""); setShowSearchSuggestions(false); }}
                         className="w-full text-left px-3 py-2 text-xs hover:bg-muted flex items-center justify-between"
                         style={modalSearchField === val ? { color: "#B5622E", fontWeight: 700 } : {}}>
                         {lbl}
@@ -12375,8 +12434,9 @@ export default function AgentWorkspacePage() {
                 );
               }
 
-              // Flat filtered view
-              let filtered = sortedPendingContacts.filter(cc => {
+              // Flat filtered view — search ALL contacts (not just pending) so disposed contacts are still findable
+              const searchPool = modalSearch ? rawCampaignContacts : sortedPendingContacts;
+              let filtered = searchPool.filter(cc => {
                 const entityInfo = getEntityDisplayInfo(cc);
                 if (!entityInfo) return false;
                 if (modalSearch) {
@@ -12388,6 +12448,8 @@ export default function AgentWorkspacePage() {
                     email:   (cc.customer?.email||cc.hospital?.email||cc.clinic?.email||cc.collaborator?.email||"").toLowerCase().includes(q),
                     city:    (cc.customer?.city||cc.hospital?.city||cc.clinic?.city||cc.collaborator?.city||"").toLowerCase().includes(q),
                     address: (cc.customer?.address||cc.hospital?.address||cc.clinic?.address||"").toLowerCase().includes(q),
+                    zip:     (cc.customer?.zip||cc.hospital?.zip||cc.clinic?.zip||"").toLowerCase().includes(q),
+                    ico:     (cc.hospital?.ico||cc.clinic?.ico||"").toLowerCase().includes(q),
                   };
                   const matches = modalSearchField === "all"
                     ? Object.values(fieldChecks).some(Boolean)
