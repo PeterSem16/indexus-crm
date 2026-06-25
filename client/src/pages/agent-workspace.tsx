@@ -2433,6 +2433,13 @@ function CommunicationCanvas({
   const { user } = useAuth();
   const { toast } = useToast();
   const smsChatEndRef = useRef<HTMLDivElement>(null);
+  const [smsSearch, setSmsSearch] = useState("");
+
+  useEffect(() => {
+    if (activeChannel === "sms") {
+      smsChatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [contactHistory?.length, customerMessages?.length, activeChannel]);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailMessage, setEmailMessage] = useState("");
   const [emailIsHtml, setEmailIsHtml] = useState(false);
@@ -4188,6 +4195,25 @@ function CommunicationCanvas({
 
               {/* SMS Chat Timeline */}
               <div className="flex-1 min-h-0 overflow-hidden flex flex-col bg-[#f0ede8] dark:bg-stone-950">
+                {/* Search bar */}
+                <div className="shrink-0 px-3 pt-2 pb-1">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={smsSearch}
+                      onChange={e => setSmsSearch(e.target.value)}
+                      placeholder="Hľadať v SMS..."
+                      className="w-full pl-8 pr-3 py-1.5 text-[12px] rounded-lg bg-white/70 dark:bg-stone-800/70 border border-stone-200/60 dark:border-stone-700/50 outline-none focus:ring-1 focus:ring-blue-400/50 placeholder:text-muted-foreground/40"
+                      data-testid="input-sms-search"
+                    />
+                    {smsSearch && (
+                      <button onClick={() => setSmsSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
                 {/* Messages scroll area */}
                 <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5">
                   {(() => {
@@ -4221,6 +4247,21 @@ function CommunicationCanvas({
                       items.push({ _draft: true, id: "draft", direction: "outbound", date: new Date().toISOString(), fullContent: smsMessage, content: smsMessage });
                     }
 
+                    // Derive inbound contact display name from contactType
+                    const inboundName =
+                      contactType === "clinic" ? (clinicData?.name || "")
+                      : contactType === "hospital" ? (hospitalData?.name || "")
+                      : contactType === "collaborator" ? (`${collaboratorData?.firstName || ""} ${collaboratorData?.lastName || ""}`.trim())
+                      : (`${contact?.firstName || ""} ${contact?.lastName || ""}`.trim());
+                    const inboundInitial = inboundName[0]?.toUpperCase() || "?";
+                    const inboundFirstName = inboundName.split(" ")[0] || "?";
+
+                    // Apply search filter
+                    const searchQ = smsSearch.trim().toLowerCase();
+                    const displayItems = searchQ
+                      ? items.filter((m: any) => (m.fullContent || m.content || "").toLowerCase().includes(searchQ))
+                      : items;
+
                     if (items.length === 0) {
                       return (
                         <div className="flex flex-col items-center justify-center h-full gap-2 text-stone-400 dark:text-stone-600">
@@ -4230,10 +4271,19 @@ function CommunicationCanvas({
                       );
                     }
 
-                    return items.map((msg: any, idx: number) => {
+                    if (displayItems.length === 0) {
+                      return (
+                        <div className="flex flex-col items-center justify-center h-full gap-2 text-stone-400 dark:text-stone-600">
+                          <Search className="h-7 w-7 opacity-30" />
+                          <p className="text-[11px]">Žiadne správy nezodpovedajú hľadaniu</p>
+                        </div>
+                      );
+                    }
+
+                    return displayItems.map((msg: any, idx: number) => {
                       const isOut = msg.direction !== "inbound";
                       const text = msg.fullContent || msg.content || "—";
-                      const prevMsg = items[idx - 1];
+                      const prevMsg = displayItems[idx - 1];
                       const showDateSep = !prevMsg || (!msg._draft && new Date(msg.date).getTime() - new Date(prevMsg.date).getTime() > 10 * 60 * 1000);
                       return (
                         <div key={msg.id || idx}>
@@ -4248,12 +4298,12 @@ function CommunicationCanvas({
                             {!isOut && (
                               <div className="flex flex-col items-center gap-0.5 shrink-0 mb-0.5">
                                 <Avatar className="h-6 w-6">
-                                  <AvatarFallback className="text-[9px] font-bold bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-300">
-                                    {(contact?.name || "?")[0]?.toUpperCase()}
+                                  <AvatarFallback className="text-[9px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400">
+                                    {inboundInitial}
                                   </AvatarFallback>
                                 </Avatar>
                                 <span className="text-[8px] text-muted-foreground max-w-[44px] truncate leading-tight text-center">
-                                  {(contact?.name || "?").split(" ")[0]}
+                                  {inboundFirstName}
                                 </span>
                               </div>
                             )}
@@ -4264,7 +4314,7 @@ function CommunicationCanvas({
                                   : "bg-blue-500 dark:bg-blue-600 rounded-2xl rounded-br-sm"
                                 : "bg-white dark:bg-stone-800 rounded-2xl rounded-bl-sm border border-stone-200/60 dark:border-stone-700/60"
                             }`}>
-                              <p className={`text-[12px] leading-relaxed whitespace-pre-wrap break-words ${
+                              <p className={`text-[12px] leading-relaxed whitespace-pre-wrap break-words font-medium ${
                                 isOut ? (msg._draft ? "text-blue-600 dark:text-blue-400 italic" : "text-white") : "text-stone-800 dark:text-stone-100"
                               }`}>{text}</p>
                               {!msg._draft && (
