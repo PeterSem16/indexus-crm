@@ -4183,72 +4183,97 @@ function CommunicationCanvas({
                 </span>
               </div>
 
-              {/* Mobile phone mockup area */}
-              <div className="flex-1 min-h-0 bg-stone-100 dark:bg-stone-950 flex items-center justify-center overflow-hidden p-3">
-                <div className="relative" style={{ width: 196, height: 350 }}>
-                  {/* Phone shell */}
-                  <div className="absolute inset-0 bg-stone-800 dark:bg-stone-950 rounded-[30px] shadow-2xl border-[3px] border-stone-700 dark:border-stone-700" />
-                  {/* Side buttons */}
-                  <div className="absolute left-[-5px] top-16 w-1 h-6 bg-stone-700 rounded-l-sm" />
-                  <div className="absolute left-[-5px] top-24 w-1 h-10 bg-stone-700 rounded-l-sm" />
-                  <div className="absolute left-[-5px] top-36 w-1 h-10 bg-stone-700 rounded-l-sm" />
-                  <div className="absolute right-[-5px] top-20 w-1 h-14 bg-stone-700 rounded-r-sm" />
-                  {/* Screen */}
-                  <div className="absolute inset-[6px] bg-white rounded-[25px] overflow-hidden flex flex-col">
-                    {/* Status bar */}
-                    <div className="bg-stone-50 shrink-0 h-5 flex items-center justify-between px-3 rounded-t-[25px]">
-                      <span className="text-stone-500 text-[7px] font-semibold">9:41</span>
-                      <div className="flex gap-0.5 items-center">
-                        <div className="flex gap-[1px] items-end h-2.5">
-                          <div className="w-0.5 h-1 bg-stone-400 rounded-sm" />
-                          <div className="w-0.5 h-1.5 bg-stone-400 rounded-sm" />
-                          <div className="w-0.5 h-2 bg-stone-400 rounded-sm" />
-                          <div className="w-0.5 h-2.5 bg-stone-400 rounded-sm" />
-                        </div>
-                        <div className="w-3.5 h-2 border border-stone-400 rounded-[2px] ml-1 flex items-center px-[1px]">
-                          <div className="h-1 bg-stone-600 rounded-sm" style={{ width: '70%' }} />
-                        </div>
-                      </div>
+              {/* SMS Chat Timeline */}
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col bg-[#f0ede8] dark:bg-stone-950">
+                {/* Conversation header */}
+                <div className="shrink-0 flex items-center gap-2.5 px-4 py-2 bg-stone-700 dark:bg-stone-900 border-b border-stone-600/30">
+                  <div className="h-7 w-7 rounded-full bg-[#c2673a]/30 flex items-center justify-center shrink-0 font-bold text-[11px] text-[#c2673a]">
+                    {(contact?.name || selectedPhones[0] || "?")[0]?.toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-white text-xs font-semibold truncate leading-tight">
+                      {contact?.name || selectedPhones[0] || smsCc || "—"}
                     </div>
-                    {/* Conversation header */}
-                    <div className="bg-stone-50 border-b border-stone-100 shrink-0 px-3 py-1.5 flex items-center gap-1.5">
-                      <div className="h-5 w-5 rounded-full bg-[#c2673a]/20 flex items-center justify-center shrink-0">
-                        <User className="h-2.5 w-2.5 text-[#c2673a]" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[8px] font-semibold text-stone-800 truncate leading-tight">{contact?.name || selectedPhones[0] || "—"}</div>
-                        <div className="text-[6.5px] text-stone-400 leading-tight">{selectedPhones[0] || smsCc || ""}</div>
-                      </div>
-                    </div>
-                    {/* Message bubbles */}
-                    <div className="flex-1 bg-white overflow-y-auto p-2 space-y-1">
-                      {smsMessage ? (
-                        <div className="flex justify-end">
-                          <div
-                            className="max-w-[80%] rounded-[10px] rounded-br-[3px] px-2 py-1.5 text-[8px] leading-relaxed whitespace-pre-wrap break-words"
-                            style={{ backgroundColor: '#4a9ef7', color: 'white' }}
-                          >
-                            {smsMessage}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center h-full">
-                          <span className="text-[8px] text-stone-300 italic">message preview...</span>
-                        </div>
-                      )}
-                    </div>
-                    {/* Compose stub */}
-                    <div className="bg-stone-50 border-t border-stone-100 shrink-0 h-6 flex items-center gap-1.5 px-2">
-                      <div className="flex-1 h-3 bg-stone-200 rounded-full" />
-                      <div className="h-4 w-4 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: '#c2673a' }}>
-                        <Send className="h-1.5 w-1.5 text-white" />
-                      </div>
-                    </div>
-                    {/* Home bar */}
-                    <div className="bg-white h-3 flex items-center justify-center shrink-0 rounded-b-[25px]">
-                      <div className="w-10 h-0.5 bg-stone-300 rounded-full" />
+                    <div className="text-white/50 text-[10px] leading-tight truncate">
+                      {[...selectedPhones, ...(smsCc.trim() ? [smsCc] : [])].join(", ") || (t.customers?.details?.noRecipient || "No recipient")}
                     </div>
                   </div>
+                  <span className={`text-[10px] font-mono tabular-nums shrink-0 ${smsMessage.length >= 160 ? 'text-red-400 font-semibold' : smsMessage.length > 130 ? 'text-amber-400' : 'text-white/40'}`}>
+                    {smsCharCount}/160
+                  </span>
+                </div>
+
+                {/* Messages scroll area */}
+                <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5">
+                  {(() => {
+                    const smsThread = (contactHistory || [])
+                      .filter((h: any) => h.type === "sms")
+                      .slice()
+                      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+                    const items: any[] = [...smsThread];
+                    if (smsMessage) {
+                      items.push({ _draft: true, id: "draft", direction: "outbound", date: new Date().toISOString(), fullContent: smsMessage, content: smsMessage });
+                    }
+
+                    if (items.length === 0) {
+                      return (
+                        <div className="flex flex-col items-center justify-center h-full gap-2 text-stone-400 dark:text-stone-600">
+                          <MessageSquare className="h-7 w-7 opacity-30" />
+                          <p className="text-[11px]">{t.customers?.details?.writeSmsPlaceholder || "Write your SMS message..."}</p>
+                        </div>
+                      );
+                    }
+
+                    return items.map((msg: any, idx: number) => {
+                      const isOut = msg.direction !== "inbound";
+                      const text = msg.fullContent || msg.content || "—";
+                      const prevMsg = items[idx - 1];
+                      const showDateSep = !prevMsg || (!msg._draft && new Date(msg.date).getTime() - new Date(prevMsg.date).getTime() > 10 * 60 * 1000);
+                      return (
+                        <div key={msg.id || idx}>
+                          {showDateSep && !msg._draft && (
+                            <div className="flex justify-center my-1.5">
+                              <span className="text-[9px] text-stone-400 dark:text-stone-600 bg-white/70 dark:bg-stone-800/70 px-2 py-0.5 rounded-full">
+                                {format(new Date(msg.date), "d. M. yyyy, HH:mm", { locale: sk })}
+                              </span>
+                            </div>
+                          )}
+                          <div className={`flex items-end gap-1.5 ${isOut ? "justify-end" : "justify-start"}`}>
+                            {!isOut && (
+                              <div className="h-5 w-5 rounded-full bg-stone-300 dark:bg-stone-700 flex items-center justify-center text-[9px] font-bold text-stone-600 dark:text-stone-300 shrink-0 mb-0.5">
+                                {(contact?.name || "?")[0]?.toUpperCase()}
+                              </div>
+                            )}
+                            <div className={`max-w-[72%] px-3 py-1.5 shadow-sm ${
+                              isOut
+                                ? msg._draft
+                                  ? "bg-[#c2673a]/10 border border-[#c2673a]/25 rounded-2xl rounded-br-sm"
+                                  : "bg-[#c2673a] rounded-2xl rounded-br-sm"
+                                : "bg-white dark:bg-stone-800 rounded-2xl rounded-bl-sm border border-stone-200/60 dark:border-stone-700/60"
+                            }`}>
+                              <p className={`text-[12px] leading-relaxed whitespace-pre-wrap break-words ${
+                                isOut ? (msg._draft ? "text-[#c2673a] dark:text-[#c2673a]/80 italic" : "text-white") : "text-stone-800 dark:text-stone-100"
+                              }`}>{text}</p>
+                              {!msg._draft && (
+                                <div className={`flex items-center gap-0.5 mt-0.5 ${isOut ? "justify-end" : "justify-start"}`}>
+                                  <span className="text-[9px] opacity-50">{format(new Date(msg.date), "HH:mm")}</span>
+                                  {isOut && <span className="text-[9px] opacity-50">{msg.status === "delivered" || msg.status === "read" ? " ✓✓" : " ✓"}</span>}
+                                </div>
+                              )}
+                              {msg._draft && <p className="text-[9px] text-[#c2673a]/60 italic mt-0.5">náhľad</p>}
+                            </div>
+                            {isOut && !msg._draft && msg.agentName && (
+                              <div className="h-5 w-5 rounded-full bg-[#c2673a]/15 flex items-center justify-center text-[9px] font-bold text-[#c2673a] shrink-0 mb-0.5">
+                                {(msg.agentName || "?")[0]?.toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                  <div ref={smsChatEndRef} />
                 </div>
               </div>
 
@@ -5625,6 +5650,8 @@ function CustomerInfoPanel({
   const [faqExpandedId, setFaqExpandedId] = useState<string | null>(null);
   const [faqSearchQuery, setFaqSearchQuery] = useState("");
   const [historyMaximized, setHistoryMaximized] = useState(false);
+  const [expandedSlItems, setExpandedSlItems] = useState<Set<string>>(new Set());
+  const smsChatEndRef = useRef<HTMLDivElement>(null);
   const [faqMaximized, setFaqMaximized] = useState(false);
   const [noteExpanded, setNoteExpanded] = useState(false);
   const [matchesExpanded, setMatchesExpanded] = useState(false);
@@ -6383,20 +6410,61 @@ function CustomerInfoPanel({
                             })() : (item as any).action === "status_list_confirmation" ? (() => {
                               const meta = (item as any).metadata || {};
                               const confirmed = meta.confirmed !== false;
-                              const rawContent = contentText || "";
-                              const labelPart = rawContent.replace(/^Krok (potvrdený|odpotvrdený):\s*/i, "").trim() || "—";
+                              const labelPart = meta.itemLabel || contentText?.replace(/^Krok (potvrdený|odpotvrdený):\s*/i, "").trim() || "—";
+                              const descPart = (meta.itemDescription as string | null) || null;
+                              const isExpanded = expandedSlItems.has(item.id);
                               return (
-                                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                                  <span className={`inline-flex items-center gap-1 ${isModal ? "text-[10px] h-5 px-2" : "text-[9px] h-4 px-1.5"} rounded-full border font-semibold ${
-                                    confirmed
-                                      ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800"
-                                      : "bg-stone-100 text-stone-500 border-stone-200 dark:bg-stone-800 dark:text-stone-400 dark:border-stone-700 line-through"
-                                  }`}>
-                                    {confirmed ? "✓" : "✗"} {confirmed ? "Potvrdený" : "Odpotvrdený"}
-                                  </span>
-                                  <span className={`${isModal ? "text-xs" : "text-[11px]"} font-medium text-foreground truncate max-w-[200px]`} title={labelPart}>
-                                    {highlightMatch(labelPart)}
-                                  </span>
+                                <div className="mt-1.5">
+                                  <div
+                                    role={descPart ? "button" : undefined}
+                                    tabIndex={descPart ? 0 : undefined}
+                                    onClick={descPart ? () => setExpandedSlItems(prev => {
+                                      const next = new Set(prev);
+                                      if (next.has(item.id)) next.delete(item.id);
+                                      else next.add(item.id);
+                                      return next;
+                                    }) : undefined}
+                                    className={`rounded-lg border overflow-hidden transition-all duration-150 ${
+                                      confirmed
+                                        ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800/50"
+                                        : "bg-stone-100/80 border-stone-200 dark:bg-stone-800/40 dark:border-stone-700/60"
+                                    } ${descPart ? "cursor-pointer hover:brightness-[0.97] dark:hover:brightness-110" : ""}`}
+                                  >
+                                    <div className={`flex items-start gap-2 ${isModal ? "p-2.5" : "p-2"}`}>
+                                      <div className={`shrink-0 ${isModal ? "h-8 w-8" : "h-6 w-6"} rounded-full flex items-center justify-center ${
+                                        confirmed ? "bg-emerald-100 dark:bg-emerald-900/60" : "bg-stone-200 dark:bg-stone-700"
+                                      }`}>
+                                        {confirmed
+                                          ? <Check className={`${isModal ? "h-4 w-4" : "h-3.5 w-3.5"} text-emerald-600 dark:text-emerald-400`} />
+                                          : <X className={`${isModal ? "h-4 w-4" : "h-3.5 w-3.5"} text-stone-500 dark:text-stone-400`} />
+                                        }
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className={`${isModal ? "text-[10px]" : "text-[9px]"} font-bold uppercase tracking-wide ${
+                                            confirmed ? "text-emerald-600 dark:text-emerald-400" : "text-stone-400 dark:text-stone-500"
+                                          }`}>
+                                            {confirmed ? "Potvrdený krok" : "Odpotvrdený krok"}
+                                          </span>
+                                          {descPart && (
+                                            <ChevronDown className={`h-3 w-3 text-muted-foreground/60 flex-shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
+                                          )}
+                                        </div>
+                                        <p className={`${isModal ? "text-sm" : "text-[11px]"} font-semibold leading-snug text-foreground mt-0.5 ${!isExpanded ? "line-clamp-2" : ""}`}>
+                                          {highlightMatch(labelPart)}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    {isExpanded && descPart && (
+                                      <div className={`border-t ${
+                                        confirmed ? "border-emerald-200 dark:border-emerald-800/50" : "border-stone-200 dark:border-stone-700"
+                                      } ${isModal ? "px-3 py-2.5" : "px-2.5 py-2"}`}>
+                                        <p className={`${isModal ? "text-xs" : "text-[10px]"} text-muted-foreground leading-relaxed whitespace-pre-wrap`}>
+                                          {descPart}
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               );
                             })() : (

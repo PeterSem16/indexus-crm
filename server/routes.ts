@@ -12581,11 +12581,15 @@ Return ONLY valid JSON, no markdown code blocks.`,
           .map(h => (h.metadata as any).statusListItemId as string)
       )];
       const slItemLabelMap = new Map<string, string>();
+      const slItemDescMap = new Map<string, string | null>();
       if (slConfirmItemIds.length > 0) {
-        const slItems = await db.select({ id: campaignStatusListItems.id, label: campaignStatusListItems.label })
+        const slItems = await db.select({ id: campaignStatusListItems.id, label: campaignStatusListItems.label, description: campaignStatusListItems.description })
           .from(campaignStatusListItems)
           .where(inArray(campaignStatusListItems.id, slConfirmItemIds));
-        for (const item of slItems) slItemLabelMap.set(item.id, item.label);
+        for (const item of slItems) {
+          slItemLabelMap.set(item.id, item.label);
+          slItemDescMap.set(item.id, item.description ?? null);
+        }
       }
       const dispCodeToName = new Map<string, { name: string; color: string | null; icon: string | null; actionType: string }>();
       const dispCampaignCodeToInfo = new Map<string, { name: string; color: string | null; icon: string | null }>();
@@ -12663,9 +12667,11 @@ Return ONLY valid JSON, no markdown code blocks.`,
         if (h.action === "status_list_confirmation") {
           const meta = (h.metadata as any) || {};
           const itemLabel = slItemLabelMap.get(meta.statusListItemId) || meta.itemLabel || "—";
+          const itemDescription = slItemDescMap.get(meta.statusListItemId) ?? null;
           content = meta.confirmed === false
             ? `Krok odpotvrdený: ${itemLabel}`
             : `Krok potvrdený: ${itemLabel}`;
+          (h as any)._slAugmented = { itemLabel, itemDescription };
         }
 
         let dispositionName: string | null = null;
@@ -12696,7 +12702,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
           action: h.action,
           previousStatus: h.previousStatus,
           newStatus: h.newStatus,
-          metadata: (h.metadata as any) || null,
+          metadata: h.action === "status_list_confirmation" && (h as any)._slAugmented
+            ? { ...((h.metadata as any) || {}), ...(h as any)._slAugmented }
+            : ((h.metadata as any) || null),
         });
       }
 
