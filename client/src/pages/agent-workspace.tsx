@@ -12197,6 +12197,9 @@ export default function AgentWorkspacePage() {
                       case "city": return [cc.customer?.city, cc.hospital?.city, cc.clinic?.city, cc.collaborator?.city].filter(Boolean);
                       case "address": return [cc.customer?.address, cc.hospital?.address, cc.clinic?.address].filter(Boolean);
                       case "zip": return [cc.customer?.zip, cc.hospital?.zip, cc.clinic?.zip].filter(Boolean);
+                      case "region": return [cc.customer?.region, cc.hospital?.region, cc.clinic?.region, cc.collaborator?.region].filter(Boolean);
+                      case "district": return [cc.customer?.district, cc.hospital?.district, cc.clinic?.district, cc.collaborator?.district].filter(Boolean);
+                      case "country": return [cc.customer?.country, cc.hospital?.countryCode, cc.clinic?.countryCode, cc.collaborator?.countryCode].filter(Boolean);
                       case "ico": return [cc.hospital?.ico, cc.clinic?.ico].filter(Boolean);
                       default: return [];
                     }
@@ -12250,11 +12253,11 @@ export default function AgentWorkspacePage() {
                   data-testid="btn-modal-field-picker"
                 >
                   <SlidersHorizontal className="h-3.5 w-3.5" />
-                  {({"all":"Pole","name":"Meno","phone":"Telefón","email":"Email","city":"Mesto","address":"Adresa","zip":"PSČ","ico":"IČO"})[modalSearchField] ?? "Pole"}
+                  {({"all":"Pole","name":"Meno","phone":"Telefón","email":"Email","city":"Mesto","address":"Adresa","zip":"PSČ","region":"Kraj","district":"Okres","country":"Krajina","ico":"IČO"})[modalSearchField] ?? "Pole"}
                 </button>
                 {showModalFieldPicker && (
                   <div className="absolute right-0 top-10 z-50 bg-background border rounded-xl shadow-xl py-1 w-40">
-                    {[["all","Všetky polia"],["name","Meno"],["phone","Telefón"],["email","Email"],["city","Mesto"],["address","Adresa"],["zip","PSČ"],["ico","IČO"]].map(([val, lbl]) => (
+                    {[["all","Všetky polia"],["name","Meno"],["phone","Telefón"],["email","Email"],["city","Mesto"],["address","Adresa"],["zip","PSČ"],["region","Kraj/Región"],["district","Okres"],["country","Krajina"],["ico","IČO"]].map(([val, lbl]) => (
                       <button key={val} onClick={() => { setModalSearchField(val); setShowModalFieldPicker(false); setModalSearch(""); setShowSearchSuggestions(false); }}
                         className="w-full text-left px-3 py-2 text-xs hover:bg-muted flex items-center justify-between"
                         style={modalSearchField === val ? { color: "#B5622E", fontWeight: 700 } : {}}>
@@ -12361,15 +12364,32 @@ export default function AgentWorkspacePage() {
                         <p className="text-[10px] mt-0.5 truncate italic" style={{ color: "#B08060" }} title={cc.callbackNote}>📝 {cc.callbackNote}</p>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {callbackDateStr && (
-                        <span className="text-[10px] flex items-center gap-0.5 font-medium" style={{ color: ac }}>
-                          <Calendar className="h-3 w-3" />{callbackDateStr}
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      {/* Disposition badge — show for all disposed contacts */}
+                      {cc.dispositionCode && cc.status !== "pending" && cc.status !== "callback_scheduled" && (
+                        <span
+                          className="text-[9px] font-bold px-1.5 py-0.5 rounded-full truncate max-w-[110px] text-center"
+                          style={{ background: `${cc.dispositionColor || "#888"}22`, color: cc.dispositionColor || "#888", border: `1px solid ${cc.dispositionColor || "#888"}44` }}
+                          title={cc.dispositionName || cc.dispositionCode}
+                        >
+                          {cc.dispositionName || cc.dispositionCode}
                         </span>
                       )}
-                      {cc.attemptCount > 0 && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: `${ac}18`, color: ac }}>{cc.attemptCount}x</span>
+                      {!cc.dispositionCode && cc.status !== "pending" && cc.status !== "callback_scheduled" && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "#88888820", color: "#888888" }}>
+                          {({ completed: "✓ Hotovo", not_interested: "Nezáujem", failed: "Neúspech" } as Record<string,string>)[cc.status] || cc.status}
+                        </span>
                       )}
+                      <div className="flex items-center gap-1.5">
+                        {callbackDateStr && (
+                          <span className="text-[10px] flex items-center gap-0.5 font-medium" style={{ color: ac }}>
+                            <Calendar className="h-3 w-3" />{callbackDateStr}
+                          </span>
+                        )}
+                        {cc.attemptCount > 0 && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: `${ac}18`, color: ac }}>{cc.attemptCount}x</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -12448,8 +12468,11 @@ export default function AgentWorkspacePage() {
                     email:   (cc.customer?.email||cc.hospital?.email||cc.clinic?.email||cc.collaborator?.email||"").toLowerCase().includes(q),
                     city:    (cc.customer?.city||cc.hospital?.city||cc.clinic?.city||cc.collaborator?.city||"").toLowerCase().includes(q),
                     address: (cc.customer?.address||cc.hospital?.address||cc.clinic?.address||"").toLowerCase().includes(q),
-                    zip:     (cc.customer?.zip||cc.hospital?.zip||cc.clinic?.zip||"").toLowerCase().includes(q),
-                    ico:     (cc.hospital?.ico||cc.clinic?.ico||"").toLowerCase().includes(q),
+                    zip:      (cc.customer?.zip||cc.hospital?.zip||cc.clinic?.zip||"").toLowerCase().includes(q),
+                    region:   [cc.customer?.region,cc.hospital?.region,cc.clinic?.region,cc.collaborator?.region].filter(Boolean).join(" ").toLowerCase().includes(q),
+                    district: [cc.customer?.district,cc.hospital?.district,cc.clinic?.district,cc.collaborator?.district].filter(Boolean).join(" ").toLowerCase().includes(q),
+                    country:  [cc.customer?.country,cc.hospital?.countryCode,cc.clinic?.countryCode,cc.collaborator?.countryCode].filter(Boolean).join(" ").toLowerCase().includes(q),
+                    ico:      (cc.hospital?.ico||cc.clinic?.ico||"").toLowerCase().includes(q),
                   };
                   const matches = modalSearchField === "all"
                     ? Object.values(fieldChecks).some(Boolean)

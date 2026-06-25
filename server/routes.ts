@@ -12428,17 +12428,15 @@ Return ONLY valid JSON, no markdown code blocks.`,
     const [fetchedCallLogs, messagesByEntity, inboundSmsMessages, campaignHistory, allUsers, inboundLogs, inboundCbs] = await Promise.all([
       storage.getCallLogsByCustomer(entityId),
       storage.getCommunicationMessagesByCustomer(entityId),
-      // Also fetch inbound SMS by senderPhone to catch replies that arrived before webhook linking was in place
-      entityPhone
-        ? db.select().from(communicationMessages)
-            .where(and(
-              eq(communicationMessages.direction, "inbound"),
-              eq(communicationMessages.type, "sms"),
-              eq(communicationMessages.senderPhone, entityPhone),
-              isNull(communicationMessages.customerId),
-            ))
-            .orderBy(desc(communicationMessages.createdAt))
-        : Promise.resolve([]),
+      // Fetch ALL unlinked inbound SMS — phone normalization & filtering done in JS below
+      // (exact DB match fails when phone formats differ, e.g. +421948... vs 0948...)
+      db.select().from(communicationMessages)
+        .where(and(
+          eq(communicationMessages.direction, "inbound"),
+          eq(communicationMessages.type, "sms"),
+          isNull(communicationMessages.customerId),
+        ))
+        .orderBy(desc(communicationMessages.createdAt)),
       storage.getCampaignContactHistoryByCustomer(entityId),
       storage.getAllUsers(),
       db.select({
@@ -12468,10 +12466,23 @@ Return ONLY valid JSON, no markdown code blocks.`,
     ]);
 
     // Merge entity-linked messages with senderPhone-matched inbound SMS (dedup by id)
+    // Normalize phone for comparison: strip spaces/dashes, drop +421/+420/00 prefix
+    const normPhoneH = (p: string | null | undefined) =>
+      (p || "").replace(/[\s\-\(\)]/g, "").replace(/^\+?421/, "").replace(/^\+?420/, "").replace(/^00/, "");
+    const entityPhoneNorm = normPhoneH(entityPhone);
     const seenMsgIds = new Set<string>();
     const messages: typeof messagesByEntity = [];
-    for (const m of [...messagesByEntity, ...inboundSmsMessages]) {
+    for (const m of messagesByEntity) {
       if (!seenMsgIds.has(m.id)) { seenMsgIds.add(m.id); messages.push(m as any); }
+    }
+    // Add unlinked inbound SMS matched by normalized senderPhone
+    if (entityPhoneNorm) {
+      for (const m of inboundSmsMessages) {
+        if (!seenMsgIds.has(m.id) && normPhoneH((m as any).senderPhone) === entityPhoneNorm) {
+          seenMsgIds.add(m.id);
+          messages.push(m as any);
+        }
+      }
     }
 
     // For collaborators/persons: also include calls they made as agents
