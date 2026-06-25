@@ -2374,6 +2374,7 @@ function CommunicationCanvas({
   phoneOverride,
   onPhoneOverrideChange,
   onClearContact,
+  customerMessages,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -2426,6 +2427,7 @@ function CommunicationCanvas({
   phoneOverride?: string | null;
   onPhoneOverrideChange?: (p: string | null) => void;
   onClearContact?: () => void;
+  customerMessages?: any[];
 }) {
   const { t, locale } = useI18n();
   const { user } = useAuth();
@@ -12041,6 +12043,7 @@ export default function AgentWorkspacePage() {
               onCloseCallAfterStatusList={handleCloseCallAfterStatusList}
               phoneOverride={currentPhoneOverride}
               onPhoneOverrideChange={setCurrentPhoneOverride}
+              customerMessages={customerMessages}
               onClearContact={() => {
                 pendingCcIdRef.current = null;
                 setCurrentCampaignContactId(null);
