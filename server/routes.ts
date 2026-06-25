@@ -12403,14 +12403,42 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   // Shared contact-history builder — works for customers, hospitals, clinics, collaborators, persons
   const buildContactHistory = async (entityId: string, includeAgentLogs = false): Promise<any[]> => {
-    // Look up entity phone number — inbound call logs may store callerNumber without customerId
-    const [entityPhoneRow] = await db.select({ phone: customers.phone })
+    // Look up entity phone number across all entity types
+    // (inbound call/SMS logs may store callerNumber/senderPhone without customerId for non-customer entities)
+    let entityPhone: string | null = null;
+    const [customerPhoneRow] = await db.select({ phone: customers.phone })
       .from(customers).where(eq(customers.id, entityId)).limit(1);
-    const entityPhone = entityPhoneRow?.phone ?? null;
+    if (customerPhoneRow?.phone) {
+      entityPhone = customerPhoneRow.phone;
+    } else {
+      const [hospRow] = await db.select({ phone: hospitals.phone }).from(hospitals).where(eq(hospitals.id, entityId)).limit(1);
+      if (hospRow?.phone) {
+        entityPhone = hospRow.phone;
+      } else {
+        const [clinicRow] = await db.select({ phone: clinics.phone }).from(clinics).where(eq(clinics.id, entityId)).limit(1);
+        if (clinicRow?.phone) {
+          entityPhone = clinicRow.phone;
+        } else {
+          const [collabRow] = await db.select({ phone: collaborators.phone, mobile: collaborators.mobile }).from(collaborators).where(eq(collaborators.id, entityId)).limit(1);
+          entityPhone = collabRow?.phone ?? collabRow?.mobile ?? null;
+        }
+      }
+    }
 
-    const [fetchedCallLogs, messages, campaignHistory, allUsers, inboundLogs, inboundCbs] = await Promise.all([
+    const [fetchedCallLogs, messagesByEntity, inboundSmsMessages, campaignHistory, allUsers, inboundLogs, inboundCbs] = await Promise.all([
       storage.getCallLogsByCustomer(entityId),
       storage.getCommunicationMessagesByCustomer(entityId),
+      // Also fetch inbound SMS by senderPhone to catch replies that arrived before webhook linking was in place
+      entityPhone
+        ? db.select().from(communicationMessages)
+            .where(and(
+              eq(communicationMessages.direction, "inbound"),
+              eq(communicationMessages.type, "sms"),
+              eq(communicationMessages.senderPhone, entityPhone),
+              isNull(communicationMessages.customerId),
+            ))
+            .orderBy(desc(communicationMessages.createdAt))
+        : Promise.resolve([]),
       storage.getCampaignContactHistoryByCustomer(entityId),
       storage.getAllUsers(),
       db.select({
@@ -12438,6 +12466,13 @@ Return ONLY valid JSON, no markdown code blocks.`,
         )
         .orderBy(desc(inboundCallbacks.createdAt)),
     ]);
+
+    // Merge entity-linked messages with senderPhone-matched inbound SMS (dedup by id)
+    const seenMsgIds = new Set<string>();
+    const messages: typeof messagesByEntity = [];
+    for (const m of [...messagesByEntity, ...inboundSmsMessages]) {
+      if (!seenMsgIds.has(m.id)) { seenMsgIds.add(m.id); messages.push(m as any); }
+    }
 
     // For collaborators/persons: also include calls they made as agents
     const agentCallLogs = includeAgentLogs ? await storage.getCallLogsByUser(entityId) : [];
@@ -13624,16 +13659,60 @@ Return ONLY valid JSON, no markdown code blocks.`,
         
         console.log(`[BulkGate DLR] Stored incoming SMS from ${webhookData.number}: ${incomingMessage.id}`);
         
-        // Try to link to customer by phone number
+        // Try to link to any entity (customer / hospital / clinic / collaborator) by phone number
         let linkedCustomerId: string | undefined;
         if (webhookData.number) {
-          const customers = await storage.findCustomersByPhone(webhookData.number);
-          if (customers.length > 0) {
-            linkedCustomerId = customers[0].id;
-            await storage.updateCommunicationMessage(incomingMessage.id, {
-              customerId: customers[0].id,
-            });
-            console.log(`[BulkGate DLR] Linked incoming SMS to customer ${customers[0].firstName} ${customers[0].lastName}`);
+          // Normalize for comparison
+          const normPhone = (p: string) => p.replace(/[\s\-\(\)]/g, "").replace(/^\+?421/, "").replace(/^\+?420/, "").replace(/^00/, "");
+          const inNorm = normPhone(webhookData.number);
+
+          // 1. Try customers first
+          const foundCustomers = await storage.findCustomersByPhone(webhookData.number);
+          if (foundCustomers.length > 0) {
+            linkedCustomerId = foundCustomers[0].id;
+            await storage.updateCommunicationMessage(incomingMessage.id, { customerId: foundCustomers[0].id });
+            console.log(`[BulkGate DLR] Linked incoming SMS to customer ${foundCustomers[0].firstName} ${foundCustomers[0].lastName}`);
+          }
+
+          // 2. Try hospitals
+          if (!linkedCustomerId) {
+            const allHospitals = await db.select({ id: hospitals.id, name: hospitals.name, phone: hospitals.phone }).from(hospitals);
+            const matchedHospital = allHospitals.find(h => h.phone && normPhone(h.phone) === inNorm);
+            if (matchedHospital) {
+              linkedCustomerId = matchedHospital.id;
+              await storage.updateCommunicationMessage(incomingMessage.id, { customerId: matchedHospital.id });
+              console.log(`[BulkGate DLR] Linked incoming SMS to hospital ${matchedHospital.name}`);
+            }
+          }
+
+          // 3. Try clinics (phone, phone2, phone3)
+          if (!linkedCustomerId) {
+            const allClinics = await db.select({ id: clinics.id, name: clinics.name, phone: clinics.phone, phone2: clinics.phone2, phone3: clinics.phone3 }).from(clinics);
+            const matchedClinic = allClinics.find(c =>
+              (c.phone && normPhone(c.phone) === inNorm) ||
+              (c.phone2 && normPhone(c.phone2) === inNorm) ||
+              (c.phone3 && normPhone(c.phone3) === inNorm)
+            );
+            if (matchedClinic) {
+              linkedCustomerId = matchedClinic.id;
+              await storage.updateCommunicationMessage(incomingMessage.id, { customerId: matchedClinic.id });
+              console.log(`[BulkGate DLR] Linked incoming SMS to clinic ${matchedClinic.name}`);
+            }
+          }
+
+          // 4. Try collaborators (phone, mobile, mobile2)
+          if (!linkedCustomerId) {
+            const allCollaborators = await db.select({ id: collaborators.id, firstName: collaborators.firstName, lastName: collaborators.lastName, phone: collaborators.phone, mobile: collaborators.mobile, mobile2: collaborators.mobile2 }).from(collaborators);
+            const matchedCollab = allCollaborators.find(c =>
+              (c.phone && normPhone(c.phone) === inNorm) ||
+              (c.mobile && normPhone(c.mobile) === inNorm) ||
+              (c.mobile2 && normPhone(c.mobile2) === inNorm)
+            );
+            if (matchedCollab) {
+              linkedCustomerId = matchedCollab.id;
+              await storage.updateCommunicationMessage(incomingMessage.id, { customerId: matchedCollab.id });
+              console.log(`[BulkGate DLR] Linked incoming SMS to collaborator ${matchedCollab.firstName} ${matchedCollab.lastName}`);
+            }
           }
         }
         
