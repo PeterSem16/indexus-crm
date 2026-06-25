@@ -381,6 +381,27 @@ app.use((req, res, next) => {
     console.error('[migration] ivr_messages ringtone columns error:', e.message);
   }
 
+  try {
+    await pool.query(`
+      ALTER TABLE communication_messages
+        ADD COLUMN IF NOT EXISTS sender_phone TEXT,
+        ADD COLUMN IF NOT EXISTS contract_id VARCHAR,
+        ADD COLUMN IF NOT EXISTS ai_analyzed BOOLEAN DEFAULT false,
+        ADD COLUMN IF NOT EXISTS ai_sentiment TEXT,
+        ADD COLUMN IF NOT EXISTS ai_alert_level TEXT,
+        ADD COLUMN IF NOT EXISTS ai_has_angry_tone BOOLEAN,
+        ADD COLUMN IF NOT EXISTS ai_has_rude_expressions BOOLEAN,
+        ADD COLUMN IF NOT EXISTS ai_wants_to_cancel BOOLEAN,
+        ADD COLUMN IF NOT EXISTS ai_wants_consent BOOLEAN,
+        ADD COLUMN IF NOT EXISTS ai_does_not_accept_contract BOOLEAN,
+        ADD COLUMN IF NOT EXISTS ai_analysis_note TEXT,
+        ADD COLUMN IF NOT EXISTS ai_analyzed_at TIMESTAMP;
+    `);
+    console.log('[migration] communication_messages sender_phone + AI columns ensured');
+  } catch (e: any) {
+    console.error('[migration] communication_messages columns error:', e.message);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
