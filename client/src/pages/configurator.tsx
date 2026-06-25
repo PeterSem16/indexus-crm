@@ -12494,104 +12494,111 @@ function MessageTemplatesTab() {
 
       {/* Test Email Dialog — tabbed preview + send */}
       <Sheet open={isTestEmailOpen} onOpenChange={(open) => { if (!testEmailSending) { setIsTestEmailOpen(open); setSendStep(null); setSendErrorMsg(""); } }}>
-        <SheetContent side="right" className="w-full sm:max-w-[1120px] flex flex-col p-0 gap-0 [&>button]:hidden overflow-hidden">
+        <SheetContent side="right" className="w-full sm:max-w-[1200px] flex flex-col p-0 gap-0 [&>button]:hidden overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b shrink-0 bg-background">
+          <div className="flex items-center justify-between px-6 py-3.5 border-b shrink-0 bg-background">
             <div className="flex items-center gap-3">
-              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
                 <Send className="h-4 w-4 text-primary" />
               </div>
               <div>
-                <SheetTitle className="text-sm font-semibold leading-tight">
+                <SheetTitle className="text-sm font-semibold leading-snug">
                   {templateName || "Bez názvu"}
                 </SheetTitle>
-                <SheetDescription className="text-xs text-muted-foreground mt-0">
-                  {templateType === "sms" ? "SMS" : `Email · ${templateFormat === "html" ? "HTML" : "Text"}`}
-                  {templateLanguage && <> · <span className="uppercase">{templateLanguage}</span></>}
-                  {templateAttachments.length > 0 && <> · <Paperclip className="h-3 w-3 inline" /> {templateAttachments.length} príl.</>}
+                <SheetDescription className="text-[11px] text-muted-foreground mt-0 flex items-center gap-1.5">
+                  {templateType === "sms" ? (
+                    <span className="inline-flex items-center gap-1 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded text-[10px] font-medium">SMS</span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded text-[10px] font-medium">Email</span>
+                  )}
+                  {templateFormat === "html" && <span className="inline-flex items-center gap-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-1.5 py-0.5 rounded text-[10px] font-medium">HTML</span>}
+                  {templateLanguage && <span className="inline-flex items-center bg-muted px-1.5 py-0.5 rounded text-[10px] font-medium uppercase text-muted-foreground">{templateLanguage}</span>}
+                  {templateAttachments.length > 0 && <span className="inline-flex items-center gap-1 bg-muted px-1.5 py-0.5 rounded text-[10px] font-medium text-muted-foreground"><Paperclip className="h-2.5 w-2.5" />{templateAttachments.length} príl.</span>}
                 </SheetDescription>
               </div>
             </div>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { if (!testEmailSending) { setIsTestEmailOpen(false); setSendStep(null); setSendErrorMsg(""); } }}>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => { if (!testEmailSending) { setIsTestEmailOpen(false); setSendStep(null); setSendErrorMsg(""); } }}>
               <X className="h-4 w-4" />
             </Button>
           </div>
 
           {/* 2-column body */}
           <div className="flex flex-1 overflow-hidden min-h-0">
-            {/* LEFT: Email preview */}
-            <div className="flex-1 flex flex-col overflow-hidden border-r">
+            {/* LEFT: Email preview — slate background like email client */}
+            <div className="flex-1 flex flex-col overflow-hidden bg-slate-100 dark:bg-slate-900">
               {/* Subject bar */}
               {templateType === "email" && templateSubject && (
-                <div className="flex items-baseline gap-3 px-5 py-3 bg-muted/20 border-b shrink-0">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider shrink-0">Predmet</span>
-                  <span className="text-sm font-medium flex-1 truncate">{interpolatePreview(templateSubject)}</span>
+                <div className="flex items-center gap-3 px-5 py-2.5 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shrink-0 shadow-sm">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest shrink-0">Predmet</span>
+                  <span className="text-sm font-medium flex-1 truncate text-slate-800 dark:text-slate-100">{interpolatePreview(templateSubject)}</span>
                 </div>
               )}
-              {/* Preview content */}
-              <div className="flex-1 overflow-y-auto bg-muted/10">
+              {/* Preview content — padded so email card floats */}
+              <div className="flex-1 overflow-y-auto p-5">
                 {templateType === "sms" ? (
-                  <div className="p-8 flex items-start justify-center">
+                  <div className="flex items-start justify-center pt-8">
                     <div className="flex flex-col gap-2 max-w-[320px] w-full">
-                      <div className="bg-muted rounded-2xl rounded-tl-sm px-4 py-3 self-start shadow-sm">
-                        <p className="text-sm whitespace-pre-wrap">{interpolatePreview(templateContent || "")}</p>
+                      <div className="bg-white dark:bg-slate-800 rounded-2xl rounded-tl-sm px-4 py-3 self-start shadow-md border border-slate-200 dark:border-slate-700">
+                        <p className="text-sm whitespace-pre-wrap text-slate-800 dark:text-slate-100">{interpolatePreview(templateContent || "")}</p>
                       </div>
-                      <p className="text-[10px] text-muted-foreground ml-1">{(interpolatePreview(templateContent || "")).length} znakov</p>
+                      <p className="text-[10px] text-slate-400 ml-1">{(interpolatePreview(templateContent || "")).length} znakov</p>
                     </div>
                   </div>
                 ) : templateFormat === "html" && templateContentHtml ? (
-                  <iframe
-                    srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:24px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.65;color:#1a1a1a;background:#fff;}</style></head><body>${interpolatePreview(templateContentHtml).replace(/<script[\s\S]*?<\/script>/gi,"").replace(/on\w+\s*=/gi,"data-blocked=")}</body></html>`}
-                    className="w-full border-0 h-full"
-                    style={{ minHeight: "100%" }}
-                    sandbox="allow-same-origin"
-                    title="Email náhľad"
-                  />
+                  <div className="rounded-xl overflow-hidden shadow-lg border border-slate-200 dark:border-slate-700 bg-white">
+                    <iframe
+                      srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:28px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.7;color:#1a1a1a;background:#fff;}</style></head><body>${interpolatePreview(templateContentHtml).replace(/<script[\s\S]*?<\/script>/gi,"").replace(/on\w+\s*=/gi,"data-blocked=")}</body></html>`}
+                      className="w-full border-0"
+                      style={{ minHeight: "500px", height: "100%" }}
+                      sandbox="allow-same-origin"
+                      title="Email náhľad"
+                    />
+                  </div>
                 ) : (
-                  <div className="p-8 font-sans text-sm whitespace-pre-wrap text-gray-800 leading-relaxed">
+                  <div className="rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-8 font-sans text-sm whitespace-pre-wrap text-slate-800 dark:text-slate-100 leading-relaxed">
                     {interpolatePreview(templateContent || "")}
                   </div>
                 )}
               </div>
             </div>
 
-            {/* RIGHT: Send panel */}
-            <div className="w-[380px] shrink-0 flex flex-col overflow-hidden bg-background relative">
+            {/* RIGHT: Send panel — white card panel with shadow separator */}
+            <div className="w-[400px] shrink-0 flex flex-col overflow-hidden bg-background border-l border-border/60 shadow-[-4px_0_16px_-4px_rgba(0,0,0,0.08)] relative">
               {/* Sending overlay */}
               {sendStep && sendStep !== "error" && (
-                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/97 backdrop-blur-sm">
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/98 backdrop-blur-sm">
                   {sendStep === "done" ? (
-                    <div className="flex flex-col items-center gap-4 text-center px-8">
-                      <div className="h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
-                        <CheckCircle2 className="h-9 w-9 text-green-600 dark:text-green-400" />
+                    <div className="flex flex-col items-center gap-5 text-center px-10">
+                      <div className="h-20 w-20 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center ring-4 ring-green-200 dark:ring-green-800">
+                        <CheckCircle2 className="h-10 w-10 text-green-600 dark:text-green-400" />
                       </div>
-                      <div>
+                      <div className="space-y-1">
                         <p className="text-base font-semibold text-green-700 dark:text-green-400">Email odoslaný!</p>
-                        <p className="text-xs text-muted-foreground mt-1">Doručený na <span className="font-medium text-foreground">{testEmailTo}</span></p>
-                        <p className="text-[10px] text-muted-foreground mt-2">Skontrolujte priečinok Doručená pošta aj Spam.</p>
+                        <p className="text-sm text-muted-foreground">Doručený na</p>
+                        <p className="text-sm font-semibold text-foreground">{testEmailTo}</p>
+                        <p className="text-[11px] text-muted-foreground mt-2 pt-2 border-t">Skontrolujte Doručenú poštu aj Spam.</p>
                       </div>
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center gap-5 text-center px-8">
-                      <div className="relative h-16 w-16">
-                        <div className="absolute inset-0 rounded-full border-4 border-primary/20 animate-pulse" />
-                        <div className="absolute inset-0 rounded-full border-4 border-t-primary animate-spin" />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Mail className="h-6 w-6 text-primary" />
+                    <div className="flex flex-col items-center gap-6 text-center px-10">
+                      <div className="relative h-20 w-20">
+                        <div className="absolute inset-0 rounded-full border-[3px] border-primary/15" />
+                        <div className="absolute inset-0 rounded-full border-[3px] border-t-primary animate-spin" />
+                        <div className="absolute inset-[10px] rounded-full bg-primary/8 flex items-center justify-center">
+                          <Mail className="h-7 w-7 text-primary" />
                         </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold">
+                      <div className="space-y-1.5">
+                        <p className="text-sm font-semibold text-foreground">
                           {sendStep === "preparing" ? "Pripravujem email..." : "Odosielam cez MS365..."}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="text-xs text-muted-foreground">
                           {sendStep === "preparing" ? "Nahrávam šablónu a premenné" : `Doručujem na ${testEmailTo}`}
                         </p>
                       </div>
-                      {/* Progress dots */}
-                      <div className="flex gap-1.5">
+                      <div className="flex gap-2">
                         {["preparing", "sending"].map((step, i) => (
-                          <div key={step} className={cn("h-1.5 rounded-full transition-all duration-500", sendStep === step ? "w-6 bg-primary" : i < ["preparing","sending"].indexOf(sendStep!) ? "w-3 bg-primary/60" : "w-3 bg-muted")} />
+                          <div key={step} className={cn("h-1 rounded-full transition-all duration-500", sendStep === step ? "w-8 bg-primary" : i < ["preparing","sending"].indexOf(sendStep!) ? "w-4 bg-primary/50" : "w-4 bg-muted")} />
                         ))}
                       </div>
                     </div>
@@ -12600,91 +12607,108 @@ function MessageTemplatesTab() {
               )}
 
               {/* Scrollable right content */}
-              <div className="flex-1 overflow-y-auto p-5 space-y-5">
-                {/* Error state */}
-                {sendStep === "error" && (
-                  <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 p-4 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <XCircle className="h-4 w-4 text-red-600 shrink-0" />
-                      <p className="text-sm font-semibold text-red-700 dark:text-red-400">Email sa nepodarilo odoslať</p>
-                    </div>
-                    <p className="text-xs text-red-600 dark:text-red-400 leading-relaxed">{sendErrorMsg}</p>
-                    <Button variant="outline" size="sm" className="mt-2 h-7 text-xs border-red-200 text-red-700 hover:bg-red-100" onClick={() => { setSendStep(null); setSendErrorMsg(""); }}>
-                      Skúsiť znova
-                    </Button>
-                  </div>
-                )}
-
-                {/* Recipient */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Príjemca (testovací email)</Label>
-                  <Input
-                    type="email"
-                    value={testEmailTo}
-                    onChange={(e) => setTestEmailTo(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && testEmailTo && !testEmailSending && handleSendTestEmail()}
-                    placeholder="vas@email.sk"
-                    className="h-9"
-                    data-testid="input-test-email-to"
-                    disabled={testEmailSending}
-                  />
-                </div>
-
-                {/* Info note */}
-                <div className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950/20 rounded-xl p-3.5 border border-blue-100 dark:border-blue-900 leading-relaxed space-y-1">
-                  <p className="flex items-start gap-1.5"><Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-blue-500" /> Email bude odoslaný cez váš MS365 účet s ukážkovými hodnotami premenných.</p>
-                  <p className="text-[10px] text-blue-500/80 pl-5">Po odoslaní skontrolujte priečinok Doručená pošta aj Nevyžiadaná pošta.</p>
-                </div>
-
-                {/* Attachments */}
-                {templateAttachments.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                      <Paperclip className="h-3 w-3" /> Prílohy ({templateAttachments.length})
-                    </p>
-                    <div className="space-y-1">
-                      {templateAttachments.map((att: any, idx: number) => (
-                        <div key={idx} className="flex items-center gap-2 px-3 py-2 bg-muted/30 rounded-lg border text-xs">
-                          <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <span className="flex-1 truncate font-medium">{att.name || `Príloha ${idx + 1}`}</span>
-                          {att.size && <span className="text-muted-foreground shrink-0">{Math.round(att.size / 1024)}KB</span>}
+              <div className="flex-1 overflow-y-auto">
+                {/* Section top padding + error */}
+                <div className="p-5 space-y-4">
+                  {/* Error state */}
+                  {sendStep === "error" && (
+                    <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 p-4 space-y-2.5">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-7 w-7 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center shrink-0">
+                          <XCircle className="h-4 w-4 text-red-600" />
                         </div>
-                      ))}
+                        <p className="text-sm font-semibold text-red-700 dark:text-red-400">Email sa nepodarilo odoslať</p>
+                      </div>
+                      <p className="text-xs text-red-600 dark:text-red-400 leading-relaxed pl-9">{sendErrorMsg}</p>
+                      <div className="pl-9">
+                        <Button variant="outline" size="sm" className="h-7 text-xs border-red-200 text-red-700 hover:bg-red-100 dark:hover:bg-red-900/30" onClick={() => { setSendStep(null); setSendErrorMsg(""); }}>
+                          Skúsiť znova
+                        </Button>
+                      </div>
                     </div>
+                  )}
+
+                  {/* Recipient */}
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Príjemca (testovací email)</Label>
+                    <Input
+                      type="email"
+                      value={testEmailTo}
+                      onChange={(e) => setTestEmailTo(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && testEmailTo && !testEmailSending && handleSendTestEmail()}
+                      placeholder="vas@email.sk"
+                      className="h-10 bg-muted/30 border-border/60 focus-visible:bg-background"
+                      data-testid="input-test-email-to"
+                      disabled={testEmailSending}
+                    />
                   </div>
+
+                  {/* Info note */}
+                  <div className="rounded-xl bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/50 p-3.5 space-y-1.5">
+                    <p className="text-xs text-blue-700 dark:text-blue-300 flex items-start gap-2 leading-relaxed">
+                      <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      Email bude odoslaný cez váš MS365 účet s ukážkovými hodnotami premenných.
+                    </p>
+                    <p className="text-[10px] text-blue-500/80 dark:text-blue-400/70 pl-5">Po odoslaní skontrolujte Doručenú poštu aj Nevyžiadanú poštu.</p>
+                  </div>
+                </div>
+
+                {/* Divider section */}
+                {(templateAttachments.length > 0 || detectTemplateVariables().length > 0) && (
+                  <div className="border-t border-border/50 mx-5" />
                 )}
 
-                {/* Variables */}
-                {detectTemplateVariables().length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                      Ukážkové hodnoty premenných ({detectTemplateVariables().length})
-                    </p>
-                    <div className="space-y-1">
-                      {detectTemplateVariables().map(v => {
-                        const key = v.replace(/^\{\{|\}\}$/g, "").trim();
-                        const val = getTestSampleValues()[key];
-                        return (
-                          <div key={v} className="flex items-start gap-2 px-3 py-2 bg-muted/20 rounded-lg border text-xs">
-                            <span className="font-mono text-primary/70 shrink-0 text-[10px] mt-0.5 leading-tight">{v}</span>
-                            <span className="text-muted-foreground">→</span>
-                            {val ? (
-                              <span className="font-medium text-foreground break-all">{val}</span>
-                            ) : (
-                              <span className="italic text-orange-400">nenájdená</span>
-                            )}
+                <div className="px-5 pb-5 space-y-4 pt-4">
+                  {/* Attachments */}
+                  {templateAttachments.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                        <Paperclip className="h-3 w-3" /> Prílohy ({templateAttachments.length})
+                      </p>
+                      <div className="space-y-1">
+                        {templateAttachments.map((att: any, idx: number) => (
+                          <div key={idx} className="flex items-center gap-2.5 px-3 py-2.5 bg-muted/30 rounded-lg border border-border/50 text-xs">
+                            <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="flex-1 truncate font-medium">{att.fileName || att.name || `Príloha ${idx + 1}`}</span>
+                            {att.size && <span className="text-muted-foreground shrink-0 tabular-nums">{Math.round(att.size / 1024)} KB</span>}
                           </div>
-                        );
-                      })}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+
+                  {/* Variables */}
+                  {detectTemplateVariables().length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                        Ukážkové hodnoty premenných ({detectTemplateVariables().length})
+                      </p>
+                      <div className="space-y-1">
+                        {detectTemplateVariables().map(v => {
+                          const key = v.replace(/^\{\{|\}\}$/g, "").trim();
+                          const val = getTestSampleValues()[key];
+                          return (
+                            <div key={v} className="flex items-baseline gap-2 px-3 py-2 bg-muted/20 hover:bg-muted/40 rounded-lg border border-border/40 text-xs transition-colors">
+                              <span className="font-mono text-[9px] text-primary/60 shrink-0 leading-tight whitespace-nowrap">{v}</span>
+                              <span className="text-muted-foreground/60 shrink-0">→</span>
+                              {val ? (
+                                <span className="font-medium text-foreground break-all">{val}</span>
+                              ) : (
+                                <span className="italic text-orange-400 text-[10px]">nenájdená</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Send button footer */}
-              <div className="p-4 border-t shrink-0 bg-background">
+              <div className="px-5 py-4 border-t border-border/60 shrink-0 bg-background">
                 <Button
-                  className="w-full h-10 text-sm font-medium gap-2"
+                  className="w-full h-11 text-sm font-medium gap-2 rounded-xl"
                   onClick={handleSendTestEmail}
                   disabled={!testEmailTo || testEmailSending}
                   data-testid="button-send-test-email"

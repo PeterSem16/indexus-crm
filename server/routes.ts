@@ -46897,7 +46897,14 @@ Return ONLY the JSON object.`
           ...(tokenResult.refreshToken ? { refreshToken: encryptTokenWithMarker(tokenResult.refreshToken) } : {}),
         });
       }
-      await sendEmail(tokenResult.accessToken, [to], finalSubject, finalBody, isHtml, undefined, reqAttachments && reqAttachments.length > 0 ? reqAttachments : undefined);
+      const mappedAttachments = reqAttachments && reqAttachments.length > 0
+        ? reqAttachments.map((att: any) => ({
+            name: att.fileName || att.name || "attachment",
+            contentType: att.mimeType || att.contentType || "application/octet-stream",
+            contentBase64: att.contentBase64 || att.contentBytes || "",
+          }))
+        : undefined;
+      await sendEmail(tokenResult.accessToken, [to], finalSubject, finalBody, isHtml, undefined, mappedAttachments);
       res.json({ success: true, message: "Test email sent successfully" });
     } catch (error: any) {
       console.error("[send-test-email] Error:", error);
