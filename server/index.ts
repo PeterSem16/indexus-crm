@@ -393,6 +393,7 @@ app.use((req, res, next) => {
   try {
     await pool.query(`
       ALTER TABLE communication_messages
+        ADD COLUMN IF NOT EXISTS direction TEXT DEFAULT 'outbound',
         ADD COLUMN IF NOT EXISTS sender_phone TEXT,
         ADD COLUMN IF NOT EXISTS contract_id VARCHAR,
         ADD COLUMN IF NOT EXISTS ai_analyzed BOOLEAN DEFAULT false,
@@ -406,7 +407,7 @@ app.use((req, res, next) => {
         ADD COLUMN IF NOT EXISTS ai_analysis_note TEXT,
         ADD COLUMN IF NOT EXISTS ai_analyzed_at TIMESTAMP;
     `);
-    console.log('[migration] communication_messages sender_phone + AI columns ensured');
+    console.log('[migration] communication_messages direction + sender_phone + AI columns ensured');
   } catch (e: any) {
     console.error('[migration] communication_messages columns error:', e.message);
   }
