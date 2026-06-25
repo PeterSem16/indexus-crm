@@ -4155,189 +4155,316 @@ function CommunicationCanvas({
 
       {activeChannel === "sms" && (
         <div className="flex-1 flex overflow-hidden">
-          <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-            <div className="flex gap-4 p-4 flex-1">
-              <div className="w-2/5 space-y-3 border-r pr-4">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                    {t.configuration?.messageTemplates || "TEMPLATE"}
-                  </Label>
-                  <div className="flex items-center gap-1 flex-wrap">
-                    {[
-                      { code: "sk", flag: "🇸🇰" },
-                      { code: "cs", flag: "🇨🇿" },
-                      { code: "en", flag: "🇬🇧" },
-                      { code: "hu", flag: "🇭🇺" },
-                      { code: "ro", flag: "🇷🇴" },
-                      { code: "it", flag: "🇮🇹" },
-                      { code: "de", flag: "🇩🇪" },
-                    ].map(({ code, flag }) => (
-                      <button
-                        key={code}
-                        type="button"
-                        className={`text-base px-1 py-0.5 rounded border transition-all ${smsTemplateLangs.has(code) ? "border-primary bg-primary/10 shadow-sm" : "border-transparent opacity-40 hover:opacity-70"}`}
-                        onClick={() => {
-                          setSmsTemplateLangs(prev => {
-                            const next = new Set(prev);
-                            if (next.has(code)) next.delete(code);
-                            else next.add(code);
-                            return next;
-                          });
-                        }}
-                        title={code.toUpperCase()}
-                        data-testid={`sms-lang-flag-${code}`}
-                      >
-                        {flag}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="space-y-1.5">
-                    {smsCategoriesWithTemplates.length > 0 && (
-                      <Select value={smsTemplateCategoryId} onValueChange={(val) => { setSmsTemplateCategoryId(val); }}>
-                        <SelectTrigger data-testid="select-sms-template-category" className="text-sm">
-                          <SelectValue placeholder={t.configuration?.selectCategory || "Select category"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__all__">{t.sop?.all || "All"}</SelectItem>
-                          {smsCategoriesWithTemplates.map((cat) => (
-                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                    <Popover open={smsTemplatePopoverOpen} onOpenChange={setSmsTemplatePopoverOpen}>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" role="combobox" className="w-full justify-between text-sm font-normal h-10" data-testid="select-sms-template" disabled={smsTemplates.length === 0}>
-                          <span className="truncate">{selectedSmsTemplateName || (smsTemplates.length === 0 ? (t.konfigurator?.noMessageTemplates || "No templates") : (t.configuration?.selectTemplate || "Select template"))}</span>
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-                        <div className="flex items-center border-b px-3 py-2">
-                          <Search className="h-4 w-4 mr-2 shrink-0 opacity-50" />
-                          <input
-                            className="flex h-8 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                            placeholder={t.configuration?.searchTemplate || "Search template..."}
-                            value={smsTemplateSearch}
-                            onChange={(e) => setSmsTemplateSearch(e.target.value)}
-                            data-testid="input-search-sms-template"
-                          />
-                          {smsTemplateSearch && (
-                            <button onClick={() => setSmsTemplateSearch("")} className="ml-1 opacity-50 hover:opacity-100"><X className="h-3.5 w-3.5" /></button>
-                          )}
-                        </div>
-                        <div className="max-h-[200px] overflow-y-auto">
-                          {filteredSmsTemplates.length === 0 ? (
-                            <p className="text-sm text-muted-foreground text-center py-4">{t.konfigurator?.noMessageTemplates || "No templates"}</p>
-                          ) : (
-                            filteredSmsTemplates.map((template) => (
-                              <button
-                                key={template.id}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted/50 transition-colors"
-                                onClick={() => handleSelectSmsTemplate(template.id)}
-                                data-testid={`sms-template-option-${template.id}`}
-                              >
-                                <Check className={`h-4 w-4 shrink-0 ${selectedSmsTemplateName === template.name ? "opacity-100" : "opacity-0"}`} />
-                                <span className="truncate">{template.name}</span>
-                              </button>
-                            ))
-                          )}
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
 
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                    {t.customers?.details?.to || "TO"}
-                  </Label>
-                  <div className="space-y-1.5">
-                    {contact?.phone && (
-                      <div className="flex items-center gap-2">
-                        <Checkbox id="aw-phone1" checked={selectedPhones.includes(contact.phone)} onCheckedChange={(checked) => {
-                          if (checked) setSelectedPhones([...selectedPhones, contact.phone!]);
-                          else setSelectedPhones(selectedPhones.filter(p => p !== contact.phone));
-                        }} data-testid="checkbox-phone-primary" />
-                        <Label htmlFor="aw-phone1" className="font-normal cursor-pointer text-xs">
-                          {getCountryFlag(contact.country || "SK")} {contact.phone}
-                        </Label>
-                      </div>
-                    )}
-                    {(contact as any)?.phone2 && (
-                      <div className="flex items-center gap-2">
-                        <Checkbox id="aw-phone2" checked={selectedPhones.includes((contact as any).phone2)} onCheckedChange={(checked) => {
-                          if (checked) setSelectedPhones([...selectedPhones, (contact as any).phone2!]);
-                          else setSelectedPhones(selectedPhones.filter(p => p !== (contact as any).phone2));
-                        }} data-testid="checkbox-phone-secondary" />
-                        <Label htmlFor="aw-phone2" className="font-normal cursor-pointer text-xs">
-                          {getCountryFlag(contact?.country || "SK")} {(contact as any).phone2}
-                        </Label>
-                      </div>
+          {/* ── RIGHT: SMS preview + compose ── */}
+          <div className="flex-1 flex flex-col min-h-0 min-w-0 p-3">
+            <div className="flex-1 min-h-0 flex flex-col rounded-xl overflow-hidden shadow-sm border border-border">
+
+              {/* SMS header bar */}
+              <div className="bg-card border-b border-border px-4 py-2.5 flex items-center gap-3 shrink-0">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#c2673a]/15 shrink-0">
+                  <MessageSquare className="h-3.5 w-3.5 text-[#c2673a]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-foreground font-semibold text-sm leading-tight">SMS</div>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    {(selectedPhones.length > 0 || smsCc.trim()) ? (
+                      <span className="text-muted-foreground text-[11px] truncate">
+                        → {[...selectedPhones, ...(smsCc.trim() ? [smsCc] : [])].join(", ")}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground/60 text-[11px] italic">{t.customers?.details?.noRecipient || "No recipient selected"}</span>
                     )}
                   </div>
                 </div>
+                <span className={`text-[11px] font-mono shrink-0 tabular-nums ${smsMessage.length >= 160 ? 'text-destructive font-semibold' : smsMessage.length > 130 ? 'text-amber-500' : 'text-muted-foreground/60'}`}>
+                  {smsCharCount}/160
+                  {smsCount > 1 && <span className="ml-1 text-[10px] text-muted-foreground/40">×{smsCount}</span>}
+                </span>
+              </div>
 
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">CC</Label>
-                    <Button variant="ghost" size="sm" onClick={() => setShowSmsCcField(!showSmsCcField)} className="h-5 px-1 text-xs" data-testid="button-toggle-sms-cc">
-                      {showSmsCcField ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                    </Button>
-                  </div>
-                  {showSmsCcField && (
-                    <div className="flex gap-2">
-                      <Select value={smsCcCountry} onValueChange={setSmsCcCountry}>
-                        <SelectTrigger className="w-24" data-testid="select-sms-cc-country">
-                          <SelectValue>{getCountryFlag(smsCcCountry)} {smsCcCountry}</SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="SK">{getCountryFlag("SK")} SK</SelectItem>
-                          <SelectItem value="CZ">{getCountryFlag("CZ")} CZ</SelectItem>
-                          <SelectItem value="HU">{getCountryFlag("HU")} HU</SelectItem>
-                          <SelectItem value="RO">{getCountryFlag("RO")} RO</SelectItem>
-                          <SelectItem value="IT">{getCountryFlag("IT")} IT</SelectItem>
-                          <SelectItem value="DE">{getCountryFlag("DE")} DE</SelectItem>
-                          <SelectItem value="US">{getCountryFlag("US")} US</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Input value={smsCc} onChange={(e) => setSmsCc(e.target.value)} placeholder={t.customers?.details?.ccPhonePlaceholder || "+421..."} className="flex-1 text-sm" data-testid="input-sms-cc" />
+              {/* Mobile phone mockup area */}
+              <div className="flex-1 min-h-0 bg-stone-100 dark:bg-stone-950 flex items-center justify-center overflow-hidden p-3">
+                <div className="relative" style={{ width: 196, height: 350 }}>
+                  {/* Phone shell */}
+                  <div className="absolute inset-0 bg-stone-800 dark:bg-stone-950 rounded-[30px] shadow-2xl border-[3px] border-stone-700 dark:border-stone-700" />
+                  {/* Side buttons */}
+                  <div className="absolute left-[-5px] top-16 w-1 h-6 bg-stone-700 rounded-l-sm" />
+                  <div className="absolute left-[-5px] top-24 w-1 h-10 bg-stone-700 rounded-l-sm" />
+                  <div className="absolute left-[-5px] top-36 w-1 h-10 bg-stone-700 rounded-l-sm" />
+                  <div className="absolute right-[-5px] top-20 w-1 h-14 bg-stone-700 rounded-r-sm" />
+                  {/* Screen */}
+                  <div className="absolute inset-[6px] bg-white rounded-[25px] overflow-hidden flex flex-col">
+                    {/* Status bar */}
+                    <div className="bg-stone-50 shrink-0 h-5 flex items-center justify-between px-3 rounded-t-[25px]">
+                      <span className="text-stone-500 text-[7px] font-semibold">9:41</span>
+                      <div className="flex gap-0.5 items-center">
+                        <div className="flex gap-[1px] items-end h-2.5">
+                          <div className="w-0.5 h-1 bg-stone-400 rounded-sm" />
+                          <div className="w-0.5 h-1.5 bg-stone-400 rounded-sm" />
+                          <div className="w-0.5 h-2 bg-stone-400 rounded-sm" />
+                          <div className="w-0.5 h-2.5 bg-stone-400 rounded-sm" />
+                        </div>
+                        <div className="w-3.5 h-2 border border-stone-400 rounded-[2px] ml-1 flex items-center px-[1px]">
+                          <div className="h-1 bg-stone-600 rounded-sm" style={{ width: '70%' }} />
+                        </div>
+                      </div>
                     </div>
-                  )}
+                    {/* Conversation header */}
+                    <div className="bg-stone-50 border-b border-stone-100 shrink-0 px-3 py-1.5 flex items-center gap-1.5">
+                      <div className="h-5 w-5 rounded-full bg-[#c2673a]/20 flex items-center justify-center shrink-0">
+                        <User className="h-2.5 w-2.5 text-[#c2673a]" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[8px] font-semibold text-stone-800 truncate leading-tight">{contact?.name || selectedPhones[0] || "—"}</div>
+                        <div className="text-[6.5px] text-stone-400 leading-tight">{selectedPhones[0] || smsCc || ""}</div>
+                      </div>
+                    </div>
+                    {/* Message bubbles */}
+                    <div className="flex-1 bg-white overflow-y-auto p-2 space-y-1">
+                      {smsMessage ? (
+                        <div className="flex justify-end">
+                          <div
+                            className="max-w-[80%] rounded-[10px] rounded-br-[3px] px-2 py-1.5 text-[8px] leading-relaxed whitespace-pre-wrap break-words"
+                            style={{ backgroundColor: '#4a9ef7', color: 'white' }}
+                          >
+                            {smsMessage}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center h-full">
+                          <span className="text-[8px] text-stone-300 italic">message preview...</span>
+                        </div>
+                      )}
+                    </div>
+                    {/* Compose stub */}
+                    <div className="bg-stone-50 border-t border-stone-100 shrink-0 h-6 flex items-center gap-1.5 px-2">
+                      <div className="flex-1 h-3 bg-stone-200 rounded-full" />
+                      <div className="h-4 w-4 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: '#c2673a' }}>
+                        <Send className="h-1.5 w-1.5 text-white" />
+                      </div>
+                    </div>
+                    {/* Home bar */}
+                    <div className="bg-white h-3 flex items-center justify-center shrink-0 rounded-b-[25px]">
+                      <div className="w-10 h-0.5 bg-stone-300 rounded-full" />
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="w-3/5 space-y-3 flex flex-col">
-                <div className="space-y-1.5 flex-1 flex flex-col">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{t.customers?.details?.message || "Message"}</Label>
-                    <span className={`text-[10px] ${smsMessage.length > 160 ? 'text-destructive' : 'text-muted-foreground'}`}>
-                      {smsCharCount}/160 ({smsCount} SMS)
-                    </span>
-                  </div>
+              {/* Compose + action bar */}
+              <div className="shrink-0 border-t border-border bg-card px-4 py-2.5 flex items-end gap-3">
+                <div className="flex-1 min-w-0">
                   <Textarea
                     value={smsMessage}
                     onChange={(e) => setSmsMessage(e.target.value)}
                     placeholder={t.customers?.details?.writeSmsPlaceholder || "Write your SMS..."}
-                    rows={6}
+                    rows={2}
                     maxLength={160}
                     disabled={isSendingSms}
-                    className="flex-1"
+                    className="text-xs resize-none"
+                    style={{ minHeight: 52, maxHeight: 80 }}
                     data-testid="input-sms-message"
                   />
                 </div>
-                <div className="flex justify-end gap-2 pt-1">
-                  <Button variant="outline" size="sm" onClick={() => { setSmsMessage(""); setSelectedPhones([]); setSmsCc(""); setShowSmsCcField(false); }} data-testid="button-cancel-sms">
+                <div className="flex items-center gap-2 shrink-0 pb-0.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-8"
+                    onClick={() => { setSmsMessage(""); setSelectedPhones([]); setSmsCc(""); setShowSmsCcField(false); }}
+                    data-testid="button-cancel-sms"
+                  >
                     {t.common?.cancel || "Cancel"}
                   </Button>
-                  <Button onClick={handleSendSms} disabled={(selectedPhones.length === 0 && !smsCc.trim()) || !smsMessage || isSendingSms} data-testid="btn-send-sms">
-                    {isSendingSms ? (<Loader2 className="h-4 w-4 mr-2 animate-spin" />) : (<Send className="h-4 w-4 mr-2" />)}
+                  <Button
+                    onClick={handleSendSms}
+                    disabled={(selectedPhones.length === 0 && !smsCc.trim()) || !smsMessage || isSendingSms}
+                    className="h-8 px-4 text-xs font-semibold bg-[#c2673a] hover:bg-[#a8502a] text-white border-0 shadow-sm disabled:opacity-40"
+                    data-testid="btn-send-sms"
+                  >
+                    {isSendingSms ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1.5" />}
                     {t.customers?.details?.sendSms || "Send SMS"}
                   </Button>
                 </div>
               </div>
+
             </div>
           </div>
+
+          {/* ── LEFT: Compact form sidebar ── */}
+          <div className="w-[290px] shrink-0 flex flex-col order-first border-r border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/60 overflow-y-auto">
+            <div className="p-4 space-y-4">
+
+              {/* Template */}
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                  {t.configuration?.messageTemplates || "Template"}
+                </Label>
+                <div className="flex items-center gap-1 flex-wrap">
+                  {[
+                    { code: "sk", flag: "🇸🇰" },
+                    { code: "cs", flag: "🇨🇿" },
+                    { code: "en", flag: "🇬🇧" },
+                    { code: "hu", flag: "🇭🇺" },
+                    { code: "ro", flag: "🇷🇴" },
+                    { code: "it", flag: "🇮🇹" },
+                    { code: "de", flag: "🇩🇪" },
+                  ].map(({ code, flag }) => (
+                    <button
+                      key={code}
+                      type="button"
+                      className={`text-base px-1 py-0.5 rounded border transition-all ${smsTemplateLangs.has(code) ? "border-[#c2673a] bg-[#c2673a]/10 shadow-sm" : "border-transparent opacity-40 hover:opacity-70"}`}
+                      onClick={() => {
+                        setSmsTemplateLangs(prev => {
+                          const next = new Set(prev);
+                          if (next.has(code)) next.delete(code);
+                          else next.add(code);
+                          return next;
+                        });
+                      }}
+                      title={code.toUpperCase()}
+                      data-testid={`sms-lang-flag-${code}`}
+                    >
+                      {flag}
+                    </button>
+                  ))}
+                </div>
+                <div className="space-y-1.5">
+                  {smsCategoriesWithTemplates.length > 0 && (
+                    <Select value={smsTemplateCategoryId} onValueChange={(val) => { setSmsTemplateCategoryId(val); }}>
+                      <SelectTrigger data-testid="select-sms-template-category" className="text-xs h-8">
+                        <SelectValue placeholder={t.configuration?.selectCategory || "Select category"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__all__">{t.sop?.all || "All"}</SelectItem>
+                        {smsCategoriesWithTemplates.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <Popover open={smsTemplatePopoverOpen} onOpenChange={setSmsTemplatePopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" className="w-full justify-between text-xs font-normal h-8" data-testid="select-sms-template" disabled={smsTemplates.length === 0}>
+                        <span className="truncate">{selectedSmsTemplateName || (smsTemplates.length === 0 ? (t.konfigurator?.noMessageTemplates || "No templates") : (t.configuration?.selectTemplate || "Select template"))}</span>
+                        <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                      <div className="flex items-center border-b px-3 py-2">
+                        <Search className="h-3.5 w-3.5 mr-2 shrink-0 opacity-50" />
+                        <input
+                          className="flex h-8 w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground"
+                          placeholder={t.configuration?.searchTemplate || "Search template..."}
+                          value={smsTemplateSearch}
+                          onChange={(e) => setSmsTemplateSearch(e.target.value)}
+                          data-testid="input-search-sms-template"
+                        />
+                        {smsTemplateSearch && (
+                          <button onClick={() => setSmsTemplateSearch("")} className="ml-1 opacity-50 hover:opacity-100"><X className="h-3 w-3" /></button>
+                        )}
+                      </div>
+                      <div className="max-h-[200px] overflow-y-auto">
+                        {filteredSmsTemplates.length === 0 ? (
+                          <p className="text-xs text-muted-foreground text-center py-4">{t.konfigurator?.noMessageTemplates || "No templates"}</p>
+                        ) : (
+                          filteredSmsTemplates.map((template) => (
+                            <button
+                              key={template.id}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-muted/50 transition-colors"
+                              onClick={() => handleSelectSmsTemplate(template.id)}
+                              data-testid={`sms-template-option-${template.id}`}
+                            >
+                              <Check className={`h-3.5 w-3.5 shrink-0 ${selectedSmsTemplateName === template.name ? "opacity-100" : "opacity-0"}`} />
+                              <span className="truncate">{template.name}</span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+
+              <div className="border-t border-stone-200 dark:border-stone-700/60" />
+
+              {/* Recipients */}
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                  {t.customers?.details?.to || "To"}
+                </Label>
+                <div className="space-y-1.5">
+                  {contact?.phone && (
+                    <div className="flex items-center gap-2">
+                      <Checkbox id="aw-sms-phone1" checked={selectedPhones.includes(contact.phone)} onCheckedChange={(checked) => {
+                        if (checked) setSelectedPhones([...selectedPhones, contact.phone!]);
+                        else setSelectedPhones(selectedPhones.filter(p => p !== contact.phone));
+                      }} data-testid="checkbox-phone-primary" />
+                      <Label htmlFor="aw-sms-phone1" className="font-normal cursor-pointer text-xs">
+                        {getCountryFlag(contact.country || "SK")} {contact.phone}
+                      </Label>
+                    </div>
+                  )}
+                  {(contact as any)?.phone2 && (
+                    <div className="flex items-center gap-2">
+                      <Checkbox id="aw-sms-phone2" checked={selectedPhones.includes((contact as any).phone2)} onCheckedChange={(checked) => {
+                        if (checked) setSelectedPhones([...selectedPhones, (contact as any).phone2!]);
+                        else setSelectedPhones(selectedPhones.filter(p => p !== (contact as any).phone2));
+                      }} data-testid="checkbox-phone-secondary" />
+                      <Label htmlFor="aw-sms-phone2" className="font-normal cursor-pointer text-xs">
+                        {getCountryFlag(contact?.country || "SK")} {(contact as any).phone2}
+                      </Label>
+                    </div>
+                  )}
+                  {!contact?.phone && !(contact as any)?.phone2 && (
+                    <p className="text-[11px] text-muted-foreground italic">{t.customers?.details?.noPhone || "No phone number"}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="border-t border-stone-200 dark:border-stone-700/60" />
+
+              {/* CC */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">CC</Label>
+                  <Button variant="ghost" size="sm" onClick={() => setShowSmsCcField(!showSmsCcField)} className="h-5 px-1 text-xs" data-testid="button-toggle-sms-cc">
+                    {showSmsCcField ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                  </Button>
+                </div>
+                {showSmsCcField && (
+                  <div className="flex gap-2">
+                    <Select value={smsCcCountry} onValueChange={setSmsCcCountry}>
+                      <SelectTrigger className="w-20 h-8 text-xs" data-testid="select-sms-cc-country">
+                        <SelectValue>{getCountryFlag(smsCcCountry)} {smsCcCountry}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="SK">{getCountryFlag("SK")} SK</SelectItem>
+                        <SelectItem value="CZ">{getCountryFlag("CZ")} CZ</SelectItem>
+                        <SelectItem value="HU">{getCountryFlag("HU")} HU</SelectItem>
+                        <SelectItem value="RO">{getCountryFlag("RO")} RO</SelectItem>
+                        <SelectItem value="IT">{getCountryFlag("IT")} IT</SelectItem>
+                        <SelectItem value="DE">{getCountryFlag("DE")} DE</SelectItem>
+                        <SelectItem value="US">{getCountryFlag("US")} US</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input value={smsCc} onChange={(e) => setSmsCc(e.target.value)} placeholder={t.customers?.details?.ccPhonePlaceholder || "+421..."} className="flex-1 text-xs h-8" data-testid="input-sms-cc" />
+                  </div>
+                )}
+              </div>
+
+              {/* Validation hints */}
+              {(selectedPhones.length === 0 && !smsCc.trim()) && (
+                <p className="text-[11px] text-destructive">• {t.customers?.details?.selectPhone || "Select at least one phone number"}</p>
+              )}
+              {!smsMessage && (
+                <p className="text-[11px] text-amber-600 dark:text-amber-500">• {t.customers?.details?.writeSms || "Enter SMS message"}</p>
+              )}
+
+            </div>
+          </div>
+
         </div>
       )}
 
@@ -6251,6 +6378,25 @@ function CustomerInfoPanel({
                                       </span>
                                     );
                                   })}
+                                </div>
+                              );
+                            })() : (item as any).action === "status_list_confirmation" ? (() => {
+                              const meta = (item as any).metadata || {};
+                              const confirmed = meta.confirmed !== false;
+                              const rawContent = contentText || "";
+                              const labelPart = rawContent.replace(/^Krok (potvrdený|odpotvrdený):\s*/i, "").trim() || "—";
+                              return (
+                                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                  <span className={`inline-flex items-center gap-1 ${isModal ? "text-[10px] h-5 px-2" : "text-[9px] h-4 px-1.5"} rounded-full border font-semibold ${
+                                    confirmed
+                                      ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800"
+                                      : "bg-stone-100 text-stone-500 border-stone-200 dark:bg-stone-800 dark:text-stone-400 dark:border-stone-700 line-through"
+                                  }`}>
+                                    {confirmed ? "✓" : "✗"} {confirmed ? "Potvrdený" : "Odpotvrdený"}
+                                  </span>
+                                  <span className={`${isModal ? "text-xs" : "text-[11px]"} font-medium text-foreground truncate max-w-[200px]`} title={labelPart}>
+                                    {highlightMatch(labelPart)}
+                                  </span>
                                 </div>
                               );
                             })() : (

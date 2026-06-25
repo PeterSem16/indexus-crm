@@ -12573,6 +12573,20 @@ Return ONLY valid JSON, no markdown code blocks.`,
       const allDispositions = allCampaignIdsForDisp.length > 0
         ? await db.select().from(campaignDispositions).where(inArray(campaignDispositions.campaignId, allCampaignIdsForDisp))
         : [];
+
+      // Batch-resolve status list item labels for status_list_confirmation history entries
+      const slConfirmItemIds = [...new Set(
+        campaignHistory
+          .filter(h => h.action === "status_list_confirmation" && (h.metadata as any)?.statusListItemId)
+          .map(h => (h.metadata as any).statusListItemId as string)
+      )];
+      const slItemLabelMap = new Map<string, string>();
+      if (slConfirmItemIds.length > 0) {
+        const slItems = await db.select({ id: campaignStatusListItems.id, label: campaignStatusListItems.label })
+          .from(campaignStatusListItems)
+          .where(inArray(campaignStatusListItems.id, slConfirmItemIds));
+        for (const item of slItems) slItemLabelMap.set(item.id, item.label);
+      }
       const dispCodeToName = new Map<string, { name: string; color: string | null; icon: string | null; actionType: string }>();
       const dispCampaignCodeToInfo = new Map<string, { name: string; color: string | null; icon: string | null }>();
       for (const d of allDispositions) {
@@ -12645,6 +12659,13 @@ Return ONLY valid JSON, no markdown code blocks.`,
         let content = actionLabels[h.action] || h.action;
         if (h.action === "status_change" && h.previousStatus && h.newStatus) {
           content = `${statusLabels[h.previousStatus] || h.previousStatus} → ${statusLabels[h.newStatus] || h.newStatus}`;
+        }
+        if (h.action === "status_list_confirmation") {
+          const meta = (h.metadata as any) || {};
+          const itemLabel = slItemLabelMap.get(meta.statusListItemId) || meta.itemLabel || "—";
+          content = meta.confirmed === false
+            ? `Krok odpotvrdený: ${itemLabel}`
+            : `Krok potvrdený: ${itemLabel}`;
         }
 
         let dispositionName: string | null = null;
