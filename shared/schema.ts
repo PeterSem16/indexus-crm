@@ -191,6 +191,7 @@ export const users = pgTable("users", {
   callForwardingEnabled: boolean("call_forwarding_enabled").notNull().default(false),
   callForwardingNumber: text("call_forwarding_number"), // Mobile number to forward incoming calls to
   missedCallEmailNotification: boolean("missed_call_email_notification").notNull().default(false), // Send email on missed inbound call
+  position: text("position"), // Job position / title shown in email templates
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 

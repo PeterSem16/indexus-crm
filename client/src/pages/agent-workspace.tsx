@@ -3060,11 +3060,11 @@ function CommunicationCanvas({
       "{{hospital.contactPerson}}": hosp?.contactPerson || "",
       "{{hospital.phone}}": hosp?.phone || "",
       "{{hospital.email}}": hosp?.email || "",
-      "{{collaborator.titleBefore}}": collab?.titleBefore || "",
+      "{{collaborator.titleBefore}}": collab?.titleBefore || (collab ? "MUDr." : ""),
       "{{collaborator.firstName}}": collab?.firstName || "",
       "{{collaborator.lastName}}": collab?.lastName || "",
       "{{collaborator.titleAfter}}": collab?.titleAfter || "",
-      "{{collaborator.fullName}}": collab ? `${collab.titleBefore || ""} ${collab.firstName || ""} ${collab.lastName || ""} ${collab.titleAfter || ""}`.replace(/\s+/g, " ").trim() : "",
+      "{{collaborator.fullName}}": collab ? `${collab.titleBefore || "MUDr."} ${collab.firstName || ""} ${collab.lastName || ""} ${collab.titleAfter || ""}`.replace(/\s+/g, " ").trim() : "",
       "{{collaborator.phone}}": collab?.phone || "",
       "{{collaborator.mobile}}": collab?.mobile || "",
       "{{collaborator.email}}": collab?.email || "",
@@ -3087,6 +3087,7 @@ function CommunicationCanvas({
     for (const [variable, value] of Object.entries(replacements)) {
       result = result.split(variable).join(value);
     }
+    result = result.replace(/\{\{[^}]+\}\}/g, "");
     return result;
   }, [contact, user, allEmailAccounts, selectedFromAccount, clinicData, hospitalData, collaboratorData]);
 

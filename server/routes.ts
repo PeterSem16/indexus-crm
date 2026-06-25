@@ -34432,8 +34432,8 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       }
 
       const salutations: Record<string, Record<string, string>> = {
-        male:    { sk: "Vážený",   cz: "Vážený",        cs: "Vážený",        hu: "Tisztelt",  ro: "Stimate",  it: "Egregio",  de: "Sehr geehrter", en: "Dear" },
-        female:  { sk: "Vážená",   cz: "Vážená",        cs: "Vážená",        hu: "Tisztelt",  ro: "Stimată",  it: "Gentile",  de: "Sehr geehrte",  en: "Dear" },
+        male:    { sk: "Vážený pán", cz: "Vážený pán",    cs: "Vážený pán",    hu: "Tisztelt",  ro: "Stimate",  it: "Egregio",  de: "Sehr geehrter", en: "Dear" },
+        female:  { sk: "Vážená pani", cz: "Vážená pani",  cs: "Vážená pani",  hu: "Tisztelt",  ro: "Stimată",  it: "Gentile",  de: "Sehr geehrte",  en: "Dear" },
         unknown: { sk: "Vážený/á", cz: "Vážený/á",      cs: "Vážený/á",      hu: "Tisztelt",  ro: "Stimate/ă", it: "Gentile", de: "Sehr geehrte/r", en: "Dear" },
       };
       const salutationsFull: Record<string, Record<string, string>> = {
@@ -46823,13 +46823,13 @@ Return ONLY the JSON object.`
   app.post("/api/message-templates/send-test", requireAuth, async (req, res) => {
     try {
       const userId = req.session.user!.id;
-      const { to, subject, content, contentHtml, format, variables } = req.body;
+      const { to, subject, content, contentHtml, format, variables, attachments: reqAttachments } = req.body;
       if (!to || !subject || !content) {
         return res.status(400).json({ error: "Missing required fields: to, subject, content" });
       }
       const interpolate = (text: string, vars: Record<string, string>) => {
         return text.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
-          return vars[key] !== undefined ? vars[key] : `[${key}]`;
+          return vars[key] !== undefined ? vars[key] : "";
         });
       };
       const vars = variables || {};
@@ -46852,7 +46852,7 @@ Return ONLY the JSON object.`
         "company.name": "INDEXUS s.r.o.", "company.email": "info@indexus.sk",
         "company.phone": "+421000000000", "company.address": "Bratislava, SK",
         "company.website": "www.indexus.sk",
-        "customer.salutation": "Vážená", "customer.salutationFull": "Vážená pani",
+        "customer.salutation": "Vážená pani", "customer.salutationFull": "Vážená pani",
         "clinic.name": "Gynekologická ambulancia",
         "clinic.doctorSalutation": "Vážený", "clinic.doctorSalutationFull": "Vážený pán",
         "clinic.doctorSalutationDoc": "Vážený pán doktor",
@@ -46864,8 +46864,8 @@ Return ONLY the JSON object.`
         "hospital.contactPersonSalutation": "Vážená", "hospital.contactPersonSalutationFull": "Vážená pani",
         "hospital.contactPersonSalutationDoc": "Vážená pani doktorka",
         "hospital.city": "Bratislava", "hospital.phone": "+421200000000",
-        "collaborator.firstName": "Mária", "collaborator.lastName": "Horáková",
-        "collaborator.fullName": "Mária Horáková", "collaborator.email": to,
+        "collaborator.titleBefore": "MUDr.", "collaborator.firstName": "Mária", "collaborator.lastName": "Horáková",
+        "collaborator.fullName": "MUDr. Mária Horáková", "collaborator.email": to,
         "collaborator.phone": "+421902345678",
         "order.number": "OBJ-2026-001", "order.total": "890.00 €",
         "contract.number": "ZML-2026-001", "invoice.number": "FAK-2026-001",
@@ -46897,7 +46897,7 @@ Return ONLY the JSON object.`
           ...(tokenResult.refreshToken ? { refreshToken: encryptTokenWithMarker(tokenResult.refreshToken) } : {}),
         });
       }
-      await sendEmail(tokenResult.accessToken, [to], finalSubject, finalBody, isHtml);
+      await sendEmail(tokenResult.accessToken, [to], finalSubject, finalBody, isHtml, undefined, reqAttachments && reqAttachments.length > 0 ? reqAttachments : undefined);
       res.json({ success: true, message: "Test email sent successfully" });
     } catch (error: any) {
       console.error("[send-test-email] Error:", error);

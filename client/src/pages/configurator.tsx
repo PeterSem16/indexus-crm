@@ -11380,7 +11380,7 @@ const SYSTEM_VARIABLES = {
     color: "bg-blue-500",
     description: "Osobné údaje zákazníka (tehotná/rodička)",
     vars: [
-      { key: "{{customer.salutation}}", label: "Oslovenie (Vážený/Vážená) ✨ AI", example: "Vážená" },
+      { key: "{{customer.salutation}}", label: "Oslovenie (Vážený pán/Vážená pani) ✨ AI", example: "Vážená pani" },
       { key: "{{customer.salutationFull}}", label: "Oslovenie plné ✨ AI", example: "Vážená pani" },
       { key: "{{customer.titleBefore}}", label: "Titul pred menom", example: "MUDr." },
       { key: "{{customer.firstName}}", label: "Krstné meno", example: "Jana" },
@@ -11885,6 +11885,7 @@ function MessageTemplatesTab() {
         content: templateContent || templateContentHtml || " ",
         contentHtml: templateContentHtml || undefined,
         format: templateFormat,
+        attachments: templateAttachments && templateAttachments.length > 0 ? templateAttachments : undefined,
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Chyba odoslania" }));
@@ -11912,8 +11913,8 @@ function MessageTemplatesTab() {
     // Salutation lookup by language — female customer (Jana), male doctor (Peter), female hospital contact (Anna)
     type SalRow = { mSal: string; fSal: string; mFull: string; fFull: string; mDoc: string; fDoc: string };
     const sal: Record<string, SalRow> = {
-      sk: { mSal: "Vážený",        fSal: "Vážená",        mFull: "Vážený pán",           fFull: "Vážená pani",          mDoc: "Vážený pán doktor",          fDoc: "Vážená pani doktorka"         },
-      cz: { mSal: "Vážený",        fSal: "Vážená",        mFull: "Vážený pane",           fFull: "Vážená paní",          mDoc: "Vážený pane doktore",         fDoc: "Vážená paní doktorko"          },
+      sk: { mSal: "Vážený pán",     fSal: "Vážená pani",   mFull: "Vážený pán",           fFull: "Vážená pani",          mDoc: "Vážený pán doktor",          fDoc: "Vážená pani doktorka"         },
+      cz: { mSal: "Vážený pán",    fSal: "Vážená pani",   mFull: "Vážený pane",           fFull: "Vážená paní",          mDoc: "Vážený pane doktore",         fDoc: "Vážená paní doktorko"          },
       hu: { mSal: "Tisztelt",      fSal: "Tisztelt",      mFull: "Tisztelt Úr",           fFull: "Tisztelt Asszony",     mDoc: "Tisztelt Doktor Úr",          fDoc: "Tisztelt Doktor Asszony"      },
       ro: { mSal: "Stimate",       fSal: "Stimată",       mFull: "Stimate domn",          fFull: "Stimată doamnă",       mDoc: "Stimate Domn Doctor",         fDoc: "Stimată Doamnă Doctor"        },
       it: { mSal: "Egregio",       fSal: "Gentile",       mFull: "Egregio Signor",        fFull: "Gentile Signora",      mDoc: "Egregio Dottor",              fDoc: "Egregia Dottoressa"           },
@@ -11948,12 +11949,12 @@ function MessageTemplatesTab() {
       "clinic.pzsCode": "P12345", "clinic.phone": "+421 2 1234 5678",
       "clinic.email": "ambulancia@example.sk", "clinic.city": "Bratislava",
       "clinic.contractStatus": "Aktívna", "clinic.nextContactDate": "15.06.2026",
-      "collaborator.firstName": "Mária", "collaborator.lastName": "Horváthová",
-      "collaborator.fullName": "Mária Horváthová", "collaborator.phone": "+421 905 678 901",
+      "collaborator.titleBefore": "MUDr.", "collaborator.firstName": "Mária", "collaborator.lastName": "Horváthová",
+      "collaborator.fullName": "MUDr. Mária Horváthová", "collaborator.phone": "+421 905 678 901",
       "collaborator.email": "maria.horvathova@example.sk", "collaborator.iban": "SK89 0900 0000 0051 8790 7234",
       "collaborator.rewardAmount": "50,00 €",
       "user.firstName": "Martin", "user.lastName": "Novák", "user.fullName": "Martin Novák",
-      "user.email": "martin.novak@indexus.sk", "user.phone": "+421 900 234 567",
+      "user.email": "martin.novak@indexus.sk", "user.phone": "+421 900 234 567", "user.position": "Konzultant",
       "company.name": "Cord Blood Center", "company.address": "Mlynské Nivy 1, 821 09 Bratislava",
       "company.phone": "+421 2 5020 4000", "company.email": "info@cordbloodcenter.sk",
       "company.web": "www.cordbloodcenter.sk", "company.ico": "35882090",
