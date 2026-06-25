@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Phone, PhoneOff, User, Shield, MapPin, Camera, Loader2, Link2, RefreshCw, Mail, Star, Trash2, Plus, CheckCircle, CheckCircle2, XCircle, Sparkles, Bell, Settings, Send, Eye, HardDrive } from "lucide-react";
+import { Phone, PhoneOff, User, Shield, MapPin, Camera, Loader2, Link2, RefreshCw, Mail, Star, Trash2, Plus, CheckCircle, CheckCircle2, XCircle, Sparkles, Bell, Settings, Send, Eye, HardDrive, Briefcase } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -550,6 +550,33 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
             )}
           />
         </div>
+      </div>
+
+      {/* Position / job title for email templates */}
+      <div className="mt-4 pt-4 border-t">
+        <FormField
+          control={form.control}
+          name="position"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-base font-medium flex items-center gap-2">
+                <Briefcase className="h-4 w-4" />
+                Pozícia / Funkcia
+              </FormLabel>
+              <FormDescription>
+                Používa sa ako premenná <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">{"{{user.position}}"}</code> v e-mailových šablónach.
+              </FormDescription>
+              <FormControl>
+                <Input
+                  placeholder="napr. Konzultant, Obchodný zástupca, Vedúci oddelenia..."
+                  {...field}
+                  data-testid="input-position"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
       </div>
     </div>
   );
