@@ -3713,26 +3713,27 @@ function CommunicationCanvas({
       {activeChannel === "email" && (
         <div className="flex-1 flex overflow-hidden">
 
-          {/* ── LEFT: Email body / preview — Stone & Terracotta ── */}
-          <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-stone-100 dark:bg-stone-950">
+          {/* ── RIGHT: Email body / preview ── */}
+          <div className="flex-1 flex flex-col min-h-0 min-w-0 p-3">
+            <div className="flex-1 min-h-0 flex flex-col rounded-xl overflow-hidden shadow-sm border border-border">
 
-            {/* Dark email-client header bar */}
-            <div className="bg-stone-800 dark:bg-stone-900 px-4 py-2.5 flex items-center gap-3 shrink-0 shadow-sm">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#c2673a]/25 shrink-0">
-                <Mail className="h-3.5 w-3.5 text-[#e8956d]" />
+            {/* Email-client header bar */}
+            <div className="bg-card border-b border-border px-4 py-2.5 flex items-center gap-3 shrink-0">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#c2673a]/15 shrink-0">
+                <Mail className="h-3.5 w-3.5 text-[#c2673a]" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-white font-semibold text-sm truncate leading-tight">
-                  {emailSubject || <span className="text-stone-500 font-normal italic">— {t.customers?.details?.subject || "Subject"} —</span>}
+                <div className="text-foreground font-semibold text-sm truncate leading-tight">
+                  {emailSubject || <span className="text-muted-foreground font-normal italic">— {t.customers?.details?.subject || "Subject"} —</span>}
                 </div>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   {selectedEmails.length > 0 ? (
-                    <span className="text-stone-400 text-[11px] truncate">→ {selectedEmails.join(", ")}</span>
+                    <span className="text-muted-foreground text-[11px] truncate">→ {selectedEmails.join(", ")}</span>
                   ) : (
-                    <span className="text-stone-600 text-[11px] italic">{t.customers?.details?.selectEmail || "No recipient selected"}</span>
+                    <span className="text-muted-foreground/60 text-[11px] italic">{t.customers?.details?.selectEmail || "No recipient selected"}</span>
                   )}
                   {selectedFromAccount && allEmailAccounts.find(a => (a.id || "personal") === selectedFromAccount) && (
-                    <span className="text-stone-600 text-[10px] shrink-0">
+                    <span className="text-muted-foreground/50 text-[10px] shrink-0">
                       via {allEmailAccounts.find(a => (a.id || "personal") === selectedFromAccount)?.displayName}
                     </span>
                   )}
@@ -3740,18 +3741,18 @@ function CommunicationCanvas({
               </div>
               {/* Preview / Edit HTML toggles */}
               {emailIsHtml && (
-                <div className="flex items-center gap-0.5 shrink-0 bg-stone-900/60 rounded-md p-0.5">
+                <div className="flex items-center gap-0.5 shrink-0 bg-muted rounded-lg p-0.5">
                   <button
                     type="button"
                     onClick={() => setEmailHtmlEditMode(false)}
-                    className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${!emailHtmlEditMode ? "bg-[#c2673a] text-white shadow-sm" : "text-stone-400 hover:bg-stone-700 hover:text-white"}`}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${!emailHtmlEditMode ? "bg-[#c2673a] text-white shadow-sm" : "text-muted-foreground hover:bg-background hover:text-foreground"}`}
                   >
                     Preview
                   </button>
                   <button
                     type="button"
                     onClick={() => setEmailHtmlEditMode(true)}
-                    className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${emailHtmlEditMode ? "bg-stone-600 text-white shadow-sm" : "text-stone-400 hover:bg-stone-700 hover:text-white"}`}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${emailHtmlEditMode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-background hover:text-foreground"}`}
                   >
                     Edit HTML
                   </button>
@@ -3760,7 +3761,7 @@ function CommunicationCanvas({
               <button
                 type="button"
                 onClick={() => setEmailPreviewExpanded(true)}
-                className="h-7 w-7 flex items-center justify-center rounded hover:bg-stone-700 text-stone-500 hover:text-white transition-colors shrink-0"
+                className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
                 title="Zobraziť na celú obrazovku"
                 data-testid="btn-email-preview-expand"
               >
@@ -3768,43 +3769,41 @@ function CommunicationCanvas({
               </button>
             </div>
 
-            {/* Email body card */}
-            <div className="flex-1 min-h-0 flex flex-col p-3 overflow-hidden">
-              <div className="flex-1 min-h-0 rounded-xl shadow-lg overflow-hidden border border-stone-200/60 dark:border-stone-700/60" data-testid="wysiwyg-email-message">
-                {emailIsHtml ? (
-                  emailHtmlEditMode ? (
-                    <textarea
-                      className="flex-1 w-full h-full px-4 py-3 text-xs font-mono resize-none focus-visible:outline-none bg-[#1a1a1a] text-stone-300 dark:bg-stone-950"
-                      value={emailMessage}
-                      onChange={(e) => setEmailMessage(e.target.value)}
-                      spellCheck={false}
-                      data-testid="textarea-email-html-edit"
-                    />
-                  ) : (
-                    <iframe
-                      srcDoc={emailMessage}
-                      sandbox="allow-same-origin"
-                      className="w-full h-full bg-white"
-                      title="Email preview"
-                    />
-                  )
-                ) : (
+            {/* Email body */}
+            <div className="flex-1 min-h-0 overflow-hidden" data-testid="wysiwyg-email-message">
+              {emailIsHtml ? (
+                emailHtmlEditMode ? (
                   <textarea
-                    className="w-full h-full px-4 py-4 text-sm resize-none focus-visible:outline-none bg-white dark:bg-stone-900 text-foreground leading-relaxed"
+                    className="w-full h-full px-4 py-3 text-xs font-mono resize-none focus-visible:outline-none bg-slate-950 text-slate-200"
                     value={emailMessage}
                     onChange={(e) => setEmailMessage(e.target.value)}
-                    placeholder={t.customers?.details?.writeEmailPlaceholder || "Write your email..."}
-                    disabled={isSendingEmail}
-                    data-testid="textarea-email-message"
+                    spellCheck={false}
+                    data-testid="textarea-email-html-edit"
                   />
-                )}
-              </div>
+                ) : (
+                  <iframe
+                    srcDoc={emailMessage}
+                    sandbox="allow-same-origin"
+                    className="w-full h-full bg-white"
+                    title="Email preview"
+                  />
+                )
+              ) : (
+                <textarea
+                  className="w-full h-full px-4 py-4 text-sm resize-none focus-visible:outline-none bg-white dark:bg-card text-foreground leading-relaxed"
+                  value={emailMessage}
+                  onChange={(e) => setEmailMessage(e.target.value)}
+                  placeholder={t.customers?.details?.writeEmailPlaceholder || "Write your email..."}
+                  disabled={isSendingEmail}
+                  data-testid="textarea-email-message"
+                />
+              )}
             </div>
 
             {/* Bottom action bar */}
-            <div className="shrink-0 border-t border-stone-200 dark:border-stone-800 bg-stone-50/80 dark:bg-stone-900/80 px-4 py-2.5 flex items-center justify-between gap-3 backdrop-blur-sm">
+            <div className="shrink-0 border-t border-border bg-card px-4 py-2.5 flex items-center justify-between gap-3">
               <div className="text-[11px] space-y-0.5">
-                {selectedEmails.length === 0 && <div className="text-rose-500">• {t.customers?.details?.selectEmail || "Vyberte aspoň jeden email"}</div>}
+                {selectedEmails.length === 0 && <div className="text-destructive">• {t.customers?.details?.selectEmail || "Vyberte aspoň jeden email"}</div>}
                 {!emailSubject && <div className="text-amber-600 dark:text-amber-500">• {t.customers?.details?.enterSubject || "Zadajte predmet"}</div>}
                 {!emailMessage && <div className="text-amber-600 dark:text-amber-500">• {t.customers?.details?.enterMessage || "Zadajte správu"}</div>}
               </div>
@@ -3812,7 +3811,7 @@ function CommunicationCanvas({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs h-8"
+                  className="text-xs h-8"
                   onClick={() => { setEmailSubject(""); setEmailMessage(""); setEmailIsHtml(false); setEmailHtmlEditMode(false); setSelectedEmails([]); setEmailAttachment(null); setTemplateAttachments([]); setEmailCc(""); setShowCcField(false); setSelectedDocuments([]); }}
                   data-testid="button-cancel-email"
                 >
@@ -3830,18 +3829,20 @@ function CommunicationCanvas({
               </div>
             </div>
 
+            </div>{/* end email card */}
+
             {/* Expanded dialog */}
             {emailPreviewExpanded && (
               <Dialog open={emailPreviewExpanded} onOpenChange={setEmailPreviewExpanded}>
                 <DialogContent className="max-w-5xl w-full h-[90vh] !flex !flex-col p-0 gap-0 overflow-hidden rounded-xl">
-                  <div className="flex items-center gap-3 px-4 py-3 bg-stone-800 flex-shrink-0">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#c2673a]/25 shrink-0">
-                      <Mail className="h-3.5 w-3.5 text-[#e8956d]" />
+                  <div className="flex items-center gap-3 px-4 py-3 bg-card border-b border-border flex-shrink-0">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#c2673a]/15 shrink-0">
+                      <Mail className="h-3.5 w-3.5 text-[#c2673a]" />
                     </div>
-                    <span className="text-sm font-semibold flex-1 truncate text-white">{emailSubject || "Email preview"}</span>
-                    <div className="flex items-center gap-0.5 bg-stone-900/60 rounded-md p-0.5">
-                      <button type="button" onClick={() => setEmailHtmlEditMode(false)} className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${!emailHtmlEditMode ? "bg-[#c2673a] text-white shadow-sm" : "text-stone-400 hover:bg-stone-700 hover:text-white"}`}>Preview</button>
-                      <button type="button" onClick={() => setEmailHtmlEditMode(true)} className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${emailHtmlEditMode ? "bg-stone-600 text-white shadow-sm" : "text-stone-400 hover:bg-stone-700 hover:text-white"}`}>Edit HTML</button>
+                    <span className="text-sm font-semibold flex-1 truncate text-foreground">{emailSubject || "Email preview"}</span>
+                    <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
+                      <button type="button" onClick={() => setEmailHtmlEditMode(false)} className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${!emailHtmlEditMode ? "bg-[#c2673a] text-white shadow-sm" : "text-muted-foreground hover:bg-background hover:text-foreground"}`}>Preview</button>
+                      <button type="button" onClick={() => setEmailHtmlEditMode(true)} className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${emailHtmlEditMode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-background hover:text-foreground"}`}>Edit HTML</button>
                     </div>
                   </div>
                   <div className="flex-1 min-h-0 overflow-hidden bg-stone-100 dark:bg-stone-950 p-3">
@@ -3868,8 +3869,8 @@ function CommunicationCanvas({
             )}
           </div>
 
-          {/* ── RIGHT: Compact form sidebar ── */}
-          <div className="w-[290px] shrink-0 flex flex-col border-l border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/60 overflow-y-auto">
+          {/* ── LEFT: Compact form sidebar ── */}
+          <div className="w-[290px] shrink-0 flex flex-col order-first border-r border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/60 overflow-y-auto">
             <div className="p-4 space-y-4">
 
               {/* FROM ACCOUNT */}
