@@ -4001,11 +4001,23 @@ function CommunicationCanvas({
                 <Label className="text-[10px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-widest">
                   {t.customers?.details?.fromAccount || "FROM ACCOUNT"}
                 </Label>
-                <Select value={selectedFromAccount} onValueChange={setSelectedFromAccount}>
+                <Select
+                  value={campaignEmailMode === "system" ? "system" : selectedFromAccount}
+                  onValueChange={(v) => { if (campaignEmailMode !== "system") setSelectedFromAccount(v); }}
+                  disabled={campaignEmailMode === "system"}
+                >
                   <SelectTrigger data-testid="select-from-account" className="text-sm h-9 bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700">
                     <SelectValue placeholder={t.customers?.details?.selectAccount || "Select account"} />
                   </SelectTrigger>
                   <SelectContent>
+                    {campaignEmailMode === "system" && (
+                      <SelectItem value="system">
+                        <div className="flex items-center gap-2">
+                          <span>{t.customers?.details?.systemAccount || "System INDEXUS"}</span>
+                          <Badge variant="outline" className="text-[10px] px-1 py-0">System</Badge>
+                        </div>
+                      </SelectItem>
+                    )}
                     {allEmailAccounts.map((account) => (
                       <SelectItem key={account.id || "personal"} value={account.id || "personal"}>
                         <div className="flex items-center gap-2">
@@ -9084,6 +9096,25 @@ export default function AgentWorkspacePage() {
     return campaigns.find((c) => c.id === selectedCampaignId) || null;
   }, [campaigns, selectedCampaignId]);
 
+  const campaignEmailMode = useMemo<"system" | "user" | "custom">(() => {
+    if (!selectedCampaign?.settings) return "user";
+    try { return (JSON.parse(selectedCampaign.settings).nexusPulseEmailMode as "system" | "user" | "custom") || "user"; } catch { return "user"; }
+  }, [selectedCampaign?.settings]);
+
+  const campaignEmailAddress = useMemo(() => {
+    if (!selectedCampaign?.settings) return "";
+    try { return JSON.parse(selectedCampaign.settings).nexusPulseEmailAddress || ""; } catch { return ""; }
+  }, [selectedCampaign?.settings]);
+
+  useEffect(() => {
+    if (campaignEmailMode === "system") {
+      setSelectedFromAccount("system");
+    } else if (campaignEmailMode === "custom" && campaignEmailAddress) {
+      const match = allEmailAccounts.find(a => a.email.toLowerCase() === campaignEmailAddress.toLowerCase());
+      if (match) setSelectedFromAccount(match.id || "personal");
+    }
+  }, [campaignEmailMode, campaignEmailAddress, allEmailAccounts]);
+
   // Page-level status list state — hoisted here so MobileAgentWorkspace can access it
   const [mobileDbSlChecked, setMobileDbSlChecked] = useState<Set<string>>(new Set());
   const { data: mobileDbStatusList = [] } = useQuery<any[]>({
@@ -9719,7 +9750,7 @@ export default function AgentWorkspacePage() {
   }, [callContext, acwStartedAt, currentCampaignContactId, selectedCampaignId, activeTaskId, isAutoMode, campaignAutoSettings, agentSession]);
 
   const sendEmailMutation = useMutation({
-    mutationFn: async (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; customerId?: string; contactType?: string; compositionDurationSeconds?: number | null }) => {
+    mutationFn: async (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; customerId?: string; contactType?: string; compositionDurationSeconds?: number | null; useSystemMailbox?: boolean; campaignCountryCode?: string }) => {
       const res = await apiRequest("POST", "/api/ms365/send-email-from-mailbox", {
         to: data.to,
         subject: data.subject,
@@ -9732,6 +9763,8 @@ export default function AgentWorkspacePage() {
         customerId: data.customerId,
         contactType: data.contactType,
         compositionDurationSeconds: data.compositionDurationSeconds,
+        useSystemMailbox: data.useSystemMailbox,
+        campaignCountryCode: data.campaignCountryCode,
       });
       if (!res.ok) {
         const err = await res.json();
@@ -10095,11 +10128,21 @@ export default function AgentWorkspacePage() {
       });
       return;
     }
+    const effectiveMailboxId = (() => {
+      if (campaignEmailMode === "system") return undefined;
+      if (campaignEmailMode === "custom" && campaignEmailAddress) {
+        const match = allEmailAccounts.find(a => a.email.toLowerCase() === campaignEmailAddress.toLowerCase());
+        return match ? (match.id === "personal" ? null : (match.id || null)) : data.mailboxId;
+      }
+      return data.mailboxId;
+    })();
     sendEmailMutation.mutate({
       to: data.to,
       subject: data.subject,
       body: data.body,
-      mailboxId: data.mailboxId,
+      mailboxId: effectiveMailboxId,
+      useSystemMailbox: campaignEmailMode === "system" ? true : undefined,
+      campaignCountryCode: campaignEmailMode === "system" ? (selectedCampaign?.countryCodes?.[0] || "SK") : undefined,
       cc: data.cc,
       documentIds: data.documentIds,
       attachments: data.attachments,

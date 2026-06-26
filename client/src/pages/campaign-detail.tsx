@@ -6453,6 +6453,66 @@ export default function CampaignDetailPage() {
                       </Card>
                       <Card>
                         <CardHeader>
+                          <CardTitle>{t.campaigns.detail.nexusPulseEmailTitle}</CardTitle>
+                          <CardDescription>{t.campaigns.detail.nexusPulseEmailDesc}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <div className="flex flex-col gap-2">
+                            {([
+                              { value: "system", label: t.campaigns.detail.nexusPulseEmailModeSystem, desc: t.campaigns.detail.nexusPulseEmailModeSystemDesc },
+                              { value: "user", label: t.campaigns.detail.nexusPulseEmailModeUser, desc: t.campaigns.detail.nexusPulseEmailModeUserDesc },
+                              { value: "custom", label: t.campaigns.detail.nexusPulseEmailModeCustom, desc: t.campaigns.detail.nexusPulseEmailModeCustomDesc },
+                            ] as const).map((opt) => {
+                              const current = (() => { try { return (campaign.settings ? JSON.parse(campaign.settings) : {}).nexusPulseEmailMode || "user"; } catch { return "user"; } })();
+                              const isActive = current === opt.value;
+                              return (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  data-testid={`btn-nexus-email-mode-${opt.value}`}
+                                  onClick={() => {
+                                    let ex: any = {};
+                                    try { if (campaign.settings) ex = JSON.parse(campaign.settings); } catch {}
+                                    apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { settings: JSON.stringify({ ...ex, nexusPulseEmailMode: opt.value }) })
+                                      .then(() => { toast({ title: t.campaigns.detail.settingsSaved }); queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] }); })
+                                      .catch(() => toast({ title: t.campaigns.detail.error, variant: "destructive" }));
+                                  }}
+                                  className={`text-left px-4 py-3 rounded-lg border-2 transition-all ${isActive ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}
+                                >
+                                  <div className={`text-sm font-semibold ${isActive ? "text-primary" : "text-foreground"}`}>{opt.label}</div>
+                                  <div className="text-xs text-muted-foreground mt-0.5">{opt.desc}</div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {(() => {
+                            const current = (() => { try { return (campaign.settings ? JSON.parse(campaign.settings) : {}).nexusPulseEmailMode || "user"; } catch { return "user"; } })();
+                            const currentEmail = (() => { try { return (campaign.settings ? JSON.parse(campaign.settings) : {}).nexusPulseEmailAddress || ""; } catch { return ""; } })();
+                            if (current !== "custom") return null;
+                            return (
+                              <div className="space-y-2 pt-1">
+                                <Label className="text-sm">{t.campaigns.detail.nexusPulseEmailAddressLabel}</Label>
+                                <Input
+                                  placeholder={t.campaigns.detail.nexusPulseEmailAddressPlaceholder}
+                                  defaultValue={currentEmail}
+                                  className="max-w-xs"
+                                  data-testid="input-nexus-email-address"
+                                  onBlur={(e) => {
+                                    let ex: any = {};
+                                    try { if (campaign.settings) ex = JSON.parse(campaign.settings); } catch {}
+                                    apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { settings: JSON.stringify({ ...ex, nexusPulseEmailAddress: e.target.value }) })
+                                      .then(() => { toast({ title: t.campaigns.detail.settingsSaved }); queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] }); })
+                                      .catch(() => toast({ title: t.campaigns.detail.error, variant: "destructive" }));
+                                  }}
+                                />
+                                <p className="text-xs text-muted-foreground">{t.campaigns.detail.nexusPulseEmailAddressHint}</p>
+                              </div>
+                            );
+                          })()}
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader>
                           <CardTitle>{t.campaigns.detail.queueDisplayModeTitle}</CardTitle>
                           <CardDescription>
                             {t.campaigns.detail.queueDisplayModeDesc}

@@ -4350,6 +4350,52 @@ export async function registerRoutes(
   app.post("/api/ms365/send-email-from-mailbox", requireAuth, async (req, res) => {
     try {
       const userId = req.session.user!.id;
+
+      // System mailbox path — use country-level M365 account, bypass user OAuth
+      const { useSystemMailbox, campaignCountryCode } = req.body;
+      if (useSystemMailbox === true && campaignCountryCode) {
+        const { to: sTo, cc: sCc, subject: sSub, body: sBody, isHtml: sIsHtml, customerId: sCustId, contactType: sContactType } = req.body;
+        if (!sTo || !sSub || !sBody) {
+          return res.status(400).json({ error: "Missing required fields: to, subject, body" });
+        }
+        try {
+          const sysConn = await storage.getSystemMs365Connection(campaignCountryCode);
+          if (!sysConn?.accessToken) {
+            return res.status(503).json({ error: `Systémový M365 nie je nakonfigurovaný pre krajinu ${campaignCountryCode}. Nastavte ho v sekcii M365 nastavení.` });
+          }
+          const { decryptTokenSafe: decryptSys } = await import("./lib/token-crypto");
+          const { sendEmail: sendSysEmail, getValidAccessToken: getSysToken } = await import("./lib/ms365");
+          const sysAT = decryptSys(sysConn.accessToken);
+          const sysRT = (sysConn as any).refreshToken ? decryptSys((sysConn as any).refreshToken) : null;
+          const sysTok = await getSysToken(sysAT, (sysConn as any).tokenExpiresAt, sysRT);
+          if (!sysTok) {
+            return res.status(503).json({ error: "Systémový M365 token expiroval. Obnovte ho v nastaveniach M365." });
+          }
+          const sToArr = Array.isArray(sTo) ? sTo : [sTo];
+          const sCcArr = sCc ? (Array.isArray(sCc) ? sCc : [sCc]) : undefined;
+          await sendSysEmail(sysTok.accessToken, sToArr, sSub, sBody, sIsHtml !== false, sCcArr);
+          let sysMsgId: string | undefined;
+          if (sCustId) {
+            try {
+              const sysMsg = await storage.createCommunicationMessage({
+                customerId: sCustId, userId, type: "email", subject: sSub, content: sBody,
+                status: "sent", recipients: sToArr.join(", "),
+                metadata: JSON.stringify({ from: (sysConn as any).email || "system", sentVia: "ms365-system", contactType: sContactType || "customer" }),
+              });
+              sysMsgId = sysMsg.id;
+              await storage.createActivityLog({
+                userId, action: "email_sent", entityType: sContactType || "customer",
+                entityId: sCustId, entityName: sToArr[0],
+                details: JSON.stringify({ messageId: sysMsgId, subject: sSub, to: sToArr, from: (sysConn as any).email || "system", sentVia: "system" }),
+              });
+            } catch (logErr) { console.error("[MS365-System] History log error:", logErr); }
+          }
+          return res.json({ message: "Email sent from system mailbox", from: (sysConn as any).email, messageId: sysMsgId });
+        } catch (sysErr: any) {
+          console.error("[MS365-System] Send error:", sysErr);
+          return res.status(500).json({ error: "Nepodarilo sa odoslať email cez systémový M365 účet. Skúste to znova." });
+        }
+      }
       
       // Get user's MS365 connection from database
       const ms365Connection = await storage.getUserMs365Connection(userId);
