@@ -9811,7 +9811,7 @@ export default function AgentWorkspacePage() {
   }, [callContext, acwStartedAt, currentCampaignContactId, selectedCampaignId, activeTaskId, isAutoMode, campaignAutoSettings, agentSession]);
 
   const sendEmailMutation = useMutation({
-    mutationFn: async (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; customerId?: string; contactType?: string; compositionDurationSeconds?: number | null; useSystemMailbox?: boolean; campaignCountryCode?: string }) => {
+    mutationFn: async (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; customerId?: string; contactType?: string; compositionDurationSeconds?: number | null; useSystemMailbox?: boolean; campaignCountryCode?: string; isReply?: boolean }) => {
       const res = await apiRequest("POST", "/api/ms365/send-email-from-mailbox", {
         to: data.to,
         subject: data.subject,
@@ -9839,23 +9839,25 @@ export default function AgentWorkspacePage() {
         description: `${t.agentWorkspace.emailSentDesc} ${variables.to.join(", ")}`,
       });
       setStats((prev) => ({ ...prev, emails: prev.emails + 1 }));
-      setTimeline((prev) => [
-        ...prev,
-        {
-          id: `email-${Date.now()}`,
-          type: "email",
-          direction: "outbound",
-          timestamp: new Date(),
-          content: variables.subject,
-          details: variables.body.substring(0, 100),
-        },
-      ]);
+      if (!variables.isReply) {
+        setTimeline((prev) => [
+          ...prev,
+          {
+            id: `email-${Date.now()}`,
+            type: "email",
+            direction: "outbound",
+            timestamp: new Date(),
+            content: variables.subject,
+            details: variables.body.substring(0, 100),
+          },
+        ]);
+      }
       if (variables.customerId) {
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "messages"] });
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "activity-logs"] });
         queryClient.invalidateQueries({ queryKey: ["/api/entity-history", variables.customerId] });
       }
-      if (currentCampaignContactId && selectedCampaignId) {
+      if (!variables.isReply && currentCampaignContactId && selectedCampaignId) {
         const campaignSettings = selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {};
         if (campaignSettings.dispositionMode === "script") {
           // disposition is controlled by call script - do nothing here
@@ -14240,6 +14242,7 @@ export default function AgentWorkspacePage() {
                               body: replyBodyHtml,
                               customerId: currentContact!.id,
                               contactType: currentContactType || "customer",
+                              isReply: true,
                             });
                             setEmailReplyOpen(false);
                             setEmailReplyText("");
