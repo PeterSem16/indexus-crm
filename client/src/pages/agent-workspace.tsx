@@ -2785,6 +2785,13 @@ function CommunicationCanvas({
     }
   }, [contact?.phone]);
 
+  // Reset read-timestamps when contact changes (different contact = fresh unread state)
+  useEffect(() => {
+    setEmailOpenedAt(null);
+    setSmsOpenedAt(null);
+  }, [contact?.id]);
+
+  // Mark channel as "read" only when the USER explicitly switches to that tab
   useEffect(() => {
     if (activeChannel === "email") {
       setEmailOpenedAt(Date.now());
@@ -2797,7 +2804,7 @@ function CommunicationCanvas({
         setSelectedPhones([contact.phone]);
       }
     }
-  }, [activeChannel, contact?.id]);
+  }, [activeChannel]); // intentionally excludes contact?.id — contact change is handled above
 
   const emailDefaultAppliedRef = useRef<string | null>(null);
   const smsDefaultAppliedRef = useRef<string | null>(null);
@@ -3351,6 +3358,10 @@ function CommunicationCanvas({
     return inbound.filter(e => new Date(e.timestamp).getTime() > emailOpenedAt).length;
   }, [mergedHistory.email, emailOpenedAt]);
 
+  const totalInboundSmsCount = useMemo(() =>
+    (customerMessages || []).filter(m => m.direction === "inbound").length,
+  [customerMessages]);
+
   const unreadSmsCount = useMemo(() => {
     const inbound = (customerMessages || []).filter(m => m.direction === "inbound");
     if (!smsOpenedAt) return inbound.length;
@@ -3595,9 +3606,9 @@ function CommunicationCanvas({
           >
             <MessageSquare className="h-3.5 w-3.5" />
             SMS
-            {unreadSmsCount > 0 && activeChannel !== "sms" && (
+            {totalInboundSmsCount > 0 && activeChannel !== "sms" && (
               <span className="min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
-                {unreadSmsCount > 9 ? "9+" : unreadSmsCount}
+                {totalInboundSmsCount > 9 ? "9+" : totalInboundSmsCount}
               </span>
             )}
           </button>
