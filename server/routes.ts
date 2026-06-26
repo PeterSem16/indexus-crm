@@ -4521,6 +4521,8 @@ export async function registerRoutes(
               sentVia: "ms365",
               sharedMailbox: sharedMailboxEmail || null,
               compositionDurationSeconds: compositionDurationSeconds || null,
+              contactType: contactType || "customer",
+              recipientEmails: toArray,
             }),
           });
           messageId = message.id;

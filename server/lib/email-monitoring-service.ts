@@ -1,5 +1,8 @@
 import { storage } from "../storage";
 import { notificationService } from "./notification-service";
+import { db } from "../db";
+import { communicationMessages, clinics, hospitals, collaborators } from "../../shared/schema";
+import { sql, and, eq } from "drizzle-orm";
 
 interface ProcessedEmail {
   emailId: string;
@@ -122,15 +125,18 @@ async function checkUserEmails(userId: string, connection: any) {
       
       console.log(`[EmailMonitor] Analyzing new email ${emailId} for user ${userId}`);
       
+      const senderEmail = (email.from?.emailAddress?.address || "").toLowerCase().trim();
+      const senderName = email.from?.emailAddress?.name || senderEmail;
+      const emailSubject = email.subject || "(bez predmetu)";
+      const conversationId = (email as any).conversationId || null;
+
+      // ── Sentiment analysis ──────────────────────────────────────────
       try {
         const analysis = await analyzeEmailContent(content);
         
         console.log(`[EmailMonitor] Email ${emailId}: sentiment=${analysis.sentiment}, alert=${analysis.alertLevel}`);
         
         if (analysis.sentiment === "negative" || analysis.sentiment === "angry" || analysis.hasAngryTone) {
-          const senderEmail = email.from?.emailAddress?.address || "unknown";
-          const senderName = email.from?.emailAddress?.name || senderEmail;
-          
           console.log(`[EmailMonitor] Creating notification for negative email from ${senderEmail}`);
           
           const notification = await storage.createNotification({
@@ -152,11 +158,102 @@ async function checkUserEmails(userId: string, connection: any) {
           });
           
           await notificationService.sendNotification(notification);
-          
           console.log(`[EmailMonitor] Notification sent for negative email ${emailId}`);
         }
       } catch (analysisError) {
         console.error(`[EmailMonitor] Failed to analyze email ${emailId}:`, analysisError);
+      }
+
+      // ── Link inbound email to CRM contact ───────────────────────────
+      // Skip system/unknown senders
+      if (senderEmail && senderEmail !== "unknown") {
+        try {
+          // Check for duplicate (already stored as inbound)
+          const existing = await db.select({ id: communicationMessages.id })
+            .from(communicationMessages)
+            .where(and(
+              eq(communicationMessages.externalId, emailId),
+              eq(communicationMessages.direction, "inbound")
+            ))
+            .limit(1);
+
+          if (existing.length === 0) {
+            let linkedId: string | null = null;
+            let linkedType = "customer";
+
+            // 1. Try conversationId → find outbound email with matching recipientEmails
+            if (conversationId) {
+              const [prev] = await db.select({
+                customerId: communicationMessages.customerId,
+                metadata: communicationMessages.metadata,
+              })
+                .from(communicationMessages)
+                .where(and(
+                  eq(communicationMessages.direction, "outbound"),
+                  eq(communicationMessages.type, "email"),
+                  sql`${communicationMessages.metadata}::jsonb ->> 'conversationId' = ${conversationId}`
+                ))
+                .limit(1);
+              if (prev?.customerId) {
+                linkedId = prev.customerId;
+                try { linkedType = JSON.parse(prev.metadata || "{}").contactType || "customer"; } catch {}
+              }
+            }
+
+            // 2. Search customers by email
+            if (!linkedId) {
+              const matched = await storage.findCustomersByEmail(senderEmail);
+              if (matched.length > 0) { linkedId = matched[0].id; linkedType = "customer"; }
+            }
+
+            // 3. Search clinics by email
+            if (!linkedId) {
+              const [clinic] = await db.select({ id: clinics.id }).from(clinics)
+                .where(sql`LOWER(${clinics.email}) = ${senderEmail} OR LOWER(${clinics.email2}) = ${senderEmail}`)
+                .limit(1);
+              if (clinic) { linkedId = clinic.id; linkedType = "clinic"; }
+            }
+
+            // 4. Search hospitals by email
+            if (!linkedId) {
+              const [hospital] = await db.select({ id: hospitals.id }).from(hospitals)
+                .where(sql`LOWER(${hospitals.email}) = ${senderEmail}`)
+                .limit(1);
+              if (hospital) { linkedId = hospital.id; linkedType = "hospital"; }
+            }
+
+            // 5. Search collaborators by email
+            if (!linkedId) {
+              const [collab] = await db.select({ id: collaborators.id }).from(collaborators)
+                .where(sql`LOWER(${collaborators.email}) = ${senderEmail}`)
+                .limit(1);
+              if (collab) { linkedId = collab.id; linkedType = "collaborator"; }
+            }
+
+            if (linkedId) {
+              await storage.createCommunicationMessage({
+                customerId: linkedId,
+                userId,
+                type: "email",
+                direction: "inbound",
+                subject: emailSubject,
+                content: email.bodyPreview || content.substring(0, 2000),
+                status: "received",
+                externalId: emailId,
+                metadata: JSON.stringify({
+                  from: senderEmail,
+                  senderName,
+                  conversationId: conversationId || null,
+                  contactType: linkedType,
+                  isHtml: email.body?.contentType?.toLowerCase().includes("html") ?? false,
+                }),
+              });
+              console.log(`[EmailMonitor] Linked inbound email ${emailId} to ${linkedType} ${linkedId}`);
+            }
+          }
+        } catch (linkError) {
+          console.error(`[EmailMonitor] Failed to link inbound email ${emailId}:`, linkError);
+        }
       }
     }
   } catch (error) {

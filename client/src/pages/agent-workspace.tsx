@@ -3759,93 +3759,11 @@ function CommunicationCanvas({
       {activeChannel === "email" && (
         <div className="flex-1 flex overflow-hidden">
 
-          {/* ── RIGHT: Email history + compose ── */}
-          <div className="flex-1 flex flex-col min-h-0 min-w-0 p-3 gap-2">
-
-            {/* ── Email history timeline ── */}
-            {mergedHistory.email.length > 0 && (() => {
-              const emailItems = [...mergedHistory.email].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-              return (
-                <div className="shrink-0 flex flex-col rounded-xl overflow-hidden border border-stone-200 dark:border-stone-700 bg-[#f7f4f0] dark:bg-stone-950" style={{ maxHeight: "38%" }}>
-                  {/* history header */}
-                  <div className="flex items-center justify-between px-3 py-1.5 bg-[#c2673a]/08 border-b border-stone-200 dark:border-stone-700 shrink-0">
-                    <div className="flex items-center gap-1.5">
-                      <History className="h-3 w-3 text-[#c2673a]" />
-                      <span className="text-[10px] font-semibold text-[#c2673a]">Email história</span>
-                      <span className="text-[10px] text-muted-foreground">({emailItems.length})</span>
-                    </div>
-                    {unreadEmailCount > 0 && (
-                      <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white">
-                        <span className="w-1.5 h-1.5 rounded-full bg-white/80 animate-pulse inline-block" />
-                        {unreadEmailCount} {unreadEmailCount === 1 ? "nový" : "nové"}
-                      </span>
-                    )}
-                  </div>
-                  {/* bubbles */}
-                  <div className="overflow-y-auto flex-1 min-h-0">
-                    <div className="px-3 py-2 space-y-2">
-                      {emailItems.map((entry, idx) => {
-                        const isOut = entry.direction !== "inbound";
-                        const isUnread = !isOut && emailOpenedAt !== null && new Date(entry.timestamp).getTime() > (emailOpenedAt ?? 0);
-                        const agentInitials = (entry.agentName || "A").split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
-                        const contactInitial = (contact?.firstName?.[0] || "?").toUpperCase();
-                        const subjectLine = entry.content || "";
-                        const bodyPreview = entry.details || entry.fullContent || "";
-                        return (
-                          <div key={entry.id || idx} className={`flex items-end gap-1.5 ${isOut ? "justify-end" : "justify-start"}`}>
-                            {!isOut && (
-                              <div className="h-6 w-6 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0 mb-0.5 shadow-sm ring-2 ring-white dark:ring-stone-800">
-                                <span className="text-[9px] font-bold text-white">{contactInitial}</span>
-                              </div>
-                            )}
-                            <div
-                              title={bodyPreview || subjectLine}
-                              className={`max-w-[72%] px-3 py-2 rounded-2xl shadow-sm ${
-                                isOut
-                                  ? "bg-gradient-to-br from-[#c2673a] to-[#a8502a] rounded-br-none"
-                                  : `bg-white dark:bg-stone-800 rounded-bl-none border-l-[3px] ${isUnread ? "border-red-400 ring-1 ring-red-200 dark:ring-red-900" : "border-[#c2673a]/60 dark:border-[#c2673a]/50"}`
-                              }`}
-                            >
-                              {subjectLine && (
-                                <p className={`text-[9px] font-bold truncate mb-0.5 ${isOut ? "text-white/70" : "text-[#c2673a] dark:text-orange-400"}`}>
-                                  ✉ {subjectLine}
-                                </p>
-                              )}
-                              {bodyPreview && (
-                                <p className={`text-[11px] leading-snug line-clamp-2 ${isOut ? "text-white font-medium" : "text-stone-700 dark:text-stone-200"}`}>
-                                  {bodyPreview}
-                                </p>
-                              )}
-                              <div className={`flex items-center gap-1 mt-1 ${isOut ? "justify-end" : "justify-start"}`}>
-                                <span className={`text-[9px] tabular-nums ${isOut ? "text-white/55" : "text-stone-400"}`}>
-                                  {format(new Date(entry.timestamp), "d.M. HH:mm")}
-                                </span>
-                                {isOut && agentInitials && (
-                                  <span className={`text-[9px] ${isOut ? "text-white/45" : "text-stone-400"}`}>· {agentInitials}</span>
-                                )}
-                                {isUnread && (
-                                  <span className="text-[9px] font-bold text-red-500 dark:text-red-400">● nové</span>
-                                )}
-                              </div>
-                            </div>
-                            {isOut && (
-                              <div className="h-6 w-6 rounded-full bg-gradient-to-br from-[#c2673a] to-[#a8502a] flex items-center justify-center shrink-0 mb-0.5 shadow-sm ring-2 ring-white dark:ring-stone-800">
-                                <span className="text-[9px] font-bold text-white">{agentInitials}</span>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                      <div ref={emailChatEndRef} />
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-
+          {/* ── RIGHT: Email chat (same layout as SMS) ── */}
+          <div className="flex-1 flex flex-col min-h-0 min-w-0 p-3">
             <div className="flex-1 min-h-0 flex flex-col rounded-xl overflow-hidden shadow-sm border border-border">
 
-            {/* Email-client header bar */}
+            {/* Email header bar */}
             <div className="bg-card border-b border-border px-4 py-2.5 flex items-center gap-3 shrink-0">
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#c2673a]/15 shrink-0">
                 <Mail className="h-3.5 w-3.5 text-[#c2673a]" />
@@ -3867,90 +3785,155 @@ function CommunicationCanvas({
                   )}
                 </div>
               </div>
-              {/* Preview / Edit HTML toggles */}
+              {unreadEmailCount > 0 && (
+                <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-500 text-white shrink-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white/80 animate-pulse" />
+                  {unreadEmailCount}
+                </span>
+              )}
               {emailIsHtml && (
                 <div className="flex items-center gap-0.5 shrink-0 bg-muted rounded-lg p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setEmailHtmlEditMode(false)}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${!emailHtmlEditMode ? "bg-[#c2673a] text-white shadow-sm" : "text-muted-foreground hover:bg-background hover:text-foreground"}`}
-                  >
-                    Preview
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEmailHtmlEditMode(true)}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${emailHtmlEditMode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-background hover:text-foreground"}`}
-                  >
-                    Edit HTML
-                  </button>
+                  <button type="button" onClick={() => setEmailHtmlEditMode(false)} className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${!emailHtmlEditMode ? "bg-[#c2673a] text-white shadow-sm" : "text-muted-foreground hover:bg-background hover:text-foreground"}`}>Preview</button>
+                  <button type="button" onClick={() => setEmailHtmlEditMode(true)} className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${emailHtmlEditMode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-background hover:text-foreground"}`}>Edit HTML</button>
                 </div>
               )}
-              <button
-                type="button"
-                onClick={() => setEmailPreviewExpanded(true)}
-                className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                title="Zobraziť na celú obrazovku"
-                data-testid="btn-email-preview-expand"
-              >
+              <button type="button" onClick={() => setEmailPreviewExpanded(true)} className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0" title="Zobraziť na celú obrazovku" data-testid="btn-email-preview-expand">
                 <Maximize2 className="h-3.5 w-3.5" />
               </button>
             </div>
 
-            {/* Email body */}
-            <div className="flex-1 min-h-0 overflow-hidden" data-testid="wysiwyg-email-message">
-              {emailIsHtml ? (
-                emailHtmlEditMode ? (
-                  <textarea
-                    className="w-full h-full px-4 py-3 text-xs font-mono resize-none focus-visible:outline-none bg-slate-950 text-slate-200"
-                    value={emailMessage}
-                    onChange={(e) => setEmailMessage(e.target.value)}
-                    spellCheck={false}
-                    data-testid="textarea-email-html-edit"
-                  />
-                ) : (
-                  <iframe
-                    srcDoc={emailMessage}
-                    sandbox="allow-same-origin"
-                    className="w-full h-full bg-white"
-                    title="Email preview"
-                  />
-                )
-              ) : (
-                <textarea
-                  className="w-full h-full px-4 py-4 text-sm resize-none focus-visible:outline-none bg-white dark:bg-card text-foreground leading-relaxed"
-                  value={emailMessage}
-                  onChange={(e) => setEmailMessage(e.target.value)}
-                  placeholder={t.customers?.details?.writeEmailPlaceholder || "Write your email..."}
-                  disabled={isSendingEmail}
-                  data-testid="textarea-email-message"
-                />
-              )}
+            {/* ── Email chat timeline (same style as SMS) ── */}
+            <div className="flex-1 min-h-0 overflow-hidden flex flex-col bg-[#eae7e2] dark:bg-stone-950">
+              <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5">
+                {(() => {
+                  const emailItems = [...mergedHistory.email].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+                  const inboundName =
+                    contactType === "clinic" ? (clinicData?.name || "")
+                    : contactType === "hospital" ? (hospitalData?.name || "")
+                    : contactType === "collaborator" ? (`${collaboratorData?.firstName || ""} ${collaboratorData?.lastName || ""}`.trim())
+                    : (`${contact?.firstName || ""} ${contact?.lastName || ""}`.trim());
+                  const inboundInitial = (inboundName[0] || "?").toUpperCase();
+                  const inboundFirstName = inboundName.split(" ")[0] || "?";
+
+                  if (emailItems.length === 0) {
+                    return (
+                      <div className="flex flex-col items-center justify-center h-full gap-2 text-stone-400 dark:text-stone-600">
+                        <Mail className="h-7 w-7 opacity-30" />
+                        <p className="text-[11px]">Žiadne emaily — napíšte prvý email vľavo</p>
+                      </div>
+                    );
+                  }
+
+                  return emailItems.map((entry, idx) => {
+                    const isOut = entry.direction !== "inbound";
+                    const isUnread = !isOut && emailOpenedAt !== null && new Date(entry.timestamp).getTime() > (emailOpenedAt ?? 0);
+                    const agentDisplayName = entry.agentName || user?.name || user?.username || "?";
+                    const agentInitial = agentDisplayName[0]?.toUpperCase() || "?";
+                    const agentFirstName = agentDisplayName.split(" ")[0] || "?";
+                    const subject = entry.content || "(bez predmetu)";
+                    const prevEntry = emailItems[idx - 1];
+                    const showDateSep = !prevEntry || new Date(entry.timestamp).getTime() - new Date(prevEntry.timestamp).getTime() > 10 * 60 * 1000;
+                    return (
+                      <div key={entry.id || idx}>
+                        {showDateSep && (
+                          <div className="flex justify-center my-2">
+                            <span className="text-[10px] font-medium text-stone-500 dark:text-stone-400 bg-white/80 dark:bg-stone-800/80 backdrop-blur-sm px-3 py-1 rounded-full shadow-sm">
+                              {format(new Date(entry.timestamp), "d. M. yyyy, HH:mm", { locale: sk })}
+                            </span>
+                          </div>
+                        )}
+                        <div className={`flex items-end gap-2 ${isOut ? "justify-end" : "justify-start"}`}>
+                          {!isOut && (
+                            <div className="flex flex-col items-center gap-0.5 shrink-0 mb-1">
+                              <Avatar className="h-7 w-7 ring-2 ring-white dark:ring-stone-700 shadow-sm">
+                                <AvatarFallback className="text-[10px] font-bold bg-gradient-to-br from-amber-400 to-orange-500 text-white">
+                                  {inboundInitial}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-[8px] font-medium text-stone-500 dark:text-stone-400 max-w-[44px] truncate leading-tight text-center">
+                                {inboundFirstName}
+                              </span>
+                            </div>
+                          )}
+                          <button
+                            onClick={() => onOpenHistoryDetail?.(entry as any)}
+                            className={`max-w-[70%] px-4 py-2.5 text-left hover:opacity-90 active:scale-[0.98] transition-all ${
+                              isOut
+                                ? "bg-gradient-to-br from-[#c2673a] to-[#a8502a] rounded-2xl rounded-br-none shadow-md"
+                                : `bg-white dark:bg-stone-800 rounded-2xl rounded-bl-none shadow-md border-l-[3px] ${isUnread ? "border-red-400 ring-1 ring-red-200 dark:ring-red-900" : "border-[#c2673a]/70 dark:border-[#c2673a]/50"}`
+                            }`}
+                          >
+                            <p className={`text-[13px] font-semibold leading-snug flex items-center gap-1.5 ${isOut ? "text-white" : "text-stone-800 dark:text-stone-100"}`}>
+                              <Mail className="h-3 w-3 shrink-0 opacity-60" />
+                              <span className="truncate">{subject}</span>
+                            </p>
+                            <div className={`flex items-center gap-1.5 mt-1 ${isOut ? "justify-end" : "justify-start"}`}>
+                              <span className={`text-[10px] font-medium ${isOut ? "text-white/60" : "text-stone-400 dark:text-stone-500"}`}>
+                                {format(new Date(entry.timestamp), "HH:mm")}
+                              </span>
+                              <span className={`text-[9px] ${isOut ? "text-white/40" : "text-stone-300 dark:text-stone-600"}`}>· zobraziť</span>
+                              {isUnread && <span className="text-[9px] font-bold text-red-500 dark:text-red-400">● nové</span>}
+                            </div>
+                          </button>
+                          {isOut && (
+                            <div className="flex flex-col items-center gap-0.5 shrink-0 mb-1">
+                              <Avatar className="h-7 w-7 ring-2 ring-white dark:ring-stone-700 shadow-sm">
+                                {entry.agentName === (user?.name || user?.username) && user?.avatarUrl && (
+                                  <AvatarImage src={user.avatarUrl} alt={agentFirstName} />
+                                )}
+                                <AvatarFallback className="text-[10px] font-bold bg-gradient-to-br from-[#c2673a] to-[#a8502a] text-white">
+                                  {agentInitial}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-[8px] font-medium text-stone-500 dark:text-stone-400 max-w-[44px] truncate leading-tight text-center">
+                                {agentFirstName}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+                <div ref={emailChatEndRef} />
+              </div>
             </div>
 
-            {/* Bottom action bar */}
-            <div className="shrink-0 border-t border-border bg-card px-4 py-2.5 flex items-center justify-between gap-3">
-              <div className="text-[11px] space-y-0.5">
-                {selectedEmails.length === 0 && <div className="text-destructive">• {t.customers?.details?.selectEmail || "Vyberte aspoň jeden email"}</div>}
-                {!emailSubject && <div className="text-amber-600 dark:text-amber-500">• {t.customers?.details?.enterSubject || "Zadajte predmet"}</div>}
-                {!emailMessage && <div className="text-amber-600 dark:text-amber-500">• {t.customers?.details?.enterMessage || "Zadajte správu"}</div>}
+            {/* ── Compose footer (same structure as SMS) ── */}
+            <div className="shrink-0 border-t border-border bg-card px-4 py-2.5 flex items-end gap-3">
+              <div className="flex-1 min-w-0">
+                {emailIsHtml ? (
+                  <div
+                    className="text-xs px-3 py-2 min-h-[52px] max-h-[80px] overflow-y-auto rounded-md border border-input bg-white dark:bg-stone-900 text-stone-500 italic cursor-pointer hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors flex items-center gap-2"
+                    onClick={() => setEmailPreviewExpanded(true)}
+                    data-testid="wysiwyg-email-message"
+                  >
+                    <Mail className="h-3.5 w-3.5 shrink-0 text-[#c2673a]" />
+                    {emailMessage ? "HTML šablóna — kliknúť na náhľad / úpravu" : <span className="text-muted-foreground">HTML email...</span>}
+                  </div>
+                ) : (
+                  <Textarea
+                    value={emailMessage}
+                    onChange={(e) => setEmailMessage(e.target.value)}
+                    placeholder={t.customers?.details?.writeEmailPlaceholder || "Napíšte email..."}
+                    rows={2}
+                    disabled={isSendingEmail}
+                    className="text-xs resize-none"
+                    style={{ minHeight: 52, maxHeight: 80 }}
+                    data-testid="textarea-email-message"
+                  />
+                )}
+                <div className="flex gap-3 flex-wrap mt-0.5">
+                  {selectedEmails.length === 0 && <span className="text-[10px] text-destructive">• {t.customers?.details?.selectEmail || "Vyberte príjemcu"}</span>}
+                  {!emailSubject && <span className="text-[10px] text-amber-600 dark:text-amber-500">• {t.customers?.details?.enterSubject || "Zadajte predmet"}</span>}
+                  {!emailMessage && <span className="text-[10px] text-amber-600 dark:text-amber-500">• {t.customers?.details?.enterMessage || "Zadajte správu"}</span>}
+                </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs h-8"
-                  onClick={() => { setEmailSubject(""); setEmailMessage(""); setEmailIsHtml(false); setEmailHtmlEditMode(false); setSelectedEmails([]); setEmailAttachment(null); setTemplateAttachments([]); setEmailCc(""); setShowCcField(false); setSelectedDocuments([]); }}
-                  data-testid="button-cancel-email"
-                >
+              <div className="flex items-center gap-2 shrink-0 pb-0.5">
+                <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => { setEmailSubject(""); setEmailMessage(""); setEmailIsHtml(false); setEmailHtmlEditMode(false); setSelectedEmails([]); setEmailAttachment(null); setTemplateAttachments([]); setEmailCc(""); setShowCcField(false); setSelectedDocuments([]); }} data-testid="button-cancel-email">
                   {t.common?.cancel || "Cancel"}
                 </Button>
-                <Button
-                  onClick={handleSendEmail}
-                  disabled={selectedEmails.length === 0 || !emailSubject || !emailMessage || isSendingEmail}
-                  className="h-8 px-4 text-xs font-semibold bg-[#c2673a] hover:bg-[#a8502a] text-white border-0 shadow-sm disabled:opacity-40"
-                  data-testid="btn-send-email"
-                >
+                <Button onClick={handleSendEmail} disabled={selectedEmails.length === 0 || !emailSubject || !emailMessage || isSendingEmail} className="h-8 px-4 text-xs font-semibold bg-[#c2673a] hover:bg-[#a8502a] text-white border-0 shadow-sm disabled:opacity-40" data-testid="btn-send-email">
                   {isSendingEmail ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1.5" />}
                   {t.customers?.details?.sendEmail || "Send Email"}
                 </Button>
