@@ -5612,6 +5612,29 @@ export default function EmailClientPage() {
                                   ))}
                                 </div>
                               )}
+                              {(email as any).aiAnalysis && (
+                                (email as any).aiAnalysis.alertLevel === "critical" ||
+                                (email as any).aiAnalysis.alertLevel === "warning" ||
+                                (email as any).aiAnalysis.sentiment === "negative" ||
+                                (email as any).aiAnalysis.sentiment === "angry" ||
+                                (email as any).aiAnalysis.hasAngryTone
+                              ) && (
+                                <div className="mt-0.5">
+                                  {(email as any).aiAnalysis.alertLevel === "critical" ? (
+                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-red-500 text-red-600">
+                                      <ShieldAlert className="h-3 w-3 mr-0.5" />{t.nexusOmni.sms.criticalAlert}
+                                    </Badge>
+                                  ) : (email as any).aiAnalysis.alertLevel === "warning" ? (
+                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-amber-500 text-amber-600">
+                                      <AlertTriangle className="h-3 w-3 mr-0.5" />{t.nexusOmni.sms.warning}
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-orange-400 text-orange-600">
+                                      <Flame className="h-3 w-3 mr-0.5" />{t.nexusOmni.sms.negativeSentiment}
+                                    </Badge>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -5714,6 +5737,11 @@ export default function EmailClientPage() {
                                     {sms.aiAlertLevel === "critical" ? <ShieldAlert className="h-3 w-3 mr-0.5" /> : <AlertTriangle className="h-3 w-3 mr-0.5" />}
                                     {sms.aiHasAngryTone && t.nexusOmni.sms.angry}
                                     {sms.aiWantsToCancel && t.nexusOmni.sms.cancellation}
+                                  </Badge>
+                                )}
+                                {sms.aiAnalyzed && (sms.aiSentiment === "negative" || sms.aiSentiment === "angry" || sms.aiHasAngryTone) && (!sms.aiAlertLevel || sms.aiAlertLevel === "none") && (
+                                  <Badge variant="outline" className="mt-0.5 text-[10px] px-1 py-0 h-4 border-orange-400 text-orange-600">
+                                    <Flame className="h-3 w-3 mr-0.5" />{t.nexusOmni.sms.negativeSentiment}
                                   </Badge>
                                 )}
                               </div>
@@ -8434,24 +8462,37 @@ export default function EmailClientPage() {
             </Link>
           )}
 
-          {selectedSms.aiAnalyzed && selectedSms.aiAlertLevel && selectedSms.aiAlertLevel !== "none" && (
+          {selectedSms.aiAnalyzed && (
+            (selectedSms.aiAlertLevel && selectedSms.aiAlertLevel !== "none") ||
+            selectedSms.aiSentiment === "negative" ||
+            selectedSms.aiSentiment === "angry" ||
+            selectedSms.aiHasAngryTone
+          ) && (
             <div
               className={`flex items-start gap-3 mt-3 p-3 rounded-md border ${
                 selectedSms.aiAlertLevel === "critical"
                   ? "bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-800"
-                  : "bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-800"
+                  : selectedSms.aiAlertLevel === "warning"
+                  ? "bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-800"
+                  : "bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800"
               }`}
               data-testid="sms-ai-analysis-alert"
             >
               {selectedSms.aiAlertLevel === "critical" ? (
                 <ShieldAlert className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0" />
-              ) : (
+              ) : selectedSms.aiAlertLevel === "warning" ? (
                 <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+              ) : (
+                <Flame className="h-5 w-5 text-orange-500 dark:text-orange-400 shrink-0" />
               )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-semibold">
-                    {selectedSms.aiAlertLevel === "critical" ? t.nexusOmni.sms.criticalAlert : t.nexusOmni.sms.warning}
+                    {selectedSms.aiAlertLevel === "critical"
+                      ? t.nexusOmni.sms.criticalAlert
+                      : selectedSms.aiAlertLevel === "warning"
+                      ? t.nexusOmni.sms.warning
+                      : t.nexusOmni.sms.negativeSentiment}
                   </span>
                   {selectedSms.aiHasAngryTone && (
                     <Badge variant="outline" className="text-xs border-orange-400 text-orange-600">
