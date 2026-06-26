@@ -2972,12 +2972,18 @@ function CommunicationCanvas({
     if (campaignEmailMode === "system") {
       setSelectedFromAccount("system");
     } else if (campaignEmailMode === "user") {
-      setSelectedFromAccount("personal");
+      // Try to match agent's INDEXUS email against available accounts first
+      if (user?.email && allEmailAccounts.length > 0) {
+        const agentAccount = allEmailAccounts.find(a => a.email.toLowerCase() === user.email!.toLowerCase());
+        setSelectedFromAccount(agentAccount ? (agentAccount.id || "personal") : "personal");
+      } else {
+        setSelectedFromAccount("personal");
+      }
     } else if (campaignEmailMode === "custom" && campaignEmailAddress) {
       const match = allEmailAccounts.find(a => a.email.toLowerCase() === campaignEmailAddress.toLowerCase());
       if (match) setSelectedFromAccount(match.id || "personal");
     }
-  }, [campaignEmailMode, campaignEmailAddress, allEmailAccounts]);
+  }, [campaignEmailMode, campaignEmailAddress, allEmailAccounts, user?.email]);
 
   const { data: templateCategories = [] } = useQuery<{ id: string; name: string; icon: string | null; color: string | null; isActive: boolean }[]>({
     queryKey: ["/api/template-categories"],
@@ -4035,18 +4041,32 @@ function CommunicationCanvas({
                     )}
                     {allEmailAccounts.map((account) => (
                       <SelectItem key={account.id || "personal"} value={account.id || "personal"}>
-                        <div className="flex items-center gap-2">
-                          <span>{account.displayName}</span>
-                          {account.type === "personal" && (
-                            <Badge variant="outline" className="text-[10px] px-1 py-0">
-                              {t.customers?.details?.personalAccount || "Personal"}
-                            </Badge>
-                          )}
+                        <div className="flex flex-col gap-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{account.displayName}</span>
+                            {account.type === "personal" && (
+                              <Badge variant="outline" className="text-[10px] px-1 py-0">
+                                {t.customers?.details?.personalAccount || "Personal"}
+                              </Badge>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-muted-foreground leading-tight">{account.email}</span>
                         </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {/* Show active FROM email address clearly */}
+                {(() => {
+                  if (campaignEmailMode === "system") return null;
+                  const acc = allEmailAccounts.find(a => (a.id || "personal") === selectedFromAccount);
+                  if (!acc) return null;
+                  return (
+                    <p className="text-[10px] text-muted-foreground mt-0.5 ml-0.5 truncate" title={acc.email}>
+                      {acc.email}
+                    </p>
+                  );
+                })()}
               </div>
 
               <div className="border-t border-stone-200 dark:border-stone-700/60" />
