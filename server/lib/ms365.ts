@@ -288,41 +288,50 @@ export async function sendEmail(
   attachments?: Array<{ name: string; contentType: string; contentBase64: string }>,
   bcc?: string[]
 ): Promise<void> {
+  await sendEmailAndGetConversationId(accessToken, to, subject, body, isHtml, cc, attachments, bcc);
+}
+
+/**
+ * Send email via personal mailbox using draft-then-send flow.
+ * Returns the conversationId assigned by Exchange so replies can be correlated.
+ */
+export async function sendEmailAndGetConversationId(
+  accessToken: string,
+  to: string[],
+  subject: string,
+  body: string,
+  isHtml: boolean = true,
+  cc?: string[],
+  attachments?: Array<{ name: string; contentType: string; contentBase64: string }>,
+  bcc?: string[]
+): Promise<{ conversationId: string | null }> {
   const client = createGraphClient(accessToken);
   
   const message: any = {
     subject,
-    body: {
-      contentType: isHtml ? 'HTML' : 'Text',
-      content: body,
-    },
-    toRecipients: to.map(email => ({
-      emailAddress: { address: email },
-    })),
+    body: { contentType: isHtml ? 'HTML' : 'Text', content: body },
+    toRecipients: to.map(email => ({ emailAddress: { address: email } })),
   };
   
-  if (cc && cc.length > 0) {
-    message.ccRecipients = cc.map(email => ({
-      emailAddress: { address: email },
-    }));
-  }
-
-  if (bcc && bcc.length > 0) {
-    message.bccRecipients = bcc.map(email => ({
-      emailAddress: { address: email },
-    }));
-  }
-  
+  if (cc && cc.length > 0) message.ccRecipients = cc.map(email => ({ emailAddress: { address: email } }));
+  if (bcc && bcc.length > 0) message.bccRecipients = bcc.map(email => ({ emailAddress: { address: email } }));
   if (attachments && attachments.length > 0) {
     message.attachments = attachments.map(att => ({
       '@odata.type': '#microsoft.graph.fileAttachment',
-      name: att.name,
-      contentType: att.contentType,
-      contentBytes: att.contentBase64,
+      name: att.name, contentType: att.contentType, contentBytes: att.contentBase64,
     }));
   }
-  
-  await client.api('/me/sendMail').post({ message });
+
+  try {
+    const draft = await client.api('/me/messages').post(message);
+    const conversationId = draft?.conversationId || null;
+    await client.api(`/me/messages/${draft.id}/send`).post({});
+    return { conversationId };
+  } catch (err) {
+    // Fallback: try sendMail if draft approach fails (permissions issue)
+    await client.api('/me/sendMail').post({ message });
+    return { conversationId: null };
+  }
 }
 
 /**
@@ -340,41 +349,50 @@ export async function sendEmailFromSharedMailbox(
   cc?: string[],
   attachments?: Array<{ name: string; contentType: string; contentBase64: string }>
 ): Promise<void> {
+  await sendEmailFromSharedMailboxAndGetConversationId(accessToken, sharedMailboxEmail, to, subject, body, isHtml, cc, attachments);
+}
+
+/**
+ * Send email from a shared mailbox using draft-then-send to capture conversationId.
+ * Falls back to sendMail if draft creation fails.
+ */
+export async function sendEmailFromSharedMailboxAndGetConversationId(
+  accessToken: string,
+  sharedMailboxEmail: string,
+  to: string[],
+  subject: string,
+  body: string,
+  isHtml: boolean = true,
+  cc?: string[],
+  attachments?: Array<{ name: string; contentType: string; contentBase64: string }>
+): Promise<{ conversationId: string | null }> {
   const client = createGraphClient(accessToken);
   
   const message: any = {
     subject,
-    body: {
-      contentType: isHtml ? 'HTML' : 'Text',
-      content: body,
-    },
-    toRecipients: to.map(email => ({
-      emailAddress: { address: email },
-    })),
-    // Set 'from' to shared mailbox - user must have SendAs permission
-    from: {
-      emailAddress: { address: sharedMailboxEmail },
-    },
+    body: { contentType: isHtml ? 'HTML' : 'Text', content: body },
+    toRecipients: to.map(email => ({ emailAddress: { address: email } })),
+    from: { emailAddress: { address: sharedMailboxEmail } },
   };
   
-  if (cc && cc.length > 0) {
-    message.ccRecipients = cc.map(email => ({
-      emailAddress: { address: email },
-    }));
-  }
-  
+  if (cc && cc.length > 0) message.ccRecipients = cc.map(email => ({ emailAddress: { address: email } }));
   if (attachments && attachments.length > 0) {
     message.attachments = attachments.map(att => ({
       '@odata.type': '#microsoft.graph.fileAttachment',
-      name: att.name,
-      contentType: att.contentType,
-      contentBytes: att.contentBase64,
+      name: att.name, contentType: att.contentType, contentBytes: att.contentBase64,
     }));
   }
-  
-  // Send using /me/sendMail with 'from' set to shared mailbox
-  // This works when user has SendAs or SendOnBehalf permission on the shared mailbox
-  await client.api('/me/sendMail').post({ message });
+
+  try {
+    const draft = await client.api('/me/messages').post(message);
+    const conversationId = draft?.conversationId || null;
+    await client.api(`/me/messages/${draft.id}/send`).post({});
+    return { conversationId };
+  } catch (err) {
+    // Fallback: try sendMail approach
+    await client.api('/me/sendMail').post({ message });
+    return { conversationId: null };
+  }
 }
 
 /**
@@ -504,7 +522,7 @@ export async function getRecentEmails(
   
   try {
     let request = client.api(`${basePath}/mailFolders/inbox/messages`)
-      .select('id,subject,from,receivedDateTime,isRead,bodyPreview')
+      .select('id,subject,from,receivedDateTime,isRead,bodyPreview,conversationId,internetMessageId')
       .orderby('receivedDateTime desc')
       .top(top);
     

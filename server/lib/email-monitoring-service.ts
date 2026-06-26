@@ -1,8 +1,8 @@
 import { storage } from "../storage";
 import { notificationService } from "./notification-service";
 import { db } from "../db";
-import { communicationMessages, clinics, hospitals, collaborators } from "../../shared/schema";
-import { sql, and, eq } from "drizzle-orm";
+import { communicationMessages, clinics, hospitals, collaborators, systemMs365Connections } from "../../shared/schema";
+import { sql, and, eq, desc } from "drizzle-orm";
 
 interface ProcessedEmail {
   emailId: string;
@@ -107,7 +107,7 @@ async function checkUserEmails(userId: string, connection: any) {
       await storage.updateUserMs365Connection(userId, updateData);
     }
     
-    const emails = await getRecentEmails(tokenResult.accessToken, undefined, 10, true);
+    const emails = await getRecentEmails(tokenResult.accessToken, undefined, 20, false);
     
     for (const email of emails) {
       const emailId = email.id;
@@ -261,6 +261,164 @@ async function checkUserEmails(userId: string, connection: any) {
   }
 }
 
+// Helper: same link-to-contact logic reused for system mailbox monitoring
+async function linkInboundEmailToContact(
+  emailId: string,
+  senderEmail: string,
+  senderName: string,
+  emailSubject: string,
+  content: string,
+  conversationId: string | null,
+  bodyIsHtml: boolean,
+  notifyUserId: string | null
+) {
+  const existing = await db.select({ id: communicationMessages.id })
+    .from(communicationMessages)
+    .where(and(eq(communicationMessages.externalId, emailId), eq(communicationMessages.direction, "inbound")))
+    .limit(1);
+  if (existing.length > 0) return null;
+
+  let linkedId: string | null = null;
+  let linkedType = "customer";
+  let responsibleUserId = notifyUserId;
+
+  if (conversationId) {
+    const [prev] = await db.select({ customerId: communicationMessages.customerId, userId: communicationMessages.userId, metadata: communicationMessages.metadata })
+      .from(communicationMessages)
+      .where(and(eq(communicationMessages.direction, "outbound"), eq(communicationMessages.type, "email"),
+        sql`${communicationMessages.metadata}::jsonb ->> 'conversationId' = ${conversationId}`))
+      .limit(1);
+    if (prev?.customerId) {
+      linkedId = prev.customerId;
+      responsibleUserId = prev.userId || notifyUserId;
+      try { linkedType = JSON.parse(prev.metadata || "{}").contactType || "customer"; } catch {}
+    }
+  }
+  if (!linkedId) {
+    const matched = await storage.findCustomersByEmail(senderEmail);
+    if (matched.length > 0) {
+      linkedId = matched[0].id;
+      linkedType = "customer";
+      const [lastOut] = await db.select({ userId: communicationMessages.userId }).from(communicationMessages)
+        .where(and(eq(communicationMessages.customerId, linkedId), eq(communicationMessages.direction, "outbound"), eq(communicationMessages.type, "email")))
+        .orderBy(desc(communicationMessages.createdAt)).limit(1);
+      if (lastOut?.userId) responsibleUserId = lastOut.userId;
+    }
+  }
+  if (!linkedId) {
+    const [clinic] = await db.select({ id: clinics.id }).from(clinics)
+      .where(sql`LOWER(${clinics.email}) = ${senderEmail} OR LOWER(${clinics.email2}) = ${senderEmail}`).limit(1);
+    if (clinic) { linkedId = clinic.id; linkedType = "clinic"; }
+  }
+  if (!linkedId) {
+    const [hospital] = await db.select({ id: hospitals.id }).from(hospitals)
+      .where(sql`LOWER(${hospitals.email}) = ${senderEmail}`).limit(1);
+    if (hospital) { linkedId = hospital.id; linkedType = "hospital"; }
+  }
+  if (!linkedId) {
+    const [collab] = await db.select({ id: collaborators.id }).from(collaborators)
+      .where(sql`LOWER(${collaborators.email}) = ${senderEmail}`).limit(1);
+    if (collab) { linkedId = collab.id; linkedType = "collaborator"; }
+  }
+
+  if (!linkedId) return null;
+
+  // If we still don't know who should be notified, find the last agent who emailed this contact
+  if (!responsibleUserId) {
+    const [lastOut] = await db.select({ userId: communicationMessages.userId }).from(communicationMessages)
+      .where(and(eq(communicationMessages.customerId, linkedId), eq(communicationMessages.direction, "outbound"), eq(communicationMessages.type, "email")))
+      .orderBy(desc(communicationMessages.createdAt)).limit(1);
+    if (lastOut?.userId) responsibleUserId = lastOut.userId;
+  }
+
+  await storage.createCommunicationMessage({
+    customerId: linkedId,
+    userId: responsibleUserId,
+    type: "email",
+    direction: "inbound",
+    subject: emailSubject,
+    content: content.substring(0, 2000),
+    status: "received",
+    externalId: emailId,
+    metadata: JSON.stringify({ from: senderEmail, senderName, conversationId: conversationId || null, contactType: linkedType, isHtml: bodyIsHtml }),
+  });
+  console.log(`[EmailMonitor] Linked inbound email ${emailId} to ${linkedType} ${linkedId}`);
+  return { linkedId, linkedType, responsibleUserId };
+}
+
+async function checkSystemMailboxEmails() {
+  try {
+    const { decryptTokenSafe } = await import("./token-crypto");
+    const { getValidAccessToken, getRecentEmails } = await import("./ms365");
+    const systemConnections = await db.select().from(systemMs365Connections).where(eq(systemMs365Connections.isConnected, true));
+
+    for (const conn of systemConnections) {
+      try {
+        let accessToken: string;
+        let refreshToken: string | null;
+        try {
+          accessToken = decryptTokenSafe(conn.accessToken);
+          refreshToken = conn.refreshToken ? decryptTokenSafe(conn.refreshToken) : null;
+        } catch { continue; }
+
+        const tokenResult = await getValidAccessToken(accessToken, conn.tokenExpiresAt, refreshToken);
+        if (!tokenResult?.accessToken) continue;
+
+        if (tokenResult.refreshed) {
+          const { encryptTokenWithMarker } = await import("./token-crypto");
+          const updateData: any = { accessToken: encryptTokenWithMarker(tokenResult.accessToken), tokenExpiresAt: tokenResult.expiresOn, lastSyncAt: new Date() };
+          if (tokenResult.refreshToken) updateData.refreshToken = encryptTokenWithMarker(tokenResult.refreshToken);
+          await storage.updateSystemMs365Connection(conn.countryCode, updateData);
+        }
+
+        // Fetch recent inbox emails for this system mailbox
+        const emails = await getRecentEmails(tokenResult.accessToken, conn.email, 20, false);
+
+        for (const email of emails) {
+          const emailId = email.id;
+          if (processedEmailsMap[emailId]) continue;
+          processedEmailsMap[emailId] = { emailId, processedAt: new Date() };
+
+          const content = email.bodyPreview || "";
+          if (!content || content.length < 5) continue;
+
+          const senderEmail = (email.from?.emailAddress?.address || "").toLowerCase().trim();
+          const senderName = email.from?.emailAddress?.name || senderEmail;
+          if (!senderEmail || senderEmail === "unknown" || senderEmail === conn.email.toLowerCase()) continue;
+
+          const emailSubject = email.subject || "(bez predmetu)";
+          const conversationId = email.conversationId || null;
+          const bodyIsHtml = false;
+          const notifyUserId = conn.connectedByUserId || null;
+
+          const linked = await linkInboundEmailToContact(emailId, senderEmail, senderName, emailSubject, content, conversationId, bodyIsHtml, notifyUserId);
+          if (linked?.responsibleUserId) {
+            try {
+              const analysis = await analyzeEmailContent(content);
+              if (analysis.sentiment === "negative" || analysis.sentiment === "angry" || analysis.hasAngryTone) {
+                const notification = await storage.createNotification({
+                  userId: linked.responsibleUserId,
+                  type: "sentiment_negative",
+                  title: `Negatívna reakcia v emaili`,
+                  message: analysis.note || `Email od ${senderName} obsahuje negatívny sentiment`,
+                  priority: analysis.alertLevel === "critical" ? "high" : "normal",
+                  entityType: "email", entityId: emailId,
+                  metadata: { sentiment: analysis.sentiment, alertLevel: analysis.alertLevel, senderEmail, customerName: senderName },
+                });
+                await notificationService.sendNotification(notification);
+              }
+            } catch {}
+          }
+        }
+      } catch (err) {
+        console.error(`[EmailMonitor] Error checking system mailbox ${conn.email}:`, err);
+      }
+    }
+  } catch (err) {
+    console.error("[EmailMonitor] Error in system mailbox monitoring:", err);
+  }
+}
+
 async function monitorEmails() {
   try {
     const users = await storage.getAllUsers();
@@ -273,6 +431,9 @@ async function monitorEmails() {
       
       await checkUserEmails(user.id, connection);
     }
+
+    // Also monitor system mailboxes — replies to system-sent emails arrive here
+    await checkSystemMailboxEmails();
     
     const now = Date.now();
     for (const emailId of Object.keys(processedEmailsMap)) {

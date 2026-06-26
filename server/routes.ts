@@ -4364,7 +4364,7 @@ export async function registerRoutes(
             return res.status(503).json({ error: `Systémový M365 nie je nakonfigurovaný pre krajinu ${campaignCountryCode}. Nastavte ho v sekcii M365 nastavení.` });
           }
           const { decryptTokenSafe: decryptSys } = await import("./lib/token-crypto");
-          const { sendEmail: sendSysEmail, getValidAccessToken: getSysToken } = await import("./lib/ms365");
+          const { sendEmailAndGetConversationId: sendSysEmail, getValidAccessToken: getSysToken } = await import("./lib/ms365");
           const sysAT = decryptSys(sysConn.accessToken);
           const sysRT = (sysConn as any).refreshToken ? decryptSys((sysConn as any).refreshToken) : null;
           const sysTok = await getSysToken(sysAT, (sysConn as any).tokenExpiresAt, sysRT);
@@ -4373,14 +4373,14 @@ export async function registerRoutes(
           }
           const sToArr = Array.isArray(sTo) ? sTo : [sTo];
           const sCcArr = sCc ? (Array.isArray(sCc) ? sCc : [sCc]) : undefined;
-          await sendSysEmail(sysTok.accessToken, sToArr, sSub, sBody, sIsHtml !== false, sCcArr);
+          const { conversationId: sysConvId } = await sendSysEmail(sysTok.accessToken, sToArr, sSub, sBody, sIsHtml !== false, sCcArr);
           let sysMsgId: string | undefined;
           if (sCustId) {
             try {
               const sysMsg = await storage.createCommunicationMessage({
                 customerId: sCustId, userId, type: "email", subject: sSub, content: sBody,
                 status: "sent", recipients: sToArr.join(", "),
-                metadata: JSON.stringify({ from: (sysConn as any).email || "system", sentVia: "ms365-system", contactType: sContactType || "customer" }),
+                metadata: JSON.stringify({ from: (sysConn as any).email || "system", sentVia: "ms365-system", contactType: sContactType || "customer", conversationId: sysConvId || null }),
               });
               sysMsgId = sysMsg.id;
               await storage.createActivityLog({
@@ -4528,11 +4528,12 @@ export async function registerRoutes(
       const ccArray = cc ? (Array.isArray(cc) ? cc : [cc]) : undefined;
       const fromEmail = sharedMailboxEmail || ms365Connection.email;
       
-      const { sendEmail, sendEmailFromSharedMailbox } = await import("./lib/ms365");
+      const { sendEmailAndGetConversationId, sendEmailFromSharedMailboxAndGetConversationId } = await import("./lib/ms365");
       
+      let sentConversationId: string | null = null;
       if (sharedMailboxEmail) {
         // Send from shared mailbox
-        await sendEmailFromSharedMailbox(
+        const result = await sendEmailFromSharedMailboxAndGetConversationId(
           tokenResult.accessToken,
           sharedMailboxEmail,
           toArray,
@@ -4542,9 +4543,11 @@ export async function registerRoutes(
           ccArray,
           finalAttachments.length > 0 ? finalAttachments : undefined
         );
+        sentConversationId = result.conversationId;
       } else {
         // Send from user's own mailbox
-        await sendEmail(tokenResult.accessToken, toArray, subject, body, isHtml !== false, ccArray, finalAttachments.length > 0 ? finalAttachments : undefined);
+        const result = await sendEmailAndGetConversationId(tokenResult.accessToken, toArray, subject, body, isHtml !== false, ccArray, finalAttachments.length > 0 ? finalAttachments : undefined);
+        sentConversationId = result.conversationId;
       }
       
       // Log email to customer history if customerId is provided
@@ -4569,6 +4572,7 @@ export async function registerRoutes(
               compositionDurationSeconds: compositionDurationSeconds || null,
               contactType: contactType || "customer",
               recipientEmails: toArray,
+              conversationId: sentConversationId || null,
             }),
           });
           messageId = message.id;
