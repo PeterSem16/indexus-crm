@@ -3823,7 +3823,7 @@ function CommunicationCanvas({
                     {unreadEmailCount > 0 && (
                       <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white">
                         <span className="w-1.5 h-1.5 rounded-full bg-white/80 animate-pulse inline-block" />
-                        {unreadEmailCount} {unreadEmailCount === 1 ? "nový" : "nové"}
+                        {unreadEmailCount} {unreadEmailCount === 1 ? t.agentWorkspace.myShiftEmailNew1 : t.agentWorkspace.myShiftEmailNew234}
                       </span>
                     )}
                   </div>
@@ -3879,8 +3879,8 @@ function CommunicationCanvas({
                                 <span className={`text-[10px] font-medium ${isOut ? "text-white/60" : "text-stone-400 dark:text-stone-500"}`}>
                                   {format(new Date(entry.timestamp), "HH:mm")}
                                 </span>
-                                <span className={`text-[9px] ${isOut ? "text-white/40" : "text-stone-300 dark:text-stone-600"}`}>· zobraziť</span>
-                                {isUnread && <span className="text-[9px] font-bold text-red-500 dark:text-red-400">● nové</span>}
+                                <span className={`text-[9px] ${isOut ? "text-white/40" : "text-stone-300 dark:text-stone-600"}`}>{t.agentWorkspace.emailBubbleView}</span>
+                                {isUnread && <span className="text-[9px] font-bold text-red-500 dark:text-red-400">{t.agentWorkspace.emailBubbleNew}</span>}
                               </div>
                             </button>
                             {isOut && (
@@ -5413,7 +5413,7 @@ function CommunicationCanvas({
                                   className="mt-1 text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1 hover:underline"
                                   onClick={() => triggerAutomation(item.automationAction)}
                                 >
-                                  ⚡ {item.automationAction === "openDisposition" ? "Otvoriť Disposíciu" : item.automationAction === "switchEmail" ? "Prejsť na Email" : "Prejsť na SMS"}
+                                  ⚡ {item.automationAction === "openDisposition" ? t.agentWorkspace.automationOpenDisposition : item.automationAction === "switchEmail" ? t.agentWorkspace.automationSwitchEmail : t.agentWorkspace.automationSwitchSms}
                                 </button>
                               )}
                             </div>
@@ -5460,7 +5460,7 @@ function CommunicationCanvas({
                                   )}
                                   {item.type === "text" && <input className="w-full text-xs rounded-md border border-border bg-background px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground/40" placeholder="Zadajte odpoveď..." value={clTextValues[item.id] || ""} onChange={e => setClTextValues(p => ({ ...p, [item.id]: e.target.value }))} data-testid={`cl-text-${item.id}`} />}
                                   {item.hasNotes && <textarea className="mt-1.5 w-full text-xs rounded-md border border-border bg-background p-2 resize-none min-h-[44px] focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground/40" placeholder="Poznámka..." value={clNotes[item.id] || ""} onChange={e => setClNotes(p => ({ ...p, [item.id]: e.target.value }))} data-testid={`cl-note-${item.id}`} />}
-                                  {item.automationAction !== "none" && answered && <button className="mt-1 text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1 hover:underline" onClick={() => triggerAutomation(item.automationAction)}>⚡ {item.automationAction === "openDisposition" ? "Otvoriť Disposíciu" : item.automationAction === "switchEmail" ? "Prejsť na Email" : "Prejsť na SMS"}</button>}
+                                  {item.automationAction !== "none" && answered && <button className="mt-1 text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1 hover:underline" onClick={() => triggerAutomation(item.automationAction)}>⚡ {item.automationAction === "openDisposition" ? t.agentWorkspace.automationOpenDisposition : item.automationAction === "switchEmail" ? t.agentWorkspace.automationSwitchEmail : t.agentWorkspace.automationSwitchSms}</button>}
                                 </div>
                               </div>
                             </div>
@@ -6001,7 +6001,7 @@ function CustomerInfoPanel({
                 <span className={color}>{icon}</span>
                 <div>
                   <p className={`text-sm font-semibold ${color}`}>{label}</p>
-                  <p className="text-[11px] text-muted-foreground">Vytvoriť nový záznam</p>
+                  <p className="text-[11px] text-muted-foreground">{t.agentWorkspace.createNewRecord}</p>
                 </div>
               </button>
             ))}
@@ -7410,7 +7410,7 @@ function MyActivityPanel({
     { key: "email", label: t.agentWorkspace.myShiftFilterEmail, count: emailItems.length },
     { key: "sms", label: t.agentWorkspace.myShiftFilterSms, count: smsItems.length },
     { key: "missed", label: t.agentWorkspace.myShiftFilterMissed, count: missedItems.length },
-    { key: "break", label: "Prestávky", count: breakItems.length },
+    { key: "break", label: t.agentWorkspace.myShiftFilterBreak, count: breakItems.length },
   ];
 
   return (
@@ -7606,9 +7606,9 @@ function MyActivityPanel({
                         <Coffee className="h-4 w-4" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{item.breakTypeName || "Prestávka"}</div>
+                        <div className="text-sm font-medium truncate">{item.breakTypeName || t.agentWorkspace.myShiftBreakDefault}</div>
                         {dur && <div className="text-[11px] text-muted-foreground mt-0.5">{dur}</div>}
-                        {isActive && <div className="text-[11px] text-orange-500 mt-0.5">Aktívna prestávka</div>}
+                        {isActive && <div className="text-[11px] text-orange-500 mt-0.5">{t.agentWorkspace.myShiftBreakActive}</div>}
                       </div>
                       <div className="text-right shrink-0">
                         <div className="text-xs font-medium text-foreground">{format(new Date(sortTime), "HH:mm")}</div>
@@ -13485,7 +13485,7 @@ export default function AgentWorkspacePage() {
                     }}
                     data-testid="btn-inbound-cb-skip"
                   >
-                    Zatvoriť bez preplanovania
+                    {t.agentWorkspace.closeWithoutReschedule}
                   </Button>
                 </div>
               )}

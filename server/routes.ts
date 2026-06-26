@@ -24283,7 +24283,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         .from(activityLogsTable)
         .where(and(
           eq(activityLogsTable.userId, user.id),
-          inArray(activityLogsTable.action, ["send_email", "send_sms"]),
+          inArray(activityLogsTable.action, ["send_email", "email_sent", "send_sms"]),
           gte(activityLogsTable.createdAt, todayStart),
           lte(activityLogsTable.createdAt, todayEnd)
         ))
@@ -24295,7 +24295,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         try { parsedDetails = a.details ? JSON.parse(a.details) : null; } catch {}
         return {
           id: a.id,
-          itemType: a.action === "send_email" ? "email" as const : "sms" as const,
+          itemType: (a.action === "send_email" || a.action === "email_sent") ? "email" as const : "sms" as const,
           entityName: a.entityName,
           subject: parsedDetails?.subject || null,
           sortTime: a.createdAt,
