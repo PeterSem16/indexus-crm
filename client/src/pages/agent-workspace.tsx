@@ -2433,6 +2433,7 @@ function CommunicationCanvas({
   const { user } = useAuth();
   const { toast } = useToast();
   const smsChatEndRef = useRef<HTMLDivElement>(null);
+  const emailChatEndRef = useRef<HTMLDivElement>(null);
   const [smsSearch, setSmsSearch] = useState("");
 
   useEffect(() => {
@@ -2440,6 +2441,12 @@ function CommunicationCanvas({
       smsChatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [contactHistory?.length, customerMessages?.length, activeChannel]);
+
+  useEffect(() => {
+    if (activeChannel === "email") {
+      emailChatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [contactHistory?.length, timeline?.length, activeChannel]);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailMessage, setEmailMessage] = useState("");
   const [emailIsHtml, setEmailIsHtml] = useState(false);
@@ -3310,6 +3317,18 @@ function CommunicationCanvas({
     };
   }, [timeline, contactHistory]);
 
+  const unreadEmailCount = useMemo(() => {
+    const inbound = mergedHistory.email.filter(e => e.direction === "inbound");
+    if (!emailOpenedAt) return inbound.length;
+    return inbound.filter(e => new Date(e.timestamp).getTime() > emailOpenedAt).length;
+  }, [mergedHistory.email, emailOpenedAt]);
+
+  const unreadSmsCount = useMemo(() => {
+    const inbound = (customerMessages || []).filter(m => m.direction === "inbound");
+    if (!smsOpenedAt) return inbound.length;
+    return inbound.filter(m => new Date(m.date).getTime() > smsOpenedAt).length;
+  }, [customerMessages, smsOpenedAt]);
+
   if (!contact) {
     return (
       <div className="flex-1 flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-rose-50 via-orange-50/80 to-amber-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900" style={{ contain: 'paint' }}>
@@ -3523,7 +3542,7 @@ function CommunicationCanvas({
           <button
             className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
               activeChannel === "email"
-                ? "border-green-500 text-green-600 dark:text-green-400"
+                ? "border-[#c2673a] text-[#c2673a]"
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
             onClick={() => onChannelChange("email")}
@@ -3531,6 +3550,11 @@ function CommunicationCanvas({
           >
             <Mail className="h-3.5 w-3.5" />
             EMAIL
+            {unreadEmailCount > 0 && activeChannel !== "email" && (
+              <span className="min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
+                {unreadEmailCount > 9 ? "9+" : unreadEmailCount}
+              </span>
+            )}
           </button>
           <button
             className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
@@ -3543,6 +3567,11 @@ function CommunicationCanvas({
           >
             <MessageSquare className="h-3.5 w-3.5" />
             SMS
+            {unreadSmsCount > 0 && activeChannel !== "sms" && (
+              <span className="min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
+                {unreadSmsCount > 9 ? "9+" : unreadSmsCount}
+              </span>
+            )}
           </button>
           {(dbStatusList.length > 0 || (internalChecklistConfig.enabled && internalChecklistConfig.sections.length > 0)) && (
             <button
@@ -3730,8 +3759,90 @@ function CommunicationCanvas({
       {activeChannel === "email" && (
         <div className="flex-1 flex overflow-hidden">
 
-          {/* ── RIGHT: Email body / preview ── */}
-          <div className="flex-1 flex flex-col min-h-0 min-w-0 p-3">
+          {/* ── RIGHT: Email history + compose ── */}
+          <div className="flex-1 flex flex-col min-h-0 min-w-0 p-3 gap-2">
+
+            {/* ── Email history timeline ── */}
+            {mergedHistory.email.length > 0 && (() => {
+              const emailItems = [...mergedHistory.email].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+              return (
+                <div className="shrink-0 flex flex-col rounded-xl overflow-hidden border border-stone-200 dark:border-stone-700 bg-[#f7f4f0] dark:bg-stone-950" style={{ maxHeight: "38%" }}>
+                  {/* history header */}
+                  <div className="flex items-center justify-between px-3 py-1.5 bg-[#c2673a]/08 border-b border-stone-200 dark:border-stone-700 shrink-0">
+                    <div className="flex items-center gap-1.5">
+                      <History className="h-3 w-3 text-[#c2673a]" />
+                      <span className="text-[10px] font-semibold text-[#c2673a]">Email história</span>
+                      <span className="text-[10px] text-muted-foreground">({emailItems.length})</span>
+                    </div>
+                    {unreadEmailCount > 0 && (
+                      <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white/80 animate-pulse inline-block" />
+                        {unreadEmailCount} {unreadEmailCount === 1 ? "nový" : "nové"}
+                      </span>
+                    )}
+                  </div>
+                  {/* bubbles */}
+                  <div className="overflow-y-auto flex-1 min-h-0">
+                    <div className="px-3 py-2 space-y-2">
+                      {emailItems.map((entry, idx) => {
+                        const isOut = entry.direction !== "inbound";
+                        const isUnread = !isOut && emailOpenedAt !== null && new Date(entry.timestamp).getTime() > (emailOpenedAt ?? 0);
+                        const agentInitials = (entry.agentName || "A").split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
+                        const contactInitial = (contact?.firstName?.[0] || "?").toUpperCase();
+                        const subjectLine = entry.content || "";
+                        const bodyPreview = entry.details || entry.fullContent || "";
+                        return (
+                          <div key={entry.id || idx} className={`flex items-end gap-1.5 ${isOut ? "justify-end" : "justify-start"}`}>
+                            {!isOut && (
+                              <div className="h-6 w-6 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0 mb-0.5 shadow-sm ring-2 ring-white dark:ring-stone-800">
+                                <span className="text-[9px] font-bold text-white">{contactInitial}</span>
+                              </div>
+                            )}
+                            <div
+                              title={bodyPreview || subjectLine}
+                              className={`max-w-[72%] px-3 py-2 rounded-2xl shadow-sm ${
+                                isOut
+                                  ? "bg-gradient-to-br from-[#c2673a] to-[#a8502a] rounded-br-none"
+                                  : `bg-white dark:bg-stone-800 rounded-bl-none border-l-[3px] ${isUnread ? "border-red-400 ring-1 ring-red-200 dark:ring-red-900" : "border-[#c2673a]/60 dark:border-[#c2673a]/50"}`
+                              }`}
+                            >
+                              {subjectLine && (
+                                <p className={`text-[9px] font-bold truncate mb-0.5 ${isOut ? "text-white/70" : "text-[#c2673a] dark:text-orange-400"}`}>
+                                  ✉ {subjectLine}
+                                </p>
+                              )}
+                              {bodyPreview && (
+                                <p className={`text-[11px] leading-snug line-clamp-2 ${isOut ? "text-white font-medium" : "text-stone-700 dark:text-stone-200"}`}>
+                                  {bodyPreview}
+                                </p>
+                              )}
+                              <div className={`flex items-center gap-1 mt-1 ${isOut ? "justify-end" : "justify-start"}`}>
+                                <span className={`text-[9px] tabular-nums ${isOut ? "text-white/55" : "text-stone-400"}`}>
+                                  {format(new Date(entry.timestamp), "d.M. HH:mm")}
+                                </span>
+                                {isOut && agentInitials && (
+                                  <span className={`text-[9px] ${isOut ? "text-white/45" : "text-stone-400"}`}>· {agentInitials}</span>
+                                )}
+                                {isUnread && (
+                                  <span className="text-[9px] font-bold text-red-500 dark:text-red-400">● nové</span>
+                                )}
+                              </div>
+                            </div>
+                            {isOut && (
+                              <div className="h-6 w-6 rounded-full bg-gradient-to-br from-[#c2673a] to-[#a8502a] flex items-center justify-center shrink-0 mb-0.5 shadow-sm ring-2 ring-white dark:ring-stone-800">
+                                <span className="text-[9px] font-bold text-white">{agentInitials}</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                      <div ref={emailChatEndRef} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="flex-1 min-h-0 flex flex-col rounded-xl overflow-hidden shadow-sm border border-border">
 
             {/* Email-client header bar */}
@@ -12468,11 +12579,28 @@ export default function AgentWorkspacePage() {
                           {cc.dispositionName || cc.dispositionCode}
                         </span>
                       )}
-                      {!cc.dispositionCode && cc.status !== "pending" && cc.status !== "callback_scheduled" && (
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "#88888820", color: "#888888" }}>
-                          {({ completed: t.agentWorkspace.statusCompleted, not_interested: t.agentWorkspace.statusNotInterested, failed: t.agentWorkspace.statusFailed } as Record<string,string>)[cc.status] || cc.status}
-                        </span>
-                      )}
+                      {!cc.dispositionCode && cc.status !== "pending" && cc.status !== "callback_scheduled" && (() => {
+                        const statusCfg: Record<string, { label: string; color: string; icon: JSX.Element }> = {
+                          sms_sent:      { label: "SMS", color: "#0ea5e9", icon: <MessageSquare className="h-2.5 w-2.5" /> },
+                          email_sent:    { label: "Email", color: "#c2673a", icon: <Mail className="h-2.5 w-2.5" /> },
+                          called:        { label: "Volané", color: "#22c55e", icon: <Phone className="h-2.5 w-2.5" /> },
+                          voicemail:     { label: "Voicemail", color: "#8b5cf6", icon: <Mic className="h-2.5 w-2.5" /> },
+                          completed:     { label: t.agentWorkspace.statusCompleted, color: "#22c55e", icon: <CheckCircle className="h-2.5 w-2.5" /> },
+                          not_interested:{ label: t.agentWorkspace.statusNotInterested, color: "#f59e0b", icon: <XCircle className="h-2.5 w-2.5" /> },
+                          failed:        { label: t.agentWorkspace.statusFailed, color: "#ef4444", icon: <XCircle className="h-2.5 w-2.5" /> },
+                        };
+                        const cfg = statusCfg[cc.status];
+                        const color = cfg?.color || "#888";
+                        return (
+                          <span
+                            className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                            style={{ background: `${color}20`, color, border: `1px solid ${color}45` }}
+                          >
+                            {cfg?.icon}
+                            {cfg?.label || cc.status}
+                          </span>
+                        );
+                      })()}
                       <div className="flex items-center gap-1.5">
                         {callbackDateStr && (
                           <span className="text-[10px] flex items-center gap-0.5 font-medium" style={{ color: ac }}>
