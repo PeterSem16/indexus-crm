@@ -10140,14 +10140,7 @@ export default function AgentWorkspacePage() {
       });
       return;
     }
-    const effectiveMailboxId = (() => {
-      if (campaignEmailMode === "system") return undefined;
-      if (campaignEmailMode === "custom" && campaignEmailAddress) {
-        const match = allEmailAccounts.find(a => a.email.toLowerCase() === campaignEmailAddress.toLowerCase());
-        return match ? (match.id === "personal" ? null : (match.id || null)) : data.mailboxId;
-      }
-      return data.mailboxId;
-    })();
+    const effectiveMailboxId = campaignEmailMode === "system" ? undefined : data.mailboxId;
     sendEmailMutation.mutate({
       to: data.to,
       subject: data.subject,
