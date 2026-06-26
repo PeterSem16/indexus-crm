@@ -2790,10 +2790,6 @@ function CommunicationCanvas({
     }
   }, [contact?.phone]);
 
-  // Keep refs in sync with latest values so useEffect can read them without deps
-  mergedEmailRef.current = mergedHistory.email;
-  customerMessagesRef.current = customerMessages;
-
   // Reset read-timestamps when contact changes (different contact = fresh unread state)
   useEffect(() => {
     setEmailOpenedAt(null);
@@ -3369,6 +3365,10 @@ function CommunicationCanvas({
     };
   }, [timeline, contactHistory]);
 
+
+  // Keep refs in sync with latest values so useEffect can read them without deps
+  mergedEmailRef.current = mergedHistory.email;
+  customerMessagesRef.current = customerMessages;
 
   const unreadEmailCount = useMemo(() => {
     return mergedHistory.email.filter(
