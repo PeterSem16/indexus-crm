@@ -3341,6 +3341,10 @@ function CommunicationCanvas({
     };
   }, [timeline, contactHistory]);
 
+  const totalInboundEmailCount = useMemo(() =>
+    mergedHistory.email.filter(e => e.direction === "inbound").length,
+  [mergedHistory.email]);
+
   const unreadEmailCount = useMemo(() => {
     const inbound = mergedHistory.email.filter(e => e.direction === "inbound");
     if (!emailOpenedAt) return inbound.length;
@@ -3574,9 +3578,9 @@ function CommunicationCanvas({
           >
             <Mail className="h-3.5 w-3.5" />
             EMAIL
-            {unreadEmailCount > 0 && activeChannel !== "email" && (
+            {totalInboundEmailCount > 0 && activeChannel !== "email" && (
               <span className="min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
-                {unreadEmailCount > 9 ? "9+" : unreadEmailCount}
+                {totalInboundEmailCount > 9 ? "9+" : totalInboundEmailCount}
               </span>
             )}
           </button>
@@ -14131,7 +14135,13 @@ export default function AgentWorkspacePage() {
                             setTimeout(tryResize, 600);
                           }
                         }}
-                        srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;line-height:1.6;color:#333;margin:16px;word-wrap:break-word}img{max-width:100%;height:auto}a{color:#1a73e8;text-decoration:none}table{border-collapse:collapse;max-width:100%}td,th{padding:4px 8px}pre{white-space:pre-wrap;word-wrap:break-word}@media(prefers-color-scheme:dark){body{color:#e0e0e0;background:#0a0a0a}a{color:#8ab4f8}}</style></head><body>${htmlBody.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/on\w+\s*=/gi, 'data-blocked=')}</body></html>`}
+                        srcDoc={(() => {
+                          const isHtmlContent = /<[a-z][\s\S]*?>/i.test(htmlBody);
+                          const safeBody = isHtmlContent
+                            ? htmlBody.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/on\w+\s*=/gi, 'data-blocked=')
+                            : htmlBody.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>').replace(/  /g, '&nbsp; ');
+                          return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;line-height:1.6;color:#333;margin:16px;word-wrap:break-word}img{max-width:100%;height:auto}a{color:#1a73e8;text-decoration:none}table{border-collapse:collapse;max-width:100%}td,th{padding:4px 8px}pre{white-space:pre-wrap;word-wrap:break-word}@media(prefers-color-scheme:dark){body{color:#e0e0e0;background:#0a0a0a}a{color:#8ab4f8}}</style></head><body>${safeBody}</body></html>`;
+                        })()}
                         className="w-full border-0 rounded-md bg-white dark:bg-gray-950"
                         style={{ minHeight: "400px", width: "100%" }}
                         sandbox="allow-same-origin"

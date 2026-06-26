@@ -522,7 +522,7 @@ export async function getRecentEmails(
   
   try {
     let request = client.api(`${basePath}/mailFolders/inbox/messages`)
-      .select('id,subject,from,receivedDateTime,isRead,bodyPreview,conversationId,internetMessageId')
+      .select('id,subject,from,receivedDateTime,isRead,bodyPreview,body,conversationId,internetMessageId')
       .orderby('receivedDateTime desc')
       .top(top);
     

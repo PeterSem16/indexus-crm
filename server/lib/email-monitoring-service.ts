@@ -237,7 +237,7 @@ async function checkUserEmails(userId: string, connection: any) {
                 type: "email",
                 direction: "inbound",
                 subject: emailSubject,
-                content: email.bodyPreview || content.substring(0, 2000),
+                content: (email.body?.content || email.bodyPreview || content).substring(0, 100000),
                 status: "received",
                 externalId: emailId,
                 metadata: JSON.stringify({
@@ -337,7 +337,7 @@ async function linkInboundEmailToContact(
     type: "email",
     direction: "inbound",
     subject: emailSubject,
-    content: content.substring(0, 2000),
+    content: content.substring(0, 100000),
     status: "received",
     externalId: emailId,
     metadata: JSON.stringify({ from: senderEmail, senderName, conversationId: conversationId || null, contactType: linkedType, isHtml: bodyIsHtml }),
@@ -379,7 +379,7 @@ async function checkSystemMailboxEmails() {
           if (processedEmailsMap[emailId]) continue;
           processedEmailsMap[emailId] = { emailId, processedAt: new Date() };
 
-          const content = email.bodyPreview || "";
+          const content = email.body?.content || email.bodyPreview || "";
           if (!content || content.length < 5) continue;
 
           const senderEmail = (email.from?.emailAddress?.address || "").toLowerCase().trim();
@@ -388,7 +388,7 @@ async function checkSystemMailboxEmails() {
 
           const emailSubject = email.subject || "(bez predmetu)";
           const conversationId = email.conversationId || null;
-          const bodyIsHtml = false;
+          const bodyIsHtml = email.body?.contentType?.toLowerCase().includes("html") ?? false;
           const notifyUserId = conn.connectedByUserId || null;
 
           const linked = await linkInboundEmailToContact(emailId, senderEmail, senderName, emailSubject, content, conversationId, bodyIsHtml, notifyUserId);
