@@ -2482,6 +2482,10 @@ function CommunicationCanvas({
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [emailOpenedAt, setEmailOpenedAt] = useState<number | null>(null);
   const [smsOpenedAt, setSmsOpenedAt] = useState<number | null>(null);
+  const [readEmailIds, setReadEmailIds] = useState<Set<string>>(new Set());
+  const [readSmsIds, setReadSmsIds] = useState<Set<string>>(new Set());
+  const mergedEmailRef = useRef<typeof mergedHistory.email>([]);
+  const customerMessagesRef = useRef<typeof customerMessages>(null);
   const [clChecked, setClChecked] = useState<Set<string>>(new Set());
   const [clYesNo, setClYesNo] = useState<Record<string, "yes" | "no">>({});
   const [clTextValues, setClTextValues] = useState<Record<string, string>>({});
@@ -2786,21 +2790,37 @@ function CommunicationCanvas({
     }
   }, [contact?.phone]);
 
+  // Keep refs in sync with latest values so useEffect can read them without deps
+  mergedEmailRef.current = mergedHistory.email;
+  customerMessagesRef.current = customerMessages;
+
   // Reset read-timestamps when contact changes (different contact = fresh unread state)
   useEffect(() => {
     setEmailOpenedAt(null);
     setSmsOpenedAt(null);
+    setReadEmailIds(new Set());
+    setReadSmsIds(new Set());
   }, [contact?.id]);
 
   // Mark channel as "read" only when the USER explicitly switches to that tab
   useEffect(() => {
     if (activeChannel === "email") {
       setEmailOpenedAt(Date.now());
+      setReadEmailIds(new Set(
+        mergedEmailRef.current
+          .filter(e => e.direction === "inbound")
+          .map(e => String(e.id))
+      ));
       if (contact?.email) {
         setSelectedEmails([contact.email]);
       }
     } else if (activeChannel === "sms") {
       setSmsOpenedAt(Date.now());
+      setReadSmsIds(new Set(
+        (customerMessagesRef.current || [])
+          .filter(m => m.direction === "inbound")
+          .map(m => String(m.id))
+      ));
       if (contact?.phone) {
         setSelectedPhones([contact.phone]);
       }
@@ -3349,25 +3369,18 @@ function CommunicationCanvas({
     };
   }, [timeline, contactHistory]);
 
-  const totalInboundEmailCount = useMemo(() =>
-    mergedHistory.email.filter(e => e.direction === "inbound").length,
-  [mergedHistory.email]);
 
   const unreadEmailCount = useMemo(() => {
-    const inbound = mergedHistory.email.filter(e => e.direction === "inbound");
-    if (!emailOpenedAt) return inbound.length;
-    return inbound.filter(e => new Date(e.timestamp).getTime() > emailOpenedAt).length;
-  }, [mergedHistory.email, emailOpenedAt]);
-
-  const totalInboundSmsCount = useMemo(() =>
-    (customerMessages || []).filter(m => m.direction === "inbound").length,
-  [customerMessages]);
+    return mergedHistory.email.filter(
+      e => e.direction === "inbound" && !readEmailIds.has(String(e.id))
+    ).length;
+  }, [mergedHistory.email, readEmailIds]);
 
   const unreadSmsCount = useMemo(() => {
-    const inbound = (customerMessages || []).filter(m => m.direction === "inbound");
-    if (!smsOpenedAt) return inbound.length;
-    return inbound.filter(m => new Date(m.date).getTime() > smsOpenedAt).length;
-  }, [customerMessages, smsOpenedAt]);
+    return (customerMessages || []).filter(
+      m => m.direction === "inbound" && !readSmsIds.has(String(m.id))
+    ).length;
+  }, [customerMessages, readSmsIds]);
 
   if (!contact) {
     return (
@@ -3590,9 +3603,9 @@ function CommunicationCanvas({
           >
             <Mail className="h-3.5 w-3.5" />
             EMAIL
-            {totalInboundEmailCount > 0 && activeChannel !== "email" && (
+            {unreadEmailCount > 0 && activeChannel !== "email" && (
               <span className="min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
-                {totalInboundEmailCount > 9 ? "9+" : totalInboundEmailCount}
+                {unreadEmailCount > 9 ? "9+" : unreadEmailCount}
               </span>
             )}
           </button>
@@ -3607,9 +3620,9 @@ function CommunicationCanvas({
           >
             <MessageSquare className="h-3.5 w-3.5" />
             SMS
-            {totalInboundSmsCount > 0 && activeChannel !== "sms" && (
+            {unreadSmsCount > 0 && activeChannel !== "sms" && (
               <span className="min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
-                {totalInboundSmsCount > 9 ? "9+" : totalInboundSmsCount}
+                {unreadSmsCount > 9 ? "9+" : unreadSmsCount}
               </span>
             )}
           </button>
@@ -3837,7 +3850,7 @@ function CommunicationCanvas({
                       </div>
                     ) : emailItems.map((entry, idx) => {
                       const isOut = entry.direction !== "inbound";
-                      const isUnread = !isOut && emailOpenedAt !== null && new Date(entry.timestamp).getTime() > (emailOpenedAt ?? 0);
+                      const isUnread = !isOut && !readEmailIds.has(String(entry.id));
                       const agentDisplayName = entry.agentName || user?.name || user?.username || "?";
                       const agentInitial = agentDisplayName[0]?.toUpperCase() || "?";
                       const agentFirstName = agentDisplayName.split(" ")[0] || "?";
@@ -3865,7 +3878,10 @@ function CommunicationCanvas({
                               </div>
                             )}
                             <button
-                              onClick={() => onOpenHistoryDetail?.(entry as any)}
+                              onClick={() => {
+                                if (!isOut) setReadEmailIds(prev => { const next = new Set(prev); next.add(String(entry.id)); return next; });
+                                onOpenHistoryDetail?.(entry as any);
+                              }}
                               className={`max-w-[70%] px-4 py-2.5 text-left hover:opacity-90 active:scale-[0.98] transition-all ${
                                 isOut
                                   ? "bg-gradient-to-br from-[#c2673a] to-[#a8502a] rounded-2xl rounded-br-none shadow-md"
@@ -4491,14 +4507,18 @@ function CommunicationCanvas({
                                 </span>
                               </div>
                             )}
-                            <div className={`max-w-[70%] ${
+                            <div
+                              className={`max-w-[70%] cursor-default ${!isOut ? "cursor-pointer hover:opacity-95 active:scale-[0.99] transition-all" : ""}`}
+                              onClick={!isOut && !msg._draft ? () => setReadSmsIds(prev => new Set([...prev, String(msg.id)])) : undefined}
+                            >
+                            <div className={`${
                               isOut
                                 ? msg._draft
                                   ? "px-4 py-2.5 bg-white/90 border-2 border-dashed border-blue-300 dark:bg-stone-800/80 dark:border-blue-700 rounded-2xl rounded-br-none shadow-sm"
                                   : "px-4 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-indigo-700 rounded-2xl rounded-br-none shadow-md"
                                 : isNegativeSent
-                                  ? "px-4 py-2.5 bg-red-50 dark:bg-red-950/60 rounded-2xl rounded-bl-none shadow-md border-l-[3px] border-red-500 dark:border-red-600"
-                                  : "px-4 py-2.5 bg-white dark:bg-stone-800 rounded-2xl rounded-bl-none shadow-md border-l-[3px] border-emerald-400 dark:border-emerald-500"
+                                  ? `px-4 py-2.5 bg-red-50 dark:bg-red-950/60 rounded-2xl rounded-bl-none shadow-md border-l-[3px] border-red-500 dark:border-red-600`
+                                  : `px-4 py-2.5 bg-white dark:bg-stone-800 rounded-2xl rounded-bl-none shadow-md border-l-[3px] ${!readSmsIds.has(String(msg.id)) ? "border-emerald-500 ring-1 ring-emerald-200 dark:ring-emerald-900" : "border-emerald-400/50 dark:border-emerald-500/40"}`
                             }`}>
                               <p className={`text-[13px] leading-relaxed whitespace-pre-wrap break-words ${
                                 isOut
@@ -4527,6 +4547,7 @@ function CommunicationCanvas({
                               {msg._draft && (
                                 <p className="text-[10px] font-medium text-blue-400 dark:text-blue-500 mt-0.5 italic">náhľad</p>
                               )}
+                            </div>
                             </div>
                             {isOut && (() => {
                               const isCurrentUser = msg._draft || msg.agentId === user?.id;
