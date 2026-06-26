@@ -4024,8 +4024,8 @@ function CommunicationCanvas({
                 </Label>
                 <Select
                   value={campaignEmailMode === "system" ? "system" : selectedFromAccount}
-                  onValueChange={(v) => { if (campaignEmailMode !== "system") setSelectedFromAccount(v); }}
-                  disabled={campaignEmailMode === "system"}
+                  onValueChange={(v) => { if (campaignEmailMode === "user") setSelectedFromAccount(v); }}
+                  disabled={campaignEmailMode === "system" || campaignEmailMode === "custom"}
                 >
                   <SelectTrigger data-testid="select-from-account" className="text-sm h-9 bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700">
                     <SelectValue placeholder={t.customers?.details?.selectAccount || "Select account"} />
