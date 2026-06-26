@@ -2957,33 +2957,36 @@ function CommunicationCanvas({
     return accounts;
   }, [personalMs365, sharedMailboxes]);
 
-  useEffect(() => {
-    if (contact && allEmailAccounts.length > 0 && !selectedFromAccount) {
-      const defaultMailbox = allEmailAccounts.find(m => m.isDefault);
-      if (defaultMailbox) {
-        setSelectedFromAccount(defaultMailbox.id || "");
-      } else if (allEmailAccounts[0]) {
-        setSelectedFromAccount(allEmailAccounts[0].id || "");
-      }
-    }
-  }, [contact, allEmailAccounts, selectedFromAccount]);
+  // Single source-of-truth memo — no useEffect race conditions.
+  // Priority: system lock > custom lock > user-mode auto-select > contact default > user's manual pick.
+  const activeFromAccount = useMemo(() => {
+    if (campaignEmailMode === "system") return "system";
 
-  useEffect(() => {
-    if (campaignEmailMode === "system") {
-      setSelectedFromAccount("system");
-    } else if (campaignEmailMode === "user") {
-      // Try to match agent's INDEXUS email against available accounts first
+    if (campaignEmailMode === "user") {
+      // Try to match agent's own INDEXUS email first
       if (user?.email && allEmailAccounts.length > 0) {
-        const agentAccount = allEmailAccounts.find(a => a.email.toLowerCase() === user.email!.toLowerCase());
-        setSelectedFromAccount(agentAccount ? (agentAccount.id || "personal") : "personal");
-      } else {
-        setSelectedFromAccount("personal");
+        const match = allEmailAccounts.find(a => a.email.toLowerCase() === user.email!.toLowerCase());
+        if (match) return match.id || "personal";
       }
-    } else if (campaignEmailMode === "custom" && campaignEmailAddress) {
-      const match = allEmailAccounts.find(a => a.email.toLowerCase() === campaignEmailAddress.toLowerCase());
-      if (match) setSelectedFromAccount(match.id || "personal");
+      // Fall back to personal MS365 if available
+      if (allEmailAccounts.some(a => a.type === "personal")) return "personal";
+      // Last resort: whatever the agent manually picked
+      return selectedFromAccount || "";
     }
-  }, [campaignEmailMode, campaignEmailAddress, allEmailAccounts, user?.email]);
+
+    if (campaignEmailMode === "custom" && campaignEmailAddress) {
+      const match = allEmailAccounts.find(a => a.email.toLowerCase() === campaignEmailAddress.toLowerCase());
+      return match ? (match.id || "personal") : (selectedFromAccount || "");
+    }
+
+    // No campaign mode: use agent's manual pick or contact default
+    if (selectedFromAccount) return selectedFromAccount;
+    if (contact && allEmailAccounts.length > 0) {
+      const def = allEmailAccounts.find(m => m.isDefault) || allEmailAccounts[0];
+      return def ? (def.id || "") : "";
+    }
+    return "";
+  }, [campaignEmailMode, campaignEmailAddress, allEmailAccounts, user?.email, selectedFromAccount, contact]);
 
   const { data: templateCategories = [] } = useQuery<{ id: string; name: string; icon: string | null; color: string | null; isActive: boolean }[]>({
     queryKey: ["/api/template-categories"],
@@ -3272,7 +3275,7 @@ function CommunicationCanvas({
       to: selectedEmails,
       subject: emailSubject,
       body: emailMessage,
-      mailboxId: selectedFromAccount === "personal" ? null : selectedFromAccount || null,
+      mailboxId: activeFromAccount === "personal" ? null : activeFromAccount || null,
       cc: emailCc.trim() || undefined,
       documentIds: selectedDocuments.length > 0 ? selectedDocuments : undefined,
       attachments: pcAttachments.length > 0 ? pcAttachments : undefined,
@@ -4023,8 +4026,8 @@ function CommunicationCanvas({
                   {t.customers?.details?.fromAccount || "FROM ACCOUNT"}
                 </Label>
                 <Select
-                  value={campaignEmailMode === "system" ? "system" : selectedFromAccount}
-                  onValueChange={(v) => { if (campaignEmailMode === "user") setSelectedFromAccount(v); }}
+                  value={activeFromAccount}
+                  onValueChange={(v) => { if (campaignEmailMode === "user" || !campaignEmailMode) setSelectedFromAccount(v); }}
                   disabled={campaignEmailMode === "system" || campaignEmailMode === "custom"}
                 >
                   <SelectTrigger data-testid="select-from-account" className="text-sm h-9 bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700">
@@ -4059,7 +4062,7 @@ function CommunicationCanvas({
                 {/* Show active FROM email address clearly */}
                 {(() => {
                   if (campaignEmailMode === "system") return null;
-                  const acc = allEmailAccounts.find(a => (a.id || "personal") === selectedFromAccount);
+                  const acc = allEmailAccounts.find(a => (a.id || "personal") === activeFromAccount);
                   if (!acc) return null;
                   return (
                     <p className="text-[10px] text-muted-foreground mt-0.5 ml-0.5 truncate" title={acc.email}>
