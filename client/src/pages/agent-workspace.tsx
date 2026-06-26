@@ -2375,6 +2375,8 @@ function CommunicationCanvas({
   onPhoneOverrideChange,
   onClearContact,
   customerMessages,
+  campaignEmailMode,
+  campaignEmailAddress,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -2428,6 +2430,8 @@ function CommunicationCanvas({
   onPhoneOverrideChange?: (p: string | null) => void;
   onClearContact?: () => void;
   customerMessages?: any[];
+  campaignEmailMode?: "system" | "user" | "custom";
+  campaignEmailAddress?: string;
 }) {
   const { t, locale } = useI18n();
   const { user } = useAuth();
@@ -2963,6 +2967,15 @@ function CommunicationCanvas({
       }
     }
   }, [contact, allEmailAccounts, selectedFromAccount]);
+
+  useEffect(() => {
+    if (campaignEmailMode === "system") {
+      setSelectedFromAccount("system");
+    } else if (campaignEmailMode === "custom" && campaignEmailAddress) {
+      const match = allEmailAccounts.find(a => a.email.toLowerCase() === campaignEmailAddress.toLowerCase());
+      if (match) setSelectedFromAccount(match.id || "personal");
+    }
+  }, [campaignEmailMode, campaignEmailAddress, allEmailAccounts]);
 
   const { data: templateCategories = [] } = useQuery<{ id: string; name: string; icon: string | null; color: string | null; isActive: boolean }[]>({
     queryKey: ["/api/template-categories"],
@@ -9118,15 +9131,6 @@ export default function AgentWorkspacePage() {
     try { return JSON.parse(selectedCampaign.settings).nexusPulseEmailAddress || ""; } catch { return ""; }
   }, [selectedCampaign?.settings]);
 
-  useEffect(() => {
-    if (campaignEmailMode === "system") {
-      setSelectedFromAccount("system");
-    } else if (campaignEmailMode === "custom" && campaignEmailAddress) {
-      const match = allEmailAccounts.find(a => a.email.toLowerCase() === campaignEmailAddress.toLowerCase());
-      if (match) setSelectedFromAccount(match.id || "personal");
-    }
-  }, [campaignEmailMode, campaignEmailAddress, allEmailAccounts]);
-
   // Page-level status list state — hoisted here so MobileAgentWorkspace can access it
   const [mobileDbSlChecked, setMobileDbSlChecked] = useState<Set<string>>(new Set());
   const { data: mobileDbStatusList = [] } = useQuery<any[]>({
@@ -12267,6 +12271,8 @@ export default function AgentWorkspacePage() {
               phoneOverride={currentPhoneOverride}
               onPhoneOverrideChange={setCurrentPhoneOverride}
               customerMessages={customerMessages}
+              campaignEmailMode={campaignEmailMode}
+              campaignEmailAddress={campaignEmailAddress}
               onClearContact={() => {
                 pendingCcIdRef.current = null;
                 setCurrentCampaignContactId(null);
