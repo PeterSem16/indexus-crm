@@ -149,6 +149,7 @@ import {
   CheckCheck,
   ClipboardList,
   Save,
+  CornerUpLeft,
 } from "lucide-react";
 import type { CSSProperties } from "react";
 import {
@@ -8260,6 +8261,10 @@ export default function AgentWorkspacePage() {
   const [missedCallNotifs, setMissedCallNotifs] = useState<Array<{ id: number; title: string; description: string }>>([]);
   const pendingCallbackAbandonedIdRef = useRef<string | null>(null);
   const [historyDetailModal, setHistoryDetailModal] = useState<TimelineEntry | ContactHistory | null>(null);
+  const [emailReplyOpen, setEmailReplyOpen] = useState(false);
+  const [emailReplyText, setEmailReplyText] = useState("");
+  const [emailReplySignature, setEmailReplySignature] = useState<string | null>(null);
+  const [isSendingReply, setIsSendingReply] = useState(false);
   const [autoCountdown, setAutoCountdown] = useState<number | null>(null);
   const autoTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [contactsModalOpen, setContactsModalOpen] = useState(false);
@@ -14056,7 +14061,7 @@ export default function AgentWorkspacePage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!historyDetailModal} onOpenChange={(open) => !open && setHistoryDetailModal(null)}>
+      <Dialog open={!!historyDetailModal} onOpenChange={(open) => { if (!open) { setHistoryDetailModal(null); setEmailReplyOpen(false); setEmailReplyText(""); setEmailReplySignature(null); } }}>
         <DialogContent className="sm:max-w-3xl max-h-[85vh] flex flex-col p-0">
           {historyDetailModal && (() => {
             const entry = historyDetailModal;
@@ -14123,10 +14128,30 @@ export default function AgentWorkspacePage() {
                         )}
                       </div>
                     </div>
+                    {isEmail && direction === "inbound" && (
+                      <button
+                        onClick={async () => {
+                          if (emailReplyOpen) { setEmailReplyOpen(false); return; }
+                          setEmailReplyOpen(true);
+                          if (emailReplySignature === null) {
+                            try {
+                              const res = await fetch(`/api/users/${user?.id}/email-signatures/personal`, { credentials: "include" });
+                              if (res.ok) { const sig = await res.json(); setEmailReplySignature(sig?.htmlContent || ""); }
+                              else setEmailReplySignature("");
+                            } catch { setEmailReplySignature(""); }
+                          }
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-indigo-300 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-700 dark:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors shrink-0"
+                        data-testid="btn-email-reply"
+                      >
+                        <CornerUpLeft className="h-3.5 w-3.5" />
+                        {t.agentWorkspace.emailReply || "Reply"}
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex-1 min-h-0 overflow-auto" style={{ maxHeight: "60vh" }}>
+                <div className="flex-1 min-h-0 overflow-auto" style={{ maxHeight: emailReplyOpen ? "35vh" : "60vh" }}>
                   {isEmail && htmlBody ? (
                     <div className="p-2 h-full">
                       <iframe
@@ -14170,6 +14195,73 @@ export default function AgentWorkspacePage() {
                     </div>
                   )}
                 </div>
+
+                {isEmail && direction === "inbound" && emailReplyOpen && (
+                  <div className="border-t flex-shrink-0 bg-background flex flex-col">
+                    <div className="flex items-center gap-2 px-4 py-2 border-b bg-muted/20">
+                      <CornerUpLeft className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                      <span className="text-xs font-medium text-foreground">Re: {subject}</span>
+                      {contact?.email && (
+                        <span className="text-[11px] text-muted-foreground ml-auto flex items-center gap-1">
+                          <Mail className="h-3 w-3" />
+                          {contact.email}
+                        </span>
+                      )}
+                    </div>
+                    <textarea
+                      className="w-full text-sm bg-background text-foreground px-4 py-3 resize-none outline-none min-h-[100px] placeholder:text-muted-foreground/50 font-[inherit]"
+                      placeholder={t.agentWorkspace.emailReplyPlaceholder || "Write your reply…"}
+                      value={emailReplyText}
+                      onChange={e => setEmailReplyText(e.target.value)}
+                      autoFocus
+                      data-testid="input-email-reply-text"
+                    />
+                    {emailReplySignature && (
+                      <div
+                        className="px-4 pb-1 text-xs text-muted-foreground border-t border-dashed border-border/50 pt-2 max-h-[80px] overflow-y-auto"
+                        dangerouslySetInnerHTML={{ __html: emailReplySignature.replace(/<script[\s\S]*?<\/script>/gi, '') }}
+                      />
+                    )}
+                    <div className="flex items-center gap-2 px-4 py-2.5 border-t bg-muted/10">
+                      <Button
+                        size="sm"
+                        className="h-7 px-3 text-xs font-semibold bg-[#c2673a] hover:bg-[#a8502a] text-white border-0"
+                        disabled={isSendingReply || !emailReplyText.trim()}
+                        data-testid="btn-send-reply"
+                        onClick={async () => {
+                          if (!contact?.email || !emailReplyText.trim()) return;
+                          setIsSendingReply(true);
+                          try {
+                            const replyBodyHtml = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;line-height:1.6;">${emailReplyText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}</div>${emailReplySignature ? `<br>${emailReplySignature}` : ''}<br><hr style="border:none;border-top:1px solid #e0e0e0;margin:16px 0"><div style="color:#888;font-size:12px;margin-bottom:8px;">${t.agentWorkspace.emailReplyOriginal || "Original message:"}</div><div style="padding-left:12px;border-left:3px solid #ddd;color:#555;font-size:13px;">${htmlBody.replace(/<script[\s\S]*?<\/script>/gi,'')}</div>`;
+                            await sendEmailMutation.mutateAsync({
+                              to: [contact.email],
+                              subject: `Re: ${subject || ""}`,
+                              body: replyBodyHtml,
+                              customerId: contact.id,
+                              contactType: currentContactType || "customer",
+                            });
+                            setEmailReplyOpen(false);
+                            setEmailReplyText("");
+                            setHistoryDetailModal(null);
+                          } catch { /* toast shown by mutation */ }
+                          finally { setIsSendingReply(false); }
+                        }}
+                      >
+                        {isSendingReply ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Send className="h-3 w-3 mr-1" />}
+                        {t.agentWorkspace.emailReplySend || "Send reply"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-3 text-xs"
+                        onClick={() => { setEmailReplyOpen(false); setEmailReplyText(""); }}
+                        data-testid="btn-cancel-reply"
+                      >
+                        {t.agentWorkspace.emailReplyCancel || "Cancel"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </>
             );
           })()}

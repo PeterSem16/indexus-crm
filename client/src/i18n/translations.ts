@@ -3445,6 +3445,11 @@ export interface Translations {
     automationSwitchSms: string;
     createNewRecord: string;
     closeWithoutReschedule: string;
+    emailReply: string;
+    emailReplyPlaceholder: string;
+    emailReplySend: string;
+    emailReplyCancel: string;
+    emailReplyOriginal: string;
     savePhoneLabel: string;
     savingPhone: string;
     savedPhone: string;
@@ -10556,6 +10561,11 @@ export const translations: Record<Locale, Translations> = {
       automationSwitchSms: 'Switch to SMS',
       createNewRecord: 'Create new record',
       closeWithoutReschedule: 'Close without rescheduling',
+      emailReply: 'Reply',
+      emailReplyPlaceholder: 'Write your reply…',
+      emailReplySend: 'Send reply',
+      emailReplyCancel: 'Cancel',
+      emailReplyOriginal: 'Original message:',
       savePhoneLabel: 'Save number',
       savingPhone: 'Saving...',
       savedPhone: 'Saved',
@@ -17122,6 +17132,11 @@ export const translations: Record<Locale, Translations> = {
       automationSwitchSms: 'Prejsť na SMS',
       createNewRecord: 'Vytvoriť nový záznam',
       closeWithoutReschedule: 'Zatvoriť bez preplanovania',
+      emailReply: 'Odpovedať',
+      emailReplyPlaceholder: 'Napíšte odpoveď…',
+      emailReplySend: 'Odoslať odpoveď',
+      emailReplyCancel: 'Zrušiť',
+      emailReplyOriginal: 'Pôvodná správa:',
       savePhoneLabel: 'Uložiť číslo',
       savingPhone: 'Ukladám...',
       savedPhone: 'Uložené',
@@ -23674,6 +23689,11 @@ export const translations: Record<Locale, Translations> = {
       automationSwitchSms: 'Přejít na SMS',
       createNewRecord: 'Vytvořit nový záznam',
       closeWithoutReschedule: 'Zavřít bez přeplánování',
+      emailReply: 'Odpovědět',
+      emailReplyPlaceholder: 'Napište odpověď…',
+      emailReplySend: 'Odeslat odpověď',
+      emailReplyCancel: 'Zrušit',
+      emailReplyOriginal: 'Původní zpráva:',
       savePhoneLabel: 'Uložit číslo',
       savingPhone: 'Ukládám...',
       savedPhone: 'Uloženo',
@@ -30174,6 +30194,11 @@ export const translations: Record<Locale, Translations> = {
       automationSwitchSms: 'Váltás SMS-re',
       createNewRecord: 'Új rekord létrehozása',
       closeWithoutReschedule: 'Bezárás átütemezés nélkül',
+      emailReply: 'Válasz',
+      emailReplyPlaceholder: 'Írja válaszát…',
+      emailReplySend: 'Válasz küldése',
+      emailReplyCancel: 'Mégsem',
+      emailReplyOriginal: 'Eredeti üzenet:',
       savePhoneLabel: 'Szám mentése',
       savingPhone: 'Mentés...',
       savedPhone: 'Elmentve',
@@ -36569,6 +36594,11 @@ export const translations: Record<Locale, Translations> = {
       automationSwitchSms: 'Comutare la SMS',
       createNewRecord: 'Creare înregistrare nouă',
       closeWithoutReschedule: 'Închide fără reprogramare',
+      emailReply: 'Răspunde',
+      emailReplyPlaceholder: 'Scrieți răspunsul…',
+      emailReplySend: 'Trimite răspuns',
+      emailReplyCancel: 'Anulare',
+      emailReplyOriginal: 'Mesaj original:',
       savePhoneLabel: 'Salvați numărul',
       savingPhone: 'Se salvează...',
       savedPhone: 'Salvat',
@@ -42966,6 +42996,11 @@ export const translations: Record<Locale, Translations> = {
       automationSwitchSms: 'Passa a SMS',
       createNewRecord: 'Crea nuovo record',
       closeWithoutReschedule: 'Chiudi senza riprogrammare',
+      emailReply: 'Rispondi',
+      emailReplyPlaceholder: 'Scrivi la tua risposta…',
+      emailReplySend: 'Invia risposta',
+      emailReplyCancel: 'Annulla',
+      emailReplyOriginal: 'Messaggio originale:',
       savePhoneLabel: 'Salva numero',
       savingPhone: 'Salvataggio...',
       savedPhone: 'Salvato',
@@ -49363,6 +49398,11 @@ export const translations: Record<Locale, Translations> = {
       automationSwitchSms: 'Zu SMS wechseln',
       createNewRecord: 'Neuen Eintrag erstellen',
       closeWithoutReschedule: 'Schließen ohne Neuzuweisung',
+      emailReply: 'Antworten',
+      emailReplyPlaceholder: 'Antwort schreiben…',
+      emailReplySend: 'Antwort senden',
+      emailReplyCancel: 'Abbrechen',
+      emailReplyOriginal: 'Ursprüngliche Nachricht:',
       savePhoneLabel: 'Nummer speichern',
       savingPhone: 'Wird gespeichert...',
       savedPhone: 'Gespeichert',
