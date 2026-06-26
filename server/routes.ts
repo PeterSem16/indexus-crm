@@ -13765,6 +13765,41 @@ Return ONLY valid JSON, no markdown code blocks.`,
           }
         } // end phone-fallback block
         
+        // ── Always notify agents about new inbound SMS (direct push, no rule needed) ─
+        try {
+          let smsContactName: string | null = null;
+          let smsCountryCode: string | undefined;
+          if (linkedCustomerId) {
+            try {
+              const c = await storage.getCustomer(linkedCustomerId);
+              if (c) { smsContactName = `${c.firstName} ${c.lastName}`.trim(); smsCountryCode = c.country; }
+            } catch {}
+          }
+          const smsDisplayName = smsContactName || webhookData.number || "Neznáme číslo";
+          const allUsers = await storage.getAllUsers();
+          const activeUserIds = allUsers.filter((u: any) => u.isActive !== false).map((u: any) => u.id);
+          if (activeUserIds.length > 0) {
+            await notificationService.sendNotificationToUsers(activeUserIds, {
+              type: "new_sms",
+              title: `Nová SMS od ${smsDisplayName}`,
+              message: webhookData.text ? webhookData.text.substring(0, 120) : "Prijatá SMS správa",
+              priority: "normal",
+              entityType: "sms",
+              entityId: incomingMessage.id,
+              countryCode: smsCountryCode,
+              metadata: {
+                senderPhone: webhookData.number,
+                customerId: linkedCustomerId || null,
+                customerName: smsContactName,
+                messagePreview: webhookData.text?.substring(0, 200) || "",
+              },
+            });
+          }
+          console.log(`[BulkGate DLR] New-SMS notification pushed to ${activeUserIds.length} users for message ${incomingMessage.id}`);
+        } catch (notifErr) {
+          console.error("[BulkGate DLR] Failed to send new-SMS notification:", notifErr);
+        }
+
         // Run AI analysis for incoming SMS
         if (webhookData.text) {
           try {
@@ -13784,7 +13819,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
               });
               console.log(`[BulkGate DLR] AI analysis complete for SMS ${incomingMessage.id}: sentiment=${aiResult.sentiment}, alert=${aiResult.alertLevel}`);
               
-              // Trigger notification for negative sentiment SMS
+              // Additional notification for negative sentiment (higher priority alert)
               if (aiResult.sentiment === "negative" || aiResult.sentiment === "angry" || aiResult.hasAngryTone) {
                 try {
                   let customerName: string | null = null;
