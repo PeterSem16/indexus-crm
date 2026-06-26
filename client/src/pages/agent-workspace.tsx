@@ -14201,10 +14201,10 @@ export default function AgentWorkspacePage() {
                     <div className="flex items-center gap-2 px-4 py-2 border-b bg-muted/20">
                       <CornerUpLeft className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
                       <span className="text-xs font-medium text-foreground">Re: {subject}</span>
-                      {contact?.email && (
+                      {(currentContact as any)?.email && (
                         <span className="text-[11px] text-muted-foreground ml-auto flex items-center gap-1">
                           <Mail className="h-3 w-3" />
-                          {contact.email}
+                          {(currentContact as any).email}
                         </span>
                       )}
                     </div>
@@ -14229,15 +14229,16 @@ export default function AgentWorkspacePage() {
                         disabled={isSendingReply || !emailReplyText.trim()}
                         data-testid="btn-send-reply"
                         onClick={async () => {
-                          if (!contact?.email || !emailReplyText.trim()) return;
+                          const contactEmail = (currentContact as any)?.email;
+                          if (!contactEmail || !emailReplyText.trim()) return;
                           setIsSendingReply(true);
                           try {
                             const replyBodyHtml = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;line-height:1.6;">${emailReplyText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}</div>${emailReplySignature ? `<br>${emailReplySignature}` : ''}<br><hr style="border:none;border-top:1px solid #e0e0e0;margin:16px 0"><div style="color:#888;font-size:12px;margin-bottom:8px;">${t.agentWorkspace.emailReplyOriginal || "Original message:"}</div><div style="padding-left:12px;border-left:3px solid #ddd;color:#555;font-size:13px;">${htmlBody.replace(/<script[\s\S]*?<\/script>/gi,'')}</div>`;
                             await sendEmailMutation.mutateAsync({
-                              to: [contact.email],
+                              to: [contactEmail],
                               subject: `Re: ${subject || ""}`,
                               body: replyBodyHtml,
-                              customerId: contact.id,
+                              customerId: currentContact!.id,
                               contactType: currentContactType || "customer",
                             });
                             setEmailReplyOpen(false);
