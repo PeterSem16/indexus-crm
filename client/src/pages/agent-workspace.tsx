@@ -4363,6 +4363,9 @@ function CommunicationCanvas({
                         agentId: m.userId,
                         status: m.status,
                         statusCode: m.status,
+                        sentiment: m.aiSentiment || null,
+                        aiAlertLevel: m.aiAlertLevel,
+                        aiHasAngryTone: m.aiHasAngryTone,
                       }));
                     const smsThread = [...historySms, ...freshSms]
                       .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -4410,6 +4413,8 @@ function CommunicationCanvas({
                       const text = msg.fullContent || msg.content || "—";
                       const prevMsg = displayItems[idx - 1];
                       const showDateSep = !prevMsg || (!msg._draft && new Date(msg.date).getTime() - new Date(prevMsg.date).getTime() > 10 * 60 * 1000);
+                      const msgSentiment = msg.sentiment || null;
+                      const isNegativeSent = !isOut && (msgSentiment === "negative" || msgSentiment === "angry" || msg.aiHasAngryTone);
                       return (
                         <div key={msg.id || idx}>
                           {showDateSep && !msg._draft && (
@@ -4422,8 +4427,8 @@ function CommunicationCanvas({
                           <div className={`flex items-end gap-2 ${isOut ? "justify-end" : "justify-start"}`}>
                             {!isOut && (
                               <div className="flex flex-col items-center gap-0.5 shrink-0 mb-1">
-                                <Avatar className="h-7 w-7 ring-2 ring-white dark:ring-stone-700 shadow-sm">
-                                  <AvatarFallback className="text-[10px] font-bold bg-gradient-to-br from-emerald-400 to-teal-500 text-white">
+                                <Avatar className={`h-7 w-7 ring-2 shadow-sm ${isNegativeSent ? "ring-red-300 dark:ring-red-700" : "ring-white dark:ring-stone-700"}`}>
+                                  <AvatarFallback className={`text-[10px] font-bold text-white ${isNegativeSent ? "bg-gradient-to-br from-red-400 to-rose-500" : "bg-gradient-to-br from-emerald-400 to-teal-500"}`}>
                                     {inboundInitial}
                                   </AvatarFallback>
                                 </Avatar>
@@ -4437,20 +4442,27 @@ function CommunicationCanvas({
                                 ? msg._draft
                                   ? "px-4 py-2.5 bg-white/90 border-2 border-dashed border-blue-300 dark:bg-stone-800/80 dark:border-blue-700 rounded-2xl rounded-br-none shadow-sm"
                                   : "px-4 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-indigo-700 rounded-2xl rounded-br-none shadow-md"
-                                : "px-4 py-2.5 bg-white dark:bg-stone-800 rounded-2xl rounded-bl-none shadow-md border-l-[3px] border-emerald-400 dark:border-emerald-500"
+                                : isNegativeSent
+                                  ? "px-4 py-2.5 bg-red-50 dark:bg-red-950/60 rounded-2xl rounded-bl-none shadow-md border-l-[3px] border-red-500 dark:border-red-600"
+                                  : "px-4 py-2.5 bg-white dark:bg-stone-800 rounded-2xl rounded-bl-none shadow-md border-l-[3px] border-emerald-400 dark:border-emerald-500"
                             }`}>
                               <p className={`text-[13px] leading-relaxed whitespace-pre-wrap break-words ${
                                 isOut
                                   ? msg._draft
                                     ? "font-normal text-blue-700 dark:text-blue-300 italic"
                                     : "font-semibold text-white"
-                                  : "font-semibold text-stone-800 dark:text-stone-100"
+                                  : isNegativeSent
+                                    ? "font-semibold text-red-800 dark:text-red-200"
+                                    : "font-semibold text-stone-800 dark:text-stone-100"
                               }`}>{text}</p>
                               {!msg._draft && (
-                                <div className={`flex items-center gap-1 mt-1 ${isOut ? "justify-end" : "justify-start"}`}>
-                                  <span className={`text-[10px] font-medium ${isOut ? "text-blue-100 dark:text-blue-300" : "text-stone-400 dark:text-stone-500"}`}>
+                                <div className={`flex items-center gap-1.5 mt-1 ${isOut ? "justify-end" : "justify-start"}`}>
+                                  <span className={`text-[10px] font-medium ${isOut ? "text-blue-100 dark:text-blue-300" : isNegativeSent ? "text-red-400 dark:text-red-500" : "text-stone-400 dark:text-stone-500"}`}>
                                     {format(new Date(msg.date), "HH:mm")}
                                   </span>
+                                  {!isOut && msgSentiment && (
+                                    <SentimentBadge sentiment={msgSentiment} size="sm" />
+                                  )}
                                   {isOut && (
                                     <span className={`text-[10px] ${msg.status === "delivered" || msg.status === "read" ? "text-blue-100" : "text-blue-200/70"}`}>
                                       {msg.status === "delivered" || msg.status === "read" ? "✓✓" : "✓"}

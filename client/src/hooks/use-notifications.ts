@@ -9,6 +9,9 @@ import { useI18n } from "@/i18n";
 import { playBackOfficeChime, installBackOfficeAudioUnlock } from "@/lib/back-office-chime";
 import { dispatchBackOfficeAlert } from "@/lib/back-office-alert";
 
+const _shownSmsToasts = new Set<string>();
+const _shownNegSmsToasts = new Set<string>();
+
 interface Notification {
   id: string;
   userId: string;
@@ -137,6 +140,27 @@ export function useNotifications() {
                   const cid = message.notification.metadata.customerId;
                   queryClient.invalidateQueries({ queryKey: ["/api/customers", cid, "messages"] });
                   queryClient.invalidateQueries({ queryKey: ["/api/entity-history", cid] });
+                }
+                // Toast for new inbound SMS — exactly once per notification ID
+                if (message.notification?.type === "new_sms") {
+                  const smsNotif = message.notification!;
+                  if (!_shownSmsToasts.has(smsNotif.id)) {
+                    _shownSmsToasts.add(smsNotif.id);
+                    const preview = smsNotif.metadata?.messagePreview?.substring(0, 120) || smsNotif.message || undefined;
+                    toastRef.current({ title: smsNotif.title, description: preview });
+                  }
+                }
+                // Toast for negative SMS sentiment alert — exactly once per notification ID
+                if (message.notification?.type === "sentiment_negative" && message.notification?.entityType === "sms") {
+                  const negNotif = message.notification!;
+                  if (!_shownNegSmsToasts.has(negNotif.id)) {
+                    _shownNegSmsToasts.add(negNotif.id);
+                    toastRef.current({
+                      title: negNotif.title,
+                      description: negNotif.message || "SMS obsahuje negatívny sentiment",
+                      variant: "destructive",
+                    });
+                  }
                 }
                 const notif = message.notification;
                 // New Back Office task → pleasant chime + clickable toast, exactly once

@@ -127,6 +127,12 @@ function NotificationItem({ notification, onMarkRead, onDismiss }: NotificationI
   });
   const [, navigate] = useLocation();
 
+  const isNegativeSms = notification.type === "sentiment_negative" ||
+    (notification.type === "new_sms" && (
+      notification.metadata?.sentiment === "negative" ||
+      notification.metadata?.sentiment === "angry"
+    ));
+
   function handleClick() {
     if (!notification.isRead) onMarkRead(notification.id);
     if (notification.type === "group_task_assigned" && notification.metadata?.groupId) {
@@ -138,7 +144,8 @@ function NotificationItem({ notification, onMarkRead, onDismiss }: NotificationI
     <div 
       className={cn(
         "p-3 border-b last:border-b-0 hover-elevate cursor-pointer transition-colors",
-        !notification.isRead && "bg-primary/5"
+        !notification.isRead && "bg-primary/5",
+        isNegativeSms && "border-l-[3px] border-l-red-500 bg-red-50/80 dark:bg-red-900/20"
       )}
       onClick={handleClick}
       data-testid={`notification-item-${notification.id}`}
@@ -146,6 +153,7 @@ function NotificationItem({ notification, onMarkRead, onDismiss }: NotificationI
       <div className="flex gap-3">
         <div className={cn(
           "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center",
+          isNegativeSms ? "bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-300" :
           notification.priority === "urgent" ? "bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-300" :
           notification.priority === "high" ? "bg-orange-100 text-orange-600 dark:bg-orange-900 dark:text-orange-300" :
           "bg-muted text-muted-foreground"
