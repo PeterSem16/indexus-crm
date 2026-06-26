@@ -2971,6 +2971,8 @@ function CommunicationCanvas({
   useEffect(() => {
     if (campaignEmailMode === "system") {
       setSelectedFromAccount("system");
+    } else if (campaignEmailMode === "user") {
+      setSelectedFromAccount("personal");
     } else if (campaignEmailMode === "custom" && campaignEmailAddress) {
       const match = allEmailAccounts.find(a => a.email.toLowerCase() === campaignEmailAddress.toLowerCase());
       if (match) setSelectedFromAccount(match.id || "personal");
