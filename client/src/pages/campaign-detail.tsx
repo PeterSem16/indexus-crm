@@ -9790,7 +9790,7 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
         </TabsContent>
 
         <TabsContent value="sl-analytics" className="space-y-4">
-          <StatusListAnalyticsTab campaignId={id!} totalContacts={stats?.totalContacts || 0} />
+          <StatusListAnalyticsTab campaignId={campaignId} totalContacts={stats?.totalContacts || 0} />
         </TabsContent>
 
       </Tabs>
