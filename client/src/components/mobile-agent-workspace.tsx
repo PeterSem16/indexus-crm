@@ -432,8 +432,27 @@ function StatusListPanel({ items, checked, onToggle, np }: {
                 )}
 
                 {/* Sub-questions — from item.questions[], visible when parent is checked */}
-                {isChecked && questions.length > 0 && (
+                {isChecked && questions.length > 0 && (() => {
+                  const isSingleSelect = item.questionSelectionMode === "single";
+                  // For single-select: uncheck all other questions in this step first
+                  const handleQToggle = (qId: string, currentlyChecked: boolean) => {
+                    if (isSingleSelect && !currentlyChecked) {
+                      questions.forEach((pq: any) => {
+                        if (String(pq.id) !== qId && checked.has(String(pq.id))) {
+                          onToggle(String(pq.id), false);
+                        }
+                      });
+                    }
+                    onToggle(qId, !currentlyChecked);
+                  };
+                  return (
                   <div className="bg-muted/30 border-t">
+                    {isSingleSelect && (
+                      <div className="px-4 pt-2 pb-0.5 flex items-center gap-1">
+                        <div className="w-2.5 h-2.5 rounded-full border-2 border-blue-400 bg-blue-100 dark:bg-blue-900/40 shrink-0" />
+                        <span className="text-[9px] font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400">1×</span>
+                      </div>
+                    )}
                     {questions.map((q: any) => {
                       const ft = q.fieldType || "checkbox";
                       const qChecked = checked.has(String(q.id));
@@ -450,6 +469,14 @@ function StatusListPanel({ items, checked, onToggle, np }: {
                             <div className="flex gap-2">
                               <button
                                 onClick={() => {
+                                  if (isSingleSelect) {
+                                    questions.forEach((pq: any) => {
+                                      if (String(pq.id) !== String(q.id) && checked.has(String(pq.id))) {
+                                        setYesno(p => { const n = { ...p }; delete n[pq.id]; return n; });
+                                        onToggle(String(pq.id), false);
+                                      }
+                                    });
+                                  }
                                   setYesno(p => ({ ...p, [q.id]: "yes" }));
                                   if (!qChecked) onToggle(String(q.id), true);
                                 }}
@@ -473,22 +500,30 @@ function StatusListPanel({ items, checked, onToggle, np }: {
                         );
                       }
 
-                      // Default: checkbox
+                      // Default: checkbox / single-select radio
                       return (
                         <div key={q.id} className={`flex items-stretch border-b last:border-b-0 pl-4 ${qChecked ? "bg-emerald-50/40 dark:bg-emerald-900/10" : ""}`}>
                           <button
-                            onClick={() => onToggle(String(q.id), !qChecked)}
+                            onClick={() => handleQToggle(String(q.id), qChecked)}
                             className="shrink-0 flex items-center justify-center w-12 min-h-[48px] active:bg-muted/60"
                             data-testid={`sl-mobile-sub-${q.id}`}
                           >
-                            <div className={`h-6 w-6 rounded-md border-2 flex items-center justify-center transition-all ${
-                              qChecked ? "bg-emerald-400 border-emerald-400" : "border-muted-foreground/30 bg-background"
-                            }`}>
-                              {qChecked && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
-                            </div>
+                            {isSingleSelect ? (
+                              <div className={`h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                                qChecked ? "bg-emerald-400 border-emerald-400" : "border-muted-foreground/30 bg-background"
+                              }`}>
+                                {qChecked && <div className="h-2.5 w-2.5 rounded-full bg-white" />}
+                              </div>
+                            ) : (
+                              <div className={`h-6 w-6 rounded-md border-2 flex items-center justify-center transition-all ${
+                                qChecked ? "bg-emerald-400 border-emerald-400" : "border-muted-foreground/30 bg-background"
+                              }`}>
+                                {qChecked && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                              </div>
+                            )}
                           </button>
                           <button
-                            onClick={() => onToggle(String(q.id), !qChecked)}
+                            onClick={() => handleQToggle(String(q.id), qChecked)}
                             className="flex-1 py-3 pr-4 text-left min-h-[48px]"
                           >
                             <p className={`text-xs leading-snug ${qChecked ? "font-bold text-emerald-600 dark:text-emerald-400" : "font-medium text-muted-foreground"}`}>
@@ -501,7 +536,8 @@ function StatusListPanel({ items, checked, onToggle, np }: {
                       );
                     })}
                   </div>
-                )}
+                  );
+                })()}
               </div>
             );
           })}
