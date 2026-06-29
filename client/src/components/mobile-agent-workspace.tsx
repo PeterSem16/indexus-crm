@@ -687,8 +687,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
 
   const now = new Date();
   const callbackContacts = campaignContacts.filter((cc: any) =>
-    cc.status === "callback_scheduled" && cc.callbackDate &&
-    (!cc.assignedTo || cc.assignedTo === "all" || cc.assignedTo === currentUserId)
+    cc.status === "callback_scheduled" && cc.callbackDate
   );
   const overdueCallbacks = callbackContacts.filter((cc: any) => new Date(cc.callbackDate) <= now);
   const upcomingCallbacks = callbackContacts.filter((cc: any) => new Date(cc.callbackDate) > now);
@@ -762,62 +761,73 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
     return result;
   })();
 
-  // ── Contact info section — inline JSX, always visible ──
+  // ── Contact info section — explicit inline styles, no CSS variables ──
+  const S = {
+    card: { borderRadius: 16, border: "1px solid #e2e8f0", background: "#ffffff", overflow: "hidden" as const, marginBottom: 0 },
+    hdr: { padding: "10px 16px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", display: "flex", alignItems: "center", gap: 8 },
+    hdrTxt: { fontSize: 13, fontWeight: 700, color: "#1e293b" },
+    row: { padding: "10px 16px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 10 },
+    lbl: { fontSize: 11, color: "#94a3b8", marginBottom: 1 },
+    val: { fontSize: 14, fontWeight: 600, color: "#1e293b" },
+    btn: { width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: "transparent", border: "none", cursor: "pointer" },
+  };
   const contactInfoSection = (
     <>
-      <div className="rounded-2xl border bg-card overflow-hidden">
-        <div className="px-4 py-3 border-b bg-muted/30 flex items-center gap-2">
-          <User className="h-4 w-4 text-primary" />
-          <span className="text-sm font-bold">{np.viewDetails || "Kontaktné detaily"}</span>
+      <div style={S.card}>
+        <div style={S.hdr}>
+          <User className="h-4 w-4" style={{color:"#6366f1",flexShrink:0}} />
+          <span style={S.hdrTxt}>{np.viewDetails || "Kontaktné detaily"}</span>
         </div>
-        <div className="divide-y text-sm">
+        <div>
           {phoneNumbers.map(({ label, value }) => (
-            <div key={value} className="flex items-center gap-3 px-4 py-3">
-              <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-              <div className="min-w-0"><p className="text-xs text-muted-foreground">{label}</p><p className="font-semibold">{value}</p></div>
+            <div key={value} style={S.row}>
+              <Phone className="h-4 w-4" style={{color:"#94a3b8",flexShrink:0}} />
+              <div><div style={S.lbl}>{label}</div><div style={S.val}>{value}</div></div>
             </div>
           ))}
-          {contact?.email && <div className="flex items-center gap-3 px-4 py-3"><Mail className="h-4 w-4 text-muted-foreground shrink-0" /><div className="min-w-0"><p className="text-xs text-muted-foreground">Email</p><p className="font-semibold truncate">{contact.email}</p></div></div>}
-          {contact?.email2 && <div className="flex items-center gap-3 px-4 py-3"><Mail className="h-4 w-4 text-muted-foreground shrink-0" /><div className="min-w-0"><p className="text-xs text-muted-foreground">Email 2</p><p className="font-semibold truncate">{contact.email2}</p></div></div>}
-          {(contact?.address || contact?.street || contact?.city || contact?.country) && (
-            <div className="flex items-start gap-3 px-4 py-3"><MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" /><div className="min-w-0"><p className="text-xs text-muted-foreground">{np.address || "Address"}</p><p className="font-semibold leading-snug">{[contact?.address || contact?.street, (contact?.postalCode && contact?.city) ? `${contact.postalCode} ${contact.city}` : (contact?.postalCode || contact?.city), contact?.district || null, contact?.country].filter(Boolean).join(", ")}</p></div></div>
-          )}
-          {contact?.dateOfBirth && <div className="flex items-center gap-3 px-4 py-3"><Calendar className="h-4 w-4 text-muted-foreground shrink-0" /><div className="min-w-0"><p className="text-xs text-muted-foreground">{np.dateOfBirth || "Date of birth"}</p><p className="font-semibold">{(() => { try { return format(new Date(contact.dateOfBirth), "d. M. yyyy"); } catch { return contact.dateOfBirth; } })()}</p></div></div>}
-          {contact?.expectedDeliveryDate && <div className="flex items-center gap-3 px-4 py-3"><Baby className="h-4 w-4 text-muted-foreground shrink-0" /><div className="min-w-0"><p className="text-xs text-muted-foreground">{np.expectedDelivery || "Expected delivery"}</p><p className="font-semibold">{(() => { try { return format(new Date(contact.expectedDeliveryDate), "d. M. yyyy"); } catch { return contact.expectedDeliveryDate; } })()}</p></div></div>}
-          {contact?.nationalId && <div className="flex items-center gap-3 px-4 py-3"><FileText className="h-4 w-4 text-muted-foreground shrink-0" /><div className="min-w-0"><p className="text-xs text-muted-foreground">{np.nationalId || "National ID"}</p><p className="font-semibold">{contact.nationalId}</p></div></div>}
-          {contact?.contractNumber && <div className="flex items-center gap-3 px-4 py-3"><FileText className="h-4 w-4 text-primary shrink-0" /><div className="min-w-0"><p className="text-xs text-muted-foreground">{np.contractNumber || "Číslo zmluvy"}</p><p className="font-semibold font-mono">{contact.contractNumber}</p></div></div>}
-          {contact?.bankAccount && <div className="flex items-center gap-3 px-4 py-3"><FileText className="h-4 w-4 text-muted-foreground shrink-0" /><div className="min-w-0"><p className="text-xs text-muted-foreground">{np.bankAccount || "Bankový účet (IBAN)"}</p><p className="font-semibold font-mono text-sm">{contact.bankAccount}</p></div></div>}
-          {contact?.gynecologistName && <div className="flex items-center gap-3 px-4 py-3"><Stethoscope className="h-4 w-4 text-muted-foreground shrink-0" /><div className="min-w-0"><p className="text-xs text-muted-foreground">{np.gynecologist || "Gynecologist"}</p><p className="font-semibold">{contact.gynecologistName}</p>{contact.gynecologistPhone && <p className="text-xs text-muted-foreground mt-0.5">{contact.gynecologistPhone}</p>}</div></div>}
-          {contact?.hospitalName && <div className="flex items-center gap-3 px-4 py-3"><Building2 className="h-4 w-4 text-muted-foreground shrink-0" /><div className="min-w-0"><p className="text-xs text-muted-foreground">{np.hospital || "Hospital"}</p><p className="font-semibold">{contact.hospitalName}</p></div></div>}
-          {contact?.leadSource && <div className="flex items-start gap-3 px-4 py-3"><Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" /><div className="min-w-0"><p className="text-xs text-muted-foreground">{np.leadSource || "Lead source"}</p><p className="font-semibold">{contact.leadSource}</p>{contact.leadSourceNotes && <p className="text-xs text-muted-foreground mt-1 leading-snug">{contact.leadSourceNotes}</p>}</div></div>}
-          {contact?.website && <div className="flex items-center gap-3 px-4 py-3"><Globe className="h-4 w-4 text-muted-foreground shrink-0" /><div className="min-w-0"><p className="text-xs text-muted-foreground">Web</p><a href={contact.website.startsWith("http") ? contact.website : `https://${contact.website}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary truncate block hover:underline" onClick={e => e.stopPropagation()}>{contact.website}</a></div></div>}
-          {contact?.registrationSource && <div className="flex items-center gap-3 px-4 py-3"><Info className="h-4 w-4 text-muted-foreground shrink-0" /><div className="min-w-0"><p className="text-xs text-muted-foreground">{np.registrationSource || "Registration source"}</p><p className="font-semibold capitalize">{contact.registrationSource}</p></div></div>}
-          {contact?.notes && <div className="flex items-start gap-3 px-4 py-3"><FileText className="h-4 w-4 text-primary shrink-0 mt-0.5" /><div className="min-w-0"><p className="text-xs text-muted-foreground font-medium">{np.notes || "Poznámky"}</p><p className="leading-relaxed text-sm mt-0.5 whitespace-pre-line">{contact.notes}</p></div></div>}
+          {contact?.email && <div style={S.row}><Mail className="h-4 w-4" style={{color:"#94a3b8",flexShrink:0}} /><div><div style={S.lbl}>Email</div><div style={{...S.val, wordBreak:"break-all"}}>{contact.email}</div></div></div>}
+          {contact?.email2 && <div style={S.row}><Mail className="h-4 w-4" style={{color:"#94a3b8",flexShrink:0}} /><div><div style={S.lbl}>Email 2</div><div style={{...S.val, wordBreak:"break-all"}}>{contact.email2}</div></div></div>}
+          {(contact?.address || contact?.street || contact?.city || contact?.country) && <div style={{...S.row,alignItems:"flex-start"}}><MapPin className="h-4 w-4" style={{color:"#94a3b8",flexShrink:0,marginTop:2}} /><div><div style={S.lbl}>{np.address||"Adresa"}</div><div style={S.val}>{[contact?.address||contact?.street,(contact?.postalCode&&contact?.city)?`${contact.postalCode} ${contact.city}`:(contact?.postalCode||contact?.city),contact?.district||null,contact?.country].filter(Boolean).join(", ")}</div></div></div>}
+          {contact?.dateOfBirth && <div style={S.row}><Calendar className="h-4 w-4" style={{color:"#94a3b8",flexShrink:0}} /><div><div style={S.lbl}>{np.dateOfBirth||"Dátum nar."}</div><div style={S.val}>{(()=>{try{return format(new Date(contact.dateOfBirth),"d. M. yyyy")}catch{return contact.dateOfBirth}})()}</div></div></div>}
+          {contact?.expectedDeliveryDate && <div style={S.row}><Baby className="h-4 w-4" style={{color:"#94a3b8",flexShrink:0}} /><div><div style={S.lbl}>{np.expectedDelivery||"Predp. pôrod"}</div><div style={S.val}>{(()=>{try{return format(new Date(contact.expectedDeliveryDate),"d. M. yyyy")}catch{return contact.expectedDeliveryDate}})()}</div></div></div>}
+          {contact?.nationalId && <div style={S.row}><FileText className="h-4 w-4" style={{color:"#94a3b8",flexShrink:0}} /><div><div style={S.lbl}>{np.nationalId||"Rodné číslo"}</div><div style={S.val}>{contact.nationalId}</div></div></div>}
+          {contact?.contractNumber && <div style={S.row}><FileText className="h-4 w-4" style={{color:"#6366f1",flexShrink:0}} /><div><div style={S.lbl}>{np.contractNumber||"Číslo zmluvy"}</div><div style={{...S.val,fontFamily:"monospace"}}>{contact.contractNumber}</div></div></div>}
+          {contact?.bankAccount && <div style={S.row}><FileText className="h-4 w-4" style={{color:"#94a3b8",flexShrink:0}} /><div><div style={S.lbl}>{np.bankAccount||"Bankový účet"}</div><div style={{...S.val,fontFamily:"monospace",fontSize:12}}>{contact.bankAccount}</div></div></div>}
+          {contact?.gynecologistName && <div style={S.row}><Stethoscope className="h-4 w-4" style={{color:"#94a3b8",flexShrink:0}} /><div><div style={S.lbl}>{np.gynecologist||"Gynekológ"}</div><div style={S.val}>{contact.gynecologistName}</div>{contact.gynecologistPhone&&<div style={{...S.lbl,marginTop:2}}>{contact.gynecologistPhone}</div>}</div></div>}
+          {contact?.hospitalName && <div style={S.row}><Building2 className="h-4 w-4" style={{color:"#94a3b8",flexShrink:0}} /><div><div style={S.lbl}>{np.hospital||"Nemocnica"}</div><div style={S.val}>{contact.hospitalName}</div></div></div>}
+          {contact?.leadSource && <div style={{...S.row,alignItems:"flex-start"}}><Info className="h-4 w-4" style={{color:"#94a3b8",flexShrink:0,marginTop:2}} /><div><div style={S.lbl}>{np.leadSource||"Zdroj leadu"}</div><div style={S.val}>{contact.leadSource}</div>{contact.leadSourceNotes&&<div style={{...S.lbl,marginTop:4,lineHeight:1.4}}>{contact.leadSourceNotes}</div>}</div></div>}
+          {contact?.website && <div style={S.row}><Globe className="h-4 w-4" style={{color:"#94a3b8",flexShrink:0}} /><div><div style={S.lbl}>Web</div><a href={String(contact.website).startsWith("http")?String(contact.website):`https://${contact.website}`} target="_blank" rel="noopener noreferrer" style={{...S.val,color:"#6366f1"}} onClick={e=>e.stopPropagation()}>{contact.website}</a></div></div>}
+          {contact?.registrationSource && <div style={S.row}><Info className="h-4 w-4" style={{color:"#94a3b8",flexShrink:0}} /><div><div style={S.lbl}>{np.registrationSource||"Zdroj registrácie"}</div><div style={{...S.val,textTransform:"capitalize"}}>{contact.registrationSource}</div></div></div>}
+          {contact?.notes && <div style={{...S.row,alignItems:"flex-start"}}><FileText className="h-4 w-4" style={{color:"#6366f1",flexShrink:0,marginTop:2}} /><div><div style={{...S.lbl,fontWeight:600}}>{np.notes||"Poznámky"}</div><div style={{fontSize:13,color:"#334155",marginTop:4,lineHeight:1.5,whiteSpace:"pre-line"}}>{contact.notes}</div></div></div>}
         </div>
       </div>
-      <div className="rounded-2xl border bg-card overflow-hidden">
-        <button onClick={() => setShowHistory(v => !v)} className="w-full flex items-center justify-between px-4 py-3.5 active:bg-muted transition-colors" data-testid="btn-mobile-call-history">
-          <div className="flex items-center gap-2"><History className="h-4 w-4 text-primary" /><span className="text-sm font-bold">{np.callHistory || "Call history"}</span>{recentCalls.length > 0 && <span className="text-xs px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">{recentCalls.length}</span>}</div>
-          {showHistory ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+      <div style={S.card}>
+        <button onClick={() => setShowHistory(v => !v)} style={S.btn} data-testid="btn-mobile-call-history">
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <History className="h-4 w-4" style={{color:"#6366f1",flexShrink:0}} />
+            <span style={S.hdrTxt}>{np.callHistory||"Call history"}</span>
+            {recentCalls.length > 0 && <span style={{fontSize:11,padding:"1px 6px",borderRadius:999,background:"#f1f5f9",color:"#64748b",fontWeight:600}}>{recentCalls.length}</span>}
+          </div>
+          {showHistory ? <ChevronUp className="h-4 w-4" style={{color:"#94a3b8"}} /> : <ChevronDown className="h-4 w-4" style={{color:"#94a3b8"}} />}
         </button>
         {showHistory && (
-          <div className="border-t divide-y max-h-72 overflow-y-auto">
+          <div style={{borderTop:"1px solid #e2e8f0",maxHeight:280,overflowY:"auto"}}>
             {recentCalls.length === 0
-              ? <div className="px-4 py-5 text-center text-sm text-muted-foreground">{np.noCallHistory || "No call history"}</div>
+              ? <div style={{padding:"16px",textAlign:"center",fontSize:13,color:"#94a3b8"}}>{np.noCallHistory||"Žiadna história hovorov"}</div>
               : recentCalls.map((entry: any, idx: number) => (
-                <div key={idx} className="px-4 py-3 flex items-start gap-3">
-                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${entry.direction === "inbound" ? "bg-blue-50 dark:bg-blue-950/30" : "bg-muted"}`}>
-                    <PhoneCall className={`h-4 w-4 ${entry.direction === "inbound" ? "text-blue-500" : "text-muted-foreground"}`} />
+                <div key={idx} style={{padding:"10px 16px",borderBottom:"1px solid #f1f5f9",display:"flex",gap:10,alignItems:"flex-start"}}>
+                  <div style={{width:32,height:32,borderRadius:8,background:entry.direction==="inbound"?"#eff6ff":"#f8fafc",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                    <PhoneCall className="h-4 w-4" style={{color:entry.direction==="inbound"?"#3b82f6":"#94a3b8"}} />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-semibold text-muted-foreground">{(entry.timestamp || entry.date || entry.createdAt) ? (() => { try { return format(new Date(entry.timestamp || entry.date || entry.createdAt), "d. M. yyyy HH:mm"); } catch { return "—"; } })() : "—"}</p>
-                      {entry.duration != null && <span className="text-xs text-muted-foreground shrink-0">{fmtDur(Number(entry.duration))}</span>}
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:"flex",justifyContent:"space-between",gap:8}}>
+                      <span style={{fontSize:11,color:"#64748b",fontWeight:600}}>{(entry.timestamp||entry.date||entry.createdAt)?(()=>{try{return format(new Date(entry.timestamp||entry.date||entry.createdAt),"d. M. yyyy HH:mm")}catch{return"—"}})():"—"}</span>
+                      {entry.duration!=null&&<span style={{fontSize:11,color:"#94a3b8",flexShrink:0}}>{fmtDur(Number(entry.duration))}</span>}
                     </div>
-                    {entry.content && <p className="text-xs font-bold mt-0.5 truncate">{entry.content}</p>}
-                    {entry.status && <p className="text-xs text-muted-foreground mt-0.5">{entry.status}</p>}
-                    {entry.agentName && <p className="text-[10px] text-muted-foreground/70 mt-0.5">{entry.agentName}</p>}
-                    {(entry.notes || entry.callNotes) && <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed line-clamp-2">{entry.notes || entry.callNotes}</p>}
+                    {entry.content&&<div style={{fontSize:12,fontWeight:700,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{entry.content}</div>}
+                    {entry.status&&<div style={{fontSize:11,color:"#94a3b8",marginTop:1}}>{entry.status}</div>}
+                    {entry.agentName&&<div style={{fontSize:10,color:"#cbd5e1",marginTop:1}}>{entry.agentName}</div>}
+                    {(entry.notes||entry.callNotes)&&<div style={{fontSize:11,color:"#94a3b8",marginTop:2,lineHeight:1.4,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{entry.notes||entry.callNotes}</div>}
                   </div>
                 </div>
               ))
@@ -826,21 +836,25 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
         )}
       </div>
       {contact?.id && (
-        <div className="rounded-2xl border bg-card overflow-hidden">
-          <button onClick={() => setShowNotes(v => !v)} className="w-full flex items-center justify-between px-4 py-3.5 active:bg-muted transition-colors" data-testid="btn-mobile-notes">
-            <div className="flex items-center gap-2"><MessageSquare className="h-4 w-4 text-primary" /><span className="text-sm font-bold">{np.notes || "Poznámky"}</span>{contactNotes.length > 0 && <span className="text-xs px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">{contactNotes.length}</span>}</div>
-            {showNotes ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+        <div style={S.card}>
+          <button onClick={() => setShowNotes(v => !v)} style={S.btn} data-testid="btn-mobile-notes">
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <MessageSquare className="h-4 w-4" style={{color:"#6366f1",flexShrink:0}} />
+              <span style={S.hdrTxt}>{np.notes||"Poznámky"}</span>
+              {contactNotes.length > 0 && <span style={{fontSize:11,padding:"1px 6px",borderRadius:999,background:"#f1f5f9",color:"#64748b",fontWeight:600}}>{contactNotes.length}</span>}
+            </div>
+            {showNotes ? <ChevronUp className="h-4 w-4" style={{color:"#94a3b8"}} /> : <ChevronDown className="h-4 w-4" style={{color:"#94a3b8"}} />}
           </button>
           {showNotes && (
-            <div className="border-t">
+            <div style={{borderTop:"1px solid #e2e8f0"}}>
               {contactNotes.length === 0
-                ? <div className="px-4 py-4 text-center text-sm text-muted-foreground">{np.noNotes || "Žiadne poznámky"}</div>
-                : <div className="divide-y max-h-64 overflow-y-auto">{contactNotes.map((note: any) => (<div key={note.id} className="px-4 py-3"><div className="flex items-center justify-between gap-2 mb-1"><span className="text-xs font-semibold text-muted-foreground truncate">{note.userName || "—"}</span><span className="text-[10px] text-muted-foreground/70 shrink-0">{(() => { try { return format(new Date(note.createdAt), "d. M. yyyy HH:mm"); } catch { return ""; } })()}</span></div><p className="text-sm leading-relaxed whitespace-pre-line">{note.content}</p></div>))}</div>
+                ? <div style={{padding:"14px",textAlign:"center",fontSize:13,color:"#94a3b8"}}>{np.noNotes||"Žiadne poznámky"}</div>
+                : <div style={{maxHeight:256,overflowY:"auto"}}>{contactNotes.map((note: any) => (<div key={note.id} style={{padding:"10px 16px",borderBottom:"1px solid #f1f5f9"}}><div style={{display:"flex",justifyContent:"space-between",gap:8,marginBottom:4}}><span style={{fontSize:11,fontWeight:700,color:"#64748b",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{note.userName||"—"}</span><span style={{fontSize:10,color:"#cbd5e1",flexShrink:0}}>{(()=>{try{return format(new Date(note.createdAt),"d. M. yyyy HH:mm")}catch{return""}})()}</span></div><p style={{fontSize:13,color:"#1e293b",lineHeight:1.5,whiteSpace:"pre-wrap",margin:0}}>{note.content}</p></div>))}</div>
               }
-              <div className="px-3 pb-3 pt-2 border-t bg-muted/30">
-                <div className="flex gap-2 items-end">
-                  <textarea ref={noteTextareaRef} value={newNoteText} onChange={e => setNewNoteText(e.target.value)} placeholder={np.addNotePlaceholder || "Napísať poznámku…"} rows={2} className="flex-1 text-sm rounded-xl border bg-background px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 min-h-[60px]" data-testid="input-mobile-new-note" onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && newNoteText.trim()) { addNoteMutation.mutate(newNoteText.trim()); } }} />
-                  <button onClick={() => { if (newNoteText.trim()) addNoteMutation.mutate(newNoteText.trim()); }} disabled={!newNoteText.trim() || addNoteMutation.isPending} className="h-10 w-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40 active:scale-95 transition-all shrink-0" data-testid="btn-mobile-send-note"><Send className="h-4 w-4" /></button>
+              <div style={{padding:"8px 12px 12px",borderTop:"1px solid #e2e8f0",background:"#f8fafc"}}>
+                <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
+                  <textarea ref={noteTextareaRef} value={newNoteText} onChange={e => setNewNoteText(e.target.value)} placeholder={np.addNotePlaceholder||"Napísať poznámku…"} rows={2} style={{flex:1,fontSize:13,borderRadius:12,border:"1px solid #e2e8f0",background:"#fff",padding:"8px 12px",resize:"none",minHeight:56,fontFamily:"inherit",outline:"none"}} data-testid="input-mobile-new-note" onKeyDown={e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)&&newNoteText.trim()){addNoteMutation.mutate(newNoteText.trim())}}} />
+                  <button onClick={() => { if(newNoteText.trim()) addNoteMutation.mutate(newNoteText.trim()); }} disabled={!newNoteText.trim()||addNoteMutation.isPending} style={{width:40,height:40,borderRadius:12,background:"#6366f1",color:"#fff",border:"none",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,opacity:(!newNoteText.trim()||addNoteMutation.isPending)?0.4:1,cursor:"pointer"}} data-testid="btn-mobile-send-note"><Send className="h-4 w-4" /></button>
                 </div>
               </div>
             </div>

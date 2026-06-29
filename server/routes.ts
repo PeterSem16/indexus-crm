@@ -23637,12 +23637,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         .where(
           and(
             eq(campaignContacts.status, "callback_scheduled"),
-            isNotNull(campaignContacts.callbackDate),
-            or(
-              eq(campaignContacts.assignedTo, user.id),
-              eq(campaignContacts.assignedTo, "all"),
-              isNull(campaignContacts.assignedTo)
-            )
+            isNotNull(campaignContacts.callbackDate)
           )
         );
 
