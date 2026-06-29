@@ -1248,14 +1248,14 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
               </div>
             </div>
           </div>
-          {/* ── Scroll area: status list + contact info tabs ── */}
+          {/* ── Scroll area: contact info tabs + status list ── */}
           <div className="flex-1 min-h-0 overflow-y-auto" style={{ WebkitOverflowScrolling: "touch" }}>
+            <div className="px-4 pt-3 pb-2 flex flex-col gap-3">
+              {contactTabsSection}
+            </div>
             {dbStatusList.length > 0 && (
               <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} />
             )}
-            <div className="px-4 pt-3 pb-4 flex flex-col gap-3">
-              {contactTabsSection}
-            </div>
           </div>
         </div>
       </div>
@@ -1289,8 +1289,8 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
               {np.evaluateCall || "Evaluate call"}
             </button>
           )}
-          <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} />
           {contactTabsSection}
+          <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} />
           <button onClick={onClearContact}
             className="w-full flex items-center justify-center gap-2 h-11 rounded-xl border border-dashed border-amber-400 text-amber-600 dark:text-amber-400 text-sm font-semibold bg-amber-50/50 dark:bg-amber-950/10 active:scale-[0.98] transition-all"
             data-testid="btn-mobile-release-contact-ended">
