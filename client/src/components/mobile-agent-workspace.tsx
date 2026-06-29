@@ -764,13 +764,13 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
 
   // ── Contact info section — explicit inline styles, no CSS variables ──
   const S = {
-    card: { borderRadius: 16, border: "1px solid #e2e8f0", background: "#ffffff", overflow: "hidden" as const, marginBottom: 0 },
-    hdr: { padding: "10px 16px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", display: "flex", alignItems: "center", gap: 8 },
+    card: { borderRadius: 16, border: "1px solid #e2e8f0", background: "#ffffff", overflow: "hidden" as const, minHeight: 44 },
+    hdr: { padding: "10px 16px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", display: "flex" as const, alignItems: "center" as const, gap: 8 },
     hdrTxt: { fontSize: 13, fontWeight: 700, color: "#1e293b" },
-    row: { padding: "10px 16px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 10 },
+    row: { padding: "10px 16px", borderBottom: "1px solid #f1f5f9", display: "flex" as const, alignItems: "center" as const, gap: 10 },
     lbl: { fontSize: 11, color: "#94a3b8", marginBottom: 1 },
     val: { fontSize: 14, fontWeight: 600, color: "#1e293b" },
-    btn: { width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: "transparent", border: "none", cursor: "pointer" },
+    btn: { width: "100%", display: "flex" as const, alignItems: "center" as const, justifyContent: "space-between" as const, padding: "12px 16px", background: "transparent", border: "none", cursor: "pointer" as const },
   };
   const contactInfoSection = (
     <>

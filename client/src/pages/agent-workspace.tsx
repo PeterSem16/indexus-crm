@@ -7692,24 +7692,30 @@ function ScheduledQueuePanel({
   open,
   onOpenChange,
   onOpenContact,
+  showOnlyAssigned,
+  onToggleAssigned,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOpenContact?: (contactId: string, campaignId: string, campaignContactId: string, channel: "phone" | "email" | "sms", contactType?: string, contactPhone?: string) => void;
+  showOnlyAssigned?: boolean;
+  onToggleAssigned?: (v: boolean) => void;
 }) {
   const [filterType, setFilterType] = useState<"all" | "callback" | "email" | "sms">("all");
   const [timeFilter, setTimeFilter] = useState<"all" | "overdue" | "today" | "thisWeek" | "nextWeek" | "later">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<"date" | "name" | "campaign">("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const [showOnlyMine, setShowOnlyMine] = useState(false);
   const { t } = useI18n();
   const { toast } = useToast();
 
+  const onlyMine = showOnlyAssigned ?? false;
+  const setOnlyMine = onToggleAssigned ?? (() => {});
+
   const { data: scheduledItems = [], isLoading } = useQuery<ScheduledItem[]>({
-    queryKey: ["/api/agent/scheduled-queue", showOnlyMine],
+    queryKey: ["/api/agent/scheduled-queue", onlyMine],
     queryFn: async () => {
-      const url = `/api/agent/scheduled-queue${showOnlyMine ? "?onlyMine=true" : ""}`;
+      const url = `/api/agent/scheduled-queue${onlyMine ? "?onlyMine=true" : ""}`;
       const res = await fetch(url, { credentials: "include" });
       return res.ok ? res.json() : [];
     },
@@ -7855,8 +7861,8 @@ function ScheduledQueuePanel({
           <div className="flex items-center gap-2 mr-4">
             <Checkbox
               id="sqp-only-mine"
-              checked={showOnlyMine}
-              onCheckedChange={(v) => setShowOnlyMine(!!v)}
+              checked={onlyMine}
+              onCheckedChange={(v) => setOnlyMine(!!v)}
               data-testid="checkbox-sqp-only-mine"
             />
             <Label htmlFor="sqp-only-mine" className="text-xs cursor-pointer whitespace-nowrap">
@@ -13715,7 +13721,7 @@ export default function AgentWorkspacePage() {
         </SheetContent>
       </Sheet>
 
-      <ScheduledQueuePanel open={scheduledQueueOpen} onOpenChange={setScheduledQueueOpen} onOpenContact={handleOpenScheduledContact} />
+      <ScheduledQueuePanel open={scheduledQueueOpen} onOpenChange={setScheduledQueueOpen} onOpenContact={handleOpenScheduledContact} showOnlyAssigned={showOnlyAssigned} onToggleAssigned={setShowOnlyAssigned} />
       <MyActivityPanel
         open={myActivityOpen}
         onOpenChange={setMyActivityOpen}
