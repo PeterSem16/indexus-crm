@@ -9830,9 +9830,15 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
   const [search, setSearch] = useState("");
   const [contactSort, setContactSort] = useState<"calls" | "steps" | "name">("steps");
 
-  const { data, isLoading, isError } = useQuery<SLAnalytics>({
+  useEffect(() => {
+    console.log("[SL-Analytics] Tab mounted, campaignId=", campaignId);
+  }, [campaignId]);
+
+  const { data, isLoading, isError, error } = useQuery<SLAnalytics>({
     queryKey: ["/api/campaigns", campaignId, "status-list-analytics"],
+    enabled: !!campaignId,
     queryFn: async () => {
+      console.log("[SL-Analytics] Fetching for campaignId=", campaignId);
       const res = await fetch(`/api/campaigns/${campaignId}/status-list-analytics`, { credentials: "include" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json();
@@ -9845,31 +9851,59 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
     window.open(`/api/campaigns/${campaignId}/status-list-analytics/export`, "_blank");
   };
 
+  const toolbar = (
+    <div className="flex items-center justify-between">
+      <div className="flex gap-1 bg-muted rounded-lg p-1">
+        {([["funnel", "Funnel", TrendingUp], ["contacts", "Kontakty", Users], ["agents", "Agenti", UserCheck]] as const).map(([v, label, Icon]) => (
+          <button key={v} onClick={() => setView(v)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${view === v ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            data-testid={`btn-sl-view-${v}`}>
+            <Icon className="h-3.5 w-3.5" />{label}
+          </button>
+        ))}
+      </div>
+      <Button variant="outline" size="sm" onClick={handleExport} className="gap-2" data-testid="btn-sl-export">
+        <Download className="h-4 w-4" />Export CSV
+      </Button>
+    </div>
+  );
+
   if (isLoading) return (
-    <div className="flex items-center justify-center py-16 text-muted-foreground gap-2">
-      <Loader2 className="h-5 w-5 animate-spin" /> Načítavam štatistiky…
+    <div className="space-y-4">
+      {toolbar}
+      <div className="flex items-center justify-center py-16 text-muted-foreground gap-2">
+        <Loader2 className="h-5 w-5 animate-spin" /> Načítavam štatistiky…
+      </div>
     </div>
   );
 
   if (isError) return (
-    <Card><CardContent className="py-12 text-center text-muted-foreground">
-      <AlertCircle className="w-10 h-10 mx-auto mb-3 text-destructive opacity-70" />
-      <p className="font-medium text-destructive">Nepodarilo sa načítať štatistiky</p>
-      <p className="text-sm mt-1">Skontrolujte konzolu servera alebo skúste znova.</p>
-    </CardContent></Card>
+    <div className="space-y-4">
+      {toolbar}
+      <Card><CardContent className="py-12 text-center text-muted-foreground">
+        <AlertCircle className="w-10 h-10 mx-auto mb-3 text-destructive opacity-70" />
+        <p className="font-medium text-destructive">Nepodarilo sa načítať štatistiky</p>
+        <p className="text-sm mt-1 font-mono text-xs">{String(error)}</p>
+        <p className="text-xs mt-2 opacity-60">campaignId: {campaignId || "(prázdne)"}</p>
+      </CardContent></Card>
+    </div>
   );
 
   if (!data || data.items.length === 0) return (
-    <Card><CardContent className="py-12 text-center text-muted-foreground">
-      <ListChecks className="w-10 h-10 mx-auto mb-3 opacity-40" />
-      <p className="font-semibold text-foreground">Žiadne kroky Status Listu</p>
-      <p className="text-sm mt-1 max-w-xs mx-auto">
-        Táto misia nemá nakonfigurované kroky. Pridajte kroky v <strong>Nastavenia → Status List Builder</strong>.
-      </p>
-      <p className="text-xs mt-3 text-muted-foreground/60">
-        (Uistite sa tiež že Workflow Mode je nastavený na „Status List")
-      </p>
-    </CardContent></Card>
+    <div className="space-y-4">
+      {toolbar}
+      <Card><CardContent className="py-12 text-center text-muted-foreground">
+        <ListChecks className="w-10 h-10 mx-auto mb-3 opacity-40" />
+        <p className="font-semibold text-foreground">Žiadne kroky Status Listu</p>
+        <p className="text-sm mt-1 max-w-xs mx-auto">
+          Táto misia nemá nakonfigurované kroky. Pridajte kroky v <strong>Nastavenia → Status List Builder</strong>.
+        </p>
+        <p className="text-xs mt-3 text-muted-foreground/60">
+          (Uistite sa tiež že Workflow Mode je nastavený na „Status List")
+        </p>
+        <p className="text-xs mt-2 opacity-40">campaignId: {campaignId}</p>
+      </CardContent></Card>
+    </div>
   );
 
   const steps = data.items.filter(i => i.itemType === "step");
@@ -9887,21 +9921,7 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex gap-1 bg-muted rounded-lg p-1">
-          {([["funnel", "Funnel", TrendingUp], ["contacts", "Kontakty", Users], ["agents", "Agenti", UserCheck]] as const).map(([v, label, Icon]) => (
-            <button key={v} onClick={() => setView(v)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${view === v ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-              data-testid={`btn-sl-view-${v}`}>
-              <Icon className="h-3.5 w-3.5" />{label}
-            </button>
-          ))}
-        </div>
-        <Button variant="outline" size="sm" onClick={handleExport} className="gap-2" data-testid="btn-sl-export">
-          <Download className="h-4 w-4" />Export CSV
-        </Button>
-      </div>
+      {toolbar}
 
       {/* ── FUNNEL VIEW ── */}
       {view === "funnel" && (
