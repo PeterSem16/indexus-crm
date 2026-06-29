@@ -371,6 +371,16 @@ app.use((req, res, next) => {
 
   try {
     await pool.query(`
+      ALTER TABLE campaign_status_list_items
+        ADD COLUMN IF NOT EXISTS question_selection_mode TEXT NOT NULL DEFAULT 'multiple';
+    `);
+    console.log('[migration] campaign_status_list_items question_selection_mode ensured');
+  } catch (e: any) {
+    console.error('[migration] campaign_status_list_items question_selection_mode error:', e.message);
+  }
+
+  try {
+    await pool.query(`
       ALTER TABLE ivr_messages
         ADD COLUMN IF NOT EXISTS prepend_ringtone BOOLEAN NOT NULL DEFAULT FALSE,
         ADD COLUMN IF NOT EXISTS ring_count INTEGER NOT NULL DEFAULT 3,

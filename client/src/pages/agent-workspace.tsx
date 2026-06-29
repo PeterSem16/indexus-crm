@@ -5043,19 +5043,25 @@ function CommunicationCanvas({
                           if (!groups[k]) groups[k] = [];
                           groups[k].push(q);
                         });
-                        // Step-level exclusivity: when EVERY group in this step uses "ONE" mode,
-                        // selecting any question clears ALL sub-questions across all groups.
-                        const allGroupsAreOne = Object.values(groups).every(
+                        // Step-level exclusivity: when step has "single" selection mode OR
+                        // every group uses "ONE" logic, selecting one option clears all others.
+                        const stepSingleSelect = item.questionSelectionMode === "single";
+                        const allGroupsAreOne = stepSingleSelect || Object.values(groups).every(
                           (gList: any[]) => gList[0]?.logicOperator === "ONE"
                         );
                         return (
                           <div className="mt-2 pt-1.5 border-t border-dashed space-y-2" data-testid={`sl-questions-${item.id}`}>
+                            {stepSingleSelect && (
+                              <p className="text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-wider flex items-center gap-1">
+                                <span className="px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">1×</span>
+                              </p>
+                            )}
                             {Object.entries(groups).map(([gk, gqs]) => (
                               <div key={gk}>
                                 {gk !== "__ungrouped__" && (
                                   <div className="flex items-center gap-1.5 mb-1.5">
                                     <p className="text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-wider">{gk}</p>
-                                    {(gqs as any[])[0]?.logicOperator === "ONE" && (
+                                    {!stepSingleSelect && (gqs as any[])[0]?.logicOperator === "ONE" && (
                                       <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300">1×</span>
                                     )}
                                   </div>
@@ -5064,7 +5070,8 @@ function CommunicationCanvas({
                                   {(gqs as any[]).map((q: any) => {
                                     const ft = q.fieldType || "checkbox";
                                     const answered = slQuestionAnswers[q.id] !== undefined;
-                                    const groupMode = (gqs as any[])[0]?.logicOperator === "ONE" ? "ONE" : undefined;
+                                    // single-select at step level forces ONE mode across all questions
+                                    const groupMode = (stepSingleSelect || (gqs as any[])[0]?.logicOperator === "ONE") ? "ONE" : undefined;
                                     // When all groups are 1× mode, pass ALL step questions so that
                                     // selecting one option clears every other option in the step.
                                     const exclusiveQs = (groupMode === "ONE" && allGroupsAreOne)

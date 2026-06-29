@@ -77,6 +77,7 @@ type StatusListItem = {
   itemType?: string;
   color?: string | null;
   autoConfirmOnSubQuestion?: boolean;
+  questionSelectionMode?: "multiple" | "single";
   tab?: string | null;
   automations: StatusListAutomation[];
   questions: StatusListQuestion[];
@@ -146,6 +147,9 @@ const SL: Record<string, Record<string, string>> = {
   qLogicOne:   { sk: "Iba jeden (exkluzívny)", en: "One (exclusive)", cs: "Pouze jeden (exkluzivní)", hu: "Csak egy (kizárólagos)", ro: "Unul singur (exclusiv)", it: "Uno solo (esclusivo)", de: "Nur einer (exklusiv)" },
   autoConfirmSubLbl:  { sk: "Auto-potvrdiť pri podotázke", en: "Auto-confirm on sub-answer", cs: "Auto-potvrdit při podotázce", hu: "Automatikus megerősítés al-válasz esetén", ro: "Confirmare auto la sub-răspuns", it: "Conferma auto al sotto-risposta", de: "Auto-Bestätigung bei Unterantwort" },
   autoConfirmSubHint: { sk: "Hlavný krok sa automaticky potvrdí a jeho akcie sa spustia hneď ako agent odpovie na akúkoľvek podotázku.", en: "The parent step is auto-confirmed and its actions run as soon as the agent answers any sub-question.", cs: "Hlavní krok se automaticky potvrdí a jeho akce se spustí, jakmile agent odpoví na jakoukoli podotázku.", hu: "A fő lépés automatikusan megerősítésre kerül és műveletek futnak, amint az ügynök bármely alkérdésre válaszol.", ro: "Pasul principal este auto-confirmat și acțiunile sale rulează imediat ce agentul răspunde la orice sub-întrebare.", it: "Il passo principale viene auto-confermato e le sue azioni vengono eseguite non appena l'agente risponde a qualsiasi sotto-domanda.", de: "Der Hauptschritt wird automatisch bestätigt und seine Aktionen werden ausgeführt, sobald der Agent eine Unterfrage beantwortet." },
+  qSelModeLbl:    { sk: "Výber podotázok", en: "Sub-question selection", cs: "Výběr podotázek", hu: "Al-kérdés kiválasztás", ro: "Selecție sub-întrebări", it: "Selezione sotto-domande", de: "Unterfrageauswahl" },
+  qSelMultiple:   { sk: "Viacnásobný (zaškrtať viacero)", en: "Multiple (checkboxes)", cs: "Více (zaškrtáváčky)", hu: "Többszörös (jelölőnégyzetek)", ro: "Multiple (bifări)", it: "Multiplo (caselle)", de: "Mehrfach (Kontrollkästchen)" },
+  qSelSingle:     { sk: "Jednoduchý (iba jedna možnosť)", en: "Single (radio — only one)", cs: "Jednoduchý (jen jedna možnost)", hu: "Egyszerű (csak egy)", ro: "Simplu (doar una)", it: "Singolo (solo uno)", de: "Einfach (nur eines)" },
 
   ctr_SK: { sk: "Slovensko (SK)", en: "Slovakia (SK)", cs: "Slovensko (SK)", hu: "Szlovákia (SK)", ro: "Slovacia (SK)", it: "Slovacchia (SK)", de: "Slowakei (SK)" },
   ctr_CZ: { sk: "Česko (CZ)", en: "Czech Republic (CZ)", cs: "Česko (CZ)", hu: "Csehország (CZ)", ro: "Cehia (CZ)", it: "Repubblica Ceca (CZ)", de: "Tschechien (CZ)" },
@@ -2406,6 +2410,7 @@ function StatusListItemRow({
     restrictions: item.restrictions || "",
     isHidden: item.isHidden ?? false,
     autoConfirmOnSubQuestion: item.autoConfirmOnSubQuestion ?? false,
+    questionSelectionMode: (item.questionSelectionMode ?? "multiple") as "multiple" | "single",
     tab: item.tab ?? null as string | null,
   });
 
@@ -2599,6 +2604,16 @@ function StatusListItemRow({
                 <div className="flex items-center gap-2 pt-4" title={sl("autoConfirmSubHint", locale)}>
                   <Switch checked={!!form.autoConfirmOnSubQuestion} onCheckedChange={v => setForm(f => ({ ...f, autoConfirmOnSubQuestion: v }))} data-testid="switch-auto-confirm-sub" />
                   <Label className="text-xs">{sl("autoConfirmSubLbl", locale)}</Label>
+                </div>
+                <div>
+                  <Label className="text-xs mb-1 block">{sl("qSelModeLbl", locale)}</Label>
+                  <Select value={form.questionSelectionMode} onValueChange={v => setForm(f => ({ ...f, questionSelectionMode: v as "multiple" | "single" }))}>
+                    <SelectTrigger className="h-8 text-xs" data-testid="select-question-selection-mode"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="multiple">{sl("qSelMultiple", locale)}</SelectItem>
+                      <SelectItem value="single">{sl("qSelSingle", locale)}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label className="text-xs mb-1 block">{sl("tabLbl", locale)}</Label>
@@ -2942,6 +2957,7 @@ function AddItemForm({
     nextStepId: "",
     restrictions: "",
     autoConfirmOnSubQuestion: false,
+    questionSelectionMode: "multiple" as "multiple" | "single",
     tab: null as string | null,
   });
 
@@ -3016,6 +3032,16 @@ function AddItemForm({
         <div className="flex items-center gap-2 pt-4" title={sl("autoConfirmSubHint", locale)}>
           <Switch checked={form.autoConfirmOnSubQuestion} onCheckedChange={v => setForm(f => ({ ...f, autoConfirmOnSubQuestion: v }))} data-testid="switch-add-auto-confirm-sub" />
           <Label className="text-xs">{sl("autoConfirmSubLbl", locale)}</Label>
+        </div>
+        <div>
+          <Label className="text-xs mb-1 block">{sl("qSelModeLbl", locale)}</Label>
+          <Select value={form.questionSelectionMode} onValueChange={v => setForm(f => ({ ...f, questionSelectionMode: v as "multiple" | "single" }))}>
+            <SelectTrigger className="h-8 text-xs" data-testid="select-add-question-selection-mode"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="multiple">{sl("qSelMultiple", locale)}</SelectItem>
+              <SelectItem value="single">{sl("qSelSingle", locale)}</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="col-span-1">
           <Label className="text-xs mb-1 block">{sl("tabLbl", locale)}</Label>

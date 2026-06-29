@@ -7790,6 +7790,7 @@ export const campaignStatusListItems = pgTable("campaign_status_list_items", {
   itemType: text("item_type").notNull().default("step"),
   color: text("color"),
   autoConfirmOnSubQuestion: boolean("auto_confirm_on_sub_question").notNull().default(false),
+  questionSelectionMode: text("question_selection_mode").notNull().default("multiple"), // 'multiple' | 'single'
   tab: text("tab"),  // 'acquisition' | 'retention' | null (null = show in both tabs)
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
@@ -7809,6 +7810,7 @@ export const insertCampaignStatusListItemSchema = createInsertSchema(campaignSta
   itemType: z.string().optional().default("step"),
   color: z.string().optional().nullable(),
   autoConfirmOnSubQuestion: z.boolean().optional().default(false),
+  questionSelectionMode: z.enum(["multiple", "single"]).optional().default("multiple"),
   tab: z.string().optional().nullable(),
 });
 export type CampaignStatusListItem = typeof campaignStatusListItems.$inferSelect;
