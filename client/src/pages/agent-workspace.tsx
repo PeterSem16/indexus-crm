@@ -1359,20 +1359,22 @@ function TaskListPanel({
                     ac: "#5B4FCF",
                     Icon: Clock,
                   },
-                  {
-                    id: "team-cb",
-                    label: t.agentWorkspace.groupTeamCb,
-                    items: campaignContacts.filter(cc => isCb(cc) && cc.assignedTo && !isMine(cc) && !isDue(cc)).sort(sortByDate),
-                    ac: "#2E75B6",
-                    Icon: Users,
-                  },
-                  {
-                    id: "other-cb",
-                    label: t.agentWorkspace.groupOtherCb,
-                    items: campaignContacts.filter(cc => isCb(cc) && cc.assignedTo && cc.assignedTo !== currentUserId).sort(sortByDate),
-                    ac: "#7A6858",
-                    Icon: User,
-                  },
+                  ...(!showOnlyAssigned ? [
+                    {
+                      id: "team-cb",
+                      label: t.agentWorkspace.groupTeamCb,
+                      items: campaignContacts.filter(cc => isCb(cc) && cc.assignedTo && !isMine(cc) && !isDue(cc)).sort(sortByDate),
+                      ac: "#2E75B6",
+                      Icon: Users,
+                    },
+                    {
+                      id: "other-cb",
+                      label: t.agentWorkspace.groupOtherCb,
+                      items: campaignContacts.filter(cc => isCb(cc) && cc.assignedTo && cc.assignedTo !== currentUserId).sort(sortByDate),
+                      ac: "#7A6858",
+                      Icon: User,
+                    },
+                  ] : []),
                   {
                     id: "pending",
                     label: t.agentWorkspace.groupPending,

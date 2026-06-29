@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type CSSProperties, type RefObject } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Slider } from "@/components/ui/slider";
@@ -648,6 +648,128 @@ function ContactRow({ cc, onSelect, isOverdue, isUpcoming, callbackDate, np, cur
   );
 }
 
+/* ── contact info sub-component (own state so clicks always work) ─── */
+function MobileContactInfoCards({
+  contact, phoneNumbers, recentCalls, contactNotes, np,
+  noteTextareaRef, newNoteText, onNoteTextChange, onAddNote, addNotePending,
+}: {
+  contact: any;
+  phoneNumbers: { label: string; value: string }[];
+  recentCalls: any[];
+  contactNotes: any[];
+  np: any;
+  noteTextareaRef: RefObject<HTMLTextAreaElement>;
+  newNoteText: string;
+  onNoteTextChange: (t: string) => void;
+  onAddNote: (t: string) => void;
+  addNotePending: boolean;
+}) {
+  const [showHistory, setShowHistory] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  const card: CSSProperties = { borderRadius: 16, border: "1px solid #e2e8f0", background: "#ffffff", overflow: "hidden", minHeight: 44 };
+  const hdr: CSSProperties = { padding: "10px 16px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", display: "flex", alignItems: "center", gap: 8 };
+  const row: CSSProperties = { padding: "10px 16px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 10 };
+  const lbl: CSSProperties = { fontSize: 11, color: "#94a3b8", marginBottom: 1 };
+  const val: CSSProperties = { fontSize: 14, fontWeight: 600, color: "#1e293b" };
+  const hdrTxt: CSSProperties = { fontSize: 13, fontWeight: 700, color: "#1e293b" };
+  const btn: CSSProperties = { width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: "transparent", border: "none", cursor: "pointer", WebkitTapHighlightColor: "transparent" };
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {/* Kontaktné detaily */}
+      <div style={card}>
+        <div style={hdr}>
+          <User className="h-4 w-4" style={{ color: "#6366f1", flexShrink: 0 }} />
+          <span style={hdrTxt}>{np.viewDetails || "Kontaktné detaily"}</span>
+        </div>
+        <div>
+          {phoneNumbers.map(({ label, value }) => (
+            <div key={value} style={row}>
+              <Phone className="h-4 w-4" style={{ color: "#94a3b8", flexShrink: 0 }} />
+              <div><div style={lbl}>{label}</div><div style={val}>{value}</div></div>
+            </div>
+          ))}
+          {contact?.email && <div style={row}><Mail className="h-4 w-4" style={{ color: "#94a3b8", flexShrink: 0 }} /><div><div style={lbl}>Email</div><div style={{ ...val, wordBreak: "break-all" }}>{contact.email}</div></div></div>}
+          {contact?.email2 && <div style={row}><Mail className="h-4 w-4" style={{ color: "#94a3b8", flexShrink: 0 }} /><div><div style={lbl}>Email 2</div><div style={{ ...val, wordBreak: "break-all" }}>{contact.email2}</div></div></div>}
+          {(contact?.address || contact?.street || contact?.city || contact?.country) && <div style={{ ...row, alignItems: "flex-start" }}><MapPin className="h-4 w-4" style={{ color: "#94a3b8", flexShrink: 0, marginTop: 2 }} /><div><div style={lbl}>{np.address || "Adresa"}</div><div style={val}>{[contact?.address || contact?.street, (contact?.postalCode && contact?.city) ? `${contact.postalCode} ${contact.city}` : (contact?.postalCode || contact?.city), contact?.district || null, contact?.country].filter(Boolean).join(", ")}</div></div></div>}
+          {contact?.dateOfBirth && <div style={row}><Calendar className="h-4 w-4" style={{ color: "#94a3b8", flexShrink: 0 }} /><div><div style={lbl}>{np.dateOfBirth || "Dátum nar."}</div><div style={val}>{(() => { try { return format(new Date(contact.dateOfBirth), "d. M. yyyy"); } catch { return contact.dateOfBirth; } })()}</div></div></div>}
+          {contact?.expectedDeliveryDate && <div style={row}><Baby className="h-4 w-4" style={{ color: "#94a3b8", flexShrink: 0 }} /><div><div style={lbl}>{np.expectedDelivery || "Predp. pôrod"}</div><div style={val}>{(() => { try { return format(new Date(contact.expectedDeliveryDate), "d. M. yyyy"); } catch { return contact.expectedDeliveryDate; } })()}</div></div></div>}
+          {contact?.nationalId && <div style={row}><FileText className="h-4 w-4" style={{ color: "#94a3b8", flexShrink: 0 }} /><div><div style={lbl}>{np.nationalId || "Rodné číslo"}</div><div style={val}>{contact.nationalId}</div></div></div>}
+          {contact?.contractNumber && <div style={row}><FileText className="h-4 w-4" style={{ color: "#6366f1", flexShrink: 0 }} /><div><div style={lbl}>{np.contractNumber || "Číslo zmluvy"}</div><div style={{ ...val, fontFamily: "monospace" }}>{contact.contractNumber}</div></div></div>}
+          {contact?.bankAccount && <div style={row}><FileText className="h-4 w-4" style={{ color: "#94a3b8", flexShrink: 0 }} /><div><div style={lbl}>{np.bankAccount || "Bankový účet"}</div><div style={{ ...val, fontFamily: "monospace", fontSize: 12 }}>{contact.bankAccount}</div></div></div>}
+          {contact?.gynecologistName && <div style={row}><Stethoscope className="h-4 w-4" style={{ color: "#94a3b8", flexShrink: 0 }} /><div><div style={lbl}>{np.gynecologist || "Gynekológ"}</div><div style={val}>{contact.gynecologistName}</div>{contact.gynecologistPhone && <div style={{ ...lbl, marginTop: 2 }}>{contact.gynecologistPhone}</div>}</div></div>}
+          {contact?.hospitalName && <div style={row}><Building2 className="h-4 w-4" style={{ color: "#94a3b8", flexShrink: 0 }} /><div><div style={lbl}>{np.hospital || "Nemocnica"}</div><div style={val}>{contact.hospitalName}</div></div></div>}
+          {contact?.leadSource && <div style={{ ...row, alignItems: "flex-start" }}><Info className="h-4 w-4" style={{ color: "#94a3b8", flexShrink: 0, marginTop: 2 }} /><div><div style={lbl}>{np.leadSource || "Zdroj leadu"}</div><div style={val}>{contact.leadSource}</div>{contact.leadSourceNotes && <div style={{ ...lbl, marginTop: 4, lineHeight: 1.4 }}>{contact.leadSourceNotes}</div>}</div></div>}
+          {contact?.website && <div style={row}><Globe className="h-4 w-4" style={{ color: "#94a3b8", flexShrink: 0 }} /><div><div style={lbl}>Web</div><a href={String(contact.website).startsWith("http") ? String(contact.website) : `https://${contact.website}`} target="_blank" rel="noopener noreferrer" style={{ ...val, color: "#6366f1" }} onClick={e => e.stopPropagation()}>{contact.website}</a></div></div>}
+          {contact?.registrationSource && <div style={row}><Info className="h-4 w-4" style={{ color: "#94a3b8", flexShrink: 0 }} /><div><div style={lbl}>{np.registrationSource || "Zdroj registrácie"}</div><div style={{ ...val, textTransform: "capitalize" }}>{contact.registrationSource}</div></div></div>}
+          {contact?.notes && <div style={{ ...row, alignItems: "flex-start" }}><FileText className="h-4 w-4" style={{ color: "#6366f1", flexShrink: 0, marginTop: 2 }} /><div><div style={{ ...lbl, fontWeight: 600 }}>{np.notes || "Poznámky"}</div><div style={{ fontSize: 13, color: "#334155", marginTop: 4, lineHeight: 1.5, whiteSpace: "pre-line" }}>{contact.notes}</div></div></div>}
+        </div>
+      </div>
+      {/* Call history */}
+      <div style={card}>
+        <button type="button" onClick={() => setShowHistory(v => !v)} style={btn} data-testid="btn-mobile-call-history">
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <History className="h-4 w-4" style={{ color: "#6366f1", flexShrink: 0 }} />
+            <span style={hdrTxt}>{np.callHistory || "Call history"}</span>
+            {recentCalls.length > 0 && <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 999, background: "#f1f5f9", color: "#64748b", fontWeight: 600 }}>{recentCalls.length}</span>}
+          </div>
+          {showHistory ? <ChevronUp className="h-4 w-4" style={{ color: "#94a3b8" }} /> : <ChevronDown className="h-4 w-4" style={{ color: "#94a3b8" }} />}
+        </button>
+        {showHistory && (
+          <div style={{ borderTop: "1px solid #e2e8f0", maxHeight: 280, overflowY: "auto" }}>
+            {recentCalls.length === 0
+              ? <div style={{ padding: "16px", textAlign: "center", fontSize: 13, color: "#94a3b8" }}>{np.noCallHistory || "Žiadna história hovorov"}</div>
+              : recentCalls.map((entry: any, idx: number) => (
+                <div key={idx} style={{ padding: "10px 16px", borderBottom: "1px solid #f1f5f9", display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 8, background: entry.direction === "inbound" ? "#eff6ff" : "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <PhoneCall className="h-4 w-4" style={{ color: entry.direction === "inbound" ? "#3b82f6" : "#94a3b8" }} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                      <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>{(entry.timestamp || entry.date || entry.createdAt) ? (() => { try { return format(new Date(entry.timestamp || entry.date || entry.createdAt), "d. M. yyyy HH:mm"); } catch { return "—"; } })() : "—"}</span>
+                      {entry.duration != null && <span style={{ fontSize: 11, color: "#94a3b8", flexShrink: 0 }}>{fmtDur(Number(entry.duration))}</span>}
+                    </div>
+                    {entry.content && <div style={{ fontSize: 12, fontWeight: 700, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.content}</div>}
+                    {entry.status && <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>{entry.status}</div>}
+                    {entry.agentName && <div style={{ fontSize: 10, color: "#cbd5e1", marginTop: 1 }}>{entry.agentName}</div>}
+                    {(entry.notes || entry.callNotes) && <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2, lineHeight: 1.4 }}>{entry.notes || entry.callNotes}</div>}
+                  </div>
+                </div>
+              ))
+            }
+          </div>
+        )}
+      </div>
+      {/* Notes */}
+      {contact?.id && (
+        <div style={card}>
+          <button type="button" onClick={() => setShowNotes(v => !v)} style={btn} data-testid="btn-mobile-notes">
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <MessageSquare className="h-4 w-4" style={{ color: "#6366f1", flexShrink: 0 }} />
+              <span style={hdrTxt}>{np.notes || "Poznámky"}</span>
+              {contactNotes.length > 0 && <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 999, background: "#f1f5f9", color: "#64748b", fontWeight: 600 }}>{contactNotes.length}</span>}
+            </div>
+            {showNotes ? <ChevronUp className="h-4 w-4" style={{ color: "#94a3b8" }} /> : <ChevronDown className="h-4 w-4" style={{ color: "#94a3b8" }} />}
+          </button>
+          {showNotes && (
+            <div style={{ borderTop: "1px solid #e2e8f0" }}>
+              {contactNotes.length === 0
+                ? <div style={{ padding: "14px", textAlign: "center", fontSize: 13, color: "#94a3b8" }}>{np.noNotes || "Žiadne poznámky"}</div>
+                : <div style={{ maxHeight: 256, overflowY: "auto" }}>{contactNotes.map((note: any) => (<div key={note.id} style={{ padding: "10px 16px", borderBottom: "1px solid #f1f5f9" }}><div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 4 }}><span style={{ fontSize: 11, fontWeight: 700, color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{note.userName || "—"}</span><span style={{ fontSize: 10, color: "#cbd5e1", flexShrink: 0 }}>{(() => { try { return format(new Date(note.createdAt), "d. M. yyyy HH:mm"); } catch { return ""; } })()}</span></div><p style={{ fontSize: 13, color: "#1e293b", lineHeight: 1.5, whiteSpace: "pre-wrap", margin: 0 }}>{note.content}</p></div>))}</div>
+              }
+              <div style={{ padding: "8px 12px 12px", borderTop: "1px solid #e2e8f0", background: "#f8fafc" }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+                  <textarea ref={noteTextareaRef} value={newNoteText} onChange={e => onNoteTextChange(e.target.value)} placeholder={np.addNotePlaceholder || "Napísať poznámku…"} rows={2} style={{ flex: 1, fontSize: 13, borderRadius: 12, border: "1px solid #e2e8f0", background: "#fff", padding: "8px 12px", resize: "none", minHeight: 56, fontFamily: "inherit", outline: "none" }} data-testid="input-mobile-new-note" onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && newNoteText.trim()) { onAddNote(newNoteText.trim()); } }} />
+                  <button type="button" onClick={() => { if (newNoteText.trim()) onAddNote(newNoteText.trim()); }} disabled={!newNoteText.trim() || addNotePending} style={{ width: 40, height: 40, borderRadius: 12, background: "#6366f1", color: "#fff", border: "none", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, opacity: (!newNoteText.trim() || addNotePending) ? 0.4 : 1, cursor: "pointer", WebkitTapHighlightColor: "transparent" }} data-testid="btn-mobile-send-note"><Send className="h-4 w-4" /></button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── main component ─────────────────────────────────────────────────── */
 export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
   const {
@@ -1154,7 +1276,18 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
             </div>
           )}
 
-          {contactInfoSection}
+          <MobileContactInfoCards
+            contact={contact}
+            phoneNumbers={phoneNumbers}
+            recentCalls={recentCalls}
+            contactNotes={contactNotes as any[]}
+            np={np}
+            noteTextareaRef={noteTextareaRef}
+            newNoteText={newNoteText}
+            onNoteTextChange={setNewNoteText}
+            onAddNote={(text) => addNoteMutation.mutate(text)}
+            addNotePending={addNoteMutation.isPending}
+          />
 
           {/* Status list */}
           {dbStatusList.length > 0 && (
