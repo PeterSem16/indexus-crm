@@ -647,6 +647,309 @@ function ContactRow({ cc, onSelect, isOverdue, isUpcoming, callbackDate, np, cur
   );
 }
 
+/* ── MobileContactInfo — always-visible contact detail + call log + notes ── */
+function MobileContactInfo({ contact, phoneNumbers, np, recentCalls, contactNotes, newNoteText, setNewNoteText, addNoteMutation, noteTextareaRef }: {
+  contact: any;
+  phoneNumbers: Array<{ label: string; value: string }>;
+  np: any;
+  recentCalls: any[];
+  contactNotes: any[];
+  newNoteText: string;
+  setNewNoteText: (v: string) => void;
+  addNoteMutation: any;
+  noteTextareaRef: React.RefObject<HTMLTextAreaElement>;
+}) {
+  const [showHistory, setShowHistory] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  useEffect(() => { setShowHistory(false); setShowNotes(false); }, [contact?.id]);
+
+  return (
+    <>
+      {/* Contact details — always visible */}
+      <div className="rounded-2xl border bg-card overflow-hidden">
+        <div className="divide-y text-sm">
+          {phoneNumbers.map(({ label, value }) => (
+            <div key={value} className="flex items-center gap-3 px-4 py-3">
+              <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">{label}</p>
+                <p className="font-semibold">{value}</p>
+              </div>
+            </div>
+          ))}
+          {contact?.email && (
+            <div className="flex items-center gap-3 px-4 py-3">
+              <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">Email</p>
+                <p className="font-semibold truncate">{contact.email}</p>
+              </div>
+            </div>
+          )}
+          {contact?.email2 && (
+            <div className="flex items-center gap-3 px-4 py-3">
+              <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">Email 2</p>
+                <p className="font-semibold truncate">{contact.email2}</p>
+              </div>
+            </div>
+          )}
+          {(contact?.titleBefore || contact?.titleAfter) && (
+            <div className="flex items-center gap-3 px-4 py-3">
+              <User className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">{np.formalName || "Celé meno s titulom"}</p>
+                <p className="font-semibold">{[contact?.titleBefore, contact?.firstName, contact?.lastName, contact?.titleAfter].filter(Boolean).join(" ")}</p>
+              </div>
+            </div>
+          )}
+          {(contact?.fatherFirstName || contact?.fatherLastName) && (
+            <div className="flex items-center gap-3 px-4 py-3">
+              <User className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">{np.fatherName || "Partner / Otec"}</p>
+                <p className="font-semibold">{[contact?.fatherFirstName, contact?.fatherLastName].filter(Boolean).join(" ")}</p>
+              </div>
+            </div>
+          )}
+          {contact?.website && (
+            <div className="flex items-center gap-3 px-4 py-3">
+              <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">Web</p>
+                <a href={contact.website.startsWith("http") ? contact.website : `https://${contact.website}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="font-semibold text-primary truncate block hover:underline"
+                  onClick={e => e.stopPropagation()}>{contact.website}</a>
+              </div>
+            </div>
+          )}
+          {contact?.dateOfBirth && (
+            <div className="flex items-center gap-3 px-4 py-3">
+              <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">{np.dateOfBirth || "Date of birth"}</p>
+                <p className="font-semibold">{(() => { try { return format(new Date(contact.dateOfBirth), "d. M. yyyy"); } catch { return contact.dateOfBirth; } })()}</p>
+              </div>
+            </div>
+          )}
+          {contact?.nationalId && (
+            <div className="flex items-center gap-3 px-4 py-3">
+              <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">{np.nationalId || "National ID"}</p>
+                <p className="font-semibold">{contact.nationalId}</p>
+              </div>
+            </div>
+          )}
+          {contact?.contractNumber && (
+            <div className="flex items-center gap-3 px-4 py-3">
+              <FileText className="h-4 w-4 text-primary shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">{np.contractNumber || "Číslo zmluvy"}</p>
+                <p className="font-semibold font-mono">{contact.contractNumber}</p>
+              </div>
+            </div>
+          )}
+          {contact?.bankAccount && (
+            <div className="flex items-center gap-3 px-4 py-3">
+              <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">{np.bankAccount || "Bankový účet (IBAN)"}</p>
+                <p className="font-semibold font-mono text-sm">{contact.bankAccount}</p>
+              </div>
+            </div>
+          )}
+          {(contact?.address || contact?.street || contact?.city || contact?.country) && (
+            <div className="flex items-start gap-3 px-4 py-3">
+              <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">{np.address || "Address"}</p>
+                <p className="font-semibold leading-snug">{[
+                  contact?.address || contact?.street,
+                  (contact?.postalCode && contact?.city) ? `${contact.postalCode} ${contact.city}` : (contact?.postalCode || contact?.city),
+                  contact?.district || null,
+                  contact?.country,
+                ].filter(Boolean).join(", ")}</p>
+              </div>
+            </div>
+          )}
+          {contact?.expectedDeliveryDate && (
+            <div className="flex items-center gap-3 px-4 py-3">
+              <Baby className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">{np.expectedDelivery || "Expected delivery"}</p>
+                <p className="font-semibold">{(() => { try { return format(new Date(contact.expectedDeliveryDate), "d. M. yyyy"); } catch { return contact.expectedDeliveryDate; } })()}</p>
+              </div>
+            </div>
+          )}
+          {contact?.gynecologistName && (
+            <div className="flex items-center gap-3 px-4 py-3">
+              <Stethoscope className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">{np.gynecologist || "Gynecologist"}</p>
+                <p className="font-semibold">{contact.gynecologistName}</p>
+                {contact.gynecologistPhone && <p className="text-xs text-muted-foreground mt-0.5">{contact.gynecologistPhone}</p>}
+              </div>
+            </div>
+          )}
+          {contact?.hospitalName && (
+            <div className="flex items-center gap-3 px-4 py-3">
+              <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">{np.hospital || "Hospital"}</p>
+                <p className="font-semibold">{contact.hospitalName}</p>
+              </div>
+            </div>
+          )}
+          {contact?.leadSource && (
+            <div className="flex items-start gap-3 px-4 py-3">
+              <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">{np.leadSource || "Lead source"}</p>
+                <p className="font-semibold">{contact.leadSource}</p>
+                {contact.leadSourceDate && (
+                  <p className="text-xs text-muted-foreground mt-0.5">{(() => { try { return format(new Date(contact.leadSourceDate), "d. M. yyyy"); } catch { return contact.leadSourceDate; } })()}</p>
+                )}
+                {contact.leadSourceNotes && <p className="text-xs text-muted-foreground mt-1 leading-snug">{contact.leadSourceNotes}</p>}
+              </div>
+            </div>
+          )}
+          {(contact?.isReferredByDoctor || (contact?.registrationSource === "referral" && contact?.leadSourceNotes)) && (
+            <div className="flex items-start gap-3 px-4 py-3">
+              <UserCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <p className="text-xs text-muted-foreground">{np.referral || "Odporúčanie"}</p>
+                  {contact?.isReferredByDoctor && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">{np.referredByDoctor || "Doktor"}</span>
+                  )}
+                </div>
+                {contact?.leadSourceNotes && <p className="font-semibold text-sm leading-snug">{contact.leadSourceNotes}</p>}
+              </div>
+            </div>
+          )}
+          {contact?.registrationSource && (
+            <div className="flex items-center gap-3 px-4 py-3">
+              <Info className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">{np.registrationSource || "Registration source"}</p>
+                <p className="font-semibold capitalize">{contact.registrationSource}</p>
+              </div>
+            </div>
+          )}
+          {contact?.notes && (
+            <div className="flex items-start gap-3 px-4 py-3">
+              <FileText className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground font-medium">{np.notes || "Poznámky"}</p>
+                <p className="leading-relaxed text-sm mt-0.5 whitespace-pre-line">{contact.notes}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Call history accordion */}
+      <div className="rounded-2xl border bg-card overflow-hidden">
+        <button onClick={() => setShowHistory(v => !v)}
+          className="w-full flex items-center justify-between px-4 py-3.5 active:bg-muted transition-colors"
+          data-testid="btn-mobile-call-history">
+          <div className="flex items-center gap-2">
+            <History className="h-4 w-4 text-primary" />
+            <span className="text-sm font-bold">{np.callHistory || "Call history"}</span>
+            {recentCalls.length > 0 && (
+              <span className="text-xs px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">{recentCalls.length}</span>
+            )}
+          </div>
+          {showHistory ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+        </button>
+        {showHistory && (
+          <div className="border-t divide-y max-h-72 overflow-y-auto">
+            {recentCalls.length === 0 ? (
+              <div className="px-4 py-5 text-center text-sm text-muted-foreground">{np.noCallHistory || "No call history"}</div>
+            ) : recentCalls.map((entry: any, idx: number) => (
+              <div key={idx} className="px-4 py-3 flex items-start gap-3">
+                <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${entry.direction === "inbound" ? "bg-blue-50 dark:bg-blue-950/30" : "bg-muted"}`}>
+                  <PhoneCall className={`h-4 w-4 ${entry.direction === "inbound" ? "text-blue-500" : "text-muted-foreground"}`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      {(entry.timestamp || entry.date || entry.createdAt)
+                        ? (() => { try { return format(new Date(entry.timestamp || entry.date || entry.createdAt), "d. M. yyyy HH:mm"); } catch { return "—"; } })()
+                        : "—"}
+                    </p>
+                    {entry.duration != null && <span className="text-xs text-muted-foreground shrink-0">{fmtDur(Number(entry.duration))}</span>}
+                  </div>
+                  {entry.content && <p className="text-xs font-bold mt-0.5 truncate">{entry.content}</p>}
+                  {entry.status && <p className="text-xs text-muted-foreground mt-0.5">{entry.status}</p>}
+                  {entry.agentName && <p className="text-[10px] text-muted-foreground/70 mt-0.5">{entry.agentName}</p>}
+                  {(entry.notes || entry.callNotes) && <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed line-clamp-2">{entry.notes || entry.callNotes}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Notes accordion */}
+      {contact?.id && (
+        <div className="rounded-2xl border bg-card overflow-hidden">
+          <button onClick={() => setShowNotes(v => !v)}
+            className="w-full flex items-center justify-between px-4 py-3.5 active:bg-muted transition-colors"
+            data-testid="btn-mobile-notes">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-primary" />
+              <span className="text-sm font-bold">{np.notes || "Poznámky"}</span>
+              {contactNotes.length > 0 && (
+                <span className="text-xs px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">{contactNotes.length}</span>
+              )}
+            </div>
+            {showNotes ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          </button>
+          {showNotes && (
+            <div className="border-t">
+              {contactNotes.length === 0 ? (
+                <div className="px-4 py-4 text-center text-sm text-muted-foreground">{np.noNotes || "Žiadne poznámky"}</div>
+              ) : (
+                <div className="divide-y max-h-64 overflow-y-auto min-h-0">
+                  {contactNotes.map((note: any) => (
+                    <div key={note.id} className="px-4 py-3">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="text-xs font-semibold text-muted-foreground truncate">{note.userName || "—"}</span>
+                        <span className="text-[10px] text-muted-foreground/70 shrink-0">{(() => { try { return format(new Date(note.createdAt), "d. M. yyyy HH:mm"); } catch { return ""; } })()}</span>
+                      </div>
+                      <p className="text-sm leading-relaxed whitespace-pre-line">{note.content}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="px-3 pb-3 pt-2 border-t bg-muted/30">
+                <div className="flex gap-2 items-end">
+                  <textarea ref={noteTextareaRef} value={newNoteText} onChange={e => setNewNoteText(e.target.value)}
+                    placeholder={np.addNotePlaceholder || "Napísať poznámku…"} rows={2}
+                    className="flex-1 text-sm rounded-xl border bg-background px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 min-h-[60px]"
+                    data-testid="input-mobile-new-note"
+                    onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && newNoteText.trim()) { addNoteMutation.mutate(newNoteText.trim()); } }}
+                  />
+                  <button onClick={() => { if (newNoteText.trim()) addNoteMutation.mutate(newNoteText.trim()); }}
+                    disabled={!newNoteText.trim() || addNoteMutation.isPending}
+                    className="h-10 w-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40 active:scale-95 transition-all shrink-0"
+                    data-testid="btn-mobile-send-note">
+                    <Send className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
 /* ── main component ─────────────────────────────────────────────────── */
 export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
   const {
@@ -669,22 +972,12 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
   const [dtmfOpen, setDtmfOpen] = useState(false);
   const [breakMenuOpen, setBreakMenuOpen] = useState(false);
   const [logoutConfirm, setLogoutConfirm] = useState(false);
-  const [showDetails, setShowDetails] = useState(true);
-  const [showHistory, setShowHistory] = useState(false);
-  const [showNotes, setShowNotes] = useState(false);
   const [newNoteText, setNewNoteText] = useState("");
   const [searchQ, setSearchQ] = useState("");
   const [filterTab, setFilterTab] = useState<"callable"|"callbacks"|"pending"|"all">("callable");
   const [searchField, setSearchField] = useState("all");
   const [showFieldPicker, setShowFieldPicker] = useState(false);
 
-  useEffect(() => {
-    if (contact?.id) {
-      setShowDetails(true);
-      setShowHistory(false);
-      setShowNotes(false);
-    }
-  }, [contact?.id]);
 
   const isCallActive = ["active", "on_hold", "connecting", "ringing"].includes(callState);
   const isCallEnded = callState === "ended";
@@ -764,318 +1057,11 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
     return result;
   })();
 
-  // ── Shared contact info tabs (details / call history / notes) ──
-  const contactTabsSection = (
-    <>
-      {/* Contact details accordion */}
-      <div className="rounded-2xl border bg-card overflow-hidden">
-        <button onClick={() => setShowDetails(v => !v)}
-          className="w-full flex items-center justify-between px-4 py-3.5 active:bg-muted transition-colors"
-          data-testid="btn-mobile-view-details">
-          <div className="flex items-center gap-2">
-            <User className="h-4 w-4 text-primary" />
-            <span className="text-sm font-bold">{np.viewDetails || "Contact details"}</span>
-          </div>
-          {showDetails ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-        </button>
-        {showDetails && (
-          <div className="border-t divide-y text-sm">
-            {phoneNumbers.map(({ label, value }) => (
-              <div key={value} className="flex items-center gap-3 px-4 py-3">
-                <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">{label}</p>
-                  <p className="font-semibold">{value}</p>
-                </div>
-              </div>
-            ))}
-            {contact?.email && (
-              <div className="flex items-center gap-3 px-4 py-3">
-                <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">Email</p>
-                  <p className="font-semibold truncate">{contact.email}</p>
-                </div>
-              </div>
-            )}
-            {contact?.email2 && (
-              <div className="flex items-center gap-3 px-4 py-3">
-                <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">Email 2</p>
-                  <p className="font-semibold truncate">{contact.email2}</p>
-                </div>
-              </div>
-            )}
-            {(contact?.titleBefore || contact?.titleAfter) && (
-              <div className="flex items-center gap-3 px-4 py-3">
-                <User className="h-4 w-4 text-muted-foreground shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">{np.formalName || "Celé meno s titulom"}</p>
-                  <p className="font-semibold">
-                    {[contact?.titleBefore, contact?.firstName, contact?.lastName, contact?.titleAfter].filter(Boolean).join(" ")}
-                  </p>
-                </div>
-              </div>
-            )}
-            {(contact?.fatherFirstName || contact?.fatherLastName) && (
-              <div className="flex items-center gap-3 px-4 py-3">
-                <User className="h-4 w-4 text-muted-foreground shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">{np.fatherName || "Partner / Otec"}</p>
-                  <p className="font-semibold">{[contact?.fatherFirstName, contact?.fatherLastName].filter(Boolean).join(" ")}</p>
-                </div>
-              </div>
-            )}
-            {contact?.website && (
-              <div className="flex items-center gap-3 px-4 py-3">
-                <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">Web</p>
-                  <a href={contact.website.startsWith("http") ? contact.website : `https://${contact.website}`}
-                    target="_blank" rel="noopener noreferrer"
-                    className="font-semibold text-primary truncate block hover:underline"
-                    onClick={e => e.stopPropagation()}>{contact.website}</a>
-                </div>
-              </div>
-            )}
-            {contact?.dateOfBirth && (
-              <div className="flex items-center gap-3 px-4 py-3">
-                <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">{np.dateOfBirth || "Date of birth"}</p>
-                  <p className="font-semibold">
-                    {(() => { try { return format(new Date(contact.dateOfBirth), "d. M. yyyy"); } catch { return contact.dateOfBirth; } })()}
-                  </p>
-                </div>
-              </div>
-            )}
-            {contact?.nationalId && (
-              <div className="flex items-center gap-3 px-4 py-3">
-                <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">{np.nationalId || "National ID"}</p>
-                  <p className="font-semibold">{contact.nationalId}</p>
-                </div>
-              </div>
-            )}
-            {contact?.contractNumber && (
-              <div className="flex items-center gap-3 px-4 py-3">
-                <FileText className="h-4 w-4 text-primary shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">{np.contractNumber || "Číslo zmluvy"}</p>
-                  <p className="font-semibold font-mono">{contact.contractNumber}</p>
-                </div>
-              </div>
-            )}
-            {contact?.bankAccount && (
-              <div className="flex items-center gap-3 px-4 py-3">
-                <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">{np.bankAccount || "Bankový účet (IBAN)"}</p>
-                  <p className="font-semibold font-mono text-sm">{contact.bankAccount}</p>
-                </div>
-              </div>
-            )}
-            {(contact?.address || contact?.street || contact?.city || contact?.country) && (
-              <div className="flex items-start gap-3 px-4 py-3">
-                <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">{np.address || "Address"}</p>
-                  <p className="font-semibold leading-snug">
-                    {[
-                      contact?.address || contact?.street,
-                      (contact?.postalCode && contact?.city) ? `${contact.postalCode} ${contact.city}` : (contact?.postalCode || contact?.city),
-                      contact?.district ? contact.district : null,
-                      contact?.country,
-                    ].filter(Boolean).join(", ")}
-                  </p>
-                </div>
-              </div>
-            )}
-            {contact?.expectedDeliveryDate && (
-              <div className="flex items-center gap-3 px-4 py-3">
-                <Baby className="h-4 w-4 text-muted-foreground shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">{np.expectedDelivery || "Expected delivery"}</p>
-                  <p className="font-semibold">
-                    {(() => { try { return format(new Date(contact.expectedDeliveryDate), "d. M. yyyy"); } catch { return contact.expectedDeliveryDate; } })()}
-                  </p>
-                </div>
-              </div>
-            )}
-            {contact?.gynecologistName && (
-              <div className="flex items-center gap-3 px-4 py-3">
-                <Stethoscope className="h-4 w-4 text-muted-foreground shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">{np.gynecologist || "Gynecologist"}</p>
-                  <p className="font-semibold">{contact.gynecologistName}</p>
-                  {contact.gynecologistPhone && <p className="text-xs text-muted-foreground mt-0.5">{contact.gynecologistPhone}</p>}
-                </div>
-              </div>
-            )}
-            {contact?.hospitalName && (
-              <div className="flex items-center gap-3 px-4 py-3">
-                <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">{np.hospital || "Hospital"}</p>
-                  <p className="font-semibold">{contact.hospitalName}</p>
-                </div>
-              </div>
-            )}
-            {contact?.leadSource && (
-              <div className="flex items-start gap-3 px-4 py-3">
-                <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">{np.leadSource || "Lead source"}</p>
-                  <p className="font-semibold">{contact.leadSource}</p>
-                  {contact.leadSourceDate && (
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {(() => { try { return format(new Date(contact.leadSourceDate), "d. M. yyyy"); } catch { return contact.leadSourceDate; } })()}
-                    </p>
-                  )}
-                  {contact.leadSourceNotes && <p className="text-xs text-muted-foreground mt-1 leading-snug">{contact.leadSourceNotes}</p>}
-                </div>
-              </div>
-            )}
-            {(contact?.isReferredByDoctor || (contact?.registrationSource === "referral" && contact?.leadSourceNotes)) && (
-              <div className="flex items-start gap-3 px-4 py-3">
-                <UserCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <p className="text-xs text-muted-foreground">{np.referral || "Odporúčanie"}</p>
-                    {contact?.isReferredByDoctor && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
-                        {np.referredByDoctor || "Doktor"}
-                      </span>
-                    )}
-                  </div>
-                  {contact?.leadSourceNotes && <p className="font-semibold text-sm leading-snug">{contact.leadSourceNotes}</p>}
-                </div>
-              </div>
-            )}
-            {contact?.registrationSource && (
-              <div className="flex items-center gap-3 px-4 py-3">
-                <Info className="h-4 w-4 text-muted-foreground shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">{np.registrationSource || "Registration source"}</p>
-                  <p className="font-semibold capitalize">{contact.registrationSource}</p>
-                </div>
-              </div>
-            )}
-            {contact?.notes && (
-              <div className="flex items-start gap-3 px-4 py-3">
-                <FileText className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground font-medium">{np.notes || "Poznámky"}</p>
-                  <p className="leading-relaxed text-sm mt-0.5 whitespace-pre-line">{contact.notes}</p>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-      {/* Call history accordion */}
-      <div className="rounded-2xl border bg-card overflow-hidden">
-        <button onClick={() => setShowHistory(v => !v)}
-          className="w-full flex items-center justify-between px-4 py-3.5 active:bg-muted transition-colors"
-          data-testid="btn-mobile-call-history">
-          <div className="flex items-center gap-2">
-            <History className="h-4 w-4 text-primary" />
-            <span className="text-sm font-bold">{np.callHistory || "Call history"}</span>
-            {recentCalls.length > 0 && (
-              <span className="text-xs px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">{recentCalls.length}</span>
-            )}
-          </div>
-          {showHistory ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-        </button>
-        {showHistory && (
-          <div className="border-t divide-y max-h-72 overflow-y-auto">
-            {recentCalls.length === 0 ? (
-              <div className="px-4 py-5 text-center text-sm text-muted-foreground">{np.noCallHistory || "No call history"}</div>
-            ) : recentCalls.map((entry: any, idx: number) => {
-              const isInbound = entry.direction === "inbound";
-              return (
-                <div key={idx} className="px-4 py-3 flex items-start gap-3">
-                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${isInbound ? "bg-blue-50 dark:bg-blue-950/30" : "bg-muted"}`}>
-                    <PhoneCall className={`h-4 w-4 ${isInbound ? "text-blue-500" : "text-muted-foreground"}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-semibold text-muted-foreground">
-                        {(entry.timestamp || entry.date || entry.createdAt)
-                          ? (() => { try { return format(new Date(entry.timestamp || entry.date || entry.createdAt), "d. M. yyyy HH:mm"); } catch { return "—"; } })()
-                          : "—"}
-                      </p>
-                      {(entry.duration != null) && <span className="text-xs text-muted-foreground shrink-0">{fmtDur(Number(entry.duration))}</span>}
-                    </div>
-                    {entry.content && <p className="text-xs font-bold mt-0.5 truncate">{entry.content}</p>}
-                    {entry.status && <p className="text-xs text-muted-foreground mt-0.5">{entry.status}</p>}
-                    {entry.agentName && <p className="text-[10px] text-muted-foreground/70 mt-0.5">{entry.agentName}</p>}
-                    {(entry.notes || entry.callNotes) && <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed line-clamp-2">{entry.notes || entry.callNotes}</p>}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-      {/* Notes accordion */}
-      {contact?.id && (
-        <div className="rounded-2xl border bg-card overflow-hidden">
-          <button onClick={() => setShowNotes(v => !v)}
-            className="w-full flex items-center justify-between px-4 py-3.5 active:bg-muted transition-colors"
-            data-testid="btn-mobile-notes">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-primary" />
-              <span className="text-sm font-bold">{np.notes || "Poznámky"}</span>
-              {contactNotes.length > 0 && (
-                <span className="text-xs px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">{contactNotes.length}</span>
-              )}
-            </div>
-            {showNotes ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-          </button>
-          {showNotes && (
-            <div className="border-t">
-              {contactNotes.length === 0 ? (
-                <div className="px-4 py-4 text-center text-sm text-muted-foreground">{np.noNotes || "Žiadne poznámky"}</div>
-              ) : (
-                <div className="divide-y max-h-64 overflow-y-auto min-h-0">
-                  {contactNotes.map((note) => (
-                    <div key={note.id} className="px-4 py-3">
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="text-xs font-semibold text-muted-foreground truncate">{note.userName || "—"}</span>
-                        <span className="text-[10px] text-muted-foreground/70 shrink-0">
-                          {(() => { try { return format(new Date(note.createdAt), "d. M. yyyy HH:mm"); } catch { return ""; } })()}
-                        </span>
-                      </div>
-                      <p className="text-sm leading-relaxed whitespace-pre-line">{note.content}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="px-3 pb-3 pt-2 border-t bg-muted/30">
-                <div className="flex gap-2 items-end">
-                  <textarea ref={noteTextareaRef} value={newNoteText} onChange={e => setNewNoteText(e.target.value)}
-                    placeholder={np.addNotePlaceholder || "Napísať poznámku…"} rows={2}
-                    className="flex-1 text-sm rounded-xl border bg-background px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 min-h-[60px]"
-                    data-testid="input-mobile-new-note"
-                    onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && newNoteText.trim()) { addNoteMutation.mutate(newNoteText.trim()); } }}
-                  />
-                  <button onClick={() => { if (newNoteText.trim()) addNoteMutation.mutate(newNoteText.trim()); }}
-                    disabled={!newNoteText.trim() || addNoteMutation.isPending}
-                    className="h-10 w-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40 active:scale-95 transition-all shrink-0"
-                    data-testid="btn-mobile-send-note">
-                    <Send className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </>
-  );
+  // ── contactTabsSection removed — replaced by <MobileContactInfo> component ──
+  const _contactInfoProps = {
+    contact, phoneNumbers, np, recentCalls, contactNotes,
+    newNoteText, setNewNoteText, addNoteMutation, noteTextareaRef,
+  };
 
   /* ── LOGOUT CONFIRM ─────────────────────────────────────────────── */
   if (logoutConfirm) {
@@ -1251,7 +1237,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
           {/* ── Scroll area: contact info tabs + status list ── */}
           <div className="flex-1 min-h-0 overflow-y-auto" style={{ WebkitOverflowScrolling: "touch" }}>
             <div className="px-4 pt-3 pb-2 flex flex-col gap-3">
-              {contactTabsSection}
+              <MobileContactInfo {..._contactInfoProps} />
             </div>
             {dbStatusList.length > 0 && (
               <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} />
@@ -1289,7 +1275,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
               {np.evaluateCall || "Evaluate call"}
             </button>
           )}
-          {contactTabsSection}
+          <MobileContactInfo {..._contactInfoProps} />
           <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} />
           <button onClick={onClearContact}
             className="w-full flex items-center justify-center gap-2 h-11 rounded-xl border border-dashed border-amber-400 text-amber-600 dark:text-amber-400 text-sm font-semibold bg-amber-50/50 dark:bg-amber-950/10 active:scale-[0.98] transition-all"
@@ -1366,7 +1352,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
             </div>
           )}
 
-          {contactTabsSection}
+          <MobileContactInfo {..._contactInfoProps} />
 
           {/* Status list */}
           {dbStatusList.length > 0 && (
