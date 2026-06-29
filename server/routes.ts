@@ -23916,6 +23916,202 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
+  // =================== Status List Analytics ===================
+  app.get("/api/campaigns/:id/status-list-analytics", requireAuth, async (req, res) => {
+    try {
+      const { id: campaignId } = req.params;
+
+      // 1. All status list items for this campaign (steps + options, sorted)
+      const items = await db.select().from(campaignStatusListItems)
+        .where(eq(campaignStatusListItems.campaignId, campaignId))
+        .orderBy(campaignStatusListItems.sortOrder);
+
+      if (items.length === 0) return res.json({ items: [], contacts: [], agents: [], totalContacts: 0 });
+
+      const itemIds = items.map(i => i.id);
+
+      // 2. Automations per item
+      const automations = await db.select().from(campaignStatusListAutomations)
+        .where(inArray(campaignStatusListAutomations.statusListItemId, itemIds));
+      const automByItem = new Map<string, typeof automations>();
+      for (const a of automations) {
+        if (!automByItem.has(a.statusListItemId)) automByItem.set(a.statusListItemId, []);
+        automByItem.get(a.statusListItemId)!.push(a);
+      }
+
+      // 3. All campaign contacts
+      const contacts = await db.select({
+        id: campaignContacts.id,
+        customerId: campaignContacts.customerId,
+        contactType: campaignContacts.contactType,
+        status: campaignContacts.status,
+      }).from(campaignContacts).where(eq(campaignContacts.campaignId, campaignId));
+      const totalContacts = contacts.length;
+      const ccIds = contacts.map(c => c.id);
+
+      if (ccIds.length === 0) return res.json({ items: items.map(i => ({ ...i, uniqueContacts: 0, totalConfirmations: 0, agentBreakdown: [], automationsFired: 0 })), contacts: [], agents: [], totalContacts: 0 });
+
+      // 4. All state confirmations for these contacts
+      const states = await db.select().from(campaignContactStatusListState)
+        .where(inArray(campaignContactStatusListState.campaignContactId, ccIds));
+
+      // 5. Call count per campaign contact (from history)
+      const callCounts = await db.execute(
+        sql`SELECT campaign_contact_id, COUNT(*) as call_count FROM campaign_contact_history
+            WHERE campaign_contact_id = ANY(${sql.raw(`ARRAY[${ccIds.map(id => `'${id}'`).join(',')}]::varchar[]`)})
+            AND action IN ('call_started','call_ended','disposition_saved')
+            GROUP BY campaign_contact_id`
+      );
+      const callCountMap = new Map<string, number>();
+      for (const row of (callCounts as any).rows ?? []) {
+        callCountMap.set(row.campaign_contact_id, Number(row.call_count));
+      }
+
+      // 6. BO task execution count per item (proxy for "automation fired")
+      const boConfirmations = await db.select({
+        statusListItemId: taskBackOfficeConfirmations.statusListItemId,
+        campaignContactId: taskBackOfficeConfirmations.campaignContactId,
+      }).from(taskBackOfficeConfirmations)
+        .where(
+          ccIds.length > 0
+            ? inArray(taskBackOfficeConfirmations.campaignContactId, ccIds)
+            : sql`false`
+        );
+
+      // 7. User names
+      const userIds = [...new Set(states.map(s => s.confirmedByUserId))];
+      const userRows = userIds.length > 0
+        ? await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName }).from(users).where(inArray(users.id, userIds))
+        : [];
+      const userMap = new Map(userRows.map(u => [u.id, `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.id]));
+
+      // 8. Contact names map
+      const customerIds = contacts.filter(c => c.contactType === "customer" && c.customerId).map(c => c.customerId!);
+      const customerRows = customerIds.length > 0
+        ? await db.select({ id: customers.id, firstName: customers.firstName, lastName: customers.lastName, phone: customers.phone }).from(customers).where(inArray(customers.id, customerIds))
+        : [];
+      const customerMap = new Map(customerRows.map(c => [c.id, { name: `${c.firstName || ""} ${c.lastName || ""}`.trim(), phone: c.phone || "" }]));
+      const ccToContact = new Map(contacts.map(cc => [cc.id, { customerId: cc.customerId, contactType: cc.contactType }]));
+
+      // 9. Aggregate per item
+      const itemStats = items.map(item => {
+        const itemStates = states.filter(s => s.statusListItemId === item.id);
+        const uniqueContactIds = new Set(itemStates.map(s => s.campaignContactId));
+        const automFired = boConfirmations.filter(b => b.statusListItemId === item.id).length;
+        const automList = automByItem.get(item.id) || [];
+
+        // Agent breakdown
+        const agentMap = new Map<string, { name: string; count: number; lastAt: string }>();
+        for (const s of itemStates) {
+          const uid = s.confirmedByUserId;
+          const existing = agentMap.get(uid);
+          const at = s.confirmedAt?.toISOString?.() ?? String(s.confirmedAt);
+          if (!existing) agentMap.set(uid, { name: userMap.get(uid) || uid, count: 1, lastAt: at });
+          else { existing.count++; if (at > existing.lastAt) existing.lastAt = at; }
+        }
+
+        return {
+          id: item.id,
+          label: item.label,
+          description: item.description,
+          sortOrder: item.sortOrder,
+          itemType: item.itemType,
+          confirmationType: item.confirmationType,
+          tab: item.tab,
+          color: item.color,
+          uniqueContacts: uniqueContactIds.size,
+          totalConfirmations: itemStates.length,
+          automationsFired: automFired,
+          automations: automList.map(a => ({ actionType: a.actionType, emailTemplateId: a.emailTemplateId, callbackOffsetDays: a.callbackOffsetDays, taskDescription: a.taskDescription })),
+          agentBreakdown: [...agentMap.values()].sort((a, b) => b.count - a.count),
+          recentConfirmations: itemStates.sort((a, b) => new Date(b.confirmedAt).getTime() - new Date(a.confirmedAt).getTime()).slice(0, 5).map(s => ({
+            confirmedByName: userMap.get(s.confirmedByUserId) || s.confirmedByUserId,
+            confirmedAt: s.confirmedAt,
+            campaignContactId: s.campaignContactId,
+          })),
+        };
+      });
+
+      // 10. Per-contact summary
+      const contactSummary = contacts.map(cc => {
+        const ccStates = states.filter(s => s.campaignContactId === cc.id);
+        const confirmedItemIds = new Set(ccStates.map(s => s.statusListItemId));
+        const ci = ccToContact.get(cc.id);
+        const cust = ci?.customerId ? customerMap.get(ci.customerId) : null;
+        return {
+          campaignContactId: cc.id,
+          contactName: cust?.name || `Contact ${cc.id.slice(0, 6)}`,
+          contactPhone: cust?.phone || "",
+          contactType: cc.contactType,
+          status: cc.status,
+          callCount: callCountMap.get(cc.id) || 0,
+          confirmedSteps: [...confirmedItemIds],
+          confirmedCount: confirmedItemIds.size,
+          lastActivity: ccStates.length > 0
+            ? ccStates.sort((a, b) => new Date(b.confirmedAt).getTime() - new Date(a.confirmedAt).getTime())[0].confirmedAt
+            : null,
+        };
+      }).sort((a, b) => b.confirmedCount - a.confirmedCount);
+
+      // 11. Per-agent summary
+      const agentSummary = new Map<string, { userId: string; name: string; totalConfirmations: number; uniqueContacts: Set<string>; itemBreakdown: Map<string, number> }>();
+      for (const s of states) {
+        const uid = s.confirmedByUserId;
+        if (!agentSummary.has(uid)) agentSummary.set(uid, { userId: uid, name: userMap.get(uid) || uid, totalConfirmations: 0, uniqueContacts: new Set(), itemBreakdown: new Map() });
+        const ag = agentSummary.get(uid)!;
+        ag.totalConfirmations++;
+        ag.uniqueContacts.add(s.campaignContactId);
+        ag.itemBreakdown.set(s.statusListItemId, (ag.itemBreakdown.get(s.statusListItemId) || 0) + 1);
+      }
+      const agents = [...agentSummary.values()].map(ag => ({
+        userId: ag.userId,
+        name: ag.name,
+        totalConfirmations: ag.totalConfirmations,
+        uniqueContacts: ag.uniqueContacts.size,
+        itemBreakdown: Object.fromEntries(ag.itemBreakdown),
+      })).sort((a, b) => b.totalConfirmations - a.totalConfirmations);
+
+      res.json({ items: itemStats, contacts: contactSummary, agents, totalContacts });
+    } catch (error) {
+      console.error("Status list analytics error:", error);
+      res.status(500).json({ error: "Failed to fetch status list analytics" });
+    }
+  });
+
+  app.get("/api/campaigns/:id/status-list-analytics/export", requireAuth, async (req, res) => {
+    try {
+      const { id: campaignId } = req.params;
+      const analyticsRes = await fetch(`http://localhost:${process.env.PORT || 5000}/api/campaigns/${campaignId}/status-list-analytics`, {
+        headers: { cookie: req.headers.cookie || "" },
+      });
+      if (!analyticsRes.ok) return res.status(500).json({ error: "Failed to load analytics" });
+      const data = await analyticsRes.json() as { items: any[]; contacts: any[]; agents: any[]; totalContacts: number };
+
+      const itemLabels = new Map(data.items.map((i: any) => [i.id, i.label]));
+      const headers = ["Contact", "Phone", "Type", "Status", "Calls", "Last Activity", ...data.items.map((i: any) => i.label)];
+      const rows = data.contacts.map((c: any) => [
+        c.contactName,
+        c.contactPhone,
+        c.contactType,
+        c.status,
+        c.callCount,
+        c.lastActivity ? new Date(c.lastActivity).toLocaleString("sk-SK") : "",
+        ...data.items.map((i: any) => c.confirmedSteps.includes(i.id) ? "✓" : ""),
+      ]);
+
+      const csvRows = [headers, ...rows].map(row =>
+        row.map(cell => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(",")
+      );
+      const csv = csvRows.join("\n");
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="status-list-${campaignId}.csv"`);
+      res.send("\uFEFF" + csv);
+    } catch (error) {
+      console.error("Status list export error:", error);
+      res.status(500).json({ error: "Export failed" });
+    }
+  });
+
   // =================== Inbound Callbacks (out-of-mission) CRUD ===================
   app.get("/api/agent/inbound-callbacks", requireAuth, async (req, res) => {
     try {

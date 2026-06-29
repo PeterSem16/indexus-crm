@@ -5758,6 +5758,10 @@ export default function CampaignDetailPage() {
             <Settings className="w-4 h-4 mr-2" />
             {t.campaigns.detail.settings}
           </TabsTrigger>
+          <TabsTrigger value="sl-analytics" data-testid="tab-sl-analytics">
+            <ListChecks className="w-4 h-4 mr-2" />
+            Status List
+          </TabsTrigger>
           
         </TabsList>
 
@@ -9785,7 +9789,341 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
           )}
         </TabsContent>
 
+        <TabsContent value="sl-analytics" className="space-y-4">
+          <StatusListAnalyticsTab campaignId={id!} totalContacts={stats?.totalContacts || 0} />
+        </TabsContent>
+
       </Tabs>
+    </div>
+  );
+}
+
+// ─── Status List Analytics Tab ────────────────────────────────────────────────
+
+type SLItemStat = {
+  id: string; label: string; description?: string | null; sortOrder: number;
+  itemType: string; confirmationType: string; tab?: string | null; color?: string | null;
+  uniqueContacts: number; totalConfirmations: number; automationsFired: number;
+  automations: { actionType: string; emailTemplateId?: string | null; callbackOffsetDays?: number | null; taskDescription?: string | null }[];
+  agentBreakdown: { name: string; count: number; lastAt: string }[];
+};
+type SLContactStat = {
+  campaignContactId: string; contactName: string; contactPhone: string;
+  contactType: string; status: string; callCount: number;
+  confirmedSteps: string[]; confirmedCount: number; lastActivity: string | null;
+};
+type SLAgentStat = { userId: string; name: string; totalConfirmations: number; uniqueContacts: number; itemBreakdown: Record<string, number> };
+type SLAnalytics = { items: SLItemStat[]; contacts: SLContactStat[]; agents: SLAgentStat[]; totalContacts: number };
+
+const ACTION_ICON: Record<string, { icon: LucideIcon; label: string; color: string }> = {
+  send_email: { icon: Mail, label: "Email", color: "#3b82f6" },
+  send_email_group: { icon: Mail, label: "Email group", color: "#6366f1" },
+  send_sms: { icon: MessageSquare, label: "SMS", color: "#10b981" },
+  set_callback: { icon: CalendarClock, label: "Callback", color: "#f59e0b" },
+  create_bo_task: { icon: ClipboardCheck, label: "BO task", color: "#8b5cf6" },
+  set_contact_status: { icon: Flag, label: "Status", color: "#ef4444" },
+  notify_agent: { icon: Bell, label: "Notify", color: "#06b6d4" },
+};
+
+function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }: { campaignId: string; totalContacts: number }) {
+  const [view, setView] = useState<"funnel" | "contacts" | "agents">("funnel");
+  const [search, setSearch] = useState("");
+  const [contactSort, setContactSort] = useState<"calls" | "steps" | "name">("steps");
+
+  const { data, isLoading } = useQuery<SLAnalytics>({
+    queryKey: ["/api/campaigns", campaignId, "status-list-analytics"],
+    queryFn: async () => {
+      const res = await fetch(`/api/campaigns/${campaignId}/status-list-analytics`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
+  const totalContacts = data?.totalContacts || totalContactsProp || 1;
+
+  const handleExport = () => {
+    window.open(`/api/campaigns/${campaignId}/status-list-analytics/export`, "_blank");
+  };
+
+  if (isLoading) return (
+    <div className="flex items-center justify-center py-16 text-muted-foreground gap-2">
+      <Loader2 className="h-5 w-5 animate-spin" /> Načítavam štatistiky…
+    </div>
+  );
+
+  if (!data || data.items.length === 0) return (
+    <Card><CardContent className="py-12 text-center text-muted-foreground">
+      <ListChecks className="w-10 h-10 mx-auto mb-3 opacity-30" />
+      <p className="font-medium">Táto misia nemá Status List</p>
+      <p className="text-sm mt-1">Aktivujte workflow mode „Status List" v nastaveniach misie.</p>
+    </CardContent></Card>
+  );
+
+  const steps = data.items.filter(i => i.itemType === "step");
+  const options = data.items.filter(i => i.itemType === "option");
+  const allItems = data.items;
+
+  // Filter contacts
+  const filteredContacts = (data.contacts || []).filter(c =>
+    !search || c.contactName.toLowerCase().includes(search.toLowerCase()) || c.contactPhone.includes(search)
+  ).sort((a, b) => {
+    if (contactSort === "calls") return b.callCount - a.callCount;
+    if (contactSort === "steps") return b.confirmedCount - a.confirmedCount;
+    return a.contactName.localeCompare(b.contactName);
+  });
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex gap-1 bg-muted rounded-lg p-1">
+          {([["funnel", "Funnel", TrendingUp], ["contacts", "Kontakty", Users], ["agents", "Agenti", UserCheck]] as const).map(([v, label, Icon]) => (
+            <button key={v} onClick={() => setView(v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${view === v ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              data-testid={`btn-sl-view-${v}`}>
+              <Icon className="h-3.5 w-3.5" />{label}
+            </button>
+          ))}
+        </div>
+        <Button variant="outline" size="sm" onClick={handleExport} className="gap-2" data-testid="btn-sl-export">
+          <Download className="h-4 w-4" />Export CSV
+        </Button>
+      </div>
+
+      {/* ── FUNNEL VIEW ── */}
+      {view === "funnel" && (
+        <div className="space-y-3">
+          {/* Summary cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Card><CardContent className="pt-4 pb-3">
+              <p className="text-xs text-muted-foreground mb-1">Celkom kontaktov</p>
+              <p className="text-2xl font-bold">{totalContacts}</p>
+            </CardContent></Card>
+            <Card><CardContent className="pt-4 pb-3">
+              <p className="text-xs text-muted-foreground mb-1">Krokov v liste</p>
+              <p className="text-2xl font-bold">{steps.length}</p>
+            </CardContent></Card>
+            <Card><CardContent className="pt-4 pb-3">
+              <p className="text-xs text-muted-foreground mb-1">Celkom potvrdení</p>
+              <p className="text-2xl font-bold">{allItems.reduce((s, i) => s + i.totalConfirmations, 0)}</p>
+            </CardContent></Card>
+            <Card><CardContent className="pt-4 pb-3">
+              <p className="text-xs text-muted-foreground mb-1">Automatizácií spustených</p>
+              <p className="text-2xl font-bold">{allItems.reduce((s, i) => s + i.automationsFired, 0)}</p>
+            </CardContent></Card>
+          </div>
+
+          {/* Step funnel */}
+          {steps.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2"><TrendingUp className="h-4 w-4 text-primary" />Kroky — funnel</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-3">
+                {steps.map((item, idx) => {
+                  const pct = totalContacts > 0 ? Math.round((item.uniqueContacts / totalContacts) * 100) : 0;
+                  const automs = item.automations || [];
+                  return (
+                    <div key={item.id} className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-xs text-muted-foreground w-5 shrink-0">{idx + 1}.</span>
+                          <span className="font-medium truncate" style={item.color ? { color: item.color } : {}}>{item.label}</span>
+                          {automs.length > 0 && (
+                            <div className="flex items-center gap-1">
+                              {[...new Set(automs.map(a => a.actionType))].map(at => {
+                                const cfg = ACTION_ICON[at];
+                                if (!cfg) return null;
+                                const Icon = cfg.icon;
+                                return <Icon key={at} className="h-3 w-3" style={{ color: cfg.color }} title={cfg.label} />;
+                              })}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0 text-right">
+                          <span className="text-xs text-muted-foreground">{item.uniqueContacts} uniq / {item.totalConfirmations} celk.</span>
+                          <span className="text-sm font-bold w-10">{pct}%</span>
+                        </div>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: item.color || "hsl(var(--primary))" }} />
+                      </div>
+                      {item.agentBreakdown.length > 0 && (
+                        <div className="flex gap-2 flex-wrap pt-0.5">
+                          {item.agentBreakdown.slice(0, 4).map(ag => (
+                            <span key={ag.name} className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                              {ag.name}: {ag.count}×
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Options */}
+          {options.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2"><CircleDot className="h-4 w-4 text-primary" />Možnosti (options)</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {options.map(item => {
+                    const pct = totalContacts > 0 ? Math.round((item.uniqueContacts / totalContacts) * 100) : 0;
+                    return (
+                      <div key={item.id} className="flex items-center gap-3 p-2 rounded-lg border">
+                        <div className="h-8 w-8 rounded-full flex items-center justify-center shrink-0" style={{ background: item.color ? `${item.color}20` : "hsl(var(--muted))" }}>
+                          <CircleDot className="h-4 w-4" style={item.color ? { color: item.color } : {}} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{item.label}</p>
+                          <p className="text-xs text-muted-foreground">{item.uniqueContacts} kontaktov ({pct}%)</p>
+                        </div>
+                        <span className="text-sm font-bold text-muted-foreground">{item.totalConfirmations}×</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* ── CONTACTS VIEW ── */}
+      {view === "contacts" && (
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Hľadať kontakt…"
+                className="w-full pl-8 pr-3 h-9 text-sm border rounded-md bg-background outline-none focus:ring-1 focus:ring-primary"
+                data-testid="input-sl-search" />
+            </div>
+            <div className="flex gap-1">
+              {([["steps", "Kroky ↓"], ["calls", "Hovory ↓"], ["name", "A–Z"]] as const).map(([s, lbl]) => (
+                <button key={s} onClick={() => setContactSort(s)}
+                  className={`px-2.5 h-9 text-xs rounded-md border transition-colors ${contactSort === s ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted"}`}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <Card>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/50">
+                    <th className="text-left font-medium text-xs text-muted-foreground py-2 px-3">Kontakt</th>
+                    <th className="text-center font-medium text-xs text-muted-foreground py-2 px-2">Hovory</th>
+                    <th className="text-center font-medium text-xs text-muted-foreground py-2 px-2">Kroky</th>
+                    {steps.slice(0, 8).map(s => (
+                      <th key={s.id} className="text-center font-medium text-xs text-muted-foreground py-2 px-1 max-w-[60px]">
+                        <span className="block truncate max-w-[56px]" title={s.label}>{s.label}</span>
+                      </th>
+                    ))}
+                    <th className="text-left font-medium text-xs text-muted-foreground py-2 px-3">Posledná aktivita</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredContacts.slice(0, 100).map(c => (
+                    <tr key={c.campaignContactId} className="border-b last:border-0 hover:bg-muted/30">
+                      <td className="py-2 px-3">
+                        <p className="font-medium truncate max-w-[140px]">{c.contactName}</p>
+                        {c.contactPhone && <p className="text-xs text-muted-foreground">{c.contactPhone}</p>}
+                      </td>
+                      <td className="py-2 px-2 text-center">
+                        <span className={`text-xs font-semibold ${c.callCount > 0 ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground"}`}>{c.callCount}</span>
+                      </td>
+                      <td className="py-2 px-2 text-center">
+                        <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${c.confirmedCount > 0 ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}>
+                          {c.confirmedCount}/{steps.length}
+                        </span>
+                      </td>
+                      {steps.slice(0, 8).map(s => (
+                        <td key={s.id} className="py-2 px-1 text-center">
+                          {c.confirmedSteps.includes(s.id)
+                            ? <Check className="h-3.5 w-3.5 text-green-500 mx-auto" />
+                            : <span className="text-muted-foreground/30 text-xs">—</span>
+                          }
+                        </td>
+                      ))}
+                      <td className="py-2 px-3 text-xs text-muted-foreground">
+                        {c.lastActivity ? (() => { try { return new Date(c.lastActivity).toLocaleDateString("sk-SK", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); } catch { return "—"; } })() : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredContacts.length === 0 && (
+                    <tr><td colSpan={10} className="py-8 text-center text-muted-foreground text-sm">Žiadne výsledky</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {filteredContacts.length > 100 && (
+              <div className="px-3 py-2 text-xs text-muted-foreground border-t">Zobrazených 100 z {filteredContacts.length} kontaktov. Exportuj CSV pre celý zoznam.</div>
+            )}
+          </Card>
+        </div>
+      )}
+
+      {/* ── AGENTS VIEW ── */}
+      {view === "agents" && (
+        <div className="space-y-3">
+          {(data.agents || []).length === 0 ? (
+            <Card><CardContent className="py-8 text-center text-muted-foreground text-sm">Zatiaľ žiadne dáta od agentov.</CardContent></Card>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              {(data.agents || []).map(agent => {
+                const topItems = Object.entries(agent.itemBreakdown)
+                  .sort((a, b) => b[1] - a[1])
+                  .slice(0, 5)
+                  .map(([itemId, count]) => ({ label: allItems.find(i => i.id === itemId)?.label || itemId, count }));
+                return (
+                  <Card key={agent.userId}>
+                    <CardContent className="pt-4 pb-3 px-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                            <User className="h-4 w-4 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-sm">{agent.name}</p>
+                            <p className="text-xs text-muted-foreground">{agent.uniqueContacts} kontaktov</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-primary">{agent.totalConfirmations}</p>
+                          <p className="text-xs text-muted-foreground">potvrdení</p>
+                        </div>
+                      </div>
+                      {topItems.length > 0 && (
+                        <div className="space-y-1.5">
+                          {topItems.map(item => (
+                            <div key={item.label} className="flex items-center justify-between">
+                              <span className="text-xs text-muted-foreground truncate flex-1 mr-2">{item.label}</span>
+                              <div className="flex items-center gap-2">
+                                <div className="h-1.5 rounded-full bg-primary/20 w-16 overflow-hidden">
+                                  <div className="h-full bg-primary rounded-full" style={{ width: `${Math.min(100, (item.count / agent.totalConfirmations) * 100)}%` }} />
+                                </div>
+                                <span className="text-xs font-semibold w-6 text-right">{item.count}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
