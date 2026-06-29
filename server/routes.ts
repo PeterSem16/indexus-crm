@@ -23926,7 +23926,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         .where(eq(campaignStatusListItems.campaignId, campaignId))
         .orderBy(campaignStatusListItems.sortOrder);
 
-      if (items.length === 0) return res.json({ items: [], contacts: [], agents: [], totalContacts: 0 });
+      console.log(`[SL-Analytics] campaign=${campaignId} items=${items.length}`);
+
+      if (items.length === 0) return res.json({ items: [], contacts: [], agents: [], totalContacts: 0, _debug: { itemCount: 0, campaignId } });
 
       const itemIds = items.map(i => i.id);
 

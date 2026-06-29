@@ -9861,9 +9861,14 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
 
   if (!data || data.items.length === 0) return (
     <Card><CardContent className="py-12 text-center text-muted-foreground">
-      <ListChecks className="w-10 h-10 mx-auto mb-3 opacity-30" />
-      <p className="font-medium">Táto misia nemá Status List</p>
-      <p className="text-sm mt-1">Aktivujte workflow mode „Status List" v nastaveniach misie.</p>
+      <ListChecks className="w-10 h-10 mx-auto mb-3 opacity-40" />
+      <p className="font-semibold text-foreground">Žiadne kroky Status Listu</p>
+      <p className="text-sm mt-1 max-w-xs mx-auto">
+        Táto misia nemá nakonfigurované kroky. Pridajte kroky v <strong>Nastavenia → Status List Builder</strong>.
+      </p>
+      <p className="text-xs mt-3 text-muted-foreground/60">
+        (Uistite sa tiež že Workflow Mode je nastavený na „Status List")
+      </p>
     </CardContent></Card>
   );
 
