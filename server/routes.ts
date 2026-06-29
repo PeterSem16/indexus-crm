@@ -23593,6 +23593,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     try {
       const user = req.session.user!;
       const now = new Date();
+      const onlyMine = req.query.onlyMine === "true";
 
       const scheduledContacts = await db
         .select({
@@ -23635,10 +23636,20 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         .leftJoin(hospitals, eq(campaignContacts.hospitalId, hospitals.id))
         .innerJoin(campaigns, eq(campaignContacts.campaignId, campaigns.id))
         .where(
-          and(
-            eq(campaignContacts.status, "callback_scheduled"),
-            isNotNull(campaignContacts.callbackDate)
-          )
+          onlyMine
+            ? and(
+                eq(campaignContacts.status, "callback_scheduled"),
+                isNotNull(campaignContacts.callbackDate),
+                or(
+                  eq(campaignContacts.assignedTo, user.id),
+                  eq(campaignContacts.assignedTo, "all"),
+                  isNull(campaignContacts.assignedTo)
+                )
+              )
+            : and(
+                eq(campaignContacts.status, "callback_scheduled"),
+                isNotNull(campaignContacts.callbackDate)
+              )
         );
 
       const scheduledSessions = await db

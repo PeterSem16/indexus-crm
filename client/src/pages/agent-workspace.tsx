@@ -7702,13 +7702,15 @@ function ScheduledQueuePanel({
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<"date" | "name" | "campaign">("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [showOnlyMine, setShowOnlyMine] = useState(false);
   const { t } = useI18n();
   const { toast } = useToast();
 
   const { data: scheduledItems = [], isLoading } = useQuery<ScheduledItem[]>({
-    queryKey: ["/api/agent/scheduled-queue"],
+    queryKey: ["/api/agent/scheduled-queue", showOnlyMine],
     queryFn: async () => {
-      const res = await fetch("/api/agent/scheduled-queue", { credentials: "include" });
+      const url = `/api/agent/scheduled-queue${showOnlyMine ? "?onlyMine=true" : ""}`;
+      const res = await fetch(url, { credentials: "include" });
       return res.ok ? res.json() : [];
     },
     enabled: open,
@@ -7849,6 +7851,17 @@ function ScheduledQueuePanel({
                 )}
               </p>
             </div>
+          </div>
+          <div className="flex items-center gap-2 mr-4">
+            <Checkbox
+              id="sqp-only-mine"
+              checked={showOnlyMine}
+              onCheckedChange={(v) => setShowOnlyMine(!!v)}
+              data-testid="checkbox-sqp-only-mine"
+            />
+            <Label htmlFor="sqp-only-mine" className="text-xs cursor-pointer whitespace-nowrap">
+              {t.agentWorkspace.onlyAssigned}
+            </Label>
           </div>
         </div>
 

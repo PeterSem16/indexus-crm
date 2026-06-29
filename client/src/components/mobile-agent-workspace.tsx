@@ -675,6 +675,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
   const [showNotes, setShowNotes] = useState(true);
   const [searchQ, setSearchQ] = useState("");
   const [filterTab, setFilterTab] = useState<"callable"|"callbacks"|"pending"|"all">("callable");
+  const [showOnlyMineCallbacks, setShowOnlyMineCallbacks] = useState(false);
   const [searchField, setSearchField] = useState("all");
   const [showFieldPicker, setShowFieldPicker] = useState(false);
 
@@ -1184,10 +1185,19 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
   // previously contacted/completed entries too — matching NexusPulse behavior.
   const searchPool = searchQ.trim() && allCampaignContacts ? allCampaignContacts : campaignContacts;
 
-  const byTab = filterTab === "callable"  ? searchPool.filter((cc: any) => callableStatuses.includes(cc.status))
-    : filterTab === "callbacks" ? searchPool.filter((cc: any) => cc.status === "callback_scheduled")
-    : filterTab === "pending"   ? searchPool.filter((cc: any) => cc.status === "pending")
-    : searchPool;
+  const byTab = (() => {
+    let base =
+      filterTab === "callable"  ? searchPool.filter((cc: any) => callableStatuses.includes(cc.status))
+      : filterTab === "callbacks" ? searchPool.filter((cc: any) => cc.status === "callback_scheduled")
+      : filterTab === "pending"   ? searchPool.filter((cc: any) => cc.status === "pending")
+      : searchPool;
+    if (filterTab === "callbacks" && showOnlyMineCallbacks) {
+      base = base.filter((cc: any) =>
+        !cc.assignedTo || cc.assignedTo === "all" || cc.assignedTo === currentUserId
+      );
+    }
+    return base;
+  })();
 
   const filteredOverdue  = byTab.filter((cc: any) => cc.status === "callback_scheduled" && cc.callbackDate && new Date(cc.callbackDate) <= now).filter(cc => ccSearchMatch(cc, searchQ, searchField));
   const filteredUpcoming = byTab.filter((cc: any) => cc.status === "callback_scheduled" && cc.callbackDate && new Date(cc.callbackDate) > now).filter(cc => ccSearchMatch(cc, searchQ, searchField));
@@ -1300,6 +1310,20 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
               );
             })}
           </div>
+          {filterTab === "callbacks" && (
+            <button
+              onClick={() => setShowOnlyMineCallbacks(v => !v)}
+              data-testid="btn-mobile-only-mine-callbacks"
+              style={{
+                display: "flex", alignItems: "center", gap: 6, padding: "5px 10px",
+                borderRadius: 8, fontSize: 11, fontWeight: 600, border: "none", cursor: "pointer",
+                background: showOnlyMineCallbacks ? ST.terra : "hsl(var(--muted))",
+                color: showOnlyMineCallbacks ? "#fff" : "hsl(var(--muted-foreground))",
+              }}>
+              <User className="h-3 w-3" />
+              {np.onlyAssigned || "Len moje"}
+            </button>
+          )}
         </div>
 
         {totalFiltered === 0 ? (
