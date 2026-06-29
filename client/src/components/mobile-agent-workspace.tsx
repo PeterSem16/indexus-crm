@@ -393,21 +393,45 @@ function StatusListPanel({ items, checked, onToggle, np }: {
                 </div>
 
                 {/* Child items via parentId — always visible */}
-                {childrenOf(item.id).length > 0 && (
+                {childrenOf(item.id).length > 0 && (() => {
+                  const isSingleChild = item.questionSelectionMode === "single";
+                  const siblings = childrenOf(item.id);
+                  const handleChildToggle = (childId: string, currentlyChecked: boolean, isInfo: boolean) => {
+                    if (isInfo) return;
+                    if (isSingleChild && !currentlyChecked) {
+                      siblings.forEach((sib: any) => {
+                        if (String(sib.id) !== childId && checked.has(String(sib.id))) {
+                          onToggle(String(sib.id), false);
+                        }
+                      });
+                    }
+                    onToggle(childId, !currentlyChecked);
+                  };
+                  return (
                   <div className="bg-muted/20 border-t border-dashed">
-                    {childrenOf(item.id).map((child: any) => {
+                    {isSingleChild && (
+                      <div className="px-4 pt-2 pb-0 flex items-center gap-1">
+                        <div className="w-2.5 h-2.5 rounded-full border-2 border-blue-400 bg-blue-100 dark:bg-blue-900/40 shrink-0" />
+                        <span className="text-[9px] font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400">1×</span>
+                      </div>
+                    )}
+                    {siblings.map((child: any) => {
                       const childChecked = checked.has(String(child.id));
                       const childInfo = child.confirmationType === "info";
                       return (
                         <div key={child.id} className={`flex items-stretch border-b last:border-b-0 pl-4 ${childChecked ? "bg-emerald-50/40 dark:bg-emerald-900/10" : ""}`}>
                           <button
                             disabled={childInfo}
-                            onClick={() => !childInfo && onToggle(String(child.id), !childChecked)}
+                            onClick={() => handleChildToggle(String(child.id), childChecked, childInfo)}
                             className="shrink-0 flex items-center justify-center w-12 min-h-[48px] active:bg-muted/60"
                             data-testid={`sl-mobile-child-${child.id}`}
                           >
                             {childInfo ? (
                               <Info className="h-4 w-4 text-blue-500" />
+                            ) : isSingleChild ? (
+                              <div className={`h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all ${childChecked ? "bg-emerald-400 border-emerald-400" : "border-muted-foreground/30 bg-background"}`}>
+                                {childChecked && <div className="h-2.5 w-2.5 rounded-full bg-white" />}
+                              </div>
                             ) : (
                               <div className={`h-6 w-6 rounded-md border-2 flex items-center justify-center transition-all ${childChecked ? "bg-emerald-400 border-emerald-400" : "border-muted-foreground/30 bg-background"}`}>
                                 {childChecked && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
@@ -416,7 +440,7 @@ function StatusListPanel({ items, checked, onToggle, np }: {
                           </button>
                           <button
                             disabled={childInfo}
-                            onClick={() => !childInfo && onToggle(String(child.id), !childChecked)}
+                            onClick={() => handleChildToggle(String(child.id), childChecked, childInfo)}
                             className="flex-1 py-3 pr-4 text-left min-h-[48px]"
                           >
                             <p className={`text-xs leading-snug ${childChecked ? "font-bold text-emerald-600 dark:text-emerald-400" : "font-medium text-muted-foreground"}`}>
@@ -429,7 +453,8 @@ function StatusListPanel({ items, checked, onToggle, np }: {
                       );
                     })}
                   </div>
-                )}
+                  );
+                })()}
 
                 {/* Sub-questions — from item.questions[], visible when parent is checked */}
                 {isChecked && questions.length > 0 && (() => {

@@ -5248,18 +5248,42 @@ function CommunicationCanvas({
                   </div>
                 {childItems.length > 0 && (
                   <div className="border-t border-dashed border-border/40 bg-muted/20 px-4 py-2.5 space-y-2">
+                    {item.questionSelectionMode === "single" && (
+                      <div className="flex items-center gap-1 pb-0.5">
+                        <div className="w-2 h-2 rounded-full border-2 border-blue-400 bg-blue-100 dark:bg-blue-900/40 shrink-0" />
+                        <span className="text-[8px] font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400">1×</span>
+                      </div>
+                    )}
                     {childItems.map((child: any) => {
                       const childChecked = dbSlChecked.has(String(child.id));
+                      const isSingleChild = item.questionSelectionMode === "single";
+                      const handleChildToggle = () => {
+                        if (isSingleChild && !childChecked) {
+                          childItems.forEach((sib: any) => {
+                            if (String(sib.id) !== String(child.id) && dbSlChecked.has(String(sib.id))) {
+                              handleSlToggle(String(sib.id), false);
+                            }
+                          });
+                        }
+                        handleSlToggle(String(child.id), !childChecked);
+                      };
                       return (
                         <div key={child.id} className="flex items-start gap-2.5">
                           <div className="w-0.5 self-stretch bg-border/40 shrink-0 ml-1 rounded-full" />
                           <button
                             type="button"
-                            onClick={() => handleSlToggle(String(child.id), !childChecked)}
-                            className={`mt-0.5 h-4 w-4 rounded border-2 flex items-center justify-center transition-all shrink-0 ${childChecked ? "bg-emerald-500 border-emerald-500" : "border-muted-foreground/30 bg-background hover:border-emerald-400"}`}
+                            onClick={handleChildToggle}
+                            className={`mt-0.5 h-4 w-4 flex items-center justify-center transition-all shrink-0 ${
+                              isSingleChild
+                                ? `rounded-full border-2 ${childChecked ? "bg-emerald-500 border-emerald-500" : "border-muted-foreground/30 bg-background hover:border-emerald-400"}`
+                                : `rounded border-2 ${childChecked ? "bg-emerald-500 border-emerald-500" : "border-muted-foreground/30 bg-background hover:border-emerald-400"}`
+                            }`}
                             data-testid={`sl-check-${child.id}`}
                           >
-                            {childChecked && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
+                            {childChecked && (isSingleChild
+                              ? <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                              : <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />
+                            )}
                           </button>
                           <div className="flex-1 min-w-0">
                             <span className={`text-xs leading-snug ${childChecked ? "font-semibold text-emerald-700 dark:text-emerald-300" : "text-foreground/90"}`}>
