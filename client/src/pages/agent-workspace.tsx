@@ -9880,8 +9880,8 @@ export default function AgentWorkspacePage() {
       }
       if (!variables.isReply && currentCampaignContactId && selectedCampaignId) {
         const campaignSettings = selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {};
-        if (campaignSettings.dispositionMode === "script") {
-          // disposition is controlled by call script - do nothing here
+        if (campaignSettings.dispositionMode === "script" || campaignSettings.skipEmailSmsDisposition === true) {
+          // disposition is controlled by call script or disabled for email/SMS
         } else {
           setDispositionChannelFilter("email");
           setDispositionModalOpen(true);
@@ -9933,8 +9933,11 @@ export default function AgentWorkspacePage() {
         queryClient.invalidateQueries({ queryKey: ["/api/entity-history", variables.customerId] });
       }
       if (currentCampaignContactId) {
-        setDispositionChannelFilter("sms");
-        setDispositionModalOpen(true);
+        const campSettings = (() => { try { return selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {}; } catch { return {}; } })();
+        if (!campSettings.skipEmailSmsDisposition) {
+          setDispositionChannelFilter("sms");
+          setDispositionModalOpen(true);
+        }
       }
     },
     onError: (error: Error) => {

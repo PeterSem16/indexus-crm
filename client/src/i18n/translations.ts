@@ -2343,6 +2343,10 @@ export interface Translations {
       keepContactOpenAfterDispositionDesc: string;
       keepContactOpenAfterDispositionOn: string;
       keepContactOpenAfterDispositionOff: string;
+      skipEmailSmsDispositionTitle: string;
+      skipEmailSmsDispositionDesc: string;
+      skipEmailSmsDispositionOn: string;
+      skipEmailSmsDispositionOff: string;
       nexusPulseEmailTitle: string;
       nexusPulseEmailDesc: string;
       nexusPulseEmailModeSystem: string;
@@ -9464,6 +9468,10 @@ export const translations: Record<Locale, Translations> = {
         keepContactOpenAfterDispositionDesc: 'When enabled, the contact remains open as a task after disposition is saved. The agent can still make edits or notes before closing. Time between disposition and task close is tracked as ACW (After Call Work).',
         keepContactOpenAfterDispositionOn: 'Enabled — agent closes task manually after ACW',
         keepContactOpenAfterDispositionOff: 'Disabled — task closes automatically after disposition',
+        skipEmailSmsDispositionTitle: 'Skip disposition after Email / SMS',
+        skipEmailSmsDispositionDesc: 'When enabled, the disposition window will NOT open automatically after sending an email or SMS. Agents can still open it manually.',
+        skipEmailSmsDispositionOn: 'Enabled — send without disposition prompt',
+        skipEmailSmsDispositionOff: 'Disabled — disposition opens after every email/SMS',
         nexusPulseEmailTitle: 'Nexus Pulse — Email Account',
         nexusPulseEmailDesc: 'Select which email account is used to send emails from Nexus Pulse for this mission',
         nexusPulseEmailModeSystem: 'System INDEXUS email',
@@ -16083,6 +16091,10 @@ export const translations: Record<Locale, Translations> = {
         keepContactOpenAfterDispositionDesc: 'Keď je zapnuté, kontakt zostane otvorený ako task po zadaní dispozície. Agent môže ešte vykonať úpravy alebo poznámky pred uzavretím. Čas od dispozície po uzavretie tasku sa sleduje ako ACW (After Call Work).',
         keepContactOpenAfterDispositionOn: 'Zapnuté — agent uzavrie task manuálne po ACW',
         keepContactOpenAfterDispositionOff: 'Vypnuté — task sa uzavrie automaticky po dispozícii',
+        skipEmailSmsDispositionTitle: 'Preskočiť dispozíciu po Emaili / SMS',
+        skipEmailSmsDispositionDesc: 'Ak je zapnuté, okno dispozície sa NEOTVÁRA automaticky po odoslaní emailu alebo SMS. Agent ho môže stále otvoriť manuálne.',
+        skipEmailSmsDispositionOn: 'Zapnuté — odoslať bez výzvy na dispozíciu',
+        skipEmailSmsDispositionOff: 'Vypnuté — dispozícia sa otvára po každom emaili/SMS',
         nexusPulseEmailTitle: 'Nexus Pulse — Email účet',
         nexusPulseEmailDesc: 'Vyberte, ktorý emailový účet sa použije na odosielanie emailov v Nexus Pulse pre túto misiu',
         nexusPulseEmailModeSystem: 'Systémový email INDEXUS',
@@ -22640,6 +22652,10 @@ export const translations: Record<Locale, Translations> = {
         keepContactOpenAfterDispositionDesc: 'Pokud je zapnuto, kontakt zůstane otevřený jako task po zadání dispozice. Agent může ještě provést úpravy nebo poznámky před uzavřením. Čas od dispozice po uzavření tasku se sleduje jako ACW (After Call Work).',
         keepContactOpenAfterDispositionOn: 'Zapnuto — agent uzavře task manuálně po ACW',
         keepContactOpenAfterDispositionOff: 'Vypnuto — task se uzavře automaticky po dispozici',
+        skipEmailSmsDispositionTitle: 'Přeskočit dispozici po Emailu / SMS',
+        skipEmailSmsDispositionDesc: 'Je-li zapnuto, okno dispozice se NEOTVÍRÁ automaticky po odeslání e-mailu nebo SMS. Agent jej může stále otevřít ručně.',
+        skipEmailSmsDispositionOn: 'Zapnuto — odeslat bez výzvy k dispozici',
+        skipEmailSmsDispositionOff: 'Vypnuto — dispozice se otevírá po každém e-mailu/SMS',
         nexusPulseEmailTitle: 'Nexus Pulse — E-mailový účet',
         nexusPulseEmailDesc: 'Vyberte, který e-mailový účet se použije pro odesílání e-mailů v Nexus Pulse pro tuto misi',
         nexusPulseEmailModeSystem: 'Systémový e-mail INDEXUS',
@@ -29155,6 +29171,10 @@ export const translations: Record<Locale, Translations> = {
         keepContactOpenAfterDispositionDesc: 'Ha engedélyezve van, a névjegy feladatként nyitva marad a diszpozíció mentése után. Az ügynök még végezhet módosításokat vagy megjegyzéseket zárás előtt. A diszpozíció és a manuális zárás közötti idő ACW-ként (After Call Work) kerül rögzítésre.',
         keepContactOpenAfterDispositionOn: 'Engedélyezve — az ügynök manuálisan zárja be a feladatot ACW után',
         keepContactOpenAfterDispositionOff: 'Letiltva — a feladat automatikusan bezárul a diszpozíció után',
+        skipEmailSmsDispositionTitle: 'Diszpozíció kihagyása Email / SMS után',
+        skipEmailSmsDispositionDesc: 'Ha engedélyezve van, a diszpozíciós ablak NEM nyílik meg automatikusan e-mail vagy SMS küldése után. Az ügynök manuálisan is megnyithatja.',
+        skipEmailSmsDispositionOn: 'Engedélyezve — küldés diszpozíciós felszólítás nélkül',
+        skipEmailSmsDispositionOff: 'Letiltva — diszpozíció minden e-mail/SMS után megnyílik',
         nexusPulseEmailTitle: 'Nexus Pulse — E-mail fiók',
         nexusPulseEmailDesc: 'Válassza ki, melyik e-mail fiókot használja a Nexus Pulse e-mailek küldéséhez ebben a misszióban',
         nexusPulseEmailModeSystem: 'INDEXUS rendszer e-mail',
@@ -35555,6 +35575,10 @@ export const translations: Record<Locale, Translations> = {
         keepContactOpenAfterDispositionDesc: 'Când este activat, contactul rămâne deschis ca task după salvarea dispoziției. Agentul poate efectua modificări sau notițe înainte de închidere. Timpul de la dispoziție până la închiderea manuală este urmărit ca ACW (After Call Work).',
         keepContactOpenAfterDispositionOn: 'Activat — agentul închide task-ul manual după ACW',
         keepContactOpenAfterDispositionOff: 'Dezactivat — task-ul se închide automat după dispoziție',
+        skipEmailSmsDispositionTitle: 'Omitere dispoziție după Email / SMS',
+        skipEmailSmsDispositionDesc: 'Când este activat, fereastra de dispoziție NU se deschide automat după trimiterea unui e-mail sau SMS. Agentul o poate deschide manual.',
+        skipEmailSmsDispositionOn: 'Activat — trimite fără solicitare dispoziție',
+        skipEmailSmsDispositionOff: 'Dezactivat — dispoziția se deschide după fiecare e-mail/SMS',
         nexusPulseEmailTitle: 'Nexus Pulse — Cont de e-mail',
         nexusPulseEmailDesc: 'Selectați ce cont de e-mail se va folosi pentru trimiterea e-mailurilor în Nexus Pulse pentru această misiune',
         nexusPulseEmailModeSystem: 'E-mail sistem INDEXUS',
@@ -41957,6 +41981,10 @@ export const translations: Record<Locale, Translations> = {
         keepContactOpenAfterDispositionDesc: 'Se abilitato, il contatto rimane aperto come task dopo il salvataggio della disposizione. L\'agente può ancora apportare modifiche o note prima della chiusura. Il tempo dalla disposizione alla chiusura manuale è tracciato come ACW (After Call Work).',
         keepContactOpenAfterDispositionOn: 'Abilitato — l\'agente chiude il task manualmente dopo ACW',
         keepContactOpenAfterDispositionOff: 'Disabilitato — il task si chiude automaticamente dopo la disposizione',
+        skipEmailSmsDispositionTitle: 'Salta disposizione dopo Email / SMS',
+        skipEmailSmsDispositionDesc: 'Se abilitato, la finestra di disposizione NON si apre automaticamente dopo l\'invio di un\'e-mail o SMS. L\'agente può aprirla manualmente.',
+        skipEmailSmsDispositionOn: 'Abilitato — invia senza richiesta disposizione',
+        skipEmailSmsDispositionOff: 'Disabilitato — la disposizione si apre dopo ogni e-mail/SMS',
         nexusPulseEmailTitle: 'Nexus Pulse — Account e-mail',
         nexusPulseEmailDesc: 'Seleziona quale account e-mail viene utilizzato per inviare e-mail da Nexus Pulse per questa missione',
         nexusPulseEmailModeSystem: 'E-mail di sistema INDEXUS',
@@ -48359,6 +48387,10 @@ export const translations: Record<Locale, Translations> = {
         keepContactOpenAfterDispositionDesc: 'Wenn aktiviert, bleibt der Kontakt als Aufgabe nach dem Speichern der Disposition geöffnet. Der Agent kann noch Änderungen oder Notizen vornehmen. Die Zeit zwischen Disposition und manuellem Schließen wird als ACW (After Call Work) erfasst.',
         keepContactOpenAfterDispositionOn: 'Aktiviert — Agent schließt Aufgabe manuell nach ACW',
         keepContactOpenAfterDispositionOff: 'Deaktiviert — Aufgabe schließt automatisch nach Disposition',
+        skipEmailSmsDispositionTitle: 'Disposition nach E-Mail / SMS überspringen',
+        skipEmailSmsDispositionDesc: 'Wenn aktiviert, öffnet sich das Dispositionsfenster NICHT automatisch nach dem Senden einer E-Mail oder SMS. Der Agent kann es manuell öffnen.',
+        skipEmailSmsDispositionOn: 'Aktiviert — senden ohne Dispositionsaufforderung',
+        skipEmailSmsDispositionOff: 'Deaktiviert — Disposition öffnet nach jeder E-Mail/SMS',
         nexusPulseEmailTitle: 'Nexus Pulse — E-Mail-Konto',
         nexusPulseEmailDesc: 'Wählen Sie, welches E-Mail-Konto zum Senden von E-Mails in Nexus Pulse für diese Mission verwendet wird',
         nexusPulseEmailModeSystem: 'System-E-Mail INDEXUS',

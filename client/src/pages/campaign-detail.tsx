@@ -6453,6 +6453,46 @@ export default function CampaignDetailPage() {
                       </Card>
                       <Card>
                         <CardHeader>
+                          <CardTitle>{t.campaigns.detail.skipEmailSmsDispositionTitle}</CardTitle>
+                          <CardDescription>{t.campaigns.detail.skipEmailSmsDispositionDesc}</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-center gap-3">
+                            <Switch
+                              checked={(() => {
+                                try {
+                                  const s = campaign.settings ? JSON.parse(campaign.settings) : {};
+                                  return s.skipEmailSmsDisposition === true;
+                                } catch { return false; }
+                              })()}
+                              onCheckedChange={(v) => {
+                                let existing: any = {};
+                                try { if (campaign.settings) existing = JSON.parse(campaign.settings); } catch {}
+                                const merged = { ...existing, skipEmailSmsDisposition: v };
+                                apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { settings: JSON.stringify(merged) })
+                                  .then(() => {
+                                    toast({ title: t.campaigns.detail.settingsSaved });
+                                    queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
+                                  })
+                                  .catch(() => toast({ title: t.campaigns.detail.error, variant: "destructive" }));
+                              }}
+                              data-testid="switch-skip-email-sms-disposition"
+                            />
+                            <Label className="text-sm">
+                              {(() => {
+                                try {
+                                  const s = campaign.settings ? JSON.parse(campaign.settings) : {};
+                                  return s.skipEmailSmsDisposition === true
+                                    ? t.campaigns.detail.skipEmailSmsDispositionOn
+                                    : t.campaigns.detail.skipEmailSmsDispositionOff;
+                                } catch { return t.campaigns.detail.skipEmailSmsDispositionOff; }
+                              })()}
+                            </Label>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader>
                           <CardTitle>{t.campaigns.detail.nexusPulseEmailTitle}</CardTitle>
                           <CardDescription>{t.campaigns.detail.nexusPulseEmailDesc}</CardDescription>
                         </CardHeader>
