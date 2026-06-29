@@ -23955,16 +23955,19 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const states = await db.select().from(campaignContactStatusListState)
         .where(inArray(campaignContactStatusListState.campaignContactId, ccIds));
 
-      // 5. Call count per campaign contact (from history)
-      const callCounts = await db.execute(
-        sql`SELECT campaign_contact_id, COUNT(*) as call_count FROM campaign_contact_history
-            WHERE campaign_contact_id = ANY(${sql.raw(`ARRAY[${ccIds.map(id => `'${id}'`).join(',')}]::varchar[]`)})
-            AND action IN ('call_started','call_ended','disposition_saved')
-            GROUP BY campaign_contact_id`
-      );
+      // 5. Call count per campaign contact (from history) — using Drizzle ORM
+      const callHistoryRows = await db.select({
+        campaignContactId: campaignContactHistory.campaignContactId,
+      }).from(campaignContactHistory)
+        .where(
+          and(
+            inArray(campaignContactHistory.campaignContactId, ccIds),
+            inArray(campaignContactHistory.action, ["call_started", "call_ended", "disposition_saved"])
+          )
+        );
       const callCountMap = new Map<string, number>();
-      for (const row of (callCounts as any).rows ?? []) {
-        callCountMap.set(row.campaign_contact_id, Number(row.call_count));
+      for (const row of callHistoryRows) {
+        callCountMap.set(row.campaignContactId, (callCountMap.get(row.campaignContactId) || 0) + 1);
       }
 
       // 6. BO task execution count per item (proxy for "automation fired")

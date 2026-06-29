@@ -9830,11 +9830,11 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
   const [search, setSearch] = useState("");
   const [contactSort, setContactSort] = useState<"calls" | "steps" | "name">("steps");
 
-  const { data, isLoading } = useQuery<SLAnalytics>({
+  const { data, isLoading, isError } = useQuery<SLAnalytics>({
     queryKey: ["/api/campaigns", campaignId, "status-list-analytics"],
     queryFn: async () => {
       const res = await fetch(`/api/campaigns/${campaignId}/status-list-analytics`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json();
     },
   });
@@ -9849,6 +9849,14 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
     <div className="flex items-center justify-center py-16 text-muted-foreground gap-2">
       <Loader2 className="h-5 w-5 animate-spin" /> Načítavam štatistiky…
     </div>
+  );
+
+  if (isError) return (
+    <Card><CardContent className="py-12 text-center text-muted-foreground">
+      <AlertCircle className="w-10 h-10 mx-auto mb-3 text-destructive opacity-70" />
+      <p className="font-medium text-destructive">Nepodarilo sa načítať štatistiky</p>
+      <p className="text-sm mt-1">Skontrolujte konzolu servera alebo skúste znova.</p>
+    </CardContent></Card>
   );
 
   if (!data || data.items.length === 0) return (
