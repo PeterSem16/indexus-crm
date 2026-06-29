@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Slider } from "@/components/ui/slider";
@@ -669,7 +669,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
   const [dtmfOpen, setDtmfOpen] = useState(false);
   const [breakMenuOpen, setBreakMenuOpen] = useState(false);
   const [logoutConfirm, setLogoutConfirm] = useState(false);
-  const [showDetails, setShowDetails] = useState(false);
+  const [showDetails, setShowDetails] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
   const [newNoteText, setNewNoteText] = useState("");
@@ -677,6 +677,14 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
   const [filterTab, setFilterTab] = useState<"callable"|"callbacks"|"pending"|"all">("callable");
   const [searchField, setSearchField] = useState("all");
   const [showFieldPicker, setShowFieldPicker] = useState(false);
+
+  useEffect(() => {
+    if (contact?.id) {
+      setShowDetails(true);
+      setShowHistory(false);
+      setShowNotes(false);
+    }
+  }, [contact?.id]);
 
   const isCallActive = ["active", "on_hold", "connecting", "ringing"].includes(callState);
   const isCallEnded = callState === "ended";
