@@ -12150,6 +12150,7 @@ export default function AgentWorkspacePage() {
               contact={currentContact}
               campaign={selectedCampaign}
               campaignContacts={sortedPendingContacts}
+              allCampaignContacts={rawCampaignContacts}
               currentCampaignContactId={effectiveCampaignContactId}
               onSelectContact={(cc) => handleSelectCampaignContact(cc)}
               callState={callContext.callState}

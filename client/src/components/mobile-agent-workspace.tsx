@@ -100,6 +100,7 @@ export interface MobileAgentWorkspaceProps {
   t: any;
   locale: string;
   currentUserId?: string;
+  allCampaignContacts?: any[];
 
   volume?: number;
   micVolume?: number;
@@ -660,7 +661,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
     dbStatusList, dbSlChecked, onSlToggle,
     agentStatus, isOnBreak, workTime, breakTypes,
     onEndSession, onStartBreak, onEndBreak,
-    onFullLogout, t, currentUserId,
+    onFullLogout, t, currentUserId, allCampaignContacts,
     volume = 80, micVolume = 100, onVolumeChange, onMicVolumeChange,
   } = props;
 
@@ -685,7 +686,10 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
   const hasContact = !!contact || !!currentCampaignContactId;
 
   const now = new Date();
-  const callbackContacts = campaignContacts.filter((cc: any) => cc.status === "callback_scheduled" && cc.callbackDate);
+  const callbackContacts = campaignContacts.filter((cc: any) =>
+    cc.status === "callback_scheduled" && cc.callbackDate &&
+    (!cc.assignedTo || cc.assignedTo === "all" || cc.assignedTo === currentUserId)
+  );
   const overdueCallbacks = callbackContacts.filter((cc: any) => new Date(cc.callbackDate) <= now);
   const upcomingCallbacks = callbackContacts.filter((cc: any) => new Date(cc.callbackDate) > now);
   const pendingContacts = campaignContacts.filter((cc: any) => cc.status === "pending");
@@ -1162,10 +1166,14 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
   const ST = { terra: "#B5622E", sage: "#5E7A5A", sand: "#A0946A" };
   const callableStatuses = ["callback_scheduled", "pending"];
 
-  const byTab = filterTab === "callable"  ? campaignContacts.filter((cc: any) => callableStatuses.includes(cc.status))
-    : filterTab === "callbacks" ? campaignContacts.filter((cc: any) => cc.status === "callback_scheduled")
-    : filterTab === "pending"   ? campaignContacts.filter((cc: any) => cc.status === "pending")
-    : campaignContacts;
+  // When user is actively searching, use allCampaignContacts (all statuses) so search finds
+  // previously contacted/completed entries too — matching NexusPulse behavior.
+  const searchPool = searchQ.trim() && allCampaignContacts ? allCampaignContacts : campaignContacts;
+
+  const byTab = filterTab === "callable"  ? searchPool.filter((cc: any) => callableStatuses.includes(cc.status))
+    : filterTab === "callbacks" ? searchPool.filter((cc: any) => cc.status === "callback_scheduled")
+    : filterTab === "pending"   ? searchPool.filter((cc: any) => cc.status === "pending")
+    : searchPool;
 
   const filteredOverdue  = byTab.filter((cc: any) => cc.status === "callback_scheduled" && cc.callbackDate && new Date(cc.callbackDate) <= now).filter(cc => ccSearchMatch(cc, searchQ, searchField));
   const filteredUpcoming = byTab.filter((cc: any) => cc.status === "callback_scheduled" && cc.callbackDate && new Date(cc.callbackDate) > now).filter(cc => ccSearchMatch(cc, searchQ, searchField));
@@ -1356,6 +1364,9 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
             )}
           </div>
         )}
+      </div>
+      <div className="text-center py-2 shrink-0">
+        <span className="text-[10px] text-muted-foreground/40 select-none">build 2026-06-29c</span>
       </div>
     </div>
   );
