@@ -659,14 +659,18 @@ function MobileContactInfo({ contact, phoneNumbers, np, recentCalls, contactNote
   addNoteMutation: any;
   noteTextareaRef: React.RefObject<HTMLTextAreaElement>;
 }) {
-  const [showHistory, setShowHistory] = useState(false);
-  const [showNotes, setShowNotes] = useState(false);
-  useEffect(() => { setShowHistory(false); setShowNotes(false); }, [contact?.id]);
+  const [showHistory, setShowHistory] = useState(true);
+  const [showNotes, setShowNotes] = useState(true);
+  useEffect(() => { setShowHistory(true); setShowNotes(true); }, [contact?.id]);
 
   return (
     <>
       {/* Contact details — always visible */}
       <div className="rounded-2xl border bg-card overflow-hidden">
+        <div className="px-4 py-3 flex items-center gap-2 border-b bg-muted/30">
+          <User className="h-4 w-4 text-primary" />
+          <span className="text-sm font-bold">{np.viewDetails || "Kontaktné detaily"}</span>
+        </div>
         <div className="divide-y text-sm">
           {phoneNumbers.map(({ label, value }) => (
             <div key={value} className="flex items-center gap-3 px-4 py-3">
