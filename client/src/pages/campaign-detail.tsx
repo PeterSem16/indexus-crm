@@ -7421,6 +7421,15 @@ export default function CampaignDetailPage() {
           {campaign && <CampaignPhasesTab campaignId={campaign.id} />}
         </TabsContent>
 
+        <TabsContent value="sl-analytics" className="space-y-4">
+          <div data-testid="sl-tab-probe" style={{position:"fixed",bottom:"20px",right:"20px",zIndex:99999,padding:"12px 16px",background:"#ef4444",color:"white",borderRadius:"8px",fontWeight:"bold",fontSize:"14px",boxShadow:"0 4px 12px rgba(0,0,0,0.4)"}}>
+            SL TAB ACTIVE — id: {campaignId || "EMPTY"}
+          </div>
+          <SLAnalyticsErrorBoundary>
+            <StatusListAnalyticsTab campaignId={campaignId} totalContacts={stats?.totalContacts || 0} />
+          </SLAnalyticsErrorBoundary>
+        </TabsContent>
+
       </Tabs>
 
       <Dialog open={!!selectedContact} onOpenChange={() => setSelectedContact(null)}>
@@ -9789,14 +9798,6 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
           )}
         </TabsContent>
 
-        <TabsContent value="sl-analytics" className="space-y-4">
-          <div data-testid="sl-tab-probe" style={{padding:"12px",background:"#ef4444",color:"white",borderRadius:"6px",fontWeight:"bold"}}>
-            ✅ SL TAB RENDERS — campaignId: {campaignId || "(empty)"}
-          </div>
-          <SLAnalyticsErrorBoundary>
-            <StatusListAnalyticsTab campaignId={campaignId} totalContacts={stats?.totalContacts || 0} />
-          </SLAnalyticsErrorBoundary>
-        </TabsContent>
 
       </Tabs>
     </div>
