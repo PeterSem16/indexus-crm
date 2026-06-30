@@ -9842,7 +9842,7 @@ type SLContactStat = {
   contactType: string; status: string; callCount: number;
   confirmedSteps: string[]; confirmedCount: number; lastActivity: string | null;
 };
-type SLAgentStat = { userId: string; name: string; totalConfirmations: number; uniqueContacts: number; itemBreakdown: Record<string, number> };
+type SLAgentStat = { userId: string; name: string; totalConfirmations: number; uniqueContacts: number; topItems: { label: string; count: number }[] };
 type SLAnalytics = { items: SLItemStat[]; contacts: SLContactStat[]; agents: SLAgentStat[]; totalContacts: number };
 
 const ACTION_ICON: Record<string, { icon: LucideIcon; label: string; color: string }> = {
@@ -9861,6 +9861,8 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
   const [view, setView] = useState<"funnel" | "contacts" | "agents">("funnel");
   const [search, setSearch] = useState("");
   const [contactSort, setContactSort] = useState<"calls" | "steps" | "name">("steps");
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 25;
 
   useEffect(() => {
     console.log("[SL-Analytics] Tab mounted, campaignId=", campaignId);
@@ -9959,50 +9961,25 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
         <div className="space-y-3">
           {/* Summary cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Card className="border-l-4 border-l-blue-500">
-              <CardContent className="pt-4 pb-3 px-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
-                  <Users className="h-5 w-5 text-blue-500" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground leading-tight">{aw.slaTotalContacts}</p>
-                  <p className="text-2xl font-bold leading-tight">{totalContacts}</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-l-4 border-l-violet-500">
-              <CardContent className="pt-4 pb-3 px-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
-                  <BarChart3 className="h-5 w-5 text-violet-500" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground leading-tight">{aw.slaStepsInList}</p>
-                  <p className="text-2xl font-bold leading-tight">{allItems.length}</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-l-4 border-l-green-500">
-              <CardContent className="pt-4 pb-3 px-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
-                  <CheckCircle2 className="h-5 w-5 text-green-500" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground leading-tight">{aw.slaTotalConfirmations}</p>
-                  <p className="text-2xl font-bold leading-tight">{allItems.reduce((s, i) => s + i.totalConfirmations, 0)}</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-l-4 border-l-amber-500">
-              <CardContent className="pt-4 pb-3 px-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
-                  <Zap className="h-5 w-5 text-amber-500" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground leading-tight">{aw.slaAutomationsFired}</p>
-                  <p className="text-2xl font-bold leading-tight">{allItems.reduce((s, i) => s + i.automationsFired, 0)}</p>
-                </div>
-              </CardContent>
-            </Card>
+            {([
+              { icon: Users, color: "blue", value: totalContacts, label: aw.slaTotalContacts, desc: aw.slaTotalContactsDesc },
+              { icon: BarChart3, color: "violet", value: allItems.length, label: aw.slaStepsInList, desc: aw.slaStepsInListDesc },
+              { icon: CheckCircle2, color: "green", value: allItems.reduce((s, i) => s + i.totalConfirmations, 0), label: aw.slaTotalConfirmations, desc: aw.slaTotalConfirmationsDesc },
+              { icon: Zap, color: "amber", value: allItems.reduce((s, i) => s + i.automationsFired, 0), label: aw.slaAutomationsFired, desc: aw.slaAutomationsFiredDesc },
+            ] as const).map(({ icon: Icon, color, value, label, desc }) => (
+              <Card key={label} className={`border-l-4 border-l-${color}-500`}>
+                <CardContent className="pt-3 pb-3 px-4 flex items-center gap-3">
+                  <div className={`h-10 w-10 rounded-lg bg-${color}-500/10 flex items-center justify-center shrink-0`}>
+                    <Icon className={`h-5 w-5 text-${color}-500`} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className={`text-2xl font-bold leading-tight text-${color}-600 dark:text-${color}-400`}>{value}</p>
+                    <p className="text-sm font-semibold leading-tight truncate">{label}</p>
+                    <p className="text-xs text-muted-foreground leading-tight truncate">{desc}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
 
           {/* Step funnel */}
@@ -10114,13 +10091,13 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder={aw.slaSearchContact}
+              <input value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} placeholder={aw.slaSearchContact}
                 className="w-full pl-8 pr-3 h-9 text-sm border rounded-md bg-background outline-none focus:ring-1 focus:ring-primary"
                 data-testid="input-sl-search" />
             </div>
             <div className="flex gap-1">
               {([["steps", aw.slaSortSteps], ["calls", aw.slaSortCalls], ["name", aw.slaSortName]] as const).map(([s, lbl]) => (
-                <button key={s} onClick={() => setContactSort(s)}
+                <button key={s} onClick={() => { setContactSort(s); setPage(0); }}
                   className={`px-2.5 h-9 text-xs rounded-md border transition-colors ${contactSort === s ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted"}`}>
                   {lbl}
                 </button>
@@ -10133,22 +10110,22 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/50">
-                    <th className="text-left font-medium text-xs text-muted-foreground py-2 px-3">{aw.slaColContact}</th>
-                    <th className="text-center font-medium text-xs text-muted-foreground py-2 px-2">{aw.slaColCalls}</th>
-                    <th className="text-center font-medium text-xs text-muted-foreground py-2 px-2">{aw.slaColSteps}</th>
-                    {steps.slice(0, 8).map(s => (
-                      <th key={s.id} className="text-center font-medium text-xs text-muted-foreground py-2 px-1 max-w-[60px]">
-                        <span className="block truncate max-w-[56px]" title={s.label}>{s.label}</span>
+                    <th className="text-left font-medium text-xs text-muted-foreground py-2 px-3 sticky left-0 z-10 bg-muted/50 min-w-[180px]">{aw.slaColContact}</th>
+                    <th className="text-center font-medium text-xs text-muted-foreground py-2 px-2 min-w-[56px]">{aw.slaColCalls}</th>
+                    <th className="text-center font-medium text-xs text-muted-foreground py-2 px-2 min-w-[70px]">{aw.slaColSteps}</th>
+                    {allItems.map(s => (
+                      <th key={s.id} className="text-center font-medium text-xs text-muted-foreground py-2 px-2 min-w-[110px]">
+                        <span className="block whitespace-normal leading-tight" style={s.color ? { color: s.color } : {}}>{s.label}</span>
                       </th>
                     ))}
-                    <th className="text-left font-medium text-xs text-muted-foreground py-2 px-3">{aw.slaColLastActivity}</th>
+                    <th className="text-left font-medium text-xs text-muted-foreground py-2 px-3 min-w-[110px]">{aw.slaColLastActivity}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredContacts.slice(0, 100).map(c => (
+                  {filteredContacts.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(c => (
                     <tr key={c.campaignContactId} className="border-b last:border-0 hover:bg-muted/30">
-                      <td className="py-2 px-3">
-                        <p className="font-medium truncate max-w-[140px]">{c.contactName}</p>
+                      <td className="py-2 px-3 sticky left-0 z-10 bg-background border-r">
+                        <p className="font-medium">{c.contactName}</p>
                         {c.contactPhone && <p className="text-xs text-muted-foreground">{c.contactPhone}</p>}
                       </td>
                       <td className="py-2 px-2 text-center">
@@ -10156,31 +10133,60 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
                       </td>
                       <td className="py-2 px-2 text-center">
                         <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${c.confirmedCount > 0 ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}>
-                          {c.confirmedCount}/{steps.length}
+                          {c.confirmedCount}/{allItems.length}
                         </span>
                       </td>
-                      {steps.slice(0, 8).map(s => (
-                        <td key={s.id} className="py-2 px-1 text-center">
+                      {allItems.map(s => (
+                        <td key={s.id} className="py-2 px-2 text-center">
                           {c.confirmedSteps.includes(s.id)
                             ? <Check className="h-3.5 w-3.5 text-green-500 mx-auto" />
                             : <span className="text-muted-foreground/30 text-xs">—</span>
                           }
                         </td>
                       ))}
-                      <td className="py-2 px-3 text-xs text-muted-foreground">
+                      <td className="py-2 px-3 text-xs text-muted-foreground whitespace-nowrap">
                         {c.lastActivity ? (() => { try { return new Date(c.lastActivity).toLocaleDateString("sk-SK", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); } catch { return "—"; } })() : "—"}
                       </td>
                     </tr>
                   ))}
                   {filteredContacts.length === 0 && (
-                    <tr><td colSpan={10} className="py-8 text-center text-muted-foreground text-sm">{aw.slaNoResults}</td></tr>
+                    <tr><td colSpan={allItems.length + 4} className="py-8 text-center text-muted-foreground text-sm">{aw.slaNoResults}</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
-            {filteredContacts.length > 100 && (
-              <div className="px-3 py-2 text-xs text-muted-foreground border-t">{aw.slaShowing100.replace("{n}", String(filteredContacts.length))}</div>
-            )}
+            {/* Pagination */}
+            {filteredContacts.length > PAGE_SIZE && (() => {
+              const totalPages = Math.ceil(filteredContacts.length / PAGE_SIZE);
+              const visiblePages = Array.from({ length: totalPages }, (_, i) => i)
+                .filter(i => i === 0 || i === totalPages - 1 || Math.abs(i - page) <= 2);
+              return (
+                <div className="px-3 py-2 border-t flex items-center justify-between gap-2 flex-wrap">
+                  <span className="text-xs text-muted-foreground">
+                    {aw.slaPage} {page + 1} {aw.slaOf} {totalPages} &nbsp;·&nbsp; {filteredContacts.length} {aw.slaContacts}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
+                      className="h-7 px-2 text-xs rounded border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed">‹</button>
+                    {visiblePages.map((i, idx) => {
+                      const prev = visiblePages[idx - 1];
+                      const gap = prev !== undefined && i - prev > 1;
+                      return (
+                        <span key={i} className="flex items-center gap-1">
+                          {gap && <span className="text-xs text-muted-foreground px-0.5">…</span>}
+                          <button onClick={() => setPage(i)}
+                            className={`h-7 min-w-[28px] px-1.5 text-xs rounded border transition-colors ${i === page ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted"}`}>
+                            {i + 1}
+                          </button>
+                        </span>
+                      );
+                    })}
+                    <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1}
+                      className="h-7 px-2 text-xs rounded border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed">›</button>
+                  </div>
+                </div>
+              );
+            })()}
           </Card>
         </div>
       )}
@@ -10193,10 +10199,7 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
           ) : (
             <div className="grid gap-3 md:grid-cols-2">
               {(data.agents || []).map(agent => {
-                const topItems = Object.entries(agent.itemBreakdown)
-                  .sort((a, b) => b[1] - a[1])
-                  .slice(0, 5)
-                  .map(([itemId, count]) => ({ label: allItems.find(i => i.id === itemId)?.label || itemId, count }));
+                const topItems = agent.topItems || [];
                 return (
                   <Card key={agent.userId}>
                     <CardContent className="pt-4 pb-3 px-4">

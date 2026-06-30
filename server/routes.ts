@@ -24118,12 +24118,17 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         ag.uniqueContacts.add(s.campaign_contact_id);
         ag.itemBreakdown.set(s.status_list_item_id, (ag.itemBreakdown.get(s.status_list_item_id) || 0) + 1);
       }
+      // Build label map from already-loaded itemStats so UUID keys resolve to labels
+      const itemLabelMap = new Map<string, string>(itemStats.map((i: any) => [i.id, i.label]));
       const agents = [...agentSummary.values()].map(ag => ({
         userId: ag.userId,
         name: ag.name,
         totalConfirmations: ag.totalConfirmations,
         uniqueContacts: ag.uniqueContacts.size,
-        itemBreakdown: Object.fromEntries(ag.itemBreakdown.entries()),
+        topItems: [...ag.itemBreakdown.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 8)
+          .map(([itemId, count]) => ({ label: itemLabelMap.get(itemId) || `#${itemId.slice(0, 6)}`, count })),
       })).sort((a, b) => b.totalConfirmations - a.totalConfirmations);
 
       res.json({ items: itemStats, contacts: contactSummary, agents, totalContacts });
