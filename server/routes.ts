@@ -24084,15 +24084,20 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       });
 
       // 10. Per-contact summary
+      const itemLabelColorMap = new Map<string, { label: string; color: string | null }>(
+        items.map((i: any) => [i.id, { label: i.label, color: i.color || null }])
+      );
       const contactSummary = contacts.map((cc: any) => {
         const ccStates = states.filter((s: any) => s.campaign_contact_id === cc.id);
         const confirmedItemIds = new Set(ccStates.map((s: any) => s.status_list_item_id));
-        // Pick the right entity ID column based on contact_type
         const entityId = cc.contact_type === "hospital" ? cc.hospital_id
           : cc.contact_type === "clinic" ? cc.clinic_id
           : cc.contact_type === "collaborator" ? cc.collaborator_id
           : cc.customer_id;
         const entity = entityId ? entityNameMap.get(entityId) : null;
+        const sortedStates = [...ccStates].sort((a: any, b: any) => new Date(b.confirmed_at).getTime() - new Date(a.confirmed_at).getTime());
+        const lastState = sortedStates[0] || null;
+        const lastItemInfo = lastState ? itemLabelColorMap.get(lastState.status_list_item_id) : null;
         return {
           campaignContactId: cc.id,
           contactName: entity?.name || `#${String(cc.id).slice(0, 8)}`,
@@ -24102,9 +24107,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           callCount: callCountMap.get(cc.id) || 0,
           confirmedSteps: [...confirmedItemIds],
           confirmedCount: confirmedItemIds.size,
-          lastActivity: ccStates.length > 0
-            ? ccStates.sort((a: any, b: any) => new Date(b.confirmed_at).getTime() - new Date(a.confirmed_at).getTime())[0].confirmed_at
-            : null,
+          lastActivity: lastState?.confirmed_at || null,
+          lastStatusLabel: lastItemInfo?.label || null,
+          lastStatusColor: lastItemInfo?.color || null,
         };
       }).sort((a: any, b: any) => b.confirmedCount - a.confirmedCount);
 
@@ -24141,31 +24146,57 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   app.get("/api/campaigns/:id/status-list-analytics/export", requireAuth, async (req, res) => {
     try {
       const { id: campaignId } = req.params;
+
+      let campaignName = campaignId;
+      try {
+        const campRow = await pool.query(`SELECT name FROM campaigns WHERE id = $1 LIMIT 1`, [campaignId]);
+        if (campRow.rows[0]?.name) campaignName = campRow.rows[0].name;
+      } catch (_) {}
+
       const analyticsRes = await fetch(`http://localhost:${process.env.PORT || 5000}/api/campaigns/${campaignId}/status-list-analytics`, {
         headers: { cookie: req.headers.cookie || "" },
       });
       if (!analyticsRes.ok) return res.status(500).json({ error: "Failed to load analytics" });
       const data = await analyticsRes.json() as { items: any[]; contacts: any[]; agents: any[]; totalContacts: number };
 
-      const itemLabels = new Map(data.items.map((i: any) => [i.id, i.label]));
-      const headers = ["Contact", "Phone", "Type", "Status", "Calls", "Last Activity", ...data.items.map((i: any) => i.label)];
-      const rows = data.contacts.map((c: any) => [
-        c.contactName,
-        c.contactPhone,
-        c.contactType,
-        c.status,
-        c.callCount,
-        c.lastActivity ? new Date(c.lastActivity).toLocaleString("sk-SK") : "",
-        ...data.items.map((i: any) => c.confirmedSteps.includes(i.id) ? "✓" : ""),
-      ]);
+      const sep = ";";
+      const q = (s: any) => `"${String(s ?? "").replace(/"/g, '""')}"`;
+      const now = new Date().toLocaleString("sk-SK", { timeZone: "Europe/Bratislava", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+      const totalConf = data.contacts.reduce((s: number, c: any) => s + (c.confirmedCount || 0), 0);
 
-      const csvRows = [headers, ...rows].map(row =>
-        row.map(cell => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(",")
-      );
-      const csv = csvRows.join("\n");
+      const csvRows: string[] = [];
+
+      // ── Header ──
+      csvRows.push([q(`Kampaň: ${campaignName}`), q(`Exportované: ${now}`), q(`Kontaktov: ${data.totalContacts}`), q(`Potvrdení: ${totalConf}`), q(`Krokov/možností: ${data.items.length}`)].join(sep));
+      csvRows.push(Array(5).fill(q("")).join(sep));
+
+      // ── Column headers ──
+      const colHeaders = ["Kontakt", "Telefón", "Typ", "Stav", "Hovory", "Posledný status", "Posledná aktivita", ...data.items.map((i: any) => i.label)];
+      csvRows.push(colHeaders.map(q).join(sep));
+
+      // ── Data rows ──
+      for (const c of data.contacts) {
+        const lastAct = c.lastActivity ? new Date(c.lastActivity).toLocaleString("sk-SK", { timeZone: "Europe/Bratislava", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+        const row = [
+          c.contactName,
+          c.contactPhone || "",
+          c.contactType || "",
+          c.status || "",
+          String(c.callCount ?? 0),
+          c.lastStatusLabel || "",
+          lastAct,
+          ...data.items.map((i: any) => (c.confirmedSteps || []).includes(i.id) ? "✓" : ""),
+        ];
+        csvRows.push(row.map(q).join(sep));
+      }
+
+      // ── Footer ──
+      csvRows.push(Array(5).fill(q("")).join(sep));
+      csvRows.push([q(`Celkom: ${data.contacts.length} kontaktov`), q(`${data.items.length} krokov/možností`), q(`${totalConf} potvrdení`), q(""), q(`INDEXUS CRM — Status List Analytics`)].join(sep));
+
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
-      res.setHeader("Content-Disposition", `attachment; filename="status-list-${campaignId}.csv"`);
-      res.send("\uFEFF" + csv);
+      res.setHeader("Content-Disposition", `attachment; filename="SLA-${campaignId}-${Date.now()}.csv"`);
+      res.send("\uFEFF" + csvRows.join("\n"));
     } catch (error) {
       console.error("Status list export error:", error);
       res.status(500).json({ error: "Export failed" });
