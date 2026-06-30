@@ -443,13 +443,18 @@ app.use((req, res, next) => {
         confirmed_at timestamp NOT NULL DEFAULT now(),
         confirmed_by_user_id text NOT NULL,
         created_at timestamp NOT NULL DEFAULT now()
-      );
-      CREATE INDEX IF NOT EXISTS idx_cc_status_state_contact ON campaign_contact_status_list_state (campaign_contact_id);
-      CREATE INDEX IF NOT EXISTS idx_cc_status_state_item ON campaign_contact_status_list_state (campaign_contact_id, status_list_item_id);
+      )
     `);
-    console.log('[migration] campaign_contact_status_list_state ensured');
+    console.log('[migration] campaign_contact_status_list_state table ensured');
   } catch (e: any) {
-    console.error('[migration] campaign_contact_status_list_state error:', e.message);
+    console.error('[migration] campaign_contact_status_list_state table error:', e.message);
+  }
+  try {
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_cc_status_state_contact ON campaign_contact_status_list_state (campaign_contact_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_cc_status_state_item ON campaign_contact_status_list_state (campaign_contact_id, status_list_item_id)`);
+    console.log('[migration] campaign_contact_status_list_state indexes ensured');
+  } catch (e: any) {
+    console.error('[migration] campaign_contact_status_list_state index error:', e.message);
   }
 
   try {

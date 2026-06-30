@@ -9870,7 +9870,10 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
     queryFn: async () => {
       console.log("[SL-Analytics] Fetching for campaignId=", campaignId);
       const res = await fetch(`/api/campaigns/${campaignId}/status-list-analytics`, { credentials: "include" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(`HTTP ${res.status}${body.detail ? ': ' + body.detail : ''}${body.code ? ' [' + body.code + ']' : ''}`);
+      }
       return res.json();
     },
   });
