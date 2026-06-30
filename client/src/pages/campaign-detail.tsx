@@ -9842,6 +9842,7 @@ type SLContactStat = {
   contactType: string; status: string; callCount: number;
   confirmedSteps: string[]; confirmedCount: number; lastActivity: string | null;
   lastStatusLabel: string | null; lastStatusColor: string | null;
+  lastDispositionCode: string | null; lastDispositionName: string | null; lastDispositionColor: string | null;
 };
 type SLAgentStat = { userId: string; name: string; totalConfirmations: number; uniqueContacts: number; topItems: { label: string; count: number }[] };
 type SLAnalytics = { items: SLItemStat[]; contacts: SLContactStat[]; agents: SLAgentStat[]; totalContacts: number };
@@ -9968,18 +9969,14 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
               { icon: CheckCircle2, hex: "#10b981", value: allItems.reduce((s, i) => s + i.totalConfirmations, 0),   label: aw.slaTotalConfirmations, desc: aw.slaTotalConfirmationsDesc },
               { icon: Zap,          hex: "#f59e0b", value: allItems.reduce((s, i) => s + i.automationsFired,    0),  label: aw.slaAutomationsFired,   desc: aw.slaAutomationsFiredDesc },
             ].map(({ icon: Icon, hex, value, label, desc }) => (
-              <Card key={label} className="overflow-hidden" style={{ borderLeft: `4px solid ${hex}` }}>
-                <CardContent className="pt-4 pb-4 px-4">
-                  <div className="flex items-center gap-3">
-                    <div className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: hex + "1a" }}>
-                      <Icon className="h-5 w-5" style={{ color: hex }} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-3xl font-bold leading-none mb-1" style={{ color: hex }}>{value.toLocaleString()}</p>
-                      <p className="text-sm font-semibold leading-snug truncate">{label}</p>
-                      <p className="text-xs text-muted-foreground leading-tight mt-0.5">{desc}</p>
-                    </div>
+              <Card key={label} style={{ borderLeft: `4px solid ${hex}` }}>
+                <CardContent className="pt-5 pb-4 px-4">
+                  <div style={{ width: 40, height: 40, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12, background: hex + "1a" }}>
+                    <Icon className="h-5 w-5" style={{ color: hex }} />
                   </div>
+                  <p style={{ fontSize: 36, fontWeight: 700, lineHeight: 1, color: hex, margin: 0 }}>{value.toLocaleString()}</p>
+                  <p style={{ fontSize: 13, fontWeight: 600, marginTop: 6, marginBottom: 0, lineHeight: 1.3 }}>{label}</p>
+                  <p style={{ fontSize: 11, color: "#9ca3af", marginTop: 3, lineHeight: 1.3 }}>{desc}</p>
                 </CardContent>
               </Card>
             ))}
@@ -10117,6 +10114,7 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
                     <th className="text-center font-medium text-xs text-muted-foreground py-2 px-2 min-w-[56px]">{aw.slaColCalls}</th>
                     <th className="text-center font-medium text-xs text-muted-foreground py-2 px-2 min-w-[70px]">{aw.slaColSteps}</th>
                     <th className="text-left font-medium text-xs text-muted-foreground py-2 px-3 min-w-[140px]">{aw.slaColLastStatus}</th>
+                    <th className="text-left font-medium text-xs text-muted-foreground py-2 px-3 min-w-[140px]">{aw.slaColLastDisposition}</th>
                     <th className="text-left font-medium text-xs text-muted-foreground py-2 px-3 min-w-[110px]">{aw.slaColLastActivity}</th>
                     {allItems.map(s => (
                       <th key={s.id} className="text-center font-medium text-xs text-muted-foreground py-2 px-2 min-w-[110px]">
@@ -10152,6 +10150,18 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
                           </span>
                         ) : <span className="text-muted-foreground/30 text-xs">—</span>}
                       </td>
+                      <td className="py-2 px-3">
+                        {c.lastDispositionName ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap"
+                            style={c.lastDispositionColor
+                              ? { background: c.lastDispositionColor + "22", color: c.lastDispositionColor, border: `1px solid ${c.lastDispositionColor}55` }
+                              : { background: "hsl(var(--muted))", color: "hsl(var(--muted-foreground))" }
+                            }>
+                            <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: c.lastDispositionColor || "hsl(var(--muted-foreground))" }} />
+                            {c.lastDispositionName}
+                          </span>
+                        ) : <span className="text-muted-foreground/30 text-xs">—</span>}
+                      </td>
                       <td className="py-2 px-3 text-xs text-muted-foreground whitespace-nowrap">
                         {c.lastActivity ? (() => { try { return new Date(c.lastActivity).toLocaleDateString("sk-SK", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); } catch { return "—"; } })() : "—"}
                       </td>
@@ -10166,7 +10176,7 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
                     </tr>
                   ))}
                   {filteredContacts.length === 0 && (
-                    <tr><td colSpan={allItems.length + 5} className="py-8 text-center text-muted-foreground text-sm">{aw.slaNoResults}</td></tr>
+                    <tr><td colSpan={allItems.length + 6} className="py-8 text-center text-muted-foreground text-sm">{aw.slaNoResults}</td></tr>
                   )}
                 </tbody>
               </table>

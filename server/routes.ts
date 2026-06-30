@@ -23949,7 +23949,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
       // 3. Contacts — raw SQL (fetch all entity ID columns, not just customer_id)
       const contactsRes = await pool.query(
-        `SELECT id, customer_id, hospital_id, clinic_id, collaborator_id, contact_type, status
+        `SELECT id, customer_id, hospital_id, clinic_id, collaborator_id, contact_type, status, disposition_code
          FROM campaign_contacts WHERE campaign_id = $1`,
         [campaignId]
       );
@@ -24000,6 +24000,16 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           [ccIds]
         );
         boConfirmations = boRes.rows;
+      } catch (_e) {}
+
+      // 6b. Campaign dispositions — for human-readable disposition names
+      const dispMap = new Map<string, { name: string; color: string | null }>();
+      try {
+        const dispRes = await pool.query(
+          `SELECT code, name, color FROM campaign_dispositions WHERE campaign_id = $1`,
+          [campaignId]
+        );
+        for (const d of dispRes.rows) dispMap.set(d.code, { name: d.name, color: d.color || null });
       } catch (_e) {}
 
       // 7. User names — users table uses full_name column
@@ -24110,6 +24120,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           lastActivity: lastState?.confirmed_at || null,
           lastStatusLabel: lastItemInfo?.label || null,
           lastStatusColor: lastItemInfo?.color || null,
+          lastDispositionCode: cc.disposition_code || null,
+          lastDispositionName: cc.disposition_code ? (dispMap.get(cc.disposition_code)?.name || cc.disposition_code) : null,
+          lastDispositionColor: cc.disposition_code ? (dispMap.get(cc.disposition_code)?.color || null) : null,
         };
       }).sort((a: any, b: any) => b.confirmedCount - a.confirmedCount);
 
