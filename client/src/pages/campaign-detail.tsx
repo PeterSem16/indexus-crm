@@ -9819,10 +9819,10 @@ class SLAnalyticsErrorBoundary extends Component<
       return (
         <div className="p-6 border border-destructive rounded-lg bg-destructive/5 text-center space-y-2">
           <AlertCircle className="w-8 h-8 mx-auto text-destructive" />
-          <p className="font-semibold text-destructive">Status List Analytics — render chyba</p>
+          <p className="font-semibold text-destructive">Status List Analytics — render error</p>
           <p className="text-xs font-mono text-muted-foreground break-all">{this.state.errorMsg}</p>
           <button onClick={() => this.setState({ hasError: false, errorMsg: "" })}
-            className="text-xs underline text-primary mt-2">Skúsiť znova</button>
+            className="text-xs underline text-primary mt-2">Try again</button>
         </div>
       );
     }
@@ -9856,6 +9856,8 @@ const ACTION_ICON: Record<string, { icon: LucideIcon; label: string; color: stri
 };
 
 function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }: { campaignId: string; totalContacts: number }) {
+  const { t } = useI18n();
+  const aw = t.agentWorkspace;
   const [view, setView] = useState<"funnel" | "contacts" | "agents">("funnel");
   const [search, setSearch] = useState("");
   const [contactSort, setContactSort] = useState<"calls" | "steps" | "name">("steps");
@@ -9887,7 +9889,7 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
   const toolbar = (
     <div className="flex items-center justify-between">
       <div className="flex gap-1 bg-muted rounded-lg p-1">
-        {([["funnel", "Funnel", TrendingUp], ["contacts", "Kontakty", Users], ["agents", "Agenti", UserCheck]] as const).map(([v, label, Icon]) => (
+        {([["funnel", aw.slaFunnel, TrendingUp], ["contacts", aw.slaContacts, Users], ["agents", aw.slaAgents, UserCheck]] as const).map(([v, label, Icon]) => (
           <button key={v} onClick={() => setView(v)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${view === v ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
             data-testid={`btn-sl-view-${v}`}>
@@ -9896,7 +9898,7 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
         ))}
       </div>
       <Button variant="outline" size="sm" onClick={handleExport} className="gap-2" data-testid="btn-sl-export">
-        <Download className="h-4 w-4" />Export CSV
+        <Download className="h-4 w-4" />{aw.slaExportCsv}
       </Button>
     </div>
   );
@@ -9905,7 +9907,7 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
     <div className="space-y-4">
       {toolbar}
       <div className="flex items-center justify-center py-16 text-muted-foreground gap-2">
-        <Loader2 className="h-5 w-5 animate-spin" /> Načítavam štatistiky…
+        <Loader2 className="h-5 w-5 animate-spin" /> {aw.slaLoading}
       </div>
     </div>
   );
@@ -9915,7 +9917,7 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
       {toolbar}
       <Card><CardContent className="py-12 text-center text-muted-foreground">
         <AlertCircle className="w-10 h-10 mx-auto mb-3 text-destructive opacity-70" />
-        <p className="font-medium text-destructive">Nepodarilo sa načítať štatistiky</p>
+        <p className="font-medium text-destructive">{aw.slaErrorLoading}</p>
         <p className="text-sm mt-1 font-mono text-xs">{String(error)}</p>
         <p className="text-xs mt-2 opacity-60">campaignId: {campaignId || "(prázdne)"}</p>
       </CardContent></Card>
@@ -9927,13 +9929,9 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
       {toolbar}
       <Card><CardContent className="py-12 text-center text-muted-foreground">
         <ListChecks className="w-10 h-10 mx-auto mb-3 opacity-40" />
-        <p className="font-semibold text-foreground">Žiadne kroky Status Listu</p>
-        <p className="text-sm mt-1 max-w-xs mx-auto">
-          Táto misia nemá nakonfigurované kroky. Pridajte kroky v <strong>Nastavenia → Status List Builder</strong>.
-        </p>
-        <p className="text-xs mt-3 text-muted-foreground/60">
-          (Uistite sa tiež že Workflow Mode je nastavený na „Status List")
-        </p>
+        <p className="font-semibold text-foreground">{aw.slaNoSteps}</p>
+        <p className="text-sm mt-1 max-w-xs mx-auto">{aw.slaNoStepsDesc}</p>
+        <p className="text-xs mt-3 text-muted-foreground/60">{aw.slaNoStepsHint}</p>
         <p className="text-xs mt-2 opacity-40">campaignId: {campaignId}</p>
       </CardContent></Card>
     </div>
@@ -9962,19 +9960,19 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
           {/* Summary cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Card><CardContent className="pt-4 pb-3">
-              <p className="text-xs text-muted-foreground mb-1">Celkom kontaktov</p>
+              <p className="text-xs text-muted-foreground mb-1">{aw.slaTotalContacts}</p>
               <p className="text-2xl font-bold">{totalContacts}</p>
             </CardContent></Card>
             <Card><CardContent className="pt-4 pb-3">
-              <p className="text-xs text-muted-foreground mb-1">Krokov v liste</p>
+              <p className="text-xs text-muted-foreground mb-1">{aw.slaStepsInList}</p>
               <p className="text-2xl font-bold">{steps.length}</p>
             </CardContent></Card>
             <Card><CardContent className="pt-4 pb-3">
-              <p className="text-xs text-muted-foreground mb-1">Celkom potvrdení</p>
+              <p className="text-xs text-muted-foreground mb-1">{aw.slaTotalConfirmations}</p>
               <p className="text-2xl font-bold">{allItems.reduce((s, i) => s + i.totalConfirmations, 0)}</p>
             </CardContent></Card>
             <Card><CardContent className="pt-4 pb-3">
-              <p className="text-xs text-muted-foreground mb-1">Automatizácií spustených</p>
+              <p className="text-xs text-muted-foreground mb-1">{aw.slaAutomationsFired}</p>
               <p className="text-2xl font-bold">{allItems.reduce((s, i) => s + i.automationsFired, 0)}</p>
             </CardContent></Card>
           </div>
@@ -9983,7 +9981,7 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
           {steps.length > 0 && (
             <Card>
               <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2"><TrendingUp className="h-4 w-4 text-primary" />Kroky — funnel</CardTitle>
+                <CardTitle className="text-sm font-semibold flex items-center gap-2"><TrendingUp className="h-4 w-4 text-primary" />{aw.slaStepsFunnel}</CardTitle>
               </CardHeader>
               <CardContent className="px-4 pb-4 space-y-3">
                 {steps.map((item, idx) => {
@@ -10007,7 +10005,7 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
                           )}
                         </div>
                         <div className="flex items-center gap-3 shrink-0 text-right">
-                          <span className="text-xs text-muted-foreground">{item.uniqueContacts} uniq / {item.totalConfirmations} celk.</span>
+                          <span className="text-xs text-muted-foreground">{item.uniqueContacts} {aw.slaUniq} / {item.totalConfirmations} {aw.slaCelk}</span>
                           <span className="text-sm font-bold w-10">{pct}%</span>
                         </div>
                       </div>
@@ -10066,12 +10064,12 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Hľadať kontakt…"
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder={aw.slaSearchContact}
                 className="w-full pl-8 pr-3 h-9 text-sm border rounded-md bg-background outline-none focus:ring-1 focus:ring-primary"
                 data-testid="input-sl-search" />
             </div>
             <div className="flex gap-1">
-              {([["steps", "Kroky ↓"], ["calls", "Hovory ↓"], ["name", "A–Z"]] as const).map(([s, lbl]) => (
+              {([["steps", aw.slaSortSteps], ["calls", aw.slaSortCalls], ["name", aw.slaSortName]] as const).map(([s, lbl]) => (
                 <button key={s} onClick={() => setContactSort(s)}
                   className={`px-2.5 h-9 text-xs rounded-md border transition-colors ${contactSort === s ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted"}`}>
                   {lbl}
@@ -10085,15 +10083,15 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/50">
-                    <th className="text-left font-medium text-xs text-muted-foreground py-2 px-3">Kontakt</th>
-                    <th className="text-center font-medium text-xs text-muted-foreground py-2 px-2">Hovory</th>
-                    <th className="text-center font-medium text-xs text-muted-foreground py-2 px-2">Kroky</th>
+                    <th className="text-left font-medium text-xs text-muted-foreground py-2 px-3">{aw.slaColContact}</th>
+                    <th className="text-center font-medium text-xs text-muted-foreground py-2 px-2">{aw.slaColCalls}</th>
+                    <th className="text-center font-medium text-xs text-muted-foreground py-2 px-2">{aw.slaColSteps}</th>
                     {steps.slice(0, 8).map(s => (
                       <th key={s.id} className="text-center font-medium text-xs text-muted-foreground py-2 px-1 max-w-[60px]">
                         <span className="block truncate max-w-[56px]" title={s.label}>{s.label}</span>
                       </th>
                     ))}
-                    <th className="text-left font-medium text-xs text-muted-foreground py-2 px-3">Posledná aktivita</th>
+                    <th className="text-left font-medium text-xs text-muted-foreground py-2 px-3">{aw.slaColLastActivity}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -10125,13 +10123,13 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
                     </tr>
                   ))}
                   {filteredContacts.length === 0 && (
-                    <tr><td colSpan={10} className="py-8 text-center text-muted-foreground text-sm">Žiadne výsledky</td></tr>
+                    <tr><td colSpan={10} className="py-8 text-center text-muted-foreground text-sm">{aw.slaNoResults}</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
             {filteredContacts.length > 100 && (
-              <div className="px-3 py-2 text-xs text-muted-foreground border-t">Zobrazených 100 z {filteredContacts.length} kontaktov. Exportuj CSV pre celý zoznam.</div>
+              <div className="px-3 py-2 text-xs text-muted-foreground border-t">{aw.slaShowing100.replace("{n}", String(filteredContacts.length))}</div>
             )}
           </Card>
         </div>
@@ -10141,7 +10139,7 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
       {view === "agents" && (
         <div className="space-y-3">
           {(data.agents || []).length === 0 ? (
-            <Card><CardContent className="py-8 text-center text-muted-foreground text-sm">Zatiaľ žiadne dáta od agentov.</CardContent></Card>
+            <Card><CardContent className="py-8 text-center text-muted-foreground text-sm">{aw.slaNoAgentData}</CardContent></Card>
           ) : (
             <div className="grid gap-3 md:grid-cols-2">
               {(data.agents || []).map(agent => {
@@ -10159,12 +10157,12 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
                           </div>
                           <div>
                             <p className="font-semibold text-sm">{agent.name}</p>
-                            <p className="text-xs text-muted-foreground">{agent.uniqueContacts} kontaktov</p>
+                            <p className="text-xs text-muted-foreground">{agent.uniqueContacts} {aw.slaContacts2}</p>
                           </div>
                         </div>
                         <div className="text-right">
                           <p className="text-2xl font-bold text-primary">{agent.totalConfirmations}</p>
-                          <p className="text-xs text-muted-foreground">potvrdení</p>
+                          <p className="text-xs text-muted-foreground">{aw.slaConfirmations2}</p>
                         </div>
                       </div>
                       {topItems.length > 0 && (

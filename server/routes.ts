@@ -23921,186 +23921,184 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     try {
       const { id: campaignId } = req.params;
 
-      // 1. All status list items for this campaign (steps + options, sorted) — explicit columns only
-      const items = await db.select({
-        id: campaignStatusListItems.id,
-        campaignId: campaignStatusListItems.campaignId,
-        stepId: campaignStatusListItems.stepId,
-        label: campaignStatusListItems.label,
-        description: campaignStatusListItems.description,
-        sortOrder: campaignStatusListItems.sortOrder,
-        required: campaignStatusListItems.required,
-        parentId: campaignStatusListItems.parentId,
-        confirmationType: campaignStatusListItems.confirmationType,
-        isHidden: campaignStatusListItems.isHidden,
-        itemType: campaignStatusListItems.itemType,
-        color: campaignStatusListItems.color,
-        tab: campaignStatusListItems.tab,
-      }).from(campaignStatusListItems)
-        .where(eq(campaignStatusListItems.campaignId, campaignId))
-        .orderBy(campaignStatusListItems.sortOrder);
-
+      // 1. Items — raw SQL, safe columns only
+      const itemsRes = await pool.query(
+        `SELECT id, label, description, sort_order, item_type, confirmation_type, color, tab
+         FROM campaign_status_list_items
+         WHERE campaign_id = $1
+         ORDER BY sort_order`,
+        [campaignId]
+      );
+      const items = itemsRes.rows;
       console.log(`[SL-Analytics] campaign=${campaignId} items=${items.length}`);
+      if (items.length === 0) return res.json({ items: [], contacts: [], agents: [], totalContacts: 0 });
+      const itemIds: string[] = items.map((i: any) => i.id);
 
-      if (items.length === 0) return res.json({ items: [], contacts: [], agents: [], totalContacts: 0, _debug: { itemCount: 0, campaignId } });
-
-      const itemIds = items.map(i => i.id);
-
-      // 2. Automations per item — explicit columns only (avoids missing-column errors on prod)
-      const automations = await db.select({
-        id: campaignStatusListAutomations.id,
-        statusListItemId: campaignStatusListAutomations.statusListItemId,
-        actionType: campaignStatusListAutomations.actionType,
-        emailTemplateId: campaignStatusListAutomations.emailTemplateId,
-        callbackOffsetDays: campaignStatusListAutomations.callbackOffsetDays,
-        taskDescription: campaignStatusListAutomations.taskDescription,
-      }).from(campaignStatusListAutomations)
-        .where(inArray(campaignStatusListAutomations.statusListItemId, itemIds));
-      const automByItem = new Map<string, typeof automations>();
-      for (const a of automations) {
-        if (!automByItem.has(a.statusListItemId)) automByItem.set(a.statusListItemId, []);
-        automByItem.get(a.statusListItemId)!.push(a);
+      // 2. Automations — raw SQL
+      const automRes = await pool.query(
+        `SELECT status_list_item_id, action_type, email_template_id, callback_offset_days, task_description
+         FROM campaign_status_list_automations
+         WHERE status_list_item_id = ANY($1::text[])`,
+        [itemIds]
+      );
+      const automByItem = new Map<string, any[]>();
+      for (const a of automRes.rows) {
+        if (!automByItem.has(a.status_list_item_id)) automByItem.set(a.status_list_item_id, []);
+        automByItem.get(a.status_list_item_id)!.push(a);
       }
 
-      // 3. All campaign contacts
-      const contacts = await db.select({
-        id: campaignContacts.id,
-        customerId: campaignContacts.customerId,
-        contactType: campaignContacts.contactType,
-        status: campaignContacts.status,
-      }).from(campaignContacts).where(eq(campaignContacts.campaignId, campaignId));
+      // 3. Contacts — raw SQL
+      const contactsRes = await pool.query(
+        `SELECT id, customer_id, contact_type, status
+         FROM campaign_contacts WHERE campaign_id = $1`,
+        [campaignId]
+      );
+      const contacts = contactsRes.rows;
       const totalContacts = contacts.length;
-      const ccIds = contacts.map(c => c.id);
-
-      if (ccIds.length === 0) return res.json({ items: items.map(i => ({ ...i, uniqueContacts: 0, totalConfirmations: 0, agentBreakdown: [], automationsFired: 0 })), contacts: [], agents: [], totalContacts: 0 });
-
-      // 4. All state confirmations for these contacts — explicit columns only
-      const states = await db.select({
-        id: campaignContactStatusListState.id,
-        campaignContactId: campaignContactStatusListState.campaignContactId,
-        statusListItemId: campaignContactStatusListState.statusListItemId,
-        confirmedAt: campaignContactStatusListState.confirmedAt,
-        confirmedByUserId: campaignContactStatusListState.confirmedByUserId,
-      }).from(campaignContactStatusListState)
-        .where(inArray(campaignContactStatusListState.campaignContactId, ccIds));
-
-      // 5. Call count per campaign contact (from history) — using Drizzle ORM
-      const callHistoryRows = await db.select({
-        campaignContactId: campaignContactHistory.campaignContactId,
-      }).from(campaignContactHistory)
-        .where(
-          and(
-            inArray(campaignContactHistory.campaignContactId, ccIds),
-            inArray(campaignContactHistory.action, ["call_started", "call_ended", "disposition_saved"])
-          )
-        );
-      const callCountMap = new Map<string, number>();
-      for (const row of callHistoryRows) {
-        callCountMap.set(row.campaignContactId, (callCountMap.get(row.campaignContactId) || 0) + 1);
+      const ccIds: string[] = contacts.map((c: any) => c.id);
+      if (ccIds.length === 0) {
+        return res.json({
+          items: items.map((i: any) => ({ id: i.id, label: i.label, description: i.description, sortOrder: i.sort_order, itemType: i.item_type, confirmationType: i.confirmation_type, tab: i.tab, color: i.color, uniqueContacts: 0, totalConfirmations: 0, agentBreakdown: [], automationsFired: 0, automations: [], recentConfirmations: [] })),
+          contacts: [], agents: [], totalContacts: 0,
+        });
       }
 
-      // 6. BO task execution count per item (proxy for "automation fired")
-      const boConfirmations = await db.select({
-        statusListItemId: taskBackOfficeConfirmations.statusListItemId,
-        campaignContactId: taskBackOfficeConfirmations.campaignContactId,
-      }).from(taskBackOfficeConfirmations)
-        .where(
-          ccIds.length > 0
-            ? inArray(taskBackOfficeConfirmations.campaignContactId, ccIds)
-            : sql`false`
+      // 4. State confirmations — raw SQL (table may be empty on new deploys)
+      let states: any[] = [];
+      try {
+        const statesRes = await pool.query(
+          `SELECT campaign_contact_id, status_list_item_id, confirmed_at, confirmed_by_user_id
+           FROM campaign_contact_status_list_state
+           WHERE campaign_contact_id = ANY($1::text[])`,
+          [ccIds]
         );
+        states = statesRes.rows;
+      } catch (_e) { states = []; }
+
+      // 5. Call counts — raw SQL
+      let callCountMap = new Map<string, number>();
+      try {
+        const callRes = await pool.query(
+          `SELECT campaign_contact_id, COUNT(*) AS cnt
+           FROM campaign_contact_history
+           WHERE campaign_contact_id = ANY($1::text[])
+             AND action IN ('call_started','call_ended','disposition_saved')
+           GROUP BY campaign_contact_id`,
+          [ccIds]
+        );
+        for (const r of callRes.rows) callCountMap.set(r.campaign_contact_id, parseInt(r.cnt, 10));
+      } catch (_e) {}
+
+      // 6. BO confirmations — raw SQL (columns may not exist on older prod)
+      let boConfirmations: any[] = [];
+      try {
+        const boRes = await pool.query(
+          `SELECT status_list_item_id, campaign_contact_id
+           FROM task_back_office_confirmations
+           WHERE campaign_contact_id = ANY($1::text[])
+             AND status_list_item_id IS NOT NULL`,
+          [ccIds]
+        );
+        boConfirmations = boRes.rows;
+      } catch (_e) {}
 
       // 7. User names
-      const userIds = [...new Set(states.map(s => s.confirmedByUserId))];
-      const userRows = userIds.length > 0
-        ? await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName }).from(users).where(inArray(users.id, userIds))
-        : [];
-      const userMap = new Map(userRows.map(u => [u.id, `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.id]));
+      const userIdSet = new Set<string>(states.map((s: any) => s.confirmed_by_user_id).filter(Boolean));
+      const userMap = new Map<string, string>();
+      if (userIdSet.size > 0) {
+        try {
+          const uRes = await pool.query(
+            `SELECT id, first_name, last_name FROM users WHERE id = ANY($1::text[])`,
+            [[...userIdSet]]
+          );
+          for (const u of uRes.rows) userMap.set(u.id, `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.id);
+        } catch (_e) {}
+      }
 
-      // 8. Contact names map
-      const customerIds = contacts.filter(c => c.contactType === "customer" && c.customerId).map(c => c.customerId!);
-      const customerRows = customerIds.length > 0
-        ? await db.select({ id: customers.id, firstName: customers.firstName, lastName: customers.lastName, phone: customers.phone }).from(customers).where(inArray(customers.id, customerIds))
-        : [];
-      const customerMap = new Map(customerRows.map(c => [c.id, { name: `${c.firstName || ""} ${c.lastName || ""}`.trim(), phone: c.phone || "" }]));
-      const ccToContact = new Map(contacts.map(cc => [cc.id, { customerId: cc.customerId, contactType: cc.contactType }]));
+      // 8. Customer names (for customer-type contacts only)
+      const customerIdSet = new Set<string>(contacts.filter((c: any) => c.contact_type === "customer" && c.customer_id).map((c: any) => c.customer_id));
+      const customerMap = new Map<string, { name: string; phone: string }>();
+      if (customerIdSet.size > 0) {
+        try {
+          const cRes = await pool.query(
+            `SELECT id, first_name, last_name, phone FROM customers WHERE id = ANY($1::text[])`,
+            [[...customerIdSet]]
+          );
+          for (const c of cRes.rows) customerMap.set(c.id, { name: `${c.first_name || ""} ${c.last_name || ""}`.trim(), phone: c.phone || "" });
+        } catch (_e) {}
+      }
 
       // 9. Aggregate per item
-      const itemStats = items.map(item => {
-        const itemStates = states.filter(s => s.statusListItemId === item.id);
-        const uniqueContactIds = new Set(itemStates.map(s => s.campaignContactId));
-        const automFired = boConfirmations.filter(b => b.statusListItemId === item.id).length;
+      const itemStats = items.map((item: any) => {
+        const itemStates = states.filter((s: any) => s.status_list_item_id === item.id);
+        const uniqueContactIds = new Set(itemStates.map((s: any) => s.campaign_contact_id));
+        const automFired = boConfirmations.filter((b: any) => b.status_list_item_id === item.id).length;
         const automList = automByItem.get(item.id) || [];
-
-        // Agent breakdown
         const agentMap = new Map<string, { name: string; count: number; lastAt: string }>();
         for (const s of itemStates) {
-          const uid = s.confirmedByUserId;
+          const uid: string = s.confirmed_by_user_id;
+          const at: string = s.confirmed_at ? new Date(s.confirmed_at).toISOString() : "";
           const existing = agentMap.get(uid);
-          const at = s.confirmedAt?.toISOString?.() ?? String(s.confirmedAt);
           if (!existing) agentMap.set(uid, { name: userMap.get(uid) || uid, count: 1, lastAt: at });
           else { existing.count++; if (at > existing.lastAt) existing.lastAt = at; }
         }
-
         return {
           id: item.id,
           label: item.label,
           description: item.description,
-          sortOrder: item.sortOrder,
-          itemType: item.itemType,
-          confirmationType: item.confirmationType,
+          sortOrder: item.sort_order,
+          itemType: item.item_type,
+          confirmationType: item.confirmation_type,
           tab: item.tab,
           color: item.color,
           uniqueContacts: uniqueContactIds.size,
           totalConfirmations: itemStates.length,
           automationsFired: automFired,
-          automations: automList.map(a => ({ actionType: a.actionType, emailTemplateId: a.emailTemplateId, callbackOffsetDays: a.callbackOffsetDays, taskDescription: a.taskDescription })),
+          automations: automList.map((a: any) => ({ actionType: a.action_type, emailTemplateId: a.email_template_id, callbackOffsetDays: a.callback_offset_days, taskDescription: a.task_description })),
           agentBreakdown: [...agentMap.values()].sort((a, b) => b.count - a.count),
-          recentConfirmations: itemStates.sort((a, b) => new Date(b.confirmedAt).getTime() - new Date(a.confirmedAt).getTime()).slice(0, 5).map(s => ({
-            confirmedByName: userMap.get(s.confirmedByUserId) || s.confirmedByUserId,
-            confirmedAt: s.confirmedAt,
-            campaignContactId: s.campaignContactId,
-          })),
+          recentConfirmations: itemStates
+            .sort((a: any, b: any) => new Date(b.confirmed_at).getTime() - new Date(a.confirmed_at).getTime())
+            .slice(0, 5)
+            .map((s: any) => ({ confirmedByName: userMap.get(s.confirmed_by_user_id) || s.confirmed_by_user_id, confirmedAt: s.confirmed_at, campaignContactId: s.campaign_contact_id })),
         };
       });
 
       // 10. Per-contact summary
-      const contactSummary = contacts.map(cc => {
-        const ccStates = states.filter(s => s.campaignContactId === cc.id);
-        const confirmedItemIds = new Set(ccStates.map(s => s.statusListItemId));
-        const ci = ccToContact.get(cc.id);
-        const cust = ci?.customerId ? customerMap.get(ci.customerId) : null;
+      const contactSummary = contacts.map((cc: any) => {
+        const ccStates = states.filter((s: any) => s.campaign_contact_id === cc.id);
+        const confirmedItemIds = new Set(ccStates.map((s: any) => s.status_list_item_id));
+        const cust = cc.customer_id ? customerMap.get(cc.customer_id) : null;
         return {
           campaignContactId: cc.id,
-          contactName: cust?.name || `Contact ${cc.id.slice(0, 6)}`,
+          contactName: cust?.name || `Contact ${String(cc.id).slice(0, 6)}`,
           contactPhone: cust?.phone || "",
-          contactType: cc.contactType,
+          contactType: cc.contact_type,
           status: cc.status,
           callCount: callCountMap.get(cc.id) || 0,
           confirmedSteps: [...confirmedItemIds],
           confirmedCount: confirmedItemIds.size,
           lastActivity: ccStates.length > 0
-            ? ccStates.sort((a, b) => new Date(b.confirmedAt).getTime() - new Date(a.confirmedAt).getTime())[0].confirmedAt
+            ? ccStates.sort((a: any, b: any) => new Date(b.confirmed_at).getTime() - new Date(a.confirmed_at).getTime())[0].confirmed_at
             : null,
         };
-      }).sort((a, b) => b.confirmedCount - a.confirmedCount);
+      }).sort((a: any, b: any) => b.confirmedCount - a.confirmedCount);
 
       // 11. Per-agent summary
       const agentSummary = new Map<string, { userId: string; name: string; totalConfirmations: number; uniqueContacts: Set<string>; itemBreakdown: Map<string, number> }>();
       for (const s of states) {
-        const uid = s.confirmedByUserId;
+        const uid: string = s.confirmed_by_user_id;
         if (!agentSummary.has(uid)) agentSummary.set(uid, { userId: uid, name: userMap.get(uid) || uid, totalConfirmations: 0, uniqueContacts: new Set(), itemBreakdown: new Map() });
         const ag = agentSummary.get(uid)!;
         ag.totalConfirmations++;
-        ag.uniqueContacts.add(s.campaignContactId);
-        ag.itemBreakdown.set(s.statusListItemId, (ag.itemBreakdown.get(s.statusListItemId) || 0) + 1);
+        ag.uniqueContacts.add(s.campaign_contact_id);
+        ag.itemBreakdown.set(s.status_list_item_id, (ag.itemBreakdown.get(s.status_list_item_id) || 0) + 1);
       }
       const agents = [...agentSummary.values()].map(ag => ({
         userId: ag.userId,
         name: ag.name,
         totalConfirmations: ag.totalConfirmations,
         uniqueContacts: ag.uniqueContacts.size,
-        itemBreakdown: Object.fromEntries(ag.itemBreakdown),
+        itemBreakdown: Object.fromEntries(ag.itemBreakdown.entries()),
       })).sort((a, b) => b.totalConfirmations - a.totalConfirmations);
 
       res.json({ items: itemStats, contacts: contactSummary, agents, totalContacts });
