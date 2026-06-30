@@ -1,5 +1,6 @@
 - [MS365 cross-origin OAuth handoff](ms365-cross-origin-oauth.md) — dev login routes through prod's only registered callback, hands back a signed one-time token; DBs aren't shared.
-- [Prod schema migrations](prod-schema-migrations.md) — new schema columns must be added to the server/index.ts startup ALTER...IF NOT EXISTS block; prod deploy (git pull+build+pm2 restart) does NOT run db:push.
+- [Prod schema migrations](prod-schema-migrations.md) — new schema columns AND new tables must be added to the server/index.ts startup ALTER/CREATE...IF NOT EXISTS block; prod deploy does NOT run db:push; blank tab + HTTP 500 = table missing in prod.
+- [TabsContent nesting context](tabs-nesting-context.md) — TabsContent must be a direct descendant of the correct Tabs; placing it inside a nested Tabs (different value context) silently hides it even though the trigger appears selected.
 - [Custom queryFn must check res.ok](query-fn-ok-check.md) — inline fetch().then(r=>r.json()) without an ok-check stores error JSON as success data and crashes .map/.filter (prod-only).
 - [BO task hospital/clinic recovery](bo-task-entity-recovery.md) — status-list BO tasks never store the contact entity; recover hospital/clinic via campaign_contact_status_list_state matched by item+user+nearest time.
 - [BO status-list automation tasks](bo-status-list-automation.md) — campaignContacts contact id is polymorphic (clinic/hospital/collaborator/customer), so tasks.customerId must come from ccRow.customerId; and db.execute() returns {rows}, never array-destructure it.

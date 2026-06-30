@@ -422,6 +422,35 @@ app.use((req, res, next) => {
     console.error('[migration] communication_messages columns error:', e.message);
   }
 
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS campaign_contact_status_list_state (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        campaign_contact_id varchar NOT NULL,
+        status_list_item_id varchar NOT NULL,
+        confirmed_at timestamp NOT NULL DEFAULT now(),
+        confirmed_by_user_id text NOT NULL,
+        created_at timestamp NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_cc_status_state_contact ON campaign_contact_status_list_state (campaign_contact_id);
+      CREATE INDEX IF NOT EXISTS idx_cc_status_state_item ON campaign_contact_status_list_state (campaign_contact_id, status_list_item_id);
+    `);
+    console.log('[migration] campaign_contact_status_list_state ensured');
+  } catch (e: any) {
+    console.error('[migration] campaign_contact_status_list_state error:', e.message);
+  }
+
+  try {
+    await pool.query(`
+      ALTER TABLE task_back_office_confirmations
+        ADD COLUMN IF NOT EXISTS status_list_item_id varchar,
+        ADD COLUMN IF NOT EXISTS campaign_contact_id varchar;
+    `);
+    console.log('[migration] task_back_office_confirmations sl columns ensured');
+  } catch (e: any) {
+    console.error('[migration] task_back_office_confirmations sl columns error:', e.message);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
