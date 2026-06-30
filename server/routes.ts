@@ -24079,7 +24079,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       res.json({ items: itemStats, contacts: contactSummary, agents, totalContacts });
     } catch (error) {
       console.error("Status list analytics error:", error);
-      res.status(500).json({ error: "Failed to fetch status list analytics" });
+      res.status(500).json({ error: "Failed to fetch status list analytics", detail: (error as any)?.message, code: (error as any)?.code });
     }
   });
 

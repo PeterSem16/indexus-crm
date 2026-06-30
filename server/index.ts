@@ -424,6 +424,18 @@ app.use((req, res, next) => {
 
   try {
     await pool.query(`
+      ALTER TABLE campaign_status_list_automations
+        ADD COLUMN IF NOT EXISTS task_deadline_offset text,
+        ADD COLUMN IF NOT EXISTS task_priority text NOT NULL DEFAULT 'medium',
+        ADD COLUMN IF NOT EXISTS disposition_id varchar;
+    `);
+    console.log('[migration] campaign_status_list_automations task_deadline_offset/task_priority/disposition_id ensured');
+  } catch (e: any) {
+    console.error('[migration] campaign_status_list_automations new cols error:', e.message);
+  }
+
+  try {
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS campaign_contact_status_list_state (
         id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
         campaign_contact_id varchar NOT NULL,
