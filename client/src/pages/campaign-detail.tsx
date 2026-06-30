@@ -9790,6 +9790,9 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
         </TabsContent>
 
         <TabsContent value="sl-analytics" className="space-y-4">
+          <div data-testid="sl-tab-probe" style={{padding:"12px",background:"#ef4444",color:"white",borderRadius:"6px",fontWeight:"bold"}}>
+            ✅ SL TAB RENDERS — campaignId: {campaignId || "(empty)"}
+          </div>
           <SLAnalyticsErrorBoundary>
             <StatusListAnalyticsTab campaignId={campaignId} totalContacts={stats?.totalContacts || 0} />
           </SLAnalyticsErrorBoundary>
