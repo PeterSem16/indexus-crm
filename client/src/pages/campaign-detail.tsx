@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, Component } from "react";
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, Link, useLocation } from "wouter";
@@ -9790,7 +9790,9 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
         </TabsContent>
 
         <TabsContent value="sl-analytics" className="space-y-4">
-          <StatusListAnalyticsTab campaignId={campaignId} totalContacts={stats?.totalContacts || 0} />
+          <SLAnalyticsErrorBoundary>
+            <StatusListAnalyticsTab campaignId={campaignId} totalContacts={stats?.totalContacts || 0} />
+          </SLAnalyticsErrorBoundary>
         </TabsContent>
 
       </Tabs>
@@ -9799,6 +9801,33 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
 }
 
 // ─── Status List Analytics Tab ────────────────────────────────────────────────
+
+class SLAnalyticsErrorBoundary extends Component<
+  { children: React.ReactNode },
+  { hasError: boolean; errorMsg: string }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, errorMsg: "" };
+  }
+  static getDerivedStateFromError(error: unknown) {
+    return { hasError: true, errorMsg: String(error) };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-6 border border-destructive rounded-lg bg-destructive/5 text-center space-y-2">
+          <AlertCircle className="w-8 h-8 mx-auto text-destructive" />
+          <p className="font-semibold text-destructive">Status List Analytics — render chyba</p>
+          <p className="text-xs font-mono text-muted-foreground break-all">{this.state.errorMsg}</p>
+          <button onClick={() => this.setState({ hasError: false, errorMsg: "" })}
+            className="text-xs underline text-primary mt-2">Skúsiť znova</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 type SLItemStat = {
   id: string; label: string; description?: string | null; sortOrder: number;
