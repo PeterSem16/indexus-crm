@@ -23923,7 +23923,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
       // 1. Items — raw SQL, safe columns only
       const itemsRes = await pool.query(
-        `SELECT id, label, description, sort_order, item_type, confirmation_type, color, tab
+        `SELECT id, label, description, sort_order, item_type, confirmation_type, color, tab, parent_id
          FROM campaign_status_list_items
          WHERE campaign_id = $1
          ORDER BY sort_order`,
@@ -24002,29 +24002,48 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         boConfirmations = boRes.rows;
       } catch (_e) {}
 
-      // 7. User names
+      // 7. User names — users table uses full_name column
       const userIdSet = new Set<string>(states.map((s: any) => s.confirmed_by_user_id).filter(Boolean));
       const userMap = new Map<string, string>();
       if (userIdSet.size > 0) {
         try {
           const uRes = await pool.query(
-            `SELECT id, first_name, last_name FROM users WHERE id = ANY($1::text[])`,
+            `SELECT id, full_name FROM users WHERE id = ANY($1::text[])`,
             [[...userIdSet]]
           );
-          for (const u of uRes.rows) userMap.set(u.id, `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.id);
+          for (const u of uRes.rows) userMap.set(u.id, (u.full_name || "").trim() || u.id);
         } catch (_e) {}
       }
 
-      // 8. Customer names (for customer-type contacts only)
-      const customerIdSet = new Set<string>(contacts.filter((c: any) => c.contact_type === "customer" && c.customer_id).map((c: any) => c.customer_id));
-      const customerMap = new Map<string, { name: string; phone: string }>();
-      if (customerIdSet.size > 0) {
+      // 8. Entity names — look up hospitals, clinics, collaborators, customers by customer_id
+      const entityIds = contacts.filter((c: any) => c.customer_id).map((c: any) => ({ id: c.customer_id as string, type: c.contact_type as string }));
+      const entityNameMap = new Map<string, { name: string; phone: string }>();
+      const hospitalIds = entityIds.filter(e => e.type === "hospital").map(e => e.id);
+      const clinicIds = entityIds.filter(e => e.type === "clinic").map(e => e.id);
+      const collaboratorIds = entityIds.filter(e => e.type === "collaborator").map(e => e.id);
+      const customerIds2 = entityIds.filter(e => e.type === "customer").map(e => e.id);
+      if (hospitalIds.length > 0) {
         try {
-          const cRes = await pool.query(
-            `SELECT id, first_name, last_name, phone FROM customers WHERE id = ANY($1::text[])`,
-            [[...customerIdSet]]
-          );
-          for (const c of cRes.rows) customerMap.set(c.id, { name: `${c.first_name || ""} ${c.last_name || ""}`.trim(), phone: c.phone || "" });
+          const r = await pool.query(`SELECT id, name, phone FROM hospitals WHERE id = ANY($1::text[])`, [hospitalIds]);
+          for (const h of r.rows) entityNameMap.set(h.id, { name: h.name || "", phone: h.phone || "" });
+        } catch (_e) {}
+      }
+      if (clinicIds.length > 0) {
+        try {
+          const r = await pool.query(`SELECT id, name, doctor_name FROM clinics WHERE id = ANY($1::text[])`, [clinicIds]);
+          for (const c of r.rows) entityNameMap.set(c.id, { name: c.name || c.doctor_name || "", phone: "" });
+        } catch (_e) {}
+      }
+      if (collaboratorIds.length > 0) {
+        try {
+          const r = await pool.query(`SELECT id, first_name, last_name FROM collaborators WHERE id = ANY($1::text[])`, [collaboratorIds]);
+          for (const c of r.rows) entityNameMap.set(c.id, { name: `${c.first_name || ""} ${c.last_name || ""}`.trim(), phone: "" });
+        } catch (_e) {}
+      }
+      if (customerIds2.length > 0) {
+        try {
+          const r = await pool.query(`SELECT id, first_name, last_name, phone FROM customers WHERE id = ANY($1::text[])`, [customerIds2]);
+          for (const c of r.rows) entityNameMap.set(c.id, { name: `${c.first_name || ""} ${c.last_name || ""}`.trim(), phone: c.phone || "" });
         } catch (_e) {}
       }
 
@@ -24051,6 +24070,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           confirmationType: item.confirmation_type,
           tab: item.tab,
           color: item.color,
+          parentId: item.parent_id || null,
           uniqueContacts: uniqueContactIds.size,
           totalConfirmations: itemStates.length,
           automationsFired: automFired,
@@ -24067,11 +24087,11 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const contactSummary = contacts.map((cc: any) => {
         const ccStates = states.filter((s: any) => s.campaign_contact_id === cc.id);
         const confirmedItemIds = new Set(ccStates.map((s: any) => s.status_list_item_id));
-        const cust = cc.customer_id ? customerMap.get(cc.customer_id) : null;
+        const entity = cc.customer_id ? entityNameMap.get(cc.customer_id) : null;
         return {
           campaignContactId: cc.id,
-          contactName: cust?.name || `Contact ${String(cc.id).slice(0, 6)}`,
-          contactPhone: cust?.phone || "",
+          contactName: entity?.name || `#${String(cc.id).slice(0, 8)}`,
+          contactPhone: entity?.phone || "",
           contactType: cc.contact_type,
           status: cc.status,
           callCount: callCountMap.get(cc.id) || 0,

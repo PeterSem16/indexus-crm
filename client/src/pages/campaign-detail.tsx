@@ -9832,7 +9832,7 @@ class SLAnalyticsErrorBoundary extends Component<
 
 type SLItemStat = {
   id: string; label: string; description?: string | null; sortOrder: number;
-  itemType: string; confirmationType: string; tab?: string | null; color?: string | null;
+  itemType: string; confirmationType: string; tab?: string | null; color?: string | null; parentId?: string | null;
   uniqueContacts: number; totalConfirmations: number; automationsFired: number;
   automations: { actionType: string; emailTemplateId?: string | null; callbackOffsetDays?: number | null; taskDescription?: string | null }[];
   agentBreakdown: { name: string; count: number; lastAt: string }[];
@@ -9983,75 +9983,97 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
               <CardHeader className="pb-2 pt-4 px-4">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2"><TrendingUp className="h-4 w-4 text-primary" />{aw.slaStepsFunnel}</CardTitle>
               </CardHeader>
-              <CardContent className="px-4 pb-4 space-y-3">
-                {steps.map((item, idx) => {
-                  const pct = totalContacts > 0 ? Math.round((item.uniqueContacts / totalContacts) * 100) : 0;
-                  const automs = item.automations || [];
-                  return (
-                    <div key={item.id} className="space-y-1">
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-xs text-muted-foreground w-5 shrink-0">{idx + 1}.</span>
-                          <span className="font-medium truncate" style={item.color ? { color: item.color } : {}}>{item.label}</span>
-                          {automs.length > 0 && (
-                            <div className="flex items-center gap-1">
-                              {[...new Set(automs.map(a => a.actionType))].map(at => {
-                                const cfg = ACTION_ICON[at];
-                                if (!cfg) return null;
-                                const Icon = cfg.icon;
-                                return <Icon key={at} className="h-3 w-3" style={{ color: cfg.color }} title={cfg.label} />;
-                              })}
+              <CardContent className="px-4 pb-4 space-y-1">
+                {(() => {
+                  // Build hierarchy: top-level steps + their children
+                  const topSteps = allItems.filter(i => !i.parentId);
+                  const childrenOf = (id: string) => allItems.filter(i => i.parentId === id);
+                  let stepNum = 0;
+                  return topSteps.map(item => {
+                    const children = childrenOf(item.id);
+                    const isStep = item.itemType === "step";
+                    if (isStep) stepNum++;
+                    const num = isStep ? stepNum : null;
+                    const pct = totalContacts > 0 ? Math.round((item.uniqueContacts / totalContacts) * 100) : 0;
+                    const automs = item.automations || [];
+                    const barColor = item.color || "hsl(var(--primary))";
+                    return (
+                      <div key={item.id} className="space-y-0.5">
+                        {/* Parent row */}
+                        <div className="space-y-1 pt-2">
+                          <div className="flex items-center justify-between text-sm">
+                            <div className="flex items-center gap-2 min-w-0">
+                              {num !== null && <span className="text-xs text-muted-foreground w-5 shrink-0 font-mono">{num}.</span>}
+                              <span className={`font-medium truncate ${item.itemType === "option" ? "text-muted-foreground" : ""}`} style={item.color ? { color: item.color } : {}}>{item.label}</span>
+                              {automs.length > 0 && (
+                                <div className="flex items-center gap-1">
+                                  {[...new Set(automs.map(a => a.actionType))].map(at => {
+                                    const cfg = ACTION_ICON[at];
+                                    if (!cfg) return null;
+                                    const Icon = cfg.icon;
+                                    return <Icon key={at} className="h-3 w-3" style={{ color: cfg.color }} title={cfg.label} />;
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 shrink-0 text-right">
+                              <span className="text-xs text-muted-foreground">{item.uniqueContacts} {aw.slaUniq} / {item.totalConfirmations} {aw.slaCelk}</span>
+                              <span className="text-sm font-bold w-10">{pct}%</span>
+                            </div>
+                          </div>
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: barColor }} />
+                          </div>
+                          {item.agentBreakdown.length > 0 && (
+                            <div className="flex gap-2 flex-wrap">
+                              {item.agentBreakdown.slice(0, 4).map(ag => (
+                                <span key={ag.name} className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                  {ag.name}: {ag.count}×
+                                </span>
+                              ))}
                             </div>
                           )}
                         </div>
-                        <div className="flex items-center gap-3 shrink-0 text-right">
-                          <span className="text-xs text-muted-foreground">{item.uniqueContacts} {aw.slaUniq} / {item.totalConfirmations} {aw.slaCelk}</span>
-                          <span className="text-sm font-bold w-10">{pct}%</span>
-                        </div>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: item.color || "hsl(var(--primary))" }} />
-                      </div>
-                      {item.agentBreakdown.length > 0 && (
-                        <div className="flex gap-2 flex-wrap pt-0.5">
-                          {item.agentBreakdown.slice(0, 4).map(ag => (
-                            <span key={ag.name} className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                              {ag.name}: {ag.count}×
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Options */}
-          {options.length > 0 && (
-            <Card>
-              <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2"><CircleDot className="h-4 w-4 text-primary" />Možnosti (options)</CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {options.map(item => {
-                    const pct = totalContacts > 0 ? Math.round((item.uniqueContacts / totalContacts) * 100) : 0;
-                    return (
-                      <div key={item.id} className="flex items-center gap-3 p-2 rounded-lg border">
-                        <div className="h-8 w-8 rounded-full flex items-center justify-center shrink-0" style={{ background: item.color ? `${item.color}20` : "hsl(var(--muted))" }}>
-                          <CircleDot className="h-4 w-4" style={item.color ? { color: item.color } : {}} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{item.label}</p>
-                          <p className="text-xs text-muted-foreground">{item.uniqueContacts} kontaktov ({pct}%)</p>
-                        </div>
-                        <span className="text-sm font-bold text-muted-foreground">{item.totalConfirmations}×</span>
+                        {/* Children (sub-steps / options) */}
+                        {children.length > 0 && (
+                          <div className="ml-6 pl-3 border-l-2 border-muted space-y-1 mt-1">
+                            {children.map(child => {
+                              const cpct = totalContacts > 0 ? Math.round((child.uniqueContacts / totalContacts) * 100) : 0;
+                              const cautoms = child.automations || [];
+                              return (
+                                <div key={child.id} className="space-y-0.5 pt-1">
+                                  <div className="flex items-center justify-between text-sm">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <span className="text-muted-foreground/60 text-xs">↳</span>
+                                      <span className="text-sm truncate text-muted-foreground" style={child.color ? { color: child.color } : {}}>{child.label}</span>
+                                      {cautoms.length > 0 && (
+                                        <div className="flex items-center gap-1">
+                                          {[...new Set(cautoms.map(a => a.actionType))].map(at => {
+                                            const cfg = ACTION_ICON[at];
+                                            if (!cfg) return null;
+                                            const Icon = cfg.icon;
+                                            return <Icon key={at} className="h-3 w-3" style={{ color: cfg.color }} title={cfg.label} />;
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-3 shrink-0 text-right">
+                                      <span className="text-xs text-muted-foreground">{child.uniqueContacts} {aw.slaUniq} / {child.totalConfirmations} {aw.slaCelk}</span>
+                                      <span className="text-sm font-semibold w-10">{cpct}%</span>
+                                    </div>
+                                  </div>
+                                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                                    <div className="h-full rounded-full transition-all" style={{ width: `${cpct}%`, background: child.color || barColor, opacity: 0.7 }} />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
-                  })}
-                </div>
+                  });
+                })()}
               </CardContent>
             </Card>
           )}
