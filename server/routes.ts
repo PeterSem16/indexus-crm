@@ -23947,9 +23947,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         automByItem.get(a.status_list_item_id)!.push(a);
       }
 
-      // 3. Contacts — raw SQL
+      // 3. Contacts — raw SQL (fetch all entity ID columns, not just customer_id)
       const contactsRes = await pool.query(
-        `SELECT id, customer_id, contact_type, status
+        `SELECT id, customer_id, hospital_id, clinic_id, collaborator_id, contact_type, status
          FROM campaign_contacts WHERE campaign_id = $1`,
         [campaignId]
       );
@@ -24015,13 +24015,13 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         } catch (_e) {}
       }
 
-      // 8. Entity names — look up hospitals, clinics, collaborators, customers by customer_id
-      const entityIds = contacts.filter((c: any) => c.customer_id).map((c: any) => ({ id: c.customer_id as string, type: c.contact_type as string }));
+      // 8. Entity names — pick correct ID column per contact_type
+      // campaign_contacts has separate FK columns: hospital_id, clinic_id, collaborator_id, customer_id
       const entityNameMap = new Map<string, { name: string; phone: string }>();
-      const hospitalIds = entityIds.filter(e => e.type === "hospital").map(e => e.id);
-      const clinicIds = entityIds.filter(e => e.type === "clinic").map(e => e.id);
-      const collaboratorIds = entityIds.filter(e => e.type === "collaborator").map(e => e.id);
-      const customerIds2 = entityIds.filter(e => e.type === "customer").map(e => e.id);
+      const hospitalIds   = contacts.filter((c: any) => c.contact_type === "hospital"     && c.hospital_id).map((c: any) => c.hospital_id    as string);
+      const clinicIds     = contacts.filter((c: any) => c.contact_type === "clinic"       && c.clinic_id).map((c: any) => c.clinic_id        as string);
+      const collaboratorIds = contacts.filter((c: any) => c.contact_type === "collaborator" && c.collaborator_id).map((c: any) => c.collaborator_id as string);
+      const customerIds2  = contacts.filter((c: any) => c.contact_type === "customer"     && c.customer_id).map((c: any) => c.customer_id     as string);
       if (hospitalIds.length > 0) {
         try {
           const r = await pool.query(`SELECT id, name, phone FROM hospitals WHERE id = ANY($1::text[])`, [hospitalIds]);
@@ -24087,7 +24087,12 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const contactSummary = contacts.map((cc: any) => {
         const ccStates = states.filter((s: any) => s.campaign_contact_id === cc.id);
         const confirmedItemIds = new Set(ccStates.map((s: any) => s.status_list_item_id));
-        const entity = cc.customer_id ? entityNameMap.get(cc.customer_id) : null;
+        // Pick the right entity ID column based on contact_type
+        const entityId = cc.contact_type === "hospital" ? cc.hospital_id
+          : cc.contact_type === "clinic" ? cc.clinic_id
+          : cc.contact_type === "collaborator" ? cc.collaborator_id
+          : cc.customer_id;
+        const entity = entityId ? entityNameMap.get(entityId) : null;
         return {
           campaignContactId: cc.id,
           contactName: entity?.name || `#${String(cc.id).slice(0, 8)}`,

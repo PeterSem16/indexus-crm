@@ -9959,22 +9959,50 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
         <div className="space-y-3">
           {/* Summary cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Card><CardContent className="pt-4 pb-3">
-              <p className="text-xs text-muted-foreground mb-1">{aw.slaTotalContacts}</p>
-              <p className="text-2xl font-bold">{totalContacts}</p>
-            </CardContent></Card>
-            <Card><CardContent className="pt-4 pb-3">
-              <p className="text-xs text-muted-foreground mb-1">{aw.slaStepsInList}</p>
-              <p className="text-2xl font-bold">{steps.length}</p>
-            </CardContent></Card>
-            <Card><CardContent className="pt-4 pb-3">
-              <p className="text-xs text-muted-foreground mb-1">{aw.slaTotalConfirmations}</p>
-              <p className="text-2xl font-bold">{allItems.reduce((s, i) => s + i.totalConfirmations, 0)}</p>
-            </CardContent></Card>
-            <Card><CardContent className="pt-4 pb-3">
-              <p className="text-xs text-muted-foreground mb-1">{aw.slaAutomationsFired}</p>
-              <p className="text-2xl font-bold">{allItems.reduce((s, i) => s + i.automationsFired, 0)}</p>
-            </CardContent></Card>
+            <Card className="border-l-4 border-l-blue-500">
+              <CardContent className="pt-4 pb-3 px-4 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+                  <Users className="h-5 w-5 text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground leading-tight">{aw.slaTotalContacts}</p>
+                  <p className="text-2xl font-bold leading-tight">{totalContacts}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-l-4 border-l-violet-500">
+              <CardContent className="pt-4 pb-3 px-4 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
+                  <BarChart3 className="h-5 w-5 text-violet-500" />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground leading-tight">{aw.slaStepsInList}</p>
+                  <p className="text-2xl font-bold leading-tight">{allItems.length}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-l-4 border-l-green-500">
+              <CardContent className="pt-4 pb-3 px-4 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground leading-tight">{aw.slaTotalConfirmations}</p>
+                  <p className="text-2xl font-bold leading-tight">{allItems.reduce((s, i) => s + i.totalConfirmations, 0)}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-l-4 border-l-amber-500">
+              <CardContent className="pt-4 pb-3 px-4 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+                  <Zap className="h-5 w-5 text-amber-500" />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground leading-tight">{aw.slaAutomationsFired}</p>
+                  <p className="text-2xl font-bold leading-tight">{allItems.reduce((s, i) => s + i.automationsFired, 0)}</p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Step funnel */}
