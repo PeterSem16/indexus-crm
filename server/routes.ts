@@ -23921,8 +23921,22 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     try {
       const { id: campaignId } = req.params;
 
-      // 1. All status list items for this campaign (steps + options, sorted)
-      const items = await db.select().from(campaignStatusListItems)
+      // 1. All status list items for this campaign (steps + options, sorted) — explicit columns only
+      const items = await db.select({
+        id: campaignStatusListItems.id,
+        campaignId: campaignStatusListItems.campaignId,
+        stepId: campaignStatusListItems.stepId,
+        label: campaignStatusListItems.label,
+        description: campaignStatusListItems.description,
+        sortOrder: campaignStatusListItems.sortOrder,
+        required: campaignStatusListItems.required,
+        parentId: campaignStatusListItems.parentId,
+        confirmationType: campaignStatusListItems.confirmationType,
+        isHidden: campaignStatusListItems.isHidden,
+        itemType: campaignStatusListItems.itemType,
+        color: campaignStatusListItems.color,
+        tab: campaignStatusListItems.tab,
+      }).from(campaignStatusListItems)
         .where(eq(campaignStatusListItems.campaignId, campaignId))
         .orderBy(campaignStatusListItems.sortOrder);
 
@@ -23932,8 +23946,15 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
       const itemIds = items.map(i => i.id);
 
-      // 2. Automations per item
-      const automations = await db.select().from(campaignStatusListAutomations)
+      // 2. Automations per item — explicit columns only (avoids missing-column errors on prod)
+      const automations = await db.select({
+        id: campaignStatusListAutomations.id,
+        statusListItemId: campaignStatusListAutomations.statusListItemId,
+        actionType: campaignStatusListAutomations.actionType,
+        emailTemplateId: campaignStatusListAutomations.emailTemplateId,
+        callbackOffsetDays: campaignStatusListAutomations.callbackOffsetDays,
+        taskDescription: campaignStatusListAutomations.taskDescription,
+      }).from(campaignStatusListAutomations)
         .where(inArray(campaignStatusListAutomations.statusListItemId, itemIds));
       const automByItem = new Map<string, typeof automations>();
       for (const a of automations) {
@@ -23953,8 +23974,14 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
       if (ccIds.length === 0) return res.json({ items: items.map(i => ({ ...i, uniqueContacts: 0, totalConfirmations: 0, agentBreakdown: [], automationsFired: 0 })), contacts: [], agents: [], totalContacts: 0 });
 
-      // 4. All state confirmations for these contacts
-      const states = await db.select().from(campaignContactStatusListState)
+      // 4. All state confirmations for these contacts — explicit columns only
+      const states = await db.select({
+        id: campaignContactStatusListState.id,
+        campaignContactId: campaignContactStatusListState.campaignContactId,
+        statusListItemId: campaignContactStatusListState.statusListItemId,
+        confirmedAt: campaignContactStatusListState.confirmedAt,
+        confirmedByUserId: campaignContactStatusListState.confirmedByUserId,
+      }).from(campaignContactStatusListState)
         .where(inArray(campaignContactStatusListState.campaignContactId, ccIds));
 
       // 5. Call count per campaign contact (from history) — using Drizzle ORM
