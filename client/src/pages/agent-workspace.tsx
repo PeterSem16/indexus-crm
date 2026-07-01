@@ -5102,7 +5102,7 @@ function CommunicationCanvas({
                   <DialogContent className="max-w-sm" style={STONE_TERRACOTTA_VARS}>
                     <DialogHeader>
                       <DialogTitle className="text-base flex items-center gap-2">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-primary animate-in zoom-in-50 duration-700 fill-mode-both ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:animate-none">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-primary animate-in zoom-in-50 duration-700 fill-mode-both motion-reduce:animate-none" style={{ animationTimingFunction: "cubic-bezier(0.34,1.56,0.64,1)" }}>
                           <Sparkles className="h-3.5 w-3.5" />
                         </span>
                         {slt("cfmTitle", locale)}
@@ -5162,8 +5162,8 @@ function CommunicationCanvas({
                             style={{ animationDelay: `${120 + idx * 85}ms` }}
                           >
                             <div
-                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tm.chip} animate-in zoom-in-50 duration-500 fill-mode-both ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:animate-none`}
-                              style={{ animationDelay: `${260 + idx * 85}ms` }}
+                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tm.chip} animate-in zoom-in-50 duration-500 fill-mode-both motion-reduce:animate-none`}
+                              style={{ animationDelay: `${260 + idx * 85}ms`, animationTimingFunction: "cubic-bezier(0.34,1.56,0.64,1)" }}
                             >
                               <Icon className={`h-4 w-4 ${tm.icon}`} />
                             </div>
