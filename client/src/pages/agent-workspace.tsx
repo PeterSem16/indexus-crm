@@ -2587,6 +2587,9 @@ function CommunicationCanvas({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaign?.id, campaignContactId, dbStatusList, dbSlState]);
 
+  // Declared here (before the useCallbacks that reference it in deps) to avoid TDZ in production Rollup build.
+  const [slPendingCallback, setSlPendingCallback] = useState<{ itemId: string; itemLabel: string; allAutomations: any[]; cbAuto: any | null; dt: string; note: string } | null>(null);
+
   const handleSlToggle = useCallback(async (itemId: string, newChecked: boolean) => {
     // Intercept: when confirming a step that has a set_callback automation, show picker first
     if (newChecked) {
@@ -2667,7 +2670,6 @@ function CommunicationCanvas({
 
   // Manual ("run now") trigger for a single configured status-list automation.
   const [slRunningAuto, setSlRunningAuto] = useState<Set<string>>(new Set());
-  const [slPendingCallback, setSlPendingCallback] = useState<{ itemId: string; itemLabel: string; allAutomations: any[]; cbAuto: any | null; dt: string; note: string } | null>(null);
   const [slQuestionAnswers, setSlQuestionAnswers] = useState<Record<string, any>>({});
   const [slHighlightedStep, setSlHighlightedStep] = useState<string | null>(null);
 
