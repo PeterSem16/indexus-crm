@@ -150,6 +150,7 @@ import {
   ClipboardList,
   Save,
   CornerUpLeft,
+  Sparkles,
 } from "lucide-react";
 import type { CSSProperties } from "react";
 import {
@@ -5100,17 +5101,22 @@ function CommunicationCanvas({
                 <Dialog open onOpenChange={(open) => { if (!open) setSlPendingCallback(null); }}>
                   <DialogContent className="max-w-sm" style={STONE_TERRACOTTA_VARS}>
                     <DialogHeader>
-                      <DialogTitle className="text-base">{slt("cfmTitle", locale)}</DialogTitle>
+                      <DialogTitle className="text-base flex items-center gap-2">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-primary animate-in zoom-in-50 duration-700 fill-mode-both ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:animate-none">
+                          <Sparkles className="h-3.5 w-3.5" />
+                        </span>
+                        {slt("cfmTitle", locale)}
+                      </DialogTitle>
                       <DialogDescription asChild>
                         <div className="space-y-2 pt-1">
-                          <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">{slPendingCallback.itemLabel}</span>
+                          <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary animate-in zoom-in-75 fade-in-0 duration-500 fill-mode-both motion-reduce:animate-none">{slPendingCallback.itemLabel}</span>
                           <p className="text-sm text-muted-foreground">{slt("cfmSubtitle", locale)}</p>
                         </div>
                       </DialogDescription>
                     </DialogHeader>
                     {/* Automation preview list — rich "what happens" summary */}
                     <div className="space-y-2 py-1">
-                      {slPendingCallback.allAutomations.map((a: any) => {
+                      {slPendingCallback.allAutomations.map((a: any, idx: number) => {
                         const toneMap: Record<string, { border: string; bg: string; chip: string; icon: string }> = {
                           primary: { border: "border-primary/25", bg: "bg-primary/5", chip: "bg-primary/10", icon: "text-primary" },
                           amber:   { border: "border-amber-500/25", bg: "bg-amber-50/60 dark:bg-amber-950/20", chip: "bg-amber-500/10", icon: "text-amber-600 dark:text-amber-400" },
@@ -5150,8 +5156,15 @@ function CommunicationCanvas({
                         }
                         const tm = toneMap[tone];
                         return (
-                          <div key={a.id} className={`flex items-start gap-3 rounded-xl border ${tm.border} ${tm.bg} px-3 py-2.5`}>
-                            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tm.chip}`}>
+                          <div
+                            key={a.id}
+                            className={`flex items-start gap-3 rounded-xl border ${tm.border} ${tm.bg} px-3 py-2.5 animate-in fade-in-0 slide-in-from-bottom-3 zoom-in-95 duration-500 fill-mode-both motion-reduce:animate-none`}
+                            style={{ animationDelay: `${120 + idx * 85}ms` }}
+                          >
+                            <div
+                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tm.chip} animate-in zoom-in-50 duration-500 fill-mode-both ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:animate-none`}
+                              style={{ animationDelay: `${260 + idx * 85}ms` }}
+                            >
                               <Icon className={`h-4 w-4 ${tm.icon}`} />
                             </div>
                             <div className="min-w-0 flex-1">
@@ -5193,7 +5206,7 @@ function CommunicationCanvas({
                       <Button variant="outline" size="sm" onClick={() => setSlPendingCallback(null)} data-testid="btn-sl-pending-callback-cancel">
                         {slt("cfmCancel", locale)}
                       </Button>
-                      <Button size="sm" onClick={handleSlConfirmWithCallback} className="font-semibold shadow-sm" data-testid="btn-sl-pending-callback-confirm">
+                      <Button size="sm" onClick={handleSlConfirmWithCallback} className="font-semibold shadow-sm animate-in fade-in-0 zoom-in-95 duration-500 fill-mode-both motion-reduce:animate-none" style={{ animationDelay: "260ms" }} data-testid="btn-sl-pending-callback-confirm">
                         <Check className="h-4 w-4 mr-1.5" />
                         {slt("cfmConfirm", locale)}
                       </Button>
