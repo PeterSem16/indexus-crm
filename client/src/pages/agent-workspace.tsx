@@ -3293,6 +3293,34 @@ function CommunicationCanvas({
     return result;
   }, [contact, user, allEmailAccounts, selectedFromAccount, clinicData, hospitalData, collaboratorData]);
 
+  // Resolve task-description tokens into real values for the confirm-dialog preview.
+  // Only the small set of tokens used by task templates; unresolved (empty) tokens are
+  // left visible so nothing silently disappears.
+  const resolveTaskTokens = useCallback((text: string): string => {
+    if (!text) return "";
+    const cl = clinicData as any;
+    const hosp = hospitalData as any;
+    const collab = collaboratorData as any;
+    const customerName = contact ? `${contact.firstName || ""} ${contact.lastName || ""}`.replace(/\s+/g, " ").trim() : "";
+    const collabName = collab ? `${collab.firstName || ""} ${collab.lastName || ""}`.replace(/\s+/g, " ").trim() : "";
+    const map: Record<string, string> = {
+      "{{customer.name}}": customerName || collabName || cl?.clinicName || cl?.name || hosp?.name || "",
+      "{{customer.fullName}}": customerName,
+      "{{customer.phone}}": contact?.phone || collab?.phone || cl?.phone || hosp?.phone || "",
+      "{{customer.email}}": contact?.email || collab?.email || cl?.email || hosp?.email || "",
+      "{{customer.id}}": contact?.id != null ? String(contact.id) : "",
+      "{{clinic.name}}": cl?.clinicName || cl?.name || "",
+      "{{hospital.name}}": hosp?.name || hosp?.fullName || "",
+      "{{campaign.name}}": campaign?.name || "",
+      "{{agent.name}}": (user as any)?.fullName || user?.name || user?.username || "",
+    };
+    let out = text;
+    for (const [tok, val] of Object.entries(map)) {
+      if (val) out = out.split(tok).join(val);
+    }
+    return out;
+  }, [contact, clinicData, hospitalData, collaboratorData, campaign, user]);
+
   const applyEmailTemplate = useCallback((template: any) => {
     const subject = replaceTemplateVars(template.subject || "");
     const hasHtmlContent = !!(template.contentHtml && template.contentHtml.trim().length > 0);
@@ -5157,7 +5185,7 @@ function CommunicationCanvas({
                             const role = slRole(a.targetRole, locale);
                             desc = (role ? `${slt("cfmAssignedTo", locale)} ${role}` : slt("cfmTaskDesc", locale)) + notify;
                           }
-                          const steps = a.taskDescription ? String(a.taskDescription).trim() : "";
+                          const steps = a.taskDescription ? resolveTaskTokens(String(a.taskDescription)).trim() : "";
                           const prio = a.taskPriority && a.taskPriority !== "medium" ? String(a.taskPriority) : "";
                           const prioMap: Record<string, { label: string; cls: string }> = {
                             low:    { label: slt("prioLow", locale),    cls: "bg-slate-500/10 text-slate-600 dark:text-slate-300" },
