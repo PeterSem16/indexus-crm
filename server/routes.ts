@@ -1980,6 +1980,26 @@ function verifyMs365LoginToken(token: string): HandoffVerifyResult {
   return { ok: true, userId, returnOrigin, duplicate: false };
 }
 
+// Resolve the role-configured "Default landing page" path for a user (or null).
+// Used so MS365 logins honor the same landing-page rule as classic login.
+async function resolveRoleLandingPage(user: any): Promise<string | null> {
+  if (!user?.roleId) return null;
+  try {
+    const role = await storage.getRole(user.roleId);
+    return (role as any)?.defaultLandingPage || null;
+  } catch {
+    return null;
+  }
+}
+
+// Only permit same-origin relative redirects to a configured landing page
+// (guards against open-redirect if a landing value is ever not a plain "/path").
+function safeLandingRedirect(landingPage: string | null | undefined): string {
+  return landingPage && landingPage.startsWith("/") && !landingPage.startsWith("//")
+    ? landingPage
+    : "/";
+}
+
 // Defense-in-depth allowlist (the signed state is the primary protection).
 function isAllowedLoginReturnOrigin(origin: string): boolean {
   try {
@@ -2716,7 +2736,7 @@ export async function registerRoutes(
       // freshly-created session would trigger an immediate heartbeat logout.
       if (duplicate && req.session.user && (req.session.user as any).id === userId) {
         console.log("[MS365 Complete] Idempotent re-redemption; session already established");
-        return res.redirect("/");
+        return res.redirect(safeLandingRedirect((req.session.user as any).roleLandingPage));
       }
 
       const user = await storage.getUser(userId);
@@ -2733,8 +2753,9 @@ export async function registerRoutes(
         await storage.endUserSession(activeSession.id);
       }
 
+      const roleLandingPage = await resolveRoleLandingPage(user);
       const { passwordHash, ...safeUser } = user as any;
-      req.session.user = safeUser;
+      req.session.user = { ...safeUser, roleLandingPage };
       const userSession = await storage.createUserSession(user.id, req.ip || undefined, req.headers['user-agent'] || undefined);
       (req.session as any).userSessionId = userSession.id;
 
@@ -2745,7 +2766,7 @@ export async function registerRoutes(
         req.session.save((err) => (err ? reject(err) : resolve()));
       });
 
-      return res.redirect("/");
+      return res.redirect(safeLandingRedirect(roleLandingPage));
     } catch (error) {
       console.error("[MS365 Complete] Error:", error);
       return res.redirect("/login?error=login_failed");
@@ -4208,8 +4229,9 @@ export async function registerRoutes(
         }
         
         // Login successful - set session
+        const roleLandingPage = await resolveRoleLandingPage(user);
         const { passwordHash, ...safeUser } = user;
-        req.session.user = safeUser;
+        req.session.user = { ...safeUser, roleLandingPage };
         
         // Create login session record
         const userSession = await storage.createUserSession(user.id, req.ip || undefined, req.headers['user-agent'] || undefined);
@@ -4232,7 +4254,7 @@ export async function registerRoutes(
           });
         });
         
-        return res.redirect("/");
+        return res.redirect(safeLandingRedirect(roleLandingPage));
       }
       
       // For non-login flows, we need a state parameter

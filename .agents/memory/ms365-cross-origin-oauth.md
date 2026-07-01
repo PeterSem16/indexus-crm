@@ -96,6 +96,21 @@ off `ms365` only affects login + a cosmetic placeholder in a user list (no Graph
 mailbox impact — those use a separate token store). Revert by setting it back to
 `ms365`.
 
+## Role "Default landing page" rule must be applied on EVERY login path
+The per-role `roles.defaultLandingPage` rule is applied by attaching it to
+`req.session.user` as `roleLandingPage` (also exposed via `/api/auth/me`). The
+client only auto-redirects to it on the `/login` route — so classic login can
+rely on the client, but **MS365 logins server-redirect to `/` and would skip the
+rule entirely**. Fix: every session-establishment path must (a) resolve the
+landing page from the user's role and attach it to `session.user`, and (b) for
+MS365, server-redirect to that landing page instead of `/`. There are THREE such
+paths: classic `/api/auth/login`, `/api/auth/ms365-complete` (cross-origin
+handoff, incl. its idempotent duplicate-redemption branch), and the same-origin
+login branch of `/api/auth/microsoft/callback`. Guard the redirect target to
+same-origin relative paths (`/path`, reject `//…`) to avoid an open redirect.
+**Why:** a per-role rule silently ignored on one auth method is the classic
+"works for password users, broken for SSO users" bug.
+
 ## Build note
 `npm run build` uses esbuild with NO type-check, so tsc-only issues (e.g. iterating
 a `Map` needs downlevelIteration — prefer `.forEach`) don't block the build.
