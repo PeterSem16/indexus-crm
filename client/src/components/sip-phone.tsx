@@ -1107,7 +1107,7 @@ export function SipPhone({
         direction: "outbound",
         status: "initiated",
         userId: userId || currentUser?.id,
-        customerId: localCustomerId,
+        customerId: localCustomerIdRef.current,
         campaignId: localCampaignId,
         customerName: localCustomerName,
       });
@@ -1188,7 +1188,7 @@ export function SipPhone({
             updateCallLogMutation.mutate({
               id: callLogId,
               data: { status: "ringing" },
-              customerId: localCustomerId
+              customerId: localCustomerIdRef.current
             });
             break;
           case SessionState.Established:
@@ -1208,7 +1208,7 @@ export function SipPhone({
             updateCallLogMutation.mutate({
               id: callLogId,
               data: { status: "answered", answeredAt: new Date().toISOString() },
-              customerId: localCustomerId
+              customerId: localCustomerIdRef.current
             });
             onCallStart?.(phoneNumber, callLogId);
             setupAudio(inviter);
@@ -1244,7 +1244,7 @@ export function SipPhone({
                 durationSeconds: duration,
                 hungUpBy
               },
-              customerId: localCustomerId
+              customerId: localCustomerIdRef.current
             });
             if (duration > 0) {
               stopRecordingAndUpload(callLogId, duration);
@@ -1295,7 +1295,7 @@ export function SipPhone({
             status: "failed",
             endedAt: new Date().toISOString()
           },
-          customerId: localCustomerId
+          customerId: localCustomerIdRef.current
         });
         setCurrentCallLogId(null);
       }
@@ -1550,7 +1550,7 @@ export function SipPhone({
                 endedAt: new Date().toISOString(),
                 hungUpBy: "user"
               },
-              customerId: localCustomerId
+              customerId: localCustomerIdRef.current
             });
             setCurrentCallLogId(null);
           }
@@ -1611,7 +1611,7 @@ export function SipPhone({
           durationSeconds: duration,
           hungUpBy: "user"
         },
-        customerId: localCustomerId
+        customerId: localCustomerIdRef.current
       });
     }
 
