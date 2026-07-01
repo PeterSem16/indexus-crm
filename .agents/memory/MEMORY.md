@@ -3,6 +3,7 @@
 - [TabsContent nesting context](tabs-nesting-context.md) — TabsContent must be a direct descendant of the correct Tabs; placing it inside a nested Tabs (different value context) silently hides it even though the trigger appears selected.
 - [Custom queryFn must check res.ok](query-fn-ok-check.md) — inline fetch().then(r=>r.json()) without an ok-check stores error JSON as success data and crashes .map/.filter (prod-only).
 - [BO task hospital/clinic recovery](bo-task-entity-recovery.md) — status-list BO tasks never store the contact entity; recover hospital/clinic via campaign_contact_status_list_state matched by item+user+nearest time.
+- [EntityDetailDrawer stale detail cache](entity-detail-drawer-stale-cache.md) — a drawer/sheet edit form's save must invalidate its per-record detail query key, not just the list; else the reopened card shows stale fields (clinic email2/email3) under staleTime Infinity.
 - [BO status-list automation tasks](bo-status-list-automation.md) — campaignContacts contact id is polymorphic (clinic/hospital/collaborator/customer), so tasks.customerId must come from ccRow.customerId; and db.execute() returns {rows}, never array-destructure it.
 - [Architect on huge files](architect-huge-files.md) — passing 50k-line files to architect echoes file dumps with no verdict; pass small files + includeGitDiff instead.
 - [Sheet over Dialog stacking](sheet-over-dialog-stacking.md) — a shadcn Sheet renders BEHIND an open Dialog; an "elevated" drawer needs z-[10020] + hideOverlay + onCloseAutoFocus preventDefault.

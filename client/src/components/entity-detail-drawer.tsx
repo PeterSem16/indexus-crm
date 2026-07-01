@@ -68,6 +68,7 @@ function InstitutionDetailDrawer({ entity, onClose }: { entity: EntityRef | null
         onClose={onClose}
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/entity-detail", entity.type, entity.id] });
           onClose();
         }}
       />
@@ -82,6 +83,7 @@ function InstitutionDetailDrawer({ entity, onClose }: { entity: EntityRef | null
       onOpenChange={(o) => { if (!o) onClose(); }}
       onSuccess={() => {
         queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/entity-detail", entity.type, entity.id] });
         onClose();
       }}
     />
