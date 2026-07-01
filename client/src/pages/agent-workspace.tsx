@@ -208,8 +208,49 @@ const SL_ACTION_T: Record<string, Record<string, string>> = {
   callbackSet:   { sk: "Callback naplánovaný", en: "Callback scheduled", cs: "Callback naplánován", hu: "Visszahívás ütemezve", ro: "Callback programat", it: "Richiamo pianificato", de: "Rückruf geplant" },
   actionFailed:  { sk: "Akcia zlyhala", en: "Action failed", cs: "Akce selhala", hu: "A művelet sikertelen", ro: "Acțiunea a eșuat", it: "Azione fallita", de: "Aktion fehlgeschlagen" },
   actionsTitle:  { sk: "Akcie", en: "Actions", cs: "Akce", hu: "Műveletek", ro: "Acțiuni", it: "Azioni", de: "Aktionen" },
+  // ── Confirm dialog (rich "what happens" summary) ──────────────────
+  cfmTitle:      { sk: "Potvrdenie kroku", en: "Confirm step", cs: "Potvrzení kroku", hu: "Lépés megerősítése", ro: "Confirmă pasul", it: "Conferma passaggio", de: "Schritt bestätigen" },
+  cfmSubtitle:   { sk: "Toto sa stane po potvrdení:", en: "Here's what happens when you confirm:", cs: "Toto se stane po potvrzení:", hu: "Ez történik a megerősítés után:", ro: "Iată ce se întâmplă la confirmare:", it: "Ecco cosa succede alla conferma:", de: "Das passiert nach der Bestätigung:" },
+  cfmCallbackTitle: { sk: "Naplánuje sa callback", en: "Callback will be scheduled", cs: "Naplánuje se callback", hu: "Visszahívás lesz ütemezve", ro: "Se va programa un callback", it: "Verrà pianificato un richiamo", de: "Rückruf wird geplant" },
+  cfmCallbackDesc:  { sk: "Hovor sa automaticky preplánuje na zvolený termín.", en: "The call will be automatically rescheduled to the selected time.", cs: "Hovor se automaticky přeplánuje na zvolený termín.", hu: "A hívás automatikusan átütemeződik a kiválasztott időpontra.", ro: "Apelul va fi reprogramat automat la ora selectată.", it: "La chiamata verrà riprogrammata automaticamente all'orario scelto.", de: "Der Anruf wird automatisch auf den gewählten Zeitpunkt verschoben." },
+  cfmStatusTitle: { sk: "Nastaví sa status kontaktu", en: "Contact status will be set", cs: "Nastaví se stav kontaktu", hu: "A kapcsolat státusza beáll", ro: "Se va seta statusul contactului", it: "Verrà impostato lo stato del contatto", de: "Kontaktstatus wird gesetzt" },
+  cfmStatusDesc:  { sk: "Kontaktu sa priradí nový status.", en: "The contact will be marked with a new status.", cs: "Kontaktu se přiřadí nový stav.", hu: "A kapcsolat új státuszt kap.", ro: "Contactului i se va atribui un nou status.", it: "Al contatto verrà assegnato un nuovo stato.", de: "Dem Kontakt wird ein neuer Status zugewiesen." },
+  cfmEmailTitle:  { sk: "Odošle sa e-mail", en: "Email will be sent", cs: "Odešle se e-mail", hu: "E-mail lesz elküldve", ro: "Se va trimite un email", it: "Verrà inviata un'email", de: "E-Mail wird gesendet" },
+  cfmEmailDesc:   { sk: "E-mail sa odošle definovanej skupine príjemcov.", en: "An email will be sent to the defined group of recipients.", cs: "E-mail se odešle definované skupině příjemců.", hu: "Az e-mail a megadott címzettcsoportnak lesz elküldve.", ro: "Emailul va fi trimis grupului de destinatari definit.", it: "L'email verrà inviata al gruppo di destinatari definito.", de: "Die E-Mail wird an die definierte Empfängergruppe gesendet." },
+  cfmNotifyTitle: { sk: "Odošle sa notifikačný e-mail", en: "Notification email will be sent", cs: "Odešle se oznamovací e-mail", hu: "Értesítő e-mail lesz elküldve", ro: "Se va trimite un email de notificare", it: "Verrà inviata un'email di notifica", de: "Benachrichtigungs-E-Mail wird gesendet" },
+  cfmNotifyDesc:  { sk: "Interná notifikácia sa odošle e-mailom.", en: "An internal notification will be sent by email.", cs: "Interní oznámení se odešle e-mailem.", hu: "Belső értesítés lesz elküldve e-mailben.", ro: "O notificare internă va fi trimisă prin email.", it: "Una notifica interna verrà inviata via email.", de: "Eine interne Benachrichtigung wird per E-Mail gesendet." },
+  cfmTaskTitle:   { sk: "Vytvorí sa úloha", en: "A task will be created", cs: "Vytvoří se úkol", hu: "Feladat jön létre", ro: "Se va crea o sarcină", it: "Verrà creata un'attività", de: "Eine Aufgabe wird erstellt" },
+  cfmTaskDesc:    { sk: "Vytvorí sa nová úloha na spracovanie.", en: "A new task will be created for processing.", cs: "Vytvoří se nový úkol ke zpracování.", hu: "Új feladat jön létre feldolgozásra.", ro: "Se va crea o nouă sarcină pentru procesare.", it: "Verrà creata una nuova attività da elaborare.", de: "Eine neue Aufgabe wird zur Bearbeitung erstellt." },
+  cfmAssignedTo:  { sk: "Priradí sa oddeleniu", en: "Assigned to", cs: "Přiřadí se oddělení", hu: "Hozzárendelve ehhez", ro: "Atribuită către", it: "Assegnata a", de: "Zugewiesen an" },
+  cfmAlsoEmail:   { sk: "+ upozornenie e-mailom", en: "+ email notification", cs: "+ upozornění e-mailem", hu: "+ e-mail értesítés", ro: "+ notificare prin email", it: "+ notifica via email", de: "+ E-Mail-Benachrichtigung" },
+  cfmAlsoSms:     { sk: "+ upozornenie SMS", en: "+ SMS notification", cs: "+ upozornění SMS", hu: "+ SMS értesítés", ro: "+ notificare prin SMS", it: "+ notifica via SMS", de: "+ SMS-Benachrichtigung" },
+  cfmAlsoPush:    { sk: "+ push upozornenie", en: "+ push notification", cs: "+ push upozornění", hu: "+ push értesítés", ro: "+ notificare push", it: "+ notifica push", de: "+ Push-Benachrichtigung" },
+  cfmContactEmailTitle: { sk: "Odošle sa e-mail kontaktu", en: "Email will be sent to the contact", cs: "Odešle se e-mail kontaktu", hu: "E-mail lesz elküldve a kapcsolatnak", ro: "Se va trimite un email contactului", it: "Verrà inviata un'email al contatto", de: "E-Mail wird an den Kontakt gesendet" },
+  cfmContactEmailDesc:  { sk: "E-mail sa odošle priamo na adresu kontaktu.", en: "An email will be sent directly to the contact's address.", cs: "E-mail se odešle přímo na adresu kontaktu.", hu: "Az e-mail közvetlenül a kapcsolat címére lesz elküldve.", ro: "Emailul va fi trimis direct la adresa contactului.", it: "L'email verrà inviata direttamente all'indirizzo del contatto.", de: "Die E-Mail wird direkt an die Adresse des Kontakts gesendet." },
+  cfmContactSmsTitle: { sk: "Odošle sa SMS kontaktu", en: "SMS will be sent to the contact", cs: "Odešle se SMS kontaktu", hu: "SMS lesz elküldve a kapcsolatnak", ro: "Se va trimite un SMS contactului", it: "Verrà inviato un SMS al contatto", de: "SMS wird an den Kontakt gesendet" },
+  cfmContactSmsDesc:  { sk: "SMS sa odošle na telefónne číslo kontaktu.", en: "An SMS will be sent to the contact's phone number.", cs: "SMS se odešle na telefonní číslo kontaktu.", hu: "Az SMS a kapcsolat telefonszámára lesz elküldve.", ro: "SMS-ul va fi trimis la numărul de telefon al contactului.", it: "L'SMS verrà inviato al numero di telefono del contatto.", de: "Die SMS wird an die Telefonnummer des Kontakts gesendet." },
+  cfmWhen:        { sk: "Kedy", en: "When", cs: "Kdy", hu: "Mikor", ro: "Când", it: "Quando", de: "Wann" },
+  cfmNotePh:      { sk: "Poznámka (voliteľné)...", en: "Note (optional)...", cs: "Poznámka (volitelné)...", hu: "Megjegyzés (opcionális)...", ro: "Notă (opțional)...", it: "Nota (facoltativo)...", de: "Notiz (optional)..." },
+  cfmReassure:    { sk: "Akcie sa vykonajú okamžite po potvrdení.", en: "Actions run immediately once you confirm.", cs: "Akce se provedou ihned po potvrzení.", hu: "A műveletek a megerősítés után azonnal lefutnak.", ro: "Acțiunile se execută imediat după confirmare.", it: "Le azioni vengono eseguite subito dopo la conferma.", de: "Die Aktionen werden sofort nach der Bestätigung ausgeführt." },
+  cfmCancel:      { sk: "Zrušiť", en: "Cancel", cs: "Zrušit", hu: "Mégse", ro: "Anulează", it: "Annulla", de: "Abbrechen" },
+  cfmConfirm:     { sk: "Áno, potvrdiť", en: "Yes, confirm", cs: "Ano, potvrdit", hu: "Igen, megerősítem", ro: "Da, confirm", it: "Sì, conferma", de: "Ja, bestätigen" },
+  cfmDone:        { sk: "Hotovo", en: "Done", cs: "Hotovo", hu: "Kész", ro: "Gata", it: "Fatto", de: "Fertig" },
+  role_back_office: { sk: "Back Office", en: "Back Office", cs: "Back Office", hu: "Back Office", ro: "Back Office", it: "Back Office", de: "Back Office" },
+  role_coordinator: { sk: "Koordinátor", en: "Coordinator", cs: "Koordinátor", hu: "Koordinátor", ro: "Coordonator", it: "Coordinatore", de: "Koordinator" },
+  role_admin:       { sk: "Administrátor", en: "Admin", cs: "Administrátor", hu: "Adminisztrátor", ro: "Administrator", it: "Amministratore", de: "Administrator" },
+  role_manager:     { sk: "Manažér", en: "Manager", cs: "Manažer", hu: "Menedzser", ro: "Manager", it: "Manager", de: "Manager" },
 };
 const slt = (key: string, locale: string): string => SL_ACTION_T[key]?.[locale] ?? SL_ACTION_T[key]?.en ?? key;
+// Resolve an automation target role ("role:back_office" / "group:123") to a readable label.
+const slRole = (role: string | null | undefined, locale: string): string => {
+  if (!role) return "";
+  if (role.startsWith("role:")) {
+    const key = "role_" + role.slice(5);
+    return SL_ACTION_T[key] ? slt(key, locale) : role.slice(5);
+  }
+  if (role.startsWith("group:")) return "";
+  return role;
+};
 
 const SLU: Record<string, Record<string, string>> = {
   statusListTitle: { sk: "Status list kampane", en: "Campaign Status List", cs: "Status list kampaně", hu: "Kampány állapotlista", ro: "Status list campanie", it: "Lista stato campagna", de: "Kampagnen-Statusliste" },
@@ -2690,15 +2731,15 @@ function CommunicationCanvas({
       if (cbAuto) {
         let dtLabel = "";
         try { const d = new Date(dt); dtLabel = d.toLocaleDateString("sk-SK", { weekday: "short", day: "numeric", month: "numeric" }) + " " + d.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" }); } catch {}
-        toast({ title: t.agentWorkspace.slPendingCallbackTitle, description: dtLabel || dt });
+        toast({ title: slt("callbackSet", locale), description: dtLabel || dt });
       } else {
-        toast({ title: t.agentWorkspace.slConfirmBtn });
+        toast({ title: slt("cfmDone", locale) });
       }
     } catch {
       setDbSlChecked(prev => { const next = new Set(prev); next.delete(itemId); return next; });
       toast({ title: "Chyba", variant: "destructive" });
     }
-  }, [slPendingCallback, campaign?.id, campaignContactId, contactCountry, dbStatusList, toast]);
+  }, [slPendingCallback, campaign?.id, campaignContactId, contactCountry, dbStatusList, toast, locale]);
 
   // Manual ("run now") trigger for a single configured status-list automation.
   const [slRunningAuto, setSlRunningAuto] = useState<Set<string>>(new Set());
@@ -5059,75 +5100,75 @@ function CommunicationCanvas({
                 <Dialog open onOpenChange={(open) => { if (!open) setSlPendingCallback(null); }}>
                   <DialogContent className="max-w-sm" style={STONE_TERRACOTTA_VARS}>
                     <DialogHeader>
-                      <DialogTitle>{t.agentWorkspace.slConfirmTitle}</DialogTitle>
-                      <DialogDescription>
-                        <span className="font-medium text-foreground">{slPendingCallback.itemLabel}</span>
-                        {" — "}{t.agentWorkspace.slConfirmDesc}
+                      <DialogTitle className="text-base">{slt("cfmTitle", locale)}</DialogTitle>
+                      <DialogDescription asChild>
+                        <div className="space-y-2 pt-1">
+                          <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">{slPendingCallback.itemLabel}</span>
+                          <p className="text-sm text-muted-foreground">{slt("cfmSubtitle", locale)}</p>
+                        </div>
                       </DialogDescription>
                     </DialogHeader>
-                    {/* Automation preview list */}
-                    <div className="space-y-1.5 py-1">
+                    {/* Automation preview list — rich "what happens" summary */}
+                    <div className="space-y-2 py-1">
                       {slPendingCallback.allAutomations.map((a: any) => {
+                        const toneMap: Record<string, { border: string; bg: string; chip: string; icon: string }> = {
+                          primary: { border: "border-primary/25", bg: "bg-primary/5", chip: "bg-primary/10", icon: "text-primary" },
+                          amber:   { border: "border-amber-500/25", bg: "bg-amber-50/60 dark:bg-amber-950/20", chip: "bg-amber-500/10", icon: "text-amber-600 dark:text-amber-400" },
+                          green:   { border: "border-green-500/25", bg: "bg-green-50/60 dark:bg-green-950/20", chip: "bg-green-500/10", icon: "text-green-600 dark:text-green-400" },
+                          violet:  { border: "border-violet-500/25", bg: "bg-violet-50/60 dark:bg-violet-950/20", chip: "bg-violet-500/10", icon: "text-violet-600 dark:text-violet-400" },
+                          emerald: { border: "border-emerald-500/25", bg: "bg-emerald-50/60 dark:bg-emerald-950/20", chip: "bg-emerald-500/10", icon: "text-emerald-600 dark:text-emerald-400" },
+                          blue:    { border: "border-blue-500/25", bg: "bg-blue-50/60 dark:bg-blue-950/20", chip: "bg-blue-500/10", icon: "text-blue-600 dark:text-blue-400" },
+                        };
+                        let Icon: any = null, tone = "primary", title = "", desc = "", right: any = null;
                         if (a.actionType === "set_callback") {
                           let dtLabel = "";
                           try { const d = new Date(slPendingCallback.dt); dtLabel = d.toLocaleDateString("sk-SK", { weekday: "short", day: "numeric", month: "numeric" }) + " " + d.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" }); } catch {}
-                          return (
-                            <div key={a.id} className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm">
-                              <CalendarClock className="h-4 w-4 text-primary shrink-0" />
-                              <span className="text-foreground/80">{t.agentWorkspace.slConfirmAutoCallback}</span>
-                              <span className="font-medium text-primary ml-auto">{dtLabel || slPendingCallback.dt}</span>
-                            </div>
-                          );
-                        }
-                        if (a.actionType === "set_contact_status") {
+                          Icon = CalendarClock; tone = "primary"; title = slt("cfmCallbackTitle", locale); desc = slt("cfmCallbackDesc", locale);
+                          right = <span className="text-xs font-semibold text-primary whitespace-nowrap">{dtLabel || slPendingCallback.dt}</span>;
+                        } else if (a.actionType === "set_contact_status") {
                           const disp = (slDispositions as any[]).find((d: any) => String(d.id) === String(a.dispositionId));
-                          return (
-                            <div key={a.id} className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-50/60 dark:bg-amber-950/20 px-3 py-2 text-sm">
-                              <Tag className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                              <span className="text-foreground/80">{t.agentWorkspace.slConfirmAutoStatus}</span>
-                              {disp && <span className="font-medium ml-auto" style={{ color: disp.color || undefined }}>{disp.name || disp.code}</span>}
-                            </div>
-                          );
+                          Icon = Tag; tone = "amber"; title = slt("cfmStatusTitle", locale); desc = slt("cfmStatusDesc", locale);
+                          if (disp) right = <span className="text-xs font-semibold whitespace-nowrap" style={{ color: disp.color || undefined }}>{disp.name || disp.code}</span>;
+                        } else if (a.actionType === "send_email_group") {
+                          Icon = Mail; tone = "green"; title = slt("cfmEmailTitle", locale); desc = slt("cfmEmailDesc", locale);
+                        } else if (a.actionType === "notify_email") {
+                          Icon = Mail; tone = "green"; title = slt("cfmNotifyTitle", locale); desc = slt("cfmNotifyDesc", locale);
+                        } else if (a.actionType === "assign_task") {
+                          Icon = ClipboardList; tone = "violet"; title = slt("cfmTaskTitle", locale);
+                          const role = slRole(a.targetRole, locale);
+                          const channels: string[] = Array.isArray(a.assignNotifyChannels) ? a.assignNotifyChannels : [];
+                          const notify = a.assignNotify && channels.length
+                            ? " " + channels.map((c: string) => c === "sms" ? slt("cfmAlsoSms", locale) : c === "push" ? slt("cfmAlsoPush", locale) : slt("cfmAlsoEmail", locale)).join(" ")
+                            : "";
+                          desc = (role ? `${slt("cfmAssignedTo", locale)} ${role}` : slt("cfmTaskDesc", locale)) + notify;
+                        } else if (a.actionType === "send_contact_email") {
+                          Icon = Send; tone = "emerald"; title = slt("cfmContactEmailTitle", locale); desc = slt("cfmContactEmailDesc", locale);
+                        } else if (a.actionType === "send_sms") {
+                          Icon = MessageSquare; tone = "blue"; title = slt("cfmContactSmsTitle", locale); desc = slt("cfmContactSmsDesc", locale);
+                        } else {
+                          return null;
                         }
-                        if (a.actionType === "send_email_group" || a.actionType === "notify_email") {
-                          return (
-                            <div key={a.id} className="flex items-center gap-2 rounded-lg border border-green-500/20 bg-green-50/60 dark:bg-green-950/20 px-3 py-2 text-sm">
-                              <Mail className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
-                              <span className="text-foreground/80">{a.actionType === "notify_email" ? t.agentWorkspace.slConfirmAutoNotify : t.agentWorkspace.slConfirmAutoEmail}</span>
+                        const tm = toneMap[tone];
+                        return (
+                          <div key={a.id} className={`flex items-start gap-3 rounded-xl border ${tm.border} ${tm.bg} px-3 py-2.5`}>
+                            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tm.chip}`}>
+                              <Icon className={`h-4 w-4 ${tm.icon}`} />
                             </div>
-                          );
-                        }
-                        if (a.actionType === "assign_task") {
-                          return (
-                            <div key={a.id} className="flex items-center gap-2 rounded-lg border border-violet-500/20 bg-violet-50/60 dark:bg-violet-950/20 px-3 py-2 text-sm">
-                              <ClipboardList className="h-4 w-4 text-violet-600 dark:text-violet-400 shrink-0" />
-                              <span className="text-foreground/80">{t.agentWorkspace.slConfirmAutoTask}</span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-semibold text-foreground leading-tight">{title}</p>
+                                {right && <span className="ml-auto shrink-0">{right}</span>}
+                              </div>
+                              <p className="text-xs text-muted-foreground leading-snug mt-0.5">{desc}</p>
                             </div>
-                          );
-                        }
-                        if (a.actionType === "send_contact_email") {
-                          return (
-                            <div key={a.id} className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-50/60 dark:bg-emerald-950/20 px-3 py-2 text-sm">
-                              <Send className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                              <span className="text-foreground/80">{t.agentWorkspace.slConfirmAutoContactEmail}</span>
-                            </div>
-                          );
-                        }
-                        if (a.actionType === "send_sms") {
-                          return (
-                            <div key={a.id} className="flex items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-50/60 dark:bg-blue-950/20 px-3 py-2 text-sm">
-                              <MessageSquare className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
-                              <span className="text-foreground/80">{t.agentWorkspace.slConfirmAutoContactSms}</span>
-                            </div>
-                          );
-                        }
-                        return null;
+                          </div>
+                        );
                       })}
                     </div>
                     {/* DateTimePicker for callback editing — only when set_callback automation present */}
                     {slPendingCallback.cbAuto && (
                       <div className="space-y-2 border-t pt-3">
-                        <p className="text-xs font-medium text-muted-foreground">{t.agentWorkspace.slConfirmCallbackWhen}</p>
+                        <p className="text-xs font-medium text-muted-foreground">{slt("cfmWhen", locale)}</p>
                         <DateTimePicker
                           value={slPendingCallback.dt}
                           onChange={(v) => setSlPendingCallback(p => p ? { ...p, dt: v } : null)}
@@ -5135,7 +5176,7 @@ function CommunicationCanvas({
                           data-testid="input-sl-pending-callback-dt"
                         />
                         <textarea
-                          placeholder={t.agentWorkspace.slPendingCallbackNotePlaceholder}
+                          placeholder={slt("cfmNotePh", locale)}
                           value={slPendingCallback.note}
                           rows={2}
                           onChange={(e) => setSlPendingCallback(p => p ? { ...p, note: e.target.value } : null)}
@@ -5144,13 +5185,17 @@ function CommunicationCanvas({
                         />
                       </div>
                     )}
+                    <div className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                      {slt("cfmReassure", locale)}
+                    </div>
                     <DialogFooter className="gap-2 flex-row justify-end">
                       <Button variant="outline" size="sm" onClick={() => setSlPendingCallback(null)} data-testid="btn-sl-pending-callback-cancel">
-                        {t.agentWorkspace.slPendingCallbackCancel}
+                        {slt("cfmCancel", locale)}
                       </Button>
-                      <Button size="sm" onClick={handleSlConfirmWithCallback} data-testid="btn-sl-pending-callback-confirm">
+                      <Button size="sm" onClick={handleSlConfirmWithCallback} className="font-semibold shadow-sm" data-testid="btn-sl-pending-callback-confirm">
                         <Check className="h-4 w-4 mr-1.5" />
-                        {t.agentWorkspace.slConfirmBtn}
+                        {slt("cfmConfirm", locale)}
                       </Button>
                     </DialogFooter>
                   </DialogContent>

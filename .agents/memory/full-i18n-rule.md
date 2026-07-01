@@ -28,5 +28,10 @@ Line numbers shift with each file edit — always grep for a nearby unique ancho
 3. In the component, use `t.section.key` (never hardcode).
 4. For label + description pairs, use `key` + `keyHint` convention (e.g. `position` + `positionHint`).
 
+## Exception: status-list / Nexus Pulse modals use LOCAL dictionaries
+`agent-workspace.tsx` (SL_ACTION_T + `slt(key, locale)`) and `campaign-status-list-builder.tsx` (`sl()`) deliberately keep their strings in **local per-file dictionaries** (all 7 langs inline) to avoid editing the 7 giant translations.ts blocks. For NEW strings in THOSE status-list/confirm modals, add to the local dict — do not add to translations.ts. `locale` comes from `useI18n()`.
+
+**Trap:** translations.ts keys can exist in the TS **interface** but be missing from the 7 language **objects**. Vite dev doesn't typecheck, so `t.section.key` silently resolves to `undefined` and renders blank (this exact bug left the Pulse confirm dialog showing icon-only cards + a bare-checkmark button). If a translated string renders empty, verify the key exists in the language OBJECTS, not just the interface — or switch that surface to a local dict.
+
 ## Translations for sections added so far
 `users.position` / `users.positionHint` — added in all 7 languages (SK/CS/HU/RO/IT/DE/EN).
