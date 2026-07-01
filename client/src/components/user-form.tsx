@@ -66,6 +66,7 @@ const createUserFormSchema = z.object({
   showSipPhone: z.boolean().optional(),
   phonePrefix: z.string().optional(),
   phone: z.string().optional(),
+  position: z.string().optional(),
 });
 
 const updateUserFormSchema = z.object({
@@ -88,6 +89,7 @@ const updateUserFormSchema = z.object({
   showSipPhone: z.boolean().optional(),
   phonePrefix: z.string().optional(),
   phone: z.string().optional(),
+  position: z.string().optional(),
 });
 
 export type UserFormData = z.infer<typeof createUserFormSchema>;
@@ -187,6 +189,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
       showSipPhone: (initialData as any)?.showSipPhone ?? false,
       phonePrefix: (initialData as any)?.phonePrefix || "+421",
       phone: (initialData as any)?.phone || "",
+      position: (initialData as any)?.position || "",
     },
   });
   
