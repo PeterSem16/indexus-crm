@@ -621,6 +621,38 @@ const DISPOSITION_HEX_MAP: Record<string, string> = {
   purple: "#8B5CF6",
 };
 
+// Stone & Terracotta palette for the Nexus Pulse disposition / status-list modals.
+// Scoped onto the modal roots so every shadcn component and hsl(var(--x)) style
+// inside inherits the warm palette (matches NexusPulseView's hardcoded tones).
+const STONE_TERRACOTTA_VARS = {
+  "--background": "36 33% 96%",
+  "--foreground": "24 30% 14%",
+  "--card": "40 33% 99%",
+  "--card-foreground": "24 30% 14%",
+  "--card-border": "30 22% 90%",
+  "--popover": "40 33% 98%",
+  "--popover-foreground": "24 30% 14%",
+  "--popover-border": "30 22% 88%",
+  "--primary": "23 62% 45%",
+  "--primary-foreground": "40 40% 97%",
+  "--secondary": "33 25% 90%",
+  "--secondary-foreground": "24 30% 18%",
+  "--muted": "34 24% 91%",
+  "--muted-foreground": "28 15% 40%",
+  "--accent": "26 42% 90%",
+  "--accent-foreground": "24 30% 18%",
+  "--border": "30 22% 84%",
+  "--input": "30 22% 80%",
+  "--ring": "23 62% 45%",
+  // Force light-mode interaction tokens so hover/elevate/outline behavior stays
+  // consistent even when the rest of the app is in dark mode.
+  "--button-outline": "rgba(0,0,0, .10)",
+  "--badge-outline": "rgba(0,0,0, .05)",
+  "--opaque-button-border-intensity": "-8",
+  "--elevate-1": "rgba(0,0,0, .03)",
+  "--elevate-2": "rgba(0,0,0, .08)",
+} as CSSProperties;
+
 interface ScriptElement {
   id: string;
   type: string;
@@ -5025,7 +5057,7 @@ function CommunicationCanvas({
               {/* ── Callback scheduling dialog ─────────────────────── */}
               {slPendingCallback && (
                 <Dialog open onOpenChange={(open) => { if (!open) setSlPendingCallback(null); }}>
-                  <DialogContent className="max-w-sm">
+                  <DialogContent className="max-w-sm" style={STONE_TERRACOTTA_VARS}>
                     <DialogHeader>
                       <DialogTitle>{t.agentWorkspace.slConfirmTitle}</DialogTitle>
                       <DialogDescription>
@@ -13166,6 +13198,7 @@ export default function AgentWorkspacePage() {
         <SheetContent
           side="right"
           className={`w-full sm:max-w-[720px] p-0 flex flex-col gap-0 ${mandatoryDisposition ? "[&>button]:hidden" : ""}`}
+          style={STONE_TERRACOTTA_VARS}
           onPointerDownOutside={mandatoryDisposition ? (e) => e.preventDefault() : undefined}
           onEscapeKeyDown={mandatoryDisposition ? (e) => e.preventDefault() : undefined}
         >
@@ -13626,7 +13659,7 @@ export default function AgentWorkspacePage() {
 
               {/* Dedicated callback scheduler for non-mission inbound calls */}
               {isNonMissionInboundDisposition && !modalSelectedParent && !checklistParentId && (
-                <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 p-4 space-y-3">
+                <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: "hsl(var(--primary) / 0.3)", background: "hsl(var(--primary) / 0.06)" }}>
                   <div className="flex items-center gap-2">
                     <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: "#B5622E" }}>
                       <CalendarPlus className="h-3.5 w-3.5 text-white" />
