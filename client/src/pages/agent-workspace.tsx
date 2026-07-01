@@ -223,6 +223,12 @@ const SL_ACTION_T: Record<string, Record<string, string>> = {
   cfmTaskTitle:   { sk: "Vytvorí sa úloha", en: "A task will be created", cs: "Vytvoří se úkol", hu: "Feladat jön létre", ro: "Se va crea o sarcină", it: "Verrà creata un'attività", de: "Eine Aufgabe wird erstellt" },
   cfmTaskDesc:    { sk: "Vytvorí sa nová úloha na spracovanie.", en: "A new task will be created for processing.", cs: "Vytvoří se nový úkol ke zpracování.", hu: "Új feladat jön létre feldolgozásra.", ro: "Se va crea o nouă sarcină pentru procesare.", it: "Verrà creata una nuova attività da elaborare.", de: "Eine neue Aufgabe wird zur Bearbeitung erstellt." },
   cfmAssignedTo:  { sk: "Priradí sa oddeleniu", en: "Assigned to", cs: "Přiřadí se oddělení", hu: "Hozzárendelve ehhez", ro: "Atribuită către", it: "Assegnata a", de: "Zugewiesen an" },
+  cfmAssignedToGroup: { sk: "Priradí sa skupine", en: "Assigned to a task group", cs: "Přiřadí se skupině", hu: "Egy csoporthoz rendelve", ro: "Atribuită unui grup", it: "Assegnata a un gruppo", de: "Einer Gruppe zugewiesen" },
+  cfmSteps:       { sk: "Čo treba spraviť", en: "What to do", cs: "Co je třeba udělat", hu: "Teendő", ro: "Ce trebuie făcut", it: "Cosa fare", de: "Zu erledigen" },
+  cfmPriority:    { sk: "Priorita", en: "Priority", cs: "Priorita", hu: "Prioritás", ro: "Prioritate", it: "Priorità", de: "Priorität" },
+  prioLow:        { sk: "nízka", en: "low", cs: "nízká", hu: "alacsony", ro: "scăzută", it: "bassa", de: "niedrig" },
+  prioHigh:       { sk: "vysoká", en: "high", cs: "vysoká", hu: "magas", ro: "ridicată", it: "alta", de: "hoch" },
+  prioUrgent:     { sk: "urgentná", en: "urgent", cs: "urgentní", hu: "sürgős", ro: "urgentă", it: "urgente", de: "dringend" },
   cfmAlsoEmail:   { sk: "+ upozornenie e-mailom", en: "+ email notification", cs: "+ upozornění e-mailem", hu: "+ e-mail értesítés", ro: "+ notificare prin email", it: "+ notifica via email", de: "+ E-Mail-Benachrichtigung" },
   cfmAlsoSms:     { sk: "+ upozornenie SMS", en: "+ SMS notification", cs: "+ upozornění SMS", hu: "+ SMS értesítés", ro: "+ notificare prin SMS", it: "+ notifica via SMS", de: "+ SMS-Benachrichtigung" },
   cfmAlsoPush:    { sk: "+ push upozornenie", en: "+ push notification", cs: "+ push upozornění", hu: "+ push értesítés", ro: "+ notificare push", it: "+ notifica push", de: "+ Push-Benachrichtigung" },
@@ -5125,7 +5131,7 @@ function CommunicationCanvas({
                           emerald: { border: "border-emerald-500/25", bg: "bg-emerald-50/60 dark:bg-emerald-950/20", chip: "bg-emerald-500/10", icon: "text-emerald-600 dark:text-emerald-400" },
                           blue:    { border: "border-blue-500/25", bg: "bg-blue-50/60 dark:bg-blue-950/20", chip: "bg-blue-500/10", icon: "text-blue-600 dark:text-blue-400" },
                         };
-                        let Icon: any = null, tone = "primary", title = "", desc = "", right: any = null;
+                        let Icon: any = null, tone = "primary", title = "", desc = "", right: any = null, extra: any = null;
                         if (a.actionType === "set_callback") {
                           let dtLabel = "";
                           try { const d = new Date(slPendingCallback.dt); dtLabel = d.toLocaleDateString("sk-SK", { weekday: "short", day: "numeric", month: "numeric" }) + " " + d.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" }); } catch {}
@@ -5141,12 +5147,44 @@ function CommunicationCanvas({
                           Icon = Mail; tone = "green"; title = slt("cfmNotifyTitle", locale); desc = slt("cfmNotifyDesc", locale);
                         } else if (a.actionType === "assign_task") {
                           Icon = ClipboardList; tone = "violet"; title = slt("cfmTaskTitle", locale);
-                          const role = slRole(a.targetRole, locale);
                           const channels: string[] = Array.isArray(a.assignNotifyChannels) ? a.assignNotifyChannels : [];
                           const notify = a.assignNotify && channels.length
                             ? " " + channels.map((c: string) => c === "sms" ? slt("cfmAlsoSms", locale) : c === "push" ? slt("cfmAlsoPush", locale) : slt("cfmAlsoEmail", locale)).join(" ")
                             : "";
-                          desc = (role ? `${slt("cfmAssignedTo", locale)} ${role}` : slt("cfmTaskDesc", locale)) + notify;
+                          if (a.taskGroupId) {
+                            desc = slt("cfmAssignedToGroup", locale) + notify;
+                          } else {
+                            const role = slRole(a.targetRole, locale);
+                            desc = (role ? `${slt("cfmAssignedTo", locale)} ${role}` : slt("cfmTaskDesc", locale)) + notify;
+                          }
+                          const steps = a.taskDescription ? String(a.taskDescription).trim() : "";
+                          const prio = a.taskPriority && a.taskPriority !== "medium" ? String(a.taskPriority) : "";
+                          const prioMap: Record<string, { label: string; cls: string }> = {
+                            low:    { label: slt("prioLow", locale),    cls: "bg-slate-500/10 text-slate-600 dark:text-slate-300" },
+                            high:   { label: slt("prioHigh", locale),   cls: "bg-amber-500/15 text-amber-700 dark:text-amber-300" },
+                            urgent: { label: slt("prioUrgent", locale), cls: "bg-rose-500/15 text-rose-700 dark:text-rose-300" },
+                          };
+                          const pm = prioMap[prio];
+                          if (steps || pm) {
+                            extra = (
+                              <div className="mt-1.5 space-y-1.5">
+                                {steps && (
+                                  <div className="rounded-md border border-violet-500/20 bg-violet-50/60 dark:bg-violet-950/25 px-2 py-1.5">
+                                    <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-violet-600/80 dark:text-violet-400/80">
+                                      <ListChecks className="h-3 w-3" />
+                                      {slt("cfmSteps", locale)}
+                                    </div>
+                                    <p className="text-xs text-foreground/80 leading-snug mt-0.5 whitespace-pre-wrap max-h-28 overflow-y-auto">{steps}</p>
+                                  </div>
+                                )}
+                                {pm && (
+                                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${pm.cls}`}>
+                                    {slt("cfmPriority", locale)}: {pm.label}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          }
                         } else if (a.actionType === "send_contact_email") {
                           Icon = Send; tone = "emerald"; title = slt("cfmContactEmailTitle", locale); desc = slt("cfmContactEmailDesc", locale);
                         } else if (a.actionType === "send_sms") {
@@ -5172,7 +5210,8 @@ function CommunicationCanvas({
                                 <p className="text-sm font-semibold text-foreground leading-tight">{title}</p>
                                 {right && <span className="ml-auto shrink-0">{right}</span>}
                               </div>
-                              <p className="text-xs text-muted-foreground leading-snug mt-0.5">{desc}</p>
+                              {desc && <p className="text-xs text-muted-foreground leading-snug mt-0.5">{desc}</p>}
+                              {extra}
                             </div>
                           </div>
                         );
