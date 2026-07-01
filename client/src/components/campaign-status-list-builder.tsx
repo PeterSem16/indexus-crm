@@ -1708,18 +1708,48 @@ function AutomationForm({
         {needsContactEmail && (
           <div className="col-span-2 space-y-2">
             <p className="text-[11px] text-muted-foreground leading-snug">{sl("contactEmailNote", locale)}</p>
-            <Label className="text-xs mb-1 block">{sl("emailTemplate", locale)}</Label>
-            <Select value={form.emailTemplateId} onValueChange={v => setForm(f => ({ ...f, emailTemplateId: v }))}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={sl("selectEmail", locale)} /></SelectTrigger>
-              <SelectContent>
-                {(emailTemplates as any[]).map((t: any) => (
-                  <SelectItem key={t.id} value={String(t.id)} className="text-xs">{t.name}</SelectItem>
-                ))}
-                {emailTemplates.length === 0 && (
-                  <SelectItem value="__none__" disabled className="text-xs text-muted-foreground">{sl("selectEmail", locale)}</SelectItem>
-                )}
-              </SelectContent>
-            </Select>
+
+            {/* Category picker (shows only when categories are available) */}
+            {(emailCategories as any[]).filter((c: any) => c.isActive !== false).length > 0 && (
+              <div>
+                <Label className="text-xs mb-1 block">{sl("emailCategoryLbl", locale)}</Label>
+                <Select
+                  value={form.emailCategoryId || "__all__"}
+                  onValueChange={v => setForm(f => ({ ...f, emailCategoryId: v === "__all__" ? "" : v, emailTemplateId: "" }))}
+                >
+                  <SelectTrigger className="h-8 text-xs" data-testid="select-contact-email-category">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">{sl("selectCategory", locale)}</SelectItem>
+                    {(emailCategories as any[]).filter((c: any) => c.isActive !== false).map((c: any) => (
+                      <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Template picker (filtered by category if selected) */}
+            <div>
+              <Label className="text-xs mb-1 block">{sl("emailTemplate", locale)}</Label>
+              <Select value={form.emailTemplateId} onValueChange={v => setForm(f => ({ ...f, emailTemplateId: v }))}>
+                <SelectTrigger className="h-8 text-xs" data-testid="select-contact-email-template"><SelectValue placeholder={sl("selectEmail", locale)} /></SelectTrigger>
+                <SelectContent>
+                  {(() => {
+                    const list = form.emailCategoryId
+                      ? (emailTemplates as any[]).filter((t: any) => String(t.categoryId) === form.emailCategoryId)
+                      : (emailTemplates as any[]);
+                    if (list.length === 0) {
+                      return <SelectItem value="__none__" disabled className="text-xs text-muted-foreground">{sl("noEmailTpls", locale)}</SelectItem>;
+                    }
+                    return list.map((t: any) => (
+                      <SelectItem key={t.id} value={String(t.id)} className="text-xs">{t.name || t.subject || String(t.id)}</SelectItem>
+                    ));
+                  })()}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         )}
 
