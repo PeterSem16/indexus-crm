@@ -2591,9 +2591,12 @@ function CommunicationCanvas({
     // Intercept: when confirming a step that has a set_callback automation, show picker first
     if (newChecked) {
       const item = (dbStatusList as any[]).find((i: any) => String(i.id) === itemId);
-      const cbAuto = (item?.automations || []).find((a: any) => a.actionType === "set_callback");
-      if (cbAuto) {
-        setSlPendingCallback({ itemId, itemLabel: item?.label || "", automation: cbAuto, dt: slPrefillDt(cbAuto), note: "" });
+      const itemAutos = (item?.automations || []).filter((a: any) =>
+        ["set_callback", "send_email_group", "set_contact_status", "assign_task", "notify_email"].includes(a.actionType)
+      );
+      if (itemAutos.length > 0) {
+        const cbAuto = itemAutos.find((a: any) => a.actionType === "set_callback") ?? null;
+        setSlPendingCallback({ itemId, itemLabel: item?.label || "", allAutomations: itemAutos, cbAuto, dt: cbAuto ? slPrefillDt(cbAuto) : "", note: "" });
         return;
       }
     }
@@ -2631,7 +2634,7 @@ function CommunicationCanvas({
 
   const handleSlConfirmWithCallback = useCallback(async () => {
     if (!slPendingCallback || !campaign?.id || !campaignContactId) return;
-    const { itemId, itemLabel, automation, dt, note } = slPendingCallback;
+    const { itemId, cbAuto, dt, note } = slPendingCallback;
     setSlPendingCallback(null);
     setDbSlChecked(prev => { const next = new Set(prev); next.add(itemId); return next; });
     const item = (dbStatusList as any[]).find((i: any) => String(i.id) === itemId);
@@ -2644,24 +2647,27 @@ function CommunicationCanvas({
       await apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${itemId}`, {
         confirm: true,
         contactCountry: contactCountry ?? null,
-        overrideCallbackDate: dt,
-        overrideCallbackNote: note || null,
+        ...(cbAuto ? { overrideCallbackDate: dt, overrideCallbackNote: note || null } : {}),
       });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
       queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
-      let dtLabel = "";
-      try { const d = new Date(dt); dtLabel = d.toLocaleDateString("sk-SK", { weekday: "short", day: "numeric", month: "numeric" }) + " " + d.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" }); } catch {}
-      toast({ title: "Callback naplánovaný", description: (dtLabel || dt) });
+      if (cbAuto) {
+        let dtLabel = "";
+        try { const d = new Date(dt); dtLabel = d.toLocaleDateString("sk-SK", { weekday: "short", day: "numeric", month: "numeric" }) + " " + d.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" }); } catch {}
+        toast({ title: t.agentWorkspace.slPendingCallbackTitle, description: dtLabel || dt });
+      } else {
+        toast({ title: t.agentWorkspace.slConfirmBtn });
+      }
     } catch {
       setDbSlChecked(prev => { const next = new Set(prev); next.delete(itemId); return next; });
-      toast({ title: "Chyba pri nastavení callbacku", variant: "destructive" });
+      toast({ title: "Chyba", variant: "destructive" });
     }
   }, [slPendingCallback, campaign?.id, campaignContactId, contactCountry, dbStatusList, toast]);
 
   // Manual ("run now") trigger for a single configured status-list automation.
   const [slRunningAuto, setSlRunningAuto] = useState<Set<string>>(new Set());
-  const [slPendingCallback, setSlPendingCallback] = useState<{ itemId: string; itemLabel: string; automation: any; dt: string; note: string } | null>(null);
+  const [slPendingCallback, setSlPendingCallback] = useState<{ itemId: string; itemLabel: string; allAutomations: any[]; cbAuto: any | null; dt: string; note: string } | null>(null);
   const [slQuestionAnswers, setSlQuestionAnswers] = useState<Record<string, any>>({});
   const [slHighlightedStep, setSlHighlightedStep] = useState<string | null>(null);
 
@@ -5019,38 +5025,82 @@ function CommunicationCanvas({
                 <Dialog open onOpenChange={(open) => { if (!open) setSlPendingCallback(null); }}>
                   <DialogContent className="max-w-sm">
                     <DialogHeader>
-                      <DialogTitle className="flex items-center gap-2">
-                        <CalendarClock className="h-5 w-5 text-primary" />
-                        {t.agentWorkspace.slPendingCallbackTitle}
-                      </DialogTitle>
+                      <DialogTitle>{t.agentWorkspace.slConfirmTitle}</DialogTitle>
                       <DialogDescription>
                         <span className="font-medium text-foreground">{slPendingCallback.itemLabel}</span>
-                        {" — "}{t.agentWorkspace.slPendingCallbackDesc}
+                        {" — "}{t.agentWorkspace.slConfirmDesc}
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-3 py-1">
-                      <DateTimePicker
-                        value={slPendingCallback.dt}
-                        onChange={(v) => setSlPendingCallback(p => p ? { ...p, dt: v } : null)}
-                        includeTime
-                        data-testid="input-sl-pending-callback-dt"
-                      />
-                      <textarea
-                        placeholder={t.agentWorkspace.slPendingCallbackNotePlaceholder}
-                        value={slPendingCallback.note}
-                        rows={2}
-                        onChange={(e) => setSlPendingCallback(p => p ? { ...p, note: e.target.value } : null)}
-                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
-                        data-testid="input-sl-pending-callback-note"
-                      />
+                    {/* Automation preview list */}
+                    <div className="space-y-1.5 py-1">
+                      {slPendingCallback.allAutomations.map((a: any) => {
+                        if (a.actionType === "set_callback") {
+                          let dtLabel = "";
+                          try { const d = new Date(slPendingCallback.dt); dtLabel = d.toLocaleDateString("sk-SK", { weekday: "short", day: "numeric", month: "numeric" }) + " " + d.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" }); } catch {}
+                          return (
+                            <div key={a.id} className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm">
+                              <CalendarClock className="h-4 w-4 text-primary shrink-0" />
+                              <span className="text-foreground/80">{t.agentWorkspace.slConfirmAutoCallback}</span>
+                              <span className="font-medium text-primary ml-auto">{dtLabel || slPendingCallback.dt}</span>
+                            </div>
+                          );
+                        }
+                        if (a.actionType === "set_contact_status") {
+                          const disp = (slDispositions as any[]).find((d: any) => String(d.id) === String(a.dispositionId));
+                          return (
+                            <div key={a.id} className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-50/60 dark:bg-amber-950/20 px-3 py-2 text-sm">
+                              <Tag className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                              <span className="text-foreground/80">{t.agentWorkspace.slConfirmAutoStatus}</span>
+                              {disp && <span className="font-medium ml-auto" style={{ color: disp.color || undefined }}>{disp.name || disp.code}</span>}
+                            </div>
+                          );
+                        }
+                        if (a.actionType === "send_email_group" || a.actionType === "notify_email") {
+                          return (
+                            <div key={a.id} className="flex items-center gap-2 rounded-lg border border-green-500/20 bg-green-50/60 dark:bg-green-950/20 px-3 py-2 text-sm">
+                              <Mail className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
+                              <span className="text-foreground/80">{a.actionType === "notify_email" ? t.agentWorkspace.slConfirmAutoNotify : t.agentWorkspace.slConfirmAutoEmail}</span>
+                            </div>
+                          );
+                        }
+                        if (a.actionType === "assign_task") {
+                          return (
+                            <div key={a.id} className="flex items-center gap-2 rounded-lg border border-violet-500/20 bg-violet-50/60 dark:bg-violet-950/20 px-3 py-2 text-sm">
+                              <ClipboardList className="h-4 w-4 text-violet-600 dark:text-violet-400 shrink-0" />
+                              <span className="text-foreground/80">{t.agentWorkspace.slConfirmAutoTask}</span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })}
                     </div>
+                    {/* DateTimePicker for callback editing — only when set_callback automation present */}
+                    {slPendingCallback.cbAuto && (
+                      <div className="space-y-2 border-t pt-3">
+                        <p className="text-xs font-medium text-muted-foreground">{t.agentWorkspace.slConfirmCallbackWhen}</p>
+                        <DateTimePicker
+                          value={slPendingCallback.dt}
+                          onChange={(v) => setSlPendingCallback(p => p ? { ...p, dt: v } : null)}
+                          includeTime
+                          data-testid="input-sl-pending-callback-dt"
+                        />
+                        <textarea
+                          placeholder={t.agentWorkspace.slPendingCallbackNotePlaceholder}
+                          value={slPendingCallback.note}
+                          rows={2}
+                          onChange={(e) => setSlPendingCallback(p => p ? { ...p, note: e.target.value } : null)}
+                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
+                          data-testid="input-sl-pending-callback-note"
+                        />
+                      </div>
+                    )}
                     <DialogFooter className="gap-2 flex-row justify-end">
                       <Button variant="outline" size="sm" onClick={() => setSlPendingCallback(null)} data-testid="btn-sl-pending-callback-cancel">
                         {t.agentWorkspace.slPendingCallbackCancel}
                       </Button>
                       <Button size="sm" onClick={handleSlConfirmWithCallback} data-testid="btn-sl-pending-callback-confirm">
                         <Check className="h-4 w-4 mr-1.5" />
-                        {t.agentWorkspace.slPendingCallbackConfirm}
+                        {t.agentWorkspace.slConfirmBtn}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -7798,14 +7848,15 @@ function ScheduledQueuePanel({
   const setOnlyMine = onToggleAssigned ?? (() => {});
 
   const { data: scheduledItems = [], isLoading } = useQuery<ScheduledItem[]>({
-    queryKey: ["/api/agent/scheduled-queue", onlyMine],
+    queryKey: onlyMine ? ["/api/agent/scheduled-queue", true] : ["/api/agent/scheduled-queue"],
     queryFn: async () => {
       const url = `/api/agent/scheduled-queue${onlyMine ? "?onlyMine=true" : ""}`;
       const res = await fetch(url, { credentials: "include" });
       return res.ok ? res.json() : [];
     },
     enabled: open,
-    refetchInterval: open ? 30000 : false,
+    refetchInterval: open ? 15000 : false,
+    staleTime: 0,
   });
 
   // Reset filters every time the queue opens so a previously selected type/time
@@ -8793,7 +8844,8 @@ export default function AgentWorkspacePage() {
       return res.ok ? res.json() : [];
     },
     enabled: !!hasAccess && agentSession.isSessionActive,
-    refetchInterval: 60000,
+    refetchInterval: 15000,
+    staleTime: 0,
   });
 
   type BOAgendaItem = {
