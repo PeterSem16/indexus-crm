@@ -7844,8 +7844,7 @@ function ScheduledQueuePanel({
   const { t } = useI18n();
   const { toast } = useToast();
 
-  const onlyMine = showOnlyAssigned ?? false;
-  const setOnlyMine = onToggleAssigned ?? (() => {});
+  const [onlyMine, setOnlyMine] = useState(false);
 
   const { data: scheduledItems = [], isLoading } = useQuery<ScheduledItem[]>({
     queryKey: onlyMine ? ["/api/agent/scheduled-queue", true] : ["/api/agent/scheduled-queue"],
@@ -7866,6 +7865,7 @@ function ScheduledQueuePanel({
       setFilterType("all");
       setTimeFilter("all");
       setSearchQuery("");
+      setOnlyMine(false);
     }
   }, [open]);
 
