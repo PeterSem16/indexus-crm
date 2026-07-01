@@ -11743,7 +11743,7 @@ export default function AgentWorkspacePage() {
           }}
         />
       )}
-      <Dialog open={sessionLoginOpen && !agentSession.isSessionActive} onOpenChange={(open) => { if (!open) { setSessionLoginOpen(false); setLocation("/"); } }}>
+      <Dialog open={sessionLoginOpen && !agentSession.isSessionActive && !agentSession.isLoading} onOpenChange={(open) => { if (!open) { setSessionLoginOpen(false); setLocation("/"); } }}>
         <DialogContent className={isMobile ? "w-full max-w-full h-full max-h-full rounded-none p-0 overflow-hidden gap-0 flex flex-col" : "sm:max-w-3xl p-0 overflow-hidden gap-0 flex flex-col max-h-[90vh]"} hideCloseButton>
           <DialogTitle className="sr-only">{t.agentSession.shiftLogin}</DialogTitle>
 
