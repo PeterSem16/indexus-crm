@@ -29652,7 +29652,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       if (!campaignContactId || !itemId) return res.status(400).json({ error: "Invalid parameters" });
 
       const userId = req.session.user!.id;
-      const { confirm, contactCountry } = req.body as { confirm: boolean; contactCountry?: string };
+      const { confirm, contactCountry, overrideCallbackDate, overrideCallbackNote } = req.body as { confirm: boolean; contactCountry?: string; overrideCallbackDate?: string | null; overrideCallbackNote?: string | null };
 
       if (confirm) {
         // Check if already confirmed
@@ -30069,11 +30069,11 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
               } catch (e) { console.error("[status-list:email_group] firing failed:", e); }
             } else if (automation.actionType === "set_contact_status") {
               try {
-                await runStatusListSetStatus(automation, { campaignContactId, campaignId: campaignId ?? null, contactCountry: contactCountry ?? null, userId, itemId });
+                await runStatusListSetStatus(automation, { campaignContactId, campaignId: campaignId ?? null, contactCountry: contactCountry ?? null, userId, itemId }, overrideCallbackDate ?? null);
               } catch (e) { console.error("[status-list:set_status] firing failed:", e); }
             } else if (automation.actionType === "set_callback") {
               try {
-                await runStatusListSetCallback(automation, { campaignContactId, campaignId: campaignId ?? null, contactCountry: contactCountry ?? null, userId, itemId });
+                await runStatusListSetCallback(automation, { campaignContactId, campaignId: campaignId ?? null, contactCountry: contactCountry ?? null, userId, itemId }, overrideCallbackDate ?? null, overrideCallbackNote ?? null);
               } catch (e) { console.error("[status-list:set_callback] firing failed:", e); }
             }
 

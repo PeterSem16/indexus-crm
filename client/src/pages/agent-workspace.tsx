@@ -2588,6 +2588,15 @@ function CommunicationCanvas({
   }, [campaign?.id, campaignContactId, dbStatusList, dbSlState]);
 
   const handleSlToggle = useCallback(async (itemId: string, newChecked: boolean) => {
+    // Intercept: when confirming a step that has a set_callback automation, show picker first
+    if (newChecked) {
+      const item = (dbStatusList as any[]).find((i: any) => String(i.id) === itemId);
+      const cbAuto = (item?.automations || []).find((a: any) => a.actionType === "set_callback");
+      if (cbAuto) {
+        setSlPendingCallback({ itemId, itemLabel: item?.label || "", automation: cbAuto, dt: slPrefillDt(cbAuto), note: "" });
+        return;
+      }
+    }
     setDbSlChecked(prev => {
       const next = new Set(prev);
       if (newChecked) next.add(itemId); else next.delete(itemId);
@@ -2618,10 +2627,41 @@ function CommunicationCanvas({
         return next;
       });
     }
-  }, [campaign?.id, campaignContactId, contactCountry, toast]);
+  }, [campaign?.id, campaignContactId, contactCountry, dbStatusList, toast]);
+
+  const handleSlConfirmWithCallback = useCallback(async () => {
+    if (!slPendingCallback || !campaign?.id || !campaignContactId) return;
+    const { itemId, itemLabel, automation, dt, note } = slPendingCallback;
+    setSlPendingCallback(null);
+    setDbSlChecked(prev => { const next = new Set(prev); next.add(itemId); return next; });
+    const item = (dbStatusList as any[]).find((i: any) => String(i.id) === itemId);
+    if (item?.tab === 'acquisition' || item?.tab === 'contract' || item?.tab === 'retention') {
+      const tab = item.tab as 'acquisition' | 'contract' | 'retention';
+      setSlActiveTab(tab);
+      localStorage.setItem(`sl-tab-${campaign.id}-${campaignContactId}`, tab);
+    }
+    try {
+      await apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${itemId}`, {
+        confirm: true,
+        contactCountry: contactCountry ?? null,
+        overrideCallbackDate: dt,
+        overrideCallbackNote: note || null,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+      let dtLabel = "";
+      try { const d = new Date(dt); dtLabel = d.toLocaleDateString("sk-SK", { weekday: "short", day: "numeric", month: "numeric" }) + " " + d.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" }); } catch {}
+      toast({ title: "Callback naplánovaný", description: (dtLabel || dt) });
+    } catch {
+      setDbSlChecked(prev => { const next = new Set(prev); next.delete(itemId); return next; });
+      toast({ title: "Chyba pri nastavení callbacku", variant: "destructive" });
+    }
+  }, [slPendingCallback, campaign?.id, campaignContactId, contactCountry, dbStatusList, toast]);
 
   // Manual ("run now") trigger for a single configured status-list automation.
   const [slRunningAuto, setSlRunningAuto] = useState<Set<string>>(new Set());
+  const [slPendingCallback, setSlPendingCallback] = useState<{ itemId: string; itemLabel: string; automation: any; dt: string; note: string } | null>(null);
   const [slQuestionAnswers, setSlQuestionAnswers] = useState<Record<string, any>>({});
   const [slHighlightedStep, setSlHighlightedStep] = useState<string | null>(null);
 
@@ -4973,6 +5013,49 @@ function CommunicationCanvas({
                 );
               })()}
 
+
+              {/* ── Callback scheduling dialog ─────────────────────── */}
+              {slPendingCallback && (
+                <Dialog open onOpenChange={(open) => { if (!open) setSlPendingCallback(null); }}>
+                  <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        <CalendarClock className="h-5 w-5 text-primary" />
+                        {t.agentWorkspace.slPendingCallbackTitle}
+                      </DialogTitle>
+                      <DialogDescription>
+                        <span className="font-medium text-foreground">{slPendingCallback.itemLabel}</span>
+                        {" — "}{t.agentWorkspace.slPendingCallbackDesc}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3 py-1">
+                      <DateTimePicker
+                        value={slPendingCallback.dt}
+                        onChange={(v) => setSlPendingCallback(p => p ? { ...p, dt: v } : null)}
+                        includeTime
+                        data-testid="input-sl-pending-callback-dt"
+                      />
+                      <textarea
+                        placeholder={t.agentWorkspace.slPendingCallbackNotePlaceholder}
+                        value={slPendingCallback.note}
+                        rows={2}
+                        onChange={(e) => setSlPendingCallback(p => p ? { ...p, note: e.target.value } : null)}
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
+                        data-testid="input-sl-pending-callback-note"
+                      />
+                    </div>
+                    <DialogFooter className="gap-2 flex-row justify-end">
+                      <Button variant="outline" size="sm" onClick={() => setSlPendingCallback(null)} data-testid="btn-sl-pending-callback-cancel">
+                        {t.agentWorkspace.slPendingCallbackCancel}
+                      </Button>
+                      <Button size="sm" onClick={handleSlConfirmWithCallback} data-testid="btn-sl-pending-callback-confirm">
+                        <Check className="h-4 w-4 mr-1.5" />
+                        {t.agentWorkspace.slPendingCallbackConfirm}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
 
               {/* ── Items list ─────────────────────────────────────── */}
               <div className="flex-1 overflow-y-auto px-3 py-2.5 space-y-2">
