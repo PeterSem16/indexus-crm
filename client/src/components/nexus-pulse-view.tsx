@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useI18n } from "@/i18n";
 
 export type PulseDisplayMode = "tiles" | "compact";
 export type PulseDefaultExpand = "all" | "first" | "none";
@@ -65,16 +66,6 @@ export function usePulsePrefs(): [PulsePrefs, (next: PulsePrefs) => void] {
   };
   return [prefs, update];
 }
-
-const STATUS_ACTION_LABELS: Record<string, string> = {
-  none: "Žiadna", callback: "Spätné volanie", reschedule: "Preplánovať",
-  do_not_call: "Nevolať", complete: "Dokončiť", conversion: "Konverzia",
-  send_email: "Odoslať email", send_sms: "Odoslať SMS",
-  schedule_email: "Plán email", schedule_sms: "Plán SMS",
-  assign_owner: "Priradiť vlastníkovi", move_queue: "Presunúť",
-  start_onboarding: "Onboarding", create_task: "Vytvoriť task",
-  verify_contact: "Verifikácia",
-};
 
 const STATUS_ACTION_COLORS: Record<string, string> = {
   none: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
@@ -350,7 +341,26 @@ export function NexusPulseView({
   multiSelectMode,
   emptyMessage,
 }: PulseViewProps) {
+  const { t } = useI18n();
   const [prefs, setPrefs] = usePulsePrefs();
+
+  const STATUS_ACTION_LABELS: Record<string, string> = {
+    none: t.agentWorkspace.pulseActionNone,
+    callback: t.agentWorkspace.pulseActionCallback,
+    reschedule: t.agentWorkspace.pulseActionReschedule,
+    do_not_call: t.agentWorkspace.pulseActionDoNotCall,
+    complete: t.agentWorkspace.pulseActionComplete,
+    conversion: t.agentWorkspace.pulseActionConversion,
+    send_email: t.agentWorkspace.pulseActionSendEmail,
+    send_sms: t.agentWorkspace.pulseActionSendSms,
+    schedule_email: t.agentWorkspace.pulseActionScheduleEmail,
+    schedule_sms: t.agentWorkspace.pulseActionScheduleSms,
+    assign_owner: t.agentWorkspace.pulseActionAssignOwner,
+    move_queue: t.agentWorkspace.pulseActionMoveQueue,
+    start_onboarding: t.agentWorkspace.pulseActionStartOnboarding,
+    create_task: t.agentWorkspace.pulseActionCreateTask,
+    verify_contact: t.agentWorkspace.pulseActionVerifyContact,
+  };
 
   const sortedCats = useMemo(
     () => [...categories].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
@@ -513,8 +523,8 @@ export function NexusPulseView({
                   {subCount}<ChevronRight className="h-2.5 w-2.5" />
                 </span>
               )}
-              {status.isFinal && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600">FINAL</span>}
-              {status.isConversion && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-green-100 text-green-600">KONV</span>}
+              {status.isFinal && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600">{t.agentWorkspace.pulseFinalBadge}</span>}
+              {status.isConversion && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-green-100 text-green-600">{t.agentWorkspace.pulseConversionBadge}</span>}
             </div>
           </div>
           {subCount > 0 && (
@@ -566,9 +576,9 @@ export function NexusPulseView({
             }
           </div>
           <div className="flex-1 min-w-0">
-            <div className="font-bold text-sm" style={{ color: "#2E2118" }}>{cat?.name || "Bez kategórie"}</div>
+            <div className="font-bold text-sm" style={{ color: "#2E2118" }}>{cat?.name || t.agentWorkspace.pulseUncategorized}</div>
             <div className="text-xs" style={{ color: "#9A8878" }}>
-              {statusList.length} {statusList.length === 1 ? "status" : "statusov"}
+              {statusList.length} {statusList.length === 1 ? t.agentWorkspace.pulseStatusSingular : t.agentWorkspace.pulseStatusPlural}
             </div>
           </div>
           <span className="text-xs font-bold min-w-[28px] h-7 flex items-center justify-center rounded-full px-2 shrink-0" style={{ background: hex, color: "#fff" }}>
@@ -596,7 +606,7 @@ export function NexusPulseView({
   if (totalVisible === 0) {
     return (
       <div className="text-center py-10 text-sm text-muted-foreground" data-testid="pulse-empty">
-        {emptyMessage || "Žiadne priradené statusy."}
+        {emptyMessage || t.agentWorkspace.pulseEmpty}
       </div>
     );
   }
@@ -620,31 +630,31 @@ export function NexusPulseView({
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1">
           <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={expandAll} data-testid="pulse-expand-all">
-            Rozbaliť všetky
+            {t.agentWorkspace.pulseExpandAll}
           </Button>
           <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={collapseAll} data-testid="pulse-collapse-all">
-            Zbaliť všetky
+            {t.agentWorkspace.pulseCollapseAll}
           </Button>
         </div>
         <div className="flex items-center gap-1">
           {multiSelectMode && (
             <Badge variant="secondary" className="text-[10px]">
-              Multi: {selectedIds?.size || 0}
+              {t.agentWorkspace.pulseMulti}: {selectedIds?.size || 0}
             </Badge>
           )}
           <Popover>
             <PopoverTrigger asChild>
               <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" data-testid="pulse-prefs-trigger">
                 <Settings2 className="h-3.5 w-3.5" />
-                Zobrazenie
+                {t.agentWorkspace.pulseDisplay}
               </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-72">
               <div className="space-y-3">
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Prispôsobenie</div>
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t.agentWorkspace.pulseCustomization}</div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Formát statusov</Label>
+                  <Label className="text-xs">{t.agentWorkspace.pulseStatusFormat}</Label>
                   <div className="grid grid-cols-2 gap-1.5">
                     <Button
                       type="button"
@@ -654,7 +664,7 @@ export function NexusPulseView({
                       onClick={() => setPrefs({ ...prefs, displayMode: "tiles" })}
                       data-testid="pref-display-tiles"
                     >
-                      <LayoutGrid className="h-3.5 w-3.5" /> Dlaždice
+                      <LayoutGrid className="h-3.5 w-3.5" /> {t.agentWorkspace.pulseTiles}
                     </Button>
                     <Button
                       type="button"
@@ -664,13 +674,13 @@ export function NexusPulseView({
                       onClick={() => setPrefs({ ...prefs, displayMode: "compact" })}
                       data-testid="pref-display-compact"
                     >
-                      <AlignJustify className="h-3.5 w-3.5" /> Kompaktné
+                      <AlignJustify className="h-3.5 w-3.5" /> {t.agentWorkspace.pulseCompact}
                     </Button>
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Predvolené rozbalenie kategórií</Label>
+                  <Label className="text-xs">{t.agentWorkspace.pulseDefaultExpand}</Label>
                   <Select
                     value={prefs.defaultExpand}
                     onValueChange={(v) => setPrefs({ ...prefs, defaultExpand: v as PulseDefaultExpand })}
@@ -679,15 +689,15 @@ export function NexusPulseView({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Všetky rozbalené</SelectItem>
-                      <SelectItem value="first">Iba prvá rozbalená</SelectItem>
-                      <SelectItem value="none">Všetky zbalené</SelectItem>
+                      <SelectItem value="all">{t.agentWorkspace.pulseExpandAllOpt}</SelectItem>
+                      <SelectItem value="first">{t.agentWorkspace.pulseExpandFirst}</SelectItem>
+                      <SelectItem value="none">{t.agentWorkspace.pulseExpandNone}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="flex items-center justify-between rounded-md border px-2 py-1.5">
-                  <Label htmlFor="pref-action" className="text-xs cursor-pointer">Zobraziť badge akcie</Label>
+                  <Label htmlFor="pref-action" className="text-xs cursor-pointer">{t.agentWorkspace.pulseShowActionBadges}</Label>
                   <input
                     id="pref-action"
                     type="checkbox"
@@ -699,7 +709,7 @@ export function NexusPulseView({
                 </div>
 
                 <div className="flex items-center justify-between rounded-md border px-2 py-1.5">
-                  <Label htmlFor="pref-channels" className="text-xs cursor-pointer">Zobraziť ikony kanálov</Label>
+                  <Label htmlFor="pref-channels" className="text-xs cursor-pointer">{t.agentWorkspace.pulseShowChannelIcons}</Label>
                   <input
                     id="pref-channels"
                     type="checkbox"
@@ -710,7 +720,7 @@ export function NexusPulseView({
                   />
                 </div>
 
-                <p className="text-[10px] text-muted-foreground">Nastavenia sú spoločné pre náhľad v kampani aj agentov drawer.</p>
+                <p className="text-[10px] text-muted-foreground">{t.agentWorkspace.pulseSettingsShared}</p>
               </div>
             </PopoverContent>
           </Popover>
