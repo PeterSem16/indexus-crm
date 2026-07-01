@@ -2595,7 +2595,7 @@ function CommunicationCanvas({
     if (newChecked) {
       const item = (dbStatusList as any[]).find((i: any) => String(i.id) === itemId);
       const itemAutos = (item?.automations || []).filter((a: any) =>
-        ["set_callback", "send_email_group", "set_contact_status", "assign_task", "notify_email"].includes(a.actionType)
+        ["set_callback", "send_email_group", "set_contact_status", "assign_task", "notify_email", "send_contact_email", "send_sms"].includes(a.actionType)
       );
       if (itemAutos.length > 0) {
         const cbAuto = itemAutos.find((a: any) => a.actionType === "set_callback") ?? null;
@@ -5070,6 +5070,22 @@ function CommunicationCanvas({
                             <div key={a.id} className="flex items-center gap-2 rounded-lg border border-violet-500/20 bg-violet-50/60 dark:bg-violet-950/20 px-3 py-2 text-sm">
                               <ClipboardList className="h-4 w-4 text-violet-600 dark:text-violet-400 shrink-0" />
                               <span className="text-foreground/80">{t.agentWorkspace.slConfirmAutoTask}</span>
+                            </div>
+                          );
+                        }
+                        if (a.actionType === "send_contact_email") {
+                          return (
+                            <div key={a.id} className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-50/60 dark:bg-emerald-950/20 px-3 py-2 text-sm">
+                              <Send className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                              <span className="text-foreground/80">{t.agentWorkspace.slConfirmAutoContactEmail}</span>
+                            </div>
+                          );
+                        }
+                        if (a.actionType === "send_sms") {
+                          return (
+                            <div key={a.id} className="flex items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-50/60 dark:bg-blue-950/20 px-3 py-2 text-sm">
+                              <MessageSquare className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                              <span className="text-foreground/80">{t.agentWorkspace.slConfirmAutoContactSms}</span>
                             </div>
                           );
                         }

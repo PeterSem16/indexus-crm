@@ -7758,6 +7758,7 @@ export const STATUS_LIST_ACTION_TYPES = [
   "send_email_group",
   "notify_email",
   "send_sms",
+  "send_contact_email",
   "set_contact_status",
   "set_callback",
   "notify_role",

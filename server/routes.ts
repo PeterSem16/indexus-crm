@@ -914,6 +914,143 @@ async function runStatusListEmailGroup(automation: any, ctx: StatusListActionCtx
   return { ok: sent > 0, sent, provider };
 }
 
+// Send an email directly to the contact (customer/clinic/hospital) using their stored email address.
+// Uses emailTemplateId for content; falls back MS365 → SendGrid → log.
+async function runStatusListContactEmail(automation: any, ctx: StatusListActionCtx): Promise<{ ok: boolean; provider: string }> {
+  if (!automation.emailTemplateId) {
+    console.warn("[status-list:contact_email] no email template configured");
+    return { ok: false, provider: "none" };
+  }
+  // Resolve contact entity
+  const [ccRow] = await db.select().from(campaignContacts)
+    .where(eq(campaignContacts.id, ctx.campaignContactId)).limit(1);
+  if (!ccRow) return { ok: false, provider: "none" };
+
+  let contactEmail = "";
+  let contactName = "";
+  try {
+    if (ccRow.contactType === "clinic" && ccRow.clinicId) {
+      const r: any = await db.execute<any>(sql`SELECT name, email FROM clinics WHERE id = ${ccRow.clinicId} LIMIT 1`);
+      const row = r?.rows?.[0]; contactEmail = row?.email || ""; contactName = row?.name || "";
+    } else if (ccRow.contactType === "hospital" && ccRow.hospitalId) {
+      const r: any = await db.execute<any>(sql`SELECT name, email FROM hospitals WHERE id = ${ccRow.hospitalId} LIMIT 1`);
+      const row = r?.rows?.[0]; contactEmail = row?.email || ""; contactName = row?.name || "";
+    } else if (ccRow.customerId) {
+      const r: any = await db.execute<any>(sql`SELECT first_name, last_name, email FROM customers WHERE id = ${ccRow.customerId} LIMIT 1`);
+      const row = r?.rows?.[0];
+      contactEmail = row?.email || "";
+      contactName = row ? `${row.first_name || ""} ${row.last_name || ""}`.trim() : "";
+    }
+  } catch (e) { console.error("[status-list:contact_email] entity resolve error:", e); }
+
+  if (!contactEmail) {
+    console.warn("[status-list:contact_email] no email for contact", ctx.campaignContactId);
+    return { ok: false, provider: "none" };
+  }
+  const tpl = await storage.getMessageTemplate(automation.emailTemplateId);
+  if (!tpl) {
+    console.warn("[status-list:contact_email] template not found:", automation.emailTemplateId);
+    return { ok: false, provider: "none" };
+  }
+  const subject = String(tpl.subject || tpl.name || "INDEXUS").trim();
+  let bodyRaw = String((tpl.format === "html" && tpl.contentHtml ? tpl.contentHtml : tpl.content) || "");
+  bodyRaw = bodyRaw
+    .replace(/\{\{customer\.name\}\}/g, contactName)
+    .replace(/\{\{customer\.email\}\}/g, contactEmail)
+    .replace(/\{\{contact\.name\}\}/g, contactName)
+    .replace(/\{\{contact\.email\}\}/g, contactEmail);
+  const html = /<[a-z][\s\S]*>/i.test(bodyRaw) ? bodyRaw : bodyRaw.replace(/\n/g, "<br/>");
+
+  const countryCode = ctx.contactCountry || undefined;
+  let provider = "log";
+  let sent = false;
+
+  if (countryCode) {
+    try {
+      const conn: any = await storage.getSystemMs365Connection(countryCode);
+      if (conn?.accessToken) {
+        const { getValidAccessToken, sendEmail: ms365SendEmail } = await import("./lib/ms365");
+        const tokenInfo = await getValidAccessToken(conn.accessToken, conn.tokenExpiresAt, conn.refreshToken);
+        if (tokenInfo?.accessToken) {
+          if ((tokenInfo as any).refreshed) {
+            try { await storage.updateSystemMs365Connection(countryCode, { accessToken: tokenInfo.accessToken, refreshToken: (tokenInfo as any).refreshToken || conn.refreshToken, tokenExpiresAt: (tokenInfo as any).expiresOn || undefined } as any); } catch {}
+          }
+          provider = "ms365";
+          await ms365SendEmail(tokenInfo.accessToken, [contactEmail], subject, html, true);
+          sent = true;
+        }
+      }
+    } catch (e) { console.warn("[status-list:contact_email] MS365 failed, falling back:", e instanceof Error ? e.message : String(e)); }
+  }
+  if (!sent) {
+    provider = process.env.SENDGRID_API_KEY ? "sendgrid" : "log";
+    const { sendEmail: sendEmailViaProvider } = await import("./email");
+    try { const ok = await sendEmailViaProvider({ to: contactEmail, subject, html }); if (ok) sent = true; }
+    catch (e) { console.error("[status-list:contact_email] provider send failed:", e instanceof Error ? e.message : String(e)); }
+  }
+  console.log(`[status-list:contact_email] provider=${provider} sent=${sent} automation=${automation.id} contact=${ctx.campaignContactId}`);
+  try {
+    await db.insert(campaignContactHistory).values({
+      campaignContactId: ctx.campaignContactId, userId: ctx.userId, action: "status_list_action",
+      metadata: { actionType: "send_contact_email", automationId: automation.id, provider, campaignId: ctx.campaignId },
+    });
+  } catch (e) { console.error("[status-list:contact_email] history log failed:", e); }
+  return { ok: sent, provider };
+}
+
+// Send SMS directly to the contact's phone number via BulkGate.
+// SMS text is taken from automation.taskDescription (supports {{contact.name}} etc.).
+async function runStatusListContactSms(automation: any, ctx: StatusListActionCtx): Promise<{ ok: boolean }> {
+  const smsText = automation.taskDescription;
+  if (!smsText) {
+    console.warn("[status-list:contact_sms] no SMS text configured (set it in taskDescription)");
+    return { ok: false };
+  }
+  const [ccRow] = await db.select().from(campaignContacts)
+    .where(eq(campaignContacts.id, ctx.campaignContactId)).limit(1);
+  if (!ccRow) return { ok: false };
+
+  let contactPhone = "";
+  let contactName = "";
+  try {
+    if (ccRow.contactType === "clinic" && ccRow.clinicId) {
+      const r: any = await db.execute<any>(sql`SELECT name, phone FROM clinics WHERE id = ${ccRow.clinicId} LIMIT 1`);
+      const row = r?.rows?.[0]; contactPhone = row?.phone || ""; contactName = row?.name || "";
+    } else if (ccRow.contactType === "hospital" && ccRow.hospitalId) {
+      const r: any = await db.execute<any>(sql`SELECT name, phone FROM hospitals WHERE id = ${ccRow.hospitalId} LIMIT 1`);
+      const row = r?.rows?.[0]; contactPhone = row?.phone || ""; contactName = row?.name || "";
+    } else if (ccRow.customerId) {
+      const r: any = await db.execute<any>(sql`SELECT first_name, last_name, phone FROM customers WHERE id = ${ccRow.customerId} LIMIT 1`);
+      const row = r?.rows?.[0];
+      contactPhone = row?.phone || "";
+      contactName = row ? `${row.first_name || ""} ${row.last_name || ""}`.trim() : "";
+    }
+  } catch (e) { console.error("[status-list:contact_sms] entity resolve error:", e); }
+
+  if (!contactPhone) {
+    console.warn("[status-list:contact_sms] no phone for contact", ctx.campaignContactId);
+    return { ok: false };
+  }
+  const text = smsText
+    .replace(/\{\{customer\.name\}\}/g, contactName).replace(/\{\{customer\.phone\}\}/g, contactPhone)
+    .replace(/\{\{contact\.name\}\}/g, contactName).replace(/\{\{contact\.phone\}\}/g, contactPhone);
+
+  try {
+    const { sendTransactionalSms, isBulkGateConfigured } = await import("./lib/bulkgate");
+    if (!isBulkGateConfigured()) { console.warn("[status-list:contact_sms] BulkGate not configured"); return { ok: false }; }
+    const result = await sendTransactionalSms({ number: contactPhone, text, country: ctx.contactCountry ?? undefined });
+    const ok = result.success;
+    console.log(`[status-list:contact_sms] sent=${ok} contact=${ctx.campaignContactId}`);
+    try {
+      await db.insert(campaignContactHistory).values({
+        campaignContactId: ctx.campaignContactId, userId: ctx.userId, action: "status_list_action",
+        metadata: { actionType: "send_sms", automationId: automation.id, ok, campaignId: ctx.campaignId },
+      });
+    } catch (e) { console.error("[status-list:contact_sms] history log failed:", e); }
+    return { ok };
+  } catch (e) { console.error("[status-list:contact_sms] BulkGate error:", e); return { ok: false }; }
+}
+
 // Apply the configured disposition to the contact (status + dispositionCode).
 async function runStatusListSetStatus(automation: any, ctx: StatusListActionCtx, overrideCallbackDate?: string | null): Promise<{ ok: boolean; callbackDate?: string }> {
   if (!automation.dispositionId) {
@@ -30075,6 +30212,14 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
               try {
                 await runStatusListSetCallback(automation, { campaignContactId, campaignId: campaignId ?? null, contactCountry: contactCountry ?? null, userId, itemId }, overrideCallbackDate ?? null, overrideCallbackNote ?? null);
               } catch (e) { console.error("[status-list:set_callback] firing failed:", e); }
+            } else if (automation.actionType === "send_contact_email") {
+              try {
+                await runStatusListContactEmail(automation, { campaignContactId, campaignId: campaignId ?? null, contactCountry: contactCountry ?? null, userId, itemId });
+              } catch (e) { console.error("[status-list:contact_email] firing failed:", e); }
+            } else if (automation.actionType === "send_sms") {
+              try {
+                await runStatusListContactSms(automation, { campaignContactId, campaignId: campaignId ?? null, contactCountry: contactCountry ?? null, userId, itemId });
+              } catch (e) { console.error("[status-list:contact_sms] firing failed:", e); }
             }
 
           }
@@ -30187,6 +30332,12 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       } else if (automation.actionType === "set_callback") {
         const r = await runStatusListSetCallback(automation, ctx, callbackDate ?? null, callbackNote ?? null);
         return res.json({ ok: r.ok, actionType: automation.actionType, callbackDate: r.callbackDate });
+      } else if (automation.actionType === "send_contact_email") {
+        const r = await runStatusListContactEmail(automation, ctx);
+        return res.json({ ok: r.ok, actionType: automation.actionType, provider: r.provider });
+      } else if (automation.actionType === "send_sms") {
+        const r = await runStatusListContactSms(automation, ctx);
+        return res.json({ ok: r.ok, actionType: automation.actionType });
       }
       return res.status(400).json({ error: `Action type not supported for manual run: ${automation.actionType}` });
     } catch (error) {

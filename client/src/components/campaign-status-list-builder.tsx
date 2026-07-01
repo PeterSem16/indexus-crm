@@ -14,7 +14,7 @@ import { CLA_TEMPLATE, CLB_TEMPLATE, MPN_TEMPLATE, ROLE_BADGE_MAP, getStepLabel,
 import { useI18n } from "@/i18n";
 import {
   Plus, Trash2, ChevronDown, ChevronRight, GripVertical, Zap,
-  ClipboardList, Mail, MailPlus, MessageSquare, Tag, Webhook, Bell,
+  ClipboardList, Mail, MailPlus, MessageSquare, Tag, Webhook, Bell, Send,
   SquareCheck, CircleDot, Info, Loader2, PenLine, X, Check, Download,
   LayoutTemplate, ChevronUp, Eye, EyeOff, ListChecks,
   CircleHelp, ArrowDownRight, Copy,
@@ -98,6 +98,7 @@ const SL: Record<string, Record<string, string>> = {
   at_send_email_group:   { sk: "Skupinový email (rola)", en: "Group email (role)", cs: "Skupinový e-mail (role)", hu: "Csoportos e-mail (szerepkör)", ro: "Email de grup (rol)", it: "Email di gruppo (ruolo)", de: "Gruppen-E-Mail (Rolle)" },
   at_notify_email:       { sk: "Email – externá notifikácia", en: "Email – external notification", cs: "E-mail – externí notifikace", hu: "E-mail – külső értesítés", ro: "Email – notificare externă", it: "Email – notifica esterna", de: "E-Mail – externe Benachrichtigung" },
   at_send_sms:           { sk: "SMS zákazníkovi", en: "SMS to contact", cs: "SMS zákazníkovi", hu: "SMS ügyfélnek", ro: "SMS clientului", it: "SMS al contatto", de: "SMS an Kontakt" },
+  at_send_contact_email: { sk: "Email priamo kontaktu", en: "Email to contact directly", cs: "Email přímo kontaktu", hu: "Email közvetlenül a kontaktnak", ro: "Email direct contactului", it: "Email direttamente al contatto", de: "E-Mail direkt an Kontakt" },
   at_set_contact_status: { sk: "Nastaviť status", en: "Set contact status", cs: "Nastavit stav", hu: "Kontakt státusz beállítása", ro: "Setare status contact", it: "Imposta stato contatto", de: "Kontaktstatus setzen" },
   at_set_callback:       { sk: "Naplánovať callback", en: "Schedule callback", cs: "Naplánovat callback", hu: "Visszahívás ütemezése", ro: "Programare callback", it: "Pianifica richiamo", de: "Rückruf planen" },
   at_notify_role:        { sk: "Notifikovať rolu", en: "Notify role", cs: "Upozornit roli", hu: "Szerepkör értesítése", ro: "Notifică rolul", it: "Notifica ruolo", de: "Rolle benachrichtigen" },
@@ -107,6 +108,10 @@ const SL: Record<string, Record<string, string>> = {
   atHelp_send_email_group:   { sk: "Odošle e-mail všetkým používateľom zvolenej roly + voliteľným pevným adresám. Šablóna môže obsahovať premenné kontaktu. Vhodné pre uvítacie, follow-up alebo interné notifikačné e-maily.", en: "Sends an email to all users of the selected role + optional fixed addresses. Template can contain contact variables. Good for welcome, follow-up or internal notification emails.", cs: "Odešle e-mail všem uživatelům zvolené role + volitelným pevným adresám.", hu: "E-mailt küld a kiválasztott szerepkör összes felhasználójának + opcionális fix címekre.", ro: "Trimite un email tuturor utilizatorilor rolului ales + adreselor fixe opționale.", it: "Invia un'email a tutti gli utenti del ruolo selezionato + indirizzi fissi opzionali.", de: "Sendet eine E-Mail an alle Benutzer der gewählten Rolle + optionalen festen Adressen." },
   atHelp_notify_email:       { sk: "Odošle e-mail na zadané externé e-mailové adresy. Adresy nemusia byť registrované v INDEXUS. Vhodné pre notifikácie partnerov, externých pracovníkov alebo iných príjemcov. Šablóna môže obsahovať premenné kontaktu.", en: "Sends an email to the specified external email addresses. Addresses do not need to be registered in INDEXUS. Good for notifying partners, external staff or other recipients. Template can contain contact variables.", cs: "Odešle e-mail na zadané externí e-mailové adresy. Adresy nemusí být registrovány v INDEXUS.", hu: "E-mailt küld a megadott külső e-mail címekre. A címeknek nem kell INDEXUS-ban regisztráltnak lenniük.", ro: "Trimite un email la adresele de email externe specificate. Adresele nu trebuie să fie înregistrate în INDEXUS.", it: "Invia un'email agli indirizzi e-mail esterni specificati. Gli indirizzi non devono essere registrati in INDEXUS.", de: "Sendet eine E-Mail an die angegebenen externen E-Mail-Adressen. Adressen müssen nicht in INDEXUS registriert sein." },
   atHelp_send_sms:           { sk: "Odošle SMS správu priamo zákazníkovi. Vyžaduje platné telefónne číslo kontaktu. Správa je odoslaná cez SMS gateway a zalogovaná v komunikačnej histórii.", en: "Sends an SMS message directly to the contact. Requires a valid phone number on the contact. Message is sent via SMS gateway and logged in communication history.", cs: "Odešle SMS zprávu zákazníkovi. Vyžaduje platné telefonní číslo.", hu: "SMS üzenetet küld közvetlenül az ügyfélnek. Érvényes telefonszám szükséges.", ro: "Trimite un SMS direct clientului. Necesită număr de telefon valid.", it: "Invia un SMS direttamente al contatto. Richiede un numero di telefono valido.", de: "Sendet eine SMS-Nachricht direkt an den Kontakt. Erfordert eine gültige Telefonnummer." },
+  atHelp_send_contact_email: { sk: "Odošle email priamo na emailovú adresu zákazníka / kliniky / nemocnice. Adresa sa načíta automaticky z karty kontaktu. Šablóna môže obsahovať premenné {{contact.name}}, {{contact.email}}.", en: "Sends an email directly to the contact's stored email address (customer, clinic or hospital). Address loaded automatically from the contact record. Template can use {{contact.name}}, {{contact.email}} variables.", cs: "Odešle e-mail přímo na e-mailovou adresu zákazníka/kliniky/nemocnice. Adresa se načte automaticky z kontaktní karty.", hu: "E-mailt küld közvetlenül az ügyfél/klinika/kórház tárolt e-mail-címére. A cím automatikusan töltődik be a kontakt rekordból.", ro: "Trimite un email direct la adresa de email a contactului (client, clinică sau spital). Adresa este preluată automat din fișa contactului.", it: "Invia un'email direttamente all'indirizzo email del contatto (cliente, clinica o ospedale). L'indirizzo viene caricato automaticamente dalla scheda contatto.", de: "Sendet eine E-Mail direkt an die gespeicherte E-Mail-Adresse des Kontakts (Kunde, Klinik oder Krankenhaus). Adresse wird automatisch aus dem Kontaktdatensatz geladen." },
+  smsTextLbl:                { sk: "Text SMS správy", en: "SMS message text", cs: "Text SMS zprávy", hu: "SMS üzenet szövege", ro: "Text mesaj SMS", it: "Testo messaggio SMS", de: "SMS-Nachrichtentext" },
+  smsTextPh:                 { sk: "Napr. Dobrý deň {{contact.name}}, vaša zmluva bola potvrdená...", en: "E.g. Hello {{contact.name}}, your contract has been confirmed...", cs: "Napr. Dobrý den {{contact.name}}, vaše smlouva byla potvrzena...", hu: "Pl. Kedves {{contact.name}}, szerződése megerősítve...", ro: "Ex. Bună ziua {{contact.name}}, contractul dvs. a fost confirmat...", it: "Es. Buongiorno {{contact.name}}, il Suo contratto è stato confermato...", de: "Z.B. Guten Tag {{contact.name}}, Ihr Vertrag wurde bestätigt..." },
+  contactEmailNote:          { sk: "Email bude odoslaný na uloženú emailovú adresu kontaktu.", en: "Email will be sent to the contact's stored email address.", cs: "E-mail bude odeslán na uloženou e-mailovou adresu kontaktu.", hu: "Az e-mail a kontakt tárolt e-mail-címére kerül elküldésre.", ro: "Email-ul va fi trimis la adresa de email stocată a contactului.", it: "L'email verrà inviata all'indirizzo email memorizzato del contatto.", de: "E-Mail wird an die gespeicherte E-Mail-Adresse des Kontakts gesendet." },
   atHelp_set_contact_status: { sk: "Automaticky zmení dispozíciu (status) kontaktu v kampani. Vhodné napr. pre automatickú zmenu stavu po podpise zmluvy alebo po vypršaní lehoty.", en: "Automatically changes the contact's disposition (status) in the campaign. Useful e.g. for auto-changing status after contract signing or deadline expiry.", cs: "Automaticky změní dispozici kontaktu v kampani. Vhodné pro automatickou změnu stavu po podpisu smlouvy.", hu: "Automatikusan megváltoztatja a kontakt diszpozícióját (státuszát) a kampányban.", ro: "Schimbă automat dispoziția (statusul) contactului în campanie.", it: "Cambia automaticamente la disposizione (stato) del contatto nella campagna.", de: "Ändert automatisch die Disposition (Status) des Kontakts in der Kampagne." },
   atHelp_set_callback:       { sk: "Naplánuje spätné volanie (callback) kontaktu o zadaný počet pracovných dní na 09:00. Kontakt sa znova objaví vo fronte agenta v daný deň. Pri manuálnom spustení si agent môže vybrať vlastný dátum.", en: "Schedules a callback for the contact after the given number of business days at 09:00. The contact re-appears in the agent's queue on that day. On manual run the agent can pick a custom date.", cs: "Naplánuje zpětné volání kontaktu o zadaný počet pracovních dnů na 09:00. Kontakt se znovu objeví ve frontě agenta.", hu: "Visszahívást ütemez a kontakthoz a megadott munkanapok után 09:00-kor. A kontakt újra megjelenik az ügynök sorában.", ro: "Programează un callback pentru contact după numărul dat de zile lucrătoare la 09:00. Contactul reapare în coada agentului.", it: "Pianifica un richiamo per il contatto dopo il numero indicato di giorni lavorativi alle 09:00. Il contatto riappare nella coda dell'agente.", de: "Plant einen Rückruf für den Kontakt nach der angegebenen Anzahl von Werktagen um 09:00 Uhr. Der Kontakt erscheint erneut in der Warteschlange des Agenten." },
   atHelp_notify_role:        { sk: "Odošle systémovú notifikáciu všetkým používateľom s danou rolou. Notifikácia sa zobrazí v reálnom čase cez WebSocket a je uložená v histórii notifikácií.", en: "Sends a system notification to all users with the chosen role. Notification appears in real-time via WebSocket and is saved in notification history.", cs: "Odešle systémovou notifikaci všem uživatelům s danou rolí.", hu: "Rendszerértesítést küld az összes, a kiválasztott szerepkörrel rendelkező felhasználónak.", ro: "Trimite o notificare de sistem tuturor utilizatorilor cu rolul ales.", it: "Invia una notifica di sistema a tutti gli utenti con il ruolo scelto.", de: "Sendet eine Systembenachrichtigung an alle Benutzer mit der gewählten Rolle." },
@@ -770,6 +775,7 @@ const ACTION_TYPE_OPTIONS = [
   { value: "send_email_group",   slKey: "at_send_email_group",   icon: Mail,          color: "text-green-500" },
   { value: "notify_email",       slKey: "at_notify_email",       icon: MailPlus,      color: "text-violet-500" },
   { value: "send_sms",           slKey: "at_send_sms",           icon: MessageSquare, color: "text-yellow-500" },
+  { value: "send_contact_email", slKey: "at_send_contact_email", icon: Send,          color: "text-emerald-500" },
   { value: "set_contact_status", slKey: "at_set_contact_status", icon: Tag,           color: "text-purple-500" },
   { value: "set_callback",       slKey: "at_set_callback",       icon: Phone,         color: "text-cyan-500" },
   { value: "notify_role",        slKey: "at_notify_role",        icon: Bell,          color: "text-orange-500" },
@@ -1254,12 +1260,12 @@ function AutomationForm({
   const { data: emailTemplates = [] } = useQuery<any[]>({
     queryKey: ["/api/message-templates", "email"],
     queryFn: () => fetch(`/api/message-templates?type=email`, { credentials: "include" }).then(r => { if (!r.ok) throw new Error(`Request failed: ${r.status}`); return r.json(); }),
-    enabled: ["send_email_group", "notify_email"].includes(form.actionType),
+    enabled: ["send_email_group", "notify_email", "send_contact_email"].includes(form.actionType),
   });
   const { data: emailCategories = [] } = useQuery<any[]>({
     queryKey: ["/api/template-categories"],
     queryFn: () => fetch("/api/template-categories", { credentials: "include" }).then(r => { if (!r.ok) throw new Error(`Request failed: ${r.status}`); return r.json(); }),
-    enabled: ["send_email_group", "notify_email"].includes(form.actionType),
+    enabled: ["send_email_group", "notify_email", "send_contact_email"].includes(form.actionType),
   });
 
   const { data: campaignDispositions = [] } = useQuery<any[]>({
@@ -1357,6 +1363,8 @@ function AutomationForm({
   const needsTask = form.actionType === "assign_task";
   const needsEmail = ["send_email_group", "notify_email"].includes(form.actionType);
   const needsNotifyEmail = form.actionType === "notify_email";
+  const needsContactEmail = form.actionType === "send_contact_email";
+  const needsSmsText = form.actionType === "send_sms";
 
   return (
     <div className="border rounded-lg p-3 space-y-3 bg-muted/20">
@@ -1694,6 +1702,37 @@ function AutomationForm({
                 <p className="text-[10px] text-muted-foreground mt-1 leading-snug">{sl("emailRecipientsHelp", locale)}</p>
               </div>
             )}
+          </div>
+        )}
+
+        {needsContactEmail && (
+          <div className="col-span-2 space-y-2">
+            <p className="text-[11px] text-muted-foreground leading-snug">{sl("contactEmailNote", locale)}</p>
+            <Label className="text-xs mb-1 block">{sl("emailTemplate", locale)}</Label>
+            <Select value={form.emailTemplateId} onValueChange={v => setForm(f => ({ ...f, emailTemplateId: v }))}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={sl("selectEmail", locale)} /></SelectTrigger>
+              <SelectContent>
+                {(emailTemplates as any[]).map((t: any) => (
+                  <SelectItem key={t.id} value={String(t.id)} className="text-xs">{t.name}</SelectItem>
+                ))}
+                {emailTemplates.length === 0 && (
+                  <SelectItem value="__none__" disabled className="text-xs text-muted-foreground">{sl("selectEmail", locale)}</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {needsSmsText && (
+          <div className="col-span-2">
+            <Label className="text-xs mb-1 block">{sl("smsTextLbl", locale)}</Label>
+            <Textarea
+              className="text-xs min-h-[80px] resize-y"
+              value={form.taskDescription}
+              onChange={e => setForm(f => ({ ...f, taskDescription: e.target.value }))}
+              placeholder={sl("smsTextPh", locale)}
+              data-testid="textarea-sms-text"
+            />
           </div>
         )}
 
