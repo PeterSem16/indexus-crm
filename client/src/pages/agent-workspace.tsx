@@ -106,6 +106,7 @@ import {
   Mic,
   MicOff,
   LogOut,
+  LogIn,
   Grid3X3,
   CalendarClock,
   PhoneForwarded,
@@ -7825,7 +7826,7 @@ function MyActivityPanel({
   onOpenEntity?: (type: string, id: string, campaignContactId?: string | null, campaignId?: string | null) => void;
 }) {
   const { t } = useI18n();
-  const [filterType, setFilterType] = useState<"all" | "call" | "email" | "sms" | "missed" | "break">("all");
+  const [filterType, setFilterType] = useState<"all" | "call" | "email" | "sms" | "missed" | "break" | "session">("all");
 
   const { data: items = [], isLoading, refetch } = useQuery<any[]>({
     queryKey: ["/api/agent/today-activity"],
@@ -7859,6 +7860,7 @@ function MyActivityPanel({
   const emailItems = items.filter(i => i.itemType === "email");
   const smsItems = items.filter(i => i.itemType === "sms");
   const breakItems = items.filter(i => i.itemType === "break");
+  const sessionItems = items.filter(i => i.itemType === "session");
   const missedItems = callItems.filter(i => i.status === "no_answer" || i.status === "busy");
   const answeredCalls = callItems.filter(i => i.status === "answered" || i.status === "completed");
   const totalDur = answeredCalls.reduce((sum: number, c: any) => sum + (c.durationSeconds || 0), 0);
@@ -7868,6 +7870,7 @@ function MyActivityPanel({
     : filterType === "email" ? emailItems
     : filterType === "sms" ? smsItems
     : filterType === "break" ? breakItems
+    : filterType === "session" ? sessionItems
     : missedItems;
 
   const filterTabs: { key: typeof filterType; label: string; count: number }[] = [
@@ -7877,6 +7880,7 @@ function MyActivityPanel({
     { key: "sms", label: t.agentWorkspace.myShiftFilterSms, count: smsItems.length },
     { key: "missed", label: t.agentWorkspace.myShiftFilterMissed, count: missedItems.length },
     { key: "break", label: t.agentWorkspace.myShiftFilterBreak, count: breakItems.length },
+    { key: "session", label: t.agentWorkspace.myShiftFilterSessions, count: sessionItems.length },
   ];
 
   return (
@@ -8098,6 +8102,49 @@ function MyActivityPanel({
                       <div className="text-right shrink-0">
                         <div className="text-xs font-medium text-foreground">{format(new Date(sortTime), "HH:mm")}</div>
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-normal border-orange-300 text-orange-600 dark:text-orange-400 mt-0.5">Break</Badge>
+                      </div>
+                    </div>
+                  );
+                }
+                if (item.itemType === "session") {
+                  const endMs = item.endedAt ? new Date(item.endedAt).getTime() : Date.now();
+                  const durSecs = item.startedAt
+                    ? Math.max(0, Math.round((endMs - new Date(item.startedAt).getTime()) / 1000))
+                    : 0;
+                  const dur = formatDuration(durSecs);
+                  return (
+                    <div key={item.id} data-testid={`my-shift-session-${item.id}`} className="flex items-center gap-3 px-5 py-2.5 border-b border-l-2 transition-colors hover:bg-muted/30" style={{ borderLeftColor: "#5E7A5A" }}>
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
+                        <LogIn className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{t.agentWorkspace.myShiftSessionLabel}</div>
+                        <div className="flex items-center gap-x-2 gap-y-0.5 mt-0.5 text-xs text-muted-foreground flex-wrap">
+                          <span className="inline-flex items-center gap-1">
+                            <LogIn className="h-3 w-3 opacity-60" />
+                            {t.agentWorkspace.myShiftSessionLogin} {format(new Date(item.startedAt), "HH:mm")}
+                          </span>
+                          {item.endedAt ? (
+                            <span className="inline-flex items-center gap-1">
+                              <LogOut className="h-3 w-3 opacity-60" />
+                              {t.agentWorkspace.myShiftSessionLogout} {format(new Date(item.endedAt), "HH:mm")}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              {t.agentWorkspace.myShiftSessionActive}
+                            </span>
+                          )}
+                          {dur && (
+                            <span className="inline-flex items-center gap-1">
+                              <Clock className="h-3 w-3 opacity-60" />{dur}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-xs font-medium text-foreground">{format(new Date(sortTime), "HH:mm")}</div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5">{format(new Date(sortTime), "dd.MM.yyyy")}</div>
                       </div>
                     </div>
                   );

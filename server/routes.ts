@@ -24889,7 +24889,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
       // 3. Fetch breaks for today's agent sessions
       const todaySessions = await db
-        .select({ id: agentSessions.id })
+        .select({ id: agentSessions.id, startedAt: agentSessions.startedAt, endedAt: agentSessions.endedAt })
         .from(agentSessions)
         .where(and(eq(agentSessions.userId, user.id), gte(agentSessions.startedAt, todayStart), lte(agentSessions.startedAt, todayEnd)));
       const sessionIds = todaySessions.map(s => s.id);
@@ -24909,8 +24909,20 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         }));
       }
 
-      // 4. Combine and sort chronologically
-      const combined = [...callItems, ...commItems, ...breakItems].sort((a, b) =>
+      // 4. Session login/logout items (one per agent session started today)
+      const sessionItems = todaySessions.map(s => ({
+        id: `session-${s.id}`,
+        itemType: "session" as const,
+        startedAt: s.startedAt,
+        endedAt: s.endedAt,
+        durationSeconds: s.endedAt
+          ? Math.max(0, Math.round((new Date(s.endedAt).getTime() - new Date(s.startedAt).getTime()) / 1000))
+          : null,
+        sortTime: s.startedAt,
+      }));
+
+      // 5. Combine and sort chronologically
+      const combined = [...callItems, ...commItems, ...breakItems, ...sessionItems].sort((a, b) =>
         new Date(b.sortTime!).getTime() - new Date(a.sortTime!).getTime()
       );
 

@@ -3449,6 +3449,11 @@ export interface Translations {
     myShiftFilterBreak: string;
     myShiftBreakDefault: string;
     myShiftBreakActive: string;
+    myShiftFilterSessions: string;
+    myShiftSessionLabel: string;
+    myShiftSessionLogin: string;
+    myShiftSessionLogout: string;
+    myShiftSessionActive: string;
     myShiftEmailNew1: string;
     myShiftEmailNew234: string;
     emailBubbleView: string;
@@ -10579,6 +10584,11 @@ export const translations: Record<Locale, Translations> = {
       myShiftFilterBreak: 'Breaks',
       myShiftBreakDefault: 'Break',
       myShiftBreakActive: 'Active break',
+      myShiftFilterSessions: 'Sessions',
+      myShiftSessionLabel: 'Work session',
+      myShiftSessionLogin: 'Login',
+      myShiftSessionLogout: 'Logout',
+      myShiftSessionActive: 'Active',
       myShiftEmailNew1: 'new',
       myShiftEmailNew234: 'new',
       emailBubbleView: '· view',
@@ -17164,6 +17174,11 @@ export const translations: Record<Locale, Translations> = {
       myShiftFilterBreak: 'Prestávky',
       myShiftBreakDefault: 'Prestávka',
       myShiftBreakActive: 'Aktívna prestávka',
+      myShiftFilterSessions: 'Sedenia',
+      myShiftSessionLabel: 'Pracovné sedenie',
+      myShiftSessionLogin: 'Prihlásenie',
+      myShiftSessionLogout: 'Odhlásenie',
+      myShiftSessionActive: 'Aktívne',
       myShiftEmailNew1: 'nový',
       myShiftEmailNew234: 'nové',
       emailBubbleView: '· zobraziť',
@@ -23735,6 +23750,11 @@ export const translations: Record<Locale, Translations> = {
       myShiftFilterBreak: 'Přestávky',
       myShiftBreakDefault: 'Přestávka',
       myShiftBreakActive: 'Aktivní přestávka',
+      myShiftFilterSessions: 'Sezení',
+      myShiftSessionLabel: 'Pracovní sezení',
+      myShiftSessionLogin: 'Přihlášení',
+      myShiftSessionLogout: 'Odhlášení',
+      myShiftSessionActive: 'Aktivní',
       myShiftEmailNew1: 'nový',
       myShiftEmailNew234: 'nové',
       emailBubbleView: '· zobrazit',
@@ -30254,6 +30274,11 @@ export const translations: Record<Locale, Translations> = {
       myShiftFilterBreak: 'Szünetek',
       myShiftBreakDefault: 'Szünet',
       myShiftBreakActive: 'Aktív szünet',
+      myShiftFilterSessions: 'Munkamenetek',
+      myShiftSessionLabel: 'Munkamenet',
+      myShiftSessionLogin: 'Bejelentkezés',
+      myShiftSessionLogout: 'Kijelentkezés',
+      myShiftSessionActive: 'Aktív',
       myShiftEmailNew1: 'új',
       myShiftEmailNew234: 'új',
       emailBubbleView: '· megtekint',
@@ -36668,6 +36693,11 @@ export const translations: Record<Locale, Translations> = {
       myShiftFilterBreak: 'Pauze',
       myShiftBreakDefault: 'Pauză',
       myShiftBreakActive: 'Pauză activă',
+      myShiftFilterSessions: 'Sesiuni',
+      myShiftSessionLabel: 'Sesiune de lucru',
+      myShiftSessionLogin: 'Autentificare',
+      myShiftSessionLogout: 'Deconectare',
+      myShiftSessionActive: 'Activ',
       myShiftEmailNew1: 'nou',
       myShiftEmailNew234: 'noi',
       emailBubbleView: '· vizualizare',
@@ -43084,6 +43114,11 @@ export const translations: Record<Locale, Translations> = {
       myShiftFilterBreak: 'Pause',
       myShiftBreakDefault: 'Pausa',
       myShiftBreakActive: 'Pausa attiva',
+      myShiftFilterSessions: 'Sessioni',
+      myShiftSessionLabel: 'Sessione di lavoro',
+      myShiftSessionLogin: 'Accesso',
+      myShiftSessionLogout: 'Disconnessione',
+      myShiftSessionActive: 'Attiva',
       myShiftEmailNew1: 'nuovo',
       myShiftEmailNew234: 'nuovi',
       emailBubbleView: '· visualizza',
@@ -49500,6 +49535,11 @@ export const translations: Record<Locale, Translations> = {
       myShiftFilterBreak: 'Pausen',
       myShiftBreakDefault: 'Pause',
       myShiftBreakActive: 'Aktive Pause',
+      myShiftFilterSessions: 'Sitzungen',
+      myShiftSessionLabel: 'Arbeitssitzung',
+      myShiftSessionLogin: 'Anmeldung',
+      myShiftSessionLogout: 'Abmeldung',
+      myShiftSessionActive: 'Aktiv',
       myShiftEmailNew1: 'neu',
       myShiftEmailNew234: 'neue',
       emailBubbleView: '· anzeigen',

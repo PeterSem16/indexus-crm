@@ -54,3 +54,10 @@ selectable recipients.
   deduped union of the contact's phones + entity-data phones. Field names differ per
   entity: clinics/hospitals use phone/phone2/phone3; collaborators/customers use
   phone/mobile/mobile2.
+- **"My Shift" feed = one combined list keyed by `itemType`:** the panel
+  (MyActivityPanel) renders a single array from `GET /api/agent/today-activity`
+  discriminated by `itemType` (call/email/sms/break/session). To add a category you
+  must touch BOTH ends: push the new items into the endpoint's `combined` array AND
+  add a matching filter + render branch in MyActivityPanel. Session (login/logout)
+  items come from `agent_sessions` (startedAt/endedAt); active-session duration is
+  computed client-side from `Date.now()` since the panel refetches every 30s.
