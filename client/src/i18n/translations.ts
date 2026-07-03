@@ -3436,6 +3436,7 @@ export interface Translations {
     myShiftFilterSms: string;
     myShiftFilterMissed: string;
     myShiftOpenCard: string;
+    myShiftRing: string;
     myShiftCloseCard: string;
     myShiftFilterBreak: string;
     myShiftBreakDefault: string;
@@ -10557,6 +10558,7 @@ export const translations: Record<Locale, Translations> = {
       myShiftFilterSms: 'SMS',
       myShiftFilterMissed: 'Missed',
       myShiftOpenCard: 'Open card',
+      myShiftRing: 'Ringing',
       myShiftCloseCard: 'Close',
       myShiftFilterBreak: 'Breaks',
       myShiftBreakDefault: 'Break',
@@ -17133,6 +17135,7 @@ export const translations: Record<Locale, Translations> = {
       myShiftFilterSms: 'SMS',
       myShiftFilterMissed: 'Zmeškaná',
       myShiftOpenCard: 'Otvoriť kartu',
+      myShiftRing: 'Zvonenie',
       myShiftCloseCard: 'Zatvoriť',
       myShiftFilterBreak: 'Prestávky',
       myShiftBreakDefault: 'Prestávka',
@@ -23695,6 +23698,7 @@ export const translations: Record<Locale, Translations> = {
       myShiftFilterSms: 'SMS',
       myShiftFilterMissed: 'Zmeškaný',
       myShiftOpenCard: 'Otevřít kartu',
+      myShiftRing: 'Zvonění',
       myShiftCloseCard: 'Zavřít',
       myShiftFilterBreak: 'Přestávky',
       myShiftBreakDefault: 'Přestávka',
@@ -30200,6 +30204,7 @@ export const translations: Record<Locale, Translations> = {
       todayCallsOutboundBadge: 'Kimenő',
       todayCallsRefresh: 'Frissítés',
       myShiftOpenCard: 'Kártya megnyitása',
+      myShiftRing: 'Csengés',
       myShiftCloseCard: 'Bezárás',
       myShiftFilterAll: 'Minden',
       myShiftFilterCalls: 'Hívások',
@@ -36605,6 +36610,7 @@ export const translations: Record<Locale, Translations> = {
       todayCallsOutboundBadge: 'Efectuat',
       todayCallsRefresh: 'Reîncărcați',
       myShiftOpenCard: 'Deschide cardul',
+      myShiftRing: 'Sunare',
       myShiftCloseCard: 'Închide',
       myShiftFilterAll: 'Toate',
       myShiftFilterCalls: 'Apeluri',
@@ -43012,6 +43018,7 @@ export const translations: Record<Locale, Translations> = {
       todayCallsOutboundBadge: 'In uscita',
       todayCallsRefresh: 'Aggiorna',
       myShiftOpenCard: 'Apri scheda',
+      myShiftRing: 'Squillo',
       myShiftCloseCard: 'Chiudi',
       myShiftFilterAll: 'Tutto',
       myShiftFilterCalls: 'Chiamate',
@@ -49419,6 +49426,7 @@ export const translations: Record<Locale, Translations> = {
       todayCallsOutboundBadge: 'Ausgehend',
       todayCallsRefresh: 'Aktualisieren',
       myShiftOpenCard: 'Karte öffnen',
+      myShiftRing: 'Klingeln',
       myShiftCloseCard: 'Schließen',
       myShiftFilterAll: 'Alle',
       myShiftFilterCalls: 'Anrufe',

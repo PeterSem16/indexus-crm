@@ -110,6 +110,7 @@ import {
   CalendarClock,
   PhoneForwarded,
   PhoneIncoming,
+  PhoneOutgoing,
   PhoneMissed,
   MailPlus,
   MessageSquarePlus,
@@ -7854,6 +7855,11 @@ function MyActivityPanel({
                 if (item.itemType === "call") {
                   const info = getCallInfo(item);
                   const dur = formatDuration(item.durationSeconds);
+                  const ringEnd = item.answeredAt || item.endedAt;
+                  const ringSecs = item.startedAt && ringEnd
+                    ? Math.max(0, Math.round((new Date(ringEnd).getTime() - new Date(item.startedAt).getTime()) / 1000))
+                    : 0;
+                  const ring = formatDuration(ringSecs);
                   const isIn = item.direction === "inbound";
                   const displayName = item.customerName || item.phoneNumber;
                   return (
@@ -7890,6 +7896,11 @@ function MyActivityPanel({
                           {isIn && item.inboundQueueName && (
                             <span className="text-[10px] text-muted-foreground"><span className="opacity-60">{t.agentWorkspace.todayCallsQueue}</span> {item.inboundQueueName}</span>
                           )}
+                          {ring && (
+                            <span className="flex items-center gap-0.5 text-[10px] text-amber-600 dark:text-amber-400" title={t.agentWorkspace.myShiftRing}>
+                              {isIn ? <PhoneIncoming className="h-2.5 w-2.5" /> : <PhoneOutgoing className="h-2.5 w-2.5" />}{t.agentWorkspace.myShiftRing} {ring}
+                            </span>
+                          )}
                           {dur && (
                             <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
                               <Clock className="h-2.5 w-2.5" />{dur}
@@ -7917,6 +7928,7 @@ function MyActivityPanel({
                           </button>
                         )}
                         <div className="text-right flex flex-col items-end gap-1">
+                          <div className="text-[10px] text-muted-foreground leading-none">{format(new Date(sortTime), "dd.MM.yyyy")}</div>
                           <div className="text-xs font-medium text-foreground">{format(new Date(sortTime), "HH:mm")}</div>
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-normal"
                             style={isIn ? { borderColor: "#5E7A5A60", color: "#5E7A5A" } : { borderColor: "#B5622E60", color: "#B5622E" }}>
