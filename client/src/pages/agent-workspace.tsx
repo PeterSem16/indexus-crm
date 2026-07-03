@@ -4966,31 +4966,47 @@ function CommunicationCanvas({
                   {t.customers?.details?.to || "To"}
                 </Label>
                 <div className="space-y-1.5">
-                  {contact?.phone && (
-                    <div className="flex items-center gap-2">
-                      <Checkbox id="aw-sms-phone1" checked={selectedPhones.includes(contact.phone)} onCheckedChange={(checked) => {
-                        if (checked) setSelectedPhones([...selectedPhones, contact.phone!]);
-                        else setSelectedPhones(selectedPhones.filter(p => p !== contact.phone));
-                      }} data-testid="checkbox-phone-primary" />
-                      <Label htmlFor="aw-sms-phone1" className="font-normal cursor-pointer text-xs">
-                        {getCountryFlag(contact.country || "SK")} {contact.phone}
-                      </Label>
-                    </div>
-                  )}
-                  {(contact as any)?.phone2 && (
-                    <div className="flex items-center gap-2">
-                      <Checkbox id="aw-sms-phone2" checked={selectedPhones.includes((contact as any).phone2)} onCheckedChange={(checked) => {
-                        if (checked) setSelectedPhones([...selectedPhones, (contact as any).phone2!]);
-                        else setSelectedPhones(selectedPhones.filter(p => p !== (contact as any).phone2));
-                      }} data-testid="checkbox-phone-secondary" />
-                      <Label htmlFor="aw-sms-phone2" className="font-normal cursor-pointer text-xs">
-                        {getCountryFlag(contact?.country || "SK")} {(contact as any).phone2}
-                      </Label>
-                    </div>
-                  )}
-                  {!contact?.phone && !(contact as any)?.phone2 && (
-                    <p className="text-[11px] text-muted-foreground italic">{t.customers?.details?.noPhone || "No phone number"}</p>
-                  )}
+                  {(() => {
+                    const availablePhones = Array.from(new Set(
+                      [
+                        contact?.phone,
+                        (contact as any)?.phone2,
+                        (contact as any)?.phone3,
+                        (contact as any)?.mobile,
+                        (contact as any)?.mobile2,
+                        (clinicData as any)?.phone,
+                        (clinicData as any)?.phone2,
+                        (clinicData as any)?.phone3,
+                        (hospitalData as any)?.phone,
+                        (hospitalData as any)?.phone2,
+                        (hospitalData as any)?.phone3,
+                        (collaboratorData as any)?.phone,
+                        (collaboratorData as any)?.mobile,
+                        (collaboratorData as any)?.mobile2,
+                      ]
+                        .filter((p): p is string => typeof p === "string" && p.trim() !== "")
+                        .map(p => p.trim())
+                    ));
+                    if (availablePhones.length === 0) {
+                      return <p className="text-[11px] text-muted-foreground italic">{t.customers?.details?.noPhone || "No phone number"}</p>;
+                    }
+                    return availablePhones.map((ph, i) => (
+                      <div key={ph} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`aw-sms-phone-${i}`}
+                          checked={selectedPhones.includes(ph)}
+                          onCheckedChange={(checked) => {
+                            if (checked) setSelectedPhones([...selectedPhones, ph]);
+                            else setSelectedPhones(selectedPhones.filter(p => p !== ph));
+                          }}
+                          data-testid={`checkbox-phone-${i}`}
+                        />
+                        <Label htmlFor={`aw-sms-phone-${i}`} className="font-normal cursor-pointer text-xs">
+                          {getCountryFlag(contact?.country || "SK")} {ph}
+                        </Label>
+                      </div>
+                    ));
+                  })()}
                 </div>
               </div>
 
@@ -12643,8 +12659,15 @@ export default function AgentWorkspacePage() {
               contactType={currentContactType}
               onClearContact={() => {
                 pendingCcIdRef.current = null;
+                if (activeTaskId) {
+                  setTasks((prev) => prev.filter((tk) => tk.id !== activeTaskId));
+                  setActiveTaskId(null);
+                }
                 setCurrentCampaignContactId(null);
                 setCurrentContact(null);
+                setCurrentPhoneOverride(null);
+                setCallNotes("");
+                setTimeline([]);
                 agentSession.updateStatus("available").catch(() => {});
               }}
               onFullLogout={logout}
@@ -12849,8 +12872,15 @@ export default function AgentWorkspacePage() {
               campaignEmailAddress={campaignEmailAddress}
               onClearContact={() => {
                 pendingCcIdRef.current = null;
+                if (activeTaskId) {
+                  setTasks((prev) => prev.filter((tk) => tk.id !== activeTaskId));
+                  setActiveTaskId(null);
+                }
                 setCurrentCampaignContactId(null);
                 setCurrentContact(null);
+                setCurrentPhoneOverride(null);
+                setCallNotes("");
+                setTimeline([]);
                 agentSession.updateStatus("available").catch(() => {});
               }}
               onScriptAction={(action, data) => {

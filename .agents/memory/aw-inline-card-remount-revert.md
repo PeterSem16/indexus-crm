@@ -44,3 +44,13 @@ selectable recipients.
   persisted in localStorage keyed by `user+channel+contact` and reloaded on contact
   change; otherwise every reopen resets to empty and the badge counts ALL inbound as
   unread. Mark-read (merge + persist) happens when the agent opens that channel tab.
+- **Card close ("X") must also drop the task:** the card header close calls
+  `onClearContact`, which originally only nulled the contact — leaving the entry in
+  the Tasks list and `activeTaskId` set. It must ALSO remove the active task from
+  `tasks` (filter by `activeTaskId`) and clear `activeTaskId`/notes/timeline/phone
+  override, mirroring `handleCancelTask`. Both ContactCard render sites (mobile +
+  desktop) share the same inline handler — keep them in sync.
+- **SMS recipient list = same union as email:** build the "To" checkboxes from a
+  deduped union of the contact's phones + entity-data phones. Field names differ per
+  entity: clinics/hospitals use phone/phone2/phone3; collaborators/customers use
+  phone/mobile/mobile2.
