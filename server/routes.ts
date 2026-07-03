@@ -24664,8 +24664,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const clinicIds = [...new Set(Object.values(ccContactTypeMap).filter(r => r.clinicId).map(r => r.clinicId as string))];
       const hospitalIds = [...new Set(Object.values(ccContactTypeMap).filter(r => r.hospitalId).map(r => r.hospitalId as string))];
       const collaboratorIds = [...new Set(Object.values(ccContactTypeMap).filter(r => r.collaboratorId).map(r => r.collaboratorId as string))];
-      // Customer IDs: from callLogs.customerId + from campaignContacts.customerId for customer-type contacts
-      const ccCustomerIds = [...new Set(Object.values(ccContactTypeMap).filter(r => r.contactType === 'customer' && r.customerId).map(r => r.customerId as string))];
+      // Customer IDs: from callLogs.customerId + any campaignContacts.customerId (regardless of contactType, so mismatched rows still resolve a name)
+      const ccCustomerIds = [...new Set(Object.values(ccContactTypeMap).filter(r => r.customerId).map(r => r.customerId as string))];
       const allCustomerIds = [...new Set([...directCustomerIds, ...ccCustomerIds])];
       let clinicNameMap: Record<string, string> = {};
       let hospitalNameMap: Record<string, string> = {};
@@ -24691,31 +24691,35 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       }
 
       const callItems = calls.map(c => {
-        let entityName: string | null = c.customerId ? (customerMap[c.customerId] || null) : null;
+        // Resolve the linked entity so that entityId, contactType and name always
+        // describe the SAME record. This keeps "Open card" pointed at the correct
+        // endpoint (e.g. /api/clinics/:id) and shows the right name for every
+        // entity type (clinic / hospital / collaborator / customer).
+        let entityName: string | null = null;
         let contactType: string | null = null;
-        let entityId: string | null = c.customerId || null;
-        if (c.campaignContactId && ccContactTypeMap[c.campaignContactId]) {
-          const cc = ccContactTypeMap[c.campaignContactId];
-          contactType = cc.contactType;
-          if (!entityName) {
-            if (cc.contactType === 'customer' && cc.customerId) {
-              entityName = customerMap[cc.customerId] || null;
-              entityId = cc.customerId;
-            } else if (cc.clinicId) {
-              entityName = clinicNameMap[cc.clinicId] || null;
-              entityId = cc.clinicId;
-            } else if (cc.hospitalId) {
-              entityName = hospitalNameMap[cc.hospitalId] || null;
-              entityId = cc.hospitalId;
-            } else if (cc.collaboratorId) {
-              entityName = collaboratorNameMap[cc.collaboratorId] || null;
-              entityId = cc.collaboratorId;
-            }
+        let entityId: string | null = null;
+        const cc = c.campaignContactId ? ccContactTypeMap[c.campaignContactId] : null;
+        if (cc) {
+          if (cc.clinicId && (cc.contactType === 'clinic' || (!cc.customerId && !cc.hospitalId && !cc.collaboratorId))) {
+            contactType = 'clinic'; entityId = cc.clinicId; entityName = clinicNameMap[cc.clinicId] || null;
+          } else if (cc.hospitalId && (cc.contactType === 'hospital' || (!cc.customerId && !cc.clinicId && !cc.collaboratorId))) {
+            contactType = 'hospital'; entityId = cc.hospitalId; entityName = hospitalNameMap[cc.hospitalId] || null;
+          } else if (cc.collaboratorId && (cc.contactType === 'collaborator' || (!cc.customerId && !cc.clinicId && !cc.hospitalId))) {
+            contactType = 'collaborator'; entityId = cc.collaboratorId; entityName = collaboratorNameMap[cc.collaboratorId] || null;
+          } else if (cc.customerId) {
+            contactType = 'customer'; entityId = cc.customerId; entityName = customerMap[cc.customerId] || null;
+          } else if (cc.clinicId) {
+            contactType = 'clinic'; entityId = cc.clinicId; entityName = clinicNameMap[cc.clinicId] || null;
+          } else if (cc.hospitalId) {
+            contactType = 'hospital'; entityId = cc.hospitalId; entityName = hospitalNameMap[cc.hospitalId] || null;
+          } else if (cc.collaboratorId) {
+            contactType = 'collaborator'; entityId = cc.collaboratorId; entityName = collaboratorNameMap[cc.collaboratorId] || null;
           }
         }
-        // For direct calls (no campaignContact context), customerId resolves to a customer
-        if (!contactType && entityId) {
-          contactType = "customer";
+        // Fall back to the call's direct customer link (manual / inbound calls with
+        // no campaign contact, or a campaign contact that resolved to nothing).
+        if (!entityId && c.customerId) {
+          contactType = 'customer'; entityId = c.customerId; entityName = customerMap[c.customerId] || null;
         }
         return {
           id: c.id,

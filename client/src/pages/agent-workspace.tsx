@@ -14070,6 +14070,7 @@ export default function AgentWorkspacePage() {
           }
           // No campaign context — fetch entity directly and load into workspace
           try {
+            let ok = false;
             if (type === "customer") {
               const res = await fetch(`/api/customers/${id}`, { credentials: "include" });
               if (res.ok) {
@@ -14081,6 +14082,7 @@ export default function AgentWorkspacePage() {
                 setCurrentHospitalData(null);
                 setCurrentCollaboratorData(null);
                 setRightTab("actions");
+                ok = true;
               }
             } else if (type === "clinic") {
               const res = await fetch(`/api/clinics/${id}`, { credentials: "include" });
@@ -14094,6 +14096,7 @@ export default function AgentWorkspacePage() {
                 setCurrentHospitalData(null);
                 setCurrentCollaboratorData(null);
                 setRightTab("actions");
+                ok = true;
               }
             } else if (type === "hospital") {
               const res = await fetch(`/api/hospitals/${id}`, { credentials: "include" });
@@ -14107,6 +14110,7 @@ export default function AgentWorkspacePage() {
                 setCurrentHospitalData(hospital);
                 setCurrentCollaboratorData(null);
                 setRightTab("actions");
+                ok = true;
               }
             } else if (type === "collaborator") {
               const res = await fetch(`/api/collaborators/${id}`, { credentials: "include" });
@@ -14120,9 +14124,15 @@ export default function AgentWorkspacePage() {
                 setCurrentHospitalData(null);
                 setCurrentCollaboratorData(collab);
                 setRightTab("actions");
+                ok = true;
               }
             }
-          } catch {}
+            if (!ok) {
+              toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.contactLoadError, variant: "destructive" });
+            }
+          } catch {
+            toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.contactLoadError, variant: "destructive" });
+          }
         }}
       />
 
