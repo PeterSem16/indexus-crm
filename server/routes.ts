@@ -24690,11 +24690,11 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         for (const r of rows) collaboratorNameMap[r.id] = [r.titleBefore, r.firstName, r.lastName].filter(Boolean).join(" ");
       }
 
-      const callItems = calls.map(c => {
-        // Resolve the linked entity so that entityId, contactType and name always
-        // describe the SAME record. This keeps "Open card" pointed at the correct
-        // endpoint (e.g. /api/clinics/:id) and shows the right name for every
-        // entity type (clinic / hospital / collaborator / customer).
+      // Resolve the linked entity so that entityId, contactType and name always
+      // describe the SAME record. This keeps "Open card" pointed at the correct
+      // endpoint (e.g. /api/clinics/:id) and shows the right name for every
+      // entity type (clinic / hospital / collaborator / customer).
+      const resolveEntity = (c: { campaignContactId: string | null; customerId: string | null }): { entityId: string | null; contactType: string | null; entityName: string | null } => {
         let entityName: string | null = null;
         let contactType: string | null = null;
         let entityId: string | null = null;
@@ -24720,6 +24720,79 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         // no campaign contact, or a campaign contact that resolved to nothing).
         if (!entityId && c.customerId) {
           contactType = 'customer'; entityId = c.customerId; entityName = customerMap[c.customerId] || null;
+        }
+        return { entityId, contactType, entityName };
+      };
+
+      const baseResolved = calls.map(c => ({ c, r: resolveEntity(c) }));
+
+      // Phone-number fallback: manual / failed calls are frequently logged with only
+      // a phone number and NO linked contact (customer_id + campaign_contact_id both
+      // null). Match those against known customers by phone/mobile — reusing the same
+      // number-variant logic the inbound virtual agent uses — so the row still shows
+      // a name and "Open card" opens the right customer.
+      const phoneVariants = (phone: string | null | undefined): string[] => {
+        if (!phone) return [];
+        const cleaned = phone.replace(/[\s\-\(\)]/g, "");
+        const variants = new Set<string>([cleaned, phone]);
+        if (cleaned.startsWith("+")) {
+          variants.add(cleaned.substring(1));
+          if (cleaned.startsWith("+421")) variants.add("0" + cleaned.substring(4));
+        } else if (cleaned.startsWith("00")) {
+          variants.add("+" + cleaned.substring(2));
+        } else if (cleaned.startsWith("0")) {
+          variants.add("+421" + cleaned.substring(1));
+        }
+        return Array.from(variants).filter(Boolean);
+      };
+      const phoneMatch: Record<string, { entityId: string; contactType: string; entityName: string | null }> = {};
+      const needPhone = baseResolved.filter(x => !x.r.entityId && x.c.phoneNumber);
+      if (needPhone.length > 0) {
+        // Compare on digits-only (strip spaces / dashes / parens on BOTH sides) so a
+        // hand-entered number like "+49 2381 70551" still matches a call "+49238170551".
+        const norm = (x: string | null | undefined) => (x || "").replace(/[^0-9+]/g, "");
+        const callClean = new Map<string, Set<string>>();
+        const allClean = new Set<string>();
+        for (const { c } of needPhone) {
+          const cs = new Set(phoneVariants(c.phoneNumber).map(norm).filter(Boolean));
+          callClean.set(c.id, cs);
+          cs.forEach(x => allClean.add(x));
+        }
+        if (allClean.size > 0) {
+          const list = Array.from(allClean);
+          // Pull every contact type whose normalized phone number could match, so a
+          // manual call to a clinic / hospital / collaborator resolves a name too.
+          const nrm = (col: string) => `regexp_replace(coalesce(${col}, ''), '[^0-9+]', '', 'g')`;
+          const [rCust, rClin, rHosp, rColl] = await Promise.all([
+            pool.query(`SELECT id, first_name AS "firstName", last_name AS "lastName", phone, mobile, mobile_2 AS "mobile2" FROM customers WHERE ${nrm('phone')} = ANY($1::text[]) OR ${nrm('mobile')} = ANY($1::text[]) OR ${nrm('mobile_2')} = ANY($1::text[])`, [list]),
+            pool.query(`SELECT id, name, doctor_title AS "doctorTitle", doctor_first_name AS "doctorFirstName", doctor_last_name AS "doctorLastName", phone, phone2, phone3 FROM clinics WHERE ${nrm('phone')} = ANY($1::text[]) OR ${nrm('phone2')} = ANY($1::text[]) OR ${nrm('phone3')} = ANY($1::text[])`, [list]),
+            pool.query(`SELECT id, name, phone FROM hospitals WHERE ${nrm('phone')} = ANY($1::text[])`, [list]),
+            pool.query(`SELECT id, first_name AS "firstName", last_name AS "lastName", title_before AS "titleBefore", phone, mobile, mobile_2 AS "mobile2" FROM collaborators WHERE ${nrm('phone')} = ANY($1::text[]) OR ${nrm('mobile')} = ANY($1::text[]) OR ${nrm('mobile_2')} = ANY($1::text[])`, [list]),
+          ]);
+          const phCust = rCust.rows, phClin = rClin.rows, phHosp = rHosp.rows, phColl = rColl.rows;
+          for (const { c } of needPhone) {
+            const cs = callClean.get(c.id) || new Set<string>();
+            const inV = (x: string | null | undefined) => { const n = norm(x); return !!n && cs.has(n); };
+            const cands: { entityId: string; contactType: string; entityName: string | null }[] = [];
+            for (const m of phCust) if (inV(m.phone) || inV(m.mobile) || inV(m.mobile2)) cands.push({ entityId: m.id, contactType: 'customer', entityName: `${m.firstName || ""} ${m.lastName || ""}`.trim() || null });
+            for (const m of phClin) if (inV(m.phone) || inV(m.phone2) || inV(m.phone3)) { const doc = [m.doctorTitle, m.doctorFirstName, m.doctorLastName].filter(Boolean).join(" "); cands.push({ entityId: m.id, contactType: 'clinic', entityName: doc ? `${doc} (${m.name})` : m.name }); }
+            for (const m of phHosp) if (inV(m.phone)) cands.push({ entityId: m.id, contactType: 'hospital', entityName: m.name });
+            for (const m of phColl) if (inV(m.phone) || inV(m.mobile) || inV(m.mobile2)) cands.push({ entityId: m.id, contactType: 'collaborator', entityName: [m.titleBefore, m.firstName, m.lastName].filter(Boolean).join(" ") || null });
+            // Only assign on a single unambiguous match, so we never open the wrong card.
+            const uniq = new Map(cands.map(x => [`${x.contactType}:${x.entityId}`, x]));
+            if (uniq.size === 1) {
+              phoneMatch[c.id] = Array.from(uniq.values())[0];
+            }
+          }
+        }
+      }
+
+      const callItems = baseResolved.map(({ c, r }) => {
+        let { entityId, contactType, entityName } = r;
+        if (!entityId && phoneMatch[c.id]) {
+          entityId = phoneMatch[c.id].entityId;
+          entityName = phoneMatch[c.id].entityName;
+          contactType = phoneMatch[c.id].contactType;
         }
         return {
           id: c.id,

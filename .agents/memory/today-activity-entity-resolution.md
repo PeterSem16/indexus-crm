@@ -21,3 +21,25 @@ id-presence fallbacks), else fall back to the call's direct customer_id. Collect
 customer ids for name lookup regardless of contactType so mismatched rows still get
 a name. Frontend open handlers should always toast on failure so a wrong-endpoint
 404 is never a silent dead button.
+
+## Phone-number fallback (manual / failed calls)
+
+Manual and failed calls are frequently logged with ONLY a phone number and NO linked
+contact (both `customer_id` and `campaign_contact_id` null). Those rows show just the
+number and "Open card" has no target.
+
+**Rule:** when a call row has no resolved entity, resolve it by phone number across
+ALL four contact tables (customers phone/mobile/mobile_2, clinics phone/phone2/phone3,
+hospitals phone, collaborators phone/mobile/mobile_2), and assign entityId+contactType
++name ONLY when exactly ONE contact across all tables owns the number.
+
+**Why:** (1) numbers are shared — the same number can belong to several test/real
+records, and picking one at random opens the wrong card. The single-match guard makes
+an ambiguous number fall back to just the bare number, never a wrong card. (2) DB
+numbers are hand-entered with spaces/dashes (e.g. `+49 2381 70551`) while Asterisk
+logs them digits-only (`+49238170551`), so BOTH sides must be normalized to digits
+(`regexp_replace(col,'[^0-9+]','','g')`) or clinic/hospital rows silently never match.
+
+**How to apply:** batch one query per table (guard on non-empty variant list), use the
+inbound virtual-agent's prefix variants (+421 / 421 / 0 forms) THEN strip to digits on
+both sides; dedup candidates by `contactType:entityId` before the size===1 check.
