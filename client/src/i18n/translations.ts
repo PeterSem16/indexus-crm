@@ -3672,6 +3672,20 @@ export interface Translations {
       cancel: string;
       registrationCancelled: string;
     };
+    standingForward: {
+      title: string;
+      description: string;
+      activate: string;
+      activateDesc: string;
+      noNumberWarning: string;
+      selectQueues: string;
+      selectQueuesDesc: string;
+      noQueues: string;
+      ringSeconds: string;
+      ringSecondsDesc: string;
+      save: string;
+      saved: string;
+    };
     sipServer: {
       title: string;
       description: string;
@@ -10804,6 +10818,20 @@ export const translations: Record<Locale, Translations> = {
           aiGenerated: 'Description generated',
           enterNameFirst: 'Enter the name first',
         },
+      standingForward: {
+        title: 'Standing forward to mobile',
+        description: 'Receive queue calls on your mobile even when you are not logged in',
+        activate: 'Enable standing forward',
+        activateDesc: 'Queue calls will ring your mobile 24/7, even when you are logged out',
+        noNumberWarning: 'No mobile number set. Add a call-forwarding number above first.',
+        selectQueues: 'Which queues?',
+        selectQueuesDesc: 'Choose the inbound lines whose calls should ring your mobile',
+        noQueues: 'No queues available',
+        ringSeconds: 'Ring time (seconds)',
+        ringSecondsDesc: 'How long your mobile rings before trying the next agent (5-55s)',
+        save: 'Save standing forward',
+        saved: 'Standing forward saved',
+      },
       sipProfile: {
         title: 'SIP Phone Profile',
         description: 'Configure your personal SIP phone settings',
@@ -17394,6 +17422,20 @@ export const translations: Record<Locale, Translations> = {
           aiGenerated: 'Popis bol vygenerovaný',
           enterNameFirst: 'Najprv zadajte názov',
         },
+      standingForward: {
+        title: 'Trvalé presmerovanie na mobil',
+        description: 'Prijímajte hovory z frontu na mobile, aj keď nie ste prihlásení',
+        activate: 'Zapnúť trvalé presmerovanie',
+        activateDesc: 'Hovory z frontu budú zvoniť na vašom mobile 24/7, aj keď ste odhlásení',
+        noNumberWarning: 'Nie je nastavené mobilné číslo. Najprv pridajte číslo na presmerovanie vyššie.',
+        selectQueues: 'Ktoré fronty?',
+        selectQueuesDesc: 'Vyberte prichádzajúce linky, ktorých hovory majú zvoniť na vašom mobile',
+        noQueues: 'Žiadne dostupné fronty',
+        ringSeconds: 'Čas zvonenia (sekundy)',
+        ringSecondsDesc: 'Ako dlho zvoní váš mobil pred skúšaním ďalšieho agenta (5-55s)',
+        save: 'Uložiť trvalé presmerovanie',
+        saved: 'Trvalé presmerovanie uložené',
+      },
       sipProfile: {
         title: 'SIP telefón - Profil',
         description: 'Nastavte si osobné údaje pre SIP telefón',
@@ -23970,6 +24012,20 @@ export const translations: Record<Locale, Translations> = {
           aiGenerated: 'Popis byl vygenerován',
           enterNameFirst: 'Nejprve zadejte název',
         },
+      standingForward: {
+        title: 'Trvalé přesměrování na mobil',
+        description: 'Přijímejte hovory z fronty na mobilu, i když nejste přihlášeni',
+        activate: 'Zapnout trvalé přesměrování',
+        activateDesc: 'Hovory z fronty budou zvonit na vašem mobilu 24/7, i když jste odhlášeni',
+        noNumberWarning: 'Není nastaveno mobilní číslo. Nejprve přidejte číslo pro přesměrování výše.',
+        selectQueues: 'Které fronty?',
+        selectQueuesDesc: 'Vyberte příchozí linky, jejichž hovory mají zvonit na vašem mobilu',
+        noQueues: 'Žádné dostupné fronty',
+        ringSeconds: 'Doba zvonění (sekundy)',
+        ringSecondsDesc: 'Jak dlouho zvoní váš mobil před zkoušením dalšího agenta (5-55s)',
+        save: 'Uložit trvalé přesměrování',
+        saved: 'Trvalé přesměrování uloženo',
+      },
       sipProfile: {
         title: 'SIP telefon - Profil',
         description: 'Nastavte si osobni udaje pro SIP telefon',
@@ -30494,6 +30550,20 @@ export const translations: Record<Locale, Translations> = {
           aiGenerated: 'Leírás létrehozva',
           enterNameFirst: 'Először adja meg a nevet',
         },
+      standingForward: {
+        title: 'Állandó átirányítás mobilra',
+        description: 'Fogadja a sorból érkező hívásokat mobilon, akkor is, ha nincs bejelentkezve',
+        activate: 'Állandó átirányítás bekapcsolása',
+        activateDesc: 'A sorból érkező hívások a mobilján csörögnek 24/7, akkor is, ha ki van jelentkezve',
+        noNumberWarning: 'Nincs megadva mobilszám. Először adjon meg egy átirányítási számot fent.',
+        selectQueues: 'Mely sorok?',
+        selectQueuesDesc: 'Válassza ki a bejövő vonalakat, amelyek hívásai a mobilján csörögjenek',
+        noQueues: 'Nincs elérhető sor',
+        ringSeconds: 'Csengetési idő (másodperc)',
+        ringSecondsDesc: 'Meddig csörög a mobilja, mielőtt a következő ügynököt próbálja (5-55mp)',
+        save: 'Állandó átirányítás mentése',
+        saved: 'Állandó átirányítás mentve',
+      },
       sipProfile: {
         title: 'SIP telefon - Profil',
         description: 'Allitsa be szemelyes SIP telefon adatait',
@@ -36913,6 +36983,20 @@ export const translations: Record<Locale, Translations> = {
           aiGenerated: 'Descrierea a fost generată',
           enterNameFirst: 'Introduceți mai întâi numele',
         },
+      standingForward: {
+        title: 'Redirecționare permanentă către mobil',
+        description: 'Primiți apelurile din coadă pe mobil chiar și când nu sunteți autentificat',
+        activate: 'Activați redirecționarea permanentă',
+        activateDesc: 'Apelurile din coadă vor suna pe mobilul dvs. 24/7, chiar și când sunteți deconectat',
+        noNumberWarning: 'Nu este setat niciun număr de mobil. Adăugați mai întâi un număr de redirecționare mai sus.',
+        selectQueues: 'Ce cozi?',
+        selectQueuesDesc: 'Alegeți liniile de intrare ale căror apeluri să sune pe mobilul dvs.',
+        noQueues: 'Nicio coadă disponibilă',
+        ringSeconds: 'Timp de sonerie (secunde)',
+        ringSecondsDesc: 'Cât timp sună mobilul înainte de a încerca următorul agent (5-55s)',
+        save: 'Salvați redirecționarea permanentă',
+        saved: 'Redirecționare permanentă salvată',
+      },
       sipProfile: {
         title: 'Telefon SIP - Profil',
         description: 'Configurati setarile personale pentru telefonul SIP',
@@ -43334,6 +43418,20 @@ export const translations: Record<Locale, Translations> = {
           aiGenerated: 'Descrizione generata',
           enterNameFirst: 'Inserisci prima il nome',
         },
+      standingForward: {
+        title: 'Inoltro permanente al cellulare',
+        description: 'Ricevi le chiamate della coda sul cellulare anche quando non sei connesso',
+        activate: 'Attiva inoltro permanente',
+        activateDesc: 'Le chiamate della coda squilleranno sul tuo cellulare 24/7, anche quando sei disconnesso',
+        noNumberWarning: 'Nessun numero di cellulare impostato. Aggiungi prima un numero di inoltro sopra.',
+        selectQueues: 'Quali code?',
+        selectQueuesDesc: 'Scegli le linee in entrata le cui chiamate devono squillare sul tuo cellulare',
+        noQueues: 'Nessuna coda disponibile',
+        ringSeconds: 'Tempo di squillo (secondi)',
+        ringSecondsDesc: 'Per quanto tempo squilla il cellulare prima di provare il prossimo agente (5-55s)',
+        save: 'Salva inoltro permanente',
+        saved: 'Inoltro permanente salvato',
+      },
       sipProfile: {
         title: 'Telefono SIP - Profilo',
         description: 'Configura le impostazioni personali del telefono SIP',
@@ -49755,6 +49853,20 @@ export const translations: Record<Locale, Translations> = {
           aiGenerated: 'Beschreibung generiert',
           enterNameFirst: 'Geben Sie zuerst den Namen ein',
         },
+      standingForward: {
+        title: 'Dauerweiterleitung ans Mobiltelefon',
+        description: 'Empfangen Sie Warteschlangenanrufe auf dem Mobiltelefon, auch wenn Sie nicht angemeldet sind',
+        activate: 'Dauerweiterleitung aktivieren',
+        activateDesc: 'Warteschlangenanrufe klingeln rund um die Uhr auf Ihrem Mobiltelefon, auch wenn Sie abgemeldet sind',
+        noNumberWarning: 'Keine Mobilnummer festgelegt. Fügen Sie zuerst oben eine Weiterleitungsnummer hinzu.',
+        selectQueues: 'Welche Warteschlangen?',
+        selectQueuesDesc: 'Wählen Sie die Eingangsleitungen, deren Anrufe auf Ihrem Mobiltelefon klingeln sollen',
+        noQueues: 'Keine Warteschlangen verfügbar',
+        ringSeconds: 'Klingeldauer (Sekunden)',
+        ringSecondsDesc: 'Wie lange Ihr Mobiltelefon klingelt, bevor der nächste Agent versucht wird (5-55s)',
+        save: 'Dauerweiterleitung speichern',
+        saved: 'Dauerweiterleitung gespeichert',
+      },
       sipProfile: {
         title: 'SIP Telefon - Profil',
         description: 'Konfigurieren Sie Ihre persönlichen SIP-Telefoneinstellungen',

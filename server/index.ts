@@ -158,7 +158,15 @@ app.use((req, res, next) => {
       ALTER TABLE clinics ADD COLUMN IF NOT EXISTS tags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
       ALTER TABLE users ADD COLUMN IF NOT EXISTS missed_call_email_notification boolean NOT NULL DEFAULT false;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS position text;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS standing_forward_enabled boolean NOT NULL DEFAULT false;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS standing_forward_ring_seconds integer NOT NULL DEFAULT 25;
       ALTER TABLE campaign_contacts ADD COLUMN IF NOT EXISTS callback_status_list_item_id varchar;
+      CREATE TABLE IF NOT EXISTS agent_standing_forwards (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id varchar NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        inbound_queue_id varchar NOT NULL REFERENCES inbound_queues(id) ON DELETE CASCADE,
+        created_at timestamp NOT NULL DEFAULT now()
+      );
     `);
     console.log('[migration] Customer columns ensured');
 

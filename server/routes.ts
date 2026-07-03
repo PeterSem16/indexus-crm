@@ -39,7 +39,7 @@ import {
   sourceLearningMetrics, contactScores, leadFeedback, feedbackPatterns, leadEntities, entityRelations, entityEvidences, leadLifecycle,
   insertSopCategorySchema, insertSopArticleSchema,
   agentSessions, agentSessionActivities, agentBreaks, scheduledReports, agentQueueStatus,
-  inboundCallLogs, inboundQueues, ariSettings, sipExtensions, clinicReferrals, collaboratorReferrals, clinicEvents, hospitalNetworks, hospitalNetworkMembers,
+  inboundCallLogs, inboundQueues, agentStandingForwards, ariSettings, sipExtensions, clinicReferrals, collaboratorReferrals, clinicEvents, hospitalNetworks, hospitalNetworkMembers,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog, type LeadScoringCriteria,
   type ServiceConfiguration, type InvoiceTemplate, type InvoiceLayout, type Role,
   type Campaign, type CampaignContact, type ContractInstance,
@@ -3132,6 +3132,73 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error updating call forwarding:", error);
       res.status(500).json({ error: "Failed to update call forwarding settings" });
+    }
+  });
+
+  // ── Standing Forward (queue calls ring the agent's mobile even when NOT logged in) ──
+  // Reuses the agent's Call Forwarding mobile number; enable flags are independent.
+  app.get("/api/users/:id/standing-forward", requireAuth, async (req, res) => {
+    try {
+      const sessionUser = (req.session as any)?.user;
+      const isAdmin = sessionUser?.role === "admin";
+      if (!isAdmin && sessionUser?.id !== req.params.id) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const user = await storage.getUser(req.params.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+      const rows = await db.select({ inboundQueueId: agentStandingForwards.inboundQueueId })
+        .from(agentStandingForwards)
+        .where(eq(agentStandingForwards.userId, req.params.id));
+      res.json({
+        enabled: (user as any).standingForwardEnabled ?? false,
+        ringSeconds: (user as any).standingForwardRingSeconds ?? 25,
+        number: (user as any).callForwardingNumber ?? "",
+        queueIds: rows.map(r => r.inboundQueueId),
+      });
+    } catch (error) {
+      console.error("Error getting standing forward:", error);
+      res.status(500).json({ error: "Failed to get standing forward settings" });
+    }
+  });
+
+  app.put("/api/users/:id/standing-forward", requireAuth, async (req, res) => {
+    try {
+      const sessionUser = (req.session as any)?.user;
+      const isAdmin = sessionUser?.role === "admin";
+      if (!isAdmin && sessionUser?.id !== req.params.id) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const { enabled, ringSeconds, queueIds } = req.body;
+      const parsedRing = Math.min(Math.max(parseInt(String(ringSeconds ?? 25), 10) || 25, 5), 55);
+      const user = await storage.updateUser(req.params.id, {
+        standingForwardEnabled: Boolean(enabled),
+        standingForwardRingSeconds: parsedRing,
+      } as any);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      if (Array.isArray(queueIds)) {
+        // Replace the user's queue assignments with the provided set.
+        await db.delete(agentStandingForwards).where(eq(agentStandingForwards.userId, req.params.id));
+        const uniqueIds = Array.from(new Set(queueIds.filter((q: any) => typeof q === "string" && q.length > 0))) as string[];
+        if (uniqueIds.length > 0) {
+          await db.insert(agentStandingForwards).values(
+            uniqueIds.map((qid) => ({ userId: req.params.id, inboundQueueId: qid }))
+          );
+        }
+      }
+
+      const rows = await db.select({ inboundQueueId: agentStandingForwards.inboundQueueId })
+        .from(agentStandingForwards)
+        .where(eq(agentStandingForwards.userId, req.params.id));
+      res.json({
+        enabled: (user as any).standingForwardEnabled ?? false,
+        ringSeconds: (user as any).standingForwardRingSeconds ?? 25,
+        number: (user as any).callForwardingNumber ?? "",
+        queueIds: rows.map(r => r.inboundQueueId),
+      });
+    } catch (error) {
+      console.error("Error updating standing forward:", error);
+      res.status(500).json({ error: "Failed to update standing forward settings" });
     }
   });
 

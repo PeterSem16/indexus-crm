@@ -6,6 +6,7 @@ import { eq, and, inArray, isNotNull, asc, desc, sql, gt } from "drizzle-orm";
 import {
   inboundQueues,
   queueMembers,
+  agentStandingForwards,
   systemMs365Connections,
   agentQueueStatus,
   inboundCallLogs,
@@ -129,6 +130,18 @@ export class QueueEngine extends EventEmitter {
     callRecordingMode: string;
   }> = new Map();
 
+  // ── Standing forward (mobile fallback when no desk agent is logged in) ──────────
+  // agentId sentinel is `standing:<userId>` so the shared pending/bridge/complete
+  // handlers can branch away from desk-agent status writes (standing users have no
+  // agentSessions / agentQueueStatus rows).
+  private standingForwardBusy: Set<string> = new Set(); // userIds currently ringing/bridged via standing forward
+  private standingForwardRoundRobin: Map<string, number> = new Map(); // queueId → next round-robin index
+  private standingForwardCooldown: Map<string, number> = new Map(); // userId → epoch ms until re-ring allowed
+  // Two-signal gate for standing Local channels (same reason as pendingRoHairpins):
+  // channel-state-change(Up) can fire BEFORE StasisStart for Local channels, so we
+  // only bridge once BOTH Up AND Stasis are confirmed.
+  private standingBridgeSignals: Map<string, { upReady: boolean; stasisReady: boolean }> = new Map();
+
   constructor(ariClient: AriClient) {
     super();
     this.ariClient = ariClient;
@@ -211,7 +224,20 @@ export class QueueEngine extends EventEmitter {
           const agentCall = this.pendingAgentCalls.get(event.channel.id);
           if (agentCall) {
             console.log(`[QueueEngine] Originated channel ${event.channel.id} entered Stasis, state: ${event.channel.state}`);
-            if (event.channel.state === "Up") {
+            if (this.isStandingId(agentCall.agentId)) {
+              // Standing forward uses a Local channel → two-signal gate (Up + Stasis)
+              // before bridging (channel-state-change Up can precede StasisStart).
+              const sig = this.standingBridgeSignals.get(event.channel.id) || { upReady: false, stasisReady: false };
+              sig.stasisReady = true;
+              if (event.channel.state === "Up") sig.upReady = true;
+              this.standingBridgeSignals.set(event.channel.id, sig);
+              if (sig.upReady && sig.stasisReady) {
+                this.standingBridgeSignals.delete(event.channel.id);
+                this.handleAgentChannelAnswer(event.channel.id, agentCall);
+              } else {
+                console.log(`[QueueEngine] Standing forward StasisStart: stasisReady set, waiting for Up`);
+              }
+            } else if (event.channel.state === "Up") {
               this.handleAgentChannelAnswer(event.channel.id, agentCall);
             }
           } else {
@@ -252,7 +278,20 @@ export class QueueEngine extends EventEmitter {
         }
         const agentCall = this.pendingAgentCalls.get(event.channel.id);
         if (agentCall) {
-          this.handleAgentChannelAnswer(event.channel.id, agentCall);
+          if (this.isStandingId(agentCall.agentId)) {
+            // Standing forward Local channel: two-signal gate (Up + Stasis).
+            const sig = this.standingBridgeSignals.get(event.channel.id) || { upReady: false, stasisReady: false };
+            sig.upReady = true;
+            this.standingBridgeSignals.set(event.channel.id, sig);
+            if (sig.upReady && sig.stasisReady) {
+              this.standingBridgeSignals.delete(event.channel.id);
+              this.handleAgentChannelAnswer(event.channel.id, agentCall);
+            } else {
+              console.log(`[QueueEngine] Standing forward channel-state-change Up: upReady set, waiting for StasisStart`);
+            }
+          } else {
+            this.handleAgentChannelAnswer(event.channel.id, agentCall);
+          }
         }
       }
     });
@@ -528,7 +567,7 @@ export class QueueEngine extends EventEmitter {
     }
 
     // Use the proven forwardToExternalNumber which routes via the correct trunk
-    await this.forwardToExternalNumber(call.channelId, forwardNumber, { fallbackDid: queue.didNumber });
+    await this.forwardToExternalNumber(call.channelId, forwardNumber, { fallbackDid: queue.didNumber, callerNumber: call.callerNumber });
 
     // After handing off to dialplan: set up DB tracking + poll loop for recording/transcript
     if (recordCalls) {
@@ -1303,7 +1342,7 @@ export class QueueEngine extends EventEmitter {
     }
   }
 
-  private async forwardToExternalNumber(channelId: string, number: string, opts?: { fallbackDid?: string | null }): Promise<void> {
+  private async forwardToExternalNumber(channelId: string, number: string, opts?: { fallbackDid?: string | null; callerNumber?: string | null }): Promise<void> {
     // Fetch sourceTrunk BEFORE stopping MOH so we know whether to defer the stop.
     // For RO inbound: MOH must keep playing until the ARI bridge is ready (see below).
     const sourceTrunk = await this.ariClient.getChannelVar(channelId, "CBC_SOURCE_TRUNK").catch(() => null);
@@ -1460,6 +1499,26 @@ export class QueueEngine extends EventEmitter {
       primaryCtx = "from-internal-it";
     } else {
       primaryCtx = "from-internal";
+    }
+
+    // Caller-ID fix: the continueDialplan forwarding path (unlike the legacy originate
+    // path) does not carry the caller's number to the forwarded mobile, so the agent's
+    // phone showed no/incorrect CLI on forwarded queue calls. Set CALLERID + CBC_CALLER
+    // on the inbound channel before handing to the dialplan (from-internal-* contexts
+    // honor CBC_CALLER). Applies to the non-RO path (RO returns above).
+    let fwdCid = (opts?.callerNumber || "").replace(/\s/g, "");
+    if (!fwdCid) {
+      try { const ch = await this.ariClient.getChannel(channelId); fwdCid = ch?.caller?.number || ""; } catch {}
+    }
+    if (fwdCid) {
+      try {
+        await this.ariClient.setChannelVariable(channelId, "CALLERID(num)", fwdCid);
+        await this.ariClient.setChannelVariable(channelId, "CALLERID(name)", fwdCid);
+        await this.ariClient.setChannelVariable(channelId, "CBC_CALLER", fwdCid);
+        console.log(`[QueueEngine] forwardToExternalNumber: set CALLERID=${fwdCid} on ${channelId}`);
+      } catch (cidErr: any) {
+        console.warn(`[QueueEngine] forwardToExternalNumber: failed to set CALLERID:`, cidErr?.message || cidErr);
+      }
     }
 
     const contexts = [primaryCtx, "from-internal", "indexus-outbound"];
@@ -2383,11 +2442,223 @@ export class QueueEngine extends EventEmitter {
           return true;
         }
       }
-      return false;
+      // No logged-in desk agent — but standing-forward agents (mobile fallback) also
+      // count as "available" so the no-agents action is not applied and the call is
+      // kept in queue for standing round-robin.
+      return await this.hasStandingAgents(queueId);
     } catch (err) {
       console.warn(`[QueueEngine] hasLoggedInAgentsDb error:`, err instanceof Error ? err.message : err);
-      return this.hasLoggedInAgents(queueId);
+      return this.hasLoggedInAgents(queueId) || await this.hasStandingAgents(queueId);
     }
+  }
+
+  private isStandingId(agentId: string): boolean {
+    return agentId.startsWith("standing:");
+  }
+
+  private standingUserId(agentId: string): string {
+    return agentId.startsWith("standing:") ? agentId.slice("standing:".length) : agentId;
+  }
+
+  // Country outbound context for a normalized (no +, no spaces) mobile number.
+  // Mirrors forwardToExternalNumber's prefix routing so standing forward reaches the
+  // mobile through the same country trunk (Local/<num>@from-internal-<cc>).
+  private getOutboundContextForNumber(norm: string): string {
+    if (norm.startsWith("421") || /^0[89]/.test(norm) || /^0[2-7]/.test(norm)) return "from-internal-sk";
+    if (norm.startsWith("420") || /^[67]/.test(norm)) return "from-internal-cz";
+    if (norm.startsWith("40")) return "from-internal-ro";
+    if (norm.startsWith("36")) return "from-internal-hu";
+    if (norm.startsWith("49")) return "from-internal-de";
+    if (norm.startsWith("39")) return "from-internal-it";
+    return "from-internal";
+  }
+
+  // Standing agents (opted-in + reachable mobile) assigned to a queue, ordered by
+  // userId for a deterministic round-robin.
+  private async getStandingAgentsForQueue(queueId: string): Promise<Array<{ userId: string; number: string; ringSeconds: number }>> {
+    try {
+      const rows = await db.select({
+        userId: agentStandingForwards.userId,
+        number: users.callForwardingNumber,
+        ringSeconds: users.standingForwardRingSeconds,
+      })
+        .from(agentStandingForwards)
+        .innerJoin(users, eq(agentStandingForwards.userId, users.id))
+        .where(and(
+          eq(agentStandingForwards.inboundQueueId, queueId),
+          eq(users.standingForwardEnabled, true),
+          eq(users.isActive, true),
+        ))
+        .orderBy(asc(agentStandingForwards.userId));
+      return rows
+        .filter(r => !!r.number && r.number.trim().length > 0)
+        .map(r => ({ userId: r.userId, number: (r.number as string).trim(), ringSeconds: r.ringSeconds ?? 25 }));
+    } catch (err) {
+      console.warn(`[QueueEngine] getStandingAgentsForQueue error:`, err instanceof Error ? err.message : err);
+      return [];
+    }
+  }
+
+  private async hasStandingAgents(queueId: string): Promise<boolean> {
+    const agents = await this.getStandingAgentsForQueue(queueId);
+    return agents.length > 0;
+  }
+
+  // Ring ONE standing agent's mobile for this call using sequential round-robin.
+  // Returns true if a standing agent was rung (call handed off), false if none are
+  // available (all busy / on cooldown / none configured) — caller stays in queue.
+  private async tryStandingForward(call: QueuedCall, queue: InboundQueue): Promise<boolean> {
+    if (this.overflowInProgress.has(call.channelId)) return false;
+    // Skip if THIS caller already has a ring (standing or desk) in flight.
+    for (const p of this.pendingAgentCalls.values()) {
+      if (p.callerChannelId === call.channelId) return false;
+    }
+    const standingAgents = await this.getStandingAgentsForQueue(queue.id);
+    if (standingAgents.length === 0) return false;
+
+    const now = Date.now();
+    const startIdx = this.standingForwardRoundRobin.get(queue.id) || 0;
+    let pick: { userId: string; number: string; ringSeconds: number } | null = null;
+    for (let i = 0; i < standingAgents.length; i++) {
+      const idx = (startIdx + i) % standingAgents.length;
+      const cand = standingAgents[idx];
+      if (this.standingForwardBusy.has(cand.userId)) continue;
+      if ((this.standingForwardCooldown.get(cand.userId) || 0) > now) continue;
+      pick = cand;
+      this.standingForwardRoundRobin.set(queue.id, idx + 1);
+      break;
+    }
+    if (!pick) return false;
+
+    await this.connectCallToStandingAgent(call, pick, queue);
+    return true;
+  }
+
+  private async connectCallToStandingAgent(
+    call: QueuedCall,
+    agent: { userId: string; number: string; ringSeconds: number },
+    queue: InboundQueue,
+  ): Promise<void> {
+    console.log(`[QueueEngine] Standing forward: ringing agent ${agent.userId} mobile for call ${call.id} (queue "${queue.name}")`);
+    this.standingForwardBusy.add(agent.userId);
+    this.waitingCalls.delete(call.channelId);
+
+    const waitDuration = Math.floor((Date.now() - call.enteredAt.getTime()) / 1000);
+    const norm = agent.number.replace(/^\+/, "").replace(/\s/g, "");
+    const ctx = this.getOutboundContextForNumber(norm);
+    const ringSeconds = Math.min(Math.max(agent.ringSeconds || 25, 5), 55);
+    const standingAgentId = `standing:${agent.userId}`;
+
+    this.assignedCalls.set(call.channelId, {
+      call,
+      agentId: standingAgentId,
+      queueId: queue.id,
+      queue,
+      assignedAt: new Date(),
+    });
+
+    try {
+      // Attribute the call to the real agent (users.id) so answered standing-forward
+      // calls show up in call logs / KPIs. All no-answer / requeue paths null this back out.
+      await db.update(inboundCallLogs)
+        .set({ status: "ringing", waitDurationSeconds: waitDuration, assignedAgentId: agent.userId })
+        .where(eq(inboundCallLogs.id, call.id));
+
+      // Keep MOH playing on the caller during the mobile ring (same UX as desk SIP);
+      // handleAgentChannelAnswer stops MOH and bridges on real answer. A Local channel
+      // into from-internal-<cc> only goes Up when the mobile genuinely answers (the
+      // dialplan does Dial() with answer supervision, no early Answer()).
+      const localChannel = await this.ariClient.originateChannel(
+        `Local/${norm}@${ctx}/n`,
+        norm,
+        ctx,
+        call.callerNumber,
+        `agent-call,${standingAgentId},${call.channelId}`,
+      );
+      console.log(`[QueueEngine] Standing forward: Local channel ${localChannel.id} originated (ctx=${ctx}, ring=${ringSeconds}s)`);
+
+      this.pendingAgentCalls.set(localChannel.id, {
+        callerChannelId: call.channelId,
+        callId: call.id,
+        agentId: standingAgentId,
+        queueId: queue.id,
+        callerNumber: call.callerNumber,
+        callerName: call.callerName,
+        customerId: call.customerId,
+        waitDuration,
+        queueName: queue.name,
+        enteredAt: call.enteredAt,
+      });
+
+      setTimeout(async () => {
+        const stillPending = this.pendingAgentCalls.get(localChannel.id);
+        if (!stillPending) return; // answered or already handled
+        console.log(`[QueueEngine] Standing forward: agent ${agent.userId} did not answer within ${ringSeconds}s, advancing`);
+        // Cooldown avoids immediately re-ringing the same agent (e.g. the only standing
+        // agent). Hanging up the Local channel fires channel-destroyed →
+        // handleStandingAgentChannelDestroyed clears busy + requeues the caller.
+        this.standingForwardCooldown.set(agent.userId, Date.now() + 8000);
+        try { await this.ariClient.hangupChannel(localChannel.id, "normal"); } catch {}
+      }, ringSeconds * 1000);
+    } catch (err: any) {
+      console.error(`[QueueEngine] Standing forward: originate failed for agent ${agent.userId}:`, err?.message || err);
+      this.standingForwardBusy.delete(agent.userId);
+      this.standingForwardCooldown.set(agent.userId, Date.now() + 8000);
+      this.assignedCalls.delete(call.channelId);
+      // Requeue the caller so the next tick can try another standing agent.
+      call.position = this.getQueueSize(queue.id) + 1;
+      this.waitingCalls.set(call.channelId, call);
+      this.recalculatePositions(queue.id);
+      if (!this.mohPlaybacks.has(call.channelId)) {
+        await this.startMohForChannel(call.channelId, queue.id);
+      }
+      try {
+        await db.update(inboundCallLogs)
+          .set({ status: "queued", assignedAgentId: null })
+          .where(eq(inboundCallLogs.id, call.id));
+      } catch {}
+    }
+  }
+
+  // Standing Local channel destroyed before answer (no-answer / reject / busy, or the
+  // ring timer's hangup). Clear busy + requeue the caller so round-robin advances.
+  // NOTE: standing users have no agentQueueStatus row, so we must NOT call
+  // updateAgentStatus for them (unlike the desk-agent destroyed path).
+  private async handleStandingAgentChannelDestroyed(channelId: string, pending: PendingAgentCall): Promise<void> {
+    this.pendingAgentCalls.delete(channelId);
+    this.standingBridgeSignals.delete(channelId);
+    const uid = this.standingUserId(pending.agentId);
+    this.standingForwardBusy.delete(uid);
+    console.log(`[QueueEngine] Standing forward: agent ${uid} channel ${channelId} destroyed before answer, advancing round-robin`);
+
+    if (this.overflowInProgress.has(pending.callerChannelId)) return;
+
+    const assignedCall = this.assignedCalls.get(pending.callerChannelId);
+    const originalEnteredAt = assignedCall?.call.enteredAt || pending.enteredAt;
+    this.assignedCalls.delete(pending.callerChannelId);
+
+    const call: QueuedCall = {
+      id: pending.callId,
+      channelId: pending.callerChannelId,
+      callerNumber: pending.callerNumber,
+      callerName: pending.callerName,
+      queueId: pending.queueId,
+      customerId: pending.customerId,
+      enteredAt: originalEnteredAt,
+      position: this.getQueueSize(pending.queueId) + 1,
+      originateFailures: 0,
+    };
+    this.waitingCalls.set(pending.callerChannelId, call);
+    this.recalculatePositions(pending.queueId);
+    // MOH kept playing during the ring; ensure it is still running.
+    if (!this.mohPlaybacks.has(pending.callerChannelId)) {
+      await this.startMohForChannel(pending.callerChannelId, pending.queueId);
+    }
+    try {
+      await db.update(inboundCallLogs)
+        .set({ status: "queued", assignedAgentId: null })
+        .where(eq(inboundCallLogs.id, pending.callId));
+    } catch {}
   }
 
   private async handleNoAgents(channelId: string, queue: InboundQueue, callerNumber: string, callerName: string): Promise<void> {
@@ -2792,8 +3063,15 @@ export class QueueEngine extends EventEmitter {
           await this.connectCallToAllAgents(call, allAvailable, queue);
         } else {
           const agent = await this.selectAgent(queue);
-          if (!agent) break;
-          await this.connectCallToAgent(call, agent, queue);
+          if (!agent) {
+            // No logged-in desk agent → fall back to standing forward (ring an
+            // opted-in agent's mobile via sequential round-robin). If none are
+            // available (all busy / on cooldown / none configured), stop for now.
+            const rung = await this.tryStandingForward(call, queue);
+            if (!rung) break;
+          } else {
+            await this.connectCallToAgent(call, agent, queue);
+          }
         }
         this.recalculatePositions(queue.id);
       }
@@ -3516,7 +3794,10 @@ export class QueueEngine extends EventEmitter {
       console.error(`[QueueEngine] Failed to bridge channels:`, err.message);
       this.ringAllClaimedCallers.delete(pending.callerChannelId);
       try { await this.ariClient.hangupChannel(agentChannelId, "normal"); } catch {}
-      if (!isTransfer) {
+      if (this.isStandingId(pending.agentId)) {
+        this.standingBridgeSignals.delete(agentChannelId);
+        this.standingForwardBusy.delete(this.standingUserId(pending.agentId));
+      } else if (!isTransfer) {
         this.updateAgentStatus(pending.agentId, "available", null);
       }
     }
@@ -3583,6 +3864,15 @@ export class QueueEngine extends EventEmitter {
       })
       .where(eq(inboundCallLogs.id, callId));
 
+    if (this.isStandingId(agentId)) {
+      // Standing forward agent: no agentQueueStatus row → no wrap_up timer /
+      // updateAgentStatus. Just clear busy so they are eligible for the next queue
+      // call, and kick the queue in case callers are waiting.
+      this.standingForwardBusy.delete(this.standingUserId(agentId));
+      this.processQueues();
+      return;
+    }
+
     const queue = callLog[0].queueId
       ? (await db.select().from(inboundQueues).where(eq(inboundQueues.id, callLog[0].queueId)).limit(1))[0]
       : null;
@@ -3641,7 +3931,11 @@ export class QueueEngine extends EventEmitter {
     }
 
     if (agentId) {
-      this.updateAgentStatus(agentId, "available", null);
+      if (this.isStandingId(agentId)) {
+        this.standingForwardBusy.delete(this.standingUserId(agentId));
+      } else {
+        this.updateAgentStatus(agentId, "available", null);
+      }
     }
 
     for (const [agentChId, pending] of this.pendingAgentCalls.entries()) {
@@ -3649,7 +3943,12 @@ export class QueueEngine extends EventEmitter {
         console.log(`[QueueEngine] StasisEnd cleanup: cancelling pending agent call ${agentChId}`);
         this.pendingAgentCalls.delete(agentChId);
         try { await this.ariClient.hangupChannel(agentChId, "normal"); } catch {}
-        if (!agentId) this.updateAgentStatus(pending.agentId, "available", null);
+        if (this.isStandingId(pending.agentId)) {
+          this.standingBridgeSignals.delete(agentChId);
+          this.standingForwardBusy.delete(this.standingUserId(pending.agentId));
+        } else if (!agentId) {
+          this.updateAgentStatus(pending.agentId, "available", null);
+        }
         break;
       }
     }
@@ -3735,6 +4034,14 @@ export class QueueEngine extends EventEmitter {
 
     const pending = this.pendingAgentCalls.get(channelId);
     if (pending) {
+      if (this.isStandingId(pending.agentId)) {
+        // Standing forward Local channel destroyed before answer (no-answer / reject /
+        // busy / ring-timer hangup) → clear busy + requeue caller so round-robin
+        // advances. Standing users have no agentQueueStatus row, so this MUST branch
+        // away from the desk-agent overflow/recovery path below.
+        await this.handleStandingAgentChannelDestroyed(channelId, pending);
+        return;
+      }
       if (this.overflowInProgress.has(pending.callerChannelId)) {
         console.log(`[QueueEngine] Agent channel ${channelId} destroyed but overflow already in progress for caller ${pending.callerChannelId}, skipping`);
         this.pendingAgentCalls.delete(channelId);
@@ -3837,7 +4144,12 @@ export class QueueEngine extends EventEmitter {
         console.log(`[QueueEngine] Caller channel ${channelId} destroyed while agent ${agentChId} is ringing`);
         this.pendingAgentCalls.delete(agentChId);
         try { await this.ariClient.hangupChannel(agentChId, "normal"); } catch {}
-        this.updateAgentStatus(pending.agentId, "available", null);
+        if (this.isStandingId(pending.agentId)) {
+          this.standingBridgeSignals.delete(agentChId);
+          this.standingForwardBusy.delete(this.standingUserId(pending.agentId));
+        } else {
+          this.updateAgentStatus(pending.agentId, "available", null);
+        }
         db.update(inboundCallLogs)
           .set({ status: "abandoned", completedAt: new Date(), abandonReason: "caller_hangup" })
           .where(eq(inboundCallLogs.id, pending.callId))
@@ -3849,7 +4161,7 @@ export class QueueEngine extends EventEmitter {
           callerName: pending.callerName,
           queueName: pending.queueName,
           reason: "caller_hangup",
-          assignedAgentId: pending.agentId,
+          assignedAgentId: this.isStandingId(pending.agentId) ? undefined : pending.agentId,
         });
         return;
       }

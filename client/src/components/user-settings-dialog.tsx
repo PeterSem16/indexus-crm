@@ -491,6 +491,55 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
     }
   };
 
+  // ── Standing Forward (receive queue calls on mobile even when NOT logged in) ──
+  const [sfEnabled, setSfEnabled] = useState(false);
+  const [sfRingSeconds, setSfRingSeconds] = useState(25);
+  const [sfQueueIds, setSfQueueIds] = useState<string[]>([]);
+  const [savingSf, setSavingSf] = useState(false);
+
+  const { data: sfQueues } = useQuery<Array<{ id: string; name: string; countryCode?: string | null }>>({
+    queryKey: ["/api/inbound-queues"],
+  });
+
+  useEffect(() => {
+    if (!user?.id) return;
+    fetch(`/api/users/${user.id}/standing-forward`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) {
+          setSfEnabled(data.enabled ?? false);
+          setSfRingSeconds(data.ringSeconds ?? 25);
+          setSfQueueIds(Array.isArray(data.queueIds) ? data.queueIds : []);
+        }
+      })
+      .catch(() => {});
+  }, [user?.id]);
+
+  const toggleSfQueue = (queueId: string) => {
+    setSfQueueIds((prev) =>
+      prev.includes(queueId) ? prev.filter((q) => q !== queueId) : [...prev, queueId]
+    );
+  };
+
+  const handleSaveStandingForward = async () => {
+    if (!user?.id) return;
+    setSavingSf(true);
+    try {
+      await apiRequest("PUT", `/api/users/${user.id}/standing-forward`, {
+        enabled: sfEnabled,
+        ringSeconds: sfRingSeconds,
+        queueIds: sfQueueIds,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users", user.id, "standing-forward"] });
+      toast({ title: t.settings.standingForward.saved });
+    } catch (err: any) {
+      toast({ title: t.common.error || "Chyba", description: err.message, variant: "destructive" });
+    } finally {
+      setSavingSf(false);
+    }
+  };
+
   const [missedCallEmailNotif, setMissedCallEmailNotif] = useState(false);
   const [savingMissedCall, setSavingMissedCall] = useState(false);
 
@@ -742,6 +791,102 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
           >
             {savingFwd ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
             {t.collaborators.mobileApp.callForwardingSave}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Standing Forward (mobile fallback when not logged in) */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex flex-row items-center gap-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <Smartphone className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-base">{t.settings.standingForward.title}</CardTitle>
+              <CardDescription className="text-sm">
+                {t.settings.standingForward.description}
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <p className="text-sm font-medium">{t.settings.standingForward.activate}</p>
+              <p className="text-xs text-muted-foreground">
+                {t.settings.standingForward.activateDesc}
+              </p>
+            </div>
+            <Switch
+              checked={sfEnabled}
+              onCheckedChange={setSfEnabled}
+              data-testid="switch-user-standing-forward"
+            />
+          </div>
+
+          {sfEnabled && (
+            <>
+              {!fwdNumber.trim() && (
+                <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3">
+                  <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                  <p className="text-xs text-destructive">{t.settings.standingForward.noNumberWarning}</p>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label>{t.settings.standingForward.selectQueues}</Label>
+                <p className="text-xs text-muted-foreground">{t.settings.standingForward.selectQueuesDesc}</p>
+                <div className="space-y-1 rounded-lg border p-2 max-h-52 overflow-y-auto">
+                  {sfQueues && sfQueues.length > 0 ? (
+                    sfQueues.map((q) => (
+                      <label
+                        key={q.id}
+                        className="flex items-center justify-between gap-3 rounded-md px-2 py-2 hover-elevate cursor-pointer"
+                        data-testid={`row-standing-queue-${q.id}`}
+                      >
+                        <span className="text-sm flex items-center gap-2">
+                          {q.name}
+                          {q.countryCode && (
+                            <Badge variant="outline" className="text-xs">{q.countryCode}</Badge>
+                          )}
+                        </span>
+                        <Switch
+                          checked={sfQueueIds.includes(q.id)}
+                          onCheckedChange={() => toggleSfQueue(q.id)}
+                          data-testid={`switch-standing-queue-${q.id}`}
+                        />
+                      </label>
+                    ))
+                  ) : (
+                    <p className="text-xs text-muted-foreground px-2 py-2">{t.settings.standingForward.noQueues}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sfRingSeconds">{t.settings.standingForward.ringSeconds}</Label>
+                <Input
+                  id="sfRingSeconds"
+                  type="number"
+                  min={5}
+                  max={55}
+                  value={sfRingSeconds}
+                  onChange={(e) => setSfRingSeconds(parseInt(e.target.value, 10) || 25)}
+                  data-testid="input-standing-ring-seconds"
+                />
+                <p className="text-xs text-muted-foreground">{t.settings.standingForward.ringSecondsDesc}</p>
+              </div>
+            </>
+          )}
+
+          <Button
+            onClick={handleSaveStandingForward}
+            disabled={savingSf || (sfEnabled && (!fwdNumber.trim() || sfQueueIds.length === 0))}
+            data-testid="button-save-standing-forward"
+          >
+            {savingSf ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+            {t.settings.standingForward.save}
           </Button>
         </CardContent>
       </Card>

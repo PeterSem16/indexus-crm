@@ -190,6 +190,8 @@ export const users = pgTable("users", {
   phone: text("phone"), // Phone number for notifications/alerts
   callForwardingEnabled: boolean("call_forwarding_enabled").notNull().default(false),
   callForwardingNumber: text("call_forwarding_number"), // Mobile number to forward incoming calls to
+  standingForwardEnabled: boolean("standing_forward_enabled").notNull().default(false), // Receive forwarded queue calls on mobile even when NOT logged into the app
+  standingForwardRingSeconds: integer("standing_forward_ring_seconds").notNull().default(25), // Max ring duration (s) on mobile before round-robin advances to next standing agent
   missedCallEmailNotification: boolean("missed_call_email_notification").notNull().default(false), // Send email on missed inbound call
   position: text("position"), // Job position / title shown in email templates
   smsSenderId: text("sms_sender_id"), // Text sender ID for outbound SMS (e.g. "INDEXUS", max 11 chars)
@@ -6192,6 +6194,22 @@ export const insertQueueMemberSchema = createInsertSchema(queueMembers).omit({
 });
 export type InsertQueueMember = z.infer<typeof insertQueueMemberSchema>;
 export type QueueMember = typeof queueMembers.$inferSelect;
+
+// Standing Forward assignments - which queues an opted-in agent's mobile receives
+// via round-robin when NO logged-in desk agent is available for the queue.
+export const agentStandingForwards = pgTable("agent_standing_forwards", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  inboundQueueId: varchar("inbound_queue_id").notNull().references(() => inboundQueues.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertAgentStandingForwardSchema = createInsertSchema(agentStandingForwards).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAgentStandingForward = z.infer<typeof insertAgentStandingForwardSchema>;
+export type AgentStandingForward = typeof agentStandingForwards.$inferSelect;
 
 // IVR Audio Messages - welcome messages, hold music, announcements
 export const ivrMessages = pgTable("ivr_messages", {
