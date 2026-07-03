@@ -952,9 +952,16 @@ export class QueueEngine extends EventEmitter {
     console.log(`[QueueEngine] Matched queue: "${queue.name}" (id: ${queue.id}, strategy: ${queue.strategy})`);
 
     if (!this.isWithinBusinessHours(queue)) {
-      console.log(`[QueueEngine] Queue "${queue.name}" is outside business hours (${queue.activeFrom}-${queue.activeTo}, tz: ${queue.timezone})`);
-      await this.handleAfterHours(channel.id, queue, callerNumber, callerName);
-      return;
+      // Standing forward runs 24/7: if any agent opted into standing forward for this
+      // queue, bypass after-hours handling and queue the call so processQueues can ring
+      // their mobile via round-robin. Otherwise, normal after-hours behavior applies.
+      if (await this.hasStandingAgents(queue.id)) {
+        console.log(`[QueueEngine] Queue "${queue.name}" is outside business hours but has standing-forward agents → routing 24/7`);
+      } else {
+        console.log(`[QueueEngine] Queue "${queue.name}" is outside business hours (${queue.activeFrom}-${queue.activeTo}, tz: ${queue.timezone})`);
+        await this.handleAfterHours(channel.id, queue, callerNumber, callerName);
+        return;
+      }
     }
 
     if (this.getQueueSize(queue.id) >= queue.maxQueueSize) {
@@ -2794,9 +2801,15 @@ export class QueueEngine extends EventEmitter {
 
   private async routeCallToQueue(channel: AriChannel, queue: InboundQueue, callerNumber: string, callerName: string): Promise<void> {
     if (!this.isWithinBusinessHours(queue)) {
-      console.log(`[QueueEngine] Queue "${queue.name}" is outside business hours`);
-      await this.handleAfterHours(channel.id, queue, callerNumber, callerName);
-      return;
+      // Standing forward runs 24/7 (see handleIncomingCall): if any agent opted into
+      // standing forward for this queue, bypass after-hours handling and queue the call.
+      if (await this.hasStandingAgents(queue.id)) {
+        console.log(`[QueueEngine] Queue "${queue.name}" is outside business hours but has standing-forward agents → routing 24/7`);
+      } else {
+        console.log(`[QueueEngine] Queue "${queue.name}" is outside business hours`);
+        await this.handleAfterHours(channel.id, queue, callerNumber, callerName);
+        return;
+      }
     }
 
     const noAgentsAction = queue.noAgentsAction || "wait";
