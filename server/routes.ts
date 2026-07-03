@@ -24696,31 +24696,39 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       // describe the SAME record. This keeps "Open card" pointed at the correct
       // endpoint (e.g. /api/clinics/:id) and shows the right name for every
       // entity type (clinic / hospital / collaborator / customer).
+      // An id only counts as a resolvable entity when its row was actually found —
+      // i.e. its id is a key in the corresponding name map (those maps are built by
+      // querying each table by id, so a present key == the record exists). This stops
+      // us returning an entityId for a deleted / missing record, which would render a
+      // broken "Open card" button (404 -> "failed to open card") with no name. When a
+      // link is stale the call falls through to the phone-number fallback, which can
+      // still recover the right contact by number.
+      const has = (m: Record<string, string>, id: string) => Object.prototype.hasOwnProperty.call(m, id);
       const resolveEntity = (c: { campaignContactId: string | null; customerId: string | null }): { entityId: string | null; contactType: string | null; entityName: string | null } => {
         let entityName: string | null = null;
         let contactType: string | null = null;
         let entityId: string | null = null;
         const cc = c.campaignContactId ? ccContactTypeMap[c.campaignContactId] : null;
         if (cc) {
-          if (cc.clinicId && (cc.contactType === 'clinic' || (!cc.customerId && !cc.hospitalId && !cc.collaboratorId))) {
+          if (cc.clinicId && has(clinicNameMap, cc.clinicId) && (cc.contactType === 'clinic' || (!cc.customerId && !cc.hospitalId && !cc.collaboratorId))) {
             contactType = 'clinic'; entityId = cc.clinicId; entityName = clinicNameMap[cc.clinicId] || null;
-          } else if (cc.hospitalId && (cc.contactType === 'hospital' || (!cc.customerId && !cc.clinicId && !cc.collaboratorId))) {
+          } else if (cc.hospitalId && has(hospitalNameMap, cc.hospitalId) && (cc.contactType === 'hospital' || (!cc.customerId && !cc.clinicId && !cc.collaboratorId))) {
             contactType = 'hospital'; entityId = cc.hospitalId; entityName = hospitalNameMap[cc.hospitalId] || null;
-          } else if (cc.collaboratorId && (cc.contactType === 'collaborator' || (!cc.customerId && !cc.clinicId && !cc.hospitalId))) {
+          } else if (cc.collaboratorId && has(collaboratorNameMap, cc.collaboratorId) && (cc.contactType === 'collaborator' || (!cc.customerId && !cc.clinicId && !cc.hospitalId))) {
             contactType = 'collaborator'; entityId = cc.collaboratorId; entityName = collaboratorNameMap[cc.collaboratorId] || null;
-          } else if (cc.customerId) {
+          } else if (cc.customerId && has(customerMap, cc.customerId)) {
             contactType = 'customer'; entityId = cc.customerId; entityName = customerMap[cc.customerId] || null;
-          } else if (cc.clinicId) {
+          } else if (cc.clinicId && has(clinicNameMap, cc.clinicId)) {
             contactType = 'clinic'; entityId = cc.clinicId; entityName = clinicNameMap[cc.clinicId] || null;
-          } else if (cc.hospitalId) {
+          } else if (cc.hospitalId && has(hospitalNameMap, cc.hospitalId)) {
             contactType = 'hospital'; entityId = cc.hospitalId; entityName = hospitalNameMap[cc.hospitalId] || null;
-          } else if (cc.collaboratorId) {
+          } else if (cc.collaboratorId && has(collaboratorNameMap, cc.collaboratorId)) {
             contactType = 'collaborator'; entityId = cc.collaboratorId; entityName = collaboratorNameMap[cc.collaboratorId] || null;
           }
         }
         // Fall back to the call's direct customer link (manual / inbound calls with
         // no campaign contact, or a campaign contact that resolved to nothing).
-        if (!entityId && c.customerId) {
+        if (!entityId && c.customerId && has(customerMap, c.customerId)) {
           contactType = 'customer'; entityId = c.customerId; entityName = customerMap[c.customerId] || null;
         }
         return { entityId, contactType, entityName };

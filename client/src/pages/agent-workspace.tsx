@@ -7862,63 +7862,79 @@ function MyActivityPanel({
                   const ring = formatDuration(ringSecs);
                   const isIn = item.direction === "inbound";
                   const displayName = item.customerName || item.phoneNumber;
+                  const hasEntity = !!(onOpenEntity && item.entityId);
                   return (
                     <div
                       key={item.id}
                       data-testid={`my-shift-call-${item.id}`}
-                      className="flex items-center gap-3 px-5 py-2.5 border-b border-l-2 transition-colors hover:bg-muted/30"
+                      className="flex items-start gap-3 px-5 py-3 border-b border-l-2 transition-colors hover:bg-muted/30"
                       style={{ borderLeftColor: isIn ? "#5E7A5A" : "#B5622E" }}
                     >
-                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${info.bg} ${info.color}`}>
-                        {isIn ? <PhoneIncoming className="h-4 w-4" /> : <PhoneCall className="h-4 w-4" />}
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${info.bg} ${info.color}`}>
+                        {isIn ? <PhoneIncoming className="h-4 w-4" /> : <PhoneOutgoing className="h-4 w-4" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          {item.customerName && onOpenEntity && item.entityId ? (
-                            <button
-                              type="button"
-                              onClick={() => { onOpenEntity(item.contactType || "customer", item.entityId, item.campaignContactId, item.campaignId); onOpenChange(false); }}
-                              className="text-sm font-medium truncate text-left hover:underline hover:text-primary transition-colors"
-                              data-testid={`btn-shift-open-entity-${item.id}`}
-                              title={item.customerName}
-                            >
-                              {item.customerName}
-                            </button>
-                          ) : (
-                            <span className="text-sm font-medium truncate">{displayName}</span>
+                        {hasEntity && item.customerName ? (
+                          <button
+                            type="button"
+                            onClick={() => { onOpenEntity?.(item.contactType || "customer", item.entityId, item.campaignContactId, item.campaignId); onOpenChange(false); }}
+                            className="block max-w-full text-sm font-semibold truncate text-left hover:underline hover:text-primary transition-colors"
+                            data-testid={`btn-shift-open-entity-${item.id}`}
+                            title={item.customerName}
+                          >
+                            {item.customerName}
+                          </button>
+                        ) : (
+                          <span className="block text-sm font-semibold truncate">{displayName || t.agentWorkspace.myShiftNoContact}</span>
+                        )}
+                        <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground min-w-0">
+                          <Phone className="h-3 w-3 opacity-60 shrink-0" />
+                          <span className="truncate">{item.phoneNumber || "—"}</span>
+                          <span className="opacity-40 shrink-0">·</span>
+                          <span className="shrink-0">{isIn ? t.agentWorkspace.todayCallsInboundBadge : t.agentWorkspace.todayCallsOutboundBadge}</span>
+                          {!hasEntity && item.phoneNumber && (
+                            <>
+                              <span className="opacity-40 shrink-0">·</span>
+                              <span className="shrink-0 opacity-80">{t.agentWorkspace.myShiftNoContact}</span>
+                            </>
                           )}
-                          {item.customerName && <span className="text-[11px] text-muted-foreground truncate">{item.phoneNumber}</span>}
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                           <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${info.bg} ${info.color}`}>
                             {info.icon}{info.label}
                           </span>
-                          {isIn && item.inboundQueueName && (
-                            <span className="text-[10px] text-muted-foreground"><span className="opacity-60">{t.agentWorkspace.todayCallsQueue}</span> {item.inboundQueueName}</span>
-                          )}
                           {ring && (
-                            <span className="flex items-center gap-0.5 text-[10px] text-amber-600 dark:text-amber-400" title={t.agentWorkspace.myShiftRing}>
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400" title={t.agentWorkspace.myShiftRing}>
                               {isIn ? <PhoneIncoming className="h-2.5 w-2.5" /> : <PhoneOutgoing className="h-2.5 w-2.5" />}{t.agentWorkspace.myShiftRing} {ring}
                             </span>
                           )}
                           {dur && (
-                            <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">
                               <Clock className="h-2.5 w-2.5" />{dur}
                             </span>
                           )}
+                          {isIn && item.inboundQueueName && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-muted-foreground bg-muted">
+                              <span className="opacity-60">{t.agentWorkspace.todayCallsQueue}</span> {item.inboundQueueName}
+                            </span>
+                          )}
                           {item.dispositionCode && (
-                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800">
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800">
                               <FileText className="h-2.5 w-2.5" />{item.dispositionCode}
                             </span>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {onOpenEntity && item.entityId && (
+                      <div className="flex flex-col items-end gap-2 shrink-0">
+                        <div className="text-right leading-tight">
+                          <div className="text-xs font-semibold text-foreground">{format(new Date(sortTime), "HH:mm")}</div>
+                          <div className="text-[10px] text-muted-foreground mt-0.5">{format(new Date(sortTime), "dd.MM.yyyy")}</div>
+                        </div>
+                        {hasEntity && (
                           <button
                             type="button"
-                            onClick={() => { onOpenEntity(item.contactType || "customer", item.entityId, item.campaignContactId, item.campaignId); onOpenChange(false); }}
-                            className="flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11px] font-medium border transition-colors"
+                            onClick={() => { onOpenEntity?.(item.contactType || "customer", item.entityId, item.campaignContactId, item.campaignId); onOpenChange(false); }}
+                            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11px] font-medium border transition-colors hover:brightness-95"
                             style={{ background: "#B5622E18", color: "#B5622E", borderColor: "#B5622E30" }}
                             title={t.agentWorkspace.myShiftOpenCard}
                             data-testid={`btn-shift-open-card-${item.id}`}
@@ -7927,14 +7943,6 @@ function MyActivityPanel({
                             {t.agentWorkspace.myShiftOpenCard}
                           </button>
                         )}
-                        <div className="text-right flex flex-col items-end gap-1">
-                          <div className="text-[10px] text-muted-foreground leading-none">{format(new Date(sortTime), "dd.MM.yyyy")}</div>
-                          <div className="text-xs font-medium text-foreground">{format(new Date(sortTime), "HH:mm")}</div>
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-normal"
-                            style={isIn ? { borderColor: "#5E7A5A60", color: "#5E7A5A" } : { borderColor: "#B5622E60", color: "#B5622E" }}>
-                            {isIn ? t.agentWorkspace.todayCallsInboundBadge : t.agentWorkspace.todayCallsOutboundBadge}
-                          </Badge>
-                        </div>
                       </div>
                     </div>
                   );

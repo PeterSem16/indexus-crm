@@ -3437,6 +3437,7 @@ export interface Translations {
     myShiftFilterMissed: string;
     myShiftOpenCard: string;
     myShiftRing: string;
+    myShiftNoContact: string;
     myShiftCloseCard: string;
     myShiftFilterBreak: string;
     myShiftBreakDefault: string;
@@ -10559,6 +10560,7 @@ export const translations: Record<Locale, Translations> = {
       myShiftFilterMissed: 'Missed',
       myShiftOpenCard: 'Open card',
       myShiftRing: 'Ringing',
+      myShiftNoContact: 'Unknown contact',
       myShiftCloseCard: 'Close',
       myShiftFilterBreak: 'Breaks',
       myShiftBreakDefault: 'Break',
@@ -17136,6 +17138,7 @@ export const translations: Record<Locale, Translations> = {
       myShiftFilterMissed: 'Zmeškaná',
       myShiftOpenCard: 'Otvoriť kartu',
       myShiftRing: 'Zvonenie',
+      myShiftNoContact: 'Neznámy kontakt',
       myShiftCloseCard: 'Zatvoriť',
       myShiftFilterBreak: 'Prestávky',
       myShiftBreakDefault: 'Prestávka',
@@ -23699,6 +23702,7 @@ export const translations: Record<Locale, Translations> = {
       myShiftFilterMissed: 'Zmeškaný',
       myShiftOpenCard: 'Otevřít kartu',
       myShiftRing: 'Zvonění',
+      myShiftNoContact: 'Neznámý kontakt',
       myShiftCloseCard: 'Zavřít',
       myShiftFilterBreak: 'Přestávky',
       myShiftBreakDefault: 'Přestávka',
@@ -30205,6 +30209,7 @@ export const translations: Record<Locale, Translations> = {
       todayCallsRefresh: 'Frissítés',
       myShiftOpenCard: 'Kártya megnyitása',
       myShiftRing: 'Csengés',
+      myShiftNoContact: 'Ismeretlen kapcsolat',
       myShiftCloseCard: 'Bezárás',
       myShiftFilterAll: 'Minden',
       myShiftFilterCalls: 'Hívások',
@@ -36611,6 +36616,7 @@ export const translations: Record<Locale, Translations> = {
       todayCallsRefresh: 'Reîncărcați',
       myShiftOpenCard: 'Deschide cardul',
       myShiftRing: 'Sunare',
+      myShiftNoContact: 'Contact necunoscut',
       myShiftCloseCard: 'Închide',
       myShiftFilterAll: 'Toate',
       myShiftFilterCalls: 'Apeluri',
@@ -43019,6 +43025,7 @@ export const translations: Record<Locale, Translations> = {
       todayCallsRefresh: 'Aggiorna',
       myShiftOpenCard: 'Apri scheda',
       myShiftRing: 'Squillo',
+      myShiftNoContact: 'Contatto sconosciuto',
       myShiftCloseCard: 'Chiudi',
       myShiftFilterAll: 'Tutto',
       myShiftFilterCalls: 'Chiamate',
@@ -49427,6 +49434,7 @@ export const translations: Record<Locale, Translations> = {
       todayCallsRefresh: 'Aktualisieren',
       myShiftOpenCard: 'Karte öffnen',
       myShiftRing: 'Klingeln',
+      myShiftNoContact: 'Unbekannter Kontakt',
       myShiftCloseCard: 'Schließen',
       myShiftFilterAll: 'Alle',
       myShiftFilterCalls: 'Anrufe',

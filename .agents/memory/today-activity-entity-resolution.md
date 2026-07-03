@@ -43,3 +43,23 @@ logs them digits-only (`+49238170551`), so BOTH sides must be normalized to digi
 **How to apply:** batch one query per table (guard on non-empty variant list), use the
 inbound virtual-agent's prefix variants (+421 / 421 / 0 forms) THEN strip to digits on
 both sides; dedup candidates by `contactType:entityId` before the size===1 check.
+
+## Never return an entityId for a row that no longer exists
+
+**Rule:** `resolveEntity` must only set `entityId` when that id is a KEY in the matching
+name map (`Object.prototype.hasOwnProperty.call(map, id)`), not merely when the source
+column is non-null. Those name maps are built by querying each table by id, so a present
+key == the row exists. Gate every branch (incl. the direct `customer_id` fallback).
+
+**Why:** a call linked to a DELETED entity (e.g. an old customer_id) otherwise returns
+`entityId` set but `entityName` null. The frontend shows "Open card" (checks only
+entityId) with no name, and clicking fetches `/api/customers/:id` → 404 → "failed to
+open card". User-visible broken button. Gating on existence makes stale links return
+entityId=null, which (a) hides the broken button and shows an "unknown contact" state,
+and (b) lets the phone-number fallback recover the real contact by number
+(`needPhone` filters on `!r.entityId`, so nulled stale links flow into it).
+
+**How to apply (frontend):** show "Open card" only when `entityId` is present (existence
+now guaranteed); show the clickable name only when `entityId && customerName`; otherwise
+render `displayName || myShiftNoContact`. Keep the two conditions in lockstep so a button
+without a working target can never render.
