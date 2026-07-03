@@ -10898,6 +10898,7 @@ export default function AgentWorkspacePage() {
       return;
     }
     if (makeCall && currentContact) {
+      agentSession.updateStatus("busy").catch(() => {});
       const customerName = `${currentContact.firstName || ""} ${currentContact.lastName || ""}`.trim();
       makeCall({
         phoneNumber,
@@ -12731,6 +12732,7 @@ export default function AgentWorkspacePage() {
                 pendingCcIdRef.current = null;
                 setCurrentCampaignContactId(null);
                 setCurrentContact(null);
+                agentSession.updateStatus("available").catch(() => {});
               }}
               onScriptAction={(action, data) => {
                 if (action === "openEmail") {
@@ -14147,7 +14149,12 @@ export default function AgentWorkspacePage() {
                 ok = true;
               }
             }
-            if (!ok) {
+            if (ok) {
+              // Opening a contact card means the agent is now working it — mirror
+              // loadContact / handleOpenScheduledContact so the status is not left
+              // "available" (which would let the dialer/queue treat them as idle).
+              agentSession.updateStatus("busy").catch(() => {});
+            } else {
               toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.contactLoadError, variant: "destructive" });
             }
           } catch {
