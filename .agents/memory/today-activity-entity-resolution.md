@@ -63,3 +63,23 @@ and (b) lets the phone-number fallback recover the real contact by number
 now guaranteed); show the clickable name only when `entityId && customerName`; otherwise
 render `displayName || myShiftNoContact`. Keep the two conditions in lockstep so a button
 without a working target can never render.
+
+## call_logs.customer_id is POLYMORPHIC — resolve it against all 4 entity tables
+
+**Rule:** the direct `call_logs.customer_id` does NOT always hold a customer id. When an
+agent dials from a clinic / hospital / collaborator card, the SIP phone flow writes THAT
+entity's id into `customer_id` and leaves `campaign_contact_id` null (PendingCall /
+createCallLog only carry `customerId`, never `campaignContactId`). So resolveEntity's
+direct fallback must look the id up in customers → clinics → hospitals → collaborators (by
+id) and set the matching contactType, not just the customers table.
+
+**Why:** resolving the direct id only against customers made every clinic/hospital/
+collaborator call show "unknown contact" with no working "Open card" — the exact
+user-reported bug (a failed outbound call to a clinic number). Phone-number fallback is a
+weaker safety net (misses non-matching/duplicate/oddly-formatted numbers); id resolution
+is deterministic because the correct id is already stored.
+
+**How to apply:** collect `directCustomerIds`, and for those NOT found as customers query
+clinics/hospitals/collaborators by id (one Promise.all) and merge into the same name maps
+used by CC resolution. ids are UUIDs so cross-table collisions don't happen; gate every
+branch with the same `has()` existence check.

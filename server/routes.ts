@@ -24650,6 +24650,11 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       // The second batch is resolved after ccContactTypeMap is built; customerIds here is a placeholder set
       const directCustomerIds = [...new Set(calls.filter(c => c.customerId).map(c => c.customerId as string))];
       let customerMap: Record<string, string> = {};
+      // An id counts as a resolvable entity only when its row was actually found — i.e.
+      // its id is a key in the corresponding name map (each map is built by querying the
+      // table by id, so a present key == the record exists). Prevents a stale/deleted id
+      // from rendering a broken "Open card" (404 -> "failed to open card") with no name.
+      const has = (m: Record<string, string>, id: string) => Object.prototype.hasOwnProperty.call(m, id);
 
       const ccIds = [...new Set(calls.filter(c => c.campaignContactId).map(c => c.campaignContactId as string))];
       let dispositionMap: Record<string, string | null> = {};
@@ -24692,6 +24697,23 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         for (const r of rows) collaboratorNameMap[r.id] = [r.titleBefore, r.firstName, r.lastName].filter(Boolean).join(" ");
       }
 
+      // call_logs.customer_id is polymorphic in practice: when an agent dials from a
+      // clinic / hospital / collaborator card, THAT entity's id is written to
+      // customer_id (campaign_contact_id stays null). So any direct id that isn't a real
+      // customer must be resolved against the other entity tables by id — otherwise the
+      // row shows "unknown contact" with no working "Open card".
+      const unresolvedDirectIds = directCustomerIds.filter(id => !has(customerMap, id) && !has(clinicNameMap, id) && !has(hospitalNameMap, id) && !has(collaboratorNameMap, id));
+      if (unresolvedDirectIds.length > 0) {
+        const [dcClin, dcHosp, dcColl] = await Promise.all([
+          db.select({ id: clinics.id, name: clinics.name, doctorFirstName: clinics.doctorFirstName, doctorLastName: clinics.doctorLastName, doctorTitle: clinics.doctorTitle }).from(clinics).where(inArray(clinics.id, unresolvedDirectIds)),
+          db.select({ id: hospitals.id, name: hospitals.name }).from(hospitals).where(inArray(hospitals.id, unresolvedDirectIds)),
+          db.select({ id: collaborators.id, firstName: collaborators.firstName, lastName: collaborators.lastName, titleBefore: collaborators.titleBefore }).from(collaborators).where(inArray(collaborators.id, unresolvedDirectIds)),
+        ]);
+        for (const r of dcClin) { const doctorPart = [r.doctorTitle, r.doctorFirstName, r.doctorLastName].filter(Boolean).join(" "); clinicNameMap[r.id] = doctorPart ? `${doctorPart} (${r.name})` : r.name; }
+        for (const r of dcHosp) hospitalNameMap[r.id] = r.name;
+        for (const r of dcColl) collaboratorNameMap[r.id] = [r.titleBefore, r.firstName, r.lastName].filter(Boolean).join(" ");
+      }
+
       // Resolve the linked entity so that entityId, contactType and name always
       // describe the SAME record. This keeps "Open card" pointed at the correct
       // endpoint (e.g. /api/clinics/:id) and shows the right name for every
@@ -24703,7 +24725,6 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       // broken "Open card" button (404 -> "failed to open card") with no name. When a
       // link is stale the call falls through to the phone-number fallback, which can
       // still recover the right contact by number.
-      const has = (m: Record<string, string>, id: string) => Object.prototype.hasOwnProperty.call(m, id);
       const resolveEntity = (c: { campaignContactId: string | null; customerId: string | null }): { entityId: string | null; contactType: string | null; entityName: string | null } => {
         let entityName: string | null = null;
         let contactType: string | null = null;
@@ -24726,10 +24747,20 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             contactType = 'collaborator'; entityId = cc.collaboratorId; entityName = collaboratorNameMap[cc.collaboratorId] || null;
           }
         }
-        // Fall back to the call's direct customer link (manual / inbound calls with
-        // no campaign contact, or a campaign contact that resolved to nothing).
-        if (!entityId && c.customerId && has(customerMap, c.customerId)) {
-          contactType = 'customer'; entityId = c.customerId; entityName = customerMap[c.customerId] || null;
+        // Fall back to the call's direct (polymorphic) customer link: manual / inbound
+        // calls with no campaign contact, or one that resolved to nothing. The id may
+        // belong to a customer OR a clinic / hospital / collaborator (dialled from that
+        // card), so try each table by id and set the matching contactType.
+        if (!entityId && c.customerId) {
+          if (has(customerMap, c.customerId)) {
+            contactType = 'customer'; entityId = c.customerId; entityName = customerMap[c.customerId] || null;
+          } else if (has(clinicNameMap, c.customerId)) {
+            contactType = 'clinic'; entityId = c.customerId; entityName = clinicNameMap[c.customerId] || null;
+          } else if (has(hospitalNameMap, c.customerId)) {
+            contactType = 'hospital'; entityId = c.customerId; entityName = hospitalNameMap[c.customerId] || null;
+          } else if (has(collaboratorNameMap, c.customerId)) {
+            contactType = 'collaborator'; entityId = c.customerId; entityName = collaboratorNameMap[c.customerId] || null;
+          }
         }
         return { entityId, contactType, entityName };
       };

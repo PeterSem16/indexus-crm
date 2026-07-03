@@ -7779,7 +7779,7 @@ function MyActivityPanel({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
-      <DialogContent className="sm:max-w-2xl max-h-[85vh] !flex !flex-col p-0">
+      <DialogContent className="sm:max-w-3xl lg:max-w-5xl w-[95vw] max-h-[90vh] !flex !flex-col p-0">
         <div className="flex items-center gap-3 pl-5 pr-14 pt-5 pb-3 border-b flex-shrink-0">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: "#B5622E18" }}>
             <History className="h-5 w-5" style={{ color: "#B5622E" }} />
