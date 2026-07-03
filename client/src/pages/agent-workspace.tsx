@@ -2457,6 +2457,7 @@ function CommunicationCanvas({
   onCloseCallAfterStatusList,
   phoneOverride,
   onPhoneOverrideChange,
+  onEntityRefetched,
   onClearContact,
   customerMessages,
   campaignEmailMode,
@@ -2512,6 +2513,7 @@ function CommunicationCanvas({
   onCloseCallAfterStatusList?: () => void;
   phoneOverride?: string | null;
   onPhoneOverrideChange?: (p: string | null) => void;
+  onEntityRefetched?: (type: string, data: any) => void;
   onClearContact?: () => void;
   customerMessages?: any[];
   campaignEmailMode?: "system" | "user" | "custom";
@@ -2921,33 +2923,64 @@ function CommunicationCanvas({
     }
   }, [contact?.phone]);
 
-  // Reset read-timestamps when contact changes (different contact = fresh unread state)
+  // Persistent per-agent read state (localStorage) so badges only ever count genuinely
+  // unread inbound messages and stay cleared once the agent has opened the channel.
+  const readStorageKey = (ch: "email" | "sms", cid: string) =>
+    `aw:read:${user?.id || "anon"}:${ch}:${cid}`;
+  const persistReadSet = (ch: "email" | "sms", set: Set<string>) => {
+    const cid = contact?.id;
+    if (!cid) return;
+    try { localStorage.setItem(readStorageKey(ch, cid), JSON.stringify(Array.from(set))); } catch {}
+  };
+
+  // Load persisted read state when the contact changes (fresh unread state per contact)
   useEffect(() => {
     setEmailOpenedAt(null);
     setSmsOpenedAt(null);
-    setReadEmailIds(new Set());
-    setReadSmsIds(new Set());
+    const cid = contact?.id;
+    if (!cid) {
+      setReadEmailIds(new Set());
+      setReadSmsIds(new Set());
+      return;
+    }
+    const loadSet = (ch: "email" | "sms") => {
+      try {
+        const raw = localStorage.getItem(readStorageKey(ch, cid));
+        return raw ? new Set<string>(JSON.parse(raw)) : new Set<string>();
+      } catch { return new Set<string>(); }
+    };
+    setReadEmailIds(loadSet("email"));
+    setReadSmsIds(loadSet("sms"));
   }, [contact?.id]);
 
-  // Mark channel as "read" only when the USER explicitly switches to that tab
+  // Mark channel as "read" only when the USER explicitly switches to that tab.
+  // Merge with (and persist) the already-read set so read state survives reopens.
   useEffect(() => {
     if (activeChannel === "email") {
       setEmailOpenedAt(Date.now());
-      setReadEmailIds(new Set(
-        mergedEmailRef.current
-          .filter(e => e.direction === "inbound")
-          .map(e => String(e.id))
-      ));
+      const inboundIds = mergedEmailRef.current
+        .filter(e => e.direction === "inbound")
+        .map(e => String(e.id));
+      setReadEmailIds(prev => {
+        const next = new Set(prev);
+        inboundIds.forEach(id => next.add(id));
+        persistReadSet("email", next);
+        return next;
+      });
       if (contact?.email) {
         setSelectedEmails([contact.email]);
       }
     } else if (activeChannel === "sms") {
       setSmsOpenedAt(Date.now());
-      setReadSmsIds(new Set(
-        (customerMessagesRef.current || [])
-          .filter(m => m.direction === "inbound")
-          .map(m => String(m.id))
-      ));
+      const inboundIds = (customerMessagesRef.current || [])
+        .filter(m => m.direction === "inbound")
+        .map(m => String(m.id));
+      setReadSmsIds(prev => {
+        const next = new Set(prev);
+        inboundIds.forEach(id => next.add(id));
+        persistReadSet("sms", next);
+        return next;
+      });
       if (contact?.phone) {
         setSelectedPhones([contact.phone]);
       }
@@ -3497,30 +3530,62 @@ function CommunicationCanvas({
 
   const mergedHistory = useMemo(() => {
     const historyItems = (contactHistory || []);
-    const timelineIds = new Set(timeline.map(t => t.id));
-    const persistentAsTimeline: TimelineEntry[] = historyItems
-      .filter(h => !timelineIds.has(h.id))
-      .map(h => ({
-        id: h.id,
-        type: h.type === "disposition" ? "system" as const : h.type as TimelineEntry["type"],
-        direction: h.direction,
-        timestamp: new Date(h.date),
-        content: h.content || h.notes || "",
-        details: h.details || h.campaignName || "",
-        status: h.status,
-        htmlBody: h.htmlBody,
-        fullContent: h.fullContent,
-        agentName: h.agentName,
-        recipientEmail: h.recipientEmail,
-        recipientPhone: h.recipientPhone,
-        sentiment: h.sentiment || null,
-        callLogId: (h as any).callLogId || null,
-      }));
-    const all = [...timeline, ...persistentAsTimeline];
+    const persistentAsTimeline: TimelineEntry[] = historyItems.map(h => ({
+      id: h.id,
+      type: h.type === "disposition" ? "system" as const : h.type as TimelineEntry["type"],
+      direction: h.direction,
+      timestamp: new Date(h.date),
+      content: h.content || h.notes || "",
+      details: h.details || h.campaignName || "",
+      status: h.status,
+      htmlBody: h.htmlBody,
+      fullContent: h.fullContent,
+      agentName: h.agentName,
+      recipientEmail: h.recipientEmail,
+      recipientPhone: h.recipientPhone,
+      sentiment: h.sentiment || null,
+      callLogId: (h as any).callLogId || null,
+    }));
+
+    const normContent = (s: any) => String(s || "").toLowerCase().replace(/\s+/g, " ").trim().slice(0, 80);
+
+    // Drop optimistic timeline entries (ids like `email-<ts>`/`sms-<ts>`) once the persisted
+    // version (`msg-<id>`) has arrived, so a sent email/SMS never shows twice.
+    const timelineDeduped = timeline.filter(te => {
+      if (te.type !== "email" && te.type !== "sms") {
+        return !persistentAsTimeline.some(pe => String(pe.id) === String(te.id));
+      }
+      const teTime = new Date(te.timestamp).getTime();
+      const hasTwin = persistentAsTimeline.some(pe =>
+        pe.type === te.type &&
+        pe.direction === te.direction &&
+        Math.abs(new Date(pe.timestamp).getTime() - teTime) < 10 * 60 * 1000 &&
+        normContent(pe.content) === normContent(te.content)
+      );
+      return !hasTwin;
+    });
+
+    // Collapse near-identical persisted duplicates (same channel/direction/content within ~30s).
+    const combined = [...timelineDeduped, ...persistentAsTimeline]
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    const seenIds = new Set<string>();
+    const seenKeys = new Set<string>();
+    const all: TimelineEntry[] = [];
+    for (const e of combined) {
+      if (e.id && seenIds.has(String(e.id))) continue;
+      if (e.type === "email" || e.type === "sms") {
+        const bucket = Math.round(new Date(e.timestamp).getTime() / 15000);
+        const baseKey = `${e.type}|${e.direction}|${normContent(e.content)}|${e.recipientEmail || e.recipientPhone || ""}`;
+        if (seenKeys.has(`${baseKey}|${bucket}`) || seenKeys.has(`${baseKey}|${bucket - 1}`) || seenKeys.has(`${baseKey}|${bucket + 1}`)) continue;
+        seenKeys.add(`${baseKey}|${bucket}`);
+      }
+      if (e.id) seenIds.add(String(e.id));
+      all.push(e);
+    }
     return {
-      all: all.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
-      email: all.filter(e => e.type === "email").sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
-      sms: all.filter(e => e.type === "sms").sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
+      all,
+      email: all.filter(e => e.type === "email"),
+      sms: all.filter(e => e.type === "sms"),
     };
   }, [timeline, contactHistory]);
 
@@ -3896,7 +3961,12 @@ function CommunicationCanvas({
                     key={hospitalData.id}
                     mode="inline"
                     initialData={hospitalData}
-                    onSuccess={() => {}}
+                    onSuccess={async () => {
+                      try {
+                        const r = await fetch(`/api/hospitals/${contact.id}`, { credentials: "include" });
+                        if (r.ok) { const d = await r.json(); onPhoneOverrideChange?.(d.phone || null); onEntityRefetched?.("hospital", d); }
+                      } catch {}
+                    }}
                   />
                 </div>
               ) : contactType === "clinic" && clinicData ? (
@@ -3909,7 +3979,7 @@ function CommunicationCanvas({
                     onSuccess={async () => {
                       try {
                         const r = await fetch(`/api/clinics/${contact.id}`, { credentials: "include" });
-                        if (r.ok) { const d = await r.json(); onPhoneOverrideChange?.(d.phone || null); }
+                        if (r.ok) { const d = await r.json(); onPhoneOverrideChange?.(d.phone || null); onEntityRefetched?.("clinic", d); }
                       } catch {}
                     }}
                     onPhoneChange={(p) => onPhoneOverrideChange?.(p || null)}
@@ -3926,7 +3996,7 @@ function CommunicationCanvas({
                     onSuccess={async () => {
                       try {
                         const r = await fetch(`/api/collaborators/${contact.id}`, { credentials: "include" });
-                        if (r.ok) { const d = await r.json(); onPhoneOverrideChange?.(d.phone || null); }
+                        if (r.ok) { const d = await r.json(); onPhoneOverrideChange?.(d.phone || null); onEntityRefetched?.("collaborator", d); }
                       } catch {}
                     }}
                     onPhoneChange={(p) => onPhoneOverrideChange?.(p || null)}
@@ -4394,24 +4464,40 @@ function CommunicationCanvas({
                   {t.customers?.details?.to || "TO"}
                 </Label>
                 <div className="space-y-1.5">
-                  {contact?.email && (
-                    <div className="flex items-center gap-2">
-                      <Checkbox id="aw-email1" checked={selectedEmails.includes(contact.email)} onCheckedChange={(checked) => {
-                        if (checked) setSelectedEmails([...selectedEmails, contact.email!]);
-                        else setSelectedEmails(selectedEmails.filter(e => e !== contact.email));
-                      }} data-testid="checkbox-email-primary" />
-                      <Label htmlFor="aw-email1" className="font-normal cursor-pointer text-xs truncate">{contact.email}</Label>
-                    </div>
-                  )}
-                  {(contact as any)?.email2 && (
-                    <div className="flex items-center gap-2">
-                      <Checkbox id="aw-email2" checked={selectedEmails.includes((contact as any).email2)} onCheckedChange={(checked) => {
-                        if (checked) setSelectedEmails([...selectedEmails, (contact as any).email2!]);
-                        else setSelectedEmails(selectedEmails.filter(e => e !== (contact as any).email2));
-                      }} data-testid="checkbox-email-secondary" />
-                      <Label htmlFor="aw-email2" className="font-normal cursor-pointer text-xs truncate">{(contact as any).email2}</Label>
-                    </div>
-                  )}
+                  {(() => {
+                    const availableEmails = Array.from(new Set(
+                      [
+                        contact?.email,
+                        (contact as any)?.email2,
+                        (contact as any)?.email3,
+                        (clinicData as any)?.email,
+                        (clinicData as any)?.email2,
+                        (clinicData as any)?.email3,
+                        (hospitalData as any)?.email,
+                        (hospitalData as any)?.email2,
+                        (hospitalData as any)?.email3,
+                        (collaboratorData as any)?.email,
+                        (collaboratorData as any)?.email2,
+                        (collaboratorData as any)?.email3,
+                      ]
+                        .filter((e): e is string => typeof e === "string" && e.trim() !== "")
+                        .map(e => e.trim())
+                    ));
+                    return availableEmails.map((em, i) => (
+                      <div key={em} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`aw-email-${i}`}
+                          checked={selectedEmails.includes(em)}
+                          onCheckedChange={(checked) => {
+                            if (checked) setSelectedEmails([...selectedEmails, em]);
+                            else setSelectedEmails(selectedEmails.filter(e => e !== em));
+                          }}
+                          data-testid={`checkbox-email-${i}`}
+                        />
+                        <Label htmlFor={`aw-email-${i}`} className="font-normal cursor-pointer text-xs truncate">{em}</Label>
+                      </div>
+                    ));
+                  })()}
                 </div>
               </div>
 
@@ -10340,12 +10426,27 @@ export default function AgentWorkspacePage() {
       };
       return apiRequest("PATCH", `/api/customers/${currentContact.id}`, serializedData);
     },
-    onSuccess: (_, variables) => {
+    onSuccess: async (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
       if (currentContact?.id) {
         queryClient.invalidateQueries({ queryKey: ["/api/customers", currentContact.id] });
-      }
-      if (variables.phone !== undefined) {
+        // Refresh currentContact from the server so edited fields (email/email2/…)
+        // survive the inline card remounting on subtab/channel switches.
+        try {
+          const r = await fetch(`/api/customers/${currentContact.id}`, { credentials: "include" });
+          if (r.ok) {
+            const fresh = await r.json();
+            setCurrentContact(prev => prev ? { ...prev, ...fresh } : fresh);
+            setCurrentPhoneOverride(fresh.phone || null);
+          } else if (variables.phone !== undefined) {
+            setCurrentContact(prev => prev ? { ...prev, phone: variables.phone || null } : prev);
+          }
+        } catch {
+          if (variables.phone !== undefined) {
+            setCurrentContact(prev => prev ? { ...prev, phone: variables.phone || null } : prev);
+          }
+        }
+      } else if (variables.phone !== undefined) {
         setCurrentContact(prev => prev ? { ...prev, phone: variables.phone || null } : prev);
       }
       toast({ title: t.agentWorkspace.customerUpdated });
@@ -11018,6 +11119,8 @@ export default function AgentWorkspacePage() {
           lastName: clinic.doctorLastName || clinic.name || "",
           phone: clinic.phone || "",
           email: clinic.email || "",
+          email2: clinic.email2 || "",
+          email3: clinic.email3 || "",
           displayName: clinic.doctorLastName
             ? `${clinic.doctorFirstName || ""} ${clinic.doctorLastName}`.trim() + (clinic.name ? ` (${clinic.name})` : "")
             : clinic.name || "",
@@ -11035,6 +11138,8 @@ export default function AgentWorkspacePage() {
           lastName: hospital.name || "",
           phone: hospital.phone || "",
           email: hospital.email || "",
+          email2: (hospital as any).email2 || "",
+          email3: (hospital as any).email3 || "",
           displayName: hospital.name || "",
           _contactType: "hospital",
           _hospitalId: hospital.id,
@@ -11050,6 +11155,8 @@ export default function AgentWorkspacePage() {
           lastName: collab.lastName || "",
           phone: collab.phone || "",
           email: collab.email || "",
+          email2: (collab as any).email2 || "",
+          email3: (collab as any).email3 || "",
           displayName: `${collab.firstName || ""} ${collab.lastName || ""}`.trim(),
           _contactType: "collaborator",
           _collaboratorId: collab.id,
@@ -12714,6 +12821,18 @@ export default function AgentWorkspacePage() {
               hospitalData={currentHospitalData}
               clinicData={currentClinicData}
               collaboratorData={currentCollaboratorData}
+              onEntityRefetched={(type, data) => {
+                if (type === "clinic") setCurrentClinicData(data);
+                else if (type === "hospital") setCurrentHospitalData(data);
+                else if (type === "collaborator") setCurrentCollaboratorData(data);
+                setCurrentContact(prev => prev ? ({
+                  ...prev,
+                  phone: data.phone ?? prev.phone,
+                  email: data.email !== undefined ? data.email : prev.email,
+                  email2: data.email2 !== undefined ? data.email2 : (prev as any).email2,
+                  email3: data.email3 !== undefined ? data.email3 : (prev as any).email3,
+                } as any) : prev);
+              }}
               campaignContactId={effectiveCampaignContactId}
               initialScriptStepId={currentCampaignContact?.currentScriptStepId || null}
               pendingEmailTemplateId={pendingEmailTemplateId}
