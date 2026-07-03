@@ -3059,7 +3059,15 @@ export class QueueEngine extends EventEmitter {
         if (queue.strategy === "ring-all") {
           if (this.ringAllPending.has(call.channelId)) continue;
           const allAvailable = await this.getAvailableAgents(queue);
-          if (allAvailable.length === 0) break;
+          if (allAvailable.length === 0) {
+            // No logged-in desk agents → fall back to standing forward (ring an
+            // opted-in agent's mobile via sequential round-robin), same as the
+            // non-ring-all path. If none are available, stop for now.
+            const rung = await this.tryStandingForward(call, queue);
+            if (!rung) break;
+            this.recalculatePositions(queue.id);
+            continue;
+          }
           await this.connectCallToAllAgents(call, allAvailable, queue);
         } else {
           const agent = await this.selectAgent(queue);
@@ -4175,7 +4183,13 @@ export class QueueEngine extends EventEmitter {
 
     if (assignedCallData) {
       console.log(`[QueueEngine] Caller channel ${channelId} destroyed while assigned to agent ${assignedCallData.agentId} (no pending SIP originate)`);
-      this.updateAgentStatus(assignedCallData.agentId, "available", null);
+      // Standing (not-logged-in) agents have no agentQueueStatus row — never run the
+      // normal agent-status flow for them; just release the standing-forward busy lock.
+      if (this.isStandingId(assignedCallData.agentId)) {
+        this.standingForwardBusy.delete(this.standingUserId(assignedCallData.agentId));
+      } else {
+        this.updateAgentStatus(assignedCallData.agentId, "available", null);
+      }
       const waitDuration = Math.floor((Date.now() - assignedCallData.call.enteredAt.getTime()) / 1000);
       await db.update(inboundCallLogs)
         .set({
@@ -4192,7 +4206,9 @@ export class QueueEngine extends EventEmitter {
         callerName: assignedCallData.call.callerName,
         queueName: assignedCallData.queue?.name || "",
         reason: "caller_hangup",
-        assignedAgentId: assignedCallData.agentId,
+        assignedAgentId: this.isStandingId(assignedCallData.agentId)
+          ? this.standingUserId(assignedCallData.agentId)
+          : assignedCallData.agentId,
       });
     }
   }
