@@ -3800,6 +3800,18 @@ function CommunicationCanvas({
             </button>
           )}
           <div className="ml-auto flex items-center pr-2">
+            {contact && onClearContact && (
+              <button
+                type="button"
+                onClick={onClearContact}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                title={t.agentWorkspace.myShiftCloseCard}
+                data-testid="btn-close-contact-card"
+              >
+                <X className="h-3.5 w-3.5" />
+                {t.agentWorkspace.myShiftCloseCard}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -3872,18 +3884,6 @@ function CommunicationCanvas({
                 <BookOpen className="h-3 w-3" />
                 {t.agentWorkspace.sopTab || "SOP"}
               </button>
-              {onClearContact && (
-                <button
-                  type="button"
-                  onClick={onClearContact}
-                  className="ml-auto mr-2 flex items-center gap-1.5 px-2 py-1 rounded text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                  title={t.agentWorkspace.myShiftCloseCard}
-                  data-testid="btn-close-contact-card"
-                >
-                  <X className="h-3.5 w-3.5" />
-                  {t.agentWorkspace.myShiftCloseCard}
-                </button>
-              )}
             </div>
           )}
 
