@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Play, Pause, Download, Mic, Loader2, ChevronDown, ChevronUp, FileText, Brain, Star, AlertTriangle, CheckCircle2, ListChecks, Tag, RefreshCw, ClipboardCheck, ShieldAlert, SkipBack, SkipForward } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/auth-context";
+import { useI18n } from "@/i18n";
 import type { CallRecording } from "@shared/schema";
 
 interface CallLogDisposition {
@@ -61,12 +62,13 @@ function formatFileSize(bytes: number): string {
 }
 
 function SentimentIcon({ sentiment }: { sentiment: string | null }) {
+  const { t } = useI18n();
   if (!sentiment) return null;
   const config: Record<string, { color: string; label: string }> = {
-    positive: { color: "text-green-600 dark:text-green-400", label: "Pozitívny" },
-    neutral: { color: "text-blue-600 dark:text-blue-400", label: "Neutrálny" },
-    negative: { color: "text-orange-600 dark:text-orange-400", label: "Negatívny" },
-    angry: { color: "text-red-600 dark:text-red-400", label: "Nahnevaný" },
+    positive: { color: "text-green-600 dark:text-green-400", label: t.agentWorkspace.sentimentPositive },
+    neutral: { color: "text-blue-600 dark:text-blue-400", label: t.agentWorkspace.sentimentNeutral },
+    negative: { color: "text-orange-600 dark:text-orange-400", label: t.agentWorkspace.sentimentNegative },
+    angry: { color: "text-red-600 dark:text-red-400", label: t.agentWorkspace.sentimentAngry },
   };
   const c = config[sentiment] || config.neutral;
   return (

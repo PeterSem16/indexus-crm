@@ -7032,7 +7032,7 @@ function CustomerInfoPanel({
                                 ...(s.subsections || []).flatMap((sub: any) => (sub.items || []).map((i: any) => ({ ...i, _sColor: s.color || "" }))),
                               ]).filter((i: any) => i.checked || i.answer === "yes" || (i.value && String(i.value).trim()));
                               if (answeredItems.length === 0) {
-                                return <p className={`${isModal ? "text-sm mt-1" : "text-[11px] mt-0.5"} font-medium leading-snug text-muted-foreground`}>Žiadne položky nezodpovedané</p>;
+                                return <p className={`${isModal ? "text-sm mt-1" : "text-[11px] mt-0.5"} font-medium leading-snug text-muted-foreground`}>{t.agentWorkspace.historyNoItemsAnswered}</p>;
                               }
                               return (
                                 <div className="flex flex-wrap gap-1 mt-1 max-w-full">
@@ -7086,7 +7086,7 @@ function CustomerInfoPanel({
                                           <span className={`${isModal ? "text-[10px]" : "text-[9px]"} font-bold uppercase tracking-wide ${
                                             confirmed ? "text-emerald-600 dark:text-emerald-400" : "text-stone-400 dark:text-stone-500"
                                           }`}>
-                                            {confirmed ? "Potvrdený krok" : "Odpotvrdený krok"}
+                                            {confirmed ? t.agentWorkspace.historyConfirmedStep : t.agentWorkspace.historyUnconfirmedStep}
                                           </span>
                                           {descPart && (
                                             <ChevronDown className={`h-3 w-3 text-muted-foreground/60 flex-shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />

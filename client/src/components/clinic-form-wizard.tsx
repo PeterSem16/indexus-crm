@@ -1032,7 +1032,6 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
     { key: "basic", icon: Building2, label: t.clinics.steps?.basic || "Info" },
     { key: "address", icon: MapPin, label: t.clinics.steps?.address || "Address" },
     { key: "referral", icon: CircleDot, label: t.clinics.steps.referral },
-    { key: "history", icon: History, label: t.clinics.steps?.history || "History" },
     { key: "personnel", icon: Users, label: (t as any).personnel || "Personnel" },
     { key: "campaigns", icon: Megaphone, label: (t as any).campaigns?.title || "Campaigns" },
   ];
@@ -2441,15 +2440,6 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
               </div>
               <Separator />
               <div className="space-y-3">
-                <div className="flex items-center gap-2"><div className="flex items-center justify-center w-6 h-6 rounded-md bg-emerald-100 dark:bg-emerald-900"><PhoneCall className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /></div><h3 className="text-sm font-semibold tracking-wide">{t.clinics.sections?.callsAndContact || 'Calls & Contact'}</h3></div>
-                <div className="grid gap-3 sm:grid-cols-2 pl-1">
-                  <div className="space-y-1"><Label className="text-xs">{(t.clinics as any).lastCallResult || "Last call result"}</Label><Input value={formData.lastCallResult} onChange={(e) => setFormData({ ...formData, lastCallResult: e.target.value })} placeholder={(t.clinics as any).lastCallResult || "Last call result"} className="h-9" data-testid="input-last-call-result" /></div>
-                  <div className="space-y-1"><Label className="text-xs">{t.clinics.sections?.nextContactDate || "Next contact date"}</Label><DateTimePicker value={formData.nextContactDate} onChange={(v) => setFormData({ ...formData, nextContactDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-next-contact-date" /></div>
-                </div>
-                <div className="space-y-1 pl-1"><Label className="text-xs">Poznámka z hovoru</Label><Textarea value={formData.lastCallNote} onChange={(e) => setFormData({ ...formData, lastCallNote: e.target.value })} placeholder="Poznámka z posledného hovoru" rows={2} className="text-sm" data-testid="input-last-call-note" /></div>
-              </div>
-              <Separator />
-              <div className="space-y-3">
                 <div className="flex items-center gap-2 mb-1">
                   <div className="flex items-center justify-center w-6 h-6 rounded-md bg-blue-100 dark:bg-blue-900">
                     <CircleDot className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
@@ -2853,7 +2843,6 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
     { key: "basic", icon: Building2, label: t.clinics.steps?.basic || "Info" },
     { key: "address", icon: MapPin, label: t.clinics.steps?.address || "Address" },
     { key: "referral", icon: CircleDot, label: t.clinics.steps.referral },
-    { key: "history", icon: History, label: t.clinics.steps?.history || "History" },
     { key: "personnel", icon: Users, label: (t as any).personnel || "Personnel" },
     { key: "campaigns", icon: Megaphone, label: (t as any).campaigns?.title || "Campaigns" },
   ];
