@@ -1,0 +1,12 @@
+---
+name: Status-list state must refetch on contact reopen
+description: Why the per-contact status-list-state query needs staleTime:0 + refetchOnMount:"always" under the app's global staleTime:Infinity
+---
+
+The per-contact status-list-state query (agent-workspace `dbSlState` desktop + `mobileDbSlState` mobile), keyed by campaignContactId, MUST set `staleTime: 0` and `refetchOnMount: "always"`. Without it, reopening a contact can show an EMPTY/stale status list until an agent relog.
+
+**Why:** The global QueryClient sets `staleTime: Infinity`, `refetchOnWindowFocus:false`, `refetchInterval:false`, so cached data only refreshes via explicit invalidateQueries or a full reload (relog). The "sometimes empty on reopen" bug: when a **definitive option** is picked, `handleSlOptionSelect` invalidates `["/api/campaigns",id,"contacts"]` (prefix-matches the state key, starting a background refetch) and then calls `onCloseCallAfterStatusList()` which sets campaignContactId→null. Closing removes the query observer, **cancelling the in-flight refetch**. React Query then leaves the query flagged NOT stale while still holding the old (empty) data. On reopen (staleTime Infinity, refetchOnMount only fires if stale) the stale-but-flagged-fresh cache is served → empty list. Non-definitive options let the refetch finish, so those work — hence it only happened "sometimes". Adding an explicit invalidate in `handleSlOptionSelect` does NOT fix it (that refetch is the one that gets cancelled); the fix is to force a fresh fetch on every open.
+
+**How to apply:** Any per-contact/per-entity query whose freshness the UI depends on after close→reopen (not just status-list-state) should override the global `staleTime:Infinity` with `staleTime:0` (guarantees stale→refetch when the observer re-subscribes on key toggle null→id) plus `refetchOnMount:"always"` (covers full component remount). Cost is one small GET per open; safe because window-focus/interval refetch stay globally off.
+
+**Known adjacent race (pre-existing, do NOT fix reactively):** the auto-run effect (~agent-workspace L2655) fires against `dbSlState` on mount and `slAutoRunRef` resets when CommunicationCanvas unmounts. During the brief stale-empty render window on reopen an already-confirmed "auto" item could re-fire its automations. This predates the refetch fix (which shortens the window). If duplicate auto-automation runs are ever observed, gate that effect on the state query's `isFetched`/`isFetching===false` so it only evaluates fresh server data.

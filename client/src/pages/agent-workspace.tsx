@@ -2586,6 +2586,14 @@ function CommunicationCanvas({
   const { data: dbSlState = [] } = useQuery<any[]>({
     queryKey: ["/api/campaigns", campaign?.id, "contacts", campaignContactId, "status-list-state"],
     enabled: !!campaign?.id && !!campaignContactId,
+    // The status-list state MUST be re-fetched every time a contact is (re)opened.
+    // The global default is staleTime: Infinity, so a reopened contact would otherwise
+    // serve a stale cache. This is worsened by definitive options that close the card:
+    // their invalidation refetch gets cancelled mid-flight, leaving the query flagged
+    // "fresh" while holding the old (empty) state — so the list showed up unfilled and
+    // only an agent relog fixed it. "always" guarantees a fresh fetch on every open.
+    staleTime: 0,
+    refetchOnMount: "always",
   });
   // Resolve each status-list automation's disposition so the "Set status" button can
   // open a reschedule picker for callback-type dispositions (legacy table the builder
@@ -9737,6 +9745,9 @@ export default function AgentWorkspacePage() {
   const { data: mobileDbSlState = [] } = useQuery<any[]>({
     queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-state"],
     enabled: !!selectedCampaignId && !!effectiveCampaignContactId && isMobile,
+    // Always re-fetch the contact's status-list state on (re)open — see desktop query above.
+    staleTime: 0,
+    refetchOnMount: "always",
   });
   useEffect(() => {
     if (!isMobile) return;
