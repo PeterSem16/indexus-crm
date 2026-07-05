@@ -873,11 +873,14 @@ function TopBar({
                 onClick={onToggleInboundRingtone}
                 data-testid="button-toggle-inbound-ringtone"
                 aria-pressed={!!inboundRingtoneEnabled}
-                title={`Inbound calls forwarded → ${fwdData?.number}`}
+                title={`${t.agentSession.callForwardingActive} → ${fwdData?.number} · ${inboundRingtoneEnabled ? t.agentWorkspace.inboundRingtoneOn : t.agentWorkspace.inboundRingtoneOff}`}
                 className="gap-1.5 text-orange-600 border-orange-400/60 dark:text-orange-400 dark:border-orange-500/40"
               >
                 <PhoneForwarded className="h-3.5 w-3.5 shrink-0" />
                 <span className="text-[10px] font-mono leading-none max-w-[80px] truncate hidden sm:inline">{fwdData?.number}</span>
+                {inboundRingtoneEnabled
+                  ? <Volume2 className="h-3.5 w-3.5 shrink-0" />
+                  : <VolumeX className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
               </Button>
             ) : (
               <Button
