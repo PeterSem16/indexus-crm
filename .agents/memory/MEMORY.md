@@ -42,3 +42,4 @@
 - [Scoped theme-var restyle](scoped-theme-var-restyle.md) — restyle a whole shadcn modal via theme CSS vars scoped on its root; also override interaction tokens (elevate/button-outline/intensity) or dark-mode hover leaks in; portaled popovers don't inherit.
 - [Mobile interactive JSX variables](mobile-jsx-sub-component.md) — JSX variables with onClick state toggles are unreliable on mobile; extract to a named sub-component with its own useState for guaranteed tap response.
 - [NexusPulse showOnlyAssigned dual scope](nexuspulse-only-assigned.md) — showOnlyAssigned filters baseCampaigns list AND must also filter contactGroups array (team-cb, other-cb); both are independent — fixing one does not fix the other.
+- [Workspace revert vs prod git sync](workspace-vs-prod-git-sync.md) — a workspace-only revert changes nothing on CORPCRM01 until it's on origin/main; check `git log origin/main..HEAD` before saying "deploy it".

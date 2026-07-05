@@ -5,6 +5,16 @@ description: How the from-internal-* dialplan derives outbound CLI (CBC_CALLER) 
 
 # Forwarded-call caller-ID (CBC_CALLER) and desk-first routing
 
+## ✅ ACTUAL RESOLUTION Jul-5: prod ran the CLI-mangling commit; the revert was un-pushed
+The user's live "caller ID is broken, you ruined it" was NOT a new carrier issue — origin/main (what
+CORPCRM01 pulls) was sitting on the `normalizeSkCallerId(fwdCid)` commit, which REWRITES the forwarded
+CLI to a normalized SK form instead of the raw caller number. The byte-for-byte revert (restores
+`CALLERID(num/name)` + `CBC_CALLER = fwdCid`, the real number) was committed in the workspace but ONE
+commit AHEAD of origin/main → un-pushed → the server could not pull it, so prod kept mangling the CLI.
+Fix path: push the revert to origin/main, THEN deploy. See workspace-vs-prod-git-sync.md. (The separate
+SK 486 carrier finding still stands for call CONNECTIVITY, but the user's stated pain here was the CLI
+DISPLAY, which the un-pushed mangling commit explains completely — do not conflate the two again.)
+
 ## ⛔ DEAD-END RE-TREAD: normalizeSkCallerId (0421…→0911163316) — that format ALREADY 486s
 Jul-5 I "fixed" the malformed inbound CLI `0421911163316` by normalizing to clean national
 `0911163316` in `forwardToExternalNumber`. This was a RE-TREAD: the section below already records a
