@@ -1508,11 +1508,17 @@ export class QueueEngine extends EventEmitter {
       primaryCtx = "from-internal";
     }
 
-    // Caller-ID fix: the continueDialplan forwarding path (unlike the legacy originate
-    // path) does not carry the caller's number to the forwarded mobile, so the agent's
-    // phone showed no/incorrect CLI on forwarded queue calls. Set CALLERID + CBC_CALLER
-    // on the inbound channel before handing to the dialplan (from-internal-* contexts
-    // honor CBC_CALLER). Applies to the non-RO path (RO returns above).
+    // Caller-ID on forwarded calls. The from-internal-* dialplan sets the outbound CLI
+    // from ${CBC_CALLER}:
+    //   ExecIf($[${LEN(${CBC_CALLER})} > 0]?Set(CALLERID(num)=${CBC_CALLER}))
+    // (see attached_assets/extensions_*.conf, [from-internal-sk] et al). continueDialplan
+    // runs that dialplan on THIS inbound channel directly (no Local hairpin on this path),
+    // so CBC_CALLER just needs to exist on this channel. We set it as an INHERITED
+    // variable (`__` prefix) so it is also copied onto any child leg — Asterisk stores it
+    // as CBC_CALLER and marks it inheritable. (The `Local/...;2` leg that showed the
+    // failing `0?Set(CALLERID(num)=)` in the verbose log came from the standing-forward
+    // originate path, connectCallToStandingAgent, which is fixed there by passing
+    // __CBC_CALLER as an originate variable.)
     let fwdCid = (opts?.callerNumber || "").replace(/\s/g, "");
     if (!fwdCid) {
       try { const ch = await this.ariClient.getChannel(channelId); fwdCid = ch?.caller?.number || ""; } catch {}
@@ -1521,8 +1527,9 @@ export class QueueEngine extends EventEmitter {
       try {
         await this.ariClient.setChannelVariable(channelId, "CALLERID(num)", fwdCid);
         await this.ariClient.setChannelVariable(channelId, "CALLERID(name)", fwdCid);
-        await this.ariClient.setChannelVariable(channelId, "CBC_CALLER", fwdCid);
-        console.log(`[QueueEngine] forwardToExternalNumber: set CALLERID=${fwdCid} on ${channelId}`);
+        // Inherited (`__`) so it survives the Dial(Local/...) hairpin into from-internal-*.
+        await this.ariClient.setChannelVariable(channelId, "__CBC_CALLER", fwdCid);
+        console.log(`[QueueEngine] forwardToExternalNumber: set CALLERID=${fwdCid} (__CBC_CALLER inherited) on ${channelId}`);
       } catch (cidErr: any) {
         console.warn(`[QueueEngine] forwardToExternalNumber: failed to set CALLERID:`, cidErr?.message || cidErr);
       }
@@ -2575,12 +2582,18 @@ export class QueueEngine extends EventEmitter {
       // handleAgentChannelAnswer stops MOH and bridges on real answer. A Local channel
       // into from-internal-<cc> only goes Up when the mobile genuinely answers (the
       // dialplan does Dial() with answer supervision, no early Answer()).
+      // Pass the original caller's number BOTH as the Local channel's callerId AND as
+      // an inherited __CBC_CALLER variable. The from-internal-* dialplan sets the
+      // outbound CLI from ${CBC_CALLER} (ExecIf(...Set(CALLERID(num)=${CBC_CALLER})));
+      // the `__` prefix ensures it survives onto the Local ;2 leg that runs that
+      // dialplan, so the agent's mobile shows the real caller instead of no/blank CLI.
       const localChannel = await this.ariClient.originateChannel(
         `Local/${norm}@${ctx}/n`,
         norm,
         ctx,
         call.callerNumber,
         `agent-call,${standingAgentId},${call.channelId}`,
+        call.callerNumber ? { __CBC_CALLER: call.callerNumber } : undefined,
       );
       console.log(`[QueueEngine] Standing forward: Local channel ${localChannel.id} originated (ctx=${ctx}, ring=${ringSeconds}s)`);
 
@@ -3564,11 +3577,15 @@ export class QueueEngine extends EventEmitter {
       return;
     }
 
-    // Check if agent has call forwarding enabled → forward to mobile instead of SIP
-    if ((agentUser as any).callForwardingEnabled && (agentUser as any).callForwardingNumber) {
-      await this.handleForwardedAgentCall(call, agent, agentUser as any, queue, waitDuration);
-      return;
-    }
+    // DESK-FIRST: this path is only reached for agents with an ACTIVE Nexus Pulse
+    // session (selectAgent filters to logged-in agents whose session has this queue
+    // selected). A logged-in agent is reachable at their desk via their PJSIP
+    // extension, so we ring the desk here and deliberately IGNORE callForwarding.
+    // Forwarding a queue call to the mobile only happens when the agent is NOT
+    // logged in — that is handled entirely by the standing-forward path
+    // (tryStandingForward / connectCallToStandingAgent). See also user request:
+    // "when logged into Nexus Pulse the call must go to Nexus Pulse (pjsip),
+    // only forward to mobile when not logged in".
 
     const sipEndpoint = `PJSIP/${agentUser.sipExtension}`;
     const elapsedSoFar = (Date.now() - call.enteredAt.getTime()) / 1000;
