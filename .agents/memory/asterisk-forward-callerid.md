@@ -240,23 +240,31 @@ Only FOREIGN CLIs ring on the same mobile/same hairpin path.
   (4) `Diversion: <owned DID>` header (SIPAddHeader, chan_sip) — legit for forwards, low probability.
 - PAI/RPID do NOT bypass screening if the operator screens asserted identity too.
 
-## Desk-first routing (logged-in → desk, not-logged-in → mobile)
-`connectCallToAgent` is only reached for agents with an **active agentSession that has the
-queue selected** (`selectAgent` filters to those). So a logged-in agent is always rung at
-their **PJSIP desk extension** — the queue-agent `callForwardingEnabled → forward-to-mobile`
-branch was removed. Forwarding a queue call to the mobile now happens **only** via the
-standing-forward path (`tryStandingForward`/`connectCallToStandingAgent`), which by design
-fires only when the agent is NOT logged in.
+## Desk-first routing (logged-in+registered → desk, else → mobile)
+`connectCallToAgent` runs for agents with an active agentSession that has the queue selected
+(`selectAgent`). **Being "available" (session) is NOT the same as having a live softphone:** a
+Nexus Pulse tab can be open (session available) while the PJSIP contact is gone. So the
+queue-agent `callForwardingEnabled → forward-to-mobile` branch is **live and registration-gated**
+— it forwards to mobile ONLY when the softphone is not registered; otherwise it rings the PJSIP
+desk. Registration is probed via ARI `getEndpointStatus("PJSIP", ext)`: treat `state==="offline"`
+as not-registered, and null/error as registered (fail-open to the proven desk path — a forward
+needs the same ARI anyway).
 
-**Consequence to tell users:** legacy `callForwardingEnabled` alone no longer forwards queue
-calls anywhere; an agent must enroll in **standing forward** (enabled + queue assignments) to
-get mobile ringing when logged out. `handleForwardedAgentCall`/`setupQueueForwardedCallTracking`
-are now intentionally dead code.
+**Why:** user requirement — when logged in with the phone connected, the app must ring; forward
+to mobile is a FALLBACK only for when the agent is NOT logged in / phone not connected.
 
-**Edge case (pre-existing):** `selectAgent` does not filter stale sessions by `lastActiveAt`
-(unlike `hasLoggedInAgentsDb`), so a stale-open Nexus Pulse session rings a dead desk instead
-of forwarding. Acceptable per requirement, but a source of missed calls if a browser is left
-open.
+**A queue call forwards to a mobile via two independent paths:** (1) logged-in agent whose
+softphone is offline → registration-gated branch in `connectCallToAgent` → `handleForwardedAgentCall`
+(this is **NOT** dead code); (2) no logged-in agent at all → standing-forward path
+(`tryStandingForward`/`connectCallToStandingAgent`).
+
+**Edge:** a stale "online" contact (dead phone still registered) rings the desk unanswered → the
+existing 30s ring-timeout requeues; a later requeue re-probes and forwards once Asterisk expires
+the contact (so the forward fallback is delayed, not lost). `selectAgent` also doesn't prune
+sessions by `lastActiveAt`, so a stale-open session can ring a dead desk before the contact expires.
+
+**Separate DID path NOT changed:** the `pjsip_user` DID route still forwards unconditionally and
+honors the mobile-app AstDB `callforward`; it is intentionally not registration-gated.
 
 ## Standing-forward requeue MUST cool down (busy-mobile retry loop)
 When a standing-forward Local leg is destroyed before answer, the destroy handler clears the

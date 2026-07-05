@@ -3511,6 +3511,17 @@ export class QueueEngine extends EventEmitter {
     this.assignedCalls.delete(callerChannelId);
   }
 
+  // Returns true when the agent's softphone (PJSIP/{ext}) has a live registration in
+  // Asterisk. Desk takes priority: forwarding to mobile is only a fallback for when the
+  // agent is NOT logged into the app with the phone connected (endpoint state "offline").
+  private async isSoftphoneRegistered(extension: string): Promise<boolean> {
+    const status = await this.ariClient.getEndpointStatus("PJSIP", extension);
+    // ARI returns null on error → assume registered so we still ring the app (the proven
+    // path). Only a definite "offline" state means there is no active contact.
+    if (!status) return true;
+    return status.state !== "offline";
+  }
+
   private async connectCallToAgent(call: QueuedCall, agent: AgentState, queue: InboundQueue): Promise<void> {
     console.log(`[QueueEngine] Connecting call ${call.id} to agent ${agent.userId}`);
 
@@ -3564,10 +3575,17 @@ export class QueueEngine extends EventEmitter {
       return;
     }
 
-    // Check if agent has call forwarding enabled → forward to mobile instead of SIP
+    // Call forwarding is a FALLBACK for when the agent's softphone is NOT registered
+    // (not logged into the app with the phone connected). If the softphone IS registered,
+    // ring the app (PJSIP) even when forwarding is configured — the desk takes priority.
     if ((agentUser as any).callForwardingEnabled && (agentUser as any).callForwardingNumber) {
-      await this.handleForwardedAgentCall(call, agent, agentUser as any, queue, waitDuration);
-      return;
+      const registered = await this.isSoftphoneRegistered(agentUser.sipExtension);
+      if (!registered) {
+        console.log(`[QueueEngine] Agent ${agentUser.fullName} softphone PJSIP/${agentUser.sipExtension} not registered → forwarding to mobile`);
+        await this.handleForwardedAgentCall(call, agent, agentUser as any, queue, waitDuration);
+        return;
+      }
+      console.log(`[QueueEngine] Agent ${agentUser.fullName} softphone PJSIP/${agentUser.sipExtension} registered → ringing app, forwarding skipped`);
     }
 
     const sipEndpoint = `PJSIP/${agentUser.sipExtension}`;

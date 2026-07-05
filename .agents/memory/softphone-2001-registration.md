@@ -1,46 +1,36 @@
 ---
-name: Softphone WS registration goes stale via /wss-asterisk/ proxy
-description: Why inbound calls to a logged-in agent fail with "invalid URI 2001" even though pjsip shows the contact Avail
+name: "invalid URI 2001" = no registered contact; /wss-asterisk proxy is OFF-LIMITS
+description: What the "invalid URI 2001" ARI error actually means, and why the WS-proxy close-propagation theory was reverted and must not be re-tried.
 ---
 
 # Symptom
-Inbound queue call to a logged-in agent dies after retries. Asterisk (mediagtw) logs:
+An ARI originate to a logged-in agent dies; Asterisk (mediagtw) logs:
 `res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'. Is endpoint registered and reachable?`
-+ `chan_pjsip.c: Failed to create outgoing session to endpoint '2001'`.
-The app's ARI originate returns HTTP 500. `pjsip show contacts` may still show `2001/... Avail`.
+The ARI POST returns HTTP 500. `pjsip show contacts` may still show `2001/... Avail`.
 
-# Root cause
-The browser softphone registers over a WebSocket that is proxied by our own server:
-browser → `wss://<host>/wss-asterisk/` (upgrade proxy in server/routes.ts) → `wss://mediagtw:8089/ws`.
-The proxy piped both sockets but only tore down the peer on `end` and `error`, **not on `close`**.
-When an agent's browser drops abruptly (tab killed, laptop sleep, wifi drop) the client socket
-often fires ONLY `close` (no `end`/`error`). The upstream WS to Asterisk then stayed open, so
-Asterisk kept the softphone contact registered even though the browser was gone. A registered-but-
-dead contact = Asterisk tries to dial it, cannot create the dialog, and reports the endpoint name
-as an "invalid URI". A fresh browser session registers a NEW contact (contact user/port changes,
-e.g. mofj67al→63coba06), which is why it "works after reopening the app".
+# What "invalid URI 2001" actually means
+Asterisk reports the ENDPOINT NAME as an "invalid URI" when the AOR has NO usable contact to dial —
+i.e. the softphone is not (currently) registered/reachable. It is NOT a bad dial string: the ARI
+POST sends a clean `endpoint=PJSIP/2001` and endpoint config is correct.
 
-**Why it's not the app's originate code or Asterisk config:** the ARI POST sends a clean
-`endpoint=PJSIP/2001`; endpoint 2001 config is correct (`aors: 2001`, `transport: transport-wss`,
-`webrtc: yes`, contact Avail). A manual CLI `channel originate PJSIP/2001` against a FRESH contact
-does not reproduce the error. The bug is a lingering upstream WS, not the dial string.
+# ⛔ Do NOT touch the /wss-asterisk WebSocket proxy
+An earlier theory blamed the browser→`wss://<host>/wss-asterisk/`→`wss://mediagtw:8089/ws` upgrade
+proxy in server/routes.ts for keeping a dead contact alive (tearing the peer down only on end/error,
+not on `close`). That close-propagation change was implemented and then **REVERTED to byte-for-byte
+original** after the user confirmed the proxy path is healthy: with NO forwarding configured, a
+logged-in agent DOES receive the queue call fine on PJSIP. The user explicitly forbade re-touching
+this proxy. Do not re-add close-propagation here.
 
-# Fix
-In the `/wss-asterisk/` upgrade proxy, propagate `close` both ways so a browser disconnect always
-closes the upstream Asterisk WS (Asterisk then drops the WS-bound contact immediately):
-`socket.on("close", () => tlsSocket.destroy())` and `tlsSocket.on("close", () => socket.destroy())`.
-
-**Why:** WebSocket-bound PJSIP contacts are removed when their transport connection closes; keeping
-the upstream open keeps a dead contact alive.
-**How to apply:** any TCP/WS proxy that pipes two sockets must tear down the peer on `close`, not
-just `end`/`error`; `end` only covers graceful FIN.
+# Where the real fix lives
+The "logged-in agent doesn't get the call" complaint was a ROUTING bug, not a proxy bug: in the
+forwarding-configured mode, `connectCallToAgent` forwarded to mobile without ever ringing PJSIP.
+Fix = registration-gated forwarding — see `asterisk-forward-callerid.md` "Desk-first routing".
 
 # Belt-and-suspenders (their Asterisk config, optional)
-Set `qualify_frequency` + `remove_unavailable=yes` on the 2001 AOR so Asterisk actively prunes
-unreachable contacts even if a WS lingers.
+`qualify_frequency` + `remove_unavailable=yes` on the 2001 AOR so Asterisk actively prunes
+unreachable contacts (removes stale "Avail" contacts that would otherwise ring a dead desk).
 
 # Separate observation (not the same bug)
-The ARI CONTROL WebSocket (queue-engine ariClient → Asterisk, a different direct connection, not
-through this proxy) also logs `Web socket closed abruptly` every few minutes. That is our own
-ping/pong + health-check forceReconnect firing on a flaky CORPCRM01↔mediagtw link; it self-heals.
-Do not conflate it with the softphone registration proxy.
+The ARI CONTROL WebSocket (queue-engine ariClient → Asterisk, a direct connection, NOT this proxy)
+logs `Web socket closed abruptly` periodically — our own ping/pong + health-check reconnect on a
+flaky CORPCRM01↔mediagtw link; it self-heals. Do not conflate with softphone registration.
