@@ -2657,8 +2657,13 @@ export class QueueEngine extends EventEmitter {
     // back off longer and let the caller simply wait in queue (MOH keeps playing via
     // the requeue path below) until the agent frees up. Set synchronously BEFORE any
     // await so the next queue tick cannot slip in and re-forward first.
+    // Busy (17) backs off a bit longer than a plain no-answer/unreachable, but NOT
+    // so long that a waiting caller sits silent after the agent's line frees. With a
+    // single standing agent the cooldown is the ONLY thing that re-rings them, so keep
+    // it short enough (20s) that the next queue tick re-forwards promptly once the
+    // agent hangs up their other call; 8s baseline for no-answer / unreachable.
     const AST_CAUSE_USER_BUSY = 17;
-    const cooldownMs = cause === AST_CAUSE_USER_BUSY ? 60000 : 8000;
+    const cooldownMs = cause === AST_CAUSE_USER_BUSY ? 20000 : 8000;
     this.standingForwardCooldown.set(uid, Date.now() + cooldownMs);
     console.log(`[QueueEngine] Standing forward: agent ${uid} channel ${channelId} destroyed before answer (cause=${cause ?? "?"} ${causeTxt ?? ""}), cooldown ${cooldownMs}ms, advancing round-robin`);
 

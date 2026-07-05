@@ -7825,6 +7825,7 @@ function MyActivityPanel({
   open,
   onOpenChange,
   stats,
+  abandonedCalls,
   onMakeCall,
   onCallFromShift,
   onOpenEntity,
@@ -7832,6 +7833,7 @@ function MyActivityPanel({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   stats: { calls: number; emails: number; sms: number };
+  abandonedCalls?: any[];
   onMakeCall?: (phone: string) => void;
   onCallFromShift?: (item: any) => void;
   onOpenEntity?: (type: string, id: string, campaignContactId?: string | null, campaignId?: string | null) => void;
@@ -7854,6 +7856,7 @@ function MyActivityPanel({
     const isIn = item.direction === "inbound";
     if (s === "answered" || s === "completed") return { label: isIn ? t.agentWorkspace.todayCallsInboundBadge : t.agentWorkspace.todayCallsOutboundBadge, color: "text-green-600 dark:text-green-400", bg: "bg-green-100 dark:bg-green-900/30", icon: isIn ? <PhoneIncoming className="h-3 w-3" /> : <PhoneCall className="h-3 w-3" /> };
     if (s === "no_answer") return { label: t.agentWorkspace.myShiftFilterMissed, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-100 dark:bg-amber-900/30", icon: <PhoneMissed className="h-3 w-3" /> };
+    if (s === "abandoned" || s === "timeout" || s === "overflow" || s === "no_agents") return { label: t.agentWorkspace.myShiftFilterMissed, color: "text-red-600 dark:text-red-400", bg: "bg-red-100 dark:bg-red-900/30", icon: <PhoneMissed className="h-3 w-3" /> };
     if (s === "busy") return { label: "Busy", color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-100 dark:bg-orange-900/30", icon: <PhoneOff className="h-3 w-3" /> };
     if (s === "failed" || s === "cancelled") return { label: isIn ? "Cancelled" : "Failed", color: "text-red-600 dark:text-red-400", bg: "bg-red-100 dark:bg-red-900/30", icon: <PhoneOff className="h-3 w-3" /> };
     return { label: s || "—", color: "text-muted-foreground", bg: "bg-muted", icon: <Phone className="h-3 w-3" /> };
@@ -7867,16 +7870,62 @@ function MyActivityPanel({
     return s > 0 ? `${m}m ${s}s` : `${m}m`;
   };
 
-  const callItems = items.filter(i => i.itemType === "call");
-  const emailItems = items.filter(i => i.itemType === "email");
-  const smsItems = items.filter(i => i.itemType === "sms");
-  const breakItems = items.filter(i => i.itemType === "break");
-  const sessionItems = items.filter(i => i.itemType === "session");
-  const missedItems = callItems.filter(i => i.status === "no_answer" || i.status === "busy");
+  // Missed queue calls live in inbound_call_logs with NO agent userId, so the
+  // today-activity feed never included them. Merge today's missed calls (the same data
+  // shown in the "Missed calls" panel) into the shift feed so they're recorded here too.
+  const MISSED_QUEUE_STATUSES = ["abandoned", "timeout", "overflow", "no_agents"];
+  const shiftDayStart = startOfDay(new Date());
+  // Guard against a missed queue call ALSO showing up as an agent no_answer call_log:
+  // dedupe on last-9-digits of the number within the same ~5-minute bucket.
+  const existingMissedKeys = new Set(
+    items
+      .filter((i: any) => i.itemType === "call" && (i.status === "no_answer" || i.status === "busy") && i.phoneNumber)
+      .map((i: any) => `${String(i.phoneNumber).replace(/\D/g, "").slice(-9)}|${i.startedAt ? Math.floor(new Date(i.startedAt).getTime() / 300000) : ""}`)
+  );
+  const missedQueueItems = (abandonedCalls || [])
+    .filter((c: any) => {
+      const ts = c.enteredQueueAt || c.completedAt || c.createdAt;
+      if (!ts || new Date(ts) < shiftDayStart) return false;
+      const key = `${String(c.callerNumber || "").replace(/\D/g, "").slice(-9)}|${Math.floor(new Date(ts).getTime() / 300000)}`;
+      return !existingMissedKeys.has(key);
+    })
+    .map((c: any) => {
+      const ts = c.enteredQueueAt || c.completedAt || c.createdAt;
+      return {
+        id: `missed-${c.id}`,
+        itemType: "call" as const,
+        direction: "inbound" as const,
+        status: c.status || "abandoned",
+        phoneNumber: c.callerNumber,
+        durationSeconds: null,
+        startedAt: ts,
+        answeredAt: null,
+        endedAt: c.completedAt || null,
+        sortTime: ts,
+        customerName: c.customerName || null,
+        contactType: c.customerId ? "customer" : null,
+        entityId: c.customerId || null,
+        campaignContactId: null,
+        campaignId: null,
+        dispositionCode: null,
+        inboundQueueName: c.queueName || null,
+      };
+    });
+  const allItems = missedQueueItems.length
+    ? [...items, ...missedQueueItems].sort((a: any, b: any) =>
+        new Date(b.sortTime || b.startedAt || 0).getTime() - new Date(a.sortTime || a.startedAt || 0).getTime())
+    : items;
+
+  const callItems = allItems.filter(i => i.itemType === "call");
+  const emailItems = allItems.filter(i => i.itemType === "email");
+  const smsItems = allItems.filter(i => i.itemType === "sms");
+  const breakItems = allItems.filter(i => i.itemType === "break");
+  const sessionItems = allItems.filter(i => i.itemType === "session");
+  const missedItems = callItems.filter(i => i.status === "no_answer" || i.status === "busy" || MISSED_QUEUE_STATUSES.includes(i.status));
   const answeredCalls = callItems.filter(i => i.status === "answered" || i.status === "completed");
   const totalDur = answeredCalls.reduce((sum: number, c: any) => sum + (c.durationSeconds || 0), 0);
 
-  const filtered = filterType === "all" ? items
+  const filtered = filterType === "all" ? allItems
     : filterType === "call" ? callItems
     : filterType === "email" ? emailItems
     : filterType === "sms" ? smsItems
@@ -7885,7 +7934,7 @@ function MyActivityPanel({
     : missedItems;
 
   const filterTabs: { key: typeof filterType; label: string; count: number }[] = [
-    { key: "all", label: t.agentWorkspace.myShiftFilterAll, count: items.length },
+    { key: "all", label: t.agentWorkspace.myShiftFilterAll, count: allItems.length },
     { key: "call", label: t.agentWorkspace.myShiftFilterCalls, count: callItems.length },
     { key: "email", label: t.agentWorkspace.myShiftFilterEmail, count: emailItems.length },
     { key: "sms", label: t.agentWorkspace.myShiftFilterSms, count: smsItems.length },
@@ -14271,6 +14320,7 @@ export default function AgentWorkspacePage() {
         open={myActivityOpen}
         onOpenChange={setMyActivityOpen}
         stats={stats}
+        abandonedCalls={abandonedCalls}
         onCallFromShift={async (item: any) => {
           setMyActivityOpen(false);
           if (item.campaignId && item.campaignContactId && item.entityId && item.contactType) {

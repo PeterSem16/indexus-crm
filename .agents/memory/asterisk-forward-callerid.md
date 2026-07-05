@@ -69,9 +69,11 @@ which is why a 2nd concurrent call to a single busy agent looped instead of wait
 any await** (JS only interleaves at awaits, so a pre-await write is race-free against the queue
 tick). Thread the ARI `ChannelDestroyed` cause through: the `channel-destroyed` listener already
 receives `event.cause`/`event.cause_txt` (AriEvent declares them; ari-client re-emits the raw
-event) — pass them into `handleChannelDestroyed` → the standing-destroy handler. Use a longer
-cooldown (60s) when `cause === 17` (**AST_CAUSE_USER_BUSY**, the mobile's SIP 486) so the caller
-just waits in queue with MOH until the agent frees; 8s baseline otherwise.
+event) — pass them into `handleChannelDestroyed` → the standing-destroy handler. Use a slightly
+longer cooldown (20s) when `cause === 17` (**AST_CAUSE_USER_BUSY**, the mobile's SIP 486) so the
+caller waits in queue with MOH until the agent frees; 8s baseline otherwise. Keep the busy value
+SHORT (20s not 60s): with a single standing agent the cooldown is the ONLY re-ring mechanism, so
+a long value leaves a waiting caller silent for up to that long AFTER the agent's line frees.
 
 **Why:** one mobile can take only one call; the correct behavior for a 2nd caller is to WAIT in
 queue (or round-robin to another free agent — cooldown is keyed per userId so others stay
@@ -81,4 +83,4 @@ eligible), never to force-dial a busy line. `tryStandingForward` needs no change
 **Verify on deploy:** whether the mobile's 486 actually arrives as `cause=17` depends on Dial's
 HANGUPCAUSE propagating through the dialplan prio-8 `Hangup` onto the Local channel. The handler
 logs `cause`/`cause_txt`; grep it after a live 2-call test. If it logs 16/34 instead, the 8s
-baseline still kills the loop — worst case the busy back-off is 8s not 60s.
+baseline still kills the loop — worst case the busy back-off is 8s not 20s.
