@@ -5,6 +5,28 @@ description: How the from-internal-* dialplan derives outbound CLI (CBC_CALLER) 
 
 # Forwarded-call caller-ID (CBC_CALLER) and desk-first routing
 
+## ⭐ THE REAL "it worked before, now it 486s" REGRESSION — was NOT caller-ID
+When a user rages that SK queue-call forwarding to agent mobiles "worked before and now doesn't",
+do **not** chase the outbound CLI (every format — real `+421`, `0421`, `09…`, owned DID `02…`,
+anonymous — was live-traced and ALL get `486 Busy` from the upstream DialLog/VICIdial box; CLI is a
+dead end). The actual regression was a **call-flow** change: a "desk-first when logged in" edit
+**removed** the `if (agentUser.callForwardingEnabled && callForwardingNumber) → handleForwardedAgentCall(...)`
+block at the top of `connectCallToAgent`. That block forwards a *logged-in* agent's queue call to their
+**mobile** (via `handleForwardedAgentCall` → `forwardToExternalNumber`, continueDialplan on the inbound
+channel — a DIFFERENT SIP flow than the standing-forward Local hairpin, and the one that connected on the
+Jul-3 baseline). Removing it routed logged-in mobile-only reps onto their **desk** `PJSIP/<ext>`, which
+throws `Endpoint <ext> invalid URI` when the rep isn't registered at a desk → the call dies.
+
+**Diagnostic tells:** (1) only 2 files changed since the "worked" baseline (`git diff <baseline> HEAD --
+server/ shared/` → `queue-engine.ts` + `ari-client.ts`); (2) live trace shows BOTH `Endpoint 2001 invalid
+URI` AND a standing-forward 486; (3) the removed block is the only non-CLI, non-cooldown change in the diff.
+**Fix = restore the forward block** (present again in `connectCallToAgent` before `const sipEndpoint`) and
+keep `forwardToExternalNumber` presenting the REAL caller number on that continueDialplan path.
+**Why:** the desk-first design assumed a logged-in agent is reachable at `PJSIP/<ext>`; for reps who only
+use a mobile that assumption is false, so "logged-in → desk-only" silently black-holes their calls.
+
+
+
 ## Caller-ID on forwarded/standing calls
 The mediagateway dialplan (`attached_assets/extensions_*.conf`, `[from-internal-sk]` and
 the other `from-internal-<cc>` contexts) sets the OUTBOUND CLI from `${CBC_CALLER}`:

@@ -1523,31 +1523,19 @@ export class QueueEngine extends EventEmitter {
     if (!fwdCid) {
       try { const ch = await this.ariClient.getChannel(channelId); fwdCid = ch?.caller?.number || ""; } catch {}
     }
-    // SLOVANET returns a false 486 BUSY for ANY Slovak CLI (+421… E.164, 02… landline DID and
-    // 09… mobile were all live-tested → all 486). The only thing that connects is presenting
-    // NO caller-ID: the call then rings as "unknown number", exactly how it worked before.
-    // Foreign callers pass with their real number, so keep it.
-    const outCli = this.forwardCli(fwdCid);
-    try {
-      if (outCli) {
-        // Foreign caller → present the real number (it passes the operator's filter).
-        await this.ariClient.setChannelVariable(channelId, "CALLERID(num)", outCli);
-        await this.ariClient.setChannelVariable(channelId, "CALLERID(name)", outCli);
-        // Inherited (`__`) so it survives the Dial(Local/...) hairpin into from-internal-*.
-        await this.ariClient.setChannelVariable(channelId, "__CBC_CALLER", outCli);
-        console.log(`[QueueEngine] forwardToExternalNumber: set CALLERID=${outCli} on ${channelId}`);
-      } else {
-        // Slovak caller (or none) → present ANONYMOUS so the call connects. Clear the CLI and
-        // blank CBC_CALLER so the from-internal-* dialplan's LEN>0 guard does NOT re-inject the
-        // inbound SK number (from-sk-trunk sets __CBC_CALLER from the caller on this channel).
-        await this.ariClient.setChannelVariable(channelId, "CALLERID(num)", "");
-        await this.ariClient.setChannelVariable(channelId, "CALLERID(name)", "");
-        await this.ariClient.setChannelVariable(channelId, "CALLERID(pres)", "prohib_passed_screen");
-        await this.ariClient.setChannelVariable(channelId, "__CBC_CALLER", "");
-        console.log(`[QueueEngine] forwardToExternalNumber: SK caller → presenting ANONYMOUS CLI on ${channelId}`);
+    // Present the caller's real number as the outbound CLI (Jul-3 behaviour). The reps
+    // require seeing the real caller's number, and this path (continueDialplan on the
+    // inbound channel) is the one that connected before. Set it inherited (`__`) so it
+    // survives any Dial() child leg into from-internal-*.
+    if (fwdCid) {
+      try {
+        await this.ariClient.setChannelVariable(channelId, "CALLERID(num)", fwdCid);
+        await this.ariClient.setChannelVariable(channelId, "CALLERID(name)", fwdCid);
+        await this.ariClient.setChannelVariable(channelId, "__CBC_CALLER", fwdCid);
+        console.log(`[QueueEngine] forwardToExternalNumber: set CALLERID=${fwdCid} on ${channelId}`);
+      } catch (cidErr: any) {
+        console.warn(`[QueueEngine] forwardToExternalNumber: failed to set CALLERID:`, cidErr?.message || cidErr);
       }
-    } catch (cidErr: any) {
-      console.warn(`[QueueEngine] forwardToExternalNumber: failed to set CALLERID:`, cidErr?.message || cidErr);
     }
 
     const contexts = [primaryCtx, "from-internal", "indexus-outbound"];
@@ -3632,15 +3620,16 @@ export class QueueEngine extends EventEmitter {
       return;
     }
 
-    // DESK-FIRST: this path is only reached for agents with an ACTIVE Nexus Pulse
-    // session (selectAgent filters to logged-in agents whose session has this queue
-    // selected). A logged-in agent is reachable at their desk via their PJSIP
-    // extension, so we ring the desk here and deliberately IGNORE callForwarding.
-    // Forwarding a queue call to the mobile only happens when the agent is NOT
-    // logged in — that is handled entirely by the standing-forward path
-    // (tryStandingForward / connectCallToStandingAgent). See also user request:
-    // "when logged into Nexus Pulse the call must go to Nexus Pulse (pjsip),
-    // only forward to mobile when not logged in".
+    // If the agent has call-forwarding enabled, forward the queue call to their mobile.
+    // This is the Jul-3 behaviour (continueDialplan on the inbound channel via
+    // forwardToExternalNumber, presenting the real caller number). It had been removed by
+    // a "desk-first when logged in" change, which pushed logged-in agents onto their desk
+    // PJSIP/<ext> — failing with "invalid URI" when the rep works from mobile and is not
+    // registered at a desk. Restored so forwarding-enabled agents ring on mobile again.
+    if ((agentUser as any).callForwardingEnabled && (agentUser as any).callForwardingNumber) {
+      await this.handleForwardedAgentCall(call, agent, agentUser as any, queue, waitDuration);
+      return;
+    }
 
     const sipEndpoint = `PJSIP/${agentUser.sipExtension}`;
     const elapsedSoFar = (Date.now() - call.enteredAt.getTime()) / 1000;
