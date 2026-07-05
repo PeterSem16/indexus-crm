@@ -34,6 +34,7 @@ import { decryptTokenSafe } from "./token-crypto";
 import { STORAGE_PATHS } from "../config/storage-paths";
 import { AriClient, type AriEvent, type AriChannel } from "./ari-client";
 import { inboundCallWs } from "./inbound-call-ws";
+import { alertAgentIncomingCall } from "./agent-call-alert";
 
 export interface QueuedCall {
   id: string;
@@ -137,6 +138,7 @@ export class QueueEngine extends EventEmitter {
   private standingForwardBusy: Set<string> = new Set(); // userIds currently ringing/bridged via standing forward
   private standingForwardRoundRobin: Map<string, number> = new Map(); // queueId → next round-robin index
   private standingForwardCooldown: Map<string, number> = new Map(); // userId → epoch ms until re-ring allowed
+  private recentAgentCallAlerts: Map<string, number> = new Map(); // `${callId}:${userId}` → epoch ms expiry; dedups incoming-call alerts across round-robin re-rings
   // Two-signal gate for standing Local channels (same reason as pendingRoHairpins):
   // channel-state-change(Up) can fire BEFORE StasisStart for Local channels, so we
   // only bridge once BOTH Up AND Stasis are confirmed.
@@ -1523,9 +1525,13 @@ export class QueueEngine extends EventEmitter {
     if (!fwdCid) {
       try { const ch = await this.ariClient.getChannel(channelId); fwdCid = ch?.caller?.number || ""; } catch {}
     }
-    // Present the caller's REAL number as the outbound CLI, unchanged. Do NOT rewrite SK
-    // (+421) numbers to E.164: showing the real Slovak caller number is a hard requirement,
-    // and a live SIP trace proved E.164 rewriting did NOT fix the carrier's 486 anyway.
+    // Present the caller's REAL number as the outbound CLI, unchanged.
+    // NOTE: the SK→company-DID caller-ID substitution (resolveForwardCli) is applied ONLY in
+    // the standing-forward path (connectCallToStandingAgent), where the real caller is
+    // delivered to the agent out of band (in-app + push + SMS). This path (collaborator /
+    // queue forward-number) has NO such out-of-band delivery, so substituting the DID here
+    // would silently hide the caller — keep the real number instead. Do NOT rewrite SK
+    // numbers to E.164 either: a live trace proved E.164 did NOT fix the carrier's 486.
     if (fwdCid) {
       try {
         await this.ariClient.setChannelVariable(channelId, "CALLERID(num)", fwdCid);
@@ -2521,6 +2527,44 @@ export class QueueEngine extends EventEmitter {
     return agents.length > 0;
   }
 
+  // Is this caller a Slovak (+421) number in any of the forms the SK trunk delivers?
+  // SK callers get a false 486 BUSY from the terminating operator when we present a
+  // national CLI over the wholesale route (anti-spoofing), so we swap in the company DID.
+  private isSlovakInternationalCaller(raw: string | null | undefined): boolean {
+    const s = (raw || "").trim();
+    if (!s) return false;
+    const d = s.replace(/\D/g, "");
+    if (s.startsWith("+421")) return true;
+    if (d.startsWith("00421")) return true;                    // 00 + 421 + national
+    if (d.startsWith("421") && d.length === 12) return true;    // 421 + 9 digits
+    if (d.startsWith("0421") && d.length === 13) return true;   // trunk form: 0 + 421 + 9
+    return false;
+  }
+
+  // Normalise a DID to the national 0-prefixed SK form that the trunk accepts as an
+  // authorised CLI (the confirmed working value was e.g. "0232399030").
+  private toNationalSkDid(did: string | null | undefined): string {
+    const s = (did || "").trim();
+    if (!s) return "";
+    const d = s.replace(/\D/g, "");
+    if (d.startsWith("00421")) return "0" + d.slice(5);
+    if (s.startsWith("+421")) return "0" + d.slice(3);
+    if (d.startsWith("421") && d.length >= 11) return "0" + d.slice(3);
+    return s.replace(/\s/g, ""); // already national (e.g. 0232399030)
+  }
+
+  // The CLI to present on a forwarded call: the company DID for SK callers (anti-spoofing
+  // workaround so the call connects), otherwise the caller's REAL number unchanged.
+  // Foreign callers pass the operator's filter with their real number, so keep it.
+  private resolveForwardCli(realCaller: string | null | undefined, did: string | null | undefined): string {
+    const real = (realCaller || "").replace(/\s/g, "");
+    if (this.isSlovakInternationalCaller(real)) {
+      const nat = this.toNationalSkDid(did);
+      if (nat) return nat;
+    }
+    return real;
+  }
+
   // Ring ONE standing agent's mobile for this call using sequential round-robin.
   // Returns true if a standing agent was rung (call handed off), false if none are
   // available (all busy / on cooldown / none configured) — caller stays in queue.
@@ -2585,14 +2629,16 @@ export class QueueEngine extends EventEmitter {
       // handleAgentChannelAnswer stops MOH and bridges on real answer. A Local channel
       // into from-internal-<cc> only goes Up when the mobile genuinely answers (the
       // dialplan does Dial() with answer supervision, no early Answer()).
-      // Pass the original caller's number BOTH as the Local channel's callerId AND as
-      // an inherited __CBC_CALLER variable. The from-internal-* dialplan sets the
-      // outbound CLI from ${CBC_CALLER} (ExecIf(...Set(CALLERID(num)=${CBC_CALLER})));
-      // the `__` prefix ensures it survives onto the Local ;2 leg that runs that
-      // dialplan, so the agent's mobile shows the real caller instead of no/blank CLI.
-      // Present the caller's REAL number as the CLI, unchanged. Do NOT rewrite SK (+421)
-      // numbers to E.164 — showing the real Slovak caller number is a hard requirement.
-      const cliCid = call.callerNumber;
+      // Pass the presented caller-ID BOTH as the Local channel's callerId AND as an
+      // inherited __CBC_CALLER variable. The from-internal-* dialplan sets the outbound
+      // CLI from ${CBC_CALLER} (ExecIf(...Set(CALLERID(num)=${CBC_CALLER}))); the `__`
+      // prefix ensures it survives onto the Local ;2 leg that runs that dialplan.
+      // For SK (+421) callers we present the company DID instead of the real number:
+      // the terminating operator sends a false 486 BUSY when a national SK CLI is
+      // forwarded over the wholesale trunk (confirmed by a live SIP trace). Foreign
+      // callers keep their real number (they pass anti-spoofing). The REAL caller is
+      // delivered to the agent out of band (in-app + push + SMS) via alertAgentIncomingCall.
+      const cliCid = this.resolveForwardCli(call.callerNumber, queue.didNumber);
       const localChannel = await this.ariClient.originateChannel(
         `Local/${norm}@${ctx}/n`,
         norm,
@@ -2615,6 +2661,37 @@ export class QueueEngine extends EventEmitter {
         queueName: queue.name,
         enteredAt: call.enteredAt,
       });
+
+      // The agent's mobile is now ringing. When we substituted the CLI with the company
+      // DID (SK callers), the agent's phone shows the DID instead of the real caller, so
+      // tell them WHO is really calling via in-app notification + INDEXUS Connect push +
+      // SMS. Skip this for foreign callers — their mobile already shows the real number,
+      // so an out-of-band alert (esp. SMS) would just cost money. Dedup per (call, agent)
+      // so the round-robin re-ring loop (cooldown + ring-timeout requeue) does not re-alert
+      // the same agent about the same caller. Best-effort, non-blocking — it must never
+      // delay or break the call-handling path.
+      const cliWasSubstituted = !!cliCid && cliCid !== (call.callerNumber || "").replace(/\s/g, "");
+      if (cliWasSubstituted) {
+        const alertKey = `${call.id}:${agent.userId}`;
+        const nowMs = Date.now();
+        const prevExpiry = this.recentAgentCallAlerts.get(alertKey) || 0;
+        if (prevExpiry <= nowMs) {
+          this.recentAgentCallAlerts.set(alertKey, nowMs + 5 * 60 * 1000);
+          if (this.recentAgentCallAlerts.size > 500) {
+            for (const [k, exp] of this.recentAgentCallAlerts) {
+              if (exp <= nowMs) this.recentAgentCallAlerts.delete(k);
+            }
+          }
+          void alertAgentIncomingCall({
+            userId: agent.userId,
+            agentMobile: agent.number,
+            realCallerNumber: call.callerNumber,
+            callerName: call.callerName,
+            customerId: call.customerId,
+            queueName: queue.name,
+          }).catch(() => {});
+        }
+      }
 
       setTimeout(async () => {
         const stillPending = this.pendingAgentCalls.get(localChannel.id);

@@ -48,7 +48,7 @@ tell: `Everyone is busy/congested at this time (1:1/0/0)` = 1 line, 1 **busy** (
 **Root cause:** the SK trunk delivers inbound callers as **"0" + full international** number
 (SK +421… arrives as `0421…`, DE +49… as `049…`). The dialplan sets `CALLERID(num)=${CBC_CALLER}`
 **verbatim** (it normalizes only the dial target / OUTNUM, never the CLI). So a raw
-`0421911163316` is presented as the CLI, which the mobile carrier reads as an **invalid domestic
+`0421911xxx316` is presented as the CLI, which the mobile carrier reads as an **invalid domestic
 SK number** (area 042… with too many digits) and rejects with a false BUSY. A foreign-looking
 `049…` isn't recognised as domestic SK so it slips through and rings — which is exactly why the
 symptom looks caller-dependent.
@@ -83,7 +83,7 @@ this **worked before** these changes. So the CLI is now just the raw caller numb
 the SK CLI again without a live trunk test that shows it both connects AND preserves the number.
 
 **What the definitive `pjsip set logger on` trace shows (do not re-theorise past this):** the
-outbound INVITE presents `From: "+421911163316"` (caller number ONLY in From — no PAI/RPID sent;
+outbound INVITE presents `From: "+421911xxx316"` (caller number ONLY in From — no PAI/RPID sent;
 `trunk-sk-endpoint` has send_pai=false/send_rpid=false/from_user empty) and the SK provider
 (`10.9.33.2`, "DialLog.Dialer", Asterisk-13-vici) replies **180 Ringing → 183 Session Progress WITH
 real SDP → 486 Busy here** (no Q.850 Reason/Warning header). So the provider actually routes the call
@@ -111,6 +111,27 @@ experiment via code — if the user recalls whether THAT rang, it answers the qu
   INDEXUS app instead of on the mobile screen.
 - send_pai=yes + from_user=<owned DID> + PAI=real number only helps IF the provider honours PAI to the
   mobile — unverified, and terminating anti-spoofing may still strip/ignore it.
+
+### IMPLEMENTED (final decision): DID-substitution ONLY on the standing path + out-of-band caller delivery
+The chosen tradeoff was implemented **only in `connectCallToStandingAgent`** (the sole live queue→mobile
+forward path). A central `resolveForwardCli(realCaller, did)` presents the company queue DID as the CLI
+**only for SK (+421) callers** (`isSlovakInternationalCaller` + `toNationalSkDid` → national `0…` form);
+foreign callers keep their real number verbatim. Because the SK caller's phone now shows the DID, the REAL
+caller (number + name) is delivered out of band the instant the mobile rings, via a best-effort,
+fire-and-forget `alertAgentIncomingCall(...)` (`server/lib/agent-call-alert.ts`) firing THREE channels:
+in-app web notification, Expo push to INDEXUS Connect, and SMS (BulkGate).
+
+**Deliberately NOT applied** to `forwardToExternalNumber` (collaborator / queue forward-number): that path
+has no out-of-band alert, so substituting the DID there would silently hide the caller. It keeps the real
+number (SK calls on that path stay broken until a carrier-side fix — acceptable, pre-existing).
+
+**Alert gating & dedup (must keep):** fire the alert ONLY when the CLI was actually substituted
+(`cliCid !== realNumber`) — never for foreign callers (their mobile already shows the real number; an SMS
+would just cost money). Dedup per `${callId}:${userId}` (5-min TTL map `recentAgentCallAlerts`) so the
+round-robin re-ring loop (cooldown + ring-timeout requeue) does not re-SMS the same agent about the same
+caller. See `agent-alert-user-collaborator-bridge.md` for how push tokens are located across the users↔
+collaborators no-FK gap. **Why:** deploy is git pull+build+pm2 restart (NO npm install / db:push), so this
+used global `fetch` for Expo (no new dep) and NO schema change.
 
 ## Desk-first routing (logged-in → desk, not-logged-in → mobile)
 `connectCallToAgent` is only reached for agents with an **active agentSession that has the
