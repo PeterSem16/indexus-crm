@@ -112,13 +112,24 @@ experiment via code — if the user recalls whether THAT rang, it answers the qu
 - send_pai=yes + from_user=<owned DID> + PAI=real number only helps IF the provider honours PAI to the
   mobile — unverified, and terminating anti-spoofing may still strip/ignore it.
 
-### FINAL: present the REAL caller (DID-substitution REVERTED) — NO notifications
-`connectCallToStandingAgent` presents the caller in clean SK national form via `toSkNationalCli`
-(`0421…/+421…/00421…` → `09…`; foreign left unchanged) — the real caller number, just tidied to the standard
-domestic tvar. This is the correct format to KEEP for when SLOVANET authorises the trunk (proven not to
-matter for connecting today — see below — but it's the right presentation). The earlier SK→company-DID
-substitution (`resolveForwardCli` / `isSlovakInternationalCaller` / `toNationalSkDid`) was **REMOVED** — a
-live DialLog console trace disproved it (see below).
+### FINAL SOLUTION: present ANONYMOUS CLI for SK forwards (empty), real CLI for foreign
+User testimony (decisive): "predtym aspon vzdy doslo k prepojeniu a bolo tam neznáme číslo, teraz sa neda ani
+dovolať" → BEFORE, the forward ALWAYS connected showing "unknown number" = an ANONYMOUS/empty CLI passes
+SLOVANET's filter. So the working fix is **present NO caller-ID for SK callers** (rings the agent's mobile as
+"neznáme číslo"), keep the real number only for FOREIGN callers.
+Implemented via helper `forwardCli(raw)` (queue-engine.ts): returns `""` for SK (`+421` / `0421`≥12 / `421`==12
+/ `00421`), the real number for foreign. Two call sites:
+- `connectCallToStandingAgent` (standing forward, ARI originate): pass `cliCid = forwardCli(...)` as the
+  originate callerId (empty → `originateChannel` omits it: `if (callerId) params.callerId=...`), and pass
+  `__CBC_CALLER` ONLY when non-empty. Empty CBC_CALLER → the from-internal-* `ExecIf(LEN>0?Set(CALLERID))`
+  guard skips → CLI stays blank → anonymous. REMOVED the old `cliCid || call.callerNumber` fallback (it
+  re-injected the SK number).
+- `forwardToExternalNumber` (continueDialplan on the SAME inbound channel): for SK actively CLEAR the CLI —
+  set `CALLERID(num)=""`, `CALLERID(name)=""`, `CALLERID(pres)=prohib_passed_screen`, AND `__CBC_CALLER=""`
+  (must blank it: from-sk-trunk already set `__CBC_CALLER=caller` on this channel, else the guard re-injects).
+Prior attempts REVERTED as proven-useless on this route: national `09…` normalization (`toSkNationalCli`) and
+company-DID substitution (`resolveForwardCli`/`isSlovakInternationalCaller`/`toNationalSkDid`) — every Slovak
+CLI 486s regardless (see below).
 
 **⚠️ REMOVED — do NOT re-introduce without an explicit request:** (a) the out-of-band caller delivery
 (in-app + Expo push + SMS, `server/lib/agent-call-alert.ts`, `alertAgentIncomingCall`, the

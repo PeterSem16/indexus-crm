@@ -1523,21 +1523,31 @@ export class QueueEngine extends EventEmitter {
     if (!fwdCid) {
       try { const ch = await this.ariClient.getChannel(channelId); fwdCid = ch?.caller?.number || ""; } catch {}
     }
-    // Present the caller's REAL number as the outbound CLI, unchanged. Do NOT rewrite SK
-    // numbers (E.164 or company-DID substitution): a live DialLog trace proved the SK route
-    // (via SLOVANET) returns a false 486 BUSY for ANY Slovak CLI — the real +421 caller and
-    // the company's own DID both fail, only foreign CLIs ring. The fix is operator-side
-    // (SLOVANET authorising the outbound SK CLI), not in this code.
-    if (fwdCid) {
-      try {
-        await this.ariClient.setChannelVariable(channelId, "CALLERID(num)", fwdCid);
-        await this.ariClient.setChannelVariable(channelId, "CALLERID(name)", fwdCid);
+    // SLOVANET returns a false 486 BUSY for ANY Slovak CLI (+421… E.164, 02… landline DID and
+    // 09… mobile were all live-tested → all 486). The only thing that connects is presenting
+    // NO caller-ID: the call then rings as "unknown number", exactly how it worked before.
+    // Foreign callers pass with their real number, so keep it.
+    const outCli = this.forwardCli(fwdCid);
+    try {
+      if (outCli) {
+        // Foreign caller → present the real number (it passes the operator's filter).
+        await this.ariClient.setChannelVariable(channelId, "CALLERID(num)", outCli);
+        await this.ariClient.setChannelVariable(channelId, "CALLERID(name)", outCli);
         // Inherited (`__`) so it survives the Dial(Local/...) hairpin into from-internal-*.
-        await this.ariClient.setChannelVariable(channelId, "__CBC_CALLER", fwdCid);
-        console.log(`[QueueEngine] forwardToExternalNumber: set CALLERID=${fwdCid} (__CBC_CALLER inherited) on ${channelId}`);
-      } catch (cidErr: any) {
-        console.warn(`[QueueEngine] forwardToExternalNumber: failed to set CALLERID:`, cidErr?.message || cidErr);
+        await this.ariClient.setChannelVariable(channelId, "__CBC_CALLER", outCli);
+        console.log(`[QueueEngine] forwardToExternalNumber: set CALLERID=${outCli} on ${channelId}`);
+      } else {
+        // Slovak caller (or none) → present ANONYMOUS so the call connects. Clear the CLI and
+        // blank CBC_CALLER so the from-internal-* dialplan's LEN>0 guard does NOT re-inject the
+        // inbound SK number (from-sk-trunk sets __CBC_CALLER from the caller on this channel).
+        await this.ariClient.setChannelVariable(channelId, "CALLERID(num)", "");
+        await this.ariClient.setChannelVariable(channelId, "CALLERID(name)", "");
+        await this.ariClient.setChannelVariable(channelId, "CALLERID(pres)", "prohib_passed_screen");
+        await this.ariClient.setChannelVariable(channelId, "__CBC_CALLER", "");
+        console.log(`[QueueEngine] forwardToExternalNumber: SK caller → presenting ANONYMOUS CLI on ${channelId}`);
       }
+    } catch (cidErr: any) {
+      console.warn(`[QueueEngine] forwardToExternalNumber: failed to set CALLERID:`, cidErr?.message || cidErr);
     }
 
     const contexts = [primaryCtx, "from-internal", "indexus-outbound"];
@@ -2523,20 +2533,22 @@ export class QueueEngine extends EventEmitter {
     return agents.length > 0;
   }
 
-  // Present a Slovak caller in clean NATIONAL format (0 + 9-digit national significant
-  // number), the way a normal domestic SK call shows its CLI. Foreign numbers are returned
-  // unchanged. SLOVANET rejected the E.164 +421… form and the 02… DID with a false 486;
-  // the standard national 09… form is the remaining untested outbound-CLI format.
-  private toSkNationalCli(raw: string | null | undefined): string {
+  // Caller-ID to present on a forwarded call to an agent's mobile. The terminating operator
+  // (SLOVANET) returns a false 486 BUSY for ANY Slovak CLI (+421… E.164, 02… landline DID and
+  // 09… mobile were ALL live-tested → all 486). The only thing that connects is presenting NO
+  // caller-ID at all: the call then rings the agent as "unknown number" — exactly how it worked
+  // before. Foreign callers pass the operator's filter with their real number, so keep theirs.
+  // Returns "" to mean "present ANONYMOUS / withhold the CLI".
+  private forwardCli(raw: string | null | undefined): string {
     const s = (raw || "").replace(/\s/g, "");
-    if (!s) return s;
+    if (!s) return "";
     const d = s.replace(/\D/g, "");
-    let nsn = "";
-    if (d.startsWith("00421")) nsn = d.slice(5);                       // 00 + 421 + NSN
-    else if (d.startsWith("0421") && d.length >= 13) nsn = d.slice(4); // 0 + 421 + NSN (trunk form)
-    else if (d.startsWith("421") && d.length >= 12) nsn = d.slice(3);  // 421 + NSN (bare/E.164 digits)
-    else return s; // already national (09…/02…), foreign, or unknown → leave as-is
-    return nsn ? "0" + nsn : s;
+    const isSk =
+      s.startsWith("+421") ||                       // +421 E.164
+      d.startsWith("00421") ||                       // 00 + 421 + NSN
+      (d.startsWith("0421") && d.length >= 12) ||    // 0 + 421 + NSN (trunk form, 13 digits)
+      (d.startsWith("421") && d.length === 12);      // 421 + NSN (bare)
+    return isSk ? "" : s; // SK → anonymous (connects); foreign → real number (rings)
   }
 
   // Ring ONE standing agent's mobile for this call using sequential round-robin.
@@ -2607,17 +2619,18 @@ export class QueueEngine extends EventEmitter {
       // inherited __CBC_CALLER variable. The from-internal-* dialplan sets the outbound
       // CLI from ${CBC_CALLER} (ExecIf(...Set(CALLERID(num)=${CBC_CALLER}))); the `__`
       // prefix ensures it survives onto the Local ;2 leg that runs that dialplan.
-      // Present the SK caller in clean NATIONAL format (0 + 9-digit NSN) — the way a normal
-      // domestic SK call shows its CLI. Format hypothesis under test: SLOVANET rejected the
-      // E.164 +421… form and the 02… DID with 486, but the standard national 09… form has
-      // NOT yet been tried as the outbound CLI. Foreign callers are left unchanged (they ring).
-      // If 09… still 486s, the format space is exhausted → the fix is operator-side.
-      const cliCid = this.toSkNationalCli(call.callerNumber);
+      // SK callers get a false 486 from SLOVANET no matter what Slovak CLI we present
+      // (+421…, 02… DID, 09… mobile all live-tested → all 486). So present NO caller-ID for
+      // SK: the call rings the agent's mobile as "unknown number" and ALWAYS connects, exactly
+      // like before. Empty cliCid → originate sends no callerId AND we pass no __CBC_CALLER, so
+      // the from-internal-* dialplan's LEN>0 guard leaves the CLI blank (anonymous). Foreign
+      // callers keep their real number (they pass the filter and ring).
+      const cliCid = this.forwardCli(call.callerNumber);
       const localChannel = await this.ariClient.originateChannel(
         `Local/${norm}@${ctx}/n`,
         norm,
         ctx,
-        cliCid || call.callerNumber,
+        cliCid,
         `agent-call,${standingAgentId},${call.channelId}`,
         cliCid ? { __CBC_CALLER: cliCid } : undefined,
       );
