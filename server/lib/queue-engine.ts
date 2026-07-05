@@ -1523,13 +1523,11 @@ export class QueueEngine extends EventEmitter {
     if (!fwdCid) {
       try { const ch = await this.ariClient.getChannel(channelId); fwdCid = ch?.caller?.number || ""; } catch {}
     }
-    // Present the caller's REAL number as the outbound CLI, unchanged.
-    // NOTE: the SK→company-DID caller-ID substitution (resolveForwardCli) is applied ONLY in
-    // the standing-forward path (connectCallToStandingAgent), where the real caller is
-    // delivered to the agent out of band (in-app + push + SMS). This path (collaborator /
-    // queue forward-number) has NO such out-of-band delivery, so substituting the DID here
-    // would silently hide the caller — keep the real number instead. Do NOT rewrite SK
-    // numbers to E.164 either: a live trace proved E.164 did NOT fix the carrier's 486.
+    // Present the caller's REAL number as the outbound CLI, unchanged. Do NOT rewrite SK
+    // numbers (E.164 or company-DID substitution): a live DialLog trace proved the SK route
+    // (via SLOVANET) returns a false 486 BUSY for ANY Slovak CLI — the real +421 caller and
+    // the company's own DID both fail, only foreign CLIs ring. The fix is operator-side
+    // (SLOVANET authorising the outbound SK CLI), not in this code.
     if (fwdCid) {
       try {
         await this.ariClient.setChannelVariable(channelId, "CALLERID(num)", fwdCid);
@@ -2525,44 +2523,6 @@ export class QueueEngine extends EventEmitter {
     return agents.length > 0;
   }
 
-  // Is this caller a Slovak (+421) number in any of the forms the SK trunk delivers?
-  // SK callers get a false 486 BUSY from the terminating operator when we present a
-  // national CLI over the wholesale route (anti-spoofing), so we swap in the company DID.
-  private isSlovakInternationalCaller(raw: string | null | undefined): boolean {
-    const s = (raw || "").trim();
-    if (!s) return false;
-    const d = s.replace(/\D/g, "");
-    if (s.startsWith("+421")) return true;
-    if (d.startsWith("00421")) return true;                    // 00 + 421 + national
-    if (d.startsWith("421") && d.length === 12) return true;    // 421 + 9 digits
-    if (d.startsWith("0421") && d.length === 13) return true;   // trunk form: 0 + 421 + 9
-    return false;
-  }
-
-  // Normalise a DID to the national 0-prefixed SK form that the trunk accepts as an
-  // authorised CLI (the confirmed working value was e.g. "0232399030").
-  private toNationalSkDid(did: string | null | undefined): string {
-    const s = (did || "").trim();
-    if (!s) return "";
-    const d = s.replace(/\D/g, "");
-    if (d.startsWith("00421")) return "0" + d.slice(5);
-    if (s.startsWith("+421")) return "0" + d.slice(3);
-    if (d.startsWith("421") && d.length >= 11) return "0" + d.slice(3);
-    return s.replace(/\s/g, ""); // already national (e.g. 0232399030)
-  }
-
-  // The CLI to present on a forwarded call: the company DID for SK callers (anti-spoofing
-  // workaround so the call connects), otherwise the caller's REAL number unchanged.
-  // Foreign callers pass the operator's filter with their real number, so keep it.
-  private resolveForwardCli(realCaller: string | null | undefined, did: string | null | undefined): string {
-    const real = (realCaller || "").replace(/\s/g, "");
-    if (this.isSlovakInternationalCaller(real)) {
-      const nat = this.toNationalSkDid(did);
-      if (nat) return nat;
-    }
-    return real;
-  }
-
   // Ring ONE standing agent's mobile for this call using sequential round-robin.
   // Returns true if a standing agent was rung (call handed off), false if none are
   // available (all busy / on cooldown / none configured) — caller stays in queue.
@@ -2631,13 +2591,13 @@ export class QueueEngine extends EventEmitter {
       // inherited __CBC_CALLER variable. The from-internal-* dialplan sets the outbound
       // CLI from ${CBC_CALLER} (ExecIf(...Set(CALLERID(num)=${CBC_CALLER}))); the `__`
       // prefix ensures it survives onto the Local ;2 leg that runs that dialplan.
-      // For SK (+421) callers we present the company DID instead of the real number so
-      // the call actually connects: a national SK CLI forwarded over the SK trunk gets a
-      // false 486 BUSY from downstream anti-spoofing (confirmed by a live SIP trace).
-      // Foreign callers keep their real number (they pass the filter). Trade-off: the
-      // agent's phone shows the company DID for SK callers, not the real caller — showing
-      // the real SK number requires the operator to authorize forwarded SK CLIs.
-      const cliCid = this.resolveForwardCli(call.callerNumber, queue.didNumber);
+      // Present the caller's REAL number as the outbound CLI, unchanged. A live DialLog
+      // trace proved the terminating SK route (via SLOVANET) returns a false 486 BUSY for
+      // ANY Slovak CLI — the real +421 caller AND the company's own DID both get 486, while
+      // foreign CLIs ring. So substituting the DID does NOT make the call connect; it only
+      // hides the caller. The real fix is operator-side (SLOVANET authorising the outbound
+      // SK CLI / CLIP no-screening). Keep the real number so it displays once that is done.
+      const cliCid = (call.callerNumber || "").replace(/\s/g, "");
       const localChannel = await this.ariClient.originateChannel(
         `Local/${norm}@${ctx}/n`,
         norm,
