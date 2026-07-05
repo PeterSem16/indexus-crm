@@ -1,0 +1,36 @@
+seman@mediagtw:~$ sudo asterisk -rx "pjsip show contacts" | grep 2001
+sudo asterisk -rx "channel originate PJSIP/2001 application Echo"
+  Contact:  2001/sip:63coba06@10.1.2.111:42324;transport=W 9c244a8e45 Avail        43.515
+seman@mediagtw:~$ sudo asterisk -rx "channel originate PJSIP/2001 application Echo"
+sudo tail -n 30 /var/log/asterisk/messages.log
+[Jul  5 21:03:05] NOTICE[590151][C-0000006c] res_stasis_playback.c: 1783285385.351: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 21:03:18] NOTICE[590151][C-0000006c] res_stasis_playback.c: 1783285385.351: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 21:12:49] WARNING[590146] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 21:12:49] WARNING[590146] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 21:13:57] NOTICE[590345][C-0000006d] res_stasis_playback.c: 1783286037.355: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 21:14:11] NOTICE[590345][C-0000006d] res_stasis_playback.c: 1783286037.355: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 21:21:00] NOTICE[590555][C-0000006e] res_stasis_playback.c: 1783286460.359: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 21:21:14] NOTICE[590555][C-0000006e] res_stasis_playback.c: 1783286460.359: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 21:24:24] NOTICE[590683][C-0000006f] res_stasis_playback.c: 1783286664.363: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 21:24:37] NOTICE[590683][C-0000006f] res_stasis_playback.c: 1783286664.363: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 21:50:14] WARNING[590343] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 21:50:14] WARNING[590343] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 21:58:35] WARNING[590884] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 21:58:35] WARNING[590884] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 22:11:19] NOTICE[590929][C-00000070] res_stasis_playback.c: 1783289479.367: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 22:11:33] NOTICE[590929][C-00000070] res_stasis_playback.c: 1783289479.367: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 22:13:01] NOTICE[591105][C-00000071] res_stasis_playback.c: 1783289581.371: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 22:13:45] WARNING[591105][C-00000071] res_stasis_playback.c: 1783289581.371: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 22:13:57] NOTICE[591149][C-00000082] res_stasis_playback.c: 1783289636.437: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 22:14:10] NOTICE[591149][C-00000082] res_stasis_playback.c: 1783289636.437: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 22:25:03] WARNING[590900] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 22:25:03] WARNING[590900] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 22:26:31] WARNING[591305] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 22:26:31] WARNING[591305] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 22:27:23] NOTICE[591328][C-00000083] res_stasis_playback.c: 1783290442.441: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 22:27:36] NOTICE[591328][C-00000083] res_stasis_playback.c: 1783290442.441: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 22:34:05] WARNING[591326] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 22:34:05] WARNING[591326] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 22:34:56] NOTICE[591479][C-00000084] res_stasis_playback.c: 1783290896.445: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 22:35:10] NOTICE[591479][C-00000084] res_stasis_playback.c: 1783290896.445: Playback stopped for sound:custom/moh-slow-jazz
+seman@mediagtw:~$

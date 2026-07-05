@@ -21,3 +21,12 @@ pm2 restart` on the server. A green workspace diff proves nothing about prod.
 **Why:** self-hosted deploy reads GitHub origin, not the Replit working tree. main agent cannot push
 (destructive git is sandbox-blocked), so the user must push/sync from Replit's version-control pane
 (or a background Project Task) before deploying.
+
+**Two remotes confirmed:** `origin` = GitHub (`PeterSem16/indexus-crm`, what CORPCRM01 pulls);
+`gitsafe-backup` = Replit's internal checkpoint backup. The automatic checkpoint commits to
+gitsafe-backup and advances local `main` but does NOT push to GitHub origin — so origin lags behind
+HEAD by every un-synced checkpoint. A manual `git push origin main` from the agent DOES update the
+GitHub ref (log shows `old..new main -> main`) but then errors "Destructive git operations are not
+allowed" while writing the local tracking ref — treat push as blocked and have the user sync via the
+Replit pane. Verify GitHub's real state with `git ls-remote origin -h refs/heads/main` (read-only),
+not the local `origin/main` tracking ref which the guard prevents from updating.

@@ -1,39 +1,46 @@
 ---
-name: Logged-in agent inbound drop = softphone not registered
-description: Inbound queue call to a logged-in agent drops with Asterisk "invalid URI 2001" — the browser softphone isn't registered at runtime; the registration path is stable code, so check runtime/env before touching code.
+name: Softphone WS registration goes stale via /wss-asterisk/ proxy
+description: Why inbound calls to a logged-in agent fail with "invalid URI 2001" even though pjsip shows the contact Avail
 ---
 
-# Logged-in agent inbound call drops: "invalid URI 2001"
+# Symptom
+Inbound queue call to a logged-in agent dies after retries. Asterisk (mediagtw) logs:
+`res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'. Is endpoint registered and reachable?`
++ `chan_pjsip.c: Failed to create outgoing session to endpoint '2001'`.
+The app's ARI originate returns HTTP 500. `pjsip show contacts` may still show `2001/... Avail`.
 
-When a logged-in agent's inbound queue call drops and the Asterisk log shows,
-repeatedly per call:
+# Root cause
+The browser softphone registers over a WebSocket that is proxied by our own server:
+browser → `wss://<host>/wss-asterisk/` (upgrade proxy in server/routes.ts) → `wss://mediagtw:8089/ws`.
+The proxy piped both sockets but only tore down the peer on `end` and `error`, **not on `close`**.
+When an agent's browser drops abruptly (tab killed, laptop sleep, wifi drop) the client socket
+often fires ONLY `close` (no `end`/`error`). The upstream WS to Asterisk then stayed open, so
+Asterisk kept the softphone contact registered even though the browser was gone. A registered-but-
+dead contact = Asterisk tries to dial it, cannot create the dialog, and reports the endpoint name
+as an "invalid URI". A fresh browser session registers a NEW contact (contact user/port changes,
+e.g. mofj67al→63coba06), which is why it "works after reopening the app".
 
-```
-Endpoint '2001': Could not create dialog to invalid URI '2001'. Is endpoint registered and reachable?
-Failed to create outgoing session to endpoint '2001'
-```
+**Why it's not the app's originate code or Asterisk config:** the ARI POST sends a clean
+`endpoint=PJSIP/2001`; endpoint 2001 config is correct (`aors: 2001`, `transport: transport-wss`,
+`webrtc: yes`, contact Avail). A manual CLI `channel originate PJSIP/2001` against a FRESH contact
+does not reproduce the error. The bug is a lingering upstream WS, not the dial string.
 
-the cause is that the agent's **browser softphone is not registered** to Asterisk
-at that moment — NOT the caller-ID formatting or the queue routing code. The
-endpoint exists in pjsip config (else the error would be "endpoint not found");
-it just has no registered AOR contact, so Asterisk cannot build the dial target.
+# Fix
+In the `/wss-asterisk/` upgrade proxy, propagate `close` both ways so a browser disconnect always
+closes the upstream Asterisk WS (Asterisk then drops the WS-bound contact immediately):
+`socket.on("close", () => tlsSocket.destroy())` and `tlsSocket.on("close", () => socket.destroy())`.
 
-**Why:** the registration path is:
-browser SIP.js → INDEXUS server `/wss-asterisk/` HTTP-upgrade proxy
-(`server/routes.ts`, reads `storage.getSipSettings()` for `server`/`wsPort`(8089)/`wsPath`(/ws))
-→ Asterisk WSS on mediagtw. The client side (`client/src/contexts/sip-context.tsx`,
-registers `sip:<ext>@<realm>` via `wss://<host>/wss-asterisk/`) and this server proxy
-have both been stable since June. Same-day telephony edits to `queue-engine.ts` /
-`ari-client.ts` (forward caller-ID saga) do NOT touch registration. So an "invalid
-URI 2001" regression is runtime/env, not code: phone tab not open/registered, SIP
-settings row changed in the DB, TLS to 8089, or SIP auth.
+**Why:** WebSocket-bound PJSIP contacts are removed when their transport connection closes; keeping
+the upstream open keeps a dead contact alive.
+**How to apply:** any TCP/WS proxy that pipes two sockets must tear down the peer on `close`, not
+just `end`/`error`; `end` only covers graceful FIN.
 
-`connectCallToAgent` routes a logged-in agent with `sipEnabled` + `sipExtension`
-and NO call-forwarding straight to `originate PJSIP/<ext>` — if that ext isn't
-registered the call has nowhere to ring and dies after retries + the
-`ukoncenie-hovoru-koordinator-sk` end tone.
+# Belt-and-suspenders (their Asterisk config, optional)
+Set `qualify_frequency` + `remove_unavailable=yes` on the 2001 AOR so Asterisk actively prunes
+unreachable contacts even if a WS lingers.
 
-**How to apply — verify registration state BEFORE changing code:**
-- App phone widget: does it show registered (green) or a registration error?
-- mediagtw: `asterisk -rx "pjsip show contacts"` and `asterisk -rx "pjsip show endpoint 2001"` — is there a contact for 2001?
-- CORPCRM01 pm2 log when the agent opens the phone: `pm2 logs indexus-crm --nostream --lines 120 | grep -i "ws-proxy\|wss-asterisk"` — does it log `Proxying /wss-asterisk/ → wss://mediagtw:8089/ws` and any `TLS connect error` / `Target error`?
+# Separate observation (not the same bug)
+The ARI CONTROL WebSocket (queue-engine ariClient → Asterisk, a different direct connection, not
+through this proxy) also logs `Web socket closed abruptly` every few minutes. That is our own
+ping/pong + health-check forceReconnect firing on a flaky CORPCRM01↔mediagtw link; it self-heals.
+Do not conflate it with the softphone registration proxy.
