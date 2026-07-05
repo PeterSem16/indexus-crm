@@ -68,6 +68,29 @@ foreign caller after deploy. If the trunk rejects a leading `+`, fall back to th
 (`00421…`) which legacy trunks often prefer. Alternate hypothesis if it persists: the agent is
 manually declining the odd-CLI call (also yields 486).
 
+### Refinement: E.164 normalization ALONE isn't enough — SK national CLI must be an OWNED DID
+After the E.164 fix, a follow-up log showed the SK carrier STILL false-BUSYs a SLOVAK caller
+(+421911163316) while a foreign caller (+491723627488) over the same trunk to the same mobile
+rings fine. Root cause is national-CLI screening / anti-spoofing: the SK trunk refuses any
+presented +421 A-number that is NOT one of OUR OWN DIDs; foreign CLIs pass through (carrier can't
+validate them). So a real customer's SK number can never be presented as CLI on the SK trunk, no
+matter how well-formatted.
+
+**Fix (QueueEngine):** when the CLI we're about to present startsWith("+421"), substitute our OWN
+DID — the number the caller dialed (queue.didNumber / opts.fallbackDid) — via helper didToE164Sk(),
+applied AFTER normalizeCallerIdForCli() at BOTH sites (standing-forward originate +
+forwardToExternalNumber). Foreign callers keep their real number. If the DID can't be mapped to
+E.164 the helper returns "" and the caller CLI is left unchanged (safe fallback). didNumber is
+nullable — guard it. Keep didToE164Sk SEPARATE from normalizeCallerIdForCli (the 10-digit
+national->+421 assumption is only safe because we KNOW the DID is Slovak; a national CZ/RO DID
+would be mis-prefixed).
+
+**Trade-off (must disclose):** SK-originated forwarded calls now show the company DID on the agent's
+mobile, not the real caller's number (foreign callers still show their own). Unavoidable in code;
+only fix to keep the SK caller's number is asking the carrier to enable CLIP-no-screening on the
+trunk. If it still false-BUSYs after deploy, `pjsip set logger on` on mediagateway and read the SIP
+reject (403/604 = carrier screening; 486 = handset/user busy or manual decline).
+
 ## Desk-first routing (logged-in → desk, not-logged-in → mobile)
 `connectCallToAgent` is only reached for agents with an **active agentSession that has the
 queue selected** (`selectAgent` filters to those). So a logged-in agent is always rung at
