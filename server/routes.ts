@@ -2185,31 +2185,12 @@ export async function registerRoutes(
         const url = await import("url");
         const parsed = new url.URL(targetUrl);
 
-        // Guard the client socket up-front (before the async TLS handshake below). If the
-        // browser disconnects during the handshake window, "error"/"close" fires with no
-        // listener → unhandled 'error' → whole-process crash. These handlers also tear
-        // down the upstream Asterisk WS on ANY browser disconnect (see close note below).
-        let tlsSocket: import("tls").TLSSocket | null = null;
-        let clientGone = false;
-        const destroyUpstream = () => { if (tlsSocket) { try { tlsSocket.destroy(); } catch (_) {} } };
-        socket.on("error", (e) => { console.error("[WS-Proxy] Client error:", e.message); clientGone = true; destroyUpstream(); });
-        // Critical: when the browser disconnects abruptly (tab closed, laptop sleep, wifi
-        // drop) it often fires only "close" (no "end"/"error"). We MUST close the upstream
-        // Asterisk WS so Asterisk drops the softphone contact immediately. Otherwise the
-        // contact lingers as "Avail" but is dead, and inbound calls fail with
-        // "Could not create dialog to invalid URI '2001'".
-        socket.on("close", () => { clientGone = true; destroyUpstream(); });
-        socket.on("end", () => { if (tlsSocket) { try { tlsSocket.end(); } catch (_) {} } });
-
-        tlsSocket = tls.connect({
+        const tlsSocket = tls.connect({
           host: parsed.hostname,
           port: parseInt(parsed.port) || 8089,
           servername: parsed.hostname,
           rejectUnauthorized: false,
         }, () => {
-          const upstream = tlsSocket!;
-          // Browser already vanished during the handshake — abort the upstream leg.
-          if (clientGone) { try { upstream.destroy(); } catch (_) {} return; }
           const wsKey = req.headers["sec-websocket-key"] || "";
           const wsProtocol = req.headers["sec-websocket-protocol"] || "";
           let upgradeReq = `GET ${parsed.pathname} HTTP/1.1\r\n`;
@@ -2220,7 +2201,7 @@ export async function registerRoutes(
           upgradeReq += `Sec-WebSocket-Version: 13\r\n`;
           if (wsProtocol) upgradeReq += `Sec-WebSocket-Protocol: ${wsProtocol}\r\n`;
           upgradeReq += `\r\n`;
-          upstream.write(upgradeReq);
+          tlsSocket.write(upgradeReq);
 
           let headerBuf = Buffer.alloc(0);
           let headerParsed = false;
@@ -2238,20 +2219,20 @@ export async function registerRoutes(
               const remainder = headerBuf.subarray(headerEnd + 4);
               socket.write(headerStr);
               if (remainder.length > 0) socket.write(remainder);
-              socket.pipe(upstream);
+              socket.pipe(tlsSocket);
             }
           };
 
-          upstream.on("data", onData);
-          upstream.on("end", () => { try { socket.end(); } catch (_) {} });
-          upstream.on("error", (e) => { console.error("[WS-Proxy] Target error:", e.message); try { socket.destroy(); } catch (_) {} });
-          // When Asterisk closes the upstream WS, tear down the browser side too.
-          upstream.on("close", () => { try { socket.destroy(); } catch (_) {} });
+          tlsSocket.on("data", onData);
+          tlsSocket.on("end", () => socket.end());
+          tlsSocket.on("error", (e) => { console.error("[WS-Proxy] Target error:", e.message); socket.destroy(); });
+          socket.on("end", () => tlsSocket.end());
+          socket.on("error", (e) => { console.error("[WS-Proxy] Client error:", e.message); tlsSocket.destroy(); });
         });
 
         tlsSocket.on("error", (e) => {
           console.error("[WS-Proxy] TLS connect error:", e.message);
-          try { socket.destroy(); } catch (_) {}
+          socket.destroy();
         });
       } catch (e: any) {
         console.error("[WS-Proxy] Error:", e.message);
