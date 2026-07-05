@@ -2523,6 +2523,22 @@ export class QueueEngine extends EventEmitter {
     return agents.length > 0;
   }
 
+  // Present a Slovak caller in clean NATIONAL format (0 + 9-digit national significant
+  // number), the way a normal domestic SK call shows its CLI. Foreign numbers are returned
+  // unchanged. SLOVANET rejected the E.164 +421… form and the 02… DID with a false 486;
+  // the standard national 09… form is the remaining untested outbound-CLI format.
+  private toSkNationalCli(raw: string | null | undefined): string {
+    const s = (raw || "").replace(/\s/g, "");
+    if (!s) return s;
+    const d = s.replace(/\D/g, "");
+    let nsn = "";
+    if (d.startsWith("00421")) nsn = d.slice(5);                       // 00 + 421 + NSN
+    else if (d.startsWith("0421") && d.length >= 13) nsn = d.slice(4); // 0 + 421 + NSN (trunk form)
+    else if (d.startsWith("421") && d.length >= 12) nsn = d.slice(3);  // 421 + NSN (bare/E.164 digits)
+    else return s; // already national (09…/02…), foreign, or unknown → leave as-is
+    return nsn ? "0" + nsn : s;
+  }
+
   // Ring ONE standing agent's mobile for this call using sequential round-robin.
   // Returns true if a standing agent was rung (call handed off), false if none are
   // available (all busy / on cooldown / none configured) — caller stays in queue.
@@ -2591,13 +2607,12 @@ export class QueueEngine extends EventEmitter {
       // inherited __CBC_CALLER variable. The from-internal-* dialplan sets the outbound
       // CLI from ${CBC_CALLER} (ExecIf(...Set(CALLERID(num)=${CBC_CALLER}))); the `__`
       // prefix ensures it survives onto the Local ;2 leg that runs that dialplan.
-      // Present the caller's REAL number as the outbound CLI, unchanged. A live DialLog
-      // trace proved the terminating SK route (via SLOVANET) returns a false 486 BUSY for
-      // ANY Slovak CLI — the real +421 caller AND the company's own DID both get 486, while
-      // foreign CLIs ring. So substituting the DID does NOT make the call connect; it only
-      // hides the caller. The real fix is operator-side (SLOVANET authorising the outbound
-      // SK CLI / CLIP no-screening). Keep the real number so it displays once that is done.
-      const cliCid = (call.callerNumber || "").replace(/\s/g, "");
+      // Present the SK caller in clean NATIONAL format (0 + 9-digit NSN) — the way a normal
+      // domestic SK call shows its CLI. Format hypothesis under test: SLOVANET rejected the
+      // E.164 +421… form and the 02… DID with 486, but the standard national 09… form has
+      // NOT yet been tried as the outbound CLI. Foreign callers are left unchanged (they ring).
+      // If 09… still 486s, the format space is exhausted → the fix is operator-side.
+      const cliCid = this.toSkNationalCli(call.callerNumber);
       const localChannel = await this.ariClient.originateChannel(
         `Local/${norm}@${ctx}/n`,
         norm,
