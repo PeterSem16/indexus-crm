@@ -1,0 +1,135 @@
+[Jul  5 18:07:39] NOTICE[588891][C-00000057] res_stasis_playback.c: 1783274859.288: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 18:08:01] WARNING[588891][C-00000057] res_stasis_playback.c: 1783274859.288: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 18:12:02] ERROR[588739] asterisk.c: Command too long! Skipping
+[Jul  5 18:12:02] ERROR[588739] asterisk.c: Command too long! Skipping
+[Jul  5 18:12:05] ERROR[588739] asterisk.c: Command too long! Skipping
+[Jul  5 18:12:05] ERROR[588739] asterisk.c: Command too long! Skipping
+[Jul  5 18:49:06] WARNING[588890] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 18:49:06] WARNING[588890] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 19:10:13] WARNING[589000] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 19:10:13] WARNING[589000] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 19:10:53] NOTICE[589611][C-0000005a] res_stasis_playback.c: 1783278653.297: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:11:07] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:11:07] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:11:07] NOTICE[589611][C-0000005a] res_stasis_playback.c: 1783278653.297: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:11:12] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:11:12] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:11:12] NOTICE[589611][C-0000005a] res_stasis_playback.c: 1783278653.297: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:11:18] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:11:18] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:11:18] NOTICE[589611][C-0000005a] res_stasis_playback.c: 1783278653.297: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:11:24] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:11:24] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:11:24] NOTICE[589611][C-0000005a] res_stasis_playback.c: 1783278653.297: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:11:29] WARNING[589611][C-0000005a] res_stasis_playback.c: 1783278653.297: Playback failed for sound:custom/ukoncenie-hovoru-koordinator-sk
+[Jul  5 19:11:31] NOTICE[589635][C-0000005c] res_stasis_playback.c: 1783278690.303: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:11:44] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:11:44] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:11:44] NOTICE[589635][C-0000005c] res_stasis_playback.c: 1783278690.303: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:11:49] WARNING[589635][C-0000005c] res_stasis_playback.c: 1783278690.303: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 19:15:41] NOTICE[589661][C-0000005e] res_stasis_playback.c: 1783278941.309: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:15:54] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:15:54] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:15:54] NOTICE[589661][C-0000005e] res_stasis_playback.c: 1783278941.309: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:15:59] WARNING[589661][C-0000005e] res_stasis_playback.c: 1783278941.309: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 19:44:59] WARNING[589610] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 19:44:59] WARNING[589610] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 19:46:34] NOTICE[589883][C-00000060] res_stasis_playback.c: 1783280794.315: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:46:48] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:46:48] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:46:48] NOTICE[589883][C-00000060] res_stasis_playback.c: 1783280794.315: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:46:55] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:46:55] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:46:55] NOTICE[589883][C-00000060] res_stasis_playback.c: 1783280794.315: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:47:01] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:47:01] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:47:01] NOTICE[589883][C-00000060] res_stasis_playback.c: 1783280794.315: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:47:07] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:47:07] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:47:07] NOTICE[589883][C-00000060] res_stasis_playback.c: 1783280794.315: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:47:08] WARNING[589883][C-00000060] res_stasis_playback.c: 1783280794.315: Playback failed for sound:custom/ukoncenie-hovoru-koordinator-sk
+[Jul  5 19:47:12] NOTICE[589900][C-00000062] res_stasis_playback.c: 1783280832.321: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:47:26] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:47:26] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:47:26] NOTICE[589900][C-00000062] res_stasis_playback.c: 1783280832.321: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:47:33] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:47:33] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:47:33] NOTICE[589900][C-00000062] res_stasis_playback.c: 1783280832.321: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:47:39] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:47:39] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:47:39] NOTICE[589900][C-00000062] res_stasis_playback.c: 1783280832.321: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:47:43] WARNING[589900][C-00000062] res_stasis_playback.c: 1783280832.321: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 19:50:31] NOTICE[589919][C-00000064] res_stasis_playback.c: 1783281030.327: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:50:45] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:50:45] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:50:45] NOTICE[589919][C-00000064] res_stasis_playback.c: 1783281030.327: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:50:51] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:50:51] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:50:51] NOTICE[589919][C-00000064] res_stasis_playback.c: 1783281030.327: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:50:57] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:50:57] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:50:57] NOTICE[589919][C-00000064] res_stasis_playback.c: 1783281030.327: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:51:03] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:51:03] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:51:03] NOTICE[589919][C-00000064] res_stasis_playback.c: 1783281030.327: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:51:06] WARNING[589919][C-00000064] res_stasis_playback.c: 1783281030.327: Playback failed for sound:custom/ukoncenie-hovoru-koordinator-sk
+[Jul  5 20:05:11] NOTICE[589968][C-00000066] res_stasis_playback.c: 1783281910.333: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 20:05:24] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 20:05:24] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 20:05:24] NOTICE[589968][C-00000066] res_stasis_playback.c: 1783281910.333: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 20:05:29] WARNING[589968][C-00000066] res_stasis_playback.c: 1783281910.333: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 20:19:59] WARNING[589876] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 20:19:59] WARNING[589876] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 20:22:18] NOTICE[590015][C-00000068] res_stasis_playback.c: 1783282938.339: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 20:22:32] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 20:22:32] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 20:22:32] NOTICE[590015][C-00000068] res_stasis_playback.c: 1783282938.339: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 20:22:38] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 20:22:38] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 20:22:39] NOTICE[590015][C-00000068] res_stasis_playback.c: 1783282938.339: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 20:22:40] WARNING[590015][C-00000068] res_stasis_playback.c: 1783282938.339: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 20:40:22] WARNING[590006] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 20:40:22] WARNING[590006] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 20:42:00] NOTICE[590070][C-0000006a] res_stasis_playback.c: 1783284120.345: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 20:42:14] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 20:42:14] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 20:42:14] NOTICE[590070][C-0000006a] res_stasis_playback.c: 1783284120.345: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 20:42:19] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 20:42:19] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 20:42:19] NOTICE[590070][C-0000006a] res_stasis_playback.c: 1783284120.345: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 20:42:25] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 20:42:25] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 20:42:25] NOTICE[590070][C-0000006a] res_stasis_playback.c: 1783284120.345: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 20:42:31] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 20:42:31] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 20:42:31] NOTICE[590070][C-0000006a] res_stasis_playback.c: 1783284120.345: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 20:42:36] WARNING[590070][C-0000006a] res_stasis_playback.c: 1783284120.345: Playback failed for sound:custom/ukoncenie-hovoru-koordinator-sk
+[Jul  5 21:00:49] WARNING[590066] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 21:00:49] WARNING[590066] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 21:03:05] NOTICE[590151][C-0000006c] res_stasis_playback.c: 1783285385.351: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 21:03:18] NOTICE[590151][C-0000006c] res_stasis_playback.c: 1783285385.351: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 21:12:49] WARNING[590146] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 21:12:49] WARNING[590146] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 21:13:57] NOTICE[590345][C-0000006d] res_stasis_playback.c: 1783286037.355: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 21:14:11] NOTICE[590345][C-0000006d] res_stasis_playback.c: 1783286037.355: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 21:21:00] NOTICE[590555][C-0000006e] res_stasis_playback.c: 1783286460.359: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 21:21:14] NOTICE[590555][C-0000006e] res_stasis_playback.c: 1783286460.359: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 21:24:24] NOTICE[590683][C-0000006f] res_stasis_playback.c: 1783286664.363: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 21:24:37] NOTICE[590683][C-0000006f] res_stasis_playback.c: 1783286664.363: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 21:50:14] WARNING[590343] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 21:50:14] WARNING[590343] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 21:58:35] WARNING[590884] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 21:58:35] WARNING[590884] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 22:11:19] NOTICE[590929][C-00000070] res_stasis_playback.c: 1783289479.367: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 22:11:33] NOTICE[590929][C-00000070] res_stasis_playback.c: 1783289479.367: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 22:13:01] NOTICE[591105][C-00000071] res_stasis_playback.c: 1783289581.371: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 22:13:45] WARNING[591105][C-00000071] res_stasis_playback.c: 1783289581.371: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 22:13:57] NOTICE[591149][C-00000082] res_stasis_playback.c: 1783289636.437: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 22:14:10] NOTICE[591149][C-00000082] res_stasis_playback.c: 1783289636.437: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 22:25:03] WARNING[590900] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 22:25:03] WARNING[590900] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 22:26:31] WARNING[591305] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 22:26:31] WARNING[591305] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 22:27:23] NOTICE[591328][C-00000083] res_stasis_playback.c: 1783290442.441: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 22:27:36] NOTICE[591328][C-00000083] res_stasis_playback.c: 1783290442.441: Playback stopped for sound:custom/moh-slow-jazz
+seman@mediagtw:~$
