@@ -5,23 +5,29 @@ description: How the from-internal-* dialplan derives outbound CLI (CBC_CALLER) 
 
 # Forwarded-call caller-ID (CBC_CALLER) and desk-first routing
 
-## ⭐⭐ MALFORMED INBOUND CLI is presented outbound → operator rings ~2s then rejects
-Decisive box trace (Jul-5, on code reverted byte-for-byte to the Jul-3 baseline — so NOT the repo):
-the SK trunk delivered the inbound caller as `<0421911163316>` = `0` + country-code `421` +
-national `911163316` (a stray national-0 glued onto the full +421 number — malformed, 13 digits;
-a valid SK number is 10-digit national `0911163316` or E.164 `+421911163316`). `from-sk-trunk`
-set `__CBC_CALLER=0421911163316`; the forward path (`from-internal-sk`) then did
-`Set(CALLERID(num)=0421911163316)` and `Dial(PJSIP/0948519438@trunk-sk-endpoint)` → the mobile
-`is ringing` for ~2s → **`Everyone is busy/congested at this time (1:1/0/0)` → Hangup**. So the
-outbound leg is rejected by the operator because a **malformed CLI** is presented.
-**Fix in repo:** `normalizeSkCallerId()` in queue-engine converts SK numbers to clean national
-`0911163316` (strips a leading `0421…`/`+`/`00`, renders `421XXXXXXXXX`→`0XXXXXXXXX`) before setting
-CALLERID/CBC_CALLER in `forwardToExternalNumber`. Foreign & already-national numbers untouched.
-**Status: UNVERIFIED on live call** — presenting a VALID number is strictly better than the malformed
-one, but if the operator still returns busy for ANY CLI, the block is trunk/carrier-side (turn on
-`pjsip set logger on` and read the exact 4xx/5xx from `trunk-sk-endpoint` to know for certain).
-**Supersedes** the earlier "every CLI format → 486" note: those tests ran on a build with the
-removed-forward-block bug, so they likely never cleanly exercised this outbound leg. Re-test cleanly.
+## ⛔ DEAD-END RE-TREAD: normalizeSkCallerId (0421…→0911163316) — that format ALREADY 486s
+Jul-5 I "fixed" the malformed inbound CLI `0421911163316` by normalizing to clean national
+`0911163316` in `forwardToExternalNumber`. This was a RE-TREAD: the section below already records a
+live trace where `keeping CID=0911163316` → `Dial(SIP/SLOVANET-VGW/0948519438)` → **486 from
+195.28.88.42**. Clean national 09… 486s exactly like the malformed 0421…, the real +421…, the owned
+DID 02…, and anonymous. So normalizeSkCallerId cannot help — REVERTED to byte-for-byte baseline.
+**Rule: do NOT touch the SK forward CLI again in any format.** Every format is live-proven to 486; the
+reject is carrier-side (SLOVANET), caller-ID-independent. If tempted again, re-read this file top-to-
+bottom FIRST.
+
+## ⭐ NEW Jul-5 live confirm: logged-in agent → desk PJSIP/<ext> NOT registered → call black-holes
+`tail messages.log` during the failing calls shows, repeatedly:
+`ERROR res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'. Is endpoint
+registered and reachable?` + `chan_pjsip.c: Failed to create outgoing session to endpoint '2001'`.
+So for a LOGGED-IN agent the queue rings their **desk** extension (PJSIP/2001) and the desk softphone
+isn't registered → nowhere to ring. This is the desk-first design (mobile forward only via standing
+forward when logged OUT). Two independent failure modes now confirmed live: (a) logged-in → desk not
+registered (invalid URI); (b) mobile forward leg → SLOVANET 486 for any SK CLI. NEITHER connects, so
+reverting app code cannot fix it: (a) needs the agent's INDEXUS softphone actually registered (or a
+product decision to forward logged-in agents to mobile — but that then hits (b)); (b) needs SLOVANET
+to authorise SK outbound CLI (CLIP no-screening) or an SK operator trunk. Also: Asterisk on mediagtw
+was last (re)started Jul-3 06:49 and NOT since — the box dialplan/trunk config is unchanged across the
+"worked→broke" window, which further points off the box.
 
 ## THE "it worked before, now it 486s" ROUTING REGRESSION (secondary) — also NOT caller-ID
 When a user rages that SK queue-call forwarding to agent mobiles "worked before and now doesn't",

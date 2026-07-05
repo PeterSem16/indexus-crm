@@ -1349,21 +1349,6 @@ export class QueueEngine extends EventEmitter {
     }
   }
 
-  // Some inbound SK calls arrive with a malformed caller ID: "0" glued onto the full
-  // international number (e.g. 0421911163316 = 0 + 421 + 911163316). Presenting that as the
-  // outbound CLI makes the operator ring the mobile ~2s then reject the call
-  // ("Everyone is busy/congested"). Convert SK numbers to clean national format
-  // (0911163316); leave already-national and foreign numbers untouched.
-  private normalizeSkCallerId(raw: string): string {
-    let d = (raw || "").replace(/[^\d+]/g, "");
-    if (!d) return raw;
-    if (d.startsWith("+")) d = d.slice(1);
-    else if (d.startsWith("00")) d = d.slice(2);
-    else if (d.startsWith("0421")) d = d.slice(1); // stray national-0 in front of +421 number
-    if (d.startsWith("421") && d.length === 12) return "0" + d.slice(3);
-    return raw;
-  }
-
   private async forwardToExternalNumber(channelId: string, number: string, opts?: { fallbackDid?: string | null; callerNumber?: string | null }): Promise<void> {
     // Fetch sourceTrunk BEFORE stopping MOH so we know whether to defer the stop.
     // For RO inbound: MOH must keep playing until the ARI bridge is ready (see below).
@@ -1532,13 +1517,12 @@ export class QueueEngine extends EventEmitter {
     if (!fwdCid) {
       try { const ch = await this.ariClient.getChannel(channelId); fwdCid = ch?.caller?.number || ""; } catch {}
     }
-    const cidOut = this.normalizeSkCallerId(fwdCid);
-    if (cidOut) {
+    if (fwdCid) {
       try {
-        await this.ariClient.setChannelVariable(channelId, "CALLERID(num)", cidOut);
-        await this.ariClient.setChannelVariable(channelId, "CALLERID(name)", cidOut);
-        await this.ariClient.setChannelVariable(channelId, "CBC_CALLER", cidOut);
-        console.log(`[QueueEngine] forwardToExternalNumber: set CALLERID=${cidOut} (raw=${fwdCid}) on ${channelId}`);
+        await this.ariClient.setChannelVariable(channelId, "CALLERID(num)", fwdCid);
+        await this.ariClient.setChannelVariable(channelId, "CALLERID(name)", fwdCid);
+        await this.ariClient.setChannelVariable(channelId, "CBC_CALLER", fwdCid);
+        console.log(`[QueueEngine] forwardToExternalNumber: set CALLERID=${fwdCid} on ${channelId}`);
       } catch (cidErr: any) {
         console.warn(`[QueueEngine] forwardToExternalNumber: failed to set CALLERID:`, cidErr?.message || cidErr);
       }

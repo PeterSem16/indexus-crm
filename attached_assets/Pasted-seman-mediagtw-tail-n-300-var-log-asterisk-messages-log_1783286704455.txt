@@ -1,0 +1,302 @@
+seman@mediagtw:~$ tail -n 300 /var/log/asterisk/messages.log
+[Jul  3 06:49:21] WARNING[577010] cel_tds.c: cel_tds module had config problems; declining load
+[Jul  3 06:49:21] NOTICE[577010] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+[Jul  3 06:49:21] WARNING[577010] cel_pgsql.c: CEL pgsql config file missing global section.
+[Jul  3 06:49:21] NOTICE[577010] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+[Jul  3 06:49:21] NOTICE[577010] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+[Jul  3 06:49:21] NOTICE[577010] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+[Jul  3 06:49:21] NOTICE[577010] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+[Jul  3 06:49:21] NOTICE[577010] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+[Jul  3 06:49:21] NOTICE[577010] codec_g729a.c: Please see the full license text supplied by the accompanying
+[Jul  3 06:49:21] NOTICE[577010] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+[Jul  3 06:49:21] NOTICE[577010] codec_g729a.c: This product includes software developed by the OpenSSL Project
+[Jul  3 06:49:21] NOTICE[577010] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+[Jul  3 06:49:21] NOTICE[577010] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+
+[Jul  3 06:49:21] WARNING[577010] codec_g729a.c: Failed to initialize G.729 copy protection!
+[Jul  3 06:49:21] WARNING[577010] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 196-196: macro call to ael-dundi-e164 cannot be found in the AEL code!
+[Jul  3 06:49:21] WARNING[577010] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 209-209: macro call to ael-dundi-e164 cannot be found in the AEL code!
+[Jul  3 06:49:21] WARNING[577010] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 328-328: macro call to ael-std-exten-ael cannot be found in the AEL code!
+[Jul  3 06:49:21] WARNING[577010] loader.c: Some non-required modules failed to load.
+[Jul  3 06:49:21] WARNING[577010] loader.c: Module 'res_adsi' has been loaded but may be removed in a future release.
+[Jul  3 06:49:21] WARNING[577010] loader.c: Module 'app_getcpeid' has been loaded but may be removed in a future release.
+[Jul  3 06:49:21] WARNING[577010] loader.c: Module 'app_adsiprog' has been loaded but may be removed in a future release.
+[Jul  3 06:49:21] ERROR[577010] loader.c: cel_tds declined to load.
+[Jul  3 06:49:21] ERROR[577010] loader.c: cdr_radius declined to load.
+[Jul  3 06:49:21] ERROR[577010] loader.c: cdr_tds declined to load.
+[Jul  3 06:49:21] ERROR[577010] loader.c: cdr_sqlite3_custom declined to load.
+[Jul  3 06:49:21] ERROR[577010] loader.c: cel_radius declined to load.
+[Jul  3 06:49:21] ERROR[577010] loader.c: cel_sqlite3_custom declined to load.
+[Jul  3 06:49:21] ERROR[577010] loader.c: cdr_pgsql declined to load.
+[Jul  3 06:49:21] WARNING[577035] pbx_config.c: users.conf is deprecated and will be removed in a future version of Asterisk
+[Jul  3 06:49:26] Asterisk 22.8.2 built by root @ mediagtw.cordbloodcenter.com on a x86_64 running Linux on 2026-03-11 21:07:50 UTC
+[Jul  3 06:49:26] NOTICE[577470] loader.c: 355 modules will be loaded.
+[Jul  3 06:49:26] WARNING[577470] res_config_pgsql.c: PostgreSQL RealTime: No database user found, using 'asterisk' as default.
+[Jul  3 06:49:26] WARNING[577470] res_config_pgsql.c: PostgreSQL RealTime: No database password found, using 'asterisk' as default.
+[Jul  3 06:49:26] WARNING[577470] res_config_pgsql.c: PostgreSQL RealTime: No database host found, using localhost via socket.
+[Jul  3 06:49:26] WARNING[577470] res_config_pgsql.c: PostgreSQL RealTime: No database name found, using 'asterisk' as default.
+[Jul  3 06:49:26] WARNING[577470] res_config_pgsql.c: PostgreSQL RealTime: No database port found, using 5432 as default.
+[Jul  3 06:49:26] WARNING[577470] res_config_pgsql.c: PostgreSQL RealTime: No database socket found, using '/tmp/.s.PGSQL.5432' as default.
+[Jul  3 06:49:26] ERROR[577470] res_config_pgsql.c: PostgreSQL RealTime: Failed to connect database asterisk on :
+[Jul  3 06:49:26] WARNING[577470] res_config_pgsql.c: PostgreSQL RealTime: Couldn't establish connection. Check debug.
+[Jul  3 06:49:26] NOTICE[577470] res_config_ldap.c: No directory user found, anonymous binding as default.
+[Jul  3 06:49:26] ERROR[577470] res_config_ldap.c: No directory URL or host found.
+[Jul  3 06:49:26] ERROR[577470] res_config_ldap.c: Cannot load LDAP RealTime driver.
+[Jul  3 06:49:26] NOTICE[577470] cdr.c: CDR simple logging enabled.
+[Jul  3 06:49:26] WARNING[577470] http.c: Ignoring unknown option 'live_dangerously' in http.conf
+[Jul  3 06:49:26] NOTICE[577470] indications.c: Default country for indication tones: us
+[Jul  3 06:49:26] NOTICE[577470] indications.c: Setting default indication country to 'us'
+[Jul  3 06:49:26] NOTICE[577470] res_smdi.c: No SMDI interfaces are available to listen on, not starting SMDI listener.
+[Jul  3 06:49:26] WARNING[577470] res_phoneprov.c: Unable to find a valid server address or name.
+[Jul  3 06:49:26] WARNING[577470] res_rtp_asterisk.c: Value for 'probation' could not be read, using default of '4' instead
+[Jul  3 06:49:26] NOTICE[577470] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+[Jul  3 06:49:26] NOTICE[577470] cel_tds.c: cel_tds has no global category, nothing to configure.
+[Jul  3 06:49:26] WARNING[577470] cel_tds.c: cel_tds module had config problems; declining load
+[Jul  3 06:49:26] NOTICE[577470] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+[Jul  3 06:49:26] WARNING[577470] cel_pgsql.c: CEL pgsql config file missing global section.
+[Jul  3 06:49:26] NOTICE[577470] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+[Jul  3 06:49:26] NOTICE[577470] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+[Jul  3 06:49:26] NOTICE[577470] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+[Jul  3 06:49:26] NOTICE[577470] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+[Jul  3 06:49:26] NOTICE[577470] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+[Jul  3 06:49:26] NOTICE[577470] codec_g729a.c: Please see the full license text supplied by the accompanying
+[Jul  3 06:49:26] NOTICE[577470] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+[Jul  3 06:49:26] NOTICE[577470] codec_g729a.c: This product includes software developed by the OpenSSL Project
+[Jul  3 06:49:26] NOTICE[577470] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+[Jul  3 06:49:26] NOTICE[577470] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+
+[Jul  3 06:49:26] WARNING[577470] codec_g729a.c: Failed to initialize G.729 copy protection!
+[Jul  3 06:49:27] WARNING[577470] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 196-196: macro call to ael-dundi-e164 cannot be found in the AEL code!
+[Jul  3 06:49:27] WARNING[577470] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 209-209: macro call to ael-dundi-e164 cannot be found in the AEL code!
+[Jul  3 06:49:27] WARNING[577470] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 328-328: macro call to ael-std-exten-ael cannot be found in the AEL code!
+[Jul  3 06:49:27] WARNING[577470] loader.c: Some non-required modules failed to load.
+[Jul  3 06:49:27] WARNING[577470] loader.c: Module 'res_adsi' has been loaded but may be removed in a future release.
+[Jul  3 06:49:27] WARNING[577470] loader.c: Module 'app_getcpeid' has been loaded but may be removed in a future release.
+[Jul  3 06:49:27] WARNING[577470] loader.c: Module 'app_adsiprog' has been loaded but may be removed in a future release.
+[Jul  3 06:49:27] ERROR[577470] loader.c: cel_tds declined to load.
+[Jul  3 06:49:27] ERROR[577470] loader.c: cdr_radius declined to load.
+[Jul  3 06:49:27] ERROR[577470] loader.c: cdr_tds declined to load.
+[Jul  3 06:49:27] ERROR[577470] loader.c: cdr_sqlite3_custom declined to load.
+[Jul  3 06:49:27] ERROR[577470] loader.c: cel_radius declined to load.
+[Jul  3 06:49:27] ERROR[577470] loader.c: cel_sqlite3_custom declined to load.
+[Jul  3 06:49:27] ERROR[577470] loader.c: cdr_pgsql declined to load.
+[Jul  3 06:49:27] WARNING[577495] pbx_config.c: users.conf is deprecated and will be removed in a future version of Asterisk
+[Jul  3 07:23:46] WARNING[577629] res_http_websocket.c: Web socket closed abruptly
+[Jul  3 07:23:46] WARNING[577629] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  3 07:53:06] WARNING[577705] res_http_websocket.c: Web socket closed abruptly
+[Jul  3 07:53:06] WARNING[577705] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  3 08:15:51] WARNING[577786] res_http_websocket.c: Web socket closed abruptly
+[Jul  3 08:15:51] WARNING[577786] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  3 08:53:26] WARNING[577841] res_http_websocket.c: Web socket closed abruptly
+[Jul  3 08:53:26] WARNING[577841] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  3 08:53:34] WARNING[577519] pjproject: 	     tsx0x720f580482d8 ..Error sending Response msg 200/REGISTER/cseq=113 (tdta0x720f58063608): Unknown Error (PJ_EUNKNOWN)
+[Jul  3 09:13:00] WARNING[577519] pjproject: 	     tsx0x720f580c18b8 ..Error sending Response msg 200/REGISTER/cseq=4 (tdta0x720f5806a0d8): Unknown Error (PJ_EUNKNOWN)
+[Jul  3 09:13:22] WARNING[577919] res_http_websocket.c: Web socket closed abruptly
+[Jul  3 09:13:22] WARNING[577919] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  3 09:25:52] WARNING[577989] res_http_websocket.c: Web socket closed abruptly
+[Jul  3 09:25:52] WARNING[577989] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  3 10:01:41] WARNING[578024] res_http_websocket.c: Web socket closed abruptly
+[Jul  3 10:01:41] WARNING[578024] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  3 10:13:39] WARNING[578116] res_http_websocket.c: Web socket closed abruptly
+[Jul  3 10:13:39] WARNING[578116] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  3 10:52:54] WARNING[578143] res_http_websocket.c: Web socket closed abruptly
+[Jul  3 10:52:54] WARNING[578143] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  3 11:07:42] WARNING[577519] pjproject: 	     tsx0x720f580c18b8 ..Error sending Response msg 200/REGISTER/cseq=46 (tdta0x720f580a7d88): Unknown Error (PJ_EUNKNOWN)
+[Jul  3 11:32:41] WARNING[578249] res_http_websocket.c: Web socket closed abruptly
+[Jul  3 11:32:41] WARNING[578249] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  3 11:52:31] WARNING[578333] res_http_websocket.c: Web socket closed abruptly
+[Jul  3 11:52:31] WARNING[578333] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  3 12:17:19] WARNING[578373] res_http_websocket.c: Web socket closed abruptly
+[Jul  3 12:17:19] WARNING[578373] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 16:00:13] WARNING[578468] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 16:00:13] WARNING[578468] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 16:02:40] WARNING[587506] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 16:02:40] WARNING[587506] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 16:06:04] NOTICE[587678][C-00000005] res_stasis_playback.c: 1783267564.12: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:06:33] WARNING[587678][C-00000005] res_stasis_playback.c: 1783267564.12: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 16:08:09] WARNING[587698][C-00000007] res_stasis_playback.c: 1783267678.18: Playback failed for sound:custom/ukoncenie-hovoru-koordinator-sk
+[Jul  5 16:08:24] NOTICE[587701][C-00000008] res_stasis_playback.c: 1783267703.20: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:08:50] WARNING[587701][C-00000008] res_stasis_playback.c: 1783267703.20: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 16:09:30] NOTICE[587713][C-0000000a] res_stasis_playback.c: 1783267770.26: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:09:44] NOTICE[587713][C-0000000a] res_stasis_playback.c: 1783267770.26: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:24:42] WARNING[587513] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 16:24:42] WARNING[587513] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 16:26:03] NOTICE[587882][C-0000000b] res_stasis_playback.c: 1783268763.29: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:26:28] NOTICE[587882][C-0000000b] res_stasis_playback.c: 1783268763.29: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:28:13] NOTICE[587898][C-0000000c] res_stasis_playback.c: 1783268893.33: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:28:38] WARNING[587898][C-0000000c] res_stasis_playback.c: 1783268893.33: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 16:34:33] NOTICE[587923][C-0000000f] res_stasis_playback.c: 1783269272.42: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:34:57] WARNING[587923][C-0000000f] res_stasis_playback.c: 1783269272.42: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 16:37:55] NOTICE[587946][C-00000012] res_stasis_playback.c: 1783269474.51: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:38:31] WARNING[587946][C-00000012] res_stasis_playback.c: 1783269474.51: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 16:38:42] NOTICE[587977][C-0000001e] res_stasis_playback.c: 1783269522.97: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:39:07] WARNING[587977][C-0000001e] res_stasis_playback.c: 1783269522.97: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 16:40:02] NOTICE[588000][C-00000025] res_stasis_playback.c: 1783269602.123: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:40:33] WARNING[588000][C-00000025] res_stasis_playback.c: 1783269602.123: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 16:40:44] NOTICE[588031][C-0000002f] res_stasis_playback.c: 1783269643.161: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:41:04] WARNING[588031][C-0000002f] res_stasis_playback.c: 1783269643.161: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 16:41:19] NOTICE[588042][C-00000031] res_stasis_playback.c: 1783269678.167: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:41:38] WARNING[588042][C-00000031] res_stasis_playback.c: 1783269678.167: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 16:45:30] WARNING[577519] pjproject: 	     tsx0x720f58043048 ..Error sending Response msg 200/REGISTER/cseq=64 (tdta0x720f580a7d88): Unknown Error (PJ_EUNKNOWN)
+[Jul  5 16:45:48] WARNING[587876] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 16:45:48] WARNING[587876] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 16:52:43] WARNING[588068] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 16:52:43] WARNING[588068] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 16:53:08] NOTICE[588117][C-00000035] res_stasis_playback.c: 1783270388.181: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:53:52] NOTICE[588117][C-00000035] res_stasis_playback.c: 1783270388.181: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:53:59] WARNING[588117][C-00000035] res_stasis_playback.c: 1783270388.181: Playback failed for sound:custom/ukoncenie-hovoru-koordinator-sk
+[Jul  5 16:54:13] NOTICE[588199][C-00000037] res_stasis_playback.c: 1783270452.187: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:54:56] NOTICE[588199][C-00000037] res_stasis_playback.c: 1783270452.187: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:55:07] NOTICE[588217][C-00000039] res_stasis_playback.c: 1783270506.193: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:55:47] WARNING[588217][C-00000039] res_stasis_playback.c: 1783270506.193: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 16:56:52] NOTICE[588250][C-0000003b] res_stasis_playback.c: 1783270612.199: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:57:27] WARNING[588250][C-0000003b] res_stasis_playback.c: 1783270612.199: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 16:57:37] NOTICE[588265][C-0000003f] res_stasis_playback.c: 1783270656.213: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:58:15] WARNING[588265][C-0000003f] res_stasis_playback.c: 1783270656.213: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 17:05:09] NOTICE[588368][C-00000043] res_stasis_playback.c: 1783271108.227: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 17:05:27] WARNING[588368][C-00000043] res_stasis_playback.c: 1783271108.227: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 17:05:40] NOTICE[588380][C-00000045] res_stasis_playback.c: 1783271140.233: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 17:06:18] WARNING[588380][C-00000045] res_stasis_playback.c: 1783271140.233: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 17:14:58] WARNING[588116] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 17:14:58] WARNING[588116] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 17:16:34] NOTICE[588417][C-00000047] res_stasis_playback.c: 1783271794.239: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 17:17:17] WARNING[588417][C-00000047] res_stasis_playback.c: 1783271794.239: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 17:21:00] NOTICE[588442][C-0000004a] res_stasis_playback.c: 1783272059.249: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 17:21:27] WARNING[588442][C-0000004a] res_stasis_playback.c: 1783272059.249: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 17:22:57] NOTICE[588472][C-0000004c] res_stasis_playback.c: 1783272176.255: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 17:23:17] WARNING[588472][C-0000004c] res_stasis_playback.c: 1783272176.255: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 17:41:02] WARNING[577519] pjproject: 	     tsx0x720f58055428 ..Error sending Response msg 200/REGISTER/cseq=79 (tdta0x720f58068bc8): Unknown Error (PJ_EUNKNOWN)
+[Jul  5 17:41:06] WARNING[588414] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 17:41:06] WARNING[588414] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 17:41:31] NOTICE[588634][C-0000004e] res_stasis_playback.c: 1783273291.261: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 17:42:04] WARNING[588634][C-0000004e] res_stasis_playback.c: 1783273291.261: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 17:42:15] NOTICE[588645][C-00000050] res_stasis_playback.c: 1783273335.267: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 17:42:35] WARNING[588645][C-00000050] res_stasis_playback.c: 1783273335.267: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 18:02:36] WARNING[588632] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 18:02:36] WARNING[588632] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 18:02:51] NOTICE[588769][C-00000053] res_stasis_playback.c: 1783274571.276: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 18:03:15] WARNING[588769][C-00000053] res_stasis_playback.c: 1783274571.276: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 18:03:26] NOTICE[588779][C-00000055] res_stasis_playback.c: 1783274605.282: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 18:03:44] WARNING[588779][C-00000055] res_stasis_playback.c: 1783274605.282: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 18:03:44] WARNING[588788][C-00000056] app_dial.c: Unable to write frametype: 2
+[Jul  5 18:07:24] WARNING[588768] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 18:07:24] WARNING[588768] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 18:07:39] NOTICE[588891][C-00000057] res_stasis_playback.c: 1783274859.288: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 18:08:01] WARNING[588891][C-00000057] res_stasis_playback.c: 1783274859.288: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 18:12:02] ERROR[588739] asterisk.c: Command too long! Skipping
+[Jul  5 18:12:02] ERROR[588739] asterisk.c: Command too long! Skipping
+[Jul  5 18:12:05] ERROR[588739] asterisk.c: Command too long! Skipping
+[Jul  5 18:12:05] ERROR[588739] asterisk.c: Command too long! Skipping
+[Jul  5 18:49:06] WARNING[588890] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 18:49:06] WARNING[588890] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 19:10:13] WARNING[589000] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 19:10:13] WARNING[589000] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 19:10:53] NOTICE[589611][C-0000005a] res_stasis_playback.c: 1783278653.297: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:11:07] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:11:07] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:11:07] NOTICE[589611][C-0000005a] res_stasis_playback.c: 1783278653.297: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:11:12] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:11:12] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:11:12] NOTICE[589611][C-0000005a] res_stasis_playback.c: 1783278653.297: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:11:18] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:11:18] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:11:18] NOTICE[589611][C-0000005a] res_stasis_playback.c: 1783278653.297: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:11:24] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:11:24] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:11:24] NOTICE[589611][C-0000005a] res_stasis_playback.c: 1783278653.297: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:11:29] WARNING[589611][C-0000005a] res_stasis_playback.c: 1783278653.297: Playback failed for sound:custom/ukoncenie-hovoru-koordinator-sk
+[Jul  5 19:11:31] NOTICE[589635][C-0000005c] res_stasis_playback.c: 1783278690.303: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:11:44] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:11:44] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:11:44] NOTICE[589635][C-0000005c] res_stasis_playback.c: 1783278690.303: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:11:49] WARNING[589635][C-0000005c] res_stasis_playback.c: 1783278690.303: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 19:15:41] NOTICE[589661][C-0000005e] res_stasis_playback.c: 1783278941.309: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:15:54] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:15:54] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:15:54] NOTICE[589661][C-0000005e] res_stasis_playback.c: 1783278941.309: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:15:59] WARNING[589661][C-0000005e] res_stasis_playback.c: 1783278941.309: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 19:44:59] WARNING[589610] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 19:44:59] WARNING[589610] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 19:46:34] NOTICE[589883][C-00000060] res_stasis_playback.c: 1783280794.315: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:46:48] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:46:48] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:46:48] NOTICE[589883][C-00000060] res_stasis_playback.c: 1783280794.315: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:46:55] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:46:55] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:46:55] NOTICE[589883][C-00000060] res_stasis_playback.c: 1783280794.315: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:47:01] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:47:01] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:47:01] NOTICE[589883][C-00000060] res_stasis_playback.c: 1783280794.315: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:47:07] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:47:07] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:47:07] NOTICE[589883][C-00000060] res_stasis_playback.c: 1783280794.315: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:47:08] WARNING[589883][C-00000060] res_stasis_playback.c: 1783280794.315: Playback failed for sound:custom/ukoncenie-hovoru-koordinator-sk
+[Jul  5 19:47:12] NOTICE[589900][C-00000062] res_stasis_playback.c: 1783280832.321: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:47:26] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:47:26] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:47:26] NOTICE[589900][C-00000062] res_stasis_playback.c: 1783280832.321: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:47:33] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:47:33] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:47:33] NOTICE[589900][C-00000062] res_stasis_playback.c: 1783280832.321: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:47:39] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:47:39] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:47:39] NOTICE[589900][C-00000062] res_stasis_playback.c: 1783280832.321: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:47:43] WARNING[589900][C-00000062] res_stasis_playback.c: 1783280832.321: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 19:50:31] NOTICE[589919][C-00000064] res_stasis_playback.c: 1783281030.327: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:50:45] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:50:45] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:50:45] NOTICE[589919][C-00000064] res_stasis_playback.c: 1783281030.327: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:50:51] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:50:51] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:50:51] NOTICE[589919][C-00000064] res_stasis_playback.c: 1783281030.327: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:50:57] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:50:57] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:50:57] NOTICE[589919][C-00000064] res_stasis_playback.c: 1783281030.327: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:51:03] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:51:03] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:51:03] NOTICE[589919][C-00000064] res_stasis_playback.c: 1783281030.327: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:51:06] WARNING[589919][C-00000064] res_stasis_playback.c: 1783281030.327: Playback failed for sound:custom/ukoncenie-hovoru-koordinator-sk
+[Jul  5 20:05:11] NOTICE[589968][C-00000066] res_stasis_playback.c: 1783281910.333: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 20:05:24] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 20:05:24] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 20:05:24] NOTICE[589968][C-00000066] res_stasis_playback.c: 1783281910.333: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 20:05:29] WARNING[589968][C-00000066] res_stasis_playback.c: 1783281910.333: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 20:19:59] WARNING[589876] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 20:19:59] WARNING[589876] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 20:22:18] NOTICE[590015][C-00000068] res_stasis_playback.c: 1783282938.339: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 20:22:32] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 20:22:32] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 20:22:32] NOTICE[590015][C-00000068] res_stasis_playback.c: 1783282938.339: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 20:22:38] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 20:22:38] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 20:22:39] NOTICE[590015][C-00000068] res_stasis_playback.c: 1783282938.339: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 20:22:40] WARNING[590015][C-00000068] res_stasis_playback.c: 1783282938.339: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 20:40:22] WARNING[590006] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 20:40:22] WARNING[590006] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 20:42:00] NOTICE[590070][C-0000006a] res_stasis_playback.c: 1783284120.345: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 20:42:14] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 20:42:14] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 20:42:14] NOTICE[590070][C-0000006a] res_stasis_playback.c: 1783284120.345: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 20:42:19] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 20:42:19] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 20:42:19] NOTICE[590070][C-0000006a] res_stasis_playback.c: 1783284120.345: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 20:42:25] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 20:42:25] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 20:42:25] NOTICE[590070][C-0000006a] res_stasis_playback.c: 1783284120.345: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 20:42:31] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 20:42:31] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 20:42:31] NOTICE[590070][C-0000006a] res_stasis_playback.c: 1783284120.345: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 20:42:36] WARNING[590070][C-0000006a] res_stasis_playback.c: 1783284120.345: Playback failed for sound:custom/ukoncenie-hovoru-koordinator-sk
+[Jul  5 21:00:49] WARNING[590066] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 21:00:49] WARNING[590066] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 21:03:05] NOTICE[590151][C-0000006c] res_stasis_playback.c: 1783285385.351: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 21:03:18] NOTICE[590151][C-0000006c] res_stasis_playback.c: 1783285385.351: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 21:12:49] WARNING[590146] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 21:12:49] WARNING[590146] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 21:13:57] NOTICE[590345][C-0000006d] res_stasis_playback.c: 1783286037.355: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 21:14:11] NOTICE[590345][C-0000006d] res_stasis_playback.c: 1783286037.355: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 21:21:00] NOTICE[590555][C-0000006e] res_stasis_playback.c: 1783286460.359: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 21:21:14] NOTICE[590555][C-0000006e] res_stasis_playback.c: 1783286460.359: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 21:24:24] NOTICE[590683][C-0000006f] res_stasis_playback.c: 1783286664.363: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 21:24:37] NOTICE[590683][C-0000006f] res_stasis_playback.c: 1783286664.363: Playback stopped for sound:custom/moh-slow-jazz
+seman@mediagtw:~$
