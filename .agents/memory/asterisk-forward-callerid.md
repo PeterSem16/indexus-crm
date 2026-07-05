@@ -68,28 +68,24 @@ foreign caller after deploy. If the trunk rejects a leading `+`, fall back to th
 (`00421…`) which legacy trunks often prefer. Alternate hypothesis if it persists: the agent is
 manually declining the odd-CLI call (also yields 486).
 
-### Refinement: E.164 normalization ALONE isn't enough — SK national CLI must be an OWNED DID
-After the E.164 fix, a follow-up log showed the SK carrier STILL false-BUSYs a SLOVAK caller
-(+421911163316) while a foreign caller (+491723627488) over the same trunk to the same mobile
-rings fine. Root cause is national-CLI screening / anti-spoofing: the SK trunk refuses any
-presented +421 A-number that is NOT one of OUR OWN DIDs; foreign CLIs pass through (carrier can't
-validate them). So a real customer's SK number can never be presented as CLI on the SK trunk, no
-matter how well-formatted.
+### REJECTED hypothesis: "SK national CLI must be an OWNED DID" (do NOT re-apply)
+I briefly hypothesised the SK carrier false-BUSYs any presented +421 CLI that isn't our own DID,
+and substituted our own DID for +421 callers (helper didToE164Sk at both CLI sites). **The user
+rejected this and it was reverted.** Presenting the REAL Slovak caller number on the agent's mobile
+**worked before and is a HARD REQUIREMENT** — reps must see the actual caller's SK number, not the
+company DID. So do NOT substitute the DID for +421 callers.
 
-**Fix (QueueEngine):** when the CLI we're about to present startsWith("+421"), substitute our OWN
-DID — the number the caller dialed (queue.didNumber / opts.fallbackDid) — via helper didToE164Sk(),
-applied AFTER normalizeCallerIdForCli() at BOTH sites (standing-forward originate +
-forwardToExternalNumber). Foreign callers keep their real number. If the DID can't be mapped to
-E.164 the helper returns "" and the caller CLI is left unchanged (safe fallback). didNumber is
-nullable — guard it. Keep didToE164Sk SEPARATE from normalizeCallerIdForCli (the 10-digit
-national->+421 assumption is only safe because we KNOW the DID is Slovak; a national CZ/RO DID
-would be mis-prefixed).
+**Why the carrier-screening theory is likely wrong:** in the failing log the SK leg first shows
+`is ringing` + `is making progress` and only THEN `Everyone is busy/congested (1:1/0/0)`. Pure
+carrier CLI screening / anti-spoofing rejects PRE-ring (SIP 403/604), not after 180/183. A BUSY
+*after* ringing points to the **far end** — the agent's mobile was busy / on another call / the
+rep declined, or ring-no-answer converted to BUSY (SIP 486 cause 17), i.e. concurrency/handset,
+not CLI. The "foreign rings, SK busy" split in that single log may be coincidental (the DE leg was
+still `is ringing` when the log was truncated — no proof it connected).
 
-**Trade-off (must disclose):** SK-originated forwarded calls now show the company DID on the agent's
-mobile, not the real caller's number (foreign callers still show their own). Unavoidable in code;
-only fix to keep the SK caller's number is asking the carrier to enable CLIP-no-screening on the
-trunk. If it still false-BUSYs after deploy, `pjsip set logger on` on mediagateway and read the SIP
-reject (403/604 = carrier screening; 486 = handset/user busy or manual decline).
+**Current behaviour (kept):** CLI = `normalizeCallerIdForCli(caller)` (E.164) for ALL callers,
+SK included. To actually diagnose the BUSY, get a COMPLETE verbose log of a failing SK forward and
+run `pjsip set logger on` on mediagateway to read the real SIP reject code before changing code.
 
 ## Desk-first routing (logged-in → desk, not-logged-in → mobile)
 `connectCallToAgent` is only reached for agents with an **active agentSession that has the

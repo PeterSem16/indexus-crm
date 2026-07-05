@@ -1526,13 +1526,6 @@ export class QueueEngine extends EventEmitter {
     // Present a valid E.164 CLI so the carrier doesn't reject a raw "0"+international
     // caller number (e.g. 0421911163316) as a false BUSY. See normalizeCallerIdForCli.
     fwdCid = this.normalizeCallerIdForCli(fwdCid);
-    // SK national-CLI screening: a Slovak (+421) caller number that isn't our own DID is
-    // rejected as a false BUSY, while foreign CLIs pass. Present our own DID on +421 callers
-    // so the forward connects. didToE164Sk returns "" when no usable DID → keep caller CLI.
-    if (fwdCid.startsWith("+421")) {
-      const didCli = this.didToE164Sk(opts?.fallbackDid);
-      if (didCli) fwdCid = didCli;
-    }
     if (fwdCid) {
       try {
         await this.ariClient.setChannelVariable(channelId, "CALLERID(num)", fwdCid);
@@ -2531,25 +2524,6 @@ export class QueueEngine extends EventEmitter {
     return n; // unrecognised format → leave exactly as-is (identical to previous behaviour)
   }
 
-  /**
-   * Convert one of OUR OWN Slovak DIDs (the number the caller dialed) to E.164 so we can
-   * present it as the outbound CLI. The SK carrier screens national CLI: it rejects an
-   * unowned +421 A-number as a false BUSY/congested, while foreign CLIs pass. On a Slovak
-   * inbound caller we therefore present our own DID instead of the caller's number.
-   * Returns "" for anything we can't confidently map to E.164, in which case the caller
-   * keeps their original CLI (unchanged behaviour). Only used inside the +421 branch, so
-   * the 10-digit national assumption (SK trunk prefix "0" + 9-digit NSN) is safe here.
-   */
-  private didToE164Sk(raw: string | null | undefined): string {
-    const n = (raw || "").trim().replace(/[\s\-()]/g, "");
-    if (!n) return "";
-    if (n.startsWith("+")) return n;                          // already E.164 (our own DID)
-    if (n.startsWith("00")) return "+" + n.slice(2);          // international access code
-    if (/^421\d{9}$/.test(n)) return "+" + n;                // bare SK E.164, no "+"
-    if (/^0[1-9]\d{8}$/.test(n)) return "+421" + n.slice(1);  // 10-digit SK national (02…/09…)
-    return "";                                                // can't map → skip substitution
-  }
-
   // Standing agents (opted-in + reachable mobile) assigned to a queue, ordered by
   // userId for a deterministic round-robin.
   private async getStandingAgentsForQueue(queueId: string): Promise<Array<{ userId: string; number: string; ringSeconds: number }>> {
@@ -2652,15 +2626,7 @@ export class QueueEngine extends EventEmitter {
       // dialplan, so the agent's mobile shows the real caller instead of no/blank CLI.
       // Present the caller in valid E.164 so the mobile carrier doesn't reject a raw
       // "0"+international CLI (e.g. 0421911163316) as a false BUSY. See normalizeCallerIdForCli.
-      let cliCid = this.normalizeCallerIdForCli(call.callerNumber);
-      // SK national-CLI screening: the carrier rejects an unowned Slovak (+421) A-number as a
-      // false BUSY (foreign CLIs pass). On a Slovak caller present our own DID (the number they
-      // dialed) so the forward connects; foreign callers keep their real number. didToE164Sk
-      // returns "" when the DID can't be mapped → caller CLI kept unchanged.
-      if (cliCid.startsWith("+421")) {
-        const didCli = this.didToE164Sk(queue.didNumber);
-        if (didCli) cliCid = didCli;
-      }
+      const cliCid = this.normalizeCallerIdForCli(call.callerNumber);
       const localChannel = await this.ariClient.originateChannel(
         `Local/${norm}@${ctx}/n`,
         norm,
