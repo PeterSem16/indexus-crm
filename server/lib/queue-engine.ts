@@ -34,7 +34,6 @@ import { decryptTokenSafe } from "./token-crypto";
 import { STORAGE_PATHS } from "../config/storage-paths";
 import { AriClient, type AriEvent, type AriChannel } from "./ari-client";
 import { inboundCallWs } from "./inbound-call-ws";
-import { alertAgentIncomingCall } from "./agent-call-alert";
 
 export interface QueuedCall {
   id: string;
@@ -138,7 +137,6 @@ export class QueueEngine extends EventEmitter {
   private standingForwardBusy: Set<string> = new Set(); // userIds currently ringing/bridged via standing forward
   private standingForwardRoundRobin: Map<string, number> = new Map(); // queueId → next round-robin index
   private standingForwardCooldown: Map<string, number> = new Map(); // userId → epoch ms until re-ring allowed
-  private recentAgentCallAlerts: Map<string, number> = new Map(); // `${callId}:${userId}` → epoch ms expiry; dedups incoming-call alerts across round-robin re-rings
   // Two-signal gate for standing Local channels (same reason as pendingRoHairpins):
   // channel-state-change(Up) can fire BEFORE StasisStart for Local channels, so we
   // only bridge once BOTH Up AND Stasis are confirmed.
@@ -2633,11 +2631,12 @@ export class QueueEngine extends EventEmitter {
       // inherited __CBC_CALLER variable. The from-internal-* dialplan sets the outbound
       // CLI from ${CBC_CALLER} (ExecIf(...Set(CALLERID(num)=${CBC_CALLER}))); the `__`
       // prefix ensures it survives onto the Local ;2 leg that runs that dialplan.
-      // For SK (+421) callers we present the company DID instead of the real number:
-      // the terminating operator sends a false 486 BUSY when a national SK CLI is
-      // forwarded over the wholesale trunk (confirmed by a live SIP trace). Foreign
-      // callers keep their real number (they pass anti-spoofing). The REAL caller is
-      // delivered to the agent out of band (in-app + push + SMS) via alertAgentIncomingCall.
+      // For SK (+421) callers we present the company DID instead of the real number so
+      // the call actually connects: a national SK CLI forwarded over the SK trunk gets a
+      // false 486 BUSY from downstream anti-spoofing (confirmed by a live SIP trace).
+      // Foreign callers keep their real number (they pass the filter). Trade-off: the
+      // agent's phone shows the company DID for SK callers, not the real caller — showing
+      // the real SK number requires the operator to authorize forwarded SK CLIs.
       const cliCid = this.resolveForwardCli(call.callerNumber, queue.didNumber);
       const localChannel = await this.ariClient.originateChannel(
         `Local/${norm}@${ctx}/n`,
@@ -2661,37 +2660,6 @@ export class QueueEngine extends EventEmitter {
         queueName: queue.name,
         enteredAt: call.enteredAt,
       });
-
-      // The agent's mobile is now ringing. When we substituted the CLI with the company
-      // DID (SK callers), the agent's phone shows the DID instead of the real caller, so
-      // tell them WHO is really calling via in-app notification + INDEXUS Connect push +
-      // SMS. Skip this for foreign callers — their mobile already shows the real number,
-      // so an out-of-band alert (esp. SMS) would just cost money. Dedup per (call, agent)
-      // so the round-robin re-ring loop (cooldown + ring-timeout requeue) does not re-alert
-      // the same agent about the same caller. Best-effort, non-blocking — it must never
-      // delay or break the call-handling path.
-      const cliWasSubstituted = !!cliCid && cliCid !== (call.callerNumber || "").replace(/\s/g, "");
-      if (cliWasSubstituted) {
-        const alertKey = `${call.id}:${agent.userId}`;
-        const nowMs = Date.now();
-        const prevExpiry = this.recentAgentCallAlerts.get(alertKey) || 0;
-        if (prevExpiry <= nowMs) {
-          this.recentAgentCallAlerts.set(alertKey, nowMs + 5 * 60 * 1000);
-          if (this.recentAgentCallAlerts.size > 500) {
-            for (const [k, exp] of this.recentAgentCallAlerts) {
-              if (exp <= nowMs) this.recentAgentCallAlerts.delete(k);
-            }
-          }
-          void alertAgentIncomingCall({
-            userId: agent.userId,
-            agentMobile: agent.number,
-            realCallerNumber: call.callerNumber,
-            callerName: call.callerName,
-            customerId: call.customerId,
-            queueName: queue.name,
-          }).catch(() => {});
-        }
-      }
 
       setTimeout(async () => {
         const stillPending = this.pendingAgentCalls.get(localChannel.id);
