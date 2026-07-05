@@ -3515,11 +3515,17 @@ export class QueueEngine extends EventEmitter {
   // Asterisk. Desk takes priority: forwarding to mobile is only a fallback for when the
   // agent is NOT logged into the app with the phone connected (endpoint state "offline").
   private async isSoftphoneRegistered(extension: string): Promise<boolean> {
-    const status = await this.ariClient.getEndpointStatus("PJSIP", extension);
-    // ARI returns null on error → assume registered so we still ring the app (the proven
-    // path). Only a definite "offline" state means there is no active contact.
-    if (!status) return true;
-    return status.state !== "offline";
+    // Fail-open: any lookup failure (ARI returns null, throws, or client unavailable) must
+    // NOT abort call routing — assume registered and ring the app (the proven path). Only a
+    // definite "offline" endpoint state means there is no active contact → forward to mobile.
+    try {
+      const status = await this.ariClient.getEndpointStatus("PJSIP", extension);
+      if (!status) return true;
+      return status.state !== "offline";
+    } catch (err) {
+      console.warn(`[QueueEngine] isSoftphoneRegistered(${extension}) failed, assuming registered:`, err instanceof Error ? err.message : err);
+      return true;
+    }
   }
 
   private async connectCallToAgent(call: QueuedCall, agent: AgentState, queue: InboundQueue): Promise<void> {
