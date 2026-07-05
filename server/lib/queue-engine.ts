@@ -298,7 +298,7 @@ export class QueueEngine extends EventEmitter {
 
     this.ariClient.on("channel-destroyed", (event: AriEvent) => {
       if (event.channel) {
-        this.handleChannelDestroyed(event.channel.id).catch(err => {
+        this.handleChannelDestroyed(event.channel.id, event.cause, event.cause_txt).catch(err => {
           console.error("[QueueEngine] handleChannelDestroyed error:", err instanceof Error ? err.message : err);
         });
       }
@@ -2644,12 +2644,23 @@ export class QueueEngine extends EventEmitter {
   // ring timer's hangup). Clear busy + requeue the caller so round-robin advances.
   // NOTE: standing users have no agentQueueStatus row, so we must NOT call
   // updateAgentStatus for them (unlike the desk-agent destroyed path).
-  private async handleStandingAgentChannelDestroyed(channelId: string, pending: PendingAgentCall): Promise<void> {
+  private async handleStandingAgentChannelDestroyed(channelId: string, pending: PendingAgentCall, cause?: number, causeTxt?: string): Promise<void> {
     this.pendingAgentCalls.delete(channelId);
     this.standingBridgeSignals.delete(channelId);
     const uid = this.standingUserId(pending.agentId);
     this.standingForwardBusy.delete(uid);
-    console.log(`[QueueEngine] Standing forward: agent ${uid} channel ${channelId} destroyed before answer, advancing round-robin`);
+    // Back off before re-ringing the SAME agent. Without a cooldown, processQueues
+    // (~2s tick) immediately re-forwards the requeued caller to the same mobile,
+    // producing a tight retry loop that hammers a busy/no-answer mobile (seen in the
+    // log as repeated "Called ...@from-internal-*" + "Everyone is busy/congested
+    // (1:1/0/0)"). AST_CAUSE_USER_BUSY (17) means the mobile is on another call, so
+    // back off longer and let the caller simply wait in queue (MOH keeps playing via
+    // the requeue path below) until the agent frees up. Set synchronously BEFORE any
+    // await so the next queue tick cannot slip in and re-forward first.
+    const AST_CAUSE_USER_BUSY = 17;
+    const cooldownMs = cause === AST_CAUSE_USER_BUSY ? 60000 : 8000;
+    this.standingForwardCooldown.set(uid, Date.now() + cooldownMs);
+    console.log(`[QueueEngine] Standing forward: agent ${uid} channel ${channelId} destroyed before answer (cause=${cause ?? "?"} ${causeTxt ?? ""}), cooldown ${cooldownMs}ms, advancing round-robin`);
 
     if (this.overflowInProgress.has(pending.callerChannelId)) return;
 
@@ -4036,7 +4047,7 @@ export class QueueEngine extends EventEmitter {
     }
   }
 
-  private async handleChannelDestroyed(channelId: string): Promise<void> {
+  private async handleChannelDestroyed(channelId: string, cause?: number, causeTxt?: string): Promise<void> {
     if (this.overflowInProgress.has(channelId)) {
       console.log(`[QueueEngine] Channel ${channelId} destroyed during overflow, skipping cleanup`);
       return;
@@ -4077,7 +4088,7 @@ export class QueueEngine extends EventEmitter {
         // busy / ring-timer hangup) → clear busy + requeue caller so round-robin
         // advances. Standing users have no agentQueueStatus row, so this MUST branch
         // away from the desk-agent overflow/recovery path below.
-        await this.handleStandingAgentChannelDestroyed(channelId, pending);
+        await this.handleStandingAgentChannelDestroyed(channelId, pending, cause, causeTxt);
         return;
       }
       if (this.overflowInProgress.has(pending.callerChannelId)) {

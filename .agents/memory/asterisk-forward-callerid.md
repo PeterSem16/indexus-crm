@@ -55,3 +55,30 @@ are now intentionally dead code.
 (unlike `hasLoggedInAgentsDb`), so a stale-open Nexus Pulse session rings a dead desk instead
 of forwarding. Acceptable per requirement, but a source of missed calls if a browser is left
 open.
+
+## Standing-forward requeue MUST cool down (busy-mobile retry loop)
+When a standing-forward Local leg is destroyed before answer, the destroy handler clears the
+per-agent busy lock and requeues the caller. `processQueues` re-runs every ~2s, so if the
+requeue path sets **no cooldown**, the very next tick re-forwards the same caller to the same
+mobile — a tight loop that hammers a busy/no-answer mobile (verbose log: repeated
+`Called <num>@from-internal-*` + `Everyone is busy/congested at this time (1:1/0/0)`). The
+ring-timeout and originate-fail paths already set an 8s cooldown; the **destroy path did not**,
+which is why a 2nd concurrent call to a single busy agent looped instead of waiting.
+
+**Fix:** in the standing-destroy handler set `standingForwardCooldown` **synchronously before
+any await** (JS only interleaves at awaits, so a pre-await write is race-free against the queue
+tick). Thread the ARI `ChannelDestroyed` cause through: the `channel-destroyed` listener already
+receives `event.cause`/`event.cause_txt` (AriEvent declares them; ari-client re-emits the raw
+event) — pass them into `handleChannelDestroyed` → the standing-destroy handler. Use a longer
+cooldown (60s) when `cause === 17` (**AST_CAUSE_USER_BUSY**, the mobile's SIP 486) so the caller
+just waits in queue with MOH until the agent frees; 8s baseline otherwise.
+
+**Why:** one mobile can take only one call; the correct behavior for a 2nd caller is to WAIT in
+queue (or round-robin to another free agent — cooldown is keyed per userId so others stay
+eligible), never to force-dial a busy line. `tryStandingForward` needs no change; its existing
+`cooldown > now → skip` check does the waiting.
+
+**Verify on deploy:** whether the mobile's 486 actually arrives as `cause=17` depends on Dial's
+HANGUPCAUSE propagating through the dialplan prio-8 `Hangup` onto the Local channel. The handler
+logs `cause`/`cause_txt`; grep it after a live 2-call test. If it logs 16/34 instead, the 8s
+baseline still kills the loop — worst case the busy back-off is 8s not 60s.
