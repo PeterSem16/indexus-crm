@@ -53,6 +53,7 @@ export interface PendingCall {
   leadScore?: number;
   clientStatus?: string;
   callerIdNumber?: string;
+  maxRingSeconds?: number;
 }
 
 export interface IncomingCall {

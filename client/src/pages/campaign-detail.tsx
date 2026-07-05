@@ -6231,6 +6231,50 @@ export default function CampaignDetailPage() {
                       </Card>
                       <Card>
                         <CardHeader>
+                          <CardTitle>{t.campaigns.detail.maxRingTitle}</CardTitle>
+                          <CardDescription>
+                            {t.campaigns.detail.maxRingDesc}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              min={0}
+                              max={300}
+                              className="w-32"
+                              defaultValue={(() => {
+                                try {
+                                  const s = campaign.settings ? JSON.parse(campaign.settings) : {};
+                                  const v = Number(s.maxRingSeconds);
+                                  return Number.isFinite(v) && v > 0 ? v : 0;
+                                } catch { return 0; }
+                              })()}
+                              onBlur={(e) => {
+                                let raw = parseInt(e.target.value, 10);
+                                if (!Number.isFinite(raw) || raw < 0) raw = 0;
+                                if (raw > 300) raw = 300;
+                                e.target.value = String(raw);
+                                let existing: any = {};
+                                try { if (campaign.settings) existing = JSON.parse(campaign.settings); } catch {}
+                                const current = Number(existing.maxRingSeconds) || 0;
+                                if (current === raw) return;
+                                const merged = { ...existing, maxRingSeconds: raw };
+                                apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { settings: JSON.stringify(merged) })
+                                  .then(() => {
+                                    toast({ title: t.campaigns.detail.settingsSaved });
+                                    queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
+                                  })
+                                  .catch(() => toast({ title: t.campaigns.detail.error, variant: "destructive" }));
+                              }}
+                              data-testid="input-max-ring-seconds"
+                            />
+                            <span className="text-sm text-muted-foreground">{t.campaigns.detail.maxRingUnit}</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader>
                           <CardTitle>{t.campaigns.detail.defaultOnlyAssignedTitle}</CardTitle>
                           <CardDescription>
                             {t.campaigns.detail.defaultOnlyAssignedDesc}

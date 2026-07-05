@@ -201,6 +201,10 @@ export function SipPhone({
   const userHungUpRef = useRef<boolean>(false);
   const pendingCallProcessedRef = useRef<boolean>(false);
   const forceIdleRef = useRef<boolean>(false);
+  // Per-mission max ring duration for outbound calls (0 = no limit).
+  const maxRingSecondsRef = useRef<number>(0);
+  const maxRingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const ringTimedOutRef = useRef<boolean>(false);
   const activeInboundMetaRef = useRef<{ queueId?: string; queueName?: string; direction?: string } | null>(null);
   const inboundTerminatedListenerRef = useRef<{ session: any; listener: (state: any) => void } | null>(null);
   const hangupPollRef = useRef<NodeJS.Timeout | null>(null);
@@ -615,6 +619,10 @@ export function SipPhone({
     if (callTimerRef.current) {
       clearInterval(callTimerRef.current);
     }
+    if (maxRingTimerRef.current) {
+      clearTimeout(maxRingTimerRef.current);
+      maxRingTimerRef.current = null;
+    }
     if (ringtoneIntervalRef.current) {
       clearInterval(ringtoneIntervalRef.current);
       ringtoneIntervalRef.current = null;
@@ -669,6 +677,39 @@ export function SipPhone({
     if (ringtoneIntervalRef.current) {
       clearInterval(ringtoneIntervalRef.current);
       ringtoneIntervalRef.current = null;
+    }
+  }, []);
+
+  // "Call not connected" tone — played when an outbound call rings past the
+  // mission's max ring duration without being answered. Two descending beeps
+  // (congestion-style) so the agent hears the call was auto-ended.
+  const playNotConnectedTone = useCallback(() => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const now = audioCtx.currentTime;
+      const beeps = [
+        { freq: 480, start: 0.0 },
+        { freq: 300, start: 0.34 },
+        { freq: 480, start: 0.68 },
+        { freq: 300, start: 1.02 },
+      ];
+      const dur = 0.28;
+      for (const b of beeps) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(b.freq, now + b.start);
+        gain.gain.setValueAtTime(0.0001, now + b.start);
+        gain.gain.exponentialRampToValueAtTime(0.14, now + b.start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + b.start + dur);
+        osc.start(now + b.start);
+        osc.stop(now + b.start + dur + 0.02);
+      }
+      setTimeout(() => { try { audioCtx.close(); } catch {} }, 1500);
+    } catch (e) {
+      console.warn("[SIP] Failed to play not-connected tone:", e);
     }
   }, []);
 
@@ -1190,9 +1231,39 @@ export function SipPhone({
               data: { status: "ringing" },
               customerId: localCustomerIdRef.current
             });
+            ringTimedOutRef.current = false;
+            if (maxRingTimerRef.current) {
+              clearTimeout(maxRingTimerRef.current);
+              maxRingTimerRef.current = null;
+            }
+            if (maxRingSecondsRef.current > 0) {
+              const maxRing = maxRingSecondsRef.current;
+              maxRingTimerRef.current = setTimeout(() => {
+                maxRingTimerRef.current = null;
+                const s = sessionRef.current;
+                // Only auto-end if this call is still ringing (not answered/ended).
+                if (s === inviter && s.state !== SessionState.Established && s.state !== SessionState.Terminated) {
+                  console.log(`[SIP] Max ring duration (${maxRing}s) exceeded — auto-ending unanswered call`);
+                  ringTimedOutRef.current = true;
+                  userHungUpRef.current = false;
+                  try { (inviter as Inviter).cancel?.(); } catch (e) { console.error("[SIP] Error cancelling on max-ring timeout:", e); }
+                  playNotConnectedTone();
+                  toast({
+                    title: "Hovor nebol spojený",
+                    description: `Hovor sa automaticky ukončil po ${maxRing} s bez prijatia.`,
+                    variant: "destructive",
+                  });
+                }
+              }, maxRing * 1000);
+            }
             break;
           case SessionState.Established:
             makeCallGuardRef.current = false;
+            if (maxRingTimerRef.current) {
+              clearTimeout(maxRingTimerRef.current);
+              maxRingTimerRef.current = null;
+            }
+            ringTimedOutRef.current = false;
             setCallState("active");
             setIsOnHold(false);
             callStartTimeRef.current = Date.now();
@@ -1218,19 +1289,27 @@ export function SipPhone({
             break;
           case SessionState.Terminated:
             makeCallGuardRef.current = false;
+            if (maxRingTimerRef.current) {
+              clearTimeout(maxRingTimerRef.current);
+              maxRingTimerRef.current = null;
+            }
             if (forceIdleRef.current) {
               forceIdleRef.current = false;
+              ringTimedOutRef.current = false;
               break;
             }
             const duration = callStartTimeRef.current 
               ? Math.floor((Date.now() - callStartTimeRef.current) / 1000) 
               : 0;
+            const ringTimedOut = ringTimedOutRef.current;
+            ringTimedOutRef.current = false;
             setCallState("ended");
             if (callTimerRef.current) {
               clearInterval(callTimerRef.current);
             }
-            const hungUpBy = userHungUpRef.current ? "user" : "customer";
+            const hungUpBy = ringTimedOut ? "system" : (userHungUpRef.current ? "user" : "customer");
             userHungUpRef.current = false;
+            const terminatedStatus = ringTimedOut ? "no_answer" : (duration > 0 ? "completed" : "failed");
             callContextRef.current.setCallTiming({
               callEndTime: Date.now(),
               talkDurationSeconds: duration > 0 ? duration : null,
@@ -1239,7 +1318,7 @@ export function SipPhone({
             updateCallLogMutation.mutate({
               id: callLogId,
               data: { 
-                status: duration > 0 ? "completed" : "failed",
+                status: terminatedStatus,
                 endedAt: new Date().toISOString(),
                 durationSeconds: duration,
                 hungUpBy
@@ -1262,7 +1341,7 @@ export function SipPhone({
               }
             }
             callContextRef.current.setAutoRecord(true);
-            onCallEnd?.(duration, duration > 0 ? "completed" : "failed", callLogId);
+            onCallEnd?.(duration, terminatedStatus, callLogId);
             setCurrentCallLogId(null);
             if (!callContextRef.current.preventAutoReset) {
               setTimeout(() => {
@@ -1350,6 +1429,7 @@ export function SipPhone({
       const cid = callData.callerIdNumber || "";
       setLocalCallerIdNumber(cid);
       localCallerIdNumberRef.current = cid;
+      maxRingSecondsRef.current = callData.maxRingSeconds && callData.maxRingSeconds > 0 ? callData.maxRingSeconds : 0;
       clearPendingCall();
       
       setTimeout(() => {
@@ -1534,6 +1614,11 @@ export function SipPhone({
   const endCall = useCallback(() => {
     console.log("[SIP-INBOUND] endCall called, session state:", sessionRef.current?.state);
     userHungUpRef.current = true;
+    ringTimedOutRef.current = false;
+    if (maxRingTimerRef.current) {
+      clearTimeout(maxRingTimerRef.current);
+      maxRingTimerRef.current = null;
+    }
     if (sessionRef.current) {
       try {
         if (sessionRef.current.state === SessionState.Established) {
@@ -1576,6 +1661,11 @@ export function SipPhone({
   }, [currentCallLogId, updateCallLogMutation]);
 
   const forceResetCall = useCallback(() => {
+    ringTimedOutRef.current = false;
+    if (maxRingTimerRef.current) {
+      clearTimeout(maxRingTimerRef.current);
+      maxRingTimerRef.current = null;
+    }
     // Only arm the forceIdle flag when there is an active SIP session.
     // If called without a session (e.g. at session end with no live call),
     // leaving the flag true would cause the NEXT call's onTerminated to

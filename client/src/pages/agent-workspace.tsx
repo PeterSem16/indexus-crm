@@ -9778,6 +9778,28 @@ export default function AgentWorkspacePage() {
     return campaigns.find((c) => c.id === selectedCampaignId) || null;
   }, [campaigns, selectedCampaignId]);
 
+  // Per-mission maximum ring duration (seconds) for outbound calls. 0 = no limit.
+  const parseMaxRingSeconds = useCallback((settings?: string | null): number => {
+    if (!settings) return 0;
+    try {
+      const v = Number(JSON.parse(settings).maxRingSeconds);
+      return Number.isFinite(v) && v > 0 ? v : 0;
+    } catch { return 0; }
+  }, []);
+
+  const campaignMaxRingSeconds = useMemo<number>(
+    () => parseMaxRingSeconds(selectedCampaign?.settings),
+    [selectedCampaign?.settings, parseMaxRingSeconds],
+  );
+
+  // Resolve the max ring limit for an arbitrary campaign id (e.g. scheduled/queue
+  // items that may belong to a different mission than the selected one).
+  const getCampaignMaxRingSeconds = useCallback((campaignId?: string | null): number => {
+    if (!campaignId) return 0;
+    const c = campaigns.find((camp) => camp.id === campaignId);
+    return parseMaxRingSeconds(c?.settings);
+  }, [campaigns, parseMaxRingSeconds]);
+
   const campaignEmailMode = useMemo<"system" | "user" | "custom">(() => {
     if (!selectedCampaign?.settings) return "user";
     try { return (JSON.parse(selectedCampaign.settings).nexusPulseEmailMode as "system" | "user" | "custom") || "user"; } catch { return "user"; }
@@ -11134,6 +11156,7 @@ export default function AgentWorkspacePage() {
         campaignId: selectedCampaignId || undefined,
         campaignName: selectedCampaign?.name || undefined,
         callerIdNumber: (selectedCampaign as any)?.callerIdNumber || undefined,
+        maxRingSeconds: campaignMaxRingSeconds || undefined,
       });
       setStats((prev) => ({ ...prev, calls: prev.calls + 1 }));
       setTimeline((prev) => [
@@ -14340,6 +14363,7 @@ export default function AgentWorkspacePage() {
               campaignId: item.campaignId || undefined,
               customerName: item.customerName || undefined,
               callerIdNumber: undefined,
+              maxRingSeconds: getCampaignMaxRingSeconds(item.campaignId) || undefined,
             });
             setStats(prev => ({ ...prev, calls: prev.calls + 1 }));
           }
@@ -14676,7 +14700,7 @@ export default function AgentWorkspacePage() {
                                 if (lookupRes.ok) { const matched = await lookupRes.json(); if (matched?.id) { const custRes = await fetch(`/api/customers/${matched.id}`, { credentials: "include" }); if (custRes.ok) { const customer = await custRes.json(); setCurrentContact(customer); setCurrentContactType("customer"); setCurrentCampaignContactId(null); setRightTab("actions"); } } }
                               } catch (e) { console.error("Failed to lookup customer:", e); }
                             }
-                            makeCall({ phoneNumber: phoneNum, customerName: call.customerName || call.callerName || undefined, customerId: call.customerId || undefined, callerIdNumber: (selectedCampaign as any)?.callerIdNumber || undefined });
+                            makeCall({ phoneNumber: phoneNum, customerName: call.customerName || call.callerName || undefined, customerId: call.customerId || undefined, callerIdNumber: (selectedCampaign as any)?.callerIdNumber || undefined, maxRingSeconds: campaignMaxRingSeconds || undefined });
                             if (!isSipRegistered && !isSipRegistering) sipRegister();
                             setAbandonedCallsOpen(false);
                           }}

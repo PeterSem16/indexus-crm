@@ -2329,6 +2329,9 @@ export interface Translations {
       dispYear: string;
       defaultAgentTab: string;
       defaultAgentTabDesc: string;
+      maxRingTitle: string;
+      maxRingDesc: string;
+      maxRingUnit: string;
       dispositionModeTitle: string;
       dispositionModeDesc: string;
       dispositionModeEndCall: string;
@@ -9482,6 +9485,9 @@ export const translations: Record<Locale, Translations> = {
         dispMonths: 'months',
         dispYear: 'year',
         defaultAgentTab: 'Default agent tab',
+        maxRingTitle: 'Maximum ring duration',
+        maxRingDesc: 'Maximum time an outbound call may ring before it is automatically ended. Set 0 to disable.',
+        maxRingUnit: 'seconds (0 = off)',
         defaultAgentTabDesc: 'Select which tab opens for the operator when loading a contact',
         dispositionModeTitle: 'Disposition Mode',
         dispositionModeDesc: 'Set where the call disposition is selected — via script buttons or via the end call button.',
@@ -16134,6 +16140,9 @@ export const translations: Record<Locale, Translations> = {
         dispMonths: 'mesiace',
         dispYear: 'rok',
         defaultAgentTab: 'Predvolená záložka agenta',
+        maxRingTitle: 'Maximálna dĺžka zvonenia',
+        maxRingDesc: 'Maximálny čas, počas ktorého odchádzajúci hovor zvoní, kým sa automaticky ukončí. Nastavte 0 na vypnutie.',
+        maxRingUnit: 'sekúnd (0 = vypnuté)',
         defaultAgentTabDesc: 'Vyberte, ktorá záložka sa otvorí pre operátora pri načítaní kontaktu',
         dispositionModeTitle: 'Režim dispozície',
         dispositionModeDesc: 'Nastavte, kde sa vyberá dispozícia hovoru — cez tlačidlá v call scripte alebo cez tlačidlo ukončenia hovoru.',
@@ -22724,6 +22733,9 @@ export const translations: Record<Locale, Translations> = {
         dispMonths: 'měsíce',
         dispYear: 'rok',
         defaultAgentTab: 'Výchozí záložka agenta',
+        maxRingTitle: 'Maximální délka vyzvánění',
+        maxRingDesc: 'Maximální doba, po kterou odchozí hovor vyzvání, než se automaticky ukončí. Nastavte 0 pro vypnutí.',
+        maxRingUnit: 'sekund (0 = vypnuto)',
         defaultAgentTabDesc: 'Vyberte, která záložka se otevře pro operátora při načtení kontaktu',
         dispositionModeTitle: 'Režim dispozice',
         dispositionModeDesc: 'Nastavte, kde se vybírá dispozice hovoru — přes tlačítka v call scriptu nebo přes tlačítko ukončení hovoru.',
@@ -29272,6 +29284,9 @@ export const translations: Record<Locale, Translations> = {
         dispMonths: 'hónap',
         dispYear: 'év',
         defaultAgentTab: 'Alapértelmezett ügynök fül',
+        maxRingTitle: 'Maximális csengetési idő',
+        maxRingDesc: 'A kimenő hívás maximális csengetési ideje, mielőtt automatikusan megszakad. Az 0 kikapcsolja.',
+        maxRingUnit: 'másodperc (0 = ki)',
         defaultAgentTabDesc: 'Válassza ki, melyik fül nyílik meg az operátor számára a kapcsolat betöltésekor',
         dispositionModeTitle: 'Diszpozíció mód',
         dispositionModeDesc: 'Állítsa be, hol kerül kiválasztásra a hívás diszpozíciója — a scripten belüli gombokkal vagy a hívás befejezése gombbal.',
@@ -35705,6 +35720,9 @@ export const translations: Record<Locale, Translations> = {
         dispMonths: 'luni',
         dispYear: 'an',
         defaultAgentTab: 'Tab implicit agent',
+        maxRingTitle: 'Durata maximă de sonerie',
+        maxRingDesc: 'Timpul maxim în care un apel de ieșire poate suna înainte de a fi încheiat automat. Setați 0 pentru a dezactiva.',
+        maxRingUnit: 'secunde (0 = oprit)',
         defaultAgentTabDesc: 'Selectați ce tab se deschide pentru operator la încărcarea contactului',
         dispositionModeTitle: 'Mod dispoziție',
         dispositionModeDesc: 'Setați unde se selectează dispoziția apelului — prin butoanele din scriptul de apel sau prin butonul de finalizare.',
@@ -42140,6 +42158,9 @@ export const translations: Record<Locale, Translations> = {
         dispMonths: 'mesi',
         dispYear: 'anno',
         defaultAgentTab: 'Scheda agente predefinita',
+        maxRingTitle: 'Durata massima di squillo',
+        maxRingDesc: 'Tempo massimo di squillo di una chiamata in uscita prima che venga terminata automaticamente. Imposta 0 per disattivare.',
+        maxRingUnit: 'secondi (0 = off)',
         defaultAgentTabDesc: 'Seleziona quale scheda si apre per l\'operatore al caricamento del contatto',
         dispositionModeTitle: 'Modalità disposizione',
         dispositionModeDesc: 'Impostare dove viene selezionata la disposizione della chiamata — tramite i pulsanti dello script o tramite il pulsante di fine chiamata.',
@@ -48575,6 +48596,9 @@ export const translations: Record<Locale, Translations> = {
         dispMonths: 'Monate',
         dispYear: 'Jahr',
         defaultAgentTab: 'Standard-Agententab',
+        maxRingTitle: 'Maximale Klingeldauer',
+        maxRingDesc: 'Maximale Klingeldauer eines ausgehenden Anrufs, bevor er automatisch beendet wird. 0 zum Deaktivieren.',
+        maxRingUnit: 'Sekunden (0 = aus)',
         defaultAgentTabDesc: 'Wählen Sie, welcher Tab für den Operator beim Laden eines Kontakts geöffnet wird',
         dispositionModeTitle: 'Dispositionsmodus',
         dispositionModeDesc: 'Legen Sie fest, wo die Gesprächsdisposition ausgewählt wird — über Schaltflächen im Call-Script oder über die Gesprächsende-Schaltfläche.',
