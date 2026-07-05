@@ -1,0 +1,78 @@
+seman@mediagtw:~$ # 1) konfigurácia SK trunku (efektívna)
+asterisk -rx "pjsip show endpoint trunk-sk-endpoint"
+
+# 2) dialplan, ktorý nastavuje CALLERID pri presmerovaní
+asterisk -rx "dialplan show from-internal-sk"
+
+# 3) surová konfigurácia trunku zo súboru
+sudo grep -n -A40 "trunk-sk-endpoint" /etc/asterisk/pjsip.conf
+
+# 4) kde je definovaný kontext from-internal-sk
+sudo grep -rn "from-internal-sk" /etc/asterisk/extensions*.conf
+Unable to connect to remote asterisk (does /var/run/asterisk/asterisk.ctl exist?)
+Unable to connect to remote asterisk (does /var/run/asterisk/asterisk.ctl exist?)
+52:[trunk-sk-endpoint]
+53-type=endpoint
+54-transport=transport-udp
+55-context=from-sk-trunk
+56-disallow=all
+57-allow=ulaw,alaw
+58-aors=trunk-sk-aor
+59-direct_media=no
+60-force_rport=yes
+61-rewrite_contact=yes
+62-rtp_symmetric=yes
+63-timers=no
+64-from_domain=10.9.33.2
+65-media_address=10.1.2.112
+66-ice_support=no
+67-
+68-[trunk-sk-identify]
+69-type=identify
+70:endpoint=trunk-sk-endpoint
+71-match=10.9.33.2
+72-
+73-[trunk-ro-aor]
+74-type=aor
+75-contact=sip:10.33.0.55:5060
+76-qualify_frequency=30
+77-
+78-;[trunk-ro-endpoint]
+79-;type=endpoint
+80-;transport=transport-udp
+81-;context=from-ro-trunk
+82-;disallow=all
+83-;allow=ulaw,alaw
+84-;aors=trunk-ro-aor
+85-;direct_media=no
+86-;rtp_symmetric=yes
+87-;force_rport=yes
+88-;rewrite_contact=yes
+89-;timers=no
+90-;from_domain=10.33.0.55
+91-;rtp_keepalive=15
+92-;rtp_timeout=60
+93-;media_address=10.1.2.112
+94-
+95-[trunk-ro-endpoint]
+96-type=endpoint
+97-transport=transport-udp
+98-context=from-ro-trunk
+99-disallow=all
+100-allow=ulaw,alaw
+101-aors=trunk-ro-aor
+102-direct_media=no
+103-rtp_symmetric=yes
+104-ice_support=no
+105-force_rport=yes
+106-rewrite_contact=yes
+107-timers=no
+108-rtp_keepalive=15
+109-rtp_timeout=60
+110-media_address=10.1.2.112
+/etc/asterisk/extensions.conf:261:[from-internal-sk]
+/etc/asterisk/extensions.conf:262:exten => _+421X.,1,NoOp(from-internal-sk +421 forward to ${EXTEN})
+/etc/asterisk/extensions.conf:271:exten => _421X.,1,NoOp(from-internal-sk 421 forward to ${EXTEN})
+/etc/asterisk/extensions.conf:280:exten => _0X.,1,NoOp(from-internal-sk 0prefix forward to ${EXTEN})
+/etc/asterisk/extensions.conf:287:exten => _X.,1,NoOp(from-internal-sk fallback forward to ${EXTEN})
+seman@mediagtw:~$
