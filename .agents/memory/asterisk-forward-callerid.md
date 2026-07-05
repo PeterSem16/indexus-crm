@@ -5,7 +5,25 @@ description: How the from-internal-* dialplan derives outbound CLI (CBC_CALLER) 
 
 # Forwarded-call caller-ID (CBC_CALLER) and desk-first routing
 
-## ⭐ THE REAL "it worked before, now it 486s" REGRESSION — was NOT caller-ID
+## ⭐⭐ MALFORMED INBOUND CLI is presented outbound → operator rings ~2s then rejects
+Decisive box trace (Jul-5, on code reverted byte-for-byte to the Jul-3 baseline — so NOT the repo):
+the SK trunk delivered the inbound caller as `<0421911163316>` = `0` + country-code `421` +
+national `911163316` (a stray national-0 glued onto the full +421 number — malformed, 13 digits;
+a valid SK number is 10-digit national `0911163316` or E.164 `+421911163316`). `from-sk-trunk`
+set `__CBC_CALLER=0421911163316`; the forward path (`from-internal-sk`) then did
+`Set(CALLERID(num)=0421911163316)` and `Dial(PJSIP/0948519438@trunk-sk-endpoint)` → the mobile
+`is ringing` for ~2s → **`Everyone is busy/congested at this time (1:1/0/0)` → Hangup**. So the
+outbound leg is rejected by the operator because a **malformed CLI** is presented.
+**Fix in repo:** `normalizeSkCallerId()` in queue-engine converts SK numbers to clean national
+`0911163316` (strips a leading `0421…`/`+`/`00`, renders `421XXXXXXXXX`→`0XXXXXXXXX`) before setting
+CALLERID/CBC_CALLER in `forwardToExternalNumber`. Foreign & already-national numbers untouched.
+**Status: UNVERIFIED on live call** — presenting a VALID number is strictly better than the malformed
+one, but if the operator still returns busy for ANY CLI, the block is trunk/carrier-side (turn on
+`pjsip set logger on` and read the exact 4xx/5xx from `trunk-sk-endpoint` to know for certain).
+**Supersedes** the earlier "every CLI format → 486" note: those tests ran on a build with the
+removed-forward-block bug, so they likely never cleanly exercised this outbound leg. Re-test cleanly.
+
+## THE "it worked before, now it 486s" ROUTING REGRESSION (secondary) — also NOT caller-ID
 When a user rages that SK queue-call forwarding to agent mobiles "worked before and now doesn't",
 do **not** chase the outbound CLI (every format — real `+421`, `0421`, `09…`, owned DID `02…`,
 anonymous — was live-traced and ALL get `486 Busy` from the upstream DialLog/VICIdial box; CLI is a
