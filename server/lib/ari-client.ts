@@ -574,7 +574,7 @@ export class AriClient extends EventEmitter {
     }
   }
 
-  async originateChannel(endpoint: string, extension: string, context: string = "default", callerId?: string, appArgs?: string, variables?: Record<string, string>): Promise<AriChannel> {
+  async originateChannel(endpoint: string, extension: string, context: string = "default", callerId?: string, appArgs?: string): Promise<AriChannel> {
     const params: any = {
       endpoint,
       extension,
@@ -584,12 +584,8 @@ export class AriClient extends EventEmitter {
     if (callerId) params.callerId = callerId;
     if (appArgs) params.appArgs = appArgs;
     const query = new URLSearchParams(params).toString();
-    // Channel variables must be passed in the JSON body (ARI does not accept them as
-    // query params). Use `__`-prefixed keys for variables that must survive the
-    // Local-channel hairpin into the from-internal-* dialplan (e.g. __CBC_CALLER).
-    const body = variables && Object.keys(variables).length > 0 ? { variables } : undefined;
-    console.log(`[ARI] Originating channel: endpoint=${endpoint}, app=${this.config.appName}, appArgs=${appArgs || 'none'}, callerId=${callerId || 'none'}, vars=${body ? Object.keys(variables!).join(',') : 'none'}`);
-    return this.ariRequest("POST", `/channels?${query}`, body);
+    console.log(`[ARI] Originating channel: endpoint=${endpoint}, app=${this.config.appName}, appArgs=${appArgs || 'none'}, callerId=${callerId || 'none'}`);
+    return this.ariRequest("POST", `/channels?${query}`);
   }
 
   /**

@@ -298,7 +298,7 @@ export class QueueEngine extends EventEmitter {
 
     this.ariClient.on("channel-destroyed", (event: AriEvent) => {
       if (event.channel) {
-        this.handleChannelDestroyed(event.channel.id, event.cause, event.cause_txt).catch(err => {
+        this.handleChannelDestroyed(event.channel.id).catch(err => {
           console.error("[QueueEngine] handleChannelDestroyed error:", err instanceof Error ? err.message : err);
         });
       }
@@ -1508,30 +1508,20 @@ export class QueueEngine extends EventEmitter {
       primaryCtx = "from-internal";
     }
 
-    // Caller-ID on forwarded calls. The from-internal-* dialplan sets the outbound CLI
-    // from ${CBC_CALLER}:
-    //   ExecIf($[${LEN(${CBC_CALLER})} > 0]?Set(CALLERID(num)=${CBC_CALLER}))
-    // (see attached_assets/extensions_*.conf, [from-internal-sk] et al). continueDialplan
-    // runs that dialplan on THIS inbound channel directly (no Local hairpin on this path),
-    // so CBC_CALLER just needs to exist on this channel. We set it as an INHERITED
-    // variable (`__` prefix) so it is also copied onto any child leg — Asterisk stores it
-    // as CBC_CALLER and marks it inheritable. (The `Local/...;2` leg that showed the
-    // failing `0?Set(CALLERID(num)=)` in the verbose log came from the standing-forward
-    // originate path, connectCallToStandingAgent, which is fixed there by passing
-    // __CBC_CALLER as an originate variable.)
+    // Caller-ID fix: the continueDialplan forwarding path (unlike the legacy originate
+    // path) does not carry the caller's number to the forwarded mobile, so the agent's
+    // phone showed no/incorrect CLI on forwarded queue calls. Set CALLERID + CBC_CALLER
+    // on the inbound channel before handing to the dialplan (from-internal-* contexts
+    // honor CBC_CALLER). Applies to the non-RO path (RO returns above).
     let fwdCid = (opts?.callerNumber || "").replace(/\s/g, "");
     if (!fwdCid) {
       try { const ch = await this.ariClient.getChannel(channelId); fwdCid = ch?.caller?.number || ""; } catch {}
     }
-    // Present the caller's real number as the outbound CLI (Jul-3 behaviour). The reps
-    // require seeing the real caller's number, and this path (continueDialplan on the
-    // inbound channel) is the one that connected before. Set it inherited (`__`) so it
-    // survives any Dial() child leg into from-internal-*.
     if (fwdCid) {
       try {
         await this.ariClient.setChannelVariable(channelId, "CALLERID(num)", fwdCid);
         await this.ariClient.setChannelVariable(channelId, "CALLERID(name)", fwdCid);
-        await this.ariClient.setChannelVariable(channelId, "__CBC_CALLER", fwdCid);
+        await this.ariClient.setChannelVariable(channelId, "CBC_CALLER", fwdCid);
         console.log(`[QueueEngine] forwardToExternalNumber: set CALLERID=${fwdCid} on ${channelId}`);
       } catch (cidErr: any) {
         console.warn(`[QueueEngine] forwardToExternalNumber: failed to set CALLERID:`, cidErr?.message || cidErr);
@@ -2521,24 +2511,6 @@ export class QueueEngine extends EventEmitter {
     return agents.length > 0;
   }
 
-  // Caller-ID to present on a forwarded call to an agent's mobile. The terminating operator
-  // (SLOVANET) returns a false 486 BUSY for ANY Slovak CLI (+421… E.164, 02… landline DID and
-  // 09… mobile were ALL live-tested → all 486). The only thing that connects is presenting NO
-  // caller-ID at all: the call then rings the agent as "unknown number" — exactly how it worked
-  // before. Foreign callers pass the operator's filter with their real number, so keep theirs.
-  // Returns "" to mean "present ANONYMOUS / withhold the CLI".
-  private forwardCli(raw: string | null | undefined): string {
-    const s = (raw || "").replace(/\s/g, "");
-    if (!s) return "";
-    const d = s.replace(/\D/g, "");
-    const isSk =
-      s.startsWith("+421") ||                       // +421 E.164
-      d.startsWith("00421") ||                       // 00 + 421 + NSN
-      (d.startsWith("0421") && d.length >= 12) ||    // 0 + 421 + NSN (trunk form, 13 digits)
-      (d.startsWith("421") && d.length === 12);      // 421 + NSN (bare)
-    return isSk ? "" : s; // SK → anonymous (connects); foreign → real number (rings)
-  }
-
   // Ring ONE standing agent's mobile for this call using sequential round-robin.
   // Returns true if a standing agent was rung (call handed off), false if none are
   // available (all busy / on cooldown / none configured) — caller stays in queue.
@@ -2603,24 +2575,12 @@ export class QueueEngine extends EventEmitter {
       // handleAgentChannelAnswer stops MOH and bridges on real answer. A Local channel
       // into from-internal-<cc> only goes Up when the mobile genuinely answers (the
       // dialplan does Dial() with answer supervision, no early Answer()).
-      // Pass the presented caller-ID BOTH as the Local channel's callerId AND as an
-      // inherited __CBC_CALLER variable. The from-internal-* dialplan sets the outbound
-      // CLI from ${CBC_CALLER} (ExecIf(...Set(CALLERID(num)=${CBC_CALLER}))); the `__`
-      // prefix ensures it survives onto the Local ;2 leg that runs that dialplan.
-      // SK callers get a false 486 from SLOVANET no matter what Slovak CLI we present
-      // (+421…, 02… DID, 09… mobile all live-tested → all 486). So present NO caller-ID for
-      // SK: the call rings the agent's mobile as "unknown number" and ALWAYS connects, exactly
-      // like before. Empty cliCid → originate sends no callerId AND we pass no __CBC_CALLER, so
-      // the from-internal-* dialplan's LEN>0 guard leaves the CLI blank (anonymous). Foreign
-      // callers keep their real number (they pass the filter and ring).
-      const cliCid = this.forwardCli(call.callerNumber);
       const localChannel = await this.ariClient.originateChannel(
         `Local/${norm}@${ctx}/n`,
         norm,
         ctx,
-        cliCid,
+        call.callerNumber,
         `agent-call,${standingAgentId},${call.channelId}`,
-        cliCid ? { __CBC_CALLER: cliCid } : undefined,
       );
       console.log(`[QueueEngine] Standing forward: Local channel ${localChannel.id} originated (ctx=${ctx}, ring=${ringSeconds}s)`);
 
@@ -2671,28 +2631,12 @@ export class QueueEngine extends EventEmitter {
   // ring timer's hangup). Clear busy + requeue the caller so round-robin advances.
   // NOTE: standing users have no agentQueueStatus row, so we must NOT call
   // updateAgentStatus for them (unlike the desk-agent destroyed path).
-  private async handleStandingAgentChannelDestroyed(channelId: string, pending: PendingAgentCall, cause?: number, causeTxt?: string): Promise<void> {
+  private async handleStandingAgentChannelDestroyed(channelId: string, pending: PendingAgentCall): Promise<void> {
     this.pendingAgentCalls.delete(channelId);
     this.standingBridgeSignals.delete(channelId);
     const uid = this.standingUserId(pending.agentId);
     this.standingForwardBusy.delete(uid);
-    // Back off before re-ringing the SAME agent. Without a cooldown, processQueues
-    // (~2s tick) immediately re-forwards the requeued caller to the same mobile,
-    // producing a tight retry loop that hammers a busy/no-answer mobile (seen in the
-    // log as repeated "Called ...@from-internal-*" + "Everyone is busy/congested
-    // (1:1/0/0)"). AST_CAUSE_USER_BUSY (17) means the mobile is on another call, so
-    // back off longer and let the caller simply wait in queue (MOH keeps playing via
-    // the requeue path below) until the agent frees up. Set synchronously BEFORE any
-    // await so the next queue tick cannot slip in and re-forward first.
-    // Busy (17) backs off a bit longer than a plain no-answer/unreachable, but NOT
-    // so long that a waiting caller sits silent after the agent's line frees. With a
-    // single standing agent the cooldown is the ONLY thing that re-rings them, so keep
-    // it short enough (20s) that the next queue tick re-forwards promptly once the
-    // agent hangs up their other call; 8s baseline for no-answer / unreachable.
-    const AST_CAUSE_USER_BUSY = 17;
-    const cooldownMs = cause === AST_CAUSE_USER_BUSY ? 20000 : 8000;
-    this.standingForwardCooldown.set(uid, Date.now() + cooldownMs);
-    console.log(`[QueueEngine] Standing forward: agent ${uid} channel ${channelId} destroyed before answer (cause=${cause ?? "?"} ${causeTxt ?? ""}), cooldown ${cooldownMs}ms, advancing round-robin`);
+    console.log(`[QueueEngine] Standing forward: agent ${uid} channel ${channelId} destroyed before answer, advancing round-robin`);
 
     if (this.overflowInProgress.has(pending.callerChannelId)) return;
 
@@ -3620,12 +3564,7 @@ export class QueueEngine extends EventEmitter {
       return;
     }
 
-    // If the agent has call-forwarding enabled, forward the queue call to their mobile.
-    // This is the Jul-3 behaviour (continueDialplan on the inbound channel via
-    // forwardToExternalNumber, presenting the real caller number). It had been removed by
-    // a "desk-first when logged in" change, which pushed logged-in agents onto their desk
-    // PJSIP/<ext> — failing with "invalid URI" when the rep works from mobile and is not
-    // registered at a desk. Restored so forwarding-enabled agents ring on mobile again.
+    // Check if agent has call forwarding enabled → forward to mobile instead of SIP
     if ((agentUser as any).callForwardingEnabled && (agentUser as any).callForwardingNumber) {
       await this.handleForwardedAgentCall(call, agent, agentUser as any, queue, waitDuration);
       return;
@@ -4080,7 +4019,7 @@ export class QueueEngine extends EventEmitter {
     }
   }
 
-  private async handleChannelDestroyed(channelId: string, cause?: number, causeTxt?: string): Promise<void> {
+  private async handleChannelDestroyed(channelId: string): Promise<void> {
     if (this.overflowInProgress.has(channelId)) {
       console.log(`[QueueEngine] Channel ${channelId} destroyed during overflow, skipping cleanup`);
       return;
@@ -4121,7 +4060,7 @@ export class QueueEngine extends EventEmitter {
         // busy / ring-timer hangup) → clear busy + requeue caller so round-robin
         // advances. Standing users have no agentQueueStatus row, so this MUST branch
         // away from the desk-agent overflow/recovery path below.
-        await this.handleStandingAgentChannelDestroyed(channelId, pending, cause, causeTxt);
+        await this.handleStandingAgentChannelDestroyed(channelId, pending);
         return;
       }
       if (this.overflowInProgress.has(pending.callerChannelId)) {
