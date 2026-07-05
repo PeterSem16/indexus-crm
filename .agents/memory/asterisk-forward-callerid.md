@@ -38,6 +38,36 @@ the standing-forward originate, not a continueDialplan hairpin.
 rewrite or reject a foreign CLI regardless — if the mobile shows the trunk number after
 deploy, that is carrier policy, not this code.
 
+## FALSE BUSY on forward depends on the CALLER's number (CLI), not concurrency
+Symptom users report as "phone rings busy but it's free": a forwarded queue call to a mobile
+gets an immediate carrier BUSY, but a later call to the **same** mobile from a **different**
+caller rings fine (explicitly NOT concurrent → rules out the busy-lock/cooldown). Verbose log
+tell: `Everyone is busy/congested at this time (1:1/0/0)` = 1 line, 1 **busy** (Q.850 cause 17
+/ SIP 486). The ONLY differing input across the two calls is `CBC_CALLER` → the presented CLI.
+
+**Root cause:** the SK trunk delivers inbound callers as **"0" + full international** number
+(SK +421… arrives as `0421…`, DE +49… as `049…`). The dialplan sets `CALLERID(num)=${CBC_CALLER}`
+**verbatim** (it normalizes only the dial target / OUTNUM, never the CLI). So a raw
+`0421911163316` is presented as the CLI, which the mobile carrier reads as an **invalid domestic
+SK number** (area 042… with too many digits) and rejects with a false BUSY. A foreign-looking
+`049…` isn't recognised as domestic SK so it slips through and rings — which is exactly why the
+symptom looks caller-dependent.
+
+**Fix (Node, not dialplan — dialplan lives on mediagateway, can't deploy from here):**
+`QueueEngine.normalizeCallerIdForCli()` rewrites the carrier's `0`+CC / `00` / bare-CC /
+already-`+` forms to canonical E.164 (`+CC…`) before it's used as the originate `callerId` +
+`__CBC_CALLER` (standing forward) and before `Set(CALLERID(num))` in `forwardToExternalNumber`.
+**Length guards are mandatory:** SK national numbers (area codes 03x/04x, 10 digits, e.g.
+`036XXXXXXX`, `0421XXXXXX`) and short internal extensions collide with `0`+CC / bare-CC — only
+rewrite `0`+CC when len ≥12 and bare-CC when len ≥11; leave anything unrecognised untouched
+(safe by construction). `norm` (the DIAL TARGET) is separate and already works — do NOT touch it.
+
+**Why:** two log samples correlated false-busy with the malformed SK-looking CLI vs a foreign
+CLI. Deploy-and-verify only (no live carrier test from Replit): confirm with one SK + one
+foreign caller after deploy. If the trunk rejects a leading `+`, fall back to the `00`+CC form
+(`00421…`) which legacy trunks often prefer. Alternate hypothesis if it persists: the agent is
+manually declining the odd-CLI call (also yields 486).
+
 ## Desk-first routing (logged-in → desk, not-logged-in → mobile)
 `connectCallToAgent` is only reached for agents with an **active agentSession that has the
 queue selected** (`selectAgent` filters to those). So a logged-in agent is always rung at
