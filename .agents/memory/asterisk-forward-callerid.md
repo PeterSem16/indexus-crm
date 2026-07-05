@@ -113,10 +113,12 @@ experiment via code — if the user recalls whether THAT rang, it answers the qu
   mobile — unverified, and terminating anti-spoofing may still strip/ignore it.
 
 ### FINAL: present the REAL caller (DID-substitution REVERTED) — NO notifications
-`connectCallToStandingAgent` now presents the **real caller number verbatim** (`cliCid =
-call.callerNumber`). The prior SK→company-DID substitution (`resolveForwardCli` / `isSlovakInternational
-Caller` / `toNationalSkDid`) was **REMOVED** — a live DialLog console trace disproved it (see below). Both
-`forwardToExternalNumber` and the standing path now keep the real number.
+`connectCallToStandingAgent` presents the caller in clean SK national form via `toSkNationalCli`
+(`0421…/+421…/00421…` → `09…`; foreign left unchanged) — the real caller number, just tidied to the standard
+domestic tvar. This is the correct format to KEEP for when SLOVANET authorises the trunk (proven not to
+matter for connecting today — see below — but it's the right presentation). The earlier SK→company-DID
+substitution (`resolveForwardCli` / `isSlovakInternationalCaller` / `toNationalSkDid`) was **REMOVED** — a
+live DialLog console trace disproved it (see below).
 
 **⚠️ REMOVED — do NOT re-introduce without an explicit request:** (a) the out-of-band caller delivery
 (in-app + Expo push + SMS, `server/lib/agent-call-alert.ts`, `alertAgentIncomingCall`, the
@@ -129,6 +131,13 @@ outbound forward leg to the agent mobile presenting **CID=0232399030 = the compa
 (a Bratislava 02 landline they own), dialed `SIP/SLOVANET-VGW/0948519438` → 180 ringing → 183 → **486 Busy
 Here from 195.28.88.42 (SLOVANET gateway)**. So the owned DID 486s too, exactly like the real +421 caller.
 Only FOREIGN CLIs ring on the same mobile/same hairpin path.
+- **CONFIRMED — all 3 SK formats fail (format space exhausted):** a later live test presented the caller in
+  clean national `0911163316` (standard `09…` mobile form) as the outbound CLI (log: `keeping CID=0911163316`
+  → `Dial(SIP/SLOVANET-VGW/0948519438)` → **486 from 195.28.88.42**). So E.164 `+421…`, the national landline
+  DID `02…`, AND the national mobile `09…` ALL get 486. No CLI format/dialplan change fixes it → it is 100%
+  operator-side (SLOVANET). Note the forward is a HAIRPIN back to the same carrier (inbound source == outbound
+  target == SLOVANET-VGW `195.28.88.42`), which commonly triggers CLI-continuity / anti-spoofing rejects for
+  national CLIs while foreign CLIs pass. Do NOT spend more effort on formats.
 - **Falsifies** the earlier (never evidence-backed) belief that "presenting the owned DID makes SK forwards
   connect reliably". It does not. On this route **no Slovak CLI connects**; DID substitution only hid the
   caller for zero benefit → reverted.
