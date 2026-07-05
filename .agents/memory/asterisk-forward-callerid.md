@@ -112,11 +112,23 @@ experiment via code — if the user recalls whether THAT rang, it answers the qu
 - send_pai=yes + from_user=<owned DID> + PAI=real number only helps IF the provider honours PAI to the
   mobile — unverified, and terminating anti-spoofing may still strip/ignore it.
 
-### FINAL SOLUTION: present ANONYMOUS CLI for SK forwards (empty), real CLI for foreign
-User testimony (decisive): "predtym aspon vzdy doslo k prepojeniu a bolo tam neznáme číslo, teraz sa neda ani
-dovolať" → BEFORE, the forward ALWAYS connected showing "unknown number" = an ANONYMOUS/empty CLI passes
-SLOVANET's filter. So the working fix is **present NO caller-ID for SK callers** (rings the agent's mobile as
-"neznáme číslo"), keep the real number only for FOREIGN callers.
+### ⚠️ SUPERSEDED — ANONYMOUS CLI ALSO gets 486 (every CLI format now disproven)
+A live `pjsip set logger on` trace (Jul 5 ~20:42, agent mobile `0948519438`) shows the outbound forward with
+**anonymous/empty CLI** getting the SAME `180 Ringing → 183 Session Progress → 486 Busy here` from the DialLog
+box (`10.9.33.2`, "DialLog.Dialer", Asterisk-13-vici). So EVERY caller-ID has now been live-tested and ALL 486:
+real `+421…`, malformed `0421…`, national `09…`, owned DID `02…`, AND **anonymous/empty**. Caller-ID is 100%
+ruled out as the lever — do NOT touch the forward CLI again. The 486 originates one hop upstream at the DialLog
+box, is caller-ID-independent, and is NOT code- or dialplan-fixable. Also note: the destination dialing
+(`0948519438@trunk-sk-endpoint`, national `0`-normalized) is byte-for-byte identical to a dialplan dump ~1 month
+old, so OUR side did not change how it dials. **Only remaining diagnostic:** place a PLAIN outbound call to the
+mobile from the box (not triggered by an inbound queue call) — if it ALSO 486s the route/number is broken
+independent of forwarding; if it RINGS the failure is specific to the hairpin (inbound+outbound reflecting the
+same call back to the same trunk).
+
+### (historical) attempted FINAL SOLUTION: present ANONYMOUS CLI for SK forwards (empty), real CLI for foreign
+User testimony: "predtym aspon vzdy doslo k prepojeniu a bolo tam neznáme číslo, teraz sa neda ani
+dovolať" → claim was that an ANONYMOUS/empty CLI used to connect. Implemented, deployed, then DISPROVEN by the
+live trace above (anonymous also 486). Kept for history only.
 Implemented via helper `forwardCli(raw)` (queue-engine.ts): returns `""` for SK (`+421` / `0421`≥12 / `421`==12
 / `00421`), the real number for foreign. Two call sites:
 - `connectCallToStandingAgent` (standing forward, ARI originate): pass `cliCid = forwardCli(...)` as the
