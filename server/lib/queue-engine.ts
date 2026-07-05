@@ -1523,9 +1523,9 @@ export class QueueEngine extends EventEmitter {
     if (!fwdCid) {
       try { const ch = await this.ariClient.getChannel(channelId); fwdCid = ch?.caller?.number || ""; } catch {}
     }
-    // Present a valid E.164 CLI so the carrier doesn't reject a raw "0"+international
-    // caller number (e.g. 0421911163316) as a false BUSY. See normalizeCallerIdForCli.
-    fwdCid = this.normalizeCallerIdForCli(fwdCid);
+    // Present the caller's REAL number as the outbound CLI, unchanged. Do NOT rewrite SK
+    // (+421) numbers to E.164: showing the real Slovak caller number is a hard requirement,
+    // and a live SIP trace proved E.164 rewriting did NOT fix the carrier's 486 anyway.
     if (fwdCid) {
       try {
         await this.ariClient.setChannelVariable(channelId, "CALLERID(num)", fwdCid);
@@ -2490,40 +2490,6 @@ export class QueueEngine extends EventEmitter {
     return "from-internal";
   }
 
-  /**
-   * Normalize the ORIGINAL CALLER's number into a proper E.164 CLI (+CC…) before it is
-   * presented as the outbound caller ID on a forwarded call.
-   *
-   * WHY: The SK trunk delivers inbound callers as "0" + full international number
-   * (SK +421… arrives as `0421…`, DE +49… as `049…`). The dialplan sets
-   * CALLERID(num)=${CBC_CALLER} verbatim, so a raw `0421911163316` is presented as the
-   * CLI. To the mobile carrier that looks like an INVALID domestic SK number (area 042…
-   * with too many digits) and it rejects the call with a false BUSY ((1:1/0/0) in the
-   * verbose log) — even though the agent's phone is free. A foreign-looking CLI such as
-   * `0491723627488` isn't recognised as domestic, so it slips through and rings. Presenting
-   * a valid E.164 (`+421911163316`) removes that ambiguity.
-   *
-   * SAFE BY CONSTRUCTION: only the carrier's `0`+CC / `00` / bare-CC / already-`+` forms
-   * are rewritten to canonical `+CC…`; anything unrecognised is returned UNCHANGED, so
-   * this cannot regress caller IDs it doesn't understand.
-   */
-  private normalizeCallerIdForCli(raw: string | null | undefined): string {
-    const n = (raw || "").trim().replace(/[\s\-()]/g, "");
-    if (!n) return "";
-    if (n.startsWith("+")) return n;                  // already E.164
-    if (n.startsWith("00")) return "+" + n.slice(2);  // 00 = international access code
-    // Known country codes handled by this system (longest-first to avoid prefix clashes).
-    // Length guards keep national-format SK numbers safe: SK area codes 03x/04x (e.g.
-    // 036XXXXXXX Levice, or 0421XXXXXX Trenčín) are 10 digits and would otherwise collide
-    // with "0"+"36"/"0"+"421"; short internal extensions (36xx…) would collide with bare CC.
-    // Only the carrier's "0"+full-international (≥12 digits) and bare E.164 (≥11) are rewritten.
-    for (const cc of ["421", "420", "49", "40", "39", "36"]) {
-      if (n.length >= 12 && n.startsWith("0" + cc)) return "+" + n.slice(1); // carrier "0"+E.164
-      if (n.length >= 11 && n.startsWith(cc)) return "+" + n;                // bare E.164, no +
-    }
-    return n; // unrecognised format → leave exactly as-is (identical to previous behaviour)
-  }
-
   // Standing agents (opted-in + reachable mobile) assigned to a queue, ordered by
   // userId for a deterministic round-robin.
   private async getStandingAgentsForQueue(queueId: string): Promise<Array<{ userId: string; number: string; ringSeconds: number }>> {
@@ -2624,9 +2590,9 @@ export class QueueEngine extends EventEmitter {
       // outbound CLI from ${CBC_CALLER} (ExecIf(...Set(CALLERID(num)=${CBC_CALLER})));
       // the `__` prefix ensures it survives onto the Local ;2 leg that runs that
       // dialplan, so the agent's mobile shows the real caller instead of no/blank CLI.
-      // Present the caller in valid E.164 so the mobile carrier doesn't reject a raw
-      // "0"+international CLI (e.g. 0421911163316) as a false BUSY. See normalizeCallerIdForCli.
-      const cliCid = this.normalizeCallerIdForCli(call.callerNumber);
+      // Present the caller's REAL number as the CLI, unchanged. Do NOT rewrite SK (+421)
+      // numbers to E.164 — showing the real Slovak caller number is a hard requirement.
+      const cliCid = call.callerNumber;
       const localChannel = await this.ariClient.originateChannel(
         `Local/${norm}@${ctx}/n`,
         norm,

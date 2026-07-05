@@ -53,8 +53,12 @@ SK number** (area 042… with too many digits) and rejects with a false BUSY. A 
 `049…` isn't recognised as domestic SK so it slips through and rings — which is exactly why the
 symptom looks caller-dependent.
 
-**Fix (Node, not dialplan — dialplan lives on mediagateway, can't deploy from here):**
-`QueueEngine.normalizeCallerIdForCli()` rewrites the carrier's `0`+CC / `00` / bare-CC /
+**⚠️ SUPERSEDED / REVERTED (see Resolution below):** this E.164-normalization approach was
+REVERTED — a live SIP trace proved it did NOT stop the 486, and it broke the REQUIRED real-number
+display. Do not re-introduce E.164 CLI rewriting for SK without a live trunk test.
+
+**Fix (attempted, now reverted):**
+`QueueEngine.normalizeCallerIdForCli()` rewrote the carrier's `0`+CC / `00` / bare-CC /
 already-`+` forms to canonical E.164 (`+CC…`) before it's used as the originate `callerId` +
 `__CBC_CALLER` (standing forward) and before `Set(CALLERID(num))` in `forwardToExternalNumber`.
 **Length guards are mandatory:** SK national numbers (area codes 03x/04x, 10 digits, e.g.
@@ -68,24 +72,30 @@ foreign caller after deploy. If the trunk rejects a leading `+`, fall back to th
 (`00421…`) which legacy trunks often prefer. Alternate hypothesis if it persists: the agent is
 manually declining the odd-CLI call (also yields 486).
 
-### REJECTED hypothesis: "SK national CLI must be an OWNED DID" (do NOT re-apply)
-I briefly hypothesised the SK carrier false-BUSYs any presented +421 CLI that isn't our own DID,
-and substituted our own DID for +421 callers (helper didToE164Sk at both CLI sites). **The user
-rejected this and it was reverted.** Presenting the REAL Slovak caller number on the agent's mobile
-**worked before and is a HARD REQUIREMENT** — reps must see the actual caller's SK number, not the
-company DID. So do NOT substitute the DID for +421 callers.
+### RESOLUTION: present the caller's REAL number unchanged (both CLI rewrites reverted)
+Two attempted "fixes" this session were BOTH reverted, in order:
+1. E.164 normalization (`normalizeCallerIdForCli`) — changed SK CLI to `+421…`.
+2. Own-DID substitution for `+421` callers (`didToE164Sk`) — showed the company DID instead.
 
-**Why the carrier-screening theory is likely wrong:** in the failing log the SK leg first shows
-`is ringing` + `is making progress` and only THEN `Everyone is busy/congested (1:1/0/0)`. Pure
-carrier CLI screening / anti-spoofing rejects PRE-ring (SIP 403/604), not after 180/183. A BUSY
-*after* ringing points to the **far end** — the agent's mobile was busy / on another call / the
-rep declined, or ring-no-answer converted to BUSY (SIP 486 cause 17), i.e. concurrency/handset,
-not CLI. The "foreign rings, SK busy" split in that single log may be coincidental (the DE leg was
-still `is ringing` when the log was truncated — no proof it connected).
+The user's HARD REQUIREMENT: reps must see the **real caller's Slovak number** on their mobile, and
+this **worked before** these changes. So the CLI is now just the raw caller number for ALL callers
+(the pre-change behaviour). `normalizeCallerIdForCli` / `didToE164Sk` were removed. Do NOT rewrite
+the SK CLI again without a live trunk test that shows it both connects AND preserves the number.
 
-**Current behaviour (kept):** CLI = `normalizeCallerIdForCli(caller)` (E.164) for ALL callers,
-SK included. To actually diagnose the BUSY, get a COMPLETE verbose log of a failing SK forward and
-run `pjsip set logger on` on mediagateway to read the real SIP reject code before changing code.
+**What the definitive `pjsip set logger on` trace shows (do not re-theorise past this):** the
+outbound INVITE presents `From: "+421911163316"` and the SK provider (`10.9.33.2`, "DialLog.Dialer",
+Asterisk-13-vici) replies **180 Ringing → 183 Session Progress → 486 Busy here**. So it is a BUSY
+*after* ringback, NOT a pre-ring screening reject (which would be 403/604). Two live readings remain:
+(a) genuine far-end busy/decline (agent mobile on another call / rejected) — then no CLI change helps
+and the "SK busy / foreign rings" split was sample coincidence; (b) provider-side CLI treatment that
+returns a *fake* 180/183/486 for an unauthorised national `+421` CLI while letting foreign `+49` pass
+— then the real remedy is carrier-side **CLIP no-screening** / CLI authorisation on the trunk, not code.
+
+**Next step (only on CORPCRM01, can't test carrier from Replit):** with the real number restored,
+place a test SK call while the agent mobile is definitely FREE. If it still 486s, it's (b) → ask the
+SK trunk provider to authorise presenting the customer's CLI (CLIP no-screening). Only if the
+provider says a specific national FORMAT is required (e.g. `0911163316` national vs `+421…` E.164)
+should a SK-only format tweak be tried — and verified live.
 
 ## Desk-first routing (logged-in → desk, not-logged-in → mobile)
 `connectCallToAgent` is only reached for agents with an **active agentSession that has the

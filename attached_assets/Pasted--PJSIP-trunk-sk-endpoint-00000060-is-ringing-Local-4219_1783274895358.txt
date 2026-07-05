@@ -1,0 +1,161 @@
+    -- PJSIP/trunk-sk-endpoint-00000060 is ringing
+    -- Local/421948519438@from-internal-sk-00000035;1 is ringing
+<--- Received SIP response (554 bytes) from UDP:10.9.33.2:5060 --->
+SIP/2.0 180 Ringing
+Via: SIP/2.0/UDP 10.1.2.112:5060;branch=z9hG4bKPj3b632607-174a-4d6f-87f3-46fb17bf8ad8;received=10.1.2.112;rport=5060
+From: "+421911163316" <sip:+421911163316@10.9.33.2>;tag=91ab04a0-49a9-49d0-87c6-f1405b8b371f
+To: <sip:0948519438@10.9.33.2>;tag=as77d1470e
+Call-ID: 5d1b839d-d9a5-4109-b3a6-bd200eaaa904
+CSeq: 18492 INVITE
+Server: DialLog.Dialer
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH, MESSAGE
+Supported: replaces, timer
+Contact: <sip:0948519438@10.9.33.2:5060>
+Content-Length: 0
+
+
+    -- PJSIP/trunk-sk-endpoint-00000060 is ringing
+<--- Received SIP response (865 bytes) from UDP:10.9.33.2:5060 --->
+SIP/2.0 183 Session Progress
+Via: SIP/2.0/UDP 10.1.2.112:5060;branch=z9hG4bKPj3b632607-174a-4d6f-87f3-46fb17bf8ad8;received=10.1.2.112;rport=5060
+From: "+421911163316" <sip:+421911163316@10.9.33.2>;tag=91ab04a0-49a9-49d0-87c6-f1405b8b371f
+To: <sip:0948519438@10.9.33.2>;tag=as77d1470e
+Call-ID: 5d1b839d-d9a5-4109-b3a6-bd200eaaa904
+CSeq: 18492 INVITE
+Server: DialLog.Dialer
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH, MESSAGE
+Supported: replaces, timer
+Contact: <sip:0948519438@10.9.33.2:5060>
+Content-Type: application/sdp
+Content-Length: 269
+
+v=0
+o=root 6677496 6677496 IN IP4 10.9.33.2
+s=Asterisk PBX 13.21.0-vici
+c=IN IP4 10.9.33.2
+t=0 0
+m=audio 12980 RTP/AVP 0 8 101
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=maxptime:150
+a=sendrecv
+
+    -- PJSIP/trunk-sk-endpoint-00000060 is making progress passing it to Local/421948519438@from-internal-sk-00000035;2
+    -- Local/421948519438@from-internal-sk-00000035;1 is making progress
+<--- Received SIP response (514 bytes) from UDP:10.9.33.2:5060 --->
+SIP/2.0 486 Busy here
+Via: SIP/2.0/UDP 10.1.2.112:5060;branch=z9hG4bKPj3b632607-174a-4d6f-87f3-46fb17bf8ad8;received=10.1.2.112;rport=5060
+From: "+421911163316" <sip:+421911163316@10.9.33.2>;tag=91ab04a0-49a9-49d0-87c6-f1405b8b371f
+To: <sip:0948519438@10.9.33.2>;tag=as77d1470e
+Call-ID: 5d1b839d-d9a5-4109-b3a6-bd200eaaa904
+CSeq: 18492 INVITE
+Server: DialLog.Dialer
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH, MESSAGE
+Supported: replaces, timer
+Content-Length: 0
+
+
+<--- Transmitting SIP request (411 bytes) to UDP:10.9.33.2:5060 --->
+ACK sip:0948519438@10.9.33.2:5060 SIP/2.0
+Via: SIP/2.0/UDP 10.1.2.112:5060;rport;branch=z9hG4bKPj3b632607-174a-4d6f-87f3-46fb17bf8ad8
+From: "+421911163316" <sip:+421911163316@10.9.33.2>;tag=91ab04a0-49a9-49d0-87c6-f1405b8b371f
+To: <sip:0948519438@10.9.33.2>;tag=as77d1470e
+Call-ID: 5d1b839d-d9a5-4109-b3a6-bd200eaaa904
+CSeq: 18492 ACK
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+  == Everyone is busy/congested at this time (1:1/0/0)
+    -- Executing [421948519438@from-internal-sk:8] Hangup("Local/421948519438@from-internal-sk-00000035;2", "") in new stack
+  == Spawn extension (from-internal-sk, 421948519438, 8) exited non-zero on 'Local/421948519438@from-internal-sk-00000035;2'
+<--- Received SIP request (433 bytes) from UDP:10.9.33.2:5060 --->
+BYE sip:10.1.2.112:5060 SIP/2.0
+Via: SIP/2.0/UDP 10.9.33.2:5060;branch=z9hG4bK304314d9
+Max-Forwards: 70
+From: <sip:0421911163316@10.9.33.2>;tag=as3d51da3f
+To: <sip:0232399030@10.1.2.112:5060>;tag=d64429e9-1670-478b-93e7-3df1e4025e47
+Call-ID: 71ef589705c9842b6c93a3a10d80f97d@10.9.33.2:5060
+CSeq: 103 BYE
+User-Agent: DialLog.Dialer
+X-Asterisk-HangupCause: Normal Clearing
+X-Asterisk-HangupCauseCode: 16
+Content-Length: 0
+
+
+<--- Transmitting SIP response (349 bytes) to UDP:10.9.33.2:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 10.9.33.2:5060;rport=5060;received=10.9.33.2;branch=z9hG4bK304314d9
+Call-ID: 71ef589705c9842b6c93a3a10d80f97d@10.9.33.2:5060
+From: <sip:0421911163316@10.9.33.2>;tag=as3d51da3f
+To: <sip:0232399030@10.1.2.112>;tag=d64429e9-1670-478b-93e7-3df1e4025e47
+CSeq: 103 BYE
+Server: INDEXUS-Asterisk
+Content-Length:  0
+
+
+[Jul  5 18:08:01] WARNING[588891][C-00000057]: res_stasis_playback.c:280 playback_final_update: 1783274859.288: Playback failed for sound:custom/moh-slow-jazz
+<--- Transmitting SIP request (420 bytes) to UDP:10.9.33.2:5060 --->
+OPTIONS sip:10.9.33.2:5060 SIP/2.0
+Via: SIP/2.0/UDP 10.1.2.112:5060;rport;branch=z9hG4bKPj59ce8fac-4c52-4f78-8c57-e2e429490f7d
+From: <sip:trunk-sk-endpoint@10.9.33.2>;tag=82125337-c584-4da5-8bb4-95836587108e
+To: <sip:10.9.33.2>
+Contact: <sip:trunk-sk-endpoint@10.1.2.112:5060>
+Call-ID: c00ea805-e68d-4dab-98a3-6eb69ff4a2a1
+CSeq: 45933 OPTIONS
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP response (517 bytes) from UDP:10.9.33.2:5060 --->
+SIP/2.0 404 Not Found
+Via: SIP/2.0/UDP 10.1.2.112:5060;branch=z9hG4bKPj59ce8fac-4c52-4f78-8c57-e2e429490f7d;received=10.1.2.112;rport=5060
+From: <sip:trunk-sk-endpoint@10.9.33.2>;tag=82125337-c584-4da5-8bb4-95836587108e
+To: <sip:10.9.33.2>;tag=as63f377d3
+Call-ID: c00ea805-e68d-4dab-98a3-6eb69ff4a2a1
+CSeq: 45933 OPTIONS
+Server: DialLog.Dialer
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH, MESSAGE
+Supported: replaces, timer
+Accept: application/sdp
+Content-Length: 0
+
+
+<--- Received SIP request (499 bytes) from UDP:10.33.0.55:5060 --->
+OPTIONS sip:10.1.2.112;cpd=on SIP/2.0
+Via: SIP/2.0/UDP 10.33.0.55:5060;branch=z9hG4bK6c335ebd;rport
+From: "asterisk" <sip:asterisk@10.33.0.55>;tag=as64de8d22
+To: <sip:10.1.2.112;cpd=on>
+Contact: <sip:asterisk@10.33.0.55>
+Call-ID: 79472f602cc0ee527e130231349b8d41@10.33.0.55
+CSeq: 102 OPTIONS
+User-Agent: DialLog.DialLer
+Max-Forwards: 70
+Date: Sun, 05 Jul 2026 18:08:06 GMT
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO
+Supported: replaces
+Content-Length: 0
+
+
+<--- Transmitting SIP response (824 bytes) to UDP:10.33.0.55:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 10.33.0.55:5060;rport=5060;received=10.33.0.55;branch=z9hG4bK6c335ebd
+Call-ID: 79472f602cc0ee527e130231349b8d41@10.33.0.55
+From: "asterisk" <sip:asterisk@10.33.0.55>;tag=as64de8d22
+To: <sip:10.1.2.112;cpd=on>;tag=z9hG4bK6c335ebd
+CSeq: 102 OPTIONS
+Accept: application/sdp, application/xpidf+xml, application/cpim-pidf+xml, application/pidf+xml, application/dialog-info+xml, application/simple-message-summary, application/pidf+xml, application/dialog-info+xml, application/simple-message-summary, message/sipfrag;version=2.0
+Allow: OPTIONS, REGISTER, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, MESSAGE, REFER, INFO
+Supported: 100rel, timer, replaces, norefersub
+Accept-Encoding: identity
+Accept-Language: en
+Server: INDEXUS-Asterisk
+Content-Length:  0
+
+
+mediagtw*CLI>
