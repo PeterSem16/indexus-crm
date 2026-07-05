@@ -83,19 +83,34 @@ this **worked before** these changes. So the CLI is now just the raw caller numb
 the SK CLI again without a live trunk test that shows it both connects AND preserves the number.
 
 **What the definitive `pjsip set logger on` trace shows (do not re-theorise past this):** the
-outbound INVITE presents `From: "+421911163316"` and the SK provider (`10.9.33.2`, "DialLog.Dialer",
-Asterisk-13-vici) replies **180 Ringing → 183 Session Progress → 486 Busy here**. So it is a BUSY
-*after* ringback, NOT a pre-ring screening reject (which would be 403/604). Two live readings remain:
-(a) genuine far-end busy/decline (agent mobile on another call / rejected) — then no CLI change helps
-and the "SK busy / foreign rings" split was sample coincidence; (b) provider-side CLI treatment that
-returns a *fake* 180/183/486 for an unauthorised national `+421` CLI while letting foreign `+49` pass
-— then the real remedy is carrier-side **CLIP no-screening** / CLI authorisation on the trunk, not code.
+outbound INVITE presents `From: "+421911163316"` (caller number ONLY in From — no PAI/RPID sent;
+`trunk-sk-endpoint` has send_pai=false/send_rpid=false/from_user empty) and the SK provider
+(`10.9.33.2`, "DialLog.Dialer", Asterisk-13-vici) replies **180 Ringing → 183 Session Progress WITH
+real SDP → 486 Busy here** (no Q.850 Reason/Warning header). So the provider actually routes the call
+onward (real early media) and busy comes from DOWNSTREAM, not a pre-ring auth reject.
 
-**Next step (only on CORPCRM01, can't test carrier from Replit):** with the real number restored,
-place a test SK call while the agent mobile is definitely FREE. If it still 486s, it's (b) → ask the
-SK trunk provider to authorise presenting the customer's CLI (CLIP no-screening). Only if the
-provider says a specific national FORMAT is required (e.g. `0911163316` national vs `+421…` E.164)
-should a SK-only format tweak be tried — and verified live.
+**CONFIRMED carrier-side, format ruled out:** user deployed the raw-number revert (`0421…`) on
+CORPCRM01 and tested — SK call STILL 486. So BOTH `+421…` and `0421…` fail; foreign `+49…`/`049…`
+consistently rings. The ONLY variable is the caller's number being a NATIONAL SK number.
+
+**Working theory (strongest fit): EU anti-spoofing / CLI validation at the SK terminating operator.**
+A call egressing via an international/wholesale gateway (DialLog/VICIdial) that presents a *Slovak*
+CLI is blocked as suspected spoofed caller-ID; a *foreign* CLI on an international route is legitimate
+so it passes. This is why "it worked before" (filtering rolled out/tightened, or the forward used to
+egress via a real SK operator trunk that authorised SK CLIs). NOT fixable in code or dialplan format.
+
+**Decisive confirmation test (on mediagateway, reversible):** present a number the company OWNS
+(e.g. the inbound DID `0232399030`) as the CLI for one SK forward. If it RINGS → CLI
+authorisation/anti-spoofing confirmed. The earlier own-DID substitution (`didToE164Sk`) was this same
+experiment via code — if the user recalls whether THAT rang, it answers the question without a retest.
+
+**Fix paths (all carrier/routing, pick based on requirement):**
+- Keep REAL number: provider must authorise presenting the customer's SK CLI (**CLIP no-screening**),
+  OR route SK→SK forwards via a legitimate **Slovak operator trunk** where SK CLIs are permitted.
+- Or accept the tradeoff: present the company's own authorised DID (rings), show the real caller in the
+  INDEXUS app instead of on the mobile screen.
+- send_pai=yes + from_user=<owned DID> + PAI=real number only helps IF the provider honours PAI to the
+  mobile — unverified, and terminating anti-spoofing may still strip/ignore it.
 
 ## Desk-first routing (logged-in → desk, not-logged-in → mobile)
 `connectCallToAgent` is only reached for agents with an **active agentSession that has the

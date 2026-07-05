@@ -1,0 +1,600 @@
+[Jun 26 12:19:21] WARNING[539319] res_http_websocket.c: Web socket closed abruptly
+[Jun 26 12:19:21] WARNING[539319] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 26 13:00:43] WARNING[539420] res_http_websocket.c: Web socket closed abruptly
+[Jun 26 13:00:43] WARNING[539420] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 26 13:11:31] WARNING[539529] res_http_websocket.c: Web socket closed abruptly
+[Jun 26 13:11:31] WARNING[539529] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 26 13:20:56] WARNING[539554] res_http_websocket.c: Web socket closed abruptly
+[Jun 26 13:20:56] WARNING[539554] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 26 13:41:00] WARNING[539580] res_http_websocket.c: Web socket closed abruptly
+[Jun 26 13:41:00] WARNING[539580] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 26 13:47:50] WARNING[539624] res_http_websocket.c: Web socket closed abruptly
+[Jun 26 13:47:50] WARNING[539624] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 26 14:36:51] WARNING[539744] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 06:51:26] WARNING[539640] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 06:51:26] WARNING[539640] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 29 07:08:27] WARNING[551862] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 07:08:27] WARNING[551862] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 29 07:35:17] WARNING[533717] pjproject: 	     tsx0x72d5e00038a8 ..Error sending Response msg 200/REGISTER/cseq=82 (tdta0x72d5ec08ea78): Unknown Error (PJ_EUNKNOWN)
+[Jun 29 07:35:57] WARNING[551899] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 07:35:57] WARNING[551899] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 29 07:42:39] WARNING[551960] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 07:42:39] WARNING[551960] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 29 07:49:58] WARNING[551977] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 08:05:21] WARNING[551974] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 08:05:21] WARNING[551974] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 29 08:11:44] WARNING[552043] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 08:30:08] WARNING[552042] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 08:30:08] WARNING[552042] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 29 08:35:57] WARNING[552122] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 08:45:58] WARNING[552118] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 08:45:58] WARNING[552118] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 29 08:51:47] WARNING[552157] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 08:52:50] WARNING[552156] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 08:52:50] WARNING[552156] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 29 08:55:05] NOTICE[533725] res_pjsip/pjsip_transport_management.c: Shutting down transport 'WS to 10.1.2.111:35248' since no request was received in 32 seconds
+[Jun 29 08:55:05] WARNING[552175] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 08:57:30] WARNING[552171] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 08:57:30] WARNING[552171] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 29 08:57:51] WARNING[533717] pjproject: 	     tsx0x72d5ec054478 ..Error sending Response msg 200/REGISTER/cseq=4 (tdta0x72d5ec05aff8): Unknown Error (PJ_EUNKNOWN)
+[Jun 29 08:58:19] WARNING[552173] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 09:03:31] WARNING[552188] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 09:21:26] WARNING[552185] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 09:21:26] WARNING[552185] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 29 09:27:40] WARNING[552241] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 09:43:10] WARNING[552240] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 09:43:10] WARNING[552240] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 29 09:50:57] WARNING[552314] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 10:02:03] WARNING[552303] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 10:02:03] WARNING[552303] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 29 10:07:49] WARNING[552353] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 10:10:44] WARNING[552363] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 10:27:07] WARNING[552352] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 10:27:07] WARNING[552352] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 29 10:34:19] WARNING[552431] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 10:51:15] WARNING[552429] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 10:51:15] WARNING[552429] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 29 10:54:38] NOTICE[533725] res_pjsip/pjsip_transport_management.c: Shutting down transport 'WS to 10.1.2.111:38534' since no request was received in 32 seconds
+[Jun 29 10:54:38] WARNING[552489] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 10:58:36] WARNING[552487] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 11:11:06] WARNING[552484] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 11:11:06] WARNING[552484] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 29 11:18:56] WARNING[552636] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 11:25:19] WARNING[552637] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 11:26:47] WARNING[552663] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 11:46:17] WARNING[552618] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 11:46:17] WARNING[552618] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 29 12:19:08] WARNING[552714] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 12:19:08] WARNING[552714] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 29 12:41:54] WARNING[552784] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 12:41:54] WARNING[552784] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 29 12:53:28] WARNING[552853] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 12:53:28] WARNING[552853] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 29 13:20:53] WARNING[552899] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 14:07:37] WARNING[553030] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 14:12:23] WARNING[553071] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 14:21:05] WARNING[533717] pjproject: 	     tsx0x72d5ec0550a8 ..Error sending Response msg 200/REGISTER/cseq=37 (tdta0x72d5ec08da68): Unknown Error (PJ_EUNKNOWN)
+[Jun 29 15:03:00] WARNING[533717] pjproject: 	     tsx0x72d5ec0550a8 ..Error sending Response msg 200/REGISTER/cseq=35 (tdta0x72d5ec057e28): Unknown Error (PJ_EUNKNOWN)
+[Jun 29 15:13:05] WARNING[533717] pjproject: 	     tsx0x72d5e00038a8 ..Error sending Response msg 200/REGISTER/cseq=35 (tdta0x72d5ec057e28): Unknown Error (PJ_EUNKNOWN)
+[Jun 29 15:23:12] WARNING[533717] pjproject: 	     tsx0x72d5ec040058 ..Error sending Response msg 200/REGISTER/cseq=35 (tdta0x72d5ec057e28): Unknown Error (PJ_EUNKNOWN)
+[Jun 29 15:33:17] WARNING[533717] pjproject: 	     tsx0x72d5ec03f688 ..Error sending Response msg 200/REGISTER/cseq=35 (tdta0x72d5ec05adf8): Unknown Error (PJ_EUNKNOWN)
+[Jun 29 15:43:22] WARNING[533717] pjproject: 	     tsx0x72d5ec054478 ..Error sending Response msg 200/REGISTER/cseq=35 (tdta0x72d5ec057e28): Unknown Error (PJ_EUNKNOWN)
+[Jun 29 15:53:27] WARNING[533717] pjproject: 	     tsx0x72d5ec068a18 ..Error sending Response msg 200/REGISTER/cseq=35 (tdta0x72d5ec08ca58): Unknown Error (PJ_EUNKNOWN)
+[Jun 29 16:03:32] WARNING[533717] pjproject: 	     tsx0x72d5ec0550a8 ..Error sending Response msg 200/REGISTER/cseq=35 (tdta0x72d5ec08ca58): Unknown Error (PJ_EUNKNOWN)
+[Jun 29 16:13:38] WARNING[533717] pjproject: 	     tsx0x72d5ec068a18 ..Error sending Response msg 200/REGISTER/cseq=35 (tdta0x72d5ec08ca58): Unknown Error (PJ_EUNKNOWN)
+[Jun 29 16:23:43] WARNING[533717] pjproject: 	     tsx0x72d5ec0550a8 ..Error sending Response msg 200/REGISTER/cseq=35 (tdta0x72d5ec08ca58): Unknown Error (PJ_EUNKNOWN)
+[Jun 29 16:34:55] WARNING[533717] pjproject: 	     tsx0x72d5ec054478 ..Error sending Response msg 200/REGISTER/cseq=35 (tdta0x72d5ec08da68): Unknown Error (PJ_EUNKNOWN)
+[Jun 29 17:00:33] WARNING[533717] pjproject: 	     tsx0x72d5ec040058 ..Error sending Response msg 200/REGISTER/cseq=23 (tdta0x72d5ec055c88): Unknown Error (PJ_EUNKNOWN)
+[Jun 29 17:10:38] WARNING[533717] pjproject: 	     tsx0x72d5ec054478 ..Error sending Response msg 200/REGISTER/cseq=35 (tdta0x72d5ec055c88): Unknown Error (PJ_EUNKNOWN)
+[Jun 29 17:20:43] WARNING[533717] pjproject: 	     tsx0x72d5ec040058 ..Error sending Response msg 200/REGISTER/cseq=35 (tdta0x72d5ec055c88): Unknown Error (PJ_EUNKNOWN)
+[Jun 29 17:30:48] WARNING[533717] pjproject: 	     tsx0x72d5ec040058 ..Error sending Response msg 200/REGISTER/cseq=35 (tdta0x72d5ec05adf8): Unknown Error (PJ_EUNKNOWN)
+[Jun 29 17:38:48] WARNING[553542] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 17:56:03] WARNING[552878] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 17:56:03] WARNING[552878] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 29 18:23:19] WARNING[553612] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 20:00:14] WARNING[554031] res_http_websocket.c: Web socket closed abruptly
+[Jun 29 20:07:32] WARNING[554045] res_http_websocket.c: Web socket closed abruptly
+[Jun 30 07:40:20] WARNING[553611] res_http_websocket.c: Web socket closed abruptly
+[Jun 30 07:40:20] WARNING[553611] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 30 07:53:43] WARNING[555841] res_http_websocket.c: Web socket closed abruptly
+[Jun 30 07:53:43] WARNING[555841] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 30 08:00:05] WARNING[555888] res_http_websocket.c: Web socket closed abruptly
+[Jun 30 08:00:05] WARNING[555888] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 30 08:18:46] WARNING[555908] res_http_websocket.c: Web socket closed abruptly
+[Jun 30 08:18:46] WARNING[555908] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 30 10:31:27] WARNING[555982] res_http_websocket.c: Web socket closed abruptly
+[Jun 30 10:31:27] WARNING[555982] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 30 10:31:35] WARNING[556767] res_http_websocket.c: Web socket closed abruptly
+[Jun 30 10:34:07] WARNING[556770] res_http_websocket.c: Web socket closed abruptly
+[Jun 30 10:34:07] WARNING[556770] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 30 11:03:21] WARNING[556777] res_http_websocket.c: Web socket closed abruptly
+[Jun 30 11:03:21] WARNING[556777] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 30 11:12:16] WARNING[556840] res_http_websocket.c: Web socket closed abruptly
+[Jun 30 11:12:16] WARNING[556840] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 30 11:28:56] WARNING[556861] res_http_websocket.c: Web socket closed abruptly
+[Jun 30 11:28:56] WARNING[556861] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 30 12:52:48] WARNING[556900] res_http_websocket.c: Web socket closed abruptly
+[Jun 30 12:52:48] WARNING[556900] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 30 13:11:57] WARNING[557096] res_http_websocket.c: Web socket closed abruptly
+[Jun 30 13:11:57] WARNING[557096] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 30 13:59:56] WARNING[557157] res_http_websocket.c: Web socket closed abruptly
+[Jun 30 13:59:56] WARNING[557157] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 30 14:08:42] WARNING[533717] pjproject: 	     tsx0x72d5ec0550a8 ..Error sending Response msg 200/REGISTER/cseq=28 (tdta0x72d5ec059268): Unknown Error (PJ_EUNKNOWN)
+[Jun 30 14:08:45] WARNING[557254] res_http_websocket.c: Web socket closed abruptly
+[Jun 30 14:08:45] WARNING[557254] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 30 14:32:06] WARNING[557277] res_http_websocket.c: Web socket closed abruptly
+[Jun 30 15:32:23] WARNING[533717] pjproject: 	     tsx0x72d5ec068a18 ..Error sending Response msg 200/REGISTER/cseq=35 (tdta0x72d5ec05b058): Unknown Error (PJ_EUNKNOWN)
+[Jun 30 15:42:28] WARNING[533717] pjproject: 	     tsx0x72d5ec04a848 ..Error sending Response msg 200/REGISTER/cseq=35 (tdta0x72d5ec05b058): Unknown Error (PJ_EUNKNOWN)
+[Jun 30 15:52:33] WARNING[533717] pjproject: 	     tsx0x72d5e00038a8 ..Error sending Response msg 200/REGISTER/cseq=35 (tdta0x72d5ec05b058): Unknown Error (PJ_EUNKNOWN)
+[Jun 30 16:02:38] WARNING[533717] pjproject: 	     tsx0x72d5ec0550a8 ..Error sending Response msg 200/REGISTER/cseq=35 (tdta0x72d5ec05b058): Unknown Error (PJ_EUNKNOWN)
+[Jun 30 16:22:49] WARNING[533717] pjproject: 	     tsx0x72d5e00038a8 ..Error sending Response msg 200/REGISTER/cseq=35 (tdta0x72d5ec05e6a8): Unknown Error (PJ_EUNKNOWN)
+[Jun 30 16:32:54] WARNING[533717] pjproject: 	     tsx0x72d5ec0550a8 ..Error sending Response msg 200/REGISTER/cseq=35 (tdta0x72d5ec057e28): Unknown Error (PJ_EUNKNOWN)
+[Jun 30 16:35:12] WARNING[557276] res_http_websocket.c: Web socket closed abruptly
+[Jun 30 16:35:12] WARNING[557276] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 30 16:59:14] WARNING[557621] res_http_websocket.c: Web socket closed abruptly
+[Jun 30 16:59:14] WARNING[557621] ari/ari_websockets.c: WebSocket read error: Success
+[Jun 30 17:22:23] WARNING[557670] res_http_websocket.c: Web socket closed abruptly
+[Jul  1 06:01:18] Asterisk 22.8.2 built by root @ mediagtw.cordbloodcenter.com on a x86_64 running Linux on 2026-03-11 21:07:50 UTC
+[Jul  1 06:01:18] NOTICE[560245] loader.c: 355 modules will be loaded.
+[Jul  1 06:01:18] WARNING[560245] res_config_pgsql.c: PostgreSQL RealTime: No database user found, using 'asterisk' as default.
+[Jul  1 06:01:18] WARNING[560245] res_config_pgsql.c: PostgreSQL RealTime: No database password found, using 'asterisk' as default.
+[Jul  1 06:01:18] WARNING[560245] res_config_pgsql.c: PostgreSQL RealTime: No database host found, using localhost via socket.
+[Jul  1 06:01:18] WARNING[560245] res_config_pgsql.c: PostgreSQL RealTime: No database name found, using 'asterisk' as default.
+[Jul  1 06:01:18] WARNING[560245] res_config_pgsql.c: PostgreSQL RealTime: No database port found, using 5432 as default.
+[Jul  1 06:01:18] WARNING[560245] res_config_pgsql.c: PostgreSQL RealTime: No database socket found, using '/tmp/.s.PGSQL.5432' as default.
+[Jul  1 06:01:18] ERROR[560245] res_config_pgsql.c: PostgreSQL RealTime: Failed to connect database asterisk on : 
+[Jul  1 06:01:18] WARNING[560245] res_config_pgsql.c: PostgreSQL RealTime: Couldn't establish connection. Check debug.
+[Jul  1 06:01:18] NOTICE[560245] res_config_ldap.c: No directory user found, anonymous binding as default.
+[Jul  1 06:01:18] ERROR[560245] res_config_ldap.c: No directory URL or host found.
+[Jul  1 06:01:18] ERROR[560245] res_config_ldap.c: Cannot load LDAP RealTime driver.
+[Jul  1 06:01:18] NOTICE[560245] cdr.c: CDR simple logging enabled.
+[Jul  1 06:01:18] WARNING[560245] http.c: Ignoring unknown option 'live_dangerously' in http.conf
+[Jul  1 06:01:18] NOTICE[560245] indications.c: Default country for indication tones: us
+[Jul  1 06:01:18] NOTICE[560245] indications.c: Setting default indication country to 'us'
+[Jul  1 06:01:18] NOTICE[560245] res_smdi.c: No SMDI interfaces are available to listen on, not starting SMDI listener.
+[Jul  1 06:01:18] WARNING[560245] res_phoneprov.c: Unable to find a valid server address or name.
+[Jul  1 06:01:18] WARNING[560245] res_rtp_asterisk.c: Value for 'probation' could not be read, using default of '4' instead
+[Jul  1 06:01:18] NOTICE[560245] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+[Jul  1 06:01:18] NOTICE[560245] cel_tds.c: cel_tds has no global category, nothing to configure.
+[Jul  1 06:01:18] WARNING[560245] cel_tds.c: cel_tds module had config problems; declining load
+[Jul  1 06:01:18] NOTICE[560245] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+[Jul  1 06:01:18] WARNING[560245] cel_pgsql.c: CEL pgsql config file missing global section.
+[Jul  1 06:01:18] NOTICE[560245] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+[Jul  1 06:01:18] NOTICE[560245] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+[Jul  1 06:01:18] NOTICE[560245] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+[Jul  1 06:01:18] NOTICE[560245] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+[Jul  1 06:01:18] NOTICE[560245] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+[Jul  1 06:01:18] NOTICE[560245] codec_g729a.c: Please see the full license text supplied by the accompanying
+[Jul  1 06:01:18] NOTICE[560245] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+[Jul  1 06:01:18] NOTICE[560245] codec_g729a.c: This product includes software developed by the OpenSSL Project
+[Jul  1 06:01:18] NOTICE[560245] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+[Jul  1 06:01:18] NOTICE[560245] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+
+[Jul  1 06:01:18] WARNING[560245] codec_g729a.c: Failed to initialize G.729 copy protection!
+[Jul  1 06:01:18] WARNING[560245] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 196-196: macro call to ael-dundi-e164 cannot be found in the AEL code!
+[Jul  1 06:01:18] WARNING[560245] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 209-209: macro call to ael-dundi-e164 cannot be found in the AEL code!
+[Jul  1 06:01:18] WARNING[560245] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 328-328: macro call to ael-std-exten-ael cannot be found in the AEL code!
+[Jul  1 06:01:18] WARNING[560245] loader.c: Some non-required modules failed to load.
+[Jul  1 06:01:18] WARNING[560245] loader.c: Module 'res_adsi' has been loaded but may be removed in a future release.
+[Jul  1 06:01:18] WARNING[560245] loader.c: Module 'app_getcpeid' has been loaded but may be removed in a future release.
+[Jul  1 06:01:18] WARNING[560245] loader.c: Module 'app_adsiprog' has been loaded but may be removed in a future release.
+[Jul  1 06:01:18] ERROR[560245] loader.c: cel_tds declined to load.
+[Jul  1 06:01:18] ERROR[560245] loader.c: cdr_radius declined to load.
+[Jul  1 06:01:18] ERROR[560245] loader.c: cdr_tds declined to load.
+[Jul  1 06:01:18] ERROR[560245] loader.c: cdr_sqlite3_custom declined to load.
+[Jul  1 06:01:18] ERROR[560245] loader.c: cel_radius declined to load.
+[Jul  1 06:01:18] ERROR[560245] loader.c: cel_sqlite3_custom declined to load.
+[Jul  1 06:01:18] ERROR[560245] loader.c: cdr_pgsql declined to load.
+[Jul  1 06:01:18] WARNING[560271] pbx_config.c: users.conf is deprecated and will be removed in a future version of Asterisk
+[Jul  1 06:01:23] Asterisk 22.8.2 built by root @ mediagtw.cordbloodcenter.com on a x86_64 running Linux on 2026-03-11 21:07:50 UTC
+[Jul  1 06:01:23] NOTICE[560651] loader.c: 355 modules will be loaded.
+[Jul  1 06:01:23] WARNING[560651] res_config_pgsql.c: PostgreSQL RealTime: No database user found, using 'asterisk' as default.
+[Jul  1 06:01:23] WARNING[560651] res_config_pgsql.c: PostgreSQL RealTime: No database password found, using 'asterisk' as default.
+[Jul  1 06:01:23] WARNING[560651] res_config_pgsql.c: PostgreSQL RealTime: No database host found, using localhost via socket.
+[Jul  1 06:01:23] WARNING[560651] res_config_pgsql.c: PostgreSQL RealTime: No database name found, using 'asterisk' as default.
+[Jul  1 06:01:23] WARNING[560651] res_config_pgsql.c: PostgreSQL RealTime: No database port found, using 5432 as default.
+[Jul  1 06:01:23] WARNING[560651] res_config_pgsql.c: PostgreSQL RealTime: No database socket found, using '/tmp/.s.PGSQL.5432' as default.
+[Jul  1 06:01:23] ERROR[560651] res_config_pgsql.c: PostgreSQL RealTime: Failed to connect database asterisk on : 
+[Jul  1 06:01:23] WARNING[560651] res_config_pgsql.c: PostgreSQL RealTime: Couldn't establish connection. Check debug.
+[Jul  1 06:01:23] NOTICE[560651] res_config_ldap.c: No directory user found, anonymous binding as default.
+[Jul  1 06:01:23] ERROR[560651] res_config_ldap.c: No directory URL or host found.
+[Jul  1 06:01:23] ERROR[560651] res_config_ldap.c: Cannot load LDAP RealTime driver.
+[Jul  1 06:01:23] NOTICE[560651] cdr.c: CDR simple logging enabled.
+[Jul  1 06:01:23] WARNING[560651] http.c: Ignoring unknown option 'live_dangerously' in http.conf
+[Jul  1 06:01:23] NOTICE[560651] indications.c: Default country for indication tones: us
+[Jul  1 06:01:23] NOTICE[560651] indications.c: Setting default indication country to 'us'
+[Jul  1 06:01:23] NOTICE[560651] res_smdi.c: No SMDI interfaces are available to listen on, not starting SMDI listener.
+[Jul  1 06:01:23] WARNING[560651] res_phoneprov.c: Unable to find a valid server address or name.
+[Jul  1 06:01:23] WARNING[560651] res_rtp_asterisk.c: Value for 'probation' could not be read, using default of '4' instead
+[Jul  1 06:01:23] NOTICE[560651] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+[Jul  1 06:01:23] NOTICE[560651] cel_tds.c: cel_tds has no global category, nothing to configure.
+[Jul  1 06:01:23] WARNING[560651] cel_tds.c: cel_tds module had config problems; declining load
+[Jul  1 06:01:23] NOTICE[560651] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+[Jul  1 06:01:23] WARNING[560651] cel_pgsql.c: CEL pgsql config file missing global section.
+[Jul  1 06:01:23] NOTICE[560651] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+[Jul  1 06:01:23] NOTICE[560651] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+[Jul  1 06:01:23] NOTICE[560651] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+[Jul  1 06:01:23] NOTICE[560651] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+[Jul  1 06:01:23] NOTICE[560651] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+[Jul  1 06:01:23] NOTICE[560651] codec_g729a.c: Please see the full license text supplied by the accompanying
+[Jul  1 06:01:23] NOTICE[560651] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+[Jul  1 06:01:23] NOTICE[560651] codec_g729a.c: This product includes software developed by the OpenSSL Project
+[Jul  1 06:01:23] NOTICE[560651] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+[Jul  1 06:01:23] NOTICE[560651] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+
+[Jul  1 06:01:23] WARNING[560651] codec_g729a.c: Failed to initialize G.729 copy protection!
+[Jul  1 06:01:24] WARNING[560651] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 196-196: macro call to ael-dundi-e164 cannot be found in the AEL code!
+[Jul  1 06:01:24] WARNING[560651] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 209-209: macro call to ael-dundi-e164 cannot be found in the AEL code!
+[Jul  1 06:01:24] WARNING[560651] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 328-328: macro call to ael-std-exten-ael cannot be found in the AEL code!
+[Jul  1 06:01:24] WARNING[560651] loader.c: Some non-required modules failed to load.
+[Jul  1 06:01:24] WARNING[560651] loader.c: Module 'res_adsi' has been loaded but may be removed in a future release.
+[Jul  1 06:01:24] WARNING[560651] loader.c: Module 'app_getcpeid' has been loaded but may be removed in a future release.
+[Jul  1 06:01:24] WARNING[560651] loader.c: Module 'app_adsiprog' has been loaded but may be removed in a future release.
+[Jul  1 06:01:24] ERROR[560651] loader.c: cel_tds declined to load.
+[Jul  1 06:01:24] ERROR[560651] loader.c: cdr_radius declined to load.
+[Jul  1 06:01:24] ERROR[560651] loader.c: cdr_tds declined to load.
+[Jul  1 06:01:24] ERROR[560651] loader.c: cdr_sqlite3_custom declined to load.
+[Jul  1 06:01:24] ERROR[560651] loader.c: cel_radius declined to load.
+[Jul  1 06:01:24] ERROR[560651] loader.c: cel_sqlite3_custom declined to load.
+[Jul  1 06:01:24] ERROR[560651] loader.c: cdr_pgsql declined to load.
+[Jul  1 06:01:24] WARNING[560676] pbx_config.c: users.conf is deprecated and will be removed in a future version of Asterisk
+[Jul  1 06:01:25] Asterisk 22.8.2 built by root @ mediagtw.cordbloodcenter.com on a x86_64 running Linux on 2026-03-11 21:07:50 UTC
+[Jul  1 06:01:25] NOTICE[560879] loader.c: 355 modules will be loaded.
+[Jul  1 06:01:26] WARNING[560879] res_config_pgsql.c: PostgreSQL RealTime: No database user found, using 'asterisk' as default.
+[Jul  1 06:01:26] WARNING[560879] res_config_pgsql.c: PostgreSQL RealTime: No database password found, using 'asterisk' as default.
+[Jul  1 06:01:26] WARNING[560879] res_config_pgsql.c: PostgreSQL RealTime: No database host found, using localhost via socket.
+[Jul  1 06:01:26] WARNING[560879] res_config_pgsql.c: PostgreSQL RealTime: No database name found, using 'asterisk' as default.
+[Jul  1 06:01:26] WARNING[560879] res_config_pgsql.c: PostgreSQL RealTime: No database port found, using 5432 as default.
+[Jul  1 06:01:26] WARNING[560879] res_config_pgsql.c: PostgreSQL RealTime: No database socket found, using '/tmp/.s.PGSQL.5432' as default.
+[Jul  1 06:01:26] ERROR[560879] res_config_pgsql.c: PostgreSQL RealTime: Failed to connect database asterisk on : 
+[Jul  1 06:01:26] WARNING[560879] res_config_pgsql.c: PostgreSQL RealTime: Couldn't establish connection. Check debug.
+[Jul  1 06:01:26] NOTICE[560879] res_config_ldap.c: No directory user found, anonymous binding as default.
+[Jul  1 06:01:26] ERROR[560879] res_config_ldap.c: No directory URL or host found.
+[Jul  1 06:01:26] ERROR[560879] res_config_ldap.c: Cannot load LDAP RealTime driver.
+[Jul  1 06:01:26] NOTICE[560879] cdr.c: CDR simple logging enabled.
+[Jul  1 06:01:26] WARNING[560879] http.c: Ignoring unknown option 'live_dangerously' in http.conf
+[Jul  1 06:01:26] NOTICE[560879] indications.c: Default country for indication tones: us
+[Jul  1 06:01:26] NOTICE[560879] indications.c: Setting default indication country to 'us'
+[Jul  1 06:01:26] NOTICE[560879] res_smdi.c: No SMDI interfaces are available to listen on, not starting SMDI listener.
+[Jul  1 06:01:26] WARNING[560879] res_phoneprov.c: Unable to find a valid server address or name.
+[Jul  1 06:01:26] WARNING[560879] res_rtp_asterisk.c: Value for 'probation' could not be read, using default of '4' instead
+[Jul  1 06:01:26] NOTICE[560879] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+[Jul  1 06:01:26] NOTICE[560879] cel_tds.c: cel_tds has no global category, nothing to configure.
+[Jul  1 06:01:26] WARNING[560879] cel_tds.c: cel_tds module had config problems; declining load
+[Jul  1 06:01:26] NOTICE[560879] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+[Jul  1 06:01:26] WARNING[560879] cel_pgsql.c: CEL pgsql config file missing global section.
+[Jul  1 06:01:26] NOTICE[560879] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+[Jul  1 06:01:26] NOTICE[560879] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+[Jul  1 06:01:26] NOTICE[560879] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+[Jul  1 06:01:26] NOTICE[560879] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+[Jul  1 06:01:26] NOTICE[560879] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+[Jul  1 06:01:26] NOTICE[560879] codec_g729a.c: Please see the full license text supplied by the accompanying
+[Jul  1 06:01:26] NOTICE[560879] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+[Jul  1 06:01:26] NOTICE[560879] codec_g729a.c: This product includes software developed by the OpenSSL Project
+[Jul  1 06:01:26] NOTICE[560879] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+[Jul  1 06:01:26] NOTICE[560879] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+
+[Jul  1 06:01:26] WARNING[560879] codec_g729a.c: Failed to initialize G.729 copy protection!
+[Jul  1 06:01:26] WARNING[560879] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 196-196: macro call to ael-dundi-e164 cannot be found in the AEL code!
+[Jul  1 06:01:26] WARNING[560879] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 209-209: macro call to ael-dundi-e164 cannot be found in the AEL code!
+[Jul  1 06:01:26] WARNING[560879] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 328-328: macro call to ael-std-exten-ael cannot be found in the AEL code!
+[Jul  1 06:01:26] WARNING[560879] loader.c: Some non-required modules failed to load.
+[Jul  1 06:01:26] WARNING[560879] loader.c: Module 'res_adsi' has been loaded but may be removed in a future release.
+[Jul  1 06:01:26] WARNING[560879] loader.c: Module 'app_getcpeid' has been loaded but may be removed in a future release.
+[Jul  1 06:01:26] WARNING[560879] loader.c: Module 'app_adsiprog' has been loaded but may be removed in a future release.
+[Jul  1 06:01:26] ERROR[560879] loader.c: cel_tds declined to load.
+[Jul  1 06:01:26] ERROR[560879] loader.c: cdr_radius declined to load.
+[Jul  1 06:01:26] ERROR[560879] loader.c: cdr_tds declined to load.
+[Jul  1 06:01:26] ERROR[560879] loader.c: cdr_sqlite3_custom declined to load.
+[Jul  1 06:01:26] ERROR[560879] loader.c: cel_radius declined to load.
+[Jul  1 06:01:26] ERROR[560879] loader.c: cel_sqlite3_custom declined to load.
+[Jul  1 06:01:26] ERROR[560879] loader.c: cdr_pgsql declined to load.
+[Jul  1 06:01:26] WARNING[560906] pbx_config.c: users.conf is deprecated and will be removed in a future version of Asterisk
+[Jul  1 07:30:17] WARNING[561039] res_http_websocket.c: Web socket closed abruptly
+[Jul  1 07:30:17] WARNING[561039] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  1 08:21:42] WARNING[561289] res_http_websocket.c: Web socket closed abruptly
+[Jul  1 08:21:42] WARNING[561289] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  1 08:30:08] WARNING[561418] res_http_websocket.c: Web socket closed abruptly
+[Jul  1 08:30:08] WARNING[561418] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  1 08:30:10] WARNING[560930] pjproject: 	     tsx0x78de600480a8 ..Error sending Response msg 200/REGISTER/cseq=28 (tdta0x78de600488b8): Unknown Error (PJ_EUNKNOWN)
+[Jul  1 08:39:49] WARNING[560930] pjproject: 	     tsx0x78de6004b9c8 ..Error sending Response msg 200/REGISTER/cseq=31 (tdta0x78de60055ad8): Unknown Error (PJ_EUNKNOWN)
+[Jul  1 08:49:00] WARNING[561441] res_http_websocket.c: Web socket closed abruptly
+[Jul  1 08:49:00] WARNING[561441] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  1 09:05:42] WARNING[561502] res_http_websocket.c: Web socket closed abruptly
+[Jul  1 09:05:42] WARNING[561502] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  1 09:15:08] WARNING[560930] pjproject: 	     tsx0x78de600480a8 ..Error sending Response msg 200/REGISTER/cseq=31 (tdta0x78de60056ec8): Unknown Error (PJ_EUNKNOWN)
+[Jul  1 09:34:34] WARNING[561545] res_http_websocket.c: Web socket closed abruptly
+[Jul  1 09:34:34] WARNING[561545] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  1 09:39:37] WARNING[561628] res_http_websocket.c: Web socket closed abruptly
+[Jul  1 09:39:37] WARNING[561628] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  1 10:01:18] WARNING[561641] res_http_websocket.c: Web socket closed abruptly
+[Jul  1 10:01:18] WARNING[561641] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  1 10:11:09] WARNING[561706] res_http_websocket.c: Web socket closed abruptly
+[Jul  1 10:11:09] WARNING[561706] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  1 10:31:02] WARNING[561733] res_http_websocket.c: Web socket closed abruptly
+[Jul  1 10:31:02] WARNING[561733] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  1 10:41:50] WARNING[560930] pjproject: 	     tsx0x78de54003b48 ..Error sending Response msg 200/REGISTER/cseq=27 (tdta0x78de600488b8): Unknown Error (PJ_EUNKNOWN)
+[Jul  1 10:46:01] WARNING[560930] pjproject: 	     tsx0x78de600480a8 ..Error sending Response msg 200/REGISTER/cseq=4 (tdta0x78de600c5488): Unknown Error (PJ_EUNKNOWN)
+[Jul  1 10:52:22] WARNING[561783] res_http_websocket.c: Web socket closed abruptly
+[Jul  1 10:55:22] ERROR[560930] pjproject: 	   icess0x78de59b44038 ...Error sending STUN request: Invalid argument
+[Jul  1 11:13:40] WARNING[560930] pjproject: 	     tsx0x78de600480a8 ..Error sending Response msg 200/REGISTER/cseq=86 (tdta0x78de600a2518): Unknown Error (PJ_EUNKNOWN)
+[Jul  1 11:33:43] NOTICE[561939][C-00000005] res_stasis_playback.c: 1782905623.12: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  1 11:34:25] NOTICE[561939][C-00000005] res_stasis_playback.c: 1782905623.12: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  1 11:40:21] NOTICE[561969][C-00000006] res_stasis_playback.c: 1782906020.16: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  1 11:41:04] WARNING[561969][C-00000006] res_stasis_playback.c: 1782906020.16: Playback failed for sound:custom/moh-slow-jazz
+[Jul  1 11:46:05] WARNING[561882] res_http_websocket.c: Web socket closed abruptly
+[Jul  1 11:54:03] NOTICE[562013][C-0000000b] res_stasis_playback.c: 1782906843.29: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  1 11:54:17] NOTICE[562013][C-0000000b] res_stasis_playback.c: 1782906843.29: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  1 11:54:54] NOTICE[562242][C-0000000c] res_stasis_playback.c: 1782906894.33: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  1 11:55:08] NOTICE[562242][C-0000000c] res_stasis_playback.c: 1782906894.33: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  1 11:56:00] NOTICE[562390][C-0000000d] res_stasis_playback.c: 1782906960.36: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  1 11:56:45] NOTICE[562390][C-0000000d] res_stasis_playback.c: 1782906960.36: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  1 11:57:19] NOTICE[562404][C-0000000e] res_stasis_playback.c: 1782907039.38: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  1 11:57:32] NOTICE[562404][C-0000000e] res_stasis_playback.c: 1782907039.38: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  1 12:17:06] WARNING[562588] res_http_websocket.c: Web socket closed abruptly
+[Jul  1 12:41:16] NOTICE[562669][C-00000013] res_stasis_playback.c: 1782909675.52: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  1 12:41:29] ERROR[560930] res_pjsip.c: Endpoint '2002': Could not create dialog to invalid URI '2002'.  Is endpoint registered and reachable?
+[Jul  1 12:41:29] ERROR[560930] chan_pjsip.c: Failed to create outgoing session to endpoint '2002'
+[Jul  1 12:41:29] NOTICE[562669][C-00000013] res_stasis_playback.c: 1782909675.52: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  1 12:41:35] ERROR[560930] res_pjsip.c: Endpoint '2002': Could not create dialog to invalid URI '2002'.  Is endpoint registered and reachable?
+[Jul  1 12:41:35] ERROR[560930] chan_pjsip.c: Failed to create outgoing session to endpoint '2002'
+[Jul  1 12:41:35] NOTICE[562669][C-00000013] res_stasis_playback.c: 1782909675.52: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  1 12:41:41] ERROR[560930] res_pjsip.c: Endpoint '2002': Could not create dialog to invalid URI '2002'.  Is endpoint registered and reachable?
+[Jul  1 12:41:41] ERROR[560930] chan_pjsip.c: Failed to create outgoing session to endpoint '2002'
+[Jul  1 12:41:41] NOTICE[562669][C-00000013] res_stasis_playback.c: 1782909675.52: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  1 12:41:45] WARNING[562669][C-00000013] res_stasis_playback.c: 1782909675.52: Playback failed for sound:custom/ukoncenie-hovoru-koordinator-sk
+[Jul  1 12:42:05] NOTICE[562682][C-00000014] res_stasis_playback.c: 1782909725.54: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  1 12:42:19] ERROR[560930] res_pjsip.c: Endpoint '2002': Could not create dialog to invalid URI '2002'.  Is endpoint registered and reachable?
+[Jul  1 12:42:19] ERROR[560930] chan_pjsip.c: Failed to create outgoing session to endpoint '2002'
+[Jul  1 12:42:19] NOTICE[562682][C-00000014] res_stasis_playback.c: 1782909725.54: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  1 12:42:19] NOTICE[562682][C-00000014] res_stasis_playback.c: 1782909725.54: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  1 12:50:13] WARNING[562864] res_http_websocket.c: Web socket closed abruptly
+[Jul  1 12:54:11] WARNING[562860] res_http_websocket.c: Web socket closed abruptly
+[Jul  1 12:55:26] WARNING[562871] res_http_websocket.c: Web socket closed abruptly
+[Jul  1 12:58:45] WARNING[562875] res_http_websocket.c: Web socket closed abruptly
+[Jul  1 13:08:22] WARNING[562911] res_http_websocket.c: Web socket closed abruptly
+[Jul  1 13:09:41] NOTICE[560937] res_pjsip/pjsip_transport_management.c: Shutting down transport 'WS to 10.1.2.111:42884' since no request was received in 32 seconds
+[Jul  1 13:09:41] WARNING[562925] res_http_websocket.c: Web socket closed abruptly
+[Jul  1 13:15:37] WARNING[562923] res_http_websocket.c: Web socket closed abruptly
+[Jul  1 13:15:57] WARNING[560930] pjproject: 	     tsx0x78de6003e588 ..Error sending Response msg 200/REGISTER/cseq=9 (tdta0x78de600a4078): Unknown Error (PJ_EUNKNOWN)
+[Jul  1 13:16:25] WARNING[561870] res_http_websocket.c: Web socket closed abruptly
+[Jul  1 13:24:26] WARNING[560930] pjproject: 	     tsx0x78de60053158 ..Error sending Response msg 200/REGISTER/cseq=31 (tdta0x78de6005e878): Unknown Error (PJ_EUNKNOWN)
+[Jul  1 13:34:31] WARNING[560930] pjproject: 	     tsx0x78de6003e588 ..Error sending Response msg 200/REGISTER/cseq=29 (tdta0x78de6004deb8): Unknown Error (PJ_EUNKNOWN)
+[Jul  1 13:44:36] WARNING[560930] pjproject: 	     tsx0x78de600e9e88 ..Error sending Response msg 200/REGISTER/cseq=29 (tdta0x78de60056ec8): Unknown Error (PJ_EUNKNOWN)
+[Jul  1 13:54:41] WARNING[560930] pjproject: 	     tsx0x78de54003b48 ..Error sending Response msg 200/REGISTER/cseq=29 (tdta0x78de600b1228): Unknown Error (PJ_EUNKNOWN)
+[Jul  1 14:30:45] WARNING[563183] res_http_websocket.c: Web socket closed abruptly
+[Jul  1 14:32:07] WARNING[563204] res_http_websocket.c: Web socket closed abruptly
+[Jul  1 15:13:34] WARNING[562855] res_http_websocket.c: Web socket closed abruptly
+[Jul  3 06:49:20] Asterisk 22.8.2 built by root @ mediagtw.cordbloodcenter.com on a x86_64 running Linux on 2026-03-11 21:07:50 UTC
+[Jul  3 06:49:20] NOTICE[577010] loader.c: 355 modules will be loaded.
+[Jul  3 06:49:20] WARNING[577010] res_config_pgsql.c: PostgreSQL RealTime: No database user found, using 'asterisk' as default.
+[Jul  3 06:49:20] WARNING[577010] res_config_pgsql.c: PostgreSQL RealTime: No database password found, using 'asterisk' as default.
+[Jul  3 06:49:20] WARNING[577010] res_config_pgsql.c: PostgreSQL RealTime: No database host found, using localhost via socket.
+[Jul  3 06:49:20] WARNING[577010] res_config_pgsql.c: PostgreSQL RealTime: No database name found, using 'asterisk' as default.
+[Jul  3 06:49:20] WARNING[577010] res_config_pgsql.c: PostgreSQL RealTime: No database port found, using 5432 as default.
+[Jul  3 06:49:20] WARNING[577010] res_config_pgsql.c: PostgreSQL RealTime: No database socket found, using '/tmp/.s.PGSQL.5432' as default.
+[Jul  3 06:49:20] ERROR[577010] res_config_pgsql.c: PostgreSQL RealTime: Failed to connect database asterisk on : 
+[Jul  3 06:49:20] WARNING[577010] res_config_pgsql.c: PostgreSQL RealTime: Couldn't establish connection. Check debug.
+[Jul  3 06:49:20] NOTICE[577010] res_config_ldap.c: No directory user found, anonymous binding as default.
+[Jul  3 06:49:20] ERROR[577010] res_config_ldap.c: No directory URL or host found.
+[Jul  3 06:49:20] ERROR[577010] res_config_ldap.c: Cannot load LDAP RealTime driver.
+[Jul  3 06:49:20] NOTICE[577010] cdr.c: CDR simple logging enabled.
+[Jul  3 06:49:20] WARNING[577010] http.c: Ignoring unknown option 'live_dangerously' in http.conf
+[Jul  3 06:49:20] NOTICE[577010] indications.c: Default country for indication tones: us
+[Jul  3 06:49:20] NOTICE[577010] indications.c: Setting default indication country to 'us'
+[Jul  3 06:49:20] NOTICE[577010] res_smdi.c: No SMDI interfaces are available to listen on, not starting SMDI listener.
+[Jul  3 06:49:20] WARNING[577010] res_phoneprov.c: Unable to find a valid server address or name.
+[Jul  3 06:49:20] WARNING[577010] res_rtp_asterisk.c: Value for 'probation' could not be read, using default of '4' instead
+[Jul  3 06:49:21] NOTICE[577010] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+[Jul  3 06:49:21] NOTICE[577010] cel_tds.c: cel_tds has no global category, nothing to configure.
+[Jul  3 06:49:21] WARNING[577010] cel_tds.c: cel_tds module had config problems; declining load
+[Jul  3 06:49:21] NOTICE[577010] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+[Jul  3 06:49:21] WARNING[577010] cel_pgsql.c: CEL pgsql config file missing global section.
+[Jul  3 06:49:21] NOTICE[577010] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+[Jul  3 06:49:21] NOTICE[577010] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+[Jul  3 06:49:21] NOTICE[577010] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+[Jul  3 06:49:21] NOTICE[577010] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+[Jul  3 06:49:21] NOTICE[577010] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+[Jul  3 06:49:21] NOTICE[577010] codec_g729a.c: Please see the full license text supplied by the accompanying
+[Jul  3 06:49:21] NOTICE[577010] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+[Jul  3 06:49:21] NOTICE[577010] codec_g729a.c: This product includes software developed by the OpenSSL Project
+[Jul  3 06:49:21] NOTICE[577010] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+[Jul  3 06:49:21] NOTICE[577010] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+
+[Jul  3 06:49:21] WARNING[577010] codec_g729a.c: Failed to initialize G.729 copy protection!
+[Jul  3 06:49:21] WARNING[577010] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 196-196: macro call to ael-dundi-e164 cannot be found in the AEL code!
+[Jul  3 06:49:21] WARNING[577010] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 209-209: macro call to ael-dundi-e164 cannot be found in the AEL code!
+[Jul  3 06:49:21] WARNING[577010] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 328-328: macro call to ael-std-exten-ael cannot be found in the AEL code!
+[Jul  3 06:49:21] WARNING[577010] loader.c: Some non-required modules failed to load.
+[Jul  3 06:49:21] WARNING[577010] loader.c: Module 'res_adsi' has been loaded but may be removed in a future release.
+[Jul  3 06:49:21] WARNING[577010] loader.c: Module 'app_getcpeid' has been loaded but may be removed in a future release.
+[Jul  3 06:49:21] WARNING[577010] loader.c: Module 'app_adsiprog' has been loaded but may be removed in a future release.
+[Jul  3 06:49:21] ERROR[577010] loader.c: cel_tds declined to load.
+[Jul  3 06:49:21] ERROR[577010] loader.c: cdr_radius declined to load.
+[Jul  3 06:49:21] ERROR[577010] loader.c: cdr_tds declined to load.
+[Jul  3 06:49:21] ERROR[577010] loader.c: cdr_sqlite3_custom declined to load.
+[Jul  3 06:49:21] ERROR[577010] loader.c: cel_radius declined to load.
+[Jul  3 06:49:21] ERROR[577010] loader.c: cel_sqlite3_custom declined to load.
+[Jul  3 06:49:21] ERROR[577010] loader.c: cdr_pgsql declined to load.
+[Jul  3 06:49:21] WARNING[577035] pbx_config.c: users.conf is deprecated and will be removed in a future version of Asterisk
+[Jul  3 06:49:26] Asterisk 22.8.2 built by root @ mediagtw.cordbloodcenter.com on a x86_64 running Linux on 2026-03-11 21:07:50 UTC
+[Jul  3 06:49:26] NOTICE[577470] loader.c: 355 modules will be loaded.
+[Jul  3 06:49:26] WARNING[577470] res_config_pgsql.c: PostgreSQL RealTime: No database user found, using 'asterisk' as default.
+[Jul  3 06:49:26] WARNING[577470] res_config_pgsql.c: PostgreSQL RealTime: No database password found, using 'asterisk' as default.
+[Jul  3 06:49:26] WARNING[577470] res_config_pgsql.c: PostgreSQL RealTime: No database host found, using localhost via socket.
+[Jul  3 06:49:26] WARNING[577470] res_config_pgsql.c: PostgreSQL RealTime: No database name found, using 'asterisk' as default.
+[Jul  3 06:49:26] WARNING[577470] res_config_pgsql.c: PostgreSQL RealTime: No database port found, using 5432 as default.
+[Jul  3 06:49:26] WARNING[577470] res_config_pgsql.c: PostgreSQL RealTime: No database socket found, using '/tmp/.s.PGSQL.5432' as default.
+[Jul  3 06:49:26] ERROR[577470] res_config_pgsql.c: PostgreSQL RealTime: Failed to connect database asterisk on : 
+[Jul  3 06:49:26] WARNING[577470] res_config_pgsql.c: PostgreSQL RealTime: Couldn't establish connection. Check debug.
+[Jul  3 06:49:26] NOTICE[577470] res_config_ldap.c: No directory user found, anonymous binding as default.
+[Jul  3 06:49:26] ERROR[577470] res_config_ldap.c: No directory URL or host found.
+[Jul  3 06:49:26] ERROR[577470] res_config_ldap.c: Cannot load LDAP RealTime driver.
+[Jul  3 06:49:26] NOTICE[577470] cdr.c: CDR simple logging enabled.
+[Jul  3 06:49:26] WARNING[577470] http.c: Ignoring unknown option 'live_dangerously' in http.conf
+[Jul  3 06:49:26] NOTICE[577470] indications.c: Default country for indication tones: us
+[Jul  3 06:49:26] NOTICE[577470] indications.c: Setting default indication country to 'us'
+[Jul  3 06:49:26] NOTICE[577470] res_smdi.c: No SMDI interfaces are available to listen on, not starting SMDI listener.
+[Jul  3 06:49:26] WARNING[577470] res_phoneprov.c: Unable to find a valid server address or name.
+[Jul  3 06:49:26] WARNING[577470] res_rtp_asterisk.c: Value for 'probation' could not be read, using default of '4' instead
+[Jul  3 06:49:26] NOTICE[577470] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+[Jul  3 06:49:26] NOTICE[577470] cel_tds.c: cel_tds has no global category, nothing to configure.
+[Jul  3 06:49:26] WARNING[577470] cel_tds.c: cel_tds module had config problems; declining load
+[Jul  3 06:49:26] NOTICE[577470] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+[Jul  3 06:49:26] WARNING[577470] cel_pgsql.c: CEL pgsql config file missing global section.
+[Jul  3 06:49:26] NOTICE[577470] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+[Jul  3 06:49:26] NOTICE[577470] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+[Jul  3 06:49:26] NOTICE[577470] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+[Jul  3 06:49:26] NOTICE[577470] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+[Jul  3 06:49:26] NOTICE[577470] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+[Jul  3 06:49:26] NOTICE[577470] codec_g729a.c: Please see the full license text supplied by the accompanying
+[Jul  3 06:49:26] NOTICE[577470] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+[Jul  3 06:49:26] NOTICE[577470] codec_g729a.c: This product includes software developed by the OpenSSL Project
+[Jul  3 06:49:26] NOTICE[577470] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+[Jul  3 06:49:26] NOTICE[577470] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+
+[Jul  3 06:49:26] WARNING[577470] codec_g729a.c: Failed to initialize G.729 copy protection!
+[Jul  3 06:49:27] WARNING[577470] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 196-196: macro call to ael-dundi-e164 cannot be found in the AEL code!
+[Jul  3 06:49:27] WARNING[577470] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 209-209: macro call to ael-dundi-e164 cannot be found in the AEL code!
+[Jul  3 06:49:27] WARNING[577470] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 328-328: macro call to ael-std-exten-ael cannot be found in the AEL code!
+[Jul  3 06:49:27] WARNING[577470] loader.c: Some non-required modules failed to load.
+[Jul  3 06:49:27] WARNING[577470] loader.c: Module 'res_adsi' has been loaded but may be removed in a future release.
+[Jul  3 06:49:27] WARNING[577470] loader.c: Module 'app_getcpeid' has been loaded but may be removed in a future release.
+[Jul  3 06:49:27] WARNING[577470] loader.c: Module 'app_adsiprog' has been loaded but may be removed in a future release.
+[Jul  3 06:49:27] ERROR[577470] loader.c: cel_tds declined to load.
+[Jul  3 06:49:27] ERROR[577470] loader.c: cdr_radius declined to load.
+[Jul  3 06:49:27] ERROR[577470] loader.c: cdr_tds declined to load.
+[Jul  3 06:49:27] ERROR[577470] loader.c: cdr_sqlite3_custom declined to load.
+[Jul  3 06:49:27] ERROR[577470] loader.c: cel_radius declined to load.
+[Jul  3 06:49:27] ERROR[577470] loader.c: cel_sqlite3_custom declined to load.
+[Jul  3 06:49:27] ERROR[577470] loader.c: cdr_pgsql declined to load.
+[Jul  3 06:49:27] WARNING[577495] pbx_config.c: users.conf is deprecated and will be removed in a future version of Asterisk
+[Jul  3 07:23:46] WARNING[577629] res_http_websocket.c: Web socket closed abruptly
+[Jul  3 07:23:46] WARNING[577629] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  3 07:53:06] WARNING[577705] res_http_websocket.c: Web socket closed abruptly
+[Jul  3 07:53:06] WARNING[577705] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  3 08:15:51] WARNING[577786] res_http_websocket.c: Web socket closed abruptly
+[Jul  3 08:15:51] WARNING[577786] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  3 08:53:26] WARNING[577841] res_http_websocket.c: Web socket closed abruptly
+[Jul  3 08:53:26] WARNING[577841] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  3 08:53:34] WARNING[577519] pjproject: 	     tsx0x720f580482d8 ..Error sending Response msg 200/REGISTER/cseq=113 (tdta0x720f58063608): Unknown Error (PJ_EUNKNOWN)
+[Jul  3 09:13:00] WARNING[577519] pjproject: 	     tsx0x720f580c18b8 ..Error sending Response msg 200/REGISTER/cseq=4 (tdta0x720f5806a0d8): Unknown Error (PJ_EUNKNOWN)
+[Jul  3 09:13:22] WARNING[577919] res_http_websocket.c: Web socket closed abruptly
+[Jul  3 09:13:22] WARNING[577919] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  3 09:25:52] WARNING[577989] res_http_websocket.c: Web socket closed abruptly
+[Jul  3 09:25:52] WARNING[577989] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  3 10:01:41] WARNING[578024] res_http_websocket.c: Web socket closed abruptly
+[Jul  3 10:01:41] WARNING[578024] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  3 10:13:39] WARNING[578116] res_http_websocket.c: Web socket closed abruptly
+[Jul  3 10:13:39] WARNING[578116] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  3 10:52:54] WARNING[578143] res_http_websocket.c: Web socket closed abruptly
+[Jul  3 10:52:54] WARNING[578143] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  3 11:07:42] WARNING[577519] pjproject: 	     tsx0x720f580c18b8 ..Error sending Response msg 200/REGISTER/cseq=46 (tdta0x720f580a7d88): Unknown Error (PJ_EUNKNOWN)
+[Jul  3 11:32:41] WARNING[578249] res_http_websocket.c: Web socket closed abruptly
+[Jul  3 11:32:41] WARNING[578249] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  3 11:52:31] WARNING[578333] res_http_websocket.c: Web socket closed abruptly
+[Jul  3 11:52:31] WARNING[578333] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  3 12:17:19] WARNING[578373] res_http_websocket.c: Web socket closed abruptly
+[Jul  3 12:17:19] WARNING[578373] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 16:00:13] WARNING[578468] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 16:00:13] WARNING[578468] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 16:02:40] WARNING[587506] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 16:02:40] WARNING[587506] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 16:06:04] NOTICE[587678][C-00000005] res_stasis_playback.c: 1783267564.12: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:06:33] WARNING[587678][C-00000005] res_stasis_playback.c: 1783267564.12: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 16:08:09] WARNING[587698][C-00000007] res_stasis_playback.c: 1783267678.18: Playback failed for sound:custom/ukoncenie-hovoru-koordinator-sk
+[Jul  5 16:08:24] NOTICE[587701][C-00000008] res_stasis_playback.c: 1783267703.20: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:08:50] WARNING[587701][C-00000008] res_stasis_playback.c: 1783267703.20: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 16:09:30] NOTICE[587713][C-0000000a] res_stasis_playback.c: 1783267770.26: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:09:44] NOTICE[587713][C-0000000a] res_stasis_playback.c: 1783267770.26: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:24:42] WARNING[587513] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 16:24:42] WARNING[587513] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 16:26:03] NOTICE[587882][C-0000000b] res_stasis_playback.c: 1783268763.29: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:26:28] NOTICE[587882][C-0000000b] res_stasis_playback.c: 1783268763.29: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:28:13] NOTICE[587898][C-0000000c] res_stasis_playback.c: 1783268893.33: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:28:38] WARNING[587898][C-0000000c] res_stasis_playback.c: 1783268893.33: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 16:34:33] NOTICE[587923][C-0000000f] res_stasis_playback.c: 1783269272.42: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:34:57] WARNING[587923][C-0000000f] res_stasis_playback.c: 1783269272.42: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 16:37:55] NOTICE[587946][C-00000012] res_stasis_playback.c: 1783269474.51: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:38:31] WARNING[587946][C-00000012] res_stasis_playback.c: 1783269474.51: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 16:38:42] NOTICE[587977][C-0000001e] res_stasis_playback.c: 1783269522.97: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:39:07] WARNING[587977][C-0000001e] res_stasis_playback.c: 1783269522.97: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 16:40:02] NOTICE[588000][C-00000025] res_stasis_playback.c: 1783269602.123: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:40:33] WARNING[588000][C-00000025] res_stasis_playback.c: 1783269602.123: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 16:40:44] NOTICE[588031][C-0000002f] res_stasis_playback.c: 1783269643.161: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:41:04] WARNING[588031][C-0000002f] res_stasis_playback.c: 1783269643.161: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 16:41:19] NOTICE[588042][C-00000031] res_stasis_playback.c: 1783269678.167: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:41:38] WARNING[588042][C-00000031] res_stasis_playback.c: 1783269678.167: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 16:45:30] WARNING[577519] pjproject: 	     tsx0x720f58043048 ..Error sending Response msg 200/REGISTER/cseq=64 (tdta0x720f580a7d88): Unknown Error (PJ_EUNKNOWN)
+[Jul  5 16:45:48] WARNING[587876] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 16:45:48] WARNING[587876] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 16:52:43] WARNING[588068] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 16:52:43] WARNING[588068] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 16:53:08] NOTICE[588117][C-00000035] res_stasis_playback.c: 1783270388.181: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:53:52] NOTICE[588117][C-00000035] res_stasis_playback.c: 1783270388.181: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:53:59] WARNING[588117][C-00000035] res_stasis_playback.c: 1783270388.181: Playback failed for sound:custom/ukoncenie-hovoru-koordinator-sk
+[Jul  5 16:54:13] NOTICE[588199][C-00000037] res_stasis_playback.c: 1783270452.187: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:54:56] NOTICE[588199][C-00000037] res_stasis_playback.c: 1783270452.187: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:55:07] NOTICE[588217][C-00000039] res_stasis_playback.c: 1783270506.193: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:55:47] WARNING[588217][C-00000039] res_stasis_playback.c: 1783270506.193: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 16:56:52] NOTICE[588250][C-0000003b] res_stasis_playback.c: 1783270612.199: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:57:27] WARNING[588250][C-0000003b] res_stasis_playback.c: 1783270612.199: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 16:57:37] NOTICE[588265][C-0000003f] res_stasis_playback.c: 1783270656.213: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 16:58:15] WARNING[588265][C-0000003f] res_stasis_playback.c: 1783270656.213: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 17:05:09] NOTICE[588368][C-00000043] res_stasis_playback.c: 1783271108.227: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 17:05:27] WARNING[588368][C-00000043] res_stasis_playback.c: 1783271108.227: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 17:05:40] NOTICE[588380][C-00000045] res_stasis_playback.c: 1783271140.233: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 17:06:18] WARNING[588380][C-00000045] res_stasis_playback.c: 1783271140.233: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 17:14:58] WARNING[588116] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 17:14:58] WARNING[588116] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 17:16:34] NOTICE[588417][C-00000047] res_stasis_playback.c: 1783271794.239: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 17:17:17] WARNING[588417][C-00000047] res_stasis_playback.c: 1783271794.239: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 17:21:00] NOTICE[588442][C-0000004a] res_stasis_playback.c: 1783272059.249: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 17:21:27] WARNING[588442][C-0000004a] res_stasis_playback.c: 1783272059.249: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 17:22:57] NOTICE[588472][C-0000004c] res_stasis_playback.c: 1783272176.255: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 17:23:17] WARNING[588472][C-0000004c] res_stasis_playback.c: 1783272176.255: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 17:41:02] WARNING[577519] pjproject: 	     tsx0x720f58055428 ..Error sending Response msg 200/REGISTER/cseq=79 (tdta0x720f58068bc8): Unknown Error (PJ_EUNKNOWN)
+[Jul  5 17:41:06] WARNING[588414] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 17:41:06] WARNING[588414] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 17:41:31] NOTICE[588634][C-0000004e] res_stasis_playback.c: 1783273291.261: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 17:42:04] WARNING[588634][C-0000004e] res_stasis_playback.c: 1783273291.261: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 17:42:15] NOTICE[588645][C-00000050] res_stasis_playback.c: 1783273335.267: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 17:42:35] WARNING[588645][C-00000050] res_stasis_playback.c: 1783273335.267: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 18:02:36] WARNING[588632] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 18:02:36] WARNING[588632] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 18:02:51] NOTICE[588769][C-00000053] res_stasis_playback.c: 1783274571.276: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 18:03:15] WARNING[588769][C-00000053] res_stasis_playback.c: 1783274571.276: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 18:03:26] NOTICE[588779][C-00000055] res_stasis_playback.c: 1783274605.282: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 18:03:44] WARNING[588779][C-00000055] res_stasis_playback.c: 1783274605.282: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 18:03:44] WARNING[588788][C-00000056] app_dial.c: Unable to write frametype: 2
+[Jul  5 18:07:24] WARNING[588768] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 18:07:24] WARNING[588768] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 18:07:39] NOTICE[588891][C-00000057] res_stasis_playback.c: 1783274859.288: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 18:08:01] WARNING[588891][C-00000057] res_stasis_playback.c: 1783274859.288: Playback failed for sound:custom/moh-slow-jazz
+[Jul  5 18:12:02] ERROR[588739] asterisk.c: Command too long! Skipping
+[Jul  5 18:12:02] ERROR[588739] asterisk.c: Command too long! Skipping
+[Jul  5 18:12:05] ERROR[588739] asterisk.c: Command too long! Skipping
+[Jul  5 18:12:05] ERROR[588739] asterisk.c: Command too long! Skipping
+[Jul  5 18:49:06] WARNING[588890] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 18:49:06] WARNING[588890] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 19:10:13] WARNING[589000] res_http_websocket.c: Web socket closed abruptly
+[Jul  5 19:10:13] WARNING[589000] ari/ari_websockets.c: WebSocket read error: Success
+[Jul  5 19:10:53] NOTICE[589611][C-0000005a] res_stasis_playback.c: 1783278653.297: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:11:07] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:11:07] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:11:07] NOTICE[589611][C-0000005a] res_stasis_playback.c: 1783278653.297: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:11:12] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:11:12] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:11:12] NOTICE[589611][C-0000005a] res_stasis_playback.c: 1783278653.297: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:11:18] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:11:18] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:11:18] NOTICE[589611][C-0000005a] res_stasis_playback.c: 1783278653.297: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:11:24] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:11:24] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:11:24] NOTICE[589611][C-0000005a] res_stasis_playback.c: 1783278653.297: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:11:29] WARNING[589611][C-0000005a] res_stasis_playback.c: 1783278653.297: Playback failed for sound:custom/ukoncenie-hovoru-koordinator-sk
+[Jul  5 19:11:31] NOTICE[589635][C-0000005c] res_stasis_playback.c: 1783278690.303: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:11:44] ERROR[577519] res_pjsip.c: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Jul  5 19:11:44] ERROR[577519] chan_pjsip.c: Failed to create outgoing session to endpoint '2001'
+[Jul  5 19:11:44] NOTICE[589635][C-0000005c] res_stasis_playback.c: 1783278690.303: Playback stopped for sound:custom/moh-slow-jazz
+[Jul  5 19:11:49] WARNING[589635][C-0000005c] res_stasis_playback.c: 1783278690.303: Playback failed for sound:custom/moh-slow-jazz
