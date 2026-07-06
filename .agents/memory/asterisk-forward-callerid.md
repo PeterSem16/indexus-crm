@@ -90,6 +90,15 @@ vars). Keeping `callerId` alongside is harmless (dialplan overwrites with the sa
 **Why:** two separate attempts failed before pinning that the failing `Local/...;2` leg was
 the standing-forward originate, not a continueDialplan hairpin.
 
+**STATUS: this __CBC_CALLER display fix IS in the current baseline again.** `originateChannel`
+now takes an optional `variables` arg sent in the ARI POST JSON body (query vars are ignored by
+ARI), and `connectCallToStandingAgent` passes `{ __CBC_CALLER: <raw callerNumber> }`. This is the
+RAW, unmodified number (matches the user's hard requirement to show the real caller) — it is NOT a
+CLI-format rewrite, so it does not violate the "do NOT touch the SK forward CLI format" rule. It
+only affects the DISPLAY on calls that actually connect (foreign callers); SK still 486s carrier-
+side regardless. Do not confuse re-adding this raw-number display propagation (allowed, required)
+with normalize/anon/DID CLI-format experiments (forbidden, all disproven).
+
 **Residual (not code):** the SK trunk carrier / pjsip endpoint (`from_user`/PAI) may still
 rewrite or reject a foreign CLI regardless — if the mobile shows the trunk number after
 deploy, that is carrier policy, not this code.

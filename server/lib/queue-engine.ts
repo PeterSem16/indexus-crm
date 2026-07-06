@@ -2593,12 +2593,20 @@ export class QueueEngine extends EventEmitter {
       // handleAgentChannelAnswer stops MOH and bridges on real answer. A Local channel
       // into from-internal-<cc> only goes Up when the mobile genuinely answers (the
       // dialplan does Dial() with answer supervision, no early Answer()).
+      // Present the REAL caller number on the agent's mobile. The from-internal-<cc>
+      // dialplan derives the outbound CLI from the CBC_CALLER channel var (ExecIf LEN>0),
+      // NOT from the originate callerId; and inherited vars must be __-prefixed to cross
+      // the Local ;1->;2 leg — so pass __CBC_CALLER in the originate body. This is a raw,
+      // unmodified number (no normalize/anon/DID rewrite — every SK CLI format 486s
+      // carrier-side regardless); it only fixes the DISPLAY on calls that connect.
+      const cbcCaller = (call.callerNumber || "").replace(/\s/g, "");
       const localChannel = await this.ariClient.originateChannel(
         `Local/${norm}@${ctx}/n`,
         norm,
         ctx,
         call.callerNumber,
         `agent-call,${standingAgentId},${call.channelId}`,
+        cbcCaller ? { __CBC_CALLER: cbcCaller } : undefined,
       );
       console.log(`[QueueEngine] Standing forward: Local channel ${localChannel.id} originated (ctx=${ctx}, ring=${ringSeconds}s)`);
 
