@@ -603,6 +603,33 @@ function getEntityDisplayInfo(cc: EnrichedCampaignContact): { name: string; init
   return null;
 }
 
+// Collect ALL phone-like values across every entity linked to a contact
+// (primary + secondary numbers). Fields are enumerated explicitly on purpose —
+// a collaborator row also contains a mobilePasswordHash, so we must never scan
+// keys by name.
+function collectContactPhones(cc: EnrichedCampaignContact): string[] {
+  const c: any = cc;
+  return [
+    c.customer?.phone, c.customer?.mobile, c.customer?.mobile2, c.customer?.otherContact,
+    c.hospital?.phone,
+    c.clinic?.phone, c.clinic?.phone2, c.clinic?.phone3,
+    c.collaborator?.phone, c.collaborator?.mobile, c.collaborator?.mobile2, c.collaborator?.otherContact,
+  ].filter((v): v is string => Boolean(v)).map(String);
+}
+
+// Collect ALL email-like values across every entity linked to a contact
+// (primary + secondary emails). Uses an array so a filled primary email never
+// short-circuits the secondary/other-entity emails.
+function collectContactEmails(cc: EnrichedCampaignContact): string[] {
+  const c: any = cc;
+  return [
+    c.customer?.email, c.customer?.email2, c.customer?.otherContact,
+    c.hospital?.email,
+    c.clinic?.email, c.clinic?.email2, c.clinic?.email3,
+    c.collaborator?.email, c.collaborator?.otherContact,
+  ].filter((v): v is string => Boolean(v)).map(String);
+}
+
 function SentimentBadge({ sentiment, size = "sm" }: { sentiment?: string | null; size?: "sm" | "md" }) {
   if (!sentiment) return null;
   const config: Record<string, { label: string; className: string }> = {
@@ -13388,8 +13415,8 @@ export default function AgentWorkspacePage() {
                   const extractField = (cc: any): string[] => {
                     switch (modalSearchField) {
                       case "name": return [(getEntityDisplayInfo(cc)?.name || "")].filter(Boolean);
-                      case "phone": return [cc.customer?.phone, cc.customer?.mobile, cc.hospital?.phone, cc.clinic?.phone, cc.collaborator?.phone, cc.collaborator?.mobile].filter(Boolean);
-                      case "email": return [cc.customer?.email, cc.hospital?.email, cc.clinic?.email, cc.collaborator?.email].filter(Boolean);
+                      case "phone": return collectContactPhones(cc);
+                      case "email": return collectContactEmails(cc);
                       case "city": return [cc.customer?.city, cc.hospital?.city, cc.clinic?.city, cc.collaborator?.city].filter(Boolean);
                       case "address": return [cc.customer?.address, cc.hospital?.address, cc.clinic?.address].filter(Boolean);
                       case "zip": return [cc.customer?.zip, cc.hospital?.zip, cc.clinic?.zip].filter(Boolean);
@@ -13677,8 +13704,8 @@ export default function AgentWorkspacePage() {
                   const ql = q.replace(/\s/g, "");
                   const fieldChecks: Record<string, boolean> = {
                     name:    (entityInfo?.name || "").toLowerCase().includes(q),
-                    phone:   [(cc.customer?.phone||""),(cc.customer?.mobile||""),(cc.hospital?.phone||""),(cc.clinic?.phone||""),(cc.collaborator?.phone||""),(cc.collaborator?.mobile||""),(entityInfo?.subtitle||"")].some(p => p.replace(/\s/g,"").includes(ql)),
-                    email:   (cc.customer?.email||cc.hospital?.email||cc.clinic?.email||cc.collaborator?.email||"").toLowerCase().includes(q),
+                    phone:   [...collectContactPhones(cc), (entityInfo?.subtitle||"")].some(p => p.replace(/\s/g,"").includes(ql)),
+                    email:   collectContactEmails(cc).some(e => e.toLowerCase().includes(q)),
                     city:    (cc.customer?.city||cc.hospital?.city||cc.clinic?.city||cc.collaborator?.city||"").toLowerCase().includes(q),
                     address: (cc.customer?.address||cc.hospital?.address||cc.clinic?.address||"").toLowerCase().includes(q),
                     zip:      (cc.customer?.zip||cc.hospital?.zip||cc.clinic?.zip||"").toLowerCase().includes(q),

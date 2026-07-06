@@ -45,3 +45,4 @@
 - [Mobile interactive JSX variables](mobile-jsx-sub-component.md) — JSX variables with onClick state toggles are unreliable on mobile; extract to a named sub-component with its own useState for guaranteed tap response.
 - [NexusPulse showOnlyAssigned dual scope](nexuspulse-only-assigned.md) — showOnlyAssigned filters baseCampaigns list AND must also filter contactGroups array (team-cb, other-cb); both are independent — fixing one does not fix the other.
 - [Workspace revert vs prod git sync](workspace-vs-prod-git-sync.md) — a workspace-only revert changes nothing on CORPCRM01 until it's on origin/main; check `git log origin/main..HEAD` before saying "deploy it".
+- [Campaign-contacts enrichment leak](campaign-contacts-enrichment-leak.md) — /api/campaigns/:id/contacts embeds full entity rows incl. collaborator.mobilePasswordHash; enumerate searchable fields explicitly, never key-scan enriched rows.
