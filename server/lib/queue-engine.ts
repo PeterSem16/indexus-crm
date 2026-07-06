@@ -2471,6 +2471,20 @@ export class QueueEngine extends EventEmitter {
     return agentId.startsWith("standing:") ? agentId.slice("standing:".length) : agentId;
   }
 
+  // Release an agent after a call ends / is abandoned / times out. Standing
+  // (not-logged-in) agents are represented by the synthetic `standing:<userId>`
+  // sentinel and have NO agentQueueStatus row (that table's user_id is FK-constrained
+  // to a real users.id), so they must NEVER go through updateAgentStatus — doing so
+  // throws on the FK and would be left unhandled. For them we only release the standing
+  // busy lock so they become eligible for the next queued call.
+  private releaseAgentAfterCall(agentId: string): void {
+    if (this.isStandingId(agentId)) {
+      this.standingForwardBusy.delete(this.standingUserId(agentId));
+      return;
+    }
+    this.updateAgentStatus(agentId, "available", null);
+  }
+
   // Country outbound context for a normalized (no +, no spaces) mobile number.
   // Mirrors forwardToExternalNumber's prefix routing so standing forward reaches the
   // mobile through the same country trunk (Local/<num>@from-internal-<cc>).
@@ -4275,7 +4289,7 @@ export class QueueEngine extends EventEmitter {
         console.log(`[QueueEngine] Caller hung up, cancelling pending agent call ${agentChId}`);
         this.pendingAgentCalls.delete(agentChId);
         try { await this.ariClient.hangupChannel(agentChId, "normal"); } catch {}
-        this.updateAgentStatus(pending.agentId, "available", null);
+        this.releaseAgentAfterCall(pending.agentId);
       }
     }
 
@@ -4812,7 +4826,7 @@ export class QueueEngine extends EventEmitter {
       this.recalculatePositions(queue.id);
 
       if (agentId) {
-        this.updateAgentStatus(agentId, "available", null);
+        this.releaseAgentAfterCall(agentId);
         for (const [agentChId, pending] of this.pendingAgentCalls.entries()) {
           if (pending.callerChannelId === channelId) {
             this.pendingAgentCalls.delete(agentChId);
@@ -4986,7 +5000,7 @@ export class QueueEngine extends EventEmitter {
       if (deadChannels.has(channelId)) {
         console.log(`[QueueEngine] checkTimeouts: ASSIGNED call ${call.id} has dead channel ${channelId}, marking abandoned`);
         this.assignedCalls.delete(channelId);
-        this.updateAgentStatus(agentId, "available", null);
+        this.releaseAgentAfterCall(agentId);
         for (const [agentChId, pending] of this.pendingAgentCalls.entries()) {
           if (pending.callerChannelId === channelId) {
             this.pendingAgentCalls.delete(agentChId);
