@@ -630,6 +630,62 @@ function collectContactEmails(cc: EnrichedCampaignContact): string[] {
   ].filter((v): v is string => Boolean(v)).map(String);
 }
 
+// Salutation resolution — mirrors the server /api/ai/detect-gender rule-based
+// logic + salutation tables so template variables like {{clinic.doctorSalutationFull}}
+// resolve instantly (synchronously) at template-apply time. Kept in lockstep with
+// server/routes.ts detect-gender; if you change one, change both.
+type SalGender = "male" | "female";
+const SALUTATION_SHORT: Record<SalGender, Record<string, string>> = {
+  male:   { sk: "Vážený pán", cz: "Vážený pán", cs: "Vážený pán", hu: "Tisztelt", ro: "Stimate", it: "Egregio", de: "Sehr geehrter", en: "Dear" },
+  female: { sk: "Vážená pani", cz: "Vážená pani", cs: "Vážená pani", hu: "Tisztelt", ro: "Stimată", it: "Gentile", de: "Sehr geehrte", en: "Dear" },
+};
+const SALUTATION_FULL: Record<SalGender, Record<string, string>> = {
+  male:   { sk: "Vážený pán", cz: "Vážený pane", cs: "Vážený pane", hu: "Tisztelt Úr", ro: "Stimate domn", it: "Egregio Signor", de: "Sehr geehrter Herr", en: "Dear Mr." },
+  female: { sk: "Vážená pani", cz: "Vážená paní", cs: "Vážená paní", hu: "Tisztelt Asszony", ro: "Stimată doamnă", it: "Gentile Signora", de: "Sehr geehrte Frau", en: "Dear Ms." },
+};
+const SALUTATION_DOC: Record<SalGender, Record<string, string>> = {
+  male:   { sk: "Vážený pán doktor", cz: "Vážený pane doktore", cs: "Vážený pane doktore", hu: "Tisztelt Doktor Úr", ro: "Stimate Domn Doctor", it: "Egregio Dottor", de: "Sehr geehrter Herr Doktor", en: "Dear Dr." },
+  female: { sk: "Vážená pani doktorka", cz: "Vážená paní doktorko", cs: "Vážená paní doktorko", hu: "Tisztelt Doktor Asszony", ro: "Stimată Doamnă Doctor", it: "Egregia Dottoressa", de: "Sehr geehrte Frau Doktor", en: "Dear Dr." },
+};
+
+function detectSalutationGender(firstName: string, lastName: string): SalGender {
+  const first = (firstName || "").trim();
+  const last = (lastName || "").trim();
+  // Rule 1: Slovak/Czech female surname suffix -ová or ending in -á
+  if (/ová$/i.test(last) || (/á$/i.test(last) && last.length > 2)) return "female";
+  // Rule 2: common Slovak masculine surname suffixes
+  if (/ák$|ač$|áč$|ec$|ík$|ič$|ek$|ský$|cký$/i.test(last)) return "male";
+  // Rule 3: first name ending in -a (overwhelmingly female in SK/CZ)
+  if (/a$/i.test(first) && !["Luca", "Andrea", "Nikita", "Joshua", "Elisha"].includes(first)) return "female";
+  // Rule 4 / fallback: default to male (server's OpenAI fallback also defaults male)
+  return "male";
+}
+
+function computeSalutations(firstName: string, lastName: string, lang: string): { salutation: string; salutationFull: string; salutationDoc: string } {
+  const first = (firstName || "").trim();
+  const last = (lastName || "").trim();
+  if (!first && !last) return { salutation: "", salutationFull: "", salutationDoc: "" };
+  const g = detectSalutationGender(first, last);
+  const l = (lang || "sk").toLowerCase();
+  const pick = (tbl: Record<SalGender, Record<string, string>>) => tbl[g][l] ?? tbl[g]["sk"];
+  return { salutation: pick(SALUTATION_SHORT), salutationFull: pick(SALUTATION_FULL), salutationDoc: pick(SALUTATION_DOC) };
+}
+
+// Split a full contact-person string ("MUDr. Anna Horváthová, PhD.") into first/last,
+// stripping academic titles, so gender detection can work on the bare name.
+function parsePersonName(full: string): { firstName: string; lastName: string } {
+  if (!full) return { firstName: "", lastName: "" };
+  const cleaned = full
+    .replace(/\b(prof|doc|MUDr|MVDr|MDDr|PharmDr|PhDr|RNDr|JUDr|PaedDr|Ing|Mgr|Bc|Dr|PhD|CSc|DrSc|MPH|MBA)\.?\b/gi, "")
+    .replace(/,.*/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const parts = cleaned.split(" ").filter(Boolean);
+  if (parts.length === 0) return { firstName: "", lastName: "" };
+  if (parts.length === 1) return { firstName: "", lastName: parts[0] };
+  return { firstName: parts[0], lastName: parts[parts.length - 1] };
+}
+
 function SentimentBadge({ sentiment, size = "sm" }: { sentiment?: string | null; size?: "sm" | "md" }) {
   if (!sentiment) return null;
   const config: Record<string, { label: string; className: string }> = {
@@ -3283,6 +3339,7 @@ function CommunicationCanvas({
     enabled: !!contact?.id,
   });
 
+  const templateLangRef = useRef<string>("sk");
   const replaceTemplateVars = useCallback((content: string): string => {
     if (!content) return content;
     const selectedAccount = allEmailAccounts.find(a => a.id === selectedFromAccount);
@@ -3292,10 +3349,17 @@ function CommunicationCanvas({
     const hosp = hospitalData as any;
     const collab = collaboratorData as any;
     const doctorFullName = cl ? `${cl.doctorTitle || ""} ${cl.doctorFirstName || ""} ${cl.doctorLastName || ""}`.replace(/\s+/g, " ").trim() : "";
+    const salLang = templateLangRef.current || "sk";
+    const clinicSal = computeSalutations(cl?.doctorFirstName || "", cl?.doctorLastName || "", salLang);
+    const customerSal = computeSalutations(contact?.firstName || "", contact?.lastName || "", salLang);
+    const hospPerson = parsePersonName(hosp?.contactPerson || "");
+    const hospitalSal = computeSalutations(hospPerson.firstName, hospPerson.lastName, salLang);
     const replacements: Record<string, string> = {
       "{{customer.firstName}}": contact?.firstName || "",
       "{{customer.lastName}}": contact?.lastName || "",
       "{{customer.fullName}}": contact ? `${contact.firstName || ""} ${contact.lastName || ""}`.trim() : "",
+      "{{customer.salutation}}": customerSal.salutation,
+      "{{customer.salutationFull}}": customerSal.salutationFull,
       "{{customer.email}}": contact?.email || "",
       "{{customer.email2}}": (contact as any)?.email2 || "",
       "{{customer.phone}}": contact?.phone || "",
@@ -3316,6 +3380,10 @@ function CommunicationCanvas({
       "{{clinic.doctorTitle}}": cl?.doctorTitle || "",
       "{{clinic.doctorFirstName}}": cl?.doctorFirstName || "",
       "{{clinic.doctorLastName}}": cl?.doctorLastName || "",
+      "{{clinic.doctorFullName}}": doctorFullName,
+      "{{clinic.doctorSalutation}}": clinicSal.salutation,
+      "{{clinic.doctorSalutationFull}}": clinicSal.salutationFull,
+      "{{clinic.doctorSalutationDoc}}": clinicSal.salutationDoc,
       "{{clinic.address}}": cl?.address || "",
       "{{clinic.city}}": cl?.city || "",
       "{{clinic.postalCode}}": cl?.postalCode || "",
@@ -3333,6 +3401,9 @@ function CommunicationCanvas({
       "{{hospital.region}}": hosp?.region || "",
       "{{hospital.countryCode}}": hosp?.countryCode || "",
       "{{hospital.contactPerson}}": hosp?.contactPerson || "",
+      "{{hospital.contactPersonSalutation}}": hospitalSal.salutation,
+      "{{hospital.contactPersonSalutationFull}}": hospitalSal.salutationFull,
+      "{{hospital.contactPersonSalutationDoc}}": hospitalSal.salutationDoc,
       "{{hospital.phone}}": hosp?.phone || "",
       "{{hospital.email}}": hosp?.email || "",
       "{{collaborator.titleBefore}}": collab?.titleBefore || (collab ? "MUDr." : ""),
@@ -3395,6 +3466,7 @@ function CommunicationCanvas({
   }, [contact, clinicData, hospitalData, collaboratorData, campaign, user]);
 
   const applyEmailTemplate = useCallback((template: any) => {
+    templateLangRef.current = template.language || "sk";
     const subject = replaceTemplateVars(template.subject || "");
     const hasHtmlContent = !!(template.contentHtml && template.contentHtml.trim().length > 0);
     const contentLooksLikeHtml = !!(template.content && /<[a-zA-Z][^>]*>/.test(template.content));
@@ -3454,6 +3526,7 @@ function CommunicationCanvas({
         if (settings.defaultSmsTemplateId && smsTemplates.length > 0) {
           const tmpl = smsTemplates.find(t => t.id === settings.defaultSmsTemplateId);
           if (tmpl) {
+            templateLangRef.current = tmpl.language || "sk";
             const content = replaceTemplateVars(tmpl.content || "");
             setSmsMessage(content);
             setSelectedSmsTemplateName(tmpl.name);
@@ -3498,6 +3571,7 @@ function CommunicationCanvas({
   const handleSelectSmsTemplate = (templateId: string) => {
     const template = smsTemplates.find(t => t.id === templateId);
     if (template) {
+      templateLangRef.current = template.language || "sk";
       const content = replaceTemplateVars(template.content || "");
       setSmsMessage(content);
       setSelectedSmsTemplateName(template.name);
