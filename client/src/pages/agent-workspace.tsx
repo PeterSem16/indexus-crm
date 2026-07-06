@@ -175,6 +175,7 @@ import { useCall } from "@/contexts/call-context";
 import { format, addBusinessDays, startOfDay, endOfDay, addDays, startOfWeek, endOfWeek, isWithinInterval, isBefore } from "date-fns";
 import { sk } from "date-fns/locale";
 import { useAgentSession } from "@/contexts/agent-session-context";
+import { useAgentSessionHeartbeat } from "@/hooks/use-agent-session-heartbeat";
 import { CustomerDetailsContent } from "@/pages/customers";
 import { StatusBadge } from "@/components/status-badge";
 import { CallRecordingPlayer } from "@/components/call-recording-player";
@@ -8806,6 +8807,7 @@ export default function AgentWorkspacePage() {
   const prevSidebarOpenRef = useRef(sidebarOpen);
 
   const agentSession = useAgentSession();
+  useAgentSessionHeartbeat();
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [currentContact, setCurrentContact] = useState<Customer | null>(null);
   const [currentPhoneOverride, setCurrentPhoneOverride] = useState<string | null>(null);

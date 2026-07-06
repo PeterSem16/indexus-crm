@@ -48114,6 +48114,28 @@ Return ONLY the JSON object.`
     }
   });
 
+  // Presence heartbeat: the agent-workspace (Nexus Pulse) pings this every ~30s while
+  // open so inbound routing knows the agent is genuinely present at their desk. When
+  // the workspace closes, beats stop, lastActiveAt goes stale, and the queue engine
+  // stops selecting this agent's desk — calls fall through to standing forward (mobile).
+  app.post("/api/agent-sessions/:id/heartbeat", requireAuth, async (req, res) => {
+    try {
+      const session = await storage.getAgentSession(req.params.id);
+      if (!session) return res.status(404).json({ error: "Session not found" });
+      if (session.userId !== req.session.user!.id) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      if (session.endedAt) {
+        return res.status(409).json({ error: "Session already ended" });
+      }
+      await storage.updateAgentSession(req.params.id, { lastActiveAt: new Date() });
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("Error updating agent session heartbeat:", error);
+      res.status(500).json({ error: "Failed to record heartbeat" });
+    }
+  });
+
   app.post("/api/agent-sessions/:id/end", requireAuth, async (req, res) => {
     try {
       const activeBreak = await storage.getActiveAgentBreak(req.params.id);

@@ -35,6 +35,14 @@ import { STORAGE_PATHS } from "../config/storage-paths";
 import { AriClient, type AriEvent, type AriChannel } from "./ari-client";
 import { inboundCallWs } from "./inbound-call-ws";
 
+// Presence freshness window. An agent session counts as "present at the queue"
+// (eligible for a desk/PJSIP ring) only if its lastActiveAt is within this window.
+// The agent-workspace (Nexus Pulse) heartbeat refreshes lastActiveAt every ~30s
+// while the workspace is open; once the agent closes it the session goes stale and
+// inbound routing falls through to standing forward (mobile). Keep this >= the client
+// heartbeat interval with margin for background-tab timer throttling.
+const PRESENCE_STALE_MS = 3 * 60 * 1000;
+
 export interface QueuedCall {
   id: string;
   channelId: string;
@@ -2425,7 +2433,7 @@ export class QueueEngine extends EventEmitter {
 
   private async hasLoggedInAgentsDb(queueId: string): Promise<boolean> {
     try {
-      const staleThreshold = new Date(Date.now() - 2 * 60 * 1000);
+      const staleThreshold = new Date(Date.now() - PRESENCE_STALE_MS);
       const activeSessions = await db.select().from(agentSessions)
         .where(and(
           inArray(agentSessions.status, ["available", "break", "busy"]),
@@ -3113,8 +3121,12 @@ export class QueueEngine extends EventEmitter {
 
     console.log(`[QueueEngine] Selecting agent for queue "${queue.name}" (${queue.id}): ${members.length} DB members`);
 
+    const presenceThreshold = new Date(Date.now() - PRESENCE_STALE_MS);
     const activeSessions = await db.select().from(agentSessions)
-      .where(inArray(agentSessions.status, ["available", "break", "busy"]));
+      .where(and(
+        inArray(agentSessions.status, ["available", "break", "busy"]),
+        gt(agentSessions.lastActiveAt, presenceThreshold),
+      ));
 
     const sessionAgentIds: string[] = [];
     for (const session of activeSessions) {
@@ -3279,8 +3291,12 @@ export class QueueEngine extends EventEmitter {
     const members = await db.select().from(queueMembers)
       .where(and(eq(queueMembers.queueId, queue.id), eq(queueMembers.isActive, true)));
 
+    const presenceThreshold = new Date(Date.now() - PRESENCE_STALE_MS);
     const activeSessions = await db.select().from(agentSessions)
-      .where(inArray(agentSessions.status, ["available", "break", "busy"]));
+      .where(and(
+        inArray(agentSessions.status, ["available", "break", "busy"]),
+        gt(agentSessions.lastActiveAt, presenceThreshold),
+      ));
 
     const sessionAgentIds: string[] = [];
     for (const session of activeSessions) {
