@@ -6297,6 +6297,190 @@ function CustomerDocumentsPanel({ customerId }: { customerId: string }) {
   );
 }
 
+// Note badge metadata: color/tint/icon per badge value (i18n labels resolved via t).
+const NOTE_BADGE_META: Record<string, { color: string; bg: string; icon: any }> = {
+  important: { color: "#DC2626", bg: "#FEE2E2", icon: Flag },
+  resolved: { color: "#16A34A", bg: "#DCFCE7", icon: CheckCircle2 },
+  follow_up: { color: "#D97706", bg: "#FEF3C7", icon: Bell },
+};
+const NOTE_BADGE_KEYS = ["important", "resolved", "follow_up"];
+const noteBadgeLabel = (t: any, key: string) =>
+  key === "important" ? t.agentWorkspace.noteBadgeImportant
+  : key === "resolved" ? t.agentWorkspace.noteBadgeResolved
+  : t.agentWorkspace.noteBadgeFollowUp;
+
+interface NoteCardProps {
+  note: { id: string; content: string; userId: string; userName: string; createdAt: string; badge?: string | null };
+  canManage: boolean;
+  onUpdate: (noteId: string, updates: { content?: string; badge?: string | null }) => void;
+  onDelete: (noteId: string) => void;
+  onOpen: (note: any) => void;
+  t: any;
+}
+
+function NoteCard({ note, canManage, onUpdate, onDelete, onOpen, t }: NoteCardProps) {
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState(note.content);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const badgeMeta = note.badge ? NOTE_BADGE_META[note.badge] : null;
+  const BadgeIcon = badgeMeta?.icon;
+
+  const saveEdit = () => {
+    const trimmed = editText.trim();
+    if (!trimmed || trimmed === note.content) { setEditing(false); setEditText(note.content); return; }
+    onUpdate(note.id, { content: trimmed });
+    setEditing(false);
+  };
+
+  return (
+    <div
+      className="rounded-xl transition-all overflow-hidden"
+      style={{
+        background: badgeMeta ? badgeMeta.bg : "hsl(var(--card))",
+        border: `1px solid ${badgeMeta ? badgeMeta.color + "55" : "hsl(var(--border))"}`,
+        borderLeft: `3px solid ${badgeMeta ? badgeMeta.color : "#B5622E"}`,
+      }}
+      data-testid={`note-entry-${note.id}`}
+    >
+      <div className="p-2.5">
+        <div className="flex items-center gap-1.5 mb-1">
+          <User className="h-3 w-3 shrink-0" style={{ color: "#B5622E" }} />
+          <span className="text-[11px] font-semibold truncate text-foreground">{note.userName}</span>
+          <span className="text-[10px] ml-auto shrink-0 text-muted-foreground">
+            {format(new Date(note.createdAt), "d.M. HH:mm", { locale: sk })}
+          </span>
+        </div>
+
+        {badgeMeta && BadgeIcon && (
+          <div className="mb-1.5">
+            <span
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
+              style={{ background: badgeMeta.color, color: "#FFFFFF" }}
+              data-testid={`badge-note-${note.id}`}
+            >
+              <BadgeIcon className="h-3 w-3" />
+              {noteBadgeLabel(t, note.badge!)}
+            </span>
+          </div>
+        )}
+
+        {editing ? (
+          <div className="space-y-1.5">
+            <Textarea
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              className="text-xs resize-none rounded-lg"
+              rows={3}
+              autoFocus
+              data-testid={`textarea-edit-note-${note.id}`}
+            />
+            <div className="flex justify-end gap-1.5">
+              <button
+                onClick={() => { setEditing(false); setEditText(note.content); }}
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium bg-muted text-muted-foreground"
+                data-testid={`btn-cancel-edit-note-${note.id}`}
+              >
+                <X className="h-3 w-3" /> {t.agentWorkspace.noteCancelBtn}
+              </button>
+              <button
+                onClick={saveEdit}
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium text-white"
+                style={{ background: "#B5622E" }}
+                data-testid={`btn-save-edit-note-${note.id}`}
+              >
+                <Check className="h-3 w-3" /> {t.agentWorkspace.noteSaveBtn}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p
+            className="text-xs leading-relaxed text-foreground whitespace-pre-wrap break-words cursor-pointer line-clamp-4"
+            onClick={() => onOpen(note)}
+            data-testid={`text-note-content-${note.id}`}
+          >
+            {note.content}
+          </p>
+        )}
+
+        {canManage && !editing && (
+          confirmDelete ? (
+            <div className="flex items-center justify-end gap-1.5 mt-2">
+              <span className="text-[10px] text-muted-foreground mr-auto">{t.agentWorkspace.noteDeleteConfirm}</span>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-muted text-muted-foreground"
+                data-testid={`btn-cancel-delete-note-${note.id}`}
+              >
+                {t.agentWorkspace.noteCancelBtn}
+              </button>
+              <button
+                onClick={() => { onDelete(note.id); setConfirmDelete(false); }}
+                className="px-2 py-0.5 rounded-md text-[10px] font-bold text-white bg-red-600"
+                data-testid={`btn-confirm-delete-note-${note.id}`}
+              >
+                {t.agentWorkspace.noteDelete}
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1 mt-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    data-testid={`btn-note-badge-${note.id}`}
+                  >
+                    <Tag className="h-3 w-3" /> {t.agentWorkspace.noteBadgeMenu}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-40">
+                  {NOTE_BADGE_KEYS.map((key) => {
+                    const meta = NOTE_BADGE_META[key];
+                    const Ic = meta.icon;
+                    return (
+                      <DropdownMenuItem
+                        key={key}
+                        onClick={() => onUpdate(note.id, { badge: key })}
+                        data-testid={`menu-badge-${key}-${note.id}`}
+                      >
+                        <Ic className="h-3.5 w-3.5 mr-2" style={{ color: meta.color }} />
+                        {noteBadgeLabel(t, key)}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                  {note.badge && (
+                    <DropdownMenuItem
+                      onClick={() => onUpdate(note.id, { badge: null })}
+                      data-testid={`menu-badge-none-${note.id}`}
+                    >
+                      <X className="h-3.5 w-3.5 mr-2" /> {t.agentWorkspace.noteBadgeNone}
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <button
+                onClick={() => { setEditText(note.content); setEditing(true); }}
+                className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                data-testid={`btn-edit-note-${note.id}`}
+              >
+                <Pencil className="h-3 w-3" /> {t.agentWorkspace.noteEdit}
+              </button>
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium text-muted-foreground hover:text-red-600 transition-colors ml-auto"
+                data-testid={`btn-delete-note-${note.id}`}
+                title={t.agentWorkspace.noteDelete}
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
 function CustomerInfoPanel({
   contact,
   contactType,
@@ -6392,6 +6576,7 @@ function CustomerInfoPanel({
 }) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
+  const { user: noteUser } = useAuth();
   const callContext = useCall();
   const [acwElapsed, setAcwElapsed] = useState(0);
   useEffect(() => {
@@ -6423,7 +6608,7 @@ function CustomerInfoPanel({
     return () => clearInterval(iv);
   }, [forwardedCallActive]);
 
-  const [selectedNote, setSelectedNote] = useState<{ content: string; userName: string; createdAt: string } | null>(null);
+  const [selectedNote, setSelectedNote] = useState<{ content: string; userName: string; createdAt: string; badge?: string | null } | null>(null);
 
   // Notes endpoint depends on contact type: customers keep the legacy customer-notes
   // table; clinic/hospital/collaborator use the generic entity-notes endpoint.
@@ -6433,7 +6618,7 @@ function CustomerInfoPanel({
         : `/api/customers/${contact.id}/notes`)
     : null;
 
-  const { data: customerNotes = [], refetch: refetchNotes } = useQuery<Array<{ id: string; content: string; userId: string; userName: string; createdAt: string }>>({
+  const { data: customerNotes = [], refetch: refetchNotes } = useQuery<Array<{ id: string; content: string; userId: string; userName: string; createdAt: string; badge?: string | null }>>({
     queryKey: [notesEndpoint],
     queryFn: async () => {
       const res = await fetch(notesEndpoint!, { credentials: "include" });
@@ -6449,6 +6634,26 @@ function CustomerInfoPanel({
     setNewNote("");
     await onAddNote(noteText);
     refetchNotes();
+  };
+
+  const handleUpdateNote = async (noteId: string, updates: { content?: string; badge?: string | null }) => {
+    if (!notesEndpoint) return;
+    try {
+      await apiRequest("PATCH", `${notesEndpoint}/${noteId}`, updates);
+      refetchNotes();
+    } catch (err) {
+      toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.noteSaveError, variant: "destructive" });
+    }
+  };
+
+  const handleDeleteNote = async (noteId: string) => {
+    if (!notesEndpoint) return;
+    try {
+      await apiRequest("DELETE", `${notesEndpoint}/${noteId}`);
+      refetchNotes();
+    } catch (err) {
+      toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.noteDeleteError, variant: "destructive" });
+    }
   };
 
   if (!contact) {
@@ -7650,24 +7855,15 @@ function CustomerInfoPanel({
               ) : (
                 <div className="space-y-1.5">
                   {customerNotes.slice(0, 10).map((note) => (
-                    <div
+                    <NoteCard
                       key={note.id}
-                      className="p-2.5 rounded-xl cursor-pointer transition-all"
-                      style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}
-                      onClick={() => setSelectedNote(note)}
-                      data-testid={`note-entry-${note.id}`}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 12px #B5622E18"; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = ""; (e.currentTarget as HTMLElement).style.boxShadow = ""; }}
-                    >
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <User className="h-3 w-3 shrink-0" style={{ color: "#B5622E" }} />
-                        <span className="text-[10px] font-medium truncate text-foreground">{note.userName}</span>
-                        <span className="text-[10px] ml-auto shrink-0 text-muted-foreground">
-                          {format(new Date(note.createdAt), "d.M. HH:mm", { locale: sk })}
-                        </span>
-                      </div>
-                      <p className="text-[11px] line-clamp-2 text-foreground/80">{note.content}</p>
-                    </div>
+                      note={note}
+                      canManage={(noteUser as any)?.role === "admin" || note.userId === noteUser?.id}
+                      onUpdate={handleUpdateNote}
+                      onDelete={handleDeleteNote}
+                      onOpen={setSelectedNote}
+                      t={t}
+                    />
                   ))}
                   {customerNotes.length > 10 && (
                     <p className="text-[10px] text-center text-muted-foreground">
@@ -7697,6 +7893,15 @@ function CustomerInfoPanel({
                   <Clock className="h-3.5 w-3.5" />
                   <span>{format(new Date(selectedNote.createdAt), "d.M.yyyy HH:mm", { locale: sk })}</span>
                 </div>
+                {selectedNote.badge && NOTE_BADGE_META[selectedNote.badge] && (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold w-fit"
+                    style={{ background: NOTE_BADGE_META[selectedNote.badge].color, color: "#FFFFFF" }}
+                    data-testid="badge-note-detail"
+                  >
+                    {noteBadgeLabel(t, selectedNote.badge)}
+                  </span>
+                )}
                 <Separator />
                 <div className="text-sm whitespace-pre-wrap">{selectedNote.content}</div>
               </div>

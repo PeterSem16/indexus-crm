@@ -1088,6 +1088,7 @@ export const customerNotes = pgTable("customer_notes", {
   customerId: varchar("customer_id").notNull(),
   userId: varchar("user_id").notNull(),
   content: text("content").notNull(),
+  badge: text("badge"), // null | important | resolved | follow_up
   legacyId: varchar("legacy_id"),
   contractId: varchar("contract_id"),
   dataSource: text("data_source"),
@@ -1103,6 +1104,7 @@ export const entityNotes = pgTable("entity_notes", {
   entityId: varchar("entity_id").notNull(),
   userId: varchar("user_id").notNull(),
   content: text("content").notNull(),
+  badge: text("badge"), // null | important | resolved | follow_up
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 }, (table) => ({
   idxEntityNotesEntity: index("idx_entity_notes_entity").on(table.entityType, table.entityId),

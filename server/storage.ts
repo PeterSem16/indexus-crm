@@ -334,11 +334,13 @@ export interface IStorage {
   getCustomerNotes(customerId: string): Promise<CustomerNote[]>;
   getAllCustomerNotes(): Promise<CustomerNote[]>;
   createCustomerNote(note: InsertCustomerNote): Promise<CustomerNote>;
+  updateCustomerNote(id: string, updates: { content?: string; badge?: string | null }): Promise<CustomerNote | undefined>;
   deleteCustomerNote(id: string): Promise<boolean>;
 
   // Entity Notes (clinic | hospital | collaborator)
   getEntityNotes(entityType: string, entityId: string): Promise<EntityNote[]>;
   createEntityNote(note: InsertEntityNote): Promise<EntityNote>;
+  updateEntityNote(id: string, updates: { content?: string; badge?: string | null }): Promise<EntityNote | undefined>;
   deleteEntityNote(id: string): Promise<boolean>;
 
   // Activity Logs
@@ -2262,6 +2264,18 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  async updateCustomerNote(id: string, updates: { content?: string; badge?: string | null }): Promise<CustomerNote | undefined> {
+    const set: Partial<typeof customerNotes.$inferInsert> = {};
+    if (updates.content !== undefined) set.content = updates.content;
+    if (updates.badge !== undefined) set.badge = updates.badge;
+    if (Object.keys(set).length === 0) {
+      const [existing] = await db.select().from(customerNotes).where(eq(customerNotes.id, id));
+      return existing;
+    }
+    const [updated] = await db.update(customerNotes).set(set).where(eq(customerNotes.id, id)).returning();
+    return updated;
+  }
+
   async deleteCustomerNote(id: string): Promise<boolean> {
     const result = await db.delete(customerNotes).where(eq(customerNotes.id, id)).returning();
     return result.length > 0;
@@ -2276,6 +2290,18 @@ export class DatabaseStorage implements IStorage {
   async createEntityNote(note: InsertEntityNote): Promise<EntityNote> {
     const [created] = await db.insert(entityNotes).values(note).returning();
     return created;
+  }
+
+  async updateEntityNote(id: string, updates: { content?: string; badge?: string | null }): Promise<EntityNote | undefined> {
+    const set: Partial<typeof entityNotes.$inferInsert> = {};
+    if (updates.content !== undefined) set.content = updates.content;
+    if (updates.badge !== undefined) set.badge = updates.badge;
+    if (Object.keys(set).length === 0) {
+      const [existing] = await db.select().from(entityNotes).where(eq(entityNotes.id, id));
+      return existing;
+    }
+    const [updated] = await db.update(entityNotes).set(set).where(eq(entityNotes.id, id)).returning();
+    return updated;
   }
 
   async deleteEntityNote(id: string): Promise<boolean> {

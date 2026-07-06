@@ -12458,7 +12458,19 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   app.delete("/api/customers/:customerId/notes/:noteId", requireAuth, async (req, res) => {
     try {
-      const deleted = await storage.deleteCustomerNote(req.params.noteId);
+      const { customerId, noteId } = req.params;
+      // Scope the lookup to the requested customer so a known note id from another
+      // customer cannot be deleted out of context.
+      const notes = await storage.getCustomerNotes(customerId);
+      const note = notes.find(n => n.id === noteId);
+      if (!note) {
+        return res.status(404).json({ error: "Note not found" });
+      }
+      // Only the note's author or an admin may delete it.
+      if (note.userId !== req.session.user!.id && req.session.user!.role !== "admin") {
+        return res.status(403).json({ error: "Not allowed to delete this note" });
+      }
+      const deleted = await storage.deleteCustomerNote(noteId);
       if (!deleted) {
         return res.status(404).json({ error: "Note not found" });
       }
@@ -12466,6 +12478,58 @@ Return ONLY valid JSON, no markdown code blocks.`,
     } catch (error) {
       console.error("Error deleting customer note:", error);
       res.status(500).json({ error: "Failed to delete note" });
+    }
+  });
+
+  // Allowed note badge values (shared by customer + entity note PATCH routes).
+  const NOTE_BADGE_VALUES = ["important", "resolved", "follow_up"];
+  // Parse/validate a note PATCH body into { content?, badge? }. Returns null and
+  // sends the error response itself when the body is invalid.
+  const parseNoteUpdates = (body: any, res: any): { content?: string; badge?: string | null } | null => {
+    const { content, badge } = body ?? {};
+    const updates: { content?: string; badge?: string | null } = {};
+    if (content !== undefined) {
+      if (typeof content !== "string" || !content.trim()) {
+        res.status(400).json({ error: "Note content cannot be empty" });
+        return null;
+      }
+      updates.content = content;
+    }
+    if (badge !== undefined) {
+      if (badge === null || badge === "") {
+        updates.badge = null;
+      } else if (typeof badge === "string" && NOTE_BADGE_VALUES.includes(badge)) {
+        updates.badge = badge;
+      } else {
+        res.status(400).json({ error: `badge must be null or one of: ${NOTE_BADGE_VALUES.join(", ")}` });
+        return null;
+      }
+    }
+    if (updates.content === undefined && updates.badge === undefined) {
+      res.status(400).json({ error: "Nothing to update" });
+      return null;
+    }
+    return updates;
+  };
+
+  app.patch("/api/customers/:customerId/notes/:noteId", requireAuth, async (req, res) => {
+    try {
+      const { customerId, noteId } = req.params;
+      const notes = await storage.getCustomerNotes(customerId);
+      const note = notes.find(n => n.id === noteId);
+      if (!note) {
+        return res.status(404).json({ error: "Note not found" });
+      }
+      if (note.userId !== req.session.user!.id && req.session.user!.role !== "admin") {
+        return res.status(403).json({ error: "Not allowed to edit this note" });
+      }
+      const updates = parseNoteUpdates(req.body, res);
+      if (!updates) return;
+      const updated = await storage.updateCustomerNote(noteId, updates);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating customer note:", error);
+      res.status(500).json({ error: "Failed to update note" });
     }
   });
 
@@ -12559,6 +12623,30 @@ Return ONLY valid JSON, no markdown code blocks.`,
     } catch (error) {
       console.error("Error deleting entity note:", error);
       res.status(500).json({ error: "Failed to delete note" });
+    }
+  });
+
+  app.patch("/api/entity-notes/:entityType/:entityId/:noteId", requireAuth, async (req, res) => {
+    try {
+      const { entityType, entityId, noteId } = req.params;
+      if (!ENTITY_NOTE_TYPES.includes(entityType as any)) {
+        return res.status(400).json({ error: `entityType must be one of: ${ENTITY_NOTE_TYPES.join(", ")}` });
+      }
+      const notes = await storage.getEntityNotes(entityType, entityId);
+      const note = notes.find(n => n.id === noteId);
+      if (!note) {
+        return res.status(404).json({ error: "Note not found" });
+      }
+      if (note.userId !== req.session.user!.id && req.session.user!.role !== "admin") {
+        return res.status(403).json({ error: "Not allowed to edit this note" });
+      }
+      const updates = parseNoteUpdates(req.body, res);
+      if (!updates) return;
+      const updated = await storage.updateEntityNote(noteId, updates);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating entity note:", error);
+      res.status(500).json({ error: "Failed to update note" });
     }
   });
 

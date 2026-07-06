@@ -261,6 +261,12 @@ app.use((req, res, next) => {
     `);
     console.log('[migration] entity_notes table ensured');
 
+    await pool.query(`
+      ALTER TABLE customer_notes ADD COLUMN IF NOT EXISTS badge text;
+      ALTER TABLE entity_notes ADD COLUMN IF NOT EXISTS badge text;
+    `);
+    console.log('[migration] note badge columns ensured');
+
     // One-time repair for "zombie" callbacks: a previous bug could set
     // status='callback_scheduled' without a callback_date, which the agent queue
     // silently excludes (it requires callback_date IS NOT NULL). Fill the missing
