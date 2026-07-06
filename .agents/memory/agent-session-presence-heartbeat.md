@@ -1,43 +1,20 @@
 ---
-name: Agent presence heartbeat & desk-routing freshness gate
-description: Why inbound queue desk-routing must gate on agentSessions.lastActiveAt freshness and why the presence heartbeat must be workspace-scoped, not app-wide.
+name: Agent presence for inbound desk routing (WebSocket, not heartbeat)
+description: Desk/queue routing decides "agent present" from the live Nexus Pulse WebSocket, not a lastActiveAt freshness window.
 ---
 
-# Inbound desk-routing must gate on session *freshness*, not just an active session
+# Agent presence for inbound desk routing
 
-**Rule:** Queue eligibility (selectAgent + its ring-all twin getAvailableAgents, plus
-hasLoggedInAgentsDb) must require the agent's `agentSessions` row to be *fresh*
-(`lastActiveAt` newer than PRESENCE_STALE_MS), not merely active (status
-available/break/busy, `endedAt` null). A stale, un-ended session must be excluded so
-the call falls through to standing forward (mobile).
+Inbound queue routing (`queue-engine.ts`) decides whether an agent is "present at the desk" from the LIVE Nexus Pulse WebSocket, via `inboundCallWs.isAgentConnected(userId)` — NOT from any `agentSessions.lastActiveAt` freshness window.
 
-**Why:** The SIP softphone registers on app-auth alone (sip-context `canRegister` =
-user.sipEnabled/sipExtension/sipPassword) — completely independent of the agent
-session. So a registered/answering endpoint (PJSIP answering 180) is NOT proof the
-agent is manning the queue. Sessions end ONLY via explicit endSession() — there is no
-unload handler and no sweeper — so closing the tab or leaving the console leaves the
-row "available" forever. Result: the desk rang instead of forwarding to mobile even
-though the agent had left.
+- The agent-workspace opens `/ws/inbound-calls?userId=X` ONLY while a shift session is active, and closes it instantly on tab-close / navigate-away-from-route / session-end (reconnects after ~5s on a network blip).
+- `inboundCallWs` keeps a per-userId socket map in memory and removes the agent instantly on ws close/error. The queue engine runs in the SAME process (pm2 fork, single instance), so this in-memory signal is authoritative.
+- Three routing functions gate on `isAgentConnected`: `hasLoggedInAgentsDb` (whether the no-agents action fires), `selectAgent` (which desk to ring), and `getAvailableAgents`. An agent with an active DB session but NO live socket is treated as logged-out → routing falls through to `tryStandingForward` (mobile).
 
-**How to apply:**
-- No routing sweeper is needed. processQueues re-reads the DB every ~2s tick, so once
-  the stale agent is unselectable, tryStandingForward fires on the SAME queued call.
-- The presence heartbeat that refreshes `lastActiveAt` MUST be workspace-scoped
-  (mounted once inside agent-workspace, gated on isSessionActive). Do NOT move it to
-  AgentSessionProvider / app-wide. The actual bug is an agent whose INDEXUS is still
-  open on OTHER pages (softphone still answers 180, desk rings) with a stale session.
-  An app-wide heartbeat — even gated on isSessionActive — would keep that stale
-  session fresh for as long as INDEXUS is open anywhere, reintroducing the bug. This
-  is fundamental: both "stale forgotten session" and "on-shift agent browsing another
-  page" have an active session + app open, so workspace-console presence is the only
-  proxy that distinguishes them.
-- **Accepted tradeoff:** an on-shift agent who leaves the workspace page for longer
-  than PRESENCE_STALE_MS has inbound calls diverted to mobile. This matches "present
-  at console → desk, otherwise → mobile". Status/break/activity endpoints also refresh
-  lastActiveAt, so only fully-idle browsing on other pages triggers the divert.
-- Heartbeat interval (30s) vs threshold (3min) is safe against background-tab timer
-  throttling (~1/min) and a single missed beat; a visibilitychange->visible beat
-  covers tab-return. Browser fully closed → goes stale (correct: agent unreachable).
-- `lastActiveAt` is a pre-existing NOT NULL column — this change needs no db:push.
-- loadAgentStates (engine startup) reads sessions ungated, but it only seeds in-memory
-  queueIds; per-call eligibility always re-queries with the gate, so it is not a hole.
+**Why:** A time-based freshness window (previously 3 min + a 30s client heartbeat) was rejected by the user: a logged-out agent's call kept WAITING in queue for the whole window instead of forwarding to mobile. WS presence is instant and matches the user's mental model ("Nexus Pulse open = here, closed = gone"). The softphone/PJSIP registers on app-auth alone (not tied to the shift session), so registration cannot serve as the presence signal — the WS is the only reliable "in Nexus Pulse right now" signal.
+
+**How to apply:** Do NOT reintroduce a `lastActiveAt`/`PRESENCE_STALE_MS` freshness gate or a session heartbeat for desk routing. If presence needs to tolerate WS blips, extend the WS layer (e.g. a brief grace period on close), not a DB-timestamp window. `agentSessions.lastActiveAt` still updates on status/break changes and is fine for stats; SessionCleanup uses `userSessions.lastActivityAt` (a DIFFERENT table), so removing the heartbeat did not affect it.
+
+**Accepted tradeoff / edge windows:** the ~5s WS-reconnect blip and the post-deploy restart window briefly show everyone as "not present" (calls divert to mobile); an on-shift agent who navigates OFF the agent-workspace route is instantly diverted to mobile — all confirmed acceptable/desired.
+
+**Security follow-up (pre-existing):** the `/ws/inbound-calls` upgrade handler does NOT authenticate — it trusts `?userId=` from the client. Since this socket is now the routing authority, a spoofed connection could fake presence or leak caller info. Fix: validate the session cookie in the upgrade handler and derive userId server-side.

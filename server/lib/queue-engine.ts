@@ -2,7 +2,7 @@ import { EventEmitter } from "events";
 import * as fs from "fs";
 import * as path from "path";
 import { db } from "../db";
-import { eq, and, inArray, isNotNull, asc, desc, sql, gt } from "drizzle-orm";
+import { eq, and, inArray, isNotNull, asc, desc, sql } from "drizzle-orm";
 import {
   inboundQueues,
   queueMembers,
@@ -35,13 +35,12 @@ import { STORAGE_PATHS } from "../config/storage-paths";
 import { AriClient, type AriEvent, type AriChannel } from "./ari-client";
 import { inboundCallWs } from "./inbound-call-ws";
 
-// Presence freshness window. An agent session counts as "present at the queue"
-// (eligible for a desk/PJSIP ring) only if its lastActiveAt is within this window.
-// The agent-workspace (Nexus Pulse) heartbeat refreshes lastActiveAt every ~30s
-// while the workspace is open; once the agent closes it the session goes stale and
-// inbound routing falls through to standing forward (mobile). Keep this >= the client
-// heartbeat interval with margin for background-tab timer throttling.
-const PRESENCE_STALE_MS = 3 * 60 * 1000;
+// Agent presence for desk/PJSIP routing is derived from the LIVE Nexus Pulse
+// WebSocket (inboundCallWs). The agent-workspace opens /ws/inbound-calls only while a
+// shift is active and closes it the instant the page is left or the tab is closed, so
+// inboundCallWs.isAgentConnected(userId) is an immediate, reliable "in Nexus Pulse
+// right now" signal. When the agent is not connected, inbound routing falls straight
+// through to standing forward (mobile) — no time-based staleness window.
 
 export interface QueuedCall {
   id: string;
@@ -2433,12 +2432,8 @@ export class QueueEngine extends EventEmitter {
 
   private async hasLoggedInAgentsDb(queueId: string): Promise<boolean> {
     try {
-      const staleThreshold = new Date(Date.now() - PRESENCE_STALE_MS);
       const activeSessions = await db.select().from(agentSessions)
-        .where(and(
-          inArray(agentSessions.status, ["available", "break", "busy"]),
-          gt(agentSessions.lastActiveAt, staleThreshold),
-        ));
+        .where(inArray(agentSessions.status, ["available", "break", "busy"]));
       const members = await db.select().from(queueMembers)
         .where(and(eq(queueMembers.queueId, queueId), eq(queueMembers.isActive, true)));
       const memberUserIds = new Set(members.map(m => m.userId));
@@ -2453,7 +2448,8 @@ export class QueueEngine extends EventEmitter {
       const allCandidateIds = [...new Set([...memberUserIds, ...sessionAgentIdsForQueue])];
       console.log(`[QueueEngine] hasLoggedInAgentsDb queue=${queueId}: activeSessions=${activeSessions.length} forQueue=${sessionAgentIdsForQueue.size} candidates=${allCandidateIds.length}`);
       for (const userId of allCandidateIds) {
-        if (activeSessionUserIds.has(userId) && sessionAgentIdsForQueue.has(userId)) {
+        // Present = active shift session for this queue AND a live Nexus Pulse socket.
+        if (activeSessionUserIds.has(userId) && sessionAgentIdsForQueue.has(userId) && inboundCallWs.isAgentConnected(userId)) {
           return true;
         }
       }
@@ -3121,12 +3117,8 @@ export class QueueEngine extends EventEmitter {
 
     console.log(`[QueueEngine] Selecting agent for queue "${queue.name}" (${queue.id}): ${members.length} DB members`);
 
-    const presenceThreshold = new Date(Date.now() - PRESENCE_STALE_MS);
     const activeSessions = await db.select().from(agentSessions)
-      .where(and(
-        inArray(agentSessions.status, ["available", "break", "busy"]),
-        gt(agentSessions.lastActiveAt, presenceThreshold),
-      ));
+      .where(inArray(agentSessions.status, ["available", "break", "busy"]));
 
     const sessionAgentIds: string[] = [];
     for (const session of activeSessions) {
@@ -3148,6 +3140,10 @@ export class QueueEngine extends EventEmitter {
       }
       if (!sessionAgentIdSet.has(id)) {
         console.log(`[QueueEngine]   Skipping agent ${id}: active session but queue "${queue.name}" not selected`);
+        return false;
+      }
+      if (!inboundCallWs.isAgentConnected(id)) {
+        console.log(`[QueueEngine]   Skipping agent ${id}: Nexus Pulse not open (no live socket) → treated as logged out, routing to standing forward`);
         return false;
       }
       return true;
@@ -3291,12 +3287,8 @@ export class QueueEngine extends EventEmitter {
     const members = await db.select().from(queueMembers)
       .where(and(eq(queueMembers.queueId, queue.id), eq(queueMembers.isActive, true)));
 
-    const presenceThreshold = new Date(Date.now() - PRESENCE_STALE_MS);
     const activeSessions = await db.select().from(agentSessions)
-      .where(and(
-        inArray(agentSessions.status, ["available", "break", "busy"]),
-        gt(agentSessions.lastActiveAt, presenceThreshold),
-      ));
+      .where(inArray(agentSessions.status, ["available", "break", "busy"]));
 
     const sessionAgentIds: string[] = [];
     for (const session of activeSessions) {
@@ -3310,7 +3302,7 @@ export class QueueEngine extends EventEmitter {
     const activeSessionUserIds = new Set(activeSessions.map(s => s.userId));
     const sessionAgentIdSet = new Set(sessionAgentIds);
     const allAgentIds = [...new Set([...memberUserIds, ...sessionAgentIds])].filter(id =>
-      activeSessionUserIds.has(id) && sessionAgentIdSet.has(id)
+      activeSessionUserIds.has(id) && sessionAgentIdSet.has(id) && inboundCallWs.isAgentConnected(id)
     );
 
     if (allAgentIds.length === 0) return [];
