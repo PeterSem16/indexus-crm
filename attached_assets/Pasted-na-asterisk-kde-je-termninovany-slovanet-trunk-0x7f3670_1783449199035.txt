@@ -1,0 +1,162 @@
+na asterisk kde je termninovany slovanet trunk:  
+
+
+> 0x7f367001d990 -- Strict RTP learning after remote address set to: 195.28.88.42:22306
+    -- Executing [0232399030@from-sk-inbound:1] NoOp("SIP/SLOVANET-VGW-000000ee", "INDEXUS OVERRIDE TO MEDIAGTW DID=0232399030 FROM=0491723627488 UNIQUEID=1783448626.1996") in new stack
+    -- Executing [0232399030@from-sk-inbound:2] ExecIf("SIP/SLOVANET-VGW-000000ee", "0?Set(CALLERID(num)=1723627488)") in new stack
+    -- Executing [0232399030@from-sk-inbound:3] Set("SIP/SLOVANET-VGW-000000ee", "__DID_INB=0232399030") in new stack
+    -- Executing [0232399030@from-sk-inbound:4] Set("SIP/SLOVANET-VGW-000000ee", "__DID_Date=07-07-2026 20:23:46") in new stack
+    -- Executing [0232399030@from-sk-inbound:5] Dial("SIP/SLOVANET-VGW-000000ee", "SIP/mediagtw/0232399030,60") in new stack
+  == Using SIP RTP CoS mark 5
+    -- Called SIP/mediagtw/0232399030
+       > 0x7f362400b8f0 -- Strict RTP learning after remote address set to: 10.1.2.112:10390
+    -- SIP/mediagtw-000000ef answered SIP/SLOVANET-VGW-000000ee
+    -- Channel SIP/mediagtw-000000ef joined 'simple_bridge' basic-bridge <58cc4037-ab24-410d-83fb-2f8f947e888e>
+    -- Channel SIP/SLOVANET-VGW-000000ee joined 'simple_bridge' basic-bridge <58cc4037-ab24-410d-83fb-2f8f947e888e>
+       > Bridge 58cc4037-ab24-410d-83fb-2f8f947e888e: switching from simple_bridge technology to native_rtp
+       > Locally RTP bridged 'SIP/SLOVANET-VGW-000000ee' and 'SIP/mediagtw-000000ef' in stack
+       > 0x7f367001d990 -- Strict RTP switching to RTP target address 195.28.88.42:22306 as source
+       > 0x7f362400b8f0 -- Strict RTP switching to RTP target address 10.1.2.112:10390 as source
+       > 0x7f367001d990 -- Strict RTP learning complete - Locking on source address 195.28.88.42:22306
+       > 0x7f362400b8f0 -- Strict RTP learning complete - Locking on source address 10.1.2.112:10390
+  == Using SIP RTP CoS mark 5
+       > 0x7f3670022d10 -- Strict RTP learning after remote address set to: 10.1.2.112:17946
+    -- Executing [0948519438@from-mediagtw:1] NoOp("SIP/mediagtw-000000f0", "OUTBOUND FROM NEW ASTERISK EXTEN=0948519438 CID="0491723627488" <0491723627488>") in new stack
+    -- Executing [0948519438@from-mediagtw:2] AGI("SIP/mediagtw-000000f0", "agi://127.0.0.1:4577/call_log") in new stack
+    -- <SIP/mediagtw-000000f0>AGI Script agi://127.0.0.1:4577/call_log completed, returning 0
+    -- Executing [0948519438@from-mediagtw:3] NoOp("SIP/mediagtw-000000f0", "FROM-MEDIAGTW: keeping CID=0491723627488 for dest=0948519438") in new stack
+    -- Executing [0948519438@from-mediagtw:4] Dial("SIP/mediagtw-000000f0", "SIP/SLOVANET-VGW/0948519438,,tToR") in new stack
+  == Using SIP RTP CoS mark 5
+    -- Called SIP/SLOVANET-VGW/0948519438
+    -- SIP/SLOVANET-VGW-000000f1 is ringing
+  == Manager 'sendcron' logged on from 127.0.0.1
+  == Manager 'sendcron' logged on from 127.0.0.1
+  == Manager 'sendcron' logged off from 127.0.0.1
+       > 0x7f3630006d70 -- Strict RTP learning after remote address set to: 195.28.88.42:22308
+    -- SIP/SLOVANET-VGW-000000f1 is ringing
+    -- SIP/SLOVANET-VGW-000000f1 is making progress passing it to SIP/mediagtw-000000f0
+    
+    
+    
+    
+    
+    na mdgtw
+    
+    [Jul  7 18:21:23] WARNING[577519]: pjproject: <?>: 	     tsx0x720f58236928 ..Error sending Response msg 200/REGISTER/cseq=4 (tdta0x720f580707f8): Unknown Error (PJ_EUNKNOWN)
+    -- Executing [0232399030@from-sk-trunk:1] NoOp("PJSIP/trunk-sk-endpoint-000000b6", "INBOUND from SK trunk DID=0232399030 CID="" <0491723627488>") in new stack
+    -- Executing [0232399030@from-sk-trunk:2] Set("PJSIP/trunk-sk-endpoint-000000b6", "__CBC_SOURCE_TRUNK=SK") in new stack
+    -- Executing [0232399030@from-sk-trunk:3] Set("PJSIP/trunk-sk-endpoint-000000b6", "__CBC_SOURCE_IP=10.9.33.2") in new stack
+    -- Executing [0232399030@from-sk-trunk:4] Set("PJSIP/trunk-sk-endpoint-000000b6", "__CBC_DID=0232399030") in new stack
+    -- Executing [0232399030@from-sk-trunk:5] Set("PJSIP/trunk-sk-endpoint-000000b6", "__CBC_CALLER=0491723627488") in new stack
+    -- Executing [0232399030@from-sk-trunk:6] Stasis("PJSIP/trunk-sk-endpoint-000000b6", "indexus-inbound") in new stack
+    -- <PJSIP/trunk-sk-endpoint-000000b6> Playing 'custom/moh-slow-jazz.slin' (language 'en')
+[Jul  7 18:23:46] NOTICE[600427][C-00000098]: res_stasis_playback.c:277 playback_final_update: 1783448626.510: Playback stopped for sound:custom/moh-slow-jazz
+    -- <PJSIP/trunk-sk-endpoint-000000b6> Playing 'custom/moh-slow-jazz.slin' (language 'en')
+    -- Called 421948519438@from-internal-sk/n
+    -- Executing [421948519438@from-internal-sk:1] NoOp("Local/421948519438@from-internal-sk-00000052;2", "from-internal-sk 421 forward to 421948519438") in new stack
+    -- Executing [421948519438@from-internal-sk:2] Set("Local/421948519438@from-internal-sk-00000052;2", "OUTNUM=0948519438") in new stack
+    -- Executing [421948519438@from-internal-sk:3] NoOp("Local/421948519438@from-internal-sk-00000052;2", "Normalized SK: 0948519438") in new stack
+    -- Executing [421948519438@from-internal-sk:4] ExecIf("Local/421948519438@from-internal-sk-00000052;2", "1?Set(CALLERID(num)=0491723627488)") in new stack
+    -- Executing [421948519438@from-internal-sk:5] ExecIf("Local/421948519438@from-internal-sk-00000052;2", "1?Set(CALLERID(name)=0491723627488)") in new stack
+    -- Executing [421948519438@from-internal-sk:6] ExecIf("Local/421948519438@from-internal-sk-00000052;2", "0?MixMonitor(/var/spool/asterisk/monitor/.wav,v(1)V(1))") in new stack
+    -- Executing [421948519438@from-internal-sk:7] Dial("Local/421948519438@from-internal-sk-00000052;2", "PJSIP/0948519438@trunk-sk-endpoint,60") in new stack
+    -- Called PJSIP/0948519438@trunk-sk-endpoint
+    -- PJSIP/trunk-sk-endpoint-000000b7 is ringing
+    -- Local/421948519438@from-internal-sk-00000052;1 is ringing
+    -- PJSIP/trunk-sk-endpoint-000000b7 is ringing
+    -- PJSIP/trunk-sk-endpoint-000000b7 is making progress passing it to Local/421948519438@from-internal-sk-00000052;2
+    -- Local/421948519438@from-internal-sk-00000052;1 is making progress
+[Jul  7 18:24:16] WARNING[600427][C-00000098]: res_stasis_playback.c:280 playback_final_update: 1783448626.510: Playback failed for sound:custom/moh-slow-jazz
+  == Spawn extension (from-internal-sk, 421948519438, 7) exited non-zero on 'Local/421948519438@from-internal-sk-00000052;2'
+  
+  
+  
+  
+  pokus sk na sk 
+  
+  
+  na asterisk kde je terminovany slovanet ucet 
+  
+  
+      -- Executing [0232399030@from-sk-inbound:1] NoOp("SIP/SLOVANET-VGW-000000fc", "INDEXUS OVERRIDE TO MEDIAGTW DID=0232399030 FROM=0421911163316 UNIQUEID=1783449040.2017") in new stack
+    -- Executing [0232399030@from-sk-inbound:2] ExecIf("SIP/SLOVANET-VGW-000000fc", "0?Set(CALLERID(num)=1911163316)") in new stack
+    -- Executing [0232399030@from-sk-inbound:3] Set("SIP/SLOVANET-VGW-000000fc", "__DID_INB=0232399030") in new stack
+    -- Executing [0232399030@from-sk-inbound:4] Set("SIP/SLOVANET-VGW-000000fc", "__DID_Date=07-07-2026 20:30:40") in new stack
+    -- Executing [0232399030@from-sk-inbound:5] Dial("SIP/SLOVANET-VGW-000000fc", "SIP/mediagtw/0232399030,60") in new stack
+  == Using SIP RTP CoS mark 5
+    -- Called SIP/mediagtw/0232399030
+       > 0x7f36400068c0 -- Strict RTP learning after remote address set to: 10.1.2.112:18024
+    -- SIP/mediagtw-000000fd answered SIP/SLOVANET-VGW-000000fc
+    -- Channel SIP/mediagtw-000000fd joined 'simple_bridge' basic-bridge <1fb408f5-5e9e-4870-a826-fb7425b5ed5d>
+    -- Channel SIP/SLOVANET-VGW-000000fc joined 'simple_bridge' basic-bridge <1fb408f5-5e9e-4870-a826-fb7425b5ed5d>
+       > Bridge 1fb408f5-5e9e-4870-a826-fb7425b5ed5d: switching from simple_bridge technology to native_rtp
+       > Locally RTP bridged 'SIP/SLOVANET-VGW-000000fc' and 'SIP/mediagtw-000000fd' in stack
+       > 0x7f367001d990 -- Strict RTP switching to RTP target address 195.28.88.42:22320 as source
+       > 0x7f36400068c0 -- Strict RTP switching to RTP target address 10.1.2.112:18024 as source
+       > 0x7f367001d990 -- Strict RTP learning complete - Locking on source address 195.28.88.42:22320
+       > 0x7f36400068c0 -- Strict RTP learning complete - Locking on source address 10.1.2.112:18024
+  == Using SIP RTP CoS mark 5
+       > 0x7f3670025dc0 -- Strict RTP learning after remote address set to: 10.1.2.112:14398
+    -- Executing [0948519438@from-mediagtw:1] NoOp("SIP/mediagtw-000000fe", "OUTBOUND FROM NEW ASTERISK EXTEN=0948519438 CID="0911163316" <0911163316>") in new stack
+    -- Executing [0948519438@from-mediagtw:2] AGI("SIP/mediagtw-000000fe", "agi://127.0.0.1:4577/call_log") in new stack
+    -- <SIP/mediagtw-000000fe>AGI Script agi://127.0.0.1:4577/call_log completed, returning 0
+    -- Executing [0948519438@from-mediagtw:3] NoOp("SIP/mediagtw-000000fe", "FROM-MEDIAGTW: keeping CID=0911163316 for dest=0948519438") in new stack
+    -- Executing [0948519438@from-mediagtw:4] Dial("SIP/mediagtw-000000fe", "SIP/SLOVANET-VGW/0948519438,,tToR") in new stack
+  == Using SIP RTP CoS mark 5
+    -- Called SIP/SLOVANET-VGW/0948519438
+    -- SIP/SLOVANET-VGW-000000ff is ringing
+       > 0x7f3648007120 -- Strict RTP learning after remote address set to: 195.28.88.42:22322
+    -- SIP/SLOVANET-VGW-000000ff is ringing
+    -- SIP/SLOVANET-VGW-000000ff is making progress passing it to SIP/mediagtw-000000fe
+       > 0x7f3648007120 -- Strict RTP switching to RTP target address 195.28.88.42:22322 as source
+    -- Got SIP response 486 "Busy Here" back from 195.28.88.42:5060
+    -- SIP/SLOVANET-VGW-000000ff is busy
+  == Everyone is busy/congested at this time (1:1/0/0)
+  
+  
+  
+  na mediagtw
+  
+  
+     -- Executing [0232399030@from-sk-trunk:1] NoOp("PJSIP/trunk-sk-endpoint-000000bd", "INBOUND from SK trunk DID=0232399030 CID="" <0421911163316>") in new stack
+    -- Executing [0232399030@from-sk-trunk:2] Set("PJSIP/trunk-sk-endpoint-000000bd", "__CBC_SOURCE_TRUNK=SK") in new stack
+    -- Executing [0232399030@from-sk-trunk:3] Set("PJSIP/trunk-sk-endpoint-000000bd", "__CBC_SOURCE_IP=10.9.33.2") in new stack
+    -- Executing [0232399030@from-sk-trunk:4] Set("PJSIP/trunk-sk-endpoint-000000bd", "__CBC_DID=0232399030") in new stack
+    -- Executing [0232399030@from-sk-trunk:5] Set("PJSIP/trunk-sk-endpoint-000000bd", "__CBC_CALLER=0421911163316") in new stack
+    -- Executing [0232399030@from-sk-trunk:6] Stasis("PJSIP/trunk-sk-endpoint-000000bd", "indexus-inbound") in new stack
+    -- <PJSIP/trunk-sk-endpoint-000000bd> Playing 'custom/moh-slow-jazz.slin' (language 'en')
+[Jul  7 18:30:41] NOTICE[600488][C-0000009f]: res_stasis_playback.c:277 playback_final_update: 1783449040.534: Playback stopped for sound:custom/moh-slow-jazz
+    -- <PJSIP/trunk-sk-endpoint-000000bd> Playing 'custom/moh-slow-jazz.slin' (language 'en')
+    -- Called 421948519438@from-internal-sk/n
+    -- Executing [421948519438@from-internal-sk:1] NoOp("Local/421948519438@from-internal-sk-00000057;2", "from-internal-sk 421 forward to 421948519438") in new stack
+    -- Executing [421948519438@from-internal-sk:2] Set("Local/421948519438@from-internal-sk-00000057;2", "OUTNUM=0948519438") in new stack
+    -- Executing [421948519438@from-internal-sk:3] NoOp("Local/421948519438@from-internal-sk-00000057;2", "Normalized SK: 0948519438") in new stack
+    -- Executing [421948519438@from-internal-sk:4] ExecIf("Local/421948519438@from-internal-sk-00000057;2", "1?Set(CALLERID(num)=0911163316)") in new stack
+    -- Executing [421948519438@from-internal-sk:5] ExecIf("Local/421948519438@from-internal-sk-00000057;2", "1?Set(CALLERID(name)=0911163316)") in new stack
+    -- Executing [421948519438@from-internal-sk:6] ExecIf("Local/421948519438@from-internal-sk-00000057;2", "0?MixMonitor(/var/spool/asterisk/monitor/.wav,v(1)V(1))") in new stack
+    -- Executing [421948519438@from-internal-sk:7] Dial("Local/421948519438@from-internal-sk-00000057;2", "PJSIP/0948519438@trunk-sk-endpoint,60") in new stack
+    -- Called PJSIP/0948519438@trunk-sk-endpoint
+    -- PJSIP/trunk-sk-endpoint-000000be is ringing
+    -- Local/421948519438@from-internal-sk-00000057;1 is ringing
+    -- PJSIP/trunk-sk-endpoint-000000be is ringing
+    -- PJSIP/trunk-sk-endpoint-000000be is making progress passing it to Local/421948519438@from-internal-sk-00000057;2
+    -- Local/421948519438@from-internal-sk-00000057;1 is making progress
+  == Everyone is busy/congested at this time (1:1/0/0)
+    -- Executing [421948519438@from-internal-sk:8] Hangup("Local/421948519438@from-internal-sk-00000057;2", "") in new stack
+  == Spawn extension (from-internal-sk, 421948519438, 8) exited non-zero on 'Local/421948519438@from-internal-sk-00000057;2'
+    -- Called 421948519438@from-internal-sk/n
+    -- Executing [421948519438@from-internal-sk:1] NoOp("Local/421948519438@from-internal-sk-00000058;2", "from-internal-sk 421 forward to 421948519438") in new stack
+    -- Executing [421948519438@from-internal-sk:2] Set("Local/421948519438@from-internal-sk-00000058;2", "OUTNUM=0948519438") in new stack
+    -- Executing [421948519438@from-internal-sk:3] NoOp("Local/421948519438@from-internal-sk-00000058;2", "Normalized SK: 0948519438") in new stack
+    -- Executing [421948519438@from-internal-sk:4] ExecIf("Local/421948519438@from-internal-sk-00000058;2", "1?Set(CALLERID(num)=0911163316)") in new stack
+    -- Executing [421948519438@from-internal-sk:5] ExecIf("Local/421948519438@from-internal-sk-00000058;2", "1?Set(CALLERID(name)=0911163316)") in new stack
+    -- Executing [421948519438@from-internal-sk:6] ExecIf("Local/421948519438@from-internal-sk-00000058;2", "0?MixMonitor(/var/spool/asterisk/monitor/.wav,v(1)V(1))") in new stack
+    -- Executing [421948519438@from-internal-sk:7] Dial("Local/421948519438@from-internal-sk-00000058;2", "PJSIP/0948519438@trunk-sk-endpoint,60") in new stack
+    -- Called PJSIP/0948519438@trunk-sk-endpoint
+    -- PJSIP/trunk-sk-endpoint-000000bf is ringing
+    -- Local/421948519438@from-internal-sk-00000058;1 is ringing
+    -- PJSIP/trunk-sk-endpoint-000000bf is ringing
+    -- PJSIP/trunk-sk-endpoint-000000bf is making progress passing it to Local/421948519438@from-internal-sk-00000058;2
+    -- Local/421948519438@from-internal-sk-00000058;1 is making progress
+  
+  
