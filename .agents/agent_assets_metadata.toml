@@ -138,3 +138,9 @@ id = "Bolkokiel2X4SMZZ90WvO"
 uri = "file://attached_assets/INDEXUS_KPI_System_Agenti.xlsx"
 type = "table"
 title = "INDEXUS — KPI Systém Agentov (Nexus Pulse & Missions)"
+
+[[outputs]]
+id = "fvrhqjtYkvzPDqI_Lou7w"
+uri = "file://docs/slovanet-callerid-test-summary.md"
+type = "text"
+title = "Sumár testovania Caller ID pri presmerovaní — pre SLOVANET support"
