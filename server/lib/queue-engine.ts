@@ -1356,6 +1356,39 @@ export class QueueEngine extends EventEmitter {
     }
   }
 
+  /**
+   * Format a caller number (CLI) for presentation on the SK trunk toward SLOVANET.
+   * SLOVANET requires SK calling numbers in national 10-digit form (0XXXXXXXXX);
+   * the upstream DialLog/ViciDial box delivers SK callers as "0" + full
+   * international (e.g. +421 911 163 316 arrives as 0421911163316). Presenting
+   * that verbatim is malformed — SLOVANET treats the leading 0 as a national
+   * trunk code, strips it and re-prepends 421 → 421421911163316 → rejected (486).
+   * This converts only the SK international/malformed forms to national 0-form;
+   * foreign numbers and already-national numbers are returned untouched (foreign
+   * forwards already connect). It does NOT change the dial target or the number
+   * stored/displayed in the CRM — only the CLI presented to the trunk.
+   */
+  private formatSkCliForTrunk(raw: string): string {
+    const cleaned = (raw || "").replace(/[^\d+]/g, "");
+    if (!cleaned) return "";
+    // SK national significant number is always 9 digits (e.g. 911163316), so any
+    // SK form carrying the 421 country code is clearly longer than a genuine
+    // national number (max 10 digits incl. the trunk 0) — length disambiguates a
+    // real 042x landline (10 digits) from the malformed 0+421… form (13 digits).
+    let sk9: string | null = null;
+    if (cleaned.startsWith("+421") && cleaned.length >= 13) {
+      sk9 = cleaned.slice(4);            // +421911163316 → 911163316
+    } else if (cleaned.startsWith("00421") && cleaned.length >= 14) {
+      sk9 = cleaned.slice(5);            // 00421911163316 → 911163316
+    } else if (cleaned.startsWith("0421") && cleaned.length >= 13) {
+      sk9 = cleaned.slice(4);            // 0421911163316 (0+intl) → 911163316
+    } else if (cleaned.startsWith("421") && cleaned.length === 12) {
+      sk9 = cleaned.slice(3);            // 421911163316 → 911163316
+    }
+    if (sk9) return "0" + sk9;           // national form SLOVANET accepts
+    return cleaned;                       // national/foreign — leave untouched
+  }
+
   private async forwardToExternalNumber(channelId: string, number: string, opts?: { fallbackDid?: string | null; callerNumber?: string | null }): Promise<void> {
     // Fetch sourceTrunk BEFORE stopping MOH so we know whether to defer the stop.
     // For RO inbound: MOH must keep playing until the ARI bridge is ready (see below).
@@ -1524,6 +1557,8 @@ export class QueueEngine extends EventEmitter {
     if (!fwdCid) {
       try { const ch = await this.ariClient.getChannel(channelId); fwdCid = ch?.caller?.number || ""; } catch {}
     }
+    // Normalize SK CLI to the national form SLOVANET requires (see formatSkCliForTrunk).
+    fwdCid = this.formatSkCliForTrunk(fwdCid);
     if (fwdCid) {
       try {
         await this.ariClient.setChannelVariable(channelId, "CALLERID(num)", fwdCid);
@@ -2596,10 +2631,11 @@ export class QueueEngine extends EventEmitter {
       // Present the REAL caller number on the agent's mobile. The from-internal-<cc>
       // dialplan derives the outbound CLI from the CBC_CALLER channel var (ExecIf LEN>0),
       // NOT from the originate callerId; and inherited vars must be __-prefixed to cross
-      // the Local ;1->;2 leg — so pass __CBC_CALLER in the originate body. This is a raw,
-      // unmodified number (no normalize/anon/DID rewrite — every SK CLI format 486s
-      // carrier-side regardless); it only fixes the DISPLAY on calls that connect.
-      const cbcCaller = (call.callerNumber || "").replace(/\s/g, "");
+      // the Local ;1->;2 leg — so pass __CBC_CALLER in the originate body. SLOVANET
+      // requires SK CLI in national 0-form; the upstream DialLog box delivers it as
+      // "0"+international (0421…) which SLOVANET rejects as malformed — normalize it
+      // (see formatSkCliForTrunk). Only the presented CLI changes, not the dial target.
+      const cbcCaller = this.formatSkCliForTrunk(call.callerNumber || "");
       const localChannel = await this.ariClient.originateChannel(
         `Local/${norm}@${ctx}/n`,
         norm,

@@ -5,6 +5,15 @@ description: How the from-internal-* dialplan derives outbound CLI (CBC_CALLER) 
 
 # Forwarded-call caller-ID (CBC_CALLER) and desk-first routing
 
+## ⭐⭐ AUTHORITATIVE OPERATOR CORRECTION (supersedes the "carrier-side, never touch CLI" conclusion below for the FORMAT question)
+SLOVANET (the operator) replied to our test summary and reframed the whole thing:
+- **Our earlier "every SK CLI format 486s" traces were on the WRONG leg.** They were the trunk toward the **DialLog/ViciDial box** (`10.9.33.2` / `195.28.88.42`), NOT SLOVANET's real voice gateway (`212.55.232.229`). SLOVANET **could not even find** those calls in their logs, and the times didn't match (they saw calls to `0948519438` starting only ~18:06, we claimed 16:40). So the "clean national 0911163316 also 486s" and "anonymous also 486s" claims below were NOT proven against SLOVANET's gateway — treat them as unconfirmed.
+- **The CLI we send IS malformed.** In `From:` we present `0421911163316` = `0` + full international `421911163316`. SLOVANET reads the leading `0` as a national trunk code, strips it and re-prepends `421` → **`421421911163316`** (double country code) → rejected. Their reference call 5.7.2026 17:38:15 `+421421911163316`→`+421948519438` got 486 q.850 cause=17 right after 183.
+- **Correct formats SLOVANET wants for SK CLI:** national 10-digit `0911163316`, OR international `00421911163316`.
+- **Fix deployed (queue-engine.ts `formatSkCliForTrunk`):** at BOTH forward CLI points (`forwardToExternalNumber` fwdCid, `connectCallToStandingAgent` cbcCaller) convert SK international/malformed forms (`+421…`/`0421…`≥13/`00421…`/bare `421…`==12) → national `0`+9-digit NSN. Foreign and genuine-national numbers (incl. a real 10-digit `042x` landline) are left UNTOUCHED (length guard: SK NSN is always 9 digits, so the malformed `0421…` is 13 digits vs a real `042x` landline's 10). Only the presented CLI changes — never the dial target or the CRM-stored number.
+- **STATUS: pending live confirmation.** SLOVANET frames the malformed-CLI as a *hypothesis* ("we'll at least rule out/confirm malformed formatting") — not a guaranteed fix; cause=17 could still be a handset SPAM-list or terminating-operator screening. User will run test calls with the corrected format and send SLOVANET a simple call list (date/time, calling number, originally-called number, forwarded-to number). If SK forwards STILL 486 with a correct national CLI reaching gateway `212.55.232.229`, THEN the carrier-side/anti-spoofing theory below regains weight.
+- **Why this reversal is trustworthy:** SLOVANET is the operator with their own gateway logs; their word + gateway traces override our inference from the intermediary DialLog box. Do not re-assert "format is a dead end" without a live trace captured at `212.55.232.229` (not the DialLog box) showing a correct national CLI still failing.
+
 ## ✅ ACTUAL RESOLUTION Jul-5: prod ran the CLI-mangling commit; the revert was un-pushed
 The user's live "caller ID is broken, you ruined it" was NOT a new carrier issue — origin/main (what
 CORPCRM01 pulls) was sitting on the `normalizeSkCallerId(fwdCid)` commit, which REWRITES the forwarded

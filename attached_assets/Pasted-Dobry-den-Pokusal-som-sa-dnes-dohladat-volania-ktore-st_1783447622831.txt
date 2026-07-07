@@ -1,0 +1,42 @@
+Dobry den,
+
+Pokusal som sa dnes dohladat volania ktore ste nam poskytli, ale nejak to nesedi. Neviem ci ste to posielali v nejakej tabulke, ktorej format sa rozbil (vid nizsie), alebo som nespravne pochopil vstupne udaje.
+Neevidujeme napr. totiz ziadny hovor z 5.7.2026 v case okolo 16:41 z cisla  +421911163316  ani z cisla +491723627488  okolo 16:40, atd...
+
+Zaznamy asterisku ktore ste poslali v bode 4 sa tykaju trunku ktory mate zoastaveny voci zariadeniu DiaLog/VicDial a nie nasej hlasovej brane, a na zaklade nich som nedokazal hovory dohladat. Volani na cislo  0948519438 evidujeme sice viacero, ale prve zacali 5.7. az o 18:06, pricom Vy uvadzate testovanie od 16:40 (samozrejme bavime sa o lokalnom case SELC), co tiez nejak nesedi. CallID volani nam tiez nepomoze, nakolko CallIDs moze menit zariadenie po ceste.
+
+Mozete teda prosim v jednoduchej forme este raz definovat aspon zopar volani, napr. nejak takto (format cisel tu nehra rolu)?
+ 
+HOVOR 1 - BUSY
+Datum a cas: 7.7.2026 ~14:40
+cislo volajuceho: 0903123456
+povodne volane cislo: 0232399123
+hovor presmerovany na: 0905654321
+
+HOVOR 2 - OK
+Datum a cas: 7.7.2026 ~14:50
+cislo volajuceho: 0901999999
+povodne volane cislo: 0232399999
+hovor presmerovany na: +495555466666
+
+...atd
+
+Potrebujeme totiz najst realne tie volania, ktore ste aj vy zachytili / viete analyzovat...
+
+Medzitym som sa predsa len pozrel na niektore z volani, ktore boli dmietnute pomocou 486 Busy (neviem ci islo o jedno z testovacich) a toto je vysledok:
+HOVOR - referencny;
+datum a cas: 5.7.2026 - 17:38:15
+cislo volajuceho:  +421421911163316
+volane cislo: +421948519438
+
+V signalizacii neevidujeme ziadny naznak informacie o tom ze by mal byt hovor presmerovany.
+Tento hovor bol aktivne odmietnuty zo strany partnerskeho operatora so spravou 486 Busy here (reason q.850:cause=17;text="user busy").
+Hovor smer teda spracovali a posali do narodneho peeringu, ale bol aktivne odmietnuty prakticky okamzite po prijati 183 Session Progress.
+Bud ho teda odmietol volany ucastnik, co vzhladom na jeho okamzite odmietnutie nasvedcuje ze ma volajuce cislo v SPAMliste telefonu, alebo odmieta taketo volanie partnersky operator - mozno prave kvoli nespravnemu formatu cisla volajuceho (to vsak mozem len hadat). 
+
+Vzhladom na to ze je tam evidentne zle cislo volajuceho, preveroval som este format cisla, ktory od Vas ocakavame pri zostaovani hovoru.
+Vy posielate vo From: hlavicke cislo  0421911163316 (vid pcap v prilohe), co urcite nie je spravne. Je to cislo zacinajuce jednou 0, co je brane ako narodne cislo a preto je 0 odstrihnuta a nahradena 421. Z toho vznika nespravny format 421421911163316.
+
+Volajuce (SK) cislo ku nam je potrebne poslat bud v narodnom 10miestnom formate - teda v tomto pripade 0911163316, v pripade zahranicneho cisla (ale kludne aj Slovenskeho) v medzinarodnom formate - napr. 00421911163316
+
+Skuste prosim urobit opakovane testovacie volania so spravnym formatom cisla volajuceho a v pripade ze tiez neprejdu, poslat nam info o tychto volaniach (zoznam udajov ako popisujem vyssie). Vylucime/potvrdime tak minimalne to, ze taketo hovory su odmietane kvoli malformed formatovaniu calling number.
