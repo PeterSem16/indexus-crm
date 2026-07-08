@@ -1,0 +1,92 @@
+Dakujem, ano, tieto hovory som uz bol schopny identifikovat a dohladat.
+Pri ich dokladnej analyze som zistil nasledovne veci.
+
+Vseobecne:
+
+• z pohladu Slovanetu su "presmerovane" hovory realizovane ako 2 samostatne navzajom nezavisle volania
+• prvy hovor je prichadzajuci z PSTN ku Vam
+• nasledne zostavujete novy odchadzajuci hovor smerom do PSTN
+• ide teda o zostavenie 2 samostatnych volani a ich prebridgovanie na urovni Vasich zariadeni = nejedna sa o presmerovanie typu call-divert (to len na zhrnutie a upresnenie)
+
+ad HOVOR 1
+
+• tento hovor (resp. oba hovory - IN/OUT) bol realizovany korektne pokial ide o jeho zostavenie aj ukoncenie
+• nastava tu vsak nadalej problem s prezentaciou volajuceho cisla, ktory som popisal uz vcera
+• aj tu ste poslali totiz volane cislo vo formate  0491723627488, ktory bol skonverotvany na Slovenske (nekorektne) cislo  421491723627488
+• prosim upravte formaty aj zahranicnych cisel ako som uviedol v predoslej odpovedi, teda na 00491723627488 (dve nuly na zaciatku) a prezentacia tohto hovoru by mala byt tym padom uz uplne ok
+
+ad HOVOR 2
+
+• pri tomto volani ste poslali uz korektny format cisla volajuceho, konkretne  0911163316, ktory bol nasledne zaslany do siete partnerskeho operatora uz korektne
+• potvrdzujem ze tymto sme vylucili moznost odmietania volani z dovodu nekorektneho formatu/prefixu cisla volajuceho, nakolko namiesto cisla 42142191163316 (vcera/predvcerom) bola tentokrat operatorovi zaslana korektna prezentacia - 42191163316
+• hovor napriek tomu odmietla volana strana - potvrdzujem ze odpoved 486 BUSY prisla ku nam zo siete ineho operatora, ktoremu sme ho poslali
+• nasledne Vasa strana okamzite zopakovala pokus o zostavenie tohto hovoru (pod novym callid), ktory skoncil tym istym vysledkom (486 BUSY zo siete partnerskeho operatora)
+
+Co sa da z tohto odvodit:
+
+• potvrdzujem ze Slovanet nema zapnutu antispoof ochranu pre prezentaciu volani z Vasho SIP trunku a preposielame prezentaciu volani tak ako ich dostaneme od Vas vo From: hlavicke (po konverzii formatov samozrejme - vid stale aktaulny problem pri hovore 1)
+• neda sa vask vylucit to, ze takuto antispoof ochranu maju implementovu cielovi ci tranzitni operatori, do siete ktorych "presmerovany" hovor smerujeme
+• zistoval som v koho sieti sa dane volajuce cislo volajuceho (0911163316) nachadza a podla nasich zaznamov by malo byt v sieti operatora Slovak Telekom (T-Mobile), pricom viem, ze tento operator ma antispoof ochranu implementovanu uz nejaku dobu (minimalne nemozeme poslat hovory do jeho siete prezentovane cislami, ktore su v jeho sieti; neodmieta ich vsak pomocou 486, ale inou signalnou spravou)
+• "presmerovany" hovor vsak smeroval na cislo 0948519438, ktore sa nachadza v inej sieti ako T-Mobile, konkretne (podla nasich zaznamov) v sieti O2
+• kedze cislo 0948519438 zrejme patri Vam (vychadzam z Vasho podpisu a toho ze ste realizovali testovacie volania), budem samozrejme predpokladat, ze na nom (u operatora alebo na mobilnom telefone) nemate nastaveny blacklist pre volania z cisla *91163316)
+• v takom pripade, kedze odpoved 486 Busy dostava Slovanet od svojho interkonekt partnera, je vysoko pravdepodobne, ze antispoof ochranu ma implemnetovanu tento partner; pricom nedetekuje len snahu o prezentaciu volani cislami ktore su v jeho sieti, ale aj v ostatnych partnerskych sietach
+• to by zaroven vysvetlovalo, preco hovor zo zahranicneho cisla (+491723627488, resp. nekotektneho +421491723627488) neodmietol - taketo cislo by antispoof ochranou preslo
+
+Co sa s tym da robit?
+
+• Moznost 1
+• mozme samozrejme oslovit nasho interkonekt partnera so ziadostou o preverenie situacie
+• obavam sa ale, ze to povedie k otazkam typu, preco im posielame volania prezentovane cislami, ktorymi by sme nemali
+• ...co samozrejme nemozeme rozporovat
+• maximalne tak (len mozno) ziskame odpoved ci je naozaj antispoof ochrana aktivna tak ako predpokladam vyssie, nepovedie to vsak k vyrieseniu problemu samo o sebe
+• Moznost 2
+• v prezentacii budete posielat pri odchadzajucom hovore cislo, ktore mate od Slovanetu pridelene v trunku (napr.  023239903)
+• tymto vsak samozrejme dojde k strate informacie o tom, kto je povodne volajuci (jeho cislo bude nahradene Vasim)
+• ak tuto informaciu nepotrebujete, tak je to najcistejsie a zaroven najjednoduchsie a najrychlejsie riesenie
+• Moznost 3
+• ak su predpoklady o tom ze dochadza ku antispoof kontrole identitiy volajuceho v cudzich sietach (ako popisujem vyssie), riesenim by teoreticky malo by to, ze budete v signalizacii proklamovat, ze ide o presmerovany hovor
+• miniimalne pri uz spominanej antispoof ochrane siete T-Mobile to viem ze funguje - uz sme to riesili; tak dufam ze by to mohlo zafungovat aj pre siet 02
+• toto riesenie spociva v pridani SIP hlavicky Diversion: do INVITE sprav od Vas odchadzajucich volani
+
+Aktualny obsah INVITE sprav (z HOVOR 2) ktore nam zasielate:
+R-URI:   INVITE sip:0948519438
+
+From:    0911163316
+To:      0948519438
+Obsah INVITE spravy, s informaciou o presmerovani (pre HOVOR 2):
+R-URI:   INVITE sip:0948519438
+From:    0911163316
+To:      0948519438
+Diversion: 0232399030  (resp. nejake cislo, ktore mate v sietei Slovanet pridelene)
+Konkretny format tohto SIP headera by mal vyzerat napr, nejak takto:
+Diversion: <sip:mailto:0232399030@212.55.232.229>;reason=unconditional;privacy=off
+
+Chcel som povodne aj otestovat moznost cislo 3 v nasich laboratornych podmienkach, avsak zistil som ze v mojom okoli aktualne nikto nedisponuje SIM kartou aktivnou v sieti O2.
+Tato moznost teda vychadza len z teoretickych predpokladov a doterajsich skusenosti. Verim vsak ze toto riesenie by malo byt funkcne.
+
+Ak teda viete pridat Diversion: SIP header na Vasich zariadenaich a otestovat tak funkcnost moznosti cislo 3, kludne to kedykolvek vyskusajte.
+Pripadne mi potom (v pripade uspechu aj neuspechu) opat prosim poslite info o testovacom volani, aby som preveril ci tam nenastalo este nieco ine.
+
+Alternativne mozme tuto moznost otestovat aj z nasej strany, ak Vam to pocka do buduceho tyzdna, kedy sa vrati z dovolenky kolega so sukromnym O2 mobilom.
+
+Eventualne sa mozem pokusit o test v LAB podmienkach generovanim volani na Vase mobilne cislo, co vsak moze byt pre Vas obtazujuce, takze jedine ak mi date na to vyslovene suhlas.
+
+Este teda aby som konkretne odpovedal na Vase otazky:
+
+>>Môžete si tieto dva hovory pozrieť podľa časov a UNIQUEID a potvrdiť, kde vzniká 486 — na vašej bráne 212.55.232.229?
+Ano dohladal som ich, 486 nevznika na nasej brane ale v sieti cudzieho operatora, do ktoreho hovor smerujeme. Nasa brana ho len preposiela ku Vam.
+
+>> Prezentujeme skutočné slovenské číslo volajúceho zákazníka (nie je naše). Nie je odmietané pri kontrole CLI / anti-spoofingu?
+Ako som uviedol, je pravdepodobne ze ano, ale nie v nasej sieti, ale v cielovej/tranzitnej.
+
+>> Potrebujeme povoliť CLIP no-screening alebo autorizovať naše čísla ako povolené odchádzajúce CLI?
+Screening pre Vas SIP trunk nie je na strane Slovanetu aktivny (ani nebol).
+
+>> Alebo máme pri presmerovaní posielať naše vlastné DID 0232399030 (resp. 00421232399030)?
+Ano, toto je mnou popisovana moznost riesenia cislo 2, pri ktorej vsak dojde k strate identity povodne volajuceho.
+
+>> Ak áno, potvrďte, či je toto číslo na trunku autorizované.
+Ako som pisal, screening je vypnuty, takze Slovanet neobmedzuje cisla, ktorymi mozete hovory identifikovat.
+DDI prevolba 0232399xxx je smerovana do Vasho trunku, takze prezentacia ktorymkolvek cislom z nej (teda aj 0232399030) je uplne v poriadku a nic neporusuje.
+
+Dajte mi prosim vediet co z navrhovaneho by pre Vas bolo prijatelne, resp. realizovatelne.

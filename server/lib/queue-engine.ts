@@ -1358,15 +1358,19 @@ export class QueueEngine extends EventEmitter {
 
   /**
    * Format a caller number (CLI) for presentation on the SK trunk toward SLOVANET.
-   * SLOVANET requires SK calling numbers in national 10-digit form (0XXXXXXXXX);
-   * the upstream DialLog/ViciDial box delivers SK callers as "0" + full
-   * international (e.g. +421 911 163 316 arrives as 0421911163316). Presenting
-   * that verbatim is malformed — SLOVANET treats the leading 0 as a national
-   * trunk code, strips it and re-prepends 421 → 421421911163316 → rejected (486).
-   * This converts only the SK international/malformed forms to national 0-form;
-   * foreign numbers and already-national numbers are returned untouched (foreign
-   * forwards already connect). It does NOT change the dial target or the number
-   * stored/displayed in the CRM — only the CLI presented to the trunk.
+   * SLOVANET requires (confirmed by their support, Jul 2026):
+   *   - SK calling numbers in national 10-digit form (0XXXXXXXXX), and
+   *   - FOREIGN calling numbers in international 00-prefixed form (00<CC>…).
+   * The upstream DialLog/ViciDial box delivers callers as "0" + full
+   * international (e.g. +421 911 163 316 arrives as 0421911163316, and a German
+   * +49 172 3627488 arrives as 0491723627488). Presenting those verbatim is
+   * malformed — SLOVANET treats the leading 0 as a national trunk code, strips
+   * it and re-prepends 421 → 421421911163316 / 421491723627488.
+   * This converts SK international/malformed forms to national 0-form and
+   * foreign international/malformed forms to 00-form; genuine national numbers
+   * (max 10 digits incl. the trunk 0) are returned untouched. It does NOT change
+   * the dial target or the number stored/displayed in the CRM — only the CLI
+   * presented to the trunk.
    */
   private formatSkCliForTrunk(raw: string): string {
     const cleaned = (raw || "").replace(/[^\d+]/g, "");
@@ -1386,7 +1390,16 @@ export class QueueEngine extends EventEmitter {
       sk9 = cleaned.slice(3);            // 421911163316 → 911163316
     }
     if (sk9) return "0" + sk9;           // national form SLOVANET accepts
-    return cleaned;                       // national/foreign — leave untouched
+    // Foreign international forms → 00<CC>… (SLOVANET requirement, Jul-8):
+    if (cleaned.startsWith("+")) {
+      return "00" + cleaned.slice(1);    // +491723627488 → 00491723627488
+    }
+    if (cleaned.startsWith("0") && !cleaned.startsWith("00") && cleaned.length >= 11) {
+      // Single-0 form longer than any genuine 10-digit national number can only
+      // be the malformed 0+international form → add the second 0.
+      return "0" + cleaned;              // 0491723627488 → 00491723627488
+    }
+    return cleaned;                       // genuine national / already 00-form — leave untouched
   }
 
   private async forwardToExternalNumber(channelId: string, number: string, opts?: { fallbackDid?: string | null; callerNumber?: string | null }): Promise<void> {
