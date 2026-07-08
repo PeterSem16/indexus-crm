@@ -1,0 +1,142 @@
+  > 0x7ff008030140 -- Strict RTP learning after remote address set to: 195.28.88.42:22522
+    -- Executing [0232399030@from-sk-inbound:1] NoOp("SIP/SLOVANET-VGW-000000ac", "INDEXUS OVERRIDE TO MEDIAGTW DID=0232399030 FROM=0421948519438 UNIQUEID=1783542820.1306") in new stack
+    -- Executing [0232399030@from-sk-inbound:2] ExecIf("SIP/SLOVANET-VGW-000000ac", "0?Set(CALLERID(num)=1948519438)") in new stack
+    -- Executing [0232399030@from-sk-inbound:3] Set("SIP/SLOVANET-VGW-000000ac", "__DID_INB=0232399030") in new stack
+    -- Executing [0232399030@from-sk-inbound:4] Set("SIP/SLOVANET-VGW-000000ac", "__DID_Date=08-07-2026 22:33:40") in new stack
+    -- Executing [0232399030@from-sk-inbound:5] Dial("SIP/SLOVANET-VGW-000000ac", "SIP/mediagtw/0232399030,60") in new stack
+  == Using SIP RTP CoS mark 5
+    -- Called SIP/mediagtw/0232399030
+       > 0x7fefd000b8a0 -- Strict RTP learning after remote address set to: 10.1.2.112:18604
+    -- SIP/mediagtw-000000ad answered SIP/SLOVANET-VGW-000000ac
+    -- Channel SIP/mediagtw-000000ad joined 'simple_bridge' basic-bridge <bb9226fb-aaef-4f57-802b-f2f0b56e0195>
+    -- Channel SIP/SLOVANET-VGW-000000ac joined 'simple_bridge' basic-bridge <bb9226fb-aaef-4f57-802b-f2f0b56e0195>
+       > Bridge bb9226fb-aaef-4f57-802b-f2f0b56e0195: switching from simple_bridge technology to native_rtp
+       > Locally RTP bridged 'SIP/SLOVANET-VGW-000000ac' and 'SIP/mediagtw-000000ad' in stack
+       > 0x7ff008030140 -- Strict RTP switching to RTP target address 195.28.88.42:22522 as source
+       > 0x7fefd000b8a0 -- Strict RTP switching to RTP target address 10.1.2.112:18604 as source
+       > 0x7ff008030140 -- Strict RTP learning complete - Locking on source address 195.28.88.42:22522
+       > 0x7fefd000b8a0 -- Strict RTP learning complete - Locking on source address 10.1.2.112:18604
+  == Using SIP RTP CoS mark 5
+       > 0x7ff008036070 -- Strict RTP learning after remote address set to: 10.1.2.112:10318
+    -- Executing [0948519438@from-mediagtw:1] NoOp("SIP/mediagtw-000000ae", "OUTBOUND FROM NEW ASTERISK EXTEN=0948519438 CID="0948519438" <0948519438>") in new stack
+    -- Executing [0948519438@from-mediagtw:2] AGI("SIP/mediagtw-000000ae", "agi://127.0.0.1:4577/call_log") in new stack
+    -- <SIP/mediagtw-000000ae>AGI Script agi://127.0.0.1:4577/call_log completed, returning 0
+    -- Executing [0948519438@from-mediagtw:3] NoOp("SIP/mediagtw-000000ae", "FROM-MEDIAGTW: keeping CID=0948519438 for dest=0948519438") in new stack
+    -- Executing [0948519438@from-mediagtw:4] GotoIf("SIP/mediagtw-000000ae", "0?dodial") in new stack
+    -- Executing [0948519438@from-mediagtw:5] SIPAddHeader("SIP/mediagtw-000000ae", "Diversion: <sip:0232399030@212.55.232.229>;reason=unconditional;privacy=off") in new stack
+    -- Executing [0948519438@from-mediagtw:6] Dial("SIP/mediagtw-000000ae", "SIP/SLOVANET-VGW/0948519438,,tToR") in new stack
+  == Using SIP RTP CoS mark 5
+    -- Called SIP/SLOVANET-VGW/0948519438
+    -- SIP/SLOVANET-VGW-000000af is ringing
+       > 0x7fefe40075e0 -- Strict RTP learning after remote address set to: 195.28.88.42:22524
+    -- SIP/SLOVANET-VGW-000000af is ringing
+    -- SIP/SLOVANET-VGW-000000af is making progress passing it to SIP/mediagtw-000000ae
+       > 0x7fefe40075e0 -- Strict RTP switching to RTP target address 195.28.88.42:22524 as source
+    -- Got SIP response 486 "Busy Here" back from 195.28.88.42:5060
+    -- SIP/SLOVANET-VGW-000000af is busy
+  == Everyone is busy/congested at this time (1:1/0/0)
+    -- Executing [0948519438@from-mediagtw:7] Hangup("SIP/mediagtw-000000ae", "") in new stack
+  == Spawn extension (from-mediagtw, 0948519438, 7) exited non-zero on 'SIP/mediagtw-000000ae'
+  == Using SIP RTP CoS mark 5
+       > 0x7ff008020b10 -- Strict RTP learning after remote address set to: 10.1.2.112:11216
+    -- Executing [0948519438@from-mediagtw:1] NoOp("SIP/mediagtw-000000b0", "OUTBOUND FROM NEW ASTERISK EXTEN=0948519438 CID="0948519438" <0948519438>") in new stack
+    -- Executing [0948519438@from-mediagtw:2] AGI("SIP/mediagtw-000000b0", "agi://127.0.0.1:4577/call_log") in new stack
+    -- <SIP/mediagtw-000000b0>AGI Script agi://127.0.0.1:4577/call_log completed, returning 0
+    -- Executing [0948519438@from-mediagtw:3] NoOp("SIP/mediagtw-000000b0", "FROM-MEDIAGTW: keeping CID=0948519438 for dest=0948519438") in new stack
+    -- Executing [0948519438@from-mediagtw:4] GotoIf("SIP/mediagtw-000000b0", "0?dodial") in new stack
+    -- Executing [0948519438@from-mediagtw:5] SIPAddHeader("SIP/mediagtw-000000b0", "Diversion: <sip:0232399030@212.55.232.229>;reason=unconditional;privacy=off") in new stack
+    -- Executing [0948519438@from-mediagtw:6] Dial("SIP/mediagtw-000000b0", "SIP/SLOVANET-VGW/0948519438,,tToR") in new stack
+  == Using SIP RTP CoS mark 5
+    -- Called SIP/SLOVANET-VGW/0948519438
+    -- SIP/SLOVANET-VGW-000000b1 is ringing
+       > 0x7feff0007470 -- Strict RTP learning after remote address set to: 195.28.88.42:22526
+    -- SIP/SLOVANET-VGW-000000b1 is ringing
+    -- SIP/SLOVANET-VGW-000000b1 is making progress passing it to SIP/mediagtw-000000b0
+       > 0x7feff0007470 -- Strict RTP switching to RTP target address 195.28.88.42:22526 as source
+    -- Got SIP response 486 "Busy Here" back from 195.28.88.42:5060
+    -- SIP/SLOVANET-VGW-000000b1 is busy
+  == Everyone is busy/congested at this time (1:1/0/0)
+    -- Executing [0948519438@from-mediagtw:7] Hangup("SIP/mediagtw-000000b0", "") in new stack
+  == Spawn extension (from-mediagtw, 0948519438, 7) exited non-zero on 'SIP/mediagtw-000000b0'
+  == Using SIP RTP CoS mark 5
+       > 0x7ff0080235b0 -- Strict RTP learning after remote address set to: 10.1.2.112:17156
+    -- Executing [0948519438@from-mediagtw:1] NoOp("SIP/mediagtw-000000b2", "OUTBOUND FROM NEW ASTERISK EXTEN=0948519438 CID="0948519438" <0948519438>") in new stack
+    -- Executing [0948519438@from-mediagtw:2] AGI("SIP/mediagtw-000000b2", "agi://127.0.0.1:4577/call_log") in new stack
+    -- <SIP/mediagtw-000000b2>AGI Script agi://127.0.0.1:4577/call_log completed, returning 0
+    -- Executing [0948519438@from-mediagtw:3] NoOp("SIP/mediagtw-000000b2", "FROM-MEDIAGTW: keeping CID=0948519438 for dest=0948519438") in new stack
+    -- Executing [0948519438@from-mediagtw:4] GotoIf("SIP/mediagtw-000000b2", "0?dodial") in new stack
+    -- Executing [0948519438@from-mediagtw:5] SIPAddHeader("SIP/mediagtw-000000b2", "Diversion: <sip:0232399030@212.55.232.229>;reason=unconditional;privacy=off") in new stack
+    -- Executing [0948519438@from-mediagtw:6] Dial("SIP/mediagtw-000000b2", "SIP/SLOVANET-VGW/0948519438,,tToR") in new stack
+  == Using SIP RTP CoS mark 5
+    -- Called SIP/SLOVANET-VGW/0948519438
+    -- SIP/SLOVANET-VGW-000000b3 is ringing
+       > 0x7fefec009320 -- Strict RTP learning after remote address set to: 195.28.88.42:22528
+    -- SIP/SLOVANET-VGW-000000b3 is ringing
+    -- SIP/SLOVANET-VGW-000000b3 is making progress passing it to SIP/mediagtw-000000b2
+       > 0x7fefec009320 -- Strict RTP switching to RTP target address 195.28.88.42:22528 as source
+    -- Got SIP response 486 "Busy Here" back from 195.28.88.42:5060
+    -- SIP/SLOVANET-VGW-000000b3 is busy
+  == Everyone is busy/congested at this time (1:1/0/0)
+    -- Executing [0948519438@from-mediagtw:7] Hangup("SIP/mediagtw-000000b2", "") in new stack
+  == Spawn extension (from-mediagtw, 0948519438, 7) exited non-zero on 'SIP/mediagtw-000000b2'
+  == Using SIP RTP CoS mark 5
+       > 0x7ff00802a370 -- Strict RTP learning after remote address set to: 10.1.2.112:18206
+    -- Executing [0948519438@from-mediagtw:1] NoOp("SIP/mediagtw-000000b4", "OUTBOUND FROM NEW ASTERISK EXTEN=0948519438 CID="0948519438" <0948519438>") in new stack
+    -- Executing [0948519438@from-mediagtw:2] AGI("SIP/mediagtw-000000b4", "agi://127.0.0.1:4577/call_log") in new stack
+    -- <SIP/mediagtw-000000b4>AGI Script agi://127.0.0.1:4577/call_log completed, returning 0
+    -- Executing [0948519438@from-mediagtw:3] NoOp("SIP/mediagtw-000000b4", "FROM-MEDIAGTW: keeping CID=0948519438 for dest=0948519438") in new stack
+    -- Executing [0948519438@from-mediagtw:4] GotoIf("SIP/mediagtw-000000b4", "0?dodial") in new stack
+    -- Executing [0948519438@from-mediagtw:5] SIPAddHeader("SIP/mediagtw-000000b4", "Diversion: <sip:0232399030@212.55.232.229>;reason=unconditional;privacy=off") in new stack
+    -- Executing [0948519438@from-mediagtw:6] Dial("SIP/mediagtw-000000b4", "SIP/SLOVANET-VGW/0948519438,,tToR") in new stack
+  == Using SIP RTP CoS mark 5
+    -- Called SIP/SLOVANET-VGW/0948519438
+    -- SIP/SLOVANET-VGW-000000b5 is ringing
+  == Manager 'sendcron' logged on from 127.0.0.1
+  == Manager 'sendcron' logged off from 127.0.0.1
+  == Manager 'sendcron' logged on from 127.0.0.1
+       > 0x7feff8007720 -- Strict RTP learning after remote address set to: 195.28.88.42:22530
+    -- SIP/SLOVANET-VGW-000000b5 is ringing
+    -- SIP/SLOVANET-VGW-000000b5 is making progress passing it to SIP/mediagtw-000000b4
+       > 0x7feff8007720 -- Strict RTP switching to RTP target address 195.28.88.42:22530 as source
+    -- Got SIP response 486 "Busy Here" back from 195.28.88.42:5060
+    -- SIP/SLOVANET-VGW-000000b5 is busy
+  == Everyone is busy/congested at this time (1:1/0/0)
+    -- Executing [0948519438@from-mediagtw:7] Hangup("SIP/mediagtw-000000b4", "") in new stack
+  == Spawn extension (from-mediagtw, 0948519438, 7) exited non-zero on 'SIP/mediagtw-000000b4'
+  == Using SIP RTP CoS mark 5
+       > 0x7ff00802ce10 -- Strict RTP learning after remote address set to: 10.1.2.112:15030
+    -- Executing [0948519438@from-mediagtw:1] NoOp("SIP/mediagtw-000000b6", "OUTBOUND FROM NEW ASTERISK EXTEN=0948519438 CID="0948519438" <0948519438>") in new stack
+    -- Executing [0948519438@from-mediagtw:2] AGI("SIP/mediagtw-000000b6", "agi://127.0.0.1:4577/call_log") in new stack
+    -- <SIP/mediagtw-000000b6>AGI Script agi://127.0.0.1:4577/call_log completed, returning 0
+    -- Executing [0948519438@from-mediagtw:3] NoOp("SIP/mediagtw-000000b6", "FROM-MEDIAGTW: keeping CID=0948519438 for dest=0948519438") in new stack
+    -- Executing [0948519438@from-mediagtw:4] GotoIf("SIP/mediagtw-000000b6", "0?dodial") in new stack
+    -- Executing [0948519438@from-mediagtw:5] SIPAddHeader("SIP/mediagtw-000000b6", "Diversion: <sip:0232399030@212.55.232.229>;reason=unconditional;privacy=off") in new stack
+    -- Executing [0948519438@from-mediagtw:6] Dial("SIP/mediagtw-000000b6", "SIP/SLOVANET-VGW/0948519438,,tToR") in new stack
+  == Using SIP RTP CoS mark 5
+    -- Called SIP/SLOVANET-VGW/0948519438
+    -- SIP/SLOVANET-VGW-000000b7 is ringing
+       > 0x7feffc007700 -- Strict RTP learning after remote address set to: 195.28.88.42:22532
+    -- SIP/SLOVANET-VGW-000000b7 is ringing
+    -- SIP/SLOVANET-VGW-000000b7 is making progress passing it to SIP/mediagtw-000000b6
+       > 0x7feffc007700 -- Strict RTP switching to RTP target address 195.28.88.42:22532 as source
+    -- Got SIP response 486 "Busy Here" back from 195.28.88.42:5060
+    -- SIP/SLOVANET-VGW-000000b7 is busy
+  == Everyone is busy/congested at this time (1:1/0/0)
+    -- Executing [0948519438@from-mediagtw:7] Hangup("SIP/mediagtw-000000b6", "") in new stack
+  == Spawn extension (from-mediagtw, 0948519438, 7) exited non-zero on 'SIP/mediagtw-000000b6'
+  == Using SIP RTP CoS mark 5
+       > 0x7ff008041c40 -- Strict RTP learning after remote address set to: 10.1.2.112:11828
+    -- Executing [0948519438@from-mediagtw:1] NoOp("SIP/mediagtw-000000b8", "OUTBOUND FROM NEW ASTERISK EXTEN=0948519438 CID="0948519438" <0948519438>") in new stack
+    -- Executing [0948519438@from-mediagtw:2] AGI("SIP/mediagtw-000000b8", "agi://127.0.0.1:4577/call_log") in new stack
+    -- <SIP/mediagtw-000000b8>AGI Script agi://127.0.0.1:4577/call_log completed, returning 0
+    -- Executing [0948519438@from-mediagtw:3] NoOp("SIP/mediagtw-000000b8", "FROM-MEDIAGTW: keeping CID=0948519438 for dest=0948519438") in new stack
+    -- Executing [0948519438@from-mediagtw:4] GotoIf("SIP/mediagtw-000000b8", "0?dodial") in new stack
+    -- Executing [0948519438@from-mediagtw:5] SIPAddHeader("SIP/mediagtw-000000b8", "Diversion: <sip:0232399030@212.55.232.229>;reason=unconditional;privacy=off") in new stack
+    -- Executing [0948519438@from-mediagtw:6] Dial("SIP/mediagtw-000000b8", "SIP/SLOVANET-VGW/0948519438,,tToR") in new stack
+  == Using SIP RTP CoS mark 5
+    -- Called SIP/SLOVANET-VGW/0948519438
+    -- SIP/SLOVANET-VGW-000000b9 is ringing
+    -- Channel SIP/SLOVANET-VGW-000000ac left 'native_rtp' basic-bridge <bb9226fb-aaef-4f57-802b-f2f0b56e0195>
+    -- Channel SIP/mediagtw-000000ad left 'native_rtp' basic-bridge <bb9226fb-aaef-4f57-802b-f2f0b56e0195>
+  == Spawn extension (from-sk-inbound, 0232399030, 5) exited non-zero on 'SIP/SLOVANET-VGW-000000ac'
+  == Spawn exten
