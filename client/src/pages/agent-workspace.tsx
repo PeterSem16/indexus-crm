@@ -9683,6 +9683,12 @@ export default function AgentWorkspacePage() {
         ringTimerRef.current = null;
       }
       callWasActiveRef.current = false;
+      // Refresh quota usage after the call ends — only answered/completed calls count
+      // toward the daily call quota, so wait briefly for the final call-log status write.
+      if (selectedCampaignId) {
+        const quotaCampaignId = selectedCampaignId;
+        setTimeout(() => fetchQuotaCheck(quotaCampaignId), 3000);
+      }
       const isInboundCall = wasInboundCallRef.current || callContext.callDirection === "inbound";
       const campSettings = (() => { try { return selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {}; } catch { return {}; } })();
       if (campSettings.workflowMode === "status_list") {
@@ -9725,6 +9731,11 @@ export default function AgentWorkspacePage() {
       const wasInbound = wasInboundCallRef.current;
       const prevState = prevCallStateRef.current;
       callWasActiveRef.current = false;
+      // Direct →idle transition (skipped "ended"): refresh quota usage as well
+      if (selectedCampaignId) {
+        const quotaCampaignId = selectedCampaignId;
+        setTimeout(() => fetchQuotaCheck(quotaCampaignId), 3000);
+      }
       if (ringTimerRef.current) {
         clearInterval(ringTimerRef.current);
         ringTimerRef.current = null;
@@ -11464,7 +11475,6 @@ export default function AgentWorkspacePage() {
         callerIdNumber: (selectedCampaign as any)?.callerIdNumber || undefined,
         maxRingSeconds: campaignMaxRingSeconds || undefined,
       });
-      setStats((prev) => ({ ...prev, calls: prev.calls + 1 }));
       setTimeline((prev) => [
         ...prev,
         {

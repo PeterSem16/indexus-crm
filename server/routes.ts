@@ -15902,7 +15902,11 @@ Return ONLY valid JSON, no markdown code blocks.`,
           eq(callLogs.campaignId, campaignId),
           eq(callLogs.userId, userId),
           eq(callLogs.direction, "outbound"),
-          gte(callLogs.createdAt, new Date(todayISO))
+          gte(callLogs.createdAt, new Date(todayISO)),
+          or(
+            inArray(callLogs.status, ["answered", "completed"]),
+            isNotNull(callLogs.answeredAt)
+          )
         ));
 
       const emailsToday = await db.select({ count: sql<number>`count(*)` })
