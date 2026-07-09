@@ -6661,6 +6661,9 @@ export default function CampaignDetailPage() {
                                   </p>
                                 )}
                                 {isOwn && <p className="text-xs text-muted-foreground">{t.campaigns.detail.missionSmsSenderOwnHint}</p>}
+                                <p className="text-xs font-medium text-amber-600 dark:text-amber-400" data-testid="text-sms-sender-no-inbound-warn">
+                                  {t.campaigns.detail.missionSmsSenderNoInboundWarn}
+                                </p>
                               </div>
                             );
                           })()}

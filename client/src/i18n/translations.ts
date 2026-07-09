@@ -2385,6 +2385,7 @@ export interface Translations {
       missionSmsSenderOwnPlaceholder: string;
       missionSmsSenderOwnHint: string;
       missionSmsSenderValueRequired: string;
+      missionSmsSenderNoInboundWarn: string;
       queueDisplayModeTitle: string;
       queueDisplayModeDesc: string;
       queueDisplayModeStep: string;
@@ -9577,6 +9578,7 @@ export const translations: Record<Locale, Translations> = {
         missionSmsSenderOwnPlaceholder: '+421900123456',
         missionSmsSenderOwnHint: 'The number must be verified in the BulkGate portal, otherwise sending will fail',
         missionSmsSenderValueRequired: 'Enter a sender value, otherwise the default sender will be used',
+        missionSmsSenderNoInboundWarn: 'Warning: with this sender, replies will NOT arrive in the INDEXUS SMS chat. Two-way SMS works only with "Default" or "System number".',
         queueDisplayModeTitle: 'Scheduled Queue Column',
         queueDisplayModeDesc: 'Choose what to display in the "Step" column of the scheduled queue.',
         queueDisplayModeStep: 'Show current script step',
@@ -16267,6 +16269,7 @@ export const translations: Record<Locale, Translations> = {
         missionSmsSenderOwnPlaceholder: '+421900123456',
         missionSmsSenderOwnHint: 'Číslo musí byť overené v portáli BulkGate, inak odoslanie zlyhá',
         missionSmsSenderValueRequired: 'Zadajte hodnotu odosielateľa, inak sa použije predvolený odosielateľ',
+        missionSmsSenderNoInboundWarn: 'Upozornenie: pri tomto odosielateľovi odpovede NEPRÍDU do SMS chatu v INDEXUS. Obojsmerné SMS fungujú len s možnosťou „Predvolené" alebo „Systémové číslo".',
         queueDisplayModeTitle: 'Stĺpec plánovanej fronty',
         queueDisplayModeDesc: 'Vyberte, čo sa zobrazí v stĺpci „Krok" plánovanej fronty.',
         queueDisplayModeStep: 'Zobraziť aktuálny krok scriptu',
@@ -22895,6 +22898,7 @@ export const translations: Record<Locale, Translations> = {
         missionSmsSenderOwnPlaceholder: '+420900123456',
         missionSmsSenderOwnHint: 'Číslo musí být ověřeno v portálu BulkGate, jinak odeslání selže',
         missionSmsSenderValueRequired: 'Zadejte hodnotu odesílatele, jinak bude použit výchozí odesílatel',
+        missionSmsSenderNoInboundWarn: 'Upozornění: při tomto odesílateli odpovědi NEPŘIJDOU do SMS chatu v INDEXUS. Obousměrné SMS fungují jen s možností „Výchozí" nebo „Systémové číslo".',
         queueDisplayModeTitle: 'Sloupec plánované fronty',
         queueDisplayModeDesc: 'Vyberte, co se zobrazí ve sloupci „Krok" plánované fronty.',
         queueDisplayModeStep: 'Zobrazit aktuální krok scriptu',
@@ -29481,6 +29485,7 @@ export const translations: Record<Locale, Translations> = {
         missionSmsSenderOwnPlaceholder: '+36301234567',
         missionSmsSenderOwnHint: 'A számot ellenőrizni kell a BulkGate portálon, különben a küldés sikertelen lesz',
         missionSmsSenderValueRequired: 'Adja meg a feladó értékét, különben az alapértelmezett feladó lesz használva',
+        missionSmsSenderNoInboundWarn: 'Figyelem: ennél a feladónál a válaszok NEM érkeznek meg az INDEXUS SMS csevegésbe. A kétirányú SMS csak az „Alapértelmezett" vagy a „Rendszerszám" opcióval működik.',
         queueDisplayModeTitle: 'Ütemezett sor oszlopa',
         queueDisplayModeDesc: 'Válassza ki, mi jelenjen meg az ütemezett sor „Lépés" oszlopában.',
         queueDisplayModeStep: 'Aktuális script lépés megjelenítése',
@@ -35952,6 +35957,7 @@ export const translations: Record<Locale, Translations> = {
         missionSmsSenderOwnPlaceholder: '+40700123456',
         missionSmsSenderOwnHint: 'Numărul trebuie verificat în portalul BulkGate, altfel trimiterea va eșua',
         missionSmsSenderValueRequired: 'Introduceți valoarea expeditorului, altfel va fi folosit expeditorul implicit',
+        missionSmsSenderNoInboundWarn: 'Atenție: cu acest expeditor, răspunsurile NU vor ajunge în chatul SMS din INDEXUS. SMS-urile bidirecționale funcționează doar cu „Implicit" sau „Număr de sistem".',
         queueDisplayModeTitle: 'Coloana cozii programate',
         queueDisplayModeDesc: 'Alegeți ce să afișați în coloana „Pas" a cozii programate.',
         queueDisplayModeStep: 'Afișare pas curent al scriptului',
@@ -42425,6 +42431,7 @@ export const translations: Record<Locale, Translations> = {
         missionSmsSenderOwnPlaceholder: '+39300123456',
         missionSmsSenderOwnHint: "Il numero deve essere verificato nel portale BulkGate, altrimenti l'invio fallirà",
         missionSmsSenderValueRequired: 'Inserisci il valore del mittente, altrimenti verrà utilizzato il mittente predefinito',
+        missionSmsSenderNoInboundWarn: "Attenzione: con questo mittente le risposte NON arriveranno nella chat SMS di INDEXUS. Gli SMS bidirezionali funzionano solo con \"Predefinito\" o \"Numero di sistema\".",
         queueDisplayModeTitle: 'Colonna coda programmata',
         queueDisplayModeDesc: 'Scegliere cosa visualizzare nella colonna "Passo" della coda programmata.',
         queueDisplayModeStep: 'Mostra il passo corrente dello script',
@@ -48898,6 +48905,7 @@ export const translations: Record<Locale, Translations> = {
         missionSmsSenderOwnPlaceholder: '+491701234567',
         missionSmsSenderOwnHint: 'Die Nummer muss im BulkGate-Portal verifiziert sein, sonst schlägt der Versand fehl',
         missionSmsSenderValueRequired: 'Geben Sie einen Absenderwert ein, sonst wird der Standard-Absender verwendet',
+        missionSmsSenderNoInboundWarn: 'Achtung: Bei diesem Absender kommen Antworten NICHT im INDEXUS-SMS-Chat an. Bidirektionale SMS funktionieren nur mit „Standard" oder „Systemnummer".',
         queueDisplayModeTitle: 'Spalte der geplanten Warteschlange',
         queueDisplayModeDesc: 'Wählen Sie, was in der Spalte „Schritt" der geplanten Warteschlange angezeigt wird.',
         queueDisplayModeStep: 'Aktuellen Script-Schritt anzeigen',
