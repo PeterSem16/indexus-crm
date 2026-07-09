@@ -29,8 +29,32 @@ interface BulkGateSendOptions {
   unicode?: boolean;
   senderId?: "gSystem" | "gShort" | "gText" | "gOwn" | "gProfile" | "gMobile" | "gPush";
   senderIdValue?: string | null;
+  /** When true, the explicitly passed senderId/senderIdValue wins over the per-country config (used for per-campaign sender override) */
+  forceSender?: boolean;
   schedule?: string;
   tag?: string;
+}
+
+/**
+ * Parse per-campaign SMS sender override from campaign.settings JSON.
+ * Returns null when the campaign uses the default (country config) sender.
+ */
+export function parseCampaignSmsSender(settingsJson: string | null | undefined): {
+  senderId: "gSystem" | "gText" | "gOwn";
+  senderIdValue: string | null;
+} | null {
+  if (!settingsJson) return null;
+  try {
+    const s = JSON.parse(settingsJson);
+    const mode = s?.smsSenderMode;
+    if (mode === "gSystem") return { senderId: "gSystem", senderIdValue: null };
+    if ((mode === "gText" || mode === "gOwn") && typeof s.smsSenderValue === "string" && s.smsSenderValue.trim()) {
+      return { senderId: mode, senderIdValue: s.smsSenderValue.trim() };
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -114,7 +138,9 @@ export async function sendTransactionalSms(options: BulkGateSendOptions): Promis
     let senderId = options.senderId || "gSystem";
     let senderIdValue: string | null = options.senderIdValue ?? null;
     
-    if (options.country) {
+    if (options.forceSender && options.senderId) {
+      console.log(`[BulkGate] Using forced sender override: sender_id=${senderId}, value=${senderIdValue || '(none)'}`);
+    } else if (options.country) {
       const countryConfig = await getSenderConfigForCountry(options.country);
       if (countryConfig) {
         senderId = countryConfig.senderId as any;
@@ -200,7 +226,9 @@ export async function sendPromotionalSms(options: BulkGateSendOptions): Promise<
     let senderId = options.senderId || "gSystem";
     let senderIdValue: string | null = options.senderIdValue ?? null;
     
-    if (options.country) {
+    if (options.forceSender && options.senderId) {
+      console.log(`[BulkGate] Using forced sender override: sender_id=${senderId}, value=${senderIdValue || '(none)'}`);
+    } else if (options.country) {
       const countryConfig = await getSenderConfigForCountry(options.country);
       if (countryConfig) {
         senderId = countryConfig.senderId as any;

@@ -1036,9 +1036,22 @@ async function runStatusListContactSms(automation: any, ctx: StatusListActionCtx
     .replace(/\{\{contact\.name\}\}/g, contactName).replace(/\{\{contact\.phone\}\}/g, contactPhone);
 
   try {
-    const { sendTransactionalSms, isBulkGateConfigured } = await import("./lib/bulkgate");
+    const { sendTransactionalSms, isBulkGateConfigured, parseCampaignSmsSender } = await import("./lib/bulkgate");
     if (!isBulkGateConfigured()) { console.warn("[status-list:contact_sms] BulkGate not configured"); return { ok: false }; }
-    const result = await sendTransactionalSms({ number: contactPhone, text, country: ctx.contactCountry ?? undefined });
+    // Per-campaign SMS sender override (mission setting)
+    let campaignSender: { senderId: "gSystem" | "gText" | "gOwn"; senderIdValue: string | null } | null = null;
+    if (ctx.campaignId) {
+      try {
+        const [camp] = await db.select({ settings: campaigns.settings }).from(campaigns).where(eq(campaigns.id, ctx.campaignId)).limit(1);
+        campaignSender = parseCampaignSmsSender(camp?.settings);
+      } catch (e) { console.error("[status-list:contact_sms] campaign sender lookup failed:", e); }
+    }
+    const result = await sendTransactionalSms({
+      number: contactPhone,
+      text,
+      country: ctx.contactCountry ?? undefined,
+      ...(campaignSender ? { senderId: campaignSender.senderId, senderIdValue: campaignSender.senderIdValue, forceSender: true } : {}),
+    });
     const ok = result.success;
     console.log(`[status-list:contact_sms] sent=${ok} contact=${ctx.campaignContactId}`);
     try {
@@ -13605,7 +13618,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
   // Send SMS to multiple recipients (used from customer dialog)
   app.post("/api/send-sms", requireAuth, async (req, res) => {
     try {
-      const { to, message, customerId, compositionDurationSeconds } = req.body;
+      const { to, message, customerId, campaignId, compositionDurationSeconds } = req.body;
       
       if (!to || !message) {
         return res.status(400).json({ error: "Missing required fields: to, message" });
@@ -13623,11 +13636,22 @@ Return ONLY valid JSON, no markdown code blocks.`,
         customer = await storage.getCustomer(customerId);
       }
       
-      const { sendTransactionalSms, isBulkGateConfigured } = await import("./lib/bulkgate");
+      const { sendTransactionalSms, isBulkGateConfigured, parseCampaignSmsSender } = await import("./lib/bulkgate");
       const results: { phone: string; success: boolean; error?: string; smsId?: string }[] = [];
       
       // User-level text sender ID for all SMS in this batch
       const userSmsSenderId = (user as any).smsSenderId as string | null | undefined;
+
+      // Per-campaign SMS sender override (mission setting) - takes precedence over user-level and country config
+      let campaignSender: { senderId: "gSystem" | "gText" | "gOwn"; senderIdValue: string | null } | null = null;
+      if (campaignId && typeof campaignId === "string") {
+        try {
+          const campaign = await storage.getCampaign(campaignId);
+          campaignSender = parseCampaignSmsSender(campaign?.settings);
+        } catch (e) {
+          console.error("[send-sms] campaign sender lookup failed:", e);
+        }
+      }
 
       for (const phone of toArray) {
         // Create message record
@@ -13652,7 +13676,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
               text: message,
               country: customer?.country || undefined,
               tag: customerId ? `customer-${customerId}` : undefined,
-              ...(userSmsSenderId ? { senderId: "gText" as const, senderIdValue: userSmsSenderId } : {}),
+              ...(campaignSender
+                ? { senderId: campaignSender.senderId, senderIdValue: campaignSender.senderIdValue, forceSender: true }
+                : (userSmsSenderId ? { senderId: "gText" as const, senderIdValue: userSmsSenderId } : {})),
             });
 
             if (result.success) {

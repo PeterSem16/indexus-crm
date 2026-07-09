@@ -6601,6 +6601,73 @@ export default function CampaignDetailPage() {
                       </Card>
                       <Card>
                         <CardHeader>
+                          <CardTitle>{t.campaigns.detail.missionSmsSenderTitle}</CardTitle>
+                          <CardDescription>{t.campaigns.detail.missionSmsSenderDesc}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <div className="flex flex-col gap-2">
+                            {([
+                              { value: "default", label: t.campaigns.detail.missionSmsSenderModeDefault, desc: t.campaigns.detail.missionSmsSenderModeDefaultDesc },
+                              { value: "gSystem", label: t.campaigns.detail.missionSmsSenderModeSystem, desc: t.campaigns.detail.missionSmsSenderModeSystemDesc },
+                              { value: "gText", label: t.campaigns.detail.missionSmsSenderModeText, desc: t.campaigns.detail.missionSmsSenderModeTextDesc },
+                              { value: "gOwn", label: t.campaigns.detail.missionSmsSenderModeOwn, desc: t.campaigns.detail.missionSmsSenderModeOwnDesc },
+                            ] as const).map((opt) => {
+                              const current = (() => { try { return (campaign.settings ? JSON.parse(campaign.settings) : {}).smsSenderMode || "default"; } catch { return "default"; } })();
+                              const isActive = current === opt.value;
+                              return (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  data-testid={`btn-sms-sender-mode-${opt.value}`}
+                                  onClick={() => {
+                                    let ex: any = {};
+                                    try { if (campaign.settings) ex = JSON.parse(campaign.settings); } catch {}
+                                    apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { settings: JSON.stringify({ ...ex, smsSenderMode: opt.value }) })
+                                      .then(() => { toast({ title: t.campaigns.detail.settingsSaved }); queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] }); })
+                                      .catch(() => toast({ title: t.campaigns.detail.error, variant: "destructive" }));
+                                  }}
+                                  className={`text-left px-4 py-3 rounded-lg border-2 transition-all ${isActive ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}
+                                >
+                                  <div className={`text-sm font-semibold ${isActive ? "text-primary" : "text-foreground"}`}>{opt.label}</div>
+                                  <div className="text-xs text-muted-foreground mt-0.5">{opt.desc}</div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {(() => {
+                            const current = (() => { try { return (campaign.settings ? JSON.parse(campaign.settings) : {}).smsSenderMode || "default"; } catch { return "default"; } })();
+                            const currentValue = (() => { try { return (campaign.settings ? JSON.parse(campaign.settings) : {}).smsSenderValue || ""; } catch { return ""; } })();
+                            if (current !== "gText" && current !== "gOwn") return null;
+                            const isOwn = current === "gOwn";
+                            return (
+                              <div className="space-y-2 pt-1">
+                                <Label className="text-sm">{isOwn ? t.campaigns.detail.missionSmsSenderOwnLabel : t.campaigns.detail.missionSmsSenderTextLabel}</Label>
+                                <Input
+                                  placeholder={isOwn ? t.campaigns.detail.missionSmsSenderOwnPlaceholder : t.campaigns.detail.missionSmsSenderTextPlaceholder}
+                                  defaultValue={currentValue}
+                                  className="max-w-xs"
+                                  data-testid="input-sms-sender-value"
+                                  onBlur={(e) => {
+                                    let ex: any = {};
+                                    try { if (campaign.settings) ex = JSON.parse(campaign.settings); } catch {}
+                                    apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { settings: JSON.stringify({ ...ex, smsSenderValue: e.target.value.trim() }) })
+                                      .then(() => { toast({ title: t.campaigns.detail.settingsSaved }); queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] }); })
+                                      .catch(() => toast({ title: t.campaigns.detail.error, variant: "destructive" }));
+                                  }}
+                                />
+                                {!currentValue.trim() && (
+                                  <p className="text-xs text-destructive" data-testid="text-sms-sender-value-required">
+                                    {t.campaigns.detail.missionSmsSenderValueRequired}
+                                  </p>
+                                )}
+                                {isOwn && <p className="text-xs text-muted-foreground">{t.campaigns.detail.missionSmsSenderOwnHint}</p>}
+                              </div>
+                            );
+                          })()}
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader>
                           <CardTitle>{t.campaigns.detail.queueDisplayModeTitle}</CardTitle>
                           <CardDescription>
                             {t.campaigns.detail.queueDisplayModeDesc}

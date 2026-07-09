@@ -10836,6 +10836,7 @@ export default function AgentWorkspacePage() {
         to: data.to,
         message: data.message,
         customerId: data.customerId,
+        campaignId: selectedCampaignId || undefined,
         compositionDurationSeconds: data.compositionDurationSeconds,
       });
       if (!res.ok) {
