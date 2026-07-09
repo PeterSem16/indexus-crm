@@ -51190,7 +51190,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
         JOIN collaborators c ON c.id = ca.person_id
         LEFT JOIN partner_categories pc ON pc.id = ca.category_id
         LEFT JOIN contact_channels ch ON ch.person_id = c.id AND ch.is_active = true
-        WHERE ca.entity_type = ${entityType} AND ca.entity_id = ${entityId}
+        WHERE ca.entity_type = ${entityType} AND ca.entity_id = ${entityId} AND ca.is_active = true
         GROUP BY ca.id, pc.code, pc.name, pc.sort_order, c.id
         ORDER BY ca.is_primary DESC, pc.sort_order, c.last_name
       `);
@@ -51284,7 +51284,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
         JOIN collaborators c ON c.id = ca.person_id
         LEFT JOIN partner_categories pc ON pc.id = ca.category_id
         LEFT JOIN contact_channels ch ON ch.person_id = c.id AND ch.is_active = true
-        WHERE ca.entity_type = ${entityType} AND ca.entity_id = ${entityId}
+        WHERE ca.entity_type = ${entityType} AND ca.entity_id = ${entityId} AND ca.is_active = true
         GROUP BY ca.id, pc.code, pc.name, c.id
         ORDER BY pc.sort_order, c.last_name
       `);
@@ -51511,7 +51511,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
         FROM contact_assignments ca
         JOIN collaborators c ON c.id = ca.person_id
         LEFT JOIN partner_categories pc ON pc.id = ca.category_id
-        WHERE ca.entity_type = ${entityType} AND ca.entity_id = ${entityId}
+        WHERE ca.entity_type = ${entityType} AND ca.entity_id = ${entityId} AND ca.is_active = true
         ORDER BY ca.is_primary DESC, c.last_name, c.first_name
       `);
 
@@ -51519,6 +51519,11 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
       const assignedPersonIds = new Set((assignmentRows.rows || []).map((r: any) => r.person_id));
       let legacyRows: any[] = [];
       if (entityType === "hospital") {
+        const inactiveAssignmentRows = await db.execute(sql`
+          SELECT person_id FROM contact_assignments
+          WHERE entity_type = ${entityType} AND entity_id = ${entityId} AND is_active = false
+        `);
+        for (const r of (inactiveAssignmentRows.rows || [])) assignedPersonIds.add((r as any).person_id);
         const allCollabs = await db.select({
           id: collaborators.id,
           titleBefore: collaborators.titleBefore,
