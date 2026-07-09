@@ -2628,6 +2628,13 @@ function CommunicationCanvas({
   const [emailMessage, setEmailMessage] = useState("");
   const [emailIsHtml, setEmailIsHtml] = useState(false);
   const [smsMessage, setSmsMessage] = useState("");
+  const smsTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  useEffect(() => {
+    const el = smsTextareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 180) + "px";
+  }, [smsMessage, activeChannel]);
   const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
   const [selectedPhones, setSelectedPhones] = useState<string[]>([]);
   const [selectedFromAccount, setSelectedFromAccount] = useState<string>("");
@@ -4937,25 +4944,32 @@ function CommunicationCanvas({
               </div>
 
               {/* Compose + action bar */}
-              <div className="shrink-0 border-t border-border bg-card px-4 py-2.5 flex items-end gap-3">
-                <div className="flex-1 min-w-0">
+              <div className="shrink-0 border-t-2 border-[#c2673a]/25 bg-gradient-to-r from-[#c2673a]/[0.07] via-card to-card px-4 py-3 flex items-end gap-3">
+                <div className="flex-1 min-w-0 relative">
                   <Textarea
+                    ref={smsTextareaRef}
                     value={smsMessage}
                     onChange={(e) => setSmsMessage(e.target.value)}
                     placeholder={t.customers?.details?.writeSmsPlaceholder || "Write your SMS..."}
                     rows={2}
                     maxLength={160}
                     disabled={isSendingSms}
-                    className="text-xs resize-none"
-                    style={{ minHeight: 52, maxHeight: 80 }}
+                    className="text-sm leading-relaxed resize-none rounded-xl border-[#c2673a]/30 bg-white dark:bg-stone-900 shadow-sm pr-4 pb-6 focus-visible:ring-2 focus-visible:ring-[#c2673a]/35 focus-visible:border-[#c2673a]/60 placeholder:text-muted-foreground/50 transition-all"
+                    style={{ minHeight: 60, maxHeight: 180, overflowY: "auto" }}
                     data-testid="input-sms-message"
                   />
+                  <span
+                    className={`absolute bottom-1.5 right-3 text-[10px] font-mono tabular-nums pointer-events-none select-none ${smsMessage.length >= 160 ? 'text-destructive font-semibold' : smsMessage.length > 130 ? 'text-amber-500' : 'text-muted-foreground/50'}`}
+                    data-testid="text-sms-char-count-inline"
+                  >
+                    {smsCharCount}/160
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 pb-0.5">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="text-xs h-8"
+                    className="text-xs h-9 rounded-lg"
                     onClick={() => { setSmsMessage(""); setSelectedPhones([]); setSmsCc(""); setShowSmsCcField(false); }}
                     data-testid="button-cancel-sms"
                   >
@@ -4964,7 +4978,7 @@ function CommunicationCanvas({
                   <Button
                     onClick={handleSendSms}
                     disabled={(selectedPhones.length === 0 && !smsCc.trim()) || !smsMessage || isSendingSms}
-                    className="h-8 px-4 text-xs font-semibold bg-[#c2673a] hover:bg-[#a8502a] text-white border-0 shadow-sm disabled:opacity-40"
+                    className="h-9 px-5 text-xs font-semibold rounded-lg bg-gradient-to-b from-[#d0764a] to-[#c2673a] hover:from-[#c2673a] hover:to-[#a8502a] text-white border-0 shadow-md disabled:opacity-40 transition-all"
                     data-testid="btn-send-sms"
                   >
                     {isSendingSms ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1.5" />}
