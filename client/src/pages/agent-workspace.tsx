@@ -9206,6 +9206,7 @@ export default function AgentWorkspacePage() {
   });
   const [createTaskDialogOpen, setCreateTaskDialogOpen] = useState(false);
   const [createTaskForm, setCreateTaskForm] = useState({ title: "", description: "", priority: "medium", assignedUserId: "", dueDate: "", groupId: "" });
+  const [taskUserSearch, setTaskUserSearch] = useState("");
   const [dispositionModalOpen, setDispositionModalOpen] = useState(false);
   const [dispositionOpenedAt, setDispositionOpenedAt] = useState<number | null>(null);
   const [dispositionChannelFilter, setDispositionChannelFilter] = useState<"phone" | "email" | "sms" | null>(null);
@@ -14778,104 +14779,214 @@ export default function AgentWorkspacePage() {
         }}
       />
 
-      <Dialog open={createTaskDialogOpen} onOpenChange={setCreateTaskDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CalendarPlus className="h-5 w-5 text-purple-500" />
-              {t.quickCreate.newTask}
-            </DialogTitle>
-            <DialogDescription>{t.quickCreate.newTaskDesc}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">{t.quickCreate.taskTitle}</label>
+      <Sheet open={createTaskDialogOpen} onOpenChange={(open) => { setCreateTaskDialogOpen(open); if (!open) setTaskUserSearch(""); }}>
+        <SheetContent side="right" className="w-full sm:max-w-[460px] p-0 flex flex-col gap-0 bg-stone-50 dark:bg-stone-950 border-l border-stone-200 dark:border-stone-800">
+
+          {/* Terracotta header band */}
+          <SheetHeader className="shrink-0 px-5 py-4 space-y-0 bg-gradient-to-br from-[#c2673a] to-[#a8502a] text-white">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center shrink-0 shadow-inner">
+                <CalendarPlus className="h-5 w-5 text-white" />
+              </div>
+              <div className="min-w-0">
+                <SheetTitle className="text-white text-lg font-bold leading-tight">{t.quickCreate.newTask}</SheetTitle>
+                <SheetDescription className="text-white/75 text-xs leading-snug">{t.quickCreate.newTaskDesc}</SheetDescription>
+              </div>
+            </div>
+          </SheetHeader>
+
+          {/* Scrollable body */}
+          <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-5">
+
+            {/* Title */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">{t.quickCreate.taskTitle}</label>
               <Input
                 value={createTaskForm.title}
                 onChange={(e) => setCreateTaskForm({ ...createTaskForm, title: e.target.value })}
                 placeholder={t.quickCreate.taskTitle}
+                className="rounded-xl bg-white dark:bg-stone-900 border-stone-300/70 dark:border-stone-700 shadow-sm focus-visible:ring-2 focus-visible:ring-[#c2673a]/35 focus-visible:border-[#c2673a]/60"
                 data-testid="input-create-task-title"
               />
             </div>
-            <div>
-              <label className="text-sm font-medium">{t.quickCreate.taskDescription}</label>
+
+            {/* Description */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">{t.quickCreate.taskDescription}</label>
               <Textarea
                 value={createTaskForm.description}
                 onChange={(e) => setCreateTaskForm({ ...createTaskForm, description: e.target.value })}
                 placeholder={t.quickCreate.taskDescription}
-                className="resize-none"
+                className="resize-none rounded-xl bg-white dark:bg-stone-900 border-stone-300/70 dark:border-stone-700 shadow-sm focus-visible:ring-2 focus-visible:ring-[#c2673a]/35 focus-visible:border-[#c2673a]/60"
                 rows={3}
                 data-testid="input-create-task-description"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium">{t.quickCreate.priority}</label>
-                <Select value={createTaskForm.priority} onValueChange={(val) => setCreateTaskForm({ ...createTaskForm, priority: val })}>
-                  <SelectTrigger data-testid="select-create-task-priority">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">{t.quickCreate.priorityLow}</SelectItem>
-                    <SelectItem value="medium">{t.quickCreate.priorityMedium}</SelectItem>
-                    <SelectItem value="high">{t.quickCreate.priorityHigh}</SelectItem>
-                    <SelectItem value="urgent">{t.quickCreate.priorityUrgent}</SelectItem>
-                  </SelectContent>
-                </Select>
+
+            {/* Priority — playful segmented picker */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">{t.quickCreate.priority}</label>
+              <div className="grid grid-cols-4 gap-1.5">
+                {[
+                  { value: "low", label: t.quickCreate.priorityLow, Icon: ArrowDown, active: "bg-emerald-500 border-emerald-500 text-white shadow-md", dot: "text-emerald-500" },
+                  { value: "medium", label: t.quickCreate.priorityMedium, Icon: Flag, active: "bg-amber-500 border-amber-500 text-white shadow-md", dot: "text-amber-500" },
+                  { value: "high", label: t.quickCreate.priorityHigh, Icon: ArrowUp, active: "bg-[#c2673a] border-[#c2673a] text-white shadow-md", dot: "text-[#c2673a]" },
+                  { value: "urgent", label: t.quickCreate.priorityUrgent, Icon: Zap, active: "bg-red-600 border-red-600 text-white shadow-md", dot: "text-red-600" },
+                ].map(({ value, label, Icon, active, dot }) => {
+                  const selected = createTaskForm.priority === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setCreateTaskForm({ ...createTaskForm, priority: value })}
+                      className={`flex flex-col items-center gap-1 rounded-xl border px-1 py-2 text-[11px] font-medium transition-all ${selected ? active : "bg-white dark:bg-stone-900 border-stone-300/70 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:border-stone-400 dark:hover:border-stone-500"}`}
+                      data-testid={`btn-task-priority-${value}`}
+                    >
+                      <Icon className={`h-4 w-4 ${selected ? "text-white" : dot}`} />
+                      <span className="truncate max-w-full">{label}</span>
+                    </button>
+                  );
+                })}
               </div>
-              <div>
-                <label className="text-sm font-medium">{t.tasks?.deadline || "Termín"}</label>
+            </div>
+
+            {/* Deadline — date + quick chips */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">{t.tasks?.deadline || "Termín"}</label>
+              <div className="flex items-center gap-2">
                 <Input
                   type="date"
                   value={createTaskForm.dueDate}
                   onChange={(e) => setCreateTaskForm({ ...createTaskForm, dueDate: e.target.value })}
-                  className="h-9"
+                  className="h-9 flex-1 rounded-xl bg-white dark:bg-stone-900 border-stone-300/70 dark:border-stone-700 shadow-sm focus-visible:ring-2 focus-visible:ring-[#c2673a]/35 focus-visible:border-[#c2673a]/60"
                   data-testid="input-create-task-duedate"
                 />
               </div>
+              <div className="flex items-center flex-wrap gap-1.5">
+                {[
+                  { label: t.quickCreate.dueToday, date: format(new Date(), "yyyy-MM-dd"), testid: "chip-due-today" },
+                  { label: t.quickCreate.dueTomorrow, date: format(addDays(new Date(), 1), "yyyy-MM-dd"), testid: "chip-due-tomorrow" },
+                  { label: t.quickCreate.dueNextWeek, date: format(addDays(new Date(), 7), "yyyy-MM-dd"), testid: "chip-due-nextweek" },
+                ].map(({ label, date, testid }) => {
+                  const selected = createTaskForm.dueDate === date;
+                  return (
+                    <button
+                      key={testid}
+                      type="button"
+                      onClick={() => setCreateTaskForm({ ...createTaskForm, dueDate: selected ? "" : date })}
+                      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${selected ? "bg-[#c2673a] border-[#c2673a] text-white shadow-sm" : "bg-white dark:bg-stone-900 border-stone-300/70 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:border-[#c2673a]/50 hover:text-[#c2673a]"}`}
+                      data-testid={testid}
+                    >
+                      <Clock className="h-3 w-3" />
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <div>
-              <label className="text-sm font-medium">{t.quickCreate.assignedTo}</label>
-              <Select value={createTaskForm.assignedUserId} onValueChange={(val) => setCreateTaskForm({ ...createTaskForm, assignedUserId: val })}>
-                <SelectTrigger data-testid="select-create-task-assigned">
-                  <SelectValue placeholder={t.quickCreate.assignedTo} />
-                </SelectTrigger>
-                <SelectContent>
-                  {allUsersForTasks.filter((u: any) => u.id).map((u: any) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {u.fullName || u.username}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+            {/* Assigned To — playful avatar picker */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">{t.quickCreate.assignedTo} *</label>
+              <div className="rounded-xl border border-stone-300/70 dark:border-stone-700 bg-white dark:bg-stone-900 shadow-sm overflow-hidden">
+                <div className="relative border-b border-stone-200 dark:border-stone-800">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={taskUserSearch}
+                    onChange={(e) => setTaskUserSearch(e.target.value)}
+                    placeholder={t.quickCreate.searchUser}
+                    className="w-full pl-9 pr-3 py-2 text-xs bg-transparent outline-none placeholder:text-stone-400 dark:placeholder:text-stone-500"
+                    data-testid="input-task-user-search"
+                  />
+                </div>
+                <div className="max-h-[168px] overflow-y-auto p-2 flex flex-wrap gap-1.5">
+                  {(() => {
+                    const palette = [
+                      "from-[#c2673a] to-[#a8502a]",
+                      "from-amber-500 to-orange-600",
+                      "from-emerald-500 to-teal-600",
+                      "from-sky-500 to-blue-600",
+                      "from-violet-500 to-purple-600",
+                      "from-rose-500 to-pink-600",
+                    ];
+                    const filtered = allUsersForTasks.filter((u: any) => u.id && (u.fullName || u.username || "").toLowerCase().includes(taskUserSearch.trim().toLowerCase()));
+                    if (filtered.length === 0) {
+                      return <span className="text-xs text-stone-400 dark:text-stone-500 px-1 py-2">{t.quickCreate.noUsersFound}</span>;
+                    }
+                    return filtered.map((u: any) => {
+                      const name = u.fullName || u.username;
+                      const initials = String(name).split(/\s+/).map((p: string) => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
+                      const hash = String(u.id).split("").reduce((acc: number, ch: string) => (acc * 31 + ch.charCodeAt(0)) >>> 0, 0);
+                      const selected = createTaskForm.assignedUserId === u.id;
+                      return (
+                        <button
+                          key={u.id}
+                          type="button"
+                          onClick={() => setCreateTaskForm({ ...createTaskForm, assignedUserId: selected ? "" : u.id })}
+                          className={`inline-flex items-center gap-1.5 rounded-full border pl-1 pr-2.5 py-1 text-[11px] font-medium transition-all ${selected ? "bg-[#c2673a] border-[#c2673a] text-white shadow-md scale-[1.03]" : "bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-200 hover:border-[#c2673a]/60 hover:shadow-sm"}`}
+                          data-testid={`chip-task-user-${u.id}`}
+                        >
+                          <span className={`h-5 w-5 rounded-full bg-gradient-to-br ${palette[hash % palette.length]} text-white text-[8px] font-bold flex items-center justify-center shrink-0 ${selected ? "ring-2 ring-white/60" : ""}`}>
+                            {initials}
+                          </span>
+                          <span className="truncate max-w-[120px]">{name}</span>
+                          {selected && <Check className="h-3 w-3 shrink-0" />}
+                        </button>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
             </div>
+
+            {/* Group — playful chip picker */}
             {taskGroupsForCreate.length > 0 && (
-              <div>
-                <label className="text-sm font-medium">Priradiť do skupiny</label>
-                <Select value={createTaskForm.groupId || "__none__"} onValueChange={(val) => setCreateTaskForm({ ...createTaskForm, groupId: val === "__none__" ? "" : val })}>
-                  <SelectTrigger data-testid="select-create-task-group">
-                    <SelectValue placeholder="Bez skupiny" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Bez skupiny</SelectItem>
-                    {taskGroupsForCreate.map((g: any) => (
-                      <SelectItem key={g.id} value={g.id}>
-                        {g.displayAlias || g.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">{t.quickCreate.assignToGroup}</label>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setCreateTaskForm({ ...createTaskForm, groupId: "" })}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${!createTaskForm.groupId ? "bg-stone-600 border-stone-600 text-white shadow-sm" : "bg-white dark:bg-stone-900 border-stone-300/70 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:border-stone-400"}`}
+                    data-testid="chip-task-group-none"
+                  >
+                    {t.quickCreate.noGroup}
+                  </button>
+                  {taskGroupsForCreate.map((g: any) => {
+                    const selected = createTaskForm.groupId === g.id;
+                    return (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => setCreateTaskForm({ ...createTaskForm, groupId: selected ? "" : g.id })}
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${selected ? "bg-[#c2673a] border-[#c2673a] text-white shadow-md scale-[1.03]" : "bg-white dark:bg-stone-900 border-stone-300/70 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:border-[#c2673a]/60 hover:shadow-sm"}`}
+                        data-testid={`chip-task-group-${g.id}`}
+                      >
+                        <Users className="h-3 w-3" />
+                        <span className="truncate max-w-[140px]">{g.displayAlias || g.name}</span>
+                        {selected && <Check className="h-3 w-3 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
+
+            {/* Linked customer */}
             {currentContact && (
-              <div className="p-2 bg-muted rounded-md text-xs text-muted-foreground flex items-center gap-2">
-                <User className="h-3.5 w-3.5" />
-                {t.quickCreate.linkedCustomer}: {currentContact.firstName} {currentContact.lastName}
+              <div className="p-2.5 rounded-xl border border-[#c2673a]/25 bg-[#c2673a]/[0.06] text-xs text-stone-600 dark:text-stone-300 flex items-center gap-2">
+                <span className="h-6 w-6 rounded-full bg-[#c2673a]/15 flex items-center justify-center shrink-0">
+                  <User className="h-3.5 w-3.5 text-[#c2673a]" />
+                </span>
+                <span className="min-w-0 truncate">{t.quickCreate.linkedCustomer}: <span className="font-semibold text-stone-800 dark:text-stone-100">{currentContact.firstName} {currentContact.lastName}</span></span>
               </div>
             )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateTaskDialogOpen(false)} data-testid="btn-cancel-create-task">
+
+          {/* Footer */}
+          <div className="shrink-0 border-t border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 px-5 py-3 flex items-center justify-end gap-2">
+            <Button variant="outline" className="rounded-lg" onClick={() => setCreateTaskDialogOpen(false)} data-testid="btn-cancel-create-task">
               {t.common.cancel}
             </Button>
             <Button
@@ -14893,14 +15004,15 @@ export default function AgentWorkspacePage() {
                 });
               }}
               disabled={createTaskMutation.isPending || !createTaskForm.title.trim() || !createTaskForm.assignedUserId}
+              className="rounded-lg px-5 font-semibold bg-gradient-to-b from-[#d0764a] to-[#c2673a] hover:from-[#c2673a] hover:to-[#a8502a] text-white border-0 shadow-md disabled:opacity-40 transition-all"
               data-testid="btn-submit-create-task"
             >
               {createTaskMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {t.common.save}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <Dialog open={abandonedCallsOpen} onOpenChange={(open) => { setAbandonedCallsOpen(open); if (!open) setAbandonedCallsFilter("all"); }} modal={false}>
         <DialogContent className="sm:max-w-[580px] max-h-[82vh] flex flex-col overflow-hidden p-0 gap-0">
