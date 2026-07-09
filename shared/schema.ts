@@ -2353,6 +2353,18 @@ const optionalYear = z.preprocess(
   z.number().min(1900).max(2100).optional().nullable()
 );
 
+const optionalTimestamp = z.preprocess(
+  (val) => {
+    if (val === "" || val === null || val === undefined) return null;
+    if (typeof val === "string" || typeof val === "number") {
+      const d = new Date(val);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    return val;
+  },
+  z.date().optional().nullable()
+);
+
 export const insertCollaboratorSchema = createInsertSchema(collaborators).omit({
   id: true,
   createdAt: true,
@@ -2389,6 +2401,8 @@ export const insertCollaboratorSchema = createInsertSchema(collaborators).omit({
   representativeId: emptyStringToNull,
   hospitalId: emptyStringToNull,
   healthInsuranceId: emptyStringToNull,
+  leadSourceDate: optionalTimestamp,
+  conferenceDate: optionalTimestamp,
 });
 
 export const insertCollaboratorAddressSchema = createInsertSchema(collaboratorAddresses).omit({
