@@ -14780,7 +14780,7 @@ export default function AgentWorkspacePage() {
       />
 
       <Sheet open={createTaskDialogOpen} onOpenChange={(open) => { setCreateTaskDialogOpen(open); if (!open) setTaskUserSearch(""); }}>
-        <SheetContent side="right" className="w-full sm:max-w-[460px] p-0 flex flex-col gap-0 bg-stone-50 dark:bg-stone-950 border-l border-stone-200 dark:border-stone-800">
+        <SheetContent side="right" className="w-full sm:max-w-[580px] p-0 flex flex-col gap-0 bg-stone-50 dark:bg-stone-950 border-l border-stone-200 dark:border-stone-800">
 
           {/* Terracotta header band */}
           <SheetHeader className="shrink-0 px-5 py-4 space-y-0 bg-gradient-to-br from-[#c2673a] to-[#a8502a] text-white">
@@ -14885,9 +14885,42 @@ export default function AgentWorkspacePage() {
               </div>
             </div>
 
+            {/* Group — playful chip picker (first) */}
+            {taskGroupsForCreate.length > 0 && (
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">{t.quickCreate.assignToGroup}</label>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setCreateTaskForm({ ...createTaskForm, groupId: "" })}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${!createTaskForm.groupId ? "bg-stone-600 border-stone-600 text-white shadow-sm" : "bg-white dark:bg-stone-900 border-stone-300/70 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:border-stone-400"}`}
+                    data-testid="chip-task-group-none"
+                  >
+                    {t.quickCreate.noGroup}
+                  </button>
+                  {taskGroupsForCreate.map((g: any) => {
+                    const selected = createTaskForm.groupId === g.id;
+                    return (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => setCreateTaskForm({ ...createTaskForm, groupId: selected ? "" : g.id })}
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${selected ? "bg-[#c2673a] border-[#c2673a] text-white shadow-md scale-[1.03]" : "bg-white dark:bg-stone-900 border-stone-300/70 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:border-[#c2673a]/60 hover:shadow-sm"}`}
+                        data-testid={`chip-task-group-${g.id}`}
+                      >
+                        <Users className="h-3 w-3" />
+                        <span className="truncate max-w-[140px]">{g.displayAlias || g.name}</span>
+                        {selected && <Check className="h-3 w-3 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Assigned To — playful avatar picker */}
             <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">{t.quickCreate.assignedTo} *</label>
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">{t.quickCreate.assignedTo}</label>
               <div className="rounded-xl border border-stone-300/70 dark:border-stone-700 bg-white dark:bg-stone-900 shadow-sm overflow-hidden">
                 <div className="relative border-b border-stone-200 dark:border-stone-800">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400 pointer-events-none" />
@@ -14940,39 +14973,6 @@ export default function AgentWorkspacePage() {
               </div>
             </div>
 
-            {/* Group — playful chip picker */}
-            {taskGroupsForCreate.length > 0 && (
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">{t.quickCreate.assignToGroup}</label>
-                <div className="flex flex-wrap gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setCreateTaskForm({ ...createTaskForm, groupId: "" })}
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${!createTaskForm.groupId ? "bg-stone-600 border-stone-600 text-white shadow-sm" : "bg-white dark:bg-stone-900 border-stone-300/70 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:border-stone-400"}`}
-                    data-testid="chip-task-group-none"
-                  >
-                    {t.quickCreate.noGroup}
-                  </button>
-                  {taskGroupsForCreate.map((g: any) => {
-                    const selected = createTaskForm.groupId === g.id;
-                    return (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => setCreateTaskForm({ ...createTaskForm, groupId: selected ? "" : g.id })}
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${selected ? "bg-[#c2673a] border-[#c2673a] text-white shadow-md scale-[1.03]" : "bg-white dark:bg-stone-900 border-stone-300/70 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:border-[#c2673a]/60 hover:shadow-sm"}`}
-                        data-testid={`chip-task-group-${g.id}`}
-                      >
-                        <Users className="h-3 w-3" />
-                        <span className="truncate max-w-[140px]">{g.displayAlias || g.name}</span>
-                        {selected && <Check className="h-3 w-3 shrink-0" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
             {/* Linked customer */}
             {currentContact && (
               <div className="p-2.5 rounded-xl border border-[#c2673a]/25 bg-[#c2673a]/[0.06] text-xs text-stone-600 dark:text-stone-300 flex items-center gap-2">
@@ -14991,24 +14991,25 @@ export default function AgentWorkspacePage() {
             </Button>
             <Button
               onClick={() => {
-                if (!createTaskForm.title.trim() || !createTaskForm.assignedUserId) return;
+                const nominalAssignee = createTaskForm.assignedUserId || (createTaskForm.groupId ? user?.id : "");
+                if (!createTaskForm.title.trim() || !nominalAssignee) return;
                 createTaskMutation.mutate({
                   title: createTaskForm.title.trim(),
                   description: createTaskForm.description.trim(),
                   priority: createTaskForm.priority,
-                  assignedUserId: createTaskForm.assignedUserId,
+                  assignedUserId: nominalAssignee,
                   customerId: (currentContactType === "customer" && currentContact?.id) ? currentContact.id : undefined,
                   dueDate: createTaskForm.dueDate || undefined,
                   country: selectedCampaign?.country || undefined,
                   groupId: createTaskForm.groupId || undefined,
                 });
               }}
-              disabled={createTaskMutation.isPending || !createTaskForm.title.trim() || !createTaskForm.assignedUserId}
+              disabled={createTaskMutation.isPending || !createTaskForm.title.trim() || (!createTaskForm.assignedUserId && !createTaskForm.groupId)}
               className="rounded-lg px-5 font-semibold bg-gradient-to-b from-[#d0764a] to-[#c2673a] hover:from-[#c2673a] hover:to-[#a8502a] text-white border-0 shadow-md disabled:opacity-40 transition-all"
               data-testid="btn-submit-create-task"
             >
-              {createTaskMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {t.common.save}
+              {createTaskMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+              {t.quickCreate.sendTask}
             </Button>
           </div>
         </SheetContent>

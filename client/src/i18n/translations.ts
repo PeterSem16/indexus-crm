@@ -515,6 +515,7 @@ export interface Translations {
     dueToday: string;
     dueTomorrow: string;
     dueNextWeek: string;
+    sendTask: string;
     newNote: string;
     newNoteDesc: string;
     contactCreated: string;
@@ -7251,6 +7252,7 @@ export const translations: Record<Locale, Translations> = {
       dueToday: 'Today',
       dueTomorrow: 'Tomorrow',
       dueNextWeek: 'Next week',
+      sendTask: 'Send task',
       newNote: 'New Note',
       newNoteDesc: 'Add a note to a customer record',
       contactCreated: 'Contact Created',
@@ -13957,6 +13959,7 @@ export const translations: Record<Locale, Translations> = {
       dueToday: 'Dnes',
       dueTomorrow: 'Zajtra',
       dueNextWeek: 'O týždeň',
+      sendTask: 'Poslať úlohu',
       newNote: 'Nová poznámka',
       newNoteDesc: 'Pridať poznámku k zákazníkovi',
       contactCreated: 'Kontakt vytvorený',
@@ -20621,6 +20624,7 @@ export const translations: Record<Locale, Translations> = {
       dueToday: 'Dnes',
       dueTomorrow: 'Zítra',
       dueNextWeek: 'Příští týden',
+      sendTask: 'Odeslat úkol',
       newNote: 'Nová poznámka',
       newNoteDesc: 'Přidat poznámku k zákazníkovi',
       contactCreated: 'Kontakt vytvořen',
@@ -27205,6 +27209,7 @@ export const translations: Record<Locale, Translations> = {
       dueToday: 'Ma',
       dueTomorrow: 'Holnap',
       dueNextWeek: 'Jövő héten',
+      sendTask: 'Feladat küldése',
       newNote: 'Új megjegyzés',
       newNoteDesc: 'Megjegyzés hozzáadása ügyfélhez',
       contactCreated: 'Kapcsolat létrehozva',
@@ -33754,6 +33759,7 @@ export const translations: Record<Locale, Translations> = {
       dueToday: 'Astăzi',
       dueTomorrow: 'Mâine',
       dueNextWeek: 'Săptămâna viitoare',
+      sendTask: 'Trimite sarcina',
       newNote: 'Notă nouă',
       newNoteDesc: 'Adăugați o notă la un client',
       contactCreated: 'Contact creat',
@@ -40225,6 +40231,7 @@ export const translations: Record<Locale, Translations> = {
       dueToday: 'Oggi',
       dueTomorrow: 'Domani',
       dueNextWeek: 'Prossima settimana',
+      sendTask: 'Invia attività',
       newNote: 'Nuova nota',
       newNoteDesc: 'Aggiungi una nota a un cliente',
       contactCreated: 'Contatto creato',
@@ -46697,6 +46704,7 @@ export const translations: Record<Locale, Translations> = {
       dueToday: 'Heute',
       dueTomorrow: 'Morgen',
       dueNextWeek: 'Nächste Woche',
+      sendTask: 'Aufgabe senden',
       newNote: 'Neue Notiz',
       newNoteDesc: 'Notiz zu einem Kunden hinzufügen',
       contactCreated: 'Kontakt erstellt',
