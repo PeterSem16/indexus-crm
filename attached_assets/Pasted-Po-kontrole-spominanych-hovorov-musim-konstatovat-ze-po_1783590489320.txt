@@ -1,0 +1,46 @@
+Po kontrole spominanych hovorov musim konstatovat, ze povodny problem je stale pritomny.
+
+Ano, potvrdzujem ze sme od Vas prijali SIP Diversion header v INVITE sprave tak ako som Vam navrhoval.
+Bohuzial z nejakeho (zatial neznameho) dovodu nebol tento SIP header namapmovany branou dalej a doslo teda k jeho odstraneniu po ceste k cielovemu operatorovi.
+Toto sa teraz deje teraz uz v ramci nasej siete (nasich zariadeni) a bude predmetom dalsej analyzy.
+Vysledkom je vsak to, ze stav signalizacie smerom k cielovemu operatorovi sa nezmenil a informacia o tom ze hovor je presmerovany chyba - tak ako predtym.
+
+Zaroven potvrdzujem, ze pri zostavovani hovoru z Vasej strany nebola vyziadana aktivacia CLIRu a tato nebola pridana ani na ziadnom zariadeni Slovanetu.
+Hovor zo Slovanetu odisiel bez ziadosti o CLIRovanie identity volajuceho, v podstate uplne rovnakym sposobom ako predtym.
+
+Pytate sa asi, preco Vam teda ten hovor presiel, ze? Pokusim sa to zodpovedat...
+
+Rozdiel vo Vasich testoch zo vcera a z dnes je ten, ze kym vcera ste testovali s cislom volajuceho 0911163316, ktore sa nachadza v sieti T-Mobile; dnesne testy ste robili s cislom 0903282745, ktore sice patri do T-Mobile prefixu (0903), ale toto konkretne cislo je prenesene do siete Orange.
+
+Vyzera to teda tak, ze spominany antispoof mechanizmus v sieti ineho operatra funguje rozdielane v zavislosti od toho, v ktorej sieti sa cislo volajuceho nachadza (zaujimave zistenie aj pre nas, kedze operatori neposkytuju ziadne informacie o fungfungovani tychto mechanizmov, dokonca ani o ich pritomnosti). 
+Vychadza mi z toho, ze kym pre "spoofovane" volania z cisel aktivnych v sieti T-Mobile su hovory odmietane 486kou, tak hovory z cisel aktivnych v sieti Orange sice prechadzaju, ale je na nich aktivovany CLIR.
+
+Som si teda takmer isty, ze ak by ste dnes zopakovali testovacie volanie s cislom povodne volajuceho 0911163316 (T-Mobile), presmerovany hovor na cislo 0948519438 (02), pricom INVITE by aj obsahoval DIVERSION header, tento hovor by bol odmietnuty pomocou 486 rovnako ako vcera.
+
+
+K Vasim testom:
+
+Test 1 - (pridany Diversion header) spracovanie popisujem vyssie
+Test 2 - (pridany Diversion a PAI header) je rovnaky ako Test 1, PAI nie je potrebne do INVITE sprav na Vasej strane pridavat (vysledok bol rovnaky ako pri test1), ak to tam chcete mat mozete, ale tento header je zahadzovany = nema ziadny vplyv na nic
+Test 3 - (pridany Diversion a PAI header) tu evidujeme 2 hovory - presmerovane o 8:48:24 a 8:51:49, v podstate s rovnakym priebehom
+
+Pokial ide o test 3, volanie zo zahranicneho cisla, potvrdzujem ze ste poslali uz korektny medzinarodny format, tak ako som Vas ziadal:
+From:  "00491723627488" <sip:00491723627488@2
+
+Toto cislo sme preposlai do siete cieloveho operatora bez z poziadavky na aktivaciu CLIR (rovnako ako pri testoch 1 a 2), takze nevidim dovod, preco by mal byt hovor CLIRovany.
+Teoreticky vsak mozu nastavat 2 veci:
+ 
+A. v sieti prijamajuceho/tranzitneho operatora je nejaka globalna konfiguracna chyba, ktora CLIRuje volania, co vsak nkepredpokladam, nakolko by zrejme dochadzalo ku CLIRovaniu vsetkych volani zo Slovanetu, ktorych su denne realizovane tisicky a nemame hlaseny vyskyt tohto problemu od niekoho ineho.
+
+B. pravdepodobnejsie teda je, ze prijimajuci/tranzitny operator v ramci svojho antispoof mechanizmu vyhodnoti, ze ak volanie prichadzajuce zo Slovanetu (SK operatora) prezentovane zahranicnym cislom (+49) bez informacie o tom, ze ide o presmerovany hovor, moze ist o pokus o spoofing cisla = spracuje volanie rovnako ako v priade testu1/2 (hovor zo Slovanetu prezentovanym cislom aktivnym v Orange) a hovor teda za CLIRuje.
+
+Ak je moznost B. spravna (ako predpokladam), vyriesenim problemu s chybajucou informaciou o presmerovani by sa mal odstranit zaroven aj tento problem. 
+
+Takze co dalej...
+
+V prvom rade si overim ci je spravny moj predpoklad, ze pridanim informacie o presmerovani hovoru prejde identita povodne volajuceho.
+Toto otestujeme v ramci vlastnych sil; momentalne cakam na aktivaciu O2 SIM karty, aby som mohol tento test zrealizovat a nemusel cakat na kolegu do buduceho tyzdna.
+
+V druhom kroku, ked sa tento predoklad potvrdi, za meriam na riesenie problemu preco tato informacia neprechadza od hlasovej brany (voci ktorej mate zriadeny sip trunk) a dalsimi nasimi hlasovymi zariadeniami.
+
+Aktualne teda nie je z Vasej strany potrebne robit ziadne upravy (ak teda nechcete odstranit spominane nepotrebne PAI headre; alebo zopakovat Test1 s cislom zo siete T-Mobile). Budem Vas informovat akonahle budem mat nejake novsie informacie.
