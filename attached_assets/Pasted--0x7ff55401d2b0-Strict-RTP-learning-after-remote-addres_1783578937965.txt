@@ -1,0 +1,35 @@
+  > 0x7ff55401d2b0 -- Strict RTP learning after remote address set to: 195.28.88.42:22536
+    -- Executing [0232399030@from-sk-inbound:1] NoOp("SIP/SLOVANET-VGW-00000004", "INDEXUS OVERRIDE TO MEDIAGTW DID=0232399030 FROM=0421903282745 UNIQUEID=1783578812.12") in new stack
+    -- Executing [0232399030@from-sk-inbound:2] ExecIf("SIP/SLOVANET-VGW-00000004", "0?Set(CALLERID(num)=1903282745)") in new stack
+    -- Executing [0232399030@from-sk-inbound:3] Set("SIP/SLOVANET-VGW-00000004", "__DID_INB=0232399030") in new stack
+    -- Executing [0232399030@from-sk-inbound:4] Set("SIP/SLOVANET-VGW-00000004", "__DID_Date=09-07-2026 08:33:32") in new stack
+    -- Executing [0232399030@from-sk-inbound:5] Dial("SIP/SLOVANET-VGW-00000004", "SIP/mediagtw/0232399030,60") in new stack
+  == Using SIP RTP CoS mark 5
+    -- Called SIP/mediagtw/0232399030
+       > 0x7ff59c010e20 -- Strict RTP learning after remote address set to: 10.1.2.112:18474
+    -- SIP/mediagtw-00000005 answered SIP/SLOVANET-VGW-00000004
+    -- Channel SIP/mediagtw-00000005 joined 'simple_bridge' basic-bridge <93eca05f-72f4-48c9-bef1-d2a3780dd096>
+    -- Channel SIP/SLOVANET-VGW-00000004 joined 'simple_bridge' basic-bridge <93eca05f-72f4-48c9-bef1-d2a3780dd096>
+       > Bridge 93eca05f-72f4-48c9-bef1-d2a3780dd096: switching from simple_bridge technology to native_rtp
+       > Locally RTP bridged 'SIP/SLOVANET-VGW-00000004' and 'SIP/mediagtw-00000005' in stack
+       > 0x7ff55401d2b0 -- Strict RTP switching to RTP target address 195.28.88.42:22536 as source
+       > 0x7ff59c010e20 -- Strict RTP switching to RTP target address 10.1.2.112:18474 as source
+       > 0x7ff55401d2b0 -- Strict RTP learning complete - Locking on source address 195.28.88.42:22536
+       > 0x7ff59c010e20 -- Strict RTP learning complete - Locking on source address 10.1.2.112:18474
+  == Using SIP RTP CoS mark 5
+       > 0x7ff5540252a0 -- Strict RTP learning after remote address set to: 10.1.2.112:13134
+    -- Executing [0948519438@from-mediagtw:1] NoOp("SIP/mediagtw-00000006", "OUTBOUND FROM NEW ASTERISK EXTEN=0948519438 CID="0903282745" <0903282745>") in new stack
+    -- Executing [0948519438@from-mediagtw:2] AGI("SIP/mediagtw-00000006", "agi://127.0.0.1:4577/call_log") in new stack
+    -- <SIP/mediagtw-00000006>AGI Script agi://127.0.0.1:4577/call_log completed, returning 0
+    -- Executing [0948519438@from-mediagtw:3] NoOp("SIP/mediagtw-00000006", "FROM-MEDIAGTW: keeping CID=0903282745 for dest=0948519438") in new stack
+    -- Executing [0948519438@from-mediagtw:4] GotoIf("SIP/mediagtw-00000006", "0?dodial") in new stack
+    -- Executing [0948519438@from-mediagtw:5] SIPAddHeader("SIP/mediagtw-00000006", "Diversion: <sip:0232399030@212.55.232.229>;reason=unconditional;privacy=off") in new stack
+    -- Executing [0948519438@from-mediagtw:6] Dial("SIP/mediagtw-00000006", "SIP/SLOVANET-VGW/0948519438,,tToR") in new stack
+  == Using SIP RTP CoS mark 5
+    -- Called SIP/SLOVANET-VGW/0948519438
+    -- SIP/SLOVANET-VGW-00000007 is ringing
+       > 0x269d910 -- Strict RTP learning after remote address set to: 195.28.88.42:22538
+    -- SIP/SLOVANET-VGW-00000007 is ringing
+    -- SIP/SLOVANET-VGW-00000007 is making progress passing it to SIP/mediagtw-00000006
+       > 0x269d910 -- Strict RTP switching to RTP target address 195.28.88.42:22538 as source
+       > 0x269d910 -- Strict RTP learning complete - Locking on source address 195.28.88.42:22538

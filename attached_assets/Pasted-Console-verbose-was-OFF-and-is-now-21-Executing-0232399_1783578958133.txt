@@ -1,0 +1,26 @@
+Console verbose was OFF and is now 21.
+    -- Executing [0232399030@from-sk-trunk:1] NoOp("PJSIP/trunk-sk-endpoint-000000d1", "INBOUND from SK trunk DID=0232399030 CID="" <0421903282745>") in new stack
+    -- Executing [0232399030@from-sk-trunk:2] Set("PJSIP/trunk-sk-endpoint-000000d1", "__CBC_SOURCE_TRUNK=SK") in new stack
+    -- Executing [0232399030@from-sk-trunk:3] Set("PJSIP/trunk-sk-endpoint-000000d1", "__CBC_SOURCE_IP=10.9.33.2") in new stack
+    -- Executing [0232399030@from-sk-trunk:4] Set("PJSIP/trunk-sk-endpoint-000000d1", "__CBC_DID=0232399030") in new stack
+    -- Executing [0232399030@from-sk-trunk:5] Set("PJSIP/trunk-sk-endpoint-000000d1", "__CBC_CALLER=0421903282745") in new stack
+    -- Executing [0232399030@from-sk-trunk:6] Stasis("PJSIP/trunk-sk-endpoint-000000d1", "indexus-inbound") in new stack
+    -- <PJSIP/trunk-sk-endpoint-000000d1> Playing 'custom/moh-slow-jazz.slin' (language 'en')
+[Jul  9 06:33:32] NOTICE[607055][C-000000b3]: res_stasis_playback.c:277 playback_final_update: 1783578812.605: Playback stopped for sound:custom/moh-slow-jazz
+    -- <PJSIP/trunk-sk-endpoint-000000d1> Playing 'custom/moh-slow-jazz.slin' (language 'en')
+    -- Called 421948519438@from-internal-sk/n
+    -- Executing [421948519438@from-internal-sk:1] NoOp("Local/421948519438@from-internal-sk-00000066;2", "from-internal-sk 421 forward to 421948519438") in new stack
+    -- Executing [421948519438@from-internal-sk:2] Set("Local/421948519438@from-internal-sk-00000066;2", "OUTNUM=0948519438") in new stack
+    -- Executing [421948519438@from-internal-sk:3] NoOp("Local/421948519438@from-internal-sk-00000066;2", "Normalized SK: 0948519438") in new stack
+    -- Executing [421948519438@from-internal-sk:4] ExecIf("Local/421948519438@from-internal-sk-00000066;2", "1?Set(CALLERID(num)=0903282745)") in new stack
+    -- Executing [421948519438@from-internal-sk:5] ExecIf("Local/421948519438@from-internal-sk-00000066;2", "1?Set(CALLERID(name)=0903282745)") in new stack
+    -- Executing [421948519438@from-internal-sk:6] ExecIf("Local/421948519438@from-internal-sk-00000066;2", "0?MixMonitor(/var/spool/asterisk/monitor/.wav,v(1)V(1))") in new stack
+    -- Executing [421948519438@from-internal-sk:7] Dial("Local/421948519438@from-internal-sk-00000066;2", "PJSIP/0948519438@trunk-sk-endpoint,60") in new stack
+    -- Called PJSIP/0948519438@trunk-sk-endpoint
+    -- PJSIP/trunk-sk-endpoint-000000d2 is ringing
+    -- Local/421948519438@from-internal-sk-00000066;1 is ringing
+    -- PJSIP/trunk-sk-endpoint-000000d2 is ringing
+    -- PJSIP/trunk-sk-endpoint-000000d2 is making progress passing it to Local/421948519438@from-internal-sk-00000066;2
+    -- Local/421948519438@from-internal-sk-00000066;1 is making progress
+[Jul  9 06:34:02] WARNING[607055][C-000000b3]: res_stasis_playback.c:280 playback_final_update: 1783578812.605: Playback failed for sound:custom/moh-slow-jazz
+  == Spawn extension (from-internal-sk, 421948519438, 7) exited non-zero on 'Local/421948519438@from-internal-sk-00000066;2'
