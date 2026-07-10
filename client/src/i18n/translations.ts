@@ -156,6 +156,10 @@ export interface Translations {
     newShort: string;
     repeatShort: string;
     detailedStats: string;
+    topContactsTitle: string;
+    topContactsSubtitle: string;
+    contactLabel: string;
+    mixLabel: string;
   };
   nav: {
     dashboard: string;
@@ -6908,6 +6912,10 @@ export const translations: Record<Locale, Translations> = {
       avgPerAgent: 'avg / agent',
       leaderboard: 'Agent leaderboard',
       detailedStats: 'Detailed statistics',
+      topContactsTitle: 'Most contacted contacts',
+      topContactsSubtitle: 'Top 10 contacts by total interactions',
+      contactLabel: 'Contact',
+      mixLabel: 'Mix',
       newAgentBadge: 'New',
       vsPrevPeriod: 'vs previous period',
       newShort: 'new',
@@ -13716,6 +13724,10 @@ export const translations: Record<Locale, Translations> = {
       avgPerAgent: 'priemer / agent',
       leaderboard: 'Rebríček agentov',
       detailedStats: 'Podrobná štatistika',
+      topContactsTitle: 'Najviac kontaktovaní klienti',
+      topContactsSubtitle: 'Top 10 kontaktov podľa počtu interakcií',
+      contactLabel: 'Kontakt',
+      mixLabel: 'Mix',
       newAgentBadge: 'Nový',
       vsPrevPeriod: 'oproti predchádzajúcemu obdobiu',
       newShort: 'nové',
@@ -20460,6 +20472,10 @@ export const translations: Record<Locale, Translations> = {
       avgPerAgent: 'průměr / agent',
       leaderboard: 'Žebříček agentů',
       detailedStats: 'Podrobná statistika',
+      topContactsTitle: 'Nejvíce kontaktovaní klienti',
+      topContactsSubtitle: 'Top 10 kontaktů podle počtu interakcí',
+      contactLabel: 'Kontakt',
+      mixLabel: 'Mix',
       newAgentBadge: 'Nový',
       vsPrevPeriod: 'oproti předchozímu období',
       newShort: 'nové',
@@ -27130,6 +27146,10 @@ export const translations: Record<Locale, Translations> = {
       avgPerAgent: 'átlag / ügynök',
       leaderboard: 'Ügynökök ranglistája',
       detailedStats: 'Részletes statisztika',
+      topContactsTitle: 'Legtöbbször megkeresett kapcsolatok',
+      topContactsSubtitle: 'Top 10 kapcsolat interakciók száma szerint',
+      contactLabel: 'Kapcsolat',
+      mixLabel: 'Mix',
       newAgentBadge: 'Új',
       vsPrevPeriod: 'az előző időszakhoz képest',
       newShort: 'új',
@@ -33760,6 +33780,10 @@ export const translations: Record<Locale, Translations> = {
       avgPerAgent: 'medie / agent',
       leaderboard: 'Clasament agenți',
       detailedStats: 'Statistici detaliate',
+      topContactsTitle: 'Cele mai contactate contacte',
+      topContactsSubtitle: 'Top 10 contacte după interacțiuni totale',
+      contactLabel: 'Contact',
+      mixLabel: 'Mix',
       newAgentBadge: 'Nou',
       vsPrevPeriod: 'față de perioada anterioară',
       newShort: 'noi',
@@ -40310,6 +40334,10 @@ export const translations: Record<Locale, Translations> = {
       avgPerAgent: 'media / agente',
       leaderboard: 'Classifica agenti',
       detailedStats: 'Statistiche dettagliate',
+      topContactsTitle: 'Contatti più contattati',
+      topContactsSubtitle: 'Top 10 contatti per interazioni totali',
+      contactLabel: 'Contatto',
+      mixLabel: 'Mix',
       newAgentBadge: 'Nuovo',
       vsPrevPeriod: 'rispetto al periodo precedente',
       newShort: 'nuove',
@@ -46862,6 +46890,10 @@ export const translations: Record<Locale, Translations> = {
       avgPerAgent: 'Ø / Agent',
       leaderboard: 'Agenten-Rangliste',
       detailedStats: 'Detaillierte Statistik',
+      topContactsTitle: 'Meistkontaktierte Kontakte',
+      topContactsSubtitle: 'Top 10 Kontakte nach Gesamtinteraktionen',
+      contactLabel: 'Kontakt',
+      mixLabel: 'Mix',
       newAgentBadge: 'Neu',
       vsPrevPeriod: 'ggü. Vorperiode',
       newShort: 'neu',

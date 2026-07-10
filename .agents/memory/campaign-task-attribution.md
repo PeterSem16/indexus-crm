@@ -47,3 +47,18 @@ reporting tab; and the schema forces the campaign_contacts join.
 match `related_entity_type`, so a UUID collision across entity kinds could double-count
 (negligible with UUIDs). A task against a contact shared by two campaigns counts in both.
 Tighten with a type-matched pair filter only if the numbers must be exact.
+
+## Per-ENTITY variant (top-contacts leaderboard)
+
+For a PER-CONTACT ranking (which entity got the most touches), not per-agent:
+- **Calls**: `call_logs.campaign_contact_id` is a DIRECT link to a specific `campaign_contacts`
+  row → the strongest per-entity attribution path. Prefer it over phone matching here.
+- **Emails/SMS**: still no entity FK — reuse the per-contact address CTEs but keyed by `cc_id`
+  (`SELECT cc.id, lower(email) ...`), then `COUNT(DISTINCT m.id)` per cc so multiple matching
+  address columns on one contact don't multiply the count.
+- **Tasks**: attribute via the direct entity-id equijoins only (UNION of 5, dedup by task id).
+  Disposition tasks (`related_entity_id = status_list_item.id`) canNOT be tied to a specific
+  contact (item is per-campaign, not per-contact) — so per-contact task counts are near-0 for
+  clinic missions. Accepted; calls + emails/SMS carry the ranking.
+- Emails/SMS CTEs are date-bounded but NOT campaign-scoped (no campaign link on the message),
+  so a contact active in two concurrent campaigns counts its touches in both leaderboards.

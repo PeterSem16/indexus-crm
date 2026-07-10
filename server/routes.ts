@@ -31653,6 +31653,116 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
+  // Top-10 most-contacted contacts (entities) in a mission for the selected period.
+  // Ranked by total touches ("mix" = calls + emails + SMS + tasks). Per-ENTITY, not
+  // per-agent. Calls attach directly via call_logs.campaign_contact_id; emails/SMS are
+  // matched to a contact by recipient email / last-9-digit phone against every address
+  // the contact entity has on file; tasks attach via customer_id / related_entity_id.
+  app.get("/api/campaigns/:id/top-contacts", requireAuth, async (req, res) => {
+    try {
+      const campaignId = req.params.id;
+      const { from, to } = req.query;
+      const fromDate = from ? new Date(from as string) : startOfDay(new Date());
+      const toDate = to ? new Date(to as string) : endOfDay(new Date());
+      if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+        return res.status(400).json({ error: "Invalid date range" });
+      }
+
+      const topRows = await db.execute(sql`
+        WITH cc AS (
+          SELECT id AS cc_id, contact_type, customer_id, hospital_id, clinic_id, collaborator_id
+          FROM campaign_contacts WHERE campaign_id = ${campaignId}
+        ),
+        cc_email AS (
+          SELECT DISTINCT cc.cc_id, lower(cl.email) v FROM cc JOIN clinics cl ON cl.id=cc.clinic_id WHERE cl.email IS NOT NULL AND cl.email<>''
+          UNION SELECT DISTINCT cc.cc_id, lower(cl.email2) FROM cc JOIN clinics cl ON cl.id=cc.clinic_id WHERE cl.email2 IS NOT NULL AND cl.email2<>''
+          UNION SELECT DISTINCT cc.cc_id, lower(cl.email3) FROM cc JOIN clinics cl ON cl.id=cc.clinic_id WHERE cl.email3 IS NOT NULL AND cl.email3<>''
+          UNION SELECT DISTINCT cc.cc_id, lower(h.email) FROM cc JOIN hospitals h ON h.id=cc.hospital_id WHERE h.email IS NOT NULL AND h.email<>''
+          UNION SELECT DISTINCT cc.cc_id, lower(col.email) FROM cc JOIN collaborators col ON col.id=cc.collaborator_id WHERE col.email IS NOT NULL AND col.email<>''
+          UNION SELECT DISTINCT cc.cc_id, lower(cu.email) FROM cc JOIN customers cu ON cu.id=cc.customer_id WHERE cu.email IS NOT NULL AND cu.email<>''
+          UNION SELECT DISTINCT cc.cc_id, lower(cu.email_2) FROM cc JOIN customers cu ON cu.id=cc.customer_id WHERE cu.email_2 IS NOT NULL AND cu.email_2<>''
+          UNION SELECT DISTINCT cc.cc_id, lower(cu.gynecologist_email) FROM cc JOIN customers cu ON cu.id=cc.customer_id WHERE cu.gynecologist_email IS NOT NULL AND cu.gynecologist_email<>''
+        ),
+        cc_phone AS (
+          SELECT DISTINCT cc.cc_id, right(regexp_replace(cl.phone,'[^0-9]','','g'),9) v FROM cc JOIN clinics cl ON cl.id=cc.clinic_id WHERE length(regexp_replace(COALESCE(cl.phone,''),'[^0-9]','','g'))>=9
+          UNION SELECT DISTINCT cc.cc_id, right(regexp_replace(cl.phone2,'[^0-9]','','g'),9) FROM cc JOIN clinics cl ON cl.id=cc.clinic_id WHERE length(regexp_replace(COALESCE(cl.phone2,''),'[^0-9]','','g'))>=9
+          UNION SELECT DISTINCT cc.cc_id, right(regexp_replace(cl.phone3,'[^0-9]','','g'),9) FROM cc JOIN clinics cl ON cl.id=cc.clinic_id WHERE length(regexp_replace(COALESCE(cl.phone3,''),'[^0-9]','','g'))>=9
+          UNION SELECT DISTINCT cc.cc_id, right(regexp_replace(h.phone,'[^0-9]','','g'),9) FROM cc JOIN hospitals h ON h.id=cc.hospital_id WHERE length(regexp_replace(COALESCE(h.phone,''),'[^0-9]','','g'))>=9
+          UNION SELECT DISTINCT cc.cc_id, right(regexp_replace(col.phone,'[^0-9]','','g'),9) FROM cc JOIN collaborators col ON col.id=cc.collaborator_id WHERE length(regexp_replace(COALESCE(col.phone,''),'[^0-9]','','g'))>=9
+          UNION SELECT DISTINCT cc.cc_id, right(regexp_replace(col.mobile,'[^0-9]','','g'),9) FROM cc JOIN collaborators col ON col.id=cc.collaborator_id WHERE length(regexp_replace(COALESCE(col.mobile,''),'[^0-9]','','g'))>=9
+          UNION SELECT DISTINCT cc.cc_id, right(regexp_replace(col.mobile_2,'[^0-9]','','g'),9) FROM cc JOIN collaborators col ON col.id=cc.collaborator_id WHERE length(regexp_replace(COALESCE(col.mobile_2,''),'[^0-9]','','g'))>=9
+          UNION SELECT DISTINCT cc.cc_id, right(regexp_replace(cu.phone,'[^0-9]','','g'),9) FROM cc JOIN customers cu ON cu.id=cc.customer_id WHERE length(regexp_replace(COALESCE(cu.phone,''),'[^0-9]','','g'))>=9
+          UNION SELECT DISTINCT cc.cc_id, right(regexp_replace(cu.mobile,'[^0-9]','','g'),9) FROM cc JOIN customers cu ON cu.id=cc.customer_id WHERE length(regexp_replace(COALESCE(cu.mobile,''),'[^0-9]','','g'))>=9
+          UNION SELECT DISTINCT cc.cc_id, right(regexp_replace(cu.mobile_2,'[^0-9]','','g'),9) FROM cc JOIN customers cu ON cu.id=cc.customer_id WHERE length(regexp_replace(COALESCE(cu.mobile_2,''),'[^0-9]','','g'))>=9
+          UNION SELECT DISTINCT cc.cc_id, right(regexp_replace(cu.gynecologist_phone,'[^0-9]','','g'),9) FROM cc JOIN customers cu ON cu.id=cc.customer_id WHERE length(regexp_replace(COALESCE(cu.gynecologist_phone,''),'[^0-9]','','g'))>=9
+        ),
+        call_c AS (
+          SELECT campaign_contact_id cc_id, COUNT(*) n FROM call_logs
+          WHERE campaign_id=${campaignId} AND direction='outbound' AND campaign_contact_id IS NOT NULL
+            AND started_at >= ${fromDate} AND started_at <= ${toDate}
+          GROUP BY campaign_contact_id
+        ),
+        email_c AS (
+          SELECT e.cc_id, COUNT(DISTINCT m.id) n FROM communication_messages m JOIN cc_email e ON lower(m.recipient_email)=e.v
+          WHERE m.direction='outbound' AND m.type='email'
+            AND m.created_at >= ${fromDate} AND m.created_at <= ${toDate}
+          GROUP BY e.cc_id
+        ),
+        sms_c AS (
+          SELECT p.cc_id, COUNT(DISTINCT m.id) n FROM communication_messages m JOIN cc_phone p ON right(regexp_replace(COALESCE(m.recipient_phone,''),'[^0-9]','','g'),9)=p.v
+          WHERE m.direction='outbound' AND m.type='sms' AND m.recipient_phone IS NOT NULL AND length(regexp_replace(m.recipient_phone,'[^0-9]','','g'))>=9
+            AND m.created_at >= ${fromDate} AND m.created_at <= ${toDate}
+          GROUP BY p.cc_id
+        ),
+        task_c AS (
+          SELECT cc_id, COUNT(*) n FROM (
+            SELECT cc.cc_id, t.id tid FROM cc JOIN tasks t ON t.customer_id=cc.customer_id WHERE cc.customer_id IS NOT NULL AND t.source_run_id IS NULL AND t.created_at >= ${fromDate} AND t.created_at <= ${toDate}
+            UNION SELECT cc.cc_id, t.id FROM cc JOIN tasks t ON t.related_entity_id=cc.customer_id WHERE cc.customer_id IS NOT NULL AND t.source_run_id IS NULL AND t.created_at >= ${fromDate} AND t.created_at <= ${toDate}
+            UNION SELECT cc.cc_id, t.id FROM cc JOIN tasks t ON t.related_entity_id=cc.clinic_id WHERE cc.clinic_id IS NOT NULL AND t.source_run_id IS NULL AND t.created_at >= ${fromDate} AND t.created_at <= ${toDate}
+            UNION SELECT cc.cc_id, t.id FROM cc JOIN tasks t ON t.related_entity_id=cc.hospital_id WHERE cc.hospital_id IS NOT NULL AND t.source_run_id IS NULL AND t.created_at >= ${fromDate} AND t.created_at <= ${toDate}
+            UNION SELECT cc.cc_id, t.id FROM cc JOIN tasks t ON t.related_entity_id=cc.collaborator_id WHERE cc.collaborator_id IS NOT NULL AND t.source_run_id IS NULL AND t.created_at >= ${fromDate} AND t.created_at <= ${toDate}
+          ) x GROUP BY cc_id
+        )
+        SELECT
+          CASE WHEN cc.clinic_id IS NOT NULL THEN 'clinic'
+               WHEN cc.hospital_id IS NOT NULL THEN 'hospital'
+               WHEN cc.collaborator_id IS NOT NULL THEN 'collaborator'
+               WHEN cc.customer_id IS NOT NULL THEN 'customer'
+               ELSE cc.contact_type END AS entity_type,
+          COALESCE(cl.name, h.name, NULLIF(TRIM(COALESCE(col.first_name,'')||' '||COALESCE(col.last_name,'')),''), col.company_name, NULLIF(TRIM(COALESCE(cu.first_name,'')||' '||COALESCE(cu.last_name,'')),'')) AS name,
+          COALESCE(call_c.n,0) AS calls, COALESCE(email_c.n,0) AS emails, COALESCE(sms_c.n,0) AS sms, COALESCE(task_c.n,0) AS tasks,
+          COALESCE(call_c.n,0)+COALESCE(email_c.n,0)+COALESCE(sms_c.n,0)+COALESCE(task_c.n,0) AS total
+        FROM cc
+        LEFT JOIN clinics cl ON cl.id=cc.clinic_id
+        LEFT JOIN hospitals h ON h.id=cc.hospital_id
+        LEFT JOIN collaborators col ON col.id=cc.collaborator_id
+        LEFT JOIN customers cu ON cu.id=cc.customer_id
+        LEFT JOIN call_c ON call_c.cc_id=cc.cc_id
+        LEFT JOIN email_c ON email_c.cc_id=cc.cc_id
+        LEFT JOIN sms_c ON sms_c.cc_id=cc.cc_id
+        LEFT JOIN task_c ON task_c.cc_id=cc.cc_id
+        WHERE COALESCE(call_c.n,0)+COALESCE(email_c.n,0)+COALESCE(sms_c.n,0)+COALESCE(task_c.n,0) > 0
+        ORDER BY total DESC, name ASC
+        LIMIT 10
+      `);
+
+      const topContacts = (topRows.rows as any[]).map(r => ({
+        name: r.name || "—",
+        entityType: r.entity_type as string,
+        calls: Number(r.calls) || 0,
+        emails: Number(r.emails) || 0,
+        sms: Number(r.sms) || 0,
+        tasks: Number(r.tasks) || 0,
+        total: Number(r.total) || 0,
+      }));
+
+      res.json(topContacts);
+    } catch (error) {
+      console.error("Error fetching campaign top contacts:", error);
+      res.status(500).json({ error: "Failed to fetch top contacts" });
+    }
+  });
+
   // Get all call logs (with optional filters)
   app.get("/api/call-logs", requireAuth, async (req, res) => {
     try {

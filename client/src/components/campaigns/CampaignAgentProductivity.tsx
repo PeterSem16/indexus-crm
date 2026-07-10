@@ -14,6 +14,7 @@ import {
 import {
   HelpCircle, Users, Phone, Mail, MessageSquare, ClipboardCheck, CalendarClock,
   Clock, TrendingUp, TrendingDown, Minus, Trophy, Medal, Award, Sparkles, LucideIcon,
+  Building2, User, Contact,
 } from "lucide-react";
 
 interface AgentProductivityRow {
@@ -33,6 +34,16 @@ interface AgentProductivityRow {
   totalSeconds: number;
   prevTotalSeconds: number;
   trendPct: number | null;
+}
+
+interface TopContact {
+  name: string;
+  entityType: string;
+  calls: number;
+  emails: number;
+  sms: number;
+  tasks: number;
+  total: number;
 }
 
 function fmtDur(seconds: number): string {
@@ -94,6 +105,13 @@ const RANK_STYLES = [
   { icon: Medal, cls: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 ring-1 ring-slate-400/30", bar: "from-slate-400 to-blue-500" },
   { icon: Award, cls: "bg-orange-100 text-orange-700 dark:bg-orange-950/60 dark:text-orange-400 ring-1 ring-orange-400/30", bar: "from-orange-400 to-amber-500" },
 ];
+
+const ENTITY_ICON: Record<string, LucideIcon> = {
+  clinic: Building2,
+  hospital: Building2,
+  collaborator: Users,
+  customer: User,
+};
 
 function TrendBadge({ pct, hasActivity, apNew, apVs }: {
   pct: number | null; hasActivity: boolean; apNew: string; apVs: string;
@@ -219,6 +237,19 @@ export default function CampaignAgentProductivity({ campaignId }: { campaignId: 
         { credentials: "include" },
       );
       if (!res.ok) throw new Error("Failed to load agent productivity");
+      return res.json();
+    },
+  });
+
+  const { data: topContacts = [], isLoading: topLoading } = useQuery<TopContact[]>({
+    queryKey: ["/api/campaigns", campaignId, "top-contacts", fromISO, toISO],
+    enabled: validRange && !!campaignId,
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/campaigns/${campaignId}/top-contacts?from=${encodeURIComponent(fromISO)}&to=${encodeURIComponent(toISO)}`,
+        { credentials: "include" },
+      );
+      if (!res.ok) throw new Error("Failed to load top contacts");
       return res.json();
     },
   });
@@ -436,6 +467,70 @@ export default function CampaignAgentProductivity({ campaignId }: { campaignId: 
                   </TableFooter>
                 </Table>
               </div>
+            </div>
+
+            <div className="mt-6">
+              <h4 className="text-sm font-semibold flex items-center gap-2 mb-1">
+                <Contact className="h-4 w-4 text-primary" />
+                {ap.topContactsTitle}
+              </h4>
+              <p className="text-xs text-muted-foreground mb-3">{ap.topContactsSubtitle}</p>
+              {topLoading ? (
+                <Skeleton className="h-48 w-full rounded-xl" />
+              ) : topContacts.length === 0 ? (
+                <div
+                  className="rounded-xl border border-dashed py-8 text-center text-sm text-muted-foreground"
+                  data-testid="text-no-top-contacts"
+                >
+                  {ap.noData}
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-10">#</TableHead>
+                        <TableHead>{ap.contactLabel}</TableHead>
+                        <TableHead className="text-right">{ap.callsLabel}</TableHead>
+                        <TableHead className="text-right">{ap.emailsLabel}</TableHead>
+                        <TableHead className="text-right">{ap.smsLabel}</TableHead>
+                        <TableHead className="text-right">{ap.tasksLabel}</TableHead>
+                        <TableHead className="text-right font-bold">{ap.mixLabel}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {topContacts.map((c, idx) => {
+                        const rankStyle = RANK_STYLES[idx];
+                        const EntityIcon = ENTITY_ICON[c.entityType] || User;
+                        return (
+                          <TableRow key={`${c.name}-${idx}`} data-testid={`row-top-contact-${idx}`}>
+                            <TableCell>
+                              {rankStyle ? (
+                                <div className={`h-6 w-6 rounded-md flex items-center justify-center ${rankStyle.cls}`}>
+                                  <rankStyle.icon className="h-3.5 w-3.5" />
+                                </div>
+                              ) : (
+                                <span className="text-xs font-bold text-muted-foreground pl-2">{idx + 1}</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-2">
+                                <EntityIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                <span data-testid={`text-top-contact-name-${idx}`}>{c.name}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums" data-testid={`text-top-calls-${idx}`}>{c.calls}</TableCell>
+                            <TableCell className="text-right tabular-nums" data-testid={`text-top-emails-${idx}`}>{c.emails}</TableCell>
+                            <TableCell className="text-right tabular-nums" data-testid={`text-top-sms-${idx}`}>{c.sms}</TableCell>
+                            <TableCell className="text-right tabular-nums" data-testid={`text-top-tasks-${idx}`}>{c.tasks}</TableCell>
+                            <TableCell className="text-right tabular-nums font-bold" data-testid={`text-top-total-${idx}`}>{c.total}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </div>
           </>
         )}
