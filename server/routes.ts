@@ -31569,9 +31569,10 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       }
 
       const userRows = agentIds.length > 0
-        ? await db.select({ id: users.id, fullName: users.fullName }).from(users).where(inArray(users.id, agentIds))
+        ? await db.select({ id: users.id, fullName: users.fullName, avatarUrl: users.avatarUrl }).from(users).where(inArray(users.id, agentIds))
         : [];
       const nameMap = new Map(userRows.map(u => [u.id, u.fullName]));
+      const avatarMap = new Map(userRows.map(u => [u.id, u.avatarUrl]));
 
       const result = agentIds.map(id => {
         const c = callMap.get(id) || { kn: 0, kr: 0 };
@@ -31588,6 +31589,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         return {
           agentId: id,
           agentName: nameMap.get(id) || "—",
+          avatarUrl: avatarMap.get(id) || null,
           newCalls: c.kn,
           repeatCalls: c.kr,
           emails: cm.emails,

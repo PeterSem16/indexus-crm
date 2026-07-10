@@ -7,6 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter,
+} from "@/components/ui/table";
 import {
   HelpCircle, Users, Phone, Mail, MessageSquare, ClipboardCheck, CalendarClock,
   Clock, TrendingUp, TrendingDown, Minus, Trophy, Medal, Award, Sparkles, LucideIcon,
@@ -15,6 +19,7 @@ import {
 interface AgentProductivityRow {
   agentId: string;
   agentName: string;
+  avatarUrl: string | null;
   newCalls: number;
   repeatCalls: number;
   emails: number;
@@ -145,9 +150,12 @@ function AgentCard({ r, rank, maxTotal, ap }: {
             {rank + 1}
           </div>
         )}
-        <div className="h-9 w-9 shrink-0 rounded-full flex items-center justify-center bg-primary/10 text-primary text-xs font-bold">
-          {initials(r.agentName)}
-        </div>
+        <Avatar className="h-9 w-9 shrink-0">
+          {r.avatarUrl ? <AvatarImage src={r.avatarUrl} alt={r.agentName} /> : null}
+          <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+            {initials(r.agentName)}
+          </AvatarFallback>
+        </Avatar>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold truncate" data-testid={`text-agent-name-${r.agentId}`}>{r.agentName}</span>
@@ -232,6 +240,21 @@ export default function CampaignAgentProductivity({ campaignId }: { campaignId: 
     const maxTotal = rows.reduce((m, r) => Math.max(m, r.totalSeconds), 0);
     const avg = (v: number) => Math.round(v / n);
     return { totals, maxTotal, avg };
+  }, [rows]);
+
+  const detailTotals = useMemo(() => {
+    return rows.reduce(
+      (acc, r) => ({
+        newCalls: acc.newCalls + r.newCalls,
+        repeatCalls: acc.repeatCalls + r.repeatCalls,
+        nonstandardTasks: acc.nonstandardTasks + r.nonstandardTasks,
+        twSeconds: acc.twSeconds + r.twSeconds,
+        talkSeconds: acc.talkSeconds + r.talkSeconds,
+        ringSeconds: acc.ringSeconds + r.ringSeconds,
+        totalSeconds: acc.totalSeconds + r.totalSeconds,
+      }),
+      { newCalls: 0, repeatCalls: 0, nonstandardTasks: 0, twSeconds: 0, talkSeconds: 0, ringSeconds: 0, totalSeconds: 0 },
+    );
   }, [rows]);
 
   const setRange = (kind: "today" | "week" | "month") => {
@@ -339,6 +362,79 @@ export default function CampaignAgentProductivity({ campaignId }: { campaignId: 
                 {rows.map((r, idx) => (
                   <AgentCard key={r.agentId} r={r} rank={idx} maxTotal={summary.maxTotal} ap={ap} />
                 ))}
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <h4 className="text-sm font-semibold flex items-center gap-2 mb-3">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                {ap.detailedStats}
+              </h4>
+              <div className="overflow-x-auto rounded-xl border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{ap.agent}</TableHead>
+                      <TableHead className="text-right">{ap.newCalls}</TableHead>
+                      <TableHead className="text-right">{ap.repeatCalls}</TableHead>
+                      <TableHead className="text-right">{ap.emailsLabel}</TableHead>
+                      <TableHead className="text-right">{ap.smsLabel}</TableHead>
+                      <TableHead className="text-right">{ap.nonstandardTasks}</TableHead>
+                      <TableHead className="text-right">{ap.scheduledLabel}</TableHead>
+                      <TableHead className="text-right">{ap.nonCallTime}</TableHead>
+                      <TableHead className="text-right">{ap.talkTime}</TableHead>
+                      <TableHead className="text-right">{ap.ringTime}</TableHead>
+                      <TableHead className="text-right font-bold">{ap.totalEstimated}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rows.map((r) => (
+                      <TableRow key={r.agentId} data-testid={`row-agent-${r.agentId}`}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-6 w-6 shrink-0">
+                              {r.avatarUrl ? <AvatarImage src={r.avatarUrl} alt={r.agentName} /> : null}
+                              <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-bold">
+                                {initials(r.agentName)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span data-testid={`text-agent-name-row-${r.agentId}`}>{r.agentName}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right" data-testid={`text-new-calls-${r.agentId}`}>{r.newCalls}</TableCell>
+                        <TableCell className="text-right" data-testid={`text-repeat-calls-${r.agentId}`}>{r.repeatCalls}</TableCell>
+                        <TableCell className="text-right" data-testid={`text-emails-${r.agentId}`}>{r.emails}</TableCell>
+                        <TableCell className="text-right" data-testid={`text-sms-${r.agentId}`}>{r.sms}</TableCell>
+                        <TableCell className="text-right" data-testid={`text-tasks-${r.agentId}`}>{r.nonstandardTasks}</TableCell>
+                        <TableCell className="text-right" data-testid={`text-scheduled-${r.agentId}`}>
+                          {r.scheduledPending}
+                          {r.scheduledOverdue > 0 ? (
+                            <span className="text-rose-600 dark:text-rose-400"> ({r.scheduledOverdue} {ap.overdueLabel})</span>
+                          ) : null}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">{fmtDur(r.twSeconds)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">{fmtDur(r.talkSeconds)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">{fmtDur(r.ringSeconds)}</TableCell>
+                        <TableCell className="text-right tabular-nums font-bold" data-testid={`text-total-row-${r.agentId}`}>{fmtDur(r.totalSeconds)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                  <TableFooter>
+                    <TableRow data-testid="row-totals">
+                      <TableCell className="font-bold">{ap.totals}</TableCell>
+                      <TableCell className="text-right font-bold">{detailTotals.newCalls}</TableCell>
+                      <TableCell className="text-right font-bold">{detailTotals.repeatCalls}</TableCell>
+                      <TableCell className="text-right font-bold">{summary.totals.emails}</TableCell>
+                      <TableCell className="text-right font-bold">{summary.totals.sms}</TableCell>
+                      <TableCell className="text-right font-bold">{detailTotals.nonstandardTasks}</TableCell>
+                      <TableCell className="text-right font-bold">{summary.totals.scheduled}</TableCell>
+                      <TableCell className="text-right tabular-nums font-bold">{fmtDur(detailTotals.twSeconds)}</TableCell>
+                      <TableCell className="text-right tabular-nums font-bold">{fmtDur(detailTotals.talkSeconds)}</TableCell>
+                      <TableCell className="text-right tabular-nums font-bold">{fmtDur(detailTotals.ringSeconds)}</TableCell>
+                      <TableCell className="text-right tabular-nums font-bold" data-testid="text-total-all">{fmtDur(detailTotals.totalSeconds)}</TableCell>
+                    </TableRow>
+                  </TableFooter>
+                </Table>
               </div>
             </div>
           </>

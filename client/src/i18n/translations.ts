@@ -155,6 +155,7 @@ export interface Translations {
     vsPrevPeriod: string;
     newShort: string;
     repeatShort: string;
+    detailedStats: string;
   };
   nav: {
     dashboard: string;
@@ -6906,6 +6907,7 @@ export const translations: Record<Locale, Translations> = {
       workedTimeLabel: 'Worked time',
       avgPerAgent: 'avg / agent',
       leaderboard: 'Agent leaderboard',
+      detailedStats: 'Detailed statistics',
       newAgentBadge: 'New',
       vsPrevPeriod: 'vs previous period',
       newShort: 'new',
@@ -13713,6 +13715,7 @@ export const translations: Record<Locale, Translations> = {
       workedTimeLabel: 'Odpracovaný čas',
       avgPerAgent: 'priemer / agent',
       leaderboard: 'Rebríček agentov',
+      detailedStats: 'Podrobná štatistika',
       newAgentBadge: 'Nový',
       vsPrevPeriod: 'oproti predchádzajúcemu obdobiu',
       newShort: 'nové',
@@ -20456,6 +20459,7 @@ export const translations: Record<Locale, Translations> = {
       workedTimeLabel: 'Odpracovaný čas',
       avgPerAgent: 'průměr / agent',
       leaderboard: 'Žebříček agentů',
+      detailedStats: 'Podrobná statistika',
       newAgentBadge: 'Nový',
       vsPrevPeriod: 'oproti předchozímu období',
       newShort: 'nové',
@@ -27125,6 +27129,7 @@ export const translations: Record<Locale, Translations> = {
       workedTimeLabel: 'Ledolgozott idő',
       avgPerAgent: 'átlag / ügynök',
       leaderboard: 'Ügynökök ranglistája',
+      detailedStats: 'Részletes statisztika',
       newAgentBadge: 'Új',
       vsPrevPeriod: 'az előző időszakhoz képest',
       newShort: 'új',
@@ -33754,6 +33759,7 @@ export const translations: Record<Locale, Translations> = {
       workedTimeLabel: 'Timp lucrat',
       avgPerAgent: 'medie / agent',
       leaderboard: 'Clasament agenți',
+      detailedStats: 'Statistici detaliate',
       newAgentBadge: 'Nou',
       vsPrevPeriod: 'față de perioada anterioară',
       newShort: 'noi',
@@ -40303,6 +40309,7 @@ export const translations: Record<Locale, Translations> = {
       workedTimeLabel: 'Tempo lavorato',
       avgPerAgent: 'media / agente',
       leaderboard: 'Classifica agenti',
+      detailedStats: 'Statistiche dettagliate',
       newAgentBadge: 'Nuovo',
       vsPrevPeriod: 'rispetto al periodo precedente',
       newShort: 'nuove',
@@ -46854,6 +46861,7 @@ export const translations: Record<Locale, Translations> = {
       workedTimeLabel: 'Arbeitszeit',
       avgPerAgent: 'Ø / Agent',
       leaderboard: 'Agenten-Rangliste',
+      detailedStats: 'Detaillierte Statistik',
       newAgentBadge: 'Neu',
       vsPrevPeriod: 'ggü. Vorperiode',
       newShort: 'neu',
