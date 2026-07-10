@@ -1962,6 +1962,7 @@ function AutoModeCard({ campaign }: { campaign: Campaign }) {
 }
 
 function DefaultTemplatesCard({ campaign }: { campaign: Campaign }) {
+  const { t } = useI18n();
   const { toast } = useToast();
   const [hasChanges, setHasChanges] = useState(false);
   const [defaultEmailCategoryId, setDefaultEmailCategoryId] = useState<string>("");
@@ -2029,12 +2030,12 @@ function DefaultTemplatesCard({ campaign }: { campaign: Campaign }) {
       return apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { settings: JSON.stringify(merged) });
     },
     onSuccess: () => {
-      toast({ title: "Nastavenia uložené" });
+      toast({ title: t.campaigns.detail.settingsSaved });
       setHasChanges(false);
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
     },
     onError: () => {
-      toast({ title: "Chyba pri ukladaní", variant: "destructive" });
+      toast({ title: t.campaigns.detail.settingsError, variant: "destructive" });
     },
   });
 
@@ -2043,14 +2044,14 @@ function DefaultTemplatesCard({ campaign }: { campaign: Campaign }) {
       <CardHeader>
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div>
-            <CardTitle>Predvolené šablóny (Email / SMS)</CardTitle>
+            <CardTitle>{t.campaigns.detail.defaultTemplatesTitle}</CardTitle>
             <CardDescription>
-              Keď agent otvorí záložku Email alebo SMS, automaticky sa prednastaví vybraná kategória a šablóna.
+              {t.campaigns.detail.defaultTemplatesDesc}
             </CardDescription>
           </div>
           {hasChanges && (
             <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} data-testid="button-save-default-templates">
-              {saveMutation.isPending ? "Ukladám..." : "Uložiť"}
+              {saveMutation.isPending ? t.campaigns.detail.saving : t.common.save}
             </Button>
           )}
         </div>
@@ -2064,17 +2065,17 @@ function DefaultTemplatesCard({ campaign }: { campaign: Campaign }) {
           </div>
           <div className="grid grid-cols-2 gap-3 pl-6">
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Kategória</Label>
+              <Label className="text-xs text-muted-foreground">{t.campaigns.detail.defaultTemplatesCategory}</Label>
               <Select value={defaultEmailCategoryId || "__none__"} onValueChange={(v) => {
                 setDefaultEmailCategoryId(v === "__none__" ? "" : v);
                 setDefaultEmailTemplateId("");
                 setHasChanges(true);
               }}>
                 <SelectTrigger data-testid="select-default-email-category">
-                  <SelectValue placeholder="— žiadna —" />
+                  <SelectValue placeholder={t.campaigns.detail.defaultTemplatesNone} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none__">— žiadna —</SelectItem>
+                  <SelectItem value="__none__">{t.campaigns.detail.defaultTemplatesNone}</SelectItem>
                   {emailCats.map(c => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
@@ -2082,16 +2083,16 @@ function DefaultTemplatesCard({ campaign }: { campaign: Campaign }) {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Šablóna</Label>
+              <Label className="text-xs text-muted-foreground">{t.campaigns.detail.defaultTemplatesTemplate}</Label>
               <Select value={defaultEmailTemplateId || "__none__"} onValueChange={(v) => {
                 setDefaultEmailTemplateId(v === "__none__" ? "" : v);
                 setHasChanges(true);
               }}>
                 <SelectTrigger data-testid="select-default-email-template">
-                  <SelectValue placeholder="— žiadna —" />
+                  <SelectValue placeholder={t.campaigns.detail.defaultTemplatesNone} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none__">— žiadna —</SelectItem>
+                  <SelectItem value="__none__">{t.campaigns.detail.defaultTemplatesNone}</SelectItem>
                   {filteredEmailTemplates.map(tmpl => (
                     <SelectItem key={tmpl.id} value={tmpl.id}>{tmpl.name}</SelectItem>
                   ))}
@@ -2107,17 +2108,17 @@ function DefaultTemplatesCard({ campaign }: { campaign: Campaign }) {
           </div>
           <div className="grid grid-cols-2 gap-3 pl-6">
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Kategória</Label>
+              <Label className="text-xs text-muted-foreground">{t.campaigns.detail.defaultTemplatesCategory}</Label>
               <Select value={defaultSmsCategoryId || "__none__"} onValueChange={(v) => {
                 setDefaultSmsCategoryId(v === "__none__" ? "" : v);
                 setDefaultSmsTemplateId("");
                 setHasChanges(true);
               }}>
                 <SelectTrigger data-testid="select-default-sms-category">
-                  <SelectValue placeholder="— žiadna —" />
+                  <SelectValue placeholder={t.campaigns.detail.defaultTemplatesNone} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none__">— žiadna —</SelectItem>
+                  <SelectItem value="__none__">{t.campaigns.detail.defaultTemplatesNone}</SelectItem>
                   {smsCats.map(c => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
@@ -2125,16 +2126,16 @@ function DefaultTemplatesCard({ campaign }: { campaign: Campaign }) {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Šablóna</Label>
+              <Label className="text-xs text-muted-foreground">{t.campaigns.detail.defaultTemplatesTemplate}</Label>
               <Select value={defaultSmsTemplateId || "__none__"} onValueChange={(v) => {
                 setDefaultSmsTemplateId(v === "__none__" ? "" : v);
                 setHasChanges(true);
               }}>
                 <SelectTrigger data-testid="select-default-sms-template">
-                  <SelectValue placeholder="— žiadna —" />
+                  <SelectValue placeholder={t.campaigns.detail.defaultTemplatesNone} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none__">— žiadna —</SelectItem>
+                  <SelectItem value="__none__">{t.campaigns.detail.defaultTemplatesNone}</SelectItem>
                   {filteredSmsTemplates.map(tmpl => (
                     <SelectItem key={tmpl.id} value={tmpl.id}>{tmpl.name}</SelectItem>
                   ))}

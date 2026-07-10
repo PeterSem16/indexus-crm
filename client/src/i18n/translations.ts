@@ -2417,6 +2417,11 @@ export interface Translations {
       settingsGroupAutomationDesc: string;
       settingsGroupDialer: string;
       settingsGroupDialerDesc: string;
+      defaultTemplatesTitle: string;
+      defaultTemplatesDesc: string;
+      defaultTemplatesCategory: string;
+      defaultTemplatesTemplate: string;
+      defaultTemplatesNone: string;
       queueDisplayModeTitle: string;
       queueDisplayModeDesc: string;
       queueDisplayModeStep: string;
@@ -9641,6 +9646,11 @@ export const translations: Record<Locale, Translations> = {
         settingsGroupAutomationDesc: "Queue display and SOP documents",
         settingsGroupDialer: "Dialer",
         settingsGroupDialerDesc: "Automatic dialing and contact dialing methods",
+        defaultTemplatesTitle: "Default templates (Email / SMS)",
+        defaultTemplatesDesc: "When an agent opens the Email or SMS tab, the selected category and template are preselected automatically.",
+        defaultTemplatesCategory: "Category",
+        defaultTemplatesTemplate: "Template",
+        defaultTemplatesNone: "— none —",
         queueDisplayModeTitle: 'Scheduled Queue Column',
         queueDisplayModeDesc: 'Choose what to display in the "Step" column of the scheduled queue.',
         queueDisplayModeStep: 'Show current script step',
@@ -16363,6 +16373,11 @@ export const translations: Record<Locale, Translations> = {
         settingsGroupAutomationDesc: "Zobrazenie fronty a SOP dokumenty",
         settingsGroupDialer: "Vytáčanie",
         settingsGroupDialerDesc: "Automatické vytáčanie a metódy vytáčania kontaktov",
+        defaultTemplatesTitle: "Predvolené šablóny (Email / SMS)",
+        defaultTemplatesDesc: "Keď agent otvorí záložku Email alebo SMS, automaticky sa prednastaví vybraná kategória a šablóna.",
+        defaultTemplatesCategory: "Kategória",
+        defaultTemplatesTemplate: "Šablóna",
+        defaultTemplatesNone: "— žiadna —",
         queueDisplayModeTitle: 'Stĺpec plánovanej fronty',
         queueDisplayModeDesc: 'Vyberte, čo sa zobrazí v stĺpci „Krok" plánovanej fronty.',
         queueDisplayModeStep: 'Zobraziť aktuálny krok scriptu',
@@ -23023,6 +23038,11 @@ export const translations: Record<Locale, Translations> = {
         settingsGroupAutomationDesc: "Zobrazení fronty a SOP dokumenty",
         settingsGroupDialer: "Vytáčení",
         settingsGroupDialerDesc: "Automatické vytáčení a metody vytáčení kontaktů",
+        defaultTemplatesTitle: "Výchozí šablony (Email / SMS)",
+        defaultTemplatesDesc: "Když agent otevře záložku Email nebo SMS, automaticky se přednastaví vybraná kategorie a šablona.",
+        defaultTemplatesCategory: "Kategorie",
+        defaultTemplatesTemplate: "Šablona",
+        defaultTemplatesNone: "— žádná —",
         queueDisplayModeTitle: 'Sloupec plánované fronty',
         queueDisplayModeDesc: 'Vyberte, co se zobrazí ve sloupci „Krok" plánované fronty.',
         queueDisplayModeStep: 'Zobrazit aktuální krok scriptu',
@@ -29641,6 +29661,11 @@ export const translations: Record<Locale, Translations> = {
         settingsGroupAutomationDesc: "Sor megjelenítése és SOP dokumentumok",
         settingsGroupDialer: "Tárcsázó",
         settingsGroupDialerDesc: "Automatikus tárcsázás és kapcsolattárcsázási módszerek",
+        defaultTemplatesTitle: "Alapértelmezett sablonok (Email / SMS)",
+        defaultTemplatesDesc: "Amikor egy ügynök megnyitja az Email vagy SMS fület, a kiválasztott kategória és sablon automatikusan előre kiválasztódik.",
+        defaultTemplatesCategory: "Kategória",
+        defaultTemplatesTemplate: "Sablon",
+        defaultTemplatesNone: "— nincs —",
         queueDisplayModeTitle: 'Ütemezett sor oszlopa',
         queueDisplayModeDesc: 'Válassza ki, mi jelenjen meg az ütemezett sor „Lépés" oszlopában.',
         queueDisplayModeStep: 'Aktuális script lépés megjelenítése',
@@ -36144,6 +36169,11 @@ export const translations: Record<Locale, Translations> = {
         settingsGroupAutomationDesc: "Afișarea cozii și documente SOP",
         settingsGroupDialer: "Apelare",
         settingsGroupDialerDesc: "Apelare automată și metode de apelare a contactelor",
+        defaultTemplatesTitle: "Șabloane implicite (Email / SMS)",
+        defaultTemplatesDesc: "Când un agent deschide fila Email sau SMS, categoria și șablonul selectate sunt preselectate automat.",
+        defaultTemplatesCategory: "Categorie",
+        defaultTemplatesTemplate: "Șablon",
+        defaultTemplatesNone: "— niciunul —",
         queueDisplayModeTitle: 'Coloana cozii programate',
         queueDisplayModeDesc: 'Alegeți ce să afișați în coloana „Pas" a cozii programate.',
         queueDisplayModeStep: 'Afișare pas curent al scriptului',
@@ -42649,6 +42679,11 @@ export const translations: Record<Locale, Translations> = {
         settingsGroupAutomationDesc: "Visualizzazione coda e documenti SOP",
         settingsGroupDialer: "Compositore",
         settingsGroupDialerDesc: "Composizione automatica e metodi di chiamata dei contatti",
+        defaultTemplatesTitle: "Modelli predefiniti (Email / SMS)",
+        defaultTemplatesDesc: "Quando un agente apre la scheda Email o SMS, la categoria e il modello selezionati vengono preselezionati automaticamente.",
+        defaultTemplatesCategory: "Categoria",
+        defaultTemplatesTemplate: "Modello",
+        defaultTemplatesNone: "— nessuno —",
         queueDisplayModeTitle: 'Colonna coda programmata',
         queueDisplayModeDesc: 'Scegliere cosa visualizzare nella colonna "Passo" della coda programmata.',
         queueDisplayModeStep: 'Mostra il passo corrente dello script',
@@ -49154,6 +49189,11 @@ export const translations: Record<Locale, Translations> = {
         settingsGroupAutomationDesc: "Warteschlangenanzeige und SOP-Dokumente",
         settingsGroupDialer: "Wähler",
         settingsGroupDialerDesc: "Automatische Anwahl und Kontakt-Wählmethoden",
+        defaultTemplatesTitle: "Standardvorlagen (E-Mail / SMS)",
+        defaultTemplatesDesc: "Wenn ein Agent die Registerkarte E-Mail oder SMS öffnet, werden die ausgewählte Kategorie und Vorlage automatisch vorausgewählt.",
+        defaultTemplatesCategory: "Kategorie",
+        defaultTemplatesTemplate: "Vorlage",
+        defaultTemplatesNone: "— keine —",
         queueDisplayModeTitle: 'Spalte der geplanten Warteschlange',
         queueDisplayModeDesc: 'Wählen Sie, was in der Spalte „Schritt" der geplanten Warteschlange angezeigt wird.',
         queueDisplayModeStep: 'Aktuellen Script-Schritt anzeigen',
