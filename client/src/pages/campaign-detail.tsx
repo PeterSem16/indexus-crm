@@ -5740,27 +5740,15 @@ export default function CampaignDetailPage() {
             <BarChart3 className="w-4 h-4 mr-2" />
             {t.campaigns.detail.reporting}
           </TabsTrigger>
-          <TabsTrigger value="script" data-testid="tab-script">
-            <ScrollText className="w-4 h-4 mr-2" />
-            {t.campaigns.detail.script}
-          </TabsTrigger>
           {campaign?.channel === "email" && (
             <TabsTrigger value="mailchimp" data-testid="tab-mailchimp">
               <Mail className="w-4 h-4 mr-2" />
               Mailchimp
             </TabsTrigger>
           )}
-          <TabsTrigger value="phases" data-testid="tab-phases">
-            <Layers className="w-4 h-4 mr-2" />
-            Fázy
-          </TabsTrigger>
           <TabsTrigger value="settings" data-testid="tab-settings">
             <Settings className="w-4 h-4 mr-2" />
             {t.campaigns.detail.settings}
-          </TabsTrigger>
-          <TabsTrigger value="sl-analytics" data-testid="tab-sl-analytics">
-            <ListChecks className="w-4 h-4 mr-2" />
-            Status List
           </TabsTrigger>
           
         </TabsList>
@@ -6160,12 +6148,13 @@ export default function CampaignDetailPage() {
           <div className="flex border rounded-lg overflow-hidden min-h-[500px]">
               <div className="w-56 border-r bg-muted/20 py-3 px-3 flex flex-col gap-1 shrink-0">
                   {[
-                    { value: "general", icon: Settings, label: t.campaigns.detail.general, desc: "Základné nastavenia" },
-                    { value: "scheduling", icon: Clock, label: t.campaigns.detail.scheduling, desc: "Pracovné hodiny" },
-                    { value: "operators", icon: Shield, label: t.campaigns.detail.operator, desc: "Priradení operátori" },
-                    { value: "dispositions", icon: CheckCheck, label: t.campaigns.detail.dispositions, desc: "Stavy a výsledky" },
-                    { value: "status_list", icon: ListChecks, label: "Status List", desc: "Kroky + automatizácie" },
-                    { value: "kpi", icon: Target, label: t.campaigns.detail.kpiTargets, desc: "Ciele a metriky" },
+                    { value: "general", icon: Settings, label: t.campaigns.detail.general, desc: t.campaigns.detail.subGeneralDesc },
+                    { value: "scheduling", icon: Clock, label: t.campaigns.detail.scheduling, desc: t.campaigns.detail.subSchedulingDesc },
+                    { value: "operators", icon: Shield, label: t.campaigns.detail.operator, desc: t.campaigns.detail.subOperatorsDesc },
+                    { value: "dispositions", icon: CheckCheck, label: t.campaigns.detail.dispositions, desc: t.campaigns.detail.subDispositionsDesc },
+                    { value: "status_list", icon: ListChecks, label: "Status List", desc: t.campaigns.detail.subStatusListDesc },
+                    { value: "script", icon: ScrollText, label: t.campaigns.detail.script, desc: t.campaigns.detail.subScriptDesc },
+                    { value: "phases", icon: Layers, label: t.campaigns.detail.phases, desc: t.campaigns.detail.subPhasesDesc },
                   ].map((tab) => {
                     const isActive = settingsSubTab === tab.value;
                     return (
@@ -6196,8 +6185,20 @@ export default function CampaignDetailPage() {
 
                 <div className="flex-1 overflow-y-auto px-6 py-4">
                   {settingsSubTab === "general" && (
-                    <div className="space-y-6">
-                      <CampaignDetailsCard campaign={campaign} />
+                    <div className="space-y-8">
+                      <section className="space-y-3">
+                        <div className="space-y-0.5">
+                          <h3 className="text-base font-semibold">{t.campaigns.detail.settingsGroupBasic}</h3>
+                          <p className="text-sm text-muted-foreground">{t.campaigns.detail.settingsGroupBasicDesc}</p>
+                        </div>
+                        <CampaignDetailsCard campaign={campaign} />
+                      </section>
+                      <section className="space-y-3">
+                        <div className="space-y-0.5">
+                          <h3 className="text-base font-semibold">{t.campaigns.detail.settingsGroupAgent}</h3>
+                          <p className="text-sm text-muted-foreground">{t.campaigns.detail.settingsGroupAgentDesc}</p>
+                        </div>
+                        <div className="grid gap-4 lg:grid-cols-2 items-start">
                       <Card>
                         <CardHeader>
                           <CardTitle>{t.campaigns.detail.defaultAgentTab}</CardTitle>
@@ -6305,9 +6306,9 @@ export default function CampaignDetailPage() {
                       </Card>
                       <Card>
                         <CardHeader>
-                          <CardTitle>Script tab pre agentov</CardTitle>
+                          <CardTitle>{t.campaigns.detail.showScriptTitle}</CardTitle>
                           <CardDescription>
-                            Ak je vypnuté, agenti nevidia záložku SCRIPT vo svojom pracovnom priestore.
+                            {t.campaigns.detail.showScriptDesc}
                           </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -6333,18 +6334,26 @@ export default function CampaignDetailPage() {
                           />
                         </CardContent>
                       </Card>
+                        </div>
+                      </section>
+                      <section className="space-y-3">
+                        <div className="space-y-0.5">
+                          <h3 className="text-base font-semibold">{t.campaigns.detail.settingsGroupWorkflow}</h3>
+                          <p className="text-sm text-muted-foreground">{t.campaigns.detail.settingsGroupWorkflowDesc}</p>
+                        </div>
+                        <div className="grid gap-4 lg:grid-cols-2 items-start">
                       <Card>
                         <CardHeader>
-                          <CardTitle>Workflow mód</CardTitle>
+                          <CardTitle>{t.campaigns.detail.workflowModeTitle}</CardTitle>
                           <CardDescription>
-                            Ako agenti zaznamenávajú výsledky kontaktov — cez klasickú Disposíciu alebo cez Status List (kroky s automatizáciami).
+                            {t.campaigns.detail.workflowModeDesc}
                           </CardDescription>
                         </CardHeader>
                         <CardContent>
                           <div className="flex gap-3">
                             {[
-                              { value: "disposition", label: "Disposícia", desc: "Klasický výber výsledku hovoru/kontaktu" },
-                              { value: "status_list", label: "Status List", desc: "Krok-za-krokom s automatizáciami" },
+                              { value: "disposition", label: t.campaigns.detail.workflowModeDisposition, desc: t.campaigns.detail.workflowModeDispositionDesc },
+                              { value: "status_list", label: t.campaigns.detail.workflowModeStatusList, desc: t.campaigns.detail.workflowModeStatusListDesc },
                             ].map((opt) => {
                               const current = (() => { try { const s = campaign.settings ? JSON.parse(campaign.settings) : {}; return s.workflowMode || "disposition"; } catch { return "disposition"; } })();
                               const isActive = current === opt.value;
@@ -6539,6 +6548,14 @@ export default function CampaignDetailPage() {
                           </div>
                         </CardContent>
                       </Card>
+                        </div>
+                      </section>
+                      <section className="space-y-3">
+                        <div className="space-y-0.5">
+                          <h3 className="text-base font-semibold">{t.campaigns.detail.settingsGroupCommunication}</h3>
+                          <p className="text-sm text-muted-foreground">{t.campaigns.detail.settingsGroupCommunicationDesc}</p>
+                        </div>
+                        <div className="grid gap-4 lg:grid-cols-2 items-start">
                       <Card>
                         <CardHeader>
                           <CardTitle>{t.campaigns.detail.nexusPulseEmailTitle}</CardTitle>
@@ -6669,6 +6686,14 @@ export default function CampaignDetailPage() {
                           })()}
                         </CardContent>
                       </Card>
+                        </div>
+                      </section>
+                      <section className="space-y-3">
+                        <div className="space-y-0.5">
+                          <h3 className="text-base font-semibold">{t.campaigns.detail.settingsGroupAutomation}</h3>
+                          <p className="text-sm text-muted-foreground">{t.campaigns.detail.settingsGroupAutomationDesc}</p>
+                        </div>
+                        <div className="space-y-4">
                       <Card>
                         <CardHeader>
                           <CardTitle>{t.campaigns.detail.queueDisplayModeTitle}</CardTitle>
@@ -6710,6 +6735,8 @@ export default function CampaignDetailPage() {
                       <AutoModeCard campaign={campaign} />
                       <DefaultTemplatesCard campaign={campaign} />
                       <CriteriaCard campaign={campaign} />
+                        </div>
+                      </section>
                     </div>
                   )}
 
@@ -6808,9 +6835,183 @@ export default function CampaignDetailPage() {
                     </div>
                   )}
 
-                  {settingsSubTab === "kpi" && (
+                  {settingsSubTab === "script" && (
                     <div className="space-y-6">
-                      <KpiTargetsCard campaign={campaign} />
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <ScrollText className="w-5 h-5" />
+                  {t.campaigns.detail.scriptBuilder}
+                </CardTitle>
+                <CardDescription>
+                  {t.campaigns.detail.scriptBuilder}
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" data-testid="button-load-script-template">
+                      <FileDown className="w-4 h-4 mr-2" />
+                      {t.campaigns.detail.loadTemplate || "Load template"}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => {
+                      const script = getDefaultSalesScript(locale);
+                      setStructuredScript(script);
+                      setStructuredScriptModified(true);
+                      setScriptMode("builder");
+                    }} data-testid="menu-load-sales-script">
+                      {t.campaigns.detail.salesScript || "Sales script"}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Select
+                  value={scriptMode}
+                  onValueChange={(v) => setScriptMode(v as "builder" | "preview" | "legacy")}
+                >
+                  <SelectTrigger className="w-40" data-testid="select-script-mode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="builder">Editor</SelectItem>
+                    <SelectItem value="preview">{t.campaigns.detail.preview}</SelectItem>
+                    <SelectItem value="legacy">{t.campaigns.detail.textMode}</SelectItem>
+                  </SelectContent>
+                </Select>
+                {scriptMode !== "legacy" && (
+                  <Button
+                    onClick={() => {
+                      if (structuredScript) {
+                        saveScriptMutation.mutate(JSON.stringify(structuredScript));
+                        setStructuredScriptModified(false);
+                      }
+                    }}
+                    disabled={!structuredScriptModified || saveScriptMutation.isPending}
+                    data-testid="button-save-structured-script"
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    {saveScriptMutation.isPending ? t.campaigns.detail.saving : t.common.save}
+                  </Button>
+                )}
+                {scriptMode === "legacy" && (
+                  <Button
+                    onClick={() => saveScriptMutation.mutate(scriptContent)}
+                    disabled={!scriptModified || saveScriptMutation.isPending}
+                    data-testid="button-save-script"
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    {saveScriptMutation.isPending ? t.campaigns.detail.saving : t.common.save}
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {scriptMode === "builder" && (
+                <div className="min-h-[500px]">
+                  <ScriptBuilder
+                    script={structuredScript}
+                    onChange={(newScript) => {
+                      setStructuredScript(newScript);
+                      setStructuredScriptModified(true);
+                    }}
+                    onSave={(s) => {
+                      setStructuredScript(s);
+                      saveScriptMutation.mutate(JSON.stringify(s));
+                      setStructuredScriptModified(false);
+                    }}
+                    isSaving={saveScriptMutation.isPending}
+                    campaignId={campaign.id}
+                  />
+                  {structuredScriptModified && (
+                    <div className="mt-4 flex items-center gap-2">
+                      <Badge variant="outline" className="bg-yellow-50 dark:bg-yellow-900/20">
+                        {t.campaigns.detail.saving}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {scriptMode === "preview" && structuredScript && (
+                <div className="min-h-[500px]">
+                  <ScriptRunner
+                    script={structuredScript}
+                    onComplete={(session) => {
+                      toast({ 
+                        title: t.campaigns.detail.settingsSaved, 
+                        description: `${session.responses.length}` 
+                      });
+                    }}
+                  />
+                </div>
+              )}
+              
+              <div className="flex gap-2 mb-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`/api/campaigns/${id}/generate-acquisition-script`, {
+                        method: "POST",
+                        credentials: "include",
+                      });
+                      if (res.ok) {
+                        queryClient.invalidateQueries({ queryKey: ["/api/campaigns", id] });
+                        toast({ title: t.campaigns.detail.acquisitionScriptGenerated, description: t.campaigns.detail.acquisitionScriptGeneratedDesc });
+                      }
+                    } catch {}
+                  }}
+                  data-testid="btn-generate-acquisition-script"
+                >
+                  <Wand2 className="h-4 w-4" />
+                  {t.campaigns.detail.generateAcquisitionScript}
+                </Button>
+              </div>
+
+              {scriptMode === "legacy" && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="script-editor">{t.campaigns.detail.scriptBuilder}</Label>
+                    <Textarea
+                      id="script-editor"
+                      placeholder={t.campaigns.detail.scriptBuilder}
+                      value={scriptContent.startsWith("{") ? "" : scriptContent}
+                      onChange={(e) => {
+                        setScriptContent(e.target.value);
+                        setScriptModified(true);
+                      }}
+                      className="min-h-[400px] font-mono text-sm"
+                      data-testid="textarea-script"
+                    />
+                  </div>
+                  
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    {scriptModified && (
+                      <Badge variant="outline" className="bg-yellow-50 dark:bg-yellow-900/20">
+                        {t.campaigns.detail.saving}
+                      </Badge>
+                    )}
+                    {!scriptModified && scriptContent && !scriptContent.startsWith("{") && (
+                      <Badge variant="outline" className="bg-green-50 dark:bg-green-900/20">
+                        {t.common.saved}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          
+                    </div>
+                  )}
+
+                  {settingsSubTab === "phases" && (
+                    <div className="space-y-6">
+          {campaign && <CampaignPhasesTab campaignId={campaign.id} />}
                     </div>
                   )}
                 </div>
@@ -6820,6 +7021,22 @@ export default function CampaignDetailPage() {
         
 
         <TabsContent value="reporting" className="space-y-6">
+          <Tabs defaultValue="report-overview" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="report-overview" data-testid="tab-report-overview">
+                <BarChart3 className="w-4 h-4 mr-2" />
+                {t.campaigns.detail.overview}
+              </TabsTrigger>
+              <TabsTrigger value="report-kpi" data-testid="tab-report-kpi">
+                <Target className="w-4 h-4 mr-2" />
+                {t.campaigns.detail.kpiTargets}
+              </TabsTrigger>
+              <TabsTrigger value="report-status-list" data-testid="tab-report-status-list">
+                <ListChecks className="w-4 h-4 mr-2" />
+                Status List
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="report-overview" className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <StatsCard
               title={t.campaigns.detail.contactRate}
@@ -7351,179 +7568,18 @@ export default function CampaignDetailPage() {
               </Button>
             </Link>
           </div>
+            </TabsContent>
+            <TabsContent value="report-kpi" className="space-y-6">
+              <KpiTargetsCard campaign={campaign} />
+            </TabsContent>
+            <TabsContent value="report-status-list" className="space-y-4">
+              <SLAnalyticsErrorBoundary>
+                <StatusListAnalyticsTab campaignId={campaignId} totalContacts={stats?.totalContacts || 0} />
+              </SLAnalyticsErrorBoundary>
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
-        <TabsContent value="script" className="space-y-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-4">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <ScrollText className="w-5 h-5" />
-                  {t.campaigns.detail.scriptBuilder}
-                </CardTitle>
-                <CardDescription>
-                  {t.campaigns.detail.scriptBuilder}
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" data-testid="button-load-script-template">
-                      <FileDown className="w-4 h-4 mr-2" />
-                      {t.campaigns.detail.loadTemplate || "Load template"}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem onClick={() => {
-                      const script = getDefaultSalesScript(locale);
-                      setStructuredScript(script);
-                      setStructuredScriptModified(true);
-                      setScriptMode("builder");
-                    }} data-testid="menu-load-sales-script">
-                      {t.campaigns.detail.salesScript || "Sales script"}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <Select
-                  value={scriptMode}
-                  onValueChange={(v) => setScriptMode(v as "builder" | "preview" | "legacy")}
-                >
-                  <SelectTrigger className="w-40" data-testid="select-script-mode">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="builder">Editor</SelectItem>
-                    <SelectItem value="preview">{t.campaigns.detail.preview}</SelectItem>
-                    <SelectItem value="legacy">{t.campaigns.detail.textMode}</SelectItem>
-                  </SelectContent>
-                </Select>
-                {scriptMode !== "legacy" && (
-                  <Button
-                    onClick={() => {
-                      if (structuredScript) {
-                        saveScriptMutation.mutate(JSON.stringify(structuredScript));
-                        setStructuredScriptModified(false);
-                      }
-                    }}
-                    disabled={!structuredScriptModified || saveScriptMutation.isPending}
-                    data-testid="button-save-structured-script"
-                  >
-                    <Save className="w-4 h-4 mr-2" />
-                    {saveScriptMutation.isPending ? t.campaigns.detail.saving : t.common.save}
-                  </Button>
-                )}
-                {scriptMode === "legacy" && (
-                  <Button
-                    onClick={() => saveScriptMutation.mutate(scriptContent)}
-                    disabled={!scriptModified || saveScriptMutation.isPending}
-                    data-testid="button-save-script"
-                  >
-                    <Save className="w-4 h-4 mr-2" />
-                    {saveScriptMutation.isPending ? t.campaigns.detail.saving : t.common.save}
-                  </Button>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              {scriptMode === "builder" && (
-                <div className="min-h-[500px]">
-                  <ScriptBuilder
-                    script={structuredScript}
-                    onChange={(newScript) => {
-                      setStructuredScript(newScript);
-                      setStructuredScriptModified(true);
-                    }}
-                    onSave={(s) => {
-                      setStructuredScript(s);
-                      saveScriptMutation.mutate(JSON.stringify(s));
-                      setStructuredScriptModified(false);
-                    }}
-                    isSaving={saveScriptMutation.isPending}
-                    campaignId={campaign.id}
-                  />
-                  {structuredScriptModified && (
-                    <div className="mt-4 flex items-center gap-2">
-                      <Badge variant="outline" className="bg-yellow-50 dark:bg-yellow-900/20">
-                        {t.campaigns.detail.saving}
-                      </Badge>
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              {scriptMode === "preview" && structuredScript && (
-                <div className="min-h-[500px]">
-                  <ScriptRunner
-                    script={structuredScript}
-                    onComplete={(session) => {
-                      toast({ 
-                        title: t.campaigns.detail.settingsSaved, 
-                        description: `${session.responses.length}` 
-                      });
-                    }}
-                  />
-                </div>
-              )}
-              
-              <div className="flex gap-2 mb-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={async () => {
-                    try {
-                      const res = await fetch(`/api/campaigns/${id}/generate-acquisition-script`, {
-                        method: "POST",
-                        credentials: "include",
-                      });
-                      if (res.ok) {
-                        queryClient.invalidateQueries({ queryKey: ["/api/campaigns", id] });
-                        toast({ title: "Akvizičný scenár vygenerovaný", description: "Scenár bol úspešne nastavený pre kampaň." });
-                      }
-                    } catch {}
-                  }}
-                  data-testid="btn-generate-acquisition-script"
-                >
-                  <Wand2 className="h-4 w-4" />
-                  Generovať akvizičný scenár
-                </Button>
-              </div>
-
-              {scriptMode === "legacy" && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="script-editor">{t.campaigns.detail.scriptBuilder}</Label>
-                    <Textarea
-                      id="script-editor"
-                      placeholder={t.campaigns.detail.scriptBuilder}
-                      value={scriptContent.startsWith("{") ? "" : scriptContent}
-                      onChange={(e) => {
-                        setScriptContent(e.target.value);
-                        setScriptModified(true);
-                      }}
-                      className="min-h-[400px] font-mono text-sm"
-                      data-testid="textarea-script"
-                    />
-                  </div>
-                  
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    {scriptModified && (
-                      <Badge variant="outline" className="bg-yellow-50 dark:bg-yellow-900/20">
-                        {t.campaigns.detail.saving}
-                      </Badge>
-                    )}
-                    {!scriptModified && scriptContent && !scriptContent.startsWith("{") && (
-                      <Badge variant="outline" className="bg-green-50 dark:bg-green-900/20">
-                        {t.common.saved}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-          
-        </TabsContent>
 
         {campaign?.channel === "email" && (
           <TabsContent value="mailchimp" className="space-y-6">
@@ -7531,15 +7587,7 @@ export default function CampaignDetailPage() {
           </TabsContent>
         )}
 
-        <TabsContent value="phases" className="space-y-6">
-          {campaign && <CampaignPhasesTab campaignId={campaign.id} />}
-        </TabsContent>
 
-        <TabsContent value="sl-analytics" className="space-y-4">
-          <SLAnalyticsErrorBoundary>
-            <StatusListAnalyticsTab campaignId={campaignId} totalContacts={stats?.totalContacts || 0} />
-          </SLAnalyticsErrorBoundary>
-        </TabsContent>
 
       </Tabs>
 
