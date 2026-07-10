@@ -36,8 +36,8 @@ hospitals phone, collaborators phone/mobile/mobile_2), and assign entityId+conta
 **Why:** (1) numbers are shared — the same number can belong to several test/real
 records, and picking one at random opens the wrong card. The single-match guard makes
 an ambiguous number fall back to just the bare number, never a wrong card. (2) DB
-numbers are hand-entered with spaces/dashes (e.g. `+49 2381 70551`) while Asterisk
-logs them digits-only (`+49238170551`), so BOTH sides must be normalized to digits
+numbers are hand-entered with spaces/dashes (e.g. `+CC AAA BBBBB`) while Asterisk
+logs them digits-only (`+CCAAABBBBB`), so BOTH sides must be normalized to digits
 (`regexp_replace(col,'[^0-9+]','','g')`) or clinic/hospital rows silently never match.
 
 **How to apply:** batch one query per table (guard on non-empty variant list), use the
