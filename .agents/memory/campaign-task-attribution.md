@@ -96,6 +96,26 @@ Extending the leaderboard with a "did we actually reach them" split:
   counts answered INBOUND calls while calls/total are outbound-only. Also email_in has no
   sender-email path (only customer_id), so replies without a linked customer_id undercount.
 
+## Conversion + attempts-to-reach per contact (top-contacts leaderboard)
+
+- **Conversion** = reachable / (reachable + unreachable), computed CLIENT-side from the two
+  counts already returned; zero attempts → render "—" (never divide). Pure UI, no backend change.
+- **Attempts to reach** = how many unanswered/rescheduled OUTBOUND calls happened chronologically
+  BEFORE the first answered call ("first reachable"), or ALL unanswered outbound calls if the
+  contact was never reached. Needs backend: the `call_match` CTE had no timestamp, so add
+  `ts = cl.started_at` to it, then `first_reach = MIN(ts) WHERE reachable` and
+  `attempts_before = COUNT(*) WHERE NOT reachable AND dir='outbound' AND (reach_ts IS NULL OR ts < reach_ts)`.
+  Also return a `reached` boolean (`first_reach.cc_id IS NOT NULL`).
+- **Safe to add ts to call_match:** `ts` is functionally dependent on the call id (same
+  call_logs row across all 3 UNION paths), so the UNION still dedups to identical tuples and the
+  existing `reach_call`/`unreach_call` `COUNT(*)` results are unchanged. Verify this invariant
+  before adding any column to a UNION'd, dedup-relied-on CTE.
+- **`reached` is direction-agnostic** (an answered INBOUND call also caps the attempt count),
+  matching the existing reachable definition. The whole computation is date-window scoped, so a
+  reach that happened before the selected range is invisible — inherent to a date-filtered report.
+- UI: colored pill — reached → check + count (emerald 0 / amber 1-2 / red 3+); never-reached-but-
+  tried → red X + count; no call attempts → em-dash.
+
 ## Pagination for the leaderboard
 
 - Endpoint takes `page` (min 1) + `pageSize` (clamp 1-100, default 10); `LIMIT/OFFSET`.

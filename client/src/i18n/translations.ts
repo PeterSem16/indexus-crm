@@ -166,6 +166,7 @@ export interface Translations {
     prevPage: string;
     nextPage: string;
     conversionLabel: string;
+    attemptsToReachLabel: string;
   };
   nav: {
     dashboard: string;
@@ -6926,6 +6927,7 @@ export const translations: Record<Locale, Translations> = {
       prevPage: 'Previous',
       nextPage: 'Next',
       conversionLabel: 'Conversion',
+      attemptsToReachLabel: 'Attempts to reach',
       contactLabel: 'Contact',
       mixLabel: 'Mix',
       newAgentBadge: 'New',
@@ -13744,6 +13746,7 @@ export const translations: Record<Locale, Translations> = {
       prevPage: 'Predchádzajúca',
       nextPage: 'Ďalšia',
       conversionLabel: 'Konverzia',
+      attemptsToReachLabel: 'Pokusy do dovolania',
       contactLabel: 'Kontakt',
       mixLabel: 'Mix',
       newAgentBadge: 'Nový',
@@ -20498,6 +20501,7 @@ export const translations: Record<Locale, Translations> = {
       prevPage: 'Předchozí',
       nextPage: 'Další',
       conversionLabel: 'Konverze',
+      attemptsToReachLabel: 'Pokusy do dovolání',
       contactLabel: 'Kontakt',
       mixLabel: 'Mix',
       newAgentBadge: 'Nový',
@@ -27178,6 +27182,7 @@ export const translations: Record<Locale, Translations> = {
       prevPage: 'Előző',
       nextPage: 'Következő',
       conversionLabel: 'Konverzió',
+      attemptsToReachLabel: 'Próbálkozások az eléréshez',
       contactLabel: 'Kapcsolat',
       mixLabel: 'Mix',
       newAgentBadge: 'Új',
@@ -33818,6 +33823,7 @@ export const translations: Record<Locale, Translations> = {
       prevPage: 'Anterior',
       nextPage: 'Următor',
       conversionLabel: 'Conversie',
+      attemptsToReachLabel: 'Încercări până la contactare',
       contactLabel: 'Contact',
       mixLabel: 'Mix',
       newAgentBadge: 'Nou',
@@ -40378,6 +40384,7 @@ export const translations: Record<Locale, Translations> = {
       prevPage: 'Precedente',
       nextPage: 'Successivo',
       conversionLabel: 'Conversione',
+      attemptsToReachLabel: 'Tentativi per raggiungere',
       contactLabel: 'Contatto',
       mixLabel: 'Mix',
       newAgentBadge: 'Nuovo',
@@ -46940,6 +46947,7 @@ export const translations: Record<Locale, Translations> = {
       prevPage: 'Zurück',
       nextPage: 'Weiter',
       conversionLabel: 'Konversion',
+      attemptsToReachLabel: 'Versuche bis erreicht',
       contactLabel: 'Kontakt',
       mixLabel: 'Mix',
       newAgentBadge: 'Neu',

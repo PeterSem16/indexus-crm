@@ -31748,20 +31748,26 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           ) x GROUP BY cc_id
         ),
         call_match AS (
-          SELECT cc_id, lid, reachable, dir FROM (
-            SELECT cl.campaign_contact_id cc_id, cl.id lid, (cl.answered_at IS NOT NULL OR COALESCE(cl.duration_seconds,0)>0) reachable, cl.direction dir
+          SELECT cc_id, lid, reachable, dir, ts FROM (
+            SELECT cl.campaign_contact_id cc_id, cl.id lid, (cl.answered_at IS NOT NULL OR COALESCE(cl.duration_seconds,0)>0) reachable, cl.direction dir, cl.started_at ts
               FROM call_logs cl JOIN cc ON cc.cc_id=cl.campaign_contact_id
               WHERE cl.campaign_id=${campaignId} AND cl.campaign_contact_id IS NOT NULL AND cl.started_at >= ${fromDate} AND cl.started_at <= ${toDate}
-            UNION SELECT p.cc_id, cl.id, (cl.answered_at IS NOT NULL OR COALESCE(cl.duration_seconds,0)>0), cl.direction
+            UNION SELECT p.cc_id, cl.id, (cl.answered_at IS NOT NULL OR COALESCE(cl.duration_seconds,0)>0), cl.direction, cl.started_at
               FROM call_logs cl JOIN cc_phone p ON right(regexp_replace(COALESCE(cl.phone_number,''),'[^0-9]','','g'),9)=p.v
               WHERE cl.campaign_id=${campaignId} AND cl.phone_number IS NOT NULL AND length(regexp_replace(cl.phone_number,'[^0-9]','','g'))>=9 AND cl.started_at >= ${fromDate} AND cl.started_at <= ${toDate}
-            UNION SELECT ce.cc_id, cl.id, (cl.answered_at IS NOT NULL OR COALESCE(cl.duration_seconds,0)>0), cl.direction
+            UNION SELECT ce.cc_id, cl.id, (cl.answered_at IS NOT NULL OR COALESCE(cl.duration_seconds,0)>0), cl.direction, cl.started_at
               FROM call_logs cl JOIN cc_eid ce ON cl.customer_id=ce.eid
               WHERE cl.campaign_id=${campaignId} AND cl.customer_id IS NOT NULL AND cl.started_at >= ${fromDate} AND cl.started_at <= ${toDate}
           ) x
         ),
         reach_call AS (SELECT cc_id, COUNT(*) n FROM call_match WHERE reachable GROUP BY cc_id),
         unreach_call AS (SELECT cc_id, COUNT(*) n FROM call_match WHERE NOT reachable AND dir='outbound' GROUP BY cc_id),
+        first_reach AS (SELECT cc_id, MIN(ts) reach_ts FROM call_match WHERE reachable GROUP BY cc_id),
+        attempts_before AS (
+          SELECT m.cc_id, COUNT(*) n FROM call_match m LEFT JOIN first_reach f ON f.cc_id=m.cc_id
+          WHERE NOT m.reachable AND m.dir='outbound' AND (f.reach_ts IS NULL OR m.ts < f.reach_ts)
+          GROUP BY m.cc_id
+        ),
         email_in AS (
           SELECT cc_id, COUNT(DISTINCT mid) n FROM (
             SELECT ce.cc_id, m.id mid FROM communication_messages m JOIN cc_eid ce ON m.customer_id=ce.eid
@@ -31787,6 +31793,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           COALESCE(call_c.n,0)+COALESCE(email_c.n,0)+COALESCE(sms_c.n,0)+COALESCE(task_c.n,0) AS total,
           COALESCE(reach_call.n,0)+COALESCE(email_in.n,0)+COALESCE(sms_in.n,0) AS reachable,
           COALESCE(unreach_call.n,0)+GREATEST(0,COALESCE(email_c.n,0)-COALESCE(email_in.n,0))+GREATEST(0,COALESCE(sms_c.n,0)-COALESCE(sms_in.n,0)) AS unreachable,
+          COALESCE(attempts_before.n,0) AS attempts_before_reach,
+          CASE WHEN first_reach.cc_id IS NOT NULL THEN true ELSE false END AS reached,
           COUNT(*) OVER() AS total_count
         FROM cc
         LEFT JOIN clinics cl ON cl.id=cc.clinic_id
@@ -31799,6 +31807,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         LEFT JOIN task_c ON task_c.cc_id=cc.cc_id
         LEFT JOIN reach_call ON reach_call.cc_id=cc.cc_id
         LEFT JOIN unreach_call ON unreach_call.cc_id=cc.cc_id
+        LEFT JOIN first_reach ON first_reach.cc_id=cc.cc_id
+        LEFT JOIN attempts_before ON attempts_before.cc_id=cc.cc_id
         LEFT JOIN email_in ON email_in.cc_id=cc.cc_id
         LEFT JOIN sms_in ON sms_in.cc_id=cc.cc_id
         WHERE COALESCE(call_c.n,0)+COALESCE(email_c.n,0)+COALESCE(sms_c.n,0)+COALESCE(task_c.n,0) > 0
@@ -31818,6 +31828,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         total: Number(r.total) || 0,
         reachable: Number(r.reachable) || 0,
         unreachable: Number(r.unreachable) || 0,
+        attemptsBeforeReach: Number(r.attempts_before_reach) || 0,
+        reached: r.reached === true,
       }));
 
       res.json({ contacts, total, page, pageSize });

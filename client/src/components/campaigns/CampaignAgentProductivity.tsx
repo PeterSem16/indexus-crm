@@ -14,7 +14,7 @@ import {
 import {
   HelpCircle, Users, Phone, Mail, MessageSquare, ClipboardCheck, CalendarClock,
   Clock, TrendingUp, TrendingDown, Minus, Trophy, Medal, Award, Sparkles, LucideIcon,
-  Building2, User, Contact,
+  Building2, User, Contact, Check, X,
 } from "lucide-react";
 
 interface AgentProductivityRow {
@@ -46,6 +46,8 @@ interface TopContact {
   total: number;
   reachable: number;
   unreachable: number;
+  attemptsBeforeReach: number;
+  reached: boolean;
 }
 
 interface TopContactsResponse {
@@ -520,6 +522,7 @@ export default function CampaignAgentProductivity({ campaignId }: { campaignId: 
                         <TableHead className="text-right">{ap.reachableLabel}</TableHead>
                         <TableHead className="text-right">{ap.unreachableLabel}</TableHead>
                         <TableHead className="text-right">{ap.conversionLabel}</TableHead>
+                        <TableHead className="text-right">{ap.attemptsToReachLabel}</TableHead>
                         <TableHead className="text-right font-bold">{ap.mixLabel}</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -568,6 +571,31 @@ export default function CampaignAgentProductivity({ campaignId }: { campaignId: 
                                     <span className={`w-9 text-xs font-semibold tabular-nums ${textColor}`}>{pct}%</span>
                                   </div>
                                 );
+                              })()}
+                            </TableCell>
+                            <TableCell className="text-right" data-testid={`text-top-attempts-${idx}`}>
+                              {(() => {
+                                const n = c.attemptsBeforeReach;
+                                if (c.reached) {
+                                  const color = n === 0
+                                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
+                                    : n <= 2
+                                      ? "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300"
+                                      : "bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300";
+                                  return (
+                                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ${color}`}>
+                                      <Check className="h-3 w-3" />{n}
+                                    </span>
+                                  );
+                                }
+                                if (n > 0) {
+                                  return (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-red-700 dark:bg-red-950/60 dark:text-red-300">
+                                      <X className="h-3 w-3" />{n}
+                                    </span>
+                                  );
+                                }
+                                return <span className="text-muted-foreground">—</span>;
                               })()}
                             </TableCell>
                             <TableCell className="text-right tabular-nums font-bold" data-testid={`text-top-total-${idx}`}>{c.total}</TableCell>
