@@ -31451,19 +31451,56 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
               UNION SELECT clinic_id FROM campaign_contacts WHERE campaign_id = ${campaignId} AND clinic_id IS NOT NULL
               UNION SELECT collaborator_id FROM campaign_contacts WHERE campaign_id = ${campaignId} AND collaborator_id IS NOT NULL
             )
+            OR related_entity_id IN (
+              SELECT id FROM campaign_status_list_items WHERE campaign_id = ${campaignId}
+            )
           )
         GROUP BY created_by_user_id
       `);
 
-      // Emails / SMS sent by each agent to THIS mission's customers, in the period.
+      // Emails / SMS sent by each agent to THIS mission's contacts, in the period.
+      // Campaign contacts are ~99% clinics/hospitals/collaborators, but communication_messages
+      // has NO entity FK (only a nullable customer_id) — clinic/entity messages are stored with
+      // customer_id = NULL. So we attribute a message to the mission when its recipient_email /
+      // recipient_phone matches ANY email/phone of the mission's contact entities (customers,
+      // clinics, hospitals, collaborators), OR its customer_id is a mission customer. Phones are
+      // compared on their last 9 digits (E.164 / formatting tolerant).
       const commAgg = await db.execute(sql`
+        WITH cc AS (
+          SELECT customer_id, hospital_id, clinic_id, collaborator_id
+          FROM campaign_contacts WHERE campaign_id = ${campaignId}
+        ),
+        camp_emails AS (
+          SELECT lower(email) AS v FROM clinics WHERE id IN (SELECT clinic_id FROM cc WHERE clinic_id IS NOT NULL) AND email IS NOT NULL AND email <> ''
+          UNION SELECT lower(email2) FROM clinics WHERE id IN (SELECT clinic_id FROM cc WHERE clinic_id IS NOT NULL) AND email2 IS NOT NULL AND email2 <> ''
+          UNION SELECT lower(email3) FROM clinics WHERE id IN (SELECT clinic_id FROM cc WHERE clinic_id IS NOT NULL) AND email3 IS NOT NULL AND email3 <> ''
+          UNION SELECT lower(email) FROM hospitals WHERE id IN (SELECT hospital_id FROM cc WHERE hospital_id IS NOT NULL) AND email IS NOT NULL AND email <> ''
+          UNION SELECT lower(email) FROM collaborators WHERE id IN (SELECT collaborator_id FROM cc WHERE collaborator_id IS NOT NULL) AND email IS NOT NULL AND email <> ''
+          UNION SELECT lower(email) FROM customers WHERE id IN (SELECT customer_id FROM cc WHERE customer_id IS NOT NULL) AND email IS NOT NULL AND email <> ''
+          UNION SELECT lower(email_2) FROM customers WHERE id IN (SELECT customer_id FROM cc WHERE customer_id IS NOT NULL) AND email_2 IS NOT NULL AND email_2 <> ''
+          UNION SELECT lower(gynecologist_email) FROM customers WHERE id IN (SELECT customer_id FROM cc WHERE customer_id IS NOT NULL) AND gynecologist_email IS NOT NULL AND gynecologist_email <> ''
+        ),
+        camp_phones AS (
+          SELECT right(regexp_replace(phone, '[^0-9]', '', 'g'), 9) AS v FROM clinics WHERE id IN (SELECT clinic_id FROM cc WHERE clinic_id IS NOT NULL) AND length(regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g')) >= 9
+          UNION SELECT right(regexp_replace(phone2, '[^0-9]', '', 'g'), 9) FROM clinics WHERE id IN (SELECT clinic_id FROM cc WHERE clinic_id IS NOT NULL) AND length(regexp_replace(COALESCE(phone2, ''), '[^0-9]', '', 'g')) >= 9
+          UNION SELECT right(regexp_replace(phone3, '[^0-9]', '', 'g'), 9) FROM clinics WHERE id IN (SELECT clinic_id FROM cc WHERE clinic_id IS NOT NULL) AND length(regexp_replace(COALESCE(phone3, ''), '[^0-9]', '', 'g')) >= 9
+          UNION SELECT right(regexp_replace(phone, '[^0-9]', '', 'g'), 9) FROM hospitals WHERE id IN (SELECT hospital_id FROM cc WHERE hospital_id IS NOT NULL) AND length(regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g')) >= 9
+          UNION SELECT right(regexp_replace(phone, '[^0-9]', '', 'g'), 9) FROM collaborators WHERE id IN (SELECT collaborator_id FROM cc WHERE collaborator_id IS NOT NULL) AND length(regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g')) >= 9
+          UNION SELECT right(regexp_replace(mobile, '[^0-9]', '', 'g'), 9) FROM collaborators WHERE id IN (SELECT collaborator_id FROM cc WHERE collaborator_id IS NOT NULL) AND length(regexp_replace(COALESCE(mobile, ''), '[^0-9]', '', 'g')) >= 9
+          UNION SELECT right(regexp_replace(mobile_2, '[^0-9]', '', 'g'), 9) FROM collaborators WHERE id IN (SELECT collaborator_id FROM cc WHERE collaborator_id IS NOT NULL) AND length(regexp_replace(COALESCE(mobile_2, ''), '[^0-9]', '', 'g')) >= 9
+          UNION SELECT right(regexp_replace(phone, '[^0-9]', '', 'g'), 9) FROM customers WHERE id IN (SELECT customer_id FROM cc WHERE customer_id IS NOT NULL) AND length(regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g')) >= 9
+          UNION SELECT right(regexp_replace(mobile, '[^0-9]', '', 'g'), 9) FROM customers WHERE id IN (SELECT customer_id FROM cc WHERE customer_id IS NOT NULL) AND length(regexp_replace(COALESCE(mobile, ''), '[^0-9]', '', 'g')) >= 9
+          UNION SELECT right(regexp_replace(mobile_2, '[^0-9]', '', 'g'), 9) FROM customers WHERE id IN (SELECT customer_id FROM cc WHERE customer_id IS NOT NULL) AND length(regexp_replace(COALESCE(mobile_2, ''), '[^0-9]', '', 'g')) >= 9
+          UNION SELECT right(regexp_replace(gynecologist_phone, '[^0-9]', '', 'g'), 9) FROM customers WHERE id IN (SELECT customer_id FROM cc WHERE customer_id IS NOT NULL) AND length(regexp_replace(COALESCE(gynecologist_phone, ''), '[^0-9]', '', 'g')) >= 9
+        )
         SELECT user_id, type, COUNT(*) AS c
         FROM communication_messages
         WHERE direction = 'outbound' AND user_id IS NOT NULL AND type IN ('email', 'sms')
           AND created_at >= ${fromDate} AND created_at <= ${toDate}
-          AND customer_id IN (
-            SELECT customer_id FROM campaign_contacts
-            WHERE campaign_id = ${campaignId} AND customer_id IS NOT NULL
+          AND (
+            customer_id IN (SELECT customer_id FROM cc WHERE customer_id IS NOT NULL)
+            OR (recipient_email IS NOT NULL AND recipient_email <> '' AND lower(recipient_email) IN (SELECT v FROM camp_emails))
+            OR (recipient_phone IS NOT NULL AND length(regexp_replace(recipient_phone, '[^0-9]', '', 'g')) >= 9 AND right(regexp_replace(recipient_phone, '[^0-9]', '', 'g'), 9) IN (SELECT v FROM camp_phones))
           )
         GROUP BY user_id, type
       `);
@@ -31521,6 +31558,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
               UNION SELECT hospital_id FROM campaign_contacts WHERE campaign_id = ${campaignId} AND hospital_id IS NOT NULL
               UNION SELECT clinic_id FROM campaign_contacts WHERE campaign_id = ${campaignId} AND clinic_id IS NOT NULL
               UNION SELECT collaborator_id FROM campaign_contacts WHERE campaign_id = ${campaignId} AND collaborator_id IS NOT NULL
+            )
+            OR related_entity_id IN (
+              SELECT id FROM campaign_status_list_items WHERE campaign_id = ${campaignId}
             )
           )
         GROUP BY created_by_user_id
