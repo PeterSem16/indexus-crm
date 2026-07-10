@@ -519,6 +519,7 @@ export default function CampaignAgentProductivity({ campaignId }: { campaignId: 
                         <TableHead className="text-right">{ap.tasksLabel}</TableHead>
                         <TableHead className="text-right">{ap.reachableLabel}</TableHead>
                         <TableHead className="text-right">{ap.unreachableLabel}</TableHead>
+                        <TableHead className="text-right">{ap.conversionLabel}</TableHead>
                         <TableHead className="text-right font-bold">{ap.mixLabel}</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -550,6 +551,25 @@ export default function CampaignAgentProductivity({ campaignId }: { campaignId: 
                             <TableCell className="text-right tabular-nums" data-testid={`text-top-tasks-${idx}`}>{c.tasks}</TableCell>
                             <TableCell className="text-right tabular-nums text-emerald-600 dark:text-emerald-400" data-testid={`text-top-reachable-${idx}`}>{c.reachable}</TableCell>
                             <TableCell className="text-right tabular-nums text-red-600 dark:text-red-400" data-testid={`text-top-unreachable-${idx}`}>{c.unreachable}</TableCell>
+                            <TableCell className="text-right" data-testid={`text-top-conversion-${idx}`}>
+                              {(() => {
+                                const attempts = c.reachable + c.unreachable;
+                                if (attempts === 0) {
+                                  return <span className="text-muted-foreground">—</span>;
+                                }
+                                const pct = Math.round((c.reachable / attempts) * 100);
+                                const barColor = pct >= 50 ? "bg-emerald-500" : pct >= 20 ? "bg-amber-500" : "bg-red-500";
+                                const textColor = pct >= 50 ? "text-emerald-600 dark:text-emerald-400" : pct >= 20 ? "text-amber-600 dark:text-amber-400" : "text-red-600 dark:text-red-400";
+                                return (
+                                  <div className="flex items-center justify-end gap-2">
+                                    <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
+                                      <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+                                    </div>
+                                    <span className={`w-9 text-xs font-semibold tabular-nums ${textColor}`}>{pct}%</span>
+                                  </div>
+                                );
+                              })()}
+                            </TableCell>
                             <TableCell className="text-right tabular-nums font-bold" data-testid={`text-top-total-${idx}`}>{c.total}</TableCell>
                           </TableRow>
                         );

@@ -165,6 +165,7 @@ export interface Translations {
     pageLabel: string;
     prevPage: string;
     nextPage: string;
+    conversionLabel: string;
   };
   nav: {
     dashboard: string;
@@ -6924,6 +6925,7 @@ export const translations: Record<Locale, Translations> = {
       pageLabel: 'Page',
       prevPage: 'Previous',
       nextPage: 'Next',
+      conversionLabel: 'Conversion',
       contactLabel: 'Contact',
       mixLabel: 'Mix',
       newAgentBadge: 'New',
@@ -13741,6 +13743,7 @@ export const translations: Record<Locale, Translations> = {
       pageLabel: 'Strana',
       prevPage: 'Predchádzajúca',
       nextPage: 'Ďalšia',
+      conversionLabel: 'Konverzia',
       contactLabel: 'Kontakt',
       mixLabel: 'Mix',
       newAgentBadge: 'Nový',
@@ -20494,6 +20497,7 @@ export const translations: Record<Locale, Translations> = {
       pageLabel: 'Strana',
       prevPage: 'Předchozí',
       nextPage: 'Další',
+      conversionLabel: 'Konverze',
       contactLabel: 'Kontakt',
       mixLabel: 'Mix',
       newAgentBadge: 'Nový',
@@ -27173,6 +27177,7 @@ export const translations: Record<Locale, Translations> = {
       pageLabel: 'Oldal',
       prevPage: 'Előző',
       nextPage: 'Következő',
+      conversionLabel: 'Konverzió',
       contactLabel: 'Kapcsolat',
       mixLabel: 'Mix',
       newAgentBadge: 'Új',
@@ -33812,6 +33817,7 @@ export const translations: Record<Locale, Translations> = {
       pageLabel: 'Pagina',
       prevPage: 'Anterior',
       nextPage: 'Următor',
+      conversionLabel: 'Conversie',
       contactLabel: 'Contact',
       mixLabel: 'Mix',
       newAgentBadge: 'Nou',
@@ -40371,6 +40377,7 @@ export const translations: Record<Locale, Translations> = {
       pageLabel: 'Pagina',
       prevPage: 'Precedente',
       nextPage: 'Successivo',
+      conversionLabel: 'Conversione',
       contactLabel: 'Contatto',
       mixLabel: 'Mix',
       newAgentBadge: 'Nuovo',
@@ -46932,6 +46939,7 @@ export const translations: Record<Locale, Translations> = {
       pageLabel: 'Seite',
       prevPage: 'Zurück',
       nextPage: 'Weiter',
+      conversionLabel: 'Konversion',
       contactLabel: 'Kontakt',
       mixLabel: 'Mix',
       newAgentBadge: 'Neu',
