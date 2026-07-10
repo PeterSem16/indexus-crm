@@ -142,6 +142,19 @@ export interface Translations {
     formulaTw: string;
     formulaTotal: string;
     formulaNote: string;
+    callsLabel: string;
+    emailsLabel: string;
+    smsLabel: string;
+    tasksLabel: string;
+    scheduledLabel: string;
+    overdueLabel: string;
+    workedTimeLabel: string;
+    avgPerAgent: string;
+    leaderboard: string;
+    newAgentBadge: string;
+    vsPrevPeriod: string;
+    newShort: string;
+    repeatShort: string;
   };
   nav: {
     dashboard: string;
@@ -6884,6 +6897,19 @@ export const translations: Record<Locale, Translations> = {
       formulaTw: 'Non-call time (Tw) = new calls × 35 s + repeat calls × 40 s + tasks × 180 s',
       formulaTotal: 'Estimated worked time = Tw + real talk time + real ring time',
       formulaNote: 'A "new" call is the first-ever call to a phone number; every later call to the same number is a "repeat". Ring time is the time until the call is answered, or until it ends if it was never answered.',
+      callsLabel: 'Calls',
+      emailsLabel: 'Emails',
+      smsLabel: 'SMS',
+      tasksLabel: 'Tasks',
+      scheduledLabel: 'Scheduled calls',
+      overdueLabel: 'overdue',
+      workedTimeLabel: 'Worked time',
+      avgPerAgent: 'avg / agent',
+      leaderboard: 'Agent leaderboard',
+      newAgentBadge: 'New',
+      vsPrevPeriod: 'vs previous period',
+      newShort: 'new',
+      repeatShort: 'repeat',
     },
     nav: {
       dashboard: 'Dashboard',
@@ -13678,6 +13704,19 @@ export const translations: Record<Locale, Translations> = {
       formulaTw: 'Čas mimo hovorov (Tw) = nové hovory × 35 s + rozpracované hovory × 40 s + tasky × 180 s',
       formulaTotal: 'Odhadovaný odpracovaný čas = Tw + reálny čas hovoru + reálny čas vyzváňania',
       formulaNote: '„Nový" hovor je úplne prvý hovor na dané telefónne číslo; každý ďalší hovor na to isté číslo je „rozpracovaný". Čas vyzváňania je čas do zdvihnutia hovoru, alebo do jeho ukončenia, ak nebol zdvihnutý.',
+      callsLabel: 'Hovory',
+      emailsLabel: 'E-maily',
+      smsLabel: 'SMS',
+      tasksLabel: 'Úlohy',
+      scheduledLabel: 'Naplánované hovory',
+      overdueLabel: 'po termíne',
+      workedTimeLabel: 'Odpracovaný čas',
+      avgPerAgent: 'priemer / agent',
+      leaderboard: 'Rebríček agentov',
+      newAgentBadge: 'Nový',
+      vsPrevPeriod: 'oproti predchádzajúcemu obdobiu',
+      newShort: 'nové',
+      repeatShort: 'opak.',
     },
     nav: {
       dashboard: 'Prehľad',
@@ -20408,6 +20447,19 @@ export const translations: Record<Locale, Translations> = {
       formulaTw: 'Čas mimo hovorů (Tw) = nové hovory × 35 s + rozpracované hovory × 40 s + úkoly × 180 s',
       formulaTotal: 'Odhadovaný odpracovaný čas = Tw + reálný čas hovoru + reálný čas vyzvánění',
       formulaNote: '„Nový" hovor je úplně první hovor na dané telefonní číslo; každý další hovor na stejné číslo je „rozpracovaný". Čas vyzvánění je čas do zvednutí hovoru, nebo do jeho ukončení, pokud nebyl zvednut.',
+      callsLabel: 'Hovory',
+      emailsLabel: 'E-maily',
+      smsLabel: 'SMS',
+      tasksLabel: 'Úkoly',
+      scheduledLabel: 'Naplánované hovory',
+      overdueLabel: 'po termínu',
+      workedTimeLabel: 'Odpracovaný čas',
+      avgPerAgent: 'průměr / agent',
+      leaderboard: 'Žebříček agentů',
+      newAgentBadge: 'Nový',
+      vsPrevPeriod: 'oproti předchozímu období',
+      newShort: 'nové',
+      repeatShort: 'opak.',
     },
     nav: {
       dashboard: 'Přehled',
@@ -27064,6 +27116,19 @@ export const translations: Record<Locale, Translations> = {
       formulaTw: 'Híváson kívüli idő (Tw) = új hívások × 35 mp + ismételt hívások × 40 mp + feladatok × 180 mp',
       formulaTotal: 'Becsült ledolgozott idő = Tw + valós beszélgetési idő + valós csengetési idő',
       formulaNote: 'Az „új" hívás az adott telefonszámra érkező legelső hívás; minden további, ugyanarra a számra irányuló hívás „ismételt". A csengetési idő a hívás fogadásáig eltelt idő, vagy a hívás végéig, ha nem fogadták.',
+      callsLabel: 'Hívások',
+      emailsLabel: 'E-mailek',
+      smsLabel: 'SMS',
+      tasksLabel: 'Feladatok',
+      scheduledLabel: 'Ütemezett hívások',
+      overdueLabel: 'lejárt',
+      workedTimeLabel: 'Ledolgozott idő',
+      avgPerAgent: 'átlag / ügynök',
+      leaderboard: 'Ügynökök ranglistája',
+      newAgentBadge: 'Új',
+      vsPrevPeriod: 'az előző időszakhoz képest',
+      newShort: 'új',
+      repeatShort: 'ism.',
     },
     nav: {
       dashboard: 'Irányítópult',
@@ -33680,6 +33745,19 @@ export const translations: Record<Locale, Translations> = {
       formulaTw: 'Timp în afara apelurilor (Tw) = apeluri noi × 35 s + apeluri repetate × 40 s + sarcini × 180 s',
       formulaTotal: 'Timp lucrat estimat = Tw + timp real de convorbire + timp real de apelare',
       formulaNote: 'Un apel „nou" este primul apel efectuat vreodată către un număr de telefon; fiecare apel ulterior către același număr este „repetat". Timpul de apelare este timpul până la preluarea apelului sau până la încheierea acestuia dacă nu a fost preluat.',
+      callsLabel: 'Apeluri',
+      emailsLabel: 'E-mailuri',
+      smsLabel: 'SMS',
+      tasksLabel: 'Sarcini',
+      scheduledLabel: 'Apeluri programate',
+      overdueLabel: 'întârziate',
+      workedTimeLabel: 'Timp lucrat',
+      avgPerAgent: 'medie / agent',
+      leaderboard: 'Clasament agenți',
+      newAgentBadge: 'Nou',
+      vsPrevPeriod: 'față de perioada anterioară',
+      newShort: 'noi',
+      repeatShort: 'repet.',
     },
     nav: {
       dashboard: 'Panou de control',
@@ -40216,6 +40294,19 @@ export const translations: Record<Locale, Translations> = {
       formulaTw: 'Tempo fuori chiamata (Tw) = nuove chiamate × 35 s + chiamate ripetute × 40 s + attività × 180 s',
       formulaTotal: 'Tempo lavorato stimato = Tw + tempo reale di conversazione + tempo reale di squillo',
       formulaNote: 'Una chiamata "nuova" è la primissima chiamata a un numero di telefono; ogni chiamata successiva allo stesso numero è "ripetuta". Il tempo di squillo è il tempo fino alla risposta della chiamata, o fino alla sua fine se non ha mai ricevuto risposta.',
+      callsLabel: 'Chiamate',
+      emailsLabel: 'Email',
+      smsLabel: 'SMS',
+      tasksLabel: 'Attività',
+      scheduledLabel: 'Chiamate pianificate',
+      overdueLabel: 'scadute',
+      workedTimeLabel: 'Tempo lavorato',
+      avgPerAgent: 'media / agente',
+      leaderboard: 'Classifica agenti',
+      newAgentBadge: 'Nuovo',
+      vsPrevPeriod: 'rispetto al periodo precedente',
+      newShort: 'nuove',
+      repeatShort: 'ripet.',
     },
     nav: {
       dashboard: 'Dashboard',
@@ -46754,6 +46845,19 @@ export const translations: Record<Locale, Translations> = {
       formulaTw: 'Zeit außerhalb der Anrufe (Tw) = neue Anrufe × 35 s + wiederholte Anrufe × 40 s + Aufgaben × 180 s',
       formulaTotal: 'Geschätzte Arbeitszeit = Tw + echte Gesprächszeit + echte Klingelzeit',
       formulaNote: 'Ein „neuer" Anruf ist der allererste Anruf an eine Telefonnummer; jeder spätere Anruf an dieselbe Nummer ist ein „wiederholter". Die Klingelzeit ist die Zeit bis zur Annahme des Anrufs oder bis zu seinem Ende, wenn er nicht angenommen wurde.',
+      callsLabel: 'Anrufe',
+      emailsLabel: 'E-Mails',
+      smsLabel: 'SMS',
+      tasksLabel: 'Aufgaben',
+      scheduledLabel: 'Geplante Anrufe',
+      overdueLabel: 'überfällig',
+      workedTimeLabel: 'Arbeitszeit',
+      avgPerAgent: 'Ø / Agent',
+      leaderboard: 'Agenten-Rangliste',
+      newAgentBadge: 'Neu',
+      vsPrevPeriod: 'ggü. Vorperiode',
+      newShort: 'neu',
+      repeatShort: 'Wdh.',
     },
     nav: {
       dashboard: 'Dashboard',

@@ -31455,6 +31455,77 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         GROUP BY created_by_user_id
       `);
 
+      // Emails / SMS sent by each agent to THIS mission's customers, in the period.
+      const commAgg = await db.execute(sql`
+        SELECT user_id, type, COUNT(*) AS c
+        FROM communication_messages
+        WHERE direction = 'outbound' AND user_id IS NOT NULL AND type IN ('email', 'sms')
+          AND created_at >= ${fromDate} AND created_at <= ${toDate}
+          AND customer_id IN (
+            SELECT customer_id FROM campaign_contacts
+            WHERE campaign_id = ${campaignId} AND customer_id IS NOT NULL
+          )
+        GROUP BY user_id, type
+      `);
+
+      // Scheduled-but-not-completed callbacks currently owned by each agent in this
+      // mission (current state, not period-bound). Overdue = callback date already passed.
+      const schedAgg = await db.execute(sql`
+        SELECT assigned_to AS user_id,
+          COUNT(*) AS pending,
+          COUNT(*) FILTER (WHERE callback_date < now()) AS overdue
+        FROM campaign_contacts
+        WHERE campaign_id = ${campaignId} AND status = 'callback_scheduled'
+          AND callback_date IS NOT NULL AND assigned_to IS NOT NULL
+        GROUP BY assigned_to
+      `);
+
+      // Previous equal-length period, used for the performance trend (up / down vs. before).
+      const periodMs = Math.max(0, toDate.getTime() - fromDate.getTime());
+      const prevTo = new Date(fromDate.getTime());
+      const prevFrom = new Date(fromDate.getTime() - periodMs);
+      const prevCallAgg = await db.execute(sql`
+        WITH ranked AS (
+          SELECT user_id, started_at,
+            ROW_NUMBER() OVER (PARTITION BY phone_number ORDER BY started_at ASC, id ASC) AS rn
+          FROM call_logs
+          WHERE direction = 'outbound' AND campaign_id = ${campaignId} AND started_at < ${prevTo}
+        )
+        SELECT user_id,
+          COUNT(*) FILTER (WHERE rn = 1) AS kn,
+          COUNT(*) FILTER (WHERE rn > 1) AS kr
+        FROM ranked
+        WHERE started_at >= ${prevFrom} AND started_at < ${prevTo}
+        GROUP BY user_id
+      `);
+      const prevTimeAgg = await db.execute(sql`
+        SELECT user_id,
+          COALESCE(SUM(COALESCE(duration_seconds, 0)), 0) AS talk_seconds,
+          COALESCE(SUM(GREATEST(0, EXTRACT(EPOCH FROM (COALESCE(answered_at, ended_at) - started_at)))), 0) AS ring_seconds
+        FROM call_logs
+        WHERE campaign_id = ${campaignId} AND started_at >= ${prevFrom} AND started_at < ${prevTo}
+        GROUP BY user_id
+      `);
+      const prevTaskAgg = await db.execute(sql`
+        SELECT created_by_user_id AS user_id, COUNT(*) AS kt
+        FROM tasks
+        WHERE created_at >= ${prevFrom} AND created_at < ${prevTo}
+          AND source_run_id IS NULL
+          AND (
+            customer_id IN (
+              SELECT customer_id FROM campaign_contacts
+              WHERE campaign_id = ${campaignId} AND customer_id IS NOT NULL
+            )
+            OR related_entity_id IN (
+              SELECT customer_id FROM campaign_contacts WHERE campaign_id = ${campaignId} AND customer_id IS NOT NULL
+              UNION SELECT hospital_id FROM campaign_contacts WHERE campaign_id = ${campaignId} AND hospital_id IS NOT NULL
+              UNION SELECT clinic_id FROM campaign_contacts WHERE campaign_id = ${campaignId} AND clinic_id IS NOT NULL
+              UNION SELECT collaborator_id FROM campaign_contacts WHERE campaign_id = ${campaignId} AND collaborator_id IS NOT NULL
+            )
+          )
+        GROUP BY created_by_user_id
+      `);
+
       const callMap = new Map<string, { kn: number; kr: number }>();
       for (const r of callAgg.rows as any[]) {
         if (r.user_id) callMap.set(r.user_id, { kn: Number(r.kn) || 0, kr: Number(r.kr) || 0 });
@@ -31467,29 +31538,69 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       for (const r of taskAgg.rows as any[]) {
         if (r.user_id) taskMap.set(r.user_id, Number(r.kt) || 0);
       }
+      const commMap = new Map<string, { emails: number; sms: number }>();
+      for (const r of commAgg.rows as any[]) {
+        if (!r.user_id) continue;
+        const cur = commMap.get(r.user_id) || { emails: 0, sms: 0 };
+        if (r.type === "email") cur.emails = Number(r.c) || 0;
+        else if (r.type === "sms") cur.sms = Number(r.c) || 0;
+        commMap.set(r.user_id, cur);
+      }
+      const schedMap = new Map<string, { pending: number; overdue: number }>();
+      for (const r of schedAgg.rows as any[]) {
+        if (r.user_id) schedMap.set(r.user_id, { pending: Number(r.pending) || 0, overdue: Number(r.overdue) || 0 });
+      }
+      const NEW_CALL_S = 35, REPEAT_CALL_S = 40, TASK_S = 180;
+      const prevTotalMap = new Map<string, number>();
+      {
+        const pc = new Map<string, { kn: number; kr: number }>();
+        for (const r of prevCallAgg.rows as any[]) if (r.user_id) pc.set(r.user_id, { kn: Number(r.kn) || 0, kr: Number(r.kr) || 0 });
+        const pt = new Map<string, { talk: number; ring: number }>();
+        for (const r of prevTimeAgg.rows as any[]) if (r.user_id) pt.set(r.user_id, { talk: Math.round(Number(r.talk_seconds) || 0), ring: Math.round(Number(r.ring_seconds) || 0) });
+        const pk = new Map<string, number>();
+        for (const r of prevTaskAgg.rows as any[]) if (r.user_id) pk.set(r.user_id, Number(r.kt) || 0);
+        const ids = new Set<string>([...pc.keys(), ...pt.keys(), ...pk.keys()]);
+        for (const id of ids) {
+          const c = pc.get(id) || { kn: 0, kr: 0 };
+          const tt = pt.get(id) || { talk: 0, ring: 0 };
+          const kt = pk.get(id) || 0;
+          prevTotalMap.set(id, c.kn * NEW_CALL_S + c.kr * REPEAT_CALL_S + kt * TASK_S + tt.talk + tt.ring);
+        }
+      }
 
       const userRows = agentIds.length > 0
         ? await db.select({ id: users.id, fullName: users.fullName }).from(users).where(inArray(users.id, agentIds))
         : [];
       const nameMap = new Map(userRows.map(u => [u.id, u.fullName]));
 
-      const NEW_CALL_S = 35, REPEAT_CALL_S = 40, TASK_S = 180;
       const result = agentIds.map(id => {
         const c = callMap.get(id) || { kn: 0, kr: 0 };
         const t = timeMap.get(id) || { talk: 0, ring: 0 };
         const kt = taskMap.get(id) || 0;
+        const cm = commMap.get(id) || { emails: 0, sms: 0 };
+        const sc = schedMap.get(id) || { pending: 0, overdue: 0 };
         const twSeconds = c.kn * NEW_CALL_S + c.kr * REPEAT_CALL_S + kt * TASK_S;
         const totalSeconds = twSeconds + t.talk + t.ring;
+        const prevTotalSeconds = prevTotalMap.get(id) || 0;
+        const trendPct = prevTotalSeconds > 0
+          ? Math.round(((totalSeconds - prevTotalSeconds) / prevTotalSeconds) * 100)
+          : null;
         return {
           agentId: id,
           agentName: nameMap.get(id) || "—",
           newCalls: c.kn,
           repeatCalls: c.kr,
+          emails: cm.emails,
+          sms: cm.sms,
           nonstandardTasks: kt,
+          scheduledPending: sc.pending,
+          scheduledOverdue: sc.overdue,
           twSeconds,
           talkSeconds: t.talk,
           ringSeconds: t.ring,
           totalSeconds,
+          prevTotalSeconds,
+          trendPct,
         };
       }).sort((a, b) => b.totalSeconds - a.totalSeconds);
 
