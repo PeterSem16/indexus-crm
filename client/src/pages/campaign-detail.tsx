@@ -224,7 +224,6 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { CriteriaBuilder, type CriteriaGroup, criteriaToDescription } from "@/components/criteria-builder";
 import { ScheduleEditor, type ScheduleConfig, getDefaultScheduleConfig } from "@/components/schedule-editor";
 import { CampaignContactsFilter, type CampaignContactFilters, applyContactFilters } from "@/components/campaign-contacts-filter";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
@@ -869,6 +868,7 @@ function CampaignSopSettingsCard({ campaignId }: { campaignId: string }) {
   const { t } = useI18n();
   const { toast } = useToast();
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
+  const [showOptions, setShowOptions] = useState(false);
   const { data: categories = [] } = useQuery<any[]>({ queryKey: ["/api/sop/categories"] });
   const { data: articles = [] } = useQuery<any[]>({ queryKey: ["/api/sop/articles"] });
   const { data: linkedArticleIds = [], isLoading } = useQuery<string[]>({
@@ -915,13 +915,19 @@ function CampaignSopSettingsCard({ campaignId }: { campaignId: string }) {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <BookOpen className="w-5 h-5" />
-          {t.sop.sopSettings}
-        </CardTitle>
-        <CardDescription>{t.sop.sopSettingsDesc}</CardDescription>
+      <CardHeader className="cursor-pointer select-none" onClick={() => setShowOptions(v => !v)} data-testid="button-toggle-sop-settings">
+        <div className="flex items-center justify-between gap-2">
+          <div className="space-y-1.5">
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen className="w-5 h-5" />
+              {t.sop.sopSettings}
+            </CardTitle>
+            <CardDescription>{t.sop.sopSettingsDesc}</CardDescription>
+          </div>
+          <ChevronRight className={`h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-150 ${showOptions ? "rotate-90" : ""}`} />
+        </div>
       </CardHeader>
+      {showOptions && (
       <CardContent>
         {isLoading ? (
           <div className="text-sm text-muted-foreground text-center py-4">{t.sop.loading}</div>
@@ -987,71 +993,7 @@ function CampaignSopSettingsCard({ campaignId }: { campaignId: string }) {
           </div>
         )}
       </CardContent>
-    </Card>
-  );
-}
-
-function CriteriaCard({ campaign }: { campaign: Campaign }) {
-  const { t } = useI18n();
-  const { toast } = useToast();
-  const [criteria, setCriteria] = useState<CriteriaGroup[]>(() => {
-    try {
-      return campaign.criteria ? JSON.parse(campaign.criteria) : [];
-    } catch {
-      return [];
-    }
-  });
-  const [hasChanges, setHasChanges] = useState(false);
-
-  const saveCriteriaMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest("PATCH", `/api/campaigns/${campaign.id}`, {
-        criteria: JSON.stringify(criteria),
-      });
-    },
-    onSuccess: () => {
-      toast({ title: t.campaigns.detail.settingsSaved });
-      setHasChanges(false);
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
-    },
-    onError: () => {
-      toast({ title: t.campaigns.detail.error, variant: "destructive" });
-    },
-  });
-
-  const handleCriteriaChange = (newCriteria: CriteriaGroup[]) => {
-    setCriteria(newCriteria);
-    setHasChanges(true);
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div>
-            <CardTitle>{t.campaigns.detail.targetCriteria}</CardTitle>
-            <CardDescription>
-              {t.campaigns.detail.targetCriteriaDesc}
-            </CardDescription>
-          </div>
-          {hasChanges && (
-            <Button
-              onClick={() => saveCriteriaMutation.mutate()}
-              disabled={saveCriteriaMutation.isPending}
-              data-testid="button-save-criteria"
-            >
-              {saveCriteriaMutation.isPending ? t.campaigns.detail.saving : t.common.save}
-            </Button>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent>
-        <CriteriaBuilder
-          criteria={criteria}
-          onChange={handleCriteriaChange}
-          readonly={campaign.status !== "draft"}
-        />
-      </CardContent>
+      )}
     </Card>
   );
 }
@@ -2113,7 +2055,8 @@ function DefaultTemplatesCard({ campaign }: { campaign: Campaign }) {
           )}
         </div>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent>
+        <div className="grid gap-6 lg:grid-cols-2 items-start">
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Mail className="h-4 w-4 text-blue-500" />
@@ -2199,6 +2142,7 @@ function DefaultTemplatesCard({ campaign }: { campaign: Campaign }) {
               </Select>
             </div>
           </div>
+        </div>
         </div>
       </CardContent>
     </Card>
@@ -6335,6 +6279,16 @@ export default function CampaignDetailPage() {
                         </CardContent>
                       </Card>
                         </div>
+                        <DefaultTemplatesCard campaign={campaign} />
+                      </section>
+                      <section className="space-y-3">
+                        <div className="space-y-0.5">
+                          <h3 className="text-base font-semibold">{t.campaigns.detail.settingsGroupDialer}</h3>
+                          <p className="text-sm text-muted-foreground">{t.campaigns.detail.settingsGroupDialerDesc}</p>
+                        </div>
+                        <div className="space-y-4">
+                          <AutoModeCard campaign={campaign} />
+                        </div>
                       </section>
                       <section className="space-y-3">
                         <div className="space-y-0.5">
@@ -6732,9 +6686,6 @@ export default function CampaignDetailPage() {
                         </CardContent>
                       </Card>
                       <CampaignSopSettingsCard campaignId={campaign.id} />
-                      <AutoModeCard campaign={campaign} />
-                      <DefaultTemplatesCard campaign={campaign} />
-                      <CriteriaCard campaign={campaign} />
                         </div>
                       </section>
                     </div>
