@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter,
@@ -63,6 +64,30 @@ function fmtDur(seconds: number): string {
   const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;
   return `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+}
+
+function ColHead({ label, help, testId }: { label: string; help: string; testId?: string }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span>{label}</span>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label={help}
+            data-testid={testId}
+            className="text-muted-foreground/50 hover:text-foreground transition-colors"
+          >
+            <HelpCircle className="h-3 w-3" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-[18rem] whitespace-normal text-xs font-normal leading-relaxed">
+          {help}
+        </TooltipContent>
+      </Tooltip>
+    </span>
+  );
 }
 
 function initials(name: string): string {
@@ -428,17 +453,17 @@ export default function CampaignAgentProductivity({ campaignId }: { campaignId: 
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{ap.agent}</TableHead>
-                      <TableHead className="text-right">{ap.newCalls}</TableHead>
-                      <TableHead className="text-right">{ap.repeatCalls}</TableHead>
-                      <TableHead className="text-right">{ap.emailsLabel}</TableHead>
-                      <TableHead className="text-right">{ap.smsLabel}</TableHead>
-                      <TableHead className="text-right">{ap.nonstandardTasks}</TableHead>
-                      <TableHead className="text-right">{ap.scheduledLabel}</TableHead>
-                      <TableHead className="text-right">{ap.nonCallTime}</TableHead>
-                      <TableHead className="text-right">{ap.talkTime}</TableHead>
-                      <TableHead className="text-right">{ap.ringTime}</TableHead>
-                      <TableHead className="text-right font-bold">{ap.totalEstimated}</TableHead>
+                      <TableHead><ColHead label={ap.agent} help={ap.helpAgent} testId="help-agent" /></TableHead>
+                      <TableHead className="text-right"><ColHead label={ap.newCalls} help={ap.helpNewCalls} testId="help-new-calls" /></TableHead>
+                      <TableHead className="text-right"><ColHead label={ap.repeatCalls} help={ap.helpRepeatCalls} testId="help-repeat-calls" /></TableHead>
+                      <TableHead className="text-right"><ColHead label={ap.emailsLabel} help={ap.helpEmails} testId="help-emails" /></TableHead>
+                      <TableHead className="text-right"><ColHead label={ap.smsLabel} help={ap.helpSms} testId="help-sms" /></TableHead>
+                      <TableHead className="text-right"><ColHead label={ap.nonstandardTasks} help={ap.helpNonstandardTasks} testId="help-tasks" /></TableHead>
+                      <TableHead className="text-right"><ColHead label={ap.scheduledLabel} help={ap.helpScheduled} testId="help-scheduled" /></TableHead>
+                      <TableHead className="text-right"><ColHead label={ap.nonCallTime} help={ap.helpNonCallTime} testId="help-non-call-time" /></TableHead>
+                      <TableHead className="text-right"><ColHead label={ap.talkTime} help={ap.helpTalkTime} testId="help-talk-time" /></TableHead>
+                      <TableHead className="text-right"><ColHead label={ap.ringTime} help={ap.helpRingTime} testId="help-ring-time" /></TableHead>
+                      <TableHead className="text-right font-bold"><ColHead label={ap.totalEstimated} help={ap.helpTotalEstimated} testId="help-total-estimated" /></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -514,16 +539,16 @@ export default function CampaignAgentProductivity({ campaignId }: { campaignId: 
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-10">#</TableHead>
-                        <TableHead>{ap.contactLabel}</TableHead>
-                        <TableHead className="text-right">{ap.callsLabel}</TableHead>
-                        <TableHead className="text-right">{ap.emailsLabel}</TableHead>
-                        <TableHead className="text-right">{ap.smsLabel}</TableHead>
-                        <TableHead className="text-right">{ap.tasksLabel}</TableHead>
-                        <TableHead className="text-right">{ap.reachableLabel}</TableHead>
-                        <TableHead className="text-right">{ap.unreachableLabel}</TableHead>
-                        <TableHead className="text-right">{ap.conversionLabel}</TableHead>
-                        <TableHead className="text-right">{ap.attemptsToReachLabel}</TableHead>
-                        <TableHead className="text-right font-bold">{ap.mixLabel}</TableHead>
+                        <TableHead><ColHead label={ap.contactLabel} help={ap.helpTopContact} testId="help-top-contact" /></TableHead>
+                        <TableHead className="text-right"><ColHead label={ap.callsLabel} help={ap.helpTopCalls} testId="help-top-calls" /></TableHead>
+                        <TableHead className="text-right"><ColHead label={ap.emailsLabel} help={ap.helpTopEmails} testId="help-top-emails" /></TableHead>
+                        <TableHead className="text-right"><ColHead label={ap.smsLabel} help={ap.helpTopSms} testId="help-top-sms" /></TableHead>
+                        <TableHead className="text-right"><ColHead label={ap.tasksLabel} help={ap.helpTopTasks} testId="help-top-tasks" /></TableHead>
+                        <TableHead className="text-right"><ColHead label={ap.reachableLabel} help={ap.helpReachable} testId="help-reachable" /></TableHead>
+                        <TableHead className="text-right"><ColHead label={ap.unreachableLabel} help={ap.helpUnreachable} testId="help-unreachable" /></TableHead>
+                        <TableHead className="text-right"><ColHead label={ap.conversionLabel} help={ap.helpConversion} testId="help-conversion" /></TableHead>
+                        <TableHead className="text-right"><ColHead label={ap.attemptsToReachLabel} help={ap.helpAttemptsToReach} testId="help-attempts-to-reach" /></TableHead>
+                        <TableHead className="text-right font-bold"><ColHead label={ap.mixLabel} help={ap.helpMix} testId="help-mix" /></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
