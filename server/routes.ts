@@ -31377,18 +31377,20 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
   // ===== Call Logs Routes =====
   
-  // Get all call logs (with optional filters)
-  // ===== Agent Productivity Report (estimated actually-worked time) =====
+  // ===== Agent Productivity Report (per-mission, estimated actually-worked time) =====
   // Formula (confirmed with user):
   //   new-contact call    = 35s (15s reading new contact + 20s disposition)
   //   repeat-contact call = 40s (20s reading in-progress contact + 20s disposition)
   //   nonstandard task    = 180s preparation
   //   Tw (non-call time)  = kn*35 + kr*40 + kt*180
   //   total estimated     = Tw + real talk time + real ring time
-  // "new" = first-ever outbound call to a phone number; every later call = "repeat".
+  // Scoped to ONE mission: only calls belonging to the campaign, only tasks tied to
+  // the campaign's contacts, and only the agents assigned to the campaign.
+  // "new" = first call to a phone number within this mission; later calls = "repeat".
   // nonstandard task = manually created by the agent (source_run_id IS NULL).
-  app.get("/api/reports/agent-productivity", requireAuth, async (req, res) => {
+  app.get("/api/campaigns/:id/agent-productivity", requireAuth, async (req, res) => {
     try {
+      const campaignId = req.params.id;
       const { from, to } = req.query;
       const fromDate = from ? new Date(from as string) : startOfDay(new Date());
       const toDate = to ? new Date(to as string) : endOfDay(new Date());
@@ -31396,15 +31398,19 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         return res.status(400).json({ error: "Invalid date range" });
       }
 
-      // kn / kr: classify each outbound call as new (first-ever to that number) or repeat.
-      // ROW_NUMBER is computed across ALL history so the "first-ever" flag is correct;
-      // the outer WHERE then keeps only calls that happened inside the selected period.
+      // Only agents assigned to this mission are reported (even with zero activity).
+      const campaignAgentRows = await storage.getCampaignAgents(campaignId);
+      const agentIds = Array.from(new Set(campaignAgentRows.map(a => a.userId).filter(Boolean)));
+
+      // kn / kr: classify each outbound call in this mission as new (first call to
+      // that number within the mission) or repeat. ROW_NUMBER ranks across the whole
+      // mission history; the outer WHERE keeps only calls inside the selected period.
       const callAgg = await db.execute(sql`
         WITH ranked AS (
           SELECT user_id, started_at,
             ROW_NUMBER() OVER (PARTITION BY phone_number ORDER BY started_at ASC, id ASC) AS rn
           FROM call_logs
-          WHERE direction = 'outbound' AND started_at <= ${toDate}
+          WHERE direction = 'outbound' AND campaign_id = ${campaignId} AND started_at <= ${toDate}
         )
         SELECT user_id,
           COUNT(*) FILTER (WHERE rn = 1) AS kn,
@@ -31422,15 +31428,30 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           COALESCE(SUM(COALESCE(duration_seconds, 0)), 0) AS talk_seconds,
           COALESCE(SUM(GREATEST(0, EXTRACT(EPOCH FROM (COALESCE(answered_at, ended_at) - started_at)))), 0) AS ring_seconds
         FROM call_logs
-        WHERE started_at >= ${fromDate} AND started_at <= ${toDate}
+        WHERE campaign_id = ${campaignId} AND started_at >= ${fromDate} AND started_at <= ${toDate}
         GROUP BY user_id
       `);
 
-      // Nonstandard (manually created) tasks per agent in the period.
+      // Nonstandard (manually created) tasks tied to THIS mission's contacts,
+      // per agent in the period. A task belongs to the mission if its customer or
+      // its generic related entity matches one of the campaign's contacts.
       const taskAgg = await db.execute(sql`
         SELECT created_by_user_id AS user_id, COUNT(*) AS kt
         FROM tasks
-        WHERE created_at >= ${fromDate} AND created_at <= ${toDate} AND source_run_id IS NULL
+        WHERE created_at >= ${fromDate} AND created_at <= ${toDate}
+          AND source_run_id IS NULL
+          AND (
+            customer_id IN (
+              SELECT customer_id FROM campaign_contacts
+              WHERE campaign_id = ${campaignId} AND customer_id IS NOT NULL
+            )
+            OR related_entity_id IN (
+              SELECT customer_id FROM campaign_contacts WHERE campaign_id = ${campaignId} AND customer_id IS NOT NULL
+              UNION SELECT hospital_id FROM campaign_contacts WHERE campaign_id = ${campaignId} AND hospital_id IS NOT NULL
+              UNION SELECT clinic_id FROM campaign_contacts WHERE campaign_id = ${campaignId} AND clinic_id IS NOT NULL
+              UNION SELECT collaborator_id FROM campaign_contacts WHERE campaign_id = ${campaignId} AND collaborator_id IS NOT NULL
+            )
+          )
         GROUP BY created_by_user_id
       `);
 
@@ -31447,14 +31468,13 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         if (r.user_id) taskMap.set(r.user_id, Number(r.kt) || 0);
       }
 
-      const ids = new Set<string>([...callMap.keys(), ...timeMap.keys(), ...taskMap.keys()]);
-      const userRows = ids.size > 0
-        ? await db.select({ id: users.id, fullName: users.fullName }).from(users).where(inArray(users.id, Array.from(ids)))
+      const userRows = agentIds.length > 0
+        ? await db.select({ id: users.id, fullName: users.fullName }).from(users).where(inArray(users.id, agentIds))
         : [];
       const nameMap = new Map(userRows.map(u => [u.id, u.fullName]));
 
       const NEW_CALL_S = 35, REPEAT_CALL_S = 40, TASK_S = 180;
-      const result = Array.from(ids).map(id => {
+      const result = agentIds.map(id => {
         const c = callMap.get(id) || { kn: 0, kr: 0 };
         const t = timeMap.get(id) || { talk: 0, ring: 0 };
         const kt = taskMap.get(id) || 0;
@@ -31475,11 +31495,12 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
       res.json(result);
     } catch (error) {
-      console.error("Error fetching agent productivity:", error);
+      console.error("Error fetching campaign agent productivity:", error);
       res.status(500).json({ error: "Failed to fetch agent productivity" });
     }
   });
 
+  // Get all call logs (with optional filters)
   app.get("/api/call-logs", requireAuth, async (req, res) => {
     try {
       const { userId, customerId, campaignId, limit, includeRecordings, queueId, direction: dirFilter } = req.query;

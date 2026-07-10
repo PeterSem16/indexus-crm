@@ -47,3 +47,4 @@
 - [NexusPulse showOnlyAssigned dual scope](nexuspulse-only-assigned.md) — showOnlyAssigned filters baseCampaigns list AND must also filter contactGroups array (team-cb, other-cb); both are independent — fixing one does not fix the other.
 - [Workspace revert vs prod git sync](workspace-vs-prod-git-sync.md) — a workspace-only revert changes nothing on CORPCRM01 until it's on origin/main; check `git log origin/main..HEAD` before saying "deploy it".
 - [Campaign-contacts enrichment leak](campaign-contacts-enrichment-leak.md) — /api/campaigns/:id/contacts embeds full entity rows incl. collaborator.mobilePasswordHash; enumerate searchable fields explicitly, never key-scan enriched rows.
+- [Per-campaign task attribution](campaign-task-attribution.md) — tasks have no campaign_id; scope agent-activity reports via campaign_contacts (customer_id + related_entity_id vs 4 polymorphic ids), calls via call_logs.campaign_id, agents via getCampaignAgents.

@@ -21,6 +21,7 @@ import {
   ClipboardCheck, PhoneForwarded, FileQuestion, FileWarning, FileX, MailPlus, MailCheck, MailWarning, MailX,
   MinusCircle, Slash, FolderClosed, TrendingUp, CalendarClock, MessageCircle,
   UserPlus, UserMinus, PhoneCall, BookMarked, Newspaper, Image, FileSignature, CalendarCheck, Shuffle,
+  Gauge,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ import { DataTable, type SortConfig } from "@/components/data-table";
 import { ContactCriteriaBuilder, type PreviewCounts } from "@/components/contact-criteria-builder";
 import CampaignPhasesTab from "@/components/campaigns/CampaignPhasesTab";
 import CampaignReportingPhases from "@/components/campaigns/CampaignReportingPhases";
+import CampaignAgentProductivity from "@/components/campaigns/CampaignAgentProductivity";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -6987,6 +6989,10 @@ export default function CampaignDetailPage() {
                 <ListChecks className="w-4 h-4 mr-2" />
                 Status List
               </TabsTrigger>
+              <TabsTrigger value="report-productivity" data-testid="tab-report-productivity">
+                <Gauge className="w-4 h-4 mr-2" />
+                {t.agentProductivity.title}
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="report-overview" className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -7528,6 +7534,9 @@ export default function CampaignDetailPage() {
               <SLAnalyticsErrorBoundary>
                 <StatusListAnalyticsTab campaignId={campaignId} totalContacts={stats?.totalContacts || 0} />
               </SLAnalyticsErrorBoundary>
+            </TabsContent>
+            <TabsContent value="report-productivity" className="space-y-4">
+              <CampaignAgentProductivity campaignId={campaignId} />
             </TabsContent>
           </Tabs>
         </TabsContent>

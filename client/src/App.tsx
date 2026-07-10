@@ -71,7 +71,6 @@ const CustomerInvoicesPage = lazy(() => import("@/pages/customer-invoices"));
 const SopManagementPage = lazy(() => import("@/pages/sop-management"));
 const MedicalPartnerNetworkPage = lazy(() => import("@/pages/medical-partner-network"));
 const ReportsPage = lazy(() => import("@/pages/reports"));
-const AgentProductivityPage = lazy(() => import("@/pages/agent-productivity"));
 const TrainingRoomPage = lazy(() => import("@/pages/training-room"));
 const StatusManagementPage = lazy(() => import("@/pages/status-management"));
 const AutomationsPage = lazy(() => import("@/pages/automations"));
@@ -285,7 +284,6 @@ function AuthenticatedApp() {
                     <Route path="/contracts" component={ContractsPage} />
                     <Route path="/customer-invoices" component={CustomerInvoicesPage} />
                     <Route path="/reports" component={ReportsPage} />
-                    <Route path="/agent-productivity" component={AgentProductivityPage} />
                     <Route path="/settings" component={SettingsPage} />
                     <Route path="/status-management" component={StatusManagementPage} />
                     <Route path="/automations" component={AutomationsPage} />
