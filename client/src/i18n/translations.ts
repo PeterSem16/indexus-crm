@@ -115,6 +115,34 @@ export interface Translations {
     muteSound: string;
     unmuteSound: string;
   };
+  agentProductivity: {
+    title: string;
+    subtitle: string;
+    from: string;
+    to: string;
+    today: string;
+    thisWeek: string;
+    thisMonth: string;
+    agent: string;
+    newCalls: string;
+    repeatCalls: string;
+    nonstandardTasks: string;
+    nonCallTime: string;
+    talkTime: string;
+    ringTime: string;
+    totalEstimated: string;
+    totals: string;
+    noData: string;
+    howCalculated: string;
+    formulaTitle: string;
+    formulaIntro: string;
+    formulaNewCall: string;
+    formulaRepeatCall: string;
+    formulaTask: string;
+    formulaTw: string;
+    formulaTotal: string;
+    formulaNote: string;
+  };
   nav: {
     dashboard: string;
     customers: string;
@@ -6828,6 +6856,34 @@ export const translations: Record<Locale, Translations> = {
       openBackOffice: 'Open',
       muteSound: 'Mute sound',
       unmuteSound: 'Unmute sound',
+    },
+    agentProductivity: {
+      title: 'Agent Productivity',
+      subtitle: 'Estimated actually-worked time per agent',
+      from: 'From',
+      to: 'To',
+      today: 'Today',
+      thisWeek: 'This week',
+      thisMonth: 'This month',
+      agent: 'Agent',
+      newCalls: 'New-contact calls',
+      repeatCalls: 'Repeat-contact calls',
+      nonstandardTasks: 'Nonstandard tasks',
+      nonCallTime: 'Non-call time',
+      talkTime: 'Talk time',
+      ringTime: 'Ring time',
+      totalEstimated: 'Estimated worked time',
+      totals: 'Total',
+      noData: 'No data for the selected period',
+      howCalculated: 'How is this calculated?',
+      formulaTitle: 'Calculation scheme',
+      formulaIntro: 'Estimated worked time combines an estimate of off-phone work with the real time spent on calls.',
+      formulaNewCall: 'New-contact call = 35 s (15 s reading the new contact + 20 s disposition)',
+      formulaRepeatCall: 'Repeat-contact call = 40 s (20 s reading the in-progress contact + 20 s disposition)',
+      formulaTask: 'Nonstandard (manually created) task = 180 s preparation',
+      formulaTw: 'Non-call time (Tw) = new calls × 35 s + repeat calls × 40 s + tasks × 180 s',
+      formulaTotal: 'Estimated worked time = Tw + real talk time + real ring time',
+      formulaNote: 'A "new" call is the first-ever call to a phone number; every later call to the same number is a "repeat". Ring time is the time until the call is answered, or until it ends if it was never answered.',
     },
     nav: {
       dashboard: 'Dashboard',
@@ -13595,6 +13651,34 @@ export const translations: Record<Locale, Translations> = {
       muteSound: 'Stlmiť zvuk',
       unmuteSound: 'Zapnúť zvuk',
     },
+    agentProductivity: {
+      title: 'Produktivita agentov',
+      subtitle: 'Odhadovaný skutočne odpracovaný čas na agenta',
+      from: 'Od',
+      to: 'Do',
+      today: 'Dnes',
+      thisWeek: 'Tento týždeň',
+      thisMonth: 'Tento mesiac',
+      agent: 'Agent',
+      newCalls: 'Hovory na nové kontakty',
+      repeatCalls: 'Hovory na rozpracované kontakty',
+      nonstandardTasks: 'Neštandardné tasky',
+      nonCallTime: 'Čas mimo hovorov',
+      talkTime: 'Čas hovoru',
+      ringTime: 'Čas vyzváňania',
+      totalEstimated: 'Odhadovaný odpracovaný čas',
+      totals: 'Spolu',
+      noData: 'Žiadne dáta za zvolené obdobie',
+      howCalculated: 'Ako sa to počíta?',
+      formulaTitle: 'Schéma výpočtu',
+      formulaIntro: 'Odhadovaný odpracovaný čas spája odhad práce mimo telefonovania s reálnym časom stráveným na hovoroch.',
+      formulaNewCall: 'Hovor na nový kontakt = 35 s (15 s čítanie nového kontaktu + 20 s disposition)',
+      formulaRepeatCall: 'Hovor na rozpracovaný kontakt = 40 s (20 s čítanie rozpracovaného kontaktu + 20 s disposition)',
+      formulaTask: 'Neštandardný (ručne vytvorený) task = 180 s príprava',
+      formulaTw: 'Čas mimo hovorov (Tw) = nové hovory × 35 s + rozpracované hovory × 40 s + tasky × 180 s',
+      formulaTotal: 'Odhadovaný odpracovaný čas = Tw + reálny čas hovoru + reálny čas vyzváňania',
+      formulaNote: '„Nový" hovor je úplne prvý hovor na dané telefónne číslo; každý ďalší hovor na to isté číslo je „rozpracovaný". Čas vyzváňania je čas do zdvihnutia hovoru, alebo do jeho ukončenia, ak nebol zdvihnutý.',
+    },
     nav: {
       dashboard: 'Prehľad',
       customers: 'Zákazníci',
@@ -20297,6 +20381,34 @@ export const translations: Record<Locale, Translations> = {
       muteSound: 'Ztlumit zvuk',
       unmuteSound: 'Zapnout zvuk',
     },
+    agentProductivity: {
+      title: 'Produktivita agentů',
+      subtitle: 'Odhadovaný skutečně odpracovaný čas na agenta',
+      from: 'Od',
+      to: 'Do',
+      today: 'Dnes',
+      thisWeek: 'Tento týden',
+      thisMonth: 'Tento měsíc',
+      agent: 'Agent',
+      newCalls: 'Hovory na nové kontakty',
+      repeatCalls: 'Hovory na rozpracované kontakty',
+      nonstandardTasks: 'Nestandardní úkoly',
+      nonCallTime: 'Čas mimo hovorů',
+      talkTime: 'Čas hovoru',
+      ringTime: 'Čas vyzvánění',
+      totalEstimated: 'Odhadovaný odpracovaný čas',
+      totals: 'Celkem',
+      noData: 'Žádná data za zvolené období',
+      howCalculated: 'Jak se to počítá?',
+      formulaTitle: 'Schéma výpočtu',
+      formulaIntro: 'Odhadovaný odpracovaný čas spojuje odhad práce mimo telefonování s reálným časem stráveným na hovorech.',
+      formulaNewCall: 'Hovor na nový kontakt = 35 s (15 s čtení nového kontaktu + 20 s disposition)',
+      formulaRepeatCall: 'Hovor na rozpracovaný kontakt = 40 s (20 s čtení rozpracovaného kontaktu + 20 s disposition)',
+      formulaTask: 'Nestandardní (ručně vytvořený) úkol = 180 s příprava',
+      formulaTw: 'Čas mimo hovorů (Tw) = nové hovory × 35 s + rozpracované hovory × 40 s + úkoly × 180 s',
+      formulaTotal: 'Odhadovaný odpracovaný čas = Tw + reálný čas hovoru + reálný čas vyzvánění',
+      formulaNote: '„Nový" hovor je úplně první hovor na dané telefonní číslo; každý další hovor na stejné číslo je „rozpracovaný". Čas vyzvánění je čas do zvednutí hovoru, nebo do jeho ukončení, pokud nebyl zvednut.',
+    },
     nav: {
       dashboard: 'Přehled',
       customers: 'Zákazníci',
@@ -26925,6 +27037,34 @@ export const translations: Record<Locale, Translations> = {
       muteSound: 'Hang némítása',
       unmuteSound: 'Hang bekapcsolása',
     },
+    agentProductivity: {
+      title: 'Ügynöki produktivitás',
+      subtitle: 'Becsült ténylegesen ledolgozott idő ügynökönként',
+      from: 'Ettől',
+      to: 'Eddig',
+      today: 'Ma',
+      thisWeek: 'Ezen a héten',
+      thisMonth: 'Ebben a hónapban',
+      agent: 'Ügynök',
+      newCalls: 'Hívások új kapcsolatokra',
+      repeatCalls: 'Hívások folyamatban lévő kapcsolatokra',
+      nonstandardTasks: 'Nem szabványos feladatok',
+      nonCallTime: 'Híváson kívüli idő',
+      talkTime: 'Beszélgetési idő',
+      ringTime: 'Csengetési idő',
+      totalEstimated: 'Becsült ledolgozott idő',
+      totals: 'Összesen',
+      noData: 'Nincs adat a kiválasztott időszakra',
+      howCalculated: 'Hogyan számoljuk?',
+      formulaTitle: 'Számítási séma',
+      formulaIntro: 'A becsült ledolgozott idő a híváson kívüli munka becslését kombinálja a hívásokkal töltött valós idővel.',
+      formulaNewCall: 'Hívás új kapcsolatra = 35 mp (15 mp az új kapcsolat elolvasása + 20 mp disposition)',
+      formulaRepeatCall: 'Hívás folyamatban lévő kapcsolatra = 40 mp (20 mp a kapcsolat elolvasása + 20 mp disposition)',
+      formulaTask: 'Nem szabványos (kézzel létrehozott) feladat = 180 mp előkészítés',
+      formulaTw: 'Híváson kívüli idő (Tw) = új hívások × 35 mp + ismételt hívások × 40 mp + feladatok × 180 mp',
+      formulaTotal: 'Becsült ledolgozott idő = Tw + valós beszélgetési idő + valós csengetési idő',
+      formulaNote: 'Az „új" hívás az adott telefonszámra érkező legelső hívás; minden további, ugyanarra a számra irányuló hívás „ismételt". A csengetési idő a hívás fogadásáig eltelt idő, vagy a hívás végéig, ha nem fogadták.',
+    },
     nav: {
       dashboard: 'Irányítópult',
       customers: 'Ügyfelek',
@@ -33513,6 +33653,34 @@ export const translations: Record<Locale, Translations> = {
       muteSound: 'Dezactivează sunetul',
       unmuteSound: 'Activează sunetul',
     },
+    agentProductivity: {
+      title: 'Productivitatea agenților',
+      subtitle: 'Timp lucrat estimat real per agent',
+      from: 'De la',
+      to: 'Până la',
+      today: 'Astăzi',
+      thisWeek: 'Săptămâna aceasta',
+      thisMonth: 'Luna aceasta',
+      agent: 'Agent',
+      newCalls: 'Apeluri către contacte noi',
+      repeatCalls: 'Apeluri către contacte în lucru',
+      nonstandardTasks: 'Sarcini nestandard',
+      nonCallTime: 'Timp în afara apelurilor',
+      talkTime: 'Timp de convorbire',
+      ringTime: 'Timp de apelare',
+      totalEstimated: 'Timp lucrat estimat',
+      totals: 'Total',
+      noData: 'Nu există date pentru perioada selectată',
+      howCalculated: 'Cum se calculează?',
+      formulaTitle: 'Schema de calcul',
+      formulaIntro: 'Timpul lucrat estimat combină o estimare a muncii din afara apelurilor cu timpul real petrecut în apeluri.',
+      formulaNewCall: 'Apel către contact nou = 35 s (15 s citirea contactului nou + 20 s disposition)',
+      formulaRepeatCall: 'Apel către contact în lucru = 40 s (20 s citirea contactului în lucru + 20 s disposition)',
+      formulaTask: 'Sarcină nestandard (creată manual) = 180 s pregătire',
+      formulaTw: 'Timp în afara apelurilor (Tw) = apeluri noi × 35 s + apeluri repetate × 40 s + sarcini × 180 s',
+      formulaTotal: 'Timp lucrat estimat = Tw + timp real de convorbire + timp real de apelare',
+      formulaNote: 'Un apel „nou" este primul apel efectuat vreodată către un număr de telefon; fiecare apel ulterior către același număr este „repetat". Timpul de apelare este timpul până la preluarea apelului sau până la încheierea acestuia dacă nu a fost preluat.',
+    },
     nav: {
       dashboard: 'Panou de control',
       customers: 'Clienți',
@@ -40020,6 +40188,34 @@ export const translations: Record<Locale, Translations> = {
       openBackOffice: 'Apri',
       muteSound: 'Disattiva audio',
       unmuteSound: 'Attiva audio',
+    },
+    agentProductivity: {
+      title: 'Produttività degli agenti',
+      subtitle: 'Tempo effettivamente lavorato stimato per agente',
+      from: 'Da',
+      to: 'A',
+      today: 'Oggi',
+      thisWeek: 'Questa settimana',
+      thisMonth: 'Questo mese',
+      agent: 'Agente',
+      newCalls: 'Chiamate a nuovi contatti',
+      repeatCalls: 'Chiamate a contatti in corso',
+      nonstandardTasks: 'Attività non standard',
+      nonCallTime: 'Tempo fuori chiamata',
+      talkTime: 'Tempo di conversazione',
+      ringTime: 'Tempo di squillo',
+      totalEstimated: 'Tempo lavorato stimato',
+      totals: 'Totale',
+      noData: 'Nessun dato per il periodo selezionato',
+      howCalculated: 'Come viene calcolato?',
+      formulaTitle: 'Schema di calcolo',
+      formulaIntro: 'Il tempo lavorato stimato combina una stima del lavoro fuori dalle chiamate con il tempo reale trascorso in chiamata.',
+      formulaNewCall: 'Chiamata a nuovo contatto = 35 s (15 s lettura del nuovo contatto + 20 s disposition)',
+      formulaRepeatCall: 'Chiamata a contatto in corso = 40 s (20 s lettura del contatto in corso + 20 s disposition)',
+      formulaTask: 'Attività non standard (creata manualmente) = 180 s preparazione',
+      formulaTw: 'Tempo fuori chiamata (Tw) = nuove chiamate × 35 s + chiamate ripetute × 40 s + attività × 180 s',
+      formulaTotal: 'Tempo lavorato stimato = Tw + tempo reale di conversazione + tempo reale di squillo',
+      formulaNote: 'Una chiamata "nuova" è la primissima chiamata a un numero di telefono; ogni chiamata successiva allo stesso numero è "ripetuta". Il tempo di squillo è il tempo fino alla risposta della chiamata, o fino alla sua fine se non ha mai ricevuto risposta.',
     },
     nav: {
       dashboard: 'Dashboard',
@@ -46530,6 +46726,34 @@ export const translations: Record<Locale, Translations> = {
       openBackOffice: 'Öffnen',
       muteSound: 'Ton stummschalten',
       unmuteSound: 'Ton einschalten',
+    },
+    agentProductivity: {
+      title: 'Agenten-Produktivität',
+      subtitle: 'Geschätzte tatsächlich gearbeitete Zeit pro Agent',
+      from: 'Von',
+      to: 'Bis',
+      today: 'Heute',
+      thisWeek: 'Diese Woche',
+      thisMonth: 'Dieser Monat',
+      agent: 'Agent',
+      newCalls: 'Anrufe an neue Kontakte',
+      repeatCalls: 'Anrufe an laufende Kontakte',
+      nonstandardTasks: 'Nicht standardmäßige Aufgaben',
+      nonCallTime: 'Zeit außerhalb der Anrufe',
+      talkTime: 'Gesprächszeit',
+      ringTime: 'Klingelzeit',
+      totalEstimated: 'Geschätzte Arbeitszeit',
+      totals: 'Gesamt',
+      noData: 'Keine Daten für den gewählten Zeitraum',
+      howCalculated: 'Wie wird das berechnet?',
+      formulaTitle: 'Berechnungsschema',
+      formulaIntro: 'Die geschätzte Arbeitszeit kombiniert eine Schätzung der Arbeit außerhalb der Anrufe mit der tatsächlich in Anrufen verbrachten Zeit.',
+      formulaNewCall: 'Anruf an neuen Kontakt = 35 s (15 s Lesen des neuen Kontakts + 20 s Disposition)',
+      formulaRepeatCall: 'Anruf an laufenden Kontakt = 40 s (20 s Lesen des laufenden Kontakts + 20 s Disposition)',
+      formulaTask: 'Nicht standardmäßige (manuell erstellte) Aufgabe = 180 s Vorbereitung',
+      formulaTw: 'Zeit außerhalb der Anrufe (Tw) = neue Anrufe × 35 s + wiederholte Anrufe × 40 s + Aufgaben × 180 s',
+      formulaTotal: 'Geschätzte Arbeitszeit = Tw + echte Gesprächszeit + echte Klingelzeit',
+      formulaNote: 'Ein „neuer" Anruf ist der allererste Anruf an eine Telefonnummer; jeder spätere Anruf an dieselbe Nummer ist ein „wiederholter". Die Klingelzeit ist die Zeit bis zur Annahme des Anrufs oder bis zu seinem Ende, wenn er nicht angenommen wurde.',
     },
     nav: {
       dashboard: 'Dashboard',

@@ -22,6 +22,7 @@ import {
   Network,
   MapPin,
   BarChart3,
+  Gauge,
   Syringe,
   ArrowDown,
   Headphones,
@@ -83,6 +84,7 @@ export function AppSidebar() {
     { title: t.nav.dashboard, url: "/", icon: LayoutDashboard, testId: "dashboard", moduleKey: "dashboard" },
     { title: "Pipeline", url: "/pipeline", icon: Kanban, testId: "pipeline", moduleKey: "pipeline" },
     { title: "Reports", url: "/reports", icon: BarChart3, testId: "reports", moduleKey: "reports" },
+    { title: t.agentProductivity.title, url: "/agent-productivity", icon: Gauge, testId: "agent-productivity", moduleKey: "reports" },
   ];
 
   const mpnSubItems = [

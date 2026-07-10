@@ -31378,6 +31378,108 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   // ===== Call Logs Routes =====
   
   // Get all call logs (with optional filters)
+  // ===== Agent Productivity Report (estimated actually-worked time) =====
+  // Formula (confirmed with user):
+  //   new-contact call    = 35s (15s reading new contact + 20s disposition)
+  //   repeat-contact call = 40s (20s reading in-progress contact + 20s disposition)
+  //   nonstandard task    = 180s preparation
+  //   Tw (non-call time)  = kn*35 + kr*40 + kt*180
+  //   total estimated     = Tw + real talk time + real ring time
+  // "new" = first-ever outbound call to a phone number; every later call = "repeat".
+  // nonstandard task = manually created by the agent (source_run_id IS NULL).
+  app.get("/api/reports/agent-productivity", requireAuth, async (req, res) => {
+    try {
+      const { from, to } = req.query;
+      const fromDate = from ? new Date(from as string) : startOfDay(new Date());
+      const toDate = to ? new Date(to as string) : endOfDay(new Date());
+      if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+        return res.status(400).json({ error: "Invalid date range" });
+      }
+
+      // kn / kr: classify each outbound call as new (first-ever to that number) or repeat.
+      // ROW_NUMBER is computed across ALL history so the "first-ever" flag is correct;
+      // the outer WHERE then keeps only calls that happened inside the selected period.
+      const callAgg = await db.execute(sql`
+        WITH ranked AS (
+          SELECT user_id, started_at,
+            ROW_NUMBER() OVER (PARTITION BY phone_number ORDER BY started_at ASC, id ASC) AS rn
+          FROM call_logs
+          WHERE direction = 'outbound' AND started_at <= ${toDate}
+        )
+        SELECT user_id,
+          COUNT(*) FILTER (WHERE rn = 1) AS kn,
+          COUNT(*) FILTER (WHERE rn > 1) AS kr
+        FROM ranked
+        WHERE started_at >= ${fromDate} AND started_at <= ${toDate}
+        GROUP BY user_id
+      `);
+
+      // Real talk time + ring time across ALL of the agent's calls in the period.
+      // talk = duration_seconds (post-answer talk); ring = time until answer,
+      // or until the call ended if it was never answered.
+      const timeAgg = await db.execute(sql`
+        SELECT user_id,
+          COALESCE(SUM(COALESCE(duration_seconds, 0)), 0) AS talk_seconds,
+          COALESCE(SUM(GREATEST(0, EXTRACT(EPOCH FROM (COALESCE(answered_at, ended_at) - started_at)))), 0) AS ring_seconds
+        FROM call_logs
+        WHERE started_at >= ${fromDate} AND started_at <= ${toDate}
+        GROUP BY user_id
+      `);
+
+      // Nonstandard (manually created) tasks per agent in the period.
+      const taskAgg = await db.execute(sql`
+        SELECT created_by_user_id AS user_id, COUNT(*) AS kt
+        FROM tasks
+        WHERE created_at >= ${fromDate} AND created_at <= ${toDate} AND source_run_id IS NULL
+        GROUP BY created_by_user_id
+      `);
+
+      const callMap = new Map<string, { kn: number; kr: number }>();
+      for (const r of callAgg.rows as any[]) {
+        if (r.user_id) callMap.set(r.user_id, { kn: Number(r.kn) || 0, kr: Number(r.kr) || 0 });
+      }
+      const timeMap = new Map<string, { talk: number; ring: number }>();
+      for (const r of timeAgg.rows as any[]) {
+        if (r.user_id) timeMap.set(r.user_id, { talk: Math.round(Number(r.talk_seconds) || 0), ring: Math.round(Number(r.ring_seconds) || 0) });
+      }
+      const taskMap = new Map<string, number>();
+      for (const r of taskAgg.rows as any[]) {
+        if (r.user_id) taskMap.set(r.user_id, Number(r.kt) || 0);
+      }
+
+      const ids = new Set<string>([...callMap.keys(), ...timeMap.keys(), ...taskMap.keys()]);
+      const userRows = ids.size > 0
+        ? await db.select({ id: users.id, fullName: users.fullName }).from(users).where(inArray(users.id, Array.from(ids)))
+        : [];
+      const nameMap = new Map(userRows.map(u => [u.id, u.fullName]));
+
+      const NEW_CALL_S = 35, REPEAT_CALL_S = 40, TASK_S = 180;
+      const result = Array.from(ids).map(id => {
+        const c = callMap.get(id) || { kn: 0, kr: 0 };
+        const t = timeMap.get(id) || { talk: 0, ring: 0 };
+        const kt = taskMap.get(id) || 0;
+        const twSeconds = c.kn * NEW_CALL_S + c.kr * REPEAT_CALL_S + kt * TASK_S;
+        const totalSeconds = twSeconds + t.talk + t.ring;
+        return {
+          agentId: id,
+          agentName: nameMap.get(id) || "—",
+          newCalls: c.kn,
+          repeatCalls: c.kr,
+          nonstandardTasks: kt,
+          twSeconds,
+          talkSeconds: t.talk,
+          ringSeconds: t.ring,
+          totalSeconds,
+        };
+      }).sort((a, b) => b.totalSeconds - a.totalSeconds);
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching agent productivity:", error);
+      res.status(500).json({ error: "Failed to fetch agent productivity" });
+    }
+  });
+
   app.get("/api/call-logs", requireAuth, async (req, res) => {
     try {
       const { userId, customerId, campaignId, limit, includeRecordings, queueId, direction: dirFilter } = req.query;

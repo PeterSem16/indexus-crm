@@ -15,7 +15,7 @@ import type { PoolClient } from "pg";
  * drop those first so they get rebuilt (IF NOT EXISTS alone would skip them).
  */
 
-type IndexDef = { name: string; table: string; columns: string };
+type IndexDef = { name: string; table: string; columns: string; where?: string };
 
 const INDEXES: IndexDef[] = [
   // campaign_contacts — agent queues, campaign detail lists, entity timelines
@@ -34,6 +34,9 @@ const INDEXES: IndexDef[] = [
   { name: "idx_call_logs_user", table: "call_logs", columns: "user_id" },
   { name: "idx_call_logs_created_at", table: "call_logs", columns: "created_at" },
   { name: "idx_call_logs_inbound", table: "call_logs", columns: "inbound_call_log_id" },
+  // Agent-productivity report: window scan/sort for new-vs-repeat classification
+  // (PARTITION BY phone_number ORDER BY started_at, filtered to outbound).
+  { name: "idx_call_logs_phone_started_outbound", table: "call_logs", columns: "phone_number, started_at", where: "direction = 'outbound'" },
 
   // communication_messages — email/sms history
   { name: "idx_comm_messages_customer", table: "communication_messages", columns: "customer_id" },
@@ -122,8 +125,8 @@ const INDEXES: IndexDef[] = [
   { name: "idx_contact_assignments_person", table: "contact_assignments", columns: "person_id" },
 ];
 
-// All index names/tables/columns above are hardcoded constants (never user
-// input), so the SQL interpolation below has no injection surface.
+// All index names/tables/columns/where clauses above are hardcoded constants
+// (never user input), so the SQL interpolation below has no injection surface.
 async function ensureOne(client: PoolClient, def: IndexDef): Promise<void> {
   try {
     // Drop an invalid leftover from a previously interrupted concurrent build,
@@ -141,7 +144,7 @@ async function ensureOne(client: PoolClient, def: IndexDef): Promise<void> {
       END $$;
     `);
     await client.query(
-      `CREATE INDEX CONCURRENTLY IF NOT EXISTS ${def.name} ON ${def.table} (${def.columns})`,
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS ${def.name} ON ${def.table} (${def.columns})${def.where ? ` WHERE ${def.where}` : ""}`,
     );
   } catch (e: any) {
     console.error(`[index] ${def.name} failed: ${e.message}`);
