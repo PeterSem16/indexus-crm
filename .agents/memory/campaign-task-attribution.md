@@ -76,3 +76,37 @@ For a PER-CONTACT ranking (which entity got the most touches), not per-agent:
   so a contact active in two concurrent campaigns counts its touches in both leaderboards.
   Two contacts sharing a phone/email each get the same calls/messages counted (per-contact
   touches, not globally unique events) — accepted for a "most-contacted" ranking.
+
+## Reachable vs unreachable per contact (top-contacts leaderboard)
+
+Extending the leaderboard with a "did we actually reach them" split:
+- **Reachable = answered calls (BOTH directions) + inbound email replies + inbound sms replies.**
+  A call is answered when `answered_at IS NOT NULL OR COALESCE(duration_seconds,0)>0`.
+  Replies = `communication_messages` with `direction='inbound'` (email matched by customer_id;
+  sms matched by customer_id OR last-9 `sender_phone`). Reuse the same `call_match` (3-path)
+  and `cc_eid`/`cc_phone` CTEs as the touch counts.
+- **Unreachable = outbound calls not answered + NETTED unreplied outbound emails + netted sms.**
+  Netting per contact: `GREATEST(0, outbound_count - inbound_count)` for email and sms
+  (email_c/sms_c are already `direction='outbound'`-filtered), so reply and no-reply can't both
+  count. Unreachable calls restricted to `NOT reachable AND direction='outbound'` — a missed
+  INBOUND call is neither reachable nor unreachable (we didn't fail to reach them).
+- Dedup: `call_match` UNION dedups the full (cc_id, id, reachable, dir) tuple so a call matched
+  by >1 path counts once; email/sms use `COUNT(DISTINCT id)`.
+- **Quirk (accepted):** reachable can exceed the visible calls/total columns because reachable
+  counts answered INBOUND calls while calls/total are outbound-only. Also email_in has no
+  sender-email path (only customer_id), so replies without a linked customer_id undercount.
+
+## Pagination for the leaderboard
+
+- Endpoint takes `page` (min 1) + `pageSize` (clamp 1-100, default 10); `LIMIT/OFFSET`.
+- Total for the client = `COUNT(*) OVER() AS total_count` in the SELECT — a window fn evaluates
+  AFTER `WHERE total>0` but BEFORE `LIMIT/OFFSET`, so it's the full filtered count on every page.
+  Read via `Number(rows[0].total_count)` (bigint returns as string); 0 when the page is empty.
+- Response shape changed from a bare array to `{ contacts, total, page, pageSize }` — update BOTH
+  the query type and the `?.contacts ?? []` reads on the client together.
+- **ORDER BY needs a unique tiebreaker** (`total DESC, name ASC, cc.cc_id ASC`): many contacts
+  tie on total and name can be NULL/dup, so without a stable key LIMIT/OFFSET pages repeat/skip
+  rows non-deterministically.
+- Client: put `page` in the react-query key, use `placeholderData: keepPreviousData` for smooth
+  paging, reset page to 1 via `useEffect` on date-range/campaign change, and compute the global
+  rank as `(page-1)*pageSize + idx` so trophy/medal styling only hits the true top 3 on page 1.

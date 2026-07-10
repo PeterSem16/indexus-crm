@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo, useEffect } from "react";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, parseISO } from "date-fns";
 import { useI18n } from "@/i18n";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -44,6 +44,15 @@ interface TopContact {
   sms: number;
   tasks: number;
   total: number;
+  reachable: number;
+  unreachable: number;
+}
+
+interface TopContactsResponse {
+  contacts: TopContact[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 function fmtDur(seconds: number): string {
@@ -241,18 +250,30 @@ export default function CampaignAgentProductivity({ campaignId }: { campaignId: 
     },
   });
 
-  const { data: topContacts = [], isLoading: topLoading } = useQuery<TopContact[]>({
-    queryKey: ["/api/campaigns", campaignId, "top-contacts", fromISO, toISO],
+  const TOP_PAGE_SIZE = 10;
+  const [topPage, setTopPage] = useState(1);
+
+  useEffect(() => {
+    setTopPage(1);
+  }, [fromISO, toISO, campaignId]);
+
+  const { data: topData, isLoading: topLoading } = useQuery<TopContactsResponse>({
+    queryKey: ["/api/campaigns", campaignId, "top-contacts", fromISO, toISO, topPage],
     enabled: validRange && !!campaignId,
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const res = await fetch(
-        `/api/campaigns/${campaignId}/top-contacts?from=${encodeURIComponent(fromISO)}&to=${encodeURIComponent(toISO)}`,
+        `/api/campaigns/${campaignId}/top-contacts?from=${encodeURIComponent(fromISO)}&to=${encodeURIComponent(toISO)}&page=${topPage}&pageSize=${TOP_PAGE_SIZE}`,
         { credentials: "include" },
       );
       if (!res.ok) throw new Error("Failed to load top contacts");
       return res.json();
     },
   });
+
+  const topContacts = topData?.contacts ?? [];
+  const topTotal = topData?.total ?? 0;
+  const topTotalPages = Math.max(1, Math.ceil(topTotal / TOP_PAGE_SIZE));
 
   const summary = useMemo(() => {
     const n = rows.length || 1;
@@ -485,6 +506,7 @@ export default function CampaignAgentProductivity({ campaignId }: { campaignId: 
                   {ap.noData}
                 </div>
               ) : (
+                <>
                 <div className="overflow-x-auto rounded-xl border">
                   <Table>
                     <TableHeader>
@@ -495,22 +517,25 @@ export default function CampaignAgentProductivity({ campaignId }: { campaignId: 
                         <TableHead className="text-right">{ap.emailsLabel}</TableHead>
                         <TableHead className="text-right">{ap.smsLabel}</TableHead>
                         <TableHead className="text-right">{ap.tasksLabel}</TableHead>
+                        <TableHead className="text-right">{ap.reachableLabel}</TableHead>
+                        <TableHead className="text-right">{ap.unreachableLabel}</TableHead>
                         <TableHead className="text-right font-bold">{ap.mixLabel}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {topContacts.map((c, idx) => {
-                        const rankStyle = RANK_STYLES[idx];
+                        const globalIdx = (topPage - 1) * TOP_PAGE_SIZE + idx;
+                        const rankStyle = RANK_STYLES[globalIdx];
                         const EntityIcon = ENTITY_ICON[c.entityType] || User;
                         return (
-                          <TableRow key={`${c.name}-${idx}`} data-testid={`row-top-contact-${idx}`}>
+                          <TableRow key={`${c.name}-${globalIdx}`} data-testid={`row-top-contact-${idx}`}>
                             <TableCell>
                               {rankStyle ? (
                                 <div className={`h-6 w-6 rounded-md flex items-center justify-center ${rankStyle.cls}`}>
                                   <rankStyle.icon className="h-3.5 w-3.5" />
                                 </div>
                               ) : (
-                                <span className="text-xs font-bold text-muted-foreground pl-2">{idx + 1}</span>
+                                <span className="text-xs font-bold text-muted-foreground pl-2">{globalIdx + 1}</span>
                               )}
                             </TableCell>
                             <TableCell className="font-medium">
@@ -523,6 +548,8 @@ export default function CampaignAgentProductivity({ campaignId }: { campaignId: 
                             <TableCell className="text-right tabular-nums" data-testid={`text-top-emails-${idx}`}>{c.emails}</TableCell>
                             <TableCell className="text-right tabular-nums" data-testid={`text-top-sms-${idx}`}>{c.sms}</TableCell>
                             <TableCell className="text-right tabular-nums" data-testid={`text-top-tasks-${idx}`}>{c.tasks}</TableCell>
+                            <TableCell className="text-right tabular-nums text-emerald-600 dark:text-emerald-400" data-testid={`text-top-reachable-${idx}`}>{c.reachable}</TableCell>
+                            <TableCell className="text-right tabular-nums text-red-600 dark:text-red-400" data-testid={`text-top-unreachable-${idx}`}>{c.unreachable}</TableCell>
                             <TableCell className="text-right tabular-nums font-bold" data-testid={`text-top-total-${idx}`}>{c.total}</TableCell>
                           </TableRow>
                         );
@@ -530,6 +557,34 @@ export default function CampaignAgentProductivity({ campaignId }: { campaignId: 
                     </TableBody>
                   </Table>
                 </div>
+                {topTotalPages > 1 && (
+                  <div className="flex items-center justify-between mt-3">
+                    <span className="text-xs text-muted-foreground" data-testid="text-top-contacts-page">
+                      {ap.pageLabel} {topPage} / {topTotalPages}
+                    </span>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={topPage <= 1}
+                        onClick={() => setTopPage((p) => Math.max(1, p - 1))}
+                        data-testid="button-top-contacts-prev"
+                      >
+                        {ap.prevPage}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={topPage >= topTotalPages}
+                        onClick={() => setTopPage((p) => Math.min(topTotalPages, p + 1))}
+                        data-testid="button-top-contacts-next"
+                      >
+                        {ap.nextPage}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                </>
               )}
             </div>
           </>

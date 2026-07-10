@@ -31672,6 +31672,11 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
         return res.status(400).json({ error: "Invalid date range" });
       }
+      const pageRaw = parseInt(String(req.query.page ?? "1"), 10);
+      const pageSizeRaw = parseInt(String(req.query.pageSize ?? "10"), 10);
+      const pageSize = Number.isFinite(pageSizeRaw) ? Math.min(Math.max(pageSizeRaw, 1), 100) : 10;
+      const page = Number.isFinite(pageRaw) ? Math.max(pageRaw, 1) : 1;
+      const offset = (page - 1) * pageSize;
 
       const topRows = await db.execute(sql`
         WITH cc AS (
@@ -31741,6 +31746,35 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             UNION SELECT cc.cc_id, t.id FROM cc JOIN tasks t ON t.related_entity_id=cc.hospital_id WHERE cc.hospital_id IS NOT NULL AND t.source_run_id IS NULL AND t.created_at >= ${fromDate} AND t.created_at <= ${toDate}
             UNION SELECT cc.cc_id, t.id FROM cc JOIN tasks t ON t.related_entity_id=cc.collaborator_id WHERE cc.collaborator_id IS NOT NULL AND t.source_run_id IS NULL AND t.created_at >= ${fromDate} AND t.created_at <= ${toDate}
           ) x GROUP BY cc_id
+        ),
+        call_match AS (
+          SELECT cc_id, lid, reachable, dir FROM (
+            SELECT cl.campaign_contact_id cc_id, cl.id lid, (cl.answered_at IS NOT NULL OR COALESCE(cl.duration_seconds,0)>0) reachable, cl.direction dir
+              FROM call_logs cl JOIN cc ON cc.cc_id=cl.campaign_contact_id
+              WHERE cl.campaign_id=${campaignId} AND cl.campaign_contact_id IS NOT NULL AND cl.started_at >= ${fromDate} AND cl.started_at <= ${toDate}
+            UNION SELECT p.cc_id, cl.id, (cl.answered_at IS NOT NULL OR COALESCE(cl.duration_seconds,0)>0), cl.direction
+              FROM call_logs cl JOIN cc_phone p ON right(regexp_replace(COALESCE(cl.phone_number,''),'[^0-9]','','g'),9)=p.v
+              WHERE cl.campaign_id=${campaignId} AND cl.phone_number IS NOT NULL AND length(regexp_replace(cl.phone_number,'[^0-9]','','g'))>=9 AND cl.started_at >= ${fromDate} AND cl.started_at <= ${toDate}
+            UNION SELECT ce.cc_id, cl.id, (cl.answered_at IS NOT NULL OR COALESCE(cl.duration_seconds,0)>0), cl.direction
+              FROM call_logs cl JOIN cc_eid ce ON cl.customer_id=ce.eid
+              WHERE cl.campaign_id=${campaignId} AND cl.customer_id IS NOT NULL AND cl.started_at >= ${fromDate} AND cl.started_at <= ${toDate}
+          ) x
+        ),
+        reach_call AS (SELECT cc_id, COUNT(*) n FROM call_match WHERE reachable GROUP BY cc_id),
+        unreach_call AS (SELECT cc_id, COUNT(*) n FROM call_match WHERE NOT reachable AND dir='outbound' GROUP BY cc_id),
+        email_in AS (
+          SELECT cc_id, COUNT(DISTINCT mid) n FROM (
+            SELECT ce.cc_id, m.id mid FROM communication_messages m JOIN cc_eid ce ON m.customer_id=ce.eid
+              WHERE m.direction='inbound' AND m.type='email' AND m.customer_id IS NOT NULL AND m.created_at >= ${fromDate} AND m.created_at <= ${toDate}
+          ) x GROUP BY cc_id
+        ),
+        sms_in AS (
+          SELECT cc_id, COUNT(DISTINCT mid) n FROM (
+            SELECT ce.cc_id, m.id mid FROM communication_messages m JOIN cc_eid ce ON m.customer_id=ce.eid
+              WHERE m.direction='inbound' AND m.type='sms' AND m.customer_id IS NOT NULL AND m.created_at >= ${fromDate} AND m.created_at <= ${toDate}
+            UNION SELECT p.cc_id, m.id FROM communication_messages m JOIN cc_phone p ON right(regexp_replace(COALESCE(m.sender_phone,''),'[^0-9]','','g'),9)=p.v
+              WHERE m.direction='inbound' AND m.type='sms' AND m.sender_phone IS NOT NULL AND length(regexp_replace(m.sender_phone,'[^0-9]','','g'))>=9 AND m.created_at >= ${fromDate} AND m.created_at <= ${toDate}
+          ) x GROUP BY cc_id
         )
         SELECT
           CASE WHEN cc.clinic_id IS NOT NULL THEN 'clinic'
@@ -31750,7 +31784,10 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                ELSE cc.contact_type END AS entity_type,
           COALESCE(cl.name, h.name, NULLIF(TRIM(COALESCE(col.first_name,'')||' '||COALESCE(col.last_name,'')),''), col.company_name, NULLIF(TRIM(COALESCE(cu.first_name,'')||' '||COALESCE(cu.last_name,'')),'')) AS name,
           COALESCE(call_c.n,0) AS calls, COALESCE(email_c.n,0) AS emails, COALESCE(sms_c.n,0) AS sms, COALESCE(task_c.n,0) AS tasks,
-          COALESCE(call_c.n,0)+COALESCE(email_c.n,0)+COALESCE(sms_c.n,0)+COALESCE(task_c.n,0) AS total
+          COALESCE(call_c.n,0)+COALESCE(email_c.n,0)+COALESCE(sms_c.n,0)+COALESCE(task_c.n,0) AS total,
+          COALESCE(reach_call.n,0)+COALESCE(email_in.n,0)+COALESCE(sms_in.n,0) AS reachable,
+          COALESCE(unreach_call.n,0)+GREATEST(0,COALESCE(email_c.n,0)-COALESCE(email_in.n,0))+GREATEST(0,COALESCE(sms_c.n,0)-COALESCE(sms_in.n,0)) AS unreachable,
+          COUNT(*) OVER() AS total_count
         FROM cc
         LEFT JOIN clinics cl ON cl.id=cc.clinic_id
         LEFT JOIN hospitals h ON h.id=cc.hospital_id
@@ -31760,12 +31797,18 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         LEFT JOIN email_c ON email_c.cc_id=cc.cc_id
         LEFT JOIN sms_c ON sms_c.cc_id=cc.cc_id
         LEFT JOIN task_c ON task_c.cc_id=cc.cc_id
+        LEFT JOIN reach_call ON reach_call.cc_id=cc.cc_id
+        LEFT JOIN unreach_call ON unreach_call.cc_id=cc.cc_id
+        LEFT JOIN email_in ON email_in.cc_id=cc.cc_id
+        LEFT JOIN sms_in ON sms_in.cc_id=cc.cc_id
         WHERE COALESCE(call_c.n,0)+COALESCE(email_c.n,0)+COALESCE(sms_c.n,0)+COALESCE(task_c.n,0) > 0
-        ORDER BY total DESC, name ASC
-        LIMIT 10
+        ORDER BY total DESC, name ASC, cc.cc_id ASC
+        LIMIT ${pageSize} OFFSET ${offset}
       `);
 
-      const topContacts = (topRows.rows as any[]).map(r => ({
+      const rows = topRows.rows as any[];
+      const total = rows.length > 0 ? Number(rows[0].total_count) || 0 : 0;
+      const contacts = rows.map(r => ({
         name: r.name || "—",
         entityType: r.entity_type as string,
         calls: Number(r.calls) || 0,
@@ -31773,9 +31816,11 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         sms: Number(r.sms) || 0,
         tasks: Number(r.tasks) || 0,
         total: Number(r.total) || 0,
+        reachable: Number(r.reachable) || 0,
+        unreachable: Number(r.unreachable) || 0,
       }));
 
-      res.json(topContacts);
+      res.json({ contacts, total, page, pageSize });
     } catch (error) {
       console.error("Error fetching campaign top contacts:", error);
       res.status(500).json({ error: "Failed to fetch top contacts" });
