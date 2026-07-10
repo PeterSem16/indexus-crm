@@ -51,14 +51,28 @@ Tighten with a type-matched pair filter only if the numbers must be exact.
 ## Per-ENTITY variant (top-contacts leaderboard)
 
 For a PER-CONTACT ranking (which entity got the most touches), not per-agent:
-- **Calls**: `call_logs.campaign_contact_id` is a DIRECT link to a specific `campaign_contacts`
-  row → the strongest per-entity attribution path. Prefer it over phone matching here.
-- **Emails/SMS**: still no entity FK — reuse the per-contact address CTEs but keyed by `cc_id`
-  (`SELECT cc.id, lower(email) ...`), then `COUNT(DISTINCT m.id)` per cc so multiple matching
-  address columns on one contact don't multiply the count.
+- **Calls**: do NOT rely on `call_logs.campaign_contact_id` — it is essentially never populated
+  (0/9 in dev; the dialer links calls by `campaign_id` + `phone_number`, not the cc row).
+  Attributing calls only via campaign_contact_id → always 0. Instead UNION three paths and
+  `COUNT(DISTINCT call id)` per contact: (1) direct `campaign_contact_id = cc.id`, (2) last-9-digit
+  `phone_number` match vs the contact's phones, (3) `customer_id = <any entity id>` (see below).
+  All three scoped by `campaign_id` + date range.
+- **Emails/SMS**: `communication_messages.customer_id` is NOT customer-only — the send paths
+  (MS365 `/api/ms365/send-email-from-mailbox`, send-sms) write `customer_id = currentContact.id`
+  together with a `contactType`, so for a clinic email `customer_id` holds the CLINIC id (likewise
+  hospital/collaborator). There is NO separate clinic/hospital/collaborator FK and NO `recipients`
+  column (Drizzle silently drops unknown cols). The MS365 path also leaves `recipient_email` empty
+  (recipient lives in `metadata.recipientEmails`). So match by BOTH: recipient_email/recipient_phone
+  address match, OR `customer_id IN (all entity ids of the contact)`. Build a `cc_eid` CTE mapping
+  each cc row → its customer/clinic/hospital/collaborator ids; `COUNT(DISTINCT m.id)` per contact.
+- **Same fix applies to the per-AGENT commAgg** (agent-productivity Detailed statistics): its
+  `customer_id IN (SELECT customer_id FROM cc)` must be broadened to UNION clinic_id/hospital_id/
+  collaborator_id, or clinic-mission emails show 0 in the Emails column.
 - **Tasks**: attribute via the direct entity-id equijoins only (UNION of 5, dedup by task id).
   Disposition tasks (`related_entity_id = status_list_item.id`) canNOT be tied to a specific
   contact (item is per-campaign, not per-contact) — so per-contact task counts are near-0 for
   clinic missions. Accepted; calls + emails/SMS carry the ranking.
-- Emails/SMS CTEs are date-bounded but NOT campaign-scoped (no campaign link on the message),
+- Emails/SMS are date-bounded but NOT campaign-scoped (no campaign link on the message),
   so a contact active in two concurrent campaigns counts its touches in both leaderboards.
+  Two contacts sharing a phone/email each get the same calls/messages counted (per-contact
+  touches, not globally unique events) — accepted for a "most-contacted" ranking.

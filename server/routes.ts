@@ -31498,7 +31498,12 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         WHERE direction = 'outbound' AND user_id IS NOT NULL AND type IN ('email', 'sms')
           AND created_at >= ${fromDate} AND created_at <= ${toDate}
           AND (
-            customer_id IN (SELECT customer_id FROM cc WHERE customer_id IS NOT NULL)
+            customer_id IN (
+              SELECT customer_id FROM cc WHERE customer_id IS NOT NULL
+              UNION SELECT clinic_id FROM cc WHERE clinic_id IS NOT NULL
+              UNION SELECT hospital_id FROM cc WHERE hospital_id IS NOT NULL
+              UNION SELECT collaborator_id FROM cc WHERE collaborator_id IS NOT NULL
+            )
             OR (recipient_email IS NOT NULL AND recipient_email <> '' AND lower(recipient_email) IN (SELECT v FROM camp_emails))
             OR (recipient_phone IS NOT NULL AND length(regexp_replace(recipient_phone, '[^0-9]', '', 'g')) >= 9 AND right(regexp_replace(recipient_phone, '[^0-9]', '', 'g'), 9) IN (SELECT v FROM camp_phones))
           )
@@ -31696,23 +31701,37 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           UNION SELECT DISTINCT cc.cc_id, right(regexp_replace(cu.mobile_2,'[^0-9]','','g'),9) FROM cc JOIN customers cu ON cu.id=cc.customer_id WHERE length(regexp_replace(COALESCE(cu.mobile_2,''),'[^0-9]','','g'))>=9
           UNION SELECT DISTINCT cc.cc_id, right(regexp_replace(cu.gynecologist_phone,'[^0-9]','','g'),9) FROM cc JOIN customers cu ON cu.id=cc.customer_id WHERE length(regexp_replace(COALESCE(cu.gynecologist_phone,''),'[^0-9]','','g'))>=9
         ),
+        cc_eid AS (
+          SELECT cc_id, customer_id AS eid FROM cc WHERE customer_id IS NOT NULL
+          UNION SELECT cc_id, clinic_id FROM cc WHERE clinic_id IS NOT NULL
+          UNION SELECT cc_id, hospital_id FROM cc WHERE hospital_id IS NOT NULL
+          UNION SELECT cc_id, collaborator_id FROM cc WHERE collaborator_id IS NOT NULL
+        ),
         call_c AS (
-          SELECT campaign_contact_id cc_id, COUNT(*) n FROM call_logs
-          WHERE campaign_id=${campaignId} AND direction='outbound' AND campaign_contact_id IS NOT NULL
-            AND started_at >= ${fromDate} AND started_at <= ${toDate}
-          GROUP BY campaign_contact_id
+          SELECT cc_id, COUNT(DISTINCT lid) n FROM (
+            SELECT cl.campaign_contact_id cc_id, cl.id lid FROM call_logs cl JOIN cc ON cc.cc_id=cl.campaign_contact_id
+              WHERE cl.campaign_id=${campaignId} AND cl.direction='outbound' AND cl.campaign_contact_id IS NOT NULL AND cl.started_at >= ${fromDate} AND cl.started_at <= ${toDate}
+            UNION SELECT p.cc_id, cl.id FROM call_logs cl JOIN cc_phone p ON right(regexp_replace(COALESCE(cl.phone_number,''),'[^0-9]','','g'),9)=p.v
+              WHERE cl.campaign_id=${campaignId} AND cl.direction='outbound' AND cl.phone_number IS NOT NULL AND length(regexp_replace(cl.phone_number,'[^0-9]','','g'))>=9 AND cl.started_at >= ${fromDate} AND cl.started_at <= ${toDate}
+            UNION SELECT ce.cc_id, cl.id FROM call_logs cl JOIN cc_eid ce ON cl.customer_id=ce.eid
+              WHERE cl.campaign_id=${campaignId} AND cl.direction='outbound' AND cl.customer_id IS NOT NULL AND cl.started_at >= ${fromDate} AND cl.started_at <= ${toDate}
+          ) x GROUP BY cc_id
         ),
         email_c AS (
-          SELECT e.cc_id, COUNT(DISTINCT m.id) n FROM communication_messages m JOIN cc_email e ON lower(m.recipient_email)=e.v
-          WHERE m.direction='outbound' AND m.type='email'
-            AND m.created_at >= ${fromDate} AND m.created_at <= ${toDate}
-          GROUP BY e.cc_id
+          SELECT cc_id, COUNT(DISTINCT mid) n FROM (
+            SELECT e.cc_id, m.id mid FROM communication_messages m JOIN cc_email e ON lower(m.recipient_email)=e.v
+              WHERE m.direction='outbound' AND m.type='email' AND m.recipient_email IS NOT NULL AND m.recipient_email<>'' AND m.created_at >= ${fromDate} AND m.created_at <= ${toDate}
+            UNION SELECT ce.cc_id, m.id FROM communication_messages m JOIN cc_eid ce ON m.customer_id=ce.eid
+              WHERE m.direction='outbound' AND m.type='email' AND m.customer_id IS NOT NULL AND m.created_at >= ${fromDate} AND m.created_at <= ${toDate}
+          ) x GROUP BY cc_id
         ),
         sms_c AS (
-          SELECT p.cc_id, COUNT(DISTINCT m.id) n FROM communication_messages m JOIN cc_phone p ON right(regexp_replace(COALESCE(m.recipient_phone,''),'[^0-9]','','g'),9)=p.v
-          WHERE m.direction='outbound' AND m.type='sms' AND m.recipient_phone IS NOT NULL AND length(regexp_replace(m.recipient_phone,'[^0-9]','','g'))>=9
-            AND m.created_at >= ${fromDate} AND m.created_at <= ${toDate}
-          GROUP BY p.cc_id
+          SELECT cc_id, COUNT(DISTINCT mid) n FROM (
+            SELECT p.cc_id, m.id mid FROM communication_messages m JOIN cc_phone p ON right(regexp_replace(COALESCE(m.recipient_phone,''),'[^0-9]','','g'),9)=p.v
+              WHERE m.direction='outbound' AND m.type='sms' AND m.recipient_phone IS NOT NULL AND length(regexp_replace(m.recipient_phone,'[^0-9]','','g'))>=9 AND m.created_at >= ${fromDate} AND m.created_at <= ${toDate}
+            UNION SELECT ce.cc_id, m.id FROM communication_messages m JOIN cc_eid ce ON m.customer_id=ce.eid
+              WHERE m.direction='outbound' AND m.type='sms' AND m.customer_id IS NOT NULL AND m.created_at >= ${fromDate} AND m.created_at <= ${toDate}
+          ) x GROUP BY cc_id
         ),
         task_c AS (
           SELECT cc_id, COUNT(*) n FROM (
