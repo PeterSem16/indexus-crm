@@ -31658,6 +31658,185 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
+  // Per-day breakdown of the same per-agent productivity metrics ("raster").
+  // Days are bucketed by calendar day in Europe/Bratislava (DB stores UTC
+  // timestamps without tz, hence AT TIME ZONE 'UTC' AT TIME ZONE '...').
+  // Scheduled callbacks are a point-in-time stat (not period-bound), so they
+  // are intentionally NOT part of daily rows; the trend is also omitted.
+  app.get("/api/campaigns/:id/agent-productivity/daily", requireAuth, async (req, res) => {
+    try {
+      const campaignId = req.params.id;
+      const { from, to } = req.query;
+      const fromDate = from ? new Date(from as string) : startOfDay(new Date());
+      const toDate = to ? new Date(to as string) : endOfDay(new Date());
+      if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+        return res.status(400).json({ error: "Invalid date range" });
+      }
+
+      const campaignAgentRows = await storage.getCampaignAgents(campaignId);
+      const agentIdSet = new Set(campaignAgentRows.map(a => a.userId).filter(Boolean));
+
+      // kn / kr per agent per day — same mission-wide ROW_NUMBER classification
+      // as the summary endpoint, only the outer aggregation adds the day bucket.
+      const callAggD = await db.execute(sql`
+        WITH ranked AS (
+          SELECT user_id, started_at,
+            ROW_NUMBER() OVER (PARTITION BY phone_number ORDER BY started_at ASC, id ASC) AS rn
+          FROM call_logs
+          WHERE direction = 'outbound' AND campaign_id = ${campaignId} AND started_at <= ${toDate}
+        )
+        SELECT user_id,
+          to_char(started_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Bratislava', 'YYYY-MM-DD') AS day,
+          COUNT(*) FILTER (WHERE rn = 1) AS kn,
+          COUNT(*) FILTER (WHERE rn > 1) AS kr
+        FROM ranked
+        WHERE started_at >= ${fromDate} AND started_at <= ${toDate}
+        GROUP BY user_id, day
+      `);
+
+      const timeAggD = await db.execute(sql`
+        SELECT user_id,
+          to_char(started_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Bratislava', 'YYYY-MM-DD') AS day,
+          COALESCE(SUM(COALESCE(duration_seconds, 0)), 0) AS talk_seconds,
+          COALESCE(SUM(GREATEST(0, EXTRACT(EPOCH FROM (COALESCE(answered_at, ended_at) - started_at)))), 0) AS ring_seconds
+        FROM call_logs
+        WHERE campaign_id = ${campaignId} AND started_at >= ${fromDate} AND started_at <= ${toDate}
+        GROUP BY user_id, day
+      `);
+
+      const taskAggD = await db.execute(sql`
+        SELECT created_by_user_id AS user_id,
+          to_char(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Bratislava', 'YYYY-MM-DD') AS day,
+          COUNT(*) AS kt
+        FROM tasks
+        WHERE created_at >= ${fromDate} AND created_at <= ${toDate}
+          AND source_run_id IS NULL
+          AND (
+            customer_id IN (
+              SELECT customer_id FROM campaign_contacts
+              WHERE campaign_id = ${campaignId} AND customer_id IS NOT NULL
+            )
+            OR related_entity_id IN (
+              SELECT customer_id FROM campaign_contacts WHERE campaign_id = ${campaignId} AND customer_id IS NOT NULL
+              UNION SELECT hospital_id FROM campaign_contacts WHERE campaign_id = ${campaignId} AND hospital_id IS NOT NULL
+              UNION SELECT clinic_id FROM campaign_contacts WHERE campaign_id = ${campaignId} AND clinic_id IS NOT NULL
+              UNION SELECT collaborator_id FROM campaign_contacts WHERE campaign_id = ${campaignId} AND collaborator_id IS NOT NULL
+            )
+            OR related_entity_id IN (
+              SELECT id FROM campaign_status_list_items WHERE campaign_id = ${campaignId}
+            )
+          )
+        GROUP BY created_by_user_id, day
+      `);
+
+      // Emails / SMS per agent per day — same recipient-matching CTEs as the
+      // summary endpoint (see the comment there for the matching rationale).
+      const commAggD = await db.execute(sql`
+        WITH cc AS (
+          SELECT customer_id, hospital_id, clinic_id, collaborator_id
+          FROM campaign_contacts WHERE campaign_id = ${campaignId}
+        ),
+        camp_emails AS (
+          SELECT lower(email) AS v FROM clinics WHERE id IN (SELECT clinic_id FROM cc WHERE clinic_id IS NOT NULL) AND email IS NOT NULL AND email <> ''
+          UNION SELECT lower(email2) FROM clinics WHERE id IN (SELECT clinic_id FROM cc WHERE clinic_id IS NOT NULL) AND email2 IS NOT NULL AND email2 <> ''
+          UNION SELECT lower(email3) FROM clinics WHERE id IN (SELECT clinic_id FROM cc WHERE clinic_id IS NOT NULL) AND email3 IS NOT NULL AND email3 <> ''
+          UNION SELECT lower(email) FROM hospitals WHERE id IN (SELECT hospital_id FROM cc WHERE hospital_id IS NOT NULL) AND email IS NOT NULL AND email <> ''
+          UNION SELECT lower(email) FROM collaborators WHERE id IN (SELECT collaborator_id FROM cc WHERE collaborator_id IS NOT NULL) AND email IS NOT NULL AND email <> ''
+          UNION SELECT lower(email) FROM customers WHERE id IN (SELECT customer_id FROM cc WHERE customer_id IS NOT NULL) AND email IS NOT NULL AND email <> ''
+          UNION SELECT lower(email_2) FROM customers WHERE id IN (SELECT customer_id FROM cc WHERE customer_id IS NOT NULL) AND email_2 IS NOT NULL AND email_2 <> ''
+          UNION SELECT lower(gynecologist_email) FROM customers WHERE id IN (SELECT customer_id FROM cc WHERE customer_id IS NOT NULL) AND gynecologist_email IS NOT NULL AND gynecologist_email <> ''
+        ),
+        camp_phones AS (
+          SELECT right(regexp_replace(phone, '[^0-9]', '', 'g'), 9) AS v FROM clinics WHERE id IN (SELECT clinic_id FROM cc WHERE clinic_id IS NOT NULL) AND length(regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g')) >= 9
+          UNION SELECT right(regexp_replace(phone2, '[^0-9]', '', 'g'), 9) FROM clinics WHERE id IN (SELECT clinic_id FROM cc WHERE clinic_id IS NOT NULL) AND length(regexp_replace(COALESCE(phone2, ''), '[^0-9]', '', 'g')) >= 9
+          UNION SELECT right(regexp_replace(phone3, '[^0-9]', '', 'g'), 9) FROM clinics WHERE id IN (SELECT clinic_id FROM cc WHERE clinic_id IS NOT NULL) AND length(regexp_replace(COALESCE(phone3, ''), '[^0-9]', '', 'g')) >= 9
+          UNION SELECT right(regexp_replace(phone, '[^0-9]', '', 'g'), 9) FROM hospitals WHERE id IN (SELECT hospital_id FROM cc WHERE hospital_id IS NOT NULL) AND length(regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g')) >= 9
+          UNION SELECT right(regexp_replace(phone, '[^0-9]', '', 'g'), 9) FROM collaborators WHERE id IN (SELECT collaborator_id FROM cc WHERE collaborator_id IS NOT NULL) AND length(regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g')) >= 9
+          UNION SELECT right(regexp_replace(mobile, '[^0-9]', '', 'g'), 9) FROM collaborators WHERE id IN (SELECT collaborator_id FROM cc WHERE collaborator_id IS NOT NULL) AND length(regexp_replace(COALESCE(mobile, ''), '[^0-9]', '', 'g')) >= 9
+          UNION SELECT right(regexp_replace(mobile_2, '[^0-9]', '', 'g'), 9) FROM collaborators WHERE id IN (SELECT collaborator_id FROM cc WHERE collaborator_id IS NOT NULL) AND length(regexp_replace(COALESCE(mobile_2, ''), '[^0-9]', '', 'g')) >= 9
+          UNION SELECT right(regexp_replace(phone, '[^0-9]', '', 'g'), 9) FROM customers WHERE id IN (SELECT customer_id FROM cc WHERE customer_id IS NOT NULL) AND length(regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g')) >= 9
+          UNION SELECT right(regexp_replace(mobile, '[^0-9]', '', 'g'), 9) FROM customers WHERE id IN (SELECT customer_id FROM cc WHERE customer_id IS NOT NULL) AND length(regexp_replace(COALESCE(mobile, ''), '[^0-9]', '', 'g')) >= 9
+          UNION SELECT right(regexp_replace(mobile_2, '[^0-9]', '', 'g'), 9) FROM customers WHERE id IN (SELECT customer_id FROM cc WHERE customer_id IS NOT NULL) AND length(regexp_replace(COALESCE(mobile_2, ''), '[^0-9]', '', 'g')) >= 9
+          UNION SELECT right(regexp_replace(gynecologist_phone, '[^0-9]', '', 'g'), 9) FROM customers WHERE id IN (SELECT customer_id FROM cc WHERE customer_id IS NOT NULL) AND length(regexp_replace(COALESCE(gynecologist_phone, ''), '[^0-9]', '', 'g')) >= 9
+        )
+        SELECT user_id, type,
+          to_char(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Bratislava', 'YYYY-MM-DD') AS day,
+          COUNT(*) AS c
+        FROM communication_messages
+        WHERE direction = 'outbound' AND user_id IS NOT NULL AND type IN ('email', 'sms')
+          AND created_at >= ${fromDate} AND created_at <= ${toDate}
+          AND (
+            customer_id IN (
+              SELECT customer_id FROM cc WHERE customer_id IS NOT NULL
+              UNION SELECT clinic_id FROM cc WHERE clinic_id IS NOT NULL
+              UNION SELECT hospital_id FROM cc WHERE hospital_id IS NOT NULL
+              UNION SELECT collaborator_id FROM cc WHERE collaborator_id IS NOT NULL
+            )
+            OR (recipient_email IS NOT NULL AND recipient_email <> '' AND lower(recipient_email) IN (SELECT v FROM camp_emails))
+            OR (recipient_phone IS NOT NULL AND length(regexp_replace(recipient_phone, '[^0-9]', '', 'g')) >= 9 AND right(regexp_replace(recipient_phone, '[^0-9]', '', 'g'), 9) IN (SELECT v FROM camp_phones))
+          )
+        GROUP BY user_id, type, day
+      `);
+
+      const NEW_CALL_S = 35, REPEAT_CALL_S = 40, TASK_S = 180;
+      type DailyAcc = { kn: number; kr: number; kt: number; emails: number; sms: number; talk: number; ring: number };
+      const byKey = new Map<string, DailyAcc>();
+      const acc = (userId: unknown, day: unknown): DailyAcc | null => {
+        if (typeof userId !== "string" || typeof day !== "string" || !agentIdSet.has(userId)) return null;
+        const k = `${userId}|${day}`;
+        let v = byKey.get(k);
+        if (!v) { v = { kn: 0, kr: 0, kt: 0, emails: 0, sms: 0, talk: 0, ring: 0 }; byKey.set(k, v); }
+        return v;
+      };
+      for (const r of callAggD.rows as any[]) {
+        const v = acc(r.user_id, r.day);
+        if (v) { v.kn += Number(r.kn) || 0; v.kr += Number(r.kr) || 0; }
+      }
+      for (const r of timeAggD.rows as any[]) {
+        const v = acc(r.user_id, r.day);
+        if (v) { v.talk += Number(r.talk_seconds) || 0; v.ring += Number(r.ring_seconds) || 0; }
+      }
+      for (const r of taskAggD.rows as any[]) {
+        const v = acc(r.user_id, r.day);
+        if (v) v.kt += Number(r.kt) || 0;
+      }
+      for (const r of commAggD.rows as any[]) {
+        const v = acc(r.user_id, r.day);
+        if (v) {
+          if (r.type === "email") v.emails += Number(r.c) || 0;
+          else if (r.type === "sms") v.sms += Number(r.c) || 0;
+        }
+      }
+
+      const result = Array.from(byKey.entries()).map(([k, v]) => {
+        const sep = k.indexOf("|");
+        const agentId = k.slice(0, sep);
+        const day = k.slice(sep + 1);
+        const twSeconds = v.kn * NEW_CALL_S + v.kr * REPEAT_CALL_S + v.kt * TASK_S;
+        const talkSeconds = Math.round(v.talk);
+        const ringSeconds = Math.round(v.ring);
+        return {
+          agentId,
+          day,
+          newCalls: v.kn,
+          repeatCalls: v.kr,
+          emails: v.emails,
+          sms: v.sms,
+          nonstandardTasks: v.kt,
+          twSeconds,
+          talkSeconds,
+          ringSeconds,
+          totalSeconds: twSeconds + talkSeconds + ringSeconds,
+        };
+      }).sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : b.totalSeconds - a.totalSeconds));
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching campaign agent productivity daily breakdown:", error);
+      res.status(500).json({ error: "Failed to fetch agent productivity daily breakdown" });
+    }
+  });
+
   // Top-10 most-contacted contacts (entities) in a mission for the selected period.
   // Ranked by total touches ("mix" = calls + emails + SMS + tasks). Per-ENTITY, not
   // per-agent. Calls attach directly via call_logs.campaign_contact_id; emails/SMS are

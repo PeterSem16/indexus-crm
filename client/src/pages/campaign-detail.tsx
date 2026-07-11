@@ -7536,7 +7536,7 @@ export default function CampaignDetailPage() {
               </SLAnalyticsErrorBoundary>
             </TabsContent>
             <TabsContent value="report-productivity" className="space-y-4">
-              <CampaignAgentProductivity campaignId={campaignId} />
+              <CampaignAgentProductivity campaignId={campaignId} campaignName={campaign?.name} />
             </TabsContent>
           </Tabs>
         </TabsContent>

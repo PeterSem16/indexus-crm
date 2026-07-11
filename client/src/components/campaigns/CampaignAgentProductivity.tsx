@@ -1,7 +1,8 @@
-import { useState, useMemo, useEffect } from "react";
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { Fragment, useState, useMemo, useEffect } from "react";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, parseISO } from "date-fns";
 import { useI18n } from "@/i18n";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +16,7 @@ import {
 import {
   HelpCircle, Users, Phone, Mail, MessageSquare, ClipboardCheck, CalendarClock,
   Clock, TrendingUp, TrendingDown, Minus, Trophy, Medal, Award, Sparkles, LucideIcon,
-  Building2, User, Contact, Check, X,
+  Building2, User, Contact, Check, X, ChevronRight, ChevronDown, Download, FileSpreadsheet,
 } from "lucide-react";
 
 interface AgentProductivityRow {
@@ -35,6 +36,20 @@ interface AgentProductivityRow {
   totalSeconds: number;
   prevTotalSeconds: number;
   trendPct: number | null;
+}
+
+interface AgentDailyRow {
+  agentId: string;
+  day: string;
+  newCalls: number;
+  repeatCalls: number;
+  emails: number;
+  sms: number;
+  nonstandardTasks: number;
+  twSeconds: number;
+  talkSeconds: number;
+  ringSeconds: number;
+  totalSeconds: number;
 }
 
 interface TopContact {
@@ -252,12 +267,39 @@ function AgentCard({ r, rank, maxTotal, ap }: {
   );
 }
 
-export default function CampaignAgentProductivity({ campaignId }: { campaignId: string }) {
+function csvEscape(v: string | number): string {
+  const s = String(v);
+  return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function sanitizeFileName(s: string): string {
+  return s
+    .replace(/[\\/:*?"<>|#%&{}$!'@+`=,;.\s]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 80) || "report";
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+export default function CampaignAgentProductivity({ campaignId, campaignName }: { campaignId: string; campaignName?: string }) {
   const { t } = useI18n();
   const ap = t.agentProductivity;
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const today = format(new Date(), "yyyy-MM-dd");
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
+  const [expandedAgents, setExpandedAgents] = useState<Set<string>>(new Set());
+  const [exporting, setExporting] = useState(false);
 
   const validRange =
     !!from && !!to && !isNaN(parseISO(from).getTime()) && !isNaN(parseISO(to).getTime());
@@ -276,6 +318,45 @@ export default function CampaignAgentProductivity({ campaignId }: { campaignId: 
       return res.json();
     },
   });
+
+  const dailyQueryKey = ["/api/campaigns", campaignId, "agent-productivity-daily", fromISO, toISO];
+  const fetchDailyRows = async (): Promise<AgentDailyRow[]> => {
+    const res = await fetch(
+      `/api/campaigns/${campaignId}/agent-productivity/daily?from=${encodeURIComponent(fromISO)}&to=${encodeURIComponent(toISO)}`,
+      { credentials: "include" },
+    );
+    if (!res.ok) throw new Error("Failed to load daily breakdown");
+    return res.json();
+  };
+
+  const { data: dailyRows = [], isLoading: dailyLoading } = useQuery<AgentDailyRow[]>({
+    queryKey: dailyQueryKey,
+    enabled: validRange && !!campaignId && expandedAgents.size > 0,
+    queryFn: fetchDailyRows,
+  });
+
+  const dailyByAgent = useMemo(() => {
+    const m = new Map<string, AgentDailyRow[]>();
+    for (const d of dailyRows) {
+      const list = m.get(d.agentId);
+      if (list) list.push(d);
+      else m.set(d.agentId, [d]);
+    }
+    return m;
+  }, [dailyRows]);
+
+  useEffect(() => {
+    setExpandedAgents(new Set());
+  }, [fromISO, toISO, campaignId]);
+
+  const toggleAgent = (agentId: string) => {
+    setExpandedAgents((prev) => {
+      const next = new Set(prev);
+      if (next.has(agentId)) next.delete(agentId);
+      else next.add(agentId);
+      return next;
+    });
+  };
 
   const TOP_PAGE_SIZE = 10;
   const [topPage, setTopPage] = useState(1);
@@ -342,6 +423,82 @@ export default function CampaignAgentProductivity({ campaignId }: { campaignId: 
     if (kind === "today") setFrom(format(now, "yyyy-MM-dd"));
     else if (kind === "week") setFrom(format(startOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd"));
     else setFrom(format(startOfMonth(now), "yyyy-MM-dd"));
+  };
+
+  // Export: summary table + per-day raster, as CSV (Excel-friendly, BOM + ";")
+  // or real XLSX (two sheets). Filename = report + campaign + selected range.
+  const handleExport = async (kind: "csv" | "xlsx") => {
+    if (!validRange || exporting) return;
+    setExporting(true);
+    try {
+      const daily = await queryClient.fetchQuery({
+        queryKey: dailyQueryKey,
+        queryFn: fetchDailyRows,
+        staleTime: 60_000,
+      });
+      const nameOf = new Map(rows.map((r) => [r.agentId, r.agentName]));
+      const summaryHeader = [
+        ap.agent, ap.newCalls, ap.repeatCalls, ap.emailsLabel, ap.smsLabel, ap.nonstandardTasks,
+        ap.scheduledLabel, ap.nonCallTime, ap.talkTime, ap.ringTime, ap.totalEstimated,
+      ];
+      const summaryRows = rows.map((r) => [
+        r.agentName, r.newCalls, r.repeatCalls, r.emails, r.sms, r.nonstandardTasks,
+        r.scheduledOverdue > 0 ? `${r.scheduledPending} (${r.scheduledOverdue} ${ap.overdueLabel})` : String(r.scheduledPending),
+        fmtDur(r.twSeconds), fmtDur(r.talkSeconds), fmtDur(r.ringSeconds), fmtDur(r.totalSeconds),
+      ]);
+      const totalsRow = [
+        ap.totals, detailTotals.newCalls, detailTotals.repeatCalls, summary.totals.emails, summary.totals.sms,
+        detailTotals.nonstandardTasks, summary.totals.scheduled,
+        fmtDur(detailTotals.twSeconds), fmtDur(detailTotals.talkSeconds), fmtDur(detailTotals.ringSeconds), fmtDur(detailTotals.totalSeconds),
+      ];
+      const dailyHeader = [
+        ap.agent, ap.dayLabel, ap.newCalls, ap.repeatCalls, ap.emailsLabel, ap.smsLabel, ap.nonstandardTasks,
+        ap.nonCallTime, ap.talkTime, ap.ringTime, ap.totalEstimated,
+      ];
+      const sortedDaily = [...daily].sort((a, b) => {
+        const an = nameOf.get(a.agentId) || a.agentId;
+        const bn = nameOf.get(b.agentId) || b.agentId;
+        return an.localeCompare(bn) || a.day.localeCompare(b.day);
+      });
+      const dailyOut = sortedDaily.map((d) => [
+        nameOf.get(d.agentId) || d.agentId, d.day, d.newCalls, d.repeatCalls, d.emails, d.sms, d.nonstandardTasks,
+        fmtDur(d.twSeconds), fmtDur(d.talkSeconds), fmtDur(d.ringSeconds), fmtDur(d.totalSeconds),
+      ]);
+      const base = `${sanitizeFileName(ap.detailedStats)}_${sanitizeFileName(campaignName || campaignId)}_${from}_${to}`;
+
+      if (kind === "csv") {
+        const lines: string[] = [];
+        lines.push(csvEscape(`${ap.detailedStats} — ${campaignName || campaignId} (${from} – ${to})`));
+        lines.push("");
+        lines.push(csvEscape(ap.summaryLabel));
+        lines.push(summaryHeader.map(csvEscape).join(";"));
+        for (const r of summaryRows) lines.push(r.map(csvEscape).join(";"));
+        lines.push(totalsRow.map(csvEscape).join(";"));
+        lines.push("");
+        lines.push(csvEscape(ap.dailyBreakdown));
+        lines.push(dailyHeader.map(csvEscape).join(";"));
+        for (const r of dailyOut) lines.push(r.map(csvEscape).join(";"));
+        const blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+        downloadBlob(blob, `${base}.csv`);
+      } else {
+        const XLSX = await import("xlsx");
+        const wb = XLSX.utils.book_new();
+        const sheetName = (s: string, fallback: string) =>
+          (s.replace(/[\\/?*[\]:]/g, " ").trim().slice(0, 31)) || fallback;
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([summaryHeader, ...summaryRows, totalsRow]), sheetName(ap.summaryLabel, "Summary"));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([dailyHeader, ...dailyOut]), sheetName(ap.dailyBreakdown, "Daily"));
+        const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+        downloadBlob(
+          new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
+          `${base}.xlsx`,
+        );
+      }
+    } catch (e) {
+      console.error("Export failed:", e);
+      toast({ title: ap.exportFailed, variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -445,10 +602,34 @@ export default function CampaignAgentProductivity({ campaignId }: { campaignId: 
             </div>
 
             <div className="mt-6">
-              <h4 className="text-sm font-semibold flex items-center gap-2 mb-3">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                {ap.detailedStats}
-              </h4>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <h4 className="text-sm font-semibold flex items-center gap-2">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  {ap.detailedStats}
+                </h4>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={exporting || !validRange}
+                    onClick={() => handleExport("csv")}
+                    data-testid="button-export-csv"
+                  >
+                    <Download className="h-4 w-4 mr-1.5" />
+                    {ap.exportCsv}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={exporting || !validRange}
+                    onClick={() => handleExport("xlsx")}
+                    data-testid="button-export-xlsx"
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-1.5" />
+                    {ap.exportXlsx}
+                  </Button>
+                </div>
+              </div>
               <div className="overflow-x-auto rounded-xl border">
                 <Table>
                   <TableHeader>
@@ -467,36 +648,83 @@ export default function CampaignAgentProductivity({ campaignId }: { campaignId: 
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map((r) => (
-                      <TableRow key={r.agentId} data-testid={`row-agent-${r.agentId}`}>
-                        <TableCell className="font-medium">
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-6 w-6 shrink-0">
-                              {r.avatarUrl ? <AvatarImage src={r.avatarUrl} alt={r.agentName} /> : null}
-                              <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-bold">
-                                {initials(r.agentName)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span data-testid={`text-agent-name-row-${r.agentId}`}>{r.agentName}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right" data-testid={`text-new-calls-${r.agentId}`}>{r.newCalls}</TableCell>
-                        <TableCell className="text-right" data-testid={`text-repeat-calls-${r.agentId}`}>{r.repeatCalls}</TableCell>
-                        <TableCell className="text-right" data-testid={`text-emails-${r.agentId}`}>{r.emails}</TableCell>
-                        <TableCell className="text-right" data-testid={`text-sms-${r.agentId}`}>{r.sms}</TableCell>
-                        <TableCell className="text-right" data-testid={`text-tasks-${r.agentId}`}>{r.nonstandardTasks}</TableCell>
-                        <TableCell className="text-right" data-testid={`text-scheduled-${r.agentId}`}>
-                          {r.scheduledPending}
-                          {r.scheduledOverdue > 0 ? (
-                            <span className="text-rose-600 dark:text-rose-400"> ({r.scheduledOverdue} {ap.overdueLabel})</span>
+                    {rows.map((r) => {
+                      const isExpanded = expandedAgents.has(r.agentId);
+                      const agentDaily = dailyByAgent.get(r.agentId) || [];
+                      return (
+                        <Fragment key={r.agentId}>
+                          <TableRow data-testid={`row-agent-${r.agentId}`}>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleAgent(r.agentId)}
+                                  aria-expanded={isExpanded}
+                                  aria-label={ap.dailyBreakdown}
+                                  title={ap.dailyBreakdown}
+                                  data-testid={`button-expand-${r.agentId}`}
+                                  className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                                >
+                                  {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                </button>
+                                <Avatar className="h-6 w-6 shrink-0">
+                                  {r.avatarUrl ? <AvatarImage src={r.avatarUrl} alt={r.agentName} /> : null}
+                                  <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-bold">
+                                    {initials(r.agentName)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span data-testid={`text-agent-name-row-${r.agentId}`}>{r.agentName}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right" data-testid={`text-new-calls-${r.agentId}`}>{r.newCalls}</TableCell>
+                            <TableCell className="text-right" data-testid={`text-repeat-calls-${r.agentId}`}>{r.repeatCalls}</TableCell>
+                            <TableCell className="text-right" data-testid={`text-emails-${r.agentId}`}>{r.emails}</TableCell>
+                            <TableCell className="text-right" data-testid={`text-sms-${r.agentId}`}>{r.sms}</TableCell>
+                            <TableCell className="text-right" data-testid={`text-tasks-${r.agentId}`}>{r.nonstandardTasks}</TableCell>
+                            <TableCell className="text-right" data-testid={`text-scheduled-${r.agentId}`}>
+                              {r.scheduledPending}
+                              {r.scheduledOverdue > 0 ? (
+                                <span className="text-rose-600 dark:text-rose-400"> ({r.scheduledOverdue} {ap.overdueLabel})</span>
+                              ) : null}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums text-muted-foreground">{fmtDur(r.twSeconds)}</TableCell>
+                            <TableCell className="text-right tabular-nums text-muted-foreground">{fmtDur(r.talkSeconds)}</TableCell>
+                            <TableCell className="text-right tabular-nums text-muted-foreground">{fmtDur(r.ringSeconds)}</TableCell>
+                            <TableCell className="text-right tabular-nums font-bold" data-testid={`text-total-row-${r.agentId}`}>{fmtDur(r.totalSeconds)}</TableCell>
+                          </TableRow>
+                          {isExpanded && dailyLoading ? (
+                            <TableRow className="bg-muted/30" data-testid={`row-daily-loading-${r.agentId}`}>
+                              <TableCell colSpan={11}><Skeleton className="h-5 w-full" /></TableCell>
+                            </TableRow>
                           ) : null}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums text-muted-foreground">{fmtDur(r.twSeconds)}</TableCell>
-                        <TableCell className="text-right tabular-nums text-muted-foreground">{fmtDur(r.talkSeconds)}</TableCell>
-                        <TableCell className="text-right tabular-nums text-muted-foreground">{fmtDur(r.ringSeconds)}</TableCell>
-                        <TableCell className="text-right tabular-nums font-bold" data-testid={`text-total-row-${r.agentId}`}>{fmtDur(r.totalSeconds)}</TableCell>
-                      </TableRow>
-                    ))}
+                          {isExpanded && !dailyLoading && agentDaily.length === 0 ? (
+                            <TableRow className="bg-muted/30" data-testid={`row-daily-empty-${r.agentId}`}>
+                              <TableCell colSpan={11} className="pl-12 text-xs text-muted-foreground">{ap.noDailyData}</TableCell>
+                            </TableRow>
+                          ) : null}
+                          {isExpanded && !dailyLoading && agentDaily.map((d) => (
+                            <TableRow key={`${r.agentId}-${d.day}`} className="bg-muted/30" data-testid={`row-daily-${r.agentId}-${d.day}`}>
+                              <TableCell className="pl-12 text-xs text-muted-foreground">
+                                <span className="inline-flex items-center gap-1.5">
+                                  <CalendarClock className="h-3 w-3" />
+                                  {format(parseISO(d.day), "d.M.yyyy")}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right text-xs tabular-nums" data-testid={`text-daily-new-${r.agentId}-${d.day}`}>{d.newCalls}</TableCell>
+                              <TableCell className="text-right text-xs tabular-nums">{d.repeatCalls}</TableCell>
+                              <TableCell className="text-right text-xs tabular-nums">{d.emails}</TableCell>
+                              <TableCell className="text-right text-xs tabular-nums">{d.sms}</TableCell>
+                              <TableCell className="text-right text-xs tabular-nums">{d.nonstandardTasks}</TableCell>
+                              <TableCell className="text-right text-xs text-muted-foreground">—</TableCell>
+                              <TableCell className="text-right text-xs tabular-nums text-muted-foreground">{fmtDur(d.twSeconds)}</TableCell>
+                              <TableCell className="text-right text-xs tabular-nums text-muted-foreground">{fmtDur(d.talkSeconds)}</TableCell>
+                              <TableCell className="text-right text-xs tabular-nums text-muted-foreground">{fmtDur(d.ringSeconds)}</TableCell>
+                              <TableCell className="text-right text-xs tabular-nums font-semibold" data-testid={`text-daily-total-${r.agentId}-${d.day}`}>{fmtDur(d.totalSeconds)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </Fragment>
+                      );
+                    })}
                   </TableBody>
                   <TableFooter>
                     <TableRow data-testid="row-totals">
