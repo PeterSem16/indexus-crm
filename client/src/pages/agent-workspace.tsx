@@ -153,6 +153,7 @@ import {
   Save,
   CornerUpLeft,
   Sparkles,
+  Lock,
 } from "lucide-react";
 import type { CSSProperties } from "react";
 import {
@@ -2926,6 +2927,10 @@ function CommunicationCanvas({
   const lastAutoSavedPhoneRef = useRef<string | null>(null);
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
 
+  const cardsReadOnly = useMemo(() => {
+    try { return JSON.parse(campaign?.settings || "{}").readOnlyContactCards === true; } catch { return false; }
+  }, [campaign?.settings]);
+
   useEffect(() => {
     const entityPhone = clinicData?.phone || collaboratorData?.phone || null;
     lastAutoSavedPhoneRef.current = entityPhone;
@@ -2933,6 +2938,7 @@ function CommunicationCanvas({
   }, [contact?.id, clinicData?.id, collaboratorData?.id]);
 
   useEffect(() => {
+    if (cardsReadOnly) return;
     if (!phoneOverride || phoneOverride === lastAutoSavedPhoneRef.current) return;
     const timer = setTimeout(async () => {
       if (!phoneOverride || phoneOverride === lastAutoSavedPhoneRef.current) return;
@@ -2962,10 +2968,10 @@ function CommunicationCanvas({
       }
     }, 1500);
     return () => clearTimeout(timer);
-  }, [phoneOverride, clinicData?.id, collaboratorData?.id, contact?.id]);
+  }, [phoneOverride, clinicData?.id, collaboratorData?.id, contact?.id, cardsReadOnly]);
 
   const handleManualSavePhone = async () => {
-    if (!localPhoneOverride) return;
+    if (cardsReadOnly || !localPhoneOverride) return;
     let url = "";
     let method = "PATCH";
     if (clinicData) { url = `/api/clinics/${clinicData.id}`; method = "PUT"; }
@@ -4075,11 +4081,18 @@ function CommunicationCanvas({
 
           {phoneSubTab === "card" && contact && (
             <>
+              {cardsReadOnly && (
+                <div className="shrink-0 flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300" data-testid="banner-readonly-cards">
+                  <Lock className="h-3.5 w-3.5 shrink-0" />
+                  <span className="text-xs font-medium">{t.agentWorkspace.readOnlyCardsBanner || "Režim iba na čítanie — úprava údajov je v tejto kampani vypnutá."}</span>
+                </div>
+              )}
               {contactType === "hospital" && hospitalData ? (
                 <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                   <HospitalFormWizard
                     key={hospitalData.id}
                     mode="inline"
+                    readOnly={cardsReadOnly}
                     initialData={hospitalData}
                     onSuccess={async () => {
                       try {
@@ -4105,6 +4118,7 @@ function CommunicationCanvas({
                     onPhoneChange={(p) => onPhoneOverrideChange?.(p || null)}
                     onCallPhone={(p) => onMakeCall?.(p)}
                     mode="inline"
+                    readOnly={cardsReadOnly}
                   />
                 </div>
               ) : contactType === "collaborator" && collaboratorData ? (
@@ -4112,6 +4126,7 @@ function CommunicationCanvas({
                   <CollaboratorFormWizard
                     key={collaboratorData.id}
                     mode="inline"
+                    readOnly={cardsReadOnly}
                     initialData={collaboratorData}
                     onSuccess={async () => {
                       try {
@@ -4128,7 +4143,8 @@ function CommunicationCanvas({
                     <CustomerForm
                       key={contact.id}
                       initialData={contact}
-                      onSubmit={(data) => onUpdateContact?.(data)}
+                      readOnly={cardsReadOnly}
+                      onSubmit={(data) => { if (!cardsReadOnly) onUpdateContact?.(data); }}
                       isLoading={isUpdatingContact}
                       useCardLayout
                       onPhoneChange={(p) => onPhoneOverrideChange?.(p || null)}

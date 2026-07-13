@@ -280,6 +280,7 @@ interface ClinicFormSheetProps {
   prefillData?: Partial<ClinicFormData>;
   onCreated?: (clinic: { id: string; name: string; doctorTitle?: string | null; doctorFirstName?: string | null; doctorLastName?: string | null; doctorName?: string | null }) => void | Promise<void>;
   sheetContentClassName?: string;
+  readOnly?: boolean;
 }
 
 function ClinicPersonnelTab({ clinicId, clinicName }: { clinicId: string; clinicName: string }) {
@@ -441,7 +442,7 @@ export function ClinicFormWizard({ initialData, onSuccess, onCancel }: { initial
   );
 }
 
-export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, onPhoneChange, onCallPhone, mode = "sheet", prefillData, onCreated, sheetContentClassName }: ClinicFormSheetProps) {
+export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, onPhoneChange, onCallPhone, mode = "sheet", prefillData, onCreated, sheetContentClassName, readOnly = false }: ClinicFormSheetProps) {
   const { t } = useI18n();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -2078,7 +2079,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
           })}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5">
+        <fieldset disabled={readOnly} className="flex-1 overflow-y-auto p-5 min-w-0" style={{ minInlineSize: 0 }}>
           {activeTab === "referral" && (
             <div className="space-y-4 pb-4">
               {false && <div className="space-y-3">
@@ -2717,9 +2718,10 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
           {activeTab === "campaigns" && initialData && (
             <EntityCampaignTimeline entityType="clinic" entityId={initialData.id} entityName={initialData.name} />
           )}
-        </div>
+        </fieldset>
       </div>
 
+      {!readOnly && (
       <div className="shrink-0 border-t bg-muted/30 px-5 py-3 flex items-center justify-end gap-2">
         {mode !== "inline" && (
           <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-clinic-drawer">{t.common.cancel}</Button>
@@ -2729,6 +2731,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
           {t.common.save}
         </Button>
       </div>
+      )}
     </>
   );
 

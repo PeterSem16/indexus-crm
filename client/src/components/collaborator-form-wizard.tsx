@@ -266,6 +266,7 @@ interface CollaboratorFormWizardProps {
   prefillData?: Partial<CollaboratorFormData>;
   onCreated?: (collab: { id: string }) => void | Promise<void>;
   mode?: "inline";
+  readOnly?: boolean;
 }
 
 // Pending address for Add mode (before collaborator is saved)
@@ -3565,7 +3566,7 @@ function DocumentsPanel({ collaboratorId, t }: { collaboratorId: string; t: any 
   );
 }
 
-export function CollaboratorFormWizard({ initialData, onSuccess, onPhoneChange, onCancel, positionScopeFilter, hideSvetZdravia, prefillData, onCreated, mode }: CollaboratorFormWizardProps) {
+export function CollaboratorFormWizard({ initialData, onSuccess, onPhoneChange, onCancel, positionScopeFilter, hideSvetZdravia, prefillData, onCreated, mode, readOnly = false }: CollaboratorFormWizardProps) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
   const { isHidden, isReadonly } = useModuleFieldPermissions("collaborators");
@@ -5721,10 +5722,11 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onPhoneChange, 
             </p>
           </div>
 
-          <div className="flex-1 overflow-auto p-6">
+          <fieldset disabled={readOnly} className="flex-1 overflow-auto p-6 min-w-0" style={{ minInlineSize: 0 }}>
             {renderStepContent()}
-          </div>
+          </fieldset>
 
+          {!readOnly && (
           <div className="shrink-0 border-t bg-background/95 backdrop-blur-sm px-6 py-3 flex items-center justify-end shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
             <div className="flex items-center gap-2">
               {onCancel && mode !== "inline" && (
@@ -5755,6 +5757,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onPhoneChange, 
               )}
             </div>
           </div>
+          )}
         </div>
       </div>
 

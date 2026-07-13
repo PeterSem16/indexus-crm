@@ -58,6 +58,7 @@ interface HospitalFormWizardProps {
   onSuccess: () => void;
   onCancel?: () => void;
   mode?: "inline";
+  readOnly?: boolean;
 }
 
 const WIZARD_STEPS = [
@@ -68,7 +69,7 @@ const WIZARD_STEPS = [
   { id: "review", icon: Check },
 ];
 
-export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCancel, mode }: HospitalFormWizardProps) {
+export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCancel, mode, readOnly = false }: HospitalFormWizardProps) {
   const { t } = useI18n();
   const { toast } = useToast();
   const { isHidden, isReadonly } = useModuleFieldPermissions("hospitals");
@@ -743,9 +744,10 @@ export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCanc
 
           {/* Content + footer */}
           <div className="flex flex-col flex-1 overflow-hidden">
-            <div className="flex-1 overflow-y-auto px-5 py-4">
+            <fieldset disabled={readOnly} className="flex-1 overflow-y-auto px-5 py-4 min-w-0" style={{ minInlineSize: 0 }}>
               {renderStepContent(activeTabInfo.step)}
-            </div>
+            </fieldset>
+            {!readOnly && (
             <div className="shrink-0 border-t px-5 py-3 flex justify-between bg-background">
               {onCancel && mode !== "inline" && (
                 <Button variant="ghost" size="sm" onClick={onCancel} data-testid="inline-hospital-cancel">
@@ -768,6 +770,7 @@ export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCanc
                 {saveMutation.isPending ? t.common.loading : t.common.save}
               </Button>
             </div>
+            )}
           </div>
         </div>
 

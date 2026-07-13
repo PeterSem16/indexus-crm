@@ -2516,6 +2516,8 @@ export interface Translations {
       acquisitionScriptGeneratedDesc: string;
       showScriptTitle: string;
       showScriptDesc: string;
+      readOnlyCardsTitle: string;
+      readOnlyCardsDesc: string;
       workflowModeTitle: string;
       workflowModeDesc: string;
       workflowModeDisposition: string;
@@ -3399,6 +3401,7 @@ export interface Translations {
     customerDetail: string;
     customerDocumentsTab: string;
     sopTab: string;
+    readOnlyCardsBanner: string;
     addNote: string;
     notePlaceholder: string;
     moreNotes: string;
@@ -9862,6 +9865,8 @@ export const translations: Record<Locale, Translations> = {
         acquisitionScriptGeneratedDesc: "The script has been successfully set for the campaign.",
         showScriptTitle: "Script tab for agents",
         showScriptDesc: "When disabled, agents do not see the SCRIPT tab in their workspace.",
+        readOnlyCardsTitle: "Read-only contact card",
+        readOnlyCardsDesc: "When enabled, agents cannot edit any data in customer, clinic, hospital, or collaborator cards in this campaign.",
         workflowModeTitle: "Workflow mode",
         workflowModeDesc: "How agents record contact outcomes - via the classic Disposition or via the Status List (steps with automations).",
         workflowModeDisposition: "Disposition",
@@ -10745,6 +10750,7 @@ export const translations: Record<Locale, Translations> = {
       customerDetail: 'Customer Detail',
       customerDocumentsTab: 'Documents',
       sopTab: 'SOP',
+      readOnlyCardsBanner: "Read-only mode — editing data is disabled in this campaign.",
       addNote: 'Add note',
       notePlaceholder: 'Write a note...',
       moreNotes: 'more notes',
@@ -16706,6 +16712,8 @@ export const translations: Record<Locale, Translations> = {
         acquisitionScriptGeneratedDesc: "Scenár bol úspešne nastavený pre kampaň.",
         showScriptTitle: "Záložka Script pre agentov",
         showScriptDesc: "Ak je vypnuté, agenti nevidia záložku SCRIPT vo svojom pracovnom priestore.",
+        readOnlyCardsTitle: "Karta kontaktu iba na čítanie",
+        readOnlyCardsDesc: "Ak je zapnuté, agenti nemôžu v tejto kampani upravovať žiadne údaje v karte zákazníka, kliniky, nemocnice ani spolupracovníka.",
         workflowModeTitle: "Režim workflow",
         workflowModeDesc: "Ako agenti zaznamenávajú výsledky kontaktov - cez klasickú Disposíciu alebo cez Status List (kroky s automatizáciami).",
         workflowModeDisposition: "Disposícia",
@@ -17541,6 +17549,7 @@ export const translations: Record<Locale, Translations> = {
       customerDetail: 'Detail zákazníka',
       customerDocumentsTab: 'Dokumenty',
       sopTab: 'SOP',
+      readOnlyCardsBanner: "Režim iba na čítanie — úprava údajov je v tejto kampani vypnutá.",
       addNote: 'Pridať poznámku',
       notePlaceholder: 'Napíšte poznámku...',
       moreNotes: 'ďalších poznámok',
@@ -23488,6 +23497,8 @@ export const translations: Record<Locale, Translations> = {
         acquisitionScriptGeneratedDesc: "Scénář byl úspěšně nastaven pro kampaň.",
         showScriptTitle: "Záložka Script pro agenty",
         showScriptDesc: "Když je vypnuto, agenti nevidí záložku SCRIPT ve svém pracovním prostoru.",
+        readOnlyCardsTitle: "Karta kontaktu pouze pro čtení",
+        readOnlyCardsDesc: "Pokud je zapnuto, agenti nemohou v této kampani upravovat žádné údaje v kartě zákazníka, kliniky, nemocnice ani spolupracovníka.",
         workflowModeTitle: "Režim workflow",
         workflowModeDesc: "Jak agenti zaznamenávají výsledky kontaktů - přes klasickou Dispozici nebo přes Status List (kroky s automatizacemi).",
         workflowModeDisposition: "Dispozice",
@@ -24323,6 +24334,7 @@ export const translations: Record<Locale, Translations> = {
       customerDetail: 'Detail zákazníka',
       customerDocumentsTab: 'Dokumenty',
       sopTab: 'SOP',
+      readOnlyCardsBanner: "Režim pouze pro čtení — úprava údajů je v této kampani vypnuta.",
       addNote: 'Přidat poznámku',
       notePlaceholder: 'Napište poznámku...',
       moreNotes: 'dalších poznámek',
@@ -30228,6 +30240,8 @@ export const translations: Record<Locale, Translations> = {
         acquisitionScriptGeneratedDesc: "A szkript sikeresen beállítva a kampányhoz.",
         showScriptTitle: "Script fül az operátoroknak",
         showScriptDesc: "Ha ki van kapcsolva, az operátorok nem látják a SCRIPT fület a munkaterületükön.",
+        readOnlyCardsTitle: "Csak olvasható kapcsolati kártya",
+        readOnlyCardsDesc: "Ha be van kapcsolva, az operátorok ebben a kampányban nem szerkeszthetik az ügyfél-, klinika-, kórház- és partnerkártyák adatait.",
         workflowModeTitle: "Munkafolyamat mód",
         workflowModeDesc: "Hogyan rögzítik az operátorok a kapcsolatok eredményét - klasszikus Diszpozícióval vagy Status List-tel (lépések automatizálásokkal).",
         workflowModeDisposition: "Diszpozíció",
@@ -31062,6 +31076,7 @@ export const translations: Record<Locale, Translations> = {
       customerDocumentsTab: 'Dokumentumok',
       addNote: 'Jegyzet hozzáadása',
       sopTab: 'SOP',
+      readOnlyCardsBanner: "Csak olvasható mód — az adatok szerkesztése ebben a kampányban le van tiltva.",
       notePlaceholder: 'Írjon jegyzetet...',
       moreNotes: 'további jegyzet',
       noteBadgeImportant: 'Fontos',
@@ -36853,6 +36868,8 @@ export const translations: Record<Locale, Translations> = {
         acquisitionScriptGeneratedDesc: "Scenariul a fost setat cu succes pentru campanie.",
         showScriptTitle: "Fila Script pentru agenți",
         showScriptDesc: "Când este dezactivată, agenții nu văd fila SCRIPT în spațiul lor de lucru.",
+        readOnlyCardsTitle: "Fișă de contact doar în citire",
+        readOnlyCardsDesc: "Când este activată, agenții nu pot edita datele din fișele de client, clinică, spital sau colaborator în această campanie.",
         workflowModeTitle: "Mod flux de lucru",
         workflowModeDesc: "Cum înregistrează agenții rezultatele contactelor - prin Dispoziția clasică sau prin Status List (pași cu automatizări).",
         workflowModeDisposition: "Dispoziție",
@@ -37687,6 +37704,7 @@ export const translations: Record<Locale, Translations> = {
       customerDocumentsTab: 'Documente',
       addNote: 'Adăugare notă',
       sopTab: 'SOP',
+      readOnlyCardsBanner: "Mod doar citire — editarea datelor este dezactivată în această campanie.",
       notePlaceholder: 'Scrieți o notă...',
       moreNotes: 'alte note',
       noteBadgeImportant: 'Important',
@@ -43480,6 +43498,8 @@ export const translations: Record<Locale, Translations> = {
         acquisitionScriptGeneratedDesc: "Lo script è stato impostato con successo per la campagna.",
         showScriptTitle: "Scheda Script per gli operatori",
         showScriptDesc: "Se disattivata, gli operatori non vedono la scheda SCRIPT nel loro spazio di lavoro.",
+        readOnlyCardsTitle: "Scheda contatto in sola lettura",
+        readOnlyCardsDesc: "Se attivata, gli operatori non possono modificare i dati nelle schede di cliente, clinica, ospedale o collaboratore in questa campagna.",
         workflowModeTitle: "Modalità workflow",
         workflowModeDesc: "Come gli operatori registrano gli esiti dei contatti - tramite la Disposizione classica o tramite la Status List (passi con automazioni).",
         workflowModeDisposition: "Disposizione",
@@ -44314,6 +44334,7 @@ export const translations: Record<Locale, Translations> = {
       customerDocumentsTab: 'Documenti',
       addNote: 'Aggiungi nota',
       sopTab: 'SOP',
+      readOnlyCardsBanner: "Modalità sola lettura — la modifica dei dati è disattivata in questa campagna.",
       notePlaceholder: 'Scrivi una nota...',
       moreNotes: 'altre note',
       noteBadgeImportant: 'Importante',
@@ -50107,6 +50128,8 @@ export const translations: Record<Locale, Translations> = {
         acquisitionScriptGeneratedDesc: "Das Skript wurde erfolgreich für die Kampagne festgelegt.",
         showScriptTitle: "Script-Tab für Agenten",
         showScriptDesc: "Wenn deaktiviert, sehen Agenten den SCRIPT-Tab in ihrem Arbeitsbereich nicht.",
+        readOnlyCardsTitle: "Kontaktkarte schreibgeschützt",
+        readOnlyCardsDesc: "Wenn aktiviert, können Agenten in dieser Kampagne keine Daten in den Karten von Kunden, Kliniken, Krankenhäusern oder Mitarbeitern bearbeiten.",
         workflowModeTitle: "Workflow-Modus",
         workflowModeDesc: "Wie Agenten Kontaktergebnisse erfassen - über die klassische Disposition oder über die Status List (Schritte mit Automatisierungen).",
         workflowModeDisposition: "Disposition",
@@ -50941,6 +50964,7 @@ export const translations: Record<Locale, Translations> = {
       customerDocumentsTab: 'Dokumente',
       addNote: 'Notiz hinzufügen',
       sopTab: 'SOP',
+      readOnlyCardsBanner: "Nur-Lese-Modus — die Bearbeitung von Daten ist in dieser Kampagne deaktiviert.",
       notePlaceholder: 'Notiz schreiben...',
       moreNotes: 'weitere Notizen',
       noteBadgeImportant: 'Wichtig',

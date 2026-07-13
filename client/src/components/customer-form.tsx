@@ -270,9 +270,10 @@ interface CustomerFormProps {
   onCancel?: () => void;
   useCardLayout?: boolean;
   onPhoneChange?: (phone: string) => void;
+  readOnly?: boolean;
 }
 
-export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCardLayout = false, onPhoneChange }: CustomerFormProps) {
+export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCardLayout = false, onPhoneChange, readOnly = false }: CustomerFormProps) {
   const { t, locale } = useI18n();
   const [activeSection, setActiveSection] = useState("status");
   const [districtKey, setDistrictKey] = useState(0);
@@ -480,7 +481,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
             })}
           </div>
 
-          <div className="flex-1 overflow-y-auto p-5 pb-3">
+          <fieldset disabled={readOnly} className="flex-1 overflow-y-auto p-5 pb-3 min-w-0" style={{ minInlineSize: 0 }}>
             {activeSection === "status" && (
               <div>
                 <SectionHeader icon={CheckCircle2} title={t.customers?.formSections?.status || "Stav klienta"} />
@@ -1159,9 +1160,10 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                 )}
               </div>
             )}
-          </div>
+          </fieldset>
         </div>
 
+        {!readOnly && (
         <div className="shrink-0 border-t px-5 py-2 flex justify-end gap-3">
           {onCancel && (
             <Button type="button" variant="outline" onClick={onCancel} data-testid="button-cancel-customer">
@@ -1172,6 +1174,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
             {isLoading ? t.customers.fields.saving : initialData ? t.customers.fields.update : t.customers.fields.createClient}
           </Button>
         </div>
+        )}
       </form>
     </Form>
   );

@@ -6370,6 +6370,36 @@ export default function CampaignDetailPage() {
                           />
                         </CardContent>
                       </Card>
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>{t.campaigns.detail.readOnlyCardsTitle}</CardTitle>
+                          <CardDescription>
+                            {t.campaigns.detail.readOnlyCardsDesc}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <Switch
+                            checked={(() => {
+                              try {
+                                const s = campaign.settings ? JSON.parse(campaign.settings) : {};
+                                return s.readOnlyContactCards === true;
+                              } catch { return false; }
+                            })()}
+                            onCheckedChange={(v) => {
+                              let existing: any = {};
+                              try { if (campaign.settings) existing = JSON.parse(campaign.settings); } catch {}
+                              const merged = { ...existing, readOnlyContactCards: v };
+                              apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { settings: JSON.stringify(merged) })
+                                .then(() => {
+                                  toast({ title: t.campaigns.detail.settingsSaved });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
+                                })
+                                .catch(() => toast({ title: t.campaigns.detail.error, variant: "destructive" }));
+                            }}
+                            data-testid="switch-readonly-cards"
+                          />
+                        </CardContent>
+                      </Card>
                         </div>
                         <DefaultTemplatesCard campaign={campaign} />
                       </section>
