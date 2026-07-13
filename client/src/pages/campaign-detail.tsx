@@ -21,7 +21,7 @@ import {
   ClipboardCheck, PhoneForwarded, FileQuestion, FileWarning, FileX, MailPlus, MailCheck, MailWarning, MailX,
   MinusCircle, Slash, FolderClosed, TrendingUp, CalendarClock, MessageCircle,
   UserPlus, UserMinus, PhoneCall, BookMarked, Newspaper, Image, FileSignature, CalendarCheck, Shuffle,
-  Gauge,
+  Gauge, Database, PhoneIncoming, PhoneOutgoing,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -235,6 +235,7 @@ import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import type { MessageTemplate } from "@shared/schema";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip as UITooltip, TooltipContent as UITooltipContent, TooltipTrigger as UITooltipTrigger } from "@/components/ui/tooltip";
 import { NexusPulseView } from "@/components/nexus-pulse-view";
 
 const ICON_PICKER_SET: { name: string; icon: LucideIcon }[] = [
@@ -286,7 +287,7 @@ const ICON_MAP: Record<string, LucideIcon> = Object.fromEntries(
   ICON_PICKER_SET.map(i => [i.name, i.icon])
 );
 
-type EnrichedContact = CampaignContact & { customer?: Customer; hospital?: any; clinic?: any };
+type EnrichedContact = CampaignContact & { customer?: Customer; hospital?: any; clinic?: any; collaborator?: any };
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -1589,47 +1590,61 @@ function SortRulesDialog({ campaign, open, onOpenChange, contacts, allUsers, ass
                             </div>
                           </div>
                           <div className="p-3 space-y-3">
-                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                              <div className="space-y-1">
-                                <Label className="text-xs font-medium">{t.campaigns.detail.sortRuleContactType}</Label>
+                            <div className="space-y-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="flex items-center justify-center min-w-[18px] min-h-[18px] rounded-full bg-blue-500 text-white text-[10px] font-bold">1</span>
+                                <Label className="text-xs font-medium">{t.campaigns.detail.sortStep1}</Label>
+                              </div>
+                              <div className="pl-6 max-w-xs">
                                 <Select value={rule.contactType || "__all__"} onValueChange={(v) => updateRule(rule.id, { contactType: v === "__all__" ? "" : v, sortField: "createdAt", conditionField: "", conditionOp: "", conditionValue: "" })}>
                                   <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-contact-type`}><SelectValue /></SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value="__all__">{t.campaigns.detail.sortRuleAllTypes}</SelectItem>
-                                    <SelectItem value="customer">Customer</SelectItem>
-                                    <SelectItem value="hospital">Hospital</SelectItem>
-                                    <SelectItem value="clinic">Clinic</SelectItem>
-                                    <SelectItem value="collaborator">Collaborator</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="space-y-1 sm:col-span-2">
-                                <Label className="text-xs font-medium">{t.campaigns.detail.sortRuleField}</Label>
-                                <Select value={rule.sortField} onValueChange={(v) => updateRule(rule.id, { sortField: v })}>
-                                  <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-sort-field`}><SelectValue /></SelectTrigger>
-                                  <SelectContent className="max-h-64">
-                                    {Object.entries(groups).map(([group, fields]) => (
-                                      <div key={group}><div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50">{group}</div>
-                                        {fields.map(f => <SelectItem key={f.value} value={f.value} className="pl-4 text-xs">{getFieldLabel(f, t)}</SelectItem>)}
-                                      </div>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="space-y-1">
-                                <Label className="text-xs font-medium">{t.campaigns.detail.sortRuleDirection}</Label>
-                                <Select value={rule.sortDirection} onValueChange={(v) => updateRule(rule.id, { sortDirection: v as "asc" | "desc" })}>
-                                  <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-direction`}><SelectValue /></SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="asc">{t.campaigns.detail.sortRuleAsc}</SelectItem>
-                                    <SelectItem value="desc">{t.campaigns.detail.sortRuleDesc}</SelectItem>
+                                    <SelectItem value="customer">{t.campaigns.detail.typeCustomer}</SelectItem>
+                                    <SelectItem value="hospital">{t.campaigns.detail.typeHospital}</SelectItem>
+                                    <SelectItem value="clinic">{t.campaigns.detail.typeClinic}</SelectItem>
+                                    <SelectItem value="collaborator">{t.campaigns.detail.typeCollaborator}</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </div>
                             </div>
-                            <div className="border-t pt-2">
-                              <Label className="text-xs text-muted-foreground mb-1.5 block flex items-center gap-1"><Filter className="w-3 h-3" />{t.campaigns.detail.sortRuleCondition}</Label>
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <div className="space-y-1.5 border-t pt-2.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="flex items-center justify-center min-w-[18px] min-h-[18px] rounded-full bg-violet-500 text-white text-[10px] font-bold">2</span>
+                                <Label className="text-xs font-medium">{t.campaigns.detail.sortStep2}</Label>
+                              </div>
+                              <div className="pl-6 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <div className="space-y-1 sm:col-span-2">
+                                  <Label className="text-xs text-muted-foreground">{t.campaigns.detail.sortRuleField}</Label>
+                                  <Select value={rule.sortField} onValueChange={(v) => updateRule(rule.id, { sortField: v })}>
+                                    <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-sort-field`}><SelectValue /></SelectTrigger>
+                                    <SelectContent className="max-h-64">
+                                      {Object.entries(groups).map(([group, fields]) => (
+                                        <div key={group}><div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50">{group}</div>
+                                          {fields.map(f => <SelectItem key={f.value} value={f.value} className="pl-4 text-xs">{getFieldLabel(f, t)}</SelectItem>)}
+                                        </div>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-muted-foreground">{t.campaigns.detail.sortRuleDirection}</Label>
+                                  <Select value={rule.sortDirection} onValueChange={(v) => updateRule(rule.id, { sortDirection: v as "asc" | "desc" })}>
+                                    <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-direction`}><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="asc">{t.campaigns.detail.sortRuleAsc}</SelectItem>
+                                      <SelectItem value="desc">{t.campaigns.detail.sortRuleDesc}</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="border-t pt-2.5 space-y-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="flex items-center justify-center min-w-[18px] min-h-[18px] rounded-full bg-emerald-500 text-white text-[10px] font-bold">3</span>
+                                <Label className="text-xs font-medium flex items-center gap-1"><Filter className="w-3 h-3" />{t.campaigns.detail.sortStep3}</Label>
+                              </div>
+                              <div className="pl-6 grid grid-cols-1 sm:grid-cols-3 gap-2">
                                 <Select value={rule.conditionField || "__none__"} onValueChange={(v) => updateRule(rule.id, { conditionField: v === "__none__" ? "" : v, conditionOp: v === "__none__" ? "" : (rule.conditionOp || "equals"), conditionValue: v === "__none__" ? "" : rule.conditionValue })}>
                                   <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-cond-field`}><SelectValue placeholder={t.campaigns.detail.sortRuleConditionField} /></SelectTrigger>
                                   <SelectContent className="max-h-64">
@@ -4873,6 +4888,21 @@ export default function CampaignDetailPage() {
     enabled: !!selectedCustomerId,
   });
 
+  const { data: contactCallLogs = [], isLoading: contactCallLogsLoading } = useQuery<Array<{
+    id: string;
+    direction: string;
+    status: string;
+    startedAt: string;
+    durationSeconds: number | null;
+    notes: string | null;
+    userId: string;
+  }>>({
+    queryKey: ["/api/call-logs", { campaignContactId: selectedContact?.id }],
+    enabled: !!selectedContact?.id,
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+
   const { data: pipelineStages = [] } = useQuery<Array<{ id: string; name: string }>>({
     queryKey: ["/api/pipeline-stages"],
   });
@@ -5408,29 +5438,55 @@ export default function CampaignDetailPage() {
     : 0;
 
   const getContactName = (contact: EnrichedContact) => {
-    if (contact.contactType === "hospital" && contact.hospital) return contact.hospital.name || "Nemocnica";
-    if (contact.contactType === "clinic" && contact.clinic) return contact.clinic.name || "Klinika";
+    if (contact.contactType === "hospital" && contact.hospital) return contact.hospital.name || t.campaigns.detail.typeHospital;
+    if (contact.contactType === "clinic" && contact.clinic) return contact.clinic.name || t.campaigns.detail.typeClinic;
+    if (contact.contactType === "collaborator" && contact.collaborator) {
+      const c = contact.collaborator;
+      return [c.titleBefore, c.firstName, c.lastName].filter(Boolean).join(" ") || t.campaigns.detail.typeCollaborator;
+    }
     if (contact.customer) return `${contact.customer.firstName} ${contact.customer.lastName}`;
     return t.campaigns.detail.unknownContact;
+  };
+
+  const getContactPhone = (contact: EnrichedContact) => {
+    if (contact.contactType === "hospital") return contact.hospital?.phone || null;
+    if (contact.contactType === "clinic") return contact.clinic?.phone || null;
+    if (contact.contactType === "collaborator") return contact.collaborator?.phone || contact.collaborator?.mobile || null;
+    return contact.customer?.phone || null;
+  };
+
+  const getContactEmail = (contact: EnrichedContact) => {
+    if (contact.contactType === "hospital") return contact.hospital?.email || null;
+    if (contact.contactType === "clinic") return contact.clinic?.email || null;
+    if (contact.contactType === "collaborator") return contact.collaborator?.email || null;
+    return contact.customer?.email || null;
   };
 
   const getContactDetail = (contact: EnrichedContact) => {
     if (contact.contactType === "hospital" && contact.hospital) return contact.hospital.email || contact.hospital.phone || "-";
     if (contact.contactType === "clinic" && contact.clinic) return contact.clinic.email || contact.clinic.phone || "-";
+    if (contact.contactType === "collaborator" && contact.collaborator) return contact.collaborator.email || contact.collaborator.phone || contact.collaborator.mobile || "-";
     return contact.customer?.phone || contact.customer?.email || "-";
   };
 
   const getContactCountry = (contact: EnrichedContact) => {
     if (contact.contactType === "hospital" && contact.hospital) return contact.hospital.countryCode;
     if (contact.contactType === "clinic" && contact.clinic) return contact.clinic.countryCode;
+    if (contact.contactType === "collaborator" && contact.collaborator) return contact.collaborator.countryCode;
     return contact.customer?.country;
   };
 
-  const CONTACT_TYPE_LABELS: Record<string, string> = { customer: "Zákazník", hospital: "Nemocnica", clinic: "Klinika" };
+  const CONTACT_TYPE_LABELS: Record<string, string> = {
+    customer: t.campaigns.detail.typeCustomer,
+    hospital: t.campaigns.detail.typeHospital,
+    clinic: t.campaigns.detail.typeClinic,
+    collaborator: t.campaigns.detail.typeCollaborator,
+  };
   const CONTACT_TYPE_COLORS: Record<string, string> = {
     customer: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
     hospital: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
     clinic: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200",
+    collaborator: "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200",
   };
 
   const contactColumns = [
@@ -5865,14 +5921,14 @@ export default function CampaignDetailPage() {
                       <DropdownMenuItem
                         className="text-destructive focus:text-destructive"
                         onClick={() => {
-                          if (window.confirm(`Naozaj chcete vymazať ${selectedContacts.size} kontaktov z kampane? Táto akcia je nevratná.`)) {
+                          if (window.confirm(t.campaigns.detail.bulkDeleteConfirm.replace("{count}", String(selectedContacts.size)))) {
                             deleteImportMutation.mutate(Array.from(selectedContacts));
                           }
                         }}
                         data-testid="menu-bulk-delete"
                       >
                         <Trash2 className="w-4 h-4 mr-2" />
-                        Vymazať z kampane ({selectedContacts.size})
+                        {t.campaigns.detail.bulkDeleteFromCampaign} ({selectedContacts.size})
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => setSelectedContacts(new Set())} data-testid="menu-clear-selection">
@@ -5883,74 +5939,107 @@ export default function CampaignDetailPage() {
                 </div>
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-3">
               <span className="text-sm text-muted-foreground shrink-0">
-                {agentViewFilteredContacts.length}{selectedAgentViewId ? ` / ${filteredContacts.length}` : ""} / {contacts.length} kontaktov
+                {agentViewFilteredContacts.length}{selectedAgentViewId ? ` / ${filteredContacts.length}` : ""} / {contacts.length} {t.campaigns.detail.contactsUnit}
               </span>
 
-              {/* Data management: Import → Generate → Export */}
-              <div className="flex items-center gap-1 border-l pl-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setImportFile(null);
-                    setImportResult(null);
-                    setShowImportDialog(true);
-                  }}
-                  data-testid="button-import-contacts"
-                >
-                  <Upload className="w-4 h-4 mr-1.5" />
-                  {t.campaigns.detail.importContacts}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowGenerateDialog(true)}
-                  disabled={generateContactsMutation.isPending}
-                  data-testid="button-generate-contacts"
-                >
-                  <RefreshCw className={`w-4 h-4 mr-1.5 ${generateContactsMutation.isPending ? "animate-spin" : ""}`} />
-                  {t.campaigns.detail.generateContacts}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleExportContacts}
-                  data-testid="button-export-contacts"
-                >
-                  <Download className="w-4 h-4 mr-1.5" />
-                  {selectedContacts.size > 0 ? `${t.campaigns.detail.exportContacts} (${selectedContacts.size})` : t.campaigns.detail.exportContacts}
-                </Button>
+              {/* Block: Add contacts (Import / Fill from CRM / Export) */}
+              <div className="flex items-center gap-1 rounded-lg border bg-muted/30 p-1 pl-2.5" data-testid="toolbar-block-add-contacts">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mr-1.5 select-none">
+                  {t.campaigns.detail.blockAddContacts}
+                </span>
+                <UITooltip>
+                  <UITooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setImportFile(null);
+                        setImportResult(null);
+                        setShowImportDialog(true);
+                      }}
+                      data-testid="button-import-contacts"
+                    >
+                      <Upload className="w-4 h-4 mr-1.5" />
+                      {t.campaigns.detail.importContacts}
+                    </Button>
+                  </UITooltipTrigger>
+                  <UITooltipContent className="max-w-[260px]">{t.campaigns.detail.tipImport}</UITooltipContent>
+                </UITooltip>
+                <UITooltip>
+                  <UITooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowGenerateDialog(true)}
+                      disabled={generateContactsMutation.isPending}
+                      data-testid="button-generate-contacts"
+                    >
+                      {generateContactsMutation.isPending
+                        ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
+                        : <Database className="w-4 h-4 mr-1.5" />}
+                      {t.campaigns.detail.loadFromCrm}
+                    </Button>
+                  </UITooltipTrigger>
+                  <UITooltipContent className="max-w-[260px]">{t.campaigns.detail.tipLoadFromCrm}</UITooltipContent>
+                </UITooltip>
+                <UITooltip>
+                  <UITooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleExportContacts}
+                      data-testid="button-export-contacts"
+                    >
+                      <Download className="w-4 h-4 mr-1.5" />
+                      {selectedContacts.size > 0 ? `${t.campaigns.detail.exportContacts} (${selectedContacts.size})` : t.campaigns.detail.exportContacts}
+                    </Button>
+                  </UITooltipTrigger>
+                  <UITooltipContent className="max-w-[260px]">{t.campaigns.detail.tipExport}</UITooltipContent>
+                </UITooltip>
               </div>
 
-              {/* Config & queue operations */}
-              <div className="flex items-center gap-1 border-l pl-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowSortRulesDialog(true)}
-                  data-testid="button-open-sort-rules"
-                >
-                  <ArrowUpDown className="w-4 h-4 mr-1.5" />
-                  {t.campaigns.detail.sortRulesConfigureBtn}
-                  {(() => { try { const s = JSON.parse(campaign.settings || "{}"); const c = (s.contactSortRules || []).length; return c > 0 ? <Badge variant="secondary" className="ml-1.5 text-xs px-1.5 py-0">{c}</Badge> : null; } catch { return null; } })()}
-                </Button>
-                <Button
-                  size="sm"
-                  className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-600 dark:from-amber-600 dark:to-orange-600 dark:border-amber-700"
-                  onClick={() => {
-                    setRequeueDispositions(new Set());
-                    setRequeueStatuses(new Set());
-                    setRequeueCallbackFrom("");
-                    setRequeueCallbackTo("");
-                    setShowRequeueDialog(true);
-                  }}
-                  data-testid="button-requeue-contacts"
-                >
-                  <RefreshCw className="w-4 h-4 mr-1.5" />
-                  {t.campaigns.detail.requeueButton}
-                </Button>
+              {/* Block: Order & queue (Sorting rules / Re-queue) */}
+              <div className="flex items-center gap-1 rounded-lg border bg-muted/30 p-1 pl-2.5" data-testid="toolbar-block-order-queue">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mr-1.5 select-none">
+                  {t.campaigns.detail.blockOrderQueue}
+                </span>
+                <UITooltip>
+                  <UITooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowSortRulesDialog(true)}
+                      data-testid="button-open-sort-rules"
+                    >
+                      <ArrowUpDown className="w-4 h-4 mr-1.5" />
+                      {t.campaigns.detail.sortRulesConfigureBtn}
+                      {(() => { try { const s = JSON.parse(campaign.settings || "{}"); const c = (s.contactSortRules || []).length; return c > 0 ? <Badge variant="secondary" className="ml-1.5 text-xs px-1.5 py-0">{c}</Badge> : null; } catch { return null; } })()}
+                    </Button>
+                  </UITooltipTrigger>
+                  <UITooltipContent className="max-w-[260px]">{t.campaigns.detail.tipSortRules}</UITooltipContent>
+                </UITooltip>
+                <UITooltip>
+                  <UITooltipTrigger asChild>
+                    <Button
+                      size="sm"
+                      className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-600 dark:from-amber-600 dark:to-orange-600 dark:border-amber-700"
+                      onClick={() => {
+                        setRequeueDispositions(new Set());
+                        setRequeueStatuses(new Set());
+                        setRequeueCallbackFrom("");
+                        setRequeueCallbackTo("");
+                        setShowRequeueDialog(true);
+                      }}
+                      data-testid="button-requeue-contacts"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-1.5" />
+                      {t.campaigns.detail.requeueButton}
+                    </Button>
+                  </UITooltipTrigger>
+                  <UITooltipContent className="max-w-[260px]">{t.campaigns.detail.tipRequeue}</UITooltipContent>
+                </UITooltip>
               </div>
             </div>
           </div>
@@ -7555,13 +7644,15 @@ export default function CampaignDetailPage() {
       <Dialog open={!!selectedContact} onOpenChange={() => setSelectedContact(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{t.campaigns.detail.contactDetail}</DialogTitle>
-            <DialogDescription>
-              {selectedContact?.customer 
-                ? `${selectedContact.customer.firstName} ${selectedContact.customer.lastName}`
-                : t.campaigns.detail.unknownContact
-              }
-            </DialogDescription>
+            <DialogTitle className="flex items-center gap-2 flex-wrap">
+              {selectedContact ? getContactName(selectedContact) : t.campaigns.detail.contactDetail}
+              {selectedContact?.contactType && (
+                <Badge className={`text-[10px] px-1.5 py-0 ${CONTACT_TYPE_COLORS[selectedContact.contactType] || ""}`}>
+                  {CONTACT_TYPE_LABELS[selectedContact.contactType] || selectedContact.contactType}
+                </Badge>
+              )}
+            </DialogTitle>
+            <DialogDescription>{t.campaigns.detail.contactDetail}</DialogDescription>
           </DialogHeader>
           {selectedContact && (
             <div className="space-y-4">
@@ -7595,12 +7686,26 @@ export default function CampaignDetailPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t.campaigns.detail.phone}</span>
-                  <span>{selectedContact.customer?.phone || "-"}</span>
+                  <span data-testid="text-contact-phone">{getContactPhone(selectedContact) || "-"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t.campaigns.detail.email}</span>
-                  <span>{selectedContact.customer?.email || "-"}</span>
+                  <span data-testid="text-contact-email">{getContactEmail(selectedContact) || "-"}</span>
                 </div>
+                {selectedContact.status === "callback_scheduled" && selectedContact.callbackDate && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">{t.campaigns.detail.requeueByCallback}</span>
+                    <span className="flex items-center gap-1 text-sm">
+                      <CalendarPlus className="w-3.5 h-3.5 text-blue-500" />
+                      {format(new Date(selectedContact.callbackDate), "dd.MM.yyyy HH:mm")}
+                    </span>
+                  </div>
+                )}
+                {selectedContact.notes && selectedContact.notes.trim().length > 0 && (
+                  <div className="pt-1">
+                    <p className="text-xs text-muted-foreground whitespace-pre-wrap rounded bg-muted/50 p-2" data-testid="text-contact-notes">{selectedContact.notes}</p>
+                  </div>
+                )}
               </div>
               <Separator />
               <div className="space-y-2">
@@ -7629,6 +7734,45 @@ export default function CampaignDetailPage() {
                 </Select>
               </div>
               <Separator />
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <PhoneCall className="h-4 w-4 text-muted-foreground" />
+                  <label className="text-sm font-medium">{t.campaigns.detail.callHistory}</label>
+                </div>
+                <ScrollArea className="h-40 rounded-md border p-2">
+                  {contactCallLogsLoading ? (
+                    <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
+                  ) : contactCallLogs.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">{t.campaigns.detail.noCalls}</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {contactCallLogs.map((call) => {
+                        const statusKey = `callStatus_${call.status}` as keyof typeof t.campaigns.detail;
+                        const statusLabel = (t.campaigns.detail as any)[statusKey] || call.status;
+                        const isAnswered = call.status === "answered" || call.status === "completed";
+                        const DirIcon = call.direction === "inbound" ? PhoneIncoming : PhoneOutgoing;
+                        const dur = call.durationSeconds || 0;
+                        return (
+                          <div key={call.id} className="flex items-start gap-2 text-xs p-2 rounded bg-muted/50" data-testid={`row-call-log-${call.id}`}>
+                            <DirIcon className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${isAnswered ? "text-green-600" : "text-red-500"}`} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Badge variant={isAnswered ? "default" : "outline"} className="text-[10px] px-1.5 py-0">{statusLabel}</Badge>
+                                {dur > 0 && (
+                                  <span className="text-muted-foreground">{Math.floor(dur / 60)}:{String(dur % 60).padStart(2, "0")}</span>
+                                )}
+                              </div>
+                              {call.notes && <p className="text-muted-foreground mt-1 whitespace-pre-wrap">{call.notes}</p>}
+                              <p className="text-muted-foreground mt-0.5">{format(new Date(call.startedAt), "dd.MM.yyyy HH:mm")}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </ScrollArea>
+              </div>
+              {selectedContact.customerId && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <History className="h-4 w-4 text-muted-foreground" />
@@ -7693,6 +7837,7 @@ export default function CampaignDetailPage() {
                   )}
                 </ScrollArea>
               </div>
+              )}
             </div>
           )}
         </DialogContent>
@@ -7703,7 +7848,7 @@ export default function CampaignDetailPage() {
           <DialogHeader>
             <DialogTitle>{t.campaigns.detail.importContacts}</DialogTitle>
             <DialogDescription>
-              Importovať kontakty z CSV/Excel súboru
+              {t.campaigns.detail.importCsvDesc}
             </DialogDescription>
           </DialogHeader>
 
@@ -7714,10 +7859,10 @@ export default function CampaignDetailPage() {
                 <div>
                   <p className="font-medium text-green-800 dark:text-green-200">{t.campaigns.detail.importCompleted}</p>
                   <p className="text-sm text-green-700 dark:text-green-300">
-                    Vytvorených: {importResult.created} kontaktov
-                    {(importResult.updated || 0) > 0 && `, aktualizovaných: ${importResult.updated}`}
-                    {(importResult.duplicates || 0) > 0 && `, duplikátov: ${importResult.duplicates}`}
-                    {importResult.skipped > 0 && `, preskočených: ${importResult.skipped}`}
+                    {t.campaigns.detail.importCreated}: {importResult.created}
+                    {(importResult.updated || 0) > 0 && `, ${t.campaigns.detail.importUpdated}: ${importResult.updated}`}
+                    {(importResult.duplicates || 0) > 0 && `, ${t.campaigns.detail.importDuplicates}: ${importResult.duplicates}`}
+                    {importResult.skipped > 0 && `, ${t.campaigns.detail.importSkipped}: ${importResult.skipped}`}
                   </p>
                 </div>
               </div>
@@ -7725,7 +7870,7 @@ export default function CampaignDetailPage() {
                 <div className="space-y-2">
                   <p className="text-sm font-medium flex items-center gap-1.5">
                     <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                    Chyby ({importResult.errors.length})
+                    {t.campaigns.detail.importErrors} ({importResult.errors.length})
                   </p>
                   <ScrollArea className="h-32">
                     <div className="space-y-1">
@@ -7763,13 +7908,13 @@ export default function CampaignDetailPage() {
           ) : (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label className="text-xs font-medium">Typ kontaktu</Label>
+                <Label className="text-xs font-medium">{t.campaigns.detail.importContactTypeLabel}</Label>
                 <div className="grid grid-cols-4 gap-1.5">
                   {([
-                    { value: "customer" as const, label: "Zákazník", icon: User },
-                    { value: "clinic" as const, label: "Ambulancia", icon: Building2 },
-                    { value: "hospital" as const, label: "Nemocnica", icon: Building2 },
-                    { value: "collaborator" as const, label: "Spoluprac.", icon: Users },
+                    { value: "customer" as const, label: t.campaigns.detail.typeCustomer, icon: User },
+                    { value: "clinic" as const, label: t.campaigns.detail.typeClinic, icon: Building2 },
+                    { value: "hospital" as const, label: t.campaigns.detail.typeHospital, icon: Building2 },
+                    { value: "collaborator" as const, label: t.campaigns.detail.typeCollaborator, icon: Users },
                   ]).map((ct) => (
                     <button
                       key={ct.value}
@@ -7845,7 +7990,7 @@ export default function CampaignDetailPage() {
                   data-testid="button-download-template"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  Vzorový CSV ({importContactType === "customer" ? "Zákazník" : importContactType === "clinic" ? "Ambulancia" : importContactType === "hospital" ? "Nemocnica" : "Spoluprac."})
+                  {t.campaigns.detail.sampleCsv} ({importContactType === "customer" ? t.campaigns.detail.typeCustomer : importContactType === "clinic" ? t.campaigns.detail.typeClinic : importContactType === "hospital" ? t.campaigns.detail.typeHospital : t.campaigns.detail.typeCollaborator})
                 </Button>
               </div>
 

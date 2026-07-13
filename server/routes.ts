@@ -32021,10 +32021,15 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   // Get all call logs (with optional filters)
   app.get("/api/call-logs", requireAuth, async (req, res) => {
     try {
-      const { userId, customerId, campaignId, limit, includeRecordings, queueId, direction: dirFilter } = req.query;
+      const { userId, customerId, campaignId, campaignContactId, limit, includeRecordings, queueId, direction: dirFilter } = req.query;
       
       let logs;
-      if (userId) {
+      if (campaignContactId) {
+        logs = await db.select().from(callLogs)
+          .where(eq(callLogs.campaignContactId, campaignContactId as string))
+          .orderBy(desc(callLogs.startedAt))
+          .limit(limit ? parseInt(limit as string) : 50);
+      } else if (userId) {
         logs = await storage.getCallLogsByUser(userId as string, limit ? parseInt(limit as string) : undefined);
       } else if (customerId) {
         logs = await storage.getCallLogsByCustomer(customerId as string);
