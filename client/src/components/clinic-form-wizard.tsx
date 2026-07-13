@@ -2082,7 +2082,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
           })}
         </div>
 
-        <fieldset disabled={readOnly && !((activeTab === "referral" && roEx.referral) || (activeTab === "personnel" && roEx.personnel) || (activeTab === "basic" && roEx.contactType))} className="flex-1 overflow-y-auto p-5 min-w-0" style={{ minInlineSize: 0 }}>
+        <fieldset disabled={readOnly && !((activeTab === "referral" && roEx.referral) || (activeTab === "personnel" && roEx.personnel) || (activeTab === "basic" && (roEx.contactType || roEx.notes)))} className="flex-1 overflow-y-auto p-5 min-w-0" style={{ minInlineSize: 0 }}>
           {activeTab === "referral" && (
             <div className="space-y-4 pb-4">
               {false && <div className="space-y-3">
@@ -2441,8 +2441,10 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                     {formData.website && (<Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => window.open(getWebsiteUrl(formData.website), "_blank")} data-testid="button-open-website"><ExternalLink className="h-4 w-4" /></Button>)}
                   </div>
                 </div>
-                <div className="space-y-1 pl-1"><Label className="text-xs">{t.clinics.notes}</Label><Textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder={t.clinics.notes} rows={4} data-testid="input-clinic-notes" /></div>
               </div>
+              </fieldset>
+              <fieldset disabled={readOnly && !roEx.notes} className="min-w-0" style={{ minInlineSize: 0 }}>
+                <div className="space-y-1 pl-1"><Label className="text-xs">{t.clinics.notes}</Label><Textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder={t.clinics.notes} rows={4} data-testid="input-clinic-notes" /></div>
               </fieldset>
               <Separator />
               <fieldset disabled={readOnly && !roEx.contactType} className="space-y-3 min-w-0" style={{ minInlineSize: 0 }}>
@@ -2728,7 +2730,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
         </fieldset>
       </div>
 
-      {(!readOnly || roEx.referral || roEx.contactType) && (
+      {(!readOnly || roEx.referral || roEx.contactType || roEx.notes) && (
       <div className="shrink-0 border-t bg-muted/30 px-5 py-3 flex items-center justify-end gap-2">
         {mode !== "inline" && (
           <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-clinic-drawer">{t.common.cancel}</Button>
