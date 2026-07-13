@@ -59,6 +59,7 @@ interface HospitalFormWizardProps {
   onCancel?: () => void;
   mode?: "inline";
   readOnly?: boolean;
+  readOnlyExceptions?: { personnel?: boolean };
 }
 
 const WIZARD_STEPS = [
@@ -69,7 +70,8 @@ const WIZARD_STEPS = [
   { id: "review", icon: Check },
 ];
 
-export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCancel, mode, readOnly = false }: HospitalFormWizardProps) {
+export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCancel, mode, readOnly = false, readOnlyExceptions }: HospitalFormWizardProps) {
+  const roEx = readOnlyExceptions || {};
   const { t } = useI18n();
   const { toast } = useToast();
   const { isHidden, isReadonly } = useModuleFieldPermissions("hospitals");
@@ -744,10 +746,10 @@ export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCanc
 
           {/* Content + footer */}
           <div className="flex flex-col flex-1 overflow-hidden">
-            <fieldset disabled={readOnly} className="flex-1 overflow-y-auto px-5 py-4 min-w-0" style={{ minInlineSize: 0 }}>
+            <fieldset disabled={readOnly && !(inlineTab === "contacts" && roEx.personnel)} className="flex-1 overflow-y-auto px-5 py-4 min-w-0" style={{ minInlineSize: 0 }}>
               {renderStepContent(activeTabInfo.step)}
             </fieldset>
-            {!readOnly && (
+            {(!readOnly || roEx.personnel) && (
             <div className="shrink-0 border-t px-5 py-3 flex justify-between bg-background">
               {onCancel && mode !== "inline" && (
                 <Button variant="ghost" size="sm" onClick={onCancel} data-testid="inline-hospital-cancel">

@@ -271,9 +271,11 @@ interface CustomerFormProps {
   useCardLayout?: boolean;
   onPhoneChange?: (phone: string) => void;
   readOnly?: boolean;
+  readOnlyExceptions?: { notes?: boolean };
 }
 
-export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCardLayout = false, onPhoneChange, readOnly = false }: CustomerFormProps) {
+export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCardLayout = false, onPhoneChange, readOnly = false, readOnlyExceptions }: CustomerFormProps) {
+  const roEx = readOnlyExceptions || {};
   const { t, locale } = useI18n();
   const [activeSection, setActiveSection] = useState("status");
   const [districtKey, setDistrictKey] = useState(0);
@@ -481,7 +483,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
             })}
           </div>
 
-          <fieldset disabled={readOnly} className="flex-1 overflow-y-auto p-5 pb-3 min-w-0" style={{ minInlineSize: 0 }}>
+          <fieldset disabled={readOnly && !(activeSection === "notes" && roEx.notes)} className="flex-1 overflow-y-auto p-5 pb-3 min-w-0" style={{ minInlineSize: 0 }}>
             {activeSection === "status" && (
               <div>
                 <SectionHeader icon={CheckCircle2} title={t.customers?.formSections?.status || "Stav klienta"} />
@@ -1163,7 +1165,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
           </fieldset>
         </div>
 
-        {!readOnly && (
+        {(!readOnly || roEx.notes) && (
         <div className="shrink-0 border-t px-5 py-2 flex justify-end gap-3">
           {onCancel && (
             <Button type="button" variant="outline" onClick={onCancel} data-testid="button-cancel-customer">

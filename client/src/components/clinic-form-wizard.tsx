@@ -281,6 +281,7 @@ interface ClinicFormSheetProps {
   onCreated?: (clinic: { id: string; name: string; doctorTitle?: string | null; doctorFirstName?: string | null; doctorLastName?: string | null; doctorName?: string | null }) => void | Promise<void>;
   sheetContentClassName?: string;
   readOnly?: boolean;
+  readOnlyExceptions?: { callButtons?: boolean; notes?: boolean; personnel?: boolean; referral?: boolean; contactType?: boolean };
 }
 
 function ClinicPersonnelTab({ clinicId, clinicName }: { clinicId: string; clinicName: string }) {
@@ -442,7 +443,9 @@ export function ClinicFormWizard({ initialData, onSuccess, onCancel }: { initial
   );
 }
 
-export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, onPhoneChange, onCallPhone, mode = "sheet", prefillData, onCreated, sheetContentClassName, readOnly = false }: ClinicFormSheetProps) {
+export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, onPhoneChange, onCallPhone, mode = "sheet", prefillData, onCreated, sheetContentClassName, readOnly = false, readOnlyExceptions }: ClinicFormSheetProps) {
+  const roEx = readOnlyExceptions || {};
+  const callButtonsEnabled = !readOnly || !!roEx.callButtons;
   const { t } = useI18n();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -2079,7 +2082,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
           })}
         </div>
 
-        <fieldset disabled={readOnly} className="flex-1 overflow-y-auto p-5 min-w-0" style={{ minInlineSize: 0 }}>
+        <fieldset disabled={readOnly && !((activeTab === "referral" && roEx.referral) || (activeTab === "personnel" && roEx.personnel) || (activeTab === "basic" && roEx.contactType))} className="flex-1 overflow-y-auto p-5 min-w-0" style={{ minInlineSize: 0 }}>
           {activeTab === "referral" && (
             <div className="space-y-4 pb-4">
               {false && <div className="space-y-3">
@@ -2315,6 +2318,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
 
           {activeTab === "basic" && (
             <div className="space-y-5 pb-4">
+              <fieldset disabled={readOnly} className="space-y-5 min-w-0" style={{ minInlineSize: 0 }}>
               <div className="space-y-3">
                 <div className="flex items-center gap-2"><div className="flex items-center justify-center w-6 h-6 rounded-md bg-blue-100 dark:bg-blue-900"><Building2 className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" /></div><h3 className="text-sm font-semibold tracking-wide">{t.clinics.sections?.clinic || 'Klinika'}</h3></div>
                 <div className="grid gap-3 sm:grid-cols-2 pl-1">
@@ -2376,9 +2380,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                       <div className="flex items-center gap-1">
                         <div className="flex-1 min-w-0"><PhoneNumberField value={formData.phone} onChange={(v) => setFormData({ ...formData, phone: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-clinic-phone" /></div>
                         {onCallPhone ? (
-                          <button type="button" onClick={() => formData.phone && onCallPhone(formData.phone)} disabled={!formData.phone} className="flex-shrink-0 h-8 w-8 flex items-center justify-center rounded-md bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors" title="Volať" data-testid="btn-call-phone1-tab">
+                          <div role="button" tabIndex={callButtonsEnabled && formData.phone ? 0 : -1} onClick={() => callButtonsEnabled && formData.phone && onCallPhone(formData.phone)} onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && callButtonsEnabled && formData.phone) { e.preventDefault(); onCallPhone(formData.phone); } }} className={cn("flex-shrink-0 h-8 w-8 flex items-center justify-center rounded-md bg-green-600 text-white transition-colors", callButtonsEnabled && formData.phone ? "hover:bg-green-700" : "opacity-40")} style={{ cursor: callButtonsEnabled && formData.phone ? "pointer" : "not-allowed", pointerEvents: "auto" }} title="Volať" data-testid="btn-call-phone1-tab">
                             <Phone className="h-3.5 w-3.5" />
-                          </button>
+                          </div>
                         ) : (
                           <CallSlot phoneNumber={formData.phone} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} />
                         )}
@@ -2390,9 +2394,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                           <div className="flex items-center gap-1">
                             <div className="flex-1 min-w-0"><PhoneNumberField value={formData.phone2} onChange={(v) => setFormData({ ...formData, phone2: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-clinic-phone2" /></div>
                             {onCallPhone ? (
-                              <button type="button" onClick={() => formData.phone2 && onCallPhone(formData.phone2)} disabled={!formData.phone2} className="flex-shrink-0 h-8 w-8 flex items-center justify-center rounded-md bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors" title="Volať" data-testid="btn-call-phone2-tab">
+                              <div role="button" tabIndex={callButtonsEnabled && formData.phone2 ? 0 : -1} onClick={() => callButtonsEnabled && formData.phone2 && onCallPhone(formData.phone2)} onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && callButtonsEnabled && formData.phone2) { e.preventDefault(); onCallPhone(formData.phone2); } }} className={cn("flex-shrink-0 h-8 w-8 flex items-center justify-center rounded-md bg-green-600 text-white transition-colors", callButtonsEnabled && formData.phone2 ? "hover:bg-green-700" : "opacity-40")} style={{ cursor: callButtonsEnabled && formData.phone2 ? "pointer" : "not-allowed", pointerEvents: "auto" }} title="Volať" data-testid="btn-call-phone2-tab">
                                 <Phone className="h-3.5 w-3.5" />
-                              </button>
+                              </div>
                             ) : (
                               <CallSlot phoneNumber={formData.phone2} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} />
                             )}
@@ -2402,9 +2406,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                           <div className="flex items-center gap-1">
                             <div className="flex-1 min-w-0"><PhoneNumberField value={formData.phone3} onChange={(v) => setFormData({ ...formData, phone3: v })} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-clinic-phone3" /></div>
                             {onCallPhone ? (
-                              <button type="button" onClick={() => formData.phone3 && onCallPhone(formData.phone3)} disabled={!formData.phone3} className="flex-shrink-0 h-8 w-8 flex items-center justify-center rounded-md bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors" title="Volať" data-testid="btn-call-phone3-tab">
+                              <div role="button" tabIndex={callButtonsEnabled && formData.phone3 ? 0 : -1} onClick={() => callButtonsEnabled && formData.phone3 && onCallPhone(formData.phone3)} onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && callButtonsEnabled && formData.phone3) { e.preventDefault(); onCallPhone(formData.phone3); } }} className={cn("flex-shrink-0 h-8 w-8 flex items-center justify-center rounded-md bg-green-600 text-white transition-colors", callButtonsEnabled && formData.phone3 ? "hover:bg-green-700" : "opacity-40")} style={{ cursor: callButtonsEnabled && formData.phone3 ? "pointer" : "not-allowed", pointerEvents: "auto" }} title="Volať" data-testid="btn-call-phone3-tab">
                                 <Phone className="h-3.5 w-3.5" />
-                              </button>
+                              </div>
                             ) : (
                               <CallSlot phoneNumber={formData.phone3} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} />
                             )}
@@ -2439,8 +2443,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                 </div>
                 <div className="space-y-1 pl-1"><Label className="text-xs">{t.clinics.notes}</Label><Textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder={t.clinics.notes} rows={4} data-testid="input-clinic-notes" /></div>
               </div>
+              </fieldset>
               <Separator />
-              <div className="space-y-3">
+              <fieldset disabled={readOnly && !roEx.contactType} className="space-y-3 min-w-0" style={{ minInlineSize: 0 }}>
                 <div className="flex items-center gap-2 mb-1">
                   <div className="flex items-center justify-center w-6 h-6 rounded-md bg-blue-100 dark:bg-blue-900">
                     <CircleDot className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
@@ -2530,8 +2535,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                 {formData.leadSource && (
                   <div className="space-y-1 pl-1"><Label className="text-xs">{t.clinics.leadSourceNotes}</Label><Textarea value={formData.leadSourceNotes} onChange={(e) => setFormData({ ...formData, leadSourceNotes: e.target.value })} placeholder={t.clinics.leadSourceNotes} rows={2} data-testid="input-lead-source-notes-basic" /></div>
                 )}
-              </div>
+              </fieldset>
               <Separator />
+              <fieldset disabled={readOnly} className="space-y-5 min-w-0" style={{ minInlineSize: 0 }}>
               <div className="space-y-3">
                 <div className="flex items-center gap-2"><div className="flex items-center justify-center w-6 h-6 rounded-md bg-amber-100 dark:bg-amber-900"><FileSignature className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" /></div><h3 className="text-sm font-semibold tracking-wide">{(t.clinics as any).contractTitle || "Contract"}</h3></div>
                 <div className="grid gap-3 sm:grid-cols-2 pl-1">
@@ -2557,6 +2563,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                   )}
                 </div>
               </div>
+              </fieldset>
             </div>
           )}
 
@@ -2721,7 +2728,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
         </fieldset>
       </div>
 
-      {!readOnly && (
+      {(!readOnly || roEx.referral || roEx.contactType) && (
       <div className="shrink-0 border-t bg-muted/30 px-5 py-3 flex items-center justify-end gap-2">
         {mode !== "inline" && (
           <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-clinic-drawer">{t.common.cancel}</Button>

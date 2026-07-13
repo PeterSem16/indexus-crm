@@ -6398,6 +6398,46 @@ export default function CampaignDetailPage() {
                             }}
                             data-testid="switch-readonly-cards"
                           />
+                          {(() => {
+                            let s: any = {};
+                            try { s = campaign.settings ? JSON.parse(campaign.settings) : {}; } catch {}
+                            if (s.readOnlyContactCards !== true) return null;
+                            const ex = (s.readOnlyExceptions && typeof s.readOnlyExceptions === "object") ? s.readOnlyExceptions : {};
+                            const toggleEx = (key: string, v: boolean) => {
+                              let existing: any = {};
+                              try { if (campaign.settings) existing = JSON.parse(campaign.settings); } catch {}
+                              const prevEx = (existing.readOnlyExceptions && typeof existing.readOnlyExceptions === "object") ? existing.readOnlyExceptions : {};
+                              const merged = { ...existing, readOnlyExceptions: { ...prevEx, [key]: v } };
+                              apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { settings: JSON.stringify(merged) })
+                                .then(() => {
+                                  toast({ title: t.campaigns.detail.settingsSaved });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
+                                })
+                                .catch(() => toast({ title: t.campaigns.detail.error, variant: "destructive" }));
+                            };
+                            const items: Array<[string, string]> = [
+                              ["callButtons", t.campaigns.detail.readOnlyExCallButtons],
+                              ["notes", t.campaigns.detail.readOnlyExNotes],
+                              ["personnel", t.campaigns.detail.readOnlyExPersonnel],
+                              ["referral", t.campaigns.detail.readOnlyExReferral],
+                              ["contactType", t.campaigns.detail.readOnlyExContactType],
+                            ];
+                            return (
+                              <div className="mt-4 border-t pt-3 space-y-2">
+                                <p className="text-sm font-medium">{t.campaigns.detail.readOnlyExceptionsLabel}</p>
+                                {items.map(([key, label]) => (
+                                  <label key={key} className="flex items-center gap-2 cursor-pointer">
+                                    <Checkbox
+                                      checked={ex[key] === true}
+                                      onCheckedChange={(v) => toggleEx(key, v === true)}
+                                      data-testid={`checkbox-ro-ex-${key}`}
+                                    />
+                                    <span className="text-sm">{label}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            );
+                          })()}
                         </CardContent>
                       </Card>
                         </div>

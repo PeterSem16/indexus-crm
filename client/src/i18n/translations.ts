@@ -2518,6 +2518,12 @@ export interface Translations {
       showScriptDesc: string;
       readOnlyCardsTitle: string;
       readOnlyCardsDesc: string;
+      readOnlyExceptionsLabel: string;
+      readOnlyExCallButtons: string;
+      readOnlyExNotes: string;
+      readOnlyExPersonnel: string;
+      readOnlyExReferral: string;
+      readOnlyExContactType: string;
       workflowModeTitle: string;
       workflowModeDesc: string;
       workflowModeDisposition: string;
@@ -9867,6 +9873,12 @@ export const translations: Record<Locale, Translations> = {
         showScriptDesc: "When disabled, agents do not see the SCRIPT tab in their workspace.",
         readOnlyCardsTitle: "Read-only contact card",
         readOnlyCardsDesc: "When enabled, agents cannot edit any data in customer, clinic, hospital, or collaborator cards in this campaign.",
+        readOnlyExceptionsLabel: "Exceptions — remain editable:",
+        readOnlyExCallButtons: "Active call buttons (green)",
+        readOnlyExNotes: "Adding a note on the customer card",
+        readOnlyExPersonnel: "Editing and adding personnel (clinic & hospital)",
+        readOnlyExReferral: "Referral & Conference",
+        readOnlyExContactType: "Contact type",
         workflowModeTitle: "Workflow mode",
         workflowModeDesc: "How agents record contact outcomes - via the classic Disposition or via the Status List (steps with automations).",
         workflowModeDisposition: "Disposition",
@@ -16714,6 +16726,12 @@ export const translations: Record<Locale, Translations> = {
         showScriptDesc: "Ak je vypnuté, agenti nevidia záložku SCRIPT vo svojom pracovnom priestore.",
         readOnlyCardsTitle: "Karta kontaktu iba na čítanie",
         readOnlyCardsDesc: "Ak je zapnuté, agenti nemôžu v tejto kampani upravovať žiadne údaje v karte zákazníka, kliniky, nemocnice ani spolupracovníka.",
+        readOnlyExceptionsLabel: "Výnimky — zostanú aktívne:",
+        readOnlyExCallButtons: "Aktívne tlačidlá volania (zelené)",
+        readOnlyExNotes: "Pridanie poznámky na karte zákazníka",
+        readOnlyExPersonnel: "Úprava a pridávanie personálu (klinika a nemocnica)",
+        readOnlyExReferral: "Referral & Conference",
+        readOnlyExContactType: "Typ kontaktu (Contact type)",
         workflowModeTitle: "Režim workflow",
         workflowModeDesc: "Ako agenti zaznamenávajú výsledky kontaktov - cez klasickú Disposíciu alebo cez Status List (kroky s automatizáciami).",
         workflowModeDisposition: "Disposícia",
@@ -23499,6 +23517,12 @@ export const translations: Record<Locale, Translations> = {
         showScriptDesc: "Když je vypnuto, agenti nevidí záložku SCRIPT ve svém pracovním prostoru.",
         readOnlyCardsTitle: "Karta kontaktu pouze pro čtení",
         readOnlyCardsDesc: "Pokud je zapnuto, agenti nemohou v této kampani upravovat žádné údaje v kartě zákazníka, kliniky, nemocnice ani spolupracovníka.",
+        readOnlyExceptionsLabel: "Výjimky — zůstanou aktivní:",
+        readOnlyExCallButtons: "Aktivní tlačítka volání (zelená)",
+        readOnlyExNotes: "Přidání poznámky na kartě zákazníka",
+        readOnlyExPersonnel: "Úprava a přidávání personálu (klinika a nemocnice)",
+        readOnlyExReferral: "Referral & Conference",
+        readOnlyExContactType: "Typ kontaktu (Contact type)",
         workflowModeTitle: "Režim workflow",
         workflowModeDesc: "Jak agenti zaznamenávají výsledky kontaktů - přes klasickou Dispozici nebo přes Status List (kroky s automatizacemi).",
         workflowModeDisposition: "Dispozice",
@@ -30242,6 +30266,12 @@ export const translations: Record<Locale, Translations> = {
         showScriptDesc: "Ha ki van kapcsolva, az operátorok nem látják a SCRIPT fület a munkaterületükön.",
         readOnlyCardsTitle: "Csak olvasható kapcsolati kártya",
         readOnlyCardsDesc: "Ha be van kapcsolva, az operátorok ebben a kampányban nem szerkeszthetik az ügyfél-, klinika-, kórház- és partnerkártyák adatait.",
+        readOnlyExceptionsLabel: "Kivételek — szerkeszthetők maradnak:",
+        readOnlyExCallButtons: "Aktív hívásgombok (zöld)",
+        readOnlyExNotes: "Megjegyzés hozzáadása az ügyfélkártyán",
+        readOnlyExPersonnel: "Személyzet szerkesztése és hozzáadása (klinika és kórház)",
+        readOnlyExReferral: "Referral & Conference",
+        readOnlyExContactType: "Kapcsolattípus (Contact type)",
         workflowModeTitle: "Munkafolyamat mód",
         workflowModeDesc: "Hogyan rögzítik az operátorok a kapcsolatok eredményét - klasszikus Diszpozícióval vagy Status List-tel (lépések automatizálásokkal).",
         workflowModeDisposition: "Diszpozíció",
@@ -36870,6 +36900,12 @@ export const translations: Record<Locale, Translations> = {
         showScriptDesc: "Când este dezactivată, agenții nu văd fila SCRIPT în spațiul lor de lucru.",
         readOnlyCardsTitle: "Fișă de contact doar în citire",
         readOnlyCardsDesc: "Când este activată, agenții nu pot edita datele din fișele de client, clinică, spital sau colaborator în această campanie.",
+        readOnlyExceptionsLabel: "Excepții — rămân editabile:",
+        readOnlyExCallButtons: "Butoane de apel active (verzi)",
+        readOnlyExNotes: "Adăugarea unei note pe fișa clientului",
+        readOnlyExPersonnel: "Editarea și adăugarea personalului (clinică și spital)",
+        readOnlyExReferral: "Referral & Conference",
+        readOnlyExContactType: "Tip de contact (Contact type)",
         workflowModeTitle: "Mod flux de lucru",
         workflowModeDesc: "Cum înregistrează agenții rezultatele contactelor - prin Dispoziția clasică sau prin Status List (pași cu automatizări).",
         workflowModeDisposition: "Dispoziție",
@@ -43500,6 +43536,12 @@ export const translations: Record<Locale, Translations> = {
         showScriptDesc: "Se disattivata, gli operatori non vedono la scheda SCRIPT nel loro spazio di lavoro.",
         readOnlyCardsTitle: "Scheda contatto in sola lettura",
         readOnlyCardsDesc: "Se attivata, gli operatori non possono modificare i dati nelle schede di cliente, clinica, ospedale o collaboratore in questa campagna.",
+        readOnlyExceptionsLabel: "Eccezioni — restano modificabili:",
+        readOnlyExCallButtons: "Pulsanti di chiamata attivi (verdi)",
+        readOnlyExNotes: "Aggiunta di una nota sulla scheda cliente",
+        readOnlyExPersonnel: "Modifica e aggiunta del personale (clinica e ospedale)",
+        readOnlyExReferral: "Referral & Conference",
+        readOnlyExContactType: "Tipo di contatto (Contact type)",
         workflowModeTitle: "Modalità workflow",
         workflowModeDesc: "Come gli operatori registrano gli esiti dei contatti - tramite la Disposizione classica o tramite la Status List (passi con automazioni).",
         workflowModeDisposition: "Disposizione",
@@ -50130,6 +50172,12 @@ export const translations: Record<Locale, Translations> = {
         showScriptDesc: "Wenn deaktiviert, sehen Agenten den SCRIPT-Tab in ihrem Arbeitsbereich nicht.",
         readOnlyCardsTitle: "Kontaktkarte schreibgeschützt",
         readOnlyCardsDesc: "Wenn aktiviert, können Agenten in dieser Kampagne keine Daten in den Karten von Kunden, Kliniken, Krankenhäusern oder Mitarbeitern bearbeiten.",
+        readOnlyExceptionsLabel: "Ausnahmen — bleiben bearbeitbar:",
+        readOnlyExCallButtons: "Aktive Anruf-Buttons (grün)",
+        readOnlyExNotes: "Hinzufügen einer Notiz auf der Kundenkarte",
+        readOnlyExPersonnel: "Bearbeiten und Hinzufügen von Personal (Klinik & Krankenhaus)",
+        readOnlyExReferral: "Referral & Conference",
+        readOnlyExContactType: "Kontakttyp (Contact type)",
         workflowModeTitle: "Workflow-Modus",
         workflowModeDesc: "Wie Agenten Kontaktergebnisse erfassen - über die klassische Disposition oder über die Status List (Schritte mit Automatisierungen).",
         workflowModeDisposition: "Disposition",

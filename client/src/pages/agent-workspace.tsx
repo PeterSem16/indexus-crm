@@ -2931,6 +2931,13 @@ function CommunicationCanvas({
     try { return JSON.parse(campaign?.settings || "{}").readOnlyContactCards === true; } catch { return false; }
   }, [campaign?.settings]);
 
+  const cardsReadOnlyExceptions = useMemo(() => {
+    try {
+      const ex = JSON.parse(campaign?.settings || "{}").readOnlyExceptions;
+      return (ex && typeof ex === "object") ? ex as { callButtons?: boolean; notes?: boolean; personnel?: boolean; referral?: boolean; contactType?: boolean } : {};
+    } catch { return {}; }
+  }, [campaign?.settings]);
+
   useEffect(() => {
     const entityPhone = clinicData?.phone || collaboratorData?.phone || null;
     lastAutoSavedPhoneRef.current = entityPhone;
@@ -4093,6 +4100,7 @@ function CommunicationCanvas({
                     key={hospitalData.id}
                     mode="inline"
                     readOnly={cardsReadOnly}
+                    readOnlyExceptions={cardsReadOnlyExceptions}
                     initialData={hospitalData}
                     onSuccess={async () => {
                       try {
@@ -4119,6 +4127,7 @@ function CommunicationCanvas({
                     onCallPhone={(p) => onMakeCall?.(p)}
                     mode="inline"
                     readOnly={cardsReadOnly}
+                    readOnlyExceptions={cardsReadOnlyExceptions}
                   />
                 </div>
               ) : contactType === "collaborator" && collaboratorData ? (
@@ -4144,7 +4153,8 @@ function CommunicationCanvas({
                       key={contact.id}
                       initialData={contact}
                       readOnly={cardsReadOnly}
-                      onSubmit={(data) => { if (!cardsReadOnly) onUpdateContact?.(data); }}
+                      readOnlyExceptions={cardsReadOnlyExceptions}
+                      onSubmit={(data) => { if (!cardsReadOnly || cardsReadOnlyExceptions.notes) onUpdateContact?.(data); }}
                       isLoading={isUpdatingContact}
                       useCardLayout
                       onPhoneChange={(p) => onPhoneOverrideChange?.(p || null)}

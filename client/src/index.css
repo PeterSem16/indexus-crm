@@ -798,3 +798,8 @@
 .animate-bo-resolved-shimmer {
   animation: bo-resolved-shimmer 2.2s ease-in-out infinite;
 }
+
+/* Read-only contact cards: block clickable divs (cursor-pointer) inside disabled fieldsets */
+fieldset:disabled .cursor-pointer {
+  pointer-events: none;
+}
