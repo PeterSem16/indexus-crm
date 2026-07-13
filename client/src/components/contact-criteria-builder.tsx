@@ -7,6 +7,20 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { COUNTRIES } from "@shared/schema";
+import { useI18n } from "@/i18n";
+
+const OP_LABEL_KEYS: Record<string, string> = {
+  equals: "opEquals",
+  notEquals: "opNotEquals",
+  contains: "opContains",
+  notContains: "opNotContains",
+  startsWith: "opStartsWith",
+  endsWith: "opEndsWith",
+  isEmpty: "opIsEmpty",
+  isNotEmpty: "opIsNotEmpty",
+  in: "opIn",
+  notIn: "opNotIn",
+};
 
 export interface CriteriaCondition {
   id: string;
@@ -276,6 +290,11 @@ function ConditionRow({
   onUpdate: (updated: CriteriaCondition) => void;
   onRemove: () => void;
 }) {
+  const { t } = useI18n();
+  const td = t.campaigns.detail as any;
+  const opLabel = (op: { value: string; label: string }) => td[OP_LABEL_KEYS[op.value]] || op.label;
+  const optLabel = (o: { value: string; label: string }) =>
+    o.label === "Áno" ? td.cbYes || o.label : o.label === "Nie" ? td.cbNo || o.label : o.label;
   const fieldConfig = fields.find(f => f.value === condition.field);
   const fieldType = fieldConfig?.type || "text";
   const ops = OPERATORS[fieldType as keyof typeof OPERATORS] || OPERATORS.text;
@@ -291,7 +310,7 @@ function ConditionRow({
         onUpdate({ ...condition, field, operator: newOps[0].value, value: "" });
       }}>
         <SelectTrigger className="w-[160px]" data-testid={`field-${condition.id}`}>
-          <SelectValue placeholder="Pole..." />
+          <SelectValue placeholder={td.cbFieldPlaceholder} />
         </SelectTrigger>
         <SelectContent>
           {fields.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
@@ -303,7 +322,7 @@ function ConditionRow({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {ops.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+          {ops.map(o => <SelectItem key={o.value} value={o.value}>{opLabel(o)}</SelectItem>)}
         </SelectContent>
       </Select>
 
@@ -311,17 +330,17 @@ function ConditionRow({
         fieldConfig?.options ? (
           <Select value={Array.isArray(condition.value) ? condition.value[0] : condition.value} onValueChange={v => onUpdate({ ...condition, value: v })}>
             <SelectTrigger className="w-[160px]" data-testid={`val-${condition.id}`}>
-              <SelectValue placeholder="Hodnota..." />
+              <SelectValue placeholder={td.cbValuePlaceholder} />
             </SelectTrigger>
             <SelectContent>
-              {fieldConfig.options.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+              {fieldConfig.options.map(o => <SelectItem key={o.value} value={o.value}>{optLabel(o)}</SelectItem>)}
             </SelectContent>
           </Select>
         ) : (
           <Input
             value={Array.isArray(condition.value) ? condition.value.join(", ") : condition.value}
             onChange={e => onUpdate({ ...condition, value: e.target.value })}
-            placeholder="Hodnota..."
+            placeholder={td.cbValuePlaceholder}
             className="w-[160px]"
             data-testid={`val-${condition.id}`}
           />
@@ -348,6 +367,8 @@ function CriteriaGroupEditor({
   onUpdate: (g: CriteriaGroup) => void;
   onRemove: () => void;
 }) {
+  const { t } = useI18n();
+  const td = t.campaigns.detail as any;
   const addCondition = () => {
     onUpdate({
       ...group,
@@ -360,7 +381,7 @@ function CriteriaGroupEditor({
       <CardHeader className="pb-2 pt-3 px-4">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-xs">Skupina {index + 1}</Badge>
+            <Badge variant="outline" className="text-xs">{td.cbGroup} {index + 1}</Badge>
             <Select value={group.logic} onValueChange={(v: "AND" | "OR") => onUpdate({ ...group, logic: v })}>
               <SelectTrigger className="w-20 h-7 text-xs" data-testid={`logic-${group.id}`}>
                 <SelectValue />
@@ -371,7 +392,7 @@ function CriteriaGroupEditor({
               </SelectContent>
             </Select>
             <span className="text-xs text-muted-foreground">
-              {group.logic === "AND" ? "všetky podmienky musia platiť" : "stačí jedna podmienka"}
+              {group.logic === "AND" ? td.cbAllConditionsMatch : td.cbAnyConditionMatch}
             </span>
           </div>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRemove} data-testid={`rm-group-${group.id}`}>
@@ -400,7 +421,7 @@ function CriteriaGroupEditor({
           </div>
         ))}
         <Button variant="outline" size="sm" onClick={addCondition} className="mt-1 h-7 text-xs" data-testid={`add-cond-${group.id}`}>
-          <Plus className="w-3.5 h-3.5 mr-1" /> Pridať podmienku
+          <Plus className="w-3.5 h-3.5 mr-1" /> {td.cbAddCondition}
         </Button>
       </CardContent>
     </Card>
@@ -426,6 +447,8 @@ function EntityCriteriaSection({
   matchCount?: number;
   matchLoading?: boolean;
 }) {
+  const { t } = useI18n();
+  const td = t.campaigns.detail as any;
   const addGroup = () => {
     onChange({
       ...config,
@@ -466,11 +489,11 @@ function EntityCriteriaSection({
             {totalConditions > 0 && (
               <Badge variant="secondary" className="text-xs">
                 <Filter className="w-3 h-3 mr-1" />
-                {totalConditions} {totalConditions === 1 ? "filter" : "filtrov"}
+                {totalConditions} {totalConditions === 1 ? td.cbFilter : td.cbFilters}
               </Badge>
             )}
             {totalConditions === 0 && (
-              <span className="text-xs text-muted-foreground">všetky záznamy</span>
+              <span className="text-xs text-muted-foreground">{td.cbAllRecords}</span>
             )}
           </div>
         )}
@@ -499,7 +522,7 @@ function EntityCriteriaSection({
             </div>
           ))}
           <Button variant="outline" size="sm" onClick={addGroup} className="w-full h-8 text-xs border-dashed" data-testid={`add-group-${entityType}`}>
-            <Plus className="w-3.5 h-3.5 mr-1" /> Pridať skupinu filtrov
+            <Plus className="w-3.5 h-3.5 mr-1" /> {td.cbAddFilterGroup}
           </Button>
         </div>
       )}
@@ -520,12 +543,14 @@ interface ContactCriteriaBuilderProps {
 }
 
 export function ContactCriteriaBuilder({ config, onChange, previewCounts, previewLoading }: ContactCriteriaBuilderProps) {
+  const { t } = useI18n();
+  const td = t.campaigns.detail as any;
   const anyEnabled = config.customer.enabled || config.hospital.enabled || config.clinic.enabled || config.collaborator.enabled;
   return (
     <div className="space-y-3">
       <EntityCriteriaSection
         entityType="customer"
-        label="Zákazníci"
+        label={td.cbCustomers}
         icon={Users}
         fields={CUSTOMER_FIELDS}
         config={config.customer}
@@ -535,7 +560,7 @@ export function ContactCriteriaBuilder({ config, onChange, previewCounts, previe
       />
       <EntityCriteriaSection
         entityType="hospital"
-        label="Nemocnice"
+        label={td.cbHospitals}
         icon={Building2}
         fields={HOSPITAL_FIELDS}
         config={config.hospital}
@@ -545,7 +570,7 @@ export function ContactCriteriaBuilder({ config, onChange, previewCounts, previe
       />
       <EntityCriteriaSection
         entityType="clinic"
-        label="Kliniky / Ambulancie"
+        label={td.cbClinics}
         icon={Building}
         fields={CLINIC_FIELDS}
         config={config.clinic}
@@ -555,7 +580,7 @@ export function ContactCriteriaBuilder({ config, onChange, previewCounts, previe
       />
       <EntityCriteriaSection
         entityType="collaborator"
-        label="Spolupracovníci"
+        label={td.cbCollaborators}
         icon={UserCheck}
         fields={COLLABORATOR_FIELDS}
         config={config.collaborator}
@@ -566,7 +591,7 @@ export function ContactCriteriaBuilder({ config, onChange, previewCounts, previe
       {anyEnabled && previewCounts && !previewLoading && (
         <div className="flex items-center justify-center p-2 bg-primary/5 rounded-lg border border-primary/20">
           <span className="text-sm font-semibold text-primary">
-            Celkom: {previewCounts.total} kontaktov
+            {(td.cbTotalContacts as string).replace("{count}", String(previewCounts.total))}
           </span>
         </div>
       )}

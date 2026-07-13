@@ -8207,6 +8207,13 @@ export default function CampaignDetailPage() {
 
           <ScrollArea className="flex-1 overflow-y-auto pr-2" style={{ maxHeight: "calc(90vh - 200px)" }}>
             <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white text-sm font-bold shadow-sm">1</div>
+                <div>
+                  <p className="text-sm font-semibold leading-7">{t.campaigns.detail.requeueStep1Title}</p>
+                  <p className="text-xs text-muted-foreground">{t.campaigns.detail.requeueStep1Desc}</p>
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-3 p-4 rounded-lg border">
                   <div className="flex items-center gap-2">
@@ -8319,6 +8326,13 @@ export default function CampaignDetailPage() {
                 <p className="text-xs text-muted-foreground">{t.campaigns.detail.requeueEmptyDisp}</p>
               </div>
 
+              <div className="flex items-start gap-3 pt-1">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white text-sm font-bold shadow-sm">2</div>
+                <div>
+                  <p className="text-sm font-semibold leading-7">{t.campaigns.detail.requeueStep2Title}</p>
+                  <p className="text-xs text-muted-foreground">{t.campaigns.detail.requeueStep2Desc}</p>
+                </div>
+              </div>
               <div className="rounded-lg border">
                 <div className="flex items-center justify-between p-3 border-b bg-muted/30">
                   <div className="flex items-center gap-2">
@@ -8381,14 +8395,34 @@ export default function CampaignDetailPage() {
                   </div>
                 )}
               </div>
+
+              <div className="flex items-start gap-3 pt-1">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white text-sm font-bold shadow-sm">3</div>
+                <p className="text-sm font-semibold leading-7">{t.campaigns.detail.requeueStep3Title}</p>
+              </div>
+              <div className="rounded-lg border border-amber-300 dark:border-amber-700 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 p-4 space-y-2.5">
+                <div className="flex items-center gap-2.5 text-sm">
+                  <RotateCcw className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <span>{t.campaigns.detail.requeueEffect1}</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-sm">
+                  <XCircle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <span>{t.campaigns.detail.requeueEffect2}</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-sm">
+                  <CalendarClock className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <span>{t.campaigns.detail.requeueEffect3}</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-sm font-medium text-amber-800 dark:text-amber-300 pt-1 border-t border-amber-200 dark:border-amber-800">
+                  <PhoneCall className="w-4 h-4 shrink-0" />
+                  <span>{t.campaigns.detail.requeueEffectNote}</span>
+                </div>
+              </div>
             </div>
           </ScrollArea>
 
           <Separator />
-          <div className="flex items-center justify-between pt-1">
-            <p className="text-xs text-muted-foreground">
-              {t.campaigns.detail.requeueStatusReset}
-            </p>
+          <div className="flex items-center justify-end pt-1">
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setShowRequeueDialog(false)} data-testid="button-requeue-cancel">
                 {t.campaigns.detail.cancel}
@@ -8423,10 +8457,10 @@ export default function CampaignDetailPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Filter className="w-5 h-5" />
-              Generovať kontakty
+              {t.campaigns.detail.genContactsTitle}
             </DialogTitle>
             <DialogDescription>
-              Vyberte zdroje kontaktov a nastavte pokročilé filtre s kombinovaním podmienok (AND/OR).
+              {t.campaigns.detail.genContactsDesc}
             </DialogDescription>
           </DialogHeader>
 
@@ -8437,19 +8471,19 @@ export default function CampaignDetailPage() {
             previewLoading={previewLoading}
           />
 
-          {!generateConfig.customer.enabled && !generateConfig.hospital.enabled && !generateConfig.clinic.enabled && (
-            <p className="text-sm text-muted-foreground text-center py-2">Vyberte aspoň jeden zdroj kontaktov.</p>
+          {!generateConfig.customer.enabled && !generateConfig.hospital.enabled && !generateConfig.clinic.enabled && !generateConfig.collaborator.enabled && (
+            <p className="text-sm text-muted-foreground text-center py-2">{t.campaigns.detail.genSelectSource}</p>
           )}
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" onClick={() => setShowGenerateDialog(false)}>Zrušiť</Button>
+            <Button variant="outline" onClick={() => setShowGenerateDialog(false)}>{t.campaigns.detail.cancel}</Button>
             <Button
               onClick={() => generateContactsMutation.mutate()}
-              disabled={generateContactsMutation.isPending || (!generateConfig.customer.enabled && !generateConfig.hospital.enabled && !generateConfig.clinic.enabled) || (previewCounts?.total === 0)}
+              disabled={generateContactsMutation.isPending || (!generateConfig.customer.enabled && !generateConfig.hospital.enabled && !generateConfig.clinic.enabled && !generateConfig.collaborator.enabled) || (previewCounts?.total === 0)}
               data-testid="btn-confirm-generate"
             >
               {generateContactsMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Generovať{previewCounts && !previewLoading ? ` (${previewCounts.total})` : ""} kontaktov
+              {t.campaigns.detail.genButton}{previewCounts && !previewLoading ? ` (${previewCounts.total})` : ""}
             </Button>
           </div>
         </DialogContent>
