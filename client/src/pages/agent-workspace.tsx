@@ -9313,6 +9313,7 @@ export default function AgentWorkspacePage() {
   const [emailReplyOpen, setEmailReplyOpen] = useState(false);
   const [emailReplyText, setEmailReplyText] = useState("");
   const [emailReplySignature, setEmailReplySignature] = useState<string | null>(null);
+  const [replySigDebug, setReplySigDebug] = useState<string>("");
   const [personalReplySignature, setPersonalReplySignature] = useState<string | null>(null);
   const [isSendingReply, setIsSendingReply] = useState(false);
   const [autoCountdown, setAutoCountdown] = useState<number | null>(null);
@@ -15455,7 +15456,7 @@ export default function AgentWorkspacePage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!historyDetailModal} onOpenChange={(open) => { if (!open) { setHistoryDetailModal(null); setEmailReplyOpen(false); setEmailReplyText(""); setEmailReplySignature(null); } }}>
+      <Dialog open={!!historyDetailModal} onOpenChange={(open) => { if (!open) { setHistoryDetailModal(null); setEmailReplyOpen(false); setEmailReplyText(""); setEmailReplySignature(null); setReplySigDebug(""); } }}>
         <DialogContent className="sm:max-w-3xl max-h-[85vh] flex flex-col p-0">
           {historyDetailModal && (() => {
             const entry = historyDetailModal;
@@ -15537,19 +15538,26 @@ export default function AgentWorkspacePage() {
                           // this contact belongs to (preferring the campaign the agent is working). This makes the
                           // signature appear even when the "selected" campaign isn't the one it was configured on.
                           let campReplySig = "";
+                          const cid = currentContact?.id;
+                          let dbg = `camp=${replyCampaignId || "-"} contact=${cid || "-"}`;
                           try {
                             const params = new URLSearchParams();
                             if (replyCampaignId) params.set("campaignId", String(replyCampaignId));
-                            const cid = currentContact?.id;
                             if (cid) params.set("contactId", String(cid));
                             if (params.toString()) {
                               const cr = await fetch(`/api/reply-signature?${params.toString()}`, { credentials: "include" });
+                              dbg += ` http=${cr.status}`;
                               if (cr.ok) {
                                 const data = await cr.json();
                                 campReplySig = (data?.signature || "").trim();
+                                dbg += ` sigLen=${campReplySig.length} from=${data?.campaignId || "-"}`;
                               }
+                            } else {
+                              dbg += ` NO-PARAMS`;
                             }
-                          } catch { campReplySig = ""; }
+                          } catch (e) { campReplySig = ""; dbg += ` err=${String((e as any)?.message || e).slice(0, 50)}`; }
+                          setReplySigDebug(dbg);
+                          console.log("[reply-signature]", dbg);
                           if (campReplySig) {
                             setEmailReplySignature(sanitizeSig(replaceTemplateVars(campReplySig)));
                             return;
@@ -15650,6 +15658,11 @@ export default function AgentWorkspacePage() {
                         dangerouslySetInnerHTML={{ __html: emailReplySignature.replace(/<script[\s\S]*?<\/script>/gi, '') }}
                       />
                     )}
+                    {replySigDebug && (
+                      <div className="px-4 py-1 text-[11px] font-mono text-amber-600 dark:text-amber-400 border-t border-dashed border-amber-400/40 bg-amber-50/50 dark:bg-amber-900/10" data-testid="text-reply-sig-debug">
+                        DBG podpis → {replySigDebug}
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 px-4 py-2.5 border-t bg-muted/10">
                       <Button
                         size="sm"
@@ -15684,7 +15697,7 @@ export default function AgentWorkspacePage() {
                         size="sm"
                         variant="ghost"
                         className="h-7 px-3 text-xs"
-                        onClick={() => { setEmailReplyOpen(false); setEmailReplyText(""); }}
+                        onClick={() => { setEmailReplyOpen(false); setEmailReplyText(""); setReplySigDebug(""); }}
                         data-testid="btn-cancel-reply"
                       >
                         {t.agentWorkspace.emailReplyCancel || "Cancel"}
