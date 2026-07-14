@@ -1907,6 +1907,7 @@ export interface Translations {
       settings: string;
       reporting: string;
       script: string;
+      statusList: string;
       dispositions: string;
       general: string;
       kpiTargets: string;
@@ -9312,6 +9313,7 @@ export const translations: Record<Locale, Translations> = {
         settings: 'Settings',
         reporting: 'Reporting',
         script: 'Script',
+        statusList: 'Status List',
         dispositions: 'Dispositions',
         general: 'General',
         kpiTargets: 'KPI Targets',
@@ -16198,6 +16200,7 @@ export const translations: Record<Locale, Translations> = {
         settings: 'Nastavenia',
         reporting: 'Výkazy',
         script: 'Skript',
+        statusList: 'Status list',
         dispositions: 'Výsledky',
         general: 'Všeobecné',
         kpiTargets: 'KPI ciele',
@@ -23030,6 +23033,7 @@ export const translations: Record<Locale, Translations> = {
         settings: 'Nastavení',
         reporting: 'Výkazy',
         script: 'Skript',
+        statusList: 'Status list',
         dispositions: 'Výsledky',
         general: 'Obecné',
         kpiTargets: 'KPI cíle',
@@ -29820,6 +29824,7 @@ export const translations: Record<Locale, Translations> = {
         settings: 'Beállítások',
         reporting: 'Riportok',
         script: 'Szkript',
+        statusList: 'Állapotlista',
         dispositions: 'Eredmények',
         general: 'Általános',
         kpiTargets: 'KPI célok',
@@ -36495,6 +36500,7 @@ export const translations: Record<Locale, Translations> = {
         settings: 'Setări',
         reporting: 'Raportare',
         script: 'Script',
+        statusList: 'Listă status',
         dispositions: 'Rezultate',
         general: 'General',
         kpiTargets: 'Obiective KPI',
@@ -43172,6 +43178,7 @@ export const translations: Record<Locale, Translations> = {
         settings: 'Impostazioni',
         reporting: 'Reportistica',
         script: 'Script',
+        statusList: 'Lista stato',
         dispositions: 'Esiti',
         general: 'Generale',
         kpiTargets: 'Obiettivi KPI',
@@ -49849,6 +49856,7 @@ export const translations: Record<Locale, Translations> = {
         settings: 'Einstellungen',
         reporting: 'Berichterstattung',
         script: 'Skript',
+        statusList: 'Status-Liste',
         dispositions: 'Ergebnisse',
         general: 'Allgemein',
         kpiTargets: 'KPI-Ziele',

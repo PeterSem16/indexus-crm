@@ -6262,6 +6262,7 @@ export default function CampaignDetailPage() {
                               <SelectItem value="script">{t.campaigns.detail.script}</SelectItem>
                               <SelectItem value="email">{t.campaigns.detail.email}</SelectItem>
                               <SelectItem value="sms">SMS</SelectItem>
+                              <SelectItem value="checklist">{t.campaigns.detail.statusList}</SelectItem>
                             </SelectContent>
                           </Select>
                         </CardContent>

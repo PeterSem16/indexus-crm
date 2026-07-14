@@ -3039,7 +3039,7 @@ export const campaigns = pgTable("campaigns", {
   criteria: text("criteria"), // JSON string with filter criteria
   settings: text("settings"), // JSON string with schedule/settings
   script: text("script"), // Operator script - instructions for call center agents
-  defaultActiveTab: text("default_active_tab").default("phone"), // phone, script, email, sms - which tab opens first when agent activates contact
+  defaultActiveTab: text("default_active_tab").default("phone"), // phone, script, email, sms, checklist - which tab opens first when agent activates contact
   callerIdNumber: text("caller_id_number"),
   startDate: timestamp("start_date"),
   endDate: timestamp("end_date"),
@@ -3066,7 +3066,7 @@ export const insertCampaignSchema = createInsertSchema(campaigns).omit({
   criteria: z.string().optional().nullable(),
   settings: z.string().optional().nullable(),
   script: z.string().optional().nullable(),
-  defaultActiveTab: z.enum(["phone", "script", "email", "sms"]).optional().default("phone"),
+  defaultActiveTab: z.enum(["phone", "script", "email", "sms", "checklist"]).optional().default("phone"),
   callerIdNumber: z.string().optional().nullable(),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
