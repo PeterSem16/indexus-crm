@@ -9364,13 +9364,14 @@ export default function AgentWorkspacePage() {
   const handleSelectInboundMatch = async (
     match: PhoneMatch,
     mode: "card" | "details" | "open",
-    inboundTaskContext?: { callId?: string; campaignId?: string; campaignName?: string; callerNumber?: string }
-  ) => {
+    inboundTaskContext?: { callId?: string; campaignId?: string; campaignName?: string; callerNumber?: string },
+    options?: { syncCall?: boolean }
+  ): Promise<boolean> => {
     try {
       let contact: Customer | null = null;
       if (match.entityType === "customer") {
         const res = await fetch(`/api/customers/${match.id}`, { credentials: "include" });
-        if (!res.ok) return;
+        if (!res.ok) return false;
         const customer: Customer = await res.json();
         contact = customer;
         setCurrentContact(customer);
@@ -9383,7 +9384,7 @@ export default function AgentWorkspacePage() {
         setTimeout(() => setPhoneSubTabOverride(null), 100);
       } else if (match.entityType === "hospital") {
         const res = await fetch(`/api/hospitals/${match.id}`, { credentials: "include" });
-        if (!res.ok) return;
+        if (!res.ok) return false;
         const hospital = await res.json();
         const virtualCustomer: Customer = {
           id: hospital.id, firstName: hospital.name || "", lastName: "",
@@ -9401,7 +9402,7 @@ export default function AgentWorkspacePage() {
         setTimeout(() => setPhoneSubTabOverride(null), 100);
       } else if (match.entityType === "clinic") {
         const res = await fetch(`/api/clinics/${match.id}`, { credentials: "include" });
-        if (!res.ok) return;
+        if (!res.ok) return false;
         const clinic = await res.json();
         const virtualCustomer: Customer = {
           id: clinic.id, firstName: clinic.clinicName || clinic.name || "",
@@ -9420,7 +9421,7 @@ export default function AgentWorkspacePage() {
         setTimeout(() => setPhoneSubTabOverride(null), 100);
       } else if (match.entityType === "collaborator") {
         const res = await fetch(`/api/collaborators/${match.id}`, { credentials: "include" });
-        if (!res.ok) return;
+        if (!res.ok) return false;
         const collaborator = await res.json();
         const virtualCustomer: Customer = {
           id: collaborator.id, firstName: collaborator.firstName || collaborator.name || "",
@@ -9439,8 +9440,9 @@ export default function AgentWorkspacePage() {
         setTimeout(() => setPhoneSubTabOverride(null), 100);
       }
 
-      // Sync selected identity to sip-phone — sip-phone updates localCustomerIdRef AND PATCHes call log
-      if (contact) {
+      // Sync selected identity to sip-phone — sip-phone updates localCustomerIdRef AND PATCHes call log.
+      // Skipped for contexts (e.g. missed-calls list) that only want to open a card without touching an active call.
+      if (contact && options?.syncCall !== false) {
         callContext.updateCallCustomerFn.current?.(String(contact.id));
       }
 
@@ -9471,8 +9473,10 @@ export default function AgentWorkspacePage() {
           }]);
         }
       }
+      return !!contact;
     } catch (e) {
       console.error("Error loading inbound match entity:", e);
+      return false;
     }
   };
   const callWasActiveRef = useRef(false);
@@ -15232,7 +15236,12 @@ export default function AgentWorkspacePage() {
       </Sheet>
 
       <Dialog open={abandonedCallsOpen} onOpenChange={(open) => { setAbandonedCallsOpen(open); if (!open) setAbandonedCallsFilter("all"); }} modal={false}>
-        <DialogContent className="sm:max-w-[580px] max-h-[82vh] flex flex-col overflow-hidden p-0 gap-0 shadow-2xl ring-1 ring-black/10 dark:ring-white/10">
+        <DialogContent
+          className="sm:max-w-[580px] max-h-[82vh] flex flex-col overflow-hidden p-0 gap-0 shadow-2xl ring-1 ring-black/10 dark:ring-white/10"
+          onInteractOutside={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onFocusOutside={(e) => e.preventDefault()}
+        >
           {/* Header */}
           <div className="flex items-center gap-3 px-5 pt-4 pb-4 pr-12 shrink-0">
             <div className="h-10 w-10 rounded-full flex items-center justify-center shrink-0" style={{ background: "#B5622E18" }}>
@@ -15347,18 +15356,32 @@ export default function AgentWorkspacePage() {
                         <Button size="sm" variant="default" className="h-7 text-xs gap-1 px-2.5 shrink-0"
                           onClick={async () => {
                             const phoneNum = call.customerPhone || call.callerNumber;
-                            if (call.customerId) {
-                              try {
-                                const custRes = await fetch(`/api/customers/${call.customerId}`, { credentials: "include" });
-                                if (custRes.ok) { const customer = await custRes.json(); setCurrentContact(customer); setCurrentContactType("customer"); setCurrentCampaignContactId(null); setRightTab("actions"); }
-                              } catch (e) { console.error("Failed to load customer:", e); }
-                            } else if (phoneNum) {
-                              try {
-                                const lookupRes = await fetch(`/api/customers/lookup-phone?phone=${encodeURIComponent(phoneNum)}`, { credentials: "include" });
-                                if (lookupRes.ok) { const matched = await lookupRes.json(); if (matched?.id) { const custRes = await fetch(`/api/customers/${matched.id}`, { credentials: "include" }); if (custRes.ok) { const customer = await custRes.json(); setCurrentContact(customer); setCurrentContactType("customer"); setCurrentCampaignContactId(null); setRightTab("actions"); } } }
-                              } catch (e) { console.error("Failed to lookup customer:", e); }
+                            let opened = false;
+                            try {
+                              if (call.customerId) {
+                                opened = await handleSelectInboundMatch(
+                                  { entityType: "customer", id: String(call.customerId), name: call.customerName || "", phone: phoneNum || "" },
+                                  "card",
+                                  undefined,
+                                  { syncCall: false }
+                                );
+                              } else if (phoneNum) {
+                                const lookupRes = await fetch(`/api/phone/lookup-all?phone=${encodeURIComponent(phoneNum)}`, { credentials: "include" });
+                                if (lookupRes.ok) {
+                                  const matches: PhoneMatch[] = await lookupRes.json();
+                                  if (Array.isArray(matches) && matches.length > 0) {
+                                    opened = await handleSelectInboundMatch(matches[0], "card", undefined, { syncCall: false });
+                                  }
+                                }
+                              }
+                            } catch (e) { console.error("Failed to open card for missed call:", e); }
+                            if (opened) {
+                              setCurrentCampaignContactId(null);
+                              setRightTab("actions");
+                              setAbandonedCallsOpen(false);
+                            } else {
+                              toast({ title: t.agentWorkspace.missedNoContactFound, variant: "destructive" });
                             }
-                            setAbandonedCallsOpen(false);
                           }}
                           data-testid={`btn-callback-${call.id}`}
                         >

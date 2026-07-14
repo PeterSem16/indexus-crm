@@ -3510,6 +3510,7 @@ export interface Translations {
     noHandledCalls: string;
     callerHangup: string;
     missedStatus: string;
+    missedNoContactFound: string;
     timeoutStatus: string;
     overflowStatus: string;
     noAgentsStatus: string;
@@ -10953,6 +10954,7 @@ export const translations: Record<Locale, Translations> = {
       noHandledCalls: 'No handled calls',
       callerHangup: 'Call ended by customer',
       missedStatus: 'Missed',
+      missedNoContactFound: 'No contact found for this number',
       timeoutStatus: 'Timeout',
       overflowStatus: 'Overflow',
       noAgentsStatus: 'No agents',
@@ -17846,6 +17848,7 @@ export const translations: Record<Locale, Translations> = {
       noHandledCalls: 'Žiadne vybavené hovory',
       callerHangup: 'Hovor ukončený zákazníkom',
       missedStatus: 'Zmeškaný',
+      missedNoContactFound: 'Pre toto číslo sa nenašiel žiadny kontakt',
       timeoutStatus: 'Časový limit',
       overflowStatus: 'Pretečenie',
       noAgentsStatus: 'Žiadni agenti',
@@ -24725,6 +24728,7 @@ export const translations: Record<Locale, Translations> = {
       noHandledCalls: 'Žádné vyřízené hovory',
       callerHangup: 'Hovor ukončen zákazníkem',
       missedStatus: 'Zmeškaný',
+      missedNoContactFound: 'Pro toto číslo nebyl nalezen žádný kontakt',
       timeoutStatus: 'Časový limit',
       overflowStatus: 'Přetečení',
       noAgentsStatus: 'Žádní agenti',
@@ -31560,6 +31564,7 @@ export const translations: Record<Locale, Translations> = {
       noHandledCalls: 'Nincs kezelt hívás',
       callerHangup: 'Az ügyfél bontotta a hívást',
       missedStatus: 'Nem fogadott',
+      missedNoContactFound: 'Nem található kapcsolat ehhez a számhoz',
       timeoutStatus: 'Időtúllépés',
       overflowStatus: 'Túlcsordulás',
       noAgentsStatus: 'Nincs elérhető ügynök',
@@ -38282,6 +38287,7 @@ export const translations: Record<Locale, Translations> = {
       noHandledCalls: 'Niciun apel gestionat',
       callerHangup: 'Apel închis de client',
       missedStatus: 'Pierdut',
+      missedNoContactFound: 'Niciun contact găsit pentru acest număr',
       timeoutStatus: 'Timp expirat',
       overflowStatus: 'Supraîncărcare',
       noAgentsStatus: 'Niciun agent',
@@ -45006,6 +45012,7 @@ export const translations: Record<Locale, Translations> = {
       noHandledCalls: 'Nessuna chiamata gestita',
       callerHangup: 'Chiamata terminata dal cliente',
       missedStatus: 'Persa',
+      missedNoContactFound: 'Nessun contatto trovato per questo numero',
       timeoutStatus: 'Timeout',
       overflowStatus: 'Overflow',
       noAgentsStatus: 'Nessun agente',
@@ -51730,6 +51737,7 @@ export const translations: Record<Locale, Translations> = {
       noHandledCalls: 'Keine bearbeiteten Anrufe',
       callerHangup: 'Anruf vom Kunden beendet',
       missedStatus: 'Verpasst',
+      missedNoContactFound: 'Für diese Nummer wurde kein Kontakt gefunden',
       timeoutStatus: 'Zeitüberschreitung',
       overflowStatus: 'Überlauf',
       noAgentsStatus: 'Keine Agenten',
