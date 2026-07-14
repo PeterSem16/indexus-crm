@@ -2604,6 +2604,7 @@ export interface Translations {
       defaultTemplatesDesc: string;
       replyEmailSignatureTitle: string;
       replyEmailSignatureHint: string;
+      replyEmailSignaturePreview: string;
       defaultTemplatesCategory: string;
       defaultTemplatesTemplate: string;
       defaultTemplatesNone: string;
@@ -10050,6 +10051,7 @@ export const translations: Record<Locale, Translations> = {
         defaultTemplatesDesc: "When an agent opens the Email or SMS tab, the selected category and template are preselected automatically.",
         replyEmailSignatureTitle: "Reply email signature (HTML)",
         replyEmailSignatureHint: "HTML signature added to email replies for this campaign. Supports variables like {{user.fullName}}, {{user.position}}, {{user.phone}} and {{user.email}} — filled in automatically from the logged-in agent. Leave empty to use the agent's personal signature.",
+        replyEmailSignaturePreview: "Preview",
         defaultTemplatesCategory: "Category",
         defaultTemplatesTemplate: "Template",
         defaultTemplatesNone: "— none —",
@@ -16994,6 +16996,7 @@ export const translations: Record<Locale, Translations> = {
         defaultTemplatesDesc: "Keď agent otvorí záložku Email alebo SMS, automaticky sa prednastaví vybraná kategória a šablóna.",
         replyEmailSignatureTitle: "Podpis pre odpovede na email (HTML)",
         replyEmailSignatureHint: "HTML podpis, ktorý sa pridá do odpovedí na email v tejto kampani. Podporuje premenné ako {{user.fullName}}, {{user.position}}, {{user.phone}} a {{user.email}} — automaticky sa doplnia podľa prihláseného agenta. Ak nie je vyplnené, použije sa osobný podpis agenta.",
+        replyEmailSignaturePreview: "Náhľad",
         defaultTemplatesCategory: "Kategória",
         defaultTemplatesTemplate: "Šablóna",
         defaultTemplatesNone: "— žiadna —",
@@ -23876,6 +23879,7 @@ export const translations: Record<Locale, Translations> = {
         defaultTemplatesDesc: "Když agent otevře záložku Email nebo SMS, automaticky se přednastaví vybraná kategorie a šablona.",
         replyEmailSignatureTitle: "Podpis pro odpovědi na email (HTML)",
         replyEmailSignatureHint: "HTML podpis, který se přidá do odpovědí na email v této kampani. Podporuje proměnné jako {{user.fullName}}, {{user.position}}, {{user.phone}} a {{user.email}} — automaticky se doplní podle přihlášeného agenta. Pokud není vyplněno, použije se osobní podpis agenta.",
+        replyEmailSignaturePreview: "Náhled",
         defaultTemplatesCategory: "Kategorie",
         defaultTemplatesTemplate: "Šablona",
         defaultTemplatesNone: "— žádná —",
@@ -30716,6 +30720,7 @@ export const translations: Record<Locale, Translations> = {
         defaultTemplatesDesc: "Amikor egy ügynök megnyitja az Email vagy SMS fület, a kiválasztott kategória és sablon automatikusan előre kiválasztódik.",
         replyEmailSignatureTitle: "E-mail válasz aláírás (HTML)",
         replyEmailSignatureHint: "HTML aláírás, amely ehhez a kampányhoz tartozó e-mail válaszokhoz kerül. Támogatja a változókat, például {{user.fullName}}, {{user.position}}, {{user.phone}} és {{user.email}} — automatikusan a bejelentkezett ügynök adataival töltődik ki. Ha üresen marad, az ügynök személyes aláírása lesz használva.",
+        replyEmailSignaturePreview: "Előnézet",
         defaultTemplatesCategory: "Kategória",
         defaultTemplatesTemplate: "Sablon",
         defaultTemplatesNone: "— nincs —",
@@ -37441,6 +37446,7 @@ export const translations: Record<Locale, Translations> = {
         defaultTemplatesDesc: "Când un agent deschide fila Email sau SMS, categoria și șablonul selectate sunt preselectate automat.",
         replyEmailSignatureTitle: "Semnătură pentru răspunsuri email (HTML)",
         replyEmailSignatureHint: "Semnătură HTML adăugată la răspunsurile email pentru această campanie. Acceptă variabile precum {{user.fullName}}, {{user.position}}, {{user.phone}} și {{user.email}} — completate automat din agentul autentificat. Dacă este lăsată goală, se folosește semnătura personală a agentului.",
+        replyEmailSignaturePreview: "Previzualizare",
         defaultTemplatesCategory: "Categorie",
         defaultTemplatesTemplate: "Șablon",
         defaultTemplatesNone: "— niciunul —",
@@ -44168,6 +44174,7 @@ export const translations: Record<Locale, Translations> = {
         defaultTemplatesDesc: "Quando un agente apre la scheda Email o SMS, la categoria e il modello selezionati vengono preselezionati automaticamente.",
         replyEmailSignatureTitle: "Firma per le risposte email (HTML)",
         replyEmailSignatureHint: "Firma HTML aggiunta alle risposte email per questa campagna. Supporta variabili come {{user.fullName}}, {{user.position}}, {{user.phone}} e {{user.email}} — compilate automaticamente dall'agente connesso. Se lasciata vuota, viene usata la firma personale dell'agente.",
+        replyEmailSignaturePreview: "Anteprima",
         defaultTemplatesCategory: "Categoria",
         defaultTemplatesTemplate: "Modello",
         defaultTemplatesNone: "— nessuno —",
@@ -50895,6 +50902,7 @@ export const translations: Record<Locale, Translations> = {
         defaultTemplatesDesc: "Wenn ein Agent die Registerkarte E-Mail oder SMS öffnet, werden die ausgewählte Kategorie und Vorlage automatisch vorausgewählt.",
         replyEmailSignatureTitle: "Signatur für E-Mail-Antworten (HTML)",
         replyEmailSignatureHint: "HTML-Signatur, die zu E-Mail-Antworten dieser Kampagne hinzugefügt wird. Unterstützt Variablen wie {{user.fullName}}, {{user.position}}, {{user.phone}} und {{user.email}} — automatisch vom angemeldeten Agenten ausgefüllt. Wenn leer, wird die persönliche Signatur des Agenten verwendet.",
+        replyEmailSignaturePreview: "Vorschau",
         defaultTemplatesCategory: "Kategorie",
         defaultTemplatesTemplate: "Vorlage",
         defaultTemplatesNone: "— keine —",

@@ -5,6 +5,7 @@ import { useRoute, Link, useLocation } from "wouter";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { CHART_PALETTE } from "@/lib/chart-colors";
+import { sanitizeSignatureHtml } from "@/lib/sanitize-html";
 import { 
   ArrowLeft, Users, Settings, BarChart3, FileText, FileDown,
   Play, Pause, CheckCircle, CheckCircle2, Clock, Phone, PhoneMissed, User, Calendar,
@@ -2172,14 +2173,26 @@ function DefaultTemplatesCard({ campaign }: { campaign: Campaign }) {
             {t.campaigns.detail.replyEmailSignatureTitle}
           </Label>
           <p className="text-xs text-muted-foreground">{t.campaigns.detail.replyEmailSignatureHint}</p>
-          <Textarea
-            value={replyEmailSignatureHtml}
-            onChange={(e) => { setReplyEmailSignatureHtml(e.target.value); setHasChanges(true); }}
-            placeholder={"<table>...{{user.fullName}}...{{user.position}}...{{user.phone}}...{{user.email}}...</table>"}
-            rows={8}
-            className="font-mono text-xs"
-            data-testid="input-reply-email-signature"
-          />
+          <div className="grid gap-4 lg:grid-cols-2 items-start">
+            <Textarea
+              value={replyEmailSignatureHtml}
+              onChange={(e) => { setReplyEmailSignatureHtml(e.target.value); setHasChanges(true); }}
+              placeholder={"<table>...{{user.fullName}}...{{user.position}}...{{user.phone}}...{{user.email}}...</table>"}
+              rows={16}
+              className="font-mono text-xs"
+              data-testid="input-reply-email-signature"
+            />
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">{t.campaigns.detail.replyEmailSignaturePreview}</Label>
+              <div className="rounded-md border bg-white dark:bg-white p-4 min-h-[120px] overflow-auto text-sm text-black" data-testid="preview-reply-email-signature">
+                {replyEmailSignatureHtml.trim() ? (
+                  <div dangerouslySetInnerHTML={{ __html: sanitizeSignatureHtml(replyEmailSignatureHtml) }} />
+                ) : (
+                  <span className="text-muted-foreground">{t.campaigns.detail.defaultTemplatesNone}</span>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </CardContent>
     </Card>

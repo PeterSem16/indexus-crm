@@ -170,6 +170,7 @@ import { Slider } from "@/components/ui/slider";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getInboundRingtonePreset } from "@/lib/inbound-ringtones";
+import { sanitizeSignatureHtml } from "@/lib/sanitize-html";
 import { useToast } from "@/hooks/use-toast";
 import { useSip } from "@/contexts/sip-context";
 import { useCall } from "@/contexts/call-context";
@@ -520,6 +521,7 @@ interface TimelineEntry {
   recipientEmail?: string;
   recipientPhone?: string;
   sentiment?: string | null;
+  campaignId?: string;
 }
 
 function decodeHtmlEntitiesFallback(input: string): string {
@@ -3731,6 +3733,7 @@ function CommunicationCanvas({
       recipientPhone: h.recipientPhone,
       sentiment: h.sentiment || null,
       callLogId: (h as any).callLogId || null,
+      campaignId: h.campaignId,
     }));
 
     const normContent = (s: any) => String(s || "").toLowerCase().replace(/\s+/g, " ").trim().slice(0, 80);
@@ -15525,19 +15528,22 @@ export default function AgentWorkspacePage() {
                           if (emailReplyOpen) { setEmailReplyOpen(false); return; }
                           setEmailReplyOpen(true);
                           // Strip active content from campaign-manager-authored HTML (prevents stored XSS across agents)
-                          const sanitizeSig = (html: string): string => html
-                            .replace(/<script[\s\S]*?<\/script>/gi, '')
-                            .replace(/<(iframe|object|embed|link|meta)[\s\S]*?>/gi, '')
-                            .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
-                            .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
-                            .replace(/\son\w+\s*=\s*[^\s>]+/gi, '')
-                            .replace(/(href|src)\s*=\s*("|')\s*javascript:[^"']*\2/gi, '$1=$2#$2');
-                          // Per-campaign HTML reply signature (with template variables) takes precedence over the agent's personal signature
+                          const sanitizeSig = sanitizeSignatureHtml;
+                          // Per-campaign HTML reply signature (with template variables) takes precedence over the agent's personal signature.
+                          // Resolve the campaign from the email being replied to, falling back to the currently-selected campaign,
+                          // and fetch its settings FRESH (the cached campaigns list uses staleTime:Infinity and can miss a just-saved signature).
+                          const replyCampaignId = (entry as any).campaignId || selectedCampaignId || null;
                           let campReplySig = "";
-                          try {
-                            const cs = selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {};
-                            campReplySig = (cs.replyEmailSignatureHtml || "").trim();
-                          } catch { campReplySig = ""; }
+                          if (replyCampaignId) {
+                            try {
+                              const cr = await fetch(`/api/campaigns/${replyCampaignId}`, { credentials: "include" });
+                              if (cr.ok) {
+                                const camp = await cr.json();
+                                const cs = camp?.settings ? JSON.parse(camp.settings) : {};
+                                campReplySig = (cs.replyEmailSignatureHtml || "").trim();
+                              }
+                            } catch { campReplySig = ""; }
+                          }
                           if (campReplySig) {
                             setEmailReplySignature(sanitizeSig(replaceTemplateVars(campReplySig)));
                             return;
