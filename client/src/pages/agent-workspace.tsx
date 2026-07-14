@@ -740,6 +740,119 @@ function parsePersonName(full: string): { firstName: string; lastName: string } 
   return { firstName: parts[0], lastName: parts[parts.length - 1] };
 }
 
+// Module-level template-variable resolver shared across components. Kept at module scope so it
+// is ALWAYS in scope: a component-scoped closure (replaceTemplateVars in CommunicationCanvas)
+// threw "replaceTemplateVars is not defined" when referenced from AgentWorkspacePage's reply box.
+function applyTemplateVars(
+  content: string,
+  ctx: {
+    contact?: any;
+    user?: any;
+    clinic?: any;
+    hospital?: any;
+    collaborator?: any;
+    fromEmail?: string;
+    lang?: string;
+  },
+): string {
+  if (!content) return content;
+  const contact = ctx.contact;
+  const user = ctx.user;
+  const cl = ctx.clinic as any;
+  const hosp = ctx.hospital as any;
+  const collab = ctx.collaborator as any;
+  const userPhone = user?.phone ? `${user?.phonePrefix || ""}${user.phone}` : "";
+  const now = new Date();
+  const doctorFullName = cl ? `${cl.doctorTitle || ""} ${cl.doctorFirstName || ""} ${cl.doctorLastName || ""}`.replace(/\s+/g, " ").trim() : "";
+  const salLang = ctx.lang || "sk";
+  const clinicSal = computeSalutations(cl?.doctorFirstName || "", cl?.doctorLastName || "", salLang);
+  const customerSal = computeSalutations(contact?.firstName || "", contact?.lastName || "", salLang);
+  const hospPerson = parsePersonName(hosp?.contactPerson || "");
+  const hospitalSal = computeSalutations(hospPerson.firstName, hospPerson.lastName, salLang);
+  const replacements: Record<string, string> = {
+    "{{customer.firstName}}": contact?.firstName || "",
+    "{{customer.lastName}}": contact?.lastName || "",
+    "{{customer.fullName}}": contact ? `${contact.firstName || ""} ${contact.lastName || ""}`.trim() : "",
+    "{{customer.salutation}}": customerSal.salutation,
+    "{{customer.salutationFull}}": customerSal.salutationFull,
+    "{{customer.email}}": contact?.email || "",
+    "{{customer.email2}}": contact?.email2 || "",
+    "{{customer.phone}}": contact?.phone || "",
+    "{{customer.phone2}}": contact?.phone2 || "",
+    "{{customer.address}}": contact?.address || "",
+    "{{customer.city}}": contact?.city || "",
+    "{{customer.postalCode}}": contact?.postalCode || "",
+    "{{customer.country}}": contact?.country || "",
+    "{{customer.birthDate}}": contact?.birthDate || "",
+    "{{customer.deliveryDate}}": contact?.deliveryDate || "",
+    "{{user.fullName}}": user?.fullName || "",
+    "{{user.email}}": ctx.fromEmail || user?.email || "",
+    "{{user.phone}}": userPhone,
+    "{{user.position}}": user?.position || "",
+    "{{user.signature}}": user?.signature || "",
+    "{{clinic.name}}": cl?.clinicName || cl?.name || "",
+    "{{clinic.doctorName}}": doctorFullName,
+    "{{clinic.doctorTitle}}": cl?.doctorTitle || "",
+    "{{clinic.doctorFirstName}}": cl?.doctorFirstName || "",
+    "{{clinic.doctorLastName}}": cl?.doctorLastName || "",
+    "{{clinic.doctorFullName}}": doctorFullName,
+    "{{clinic.doctorSalutation}}": clinicSal.salutation,
+    "{{clinic.doctorSalutationFull}}": clinicSal.salutationFull,
+    "{{clinic.doctorSalutationDoc}}": clinicSal.salutationDoc,
+    "{{clinic.address}}": cl?.address || "",
+    "{{clinic.city}}": cl?.city || "",
+    "{{clinic.postalCode}}": cl?.postalCode || "",
+    "{{clinic.countryCode}}": cl?.countryCode || "",
+    "{{clinic.phone}}": cl?.phone || "",
+    "{{clinic.email}}": cl?.email || "",
+    "{{clinic.website}}": cl?.website || "",
+    "{{clinic.notes}}": cl?.notes || "",
+    "{{clinic.contractStatus}}": cl?.contractStatus || "",
+    "{{hospital.name}}": hosp?.name || "",
+    "{{hospital.fullName}}": hosp?.fullName || hosp?.name || "",
+    "{{hospital.streetNumber}}": hosp?.streetNumber || "",
+    "{{hospital.city}}": hosp?.city || "",
+    "{{hospital.postalCode}}": hosp?.postalCode || "",
+    "{{hospital.region}}": hosp?.region || "",
+    "{{hospital.countryCode}}": hosp?.countryCode || "",
+    "{{hospital.contactPerson}}": hosp?.contactPerson || "",
+    "{{hospital.contactPersonSalutation}}": hospitalSal.salutation,
+    "{{hospital.contactPersonSalutationFull}}": hospitalSal.salutationFull,
+    "{{hospital.contactPersonSalutationDoc}}": hospitalSal.salutationDoc,
+    "{{hospital.phone}}": hosp?.phone || "",
+    "{{hospital.email}}": hosp?.email || "",
+    "{{collaborator.titleBefore}}": collab?.titleBefore || (collab ? "MUDr." : ""),
+    "{{collaborator.firstName}}": collab?.firstName || "",
+    "{{collaborator.lastName}}": collab?.lastName || "",
+    "{{collaborator.titleAfter}}": collab?.titleAfter || "",
+    "{{collaborator.fullName}}": collab ? `${collab.titleBefore || "MUDr."} ${collab.firstName || ""} ${collab.lastName || ""} ${collab.titleAfter || ""}`.replace(/\s+/g, " ").trim() : "",
+    "{{collaborator.phone}}": collab?.phone || "",
+    "{{collaborator.mobile}}": collab?.mobile || "",
+    "{{collaborator.email}}": collab?.email || "",
+    "{{collaborator.companyName}}": collab?.companyName || "",
+    "{{system.today}}": now.toLocaleDateString("sk-SK"),
+    "{{date.today}}": now.toLocaleDateString("sk-SK"),
+    "{{system.currentDate}}": now.toLocaleDateString("sk-SK"),
+    "{{system.currentTime}}": now.toLocaleTimeString("sk-SK"),
+    "{{system.currentDateTime}}": now.toLocaleString("sk-SK"),
+    "{{system.year}}": now.getFullYear().toString(),
+    "{{system.month}}": (now.getMonth() + 1).toString().padStart(2, "0"),
+    "{{system.day}}": now.getDate().toString().padStart(2, "0"),
+    "{{company.name}}": "Cord Blood Center Group",
+    "{{company.address}}": "Gallayova 11, 841 02 Bratislava",
+    "{{company.phone}}": "+421 2 59 200 700",
+    "{{company.email}}": "info@cordbloodcenter.com",
+    "{{company.web}}": "www.cordbloodcenter.com",
+  };
+  let result = content;
+  for (const [variable, value] of Object.entries(replacements)) {
+    result = result.split(variable).join(value);
+  }
+  result = result.replace(/\{\{[^}]+\}\}/g, "");
+  return result;
+}
+
+
 function SentimentBadge({ sentiment, size = "sm" }: { sentiment?: string | null; size?: "sm" | "md" }) {
   if (!sentiment) return null;
   const config: Record<string, { label: string; className: string }> = {
@@ -3416,100 +3529,16 @@ function CommunicationCanvas({
 
   const templateLangRef = useRef<string>("sk");
   const replaceTemplateVars = useCallback((content: string): string => {
-    if (!content) return content;
     const selectedAccount = allEmailAccounts.find(a => a.id === selectedFromAccount);
-    const userPhone = user?.phone ? `${(user as any)?.phonePrefix || ""}${user.phone}` : "";
-    const now = new Date();
-    const cl = clinicData as any;
-    const hosp = hospitalData as any;
-    const collab = collaboratorData as any;
-    const doctorFullName = cl ? `${cl.doctorTitle || ""} ${cl.doctorFirstName || ""} ${cl.doctorLastName || ""}`.replace(/\s+/g, " ").trim() : "";
-    const salLang = templateLangRef.current || "sk";
-    const clinicSal = computeSalutations(cl?.doctorFirstName || "", cl?.doctorLastName || "", salLang);
-    const customerSal = computeSalutations(contact?.firstName || "", contact?.lastName || "", salLang);
-    const hospPerson = parsePersonName(hosp?.contactPerson || "");
-    const hospitalSal = computeSalutations(hospPerson.firstName, hospPerson.lastName, salLang);
-    const replacements: Record<string, string> = {
-      "{{customer.firstName}}": contact?.firstName || "",
-      "{{customer.lastName}}": contact?.lastName || "",
-      "{{customer.fullName}}": contact ? `${contact.firstName || ""} ${contact.lastName || ""}`.trim() : "",
-      "{{customer.salutation}}": customerSal.salutation,
-      "{{customer.salutationFull}}": customerSal.salutationFull,
-      "{{customer.email}}": contact?.email || "",
-      "{{customer.email2}}": (contact as any)?.email2 || "",
-      "{{customer.phone}}": contact?.phone || "",
-      "{{customer.phone2}}": (contact as any)?.phone2 || "",
-      "{{customer.address}}": contact?.address || "",
-      "{{customer.city}}": contact?.city || "",
-      "{{customer.postalCode}}": contact?.postalCode || "",
-      "{{customer.country}}": contact?.country || "",
-      "{{customer.birthDate}}": (contact as any)?.birthDate || "",
-      "{{customer.deliveryDate}}": (contact as any)?.deliveryDate || "",
-      "{{user.fullName}}": user?.fullName || "",
-      "{{user.email}}": selectedAccount?.email || user?.email || "",
-      "{{user.phone}}": userPhone,
-      "{{user.position}}": (user as any)?.position || "",
-      "{{user.signature}}": (user as any)?.signature || "",
-      "{{clinic.name}}": cl?.clinicName || cl?.name || "",
-      "{{clinic.doctorName}}": doctorFullName,
-      "{{clinic.doctorTitle}}": cl?.doctorTitle || "",
-      "{{clinic.doctorFirstName}}": cl?.doctorFirstName || "",
-      "{{clinic.doctorLastName}}": cl?.doctorLastName || "",
-      "{{clinic.doctorFullName}}": doctorFullName,
-      "{{clinic.doctorSalutation}}": clinicSal.salutation,
-      "{{clinic.doctorSalutationFull}}": clinicSal.salutationFull,
-      "{{clinic.doctorSalutationDoc}}": clinicSal.salutationDoc,
-      "{{clinic.address}}": cl?.address || "",
-      "{{clinic.city}}": cl?.city || "",
-      "{{clinic.postalCode}}": cl?.postalCode || "",
-      "{{clinic.countryCode}}": cl?.countryCode || "",
-      "{{clinic.phone}}": cl?.phone || "",
-      "{{clinic.email}}": cl?.email || "",
-      "{{clinic.website}}": cl?.website || "",
-      "{{clinic.notes}}": cl?.notes || "",
-      "{{clinic.contractStatus}}": cl?.contractStatus || "",
-      "{{hospital.name}}": hosp?.name || "",
-      "{{hospital.fullName}}": hosp?.fullName || hosp?.name || "",
-      "{{hospital.streetNumber}}": hosp?.streetNumber || "",
-      "{{hospital.city}}": hosp?.city || "",
-      "{{hospital.postalCode}}": hosp?.postalCode || "",
-      "{{hospital.region}}": hosp?.region || "",
-      "{{hospital.countryCode}}": hosp?.countryCode || "",
-      "{{hospital.contactPerson}}": hosp?.contactPerson || "",
-      "{{hospital.contactPersonSalutation}}": hospitalSal.salutation,
-      "{{hospital.contactPersonSalutationFull}}": hospitalSal.salutationFull,
-      "{{hospital.contactPersonSalutationDoc}}": hospitalSal.salutationDoc,
-      "{{hospital.phone}}": hosp?.phone || "",
-      "{{hospital.email}}": hosp?.email || "",
-      "{{collaborator.titleBefore}}": collab?.titleBefore || (collab ? "MUDr." : ""),
-      "{{collaborator.firstName}}": collab?.firstName || "",
-      "{{collaborator.lastName}}": collab?.lastName || "",
-      "{{collaborator.titleAfter}}": collab?.titleAfter || "",
-      "{{collaborator.fullName}}": collab ? `${collab.titleBefore || "MUDr."} ${collab.firstName || ""} ${collab.lastName || ""} ${collab.titleAfter || ""}`.replace(/\s+/g, " ").trim() : "",
-      "{{collaborator.phone}}": collab?.phone || "",
-      "{{collaborator.mobile}}": collab?.mobile || "",
-      "{{collaborator.email}}": collab?.email || "",
-      "{{collaborator.companyName}}": collab?.companyName || "",
-      "{{system.today}}": now.toLocaleDateString("sk-SK"),
-      "{{date.today}}": now.toLocaleDateString("sk-SK"),
-      "{{system.currentDate}}": now.toLocaleDateString("sk-SK"),
-      "{{system.currentTime}}": now.toLocaleTimeString("sk-SK"),
-      "{{system.currentDateTime}}": now.toLocaleString("sk-SK"),
-      "{{system.year}}": now.getFullYear().toString(),
-      "{{system.month}}": (now.getMonth() + 1).toString().padStart(2, "0"),
-      "{{system.day}}": now.getDate().toString().padStart(2, "0"),
-      "{{company.name}}": "Cord Blood Center Group",
-      "{{company.address}}": "Gallayova 11, 841 02 Bratislava",
-      "{{company.phone}}": "+421 2 59 200 700",
-      "{{company.email}}": "info@cordbloodcenter.com",
-      "{{company.web}}": "www.cordbloodcenter.com",
-    };
-    let result = content;
-    for (const [variable, value] of Object.entries(replacements)) {
-      result = result.split(variable).join(value);
-    }
-    result = result.replace(/\{\{[^}]+\}\}/g, "");
-    return result;
+    return applyTemplateVars(content, {
+      contact,
+      user,
+      clinic: clinicData,
+      hospital: hospitalData,
+      collaborator: collaboratorData,
+      fromEmail: selectedAccount?.email,
+      lang: templateLangRef.current || "sk",
+    });
   }, [contact, user, allEmailAccounts, selectedFromAccount, clinicData, hospitalData, collaboratorData]);
 
   // Resolve task-description tokens into real values for the confirm-dialog preview.
@@ -9313,7 +9342,6 @@ export default function AgentWorkspacePage() {
   const [emailReplyOpen, setEmailReplyOpen] = useState(false);
   const [emailReplyText, setEmailReplyText] = useState("");
   const [emailReplySignature, setEmailReplySignature] = useState<string | null>(null);
-  const [replySigDebug, setReplySigDebug] = useState<string>("");
   const [personalReplySignature, setPersonalReplySignature] = useState<string | null>(null);
   const [isSendingReply, setIsSendingReply] = useState(false);
   const [autoCountdown, setAutoCountdown] = useState<number | null>(null);
@@ -15456,8 +15484,8 @@ export default function AgentWorkspacePage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!historyDetailModal} onOpenChange={(open) => { if (!open) { setHistoryDetailModal(null); setEmailReplyOpen(false); setEmailReplyText(""); setEmailReplySignature(null); setReplySigDebug(""); } }}>
-        <DialogContent className="sm:max-w-3xl max-h-[85vh] flex flex-col p-0">
+      <Dialog open={!!historyDetailModal} onOpenChange={(open) => { if (!open) { setHistoryDetailModal(null); setEmailReplyOpen(false); setEmailReplyText(""); setEmailReplySignature(null); } }}>
+        <DialogContent className="sm:max-w-5xl max-h-[90vh] flex flex-col p-0">
           {historyDetailModal && (() => {
             const entry = historyDetailModal;
             const isEmail = (entry as any).type === "email" || !!(entry as any).htmlBody;
@@ -15539,35 +15567,34 @@ export default function AgentWorkspacePage() {
                           // signature appear even when the "selected" campaign isn't the one it was configured on.
                           let campReplySig = "";
                           const cid = currentContact?.id;
-                          let dbg = `camp=${replyCampaignId || "-"} contact=${cid || "-"}`;
                           try {
                             const params = new URLSearchParams();
                             if (replyCampaignId) params.set("campaignId", String(replyCampaignId));
                             if (cid) params.set("contactId", String(cid));
                             if (params.toString()) {
                               const cr = await fetch(`/api/reply-signature?${params.toString()}`, { credentials: "include" });
-                              dbg += ` http=${cr.status}`;
                               if (cr.ok) {
                                 const data = await cr.json();
                                 campReplySig = (data?.signature || "").trim();
-                                dbg += ` sigLen=${campReplySig.length} from=${data?.campaignId || "-"}`;
                               }
-                            } else {
-                              dbg += ` NO-PARAMS`;
                             }
-                          } catch (e) { campReplySig = ""; dbg += ` err=${String((e as any)?.message || e).slice(0, 50)}`; }
-                          setReplySigDebug(dbg);
-                          console.log("[reply-signature]", dbg);
+                          } catch { campReplySig = ""; }
                           if (campReplySig) {
                             let outSig = "";
                             try {
-                              const tv = replaceTemplateVars(campReplySig);
-                              outSig = sanitizeSig(tv);
-                              setReplySigDebug(dbg + ` tvLen=${tv.length} outLen=${outSig.length}`);
-                            } catch (e) {
-                              // A template-var/sanitize failure must NEVER swallow the whole signature.
+                              // applyTemplateVars is a module-level helper — replaceTemplateVars is scoped to
+                              // CommunicationCanvas and is NOT in scope here (referencing it throws a ReferenceError).
+                              outSig = sanitizeSig(applyTemplateVars(campReplySig, {
+                                contact: currentContact,
+                                user,
+                                clinic: currentClinicData,
+                                hospital: currentHospitalData,
+                                collaborator: currentCollaboratorData,
+                                lang: "sk",
+                              }));
+                            } catch {
+                              // Never let a transform failure swallow the signature — fall back to sanitized raw.
                               try { outSig = sanitizeSig(campReplySig); } catch { outSig = campReplySig; }
-                              setReplySigDebug(dbg + ` XFORM-ERR=${String((e as any)?.message || e).slice(0, 90)} rawLen=${outSig.length}`);
                             }
                             setEmailReplySignature(outSig);
                             return;
@@ -15587,7 +15614,7 @@ export default function AgentWorkspacePage() {
                             setEmailReplySignature("");
                           }
                         }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-indigo-300 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-700 dark:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors shrink-0"
+                        className="flex items-center gap-1.5 px-3 py-1.5 mr-8 rounded-md text-xs font-medium border border-indigo-300 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-700 dark:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors shrink-0"
                         data-testid="btn-email-reply"
                       >
                         <CornerUpLeft className="h-3.5 w-3.5" />
@@ -15668,11 +15695,6 @@ export default function AgentWorkspacePage() {
                         dangerouslySetInnerHTML={{ __html: emailReplySignature.replace(/<script[\s\S]*?<\/script>/gi, '') }}
                       />
                     )}
-                    {replySigDebug && (
-                      <div className="px-4 py-1 text-[11px] font-mono text-amber-600 dark:text-amber-400 border-t border-dashed border-amber-400/40 bg-amber-50/50 dark:bg-amber-900/10" data-testid="text-reply-sig-debug">
-                        DBG podpis → {replySigDebug}
-                      </div>
-                    )}
                     <div className="flex items-center gap-2 px-4 py-2.5 border-t bg-muted/10">
                       <Button
                         size="sm"
@@ -15707,7 +15729,7 @@ export default function AgentWorkspacePage() {
                         size="sm"
                         variant="ghost"
                         className="h-7 px-3 text-xs"
-                        onClick={() => { setEmailReplyOpen(false); setEmailReplyText(""); setReplySigDebug(""); }}
+                        onClick={() => { setEmailReplyOpen(false); setEmailReplyText(""); }}
                         data-testid="btn-cancel-reply"
                       >
                         {t.agentWorkspace.emailReplyCancel || "Cancel"}
