@@ -3466,6 +3466,11 @@ export interface Translations {
     customerDocumentsTab: string;
     sopTab: string;
     readOnlyCardsBanner: string;
+    readOnlyCardsBannerTask: string;
+    readOnlyCardsBannerTaskLink: string;
+    dataChangeTaskTitle: string;
+    dataChangeTaskDesc: string;
+    openCardBtn: string;
     addNote: string;
     notePlaceholder: string;
     moreNotes: string;
@@ -10879,6 +10884,11 @@ export const translations: Record<Locale, Translations> = {
       customerDocumentsTab: 'Documents',
       sopTab: 'SOP',
       readOnlyCardsBanner: "Read-only mode — editing data is disabled in this campaign.",
+      readOnlyCardsBannerTask: "A task must be created to change customer data.",
+      readOnlyCardsBannerTaskLink: "Create task",
+      dataChangeTaskTitle: "Customer data change",
+      dataChangeTaskDesc: "Request to change customer data (the card is read-only in this campaign).",
+      openCardBtn: "Open card",
       addNote: 'Add note',
       notePlaceholder: 'Write a note...',
       moreNotes: 'more notes',
@@ -17742,6 +17752,11 @@ export const translations: Record<Locale, Translations> = {
       customerDocumentsTab: 'Dokumenty',
       sopTab: 'SOP',
       readOnlyCardsBanner: "Režim iba na čítanie — úprava údajov je v tejto kampani vypnutá.",
+      readOnlyCardsBannerTask: "Na zmenu zákazníckych údajov je potrebné vytvoriť task.",
+      readOnlyCardsBannerTaskLink: "Zadať task",
+      dataChangeTaskTitle: "Zmena zákazníckych údajov",
+      dataChangeTaskDesc: "Požiadavka na zmenu zákazníckych údajov (karta je v tejto kampani iba na čítanie).",
+      openCardBtn: "Otvoriť kartu",
       addNote: 'Pridať poznámku',
       notePlaceholder: 'Napíšte poznámku...',
       moreNotes: 'ďalších poznámok',
@@ -24591,6 +24606,11 @@ export const translations: Record<Locale, Translations> = {
       customerDocumentsTab: 'Dokumenty',
       sopTab: 'SOP',
       readOnlyCardsBanner: "Režim pouze pro čtení — úprava údajů je v této kampani vypnuta.",
+      readOnlyCardsBannerTask: "Ke změně zákaznických údajů je nutné vytvořit task.",
+      readOnlyCardsBannerTaskLink: "Zadat task",
+      dataChangeTaskTitle: "Změna zákaznických údajů",
+      dataChangeTaskDesc: "Požadavek na změnu zákaznických údajů (karta je v této kampani pouze pro čtení).",
+      openCardBtn: "Otevřít kartu",
       addNote: 'Přidat poznámku',
       notePlaceholder: 'Napište poznámku...',
       moreNotes: 'dalších poznámek',
@@ -31397,6 +31417,11 @@ export const translations: Record<Locale, Translations> = {
       addNote: 'Jegyzet hozzáadása',
       sopTab: 'SOP',
       readOnlyCardsBanner: "Csak olvasható mód — az adatok szerkesztése ebben a kampányban le van tiltva.",
+      readOnlyCardsBannerTask: "Az ügyféladatok módosításához feladatot kell létrehozni.",
+      readOnlyCardsBannerTaskLink: "Feladat létrehozása",
+      dataChangeTaskTitle: "Ügyféladatok módosítása",
+      dataChangeTaskDesc: "Kérés az ügyféladatok módosítására (a kártya ebben a kampányban csak olvasható).",
+      openCardBtn: "Kártya megnyitása",
       notePlaceholder: 'Írjon jegyzetet...',
       moreNotes: 'további jegyzet',
       noteBadgeImportant: 'Fontos',
@@ -38089,6 +38114,11 @@ export const translations: Record<Locale, Translations> = {
       addNote: 'Adăugare notă',
       sopTab: 'SOP',
       readOnlyCardsBanner: "Mod doar citire — editarea datelor este dezactivată în această campanie.",
+      readOnlyCardsBannerTask: "Pentru modificarea datelor clientului trebuie creat un task.",
+      readOnlyCardsBannerTaskLink: "Creează task",
+      dataChangeTaskTitle: "Modificarea datelor clientului",
+      dataChangeTaskDesc: "Solicitare de modificare a datelor clientului (fișa este doar pentru citire în această campanie).",
+      openCardBtn: "Deschide fișa",
       notePlaceholder: 'Scrieți o notă...',
       moreNotes: 'alte note',
       noteBadgeImportant: 'Important',
@@ -44783,6 +44813,11 @@ export const translations: Record<Locale, Translations> = {
       addNote: 'Aggiungi nota',
       sopTab: 'SOP',
       readOnlyCardsBanner: "Modalità sola lettura — la modifica dei dati è disattivata in questa campagna.",
+      readOnlyCardsBannerTask: "Per modificare i dati del cliente è necessario creare un task.",
+      readOnlyCardsBannerTaskLink: "Crea task",
+      dataChangeTaskTitle: "Modifica dati cliente",
+      dataChangeTaskDesc: "Richiesta di modifica dei dati del cliente (la scheda è in sola lettura in questa campagna).",
+      openCardBtn: "Apri scheda",
       notePlaceholder: 'Scrivi una nota...',
       moreNotes: 'altre note',
       noteBadgeImportant: 'Importante',
@@ -51477,6 +51512,11 @@ export const translations: Record<Locale, Translations> = {
       addNote: 'Notiz hinzufügen',
       sopTab: 'SOP',
       readOnlyCardsBanner: "Nur-Lese-Modus — die Bearbeitung von Daten ist in dieser Kampagne deaktiviert.",
+      readOnlyCardsBannerTask: "Zum Ändern der Kundendaten muss eine Aufgabe erstellt werden.",
+      readOnlyCardsBannerTaskLink: "Aufgabe erstellen",
+      dataChangeTaskTitle: "Änderung der Kundendaten",
+      dataChangeTaskDesc: "Anfrage zur Änderung der Kundendaten (die Karte ist in dieser Kampagne schreibgeschützt).",
+      openCardBtn: "Karte öffnen",
       notePlaceholder: 'Notiz schreiben...',
       moreNotes: 'weitere Notizen',
       noteBadgeImportant: 'Wichtig',

@@ -2550,6 +2550,7 @@ function CommunicationCanvas({
   customerMessages,
   campaignEmailMode,
   campaignEmailAddress,
+  onRequestDataChangeTask,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -2606,6 +2607,7 @@ function CommunicationCanvas({
   customerMessages?: any[];
   campaignEmailMode?: "system" | "user" | "custom";
   campaignEmailAddress?: string;
+  onRequestDataChangeTask?: () => void;
 }) {
   const { t, locale } = useI18n();
   const { user } = useAuth();
@@ -4089,9 +4091,26 @@ function CommunicationCanvas({
           {phoneSubTab === "card" && contact && (
             <>
               {cardsReadOnly && (
-                <div className="shrink-0 flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300" data-testid="banner-readonly-cards">
-                  <Lock className="h-3.5 w-3.5 shrink-0" />
-                  <span className="text-xs font-medium">{t.agentWorkspace.readOnlyCardsBanner || "Režim iba na čítanie — úprava údajov je v tejto kampani vypnutá."}</span>
+                <div className="shrink-0 flex items-start gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300" data-testid="banner-readonly-cards">
+                  <Lock className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <span className="text-xs font-medium">
+                    {t.agentWorkspace.readOnlyCardsBanner || "Režim iba na čítanie — úprava údajov je v tejto kampani vypnutá."}
+                    {" "}
+                    {t.agentWorkspace.readOnlyCardsBannerTask || "Na zmenu zákazníckych údajov je potrebné vytvoriť task."}
+                    {onRequestDataChangeTask && (
+                      <>
+                        {" "}
+                        <button
+                          type="button"
+                          onClick={onRequestDataChangeTask}
+                          className="underline underline-offset-2 font-semibold hover:text-amber-900 dark:hover:text-amber-200"
+                          data-testid="link-create-data-change-task"
+                        >
+                          {t.agentWorkspace.readOnlyCardsBannerTaskLink || "Zadať task"}
+                        </button>
+                      </>
+                    )}
+                  </span>
                 </div>
               )}
               {contactType === "hospital" && hospitalData ? (
@@ -13494,6 +13513,21 @@ export default function AgentWorkspacePage() {
                   } catch {}
                 }
               }}
+              onRequestDataChangeTask={() => {
+                const c: any = currentContact;
+                const entityName = c ? (c.name || [c.firstName, c.lastName].filter(Boolean).join(" ") || c.companyName || "") : "";
+                const entityId = c?.id ? String(c.id) : "";
+                setCreateTaskForm({
+                  title: `${t.agentWorkspace.dataChangeTaskTitle || "Zmena zákazníckych údajov"}${entityName ? ` — ${entityName}` : ""}${entityId ? ` (#${entityId})` : ""}`,
+                  description: t.agentWorkspace.dataChangeTaskDesc || "Požiadavka na zmenu zákazníckych údajov (karta je v tejto kampani iba na čítanie).",
+                  priority: "medium",
+                  assignedUserIds: [],
+                  dueDate: "",
+                  groupId: "",
+                  category: "",
+                });
+                setCreateTaskDialogOpen(true);
+              }}
             />
           );
         })()}
@@ -15262,26 +15296,22 @@ export default function AgentWorkspacePage() {
                         <Button size="sm" variant="default" className="h-7 text-xs gap-1 px-2.5 shrink-0"
                           onClick={async () => {
                             const phoneNum = call.customerPhone || call.callerNumber;
-                            if (!phoneNum || !makeCall) return;
-                            pendingCallbackAbandonedIdRef.current = call.id;
                             if (call.customerId) {
                               try {
                                 const custRes = await fetch(`/api/customers/${call.customerId}`, { credentials: "include" });
                                 if (custRes.ok) { const customer = await custRes.json(); setCurrentContact(customer); setCurrentContactType("customer"); setCurrentCampaignContactId(null); setRightTab("actions"); }
                               } catch (e) { console.error("Failed to load customer:", e); }
-                            } else {
+                            } else if (phoneNum) {
                               try {
                                 const lookupRes = await fetch(`/api/customers/lookup-phone?phone=${encodeURIComponent(phoneNum)}`, { credentials: "include" });
                                 if (lookupRes.ok) { const matched = await lookupRes.json(); if (matched?.id) { const custRes = await fetch(`/api/customers/${matched.id}`, { credentials: "include" }); if (custRes.ok) { const customer = await custRes.json(); setCurrentContact(customer); setCurrentContactType("customer"); setCurrentCampaignContactId(null); setRightTab("actions"); } } }
                               } catch (e) { console.error("Failed to lookup customer:", e); }
                             }
-                            makeCall({ phoneNumber: phoneNum, customerName: call.customerName || call.callerName || undefined, customerId: call.customerId || undefined, callerIdNumber: (selectedCampaign as any)?.callerIdNumber || undefined, maxRingSeconds: campaignMaxRingSeconds || undefined });
-                            if (!isSipRegistered && !isSipRegistering) sipRegister();
                             setAbandonedCallsOpen(false);
                           }}
                           data-testid={`btn-callback-${call.id}`}
                         >
-                          <Phone className="h-3 w-3" /> {t.agentWorkspace.callBackBtn}
+                          <User className="h-3 w-3" /> {t.agentWorkspace.openCardBtn || t.agentWorkspace.callBackBtn}
                         </Button>
                       )}
                     </div>
