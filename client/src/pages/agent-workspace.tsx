@@ -6735,7 +6735,7 @@ function CustomerInfoPanel({
   const [historyMaximized, setHistoryMaximized] = useState(false);
   const [expandedSlItems, setExpandedSlItems] = useState<Set<string>>(new Set());
   const [faqMaximized, setFaqMaximized] = useState(false);
-  const [noteExpanded, setNoteExpanded] = useState(false);
+  const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [matchesExpanded, setMatchesExpanded] = useState(false);
   const fmtTime = (sec: number) => `${Math.floor(sec / 60)}:${(sec % 60).toString().padStart(2, "0")}`;
   const dialPadButtons = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
@@ -7937,47 +7937,21 @@ function CustomerInfoPanel({
 
             <div className="border-t border-border" />
 
-            {/* Add Note */}
+            {/* Add Note — opens modal to save space */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-[10px] font-semibold uppercase tracking-wider flex items-center gap-1.5 text-muted-foreground">
-                  <StickyNote className="h-3 w-3" style={{ color: "#B5622E" }} />
-                  {t.agentWorkspace.addNote || "Pridať poznámku"}
-                </h4>
-                <button
-                  onClick={() => setNoteExpanded(!noteExpanded)}
-                  data-testid="btn-toggle-note-expand"
-                  className="p-1 rounded-md transition-colors text-muted-foreground"
-                >
-                  {noteExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-                </button>
-              </div>
-              <Textarea
-                placeholder={t.agentWorkspace.notePlaceholder || "Poznámka..."}
-                value={newNote}
-                onChange={(e) => setNewNote(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAddNote(); } }}
-                className="text-xs resize-none transition-all rounded-xl"
-                style={{ minHeight: noteExpanded ? "200px" : "60px" }}
-                rows={noteExpanded ? 8 : 3}
-                data-testid="input-call-notes"
-              />
-              <div className="flex justify-end mt-1.5">
-                <button
-                  onClick={handleAddNote}
-                  disabled={!newNote.trim()}
-                  data-testid="btn-add-note"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
-                  style={{
-                    background: newNote.trim() ? "#B5622E" : "hsl(var(--muted))",
-                    color: newNote.trim() ? "#FFFFFF" : "hsl(var(--muted-foreground))",
-                    cursor: newNote.trim() ? "pointer" : "not-allowed",
-                  }}
-                >
-                  <Send className="h-3 w-3" />
-                  {t.customers?.details?.addNote || "Pridať"}
-                </button>
-              </div>
+              <button
+                onClick={() => setNoteModalOpen(true)}
+                data-testid="btn-open-note-modal"
+                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all border"
+                style={{
+                  background: "#B5622E12",
+                  color: "#B5622E",
+                  borderColor: "#B5622E33",
+                }}
+              >
+                <StickyNote className="h-3.5 w-3.5" />
+                {t.agentWorkspace.addNote || "Pridať poznámku"}
+              </button>
             </div>
 
             <div className="border-t border-border" />
@@ -8016,6 +7990,51 @@ function CustomerInfoPanel({
             </div>
           </div>
         )}
+
+        <Dialog open={noteModalOpen} onOpenChange={setNoteModalOpen}>
+          <DialogContent className="sm:max-w-lg shadow-2xl ring-1 ring-black/10 dark:ring-white/10">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <StickyNote className="h-4 w-4" style={{ color: "#B5622E" }} />
+                {t.agentWorkspace.addNote || "Pridať poznámku"}
+              </DialogTitle>
+            </DialogHeader>
+            <Textarea
+              placeholder={t.agentWorkspace.notePlaceholder || "Poznámka..."}
+              value={newNote}
+              onChange={(e) => setNewNote(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && newNote.trim()) { e.preventDefault(); handleAddNote(); setNoteModalOpen(false); } }}
+              className="text-sm resize-none rounded-xl"
+              style={{ minHeight: "160px" }}
+              rows={8}
+              autoFocus
+              data-testid="input-call-notes"
+            />
+            <DialogFooter>
+              <button
+                onClick={() => setNoteModalOpen(false)}
+                data-testid="btn-cancel-note"
+                className="px-4 py-2 rounded-xl text-xs font-medium transition-all text-muted-foreground hover:bg-muted"
+              >
+                {t.common?.cancel || "Zrušiť"}
+              </button>
+              <button
+                onClick={() => { handleAddNote(); setNoteModalOpen(false); }}
+                disabled={!newNote.trim()}
+                data-testid="btn-add-note"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all"
+                style={{
+                  background: newNote.trim() ? "#B5622E" : "hsl(var(--muted))",
+                  color: newNote.trim() ? "#FFFFFF" : "hsl(var(--muted-foreground))",
+                  cursor: newNote.trim() ? "pointer" : "not-allowed",
+                }}
+              >
+                <Send className="h-3 w-3" />
+                {t.customers?.details?.addNote || "Pridať"}
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={!!selectedNote} onOpenChange={(open) => !open && setSelectedNote(null)}>
           <DialogContent className="sm:max-w-md">
@@ -8291,7 +8310,7 @@ function MyActivityPanel({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
-      <DialogContent className="sm:max-w-3xl lg:max-w-5xl w-[95vw] max-h-[90vh] !flex !flex-col p-0">
+      <DialogContent className="sm:max-w-3xl lg:max-w-5xl w-[95vw] max-h-[90vh] !flex !flex-col p-0 shadow-2xl ring-1 ring-black/10 dark:ring-white/10">
         <div className="flex items-center gap-3 pl-5 pr-14 pt-5 pb-3 border-b flex-shrink-0">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: "#B5622E18" }}>
             <History className="h-5 w-5" style={{ color: "#B5622E" }} />
@@ -8720,7 +8739,7 @@ function ScheduledQueuePanel({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
-      <DialogContent className="sm:max-w-5xl max-h-[85vh] !flex !flex-col overflow-hidden p-0">
+      <DialogContent className="sm:max-w-5xl max-h-[85vh] !flex !flex-col overflow-hidden p-0 shadow-2xl ring-1 ring-black/10 dark:ring-white/10">
         <div className="flex items-center justify-between pl-5 pr-14 pt-5 pb-3 border-b flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
@@ -15128,7 +15147,7 @@ export default function AgentWorkspacePage() {
       </Sheet>
 
       <Dialog open={abandonedCallsOpen} onOpenChange={(open) => { setAbandonedCallsOpen(open); if (!open) setAbandonedCallsFilter("all"); }} modal={false}>
-        <DialogContent className="sm:max-w-[580px] max-h-[82vh] flex flex-col overflow-hidden p-0 gap-0">
+        <DialogContent className="sm:max-w-[580px] max-h-[82vh] flex flex-col overflow-hidden p-0 gap-0 shadow-2xl ring-1 ring-black/10 dark:ring-white/10">
           {/* Header */}
           <div className="flex items-center gap-3 px-5 pt-4 pb-4 pr-12 shrink-0">
             <div className="h-10 w-10 rounded-full flex items-center justify-center shrink-0" style={{ background: "#B5622E18" }}>

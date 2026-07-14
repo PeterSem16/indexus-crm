@@ -22,3 +22,7 @@ report "I have N items but the queue is empty!!".
 - Make the empty state distinguish "truly empty" (`items.length === 0`) from
   "filtered to nothing" (`items.length > 0 && filtered.length === 0`); in the
   latter, show a recoverable message + a "Show all"/clear-filters button.
+
+## Elevation for modal={false} floating panels
+A `modal={false}` Dialog renders WITHOUT the dark overlay, so it visually blends into the page behind it. Add `shadow-2xl ring-1 ring-black/10 dark:ring-white/10` to its DialogContent so users can tell the panel is elevated/superior. shadcn's default `shadow-lg` is not enough when there is no backdrop.
+**How to apply:** any always-open-over-content picker (agent-workspace Queue / Missed / My Shift panels) that uses modal={false}.
