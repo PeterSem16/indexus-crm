@@ -8361,7 +8361,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   app.post("/api/tasks", requireAuth, async (req, res) => {
     try {
-      const { title, description, priority, assignedUserId, customerId, country, dueDate, tags } = req.body;
+      const { title, description, priority, assignedUserId, customerId, relatedEntityType, relatedEntityId, country, dueDate, tags } = req.body;
       if (!title || !assignedUserId) {
         return res.status(400).json({ error: "Title and assignedUserId are required" });
       }
@@ -8373,6 +8373,8 @@ Return ONLY valid JSON, no markdown code blocks.`,
       };
       if (description) taskData.description = description;
       if (customerId) taskData.customerId = customerId;
+      if (relatedEntityType) taskData.relatedEntityType = relatedEntityType;
+      if (relatedEntityId) taskData.relatedEntityId = relatedEntityId;
       if (country) taskData.country = country;
       if (dueDate) taskData.dueDate = new Date(dueDate);
       if (Array.isArray(tags) && tags.length > 0) taskData.tags = tags;
