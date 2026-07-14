@@ -15559,7 +15559,17 @@ export default function AgentWorkspacePage() {
                           setReplySigDebug(dbg);
                           console.log("[reply-signature]", dbg);
                           if (campReplySig) {
-                            setEmailReplySignature(sanitizeSig(replaceTemplateVars(campReplySig)));
+                            let outSig = "";
+                            try {
+                              const tv = replaceTemplateVars(campReplySig);
+                              outSig = sanitizeSig(tv);
+                              setReplySigDebug(dbg + ` tvLen=${tv.length} outLen=${outSig.length}`);
+                            } catch (e) {
+                              // A template-var/sanitize failure must NEVER swallow the whole signature.
+                              try { outSig = sanitizeSig(campReplySig); } catch { outSig = campReplySig; }
+                              setReplySigDebug(dbg + ` XFORM-ERR=${String((e as any)?.message || e).slice(0, 90)} rawLen=${outSig.length}`);
+                            }
+                            setEmailReplySignature(outSig);
                             return;
                           }
                           // No campaign signature configured — always fall back to the agent's personal signature (cached separately so a prior campaign's signature never leaks across campaigns)
