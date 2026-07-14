@@ -281,7 +281,7 @@ interface ClinicFormSheetProps {
   onCreated?: (clinic: { id: string; name: string; doctorTitle?: string | null; doctorFirstName?: string | null; doctorLastName?: string | null; doctorName?: string | null }) => void | Promise<void>;
   sheetContentClassName?: string;
   readOnly?: boolean;
-  readOnlyExceptions?: { callButtons?: boolean; notes?: boolean; personnel?: boolean; referral?: boolean; contactType?: boolean };
+  readOnlyExceptions?: { callButtons?: boolean; notes?: boolean; personnel?: boolean; referral?: boolean; contactType?: boolean; contactInfo?: boolean };
 }
 
 function ClinicPersonnelTab({ clinicId, clinicName }: { clinicId: string; clinicName: string }) {
@@ -2082,7 +2082,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
           })}
         </div>
 
-        <fieldset disabled={readOnly && !((activeTab === "referral" && roEx.referral) || (activeTab === "personnel" && roEx.personnel) || (activeTab === "basic" && (roEx.contactType || roEx.notes)))} className="flex-1 overflow-y-auto p-5 min-w-0" style={{ minInlineSize: 0 }}>
+        <fieldset disabled={readOnly && !((activeTab === "referral" && roEx.referral) || (activeTab === "personnel" && roEx.personnel) || (activeTab === "basic" && (roEx.contactType || roEx.notes || roEx.contactInfo)))} className="flex-1 overflow-y-auto p-5 min-w-0" style={{ minInlineSize: 0 }}>
           {activeTab === "referral" && (
             <div className="space-y-4 pb-4">
               {false && <div className="space-y-3">
@@ -2371,9 +2371,11 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                   <Switch checked={formData.isActive} onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })} data-testid="switch-clinic-active" />
                 </div>
               </div>
+              </fieldset>
               <Separator />
               <div className="space-y-3">
                 <div className="flex items-center gap-2"><div className="flex items-center justify-center w-6 h-6 rounded-md bg-sky-100 dark:bg-sky-900"><Phone className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" /></div><h3 className="text-sm font-semibold tracking-wide">{t.clinics.sections?.contact || 'Kontakt'}</h3></div>
+                <fieldset disabled={readOnly && !roEx.contactInfo} className="space-y-3 min-w-0" style={{ minInlineSize: 0 }}>
                 <div className="grid gap-3 sm:grid-cols-2 pl-1">
                   <div className="space-y-3">
                     <div className="space-y-1"><Label className="text-xs">{t.clinics.phone}</Label>
@@ -2435,14 +2437,16 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                     </Button>
                   </div>
                 )}
+                </fieldset>
+                <fieldset disabled={readOnly} className="min-w-0" style={{ minInlineSize: 0 }}>
                 <div className="space-y-1 pl-1"><Label className="text-xs">{t.clinics.website}</Label>
                   <div className="flex gap-2">
                     <Input value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} placeholder="www.example.com" className="flex-1 h-9" data-testid="input-clinic-website" />
                     {formData.website && (<Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => window.open(getWebsiteUrl(formData.website), "_blank")} data-testid="button-open-website"><ExternalLink className="h-4 w-4" /></Button>)}
                   </div>
                 </div>
+                </fieldset>
               </div>
-              </fieldset>
               <fieldset disabled={readOnly && !roEx.notes} className="min-w-0" style={{ minInlineSize: 0 }}>
                 <div className="space-y-1 pl-1"><Label className="text-xs">{t.clinics.notes}</Label><Textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder={t.clinics.notes} rows={4} data-testid="input-clinic-notes" /></div>
               </fieldset>
@@ -2730,7 +2734,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
         </fieldset>
       </div>
 
-      {(!readOnly || roEx.referral || roEx.contactType || roEx.notes) && (
+      {(!readOnly || roEx.referral || roEx.contactType || roEx.notes || roEx.contactInfo) && (
       <div className="shrink-0 border-t bg-muted/30 px-5 py-3 flex items-center justify-end gap-2">
         {mode !== "inline" && (
           <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-clinic-drawer">{t.common.cancel}</Button>

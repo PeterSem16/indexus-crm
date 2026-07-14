@@ -2934,7 +2934,7 @@ function CommunicationCanvas({
   const cardsReadOnlyExceptions = useMemo(() => {
     try {
       const ex = JSON.parse(campaign?.settings || "{}").readOnlyExceptions;
-      return (ex && typeof ex === "object") ? ex as { callButtons?: boolean; notes?: boolean; personnel?: boolean; referral?: boolean; contactType?: boolean } : {};
+      return (ex && typeof ex === "object") ? ex as { callButtons?: boolean; notes?: boolean; personnel?: boolean; referral?: boolean; contactType?: boolean; contactInfo?: boolean } : {};
     } catch { return {}; }
   }, [campaign?.settings]);
 
@@ -4154,7 +4154,7 @@ function CommunicationCanvas({
                       initialData={contact}
                       readOnly={cardsReadOnly}
                       readOnlyExceptions={cardsReadOnlyExceptions}
-                      onSubmit={(data) => { if (!cardsReadOnly || cardsReadOnlyExceptions.notes) onUpdateContact?.(data); }}
+                      onSubmit={(data) => { if (!cardsReadOnly || cardsReadOnlyExceptions.notes || cardsReadOnlyExceptions.contactInfo) onUpdateContact?.(data); }}
                       isLoading={isUpdatingContact}
                       useCardLayout
                       onPhoneChange={(p) => onPhoneOverrideChange?.(p || null)}

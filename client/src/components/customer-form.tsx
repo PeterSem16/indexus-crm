@@ -271,7 +271,7 @@ interface CustomerFormProps {
   useCardLayout?: boolean;
   onPhoneChange?: (phone: string) => void;
   readOnly?: boolean;
-  readOnlyExceptions?: { notes?: boolean };
+  readOnlyExceptions?: { notes?: boolean; contactInfo?: boolean };
 }
 
 export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCardLayout = false, onPhoneChange, readOnly = false, readOnlyExceptions }: CustomerFormProps) {
@@ -483,7 +483,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
             })}
           </div>
 
-          <fieldset disabled={readOnly && !(activeSection === "notes" && roEx.notes)} className="flex-1 overflow-y-auto p-5 pb-3 min-w-0" style={{ minInlineSize: 0 }}>
+          <fieldset disabled={readOnly && !((activeSection === "notes" && roEx.notes) || (activeSection === "contact" && roEx.contactInfo))} className="flex-1 overflow-y-auto p-5 pb-3 min-w-0" style={{ minInlineSize: 0 }}>
             {activeSection === "status" && (
               <div>
                 <SectionHeader icon={CheckCircle2} title={t.customers?.formSections?.status || "Stav klienta"} />
@@ -701,7 +701,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                       )} />
                     )}
                     <FormField control={form.control} name="otherContact" render={({ field }) => (
-                      <FormItem><FormLabel>{t.customers.fields.otherContact}</FormLabel><FormControl><Input {...field} data-testid="input-other-contact" /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>{t.customers.fields.otherContact}</FormLabel><FormControl><Input {...field} data-testid="input-other-contact" disabled={readOnly || isReadonly("other_contact")} className={(readOnly || isReadonly("other_contact")) ? "bg-muted" : ""} /></FormControl><FormMessage /></FormItem>
                     )} />
                   </div>
                   <div className="grid grid-cols-2 gap-4 pt-3 border-t">
@@ -1165,7 +1165,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
           </fieldset>
         </div>
 
-        {(!readOnly || roEx.notes) && (
+        {(!readOnly || roEx.notes || roEx.contactInfo) && (
         <div className="shrink-0 border-t px-5 py-2 flex justify-end gap-3">
           {onCancel && (
             <Button type="button" variant="outline" onClick={onCancel} data-testid="button-cancel-customer">

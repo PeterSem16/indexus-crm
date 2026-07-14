@@ -2564,6 +2564,7 @@ export interface Translations {
       readOnlyExPersonnel: string;
       readOnlyExReferral: string;
       readOnlyExContactType: string;
+      readOnlyExContactInfo: string;
       workflowModeTitle: string;
       workflowModeDesc: string;
       workflowModeDisposition: string;
@@ -9959,6 +9960,7 @@ export const translations: Record<Locale, Translations> = {
         readOnlyExPersonnel: "Editing and adding personnel (clinic & hospital)",
         readOnlyExReferral: "Referral & Conference",
         readOnlyExContactType: "Contact type",
+        readOnlyExContactInfo: "Phone numbers & email (customer & clinic card)",
         workflowModeTitle: "Workflow mode",
         workflowModeDesc: "How agents record contact outcomes - via the classic Disposition or via the Status List (steps with automations).",
         workflowModeDisposition: "Disposition",
@@ -16852,6 +16854,7 @@ export const translations: Record<Locale, Translations> = {
         readOnlyExPersonnel: "Úprava a pridávanie personálu (klinika a nemocnica)",
         readOnlyExReferral: "Referral & Conference",
         readOnlyExContactType: "Typ kontaktu (Contact type)",
+        readOnlyExContactInfo: "Telefónne čísla a email (karta zákazníka a kliniky)",
         workflowModeTitle: "Režim workflow",
         workflowModeDesc: "Ako agenti zaznamenávajú výsledky kontaktov - cez klasickú Disposíciu alebo cez Status List (kroky s automatizáciami).",
         workflowModeDisposition: "Disposícia",
@@ -23683,6 +23686,7 @@ export const translations: Record<Locale, Translations> = {
         readOnlyExPersonnel: "Úprava a přidávání personálu (klinika a nemocnice)",
         readOnlyExReferral: "Referral & Conference",
         readOnlyExContactType: "Typ kontaktu (Contact type)",
+        readOnlyExContactInfo: "Telefonní čísla a email (karta zákazníka a kliniky)",
         workflowModeTitle: "Režim workflow",
         workflowModeDesc: "Jak agenti zaznamenávají výsledky kontaktů - přes klasickou Dispozici nebo přes Status List (kroky s automatizacemi).",
         workflowModeDisposition: "Dispozice",
@@ -30472,6 +30476,7 @@ export const translations: Record<Locale, Translations> = {
         readOnlyExPersonnel: "Személyzet szerkesztése és hozzáadása (klinika és kórház)",
         readOnlyExReferral: "Referral & Conference",
         readOnlyExContactType: "Kapcsolattípus (Contact type)",
+        readOnlyExContactInfo: "Telefonszámok és email (ügyfél- és klinikakártya)",
         workflowModeTitle: "Munkafolyamat mód",
         workflowModeDesc: "Hogyan rögzítik az operátorok a kapcsolatok eredményét - klasszikus Diszpozícióval vagy Status List-tel (lépések automatizálásokkal).",
         workflowModeDisposition: "Diszpozíció",
@@ -37146,6 +37151,7 @@ export const translations: Record<Locale, Translations> = {
         readOnlyExPersonnel: "Editarea și adăugarea personalului (clinică și spital)",
         readOnlyExReferral: "Referral & Conference",
         readOnlyExContactType: "Tip de contact (Contact type)",
+        readOnlyExContactInfo: "Numere de telefon și email (fișa clientului și clinicii)",
         workflowModeTitle: "Mod flux de lucru",
         workflowModeDesc: "Cum înregistrează agenții rezultatele contactelor - prin Dispoziția clasică sau prin Status List (pași cu automatizări).",
         workflowModeDisposition: "Dispoziție",
@@ -43822,6 +43828,7 @@ export const translations: Record<Locale, Translations> = {
         readOnlyExPersonnel: "Modifica e aggiunta del personale (clinica e ospedale)",
         readOnlyExReferral: "Referral & Conference",
         readOnlyExContactType: "Tipo di contatto (Contact type)",
+        readOnlyExContactInfo: "Numeri di telefono ed email (scheda cliente e clinica)",
         workflowModeTitle: "Modalità workflow",
         workflowModeDesc: "Come gli operatori registrano gli esiti dei contatti - tramite la Disposizione classica o tramite la Status List (passi con automazioni).",
         workflowModeDisposition: "Disposizione",
@@ -50498,6 +50505,7 @@ export const translations: Record<Locale, Translations> = {
         readOnlyExPersonnel: "Bearbeiten und Hinzufügen von Personal (Klinik & Krankenhaus)",
         readOnlyExReferral: "Referral & Conference",
         readOnlyExContactType: "Kontakttyp (Contact type)",
+        readOnlyExContactInfo: "Telefonnummern & E-Mail (Kunden- und Klinikkarte)",
         workflowModeTitle: "Workflow-Modus",
         workflowModeDesc: "Wie Agenten Kontaktergebnisse erfassen - über die klassische Disposition oder über die Status List (Schritte mit Automatisierungen).",
         workflowModeDisposition: "Disposition",
