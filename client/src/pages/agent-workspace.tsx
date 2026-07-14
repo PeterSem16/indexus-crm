@@ -522,6 +522,57 @@ interface TimelineEntry {
   sentiment?: string | null;
 }
 
+function decodeHtmlEntitiesFallback(input: string): string {
+  const named: Record<string, string> = {
+    amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
+    ndash: "–", mdash: "—", hellip: "…", laquo: "«", raquo: "»",
+    ldquo: "“", rdquo: "”", lsquo: "‘", rsquo: "’", eacute: "é", egrave: "è",
+  };
+  return input.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (m, ent: string) => {
+    if (ent[0] === "#") {
+      const code = ent[1] === "x" || ent[1] === "X"
+        ? parseInt(ent.slice(2), 16)
+        : parseInt(ent.slice(1), 10);
+      return Number.isNaN(code) ? m : String.fromCodePoint(code);
+    }
+    return named[ent] ?? m;
+  });
+}
+
+function decodeHtmlEntities(input: string): string {
+  if (!input) return "";
+  if (typeof document !== "undefined" && !/<\/?textarea/i.test(input)) {
+    try {
+      const el = document.createElement("textarea");
+      el.innerHTML = input;
+      return el.value;
+    } catch {
+      return decodeHtmlEntitiesFallback(input);
+    }
+  }
+  return decodeHtmlEntitiesFallback(input);
+}
+
+function htmlToPlainPreview(raw?: string | null): string {
+  if (!raw) return "";
+  let s = String(raw);
+  s = s.replace(/<\s*br\s*\/?>/gi, "\n")
+       .replace(/<\/\s*(p|div|tr|li|h[1-6]|blockquote)\s*>/gi, "\n")
+       .replace(/<[^>]+>/g, " ");
+  s = decodeHtmlEntities(s);
+  s = s.replace(/[ \t\f\v]+/g, " ")
+       .replace(/ *\n */g, "\n")
+       .replace(/\n{3,}/g, "\n\n")
+       .trim();
+  return s;
+}
+
+function localizeHistoryStatus(t: any, code?: string | null, fallback?: string | null): string {
+  const labels = t?.agentWorkspace?.historyStatusLabels;
+  if (code && labels && labels[code]) return labels[code];
+  return fallback || code || "";
+}
+
 const DIAL_CODE_MAP: Record<string, string> = {
   SK: "+421", CZ: "+420", HU: "+36", RO: "+40", IT: "+39", DE: "+49",
 };
@@ -7417,9 +7468,9 @@ function CustomerInfoPanel({
                 <div className={`${isModal ? "p-4 space-y-2" : "p-2 space-y-2"}`}>
                   {filteredHistory.map((item) => {
                     const isClickable = item.type === "email" || item.type === "sms";
-                    const plainDetails = item.details?.replace(/<[^>]*>/g, '') || "";
+                    const plainDetails = htmlToPlainPreview(item.details);
                     const isCall = item.type === "call";
-                    const contentText = item.content || item.notes || "";
+                    const contentText = decodeHtmlEntities(item.content || item.notes || "");
 
                     const itemAc = item.type === "call" ? "#B5622E" : item.type === "email" ? "#5B4FCF" : item.type === "sms" ? "#2E75B6" : "#7A6858";
                     return (
@@ -7495,7 +7546,7 @@ function CustomerInfoPanel({
                                 <span
                                   className={`inline-flex items-center ${isModal ? "text-[10px] h-5 px-2" : "text-[9px] h-4 px-1.5"} rounded-full font-medium`}
                                   style={{ background: `${itemAc}15`, color: itemAc, border: `1px solid ${itemAc}25` }}
-                                >{item.status}</span>
+                                >{localizeHistoryStatus(t, item.statusCode, item.status)}</span>
                               )}
                               {(item.type === "email" || item.type === "sms") && item.sentiment && (
                                 <SentimentBadge sentiment={item.sentiment} size={isModal ? "md" : "sm"} />
@@ -15416,7 +15467,7 @@ export default function AgentWorkspacePage() {
                           {isEmail ? (subject || "Email") : t.agentWorkspace.historySmsTitle}
                         </h3>
                         {status && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">{status}</Badge>
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">{localizeHistoryStatus(t, (entry as any).statusCode, status)}</Badge>
                         )}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap mt-0.5">
@@ -15488,10 +15539,10 @@ export default function AgentWorkspacePage() {
                           }
                         }}
                         srcDoc={(() => {
-                          const isHtmlContent = /<[a-z][\s\S]*?>/i.test(htmlBody);
+                          const isHtmlContent = /<(p|div|br|table|tr|td|span|a|img|ul|ol|li|h[1-6]|strong|em|b|i|blockquote)\b[^>]*>/i.test(htmlBody);
                           const safeBody = isHtmlContent
                             ? htmlBody.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/on\w+\s*=/gi, 'data-blocked=')
-                            : htmlBody.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>').replace(/  /g, '&nbsp; ');
+                            : decodeHtmlEntities(htmlBody).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>').replace(/  /g, '&nbsp; ');
                           return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;line-height:1.6;color:#333;margin:16px;word-wrap:break-word}img{max-width:100%;height:auto}a{color:#1a73e8;text-decoration:none}table{border-collapse:collapse;max-width:100%}td,th{padding:4px 8px}pre{white-space:pre-wrap;word-wrap:break-word}@media(prefers-color-scheme:dark){body{color:#e0e0e0;background:#0a0a0a}a{color:#8ab4f8}}</style></head><body>${safeBody}</body></html>`;
                         })()}
                         className="w-full border-0 rounded-md bg-white dark:bg-gray-950"
