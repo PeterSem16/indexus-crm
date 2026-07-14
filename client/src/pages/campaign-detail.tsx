@@ -1986,6 +1986,7 @@ function DefaultTemplatesCard({ campaign }: { campaign: Campaign }) {
   const [defaultEmailTemplateId, setDefaultEmailTemplateId] = useState<string>("");
   const [defaultSmsCategoryId, setDefaultSmsCategoryId] = useState<string>("");
   const [defaultSmsTemplateId, setDefaultSmsTemplateId] = useState<string>("");
+  const [replyEmailSignatureHtml, setReplyEmailSignatureHtml] = useState<string>("");
 
   const { data: templateCategories = [] } = useQuery<{ id: string; name: string; isActive: boolean }[]>({
     queryKey: ["/api/template-categories"],
@@ -2014,9 +2015,11 @@ function DefaultTemplatesCard({ campaign }: { campaign: Campaign }) {
       setDefaultEmailTemplateId(s.defaultEmailTemplateId || "");
       setDefaultSmsCategoryId(s.defaultSmsCategoryId || "");
       setDefaultSmsTemplateId(s.defaultSmsTemplateId || "");
+      setReplyEmailSignatureHtml(s.replyEmailSignatureHtml || "");
     } catch {
       setDefaultEmailCategoryId("");
       setDefaultEmailTemplateId("");
+      setReplyEmailSignatureHtml("");
       setDefaultSmsCategoryId("");
       setDefaultSmsTemplateId("");
     }
@@ -2043,6 +2046,7 @@ function DefaultTemplatesCard({ campaign }: { campaign: Campaign }) {
         defaultEmailTemplateId: defaultEmailTemplateId || null,
         defaultSmsCategoryId: defaultSmsCategoryId || null,
         defaultSmsTemplateId: defaultSmsTemplateId || null,
+        replyEmailSignatureHtml: replyEmailSignatureHtml.trim() || null,
       };
       return apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { settings: JSON.stringify(merged) });
     },
@@ -2161,6 +2165,21 @@ function DefaultTemplatesCard({ campaign }: { campaign: Campaign }) {
             </div>
           </div>
         </div>
+        </div>
+        <div className="mt-6 space-y-2">
+          <Label className="text-sm font-medium flex items-center gap-2">
+            <Mail className="h-4 w-4 text-blue-500" />
+            {t.campaigns.detail.replyEmailSignatureTitle}
+          </Label>
+          <p className="text-xs text-muted-foreground">{t.campaigns.detail.replyEmailSignatureHint}</p>
+          <Textarea
+            value={replyEmailSignatureHtml}
+            onChange={(e) => { setReplyEmailSignatureHtml(e.target.value); setHasChanges(true); }}
+            placeholder={"<table>...{{user.fullName}}...{{user.position}}...{{user.phone}}...{{user.email}}...</table>"}
+            rows={8}
+            className="font-mono text-xs"
+            data-testid="input-reply-email-signature"
+          />
         </div>
       </CardContent>
     </Card>

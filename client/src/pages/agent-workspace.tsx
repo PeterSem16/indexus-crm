@@ -9310,6 +9310,7 @@ export default function AgentWorkspacePage() {
   const [emailReplyOpen, setEmailReplyOpen] = useState(false);
   const [emailReplyText, setEmailReplyText] = useState("");
   const [emailReplySignature, setEmailReplySignature] = useState<string | null>(null);
+  const [personalReplySignature, setPersonalReplySignature] = useState<string | null>(null);
   const [isSendingReply, setIsSendingReply] = useState(false);
   const [autoCountdown, setAutoCountdown] = useState<number | null>(null);
   const autoTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -15523,12 +15524,37 @@ export default function AgentWorkspacePage() {
                         onClick={async () => {
                           if (emailReplyOpen) { setEmailReplyOpen(false); return; }
                           setEmailReplyOpen(true);
-                          if (emailReplySignature === null) {
-                            try {
-                              const res = await fetch(`/api/users/${user?.id}/email-signatures/personal`, { credentials: "include" });
-                              if (res.ok) { const sig = await res.json(); setEmailReplySignature(sig?.htmlContent || ""); }
-                              else setEmailReplySignature("");
-                            } catch { setEmailReplySignature(""); }
+                          // Strip active content from campaign-manager-authored HTML (prevents stored XSS across agents)
+                          const sanitizeSig = (html: string): string => html
+                            .replace(/<script[\s\S]*?<\/script>/gi, '')
+                            .replace(/<(iframe|object|embed|link|meta)[\s\S]*?>/gi, '')
+                            .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
+                            .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
+                            .replace(/\son\w+\s*=\s*[^\s>]+/gi, '')
+                            .replace(/(href|src)\s*=\s*("|')\s*javascript:[^"']*\2/gi, '$1=$2#$2');
+                          // Per-campaign HTML reply signature (with template variables) takes precedence over the agent's personal signature
+                          let campReplySig = "";
+                          try {
+                            const cs = selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {};
+                            campReplySig = (cs.replyEmailSignatureHtml || "").trim();
+                          } catch { campReplySig = ""; }
+                          if (campReplySig) {
+                            setEmailReplySignature(sanitizeSig(replaceTemplateVars(campReplySig)));
+                            return;
+                          }
+                          // No campaign signature configured — always fall back to the agent's personal signature (cached separately so a prior campaign's signature never leaks across campaigns)
+                          if (personalReplySignature !== null) {
+                            setEmailReplySignature(personalReplySignature);
+                            return;
+                          }
+                          try {
+                            const res = await fetch(`/api/users/${user?.id}/email-signatures/personal`, { credentials: "include" });
+                            const html = res.ok ? (((await res.json())?.htmlContent) || "") : "";
+                            setPersonalReplySignature(html);
+                            setEmailReplySignature(html);
+                          } catch {
+                            setPersonalReplySignature("");
+                            setEmailReplySignature("");
                           }
                         }}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border border-indigo-300 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-700 dark:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors shrink-0"
