@@ -25338,6 +25338,61 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
+  // Resolve the per-campaign HTML reply signature for a contact.
+  // Emails are NOT campaign-linked (communication_messages has no campaignId), so the
+  // reply UI cannot know the campaign from the email row. This endpoint finds the signature
+  // from ANY campaign the contact belongs to (preferring the hinted campaignId), so the
+  // signature appears regardless of which campaign happens to be "selected" in the workspace.
+  app.get("/api/reply-signature", requireAuth, async (req, res) => {
+    try {
+      const contactId = (req.query.contactId as string) || "";
+      const hintCampaignId = (req.query.campaignId as string) || "";
+      const readSig = (settingsStr: string | null | undefined): string => {
+        if (!settingsStr) return "";
+        try {
+          const s = JSON.parse(settingsStr);
+          return typeof s?.replyEmailSignatureHtml === "string" ? s.replyEmailSignatureHtml.trim() : "";
+        } catch { return ""; }
+      };
+
+      // 1) Prefer the hinted campaign (the one the agent is actively working).
+      if (hintCampaignId) {
+        const [camp] = await db.select({ settings: campaigns.settings })
+          .from(campaigns).where(eq(campaigns.id, hintCampaignId)).limit(1);
+        const sig = readSig(camp?.settings);
+        if (sig) return res.json({ signature: sig, campaignId: hintCampaignId });
+      }
+
+      // 2) Otherwise, find every campaign this contact belongs to and return the first with a signature.
+      if (contactId) {
+        const ccRows = await db.select({ campaignId: campaignContacts.campaignId })
+          .from(campaignContacts)
+          .where(or(
+            eq(campaignContacts.customerId, contactId),
+            eq(campaignContacts.hospitalId, contactId),
+            eq(campaignContacts.clinicId, contactId),
+            eq(campaignContacts.collaboratorId, contactId),
+          ));
+        const campaignIds = [...new Set(ccRows.map(r => r.campaignId).filter(Boolean) as string[])]
+          .filter(id => id !== hintCampaignId);
+        if (campaignIds.length > 0) {
+          const camps = await db.select({ id: campaigns.id, settings: campaigns.settings })
+            .from(campaigns).where(inArray(campaigns.id, campaignIds))
+            .orderBy(desc(campaigns.updatedAt));
+          for (const c of camps) {
+            const sig = readSig(c.settings);
+            if (sig) return res.json({ signature: sig, campaignId: c.id });
+          }
+        }
+      }
+
+      res.json({ signature: null, campaignId: null });
+    } catch (error) {
+      console.error("Failed to resolve reply signature:", error);
+      res.status(500).json({ error: "Failed to resolve reply signature" });
+    }
+  });
+
   app.get("/api/campaigns/:id/export", requireAuth, async (req, res) => {
     try {
       const campaign = await storage.getCampaign(req.params.id);

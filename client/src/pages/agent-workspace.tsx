@@ -15533,17 +15533,23 @@ export default function AgentWorkspacePage() {
                           // Resolve the campaign from the email being replied to, falling back to the currently-selected campaign,
                           // and fetch its settings FRESH (the cached campaigns list uses staleTime:Infinity and can miss a just-saved signature).
                           const replyCampaignId = (entry as any).campaignId || selectedCampaignId || null;
+                          // Emails aren't campaign-linked, so resolve the signature server-side from ANY campaign
+                          // this contact belongs to (preferring the campaign the agent is working). This makes the
+                          // signature appear even when the "selected" campaign isn't the one it was configured on.
                           let campReplySig = "";
-                          if (replyCampaignId) {
-                            try {
-                              const cr = await fetch(`/api/campaigns/${replyCampaignId}`, { credentials: "include" });
+                          try {
+                            const params = new URLSearchParams();
+                            if (replyCampaignId) params.set("campaignId", String(replyCampaignId));
+                            const cid = currentContact?.id;
+                            if (cid) params.set("contactId", String(cid));
+                            if (params.toString()) {
+                              const cr = await fetch(`/api/reply-signature?${params.toString()}`, { credentials: "include" });
                               if (cr.ok) {
-                                const camp = await cr.json();
-                                const cs = camp?.settings ? JSON.parse(camp.settings) : {};
-                                campReplySig = (cs.replyEmailSignatureHtml || "").trim();
+                                const data = await cr.json();
+                                campReplySig = (data?.signature || "").trim();
                               }
-                            } catch { campReplySig = ""; }
-                          }
+                            }
+                          } catch { campReplySig = ""; }
                           if (campReplySig) {
                             setEmailReplySignature(sanitizeSig(replaceTemplateVars(campReplySig)));
                             return;
