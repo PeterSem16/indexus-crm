@@ -468,7 +468,7 @@ function JmhzForm({ token, collaboratorName, collaboratorInfo }: {
                                   : <><Eye className="h-3.5 w-3.5 mr-1.5" />{JMHZ.maidenShow}</>}
                               </Button>
                               {maidenRevealed && (
-                                <Button type="button" size="sm" onClick={confirmMaiden} data-testid="button-maiden-confirm">
+                                <Button type="button" size="sm" onClick={confirmMaiden} className="bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="button-maiden-confirm">
                                   <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />{JMHZ.maidenConfirm}
                                 </Button>
                               )}
