@@ -227,6 +227,8 @@ app.use((req, res, next) => {
       CREATE INDEX IF NOT EXISTS idx_cureq_status ON collaborator_update_requests(status);
       ALTER TABLE collaborator_update_campaigns
         ADD COLUMN IF NOT EXISTS language text NOT NULL DEFAULT 'auto';
+      ALTER TABLE collaborator_update_campaigns
+        ADD COLUMN IF NOT EXISTS form_type text NOT NULL DEFAULT 'update';
     `);
     console.log('[migration] collaborator_update tables ensured');
 

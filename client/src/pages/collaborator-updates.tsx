@@ -14,7 +14,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Plus, Send, Bell, ArrowLeft, Check, X, Users, Mail } from "lucide-react";
+import { Loader2, Plus, Send, Bell, ArrowLeft, Check, X, Users, Mail, Trash2, Filter } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 
 const COUNTRY_OPTIONS = ["SK", "CZ", "HU", "RO", "IT", "DE", "AT", "CH", "US"];
@@ -87,6 +91,32 @@ const SAMPLE_TEMPLATES: Record<string, { subject: string; body: string }> = {
   },
 };
 
+// JMHZ email template (Czech only — CZ zákon č. 323/2025 Sb.), per document
+// "01_Email_dohodari_JMHZ". Placeholders [DOPLNIT ...] are left for the admin to fill in.
+const JMHZ_EMAIL_TEMPLATE: { subject: string; body: string } = {
+  subject: "Nová zákonná povinnost — jednotné měsíční hlášení zaměstnavatele (JMHZ) — potřebujeme doplnit Vaše údaje",
+  body: `<p>Vážená paní doktorko / Vážený pane doktore,</p>
+<p>od 1. ledna 2026 je účinný zákon č. 323/2025 Sb., kterým se zavádí jednotné měsíční hlášení zaměstnavatele (JMHZ) vůči České správě sociálního zabezpečení; řádné měsíční hlášení se podává od dubna 2026 (do 20. dne následujícího měsíce). Povinnost se vztahuje na všechny zaměstnavatele bez výjimky a dopadá i na spolupracovníky na dohodu o provedení práce / o pracovní činnosti — tedy i na Vás jako našeho smluvního partnera.</p>
+<p>Abychom mohli hlášení řádně a včas podávat, potřebujeme od Vás doplnit následující údaje, které v naší evidenci doposud chybí:</p>
+<ul>
+<li>nejvyšší dosažené vzdělání,</li>
+<li>místo a stát (země) narození,</li>
+<li>rodné příjmení (pokud se liší od současného),</li>
+<li>vykonávaná profese / pozice,</li>
+<li>vzdělání vyžadované pro výkon této profese,</li>
+<li>místo výkonu práce / činnosti,</li>
+<li>informace, zda se jedná o tzv. vedoucího zaměstnance (ano/ne).</li>
+</ul>
+<p>Z důvodu ochrany osobních údajů Vás prosíme o vyplnění výhradně přes zabezpečený šifrovaný webový formulář, nikoli odpovědí na tento e-mail:</p>
+<p><a href="{{link}}">{{link}}</a></p>
+<p>Údaje, prosíme, vyplňte nejpozději do [DOPLNIT TERMÍN]. Bez těchto údajů nejsme schopni splnit zákonnou ohlašovací povinnost za Vaši osobu, což může vystavit obě strany riziku sankce ze strany ČSSZ.</p>
+<p>Vámi poskytnuté údaje budou použity výhradně pro účely tohoto zákonného hlášení a budou zpracovány v souladu s GDPR (viz informace o zpracování osobních údajů v rámci formuláře).</p>
+<p>V případě dotazů se obraťte na [JMÉNO / KONTAKT — DOPLNIT].</p>
+<p>Děkujeme za spolupráci a omlouváme se za případné komplikace způsobené touto novou legislativní povinností.</p>
+<p>S pozdravem,</p>
+<p>[JMÉNO, POZICE — DOPLNIT]<br/>Cord Blood Center</p>`,
+};
+
 const L: Record<string, Record<string, string>> = {
   en: {
     pageTitle: "Collaborator Data Updates", pageDesc: "Email campaigns asking collaborators to update their personal data via a secure link.",
@@ -107,6 +137,12 @@ const L: Record<string, Record<string, string>> = {
     emailsSending: "Emails are being sent in the background", noCampaigns: "No campaigns yet. Create one to get started.",
     noApprovals: "No submissions waiting for review.", createdFmt: "Created", campaignCreated: "Campaign created", errorTitle: "Error",
     draft: "Draft", statSending: "Sending", statSent: "Sent",
+    formTypeL: "Form type", formTypeUpdate: "Personal data update", formTypeJmhz: "JMHZ (CZ act 323/2025 Coll.)",
+    insertJmhzSample: "Insert JMHZ template (CZ)",
+    deleteCampaign: "Delete campaign", deleteConfirmT: "Delete this campaign?", deleteConfirmD: "The campaign and all its links will be permanently deleted. Links already sent will stop working.",
+    deleted: "Campaign deleted", cancel: "Cancel", confirmDelete: "Delete",
+    editFilter: "Edit filter", editFilterD: "Available only for drafts before sending. The recipient list will be regenerated from the new filter.",
+    filterSaved: "Filter saved, recipients regenerated", save: "Save",
   },
   sk: {
     pageTitle: "Aktualizácie údajov spolupracovníkov", pageDesc: "E-mailové kampane so žiadosťou o aktualizáciu osobných údajov cez bezpečný odkaz.",
@@ -127,6 +163,12 @@ const L: Record<string, Record<string, string>> = {
     emailsSending: "E-maily sa odosielajú na pozadí", noCampaigns: "Zatiaľ žiadne kampane. Vytvor prvú.",
     noApprovals: "Žiadne vyplnenia nečakajú na kontrolu.", createdFmt: "Vytvorené", campaignCreated: "Kampaň vytvorená", errorTitle: "Chyba",
     draft: "Koncept", statSending: "Odosiela sa", statSent: "Odoslaná",
+    formTypeL: "Typ formulára", formTypeUpdate: "Aktualizácia osobných údajov", formTypeJmhz: "JMHZ (CZ zákon 323/2025 Sb.)",
+    insertJmhzSample: "Vložiť JMHZ šablónu (CZ)",
+    deleteCampaign: "Vymazať kampaň", deleteConfirmT: "Vymazať túto kampaň?", deleteConfirmD: "Kampaň a všetky jej odkazy budú natrvalo vymazané. Už odoslané odkazy prestanú fungovať.",
+    deleted: "Kampaň vymazaná", cancel: "Zrušiť", confirmDelete: "Vymazať",
+    editFilter: "Upraviť filter", editFilterD: "Dostupné len pre koncepty pred odoslaním. Zoznam príjemcov sa znovu vytvorí podľa nového filtra.",
+    filterSaved: "Filter uložený, príjemcovia znovu vytvorení", save: "Uložiť",
   },
   cs: {
     pageTitle: "Aktualizace údajů spolupracovníků", pageDesc: "E-mailové kampaně se žádostí o aktualizaci osobních údajů přes bezpečný odkaz.",
@@ -147,6 +189,12 @@ const L: Record<string, Record<string, string>> = {
     emailsSending: "E-maily se odesílají na pozadí", noCampaigns: "Zatím žádné kampaně. Vytvořte první.",
     noApprovals: "Žádná vyplnění nečekají na kontrolu.", createdFmt: "Vytvořeno", campaignCreated: "Kampaň vytvořena", errorTitle: "Chyba",
     draft: "Koncept", statSending: "Odesílá se", statSent: "Odeslána",
+    formTypeL: "Typ formuláře", formTypeUpdate: "Aktualizace osobních údajů", formTypeJmhz: "JMHZ (zákon č. 323/2025 Sb.)",
+    insertJmhzSample: "Vložit JMHZ šablonu (CZ)",
+    deleteCampaign: "Smazat kampaň", deleteConfirmT: "Smazat tuto kampaň?", deleteConfirmD: "Kampaň a všechny její odkazy budou trvale smazány. Již odeslané odkazy přestanou fungovat.",
+    deleted: "Kampaň smazána", cancel: "Zrušit", confirmDelete: "Smazat",
+    editFilter: "Upravit filtr", editFilterD: "Dostupné pouze pro koncepty před odesláním. Seznam příjemců se znovu vytvoří podle nového filtru.",
+    filterSaved: "Filtr uložen, příjemci znovu vytvořeni", save: "Uložit",
   },
   hu: {
     pageTitle: "Partneradatok frissítése", pageDesc: "E-mail kampányok, amelyekben biztonságos linken keresztül kérjük a partnerek adatainak frissítését.",
@@ -167,6 +215,12 @@ const L: Record<string, Record<string, string>> = {
     emailsSending: "Az e-mailek küldése a háttérben folyik", noCampaigns: "Még nincs kampány. Hozza létre az elsőt.",
     noApprovals: "Nincs ellenőrzésre váró beküldés.", createdFmt: "Létrehozva", campaignCreated: "Kampány létrehozva", errorTitle: "Hiba",
     draft: "Piszkozat", statSending: "Küldés folyamatban", statSent: "Elküldve",
+    formTypeL: "Űrlap típusa", formTypeUpdate: "Személyes adatok frissítése", formTypeJmhz: "JMHZ (CZ 323/2025. sz. törvény)",
+    insertJmhzSample: "JMHZ sablon beszúrása (CZ)",
+    deleteCampaign: "Kampány törlése", deleteConfirmT: "Törli ezt a kampányt?", deleteConfirmD: "A kampány és minden linkje véglegesen törlődik. A már kiküldött linkek nem fognak működni.",
+    deleted: "Kampány törölve", cancel: "Mégse", confirmDelete: "Törlés",
+    editFilter: "Szűrő szerkesztése", editFilterD: "Csak piszkozatoknál érhető el a küldés előtt. A címzettlista az új szűrő alapján újra létrejön.",
+    filterSaved: "Szűrő mentve, címzettek újragenerálva", save: "Mentés",
   },
   ro: {
     pageTitle: "Actualizarea datelor colaboratorilor", pageDesc: "Campanii de e-mail prin care colaboratorii își actualizează datele printr-un link securizat.",
@@ -187,6 +241,12 @@ const L: Record<string, Record<string, string>> = {
     emailsSending: "E-mailurile se trimit în fundal", noCampaigns: "Nicio campanie încă. Creați prima.",
     noApprovals: "Nicio completare în așteptarea verificării.", createdFmt: "Creat", campaignCreated: "Campanie creată", errorTitle: "Eroare",
     draft: "Ciornă", statSending: "Se trimite", statSent: "Trimisă",
+    formTypeL: "Tip formular", formTypeUpdate: "Actualizarea datelor personale", formTypeJmhz: "JMHZ (legea CZ 323/2025)",
+    insertJmhzSample: "Inserează șablonul JMHZ (CZ)",
+    deleteCampaign: "Șterge campania", deleteConfirmT: "Ștergeți această campanie?", deleteConfirmD: "Campania și toate linkurile ei vor fi șterse definitiv. Linkurile deja trimise nu vor mai funcționa.",
+    deleted: "Campanie ștearsă", cancel: "Anulează", confirmDelete: "Șterge",
+    editFilter: "Editează filtrul", editFilterD: "Disponibil doar pentru ciorne, înainte de trimitere. Lista destinatarilor va fi regenerată după noul filtru.",
+    filterSaved: "Filtru salvat, destinatarii regenerați", save: "Salvează",
   },
   it: {
     pageTitle: "Aggiornamento dati collaboratori", pageDesc: "Campagne e-mail per chiedere ai collaboratori di aggiornare i propri dati tramite link sicuro.",
@@ -207,6 +267,12 @@ const L: Record<string, Record<string, string>> = {
     emailsSending: "Le e-mail vengono inviate in background", noCampaigns: "Nessuna campagna. Creane una.",
     noApprovals: "Nessuna compilazione in attesa di verifica.", createdFmt: "Creato", campaignCreated: "Campagna creata", errorTitle: "Errore",
     draft: "Bozza", statSending: "Invio in corso", statSent: "Inviata",
+    formTypeL: "Tipo di modulo", formTypeUpdate: "Aggiornamento dei dati personali", formTypeJmhz: "JMHZ (legge CZ 323/2025)",
+    insertJmhzSample: "Inserisci modello JMHZ (CZ)",
+    deleteCampaign: "Elimina campagna", deleteConfirmT: "Eliminare questa campagna?", deleteConfirmD: "La campagna e tutti i suoi link verranno eliminati definitivamente. I link già inviati smetteranno di funzionare.",
+    deleted: "Campagna eliminata", cancel: "Annulla", confirmDelete: "Elimina",
+    editFilter: "Modifica filtro", editFilterD: "Disponibile solo per le bozze prima dell'invio. L'elenco dei destinatari verrà rigenerato con il nuovo filtro.",
+    filterSaved: "Filtro salvato, destinatari rigenerati", save: "Salva",
   },
   de: {
     pageTitle: "Aktualisierung der Partnerdaten", pageDesc: "E-Mail-Kampagnen, mit denen Partner über einen sicheren Link ihre Daten aktualisieren.",
@@ -227,6 +293,12 @@ const L: Record<string, Record<string, string>> = {
     emailsSending: "E-Mails werden im Hintergrund gesendet", noCampaigns: "Noch keine Kampagnen. Erstellen Sie die erste.",
     noApprovals: "Keine Einreichungen zur Prüfung.", createdFmt: "Erstellt", campaignCreated: "Kampagne erstellt", errorTitle: "Fehler",
     draft: "Entwurf", statSending: "Wird gesendet", statSent: "Gesendet",
+    formTypeL: "Formulartyp", formTypeUpdate: "Aktualisierung der persönlichen Daten", formTypeJmhz: "JMHZ (CZ Gesetz 323/2025 Slg.)",
+    insertJmhzSample: "JMHZ-Vorlage einfügen (CZ)",
+    deleteCampaign: "Kampagne löschen", deleteConfirmT: "Diese Kampagne löschen?", deleteConfirmD: "Die Kampagne und alle ihre Links werden dauerhaft gelöscht. Bereits versendete Links funktionieren dann nicht mehr.",
+    deleted: "Kampagne gelöscht", cancel: "Abbrechen", confirmDelete: "Löschen",
+    editFilter: "Filter bearbeiten", editFilterD: "Nur für Entwürfe vor dem Versand verfügbar. Die Empfängerliste wird nach dem neuen Filter neu erstellt.",
+    filterSaved: "Filter gespeichert, Empfänger neu erstellt", save: "Speichern",
   },
 };
 
@@ -348,6 +420,7 @@ function CreateCampaignDialog({ open, onOpenChange, l, toast }: any) {
   const [emailBody, setEmailBody] = useState("");
   const [tokenValidDays, setTokenValidDays] = useState(30);
   const [language, setLanguage] = useState("auto");
+  const [formType, setFormType] = useState("update");
   const [countries, setCountries] = useState<string[]>([]);
   const [collabType, setCollabType] = useState("");
   const [agreementType, setAgreementType] = useState("");
@@ -371,7 +444,9 @@ function CreateCampaignDialog({ open, onOpenChange, l, toast }: any) {
   });
 
   const insertSample = () => {
-    const tpl = SAMPLE_TEMPLATES[language !== "auto" ? language : "sk"] || SAMPLE_TEMPLATES.sk;
+    const tpl = formType === "jmhz"
+      ? JMHZ_EMAIL_TEMPLATE
+      : SAMPLE_TEMPLATES[language !== "auto" ? language : "sk"] || SAMPLE_TEMPLATES.sk;
     setEmailSubject(tpl.subject);
     setEmailBody(tpl.body);
   };
@@ -402,7 +477,7 @@ function CreateCampaignDialog({ open, onOpenChange, l, toast }: any) {
   const createMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/collaborator-update-campaigns", {
-        name, senderCountryCode, emailSubject, emailBody, language, tokenValidDays, filterCriteria,
+        name, senderCountryCode, emailSubject, emailBody, language, formType, tokenValidDays, filterCriteria,
       });
       return res.json();
     },
@@ -449,23 +524,35 @@ function CreateCampaignDialog({ open, onOpenChange, l, toast }: any) {
                 onChange={e => setTokenValidDays(parseInt(e.target.value) || 30)} data-testid="input-valid-days" />
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label>{l.language}</Label>
-            <Select value={language} onValueChange={setLanguage}>
-              <SelectTrigger data-testid="select-language"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="auto">{l.langAuto}</SelectItem>
-                {FORM_LANGS.map(lang => (
-                  <SelectItem key={lang} value={lang}>{lang.toUpperCase()}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>{l.language}</Label>
+              <Select value={language} onValueChange={setLanguage}>
+                <SelectTrigger data-testid="select-language"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">{l.langAuto}</SelectItem>
+                  {FORM_LANGS.map(lang => (
+                    <SelectItem key={lang} value={lang}>{lang.toUpperCase()}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>{l.formTypeL}</Label>
+              <Select value={formType} onValueChange={setFormType}>
+                <SelectTrigger data-testid="select-form-type"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="update">{l.formTypeUpdate}</SelectItem>
+                  <SelectItem value="jmhz">{l.formTypeJmhz}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-2">
               <Label>{l.subject}</Label>
               <Button type="button" variant="outline" size="sm" onClick={insertSample} data-testid="button-insert-sample">
-                <Mail className="h-4 w-4 mr-2" />{l.insertSample}
+                <Mail className="h-4 w-4 mr-2" />{formType === "jmhz" ? l.insertJmhzSample : l.insertSample}
               </Button>
             </div>
             <Input value={emailSubject} onChange={e => setEmailSubject(e.target.value)} data-testid="input-subject" />
@@ -591,8 +678,138 @@ function TestSendDialog({ campaignId, l, toast, open, onOpenChange }: any) {
   );
 }
 
+function EditFilterDialog({ campaign, l, toast, open, onOpenChange }: any) {
+  const fc = campaign.filterCriteria || {};
+  const [countries, setCountries] = useState<string[]>(fc.countryCodes || []);
+  const [collabType, setCollabType] = useState(fc.collaboratorType || "");
+  const [agreementType, setAgreementType] = useState(fc.agreementType || "");
+  const [partnerCategory, setPartnerCategory] = useState(fc.partnerCategory || "");
+  const [rewardType, setRewardType] = useState(fc.rewardType || "");
+  const [isManager, setIsManager] = useState(fc.isManager === undefined || fc.isManager === null ? "" : fc.isManager ? "yes" : "no");
+  const [monthRewards, setMonthRewards] = useState(fc.monthRewards === undefined || fc.monthRewards === null ? "" : fc.monthRewards ? "yes" : "no");
+  const [agreementActiveOn, setAgreementActiveOn] = useState(fc.agreementActiveOn || "");
+  const [onlyActive, setOnlyActive] = useState(fc.isActive === true);
+  const [dataSource, setDataSource] = useState(fc.dataSource || "");
+  const [legacyIds, setLegacyIds] = useState(fc.legacyIds || "");
+  const [preview, setPreview] = useState<{ count: number } | null>(null);
+
+  const { data: filterOptions } = useQuery<any>({
+    queryKey: ["/api/collaborator-update-campaigns/filter-options"],
+    enabled: open,
+  });
+
+  const filterCriteria = useMemo(() => ({
+    countryCodes: countries.length > 0 ? countries : undefined,
+    collaboratorType: collabType || undefined,
+    agreementType: agreementType || undefined,
+    partnerCategory: partnerCategory || undefined,
+    rewardType: rewardType || undefined,
+    isManager: isManager === "" ? undefined : isManager === "yes",
+    monthRewards: monthRewards === "" ? undefined : monthRewards === "yes",
+    isActive: onlyActive ? true : undefined,
+    dataSource: dataSource || undefined,
+    legacyIds: legacyIds || undefined,
+    agreementActiveOn: agreementActiveOn || undefined,
+  }), [countries, collabType, agreementType, partnerCategory, rewardType, isManager, monthRewards, onlyActive, dataSource, legacyIds, agreementActiveOn]);
+
+  const previewMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/collaborator-update-campaigns/preview", { filterCriteria });
+      return res.json();
+    },
+    onSuccess: (data) => setPreview(data),
+    onError: (e: any) => toast({ title: l.errorTitle, description: e?.message, variant: "destructive" }),
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("PATCH", `/api/collaborator-update-campaigns/${campaign.id}/filter`, { filterCriteria });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborator-update-campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborator-update-campaigns", campaign.id, "requests"] });
+      toast({ title: l.filterSaved });
+      onOpenChange(false);
+    },
+    onError: (e: any) => toast({ title: l.errorTitle, description: e?.message, variant: "destructive" }),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{l.editFilter}</DialogTitle>
+          <DialogDescription>{l.editFilterD}</DialogDescription>
+        </DialogHeader>
+        <div className="border rounded-md p-4 space-y-3">
+          <div className="space-y-1.5">
+            <Label>{l.countries}</Label>
+            <div className="flex flex-wrap gap-3">
+              {COUNTRY_OPTIONS.map(cc => (
+                <label key={cc} className="flex items-center gap-1.5 text-sm">
+                  <Checkbox
+                    checked={countries.includes(cc)}
+                    onCheckedChange={(v) => setCountries(prev => v ? [...prev, cc] : prev.filter(x => x !== cc))}
+                    data-testid={`checkbox-edit-country-${cc}`}
+                  />
+                  {cc}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <OptionSelect label={l.collabType} value={collabType} onChange={setCollabType}
+              options={filterOptions?.collaboratorTypes || []} anyLabel={l.anyOpt} testId="select-edit-collab-type" />
+            <OptionSelect label={l.agreementTypeL} value={agreementType} onChange={setAgreementType}
+              options={filterOptions?.agreementTypes || []} anyLabel={l.anyOpt} testId="select-edit-agreement-type" />
+            <OptionSelect label={l.partnerCategoryL} value={partnerCategory} onChange={setPartnerCategory}
+              options={filterOptions?.partnerCategories || []} anyLabel={l.anyOpt} testId="select-edit-partner-category" />
+            <OptionSelect label={l.rewardTypeL} value={rewardType} onChange={setRewardType}
+              options={filterOptions?.rewardTypes || []} anyLabel={l.anyOpt} testId="select-edit-reward-type" />
+            <OptionSelect label={l.dataSource} value={dataSource} onChange={setDataSource}
+              options={filterOptions?.dataSources || []} anyLabel={l.anyOpt} testId="select-edit-data-source" />
+            <div className="grid grid-cols-2 gap-4">
+              <YesNoSelect label={l.isManagerL} value={isManager} onChange={setIsManager} l={l} testId="select-edit-is-manager" />
+              <YesNoSelect label={l.monthRewardsL} value={monthRewards} onChange={setMonthRewards} l={l} testId="select-edit-month-rewards" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{l.agreementActiveL}</Label>
+              <Input type="date" value={agreementActiveOn} onChange={e => setAgreementActiveOn(e.target.value)} data-testid="input-edit-agreement-active-on" />
+            </div>
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={onlyActive} onCheckedChange={v => setOnlyActive(!!v)} data-testid="checkbox-edit-only-active" />
+            {l.onlyActive}
+          </label>
+          <div className="space-y-1.5">
+            <Label>{l.legacyIds}</Label>
+            <Textarea rows={3} value={legacyIds} onChange={e => setLegacyIds(e.target.value)} data-testid="input-edit-legacy-ids" />
+          </div>
+          <div className="flex items-center gap-3">
+            <Button type="button" variant="outline" onClick={() => previewMutation.mutate()} disabled={previewMutation.isPending} data-testid="button-edit-preview">
+              {previewMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Users className="h-4 w-4 mr-2" />}
+              {l.preview}
+            </Button>
+            {preview && <span className="text-sm font-medium" data-testid="text-edit-preview-count">{preview.count} {l.recipients}</span>}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-edit-filter-cancel">{l.cancel}</Button>
+          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} data-testid="button-edit-filter-save">
+            {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+            {l.save}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function CampaignDetail({ campaign, l, toast, onBack }: any) {
   const [testOpen, setTestOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [editFilterOpen, setEditFilterOpen] = useState(false);
   const { data: requests = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/collaborator-update-campaigns", campaign.id, "requests"],
     queryFn: async () => {
@@ -629,6 +846,18 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
     onError: (e: any) => toast({ title: l.errorTitle, description: e?.message, variant: "destructive" }),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/collaborator-update-campaigns/${campaign.id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborator-update-campaigns"] });
+      toast({ title: l.deleted });
+      onBack();
+    },
+    onError: (e: any) => toast({ title: l.errorTitle, description: e?.message, variant: "destructive" }),
+  });
+
   const statusLabel = (st: string) => (l as any)[`status${st === "send_failed" ? "Failed" : st.charAt(0).toUpperCase() + st.slice(1)}`] || st;
   const submitted = requests.filter(r => r.status === "submitted");
 
@@ -643,6 +872,14 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
           </div>
         </div>
         <div className="flex gap-2">
+          {campaign.status === "draft" && (
+            <Button variant="outline" onClick={() => setEditFilterOpen(true)} data-testid="button-edit-filter">
+              <Filter className="h-4 w-4 mr-2" />{l.editFilter}
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => setDeleteOpen(true)} disabled={campaign.status === "sending"} data-testid="button-delete-campaign">
+            <Trash2 className="h-4 w-4 mr-2 text-red-500" />{l.deleteCampaign}
+          </Button>
           <Button variant="outline" onClick={() => setTestOpen(true)} data-testid="button-test">
             {l.testSend}
           </Button>
@@ -748,6 +985,31 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
       </Tabs>
 
       <TestSendDialog campaignId={campaign.id} l={l} toast={toast} open={testOpen} onOpenChange={setTestOpen} />
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{l.deleteConfirmT}</AlertDialogTitle>
+            <AlertDialogDescription>{l.deleteConfirmD}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-delete-cancel">{l.cancel}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => deleteMutation.mutate()}
+              disabled={deleteMutation.isPending}
+              data-testid="button-delete-confirm"
+            >
+              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              {l.confirmDelete}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {editFilterOpen && (
+        <EditFilterDialog campaign={campaign} l={l} toast={toast} open={editFilterOpen} onOpenChange={setEditFilterOpen} />
+      )}
     </div>
   );
 }

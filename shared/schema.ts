@@ -8063,6 +8063,7 @@ export const collaboratorUpdateCampaigns = pgTable("collaborator_update_campaign
   emailSubject: text("email_subject").notNull(),
   emailBody: text("email_body").notNull(), // HTML with {{placeholders}}
   language: text("language").notNull().default("auto"), // auto (by collaborator country) | sk|cs|hu|ro|it|de|en
+  formType: text("form_type").notNull().default("update"), // update (personal data update) | jmhz (CZ zákon 323/2025 Sb.)
   tokenValidDays: integer("token_valid_days").notNull().default(30),
   filterCriteria: jsonb("filter_criteria").$type<Record<string, any>>().default({}),
   status: text("status").notNull().default("draft"), // draft | sending | sent

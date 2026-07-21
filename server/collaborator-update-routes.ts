@@ -1,6 +1,6 @@
 import { Express, Request, Response } from "express";
 import { db } from "./db";
-import { eq, and, desc, inArray, isNotNull, ne, sql as dsql } from "drizzle-orm";
+import { eq, and, desc, inArray, notInArray, isNotNull, ne, sql as dsql } from "drizzle-orm";
 import * as crypto from "crypto";
 import {
   collaborators,
@@ -63,6 +63,28 @@ const TEST_SAMPLE_ADDR: Record<string, Record<string, string>> = {
   permanent: { streetNumber: "Testovacia 1", city: "Bratislava", postalCode: "811 01" },
   correspondence: { streetNumber: "", city: "", postalCode: "" },
 };
+
+// JMHZ form (CZ zákon č. 323/2025 Sb. — jednotné měsíční hlášení zaměstnavatele).
+// These fields are collected via the public form and stored ONLY on the request
+// (submittedData/changes) — they have no matching collaborator columns, so the
+// approve step never writes them to the collaborators table.
+const JMHZ_EDUCATION_LEVELS = [
+  "ZŠ", "SŠ bez maturity", "SŠ s maturitou", "VOŠ", "VŠ Bc.", "VŠ Mgr./Ing.", "VŠ Ph.D.",
+] as const;
+const JMHZ_FIELDS = [
+  "educationHighest", "birthPlace", "birthCountry", "birthSurname",
+  "profession", "educationRequired", "workPlace", "isLeadingEmployee",
+] as const;
+function validateJmhzSubmission(data: Record<string, any>): string | null {
+  for (const f of JMHZ_FIELDS) {
+    const v = data[f] === null || data[f] === undefined ? "" : String(data[f]).trim();
+    if (!v) return f;
+  }
+  if (!(JMHZ_EDUCATION_LEVELS as readonly string[]).includes(String(data.educationHighest).trim())) return "educationHighest";
+  if (!(JMHZ_EDUCATION_LEVELS as readonly string[]).includes(String(data.educationRequired).trim())) return "educationRequired";
+  if (!["Ano", "Ne"].includes(String(data.isLeadingEmployee).trim())) return "isLeadingEmployee";
+  return null;
+}
 
 type FilterCriteria = {
   countryCodes?: string[];
@@ -303,6 +325,9 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
       if (parsed.language && !ALLOWED_LANGS.includes(parsed.language)) {
         return res.status(400).json({ message: "Invalid language" });
       }
+      if (parsed.formType && !["update", "jmhz"].includes(parsed.formType)) {
+        return res.status(400).json({ message: "Invalid form type" });
+      }
       const recipients = await findRecipients((parsed.filterCriteria || {}) as FilterCriteria);
       if (recipients.length === 0) {
         return res.status(400).json({ message: "No recipients match the filter" });
@@ -329,6 +354,94 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
       res.json({ ...campaign, recipientCount: rows.length });
     } catch (err: any) {
       res.status(400).json({ message: err?.message || "Failed to create campaign" });
+    }
+  });
+
+  // Delete a campaign together with all its requests (links stop working)
+  app.delete("/api/collaborator-update-campaigns/:id", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const [campaign] = await db.select().from(collaboratorUpdateCampaigns)
+        .where(eq(collaboratorUpdateCampaigns.id, req.params.id));
+      if (!campaign) return res.status(404).json({ message: "Campaign not found" });
+      if (campaign.status === "sending") return res.status(409).json({ message: "Campaign is currently sending" });
+      await db.transaction(async (tx) => {
+        await tx.delete(collaboratorUpdateRequests)
+          .where(eq(collaboratorUpdateRequests.campaignId, campaign.id));
+        await tx.delete(collaboratorUpdateCampaigns)
+          .where(eq(collaboratorUpdateCampaigns.id, campaign.id));
+      });
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Failed to delete campaign" });
+    }
+  });
+
+  // Edit filter criteria — only for draft campaigns (nothing sent yet).
+  // Existing (unsent) requests are dropped and regenerated from the new filter.
+  app.patch("/api/collaborator-update-campaigns/:id/filter", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const [campaign] = await db.select().from(collaboratorUpdateCampaigns)
+        .where(eq(collaboratorUpdateCampaigns.id, req.params.id));
+      if (!campaign) return res.status(404).json({ message: "Campaign not found" });
+      if (campaign.status !== "draft") {
+        return res.status(409).json({ message: "Only draft campaigns can be edited" });
+      }
+      const anySent = await db.select({ id: collaboratorUpdateRequests.id })
+        .from(collaboratorUpdateRequests)
+        .where(and(
+          eq(collaboratorUpdateRequests.campaignId, campaign.id),
+          notInArray(collaboratorUpdateRequests.status, ["pending"]),
+        )).limit(1);
+      if (anySent.length > 0) {
+        return res.status(409).json({ message: "Some emails were already sent — filter can no longer be changed" });
+      }
+      const filterCriteria = (req.body?.filterCriteria || {}) as FilterCriteria;
+      const recipients = await findRecipients(filterCriteria);
+      if (recipients.length === 0) {
+        return res.status(400).json({ message: "No recipients match the filter" });
+      }
+      // Atomic: lock the campaign row, re-check status + request states inside
+      // the transaction so a concurrent /send cannot interleave with the rebuild
+      const rowCount = await db.transaction(async (tx) => {
+        const [locked] = await tx.select().from(collaboratorUpdateCampaigns)
+          .where(eq(collaboratorUpdateCampaigns.id, campaign.id))
+          .for("update");
+        if (!locked || locked.status !== "draft") {
+          throw Object.assign(new Error("Only draft campaigns can be edited"), { statusCode: 409 });
+        }
+        const sentInTx = await tx.select({ id: collaboratorUpdateRequests.id })
+          .from(collaboratorUpdateRequests)
+          .where(and(
+            eq(collaboratorUpdateRequests.campaignId, campaign.id),
+            notInArray(collaboratorUpdateRequests.status, ["pending"]),
+          )).limit(1);
+        if (sentInTx.length > 0) {
+          throw Object.assign(new Error("Some emails were already sent — filter can no longer be changed"), { statusCode: 409 });
+        }
+        await tx.update(collaboratorUpdateCampaigns)
+          .set({ filterCriteria, updatedAt: new Date() })
+          .where(eq(collaboratorUpdateCampaigns.id, campaign.id));
+        await tx.delete(collaboratorUpdateRequests)
+          .where(eq(collaboratorUpdateRequests.campaignId, campaign.id));
+        const expiresAt = new Date(Date.now() + (locked.tokenValidDays || 30) * 24 * 3600 * 1000);
+        const rows = recipients.map(r => ({
+          campaignId: campaign.id,
+          collaboratorId: r.id,
+          token: crypto.randomBytes(24).toString("base64url"),
+          email: r.email!,
+          language: locked.language && locked.language !== "auto"
+            ? locked.language
+            : countryToLanguage(r.countryCode),
+          expiresAt,
+        }));
+        for (let i = 0; i < rows.length; i += 500) {
+          await tx.insert(collaboratorUpdateRequests).values(rows.slice(i, i + 500));
+        }
+        return rows.length;
+      });
+      res.json({ ok: true, recipientCount: rowCount });
+    } catch (err: any) {
+      res.status(err?.statusCode || 500).json({ message: err?.message || "Failed to update filter" });
     }
   });
 
@@ -377,9 +490,14 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
         .where(eq(collaboratorUpdateCampaigns.id, req.params.id));
       if (!campaign) return res.status(404).json({ message: "Campaign not found" });
       if (campaign.status === "sending") return res.status(409).json({ message: "Already sending" });
-      await db.update(collaboratorUpdateCampaigns)
+      // Compare-and-set: only flip to sending if nobody else did meanwhile
+      const flipped = await db.update(collaboratorUpdateCampaigns)
         .set({ status: "sending", updatedAt: new Date() })
-        .where(eq(collaboratorUpdateCampaigns.id, campaign.id));
+        .where(and(
+          eq(collaboratorUpdateCampaigns.id, campaign.id),
+          ne(collaboratorUpdateCampaigns.status, "sending"),
+        )).returning({ id: collaboratorUpdateCampaigns.id });
+      if (flipped.length === 0) return res.status(409).json({ message: "Already sending" });
       const baseUrl = getBaseUrl(req);
       sendCampaignEmails(campaign.id, baseUrl, false).catch(err =>
         console.error("[CollabUpdate] send error:", err?.message));
@@ -395,9 +513,13 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
         .where(eq(collaboratorUpdateCampaigns.id, req.params.id));
       if (!campaign) return res.status(404).json({ message: "Campaign not found" });
       if (campaign.status === "sending") return res.status(409).json({ message: "Already sending" });
-      await db.update(collaboratorUpdateCampaigns)
+      const flipped = await db.update(collaboratorUpdateCampaigns)
         .set({ status: "sending", updatedAt: new Date() })
-        .where(eq(collaboratorUpdateCampaigns.id, campaign.id));
+        .where(and(
+          eq(collaboratorUpdateCampaigns.id, campaign.id),
+          ne(collaboratorUpdateCampaigns.status, "sending"),
+        )).returning({ id: collaboratorUpdateCampaigns.id });
+      if (flipped.length === 0) return res.status(409).json({ message: "Already sending" });
       const baseUrl = getBaseUrl(req);
       sendCampaignEmails(campaign.id, baseUrl, true).catch(err =>
         console.error("[CollabUpdate] remind error:", err?.message));
@@ -591,6 +713,23 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
           .where(eq(collaboratorUpdateRequests.id, reqRow.id));
       }
 
+      const [camp] = await db.select().from(collaboratorUpdateCampaigns)
+        .where(eq(collaboratorUpdateCampaigns.id, reqRow.campaignId));
+      const formType = camp?.formType || "update";
+
+      // JMHZ form collects NEW data — nothing is prefilled, no personal data
+      // is exposed via this endpoint (doc: no PII in URL/params/response)
+      if (formType === "jmhz") {
+        return res.json({
+          language: reqRow.language,
+          formType,
+          birthNumberMasked: null,
+          collaboratorName: "",
+          isTest: reqRow.token.startsWith("test-") || undefined,
+          data: {},
+        });
+      }
+
       // Test tokens: show fictional sample data — never a real collaborator's data
       if (reqRow.token.startsWith("test-")) {
         const data: Record<string, any> = { ...TEST_SAMPLE };
@@ -601,6 +740,7 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
         }
         return res.json({
           language: reqRow.language,
+          formType,
           birthNumberMasked: "0000******",
           collaboratorName: [TEST_SAMPLE.titleBefore, TEST_SAMPLE.firstName, TEST_SAMPLE.lastName].filter(Boolean).join(" "),
           isTest: true,
@@ -627,6 +767,7 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
 
       res.json({
         language: reqRow.language,
+        formType,
         birthNumberMasked: maskBirthNumber(c.birthNumber),
         collaboratorName: [c.titleBefore, c.firstName, c.lastName].filter(Boolean).join(" "),
         data,
@@ -646,6 +787,40 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
         return res.status(409).json({ message: "already_submitted" });
       }
       const isTest = reqRow.token.startsWith("test-");
+
+      const [camp] = await db.select().from(collaboratorUpdateCampaigns)
+        .where(eq(collaboratorUpdateCampaigns.id, reqRow.campaignId));
+
+      // JMHZ form: all 8 fields required + explicit consent; data is stored on
+      // the request only (no collaborator columns exist for these fields)
+      if ((camp?.formType || "update") === "jmhz") {
+        const submittedJ = (req.body?.data || {}) as Record<string, any>;
+        if (req.body?.consent !== true) {
+          return res.status(400).json({ message: "consent_required" });
+        }
+        const missing = validateJmhzSubmission(submittedJ);
+        if (missing) {
+          return res.status(400).json({ message: "invalid_data", field: missing });
+        }
+        const cleanJ: Record<string, string> = { consent: "Ano" };
+        const changesJ: Array<{ field: string; oldValue: string | null; newValue: string | null }> = [];
+        for (const f of JMHZ_FIELDS) {
+          const v = String(submittedJ[f]).trim().slice(0, 500);
+          cleanJ[f] = v;
+          changesJ.push({ field: `jmhz_${f}`, oldValue: null, newValue: v });
+        }
+        const [updatedJ] = await db.update(collaboratorUpdateRequests).set({
+          status: "submitted",
+          submittedAt: new Date(),
+          submittedData: cleanJ,
+          changes: changesJ,
+        }).where(and(
+          eq(collaboratorUpdateRequests.id, reqRow.id),
+          inArray(collaboratorUpdateRequests.status, ["pending", "sent", "opened"]),
+        )).returning();
+        if (!updatedJ) return res.status(409).json({ message: "already_submitted" });
+        return res.json({ ok: true, changesCount: changesJ.length });
+      }
 
       let oldFieldValue: (f: string) => any;
       let oldAddrValue: (t: string, sf: string) => any;

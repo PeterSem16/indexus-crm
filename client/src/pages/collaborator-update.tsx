@@ -162,10 +162,200 @@ const T: Record<Lang, Record<string, string>> = {
 
 type FormResponse = {
   language: Lang;
+  formType?: string;
   birthNumberMasked: string | null;
   collaboratorName: string;
   data: Record<string, string>;
 };
+
+// ---------- JMHZ (CZ zákon č. 323/2025 Sb.) ----------
+// Texts are fixed in Czech, exactly per the specification document.
+const JMHZ = {
+  title: "Doplnění údajů — jednotné měsíční hlášení zaměstnavatele (JMHZ)",
+  intro: "Od 1. ledna 2026 platí zákon č. 323/2025 Sb., kterým se zavádí jednotné měsíční hlášení zaměstnavatele (JMHZ) vůči České správě sociálního zabezpečení. Řádné měsíční hlášení se podává od dubna 2026, do 20. dne následujícího měsíce. Povinnost se vztahuje i na spolupracovníky na dohodu — proto potřebujeme doplnit níže uvedené údaje.",
+  instructions: "Vyplňte prosím všechna pole označená jako povinná. Údaje budou použity výhradně pro účely tohoto zákonného hlášení (viz souhlas se zpracováním osobních údajů níže).",
+  consent: "Souhlasím se zpracováním výše uvedených osobních údajů Cord Blood Center výhradně za účelem splnění zákonné povinnosti dle zákona č. 323/2025 Sb. (jednotné měsíční hlášení zaměstnavatele vůči ČSSZ). Údaje nebudou použity k jinému účelu.",
+  submit: "Odeslat údaje",
+  submitting: "Odesílám…",
+  successTitle: "Děkujeme",
+  success: "Děkujeme, Vaše údaje byly úspěšně přijaty. V případě dotazů nás kontaktujte na [DOPLNIT KONTAKT].",
+  requiredError: "Toto pole je povinné. Prosíme o jeho vyplnění před odeslaním formuláře.",
+  errorSubmit: "Odeslání selhalo, zkuste to prosím znovu.",
+  selectPlaceholder: "Vyberte ze seznamu",
+  selectCountry: "Vyberte zemi",
+};
+
+const JMHZ_EDUCATION = ["ZŠ", "SŠ bez maturity", "SŠ s maturitou", "VOŠ", "VŠ Bc.", "VŠ Mgr./Ing.", "VŠ Ph.D."];
+
+const JMHZ_COUNTRIES = [
+  "Česká republika", "Slovensko", "Ukrajina", "Polsko", "Maďarsko", "Německo", "Rakousko",
+  "Rumunsko", "Bulharsko", "Rusko", "Bělorusko", "Vietnam", "Mongolsko", "Moldavsko",
+  "Srbsko", "Chorvatsko", "Slovinsko", "Bosna a Hercegovina", "Severní Makedonie",
+  "Itálie", "Francie", "Španělsko", "Portugalsko", "Velká Británie", "Irsko",
+  "Nizozemsko", "Belgie", "Lucembursko", "Švýcarsko", "Dánsko", "Švédsko", "Norsko",
+  "Finsko", "Estonsko", "Lotyšsko", "Litva", "Řecko", "Turecko", "Kazachstán",
+  "Spojené státy americké", "Kanada", "Jiná země",
+];
+
+const JMHZ_FIELD_DEFS: Array<{
+  key: string;
+  label: string;
+  placeholder: string;
+  type: "text" | "education" | "country" | "yesno";
+}> = [
+  { key: "educationHighest", label: "Nejvyšší dosažené vzdělání", placeholder: "Vyberte ze seznamu", type: "education" },
+  { key: "birthPlace", label: "Místo narození", placeholder: "Např. Brno", type: "text" },
+  { key: "birthCountry", label: "Stát narození", placeholder: "Vyberte zemi", type: "country" },
+  { key: "birthSurname", label: "Rodné příjmení", placeholder: "Vyplňte, pokud se liší od současného příjmení", type: "text" },
+  { key: "profession", label: "Profese", placeholder: "Vaše pracovní pozice / odbornost pro CBC", type: "text" },
+  { key: "educationRequired", label: "Vzdělání vyžadované pro výkon profese", placeholder: "Minimální vzdělání požadované pro výkon této profese", type: "education" },
+  { key: "workPlace", label: "Místo výkonu práce / činnosti", placeholder: "Adresa, kde reálně vykonáváte činnost pro CBC", type: "text" },
+  { key: "isLeadingEmployee", label: "Vedoucí zaměstnanec", placeholder: "Jste v řídicí pozici dle zákoníku práce?", type: "yesno" },
+];
+
+function JmhzForm({ token }: { token: string }) {
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [consent, setConsent] = useState(false);
+  const [errors, setErrors] = useState<Record<string, boolean>>({});
+  const [consentError, setConsentError] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/public/collaborator-update/${token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: values, consent }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message || "error");
+      }
+      return res.json();
+    },
+    onSuccess: () => setDone(true),
+  });
+
+  if (done) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
+        <Card className="max-w-md w-full">
+          <CardHeader className="text-center">
+            <CheckCircle2 className="h-10 w-10 text-green-500 mx-auto mb-2" />
+            <CardTitle data-testid="text-thanks-title">{JMHZ.successTitle}</CardTitle>
+            <CardDescription>{JMHZ.success}</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const errs: Record<string, boolean> = {};
+    for (const f of JMHZ_FIELD_DEFS) {
+      if (!values[f.key]?.trim()) errs[f.key] = true;
+    }
+    setErrors(errs);
+    setConsentError(!consent);
+    if (Object.keys(errs).length > 0 || !consent) return;
+    mutation.mutate();
+  };
+
+  const setVal = (k: string, v: string) => {
+    setValues(prev => ({ ...prev, [k]: v }));
+    setErrors(prev => ({ ...prev, [k]: false }));
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-8 px-4">
+      <div className="max-w-2xl mx-auto space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 mb-1">
+              <ShieldCheck className="h-5 w-5" />
+              <span className="text-sm font-semibold tracking-wide">CORD BLOOD CENTER</span>
+            </div>
+            <CardTitle data-testid="text-form-title">{JMHZ.title}</CardTitle>
+            <CardDescription className="whitespace-pre-line">{JMHZ.intro}</CardDescription>
+          </CardHeader>
+        </Card>
+
+        <form onSubmit={handleSubmit}>
+          <Card>
+            <CardContent className="pt-6 space-y-5">
+              <p className="text-sm text-muted-foreground">{JMHZ.instructions}</p>
+
+              {JMHZ_FIELD_DEFS.map(f => (
+                <div key={f.key} className="space-y-1.5">
+                  <Label htmlFor={`jmhz-${f.key}`}>
+                    {f.label} <span className="text-red-600">*</span>
+                  </Label>
+                  {f.type === "text" ? (
+                    <Input
+                      id={`jmhz-${f.key}`}
+                      value={values[f.key] ?? ""}
+                      placeholder={f.placeholder}
+                      onChange={e => setVal(f.key, e.target.value)}
+                      data-testid={`input-jmhz-${f.key}`}
+                    />
+                  ) : (
+                    <select
+                      id={`jmhz-${f.key}`}
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                      value={values[f.key] ?? ""}
+                      onChange={e => setVal(f.key, e.target.value)}
+                      data-testid={`select-jmhz-${f.key}`}
+                    >
+                      <option value="" disabled>
+                        {f.type === "country" ? JMHZ.selectCountry : f.type === "yesno" ? f.placeholder : JMHZ.selectPlaceholder}
+                      </option>
+                      {(f.type === "education" ? JMHZ_EDUCATION
+                        : f.type === "country" ? JMHZ_COUNTRIES
+                        : ["Ano", "Ne"]).map(o => (
+                        <option key={o} value={o}>{o}</option>
+                      ))}
+                    </select>
+                  )}
+                  {errors[f.key] && (
+                    <p className="text-sm text-red-600" data-testid={`error-jmhz-${f.key}`}>{JMHZ.requiredError}</p>
+                  )}
+                </div>
+              ))}
+
+              <div className="flex items-start gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="jmhz-consent"
+                  className="mt-1 h-4 w-4"
+                  checked={consent}
+                  onChange={e => { setConsent(e.target.checked); setConsentError(false); }}
+                  data-testid="checkbox-jmhz-consent"
+                />
+                <Label htmlFor="jmhz-consent" className="text-sm font-normal leading-snug">
+                  {JMHZ.consent} <span className="text-red-600">*</span>
+                </Label>
+              </div>
+              {consentError && (
+                <p className="text-sm text-red-600" data-testid="error-jmhz-consent">{JMHZ.requiredError}</p>
+              )}
+
+              {mutation.isError && (
+                <p className="text-sm text-red-600" data-testid="text-submit-error">{JMHZ.errorSubmit}</p>
+              )}
+
+              <Button type="submit" className="w-full" disabled={mutation.isPending} data-testid="button-submit-jmhz">
+                {mutation.isPending ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{JMHZ.submitting}</>
+                ) : JMHZ.submit}
+              </Button>
+            </CardContent>
+          </Card>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 export default function CollaboratorUpdatePage() {
   const [, params] = useRoute("/update/:token");
@@ -231,6 +421,10 @@ export default function CollaboratorUpdatePage() {
         </Card>
       </div>
     );
+  }
+
+  if (query.data?.formType === "jmhz") {
+    return <JmhzForm token={token} />;
   }
 
   if (done) {
