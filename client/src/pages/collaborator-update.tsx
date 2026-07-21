@@ -513,7 +513,9 @@ export default function CollaboratorUpdatePage() {
       const res = await fetch(`/api/public/collaborator-update/${token}`);
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message || "error");
+        const err = new Error(body?.message || "error") as Error & { language?: string };
+        err.language = body?.language;
+        throw err;
       }
       return res.json();
     },
@@ -550,9 +552,11 @@ export default function CollaboratorUpdatePage() {
 
   const errMsg = (query.error as any)?.message;
   if (query.isError) {
-    const known = errMsg === "expired" ? { title: t.expiredTitle, text: t.expiredText }
-      : errMsg === "already_submitted" ? { title: t.alreadyTitle, text: t.alreadyText }
-      : { title: T.sk.notFoundTitle, text: T.sk.notFoundText };
+    const errLang = (query.error as any)?.language as Lang | undefined;
+    const et = (errLang && T[errLang]) || t;
+    const known = errMsg === "expired" ? { title: et.expiredTitle, text: et.expiredText }
+      : errMsg === "already_submitted" ? { title: et.alreadyTitle, text: et.alreadyText }
+      : { title: et.notFoundTitle, text: et.notFoundText };
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
         <Card className="max-w-md w-full">

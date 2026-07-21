@@ -747,7 +747,7 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
       const [reqRow] = await db.select().from(collaboratorUpdateRequests)
         .where(eq(collaboratorUpdateRequests.token, req.params.token));
       if (!reqRow) return res.status(404).json({ message: "not_found" });
-      if (new Date(reqRow.expiresAt) < new Date()) return res.status(410).json({ message: "expired" });
+      if (new Date(reqRow.expiresAt) < new Date()) return res.status(410).json({ message: "expired", language: reqRow.language });
       if (["submitted", "approved", "rejected"].includes(reqRow.status)) {
         return res.status(409).json({ message: "already_submitted", language: reqRow.language });
       }
