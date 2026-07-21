@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Plus, Send, Bell, ArrowLeft, Check, X, Users, Mail, Trash2, Filter } from "lucide-react";
+import { Loader2, Plus, Send, Bell, ArrowLeft, Check, X, Users, Mail, Trash2, Filter, Pause } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -143,6 +143,10 @@ const L: Record<string, Record<string, string>> = {
     deleted: "Campaign deleted", cancel: "Cancel", confirmDelete: "Delete",
     editFilter: "Edit filter", editFilterD: "Available only for drafts before sending. The recipient list will be regenerated from the new filter.",
     filterSaved: "Filter saved, recipients regenerated", save: "Save",
+    statPaused: "Paused", resume: "Resume sending", pause: "Pause sending", pausedToast: "Sending paused",
+    sendConfirmT: "Start sending emails?", sendConfirmD: "Emails with the form link will be sent to all pending recipients. This cannot be undone for emails already sent.",
+    remindConfirmT: "Send reminders?", remindConfirmD: "A reminder email will be sent to everyone who received the link but has not submitted the form yet.",
+    confirmSend: "Yes, send",
   },
   sk: {
     pageTitle: "Aktualizácie údajov spolupracovníkov", pageDesc: "E-mailové kampane so žiadosťou o aktualizáciu osobných údajov cez bezpečný odkaz.",
@@ -169,6 +173,10 @@ const L: Record<string, Record<string, string>> = {
     deleted: "Kampaň vymazaná", cancel: "Zrušiť", confirmDelete: "Vymazať",
     editFilter: "Upraviť filter", editFilterD: "Dostupné len pre koncepty pred odoslaním. Zoznam príjemcov sa znovu vytvorí podľa nového filtra.",
     filterSaved: "Filter uložený, príjemcovia znovu vytvorení", save: "Uložiť",
+    statPaused: "Pozastavená", resume: "Pokračovať v posielaní", pause: "Pozastaviť posielanie", pausedToast: "Posielanie pozastavené",
+    sendConfirmT: "Spustiť posielanie e-mailov?", sendConfirmD: "E-maily s odkazom na formulár sa odošlú všetkým čakajúcim príjemcom. Už odoslané e-maily sa nedajú vziať späť.",
+    remindConfirmT: "Poslať pripomienky?", remindConfirmD: "Pripomienka sa pošle všetkým, ktorí odkaz dostali, ale formulár ešte nevyplnili.",
+    confirmSend: "Áno, odoslať",
   },
   cs: {
     pageTitle: "Aktualizace údajů spolupracovníků", pageDesc: "E-mailové kampaně se žádostí o aktualizaci osobních údajů přes bezpečný odkaz.",
@@ -195,6 +203,10 @@ const L: Record<string, Record<string, string>> = {
     deleted: "Kampaň smazána", cancel: "Zrušit", confirmDelete: "Smazat",
     editFilter: "Upravit filtr", editFilterD: "Dostupné pouze pro koncepty před odesláním. Seznam příjemců se znovu vytvoří podle nového filtru.",
     filterSaved: "Filtr uložen, příjemci znovu vytvořeni", save: "Uložit",
+    statPaused: "Pozastavena", resume: "Pokračovat v odesílání", pause: "Pozastavit odesílání", pausedToast: "Odesílání pozastaveno",
+    sendConfirmT: "Spustit odesílání e-mailů?", sendConfirmD: "E-maily s odkazem na formulář se odešlou všem čekajícím příjemcům. Již odeslané e-maily nelze vzít zpět.",
+    remindConfirmT: "Odeslat připomínky?", remindConfirmD: "Připomínka se odešle všem, kteří odkaz dostali, ale formulář ještě nevyplnili.",
+    confirmSend: "Ano, odeslat",
   },
   hu: {
     pageTitle: "Partneradatok frissítése", pageDesc: "E-mail kampányok, amelyekben biztonságos linken keresztül kérjük a partnerek adatainak frissítését.",
@@ -221,6 +233,10 @@ const L: Record<string, Record<string, string>> = {
     deleted: "Kampány törölve", cancel: "Mégse", confirmDelete: "Törlés",
     editFilter: "Szűrő szerkesztése", editFilterD: "Csak piszkozatoknál érhető el a küldés előtt. A címzettlista az új szűrő alapján újra létrejön.",
     filterSaved: "Szűrő mentve, címzettek újragenerálva", save: "Mentés",
+    statPaused: "Szüneteltetve", resume: "Küldés folytatása", pause: "Küldés szüneteltetése", pausedToast: "Küldés szüneteltetve",
+    sendConfirmT: "Elindítja az e-mailek küldését?", sendConfirmD: "Az űrlap linkjét tartalmazó e-mailek minden várakozó címzettnek kimennek. A már elküldött e-mailek nem vonhatók vissza.",
+    remindConfirmT: "Emlékeztetők küldése?", remindConfirmD: "Emlékeztető megy mindenkinek, aki megkapta a linket, de még nem töltötte ki az űrlapot.",
+    confirmSend: "Igen, küldés",
   },
   ro: {
     pageTitle: "Actualizarea datelor colaboratorilor", pageDesc: "Campanii de e-mail prin care colaboratorii își actualizează datele printr-un link securizat.",
@@ -247,6 +263,10 @@ const L: Record<string, Record<string, string>> = {
     deleted: "Campanie ștearsă", cancel: "Anulează", confirmDelete: "Șterge",
     editFilter: "Editează filtrul", editFilterD: "Disponibil doar pentru ciorne, înainte de trimitere. Lista destinatarilor va fi regenerată după noul filtru.",
     filterSaved: "Filtru salvat, destinatarii regenerați", save: "Salvează",
+    statPaused: "Întreruptă", resume: "Reia trimiterea", pause: "Întrerupe trimiterea", pausedToast: "Trimitere întreruptă",
+    sendConfirmT: "Porniți trimiterea e-mailurilor?", sendConfirmD: "E-mailurile cu linkul formularului vor fi trimise tuturor destinatarilor în așteptare. E-mailurile deja trimise nu pot fi anulate.",
+    remindConfirmT: "Trimiteți mementouri?", remindConfirmD: "Un memento va fi trimis tuturor celor care au primit linkul, dar nu au completat încă formularul.",
+    confirmSend: "Da, trimite",
   },
   it: {
     pageTitle: "Aggiornamento dati collaboratori", pageDesc: "Campagne e-mail per chiedere ai collaboratori di aggiornare i propri dati tramite link sicuro.",
@@ -273,6 +293,10 @@ const L: Record<string, Record<string, string>> = {
     deleted: "Campagna eliminata", cancel: "Annulla", confirmDelete: "Elimina",
     editFilter: "Modifica filtro", editFilterD: "Disponibile solo per le bozze prima dell'invio. L'elenco dei destinatari verrà rigenerato con il nuovo filtro.",
     filterSaved: "Filtro salvato, destinatari rigenerati", save: "Salva",
+    statPaused: "In pausa", resume: "Riprendi l'invio", pause: "Metti in pausa l'invio", pausedToast: "Invio messo in pausa",
+    sendConfirmT: "Avviare l'invio delle e-mail?", sendConfirmD: "Le e-mail con il link al modulo saranno inviate a tutti i destinatari in attesa. Le e-mail già inviate non possono essere annullate.",
+    remindConfirmT: "Inviare i promemoria?", remindConfirmD: "Un promemoria sarà inviato a tutti coloro che hanno ricevuto il link ma non hanno ancora compilato il modulo.",
+    confirmSend: "Sì, invia",
   },
   de: {
     pageTitle: "Aktualisierung der Partnerdaten", pageDesc: "E-Mail-Kampagnen, mit denen Partner über einen sicheren Link ihre Daten aktualisieren.",
@@ -299,6 +323,10 @@ const L: Record<string, Record<string, string>> = {
     deleted: "Kampagne gelöscht", cancel: "Abbrechen", confirmDelete: "Löschen",
     editFilter: "Filter bearbeiten", editFilterD: "Nur für Entwürfe vor dem Versand verfügbar. Die Empfängerliste wird nach dem neuen Filter neu erstellt.",
     filterSaved: "Filter gespeichert, Empfänger neu erstellt", save: "Speichern",
+    statPaused: "Pausiert", resume: "Versand fortsetzen", pause: "Versand pausieren", pausedToast: "Versand pausiert",
+    sendConfirmT: "E-Mail-Versand starten?", sendConfirmD: "E-Mails mit dem Formular-Link werden an alle wartenden Empfänger gesendet. Bereits gesendete E-Mails können nicht zurückgenommen werden.",
+    remindConfirmT: "Erinnerungen senden?", remindConfirmD: "Eine Erinnerung wird an alle gesendet, die den Link erhalten, das Formular aber noch nicht ausgefüllt haben.",
+    confirmSend: "Ja, senden",
   },
 };
 
@@ -352,7 +380,7 @@ export default function CollaboratorUpdatesPage() {
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <CardTitle className="text-lg">{c.name}</CardTitle>
                         <Badge variant="outline">
-                          {c.status === "draft" ? l.draft : c.status === "sending" ? l.statSending : l.statSent}
+                          {c.status === "draft" ? l.draft : c.status === "sending" ? l.statSending : c.status === "paused" ? l.statPaused : l.statSent}
                         </Badge>
                       </div>
                       <CardDescription>
@@ -809,6 +837,7 @@ function EditFilterDialog({ campaign, l, toast, open, onOpenChange }: any) {
 function CampaignDetail({ campaign, l, toast, onBack }: any) {
   const [testOpen, setTestOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [confirmKind, setConfirmKind] = useState<null | "send" | "remind">(null);
   const [editFilterOpen, setEditFilterOpen] = useState(false);
   const { data: requests = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/collaborator-update-campaigns", campaign.id, "requests"],
@@ -831,6 +860,15 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
       return res.json();
     },
     onSuccess: () => { toast({ title: l.emailsSending }); invalidate(); },
+    onError: (e: any) => toast({ title: l.errorTitle, description: e?.message, variant: "destructive" }),
+  });
+
+  const pauseMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/collaborator-update-campaigns/${campaign.id}/pause`);
+      return res.json();
+    },
+    onSuccess: () => { toast({ title: l.pausedToast }); invalidate(); },
     onError: (e: any) => toast({ title: l.errorTitle, description: e?.message, variant: "destructive" }),
   });
 
@@ -883,11 +921,17 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
           <Button variant="outline" onClick={() => setTestOpen(true)} data-testid="button-test">
             {l.testSend}
           </Button>
-          <Button onClick={() => sendMutation.mutate("send")} disabled={sendMutation.isPending || campaign.status === "sending"} data-testid="button-send">
-            {campaign.status === "sending" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-            {campaign.status === "sending" ? l.sending : l.sendEmails}
-          </Button>
-          <Button variant="outline" onClick={() => sendMutation.mutate("remind")} disabled={sendMutation.isPending || campaign.status === "sending"} data-testid="button-remind">
+          {campaign.status === "sending" ? (
+            <Button variant="outline" onClick={() => pauseMutation.mutate()} disabled={pauseMutation.isPending} data-testid="button-pause">
+              <Pause className="h-4 w-4 mr-2" />{l.pause}
+            </Button>
+          ) : (
+            <Button onClick={() => setConfirmKind("send")} disabled={sendMutation.isPending} data-testid="button-send">
+              <Send className="h-4 w-4 mr-2" />
+              {campaign.status === "paused" ? l.resume : l.sendEmails}
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => setConfirmKind("remind")} disabled={sendMutation.isPending || campaign.status === "sending"} data-testid="button-remind">
             <Bell className="h-4 w-4 mr-2" />{l.remind}
           </Button>
         </div>
@@ -1010,6 +1054,25 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
       {editFilterOpen && (
         <EditFilterDialog campaign={campaign} l={l} toast={toast} open={editFilterOpen} onOpenChange={setEditFilterOpen} />
       )}
+
+      <AlertDialog open={confirmKind !== null} onOpenChange={(o) => { if (!o) setConfirmKind(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmKind === "remind" ? l.remindConfirmT : l.sendConfirmT}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmKind === "remind" ? l.remindConfirmD : l.sendConfirmD}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-send-cancel">{l.cancel}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { if (confirmKind) sendMutation.mutate(confirmKind); setConfirmKind(null); }}
+              disabled={sendMutation.isPending}
+              data-testid="button-send-confirm"
+            >
+              {l.confirmSend}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

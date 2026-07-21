@@ -196,8 +196,18 @@ async function sendCampaignEmails(campaignId: string, baseUrl: string, onlyRemin
     : [];
   const collabById = new Map(collabRows.map(c => [c.id, c]));
 
-  let sent = 0, failed = 0;
+  let sent = 0, failed = 0, paused = false;
   for (const reqRow of requests) {
+    // check for pause request before every email (cheap status probe)
+    {
+      const [cur] = await db.select({ status: collaboratorUpdateCampaigns.status })
+        .from(collaboratorUpdateCampaigns)
+        .where(eq(collaboratorUpdateCampaigns.id, campaignId));
+      if (!cur || cur.status === "paused") {
+        paused = true;
+        break;
+      }
+    }
     const c = collabById.get(reqRow.collaboratorId);
     if (!c) continue;
     const link = `${baseUrl}/update/${reqRow.token}`;
@@ -239,10 +249,16 @@ async function sendCampaignEmails(campaignId: string, baseUrl: string, onlyRemin
     }
   }
 
-  await db.update(collaboratorUpdateCampaigns)
-    .set({ status: "sent", updatedAt: new Date() })
-    .where(eq(collaboratorUpdateCampaigns.id, campaignId));
-  console.log(`[CollabUpdate] Campaign ${campaignId}: ${sent} sent, ${failed} failed (reminder=${onlyReminder})`);
+  if (!paused) {
+    // only flip to "sent" if nobody paused it meanwhile (CAS on status)
+    await db.update(collaboratorUpdateCampaigns)
+      .set({ status: "sent", updatedAt: new Date() })
+      .where(and(
+        eq(collaboratorUpdateCampaigns.id, campaignId),
+        eq(collaboratorUpdateCampaigns.status, "sending"),
+      ));
+  }
+  console.log(`[CollabUpdate] Campaign ${campaignId}: ${sent} sent, ${failed} failed (reminder=${onlyReminder}, paused=${paused})`);
 }
 
 export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any) {
@@ -504,6 +520,22 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
       res.json({ ok: true, message: "Sending started" });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Failed to start sending" });
+    }
+  });
+
+  // Pause an in-progress send: CAS sending → paused; the send loop notices and stops.
+  app.post("/api/collaborator-update-campaigns/:id/pause", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const flipped = await db.update(collaboratorUpdateCampaigns)
+        .set({ status: "paused", updatedAt: new Date() })
+        .where(and(
+          eq(collaboratorUpdateCampaigns.id, req.params.id),
+          eq(collaboratorUpdateCampaigns.status, "sending"),
+        )).returning({ id: collaboratorUpdateCampaigns.id });
+      if (flipped.length === 0) return res.status(409).json({ message: "Campaign is not sending" });
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Failed to pause" });
     }
   });
 
