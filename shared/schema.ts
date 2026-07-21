@@ -8052,3 +8052,52 @@ export const taskGroupRoleSortOrders = pgTable('task_group_role_sort_orders', {
 });
 
 export type TaskGroupRoleSortOrder = typeof taskGroupRoleSortOrders.$inferSelect;
+
+// ==================== COLLABORATOR DATA UPDATE CAMPAIGNS ====================
+// Campaigns to ask collaborators (via tokenized public link) to update their personal data
+
+export const collaboratorUpdateCampaigns = pgTable("collaborator_update_campaigns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  senderCountryCode: text("sender_country_code").notNull(), // which system MS365 mailbox sends
+  emailSubject: text("email_subject").notNull(),
+  emailBody: text("email_body").notNull(), // HTML with {{placeholders}}
+  tokenValidDays: integer("token_valid_days").notNull().default(30),
+  filterCriteria: jsonb("filter_criteria").$type<Record<string, any>>().default({}),
+  status: text("status").notNull().default("draft"), // draft | sending | sent
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertCollaboratorUpdateCampaignSchema = createInsertSchema(collaboratorUpdateCampaigns).omit({ id: true, createdAt: true, updatedAt: true, status: true, createdBy: true });
+export type CollaboratorUpdateCampaign = typeof collaboratorUpdateCampaigns.$inferSelect;
+export type InsertCollaboratorUpdateCampaign = z.infer<typeof insertCollaboratorUpdateCampaignSchema>;
+
+export const collaboratorUpdateRequests = pgTable("collaborator_update_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull(),
+  collaboratorId: varchar("collaborator_id").notNull(),
+  token: varchar("token").notNull().unique(),
+  email: text("email").notNull(),
+  language: text("language").notNull().default("sk"),
+  status: text("status").notNull().default("pending"), // pending | sent | send_failed | opened | submitted | approved | rejected
+  sendError: text("send_error"),
+  sentAt: timestamp("sent_at"),
+  remindedAt: timestamp("reminded_at"),
+  openedAt: timestamp("opened_at"),
+  submittedAt: timestamp("submitted_at"),
+  expiresAt: timestamp("expires_at").notNull(),
+  submittedData: jsonb("submitted_data").$type<Record<string, any>>(),
+  changes: jsonb("changes").$type<Array<{ field: string; oldValue: string | null; newValue: string | null }>>(),
+  reviewedBy: varchar("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNote: text("review_note"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+}, (table) => ({
+  idxCureqCampaign: index("idx_cureq_campaign").on(table.campaignId),
+  idxCureqCollaborator: index("idx_cureq_collaborator").on(table.collaboratorId),
+  idxCureqStatus: index("idx_cureq_status").on(table.status),
+}));
+
+export type CollaboratorUpdateRequest = typeof collaboratorUpdateRequests.$inferSelect;

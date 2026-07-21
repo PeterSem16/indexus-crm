@@ -205,6 +205,7 @@ export interface Translations {
     hospitalsAndClinics: string;
     collaborators: string;
     collaboratorReports: string;
+    collaboratorUpdates: string;
     visitEvents: string;
     collections: string;
     activityLog: string;
@@ -7137,6 +7138,7 @@ export const translations: Record<Locale, Translations> = {
       hospitalsAndClinics: 'Hospitals & clinics & midwives',
       collaborators: 'Collaborators',
       collaboratorReports: 'Reports',
+      collaboratorUpdates: 'Data Updates',
       visitEvents: 'INDEXUS Connect',
       collections: 'Collections',
       activityLog: 'Activity Log',
@@ -14121,6 +14123,7 @@ export const translations: Record<Locale, Translations> = {
       hospitalsAndClinics: 'Nemocnice & ambulancie & pôrodné asistentky',
       collaborators: 'Spolupracovníci',
       collaboratorReports: 'Reporty',
+      collaboratorUpdates: 'Aktualizácie údajov',
       visitEvents: 'INDEXUS Connect',
       collections: 'Odbery',
       activityLog: 'Log aktivit',
@@ -21041,6 +21044,7 @@ export const translations: Record<Locale, Translations> = {
       hospitalsAndClinics: 'Nemocnice & ambulance & porodní asistentky',
       collaborators: 'Spolupracovníci',
       collaboratorReports: 'Reporty',
+      collaboratorUpdates: 'Aktualizace údajů',
       visitEvents: 'INDEXUS Connect',
       collections: 'Odběry',
       activityLog: 'Log aktivit',
@@ -27887,6 +27891,7 @@ export const translations: Record<Locale, Translations> = {
       hospitalsAndClinics: 'Kórházak & klinikák & szülésznők',
       collaborators: 'Munkatársak',
       collaboratorReports: 'Jelentések',
+      collaboratorUpdates: 'Adatfrissítések',
       visitEvents: 'INDEXUS Connect',
       collections: 'Gyűjtések',
       activityLog: 'Tevékenységnapló',
@@ -34693,6 +34698,7 @@ export const translations: Record<Locale, Translations> = {
       hospitalsAndClinics: 'Spitale & clinici & moașe',
       collaborators: 'Colaboratori',
       collaboratorReports: 'Rapoarte',
+      collaboratorUpdates: 'Actualizări date',
       visitEvents: 'INDEXUS Connect',
       collections: 'Colecții',
       activityLog: 'Jurnal activitate',
@@ -41419,6 +41425,7 @@ export const translations: Record<Locale, Translations> = {
       hospitalsAndClinics: 'Ospedali & cliniche & ostetriche',
       collaborators: 'Collaboratori',
       collaboratorReports: 'Report',
+      collaboratorUpdates: 'Aggiornamenti dati',
       visitEvents: 'INDEXUS Connect',
       collections: 'Raccolte',
       activityLog: 'Registro attività',
@@ -48147,6 +48154,7 @@ export const translations: Record<Locale, Translations> = {
       hospitalsAndClinics: 'Krankenhäuser & Kliniken & Hebammen',
       collaborators: 'Mitarbeiter',
       collaboratorReports: 'Berichte',
+      collaboratorUpdates: 'Datenaktualisierungen',
       visitEvents: 'INDEXUS Connect',
       collections: 'Entnahmen',
       activityLog: 'Aktivitätsprotokoll',

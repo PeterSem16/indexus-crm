@@ -187,6 +187,47 @@ app.use((req, res, next) => {
     console.log('[migration] campaign_status_list_questions ensured');
 
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS collaborator_update_campaigns (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        name text NOT NULL,
+        sender_country_code text NOT NULL,
+        email_subject text NOT NULL,
+        email_body text NOT NULL,
+        token_valid_days integer NOT NULL DEFAULT 30,
+        filter_criteria jsonb DEFAULT '{}'::jsonb,
+        status text NOT NULL DEFAULT 'draft',
+        created_by varchar,
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now()
+      );
+      CREATE TABLE IF NOT EXISTS collaborator_update_requests (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        campaign_id varchar NOT NULL,
+        collaborator_id varchar NOT NULL,
+        token varchar NOT NULL UNIQUE,
+        email text NOT NULL,
+        language text NOT NULL DEFAULT 'sk',
+        status text NOT NULL DEFAULT 'pending',
+        send_error text,
+        sent_at timestamp,
+        reminded_at timestamp,
+        opened_at timestamp,
+        submitted_at timestamp,
+        expires_at timestamp NOT NULL,
+        submitted_data jsonb,
+        changes jsonb,
+        reviewed_by varchar,
+        reviewed_at timestamp,
+        review_note text,
+        created_at timestamp NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_cureq_campaign ON collaborator_update_requests(campaign_id);
+      CREATE INDEX IF NOT EXISTS idx_cureq_collaborator ON collaborator_update_requests(collaborator_id);
+      CREATE INDEX IF NOT EXISTS idx_cureq_status ON collaborator_update_requests(status);
+    `);
+    console.log('[migration] collaborator_update tables ensured');
+
+    await pool.query(`
       ALTER TABLE campaign_status_list_automations
         ADD COLUMN IF NOT EXISTS question_id varchar;
     `);

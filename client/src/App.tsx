@@ -76,6 +76,8 @@ const StatusManagementPage = lazy(() => import("@/pages/status-management"));
 const AutomationsPage = lazy(() => import("@/pages/automations"));
 const ScrapingPage = lazy(() => import("@/pages/scraping"));
 const PublicFormPage = lazy(() => import("@/pages/public-form"));
+const CollaboratorUpdatePage = lazy(() => import("@/pages/collaborator-update"));
+const CollaboratorUpdatesAdminPage = lazy(() => import("@/pages/collaborator-updates"));
 import { AgentSessionProvider } from "@/contexts/agent-session-context";
 import NotFound from "@/pages/not-found";
 import { Loader2 } from "lucide-react";
@@ -267,6 +269,7 @@ function AuthenticatedApp() {
                     <Route path="/hospitals" component={HospitalsPage} />
                     <Route path="/visit-events" component={VisitEventsPage} />
                     <Route path="/collaborators" component={CollaboratorsPage} />
+                    <Route path="/collaborator-updates" component={CollaboratorUpdatesAdminPage} />
                     <Route path="/collaborator-reports" component={CollaboratorReportsPage} />
                     <Route path="/collections">{() => <CollectionsPage key="list" />}</Route>
                     <Route path="/collections/new">{() => <CollectionsPage key="new" />}</Route>
@@ -353,12 +356,20 @@ function PublicRoutes() {
     );
   }
 
+  if (location.startsWith("/update/")) {
+    return (
+      <Switch>
+        <Route path="/update/:token" component={CollaboratorUpdatePage} />
+      </Switch>
+    );
+  }
+
   return null;
 }
 
 function AppShell() {
   const [location] = useLocation();
-  const isPublicRoute = location.startsWith("/f/") || location.startsWith("/sign/") || location.startsWith("/s/") || location.startsWith("/audit-timeline/");
+  const isPublicRoute = location.startsWith("/f/") || location.startsWith("/sign/") || location.startsWith("/s/") || location.startsWith("/audit-timeline/") || location.startsWith("/update/");
 
   if (isPublicRoute) {
     return (

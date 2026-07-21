@@ -1,5 +1,6 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { registerInboundRoutes, autoConnectAri } from "./inbound-routes";
+import { registerCollaboratorUpdateRoutes } from "./collaborator-update-routes";
 import { getQueueEngine } from "./lib/queue-engine";
 import { createServer, type Server } from "http";
 import crypto from "crypto";
@@ -49620,6 +49621,7 @@ Return ONLY the JSON object.`
   });
 
   registerInboundRoutes(app, requireAuth);
+  registerCollaboratorUpdateRoutes(app, requireAuth);
 
   app.get("/api/web-forms", requireAuth, async (_req, res) => {
     try { res.json(await storage.getWebForms()); }

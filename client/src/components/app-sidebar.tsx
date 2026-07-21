@@ -88,6 +88,7 @@ export function AppSidebar() {
   const mpnSubItems = [
     { title: t.nav.medicalPartnerNetwork, url: "/medical-partner-network", testId: "mpn", moduleKey: "hospitals" },
     { title: t.nav.hospitalsAndClinics, url: "/hospitals", testId: "hospitals", moduleKey: "hospitals" },
+    { title: t.nav.collaboratorUpdates, url: "/collaborator-updates", testId: "collaborator-updates", moduleKey: "collaborators" },
   ];
 
   const nexusNavItems = [
