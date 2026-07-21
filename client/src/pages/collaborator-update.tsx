@@ -170,6 +170,7 @@ type FormResponse = {
     workplace?: string;
     email?: string;
     maidenName?: string;
+    contact?: Record<string, string>;
   };
   data: Record<string, string>;
 };
@@ -204,9 +205,52 @@ const JMHZ = {
   errExpired: "Platnost odkazu vypršela. Kontaktujte nás prosím pro nový odkaz.",
   errNotFound: "Odkaz již není platný. Kontaktujte nás prosím pro nový odkaz.",
   errInvalid: "Některé pole není vyplněno správně, zkontrolujte prosím formulář.",
+  contactTitle: "Aktualizace původních údajů",
+  contactIntro: "Pokud se změnily Vaše kontaktní údaje, můžete je zde aktualizovat. Tato část je nepovinná.",
+  contactButton: "Aktualizovat původní údaje",
+  contactHide: "Skrýt aktualizaci údajů",
+  contactAddress: "Adresa (trvalé bydliště)",
+  contactStreet: "Ulice a číslo",
+  contactCity: "Město",
+  contactZip: "PSČ",
+  contactBank: "Číslo účtu (IBAN)",
+  contactEmail: "E-mailová adresa",
+  contactPhone: "Telefonní číslo",
 };
 
-const JMHZ_EDUCATION = ["ZŠ", "SŠ bez maturity", "SŠ s maturitou", "VOŠ", "VŠ Bc.", "VŠ Mgr./Ing.", "VŠ Ph.D."];
+const JMHZ_EDUCATION = [
+  "Bez vzdělání",
+  "Neúplné základní vzdělání",
+  "Základní vzdělání",
+  "Nižší střední vzdělání",
+  "Nižší střední odborné vzdělání",
+  "Střední odborné vzdělání s výučním listem",
+  "Střední nebo střední odborné vzdělání bez maturity a výučního listu",
+  "Úplné střední všeobecné vzdělání",
+  "Úplné střední odborné vzdělání s vyučením i maturitou",
+  "Úplné střední odborné vzdělání s maturitou (bez vyučení)",
+  "Vyšší odborné vzdělání",
+  "Vyšší odborné vzdělání v konzervatoři",
+  "Vysokoškolské bakalářské vzdělání",
+  "Vysokoškolské magisterské vzdělání",
+  "Vysokoškolské doktorské vzdělání",
+];
+
+const JMHZ_PROFESSIONS = [
+  "Lékaři v gynekologii a porodnictví (specialisté)",
+  "Všeobecní lékaři (lékaři v přípravě/absolventi)",
+  "Primáři v oblasti zdravotnictví",
+  "Vedoucí lékaři a ředitelé zdravotnických zařízení",
+  "Porodní asistentky se specializací",
+  "Staniční sestry (porodní asistentky)",
+  "Porodní asistentky bez specializace",
+  "Vrchní a staniční sestry (všeobecné sestry)",
+  "Sestry pro péči v chirurgických oborech",
+  "Všeobecné sestry bez specializace",
+  "Sestry pro péči v interních oborech",
+  "Praktické sestry (dříve zdravotničtí asistenti)",
+  "Ošetřovatelé ve zdravotnických zařízeních",
+];
 
 const JMHZ_COUNTRIES = [
   "Česká republika", "Slovensko", "Ukrajina", "Polsko", "Maďarsko", "Německo", "Rakousko",
@@ -222,13 +266,13 @@ const JMHZ_FIELD_DEFS: Array<{
   key: string;
   label: string;
   placeholder: string;
-  type: "text" | "education" | "country" | "yesno";
+  type: "text" | "education" | "country" | "yesno" | "profession";
 }> = [
   { key: "educationHighest", label: "Nejvyšší dosažené vzdělání", placeholder: "Vyberte ze seznamu", type: "education" },
   { key: "birthPlace", label: "Místo narození", placeholder: "Např. Brno", type: "text" },
   { key: "birthCountry", label: "Stát narození", placeholder: "Vyberte zemi", type: "country" },
   { key: "birthSurname", label: "Rodné příjmení", placeholder: "Vyplňte, pokud se liší od současného příjmení", type: "text" },
-  { key: "profession", label: "Profese", placeholder: "Vaše pracovní pozice / odbornost pro CBC", type: "text" },
+  { key: "profession", label: "Profese", placeholder: "Vyberte pracovní pozici", type: "profession" },
   { key: "educationRequired", label: "Vzdělání vyžadované pro výkon profese", placeholder: "Minimální vzdělání požadované pro výkon této profese", type: "education" },
   { key: "workPlace", label: "Místo výkonu práce / činnosti", placeholder: "Adresa, kde reálně vykonáváte činnost pro CBC", type: "text" },
   { key: "isLeadingEmployee", label: "Vedoucí zaměstnanec", placeholder: "Jste v řídicí pozici dle zákoníku práce?", type: "yesno" },
@@ -258,13 +302,28 @@ function JmhzForm({ token, collaboratorName, collaboratorInfo }: {
   const [maidenRevealed, setMaidenRevealed] = useState(false);
   const [maidenConfirmed, setMaidenConfirmed] = useState(false);
   const storedMaiden = collaboratorInfo?.maidenName?.trim() || "";
+  const storedContact = collaboratorInfo?.contact || {};
+  const [contactOpen, setContactOpen] = useState(false);
+  const [contact, setContact] = useState<Record<string, string>>({});
+
+  const contactValue = (k: string) => (k in contact ? contact[k] : storedContact[k] ?? "");
+  const setContactVal = (k: string, v: string) => setContact(prev => ({ ...prev, [k]: v }));
+  const contactUpdates = () => {
+    if (!contactOpen) return undefined;
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(contact)) {
+      const nv = v.trim();
+      if (nv && nv !== (storedContact[k] ?? "").trim()) out[k] = nv;
+    }
+    return Object.keys(out).length > 0 ? out : undefined;
+  };
 
   const mutation = useMutation({
     mutationFn: async () => {
       const res = await fetch(`/api/public/collaborator-update/${token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data: values, consent }),
+        body: JSON.stringify({ data: values, consent, contactUpdates: contactUpdates() }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -444,6 +503,7 @@ function JmhzForm({ token, collaboratorName, collaboratorInfo }: {
                           </option>
                           {(f.type === "education" ? JMHZ_EDUCATION
                             : f.type === "country" ? JMHZ_COUNTRIES
+                            : f.type === "profession" ? JMHZ_PROFESSIONS
                             : ["Ano", "Ne"]).map(o => (
                             <option key={o} value={o}>{o}</option>
                           ))}
@@ -455,6 +515,95 @@ function JmhzForm({ token, collaboratorName, collaboratorInfo }: {
                     </div>
                   );
                 })}
+              </div>
+
+              <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="font-semibold flex items-center gap-1.5">
+                      <Pencil className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                      {JMHZ.contactTitle}
+                    </p>
+                    <p className="text-sm text-muted-foreground">{JMHZ.contactIntro}</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant={contactOpen ? "ghost" : "outline"}
+                    size="sm"
+                    onClick={() => setContactOpen(v => !v)}
+                    data-testid="button-contact-toggle"
+                  >
+                    {contactOpen ? JMHZ.contactHide : JMHZ.contactButton}
+                  </Button>
+                </div>
+
+                {contactOpen && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4 pt-1">
+                    <div className="space-y-1.5 md:col-span-2">
+                      <Label className="flex items-center gap-1.5">
+                        <MapPin className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                        {JMHZ.contactAddress}
+                      </Label>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <Input
+                          placeholder={JMHZ.contactStreet}
+                          value={contactValue("addr_permanent_streetNumber")}
+                          onChange={e => setContactVal("addr_permanent_streetNumber", e.target.value)}
+                          data-testid="input-contact-street"
+                        />
+                        <Input
+                          placeholder={JMHZ.contactCity}
+                          value={contactValue("addr_permanent_city")}
+                          onChange={e => setContactVal("addr_permanent_city", e.target.value)}
+                          data-testid="input-contact-city"
+                        />
+                        <Input
+                          placeholder={JMHZ.contactZip}
+                          value={contactValue("addr_permanent_postalCode")}
+                          onChange={e => setContactVal("addr_permanent_postalCode", e.target.value)}
+                          data-testid="input-contact-zip"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="jmhz-contact-bank" className="flex items-center gap-1.5">
+                        <BadgeCheck className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                        {JMHZ.contactBank}
+                      </Label>
+                      <Input
+                        id="jmhz-contact-bank"
+                        value={contactValue("bankAccountIban")}
+                        onChange={e => setContactVal("bankAccountIban", e.target.value)}
+                        data-testid="input-contact-bank"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="jmhz-contact-email" className="flex items-center gap-1.5">
+                        <UserCircle2 className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                        {JMHZ.contactEmail}
+                      </Label>
+                      <Input
+                        id="jmhz-contact-email"
+                        type="email"
+                        value={contactValue("email")}
+                        onChange={e => setContactVal("email", e.target.value)}
+                        data-testid="input-contact-email"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="jmhz-contact-phone" className="flex items-center gap-1.5">
+                        <Briefcase className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                        {JMHZ.contactPhone}
+                      </Label>
+                      <Input
+                        id="jmhz-contact-phone"
+                        value={contactValue("phone")}
+                        onChange={e => setContactVal("phone", e.target.value)}
+                        data-testid="input-contact-phone"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-start gap-2 pt-2">

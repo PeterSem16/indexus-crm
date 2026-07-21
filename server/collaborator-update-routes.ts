@@ -70,7 +70,42 @@ const TEST_SAMPLE_ADDR: Record<string, Record<string, string>> = {
 // (submittedData/changes) — they have no matching collaborator columns, so the
 // approve step never writes them to the collaborators table.
 const JMHZ_EDUCATION_LEVELS = [
-  "ZŠ", "SŠ bez maturity", "SŠ s maturitou", "VOŠ", "VŠ Bc.", "VŠ Mgr./Ing.", "VŠ Ph.D.",
+  "Bez vzdělání",
+  "Neúplné základní vzdělání",
+  "Základní vzdělání",
+  "Nižší střední vzdělání",
+  "Nižší střední odborné vzdělání",
+  "Střední odborné vzdělání s výučním listem",
+  "Střední nebo střední odborné vzdělání bez maturity a výučního listu",
+  "Úplné střední všeobecné vzdělání",
+  "Úplné střední odborné vzdělání s vyučením i maturitou",
+  "Úplné střední odborné vzdělání s maturitou (bez vyučení)",
+  "Vyšší odborné vzdělání",
+  "Vyšší odborné vzdělání v konzervatoři",
+  "Vysokoškolské bakalářské vzdělání",
+  "Vysokoškolské magisterské vzdělání",
+  "Vysokoškolské doktorské vzdělání",
+] as const;
+const JMHZ_PROFESSIONS = [
+  "Lékaři v gynekologii a porodnictví (specialisté)",
+  "Všeobecní lékaři (lékaři v přípravě/absolventi)",
+  "Primáři v oblasti zdravotnictví",
+  "Vedoucí lékaři a ředitelé zdravotnických zařízení",
+  "Porodní asistentky se specializací",
+  "Staniční sestry (porodní asistentky)",
+  "Porodní asistentky bez specializace",
+  "Vrchní a staniční sestry (všeobecné sestry)",
+  "Sestry pro péči v chirurgických oborech",
+  "Všeobecné sestry bez specializace",
+  "Sestry pro péči v interních oborech",
+  "Praktické sestry (dříve zdravotničtí asistenti)",
+  "Ošetřovatelé ve zdravotnických zařízeních",
+] as const;
+// Optional contact-data updates submitted with the JMHZ form. Field names
+// match EDITABLE_FIELDS / addr_* so the approve step applies them normally.
+const JMHZ_CONTACT_FIELDS = [
+  "email", "phone", "bankAccountIban",
+  "addr_permanent_streetNumber", "addr_permanent_city", "addr_permanent_postalCode",
 ] as const;
 const JMHZ_FIELDS = [
   "educationHighest", "birthPlace", "birthCountry", "birthSurname",
@@ -776,6 +811,14 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
               workplace: "Nemocnice Brno",
               email: "jan.novak@example.cz",
               maidenName: "Nováková",
+              contact: {
+                email: "jan.novak@example.cz",
+                phone: "+420 777 123 456",
+                bankAccountIban: "CZ65 0800 0000 1920 0014 5399",
+                addr_permanent_streetNumber: "Hlavní 12",
+                addr_permanent_city: "Brno",
+                addr_permanent_postalCode: "602 00",
+              },
             },
             isTest: true,
             data: {},
@@ -784,6 +827,11 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
         const [cj] = await db.select().from(collaborators)
           .where(eq(collaborators.id, reqRow.collaboratorId));
         if (!cj) return res.status(404).json({ message: "not_found" });
+        const [permAddr] = await db.select().from(collaboratorAddresses)
+          .where(and(
+            eq(collaboratorAddresses.collaboratorId, cj.id),
+            eq(collaboratorAddresses.addressType, "permanent"),
+          ));
         return res.json({
           language: reqRow.language,
           formType,
@@ -794,6 +842,14 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
             workplace: cj.workplaceName || "",
             email: cj.email || "",
             maidenName: cj.maidenName || "",
+            contact: {
+              email: cj.email || "",
+              phone: cj.phone || cj.mobile || "",
+              bankAccountIban: cj.bankAccountIban || "",
+              addr_permanent_streetNumber: permAddr?.streetNumber || "",
+              addr_permanent_city: permAddr?.city || "",
+              addr_permanent_postalCode: permAddr?.postalCode || "",
+            },
           },
           data: {},
         });
@@ -877,6 +933,35 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
           const v = String(submittedJ[f]).trim().slice(0, 500);
           cleanJ[f] = v;
           changesJ.push({ field: `jmhz_${f}`, oldValue: null, newValue: v });
+        }
+
+        // Optional contact-data updates (address, bank account, email, phone).
+        // Field names match EDITABLE_FIELDS / addr_* so approve applies them.
+        const contactUpdates = (req.body?.contactUpdates || {}) as Record<string, any>;
+        if (contactUpdates && typeof contactUpdates === "object") {
+          let oldJ: (f: string) => string = () => "";
+          if (!isTest) {
+            const [cOld] = await db.select().from(collaborators)
+              .where(eq(collaborators.id, reqRow.collaboratorId));
+            const [aOld] = await db.select().from(collaboratorAddresses)
+              .where(and(
+                eq(collaboratorAddresses.collaboratorId, reqRow.collaboratorId),
+                eq(collaboratorAddresses.addressType, "permanent"),
+              ));
+            oldJ = (f) => {
+              const m = f.match(/^addr_permanent_(streetNumber|city|postalCode)$/);
+              if (m) return String((aOld as any)?.[m[1]] ?? "");
+              return String((cOld as any)?.[f] ?? "");
+            };
+          }
+          for (const f of JMHZ_CONTACT_FIELDS) {
+            if (!(f in contactUpdates)) continue;
+            const nv = String(contactUpdates[f] ?? "").trim().slice(0, 500);
+            const ov = oldJ(f).trim();
+            if (!nv || nv === ov) continue;
+            cleanJ[`contact_${f}`] = nv;
+            changesJ.push({ field: f, oldValue: ov || null, newValue: nv });
+          }
         }
         const [updatedJ] = await db.update(collaboratorUpdateRequests).set({
           status: "submitted",
