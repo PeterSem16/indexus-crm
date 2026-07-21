@@ -762,15 +762,39 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
         .where(eq(collaboratorUpdateCampaigns.id, reqRow.campaignId));
       const formType = camp?.formType || "update";
 
-      // JMHZ form collects NEW data — nothing is prefilled, no personal data
-      // is exposed via this endpoint (doc: no PII in URL/params/response)
+      // JMHZ form collects NEW data — only the collaborator's name, profession
+      // and stored maiden name are exposed so the person can verify identity
       if (formType === "jmhz") {
+        if (reqRow.token.startsWith("test-")) {
+          return res.json({
+            language: reqRow.language,
+            formType,
+            birthNumberMasked: null,
+            collaboratorName: [TEST_SAMPLE.titleBefore, TEST_SAMPLE.firstName, TEST_SAMPLE.lastName].filter(Boolean).join(" "),
+            collaboratorInfo: {
+              profession: "Lékař",
+              workplace: "Nemocnice Brno",
+              email: "jan.novak@example.cz",
+              maidenName: "Nováková",
+            },
+            isTest: true,
+            data: {},
+          });
+        }
+        const [cj] = await db.select().from(collaborators)
+          .where(eq(collaborators.id, reqRow.collaboratorId));
+        if (!cj) return res.status(404).json({ message: "not_found" });
         return res.json({
           language: reqRow.language,
           formType,
           birthNumberMasked: null,
-          collaboratorName: "",
-          isTest: reqRow.token.startsWith("test-") || undefined,
+          collaboratorName: [cj.titleBefore, cj.firstName, cj.lastName].filter(Boolean).join(" "),
+          collaboratorInfo: {
+            profession: cj.professionalClassification || "",
+            workplace: cj.workplaceName || "",
+            email: cj.email || "",
+            maidenName: cj.maidenName || "",
+          },
           data: {},
         });
       }

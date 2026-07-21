@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, CheckCircle2, AlertTriangle, ShieldCheck } from "lucide-react";
+import { Loader2, CheckCircle2, AlertTriangle, ShieldCheck, Eye, EyeOff, UserCircle2, GraduationCap, MapPin, Briefcase, Building2, BadgeCheck, Pencil } from "lucide-react";
 
 type Lang = "sk" | "cs" | "hu" | "ro" | "it" | "de" | "en";
 
@@ -165,6 +165,12 @@ type FormResponse = {
   formType?: string;
   birthNumberMasked: string | null;
   collaboratorName: string;
+  collaboratorInfo?: {
+    profession?: string;
+    workplace?: string;
+    email?: string;
+    maidenName?: string;
+  };
   data: Record<string, string>;
 };
 
@@ -183,6 +189,17 @@ const JMHZ = {
   errorSubmit: "Odeslání selhalo, zkuste to prosím znovu.",
   selectPlaceholder: "Vyberte ze seznamu",
   selectCountry: "Vyberte zemi",
+  fillingFor: "Formulář vyplňujete jako:",
+  fillingForNote: "Zkontrolujte prosím, že vyplňujete údaje za správnou osobu.",
+  profession: "Profese",
+  workplace: "Pracoviště",
+  emailLabel: "E-mail",
+  maidenStored: "V našem systému již máme uloženo Vaše rodné příjmení.",
+  maidenShow: "Zobrazit",
+  maidenHide: "Skrýt",
+  maidenConfirm: "Souhlasí — použít uložené",
+  maidenChange: "Chci zadat jiné",
+  maidenConfirmed: "Použije se rodné příjmení uložené v systému.",
 };
 
 const JMHZ_EDUCATION = ["ZŠ", "SŠ bez maturity", "SŠ s maturitou", "VOŠ", "VŠ Bc.", "VŠ Mgr./Ing.", "VŠ Ph.D."];
@@ -213,12 +230,30 @@ const JMHZ_FIELD_DEFS: Array<{
   { key: "isLeadingEmployee", label: "Vedoucí zaměstnanec", placeholder: "Jste v řídicí pozici dle zákoníku práce?", type: "yesno" },
 ];
 
-function JmhzForm({ token }: { token: string }) {
+const JMHZ_SECTION_ICONS: Record<string, any> = {
+  educationHighest: GraduationCap,
+  birthPlace: MapPin,
+  birthCountry: MapPin,
+  birthSurname: UserCircle2,
+  profession: Briefcase,
+  educationRequired: GraduationCap,
+  workPlace: Building2,
+  isLeadingEmployee: BadgeCheck,
+};
+
+function JmhzForm({ token, collaboratorName, collaboratorInfo }: {
+  token: string;
+  collaboratorName?: string;
+  collaboratorInfo?: FormResponse["collaboratorInfo"];
+}) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [consent, setConsent] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [consentError, setConsentError] = useState(false);
   const [done, setDone] = useState(false);
+  const [maidenRevealed, setMaidenRevealed] = useState(false);
+  const [maidenConfirmed, setMaidenConfirmed] = useState(false);
+  const storedMaiden = collaboratorInfo?.maidenName?.trim() || "";
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -238,10 +273,12 @@ function JmhzForm({ token }: { token: string }) {
 
   if (done) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
-        <Card className="max-w-md w-full">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-sky-50 via-white to-emerald-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 p-4">
+        <Card className="max-w-md w-full rounded-2xl shadow-lg border-emerald-200 dark:border-emerald-900">
           <CardHeader className="text-center">
-            <CheckCircle2 className="h-10 w-10 text-green-500 mx-auto mb-2" />
+            <div className="mx-auto mb-3 h-14 w-14 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+              <CheckCircle2 className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+            </div>
             <CardTitle data-testid="text-thanks-title">{JMHZ.successTitle}</CardTitle>
             <CardDescription>{JMHZ.success}</CardDescription>
           </CardHeader>
@@ -267,10 +304,20 @@ function JmhzForm({ token }: { token: string }) {
     setErrors(prev => ({ ...prev, [k]: false }));
   };
 
+  const confirmMaiden = () => {
+    setMaidenConfirmed(true);
+    setVal("birthSurname", storedMaiden);
+  };
+  const unconfirmMaiden = () => {
+    setMaidenConfirmed(false);
+    setVal("birthSurname", "");
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-8 px-4">
-      <div className="max-w-2xl mx-auto space-y-6">
-        <Card>
+    <div className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-emerald-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 py-8 px-4">
+      <div className="max-w-3xl mx-auto space-y-6">
+        <Card className="rounded-2xl shadow-md border-sky-100 dark:border-slate-800 overflow-hidden">
+          <div className="h-1.5 bg-gradient-to-r from-sky-500 via-cyan-400 to-emerald-400" />
           <CardHeader>
             <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 mb-1">
               <ShieldCheck className="h-5 w-5" />
@@ -281,47 +328,130 @@ function JmhzForm({ token }: { token: string }) {
           </CardHeader>
         </Card>
 
+        {collaboratorName && (
+          <Card className="rounded-2xl shadow-md border-sky-200 dark:border-sky-900 bg-sky-50/60 dark:bg-sky-950/30">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-start gap-4">
+                <div className="h-12 w-12 shrink-0 rounded-full bg-gradient-to-br from-sky-500 to-cyan-400 flex items-center justify-center text-white">
+                  <UserCircle2 className="h-7 w-7" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium uppercase tracking-wide text-sky-700 dark:text-sky-300">{JMHZ.fillingFor}</p>
+                  <p className="text-lg font-bold leading-tight" data-testid="text-collaborator-name">{collaboratorName}</p>
+                  <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-muted-foreground">
+                    {collaboratorInfo?.profession && (
+                      <span className="inline-flex items-center gap-1" data-testid="text-collaborator-profession">
+                        <Briefcase className="h-3.5 w-3.5" />{collaboratorInfo.profession}
+                      </span>
+                    )}
+                    {collaboratorInfo?.workplace && (
+                      <span className="inline-flex items-center gap-1" data-testid="text-collaborator-workplace">
+                        <Building2 className="h-3.5 w-3.5" />{collaboratorInfo.workplace}
+                      </span>
+                    )}
+                    {collaboratorInfo?.email && (
+                      <span data-testid="text-collaborator-email">{collaboratorInfo.email}</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1.5">{JMHZ.fillingForNote}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <form onSubmit={handleSubmit}>
-          <Card>
+          <Card className="rounded-2xl shadow-md">
             <CardContent className="pt-6 space-y-5">
               <p className="text-sm text-muted-foreground">{JMHZ.instructions}</p>
 
-              {JMHZ_FIELD_DEFS.map(f => (
-                <div key={f.key} className="space-y-1.5">
-                  <Label htmlFor={`jmhz-${f.key}`}>
-                    {f.label} <span className="text-red-600">*</span>
-                  </Label>
-                  {f.type === "text" ? (
-                    <Input
-                      id={`jmhz-${f.key}`}
-                      value={values[f.key] ?? ""}
-                      placeholder={f.placeholder}
-                      onChange={e => setVal(f.key, e.target.value)}
-                      data-testid={`input-jmhz-${f.key}`}
-                    />
-                  ) : (
-                    <select
-                      id={`jmhz-${f.key}`}
-                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
-                      value={values[f.key] ?? ""}
-                      onChange={e => setVal(f.key, e.target.value)}
-                      data-testid={`select-jmhz-${f.key}`}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-5">
+                {JMHZ_FIELD_DEFS.map(f => {
+                  const Icon = JMHZ_SECTION_ICONS[f.key] || Pencil;
+                  const isMaidenSpecial = f.key === "birthSurname" && !!storedMaiden;
+                  return (
+                    <div
+                      key={f.key}
+                      className={`space-y-1.5 rounded-xl border bg-card p-4 transition-colors ${
+                        errors[f.key] ? "border-red-300 dark:border-red-800" : "border-slate-200 dark:border-slate-800 hover:border-sky-300 dark:hover:border-sky-700"
+                      } ${isMaidenSpecial ? "md:col-span-2" : ""}`}
                     >
-                      <option value="" disabled>
-                        {f.type === "country" ? JMHZ.selectCountry : f.type === "yesno" ? f.placeholder : JMHZ.selectPlaceholder}
-                      </option>
-                      {(f.type === "education" ? JMHZ_EDUCATION
-                        : f.type === "country" ? JMHZ_COUNTRIES
-                        : ["Ano", "Ne"]).map(o => (
-                        <option key={o} value={o}>{o}</option>
-                      ))}
-                    </select>
-                  )}
-                  {errors[f.key] && (
-                    <p className="text-sm text-red-600" data-testid={`error-jmhz-${f.key}`}>{JMHZ.requiredError}</p>
-                  )}
-                </div>
-              ))}
+                      <Label htmlFor={`jmhz-${f.key}`} className="flex items-center gap-1.5">
+                        <Icon className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                        {f.label} <span className="text-red-600">*</span>
+                      </Label>
+
+                      {isMaidenSpecial ? (
+                        maidenConfirmed ? (
+                          <div className="flex flex-wrap items-center gap-3 pt-1">
+                            <div className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
+                              <CheckCircle2 className="h-4 w-4" />
+                              {JMHZ.maidenConfirmed}
+                            </div>
+                            <Button type="button" variant="ghost" size="sm" onClick={unconfirmMaiden} data-testid="button-maiden-change">
+                              <Pencil className="h-3.5 w-3.5 mr-1.5" />{JMHZ.maidenChange}
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="space-y-2 pt-1">
+                            <div className="flex flex-wrap items-center gap-2 rounded-lg bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-900 px-3 py-2">
+                              <span className="text-sm text-sky-800 dark:text-sky-200">{JMHZ.maidenStored}</span>
+                              {maidenRevealed && (
+                                <span className="font-semibold text-sm" data-testid="text-maiden-stored">{storedMaiden}</span>
+                              )}
+                              <Button type="button" variant="outline" size="sm" onClick={() => setMaidenRevealed(v => !v)} data-testid="button-maiden-reveal">
+                                {maidenRevealed
+                                  ? <><EyeOff className="h-3.5 w-3.5 mr-1.5" />{JMHZ.maidenHide}</>
+                                  : <><Eye className="h-3.5 w-3.5 mr-1.5" />{JMHZ.maidenShow}</>}
+                              </Button>
+                              {maidenRevealed && (
+                                <Button type="button" size="sm" onClick={confirmMaiden} data-testid="button-maiden-confirm">
+                                  <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />{JMHZ.maidenConfirm}
+                                </Button>
+                              )}
+                            </div>
+                            <Input
+                              id={`jmhz-${f.key}`}
+                              value={values[f.key] ?? ""}
+                              placeholder={f.placeholder}
+                              onChange={e => setVal(f.key, e.target.value)}
+                              data-testid={`input-jmhz-${f.key}`}
+                            />
+                          </div>
+                        )
+                      ) : f.type === "text" ? (
+                        <Input
+                          id={`jmhz-${f.key}`}
+                          value={values[f.key] ?? ""}
+                          placeholder={f.placeholder}
+                          onChange={e => setVal(f.key, e.target.value)}
+                          data-testid={`input-jmhz-${f.key}`}
+                        />
+                      ) : (
+                        <select
+                          id={`jmhz-${f.key}`}
+                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                          value={values[f.key] ?? ""}
+                          onChange={e => setVal(f.key, e.target.value)}
+                          data-testid={`select-jmhz-${f.key}`}
+                        >
+                          <option value="" disabled>
+                            {f.type === "country" ? JMHZ.selectCountry : f.type === "yesno" ? f.placeholder : JMHZ.selectPlaceholder}
+                          </option>
+                          {(f.type === "education" ? JMHZ_EDUCATION
+                            : f.type === "country" ? JMHZ_COUNTRIES
+                            : ["Ano", "Ne"]).map(o => (
+                            <option key={o} value={o}>{o}</option>
+                          ))}
+                        </select>
+                      )}
+                      {errors[f.key] && (
+                        <p className="text-sm text-red-600" data-testid={`error-jmhz-${f.key}`}>{JMHZ.requiredError}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
 
               <div className="flex items-start gap-2 pt-2">
                 <input
@@ -424,7 +554,13 @@ export default function CollaboratorUpdatePage() {
   }
 
   if (query.data?.formType === "jmhz") {
-    return <JmhzForm token={token} />;
+    return (
+      <JmhzForm
+        token={token}
+        collaboratorName={query.data.collaboratorName}
+        collaboratorInfo={query.data.collaboratorInfo}
+      />
+    );
   }
 
   if (done) {
