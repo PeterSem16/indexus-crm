@@ -66,7 +66,7 @@ export default defineConfig({
     proxy: {
       "^/(?!__mockup(/|$))": {
         target: "http://localhost:5000",
-        changeOrigin: true,
+        changeOrigin: false,
         ws: true,
       },
     },
