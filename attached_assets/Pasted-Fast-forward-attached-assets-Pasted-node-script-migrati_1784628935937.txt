@@ -1,0 +1,38 @@
+Fast-forward
+ attached_assets/Pasted-node-script-migration-sync-collaborators-iscbc-cjs-2-1-_1784628554566.txt | 45 +++++++++++++++++++++++++++++++++++++++++++++
+ script/migration/sync-collaborators-iscbc.cjs                                                    | 28 +++++++++++++++++++++++-----
+ 2 files changed, 68 insertions(+), 5 deletions(-)
+ create mode 100644 attached_assets/Pasted-node-script-migration-sync-collaborators-iscbc-cjs-2-1-_1784628554566.txt
+[2026-07-21T10:15:15.895Z] Režim: DRY-RUN (len report, nič sa nezapíše)
+[2026-07-21T10:15:15.936Z] Pripojené k obom databázam
+[2026-07-21T10:15:15.962Z] INDEXUS: 13929 spolupracovníkov s legacy_id
+[2026-07-21T10:15:15.992Z] INDEXUS: 49615 dohôd s legacy_id
+[2026-07-21T10:15:16.689Z] ISCBC: 16047 AKTÍVNYCH spolupracovníkov (doc_active = 1)
+[2026-07-21T10:15:16.703Z] Representants: 116 aktívnych
+[2026-07-21T10:15:19.457Z] Collaborators: 5246 nových, 45 doplnených (prázdne polia), 10756 bez zmeny, 0 chýb, 0 adries
+[2026-07-21T10:15:19.457Z] Ukážka nových (prvých 20):
+[2026-07-21T10:15:19.458Z]   + 1 N/A Neznámy Spolupracovník (SK)
+[2026-07-21T10:15:19.458Z]   + 2 Slávka Horváthová (SK)
+[2026-07-21T10:15:19.458Z]   + 3 Miroslava Krajčírová (SK)
+[2026-07-21T10:15:19.458Z]   + 4 Alžbeta Jankovichová (SK)
+[2026-07-21T10:15:19.458Z]   + 5 Kristína Grancová (SK)
+[2026-07-21T10:15:19.458Z]   + 6 Daniela Mihalová (SK)
+[2026-07-21T10:15:19.458Z]   + 8 Pavol Rako (SK)
+[2026-07-21T10:15:19.458Z]   + 9 Katarína Marcineková (SK)
+[2026-07-21T10:15:19.458Z]   + 10 Dominika Kotlárová (SK)
+[2026-07-21T10:15:19.458Z]   + 11 Barbora Báršoňová (SK)
+[2026-07-21T10:15:19.458Z]   + 12 Bohuslava Jakubíková (SK)
+[2026-07-21T10:15:19.458Z]   + 13 Ccnr Crystal call Nitra (SK)
+[2026-07-21T10:15:19.458Z]   + 14 Eccba eCall Bratislava (SK)
+[2026-07-21T10:15:19.458Z]   + 19 Gabriela Meszárošová (SK)
+[2026-07-21T10:15:19.458Z]   + 23 Dagmar Psalmanová (SK)
+[2026-07-21T10:15:19.458Z]   + 29 Anna Ježíková (SK)
+[2026-07-21T10:15:19.458Z]   + 44 Pavol Garaj (SK)
+[2026-07-21T10:15:19.458Z]   + 47 Ľubomír Sámel (SK)
+[2026-07-21T10:15:19.458Z]   + 49 N/A N/A (SK)
+[2026-07-21T10:15:19.458Z]   + 52 Gabriela Mészárosová (SK)
+[2026-07-21T10:15:19.802Z] ISCBC: 71765 dohôd
+[2026-07-21T10:15:19.812Z] Agreements: 9931 nových, 49615 existujúcich, 12219 bez spolupracovníka, 0 chýb
+[2026-07-21T10:15:19.812Z] === HOTOVO ===
+[2026-07-21T10:15:19.812Z] Toto bol DRY-RUN. Pre ostrý zápis spusti s --commit
+seman@CORPCRM01:/var/www/indexus-crm$
