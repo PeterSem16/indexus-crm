@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Plus, Send, Bell, ArrowLeft, Check, X, Users, Mail, Trash2, Filter, Pause, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, Plus, Send, Bell, ArrowLeft, Check, X, Users, Mail, Trash2, Filter, Pause, RefreshCw, ChevronLeft, ChevronRight, Pencil, Search } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -152,6 +152,8 @@ const L: Record<string, Record<string, string>> = {
     removedToast: "Recipient removed",
     queueStarted: "Queue started", queuePaused: "Queue paused", queueFinished: "Queue finished",
     statsTitle: "Statistics", statTotal: "Recipients with email", statNoEmail: "Matched without email",
+    settings: "Campaign settings", settingsD: "Edit the campaign name, email subject and body. Changes only apply to emails that have not been sent yet (available for drafts and paused campaigns).",
+    settingsSaved: "Settings saved", searchPh: "Search by name, email or status…", noResults: "Nothing matches the search.",
   },
   sk: {
     pageTitle: "Aktualizácie údajov spolupracovníkov", pageDesc: "E-mailové kampane so žiadosťou o aktualizáciu osobných údajov cez bezpečný odkaz.",
@@ -187,6 +189,8 @@ const L: Record<string, Record<string, string>> = {
     removedToast: "Príjemca vyradený",
     queueStarted: "Front spustený", queuePaused: "Front pozastavený", queueFinished: "Front dokončený",
     statsTitle: "Štatistika", statTotal: "Príjemcovia s e-mailom", statNoEmail: "Vo filtri bez e-mailu",
+    settings: "Nastavenia kampane", settingsD: "Upravte názov kampane, predmet a text e-mailu. Zmeny sa použijú len pri e-mailoch, ktoré ešte neboli odoslané (dostupné pre koncepty a pozastavené kampane).",
+    settingsSaved: "Nastavenia uložené", searchPh: "Hľadať podľa mena, e-mailu alebo stavu…", noResults: "Vyhľadávaniu nič nezodpovedá.",
   },
   cs: {
     pageTitle: "Aktualizace údajů spolupracovníků", pageDesc: "E-mailové kampaně se žádostí o aktualizaci osobních údajů přes bezpečný odkaz.",
@@ -222,6 +226,8 @@ const L: Record<string, Record<string, string>> = {
     removedToast: "Příjemce vyřazen",
     queueStarted: "Fronta spuštěna", queuePaused: "Fronta pozastavena", queueFinished: "Fronta dokončena",
     statsTitle: "Statistika", statTotal: "Příjemci s e-mailem", statNoEmail: "Ve filtru bez e-mailu",
+    settings: "Nastavení kampaně", settingsD: "Upravte název kampaně, předmět a text e-mailu. Změny se použijí jen u e-mailů, které ještě nebyly odeslány (dostupné pro koncepty a pozastavené kampaně).",
+    settingsSaved: "Nastavení uloženo", searchPh: "Hledat podle jména, e-mailu nebo stavu…", noResults: "Vyhledávání nic neodpovídá.",
   },
   hu: {
     pageTitle: "Partneradatok frissítése", pageDesc: "E-mail kampányok, amelyekben biztonságos linken keresztül kérjük a partnerek adatainak frissítését.",
@@ -257,6 +263,8 @@ const L: Record<string, Record<string, string>> = {
     removedToast: "Címzett eltávolítva",
     queueStarted: "Sor elindítva", queuePaused: "Sor szüneteltetve", queueFinished: "Sor befejezve",
     statsTitle: "Statisztika", statTotal: "Címzettek e-maillel", statNoEmail: "Szűrt, e-mail nélkül",
+    settings: "Kampánybeállítások", settingsD: "Szerkessze a kampány nevét, az e-mail tárgyát és szövegét. A módosítások csak a még el nem küldött e-mailekre érvényesek (piszkozatok és szüneteltetett kampányok esetén elérhető).",
+    settingsSaved: "Beállítások mentve", searchPh: "Keresés név, e-mail vagy állapot szerint…", noResults: "Nincs találat a keresésre.",
   },
   ro: {
     pageTitle: "Actualizarea datelor colaboratorilor", pageDesc: "Campanii de e-mail prin care colaboratorii își actualizează datele printr-un link securizat.",
@@ -292,6 +300,8 @@ const L: Record<string, Record<string, string>> = {
     removedToast: "Destinatar eliminat",
     queueStarted: "Coadă pornită", queuePaused: "Coadă întreruptă", queueFinished: "Coadă finalizată",
     statsTitle: "Statistici", statTotal: "Destinatari cu e-mail", statNoEmail: "În filtru fără e-mail",
+    settings: "Setările campaniei", settingsD: "Editați numele campaniei, subiectul și textul e-mailului. Modificările se aplică doar e-mailurilor netrimise încă (disponibil pentru ciorne și campanii întrerupte).",
+    settingsSaved: "Setări salvate", searchPh: "Căutați după nume, e-mail sau stare…", noResults: "Nimic nu corespunde căutării.",
   },
   it: {
     pageTitle: "Aggiornamento dati collaboratori", pageDesc: "Campagne e-mail per chiedere ai collaboratori di aggiornare i propri dati tramite link sicuro.",
@@ -327,6 +337,8 @@ const L: Record<string, Record<string, string>> = {
     removedToast: "Destinatario rimosso",
     queueStarted: "Coda avviata", queuePaused: "Coda in pausa", queueFinished: "Coda completata",
     statsTitle: "Statistiche", statTotal: "Destinatari con e-mail", statNoEmail: "Nel filtro senza e-mail",
+    settings: "Impostazioni campagna", settingsD: "Modifica il nome della campagna, l'oggetto e il testo dell'e-mail. Le modifiche si applicano solo alle e-mail non ancora inviate (disponibile per bozze e campagne in pausa).",
+    settingsSaved: "Impostazioni salvate", searchPh: "Cerca per nome, e-mail o stato…", noResults: "Nessun risultato per la ricerca.",
   },
   de: {
     pageTitle: "Aktualisierung der Partnerdaten", pageDesc: "E-Mail-Kampagnen, mit denen Partner über einen sicheren Link ihre Daten aktualisieren.",
@@ -362,6 +374,8 @@ const L: Record<string, Record<string, string>> = {
     removedToast: "Empfänger entfernt",
     queueStarted: "Warteschlange gestartet", queuePaused: "Warteschlange pausiert", queueFinished: "Warteschlange abgeschlossen",
     statsTitle: "Statistik", statTotal: "Empfänger mit E-Mail", statNoEmail: "Im Filter ohne E-Mail",
+    settings: "Kampagneneinstellungen", settingsD: "Bearbeiten Sie Kampagnenname, E-Mail-Betreff und -Text. Änderungen gelten nur für noch nicht gesendete E-Mails (verfügbar für Entwürfe und pausierte Kampagnen).",
+    settingsSaved: "Einstellungen gespeichert", searchPh: "Suche nach Name, E-Mail oder Status…", noResults: "Nichts entspricht der Suche.",
   },
 };
 
@@ -883,6 +897,62 @@ function EditFilterDialog({ campaign, l, toast, open, onOpenChange }: any) {
   );
 }
 
+function SettingsDialog({ campaign, l, toast, open, onOpenChange }: any) {
+  const [name, setName] = useState(campaign.name || "");
+  const [subject, setSubject] = useState(campaign.emailSubject || "");
+  const [body, setBody] = useState(campaign.emailBody || "");
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("PATCH", `/api/collaborator-update-campaigns/${campaign.id}/settings`, { name, subject, body });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborator-update-campaigns"] });
+      toast({ title: l.settingsSaved });
+      onOpenChange(false);
+    },
+    onError: (e: any) => toast({ title: l.errorTitle, description: e?.message, variant: "destructive" }),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{l.settings}</DialogTitle>
+          <DialogDescription>{l.settingsD}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>{l.name}</Label>
+            <Input value={name} onChange={e => setName(e.target.value)} data-testid="input-settings-name" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>{l.subject}</Label>
+            <Input value={subject} onChange={e => setSubject(e.target.value)} data-testid="input-settings-subject" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>{l.body}</Label>
+            <Textarea rows={12} value={body} onChange={e => setBody(e.target.value)} data-testid="input-settings-body" />
+            <p className="text-xs text-muted-foreground">{l.bodyHint}</p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-settings-cancel">{l.cancel}</Button>
+          <Button
+            onClick={() => saveMutation.mutate()}
+            disabled={saveMutation.isPending || !name.trim() || !subject.trim() || !body.trim()}
+            data-testid="button-settings-save"
+          >
+            {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+            {l.save}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 const PAGE_SIZE = 20;
 
 function CampaignDetail({ campaign, l, toast, onBack }: any) {
@@ -890,7 +960,9 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirmKind, setConfirmKind] = useState<null | "send" | "remind">(null);
   const [editFilterOpen, setEditFilterOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
   const [removeId, setRemoveId] = useState<string | null>(null);
   const { data: requests = [], isLoading, isFetching } = useQuery<any[]>({
     queryKey: ["/api/collaborator-update-campaigns", campaign.id, "requests"],
@@ -971,9 +1043,17 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
   const statusLabel = (st: string) => (l as any)[`status${st === "send_failed" ? "Failed" : st.charAt(0).toUpperCase() + st.slice(1)}`] || st;
   const submitted = requests.filter(r => r.status === "submitted");
 
-  const pageCount = Math.max(1, Math.ceil(requests.length / PAGE_SIZE));
+  const q = search.trim().toLowerCase();
+  const filtered = q
+    ? requests.filter(r =>
+        (r.collaboratorName || "").toLowerCase().includes(q) ||
+        (r.email || "").toLowerCase().includes(q) ||
+        (r.status || "").toLowerCase().includes(q) ||
+        statusLabel(r.status).toLowerCase().includes(q))
+    : requests;
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
-  const pageRows = requests.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pageRows = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const canRemove = (st: string) => ["pending", "sent", "send_failed", "opened"].includes(st);
   const fmtTs = (v: any) => (v ? format(new Date(v), "dd.MM.yyyy HH:mm") : "—");
 
@@ -991,6 +1071,11 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
           <Button variant="outline" onClick={invalidate} disabled={isFetching} data-testid="button-refresh">
             <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? "animate-spin" : ""}`} />{l.refresh}
           </Button>
+          {(campaign.status === "draft" || campaign.status === "paused") && (
+            <Button variant="outline" onClick={() => setSettingsOpen(true)} data-testid="button-settings">
+              <Pencil className="h-4 w-4 mr-2" />{l.settings}
+            </Button>
+          )}
           {campaign.status === "draft" && (
             <Button variant="outline" onClick={() => setEditFilterOpen(true)} data-testid="button-edit-filter">
               <Filter className="h-4 w-4 mr-2" />{l.editFilter}
@@ -1056,6 +1141,22 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
             <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>
           ) : (
             <Card>
+              <div className="p-3 border-b">
+                <div className="relative max-w-sm">
+                  <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    className="pl-9"
+                    value={search}
+                    placeholder={l.searchPh}
+                    onChange={e => { setSearch(e.target.value); setPage(1); }}
+                    data-testid="input-search-requests"
+                  />
+                </div>
+              </div>
+              {filtered.length === 0 ? (
+                <div className="py-10 text-center text-sm text-muted-foreground" data-testid="text-no-results">{l.noResults}</div>
+              ) : (
+              <>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -1098,7 +1199,7 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
               {pageCount > 1 && (
                 <div className="flex items-center justify-end gap-2 p-3 border-t">
                   <span className="text-sm text-muted-foreground" data-testid="text-page-info">
-                    {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, requests.length)} / {requests.length}
+                    {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} / {filtered.length}
                   </span>
                   <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage <= 1} data-testid="button-prev-page">
                     <ChevronLeft className="h-4 w-4" />
@@ -1108,6 +1209,8 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
+              )}
+              </>
               )}
             </Card>
           )}
@@ -1206,6 +1309,9 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
         </AlertDialogContent>
       </AlertDialog>
 
+      {settingsOpen && (
+        <SettingsDialog campaign={campaign} l={l} toast={toast} open={settingsOpen} onOpenChange={setSettingsOpen} />
+      )}
       {editFilterOpen && (
         <EditFilterDialog campaign={campaign} l={l} toast={toast} open={editFilterOpen} onOpenChange={setEditFilterOpen} />
       )}

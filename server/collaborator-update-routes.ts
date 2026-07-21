@@ -453,6 +453,36 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
     }
   });
 
+  // Edit campaign settings (name, subject, body) — allowed for draft and
+  // paused campaigns; only future emails use the new text.
+  app.patch("/api/collaborator-update-campaigns/:id/settings", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const [campaign] = await db.select().from(collaboratorUpdateCampaigns)
+        .where(eq(collaboratorUpdateCampaigns.id, req.params.id));
+      if (!campaign) return res.status(404).json({ message: "Campaign not found" });
+      const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+      const subject = typeof req.body?.subject === "string" ? req.body.subject.trim() : "";
+      const body = typeof req.body?.body === "string" ? req.body.body : "";
+      if (!name || !subject || !body.trim()) {
+        return res.status(400).json({ message: "Name, subject and body are required" });
+      }
+      // Atomic status gate: only draft/paused campaigns are editable; the
+      // predicate closes the race with a concurrent /send flipping to sending.
+      const updated = await db.update(collaboratorUpdateCampaigns)
+        .set({ name, emailSubject: subject, emailBody: body, updatedAt: new Date() })
+        .where(and(
+          eq(collaboratorUpdateCampaigns.id, campaign.id),
+          inArray(collaboratorUpdateCampaigns.status, ["draft", "paused"]),
+        )).returning({ id: collaboratorUpdateCampaigns.id });
+      if (updated.length === 0) {
+        return res.status(409).json({ message: "Settings can only be edited for draft or paused campaigns" });
+      }
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Failed to save settings" });
+    }
+  });
+
   // Edit filter criteria — only for draft campaigns (nothing sent yet).
   // Existing (unsent) requests are dropped and regenerated from the new filter.
   app.patch("/api/collaborator-update-campaigns/:id/filter", requireAuth, requireAdmin, async (req: Request, res: Response) => {
