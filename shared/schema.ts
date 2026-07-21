@@ -8067,6 +8067,9 @@ export const collaboratorUpdateCampaigns = pgTable("collaborator_update_campaign
   tokenValidDays: integer("token_valid_days").notNull().default(30),
   filterCriteria: jsonb("filter_criteria").$type<Record<string, any>>().default({}),
   status: text("status").notNull().default("draft"), // draft | sending | sent
+  sendStartedAt: timestamp("send_started_at"), // last time the sending queue was started
+  sendPausedAt: timestamp("send_paused_at"), // last time the queue was paused
+  sendFinishedAt: timestamp("send_finished_at"), // last time the queue run finished
   createdBy: varchar("created_by"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),

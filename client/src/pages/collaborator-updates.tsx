@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Plus, Send, Bell, ArrowLeft, Check, X, Users, Mail, Trash2, Filter, Pause } from "lucide-react";
+import { Loader2, Plus, Send, Bell, ArrowLeft, Check, X, Users, Mail, Trash2, Filter, Pause, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -147,6 +147,11 @@ const L: Record<string, Record<string, string>> = {
     sendConfirmT: "Start sending emails?", sendConfirmD: "Emails with the form link will be sent to all pending recipients. This cannot be undone for emails already sent.",
     remindConfirmT: "Send reminders?", remindConfirmD: "A reminder email will be sent to everyone who received the link but has not submitted the form yet.",
     confirmSend: "Yes, send",
+    refresh: "Refresh", removeReq: "Remove from queue", removeConfirmT: "Remove this recipient?",
+    removeConfirmD: "The recipient will be removed from the sending queue and their link will stop working. This cannot be undone.",
+    removedToast: "Recipient removed",
+    queueStarted: "Queue started", queuePaused: "Queue paused", queueFinished: "Queue finished",
+    statsTitle: "Statistics", statTotal: "Recipients with email", statNoEmail: "Matched without email",
   },
   sk: {
     pageTitle: "Aktualizácie údajov spolupracovníkov", pageDesc: "E-mailové kampane so žiadosťou o aktualizáciu osobných údajov cez bezpečný odkaz.",
@@ -177,6 +182,11 @@ const L: Record<string, Record<string, string>> = {
     sendConfirmT: "Spustiť posielanie e-mailov?", sendConfirmD: "E-maily s odkazom na formulár sa odošlú všetkým čakajúcim príjemcom. Už odoslané e-maily sa nedajú vziať späť.",
     remindConfirmT: "Poslať pripomienky?", remindConfirmD: "Pripomienka sa pošle všetkým, ktorí odkaz dostali, ale formulár ešte nevyplnili.",
     confirmSend: "Áno, odoslať",
+    refresh: "Obnoviť", removeReq: "Vyradiť z posielania", removeConfirmT: "Vyradiť tohto príjemcu?",
+    removeConfirmD: "Príjemca bude vyradený z frontu posielania a jeho odkaz prestane fungovať. Táto akcia sa nedá vrátiť.",
+    removedToast: "Príjemca vyradený",
+    queueStarted: "Front spustený", queuePaused: "Front pozastavený", queueFinished: "Front dokončený",
+    statsTitle: "Štatistika", statTotal: "Príjemcovia s e-mailom", statNoEmail: "Vo filtri bez e-mailu",
   },
   cs: {
     pageTitle: "Aktualizace údajů spolupracovníků", pageDesc: "E-mailové kampaně se žádostí o aktualizaci osobních údajů přes bezpečný odkaz.",
@@ -207,6 +217,11 @@ const L: Record<string, Record<string, string>> = {
     sendConfirmT: "Spustit odesílání e-mailů?", sendConfirmD: "E-maily s odkazem na formulář se odešlou všem čekajícím příjemcům. Již odeslané e-maily nelze vzít zpět.",
     remindConfirmT: "Odeslat připomínky?", remindConfirmD: "Připomínka se odešle všem, kteří odkaz dostali, ale formulář ještě nevyplnili.",
     confirmSend: "Ano, odeslat",
+    refresh: "Obnovit", removeReq: "Vyřadit z odesílání", removeConfirmT: "Vyřadit tohoto příjemce?",
+    removeConfirmD: "Příjemce bude vyřazen z fronty odesílání a jeho odkaz přestane fungovat. Tuto akci nelze vrátit.",
+    removedToast: "Příjemce vyřazen",
+    queueStarted: "Fronta spuštěna", queuePaused: "Fronta pozastavena", queueFinished: "Fronta dokončena",
+    statsTitle: "Statistika", statTotal: "Příjemci s e-mailem", statNoEmail: "Ve filtru bez e-mailu",
   },
   hu: {
     pageTitle: "Partneradatok frissítése", pageDesc: "E-mail kampányok, amelyekben biztonságos linken keresztül kérjük a partnerek adatainak frissítését.",
@@ -237,6 +252,11 @@ const L: Record<string, Record<string, string>> = {
     sendConfirmT: "Elindítja az e-mailek küldését?", sendConfirmD: "Az űrlap linkjét tartalmazó e-mailek minden várakozó címzettnek kimennek. A már elküldött e-mailek nem vonhatók vissza.",
     remindConfirmT: "Emlékeztetők küldése?", remindConfirmD: "Emlékeztető megy mindenkinek, aki megkapta a linket, de még nem töltötte ki az űrlapot.",
     confirmSend: "Igen, küldés",
+    refresh: "Frissítés", removeReq: "Eltávolítás a küldésből", removeConfirmT: "Eltávolítja ezt a címzettet?",
+    removeConfirmD: "A címzett kikerül a küldési sorból, és a linkje nem fog működni. Ez a művelet nem vonható vissza.",
+    removedToast: "Címzett eltávolítva",
+    queueStarted: "Sor elindítva", queuePaused: "Sor szüneteltetve", queueFinished: "Sor befejezve",
+    statsTitle: "Statisztika", statTotal: "Címzettek e-maillel", statNoEmail: "Szűrt, e-mail nélkül",
   },
   ro: {
     pageTitle: "Actualizarea datelor colaboratorilor", pageDesc: "Campanii de e-mail prin care colaboratorii își actualizează datele printr-un link securizat.",
@@ -267,6 +287,11 @@ const L: Record<string, Record<string, string>> = {
     sendConfirmT: "Porniți trimiterea e-mailurilor?", sendConfirmD: "E-mailurile cu linkul formularului vor fi trimise tuturor destinatarilor în așteptare. E-mailurile deja trimise nu pot fi anulate.",
     remindConfirmT: "Trimiteți mementouri?", remindConfirmD: "Un memento va fi trimis tuturor celor care au primit linkul, dar nu au completat încă formularul.",
     confirmSend: "Da, trimite",
+    refresh: "Reîmprospătează", removeReq: "Elimină din trimitere", removeConfirmT: "Eliminați acest destinatar?",
+    removeConfirmD: "Destinatarul va fi eliminat din coada de trimitere, iar linkul lui nu va mai funcționa. Acțiunea nu poate fi anulată.",
+    removedToast: "Destinatar eliminat",
+    queueStarted: "Coadă pornită", queuePaused: "Coadă întreruptă", queueFinished: "Coadă finalizată",
+    statsTitle: "Statistici", statTotal: "Destinatari cu e-mail", statNoEmail: "În filtru fără e-mail",
   },
   it: {
     pageTitle: "Aggiornamento dati collaboratori", pageDesc: "Campagne e-mail per chiedere ai collaboratori di aggiornare i propri dati tramite link sicuro.",
@@ -297,6 +322,11 @@ const L: Record<string, Record<string, string>> = {
     sendConfirmT: "Avviare l'invio delle e-mail?", sendConfirmD: "Le e-mail con il link al modulo saranno inviate a tutti i destinatari in attesa. Le e-mail già inviate non possono essere annullate.",
     remindConfirmT: "Inviare i promemoria?", remindConfirmD: "Un promemoria sarà inviato a tutti coloro che hanno ricevuto il link ma non hanno ancora compilato il modulo.",
     confirmSend: "Sì, invia",
+    refresh: "Aggiorna", removeReq: "Rimuovi dall'invio", removeConfirmT: "Rimuovere questo destinatario?",
+    removeConfirmD: "Il destinatario sarà rimosso dalla coda di invio e il suo link smetterà di funzionare. L'azione non può essere annullata.",
+    removedToast: "Destinatario rimosso",
+    queueStarted: "Coda avviata", queuePaused: "Coda in pausa", queueFinished: "Coda completata",
+    statsTitle: "Statistiche", statTotal: "Destinatari con e-mail", statNoEmail: "Nel filtro senza e-mail",
   },
   de: {
     pageTitle: "Aktualisierung der Partnerdaten", pageDesc: "E-Mail-Kampagnen, mit denen Partner über einen sicheren Link ihre Daten aktualisieren.",
@@ -327,6 +357,11 @@ const L: Record<string, Record<string, string>> = {
     sendConfirmT: "E-Mail-Versand starten?", sendConfirmD: "E-Mails mit dem Formular-Link werden an alle wartenden Empfänger gesendet. Bereits gesendete E-Mails können nicht zurückgenommen werden.",
     remindConfirmT: "Erinnerungen senden?", remindConfirmD: "Eine Erinnerung wird an alle gesendet, die den Link erhalten, das Formular aber noch nicht ausgefüllt haben.",
     confirmSend: "Ja, senden",
+    refresh: "Aktualisieren", removeReq: "Aus dem Versand entfernen", removeConfirmT: "Diesen Empfänger entfernen?",
+    removeConfirmD: "Der Empfänger wird aus der Versandwarteschlange entfernt und sein Link funktioniert nicht mehr. Dies kann nicht rückgängig gemacht werden.",
+    removedToast: "Empfänger entfernt",
+    queueStarted: "Warteschlange gestartet", queuePaused: "Warteschlange pausiert", queueFinished: "Warteschlange abgeschlossen",
+    statsTitle: "Statistik", statTotal: "Empfänger mit E-Mail", statNoEmail: "Im Filter ohne E-Mail",
   },
 };
 
@@ -848,12 +883,16 @@ function EditFilterDialog({ campaign, l, toast, open, onOpenChange }: any) {
   );
 }
 
+const PAGE_SIZE = 20;
+
 function CampaignDetail({ campaign, l, toast, onBack }: any) {
   const [testOpen, setTestOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirmKind, setConfirmKind] = useState<null | "send" | "remind">(null);
   const [editFilterOpen, setEditFilterOpen] = useState(false);
-  const { data: requests = [], isLoading } = useQuery<any[]>({
+  const [page, setPage] = useState(1);
+  const [removeId, setRemoveId] = useState<string | null>(null);
+  const { data: requests = [], isLoading, isFetching } = useQuery<any[]>({
     queryKey: ["/api/collaborator-update-campaigns", campaign.id, "requests"],
     queryFn: async () => {
       const res = await fetch(`/api/collaborator-update-campaigns/${campaign.id}/requests`, { credentials: "include" });
@@ -863,10 +902,29 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
     refetchInterval: campaign.status === "sending" ? 5000 : false,
   });
 
+  const { data: stats } = useQuery<any>({
+    queryKey: ["/api/collaborator-update-campaigns", campaign.id, "stats"],
+    queryFn: async () => {
+      const res = await fetch(`/api/collaborator-update-campaigns/${campaign.id}/stats`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load stats");
+      return res.json();
+    },
+    refetchInterval: (q) => ((q.state.data as any)?.status === "sending" || campaign.status === "sending" ? 5000 : false),
+  });
+
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/collaborator-update-campaigns"] });
     queryClient.invalidateQueries({ queryKey: ["/api/collaborator-update-campaigns", campaign.id, "requests"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/collaborator-update-campaigns", campaign.id, "stats"] });
   };
+
+  const removeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/collaborator-update-requests/${id}`);
+    },
+    onSuccess: () => { toast({ title: l.removedToast }); invalidate(); },
+    onError: (e: any) => toast({ title: l.errorTitle, description: e?.message, variant: "destructive" }),
+  });
 
   const sendMutation = useMutation({
     mutationFn: async (kind: "send" | "remind") => {
@@ -913,6 +971,12 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
   const statusLabel = (st: string) => (l as any)[`status${st === "send_failed" ? "Failed" : st.charAt(0).toUpperCase() + st.slice(1)}`] || st;
   const submitted = requests.filter(r => r.status === "submitted");
 
+  const pageCount = Math.max(1, Math.ceil(requests.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const pageRows = requests.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const canRemove = (st: string) => ["pending", "sent", "send_failed", "opened"].includes(st);
+  const fmtTs = (v: any) => (v ? format(new Date(v), "dd.MM.yyyy HH:mm") : "—");
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -924,6 +988,9 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={invalidate} disabled={isFetching} data-testid="button-refresh">
+            <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? "animate-spin" : ""}`} />{l.refresh}
+          </Button>
           {campaign.status === "draft" && (
             <Button variant="outline" onClick={() => setEditFilterOpen(true)} data-testid="button-edit-filter">
               <Filter className="h-4 w-4 mr-2" />{l.editFilter}
@@ -951,6 +1018,33 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
         </div>
       </div>
 
+      {stats && (
+        <Card data-testid="card-stats">
+          <CardContent className="py-4 space-y-3">
+            <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
+              <span data-testid="text-queue-started">{l.queueStarted}: <span className="text-foreground font-medium">{fmtTs(stats.sendStartedAt)}</span></span>
+              <span data-testid="text-queue-paused">{l.queuePaused}: <span className="text-foreground font-medium">{fmtTs(stats.sendPausedAt)}</span></span>
+              <span data-testid="text-queue-finished">{l.queueFinished}: <span className="text-foreground font-medium">{fmtTs(stats.sendFinishedAt)}</span></span>
+            </div>
+            <div className="flex flex-wrap gap-2 items-center">
+              <Badge variant="secondary" data-testid="stat-total">
+                <Mail className="h-3 w-3 mr-1" />{l.statTotal}: {stats.total}
+              </Badge>
+              {stats.noEmailCount > 0 && (
+                <Badge variant="secondary" className="bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300" data-testid="stat-no-email">
+                  {l.statNoEmail}: {stats.noEmailCount}
+                </Badge>
+              )}
+              {Object.entries(stats.byStatus || {}).map(([st, n]) => (
+                <Badge key={st} variant="secondary" className={STATUS_COLORS[st] || ""} data-testid={`stat-${st}`}>
+                  {statusLabel(st)}: {n as number}
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs defaultValue="recipients">
         <TabsList>
           <TabsTrigger value="recipients" data-testid="tab-recipients">{l.tabRecipients} ({requests.length})</TabsTrigger>
@@ -970,10 +1064,11 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
                     <TableHead>{l.status}</TableHead>
                     <TableHead>{l.sentAt}</TableHead>
                     <TableHead>{l.submittedAt}</TableHead>
+                    <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {requests.map(r => (
+                  {pageRows.map(r => (
                     <TableRow key={r.id} data-testid={`row-request-${r.id}`}>
                       <TableCell>{r.collaboratorName} <span className="text-xs text-muted-foreground">({r.countryCode})</span></TableCell>
                       <TableCell className="text-sm">{r.email}</TableCell>
@@ -983,10 +1078,37 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
                       </TableCell>
                       <TableCell className="text-sm">{r.sentAt ? format(new Date(r.sentAt), "dd.MM. HH:mm") : "—"}</TableCell>
                       <TableCell className="text-sm">{r.submittedAt ? format(new Date(r.submittedAt), "dd.MM. HH:mm") : "—"}</TableCell>
+                      <TableCell>
+                        {canRemove(r.status) && (
+                          <Button
+                            variant="ghost" size="icon" className="h-8 w-8"
+                            title={l.removeReq}
+                            onClick={() => setRemoveId(r.id)}
+                            disabled={removeMutation.isPending}
+                            data-testid={`button-remove-request-${r.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+              {pageCount > 1 && (
+                <div className="flex items-center justify-end gap-2 p-3 border-t">
+                  <span className="text-sm text-muted-foreground" data-testid="text-page-info">
+                    {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, requests.length)} / {requests.length}
+                  </span>
+                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage <= 1} data-testid="button-prev-page">
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm tabular-nums" data-testid="text-page-number">{safePage}/{pageCount}</span>
+                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPage(p => Math.min(pageCount, p + 1))} disabled={safePage >= pageCount} data-testid="button-next-page">
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
             </Card>
           )}
         </TabsContent>
@@ -1043,6 +1165,25 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
       </Tabs>
 
       <TestSendDialog campaignId={campaign.id} l={l} toast={toast} open={testOpen} onOpenChange={setTestOpen} />
+
+      <AlertDialog open={removeId !== null} onOpenChange={(o) => { if (!o) setRemoveId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{l.removeConfirmT}</AlertDialogTitle>
+            <AlertDialogDescription>{l.removeConfirmD}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-remove-cancel">{l.cancel}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => { if (removeId) removeMutation.mutate(removeId); setRemoveId(null); }}
+              data-testid="button-remove-confirm"
+            >
+              {l.confirmDelete}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>

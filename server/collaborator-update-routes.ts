@@ -136,8 +136,10 @@ type FilterCriteria = {
   agreementActiveOn?: string; // YYYY-MM-DD: has a valid agreement active on this date
 };
 
-async function findRecipients(filter: FilterCriteria) {
-  const conds: any[] = [isNotNull(collaborators.email), ne(collaborators.email, "")];
+function buildRecipientConds(filter: FilterCriteria, requireEmail: boolean) {
+  const conds: any[] = requireEmail
+    ? [isNotNull(collaborators.email), ne(collaborators.email, "")]
+    : [];
   if (filter.countryCodes && filter.countryCodes.length > 0) {
     conds.push(inArray(collaborators.countryCode, filter.countryCodes));
   }
@@ -176,6 +178,11 @@ async function findRecipients(filter: FilterCriteria) {
               END) >= ${d}::date)
     )`);
   }
+  return conds;
+}
+
+async function findRecipients(filter: FilterCriteria) {
+  const conds = buildRecipientConds(filter, true);
   return db.select({
     id: collaborators.id,
     firstName: collaborators.firstName,
@@ -185,6 +192,16 @@ async function findRecipients(filter: FilterCriteria) {
     collaboratorType: collaborators.collaboratorType,
     legacyId: collaborators.legacyId,
   }).from(collaborators).where(and(...conds)).orderBy(collaborators.lastName);
+}
+
+// How many collaborators match the filter but have no usable email address
+async function countMatchedWithoutEmail(filter: FilterCriteria) {
+  const conds = buildRecipientConds(filter, false);
+  conds.push(dsql`(${collaborators.email} IS NULL OR ${collaborators.email} = '')`);
+  const [row] = await db.select({ n: dsql<number>`count(*)::int` })
+    .from(collaborators)
+    .where(conds.length > 0 ? and(...conds) : undefined);
+  return row?.n ?? 0;
 }
 
 async function sendCampaignEmails(campaignId: string, baseUrl: string, onlyReminder: boolean) {
@@ -296,7 +313,7 @@ async function sendCampaignEmails(campaignId: string, baseUrl: string, onlyRemin
   if (!paused) {
     // only flip to "sent" if nobody paused it meanwhile (CAS on status)
     await db.update(collaboratorUpdateCampaigns)
-      .set({ status: "sent", updatedAt: new Date() })
+      .set({ status: "sent", sendFinishedAt: new Date(), updatedAt: new Date() })
       .where(and(
         eq(collaboratorUpdateCampaigns.id, campaignId),
         eq(collaboratorUpdateCampaigns.status, "sending"),
@@ -544,6 +561,60 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
     }
   });
 
+  // Light stats for the campaign detail: queue timestamps, counts by status,
+  // and email availability (matched collaborators without an email address).
+  app.get("/api/collaborator-update-campaigns/:id/stats", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const [campaign] = await db.select().from(collaboratorUpdateCampaigns)
+        .where(eq(collaboratorUpdateCampaigns.id, req.params.id));
+      if (!campaign) return res.status(404).json({ message: "Campaign not found" });
+      const counts = await db.select({
+        status: collaboratorUpdateRequests.status,
+        count: dsql<number>`count(*)::int`,
+      }).from(collaboratorUpdateRequests)
+        .where(eq(collaboratorUpdateRequests.campaignId, campaign.id))
+        .groupBy(collaboratorUpdateRequests.status);
+      const byStatus: Record<string, number> = {};
+      let total = 0;
+      for (const c of counts) { byStatus[c.status] = c.count; total += c.count; }
+      const noEmailCount = await countMatchedWithoutEmail((campaign.filterCriteria || {}) as FilterCriteria);
+      res.json({
+        status: campaign.status,
+        sendStartedAt: campaign.sendStartedAt,
+        sendPausedAt: campaign.sendPausedAt,
+        sendFinishedAt: campaign.sendFinishedAt,
+        total,
+        byStatus,
+        noEmailCount,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Failed to load stats" });
+    }
+  });
+
+  // Remove a single request from the sending queue (link stops working).
+  // Only allowed while nothing was submitted yet for that recipient.
+  app.delete("/api/collaborator-update-requests/:id", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const deletable = ["pending", "sent", "send_failed", "opened"];
+      const deleted = await db.delete(collaboratorUpdateRequests)
+        .where(and(
+          eq(collaboratorUpdateRequests.id, req.params.id),
+          inArray(collaboratorUpdateRequests.status, deletable),
+        )).returning({ id: collaboratorUpdateRequests.id });
+      if (deleted.length === 0) {
+        const [row] = await db.select({ id: collaboratorUpdateRequests.id })
+          .from(collaboratorUpdateRequests)
+          .where(eq(collaboratorUpdateRequests.id, req.params.id));
+        if (!row) return res.status(404).json({ message: "Request not found" });
+        return res.status(409).json({ message: "Request was already submitted — it can no longer be removed" });
+      }
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Failed to delete request" });
+    }
+  });
+
   app.post("/api/collaborator-update-campaigns/:id/send", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const [campaign] = await db.select().from(collaboratorUpdateCampaigns)
@@ -552,7 +623,7 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
       if (campaign.status === "sending") return res.status(409).json({ message: "Already sending" });
       // Compare-and-set: only flip to sending if nobody else did meanwhile
       const flipped = await db.update(collaboratorUpdateCampaigns)
-        .set({ status: "sending", updatedAt: new Date() })
+        .set({ status: "sending", sendStartedAt: new Date(), sendFinishedAt: null, updatedAt: new Date() })
         .where(and(
           eq(collaboratorUpdateCampaigns.id, campaign.id),
           ne(collaboratorUpdateCampaigns.status, "sending"),
@@ -571,7 +642,7 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
   app.post("/api/collaborator-update-campaigns/:id/pause", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const flipped = await db.update(collaboratorUpdateCampaigns)
-        .set({ status: "paused", updatedAt: new Date() })
+        .set({ status: "paused", sendPausedAt: new Date(), updatedAt: new Date() })
         .where(and(
           eq(collaboratorUpdateCampaigns.id, req.params.id),
           eq(collaboratorUpdateCampaigns.status, "sending"),
@@ -590,7 +661,7 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
       if (!campaign) return res.status(404).json({ message: "Campaign not found" });
       if (campaign.status === "sending") return res.status(409).json({ message: "Already sending" });
       const flipped = await db.update(collaboratorUpdateCampaigns)
-        .set({ status: "sending", updatedAt: new Date() })
+        .set({ status: "sending", sendStartedAt: new Date(), sendFinishedAt: null, updatedAt: new Date() })
         .where(and(
           eq(collaboratorUpdateCampaigns.id, campaign.id),
           ne(collaboratorUpdateCampaigns.status, "sending"),

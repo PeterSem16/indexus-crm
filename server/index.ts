@@ -229,6 +229,12 @@ app.use((req, res, next) => {
         ADD COLUMN IF NOT EXISTS language text NOT NULL DEFAULT 'auto';
       ALTER TABLE collaborator_update_campaigns
         ADD COLUMN IF NOT EXISTS form_type text NOT NULL DEFAULT 'update';
+      ALTER TABLE collaborator_update_campaigns
+        ADD COLUMN IF NOT EXISTS send_started_at timestamp;
+      ALTER TABLE collaborator_update_campaigns
+        ADD COLUMN IF NOT EXISTS send_paused_at timestamp;
+      ALTER TABLE collaborator_update_campaigns
+        ADD COLUMN IF NOT EXISTS send_finished_at timestamp;
     `);
     console.log('[migration] collaborator_update tables ensured');
 
