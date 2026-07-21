@@ -374,6 +374,43 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
     }
   });
 
+  // Manual collaborator search for adding individual recipients:
+  // matches name, email, phone/mobile, legacy ID and data source (e.g. iscbc)
+  app.get("/api/collaborator-update-campaigns/collaborator-search", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const q = String(req.query.q || "").trim();
+      if (q.length < 2) return res.json([]);
+      const like = `%${q}%`;
+      const rows = await db.select({
+        id: collaborators.id,
+        firstName: collaborators.firstName,
+        lastName: collaborators.lastName,
+        titleBefore: collaborators.titleBefore,
+        email: collaborators.email,
+        phone: collaborators.phone,
+        mobile: collaborators.mobile,
+        legacyId: collaborators.legacyId,
+        countryCode: collaborators.countryCode,
+        dataSource: collaborators.dataSource,
+        isActive: collaborators.isActive,
+      }).from(collaborators)
+        .where(dsql`(
+          (${collaborators.firstName} || ' ' || ${collaborators.lastName}) ILIKE ${like}
+          OR (${collaborators.lastName} || ' ' || ${collaborators.firstName}) ILIKE ${like}
+          OR ${collaborators.email} ILIKE ${like}
+          OR ${collaborators.phone} ILIKE ${like}
+          OR ${collaborators.mobile} ILIKE ${like}
+          OR ${collaborators.legacyId} ILIKE ${like}
+          OR ${collaborators.dataSource} ILIKE ${like}
+        )`)
+        .orderBy(collaborators.lastName)
+        .limit(20);
+      res.json(rows);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Search failed" });
+    }
+  });
+
   app.post("/api/collaborator-update-campaigns/preview", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const recipients = await findRecipients(req.body?.filterCriteria || {});
@@ -489,6 +526,69 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
       res.json({ ok: true });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Failed to save settings" });
+    }
+  });
+
+  // Manually add selected collaborators as recipients (draft or paused campaigns).
+  app.post("/api/collaborator-update-campaigns/:id/recipients", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const [campaign] = await db.select().from(collaboratorUpdateCampaigns)
+        .where(eq(collaboratorUpdateCampaigns.id, req.params.id));
+      if (!campaign) return res.status(404).json({ message: "Campaign not found" });
+      if (!["draft", "paused", "sent"].includes(campaign.status)) {
+        return res.status(409).json({ message: "Recipients cannot be added while the campaign is sending" });
+      }
+      const ids = Array.isArray(req.body?.collaboratorIds)
+        ? req.body.collaboratorIds.filter((x: any) => typeof x === "string").slice(0, 200)
+        : [];
+      if (ids.length === 0) return res.status(400).json({ message: "No collaborators selected" });
+
+      const collabRows = await db.select().from(collaborators)
+        .where(inArray(collaborators.id, ids));
+
+      // Lock the campaign row so concurrent adds for the same collaborator are
+      // serialized (check-then-insert is atomic within the transaction).
+      const result = await db.transaction(async (tx) => {
+        const [locked] = await tx.select().from(collaboratorUpdateCampaigns)
+          .where(eq(collaboratorUpdateCampaigns.id, campaign.id))
+          .for("update");
+        if (!locked || !["draft", "paused", "sent"].includes(locked.status)) {
+          throw Object.assign(new Error("Recipients cannot be added while the campaign is sending"), { statusCode: 409 });
+        }
+        const existing = await tx.select({ collaboratorId: collaboratorUpdateRequests.collaboratorId })
+          .from(collaboratorUpdateRequests)
+          .where(and(
+            eq(collaboratorUpdateRequests.campaignId, campaign.id),
+            inArray(collaboratorUpdateRequests.collaboratorId, ids),
+          ));
+        const already = new Set(existing.map(e => e.collaboratorId));
+
+        let added = 0, skippedNoEmail = 0, skippedExisting = 0;
+        const expiresAt = new Date(Date.now() + (locked.tokenValidDays || 30) * 24 * 3600 * 1000);
+        const rows: any[] = [];
+        for (const c of collabRows) {
+          if (already.has(c.id)) { skippedExisting++; continue; }
+          if (!c.email || !c.email.trim()) { skippedNoEmail++; continue; }
+          rows.push({
+            campaignId: campaign.id,
+            collaboratorId: c.id,
+            token: crypto.randomBytes(24).toString("base64url"),
+            email: c.email,
+            language: locked.language && locked.language !== "auto"
+              ? locked.language
+              : countryToLanguage(c.countryCode),
+            expiresAt,
+          });
+          added++;
+        }
+        if (rows.length > 0) {
+          await tx.insert(collaboratorUpdateRequests).values(rows);
+        }
+        return { added, skippedExisting, skippedNoEmail };
+      });
+      res.json(result);
+    } catch (err: any) {
+      res.status(err?.statusCode || 500).json({ message: err?.message || "Failed to add recipients" });
     }
   });
 
@@ -712,6 +812,113 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
       res.json({ ok: true, message: "Reminders started" });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Failed to start reminders" });
+    }
+  });
+
+  // Manually send (or re-send) the campaign email to a single recipient.
+  app.post("/api/collaborator-update-requests/:id/send", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const [reqRow] = await db.select().from(collaboratorUpdateRequests)
+        .where(eq(collaboratorUpdateRequests.id, req.params.id));
+      if (!reqRow) return res.status(404).json({ message: "Request not found" });
+      if (!["pending", "send_failed", "sent", "opened"].includes(reqRow.status)) {
+        return res.status(409).json({ message: "Recipient has already submitted the form" });
+      }
+      const isResend = ["sent", "opened"].includes(reqRow.status);
+
+      const [campaign] = await db.select().from(collaboratorUpdateCampaigns)
+        .where(eq(collaboratorUpdateCampaigns.id, reqRow.campaignId));
+      if (!campaign) return res.status(404).json({ message: "Campaign not found" });
+      if (campaign.status === "sending") {
+        return res.status(409).json({ message: "Campaign is currently sending — wait until it finishes" });
+      }
+
+      const conn: any = await storage.getSystemMs365Connection(campaign.senderCountryCode);
+      if (!conn?.accessToken) {
+        return res.status(400).json({ message: `No MS365 system connection for ${campaign.senderCountryCode}` });
+      }
+      const tokenInfo = await getValidAccessToken(
+        decryptTokenSafe(conn.accessToken),
+        conn.tokenExpiresAt,
+        conn.refreshToken ? decryptTokenSafe(conn.refreshToken) : null,
+      );
+      if (!tokenInfo?.accessToken) {
+        return res.status(400).json({ message: "MS365 token refresh failed" });
+      }
+      if (tokenInfo.refreshed) {
+        try {
+          await storage.updateSystemMs365Connection(campaign.senderCountryCode, {
+            accessToken: tokenInfo.accessToken,
+            refreshToken: tokenInfo.refreshToken || conn.refreshToken,
+            tokenExpiresAt: tokenInfo.expiresOn || undefined,
+          } as any);
+        } catch {}
+      }
+
+      const [c] = await db.select().from(collaborators)
+        .where(eq(collaborators.id, reqRow.collaboratorId));
+      if (!c) return res.status(404).json({ message: "Collaborator not found" });
+
+      const baseUrl = getBaseUrl(req);
+      const link = `${baseUrl}/update/${reqRow.token}`;
+      const vars: Record<string, string> = {
+        firstName: c.firstName || "",
+        lastName: c.lastName || "",
+        fullName: [c.titleBefore, c.firstName, c.lastName].filter(Boolean).join(" "),
+        titleBefore: c.titleBefore || "",
+        link,
+      };
+      const subject = renderTemplate(campaign.emailSubject, vars);
+      let body = renderTemplate(campaign.emailBody, vars);
+      if (!campaign.emailBody.includes("{{link}}")) {
+        body += `<p><a href="${link}">${link}</a></p>`;
+      }
+      if (!isResend) {
+        // Atomically claim the request (pending/send_failed → sent) so a
+        // concurrent bulk send or second click cannot double-send it.
+        const claimed = await db.update(collaboratorUpdateRequests)
+          .set({ status: "sent", sentAt: new Date(), sendError: null })
+          .where(and(
+            eq(collaboratorUpdateRequests.id, reqRow.id),
+            inArray(collaboratorUpdateRequests.status, ["pending", "send_failed"]),
+          )).returning({ id: collaboratorUpdateRequests.id });
+        if (claimed.length === 0) {
+          return res.status(409).json({ message: "Request state changed — refresh and try again" });
+        }
+        try {
+          await ms365SendEmail(tokenInfo.accessToken, [reqRow.email], subject, body, true);
+          res.json({ ok: true, resend: false });
+        } catch (err: any) {
+          await db.update(collaboratorUpdateRequests)
+            .set({ status: "send_failed", sendError: err?.message || "send failed" })
+            .where(and(
+              eq(collaboratorUpdateRequests.id, reqRow.id),
+              eq(collaboratorUpdateRequests.status, "sent"),
+            ));
+          res.status(500).json({ message: err?.message || "Send failed" });
+        }
+      } else {
+        try {
+          await ms365SendEmail(tokenInfo.accessToken, [reqRow.email], subject, body, true);
+          await db.update(collaboratorUpdateRequests)
+            .set({ remindedAt: new Date(), sendError: null })
+            .where(and(
+              eq(collaboratorUpdateRequests.id, reqRow.id),
+              inArray(collaboratorUpdateRequests.status, ["sent", "opened"]),
+            ));
+          res.json({ ok: true, resend: true });
+        } catch (err: any) {
+          await db.update(collaboratorUpdateRequests)
+            .set({ sendError: err?.message || "send failed" })
+            .where(and(
+              eq(collaboratorUpdateRequests.id, reqRow.id),
+              inArray(collaboratorUpdateRequests.status, ["sent", "opened"]),
+            ));
+          res.status(500).json({ message: err?.message || "Send failed" });
+        }
+      }
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Failed to send" });
     }
   });
 

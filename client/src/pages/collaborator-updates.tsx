@@ -156,6 +156,11 @@ const L: Record<string, Record<string, string>> = {
     statsTitle: "Statistics", statTotal: "Recipients with email", statNoEmail: "Matched without email",
     settings: "Campaign settings", settingsD: "Edit the campaign name, email subject and body. Changes only apply to emails that have not been sent yet (available for drafts and paused campaigns).",
     settingsSaved: "Settings saved", searchPh: "Search by name, email or status…", noResults: "Nothing matches the search.",
+    manualAddT: "Add recipients manually", manualAddD: "Search collaborators by name, email, phone, legacy ID or source (e.g. iscbc) and add them individually. Note: saving the filter rebuilds the list and removes manually added unsent recipients.",
+    manualSearchPh: "Name, email, phone, legacy ID or source…", addRecipient: "Add", addedToast: "Recipient added", addSkippedInfo: "Not added — already in the campaign or missing email",
+    noEmailTag: "no email", manualNoResults: "No collaborators found.",
+    sendOne: "Send email to this recipient", sendOneConfirmT: "Send the email now?", sendOneConfirmD: "The campaign email with the form link will be sent only to this recipient. If it was already sent, the same link is re-sent.",
+    sentOneToast: "Email sent",
   },
   sk: {
     pageTitle: "Aktualizácie údajov spolupracovníkov", pageDesc: "E-mailové kampane so žiadosťou o aktualizáciu osobných údajov cez bezpečný odkaz.",
@@ -194,6 +199,11 @@ const L: Record<string, Record<string, string>> = {
     statsTitle: "Štatistika", statTotal: "Príjemcovia s e-mailom", statNoEmail: "Vo filtri bez e-mailu",
     settings: "Nastavenia kampane", settingsD: "Upravte názov kampane, predmet a text e-mailu. Zmeny sa použijú len pri e-mailoch, ktoré ešte neboli odoslané (dostupné pre koncepty a pozastavené kampane).",
     settingsSaved: "Nastavenia uložené", searchPh: "Hľadať podľa mena, e-mailu alebo stavu…", noResults: "Vyhľadávaniu nič nezodpovedá.",
+    manualAddT: "Pridať príjemcov ručne", manualAddD: "Vyhľadaj spolupracovníka podľa mena, e-mailu, telefónu, legacy ID alebo zdroja (napr. iscbc) a pridaj ho jednotlivo. Pozor: uloženie filtra zoznam znovu vytvorí a ručne pridaných neodoslaných príjemcov odstráni.",
+    manualSearchPh: "Meno, e-mail, telefón, legacy ID alebo zdroj…", addRecipient: "Pridať", addedToast: "Príjemca pridaný", addSkippedInfo: "Nepridané — už je v kampani alebo nemá e-mail",
+    noEmailTag: "bez e-mailu", manualNoResults: "Nenašli sa žiadni spolupracovníci.",
+    sendOne: "Poslať e-mail tomuto príjemcovi", sendOneConfirmT: "Odoslať e-mail teraz?", sendOneConfirmD: "Kampaňový e-mail s odkazom na formulár sa pošle iba tomuto príjemcovi. Ak už bol odoslaný, znovu sa pošle ten istý odkaz.",
+    sentOneToast: "E-mail odoslaný",
   },
   cs: {
     pageTitle: "Aktualizace údajů spolupracovníků", pageDesc: "E-mailové kampaně se žádostí o aktualizaci osobních údajů přes bezpečný odkaz.",
@@ -232,6 +242,11 @@ const L: Record<string, Record<string, string>> = {
     statsTitle: "Statistika", statTotal: "Příjemci s e-mailem", statNoEmail: "Ve filtru bez e-mailu",
     settings: "Nastavení kampaně", settingsD: "Upravte název kampaně, předmět a text e-mailu. Změny se použijí jen u e-mailů, které ještě nebyly odeslány (dostupné pro koncepty a pozastavené kampaně).",
     settingsSaved: "Nastavení uloženo", searchPh: "Hledat podle jména, e-mailu nebo stavu…", noResults: "Vyhledávání nic neodpovídá.",
+    manualAddT: "Přidat příjemce ručně", manualAddD: "Vyhledej spolupracovníka podle jména, e-mailu, telefonu, legacy ID nebo zdroje (např. iscbc) a přidej ho jednotlivě. Pozor: uložení filtru seznam znovu vytvoří a ručně přidané neodeslané příjemce odstraní.",
+    manualSearchPh: "Jméno, e-mail, telefon, legacy ID nebo zdroj…", addRecipient: "Přidat", addedToast: "Příjemce přidán", addSkippedInfo: "Nepřidáno — už je v kampani nebo nemá e-mail",
+    noEmailTag: "bez e-mailu", manualNoResults: "Nenalezeni žádní spolupracovníci.",
+    sendOne: "Poslat e-mail tomuto příjemci", sendOneConfirmT: "Odeslat e-mail teď?", sendOneConfirmD: "Kampaňový e-mail s odkazem na formulář se pošle jen tomuto příjemci. Pokud už byl odeslán, znovu se pošle stejný odkaz.",
+    sentOneToast: "E-mail odeslán",
   },
   hu: {
     pageTitle: "Partneradatok frissítése", pageDesc: "E-mail kampányok, amelyekben biztonságos linken keresztül kérjük a partnerek adatainak frissítését.",
@@ -270,6 +285,11 @@ const L: Record<string, Record<string, string>> = {
     statsTitle: "Statisztika", statTotal: "Címzettek e-maillel", statNoEmail: "Szűrt, e-mail nélkül",
     settings: "Kampánybeállítások", settingsD: "Szerkessze a kampány nevét, az e-mail tárgyát és szövegét. A módosítások csak a még el nem küldött e-mailekre érvényesek (piszkozatok és szüneteltetett kampányok esetén elérhető).",
     settingsSaved: "Beállítások mentve", searchPh: "Keresés név, e-mail vagy állapot szerint…", noResults: "Nincs találat a keresésre.",
+    manualAddT: "Címzettek kézi hozzáadása", manualAddD: "Keress munkatársat név, e-mail, telefon, legacy ID vagy forrás (pl. iscbc) alapján, és add hozzá egyenként. Figyelem: a szűrő mentése újraépíti a listát, és eltávolítja a kézzel hozzáadott, még el nem küldött címzetteket.",
+    manualSearchPh: "Név, e-mail, telefon, legacy ID vagy forrás…", addRecipient: "Hozzáadás", addedToast: "Címzett hozzáadva", addSkippedInfo: "Nem lett hozzáadva — már a kampányban van, vagy nincs e-mailje",
+    noEmailTag: "nincs e-mail", manualNoResults: "Nem található munkatárs.",
+    sendOne: "E-mail küldése ennek a címzettnek", sendOneConfirmT: "Elküldöd az e-mailt most?", sendOneConfirmD: "A kampány e-mail az űrlap linkjével csak ennek a címzettnek lesz elküldve. Ha már el lett küldve, ugyanaz a link megy újra.",
+    sentOneToast: "E-mail elküldve",
   },
   ro: {
     pageTitle: "Actualizarea datelor colaboratorilor", pageDesc: "Campanii de e-mail prin care colaboratorii își actualizează datele printr-un link securizat.",
@@ -308,6 +328,11 @@ const L: Record<string, Record<string, string>> = {
     statsTitle: "Statistici", statTotal: "Destinatari cu e-mail", statNoEmail: "În filtru fără e-mail",
     settings: "Setările campaniei", settingsD: "Editați numele campaniei, subiectul și textul e-mailului. Modificările se aplică doar e-mailurilor netrimise încă (disponibil pentru ciorne și campanii întrerupte).",
     settingsSaved: "Setări salvate", searchPh: "Căutați după nume, e-mail sau stare…", noResults: "Nimic nu corespunde căutării.",
+    manualAddT: "Adăugare manuală a destinatarilor", manualAddD: "Căutați colaboratori după nume, e-mail, telefon, legacy ID sau sursă (ex. iscbc) și adăugați-i individual. Atenție: salvarea filtrului reconstruiește lista și elimină destinatarii adăugați manual care nu au primit încă e-mailul.",
+    manualSearchPh: "Nume, e-mail, telefon, legacy ID sau sursă…", addRecipient: "Adaugă", addedToast: "Destinatar adăugat", addSkippedInfo: "Nu a fost adăugat — este deja în campanie sau nu are e-mail",
+    noEmailTag: "fără e-mail", manualNoResults: "Nu s-au găsit colaboratori.",
+    sendOne: "Trimite e-mail acestui destinatar", sendOneConfirmT: "Trimiteți e-mailul acum?", sendOneConfirmD: "E-mailul campaniei cu linkul formularului va fi trimis doar acestui destinatar. Dacă a fost deja trimis, același link este retrimis.",
+    sentOneToast: "E-mail trimis",
   },
   it: {
     pageTitle: "Aggiornamento dati collaboratori", pageDesc: "Campagne e-mail per chiedere ai collaboratori di aggiornare i propri dati tramite link sicuro.",
@@ -346,6 +371,11 @@ const L: Record<string, Record<string, string>> = {
     statsTitle: "Statistiche", statTotal: "Destinatari con e-mail", statNoEmail: "Nel filtro senza e-mail",
     settings: "Impostazioni campagna", settingsD: "Modifica il nome della campagna, l'oggetto e il testo dell'e-mail. Le modifiche si applicano solo alle e-mail non ancora inviate (disponibile per bozze e campagne in pausa).",
     settingsSaved: "Impostazioni salvate", searchPh: "Cerca per nome, e-mail o stato…", noResults: "Nessun risultato per la ricerca.",
+    manualAddT: "Aggiungi destinatari manualmente", manualAddD: "Cerca collaboratori per nome, e-mail, telefono, legacy ID o fonte (es. iscbc) e aggiungili singolarmente. Attenzione: il salvataggio del filtro ricostruisce l'elenco e rimuove i destinatari aggiunti manualmente non ancora inviati.",
+    manualSearchPh: "Nome, e-mail, telefono, legacy ID o fonte…", addRecipient: "Aggiungi", addedToast: "Destinatario aggiunto", addSkippedInfo: "Non aggiunto — già nella campagna o senza e-mail",
+    noEmailTag: "senza e-mail", manualNoResults: "Nessun collaboratore trovato.",
+    sendOne: "Invia e-mail a questo destinatario", sendOneConfirmT: "Inviare l'e-mail adesso?", sendOneConfirmD: "L'e-mail della campagna con il link al modulo sarà inviata solo a questo destinatario. Se è già stata inviata, viene rinviato lo stesso link.",
+    sentOneToast: "E-mail inviata",
   },
   de: {
     pageTitle: "Aktualisierung der Partnerdaten", pageDesc: "E-Mail-Kampagnen, mit denen Partner über einen sicheren Link ihre Daten aktualisieren.",
@@ -384,6 +414,11 @@ const L: Record<string, Record<string, string>> = {
     statsTitle: "Statistik", statTotal: "Empfänger mit E-Mail", statNoEmail: "Im Filter ohne E-Mail",
     settings: "Kampagneneinstellungen", settingsD: "Bearbeiten Sie Kampagnenname, E-Mail-Betreff und -Text. Änderungen gelten nur für noch nicht gesendete E-Mails (verfügbar für Entwürfe und pausierte Kampagnen).",
     settingsSaved: "Einstellungen gespeichert", searchPh: "Suche nach Name, E-Mail oder Status…", noResults: "Nichts entspricht der Suche.",
+    manualAddT: "Empfänger manuell hinzufügen", manualAddD: "Suche Mitarbeiter nach Name, E-Mail, Telefon, Legacy-ID oder Quelle (z. B. iscbc) und füge sie einzeln hinzu. Achtung: Das Speichern des Filters erstellt die Liste neu und entfernt manuell hinzugefügte, noch nicht versendete Empfänger.",
+    manualSearchPh: "Name, E-Mail, Telefon, Legacy-ID oder Quelle…", addRecipient: "Hinzufügen", addedToast: "Empfänger hinzugefügt", addSkippedInfo: "Nicht hinzugefügt — bereits in der Kampagne oder ohne E-Mail",
+    noEmailTag: "keine E-Mail", manualNoResults: "Keine Mitarbeiter gefunden.",
+    sendOne: "E-Mail an diesen Empfänger senden", sendOneConfirmT: "E-Mail jetzt senden?", sendOneConfirmD: "Die Kampagnen-E-Mail mit dem Formularlink wird nur an diesen Empfänger gesendet. Wurde sie bereits gesendet, wird derselbe Link erneut verschickt.",
+    sentOneToast: "E-Mail gesendet",
   },
 };
 
@@ -778,6 +813,7 @@ function TestSendDialog({ campaignId, l, toast, open, onOpenChange }: any) {
 }
 
 function EditFilterDialog({ campaign, l, toast, open, onOpenChange }: any) {
+  const isDraft = campaign.status === "draft";
   const fc = campaign.filterCriteria || {};
   const [countries, setCountries] = useState<string[]>(fc.countryCodes || []);
   const [collabType, setCollabType] = useState(fc.collaboratorType || "");
@@ -791,10 +827,40 @@ function EditFilterDialog({ campaign, l, toast, open, onOpenChange }: any) {
   const [dataSource, setDataSource] = useState(fc.dataSource || "");
   const [legacyIds, setLegacyIds] = useState(fc.legacyIds || "");
   const [preview, setPreview] = useState<{ count: number } | null>(null);
+  const [collabQ, setCollabQ] = useState("");
 
   const { data: filterOptions } = useQuery<any>({
     queryKey: ["/api/collaborator-update-campaigns/filter-options"],
     enabled: open,
+  });
+
+  const trimmedQ = collabQ.trim();
+  const { data: searchResults = [], isFetching: searchLoading } = useQuery<any[]>({
+    queryKey: ["/api/collaborator-update-campaigns/collaborator-search", trimmedQ],
+    queryFn: async () => {
+      const res = await fetch(`/api/collaborator-update-campaigns/collaborator-search?q=${encodeURIComponent(trimmedQ)}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Search failed");
+      return res.json();
+    },
+    enabled: open && trimmedQ.length >= 2,
+  });
+
+  const addMutation = useMutation({
+    mutationFn: async (collaboratorId: string) => {
+      const res = await apiRequest("POST", `/api/collaborator-update-campaigns/${campaign.id}/recipients`, { collaboratorIds: [collaboratorId] });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      if (data?.added > 0) {
+        toast({ title: l.addedToast });
+        queryClient.invalidateQueries({ queryKey: ["/api/collaborator-update-campaigns"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/collaborator-update-campaigns", campaign.id, "requests"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/collaborator-update-campaigns", campaign.id, "stats"] });
+      } else {
+        toast({ title: l.addSkippedInfo, variant: "destructive" });
+      }
+    },
+    onError: (e: any) => toast({ title: l.errorTitle, description: e?.message, variant: "destructive" }),
   });
 
   const filterCriteria = useMemo(() => ({
@@ -838,9 +904,10 @@ function EditFilterDialog({ campaign, l, toast, open, onOpenChange }: any) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{l.editFilter}</DialogTitle>
-          <DialogDescription>{l.editFilterD}</DialogDescription>
+          <DialogTitle>{isDraft ? l.editFilter : l.manualAddT}</DialogTitle>
+          <DialogDescription>{isDraft ? l.editFilterD : l.manualAddD}</DialogDescription>
         </DialogHeader>
+        {isDraft && (
         <div className="border rounded-md p-4 space-y-3">
           <div className="space-y-1.5">
             <Label>{l.countries}</Label>
@@ -893,12 +960,61 @@ function EditFilterDialog({ campaign, l, toast, open, onOpenChange }: any) {
             {preview && <span className="text-sm font-medium" data-testid="text-edit-preview-count">{preview.count} {l.recipients}</span>}
           </div>
         </div>
+        )}
+        <div className="border rounded-md p-4 space-y-3">
+          <div>
+            <Label>{l.manualAddT}</Label>
+            {isDraft && <p className="text-xs text-muted-foreground mt-1">{l.manualAddD}</p>}
+          </div>
+          <div className="relative">
+            <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              value={collabQ}
+              placeholder={l.manualSearchPh}
+              onChange={e => setCollabQ(e.target.value)}
+              data-testid="input-manual-search"
+            />
+          </div>
+          {trimmedQ.length >= 2 && (
+            searchLoading ? (
+              <div className="flex justify-center py-3"><Loader2 className="h-4 w-4 animate-spin" /></div>
+            ) : searchResults.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-1" data-testid="text-manual-no-results">{l.manualNoResults}</p>
+            ) : (
+              <div className="space-y-1 max-h-52 overflow-y-auto">
+                {searchResults.map((c: any) => (
+                  <div key={c.id} className="flex items-center justify-between gap-2 rounded-md border px-3 py-1.5" data-testid={`row-manual-result-${c.id}`}>
+                    <div className="min-w-0 text-sm">
+                      <span className="font-medium">{[c.titleBefore, c.firstName, c.lastName].filter(Boolean).join(" ")}</span>
+                      <span className="text-muted-foreground"> · {c.countryCode}{c.legacyId ? ` · ${c.legacyId}` : ""}{c.dataSource ? ` · ${c.dataSource}` : ""}</span>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {c.email || <span className="text-amber-600">{l.noEmailTag}</span>}
+                        {c.phone ? ` · ${c.phone}` : ""}{c.mobile ? ` · ${c.mobile}` : ""}
+                      </div>
+                    </div>
+                    <Button
+                      size="sm" variant="outline"
+                      onClick={() => addMutation.mutate(c.id)}
+                      disabled={!c.email || addMutation.isPending}
+                      data-testid={`button-manual-add-${c.id}`}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />{l.addRecipient}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+        </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-edit-filter-cancel">{l.cancel}</Button>
-          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} data-testid="button-edit-filter-save">
-            {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-            {l.save}
-          </Button>
+          {isDraft && (
+            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} data-testid="button-edit-filter-save">
+              {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              {l.save}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -972,6 +1088,7 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [removeId, setRemoveId] = useState<string | null>(null);
+  const [sendOneId, setSendOneId] = useState<string | null>(null);
   const { data: requests = [], isLoading, isFetching } = useQuery<any[]>({
     queryKey: ["/api/collaborator-update-campaigns", campaign.id, "requests"],
     queryFn: async () => {
@@ -997,6 +1114,15 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
     queryClient.invalidateQueries({ queryKey: ["/api/collaborator-update-campaigns", campaign.id, "requests"] });
     queryClient.invalidateQueries({ queryKey: ["/api/collaborator-update-campaigns", campaign.id, "stats"] });
   };
+
+  const sendOneMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/collaborator-update-requests/${id}/send`);
+      return res.json();
+    },
+    onSuccess: () => { toast({ title: l.sentOneToast }); invalidate(); },
+    onError: (e: any) => toast({ title: l.errorTitle, description: e?.message, variant: "destructive" }),
+  });
 
   const removeMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -1084,9 +1210,13 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
               <Pencil className="h-4 w-4 mr-2" />{l.settings}
             </Button>
           )}
-          {campaign.status === "draft" && (
+          {campaign.status === "draft" ? (
             <Button variant="outline" onClick={() => setEditFilterOpen(true)} data-testid="button-edit-filter">
               <Filter className="h-4 w-4 mr-2" />{l.editFilter}
+            </Button>
+          ) : (campaign.status === "paused" || campaign.status === "sent") && (
+            <Button variant="outline" onClick={() => setEditFilterOpen(true)} data-testid="button-add-recipients">
+              <Plus className="h-4 w-4 mr-2" />{l.manualAddT}
             </Button>
           )}
           <Button variant="outline" onClick={() => setDeleteOpen(true)} disabled={campaign.status === "sending"} data-testid="button-delete-campaign">
@@ -1197,17 +1327,32 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
                       <TableCell className="text-sm">{r.sentAt ? format(new Date(r.sentAt), "dd.MM. HH:mm") : "—"}</TableCell>
                       <TableCell className="text-sm">{r.submittedAt ? format(new Date(r.submittedAt), "dd.MM. HH:mm") : "—"}</TableCell>
                       <TableCell>
-                        {canRemove(r.status) && (
-                          <Button
-                            variant="ghost" size="icon" className="h-8 w-8"
-                            title={l.removeReq}
-                            onClick={() => setRemoveId(r.id)}
-                            disabled={removeMutation.isPending}
-                            data-testid={`button-remove-request-${r.id}`}
-                          >
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
-                        )}
+                        <div className="flex items-center gap-1">
+                          {["pending", "send_failed", "sent", "opened"].includes(r.status) && (
+                            <Button
+                              variant="ghost" size="icon" className="h-8 w-8"
+                              title={l.sendOne}
+                              onClick={() => setSendOneId(r.id)}
+                              disabled={sendOneMutation.isPending || campaign.status === "sending"}
+                              data-testid={`button-send-request-${r.id}`}
+                            >
+                              {sendOneMutation.isPending && sendOneMutation.variables === r.id
+                                ? <Loader2 className="h-4 w-4 animate-spin" />
+                                : <Send className="h-4 w-4 text-blue-500" />}
+                            </Button>
+                          )}
+                          {canRemove(r.status) && (
+                            <Button
+                              variant="ghost" size="icon" className="h-8 w-8"
+                              title={l.removeReq}
+                              onClick={() => setRemoveId(r.id)}
+                              disabled={removeMutation.isPending}
+                              data-testid={`button-remove-request-${r.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1300,6 +1445,24 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
               data-testid="button-remove-confirm"
             >
               {l.confirmDelete}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={sendOneId !== null} onOpenChange={(o) => { if (!o) setSendOneId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{l.sendOneConfirmT}</AlertDialogTitle>
+            <AlertDialogDescription>{l.sendOneConfirmD}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-send-one-cancel">{l.cancel}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { if (sendOneId) sendOneMutation.mutate(sendOneId); setSendOneId(null); }}
+              data-testid="button-send-one-confirm"
+            >
+              {l.confirmSend}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
