@@ -11,6 +11,7 @@ import {
 } from "@shared/schema";
 import { storage } from "./storage";
 import { sendEmail as ms365SendEmail, getValidAccessToken } from "./lib/ms365";
+import { decryptTokenSafe } from "./lib/token-crypto";
 
 // Collaborator columns editable through the public form
 const EDITABLE_FIELDS = [
@@ -172,7 +173,11 @@ async function sendCampaignEmails(campaignId: string, baseUrl: string, onlyRemin
       inArray(collaboratorUpdateRequests.status, statuses),
     ));
 
-  let tokenInfo = await getValidAccessToken(conn.accessToken, conn.tokenExpiresAt, conn.refreshToken);
+  let tokenInfo = await getValidAccessToken(
+    decryptTokenSafe(conn.accessToken),
+    conn.tokenExpiresAt,
+    conn.refreshToken ? decryptTokenSafe(conn.refreshToken) : null,
+  );
   if (!tokenInfo?.accessToken) {
     console.error(`[CollabUpdate] MS365 token refresh failed for ${campaign.senderCountryCode}`);
     await db.update(collaboratorUpdateCampaigns)
@@ -244,7 +249,11 @@ async function sendCampaignEmails(campaignId: string, baseUrl: string, onlyRemin
     // refresh token if long batch expired it
     if ((sent + failed) % 200 === 0) {
       const fresh: any = await storage.getSystemMs365Connection(campaign.senderCountryCode);
-      const ti = await getValidAccessToken(fresh.accessToken, fresh.tokenExpiresAt, fresh.refreshToken);
+      const ti = await getValidAccessToken(
+        decryptTokenSafe(fresh.accessToken),
+        fresh.tokenExpiresAt,
+        fresh.refreshToken ? decryptTokenSafe(fresh.refreshToken) : null,
+      );
       if (ti?.accessToken) tokenInfo = ti;
     }
   }
@@ -618,7 +627,11 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
 
       const conn: any = await storage.getSystemMs365Connection(campaign.senderCountryCode);
       if (!conn?.accessToken) return markFailed("MS365 mailbox not connected");
-      const tokenInfo = await getValidAccessToken(conn.accessToken, conn.tokenExpiresAt, conn.refreshToken);
+      const tokenInfo = await getValidAccessToken(
+        decryptTokenSafe(conn.accessToken),
+        conn.tokenExpiresAt,
+        conn.refreshToken ? decryptTokenSafe(conn.refreshToken) : null,
+      );
       if (!tokenInfo?.accessToken) return markFailed("MS365 token refresh failed");
       if (tokenInfo.refreshed) {
         try {
