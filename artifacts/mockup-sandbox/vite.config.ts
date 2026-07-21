@@ -63,6 +63,13 @@ export default defineConfig({
     fs: {
       strict: true,
     },
+    proxy: {
+      "^/(?!__mockup(/|$))": {
+        target: "http://localhost:5000",
+        changeOrigin: true,
+        ws: true,
+      },
+    },
   },
   preview: {
     port,
