@@ -51,6 +51,19 @@ function getBaseUrl(req: Request): string {
   return `${req.protocol}://${req.get("host")}`;
 }
 
+// Fictional sample data used for test sends — real collaborator data is never
+// shown in test emails or the test form.
+const TEST_SAMPLE: Record<string, string> = {
+  titleBefore: "Ing.", firstName: "Test", lastName: "Testovací", titleAfter: "",
+  maidenName: "", email: "test@example.com", mobile: "+421 900 000 000", phone: "",
+  bankAccountIban: "SK00 0000 0000 0000 0000 0000", swiftCode: "TESTSKBX",
+  companyName: "Testovacia s.r.o.", ico: "00000000", dic: "0000000000", icDph: "",
+};
+const TEST_SAMPLE_ADDR: Record<string, Record<string, string>> = {
+  permanent: { streetNumber: "Testovacia 1", city: "Bratislava", postalCode: "811 01" },
+  correspondence: { streetNumber: "", city: "", postalCode: "" },
+};
+
 type FilterCriteria = {
   countryCodes?: string[];
   collaboratorType?: string;
@@ -62,6 +75,7 @@ type FilterCriteria = {
   isActive?: boolean;
   dataSource?: string;
   legacyIds?: string; // pasted list, separated by whitespace/commas/semicolons
+  agreementActiveOn?: string; // YYYY-MM-DD: has a valid agreement active on this date
 };
 
 async function findRecipients(filter: FilterCriteria) {
@@ -80,6 +94,29 @@ async function findRecipients(filter: FilterCriteria) {
   if (filter.legacyIds && filter.legacyIds.trim()) {
     const ids = filter.legacyIds.split(/[\s,;]+/).map(s => s.trim()).filter(Boolean);
     if (ids.length > 0) conds.push(inArray(collaborators.legacyId, ids));
+  }
+  if (filter.agreementActiveOn && /^\d{4}-\d{2}-\d{2}$/.test(filter.agreementActiveOn)
+      && !isNaN(new Date(filter.agreementActiveOn + "T00:00:00Z").getTime())
+      && new Date(filter.agreementActiveOn + "T00:00:00Z").toISOString().slice(0, 10) === filter.agreementActiveOn) {
+    const d = filter.agreementActiveOn;
+    // month clamped to 1-12 and the date built as first-of-month + (day-1) days,
+    // so out-of-range imported day/month values can never crash make_date()
+    conds.push(dsql`EXISTS (
+      SELECT 1 FROM collaborator_agreements ca
+      WHERE ca.collaborator_id = ${collaborators.id}
+        AND ca.is_valid = true
+        AND (ca.valid_from_year IS NULL
+          OR (make_date(ca.valid_from_year, GREATEST(1, LEAST(12, COALESCE(ca.valid_from_month, 1))), 1)
+              + (GREATEST(1, LEAST(31, COALESCE(ca.valid_from_day, 1))) - 1) * interval '1 day')::date <= ${d}::date)
+        AND (ca.valid_to_year IS NULL
+          OR (CASE
+                WHEN ca.valid_to_day IS NOT NULL AND ca.valid_to_month IS NOT NULL
+                  THEN (make_date(ca.valid_to_year, GREATEST(1, LEAST(12, ca.valid_to_month)), 1)
+                        + (GREATEST(1, LEAST(31, ca.valid_to_day)) - 1) * interval '1 day')::date
+                ELSE (make_date(ca.valid_to_year, GREATEST(1, LEAST(12, COALESCE(ca.valid_to_month, 12))), 1)
+                      + interval '1 month' - interval '1 day')::date
+              END) >= ${d}::date)
+    )`);
   }
   return db.select({
     id: collaborators.id,
@@ -310,7 +347,8 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
       res.json(rows.map(r => ({
         id: r.request.id,
         campaignId: r.request.campaignId,
-        collaboratorId: r.request.collaboratorId,
+        isTest: r.request.token.startsWith("test-"),
+        collaboratorId: r.request.token.startsWith("test-") ? null : r.request.collaboratorId,
         email: r.request.email,
         language: r.request.language,
         status: r.request.status,
@@ -323,8 +361,10 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
         changes: r.request.changes,
         reviewedBy: r.request.reviewedBy,
         reviewedAt: r.request.reviewedAt,
-        collaboratorName: [r.titleBefore, r.firstName, r.lastName].filter(Boolean).join(" "),
-        countryCode: r.countryCode,
+        collaboratorName: r.request.token.startsWith("test-")
+          ? "[TEST] " + [TEST_SAMPLE.titleBefore, TEST_SAMPLE.firstName, TEST_SAMPLE.lastName].filter(Boolean).join(" ")
+          : [r.titleBefore, r.firstName, r.lastName].filter(Boolean).join(" "),
+        countryCode: r.request.token.startsWith("test-") ? null : r.countryCode,
       })));
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Failed to load requests" });
@@ -380,19 +420,18 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
         .where(eq(collaboratorUpdateCampaigns.id, req.params.id));
       if (!campaign) return res.status(404).json({ message: "Campaign not found" });
 
-      // use the first recipient of the campaign as the sample collaborator
+      // language of the first recipient (or campaign language) — only for the
+      // form language; NO real collaborator data is used in test sends
       const [sampleReq] = await db.select().from(collaboratorUpdateRequests)
         .where(eq(collaboratorUpdateRequests.campaignId, campaign.id))
         .limit(1);
       if (!sampleReq) return res.status(400).json({ message: "Campaign has no recipients" });
-      const [c] = await db.select().from(collaborators)
-        .where(eq(collaborators.id, sampleReq.collaboratorId));
-      if (!c) return res.status(400).json({ message: "Sample collaborator not found" });
 
-      // dedicated test request so the real recipient's link stays untouched
+      // dedicated test request so the real recipient's link stays untouched;
+      // the form will show fictional sample data, never the collaborator's data
       const [testReq] = await db.insert(collaboratorUpdateRequests).values({
         campaignId: campaign.id,
-        collaboratorId: c.id,
+        collaboratorId: sampleReq.collaboratorId,
         token: "test-" + crypto.randomBytes(18).toString("base64url"),
         email: testEmail,
         language: sampleReq.language,
@@ -403,10 +442,10 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
       const baseUrl = getBaseUrl(req);
       const link = `${baseUrl}/update/${testReq.token}`;
       const vars: Record<string, string> = {
-        firstName: c.firstName || "",
-        lastName: c.lastName || "",
-        fullName: [c.titleBefore, c.firstName, c.lastName].filter(Boolean).join(" "),
-        titleBefore: c.titleBefore || "",
+        firstName: TEST_SAMPLE.firstName,
+        lastName: TEST_SAMPLE.lastName,
+        fullName: [TEST_SAMPLE.titleBefore, TEST_SAMPLE.firstName, TEST_SAMPLE.lastName].filter(Boolean).join(" "),
+        titleBefore: TEST_SAMPLE.titleBefore,
         link,
       };
       const subject = "[TEST] " + renderTemplate(campaign.emailSubject, vars);
@@ -545,15 +584,33 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
       if (["submitted", "approved", "rejected"].includes(reqRow.status)) {
         return res.status(409).json({ message: "already_submitted", language: reqRow.language });
       }
-      const [c] = await db.select().from(collaborators)
-        .where(eq(collaborators.id, reqRow.collaboratorId));
-      if (!c) return res.status(404).json({ message: "not_found" });
 
       if (reqRow.status === "sent" || reqRow.status === "pending") {
         await db.update(collaboratorUpdateRequests)
           .set({ status: "opened", openedAt: reqRow.openedAt || new Date() })
           .where(eq(collaboratorUpdateRequests.id, reqRow.id));
       }
+
+      // Test tokens: show fictional sample data — never a real collaborator's data
+      if (reqRow.token.startsWith("test-")) {
+        const data: Record<string, any> = { ...TEST_SAMPLE };
+        for (const t of ADDRESS_TYPES) {
+          for (const sf of ADDRESS_SUBFIELDS) {
+            data[`addr_${t}_${sf}`] = TEST_SAMPLE_ADDR[t]?.[sf] ?? "";
+          }
+        }
+        return res.json({
+          language: reqRow.language,
+          birthNumberMasked: "0000******",
+          collaboratorName: [TEST_SAMPLE.titleBefore, TEST_SAMPLE.firstName, TEST_SAMPLE.lastName].filter(Boolean).join(" "),
+          isTest: true,
+          data,
+        });
+      }
+
+      const [c] = await db.select().from(collaborators)
+        .where(eq(collaborators.id, reqRow.collaboratorId));
+      if (!c) return res.status(404).json({ message: "not_found" });
 
       const addresses = await db.select().from(collaboratorAddresses)
         .where(eq(collaboratorAddresses.collaboratorId, c.id));
@@ -588,15 +645,28 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
       if (["submitted", "approved", "rejected"].includes(reqRow.status)) {
         return res.status(409).json({ message: "already_submitted" });
       }
-      const [c] = await db.select().from(collaborators)
-        .where(eq(collaborators.id, reqRow.collaboratorId));
-      if (!c) return res.status(404).json({ message: "not_found" });
+      const isTest = reqRow.token.startsWith("test-");
+
+      let oldFieldValue: (f: string) => any;
+      let oldAddrValue: (t: string, sf: string) => any;
+      if (isTest) {
+        // Test submissions diff against the fictional sample data — real
+        // collaborator data is never read or stored for test tokens
+        oldFieldValue = (f) => TEST_SAMPLE[f];
+        oldAddrValue = (t, sf) => TEST_SAMPLE_ADDR[t]?.[sf];
+      } else {
+        const [c] = await db.select().from(collaborators)
+          .where(eq(collaborators.id, reqRow.collaboratorId));
+        if (!c) return res.status(404).json({ message: "not_found" });
+        const addresses = await db.select().from(collaboratorAddresses)
+          .where(eq(collaboratorAddresses.collaboratorId, c.id));
+        const addrByType: Record<string, any> = {};
+        for (const a of addresses) addrByType[a.addressType] = a;
+        oldFieldValue = (f) => (c as any)[f];
+        oldAddrValue = (t, sf) => addrByType[t]?.[sf];
+      }
 
       const submitted = (req.body?.data || {}) as Record<string, any>;
-      const addresses = await db.select().from(collaboratorAddresses)
-        .where(eq(collaboratorAddresses.collaboratorId, c.id));
-      const addrByType: Record<string, any> = {};
-      for (const a of addresses) addrByType[a.addressType] = a;
 
       const norm = (v: any) => {
         const s = v === null || v === undefined ? "" : String(v).trim();
@@ -608,7 +678,7 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
       for (const f of EDITABLE_FIELDS) {
         if (!(f in submitted)) continue;
         const newV = norm(submitted[f]).slice(0, 500);
-        const oldV = norm((c as any)[f]);
+        const oldV = norm(oldFieldValue(f));
         cleanData[f] = newV;
         if (newV !== oldV) changes.push({ field: f, oldValue: oldV || null, newValue: newV || null });
       }
@@ -617,7 +687,7 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
           const key = `addr_${t}_${sf}`;
           if (!(key in submitted)) continue;
           const newV = norm(submitted[key]).slice(0, 500);
-          const oldV = norm(addrByType[t]?.[sf]);
+          const oldV = norm(oldAddrValue(t, sf));
           cleanData[key] = newV;
           if (newV !== oldV) changes.push({ field: key, oldValue: oldV || null, newValue: newV || null });
         }

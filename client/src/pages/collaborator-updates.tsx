@@ -102,8 +102,8 @@ const L: Record<string, Record<string, string>> = {
     approve: "Approve", reject: "Reject", approved: "Changes approved and applied", rejected: "Submission rejected",
     language: "Email & form language", langAuto: "Automatic (by collaborator country)", insertSample: "Insert sample text",
     agreementTypeL: "Agreement type", partnerCategoryL: "Partner category", rewardTypeL: "Reward type",
-    isManagerL: "Manager", monthRewardsL: "Monthly rewards", anyOpt: "Any", yesOpt: "Yes", noOpt: "No",
-    testSend: "Test email", testEmailLabel: "Send a test to this address", testSent: "Test email sent", testLinkLabel: "Test form link", testDesc: "The email is sent with sample data of the first recipient. The link works fully — you can fill in the form, submit it, and then approve or reject it in the approval queue.",
+    isManagerL: "Manager", monthRewardsL: "Monthly rewards", anyOpt: "Any", yesOpt: "Yes", noOpt: "No", agreementActiveL: "Agreement active on date",
+    testSend: "Test email", testEmailLabel: "Send a test to this address", testSent: "Test email sent", testLinkLabel: "Test form link", testDesc: "The email and the form use only fictional test data — no real collaborator data is shown. The link works fully — you can fill in the form, submit it, and then approve or reject it in the approval queue.",
     emailsSending: "Emails are being sent in the background", noCampaigns: "No campaigns yet. Create one to get started.",
     noApprovals: "No submissions waiting for review.", createdFmt: "Created", campaignCreated: "Campaign created", errorTitle: "Error",
     draft: "Draft", statSending: "Sending", statSent: "Sent",
@@ -122,8 +122,8 @@ const L: Record<string, Record<string, string>> = {
     approve: "Schváliť", reject: "Zamietnuť", approved: "Zmeny schválené a zapísané", rejected: "Odoslanie zamietnuté",
     language: "Jazyk e-mailu a formulára", langAuto: "Automaticky (podľa krajiny spolupracovníka)", insertSample: "Vložiť vzorový text",
     agreementTypeL: "Typ zmluvy/dohody", partnerCategoryL: "Kategória partnera", rewardTypeL: "Typ odmeny",
-    isManagerL: "Manažér", monthRewardsL: "Mesačné odmeny", anyOpt: "Všetci", yesOpt: "Áno", noOpt: "Nie",
-    testSend: "Testovací e-mail", testEmailLabel: "Poslať test na túto adresu", testSent: "Testovací e-mail odoslaný", testLinkLabel: "Testovací odkaz na formulár", testDesc: "E-mail sa pošle s ukážkovými údajmi prvého príjemcu. Odkaz je plne funkčný — formulár môžeš vyplniť, odoslať a potom v schvaľovacom rade schváliť alebo zamietnuť.",
+    isManagerL: "Manažér", monthRewardsL: "Mesačné odmeny", anyOpt: "Všetci", yesOpt: "Áno", noOpt: "Nie", agreementActiveL: "Zmluva aktívna k dátumu",
+    testSend: "Testovací e-mail", testEmailLabel: "Poslať test na túto adresu", testSent: "Testovací e-mail odoslaný", testLinkLabel: "Testovací odkaz na formulár", testDesc: "E-mail aj formulár používajú iba fiktívne testovacie údaje — údaje skutočného spolupracovníka sa nikde nezobrazia. Odkaz je plne funkčný — formulár môžeš vyplniť, odoslať a potom v schvaľovacom rade schváliť alebo zamietnuť.",
     emailsSending: "E-maily sa odosielajú na pozadí", noCampaigns: "Zatiaľ žiadne kampane. Vytvor prvú.",
     noApprovals: "Žiadne vyplnenia nečakajú na kontrolu.", createdFmt: "Vytvorené", campaignCreated: "Kampaň vytvorená", errorTitle: "Chyba",
     draft: "Koncept", statSending: "Odosiela sa", statSent: "Odoslaná",
@@ -142,8 +142,8 @@ const L: Record<string, Record<string, string>> = {
     approve: "Schválit", reject: "Zamítnout", approved: "Změny schváleny a zapsány", rejected: "Odeslání zamítnuto",
     language: "Jazyk e-mailu a formuláře", langAuto: "Automaticky (podle země spolupracovníka)", insertSample: "Vložit vzorový text",
     agreementTypeL: "Typ smlouvy/dohody", partnerCategoryL: "Kategorie partnera", rewardTypeL: "Typ odměny",
-    isManagerL: "Manažer", monthRewardsL: "Měsíční odměny", anyOpt: "Všichni", yesOpt: "Ano", noOpt: "Ne",
-    testSend: "Testovací e-mail", testEmailLabel: "Poslat test na tuto adresu", testSent: "Testovací e-mail odeslán", testLinkLabel: "Testovací odkaz na formulář", testDesc: "E-mail se pošle s ukázkovými údaji prvního příjemce. Odkaz je plně funkční — formulář lze vyplnit, odeslat a poté ve schvalovací frontě schválit nebo zamítnout.",
+    isManagerL: "Manažer", monthRewardsL: "Měsíční odměny", anyOpt: "Všichni", yesOpt: "Ano", noOpt: "Ne", agreementActiveL: "Smlouva aktivní k datu",
+    testSend: "Testovací e-mail", testEmailLabel: "Poslat test na tuto adresu", testSent: "Testovací e-mail odeslán", testLinkLabel: "Testovací odkaz na formulář", testDesc: "E-mail i formulář používají pouze fiktivní testovací údaje — údaje skutečného spolupracovníka se nikde nezobrazí. Odkaz je plně funkční — formulář lze vyplnit, odeslat a poté ve schvalovací frontě schválit nebo zamítnout.",
     emailsSending: "E-maily se odesílají na pozadí", noCampaigns: "Zatím žádné kampaně. Vytvořte první.",
     noApprovals: "Žádná vyplnění nečekají na kontrolu.", createdFmt: "Vytvořeno", campaignCreated: "Kampaň vytvořena", errorTitle: "Chyba",
     draft: "Koncept", statSending: "Odesílá se", statSent: "Odeslána",
@@ -162,8 +162,8 @@ const L: Record<string, Record<string, string>> = {
     approve: "Jóváhagyás", reject: "Elutasítás", approved: "Módosítások jóváhagyva és rögzítve", rejected: "Beküldés elutasítva",
     language: "E-mail és űrlap nyelve", langAuto: "Automatikus (a partner országa szerint)", insertSample: "Mintaszöveg beszúrása",
     agreementTypeL: "Szerződés/megállapodás típusa", partnerCategoryL: "Partner kategória", rewardTypeL: "Jutalom típusa",
-    isManagerL: "Menedzser", monthRewardsL: "Havi jutalmak", anyOpt: "Mind", yesOpt: "Igen", noOpt: "Nem",
-    testSend: "Teszt e-mail", testEmailLabel: "Teszt küldése erre a címre", testSent: "Teszt e-mail elküldve", testLinkLabel: "Teszt űrlap link", testDesc: "Az e-mail az első címzett mintaadataival kerül kiküldésre. A link teljesen működőképes — az űrlap kitölthető, beküldhető, majd a jóváhagyási sorban jóváhagyható vagy elutasítható.",
+    isManagerL: "Menedzser", monthRewardsL: "Havi jutalmak", anyOpt: "Mind", yesOpt: "Igen", noOpt: "Nem", agreementActiveL: "Szerződés érvényes ekkor",
+    testSend: "Teszt e-mail", testEmailLabel: "Teszt küldése erre a címre", testSent: "Teszt e-mail elküldve", testLinkLabel: "Teszt űrlap link", testDesc: "Az e-mail és az űrlap csak fiktív tesztadatokat használ — valódi partneradatok sehol nem jelennek meg. A link teljesen működőképes — az űrlap kitölthető, beküldhető, majd a jóváhagyási sorban jóváhagyható vagy elutasítható.",
     emailsSending: "Az e-mailek küldése a háttérben folyik", noCampaigns: "Még nincs kampány. Hozza létre az elsőt.",
     noApprovals: "Nincs ellenőrzésre váró beküldés.", createdFmt: "Létrehozva", campaignCreated: "Kampány létrehozva", errorTitle: "Hiba",
     draft: "Piszkozat", statSending: "Küldés folyamatban", statSent: "Elküldve",
@@ -182,8 +182,8 @@ const L: Record<string, Record<string, string>> = {
     approve: "Aprobă", reject: "Respinge", approved: "Modificări aprobate și aplicate", rejected: "Trimitere respinsă",
     language: "Limba e-mailului și formularului", langAuto: "Automat (după țara colaboratorului)", insertSample: "Inserează text model",
     agreementTypeL: "Tip contract/acord", partnerCategoryL: "Categorie partener", rewardTypeL: "Tip recompensă",
-    isManagerL: "Manager", monthRewardsL: "Recompense lunare", anyOpt: "Toți", yesOpt: "Da", noOpt: "Nu",
-    testSend: "E-mail de test", testEmailLabel: "Trimite un test la această adresă", testSent: "E-mail de test trimis", testLinkLabel: "Link de test al formularului", testDesc: "E-mailul se trimite cu datele exemplu ale primului destinatar. Linkul este complet funcțional — formularul poate fi completat, trimis și apoi aprobat sau respins în coada de aprobare.",
+    isManagerL: "Manager", monthRewardsL: "Recompense lunare", anyOpt: "Toți", yesOpt: "Da", noOpt: "Nu", agreementActiveL: "Contract activ la data",
+    testSend: "E-mail de test", testEmailLabel: "Trimite un test la această adresă", testSent: "E-mail de test trimis", testLinkLabel: "Link de test al formularului", testDesc: "E-mailul și formularul folosesc doar date de test fictive — datele reale ale colaboratorului nu apar nicăieri. Linkul este complet funcțional — formularul poate fi completat, trimis și apoi aprobat sau respins în coada de aprobare.",
     emailsSending: "E-mailurile se trimit în fundal", noCampaigns: "Nicio campanie încă. Creați prima.",
     noApprovals: "Nicio completare în așteptarea verificării.", createdFmt: "Creat", campaignCreated: "Campanie creată", errorTitle: "Eroare",
     draft: "Ciornă", statSending: "Se trimite", statSent: "Trimisă",
@@ -202,8 +202,8 @@ const L: Record<string, Record<string, string>> = {
     approve: "Approva", reject: "Respingi", approved: "Modifiche approvate e applicate", rejected: "Invio respinto",
     language: "Lingua di e-mail e modulo", langAuto: "Automatica (per paese del collaboratore)", insertSample: "Inserisci testo di esempio",
     agreementTypeL: "Tipo di contratto/accordo", partnerCategoryL: "Categoria partner", rewardTypeL: "Tipo di ricompensa",
-    isManagerL: "Manager", monthRewardsL: "Ricompense mensili", anyOpt: "Tutti", yesOpt: "Sì", noOpt: "No",
-    testSend: "E-mail di prova", testEmailLabel: "Invia una prova a questo indirizzo", testSent: "E-mail di prova inviata", testLinkLabel: "Link di prova del modulo", testDesc: "L'e-mail viene inviata con i dati di esempio del primo destinatario. Il link è pienamente funzionante — il modulo può essere compilato, inviato e poi approvato o respinto nella coda di approvazione.",
+    isManagerL: "Manager", monthRewardsL: "Ricompense mensili", anyOpt: "Tutti", yesOpt: "Sì", noOpt: "No", agreementActiveL: "Contratto attivo alla data",
+    testSend: "E-mail di prova", testEmailLabel: "Invia una prova a questo indirizzo", testSent: "E-mail di prova inviata", testLinkLabel: "Link di prova del modulo", testDesc: "L'e-mail e il modulo usano solo dati di prova fittizi — i dati reali del collaboratore non vengono mai mostrati. Il link è pienamente funzionante — il modulo può essere compilato, inviato e poi approvato o respinto nella coda di approvazione.",
     emailsSending: "Le e-mail vengono inviate in background", noCampaigns: "Nessuna campagna. Creane una.",
     noApprovals: "Nessuna compilazione in attesa di verifica.", createdFmt: "Creato", campaignCreated: "Campagna creata", errorTitle: "Errore",
     draft: "Bozza", statSending: "Invio in corso", statSent: "Inviata",
@@ -222,8 +222,8 @@ const L: Record<string, Record<string, string>> = {
     approve: "Genehmigen", reject: "Ablehnen", approved: "Änderungen genehmigt und übernommen", rejected: "Einreichung abgelehnt",
     language: "Sprache von E-Mail und Formular", langAuto: "Automatisch (nach Land des Partners)", insertSample: "Mustertext einfügen",
     agreementTypeL: "Vertrags-/Vereinbarungstyp", partnerCategoryL: "Partnerkategorie", rewardTypeL: "Vergütungstyp",
-    isManagerL: "Manager", monthRewardsL: "Monatliche Vergütungen", anyOpt: "Alle", yesOpt: "Ja", noOpt: "Nein",
-    testSend: "Test-E-Mail", testEmailLabel: "Test an diese Adresse senden", testSent: "Test-E-Mail gesendet", testLinkLabel: "Test-Link zum Formular", testDesc: "Die E-Mail wird mit Beispieldaten des ersten Empfängers gesendet. Der Link ist voll funktionsfähig — das Formular kann ausgefüllt, abgesendet und dann in der Genehmigungswarteschlange genehmigt oder abgelehnt werden.",
+    isManagerL: "Manager", monthRewardsL: "Monatliche Vergütungen", anyOpt: "Alle", yesOpt: "Ja", noOpt: "Nein", agreementActiveL: "Vertrag aktiv am Datum",
+    testSend: "Test-E-Mail", testEmailLabel: "Test an diese Adresse senden", testSent: "Test-E-Mail gesendet", testLinkLabel: "Test-Link zum Formular", testDesc: "E-Mail und Formular verwenden nur fiktive Testdaten — echte Partnerdaten werden nirgends angezeigt. Der Link ist voll funktionsfähig — das Formular kann ausgefüllt, abgesendet und dann in der Genehmigungswarteschlange genehmigt oder abgelehnt werden.",
     emailsSending: "E-Mails werden im Hintergrund gesendet", noCampaigns: "Noch keine Kampagnen. Erstellen Sie die erste.",
     noApprovals: "Keine Einreichungen zur Prüfung.", createdFmt: "Erstellt", campaignCreated: "Kampagne erstellt", errorTitle: "Fehler",
     draft: "Entwurf", statSending: "Wird gesendet", statSent: "Gesendet",
@@ -355,6 +355,7 @@ function CreateCampaignDialog({ open, onOpenChange, l, toast }: any) {
   const [rewardType, setRewardType] = useState("");
   const [isManager, setIsManager] = useState("");
   const [monthRewards, setMonthRewards] = useState("");
+  const [agreementActiveOn, setAgreementActiveOn] = useState("");
   const [onlyActive, setOnlyActive] = useState(true);
   const [dataSource, setDataSource] = useState("");
   const [legacyIds, setLegacyIds] = useState("");
@@ -386,7 +387,8 @@ function CreateCampaignDialog({ open, onOpenChange, l, toast }: any) {
     isActive: onlyActive ? true : undefined,
     dataSource: dataSource || undefined,
     legacyIds: legacyIds || undefined,
-  }), [countries, collabType, agreementType, partnerCategory, rewardType, isManager, monthRewards, onlyActive, dataSource, legacyIds]);
+    agreementActiveOn: agreementActiveOn || undefined,
+  }), [countries, collabType, agreementType, partnerCategory, rewardType, isManager, monthRewards, onlyActive, dataSource, legacyIds, agreementActiveOn]);
 
   const previewMutation = useMutation({
     mutationFn: async () => {
@@ -505,6 +507,10 @@ function CreateCampaignDialog({ open, onOpenChange, l, toast }: any) {
               <div className="grid grid-cols-2 gap-4">
                 <YesNoSelect label={l.isManagerL} value={isManager} onChange={setIsManager} l={l} testId="select-is-manager" />
                 <YesNoSelect label={l.monthRewardsL} value={monthRewards} onChange={setMonthRewards} l={l} testId="select-month-rewards" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>{l.agreementActiveL}</Label>
+                <Input type="date" value={agreementActiveOn} onChange={e => setAgreementActiveOn(e.target.value)} data-testid="input-agreement-active-on" />
               </div>
             </div>
             <label className="flex items-center gap-2 text-sm">
