@@ -22,10 +22,10 @@ const MSSQL_CONFIG = {
   password: 'XqU0nNND',
   server: '10.1.2.2',
   port: 1433,
-  database: 'ISCBC',
-  options: { encrypt: false, trustServerCertificate: true, instanceName: 'MSSQLSTD' },
-  connectionTimeout: 15000,
-  requestTimeout: 300000,
+  database: 'CBC',
+  options: { encrypt: false, trustServerCertificate: true },
+  connectionTimeout: 30000,
+  requestTimeout: 600000,
 };
 
 const PG_CONFIG = {
