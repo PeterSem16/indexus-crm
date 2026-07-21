@@ -193,6 +193,7 @@ app.use((req, res, next) => {
         sender_country_code text NOT NULL,
         email_subject text NOT NULL,
         email_body text NOT NULL,
+        language text NOT NULL DEFAULT 'auto',
         token_valid_days integer NOT NULL DEFAULT 30,
         filter_criteria jsonb DEFAULT '{}'::jsonb,
         status text NOT NULL DEFAULT 'draft',
@@ -224,6 +225,8 @@ app.use((req, res, next) => {
       CREATE INDEX IF NOT EXISTS idx_cureq_campaign ON collaborator_update_requests(campaign_id);
       CREATE INDEX IF NOT EXISTS idx_cureq_collaborator ON collaborator_update_requests(collaborator_id);
       CREATE INDEX IF NOT EXISTS idx_cureq_status ON collaborator_update_requests(status);
+      ALTER TABLE collaborator_update_campaigns
+        ADD COLUMN IF NOT EXISTS language text NOT NULL DEFAULT 'auto';
     `);
     console.log('[migration] collaborator_update tables ensured');
 

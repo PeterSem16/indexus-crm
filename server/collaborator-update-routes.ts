@@ -54,6 +54,11 @@ function getBaseUrl(req: Request): string {
 type FilterCriteria = {
   countryCodes?: string[];
   collaboratorType?: string;
+  agreementType?: string;
+  partnerCategory?: string;
+  rewardType?: string;
+  isManager?: boolean;
+  monthRewards?: boolean;
   isActive?: boolean;
   dataSource?: string;
   legacyIds?: string; // pasted list, separated by whitespace/commas/semicolons
@@ -65,6 +70,11 @@ async function findRecipients(filter: FilterCriteria) {
     conds.push(inArray(collaborators.countryCode, filter.countryCodes));
   }
   if (filter.collaboratorType) conds.push(eq(collaborators.collaboratorType, filter.collaboratorType));
+  if (filter.agreementType) conds.push(eq(collaborators.agreementType, filter.agreementType));
+  if (filter.partnerCategory) conds.push(eq(collaborators.partnerCategory, filter.partnerCategory));
+  if (filter.rewardType) conds.push(eq(collaborators.rewardType, filter.rewardType));
+  if (typeof filter.isManager === "boolean") conds.push(eq(collaborators.isManager, filter.isManager));
+  if (typeof filter.monthRewards === "boolean") conds.push(eq(collaborators.monthRewards, filter.monthRewards));
   if (typeof filter.isActive === "boolean") conds.push(eq(collaborators.isActive, filter.isActive));
   if (filter.dataSource) conds.push(eq(collaborators.dataSource, filter.dataSource));
   if (filter.legacyIds && filter.legacyIds.trim()) {
@@ -199,6 +209,26 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
     }
   };
 
+  // Distinct values of filterable collaborator fields, for the create-campaign filter UI
+  app.get("/api/collaborator-update-campaigns/filter-options", requireAuth, requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const distinct = async (col: any) => {
+        const rows = await db.selectDistinct({ v: col }).from(collaborators)
+          .where(and(isNotNull(col), ne(col, "")));
+        return rows.map(r => r.v as string).sort((a, b) => a.localeCompare(b));
+      };
+      res.json({
+        collaboratorTypes: await distinct(collaborators.collaboratorType),
+        agreementTypes: await distinct(collaborators.agreementType),
+        partnerCategories: await distinct(collaborators.partnerCategory),
+        rewardTypes: await distinct(collaborators.rewardType),
+        dataSources: await distinct(collaborators.dataSource),
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Failed to load filter options" });
+    }
+  });
+
   app.post("/api/collaborator-update-campaigns/preview", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const recipients = await findRecipients(req.body?.filterCriteria || {});
@@ -232,6 +262,10 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
   app.post("/api/collaborator-update-campaigns", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const parsed = insertCollaboratorUpdateCampaignSchema.parse(req.body);
+      const ALLOWED_LANGS = ["auto", "sk", "cs", "hu", "ro", "it", "de", "en"];
+      if (parsed.language && !ALLOWED_LANGS.includes(parsed.language)) {
+        return res.status(400).json({ message: "Invalid language" });
+      }
       const recipients = await findRecipients((parsed.filterCriteria || {}) as FilterCriteria);
       if (recipients.length === 0) {
         return res.status(400).json({ message: "No recipients match the filter" });
@@ -247,7 +281,9 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
         collaboratorId: r.id,
         token: crypto.randomBytes(24).toString("base64url"),
         email: r.email!,
-        language: countryToLanguage(r.countryCode),
+        language: campaign.language && campaign.language !== "auto"
+          ? campaign.language
+          : countryToLanguage(r.countryCode),
         expiresAt,
       }));
       for (let i = 0; i < rows.length; i += 500) {
