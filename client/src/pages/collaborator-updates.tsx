@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Loader2, Plus, Send, Bell, ArrowLeft, Check, X, Users, Mail, Trash2, Filter, Pause, RefreshCw, ChevronLeft, ChevronRight, Pencil, Search } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
@@ -146,6 +147,7 @@ const L: Record<string, Record<string, string>> = {
     statPaused: "Paused", resume: "Resume sending", pause: "Pause sending", pausedToast: "Sending paused",
     sendConfirmT: "Start sending emails?", sendConfirmD: "Emails with the form link will be sent to all pending recipients. This cannot be undone for emails already sent.",
     remindConfirmT: "Send reminders?", remindConfirmD: "A reminder email will be sent to everyone who received the link but has not submitted the form yet.",
+    remindHint: "Re-sends the same email with the same link — only to recipients who received it but have not submitted the form yet. Submitted, approved and rejected recipients are skipped. No new links are created.",
     confirmSend: "Yes, send",
     refresh: "Refresh", removeReq: "Remove from queue", removeConfirmT: "Remove this recipient?",
     removeConfirmD: "The recipient will be removed from the sending queue and their link will stop working. This cannot be undone.",
@@ -183,6 +185,7 @@ const L: Record<string, Record<string, string>> = {
     statPaused: "Pozastavená", resume: "Pokračovať v posielaní", pause: "Pozastaviť posielanie", pausedToast: "Posielanie pozastavené",
     sendConfirmT: "Spustiť posielanie e-mailov?", sendConfirmD: "E-maily s odkazom na formulár sa odošlú všetkým čakajúcim príjemcom. Už odoslané e-maily sa nedajú vziať späť.",
     remindConfirmT: "Poslať pripomienky?", remindConfirmD: "Pripomienka sa pošle všetkým, ktorí odkaz dostali, ale formulár ešte nevyplnili.",
+    remindHint: "Znovu pošle ten istý e-mail s tým istým odkazom — len tým, ktorí ho dostali, ale formulár ešte nevyplnili. Vyplnení, schválení a zamietnutí príjemcovia sa preskočia. Nové odkazy sa nevytvárajú.",
     confirmSend: "Áno, odoslať",
     refresh: "Obnoviť", removeReq: "Vyradiť z posielania", removeConfirmT: "Vyradiť tohto príjemcu?",
     removeConfirmD: "Príjemca bude vyradený z frontu posielania a jeho odkaz prestane fungovať. Táto akcia sa nedá vrátiť.",
@@ -220,6 +223,7 @@ const L: Record<string, Record<string, string>> = {
     statPaused: "Pozastavena", resume: "Pokračovat v odesílání", pause: "Pozastavit odesílání", pausedToast: "Odesílání pozastaveno",
     sendConfirmT: "Spustit odesílání e-mailů?", sendConfirmD: "E-maily s odkazem na formulář se odešlou všem čekajícím příjemcům. Již odeslané e-maily nelze vzít zpět.",
     remindConfirmT: "Odeslat připomínky?", remindConfirmD: "Připomínka se odešle všem, kteří odkaz dostali, ale formulář ještě nevyplnili.",
+    remindHint: "Znovu odešle stejný e-mail se stejným odkazem — jen těm, kteří ho dostali, ale formulář ještě nevyplnili. Vyplnění, schválení a zamítnutí příjemci se přeskočí. Nové odkazy se nevytvářejí.",
     confirmSend: "Ano, odeslat",
     refresh: "Obnovit", removeReq: "Vyřadit z odesílání", removeConfirmT: "Vyřadit tohoto příjemce?",
     removeConfirmD: "Příjemce bude vyřazen z fronty odesílání a jeho odkaz přestane fungovat. Tuto akci nelze vrátit.",
@@ -257,6 +261,7 @@ const L: Record<string, Record<string, string>> = {
     statPaused: "Szüneteltetve", resume: "Küldés folytatása", pause: "Küldés szüneteltetése", pausedToast: "Küldés szüneteltetve",
     sendConfirmT: "Elindítja az e-mailek küldését?", sendConfirmD: "Az űrlap linkjét tartalmazó e-mailek minden várakozó címzettnek kimennek. A már elküldött e-mailek nem vonhatók vissza.",
     remindConfirmT: "Emlékeztetők küldése?", remindConfirmD: "Emlékeztető megy mindenkinek, aki megkapta a linket, de még nem töltötte ki az űrlapot.",
+    remindHint: "Újra elküldi ugyanazt az e-mailt ugyanazzal a linkkel — csak azoknak, akik megkapták, de még nem töltötték ki az űrlapot. A kitöltött, jóváhagyott és elutasított címzettek kimaradnak. Új link nem jön létre.",
     confirmSend: "Igen, küldés",
     refresh: "Frissítés", removeReq: "Eltávolítás a küldésből", removeConfirmT: "Eltávolítja ezt a címzettet?",
     removeConfirmD: "A címzett kikerül a küldési sorból, és a linkje nem fog működni. Ez a művelet nem vonható vissza.",
@@ -294,6 +299,7 @@ const L: Record<string, Record<string, string>> = {
     statPaused: "Întreruptă", resume: "Reia trimiterea", pause: "Întrerupe trimiterea", pausedToast: "Trimitere întreruptă",
     sendConfirmT: "Porniți trimiterea e-mailurilor?", sendConfirmD: "E-mailurile cu linkul formularului vor fi trimise tuturor destinatarilor în așteptare. E-mailurile deja trimise nu pot fi anulate.",
     remindConfirmT: "Trimiteți mementouri?", remindConfirmD: "Un memento va fi trimis tuturor celor care au primit linkul, dar nu au completat încă formularul.",
+    remindHint: "Retrimite același e-mail cu același link — doar celor care l-au primit, dar nu au completat încă formularul. Destinatarii care au completat, au fost aprobați sau respinși sunt omiși. Nu se creează linkuri noi.",
     confirmSend: "Da, trimite",
     refresh: "Reîmprospătează", removeReq: "Elimină din trimitere", removeConfirmT: "Eliminați acest destinatar?",
     removeConfirmD: "Destinatarul va fi eliminat din coada de trimitere, iar linkul lui nu va mai funcționa. Acțiunea nu poate fi anulată.",
@@ -331,6 +337,7 @@ const L: Record<string, Record<string, string>> = {
     statPaused: "In pausa", resume: "Riprendi l'invio", pause: "Metti in pausa l'invio", pausedToast: "Invio messo in pausa",
     sendConfirmT: "Avviare l'invio delle e-mail?", sendConfirmD: "Le e-mail con il link al modulo saranno inviate a tutti i destinatari in attesa. Le e-mail già inviate non possono essere annullate.",
     remindConfirmT: "Inviare i promemoria?", remindConfirmD: "Un promemoria sarà inviato a tutti coloro che hanno ricevuto il link ma non hanno ancora compilato il modulo.",
+    remindHint: "Invia di nuovo la stessa e-mail con lo stesso link — solo a chi l'ha ricevuta ma non ha ancora compilato il modulo. I destinatari che hanno compilato, approvati o rifiutati vengono saltati. Non vengono creati nuovi link.",
     confirmSend: "Sì, invia",
     refresh: "Aggiorna", removeReq: "Rimuovi dall'invio", removeConfirmT: "Rimuovere questo destinatario?",
     removeConfirmD: "Il destinatario sarà rimosso dalla coda di invio e il suo link smetterà di funzionare. L'azione non può essere annullata.",
@@ -368,6 +375,7 @@ const L: Record<string, Record<string, string>> = {
     statPaused: "Pausiert", resume: "Versand fortsetzen", pause: "Versand pausieren", pausedToast: "Versand pausiert",
     sendConfirmT: "E-Mail-Versand starten?", sendConfirmD: "E-Mails mit dem Formular-Link werden an alle wartenden Empfänger gesendet. Bereits gesendete E-Mails können nicht zurückgenommen werden.",
     remindConfirmT: "Erinnerungen senden?", remindConfirmD: "Eine Erinnerung wird an alle gesendet, die den Link erhalten, das Formular aber noch nicht ausgefüllt haben.",
+    remindHint: "Sendet dieselbe E-Mail mit demselben Link erneut — nur an Empfänger, die sie erhalten, das Formular aber noch nicht ausgefüllt haben. Ausgefüllte, genehmigte und abgelehnte Empfänger werden übersprungen. Es werden keine neuen Links erstellt.",
     confirmSend: "Ja, senden",
     refresh: "Aktualisieren", removeReq: "Aus dem Versand entfernen", removeConfirmT: "Diesen Empfänger entfernen?",
     removeConfirmD: "Der Empfänger wird aus der Versandwarteschlange entfernt und sein Link funktioniert nicht mehr. Dies kann nicht rückgängig gemacht werden.",
@@ -1097,9 +1105,18 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
               {campaign.status === "paused" ? l.resume : l.sendEmails}
             </Button>
           )}
-          <Button variant="outline" onClick={() => setConfirmKind("remind")} disabled={sendMutation.isPending || campaign.status === "sending"} data-testid="button-remind">
-            <Bell className="h-4 w-4 mr-2" />{l.remind}
-          </Button>
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" onClick={() => setConfirmKind("remind")} disabled={sendMutation.isPending || campaign.status === "sending"} data-testid="button-remind">
+                  <Bell className="h-4 w-4 mr-2" />{l.remind}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs" data-testid="tooltip-remind">
+                {l.remindHint}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
 

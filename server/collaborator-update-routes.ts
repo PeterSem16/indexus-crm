@@ -66,9 +66,10 @@ const TEST_SAMPLE_ADDR: Record<string, Record<string, string>> = {
 };
 
 // JMHZ form (CZ zákon č. 323/2025 Sb. — jednotné měsíční hlášení zaměstnavatele).
-// These fields are collected via the public form and stored ONLY on the request
-// (submittedData/changes) — they have no matching collaborator columns, so the
-// approve step never writes them to the collaborators table.
+// Collected via the public form, stored on the request (submittedData/changes)
+// and — where a collaborator column exists — written into the collaborator card
+// on approve (see JMHZ_TO_COLLAB_COLUMN). Fields without a matching column
+// (birthCountry, educationRequired) stay on the request only.
 const JMHZ_EDUCATION_LEVELS = [
   "Bez vzdělání",
   "Neúplné základní vzdělání",
@@ -111,6 +112,14 @@ const JMHZ_FIELDS = [
   "educationHighest", "birthPlace", "birthCountry", "birthSurname",
   "profession", "educationRequired", "workPlace", "isLeadingEmployee",
 ] as const;
+// Mapping of JMHZ form fields -> collaborator card columns (applied on approve).
+const JMHZ_TO_COLLAB_COLUMN: Record<string, string> = {
+  educationHighest: "highestEducation",
+  birthPlace: "birthPlace",
+  birthSurname: "maidenName",
+  profession: "professionalClassification",
+  workPlace: "workplaceName",
+};
 function validateJmhzSubmission(data: Record<string, any>): string | null {
   for (const f of JMHZ_FIELDS) {
     const v = data[f] === null || data[f] === undefined ? "" : String(data[f]).trim();
@@ -815,6 +824,14 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
             addressUpdates[m[1]] = addressUpdates[m[1]] || {};
             addressUpdates[m[1]][m[2]] = ch.newValue;
           }
+        } else if (ch.field.startsWith("jmhz_")) {
+          // JMHZ fields -> collaborator card columns (where a column exists)
+          const jf = ch.field.slice(5);
+          if (jf === "isLeadingEmployee") {
+            collabUpdate.isManager = String(ch.newValue).trim() === "Ano";
+          } else if (JMHZ_TO_COLLAB_COLUMN[jf]) {
+            collabUpdate[JMHZ_TO_COLLAB_COLUMN[jf]] = ch.newValue;
+          }
         } else if ((EDITABLE_FIELDS as readonly string[]).includes(ch.field)) {
           collabUpdate[ch.field] = ch.newValue;
         }
@@ -846,12 +863,50 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
         }
       }
 
+      const reviewerId = (req.session as any)?.userId || null;
       const [updated] = await db.update(collaboratorUpdateRequests).set({
         status: "approved",
-        reviewedBy: (req.session as any)?.userId || null,
+        reviewedBy: reviewerId,
         reviewedAt: new Date(),
         reviewNote: req.body?.note || null,
       }).where(eq(collaboratorUpdateRequests.id, reqRow.id)).returning();
+
+      // History log on the collaborator card: which fields were written and by whom.
+      if (!isTest && reviewerId && changes.length > 0) {
+        try {
+          const appliedFields: string[] = [];
+          for (const ch of changes) {
+            if (ch.field.startsWith("addr_")) { appliedFields.push(ch.field); continue; }
+            if (ch.field.startsWith("jmhz_")) {
+              const jf = ch.field.slice(5);
+              if (jf === "isLeadingEmployee" || JMHZ_TO_COLLAB_COLUMN[jf]) appliedFields.push(ch.field);
+              continue;
+            }
+            if ((EDITABLE_FIELDS as readonly string[]).includes(ch.field)) appliedFields.push(ch.field);
+          }
+          if (appliedFields.length > 0) {
+            const [collabRow] = await db.select({ firstName: collaborators.firstName, lastName: collaborators.lastName })
+              .from(collaborators).where(eq(collaborators.id, reqRow.collaboratorId));
+            await storage.createActivityLog({
+              userId: reviewerId,
+              action: "update",
+              entityType: "collaborator",
+              entityId: reqRow.collaboratorId,
+              entityName: collabRow ? `${collabRow.firstName} ${collabRow.lastName}` : null,
+              details: [
+                "Collaborator update form approved — data written to card.",
+                ...changes
+                  .filter(ch => appliedFields.includes(ch.field))
+                  .map(ch => `${ch.field.replace(/^jmhz_/, "")}: ${ch.oldValue ? `"${ch.oldValue}" → ` : ""}"${ch.newValue ?? ""}"`),
+              ].join(" | "),
+              ipAddress: null,
+            });
+          }
+        } catch (logErr) {
+          console.error("[collab-update:approve] activity log failed:", logErr);
+        }
+      }
+
       res.json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Failed to approve" });
@@ -1017,8 +1072,8 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
       const [camp] = await db.select().from(collaboratorUpdateCampaigns)
         .where(eq(collaboratorUpdateCampaigns.id, reqRow.campaignId));
 
-      // JMHZ form: all 8 fields required + explicit consent; data is stored on
-      // the request only (no collaborator columns exist for these fields)
+      // JMHZ form: all 8 fields required + explicit consent; stored on the
+      // request; on approve, mapped fields are written to the collaborator card
       if ((camp?.formType || "update") === "jmhz") {
         const submittedJ = (req.body?.data || {}) as Record<string, any>;
         if (req.body?.consent !== true) {
