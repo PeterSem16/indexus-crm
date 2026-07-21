@@ -200,6 +200,10 @@ const JMHZ = {
   maidenConfirm: "Souhlasí — použít uložené",
   maidenChange: "Chci zadat jiné",
   maidenConfirmed: "Použije se rodné příjmení uložené v systému.",
+  errAlready: "Tento formulář již byl odeslán. Odkaz lze použít pouze jednou.",
+  errExpired: "Platnost odkazu vypršela. Kontaktujte nás prosím pro nový odkaz.",
+  errNotFound: "Odkaz již není platný. Kontaktujte nás prosím pro nový odkaz.",
+  errInvalid: "Některé pole není vyplněno správně, zkontrolujte prosím formulář.",
 };
 
 const JMHZ_EDUCATION = ["ZŠ", "SŠ bez maturity", "SŠ s maturitou", "VOŠ", "VŠ Bc.", "VŠ Mgr./Ing.", "VŠ Ph.D."];
@@ -471,7 +475,16 @@ function JmhzForm({ token, collaboratorName, collaboratorInfo }: {
               )}
 
               {mutation.isError && (
-                <p className="text-sm text-red-600" data-testid="text-submit-error">{JMHZ.errorSubmit}</p>
+                <p className="text-sm text-red-600" data-testid="text-submit-error">
+                  {(() => {
+                    const m = (mutation.error as any)?.message;
+                    if (m === "already_submitted") return JMHZ.errAlready;
+                    if (m === "expired") return JMHZ.errExpired;
+                    if (m === "not_found") return JMHZ.errNotFound;
+                    if (m === "invalid_data" || m === "consent_required") return JMHZ.errInvalid;
+                    return JMHZ.errorSubmit;
+                  })()}
+                </p>
               )}
 
               <Button type="submit" className="w-full" disabled={mutation.isPending} data-testid="button-submit-jmhz">
