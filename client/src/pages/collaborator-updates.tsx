@@ -161,6 +161,9 @@ const L: Record<string, Record<string, string>> = {
     noEmailTag: "no email", manualNoResults: "No collaborators found.",
     sendOne: "Send email to this recipient", sendOneConfirmT: "Send the email now?", sendOneConfirmD: "The campaign email with the form link will be sent only to this recipient. If it was already sent, the same link is re-sent.",
     sentOneToast: "Email sent",
+    fieldBirthCountry: "Country of birth", fieldEducationRequired: "Education required for the job", fieldIsLeading: "Leading employee",
+    approveSelected: "Approve selected", bulkApproveT: "Approve selected submissions?", bulkApproveD: "The changes from all selected submissions will be written to the collaborator cards. This cannot be undone.",
+    bulkApprovedToast: "Submissions approved", selectAllLbl: "Select all",
   },
   sk: {
     pageTitle: "Aktualizácie údajov spolupracovníkov", pageDesc: "E-mailové kampane so žiadosťou o aktualizáciu osobných údajov cez bezpečný odkaz.",
@@ -204,6 +207,9 @@ const L: Record<string, Record<string, string>> = {
     noEmailTag: "bez e-mailu", manualNoResults: "Nenašli sa žiadni spolupracovníci.",
     sendOne: "Poslať e-mail tomuto príjemcovi", sendOneConfirmT: "Odoslať e-mail teraz?", sendOneConfirmD: "Kampaňový e-mail s odkazom na formulár sa pošle iba tomuto príjemcovi. Ak už bol odoslaný, znovu sa pošle ten istý odkaz.",
     sentOneToast: "E-mail odoslaný",
+    fieldBirthCountry: "Krajina narodenia", fieldEducationRequired: "Vzdelanie požadované pre výkon práce", fieldIsLeading: "Vedúci zamestnanec",
+    approveSelected: "Schváliť vybrané", bulkApproveT: "Schváliť vybrané vyplnenia?", bulkApproveD: "Zmeny zo všetkých vybraných vyplnení sa zapíšu do kariet spolupracovníkov. Túto akciu nie je možné vrátiť späť.",
+    bulkApprovedToast: "Vyplnenia schválené", selectAllLbl: "Vybrať všetko",
   },
   cs: {
     pageTitle: "Aktualizace údajů spolupracovníků", pageDesc: "E-mailové kampaně se žádostí o aktualizaci osobních údajů přes bezpečný odkaz.",
@@ -247,6 +253,9 @@ const L: Record<string, Record<string, string>> = {
     noEmailTag: "bez e-mailu", manualNoResults: "Nenalezeni žádní spolupracovníci.",
     sendOne: "Poslat e-mail tomuto příjemci", sendOneConfirmT: "Odeslat e-mail teď?", sendOneConfirmD: "Kampaňový e-mail s odkazem na formulář se pošle jen tomuto příjemci. Pokud už byl odeslán, znovu se pošle stejný odkaz.",
     sentOneToast: "E-mail odeslán",
+    fieldBirthCountry: "Země narození", fieldEducationRequired: "Vzdělání požadované pro výkon práce", fieldIsLeading: "Vedoucí zaměstnanec",
+    approveSelected: "Schválit vybrané", bulkApproveT: "Schválit vybraná vyplnění?", bulkApproveD: "Změny ze všech vybraných vyplnění se zapíší do karet spolupracovníků. Tuto akci nelze vrátit zpět.",
+    bulkApprovedToast: "Vyplnění schválena", selectAllLbl: "Vybrat vše",
   },
   hu: {
     pageTitle: "Partneradatok frissítése", pageDesc: "E-mail kampányok, amelyekben biztonságos linken keresztül kérjük a partnerek adatainak frissítését.",
@@ -290,6 +299,9 @@ const L: Record<string, Record<string, string>> = {
     noEmailTag: "nincs e-mail", manualNoResults: "Nem található munkatárs.",
     sendOne: "E-mail küldése ennek a címzettnek", sendOneConfirmT: "Elküldöd az e-mailt most?", sendOneConfirmD: "A kampány e-mail az űrlap linkjével csak ennek a címzettnek lesz elküldve. Ha már el lett küldve, ugyanaz a link megy újra.",
     sentOneToast: "E-mail elküldve",
+    fieldBirthCountry: "Születési ország", fieldEducationRequired: "A munkakörhöz szükséges végzettség", fieldIsLeading: "Vezető beosztású munkavállaló",
+    approveSelected: "Kijelöltek jóváhagyása", bulkApproveT: "Jóváhagyja a kijelölt beküldéseket?", bulkApproveD: "Az összes kijelölt beküldés módosításai bekerülnek a partnerkartonokba. Ez a művelet nem vonható vissza.",
+    bulkApprovedToast: "Beküldések jóváhagyva", selectAllLbl: "Összes kijelölése",
   },
   ro: {
     pageTitle: "Actualizarea datelor colaboratorilor", pageDesc: "Campanii de e-mail prin care colaboratorii își actualizează datele printr-un link securizat.",
@@ -333,6 +345,9 @@ const L: Record<string, Record<string, string>> = {
     noEmailTag: "fără e-mail", manualNoResults: "Nu s-au găsit colaboratori.",
     sendOne: "Trimite e-mail acestui destinatar", sendOneConfirmT: "Trimiteți e-mailul acum?", sendOneConfirmD: "E-mailul campaniei cu linkul formularului va fi trimis doar acestui destinatar. Dacă a fost deja trimis, același link este retrimis.",
     sentOneToast: "E-mail trimis",
+    fieldBirthCountry: "Țara nașterii", fieldEducationRequired: "Studii necesare pentru post", fieldIsLeading: "Angajat cu funcție de conducere",
+    approveSelected: "Aprobă selectate", bulkApproveT: "Aprobați completările selectate?", bulkApproveD: "Modificările din toate completările selectate vor fi scrise în fișele colaboratorilor. Această acțiune nu poate fi anulată.",
+    bulkApprovedToast: "Completări aprobate", selectAllLbl: "Selectează tot",
   },
   it: {
     pageTitle: "Aggiornamento dati collaboratori", pageDesc: "Campagne e-mail per chiedere ai collaboratori di aggiornare i propri dati tramite link sicuro.",
@@ -376,6 +391,9 @@ const L: Record<string, Record<string, string>> = {
     noEmailTag: "senza e-mail", manualNoResults: "Nessun collaboratore trovato.",
     sendOne: "Invia e-mail a questo destinatario", sendOneConfirmT: "Inviare l'e-mail adesso?", sendOneConfirmD: "L'e-mail della campagna con il link al modulo sarà inviata solo a questo destinatario. Se è già stata inviata, viene rinviato lo stesso link.",
     sentOneToast: "E-mail inviata",
+    fieldBirthCountry: "Paese di nascita", fieldEducationRequired: "Istruzione richiesta per la mansione", fieldIsLeading: "Dipendente con ruolo dirigenziale",
+    approveSelected: "Approva selezionati", bulkApproveT: "Approvare gli invii selezionati?", bulkApproveD: "Le modifiche di tutti gli invii selezionati verranno scritte nelle schede dei collaboratori. Questa azione non può essere annullata.",
+    bulkApprovedToast: "Invii approvati", selectAllLbl: "Seleziona tutto",
   },
   de: {
     pageTitle: "Aktualisierung der Partnerdaten", pageDesc: "E-Mail-Kampagnen, mit denen Partner über einen sicheren Link ihre Daten aktualisieren.",
@@ -419,6 +437,9 @@ const L: Record<string, Record<string, string>> = {
     noEmailTag: "keine E-Mail", manualNoResults: "Keine Mitarbeiter gefunden.",
     sendOne: "E-Mail an diesen Empfänger senden", sendOneConfirmT: "E-Mail jetzt senden?", sendOneConfirmD: "Die Kampagnen-E-Mail mit dem Formularlink wird nur an diesen Empfänger gesendet. Wurde sie bereits gesendet, wird derselbe Link erneut verschickt.",
     sentOneToast: "E-Mail gesendet",
+    fieldBirthCountry: "Geburtsland", fieldEducationRequired: "Für die Tätigkeit erforderliche Ausbildung", fieldIsLeading: "Leitender Mitarbeiter",
+    approveSelected: "Ausgewählte genehmigen", bulkApproveT: "Ausgewählte Einreichungen genehmigen?", bulkApproveD: "Die Änderungen aller ausgewählten Einreichungen werden in die Partnerkarten geschrieben. Diese Aktion kann nicht rückgängig gemacht werden.",
+    bulkApprovedToast: "Einreichungen genehmigt", selectAllLbl: "Alle auswählen",
   },
 };
 
@@ -1086,9 +1107,31 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
   const [editFilterOpen, setEditFilterOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [page, setPage] = useState(1);
+  const { t } = useI18n();
   const [search, setSearch] = useState("");
   const [removeId, setRemoveId] = useState<string | null>(null);
   const [sendOneId, setSendOneId] = useState<string | null>(null);
+  const [selectedApprovals, setSelectedApprovals] = useState<Set<string>>(new Set());
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+
+  const cf: any = (t as any)?.collaborators?.fields || {};
+  const fieldLabel = (field: string): string => {
+    if (field.startsWith("jmhz_")) {
+      const jf = field.slice(5);
+      switch (jf) {
+        case "educationHighest": return cf.highestEducation || field;
+        case "birthPlace": return cf.birthPlace || field;
+        case "birthSurname": return cf.maidenName || field;
+        case "profession": return cf.professionalClassification || field;
+        case "workPlace": return cf.workplaceName || field;
+        case "birthCountry": return l.fieldBirthCountry;
+        case "educationRequired": return l.fieldEducationRequired;
+        case "isLeadingEmployee": return l.fieldIsLeading;
+        default: return jf;
+      }
+    }
+    return cf[field] || field;
+  };
   const { data: requests = [], isLoading, isFetching } = useQuery<any[]>({
     queryKey: ["/api/collaborator-update-campaigns", campaign.id, "requests"],
     queryFn: async () => {
@@ -1162,6 +1205,28 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
     onError: (e: any) => toast({ title: l.errorTitle, description: e?.message, variant: "destructive" }),
   });
 
+  const bulkApproveMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      let ok = 0; const errors: string[] = [];
+      for (const id of ids) {
+        try {
+          await apiRequest("POST", `/api/collaborator-update-requests/${id}/approve`);
+          ok++;
+        } catch (e: any) {
+          errors.push(e?.message || "error");
+        }
+      }
+      return { ok, errors };
+    },
+    onSuccess: ({ ok, errors }) => {
+      if (ok > 0) toast({ title: `${l.bulkApprovedToast}: ${ok}` });
+      if (errors.length > 0) toast({ title: l.errorTitle, description: errors[0], variant: "destructive" });
+      setSelectedApprovals(new Set());
+      invalidate();
+    },
+    onError: (e: any) => toast({ title: l.errorTitle, description: e?.message, variant: "destructive" }),
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async () => {
       await apiRequest("DELETE", `/api/collaborator-update-campaigns/${campaign.id}`);
@@ -1176,6 +1241,10 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
 
   const statusLabel = (st: string) => (l as any)[`status${st === "send_failed" ? "Failed" : st.charAt(0).toUpperCase() + st.slice(1)}`] || st;
   const submitted = requests.filter(r => r.status === "submitted");
+  const validSelected = useMemo(() => {
+    const ids = new Set(submitted.map(r => r.id));
+    return Array.from(selectedApprovals).filter(id => ids.has(id));
+  }, [submitted, selectedApprovals]);
 
   const q = search.trim().toLowerCase();
   const filtered = q
@@ -1383,11 +1452,41 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
             <Card><CardContent className="py-12 text-center text-muted-foreground">{l.noApprovals}</CardContent></Card>
           ) : (
             <div className="space-y-4">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox
+                    checked={submitted.length > 0 && validSelected.length === submitted.length}
+                    onCheckedChange={(c) => setSelectedApprovals(c ? new Set(submitted.map(r => r.id)) : new Set())}
+                    data-testid="checkbox-select-all-approvals"
+                  />
+                  {l.selectAllLbl}
+                </label>
+                <Button
+                  size="sm"
+                  onClick={() => setBulkConfirmOpen(true)}
+                  disabled={validSelected.length === 0 || bulkApproveMutation.isPending || reviewMutation.isPending}
+                  data-testid="button-approve-selected"
+                >
+                  {bulkApproveMutation.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
+                  {l.approveSelected} ({validSelected.length})
+                </Button>
+              </div>
               {submitted.map(r => (
                 <Card key={r.id} data-testid={`card-approval-${r.id}`}>
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <CardTitle className="text-base">{r.collaboratorName} <span className="text-sm font-normal text-muted-foreground">({r.email})</span></CardTitle>
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          checked={selectedApprovals.has(r.id)}
+                          onCheckedChange={(c) => setSelectedApprovals(prev => {
+                            const next = new Set(prev);
+                            if (c) next.add(r.id); else next.delete(r.id);
+                            return next;
+                          })}
+                          data-testid={`checkbox-approval-${r.id}`}
+                        />
+                        <CardTitle className="text-base">{r.collaboratorName} <span className="text-sm font-normal text-muted-foreground">({r.email})</span></CardTitle>
+                      </div>
                       <div className="flex gap-2">
                         <Button size="sm" onClick={() => reviewMutation.mutate({ id: r.id, action: "approve" })} disabled={reviewMutation.isPending} data-testid={`button-approve-${r.id}`}>
                           <Check className="h-4 w-4 mr-1" />{l.approve}
@@ -1413,7 +1512,7 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
                         <TableBody>
                           {(r.changes || []).map((ch: any, i: number) => (
                             <TableRow key={i}>
-                              <TableCell className="font-mono text-xs">{ch.field}</TableCell>
+                              <TableCell className="text-sm">{fieldLabel(ch.field)}</TableCell>
                               <TableCell className="text-sm text-red-600 dark:text-red-400">{ch.oldValue || "—"}</TableCell>
                               <TableCell className="text-sm text-green-600 dark:text-green-400 font-medium">{ch.newValue || "—"}</TableCell>
                             </TableRow>
@@ -1430,6 +1529,24 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
       </Tabs>
 
       <TestSendDialog campaignId={campaign.id} l={l} toast={toast} open={testOpen} onOpenChange={setTestOpen} />
+
+      <AlertDialog open={bulkConfirmOpen} onOpenChange={setBulkConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{l.bulkApproveT}</AlertDialogTitle>
+            <AlertDialogDescription>{l.bulkApproveD} ({validSelected.length})</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-bulk-approve-cancel">{l.cancel}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => bulkApproveMutation.mutate(validSelected)}
+              data-testid="button-bulk-approve-confirm"
+            >
+              {l.approveSelected}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={removeId !== null} onOpenChange={(o) => { if (!o) setRemoveId(null); }}>
         <AlertDialogContent>
