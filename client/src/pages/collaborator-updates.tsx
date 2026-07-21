@@ -32,6 +32,7 @@ const L: Record<string, Record<string, string>> = {
     tabRecipients: "Recipients", tabApprovals: "Approval queue", collaborator: "Collaborator", email: "Email", status: "Status", sentAt: "Sent", submittedAt: "Submitted",
     changes: "changes", noChanges: "Confirmed without changes", fieldCol: "Field", oldVal: "Original", newVal: "New",
     approve: "Approve", reject: "Reject", approved: "Changes approved and applied", rejected: "Submission rejected",
+    testSend: "Test email", testEmailLabel: "Send a test to this address", testSent: "Test email sent", testLinkLabel: "Test form link", testDesc: "The email is sent with sample data of the first recipient. The link works fully — you can fill in the form, submit it, and then approve or reject it in the approval queue.",
     emailsSending: "Emails are being sent in the background", noCampaigns: "No campaigns yet. Create one to get started.",
     noApprovals: "No submissions waiting for review.", createdFmt: "Created", campaignCreated: "Campaign created", errorTitle: "Error",
     draft: "Draft", statSending: "Sending", statSent: "Sent",
@@ -48,6 +49,7 @@ const L: Record<string, Record<string, string>> = {
     tabRecipients: "Príjemcovia", tabApprovals: "Schvaľovací rad", collaborator: "Spolupracovník", email: "E-mail", status: "Stav", sentAt: "Odoslané", submittedAt: "Vyplnené",
     changes: "zmien", noChanges: "Potvrdené bez zmien", fieldCol: "Pole", oldVal: "Pôvodné", newVal: "Nové",
     approve: "Schváliť", reject: "Zamietnuť", approved: "Zmeny schválené a zapísané", rejected: "Odoslanie zamietnuté",
+    testSend: "Testovací e-mail", testEmailLabel: "Poslať test na túto adresu", testSent: "Testovací e-mail odoslaný", testLinkLabel: "Testovací odkaz na formulár", testDesc: "E-mail sa pošle s ukážkovými údajmi prvého príjemcu. Odkaz je plne funkčný — formulár môžeš vyplniť, odoslať a potom v schvaľovacom rade schváliť alebo zamietnuť.",
     emailsSending: "E-maily sa odosielajú na pozadí", noCampaigns: "Zatiaľ žiadne kampane. Vytvor prvú.",
     noApprovals: "Žiadne vyplnenia nečakajú na kontrolu.", createdFmt: "Vytvorené", campaignCreated: "Kampaň vytvorená", errorTitle: "Chyba",
     draft: "Koncept", statSending: "Odosiela sa", statSent: "Odoslaná",
@@ -64,6 +66,7 @@ const L: Record<string, Record<string, string>> = {
     tabRecipients: "Příjemci", tabApprovals: "Schvalovací fronta", collaborator: "Spolupracovník", email: "E-mail", status: "Stav", sentAt: "Odesláno", submittedAt: "Vyplněno",
     changes: "změn", noChanges: "Potvrzeno beze změn", fieldCol: "Pole", oldVal: "Původní", newVal: "Nové",
     approve: "Schválit", reject: "Zamítnout", approved: "Změny schváleny a zapsány", rejected: "Odeslání zamítnuto",
+    testSend: "Testovací e-mail", testEmailLabel: "Poslat test na tuto adresu", testSent: "Testovací e-mail odeslán", testLinkLabel: "Testovací odkaz na formulář", testDesc: "E-mail se pošle s ukázkovými údaji prvního příjemce. Odkaz je plně funkční — formulář lze vyplnit, odeslat a poté ve schvalovací frontě schválit nebo zamítnout.",
     emailsSending: "E-maily se odesílají na pozadí", noCampaigns: "Zatím žádné kampaně. Vytvořte první.",
     noApprovals: "Žádná vyplnění nečekají na kontrolu.", createdFmt: "Vytvořeno", campaignCreated: "Kampaň vytvořena", errorTitle: "Chyba",
     draft: "Koncept", statSending: "Odesílá se", statSent: "Odeslána",
@@ -80,6 +83,7 @@ const L: Record<string, Record<string, string>> = {
     tabRecipients: "Címzettek", tabApprovals: "Jóváhagyási sor", collaborator: "Partner", email: "E-mail", status: "Állapot", sentAt: "Elküldve", submittedAt: "Kitöltve",
     changes: "módosítás", noChanges: "Megerősítve módosítás nélkül", fieldCol: "Mező", oldVal: "Eredeti", newVal: "Új",
     approve: "Jóváhagyás", reject: "Elutasítás", approved: "Módosítások jóváhagyva és rögzítve", rejected: "Beküldés elutasítva",
+    testSend: "Teszt e-mail", testEmailLabel: "Teszt küldése erre a címre", testSent: "Teszt e-mail elküldve", testLinkLabel: "Teszt űrlap link", testDesc: "Az e-mail az első címzett mintaadataival kerül kiküldésre. A link teljesen működőképes — az űrlap kitölthető, beküldhető, majd a jóváhagyási sorban jóváhagyható vagy elutasítható.",
     emailsSending: "Az e-mailek küldése a háttérben folyik", noCampaigns: "Még nincs kampány. Hozza létre az elsőt.",
     noApprovals: "Nincs ellenőrzésre váró beküldés.", createdFmt: "Létrehozva", campaignCreated: "Kampány létrehozva", errorTitle: "Hiba",
     draft: "Piszkozat", statSending: "Küldés folyamatban", statSent: "Elküldve",
@@ -96,6 +100,7 @@ const L: Record<string, Record<string, string>> = {
     tabRecipients: "Destinatari", tabApprovals: "Coada de aprobare", collaborator: "Colaborator", email: "E-mail", status: "Stare", sentAt: "Trimis", submittedAt: "Completat",
     changes: "modificări", noChanges: "Confirmat fără modificări", fieldCol: "Câmp", oldVal: "Original", newVal: "Nou",
     approve: "Aprobă", reject: "Respinge", approved: "Modificări aprobate și aplicate", rejected: "Trimitere respinsă",
+    testSend: "E-mail de test", testEmailLabel: "Trimite un test la această adresă", testSent: "E-mail de test trimis", testLinkLabel: "Link de test al formularului", testDesc: "E-mailul se trimite cu datele exemplu ale primului destinatar. Linkul este complet funcțional — formularul poate fi completat, trimis și apoi aprobat sau respins în coada de aprobare.",
     emailsSending: "E-mailurile se trimit în fundal", noCampaigns: "Nicio campanie încă. Creați prima.",
     noApprovals: "Nicio completare în așteptarea verificării.", createdFmt: "Creat", campaignCreated: "Campanie creată", errorTitle: "Eroare",
     draft: "Ciornă", statSending: "Se trimite", statSent: "Trimisă",
@@ -112,6 +117,7 @@ const L: Record<string, Record<string, string>> = {
     tabRecipients: "Destinatari", tabApprovals: "Coda di approvazione", collaborator: "Collaboratore", email: "E-mail", status: "Stato", sentAt: "Inviato", submittedAt: "Compilato",
     changes: "modifiche", noChanges: "Confermato senza modifiche", fieldCol: "Campo", oldVal: "Originale", newVal: "Nuovo",
     approve: "Approva", reject: "Respingi", approved: "Modifiche approvate e applicate", rejected: "Invio respinto",
+    testSend: "E-mail di prova", testEmailLabel: "Invia una prova a questo indirizzo", testSent: "E-mail di prova inviata", testLinkLabel: "Link di prova del modulo", testDesc: "L'e-mail viene inviata con i dati di esempio del primo destinatario. Il link è pienamente funzionante — il modulo può essere compilato, inviato e poi approvato o respinto nella coda di approvazione.",
     emailsSending: "Le e-mail vengono inviate in background", noCampaigns: "Nessuna campagna. Creane una.",
     noApprovals: "Nessuna compilazione in attesa di verifica.", createdFmt: "Creato", campaignCreated: "Campagna creata", errorTitle: "Errore",
     draft: "Bozza", statSending: "Invio in corso", statSent: "Inviata",
@@ -128,6 +134,7 @@ const L: Record<string, Record<string, string>> = {
     tabRecipients: "Empfänger", tabApprovals: "Genehmigungswarteschlange", collaborator: "Partner", email: "E-Mail", status: "Status", sentAt: "Gesendet", submittedAt: "Ausgefüllt",
     changes: "Änderungen", noChanges: "Ohne Änderungen bestätigt", fieldCol: "Feld", oldVal: "Original", newVal: "Neu",
     approve: "Genehmigen", reject: "Ablehnen", approved: "Änderungen genehmigt und übernommen", rejected: "Einreichung abgelehnt",
+    testSend: "Test-E-Mail", testEmailLabel: "Test an diese Adresse senden", testSent: "Test-E-Mail gesendet", testLinkLabel: "Test-Link zum Formular", testDesc: "Die E-Mail wird mit Beispieldaten des ersten Empfängers gesendet. Der Link ist voll funktionsfähig — das Formular kann ausgefüllt, abgesendet und dann in der Genehmigungswarteschlange genehmigt oder abgelehnt werden.",
     emailsSending: "E-Mails werden im Hintergrund gesendet", noCampaigns: "Noch keine Kampagnen. Erstellen Sie die erste.",
     noApprovals: "Keine Einreichungen zur Prüfung.", createdFmt: "Erstellt", campaignCreated: "Kampagne erstellt", errorTitle: "Fehler",
     draft: "Entwurf", statSending: "Wird gesendet", statSent: "Gesendet",
@@ -361,7 +368,59 @@ function CreateCampaignDialog({ open, onOpenChange, l, toast }: any) {
   );
 }
 
+function TestSendDialog({ campaignId, l, toast, open, onOpenChange }: any) {
+  const [email, setEmail] = useState("");
+  const [link, setLink] = useState<string | null>(null);
+
+  const testMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/collaborator-update-campaigns/${campaignId}/test`, { email });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setLink(data.link || null);
+      if (data.ok) {
+        toast({ title: l.testSent });
+      } else {
+        toast({ title: l.errorTitle, description: data.message, variant: "destructive" });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborator-update-campaigns", campaignId, "requests"] });
+    },
+    onError: (e: any) => toast({ title: l.errorTitle, description: e?.message, variant: "destructive" }),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setLink(null); setEmail(""); } }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{l.testSend}</DialogTitle>
+          <DialogDescription>{l.testDesc}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>{l.testEmailLabel}</Label>
+            <Input type="email" value={email} onChange={e => setEmail(e.target.value)} data-testid="input-test-email" />
+          </div>
+          {link && (
+            <div className="space-y-1.5">
+              <Label>{l.testLinkLabel}</Label>
+              <a href={link} target="_blank" rel="noreferrer" className="block text-sm text-sky-600 dark:text-sky-400 underline break-all" data-testid="link-test-form">{link}</a>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button onClick={() => testMutation.mutate()} disabled={!email.includes("@") || testMutation.isPending} data-testid="button-send-test">
+            {testMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+            {l.testSend}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function CampaignDetail({ campaign, l, toast, onBack }: any) {
+  const [testOpen, setTestOpen] = useState(false);
   const { data: requests = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/collaborator-update-campaigns", campaign.id, "requests"],
     queryFn: async () => {
@@ -412,6 +471,9 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setTestOpen(true)} data-testid="button-test">
+            {l.testSend}
+          </Button>
           <Button onClick={() => sendMutation.mutate("send")} disabled={sendMutation.isPending || campaign.status === "sending"} data-testid="button-send">
             {campaign.status === "sending" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
             {campaign.status === "sending" ? l.sending : l.sendEmails}
@@ -512,6 +574,8 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
           )}
         </TabsContent>
       </Tabs>
+
+      <TestSendDialog campaignId={campaign.id} l={l} toast={toast} open={testOpen} onOpenChange={setTestOpen} />
     </div>
   );
 }

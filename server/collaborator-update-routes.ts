@@ -331,6 +331,89 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
     }
   });
 
+  // Test send: creates a test request for the first matched recipient and emails
+  // the campaign email to the given test address. The link is fully functional,
+  // so the whole flow (form -> submit -> approval queue) can be tested safely.
+  app.post("/api/collaborator-update-campaigns/:id/test", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const testEmail = String(req.body?.email || "").trim();
+      if (!testEmail || !testEmail.includes("@")) {
+        return res.status(400).json({ message: "Valid test email required" });
+      }
+      const [campaign] = await db.select().from(collaboratorUpdateCampaigns)
+        .where(eq(collaboratorUpdateCampaigns.id, req.params.id));
+      if (!campaign) return res.status(404).json({ message: "Campaign not found" });
+
+      // use the first recipient of the campaign as the sample collaborator
+      const [sampleReq] = await db.select().from(collaboratorUpdateRequests)
+        .where(eq(collaboratorUpdateRequests.campaignId, campaign.id))
+        .limit(1);
+      if (!sampleReq) return res.status(400).json({ message: "Campaign has no recipients" });
+      const [c] = await db.select().from(collaborators)
+        .where(eq(collaborators.id, sampleReq.collaboratorId));
+      if (!c) return res.status(400).json({ message: "Sample collaborator not found" });
+
+      // dedicated test request so the real recipient's link stays untouched
+      const [testReq] = await db.insert(collaboratorUpdateRequests).values({
+        campaignId: campaign.id,
+        collaboratorId: c.id,
+        token: "test-" + crypto.randomBytes(18).toString("base64url"),
+        email: testEmail,
+        language: sampleReq.language,
+        status: "pending",
+        expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
+      }).returning();
+
+      const baseUrl = getBaseUrl(req);
+      const link = `${baseUrl}/update/${testReq.token}`;
+      const vars: Record<string, string> = {
+        firstName: c.firstName || "",
+        lastName: c.lastName || "",
+        fullName: [c.titleBefore, c.firstName, c.lastName].filter(Boolean).join(" "),
+        titleBefore: c.titleBefore || "",
+        link,
+      };
+      const subject = "[TEST] " + renderTemplate(campaign.emailSubject, vars);
+      let body = renderTemplate(campaign.emailBody, vars);
+      if (!campaign.emailBody.includes("{{link}}")) {
+        body += `<p><a href="${link}">${link}</a></p>`;
+      }
+
+      const markFailed = async (msg: string) => {
+        await db.update(collaboratorUpdateRequests)
+          .set({ status: "send_failed", sendError: msg })
+          .where(eq(collaboratorUpdateRequests.id, testReq.id));
+        // return the link anyway so the admin can still test the form directly
+        return res.json({ ok: false, link, message: msg });
+      };
+
+      const conn: any = await storage.getSystemMs365Connection(campaign.senderCountryCode);
+      if (!conn?.accessToken) return markFailed("MS365 mailbox not connected");
+      const tokenInfo = await getValidAccessToken(conn.accessToken, conn.tokenExpiresAt, conn.refreshToken);
+      if (!tokenInfo?.accessToken) return markFailed("MS365 token refresh failed");
+      if (tokenInfo.refreshed) {
+        try {
+          await storage.updateSystemMs365Connection(campaign.senderCountryCode, {
+            accessToken: tokenInfo.accessToken,
+            refreshToken: tokenInfo.refreshToken || conn.refreshToken,
+            tokenExpiresAt: tokenInfo.expiresOn || undefined,
+          } as any);
+        } catch {}
+      }
+      try {
+        await ms365SendEmail(tokenInfo.accessToken, [testEmail], subject, body, true);
+      } catch (err: any) {
+        return markFailed(err?.message || "send failed");
+      }
+      await db.update(collaboratorUpdateRequests)
+        .set({ status: "sent", sentAt: new Date() })
+        .where(eq(collaboratorUpdateRequests.id, testReq.id));
+      res.json({ ok: true, link });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Test send failed" });
+    }
+  });
+
   app.post("/api/collaborator-update-requests/:id/approve", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const [reqRow] = await db.select().from(collaboratorUpdateRequests)
@@ -338,7 +421,11 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
       if (!reqRow) return res.status(404).json({ message: "Request not found" });
       if (reqRow.status !== "submitted") return res.status(409).json({ message: "Not in submitted state" });
 
-      const changes = reqRow.changes || [];
+      // Test submissions (token prefixed "test-") never touch real collaborator data:
+      // approving them only marks the request approved, without applying changes.
+      const isTest = reqRow.token.startsWith("test-");
+
+      const changes = isTest ? [] : (reqRow.changes || []);
       const collabUpdate: Record<string, any> = {};
       const addressUpdates: Record<string, Record<string, string | null>> = {};
 
