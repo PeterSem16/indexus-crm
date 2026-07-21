@@ -479,6 +479,20 @@ function CreateCampaignDialog({ open, onOpenChange, l, toast }: any) {
     setEmailBody(tpl.body);
   };
 
+  // Auto-fill the JMHZ email template as soon as the JMHZ form type is selected
+  const handleFormTypeChange = (v: string) => {
+    setFormType(v);
+    if (v === "jmhz") {
+      if (!emailSubject.trim() || emailSubject === JMHZ_EMAIL_TEMPLATE.subject || Object.values(SAMPLE_TEMPLATES).some(t => t.subject === emailSubject)) {
+        setEmailSubject(JMHZ_EMAIL_TEMPLATE.subject);
+        setEmailBody(JMHZ_EMAIL_TEMPLATE.body);
+      }
+    } else if (emailSubject === JMHZ_EMAIL_TEMPLATE.subject) {
+      setEmailSubject("");
+      setEmailBody("");
+    }
+  };
+
   const filterCriteria = useMemo(() => ({
     countryCodes: countries.length > 0 ? countries : undefined,
     collaboratorType: collabType || undefined,
@@ -567,7 +581,7 @@ function CreateCampaignDialog({ open, onOpenChange, l, toast }: any) {
             </div>
             <div className="space-y-1.5">
               <Label>{l.formTypeL}</Label>
-              <Select value={formType} onValueChange={setFormType}>
+              <Select value={formType} onValueChange={handleFormTypeChange}>
                 <SelectTrigger data-testid="select-form-type"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="update">{l.formTypeUpdate}</SelectItem>
