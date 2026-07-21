@@ -1,0 +1,355 @@
+
+  The original key "číslo op" is here:
+
+    server/routes.ts:36378:8:
+DROP TABLE
+CREATE TABLE
+INSERT 0 1344
+SELECT 1019
+=== SUMMARY ===
+ excel_total | found_in_prod | missing
+-------------+---------------+---------
+        1344 |          1019 |     325
+(1 row)
+
+=== MATCHED BY (kvalita zhody) ===
+  matched_by  | count
+--------------+-------
+ legacy_id    |   814
+ name         |   121
+ birth_number |    77
+ mobile       |     6
+ email        |     1
+(5 rows)
+
+=== MISSING IN PRODUCTION (nie su v INDEXUSe) ===
+ excel_id | company |  agreement  |  first_name  |        last_name        |                  email                  |  mobile9
+----------+---------+-------------+--------------+-------------------------+-----------------------------------------+-----------
+ 29490    | CBC.cz  | DPP 6668    | Karolína     | Adlerová                | adlerovakarolina@seznam.cz              | 775600912
+ 29697    | CBC.cz  | DPP 6801    | Šarlota      | Baladová                | sarlotabaladova@gmail.com               | 734337300
+ 29366    | CBC.cz  | DPP 6587    | Pavlína      | Balíková                | pavla.j@centrum.sk                      | 777592585
+ 29354    | CBC.cz  | DPP 6573    | Veronika     | Banasinská              | ver.banasinska@gmail.com                | 734338205
+ 28982    | CBC.cz  | DPP 6446    | Kateřina     | Bartheldyová            | katka.bartheldy@email.cz                | 734489236
+ 29425    | CBC.cz  | DPP 6642    | Kateřina     | Bartoň                  | katka.zap@seznam.cz                     | 720281815
+ 14266    | CBC.cz  | DPP 5601    | Lenka        | Bednárová               | aknelb@volny.cz                         | 721363786
+ 28962    | CBC.cz  | DPP 6440    | Martina      | Benešová                | mbenesova11@seznam.cz                   | 604450676
+ 29911    | CBC.cz  | DPP 6802    | Michaela     | Beňová                  | miskabenova@gmail.com                   | 727935897
+ 28665    | CBC.cz  | DPP 6378    | Alžběta      | Blatná                  | alzbetablatna@email.cz                  | 775191229
+ 29364    | CBC.cz  | DPP 6584    | Monika       | Bláhová                 | monika.blahova09@gmail.com              | 725905816
+ 29655    | CBC.cz  | DPP 6712    | Aneta        | Bláhová                 | aneta.44@seznam.cz                      | 608636303
+ 29845    | CBC.cz  | DPP 6781    | Dominika     | Bochňáková              | bochnakovadominika@gmail.com            | 736480379
+ 26325    | CBC.cz  | DPP 6037    | Petra        | Borotová                | jaskova.petra@azet.sk                   | 949487207
+ 29817    | CBC.cz  | DPP 6754    | Serhii       | Bosyi                   | serhii.bosyi@kzcr.eu                    | 773570878
+ 29903    | CBC.cz  | nemá DPP    | Olga         | Bozhehko                |                                         |
+ 29804    | CBC.cz  | DPP 6746    | Barbora      | Bradová                 | barbora.bradova@email.cz                | 728813912
+ 29398    | CBC.cz  | DPP 6617    | Vendula      | Broďániová              | vendy.brodaniova@gmial.com              | 606066423
+ 29280    | CBC.cz  | DPP 6530    | Klára        | Brázdilová              | klara.brazdilova@nvm.agel.cz            | 732236808
+ 29420    | CBC.cz  | DPP 6637    | Michaela     | Burešová                | michaela.buresova@nempk.cz              | 773193827
+ 29659    | CBC.cz  | DPP 6716    | Jana         | Burianová ml.           | info@jbcare.cz                          | 737880074
+ 29658    | CBC.cz  | DPP 6715    | Jana         | Burianová st.           | info@jbcare.cz                          | 739202391
+ 29359    | CBC.cz  | DPP 6577    | Olha         | Burkot                  | olechkadonets@gmail.com                 | 720415974
+ 16514    | CBC.cz  | DPP 5437    | Martina      | Carvanová Kratochvílová | carvanova.m@post.cz                     | 776726156
+ 29031    | CBC.cz  | DPP 6463    | Kristýna     | Charonzová              | kikina.zapletalova@seznam.cz            | 776714681
+ 29889    | CBC.cz  | DPP 6796    | Petra        | Charvátová              | petruskacharvatova@seznam.cz            | 721405022
+ 26871    | CBC.cz  | DPP 6128    | Monika       | Chánová                 | monika.chanova@upmd.cz                  | 721647379
+ 29844    | CBC.cz  | DPP 6780    | Nina         | Cielecká                | nina.bednarzova@seznam.cz               | 775069107
+ 29824    | CBC.cz  | DPP 6761    | Lucie        | Denková                 | lucka.denk@gmail.com                    | 773538488
+ 28706    | CBC.cz  | DPP 6381    | Lenka        | Diblíková               | diblikova2@seznam.cz                    | 732733099
+ 29854    | CBC.cz  | DPP 6790    | Hana         | Dobešová                | hdobesova@nem-tr.cz                     | 737622692
+ 5057     | CBC.cz  | DPP 0079    | Milena       | Dominiková              | milena.dominikova@email.cz              | 724631082
+ 29249    | CBC.cz  | nemá dpp    | Milena       | Dominíková              |                                         |
+ 14193    | CBC.cz  | DPP 2756    | Radmila      | Dorazilová              | radmila.dorazilova@quick.cz             | 604256266
+ 28970    | CBC.cz  | DPP 6441    | Adéla        | Doubková                | adeladoubkova42@gmail.com               | 792241489
+ 9342     | CBC.cz  | DPP 2628    | Andrea       | Dočkalová               | andreys@seznam.cz                       | 725332322
+ 9342     | CBC.cz  | DPP 2628    | Andrea       | Dočkalová               | andreys@seznam.cz                       | 725332322
+ 4084     | CBC.cz  | DPP 5732    | Jana         | Dubenová                | jana.dubenova@seznam.cz                 | 734308847
+ 29849    | CBC.cz  | DPP 6785    | Sára         | Dudová                  | sara.dud@seznam.cz                      | 725150307
+ 26469    | CBC.cz  | DPP 6087    | Jana         | Dvořáková               | cumaceko410@seznam.cz                   | 777060185
+ 29487    | CBC.cz  | DPP 6666    | Kateřina     | Dvořáková               | kacka.dvorakova.kd@gmail.com            | 729087317
+ 28294    | CBC.cz  | DPP 6347    | Anna         | Džulová                 | annadzulova@seznam.cz                   | 720541040
+ 25624    | CBC.cz  | DPP 5900    | Jarmila      | Eimová                  |                                         | 603863484
+ 28282    | CBC.cz  | DPP 6343    | Magdaléna    | Ezrová                  | ezrova@seznam.cz                        | 602724300
+ 29843    | CBC.cz  | DPP 6779    | Zuzana       | Falharová               | zuzkafalharova2001@seznam.cz            | 735987180
+ 29451    | CBC.cz  | DPP 6657    | Alena        | Famenková               | alenafam@email.cz                       | 774653462
+ 29396    | CBC.cz  | DPP 6613    | Yana         | Fedinets                | yanafedinets@gmail.com                  | 608301169
+ 29317    | CBC.cz  | DPP 6551    | Ekaterina    | Fedynkina               | katerinaaf@me.com                       | 773025373
+ 29309    | CBC.cz  | DPP 6541    | Izabela      | Fialová                 | fialova.iza@seznam.cz                   | 731953940
+ 26320    | CBC.cz  | DPP 6032    | Markéta      | Flíglová                | marketa.fliglova@nempk.cz               |
+ 29842    | CBC.cz  | DPP 6778    | Kristýna     | Foltinková              | foltinkovakristyna@gmail.com            | 605193182
+ 29892    | CBC.cz  | DPP 6799    | Sára         | Franclová               | sara.francl@seznam.cz                   | 608111344
+ 28300    | CBC.cz  | DPP 6351    | Kateřina     | Freislerová             | steinbachovak@gmail.com                 | 727900349
+ 28300    | CBC.cz  | DPP 6351    | Kateřina     | Freislerová             | steinbachovak@gmail.com                 | 727900349
+ 16316    | CBC.cz  | DPP 5263    | Helena       | Fridrichová             | helenafridrich@seznam.cz                | 603739343
+ 28802    | CBC.cz  | DPP 6389    | Kristýna     | Gajdošíková             | tynka.gaj@seznam.cz                     | 605471487
+ 29242    | CBC.cz  | DPP 6497    | David        | Gančarčík               | davidgancarcik@seznam.cz                | 775755290
+ 29319    | CBC.cz  | DPP 6553    | Renata       | Gašparíková             | garenat@seznam.cz                       | 724729838
+ 29822    | CBC.cz  | DPP 6759    | Markéta      | Geislerová              | valcharova.marketa@seznam.cz            | 721034376
+ 28182    | CBC.cz  | DPP 6310    | Michaela     | Gelnar                  | michaela.gattnarova@gmail.com           | 722442232
+ 3842     | CBC.cz  | DPP 2147    | Pavel        | Gerych                  | gepary@seznam.cz                        | 608932929
+ 29805    | CBC.cz  | DPP 6747    | Tereza       | Gregorová               | tereza.gregor@email.cz                  | 732917358
+ 26070    | CBC.cz  | DPP 5980    | Kateřina     | Hamáková                | kata010@seznam.cz                       | 777467548
+ 29353    | CBC.cz  | DPP 6571    | Kateřina     | Handzová                | katryzna2510@seznam.cz                  | 604444363
+ 27074    | CBC.cz  | DPP 6241    | Radim        | Hanousek                |                                         | 777308504
+ 29708    | CBC.cz  | DPP 6735    | Linda        | Hasanbeyoglu Jirsková   | lindajiraskova17@gmail.com              | 725007718
+ 29890    | CBC.cz  | DPP 6794    | Tereza       | Hažmuková               | tereza.hazmukova@nmbbrno.cz             | 736261323
+ 6664     | CBC.cz  | DPP 2406    | Markéta      | Heczková                |                                         | 776235320
+ 15999    | CBC.cz  | DPP 5198    | Veronika     | Hirjáková               | veronika.rodzenakova@gmail.com          | 776536976
+ 28889    | CBC.cz  | DPP 6411    | Jana         | Holásková               | jana.holaskova95@gmail.com              | 725154065
+ 29418    | CBC.cz  | DPP 6635    | Aneta        | Hořínková               | aneta.horinkova@nempk.cz                | 720201118
+ 9338     | CBC.cz  | DPP 2621    | Veronika     | Hrušková                | v.sustkova@email.cz                     | 731721898
+ 28799    | CBC.cz  | DPP 6386    | Markéta      | Hudková                 | majky.hudkova@seznam.cz                 | 736289285
+ 28799    | CBC.cz  | DPP 6386    | Markéta      | Hudková                 | majky.hudkova@seznam.cz                 | 736289285
+ 29657    | CBC.cz  | DPP 6714    | Markéta      | Hájková                 | hajkovamarketa9@post.cz                 | 732333406
+ 4195     | CBC.cz  | DPP 5850    | Libuše       | Hédlová                 | hedlova.cd@centrum.cz                   | 725082979
+ 25285    | CBC.cz  | DPP 5820    | Nela         | Héniková                | n.henikova@seznam.cz                    | 777725018
+ 26893    | CBC.cz  | DPP 6145    | Tereza       | Hírešová                | terezahiresova@gmail.com                | 604548716
+ 29621    | CBC.cz  | DPP 6682    | Viktoria     | Ivasyk                  | ivasyk.viktoria@gmail.com               | 777891254
+ 29379    | CBC.cz  | DPP 6598    | Tereza       | Janulíková              | tereza.janulikova@gmail.com             | 737356629
+ 29030    | CBC.cz  | DPP 6462    | Alena        | Janštová                | alena.janstova@czcr.eu                  | 770652660
+ 29694    | CBC.cz  | DPP 6722    | Denisa       | Jezdinská               | dencamachova@seznam.cz                  | 605334103
+ 29337    | CBC.cz  | DPP 6566    | Hana         | Ježková                 | hannajezkova@gmail.com                  | 606103218
+ 29703    | CBC.cz  | DPP 6730    | Lucie        | Juranová                | lucie.juranova@nemocnicekolin.cz        | 777430103
+ 29848    | CBC.cz  | DPP 6784    | Tereza       | Jílková                 | terkajil@gmail.com                      | 721164084
+ 29821    | CBC.cz  | DPP 6758    | Michaela     | Kadaníková              | michaelakadanikova@email.cz             | 774053977
+ 29362    | CBC.cz  | DPP 6582    | Martin       | Kadlec                  | martin.kadlec397@gmail.com              | 723165100
+ 28090    | CBC.cz  | DPP 6297    | Kateřina     | Kadlecová               | kadlecovakacka@seznam.cz                | 723662850
+ 29428    | CBC.cz  | DPP 6645    | Jana         | Kaplánková              | j.kaplankova61@gmail.com                | 734328666
+ 29386    | CBC.cz  | DPP 6604    | Lenka        | Karahutová              | i.karahutova@gmail.com                  | 910337411
+ 26312    | CBC.cz  | DPP 6026    | Jana         | Kasperliková            | j.anicka@centrum.cz                     |
+ 29205    | CBC.cz  | DPP 6480    | Jan          | Kestřánek               |                                         | 604954089
+ 29422    | CBC.cz  | DPP 6639    | Zuzana       | Klečalová               | z.klecalova@seznam.cz                   | 730670689
+ 16717    | CBC.cz  | DPP 5739    | Jitka        | Klimešová               | jita.kl@seznam.cz                       | 777959415
+ 29702    | CBC.cz  | DPP 6729    | Pavlína      | Knettigová              | pavlina.knettigova@gmail.com            | 733194921
+ 26266    | CBC.cz  | DPP 6013    | Jan          | Kocanda                 | jan.kocanda92@gmail.com                 | 723294880
+ 29385    | CBC.cz  | DPP 6603    | Jana         | Kocourková              | janca.koc@seznam.cz                     | 723589878
+ 28209    | CBC.cz  | DPP 6322    | Dana         | Kolesárová              | danulik222@gmail.com                    | 792824151
+ 28210    | CBC.cz  | DPP 6324    | Alžbeta      | Kollárová               | krajnakova@nemvy.cz                     | 948362201
+ 29321    | CBC.cz  | DPP 6555    | Michaela     | Kolmanová               | kolmanova.michaela@seznam.cz            | 725138648
+ 28928    | CBC.cz  | DPP 6428    | Kateřina     | Konečná                 | cigankova.katerina@seznam.cz            | 731938520
+ 28801    | CBC.cz  | DPP 6388    | Magdalena    | Konířová                | madla.konirova@seznam.cz                | 737556716
+ 29831    | CBC.cz  | DPP 6767    | Iva          | Kopková                 | iva.kopko@gmail.com                     | 776100956
+ 29235    | CBC.cz  | DPP 6491    | Denisa       | Kortánová               | denisa.kortanova@seznam.cz              | 777711898
+ 29401    | CBC.cz  | DPP 6620    | Aneta        | Koutná                  | ance.hajka@seznam.cz                    | 736275262
+ 29247    | CBC.cz  | DPP 6502    | Jan          | Koutník                 | jan.koutnik@nemjc.cz                    | 732177128
+ 28280    | CBC.cz  | DPP 6340    | Aneta        | Kovačiková              | aneta.kovacikova97@seznam.cz            | 606748606
+ 28280    | CBC.cz  | DPP 6340    | Aneta        | Kovačiková              | aneta.kovacikova97@seznam.cz            | 606748606
+ 14245    | CBC.cz  | DPP 2815    | Leoš         | Kočí                    | lupusaltus@seznam.cz                    | 605158837
+ 4080     | CBC.cz  | DPP 5734    | Martin       | Kraus                   | kraus9@seznam.cz                        | 724309441
+ 29811    | CBC.cz  | DPP 6750    | Soňa         | Kreháková               | krehakovasona@gmail.com                 | 730239305
+ 29834    | CBC.cz  | DPP 6770    | Kateřina     | Krejčová                | katerinakrejcovaa@gmail.com             | 731076058
+ 29829    | CBC.cz  | DPP 6765    | Hana         | Kreutzigerová           | hana.kreutzigerova@g,ail.com            | 736150915
+ 27014    | CBC.cz  | DPP 6207    | Ivana        | Kristková               | kristkivana@seznam.cz                   | 603739260
+ 25948    | CBC.cz  | DPP 5966    | Martina      | Krnáčová                | krnacova.martina@nemocnicerk.cz         | 720676742
+ 29367    | CBC.cz  | DPP 6590    | Jan          | Krykorka                | krykyk@atlas.cz                         | 739378383
+ 28918    | CBC.cz  | DPP 6420    | Magdaléna    | Krzyzankova             | majdakrzyzankova@seznam.cz              | 777241663
+ 28918    | CBC.cz  | DPP 6420    | Magdaléna    | Krzyzankova             | majdakrzyzankova@seznam.cz              | 777241663
+ 28089    | CBC.cz  | DPP 6296    | Magdalena    | Krzyžanková             | majdakrzyzankova@seznam.cz              | 777241667
+ 28089    | CBC.cz  | DPP 6296    | Magdalena    | Krzyžanková             | majdakrzyzankova@seznam.cz              | 777241667
+ 26467    | CBC.cz  | DPP 6085    | Eliška       | Královec Černá          | eliskakralovec@gmail.com                | 723970085
+ 16707    | CBC.cz  | DPP 5726    | Zuzana       | Králová Orenčáková      | majdanek@volny.cz                       | 606043866
+ 28984    | CBC.cz  | DPP 6449    | Kristýna     | Králíčková              | kristyna.kralickova@nempk.cz            | 737947929
+ 16714    | CBC.cz  | DPP 5737    | Anna         | Krásná                  | anickatom@seznam.cz                     | 602573174
+ 27068    | CBC.cz  | DPP 6234    | Markéta      | Kubalová                | marketakubalova@post.cz                 | 608824070
+ 29830    | CBC.cz  | DPP 6766    | Dominika     | Kuklová                 | dokinikakuklova@seznam.cz               | 723700517
+ 29419    | CBC.cz  | DPP 6636    | Zuzana       | Kulhánková              |                                         | 735860769
+ 29421    | CBC.cz  | DPP 6638    | Kristýna     | Kultová                 | kultova.kristyna@gmail.com              | 776530624
+ 27347    | CBC.cz  | DPP 6263    | Miluše       | Kučerová                | miluse.kucerova@nemzn.cz                | 776247032
+ 27347    | CBC.cz  | DPP 6263    | Miluše       | Kučerová                | miluse.kucerova@nemzn.cz                | 776247032
+ 16623    | CBC.cz  | DPP 5674    | Kateřina     | Kuťáková                | kkutakova@seznam.cz                     | 739250236
+ 29837    | CBC.cz  | DPP 6773    | Ester        | Kvasničková             | esterka.kva@tiscali.cz                  | 608770346
+ 29846    | CBC.cz  | DPP 6782    | Hana         | Kwasná                  | h.kwasna@seznam.cz                      | 739700327
+ 29260    | CBC.cz  | DPP 6513    | Petr         | Kříž                    | petrkriz6@gmail.com                     | 777590175
+ 15188    | CBC.cz  | DPP 3149    | Lea          | Lašová                  | lea.lasova@seznam.cz                    | 775630337
+ 29699    | CBC.cz  | DPP 6726    | Lucie        | Lašová                  | luciesiekova@email.cz                   | 721565315
+ 29390    | CBC.cz  | DPP 6609    | Filip        | Lenert                  | lenert.fi@gmail.com                     | 737680811
+ 29358    | CBC.cz  | DPP 6576    | Kateřina     | Levičková               | levickova.katka@seznam.cz               | 725519071
+ 16606    | CBC.cz  | DPP 5591    | Veronika     | Lindnerová              | v.lindnerova@seznam.cz                  | 604930448
+ 9333     | CBC.cz  | DPP 2612    | Jana         | Lohniská                | janadib@seznam.cz                       | 775109910
+ 29836    | CBC.cz  | DPP 6772    | Tereza       | Lovásová                | terezalovasova@seznam.cz                | 777600613
+ 16621    | CBC.cz  | DPP 5672    | Ivana        | Lukášová                | lukasova.ivana@nemocnicenachod.cz       | 732843814
+ 29360    | CBC.cz  | DPP 6578    | Lyudmila     | Luzina                  | lyudmilaluzina82@gmail.com              | 607723216
+ 26348    | CBC.cz  | DPP 6049    | Klára        | Lőblová                 | c.c.clara@seznam.cz                     | 607558210
+ 29412    | CBC.cz  | DPP 6629    | Ludmila      | Magrlová                | l.magrlova@seznam.cz                    | 728221742
+ 26405    | CBC.cz  | DPP 6074    | Jan          | Majdiak                 | jmajdiak@seznam.cz                      | 723009984
+ 27024    | CBC.cz  | DPP 6219    | Nikola       | Malá                    | nikolamala95@gmail.com                  | 739167441
+ 29312    | CBC.cz  | DPP 6544    | Martina      | Malíková                | malikova@medplus.cz                     | 731505204
+ 28919    | CBC.cz  | DPP 6421    | Monika       | Marková                 | monikamarkova7@seznam.cz                | 774943744
+ 28919    | CBC.cz  | DPP 6421    | Monika       | Marková                 | monikamarkova7@seznam.cz                | 774943744
+ 29835    | CBC.cz  | DPP 6771    | Monika       | Matalová                | zovincova.monika@seznam.cz              | 736747776
+ 27169    | CBC.cz  | DPP 6245    | Jan          | Matěcha                 | matecha.jan@gmail.com                   | 731145444
+ 29847    | CBC.cz  | DPP 6783    | Nikola       | Matějová                | nikola.matejova@email.cz                | 736122884
+ 29850    | CBC.cz  | DPP 6786    | Natálie      | Mařanová                | natalie.maranova@seznam.cz              | 723428772
+ 27603    | CBC.cz  | DPP 6285    | Pavlína      | Mejsnarová              | pavlina.mejsnarova@seznam.cz            | 737407158
+ 27603    | CBC.cz  | DPP 6285    | Pavlína      | Mejsnarová              | pavlina.mejsnarova@seznam.cz            | 737407158
+ 5755     | CBC.cz  | DPP 758     | Igor         | Michalec                |                                         | 606792691
+ 3811     | CBC.cz  | DPP 5297    | Daniela      | Mikolášová              | daniela.mikolasova@seznam.cz            | 608878079
+ 15992    | CBC.cz  | DPP 5191    | Petra        | Mikulandová             | chalupna.petra@volny.cz                 | 721501913
+ 29308    | CBC.cz  | DPP 6540    | Kateřina     | Mohr                    | kudrnova.katerina@gmail.com             | 720205511
+ 29283    | CBC.cz  | DPP 6533    | Martin       | Molčan                  | mmolcan@nem-tr.cz                       | 774809086
+ 29818    | CBC.cz  | DPP 6755    | Anna         | Moskalenko              | anna.moskalenko@seznam.cz               | 774233708
+ 29384    | CBC.cz  | DPP 6602    | Barbora      | Mrhalová                | barbora.mrhalova@gmail.com              | 606737165
+ 26538    | CBC.cz  | DPP 6100    | Soňa         | Mrázková                | mrazeksona@gmail.com                    | 777662604
+ 28697    | CBC.cz  | DPP 6380    | Jana         | Muchová                 | muchovaj@centrum.cz                     | 733104541
+ 29429    | CBC.cz  | DPP 6646    | Yvona        | Murasová                | yvona.murasova@gmail.com                | 776105844
+ 28972    | CBC.cz  | DPP 6443    | Michaela     | Muthsamová              | kynelova.misule@seznam.cz               | 608030151
+ 29279    | CBC.cz  | DPP 6529    | Martin       | Muzik                   | muzikmartin@gmail.com                   | 604451143
+ 29016    | CBC.cz  | DPP 6459    | Monika       | Málková                 | malkovamonca@seznam.cz                  |
+ 28915    | CBC.cz  | DPP 6417    | Barbora      | Müller                  | barbora.mihokova@seznam.cz              | 608141549
+ 29632    | CBC.cz  | DPP 6684    | Jana         | Netolická               | jana.netolicka@nemta.cz                 | 601203414
+ 29012    | CBC.cz  | DPP 6454    | Huyen        | Ngoová                  | ngoovahuyen@gmail.com                   | 775087123
+ 26542    | CBC.cz  | DPP 6103    | Jiří         | Niebauer                | jiri.niebauer@seznam.cz                 | 603869301
+ 29417    | CBC.cz  | DPP 6634    | Petr         | Nohejl                  | petr.nohejl@nempk.cz                    | 732402215
+ 16718    | CBC.cz  | DPP 5740    | Monika       | Novotná                 | machova98@seznam.cz                     | 774104531
+ 29015    | CBC.cz  | DPP 6458    | Vendula      | Nováková                | novendular@gmail.com                    | 737323310
+ 28188    | CBC.cz  | DPP 6314    | Kateřina     | Nováková                | katka.novakovak@seznam.cz               | 604945656
+ 29705    | CBC.cz  | DPP 6732    | Martina      | Nováčková               | primamata@seznam.cz                     | 731844810
+ 29400    | CBC.cz  | DPP 6619    | Veronika     | Nálevková               | ver.nalevkova@gmail.com                 | 606892282
+ 29320    | CBC.cz  | DPP 6554    | Jana         | Návarová                | navarojana@seznam.cz                    | 605581313
+ 16536    | CBC.cz  | DPP 5547    | Anna         | Němečková               | a.nemeckova88@gmail.com                 | 739353094
+ 29852    | CBC.cz  | DPP 6788    | Eva          | Olešňaníková            | eolesnanikova@nem-tr.cz                 | 606388610
+ 29357    | CBC.cz  | DPP 6575    | Ema          | Panznerová              | e.panznerova@seznam.cz                  | 773559795
+ 26374    | CBC.cz  | DPP 6067    | Linda        | Pavelcová               | linda.p@seznam.cz                       | 602742106
+ 28362    | CBC.cz  | DPP 6365    | Klára        | Pavelková               | klara.pavelkova@email.cz                | 776575640
+ 28362    | CBC.cz  | DPP 6365    | Klára        | Pavelková               | klara.pavelkova@email.cz                | 776575640
+ 25240    | CBC.cz  | DPP 5868    | Eliška       | Pavelková               | elkapavelkova@seznam.cz                 | 732259284
+ 29276    | CBC.cz  | DPP 6527    | Marianna     | Pavlišinová             | mariannapavlisinova7@gmail.com          | 908436561
+ 28922    | CBC.cz  | DPP 6424    | Olga         | Pavlíková               | pavlikova.olga@seznam.cz                | 606439103
+ 29841    | CBC.cz  | DPP 6777    | Sabina       | Pawlasová               | sabinapawlasova@seznam.cz               | 603539327
+ 29711    | CBC.cz  | DPP 6737    | Klára        | Pechanová               | pechanova.klara@seznam.cz               | 734649774
+ 16612    | CBC.cz  | DPP 5628    | Marcela      | Peková                  | marcelapekova@centrum.cz                | 720509378
+ 29311    | CBC.cz  | DPP 6543    | Hana         | Peterková               | peterkovahana@centrum.cz                | 601563843
+ 29491    | CBC.cz  | DPP 6669    | Martina      | Petrecká                | martina@petrecka.cz                     | 725668559
+ 9296     | CBC.cz  | DPP 2525    | Lenka        | Petřeková               | lenka.petrekova@4seznam.cz              | 606630128
+ 9296     | CBC.cz  | DPP 2525    | Lenka        | Petřeková               | lenka.petrekova@4seznam.cz              | 606630128
+ 29709    | CBC.cz  | DPP 6736    | Eva          | Pešek                   | eva.pesek@email.cz                      | 777541994
+ 28961    | CBC.cz  | DPP 6439    | Veronika     | Pešková                 | veriada@seznam.cz                       | 775291089
+ 6659     | CBC.cz  | DPP 2400    | Ivana        | Pfeiferová Dis.         | ivanapfeiferova@seznam.cz               | 737630774
+ 6659     | CBC.cz  | DPP 2400    | Ivana        | Pfeiferová Dis.         | ivanapfeiferova@seznam.cz               | 737630774
+ 29277    | CBC.cz  | DPP 6528    | Petr         | Pfeiler                 | petr.pfeller1@gmail.com                 | 731213327
+ 29820    | CBC.cz  | DPP 6757    | Aneta        | Piková                  | anarikov@seznam.cz                      | 731815239
+ 29828    | CBC.cz  | DPP 6764    | Jana         | Pilchová                | pilchova.mag@gmail.com                  | 728038037
+ 29416    | CBC.cz  | DPP 6633    | Kateřina     | Pištínková              | katerina.pistinkova@nempk.cz            | 607968208
+ 27573    | CBC.cz  | DPP 6279    | Jana         | Pochylová               | janek.hal@seznam.cz                     | 739734899
+ 27573    | CBC.cz  | DPP 6279    | Jana         | Pochylová               | janek.hal@seznam.cz                     | 739734899
+ 29794    | CBC.cz  | DPP 6741    | Renata       | Poklopová               | renata.horstova@seznam.cz               | 773130208
+ 29826    | CBC.cz  | DPP 6763    | Marie        | Potyšová                | potysova.m@gmail.com                    | 774493444
+ 9356     | CBC.cz  | DPP 6445    | Ivanna       | Pražáková               | ivanna.popo@seznam.cz                   | 739264924
+ 28929    | CBC.cz  | DPP 6429    | Kristýna     | Procházková             | krisprochazkova@gmail.com               | 774649000
+ 29197    | CBC.cz  | DPP 6470    | Tereza       | Prokopová               | terka.prokopova@seznam.cz               | 702997397
+ 29274    | CBC.cz  | DPP 6524    | Michaela     | Prouzová                | michaela.camska@seznam.cz               | 607588911
+ 29199    | CBC.cz  | DPP 6473    | Julie        | Pýchová                 | ju.pychova@seznam.cz                    | 737210058
+ 4345     | CBC.cz  | DPP 2007    | Šárka        | Přibylová               | sarkapribylova1@seznam.cz               | 739108942
+ 4083     | CBC.cz  | DPP 2203    | Darwish      | Rabih                   | rabih@centrum.cz                        | 608774192
+ 26376    | CBC.cz  | DPP 6069    | Gabriela     | Rachůnková              | zabapankova@seznam.cz                   | 605118559
+ 29701    | CBC.cz  | DPP 6728    | Tereza       | Ramešová                | tereza.ramesova@gmail.com               | 735992715
+ 29225    | CBC.cz  | DPP 6484    | Zdislava     | Raždíková               | cermakovazdisa@seznam.cz                | 736103444
+ 29233    | CBC.cz  | DPP 6489    | Veronika     | Reznerová               | veronika12u@seznam.cz                   | 774870950
+ 16716    | CBC.cz  | DPP 5738    | Stanislava   | Richterová              | stana.radil@seznam.cz                   | 737125273
+ 29861    | CBC.cz  | DPP 6791    | Jana         | Rojšlová                | janca.fathina@seznam.cz                 | 737921172
+ 29427    | CBC.cz  | DPP 6644    | Aneta        | Rokosová                | aneta.rokosova13@gmail.com              | 702505834
+ 29338    | CBC.cz  | DPP 6569    | Anastasiya   | Roková                  | an.poboztsev@gmail.com                  | 776201929
+ 29840    | CBC.cz  | DPP 6776    | Beáta        | Rovňaniková             | rovnanikovabeata@gmail.com              | 948733454
+ 28985    | CBC.cz  | DPP 6450    | Martina      | Ročková                 | rockovamartina@gmail.com                | 728491190
+ 29904    | CBC.cz  | nemá DPP    | Jaroslava    | Rožanková               |                                         |
+ 29403    | CBC.cz  | DPP 6622    | Dagrmar      | Schořová                | dasaschor@seznam.cz                     | 739565005
+ 28252    | CBC.cz  | DPP 6335    | Markéta      | Scott Gasparová         | marketkag@centrum.cz                    | 725733076
+ 27022    | CBC.cz  | DPP 6217    | Julie        | Semeráková              | juliesemerakova@centrum.cz              | 604390098
+ 29314    | CBC.cz  | DPP 6549    | Hanna        | Semilo                  | semilohanna1989@gmail.com               | 776180410
+ 29369    | CBC.cz  | DPP 6592    | Mariia       | Shibaeva                | mariia.shibaeva@nemzn.cz                | 792404685
+ 26932    | CBC.cz  | DPP 6177    | Jana         | Simonková               | jana.simonkova@centrum.cz               | 733636058
+ 29430    | CBC.cz  | DPP 6647    | Salome Ester | Sitková                 | sitkovasalome407@gmail.com              | 776083620
+ 28885    | CBC.cz  | DPP 6408    | Michaela     | Skalická                | mudrova.michaela@centrum.cz             | 725111171
+ 29318    | CBC.cz  | DPP 6552    | Hana         | Slabá Hoskovcová        | slabahoskovcova@gmail.com               | 737801855
+ 29832    | CBC.cz  | DPP 6768    | Sára         | Slepičková              | slepickova.sara@seznam.cz               | 603837335
+ 28821    | CBC.cz  | DPP 6399    | Ruslana      | Sliusar                 | rsliusar23@gmail.com                    | 773483592
+ 29707    | CBC.cz  | DPP 6734    | Petra        | Slunská                 | strasilova.petra@seznam.cz              | 777815900
+ 29407    | CBC.cz  | DPP 6626    | Marie        | Slámová                 | marinka.svo@gmail.com                   | 605510968
+ 28820    | CBC.cz  | DPP 6398    | Kateryna     | Smaliuk                 | katya.smaliuk@gmail.com                 | 601006935
+ 29931    | CBC.cz  | nemá        | Veronika     | Sofka                   |                                         |
+ 28971    | CBC.cz  | DPP 6442    | Alžběta      | Solničková              | a.skalkova@seznam.cz                    | 602162395
+ 28926    | CBC.cz  | DPP 6427    | Jaroslava    | Stabrynová              | jarka.stabrynova@seznam.cz              | 722303256
+ 28958    | CBC.cz  | DPP 6435    | Anastasiia   | Starenko                | anastasiiastarenko@seznam.cz            | 774510716
+ 14843    | CBC.cz  | DPP 3088    | Lucie        | Starobová               | starobova@seznam.cz                     | 732480272
+ 29693    | CBC.cz  | DPP 6721    | Iva          | Staňová                 | ivastanova@gmail.com                    | 777827812
+ 26654    | CBC.cz  | DPP 6111    | Nikol        | Stefaniszek             | nikolstefa@seznam.cz                    | 558740309
+ 28805    | CBC.cz  | DPP 6392    | Kateřina     | Stejskalová             | stejskal.katerina@gmail.com             | 737926720
+ 29408    | CBC.cz  | DPP 6627    | Irena        | Stromšíková             | strom26@seznam.cz                       | 724091224
+ 29282    | CBC.cz  | DPP 6532    | Renata       | Studeníková             | r.studenikova@seznam.cz                 | 731489163
+ 28813    | CBC.cz  | DPP 6394    | Vladimíra    | Stěhulová               | vladka.stehulova@seznam.cz              |
+ 28800    | CBC.cz  | DPP 6387    | Anna         | Střelecká               | anicka.strelecka@seznam.cz              | 775277085
+ 28800    | CBC.cz  | DPP 6387    | Anna         | Střelecká               | anicka.strelecka@seznam.cz              | 775277085
+ 29912    | CBC.cz  | DPP 6803    | Magdaléna    | Suchánková              | magdasuchanek@gmail.com                 | 730523550
+ 29704    | CBC.cz  | DPP 6731    | Elena        | Sudariková              |                                         | 774962332
+ 29825    | CBC.cz  | DPP 6762    | Alžběta      | Svěrčinová              | alzbeta.svercinova1@seznam.cz           | 792314008
+ 29833    | CBC.cz  | DPP 6769    | Jana         | Swierkošová             | jana.swierkosova@email.cz               | 605012255
+ 29432    | CBC.cz  | DPP 6649    | Johana       | Szczurková              | johanasz@seznam.cz                      | 606090006
+ 28887    | CBC.cz  | DPP 6409    | Dovhan       | Taras                   | taras.dovgeen@seznam.cz                 | 702849427
+ 29785    | CBC.cz  | nemá dohodu | Michal       | Testik                  |                                         |
+ 29240    | CBC.cz  | DPP 6495    | Barbora      | Tobiášková              | baratobiaskova@gmail.com                | 730636783
+ 25949    | CBC.cz  | DPP 5967    | Lucie        | Tobiášková              | tobiaskova.l@seznam.cz                  | 732598508
+ 9332     | CBC.cz  | DPP 2611    | Eva          | Tobišková               | tobiskova.eva@nemocnicerk.cz            | 737556910
+ 29372    | CBC.cz  | DPP 6596    | Michaela     | Tomanová                | toman.michaela@gmail.com                | 606262937
+ 29204    | CBC.cz  | DPP 6479    | Martin       | Topinka                 | topinka.martin@nemtru.cz                | 732662198
+ 26933    | CBC.cz  | DPP 6176    | Daniela      | Trachtová               | d.neumanova@seznam.cz                   | 736539424
+ 29241    | CBC.cz  | DPP 6496    | Diana        | Tran Van                | diana.tranvan@gmail.com                 | 702178120
+ 25300    | CBC.cz  | DPP 5863    | Lenka        | Troszoková              | lenka.kubeczkova@nsphav.cz              | 777291601
+ 25300    | CBC.cz  | DPP 5863    | Lenka        | Troszoková              | lenka.kubeczkova@nsphav.cz              | 777291601
+ 28792    | CBC.cz  | DPP 6384    | Artem        | Tsemashko               | artemoloseggo@gmail.com                 | 775372732
+ 28792    | CBC.cz  | DPP 6384    | Artem        | Tsemashko               | artemoloseggo@gmail.com                 | 775372732
+ 28792    | CBC.cz  | DPP 6384    | Artem        | Tsemashko               | artemoloseggo@gmail.com                 | 775372732
+ 29851    | CBC.cz  | DPP 6787    | Tereza       | Tucková                 | terkatuckova@seznam.cz                  | 733573771
+ 27570    | CBC.cz  | DPP 6274    | Lenka        | Ullwerová               | ullwerova.lenka@seznam.cz               | 604107337
+ 15961    | CBC.cz  | DPP 5153    | Hana         | Vachoušková             | hankakor11@seznam.cz                    | 608200946
+ 26944    | CBC.cz  | DPP 6161    | Kristýna     | Vaculíková              | kristyna.nedomova@seznam.cz             | 725797467
+ 29413    | CBC.cz  | DPP 6630    | Kristýna     | Valentová               | cita97@seznam.cz                        | 730147149
+ 27072    | CBC.cz  | DPP 6239    | Tereza       | Valková                 | terka.valkova@seznam.cz                 | 774135345
+ 28986    | CBC.cz  | DPP 6451    | Vendula      | Vaňková                 | vendula.vankova@nempk.cz                | 734266365
+ 29882    | CBC.cz  | DPP 6795    | Dorota       | Vaňková                 | dorka.lakoma@gmail.com                  | 724855948
+ 28979    | CBC.cz  | DPP 6444    | Magdaléna    | Vašátková               | vasatkova.magdalena@seznam.cz           | 722476429
+ 29814    | CBC.cz  | DPP 6748    | Adéla        | Veverová                | veverova2@seznam.cz                     | 721276144
+ 29356    | CBC.cz  | DPP 6574    | Valeriia     | Voitenko                |                                         | 721580370
+ 29706    | CBC.cz  | DPP 6733    | Natálie      | Vojtěchová              | vojtechovanatalie@gmail.com             | 720182981
+ 29893    | CBC.cz  | DPP 6798    | Eliška       | Vokurková               | vokurkovaeliska@seznam.cz               | 733438942
+ 29336    | CBC.cz  | DPP 6564    | Božena       | Volfová                 | bozena.volfova@domazlice.nemocnicepk.cz | 728470854
+ 29433    | CBC.cz  | DPP 6650    | Marie        | Vrbová                  | budnik@seznam.cz                        | 774055622
+ 28913    | CBC.cz  | DPP 6415    | Štepánka     | Vybíralová              | vybiralova98@gmail.com                  | 723529037
+ 28983    | CBC.cz  | DPP 6448    | Barbora      | Vítková                 | barunka.vitkova@seznam.cz               | 724863028
+ 29793    | CBC.cz  | DPP 6740    | Květa        | Vítová                  | kveta.vitova@nemjil.cz                  | 777638280
+ 29838    | CBC.cz  | DPP 6774    | Jiřina       | Weisová                 | jirina.weisova@atlas.cz                 | 720131269
+ 29231    | CBC.cz  | DPP 6487    | Dorotea      | Zachová                 | dorka.zachova@seznam.cz                 | 774515253
+ 29389    | CBC.cz  | DPP 6608    | Nicole       | Zajícová                | nzajicova@nem.tr.cz                     | 739756988
+ 29819    | CBC.cz  | DPP 6756    | Markéta      | Zamazalová              | marketa.zamazalova@gmail.com            | 770668205
+ 16291    | CBC.cz  | DPP 5257    | Simona       | Zitová                  | simona.zitova@seznam.cz                 | 606787215
+ 29650    | CBC.cz  | DPP 6707    | Mariia       | Zuienko                 | maria.zuienko00@gmail.com               | 601590840
+ 28365    | CBC.cz  | DPP 6370    | Martina      | Zupková                 | marta.zupkova@seznam.cz                 | 731116767
+ 29388    | CBC.cz  | DPP 6607    | Ján          | Záruba                  | zarubkajanko@gmail.com                  | 605114045
+ 29246    | CBC.cz  | DPP 6501    | Markéta      | Zárybnická              | z.marketa77@gmail.com                   | 721453309
+ 29816    | CBC.cz  | DPP 6753    | Monika       | Závišková               | monika.hejskova@seznam.cz               | 720526026
+ 29488    | CBC.cz  | DPP 6667    | Jiřina       | hloupá                  | jirina.hloupa@seznam.cz                 | 730614866
+ 3934     | CBC.cz  | DPP 3002    | Ivana        | Čadková                 | ivana.cadkova@nmbrno.cz                 | 724678126
+ 29198    | CBC.cz  | DPP 6471    | Lukáš        | Čapek                   | capek.luk@gmail.com                     | 728357750
+ 15201    | CBC.cz  | DPP 3162    | Barbora      | Černá                   | barbora.humlova@centrum.cz              | 604414749
+ 29891    | CBC.cz  | DPP 6800    | Kateřina     | Červenková              | kacacervenkova@seznam.cz                | 733546082
+ 29823    | CBC.cz  | DPP 6760    | Anna-Marie   | Čochnářová              | annamarie.cochnarova@gmail.com          | 605823943
+ 16618    | CBC.cz  | DPP 5662    | Jan          | Řičánek                 | ricanek@centrum.cz                      | 602493787
+ 29273    | CBC.cz  | DPP 6523    | Tereza       | Římská                  | tereza.rimska@seznam.cz                 | 737682412
+ 28797    | CBC.cz  | DPP 6385    | Lucie        | Šebestová               | lucka.sebestova@gmail.com               | 721487520
+ 28797    | CBC.cz  | DPP 6385    | Lucie        | Šebestová               | lucka.sebestova@gmail.com               | 721487520
+ 26872    | CBC.cz  | DPP 6137    | Tereza       | Šejnohová               | sedovaterka@seznam.cz                   | 605352257
+ 3815     | CBC.cz  | DPP 5298    | Lenka        | Šilhanová               | silhan.l@atlas.cz                       | 728949236
+ 27363    | CBC.cz  | DPP 6251    | Veronika     | Šimanová                | simaver97@gmail.com                     | 728606626
+ 5941     | CBC.cz  | DPP 0423    | Hana         | Šimánková               | simankova.hana@email.cz                 | 721976062
+ 29792    | CBC.cz  | DPP 6739    | Lucie        | Šimáčková               | lucie.przeczkova@gmail.com              | 732653630
+ 29698    | CBC.cz  | DPP 6725    | Lucie        | Škorvagová              | lucie.skorvagova@bulovka.cz             | 736636287
+ 29257    | CBC.cz  | DPP 6509    | Veronika     | Šolcová                 | solcovaveronika@email.cz                | 602820770
+ 29656    | CBC.cz  | DPP 6713    | Kateřina     | Šonová                  | k.sonova@seznam.cz                      | 607827797
+ 28186    | CBC.cz  | DPP 6312    | Alena        | Šoustková               | ali.soustek@volny.cz                    | 603116844
+ 29415    | CBC.cz  | DPP 6632    | Lucie        | Štěpánková              | luciestepankova8@email.cz               | 775306460
+ 16053    | CBC.cz  | DPP 5232    | Kamila       | Šubová                  | kamilasubova@gmail.com                  | 733792820
+ 29812    | CBC.cz  | DPP 6751    | Kateřina     | Šugarová                | katka.sugar@gmail.com                   | 602536718
+ 9273     | CBC.cz  | DPP 2478    | Romana       | Šírová                  | sirova.romana@gmail.com                 | 775362755
+ 29275    | CBC.cz  | DPP 6526    | Šimon        | šaffo                   | saffosimon@outlook.com                  | 602942065
+ 29281    | CBC.cz  | DPP 6531    | Šárka        | Žambochová              | immersarka@gmail.com                    | 732989486
+(325 rows)
+
+(END)
