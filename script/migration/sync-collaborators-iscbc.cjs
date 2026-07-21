@@ -119,9 +119,26 @@ async function main() {
     FROM Collaborators d
     LEFT JOIN CollaboratorTypes ct ON ct.cty_id = d.cty_id
     LEFT JOIN PersonalData pd ON pd.per_id = d.per_id AND pd.pda_valid = 1
+    WHERE d.doc_active = 1
     ORDER BY d.doc_id
   `);
-  log(`ISCBC: ${collabs.recordset.length} spolupracovníkov`);
+  log(`ISCBC: ${collabs.recordset.length} AKTÍVNYCH spolupracovníkov (doc_active = 1)`);
+
+  // Representants lookup: rer_id → meno
+  const repLookup = {};
+  try {
+    const reps = await mssqlPool.request().query(`
+      SELECT r.rer_id, pd.pda_title_prefix, pd.pda_first_name, pd.pda_last_name
+      FROM Representants r
+      LEFT JOIN PersonalData pd ON pd.per_id = r.per_id AND pd.pda_valid = 1
+      WHERE r.rer_active = 1
+    `);
+    for (const r of reps.recordset) {
+      const parts = [r.pda_title_prefix, r.pda_first_name, r.pda_last_name].filter(Boolean);
+      repLookup[r.rer_id] = parts.join(' ');
+    }
+    log(`Representants: ${Object.keys(repLookup).length} aktívnych`);
+  } catch (e) { log(`WARN Representants: ${e.message}`); }
 
   const collabCountries = await mssqlPool.request().query(`
     SELECT DISTINCT ca.doc_id, c.com_country_code
@@ -214,12 +231,12 @@ async function main() {
             title_before, maiden_name, title_after,
             birth_number, birth_day, birth_month, birth_year, birth_place,
             phone, mobile, mobile_2, other_contact, email,
-            bank_account_iban, swift_code,
+            bank_account_iban, swift_code, ico, dic, ic_dph,
             client_contact, is_active, svet_zdravia, month_rewards,
-            note, collaborator_type, health_insurance_id,
+            note, collaborator_type, health_insurance_id, representative_id,
             hospital_ids, data_source,
             created_at, updated_at
-          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31)
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35)
           RETURNING id
         `, [
           legacyId, countryCode, [countryCode], firstName, lastName,
@@ -227,12 +244,13 @@ async function main() {
           normalizeNationalId(row.pda_id_number), birth.day, birth.month, birth.year, row.doc_birth_place,
           normalizePhone(row.pda_phone_number, countryCode), normalizePhone(row.pda_mobile, countryCode), normalizePhone(row.pda_mobile2, countryCode),
           row.pda_other_contact, normalizeEmail(row.pda_email),
-          row.doc_IBAN, row.doc_SWIFT,
+          row.doc_IBAN, row.doc_SWIFT, row.doc_ICO, row.doc_DIC, row.doc_IC_DPH,
           row.doc_client_contract === true || row.doc_client_contract === 1,
           row.doc_active === true || row.doc_active === 1,
           row.doc_svet_zdravia === true || row.doc_svet_zdravia === 1,
           row.doc_monthly_rewards === true || row.doc_monthly_rewards === 1,
           row.doc_note, normalizeCollaboratorType(row.cty_code), healthInsId,
+          row.rer_id ? (repLookup[row.rer_id] || null) : null,
           hospIds, 'iscbc',
           row.doc_inserted || new Date(),
           row.doc_updated || row.doc_inserted || new Date(),
