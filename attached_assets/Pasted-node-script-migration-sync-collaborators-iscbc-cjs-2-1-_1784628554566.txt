@@ -1,0 +1,45 @@
+node script/migration/sync-collaborators-iscbc.cjs 2>&1 | tee /tmp/sync-collab-dryrun.txt
+remote: Enumerating objects: 9, done.
+remote: Counting objects: 100% (9/9), done.
+remote: Compressing objects: 100% (1/1), done.
+remote: Total 5 (delta 4), reused 5 (delta 4), pack-reused 0 (from 0)
+Unpacking objects: 100% (5/5), 776 bytes | 388.00 KiB/s, done.
+From https://github.com/PeterSem16/indexus-crm
+ * branch              main       -> FETCH_HEAD
+   21e412e9..ff9ebdf2  main       -> origin/main
+Updating 21e412e9..ff9ebdf2
+Fast-forward
+ script/migration/sync-collaborators-iscbc.cjs | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+[2026-07-21T10:08:20.007Z] Režim: DRY-RUN (len report, nič sa nezapíše)
+[2026-07-21T10:08:20.050Z] Pripojené k obom databázam
+[2026-07-21T10:08:20.075Z] INDEXUS: 13929 spolupracovníkov s legacy_id
+[2026-07-21T10:08:20.111Z] INDEXUS: 49615 dohôd s legacy_id
+[2026-07-21T10:08:21.004Z] ISCBC: 29924 spolupracovníkov
+[2026-07-21T10:08:23.623Z] Collaborators: 16006 nových, 53 doplnených (prázdne polia), 13865 bez zmeny, 0 chýb, 0 adries
+[2026-07-21T10:08:23.624Z] Ukážka nových (prvých 20):
+[2026-07-21T10:08:23.624Z]   + 1 N/A Neznámy Spolupracovník (SK)
+[2026-07-21T10:08:23.624Z]   + 2 Slávka Horváthová (SK)
+[2026-07-21T10:08:23.624Z]   + 3 Miroslava Krajčírová (SK)
+[2026-07-21T10:08:23.624Z]   + 4 Alžbeta Jankovichová (SK)
+[2026-07-21T10:08:23.624Z]   + 5 Kristína Grancová (SK)
+[2026-07-21T10:08:23.624Z]   + 6 Daniela Mihalová (SK)
+[2026-07-21T10:08:23.624Z]   + 8 Pavol Rako (SK)
+[2026-07-21T10:08:23.624Z]   + 9 Katarína Marcineková (SK)
+[2026-07-21T10:08:23.624Z]   + 10 Dominika Kotlárová (SK)
+[2026-07-21T10:08:23.624Z]   + 11 Barbora Báršoňová (SK)
+[2026-07-21T10:08:23.624Z]   + 12 Bohuslava Jakubíková (SK)
+[2026-07-21T10:08:23.624Z]   + 13 Ccnr Crystal call Nitra (SK)
+[2026-07-21T10:08:23.624Z]   + 14 Eccba eCall Bratislava (SK)
+[2026-07-21T10:08:23.624Z]   + 17 Róbert Čerňák (SK)
+[2026-07-21T10:08:23.624Z]   + 18 Anna Lacková (SK)
+[2026-07-21T10:08:23.624Z]   + 19 Gabriela Meszárošová (SK)
+[2026-07-21T10:08:23.624Z]   + 21 N/A N/A (SK)
+[2026-07-21T10:08:23.624Z]   + 23 Dagmar Psalmanová (SK)
+[2026-07-21T10:08:23.624Z]   + 29 Anna Ježíková (SK)
+[2026-07-21T10:08:23.624Z]   + 31 Nika Gašparovičová (SK)
+[2026-07-21T10:08:23.971Z] ISCBC: 71765 dohôd
+[2026-07-21T10:08:23.985Z] Agreements: 22150 nových, 49615 existujúcich, 0 bez spolupracovníka, 0 chýb
+[2026-07-21T10:08:23.985Z] === HOTOVO ===
+[2026-07-21T10:08:23.985Z] Toto bol DRY-RUN. Pre ostrý zápis spusti s --commit
+seman@CORPCRM01:/var/ww
