@@ -235,6 +235,22 @@ app.use((req, res, next) => {
         ADD COLUMN IF NOT EXISTS send_paused_at timestamp;
       ALTER TABLE collaborator_update_campaigns
         ADD COLUMN IF NOT EXISTS send_finished_at timestamp;
+      ALTER TABLE collaborator_update_campaigns
+        ADD COLUMN IF NOT EXISTS sender_type text NOT NULL DEFAULT 'system';
+      ALTER TABLE collaborator_update_campaigns
+        ADD COLUMN IF NOT EXISTS sender_user_id varchar;
+      ALTER TABLE collaborator_update_campaigns
+        ADD COLUMN IF NOT EXISTS sender_custom_email text;
+      ALTER TABLE collaborator_update_campaigns
+        ADD COLUMN IF NOT EXISTS sender_custom_display_name text;
+      ALTER TABLE collaborator_update_campaigns
+        ADD COLUMN IF NOT EXISTS sender_custom_access_token text;
+      ALTER TABLE collaborator_update_campaigns
+        ADD COLUMN IF NOT EXISTS sender_custom_refresh_token text;
+      ALTER TABLE collaborator_update_campaigns
+        ADD COLUMN IF NOT EXISTS sender_custom_token_expires_at timestamp;
+      ALTER TABLE ms365_pkce_store
+        ALTER COLUMN country_code TYPE varchar(64);
     `);
     console.log('[migration] collaborator_update tables ensured');
 

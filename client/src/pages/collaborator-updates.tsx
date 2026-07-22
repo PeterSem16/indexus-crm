@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useI18n } from "@/i18n";
@@ -21,6 +21,13 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
+import { useAuth } from "@/contexts/auth-context";
+
+function senderLabel(c: any, l: any): string {
+  if (c?.senderType === "own") return c.senderCustomEmail || l.senderTypeOwn;
+  if (c?.senderType === "custom") return c.senderCustomEmail || l.senderNotConnected;
+  return c?.senderCountryCode || "";
+}
 
 const COUNTRY_OPTIONS = ["SK", "CZ", "HU", "RO", "IT", "DE", "AT", "CH", "US"];
 const FORM_LANGS = ["sk", "cs", "hu", "ro", "it", "de", "en"];
@@ -164,6 +171,9 @@ const L: Record<string, Record<string, string>> = {
     fieldBirthCountry: "Country of birth", fieldEducationRequired: "Education required for the job", fieldIsLeading: "Leading employee",
     approveSelected: "Approve selected", bulkApproveT: "Approve selected submissions?", bulkApproveD: "The changes from all selected submissions will be written to the collaborator cards. This cannot be undone.",
     bulkApprovedToast: "Submissions approved", selectAllLbl: "Select all",
+    senderTypeL: "Sender", senderTypeSystem: "System mailbox (country)", senderTypeOwn: "My mailbox (MS365)", senderTypeCustom: "Dedicated mailbox (connect)",
+    senderCustomHint: "Connect the mailbox after creating the campaign, before sending.", ownNotConnected: "Your MS365 account is not connected — connect it in your profile first.",
+    senderConnected: "Sender mailbox connected", senderNotConnected: "Mailbox not connected", connectSender: "Connect mailbox",
   },
   sk: {
     pageTitle: "Aktualizácie údajov spolupracovníkov", pageDesc: "E-mailové kampane so žiadosťou o aktualizáciu osobných údajov cez bezpečný odkaz.",
@@ -210,6 +220,9 @@ const L: Record<string, Record<string, string>> = {
     fieldBirthCountry: "Krajina narodenia", fieldEducationRequired: "Vzdelanie požadované pre výkon práce", fieldIsLeading: "Vedúci zamestnanec",
     approveSelected: "Schváliť vybrané", bulkApproveT: "Schváliť vybrané vyplnenia?", bulkApproveD: "Zmeny zo všetkých vybraných vyplnení sa zapíšu do kariet spolupracovníkov. Túto akciu nie je možné vrátiť späť.",
     bulkApprovedToast: "Vyplnenia schválené", selectAllLbl: "Vybrať všetko",
+    senderTypeL: "Odosielateľ", senderTypeSystem: "Systémová schránka (krajina)", senderTypeOwn: "Moja schránka (MS365)", senderTypeCustom: "Vyhradená schránka (pripojiť)",
+    senderCustomHint: "Schránku pripojíš po vytvorení kampane, pred odoslaním.", ownNotConnected: "Tvoje MS365 konto nie je pripojené — najprv ho pripoj v profile.",
+    senderConnected: "Odosielacia schránka pripojená", senderNotConnected: "Schránka nepripojená", connectSender: "Pripojiť schránku",
   },
   cs: {
     pageTitle: "Aktualizace údajů spolupracovníků", pageDesc: "E-mailové kampaně se žádostí o aktualizaci osobních údajů přes bezpečný odkaz.",
@@ -256,6 +269,9 @@ const L: Record<string, Record<string, string>> = {
     fieldBirthCountry: "Země narození", fieldEducationRequired: "Vzdělání požadované pro výkon práce", fieldIsLeading: "Vedoucí zaměstnanec",
     approveSelected: "Schválit vybrané", bulkApproveT: "Schválit vybraná vyplnění?", bulkApproveD: "Změny ze všech vybraných vyplnění se zapíší do karet spolupracovníků. Tuto akci nelze vrátit zpět.",
     bulkApprovedToast: "Vyplnění schválena", selectAllLbl: "Vybrat vše",
+    senderTypeL: "Odesílatel", senderTypeSystem: "Systémová schránka (země)", senderTypeOwn: "Moje schránka (MS365)", senderTypeCustom: "Vyhrazená schránka (připojit)",
+    senderCustomHint: "Schránku připojíte po vytvoření kampaně, před odesláním.", ownNotConnected: "Váš účet MS365 není připojen — nejprve jej připojte v profilu.",
+    senderConnected: "Odesílací schránka připojena", senderNotConnected: "Schránka nepřipojena", connectSender: "Připojit schránku",
   },
   hu: {
     pageTitle: "Partneradatok frissítése", pageDesc: "E-mail kampányok, amelyekben biztonságos linken keresztül kérjük a partnerek adatainak frissítését.",
@@ -302,6 +318,9 @@ const L: Record<string, Record<string, string>> = {
     fieldBirthCountry: "Születési ország", fieldEducationRequired: "A munkakörhöz szükséges végzettség", fieldIsLeading: "Vezető beosztású munkavállaló",
     approveSelected: "Kijelöltek jóváhagyása", bulkApproveT: "Jóváhagyja a kijelölt beküldéseket?", bulkApproveD: "Az összes kijelölt beküldés módosításai bekerülnek a partnerkartonokba. Ez a művelet nem vonható vissza.",
     bulkApprovedToast: "Beküldések jóváhagyva", selectAllLbl: "Összes kijelölése",
+    senderTypeL: "Feladó", senderTypeSystem: "Rendszerpostafiók (ország)", senderTypeOwn: "Saját postafiók (MS365)", senderTypeCustom: "Dedikált postafiók (csatlakoztatás)",
+    senderCustomHint: "A postafiókot a kampány létrehozása után, küldés előtt csatlakoztassa.", ownNotConnected: "Az MS365-fiókja nincs csatlakoztatva — először csatlakoztassa a profiljában.",
+    senderConnected: "Feladó postafiók csatlakoztatva", senderNotConnected: "Postafiók nincs csatlakoztatva", connectSender: "Postafiók csatlakoztatása",
   },
   ro: {
     pageTitle: "Actualizarea datelor colaboratorilor", pageDesc: "Campanii de e-mail prin care colaboratorii își actualizează datele printr-un link securizat.",
@@ -348,6 +367,9 @@ const L: Record<string, Record<string, string>> = {
     fieldBirthCountry: "Țara nașterii", fieldEducationRequired: "Studii necesare pentru post", fieldIsLeading: "Angajat cu funcție de conducere",
     approveSelected: "Aprobă selectate", bulkApproveT: "Aprobați completările selectate?", bulkApproveD: "Modificările din toate completările selectate vor fi scrise în fișele colaboratorilor. Această acțiune nu poate fi anulată.",
     bulkApprovedToast: "Completări aprobate", selectAllLbl: "Selectează tot",
+    senderTypeL: "Expeditor", senderTypeSystem: "Căsuță de sistem (țară)", senderTypeOwn: "Căsuța mea (MS365)", senderTypeCustom: "Căsuță dedicată (conectare)",
+    senderCustomHint: "Conectați căsuța după crearea campaniei, înainte de trimitere.", ownNotConnected: "Contul dvs. MS365 nu este conectat — conectați-l mai întâi în profil.",
+    senderConnected: "Căsuța expeditorului conectată", senderNotConnected: "Căsuță neconectată", connectSender: "Conectează căsuța",
   },
   it: {
     pageTitle: "Aggiornamento dati collaboratori", pageDesc: "Campagne e-mail per chiedere ai collaboratori di aggiornare i propri dati tramite link sicuro.",
@@ -394,6 +416,9 @@ const L: Record<string, Record<string, string>> = {
     fieldBirthCountry: "Paese di nascita", fieldEducationRequired: "Istruzione richiesta per la mansione", fieldIsLeading: "Dipendente con ruolo dirigenziale",
     approveSelected: "Approva selezionati", bulkApproveT: "Approvare gli invii selezionati?", bulkApproveD: "Le modifiche di tutti gli invii selezionati verranno scritte nelle schede dei collaboratori. Questa azione non può essere annullata.",
     bulkApprovedToast: "Invii approvati", selectAllLbl: "Seleziona tutto",
+    senderTypeL: "Mittente", senderTypeSystem: "Casella di sistema (paese)", senderTypeOwn: "La mia casella (MS365)", senderTypeCustom: "Casella dedicata (collegare)",
+    senderCustomHint: "Collega la casella dopo aver creato la campagna, prima dell'invio.", ownNotConnected: "Il tuo account MS365 non è collegato — collegalo prima nel profilo.",
+    senderConnected: "Casella mittente collegata", senderNotConnected: "Casella non collegata", connectSender: "Collega casella",
   },
   de: {
     pageTitle: "Aktualisierung der Partnerdaten", pageDesc: "E-Mail-Kampagnen, mit denen Partner über einen sicheren Link ihre Daten aktualisieren.",
@@ -440,6 +465,9 @@ const L: Record<string, Record<string, string>> = {
     fieldBirthCountry: "Geburtsland", fieldEducationRequired: "Für die Tätigkeit erforderliche Ausbildung", fieldIsLeading: "Leitender Mitarbeiter",
     approveSelected: "Ausgewählte genehmigen", bulkApproveT: "Ausgewählte Einreichungen genehmigen?", bulkApproveD: "Die Änderungen aller ausgewählten Einreichungen werden in die Partnerkarten geschrieben. Diese Aktion kann nicht rückgängig gemacht werden.",
     bulkApprovedToast: "Einreichungen genehmigt", selectAllLbl: "Alle auswählen",
+    senderTypeL: "Absender", senderTypeSystem: "Systempostfach (Land)", senderTypeOwn: "Mein Postfach (MS365)", senderTypeCustom: "Dediziertes Postfach (verbinden)",
+    senderCustomHint: "Verbinden Sie das Postfach nach dem Erstellen der Kampagne, vor dem Versand.", ownNotConnected: "Ihr MS365-Konto ist nicht verbunden — verbinden Sie es zuerst in Ihrem Profil.",
+    senderConnected: "Absenderpostfach verbunden", senderNotConnected: "Postfach nicht verbunden", connectSender: "Postfach verbinden",
   },
 };
 
@@ -457,8 +485,24 @@ export default function CollaboratorUpdatesPage() {
   const { locale } = useI18n();
   const l = L[locale] || L.en;
   const { toast } = useToast();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(() => {
+    const p = new URLSearchParams(window.location.search);
+    return p.get("sender_connected") ? p.get("campaign") : null;
+  });
   const [createOpen, setCreateOpen] = useState(false);
+
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    if (p.get("sender_connected")) {
+      toast({ title: l.senderConnected });
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborator-update-campaigns"] });
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (p.get("sender_error")) {
+      toast({ title: l.errorTitle, description: p.get("sender_error") || "", variant: "destructive" });
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { data: campaigns = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/collaborator-update-campaigns"],
@@ -497,7 +541,7 @@ export default function CollaboratorUpdatesPage() {
                         </Badge>
                       </div>
                       <CardDescription>
-                        {l.createdFmt}: {format(new Date(c.createdAt), "dd.MM.yyyy HH:mm")} · <Users className="h-3 w-3 inline" /> {total} · <Mail className="h-3 w-3 inline" /> {c.senderCountryCode}
+                        {l.createdFmt}: {format(new Date(c.createdAt), "dd.MM.yyyy HH:mm")} · <Users className="h-3 w-3 inline" /> {total} · <Mail className="h-3 w-3 inline" /> {senderLabel(c, l)}
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="flex gap-2 flex-wrap pt-0">
@@ -555,7 +599,9 @@ function YesNoSelect({ label, value, onChange, l, testId }: any) {
 }
 
 function CreateCampaignDialog({ open, onOpenChange, l, toast }: any) {
+  const { user } = useAuth();
   const [name, setName] = useState("");
+  const [senderType, setSenderType] = useState("system");
   const [senderCountryCode, setSenderCountryCode] = useState("");
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
@@ -583,6 +629,11 @@ function CreateCampaignDialog({ open, onOpenChange, l, toast }: any) {
     queryKey: ["/api/collaborator-update-campaigns/filter-options"],
     enabled: open,
   });
+  const { data: ownConn } = useQuery<any>({
+    queryKey: ["/api/users", user?.id, "ms365-connection"],
+    enabled: open && !!user?.id && senderType === "own",
+  });
+  const ownConnected = !!ownConn?.isConnected && !!ownConn?.hasTokens;
 
   const insertSample = () => {
     const tpl = formType === "jmhz"
@@ -632,7 +683,8 @@ function CreateCampaignDialog({ open, onOpenChange, l, toast }: any) {
   const createMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/collaborator-update-campaigns", {
-        name, senderCountryCode, emailSubject, emailBody, language, formType, tokenValidDays, filterCriteria,
+        name, senderType, senderCountryCode: senderType === "system" ? senderCountryCode : "",
+        emailSubject, emailBody, language, formType, tokenValidDays, filterCriteria,
       });
       return res.json();
     },
@@ -645,7 +697,8 @@ function CreateCampaignDialog({ open, onOpenChange, l, toast }: any) {
     onError: (e: any) => toast({ title: l.errorTitle, description: e?.message, variant: "destructive" }),
   });
 
-  const canCreate = name.trim() && senderCountryCode && emailSubject.trim() && emailBody.trim();
+  const senderOk = senderType === "system" ? !!senderCountryCode : senderType === "own" ? ownConnected : true;
+  const canCreate = name.trim() && senderOk && emailSubject.trim() && emailBody.trim();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -661,18 +714,45 @@ function CreateCampaignDialog({ open, onOpenChange, l, toast }: any) {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label>{l.senderMailbox}</Label>
-              <Select value={senderCountryCode} onValueChange={setSenderCountryCode}>
-                <SelectTrigger data-testid="select-sender"><SelectValue /></SelectTrigger>
+              <Label>{l.senderTypeL}</Label>
+              <Select value={senderType} onValueChange={setSenderType}>
+                <SelectTrigger data-testid="select-sender-type"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {connections.filter((c: any) => c.isConnected).map((c: any) => (
-                    <SelectItem key={c.countryCode} value={c.countryCode}>
-                      {c.email} ({c.countryCode})
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="system">{l.senderTypeSystem}</SelectItem>
+                  <SelectItem value="own">{l.senderTypeOwn}</SelectItem>
+                  <SelectItem value="custom">{l.senderTypeCustom}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            {senderType === "system" ? (
+              <div className="space-y-1.5">
+                <Label>{l.senderMailbox}</Label>
+                <Select value={senderCountryCode} onValueChange={setSenderCountryCode}>
+                  <SelectTrigger data-testid="select-sender"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {connections.filter((c: any) => c.isConnected).map((c: any) => (
+                      <SelectItem key={c.countryCode} value={c.countryCode}>
+                        {c.email} ({c.countryCode})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : senderType === "own" ? (
+              <div className="space-y-1.5">
+                <Label>{l.senderMailbox}</Label>
+                <p className={`text-sm pt-2 ${ownConnected ? "text-muted-foreground" : "text-destructive"}`} data-testid="text-own-sender-status">
+                  {ownConnected ? (ownConn?.email || l.senderConnected) : l.ownNotConnected}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Label>{l.senderMailbox}</Label>
+                <p className="text-sm text-muted-foreground pt-2" data-testid="text-custom-sender-hint">{l.senderCustomHint}</p>
+              </div>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>{l.validDays}</Label>
               <Input type="number" min={1} max={365} value={tokenValidDays}
@@ -1193,6 +1273,17 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
     onError: (e: any) => toast({ title: l.errorTitle, description: e?.message, variant: "destructive" }),
   });
 
+  const senderAuthMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/collaborator-update-campaigns/${campaign.id}/sender-auth`);
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      if (data?.authUrl) window.location.href = data.authUrl;
+    },
+    onError: (e: any) => toast({ title: l.errorTitle, description: e?.message, variant: "destructive" }),
+  });
+
   const reviewMutation = useMutation({
     mutationFn: async ({ id, action }: { id: string; action: "approve" | "reject" }) => {
       const res = await apiRequest("POST", `/api/collaborator-update-requests/${id}/${action}`);
@@ -1267,10 +1358,16 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
           <Button variant="ghost" size="icon" onClick={onBack} data-testid="button-back"><ArrowLeft className="h-4 w-4" /></Button>
           <div>
             <h1 className="text-2xl font-bold" data-testid="text-campaign-name">{campaign.name}</h1>
-            <p className="text-sm text-muted-foreground">{campaign.senderCountryCode} · {format(new Date(campaign.createdAt), "dd.MM.yyyy HH:mm")}</p>
+            <p className="text-sm text-muted-foreground">{senderLabel(campaign, l)} · {format(new Date(campaign.createdAt), "dd.MM.yyyy HH:mm")}</p>
           </div>
         </div>
         <div className="flex gap-2">
+          {campaign.senderType === "custom" && !campaign.senderCustomEmail && (
+            <Button variant="outline" onClick={() => senderAuthMutation.mutate()} disabled={senderAuthMutation.isPending} data-testid="button-connect-sender">
+              {senderAuthMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Mail className="h-4 w-4 mr-2" />}
+              {l.connectSender}
+            </Button>
+          )}
           <Button variant="outline" onClick={invalidate} disabled={isFetching} data-testid="button-refresh">
             <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? "animate-spin" : ""}`} />{l.refresh}
           </Button>

@@ -11,7 +11,77 @@ import {
 } from "@shared/schema";
 import { storage } from "./storage";
 import { sendEmail as ms365SendEmail, getValidAccessToken } from "./lib/ms365";
-import { decryptTokenSafe } from "./lib/token-crypto";
+import { decryptTokenSafe, encryptTokenWithMarker } from "./lib/token-crypto";
+
+// Resolve a valid MS365 access token for the campaign's configured sender
+// (system country mailbox | creator's own account | dedicated connected mailbox).
+// Refreshed tokens are written back to the proper store.
+async function resolveSenderAccessToken(campaign: any): Promise<{ accessToken?: string; error?: string }> {
+  if (campaign.senderType === "own") {
+    if (!campaign.senderUserId) return { error: "No sender user set for this campaign" };
+    const conn: any = await storage.getUserMs365Connection(campaign.senderUserId);
+    if (!conn?.accessToken || conn.isConnected === false) {
+      return { error: "Sender's personal MS365 account is not connected" };
+    }
+    const tokenInfo = await getValidAccessToken(
+      decryptTokenSafe(conn.accessToken),
+      conn.tokenExpiresAt,
+      conn.refreshToken ? decryptTokenSafe(conn.refreshToken) : null,
+    );
+    if (!tokenInfo?.accessToken) return { error: "MS365 token refresh failed for the sender's account" };
+    if (tokenInfo.refreshed) {
+      try {
+        await storage.updateUserMs365Connection(campaign.senderUserId, {
+          accessToken: tokenInfo.accessToken,
+          refreshToken: (tokenInfo as any).refreshToken || conn.refreshToken,
+          tokenExpiresAt: (tokenInfo as any).expiresOn || undefined,
+        } as any);
+      } catch {}
+    }
+    return { accessToken: tokenInfo.accessToken };
+  }
+  if (campaign.senderType === "custom") {
+    if (!campaign.senderCustomAccessToken) return { error: "Sender mailbox is not connected yet" };
+    const tokenInfo = await getValidAccessToken(
+      decryptTokenSafe(campaign.senderCustomAccessToken),
+      campaign.senderCustomTokenExpiresAt,
+      campaign.senderCustomRefreshToken ? decryptTokenSafe(campaign.senderCustomRefreshToken) : null,
+    );
+    if (!tokenInfo?.accessToken) return { error: "MS365 token refresh failed for the connected sender mailbox" };
+    if (tokenInfo.refreshed) {
+      try {
+        await db.update(collaboratorUpdateCampaigns).set({
+          senderCustomAccessToken: encryptTokenWithMarker(tokenInfo.accessToken),
+          senderCustomRefreshToken: (tokenInfo as any).refreshToken
+            ? encryptTokenWithMarker((tokenInfo as any).refreshToken)
+            : campaign.senderCustomRefreshToken,
+          senderCustomTokenExpiresAt: (tokenInfo as any).expiresOn || null,
+          updatedAt: new Date(),
+        }).where(eq(collaboratorUpdateCampaigns.id, campaign.id));
+      } catch {}
+    }
+    return { accessToken: tokenInfo.accessToken };
+  }
+  // default: system country mailbox
+  const conn: any = await storage.getSystemMs365Connection(campaign.senderCountryCode);
+  if (!conn?.accessToken) return { error: `No MS365 system connection for ${campaign.senderCountryCode}` };
+  const tokenInfo = await getValidAccessToken(
+    decryptTokenSafe(conn.accessToken),
+    conn.tokenExpiresAt,
+    conn.refreshToken ? decryptTokenSafe(conn.refreshToken) : null,
+  );
+  if (!tokenInfo?.accessToken) return { error: `MS365 token refresh failed for ${campaign.senderCountryCode}` };
+  if (tokenInfo.refreshed) {
+    try {
+      await storage.updateSystemMs365Connection(campaign.senderCountryCode, {
+        accessToken: tokenInfo.accessToken,
+        refreshToken: (tokenInfo as any).refreshToken || conn.refreshToken,
+        tokenExpiresAt: (tokenInfo as any).expiresOn || undefined,
+      } as any);
+    } catch {}
+  }
+  return { accessToken: tokenInfo.accessToken };
+}
 
 // Collaborator columns editable through the public form
 const EDITABLE_FIELDS = [
@@ -45,6 +115,12 @@ function maskBirthNumber(bn: string | null | undefined): string | null {
 
 function renderTemplate(tpl: string, vars: Record<string, string>): string {
   return tpl.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key) => vars[key] ?? "");
+}
+
+// Never expose sender mailbox tokens through the API
+function safeCampaign(c: any) {
+  const { senderCustomAccessToken, senderCustomRefreshToken, ...rest } = c || {};
+  return rest;
 }
 
 function getBaseUrl(req: Request): string {
@@ -218,14 +294,15 @@ async function sendCampaignEmails(campaignId: string, baseUrl: string, onlyRemin
     .where(eq(collaboratorUpdateCampaigns.id, campaignId));
   if (!campaign) return;
 
-  const conn: any = await storage.getSystemMs365Connection(campaign.senderCountryCode);
-  if (!conn?.accessToken) {
-    console.error(`[CollabUpdate] No MS365 system connection for ${campaign.senderCountryCode}`);
+  const sender = await resolveSenderAccessToken(campaign);
+  if (!sender.accessToken) {
+    console.error(`[CollabUpdate] Sender resolution failed: ${sender.error}`);
     await db.update(collaboratorUpdateCampaigns)
       .set({ status: "draft", updatedAt: new Date() })
       .where(eq(collaboratorUpdateCampaigns.id, campaignId));
     return;
   }
+  let senderAccessToken = sender.accessToken;
 
   const statuses = onlyReminder ? ["sent", "opened"] : ["pending", "send_failed"];
   const requests = await db.select().from(collaboratorUpdateRequests)
@@ -233,28 +310,6 @@ async function sendCampaignEmails(campaignId: string, baseUrl: string, onlyRemin
       eq(collaboratorUpdateRequests.campaignId, campaignId),
       inArray(collaboratorUpdateRequests.status, statuses),
     ));
-
-  let tokenInfo = await getValidAccessToken(
-    decryptTokenSafe(conn.accessToken),
-    conn.tokenExpiresAt,
-    conn.refreshToken ? decryptTokenSafe(conn.refreshToken) : null,
-  );
-  if (!tokenInfo?.accessToken) {
-    console.error(`[CollabUpdate] MS365 token refresh failed for ${campaign.senderCountryCode}`);
-    await db.update(collaboratorUpdateCampaigns)
-      .set({ status: "draft", updatedAt: new Date() })
-      .where(eq(collaboratorUpdateCampaigns.id, campaignId));
-    return;
-  }
-  if (tokenInfo.refreshed) {
-    try {
-      await storage.updateSystemMs365Connection(campaign.senderCountryCode, {
-        accessToken: tokenInfo.accessToken,
-        refreshToken: tokenInfo.refreshToken || conn.refreshToken,
-        tokenExpiresAt: tokenInfo.expiresOn || undefined,
-      } as any);
-    } catch {}
-  }
 
   const collabIds = requests.map(r => r.collaboratorId);
   const collabRows = collabIds.length > 0
@@ -290,7 +345,7 @@ async function sendCampaignEmails(campaignId: string, baseUrl: string, onlyRemin
       body += `<p><a href="${link}">${link}</a></p>`;
     }
     try {
-      await ms365SendEmail(tokenInfo.accessToken, [reqRow.email], subject, body, true);
+      await ms365SendEmail(senderAccessToken, [reqRow.email], subject, body, true);
       await db.update(collaboratorUpdateRequests)
         .set(onlyReminder
           ? { remindedAt: new Date(), sendError: null }
@@ -309,13 +364,10 @@ async function sendCampaignEmails(campaignId: string, baseUrl: string, onlyRemin
     await new Promise(r => setTimeout(r, 250));
     // refresh token if long batch expired it
     if ((sent + failed) % 200 === 0) {
-      const fresh: any = await storage.getSystemMs365Connection(campaign.senderCountryCode);
-      const ti = await getValidAccessToken(
-        decryptTokenSafe(fresh.accessToken),
-        fresh.tokenExpiresAt,
-        fresh.refreshToken ? decryptTokenSafe(fresh.refreshToken) : null,
-      );
-      if (ti?.accessToken) tokenInfo = ti;
+      const [freshCampaign] = await db.select().from(collaboratorUpdateCampaigns)
+        .where(eq(collaboratorUpdateCampaigns.id, campaignId));
+      const refreshed = freshCampaign ? await resolveSenderAccessToken(freshCampaign) : null;
+      if (refreshed?.accessToken) senderAccessToken = refreshed.accessToken;
     }
   }
 
@@ -435,7 +487,7 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
         byId[s.campaignId] = byId[s.campaignId] || {};
         byId[s.campaignId][s.status] = s.count;
       }
-      res.json(campaigns.map(c => ({ ...c, stats: byId[c.id] || {} })));
+      res.json(campaigns.map(c => ({ ...safeCampaign(c), stats: byId[c.id] || {} })));
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Failed to load campaigns" });
     }
@@ -451,13 +503,30 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
       if (parsed.formType && !["update", "jmhz"].includes(parsed.formType)) {
         return res.status(400).json({ message: "Invalid form type" });
       }
+      const senderType = ["system", "own", "custom"].includes(parsed.senderType || "")
+        ? parsed.senderType!
+        : "system";
+      const sessionUserId = (req.session as any)?.user?.id || (req.session as any)?.userId || null;
+      if (senderType === "system" && !parsed.senderCountryCode) {
+        return res.status(400).json({ message: "Sender mailbox is required" });
+      }
+      if (senderType === "own") {
+        if (!sessionUserId) return res.status(400).json({ message: "No user session" });
+        const ownConn: any = await storage.getUserMs365Connection(sessionUserId);
+        if (!ownConn?.accessToken || ownConn.isConnected === false) {
+          return res.status(400).json({ message: "Your MS365 account is not connected — connect it in your profile first" });
+        }
+      }
       const recipients = await findRecipients((parsed.filterCriteria || {}) as FilterCriteria);
       if (recipients.length === 0) {
         return res.status(400).json({ message: "No recipients match the filter" });
       }
       const [campaign] = await db.insert(collaboratorUpdateCampaigns).values({
         ...parsed,
-        createdBy: (req.session as any)?.userId || null,
+        senderType,
+        senderCountryCode: parsed.senderCountryCode || "",
+        senderUserId: senderType === "own" ? sessionUserId : null,
+        createdBy: sessionUserId,
       }).returning();
 
       const expiresAt = new Date(Date.now() + (parsed.tokenValidDays || 30) * 24 * 3600 * 1000);
@@ -474,7 +543,7 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
       for (let i = 0; i < rows.length; i += 500) {
         await db.insert(collaboratorUpdateRequests).values(rows.slice(i, i + 500));
       }
-      res.json({ ...campaign, recipientCount: rows.length });
+      res.json({ ...safeCampaign(campaign), recipientCount: rows.length });
     } catch (err: any) {
       res.status(400).json({ message: err?.message || "Failed to create campaign" });
     }
@@ -754,12 +823,32 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
     }
   });
 
+  // Start OAuth to connect a dedicated sender mailbox for this campaign
+  app.post("/api/collaborator-update-campaigns/:id/sender-auth", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const [campaign] = await db.select().from(collaboratorUpdateCampaigns)
+        .where(eq(collaboratorUpdateCampaigns.id, req.params.id));
+      if (!campaign) return res.status(404).json({ message: "Campaign not found" });
+      const { getAuthorizationUrl, isConfigured } = await import("./lib/ms365");
+      if (!isConfigured()) return res.status(400).json({ message: "MS365 integration not configured" });
+      const sessionUserId = (req.session as any)?.user?.id || (req.session as any)?.userId || "";
+      const { url, codeVerifier, state } = await getAuthorizationUrl(`collab-sender:${campaign.id}`, false);
+      await storage.savePkceEntry(state, codeVerifier, 'collab-sender', sessionUserId, campaign.id);
+      res.json({ authUrl: url });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Failed to start MS365 authentication" });
+    }
+  });
+
   app.post("/api/collaborator-update-campaigns/:id/send", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const [campaign] = await db.select().from(collaboratorUpdateCampaigns)
         .where(eq(collaboratorUpdateCampaigns.id, req.params.id));
       if (!campaign) return res.status(404).json({ message: "Campaign not found" });
       if (campaign.status === "sending") return res.status(409).json({ message: "Already sending" });
+      if (campaign.senderType === "custom" && !campaign.senderCustomAccessToken) {
+        return res.status(400).json({ message: "Sender mailbox is not connected yet" });
+      }
       // Compare-and-set: only flip to sending if nobody else did meanwhile
       const flipped = await db.update(collaboratorUpdateCampaigns)
         .set({ status: "sending", sendStartedAt: new Date(), sendFinishedAt: null, updatedAt: new Date() })
@@ -833,27 +922,11 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
         return res.status(409).json({ message: "Campaign is currently sending — wait until it finishes" });
       }
 
-      const conn: any = await storage.getSystemMs365Connection(campaign.senderCountryCode);
-      if (!conn?.accessToken) {
-        return res.status(400).json({ message: `No MS365 system connection for ${campaign.senderCountryCode}` });
+      const senderOne = await resolveSenderAccessToken(campaign);
+      if (!senderOne.accessToken) {
+        return res.status(400).json({ message: senderOne.error || "Sender mailbox unavailable" });
       }
-      const tokenInfo = await getValidAccessToken(
-        decryptTokenSafe(conn.accessToken),
-        conn.tokenExpiresAt,
-        conn.refreshToken ? decryptTokenSafe(conn.refreshToken) : null,
-      );
-      if (!tokenInfo?.accessToken) {
-        return res.status(400).json({ message: "MS365 token refresh failed" });
-      }
-      if (tokenInfo.refreshed) {
-        try {
-          await storage.updateSystemMs365Connection(campaign.senderCountryCode, {
-            accessToken: tokenInfo.accessToken,
-            refreshToken: tokenInfo.refreshToken || conn.refreshToken,
-            tokenExpiresAt: tokenInfo.expiresOn || undefined,
-          } as any);
-        } catch {}
-      }
+      const oneAccessToken = senderOne.accessToken;
 
       const [c] = await db.select().from(collaborators)
         .where(eq(collaborators.id, reqRow.collaboratorId));
@@ -886,7 +959,7 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
           return res.status(409).json({ message: "Request state changed — refresh and try again" });
         }
         try {
-          await ms365SendEmail(tokenInfo.accessToken, [reqRow.email], subject, body, true);
+          await ms365SendEmail(oneAccessToken, [reqRow.email], subject, body, true);
           res.json({ ok: true, resend: false });
         } catch (err: any) {
           await db.update(collaboratorUpdateRequests)
@@ -899,7 +972,7 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
         }
       } else {
         try {
-          await ms365SendEmail(tokenInfo.accessToken, [reqRow.email], subject, body, true);
+          await ms365SendEmail(oneAccessToken, [reqRow.email], subject, body, true);
           await db.update(collaboratorUpdateRequests)
             .set({ remindedAt: new Date(), sendError: null })
             .where(and(
@@ -977,25 +1050,10 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
         return res.json({ ok: false, link, message: msg });
       };
 
-      const conn: any = await storage.getSystemMs365Connection(campaign.senderCountryCode);
-      if (!conn?.accessToken) return markFailed("MS365 mailbox not connected");
-      const tokenInfo = await getValidAccessToken(
-        decryptTokenSafe(conn.accessToken),
-        conn.tokenExpiresAt,
-        conn.refreshToken ? decryptTokenSafe(conn.refreshToken) : null,
-      );
-      if (!tokenInfo?.accessToken) return markFailed("MS365 token refresh failed");
-      if (tokenInfo.refreshed) {
-        try {
-          await storage.updateSystemMs365Connection(campaign.senderCountryCode, {
-            accessToken: tokenInfo.accessToken,
-            refreshToken: tokenInfo.refreshToken || conn.refreshToken,
-            tokenExpiresAt: tokenInfo.expiresOn || undefined,
-          } as any);
-        } catch {}
-      }
+      const senderTest = await resolveSenderAccessToken(campaign);
+      if (!senderTest.accessToken) return markFailed(senderTest.error || "MS365 mailbox not connected");
       try {
-        await ms365SendEmail(tokenInfo.accessToken, [testEmail], subject, body, true);
+        await ms365SendEmail(senderTest.accessToken, [testEmail], subject, body, true);
       } catch (err: any) {
         return markFailed(err?.message || "send failed");
       }

@@ -51,4 +51,5 @@
 - [MS365 tokens encrypted at rest](ms365-token-encryption.md) — decryptTokenSafe() before getValidAccessToken/Graph, else "IDX14100: JWT is not well formed".
 - [Campaign HTML signature render](campaign-html-signature-render.md) — per-campaign reply signature lives in campaign.settings JSON; sanitize manager-authored HTML before dangerouslySetInnerHTML/send (cross-agent XSS) + cache personal-sig fallback separately or it leaks across campaigns.
 - [Per-campaign task attribution](campaign-task-attribution.md) — clinic missions: emails/SMS via recipient_email/phone match (no comm FK); tasks via status_list_item→campaign_id; manual clinic tasks lost.
+- [Collab-sender mailbox PKCE](collab-sender-mailbox.md) — campaign sender OAuth reuses ms365_pkce_store's country_code slot for the campaign id; column had to be widened, callback must bind to the initiating user.
 - [ISCBC sync script](iscbc-collaborator-sync.md) — incremental re-sync from legacy MSSQL: DB name is CBC (not ISCBC, no instanceName); filter doc_active=1 or you pull 16k dead records; script/migration/sync-collaborators-iscbc.cjs.

@@ -5241,7 +5241,7 @@ export const ms365PkceStore = pgTable("ms365_pkce_store", {
   state: varchar("state", { length: 255 }).primaryKey(),
   codeVerifier: text("code_verifier").notNull(),
   type: varchar("type", { length: 20 }).notNull(), // 'user' or 'system'
-  countryCode: varchar("country_code", { length: 10 }), // For system connections
+  countryCode: varchar("country_code", { length: 64 }), // For system connections; carries campaign id for collab-sender
   userId: varchar("user_id").references(() => users.id), // User who initiated
   expiresAt: timestamp("expires_at").notNull(), // Auto-expire after 10 minutes
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
@@ -8059,7 +8059,14 @@ export type TaskGroupRoleSortOrder = typeof taskGroupRoleSortOrders.$inferSelect
 export const collaboratorUpdateCampaigns = pgTable("collaborator_update_campaigns", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
-  senderCountryCode: text("sender_country_code").notNull(), // which system MS365 mailbox sends
+  senderCountryCode: text("sender_country_code").notNull().default(""), // which system MS365 mailbox sends (senderType=system)
+  senderType: text("sender_type").notNull().default("system"), // system (country mailbox) | own (creator's M365) | custom (dedicated connected mailbox)
+  senderUserId: varchar("sender_user_id"), // user whose M365 connection sends (senderType=own)
+  senderCustomEmail: text("sender_custom_email"), // connected dedicated mailbox (senderType=custom)
+  senderCustomDisplayName: text("sender_custom_display_name"),
+  senderCustomAccessToken: text("sender_custom_access_token"), // encrypted
+  senderCustomRefreshToken: text("sender_custom_refresh_token"), // encrypted
+  senderCustomTokenExpiresAt: timestamp("sender_custom_token_expires_at"),
   emailSubject: text("email_subject").notNull(),
   emailBody: text("email_body").notNull(), // HTML with {{placeholders}}
   language: text("language").notNull().default("auto"), // auto (by collaborator country) | sk|cs|hu|ro|it|de|en
@@ -8075,7 +8082,12 @@ export const collaboratorUpdateCampaigns = pgTable("collaborator_update_campaign
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
-export const insertCollaboratorUpdateCampaignSchema = createInsertSchema(collaboratorUpdateCampaigns).omit({ id: true, createdAt: true, updatedAt: true, status: true, createdBy: true });
+export const insertCollaboratorUpdateCampaignSchema = createInsertSchema(collaboratorUpdateCampaigns).omit({
+  id: true, createdAt: true, updatedAt: true, status: true, createdBy: true,
+  // sender identity/tokens are set server-side only
+  senderUserId: true, senderCustomEmail: true, senderCustomDisplayName: true,
+  senderCustomAccessToken: true, senderCustomRefreshToken: true, senderCustomTokenExpiresAt: true,
+});
 export type CollaboratorUpdateCampaign = typeof collaboratorUpdateCampaigns.$inferSelect;
 export type InsertCollaboratorUpdateCampaign = z.infer<typeof insertCollaboratorUpdateCampaignSchema>;
 

@@ -435,7 +435,7 @@ export interface IStorage {
   deleteSystemMs365Connection(countryCode: string): Promise<boolean>;
 
   // MS365 PKCE Store (persisted for server restart resilience)
-  savePkceEntry(state: string, codeVerifier: string, type: 'user' | 'system', userId: string, countryCode?: string): Promise<void>;
+  savePkceEntry(state: string, codeVerifier: string, type: 'user' | 'system' | 'collab-sender', userId: string, countryCode?: string): Promise<void>;
   getPkceEntry(state: string): Promise<{ codeVerifier: string; type: string; countryCode: string | null; userId: string | null } | undefined>;
   deletePkceEntry(state: string): Promise<void>;
   cleanupExpiredPkceEntries(): Promise<void>;
@@ -2837,7 +2837,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // MS365 PKCE Store (persisted for server restart resilience)
-  async savePkceEntry(state: string, codeVerifier: string, type: 'user' | 'system', userId: string, countryCode?: string): Promise<void> {
+  async savePkceEntry(state: string, codeVerifier: string, type: 'user' | 'system' | 'collab-sender', userId: string, countryCode?: string): Promise<void> {
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
     await db.insert(ms365PkceStore).values({
       state,

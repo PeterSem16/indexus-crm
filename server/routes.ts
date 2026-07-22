@@ -4352,6 +4352,44 @@ export async function registerRoutes(
         return res.redirect("/?ms365_error=Session%20expired%20-%20please%20try%20again");
       }
       
+      // Dedicated sender mailbox for a collaborator-update campaign
+      if (pkceData.type === 'collab-sender' && pkceData.countryCode) {
+        const campaignId = pkceData.countryCode; // campaign id is carried in the countryCode slot
+        // Only the user who initiated the connect flow may complete it
+        const sessUserId = (req.session as any)?.user?.id || (req.session as any)?.userId || null;
+        if (!sessUserId || (pkceData.userId && pkceData.userId !== sessUserId)) {
+          await storage.deletePkceEntry(stateStr);
+          return res.redirect(`/collaborator-updates?sender_error=session_mismatch`);
+        }
+        const { acquireTokenByCode, getUserProfile } = await import("./lib/ms365");
+        const { encryptTokenWithMarker } = await import("./lib/token-crypto");
+        const { collaboratorUpdateCampaigns } = await import("@shared/schema");
+        const { eq: eqOp } = await import("drizzle-orm");
+        const { db: dbConn } = await import("./db");
+
+        const tokenResult = await acquireTokenByCode(String(code), pkceData.codeVerifier);
+        await storage.deletePkceEntry(stateStr);
+        const profile = await getUserProfile(tokenResult.accessToken);
+
+        const updated = await dbConn.update(collaboratorUpdateCampaigns).set({
+          senderType: "custom",
+          senderCustomEmail: profile.mail || profile.userPrincipalName,
+          senderCustomDisplayName: profile.displayName || null,
+          senderCustomAccessToken: encryptTokenWithMarker(tokenResult.accessToken),
+          senderCustomRefreshToken: tokenResult.refreshToken ? encryptTokenWithMarker(tokenResult.refreshToken) : null,
+          senderCustomTokenExpiresAt: tokenResult.expiresOn,
+          updatedAt: new Date(),
+        }).where(eqOp(collaboratorUpdateCampaigns.id, campaignId))
+          .returning({ id: collaboratorUpdateCampaigns.id });
+
+        if (updated.length === 0) {
+          console.error(`[MS365] collab-sender callback: campaign ${campaignId} not found`);
+          return res.redirect(`/collaborator-updates?sender_error=campaign_not_found`);
+        }
+        console.log(`[MS365] Campaign sender mailbox connected for ${campaignId}: ${profile.mail || profile.userPrincipalName}`);
+        return res.redirect(`/collaborator-updates?sender_connected=1&campaign=${campaignId}`);
+      }
+
       // Check if this is a system connection
       if (pkceData.type === 'system' && pkceData.countryCode) {
         // Handle system email connection
