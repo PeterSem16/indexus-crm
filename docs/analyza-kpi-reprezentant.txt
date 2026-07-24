@@ -168,18 +168,111 @@ Back office
 
 4. ZHRNUTIE — ČO BY BOLO TREBA DOPRACOVAŤ (v poradí dôležitosti)
 ---------------------------------------------------------------------
-1. Priradenie ambulancia -> reprezentant s históriou platnosti
-   (bez toho nič z bloku 3 nefunguje)
-2. Väzba odber -> ambulancia (pre KPI 3.1–3.3)
-3. Kanonický status list ambulancie v Status Engine + sync na kartu
-   ambulancie (pre KPI 3.4–3.7 a časy prechodov)
-4. Metriky vypĺňania status listu (kvalita dát)
-5. Mesačné snapshoty/uzávierky KPI na reprezentanta (nasadenie,
-   odbery, obrat, statusové podiely)
-6. Koeficienty pre odhad pracovného času a nákladovosť
-   (konfigurovateľné)
-7. Reportingová obrazovka „Výkon reprezentanta" (mesačný prehľad
-   + funnel + review komunikácie)
+
+4.1 Priradenie ambulancia -> reprezentant (s históriou platnosti)
+  Bez toho nič z bloku 3 nefunguje.
+  - Nová väzba: ambulancia je priradená konkrétnemu reprezentantovi
+    s platnosťou od–do (nie len jedno políčko, ktoré sa prepíše).
+  - Pri zmene reprezentanta sa stará väzba ukončí a založí nová —
+    výsledky (odbery, statusy) sa vždy pripíšu tomu, kto mal
+    ambulanciu v správe V ČASE UDALOSTI.
+  - Hromadné priradenie: podľa regiónu/okresu + možnosť ručnej
+    korekcie; import zo zoznamu.
+  - Reporting potom vie: „ambulancie v správe reprezentanta X
+    k dátumu Y" — základ pre všetky podiely v KPI 3.4–3.7.
+
+4.2 Väzba odber -> ambulancia (pre KPI 3.1–3.3)
+  - Pri odbere evidovať, ktorá ambulancia poskytla klientke služby
+    (starostlivosť pred odberom), nielen nemocnicu, kde sa odber
+    uskutočnil.
+  - Zdroj: údaj z karty klientky (ošetrujúci gynekológ/ambulancia),
+    s možnosťou doplniť/opraviť pri spracovaní odberu.
+  - Z väzby odber -> ambulancia -> reprezentant (platný v čase
+    odberu) sa počítajú odbery, obrat a marža na reprezentanta.
+
+4.3 Kanonický status list ambulancie v Status Engine
+  - Jedna oficiálna sada statusov spolupráce (oslovená -> uzavretá ->
+    spolupracuje/nespolupracuje; + akceptuje letáky; + zmluva
+    podpísaná), vypĺňaná reprezentantom.
+  - Každá zmena má timestamp + autora -> úplná história vývoja
+    spolupráce (funnel, časy prechodov).
+  - Polia na karte ambulancie (contractStatus, hasFlyers...) sa
+    synchronizujú ZO statusov, nie opačne — jeden zdroj pravdy.
+
+4.4 Metriky vypĺňania status listu (kvalita dát) — PODROBNE
+  Zmysel: všetky KPI 3.4–3.7 stoja na tom, že status listy sú
+  vyplnené poctivo a včas. Tieto metriky merajú disciplínu
+  vypĺňania, nie výkon reprezentanta ako taký.
+
+  a) POKRYTIE (coverage)
+     Definícia: % kontaktovaných ambulancií, ktoré majú po kontakte
+     nastavený status.
+     Výpočet: čitateľ = počet ambulancií, kde po hovore (call_logs)
+     alebo návšteve (visit_events) pribudol záznam v status liste
+     do 24 h (tolerancia 48 h); menovateľ = počet všetkých
+     kontaktovaných ambulancií v období.
+     Vyhodnotenie: mesačne na reprezentanta; cieľ napr. >= 95 %.
+     Signál: nízke pokrytie = reprezentant telefonuje/jazdí, ale
+     nezapisuje -> KPI 3.4–3.7 sú podhodnotené.
+
+  b) ÚPLNOSŤ (completeness)
+     Definícia: % ambulancií v „uzavretom" stave, ktoré majú
+     vyplnené VŠETKY povinné polia statusu:
+       - spolupracuje áno/nie
+       - akceptuje letáky áno/nie
+       - zmluva podpísaná áno/nie
+       - bude poskytovať služby klientkám áno/nie
+     Výpočet: čitateľ = uzavreté ambulancie s kompletne vyplnenými
+     povinnými poľami; menovateľ = všetky uzavreté ambulancie.
+     Vyhodnotenie: priebežne (aktuálny stav) + mesačný trend;
+     cieľ 100 % — neúplný záznam znamená, že ambulancia sa nedá
+     korektne zaradiť do podielov 3.5–3.7.
+     Doplnok: zoznam konkrétnych neúplných záznamov ako pracovný
+     zoznam pre reprezentanta („dopĺňačka").
+
+  c) ONESKORENIE (latency)
+     Definícia: čas medzi kontaktom (koniec hovoru / koniec
+     návštevy) a zápisom statusu.
+     Výpočet: medián + 90. percentil za obdobie; meria sa
+     z timestampov call_logs/visit_events vs. confirmedAt
+     v status liste.
+     Vyhodnotenie: mesačne na reprezentanta; cieľ napr. medián
+     do 1 h, P90 do 24 h.
+     Signál: dlhé oneskorenie = zapisuje sa „z pamäti" na konci
+     týždňa -> nižšia spoľahlivosť dát (aj keď pokrytie vyzerá OK).
+
+  d) KONZISTENTNOSŤ (doplnková kontrola)
+     - Kontakt bez statusu po X dňoch -> automatická pripomienka
+       reprezentantovi (existujúci systém úloh/notifikácií).
+     - Status bez kontaktu (zapísaný status, ale žiadny hovor ani
+       návšteva v okolí) -> príznak na kontrolu manažérom.
+     - Spätné hromadné vypĺňanie (veľa statusov v jednej minúte)
+       -> príznak v reporte kvality dát.
+
+  Prezentácia: samostatná karta „Kvalita dát" v reporte Výkon
+  reprezentanta — semafor (zelená/oranžová/červená) pre pokrytie,
+  úplnosť a oneskorenie, s preklikom na konkrétne chýbajúce záznamy.
+
+4.5 Mesačné snapshoty / uzávierky KPI na reprezentanta
+  - Raz mesačne sa hodnoty (nasadenie, odbery, obrat, marža,
+    statusové počty a podiely) ZMRAZIA do snapshotu.
+  - Report sa spätne nemení pri oprave dát; opravy sa prejavia
+    v ďalšej uzávierke (prípadne označená korekcia).
+  - Umožňuje trendy: vývoj po mesiacoch, porovnanie období.
+
+4.6 Koeficienty (konfigurovateľné, bez zásahu do kódu)
+  - Normované časy pre odhad pracovného času (Trn, Tro, Td, Tnst —
+    už zapracované v Agent Performance) + prípadné ďalšie typy
+    činností (email, vyplnenie karty, cesta).
+  - Nákladové koeficienty na krajinu pre výpočet marže (KPI 3.3).
+
+4.7 Reportingová obrazovka „Výkon reprezentanta"
+  - Mesačný prehľad: nasadenie (KPI 1.1), odbery/obrat/marža
+    (3.1–3.3), statusové počty a podiely (3.4–3.7).
+  - Funnel spolupráce s časmi prechodov medzi stavmi.
+  - Karta kvality dát (metriky z bodu 4.4).
+  - Review komunikácie: vzorka nahrávok, emailov a poznámok
+    z návštev pre manažérske posúdenie (blok 2).
 
 
 5. OTVORENÉ OTÁZKY PRED IMPLEMENTÁCIOU
