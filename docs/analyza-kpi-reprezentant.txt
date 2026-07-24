@@ -73,6 +73,29 @@ Medzera 4: „Zaplatený" a marža.
 ---------------------------------------------------------------------
 
 KPI 1.1 — Odhadovaný pracovný čas (Pracuje reprezentant?)
+
+  STAV: Výpočet výkonnosti agenta je UŽ ZAPRACOVANÝ v reportingu —
+  modul Agent Performance. Odhaduje čas práce mimo telefonovania
+  a pripočítava k nemu talk time a ring time; výsledkom je celkový
+  odhadovaný skutočne odpracovaný čas.
+
+  Použité normované časy (koeficienty):
+    Trn = read time nový kontakt ........... 15 s
+    Tro = read time opakovaný kontakt ...... 20 s
+    Td  = disposition time ................. 20 s
+    Tnst = príprava neštandardnej úlohy .... 180 s (3 min)
+
+  Vstupy za deň:
+    kn = počet hovorov na nové kontakty
+    kr = počet hovorov na rozpracované kontakty
+    kt = počet nových neštandardných úloh
+
+  Odpracovaný čas Tw za deň (v sekundách):
+    Tw = kn*(Trn + Td) + kr*(Tro + Td) + kt*Tnst
+       = kn*(15 + 20) + kr*(20 + 20) + kt*180
+    + talk time + ring time (z call_logs)
+    = celkový odhadovaný skutočne odpracovaný čas
+
   Skladačka z existujúcich dát, ako v prílohe emailu (odhad
   nehovorového času + talk time + ring time):
 
