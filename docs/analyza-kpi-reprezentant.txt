@@ -3,9 +3,43 @@ Mission reporting — Agent performance
 INDEXUS CRM, 24. 7. 2026
 =====================================================================
 
-Analytický návrh sledovania a vyhodnocovania KPI podľa zadania z emailu
-(otázky: Pracuje reprezentant? Pracuje dobre? Aký efekt má jeho práca?).
-Zatiaľ bez implementácie.
+ÚVOD — ODPOVEĎ NA EMAIL O KPI REPREZENTANTA
+---------------------------------------------------------------------
+Tento dokument je odpoveďou na email definujúci KPI pre prácu
+koordinátora odberov / reprezentanta. Email kladie tri otázky:
+  1. Pracuje reprezentant?
+  2. Pracuje reprezentant dobre?
+  3. Aký efekt má práca reprezentanta?
+
+AKTUÁLNY STAV — čo už dnes systém INDEXUS vie:
+  - Otázka 1 (Pracuje?) je z veľkej časti VYRIEŠENÁ. Výpočet
+    odhadovaného skutočne odpracovaného času (KPI 1.1) je už
+    zapracovaný v reportingu Agent Performance — vrátane vzorca
+    z prílohy emailu (normované časy na kontakt + talk time
+    + ring time). Kontrolu úloh pri nemocniciach pokrýva existujúci
+    systém úloh s potvrdením manažérom.
+  - Otázka 2 (Pracuje dobre?) — v súlade s emailom nenavrhujeme
+    číselné KPI; systém už dnes uchováva nahrávky hovorov,
+    AI sentiment, emaily a poznámky, takže manažér má podklady
+    na posúdenie komunikácie. Chýba len pohodlný súhrnný pohľad.
+  - Otázka 3 (Aký efekt?) je dnes NAJVÄČŠIA MEDZERA. Systém eviduje
+    odbery, ambulancie aj statusy, ale chýbajú kľúčové väzby:
+    ambulancia nemá priradeného reprezentanta, odber nie je
+    naviazaný na ambulanciu a statusy spolupráce nemajú históriu.
+    Preto KPI 3.1–3.7 z emailu zatiaľ NIE JE MOŽNÉ počítať.
+
+NAVRHOVANÉ RIEŠENIE v skratke:
+  - Doplniť dve chýbajúce väzby (ambulancia -> reprezentant,
+    odber -> ambulancia) a zaviesť jednotné statusy spolupráce
+    vypĺňané v Nexus Pulse, s mapovaním na otázky status listu.
+  - KPI počítať mesačne a uzamykať do uzávierok, doplniť kontrolu
+    kvality vypĺňania status listov a jednu reportingovú obrazovku
+    „Výkon reprezentanta".
+  - Podrobnosti sú v kapitolách 1–5 nižšie; kapitola 4 je zoznam
+    konkrétnych vecí na dopracovanie, kapitola 5 sú rozhodnutia,
+    ktoré potrebujeme od manažmentu.
+
+Zatiaľ ide o analytický návrh — bez implementácie.
 
 
 1. ČO UŽ DNES V SYSTÉME MÁME (dátový základ)
@@ -307,10 +341,60 @@ Back office
     z návštev pre manažérske posúdenie (blok 2).
 
 
-5. OTVORENÉ OTÁZKY PRED IMPLEMENTÁCIOU
+5. ROZHODNUTIA, KTORÉ POTREBUJEME OD MANAŽMENTU
 ---------------------------------------------------------------------
-a) Kto a kde priradí ambulancie reprezentantom
-   (import? ručne? podľa regiónu?)
-b) Čo je zdroj „klient zaplatil" — faktúra v INDEXUSe alebo externé
-   účtovníctvo?
-c) Rátať maržu cez paušálny nákladový koeficient na krajinu?
+Pred začatím implementácie potrebujeme tri rozhodnutia. Nejde
+o technické detaily — každé z nich priamo ovplyvňuje, ako budú
+výsledné čísla vyzerať a ako veľmi im budeme môcť veriť.
+
+a) KTO PRIRADÍ AMBULANCIE REPREZENTANTOM A AKO?
+   O čo ide: každé KPI „na reprezentanta" (odbery, obrat, podiely
+   spolupracujúcich ambulancií) sa počíta z ambulancií, ktoré má
+   daný reprezentant v správe. Dnes toto priradenie v systéme
+   neexistuje — treba ho raz nastaviť a potom udržiavať.
+   Možnosti:
+     1. Automaticky podľa regiónu/okresu — rýchly štart, vhodné ak
+        má každý reprezentant jasne dané územie. Riziko: hraničné
+        prípady (ambulancia na okraji regiónu).
+     2. Ručné priradenie manažérom — presné, ale prácne pri
+        stovkách ambulancií.
+     3. Kombinácia (odporúčame): automaticky podľa regiónu
+        + manažér ručne opraví výnimky.
+   Čo potrebujeme rozhodnúť: ktorý variant, kto bude priradenie
+   udržiavať pri zmenách (nový reprezentant, zmena územia)
+   a od akého dátumu má platiť.
+
+b) ODKIAĽ BUDEME VEDIEŤ, ŽE KLIENT ZAPLATIL?
+   O čo ide: KPI 3.1–3.3 (odbery, obrat, marža) sa podľa emailu
+   počítajú zo ZAPLATENÝCH odberov. Musíme sa dohodnúť, čo je
+   oficiálny zdroj informácie „zaplatené" a k akému dátumu.
+   Možnosti:
+     1. Faktúry/platby evidované priamo v INDEXUSe — čísla budú
+        v systéme okamžite, ale len ak sa platby dôsledne evidujú.
+     2. Externé účtovníctvo (mesačný import/výkaz) — presnejšie
+        voči realite, ale s oneskorením a závislosťou od dodania
+        podkladov.
+   Čo potrebujeme rozhodnúť: záväzný zdroj pravdy, dátum, ku ktorému
+   sa platba počíta (dátum úhrady vs. dátum vystavenia faktúry),
+   a kto zodpovedá za dodanie dát, ak pôjde o externý zdroj.
+   Bez tohto rozhodnutia by obrat v reporte nemusel sedieť
+   s účtovníctvom a report by strácal dôveryhodnosť.
+
+c) AKO POČÍTAŤ MARŽU (KPI 3.3)?
+   O čo ide: na maržu treba od obratu odpočítať náklady. Presné
+   náklady na jednotlivý odber v INDEXUSe nie sú a ich evidencia
+   by bola neúmerne prácna.
+   Návrh: použiť PAUŠÁLNY NÁKLADOVÝ KOEFICIENT NA KRAJINU —
+   manažment určí priemerný náklad na odber (prípadne % z ceny)
+   pre každú krajinu; systém ho použije pri výpočte. Koeficient
+   bude konfigurovateľný, takže sa dá kedykoľvek upraviť bez
+   zásahu do systému, a pri každej zmene sa uchová história
+   (aby staré uzávierky zostali v pôvodných hodnotách).
+   Čo potrebujeme rozhodnúť: či tento zjednodušený model stačí
+   na účel „je činnosť reprezentanta stratová alebo nie",
+   kto koeficienty určí a ako často sa budú revidovať
+   (napr. raz ročne).
+
+Odporúčanie: rozhodnutia a) a b) sú blokujúce pre výpočet KPI
+bloku 3; rozhodnutie c) vie počkať — marža sa dá doplniť aj
+dodatočne, keď už pobežia odbery a obrat.
