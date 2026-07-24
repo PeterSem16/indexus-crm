@@ -1,0 +1,168 @@
+ANALÝZA: KPI REPREZENTANTA / KOORDINÁTORA ODBEROV
+Mission reporting — Agent performance
+INDEXUS CRM, 24. 7. 2026
+=====================================================================
+
+Analytický návrh sledovania a vyhodnocovania KPI podľa zadania z emailu
+(otázky: Pracuje reprezentant? Pracuje dobre? Aký efekt má jeho práca?).
+Zatiaľ bez implementácie.
+
+
+1. ČO UŽ DNES V SYSTÉME MÁME (dátový základ)
+---------------------------------------------------------------------
+Hovory (call_logs):
+  - agent, smer, stav (answered/no_answer...), presné časy
+    (začiatok, zdvihnutie, koniec), dĺžka
+  - z toho vieme: talk time, ring time, dovolateľnosť, počet hovorov/deň
+
+Návštevy v teréne (visit_events, mobilná appka):
+  - typ návštevy, skutočný začiatok/koniec, GPS na začiatku aj konci
+  - ideálne pre odhad reálne odpracovaného času v teréne
+
+Úlohy (tasks):
+  - zadávateľ, riešiteľ, deadline, stav, potvrdenie manažérom
+  - pokrýva úlohy č. 2–4 z emailu (manažér zadáva a potvrdzuje)
+
+Status listy kampaní (campaign_contact_status_list_state):
+  - pri každom statuse KTO ho nastavil a KEDY
+  - najlepší zdroj pre históriu vývoja spolupráce
+
+Ambulancie (clinics):
+  - polia spolupráca / záujem o zmluvu / stav zmluvy / letáky
+  - dátumy odoslania a vrátenia zmluvy
+
+Odbery (collections):
+  - priamo representativeId + väzba na nemocnicu a klientku
+
+Nemocnice (hospitals):
+  - priamo representativeId (priradený reprezentant)
+
+
+2. KĽÚČOVÉ MEDZERY, KTORÉ ANALÝZA ODHALILA
+---------------------------------------------------------------------
+Medzera 1: Ambulancia nemá priradeného reprezentanta.
+  Nemocnica má representativeId, ambulancia nie. Bez tejto väzby sa
+  nedá spočítať ani jedno KPI z bloku 3 (odbery, obrat, statusy „na
+  reprezentanta"). Treba doplniť priradenie ambulancia -> reprezentant,
+  ideálne s históriou platnosti od–do, aby sa pri zmene reprezentanta
+  nezdedili cudzie výsledky.
+
+Medzera 2: Statusy ambulancie sú len „aktuálny stav", bez histórie.
+  Polia ako interestCooperation alebo hasFlyers sa prepisujú. Vieme
+  povedať „koľko ambulancií dnes spolupracuje", ale nie „koľko ich
+  spolupracovalo k 31. 3." ani „ako dlho trvala cesta od prvého
+  kontaktu po zmluvu". Riešenie: ťahať to zo status listov kampaní
+  (tam história je) alebo robiť mesačné snapshoty stavov ambulancií.
+
+Medzera 3: Odber nevieme spoľahlivo priradiť k ambulancii.
+  Email definuje výpočet: zobrať zaplatený odber -> zistiť, ktorá
+  ambulancia poskytla služby -> pripočítať reprezentantovi.
+  collections má nemocnicu a reprezentanta, ale väzba odber ->
+  ambulancia (kde je klientka v starostlivosti) chýba. Bez nej sa
+  KPI 3.1–3.3 nedá počítať podľa definície z emailu.
+
+Medzera 4: „Zaplatený" a marža.
+  Pre obrat treba jasný zdroj „klient zaplatil odber v mesiaci X +
+  suma". Pre maržu (KPI 3.3) treba aj nákladovú stranu (náklady na
+  odber + na reprezentanta) — tá dnes v systéme štruktúrovane nie je.
+  Návrh: maržu v prvej fáze počítať cez konfigurovateľnú priemernú
+  nákladovosť na krajinu, nie cez presné účtovníctvo.
+
+
+3. NÁVRH VYHODNOCOVANIA PO JEDNOTLIVÝCH KPI
+---------------------------------------------------------------------
+
+KPI 1.1 — Odhadovaný pracovný čas (Pracuje reprezentant?)
+  Skladačka z existujúcich dát, ako v prílohe emailu (odhad
+  nehovorového času + talk time + ring time):
+
+  Odpracovaný čas = talk time + ring time (call_logs)
+                  + čas návštev (visit_events, GPS-overený)
+                  + normovaný čas na dokončené úlohy/administratívu
+                    (koeficienty na typ činnosti)
+
+  Výsledok: odpracovaný čas / oficiálny fond pracovného času
+  = NASADENIE v %, mesačne na reprezentanta.
+  Koeficienty (napr. koľko minút „stojí" jeden email, jedna vyplnená
+  karta) konfigurovateľné, aby sa dal odhad ladiť bez zásahov do kódu.
+
+Úloha 2 (nemocnice) — bez nového KPI, ale s prehľadom
+  Systém úloh + manažérske potvrdenie už existuje. Stačí reporting:
+  plán kontaktov nemocníc (úlohy s deadline) vs. skutočnosť (hovor
+  v call_logs / návšteva vo visit_events na danú nemocnicu) —
+  semafor „kontaktované podľa plánu / meškajúce".
+
+Blok 2 — Pracuje dobre? (kvalitatívne, nie číselné)
+  Súhlas s emailom: čísla to nepovedia. Systém má manažérovi
+  SERVÍROVAŤ KOMUNIKÁCIU NA POSÚDENIE, nie skóre: náhodná vzorka
+  hovorov (nahrávky + AI sentiment už máme), história emailov
+  a poznámok z návštev na jednom mieste. Teda „review view", nie KPI.
+
+KPI 3.1–3.3 — Odbery, obrat, marža na reprezentanta/mesiac
+  Výpočet presne podľa emailu, s mesačnou uzávierkou:
+    1. zaplatené odbery za mesiac M,
+    2. odber -> ambulancia (nová väzba, medzera 3),
+    3. ambulancia -> reprezentant PLATNÝ V ČASE ODBERU
+       (nová väzba s históriou, medzera 1),
+    4. súčet počtu, obratu, marža cez nákladový koeficient.
+  Dôležité: mesačné hodnoty ZMRAZIŤ DO SNAPSHOTU (uzávierka), aby sa
+  report spätne nemenil pri oprave dát.
+
+KPI 3.4–3.7 — Statusy ambulancií (skorý signál efektivity)
+  Zjednotiť zdroj pravdy do Status Management Engine: definovať
+  kanonické statusy ambulancie (oslovená -> uzavretá -> spolupracuje /
+  nespolupracuje; + akceptuje letáky; + zmluva podpísaná) ako status
+  list, ktorý reprezentant vypĺňa. Každá zmena má timestamp a autora.
+  Z toho sa počíta:
+    3.4  počet uzavretých ambulancií (kumulatívne aj prírastok/mesiac)
+    3.5–3.7  počty a podiely (spolupracuje, letáky, zmluva) — vždy
+             k dátumu, vďaka histórii
+    + navyše FUNNEL a ČASY PRECHODU medzi stavmi (odpovedá aj na
+      „koľko času trvá komunikácia s ambulanciou typu X" z emailu).
+  Polia na karte ambulancie (contractStatus, hasFlyers...) by sa
+  synchronizovali zo statusov, nie opačne.
+
+Sledovanie vypĺňania status listu (nové — treba dopracovať)
+  Tri metriky:
+    - POKRYTIE: % kontaktovaných ambulancií (hovor/návšteva existuje),
+      ktoré majú do 24/48 h nastavený status
+    - ÚPLNOSŤ: % ambulancií v „uzavretom" stave s vyplnenými všetkými
+      povinnými poliami (letáky á/n, zmluva á/n, služby á/n)
+    - ONESKORENIE: medián času medzi hovorom/návštevou a zápisom statusu
+  Zároveň poistka kvality dát — všetky KPI 3.4–3.7 stoja na tom,
+  že status listy sú vyplnené.
+
+Back office
+  Súhlas s emailom — nie priebežné KPI, len ročný prehľad.
+  Z tasks.boState + timestampov vieme spočítať % ÚLOH MIMO SLA
+  (zmluva neodoslaná načas, nezvalidovaná načas) bez nového zberu dát.
+
+„Zaujímavosti" (nie KPI)
+  Počet hovorov/deň, dovolateľnosť, práca v pracovnej dobe,
+  % odmietnutí — všetko derivovateľné z call_logs a status histórie.
+  Stačí ad-hoc report, netreba nič dopracovať.
+
+
+4. ZHRNUTIE — ČO BY BOLO TREBA DOPRACOVAŤ (v poradí dôležitosti)
+---------------------------------------------------------------------
+1. Priradenie ambulancia -> reprezentant s históriou platnosti
+   (bez toho nič z bloku 3 nefunguje)
+2. Väzba odber -> ambulancia (pre KPI 3.1–3.3)
+3. Kanonický status list ambulancie v Status Engine + sync na kartu
+   ambulancie (pre KPI 3.4–3.7 a časy prechodov)
+4. Metriky vypĺňania status listu (kvalita dát)
+5. Mesačné snapshoty/uzávierky KPI na reprezentanta (nasadenie,
+   odbery, obrat, statusové podiely)
+6. Koeficienty pre odhad pracovného času a nákladovosť
+   (konfigurovateľné)
+7. Reportingová obrazovka „Výkon reprezentanta" (mesačný prehľad
+   + funnel + review komunikácie)
+
+
+5. OTVORENÉ OTÁZKY PRED IMPLEMENTÁCIOU
+---------------------------------------------------------------------
+a) Kto a kde priradí ambulancie reprezentantom
+   (import? ručne? podľa regiónu?)
+b) Čo je zdroj „klient zaplatil" — faktúra v INDEXUSe alebo externé
+   účtovníctvo?
+c) Rátať maržu cez paušálny nákladový koeficient na krajinu?
