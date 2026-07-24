@@ -1,0 +1,87 @@
+Cieľom tohto emailu je definovať KPIs, ktoré chceme používať v súvislosti s prácou koordinátora odberov/reprezentanta. Čo chceme vedieť?
+Tu sú otázky na ktoré potrebujeme odpovede:
+Pracuje reprezentant?
+Pracuje reprezentant dobre?
+Aký efekt má práca reprezentanta?
+ 
+Add 1. Pracuje reprezentant?
+Pracovnými úlohami reprezentanta sú:
+Uzatvárať spoluprácu s ambulantnými gynekológmi a následne ju udržiavať
+Uzatvárať spoluprácu s nemocnicami a udržovať ju, napríklad vykonávať audity ak je to vyžadované.
+Reprezentovať spoločnosť na gynekologickým prípadne hematologických konferenciách
+V prípade potreby asistovať pri komunikácii s autoritami s cieľom spĺňaj legislatívne požiadavky.
+Add úlohy č. 1.
+Na to staci jeden parameter – odhadovaný čas venovaný pracovným činnostiam – vid príloha. (KPI 1.1.)
+Add úlohy č. 2.
+        Kontrola či s nemocnicami telefonoval alebo ich navstivil podla plánu.
+Úlohy zadáva zodpovedný manažer v systéme úloh a aj potvrdzuje, že úloha bola splnená. Pokiaľ nemocnica nie je v dosahu reprezentanta, tak sa pokúša nadviazať spolupracu telefonicky, ak sa to nepodarí, vedenie zváži či sa oplatí nemocnicu navštíviť a určí kto vedenie nemocnice alebo siete nemocníc prípadne navštívi. Manažér databázy medicínskych spolupracovníkov poskytuje informácie o nemocniciach a sieťach príslušným manažérom. Za spoluprácu s nemocnicou zodpovedá oddelenie výroby.
+Splnenie jednotlivých úloh kontroluje manazer. Žiadne KPIs či reprezentant pracuje na týchto úlohách zatial nie sú potrebné.
+Add úlohy č. 3.
+               Nastavuje manazer a kontroluje manazer. Žiadne KPIs na sledovanie či reprezentant pracuje na týchto úlohách nie su potrebné.
+Add úlohy č.4.
+        Individuálne úlohy určené manažérom. Žiadne KPIs na sledovanie či reprezentant pracuje na týchto úlohách nie su potrebné.
+ 
+Add 2. Pracuje reprezentant dobre?
+Pracovné výsledky nebude veľmi s kým porovnávať. Porovnávať výsledky reprezentantov medzi krajinami je ošemetné. Podiel ambulantných gynekológov ochotných spolupracovať sa môže v rôznych krajinách veľmi líšiť, môže sa líšiť aj podľa regiónov. Akékoľvek čísla nám nepovedia, či reprezentant pracuje dobre. Preto je potrebné sledovať komunikáciu reprezentanta a vyhodnocovať priamo komunikáciu, nie počty kontraktov s ambulanciami a podobne.
+Je samozrejme možné sledovať množstvo parametrov, ale nič zásadné nám nepovedia o tom či reprezentant vykonáva svoju prácu správne, pretože tieto výsledky nemáme s kým porovnať. Je úlohou vedenia zistiť či reprezentant pracuje dobre na základe sledovania jeho komunikácie.
+ 
+Teraz keď už vieme, že reprezentant pracuje a že pracuje podľa našich predstáv, prichádzajú dôležité otázky: Môžeme si dovoliť vynakladať prostriedky na reprezentanta? Uživí sa reprezentant? Má jeho činnosť efekt na počet klientov? Predpokladáme, že ak sú v ambulancii letáky a lekár nemá zásadné námietky proti uskladňovaniu pupočníkovej krvi, uzatvorená spolupráca by mohla viesť, z času na čas, k odberu pupočníkovej krvi. Ale s istotou to nemôžeme tvrdiť. Takže potrebujeme zistiť:
+ 
+Add 3. Aký efekt má práca reprezentanta?
+Opäť, môžeme sledovať množstvo parametrov, ale na pokrytie nákladov na reprezentanta bude na konci aj tak dôležitý iba počet klientov. Takže parameter, ktorý naozaj potrebujeme sledovať je počet odberov a obrat, ktorý odbery vygenerujú a to z oblasti ktorá spadá do správy daného reprezentanta. Najpresnejší je počet klientov, ktorí zaplatili odber a celkový príjem za odbery. Z toho vieme určiť, či činnosť reprezentanta je stratová alebo nie.
+Pocet klientov ktorí zaplatili a ktorým bola poskytnutá služba ambulanciou, ktorá je priradená danému reprezentantovi.
+KPIs:
+3.1. Počet odberov reprezentanta za mesiac. Zarátavajú sa odbery, ktoré sú spojené so spolupracujúcimi ambulanciami, ktoré má v správe daný reprezentant.
+3.2. Obrat z odberov za mesiac z vyššie definovaných odberov, priradených k reprezentantovi.
+3.3. Marža z odberov za mesiac z vyššie definovaných odberov, priradených k reprezentantovi.
+              
+Výpočet: Zobrať odber zaplatený v predošlom mesiaci, zistiť ktorá ambulancia poskytla služby. Pripočítať odber k odberom reprezentanta, ku ktorému je priradená ambulancia.
+ 
+Tento parameter má veľké opozdenie. Výsledky práce reprezentanta sa tak prejavia v týchto KPIs cca po pol roku alebo až po roku.
+ 
+Určite by sme chceli vedieť čím skôr, či je projekt efektívny. Tu sú ďalšie parametre, ktoré môžeme sledovať. Ich význam je v tom, že nám môžu pomôcť zrušiť projekt skôr. Môžu byť aj pomôckou pri nastavení spôsobu nadväzovania spolupráce.
+KPIs:
+               3.4. Celkový počet uzavretých ambulancií priradených reprezentantovi – status ambulancia spolupracuje, alebo nespolupracuje
+               3.5.1. Počet spolupracujúcich ambulancií – status ambulancia spolupracuje
+               3.5.2. Podiel spolupracujúcich ambulancií z uzavretých ambulancií
+               3.6.1. Počet ambulancií súhlasiacich s letákmi v čakárni ambulancie – status ambulancia akceptuje letáky
+               3.6.2. Podiel ambulancií súhlasiacich s letákmi z uzavretých ambulancií – status ambulancia akceptuje letáky/ambulancia spolupracuje alebo nespolupracuje
+               3.7.1. Počet ambulancií s uzatvorenou zmluvou
+               3.7.2. Podiel ambulancií s uzatvorenou zmluvou zo spolupracujúcich ambulancií
+ 
+ 
+Je dôležité sledovať aj činnosť backofficu. Či vykonáva podporu reprezentanta tak ako určujú pracovné postupy.
+ 
+Ulohy backofficu:
+Tlac a zasielanie zmluv s ambulanciou na požiadanie reprezentanta
+Validacia vratenych zmluv a oznamenie reprezentantovi zle vyplnenych a nepodpisanych zmluv
+Zasielanie balikov letakov a informacnych materialov.
+ 
+Máme sledovať nejaké KPIs pre back office? Možno percento nezhodných prác. (Napríklad koľko zmlúv nebolo zaslaných v stanovenom čase, koľko zmlúv nebolo validovaných v stanovenom čase a podobne. Ovšem každá nesplnená úloha bude eskalovaná preto by som týmto informáciam neprikladal veľký význam. Možno vrámci ročného vyhodnotenia práce ľudí či oddelenia.
+ 
+Sú tu aj ďalšie otázky týkajúce sa práce reprezentanta, ale väčšina z nich sú skôr pre zaujímavosť a nemusíme ich sledovať dlhodobo, raz za čas si môžeme spraviť o nich prehľad a podiskutovať či z toho nevyplýva potreba niečo zmeniť. Napríklad postup reprezentanta alebo samotného reprezentanta. Preto ich neuvádzam ako Key PIs:
+Pracuje reprezentant počas pracovnej doby?
+Kolko telefonátov za deň urobí?
+Akú má dovolateľnosť?
+Koľko percent ambulancií odmietlo akúkoľvek spoluprácu?
+Koľko percent ambulancií spolupracuje?
+Bude poskytovať služby
+Uzatvorilo zmluvu
+Akceptovalo letáky
+Koľko času trvá komunikácia s ambulanciou, ktorá je ochotná poskytovať služby klientke, uzavrieť zmluvu a akceptovať letáky?
+Koľko času trvá komunikácia s ambulanciou, ktorá je ochotná poskytovať služby klientke, nechce uzavrieť zmluvu a akceptuje letáky?
+Koľko času trvá komunikácia s ambulanciou, ktorá nie je ochotná poskytovať služby klientke, teda nechce uzavriet zmluvu a akceptuje letáky?
+Koľko času trvá komunikácia s ambulanciou, ktorá nie je ochotná poskytovať služby, klientke, nechce uzavrieť zmluvu a neakceptuje letáky?
+ 
+ 
+KPI urcujuce kolko casu CTCC skutocne pracoval.
+Odpracovany cas deleno oficiálny pracovný cas.
+So semanom v emaili, ktory je v prilohe, sme urobili odhad čistého pracovného času CTCC.
+Podiel tohto casu ku pracovnému casu hovorí o nasadení CTCC.
+ 
+KPIs určujúce efektivitu prace CTCC a efektivitu projektu
+Podiel ambulancii ochotnych spolupracovat k celkovemu poctu oslovenych a uz uzavretych ambulancii
+i)        Podiel ambulancií, ktoré súhlasia so zasielaním letákov voci vsetkym osloveným a uzavretym ambulanciam
+ii)       Podiel ambulancii, ktore sú ochotné poskytovať sluzby klientkám CBC
+Odhadli sme cas prace ked netefonuju, musime k tomu vsak pripocitat este talk time a ring time.
+Tak dostaneme celkovy odhadovany skutocne odpracovany cas.
