@@ -244,11 +244,18 @@ export function registerPricingRoutes(app: Express) {
 
   // manual price edits on a DRAFT price list (pricing administrator only)
   app.patch("/api/pricing/price-lists/:id/prices", requireAuth, requirePricingAdmin, async (req, res) => {
-    const { collection = [], storage = [], discounts = [], installments = [], rules = [] } = req.body as {
+    const {
+      collection = [], storage = [], discounts = [], installments = [], rules = [],
+      addDiscounts = [], removeDiscounts = [], addInstallments = [], removeInstallments = [],
+    } = req.body as {
       collection?: Array<{ id: string; price: number }>;
       storage?: Array<{ id: string; price: number }>;
       discounts?: Array<{ id: string; discountPct: number }>;
       installments?: Array<{ id: string; surchargePct: number }>;
+      addDiscounts?: Array<{ years: number; discountPct: number }>;
+      removeDiscounts?: string[];
+      addInstallments?: Array<{ installments: number; surchargePct: number }>;
+      removeInstallments?: string[];
       rules?: Array<{ id: string; enabled?: boolean; amount?: number | null; pct?: number | null; appliesTo?: string | null; volumeOperator?: string | null; volumeMinMl?: number | null; volumeMaxMl?: number | null }>;
     };
     const [list] = await db.select().from(pricingPriceLists).where(eq(pricingPriceLists.id, req.params.id));
@@ -262,6 +269,32 @@ export function registerPricingRoutes(app: Express) {
     }
     if (installments.some((r) => !r?.id || !Number.isFinite(r.surchargePct))) {
       return res.status(400).json({ message: "Each installment row needs an id and a finite surchargePct" });
+    }
+    if (addDiscounts.some((r) => !Number.isInteger(r?.years) || r.years <= 0 || !Number.isFinite(r?.discountPct))) {
+      return res.status(400).json({ message: "New discounts need a positive integer years and a finite discountPct" });
+    }
+    if (addInstallments.some((r) => !Number.isInteger(r?.installments) || r.installments <= 0 || !Number.isFinite(r?.surchargePct))) {
+      return res.status(400).json({ message: "New installment plans need a positive integer count and a finite surchargePct" });
+    }
+    if ([...removeDiscounts, ...removeInstallments].some((id) => typeof id !== "string" || !id)) {
+      return res.status(400).json({ message: "remove lists must contain row ids" });
+    }
+    // duplicate years/installment counts would make engine lookups non-deterministic
+    if (addDiscounts.length) {
+      const existing = await db.select().from(pricingStorageDiscounts).where(eq(pricingStorageDiscounts.priceListId, list.id));
+      const kept = new Set(existing.filter((d) => !removeDiscounts.includes(d.id)).map((d) => d.years));
+      for (const r of addDiscounts) {
+        if (kept.has(r.years)) return res.status(400).json({ message: `A prepaid discount for ${r.years} years already exists` });
+        kept.add(r.years);
+      }
+    }
+    if (addInstallments.length) {
+      const existing = await db.select().from(pricingInstallmentPlans).where(eq(pricingInstallmentPlans.priceListId, list.id));
+      const kept = new Set(existing.filter((p) => !removeInstallments.includes(p.id)).map((p) => p.installments));
+      for (const r of addInstallments) {
+        if (kept.has(r.installments)) return res.status(400).json({ message: `An installment plan with ${r.installments} installments already exists` });
+        kept.add(r.installments);
+      }
     }
     const finiteOrNull = (v: unknown) => v === undefined || v === null || Number.isFinite(v);
     if (rules.some((r) => !r?.id || !finiteOrNull(r.amount) || !finiteOrNull(r.pct)
@@ -305,6 +338,20 @@ export function registerPricingRoutes(app: Express) {
         await tx.update(pricingInstallmentPlans)
           .set({ surchargePct: String(r.surchargePct) })
           .where(and(eq(pricingInstallmentPlans.id, r.id), eq(pricingInstallmentPlans.priceListId, list.id)));
+      }
+      for (const id of removeDiscounts) {
+        await tx.delete(pricingStorageDiscounts)
+          .where(and(eq(pricingStorageDiscounts.id, id), eq(pricingStorageDiscounts.priceListId, list.id)));
+      }
+      for (const id of removeInstallments) {
+        await tx.delete(pricingInstallmentPlans)
+          .where(and(eq(pricingInstallmentPlans.id, id), eq(pricingInstallmentPlans.priceListId, list.id)));
+      }
+      if (addDiscounts.length) {
+        await tx.insert(pricingStorageDiscounts).values(addDiscounts.map((r) => ({ priceListId: list.id, years: r.years, discountPct: String(r.discountPct) })));
+      }
+      if (addInstallments.length) {
+        await tx.insert(pricingInstallmentPlans).values(addInstallments.map((r) => ({ priceListId: list.id, installments: r.installments, surchargePct: String(r.surchargePct) })));
       }
       for (const r of rules) {
         await tx.update(pricingAdjustmentRules)

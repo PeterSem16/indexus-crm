@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Loader2, Copy, AlertTriangle, CheckCircle2, Check, X, Pencil, Calculator as CalcIcon, ListOrdered, Grid3X3, CopyPlus, CalendarDays, Trash2 } from "lucide-react";
+import { Loader2, Copy, AlertTriangle, CheckCircle2, Check, X, Pencil, Calculator as CalcIcon, ListOrdered, Grid3X3, CopyPlus, CalendarDays, Trash2, Package, Percent, Droplets, Plus, Sparkles } from "lucide-react";
 
 // ---------- types (mirror server /api/pricing responses) ----------
 interface PriceListRow {
@@ -124,6 +124,36 @@ export default function PricingPage() {
   );
 }
 
+// playful color identity per component code (falls back through the palette for unknown codes)
+const COMPONENT_COLORS: Record<string, string> = {
+  CB: "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800",
+  PB: "bg-violet-100 text-violet-800 border-violet-200 dark:bg-violet-900/40 dark:text-violet-300 dark:border-violet-800",
+  T: "bg-teal-100 text-teal-800 border-teal-200 dark:bg-teal-900/40 dark:text-teal-300 dark:border-teal-800",
+  P: "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-800",
+};
+const COMPONENT_FALLBACK = [
+  "bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-900/40 dark:text-sky-300 dark:border-sky-800",
+  "bg-lime-100 text-lime-800 border-lime-200 dark:bg-lime-900/40 dark:text-lime-300 dark:border-lime-800",
+  "bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200 dark:bg-fuchsia-900/40 dark:text-fuchsia-300 dark:border-fuchsia-800",
+];
+function compColor(code: string): string {
+  if (COMPONENT_COLORS[code]) return COMPONENT_COLORS[code];
+  let h = 0; for (let i = 0; i < code.length; i++) h = (h * 31 + code.charCodeAt(i)) | 0;
+  return COMPONENT_FALLBACK[Math.abs(h) % COMPONENT_FALLBACK.length];
+}
+function CompChip({ code, small }: { code: string; small?: boolean }) {
+  return <span className={`inline-flex items-center rounded-full border font-medium ${small ? "px-1.5 py-0 text-[10px]" : "px-2 py-0.5 text-xs"} ${compColor(code)}`}>{code}</span>;
+}
+// product family color by contained components (blood products red-ish, tissue teal, mixed indigo)
+function productBadgeCls(codes: string[]): string {
+  const hasBlood = codes.includes("CB") || codes.includes("PB");
+  const hasTissue = codes.includes("T") || codes.includes("P");
+  if (hasBlood && hasTissue) return "bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-300 dark:border-indigo-800";
+  if (hasBlood) return "bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-900/40 dark:text-rose-300 dark:border-rose-800";
+  if (hasTissue) return "bg-teal-100 text-teal-800 border-teal-200 dark:bg-teal-900/40 dark:text-teal-300 dark:border-teal-800";
+  return "bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
+}
+
 // human-readable LOW_VOLUME condition (mirrors server volumeConditionText)
 function volumeCondText(op?: string | null, min?: string | number | null, max?: string | number | null): string {
   const f = (v: string | number | null | undefined) => { const x = parseFloat(String(v ?? "")); return Number.isFinite(x) ? x : 0; };
@@ -148,6 +178,12 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
   const [edits, setEdits] = useState<Record<string, string>>({});
   // adjustment-rule edits keyed by rule id: enabled toggle + amount/pct/appliesTo values
   const [ruleEdits, setRuleEdits] = useState<Record<string, { enabled?: boolean; amount?: string; pct?: string; appliesTo?: string; volumeOperator?: string; volumeMin?: string; volumeMax?: string }>>({});
+  // add/remove of discount & installment items (draft edit mode)
+  const [newDiscounts, setNewDiscounts] = useState<Array<{ years: string; pct: string }>>([]);
+  const [newInstallments, setNewInstallments] = useState<Array<{ count: string; pct: string }>>([]);
+  const [removedDiscounts, setRemovedDiscounts] = useState<string[]>([]);
+  const [removedInstallments, setRemovedInstallments] = useState<string[]>([]);
+  const resetItemEdits = () => { setNewDiscounts([]); setNewInstallments([]); setRemovedDiscounts([]); setRemovedInstallments([]); };
   const selected = lists.find((l) => l.id === selectedId) ?? null;
   const isEditableDraft = !!selected && selected.status === "draft" && canManage;
 
@@ -157,6 +193,7 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
     setEditMode(false);
     setEdits({});
     setRuleEdits({});
+    resetItemEdits();
   }, [selectedId]);
 
   const duplicateMutation = useMutation({
@@ -230,13 +267,32 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
         }
         if (Object.keys(out).length > 1) rules.push(out);
       }
-      return apiRequest("PATCH", `/api/pricing/price-lists/${selected!.id}/prices`, { collection, storage, discounts, installments, rules });
+      const addDiscounts: Array<{ years: number; discountPct: number }> = [];
+      for (const d of newDiscounts) {
+        if (d.years === "" && d.pct === "") continue; // untouched blank row
+        const years = parseInt(d.years, 10); const pct = parseFloat(d.pct);
+        if (!Number.isInteger(years) || years <= 0 || !Number.isFinite(pct)) return Promise.reject(new Error(t.pricing.invalidNumber));
+        addDiscounts.push({ years, discountPct: pct });
+      }
+      const addInstallments: Array<{ installments: number; surchargePct: number }> = [];
+      for (const i of newInstallments) {
+        if (i.count === "" && i.pct === "") continue;
+        const count = parseInt(i.count, 10); const pct = parseFloat(i.pct);
+        if (!Number.isInteger(count) || count <= 0 || !Number.isFinite(pct)) return Promise.reject(new Error(t.pricing.invalidNumber));
+        addInstallments.push({ installments: count, surchargePct: pct });
+      }
+      return apiRequest("PATCH", `/api/pricing/price-lists/${selected!.id}/prices`, {
+        collection, storage, discounts, installments, rules,
+        addDiscounts, addInstallments,
+        removeDiscounts: removedDiscounts, removeInstallments: removedInstallments,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/pricing/price-lists", selected?.id] });
       setEditMode(false);
       setEdits({});
       setRuleEdits({});
+      resetItemEdits();
       toast({ title: t.pricing.pricesSaved });
     },
     onError: (e: any) => toast({ title: t.pricing.updateFailed, description: String(e?.message ?? e), variant: "destructive" }),
@@ -318,13 +374,13 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
                 <CopyPlus className="w-4 h-4 mr-1" />{t.pricing.copyList}
               </Button>
               {isEditableDraft && !editMode && (
-                <Button size="sm" variant="outline" onClick={() => { setEdits({}); setRuleEdits({}); setEditMode(true); }} data-testid="button-edit-prices">
+                <Button size="sm" variant="outline" onClick={() => { setEdits({}); setRuleEdits({}); resetItemEdits(); setEditMode(true); }} data-testid="button-edit-prices">
                   <Pencil className="w-4 h-4 mr-1" />{t.pricing.editPrices}
                 </Button>
               )}
               {isEditableDraft && editMode && (
                 <>
-                  <Button size="sm" variant="outline" onClick={() => { setEditMode(false); setEdits({}); setRuleEdits({}); }}>
+                  <Button size="sm" variant="outline" onClick={() => { setEditMode(false); setEdits({}); setRuleEdits({}); resetItemEdits(); }}>
                     <X className="w-4 h-4 mr-1" />{t.pricing.cancel}
                   </Button>
                   <Button size="sm" onClick={() => savePricesMutation.mutate()} disabled={savePricesMutation.isPending} data-testid="button-save-prices">
@@ -350,7 +406,7 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
           {bundle && (
             <>
               <div>
-                <div className="text-sm font-semibold mb-2">{t.pricing.products}</div>
+                <div className="text-sm font-semibold mb-2 flex items-center gap-1.5"><Package className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />{t.pricing.products}</div>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -363,9 +419,18 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
                     {bundle.products.map((p) => {
                       const coll = bundle.collectionPrices.find((cp) => cp.productId === p.id);
                       if (!coll && !bundle.storagePrices.some((sp) => sp.productId === p.id)) return null;
+                      const compIds = bundle.productComponents.filter((pc) => pc.productId === p.id).map((pc) => pc.componentId);
+                      const codes = bundle.components.filter((c) => compIds.includes(c.id)).map((c) => c.code);
                       return (
                         <TableRow key={p.id} data-testid={`row-product-${p.code}`}>
-                          <TableCell className="font-medium">{p.name}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-sm font-semibold ${productBadgeCls(codes)}`}>
+                                <Package className="w-3.5 h-3.5" />{p.name}
+                              </span>
+                              <span className="flex items-center gap-1">{codes.map((c) => <CompChip key={c} code={c} small />)}</span>
+                            </div>
+                          </TableCell>
                           <TableCell className="text-right">{editMode && isEditableDraft ? priceCell(coll, "c") : fmt(coll?.price, bundle.priceList.currency)}</TableCell>
                           {years.map((y) => {
                             const sp = bundle.storagePrices.find((s) => s.productId === p.id && s.years === y);
@@ -379,7 +444,7 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
               </div>
 
               <div>
-                <div className="text-sm font-semibold mb-2">{t.pricing.componentsStandalone}</div>
+                <div className="text-sm font-semibold mb-2 flex items-center gap-1.5"><Droplets className="w-4 h-4 text-rose-600 dark:text-rose-400" />{t.pricing.componentsStandalone}</div>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -395,7 +460,12 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
                       if (!coll && !hasStorage) return null;
                       return (
                         <TableRow key={c.id}>
-                          <TableCell className="font-medium">{c.code}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <CompChip code={c.code} />
+                              {c.name && c.name !== c.code && <span className="text-xs text-muted-foreground">{c.name}</span>}
+                            </div>
+                          </TableCell>
                           <TableCell className="text-right">{editMode && isEditableDraft ? priceCell(coll, "c") : fmt(coll?.price, bundle.priceList.currency)}</TableCell>
                           {years.map((y) => {
                             const sp = bundle.storagePrices.find((s) => s.componentId === c.id && s.years === y);
@@ -409,11 +479,11 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {bundle.storageDiscounts.length > 0 && (
+                {(bundle.storageDiscounts.length > 0 || (editMode && isEditableDraft)) && (
                   <div>
-                    <div className="text-sm font-semibold mb-2">{t.pricing.prepayDiscounts}</div>
+                    <div className="text-sm font-semibold mb-2 flex items-center gap-1.5"><Percent className="w-4 h-4 text-green-600 dark:text-green-400" />{t.pricing.prepayDiscounts}</div>
                     <div className="flex flex-wrap gap-2">
-                      {bundle.storageDiscounts.map((d) => (
+                      {bundle.storageDiscounts.filter((d) => !removedDiscounts.includes(d.id)).map((d) => (
                         editMode && isEditableDraft ? (
                           <div key={d.id} className="flex items-center gap-1 rounded-md border px-2 py-1 text-sm">
                             <span>{d.years}{t.pricing.yearsShort}: −</span>
@@ -422,19 +492,46 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
                               onChange={(e) => setEdits((s) => ({ ...s, [`d:${d.id}`]: e.target.value }))}
                               data-testid={`input-discount-${d.years}`} />
                             <span>%</span>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive"
+                              onClick={() => setRemovedDiscounts((s) => [...s, d.id])} data-testid={`button-remove-discount-${d.years}`}>
+                              <X className="w-3.5 h-3.5" />
+                            </Button>
                           </div>
                         ) : (
-                          <Badge key={d.id} variant="outline">{d.years}{t.pricing.yearsShort}: −{parseFloat(d.discountPct)} %</Badge>
+                          <Badge key={d.id} variant="outline" className="bg-green-50 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800">
+                            {d.years}{t.pricing.yearsShort}: −{parseFloat(d.discountPct)} %
+                          </Badge>
                         )
                       ))}
+                      {editMode && isEditableDraft && newDiscounts.map((d, i) => (
+                        <div key={`new-d-${i}`} className="flex items-center gap-1 rounded-md border border-dashed px-2 py-1 text-sm">
+                          <Input type="number" step="1" min="1" className="h-7 w-14 text-right" placeholder={t.pricing.yearsShort}
+                            value={d.years} onChange={(e) => setNewDiscounts((s) => s.map((x, j) => j === i ? { ...x, years: e.target.value } : x))}
+                            data-testid={`input-new-discount-years-${i}`} />
+                          <span>{t.pricing.yearsShort}: −</span>
+                          <Input type="number" step="0.1" className="h-7 w-16 text-right" placeholder="%"
+                            value={d.pct} onChange={(e) => setNewDiscounts((s) => s.map((x, j) => j === i ? { ...x, pct: e.target.value } : x))}
+                            data-testid={`input-new-discount-pct-${i}`} />
+                          <span>%</span>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive"
+                            onClick={() => setNewDiscounts((s) => s.filter((_, j) => j !== i))}>
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                      {editMode && isEditableDraft && (
+                        <Button size="sm" variant="outline" className="h-8 border-dashed" onClick={() => setNewDiscounts((s) => [...s, { years: "", pct: "" }])} data-testid="button-add-discount">
+                          <Plus className="w-3.5 h-3.5 mr-1" />{t.pricing.addDiscount}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 )}
-                {bundle.installmentPlans.length > 0 && (
+                {(bundle.installmentPlans.length > 0 || (editMode && isEditableDraft)) && (
                   <div>
-                    <div className="text-sm font-semibold mb-2">{t.pricing.installments}</div>
+                    <div className="text-sm font-semibold mb-2 flex items-center gap-1.5"><CalendarDays className="w-4 h-4 text-blue-600 dark:text-blue-400" />{t.pricing.installments}</div>
                     <div className="flex flex-wrap gap-2">
-                      {bundle.installmentPlans.map((p) => (
+                      {bundle.installmentPlans.filter((p) => !removedInstallments.includes(p.id)).map((p) => (
                         editMode && isEditableDraft ? (
                           <div key={p.id} className="flex items-center gap-1 rounded-md border px-2 py-1 text-sm">
                             <span>{p.installments}× : +</span>
@@ -443,11 +540,38 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
                               onChange={(e) => setEdits((s) => ({ ...s, [`i:${p.id}`]: e.target.value }))}
                               data-testid={`input-installment-${p.installments}`} />
                             <span>%</span>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive"
+                              onClick={() => setRemovedInstallments((s) => [...s, p.id])} data-testid={`button-remove-installment-${p.installments}`}>
+                              <X className="w-3.5 h-3.5" />
+                            </Button>
                           </div>
                         ) : (
-                          <Badge key={p.id} variant="outline">{p.installments}× : +{parseFloat(p.surchargePct)} %</Badge>
+                          <Badge key={p.id} variant="outline" className="bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800">
+                            {p.installments}× : +{parseFloat(p.surchargePct)} %
+                          </Badge>
                         )
                       ))}
+                      {editMode && isEditableDraft && newInstallments.map((p, i) => (
+                        <div key={`new-i-${i}`} className="flex items-center gap-1 rounded-md border border-dashed px-2 py-1 text-sm">
+                          <Input type="number" step="1" min="1" className="h-7 w-14 text-right" placeholder="×"
+                            value={p.count} onChange={(e) => setNewInstallments((s) => s.map((x, j) => j === i ? { ...x, count: e.target.value } : x))}
+                            data-testid={`input-new-installment-count-${i}`} />
+                          <span>× : +</span>
+                          <Input type="number" step="0.1" className="h-7 w-16 text-right" placeholder="%"
+                            value={p.pct} onChange={(e) => setNewInstallments((s) => s.map((x, j) => j === i ? { ...x, pct: e.target.value } : x))}
+                            data-testid={`input-new-installment-pct-${i}`} />
+                          <span>%</span>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive"
+                            onClick={() => setNewInstallments((s) => s.filter((_, j) => j !== i))}>
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                      {editMode && isEditableDraft && (
+                        <Button size="sm" variant="outline" className="h-8 border-dashed" onClick={() => setNewInstallments((s) => [...s, { count: "", pct: "" }])} data-testid="button-add-installment">
+                          <Plus className="w-3.5 h-3.5 mr-1" />{t.pricing.addInstallment}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -455,7 +579,7 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
 
               {bundle.adjustmentRules.length > 0 && (
                 <div>
-                  <div className="text-sm font-semibold mb-2">{t.pricing.rulesTitle}</div>
+                  <div className="text-sm font-semibold mb-2 flex items-center gap-1.5"><Sparkles className="w-4 h-4 text-amber-500" />{t.pricing.rulesTitle}</div>
                   <div className="space-y-2">
                     {bundle.adjustmentRules.map((r) => {
                       const edit = ruleEdits[r.id] ?? {};

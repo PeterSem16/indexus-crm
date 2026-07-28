@@ -285,6 +285,8 @@ export interface Translations {
     deleteList: string;
     deleteListConfirm: string;
     listDeleted: string;
+    addDiscount: string;
+    addInstallment: string;
     noAccess: string;
     invalidNumber: string;
   };
@@ -7311,6 +7313,8 @@ export const translations: Record<Locale, Translations> = {
       deleteList: 'Delete draft',
       deleteListConfirm: 'This permanently deletes the entire draft price list including all its prices, discounts and rules. This cannot be undone.',
       listDeleted: 'Draft deleted',
+      addDiscount: 'Add discount',
+      addInstallment: 'Add plan',
       noAccess: 'You do not have access to the pricing module.',
       invalidNumber: 'Invalid number in the price fields.',
     },
@@ -14389,6 +14393,8 @@ export const translations: Record<Locale, Translations> = {
       deleteList: 'Zmazať návrh',
       deleteListConfirm: 'Natrvalo zmaže celý návrh cenníka vrátane všetkých cien, zliav a pravidiel. Túto akciu nie je možné vrátiť späť.',
       listDeleted: 'Návrh zmazaný',
+      addDiscount: 'Pridať zľavu',
+      addInstallment: 'Pridať plán',
       noAccess: 'Nemáte prístup k modulu cenníkov.',
       invalidNumber: 'Neplatné číslo v cenových poliach.',
     },
@@ -21403,6 +21409,8 @@ export const translations: Record<Locale, Translations> = {
       deleteList: 'Smazat návrh',
       deleteListConfirm: 'Trvale smaže celý návrh ceníku včetně všech cen, slev a pravidel. Tuto akci nelze vrátit zpět.',
       listDeleted: 'Návrh smazán',
+      addDiscount: 'Přidat slevu',
+      addInstallment: 'Přidat plán',
       noAccess: 'Nemáte přístup k modulu ceníků.',
       invalidNumber: 'Neplatné číslo v cenových polích.',
     },
@@ -28343,6 +28351,8 @@ export const translations: Record<Locale, Translations> = {
       deleteList: 'Vázlat törlése',
       deleteListConfirm: 'Véglegesen törli a teljes árlista-vázlatot az összes árral, kedvezménnyel és szabállyal együtt. Ez a művelet nem vonható vissza.',
       listDeleted: 'Vázlat törölve',
+      addDiscount: 'Kedvezmény hozzáadása',
+      addInstallment: 'Terv hozzáadása',
       noAccess: 'Nincs hozzáférése az árazási modulhoz.',
       invalidNumber: 'Érvénytelen szám az ármezőkben.',
     },
@@ -35243,6 +35253,8 @@ export const translations: Record<Locale, Translations> = {
       deleteList: 'Șterge ciorna',
       deleteListConfirm: 'Șterge definitiv întreaga ciornă a listei de prețuri, inclusiv toate prețurile, reducerile și regulile. Această acțiune nu poate fi anulată.',
       listDeleted: 'Ciornă ștearsă',
+      addDiscount: 'Adaugă reducere',
+      addInstallment: 'Adaugă plan',
       noAccess: 'Nu aveți acces la modulul de prețuri.',
       invalidNumber: 'Număr nevalid în câmpurile de preț.',
     },
@@ -42063,6 +42075,8 @@ export const translations: Record<Locale, Translations> = {
       deleteList: 'Elimina bozza',
       deleteListConfirm: 'Elimina definitivamente l\'intera bozza del listino, inclusi tutti i prezzi, gli sconti e le regole. Questa azione non può essere annullata.',
       listDeleted: 'Bozza eliminata',
+      addDiscount: 'Aggiungi sconto',
+      addInstallment: 'Aggiungi piano',
       noAccess: 'Non hai accesso al modulo prezzi.',
       invalidNumber: 'Numero non valido nei campi prezzo.',
     },
@@ -48885,6 +48899,8 @@ export const translations: Record<Locale, Translations> = {
       deleteList: 'Entwurf löschen',
       deleteListConfirm: 'Löscht den gesamten Preislisten-Entwurf einschließlich aller Preise, Rabatte und Regeln endgültig. Dies kann nicht rückgängig gemacht werden.',
       listDeleted: 'Entwurf gelöscht',
+      addDiscount: 'Rabatt hinzufügen',
+      addInstallment: 'Plan hinzufügen',
       noAccess: 'Sie haben keinen Zugriff auf das Preismodul.',
       invalidNumber: 'Ungültige Zahl in den Preisfeldern.',
     },

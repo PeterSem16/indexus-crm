@@ -667,6 +667,10 @@ app.use((req, res, next) => {
       ALTER TABLE pricing_adjustment_rules ADD COLUMN IF NOT EXISTS volume_min_ml numeric(8,2);
       ALTER TABLE pricing_adjustment_rules ADD COLUMN IF NOT EXISTS volume_max_ml numeric(8,2);
       UPDATE pricing_adjustment_rules SET volume_operator = 'lt', volume_max_ml = 20 WHERE rule_type = 'LOW_VOLUME' AND volume_operator IS NULL;
+      DELETE FROM pricing_storage_discounts a USING pricing_storage_discounts b WHERE a.id > b.id AND a.price_list_id = b.price_list_id AND a.years = b.years;
+      DELETE FROM pricing_installment_plans a USING pricing_installment_plans b WHERE a.id > b.id AND a.price_list_id = b.price_list_id AND a.installments = b.installments;
+      CREATE UNIQUE INDEX IF NOT EXISTS pricing_storage_discounts_list_years_uq ON pricing_storage_discounts (price_list_id, years);
+      CREATE UNIQUE INDEX IF NOT EXISTS pricing_installment_plans_list_count_uq ON pricing_installment_plans (price_list_id, installments);
       CREATE UNIQUE INDEX IF NOT EXISTS uq_pcp_list_target
         ON pricing_collection_prices (price_list_id, coalesce(product_id,''), coalesce(component_id,''));
       CREATE UNIQUE INDEX IF NOT EXISTS uq_psp_list_target_years
