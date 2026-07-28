@@ -185,6 +185,70 @@ export function registerPricingRoutes(app: Express) {
     res.json(updated);
   });
 
+  // duplicate a price list into a new draft (pricing administrator only)
+  app.post("/api/pricing/price-lists/:id/duplicate", requireAuth, requirePricingAdmin, async (req, res) => {
+    const { name } = req.body as { name?: string };
+    const [src] = await db.select().from(pricingPriceLists).where(eq(pricingPriceLists.id, req.params.id));
+    if (!src) return res.status(404).json({ message: "Price list not found" });
+    const sessionUser = (req.session as any).user;
+    const srcId = src.id;
+    const [cps, sps, sds, ips, irs, ars] = await Promise.all([
+      db.select().from(pricingCollectionPrices).where(eq(pricingCollectionPrices.priceListId, srcId)),
+      db.select().from(pricingStoragePrices).where(eq(pricingStoragePrices.priceListId, srcId)),
+      db.select().from(pricingStorageDiscounts).where(eq(pricingStorageDiscounts.priceListId, srcId)),
+      db.select().from(pricingInstallmentPlans).where(eq(pricingInstallmentPlans.priceListId, srcId)),
+      db.select().from(pricingIncompleteRules).where(eq(pricingIncompleteRules.priceListId, srcId)),
+      db.select().from(pricingAdjustmentRules).where(eq(pricingAdjustmentRules.priceListId, srcId)),
+    ]);
+    const copy = await db.transaction(async (tx) => {
+      const [created] = await tx.insert(pricingPriceLists).values({
+        countryCode: src.countryCode,
+        currency: src.currency,
+        name: name?.trim() || `${src.name} (copy)`,
+        status: "draft",
+        validFrom: null,
+        fxRateToEur: src.fxRateToEur,
+        inflationRatePct: src.inflationRatePct,
+        storageYearOptions: src.storageYearOptions,
+        createdBy: sessionUser?.id ?? null,
+      }).returning();
+      const strip = ({ id: _id, priceListId: _pl, ...rest }: any) => ({ ...rest, priceListId: created.id });
+      if (cps.length) await tx.insert(pricingCollectionPrices).values(cps.map(strip));
+      if (sps.length) await tx.insert(pricingStoragePrices).values(sps.map(strip));
+      if (sds.length) await tx.insert(pricingStorageDiscounts).values(sds.map(strip));
+      if (ips.length) await tx.insert(pricingInstallmentPlans).values(ips.map(strip));
+      if (irs.length) await tx.insert(pricingIncompleteRules).values(irs.map(strip));
+      if (ars.length) await tx.insert(pricingAdjustmentRules).values(ars.map(strip));
+      return created;
+    });
+    res.json(copy);
+  });
+
+  // manual price edits on a DRAFT price list (pricing administrator only)
+  app.patch("/api/pricing/price-lists/:id/prices", requireAuth, requirePricingAdmin, async (req, res) => {
+    const { collection = [], storage = [] } = req.body as {
+      collection?: Array<{ id: string; price: number }>;
+      storage?: Array<{ id: string; price: number }>;
+    };
+    const [list] = await db.select().from(pricingPriceLists).where(eq(pricingPriceLists.id, req.params.id));
+    if (!list) return res.status(404).json({ message: "Price list not found" });
+    if (list.status !== "draft") return res.status(400).json({ message: "Only draft price lists can be edited" });
+    if ([...collection, ...storage].some((r) => !r?.id || !Number.isFinite(r.price))) {
+      return res.status(400).json({ message: "Each row needs an id and a finite price" });
+    }
+    for (const r of collection) {
+      await db.update(pricingCollectionPrices)
+        .set({ price: String(r.price) })
+        .where(and(eq(pricingCollectionPrices.id, r.id), eq(pricingCollectionPrices.priceListId, list.id)));
+    }
+    for (const r of storage) {
+      await db.update(pricingStoragePrices)
+        .set({ price: String(r.price) })
+        .where(and(eq(pricingStoragePrices.id, r.id), eq(pricingStoragePrices.priceListId, list.id)));
+    }
+    res.json({ ok: true, updated: collection.length + storage.length });
+  });
+
   // manual override of one matrix row (pricing administrator only, note required)
   app.patch("/api/pricing/incomplete-rules/:id", requireAuth, requirePricingAdmin, async (req, res) => {
     const { collectionPrice, storagePrices, note } = req.body as { collectionPrice?: number; storagePrices?: Record<string, number>; note?: string };

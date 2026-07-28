@@ -11,19 +11,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Loader2, Copy, AlertTriangle, CheckCircle2, Pencil, Calculator as CalcIcon, ListOrdered, Grid3X3 } from "lucide-react";
+import { Loader2, Copy, AlertTriangle, CheckCircle2, Check, X, Pencil, Calculator as CalcIcon, ListOrdered, Grid3X3, CopyPlus, CalendarDays } from "lucide-react";
 
 // ---------- types (mirror server /api/pricing responses) ----------
 interface PriceListRow {
   id: string; countryCode: string; currency: string; name: string; status: string;
-  validFrom: string | null; fxRateToEur: string | null; indexationPct: string | null;
+  validFrom: string | null; fxRateToEur: string | null; inflationRatePct: string | null;
   storageYearOptions: number[] | null;
 }
 interface PricingProduct { id: string; code: string; name: string; componentCodes: string[] }
@@ -32,8 +31,8 @@ interface Bundle {
   products: Array<{ id: string; code: string; name: string }>;
   components: Array<{ id: string; code: string; name: string }>;
   productComponents: Array<{ productId: string; componentId: string }>;
-  collectionPrices: Array<{ productId: string | null; componentId: string | null; price: string; note: string | null }>;
-  storagePrices: Array<{ productId: string | null; componentId: string | null; years: number; price: string }>;
+  collectionPrices: Array<{ id: string; productId: string | null; componentId: string | null; price: string; note: string | null }>;
+  storagePrices: Array<{ id: string; productId: string | null; componentId: string | null; years: number; price: string }>;
   storageDiscounts: Array<{ years: number; discountPct: string }>;
   installmentPlans: Array<{ installments: number; surchargePct: string }>;
   incompleteRules: Array<{ id: string; orderedProductId: string; collectedMask: string; resultLabel: string; collectionPrice: string; storagePrices: Record<string, number> | null; isOverride: boolean; note: string | null }>;
@@ -133,7 +132,59 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
   const { t } = useI18n();
   const [confirmActivate, setConfirmActivate] = useState<PriceListRow | null>(null);
   const [countryFilter, setCountryFilter] = useState<string>("all");
+  const [copyOpen, setCopyOpen] = useState(false);
+  const [copyName, setCopyName] = useState("");
+  const [editMode, setEditMode] = useState(false);
+  const [edits, setEdits] = useState<Record<string, string>>({});
   const selected = lists.find((l) => l.id === selectedId) ?? null;
+  const isEditableDraft = !!selected && selected.status === "draft" && canManage;
+
+  const duplicateMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/pricing/price-lists/${selected!.id}/duplicate`, { name: copyName });
+      return res.json() as Promise<PriceListRow>;
+    },
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/pricing/price-lists"] });
+      setCopyOpen(false);
+      onSelect(created.id);
+      toast({ title: t.pricing.listCreated });
+    },
+    onError: (e: any) => toast({ title: t.pricing.updateFailed, description: String(e?.message ?? e), variant: "destructive" }),
+  });
+
+  const savePricesMutation = useMutation({
+    mutationFn: () => {
+      const collection: Array<{ id: string; price: number }> = [];
+      const storage: Array<{ id: string; price: number }> = [];
+      for (const [key, val] of Object.entries(edits)) {
+        if (val === "") continue;
+        const price = parseFloat(val);
+        if (!Number.isFinite(price)) return Promise.reject(new Error(t.pricing.invalidNumber));
+        if (key.startsWith("c:")) collection.push({ id: key.slice(2), price });
+        else storage.push({ id: key.slice(2), price });
+      }
+      return apiRequest("PATCH", `/api/pricing/price-lists/${selected!.id}/prices`, { collection, storage });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/pricing/price-lists", selected?.id] });
+      setEditMode(false);
+      setEdits({});
+      toast({ title: t.pricing.pricesSaved });
+    },
+    onError: (e: any) => toast({ title: t.pricing.updateFailed, description: String(e?.message ?? e), variant: "destructive" }),
+  });
+
+  const priceCell = (row: { id: string; price: string } | undefined, kind: "c" | "s") => {
+    if (!row) return <span>—</span>;
+    if (!editMode || !isEditableDraft) return <span>{fmt(row.price, undefined)}</span>;
+    const key = `${kind}:${row.id}`;
+    return (
+      <Input type="number" step="0.01" className="h-8 w-24 ml-auto text-right"
+        value={edits[key] ?? String(parseFloat(row.price))}
+        onChange={(e) => setEdits((s) => ({ ...s, [key]: e.target.value }))} />
+    );
+  };
   const countries = useMemo(() => Array.from(new Set(lists.map((l) => l.countryCode))), [lists]);
   const filteredLists = countryFilter === "all" ? lists : lists.filter((l) => l.countryCode === countryFilter);
 
@@ -194,10 +245,32 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
           <CardTitle className="text-base flex items-center gap-2">
             {selected ? <>{COUNTRY_FLAGS[selected.countryCode]} {selected.name} <StatusBadge status={selected.status} /></> : t.pricing.selectList}
           </CardTitle>
-          {selected && canManage && selected.status === "draft" && (
-            <Button size="sm" onClick={() => setConfirmActivate(selected)} data-testid="button-activate">
-              <CheckCircle2 className="w-4 h-4 mr-1" />{t.pricing.activate}
-            </Button>
+          {selected && canManage && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button size="sm" variant="outline" onClick={() => { setCopyName(`${selected.name} (${t.pricing.copySuffix})`); setCopyOpen(true); }} data-testid="button-copy-list">
+                <CopyPlus className="w-4 h-4 mr-1" />{t.pricing.copyList}
+              </Button>
+              {isEditableDraft && !editMode && (
+                <Button size="sm" variant="outline" onClick={() => { setEdits({}); setEditMode(true); }} data-testid="button-edit-prices">
+                  <Pencil className="w-4 h-4 mr-1" />{t.pricing.editPrices}
+                </Button>
+              )}
+              {isEditableDraft && editMode && (
+                <>
+                  <Button size="sm" variant="outline" onClick={() => { setEditMode(false); setEdits({}); }}>
+                    <X className="w-4 h-4 mr-1" />{t.pricing.cancel}
+                  </Button>
+                  <Button size="sm" onClick={() => savePricesMutation.mutate()} disabled={savePricesMutation.isPending} data-testid="button-save-prices">
+                    {savePricesMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Check className="w-4 h-4 mr-1" />}{t.pricing.save}
+                  </Button>
+                </>
+              )}
+              {selected.status === "draft" && !editMode && (
+                <Button size="sm" onClick={() => setConfirmActivate(selected)} data-testid="button-activate">
+                  <CheckCircle2 className="w-4 h-4 mr-1" />{t.pricing.activate}
+                </Button>
+              )}
+            </div>
           )}
         </CardHeader>
         <CardContent className="space-y-5">
@@ -221,10 +294,10 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
                       return (
                         <TableRow key={p.id} data-testid={`row-product-${p.code}`}>
                           <TableCell className="font-medium">{p.name}</TableCell>
-                          <TableCell className="text-right">{fmt(coll?.price, bundle.priceList.currency)}</TableCell>
+                          <TableCell className="text-right">{editMode && isEditableDraft ? priceCell(coll, "c") : fmt(coll?.price, bundle.priceList.currency)}</TableCell>
                           {years.map((y) => {
                             const sp = bundle.storagePrices.find((s) => s.productId === p.id && s.years === y);
-                            return <TableCell key={y} className="text-right">{fmt(sp?.price, bundle.priceList.currency)}</TableCell>;
+                            return <TableCell key={y} className="text-right">{editMode && isEditableDraft ? priceCell(sp, "s") : fmt(sp?.price, bundle.priceList.currency)}</TableCell>;
                           })}
                         </TableRow>
                       );
@@ -251,10 +324,10 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
                       return (
                         <TableRow key={c.id}>
                           <TableCell className="font-medium">{c.code}</TableCell>
-                          <TableCell className="text-right">{fmt(coll?.price, bundle.priceList.currency)}</TableCell>
+                          <TableCell className="text-right">{editMode && isEditableDraft ? priceCell(coll, "c") : fmt(coll?.price, bundle.priceList.currency)}</TableCell>
                           {years.map((y) => {
                             const sp = bundle.storagePrices.find((s) => s.componentId === c.id && s.years === y);
-                            return <TableCell key={y} className="text-right">{fmt(sp?.price, bundle.priceList.currency)}</TableCell>;
+                            return <TableCell key={y} className="text-right">{editMode && isEditableDraft ? priceCell(sp, "s") : fmt(sp?.price, bundle.priceList.currency)}</TableCell>;
                           })}
                         </TableRow>
                       );
@@ -292,6 +365,25 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={copyOpen} onOpenChange={setCopyOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.pricing.copyDialogTitle}</DialogTitle>
+            <DialogDescription>{selected ? `${COUNTRY_FLAGS[selected.countryCode] ?? ""} ${selected.name}` : ""}</DialogDescription>
+          </DialogHeader>
+          <div>
+            <Label>{t.pricing.newListName}</Label>
+            <Input value={copyName} onChange={(e) => setCopyName(e.target.value)} data-testid="input-copy-name" />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCopyOpen(false)}>{t.pricing.cancel}</Button>
+            <Button onClick={() => duplicateMutation.mutate()} disabled={!copyName.trim() || duplicateMutation.isPending} data-testid="button-confirm-copy">
+              {duplicateMutation.isPending && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}{t.pricing.copyList}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!confirmActivate} onOpenChange={(o) => !o && setConfirmActivate(null)}>
         <DialogContent>
@@ -339,7 +431,11 @@ function MatrixTab({ lists, products, canManage, toast }: { lists: PriceListRow[
   const effProductCode = selectedProduct?.code ?? "";
   const rules = (bundle?.incompleteRules ?? []).filter((r) => r.orderedProductId === selectedProduct?.id);
   const years = bundle?.priceList.storageYearOptions ?? [];
-  const componentCodes = (bundle?.components ?? []).map((c) => c.code);
+  const compCodeById = new Map((bundle?.components ?? []).map((c) => [c.id, c.code]));
+  const orderedComponentCodes = (bundle?.productComponents ?? [])
+    .filter((pc) => pc.productId === selectedProduct?.id)
+    .map((pc) => compCodeById.get(pc.componentId))
+    .filter(Boolean) as string[];
 
   const [editRule, setEditRule] = useState<Bundle["incompleteRules"][number] | null>(null);
   const [editColl, setEditColl] = useState("");
@@ -422,14 +518,21 @@ function MatrixTab({ lists, products, canManage, toast }: { lists: PriceListRow[
                       <div className="flex flex-wrap gap-1">
                         {r.collectedMask === "" ? (
                           <Badge variant="secondary" className="bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300">{t.pricing.nothingCollected}</Badge>
-                        ) : componentCodes.filter((c) => r.collectedMask.split("+").includes(c)).map((c) => (
-                          <Badge key={c} variant="outline" className="text-xs">{c}</Badge>
-                        ))}
+                        ) : orderedComponentCodes.map((c) => {
+                          const present = r.collectedMask.split("+").includes(c);
+                          return (
+                            <span key={c} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${present
+                              ? "border-green-300 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-300"
+                              : "border-dashed bg-muted/40 text-muted-foreground line-through opacity-60"}`}>
+                              {present ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}{c}
+                            </span>
+                          );
+                        })}
                       </div>
                     </TableCell>
                     <TableCell className="text-sm">
                       <div className="flex items-center gap-1.5">
-                        {r.resultLabel}
+                        <span className={r.resultLabel !== selectedProduct?.name && r.resultLabel !== selectedProduct?.code ? "font-medium text-blue-700 dark:text-blue-300" : ""}>{r.resultLabel}</span>
                         {r.isOverride && (
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -510,6 +613,21 @@ function MatrixTab({ lists, products, canManage, toast }: { lists: PriceListRow[
       </Dialog>
     </div>
   );
+}
+
+// equal monthly installments starting today; rounding remainder goes to the last one
+function buildInstallmentSchedule(total: number, count: number): Array<{ n: number; date: Date; amount: number }> {
+  const base = Math.floor((total / count) * 100) / 100;
+  const rows: Array<{ n: number; date: Date; amount: number }> = [];
+  const start = new Date();
+  for (let i = 0; i < count; i++) {
+    // clamp to the last day of the target month (Jan 31 + 1m -> Feb 28/29, not Mar 3)
+    const lastDay = new Date(start.getFullYear(), start.getMonth() + i + 1, 0).getDate();
+    const date = new Date(start.getFullYear(), start.getMonth() + i, Math.min(start.getDate(), lastDay));
+    const amount = i === count - 1 ? Math.round((total - base * (count - 1)) * 100) / 100 : base;
+    rows.push({ n: i + 1, date, amount });
+  }
+  return rows;
 }
 
 // ============================= TAB 3: calculator =============================
@@ -594,22 +712,30 @@ function CalculatorTab({ lists, products }: { lists: PriceListRow[]; products: P
 
           <div>
             <Label className="text-xs">{t.pricing.calcCollected}</Label>
-            <div className="mt-1.5 space-y-1.5">
-              {productComponents.map((code) => (
-                <div key={code} className="flex items-center justify-between rounded-md border px-3 py-1.5">
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <Checkbox checked={effCollected.includes(code)} onCheckedChange={() => { toggleCollected(code); setResult(null); }} data-testid={`checkbox-collected-${code}`} />
-                    {code}
-                  </label>
-                  {effCollected.includes(code) && (
-                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
-                      <Checkbox checked={contaminated.includes(code)} onCheckedChange={() => { setContaminated((p) => p.includes(code) ? p.filter((c) => c !== code) : [...p, code]); setResult(null); }} />
-                      {t.pricing.contaminatedLabel}
-                    </label>
-                  )}
-                </div>
-              ))}
+            <div className="mt-1.5 flex flex-wrap gap-2">
+              {productComponents.map((code) => {
+                const on = effCollected.includes(code);
+                const cont = contaminated.includes(code);
+                return (
+                  <div key={code} className={`flex items-center overflow-hidden rounded-full border text-sm font-medium transition-colors ${on
+                    ? "border-green-400 bg-green-50 dark:border-green-700 dark:bg-green-900/30"
+                    : "border-dashed bg-muted/40 opacity-70"}`}>
+                    <button type="button" onClick={() => { toggleCollected(code); setResult(null); }} data-testid={`chip-collected-${code}`}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 hover-elevate ${on ? "text-green-800 dark:text-green-300" : "text-muted-foreground line-through"}`}>
+                      {on ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}{code}
+                    </button>
+                    {on && (
+                      <button type="button" onClick={() => { setContaminated((p) => p.includes(code) ? p.filter((c) => c !== code) : [...p, code]); setResult(null); }}
+                        data-testid={`chip-contaminated-${code}`}
+                        className={`border-l px-2 py-1.5 text-xs hover-elevate ${cont ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300" : "text-muted-foreground"}`}>
+                        ☣ {t.pricing.contaminatedLabel}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
+            <div className="mt-1 text-xs text-muted-foreground">{t.pricing.chipHint}</div>
           </div>
 
           <div className="flex items-center justify-between rounded-md border px-3 py-2">
@@ -681,6 +807,29 @@ function CalculatorTab({ lists, products }: { lists: PriceListRow[]; products: P
                   <div className="flex justify-between text-xs text-muted-foreground"><span>≈ EUR</span><span>{fmt(result.totalEur, "EUR")}</span></div>
                 )}
               </div>
+              {installments > 1 && (
+                <div>
+                  <div className="flex items-center gap-1.5 text-sm font-semibold mb-1.5"><CalendarDays className="w-4 h-4" />{t.pricing.installmentSchedule}</div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">#</TableHead>
+                        <TableHead>{t.pricing.dueDate}</TableHead>
+                        <TableHead className="text-right">{t.pricing.amount}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {buildInstallmentSchedule(result.total, installments).map((row) => (
+                        <TableRow key={row.n}>
+                          <TableCell className="text-muted-foreground">{row.n}.</TableCell>
+                          <TableCell>{row.date.toLocaleDateString("sk-SK")}</TableCell>
+                          <TableCell className="text-right font-medium">{fmt(row.amount, result.currency)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
               {result.warnings.length > 0 && (
                 <Alert>
                   <AlertTriangle className="h-4 w-4" />
