@@ -261,6 +261,7 @@ export interface Translations {
     total: string;
     copyBreakdown: string;
     copied: string;
+    allCountries: string;
     noAccess: string;
     invalidNumber: string;
   };
@@ -7263,6 +7264,7 @@ export const translations: Record<Locale, Translations> = {
       total: 'Total',
       copyBreakdown: 'Copy breakdown',
       copied: 'Copied to clipboard',
+      allCountries: 'All countries',
       noAccess: 'You do not have access to the pricing module.',
       invalidNumber: 'Invalid number in the price fields.',
     },
@@ -14317,6 +14319,7 @@ export const translations: Record<Locale, Translations> = {
       total: 'Spolu',
       copyBreakdown: 'Kopírovať rozpis',
       copied: 'Skopírované do schránky',
+      allCountries: 'Všetky krajiny',
       noAccess: 'Nemáte prístup k modulu cenníkov.',
       invalidNumber: 'Neplatné číslo v cenových poliach.',
     },
@@ -21307,6 +21310,7 @@ export const translations: Record<Locale, Translations> = {
       total: 'Celkem',
       copyBreakdown: 'Kopírovat rozpis',
       copied: 'Zkopírováno do schránky',
+      allCountries: 'Všechny země',
       noAccess: 'Nemáte přístup k modulu ceníků.',
       invalidNumber: 'Neplatné číslo v cenových polích.',
     },
@@ -28223,6 +28227,7 @@ export const translations: Record<Locale, Translations> = {
       total: 'Összesen',
       copyBreakdown: 'Bontás másolása',
       copied: 'Vágólapra másolva',
+      allCountries: 'Összes ország',
       noAccess: 'Nincs hozzáférése az árazási modulhoz.',
       invalidNumber: 'Érvénytelen szám az ármezőkben.',
     },
@@ -35099,6 +35104,7 @@ export const translations: Record<Locale, Translations> = {
       total: 'Total',
       copyBreakdown: 'Copiați detalierea',
       copied: 'Copiat în clipboard',
+      allCountries: 'Toate țările',
       noAccess: 'Nu aveți acces la modulul de prețuri.',
       invalidNumber: 'Număr nevalid în câmpurile de preț.',
     },
@@ -41895,6 +41901,7 @@ export const translations: Record<Locale, Translations> = {
       total: 'Totale',
       copyBreakdown: 'Copia dettaglio',
       copied: 'Copiato negli appunti',
+      allCountries: 'Tutti i paesi',
       noAccess: 'Non hai accesso al modulo prezzi.',
       invalidNumber: 'Numero non valido nei campi prezzo.',
     },
@@ -48693,6 +48700,7 @@ export const translations: Record<Locale, Translations> = {
       total: 'Gesamt',
       copyBreakdown: 'Aufstellung kopieren',
       copied: 'In die Zwischenablage kopiert',
+      allCountries: 'Alle Länder',
       noAccess: 'Sie haben keinen Zugriff auf das Preismodul.',
       invalidNumber: 'Ungültige Zahl in den Preisfeldern.',
     },

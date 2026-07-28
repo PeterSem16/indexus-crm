@@ -132,7 +132,10 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
 }) {
   const { t } = useI18n();
   const [confirmActivate, setConfirmActivate] = useState<PriceListRow | null>(null);
+  const [countryFilter, setCountryFilter] = useState<string>("all");
   const selected = lists.find((l) => l.id === selectedId) ?? null;
+  const countries = useMemo(() => Array.from(new Set(lists.map((l) => l.countryCode))), [lists]);
+  const filteredLists = countryFilter === "all" ? lists : lists.filter((l) => l.countryCode === countryFilter);
 
   const activateMutation = useMutation({
     mutationFn: (id: string) => apiRequest("POST", `/api/pricing/price-lists/${id}/status`, { status: "active" }),
@@ -146,9 +149,9 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
 
   const byCountry = useMemo(() => {
     const m = new Map<string, PriceListRow[]>();
-    for (const l of lists) { if (!m.has(l.countryCode)) m.set(l.countryCode, []); m.get(l.countryCode)!.push(l); }
+    for (const l of filteredLists) { if (!m.has(l.countryCode)) m.set(l.countryCode, []); m.get(l.countryCode)!.push(l); }
     return Array.from(m.entries());
-  }, [lists]);
+  }, [filteredLists]);
 
   const years = bundle?.priceList.storageYearOptions ?? [];
   const compById = new Map((bundle?.components ?? []).map((c) => [c.id, c]));
@@ -157,7 +160,16 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <Card className="lg:col-span-1">
-        <CardHeader><CardTitle className="text-base">{t.pricing.allPriceLists}</CardTitle></CardHeader>
+        <CardHeader className="space-y-2">
+          <CardTitle className="text-base">{t.pricing.allPriceLists}</CardTitle>
+          <Select value={countryFilter} onValueChange={setCountryFilter}>
+            <SelectTrigger data-testid="select-lists-country-filter"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t.pricing.allCountries}</SelectItem>
+              {countries.map((cc) => <SelectItem key={cc} value={cc}>{COUNTRY_FLAGS[cc] ?? ""} {cc}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </CardHeader>
         <CardContent className="space-y-3 max-h-[70vh] overflow-y-auto">
           {loading && <Loader2 className="w-5 h-5 animate-spin" />}
           {byCountry.map(([cc, rows]) => (
@@ -369,12 +381,14 @@ function MatrixTab({ lists, products, canManage, toast }: { lists: PriceListRow[
       <div className="flex flex-wrap items-end gap-3">
         <div>
           <Label className="text-xs">{t.pricing.country}</Label>
-          <Select value={list?.countryCode ?? ""} onValueChange={setCountry}>
-            <SelectTrigger className="w-36" data-testid="select-matrix-country"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {activeByCountry.map((l) => <SelectItem key={l.id} value={l.countryCode}>{COUNTRY_FLAGS[l.countryCode]} {l.countryCode} ({l.currency})</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-1 rounded-md border p-1" data-testid="tabs-matrix-country">
+            {activeByCountry.map((l) => (
+              <button key={l.id} onClick={() => setCountry(l.countryCode)} data-testid={`tab-matrix-country-${l.countryCode}`}
+                className={`rounded px-3 py-1.5 text-sm font-medium hover-elevate ${list?.countryCode === l.countryCode ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+                {COUNTRY_FLAGS[l.countryCode]} {l.countryCode}
+              </button>
+            ))}
+          </div>
         </div>
         <div>
           <Label className="text-xs">{t.pricing.orderedProduct}</Label>
