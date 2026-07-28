@@ -150,3 +150,9 @@ id = "pn8Bl4YvJWeN10KonlmLJ"
 uri = "file://docs/analyza-kpi-reprezentant.txt"
 type = "text"
 title = "Analýza KPI reprezentanta (s úvodom a rozpracovaným bodom 5)"
+
+[[outputs]]
+id = "0R_ju6wTCG1qweiL7G6du"
+uri = "file://docs/analyza-cennik-produkty.txt"
+type = "text"
+title = "Analýza: nový produktový modul — skladanie cien podľa krajín"

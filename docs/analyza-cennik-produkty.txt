@@ -1,0 +1,258 @@
+ANALÝZA: NOVÝ PRODUKTOVÝ MODUL — SKLADANIE CIEN PODĽA KRAJÍN
+Configurator → Products | INDEXUS CRM, 28. 7. 2026
+Podklad: Cennik_nekompletnych_odberov_2026_PAUSAL_2026_01_23.xlsx
+=====================================================================
+
+ÚVOD
+---------------------------------------------------------------------
+Cieľ: preniesť do INDEXUSu celú architektúru skladania ceny produktu
+z priloženého cenníka — produkt sa skladá z dvoch základných služieb
+(COLLECTION = odber a STORAGE = skladné), pričom ceny sa líšia podľa
+krajiny (SK, CZ, RO, HU, AT, IT), meny, počtu splátok, dĺžky
+skladovania, a existuje aj logika NEKOMPLETNÝCH ODBEROV (failed
+collection / kontaminácia) s prepočtom ceny podľa reálne odobratých
+a uskladnených zložiek.
+
+Pôvodný modul Products/Configurator NEMENÍME. Tento dokument je
+analytický návrh nového modulu (pracovný názov „Products 2 — Pricing
+Engine"), ktorý by pôvodný modul po rozhodnutí nahradil, alebo by ho
+doplnil o chýbajúcu vrstvu skladania cien.
+
+=====================================================================
+1. ČO PRESNE JE V EXCELI (reverzná analýza súboru)
+---------------------------------------------------------------------
+Súbor má 10 hárkov, logicky 4 vrstvy:
+
+1.1 KOMPONENTY (základné biologické zložky)
+  Celý cenník stojí na 5 elementárnych komponentoch:
+    CB     = pupočníková krv (cord blood)
+    PB     = placentárna krv (placental blood)
+    T (CB) = tkanivo pupočníka
+    T (PB) = tkanivo pupočníka (variant pri PB zmluve)
+    PL     = placenta / tkanivo placenty
+  Každý komponent má v každej krajine SAMOSTATNÚ cenu odberu
+  a SAMOSTATNÚ cenu skladného (1/5/10/20 rokov).
+
+1.2 PRODUKTY (balíky komponentov)
+  Produkt = definovaná kombinácia komponentov:
+    Classic         = CB
+    Premium         = CB + PB
+    Classic+Tissue  = CB + T(CB)
+    Premium+Tissue  = CB + PB + T(PB)
+    Placenta (PL1)  = CB + PB + T(PB) + PL
+  V RO navyše samostatné produkty „Tkanivo placenty" a „Tkanivo
+  pupočníka". Produkt má v každej krajine cenu COLLECTION a cenu
+  STORAGE za 1 rok / 10 rokov / 20 rokov (CZ: 1/5/10 rokov,
+  AT: 1/5/10 — periódy sú per krajina rôzne!).
+
+1.3 CENNÍKY PO KRAJINÁCH (hárky COLLECTION PRICE, STORAGE PRICE, SK, CZ, RO, HU, AT, ITA)
+  a) Mena per krajina: SK/AT/IT = EUR, CZ = CZK, RO = RON, HU = HUF.
+     FX kurz je v cenníku evidovaný (RO 5.042, HU 397.768, CZ 24.688)
+     + prepočet na EUR pre skupinový reporting.
+  b) Splátky (instalments): počet splátok je per krajina rôzny
+     (SK 1/3/12, RO 1/3/12, CZ 1/5/10, AT 1/4/8, IT 1/3/6, HU 1/3/12)
+     a niekde s prirážkou za splátky (Instalment increase %, aktuálne
+     0 %, ale architektúra s tým počíta).
+  c) Inflácia: skladné sa každoročne indexuje per krajina
+     (SK 4,0 %, RO 7,3 %, HU 4,4 %, CZ 2,5 %, AT 3,6 %, IT 1,5 %).
+     Pri AT/IT poznámka: indexácia sa uplatní až keď ročná inflácia
+     presiahne 5 % (zmluvná podmienka!). V cenníku sú preto dve sady:
+     „Current basic prices PY" a „Prices after inflation rate impact".
+  d) Verzie cenníka v čase: „Current prices 2024" vs „New prices
+     2025/2026" — cenník má platnosť OD dátumu (from 1.1.2025),
+     historické verzie sa zachovávajú.
+  e) Zľavy na skladnom pri predplatení: per krajina rôzne
+     (SK/IT: 15 % za 10 r., 25 % za 20 r.; CZ: 10 %/15 %;
+     HU: 40 %/50 % — odchýlka od štandardu CBC GROUP 15 %/25 %,
+     v HU zmluvne).
+
+1.4 NEKOMPLETNÉ ODBERY (jadro súboru — „Failed Collection or Contamination")
+  Toto je najdôležitejšia biznis logika, ktorá dnes v INDEXUSe chýba:
+  - Klient si objedná produkt (napr. Premium+Tissue), ale pri pôrode
+    sa reálne podarí odobrať len niektoré komponenty (matica TRUE/
+    FALSE pre CB, PB, T(CB), T(PB), PL).
+  - Cenník definuje pre KAŽDÚ kombináciu reálne odobratých
+    komponentov v rámci objednaného produktu tzv. DISCOUNTED PRICE:
+    „upravený produkt" (napr. z Premium+Tissue sa stane fakticky
+    CB+PB) a k nemu upravenú cenu odberu aj skladného.
+  - Pravidlá z poznámok v hárkoch:
+      * odber krvi < 20 ml => fixná zľava (SK 400 €, RO 2000 RON…)
+      * KONTAMINÁCIA => 100 % zľava z ceny odberu kontaminovanej
+        zložky (odber sa nefakturuje)
+      * skladné sa VŽDY počíta podľa REÁLNE uskladnených komponentov
+        (nezávisle od objemu či kontaminácie)
+      * FLAT FEE / paušál: ak sa nepodarí odobrať NIČ (všetko FALSE),
+        účtuje sa paušál (SK 500 €, CZ 12 500 Kč, RO…, HU 200 000 Ft)
+  - V hárkoch sú aj zmluvné výnimky per krajina (napr. RO: cena za
+    samostatné tkanivo je v zmluve 3 000 RON; HU: dve samostatné
+    zmluvy pre krv a tkanivo; SK: v zmluve cena samostatného tkaniva
+    1 200 €). Tieto treba vedieť evidovať ako poznámku/override.
+
+1.5 NÁKLADY A MARŽA (hárok cost)
+  Interné náklady na produkt per krajina (TOTAL COST záporné hodnoty
+  v EUR) — umožňuje počítať maržu produktu. Pre CRM druhoradé, ale
+  model by mal mať miesto na nákladovú cenu komponentu/produktu.
+
+=====================================================================
+2. ČO UŽ MÁME V INDEXUSE (pôvodný modul) A PREČO NESTAČÍ
+---------------------------------------------------------------------
+Existujúci Configurator/Products modul má:
+  - products (názov, krajiny ako pole), market_product_instances
+    (produkt × krajina), market_product_services (collection/storage
+    služby), instance_prices (cena, mena, country override),
+    product_sets („zostavy") + väzby na zákazníkov, zmluvy, faktúry
+    a deals (customer_products, contract_instances.priceSnapshot,
+    invoices.productId, deal_products).
+
+Čo pokrýva: produkt rozdelený na collection + storage službu,
+základnú cenu per krajina/mena, bundle „zostavy".
+
+Čo NEPOKRÝVA (medzery voči excelu):
+  M1. Komponentová vrstva — produkt nie je definovaný ako množina
+      komponentov (CB, PB, T…), takže sa nedá odvodiť cena
+      nekompletného odberu.
+  M2. Matica nekompletných odberov / discounted price — v systéme
+      neexistuje vôbec.
+  M3. Skladné ako funkcia dĺžky (1/5/10/20 rokov) so zľavami za
+      predplatenie per krajina.
+  M4. Splátkové schémy per krajina (+ prípadná prirážka).
+  M5. Verzie cenníka s platnosťou od–do + ročná inflačná indexácia
+      (vrátane podmienky AT/IT „len ak > 5 %").
+  M6. Pravidlá: <20 ml zľava, kontaminácia = 100 % zľava z odberu,
+      flat fee pri úplnom zlyhaní.
+  M7. FX kurzy pre skupinový reporting v EUR.
+  M8. Nákladová cena / marža.
+
+=====================================================================
+3. NÁVRH NOVÉHO MODULU „PRODUCTS 2 — PRICING ENGINE"
+---------------------------------------------------------------------
+Princíp: cena sa NESKLADÁ z produktu, ale z KOMPONENTOV. Produkt je
+len pomenovaná množina komponentov; každá cena je odvoditeľná z
+(komponenty × krajina × cenník × dĺžka skladovania × splátky × stav
+odberu). Excel sa tým dá preniesť 1 : 1 a zároveň sa dajú generovať
+všetky „discounted" kombinácie automaticky, nie ručne.
+
+3.1 Dátový model (nové tabuľky, nedotýkajú sa pôvodných)
+  a) product_components
+     kód (CB, PB, T_CB, T_PB, PL), názov, i18n popis, poradie.
+  b) products_v2
+     kód (CLASSIC, PREMIUM, CLASSIC_T, PREMIUM_T, PLACENTA, T_PL,
+     T_CB_SOLO…), názov, zoznam komponentov (väzobná tabuľka
+     products_v2_components), aktívny, krajiny dostupnosti.
+  c) price_lists (cenník = verzia per krajina)
+     krajina, mena, platnosť od (valid_from), stav (draft/active/
+     archived), inflačná sadzba %, podmienka indexácie (napr.
+     „len ak inflácia > 5 %"), FX kurz voči EUR, poznámka.
+     => rieši M5 + M7; história cien = staré price_lists ostávajú.
+  d) price_list_collection_prices
+     price_list × produkt => cena odberu (základná cena produktu).
+     + price_list × KOMPONENT => cena odberu samostatného komponentu
+     (riadky „Price - collection" z hárkov krajín) — potrebné pre
+     výpočet nekompletných odberov.
+  e) price_list_storage_prices
+     price_list × produkt/komponent × dĺžka (1/5/10/20 rokov) =>
+     cena skladného; + zľava % za predplatenie (10 r., 20 r.)
+     definovaná na úrovni cenníka (per krajina). => M3
+  f) price_list_installment_plans
+     price_list × počet splátok => prirážka % (0 dnes, ale pole
+     existuje). => M4
+  g) incomplete_collection_rules (matica nekompletných odberov)
+     price_list × objednaný produkt × bitová maska reálne odobratých
+     komponentov => výsledný „discounted product" (kód alebo voľný
+     label CB+PB…), cena odberu, ceny skladného, poznámka/zmluvná
+     výnimka. => M2
+     DÔLEŽITÉ: primárne sa matica GENERUJE automaticky zo súčtu
+     cien komponentov, ale každý riadok sa dá ručne OVERRIDNUŤ
+     (v exceli sú výnimky, kde súčet nesedí — zmluvné ceny).
+  h) pricing_adjustment_rules (globálne pravidlá per cenník)
+     - LOW_VOLUME: krv < 20 ml => fixná zľava (suma per krajina)
+     - CONTAMINATION: 100 % zľava z odberu kontaminovanej zložky
+     - FLAT_FEE: nič sa neodobralo => paušál (suma per krajina)
+     => M6
+  i) component_costs (voliteľné, fáza 2)
+     nákladová cena komponentu/produktu per krajina => marža. => M8
+
+3.2 Výpočtový engine (serverová služba, čisté funkcie)
+  Vstup:  krajina + dátum (vyberie aktívny cenník), objednaný
+          produkt, dĺžka skladovania, počet splátok, stav odberu
+          (ktoré komponenty sa reálne odobrali, objem, kontaminácia).
+  Výstup: rozpis ceny = COLLECTION + STORAGE položky, aplikované
+          zľavy/pravidlá, mena, prepočet na EUR, textové odôvodnenie
+          každej položky (audit trail — prečo je cena taká).
+  Postup: 1) nájdi riadok v matici nekompletných odberov (alebo
+          plný produkt), 2) aplikuj pravidlá (<20 ml, kontaminácia,
+          flat fee), 3) skladné podľa reálne uskladnených zložiek,
+          4) zľava za predplatenie, 5) splátková prirážka.
+
+3.3 UI (nová záložka v Configuratore, pôvodné taby nedotknuté)
+  a) Komponenty a produkty — správa číselníkov (raz nastavené).
+  b) Cenníky — zoznam per krajina s verziami; editor cenníka =
+     tabuľky presne v štruktúre excelu (collection / storage /
+     splátky / pravidlá), tlačidlo „Nová verzia s infláciou X %"
+     (predvyplní indexované skladné, collection nechá).
+  c) Matica nekompletných odberov — vygenerovaná tabuľka ako
+     v hárkoch SK/CZ/…, s možnosťou override jednotlivých buniek
+     (override je vizuálne odlíšený + povinná poznámka prečo).
+  d) Kalkulačka (simulátor) — vyskúšať ľubovoľnú kombináciu
+     (krajina, produkt, čo sa odobralo) a vidieť rozpis ceny.
+     Slúži aj na validáciu voči excelu pri nasadení.
+  e) Import z excelu — jednorazový importér tohto súboru ako
+     seed dát (ušetrí ručné prepisovanie ~300 cenových buniek
+     a zaručí zhodu s cenníkom).
+
+3.4 Vzťah k pôvodnému modulu (odporúčanie)
+  Odporúčam NOVÝ modul vedľa pôvodného, nie zásah do neho:
+  - pôvodné products/product_sets zostávajú v prevádzke (faktúry,
+    zmluvy, customer_products na ne majú FK — nič sa nerozbije),
+  - nový modul beží paralelne, najprv len ako cenníková evidencia
+    + kalkulačka (read-only voči zvyšku systému),
+  - po validácii sa rozhodne: buď (A) postupné prepnutie faktúr/
+    zmlúv na products_v2 s mapovacou tabuľkou starý→nový produkt,
+    alebo (B) pôvodný modul ostane ako „katalóg" a nový bude len
+    cenotvorba, na ktorú sa katalóg odkáže.
+  Dôvod: pôvodný model nemá komponentovú vrstvu a dorábať ju doň
+  by znamenalo rizikový zásah do tabuliek, na ktoré sú naviazané
+  faktúry a zmluvy.
+
+=====================================================================
+4. NAVRHOVANÝ POSTUP IMPLEMENTÁCIE (fázy)
+---------------------------------------------------------------------
+Fáza 0 — Schválenie tohto návrhu + doladenie otvorených otázok.
+Fáza 1 — Dátový model + import excelu (seed všetkých 6 krajín),
+         bez UI; interné API „vypočítaj cenu".
+Fáza 2 — UI: cenníky + matica nekompletných odberov + kalkulačka.
+         Validácia: kalkulačka musí dať rovnaké čísla ako excel
+         (kontrolná sada testov vygenerovaná priamo z excelu).
+Fáza 3 — Verziovanie a inflačná indexácia (tlačidlo „nový rok"),
+         splátkové schémy, FX/EUR reporting.
+Fáza 4 — Integrácia: napojenie na zákazníka/zmluvu/faktúru
+         (rozhodnutie A/B z bodu 3.4), prípadný útlm starého modulu.
+
+=====================================================================
+5. OTVORENÉ OTÁZKY PRED IMPLEMENTÁCIOU
+---------------------------------------------------------------------
+a) Má nový modul časom ÚPLNE nahradiť pôvodné products (variant A),
+   alebo pôvodný ostane ako katalóg a nový bude len cenotvorba (B)?
+b) Kto bude cenníky spravovať (admin only / manažér krajiny)?
+   Navrhujem workflow draft → schválenie → aktívny.
+c) Sú „Current 2024" ceny v exceli ešte relevantné pre existujúcich
+   klientov (grandfathering — starý klient platí skladné podľa
+   cenníka platného pri podpise zmluvy)? To ovplyvní, či sa pri
+   zákazníkovi ukladá odkaz na konkrétnu VERZIU cenníka.
+d) HU špecifiká (dve zmluvy krv/tkanivo, odlišné zľavy 40/50 %) —
+   stačí to riešiť override-mi v matici, alebo treba per krajina
+   konfigurovateľné „zmluvné režimy"?
+e) Načítať aj nákladový hárok (marža) hneď, alebo nechať na fázu 2+?
+f) Kde má výpočet ceny prvý reálny dopad — pri zápise výsledku
+   odberu (BO/koordinátor?), pri fakturácii, alebo v oboch bodoch?
+
+=====================================================================
+ZÁVER
+---------------------------------------------------------------------
+Excel je v skutočnosti kompletná špecifikácia cenového enginu:
+komponenty → produkty → cenníky per krajina (verzie, inflácia,
+splátky, zľavy) → matica nekompletných odberov s pravidlami.
+Navrhovaný modul to prenáša 1 : 1, s automatickým generovaním
+discounted cien + ručnými override-mi pre zmluvné výnimky, bez
+akéhokoľvek zásahu do existujúceho modulu Products. Po schválení
+návrhu a zodpovedaní otázok v bode 5 vieme začať Fázou 1.
