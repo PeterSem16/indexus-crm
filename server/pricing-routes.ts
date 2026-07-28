@@ -22,6 +22,8 @@ import {
   users,
   userRoles,
   roleModulePermissions,
+  exchangeRates,
+  inflationRates,
 } from "@shared/schema";
 import { calculatePrice, type PriceListBundle, type CalculationInput } from "./pricing-engine";
 
@@ -111,6 +113,28 @@ export async function resolveActivePriceList(countryCode: string): Promise<strin
 }
 
 export function registerPricingRoutes(app: Express) {
+  // live FX rate lookup (NBS exchange_rates table) — used by the copy-dialog preview
+  app.get("/api/pricing/fx-rate/:currency", requireAuth, async (req, res) => {
+    const currency = req.params.currency.toUpperCase();
+    if (currency === "EUR") return res.json({ currency: "EUR", rate: "1.0000", rateDate: null });
+    const [row] = await db.select().from(exchangeRates)
+      .where(eq(exchangeRates.currencyCode, currency))
+      .orderBy(desc(exchangeRates.rateDate))
+      .limit(1);
+    if (!row) return res.status(404).json({ message: `No exchange rate found for ${currency}` });
+    res.json({ currency: row.currencyCode, rate: row.rate, rateDate: row.rateDate });
+  });
+
+  // inflation-rate lookup for a country + year — used by the copy-dialog preview
+  app.get("/api/pricing/inflation-rate/:countryCode/:year", requireAuth, async (req, res) => {
+    const year = parseInt(req.params.year, 10);
+    if (!Number.isInteger(year) || year < 1900 || year > 2100) return res.status(400).json({ message: "Invalid year" });
+    const [row] = await db.select().from(inflationRates)
+      .where(and(eq(inflationRates.country, req.params.countryCode.toUpperCase()), eq(inflationRates.year, year)));
+    if (!row) return res.status(404).json({ message: `No inflation data for ${req.params.countryCode} ${year}` });
+    res.json({ country: row.country, year: row.year, rate: row.rate, source: row.source });
+  });
+
   app.get("/api/pricing/components", requireAuth, async (_req, res) => {
     res.json(await db.select().from(pricingComponents).orderBy(pricingComponents.sortOrder));
   });
@@ -187,11 +211,62 @@ export function registerPricingRoutes(app: Express) {
 
   // duplicate a price list into a new draft (pricing administrator only)
   app.post("/api/pricing/price-lists/:id/duplicate", requireAuth, requirePricingAdmin, async (req, res) => {
-    const { name } = req.body as { name?: string };
+    const {
+      name,
+      fxRateMode,
+      fxRateToEur: fxRateFixed,
+      inflationYear,
+      inflationApply,
+    } = req.body as {
+      name?: string;
+      fxRateMode?: "live" | "fixed";
+      fxRateToEur?: number | null;
+      inflationYear?: number | null;
+      inflationApply?: boolean;
+    };
     const [src] = await db.select().from(pricingPriceLists).where(eq(pricingPriceLists.id, req.params.id));
     if (!src) return res.status(404).json({ message: "Price list not found" });
     const sessionUser = (req.session as any).user;
     const srcId = src.id;
+
+    // resolve FX rate
+    const resolvedFxMode = fxRateMode ?? "fixed";
+    let resolvedFxRate: string | null = src.fxRateToEur;
+    let fxRateDate: string | null = null;
+    if (resolvedFxMode === "live" && src.currency !== "EUR") {
+      const [row] = await db.select().from(exchangeRates)
+        .where(eq(exchangeRates.currencyCode, src.currency))
+        .orderBy(desc(exchangeRates.rateDate))
+        .limit(1);
+      if (!row) return res.status(400).json({ message: `No live exchange rate available for ${src.currency}` });
+      resolvedFxRate = row.rate;
+      fxRateDate = row.rateDate;
+    } else if (resolvedFxMode === "fixed" && fxRateFixed != null) {
+      if (!Number.isFinite(fxRateFixed) || fxRateFixed <= 0) {
+        return res.status(400).json({ message: "fxRateToEur must be a positive number" });
+      }
+      resolvedFxRate = String(fxRateFixed);
+    }
+
+    // resolve inflation rate
+    let resolvedInflationPct: string | null = null;
+    let resolvedInflationYear: number | null = null;
+    if (inflationYear != null) {
+      if (!Number.isInteger(inflationYear) || inflationYear < 1900 || inflationYear > 2100) {
+        return res.status(400).json({ message: "Invalid inflationYear" });
+      }
+      const [row] = await db.select().from(inflationRates)
+        .where(and(eq(inflationRates.country, src.countryCode), eq(inflationRates.year, inflationYear)));
+      if (!row) return res.status(400).json({ message: `No inflation data found for ${src.countryCode} ${inflationYear}` });
+      resolvedInflationPct = row.rate;
+      resolvedInflationYear = inflationYear;
+    }
+
+    // inflation multiplier applied to prices (only when inflationApply=true and a rate was resolved)
+    const applyInflation = !!inflationApply && resolvedInflationPct != null;
+    const inflMultiplier = applyInflation ? 1 + parseFloat(resolvedInflationPct!) / 100 : 1;
+    const bumpPrice = (p: string) => applyInflation ? String(parseFloat(p) * inflMultiplier) : p;
+
     const [cps, sps, sds, ips, irs, ars] = await Promise.all([
       db.select().from(pricingCollectionPrices).where(eq(pricingCollectionPrices.priceListId, srcId)),
       db.select().from(pricingStoragePrices).where(eq(pricingStoragePrices.priceListId, srcId)),
@@ -204,18 +279,25 @@ export function registerPricingRoutes(app: Express) {
       const [created] = await tx.insert(pricingPriceLists).values({
         countryCode: src.countryCode,
         currency: src.currency,
-        name: name?.trim() || `${src.name} (copy)`,
+        name: name?.trim() || `${src.name} (kópia)`,
         status: "draft",
         validFrom: src.validFrom, // column is NOT NULL; drafts keep the source date until activation
-
-        fxRateToEur: src.fxRateToEur,
-        inflationRatePct: src.inflationRatePct,
+        fxRateToEur: resolvedFxRate,
+        fxRateMode: resolvedFxMode,
+        inflationRatePct: resolvedInflationPct,
+        inflationYear: resolvedInflationYear,
+        inflationApply: applyInflation,
         storageYearOptions: src.storageYearOptions,
+        note: fxRateDate ? `FX kurz z NBS dňa ${fxRateDate}` : src.note,
         createdBy: sessionUser?.id ?? null,
       }).returning();
       const strip = ({ id: _id, priceListId: _pl, ...rest }: any) => ({ ...rest, priceListId: created.id });
-      if (cps.length) await tx.insert(pricingCollectionPrices).values(cps.map(strip));
-      if (sps.length) await tx.insert(pricingStoragePrices).values(sps.map(strip));
+      if (cps.length) await tx.insert(pricingCollectionPrices).values(
+        cps.map((r) => ({ ...strip(r), price: bumpPrice(r.price) }))
+      );
+      if (sps.length) await tx.insert(pricingStoragePrices).values(
+        sps.map((r) => ({ ...strip(r), price: bumpPrice(r.price) }))
+      );
       if (sds.length) await tx.insert(pricingStorageDiscounts).values(sds.map(strip));
       if (ips.length) await tx.insert(pricingInstallmentPlans).values(ips.map(strip));
       if (irs.length) await tx.insert(pricingIncompleteRules).values(irs.map(strip));

@@ -22,7 +22,8 @@ import { Loader2, Copy, AlertTriangle, CheckCircle2, Check, X, Pencil, Calculato
 // ---------- types (mirror server /api/pricing responses) ----------
 interface PriceListRow {
   id: string; countryCode: string; currency: string; name: string; status: string;
-  validFrom: string | null; fxRateToEur: string | null; inflationRatePct: string | null;
+  validFrom: string | null; fxRateToEur: string | null; fxRateMode: string | null;
+  inflationRatePct: string | null; inflationYear: number | null; inflationApply: boolean | null;
   storageYearOptions: number[] | null;
 }
 interface PricingProduct { id: string; code: string; name: string; componentCodes: string[] }
@@ -174,6 +175,10 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
   const [countryFilter, setCountryFilter] = useState<string>("all");
   const [copyOpen, setCopyOpen] = useState(false);
   const [copyName, setCopyName] = useState("");
+  const [copyFxMode, setCopyFxMode] = useState<"live" | "fixed">("fixed");
+  const [copyFxFixed, setCopyFxFixed] = useState("");
+  const [copyInflationYear, setCopyInflationYear] = useState<string>(String(new Date().getFullYear()));
+  const [copyInflationApply, setCopyInflationApply] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [edits, setEdits] = useState<Record<string, string>>({});
   // adjustment-rule edits keyed by rule id: enabled toggle + amount/pct/appliesTo values
@@ -196,9 +201,47 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
     resetItemEdits();
   }, [selectedId]);
 
+  const selectedCurrency = selected?.currency ?? "EUR";
+  const needsFx = selectedCurrency !== "EUR";
+  const inflYearInt = parseInt(copyInflationYear, 10);
+  const validInflYear = Number.isInteger(inflYearInt) && inflYearInt >= 2000 && inflYearInt <= 2100;
+
+  const { data: liveFxData, isLoading: liveFxLoading } = useQuery<{ currency: string; rate: string; rateDate: string | null }>({
+    queryKey: ["/api/pricing/fx-rate", selectedCurrency],
+    queryFn: async () => {
+      const res = await fetch(`/api/pricing/fx-rate/${selectedCurrency}`, { credentials: "include" });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    enabled: copyOpen && needsFx && copyFxMode === "live",
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const { data: inflData, isLoading: inflLoading } = useQuery<{ country: string; year: number; rate: string; source: string | null }>({
+    queryKey: ["/api/pricing/inflation-rate", selected?.countryCode, inflYearInt],
+    queryFn: async () => {
+      const res = await fetch(`/api/pricing/inflation-rate/${selected!.countryCode}/${inflYearInt}`, { credentials: "include" });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    enabled: copyOpen && copyInflationApply && validInflYear && !!selected,
+    staleTime: 1000 * 60 * 30,
+    retry: false,
+  });
+
   const duplicateMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", `/api/pricing/price-lists/${selected!.id}/duplicate`, { name: copyName });
+      const payload: Record<string, unknown> = { name: copyName, fxRateMode: copyFxMode };
+      if (needsFx && copyFxMode === "fixed") {
+        const v = parseFloat(copyFxFixed);
+        if (!Number.isFinite(v) || v <= 0) throw new Error(t.pricing.invalidNumber);
+        payload.fxRateToEur = v;
+      }
+      if (copyInflationApply && validInflYear) {
+        payload.inflationYear = inflYearInt;
+        payload.inflationApply = true;
+      }
+      const res = await apiRequest("POST", `/api/pricing/price-lists/${selected!.id}/duplicate`, payload);
       return res.json() as Promise<PriceListRow>;
     },
     onSuccess: (created) => {
@@ -667,26 +710,117 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
                 </div>
               )}
               {bundle.priceList.fxRateToEur && (
-                <div className="text-xs text-muted-foreground">{t.pricing.fxRate}: 1 EUR = {fmt(bundle.priceList.fxRateToEur)} {bundle.priceList.currency}</div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                  <span>💱 1 EUR = {fmt(bundle.priceList.fxRateToEur)} {bundle.priceList.currency}</span>
+                  {selected?.fxRateMode === "live" && (
+                    <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800">
+                      NBS live
+                    </Badge>
+                  )}
+                  {selected?.fxRateMode === "fixed" && (
+                    <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4">
+                      {t.pricing.fxRateFixed}
+                    </Badge>
+                  )}
+                </div>
+              )}
+              {selected?.inflationYear && selected.inflationRatePct && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                  <span>📈 {t.pricing.inflationSection} {selected.inflationYear}: {fmt(selected.inflationRatePct)} %</span>
+                  {selected.inflationApply && (
+                    <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4 bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800">
+                      {t.pricing.inflationWillApply}
+                    </Badge>
+                  )}
+                </div>
               )}
             </>
           )}
         </CardContent>
       </Card>
 
-      <Dialog open={copyOpen} onOpenChange={setCopyOpen}>
-        <DialogContent>
+      <Dialog open={copyOpen} onOpenChange={(o) => { setCopyOpen(o); if (!o) { setCopyFxMode("fixed"); setCopyFxFixed(""); setCopyInflationApply(false); } }}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{t.pricing.copyDialogTitle}</DialogTitle>
-            <DialogDescription>{selected ? `${COUNTRY_FLAGS[selected.countryCode] ?? ""} ${selected.name}` : ""}</DialogDescription>
+            <DialogDescription>{selected ? `${COUNTRY_FLAGS[selected.countryCode] ?? ""} ${selected.name} · ${selectedCurrency}` : ""}</DialogDescription>
           </DialogHeader>
-          <div>
-            <Label>{t.pricing.newListName}</Label>
-            <Input value={copyName} onChange={(e) => setCopyName(e.target.value)} data-testid="input-copy-name" />
+          <div className="space-y-4">
+            <div>
+              <Label>{t.pricing.newListName}</Label>
+              <Input value={copyName} onChange={(e) => setCopyName(e.target.value)} data-testid="input-copy-name" />
+            </div>
+
+            {/* FX rate section — only for non-EUR currencies */}
+            {needsFx && (
+              <div className="rounded-lg border p-3 space-y-2">
+                <div className="text-sm font-semibold flex items-center gap-1.5">
+                  <span className="text-lg">💱</span>{t.pricing.fxRateSection}
+                </div>
+                <div className="flex gap-2">
+                  {(["live", "fixed"] as const).map((mode) => (
+                    <button key={mode} type="button"
+                      onClick={() => setCopyFxMode(mode)}
+                      className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${copyFxMode === mode ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"}`}
+                      data-testid={`button-fx-mode-${mode}`}>
+                      {mode === "live" ? t.pricing.fxRateLive : t.pricing.fxRateFixed}
+                    </button>
+                  ))}
+                </div>
+                {copyFxMode === "live" && (
+                  <div className="text-xs text-muted-foreground">
+                    {liveFxLoading ? <span className="flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" />{t.pricing.fxRateLoading}</span>
+                      : liveFxData ? <span className="text-green-700 dark:text-green-400 font-medium">✓ NBS: 1 EUR = {fmt(liveFxData.rate)} {selectedCurrency}{liveFxData.rateDate ? ` (${liveFxData.rateDate})` : ""}</span>
+                      : <span className="text-amber-600">{t.pricing.fxRateNotFound}</span>}
+                  </div>
+                )}
+                {copyFxMode === "fixed" && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">1 EUR =</span>
+                    <Input type="number" step="0.0001" min="0" placeholder="napr. 25.35"
+                      value={copyFxFixed} onChange={(e) => setCopyFxFixed(e.target.value)}
+                      className="h-8" data-testid="input-fx-fixed" />
+                    <span className="text-sm font-medium">{selectedCurrency}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Inflation section — optional */}
+            <div className="rounded-lg border p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-semibold flex items-center gap-1.5">
+                  <span className="text-lg">📈</span>{t.pricing.inflationSection}
+                  <span className="text-xs font-normal text-muted-foreground ml-1">({t.pricing.optional})</span>
+                </div>
+                <Switch checked={copyInflationApply} onCheckedChange={setCopyInflationApply} data-testid="switch-inflation-apply" />
+              </div>
+              {copyInflationApply && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs whitespace-nowrap">{t.pricing.inflationYear}</Label>
+                    <Input type="number" min="2000" max="2100" step="1" className="h-8 w-28"
+                      value={copyInflationYear} onChange={(e) => setCopyInflationYear(e.target.value)}
+                      data-testid="input-inflation-year" />
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {!validInflYear ? null
+                      : inflLoading ? <span className="flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" />{t.pricing.inflationLoading}</span>
+                      : inflData ? <span className="text-green-700 dark:text-green-400 font-medium">✓ {inflData.rate} % ({inflData.source ?? selected?.countryCode}){" · "}{t.pricing.inflationWillApply}</span>
+                      : <span className="text-amber-600">{t.pricing.inflationNotFound}</span>}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setCopyOpen(false)}>{t.pricing.cancel}</Button>
-            <Button onClick={() => duplicateMutation.mutate()} disabled={!copyName.trim() || duplicateMutation.isPending} data-testid="button-confirm-copy">
+            <Button onClick={() => duplicateMutation.mutate()}
+              disabled={!copyName.trim() || duplicateMutation.isPending
+                || (needsFx && copyFxMode === "fixed" && !copyFxFixed.trim())
+                || (copyInflationApply && (!validInflYear || (!inflData && !inflLoading)))}
+              data-testid="button-confirm-copy">
               {duplicateMutation.isPending && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}{t.pricing.copyList}
             </Button>
           </DialogFooter>

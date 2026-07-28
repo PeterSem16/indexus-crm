@@ -8159,6 +8159,9 @@ export const pricingPriceLists = pgTable("pricing_price_lists", {
   inflationRatePct: decimal("inflation_rate_pct", { precision: 6, scale: 3 }),
   inflationCondition: text("inflation_condition"), // e.g. "apply only if annual inflation > 5%" (AT/IT)
   fxRateToEur: decimal("fx_rate_to_eur", { precision: 12, scale: 4 }), // 1 EUR = X local
+  fxRateMode: text("fx_rate_mode").default("fixed"), // 'fixed' | 'live' (live = pulled from exchange_rates at creation)
+  inflationYear: integer("inflation_year"), // which year's inflation was applied (nullable)
+  inflationApply: boolean("inflation_apply").default(false), // if true prices were bumped by inflationRatePct at creation
   storageYearOptions: jsonb("storage_year_options").$type<number[]>(), // e.g. [1,10,20]
   note: text("note"),
   approvedBy: varchar("approved_by"), // FK users — pricing administrator
