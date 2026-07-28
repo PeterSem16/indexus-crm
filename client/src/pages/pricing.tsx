@@ -1169,6 +1169,11 @@ function CalculatorTab({ lists, products }: { lists: PriceListRow[]; products: P
   const effYears = storageYears && years.includes(storageYears) ? storageYears : years[years.length - 1];
   const [installments, setInstallments] = useState(1);
   const [collectionDiscount, setCollectionDiscount] = useState(0);
+  // clamp when product changes and the new max is lower than the current value
+  useEffect(() => {
+    setCollectionDiscount((prev) => Math.min(prev, maxCollDiscountPct));
+    setResult(null);
+  }, [maxCollDiscountPct]);
   const [result, setResult] = useState<CalcResult | null>(null);
 
   const calcMutation = useMutation({
