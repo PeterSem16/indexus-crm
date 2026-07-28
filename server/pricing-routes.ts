@@ -206,7 +206,8 @@ export function registerPricingRoutes(app: Express) {
         currency: src.currency,
         name: name?.trim() || `${src.name} (copy)`,
         status: "draft",
-        validFrom: null,
+        validFrom: src.validFrom, // column is NOT NULL; drafts keep the source date until activation
+
         fxRateToEur: src.fxRateToEur,
         inflationRatePct: src.inflationRatePct,
         storageYearOptions: src.storageYearOptions,
@@ -226,9 +227,12 @@ export function registerPricingRoutes(app: Express) {
 
   // manual price edits on a DRAFT price list (pricing administrator only)
   app.patch("/api/pricing/price-lists/:id/prices", requireAuth, requirePricingAdmin, async (req, res) => {
-    const { collection = [], storage = [] } = req.body as {
+    const { collection = [], storage = [], discounts = [], installments = [], rules = [] } = req.body as {
       collection?: Array<{ id: string; price: number }>;
       storage?: Array<{ id: string; price: number }>;
+      discounts?: Array<{ id: string; discountPct: number }>;
+      installments?: Array<{ id: string; surchargePct: number }>;
+      rules?: Array<{ id: string; enabled?: boolean; amount?: number | null; pct?: number | null; appliesTo?: string | null }>;
     };
     const [list] = await db.select().from(pricingPriceLists).where(eq(pricingPriceLists.id, req.params.id));
     if (!list) return res.status(404).json({ message: "Price list not found" });
@@ -236,17 +240,51 @@ export function registerPricingRoutes(app: Express) {
     if ([...collection, ...storage].some((r) => !r?.id || !Number.isFinite(r.price))) {
       return res.status(400).json({ message: "Each row needs an id and a finite price" });
     }
-    for (const r of collection) {
-      await db.update(pricingCollectionPrices)
-        .set({ price: String(r.price) })
-        .where(and(eq(pricingCollectionPrices.id, r.id), eq(pricingCollectionPrices.priceListId, list.id)));
+    if (discounts.some((r) => !r?.id || !Number.isFinite(r.discountPct))) {
+      return res.status(400).json({ message: "Each discount row needs an id and a finite discountPct" });
     }
-    for (const r of storage) {
-      await db.update(pricingStoragePrices)
-        .set({ price: String(r.price) })
-        .where(and(eq(pricingStoragePrices.id, r.id), eq(pricingStoragePrices.priceListId, list.id)));
+    if (installments.some((r) => !r?.id || !Number.isFinite(r.surchargePct))) {
+      return res.status(400).json({ message: "Each installment row needs an id and a finite surchargePct" });
     }
-    res.json({ ok: true, updated: collection.length + storage.length });
+    const finiteOrNull = (v: unknown) => v === undefined || v === null || Number.isFinite(v);
+    if (rules.some((r) => !r?.id || !finiteOrNull(r.amount) || !finiteOrNull(r.pct)
+      || (r.enabled !== undefined && typeof r.enabled !== "boolean")
+      || (r.appliesTo !== undefined && r.appliesTo !== null && typeof r.appliesTo !== "string"))) {
+      return res.status(400).json({ message: "Each rule row needs an id; amount/pct must be finite numbers or null" });
+    }
+    await db.transaction(async (tx) => {
+      for (const r of collection) {
+        await tx.update(pricingCollectionPrices)
+          .set({ price: String(r.price) })
+          .where(and(eq(pricingCollectionPrices.id, r.id), eq(pricingCollectionPrices.priceListId, list.id)));
+      }
+      for (const r of storage) {
+        await tx.update(pricingStoragePrices)
+          .set({ price: String(r.price) })
+          .where(and(eq(pricingStoragePrices.id, r.id), eq(pricingStoragePrices.priceListId, list.id)));
+      }
+      for (const r of discounts) {
+        await tx.update(pricingStorageDiscounts)
+          .set({ discountPct: String(r.discountPct) })
+          .where(and(eq(pricingStorageDiscounts.id, r.id), eq(pricingStorageDiscounts.priceListId, list.id)));
+      }
+      for (const r of installments) {
+        await tx.update(pricingInstallmentPlans)
+          .set({ surchargePct: String(r.surchargePct) })
+          .where(and(eq(pricingInstallmentPlans.id, r.id), eq(pricingInstallmentPlans.priceListId, list.id)));
+      }
+      for (const r of rules) {
+        await tx.update(pricingAdjustmentRules)
+          .set({
+            ...(r.enabled !== undefined ? { enabled: r.enabled } : {}),
+            ...(r.amount !== undefined ? { amount: r.amount === null ? null : String(r.amount) } : {}),
+            ...(r.pct !== undefined ? { pct: r.pct === null ? null : String(r.pct) } : {}),
+            ...(r.appliesTo !== undefined ? { appliesTo: r.appliesTo === "" ? null : r.appliesTo } : {}),
+          })
+          .where(and(eq(pricingAdjustmentRules.id, r.id), eq(pricingAdjustmentRules.priceListId, list.id)));
+      }
+    });
+    res.json({ ok: true, updated: collection.length + storage.length + discounts.length + installments.length + rules.length });
   });
 
   // manual override of one matrix row (pricing administrator only, note required)

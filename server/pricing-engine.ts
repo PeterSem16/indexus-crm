@@ -31,7 +31,7 @@ export interface PriceListBundle {
     isOverride: boolean;
     note: string | null;
   }>;
-  adjustmentRules: Array<{ ruleType: string; amount: string | null; pct: string | null; appliesTo?: string | null; note: string | null }>;
+  adjustmentRules: Array<{ ruleType: string; amount: string | null; pct: string | null; appliesTo?: string | null; note: string | null; enabled?: boolean | null }>;
 }
 
 export interface CalculationInput {
@@ -112,7 +112,7 @@ export function calculatePrice(bundle: PriceListBundle, input: CalculationInput)
   const mask = normalizeMask(collected, componentCodes);
   const fullMask = normalizeMask(productComponentCodes, componentCodes);
 
-  const rules = bundle.adjustmentRules;
+  const rules = bundle.adjustmentRules.filter((r) => r.enabled !== false);
   const flatFeeRule = rules.find((r) => r.ruleType === "FLAT_FEE");
   const lowVolumeRule = rules.find((r) => r.ruleType === "LOW_VOLUME");
   const contaminationRule = rules.find((r) => r.ruleType === "CONTAMINATION");
@@ -174,11 +174,14 @@ export function calculatePrice(bundle: PriceListBundle, input: CalculationInput)
     }
 
     // contamination: 100% discount from collection fee of the contaminated component(s)
-    for (const code of input.contaminated ?? []) {
+    if ((input.contaminated ?? []).length && !contaminationRule) {
+      warnings.push("CONTAMINATION rule is missing or disabled for this price list — no contamination discount applied.");
+    }
+    for (const code of contaminationRule ? (input.contaminated ?? []) : []) {
       if (!collected.includes(code)) { warnings.push(`Contaminated component ${code} was not among collected — ignored.`); continue; }
       const comp = bundle.components.find((c) => c.code === code);
       const cp = comp ? bundle.collectionPrices.find((p) => p.componentId === comp.id) : undefined;
-      const pct = contaminationRule ? n(contaminationRule.pct) : 100;
+      const pct = n(contaminationRule.pct);
       const base = n(cp?.price);
       const discount = round2(-base * pct / 100);
       lineItems.push({

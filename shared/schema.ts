@@ -8235,6 +8235,7 @@ export const pricingAdjustmentRules = pgTable("pricing_adjustment_rules", {
   amount: decimal("amount", { precision: 14, scale: 2 }), // fixed amount in list currency (LOW_VOLUME discount, FLAT_FEE fee)
   pct: decimal("pct", { precision: 6, scale: 3 }), // percentage (CONTAMINATION = 100)
   appliesTo: text("applies_to"), // component codes joined by "+" the rule is conditional on (e.g. LOW_VOLUME applies to "CB" or "CB+PB")
+  enabled: boolean("enabled").notNull().default(true), // optional rules can be switched off per price list
   note: text("note"),
 });
 

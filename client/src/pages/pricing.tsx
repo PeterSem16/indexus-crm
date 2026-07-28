@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useI18n } from "@/i18n";
@@ -33,10 +33,10 @@ interface Bundle {
   productComponents: Array<{ productId: string; componentId: string }>;
   collectionPrices: Array<{ id: string; productId: string | null; componentId: string | null; price: string; note: string | null }>;
   storagePrices: Array<{ id: string; productId: string | null; componentId: string | null; years: number; price: string }>;
-  storageDiscounts: Array<{ years: number; discountPct: string }>;
-  installmentPlans: Array<{ installments: number; surchargePct: string }>;
+  storageDiscounts: Array<{ id: string; years: number; discountPct: string }>;
+  installmentPlans: Array<{ id: string; installments: number; surchargePct: string }>;
   incompleteRules: Array<{ id: string; orderedProductId: string; collectedMask: string; resultLabel: string; collectionPrice: string; storagePrices: Record<string, number> | null; isOverride: boolean; note: string | null }>;
-  adjustmentRules: Array<{ ruleType: string; amount: string | null; pct: string | null; appliesTo?: string | null; note: string | null }>;
+  adjustmentRules: Array<{ id: string; ruleType: string; amount: string | null; pct: string | null; appliesTo?: string | null; note: string | null; enabled?: boolean | null }>;
 }
 interface CalcResult {
   priceListId: string; countryCode: string; currency: string;
@@ -136,8 +136,18 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
   const [copyName, setCopyName] = useState("");
   const [editMode, setEditMode] = useState(false);
   const [edits, setEdits] = useState<Record<string, string>>({});
+  // adjustment-rule edits keyed by rule id: enabled toggle + amount/pct/appliesTo values
+  const [ruleEdits, setRuleEdits] = useState<Record<string, { enabled?: boolean; amount?: string; pct?: string; appliesTo?: string }>>({});
   const selected = lists.find((l) => l.id === selectedId) ?? null;
   const isEditableDraft = !!selected && selected.status === "draft" && canManage;
+
+  // switching lists must drop any in-progress edits, or stale row ids from the
+  // previous list would be submitted (server ignores them → silent no-op save)
+  useEffect(() => {
+    setEditMode(false);
+    setEdits({});
+    setRuleEdits({});
+  }, [selectedId]);
 
   const duplicateMutation = useMutation({
     mutationFn: async () => {
@@ -157,19 +167,39 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
     mutationFn: () => {
       const collection: Array<{ id: string; price: number }> = [];
       const storage: Array<{ id: string; price: number }> = [];
+      const discounts: Array<{ id: string; discountPct: number }> = [];
+      const installments: Array<{ id: string; surchargePct: number }> = [];
       for (const [key, val] of Object.entries(edits)) {
         if (val === "") continue;
-        const price = parseFloat(val);
-        if (!Number.isFinite(price)) return Promise.reject(new Error(t.pricing.invalidNumber));
-        if (key.startsWith("c:")) collection.push({ id: key.slice(2), price });
-        else storage.push({ id: key.slice(2), price });
+        const num = parseFloat(val);
+        if (!Number.isFinite(num)) return Promise.reject(new Error(t.pricing.invalidNumber));
+        if (key.startsWith("c:")) collection.push({ id: key.slice(2), price: num });
+        else if (key.startsWith("s:")) storage.push({ id: key.slice(2), price: num });
+        else if (key.startsWith("d:")) discounts.push({ id: key.slice(2), discountPct: num });
+        else if (key.startsWith("i:")) installments.push({ id: key.slice(2), surchargePct: num });
       }
-      return apiRequest("PATCH", `/api/pricing/price-lists/${selected!.id}/prices`, { collection, storage });
+      const rules: Array<{ id: string; enabled?: boolean; amount?: number | null; pct?: number | null; appliesTo?: string | null }> = [];
+      for (const [id, r] of Object.entries(ruleEdits)) {
+        const out: any = { id };
+        if (r.enabled !== undefined) out.enabled = r.enabled;
+        if (r.amount !== undefined) {
+          if (r.amount === "") out.amount = null;
+          else { const v = parseFloat(r.amount); if (!Number.isFinite(v)) return Promise.reject(new Error(t.pricing.invalidNumber)); out.amount = v; }
+        }
+        if (r.pct !== undefined) {
+          if (r.pct === "") out.pct = null;
+          else { const v = parseFloat(r.pct); if (!Number.isFinite(v)) return Promise.reject(new Error(t.pricing.invalidNumber)); out.pct = v; }
+        }
+        if (r.appliesTo !== undefined) out.appliesTo = r.appliesTo === "__any" ? null : r.appliesTo;
+        if (Object.keys(out).length > 1) rules.push(out);
+      }
+      return apiRequest("PATCH", `/api/pricing/price-lists/${selected!.id}/prices`, { collection, storage, discounts, installments, rules });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/pricing/price-lists", selected?.id] });
       setEditMode(false);
       setEdits({});
+      setRuleEdits({});
       toast({ title: t.pricing.pricesSaved });
     },
     onError: (e: any) => toast({ title: t.pricing.updateFailed, description: String(e?.message ?? e), variant: "destructive" }),
@@ -251,13 +281,13 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
                 <CopyPlus className="w-4 h-4 mr-1" />{t.pricing.copyList}
               </Button>
               {isEditableDraft && !editMode && (
-                <Button size="sm" variant="outline" onClick={() => { setEdits({}); setEditMode(true); }} data-testid="button-edit-prices">
+                <Button size="sm" variant="outline" onClick={() => { setEdits({}); setRuleEdits({}); setEditMode(true); }} data-testid="button-edit-prices">
                   <Pencil className="w-4 h-4 mr-1" />{t.pricing.editPrices}
                 </Button>
               )}
               {isEditableDraft && editMode && (
                 <>
-                  <Button size="sm" variant="outline" onClick={() => { setEditMode(false); setEdits({}); }}>
+                  <Button size="sm" variant="outline" onClick={() => { setEditMode(false); setEdits({}); setRuleEdits({}); }}>
                     <X className="w-4 h-4 mr-1" />{t.pricing.cancel}
                   </Button>
                   <Button size="sm" onClick={() => savePricesMutation.mutate()} disabled={savePricesMutation.isPending} data-testid="button-save-prices">
@@ -341,8 +371,19 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
                   <div>
                     <div className="text-sm font-semibold mb-2">{t.pricing.prepayDiscounts}</div>
                     <div className="flex flex-wrap gap-2">
-                      {bundle.storageDiscounts.map((d, i) => (
-                        <Badge key={i} variant="outline">{d.years}{t.pricing.yearsShort}: −{parseFloat(d.discountPct)} %</Badge>
+                      {bundle.storageDiscounts.map((d) => (
+                        editMode && isEditableDraft ? (
+                          <div key={d.id} className="flex items-center gap-1 rounded-md border px-2 py-1 text-sm">
+                            <span>{d.years}{t.pricing.yearsShort}: −</span>
+                            <Input type="number" step="0.1" className="h-7 w-16 text-right"
+                              value={edits[`d:${d.id}`] ?? String(parseFloat(d.discountPct))}
+                              onChange={(e) => setEdits((s) => ({ ...s, [`d:${d.id}`]: e.target.value }))}
+                              data-testid={`input-discount-${d.years}`} />
+                            <span>%</span>
+                          </div>
+                        ) : (
+                          <Badge key={d.id} variant="outline">{d.years}{t.pricing.yearsShort}: −{parseFloat(d.discountPct)} %</Badge>
+                        )
                       ))}
                     </div>
                   </div>
@@ -351,13 +392,83 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
                   <div>
                     <div className="text-sm font-semibold mb-2">{t.pricing.installments}</div>
                     <div className="flex flex-wrap gap-2">
-                      {bundle.installmentPlans.map((p, i) => (
-                        <Badge key={i} variant="outline">{p.installments}× : +{parseFloat(p.surchargePct)} %</Badge>
+                      {bundle.installmentPlans.map((p) => (
+                        editMode && isEditableDraft ? (
+                          <div key={p.id} className="flex items-center gap-1 rounded-md border px-2 py-1 text-sm">
+                            <span>{p.installments}× : +</span>
+                            <Input type="number" step="0.1" className="h-7 w-16 text-right"
+                              value={edits[`i:${p.id}`] ?? String(parseFloat(p.surchargePct))}
+                              onChange={(e) => setEdits((s) => ({ ...s, [`i:${p.id}`]: e.target.value }))}
+                              data-testid={`input-installment-${p.installments}`} />
+                            <span>%</span>
+                          </div>
+                        ) : (
+                          <Badge key={p.id} variant="outline">{p.installments}× : +{parseFloat(p.surchargePct)} %</Badge>
+                        )
                       ))}
                     </div>
                   </div>
                 )}
               </div>
+
+              {bundle.adjustmentRules.length > 0 && (
+                <div>
+                  <div className="text-sm font-semibold mb-2">{t.pricing.rulesTitle}</div>
+                  <div className="space-y-2">
+                    {bundle.adjustmentRules.map((r) => {
+                      const edit = ruleEdits[r.id] ?? {};
+                      const enabled = edit.enabled ?? r.enabled !== false;
+                      const label = r.ruleType === "LOW_VOLUME" ? t.pricing.ruleLowVolume
+                        : r.ruleType === "CONTAMINATION" ? t.pricing.ruleContamination
+                        : r.ruleType === "FLAT_FEE" ? t.pricing.ruleFlatFee : r.ruleType;
+                      const compCodes = bundle.components.map((c) => c.code);
+                      const appliesToOptions = [...compCodes, ...(compCodes.length >= 2 ? [compCodes.slice(0, 2).join("+")] : [])];
+                      const currentAppliesTo = edit.appliesTo ?? (r.appliesTo ?? "__any");
+                      if (!editMode || !isEditableDraft) {
+                        return (
+                          <div key={r.id} className={`flex items-center gap-2 flex-wrap rounded-md border px-3 py-2 text-sm ${enabled ? "" : "opacity-50"}`}>
+                            <span className="font-medium">{label}</span>
+                            {!enabled && <Badge variant="secondary">{t.pricing.ruleDisabled}</Badge>}
+                            {r.amount != null && <Badge variant="outline">−{fmt(r.amount, bundle.priceList.currency)}</Badge>}
+                            {r.pct != null && <Badge variant="outline">{parseFloat(r.pct)} %</Badge>}
+                            {r.appliesTo && <Badge variant="outline">{t.pricing.ruleAppliesTo}: {r.appliesTo}</Badge>}
+                          </div>
+                        );
+                      }
+                      return (
+                        <div key={r.id} className="flex items-center gap-3 flex-wrap rounded-md border px-3 py-2 text-sm" data-testid={`row-rule-${r.ruleType}`}>
+                          <Switch checked={enabled}
+                            onCheckedChange={(v) => setRuleEdits((s) => ({ ...s, [r.id]: { ...s[r.id], enabled: v } }))}
+                            data-testid={`switch-rule-${r.ruleType}`} />
+                          <span className={`font-medium min-w-32 ${enabled ? "" : "opacity-50"}`}>{label}</span>
+                          <div className="flex items-center gap-1">
+                            <span className="text-muted-foreground text-xs">{t.pricing.ruleAmount} ({bundle.priceList.currency})</span>
+                            <Input type="number" step="0.01" className="h-7 w-24 text-right" disabled={!enabled}
+                              value={edit.amount ?? (r.amount != null ? String(parseFloat(r.amount)) : "")}
+                              onChange={(e) => setRuleEdits((s) => ({ ...s, [r.id]: { ...s[r.id], amount: e.target.value } }))} />
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-muted-foreground text-xs">%</span>
+                            <Input type="number" step="0.1" className="h-7 w-20 text-right" disabled={!enabled}
+                              value={edit.pct ?? (r.pct != null ? String(parseFloat(r.pct)) : "")}
+                              onChange={(e) => setRuleEdits((s) => ({ ...s, [r.id]: { ...s[r.id], pct: e.target.value } }))} />
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-muted-foreground text-xs">{t.pricing.ruleAppliesTo}</span>
+                            <Select value={currentAppliesTo} onValueChange={(v) => setRuleEdits((s) => ({ ...s, [r.id]: { ...s[r.id], appliesTo: v } }))} disabled={!enabled}>
+                              <SelectTrigger className="h-7 w-32"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__any">{t.pricing.ruleAnyComponent}</SelectItem>
+                                {appliesToOptions.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               {bundle.priceList.fxRateToEur && (
                 <div className="text-xs text-muted-foreground">{t.pricing.fxRate}: 1 EUR = {fmt(bundle.priceList.fxRateToEur)} {bundle.priceList.currency}</div>
               )}

@@ -662,6 +662,7 @@ app.use((req, res, next) => {
       );
       CREATE INDEX IF NOT EXISTS idx_pcpl_customer ON pricing_customer_price_lists (customer_id);
       ALTER TABLE pricing_adjustment_rules ADD COLUMN IF NOT EXISTS applies_to text;
+      ALTER TABLE pricing_adjustment_rules ADD COLUMN IF NOT EXISTS enabled boolean NOT NULL DEFAULT true;
       CREATE UNIQUE INDEX IF NOT EXISTS uq_pcp_list_target
         ON pricing_collection_prices (price_list_id, coalesce(product_id,''), coalesce(component_id,''));
       CREATE UNIQUE INDEX IF NOT EXISTS uq_psp_list_target_years
