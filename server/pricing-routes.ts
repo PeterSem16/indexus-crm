@@ -87,6 +87,7 @@ export async function loadPriceListBundle(priceListId: string): Promise<PriceLis
     storageDiscounts,
     installmentPlans,
     incompleteRules: incompleteRules.map((r) => ({
+      id: r.id,
       orderedProductId: r.orderedProductId,
       collectedMask: r.collectedMask,
       resultLabel: r.resultLabel,
@@ -141,7 +142,8 @@ export function registerPricingRoutes(app: Express) {
     res.json(bundle);
   });
 
-  app.get("/api/pricing/costs", requireAuth, async (_req, res) => {
+  // costs contain margins — pricing administrators only
+  app.get("/api/pricing/costs", requireAuth, requirePricingAdmin, async (_req, res) => {
     res.json(await db.select().from(pricingProductCosts).orderBy(pricingProductCosts.countryCode));
   });
 
@@ -187,6 +189,12 @@ export function registerPricingRoutes(app: Express) {
   app.patch("/api/pricing/incomplete-rules/:id", requireAuth, requirePricingAdmin, async (req, res) => {
     const { collectionPrice, storagePrices, note } = req.body as { collectionPrice?: number; storagePrices?: Record<string, number>; note?: string };
     if (!note) return res.status(400).json({ message: "A note explaining the override is required" });
+    if (collectionPrice !== undefined && !Number.isFinite(collectionPrice)) {
+      return res.status(400).json({ message: "collectionPrice must be a finite number" });
+    }
+    if (storagePrices !== undefined && (typeof storagePrices !== "object" || storagePrices === null || Object.values(storagePrices).some((v) => !Number.isFinite(v)))) {
+      return res.status(400).json({ message: "storagePrices must be a map of finite numbers" });
+    }
     const [updated] = await db
       .update(pricingIncompleteRules)
       .set({

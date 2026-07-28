@@ -22,6 +22,7 @@ export interface PriceListBundle {
   storageDiscounts: Array<{ years: number; discountPct: string }>;
   installmentPlans: Array<{ installments: number; surchargePct: string }>;
   incompleteRules: Array<{
+    id?: string;
     orderedProductId: string;
     collectedMask: string;
     resultLabel: string;

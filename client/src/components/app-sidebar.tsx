@@ -113,6 +113,7 @@ export function AppSidebar() {
   const configNavSubItems = [
     { title: t.nav.konfigurator, url: "/configurator", testId: "konfigurator", moduleKey: "configurator" },
     { title: "Automations", url: "/automations", testId: "automations", moduleKey: "configurator" },
+    { title: t.nav.pricing, url: "/pricing", testId: "pricing", moduleKey: "pricing" },
   ];
 
   const userRoleName = sidebarRoles.find(r => r.id === user?.roleId)?.name;

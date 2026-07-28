@@ -54,6 +54,7 @@ const SettingsPage = lazy(() => import("@/pages/settings"));
 const VisitEventsPage = lazy(() => import("@/pages/visit-events"));
 const CollaboratorReportsPage = lazy(() => import("@/pages/collaborator-reports"));
 const ConfiguratorPage = lazy(() => import("@/pages/configurator"));
+const PricingPage = lazy(() => import("@/pages/pricing"));
 const CampaignsPage = lazy(() => import("@/pages/campaigns"));
 const CampaignDetailPage = lazy(() => import("@/pages/campaign-detail"));
 const TasksPage = lazy(() => import("@/pages/tasks"));
@@ -292,6 +293,7 @@ function AuthenticatedApp() {
                     <Route path="/automations" component={AutomationsPage} />
                     <Route path="/scraping" component={ScrapingPage} />
                     <Route path="/configurator" component={ConfiguratorPage} />
+                    <Route path="/pricing" component={PricingPage} />
                     <Route path="/ms365" component={MS365IntegrationPage} />
                     <Route path="/email" component={EmailClientPage} />
                     <Route path="/notifications" component={NotificationCenterPage} />
