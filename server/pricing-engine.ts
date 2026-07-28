@@ -17,7 +17,7 @@ export interface PriceListBundle {
   products: Array<{ id: string; code: string; name: string }>;
   components: Array<{ id: string; code: string; name: string }>;
   productComponents: Array<{ productId: string; componentId: string }>;
-  collectionPrices: Array<{ productId: string | null; componentId: string | null; price: string; note: string | null }>;
+  collectionPrices: Array<{ id: string; productId: string | null; componentId: string | null; price: string; maxCollectionDiscountPct: string | null; note: string | null }>;
   storagePrices: Array<{ productId: string | null; componentId: string | null; years: number; price: string }>;
   storageDiscounts: Array<{ years: number; discountPct: string }>;
   installmentPlans: Array<{ installments: number; surchargePct: string }>;
@@ -41,6 +41,7 @@ export interface CalculationInput {
   collected?: string[];           // component codes actually collected; undefined = complete collection
   contaminated?: string[];        // collected but contaminated component codes
   lowVolume?: boolean;            // blood volume < 20ml
+  collectionDiscountPct?: number; // optional sales/BO manual discount on collection (validated against maxCollectionDiscountPct)
 }
 
 export interface PriceLineItem {
@@ -184,6 +185,27 @@ export function calculatePrice(bundle: PriceListBundle, input: CalculationInput)
         collectionPrice += n(cp.price);
       }
       effectiveLabel = mask;
+    }
+
+    // manual sales/BO collection discount (capped by maxCollectionDiscountPct on the collection price row)
+    if ((input.collectionDiscountPct ?? 0) > 0 && collectionPrice > 0) {
+      const cp = bundle.collectionPrices.find((p) => p.productId === product.id);
+      const maxPct = cp?.maxCollectionDiscountPct ? n(cp.maxCollectionDiscountPct) : 0;
+      if (maxPct <= 0) {
+        warnings.push(`Collection discount of ${input.collectionDiscountPct}% requested but no max discount is configured for ${product.name} — discount not applied.`);
+      } else {
+        const appliedPct = Math.min(input.collectionDiscountPct!, maxPct);
+        if (appliedPct < input.collectionDiscountPct!) {
+          warnings.push(`Requested collection discount ${input.collectionDiscountPct}% exceeds maximum ${maxPct}% — clamped to ${appliedPct}%.`);
+        }
+        lineItems.push({
+          kind: "discount",
+          label: `Collection discount (${appliedPct}%)`,
+          amount: round2(-collectionPrice * appliedPct / 100),
+          currency,
+          reason: `Manual collection discount of ${appliedPct}% (max authorised: ${maxPct}%) granted by sales/back-office.`,
+        });
+      }
     }
 
     // contamination: 100% discount from collection fee of the contaminated component(s)

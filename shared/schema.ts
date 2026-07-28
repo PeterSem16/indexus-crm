@@ -8179,6 +8179,7 @@ export const pricingCollectionPrices = pgTable("pricing_collection_prices", {
   productId: varchar("product_id"), // either productId
   componentId: varchar("component_id"), // ...or componentId
   price: decimal("price", { precision: 14, scale: 2 }).notNull(),
+  maxCollectionDiscountPct: decimal("max_collection_discount_pct", { precision: 5, scale: 2 }), // max % sales/BO can discount on collection; null = no discount allowed
   note: text("note"),
 }, (table) => ({
   idxPcpList: index("idx_pcp_list").on(table.priceListId),

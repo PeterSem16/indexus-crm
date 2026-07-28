@@ -669,6 +669,7 @@ app.use((req, res, next) => {
       UPDATE pricing_adjustment_rules SET volume_operator = 'lt', volume_max_ml = 20 WHERE rule_type = 'LOW_VOLUME' AND volume_operator IS NULL;
       DELETE FROM pricing_storage_discounts a USING pricing_storage_discounts b WHERE a.id > b.id AND a.price_list_id = b.price_list_id AND a.years = b.years;
       DELETE FROM pricing_installment_plans a USING pricing_installment_plans b WHERE a.id > b.id AND a.price_list_id = b.price_list_id AND a.installments = b.installments;
+      ALTER TABLE pricing_collection_prices ADD COLUMN IF NOT EXISTS max_collection_discount_pct decimal(5,2);
       ALTER TABLE pricing_price_lists ADD COLUMN IF NOT EXISTS fx_rate_mode text DEFAULT 'fixed';
       ALTER TABLE pricing_price_lists ADD COLUMN IF NOT EXISTS inflation_year integer;
       ALTER TABLE pricing_price_lists ADD COLUMN IF NOT EXISTS inflation_apply boolean DEFAULT false;

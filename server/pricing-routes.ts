@@ -84,7 +84,14 @@ export async function loadPriceListBundle(priceListId: string): Promise<PriceLis
     products: products.map((p) => ({ id: p.id, code: p.code, name: p.name })),
     components: components.sort((a, b) => a.sortOrder - b.sortOrder).map((c) => ({ id: c.id, code: c.code, name: c.name })),
     productComponents,
-    collectionPrices,
+    collectionPrices: collectionPrices.map((cp) => ({
+      id: cp.id,
+      productId: cp.productId,
+      componentId: cp.componentId,
+      price: cp.price,
+      maxCollectionDiscountPct: cp.maxCollectionDiscountPct,
+      note: cp.note,
+    })),
     storagePrices,
     storageDiscounts,
     installmentPlans,
@@ -174,7 +181,8 @@ export function registerPricingRoutes(app: Express) {
   // price calculation with itemized breakdown (audit trail)
   app.post("/api/pricing/calculate", requireAuth, async (req, res) => {
     try {
-      const { priceListId, countryCode, ...calc } = req.body as { priceListId?: string; countryCode?: string } & CalculationInput;
+      const { priceListId, countryCode, collectionDiscountPct, ...calcRest } = req.body as { priceListId?: string; countryCode?: string; collectionDiscountPct?: number } & CalculationInput;
+      const calc = { ...calcRest, ...(collectionDiscountPct != null ? { collectionDiscountPct } : {}) } as CalculationInput;
       let listId = priceListId ?? null;
       if (!listId && countryCode) listId = await resolveActivePriceList(countryCode);
       if (!listId) return res.status(400).json({ message: "priceListId or countryCode with an active price list is required" });
@@ -329,6 +337,7 @@ export function registerPricingRoutes(app: Express) {
     const {
       collection = [], storage = [], discounts = [], installments = [], rules = [],
       addDiscounts = [], removeDiscounts = [], addInstallments = [], removeInstallments = [],
+      maxDiscounts = [],
     } = req.body as {
       collection?: Array<{ id: string; price: number }>;
       storage?: Array<{ id: string; price: number }>;
@@ -338,6 +347,7 @@ export function registerPricingRoutes(app: Express) {
       removeDiscounts?: string[];
       addInstallments?: Array<{ installments: number; surchargePct: number }>;
       removeInstallments?: string[];
+      maxDiscounts?: Array<{ id: string; maxDiscountPct: number | null }>; // set/clear max collection discount per row
       rules?: Array<{ id: string; enabled?: boolean; amount?: number | null; pct?: number | null; appliesTo?: string | null; volumeOperator?: string | null; volumeMinMl?: number | null; volumeMaxMl?: number | null }>;
     };
     const [list] = await db.select().from(pricingPriceLists).where(eq(pricingPriceLists.id, req.params.id));
@@ -357,6 +367,9 @@ export function registerPricingRoutes(app: Express) {
     }
     if (addInstallments.some((r) => !Number.isInteger(r?.installments) || r.installments <= 0 || !Number.isFinite(r?.surchargePct))) {
       return res.status(400).json({ message: "New installment plans need a positive integer count and a finite surchargePct" });
+    }
+    if (maxDiscounts.some((r) => !r?.id || (r.maxDiscountPct !== null && (!Number.isFinite(r.maxDiscountPct) || r.maxDiscountPct < 0 || r.maxDiscountPct > 100)))) {
+      return res.status(400).json({ message: "maxDiscounts: each row needs an id and a maxDiscountPct between 0–100 or null" });
     }
     if ([...removeDiscounts, ...removeInstallments].some((id) => typeof id !== "string" || !id)) {
       return res.status(400).json({ message: "remove lists must contain row ids" });
@@ -435,6 +448,11 @@ export function registerPricingRoutes(app: Express) {
       if (addInstallments.length) {
         await tx.insert(pricingInstallmentPlans).values(addInstallments.map((r) => ({ priceListId: list.id, installments: r.installments, surchargePct: String(r.surchargePct) })));
       }
+      for (const r of maxDiscounts) {
+        await tx.update(pricingCollectionPrices)
+          .set({ maxCollectionDiscountPct: r.maxDiscountPct === null ? null : String(r.maxDiscountPct) })
+          .where(and(eq(pricingCollectionPrices.id, r.id), eq(pricingCollectionPrices.priceListId, list.id)));
+      }
       for (const r of rules) {
         await tx.update(pricingAdjustmentRules)
           .set({
@@ -449,7 +467,7 @@ export function registerPricingRoutes(app: Express) {
           .where(and(eq(pricingAdjustmentRules.id, r.id), eq(pricingAdjustmentRules.priceListId, list.id)));
       }
     });
-    res.json({ ok: true, updated: collection.length + storage.length + discounts.length + installments.length + rules.length });
+    res.json({ ok: true, updated: collection.length + storage.length + discounts.length + installments.length + rules.length + maxDiscounts.length });
   });
 
   // manual override of one matrix row (pricing administrator only, note required)
