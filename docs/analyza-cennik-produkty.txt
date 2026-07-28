@@ -200,51 +200,68 @@ všetky „discounted" kombinácie automaticky, nie ručne.
      seed dát (ušetrí ručné prepisovanie ~300 cenových buniek
      a zaručí zhodu s cenníkom).
 
-3.4 Vzťah k pôvodnému modulu (odporúčanie)
-  Odporúčam NOVÝ modul vedľa pôvodného, nie zásah do neho:
-  - pôvodné products/product_sets zostávajú v prevádzke (faktúry,
-    zmluvy, customer_products na ne majú FK — nič sa nerozbije),
-  - nový modul beží paralelne, najprv len ako cenníková evidencia
-    + kalkulačka (read-only voči zvyšku systému),
-  - po validácii sa rozhodne: buď (A) postupné prepnutie faktúr/
-    zmlúv na products_v2 s mapovacou tabuľkou starý→nový produkt,
-    alebo (B) pôvodný modul ostane ako „katalóg" a nový bude len
-    cenotvorba, na ktorú sa katalóg odkáže.
-  Dôvod: pôvodný model nemá komponentovú vrstvu a dorábať ju doň
-  by znamenalo rizikový zásah do tabuliek, na ktoré sú naviazané
-  faktúry a zmluvy.
+3.4 Vzťah k pôvodnému modulu — ROZHODNUTÉ: variant A
+  Nový modul časom ÚPLNE nahradí pôvodné products. Postup:
+  - pôvodné products/product_sets zostávajú v prevádzke počas
+    prechodného obdobia (faktúry, zmluvy, customer_products na ne
+    majú FK — nič sa nerozbije),
+  - nový modul beží najprv paralelne (cenníková evidencia +
+    kalkulačka), po validácii sa faktúry/zmluvy postupne prepnú
+    na products_v2 cez mapovaciu tabuľku starý→nový produkt,
+  - POŽIADAVKA: rozpis produktu na jednotlivé položky (komponenty,
+    collection/storage, aplikované zľavy) musí byť dostupný ako
+    štruktúrovaný výstup pre Back Office, zmluvy, fakturáciu a
+    ďalšie služby — engine preto vždy vracia položkový rozpis
+    (line items) s odôvodnením, nie len výslednú sumu.
+  Dôvod nového modulu: pôvodný model nemá komponentovú vrstvu
+  a dorábať ju doň by znamenalo rizikový zásah do tabuliek,
+  na ktoré sú naviazané faktúry a zmluvy.
 
 =====================================================================
 4. NAVRHOVANÝ POSTUP IMPLEMENTÁCIE (fázy)
 ---------------------------------------------------------------------
-Fáza 0 — Schválenie tohto návrhu + doladenie otvorených otázok.
-Fáza 1 — Dátový model + import excelu (seed všetkých 6 krajín),
-         bez UI; interné API „vypočítaj cenu".
+Fáza 0 — HOTOVO: návrh schválený, otázky rozhodnuté (bod 5).
+Fáza 1 — Dátový model + import excelu (seed všetkých 6 krajín
+         VRÁTANE nákladového hárku cost), bez UI; interné API
+         „vypočítaj cenu" s položkovým rozpisom; nová rola
+         „správca cenníkov" (pricing administrator).
 Fáza 2 — UI: cenníky + matica nekompletných odberov + kalkulačka.
          Validácia: kalkulačka musí dať rovnaké čísla ako excel
          (kontrolná sada testov vygenerovaná priamo z excelu).
+         Workflow draft → schválenie → aktívny, viazaný na rolu
+         správcu cenníkov.
 Fáza 3 — Verziovanie a inflačná indexácia (tlačidlo „nový rok"),
-         splátkové schémy, FX/EUR reporting.
-Fáza 4 — Integrácia: napojenie na zákazníka/zmluvu/faktúru
-         (rozhodnutie A/B z bodu 3.4), prípadný útlm starého modulu.
+         splátkové schémy, FX/EUR reporting, marže z nákladov.
+Fáza 4 — Integrácia (variant A): napojenie na zákazníka/zmluvu/
+         faktúru s grandfatheringom (odkaz na verziu cenníka pri
+         zákazníkovi), výpočet ceny pri zápise výsledku odberu
+         (BO/koordinátor) AJ pri fakturácii, položkový rozpis
+         pre Back Office/zmluvy/faktúry, postupný útlm starého
+         modulu products.
 
 =====================================================================
-5. OTVORENÉ OTÁZKY PRED IMPLEMENTÁCIOU
+5. ROZHODNUTIA (schválené 28. 7. 2026)
 ---------------------------------------------------------------------
-a) Má nový modul časom ÚPLNE nahradiť pôvodné products (variant A),
-   alebo pôvodný ostane ako katalóg a nový bude len cenotvorba (B)?
-b) Kto bude cenníky spravovať (admin only / manažér krajiny)?
-   Navrhujem workflow draft → schválenie → aktívny.
-c) Sú „Current 2024" ceny v exceli ešte relevantné pre existujúcich
-   klientov (grandfathering — starý klient platí skladné podľa
-   cenníka platného pri podpise zmluvy)? To ovplyvní, či sa pri
-   zákazníkovi ukladá odkaz na konkrétnu VERZIU cenníka.
-d) HU špecifiká (dve zmluvy krv/tkanivo, odlišné zľavy 40/50 %) —
-   stačí to riešiť override-mi v matici, alebo treba per krajina
-   konfigurovateľné „zmluvné režimy"?
-e) Načítať aj nákladový hárok (marža) hneď, alebo nechať na fázu 2+?
-f) Kde má výpočet ceny prvý reálny dopad — pri zápise výsledku
-   odberu (BO/koordinátor?), pri fakturácii, alebo v oboch bodoch?
+a) NÁHRADA PÔVODNÉHO MODULU — variant A: nový modul časom úplne
+   nahradí pôvodné products. Podmienka: položkový rozpis produktu
+   (komponenty, collection/storage, zľavy) musí byť dostupný pre
+   Back Office a nadväzujúce služby (zmluvy, fakturácia atď.).
+b) SPRÁVA CENNÍKOV — výhradne nová rola „správca cenníkov"
+   (pricing administrator) pre všetky krajiny. Nikto iný nemôže
+   cenníky vytvárať, meniť, nahrávať ani aktualizovať.
+   Workflow: draft → schválenie → aktívny.
+c) GRANDFATHERING — ÁNO, vždy: pri zákazníkovi sa ukladá odkaz na
+   konkrétnu verziu cenníka, podľa ktorej bol fakturovaný; skladné
+   existujúcich klientov sa riadi cenníkom platným pri podpise
+   zmluvy. Historické verzie cenníkov (vrát. 2024) sa preto
+   importujú a nikdy nemažú.
+d) HU ŠPECIFIKÁ — riešiť override-mi v matici nekompletných
+   odberov (žiadne osobitné „zmluvné režimy" per krajina).
+e) NÁKLADOVÝ HÁROK — importovať hneď vo Fáze 1 (component_costs),
+   marža bude súčasťou modulu od začiatku.
+f) DOPAD VÝPOČTU CENY — v OBOCH bodoch: pri zápise výsledku odberu
+   (Back Office / koordinátor) aj pri fakturácii; oba musia
+   používať ten istý engine a ten istý cenník zákazníka (c).
 
 =====================================================================
 ZÁVER
@@ -254,5 +271,7 @@ komponenty → produkty → cenníky per krajina (verzie, inflácia,
 splátky, zľavy) → matica nekompletných odberov s pravidlami.
 Navrhovaný modul to prenáša 1 : 1, s automatickým generovaním
 discounted cien + ručnými override-mi pre zmluvné výnimky, bez
-akéhokoľvek zásahu do existujúceho modulu Products. Po schválení
-návrhu a zodpovedaní otázok v bode 5 vieme začať Fázou 1.
+zásahu do existujúceho modulu Products počas prechodného obdobia.
+Všetky otvorené otázky sú rozhodnuté (bod 5) — možno začať Fázou 1:
+dátový model, import excelu (ceny + náklady, všetky verzie),
+výpočtový engine s položkovým rozpisom a rola správcu cenníkov.
