@@ -236,7 +236,7 @@ Fáza 4 — Integrácia (variant A): napojenie na zákazníka/zmluvu/
          faktúru s grandfatheringom (odkaz na verziu cenníka pri
          zákazníkovi), výpočet ceny pri zápise výsledku odberu
          (BO/koordinátor) AJ pri fakturácii, položkový rozpis
-         pre Back Office/zmluvy/faktúry, postupný útlm starého
+         pre Back Office/zmluvy/faktúry, fapostupný útlm starého
          modulu products.
 
 =====================================================================
