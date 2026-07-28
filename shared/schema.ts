@@ -8118,3 +8118,151 @@ export const collaboratorUpdateRequests = pgTable("collaborator_update_requests"
 }));
 
 export type CollaboratorUpdateRequest = typeof collaboratorUpdateRequests.$inferSelect;
+
+// ============================================================
+// PRICING ENGINE V2 (Products 2) — country price lists,
+// component-based price composition, incomplete collections
+// ============================================================
+
+export const pricingComponents = pgTable("pricing_components", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: text("code").notNull().unique(), // CB, PB, T_CB, T_PB, PL
+  name: text("name").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const pricingProducts = pgTable("pricing_products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: text("code").notNull().unique(), // CLASSIC, PREMIUM, CLASSIC_T, PREMIUM_T, PLACENTA
+  name: text("name").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const pricingProductComponents = pgTable("pricing_product_components", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productId: varchar("product_id").notNull(),
+  componentId: varchar("component_id").notNull(),
+}, (table) => ({
+  uqProductComponent: unique("uq_pricing_product_component").on(table.productId, table.componentId),
+}));
+
+export const pricingPriceLists = pgTable("pricing_price_lists", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  countryCode: text("country_code").notNull(), // SK, CZ, RO, HU, AT, IT
+  currency: text("currency").notNull(), // EUR, CZK, RON, HUF
+  name: text("name").notNull(), // e.g. "SK 2026"
+  validFrom: date("valid_from").notNull(),
+  status: text("status").notNull().default("draft"), // draft | active | archived
+  inflationRatePct: decimal("inflation_rate_pct", { precision: 6, scale: 3 }),
+  inflationCondition: text("inflation_condition"), // e.g. "apply only if annual inflation > 5%" (AT/IT)
+  fxRateToEur: decimal("fx_rate_to_eur", { precision: 12, scale: 4 }), // 1 EUR = X local
+  storageYearOptions: jsonb("storage_year_options").$type<number[]>(), // e.g. [1,10,20]
+  note: text("note"),
+  approvedBy: varchar("approved_by"), // FK users — pricing administrator
+  approvedAt: timestamp("approved_at"),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+}, (table) => ({
+  idxPplCountryStatus: index("idx_ppl_country_status").on(table.countryCode, table.status),
+}));
+
+// collection price for a product OR a standalone component within a price list
+export const pricingCollectionPrices = pgTable("pricing_collection_prices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  priceListId: varchar("price_list_id").notNull(),
+  productId: varchar("product_id"), // either productId
+  componentId: varchar("component_id"), // ...or componentId
+  price: decimal("price", { precision: 14, scale: 2 }).notNull(),
+  note: text("note"),
+}, (table) => ({
+  idxPcpList: index("idx_pcp_list").on(table.priceListId),
+  // exactly one of productId/componentId must be set; uniqueness enforced via
+  // partial unique indexes created in the startup migration (nullable columns)
+}));
+
+// storage price per duration for a product OR a component
+export const pricingStoragePrices = pgTable("pricing_storage_prices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  priceListId: varchar("price_list_id").notNull(),
+  productId: varchar("product_id"),
+  componentId: varchar("component_id"),
+  years: integer("years").notNull(), // 1 | 5 | 10 | 20
+  price: decimal("price", { precision: 14, scale: 2 }).notNull(),
+  note: text("note"),
+}, (table) => ({
+  idxPspList: index("idx_psp_list").on(table.priceListId),
+}));
+
+// prepay discount for long storage periods (e.g. 10y=15%, 20y=25%)
+export const pricingStorageDiscounts = pgTable("pricing_storage_discounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  priceListId: varchar("price_list_id").notNull(),
+  years: integer("years").notNull(),
+  discountPct: decimal("discount_pct", { precision: 6, scale: 3 }).notNull(),
+});
+
+export const pricingInstallmentPlans = pgTable("pricing_installment_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  priceListId: varchar("price_list_id").notNull(),
+  installments: integer("installments").notNull(), // 1, 3, 12, ...
+  surchargePct: decimal("surcharge_pct", { precision: 6, scale: 3 }).notNull().default("0"),
+});
+
+// incomplete-collection matrix: ordered product × actually collected components
+export const pricingIncompleteRules = pgTable("pricing_incomplete_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  priceListId: varchar("price_list_id").notNull(),
+  orderedProductId: varchar("ordered_product_id").notNull(),
+  collectedMask: text("collected_mask").notNull(), // sorted component codes joined by "+", e.g. "CB+PB"; "" = nothing collected
+  resultLabel: text("result_label").notNull(), // discounted product label, e.g. "CB + PB"
+  collectionPrice: decimal("collection_price", { precision: 14, scale: 2 }).notNull(),
+  storagePrices: jsonb("storage_prices").$type<Record<string, number>>(), // { "1": 96.27, "10": 818.30, "20": 1444.06 }
+  isOverride: boolean("is_override").notNull().default(false), // manually overridden vs auto-generated
+  note: text("note"), // contractual exception explanation (mandatory when isOverride)
+}, (table) => ({
+  uqPirListProductMask: unique("uq_pir_list_product_mask").on(table.priceListId, table.orderedProductId, table.collectedMask),
+  idxPirList: index("idx_pir_list").on(table.priceListId),
+}));
+
+// global pricing rules per price list
+export const pricingAdjustmentRules = pgTable("pricing_adjustment_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  priceListId: varchar("price_list_id").notNull(),
+  ruleType: text("rule_type").notNull(), // LOW_VOLUME | CONTAMINATION | FLAT_FEE
+  amount: decimal("amount", { precision: 14, scale: 2 }), // fixed amount in list currency (LOW_VOLUME discount, FLAT_FEE fee)
+  pct: decimal("pct", { precision: 6, scale: 3 }), // percentage (CONTAMINATION = 100)
+  appliesTo: text("applies_to"), // component codes joined by "+" the rule is conditional on (e.g. LOW_VOLUME applies to "CB" or "CB+PB")
+  note: text("note"),
+});
+
+// product costs (from "cost" sheet) — margin calculation, values in EUR
+export const pricingProductCosts = pgTable("pricing_product_costs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  countryCode: text("country_code").notNull(),
+  productLabel: text("product_label").notNull(), // Classic, Premium, CB+T, PB+T, PB+T+P, PB, T, PL
+  grossRevenueEur: decimal("gross_revenue_eur", { precision: 14, scale: 2 }),
+  totalCostEur: decimal("total_cost_eur", { precision: 14, scale: 2 }),
+  note: text("note"),
+}, (table) => ({
+  uqPpcCountryLabel: unique("uq_ppc_country_label").on(table.countryCode, table.productLabel),
+}));
+
+// grandfathering: which price list a customer is billed by (used from phase 4)
+export const pricingCustomerPriceLists = pgTable("pricing_customer_price_lists", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull(),
+  priceListId: varchar("price_list_id").notNull(),
+  assignedAt: timestamp("assigned_at").notNull().default(sql`now()`),
+  assignedBy: varchar("assigned_by"),
+  note: text("note"),
+}, (table) => ({
+  idxPcplCustomer: index("idx_pcpl_customer").on(table.customerId),
+}));
+
+export type PricingComponent = typeof pricingComponents.$inferSelect;
+export type PricingProduct = typeof pricingProducts.$inferSelect;
+export type PricingPriceList = typeof pricingPriceLists.$inferSelect;
+export type PricingIncompleteRule = typeof pricingIncompleteRules.$inferSelect;

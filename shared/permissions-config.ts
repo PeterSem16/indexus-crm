@@ -341,6 +341,20 @@ export const CRM_MODULES: ModuleDefinition[] = [
       { key: "scheduled_invoices", label: "Scheduled Invoices", defaultPermission: "editable" },
     ],
   },
+  {
+    key: "pricing",
+    label: "Pricing (Price Lists)",
+    icon: "CircleDollarSign",
+    category: "admin",
+    defaultAccess: "hidden",
+    fields: [
+      { key: "price_lists", label: "Price Lists", defaultPermission: "editable" },
+      { key: "incomplete_rules", label: "Incomplete Collection Matrix", defaultPermission: "editable" },
+      { key: "adjustment_rules", label: "Pricing Rules", defaultPermission: "editable" },
+      { key: "costs", label: "Costs & Margin", defaultPermission: "editable" },
+      { key: "calculator", label: "Price Calculator", defaultPermission: "readonly" },
+    ],
+  },
 ];
 
 export const MODULE_CATEGORIES = [

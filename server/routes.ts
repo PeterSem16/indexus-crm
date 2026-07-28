@@ -49660,6 +49660,8 @@ Return ONLY the JSON object.`
 
   registerInboundRoutes(app, requireAuth);
   registerCollaboratorUpdateRoutes(app, requireAuth);
+  const { registerPricingRoutes } = await import("./pricing-routes");
+  registerPricingRoutes(app);
 
   app.get("/api/web-forms", requireAuth, async (_req, res) => {
     try { res.json(await storage.getWebForms()); }

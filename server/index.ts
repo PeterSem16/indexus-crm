@@ -550,6 +550,128 @@ app.use((req, res, next) => {
     console.error('[migration] task_back_office_confirmations sl columns error:', e.message);
   }
 
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS pricing_components (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        code text NOT NULL UNIQUE,
+        name text NOT NULL,
+        sort_order integer NOT NULL DEFAULT 0,
+        created_at timestamp NOT NULL DEFAULT now()
+      );
+      CREATE TABLE IF NOT EXISTS pricing_products (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        code text NOT NULL UNIQUE,
+        name text NOT NULL,
+        is_active boolean NOT NULL DEFAULT true,
+        sort_order integer NOT NULL DEFAULT 0,
+        created_at timestamp NOT NULL DEFAULT now()
+      );
+      CREATE TABLE IF NOT EXISTS pricing_product_components (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        product_id varchar NOT NULL,
+        component_id varchar NOT NULL,
+        CONSTRAINT uq_pricing_product_component UNIQUE (product_id, component_id)
+      );
+      CREATE TABLE IF NOT EXISTS pricing_price_lists (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        country_code text NOT NULL,
+        currency text NOT NULL,
+        name text NOT NULL,
+        valid_from date NOT NULL,
+        status text NOT NULL DEFAULT 'draft',
+        inflation_rate_pct numeric(6,3),
+        inflation_condition text,
+        fx_rate_to_eur numeric(12,4),
+        storage_year_options jsonb,
+        note text,
+        approved_by varchar,
+        approved_at timestamp,
+        created_by varchar,
+        created_at timestamp NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_ppl_country_status ON pricing_price_lists (country_code, status);
+      CREATE TABLE IF NOT EXISTS pricing_collection_prices (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        price_list_id varchar NOT NULL,
+        product_id varchar,
+        component_id varchar,
+        price numeric(14,2) NOT NULL,
+        note text
+      );
+      CREATE INDEX IF NOT EXISTS idx_pcp_list ON pricing_collection_prices (price_list_id);
+      CREATE TABLE IF NOT EXISTS pricing_storage_prices (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        price_list_id varchar NOT NULL,
+        product_id varchar,
+        component_id varchar,
+        years integer NOT NULL,
+        price numeric(14,2) NOT NULL,
+        note text
+      );
+      CREATE INDEX IF NOT EXISTS idx_psp_list ON pricing_storage_prices (price_list_id);
+      CREATE TABLE IF NOT EXISTS pricing_storage_discounts (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        price_list_id varchar NOT NULL,
+        years integer NOT NULL,
+        discount_pct numeric(6,3) NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS pricing_installment_plans (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        price_list_id varchar NOT NULL,
+        installments integer NOT NULL,
+        surcharge_pct numeric(6,3) NOT NULL DEFAULT 0
+      );
+      CREATE TABLE IF NOT EXISTS pricing_incomplete_rules (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        price_list_id varchar NOT NULL,
+        ordered_product_id varchar NOT NULL,
+        collected_mask text NOT NULL,
+        result_label text NOT NULL,
+        collection_price numeric(14,2) NOT NULL,
+        storage_prices jsonb,
+        is_override boolean NOT NULL DEFAULT false,
+        note text,
+        CONSTRAINT uq_pir_list_product_mask UNIQUE (price_list_id, ordered_product_id, collected_mask)
+      );
+      CREATE INDEX IF NOT EXISTS idx_pir_list ON pricing_incomplete_rules (price_list_id);
+      CREATE TABLE IF NOT EXISTS pricing_adjustment_rules (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        price_list_id varchar NOT NULL,
+        rule_type text NOT NULL,
+        amount numeric(14,2),
+        pct numeric(6,3),
+        note text
+      );
+      CREATE TABLE IF NOT EXISTS pricing_product_costs (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        country_code text NOT NULL,
+        product_label text NOT NULL,
+        gross_revenue_eur numeric(14,2),
+        total_cost_eur numeric(14,2),
+        note text,
+        CONSTRAINT uq_ppc_country_label UNIQUE (country_code, product_label)
+      );
+      CREATE TABLE IF NOT EXISTS pricing_customer_price_lists (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        customer_id varchar NOT NULL,
+        price_list_id varchar NOT NULL,
+        assigned_at timestamp NOT NULL DEFAULT now(),
+        assigned_by varchar,
+        note text
+      );
+      CREATE INDEX IF NOT EXISTS idx_pcpl_customer ON pricing_customer_price_lists (customer_id);
+      ALTER TABLE pricing_adjustment_rules ADD COLUMN IF NOT EXISTS applies_to text;
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_pcp_list_target
+        ON pricing_collection_prices (price_list_id, coalesce(product_id,''), coalesce(component_id,''));
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_psp_list_target_years
+        ON pricing_storage_prices (price_list_id, coalesce(product_id,''), coalesce(component_id,''), years);
+    `);
+    console.log('[migration] pricing v2 tables ensured');
+  } catch (e: any) {
+    console.error('[migration] pricing v2 tables error:', e.message);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
