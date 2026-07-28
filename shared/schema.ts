@@ -8236,6 +8236,9 @@ export const pricingAdjustmentRules = pgTable("pricing_adjustment_rules", {
   pct: decimal("pct", { precision: 6, scale: 3 }), // percentage (CONTAMINATION = 100)
   appliesTo: text("applies_to"), // component codes joined by "+" the rule is conditional on (e.g. LOW_VOLUME applies to "CB" or "CB+PB")
   enabled: boolean("enabled").notNull().default(true), // optional rules can be switched off per price list
+  volumeOperator: text("volume_operator"), // LOW_VOLUME condition: lt | gt | between (null = legacy "< 20 ml")
+  volumeMinMl: decimal("volume_min_ml", { precision: 8, scale: 2 }), // threshold for gt / lower bound for between
+  volumeMaxMl: decimal("volume_max_ml", { precision: 8, scale: 2 }), // threshold for lt / upper bound for between
   note: text("note"),
 });
 

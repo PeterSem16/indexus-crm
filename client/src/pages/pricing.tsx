@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Loader2, Copy, AlertTriangle, CheckCircle2, Check, X, Pencil, Calculator as CalcIcon, ListOrdered, Grid3X3, CopyPlus, CalendarDays } from "lucide-react";
+import { Loader2, Copy, AlertTriangle, CheckCircle2, Check, X, Pencil, Calculator as CalcIcon, ListOrdered, Grid3X3, CopyPlus, CalendarDays, Trash2 } from "lucide-react";
 
 // ---------- types (mirror server /api/pricing responses) ----------
 interface PriceListRow {
@@ -36,7 +36,7 @@ interface Bundle {
   storageDiscounts: Array<{ id: string; years: number; discountPct: string }>;
   installmentPlans: Array<{ id: string; installments: number; surchargePct: string }>;
   incompleteRules: Array<{ id: string; orderedProductId: string; collectedMask: string; resultLabel: string; collectionPrice: string; storagePrices: Record<string, number> | null; isOverride: boolean; note: string | null }>;
-  adjustmentRules: Array<{ id: string; ruleType: string; amount: string | null; pct: string | null; appliesTo?: string | null; note: string | null; enabled?: boolean | null }>;
+  adjustmentRules: Array<{ id: string; ruleType: string; amount: string | null; pct: string | null; appliesTo?: string | null; note: string | null; enabled?: boolean | null; volumeOperator?: string | null; volumeMinMl?: string | null; volumeMaxMl?: string | null }>;
 }
 interface CalcResult {
   priceListId: string; countryCode: string; currency: string;
@@ -124,6 +124,15 @@ export default function PricingPage() {
   );
 }
 
+// human-readable LOW_VOLUME condition (mirrors server volumeConditionText)
+function volumeCondText(op?: string | null, min?: string | number | null, max?: string | number | null): string {
+  const f = (v: string | number | null | undefined) => { const x = parseFloat(String(v ?? "")); return Number.isFinite(x) ? x : 0; };
+  if (!op) return "< 20 ml";
+  if (op === "lt") return `< ${f(max)} ml`;
+  if (op === "gt") return `> ${f(min)} ml`;
+  return `${f(min)}–${f(max)} ml`;
+}
+
 // ============================= TAB 1: price lists =============================
 function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage, toast }: {
   lists: PriceListRow[]; loading: boolean; selectedId: string | null; onSelect: (id: string) => void;
@@ -131,13 +140,14 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
 }) {
   const { t } = useI18n();
   const [confirmActivate, setConfirmActivate] = useState<PriceListRow | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<PriceListRow | null>(null);
   const [countryFilter, setCountryFilter] = useState<string>("all");
   const [copyOpen, setCopyOpen] = useState(false);
   const [copyName, setCopyName] = useState("");
   const [editMode, setEditMode] = useState(false);
   const [edits, setEdits] = useState<Record<string, string>>({});
   // adjustment-rule edits keyed by rule id: enabled toggle + amount/pct/appliesTo values
-  const [ruleEdits, setRuleEdits] = useState<Record<string, { enabled?: boolean; amount?: string; pct?: string; appliesTo?: string }>>({});
+  const [ruleEdits, setRuleEdits] = useState<Record<string, { enabled?: boolean; amount?: string; pct?: string; appliesTo?: string; volumeOperator?: string; volumeMin?: string; volumeMax?: string }>>({});
   const selected = lists.find((l) => l.id === selectedId) ?? null;
   const isEditableDraft = !!selected && selected.status === "draft" && canManage;
 
@@ -159,6 +169,17 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
       setCopyOpen(false);
       onSelect(created.id);
       toast({ title: t.pricing.listCreated });
+    },
+    onError: (e: any) => toast({ title: t.pricing.updateFailed, description: String(e?.message ?? e), variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => apiRequest("DELETE", `/api/pricing/price-lists/${confirmDelete!.id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/pricing/price-lists"] });
+      setConfirmDelete(null);
+      onSelect(lists.find((l) => l.status === "active" && l.countryCode === selected?.countryCode)?.id ?? lists.find((l) => l.status === "active")?.id ?? "");
+      toast({ title: t.pricing.listDeleted });
     },
     onError: (e: any) => toast({ title: t.pricing.updateFailed, description: String(e?.message ?? e), variant: "destructive" }),
   });
@@ -191,6 +212,22 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
           else { const v = parseFloat(r.pct); if (!Number.isFinite(v)) return Promise.reject(new Error(t.pricing.invalidNumber)); out.pct = v; }
         }
         if (r.appliesTo !== undefined) out.appliesTo = r.appliesTo === "__any" ? null : r.appliesTo;
+        if (r.volumeOperator !== undefined) {
+          out.volumeOperator = r.volumeOperator;
+          // server validates operator vs thresholds within the payload, so send the
+          // effective (edited or existing) thresholds along with an operator change
+          const rule = bundle?.adjustmentRules.find((ar) => ar.id === id);
+          if (r.volumeMin === undefined && rule?.volumeMinMl != null) out.volumeMinMl = parseFloat(rule.volumeMinMl);
+          if (r.volumeMax === undefined && rule?.volumeMaxMl != null) out.volumeMaxMl = parseFloat(rule.volumeMaxMl);
+        }
+        if (r.volumeMin !== undefined) {
+          if (r.volumeMin === "") out.volumeMinMl = null;
+          else { const v = parseFloat(r.volumeMin); if (!Number.isFinite(v)) return Promise.reject(new Error(t.pricing.invalidNumber)); out.volumeMinMl = v; }
+        }
+        if (r.volumeMax !== undefined) {
+          if (r.volumeMax === "") out.volumeMaxMl = null;
+          else { const v = parseFloat(r.volumeMax); if (!Number.isFinite(v)) return Promise.reject(new Error(t.pricing.invalidNumber)); out.volumeMaxMl = v; }
+        }
         if (Object.keys(out).length > 1) rules.push(out);
       }
       return apiRequest("PATCH", `/api/pricing/price-lists/${selected!.id}/prices`, { collection, storage, discounts, installments, rules });
@@ -296,9 +333,14 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
                 </>
               )}
               {selected.status === "draft" && !editMode && (
-                <Button size="sm" onClick={() => setConfirmActivate(selected)} data-testid="button-activate">
-                  <CheckCircle2 className="w-4 h-4 mr-1" />{t.pricing.activate}
-                </Button>
+                <>
+                  <Button size="sm" onClick={() => setConfirmActivate(selected)} data-testid="button-activate">
+                    <CheckCircle2 className="w-4 h-4 mr-1" />{t.pricing.activate}
+                  </Button>
+                  <Button size="sm" variant="outline" className="text-destructive" onClick={() => setConfirmDelete(selected)} data-testid="button-delete-list">
+                    <Trash2 className="w-4 h-4 mr-1" />{t.pricing.deleteList}
+                  </Button>
+                </>
               )}
             </div>
           )}
@@ -428,6 +470,7 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
                         return (
                           <div key={r.id} className={`flex items-center gap-2 flex-wrap rounded-md border px-3 py-2 text-sm ${enabled ? "" : "opacity-50"}`}>
                             <span className="font-medium">{label}</span>
+                            {r.ruleType === "LOW_VOLUME" && <Badge variant="outline">{volumeCondText(r.volumeOperator, r.volumeMinMl, r.volumeMaxMl)}</Badge>}
                             {!enabled && <Badge variant="secondary">{t.pricing.ruleDisabled}</Badge>}
                             {r.amount != null && <Badge variant="outline">−{fmt(r.amount, bundle.priceList.currency)}</Badge>}
                             {r.pct != null && <Badge variant="outline">{parseFloat(r.pct)} %</Badge>}
@@ -441,6 +484,36 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
                             onCheckedChange={(v) => setRuleEdits((s) => ({ ...s, [r.id]: { ...s[r.id], enabled: v } }))}
                             data-testid={`switch-rule-${r.ruleType}`} />
                           <span className={`font-medium min-w-32 ${enabled ? "" : "opacity-50"}`}>{label}</span>
+                          {r.ruleType === "LOW_VOLUME" && (() => {
+                            const op = edit.volumeOperator ?? (r.volumeOperator ?? "lt");
+                            const vMin = edit.volumeMin ?? (r.volumeMinMl != null ? String(parseFloat(r.volumeMinMl)) : "");
+                            const vMax = edit.volumeMax ?? (r.volumeMaxMl != null ? String(parseFloat(r.volumeMaxMl)) : "");
+                            return (
+                              <div className="flex items-center gap-1">
+                                <span className="text-muted-foreground text-xs">{t.pricing.ruleVolume}</span>
+                                <Select value={op} onValueChange={(v) => setRuleEdits((s) => ({ ...s, [r.id]: { ...s[r.id], volumeOperator: v } }))} disabled={!enabled}>
+                                  <SelectTrigger className="h-7 w-28" data-testid="select-volume-operator"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="lt">{t.pricing.volLt}</SelectItem>
+                                    <SelectItem value="gt">{t.pricing.volGt}</SelectItem>
+                                    <SelectItem value="between">{t.pricing.volBetween}</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                {(op === "gt" || op === "between") && (
+                                  <Input type="number" step="0.1" className="h-7 w-20 text-right" disabled={!enabled} placeholder="ml"
+                                    value={vMin} data-testid="input-volume-min"
+                                    onChange={(e) => setRuleEdits((s) => ({ ...s, [r.id]: { ...s[r.id], volumeMin: e.target.value } }))} />
+                                )}
+                                {op === "between" && <span className="text-muted-foreground text-xs">–</span>}
+                                {(op === "lt" || op === "between") && (
+                                  <Input type="number" step="0.1" className="h-7 w-20 text-right" disabled={!enabled} placeholder="ml"
+                                    value={vMax} data-testid="input-volume-max"
+                                    onChange={(e) => setRuleEdits((s) => ({ ...s, [r.id]: { ...s[r.id], volumeMax: e.target.value } }))} />
+                                )}
+                                <span className="text-muted-foreground text-xs">ml</span>
+                              </div>
+                            );
+                          })()}
                           <div className="flex items-center gap-1">
                             <span className="text-muted-foreground text-xs">{t.pricing.ruleAmount} ({bundle.priceList.currency})</span>
                             <Input type="number" step="0.01" className="h-7 w-24 text-right" disabled={!enabled}
@@ -491,6 +564,23 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
             <Button variant="outline" onClick={() => setCopyOpen(false)}>{t.pricing.cancel}</Button>
             <Button onClick={() => duplicateMutation.mutate()} disabled={!copyName.trim() || duplicateMutation.isPending} data-testid="button-confirm-copy">
               {duplicateMutation.isPending && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}{t.pricing.copyList}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.pricing.deleteList}</DialogTitle>
+            <DialogDescription>
+              {confirmDelete ? `${COUNTRY_FLAGS[confirmDelete.countryCode] ?? ""} ${confirmDelete.name}` : ""} — {t.pricing.deleteListConfirm}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(null)}>{t.pricing.cancel}</Button>
+            <Button variant="destructive" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending} data-testid="button-confirm-delete">
+              {deleteMutation.isPending && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}{t.pricing.deleteList}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -759,6 +849,16 @@ function CalculatorTab({ lists, products }: { lists: PriceListRow[]; products: P
   const effCollected = collected ?? productComponents;
   const [contaminated, setContaminated] = useState<string[]>([]);
   const [lowVolume, setLowVolume] = useState(false);
+  const { data: calcBundle } = useQuery<Bundle>({
+    queryKey: ["/api/pricing/price-lists", list?.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/pricing/price-lists/${list!.id}`, { credentials: "include" });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    enabled: !!list?.id,
+  });
+  const lowVolumeRule = calcBundle?.adjustmentRules.find((r) => r.ruleType === "LOW_VOLUME" && r.enabled !== false) ?? null;
   const [storageYears, setStorageYears] = useState<number | null>(null);
   const effYears = storageYears && years.includes(storageYears) ? storageYears : years[years.length - 1];
   const [installments, setInstallments] = useState(1);
@@ -850,7 +950,7 @@ function CalculatorTab({ lists, products }: { lists: PriceListRow[]; products: P
           </div>
 
           <div className="flex items-center justify-between rounded-md border px-3 py-2">
-            <Label className="text-sm">{t.pricing.calcLowVolume}</Label>
+            <Label className="text-sm">{t.pricing.calcLowVolume}{lowVolumeRule ? ` (${volumeCondText(lowVolumeRule.volumeOperator, lowVolumeRule.volumeMinMl, lowVolumeRule.volumeMaxMl)})` : ""}</Label>
             <Switch checked={lowVolume} onCheckedChange={(v) => { setLowVolume(v); setResult(null); }} data-testid="switch-low-volume" />
           </div>
 

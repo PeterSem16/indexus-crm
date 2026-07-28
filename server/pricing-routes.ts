@@ -225,6 +225,23 @@ export function registerPricingRoutes(app: Express) {
     res.json(copy);
   });
 
+  // delete a DRAFT price list entirely, incl. all child rows (pricing administrator only)
+  app.delete("/api/pricing/price-lists/:id", requireAuth, requirePricingAdmin, async (req, res) => {
+    const [list] = await db.select().from(pricingPriceLists).where(eq(pricingPriceLists.id, req.params.id));
+    if (!list) return res.status(404).json({ message: "Price list not found" });
+    if (list.status !== "draft") return res.status(400).json({ message: "Only draft price lists can be deleted" });
+    await db.transaction(async (tx) => {
+      await tx.delete(pricingCollectionPrices).where(eq(pricingCollectionPrices.priceListId, list.id));
+      await tx.delete(pricingStoragePrices).where(eq(pricingStoragePrices.priceListId, list.id));
+      await tx.delete(pricingStorageDiscounts).where(eq(pricingStorageDiscounts.priceListId, list.id));
+      await tx.delete(pricingInstallmentPlans).where(eq(pricingInstallmentPlans.priceListId, list.id));
+      await tx.delete(pricingIncompleteRules).where(eq(pricingIncompleteRules.priceListId, list.id));
+      await tx.delete(pricingAdjustmentRules).where(eq(pricingAdjustmentRules.priceListId, list.id));
+      await tx.delete(pricingPriceLists).where(eq(pricingPriceLists.id, list.id));
+    });
+    res.json({ ok: true });
+  });
+
   // manual price edits on a DRAFT price list (pricing administrator only)
   app.patch("/api/pricing/price-lists/:id/prices", requireAuth, requirePricingAdmin, async (req, res) => {
     const { collection = [], storage = [], discounts = [], installments = [], rules = [] } = req.body as {
@@ -232,7 +249,7 @@ export function registerPricingRoutes(app: Express) {
       storage?: Array<{ id: string; price: number }>;
       discounts?: Array<{ id: string; discountPct: number }>;
       installments?: Array<{ id: string; surchargePct: number }>;
-      rules?: Array<{ id: string; enabled?: boolean; amount?: number | null; pct?: number | null; appliesTo?: string | null }>;
+      rules?: Array<{ id: string; enabled?: boolean; amount?: number | null; pct?: number | null; appliesTo?: string | null; volumeOperator?: string | null; volumeMinMl?: number | null; volumeMaxMl?: number | null }>;
     };
     const [list] = await db.select().from(pricingPriceLists).where(eq(pricingPriceLists.id, req.params.id));
     if (!list) return res.status(404).json({ message: "Price list not found" });
@@ -249,8 +266,24 @@ export function registerPricingRoutes(app: Express) {
     const finiteOrNull = (v: unknown) => v === undefined || v === null || Number.isFinite(v);
     if (rules.some((r) => !r?.id || !finiteOrNull(r.amount) || !finiteOrNull(r.pct)
       || (r.enabled !== undefined && typeof r.enabled !== "boolean")
-      || (r.appliesTo !== undefined && r.appliesTo !== null && typeof r.appliesTo !== "string"))) {
-      return res.status(400).json({ message: "Each rule row needs an id; amount/pct must be finite numbers or null" });
+      || (r.appliesTo !== undefined && r.appliesTo !== null && typeof r.appliesTo !== "string")
+      || (r.volumeOperator !== undefined && r.volumeOperator !== null && !["lt", "gt", "between"].includes(r.volumeOperator))
+      || !finiteOrNull(r.volumeMinMl) || !finiteOrNull(r.volumeMaxMl))) {
+      return res.status(400).json({ message: "Each rule row needs an id; amount/pct/volume thresholds must be finite numbers or null; volumeOperator must be lt/gt/between" });
+    }
+    for (const r of rules) {
+      if (r.volumeOperator === "between" && (r.volumeMinMl == null || r.volumeMaxMl == null)) {
+        return res.status(400).json({ message: "volumeOperator 'between' requires both volumeMinMl and volumeMaxMl" });
+      }
+      if (r.volumeOperator === "lt" && r.volumeMaxMl == null) {
+        return res.status(400).json({ message: "volumeOperator 'lt' requires volumeMaxMl" });
+      }
+      if (r.volumeOperator === "gt" && r.volumeMinMl == null) {
+        return res.status(400).json({ message: "volumeOperator 'gt' requires volumeMinMl" });
+      }
+      if (r.volumeOperator === "between" && r.volumeMinMl != null && r.volumeMaxMl != null && Number(r.volumeMinMl) >= Number(r.volumeMaxMl)) {
+        return res.status(400).json({ message: "volumeMinMl must be lower than volumeMaxMl" });
+      }
     }
     await db.transaction(async (tx) => {
       for (const r of collection) {
@@ -280,6 +313,9 @@ export function registerPricingRoutes(app: Express) {
             ...(r.amount !== undefined ? { amount: r.amount === null ? null : String(r.amount) } : {}),
             ...(r.pct !== undefined ? { pct: r.pct === null ? null : String(r.pct) } : {}),
             ...(r.appliesTo !== undefined ? { appliesTo: r.appliesTo === "" ? null : r.appliesTo } : {}),
+            ...(r.volumeOperator !== undefined ? { volumeOperator: r.volumeOperator } : {}),
+            ...(r.volumeMinMl !== undefined ? { volumeMinMl: r.volumeMinMl === null ? null : String(r.volumeMinMl) } : {}),
+            ...(r.volumeMaxMl !== undefined ? { volumeMaxMl: r.volumeMaxMl === null ? null : String(r.volumeMaxMl) } : {}),
           })
           .where(and(eq(pricingAdjustmentRules.id, r.id), eq(pricingAdjustmentRules.priceListId, list.id)));
       }

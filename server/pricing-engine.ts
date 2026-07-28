@@ -31,7 +31,7 @@ export interface PriceListBundle {
     isOverride: boolean;
     note: string | null;
   }>;
-  adjustmentRules: Array<{ ruleType: string; amount: string | null; pct: string | null; appliesTo?: string | null; note: string | null; enabled?: boolean | null }>;
+  adjustmentRules: Array<{ ruleType: string; amount: string | null; pct: string | null; appliesTo?: string | null; note: string | null; enabled?: boolean | null; volumeOperator?: string | null; volumeMinMl?: string | null; volumeMaxMl?: string | null }>;
 }
 
 export interface CalculationInput {
@@ -80,6 +80,19 @@ const n = (v: string | number | null | undefined): number => {
   return Number.isFinite(x) ? x : 0;
 };
 const round2 = (x: number) => Math.round(x * 100) / 100;
+
+// human-readable volume condition of a LOW_VOLUME rule (configurable per price list)
+export function volumeConditionText(rule?: { volumeOperator?: string | null; volumeMinMl?: string | null; volumeMaxMl?: string | null } | null): string {
+  if (!rule || !rule.volumeOperator) return "< 20 ml"; // legacy default
+  const min = n(rule.volumeMinMl);
+  const max = n(rule.volumeMaxMl);
+  switch (rule.volumeOperator) {
+    case "lt": return `< ${max} ml`;
+    case "gt": return `> ${min} ml`;
+    case "between": return `${min}–${max} ml`;
+    default: return "< 20 ml";
+  }
+}
 
 export function calculatePrice(bundle: PriceListBundle, input: CalculationInput): CalculationResult {
   const { priceList } = bundle;
@@ -181,7 +194,7 @@ export function calculatePrice(bundle: PriceListBundle, input: CalculationInput)
       if (!collected.includes(code)) { warnings.push(`Contaminated component ${code} was not among collected — ignored.`); continue; }
       const comp = bundle.components.find((c) => c.code === code);
       const cp = comp ? bundle.collectionPrices.find((p) => p.componentId === comp.id) : undefined;
-      const pct = n(contaminationRule.pct);
+      const pct = n(contaminationRule!.pct); // loop only runs when contaminationRule exists
       const base = n(cp?.price);
       const discount = round2(-base * pct / 100);
       lineItems.push({
@@ -205,13 +218,14 @@ export function calculatePrice(bundle: PriceListBundle, input: CalculationInput)
         warnings.push(`LOW_VOLUME requested but none of the rule's target components (${lowVolumeRule!.appliesTo}) were collected — discount not applied.`);
       } else {
         const amt = n(lowVolumeRule?.amount);
+        const cond = volumeConditionText(lowVolumeRule);
         lineItems.push({
           kind: "discount",
-          label: "Low volume (<20 ml)",
+          label: `Low volume (${cond})`,
           amount: -amt,
           currency,
           reason: lowVolumeRule
-            ? `LOW_VOLUME rule: fixed discount ${amt} ${currency} for blood volume under 20 ml (applies to ${lowVolumeRule.appliesTo ?? "any component"}).`
+            ? `LOW_VOLUME rule: fixed discount ${amt} ${currency} for blood volume ${cond} (applies to ${lowVolumeRule.appliesTo ?? "any component"}).`
             : "No LOW_VOLUME rule configured; discount = 0.",
         });
         if (!lowVolumeRule) warnings.push("Missing LOW_VOLUME rule in price list.");

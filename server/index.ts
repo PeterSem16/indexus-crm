@@ -663,6 +663,10 @@ app.use((req, res, next) => {
       CREATE INDEX IF NOT EXISTS idx_pcpl_customer ON pricing_customer_price_lists (customer_id);
       ALTER TABLE pricing_adjustment_rules ADD COLUMN IF NOT EXISTS applies_to text;
       ALTER TABLE pricing_adjustment_rules ADD COLUMN IF NOT EXISTS enabled boolean NOT NULL DEFAULT true;
+      ALTER TABLE pricing_adjustment_rules ADD COLUMN IF NOT EXISTS volume_operator text;
+      ALTER TABLE pricing_adjustment_rules ADD COLUMN IF NOT EXISTS volume_min_ml numeric(8,2);
+      ALTER TABLE pricing_adjustment_rules ADD COLUMN IF NOT EXISTS volume_max_ml numeric(8,2);
+      UPDATE pricing_adjustment_rules SET volume_operator = 'lt', volume_max_ml = 20 WHERE rule_type = 'LOW_VOLUME' AND volume_operator IS NULL;
       CREATE UNIQUE INDEX IF NOT EXISTS uq_pcp_list_target
         ON pricing_collection_prices (price_list_id, coalesce(product_id,''), coalesce(component_id,''));
       CREATE UNIQUE INDEX IF NOT EXISTS uq_psp_list_target_years
