@@ -950,9 +950,20 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
 // ============================= TAB 2: incomplete-collection matrix =============================
 function MatrixTab({ lists, products, canManage, toast }: { lists: PriceListRow[]; products: PricingProduct[]; canManage: boolean; toast: any }) {
   const { t } = useI18n();
-  const activeByCountry = useMemo(() => lists.filter((l) => l.status === "active"), [lists]);
+  // include drafts so managers can edit incomplete-collection rules on draft lists
+  const managedLists = useMemo(() => lists.filter((l) => l.status === "active" || l.status === "draft"), [lists]);
+  const countriesInMatrix = useMemo(() => [...new Set(managedLists.map((l) => l.countryCode))], [managedLists]);
   const [country, setCountry] = useState<string>("SK");
-  const list = activeByCountry.find((l) => l.countryCode === country) ?? activeByCountry[0] ?? null;
+  const listsForCountry = useMemo(() => managedLists.filter((l) => l.countryCode === country), [managedLists, country]);
+  const [listId, setListId] = useState<string | null>(null);
+  const list = listsForCountry.find((l) => l.id === listId)
+    ?? listsForCountry.find((l) => l.status === "active")
+    ?? listsForCountry[0]
+    ?? null;
+  // sync listId when country changes or lists load
+  useEffect(() => {
+    if (list && list.id !== listId) setListId(list.id);
+  }, [list?.id]);
 
   const { data: bundle } = useQuery<Bundle>({
     queryKey: ["/api/pricing/price-lists", list?.id],
@@ -1062,14 +1073,28 @@ function MatrixTab({ lists, products, canManage, toast }: { lists: PriceListRow[
         <div>
           <Label className="text-xs">{t.pricing.country}</Label>
           <div className="flex items-center gap-1 rounded-md border p-1" data-testid="tabs-matrix-country">
-            {activeByCountry.map((l) => (
-              <button key={l.id} onClick={() => setCountry(l.countryCode)} data-testid={`tab-matrix-country-${l.countryCode}`}
-                className={`rounded px-3 py-1.5 text-sm font-medium hover-elevate ${list?.countryCode === l.countryCode ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
-                {COUNTRY_FLAGS[l.countryCode]} {l.countryCode}
+            {countriesInMatrix.map((cc) => (
+              <button key={cc} onClick={() => setCountry(cc)} data-testid={`tab-matrix-country-${cc}`}
+                className={`rounded px-3 py-1.5 text-sm font-medium hover-elevate ${country === cc ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+                {COUNTRY_FLAGS[cc]} {cc}
               </button>
             ))}
           </div>
         </div>
+        {listsForCountry.length > 1 && (
+          <div>
+            <Label className="text-xs">{t.pricing.priceList}</Label>
+            <div className="flex items-center gap-1 rounded-md border p-1">
+              {listsForCountry.map((l) => (
+                <button key={l.id} onClick={() => setListId(l.id)} data-testid={`tab-matrix-list-${l.id}`}
+                  className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium hover-elevate ${list?.id === l.id ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+                  {l.name}
+                  <span className={`rounded px-1.5 py-0.5 text-xs ${l.status === "draft" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300" : "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"}`}>{l.status === "draft" ? t.pricing.statusDraft : t.pricing.statusActive}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div>
           <Label className="text-xs">{t.pricing.orderedProduct}</Label>
           <Select value={effProductCode} onValueChange={setProductCode}>
