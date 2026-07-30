@@ -371,6 +371,27 @@ export function registerPricingRoutes(app: Express) {
     if (maxDiscounts.some((r) => !r?.id || (r.maxDiscountPct !== null && (!Number.isFinite(r.maxDiscountPct) || r.maxDiscountPct < 0 || r.maxDiscountPct > 100)))) {
       return res.status(400).json({ message: "maxDiscounts: each row needs an id and a maxDiscountPct between 0–100 or null" });
     }
+    // enforce per-component hard caps: PL (Placenta) → max 5 %, all others → max 10 %
+    if (maxDiscounts.some((r) => r.maxDiscountPct !== null && r.maxDiscountPct > 0)) {
+      const cpIds = maxDiscounts.filter((r) => r.maxDiscountPct !== null).map((r) => r.id);
+      const cpRows = cpIds.length ? await db.select({ id: pricingCollectionPrices.id, componentId: pricingCollectionPrices.componentId })
+        .from(pricingCollectionPrices)
+        .where(and(eq(pricingCollectionPrices.priceListId, list.id), inArray(pricingCollectionPrices.id, cpIds))) : [];
+      const compIds = cpRows.map((r) => r.componentId).filter(Boolean) as string[];
+      const comps = compIds.length ? await db.select({ id: pricingComponents.id, code: pricingComponents.code })
+        .from(pricingComponents).where(inArray(pricingComponents.id, compIds)) : [];
+      const codeByCompId = new Map(comps.map((c) => [c.id, c.code]));
+      const cpById = new Map(cpRows.map((r) => [r.id, r]));
+      for (const r of maxDiscounts) {
+        if (r.maxDiscountPct === null) continue;
+        const cp = cpById.get(r.id);
+        const code = cp?.componentId ? codeByCompId.get(cp.componentId) : null;
+        const hardMax = code === "PL" ? 5 : 10;
+        if (r.maxDiscountPct > hardMax) {
+          return res.status(400).json({ message: `Max collection discount for ${code ?? "this product row"} cannot exceed ${hardMax}%` });
+        }
+      }
+    }
     if ([...removeDiscounts, ...removeInstallments].some((id) => typeof id !== "string" || !id)) {
       return res.status(400).json({ message: "remove lists must contain row ids" });
     }
@@ -468,6 +489,41 @@ export function registerPricingRoutes(app: Express) {
       }
     });
     res.json({ ok: true, updated: collection.length + storage.length + discounts.length + installments.length + rules.length + maxDiscounts.length });
+  });
+
+  // add a new custom incomplete-collection row (draft only; note optional)
+  app.post("/api/pricing/price-lists/:id/incomplete-rules", requireAuth, requirePricingAdmin, async (req, res) => {
+    const { orderedProductId, collectedMask, collectionPrice, storagePrices, note } = req.body as {
+      orderedProductId?: string; collectedMask?: string; collectionPrice?: number;
+      storagePrices?: Record<string, number>; note?: string;
+    };
+    const [list] = await db.select().from(pricingPriceLists).where(eq(pricingPriceLists.id, req.params.id));
+    if (!list) return res.status(404).json({ message: "Price list not found" });
+    if (list.status !== "draft") return res.status(400).json({ message: "Only draft price lists can be edited" });
+    if (!orderedProductId || typeof orderedProductId !== "string") return res.status(400).json({ message: "orderedProductId required" });
+    if (typeof collectedMask !== "string") return res.status(400).json({ message: "collectedMask must be a string" });
+    if (!Number.isFinite(collectionPrice)) return res.status(400).json({ message: "collectionPrice must be a finite number" });
+    if (storagePrices !== undefined && (typeof storagePrices !== "object" || storagePrices === null || Object.values(storagePrices).some((v) => !Number.isFinite(v)))) {
+      return res.status(400).json({ message: "storagePrices must be a map of finite numbers" });
+    }
+    const masks = collectedMask.split("+").filter(Boolean);
+    const resultLabel = masks.length === 0 ? "Nothing collected" : masks.join(" + ");
+    try {
+      const [inserted] = await db.insert(pricingIncompleteRules).values({
+        priceListId: list.id,
+        orderedProductId,
+        collectedMask,
+        resultLabel,
+        collectionPrice: String(collectionPrice),
+        storagePrices: storagePrices ?? null,
+        isOverride: false,
+        note: note ?? null,
+      }).returning();
+      res.json(inserted);
+    } catch (e: any) {
+      if (e?.code === "23505") return res.status(409).json({ message: "A rule with this component combination already exists" });
+      throw e;
+    }
   });
 
   // manual override of one matrix row (pricing administrator only, note required)

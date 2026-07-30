@@ -1,4 +1,4 @@
-ANALÝZA: NOVÝ PRODUKTOVÝ MODUL — SKLADANIE CIEN PODĽA KRAJÍN
+Aat freeANALÝZA: NOVÝ PRODUKTOVÝ MODUL — SKLADANIE CIEN PODĽA KRAJÍN
 Configurator → Products | INDEXUS CRM, 28. 7. 2026
 Podklad: Cennik_nekompletnych_odberov_2026_PAUSAL_2026_01_23.xlsx
 =====================================================================

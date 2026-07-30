@@ -289,6 +289,11 @@ export interface Translations {
     addInstallment: string;
     fxRateSection: string;
     maxCollDiscount: string;
+    newCombination: string;
+    combinationAdded: string;
+    selectComponents: string;
+    combinationExists: string;
+    ruleAppliesToAny: string;
     collDiscountLabel: string;
     collDiscountHint: string;
     noMaxDiscount: string;
@@ -7332,6 +7337,11 @@ export const translations: Record<Locale, Translations> = {
       addInstallment: 'Add plan',
       fxRateSection: 'Exchange rate',
       maxCollDiscount: 'Max coll. discount',
+      newCombination: 'New combination',
+      combinationAdded: 'Combination added',
+      selectComponents: 'Select collected components',
+      combinationExists: 'This combination already exists',
+      ruleAppliesToAny: 'Any',
       collDiscountLabel: 'Collection discount',
       collDiscountHint: 'Max %d% – granted by sales / back office',
       noMaxDiscount: '—',
@@ -14427,6 +14437,11 @@ export const translations: Record<Locale, Translations> = {
       addInstallment: 'Pridať plán',
       fxRateSection: 'Výmenný kurz',
       maxCollDiscount: 'Max zľava odber',
+      newCombination: 'Nová kombinácia',
+      combinationAdded: 'Kombinácia pridaná',
+      selectComponents: 'Vybrať zozbierané komponenty',
+      combinationExists: 'Táto kombinácia už existuje',
+      ruleAppliesToAny: 'Ľubovoľný',
       collDiscountLabel: 'Zľava na odber',
       collDiscountHint: 'Max %d% – udeluje sales / back office',
       noMaxDiscount: '—',
@@ -21458,6 +21473,11 @@ export const translations: Record<Locale, Translations> = {
       addInstallment: 'Přidat plán',
       fxRateSection: 'Směnný kurz',
       maxCollDiscount: 'Max sleva odběr',
+      newCombination: 'Nová kombinace',
+      combinationAdded: 'Kombinace přidána',
+      selectComponents: 'Vyberte odebrané komponenty',
+      combinationExists: 'Tato kombinace již existuje',
+      ruleAppliesToAny: 'Jakýkoliv',
       collDiscountLabel: 'Sleva na odběr',
       collDiscountHint: 'Max %d% – uděluje sales / back office',
       noMaxDiscount: '—',
@@ -28415,6 +28435,11 @@ export const translations: Record<Locale, Translations> = {
       addInstallment: 'Terv hozzáadása',
       fxRateSection: 'Árfolyam',
       maxCollDiscount: 'Max gyűjtési kedv.',
+      newCombination: 'Új kombináció',
+      combinationAdded: 'Kombináció hozzáadva',
+      selectComponents: 'Válassza ki a gyűjtött komponenseket',
+      combinationExists: 'Ez a kombináció már létezik',
+      ruleAppliesToAny: 'Bármely',
       collDiscountLabel: 'Gyűjtési kedvezmény',
       collDiscountHint: 'Max %d% – értékesítés / back office engedélyezi',
       noMaxDiscount: '—',
@@ -35332,6 +35357,11 @@ export const translations: Record<Locale, Translations> = {
       addInstallment: 'Adaugă plan',
       fxRateSection: 'Curs valutar',
       maxCollDiscount: 'Red. max colectare',
+      newCombination: 'Combinație nouă',
+      combinationAdded: 'Combinație adăugată',
+      selectComponents: 'Selectați componentele colectate',
+      combinationExists: 'Această combinație există deja',
+      ruleAppliesToAny: 'Oricare',
       collDiscountLabel: 'Reducere colectare',
       collDiscountHint: 'Max %d% – acordată de vânzări / back office',
       noMaxDiscount: '—',
@@ -42169,6 +42199,11 @@ export const translations: Record<Locale, Translations> = {
       addInstallment: 'Aggiungi piano',
       fxRateSection: 'Tasso di cambio',
       maxCollDiscount: 'Sc. max raccolta',
+      newCombination: 'Nuova combinazione',
+      combinationAdded: 'Combinazione aggiunta',
+      selectComponents: 'Seleziona componenti raccolti',
+      combinationExists: 'Questa combinazione esiste già',
+      ruleAppliesToAny: 'Qualsiasi',
       collDiscountLabel: 'Sconto raccolta',
       collDiscountHint: 'Max %d% – concesso da sales / back office',
       noMaxDiscount: '—',
@@ -49008,6 +49043,11 @@ export const translations: Record<Locale, Translations> = {
       addInstallment: 'Plan hinzufügen',
       fxRateSection: 'Wechselkurs',
       maxCollDiscount: 'Max Rabatt Entnahme',
+      newCombination: 'Neue Kombination',
+      combinationAdded: 'Kombination hinzugefügt',
+      selectComponents: 'Gesammelte Komponenten auswählen',
+      combinationExists: 'Diese Kombination existiert bereits',
+      ruleAppliesToAny: 'Beliebig',
       collDiscountLabel: 'Rabatt Entnahme',
       collDiscountHint: 'Max %d% – genehmigt von Sales / Back Office',
       noMaxDiscount: '—',

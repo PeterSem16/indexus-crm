@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Copy, AlertTriangle, CheckCircle2, Check, X, Pencil, Calculator as CalcIcon, ListOrdered, Grid3X3, CopyPlus, CalendarDays, Trash2, Package, Percent, Droplets, Plus, Sparkles } from "lucide-react";
 
 // ---------- types (mirror server /api/pricing responses) ----------
@@ -362,7 +363,16 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
     );
   };
   const countries = useMemo(() => Array.from(new Set(lists.map((l) => l.countryCode))), [lists]);
-  const filteredLists = countryFilter === "all" ? lists : lists.filter((l) => l.countryCode === countryFilter);
+  // auto-select first country on load; sync when selected list is from a different country
+  useEffect(() => {
+    if (countries.length > 0 && (countryFilter === "all" || !countries.includes(countryFilter))) {
+      setCountryFilter(countries[0]);
+    }
+  }, [countries]);
+  useEffect(() => {
+    if (selected && selected.countryCode !== countryFilter) setCountryFilter(selected.countryCode);
+  }, [selected?.countryCode]);
+  const filteredLists = countryFilter && countryFilter !== "all" ? lists.filter((l) => l.countryCode === countryFilter) : lists;
 
   const activateMutation = useMutation({
     mutationFn: (id: string) => apiRequest("POST", `/api/pricing/price-lists/${id}/status`, { status: "active" }),
@@ -387,15 +397,16 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <Card className="lg:col-span-1">
-        <CardHeader className="space-y-2">
+        <CardHeader className="space-y-2 pb-2">
           <CardTitle className="text-base">{t.pricing.allPriceLists}</CardTitle>
-          <Select value={countryFilter} onValueChange={setCountryFilter}>
-            <SelectTrigger data-testid="select-lists-country-filter"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t.pricing.allCountries}</SelectItem>
-              {countries.map((cc) => <SelectItem key={cc} value={cc}>{COUNTRY_FLAGS[cc] ?? ""} {cc}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-1 flex-wrap rounded-md border p-1 bg-muted/30">
+            {countries.map((cc) => (
+              <button key={cc} onClick={() => setCountryFilter(cc)} data-testid={`tab-lists-country-${cc}`}
+                className={`rounded px-3 py-1 text-sm font-medium transition-colors ${countryFilter === cc ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-background"}`}>
+                {COUNTRY_FLAGS[cc] ?? ""} {cc}
+              </button>
+            ))}
+          </div>
         </CardHeader>
         <CardContent className="space-y-3 max-h-[70vh] overflow-y-auto">
           {loading && <Loader2 className="w-5 h-5 animate-spin" />}
@@ -489,10 +500,14 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
                           <TableCell className="text-right">
                             {editMode && isEditableDraft && coll ? (
                               <div className="flex items-center justify-end gap-1">
-                                <Input type="number" step="0.5" min="0" max="100" className="h-7 w-16 text-right"
+                                <Input type="number" step="0.5" min="0" max="10" className="h-7 w-16 text-right"
                                   placeholder="—"
                                   value={edits[`md:${coll.id}`] ?? (coll.maxCollectionDiscountPct ? String(parseFloat(coll.maxCollectionDiscountPct)) : "")}
-                                  onChange={(e) => setEdits((s) => ({ ...s, [`md:${coll.id}`]: e.target.value }))}
+                                  onChange={(e) => {
+                                    const v = parseFloat(e.target.value);
+                                    if (!isNaN(v) && v > 10) return;
+                                    setEdits((s) => ({ ...s, [`md:${coll.id}`]: e.target.value }));
+                                  }}
                                   data-testid={`input-max-discount-${p.code}`} />
                                 <span className="text-xs text-muted-foreground">%</span>
                               </div>
@@ -541,9 +556,14 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
                           <TableCell className="text-right">
                             {editMode && isEditableDraft && coll ? (
                               <div className="flex items-center justify-end gap-1">
-                                <Input type="number" step="0.5" min="0" max="100" className="h-7 w-16 text-right" placeholder="—"
+                                <Input type="number" step="0.5" min="0" max={c.code === "PL" ? 5 : 10} className="h-7 w-16 text-right" placeholder="—"
                                   value={edits[`md:${coll.id}`] ?? (coll.maxCollectionDiscountPct ? String(parseFloat(coll.maxCollectionDiscountPct)) : "")}
-                                  onChange={(e) => setEdits((s) => ({ ...s, [`md:${coll.id}`]: e.target.value }))}
+                                  onChange={(e) => {
+                                    const hardMax = c.code === "PL" ? 5 : 10;
+                                    const v = parseFloat(e.target.value);
+                                    if (!isNaN(v) && v > hardMax) return;
+                                    setEdits((s) => ({ ...s, [`md:${coll.id}`]: e.target.value }));
+                                  }}
                                   data-testid={`input-max-discount-comp-${c.code}`} />
                                 <span className="text-xs text-muted-foreground">%</span>
                               </div>
@@ -736,15 +756,33 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
                               value={edit.pct ?? (r.pct != null ? String(parseFloat(r.pct)) : "")}
                               onChange={(e) => setRuleEdits((s) => ({ ...s, [r.id]: { ...s[r.id], pct: e.target.value } }))} />
                           </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-muted-foreground text-xs">{t.pricing.ruleAppliesTo}</span>
-                            <Select value={currentAppliesTo} onValueChange={(v) => setRuleEdits((s) => ({ ...s, [r.id]: { ...s[r.id], appliesTo: v } }))} disabled={!enabled}>
-                              <SelectTrigger className="h-7 w-32"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="__any">{t.pricing.ruleAnyComponent}</SelectItem>
-                                {appliesToOptions.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <span className="text-muted-foreground text-xs shrink-0">{t.pricing.ruleAppliesTo}:</span>
+                            {/* "Any" option */}
+                            <label className={`flex items-center gap-1 text-xs rounded-sm px-1.5 py-0.5 cursor-pointer select-none border ${!currentAppliesTo || currentAppliesTo === "__any" ? "bg-primary/10 border-primary/30 text-primary font-medium" : "border-transparent text-muted-foreground"}`}>
+                              <Checkbox
+                                checked={!currentAppliesTo || currentAppliesTo === "__any"}
+                                disabled={!enabled}
+                                onCheckedChange={(v) => v && setRuleEdits((s) => ({ ...s, [r.id]: { ...s[r.id], appliesTo: "__any" } }))} />
+                              {t.pricing.ruleAppliesToAny}
+                            </label>
+                            {compCodes.map((code) => {
+                              const sel = currentAppliesTo && currentAppliesTo !== "__any" ? currentAppliesTo.split("+").includes(code) : false;
+                              return (
+                                <label key={code} className={`flex items-center gap-1 text-xs rounded-sm px-1.5 py-0.5 cursor-pointer select-none border ${sel ? "bg-primary/10 border-primary/30 text-primary font-medium" : "border-transparent text-muted-foreground"}`}>
+                                  <Checkbox
+                                    checked={sel}
+                                    disabled={!enabled}
+                                    onCheckedChange={(v) => {
+                                      const cur = currentAppliesTo && currentAppliesTo !== "__any" ? new Set(currentAppliesTo.split("+").filter(Boolean)) : new Set<string>();
+                                      if (v) cur.add(code); else cur.delete(code);
+                                      const joined = [...cur].sort().join("+");
+                                      setRuleEdits((s) => ({ ...s, [r.id]: { ...s[r.id], appliesTo: joined || "__any" } }));
+                                    }} />
+                                  <CompChip code={code} small />
+                                </label>
+                              );
+                            })}
                           </div>
                         </div>
                       );
@@ -944,6 +982,50 @@ function MatrixTab({ lists, products, canManage, toast }: { lists: PriceListRow[
   const [editStorage, setEditStorage] = useState<Record<string, string>>({});
   const [editNote, setEditNote] = useState("");
 
+  // --- new combination dialog ---
+  const [newCombOpen, setNewCombOpen] = useState(false);
+  const [newCombSelected, setNewCombSelected] = useState<Set<string>>(new Set());
+  const [newCombColl, setNewCombColl] = useState("");
+  const [newCombStorage, setNewCombStorage] = useState<Record<string, string>>({});
+
+  const openNewComb = () => {
+    setNewCombSelected(new Set());
+    setNewCombColl("");
+    setNewCombStorage(Object.fromEntries(years.map((y) => [String(y), ""])));
+    setNewCombOpen(true);
+  };
+
+  const addCombMutation = useMutation({
+    mutationFn: () => {
+      const coll = parseFloat(newCombColl);
+      if (!Number.isFinite(coll)) return Promise.reject(new Error(t.pricing.invalidNumber));
+      const storage = Object.fromEntries(
+        Object.entries(newCombStorage).filter(([, v]) => v !== "").map(([k, v]) => {
+          const n = parseFloat(v);
+          if (!Number.isFinite(n)) throw new Error(t.pricing.invalidNumber);
+          return [k, n];
+        })
+      );
+      const mask = [...newCombSelected].sort().join("+");
+      return apiRequest("POST", `/api/pricing/price-lists/${list!.id}/incomplete-rules`, {
+        orderedProductId: selectedProduct!.id,
+        collectedMask: mask,
+        collectionPrice: coll,
+        storagePrices: storage,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/pricing/price-lists", list?.id] });
+      setNewCombOpen(false);
+      toast({ title: t.pricing.combinationAdded });
+    },
+    onError: (e: any) => {
+      const msg = String(e?.message ?? e);
+      const key = msg.toLowerCase().includes("already exists") ? t.pricing.combinationExists : msg;
+      toast({ title: t.pricing.updateFailed, description: key, variant: "destructive" });
+    },
+  });
+
   const overrideMutation = useMutation({
     mutationFn: () => {
       const coll = parseFloat(editColl);
@@ -1001,7 +1083,14 @@ function MatrixTab({ lists, products, canManage, toast }: { lists: PriceListRow[
 
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
         <Card className="xl:col-span-3">
-          <CardHeader><CardTitle className="text-base">{t.pricing.matrixTitle}</CardTitle></CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
+            <CardTitle className="text-base">{t.pricing.matrixTitle}</CardTitle>
+            {canManage && list?.status === "draft" && selectedProduct && (
+              <Button size="sm" variant="outline" onClick={openNewComb} data-testid="button-new-combination">
+                <Plus className="w-4 h-4 mr-1" />{t.pricing.newCombination}
+              </Button>
+            )}
+          </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
@@ -1109,6 +1198,60 @@ function MatrixTab({ lists, products, canManage, toast }: { lists: PriceListRow[
             <Button variant="outline" onClick={() => setEditRule(null)}>{t.pricing.cancel}</Button>
             <Button onClick={() => overrideMutation.mutate()} disabled={!editNote.trim() || overrideMutation.isPending} data-testid="button-save-override">
               {overrideMutation.isPending && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}{t.pricing.save}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New combination dialog */}
+      <Dialog open={newCombOpen} onOpenChange={(o) => !o && setNewCombOpen(false)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t.pricing.newCombination}</DialogTitle>
+            <DialogDescription>{selectedProduct?.name}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-sm mb-2 block">{t.pricing.selectComponents}</Label>
+              <div className="flex flex-wrap gap-2">
+                {orderedComponentCodes.map((code) => {
+                  const sel = newCombSelected.has(code);
+                  return (
+                    <label key={code} className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm cursor-pointer select-none transition-colors ${sel ? "bg-primary/10 border-primary text-primary font-medium" : "border-muted text-muted-foreground hover:border-foreground hover:text-foreground"}`}>
+                      <Checkbox checked={sel} onCheckedChange={(v) => {
+                        const next = new Set(newCombSelected);
+                        if (v) next.add(code); else next.delete(code);
+                        setNewCombSelected(next);
+                      }} />
+                      <CompChip code={code} small />
+                    </label>
+                  );
+                })}
+              </div>
+              {newCombSelected.size === 0 && (
+                <p className="text-xs text-muted-foreground mt-1">{t.pricing.nothingCollected} — {t.pricing.combinationExists.toLowerCase()}</p>
+              )}
+            </div>
+            <div>
+              <Label className="text-xs">{t.pricing.collectionPrice} ({bundle?.priceList.currency})</Label>
+              <Input type="number" step="0.01" value={newCombColl} onChange={(e) => setNewCombColl(e.target.value)} data-testid="input-new-comb-collection" />
+            </div>
+            {years.length > 0 && (
+              <div className="grid grid-cols-3 gap-2">
+                {years.map((y) => (
+                  <div key={y}>
+                    <Label className="text-xs">{t.pricing.storageShort} {y}{t.pricing.yearsShort}</Label>
+                    <Input type="number" step="0.01" value={newCombStorage[String(y)] ?? ""}
+                      onChange={(e) => setNewCombStorage((s) => ({ ...s, [String(y)]: e.target.value }))} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewCombOpen(false)}>{t.pricing.cancel}</Button>
+            <Button onClick={() => addCombMutation.mutate()} disabled={addCombMutation.isPending || !newCombColl} data-testid="button-save-new-comb">
+              {addCombMutation.isPending && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}{t.pricing.save}
             </Button>
           </DialogFooter>
         </DialogContent>
