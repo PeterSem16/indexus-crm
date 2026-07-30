@@ -41,7 +41,8 @@ export interface CalculationInput {
   collected?: string[];           // component codes actually collected; undefined = complete collection
   contaminated?: string[];        // collected but contaminated component codes
   lowVolume?: boolean;            // blood volume < 20ml
-  collectionDiscountPct?: number; // optional sales/BO manual discount on collection (validated against maxCollectionDiscountPct)
+  collectionDiscountPct?: number;         // optional sales/BO manual discount on collection (validated against maxCollectionDiscountPct)
+  componentDiscountPcts?: Record<string, number>; // per-component code → pct, validated against each component's maxCollectionDiscountPct
 }
 
 export interface PriceLineItem {
@@ -185,6 +186,30 @@ export function calculatePrice(bundle: PriceListBundle, input: CalculationInput)
         collectionPrice += n(cp.price);
       }
       effectiveLabel = mask;
+    }
+
+    // per-component sales/BO discounts (applied on the component's standalone price regardless of matrix/standalone path)
+    for (const [code, reqPct] of Object.entries(input.componentDiscountPcts ?? {})) {
+      if (!reqPct || reqPct <= 0) continue;
+      if (!collected.includes(code)) { warnings.push(`Component discount requested for ${code} but it was not collected — ignored.`); continue; }
+      const comp = bundle.components.find((c) => c.code === code);
+      if (!comp) { warnings.push(`Unknown component ${code} for discount.`); continue; }
+      const cp = bundle.collectionPrices.find((p) => p.componentId === comp.id);
+      const maxPct = cp?.maxCollectionDiscountPct ? n(cp.maxCollectionDiscountPct) : 0;
+      const basePrice = n(cp?.price);
+      if (maxPct <= 0 || basePrice <= 0) {
+        warnings.push(`Component discount of ${reqPct}% requested for ${code} but no max discount / base price configured — discount not applied.`);
+        continue;
+      }
+      const appliedPct = Math.min(reqPct, maxPct);
+      if (appliedPct < reqPct) warnings.push(`Component discount for ${code}: ${reqPct}% exceeds max ${maxPct}% — clamped.`);
+      lineItems.push({
+        kind: "discount",
+        label: `Component discount ${code} (${appliedPct}%)`,
+        amount: round2(-basePrice * appliedPct / 100),
+        currency,
+        reason: `Manual component discount of ${appliedPct}% on ${comp.name} standalone price ${basePrice} ${currency} (max authorised: ${maxPct}%) — granted by sales/back-office.`,
+      });
     }
 
     // manual sales/BO collection discount (capped by maxCollectionDiscountPct on the collection price row)

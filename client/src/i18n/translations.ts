@@ -297,6 +297,8 @@ export interface Translations {
     collDiscountLabel: string;
     collDiscountHint: string;
     noMaxDiscount: string;
+    componentDiscountSection: string;
+    componentDiscountHint: string;
     fxRateLive: string;
     fxRateFixed: string;
     fxRateLoading: string;
@@ -7345,6 +7347,8 @@ export const translations: Record<Locale, Translations> = {
       collDiscountLabel: 'Collection discount',
       collDiscountHint: 'Max %d% – granted by sales / back office',
       noMaxDiscount: '—',
+      componentDiscountSection: 'Sales / Back-office discounts',
+      componentDiscountHint: 'Max %d% – granted by sales / back office',
       fxRateLive: 'Live (NBS)',
       fxRateFixed: 'Fixed rate',
       fxRateLoading: 'Loading…',
@@ -14445,6 +14449,8 @@ export const translations: Record<Locale, Translations> = {
       collDiscountLabel: 'Zľava na odber',
       collDiscountHint: 'Max %d% – udeluje sales / back office',
       noMaxDiscount: '—',
+      componentDiscountSection: 'Zľavy Sales / Back-office',
+      componentDiscountHint: 'Max %d% – udeluje sales / back office',
       fxRateLive: 'Živý (NBS)',
       fxRateFixed: 'Fixný kurz',
       fxRateLoading: 'Načítavam…',
@@ -21481,6 +21487,8 @@ export const translations: Record<Locale, Translations> = {
       collDiscountLabel: 'Sleva na odběr',
       collDiscountHint: 'Max %d% – uděluje sales / back office',
       noMaxDiscount: '—',
+      componentDiscountSection: 'Slevy Sales / Back-office',
+      componentDiscountHint: 'Max %d% – uděluje sales / back office',
       fxRateLive: 'Živý (NBS)',
       fxRateFixed: 'Fixní kurz',
       fxRateLoading: 'Načítám…',
@@ -28443,6 +28451,8 @@ export const translations: Record<Locale, Translations> = {
       collDiscountLabel: 'Gyűjtési kedvezmény',
       collDiscountHint: 'Max %d% – értékesítés / back office engedélyezi',
       noMaxDiscount: '—',
+      componentDiscountSection: 'Sales / Back-office kedvezmények',
+      componentDiscountHint: 'Max %d% – értékesítés / back office engedélyezi',
       fxRateLive: 'Élő (NBS)',
       fxRateFixed: 'Fix árfolyam',
       fxRateLoading: 'Betöltés…',
@@ -35365,6 +35375,8 @@ export const translations: Record<Locale, Translations> = {
       collDiscountLabel: 'Reducere colectare',
       collDiscountHint: 'Max %d% – acordată de vânzări / back office',
       noMaxDiscount: '—',
+      componentDiscountSection: 'Reduceri Sales / Back-office',
+      componentDiscountHint: 'Max %d% – acordată de vânzări / back office',
       fxRateLive: 'Live (NBS)',
       fxRateFixed: 'Curs fix',
       fxRateLoading: 'Se încarcă…',
@@ -42207,6 +42219,8 @@ export const translations: Record<Locale, Translations> = {
       collDiscountLabel: 'Sconto raccolta',
       collDiscountHint: 'Max %d% – concesso da sales / back office',
       noMaxDiscount: '—',
+      componentDiscountSection: 'Sconti Sales / Back-office',
+      componentDiscountHint: 'Max %d% – concesso da sales / back office',
       fxRateLive: 'Live (NBS)',
       fxRateFixed: 'Tasso fisso',
       fxRateLoading: 'Caricamento…',
@@ -49051,6 +49065,8 @@ export const translations: Record<Locale, Translations> = {
       collDiscountLabel: 'Rabatt Entnahme',
       collDiscountHint: 'Max %d% – genehmigt von Sales / Back Office',
       noMaxDiscount: '—',
+      componentDiscountSection: 'Rabatte Sales / Back-office',
+      componentDiscountHint: 'Max %d% – genehmigt von Sales / Back Office',
       fxRateLive: 'Live (NBS)',
       fxRateFixed: 'Fester Kurs',
       fxRateLoading: 'Lädt…',

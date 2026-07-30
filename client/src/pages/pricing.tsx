@@ -1357,10 +1357,40 @@ function CalculatorTab({ lists, products }: { lists: PriceListRow[]; products: P
     setCollectionDiscount((prev) => Math.min(prev, maxCollDiscountPct));
     setResult(null);
   }, [maxCollDiscountPct]);
+
+  // per-component discounts: components in the current price list that have maxCollectionDiscountPct > 0
+  const componentMaxDiscounts = useMemo(() => {
+    if (!calcBundle) return [];
+    return effCollected.flatMap((code) => {
+      const comp = calcBundle.components.find((c) => c.code === code);
+      if (!comp) return [];
+      const cp = calcBundle.collectionPrices.find((p) => p.componentId === comp.id);
+      const max = cp?.maxCollectionDiscountPct ? parseFloat(cp.maxCollectionDiscountPct) : 0;
+      if (max <= 0) return [];
+      return [{ code, name: comp.name, max }];
+    });
+  }, [calcBundle, effCollected]);
+
+  const [componentDiscounts, setComponentDiscounts] = useState<Record<string, number>>({});
+  // reset/clamp component discounts when collected set or available maxes change
+  useEffect(() => {
+    setComponentDiscounts((prev) => {
+      const next: Record<string, number> = {};
+      for (const { code, max } of componentMaxDiscounts) {
+        next[code] = Math.min(prev[code] ?? 0, max);
+      }
+      return next;
+    });
+    setResult(null);
+  }, [componentMaxDiscounts]);
+
   const [result, setResult] = useState<CalcResult | null>(null);
 
   const calcMutation = useMutation({
     mutationFn: async () => {
+      const activeCompDiscounts = Object.fromEntries(
+        Object.entries(componentDiscounts).filter(([, v]) => v > 0),
+      );
       const res = await apiRequest("POST", "/api/pricing/calculate", {
         countryCode: list?.countryCode,
         productCode: effProductCode,
@@ -1370,6 +1400,7 @@ function CalculatorTab({ lists, products }: { lists: PriceListRow[]; products: P
         contaminated: contaminated.filter((c) => effCollected.includes(c)),
         lowVolume,
         ...(collectionDiscount > 0 ? { collectionDiscountPct: collectionDiscount } : {}),
+        ...(Object.keys(activeCompDiscounts).length > 0 ? { componentDiscountPcts: activeCompDiscounts } : {}),
       });
       return res.json() as Promise<CalcResult>;
     },
@@ -1450,25 +1481,57 @@ function CalculatorTab({ lists, products }: { lists: PriceListRow[]; products: P
             <Switch checked={lowVolume} onCheckedChange={(v) => { setLowVolume(v); setResult(null); }} data-testid="switch-low-volume" />
           </div>
 
-          {maxCollDiscountPct > 0 && (
-            <div className="rounded-md border px-3 py-2 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm flex items-center gap-1.5">
-                  <Percent className="w-3.5 h-3.5 text-green-600" />
-                  {t.pricing.collDiscountLabel}
-                  <span className="text-xs text-muted-foreground">({t.pricing.collDiscountHint.replace("%d", String(maxCollDiscountPct))})</span>
-                </Label>
-                <span className="text-sm font-semibold text-green-700 dark:text-green-400 min-w-[2.5rem] text-right">
-                  {collectionDiscount > 0 ? `−${collectionDiscount} %` : "—"}
-                </span>
+          {(maxCollDiscountPct > 0 || componentMaxDiscounts.length > 0) && (
+            <div className="rounded-md border px-3 py-2 space-y-3">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-green-700 dark:text-green-400 uppercase tracking-wide">
+                <Percent className="w-3.5 h-3.5" />
+                {t.pricing.componentDiscountSection}
               </div>
-              <input type="range" min="0" max={maxCollDiscountPct} step="0.5"
-                value={collectionDiscount}
-                onChange={(e) => { setCollectionDiscount(Number(e.target.value)); setResult(null); }}
-                className="w-full accent-green-600" data-testid="slider-collection-discount" />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>0 %</span><span>{maxCollDiscountPct} %</span>
-              </div>
+
+              {maxCollDiscountPct > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm flex items-center gap-1.5">
+                      {t.pricing.collDiscountLabel}
+                      <span className="text-xs text-muted-foreground">({t.pricing.collDiscountHint.replace("%d", String(maxCollDiscountPct))})</span>
+                    </Label>
+                    <span className="text-sm font-semibold text-green-700 dark:text-green-400 min-w-[2.5rem] text-right">
+                      {collectionDiscount > 0 ? `−${collectionDiscount} %` : "—"}
+                    </span>
+                  </div>
+                  <input type="range" min="0" max={maxCollDiscountPct} step="0.5"
+                    value={collectionDiscount}
+                    onChange={(e) => { setCollectionDiscount(Number(e.target.value)); setResult(null); }}
+                    className="w-full accent-green-600" data-testid="slider-collection-discount" />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>0 %</span><span>{maxCollDiscountPct} %</span>
+                  </div>
+                </div>
+              )}
+
+              {componentMaxDiscounts.map(({ code, name, max }) => {
+                const val = componentDiscounts[code] ?? 0;
+                return (
+                  <div key={code} className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm flex items-center gap-1.5">
+                        <CompChip code={code} small />
+                        <span className="text-xs text-muted-foreground">({t.pricing.componentDiscountHint.replace("%d", String(max))})</span>
+                      </Label>
+                      <span className={`text-sm font-semibold min-w-[2.5rem] text-right ${val > 0 ? "text-green-700 dark:text-green-400" : "text-muted-foreground"}`}>
+                        {val > 0 ? `−${val} %` : "—"}
+                      </span>
+                    </div>
+                    <input type="range" min="0" max={max} step="0.5"
+                      value={val}
+                      onChange={(e) => { setComponentDiscounts((p) => ({ ...p, [code]: Number(e.target.value) })); setResult(null); }}
+                      className="w-full accent-green-600" data-testid={`slider-comp-discount-${code}`} />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>0 %</span><span>{max} %</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 
