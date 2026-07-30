@@ -1310,7 +1310,22 @@ function CalculatorTab({ lists, products }: { lists: PriceListRow[]; products: P
 
   const [storageYears, setStorageYears] = useState<number | null>(null);
   const effYears = storageYears && years.includes(storageYears) ? storageYears : years[years.length - 1];
+
+  // installment plans available in the selected price list (1 = one-time always included)
+  const availableInstallmentCounts = useMemo(() => {
+    const fromList = (calcBundle?.installmentPlans ?? []).map((p) => p.installments);
+    return [1, ...fromList.filter((n) => n !== 1).sort((a, b) => a - b)];
+  }, [calcBundle?.installmentPlans]);
+
   const [installments, setInstallments] = useState(1);
+  // reset to 1 when the selected count is no longer offered by the new price list
+  useEffect(() => {
+    if (!availableInstallmentCounts.includes(installments)) {
+      setInstallments(1);
+      setResult(null);
+    }
+  }, [availableInstallmentCounts]);
+
   const [collectionDiscount, setCollectionDiscount] = useState(0);
   // clamp when product changes and the new max is lower than the current value
   useEffect(() => {
@@ -1447,7 +1462,15 @@ function CalculatorTab({ lists, products }: { lists: PriceListRow[]; products: P
               <Select value={String(installments)} onValueChange={(v) => { setInstallments(Number(v)); setResult(null); }}>
                 <SelectTrigger data-testid="select-calc-installments"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {[1, 2, 3, 4, 6, 10, 12].map((n) => <SelectItem key={n} value={String(n)}>{n === 1 ? t.pricing.oneTimePayment : `${n}×`}</SelectItem>)}
+                  {availableInstallmentCounts.map((n) => {
+                    const plan = calcBundle?.installmentPlans.find((p) => p.installments === n);
+                    const surcharge = plan ? ` (+${parseFloat(plan.surchargePct)} %)` : "";
+                    return (
+                      <SelectItem key={n} value={String(n)}>
+                        {n === 1 ? t.pricing.oneTimePayment : `${n}×${surcharge}`}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
