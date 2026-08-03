@@ -253,4 +253,32 @@ export function registerBeratungRoutes(app: Express, requireAuth: (req: Request,
       res.status(500).json({ error: err.message });
     }
   });
+
+  // ── POST /api/beratung/settings/disconnect ────────────────────────────────
+  // Clears the stored token and disables auto_process so this environment
+  // no longer polls or processes the mailbox (safe for dev / staging).
+  app.post("/api/beratung/settings/disconnect", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).session?.user;
+      if (!user || (user.role !== "admin" && user.role !== "manager")) {
+        return res.status(403).json({ error: "Admin/manager required" });
+      }
+
+      await pool.query(
+        `UPDATE beratung_monitor_settings
+            SET token_access = NULL,
+                token_refresh = NULL,
+                token_expires_at = NULL,
+                auto_process = false,
+                updated_at = now()
+          WHERE id = 1`
+      );
+
+      console.log(`[Beratung] Disconnected by user ${user.id} — token cleared, auto_process disabled`);
+      res.json({ disconnected: true });
+    } catch (err: any) {
+      console.error("[Beratung] disconnect error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
 }

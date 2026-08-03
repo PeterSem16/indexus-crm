@@ -356,6 +356,8 @@ export interface Translations {
     connected: string;
     notConnected: string;
     reconnectBtn: string;
+    disconnectBtn: string;
+    disconnectSuccess: string;
     connectSuccess: string;
     connectError: string;
     lastChecked: string;
@@ -7469,6 +7471,8 @@ export const translations: Record<Locale, Translations> = {
       connected: 'Connected to beratung@',
       notConnected: 'Not connected — click Reconnect',
       reconnectBtn: 'Reconnect',
+      disconnectBtn: 'Disconnect',
+      disconnectSuccess: 'Disconnected — this environment will no longer poll the mailbox',
       connectSuccess: 'Successfully connected',
       connectError: 'Connection failed',
       lastChecked: 'Last checked',
@@ -14634,6 +14638,8 @@ export const translations: Record<Locale, Translations> = {
       connected: 'Pripojený na beratung@',
       notConnected: 'Nepripojený — kliknite Pripojiť',
       reconnectBtn: 'Pripojiť',
+      disconnectBtn: 'Odpojiť',
+      disconnectSuccess: 'Odpojené — toto prostredie už nebude kontrolovať schránku',
       connectSuccess: 'Úspešne pripojený',
       connectError: 'Pripojenie zlyhalo',
       lastChecked: 'Naposledy skontrolované',
@@ -21735,6 +21741,8 @@ export const translations: Record<Locale, Translations> = {
       connected: 'Připojeno k beratung@',
       notConnected: 'Nepřipojeno — klikněte Připojit',
       reconnectBtn: 'Připojit',
+      disconnectBtn: 'Odpojit',
+      disconnectSuccess: 'Odpojeno — toto prostředí již nebude kontrolovat schránku',
       connectSuccess: 'Úspěšně připojeno',
       connectError: 'Připojení selhalo',
       lastChecked: 'Naposledy zkontrolováno',
@@ -28762,6 +28770,8 @@ export const translations: Record<Locale, Translations> = {
       connected: 'Csatlakozva a beratung@-hoz',
       notConnected: 'Nincs csatlakozva — kattintson a Csatlakozás gombra',
       reconnectBtn: 'Csatlakozás',
+      disconnectBtn: 'Lecsatlakozás',
+      disconnectSuccess: 'Lecsatlakozva — ez a környezet nem kérdezi le a postaládát',
       connectSuccess: 'Sikeresen csatlakozva',
       connectError: 'Csatlakozás sikertelen',
       lastChecked: 'Utoljára ellenőrizve',
@@ -35749,6 +35759,8 @@ export const translations: Record<Locale, Translations> = {
       connected: 'Conectat la beratung@',
       notConnected: 'Neconectat — faceți clic pe Reconectare',
       reconnectBtn: 'Reconectare',
+      disconnectBtn: 'Deconectare',
+      disconnectSuccess: 'Deconectat — acest mediu nu va mai verifica căsuța poștală',
       connectSuccess: 'Conectat cu succes',
       connectError: 'Conectarea a eșuat',
       lastChecked: 'Ultima verificare',
@@ -42656,6 +42668,8 @@ export const translations: Record<Locale, Translations> = {
       connected: 'Connesso a beratung@',
       notConnected: 'Non connesso — fare clic su Riconnetti',
       reconnectBtn: 'Riconnetti',
+      disconnectBtn: 'Disconnetti',
+      disconnectSuccess: 'Disconnesso — questo ambiente non controllerà più la casella',
       connectSuccess: 'Connesso con successo',
       connectError: 'Connessione fallita',
       lastChecked: 'Ultimo controllo',
@@ -49565,6 +49579,8 @@ export const translations: Record<Locale, Translations> = {
       connected: 'Mit beratung@ verbunden',
       notConnected: 'Nicht verbunden — klicken Sie auf Verbinden',
       reconnectBtn: 'Verbinden',
+      disconnectBtn: 'Trennen',
+      disconnectSuccess: 'Getrennt — diese Umgebung fragt das Postfach nicht mehr ab',
       connectSuccess: 'Erfolgreich verbunden',
       connectError: 'Verbindung fehlgeschlagen',
       lastChecked: 'Zuletzt geprüft',

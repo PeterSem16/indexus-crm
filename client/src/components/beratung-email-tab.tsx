@@ -385,9 +385,19 @@ function SettingsTab({ settings, onSaved }: { settings: BeratungSettings; onSave
   });
 
   const connectMut = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/beratung/settings/connect").then(r => r.json()),
+    mutationFn: () => apiRequest("POST", "/api/beratung/settings/connect").then(async r => {
+      const json = await r.json();
+      if (!r.ok) throw new Error(json.error || "Failed");
+      return json;
+    }),
     onSuccess: () => { toast({ title: b.connectSuccess }); onSaved(); },
     onError: (err: any) => toast({ title: b.connectError, description: err?.message, variant: "destructive" }),
+  });
+
+  const disconnectMut = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/beratung/settings/disconnect").then(r => r.json()),
+    onSuccess: () => { toast({ title: b.disconnectSuccess }); onSaved(); },
+    onError: () => toast({ title: b.connectError, variant: "destructive" }),
   });
 
   const addEmail = () => {
@@ -418,10 +428,26 @@ function SettingsTab({ settings, onSaved }: { settings: BeratungSettings; onSave
             <span className={`text-sm font-medium ${settings.has_token ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}`}>
               {settings.has_token ? b.connected : b.notConnected}
             </span>
-            <Button size="sm" variant="outline" onClick={() => connectMut.mutate()} disabled={connectMut.isPending} className="ml-auto">
-              {connectMut.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Wifi className="h-3 w-3 mr-1" />}
-              {b.reconnectBtn}
-            </Button>
+            <div className="flex gap-2 ml-auto">
+              {settings.has_token && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-destructive/50 text-destructive hover:bg-destructive/10"
+                  onClick={() => disconnectMut.mutate()}
+                  disabled={disconnectMut.isPending || connectMut.isPending}
+                >
+                  {disconnectMut.isPending
+                    ? <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                    : <WifiOff className="h-3 w-3 mr-1" />}
+                  {b.disconnectBtn}
+                </Button>
+              )}
+              <Button size="sm" variant="outline" onClick={() => connectMut.mutate()} disabled={connectMut.isPending || disconnectMut.isPending}>
+                {connectMut.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Wifi className="h-3 w-3 mr-1" />}
+                {b.reconnectBtn}
+              </Button>
+            </div>
           </div>
           {settings.last_checked_at && (
             <p className="text-xs text-muted-foreground">
