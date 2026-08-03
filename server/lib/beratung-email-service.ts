@@ -252,12 +252,47 @@ async function transcribeAudio(buf: Buffer, filename: string): Promise<string> {
   }
 }
 
+/** AI short summary of a voicemail transcript (Slovak, 2-3 sentences) */
+async function analyzeVoicemail(transcript: string): Promise<string> {
+  if (!transcript || transcript.length < 10) return "";
+  try {
+    const openai = await import("openai");
+    const client = new openai.default({ apiKey: process.env.OPENAI_API_KEY });
+    const resp = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "Si asistent, ktorý analyzuje prepisy hlasových správ. Napíš krátke zhrnutie (2-3 vety) v slovenčine: kto volá, čo chce alebo oznamuje, aká je požadovaná akcia. Buď stručný a konkrétny.",
+        },
+        { role: "user", content: transcript.substring(0, 4000) },
+      ],
+      max_tokens: 250,
+      temperature: 0.3,
+    });
+    return resp.choices[0]?.message?.content?.trim() || "";
+  } catch (err: any) {
+    console.warn("[Beratung] Voicemail AI analysis error:", err?.message);
+    return "";
+  }
+}
+
 // ─── Attachment extraction (PDF text + audio transcription) ──────────────────
+
+type AttachmentResult = {
+  name: string;
+  contentBase64: string;
+  contentType: string;
+  textContent: string;
+  isAudio: boolean;
+  transcription: string;
+  aiSummary: string;
+};
 
 async function fetchAndExtractAttachments(
   accessToken: string,
   graphMessageId: string
-): Promise<Array<{ name: string; contentBase64: string; contentType: string; textContent: string; isAudio: boolean; transcription: string }>> {
+): Promise<AttachmentResult[]> {
   const client = createGraphClient(accessToken);
   let rawAttachments: any[] = [];
 
@@ -271,7 +306,7 @@ async function fetchAndExtractAttachments(
     return [];
   }
 
-  const result: Array<{ name: string; contentBase64: string; contentType: string; textContent: string; isAudio: boolean; transcription: string }> = [];
+  const result: AttachmentResult[] = [];
 
   for (const att of rawAttachments) {
     if (!att.contentBytes) continue;
@@ -279,13 +314,20 @@ async function fetchAndExtractAttachments(
     const name: string = att.name || "attachment";
     let textContent = "";
     let transcription = "";
+    let aiSummary = "";
     const audio = isAudioAttachment(contentType, name);
 
     if (audio) {
       const buf = Buffer.from(att.contentBytes, "base64");
       transcription = await transcribeAudio(buf, name);
-      textContent = transcription ? `[Hlasová správa — prepis]:\n${transcription}` : "";
-      console.log(`[Beratung] Audio transcribed: ${name} (${buf.length} bytes, ${transcription.length} chars)`);
+      // Run AI analysis right after Whisper transcription
+      if (transcription) {
+        aiSummary = await analyzeVoicemail(transcription);
+      }
+      textContent = transcription
+        ? `[Hlasová správa — prepis]:\n${transcription}${aiSummary ? `\n\n[Zhrnutie AI]:\n${aiSummary}` : ""}`
+        : "";
+      console.log(`[Beratung] Audio transcribed: ${name} (${buf.length} bytes, ${transcription.length} chars), AI summary: ${aiSummary.length} chars`);
     } else if (contentType === "application/pdf" || name.toLowerCase().endsWith(".pdf")) {
       try {
         const pdfParse = await import("pdf-parse");
@@ -297,7 +339,7 @@ async function fetchAndExtractAttachments(
       }
     }
 
-    result.push({ name, contentBase64: att.contentBytes, contentType, textContent, isAudio: audio, transcription });
+    result.push({ name, contentBase64: att.contentBytes, contentType, textContent, isAudio: audio, transcription, aiSummary });
   }
 
   return result;
@@ -326,7 +368,7 @@ async function translateToLanguage(text: string, targetLang: "SK" | "CS"): Promi
   return response.choices[0]?.message?.content || "";
 }
 
-export async function translateBeratungEmail(emailId: string): Promise<boolean> {
+export async function translateBeratungEmail(emailId: string, force = false): Promise<boolean> {
   const { rows } = await pool.query(
     `SELECT id, graph_message_id, body_html, body_text, has_attachments, status
      FROM beratung_inbox_emails WHERE id = $1 LIMIT 1`,
@@ -334,7 +376,7 @@ export async function translateBeratungEmail(emailId: string): Promise<boolean> 
   );
   const row = rows[0];
   if (!row) return false;
-  if (row.status === "translated" || row.status === "forwarded") return true;
+  if (!force && (row.status === "translated" || row.status === "forwarded")) return true;
 
   const accessToken = await getBeratungAccessToken();
   if (!accessToken) return false;
@@ -377,6 +419,7 @@ export async function translateBeratungEmail(emailId: string): Promise<boolean> 
       hasText: !!att.textContent,
       isAudio: att.isAudio,
       transcription: att.transcription || null,
+      aiSummary: att.aiSummary || null,
     });
   }
 
@@ -411,13 +454,30 @@ export async function translateBeratungEmail(emailId: string): Promise<boolean> 
   return true;
 }
 
+// ─── Re-analyze (force) ───────────────────────────────────────────────────────
+
+/** Force-reprocess an email: reset to 'new' then fully re-translate + re-transcribe attachments */
+export async function reanalyzeBeratungEmail(emailId: string): Promise<boolean> {
+  // Reset so translateBeratungEmail re-runs even for already-processed emails
+  await pool.query(
+    `UPDATE beratung_inbox_emails
+       SET status = 'new', translated_sk = NULL, translated_cs = NULL,
+           audio_transcription = NULL, attachment_summaries = NULL,
+           attachment_data = NULL, updated_at = now()
+     WHERE id = $1`,
+    [emailId]
+  );
+  console.log(`[Beratung] Reanalyzing email ${emailId} (force reset to new)`);
+  return translateBeratungEmail(emailId, true);
+}
+
 // ─── Forward email ───────────────────────────────────────────────────────────
 
 export async function forwardBeratungEmail(emailId: string): Promise<boolean> {
   const { rows } = await pool.query(
     `SELECT id, subject, from_address, from_name, received_at,
             body_html, body_text, translated_cs, translated_sk,
-            attachment_data, status
+            attachment_data, attachment_summaries, audio_transcription, status
      FROM beratung_inbox_emails WHERE id = $1 LIMIT 1`,
     [emailId]
   );
@@ -443,37 +503,119 @@ export async function forwardBeratungEmail(emailId: string): Promise<boolean> {
 
   const { sendEmail } = await import("./ms365");
 
-  const originalBody = row.body_html || row.body_text || "";
+  const rawBody = row.body_text || (row.body_html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
   const receivedStr = row.received_at
     ? new Date(row.received_at).toLocaleString("sk-SK", { timeZone: "Europe/Bratislava" })
     : "";
 
-  const emailBody = `
-<html><body>
-<p><strong>Preposlané z: beratung@cordbloodcenter.com</strong><br>
-<strong>Od:</strong> ${escapeHtml(row.from_name || row.from_address)} &lt;${escapeHtml(row.from_address)}&gt;<br>
-<strong>Dátum:</strong> ${receivedStr}<br>
-<strong>Predmet:</strong> ${escapeHtml(row.subject || "")}</p>
-<hr/>
+  // Build voicemail section if audio transcription exists
+  const attSummaries: Array<{ name: string; isAudio?: boolean; transcription?: string; aiSummary?: string }> =
+    row.attachment_summaries
+      ? (typeof row.attachment_summaries === "string" ? JSON.parse(row.attachment_summaries) : row.attachment_summaries)
+      : [];
 
-<h3>🇩🇪 Originálny email:</h3>
-<div style="border-left: 3px solid #ccc; padding-left: 12px; color: #333;">
-${originalBody || escapeHtml(row.body_text || "")}
-</div>
-<hr/>
+  const audioAtts = attSummaries.filter(a => a.isAudio && (a.transcription || a.aiSummary));
+  const voicemailSection = audioAtts.length > 0
+    ? `
+  <!-- VOICEMAIL -->
+  <tr><td style="background:#ffffff;padding:0 36px;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+    <tr><td style="background:#fffbeb;border:2px solid #f59e0b;border-radius:12px;padding:20px 24px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#92400e;margin-bottom:12px;">🎙️ Hlasová správa — prepis</div>
+      ${audioAtts.map(a => `
+        ${a.aiSummary ? `<div style="background:#fef3c7;border-radius:8px;padding:12px 16px;margin-bottom:12px;">
+          <div style="font-size:11px;font-weight:700;color:#b45309;margin-bottom:6px;">💡 Zhrnutie (AI)</div>
+          <div style="font-size:13px;line-height:1.6;color:#78350f;">${escapeHtml(a.aiSummary).replace(/\n/g, "<br>")}</div>
+        </div>` : ""}
+        ${a.transcription ? `<div style="margin-top:8px;">
+          <div style="font-size:11px;font-weight:700;color:#92400e;margin-bottom:6px;">📝 Kompletný prepis — ${escapeHtml(a.name)}</div>
+          <div style="font-size:13px;line-height:1.7;color:#78350f;white-space:pre-wrap;">${escapeHtml(a.transcription).replace(/\n/g, "<br>")}</div>
+        </div>` : ""}
+      `).join('<div style="height:12px;"></div>')}
+    </td></tr>
+    </table>
+  </td></tr>
+  <tr><td style="height:20px;background:#ffffff;"></td></tr>`
+    : "";
 
-<h3>🇸🇰 [SK] Preklad do slovenčiny:</h3>
-<div style="border-left: 3px solid #0057b7; padding-left: 12px;">
-${escapeHtml(row.translated_sk || "").replace(/\n/g, "<br>")}
-</div>
-<hr/>
+  const emailBody = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:'Segoe UI',Tahoma,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f1f5f9;">
+<tr><td align="center" style="padding:32px 16px;">
+<table width="640" cellpadding="0" cellspacing="0" border="0" style="max-width:640px;width:100%;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
 
-<h3>🇨🇿 [CS] Preklad do češtiny:</h3>
-<div style="border-left: 3px solid #d7141a; padding-left: 12px;">
-${escapeHtml(row.translated_cs || "").replace(/\n/g, "<br>")}
-</div>
-</body></html>
-`;
+  <!-- HEADER -->
+  <tr><td style="background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 100%);padding:28px 36px 24px;">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td>
+        <div style="font-size:28px;font-weight:900;color:#ffffff;letter-spacing:-1px;line-height:1;">indexus</div>
+        <div style="font-size:12px;color:#93c5fd;margin-top:5px;font-weight:500;">Beratung E-mail Monitor</div>
+      </td>
+      <td align="right" valign="top">
+        <span style="display:inline-block;background:rgba(255,255,255,0.15);color:#dbeafe;font-size:11px;font-weight:600;padding:6px 14px;border-radius:20px;border:1px solid rgba(255,255,255,0.2);">📧 Preposlané</span>
+      </td>
+    </tr></table>
+  </td></tr>
+
+  <!-- META CARD -->
+  <tr><td style="background:#ffffff;padding:24px 36px 20px;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td width="80" style="color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;padding:5px 16px 5px 0;vertical-align:top;">Od</td>
+        <td style="color:#1e293b;font-size:14px;font-weight:600;padding:5px 0;">${escapeHtml(row.from_name || row.from_address)}</td>
+      </tr>
+      <tr>
+        <td style="color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;padding:5px 16px 5px 0;">Adresa</td>
+        <td style="color:#3b82f6;font-size:13px;padding:5px 0;">${escapeHtml(row.from_address)}</td>
+      </tr>
+      <tr>
+        <td style="color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;padding:5px 16px 5px 0;">Dátum</td>
+        <td style="color:#475569;font-size:13px;padding:5px 0;">${receivedStr}</td>
+      </tr>
+      <tr>
+        <td style="color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;padding:5px 16px 5px 0;">Predmet</td>
+        <td style="color:#1e293b;font-size:15px;font-weight:700;padding:5px 0;">${escapeHtml(row.subject || "(bez predmetu)")}</td>
+      </tr>
+    </table>
+  </td></tr>
+
+  <!-- DIVIDER -->
+  <tr><td style="background:#ffffff;padding:0 36px;"><div style="height:1px;background:#e2e8f0;"></div></td></tr>
+
+  ${voicemailSection}
+
+  <!-- ORIGINAL -->
+  <tr><td style="background:#f8fafc;padding:24px 36px;border-top:3px solid #e2e8f0;">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#64748b;margin-bottom:12px;">🇩🇪 Originálny text</div>
+    <div style="font-size:13px;line-height:1.75;color:#374151;white-space:pre-wrap;">${escapeHtml(rawBody).replace(/\n/g, "<br>")}</div>
+  </td></tr>
+
+  <!-- SK TRANSLATION -->
+  <tr><td style="background:#eff6ff;padding:24px 36px;border-top:3px solid #3b82f6;">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#1d4ed8;margin-bottom:12px;">🇸🇰 Preklad — slovenčina</div>
+    <div style="font-size:13px;line-height:1.75;color:#1e3a8a;white-space:pre-wrap;">${escapeHtml(row.translated_sk || "").replace(/\n/g, "<br>")}</div>
+  </td></tr>
+
+  <!-- CS TRANSLATION -->
+  <tr><td style="background:#fff1f2;padding:24px 36px;border-top:3px solid #dc2626;">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#b91c1c;margin-bottom:12px;">🇨🇿 Preklad — čeština</div>
+    <div style="font-size:13px;line-height:1.75;color:#7f1d1d;white-space:pre-wrap;">${escapeHtml(row.translated_cs || "").replace(/\n/g, "<br>")}</div>
+  </td></tr>
+
+  <!-- FOOTER -->
+  <tr><td style="background:#1e3a8a;padding:18px 36px;text-align:center;">
+    <div style="color:#93c5fd;font-size:11px;line-height:1.6;">
+      Automaticky preposlané systémom <strong style="color:#dbeafe;">indexus</strong> · beratung@cordbloodcenter.com
+    </div>
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
 
   // Prepare attachments
   const attachments: Array<{ name: string; contentType: string; contentBase64: string }> = [];

@@ -364,6 +364,14 @@ export interface Translations {
     senderFiltersHint: string;
     noSenderFilters: string;
     senderFilterPlaceholder: string;
+    reanalyzeBtn: string;
+    reanalyzeSuccess: string;
+    reanalyzeError: string;
+    senderSearch: string;
+    tabEmails: string;
+    tabSettings: string;
+    aiSummary: string;
+    fullTranscript: string;
   };
   nav: {
     dashboard: string;
@@ -7467,6 +7475,14 @@ export const translations: Record<Locale, Translations> = {
       senderFiltersHint: 'Auto-processing only applies to emails from these senders. Leave empty to process all emails.',
       noSenderFilters: 'No filters — all senders are processed',
       senderFilterPlaceholder: 'e.g. A1 Mobilbox',
+      reanalyzeBtn: 'Re-analyze',
+      reanalyzeSuccess: 'Email re-analyzed successfully',
+      reanalyzeError: 'Re-analysis failed',
+      senderSearch: 'Search sender...',
+      tabEmails: 'Messages',
+      tabSettings: 'Settings',
+      aiSummary: 'Summary (AI)',
+      fullTranscript: 'Full transcript',
     },
     nav: {
       dashboard: 'Dashboard',
@@ -14622,6 +14638,14 @@ export const translations: Record<Locale, Translations> = {
       senderFiltersHint: 'Automatické spracovanie sa vzťahuje len na emaily od týchto odosielateľov. Prázdne = spracovávajú sa všetky emaily.',
       noSenderFilters: 'Žiadne filtre — spracovávajú sa všetci odosielatelia',
       senderFilterPlaceholder: 'napr. A1 Mobilbox',
+      reanalyzeBtn: 'Znovu analyzovať',
+      reanalyzeSuccess: 'Email bol úspešne znovu analyzovaný',
+      reanalyzeError: 'Znovu analýza zlyhala',
+      senderSearch: 'Hľadať odosielateľa...',
+      tabEmails: 'Správy',
+      tabSettings: 'Nastavenia',
+      aiSummary: 'Zhrnutie (AI)',
+      fullTranscript: 'Kompletný prepis',
     },
     nav: {
       dashboard: 'Prehľad',
@@ -21713,6 +21737,14 @@ export const translations: Record<Locale, Translations> = {
       senderFiltersHint: 'Automatické zpracování se týká pouze e-mailů od těchto odesílatelů. Prázdné = zpracovávají se všechny e-maily.',
       noSenderFilters: 'Žádné filtry — zpracovávají se všichni odesílatelé',
       senderFilterPlaceholder: 'např. A1 Mobilbox',
+      reanalyzeBtn: 'Znovu analyzovat',
+      reanalyzeSuccess: 'E-mail byl úspěšně znovu analyzován',
+      reanalyzeError: 'Opětovná analýza se nezdařila',
+      senderSearch: 'Hledat odesílatele...',
+      tabEmails: 'Zprávy',
+      tabSettings: 'Nastavení',
+      aiSummary: 'Shrnutí (AI)',
+      fullTranscript: 'Úplný přepis',
     },
     nav: {
       dashboard: 'Přehled',
@@ -28730,6 +28762,14 @@ export const translations: Record<Locale, Translations> = {
       senderFiltersHint: 'Az automatikus feldolgozás csak ezektől a feladóktól érkező e-mailekre vonatkozik. Üresen hagyva minden e-mail feldolgozásra kerül.',
       noSenderFilters: 'Nincs szűrő — minden feladó feldolgozásra kerül',
       senderFilterPlaceholder: 'pl. A1 Mobilbox',
+      reanalyzeBtn: 'Újraelemzés',
+      reanalyzeSuccess: 'Az e-mail sikeresen újraelemzve',
+      reanalyzeError: 'Az újraelemzés sikertelen',
+      senderSearch: 'Feladó keresése...',
+      tabEmails: 'Üzenetek',
+      tabSettings: 'Beállítások',
+      aiSummary: 'Összefoglaló (AI)',
+      fullTranscript: 'Teljes átirat',
     },
     nav: {
       dashboard: 'Irányítópult',
@@ -35707,6 +35747,14 @@ export const translations: Record<Locale, Translations> = {
       senderFiltersHint: 'Procesarea automată se aplică doar e-mailurilor de la acești expeditori. Gol = se procesează toate e-mailurile.',
       noSenderFilters: 'Fără filtre — toți expeditorii sunt procesați',
       senderFilterPlaceholder: 'ex. A1 Mobilbox',
+      reanalyzeBtn: 'Reanaliza',
+      reanalyzeSuccess: 'E-mailul a fost reanaliz at cu succes',
+      reanalyzeError: 'Reanaliza a eșuat',
+      senderSearch: 'Caută expeditor...',
+      tabEmails: 'Mesaje',
+      tabSettings: 'Setări',
+      aiSummary: 'Rezumat (AI)',
+      fullTranscript: 'Transcriere completă',
     },
     nav: {
       dashboard: 'Panou de control',
@@ -42604,6 +42652,14 @@ export const translations: Record<Locale, Translations> = {
       senderFiltersHint: "L'elaborazione automatica si applica solo alle email di questi mittenti. Vuoto = tutte le email vengono elaborate.",
       noSenderFilters: 'Nessun filtro — tutti i mittenti vengono elaborati',
       senderFilterPlaceholder: 'es. A1 Mobilbox',
+      reanalyzeBtn: 'Rianalizza',
+      reanalyzeSuccess: "L'email è stata rianalizzata con successo",
+      reanalyzeError: 'Rianalisi fallita',
+      senderSearch: 'Cerca mittente...',
+      tabEmails: 'Messaggi',
+      tabSettings: 'Impostazioni',
+      aiSummary: 'Riepilogo (AI)',
+      fullTranscript: 'Trascrizione completa',
     },
     nav: {
       dashboard: 'Dashboard',
@@ -49503,6 +49559,14 @@ export const translations: Record<Locale, Translations> = {
       senderFiltersHint: 'Die automatische Verarbeitung gilt nur für E-Mails dieser Absender. Leer lassen = alle E-Mails werden verarbeitet.',
       noSenderFilters: 'Keine Filter — alle Absender werden verarbeitet',
       senderFilterPlaceholder: 'z.B. A1 Mobilbox',
+      reanalyzeBtn: 'Erneut analysieren',
+      reanalyzeSuccess: 'E-Mail erfolgreich erneut analysiert',
+      reanalyzeError: 'Erneute Analyse fehlgeschlagen',
+      senderSearch: 'Absender suchen...',
+      tabEmails: 'Nachrichten',
+      tabSettings: 'Einstellungen',
+      aiSummary: 'Zusammenfassung (AI)',
+      fullTranscript: 'Vollständiges Transkript',
     },
     nav: {
       dashboard: 'Dashboard',

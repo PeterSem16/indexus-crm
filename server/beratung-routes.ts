@@ -10,6 +10,7 @@ import {
   translateBeratungEmail,
   forwardBeratungEmail,
   acquireBeratungTokenROPC,
+  reanalyzeBeratungEmail,
 } from "./lib/beratung-email-service";
 import { encryptTokenWithMarker } from "./lib/token-crypto";
 
@@ -34,13 +35,19 @@ export function registerBeratungRoutes(app: Express, requireAuth: (req: Request,
       const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || "25"))));
       const offset = (page - 1) * limit;
       const status = req.query.status as string | undefined;
+      const sender = req.query.sender as string | undefined;
 
-      let where = "1=1";
+      const conditions: string[] = ["1=1"];
       const params: any[] = [];
       if (status) {
-        where += ` AND status = $${params.length + 1}`;
+        conditions.push(`status = $${params.length + 1}`);
         params.push(status);
       }
+      if (sender && sender.trim()) {
+        conditions.push(`(from_name ILIKE $${params.length + 1} OR from_address ILIKE $${params.length + 1})`);
+        params.push(`%${sender.trim()}%`);
+      }
+      const where = conditions.join(" AND ");
 
       const { rows: emails } = await pool.query(
         `SELECT id, graph_message_id, subject, from_address, from_name,
@@ -66,6 +73,23 @@ export function registerBeratungRoutes(app: Express, requireAuth: (req: Request,
       });
     } catch (err: any) {
       console.error("[Beratung] GET /emails error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── POST /api/beratung/emails/:id/reanalyze ───────────────────────────────
+  app.post("/api/beratung/emails/:id/reanalyze", ...guard, async (req: Request, res: Response) => {
+    try {
+      const ok = await reanalyzeBeratungEmail(req.params.id);
+      if (!ok) return res.status(422).json({ error: "Reanalysis failed" });
+      const { rows } = await pool.query(
+        `SELECT id, status, translated_sk, translated_cs, audio_transcription, attachment_summaries
+         FROM beratung_inbox_emails WHERE id = $1`,
+        [req.params.id]
+      );
+      res.json(rows[0] || { id: req.params.id, status: "translated" });
+    } catch (err: any) {
+      console.error("[Beratung] reanalyze error:", err);
       res.status(500).json({ error: err.message });
     }
   });
