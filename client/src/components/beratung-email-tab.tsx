@@ -19,7 +19,7 @@ import {
   Loader2, RefreshCw, ChevronDown, ChevronRight,
   Mail, Send, Languages, CheckCircle2, Clock, AlertCircle,
   X, Plus, Wifi, WifiOff, Mic, Filter, Search, RotateCcw,
-  Settings, Inbox, Paperclip,
+  Settings, Inbox, Paperclip, Eye, EyeOff, KeyRound,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -374,6 +374,8 @@ function SettingsTab({ settings, onSaved }: { settings: BeratungSettings; onSave
   const [autoProcess, setAutoProcess] = useState(settings.auto_process);
   const [senderFilters, setSenderFilters] = useState<string[]>(settings.sender_filters || []);
   const [newFilter, setNewFilter] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const saveMut = useMutation({
     mutationFn: () =>
@@ -385,12 +387,12 @@ function SettingsTab({ settings, onSaved }: { settings: BeratungSettings; onSave
   });
 
   const connectMut = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/beratung/settings/connect").then(async r => {
+    mutationFn: () => apiRequest("POST", "/api/beratung/settings/connect", password ? { password } : {}).then(async r => {
       const json = await r.json();
       if (!r.ok) throw new Error(json.error || "Failed");
       return json;
     }),
-    onSuccess: () => { toast({ title: b.connectSuccess }); onSaved(); },
+    onSuccess: () => { toast({ title: b.connectSuccess }); setPassword(""); onSaved(); },
     onError: (err: any) => toast({ title: b.connectError, description: err?.message, variant: "destructive" }),
   });
 
@@ -424,6 +426,35 @@ function SettingsTab({ settings, onSaved }: { settings: BeratungSettings; onSave
           <CardDescription className="text-xs">{b.settingsDesc}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
+          {/* Password field */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium flex items-center gap-1.5">
+              <KeyRound className="h-3.5 w-3.5" />{b.passwordLabel}
+            </Label>
+            <div className="flex gap-2">
+              <div className="relative flex-1 max-w-sm">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  placeholder={b.passwordPlaceholder}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && connectMut.mutate()}
+                  className="pr-8 text-sm"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  className="absolute right-2 top-2.5 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">{b.passwordHint}</p>
+          </div>
+
+          {/* Status + action buttons */}
           <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
             <span className={`text-sm font-medium ${settings.has_token ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}`}>
               {settings.has_token ? b.connected : b.notConnected}

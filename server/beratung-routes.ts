@@ -227,9 +227,22 @@ export function registerBeratungRoutes(app: Express, requireAuth: (req: Request,
         return res.status(403).json({ error: "Admin/manager required" });
       }
 
-      const fresh = await acquireBeratungTokenROPC();
+      const { password } = req.body as { password?: string };
+
+      // If a new password is provided, store it encrypted before acquiring token
+      if (password && password.trim()) {
+        await pool.query(
+          `INSERT INTO beratung_monitor_settings (id, forward_to, auto_process, beratung_password, updated_at)
+             VALUES (1, ARRAY[]::text[], false, $1, now())
+           ON CONFLICT (id) DO UPDATE
+             SET beratung_password = EXCLUDED.beratung_password, updated_at = now()`,
+          [encryptTokenWithMarker(password.trim())]
+        );
+      }
+
+      const fresh = await acquireBeratungTokenROPC(password?.trim() || undefined);
       if (!fresh) {
-        return res.status(422).json({ error: "ROPC token acquisition failed — check BERATUNG_PASSWORD and MS365 credentials" });
+        return res.status(422).json({ error: "ROPC token acquisition failed — check the password and MS365 credentials" });
       }
 
       await pool.query(

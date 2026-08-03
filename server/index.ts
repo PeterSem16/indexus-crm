@@ -727,6 +727,8 @@ app.use((req, res, next) => {
     await pool.query(`
       ALTER TABLE beratung_monitor_settings
         ADD COLUMN IF NOT EXISTS sender_filters text[] NOT NULL DEFAULT ARRAY[]::text[];
+      ALTER TABLE beratung_monitor_settings
+        ADD COLUMN IF NOT EXISTS beratung_password text;
       ALTER TABLE beratung_inbox_emails
         ADD COLUMN IF NOT EXISTS audio_transcription text;
     `);

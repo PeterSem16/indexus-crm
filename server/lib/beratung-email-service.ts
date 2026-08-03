@@ -14,7 +14,7 @@ const CHECK_INTERVAL_MS = 3 * 60_000; // 3 minutes
 
 // ─── Token acquisition (ROPC flow) ──────────────────────────────────────────
 
-export async function acquireBeratungTokenROPC(): Promise<{
+export async function acquireBeratungTokenROPC(overridePassword?: string): Promise<{
   accessToken: string;
   refreshToken: string;
   expiresOn: Date;
@@ -22,10 +22,20 @@ export async function acquireBeratungTokenROPC(): Promise<{
   const tenantId = process.env.MS365_TENANT_ID;
   const clientId = process.env.MS365_CLIENT_ID;
   const clientSecret = process.env.MS365_CLIENT_SECRET;
-  const password = process.env.BERATUNG_PASSWORD;
+
+  // Password priority: 1) override from request, 2) DB stored, 3) env var
+  let password = overridePassword;
+  if (!password) {
+    try {
+      const row = await pool.query(`SELECT beratung_password FROM beratung_monitor_settings WHERE id = 1`);
+      const encrypted = row.rows[0]?.beratung_password;
+      if (encrypted) password = decryptTokenSafe(encrypted);
+    } catch { /* fall through to env var */ }
+  }
+  if (!password) password = process.env.BERATUNG_PASSWORD;
 
   if (!tenantId || !clientId || !clientSecret || !password) {
-    console.warn("[Beratung] ROPC: missing required env vars (MS365_TENANT_ID, MS365_CLIENT_ID, MS365_CLIENT_SECRET, BERATUNG_PASSWORD)");
+    console.warn("[Beratung] ROPC: missing credentials (MS365_TENANT_ID, MS365_CLIENT_ID, MS365_CLIENT_SECRET + password via UI/env)");
     return null;
   }
 

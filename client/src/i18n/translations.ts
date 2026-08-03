@@ -355,6 +355,9 @@ export interface Translations {
     settingsError: string;
     connected: string;
     notConnected: string;
+    passwordLabel: string;
+    passwordPlaceholder: string;
+    passwordHint: string;
     reconnectBtn: string;
     disconnectBtn: string;
     disconnectSuccess: string;
@@ -7470,7 +7473,10 @@ export const translations: Record<Locale, Translations> = {
       settingsError: 'Failed to save settings',
       connected: 'Connected to beratung@',
       notConnected: 'Not connected — click Reconnect',
-      reconnectBtn: 'Reconnect',
+      passwordLabel: 'Mailbox password',
+      passwordPlaceholder: 'Enter password to connect (leave blank to keep current)',
+      passwordHint: 'Password for beratung@cordbloodcenter.com. Stored encrypted. Only required when connecting for the first time or after a password change.',
+      reconnectBtn: 'Connect',
       disconnectBtn: 'Disconnect',
       disconnectSuccess: 'Disconnected — this environment will no longer poll the mailbox',
       connectSuccess: 'Successfully connected',
@@ -14637,6 +14643,9 @@ export const translations: Record<Locale, Translations> = {
       settingsError: 'Chyba pri ukladaní nastavení',
       connected: 'Pripojený na beratung@',
       notConnected: 'Nepripojený — kliknite Pripojiť',
+      passwordLabel: 'Heslo schránky',
+      passwordPlaceholder: 'Zadajte heslo (nechajte prázdne ak sa nemení)',
+      passwordHint: 'Heslo pre beratung@cordbloodcenter.com. Uložené zašifrované. Potrebné iba pri prvom pripojení alebo po zmene hesla.',
       reconnectBtn: 'Pripojiť',
       disconnectBtn: 'Odpojiť',
       disconnectSuccess: 'Odpojené — toto prostredie už nebude kontrolovať schránku',
@@ -21740,6 +21749,9 @@ export const translations: Record<Locale, Translations> = {
       settingsError: 'Chyba při ukládání nastavení',
       connected: 'Připojeno k beratung@',
       notConnected: 'Nepřipojeno — klikněte Připojit',
+      passwordLabel: 'Heslo schránky',
+      passwordPlaceholder: 'Zadejte heslo (nechte prázdné pokud se nemění)',
+      passwordHint: 'Heslo pro beratung@cordbloodcenter.com. Uloženo šifrovaně. Potřebné pouze při prvním připojení nebo po změně hesla.',
       reconnectBtn: 'Připojit',
       disconnectBtn: 'Odpojit',
       disconnectSuccess: 'Odpojeno — toto prostředí již nebude kontrolovat schránku',
@@ -28769,6 +28781,9 @@ export const translations: Record<Locale, Translations> = {
       settingsError: 'Hiba a beállítások mentésekor',
       connected: 'Csatlakozva a beratung@-hoz',
       notConnected: 'Nincs csatlakozva — kattintson a Csatlakozás gombra',
+      passwordLabel: 'Postaláda jelszava',
+      passwordPlaceholder: 'Adja meg a jelszót (hagyja üresen, ha nem változott)',
+      passwordHint: 'Jelszó a beratung@cordbloodcenter.com-hoz. Titkosítva tárolva. Csak az első csatlakozáskor vagy jelszóváltozás után szükséges.',
       reconnectBtn: 'Csatlakozás',
       disconnectBtn: 'Lecsatlakozás',
       disconnectSuccess: 'Lecsatlakozva — ez a környezet nem kérdezi le a postaládát',
@@ -35758,6 +35773,9 @@ export const translations: Record<Locale, Translations> = {
       settingsError: 'Eroare la salvarea setărilor',
       connected: 'Conectat la beratung@',
       notConnected: 'Neconectat — faceți clic pe Reconectare',
+      passwordLabel: 'Parola căsuței',
+      passwordPlaceholder: 'Introduceți parola (lăsați gol dacă nu s-a schimbat)',
+      passwordHint: 'Parola pentru beratung@cordbloodcenter.com. Stocată criptat. Necesară doar la prima conectare sau după schimbarea parolei.',
       reconnectBtn: 'Reconectare',
       disconnectBtn: 'Deconectare',
       disconnectSuccess: 'Deconectat — acest mediu nu va mai verifica căsuța poștală',
@@ -42667,6 +42685,9 @@ export const translations: Record<Locale, Translations> = {
       settingsError: 'Errore nel salvataggio delle impostazioni',
       connected: 'Connesso a beratung@',
       notConnected: 'Non connesso — fare clic su Riconnetti',
+      passwordLabel: 'Password casella',
+      passwordPlaceholder: 'Inserisci la password (lascia vuoto se invariata)',
+      passwordHint: 'Password per beratung@cordbloodcenter.com. Memorizzata cifrata. Richiesta solo alla prima connessione o dopo un cambio password.',
       reconnectBtn: 'Riconnetti',
       disconnectBtn: 'Disconnetti',
       disconnectSuccess: 'Disconnesso — questo ambiente non controllerà più la casella',
@@ -49579,6 +49600,9 @@ export const translations: Record<Locale, Translations> = {
       connected: 'Mit beratung@ verbunden',
       notConnected: 'Nicht verbunden — klicken Sie auf Verbinden',
       reconnectBtn: 'Verbinden',
+      passwordLabel: 'Postfach-Passwort',
+      passwordPlaceholder: 'Passwort eingeben (leer lassen wenn unverändert)',
+      passwordHint: 'Passwort für beratung@cordbloodcenter.com. Verschlüsselt gespeichert. Nur bei Erstverbindung oder nach Passwortänderung erforderlich.',
       disconnectBtn: 'Trennen',
       disconnectSuccess: 'Getrennt — diese Umgebung fragt das Postfach nicht mehr ab',
       connectSuccess: 'Erfolgreich verbunden',
