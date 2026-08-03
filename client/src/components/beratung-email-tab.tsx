@@ -1,6 +1,5 @@
 /**
  * Beratung Email Monitor Tab
- * Used inside the Configurator page → Notifications & Automations area.
  * Tabs: Správy | Nastavenia
  */
 
@@ -15,14 +14,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Loader2, RefreshCw, ChevronDown, ChevronRight,
   Mail, Send, Languages, CheckCircle2, Clock, AlertCircle,
-  X, Plus, Wifi, WifiOff, Mic, Filter, Search, RotateCcw, Settings, Inbox,
+  X, Plus, Wifi, WifiOff, Mic, Filter, Search, RotateCcw,
+  Settings, Inbox, Paperclip,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -63,31 +60,39 @@ interface BeratungSettings {
   has_token: boolean;
 }
 
-// ─── Status badge ─────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: BeratungEmail["status"] }) {
-  const { t } = useI18n();
-  const b = t.beratung;
-  if (status === "forwarded") return (
-    <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 gap-1">
-      <CheckCircle2 className="h-3 w-3" />{b.statusForwarded}
-    </Badge>
-  );
-  if (status === "translated") return (
-    <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 gap-1">
-      <Languages className="h-3 w-3" />{b.statusTranslated}
-    </Badge>
-  );
-  return (
-    <Badge variant="outline" className="text-muted-foreground gap-1">
-      <Clock className="h-3 w-3" />{b.statusNew}
-    </Badge>
-  );
+function senderInitials(name: string | null, address: string): string {
+  const src = name || address;
+  const parts = src.trim().split(/[\s@]/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return src.substring(0, 2).toUpperCase();
 }
 
-// ─── Email row ────────────────────────────────────────────────────────────────
+function senderColor(address: string): string {
+  const colors = [
+    "bg-blue-500", "bg-violet-500", "bg-emerald-500", "bg-amber-500",
+    "bg-rose-500", "bg-cyan-500", "bg-indigo-500", "bg-orange-500",
+  ];
+  let h = 0;
+  for (let i = 0; i < address.length; i++) h = (h * 31 + address.charCodeAt(i)) & 0xFFFFFF;
+  return colors[Math.abs(h) % colors.length];
+}
 
-function EmailRow({ email, autoProcess }: { email: BeratungEmail; autoProcess: boolean }) {
+function formatDate(iso: string): { date: string; time: string } {
+  const d = new Date(iso);
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  const isThisYear = d.getFullYear() === now.getFullYear();
+  const time = d.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" });
+  if (isToday) return { date: "", time };
+  if (isThisYear) return { date: d.toLocaleDateString("sk-SK", { day: "numeric", month: "short" }), time };
+  return { date: d.toLocaleDateString("sk-SK", { day: "numeric", month: "numeric", year: "2-digit" }), time };
+}
+
+// ─── Email card row ───────────────────────────────────────────────────────────
+
+function EmailCard({ email, autoProcess }: { email: BeratungEmail; autoProcess: boolean }) {
   const { t } = useI18n();
   const b = t.beratung;
   const { toast } = useToast();
@@ -101,37 +106,38 @@ function EmailRow({ email, autoProcess }: { email: BeratungEmail; autoProcess: b
 
   const translateMut = useMutation({
     mutationFn: () => apiRequest("POST", `/api/beratung/emails/${email.id}/translate`).then(r => r.json()),
-    onSuccess: () => {
-      toast({ title: b.translateSuccess });
-      invalidate();
-      setDetail(null);
-    },
+    onSuccess: () => { toast({ title: b.translateSuccess }); invalidate(); setDetail(null); },
     onError: () => toast({ title: b.translateError, variant: "destructive" }),
   });
 
   const forwardMut = useMutation({
     mutationFn: () => apiRequest("POST", `/api/beratung/emails/${email.id}/forward`).then(r => r.json()),
-    onSuccess: () => {
-      toast({ title: b.forwardSuccess });
-      invalidate();
-      setDetail(null);
-    },
+    onSuccess: () => { toast({ title: b.forwardSuccess }); invalidate(); setDetail(null); },
     onError: () => toast({ title: b.forwardError, variant: "destructive" }),
   });
 
   const reanalyzeMut = useMutation({
-    mutationFn: () => apiRequest("POST", `/api/beratung/emails/${email.id}/reanalyze`).then(r => r.json()),
+    mutationFn: () => apiRequest("POST", `/api/beratung/emails/${email.id}/reanalyze`).then(async r => {
+      const json = await r.json();
+      if (!r.ok) throw new Error(json.error || "Failed");
+      return json;
+    }),
     onSuccess: () => {
       toast({ title: b.reanalyzeSuccess });
       invalidate();
-      setDetail(null); // reload detail on next open
+      setDetail(null);
     },
-    onError: () => toast({ title: b.reanalyzeError, variant: "destructive" }),
+    onError: (err: any) => toast({
+      title: b.reanalyzeError,
+      description: err?.message,
+      variant: "destructive",
+    }),
   });
 
-  const handleOpen = async (isOpen: boolean) => {
-    setOpen(isOpen);
-    if (isOpen && !detail) {
+  const handleToggle = async () => {
+    const next = !open;
+    setOpen(next);
+    if (next && !detail) {
       setLoadingDetail(true);
       try {
         const res = await fetch(`/api/beratung/emails/${email.id}`, { credentials: "include" });
@@ -142,177 +148,224 @@ function EmailRow({ email, autoProcess }: { email: BeratungEmail; autoProcess: b
     }
   };
 
-  const receivedStr = email.received_at
-    ? new Date(email.received_at).toLocaleString("sk-SK", {
-        day: "2-digit", month: "2-digit", year: "numeric",
-        hour: "2-digit", minute: "2-digit",
-      })
+  const isProcessing = translateMut.isPending || forwardMut.isPending || reanalyzeMut.isPending;
+  const hasAudio = email.attachment_summaries?.some(a => a.isAudio) || false;
+  const audioAtts = detail?.attachment_summaries?.filter(a => a.isAudio) || [];
+  const { date, time } = formatDate(email.received_at);
+
+  const statusColors: Record<BeratungEmail["status"], string> = {
+    forwarded: "bg-emerald-500",
+    translated: "bg-blue-500",
+    new: "bg-slate-300 dark:bg-slate-600",
+  };
+
+  // Body preview text
+  const preview = email.body_text
+    ? email.body_text.replace(/\s+/g, " ").trim().substring(0, 120)
     : "";
 
-  const audioAtts = detail?.attachment_summaries?.filter(a => a.isAudio) || [];
-  const isProcessing = translateMut.isPending || forwardMut.isPending || reanalyzeMut.isPending;
-
   return (
-    <Collapsible open={open} onOpenChange={handleOpen}>
-      <CollapsibleTrigger asChild>
-        <TableRow className="cursor-pointer hover:bg-muted/50 select-none">
-          <TableCell className="w-6 pl-3">
-            {open
-              ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-          </TableCell>
-          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{receivedStr}</TableCell>
-          <TableCell className="max-w-[180px]">
-            <div className="text-sm font-medium truncate">{email.from_name || email.from_address}</div>
-            <div className="text-xs text-muted-foreground truncate">{email.from_address}</div>
-          </TableCell>
-          <TableCell className="max-w-[280px]">
-            <span className="text-sm truncate block">{email.subject || "(bez predmetu)"}</span>
-            {email.has_attachments && (
-              <span className="text-xs text-muted-foreground">{email.attachment_count} príloha/y</span>
+    <div className="group">
+      {/* ── Card header (always visible) ─── */}
+      <div
+        className={`flex gap-3 px-4 py-3.5 cursor-pointer hover:bg-muted/40 transition-colors border-b relative
+          ${email.status === "new" ? "bg-blue-50/30 dark:bg-blue-950/10" : ""}`}
+        onClick={handleToggle}
+      >
+        {/* Status strip */}
+        <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-tr rounded-br ${statusColors[email.status]}`} />
+
+        {/* Avatar */}
+        <div className={`shrink-0 w-9 h-9 rounded-full ${senderColor(email.from_address)} flex items-center justify-center text-white text-xs font-bold mt-0.5`}>
+          {senderInitials(email.from_name, email.from_address)}
+        </div>
+
+        {/* Main content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className={`text-sm font-semibold truncate ${email.status === "new" ? "text-foreground" : "text-muted-foreground"}`}>
+                {email.from_name || email.from_address}
+              </span>
+              {email.status === "new" && (
+                <span className="shrink-0 w-2 h-2 rounded-full bg-blue-500" title="Nový" />
+              )}
+            </div>
+
+            {/* Right: time + status */}
+            <div className="flex items-center gap-2 shrink-0">
+              {hasAudio && <Mic className="h-3.5 w-3.5 text-amber-500" />}
+              {email.has_attachments && !hasAudio && <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />}
+              <div className="text-right">
+                {date && <div className="text-xs text-muted-foreground">{date}</div>}
+                <div className="text-xs text-muted-foreground">{time}</div>
+              </div>
+              {/* Status badge */}
+              {email.status === "forwarded" && (
+                <span className="hidden sm:flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full">
+                  <CheckCircle2 className="h-3 w-3" />{b.statusForwarded}
+                </span>
+              )}
+              {email.status === "translated" && (
+                <span className="hidden sm:flex items-center gap-1 text-xs font-medium text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">
+                  <Languages className="h-3 w-3" />{b.statusTranslated}
+                </span>
+              )}
+              {email.status === "new" && (
+                <span className="hidden sm:flex items-center gap-1 text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                  <Clock className="h-3 w-3" />{b.statusNew}
+                </span>
+              )}
+              {open ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
+            </div>
+          </div>
+
+          {/* Subject */}
+          <div className={`text-sm mt-0.5 truncate ${email.status === "new" ? "font-medium" : ""}`}>
+            {email.subject || "(bez predmetu)"}
+          </div>
+
+          {/* Preview + action row */}
+          <div className="flex items-end justify-between gap-2 mt-1">
+            {preview && (
+              <p className="text-xs text-muted-foreground line-clamp-1 flex-1">{preview}</p>
             )}
-          </TableCell>
-          <TableCell><StatusBadge status={email.status} /></TableCell>
-          <TableCell className="text-right pr-3">
-            <div className="flex gap-1 justify-end" onClick={e => e.stopPropagation()}>
-              {/* Re-analyze — always available */}
+
+            {/* Actions */}
+            <div className="flex gap-1 shrink-0" onClick={e => e.stopPropagation()}>
               <Button
                 size="sm"
                 variant="ghost"
+                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                 onClick={() => reanalyzeMut.mutate()}
                 disabled={isProcessing}
                 title={b.reanalyzeBtn}
               >
-                {reanalyzeMut.isPending
-                  ? <Loader2 className="h-3 w-3 animate-spin" />
-                  : <RotateCcw className="h-3 w-3" />}
+                {reanalyzeMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
               </Button>
-
-              {!autoProcess && (
-                <>
-                  {email.status === "new" && (
-                    <Button size="sm" variant="outline" onClick={() => translateMut.mutate()} disabled={isProcessing}>
-                      {translateMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Languages className="h-3 w-3" />}
-                      <span className="ml-1 hidden sm:inline">{b.analyzeBtn}</span>
-                    </Button>
-                  )}
-                  {(email.status === "translated" || email.status === "new") && (
-                    <Button size="sm" onClick={() => forwardMut.mutate()} disabled={isProcessing}>
-                      {forwardMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                      <span className="ml-1 hidden sm:inline">{b.forwardBtn}</span>
-                    </Button>
-                  )}
-                </>
+              {!autoProcess && email.status === "new" && (
+                <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={() => translateMut.mutate()} disabled={isProcessing}>
+                  {translateMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Languages className="h-3 w-3 mr-1" />}
+                  {b.analyzeBtn}
+                </Button>
+              )}
+              {!autoProcess && (email.status === "new" || email.status === "translated") && (
+                <Button size="sm" className="h-6 text-xs px-2" onClick={() => forwardMut.mutate()} disabled={isProcessing}>
+                  {forwardMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3 mr-1" />}
+                  {b.forwardBtn}
+                </Button>
               )}
             </div>
-          </TableCell>
-        </TableRow>
-      </CollapsibleTrigger>
+          </div>
+        </div>
+      </div>
 
-      <CollapsibleContent asChild>
-        <tr>
-          <td colSpan={6} className="p-0">
-            <div className="bg-muted/20 border-t border-b px-6 py-5 space-y-4">
-              {loadingDetail ? (
-                <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                  <Loader2 className="h-4 w-4 animate-spin" /> {b.loading}
-                </div>
-              ) : (
-                <>
-                  {/* ── Audio / Voicemail section ─────────────────────────── */}
-                  {audioAtts.length > 0 && (
-                    <div className="rounded-xl border-2 border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-950/25 overflow-hidden">
-                      <div className="flex items-center gap-2 px-4 py-3 bg-amber-100 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-700">
-                        <Mic className="h-4 w-4 text-amber-700 dark:text-amber-400" />
-                        <span className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
-                          🎙️ {b.audioTranscription}
-                        </span>
-                      </div>
-                      {audioAtts.map((att, i) => (
-                        <div key={i} className="px-4 py-4 space-y-3">
-                          <div className="text-xs font-semibold text-amber-700 dark:text-amber-400">{att.name}</div>
-
-                          {/* AI Summary */}
-                          {att.aiSummary && (
-                            <div className="rounded-lg bg-amber-100 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-700 px-3 py-3">
-                              <div className="text-xs font-bold text-amber-800 dark:text-amber-300 mb-1.5">💡 {b.aiSummary}</div>
-                              <div className="text-sm text-amber-900 dark:text-amber-200 leading-relaxed">{att.aiSummary}</div>
-                            </div>
-                          )}
-
-                          {/* Full transcript */}
-                          {att.transcription && (
-                            <div>
-                              <div className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-1.5">📝 {b.fullTranscript}</div>
-                              <div className="text-sm whitespace-pre-wrap break-words text-amber-900 dark:text-amber-200 leading-relaxed">
-                                {att.transcription}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* ── Translations grid ─────────────────────────────────── */}
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    {/* Original */}
-                    <div className="rounded-lg border overflow-hidden">
-                      <div className="px-3 py-2 bg-muted/60 border-b text-xs font-semibold flex items-center gap-1">🇩🇪 {b.original}</div>
-                      <div className="text-sm bg-background p-3 max-h-64 overflow-y-auto whitespace-pre-wrap break-words leading-relaxed">
-                        {detail?.body_text || (detail?.body_html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || ""}
-                      </div>
-                    </div>
-
-                    {/* SK */}
-                    <div className="rounded-lg border overflow-hidden">
-                      <div className="px-3 py-2 bg-blue-50 dark:bg-blue-950/30 border-b border-blue-100 dark:border-blue-900 text-xs font-semibold text-blue-800 dark:text-blue-300 flex items-center gap-1">🇸🇰 {b.translationSk}</div>
-                      {detail?.translated_sk
-                        ? <div className="text-sm bg-background p-3 max-h-64 overflow-y-auto whitespace-pre-wrap leading-relaxed">{detail.translated_sk}</div>
-                        : <div className="text-sm text-muted-foreground italic p-3">{b.notYetTranslated}</div>
-                      }
-                    </div>
-
-                    {/* CS */}
-                    <div className="rounded-lg border overflow-hidden">
-                      <div className="px-3 py-2 bg-red-50 dark:bg-red-950/20 border-b border-red-100 dark:border-red-900 text-xs font-semibold text-red-800 dark:text-red-300 flex items-center gap-1">🇨🇿 {b.translationCs}</div>
-                      {detail?.translated_cs
-                        ? <div className="text-sm bg-background p-3 max-h-64 overflow-y-auto whitespace-pre-wrap leading-relaxed">{detail.translated_cs}</div>
-                        : <div className="text-sm text-muted-foreground italic p-3">{b.notYetTranslated}</div>
-                      }
-                    </div>
+      {/* ── Expanded detail ─── */}
+      {open && (
+        <div className="border-b bg-muted/10 px-5 py-4 space-y-4">
+          {loadingDetail ? (
+            <div className="flex items-center gap-2 text-muted-foreground text-sm py-4">
+              <Loader2 className="h-4 w-4 animate-spin" /> {b.loading}
+            </div>
+          ) : (
+            <>
+              {/* Audio / Voicemail block */}
+              {audioAtts.length > 0 && (
+                <div className="rounded-xl border-2 border-amber-300 dark:border-amber-600 overflow-hidden">
+                  <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-100 dark:bg-amber-900/40 border-b border-amber-200 dark:border-amber-700">
+                    <Mic className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                      🎙️ {b.audioTranscription}
+                    </span>
                   </div>
+                  {audioAtts.map((att, i) => (
+                    <div key={i} className="px-4 py-3 bg-amber-50 dark:bg-amber-950/20 space-y-3">
+                      <p className="text-xs font-medium text-amber-700 dark:text-amber-400">{att.name}</p>
 
-                  {/* Attachment chips */}
-                  {email.attachment_count > 0 && email.attachment_summaries?.length && (
-                    <div className="flex gap-2 flex-wrap pt-1">
-                      {email.attachment_summaries.map((att, i) => (
-                        <Badge key={i} variant="secondary" className="text-xs gap-1">
-                          {att.isAudio ? <Mic className="h-3 w-3" /> : "📎"}
-                          {att.name}
-                        </Badge>
-                      ))}
+                      {att.aiSummary && (
+                        <div className="rounded-lg bg-amber-100 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-700 px-3 py-3">
+                          <p className="text-xs font-bold text-amber-800 dark:text-amber-300 mb-1.5">💡 {b.aiSummary}</p>
+                          <p className="text-sm text-amber-900 dark:text-amber-200 leading-relaxed">{att.aiSummary}</p>
+                        </div>
+                      )}
+
+                      {!att.aiSummary && !att.transcription && (
+                        <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400 italic">
+                          <AlertCircle className="h-4 w-4 shrink-0" />
+                          Transkript nie je k dispozícii — kliknite &quot;Znovu analyzovať&quot; na prepis hlasovky.
+                        </div>
+                      )}
+
+                      {att.transcription && (
+                        <div>
+                          <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-1.5">📝 {b.fullTranscript}</p>
+                          <p className="text-sm whitespace-pre-wrap break-words text-amber-900 dark:text-amber-200 leading-relaxed bg-white dark:bg-amber-950/30 rounded p-2 border border-amber-200 dark:border-amber-800">
+                            {att.transcription}
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </>
+                  ))}
+                </div>
               )}
-            </div>
-          </td>
-        </tr>
-      </CollapsibleContent>
-    </Collapsible>
+
+              {/* Translation columns */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                {/* Original */}
+                <div className="rounded-lg border overflow-hidden">
+                  <div className="px-3 py-2 bg-muted/60 border-b text-xs font-semibold flex items-center gap-1">
+                    🇩🇪 {b.original}
+                  </div>
+                  <div className="text-sm bg-background p-3 max-h-56 overflow-y-auto whitespace-pre-wrap break-words leading-relaxed text-foreground/90">
+                    {detail?.body_text || (detail?.body_html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || "—"}
+                  </div>
+                </div>
+
+                {/* SK */}
+                <div className="rounded-lg border border-blue-200 dark:border-blue-800 overflow-hidden">
+                  <div className="px-3 py-2 bg-blue-50 dark:bg-blue-950/40 border-b border-blue-200 dark:border-blue-800 text-xs font-semibold text-blue-800 dark:text-blue-300 flex items-center gap-1">
+                    🇸🇰 {b.translationSk}
+                  </div>
+                  {detail?.translated_sk
+                    ? <div className="text-sm bg-background p-3 max-h-56 overflow-y-auto whitespace-pre-wrap leading-relaxed">{detail.translated_sk}</div>
+                    : <div className="text-sm text-muted-foreground italic p-3">{b.notYetTranslated}</div>
+                  }
+                </div>
+
+                {/* CS */}
+                <div className="rounded-lg border border-red-200 dark:border-red-800 overflow-hidden">
+                  <div className="px-3 py-2 bg-red-50 dark:bg-red-950/30 border-b border-red-200 dark:border-red-800 text-xs font-semibold text-red-800 dark:text-red-300 flex items-center gap-1">
+                    🇨🇿 {b.translationCs}
+                  </div>
+                  {detail?.translated_cs
+                    ? <div className="text-sm bg-background p-3 max-h-56 overflow-y-auto whitespace-pre-wrap leading-relaxed">{detail.translated_cs}</div>
+                    : <div className="text-sm text-muted-foreground italic p-3">{b.notYetTranslated}</div>
+                  }
+                </div>
+              </div>
+
+              {/* Attachment chips */}
+              {email.attachment_count > 0 && email.attachment_summaries && (
+                <div className="flex gap-1.5 flex-wrap pt-1">
+                  {email.attachment_summaries.map((att, i) => (
+                    <Badge key={i} variant="secondary" className="text-xs gap-1 font-normal">
+                      {att.isAudio ? <Mic className="h-3 w-3 text-amber-500" /> : <Paperclip className="h-3 w-3" />}
+                      {att.name}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
 // ─── Settings tab ─────────────────────────────────────────────────────────────
 
-function SettingsTab({
-  settings,
-  onSaved,
-}: {
-  settings: BeratungSettings;
-  onSaved: () => void;
-}) {
+function SettingsTab({ settings, onSaved }: { settings: BeratungSettings; onSaved: () => void }) {
   const { t } = useI18n();
   const b = t.beratung;
   const { toast } = useToast();
@@ -325,61 +378,46 @@ function SettingsTab({
   const saveMut = useMutation({
     mutationFn: () =>
       apiRequest("PATCH", "/api/beratung/settings", {
-        forward_to: forwardTo,
-        auto_process: autoProcess,
-        sender_filters: senderFilters,
+        forward_to: forwardTo, auto_process: autoProcess, sender_filters: senderFilters,
       }).then(r => r.json()),
-    onSuccess: () => {
-      toast({ title: b.settingsSaved });
-      onSaved();
-    },
+    onSuccess: () => { toast({ title: b.settingsSaved }); onSaved(); },
     onError: () => toast({ title: b.settingsError, variant: "destructive" }),
   });
 
   const connectMut = useMutation({
     mutationFn: () => apiRequest("POST", "/api/beratung/settings/connect").then(r => r.json()),
-    onSuccess: () => {
-      toast({ title: b.connectSuccess });
-      onSaved();
-    },
+    onSuccess: () => { toast({ title: b.connectSuccess }); onSaved(); },
     onError: (err: any) => toast({ title: b.connectError, description: err?.message, variant: "destructive" }),
   });
 
   const addEmail = () => {
     const v = newEmail.trim().toLowerCase();
     if (!v || !v.includes("@") || forwardTo.includes(v)) return;
-    setForwardTo([...forwardTo, v]);
-    setNewEmail("");
+    setForwardTo([...forwardTo, v]); setNewEmail("");
   };
-
   const addFilter = () => {
     const v = newFilter.trim();
     if (!v || senderFilters.includes(v)) return;
-    setSenderFilters([...senderFilters, v]);
-    setNewFilter("");
+    setSenderFilters([...senderFilters, v]); setNewFilter("");
   };
 
   return (
-    <div className="max-w-2xl space-y-8">
+    <div className="max-w-2xl space-y-5">
 
-      {/* ── Connection ─────────────────────────────────────────────── */}
+      {/* Connection */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
-            {settings.has_token
-              ? <Wifi className="h-4 w-4 text-green-500" />
-              : <WifiOff className="h-4 w-4 text-destructive" />}
+            {settings.has_token ? <Wifi className="h-4 w-4 text-emerald-500" /> : <WifiOff className="h-4 w-4 text-destructive" />}
             {b.settingsTitle}
           </CardTitle>
           <CardDescription className="text-xs">{b.settingsDesc}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
-            {settings.has_token ? (
-              <span className="text-sm text-green-600 dark:text-green-400 font-medium">{b.connected}</span>
-            ) : (
-              <span className="text-sm text-destructive font-medium">{b.notConnected}</span>
-            )}
+            <span className={`text-sm font-medium ${settings.has_token ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}`}>
+              {settings.has_token ? b.connected : b.notConnected}
+            </span>
             <Button size="sm" variant="outline" onClick={() => connectMut.mutate()} disabled={connectMut.isPending} className="ml-auto">
               {connectMut.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Wifi className="h-3 w-3 mr-1" />}
               {b.reconnectBtn}
@@ -393,33 +431,24 @@ function SettingsTab({
         </CardContent>
       </Card>
 
-      {/* ── Forward recipients ─────────────────────────────────────── */}
+      {/* Forward recipients */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Send className="h-4 w-4" />
-            {b.forwardTo}
-          </CardTitle>
+          <CardTitle className="text-sm flex items-center gap-2"><Send className="h-4 w-4" />{b.forwardTo}</CardTitle>
           <CardDescription className="text-xs">{b.forwardToHint}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex gap-2">
-            <Input
-              placeholder="email@example.com"
-              value={newEmail}
+            <Input placeholder="email@example.com" value={newEmail}
               onChange={e => setNewEmail(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && addEmail()}
-              className="max-w-xs"
-            />
+              onKeyDown={e => e.key === "Enter" && addEmail()} className="max-w-xs" />
             <Button size="sm" variant="outline" onClick={addEmail}><Plus className="h-4 w-4" /></Button>
           </div>
           <div className="flex flex-wrap gap-2">
-            {forwardTo.map(email => (
-              <Badge key={email} variant="secondary" className="text-xs gap-1">
-                {email}
-                <button onClick={() => setForwardTo(forwardTo.filter(e => e !== email))} className="ml-0.5 hover:text-destructive">
-                  <X className="h-3 w-3" />
-                </button>
+            {forwardTo.map(e => (
+              <Badge key={e} variant="secondary" className="text-xs gap-1">
+                {e}
+                <button onClick={() => setForwardTo(forwardTo.filter(x => x !== e))} className="ml-0.5 hover:text-destructive"><X className="h-3 w-3" /></button>
               </Badge>
             ))}
             {forwardTo.length === 0 && <span className="text-xs text-muted-foreground">{b.noRecipients}</span>}
@@ -427,33 +456,24 @@ function SettingsTab({
         </CardContent>
       </Card>
 
-      {/* ── Sender filters ─────────────────────────────────────────── */}
+      {/* Sender filters */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Filter className="h-4 w-4" />
-            {b.senderFilters}
-          </CardTitle>
+          <CardTitle className="text-sm flex items-center gap-2"><Filter className="h-4 w-4" />{b.senderFilters}</CardTitle>
           <CardDescription className="text-xs">{b.senderFiltersHint}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex gap-2">
-            <Input
-              placeholder={b.senderFilterPlaceholder}
-              value={newFilter}
+            <Input placeholder={b.senderFilterPlaceholder} value={newFilter}
               onChange={e => setNewFilter(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && addFilter()}
-              className="max-w-xs"
-            />
+              onKeyDown={e => e.key === "Enter" && addFilter()} className="max-w-xs" />
             <Button size="sm" variant="outline" onClick={addFilter}><Plus className="h-4 w-4" /></Button>
           </div>
           <div className="flex flex-wrap gap-2">
             {senderFilters.map(f => (
               <Badge key={f} variant="outline" className="text-xs gap-1 border-amber-400 text-amber-700 dark:text-amber-400">
                 <Filter className="h-3 w-3" /> {f}
-                <button onClick={() => setSenderFilters(senderFilters.filter(x => x !== f))} className="ml-0.5 hover:text-destructive">
-                  <X className="h-3 w-3" />
-                </button>
+                <button onClick={() => setSenderFilters(senderFilters.filter(x => x !== f))} className="ml-0.5 hover:text-destructive"><X className="h-3 w-3" /></button>
               </Badge>
             ))}
             {senderFilters.length === 0 && <span className="text-xs text-muted-foreground">{b.noSenderFilters}</span>}
@@ -461,9 +481,9 @@ function SettingsTab({
         </CardContent>
       </Card>
 
-      {/* ── Auto-process ───────────────────────────────────────────── */}
+      {/* Auto-process */}
       <Card>
-        <CardContent className="pt-6 space-y-4">
+        <CardContent className="pt-5 space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <Label className="text-sm font-semibold">{b.autoProcess}</Label>
@@ -492,27 +512,24 @@ function SettingsTab({
 
 // ─── Email list tab ───────────────────────────────────────────────────────────
 
-function EmailListTab({
-  autoProcess,
-  settingsLoading,
-}: {
-  autoProcess: boolean;
-  settingsLoading: boolean;
-}) {
+function EmailListTab({ autoProcess, settingsLoading }: { autoProcess: boolean; settingsLoading: boolean }) {
   const { t } = useI18n();
   const b = t.beratung;
   const { toast } = useToast();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("");
-  const [senderSearch, setSenderSearch] = useState("");
-  const [senderInput, setSenderInput] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [q, setQ] = useState("");
+
+  const applySearch = () => { setQ(searchInput.trim()); setPage(1); };
+  const clearSearch = () => { setSearchInput(""); setQ(""); setPage(1); };
 
   const emailsQuery = useQuery<{ emails: BeratungEmail[]; total: number; page: number; limit: number }>({
-    queryKey: ["/api/beratung/emails", page, statusFilter, senderSearch],
+    queryKey: ["/api/beratung/emails", page, statusFilter, q],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page), limit: "25" });
       if (statusFilter) params.set("status", statusFilter);
-      if (senderSearch) params.set("sender", senderSearch);
+      if (q) params.set("q", q);
       const res = await fetch(`/api/beratung/emails?${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed");
       return res.json();
@@ -536,101 +553,95 @@ function EmailListTab({
   const limit = 25;
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
-  const applySearch = () => {
-    setSenderSearch(senderInput.trim());
-    setPage(1);
-  };
+  const statusMeta = [
+    { key: "", label: b.filterAll },
+    { key: "new", label: b.statusNew },
+    { key: "translated", label: b.statusTranslated },
+    { key: "forwarded", label: b.statusForwarded },
+  ];
 
   return (
-    <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {/* Sender search */}
-        <div className="flex gap-1.5">
-          <div className="relative">
+    <div className="space-y-3">
+      {/* ── Toolbar ── */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        {/* Search */}
+        <div className="flex gap-1.5 flex-1">
+          <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <Input
-              placeholder={b.senderSearch}
-              value={senderInput}
-              onChange={e => setSenderInput(e.target.value)}
+              placeholder={b.searchPlaceholder}
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
               onKeyDown={e => e.key === "Enter" && applySearch()}
-              className="pl-8 h-8 text-xs w-52"
+              className="pl-8 h-9 text-sm"
             />
           </div>
-          {senderSearch && (
-            <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => {
-              setSenderSearch("");
-              setSenderInput("");
-              setPage(1);
-            }}>
-              <X className="h-3 w-3" />
+          {q ? (
+            <Button size="sm" variant="ghost" className="h-9 px-2" onClick={clearSearch}>
+              <X className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" className="h-9" onClick={applySearch}>
+              {b.searchBtn}
             </Button>
           )}
         </div>
 
-        {/* Status filter buttons */}
-        <div className="flex gap-1 ml-auto flex-wrap">
-          {(["", "new", "translated", "forwarded"] as const).map(s => (
+        {/* Right: filters + check now */}
+        <div className="flex gap-1.5 items-center flex-wrap">
+          {statusMeta.map(s => (
             <Button
-              key={s}
+              key={s.key}
               size="sm"
-              variant={statusFilter === s ? "default" : "outline"}
-              className="text-xs h-8 px-2.5"
-              onClick={() => { setStatusFilter(s); setPage(1); }}
+              variant={statusFilter === s.key ? "default" : "ghost"}
+              className="h-8 px-3 text-xs"
+              onClick={() => { setStatusFilter(s.key); setPage(1); }}
             >
-              {s === "" ? b.filterAll : s === "new" ? b.statusNew : s === "translated" ? b.statusTranslated : b.statusForwarded}
+              {s.label}
             </Button>
           ))}
+          <div className="w-px h-5 bg-border mx-1" />
+          <Button size="sm" variant="outline" onClick={() => fetchMut.mutate()} disabled={fetchMut.isPending} className="h-8">
+            {fetchMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <RefreshCw className="h-3.5 w-3.5 mr-1.5" />}
+            {b.fetchNow}
+          </Button>
         </div>
-
-        {/* Fetch now */}
-        <Button size="sm" variant="outline" onClick={() => fetchMut.mutate()} disabled={fetchMut.isPending} className="h-8">
-          {fetchMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
-          {b.fetchNow}
-        </Button>
       </div>
 
-      {/* Count */}
-      <div className="text-xs text-muted-foreground">
-        {total} {b.total}
-        {senderSearch && <span className="ml-1">· <span className="font-medium">{senderSearch}</span></span>}
+      {/* Count + active search indicator */}
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <span>{total} {b.total}</span>
+        {q && (
+          <Badge variant="secondary" className="text-xs gap-1 font-normal">
+            <Search className="h-3 w-3" />{q}
+          </Badge>
+        )}
       </div>
 
-      {/* Table */}
+      {/* ── Email list ── */}
       {emailsQuery.isLoading || settingsLoading ? (
-        <div className="flex items-center gap-2 text-muted-foreground py-12 justify-center">
+        <div className="flex items-center gap-2 text-muted-foreground py-16 justify-center">
           <Loader2 className="h-5 w-5 animate-spin" /> {b.loading}
         </div>
       ) : emails.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground text-sm">{b.noEmails}</div>
+        <div className="text-center py-16">
+          <Mail className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">{b.noEmails}</p>
+        </div>
       ) : (
-        <div className="rounded-lg border overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-6 pl-3" />
-                <TableHead className="text-xs">{b.colReceived}</TableHead>
-                <TableHead className="text-xs">{b.colFrom}</TableHead>
-                <TableHead className="text-xs">{b.colSubject}</TableHead>
-                <TableHead className="text-xs">{b.colStatus}</TableHead>
-                <TableHead className="text-xs text-right pr-3">{b.colActions}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {emails.map(email => (
-                <EmailRow key={email.id} email={email} autoProcess={autoProcess} />
-              ))}
-            </TableBody>
-          </Table>
+        <div className="rounded-xl border overflow-hidden bg-background shadow-sm">
+          {emails.map(email => (
+            <EmailCard key={email.id} email={email} autoProcess={autoProcess} />
+          ))}
         </div>
       )}
 
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 pt-1">
-          <Button size="sm" variant="outline" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>‹</Button>
-          <span className="text-xs text-muted-foreground">{page} / {totalPages}</span>
-          <Button size="sm" variant="outline" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>›</Button>
+          <Button size="sm" variant="outline" className="h-8" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>‹ Predchádzajúca</Button>
+          <span className="text-xs text-muted-foreground px-2">{page} / {totalPages}</span>
+          <Button size="sm" variant="outline" className="h-8" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>Ďalšia ›</Button>
         </div>
       )}
     </div>
@@ -659,16 +670,18 @@ export function BeratungEmailTab() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
-          <Mail className="h-5 w-5 text-blue-600" />
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
+            <Mail className="h-4 w-4 text-white" />
+          </div>
           <div>
-            <h3 className="font-semibold text-base">beratung@cordbloodcenter.com</h3>
+            <h3 className="font-semibold text-sm leading-tight">beratung@cordbloodcenter.com</h3>
             <p className="text-xs text-muted-foreground">{b.description}</p>
           </div>
         </div>
         {autoProcess && (
-          <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 text-xs gap-1">
+          <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 gap-1 ml-auto">
             <CheckCircle2 className="h-3 w-3" />{b.autoActive}
           </Badge>
         )}
@@ -676,14 +689,12 @@ export function BeratungEmailTab() {
 
       {/* Tabs */}
       <Tabs defaultValue="emails">
-        <TabsList>
-          <TabsTrigger value="emails" className="gap-1.5">
-            <Inbox className="h-3.5 w-3.5" />
-            {b.tabEmails}
+        <TabsList className="h-9">
+          <TabsTrigger value="emails" className="gap-1.5 text-xs">
+            <Inbox className="h-3.5 w-3.5" />{b.tabEmails}
           </TabsTrigger>
-          <TabsTrigger value="settings" className="gap-1.5">
-            <Settings className="h-3.5 w-3.5" />
-            {b.tabSettings}
+          <TabsTrigger value="settings" className="gap-1.5 text-xs">
+            <Settings className="h-3.5 w-3.5" />{b.tabSettings}
           </TabsTrigger>
         </TabsList>
 
@@ -693,7 +704,9 @@ export function BeratungEmailTab() {
 
         <TabsContent value="settings" className="mt-4">
           {settingsQuery.isLoading ? (
-            <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> {b.loading}</div>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> {b.loading}
+            </div>
           ) : (
             <SettingsTab
               settings={settings || { forward_to: [], auto_process: false, sender_filters: [], last_checked_at: null, has_token: false }}

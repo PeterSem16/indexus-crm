@@ -379,16 +379,27 @@ export async function translateBeratungEmail(emailId: string, force = false): Pr
   if (!force && (row.status === "translated" || row.status === "forwarded")) return true;
 
   const accessToken = await getBeratungAccessToken();
-  if (!accessToken) return false;
+  if (!accessToken) {
+    console.error(`[Beratung] Email ${emailId}: cannot translate — no access token (try Settings → Reconnect)`);
+    return false;
+  }
 
   // Extract readable text (strip HTML tags for translation)
   const rawText = row.body_text || (row.body_html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  if (!rawText || rawText.length < 5) return false;
+  if (!rawText || rawText.length < 5) {
+    console.warn(`[Beratung] Email ${emailId}: body text too short (${rawText?.length ?? 0} chars), skipping`);
+    return false;
+  }
 
   // Fetch attachments if any
-  let attachments: Array<{ name: string; contentBase64: string; contentType: string; textContent: string }> = [];
+  let attachments: AttachmentResult[] = [];
   if (row.has_attachments) {
-    attachments = await fetchAndExtractAttachments(accessToken, row.graph_message_id);
+    try {
+      attachments = await fetchAndExtractAttachments(accessToken, row.graph_message_id);
+      console.log(`[Beratung] Email ${emailId}: fetched ${attachments.length} attachments (audio: ${attachments.filter(a => a.isAudio).length})`);
+    } catch (attErr: any) {
+      console.warn(`[Beratung] Email ${emailId}: attachment fetch error:`, attErr?.message);
+    }
   }
 
   // Build full text to translate (body + attachment texts)

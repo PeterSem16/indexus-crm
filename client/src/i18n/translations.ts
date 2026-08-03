@@ -372,6 +372,8 @@ export interface Translations {
     tabSettings: string;
     aiSummary: string;
     fullTranscript: string;
+    searchPlaceholder: string;
+    searchBtn: string;
   };
   nav: {
     dashboard: string;
@@ -7483,6 +7485,8 @@ export const translations: Record<Locale, Translations> = {
       tabSettings: 'Settings',
       aiSummary: 'Summary (AI)',
       fullTranscript: 'Full transcript',
+      searchPlaceholder: 'Search sender, subject, message...',
+      searchBtn: 'Search',
     },
     nav: {
       dashboard: 'Dashboard',
@@ -14646,6 +14650,8 @@ export const translations: Record<Locale, Translations> = {
       tabSettings: 'Nastavenia',
       aiSummary: 'Zhrnutie (AI)',
       fullTranscript: 'Kompletný prepis',
+      searchPlaceholder: 'Hľadať odosielateľa, predmet, text...',
+      searchBtn: 'Hľadať',
     },
     nav: {
       dashboard: 'Prehľad',
@@ -21745,6 +21751,8 @@ export const translations: Record<Locale, Translations> = {
       tabSettings: 'Nastavení',
       aiSummary: 'Shrnutí (AI)',
       fullTranscript: 'Úplný přepis',
+      searchPlaceholder: 'Hledat odesílatele, předmět, text...',
+      searchBtn: 'Hledat',
     },
     nav: {
       dashboard: 'Přehled',
@@ -28770,6 +28778,8 @@ export const translations: Record<Locale, Translations> = {
       tabSettings: 'Beállítások',
       aiSummary: 'Összefoglaló (AI)',
       fullTranscript: 'Teljes átirat',
+      searchPlaceholder: 'Keresés feladó, tárgy, szöveg...',
+      searchBtn: 'Keresés',
     },
     nav: {
       dashboard: 'Irányítópult',
@@ -35755,6 +35765,8 @@ export const translations: Record<Locale, Translations> = {
       tabSettings: 'Setări',
       aiSummary: 'Rezumat (AI)',
       fullTranscript: 'Transcriere completă',
+      searchPlaceholder: 'Căutare expeditor, subiect, text...',
+      searchBtn: 'Căutare',
     },
     nav: {
       dashboard: 'Panou de control',
@@ -42660,6 +42672,8 @@ export const translations: Record<Locale, Translations> = {
       tabSettings: 'Impostazioni',
       aiSummary: 'Riepilogo (AI)',
       fullTranscript: 'Trascrizione completa',
+      searchPlaceholder: 'Cerca mittente, oggetto, testo...',
+      searchBtn: 'Cerca',
     },
     nav: {
       dashboard: 'Dashboard',
@@ -49567,6 +49581,8 @@ export const translations: Record<Locale, Translations> = {
       tabSettings: 'Einstellungen',
       aiSummary: 'Zusammenfassung (AI)',
       fullTranscript: 'Vollständiges Transkript',
+      searchPlaceholder: 'Absender, Betreff, Text suchen...',
+      searchBtn: 'Suchen',
     },
     nav: {
       dashboard: 'Dashboard',

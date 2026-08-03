@@ -35,7 +35,7 @@ export function registerBeratungRoutes(app: Express, requireAuth: (req: Request,
       const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || "25"))));
       const offset = (page - 1) * limit;
       const status = req.query.status as string | undefined;
-      const sender = req.query.sender as string | undefined;
+      const q = (req.query.q as string | undefined)?.trim();
 
       const conditions: string[] = ["1=1"];
       const params: any[] = [];
@@ -43,9 +43,12 @@ export function registerBeratungRoutes(app: Express, requireAuth: (req: Request,
         conditions.push(`status = $${params.length + 1}`);
         params.push(status);
       }
-      if (sender && sender.trim()) {
-        conditions.push(`(from_name ILIKE $${params.length + 1} OR from_address ILIKE $${params.length + 1})`);
-        params.push(`%${sender.trim()}%`);
+      if (q) {
+        const like = `%${q}%`;
+        conditions.push(
+          `(from_name ILIKE $${params.length + 1} OR from_address ILIKE $${params.length + 1} OR subject ILIKE $${params.length + 1} OR body_text ILIKE $${params.length + 1})`
+        );
+        params.push(like);
       }
       const where = conditions.join(" AND ");
 
@@ -81,7 +84,7 @@ export function registerBeratungRoutes(app: Express, requireAuth: (req: Request,
   app.post("/api/beratung/emails/:id/reanalyze", ...guard, async (req: Request, res: Response) => {
     try {
       const ok = await reanalyzeBeratungEmail(req.params.id);
-      if (!ok) return res.status(422).json({ error: "Reanalysis failed" });
+      if (!ok) return res.status(422).json({ error: "Reanalysis failed — check Beratung connection (Settings → Reconnect) and server logs" });
       const { rows } = await pool.query(
         `SELECT id, status, translated_sk, translated_cs, audio_transcription, attachment_summaries
          FROM beratung_inbox_emails WHERE id = $1`,
