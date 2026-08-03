@@ -46,6 +46,7 @@ import { DepartmentTree } from "@/components/department-tree";
 import { NotificationRulesManager } from "@/components/notification-center";
 import WebFormsPage from "@/pages/web-forms";
 import ScrapingPage from "@/pages/scraping";
+import { BeratungEmailTab } from "@/components/beratung-email-tab";
 
 const serviceFormSchema = z.object({
   serviceCode: z.string().min(1, "Service code is required"),
@@ -21895,6 +21896,10 @@ export default function ConfiguratorPage() {
             <Search className="h-4 w-4 shrink-0" />
             <span className="hidden md:inline">Lead Search</span>
           </TabsTrigger>
+          <TabsTrigger value="beratung-email" className="flex items-center gap-2 text-xs sm:text-sm" data-testid="tab-beratung-email">
+            <Mail className="h-4 w-4 shrink-0" />
+            <span className="hidden md:inline">Beratung E-mail</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="products">
@@ -22133,6 +22138,23 @@ export default function ConfiguratorPage() {
               <ScrapingPage />
             </TabsContent>
           </Tabs>
+        </TabsContent>
+
+        <TabsContent value="beratung-email">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5" />
+                Beratung E-mail Monitor
+              </CardTitle>
+              <CardDescription>
+                Monitorovanie schránky beratung@cordbloodcenter.com — AI preklad a preposlanie emailov
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <BeratungEmailTab />
+            </CardContent>
+          </Card>
         </TabsContent>
 
       </Tabs>

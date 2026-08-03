@@ -2038,6 +2038,9 @@ export async function registerRoutes(
   const { registerUdidRoutes } = await import("./lib/udid-routes");
   registerUdidRoutes(app);
 
+  // Beratung Email Monitor routes
+  const { registerBeratungRoutes } = await import("./beratung-routes");
+
   // Automation engine (MVP-1): rules CRUD, runs history, dry-run, manual trigger
   // NOTE: route registration moved AFTER session middleware (further below) so
   // requireAuth can read req.session.user. We only init the engine here.
@@ -2370,6 +2373,9 @@ export async function registerRoutes(
     }
     next();
   };
+
+  // Beratung Email Monitor routes (requires requireAuth defined above)
+  registerBeratungRoutes(app, requireAuth);
 
   // Helper to check billing company country access
   const checkBillingCompanyAccess = async (req: Request, res: Response, billingDetailsId: string): Promise<boolean> => {

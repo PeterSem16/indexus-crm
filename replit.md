@@ -2,6 +2,17 @@
 
 INDEXUS is a multi-country CRM system for cord blood banking companies, streamlining operations and enhancing customer engagement with tools for sales, collections, and communication.
 
+## Required secrets (production)
+
+| Secret | Description |
+|---|---|
+| `MS365_TENANT_ID` | Azure AD tenant ID |
+| `MS365_CLIENT_ID` | Azure AD app client ID |
+| `MS365_CLIENT_SECRET` | Azure AD app client secret |
+| `BERATUNG_EMAIL` | Beratung mailbox address (beratung@cordbloodcenter.com) |
+| `BERATUNG_PASSWORD` | Beratung mailbox password (for ROPC token acquisition) |
+| `OPENAI_API_KEY` | OpenAI API key for AI translation and analysis |
+
 ## Run & Operate
 
 ### Server deploy (CORPCRM01)

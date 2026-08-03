@@ -685,6 +685,49 @@ app.use((req, res, next) => {
     console.error('[migration] pricing v2 tables error:', e.message);
   }
 
+  // ── Beratung Email Monitor tables ─────────────────────────────────────────
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS beratung_inbox_emails (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        graph_message_id text NOT NULL,
+        subject text,
+        from_address text NOT NULL DEFAULT '',
+        from_name text,
+        received_at timestamp NOT NULL DEFAULT now(),
+        body_html text,
+        body_text text,
+        translated_cs text,
+        translated_sk text,
+        has_attachments boolean NOT NULL DEFAULT false,
+        attachment_count integer NOT NULL DEFAULT 0,
+        attachment_summaries jsonb DEFAULT '[]'::jsonb,
+        attachment_data jsonb DEFAULT '[]'::jsonb,
+        status text NOT NULL DEFAULT 'new',
+        forwarded_at timestamp,
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now(),
+        CONSTRAINT uq_beratung_graph_msg UNIQUE (graph_message_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_beratung_emails_status ON beratung_inbox_emails (status);
+      CREATE INDEX IF NOT EXISTS idx_beratung_emails_received ON beratung_inbox_emails (received_at DESC);
+
+      CREATE TABLE IF NOT EXISTS beratung_monitor_settings (
+        id integer PRIMARY KEY DEFAULT 1,
+        forward_to text[] NOT NULL DEFAULT ARRAY[]::text[],
+        auto_process boolean NOT NULL DEFAULT false,
+        last_checked_at timestamp,
+        token_access text,
+        token_refresh text,
+        token_expires_at timestamp,
+        updated_at timestamp NOT NULL DEFAULT now()
+      );
+    `);
+    console.log('[migration] beratung tables ensured');
+  } catch (e: any) {
+    console.error('[migration] beratung tables error:', e.message);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -729,6 +772,10 @@ app.use((req, res, next) => {
       import("./partner-categories-seed").then(({ seedPartnerCategories }) => {
         seedPartnerCategories().catch(err => console.error("[PartnerCategories] Seed error:", err));
       });
+
+      import("./lib/beratung-email-service").then(({ startBeratungMonitoring }) => {
+        startBeratungMonitoring();
+      }).catch(err => console.error("[Beratung] Startup error:", err));
     },
   );
 })();
