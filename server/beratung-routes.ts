@@ -11,6 +11,7 @@ import {
   forwardBeratungEmail,
   acquireBeratungTokenROPC,
   reanalyzeBeratungEmail,
+  logBeratungActivity,
 } from "./lib/beratung-email-service";
 import { encryptTokenWithMarker } from "./lib/token-crypto";
 
@@ -80,6 +81,36 @@ export function registerBeratungRoutes(app: Express, requireAuth: (req: Request,
     }
   });
 
+  // ── GET /api/beratung/emails/filter-preview ───────────────────────────────
+  app.get("/api/beratung/emails/filter-preview", ...guard, async (req: Request, res: Response) => {
+    try {
+      const q = String(req.query.q || "").trim();
+      if (!q) return res.json({ count: 0, query: "" });
+      const like = `%${q}%`;
+      const { rows } = await pool.query(
+        `SELECT COUNT(*)::int AS count FROM beratung_inbox_emails
+         WHERE from_address ILIKE $1 OR from_name ILIKE $1`,
+        [like]
+      );
+      res.json({ count: rows[0]?.count || 0, query: q });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── GET /api/beratung/activity-log ────────────────────────────────────────
+  app.get("/api/beratung/activity-log", ...guard, async (req: Request, res: Response) => {
+    try {
+      const { rows } = await pool.query(
+        `SELECT id, action, mode, email_id, email_subject, actor_user_id, detail, created_at
+         FROM beratung_activity_log ORDER BY created_at DESC LIMIT 200`
+      );
+      res.json(rows);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // ── POST /api/beratung/emails/:id/reanalyze ───────────────────────────────
   app.post("/api/beratung/emails/:id/reanalyze", ...guard, async (req: Request, res: Response) => {
     try {
@@ -90,6 +121,10 @@ export function registerBeratungRoutes(app: Express, requireAuth: (req: Request,
          FROM beratung_inbox_emails WHERE id = $1`,
         [req.params.id]
       );
+      await logBeratungActivity("reanalyzed", {
+        emailId: req.params.id, subject: rows[0]?.subject,
+        mode: "manual", userId: (req as any).session?.user?.id,
+      });
       res.json(rows[0] || { id: req.params.id, status: "translated" });
     } catch (err: any) {
       console.error("[Beratung] reanalyze error:", err);
@@ -121,9 +156,13 @@ export function registerBeratungRoutes(app: Express, requireAuth: (req: Request,
       const ok = await translateBeratungEmail(req.params.id);
       if (!ok) return res.status(422).json({ error: "Translation failed" });
       const { rows } = await pool.query(
-        `SELECT id, status, translated_sk, translated_cs FROM beratung_inbox_emails WHERE id = $1`,
+        `SELECT id, status, translated_sk, translated_cs, subject FROM beratung_inbox_emails WHERE id = $1`,
         [req.params.id]
       );
+      await logBeratungActivity("analyzed", {
+        emailId: req.params.id, subject: rows[0]?.subject,
+        mode: "manual", userId: (req as any).session?.user?.id,
+      });
       res.json(rows[0] || { id: req.params.id, status: "translated" });
     } catch (err: any) {
       console.error("[Beratung] translate error:", err);
@@ -134,7 +173,9 @@ export function registerBeratungRoutes(app: Express, requireAuth: (req: Request,
   // ── POST /api/beratung/emails/:id/forward ─────────────────────────────────
   app.post("/api/beratung/emails/:id/forward", ...guard, async (req: Request, res: Response) => {
     try {
-      const ok = await forwardBeratungEmail(req.params.id);
+      const ok = await forwardBeratungEmail(req.params.id, {
+        mode: "manual", userId: (req as any).session?.user?.id,
+      });
       if (!ok) return res.status(422).json({ error: "Forward failed — check settings and token" });
       const { rows } = await pool.query(
         `SELECT id, status, forwarded_at FROM beratung_inbox_emails WHERE id = $1`,
@@ -151,6 +192,12 @@ export function registerBeratungRoutes(app: Express, requireAuth: (req: Request,
   app.post("/api/beratung/fetch", ...guard, async (req: Request, res: Response) => {
     try {
       const inserted = await fetchNewBeratungEmails();
+      if (inserted > 0) {
+        await logBeratungActivity("fetched", {
+          mode: "manual", userId: (req as any).session?.user?.id,
+          detail: `${inserted} new`,
+        });
+      }
       res.json({ inserted });
     } catch (err: any) {
       console.error("[Beratung] fetch error:", err);

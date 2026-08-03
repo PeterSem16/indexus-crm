@@ -3,7 +3,7 @@
  * Tabs: Správy | Nastavenia
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -19,10 +19,21 @@ import {
   Loader2, RefreshCw, ChevronDown, ChevronRight,
   Mail, Send, Languages, CheckCircle2, Clock, AlertCircle,
   X, Plus, Wifi, WifiOff, Mic, Filter, Search, RotateCcw,
-  Settings, Inbox, Paperclip, Eye, EyeOff, KeyRound,
+  Settings, Inbox, Paperclip, Eye, EyeOff, KeyRound, ListChecks,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+interface ActivityLogEntry {
+  id: string;
+  action: "forwarded" | "analyzed" | "reanalyzed" | "fetched";
+  mode: "manual" | "auto";
+  email_id: string | null;
+  email_subject: string | null;
+  actor_user_id: string | null;
+  detail: string | null;
+  created_at: string;
+}
 
 interface AttachmentSummary {
   name: string;
@@ -365,6 +376,79 @@ function EmailCard({ email, autoProcess }: { email: BeratungEmail; autoProcess: 
 
 // ─── Settings tab ─────────────────────────────────────────────────────────────
 
+// ─── Activity log tab ─────────────────────────────────────────────────────────
+
+function ActivityLogTab() {
+  const { t } = useI18n();
+  const b = t.beratung;
+
+  const logQuery = useQuery<ActivityLogEntry[]>({
+    queryKey: ["/api/beratung/activity-log"],
+    queryFn: async () => {
+      const res = await fetch("/api/beratung/activity-log", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    refetchInterval: 30_000,
+    staleTime: 20_000,
+  });
+
+  const entries = logQuery.data || [];
+
+  const actionMeta: Record<string, { label: string; cls: string }> = {
+    forwarded: { label: b.actionForwarded, cls: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400" },
+    analyzed:  { label: b.actionAnalyzed,  cls: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+    reanalyzed:{ label: b.actionReanalyzed, cls: "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-400" },
+    fetched:   { label: b.actionFetched,   cls: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium">{b.activityLog}</p>
+        <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => logQuery.refetch()} disabled={logQuery.isFetching}>
+          <RefreshCw className={`h-3.5 w-3.5 ${logQuery.isFetching ? "animate-spin" : ""}`} />
+        </Button>
+      </div>
+
+      {logQuery.isLoading ? (
+        <div className="flex items-center gap-2 text-muted-foreground py-10 justify-center">
+          <Loader2 className="h-5 w-5 animate-spin" />
+        </div>
+      ) : entries.length === 0 ? (
+        <div className="text-center py-14">
+          <Clock className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">{b.logEmpty}</p>
+        </div>
+      ) : (
+        <div className="rounded-xl border overflow-hidden text-xs">
+          {entries.map((entry, i) => {
+            const meta = actionMeta[entry.action] ?? { label: entry.action, cls: "bg-muted text-muted-foreground" };
+            return (
+              <div key={entry.id} className={`flex items-center gap-2.5 px-3 py-2 ${i !== entries.length - 1 ? "border-b" : ""}`}>
+                <Badge className={`${meta.cls} border-0 shrink-0 text-[10px] px-1.5 py-0 font-medium`}>{meta.label}</Badge>
+                <Badge variant={entry.mode === "auto" ? "secondary" : "outline"} className="text-[10px] px-1.5 py-0 shrink-0">
+                  {entry.mode === "auto" ? b.modeAuto : b.modeManual}
+                </Badge>
+                <span className="flex-1 text-muted-foreground truncate min-w-0">
+                  {entry.email_subject || entry.detail || "—"}
+                </span>
+                <span className="text-muted-foreground/60 shrink-0 tabular-nums">
+                  {new Date(entry.created_at).toLocaleString("sk-SK", {
+                    day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit"
+                  })}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Settings tab ─────────────────────────────────────────────────────────────
+
 function SettingsTab({ settings, onSaved }: { settings: BeratungSettings; onSaved: () => void }) {
   const { t } = useI18n();
   const b = t.beratung;
@@ -374,8 +458,24 @@ function SettingsTab({ settings, onSaved }: { settings: BeratungSettings; onSave
   const [autoProcess, setAutoProcess] = useState(settings.auto_process);
   const [senderFilters, setSenderFilters] = useState<string[]>(settings.sender_filters || []);
   const [newFilter, setNewFilter] = useState("");
+  const [filterPreviewCount, setFilterPreviewCount] = useState<number | null>(null);
+  const [filterPreviewLoading, setFilterPreviewLoading] = useState(false);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    if (!newFilter.trim()) { setFilterPreviewCount(null); return; }
+    setFilterPreviewLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/beratung/emails/filter-preview?q=${encodeURIComponent(newFilter.trim())}`, { credentials: "include" });
+        const data = await res.json();
+        setFilterPreviewCount(data.count ?? 0);
+      } catch { setFilterPreviewCount(null); }
+      setFilterPreviewLoading(false);
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [newFilter]);
 
   const saveMut = useMutation({
     mutationFn: () =>
@@ -520,11 +620,17 @@ function SettingsTab({ settings, onSaved }: { settings: BeratungSettings; onSave
           <CardDescription className="text-xs">{b.senderFiltersHint}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Input placeholder={b.senderFilterPlaceholder} value={newFilter}
               onChange={e => setNewFilter(e.target.value)}
               onKeyDown={e => e.key === "Enter" && addFilter()} className="max-w-xs" />
             <Button size="sm" variant="outline" onClick={addFilter}><Plus className="h-4 w-4" /></Button>
+            {filterPreviewLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+            {!filterPreviewLoading && filterPreviewCount !== null && (
+              <span className="text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground">{filterPreviewCount}</span> {b.filterMatches}
+              </span>
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
             {senderFilters.map(f => (
@@ -718,7 +824,8 @@ export function BeratungEmailTab() {
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
-    staleTime: 60_000,
+    staleTime: 20_000,
+    refetchInterval: 30_000,
   });
 
   const settings = settingsQuery.data;
@@ -750,6 +857,9 @@ export function BeratungEmailTab() {
           <TabsTrigger value="emails" className="gap-1.5 text-xs">
             <Inbox className="h-3.5 w-3.5" />{b.tabEmails}
           </TabsTrigger>
+          <TabsTrigger value="log" className="gap-1.5 text-xs">
+            <ListChecks className="h-3.5 w-3.5" />{b.tabLog}
+          </TabsTrigger>
           <TabsTrigger value="settings" className="gap-1.5 text-xs">
             <Settings className="h-3.5 w-3.5" />{b.tabSettings}
           </TabsTrigger>
@@ -757,6 +867,10 @@ export function BeratungEmailTab() {
 
         <TabsContent value="emails" className="mt-4">
           <EmailListTab autoProcess={autoProcess} settingsLoading={settingsQuery.isLoading} />
+        </TabsContent>
+
+        <TabsContent value="log" className="mt-4">
+          <ActivityLogTab />
         </TabsContent>
 
         <TabsContent value="settings" className="mt-4">

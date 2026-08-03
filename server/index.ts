@@ -731,6 +731,18 @@ app.use((req, res, next) => {
         ADD COLUMN IF NOT EXISTS beratung_password text;
       ALTER TABLE beratung_inbox_emails
         ADD COLUMN IF NOT EXISTS audio_transcription text;
+      CREATE TABLE IF NOT EXISTS beratung_activity_log (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        action text NOT NULL,
+        mode text NOT NULL DEFAULT 'manual',
+        email_id text,
+        email_subject text,
+        actor_user_id text,
+        detail text,
+        created_at timestamp NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_beratung_activity_created
+        ON beratung_activity_log (created_at DESC);
     `);
     console.log('[migration] beratung tables ensured');
   } catch (e: any) {

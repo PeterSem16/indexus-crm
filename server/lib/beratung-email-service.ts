@@ -12,6 +12,21 @@ import { createGraphClient, getValidAccessToken } from "./ms365";
 const BERATUNG_EMAIL = process.env.BERATUNG_EMAIL || "beratung@cordbloodcenter.com";
 const CHECK_INTERVAL_MS = 3 * 60_000; // 3 minutes
 
+// ─── Activity logging ────────────────────────────────────────────────────────
+
+export async function logBeratungActivity(
+  action: "forwarded" | "analyzed" | "reanalyzed" | "fetched",
+  opts: { emailId?: string; subject?: string; mode?: "manual" | "auto"; userId?: string; detail?: string }
+): Promise<void> {
+  try {
+    await pool.query(
+      `INSERT INTO beratung_activity_log (action, mode, email_id, email_subject, actor_user_id, detail)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [action, opts.mode || "manual", opts.emailId || null, opts.subject || null, opts.userId || null, opts.detail || null]
+    );
+  } catch { /* non-critical */ }
+}
+
 // ─── Token acquisition (ROPC flow) ──────────────────────────────────────────
 
 export async function acquireBeratungTokenROPC(overridePassword?: string): Promise<{
@@ -494,7 +509,10 @@ export async function reanalyzeBeratungEmail(emailId: string): Promise<boolean> 
 
 // ─── Forward email ───────────────────────────────────────────────────────────
 
-export async function forwardBeratungEmail(emailId: string): Promise<boolean> {
+export async function forwardBeratungEmail(
+  emailId: string,
+  opts?: { mode?: "manual" | "auto"; userId?: string }
+): Promise<boolean> {
   const { rows } = await pool.query(
     `SELECT id, subject, from_address, from_name, received_at,
             body_html, body_text, translated_cs, translated_sk,
@@ -668,6 +686,10 @@ export async function forwardBeratungEmail(emailId: string): Promise<boolean> {
   );
 
   console.log(`[Beratung] Email ${emailId} forwarded to ${forwardTo.join(", ")}`);
+  await logBeratungActivity("forwarded", {
+    emailId, subject: row.subject || undefined,
+    mode: opts?.mode || "manual", userId: opts?.userId,
+  });
   return true;
 }
 
@@ -704,7 +726,7 @@ export async function runBeratungAutoProcess(): Promise<void> {
         continue;
       }
       try {
-        await forwardBeratungEmail(row.id);
+        await forwardBeratungEmail(row.id, { mode: "auto" });
       } catch (err) {
         console.error(`[Beratung] Auto-process error for ${row.id}:`, err);
       }
