@@ -1,17 +1,36 @@
 ---
 name: Pricing Engine V2 (Products 2)
-description: Country price lists + incomplete-collection matrix module; decisions and workbook quirks
+description: Country price lists + incomplete-collection matrix; current implementation state and next steps
 ---
-Decisions (approved 28.7.2026, see docs/analyza-cennik-produkty.txt):
-- Will FULLY replace the old products module eventually (variant A); engine must always return itemized line items for BO/contracts/invoicing.
-- Price lists managed EXCLUSIVELY by the "Pricing Administrator" role (RBAC module `pricing`); workflow draft → active → archived (activating archives the previous active list per country).
-- Grandfathering: customers keep a reference to the price-list version they were billed by (pricing_customer_price_lists); historical lists are never deleted.
-- HU contract specifics handled via matrix-row overrides (isOverride + mandatory note), not per-country regimes.
 
-**Why component-based:** prices for incomplete collections (failed collection/contamination) are only derivable when a product is a set of components (CB, PB, T_CB, T_PB, PL) with standalone prices.
+**Full status doc:** `docs/PRICING_ENGINE_V2_STATUS.md` — read that before any V2 work.
 
-Rules semantics: LOW_VOLUME is component-conditional (`applies_to`, e.g. CB+PB) — do not apply unconditionally; CONTAMINATION = 100% off the contaminated component's collection fee; storage is always charged by REALLY stored components; nothing collected = FLAT_FEE only.
+## What is DONE (Fázy 1 + 2)
+- DB schema: all `pricing_*` tables including `pricing_customer_price_lists` (grandfathering)
+- Engine (`server/pricing-engine.ts`): pure TS, itemized line items, all rules, per-component + per-product sales/BO discounts with max-cap validation
+- API (`server/pricing-routes.ts`): full CRUD for price lists, calculate endpoint, incomplete-rules POST
+- Importer: `scripts/import-pricing-excel.ts` — wipes + reseeds, self-validates 4 calcs; safe only while no customers reference price lists
+- UI (`client/src/pages/pricing.tsx`): Cenníky / Matica / Kalkulačka tabs fully working
+  - Matica tab shows DRAFT lists too (country tabs + secondary list picker when active+draft coexist)
+  - Calculator installment dropdown uses ONLY plans from the current price list (not hardcoded)
+  - Sales/BO discount sliders: product-level + per-component, each capped by maxCollectionDiscountPct
 
-Workbook quirks (Cennik nekompletnych odberov 2026): ITA sheet has NEGATIVE standalone PL prices (imported as-is with warnings, old ceny "nereflektuju cenovu politiku"); storage-year options differ per country (SK/RO/IT 1/10/20, CZ/AT 1/5/10); prepay storage discounts differ (HU 40/50% contractual vs standard 15/25%).
+## Key decisions (approved 28.7.2026, NON-NEGOTIABLE)
+- Variant A: new module will FULLY replace old Products/Configurator (not parallel forever)
+- Pricing Admin role only; workflow draft→active→archived
+- Grandfathering: customer always linked to the price-list version they were billed by
+- HU specifics via matrix overrides (isOverride+note), not special regime
+- Same engine used BOTH at collection-result entry (BO) AND invoicing
 
-Seed importer `scripts/import-pricing-excel.ts` WIPES all pricing_* tables and reseeds — safe only while no customers reference price lists; it self-validates 4 price calculations against workbook numbers.
+## Next steps (Fáza 3 + 4)
+- **"Nový rok" button**: create draft copy of active list with storage prices × inflation rate (AT/IT: only if rate > 5%)
+- **Replace old Products module**: add `pricing_price_list_id` + `pricing_product_code` to customer_products, contract_instance_products, invoices, deal_products; migration table old-product → V2 code; disable old Products/Configurator tabs once validated
+- **Grandfathering auto-save**: when agent saves a customer + product, auto-link to current active price list of their country
+- **BO integration**: show pricing calc on BO task based on customer's stored price list + actual collection result
+- **Historical price list import**: import 2024 version of the workbook so existing customers can be grandfathered
+
+## Workbook quirks
+- ITA: NEGATIVE standalone PL prices (imported as-is with warning)
+- Storage year options differ: SK/RO/IT = 1/10/20, CZ/AT = 1/5/10
+- Prepay discounts: HU = 40%/50% (contractual), others = 15%/25%
+- AT/IT inflation: only apply if annual rate > 5% (contractual condition)
