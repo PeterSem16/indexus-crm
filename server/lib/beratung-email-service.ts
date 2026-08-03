@@ -10,7 +10,7 @@ import { encryptTokenWithMarker, decryptTokenSafe } from "./token-crypto";
 import { createGraphClient, getValidAccessToken } from "./ms365";
 
 const BERATUNG_EMAIL = process.env.BERATUNG_EMAIL || "beratung@cordbloodcenter.com";
-const CHECK_INTERVAL_MS = 60_000;
+const CHECK_INTERVAL_MS = 3 * 60_000; // 3 minutes
 
 // ─── Token acquisition (ROPC flow) ──────────────────────────────────────────
 
@@ -710,7 +710,7 @@ let beratungInterval: NodeJS.Timeout | null = null;
 
 export function startBeratungMonitoring() {
   if (beratungInterval) return;
-  console.log("[Beratung] Starting email monitoring (60s interval)...");
+  console.log("[Beratung] Starting email monitoring (3min interval)...");
   // Run first check after 45s (let server warm up)
   setTimeout(() => {
     if (!beratungInterval) return;
