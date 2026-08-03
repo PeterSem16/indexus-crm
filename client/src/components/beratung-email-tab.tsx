@@ -17,7 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Loader2, RefreshCw, ChevronDown, ChevronRight, Mail, Send, Languages, CheckCircle2, Clock, AlertCircle, X, Plus, Wifi, WifiOff } from "lucide-react";
+import { Loader2, RefreshCw, ChevronDown, ChevronRight, Mail, Send, Languages, CheckCircle2, Clock, AlertCircle, X, Plus, Wifi, WifiOff, Mic, Filter } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,7 +34,8 @@ interface BeratungEmail {
   translated_sk?: string | null;
   has_attachments: boolean;
   attachment_count: number;
-  attachment_summaries?: any[];
+  attachment_summaries?: Array<{ name: string; contentType: string; hasText: boolean; isAudio: boolean; transcription?: string | null }>;
+  audio_transcription?: string | null;
   status: "new" | "translated" | "forwarded";
   forwarded_at?: string | null;
 }
@@ -42,6 +43,7 @@ interface BeratungEmail {
 interface BeratungSettings {
   forward_to: string[];
   auto_process: boolean;
+  sender_filters: string[];
   last_checked_at: string | null;
   has_token: boolean;
 }
@@ -150,42 +152,56 @@ function EmailRow({ email, autoProcess }: { email: BeratungEmail; autoProcess: b
               {loadingDetail ? (
                 <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> {b.loading}</div>
               ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  {/* Original — rendered as plain text to prevent XSS from attacker-controlled email HTML */}
-                  <div>
-                    <div className="text-xs font-semibold mb-2 flex items-center gap-1">🇩🇪 {b.original}</div>
-                    <div className="text-sm bg-background rounded border p-3 max-h-60 overflow-y-auto whitespace-pre-wrap break-words">
-                      {detail?.body_text || (detail?.body_html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || ""}
+                <>
+                  {/* Audio transcription panel — voicemail from A1 Mobilbox etc. */}
+                  {detail?.audio_transcription && (
+                    <div className="mb-4 p-3 rounded-lg border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-700">
+                      <div className="text-xs font-semibold mb-2 flex items-center gap-1 text-amber-800 dark:text-amber-300">
+                        <Mic className="h-3 w-3" /> {b.audioTranscription}
+                      </div>
+                      <div className="text-sm whitespace-pre-wrap break-words text-amber-900 dark:text-amber-200">{detail.audio_transcription}</div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    {/* Original — plain text, no dangerouslySetInnerHTML */}
+                    <div>
+                      <div className="text-xs font-semibold mb-2 flex items-center gap-1">🇩🇪 {b.original}</div>
+                      <div className="text-sm bg-background rounded border p-3 max-h-60 overflow-y-auto whitespace-pre-wrap break-words">
+                        {detail?.body_text || (detail?.body_html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || ""}
+                      </div>
+                    </div>
+
+                    {/* SK */}
+                    <div>
+                      <div className="text-xs font-semibold mb-2 flex items-center gap-1">🇸🇰 {b.translationSk}</div>
+                      {detail?.translated_sk ? (
+                        <div className="text-sm bg-background rounded border p-3 max-h-60 overflow-y-auto whitespace-pre-wrap">{detail.translated_sk}</div>
+                      ) : (
+                        <div className="text-sm text-muted-foreground italic p-3 border rounded">{b.notYetTranslated}</div>
+                      )}
+                    </div>
+
+                    {/* CS */}
+                    <div>
+                      <div className="text-xs font-semibold mb-2 flex items-center gap-1">🇨🇿 {b.translationCs}</div>
+                      {detail?.translated_cs ? (
+                        <div className="text-sm bg-background rounded border p-3 max-h-60 overflow-y-auto whitespace-pre-wrap">{detail.translated_cs}</div>
+                      ) : (
+                        <div className="text-sm text-muted-foreground italic p-3 border rounded">{b.notYetTranslated}</div>
+                      )}
                     </div>
                   </div>
-
-                  {/* SK */}
-                  <div>
-                    <div className="text-xs font-semibold mb-2 flex items-center gap-1">🇸🇰 {b.translationSk}</div>
-                    {detail?.translated_sk ? (
-                      <div className="text-sm bg-background rounded border p-3 max-h-60 overflow-y-auto whitespace-pre-wrap">{detail.translated_sk}</div>
-                    ) : (
-                      <div className="text-sm text-muted-foreground italic p-3 border rounded">{b.notYetTranslated}</div>
-                    )}
-                  </div>
-
-                  {/* CS */}
-                  <div>
-                    <div className="text-xs font-semibold mb-2 flex items-center gap-1">🇨🇿 {b.translationCs}</div>
-                    {detail?.translated_cs ? (
-                      <div className="text-sm bg-background rounded border p-3 max-h-60 overflow-y-auto whitespace-pre-wrap">{detail.translated_cs}</div>
-                    ) : (
-                      <div className="text-sm text-muted-foreground italic p-3 border rounded">{b.notYetTranslated}</div>
-                    )}
-                  </div>
-                </div>
+                </>
               )}
 
               {/* Attachment list */}
               {email.attachment_count > 0 && email.attachment_summaries?.length && (
                 <div className="mt-3 flex gap-2 flex-wrap">
-                  {email.attachment_summaries.map((att: any, i: number) => (
-                    <Badge key={i} variant="secondary" className="text-xs">📎 {att.name}</Badge>
+                  {email.attachment_summaries.map((att, i) => (
+                    <Badge key={i} variant="secondary" className="text-xs">
+                      {att.isAudio ? <Mic className="h-3 w-3 mr-1" /> : "📎"} {att.name}
+                    </Badge>
                   ))}
                 </div>
               )}
@@ -206,10 +222,12 @@ function SettingsPanel({ settings, onSaved }: { settings: BeratungSettings; onSa
   const [forwardTo, setForwardTo] = useState<string[]>(settings.forward_to || []);
   const [newEmail, setNewEmail] = useState("");
   const [autoProcess, setAutoProcess] = useState(settings.auto_process);
+  const [senderFilters, setSenderFilters] = useState<string[]>(settings.sender_filters || []);
+  const [newFilter, setNewFilter] = useState("");
 
   const saveMut = useMutation({
     mutationFn: () =>
-      apiRequest("PATCH", "/api/beratung/settings", { forward_to: forwardTo, auto_process: autoProcess }).then(r => r.json()),
+      apiRequest("PATCH", "/api/beratung/settings", { forward_to: forwardTo, auto_process: autoProcess, sender_filters: senderFilters }).then(r => r.json()),
     onSuccess: () => {
       toast({ title: b.settingsSaved });
       onSaved();
@@ -284,6 +302,43 @@ function SettingsPanel({ settings, onSaved }: { settings: BeratungSettings; onSa
             </Badge>
           ))}
           {forwardTo.length === 0 && <span className="text-xs text-muted-foreground">{b.noRecipients}</span>}
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Sender filters */}
+      <div className="space-y-3">
+        <Label className="text-sm font-semibold flex items-center gap-1"><Filter className="h-3.5 w-3.5" /> {b.senderFilters}</Label>
+        <p className="text-xs text-muted-foreground">{b.senderFiltersHint}</p>
+        <div className="flex gap-2">
+          <Input
+            placeholder={b.senderFilterPlaceholder}
+            value={newFilter}
+            onChange={e => setNewFilter(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === "Enter") {
+                const v = newFilter.trim();
+                if (v && !senderFilters.includes(v)) { setSenderFilters([...senderFilters, v]); setNewFilter(""); }
+              }
+            }}
+            className="max-w-xs"
+          />
+          <Button size="sm" variant="outline" onClick={() => {
+            const v = newFilter.trim();
+            if (v && !senderFilters.includes(v)) { setSenderFilters([...senderFilters, v]); setNewFilter(""); }
+          }}><Plus className="h-4 w-4" /></Button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {senderFilters.map(f => (
+            <Badge key={f} variant="outline" className="text-xs flex items-center gap-1 border-amber-400 text-amber-700 dark:text-amber-400">
+              <Filter className="h-3 w-3" /> {f}
+              <button onClick={() => setSenderFilters(senderFilters.filter(x => x !== f))} className="ml-1 hover:text-destructive">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+          {senderFilters.length === 0 && <span className="text-xs text-muted-foreground">{b.noSenderFilters}</span>}
         </div>
       </div>
 

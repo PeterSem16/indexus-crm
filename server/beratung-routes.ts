@@ -77,7 +77,7 @@ export function registerBeratungRoutes(app: Express, requireAuth: (req: Request,
         `SELECT id, graph_message_id, subject, from_address, from_name,
                 received_at, body_html, body_text, translated_cs, translated_sk,
                 has_attachments, attachment_count, attachment_summaries,
-                status, forwarded_at, created_at
+                audio_transcription, status, forwarded_at, created_at
          FROM beratung_inbox_emails WHERE id = $1 LIMIT 1`,
         [req.params.id]
       );
@@ -135,13 +135,14 @@ export function registerBeratungRoutes(app: Express, requireAuth: (req: Request,
   app.get("/api/beratung/settings", ...guard, async (req: Request, res: Response) => {
     try {
       const { rows } = await pool.query(
-        `SELECT id, forward_to, auto_process, last_checked_at, updated_at,
+        `SELECT id, forward_to, auto_process, sender_filters, last_checked_at, updated_at,
                 (token_access IS NOT NULL AND token_access != '') AS has_token
          FROM beratung_monitor_settings LIMIT 1`
       );
       if (!rows[0]) {
         return res.json({
           forward_to: [],
+          sender_filters: [],
           auto_process: false,
           last_checked_at: null,
           has_token: false,
@@ -156,26 +157,29 @@ export function registerBeratungRoutes(app: Express, requireAuth: (req: Request,
   // ── PATCH /api/beratung/settings ──────────────────────────────────────────
   app.patch("/api/beratung/settings", ...guard, async (req: Request, res: Response) => {
     try {
-      const { forward_to, auto_process } = req.body as {
+      const { forward_to, auto_process, sender_filters } = req.body as {
         forward_to?: string[];
+        sender_filters?: string[];
         auto_process?: boolean;
       };
 
       await pool.query(
-        `INSERT INTO beratung_monitor_settings (id, forward_to, auto_process, updated_at)
-           VALUES (1, $1, $2, now())
+        `INSERT INTO beratung_monitor_settings (id, forward_to, auto_process, sender_filters, updated_at)
+           VALUES (1, $1, $2, $3, now())
          ON CONFLICT (id) DO UPDATE
-           SET forward_to   = COALESCE(EXCLUDED.forward_to, beratung_monitor_settings.forward_to),
-               auto_process = COALESCE(EXCLUDED.auto_process, beratung_monitor_settings.auto_process),
-               updated_at   = now()`,
+           SET forward_to     = COALESCE(EXCLUDED.forward_to, beratung_monitor_settings.forward_to),
+               auto_process   = COALESCE(EXCLUDED.auto_process, beratung_monitor_settings.auto_process),
+               sender_filters = COALESCE(EXCLUDED.sender_filters, beratung_monitor_settings.sender_filters),
+               updated_at     = now()`,
         [
           forward_to !== undefined ? forward_to : null,
           auto_process !== undefined ? auto_process : null,
+          sender_filters !== undefined ? sender_filters : null,
         ]
       );
 
       const { rows } = await pool.query(
-        `SELECT id, forward_to, auto_process, last_checked_at,
+        `SELECT id, forward_to, auto_process, sender_filters, last_checked_at,
                 (token_access IS NOT NULL AND token_access != '') AS has_token
          FROM beratung_monitor_settings LIMIT 1`
       );

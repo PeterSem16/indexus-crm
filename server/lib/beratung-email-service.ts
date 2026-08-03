@@ -69,7 +69,8 @@ export async function acquireBeratungTokenROPC(): Promise<{
 async function getSettings() {
   const { rows } = await pool.query(`
     SELECT id, forward_to, auto_process, last_checked_at,
-           token_access, token_refresh, token_expires_at
+           token_access, token_refresh, token_expires_at,
+           sender_filters
     FROM beratung_monitor_settings LIMIT 1
   `);
   return rows[0] || null;
@@ -78,6 +79,7 @@ async function getSettings() {
 async function saveSettings(patch: {
   forward_to?: string[];
   auto_process?: boolean;
+  sender_filters?: string[];
   last_checked_at?: Date;
   token_access?: string;
   token_refresh?: string;
@@ -89,6 +91,7 @@ async function saveSettings(patch: {
 
   if (patch.forward_to !== undefined) { sets.push(`forward_to = $${idx++}`); vals.push(patch.forward_to); }
   if (patch.auto_process !== undefined) { sets.push(`auto_process = $${idx++}`); vals.push(patch.auto_process); }
+  if (patch.sender_filters !== undefined) { sets.push(`sender_filters = $${idx++}`); vals.push(patch.sender_filters); }
   if (patch.last_checked_at !== undefined) { sets.push(`last_checked_at = $${idx++}`); vals.push(patch.last_checked_at); }
   if (patch.token_access !== undefined) { sets.push(`token_access = $${idx++}`); vals.push(patch.token_access); }
   if (patch.token_refresh !== undefined) { sets.push(`token_refresh = $${idx++}`); vals.push(patch.token_refresh); }
@@ -209,12 +212,52 @@ export async function fetchNewBeratungEmails(): Promise<number> {
   return inserted;
 }
 
-// ─── PDF attachment extraction ───────────────────────────────────────────────
+// ─── Audio MIME types (voicemail / A1 Mobilbox) ──────────────────────────────
+
+const AUDIO_EXTENSIONS = new Set([".mp3", ".mp4", ".m4a", ".wav", ".ogg", ".opus", ".amr", ".aac", ".flac", ".webm"]);
+
+function isAudioAttachment(contentType: string, name: string): boolean {
+  if (contentType.startsWith("audio/")) return true;
+  if (contentType === "video/mp4" && name.toLowerCase().endsWith(".m4a")) return true;
+  const ext = name.toLowerCase().substring(name.lastIndexOf("."));
+  return AUDIO_EXTENSIONS.has(ext);
+}
+
+async function transcribeAudio(buf: Buffer, filename: string): Promise<string> {
+  try {
+    const openai = await import("openai");
+    const client = new openai.default({ apiKey: process.env.OPENAI_API_KEY });
+
+    // Determine extension for the File object
+    const ext = filename.toLowerCase().substring(filename.lastIndexOf(".") + 1) || "mp3";
+    const mimeMap: Record<string, string> = {
+      mp3: "audio/mpeg", mp4: "audio/mp4", m4a: "audio/mp4",
+      wav: "audio/wav", ogg: "audio/ogg", opus: "audio/opus",
+      amr: "audio/amr", aac: "audio/aac", flac: "audio/flac", webm: "audio/webm",
+    };
+    const mime = mimeMap[ext] || "audio/mpeg";
+
+    const { toFile } = await import("openai");
+    const file = await toFile(buf, filename, { type: mime });
+
+    const resp = await client.audio.transcriptions.create({
+      model: "whisper-1",
+      file,
+      response_format: "text",
+    });
+    return typeof resp === "string" ? resp : (resp as any).text || "";
+  } catch (err: any) {
+    console.warn("[Beratung] Whisper transcription error:", err?.message);
+    return "";
+  }
+}
+
+// ─── Attachment extraction (PDF text + audio transcription) ──────────────────
 
 async function fetchAndExtractAttachments(
   accessToken: string,
   graphMessageId: string
-): Promise<Array<{ name: string; contentBase64: string; contentType: string; textContent: string }>> {
+): Promise<Array<{ name: string; contentBase64: string; contentType: string; textContent: string; isAudio: boolean; transcription: string }>> {
   const client = createGraphClient(accessToken);
   let rawAttachments: any[] = [];
 
@@ -228,15 +271,22 @@ async function fetchAndExtractAttachments(
     return [];
   }
 
-  const result: Array<{ name: string; contentBase64: string; contentType: string; textContent: string }> = [];
+  const result: Array<{ name: string; contentBase64: string; contentType: string; textContent: string; isAudio: boolean; transcription: string }> = [];
 
   for (const att of rawAttachments) {
     if (!att.contentBytes) continue;
     const contentType: string = att.contentType || "application/octet-stream";
     const name: string = att.name || "attachment";
     let textContent = "";
+    let transcription = "";
+    const audio = isAudioAttachment(contentType, name);
 
-    if (contentType === "application/pdf" || name.toLowerCase().endsWith(".pdf")) {
+    if (audio) {
+      const buf = Buffer.from(att.contentBytes, "base64");
+      transcription = await transcribeAudio(buf, name);
+      textContent = transcription ? `[Hlasová správa — prepis]:\n${transcription}` : "";
+      console.log(`[Beratung] Audio transcribed: ${name} (${buf.length} bytes, ${transcription.length} chars)`);
+    } else if (contentType === "application/pdf" || name.toLowerCase().endsWith(".pdf")) {
       try {
         const pdfParse = await import("pdf-parse");
         const buf = Buffer.from(att.contentBytes, "base64");
@@ -247,7 +297,7 @@ async function fetchAndExtractAttachments(
       }
     }
 
-    result.push({ name, contentBase64: att.contentBytes, contentType, textContent });
+    result.push({ name, contentBase64: att.contentBytes, contentType, textContent, isAudio: audio, transcription });
   }
 
   return result;
@@ -321,7 +371,13 @@ export async function translateBeratungEmail(emailId: string): Promise<boolean> 
   }
 
   for (const att of attachments) {
-    attachmentSummaries.push({ name: att.name, contentType: att.contentType, hasText: !!att.textContent });
+    attachmentSummaries.push({
+      name: att.name,
+      contentType: att.contentType,
+      hasText: !!att.textContent,
+      isAudio: att.isAudio,
+      transcription: att.transcription || null,
+    });
   }
 
   // Store attachment data for forwarding (base64 in JSONB)
@@ -330,16 +386,25 @@ export async function translateBeratungEmail(emailId: string): Promise<boolean> 
     contentType: a.contentType,
     contentBase64: a.contentBase64,
     hasText: !!a.textContent,
+    isAudio: a.isAudio,
   }));
+
+  // Collect all audio transcriptions into one field for easy display
+  const audioTranscription = attachments
+    .filter(a => a.isAudio && a.transcription)
+    .map(a => `[${a.name}]:\n${a.transcription}`)
+    .join("\n\n") || null;
 
   await pool.query(
     `UPDATE beratung_inbox_emails
        SET translated_cs = $2, translated_sk = $3,
            attachment_count = $4, attachment_summaries = $5::jsonb,
-           attachment_data = $6::jsonb, status = 'translated', updated_at = now()
+           attachment_data = $6::jsonb, audio_transcription = $7,
+           status = 'translated', updated_at = now()
      WHERE id = $1`,
     [emailId, translatedCs, translatedSk, attachments.length,
-      JSON.stringify(attachmentSummaries), JSON.stringify(attachmentData)]
+      JSON.stringify(attachmentSummaries), JSON.stringify(attachmentData),
+      audioTranscription]
   );
 
   console.log(`[Beratung] Email ${emailId} translated (CS+SK)`);
@@ -445,6 +510,15 @@ ${escapeHtml(row.translated_cs || "").replace(/\n/g, "<br>")}
 
 // ─── Auto-process loop ────────────────────────────────────────────────────────
 
+/** Returns true if the email passes the configured sender filter.
+ *  If sender_filters is empty → all emails pass (no restriction).
+ *  If non-empty → email must match at least one filter (substring, case-insensitive on name OR address). */
+function matchesSenderFilter(filters: string[], fromAddress: string, fromName: string): boolean {
+  if (!filters || filters.length === 0) return true;
+  const haystack = `${fromName} ${fromAddress}`.toLowerCase();
+  return filters.some(f => haystack.includes(f.toLowerCase().trim()));
+}
+
 export async function runBeratungAutoProcess(): Promise<void> {
   try {
     const settings = await getSettings();
@@ -452,14 +526,20 @@ export async function runBeratungAutoProcess(): Promise<void> {
 
     await fetchNewBeratungEmails();
 
+    const senderFilters: string[] = settings.sender_filters || [];
+
     // Find all untranslated/unforwarded emails
     const { rows } = await pool.query(
-      `SELECT id FROM beratung_inbox_emails
+      `SELECT id, from_address, from_name FROM beratung_inbox_emails
        WHERE status IN ('new', 'translated')
        ORDER BY received_at DESC LIMIT 20`
     );
 
     for (const row of rows) {
+      // Apply sender filter — skip emails that don't match
+      if (!matchesSenderFilter(senderFilters, row.from_address || "", row.from_name || "")) {
+        continue;
+      }
       try {
         await forwardBeratungEmail(row.id);
       } catch (err) {

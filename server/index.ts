@@ -723,6 +723,13 @@ app.use((req, res, next) => {
         updated_at timestamp NOT NULL DEFAULT now()
       );
     `);
+    // Add columns added in later iterations
+    await pool.query(`
+      ALTER TABLE beratung_monitor_settings
+        ADD COLUMN IF NOT EXISTS sender_filters text[] NOT NULL DEFAULT ARRAY[]::text[];
+      ALTER TABLE beratung_inbox_emails
+        ADD COLUMN IF NOT EXISTS audio_transcription text;
+    `);
     console.log('[migration] beratung tables ensured');
   } catch (e: any) {
     console.error('[migration] beratung tables error:', e.message);

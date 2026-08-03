@@ -359,6 +359,11 @@ export interface Translations {
     connectSuccess: string;
     connectError: string;
     lastChecked: string;
+    audioTranscription: string;
+    senderFilters: string;
+    senderFiltersHint: string;
+    noSenderFilters: string;
+    senderFilterPlaceholder: string;
   };
   nav: {
     dashboard: string;
@@ -7457,6 +7462,11 @@ export const translations: Record<Locale, Translations> = {
       connectSuccess: 'Successfully connected',
       connectError: 'Connection failed',
       lastChecked: 'Last checked',
+      audioTranscription: 'Voice message transcript',
+      senderFilters: 'Sender filters',
+      senderFiltersHint: 'Auto-processing only applies to emails from these senders. Leave empty to process all emails.',
+      noSenderFilters: 'No filters — all senders are processed',
+      senderFilterPlaceholder: 'e.g. A1 Mobilbox',
     },
     nav: {
       dashboard: 'Dashboard',
@@ -14607,6 +14617,11 @@ export const translations: Record<Locale, Translations> = {
       connectSuccess: 'Úspešne pripojený',
       connectError: 'Pripojenie zlyhalo',
       lastChecked: 'Naposledy skontrolované',
+      audioTranscription: 'Prepis hlasovej správy',
+      senderFilters: 'Filtre odosielateľov',
+      senderFiltersHint: 'Automatické spracovanie sa vzťahuje len na emaily od týchto odosielateľov. Prázdne = spracovávajú sa všetky emaily.',
+      noSenderFilters: 'Žiadne filtre — spracovávajú sa všetci odosielatelia',
+      senderFilterPlaceholder: 'napr. A1 Mobilbox',
     },
     nav: {
       dashboard: 'Prehľad',
@@ -21693,6 +21708,11 @@ export const translations: Record<Locale, Translations> = {
       connectSuccess: 'Úspěšně připojeno',
       connectError: 'Připojení selhalo',
       lastChecked: 'Naposledy zkontrolováno',
+      audioTranscription: 'Přepis hlasové zprávy',
+      senderFilters: 'Filtry odesílatelů',
+      senderFiltersHint: 'Automatické zpracování se týká pouze e-mailů od těchto odesílatelů. Prázdné = zpracovávají se všechny e-maily.',
+      noSenderFilters: 'Žádné filtry — zpracovávají se všichni odesílatelé',
+      senderFilterPlaceholder: 'např. A1 Mobilbox',
     },
     nav: {
       dashboard: 'Přehled',
@@ -28705,6 +28725,11 @@ export const translations: Record<Locale, Translations> = {
       connectSuccess: 'Sikeresen csatlakozva',
       connectError: 'Csatlakozás sikertelen',
       lastChecked: 'Utoljára ellenőrizve',
+      audioTranscription: 'Hangüzenet átirata',
+      senderFilters: 'Feladói szűrők',
+      senderFiltersHint: 'Az automatikus feldolgozás csak ezektől a feladóktól érkező e-mailekre vonatkozik. Üresen hagyva minden e-mail feldolgozásra kerül.',
+      noSenderFilters: 'Nincs szűrő — minden feladó feldolgozásra kerül',
+      senderFilterPlaceholder: 'pl. A1 Mobilbox',
     },
     nav: {
       dashboard: 'Irányítópult',
@@ -35677,6 +35702,11 @@ export const translations: Record<Locale, Translations> = {
       connectSuccess: 'Conectat cu succes',
       connectError: 'Conectarea a eșuat',
       lastChecked: 'Ultima verificare',
+      audioTranscription: 'Transcriere mesaj vocal',
+      senderFilters: 'Filtre expeditori',
+      senderFiltersHint: 'Procesarea automată se aplică doar e-mailurilor de la acești expeditori. Gol = se procesează toate e-mailurile.',
+      noSenderFilters: 'Fără filtre — toți expeditorii sunt procesați',
+      senderFilterPlaceholder: 'ex. A1 Mobilbox',
     },
     nav: {
       dashboard: 'Panou de control',
@@ -42569,6 +42599,11 @@ export const translations: Record<Locale, Translations> = {
       connectSuccess: 'Connesso con successo',
       connectError: 'Connessione fallita',
       lastChecked: 'Ultimo controllo',
+      audioTranscription: 'Trascrizione messaggio vocale',
+      senderFilters: 'Filtri mittente',
+      senderFiltersHint: "L'elaborazione automatica si applica solo alle email di questi mittenti. Vuoto = tutte le email vengono elaborate.",
+      noSenderFilters: 'Nessun filtro — tutti i mittenti vengono elaborati',
+      senderFilterPlaceholder: 'es. A1 Mobilbox',
     },
     nav: {
       dashboard: 'Dashboard',
@@ -49463,6 +49498,11 @@ export const translations: Record<Locale, Translations> = {
       connectSuccess: 'Erfolgreich verbunden',
       connectError: 'Verbindung fehlgeschlagen',
       lastChecked: 'Zuletzt geprüft',
+      audioTranscription: 'Sprachnachricht-Transkript',
+      senderFilters: 'Absenderfilter',
+      senderFiltersHint: 'Die automatische Verarbeitung gilt nur für E-Mails dieser Absender. Leer lassen = alle E-Mails werden verarbeitet.',
+      noSenderFilters: 'Keine Filter — alle Absender werden verarbeitet',
+      senderFilterPlaceholder: 'z.B. A1 Mobilbox',
     },
     nav: {
       dashboard: 'Dashboard',
