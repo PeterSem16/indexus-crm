@@ -555,39 +555,44 @@ export async function forwardBeratungEmail(
 
   const audioAtts = attSummaries.filter(a => a.isAudio && (a.transcription || a.aiSummary));
 
-  // AI Summary block (shown at top if present)
+  // Collapse 3+ consecutive blank lines → single blank line (A1/carrier emails have lots of whitespace)
+  const compactText = (t: string) => t.replace(/(\r?\n){3,}/g, "\n\n").trim();
+  const renderText = (t: string) => escapeHtml(compactText(t)).replace(/\n/g, "<br>");
+
+  // AI Summary block — "ix" badge (Indexus) instead of "AI" to avoid A1 confusion
   const aiSummaryBlock = audioAtts.some(a => a.aiSummary)
     ? `
   <!-- AI SUMMARY (top) -->
   <tr><td style="background:#ffffff;padding:0 24px 4px;">
     ${audioAtts.filter(a => a.aiSummary).map(a => `
-    <div style="background:linear-gradient(135deg,#fff1f2 0%,#fce7f3 100%);border:1px solid #fda4af;border-radius:12px;padding:16px 20px;">
+    <div style="background:linear-gradient(135deg,#fff1f2 0%,#fce7f3 100%);border:1px solid #fda4af;border-radius:12px;padding:14px 18px;">
       <table cellpadding="0" cellspacing="0"><tr>
-        <td style="vertical-align:top;padding-right:14px;">
-          <div style="width:34px;height:34px;background:linear-gradient(135deg,#e11d48,#be185d);border-radius:50%;text-align:center;line-height:34px;font-size:11px;font-weight:900;color:#fff;letter-spacing:-0.3px;">AI</div>
+        <td style="vertical-align:top;padding-right:12px;">
+          <div style="width:32px;height:32px;background:linear-gradient(135deg,#e11d48,#be185d);border-radius:8px;text-align:center;line-height:32px;font-size:10px;font-weight:900;color:#fff;letter-spacing:-0.5px;">ix</div>
         </td>
         <td style="vertical-align:top;">
-          <div style="font-size:10px;font-weight:800;color:#be185d;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Zhrnutie hlasovej správy</div>
-          <div style="font-size:13px;line-height:1.65;color:#4c0519;">${escapeHtml(a.aiSummary!).replace(/\n/g, "<br>")}</div>
+          <div style="font-size:9.5px;font-weight:800;color:#be185d;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">indexus · Zhrnutie hlasovej správy</div>
+          <div style="font-size:13px;line-height:1.55;color:#4c0519;">${escapeHtml(a.aiSummary!).replace(/\n/g, "<br>")}</div>
         </td>
       </tr></table>
     </div>`).join("")}
   </td></tr>`
     : "";
 
-  // Voicemail transcript block (shown at top after AI summary)
+  // Transcript block — same card style as language sections (dot + border)
   const transcriptBlock = audioAtts.some(a => a.transcription)
     ? `
   <!-- TRANSCRIPT -->
-  <tr><td style="background:#ffffff;padding:4px 24px 0;">
+  <tr><td style="padding:8px 24px 0;">
     ${audioAtts.filter(a => a.transcription).map(a => `
-    <div style="border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
-      <div style="background:#f9fafb;padding:10px 16px;border-bottom:1px solid #e5e7eb;">
-        <span style="display:inline-block;width:8px;height:8px;background:#e11d48;border-radius:50%;vertical-align:middle;margin-right:8px;"></span>
-        <span style="font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.8px;vertical-align:middle;">Prepis — ${escapeHtml(a.name)}</span>
+    <div style="border-radius:10px;overflow:hidden;border:1px solid #fef3c7;">
+      <div style="background:#fffbeb;padding:8px 14px;border-bottom:1px solid #fef3c7;">
+        <span style="display:inline-block;width:6px;height:6px;background:#f59e0b;border-radius:50%;vertical-align:middle;margin-right:8px;"></span>
+        <span style="font-size:9.5px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.8px;vertical-align:middle;">Hlasová správa · Prepis</span>
+        <span style="font-size:9px;color:#d97706;margin-left:8px;vertical-align:middle;">${escapeHtml(a.name)}</span>
       </div>
-      <div style="padding:14px 16px;font-size:12.5px;line-height:1.75;color:#6b7280;white-space:pre-wrap;">${escapeHtml(a.transcription!).replace(/\n/g, "<br>")}</div>
-    </div>`).join('<div style="height:8px;"></div>')}
+      <div style="padding:12px 16px 12px 20px;font-size:12.5px;line-height:1.5;color:#78350f;border-left:3px solid #fcd34d;">${renderText(a.transcription!)}</div>
+    </div>`).join('<div style="height:6px;"></div>')}
   </td></tr>`
     : "";
 
@@ -666,7 +671,7 @@ export async function forwardBeratungEmail(
         <span style="display:inline-block;width:6px;height:6px;background:#9ca3af;border-radius:50%;vertical-align:middle;margin-right:8px;"></span>
         <span style="font-size:9.5px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.8px;vertical-align:middle;">Originál · DE</span>
       </div>
-      <div style="padding:14px 16px 14px 20px;font-size:13px;line-height:1.75;color:#6b7280;font-style:italic;white-space:pre-wrap;border-left:3px solid #e5e7eb;">${escapeHtml(rawBody).replace(/\n/g, "<br>")}</div>
+      <div style="padding:12px 14px 12px 18px;font-size:12.5px;line-height:1.5;color:#6b7280;font-style:italic;border-left:3px solid #e5e7eb;">${renderText(rawBody)}</div>
     </div>
   </td></tr>
 
@@ -677,7 +682,7 @@ export async function forwardBeratungEmail(
         <span style="display:inline-block;width:6px;height:6px;background:#8b5cf6;border-radius:50%;vertical-align:middle;margin-right:8px;"></span>
         <span style="font-size:9.5px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:0.8px;vertical-align:middle;">Slovenčina · SK</span>
       </div>
-      <div style="padding:14px 16px 14px 20px;font-size:13px;line-height:1.75;color:#4c1d95;white-space:pre-wrap;border-left:3px solid #8b5cf6;">${escapeHtml(row.translated_sk || "").replace(/\n/g, "<br>")}</div>
+      <div style="padding:12px 14px 12px 18px;font-size:12.5px;line-height:1.5;color:#4c1d95;border-left:3px solid #8b5cf6;">${renderText(row.translated_sk || "")}</div>
     </div>
   </td></tr>
 
@@ -688,7 +693,7 @@ export async function forwardBeratungEmail(
         <span style="display:inline-block;width:6px;height:6px;background:#ec4899;border-radius:50%;vertical-align:middle;margin-right:8px;"></span>
         <span style="font-size:9.5px;font-weight:700;color:#be185d;text-transform:uppercase;letter-spacing:0.8px;vertical-align:middle;">Čeština · CS</span>
       </div>
-      <div style="padding:14px 16px 14px 20px;font-size:13px;line-height:1.75;color:#831843;white-space:pre-wrap;border-left:3px solid #ec4899;">${escapeHtml(row.translated_cs || "").replace(/\n/g, "<br>")}</div>
+      <div style="padding:12px 14px 12px 18px;font-size:12.5px;line-height:1.5;color:#831843;border-left:3px solid #ec4899;">${renderText(row.translated_cs || "")}</div>
     </div>
   </td></tr>
 
