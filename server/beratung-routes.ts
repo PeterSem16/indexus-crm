@@ -341,4 +341,44 @@ export function registerBeratungRoutes(app: Express, requireAuth: (req: Request,
       res.status(500).json({ error: err.message });
     }
   });
+
+  // ── AI status check (cached 5 min) ────────────────────────────────────────
+  let aiStatusCache: { ok: boolean; error: string | null; checkedAt: number } | null = null;
+
+  app.get("/api/beratung/ai-status", ...guard, async (req: Request, res: Response) => {
+    try {
+      const now = Date.now();
+      // Return cached result if fresh (5 min)
+      if (aiStatusCache && now - aiStatusCache.checkedAt < 5 * 60_000) {
+        return res.json(aiStatusCache);
+      }
+
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        aiStatusCache = { ok: false, error: "no_key", checkedAt: now };
+        return res.json(aiStatusCache);
+      }
+
+      const testRes = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [{ role: "user", content: "ok" }],
+          max_tokens: 1,
+        }),
+      });
+
+      if (testRes.ok) {
+        aiStatusCache = { ok: true, error: null, checkedAt: now };
+      } else {
+        const data = await testRes.json().catch(() => ({}));
+        const code = (data as any)?.error?.code || (data as any)?.error?.type || String(testRes.status);
+        aiStatusCache = { ok: false, error: code, checkedAt: now };
+      }
+      res.json(aiStatusCache);
+    } catch (err: any) {
+      res.json({ ok: false, error: err.message, checkedAt: Date.now() });
+    }
+  });
 }

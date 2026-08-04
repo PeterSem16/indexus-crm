@@ -585,6 +585,37 @@ function SettingsTab({ settings, onSaved }: { settings: BeratungSettings; onSave
               {b.lastChecked}: {new Date(settings.last_checked_at).toLocaleString("sk-SK")}
             </p>
           )}
+          {/* AI status row */}
+          <div className="flex items-center gap-2 pt-1">
+            {aiStatusQuery.isLoading ? (
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />{b.aiStatusChecking}
+              </span>
+            ) : aiStatusQuery.data ? (
+              aiStatusQuery.data.ok ? (
+                <span className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="h-3.5 w-3.5" />{b.aiStatusOk}
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 text-xs text-destructive font-medium">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  {aiStatusQuery.data.error === "insufficient_quota"
+                    ? b.aiStatusNoCredit
+                    : aiStatusQuery.data.error === "no_key"
+                    ? b.aiStatusNoKey
+                    : `${b.aiStatusError}: ${aiStatusQuery.data.error}`}
+                </span>
+              )
+            ) : null}
+            {aiStatusQuery.data && (
+              <button
+                className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                onClick={() => aiStatusQuery.refetch()}
+              >
+                {b.aiStatusRefresh}
+              </button>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -826,6 +857,17 @@ export function BeratungEmailTab() {
     },
     staleTime: 20_000,
     refetchInterval: 30_000,
+  });
+
+  const aiStatusQuery = useQuery<{ ok: boolean; error: string | null; checkedAt: number }>({
+    queryKey: ["/api/beratung/ai-status"],
+    queryFn: async () => {
+      const res = await fetch("/api/beratung/ai-status", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    staleTime: 5 * 60_000,
+    refetchInterval: 6 * 60_000,
   });
 
   const settings = settingsQuery.data;

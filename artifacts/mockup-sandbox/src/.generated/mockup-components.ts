@@ -2,12 +2,12 @@
 type ModuleMap = Record<string, () => Promise<Record<string, unknown>>>;
 export const modules: ModuleMap = {
   "./components/mockups/beratung-email/BeratungEmailMockup.tsx": () => import("../components/mockups/beratung-email/BeratungEmailMockup.tsx"),
-  "./components/mockups/calls-player/VariantA.tsx": () => import("../components/mockups/calls-player/VariantA.tsx"),
-  "./components/mockups/calls-player/VariantB.tsx": () => import("../components/mockups/calls-player/VariantB.tsx"),
-  "./components/mockups/calls-player/VariantC.tsx": () => import("../components/mockups/calls-player/VariantC.tsx"),
   "./components/mockups/callback-cards/VariantA.tsx": () => import("../components/mockups/callback-cards/VariantA.tsx"),
   "./components/mockups/callback-cards/VariantB.tsx": () => import("../components/mockups/callback-cards/VariantB.tsx"),
   "./components/mockups/callback-cards/VariantC.tsx": () => import("../components/mockups/callback-cards/VariantC.tsx"),
+  "./components/mockups/calls-player/VariantA.tsx": () => import("../components/mockups/calls-player/VariantA.tsx"),
+  "./components/mockups/calls-player/VariantB.tsx": () => import("../components/mockups/calls-player/VariantB.tsx"),
+  "./components/mockups/calls-player/VariantC.tsx": () => import("../components/mockups/calls-player/VariantC.tsx"),
   "./components/mockups/calls-redesign/MediaPlayer.tsx": () => import("../components/mockups/calls-redesign/MediaPlayer.tsx"),
   "./components/mockups/calls-redesign/Studio.tsx": () => import("../components/mockups/calls-redesign/Studio.tsx"),
   "./components/mockups/checklist-panel/VariantA.tsx": () => import("../components/mockups/checklist-panel/VariantA.tsx"),

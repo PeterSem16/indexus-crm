@@ -385,6 +385,12 @@ export interface Translations {
     modeAuto: string;
     modeManual: string;
     filterMatches: string;
+    aiStatusChecking: string;
+    aiStatusOk: string;
+    aiStatusNoCredit: string;
+    aiStatusNoKey: string;
+    aiStatusError: string;
+    aiStatusRefresh: string;
     aiSummary: string;
     fullTranscript: string;
     searchPlaceholder: string;
@@ -7513,6 +7519,12 @@ export const translations: Record<Locale, Translations> = {
       modeAuto: 'Auto',
       modeManual: 'Manual',
       filterMatches: 'emails match',
+      aiStatusChecking: 'Checking AI...',
+      aiStatusOk: 'AI active (Whisper + GPT)',
+      aiStatusNoCredit: 'AI credit exhausted — transcription unavailable',
+      aiStatusNoKey: 'OpenAI key not configured',
+      aiStatusError: 'AI error',
+      aiStatusRefresh: 'recheck',
       aiSummary: 'Summary (AI)',
       fullTranscript: 'Full transcript',
       searchPlaceholder: 'Search sender, subject, message...',
@@ -14693,6 +14705,12 @@ export const translations: Record<Locale, Translations> = {
       modeAuto: 'Auto',
       modeManual: 'Manuálne',
       filterMatches: 'emailov zodpovedá',
+      aiStatusChecking: 'Kontrolujem AI...',
+      aiStatusOk: 'AI aktívne (Whisper + GPT)',
+      aiStatusNoCredit: 'AI kredit vyčerpaný — prepis nedostupný',
+      aiStatusNoKey: 'OpenAI kľúč nie je nastavený',
+      aiStatusError: 'Chyba AI',
+      aiStatusRefresh: 'skontrolovať znova',
       aiSummary: 'Zhrnutie (AI)',
       fullTranscript: 'Kompletný prepis',
       searchPlaceholder: 'Hľadať odosielateľa, predmet, text...',
@@ -21809,6 +21827,12 @@ export const translations: Record<Locale, Translations> = {
       modeAuto: 'Auto',
       modeManual: 'Manuálně',
       filterMatches: 'emailů odpovídá',
+      aiStatusChecking: 'Kontroluji AI...',
+      aiStatusOk: 'AI aktivní (Whisper + GPT)',
+      aiStatusNoCredit: 'AI kredit vyčerpán — přepis nedostupný',
+      aiStatusNoKey: 'OpenAI klíč není nastaven',
+      aiStatusError: 'Chyba AI',
+      aiStatusRefresh: 'zkontrolovat znovu',
       aiSummary: 'Shrnutí (AI)',
       fullTranscript: 'Úplný přepis',
       searchPlaceholder: 'Hledat odesílatele, předmět, text...',
@@ -28851,6 +28875,12 @@ export const translations: Record<Locale, Translations> = {
       modeAuto: 'Auto',
       modeManual: 'Manuális',
       filterMatches: 'email egyezik',
+      aiStatusChecking: 'AI ellenőrzése...',
+      aiStatusOk: 'AI aktív (Whisper + GPT)',
+      aiStatusNoCredit: 'AI kredit kimerült — átírás nem érhető el',
+      aiStatusNoKey: 'OpenAI kulcs nincs beállítva',
+      aiStatusError: 'AI hiba',
+      aiStatusRefresh: 'újraellenőrzés',
       aiSummary: 'Összefoglaló (AI)',
       fullTranscript: 'Teljes átirat',
       searchPlaceholder: 'Keresés feladó, tárgy, szöveg...',
@@ -35853,6 +35883,12 @@ export const translations: Record<Locale, Translations> = {
       modeAuto: 'Auto',
       modeManual: 'Manual',
       filterMatches: 'emailuri corespund',
+      aiStatusChecking: 'Verificare AI...',
+      aiStatusOk: 'AI activ (Whisper + GPT)',
+      aiStatusNoCredit: 'Credit AI epuizat — transcrierea indisponibilă',
+      aiStatusNoKey: 'Cheia OpenAI nu este configurată',
+      aiStatusError: 'Eroare AI',
+      aiStatusRefresh: 'reverificare',
       aiSummary: 'Rezumat (AI)',
       fullTranscript: 'Transcriere completă',
       searchPlaceholder: 'Căutare expeditor, subiect, text...',
@@ -42775,6 +42811,12 @@ export const translations: Record<Locale, Translations> = {
       modeAuto: 'Auto',
       modeManual: 'Manuale',
       filterMatches: 'email corrispondono',
+      aiStatusChecking: 'Verifica AI...',
+      aiStatusOk: 'AI attivo (Whisper + GPT)',
+      aiStatusNoCredit: 'Credito AI esaurito — trascrizione non disponibile',
+      aiStatusNoKey: 'Chiave OpenAI non configurata',
+      aiStatusError: 'Errore AI',
+      aiStatusRefresh: 'riverifica',
       aiSummary: 'Riepilogo (AI)',
       fullTranscript: 'Trascrizione completa',
       searchPlaceholder: 'Cerca mittente, oggetto, testo...',
@@ -49699,6 +49741,12 @@ export const translations: Record<Locale, Translations> = {
       modeAuto: 'Auto',
       modeManual: 'Manuell',
       filterMatches: 'E-Mails passen',
+      aiStatusChecking: 'AI wird geprüft...',
+      aiStatusOk: 'AI aktiv (Whisper + GPT)',
+      aiStatusNoCredit: 'AI-Guthaben erschöpft — Transkription nicht verfügbar',
+      aiStatusNoKey: 'OpenAI-Schlüssel nicht konfiguriert',
+      aiStatusError: 'AI-Fehler',
+      aiStatusRefresh: 'erneut prüfen',
       aiSummary: 'Zusammenfassung (AI)',
       fullTranscript: 'Vollständiges Transkript',
       searchPlaceholder: 'Absender, Betreff, Text suchen...',
