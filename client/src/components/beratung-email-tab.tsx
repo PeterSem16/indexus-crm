@@ -463,6 +463,17 @@ function SettingsTab({ settings, onSaved }: { settings: BeratungSettings; onSave
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
+  const aiStatusQuery = useQuery<{ ok: boolean; error: string | null; checkedAt: number }>({
+    queryKey: ["/api/beratung/ai-status"],
+    queryFn: async () => {
+      const res = await fetch("/api/beratung/ai-status", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    staleTime: 5 * 60_000,
+    refetchInterval: 6 * 60_000,
+  });
+
   useEffect(() => {
     if (!newFilter.trim()) { setFilterPreviewCount(null); return; }
     setFilterPreviewLoading(true);
@@ -857,17 +868,6 @@ export function BeratungEmailTab() {
     },
     staleTime: 20_000,
     refetchInterval: 30_000,
-  });
-
-  const aiStatusQuery = useQuery<{ ok: boolean; error: string | null; checkedAt: number }>({
-    queryKey: ["/api/beratung/ai-status"],
-    queryFn: async () => {
-      const res = await fetch("/api/beratung/ai-status", { credentials: "include" });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
-    staleTime: 5 * 60_000,
-    refetchInterval: 6 * 60_000,
   });
 
   const settings = settingsQuery.data;
