@@ -559,41 +559,58 @@ export async function forwardBeratungEmail(
   const compactText = (t: string) => t.replace(/(\r?\n){3,}/g, "\n\n").trim();
   const renderText = (t: string) => escapeHtml(compactText(t)).replace(/\n/g, "<br>");
 
-  // AI Summary block — "ix" badge (Indexus) instead of "AI" to avoid A1 confusion
+  // ── Variant B — Clinical ────────────────────────────────────────────────────
+
+  // AI analysis block — teal card with ix badge
   const aiSummaryBlock = audioAtts.some(a => a.aiSummary)
-    ? `
-  <!-- AI SUMMARY (top) -->
-  <tr><td style="background:#ffffff;padding:0 24px 4px;">
-    ${audioAtts.filter(a => a.aiSummary).map(a => `
-    <div style="background:linear-gradient(135deg,#fff1f2 0%,#fce7f3 100%);border:1px solid #fda4af;border-radius:12px;padding:14px 18px;">
-      <table cellpadding="0" cellspacing="0"><tr>
-        <td style="vertical-align:top;padding-right:12px;">
-          <div style="width:32px;height:32px;background:linear-gradient(135deg,#e11d48,#be185d);border-radius:8px;text-align:center;line-height:32px;font-size:10px;font-weight:900;color:#fff;letter-spacing:-0.5px;">ix</div>
-        </td>
-        <td style="vertical-align:top;">
-          <div style="font-size:9.5px;font-weight:800;color:#be185d;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">indexus · Zhrnutie hlasovej správy</div>
-          <div style="font-size:13px;line-height:1.55;color:#4c0519;">${escapeHtml(a.aiSummary!).replace(/\n/g, "<br>")}</div>
-        </td>
-      </tr></table>
-    </div>`).join("")}
-  </td></tr>`
+    ? audioAtts.filter(a => a.aiSummary).map(a => `
+  <!-- AI ANALYSIS -->
+  <tr><td style="padding:16px 24px 0;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdfa;border:1.5px solid #5eead4;border-radius:10px;overflow:hidden;">
+      <tr><td style="padding:10px 16px;border-bottom:1px solid #ccfbf1;">
+        <table cellpadding="0" cellspacing="0"><tr>
+          <td style="vertical-align:middle;padding-right:8px;">
+            <div style="width:22px;height:22px;background:linear-gradient(135deg,#0d9488,#0891b2);border-radius:5px;text-align:center;line-height:22px;font-size:8px;font-weight:900;color:#fff;letter-spacing:-0.3px;">ix</div>
+          </td>
+          <td style="vertical-align:middle;">
+            <span style="font-size:9.5px;font-weight:800;color:#0d9488;text-transform:uppercase;letter-spacing:0.8px;">Anal&yacute;za hlasovej spr&aacute;vy</span>
+          </td>
+        </tr></table>
+      </td></tr>
+      <tr><td style="padding:12px 16px;font-size:13px;line-height:1.65;color:#134e4a;">${escapeHtml(a.aiSummary!).replace(/\n/g, "<br>")}</td></tr>
+    </table>
+  </td></tr>`).join("")
     : "";
 
-  // Transcript block — same card style as language sections (dot + border)
+  // Transcript block — amber card
   const transcriptBlock = audioAtts.some(a => a.transcription)
-    ? `
+    ? audioAtts.filter(a => a.transcription).map(a => `
   <!-- TRANSCRIPT -->
-  <tr><td style="padding:8px 24px 0;">
-    ${audioAtts.filter(a => a.transcription).map(a => `
-    <div style="border-radius:10px;overflow:hidden;border:1px solid #fef3c7;">
-      <div style="background:#fffbeb;padding:8px 14px;border-bottom:1px solid #fef3c7;">
-        <span style="display:inline-block;width:6px;height:6px;background:#f59e0b;border-radius:50%;vertical-align:middle;margin-right:8px;"></span>
-        <span style="font-size:9.5px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.8px;vertical-align:middle;">Hlasová správa · Prepis</span>
-        <span style="font-size:9px;color:#d97706;margin-left:8px;vertical-align:middle;">${escapeHtml(a.name)}</span>
-      </div>
-      <div style="padding:12px 16px 12px 20px;font-size:12.5px;line-height:1.5;color:#78350f;border-left:3px solid #fcd34d;">${renderText(a.transcription!)}</div>
-    </div>`).join('<div style="height:6px;"></div>')}
-  </td></tr>`
+  <tr><td style="padding:12px 24px 0;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #fde68a;border-radius:10px;overflow:hidden;">
+      <tr><td style="background:#fefce8;padding:8px 14px;border-bottom:1px solid #fde68a;">
+        <table cellpadding="0" cellspacing="0"><tr>
+          <td style="vertical-align:middle;padding-right:8px;">
+            <div style="width:6px;height:6px;background:#f59e0b;border-radius:50%;"></div>
+          </td>
+          <td style="vertical-align:middle;">
+            <span style="font-size:9.5px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.7px;">Prepis hlasovej spr&aacute;vy</span>
+            <span style="font-size:9px;color:#d97706;margin-left:8px;">${escapeHtml(a.name)}</span>
+          </td>
+        </tr></table>
+      </td></tr>
+      <tr><td style="padding:12px 16px;font-size:12.5px;line-height:1.65;color:#78350f;">${renderText(a.transcription!)}</td></tr>
+    </table>
+  </td></tr>`).join("")
+    : "";
+
+  // Audio file row for meta grid (shown only when voicemail attachments present)
+  const audioFileRows = audioAtts.length > 0
+    ? audioAtts.map(a => `
+      <tr><td style="padding:9px 16px 9px 0;border-bottom:1px solid #f0faf9;width:70px;vertical-align:top;">
+        <span style="font-size:9.5px;font-weight:700;color:#5eead4;text-transform:uppercase;letter-spacing:0.6px;white-space:nowrap;">S&uacute;bor</span>
+      </td>
+      <td style="padding:9px 0;border-bottom:1px solid #f0faf9;font-size:12px;font-weight:600;color:#0f172a;">${escapeHtml(a.name)}</td></tr>`).join("")
     : "";
 
   const forwardedAt = new Date().toLocaleString("sk-SK", { timeZone: "Europe/Bratislava", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -601,109 +618,133 @@ export async function forwardBeratungEmail(
   const emailBody = `<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f5;">
+<body style="margin:0;padding:0;background-color:#ecfdf5;font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#ecfdf5;">
 <tr><td align="center" style="padding:28px 12px;">
-<table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.08);">
+<table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 1px 20px rgba(0,180,120,0.10);">
 
-  <!-- RED ACCENT STRIPE -->
-  <tr><td style="background:linear-gradient(90deg,#e11d48 0%,#f43f5e 50%,#fb7185 100%);height:4px;font-size:0;line-height:0;">&nbsp;</td></tr>
-
-  <!-- HEADER -->
-  <tr><td style="background:#111827;padding:18px 24px;">
+  <!-- HEADER — teal gradient -->
+  <tr><td style="background:linear-gradient(135deg,#0d9488 0%,#0891b2 100%);padding:22px 28px;">
     <table width="100%" cellpadding="0" cellspacing="0"><tr>
       <td style="vertical-align:middle;">
-        <span style="font-size:20px;font-weight:900;color:#ffffff;letter-spacing:-0.5px;">indexus</span>
-        <span style="display:inline-block;margin-left:8px;font-size:10px;font-weight:700;color:#f43f5e;background:rgba(244,63,94,0.12);border:1px solid rgba(244,63,94,0.3);padding:2px 9px;border-radius:20px;vertical-align:middle;letter-spacing:0.4px;">BERATUNG</span>
+        <table cellpadding="0" cellspacing="0"><tr>
+          <td style="vertical-align:middle;padding-right:12px;">
+            <div style="width:40px;height:40px;background:rgba(255,255,255,0.15);border-radius:10px;border:1.5px solid rgba(255,255,255,0.3);text-align:center;line-height:40px;font-size:11px;font-weight:900;color:#ffffff;letter-spacing:-0.5px;">ix</div>
+          </td>
+          <td style="vertical-align:middle;">
+            <div style="font-size:16px;font-weight:800;color:#ffffff;letter-spacing:-0.3px;">indexus</div>
+            <div style="font-size:10px;font-weight:500;color:rgba(255,255,255,0.65);letter-spacing:0.4px;margin-top:1px;">BERATUNG MONITOR</div>
+          </td>
+        </tr></table>
       </td>
       <td align="right" style="vertical-align:middle;">
-        <span style="display:inline-block;font-size:10px;font-weight:700;color:#4ade80;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.25);padding:3px 12px;border-radius:20px;letter-spacing:0.6px;">PREPOSLANÉ</span>
+        <div style="font-size:9.5px;font-weight:700;color:#a7f3d0;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:3px;">Status</div>
+        <div style="display:inline-block;font-size:11px;font-weight:700;color:#ffffff;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);padding:3px 12px;border-radius:20px;">&#10003; Preposlané</div>
       </td>
     </tr></table>
   </td></tr>
 
-  <!-- META -->
-  <tr><td style="background:#ffffff;padding:18px 24px 14px;">
+  <!-- SUBJECT BANNER -->
+  <tr><td style="background:#f0fdfa;border-bottom:1px solid #ccfbf1;padding:14px 28px;">
+    <div style="font-size:9.5px;font-weight:700;color:#0d9488;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:5px;">Predmet správy</div>
+    <div style="font-size:16px;font-weight:700;color:#0f172a;line-height:1.35;">${escapeHtml(row.subject || "(bez predmetu)")}</div>
+  </td></tr>
+
+  <!-- META GRID -->
+  <tr><td style="padding:4px 28px 0;">
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
-        <td style="vertical-align:top;padding-bottom:9px;padding-right:12px;width:1%;">
-          <span style="display:inline-block;font-size:9.5px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.7px;white-space:nowrap;">Od</span>
+        <td style="padding:9px 16px 9px 0;border-bottom:1px solid #f0faf9;width:70px;vertical-align:top;">
+          <span style="font-size:9.5px;font-weight:700;color:#5eead4;text-transform:uppercase;letter-spacing:0.6px;white-space:nowrap;">Od</span>
         </td>
-        <td style="padding-bottom:9px;">
-          <span style="font-size:14px;font-weight:700;color:#111827;">${escapeHtml(row.from_name || row.from_address)}</span>
-          ${row.from_name ? `<span style="font-size:12px;color:#6b7280;margin-left:8px;">${escapeHtml(row.from_address)}</span>` : ""}
+        <td style="padding:9px 0;border-bottom:1px solid #f0faf9;">
+          <span style="font-size:13px;font-weight:700;color:#0f172a;">${escapeHtml(row.from_name || row.from_address)}</span>
+          ${row.from_name ? `<span style="font-size:11px;font-weight:400;color:#64748b;margin-left:8px;">${escapeHtml(row.from_address)}</span>` : ""}
         </td>
       </tr>
       <tr>
-        <td style="padding-bottom:9px;vertical-align:top;padding-right:12px;">
-          <span style="font-size:9.5px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.7px;white-space:nowrap;">Dátum</span>
+        <td style="padding:9px 16px 9px 0;border-bottom:1px solid #f0faf9;vertical-align:top;">
+          <span style="font-size:9.5px;font-weight:700;color:#5eead4;text-transform:uppercase;letter-spacing:0.6px;white-space:nowrap;">Prijaté</span>
         </td>
-        <td style="padding-bottom:9px;font-size:12px;color:#6b7280;">${receivedStr}</td>
+        <td style="padding:9px 0;border-bottom:1px solid #f0faf9;font-size:12.5px;font-weight:600;color:#0f172a;">${receivedStr}</td>
       </tr>
-      <tr>
-        <td style="vertical-align:top;padding-right:12px;">
-          <span style="font-size:9.5px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.7px;white-space:nowrap;">Predmet</span>
-        </td>
-        <td>
-          <span style="font-size:15px;font-weight:700;color:#111827;line-height:1.4;">${escapeHtml(row.subject || "(bez predmetu)")}</span>
-        </td>
-      </tr>
+      ${audioFileRows}
     </table>
   </td></tr>
 
   ${aiSummaryBlock}
   ${transcriptBlock}
 
-  <!-- DIVIDER with language labels -->
-  <tr><td style="padding:16px 24px 0;">
-    <table width="100%" cellpadding="0" cellspacing="0"><tr>
-      <td style="border-top:1px solid #f3f4f6;padding-top:14px;">
-        <span style="font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.8px;">Preklady</span>
-        <span style="margin-left:10px;font-size:10px;color:#d1d5db;">DE &middot; SK &middot; CS</span>
-      </td>
-    </tr></table>
+  <!-- TRANSLATIONS LABEL -->
+  <tr><td style="padding:20px 28px 8px;">
+    <span style="font-size:9.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8px;">Preklady</span>
   </td></tr>
 
-  <!-- ORIGINAL (DE) -->
-  <tr><td style="padding:12px 24px 0;">
-    <div style="border-radius:10px;overflow:hidden;border:1px solid #f3f4f6;">
-      <div style="background:#f9fafb;padding:8px 14px;border-bottom:1px solid #f3f4f6;">
-        <span style="display:inline-block;width:6px;height:6px;background:#9ca3af;border-radius:50%;vertical-align:middle;margin-right:8px;"></span>
-        <span style="font-size:9.5px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.8px;vertical-align:middle;">Originál · DE</span>
-      </div>
-      <div style="padding:12px 14px 12px 18px;font-size:12.5px;line-height:1.5;color:#6b7280;font-style:italic;border-left:3px solid #e5e7eb;">${renderText(rawBody)}</div>
-    </div>
-  </td></tr>
+  <!-- TRANSLATIONS — unified bordered card -->
+  <tr><td style="padding:0 28px 24px;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
 
-  <!-- SK -->
-  <tr><td style="padding:10px 24px 0;">
-    <div style="border-radius:10px;overflow:hidden;border:1px solid #ede9fe;">
-      <div style="background:#f5f3ff;padding:8px 14px;border-bottom:1px solid #ede9fe;">
-        <span style="display:inline-block;width:6px;height:6px;background:#8b5cf6;border-radius:50%;vertical-align:middle;margin-right:8px;"></span>
-        <span style="font-size:9.5px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:0.8px;vertical-align:middle;">Slovenčina · SK</span>
-      </div>
-      <div style="padding:12px 14px 12px 18px;font-size:12.5px;line-height:1.5;color:#4c1d95;border-left:3px solid #8b5cf6;">${renderText(row.translated_sk || "")}</div>
-    </div>
-  </td></tr>
+      <!-- DE row -->
+      <tr><td style="background:#f8fafc;padding:8px 16px;border-bottom:1px solid #e2e8f0;">
+        <table cellpadding="0" cellspacing="0"><tr>
+          <td style="vertical-align:middle;padding-right:8px;font-size:15px;">&#127465;&#127466;</td>
+          <td style="vertical-align:middle;padding-right:6px;">
+            <span style="font-size:10.5px;font-weight:700;color:#475569;">DE</span>
+          </td>
+          <td style="vertical-align:middle;padding-right:6px;">
+            <span style="font-size:10px;color:#94a3b8;">&middot;</span>
+          </td>
+          <td style="vertical-align:middle;">
+            <span style="font-size:10.5px;color:#64748b;">Originál &middot; Nemčina</span>
+          </td>
+        </tr></table>
+      </td></tr>
+      <tr><td style="padding:10px 16px 12px;border-bottom:1px solid #e2e8f0;font-size:12px;line-height:1.65;color:#475569;font-style:italic;">${renderText(rawBody)}</td></tr>
 
-  <!-- CS -->
-  <tr><td style="padding:10px 24px 0;">
-    <div style="border-radius:10px;overflow:hidden;border:1px solid #fce7f3;">
-      <div style="background:#fdf2f8;padding:8px 14px;border-bottom:1px solid #fce7f3;">
-        <span style="display:inline-block;width:6px;height:6px;background:#ec4899;border-radius:50%;vertical-align:middle;margin-right:8px;"></span>
-        <span style="font-size:9.5px;font-weight:700;color:#be185d;text-transform:uppercase;letter-spacing:0.8px;vertical-align:middle;">Čeština · CS</span>
-      </div>
-      <div style="padding:12px 14px 12px 18px;font-size:12.5px;line-height:1.5;color:#831843;border-left:3px solid #ec4899;">${renderText(row.translated_cs || "")}</div>
-    </div>
+      <!-- SK row -->
+      <tr><td style="background:#faf5ff;padding:8px 16px;border-bottom:1px solid #e2e8f0;">
+        <table cellpadding="0" cellspacing="0"><tr>
+          <td style="vertical-align:middle;padding-right:8px;font-size:15px;">&#127480;&#127472;</td>
+          <td style="vertical-align:middle;padding-right:6px;">
+            <span style="font-size:10.5px;font-weight:700;color:#7c3aed;">SK</span>
+          </td>
+          <td style="vertical-align:middle;padding-right:6px;">
+            <span style="font-size:10px;color:#94a3b8;">&middot;</span>
+          </td>
+          <td style="vertical-align:middle;">
+            <span style="font-size:10.5px;color:#64748b;">Slovenčina</span>
+          </td>
+        </tr></table>
+      </td></tr>
+      <tr><td style="padding:10px 16px 12px;border-bottom:1px solid #e2e8f0;font-size:12px;line-height:1.65;color:#334155;">${renderText(row.translated_sk || "")}</td></tr>
+
+      <!-- CS row -->
+      <tr><td style="background:#eff6ff;padding:8px 16px;border-bottom:1px solid #e2e8f0;">
+        <table cellpadding="0" cellspacing="0"><tr>
+          <td style="vertical-align:middle;padding-right:8px;font-size:15px;">&#127464;&#127487;</td>
+          <td style="vertical-align:middle;padding-right:6px;">
+            <span style="font-size:10.5px;font-weight:700;color:#0369a1;">CS</span>
+          </td>
+          <td style="vertical-align:middle;padding-right:6px;">
+            <span style="font-size:10px;color:#94a3b8;">&middot;</span>
+          </td>
+          <td style="vertical-align:middle;">
+            <span style="font-size:10.5px;color:#64748b;">Čeština</span>
+          </td>
+        </tr></table>
+      </td></tr>
+      <tr><td style="padding:10px 16px 12px;font-size:12px;line-height:1.65;color:#334155;">${renderText(row.translated_cs || "")}</td></tr>
+
+    </table>
   </td></tr>
 
   <!-- FOOTER -->
-  <tr><td style="padding:20px 24px 22px;">
+  <tr><td style="padding:12px 28px 16px;border-top:2px solid #f0fdfa;">
     <table width="100%" cellpadding="0" cellspacing="0"><tr>
-      <td style="border-top:1px solid #f3f4f6;padding-top:14px;font-size:10.5px;color:#9ca3af;">
-        <span style="font-weight:700;color:#6b7280;">indexus</span> Beratung Monitor &middot; ${BERATUNG_EMAIL}
+      <td style="font-size:10px;color:#94a3b8;">
+        <span style="font-weight:700;color:#64748b;">indexus</span> &middot; ${BERATUNG_EMAIL}
       </td>
-      <td align="right" style="border-top:1px solid #f3f4f6;padding-top:14px;font-size:10px;color:#d1d5db;white-space:nowrap;">${forwardedAt}</td>
+      <td align="right" style="font-size:10px;color:#cbd5e1;white-space:nowrap;">${forwardedAt}</td>
     </tr></table>
   </td></tr>
 
