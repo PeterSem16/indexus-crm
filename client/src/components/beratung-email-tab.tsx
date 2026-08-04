@@ -610,7 +610,7 @@ function SettingsTab({ settings, onSaved }: { settings: BeratungSettings; onSave
               ) : (
                 <span className="flex items-center gap-1.5 text-xs text-destructive font-medium">
                   <AlertCircle className="h-3.5 w-3.5" />
-                  {aiStatusQuery.data.error === "insufficient_quota"
+                  {(aiStatusQuery.data.error === "insufficient_quota" || aiStatusQuery.data.error === "credit_balance_exhausted")
                     ? b.aiStatusNoCredit
                     : aiStatusQuery.data.error === "no_key"
                     ? b.aiStatusNoKey
