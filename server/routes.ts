@@ -30690,15 +30690,13 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             metadata: { statusListItemId: itemId, confirmed: true, campaignId },
           });
         } else {
-          // Item already confirmed — update itemNote if the caller provided one
-          // (batch-save re-confirms existing items with a note, but the original
-          // INSERT path is skipped, so the note was silently discarded before).
-          if (itemNote !== undefined) {
+          // Item already confirmed — update itemNote ONLY when the caller supplies
+          // a non-empty string. null / undefined / "" means "leave existing note alone"
+          // so that a batch-save re-confirm (which sends itemNote:null for items the
+          // agent didn't re-type) does NOT wipe a note previously saved via PATCH.
+          if (itemNote) {
             const [updated] = await db.update(campaignContactStatusListState)
-              .set({
-                itemNote: itemNote ?? null,
-                ...(itemNote ? { noteUpdatedAt: new Date() } : {}),
-              })
+              .set({ itemNote, noteUpdatedAt: new Date() })
               .where(and(
                 eq(campaignContactStatusListState.campaignContactId, campaignContactId),
                 eq(campaignContactStatusListState.statusListItemId, itemId)
