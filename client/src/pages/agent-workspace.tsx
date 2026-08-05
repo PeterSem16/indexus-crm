@@ -4349,7 +4349,7 @@ function CommunicationCanvas({
           <div className="ml-auto flex items-center gap-2 pr-2">
             {/* ── Callback urgency badge (tab bar) ───────────────────── */}
             {(() => {
-              if (!slCallbackDate) return null;
+              if (!slCallbackActive || !slCallbackDate) return null;
               const cbMs = new Date(slCallbackDate).getTime();
               const diffMs = cbMs - callbackNow;
               const isOverdue = diffMs < 0;
