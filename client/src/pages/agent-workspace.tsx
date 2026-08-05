@@ -6082,17 +6082,21 @@ function CommunicationCanvas({
                           {item.required && <span className="ml-1 text-rose-500 text-[10px] font-bold">*</span>}
                         </div>
                         {item.description && <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{item.description}</p>}
-                        {/* Confirmation timestamp — shown on every checked item */}
+                        {/* Confirmation timestamp — shown on every checked item.
+                            If the item is re-staged in batch mode (batchSlSelections) the
+                            timestamp is from the PREVIOUS save → show in amber as a warning. */}
                         {isChecked && (() => {
                           const stateRow = slStateMap.get(String(item.id));
                           const ts = stateRow?.confirmedAt;
                           if (!ts) return null;
                           const d = new Date(ts);
                           const label = d.toLocaleDateString(locale === 'sk' ? 'sk-SK' : locale === 'cs' ? 'cs-CZ' : locale === 'hu' ? 'hu-HU' : locale === 'ro' ? 'ro-RO' : locale === 'de' ? 'de-DE' : locale === 'it' ? 'it-IT' : 'en-GB', { day: 'numeric', month: 'numeric', year: 'numeric' }) + ' ' + d.toLocaleTimeString(locale === 'sk' ? 'sk-SK' : 'en-GB', { hour: '2-digit', minute: '2-digit' });
+                          const isStale = statusListMode === 'batch' && batchSlSelections.has(String(item.id));
                           return (
-                            <div className="flex items-center gap-1 mt-1 text-[10px] text-emerald-600/80 dark:text-emerald-400/70">
+                            <div className={`flex items-center gap-1 mt-1 text-[10px] ${isStale ? 'text-amber-500/90 dark:text-amber-400/80' : 'text-emerald-600/80 dark:text-emerald-400/70'}`}>
                               <Clock className="h-2.5 w-2.5 shrink-0" />
                               <span>{label}</span>
+                              {isStale && <span className="italic opacity-70">({locale === 'sk' ? 'staré' : locale === 'cs' ? 'staré' : locale === 'hu' ? 'régi' : 'old'})</span>}
                             </div>
                           );
                         })()}
@@ -6410,10 +6414,53 @@ function CommunicationCanvas({
                               const childState = slStateMap.get(String(child.id));
                               const ts = childState?.confirmedAt;
                               if (!ts) return null;
+                              const isStale = statusListMode === 'batch' && batchSlSelections.has(String(child.id));
                               return (
-                                <div className="flex items-center gap-1 mt-0.5 text-[10px] text-emerald-600/80 dark:text-emerald-400/70">
+                                <div className={`flex items-center gap-1 mt-0.5 text-[10px] ${isStale ? 'text-amber-500/90 dark:text-amber-400/80' : 'text-emerald-600/80 dark:text-emerald-400/70'}`}>
                                   <Clock className="h-2.5 w-2.5 shrink-0" />
                                   <span>{new Date(ts as any).toLocaleString(locale === 'sk' ? 'sk-SK' : locale === 'cs' ? 'cs-CZ' : locale === 'hu' ? 'hu-HU' : 'en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                  {isStale && <span className="italic opacity-70">({locale === 'sk' ? 'staré' : locale === 'cs' ? 'staré' : locale === 'hu' ? 'régi' : 'old'})</span>}
+                                </div>
+                              );
+                            })()}
+                            {/* Retention note — same as top-level items, keyed by child.id */}
+                            {(item.tab === 'retention' || (!item.tab && slActiveTab === 'retention')) && (childChecked || (statusListMode === 'batch' && batchSlSelections.has(String(child.id)))) && (() => {
+                              const isBatch = statusListMode === 'batch' && !childChecked;
+                              const noteVal = isBatch
+                                ? (batchSlNotes[String(child.id)] ?? '')
+                                : (slItemNotes[String(child.id)] ?? '');
+                              const childState = slStateMap.get(String(child.id));
+                              const noteTs = childState?.noteUpdatedAt;
+                              return (
+                                <div className="mt-1.5">
+                                  <textarea
+                                    className="w-full text-xs rounded-lg border border-emerald-200 dark:border-emerald-700/50 bg-emerald-50/60 dark:bg-emerald-900/10 p-2 resize-none outline-none focus:ring-1 focus:ring-emerald-400 dark:focus:ring-emerald-600 placeholder:text-muted-foreground/50 min-h-[48px] transition-colors"
+                                    placeholder={locale === 'sk' ? 'Poznámka k tomuto kroku...' : locale === 'cs' ? 'Poznámka k tomuto kroku...' : locale === 'hu' ? 'Megjegyzés ehhez a lépéshez...' : locale === 'ro' ? 'Notă pentru acest pas...' : locale === 'de' ? 'Anmerkung zu diesem Schritt...' : locale === 'it' ? 'Nota per questo passaggio...' : 'Note for this step...'}
+                                    value={noteVal}
+                                    rows={2}
+                                    onClick={e => e.stopPropagation()}
+                                    onChange={e => {
+                                      const val = e.target.value;
+                                      if (isBatch) {
+                                        setBatchSlNotes(prev => ({ ...prev, [String(child.id)]: val }));
+                                      } else {
+                                        setSlItemNotes(prev => ({ ...prev, [String(child.id)]: val }));
+                                      }
+                                    }}
+                                    onBlur={async e => {
+                                      if (isBatch || !campaign?.id || !campaignContactId) return;
+                                      try {
+                                        await apiRequest("PATCH", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${child.id}/note`, { note: e.target.value });
+                                        queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
+                                      } catch { /* no-op */ }
+                                    }}
+                                  />
+                                  {!isBatch && noteTs && (
+                                    <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground/60">
+                                      <Clock className="h-2.5 w-2.5 shrink-0" />
+                                      <span>{new Date(noteTs).toLocaleDateString(locale === 'sk' ? 'sk-SK' : 'en-GB', { day: 'numeric', month: 'numeric' })} {new Date(noteTs).toLocaleTimeString(locale === 'sk' ? 'sk-SK' : 'en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })()}
