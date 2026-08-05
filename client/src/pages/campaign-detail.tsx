@@ -6535,6 +6535,47 @@ export default function CampaignDetailPage() {
                       </Card>
                       <Card>
                         <CardHeader>
+                          <CardTitle>{t.campaigns.detail.statusListModeTitle}</CardTitle>
+                          <CardDescription>
+                            {t.campaigns.detail.statusListModeDesc}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex gap-3">
+                            {[
+                              { value: "immediate", label: t.campaigns.detail.statusListModeImmediate, desc: t.campaigns.detail.statusListModeImmediateDesc },
+                              { value: "batch", label: t.campaigns.detail.statusListModeBatch, desc: t.campaigns.detail.statusListModeBatchDesc },
+                            ].map((opt) => {
+                              const current = (() => { try { const s = campaign.settings ? JSON.parse(campaign.settings) : {}; return s.statusListMode || "immediate"; } catch { return "immediate"; } })();
+                              const isActive = current === opt.value;
+                              return (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  data-testid={`btn-status-list-mode-${opt.value}`}
+                                  onClick={() => {
+                                    let existing: any = {};
+                                    try { if (campaign.settings) existing = JSON.parse(campaign.settings); } catch {}
+                                    const merged = { ...existing, statusListMode: opt.value };
+                                    apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { settings: JSON.stringify(merged) })
+                                      .then(() => {
+                                        toast({ title: t.campaigns.detail.settingsSaved });
+                                        queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
+                                      })
+                                      .catch(() => toast({ title: t.campaigns.detail.error, variant: "destructive" }));
+                                  }}
+                                  className={`flex-1 text-left px-4 py-3 rounded-lg border-2 transition-all ${isActive ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}
+                                >
+                                  <div className={`text-sm font-semibold ${isActive ? "text-primary" : "text-foreground"}`}>{opt.label}</div>
+                                  <div className="text-xs text-muted-foreground mt-0.5">{opt.desc}</div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader>
                           <CardTitle>{t.campaigns.detail.dispositionModeTitle}</CardTitle>
                           <CardDescription>
                             {t.campaigns.detail.dispositionModeDesc}

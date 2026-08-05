@@ -2790,6 +2790,12 @@ export interface Translations {
       workflowModeDispositionDesc: string;
       workflowModeStatusList: string;
       workflowModeStatusListDesc: string;
+      statusListModeTitle: string;
+      statusListModeDesc: string;
+      statusListModeImmediate: string;
+      statusListModeImmediateDesc: string;
+      statusListModeBatch: string;
+      statusListModeBatchDesc: string;
       settingsGroupBasic: string;
       settingsGroupBasicDesc: string;
       settingsGroupAgent: string;
@@ -10439,6 +10445,12 @@ export const translations: Record<Locale, Translations> = {
         workflowModeDispositionDesc: "Classic call/contact outcome selection",
         workflowModeStatusList: "Status List",
         workflowModeStatusListDesc: "Step-by-step with automations",
+        statusListModeTitle: "Status list interaction mode",
+        statusListModeDesc: "How agents interact with status-list steps — fire automations on each check, or batch everything and save once.",
+        statusListModeImmediate: "Immediate",
+        statusListModeImmediateDesc: "Automations fire on each step check (default)",
+        statusListModeBatch: "Batch",
+        statusListModeBatchDesc: "Agent ticks steps freely, then saves once with a closing action",
         settingsGroupBasic: "Basics",
         settingsGroupBasicDesc: "Core campaign details",
         settingsGroupAgent: "Agent workspace",
@@ -17586,6 +17598,12 @@ export const translations: Record<Locale, Translations> = {
         workflowModeDispositionDesc: "Klasický výber výsledku hovoru/kontaktu",
         workflowModeStatusList: "Status List",
         workflowModeStatusListDesc: "Krok-za-krokom s automatizáciami",
+        statusListModeTitle: "Režim interakcie so status listom",
+        statusListModeDesc: "Ako agenti pracujú so status listom — okamžité automatizácie pri každom zaškrtnutí, alebo dávkové uloženie na záver.",
+        statusListModeImmediate: "Okamžitý",
+        statusListModeImmediateDesc: "Automatizácie sa spustia pri každom zaškrtnutí (predvolené)",
+        statusListModeBatch: "Dávkový",
+        statusListModeBatchDesc: "Agent zaškrtá kroky voľne a na záver uloží s výberom uzatváracej akcie",
         settingsGroupBasic: "Základné",
         settingsGroupBasicDesc: "Hlavné údaje kampane",
         settingsGroupAgent: "Pracovný priestor agenta",
@@ -24671,6 +24689,12 @@ export const translations: Record<Locale, Translations> = {
         workflowModeDispositionDesc: "Klasický výběr výsledku hovoru/kontaktu",
         workflowModeStatusList: "Status List",
         workflowModeStatusListDesc: "Krok za krokem s automatizacemi",
+        statusListModeTitle: "Režim interakce se status listem",
+        statusListModeDesc: "Jak agenti pracují se status listem — okamžité automatizace při každém zaškrtnutí, nebo dávkové uložení na konci.",
+        statusListModeImmediate: "Okamžitý",
+        statusListModeImmediateDesc: "Automatizace se spustí při každém zaškrtnutí (výchozí)",
+        statusListModeBatch: "Dávkový",
+        statusListModeBatchDesc: "Agent zaškrtne kroky volně a na konci uloží s výběrem uzavírací akce",
         settingsGroupBasic: "Základní",
         settingsGroupBasicDesc: "Hlavní údaje kampaně",
         settingsGroupAgent: "Pracovní prostor agenta",
@@ -31714,6 +31738,12 @@ export const translations: Record<Locale, Translations> = {
         workflowModeDispositionDesc: "Klasszikus hívás-/kapcsolateredmény kiválasztása",
         workflowModeStatusList: "Status List",
         workflowModeStatusListDesc: "Lépésről lépésre automatizálásokkal",
+        statusListModeTitle: "Status lista interakciós mód",
+        statusListModeDesc: "Hogyan kezeli az ügynök a status listát — azonnali automatizálás minden jelölésnél, vagy kötegelt mentés a végén.",
+        statusListModeImmediate: "Azonnali",
+        statusListModeImmediateDesc: "Az automatizálások minden jelölésnél lefutnak (alapértelmezett)",
+        statusListModeBatch: "Kötegelt",
+        statusListModeBatchDesc: "Az ügynök szabadon jelöli a lépéseket, majd egyszerre menti egy záró akcióval",
         settingsGroupBasic: "Alapok",
         settingsGroupBasicDesc: "A kampány fő adatai",
         settingsGroupAgent: "Operátor munkaterülete",
@@ -38642,6 +38672,12 @@ export const translations: Record<Locale, Translations> = {
         workflowModeDispositionDesc: "Selectarea clasică a rezultatului apelului/contactului",
         workflowModeStatusList: "Status List",
         workflowModeStatusListDesc: "Pas cu pas cu automatizări",
+        statusListModeTitle: "Modul de interacțiune cu lista de status",
+        statusListModeDesc: "Cum interacționează agenții cu lista de status — automatizări imediate la fiecare bifă, sau salvare în lot la final.",
+        statusListModeImmediate: "Imediat",
+        statusListModeImmediateDesc: "Automatizările se declanșează la fiecare bifare (implicit)",
+        statusListModeBatch: "Lot",
+        statusListModeBatchDesc: "Agentul bifează pașii liber, apoi salvează o dată cu o acțiune de închidere",
         settingsGroupBasic: "Elemente de bază",
         settingsGroupBasicDesc: "Detaliile principale ale campaniei",
         settingsGroupAgent: "Spațiul de lucru al agentului",
@@ -45572,6 +45608,12 @@ export const translations: Record<Locale, Translations> = {
         workflowModeDispositionDesc: "Selezione classica del risultato di chiamata/contatto",
         workflowModeStatusList: "Status List",
         workflowModeStatusListDesc: "Passo dopo passo con automazioni",
+        statusListModeTitle: "Modalità di interazione con la lista di stato",
+        statusListModeDesc: "Come gli agenti interagiscono con la lista di stato — automazioni immediate a ogni spunta, o salvataggio in blocco alla fine.",
+        statusListModeImmediate: "Immediata",
+        statusListModeImmediateDesc: "Le automazioni si attivano a ogni spunta (predefinita)",
+        statusListModeBatch: "Batch",
+        statusListModeBatchDesc: "L'agente spunta i passaggi liberamente, poi salva una volta con un'azione di chiusura",
         settingsGroupBasic: "Base",
         settingsGroupBasicDesc: "Dettagli principali della campagna",
         settingsGroupAgent: "Spazio di lavoro operatore",
@@ -52502,6 +52544,12 @@ export const translations: Record<Locale, Translations> = {
         workflowModeDispositionDesc: "Klassische Auswahl des Anruf-/Kontaktergebnisses",
         workflowModeStatusList: "Status List",
         workflowModeStatusListDesc: "Schritt für Schritt mit Automatisierungen",
+        statusListModeTitle: "Interaktionsmodus der Statusliste",
+        statusListModeDesc: "Wie Agenten mit der Statusliste interagieren — sofortige Automatisierungen bei jeder Markierung, oder Stapelspeicherung am Ende.",
+        statusListModeImmediate: "Sofort",
+        statusListModeImmediateDesc: "Automatisierungen werden bei jeder Markierung ausgelöst (Standard)",
+        statusListModeBatch: "Stapel",
+        statusListModeBatchDesc: "Agent hakt Schritte frei ab und speichert am Ende einmal mit einer Abschlussaktaktion",
         settingsGroupBasic: "Grundlagen",
         settingsGroupBasicDesc: "Wichtigste Kampagnendetails",
         settingsGroupAgent: "Agenten-Arbeitsbereich",

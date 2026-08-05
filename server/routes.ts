@@ -30230,7 +30230,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       if (!campaignContactId || !itemId) return res.status(400).json({ error: "Invalid parameters" });
 
       const userId = req.session.user!.id;
-      const { confirm, contactCountry, overrideCallbackDate, overrideCallbackNote } = req.body as { confirm: boolean; contactCountry?: string; overrideCallbackDate?: string | null; overrideCallbackNote?: string | null };
+      const { confirm, contactCountry, overrideCallbackDate, overrideCallbackNote, skipAutomations } = req.body as { confirm: boolean; contactCountry?: string; overrideCallbackDate?: string | null; overrideCallbackNote?: string | null; skipAutomations?: boolean };
 
       if (confirm) {
         // Check if already confirmed
@@ -30312,6 +30312,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             console.error("[assign_task] notif name resolution error:", nameErr);
           }
 
+          if (!skipAutomations) {
           // Execute automations for this item (F8)
           const automations = await db.select()
             .from(campaignStatusListAutomations)
@@ -30679,6 +30680,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
               });
             }
           }
+          } // end if (!skipAutomations)
 
           // Log to campaign contact history (F9)
           await db.insert(campaignContactHistory).values({

@@ -250,6 +250,24 @@ const SL_ACTION_T: Record<string, Record<string, string>> = {
   role_coordinator: { sk: "Koordinátor", en: "Coordinator", cs: "Koordinátor", hu: "Koordinátor", ro: "Coordonator", it: "Coordinatore", de: "Koordinator" },
   role_admin:       { sk: "Administrátor", en: "Admin", cs: "Administrátor", hu: "Adminisztrátor", ro: "Administrator", it: "Amministratore", de: "Administrator" },
   role_manager:     { sk: "Manažér", en: "Manager", cs: "Manažer", hu: "Menedzser", ro: "Manager", it: "Manager", de: "Manager" },
+  // ── Batch-save mode ────────────────────────────────────────────────
+  batchSave:           { sk: "Uložiť status list", en: "Save status list", cs: "Uložit status list", hu: "Status lista mentése", ro: "Salvează lista de status", it: "Salva lista stato", de: "Statusliste speichern" },
+  batchSaveHint:       { sk: "Vyberte uzatváraciu akciu", en: "Choose a closing action", cs: "Vyberte uzavírací akci", hu: "Válasszon záró műveletet", ro: "Alegeți acțiunea de închidere", it: "Scegli un'azione di chiusura", de: "Abschlussaktion wählen" },
+  batchReschedule:     { sk: "Preplánovat hovor", en: "Reschedule call", cs: "Přeplánovat hovor", hu: "Hívás átütemezése", ro: "Reprogramează apelul", it: "Riprogramma chiamata", de: "Anruf umplanen" },
+  batchDoNotCall:      { sk: "Nevolať", en: "Do not call", cs: "Nevolat", hu: "Ne hívja", ro: "Nu apelați", it: "Non chiamare", de: "Nicht anrufen" },
+  batchRescheduleDesc: { sk: "Naplánuj nový hovor na konkrétny termín.", en: "Schedule a new call for a specific date.", cs: "Naplánujte nový hovor na konkrétní datum.", hu: "Ütemezzen új hívást egy meghatározott időpontra.", ro: "Programați un nou apel la o dată specifică.", it: "Pianifica una nuova chiamata per una data specifica.", de: "Planen Sie einen neuen Anruf für ein bestimmtes Datum." },
+  batchDoNotCallDesc:  { sk: "Kontakt sa v tejto kampani nebude ďalej volať.", en: "This contact will not be called again in this campaign.", cs: "Tento kontakt nebude v této kampani dále voláni.", hu: "Ez a kapcsolat nem kerül újra hívásra ebben a kampányban.", ro: "Acest contact nu va mai fi apelat în această campanie.", it: "Questo contatto non verrà più chiamato in questa campagna.", de: "Dieser Kontakt wird in dieser Kampagne nicht mehr angerufen." },
+  batchD1:             { sk: "+1 pracovný deň", en: "+1 working day", cs: "+1 pracovní den", hu: "+1 munkanap", ro: "+1 zi lucrătoare", it: "+1 giorno lavorativo", de: "+1 Werktag" },
+  batchD3:             { sk: "+3 pracovné dni", en: "+3 working days", cs: "+3 pracovní dny", hu: "+3 munkanap", ro: "+3 zile lucrătoare", it: "+3 giorni lavorativi", de: "+3 Werktage" },
+  batchD5:             { sk: "+5 pracovných dní", en: "+5 working days", cs: "+5 pracovních dní", hu: "+5 munkanap", ro: "+5 zile lucrătoare", it: "+5 giorni lavorativi", de: "+5 Werktage" },
+  batchM1:             { sk: "+1 mesiac", en: "+1 month", cs: "+1 měsíc", hu: "+1 hónap", ro: "+1 lună", it: "+1 mese", de: "+1 Monat" },
+  batchNotePh:         { sk: "Dôvod, čo povedal zákazník...", en: "Reason, what customer said...", cs: "Důvod, co zákazník řekl...", hu: "Ok, amit az ügyfél mondott...", ro: "Motiv, ce a spus clientul...", it: "Motivo, cosa ha detto il cliente...", de: "Grund, was der Kunde sagte..." },
+  batchConfirm:        { sk: "Potvrdiť a uložiť", en: "Confirm & save", cs: "Potvrdit a uložit", hu: "Megerősítés és mentés", ro: "Confirmă și salvează", it: "Conferma e salva", de: "Bestätigen & speichern" },
+  batchSaving:         { sk: "Ukladám...", en: "Saving...", cs: "Ukládám...", hu: "Mentés...", ro: "Se salvează...", it: "Salvataggio...", de: "Speichern..." },
+  batchSaved:          { sk: "Status list uložený", en: "Status list saved", cs: "Status list uložen", hu: "Status lista mentve", ro: "Lista de status salvată", it: "Lista stato salvata", de: "Statusliste gespeichert" },
+  batchSaveFailed:     { sk: "Uloženie zlyhalo", en: "Save failed", cs: "Uložení selhalo", hu: "Mentés sikertelen", ro: "Salvarea a eșuat", it: "Salvataggio fallito", de: "Speichern fehlgeschlagen" },
+  batchSelectedCount:  { sk: "vybraných krokov", en: "steps selected", cs: "vybraných kroků", hu: "lépés kiválasztva", ro: "pași selectați", it: "passi selezionati", de: "Schritte ausgewählt" },
+  batchNoItems:        { sk: "Nie sú zaškrtnuté žiadne kroky.", en: "No steps have been checked.", cs: "Nejsou zaškrtnuté žádné kroky.", hu: "Nincsenek bejelölt lépések.", ro: "Nu sunt bifați pași.", it: "Nessun passaggio selezionato.", de: "Keine Schritte angekreuzt." },
 };
 const slt = (key: string, locale: string): string => SL_ACTION_T[key]?.[locale] ?? SL_ACTION_T[key]?.en ?? key;
 // Resolve an automation target role ("role:back_office" / "group:123") to a readable label.
@@ -2841,6 +2859,16 @@ function CommunicationCanvas({
   const [isSavingChecklist, setIsSavingChecklist] = useState(false);
   const [dbSlChecked, setDbSlChecked] = useState<Set<string>>(new Set());
   const [slActiveTab, setSlActiveTab] = useState<'acquisition' | 'contract' | 'retention'>('acquisition');
+  // Batch-save mode state
+  const [batchSlSelections, setBatchSlSelections] = useState<Set<string>>(new Set());
+  const [slBatchSaveOpen, setSlBatchSaveOpen] = useState(false);
+  const [slBatchSaving, setSlBatchSaving] = useState(false);
+  const [slBatchAction, setSlBatchAction] = useState<"reschedule" | "do_not_call">("reschedule");
+  const [slBatchCallbackDt, setSlBatchCallbackDt] = useState("");
+  const [slBatchCallbackNote, setSlBatchCallbackNote] = useState("");
+  const statusListMode = useMemo(() => {
+    try { return campaign?.settings ? (JSON.parse(campaign.settings).statusListMode || "immediate") : "immediate"; } catch { return "immediate"; }
+  }, [campaign?.settings]);
   const { data: dbStatusList = [] } = useQuery<any[]>({
     queryKey: ["/api/campaigns", campaign?.id, "status-list"],
     enabled: !!campaign?.id,
@@ -2869,6 +2897,17 @@ function CommunicationCanvas({
   const [slRunningOption, setSlRunningOption] = useState<string | null>(null);
   const handleSlOptionSelect = useCallback(async (option: any) => {
     if (!campaign?.id || !campaignContactId) return;
+
+    // In batch mode: just stage the option, don't fire automations
+    if (statusListMode === "batch") {
+      setBatchSlSelections(prev => {
+        const next = new Set(prev);
+        if (next.has(String(option.id))) { next.delete(String(option.id)); } else { next.add(String(option.id)); }
+        return next;
+      });
+      return;
+    }
+
     setSlRunningOption(option.id);
     let isDefinitive = false;
     try {
@@ -2896,7 +2935,7 @@ function CommunicationCanvas({
     } finally {
       setSlRunningOption(null);
     }
-  }, [campaign?.id, campaignContactId, contact?.country, onCloseCallAfterStatusList, toast]);
+  }, [campaign?.id, campaignContactId, contact?.country, onCloseCallAfterStatusList, statusListMode, toast]);
 
   useEffect(() => {
     // All rows in dbSlState are confirmed (existence-based model)
@@ -2945,6 +2984,22 @@ function CommunicationCanvas({
   const [slPendingCallback, setSlPendingCallback] = useState<{ itemId: string; itemLabel: string; allAutomations: any[]; cbAuto: any | null; dt: string; note: string } | null>(null);
 
   const handleSlToggle = useCallback(async (itemId: string, newChecked: boolean) => {
+    // In batch mode: just toggle visual state and stage in batchSlSelections (no API, no automations)
+    if (statusListMode === "batch") {
+      setDbSlChecked(prev => {
+        const next = new Set(prev);
+        if (newChecked) next.add(itemId); else next.delete(itemId);
+        return next;
+      });
+      setBatchSlSelections(prev => {
+        const next = new Set(prev);
+        // Only track newly checked items (not ones already confirmed from server)
+        if (newChecked) { next.add(itemId); } else { next.delete(itemId); }
+        return next;
+      });
+      return;
+    }
+
     // Intercept: when confirming a step that has a set_callback automation, show picker first
     if (newChecked) {
       const item = (dbStatusList as any[]).find((i: any) => String(i.id) === itemId);
@@ -2987,7 +3042,7 @@ function CommunicationCanvas({
         return next;
       });
     }
-  }, [campaign?.id, campaignContactId, contactCountry, dbStatusList, toast]);
+  }, [campaign?.id, campaignContactId, contactCountry, dbStatusList, statusListMode, toast]);
 
   const handleSlConfirmWithCallback = useCallback(async () => {
     if (!slPendingCallback || !campaign?.id || !campaignContactId) return;
@@ -3021,6 +3076,55 @@ function CommunicationCanvas({
       toast({ title: "Chyba", variant: "destructive" });
     }
   }, [slPendingCallback, campaign?.id, campaignContactId, contactCountry, dbStatusList, toast, locale]);
+
+  const handleSlBatchSaveConfirm = useCallback(async () => {
+    if (!campaign?.id || !campaignContactId || batchSlSelections.size === 0) return;
+    setSlBatchSaving(true);
+    try {
+      // Persist all staged items without firing automations
+      for (const itemId of Array.from(batchSlSelections)) {
+        await apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${itemId}`, {
+          confirm: true,
+          contactCountry: contactCountry ?? null,
+          skipAutomations: true,
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
+
+      if (slBatchAction === "reschedule") {
+        await apiRequest("PATCH", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}`, {
+          callbackDate: slBatchCallbackDt || null,
+          callbackNote: slBatchCallbackNote || null,
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+        let dtLabel = "";
+        try {
+          const d = new Date(slBatchCallbackDt);
+          dtLabel = d.toLocaleDateString("sk-SK", { weekday: "short", day: "numeric", month: "numeric" }) + " " + d.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" });
+        } catch { /* no-op */ }
+        toast({ title: slt("batchSaved", locale), description: dtLabel || slBatchCallbackDt });
+      } else {
+        await apiRequest("PATCH", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}`, {
+          status: "do_not_call",
+          callbackNote: slBatchCallbackNote || null,
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts"] });
+        toast({ title: slt("batchSaved", locale) });
+        onCloseCallAfterStatusList?.();
+      }
+
+      setBatchSlSelections(new Set());
+      setSlBatchSaveOpen(false);
+      setSlBatchCallbackDt("");
+      setSlBatchCallbackNote("");
+    } catch {
+      toast({ title: slt("batchSaveFailed", locale), variant: "destructive" });
+    } finally {
+      setSlBatchSaving(false);
+    }
+  }, [campaign?.id, campaignContactId, batchSlSelections, slBatchAction, slBatchCallbackDt, slBatchCallbackNote, contactCountry, locale, onCloseCallAfterStatusList, toast]);
 
   // Manual ("run now") trigger for a single configured status-list automation.
   const [slRunningAuto, setSlRunningAuto] = useState<Set<string>>(new Set());
@@ -3196,6 +3300,10 @@ function CommunicationCanvas({
     setShowSmsCcField(false);
     setSelectedDocuments([]);
     setDbSlChecked(new Set());
+    setBatchSlSelections(new Set());
+    setSlBatchSaveOpen(false);
+    setSlBatchCallbackDt("");
+    setSlBatchCallbackNote("");
     setSlQuestionAnswers({});
   }, [contact?.id]);
 
@@ -5640,6 +5748,126 @@ function CommunicationCanvas({
                 </Dialog>
               )}
 
+              {/* ── Batch-save modal ──────────────────────────────── */}
+              {slBatchSaveOpen && (
+                <Dialog open onOpenChange={(open) => { if (!open) setSlBatchSaveOpen(false); }}>
+                  <DialogContent className="max-w-md" style={STONE_TERRACOTTA_VARS}>
+                    <DialogHeader>
+                      <DialogTitle className="text-base flex items-center gap-2">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 animate-in zoom-in-50 duration-700 fill-mode-both motion-reduce:animate-none" style={{ animationTimingFunction: "cubic-bezier(0.34,1.56,0.64,1)" }}>
+                          <Save className="h-3.5 w-3.5" />
+                        </span>
+                        {slt("batchSave", locale)}
+                      </DialogTitle>
+                      <DialogDescription asChild>
+                        <div className="text-sm text-muted-foreground pt-1">
+                          {batchSlSelections.size > 0
+                            ? `${batchSlSelections.size} ${slt("batchSelectedCount", locale)}`
+                            : slt("batchNoItems", locale)}
+                        </div>
+                      </DialogDescription>
+                    </DialogHeader>
+                    {/* Summary of staged items */}
+                    {batchSlSelections.size > 0 && (
+                      <div className="space-y-0.5 max-h-32 overflow-y-auto rounded-lg border bg-muted/30 p-2">
+                        {Array.from(batchSlSelections).map(id => {
+                          const it = (dbStatusList as any[]).find((i: any) => String(i.id) === id);
+                          if (!it) return null;
+                          return (
+                            <div key={id} className="flex items-center gap-2 rounded-md px-2 py-1">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                              <span className="text-xs font-medium truncate">{it.label}</span>
+                              {it.itemType === "option" && (
+                                <span className="ml-auto shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: it.color || "#6b7280" }}>OPT</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground">{slt("batchSaveHint", locale)}</p>
+                      <div className="flex gap-2">
+                        {(["reschedule", "do_not_call"] as const).map(action => (
+                          <button
+                            key={action}
+                            type="button"
+                            onClick={() => setSlBatchAction(action)}
+                            className={`flex-1 flex items-center gap-1.5 justify-center px-3 py-2.5 rounded-lg border-2 text-xs font-bold transition-all ${slBatchAction === action ? (action === "reschedule" ? "border-primary bg-primary/5 text-primary" : "border-rose-500 bg-rose-50/60 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400") : "border-border text-muted-foreground hover:border-primary/40"}`}
+                          >
+                            {action === "reschedule" ? <CalendarCheck className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
+                            {slt(action === "reschedule" ? "batchReschedule" : "batchDoNotCall", locale)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {slBatchAction === "reschedule" && (
+                      <div className="space-y-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+                        <p className="text-xs text-muted-foreground">{slt("batchRescheduleDesc", locale)}</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {[
+                            { label: slt("batchD1", locale), fn: () => { const d = addBusinessDays(new Date(), 1); d.setHours(9, 0, 0, 0); return d; } },
+                            { label: slt("batchD3", locale), fn: () => { const d = addBusinessDays(new Date(), 3); d.setHours(9, 0, 0, 0); return d; } },
+                            { label: slt("batchD5", locale), fn: () => { const d = addBusinessDays(new Date(), 5); d.setHours(9, 0, 0, 0); return d; } },
+                            { label: slt("batchM1", locale), fn: () => { const d = addDays(new Date(), 30); d.setHours(9, 0, 0, 0); return d; } },
+                          ].map(chip => (
+                            <button
+                              key={chip.label}
+                              type="button"
+                              onClick={() => setSlBatchCallbackDt(chip.fn().toISOString())}
+                              className="px-2.5 py-1 rounded-full border border-primary/30 bg-primary/5 text-primary text-xs font-semibold hover:bg-primary/15 transition-colors"
+                            >
+                              {chip.label}
+                            </button>
+                          ))}
+                        </div>
+                        <DateTimePicker
+                          value={slBatchCallbackDt}
+                          onChange={setSlBatchCallbackDt}
+                          includeTime
+                        />
+                        <textarea
+                          placeholder={slt("batchNotePh", locale)}
+                          value={slBatchCallbackNote}
+                          rows={2}
+                          onChange={(e) => setSlBatchCallbackNote(e.target.value)}
+                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
+                        />
+                      </div>
+                    )}
+                    {slBatchAction === "do_not_call" && (
+                      <div className="space-y-2 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+                        <p className="text-xs text-muted-foreground">{slt("batchDoNotCallDesc", locale)}</p>
+                        <textarea
+                          placeholder={slt("batchNotePh", locale)}
+                          value={slBatchCallbackNote}
+                          rows={2}
+                          onChange={(e) => setSlBatchCallbackNote(e.target.value)}
+                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
+                        />
+                      </div>
+                    )}
+                    <DialogFooter className="gap-2 flex-row justify-end">
+                      <Button variant="outline" size="sm" onClick={() => setSlBatchSaveOpen(false)}>
+                        {slt("cfmCancel", locale)}
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={slBatchSaving || (slBatchAction === "reschedule" && !slBatchCallbackDt)}
+                        onClick={handleSlBatchSaveConfirm}
+                        className={`font-semibold shadow-sm ${slBatchAction === "do_not_call" ? "bg-rose-600 hover:bg-rose-700 text-white border-rose-600" : ""}`}
+                      >
+                        {slBatchSaving ? (
+                          <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />{slt("batchSaving", locale)}</>
+                        ) : (
+                          <><Check className="h-4 w-4 mr-1.5" />{slt("batchConfirm", locale)}</>
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
+
               {/* ── Items list ─────────────────────────────────────── */}
               <div className="flex-1 overflow-y-auto px-3 py-2.5 space-y-2">
                 {slTabItems.map((item: any) => {
@@ -5968,6 +6196,32 @@ function CommunicationCanvas({
                 </div>
                 ); })}
               </div>
+
+              {/* ── Batch-save button (batch mode only) ──────────── */}
+              {statusListMode === "batch" && (
+                <div className="px-3 py-2 shrink-0">
+                  <button
+                    type="button"
+                    disabled={batchSlSelections.size === 0}
+                    onClick={() => {
+                      setSlBatchAction("reschedule");
+                      setSlBatchCallbackDt("");
+                      setSlBatchCallbackNote("");
+                      setSlBatchSaveOpen(true);
+                    }}
+                    className={`w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-sm font-bold transition-all shadow-sm ${batchSlSelections.size > 0 ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200/50 dark:shadow-emerald-900/30" : "bg-muted text-muted-foreground border border-dashed border-border cursor-default opacity-60"}`}
+                    data-testid="btn-sl-batch-save"
+                  >
+                    <Save className="h-4 w-4" />
+                    {slt("batchSave", locale)}
+                    {batchSlSelections.size > 0 && (
+                      <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-white/25 px-1 text-[11px] font-black">
+                        {batchSlSelections.size}
+                      </span>
+                    )}
+                  </button>
+                </div>
+              )}
 
               {/* ── Nexus Pulse Footer ─────────────────────────────── */}
               <div className="px-4 pb-3 pt-2.5 border-t bg-gradient-to-b from-transparent to-muted/20 shrink-0 space-y-2">
