@@ -7,7 +7,7 @@ import { Phone, PhoneOff, PhoneIncoming, Mic, MicOff, PauseCircle, PlayCircle,
   Clock, ChevronRight, AlertCircle, FileText, ListChecks,
   Mail, MapPin, Calendar, ArrowLeft, Search, X, Baby, Building2, SlidersHorizontal,
   History, PhoneCall, Stethoscope, UserX, Globe, Share2, UserCheck,
-  MessageSquare, Send, Volume2 } from "lucide-react";
+  MessageSquare, Send, Volume2, Save } from "lucide-react";
 import { format } from "date-fns";
 
 /* ── helpers ────────────────────────────────────────────────────────── */
@@ -88,6 +88,9 @@ export interface MobileAgentWorkspaceProps {
   dbStatusList: any[];
   dbSlChecked: Set<string>;
   onSlToggle: (itemId: string, checked: boolean) => void;
+  statusListMode?: string;
+  batchSlSelections?: Set<string>;
+  onBatchSave?: () => void;
   agentStatus: string;
   isOnBreak: boolean;
   workTime: string;
@@ -227,11 +230,14 @@ function BackBar({ onBack, label }: { onBack: () => void; label: string }) {
 }
 
 /* ── StatusListPanel — hierarchical, large touch targets ────────────── */
-function StatusListPanel({ items, checked, onToggle, np }: {
+function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSlSelections, onBatchSave }: {
   items: any[];
   checked: Set<string>;
   onToggle: (id: string, v: boolean) => void;
   np: any;
+  statusListMode?: string;
+  batchSlSelections?: Set<string>;
+  onBatchSave?: () => void;
 }) {
   const [yesno, setYesno] = useState<Record<string, "yes" | "no">>({});
   const [currentTab, setCurrentTab] = useState<'acquisition' | 'contract' | 'retention'>('acquisition');
@@ -584,6 +590,30 @@ function StatusListPanel({ items, checked, onToggle, np }: {
               </div>
             </div>
           )}
+          {/* ── Batch-save button (batch mode only) ── */}
+          {statusListMode === "batch" && (
+            <div className="px-4 py-3 border-t bg-emerald-50/40 dark:bg-emerald-950/10">
+              <button
+                type="button"
+                onClick={onBatchSave}
+                disabled={!batchSlSelections || batchSlSelections.size === 0}
+                className={`w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold transition-all active:scale-[0.98] ${
+                  batchSlSelections && batchSlSelections.size > 0
+                    ? "bg-emerald-600 text-white shadow-lg shadow-emerald-500/20"
+                    : "bg-muted text-muted-foreground border border-dashed border-border opacity-60"
+                }`}
+                data-testid="btn-mobile-sl-batch-save"
+              >
+                <Save className="h-4 w-4" />
+                {np.batchSave || "Save status list"}
+                {batchSlSelections && batchSlSelections.size > 0 && (
+                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-white/25 px-1 text-[11px] font-black">
+                    {batchSlSelections.size}
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
         </div>
     </div>
   );
@@ -781,6 +811,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
     sipIncomingCall, onAnswerIncoming, onRejectIncoming,
     onOpenDisposition, isStatusListMode,
     dbStatusList, dbSlChecked, onSlToggle,
+    statusListMode, batchSlSelections, onBatchSave,
     agentStatus, isOnBreak, workTime, breakTypes,
     onEndSession, onStartBreak, onEndBreak,
     onFullLogout, t, currentUserId, allCampaignContacts,
@@ -1164,7 +1195,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
               {contactInfoSection}
             </div>
             {dbStatusList.length > 0 && (
-              <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} />
+              <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} statusListMode={statusListMode} batchSlSelections={batchSlSelections} onBatchSave={onBatchSave} />
             )}
           </div>
         </div>
@@ -1200,7 +1231,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
             </button>
           )}
           {contactInfoSection}
-          <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} />
+          <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} statusListMode={statusListMode} batchSlSelections={batchSlSelections} onBatchSave={onBatchSave} />
           <button onClick={onClearContact}
             className="w-full flex items-center justify-center gap-2 h-11 rounded-xl border border-dashed border-amber-400 text-amber-600 dark:text-amber-400 text-sm font-semibold bg-amber-50/50 dark:bg-amber-950/10 active:scale-[0.98] transition-all"
             data-testid="btn-mobile-release-contact-ended">
@@ -1292,7 +1323,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
           {/* Status list */}
           {dbStatusList.length > 0 && (
             <div className="-mx-4">
-              <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} />
+              <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} statusListMode={statusListMode} batchSlSelections={batchSlSelections} onBatchSave={onBatchSave} />
             </div>
           )}
 

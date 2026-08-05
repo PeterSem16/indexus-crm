@@ -10656,15 +10656,44 @@ export default function AgentWorkspacePage() {
     staleTime: 0,
     refetchOnMount: "always",
   });
+
+  // Mobile batch-save mode — mirrors CommunicationCanvas batch state for the mobile layout
+  const mobileStatusListMode = useMemo(() => {
+    try { return selectedCampaign?.settings ? (JSON.parse(selectedCampaign.settings).statusListMode || "immediate") : "immediate"; } catch { return "immediate"; }
+  }, [selectedCampaign?.settings]);
+  const [mobileBatchSlSelections, setMobileBatchSlSelections] = useState<Set<string>>(new Set());
+  const [mobileSlBatchSaveOpen, setMobileSlBatchSaveOpen] = useState(false);
+  const [mobileSlBatchSaving, setMobileSlBatchSaving] = useState(false);
+  const [mobileSlBatchAction, setMobileSlBatchAction] = useState<"reschedule" | "do_not_call">("reschedule");
+  const [mobileSlBatchCallbackDt, setMobileSlBatchCallbackDt] = useState("");
+  const [mobileSlBatchCallbackNote, setMobileSlBatchCallbackNote] = useState("");
+
   useEffect(() => {
     if (!isMobile) return;
     const confirmedIds = new Set<string>((mobileDbSlState as any[]).map((s: any) => String(s.statusListItemId)));
     const autoItems = (mobileDbStatusList as any[]).filter((i: any) => i.confirmationType === "auto" && !i.isHidden);
     const autoChecked = autoItems.filter((i: any) => confirmedIds.has(String(i.id)));
     setMobileDbSlChecked(new Set([...Array.from(confirmedIds), ...autoChecked.map((i: any) => String(i.id))]));
+    // Reset staged batch selections when the contact's server state reloads (new contact opened)
+    setMobileBatchSlSelections(new Set());
   }, [mobileDbSlState, mobileDbStatusList, isMobile]);
+
   const handleMobileSlToggle = useCallback(async (itemId: string, newChecked: boolean) => {
     if (!selectedCampaignId || !effectiveCampaignContactId) return;
+    // Batch mode: stage locally — no API call, no automations
+    if (mobileStatusListMode === "batch") {
+      setMobileDbSlChecked(prev => {
+        const next = new Set(prev);
+        if (newChecked) next.add(itemId); else next.delete(itemId);
+        return next;
+      });
+      setMobileBatchSlSelections(prev => {
+        const next = new Set(prev);
+        if (newChecked) next.add(itemId); else next.delete(itemId);
+        return next;
+      });
+      return;
+    }
     setMobileDbSlChecked(prev => {
       const next = new Set(prev);
       if (newChecked) next.add(itemId); else next.delete(itemId);
@@ -10682,7 +10711,51 @@ export default function AgentWorkspacePage() {
         return next;
       });
     }
-  }, [selectedCampaignId, effectiveCampaignContactId]);
+  }, [selectedCampaignId, effectiveCampaignContactId, mobileStatusListMode]);
+
+  const handleMobileBatchSaveConfirm = useCallback(async () => {
+    if (!selectedCampaignId || !effectiveCampaignContactId || mobileBatchSlSelections.size === 0) return;
+    setMobileSlBatchSaving(true);
+    try {
+      for (const itemId of Array.from(mobileBatchSlSelections)) {
+        await apiRequest("POST", `/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}/status-list-state/${itemId}`, {
+          confirm: true,
+          skipAutomations: true,
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-state"] });
+      if (mobileSlBatchAction === "reschedule") {
+        await apiRequest("PATCH", `/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}`, {
+          callbackDate: mobileSlBatchCallbackDt || null,
+          callbackNote: mobileSlBatchCallbackNote || null,
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+        let dtLabel = "";
+        try {
+          const d = new Date(mobileSlBatchCallbackDt);
+          dtLabel = d.toLocaleDateString("sk-SK", { weekday: "short", day: "numeric", month: "numeric" }) + " " + d.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" });
+        } catch { /* no-op */ }
+        toast({ title: slt("batchSaved", locale), description: dtLabel || mobileSlBatchCallbackDt });
+      } else {
+        await apiRequest("PATCH", `/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}`, {
+          status: "do_not_call",
+          callbackNote: mobileSlBatchCallbackNote || null,
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts"] });
+        toast({ title: slt("batchSaved", locale) });
+      }
+      setMobileBatchSlSelections(new Set());
+      setMobileSlBatchSaveOpen(false);
+      setMobileSlBatchCallbackDt("");
+      setMobileSlBatchCallbackNote("");
+    } catch {
+      toast({ title: slt("batchSaveFailed", locale), variant: "destructive" });
+    } finally {
+      setMobileSlBatchSaving(false);
+    }
+  }, [selectedCampaignId, effectiveCampaignContactId, mobileBatchSlSelections, mobileSlBatchAction, mobileSlBatchCallbackDt, mobileSlBatchCallbackNote, locale, toast]);
 
   const isStatusListMode = useMemo(() => {
     try { return selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings).workflowMode === "status_list" : false; }
@@ -13614,6 +13687,14 @@ export default function AgentWorkspacePage() {
               dbStatusList={mobileDbStatusList}
               dbSlChecked={mobileDbSlChecked}
               onSlToggle={handleMobileSlToggle}
+              statusListMode={mobileStatusListMode}
+              batchSlSelections={mobileBatchSlSelections}
+              onBatchSave={() => {
+                setMobileSlBatchAction("reschedule");
+                setMobileSlBatchCallbackDt("");
+                setMobileSlBatchCallbackNote("");
+                setMobileSlBatchSaveOpen(true);
+              }}
               agentStatus={agentSession.status}
               isOnBreak={!!agentSession.activeBreak}
               workTime={agentSession.workTime}
@@ -13645,6 +13726,125 @@ export default function AgentWorkspacePage() {
               onMicVolumeChange={(vol) => callContext.onMicVolumeChangeFn.current?.(vol)}
             />
           </div>
+        )}
+
+        {/* ── Mobile batch-save dialog — same UX as desktop, uses mobile state ── */}
+        {isMobile && mobileSlBatchSaveOpen && (
+          <Dialog open onOpenChange={(open) => { if (!open) setMobileSlBatchSaveOpen(false); }}>
+            <DialogContent className="max-w-md" style={STONE_TERRACOTTA_VARS}>
+              <DialogHeader>
+                <DialogTitle className="text-base flex items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 animate-in zoom-in-50 duration-700 fill-mode-both motion-reduce:animate-none" style={{ animationTimingFunction: "cubic-bezier(0.34,1.56,0.64,1)" }}>
+                    <Save className="h-3.5 w-3.5" />
+                  </span>
+                  {slt("batchSave", locale)}
+                </DialogTitle>
+                <DialogDescription asChild>
+                  <div className="text-sm text-muted-foreground pt-1">
+                    {mobileBatchSlSelections.size > 0
+                      ? `${mobileBatchSlSelections.size} ${slt("batchSelectedCount", locale)}`
+                      : slt("batchNoItems", locale)}
+                  </div>
+                </DialogDescription>
+              </DialogHeader>
+              {mobileBatchSlSelections.size > 0 && (
+                <div className="space-y-0.5 max-h-32 overflow-y-auto rounded-lg border bg-muted/30 p-2">
+                  {Array.from(mobileBatchSlSelections).map(id => {
+                    const it = (mobileDbStatusList as any[]).find((i: any) => String(i.id) === id);
+                    if (!it) return null;
+                    return (
+                      <div key={id} className="flex items-center gap-2 rounded-md px-2 py-1">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                        <span className="text-xs font-medium truncate">{it.label}</span>
+                        {it.itemType === "option" && (
+                          <span className="ml-auto shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: it.color || "#6b7280" }}>OPT</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">{slt("batchSaveHint", locale)}</p>
+                <div className="flex gap-2">
+                  {(["reschedule", "do_not_call"] as const).map(action => (
+                    <button
+                      key={action}
+                      type="button"
+                      onClick={() => setMobileSlBatchAction(action)}
+                      className={`flex-1 flex items-center gap-1.5 justify-center px-3 py-2.5 rounded-lg border-2 text-xs font-bold transition-all ${mobileSlBatchAction === action ? (action === "reschedule" ? "border-primary bg-primary/5 text-primary" : "border-rose-500 bg-rose-50/60 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400") : "border-border text-muted-foreground hover:border-primary/40"}`}
+                    >
+                      {action === "reschedule" ? <CalendarCheck className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
+                      {slt(action === "reschedule" ? "batchReschedule" : "batchDoNotCall", locale)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {mobileSlBatchAction === "reschedule" && (
+                <div className="space-y-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+                  <p className="text-xs text-muted-foreground">{slt("batchRescheduleDesc", locale)}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { label: slt("batchD1", locale), fn: () => { const d = addBusinessDays(new Date(), 1); d.setHours(9, 0, 0, 0); return d; } },
+                      { label: slt("batchD3", locale), fn: () => { const d = addBusinessDays(new Date(), 3); d.setHours(9, 0, 0, 0); return d; } },
+                      { label: slt("batchD5", locale), fn: () => { const d = addBusinessDays(new Date(), 5); d.setHours(9, 0, 0, 0); return d; } },
+                      { label: slt("batchM1", locale), fn: () => { const d = addDays(new Date(), 30); d.setHours(9, 0, 0, 0); return d; } },
+                    ].map(chip => (
+                      <button
+                        key={chip.label}
+                        type="button"
+                        onClick={() => setMobileSlBatchCallbackDt(chip.fn().toISOString())}
+                        className="px-2.5 py-1 rounded-full border border-primary/30 bg-primary/5 text-primary text-xs font-semibold hover:bg-primary/15 transition-colors"
+                      >
+                        {chip.label}
+                      </button>
+                    ))}
+                  </div>
+                  <DateTimePicker
+                    value={mobileSlBatchCallbackDt}
+                    onChange={setMobileSlBatchCallbackDt}
+                    includeTime
+                  />
+                  <textarea
+                    placeholder={slt("batchNotePh", locale)}
+                    value={mobileSlBatchCallbackNote}
+                    rows={2}
+                    onChange={(e) => setMobileSlBatchCallbackNote(e.target.value)}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
+                  />
+                </div>
+              )}
+              {mobileSlBatchAction === "do_not_call" && (
+                <div className="space-y-2 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+                  <p className="text-xs text-muted-foreground">{slt("batchDoNotCallDesc", locale)}</p>
+                  <textarea
+                    placeholder={slt("batchNotePh", locale)}
+                    value={mobileSlBatchCallbackNote}
+                    rows={2}
+                    onChange={(e) => setMobileSlBatchCallbackNote(e.target.value)}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
+                  />
+                </div>
+              )}
+              <DialogFooter className="gap-2 flex-row justify-end">
+                <Button variant="outline" size="sm" onClick={() => setMobileSlBatchSaveOpen(false)}>
+                  {slt("cfmCancel", locale)}
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={mobileSlBatchSaving || (mobileSlBatchAction === "reschedule" && !mobileSlBatchCallbackDt)}
+                  onClick={handleMobileBatchSaveConfirm}
+                  className={`font-semibold shadow-sm ${mobileSlBatchAction === "do_not_call" ? "bg-rose-600 hover:bg-rose-700 text-white border-rose-600" : ""}`}
+                >
+                  {mobileSlBatchSaving ? (
+                    <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />{slt("batchSaving", locale)}</>
+                  ) : (
+                    <><Check className="h-4 w-4 mr-1.5" />{slt("batchConfirm", locale)}</>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         )}
 
         {!isMobile && isLoadingInboundContact && (
