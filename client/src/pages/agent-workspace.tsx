@@ -221,7 +221,7 @@ const SL_ACTION_T: Record<string, Record<string, string>> = {
   cfmStatusTitle: { sk: "Nastaví sa status kontaktu", en: "Contact status will be set", cs: "Nastaví se stav kontaktu", hu: "A kapcsolat státusza beáll", ro: "Se va seta statusul contactului", it: "Verrà impostato lo stato del contatto", de: "Kontaktstatus wird gesetzt" },
   cfmStatusDesc:  { sk: "Kontaktu sa priradí nový status.", en: "The contact will be marked with a new status.", cs: "Kontaktu se přiřadí nový stav.", hu: "A kapcsolat új státuszt kap.", ro: "Contactului i se va atribui un nou status.", it: "Al contatto verrà assegnato un nuovo stato.", de: "Dem Kontakt wird ein neuer Status zugewiesen." },
   cfmEmailTitle:  { sk: "Odošle sa e-mail", en: "Email will be sent", cs: "Odešle se e-mail", hu: "E-mail lesz elküldve", ro: "Se va trimite un email", it: "Verrà inviata un'email", de: "E-Mail wird gesendet" },
-  cfmEmailDesc:   { sk: "E-mail sa odošle definovanej skupine príjemcov.", en: "An email will be sent to the defined group of recipients.", cs: "E-mail se odešle definované skupině příjemců.", hu: "Az e-mail a megadott címzettcsoportnak lesz elküldve.", ro: "Emailul va fi trimis grupului de destinatari definit.", it: "L'email verrà inviata al gruppo di destinatari definito.", de: "Die E-Mail wird an die definierte Empfängergruppe gesendet." },
+  cfmEmailDesc:   { sk: "E-mail sa odošle definovanej skupine príjemcov.", en: "An email will be sent to the defined group of recipients.", cs: "E-mail se odešle definované skupině príjemců.", hu: "Az e-mail a megadott címzettcsoportnak lesz elküldve.", ro: "Emailul va fi trimis grupului de destinatari definit.", it: "L'email verrà inviata al gruppo di destinatari definito.", de: "Die E-Mail wird an die definierte Empfängergruppe gesendet." },
   cfmNotifyTitle: { sk: "Odošle sa notifikačný e-mail", en: "Notification email will be sent", cs: "Odešle se oznamovací e-mail", hu: "Értesítő e-mail lesz elküldve", ro: "Se va trimite un email de notificare", it: "Verrà inviata un'email di notifica", de: "Benachrichtigungs-E-Mail wird gesendet" },
   cfmNotifyDesc:  { sk: "Interná notifikácia sa odošle e-mailom.", en: "An internal notification will be sent by email.", cs: "Interní oznámení se odešle e-mailem.", hu: "Belső értesítés lesz elküldve e-mailben.", ro: "O notificare internă va fi trimisă prin email.", it: "Una notifica interna verrà inviata via email.", de: "Eine interne Benachrichtigung wird per E-Mail gesendet." },
   cfmTaskTitle:   { sk: "Vytvorí sa úloha", en: "A task will be created", cs: "Vytvoří se úkol", hu: "Feladat jön létre", ro: "Se va crea o sarcină", it: "Verrà creata un'attività", de: "Eine Aufgabe wird erstellt" },
@@ -259,7 +259,7 @@ const SL_ACTION_T: Record<string, Record<string, string>> = {
   batchDoNotCallDesc:  { sk: "Kontakt sa v tejto kampani nebude ďalej volať.", en: "This contact will not be called again in this campaign.", cs: "Tento kontakt nebude v této kampani dále voláni.", hu: "Ez a kapcsolat nem kerül újra hívásra ebben a kampányban.", ro: "Acest contact nu va mai fi apelat în această campanie.", it: "Questo contatto non verrà più chiamato in questa campagna.", de: "Dieser Kontakt wird in dieser Kampagne nicht mehr angerufen." },
   batchD1:             { sk: "+1 pracovný deň", en: "+1 working day", cs: "+1 pracovní den", hu: "+1 munkanap", ro: "+1 zi lucrătoare", it: "+1 giorno lavorativo", de: "+1 Werktag" },
   batchD3:             { sk: "+3 pracovné dni", en: "+3 working days", cs: "+3 pracovní dny", hu: "+3 munkanap", ro: "+3 zile lucrătoare", it: "+3 giorni lavorativi", de: "+3 Werktage" },
-  batchD5:             { sk: "+5 pracovných dní", en: "+5 working days", cs: "+5 pracovních dní", hu: "+5 munkanap", ro: "+5 zile lucrătoare", it: "+5 giorni lavorativi", de: "+5 Werktage" },
+  batchD5:             { sk: "+5 pracovných dní", en: "+5 working days", cs: "+5 pracovních dní", hu: "+5 munkanap", ro: "+5 zile lucrátoare", it: "+5 giorni lavorativi", de: "+5 Werktage" },
   batchM1:             { sk: "+1 mesiac", en: "+1 month", cs: "+1 měsíc", hu: "+1 hónap", ro: "+1 lună", it: "+1 mese", de: "+1 Monat" },
   batchNotePh:         { sk: "Dôvod, čo povedal zákazník...", en: "Reason, what customer said...", cs: "Důvod, co zákazník řekl...", hu: "Ok, amit az ügyfél mondott...", ro: "Motiv, ce a spus clientul...", it: "Motivo, cosa ha detto il cliente...", de: "Grund, was der Kunde sagte..." },
   batchConfirm:        { sk: "Potvrdiť a uložiť", en: "Confirm & save", cs: "Potvrdit a uložit", hu: "Megerősítés és mentés", ro: "Confirmă și salvează", it: "Conferma e salva", de: "Bestätigen & speichern" },
@@ -269,6 +269,11 @@ const SL_ACTION_T: Record<string, Record<string, string>> = {
   batchSelectedCount:  { sk: "vybraných krokov", en: "steps selected", cs: "vybraných kroků", hu: "lépés kiválasztva", ro: "pași selectați", it: "passi selezionati", de: "Schritte ausgewählt" },
   batchNoItems:        { sk: "Nie sú zaškrtnuté žiadne kroky.", en: "No steps have been checked.", cs: "Nejsou zaškrtnuté žádné kroky.", hu: "Nincsenek bejelölt lépések.", ro: "Nu sunt bifați pași.", it: "Nessun passaggio selezionato.", de: "Keine Schritte angekreuzt." },
   batchAutomationsPending: { sk: "automácií čaká", en: "automations pending", cs: "automatizací čeká", hu: "automatizálás vár", ro: "automatizări în așteptare", it: "automazioni in attesa", de: "Automatisierungen ausstehend" },
+  // ── Unsaved-steps navigation guard ────────────────────────────────
+  batchNavGuardTitle:   { sk: "Neuložené kroky", en: "Unsaved steps", cs: "Neuložené kroky", hu: "Nem mentett lépések", ro: "Pași nesalvați", it: "Passaggi non salvati", de: "Nicht gespeicherte Schritte" },
+  batchNavGuardMsg:     { sk: "Máte {n} nevybavených krokov. Ak odídete, prídu nazmar.", en: "You have {n} unsaved step(s). They will be lost if you navigate away.", cs: "Máte {n} neuložených kroků. Pokud odejdete, budou ztraceny.", hu: "Önnek {n} nem mentett lépése van. Ha elhagyja az oldalt, elvesznek.", ro: "Aveți {n} pas(pași) nesalvat(ați). Se vor pierde dacă navigați.", it: "Hai {n} passaggio/i non salvato/i. Verranno persi se esci.", de: "Sie haben {n} nicht gespeicherte(n) Schritt(e). Diese gehen verloren, wenn Sie die Seite verlassen." },
+  batchNavGuardConfirm: { sk: "Zahodiť a pokračovať", en: "Discard and continue", cs: "Zahodit a pokračovat", hu: "Elvet és folytatás", ro: "Renunță și continuă", it: "Scarta e continua", de: "Verwerfen und fortfahren" },
+  batchNavGuardCancel:  { sk: "Zostať", en: "Stay", cs: "Zůstat", hu: "Maradjon", ro: "Rămâi", it: "Rimani", de: "Bleiben" },
 };
 const slt = (key: string, locale: string): string => SL_ACTION_T[key]?.[locale] ?? SL_ACTION_T[key]?.en ?? key;
 // Resolve an automation target role ("role:back_office" / "group:123") to a readable label.
@@ -2738,6 +2743,7 @@ function CommunicationCanvas({
   campaignEmailMode,
   campaignEmailAddress,
   onRequestDataChangeTask,
+  onBatchUnsavedCountChange,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -2795,6 +2801,7 @@ function CommunicationCanvas({
   campaignEmailMode?: "system" | "user" | "custom";
   campaignEmailAddress?: string;
   onRequestDataChangeTask?: () => void;
+  onBatchUnsavedCountChange?: (count: number) => void;
 }) {
   const { t, locale } = useI18n();
   const { user } = useAuth();
@@ -2870,9 +2877,20 @@ function CommunicationCanvas({
   const [slBatchCallbackDt, setSlBatchCallbackDt] = useState("");
   const [slBatchCallbackNote, setSlBatchCallbackNote] = useState("");
   const [slBatchBannerDismissed, setSlBatchBannerDismissed] = useState(false);
+
+  // Notify the parent workspace whenever the unsaved batch count changes so it
+  // can gate navigation away (contact-switch / card-close) with a confirmation dialog.
+  useEffect(() => {
+    onBatchUnsavedCountChange?.(batchSlSelections.size);
+  }, [batchSlSelections.size, onBatchUnsavedCountChange]);
+
   const statusListMode = useMemo(() => {
     try { return campaign?.settings ? (JSON.parse(campaign.settings).statusListMode || "immediate") : "immediate"; } catch { return "immediate"; }
   }, [campaign?.settings]);
+  const { data: dbStatusList = [] } = useQuery<any[]>({
+    queryKey: ["/api/campaigns", campaign?.id, "status-list"],
+    enabled: !!campaign?.id,
+  });
   // Count of automations deferred across all staged batch steps (fires on Save).
   const pendingAutomationCount = useMemo(() => {
     if (batchSlSelections.size === 0) return 0;
@@ -2883,10 +2901,6 @@ function CommunicationCanvas({
     }
     return total;
   }, [batchSlSelections, dbStatusList]);
-  const { data: dbStatusList = [] } = useQuery<any[]>({
-    queryKey: ["/api/campaigns", campaign?.id, "status-list"],
-    enabled: !!campaign?.id,
-  });
   const { data: dbSlState = [] } = useQuery<any[]>({
     queryKey: ["/api/campaigns", campaign?.id, "contacts", campaignContactId, "status-list-state"],
     enabled: !!campaign?.id && !!campaignContactId,
@@ -9635,6 +9649,9 @@ export default function AgentWorkspacePage() {
   }, []);
 
   const [showOnlyAssigned, setShowOnlyAssigned] = useState(false);
+  // Batch-mode navigation guard — tracks unsaved steps reported by CustomerInfoPanel
+  const [desktopBatchUnsavedCount, setDesktopBatchUnsavedCount] = useState(0);
+  const [pendingNavAction, setPendingNavAction] = useState<{ action: () => void } | null>(null);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const tasksRef = useRef<TaskItem[]>([]);
   tasksRef.current = tasks;
@@ -10662,6 +10679,9 @@ export default function AgentWorkspacePage() {
     try { return selectedCampaign?.settings ? (JSON.parse(selectedCampaign.settings).statusListMode || "immediate") : "immediate"; } catch { return "immediate"; }
   }, [selectedCampaign?.settings]);
   const [mobileBatchSlSelections, setMobileBatchSlSelections] = useState<Set<string>>(new Set());
+  // Unified unsaved-batch count used by the navigation guard — covers both desktop
+  // (reported back from CustomerInfoPanel) and mobile (tracked locally).
+  const batchUnsavedCount = isMobile ? mobileBatchSlSelections.size : desktopBatchUnsavedCount;
   const [mobileSlBatchSaveOpen, setMobileSlBatchSaveOpen] = useState(false);
   const [mobileSlBatchSaving, setMobileSlBatchSaving] = useState(false);
   const [mobileSlBatchAction, setMobileSlBatchAction] = useState<"reschedule" | "do_not_call">("reschedule");
@@ -12001,6 +12021,26 @@ export default function AgentWorkspacePage() {
     setSelectedCampaignId(task.campaignId);
     setCurrentCampaignContactId(task.campaignContactId);
   };
+
+  // ── Batch-mode navigation guard ────────────────────────────────────────────
+  // When the agent has staged (but not yet saved) batch steps, any attempt to
+  // navigate away (contact switch, card close, load-next) shows a confirmation
+  // dialog instead of silently discarding the selections.
+  const guardedNavigate = (action: () => void) => {
+    if (batchUnsavedCount > 0) {
+      setPendingNavAction({ action });
+    } else {
+      action();
+    }
+  };
+  const guardedSelectCampaignContact = (cc: EnrichedCampaignContact) =>
+    guardedNavigate(() => handleSelectCampaignContact(cc));
+  const guardedSelectTask = (task: TaskItem) =>
+    guardedNavigate(() => handleSelectTask(task));
+  const guardedNextContact = (skipStatusCheck = false) =>
+    guardedNavigate(() => handleNextContact(skipStatusCheck));
+  const guardedClearContact = (clearFn: () => void) =>
+    guardedNavigate(clearFn);
 
   const handleCancelTask = (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
@@ -13615,7 +13655,7 @@ export default function AgentWorkspacePage() {
         <TaskListPanel
           tasks={tasks}
           activeTaskId={activeTaskId}
-          onSelectTask={handleSelectTask}
+          onSelectTask={guardedSelectTask}
           campaigns={activeCampaigns}
           inboundQueues={myQueues.map(q => ({ id: q.id, name: q.name, didNumber: q.didNumber }))}
           sessionInboundQueueIds={sessionInboundQueueIds}
@@ -13625,10 +13665,10 @@ export default function AgentWorkspacePage() {
           onToggleAssigned={setShowOnlyAssigned}
           channelFilter={channelFilter}
           onChannelFilterChange={setChannelFilter}
-          onLoadNextContact={handleNextContact}
+          onLoadNextContact={guardedNextContact}
           isLoadingContact={false}
           campaignContacts={sortedPendingContacts}
-          onSelectCampaignContact={handleSelectCampaignContact}
+          onSelectCampaignContact={guardedSelectCampaignContact}
           currentUserId={user?.id}
           isAutoMode={isAutoMode}
           onToggleAutoMode={handleToggleAutoMode}
@@ -13665,7 +13705,7 @@ export default function AgentWorkspacePage() {
               campaignContacts={sortedPendingContacts}
               allCampaignContacts={rawCampaignContacts}
               currentCampaignContactId={effectiveCampaignContactId}
-              onSelectContact={(cc) => handleSelectCampaignContact(cc)}
+              onSelectContact={(cc) => guardedSelectCampaignContact(cc)}
               callState={callContext.callState}
               callDuration={callContext.callDuration}
               ringDuration={ringDuration}
@@ -13703,7 +13743,7 @@ export default function AgentWorkspacePage() {
               onStartBreak={handleStartBreak}
               onEndBreak={handleEndBreak}
               contactType={currentContactType}
-              onClearContact={() => {
+              onClearContact={() => guardedClearContact(() => {
                 pendingCcIdRef.current = null;
                 if (activeTaskId) {
                   setTasks((prev) => prev.filter((tk) => tk.id !== activeTaskId));
@@ -13715,7 +13755,7 @@ export default function AgentWorkspacePage() {
                 setCallNotes("");
                 setTimeline([]);
                 agentSession.updateStatus("available").catch(() => {});
-              }}
+              })}
               onFullLogout={logout}
               t={t}
               locale={locale}
@@ -14035,7 +14075,7 @@ export default function AgentWorkspacePage() {
               customerMessages={customerMessages}
               campaignEmailMode={campaignEmailMode}
               campaignEmailAddress={campaignEmailAddress}
-              onClearContact={() => {
+              onClearContact={() => guardedClearContact(() => {
                 pendingCcIdRef.current = null;
                 if (activeTaskId) {
                   setTasks((prev) => prev.filter((tk) => tk.id !== activeTaskId));
@@ -14047,7 +14087,8 @@ export default function AgentWorkspacePage() {
                 setCallNotes("");
                 setTimeline([]);
                 agentSession.updateStatus("available").catch(() => {});
-              }}
+              })}
+              onBatchUnsavedCountChange={setDesktopBatchUnsavedCount}
               onScriptAction={(action, data) => {
                 if (action === "openEmail") {
                   setActiveChannel("email");
@@ -14389,7 +14430,7 @@ export default function AgentWorkspacePage() {
                       el.style.boxShadow = "0 1px 3px rgba(0,0,0,0.05)";
                       el.style.transform = "";
                     }}
-                    onClick={() => { handleSelectCampaignContact(cc); setContactsModalOpen(false); }}
+                    onClick={() => { guardedSelectCampaignContact(cc); setContactsModalOpen(false); }}
                     data-testid={`modal-contact-${cc.id}`}
                   >
                     <div className="h-8 w-8 rounded-full flex items-center justify-center shrink-0" style={{ background: `${ac}18` }}>
@@ -14628,7 +14669,7 @@ export default function AgentWorkspacePage() {
                           el.style.transform = "";
                         }
                       }}
-                      onClick={() => { handleSelectTask(task); setTasksModalOpen(false); }}
+                      onClick={() => { guardedSelectTask(task); setTasksModalOpen(false); }}
                       data-testid={`modal-task-${task.id}`}
                     >
                       <div
@@ -16564,6 +16605,33 @@ export default function AgentWorkspacePage() {
           <DialogFooter>
             <Button variant="ghost" size="sm" onClick={() => setPendingInboundMatches(null)} data-testid="btn-entity-selection-skip">
               {t.agentWorkspace.inboundSelectSkip}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Batch-mode unsaved-steps navigation guard ──────────────────────── */}
+      <Dialog open={!!pendingNavAction} onOpenChange={(open) => { if (!open) setPendingNavAction(null); }}>
+        <DialogContent className="max-w-sm" data-testid="batch-nav-guard-dialog">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
+              {slt("batchNavGuardTitle", locale)}
+            </DialogTitle>
+            <DialogDescription>
+              {slt("batchNavGuardMsg", locale).replace("{n}", String(batchUnsavedCount))}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 flex-col-reverse sm:flex-row">
+            <Button variant="outline" onClick={() => setPendingNavAction(null)} data-testid="batch-nav-guard-cancel">
+              {slt("batchNavGuardCancel", locale)}
+            </Button>
+            <Button variant="destructive" onClick={() => {
+              const action = pendingNavAction?.action;
+              setPendingNavAction(null);
+              action?.();
+            }} data-testid="batch-nav-guard-confirm">
+              {slt("batchNavGuardConfirm", locale)}
             </Button>
           </DialogFooter>
         </DialogContent>
