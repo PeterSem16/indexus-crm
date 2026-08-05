@@ -268,6 +268,7 @@ const SL_ACTION_T: Record<string, Record<string, string>> = {
   batchSaveFailed:     { sk: "Uloženie zlyhalo", en: "Save failed", cs: "Uložení selhalo", hu: "Mentés sikertelen", ro: "Salvarea a eșuat", it: "Salvataggio fallito", de: "Speichern fehlgeschlagen" },
   batchSelectedCount:  { sk: "vybraných krokov", en: "steps selected", cs: "vybraných kroků", hu: "lépés kiválasztva", ro: "pași selectați", it: "passi selezionati", de: "Schritte ausgewählt" },
   batchNoItems:        { sk: "Nie sú zaškrtnuté žiadne kroky.", en: "No steps have been checked.", cs: "Nejsou zaškrtnuté žádné kroky.", hu: "Nincsenek bejelölt lépések.", ro: "Nu sunt bifați pași.", it: "Nessun passaggio selezionato.", de: "Keine Schritte angekreuzt." },
+  batchAutomationsPending: { sk: "automácií čaká", en: "automations pending", cs: "automatizací čeká", hu: "automatizálás vár", ro: "automatizări în așteptare", it: "automazioni in attesa", de: "Automatisierungen ausstehend" },
 };
 const slt = (key: string, locale: string): string => SL_ACTION_T[key]?.[locale] ?? SL_ACTION_T[key]?.en ?? key;
 // Resolve an automation target role ("role:back_office" / "group:123") to a readable label.
@@ -2872,6 +2873,16 @@ function CommunicationCanvas({
   const statusListMode = useMemo(() => {
     try { return campaign?.settings ? (JSON.parse(campaign.settings).statusListMode || "immediate") : "immediate"; } catch { return "immediate"; }
   }, [campaign?.settings]);
+  // Count of automations deferred across all staged batch steps (fires on Save).
+  const pendingAutomationCount = useMemo(() => {
+    if (batchSlSelections.size === 0) return 0;
+    let total = 0;
+    for (const id of Array.from(batchSlSelections)) {
+      const item = (dbStatusList as any[]).find((i: any) => String(i.id) === id);
+      total += (item?.automations || []).length;
+    }
+    return total;
+  }, [batchSlSelections, dbStatusList]);
   const { data: dbStatusList = [] } = useQuery<any[]>({
     queryKey: ["/api/campaigns", campaign?.id, "status-list"],
     enabled: !!campaign?.id,
@@ -6257,6 +6268,12 @@ function CommunicationCanvas({
                     {batchSlSelections.size > 0 && (
                       <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-white/25 px-1 text-[11px] font-black">
                         {batchSlSelections.size}
+                      </span>
+                    )}
+                    {pendingAutomationCount > 0 && (
+                      <span className="flex items-center gap-1 rounded-full bg-amber-400/30 px-1.5 text-[10px] font-semibold text-amber-100">
+                        <Zap className="h-2.5 w-2.5" />
+                        {pendingAutomationCount} {slt("batchAutomationsPending", locale)}
                       </span>
                     )}
                   </button>
