@@ -2993,6 +2993,16 @@ function CommunicationCanvas({
     }
   }, [dbSlState]);
 
+  // Reset confirmed-state and notes when the campaign contact changes (before new data arrives).
+  // This must be keyed on campaignContactId — NOT contact?.id — to avoid a render-order race:
+  // [dbSlState] (line ~2980) fires first and populates dbSlChecked, then [contact?.id] (further
+  // down) fires in the SAME render and overwrites it with new Set(). Using campaignContactId
+  // as the dep fires in a separate render from the dbSlState population.
+  useEffect(() => {
+    setDbSlChecked(new Set());
+    setSlItemNotes({});
+  }, [campaignContactId]);
+
   // Restore last active tab from localStorage when contact/campaign changes
   useEffect(() => {
     if (!campaign?.id || !campaignContactId) return;
@@ -3236,6 +3246,8 @@ function CommunicationCanvas({
 
   // Toggle a status-list question answer locally. For radio fields, clears all
   // other radio answers in the same group first (exclusive-select semantics).
+  // When groupMode === "ONE" ALL group questions are cleared regardless of fieldType —
+  // this prevents a radio-type question from leaving a non-radio sibling selected.
   const handleSlQuestionAnswer = useCallback((q: any, value: any, allGroupQs: any[], groupMode?: string) => {
     const ft = q.fieldType || "checkbox";
     setSlQuestionAnswers(prev => {
@@ -3243,7 +3255,9 @@ function CommunicationCanvas({
       if (ft === "radio") {
         allGroupQs.filter((gq: any) => (gq.fieldType || "checkbox") === "radio")
           .forEach((gq: any) => { delete next[gq.id]; });
-      } else if (groupMode === "ONE") {
+      }
+      if (groupMode === "ONE") {
+        // Always run — even when ft === "radio" — so mixed-type groups clear properly
         allGroupQs.forEach((gq: any) => { delete next[gq.id]; });
       }
       if ((ft === "checkbox" || ft === "radio") && next[q.id] === value) {
@@ -3362,10 +3376,10 @@ function CommunicationCanvas({
     setSmsCc("");
     setShowSmsCcField(false);
     setSelectedDocuments([]);
-    setDbSlChecked(new Set());
+    // dbSlChecked and slItemNotes are reset by the [campaignContactId] effect (above) to
+    // avoid a render-order race where [contact?.id] fires after [dbSlState] and wipes the data.
     setBatchSlSelections(new Set());
     setBatchSlNotes({});
-    setSlItemNotes({});
     setSlBatchSaveOpen(false);
     setSlBatchCallbackDt("");
     setSlBatchCallbackNote("");
