@@ -5781,49 +5781,64 @@ function CommunicationCanvas({
 
                 if (isOverdue) {
                   return (
-                    <div className="mx-3 mt-2 shrink-0 rounded-xl border-2 border-rose-400 dark:border-rose-600 bg-rose-50 dark:bg-rose-950/40 px-3 py-2 flex items-center gap-2.5 animate-pulse shadow-sm shadow-rose-200 dark:shadow-rose-900/30">
-                      <div className="relative shrink-0">
-                        <CalendarClock className="h-4 w-4 text-rose-600 dark:text-rose-400" />
-                        <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500" />
-                        </span>
+                    <div className="mx-3 mt-2 shrink-0 rounded-xl border-2 border-rose-400 dark:border-rose-600 bg-rose-50 dark:bg-rose-950/40 px-3 py-2 flex flex-col gap-0.5 animate-pulse shadow-sm shadow-rose-200 dark:shadow-rose-900/30">
+                      <div className="flex items-center gap-2.5">
+                        <div className="relative shrink-0">
+                          <CalendarClock className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+                          <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500" />
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0 flex items-baseline gap-1.5 flex-wrap">
+                          <span className="text-xs font-bold text-rose-700 dark:text-rose-300">
+                            {locale === 'sk' || locale === 'cs' ? 'Po termíne volania!' : locale === 'hu' ? 'Visszahívás lejárt!' : 'Call overdue!'}
+                          </span>
+                          <span className="text-xs text-rose-600 dark:text-rose-400 font-semibold tabular-nums">{cbDay} {cbTime}</span>
+                          <span className="text-[10px] text-rose-500/80 dark:text-rose-400/70 italic">({relLabel})</span>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0 flex items-baseline gap-1.5 flex-wrap">
-                        <span className="text-xs font-bold text-rose-700 dark:text-rose-300">
-                          {locale === 'sk' || locale === 'cs' ? 'Po termíne volania!' : locale === 'hu' ? 'Visszahívás lejárt!' : 'Call overdue!'}
-                        </span>
-                        <span className="text-xs text-rose-600 dark:text-rose-400 font-semibold tabular-nums">{cbDay} {cbTime}</span>
-                        <span className="text-[10px] text-rose-500/80 dark:text-rose-400/70 italic">({relLabel})</span>
-                      </div>
+                      {ccCallbackNote && (
+                        <p className="text-[11px] text-rose-700/80 dark:text-rose-300/70 pl-6 leading-snug italic">{ccCallbackNote}</p>
+                      )}
                     </div>
                   );
                 }
                 if (isSoon) {
                   return (
-                    <div className="mx-3 mt-2 shrink-0 rounded-xl border-2 border-amber-400 dark:border-amber-600 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 flex items-center gap-2.5 shadow-sm shadow-amber-100 dark:shadow-amber-900/20">
-                      <div className="relative shrink-0">
-                        <CalendarClock className="h-4 w-4 text-amber-600 dark:text-amber-400 animate-bounce" />
+                    <div className="mx-3 mt-2 shrink-0 rounded-xl border-2 border-amber-400 dark:border-amber-600 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 flex flex-col gap-0.5 shadow-sm shadow-amber-100 dark:shadow-amber-900/20">
+                      <div className="flex items-center gap-2.5">
+                        <div className="relative shrink-0">
+                          <CalendarClock className="h-4 w-4 text-amber-600 dark:text-amber-400 animate-bounce" />
+                        </div>
+                        <div className="flex-1 min-w-0 flex items-baseline gap-1.5 flex-wrap">
+                          <span className="text-xs font-bold text-amber-700 dark:text-amber-300">
+                            {locale === 'sk' || locale === 'cs' ? 'Hovor o chvíľu!' : locale === 'hu' ? 'Hamarosan visszahívás!' : 'Call soon!'}
+                          </span>
+                          <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold tabular-nums">{cbDay} {cbTime}</span>
+                          <span className="text-[10px] text-amber-500/80 dark:text-amber-400/70 italic">({relLabel})</span>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0 flex items-baseline gap-1.5 flex-wrap">
-                        <span className="text-xs font-bold text-amber-700 dark:text-amber-300">
-                          {locale === 'sk' || locale === 'cs' ? 'Hovor o chvíľu!' : locale === 'hu' ? 'Hamarosan visszahívás!' : 'Call soon!'}
-                        </span>
-                        <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold tabular-nums">{cbDay} {cbTime}</span>
-                        <span className="text-[10px] text-amber-500/80 dark:text-amber-400/70 italic">({relLabel})</span>
-                      </div>
+                      {ccCallbackNote && (
+                        <p className="text-[11px] text-amber-700/80 dark:text-amber-300/70 pl-6 leading-snug italic">{ccCallbackNote}</p>
+                      )}
                     </div>
                   );
                 }
                 // Normal — upcoming but not soon
                 return (
-                  <div className="mx-3 mt-2 shrink-0 rounded-xl border border-border/50 bg-muted/40 px-3 py-1.5 flex items-center gap-2 text-muted-foreground">
-                    <CalendarClock className="h-3.5 w-3.5 shrink-0 text-primary/60" />
-                    <span className="text-[11px] font-medium text-foreground/70">
-                      {locale === 'sk' || locale === 'cs' ? 'Plánovaný hovor:' : locale === 'hu' ? 'Tervezett hívás:' : locale === 'ro' ? 'Apel planificat:' : 'Scheduled call:'}
-                    </span>
-                    <span className="text-[11px] font-semibold tabular-nums text-foreground/80">{cbDay} {cbTime}</span>
-                    <span className="text-[10px] text-muted-foreground/60 italic ml-auto">({relLabel})</span>
+                  <div className="mx-3 mt-2 shrink-0 rounded-xl border border-border/50 bg-muted/40 px-3 py-1.5 flex flex-col gap-0.5">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <CalendarClock className="h-3.5 w-3.5 shrink-0 text-primary/60" />
+                      <span className="text-[11px] font-medium text-foreground/70">
+                        {locale === 'sk' || locale === 'cs' ? 'Plánovaný hovor:' : locale === 'hu' ? 'Tervezett hívás:' : locale === 'ro' ? 'Apel planificat:' : 'Scheduled call:'}
+                      </span>
+                      <span className="text-[11px] font-semibold tabular-nums text-foreground/80">{cbDay} {cbTime}</span>
+                      <span className="text-[10px] text-muted-foreground/60 italic ml-auto">({relLabel})</span>
+                    </div>
+                    {ccCallbackNote && (
+                      <p className="text-[11px] text-muted-foreground/70 pl-5 leading-snug italic">{ccCallbackNote}</p>
+                    )}
                   </div>
                 );
               })()}
