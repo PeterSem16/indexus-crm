@@ -7951,6 +7951,8 @@ export const campaignContactStatusListState = pgTable("campaign_contact_status_l
   confirmedAt: timestamp("confirmed_at").notNull().default(sql`now()`),
   confirmedByUserId: text("confirmed_by_user_id").notNull(),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  itemNote: text("item_note"),
+  noteUpdatedAt: timestamp("note_updated_at"),
 }, (table) => ({
   idxCcStatusStateContact: index("idx_cc_status_state_contact").on(table.campaignContactId),
   idxCcStatusStateItem: index("idx_cc_status_state_item").on(table.campaignContactId, table.statusListItemId),

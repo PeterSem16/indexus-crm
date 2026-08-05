@@ -161,6 +161,8 @@ app.use((req, res, next) => {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS standing_forward_enabled boolean NOT NULL DEFAULT false;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS standing_forward_ring_seconds integer NOT NULL DEFAULT 25;
       ALTER TABLE campaign_contacts ADD COLUMN IF NOT EXISTS callback_status_list_item_id varchar;
+      ALTER TABLE campaign_contact_status_list_state ADD COLUMN IF NOT EXISTS item_note TEXT;
+      ALTER TABLE campaign_contact_status_list_state ADD COLUMN IF NOT EXISTS note_updated_at TIMESTAMP;
       CREATE TABLE IF NOT EXISTS agent_standing_forwards (
         id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id varchar NOT NULL REFERENCES users(id) ON DELETE CASCADE,

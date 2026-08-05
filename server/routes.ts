@@ -30230,7 +30230,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       if (!campaignContactId || !itemId) return res.status(400).json({ error: "Invalid parameters" });
 
       const userId = req.session.user!.id;
-      const { confirm, contactCountry, overrideCallbackDate, overrideCallbackNote, skipAutomations } = req.body as { confirm: boolean; contactCountry?: string; overrideCallbackDate?: string | null; overrideCallbackNote?: string | null; skipAutomations?: boolean };
+      const { confirm, contactCountry, overrideCallbackDate, overrideCallbackNote, skipAutomations, itemNote } = req.body as { confirm: boolean; contactCountry?: string; overrideCallbackDate?: string | null; overrideCallbackNote?: string | null; skipAutomations?: boolean; itemNote?: string | null };
 
       if (confirm) {
         // Check if already confirmed
@@ -30245,7 +30245,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         let stateRow;
         if (existing.length === 0) {
           const [inserted] = await db.insert(campaignContactStatusListState)
-            .values({ campaignContactId, statusListItemId: itemId, confirmedByUserId: userId })
+            .values({ campaignContactId, statusListItemId: itemId, confirmedByUserId: userId, itemNote: itemNote ?? null })
             .returning();
           stateRow = inserted;
 
@@ -30714,6 +30714,25 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     } catch (error) {
       console.error("Failed to update status list state:", error);
       res.status(500).json({ error: "Failed to update status list state" });
+    }
+  });
+
+  // PATCH /api/campaigns/:campaignId/contacts/:campaignContactId/status-list-state/:itemId/note
+  // Update just the note on an existing confirmed status-list item (with timestamp).
+  app.patch("/api/campaigns/:campaignId/contacts/:campaignContactId/status-list-state/:itemId/note", requireAuth, async (req, res) => {
+    try {
+      const { campaignContactId, itemId } = req.params;
+      const { note } = req.body as { note?: string | null };
+      await db.update(campaignContactStatusListState)
+        .set({ itemNote: note ?? null, noteUpdatedAt: new Date() })
+        .where(and(
+          eq(campaignContactStatusListState.campaignContactId, campaignContactId),
+          eq(campaignContactStatusListState.statusListItemId, itemId)
+        ));
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("Failed to update status list item note:", error);
+      res.status(500).json({ error: "Failed to update note" });
     }
   });
 

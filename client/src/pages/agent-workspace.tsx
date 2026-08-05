@@ -2871,11 +2871,14 @@ function CommunicationCanvas({
   const [slActiveTab, setSlActiveTab] = useState<'acquisition' | 'contract' | 'retention'>('acquisition');
   // Batch-save mode state
   const [batchSlSelections, setBatchSlSelections] = useState<Set<string>>(new Set());
+  const [batchSlNotes, setBatchSlNotes] = useState<Record<string, string>>({});
   const [slBatchSaveOpen, setSlBatchSaveOpen] = useState(false);
   const [slBatchSaving, setSlBatchSaving] = useState(false);
   const [slBatchAction, setSlBatchAction] = useState<"reschedule" | "do_not_call">("reschedule");
   const [slBatchCallbackDt, setSlBatchCallbackDt] = useState("");
   const [slBatchCallbackNote, setSlBatchCallbackNote] = useState("");
+  // Per-item notes for confirmed items (populated from DB, editable for retention items)
+  const [slItemNotes, setSlItemNotes] = useState<Record<string, string>>({});
   const [slBatchBannerDismissed, setSlBatchBannerDismissed] = useState(false);
 
   // Notify the parent workspace whenever the unsaved batch count changes so it
@@ -2965,6 +2968,15 @@ function CommunicationCanvas({
     }
   }, [campaign?.id, campaignContactId, contact?.country, onCloseCallAfterStatusList, statusListMode, toast]);
 
+  // Fast lookup: statusListItemId → full state row (for confirmedAt, itemNote, noteUpdatedAt)
+  const slStateMap = useMemo(() => {
+    const m = new Map<string, any>();
+    for (const row of (dbSlState as any[])) {
+      m.set(String(row.statusListItemId), row);
+    }
+    return m;
+  }, [dbSlState]);
+
   useEffect(() => {
     // All rows in dbSlState are confirmed (existence-based model)
     if (dbSlState) {
@@ -2972,6 +2984,12 @@ function CommunicationCanvas({
         (dbSlState as any[]).map((s: any) => String(s.statusListItemId))
       );
       setDbSlChecked(confirmedIds);
+      // Restore per-item notes from DB
+      const notes: Record<string, string> = {};
+      for (const row of (dbSlState as any[])) {
+        if (row.itemNote) notes[String(row.statusListItemId)] = row.itemNote;
+      }
+      setSlItemNotes(notes);
     }
   }, [dbSlState]);
 
@@ -3121,6 +3139,7 @@ function CommunicationCanvas({
           confirm: true,
           contactCountry: contactCountry ?? null,
           skipAutomations: true,
+          itemNote: batchSlNotes[itemId] ?? null,
         });
       }
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
@@ -3159,6 +3178,7 @@ function CommunicationCanvas({
       }
 
       setBatchSlSelections(new Set());
+      setBatchSlNotes({});
       setSlBatchSaveOpen(false);
       setSlBatchCallbackDt("");
       setSlBatchCallbackNote("");
@@ -3167,7 +3187,7 @@ function CommunicationCanvas({
     } finally {
       setSlBatchSaving(false);
     }
-  }, [campaign?.id, campaignContactId, batchSlSelections, slBatchAction, slBatchCallbackDt, slBatchCallbackNote, contactCountry, locale, onCloseCallAfterStatusList, toast, dbStatusList, dbSlChecked]);
+  }, [campaign?.id, campaignContactId, batchSlSelections, batchSlNotes, slBatchAction, slBatchCallbackDt, slBatchCallbackNote, contactCountry, locale, onCloseCallAfterStatusList, toast, dbStatusList, dbSlChecked]);
 
   // Manual ("run now") trigger for a single configured status-list automation.
   const [slRunningAuto, setSlRunningAuto] = useState<Set<string>>(new Set());
@@ -3344,6 +3364,8 @@ function CommunicationCanvas({
     setSelectedDocuments([]);
     setDbSlChecked(new Set());
     setBatchSlSelections(new Set());
+    setBatchSlNotes({});
+    setSlItemNotes({});
     setSlBatchSaveOpen(false);
     setSlBatchCallbackDt("");
     setSlBatchCallbackNote("");
@@ -5994,6 +6016,61 @@ function CommunicationCanvas({
                           {item.required && <span className="ml-1 text-rose-500 text-[10px] font-bold">*</span>}
                         </div>
                         {item.description && <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{item.description}</p>}
+                        {/* Confirmation timestamp — shown on every checked item */}
+                        {isChecked && (() => {
+                          const stateRow = slStateMap.get(String(item.id));
+                          const ts = stateRow?.confirmedAt;
+                          if (!ts) return null;
+                          const d = new Date(ts);
+                          const label = d.toLocaleDateString(locale === 'sk' ? 'sk-SK' : locale === 'cs' ? 'cs-CZ' : locale === 'hu' ? 'hu-HU' : locale === 'ro' ? 'ro-RO' : locale === 'de' ? 'de-DE' : locale === 'it' ? 'it-IT' : 'en-GB', { day: 'numeric', month: 'numeric', year: 'numeric' }) + ' ' + d.toLocaleTimeString(locale === 'sk' ? 'sk-SK' : 'en-GB', { hour: '2-digit', minute: '2-digit' });
+                          return (
+                            <div className="flex items-center gap-1 mt-1 text-[10px] text-emerald-600/80 dark:text-emerald-400/70">
+                              <Clock className="h-2.5 w-2.5 shrink-0" />
+                              <span>{label}</span>
+                            </div>
+                          );
+                        })()}
+                        {/* Retention-tab note field — shown when item is checked (immediate) or staged (batch) */}
+                        {item.tab === 'retention' && (isChecked || (statusListMode === 'batch' && batchSlSelections.has(String(item.id)))) && (() => {
+                          const isBatch = statusListMode === 'batch' && !isChecked;
+                          const noteVal = isBatch
+                            ? (batchSlNotes[String(item.id)] ?? '')
+                            : (slItemNotes[String(item.id)] ?? '');
+                          const stateRow = slStateMap.get(String(item.id));
+                          const noteTs = stateRow?.noteUpdatedAt;
+                          return (
+                            <div className="mt-2">
+                              <textarea
+                                className="w-full text-xs rounded-lg border border-emerald-200 dark:border-emerald-700/50 bg-emerald-50/60 dark:bg-emerald-900/10 p-2 resize-none outline-none focus:ring-1 focus:ring-emerald-400 dark:focus:ring-emerald-600 placeholder:text-muted-foreground/50 min-h-[52px] transition-colors"
+                                placeholder={locale === 'sk' ? 'Poznámka k tomuto kroku...' : locale === 'cs' ? 'Poznámka k tomuto kroku...' : locale === 'hu' ? 'Megjegyzés ehhez a lépéshez...' : locale === 'ro' ? 'Notă pentru acest pas...' : locale === 'de' ? 'Anmerkung zu diesem Schritt...' : locale === 'it' ? 'Nota per questo passaggio...' : 'Note for this step...'}
+                                value={noteVal}
+                                rows={2}
+                                onClick={e => e.stopPropagation()}
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  if (isBatch) {
+                                    setBatchSlNotes(prev => ({ ...prev, [String(item.id)]: val }));
+                                  } else {
+                                    setSlItemNotes(prev => ({ ...prev, [String(item.id)]: val }));
+                                  }
+                                }}
+                                onBlur={async e => {
+                                  if (isBatch || !campaign?.id || !campaignContactId) return;
+                                  try {
+                                    await apiRequest("PATCH", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${item.id}/note`, { note: e.target.value });
+                                    queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
+                                  } catch { /* no-op */ }
+                                }}
+                              />
+                              {!isBatch && noteTs && (
+                                <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground/60">
+                                  <Clock className="h-2.5 w-2.5 shrink-0" />
+                                  <span>{new Date(noteTs).toLocaleDateString(locale === 'sk' ? 'sk-SK' : 'en-GB', { day: 'numeric', month: 'numeric' })} {new Date(noteTs).toLocaleTimeString(locale === 'sk' ? 'sk-SK' : 'en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       {(() => {
                         const visibleQs = (item.questions || []).filter((q: any) => !q.isHidden);
                         if (visibleQs.length === 0) return null;
