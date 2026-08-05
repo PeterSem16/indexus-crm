@@ -10698,6 +10698,21 @@ export default function AgentWorkspacePage() {
     setMobileBatchSlSelections(new Set());
   }, [mobileDbSlState, mobileDbStatusList, isMobile]);
 
+  // Warn agents before closing / navigating away from the browser tab
+  // when there are staged batch steps that haven't been saved yet.
+  useEffect(() => {
+    if (batchUnsavedCount === 0) return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // Modern browsers ignore the returned string but require returnValue to be set.
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [batchUnsavedCount]);
+
   const handleMobileSlToggle = useCallback(async (itemId: string, newChecked: boolean) => {
     if (!selectedCampaignId || !effectiveCampaignContactId) return;
     // Batch mode: stage locally — no API call, no automations
