@@ -2876,6 +2876,12 @@ function CommunicationCanvas({
   // because batch-mode handleSlToggle only clears local state and never fires the API.
   const [batchSlDeletions, setBatchSlDeletions] = useState<Set<string>>(new Set());
   const [slBatchSaveOpen, setSlBatchSaveOpen] = useState(false);
+  // Live clock for the callback reminder widget (updates every 30s)
+  const [callbackNow, setCallbackNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setCallbackNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
   const [slBatchSaving, setSlBatchSaving] = useState(false);
   const [slBatchAction, setSlBatchAction] = useState<"reschedule" | "do_not_call">("reschedule");
   const [slBatchCallbackDt, setSlBatchCallbackDt] = useState("");
@@ -5732,6 +5738,85 @@ function CommunicationCanvas({
                   <span className="text-xs text-amber-800 dark:text-amber-300">{slu("notLinked", locale)}</span>
                 </div>
               )}
+
+              {/* ── Scheduled callback reminder ──────────────────────── */}
+              {(() => {
+                // Find the callback date for the contact currently open in the status list.
+                // currentCampaignContact is the component-level memo; it covers the common
+                // case. Falls back to a rawCampaignContacts lookup by campaignContactId for
+                // the edge case where the SL is open for a different CC than the dialer.
+                const slCC = currentCampaignContact?.id === campaignContactId
+                  ? currentCampaignContact
+                  : (rawCampaignContacts as any[])?.find((cc: any) => cc.id === campaignContactId);
+                const cbRaw = slCC?.callbackDate;
+                if (!cbRaw) return null;
+                const cbMs = new Date(cbRaw).getTime();
+                const diffMs = cbMs - callbackNow;
+                const diffMin = Math.round(Math.abs(diffMs) / 60000);
+                const isOverdue = diffMs < 0;
+                const isSoon = !isOverdue && diffMs <= 5 * 60 * 1000;
+                const cbDay = new Date(cbRaw).toLocaleDateString(
+                  locale === 'sk' ? 'sk-SK' : locale === 'cs' ? 'cs-CZ' : locale === 'hu' ? 'hu-HU' : locale === 'ro' ? 'ro-RO' : 'en-GB',
+                  { day: 'numeric', month: 'numeric' }
+                );
+                const cbTime = new Date(cbRaw).toLocaleTimeString(
+                  locale === 'sk' ? 'sk-SK' : 'en-GB',
+                  { hour: '2-digit', minute: '2-digit' }
+                );
+                const relLabel = isOverdue
+                  ? (locale === 'sk' || locale === 'cs' ? `pred ${diffMin} min` : locale === 'hu' ? `${diffMin} perce` : `${diffMin} min ago`)
+                  : diffMin === 0
+                  ? (locale === 'sk' || locale === 'cs' ? 'teraz' : locale === 'hu' ? 'most' : 'now')
+                  : (locale === 'sk' || locale === 'cs' ? `za ${diffMin} min` : locale === 'hu' ? `${diffMin} perc múlva` : `in ${diffMin} min`);
+
+                if (isOverdue) {
+                  return (
+                    <div className="mx-3 mt-2 shrink-0 rounded-xl border-2 border-rose-400 dark:border-rose-600 bg-rose-50 dark:bg-rose-950/40 px-3 py-2 flex items-center gap-2.5 animate-pulse shadow-sm shadow-rose-200 dark:shadow-rose-900/30">
+                      <div className="relative shrink-0">
+                        <CalendarClock className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+                        <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500" />
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0 flex items-baseline gap-1.5 flex-wrap">
+                        <span className="text-xs font-bold text-rose-700 dark:text-rose-300">
+                          {locale === 'sk' || locale === 'cs' ? 'Po termíne volania!' : locale === 'hu' ? 'Visszahívás lejárt!' : 'Call overdue!'}
+                        </span>
+                        <span className="text-xs text-rose-600 dark:text-rose-400 font-semibold tabular-nums">{cbDay} {cbTime}</span>
+                        <span className="text-[10px] text-rose-500/80 dark:text-rose-400/70 italic">({relLabel})</span>
+                      </div>
+                    </div>
+                  );
+                }
+                if (isSoon) {
+                  return (
+                    <div className="mx-3 mt-2 shrink-0 rounded-xl border-2 border-amber-400 dark:border-amber-600 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 flex items-center gap-2.5 shadow-sm shadow-amber-100 dark:shadow-amber-900/20">
+                      <div className="relative shrink-0">
+                        <CalendarClock className="h-4 w-4 text-amber-600 dark:text-amber-400 animate-bounce" />
+                      </div>
+                      <div className="flex-1 min-w-0 flex items-baseline gap-1.5 flex-wrap">
+                        <span className="text-xs font-bold text-amber-700 dark:text-amber-300">
+                          {locale === 'sk' || locale === 'cs' ? 'Hovor o chvíľu!' : locale === 'hu' ? 'Hamarosan visszahívás!' : 'Call soon!'}
+                        </span>
+                        <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold tabular-nums">{cbDay} {cbTime}</span>
+                        <span className="text-[10px] text-amber-500/80 dark:text-amber-400/70 italic">({relLabel})</span>
+                      </div>
+                    </div>
+                  );
+                }
+                // Normal — upcoming but not soon
+                return (
+                  <div className="mx-3 mt-2 shrink-0 rounded-xl border border-border/50 bg-muted/40 px-3 py-1.5 flex items-center gap-2 text-muted-foreground">
+                    <CalendarClock className="h-3.5 w-3.5 shrink-0 text-primary/60" />
+                    <span className="text-[11px] font-medium text-foreground/70">
+                      {locale === 'sk' || locale === 'cs' ? 'Plánovaný hovor:' : locale === 'hu' ? 'Tervezett hívás:' : locale === 'ro' ? 'Apel planificat:' : 'Scheduled call:'}
+                    </span>
+                    <span className="text-[11px] font-semibold tabular-nums text-foreground/80">{cbDay} {cbTime}</span>
+                    <span className="text-[10px] text-muted-foreground/60 italic ml-auto">({relLabel})</span>
+                  </div>
+                );
+              })()}
 
               {/* ── Batch mode active banner ────────────────────────── */}
               {statusListMode === "batch" && !slBatchBannerDismissed && (
