@@ -290,6 +290,8 @@ const SLU: Record<string, Record<string, string>> = {
   clickToSave: { sk: "Kliknutím na krok ho okamžite uložíte", en: "Click a step to save it immediately", cs: "Kliknutím na krok ho okamžitě uložíte", hu: "Kattintson egy lépésre az azonnali mentéshez", ro: "Faceți clic pe un pas pentru a-l salva imediat", it: "Fai clic su un passo per salvarlo immediatamente", de: "Klicken Sie auf einen Schritt, um ihn sofort zu speichern" },
   notConfigured: { sk: "Status list nie je nakonfigurovaný", en: "Status list is not configured", cs: "Status list není nakonfigurován", hu: "Az állapotlista nincs konfigurálva", ro: "Lista de stare nu este configurată", it: "Lista stato non configurata", de: "Statusliste nicht konfiguriert" },
   notConfiguredHint: { sk: "Nakonfigurujte ho v Nastaveniach kampane", en: "Configure it in Campaign Settings", cs: "Nakonfigurujte ho v Nastavení kampaně", hu: "Konfigurálja a kampánybeállításokban", ro: "Configurați-o în Setările campaniei", it: "Configuralo nelle Impostazioni della campagna", de: "In den Kampagneneinstellungen konfigurieren" },
+  batchBannerTitle: { sk: "Dávkový režim", en: "Batch mode", cs: "Dávkový režim", hu: "Kötegelt mód", ro: "Mod batch", it: "Modalità batch", de: "Batch-Modus" },
+  batchBannerMsg: { sk: "Automatizácie sa spustia pri Uložení, nie pri každom zaškrtnutí.", en: "Automations run on Save, not on each check.", cs: "Automatizace se spustí při Uložení, ne při každém zaškrtnutí.", hu: "Az automatizálások Mentéskor futnak, nem minden jelölésnél.", ro: "Automatizările rulează la Salvare, nu la fiecare bifă.", it: "Le automazioni vengono eseguite al Salvataggio, non ad ogni spunta.", de: "Automatisierungen laufen beim Speichern, nicht bei jedem Haken." },
 };
 const slu = (key: string, locale: string): string => SLU[key]?.[locale] ?? SLU[key]?.en ?? key;
 
@@ -2866,6 +2868,7 @@ function CommunicationCanvas({
   const [slBatchAction, setSlBatchAction] = useState<"reschedule" | "do_not_call">("reschedule");
   const [slBatchCallbackDt, setSlBatchCallbackDt] = useState("");
   const [slBatchCallbackNote, setSlBatchCallbackNote] = useState("");
+  const [slBatchBannerDismissed, setSlBatchBannerDismissed] = useState(false);
   const statusListMode = useMemo(() => {
     try { return campaign?.settings ? (JSON.parse(campaign.settings).statusListMode || "immediate") : "immediate"; } catch { return "immediate"; }
   }, [campaign?.settings]);
@@ -2957,6 +2960,12 @@ function CommunicationCanvas({
       setSlActiveTab('acquisition');
     }
   }, [campaign?.id, campaignContactId]);
+
+  // Sync batch-mode banner dismissed state from localStorage per campaign-contact session
+  useEffect(() => {
+    if (!campaignContactId) { setSlBatchBannerDismissed(false); return; }
+    setSlBatchBannerDismissed(localStorage.getItem(`sl-batch-banner-${campaignContactId}`) === "1");
+  }, [campaignContactId]);
 
   // Auto-run: items with confirmationType === "auto" fire their actions when the
   // status list loads and are hidden from the agent view.
@@ -5569,6 +5578,28 @@ function CommunicationCanvas({
                 <div className="mx-3 mt-2 rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/30 flex items-center gap-2.5 px-3 py-2.5 shrink-0">
                   <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
                   <span className="text-xs text-amber-800 dark:text-amber-300">{slu("notLinked", locale)}</span>
+                </div>
+              )}
+
+              {/* ── Batch mode active banner ────────────────────────── */}
+              {statusListMode === "batch" && !slBatchBannerDismissed && (
+                <div className="mx-3 mt-2 rounded-xl border border-blue-200 dark:border-blue-800/60 bg-blue-50 dark:bg-blue-950/30 flex items-center gap-2.5 px-3 py-2 shrink-0" data-testid="sl-batch-mode-banner">
+                  <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-semibold text-blue-800 dark:text-blue-300">{slu("batchBannerTitle", locale)}</span>
+                    <span className="text-xs text-blue-700 dark:text-blue-400"> – {slu("batchBannerMsg", locale)}</span>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Dismiss"
+                    onClick={() => {
+                      if (campaignContactId) localStorage.setItem(`sl-batch-banner-${campaignContactId}`, "1");
+                      setSlBatchBannerDismissed(true);
+                    }}
+                    className="shrink-0 rounded-md p-0.5 text-blue-500 hover:text-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               )}
 
