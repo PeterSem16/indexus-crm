@@ -3105,6 +3105,15 @@ function CommunicationCanvas({
           dtLabel = d.toLocaleDateString("sk-SK", { weekday: "short", day: "numeric", month: "numeric" }) + " " + d.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" });
         } catch { /* no-op */ }
         toast({ title: slt("batchSaved", locale), description: dtLabel || slBatchCallbackDt });
+        // Auto-close if all required status-list items are now confirmed
+        const dbVisibleItems = (dbStatusList as any[]).filter(
+          (i: any) => !i.isHidden && i.itemType !== "option" && i.confirmationType !== "auto"
+        );
+        const effectiveChecked = new Set([...Array.from(dbSlChecked), ...Array.from(batchSlSelections)].map(String));
+        const requiredMissing = dbVisibleItems.filter((i: any) => i.required && !effectiveChecked.has(String(i.id)));
+        if (requiredMissing.length === 0) {
+          onCloseCallAfterStatusList?.();
+        }
       } else {
         await apiRequest("PATCH", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}`, {
           status: "do_not_call",
@@ -3124,7 +3133,7 @@ function CommunicationCanvas({
     } finally {
       setSlBatchSaving(false);
     }
-  }, [campaign?.id, campaignContactId, batchSlSelections, slBatchAction, slBatchCallbackDt, slBatchCallbackNote, contactCountry, locale, onCloseCallAfterStatusList, toast]);
+  }, [campaign?.id, campaignContactId, batchSlSelections, slBatchAction, slBatchCallbackDt, slBatchCallbackNote, contactCountry, locale, onCloseCallAfterStatusList, toast, dbStatusList, dbSlChecked]);
 
   // Manual ("run now") trigger for a single configured status-list automation.
   const [slRunningAuto, setSlRunningAuto] = useState<Set<string>>(new Set());
