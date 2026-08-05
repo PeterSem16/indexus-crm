@@ -2872,6 +2872,9 @@ function CommunicationCanvas({
   // Batch-save mode state
   const [batchSlSelections, setBatchSlSelections] = useState<Set<string>>(new Set());
   const [batchSlNotes, setBatchSlNotes] = useState<Record<string, string>>({});
+  // Siblings deselected in batch mode for single-select groups need an explicit server DELETE on save,
+  // because batch-mode handleSlToggle only clears local state and never fires the API.
+  const [batchSlDeletions, setBatchSlDeletions] = useState<Set<string>>(new Set());
   const [slBatchSaveOpen, setSlBatchSaveOpen] = useState(false);
   const [slBatchSaving, setSlBatchSaving] = useState(false);
   const [slBatchAction, setSlBatchAction] = useState<"reschedule" | "do_not_call">("reschedule");
@@ -3143,7 +3146,18 @@ function CommunicationCanvas({
     if (!campaign?.id || !campaignContactId || batchSlSelections.size === 0) return;
     setSlBatchSaving(true);
     try {
-      // Persist all staged items without firing automations
+      // First: remove siblings that were deselected for single-select groups.
+      // These were only cleared locally (batch-mode handleSlToggle never fires DELETE).
+      // Skip any that the agent re-selected (present in batchSlSelections too).
+      for (const itemId of Array.from(batchSlDeletions)) {
+        if (!batchSlSelections.has(itemId)) {
+          await apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${itemId}`, {
+            confirm: false,
+            contactCountry: contactCountry ?? null,
+          });
+        }
+      }
+      // Then: persist all staged items without firing automations
       for (const itemId of Array.from(batchSlSelections)) {
         await apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${itemId}`, {
           confirm: true,
@@ -3380,6 +3394,7 @@ function CommunicationCanvas({
     // avoid a render-order race where [contact?.id] fires after [dbSlState] and wipes the data.
     setBatchSlSelections(new Set());
     setBatchSlNotes({});
+    setBatchSlDeletions(new Set());
     setSlBatchSaveOpen(false);
     setSlBatchCallbackDt("");
     setSlBatchCallbackNote("");
@@ -6314,8 +6329,17 @@ function CommunicationCanvas({
                           childItems.forEach((sib: any) => {
                             if (String(sib.id) !== String(child.id) && dbSlChecked.has(String(sib.id))) {
                               handleSlToggle(String(sib.id), false);
+                              // Batch mode: handleSlToggle only clears local state, never sends DELETE.
+                              // Track the sibling so batch-save can DELETE it from the server.
+                              if (statusListMode === 'batch') {
+                                setBatchSlDeletions(prev => { const n = new Set(prev); n.add(String(sib.id)); return n; });
+                              }
                             }
                           });
+                        }
+                        // If this child was previously pending deletion, cancel it (agent re-selected it).
+                        if (statusListMode === 'batch' && !childChecked) {
+                          setBatchSlDeletions(prev => { const n = new Set(prev); n.delete(String(child.id)); return n; });
                         }
                         handleSlToggle(String(child.id), !childChecked);
                       };
@@ -6343,6 +6367,17 @@ function CommunicationCanvas({
                               {child.required && <span className="ml-1 text-rose-500">*</span>}
                             </span>
                             {child.description && <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{child.description}</p>}
+                            {childChecked && (() => {
+                              const childState = slStateMap.get(String(child.id));
+                              const ts = childState?.confirmedAt;
+                              if (!ts) return null;
+                              return (
+                                <div className="flex items-center gap-1 mt-0.5 text-[10px] text-emerald-600/80 dark:text-emerald-400/70">
+                                  <Clock className="h-2.5 w-2.5 shrink-0" />
+                                  <span>{new Date(ts as any).toLocaleString(locale === 'sk' ? 'sk-SK' : locale === 'cs' ? 'cs-CZ' : locale === 'hu' ? 'hu-HU' : 'en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                       );
