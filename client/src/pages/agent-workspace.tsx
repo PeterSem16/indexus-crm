@@ -3220,11 +3220,24 @@ function CommunicationCanvas({
         } catch { /* no-op */ }
         toast({ title: slt("batchSaved", locale), description: dtLabel || slBatchCallbackDt });
         // Auto-close if all required status-list items are now confirmed
-        const dbVisibleItems = (dbStatusList as any[]).filter(
+        const allUnits = (dbStatusList as any[]).filter(
           (i: any) => !i.isHidden && i.itemType !== "option" && i.confirmationType !== "auto"
         );
+        const batchSingleParentIds = new Set<string>(
+          allUnits.filter((i: any) => !i.parentId && i.questionSelectionMode === "single").map((i: any) => String(i.id))
+        );
+        const batchScoreUnits = allUnits.filter((i: any) =>
+          !(i.parentId && batchSingleParentIds.has(String(i.parentId)))
+        );
         const effectiveChecked = new Set([...Array.from(dbSlChecked), ...Array.from(batchSlSelections)].map(String));
-        const requiredMissing = dbVisibleItems.filter((i: any) => i.required && !effectiveChecked.has(String(i.id)));
+        const requiredMissing = batchScoreUnits.filter((i: any) => {
+          if (!i.required) return false;
+          if (!i.parentId && i.questionSelectionMode === "single") {
+            const children = (dbStatusList as any[]).filter((c: any) => String(c.parentId) === String(i.id) && !c.isHidden);
+            return !children.some((c: any) => effectiveChecked.has(String(c.id)));
+          }
+          return !effectiveChecked.has(String(i.id));
+        });
         if (requiredMissing.length === 0) {
           onCloseCallAfterStatusList?.();
         }
@@ -5556,12 +5569,36 @@ function CommunicationCanvas({
           const slTabItems = hasSlTabAssignment
             ? dbVisibleItems.filter((i: any) => !i.tab || i.tab === slActiveTab)
             : dbVisibleItems;
-          const dbConfirmed = dbVisibleItems.filter((i: any) => dbSlChecked.has(String(i.id))).length;
-          const dbTotal = dbVisibleItems.length;
-          const dbRequiredMissing = dbVisibleItems.filter((i: any) => i.required && !dbSlChecked.has(String(i.id)));
+
+          // ── Scoring helpers: 1× (single-select) groups count as ONE unit ────
+          // A 1× parent is confirmed when ANY child is confirmed.
+          // Children of a 1× parent are excluded from individual scoring to avoid
+          // inflating the denominator (e.g. 3-option radio = 1 unit, not 3).
+          const singleSelectParentIds = new Set<string>(
+            (dbStatusList as any[])
+              .filter((i: any) => !i.parentId && i.questionSelectionMode === "single" && !i.isHidden)
+              .map((i: any) => String(i.id))
+          );
+          const isSingleParentConfirmed = (parentId: string, checkedSet: Set<string>) => {
+            const children = (dbStatusList as any[]).filter((c: any) => String(c.parentId) === parentId && !c.isHidden);
+            return children.some((c: any) => checkedSet.has(String(c.id)));
+          };
+          // scoreUnits: child items of a 1× parent are removed; the parent itself stays.
+          const scoreUnits = dbVisibleItems.filter((i: any) =>
+            !(i.parentId && singleSelectParentIds.has(String(i.parentId)))
+          );
+          const isUnitConfirmed = (i: any, checkedSet: Set<string>) =>
+            (!i.parentId && i.questionSelectionMode === "single")
+              ? isSingleParentConfirmed(String(i.id), checkedSet)
+              : checkedSet.has(String(i.id));
+          // ────────────────────────────────────────────────────────────────────
+
+          const dbConfirmed = scoreUnits.filter((i: any) => isUnitConfirmed(i, dbSlChecked)).length;
+          const dbTotal = scoreUnits.length;
+          const dbRequiredMissing = scoreUnits.filter((i: any) => i.required && !isUnitConfirmed(i, dbSlChecked));
           const progress = dbTotal > 0 ? Math.round((dbConfirmed / dbTotal) * 100) : 0;
 
-          // Per-phase stats for pipeline timeline
+          // Per-phase stats for pipeline timeline (same 1× collapsing logic)
           const phaseStats = [
             { key: 'acquisition' as const, label: 'Acquisition',
               cardActive: 'bg-blue-50 dark:bg-blue-950/40 border-blue-300 dark:border-blue-600 shadow-lg ring-1 ring-blue-400/40',
@@ -5576,15 +5613,17 @@ function CommunicationCanvas({
               labelColor: 'text-emerald-600 dark:text-emerald-400', dotColor: 'bg-emerald-500', pctColor: 'text-emerald-500',
               barGradient: 'linear-gradient(90deg, #34d399 0%, #059669 100%)' },
           ].map(ph => {
-            const phItems = dbVisibleItems.filter((i: any) => {
-              if (i.tab) return i.tab === ph.key;
+            // Use scoreUnits so 1× groups are already collapsed to 1 unit each
+            const phItems = scoreUnits.filter((i: any) => {
+              const itemTab = i.tab ?? null;
+              if (itemTab) return itemTab === ph.key;
               if (i.parentId) {
-                const parent = (dbStatusList as any[]).find((p: any) => p.id === i.parentId);
-                return (parent?.tab || null) === ph.key;
+                const parent = (dbStatusList as any[]).find((p: any) => String(p.id) === String(i.parentId));
+                return (parent?.tab ?? null) === ph.key;
               }
               return false;
             });
-            const confirmed = phItems.filter((i: any) => dbSlChecked.has(String(i.id))).length;
+            const confirmed = phItems.filter((i: any) => isUnitConfirmed(i, dbSlChecked)).length;
             return { ...ph, total: phItems.length, confirmed, pct: phItems.length > 0 ? Math.round((confirmed / phItems.length) * 100) : 0 };
           });
 
