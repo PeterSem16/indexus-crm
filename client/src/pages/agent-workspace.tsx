@@ -298,7 +298,7 @@ const SLU: Record<string, Record<string, string>> = {
   notConfiguredHint: { sk: "Nakonfigurujte ho v Nastaveniach kampane", en: "Configure it in Campaign Settings", cs: "Nakonfigurujte ho v Nastavení kampaně", hu: "Konfigurálja a kampánybeállításokban", ro: "Configurați-o în Setările campaniei", it: "Configuralo nelle Impostazioni della campagna", de: "In den Kampagneneinstellungen konfigurieren" },
   batchBannerTitle: { sk: "Dávkový režim", en: "Batch mode", cs: "Dávkový režim", hu: "Kötegelt mód", ro: "Mod batch", it: "Modalità batch", de: "Batch-Modus" },
   batchBannerMsg: { sk: "Automatizácie sa spustia pri Uložení, nie pri každom zaškrtnutí.", en: "Automations run on Save, not on each check.", cs: "Automatizace se spustí při Uložení, ne při každém zaškrtnutí.", hu: "Az automatizálások Mentéskor futnak, nem minden jelölésnél.", ro: "Automatizările rulează la Salvare, nu la fiecare bifă.", it: "Le automazioni vengono eseguite al Salvataggio, non ad ogni spunta.", de: "Automatisierungen laufen beim Speichern, nicht bei jedem Haken." },
-  tabPhone: { sk: "Karta", en: "Card", cs: "Karta", hu: "Kártya", ro: "Fișă", it: "Scheda", de: "Karte" },
+  tabPhone: { sk: "KARTA", en: "CARD", cs: "KARTA", hu: "KÁRTYA", ro: "FIȘĂ", it: "SCHEDA", de: "KARTE" },
 };
 const slu = (key: string, locale: string): string => SLU[key]?.[locale] ?? SLU[key]?.en ?? key;
 
