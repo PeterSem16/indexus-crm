@@ -30690,7 +30690,24 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             metadata: { statusListItemId: itemId, confirmed: true, campaignId },
           });
         } else {
-          stateRow = existing[0];
+          // Item already confirmed — update itemNote if the caller provided one
+          // (batch-save re-confirms existing items with a note, but the original
+          // INSERT path is skipped, so the note was silently discarded before).
+          if (itemNote !== undefined) {
+            const [updated] = await db.update(campaignContactStatusListState)
+              .set({
+                itemNote: itemNote ?? null,
+                ...(itemNote ? { noteUpdatedAt: new Date() } : {}),
+              })
+              .where(and(
+                eq(campaignContactStatusListState.campaignContactId, campaignContactId),
+                eq(campaignContactStatusListState.statusListItemId, itemId)
+              ))
+              .returning();
+            stateRow = updated ?? existing[0];
+          } else {
+            stateRow = existing[0];
+          }
         }
         return res.json({ ...stateRow, confirmed: true });
       } else {
