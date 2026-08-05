@@ -2746,6 +2746,7 @@ function CommunicationCanvas({
   onRequestDataChangeTask,
   onBatchUnsavedCountChange,
   slCallbackDate,
+  slCallbackActive,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -2805,6 +2806,8 @@ function CommunicationCanvas({
   onRequestDataChangeTask?: () => void;
   onBatchUnsavedCountChange?: (count: number) => void;
   slCallbackDate?: string | null;
+  /** True only when the campaign contact status is callback_scheduled — prevents stale callbackDate from showing after a contact reset */
+  slCallbackActive?: boolean;
 }) {
   const { t, locale } = useI18n();
   const { user } = useAuth();
@@ -5794,6 +5797,9 @@ function CommunicationCanvas({
 
               {/* ── Scheduled callback reminder ──────────────────────── */}
               {(() => {
+                // Only show when the CC is actively scheduled — prevents a stale
+                // callbackDate from a previous cycle showing after a contact reset.
+                if (!slCallbackActive) return null;
                 const cbRaw = slCallbackDate;
                 if (!cbRaw) return null;
                 const cbMs = new Date(cbRaw).getTime();
@@ -14599,6 +14605,7 @@ export default function AgentWorkspacePage() {
                 setCreateTaskDialogOpen(true);
               }}
               slCallbackDate={currentCampaignContact?.callbackDate ?? null}
+              slCallbackActive={currentCampaignContact?.status === 'callback_scheduled'}
             />
           );
         })()}
