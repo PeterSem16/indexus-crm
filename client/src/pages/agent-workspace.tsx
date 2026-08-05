@@ -298,6 +298,7 @@ const SLU: Record<string, Record<string, string>> = {
   notConfiguredHint: { sk: "Nakonfigurujte ho v Nastaveniach kampane", en: "Configure it in Campaign Settings", cs: "Nakonfigurujte ho v Nastavení kampaně", hu: "Konfigurálja a kampánybeállításokban", ro: "Configurați-o în Setările campaniei", it: "Configuralo nelle Impostazioni della campagna", de: "In den Kampagneneinstellungen konfigurieren" },
   batchBannerTitle: { sk: "Dávkový režim", en: "Batch mode", cs: "Dávkový režim", hu: "Kötegelt mód", ro: "Mod batch", it: "Modalità batch", de: "Batch-Modus" },
   batchBannerMsg: { sk: "Automatizácie sa spustia pri Uložení, nie pri každom zaškrtnutí.", en: "Automations run on Save, not on each check.", cs: "Automatizace se spustí při Uložení, ne při každém zaškrtnutí.", hu: "Az automatizálások Mentéskor futnak, nem minden jelölésnél.", ro: "Automatizările rulează la Salvare, nu la fiecare bifă.", it: "Le automazioni vengono eseguite al Salvataggio, non ad ogni spunta.", de: "Automatisierungen laufen beim Speichern, nicht bei jedem Haken." },
+  tabPhone: { sk: "Karta", en: "Card", cs: "Karta", hu: "Kártya", ro: "Fișă", it: "Scheda", de: "Karte" },
 };
 const slu = (key: string, locale: string): string => SLU[key]?.[locale] ?? SLU[key]?.en ?? key;
 
@@ -4278,7 +4279,7 @@ function CommunicationCanvas({
             data-testid="tab-phone"
           >
             <Phone className="h-3.5 w-3.5" />
-            HOVOR
+            {slu("tabPhone", locale)}
           </button>
           {showScript && (
           <button
@@ -5747,7 +5748,7 @@ function CommunicationCanvas({
                 if (!cbRaw) return null;
                 const cbMs = new Date(cbRaw).getTime();
                 const diffMs = cbMs - callbackNow;
-                const diffMin = Math.round(Math.abs(diffMs) / 60000);
+                const totalMin = Math.round(Math.abs(diffMs) / 60000);
                 const isOverdue = diffMs < 0;
                 const isSoon = !isOverdue && diffMs <= 5 * 60 * 1000;
                 const cbDay = new Date(cbRaw).toLocaleDateString(
@@ -5758,11 +5759,25 @@ function CommunicationCanvas({
                   locale === 'sk' ? 'sk-SK' : 'en-GB',
                   { hour: '2-digit', minute: '2-digit' }
                 );
+                // Format totalMin → "X d Y hod Z min" (omit zero parts, keep at least one)
+                const fmtDur = (min: number): string => {
+                  const d = Math.floor(min / 1440);
+                  const h = Math.floor((min % 1440) / 60);
+                  const m = min % 60;
+                  const isSk = locale === 'sk' || locale === 'cs';
+                  const isHu = locale === 'hu';
+                  const parts: string[] = [];
+                  if (d > 0) parts.push(isSk ? `${d} d` : isHu ? `${d} nap` : `${d}d`);
+                  if (h > 0) parts.push(isSk ? `${h} hod` : isHu ? `${h} ó` : `${h}h`);
+                  if (m > 0 || parts.length === 0) parts.push(isSk ? `${m} min` : isHu ? `${m} p` : `${m}m`);
+                  return parts.join(' ');
+                };
+                const dur = fmtDur(totalMin);
                 const relLabel = isOverdue
-                  ? (locale === 'sk' || locale === 'cs' ? `pred ${diffMin} min` : locale === 'hu' ? `${diffMin} perce` : `${diffMin} min ago`)
-                  : diffMin === 0
+                  ? (locale === 'sk' || locale === 'cs' ? `pred ${dur}` : locale === 'hu' ? `${dur} ezelőtt` : `${dur} ago`)
+                  : totalMin === 0
                   ? (locale === 'sk' || locale === 'cs' ? 'teraz' : locale === 'hu' ? 'most' : 'now')
-                  : (locale === 'sk' || locale === 'cs' ? `za ${diffMin} min` : locale === 'hu' ? `${diffMin} perc múlva` : `in ${diffMin} min`);
+                  : (locale === 'sk' || locale === 'cs' ? `za ${dur}` : locale === 'hu' ? `${dur} múlva` : `in ${dur}`);
 
                 if (isOverdue) {
                   return (
