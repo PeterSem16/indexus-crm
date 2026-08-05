@@ -396,7 +396,7 @@ function SlStatusButton({ automation, isRunning, onRun, locale, isCallback, labe
           <span className="ml-auto text-[9px] text-purple-500 font-medium">{slt("forEveryone", locale)}</span>
         </div>
         <div className="p-3 space-y-2.5">
-          <DateTimePicker value={dt} onChange={(v) => setDt(v)} includeTime data-testid={`input-sl-status-callback-${automation.id}`} />
+          <DateTimePicker value={dt} onChange={(v) => setDt(v)} includeTime minDate={new Date()} data-testid={`input-sl-status-callback-${automation.id}`} />
           <div>
             <label className="text-[10px] font-medium text-muted-foreground block mb-1">{slt("cbNoteLabel", locale)}</label>
             <textarea
@@ -444,7 +444,7 @@ function SlCallbackButton({ automation, isRunning, onRun, locale, label }: {
           <span className="ml-auto text-[9px] text-cyan-500 font-medium">{slt("forEveryone", locale)}</span>
         </div>
         <div className="p-3 space-y-2.5">
-          <DateTimePicker value={dt} onChange={(v) => setDt(v)} includeTime data-testid={`input-sl-callback-${automation.id}`} />
+          <DateTimePicker value={dt} onChange={(v) => setDt(v)} includeTime minDate={new Date()} data-testid={`input-sl-callback-${automation.id}`} />
           <div>
             <label className="text-[10px] font-medium text-muted-foreground block mb-1">{slt("cbNoteLabel", locale)}</label>
             <textarea
@@ -6071,6 +6071,7 @@ function CommunicationCanvas({
                           value={slPendingCallback.dt}
                           onChange={(v) => setSlPendingCallback(p => p ? { ...p, dt: v } : null)}
                           includeTime
+                          minDate={new Date()}
                           data-testid="input-sl-pending-callback-dt"
                         />
                         <textarea
@@ -6177,6 +6178,7 @@ function CommunicationCanvas({
                           value={slBatchCallbackDt}
                           onChange={setSlBatchCallbackDt}
                           includeTime
+                          minDate={new Date()}
                         />
                         <textarea
                           placeholder={slt("batchNotePh", locale)}
@@ -8996,6 +8998,7 @@ function ReschedulePopover({ item, onReschedule, t }: { item: ScheduledItem; onR
               }
             }}
             includeTime
+            minDate={new Date()}
             data-testid={`input-reschedule-datetime-${item.id}`}
           />
           <div className="flex gap-2">
@@ -14270,6 +14273,7 @@ export default function AgentWorkspacePage() {
                     value={mobileSlBatchCallbackDt}
                     onChange={setMobileSlBatchCallbackDt}
                     includeTime
+                    minDate={new Date()}
                   />
                   <textarea
                     placeholder={slt("batchNotePh", locale)}
@@ -15313,6 +15317,7 @@ export default function AgentWorkspacePage() {
                               }
                             }}
                             includeTime
+                            minDate={new Date()}
                             data-testid="input-checklist-callback-datetime"
                           />
                           <div className="flex flex-wrap gap-1.5">
@@ -15400,6 +15405,7 @@ export default function AgentWorkspacePage() {
                             }
                           }}
                           includeTime
+                          minDate={new Date()}
                           data-testid="input-modal-callback-datetime"
                         />
                         <div className="flex flex-wrap gap-1.5">

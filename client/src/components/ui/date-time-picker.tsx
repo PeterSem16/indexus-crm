@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { format, parse, isValid, setHours, setMinutes } from "date-fns";
+import { format, isValid, setHours, setMinutes, startOfDay } from "date-fns";
 import { sk, cs, hu, ro, it, de, enUS, type Locale } from "date-fns/locale";
 import { Calendar as CalendarIcon, Clock, X } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
@@ -35,6 +35,8 @@ interface DateTimePickerProps {
   placeholder?: string;
   className?: string;
   "data-testid"?: string;
+  /** When set, dates before this date are disabled and past times on today are clamped to this moment. */
+  minDate?: Date;
 }
 
 export function DateTimePicker({
@@ -45,6 +47,7 @@ export function DateTimePicker({
   placeholder,
   className,
   "data-testid": testId,
+  minDate,
 }: DateTimePickerProps) {
   const [open, setOpen] = useState(false);
   const locale = LOCALE_MAP[countryCode] || sk;
@@ -66,29 +69,41 @@ export function DateTimePicker({
     }
   }, [value]);
 
+  /** Clamp a candidate Date to minDate when it's in the past. Returns the (possibly clamped) Date. */
+  const clampToMin = useCallback((candidate: Date): Date => {
+    if (minDate && candidate < minDate) return new Date(minDate);
+    return candidate;
+  }, [minDate]);
+
   const handleDateSelect = useCallback((date: Date | undefined) => {
     if (!date) return;
     if (includeTime) {
       const h = parseInt(hours) || 0;
       const m = parseInt(minutes) || 0;
-      const withTime = setMinutes(setHours(date, h), m);
+      const withTime = clampToMin(setMinutes(setHours(date, h), m));
+      setHoursState(withTime.getHours().toString().padStart(2, "0"));
+      setMinutesState(withTime.getMinutes().toString().padStart(2, "0"));
       onChange(toLocalISOString(withTime, true));
     } else {
       onChange(toLocalISOString(date, false));
     }
-  }, [hours, minutes, includeTime, onChange]);
+  }, [hours, minutes, includeTime, onChange, clampToMin]);
 
   const handleTimeChange = useCallback((newHours: string, newMinutes: string) => {
     const h = Math.min(23, Math.max(0, parseInt(newHours) || 0));
     const m = Math.min(59, Math.max(0, parseInt(newMinutes) || 0));
-    setHoursState(h.toString().padStart(2, "0"));
-    setMinutesState(m.toString().padStart(2, "0"));
 
     if (isValidDate) {
-      const updated = setMinutes(setHours(new Date(currentDate), h), m);
-      onChange(toLocalISOString(updated, true));
+      const candidate = setMinutes(setHours(new Date(currentDate), h), m);
+      const clamped = clampToMin(candidate);
+      setHoursState(clamped.getHours().toString().padStart(2, "0"));
+      setMinutesState(clamped.getMinutes().toString().padStart(2, "0"));
+      onChange(toLocalISOString(clamped, true));
+    } else {
+      setHoursState(h.toString().padStart(2, "0"));
+      setMinutesState(m.toString().padStart(2, "0"));
     }
-  }, [isValidDate, currentDate, onChange]);
+  }, [isValidDate, currentDate, onChange, clampToMin]);
 
   const displayValue = isValidDate
     ? includeTime
@@ -132,6 +147,7 @@ export function DateTimePicker({
           onSelect={handleDateSelect}
           locale={locale}
           initialFocus
+          disabled={minDate ? { before: startOfDay(minDate) } : undefined}
         />
         {includeTime && (
           <div className="flex items-center gap-2 border-t p-3">
@@ -159,7 +175,7 @@ export function DateTimePicker({
               variant="ghost"
               size="sm"
               onClick={() => {
-                const now = new Date();
+                const now = clampToMin(new Date());
                 onChange(toLocalISOString(now, true));
                 setOpen(false);
               }}
