@@ -2977,6 +2977,16 @@ function CommunicationCanvas({
     return m;
   }, [dbSlState]);
 
+  // ① RESET — defined BEFORE population so React runs it first when both deps change
+  //    in the same render (cached data arrives together with a contact switch).
+  //    If reset ran second it would wipe the freshly-populated set and items would
+  //    appear missing every time a previously-visited contact is reopened.
+  useEffect(() => {
+    setDbSlChecked(new Set());
+    setSlItemNotes({});
+  }, [campaignContactId]);
+
+  // ② POPULATE — fires after the reset above when they share a render cycle.
   useEffect(() => {
     // All rows in dbSlState are confirmed (existence-based model)
     if (dbSlState) {
@@ -2992,16 +3002,6 @@ function CommunicationCanvas({
       setSlItemNotes(notes);
     }
   }, [dbSlState]);
-
-  // Reset confirmed-state and notes when the campaign contact changes (before new data arrives).
-  // This must be keyed on campaignContactId — NOT contact?.id — to avoid a render-order race:
-  // [dbSlState] (line ~2980) fires first and populates dbSlChecked, then [contact?.id] (further
-  // down) fires in the SAME render and overwrites it with new Set(). Using campaignContactId
-  // as the dep fires in a separate render from the dbSlState population.
-  useEffect(() => {
-    setDbSlChecked(new Set());
-    setSlItemNotes({});
-  }, [campaignContactId]);
 
   // Restore last active tab from localStorage when contact/campaign changes
   useEffect(() => {
