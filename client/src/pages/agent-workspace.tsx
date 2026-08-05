@@ -2996,6 +2996,43 @@ function CommunicationCanvas({
       const confirmedIds = new Set<string>(
         (dbSlState as any[]).map((s: any) => String(s.statusListItemId))
       );
+
+      // ── Auto-cleanup: enforce 1× (single-select) integrity on load ──────────
+      // If a previous batch-save left multiple children confirmed in a
+      // single-select parent, keep only the most recently confirmed one and
+      // fire background DELETEs for the rest so the UI and DB stay in sync.
+      const stateByItemId = new Map<string, any>();
+      for (const row of (dbSlState as any[])) stateByItemId.set(String(row.statusListItemId), row);
+
+      if (Array.isArray(dbStatusList) && dbStatusList.length && campaign?.id && campaignContactId) {
+        const parents = (dbStatusList as any[]).filter(
+          (p: any) => p.questionSelectionMode === "single" && !p.parentId && !p.isHidden
+        );
+        for (const parent of parents) {
+          const children = (dbStatusList as any[]).filter(
+            (c: any) => c.parentId === String(parent.id) && !c.isHidden
+          );
+          const confirmedChildren = children.filter((c: any) => confirmedIds.has(String(c.id)));
+          if (confirmedChildren.length <= 1) continue;
+          // Sort descending by confirmedAt — keep newest, delete the rest
+          confirmedChildren.sort((a: any, b: any) => {
+            const tA = stateByItemId.get(String(a.id))?.confirmedAt;
+            const tB = stateByItemId.get(String(b.id))?.confirmedAt;
+            return (tB ? new Date(tB).getTime() : 0) - (tA ? new Date(tA).getTime() : 0);
+          });
+          const [, ...toDelete] = confirmedChildren;
+          for (const dup of toDelete) {
+            confirmedIds.delete(String(dup.id));
+            // Fire-and-forget DELETE to align DB with the enforced single-select rule
+            apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${dup.id}`, {
+              confirm: false,
+              contactCountry: contact?.country ?? null,
+            }).catch(() => {/* best-effort */});
+          }
+        }
+      }
+      // ────────────────────────────────────────────────────────────────────────
+
       setDbSlChecked(confirmedIds);
       // Restore per-item notes from DB
       const notes: Record<string, string> = {};
@@ -3004,7 +3041,7 @@ function CommunicationCanvas({
       }
       setSlItemNotes(notes);
     }
-  }, [dbSlState]);
+  }, [dbSlState]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Restore last active tab from localStorage when contact/campaign changes
   useEffect(() => {
@@ -6059,8 +6096,10 @@ function CommunicationCanvas({
                             </div>
                           );
                         })()}
-                        {/* Retention-tab note field — shown when item is checked (immediate) or staged (batch) */}
-                        {item.tab === 'retention' && (isChecked || (statusListMode === 'batch' && batchSlSelections.has(String(item.id)))) && (() => {
+                        {/* Retention-tab note field — shown when item is checked (immediate) or staged (batch).
+              Show for items explicitly tagged retention, OR for tab=null items currently
+              viewed inside the retention tab (tab=null = show on all tabs). */}
+                        {(item.tab === 'retention' || (!item.tab && slActiveTab === 'retention')) && (isChecked || (statusListMode === 'batch' && batchSlSelections.has(String(item.id)))) && (() => {
                           const isBatch = statusListMode === 'batch' && !isChecked;
                           const noteVal = isBatch
                             ? (batchSlNotes[String(item.id)] ?? '')
