@@ -39,6 +39,6 @@ export const modules: ModuleMap = {
   "./components/mockups/substatus-variants/AccentRows.tsx": () => import("../components/mockups/substatus-variants/AccentRows.tsx"),
   "./components/mockups/substatus-variants/SelectableCards.tsx": () => import("../components/mockups/substatus-variants/SelectableCards.tsx"),
   "./components/mockups/substatus-variants/TogglePills.tsx": () => import("../components/mockups/substatus-variants/TogglePills.tsx"),
-  "./components/mockups/templates/EditorialCybersecurityLaunchEmail-sj9g_3/App.tsx": () => import("../components/mockups/templates/EditorialCybersecurityLaunchEmail-sj9g_3/App.tsx"),
-  "./components/mockups/templates/VintageIceCreamNewsletter-Ixaez0/App.tsx": () => import("../components/mockups/templates/VintageIceCreamNewsletter-Ixaez0/App.tsx")
+  "./components/mockups/templates/VintageIceCreamNewsletter-Ixaez0/App.tsx": () => import("../components/mockups/templates/VintageIceCreamNewsletter-Ixaez0/App.tsx"),
+  "./components/mockups/templates/EditorialCybersecurityLaunchEmail-sj9g_3/App.tsx": () => import("../components/mockups/templates/EditorialCybersecurityLaunchEmail-sj9g_3/App.tsx")
 };
