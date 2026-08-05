@@ -2744,6 +2744,7 @@ function CommunicationCanvas({
   campaignEmailAddress,
   onRequestDataChangeTask,
   onBatchUnsavedCountChange,
+  slCallbackDate,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -2802,6 +2803,7 @@ function CommunicationCanvas({
   campaignEmailAddress?: string;
   onRequestDataChangeTask?: () => void;
   onBatchUnsavedCountChange?: (count: number) => void;
+  slCallbackDate?: string | null;
 }) {
   const { t, locale } = useI18n();
   const { user } = useAuth();
@@ -5741,14 +5743,7 @@ function CommunicationCanvas({
 
               {/* ── Scheduled callback reminder ──────────────────────── */}
               {(() => {
-                // Find the callback date for the contact currently open in the status list.
-                // currentCampaignContact is the component-level memo; it covers the common
-                // case. Falls back to a rawCampaignContacts lookup by campaignContactId for
-                // the edge case where the SL is open for a different CC than the dialer.
-                const slCC = currentCampaignContact?.id === campaignContactId
-                  ? currentCampaignContact
-                  : (rawCampaignContacts as any[])?.find((cc: any) => cc.id === campaignContactId);
-                const cbRaw = slCC?.callbackDate;
+                const cbRaw = slCallbackDate;
                 if (!cbRaw) return null;
                 const cbMs = new Date(cbRaw).getTime();
                 const diffMs = cbMs - callbackNow;
@@ -14519,6 +14514,7 @@ export default function AgentWorkspacePage() {
                 });
                 setCreateTaskDialogOpen(true);
               }}
+              slCallbackDate={currentCampaignContact?.callbackDate ?? null}
             />
           );
         })()}
