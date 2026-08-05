@@ -4343,7 +4343,57 @@ function CommunicationCanvas({
               STATUS LIST
             </button>
           )}
-          <div className="ml-auto flex items-center pr-2">
+          <div className="ml-auto flex items-center gap-2 pr-2">
+            {/* ── Callback urgency badge (tab bar) ───────────────────── */}
+            {(() => {
+              if (!slCallbackDate) return null;
+              const cbMs = new Date(slCallbackDate).getTime();
+              const diffMs = cbMs - callbackNow;
+              const isOverdue = diffMs < 0;
+              const isSoon = !isOverdue && diffMs <= 5 * 60 * 1000;
+              if (!isOverdue && !isSoon) return null;
+              const totalMin = Math.round(Math.abs(diffMs) / 60000);
+              const fmtDur = (min: number): string => {
+                const d = Math.floor(min / 1440);
+                const h = Math.floor((min % 1440) / 60);
+                const m = min % 60;
+                const isSk = locale === 'sk' || locale === 'cs';
+                const isHu = locale === 'hu';
+                const parts: string[] = [];
+                if (d > 0) parts.push(isSk ? `${d} d` : isHu ? `${d} nap` : `${d}d`);
+                if (h > 0) parts.push(isSk ? `${h} hod` : isHu ? `${h} ó` : `${h}h`);
+                if (m > 0 || parts.length === 0) parts.push(isSk ? `${m} min` : isHu ? `${m} p` : `${m}m`);
+                return parts.join(' ');
+              };
+              const dur = fmtDur(totalMin);
+              const relLabel = isOverdue
+                ? (locale === 'sk' || locale === 'cs' ? `pred ${dur}` : locale === 'hu' ? `${dur} ezelőtt` : `${dur} ago`)
+                : totalMin === 0
+                ? (locale === 'sk' || locale === 'cs' ? 'teraz' : locale === 'hu' ? 'most' : 'now')
+                : (locale === 'sk' || locale === 'cs' ? `za ${dur}` : locale === 'hu' ? `${dur} múlva` : `in ${dur}`);
+              if (isOverdue) {
+                return (
+                  <span
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 border border-rose-400 dark:border-rose-600 animate-pulse"
+                    title={locale === 'sk' || locale === 'cs' ? 'Po termíne volania!' : locale === 'hu' ? 'Visszahívás lejárt!' : 'Call overdue!'}
+                    data-testid="callback-urgency-badge"
+                  >
+                    <CalendarClock className="h-3 w-3 text-rose-600 dark:text-rose-400 shrink-0" />
+                    <span className="text-[10px] font-bold text-rose-700 dark:text-rose-300 tabular-nums leading-none">{relLabel}</span>
+                  </span>
+                );
+              }
+              return (
+                <span
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 border border-amber-400 dark:border-amber-600"
+                  title={locale === 'sk' || locale === 'cs' ? 'Hovor o chvíľu!' : locale === 'hu' ? 'Hamarosan visszahívás!' : 'Call soon!'}
+                  data-testid="callback-urgency-badge"
+                >
+                  <CalendarClock className="h-3 w-3 text-amber-600 dark:text-amber-400 shrink-0 animate-bounce" />
+                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 tabular-nums leading-none">{relLabel}</span>
+                </span>
+              );
+            })()}
             {contact && onClearContact && (
               <button
                 type="button"
