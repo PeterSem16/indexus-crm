@@ -18,7 +18,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Copy, AlertTriangle, CheckCircle2, Check, X, Pencil, Calculator as CalcIcon, ListOrdered, Grid3X3, CopyPlus, CalendarDays, Trash2, Package, Percent, Droplets, Plus, Sparkles, Lock, Unlock, ShieldCheck, TrendingUp } from "lucide-react";
+import { Loader2, Copy, AlertTriangle, CheckCircle2, Check, X, Pencil, Calculator as CalcIcon, ListOrdered, Grid3X3, CopyPlus, CalendarDays, Trash2, Package, Percent, Droplets, Plus, Sparkles, Lock, Unlock, ShieldCheck, TrendingUp, Camera, BarChart3 } from "lucide-react";
+import {
+  LineChart, Line, BarChart, Bar,
+  XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 // ---------- types (mirror server /api/pricing responses) ----------
 interface PriceListRow {
@@ -206,6 +211,12 @@ function MarginTab({ canManage, toast }: { canManage: boolean; toast: ReturnType
     onError: () => toast({ title: p.marginCostItemSaveFailed, variant: "destructive" }),
   });
 
+  const takeSnapshot = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/pricing/margin/snapshot", {}),
+    onSuccess: () => toast({ title: p.marginSnapshotSaved }),
+    onError: () => toast({ title: p.marginSaveFailed, variant: "destructive" }),
+  });
+
   const saveRezia = async (row: CostRow) => {
     const val = (reziaInputs[row.id] ?? "").trim();
     const num = val === "" ? null : parseFloat(val);
@@ -286,9 +297,18 @@ function MarginTab({ canManage, toast }: { canManage: boolean; toast: ReturnType
     <div className="mt-4 space-y-4">
       {/* header row */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-700">
-          <Unlock className="h-3 w-3" />
-          <span>{p.marginSessionInfo}</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-700">
+            <Unlock className="h-3 w-3" />
+            <span>{p.marginSessionInfo}</span>
+          </div>
+          <Button size="sm" variant="outline"
+            className="h-7 gap-1.5 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+            disabled={takeSnapshot.isPending}
+            onClick={() => takeSnapshot.mutate()}>
+            {takeSnapshot.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+            {p.marginSnapshotNow}
+          </Button>
         </div>
         <div className="flex flex-wrap gap-1.5">
           {countries.map((cc) => (
@@ -350,7 +370,7 @@ function MarginTab({ canManage, toast }: { canManage: boolean; toast: ReturnType
                     </div>
                     <div className="tabular-nums font-semibold text-rose-600 text-center">− {fmt(Math.abs(cost))} €</div>
                     {rowItems.length > 0 && (
-                      <div className="text-[9px] text-muted-foreground text-center">{rowItems.length} položiek</div>
+                      <div className="text-[9px] text-muted-foreground text-center">{rowItems.length} {p.marginCostItems}</div>
                     )}
                   </button>
                   <div className={`rounded-lg p-1.5 ${rezia > 0 ? "bg-orange-50 border border-orange-200" : "bg-white/70"}`}>
@@ -380,46 +400,51 @@ function MarginTab({ canManage, toast }: { canManage: boolean; toast: ReturnType
                     </div>
 
                     {rowItems.length === 0 ? (
-                      <p className="text-[10px] text-muted-foreground text-center py-2">
-                        Žiadne položky — klikni na + Pridať položku
+                      <p className="text-[10px] text-muted-foreground text-center py-3 italic">
+                        {p.marginNoCostItems}
                       </p>
                     ) : (
-                      <div className="space-y-1.5">
+                      <div className="space-y-2">
                         {rowItems.map((item) => {
                           const draft = itemDrafts[item.id] ?? { label: item.label, amount: item.amountEur };
                           const setDraft = (patch: Partial<{ label: string; amount: string }>) =>
                             setItemDrafts((prev) => ({ ...prev, [item.id]: { ...draft, ...patch } }));
                           return (
-                            <div key={item.id} className="flex items-center gap-1">
+                            <div key={item.id} className="rounded-lg border border-rose-100 bg-white/80 p-2 space-y-1.5 shadow-sm">
+                              {/* label — full width */}
                               <Input
                                 value={draft.label}
                                 onChange={(e) => setDraft({ label: e.target.value })}
                                 onKeyDown={(e) => e.key === "Enter" && updateCostItem(item.id, draft)}
                                 placeholder={p.marginCostLabel}
-                                className="h-7 flex-1 text-xs min-w-0" />
-                              <Input
-                                type="number" step="0.01" min="0"
-                                value={draft.amount}
-                                onChange={(e) => setDraft({ amount: e.target.value })}
-                                onKeyDown={(e) => e.key === "Enter" && updateCostItem(item.id, draft)}
-                                placeholder="0.00"
-                                className="h-7 w-20 shrink-0 text-xs text-right" />
-                              <Button size="sm" variant="ghost"
-                                className="h-7 w-7 shrink-0 p-0 text-emerald-600 hover:bg-emerald-50"
-                                onClick={() => updateCostItem(item.id, draft)}>
-                                <Check className="h-3 w-3" />
-                              </Button>
-                              <Button size="sm" variant="ghost"
-                                className="h-7 w-7 shrink-0 p-0 text-rose-500 hover:bg-rose-100"
-                                disabled={deleteCostItem.isPending}
-                                onClick={() => deleteCostItem.mutate(item.id)}>
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
+                                className="h-7 w-full text-xs font-medium border-0 bg-transparent px-1 focus-visible:ring-1 focus-visible:ring-rose-300" />
+                              {/* amount row */}
+                              <div className="flex items-center gap-1">
+                                <Input
+                                  type="number" step="0.01" min="0"
+                                  value={draft.amount}
+                                  onChange={(e) => setDraft({ amount: e.target.value })}
+                                  onKeyDown={(e) => e.key === "Enter" && updateCostItem(item.id, draft)}
+                                  placeholder="0.00"
+                                  className="h-7 flex-1 text-xs text-right tabular-nums" />
+                                <span className="text-[10px] text-muted-foreground shrink-0">€</span>
+                                <Button size="sm" variant="ghost"
+                                  className="h-7 w-7 shrink-0 p-0 text-emerald-600 hover:bg-emerald-50"
+                                  onClick={() => updateCostItem(item.id, draft)}>
+                                  <Check className="h-3 w-3" />
+                                </Button>
+                                <Button size="sm" variant="ghost"
+                                  className="h-7 w-7 shrink-0 p-0 text-rose-400 hover:bg-rose-100"
+                                  disabled={deleteCostItem.isPending}
+                                  onClick={() => deleteCostItem.mutate(item.id)}>
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
                             </div>
                           );
                         })}
-                        <div className="flex justify-between border-t border-rose-200 pt-1.5 text-[10px]">
-                          <span className="text-muted-foreground font-medium">Celkom priame náklady</span>
+                        <div className="flex justify-between border-t border-rose-200 pt-2 text-[10px]">
+                          <span className="text-muted-foreground font-semibold">{p.marginCostTotalLabel}</span>
                           <span className="tabular-nums font-bold text-rose-700">
                             {fmt(rowItems.reduce((s, i) => s + (parseFloat(i.amountEur) || 0), 0))} €
                           </span>
@@ -448,6 +473,193 @@ function MarginTab({ canManage, toast }: { canManage: boolean; toast: ReturnType
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Types for trend data ───────────────────────────────────────────────────
+interface TrendDataRaw {
+  lists: Array<{ id: string; countryCode: string; name: string; status: string; validFrom: string | null }>;
+  prices: Array<{ priceListId: string; productId: string | null; componentId: string | null; price: string }>;
+  products: Array<{ id: string; code: string; name: string }>;
+}
+interface MarginSnapshot {
+  id: string; costRowId: string; productLabel: string; countryCode: string;
+  grossRevenueEur: string | null; totalCostEur: string | null; reziaEur: string | null;
+  snapshotDate: string; note: string | null;
+}
+
+// ── Trend Tab ──────────────────────────────────────────────────────────────
+const CHART_COLORS = ["#6366f1","#22c55e","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#ec4899","#84cc16"];
+
+function TrendTab() {
+  const { t } = useI18n();
+  const p = t.pricing;
+  const [country, setCountry] = useState("SK");
+
+  // Check if margin session is active
+  const { data: sessionData } = useQuery<{ verified: boolean }>({
+    queryKey: ["/api/pricing/margin/session"],
+    queryFn: async () => {
+      const res = await fetch("/api/pricing/margin/session", { credentials: "include" });
+      if (!res.ok) return { verified: false };
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+  const marginUnlocked = sessionData?.verified === true;
+
+  const { data: trendRaw } = useQuery<TrendDataRaw>({
+    queryKey: ["/api/pricing/trend"],
+    queryFn: async () => {
+      const res = await fetch("/api/pricing/trend", { credentials: "include" });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    staleTime: 5 * 60_000,
+  });
+
+  const { data: snapshots = [] } = useQuery<MarginSnapshot[]>({
+    queryKey: ["/api/pricing/margin/snapshots"],
+    queryFn: async () => {
+      const res = await fetch("/api/pricing/margin/snapshots", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: marginUnlocked,
+    staleTime: 60_000,
+  });
+
+  // Derive available countries
+  const countries = useMemo(() => {
+    const fromLists = (trendRaw?.lists ?? []).map((l) => l.countryCode);
+    const fromSnaps = snapshots.map((s) => s.countryCode);
+    return [...new Set([...fromLists, ...fromSnaps])].sort();
+  }, [trendRaw, snapshots]);
+  const activeCountry = countries.includes(country) ? country : (countries[0] ?? "SK");
+
+  // Build price trend chart data: [{date, ProductCode: price, ...}]
+  const priceChartData = useMemo(() => {
+    if (!trendRaw) return [];
+    const { lists, prices, products } = trendRaw;
+    const countryLists = lists
+      .filter((l) => l.countryCode === activeCountry && l.validFrom && l.status !== "draft")
+      .sort((a, b) => new Date(a.validFrom!).getTime() - new Date(b.validFrom!).getTime());
+
+    const rows: Record<string, Record<string, unknown>> = {};
+    for (const list of countryLists) {
+      const dateKey = new Date(list.validFrom!).toLocaleDateString("sk-SK", { year: "numeric", month: "short" });
+      const listPrices = prices.filter((lp) => lp.priceListId === list.id && lp.productId && !lp.componentId);
+      for (const lp of listPrices) {
+        const product = products.find((pr) => pr.id === lp.productId);
+        if (!product) continue;
+        if (!rows[dateKey]) rows[dateKey] = { date: dateKey, listName: list.name };
+        rows[dateKey][product.code] = parseFloat(lp.price);
+      }
+    }
+    return Object.values(rows);
+  }, [trendRaw, activeCountry]);
+
+  const priceProductCodes = useMemo(() => {
+    const codes = new Set<string>();
+    for (const row of priceChartData) {
+      for (const key of Object.keys(row)) {
+        if (key !== "date" && key !== "listName") codes.add(key);
+      }
+    }
+    return [...codes];
+  }, [priceChartData]);
+
+  // Build margin snapshot chart data per day
+  const marginChartData = useMemo(() => {
+    const countrySnaps = snapshots
+      .filter((s) => s.countryCode === activeCountry)
+      .sort((a, b) => new Date(a.snapshotDate).getTime() - new Date(b.snapshotDate).getTime());
+    const dates = [...new Set(countrySnaps.map((s) => s.snapshotDate.substring(0, 10)))];
+    return dates.map((date) => {
+      const daySnaps = countrySnaps.filter((s) => s.snapshotDate.startsWith(date));
+      const revenue = daySnaps.reduce((sum, s) => sum + (parseFloat(s.grossRevenueEur ?? "0") || 0), 0);
+      const cost = daySnaps.reduce((sum, s) => sum + Math.abs(parseFloat(s.totalCostEur ?? "0") || 0), 0);
+      const rezia = daySnaps.reduce((sum, s) => sum + (parseFloat(s.reziaEur ?? "0") || 0), 0);
+      const margin = revenue - cost - rezia;
+      const dateLabel = new Date(date).toLocaleDateString("sk-SK", { year: "numeric", month: "short", day: "numeric" });
+      return { date: dateLabel, [p.marginTrendRevenue]: Math.round(revenue), [p.marginTrendCost]: Math.round(cost), [p.marginTrendMargin]: Math.round(margin) };
+    });
+  }, [snapshots, activeCountry, p]);
+
+  const fmtTick = (v: number) => `${v.toLocaleString("sk-SK")} €`;
+
+  return (
+    <div className="mt-4 space-y-6">
+      {/* country selector */}
+      {countries.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {countries.map((cc) => (
+            <button key={cc} onClick={() => setCountry(cc)}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${activeCountry === cc ? "bg-indigo-600 text-white shadow-sm" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
+              {COUNTRY_FLAGS[cc] ?? ""} {cc}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── Price trend ── */}
+      <div className="rounded-2xl border bg-white dark:bg-muted/30 p-4 shadow-sm space-y-3">
+        <h3 className="text-sm font-bold flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 text-indigo-500" />
+          {p.marginTrendTitle} — {activeCountry}
+        </h3>
+        {priceChartData.length < 2 ? (
+          <p className="py-8 text-center text-xs text-muted-foreground">{priceChartData.length < 1 ? p.marginTrendNoData : "Potrebné aspoň 2 cenníky pre zobrazenie trendu."}</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={280}>
+            <LineChart data={priceChartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+              <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+              <YAxis tickFormatter={fmtTick} tick={{ fontSize: 11 }} width={80} />
+              <ReTooltip formatter={(v: number) => `${v.toLocaleString("sk-SK", { minimumFractionDigits: 2 })} €`} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              {priceProductCodes.map((code, i) => (
+                <Line key={code} type="monotone" dataKey={code}
+                  stroke={CHART_COLORS[i % CHART_COLORS.length]}
+                  strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} connectNulls />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      {/* ── Margin / cost trend (snapshots) ── */}
+      <div className="rounded-2xl border bg-white dark:bg-muted/30 p-4 shadow-sm space-y-3">
+        <h3 className="text-sm font-bold flex items-center gap-2">
+          <BarChart3 className="h-4 w-4 text-emerald-500" />
+          {p.marginTrendCost} / {p.marginTrendMargin} — {activeCountry}
+        </h3>
+        {!marginUnlocked ? (
+          <div className="py-8 text-center space-y-2">
+            <Lock className="h-8 w-8 text-muted-foreground/40 mx-auto" />
+            <p className="text-xs text-muted-foreground">{p.marginLocked}</p>
+          </div>
+        ) : marginChartData.length === 0 ? (
+          <div className="py-8 text-center space-y-2">
+            <Camera className="h-8 w-8 text-muted-foreground/40 mx-auto" />
+            <p className="text-xs text-muted-foreground">{p.marginTrendNoData}</p>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={marginChartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+              <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+              <YAxis tickFormatter={fmtTick} tick={{ fontSize: 11 }} width={80} />
+              <ReTooltip formatter={(v: number) => `${v.toLocaleString("sk-SK", { minimumFractionDigits: 0 })} €`} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey={p.marginTrendRevenue} fill="#6366f1" radius={[4, 4, 0, 0]} />
+              <Bar dataKey={p.marginTrendCost} fill="#f43f5e" radius={[4, 4, 0, 0]} />
+              <Bar dataKey={p.marginTrendMargin} fill="#22c55e" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
     </div>
   );
 }
@@ -497,6 +709,7 @@ export default function PricingPage() {
           <TabsTrigger value="matrix" data-testid="tab-matrix"><Grid3X3 className="w-4 h-4 mr-1" />{t.pricing.tabMatrix}</TabsTrigger>
           <TabsTrigger value="calculator" data-testid="tab-calculator"><CalcIcon className="w-4 h-4 mr-1" />{t.pricing.tabCalculator}</TabsTrigger>
           {canManage && <TabsTrigger value="margin" data-testid="tab-margin"><TrendingUp className="w-4 h-4 mr-1" />{t.pricing.tabMargin}</TabsTrigger>}
+          {canManage && <TabsTrigger value="trend" data-testid="tab-trend"><BarChart3 className="w-4 h-4 mr-1" />{t.pricing.tabTrend}</TabsTrigger>}
         </TabsList>
         <TabsContent value="lists">
           <PriceListsTab lists={lists} loading={listsLoading} selectedId={effectiveListId} onSelect={setSelectedListId} bundle={bundle} canManage={canManage} toast={toast} />
@@ -510,6 +723,11 @@ export default function PricingPage() {
         {canManage && (
           <TabsContent value="margin">
             <MarginTab canManage={canManage} toast={toast} />
+          </TabsContent>
+        )}
+        {canManage && (
+          <TabsContent value="trend">
+            <TrendTab />
           </TabsContent>
         )}
       </Tabs>

@@ -339,6 +339,17 @@ export interface Translations {
     marginEditCosts: string;
     marginCostLabel: string;
     marginCostAmount: string;
+    marginCostTotalLabel: string;
+    marginNoCostItems: string;
+    marginCostItems: string;
+    tabTrend: string;
+    marginTrendTitle: string;
+    marginTrendRevenue: string;
+    marginTrendCost: string;
+    marginTrendMargin: string;
+    marginTrendNoData: string;
+    marginSnapshotNow: string;
+    marginSnapshotSaved: string;
   };
   beratung: {
     description: string;
@@ -7507,6 +7518,17 @@ export const translations: Record<Locale, Translations> = {
       marginEditCosts: 'Edit costs',
       marginCostLabel: 'Description',
       marginCostAmount: 'Amount (€)',
+      marginCostTotalLabel: 'Total direct costs',
+      marginNoCostItems: 'No items yet — click + Add item',
+      marginCostItems: 'items',
+      tabTrend: 'Trends',
+      marginTrendTitle: 'Price & Margin Trends',
+      marginTrendRevenue: 'Revenue',
+      marginTrendCost: 'Direct costs',
+      marginTrendMargin: 'Margin',
+      marginTrendNoData: 'No snapshot data yet. Take a snapshot in the Margin tab first.',
+      marginSnapshotNow: 'Take snapshot',
+      marginSnapshotSaved: 'Snapshot saved',
     },
     beratung: {
       description: 'Monitoring beratung@cordbloodcenter.com — AI translation and forwarding of emails',
@@ -14727,6 +14749,17 @@ export const translations: Record<Locale, Translations> = {
       marginEditCosts: 'Upraviť náklady',
       marginCostLabel: 'Popis',
       marginCostAmount: 'Suma (€)',
+      marginCostTotalLabel: 'Celkom priame náklady',
+      marginNoCostItems: 'Žiadne položky — klikni + Pridať položku',
+      marginCostItems: 'položiek',
+      tabTrend: 'Vývoj',
+      marginTrendTitle: 'Vývoj cien a marží',
+      marginTrendRevenue: 'Príjmy',
+      marginTrendCost: 'Priame náklady',
+      marginTrendMargin: 'Marža',
+      marginTrendNoData: 'Zatiaľ žiadne dáta. Najprv vytvor snímku v záložke Marža.',
+      marginSnapshotNow: 'Vytvoriť snímku',
+      marginSnapshotSaved: 'Snímka uložená',
     },
     beratung: {
       description: 'Monitorovanie schránky beratung@cordbloodcenter.com — AI preklad a preposlanie emailov',
@@ -21883,6 +21916,17 @@ export const translations: Record<Locale, Translations> = {
       marginEditCosts: 'Upravit náklady',
       marginCostLabel: 'Popis',
       marginCostAmount: 'Částka (€)',
+      marginCostTotalLabel: 'Celkem přímé náklady',
+      marginNoCostItems: 'Žádné položky — klikni + Přidat položku',
+      marginCostItems: 'položek',
+      tabTrend: 'Vývoj',
+      marginTrendTitle: 'Vývoj cen a marží',
+      marginTrendRevenue: 'Příjmy',
+      marginTrendCost: 'Přímé náklady',
+      marginTrendMargin: 'Marže',
+      marginTrendNoData: 'Zatím žádná data. Nejprve vytvořte snímek na záložce Marže.',
+      marginSnapshotNow: 'Vytvořit snímek',
+      marginSnapshotSaved: 'Snímek uložen',
     },
     beratung: {
       description: 'Monitorování schránky beratung@cordbloodcenter.com — AI překlad a přeposlání emailů',
@@ -28965,6 +29009,17 @@ export const translations: Record<Locale, Translations> = {
       marginEditCosts: 'Költségek szerkesztése',
       marginCostLabel: 'Leírás',
       marginCostAmount: 'Összeg (€)',
+      marginCostTotalLabel: 'Összes közvetlen költség',
+      marginNoCostItems: 'Nincs tétel — kattints + Tétel hozzáadása',
+      marginCostItems: 'tétel',
+      tabTrend: 'Trendek',
+      marginTrendTitle: 'Ár- és árrés-trendek',
+      marginTrendRevenue: 'Bevétel',
+      marginTrendCost: 'Közvetlen költségek',
+      marginTrendMargin: 'Árrés',
+      marginTrendNoData: 'Még nincs adat. Először hozz létre pillanatképet a Margó fülön.',
+      marginSnapshotNow: 'Pillanatkép készítése',
+      marginSnapshotSaved: 'Pillanatkép mentve',
     },
     beratung: {
       description: 'A beratung@cordbloodcenter.com postaláda figyelése — AI fordítás és továbbítás',
@@ -36007,6 +36062,17 @@ export const translations: Record<Locale, Translations> = {
       marginEditCosts: 'Editare costuri',
       marginCostLabel: 'Descriere',
       marginCostAmount: 'Sumă (€)',
+      marginCostTotalLabel: 'Total costuri directe',
+      marginNoCostItems: 'Nicio articol — click + Adaugă articol',
+      marginCostItems: 'articole',
+      tabTrend: 'Tendințe',
+      marginTrendTitle: 'Tendințe prețuri și marje',
+      marginTrendRevenue: 'Venituri',
+      marginTrendCost: 'Costuri directe',
+      marginTrendMargin: 'Marjă',
+      marginTrendNoData: 'Nicio dată încă. Creați un instantaneu în fila Marjă.',
+      marginSnapshotNow: 'Creare instantaneu',
+      marginSnapshotSaved: 'Instantaneu salvat',
     },
     beratung: {
       description: 'Monitorizarea căsuței beratung@cordbloodcenter.com — traducere AI și redirecționare e-mailuri',
@@ -42969,6 +43035,17 @@ export const translations: Record<Locale, Translations> = {
       marginEditCosts: 'Modifica costi',
       marginCostLabel: 'Descrizione',
       marginCostAmount: 'Importo (€)',
+      marginCostTotalLabel: 'Totale costi diretti',
+      marginNoCostItems: 'Nessuna voce — clicca + Aggiungi voce',
+      marginCostItems: 'voci',
+      tabTrend: 'Tendenze',
+      marginTrendTitle: 'Tendenze prezzi e margini',
+      marginTrendRevenue: 'Ricavi',
+      marginTrendCost: 'Costi diretti',
+      marginTrendMargin: 'Margine',
+      marginTrendNoData: 'Nessun dato ancora. Crea uno snapshot nella scheda Margine.',
+      marginSnapshotNow: 'Crea snapshot',
+      marginSnapshotSaved: 'Snapshot salvato',
     },
     beratung: {
       description: 'Monitoraggio della casella beratung@cordbloodcenter.com — traduzione AI e inoltro e-mail',
@@ -49933,6 +50010,17 @@ export const translations: Record<Locale, Translations> = {
       marginEditCosts: 'Kosten bearbeiten',
       marginCostLabel: 'Beschreibung',
       marginCostAmount: 'Betrag (€)',
+      marginCostTotalLabel: 'Gesamte direkte Kosten',
+      marginNoCostItems: 'Keine Einträge — klicke + Eintrag hinzufügen',
+      marginCostItems: 'Einträge',
+      tabTrend: 'Trends',
+      marginTrendTitle: 'Preis- & Margenentwicklung',
+      marginTrendRevenue: 'Umsatz',
+      marginTrendCost: 'Direkte Kosten',
+      marginTrendMargin: 'Marge',
+      marginTrendNoData: 'Noch keine Daten. Erstelle eine Momentaufnahme im Margen-Tab.',
+      marginSnapshotNow: 'Momentaufnahme erstellen',
+      marginSnapshotSaved: 'Momentaufnahme gespeichert',
     },
     beratung: {
       description: 'Überwachung des Postfachs beratung@cordbloodcenter.com — KI-Übersetzung und Weiterleitung',

@@ -705,6 +705,17 @@ app.use((req, res, next) => {
         amount_eur numeric(14,2) NOT NULL,
         sort_order integer NOT NULL DEFAULT 0
       );
+      CREATE TABLE IF NOT EXISTS pricing_margin_snapshots (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        cost_row_id varchar NOT NULL,
+        product_label varchar(255) NOT NULL,
+        country_code varchar(10) NOT NULL,
+        gross_revenue_eur numeric(14,2),
+        total_cost_eur numeric(14,2),
+        rezia_eur numeric(14,2),
+        snapshot_date timestamptz NOT NULL DEFAULT now(),
+        note text
+      );
     `);
     console.log('[migration] pricing v2 tables ensured');
   } catch (e: any) {

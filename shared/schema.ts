@@ -8270,6 +8270,19 @@ export const pricingCostItems = pgTable("pricing_cost_items", {
   sortOrder: integer("sort_order").notNull().default(0),
 });
 
+// Historical margin snapshots — one batch per "Take snapshot" action
+export const pricingMarginSnapshots = pgTable("pricing_margin_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  costRowId: varchar("cost_row_id").notNull(),
+  productLabel: varchar("product_label", { length: 255 }).notNull(),
+  countryCode: varchar("country_code", { length: 10 }).notNull(),
+  grossRevenueEur: numeric("gross_revenue_eur", { precision: 14, scale: 2 }),
+  totalCostEur: numeric("total_cost_eur", { precision: 14, scale: 2 }),
+  reziaEur: numeric("rezia_eur", { precision: 14, scale: 2 }),
+  snapshotDate: timestamp("snapshot_date", { withTimezone: true }).defaultNow().notNull(),
+  note: text("note"),
+});
+
 // OTP sessions for the protected Margin tab
 export const pricingMarginOtps = pgTable("pricing_margin_otps", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

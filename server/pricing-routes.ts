@@ -6,7 +6,7 @@
 // ============================================================
 import type { Express, Request, Response, NextFunction } from "express";
 import { db } from "./db";
-import { eq, and, inArray, desc } from "drizzle-orm";
+import { eq, and, inArray, desc, asc } from "drizzle-orm";
 import {
   pricingComponents,
   pricingProducts,
@@ -20,6 +20,7 @@ import {
   pricingAdjustmentRules,
   pricingProductCosts,
   pricingCostItems,
+  pricingMarginSnapshots,
   pricingMarginOtps,
   users,
   userRoles,
@@ -357,6 +358,49 @@ export function registerPricingRoutes(app: Express) {
     await db.delete(pricingCostItems).where(eq(pricingCostItems.id, req.params.itemId));
     await recomputeTotalCost(existing.costRowId);
     res.json({ ok: true });
+  });
+
+  // Take a margin snapshot — records current state of all cost rows for trend charts
+  app.post("/api/pricing/margin/snapshot", requireAuth, requirePricingAdmin, requireMarginSession, async (req, res) => {
+    try {
+      const note = (req.body as { note?: string }).note ?? null;
+      const costs = await db.select().from(pricingProductCosts).orderBy(pricingProductCosts.countryCode);
+      if (costs.length === 0) return res.json({ ok: true, count: 0 });
+      await db.insert(pricingMarginSnapshots).values(
+        costs.map((c) => ({
+          costRowId: c.id,
+          productLabel: c.productLabel,
+          countryCode: c.countryCode,
+          grossRevenueEur: c.grossRevenueEur,
+          totalCostEur: c.totalCostEur,
+          reziaEur: c.reziaEur,
+          note,
+        }))
+      );
+      res.json({ ok: true, count: costs.length });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  // Return historical margin snapshots for trend charts
+  app.get("/api/pricing/margin/snapshots", requireAuth, requirePricingAdmin, requireMarginSession, async (_req, res) => {
+    const rows = await db.select().from(pricingMarginSnapshots).orderBy(asc(pricingMarginSnapshots.snapshotDate));
+    res.json(rows);
+  });
+
+  // Return price list history data for price trend charts (no margin session needed)
+  app.get("/api/pricing/trend", requireAuth, async (_req, res) => {
+    try {
+      const [lists, prices, products] = await Promise.all([
+        db.select().from(pricingPriceLists).orderBy(asc(pricingPriceLists.validFrom)),
+        db.select().from(pricingCollectionPrices),
+        db.select().from(pricingProducts),
+      ]);
+      res.json({ lists, prices, products });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
   });
 
   // price calculation with itemized breakdown (audit trail)
