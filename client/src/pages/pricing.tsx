@@ -121,6 +121,7 @@ function MarginTab({ canManage, toast }: { canManage: boolean; toast: ReturnType
   const [expandedCostRows, setExpandedCostRows] = useState<Set<string>>(new Set());
   // per-item local edit drafts: { label, amount } keyed by item id
   const [itemDrafts, setItemDrafts] = useState<Record<string, { label: string; amount: string }>>({});
+  const [selectorCountry, setSelectorCountry] = useState<string | null>(null);
   const initialized = useRef(false);
 
   // Check for an existing session on mount
@@ -319,7 +320,6 @@ function MarginTab({ canManage, toast }: { canManage: boolean; toast: ReturnType
 
   // group selectorLists by country for the two-level picker
   const selectorCountries = [...new Set(selectorLists.map((l) => l.countryCode))].sort();
-  const [selectorCountry, setSelectorCountry] = useState<string | null>(null);
   const effectiveSelectorCountry = selectorCountry ?? selectorCountries[0] ?? null;
   const listsForCountry = effectiveSelectorCountry
     ? selectorLists.filter((l) => l.countryCode === effectiveSelectorCountry)
