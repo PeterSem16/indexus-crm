@@ -1,3 +1,4 @@
+- [CORPCRM01 DB connection](corpcrm01-db-connection.md) — `PGPASSWORD=... psql -h localhost -U indexus -d indexus_crm -f script.sql`; always run locally on the server.
 - [MS365 cross-origin OAuth handoff](ms365-cross-origin-oauth.md) — dev login routes through prod's only registered callback, hands back a signed one-time token; DBs aren't shared.
 - [Prod schema migrations](prod-schema-migrations.md) — new schema columns AND new tables must be added to the server/index.ts startup ALTER/CREATE...IF NOT EXISTS block; prod deploy does NOT run db:push; blank tab + HTTP 500 = table missing in prod.
 - [TabsContent nesting context](tabs-nesting-context.md) — TabsContent must be a direct descendant of the correct Tabs; placing it inside a nested Tabs (different value context) silently hides it even though the trigger appears selected.
