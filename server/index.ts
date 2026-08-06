@@ -682,6 +682,15 @@ app.use((req, res, next) => {
       CREATE UNIQUE INDEX IF NOT EXISTS uq_psp_list_target_years
         ON pricing_storage_prices (price_list_id, coalesce(product_id,''), coalesce(component_id,''), years);
       ALTER TABLE pricing_product_costs ADD COLUMN IF NOT EXISTS rezia_eur numeric(14,2);
+      ALTER TABLE pricing_product_costs ADD COLUMN IF NOT EXISTS price_list_id varchar;
+      DO $$ BEGIN
+        BEGIN
+          ALTER TABLE pricing_product_costs DROP CONSTRAINT uq_ppc_country_label;
+        EXCEPTION WHEN undefined_object THEN NULL;
+        END;
+      END $$;
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_ppc_country_label_pricelist
+        ON pricing_product_costs (country_code, product_label, COALESCE(price_list_id,''));
       CREATE TABLE IF NOT EXISTS pricing_margin_otps (
         id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id varchar NOT NULL,

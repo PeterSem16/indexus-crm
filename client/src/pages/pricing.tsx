@@ -115,6 +115,7 @@ function MarginTab({ canManage, toast }: { canManage: boolean; toast: ReturnType
   const [step, setStep] = useState<"locked" | "enter-code" | "unlocked">("locked");
   const [inputCode, setInputCode] = useState("");
   const [country, setCountry] = useState("SK");
+  const [selectedPriceListId, setSelectedPriceListId] = useState<string | null>(null); // null = current/global
   const [reziaInputs, setReziaInputs] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [expandedCostRows, setExpandedCostRows] = useState<Set<string>>(new Set());
@@ -137,8 +138,23 @@ function MarginTab({ canManage, toast }: { canManage: boolean; toast: ReturnType
     if (sessionData?.verified && step === "locked") setStep("unlocked");
   }, [sessionData]);
 
+  // All non-draft price lists for selector
+  const { data: allPriceLists = [] } = useQuery<PriceListRow[]>({
+    queryKey: ["/api/pricing/price-lists"],
+    enabled: step === "unlocked",
+  });
+  const selectorLists = allPriceLists.filter((l) => l.status !== "draft");
+
   const { data: costs = [], refetch: refetchCosts } = useQuery<CostRow[]>({
-    queryKey: ["/api/pricing/costs"],
+    queryKey: ["/api/pricing/costs", selectedPriceListId],
+    queryFn: async () => {
+      const url = selectedPriceListId
+        ? `/api/pricing/costs?priceListId=${encodeURIComponent(selectedPriceListId)}`
+        : "/api/pricing/costs";
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
     enabled: step === "unlocked",
   });
 
@@ -217,6 +233,13 @@ function MarginTab({ canManage, toast }: { canManage: boolean; toast: ReturnType
     onError: () => toast({ title: p.marginSaveFailed, variant: "destructive" }),
   });
 
+  const initFromList = useMutation({
+    mutationFn: (priceListId: string) =>
+      apiRequest("POST", `/api/pricing/margin/init-from-list/${priceListId}`, {}),
+    onSuccess: async () => { await refetchCosts(); toast({ title: p.marginCostItemSaved }); },
+    onError: () => toast({ title: p.marginSaveFailed, variant: "destructive" }),
+  });
+
   const saveRezia = async (row: CostRow) => {
     const val = (reziaInputs[row.id] ?? "").trim();
     const num = val === "" ? null : parseFloat(val);
@@ -292,12 +315,14 @@ function MarginTab({ canManage, toast }: { canManage: boolean; toast: ReturnType
   const countries = [...new Set(costs.map((c) => c.countryCode))].sort();
   const activeCountry = countries.includes(country) ? country : countries[0] ?? "SK";
   const filtered = costs.filter((c) => c.countryCode === activeCountry);
+  const selectedList = selectorLists.find((l) => l.id === selectedPriceListId) ?? null;
 
   return (
     <div className="mt-4 space-y-4">
-      {/* header row */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 flex-wrap">
+      {/* price list selector + session badge */}
+      <div className="flex flex-wrap items-start gap-3">
+        {/* left: session pill + snapshot btn */}
+        <div className="flex items-center gap-2 flex-wrap flex-1">
           <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-700">
             <Unlock className="h-3 w-3" />
             <span>{p.marginSessionInfo}</span>
@@ -310,6 +335,29 @@ function MarginTab({ canManage, toast }: { canManage: boolean; toast: ReturnType
             {p.marginSnapshotNow}
           </Button>
         </div>
+        {/* right: price list selector */}
+        {selectorLists.length > 0 && (
+          <div className="flex flex-wrap gap-1 items-center">
+            <span className="text-[10px] text-muted-foreground mr-1 shrink-0">Cenník:</span>
+            <button
+              onClick={() => { setSelectedPriceListId(null); setExpandedCostRows(new Set()); setReziaInputs({}); initialized.current = false; }}
+              className={`rounded-full px-2.5 py-1 text-[10px] font-semibold transition-all ${selectedPriceListId === null ? "bg-indigo-600 text-white shadow-sm" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
+              Aktuálne
+            </button>
+            {selectorLists.map((l) => (
+              <button key={l.id}
+                onClick={() => { setSelectedPriceListId(l.id); setExpandedCostRows(new Set()); setReziaInputs({}); initialized.current = false; }}
+                className={`rounded-full px-2.5 py-1 text-[10px] font-semibold transition-all flex items-center gap-1 ${selectedPriceListId === l.id ? "bg-indigo-600 text-white shadow-sm" : l.status === "archived" ? "bg-slate-100 text-slate-500 hover:bg-slate-200" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
+                {COUNTRY_FLAGS[l.countryCode] ?? ""} {l.name}
+                {l.status === "archived" && <span className="opacity-70 text-[8px]">archív</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* country pills */}
+      {countries.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {countries.map((cc) => (
             <button key={cc} onClick={() => setCountry(cc)}
@@ -318,11 +366,28 @@ function MarginTab({ canManage, toast }: { canManage: boolean; toast: ReturnType
             </button>
           ))}
         </div>
-      </div>
+      )}
 
-      {filtered.length === 0 ? (
+      {/* init button when selected list has no rows yet */}
+      {selectedPriceListId && costs.length === 0 && (
+        <div className="rounded-2xl border-2 border-dashed border-indigo-200 bg-indigo-50/40 p-8 text-center space-y-3">
+          <p className="text-sm font-semibold text-indigo-700">
+            {selectedList ? `${selectedList.name} (${selectedList.countryCode})` : selectedPriceListId}
+          </p>
+          <p className="text-xs text-muted-foreground">Tento cenník nemá zatiaľ žiadne nákladové riadky. Inicializuj ich z cien zberov.</p>
+          <Button size="sm"
+            className="bg-indigo-600 text-white hover:bg-indigo-700 gap-1.5"
+            disabled={initFromList.isPending}
+            onClick={() => initFromList.mutate(selectedPriceListId)}>
+            {initFromList.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+            Inicializovať nákladové riadky
+          </Button>
+        </div>
+      )}
+
+      {filtered.length === 0 && !(selectedPriceListId && costs.length === 0) ? (
         <div className="py-16 text-center text-muted-foreground">{p.marginNoData}</div>
-      ) : (
+      ) : filtered.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((row) => {
             const rowItems = allItems.filter((i) => i.costRowId === row.id);

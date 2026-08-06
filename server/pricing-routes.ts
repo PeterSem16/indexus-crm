@@ -178,8 +178,17 @@ export function registerPricingRoutes(app: Express) {
   });
 
   // costs contain margins — pricing administrators only
-  app.get("/api/pricing/costs", requireAuth, requirePricingAdmin, async (_req, res) => {
-    res.json(await db.select().from(pricingProductCosts).orderBy(pricingProductCosts.countryCode));
+  // ?priceListId=xxx → rows for that list; omit → global/current rows (price_list_id IS NULL)
+  app.get("/api/pricing/costs", requireAuth, requirePricingAdmin, async (req, res) => {
+    const plid = (req.query.priceListId as string | undefined) ?? null;
+    const rows = plid
+      ? await db.select().from(pricingProductCosts)
+          .where(eq(pricingProductCosts.priceListId, plid))
+          .orderBy(pricingProductCosts.countryCode)
+      : await db.select().from(pricingProductCosts)
+          .where(sql`price_list_id IS NULL`)
+          .orderBy(pricingProductCosts.countryCode);
+    res.json(rows);
   });
 
   // ── Margin tab OTP guard ──────────────────────────────────────────────────
@@ -191,6 +200,31 @@ export function registerPricingRoutes(app: Express) {
     }
     next();
   };
+
+  // Initialize cost rows for a specific price list from its collection prices
+  app.post("/api/pricing/margin/init-from-list/:priceListId", requireAuth, requirePricingAdmin, requireMarginSession, async (req, res) => {
+    try {
+      const listId = req.params.priceListId;
+      const bundle = await loadPriceListBundle(listId);
+      if (!bundle) return res.status(404).json({ message: "Price list not found" });
+      const { priceList, products, collectionPrices } = bundle;
+      const created: string[] = [];
+      for (const product of products) {
+        const cp = collectionPrices.find((p) => p.productId === product.id && !p.componentId);
+        if (!cp) continue;
+        const grossEur = parseFloat(cp.price) / (parseFloat(priceList.fxRateToEur ?? "1") || 1);
+        await db.execute(sql`
+          INSERT INTO pricing_product_costs (id, country_code, product_label, gross_revenue_eur, price_list_id)
+          VALUES (gen_random_uuid(), ${priceList.countryCode}, ${product.name}, ${grossEur.toFixed(2)}, ${listId})
+          ON CONFLICT ON CONSTRAINT uq_ppc_country_label_pricelist DO NOTHING
+        `);
+        created.push(product.code);
+      }
+      res.json({ ok: true, products: created, countryCode: priceList.countryCode });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
 
   // Check if current session has a valid margin OTP
   app.get("/api/pricing/margin/session", requireAuth, requirePricingAdmin, (req, res) => {

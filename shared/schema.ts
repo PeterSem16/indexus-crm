@@ -8257,9 +8257,9 @@ export const pricingProductCosts = pgTable("pricing_product_costs", {
   totalCostEur: decimal("total_cost_eur", { precision: 14, scale: 2 }),
   reziaEur: decimal("rezia_eur", { precision: 14, scale: 2 }),
   note: text("note"),
-}, (table) => ({
-  uqPpcCountryLabel: unique("uq_ppc_country_label").on(table.countryCode, table.productLabel),
-}));
+  // nullable: null = global "current" row, non-null = pinned to a specific price list version
+  priceListId: varchar("price_list_id"),
+});
 
 // Individual line-item breakdown of direct costs per product+country
 export const pricingCostItems = pgTable("pricing_cost_items", {
