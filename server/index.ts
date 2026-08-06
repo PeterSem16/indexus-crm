@@ -698,6 +698,13 @@ app.use((req, res, next) => {
           ALTER TABLE pricing_margin_otps ALTER COLUMN user_id TYPE varchar USING user_id::varchar;
         END IF;
       END $$;
+      CREATE TABLE IF NOT EXISTS pricing_cost_items (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        cost_row_id varchar NOT NULL,
+        label text NOT NULL DEFAULT '',
+        amount_eur numeric(14,2) NOT NULL,
+        sort_order integer NOT NULL DEFAULT 0
+      );
     `);
     console.log('[migration] pricing v2 tables ensured');
   } catch (e: any) {

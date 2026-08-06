@@ -52,6 +52,9 @@ interface CostRow {
   grossRevenueEur: string | null; totalCostEur: string | null;
   reziaEur: string | null; note: string | null;
 }
+interface CostItem {
+  id: string; costRowId: string; label: string; amountEur: string; sortOrder: number;
+}
 
 const COUNTRY_FLAGS: Record<string, string> = { SK: "🇸🇰", CZ: "🇨🇿", RO: "🇷🇴", HU: "🇭🇺", AT: "🇦🇹", IT: "🇮🇹" };
 
@@ -109,6 +112,9 @@ function MarginTab({ canManage, toast }: { canManage: boolean; toast: ReturnType
   const [country, setCountry] = useState("SK");
   const [reziaInputs, setReziaInputs] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
+  const [expandedCostRows, setExpandedCostRows] = useState<Set<string>>(new Set());
+  // per-item local edit drafts: { label, amount } keyed by item id
+  const [itemDrafts, setItemDrafts] = useState<Record<string, { label: string; amount: string }>>({});
   const initialized = useRef(false);
 
   // Check for an existing session on mount
@@ -131,6 +137,11 @@ function MarginTab({ canManage, toast }: { canManage: boolean; toast: ReturnType
     enabled: step === "unlocked",
   });
 
+  const { data: allItems = [], refetch: refetchItems } = useQuery<CostItem[]>({
+    queryKey: ["/api/pricing/cost-items"],
+    enabled: step === "unlocked",
+  });
+
   // Seed rezia inputs from DB on first load
   useEffect(() => {
     if (costs.length && !initialized.current) {
@@ -140,6 +151,17 @@ function MarginTab({ canManage, toast }: { canManage: boolean; toast: ReturnType
       setReziaInputs(init);
     }
   }, [costs]);
+
+  // Seed item drafts when items load
+  useEffect(() => {
+    setItemDrafts((prev) => {
+      const next = { ...prev };
+      for (const item of allItems) {
+        if (!next[item.id]) next[item.id] = { label: item.label, amount: item.amountEur };
+      }
+      return next;
+    });
+  }, [allItems]);
 
   const requestOtp = useMutation({
     mutationFn: () => apiRequest("POST", "/api/pricing/margin/request-otp", {}),
@@ -151,6 +173,37 @@ function MarginTab({ canManage, toast }: { canManage: boolean; toast: ReturnType
     mutationFn: () => apiRequest("POST", "/api/pricing/margin/verify-otp", { code: inputCode }),
     onSuccess: () => { setStep("unlocked"); setInputCode(""); },
     onError: () => toast({ title: p.marginOtpInvalid, variant: "destructive" }),
+  });
+
+  const addCostItem = useMutation({
+    mutationFn: (costRowId: string) =>
+      apiRequest("POST", `/api/pricing/costs/${costRowId}/items`, { label: "", amountEur: 0 }),
+    onSuccess: async () => { await Promise.all([refetchCosts(), refetchItems()]); },
+    onError: () => toast({ title: p.marginCostItemSaveFailed, variant: "destructive" }),
+  });
+
+  const updateCostItem = async (itemId: string, draft: { label: string; amount: string }) => {
+    const amountEur = parseFloat(draft.amount);
+    if (!Number.isFinite(amountEur)) return;
+    try {
+      await apiRequest("PATCH", `/api/pricing/cost-items/${itemId}`, {
+        label: draft.label,
+        amountEur,
+      });
+      await Promise.all([refetchCosts(), refetchItems()]);
+      toast({ title: p.marginCostItemSaved });
+    } catch {
+      toast({ title: p.marginCostItemSaveFailed, variant: "destructive" });
+    }
+  };
+
+  const deleteCostItem = useMutation({
+    mutationFn: (itemId: string) => apiRequest("DELETE", `/api/pricing/cost-items/${itemId}`, {}),
+    onSuccess: async () => {
+      await Promise.all([refetchCosts(), refetchItems()]);
+      toast({ title: p.marginCostItemDeleted });
+    },
+    onError: () => toast({ title: p.marginCostItemSaveFailed, variant: "destructive" }),
   });
 
   const saveRezia = async (row: CostRow) => {
@@ -252,16 +305,23 @@ function MarginTab({ canManage, toast }: { canManage: boolean; toast: ReturnType
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((row) => {
+            const rowItems = allItems.filter((i) => i.costRowId === row.id);
             const gross = parseFloat(row.grossRevenueEur ?? "0") || 0;
             const cost = parseFloat(row.totalCostEur ?? "0") || 0; // stored negative
             const reziaVal = reziaInputs[row.id] ?? (row.reziaEur ?? "");
             const rezia = parseFloat(reziaVal) || 0;
-            const margin = gross + cost - rezia; // cost is negative, rezia is overhead
+            const margin = gross + cost - rezia;
             const mPct = gross > 0 ? (margin / gross) * 100 : 0;
             const good = mPct >= 40, ok = mPct >= 20;
             const border = good ? "border-emerald-200" : ok ? "border-amber-200" : "border-rose-200";
             const gradFrom = good ? "from-emerald-50/60" : ok ? "from-amber-50/60" : "from-rose-50/60";
             const mColor = good ? "text-emerald-600" : ok ? "text-amber-600" : "text-rose-600";
+            const isExpanded = expandedCostRows.has(row.id);
+            const toggleExpanded = () => setExpandedCostRows((prev) => {
+              const next = new Set(prev);
+              if (next.has(row.id)) next.delete(row.id); else next.add(row.id);
+              return next;
+            });
             return (
               <div key={row.id} className={`rounded-2xl border-2 ${border} bg-gradient-to-br ${gradFrom} to-white p-4 shadow-sm transition-shadow hover:shadow-md`}>
                 {/* product label + country badge */}
@@ -275,31 +335,103 @@ function MarginTab({ canManage, toast }: { canManage: boolean; toast: ReturnType
                   <MarginGauge pct={mPct} />
                 </div>
 
-                {/* stats grid — 2×2 so réžia is always a visible deduction */}
+                {/* stats grid — 2×2 */}
                 <div className="mt-3 grid grid-cols-2 gap-1 text-center text-[10px]">
                   <div className="rounded-lg bg-white/70 p-1.5">
                     <div className="text-muted-foreground">{p.marginGrossRevenue}</div>
                     <div className="tabular-nums font-semibold">{fmt(gross)} €</div>
                   </div>
-                  <div className="rounded-lg bg-white/70 p-1.5">
-                    <div className="text-muted-foreground">{p.marginTotalCost}</div>
-                    <div className="tabular-nums font-semibold text-rose-600">− {fmt(Math.abs(cost))} €</div>
-                  </div>
+                  {/* Priame náklady cell — click to toggle breakdown */}
+                  <button onClick={toggleExpanded}
+                    className={`rounded-lg p-1.5 text-left transition-colors ${isExpanded ? "bg-rose-100 border border-rose-300" : "bg-white/70 hover:bg-rose-50"}`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground text-[10px]">{p.marginTotalCost}</span>
+                      <Pencil className={`h-2.5 w-2.5 shrink-0 ${isExpanded ? "text-rose-500" : "text-muted-foreground/50"}`} />
+                    </div>
+                    <div className="tabular-nums font-semibold text-rose-600 text-center">− {fmt(Math.abs(cost))} €</div>
+                    {rowItems.length > 0 && (
+                      <div className="text-[9px] text-muted-foreground text-center">{rowItems.length} položiek</div>
+                    )}
+                  </button>
                   <div className={`rounded-lg p-1.5 ${rezia > 0 ? "bg-orange-50 border border-orange-200" : "bg-white/70"}`}>
-                    <div className="text-muted-foreground">{p.marginRezia}</div>
-                    <div className={`tabular-nums font-semibold ${rezia > 0 ? "text-orange-600" : "text-muted-foreground"}`}>
+                    <div className="text-muted-foreground text-center">{p.marginRezia}</div>
+                    <div className={`tabular-nums font-semibold text-center ${rezia > 0 ? "text-orange-600" : "text-muted-foreground"}`}>
                       {rezia > 0 ? `− ${fmt(rezia)} €` : "—"}
                     </div>
                   </div>
                   <div className="rounded-lg bg-white/70 p-1.5">
-                    <div className="text-muted-foreground">{p.marginValue}</div>
-                    <div className={`tabular-nums font-semibold ${mColor}`}>{fmt(margin)} €</div>
+                    <div className="text-muted-foreground text-center">{p.marginValue}</div>
+                    <div className={`tabular-nums font-semibold text-center ${mColor}`}>{fmt(margin)} €</div>
                   </div>
                 </div>
 
+                {/* ── Cost items breakdown (expandable) ── */}
+                {isExpanded && (
+                  <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50/60 p-3 space-y-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-semibold text-rose-700">{p.marginCostBreakdown}</span>
+                      <Button size="sm" variant="ghost"
+                        className="h-6 px-2 text-[10px] text-rose-600 hover:text-rose-800 hover:bg-rose-100"
+                        disabled={addCostItem.isPending}
+                        onClick={() => addCostItem.mutate(row.id)}>
+                        {addCostItem.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3 mr-0.5" />}
+                        {p.marginAddCostItem}
+                      </Button>
+                    </div>
+
+                    {rowItems.length === 0 ? (
+                      <p className="text-[10px] text-muted-foreground text-center py-2">
+                        Žiadne položky — klikni na + Pridať položku
+                      </p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {rowItems.map((item) => {
+                          const draft = itemDrafts[item.id] ?? { label: item.label, amount: item.amountEur };
+                          const setDraft = (patch: Partial<{ label: string; amount: string }>) =>
+                            setItemDrafts((prev) => ({ ...prev, [item.id]: { ...draft, ...patch } }));
+                          return (
+                            <div key={item.id} className="flex items-center gap-1">
+                              <Input
+                                value={draft.label}
+                                onChange={(e) => setDraft({ label: e.target.value })}
+                                onKeyDown={(e) => e.key === "Enter" && updateCostItem(item.id, draft)}
+                                placeholder={p.marginCostLabel}
+                                className="h-7 flex-1 text-xs min-w-0" />
+                              <Input
+                                type="number" step="0.01" min="0"
+                                value={draft.amount}
+                                onChange={(e) => setDraft({ amount: e.target.value })}
+                                onKeyDown={(e) => e.key === "Enter" && updateCostItem(item.id, draft)}
+                                placeholder="0.00"
+                                className="h-7 w-20 shrink-0 text-xs text-right" />
+                              <Button size="sm" variant="ghost"
+                                className="h-7 w-7 shrink-0 p-0 text-emerald-600 hover:bg-emerald-50"
+                                onClick={() => updateCostItem(item.id, draft)}>
+                                <Check className="h-3 w-3" />
+                              </Button>
+                              <Button size="sm" variant="ghost"
+                                className="h-7 w-7 shrink-0 p-0 text-rose-500 hover:bg-rose-100"
+                                disabled={deleteCostItem.isPending}
+                                onClick={() => deleteCostItem.mutate(item.id)}>
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          );
+                        })}
+                        <div className="flex justify-between border-t border-rose-200 pt-1.5 text-[10px]">
+                          <span className="text-muted-foreground font-medium">Celkom priame náklady</span>
+                          <span className="tabular-nums font-bold text-rose-700">
+                            {fmt(rowItems.reduce((s, i) => s + (parseFloat(i.amountEur) || 0), 0))} €
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* réžia input */}
                 <div className="mt-3 space-y-1">
-                  <label className="text-[10px] font-medium text-muted-foreground">{p.marginRezia} (€) — zadaj a ulož</label>
+                  <label className="text-[10px] font-medium text-muted-foreground">{p.marginRezia} (€)</label>
                   <div className="flex gap-1">
                     <Input type="number" step="0.01" min="0"
                       value={reziaVal}

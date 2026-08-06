@@ -8261,6 +8261,15 @@ export const pricingProductCosts = pgTable("pricing_product_costs", {
   uqPpcCountryLabel: unique("uq_ppc_country_label").on(table.countryCode, table.productLabel),
 }));
 
+// Individual line-item breakdown of direct costs per product+country
+export const pricingCostItems = pgTable("pricing_cost_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  costRowId: varchar("cost_row_id").notNull(),
+  label: text("label").notNull().default(""),
+  amountEur: numeric("amount_eur", { precision: 14, scale: 2 }).notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
 // OTP sessions for the protected Margin tab
 export const pricingMarginOtps = pgTable("pricing_margin_otps", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

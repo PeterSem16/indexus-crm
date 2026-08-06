@@ -19,6 +19,7 @@ import {
   pricingIncompleteRules,
   pricingAdjustmentRules,
   pricingProductCosts,
+  pricingCostItems,
   pricingMarginOtps,
   users,
   userRoles,
@@ -26,6 +27,7 @@ import {
   exchangeRates,
   inflationRates,
 } from "@shared/schema";
+import { sql } from "drizzle-orm";
 import { calculatePrice, type PriceListBundle, type CalculationInput } from "./pricing-engine";
 
 const requireAuth = (req: Request, res: Response, next: NextFunction) => {
@@ -296,6 +298,65 @@ export function registerPricingRoutes(app: Express) {
       .returning();
     if (!updated) return res.status(404).json({ message: "Cost row not found" });
     res.json(updated);
+  });
+
+  // ── Cost items (breakdown of direct costs per product row) ──────────────
+  // Helper: recompute total_cost_eur = -(sum of items) on the parent row
+  async function recomputeTotalCost(costRowId: string) {
+    await db.execute(sql`
+      UPDATE pricing_product_costs
+      SET total_cost_eur = -(
+        SELECT COALESCE(SUM(amount_eur), 0) FROM pricing_cost_items WHERE cost_row_id = ${costRowId}
+      )
+      WHERE id = ${costRowId}
+    `);
+  }
+
+  // List all cost items (requires margin session)
+  app.get("/api/pricing/cost-items", requireAuth, requirePricingAdmin, requireMarginSession, async (_req, res) => {
+    const items = await db.select().from(pricingCostItems).orderBy(pricingCostItems.sortOrder);
+    res.json(items);
+  });
+
+  // Add a cost item to a cost row
+  app.post("/api/pricing/costs/:id/items", requireAuth, requirePricingAdmin, requireMarginSession, async (req, res) => {
+    const { label, amountEur } = req.body as { label?: string; amountEur?: number };
+    const amount = Number(amountEur ?? 0);
+    if (!Number.isFinite(amount)) return res.status(400).json({ message: "amountEur must be a finite number" });
+    const [parent] = await db.select({ id: pricingProductCosts.id }).from(pricingProductCosts).where(eq(pricingProductCosts.id, req.params.id));
+    if (!parent) return res.status(404).json({ message: "Cost row not found" });
+    const existing = await db.select({ sortOrder: pricingCostItems.sortOrder }).from(pricingCostItems).where(eq(pricingCostItems.costRowId, req.params.id));
+    const maxSort = existing.length ? Math.max(...existing.map((i) => i.sortOrder)) : 0;
+    const [item] = await db.insert(pricingCostItems).values({
+      costRowId: req.params.id, label: label ?? "", amountEur: String(amount), sortOrder: maxSort + 1,
+    }).returning();
+    await recomputeTotalCost(req.params.id);
+    res.json(item);
+  });
+
+  // Update label or amount of a cost item
+  app.patch("/api/pricing/cost-items/:itemId", requireAuth, requirePricingAdmin, requireMarginSession, async (req, res) => {
+    const { label, amountEur } = req.body as { label?: string; amountEur?: number };
+    if (amountEur !== undefined && !Number.isFinite(Number(amountEur))) {
+      return res.status(400).json({ message: "amountEur must be a finite number" });
+    }
+    const [existing] = await db.select().from(pricingCostItems).where(eq(pricingCostItems.id, req.params.itemId));
+    if (!existing) return res.status(404).json({ message: "Cost item not found" });
+    const updates: Record<string, string> = {};
+    if (label !== undefined) updates.label = label;
+    if (amountEur !== undefined) updates.amountEur = String(Number(amountEur));
+    const [updated] = await db.update(pricingCostItems).set(updates).where(eq(pricingCostItems.id, req.params.itemId)).returning();
+    await recomputeTotalCost(existing.costRowId);
+    res.json(updated);
+  });
+
+  // Delete a cost item
+  app.delete("/api/pricing/cost-items/:itemId", requireAuth, requirePricingAdmin, requireMarginSession, async (req, res) => {
+    const [existing] = await db.select().from(pricingCostItems).where(eq(pricingCostItems.id, req.params.itemId));
+    if (!existing) return res.status(404).json({ message: "Cost item not found" });
+    await db.delete(pricingCostItems).where(eq(pricingCostItems.id, req.params.itemId));
+    await recomputeTotalCost(existing.costRowId);
+    res.json({ ok: true });
   });
 
   // price calculation with itemized breakdown (audit trail)

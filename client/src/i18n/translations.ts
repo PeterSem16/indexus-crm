@@ -331,6 +331,14 @@ export interface Translations {
     marginProduct: string;
     marginLocked: string;
     marginSessionInfo: string;
+    marginCostBreakdown: string;
+    marginAddCostItem: string;
+    marginCostItemSaved: string;
+    marginCostItemDeleted: string;
+    marginCostItemSaveFailed: string;
+    marginEditCosts: string;
+    marginCostLabel: string;
+    marginCostAmount: string;
   };
   beratung: {
     description: string;
@@ -7491,6 +7499,14 @@ export const translations: Record<Locale, Translations> = {
       marginProduct: 'Product / Component',
       marginLocked: 'Access protected',
       marginSessionInfo: 'Session valid for 2 hours',
+      marginCostBreakdown: 'Direct cost breakdown',
+      marginAddCostItem: 'Add item',
+      marginCostItemSaved: 'Item saved',
+      marginCostItemDeleted: 'Item deleted',
+      marginCostItemSaveFailed: 'Save failed',
+      marginEditCosts: 'Edit costs',
+      marginCostLabel: 'Description',
+      marginCostAmount: 'Amount (€)',
     },
     beratung: {
       description: 'Monitoring beratung@cordbloodcenter.com — AI translation and forwarding of emails',
@@ -14703,6 +14719,14 @@ export const translations: Record<Locale, Translations> = {
       marginProduct: 'Produkt / Komponent',
       marginLocked: 'Prístup chránený',
       marginSessionInfo: 'Relácia platná 2 hodiny',
+      marginCostBreakdown: 'Rozpis priamych nákladov',
+      marginAddCostItem: 'Pridať položku',
+      marginCostItemSaved: 'Položka uložená',
+      marginCostItemDeleted: 'Položka odstránená',
+      marginCostItemSaveFailed: 'Uloženie zlyhalo',
+      marginEditCosts: 'Upraviť náklady',
+      marginCostLabel: 'Popis',
+      marginCostAmount: 'Suma (€)',
     },
     beratung: {
       description: 'Monitorovanie schránky beratung@cordbloodcenter.com — AI preklad a preposlanie emailov',
@@ -21851,6 +21875,14 @@ export const translations: Record<Locale, Translations> = {
       marginProduct: 'Produkt / Komponenta',
       marginLocked: 'Přístup chráněn',
       marginSessionInfo: 'Relace platná 2 hodiny',
+      marginCostBreakdown: 'Rozpis přímých nákladů',
+      marginAddCostItem: 'Přidat položku',
+      marginCostItemSaved: 'Položka uložena',
+      marginCostItemDeleted: 'Položka odstraněna',
+      marginCostItemSaveFailed: 'Uložení selhalo',
+      marginEditCosts: 'Upravit náklady',
+      marginCostLabel: 'Popis',
+      marginCostAmount: 'Částka (€)',
     },
     beratung: {
       description: 'Monitorování schránky beratung@cordbloodcenter.com — AI překlad a přeposlání emailů',
@@ -28925,6 +28957,14 @@ export const translations: Record<Locale, Translations> = {
       marginProduct: 'Termék / Komponens',
       marginLocked: 'Hozzáférés védett',
       marginSessionInfo: 'Munkamenet 2 óráig érvényes',
+      marginCostBreakdown: 'Közvetlen költségek bontása',
+      marginAddCostItem: 'Tétel hozzáadása',
+      marginCostItemSaved: 'Tétel mentve',
+      marginCostItemDeleted: 'Tétel törölve',
+      marginCostItemSaveFailed: 'Mentés sikertelen',
+      marginEditCosts: 'Költségek szerkesztése',
+      marginCostLabel: 'Leírás',
+      marginCostAmount: 'Összeg (€)',
     },
     beratung: {
       description: 'A beratung@cordbloodcenter.com postaláda figyelése — AI fordítás és továbbítás',
@@ -35959,6 +35999,14 @@ export const translations: Record<Locale, Translations> = {
       marginProduct: 'Produs / Componentă',
       marginLocked: 'Acces protejat',
       marginSessionInfo: 'Sesiune valabilă 2 ore',
+      marginCostBreakdown: 'Defalcarea costurilor directe',
+      marginAddCostItem: 'Adaugă element',
+      marginCostItemSaved: 'Element salvat',
+      marginCostItemDeleted: 'Element șters',
+      marginCostItemSaveFailed: 'Salvare eșuată',
+      marginEditCosts: 'Editare costuri',
+      marginCostLabel: 'Descriere',
+      marginCostAmount: 'Sumă (€)',
     },
     beratung: {
       description: 'Monitorizarea căsuței beratung@cordbloodcenter.com — traducere AI și redirecționare e-mailuri',
@@ -42913,6 +42961,14 @@ export const translations: Record<Locale, Translations> = {
       marginProduct: 'Prodotto / Componente',
       marginLocked: 'Accesso protetto',
       marginSessionInfo: 'Sessione valida per 2 ore',
+      marginCostBreakdown: 'Dettaglio costi diretti',
+      marginAddCostItem: 'Aggiungi voce',
+      marginCostItemSaved: 'Voce salvata',
+      marginCostItemDeleted: 'Voce eliminata',
+      marginCostItemSaveFailed: 'Salvataggio fallito',
+      marginEditCosts: 'Modifica costi',
+      marginCostLabel: 'Descrizione',
+      marginCostAmount: 'Importo (€)',
     },
     beratung: {
       description: 'Monitoraggio della casella beratung@cordbloodcenter.com — traduzione AI e inoltro e-mail',
@@ -49869,6 +49925,14 @@ export const translations: Record<Locale, Translations> = {
       marginProduct: 'Produkt / Komponente',
       marginLocked: 'Zugriff geschützt',
       marginSessionInfo: 'Sitzung 2 Stunden gültig',
+      marginCostBreakdown: 'Aufschlüsselung der direkten Kosten',
+      marginAddCostItem: 'Posten hinzufügen',
+      marginCostItemSaved: 'Posten gespeichert',
+      marginCostItemDeleted: 'Posten gelöscht',
+      marginCostItemSaveFailed: 'Speichern fehlgeschlagen',
+      marginEditCosts: 'Kosten bearbeiten',
+      marginCostLabel: 'Beschreibung',
+      marginCostAmount: 'Betrag (€)',
     },
     beratung: {
       description: 'Überwachung des Postfachs beratung@cordbloodcenter.com — KI-Übersetzung und Weiterleitung',
