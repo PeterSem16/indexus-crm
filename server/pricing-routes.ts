@@ -19,6 +19,7 @@ import {
   pricingIncompleteRules,
   pricingAdjustmentRules,
   pricingProductCosts,
+  pricingMarginOtps,
   users,
   userRoles,
   roleModulePermissions,
@@ -176,6 +177,125 @@ export function registerPricingRoutes(app: Express) {
   // costs contain margins — pricing administrators only
   app.get("/api/pricing/costs", requireAuth, requirePricingAdmin, async (_req, res) => {
     res.json(await db.select().from(pricingProductCosts).orderBy(pricingProductCosts.countryCode));
+  });
+
+  // ── Margin tab OTP guard ──────────────────────────────────────────────────
+
+  const requireMarginSession = (req: Request, res: Response, next: NextFunction) => {
+    const verifiedAt = (req.session as any)?.marginOtpVerifiedAt as number | undefined;
+    if (!verifiedAt || Date.now() - verifiedAt > 2 * 60 * 60 * 1000) {
+      return res.status(403).json({ message: "Margin session expired. Please verify OTP again." });
+    }
+    next();
+  };
+
+  // Check if current session has a valid margin OTP
+  app.get("/api/pricing/margin/session", requireAuth, requirePricingAdmin, (req, res) => {
+    const verifiedAt = (req.session as any)?.marginOtpVerifiedAt as number | undefined;
+    const valid = !!verifiedAt && Date.now() - verifiedAt <= 2 * 60 * 60 * 1000;
+    res.json({ verified: valid, verifiedAt: valid ? verifiedAt : null });
+  });
+
+  // Request a 6-digit OTP for margin tab access
+  app.post("/api/pricing/margin/request-otp", requireAuth, requirePricingAdmin, async (req, res) => {
+    const sessionUser = (req.session as any)?.user;
+    if (!sessionUser?.email) {
+      return res.status(400).json({ message: "User email not available for OTP delivery" });
+    }
+
+    const otpCode = String(Math.floor(100000 + Math.random() * 900000));
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    // Invalidate old OTPs for this user
+    await db.delete(pricingMarginOtps).where(eq(pricingMarginOtps.userId, sessionUser.id));
+    await db.insert(pricingMarginOtps).values({ userId: sessionUser.id, otpCode, expiresAt });
+
+    const subject = `Margin Access Code: ${otpCode}`;
+    const html = `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:24px;">
+      <div style="background:linear-gradient(135deg,#3730a3,#4f46e5);border-radius:16px;padding:24px;color:#fff;text-align:center;margin-bottom:20px;">
+        <h2 style="margin:0 0 8px;font-size:20px;">🔐 Margin Tab Access</h2>
+        <p style="margin:0;opacity:.85;font-size:13px;">One-time verification code</p>
+      </div>
+      <div style="background:#f5f3ff;border:2px solid #c4b5fd;border-radius:12px;padding:20px;text-align:center;margin-bottom:16px;">
+        <span style="font-size:40px;font-weight:900;letter-spacing:12px;color:#4f46e5;">${otpCode}</span>
+      </div>
+      <p style="color:#6b7280;font-size:12px;text-align:center;">Valid for 10 minutes · Do not share this code</p>
+    </div>`;
+
+    let emailSent = false;
+
+    // Try system MS365 connections first
+    try {
+      const { storage } = await import("./storage");
+      const allConns = await storage.getAllSystemMs365Connections();
+      for (const sc of allConns) {
+        if (emailSent || !sc.isConnected) continue;
+        try {
+          const { getValidAccessToken, sendEmail: sendMs365 } = await import("./lib/ms365");
+          const { decryptTokenSafe, encryptTokenWithMarker } = await import("./lib/token-crypto");
+          const tokenResult = await getValidAccessToken(
+            sc.accessToken ? decryptTokenSafe(sc.accessToken) : null,
+            sc.tokenExpiresAt,
+            sc.refreshToken ? decryptTokenSafe(sc.refreshToken) : null,
+          );
+          if (tokenResult) {
+            if (tokenResult.refreshed) {
+              await storage.updateSystemMs365Connection(sc.countryCode, {
+                accessToken: encryptTokenWithMarker(tokenResult.accessToken),
+                refreshToken: tokenResult.refreshToken ? encryptTokenWithMarker(tokenResult.refreshToken) : sc.refreshToken,
+                tokenExpiresAt: tokenResult.expiresOn,
+              });
+            }
+            await sendMs365(tokenResult.accessToken, [sessionUser.email], subject, html, true);
+            emailSent = true;
+          }
+        } catch { /* try next */ }
+      }
+    } catch { /* fallback */ }
+
+    // Fallback to SendGrid / basic email
+    if (!emailSent) {
+      try {
+        const { sendEmail } = await import("./email");
+        emailSent = await sendEmail({ to: sessionUser.email, subject, html });
+      } catch { /* ignore */ }
+    }
+
+    console.log(`[Margin OTP] generated for user ${sessionUser.id} (${sessionUser.email}), sent=${emailSent}`);
+    res.json({ ok: true, emailSent });
+  });
+
+  // Verify OTP and establish a margin session
+  app.post("/api/pricing/margin/verify-otp", requireAuth, requirePricingAdmin, async (req, res) => {
+    const { code } = req.body as { code?: string };
+    if (!code || typeof code !== "string") {
+      return res.status(400).json({ message: "code is required" });
+    }
+    const sessionUser = (req.session as any)?.user;
+    const otps = await db.select().from(pricingMarginOtps).where(eq(pricingMarginOtps.userId, sessionUser.id));
+    const now = new Date();
+    const valid = otps.find((o) => o.otpCode === code && new Date(o.expiresAt) > now && !o.usedAt);
+    if (!valid) {
+      return res.status(400).json({ message: "Invalid or expired code" });
+    }
+    await db.update(pricingMarginOtps).set({ usedAt: now }).where(eq(pricingMarginOtps.id, valid.id));
+    (req.session as any).marginOtpVerifiedAt = Date.now();
+    res.json({ ok: true });
+  });
+
+  // Update réžia for a cost row (requires pricing admin + active margin session)
+  app.patch("/api/pricing/costs/:id", requireAuth, requirePricingAdmin, requireMarginSession, async (req, res) => {
+    const { reziaEur } = req.body as { reziaEur?: number | null };
+    if (reziaEur !== null && reziaEur !== undefined && (!Number.isFinite(reziaEur) || reziaEur < 0)) {
+      return res.status(400).json({ message: "reziaEur must be a non-negative number or null" });
+    }
+    const [updated] = await db
+      .update(pricingProductCosts)
+      .set({ reziaEur: reziaEur == null ? null : String(reziaEur) })
+      .where(eq(pricingProductCosts.id, req.params.id))
+      .returning();
+    if (!updated) return res.status(404).json({ message: "Cost row not found" });
+    res.json(updated);
   });
 
   // price calculation with itemized breakdown (audit trail)

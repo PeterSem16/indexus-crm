@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useI18n } from "@/i18n";
@@ -18,7 +18,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Copy, AlertTriangle, CheckCircle2, Check, X, Pencil, Calculator as CalcIcon, ListOrdered, Grid3X3, CopyPlus, CalendarDays, Trash2, Package, Percent, Droplets, Plus, Sparkles } from "lucide-react";
+import { Loader2, Copy, AlertTriangle, CheckCircle2, Check, X, Pencil, Calculator as CalcIcon, ListOrdered, Grid3X3, CopyPlus, CalendarDays, Trash2, Package, Percent, Droplets, Plus, Sparkles, Lock, Unlock, ShieldCheck, TrendingUp } from "lucide-react";
 
 // ---------- types (mirror server /api/pricing responses) ----------
 interface PriceListRow {
@@ -47,6 +47,12 @@ interface CalcResult {
   totalCollection: number; totalStorage: number; total: number; totalEur: number | null; warnings: string[];
 }
 
+interface CostRow {
+  id: string; countryCode: string; productLabel: string;
+  grossRevenueEur: string | null; totalCostEur: string | null;
+  reziaEur: string | null; note: string | null;
+}
+
 const COUNTRY_FLAGS: Record<string, string> = { SK: "🇸🇰", CZ: "🇨🇿", RO: "🇷🇴", HU: "🇭🇺", AT: "🇦🇹", IT: "🇮🇹" };
 
 function fmt(v: number | string | null | undefined, currency?: string) {
@@ -65,6 +71,247 @@ function StatusBadge({ status }: { status: string }) {
   };
   const m = map[status] ?? map.archived;
   return <Badge variant="secondary" className={m.cls} data-testid={`badge-status-${status}`}>{m.label}</Badge>;
+}
+
+// ── Margin Gauge (SVG ring) ────────────────────────────────────────────────
+function MarginGauge({ pct }: { pct: number }) {
+  const r = 34;
+  const circ = 2 * Math.PI * r;
+  const clamped = Math.max(0, Math.min(100, pct));
+  const offset = circ - (clamped / 100) * circ;
+  const good = pct >= 40, ok = pct >= 20;
+  const stroke = good ? "#22c55e" : ok ? "#f59e0b" : "#ef4444";
+  const bg = good ? "#dcfce7" : ok ? "#fef3c7" : "#fee2e2";
+  const textColor = good ? "#16a34a" : ok ? "#d97706" : "#dc2626";
+  return (
+    <div className="relative flex items-center justify-center" style={{ width: 84, height: 84 }}>
+      <svg width="84" height="84" viewBox="0 0 84 84">
+        <circle cx="42" cy="42" r={r} fill={bg} stroke="#e5e7eb" strokeWidth="7" />
+        <circle cx="42" cy="42" r={r} fill="none" stroke={stroke} strokeWidth="7"
+          strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+          transform="rotate(-90 42 42)" style={{ transition: "stroke-dashoffset 0.5s ease" }} />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-[15px] font-black leading-none tabular-nums" style={{ color: textColor }}>
+          {Number.isFinite(pct) ? `${Math.round(pct)}%` : "—"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ── Margin Tab ─────────────────────────────────────────────────────────────
+function MarginTab({ canManage, toast }: { canManage: boolean; toast: ReturnType<typeof useToast>["toast"] }) {
+  const { t } = useI18n();
+  const p = t.pricing;
+  const [step, setStep] = useState<"locked" | "enter-code" | "unlocked">("locked");
+  const [inputCode, setInputCode] = useState("");
+  const [country, setCountry] = useState("SK");
+  const [reziaInputs, setReziaInputs] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState<Record<string, boolean>>({});
+  const initialized = useRef(false);
+
+  // Check for an existing session on mount
+  const { data: sessionData } = useQuery<{ verified: boolean }>({
+    queryKey: ["/api/pricing/margin/session"],
+    queryFn: async () => {
+      const res = await fetch("/api/pricing/margin/session", { credentials: "include" });
+      if (!res.ok) return { verified: false };
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+
+  useEffect(() => {
+    if (sessionData?.verified && step === "locked") setStep("unlocked");
+  }, [sessionData]);
+
+  const { data: costs = [], refetch: refetchCosts } = useQuery<CostRow[]>({
+    queryKey: ["/api/pricing/costs"],
+    enabled: step === "unlocked",
+  });
+
+  // Seed rezia inputs from DB on first load
+  useEffect(() => {
+    if (costs.length && !initialized.current) {
+      initialized.current = true;
+      const init: Record<string, string> = {};
+      for (const c of costs) init[c.id] = c.reziaEur ?? "";
+      setReziaInputs(init);
+    }
+  }, [costs]);
+
+  const requestOtp = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/pricing/margin/request-otp", {}),
+    onSuccess: () => { setStep("enter-code"); toast({ title: p.marginOtpSent }); },
+    onError: () => toast({ title: p.marginOtpSendFailed, variant: "destructive" }),
+  });
+
+  const verifyOtp = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/pricing/margin/verify-otp", { code: inputCode }),
+    onSuccess: () => { setStep("unlocked"); setInputCode(""); },
+    onError: () => toast({ title: p.marginOtpInvalid, variant: "destructive" }),
+  });
+
+  const saveRezia = async (row: CostRow) => {
+    const val = (reziaInputs[row.id] ?? "").trim();
+    const num = val === "" ? null : parseFloat(val);
+    if (num !== null && !Number.isFinite(num)) return;
+    setSaving((s) => ({ ...s, [row.id]: true }));
+    try {
+      await apiRequest("PATCH", `/api/pricing/costs/${row.id}`, { reziaEur: num });
+      await refetchCosts();
+      toast({ title: p.marginSaved });
+    } catch {
+      toast({ title: p.marginSaveFailed, variant: "destructive" });
+    } finally {
+      setSaving((s) => ({ ...s, [row.id]: false }));
+    }
+  };
+
+  // ── Locked / OTP gate ──
+  if (step !== "unlocked") {
+    return (
+      <div className="mt-6 flex justify-center">
+        <div className="w-full max-w-sm">
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-8 shadow-2xl text-white">
+            {/* decorative blobs */}
+            <div className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-indigo-500/10" />
+            <div className="pointer-events-none absolute -bottom-12 -left-12 h-36 w-36 rounded-full bg-violet-500/10" />
+            <div className="relative z-10 flex flex-col items-center gap-5 text-center">
+              <div className={`flex h-20 w-20 items-center justify-center rounded-full border border-white/20 bg-white/10 ${requestOtp.isPending || verifyOtp.isPending ? "animate-pulse" : ""}`}>
+                {step === "enter-code" ? <ShieldCheck className="h-9 w-9 text-indigo-300" /> : <Lock className="h-9 w-9 text-indigo-300" />}
+              </div>
+              <div>
+                <h3 className="text-lg font-bold">{p.marginOtpTitle}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-indigo-200">{p.marginOtpDesc}</p>
+                <p className="mt-1 text-xs text-indigo-300/60">{p.marginSessionInfo}</p>
+              </div>
+
+              {step === "locked" && (
+                <Button onClick={() => requestOtp.mutate()} disabled={requestOtp.isPending}
+                  className="border-0 bg-indigo-500 px-8 text-white hover:bg-indigo-400">
+                  {requestOtp.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
+                  {p.marginOtpRequest}
+                </Button>
+              )}
+
+              {step === "enter-code" && (
+                <div className="w-full space-y-3">
+                  <Input value={inputCode}
+                    onChange={(e) => setInputCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder="_ _ _ _ _ _"
+                    className="h-14 border-white/20 bg-white/10 text-center text-2xl font-bold tracking-[0.5em] text-white placeholder:text-white/30"
+                    maxLength={6}
+                    onKeyDown={(e) => e.key === "Enter" && inputCode.length === 6 && verifyOtp.mutate()} />
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setStep("locked")}
+                      className="flex-1 border-white/20 bg-transparent text-white hover:bg-white/10">
+                      {p.cancel}
+                    </Button>
+                    <Button onClick={() => verifyOtp.mutate()} disabled={inputCode.length !== 6 || verifyOtp.isPending}
+                      className="flex-1 border-0 bg-indigo-500 text-white hover:bg-indigo-400">
+                      {verifyOtp.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      {p.marginOtpVerify}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Unlocked ──────────────────────────────────────────────────────────────
+  const countries = [...new Set(costs.map((c) => c.countryCode))].sort();
+  const activeCountry = countries.includes(country) ? country : countries[0] ?? "SK";
+  const filtered = costs.filter((c) => c.countryCode === activeCountry);
+
+  return (
+    <div className="mt-4 space-y-4">
+      {/* header row */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-700">
+          <Unlock className="h-3 w-3" />
+          <span>{p.marginSessionInfo}</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {countries.map((cc) => (
+            <button key={cc} onClick={() => setCountry(cc)}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${activeCountry === cc ? "bg-indigo-600 text-white shadow-sm" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
+              {COUNTRY_FLAGS[cc] ?? ""} {cc}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="py-16 text-center text-muted-foreground">{p.marginNoData}</div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filtered.map((row) => {
+            const gross = parseFloat(row.grossRevenueEur ?? "0") || 0;
+            const cost = parseFloat(row.totalCostEur ?? "0") || 0; // stored negative
+            const reziaVal = reziaInputs[row.id] ?? (row.reziaEur ?? "");
+            const rezia = parseFloat(reziaVal) || 0;
+            const margin = gross + cost - rezia; // cost is negative, rezia is overhead
+            const mPct = gross > 0 ? (margin / gross) * 100 : 0;
+            const good = mPct >= 40, ok = mPct >= 20;
+            const border = good ? "border-emerald-200" : ok ? "border-amber-200" : "border-rose-200";
+            const gradFrom = good ? "from-emerald-50/60" : ok ? "from-amber-50/60" : "from-rose-50/60";
+            const mColor = good ? "text-emerald-600" : ok ? "text-amber-600" : "text-rose-600";
+            return (
+              <div key={row.id} className={`rounded-2xl border-2 ${border} bg-gradient-to-br ${gradFrom} to-white p-4 shadow-sm transition-shadow hover:shadow-md`}>
+                {/* product label + country badge */}
+                <div className="mb-3 flex items-start justify-between gap-2">
+                  <span className="text-sm font-bold leading-tight">{row.productLabel}</span>
+                  <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">{row.countryCode}</span>
+                </div>
+
+                {/* gauge */}
+                <div className="flex justify-center py-1">
+                  <MarginGauge pct={mPct} />
+                </div>
+
+                {/* stats grid */}
+                <div className="mt-3 grid grid-cols-3 gap-1 text-center text-[10px]">
+                  <div className="rounded-lg bg-white/70 p-1.5">
+                    <div className="text-muted-foreground">{p.marginGrossRevenue}</div>
+                    <div className="tabular-nums font-semibold">{fmt(gross)} €</div>
+                  </div>
+                  <div className="rounded-lg bg-white/70 p-1.5">
+                    <div className="text-muted-foreground">{p.marginTotalCost}</div>
+                    <div className="tabular-nums font-semibold text-rose-600">{fmt(Math.abs(cost))} €</div>
+                  </div>
+                  <div className="rounded-lg bg-white/70 p-1.5">
+                    <div className="text-muted-foreground">{p.marginValue}</div>
+                    <div className={`tabular-nums font-semibold ${mColor}`}>{fmt(margin)} €</div>
+                  </div>
+                </div>
+
+                {/* réžia input */}
+                <div className="mt-3 space-y-1">
+                  <label className="text-[10px] font-medium text-muted-foreground">{p.marginRezia} (€)</label>
+                  <div className="flex gap-1">
+                    <Input type="number" step="0.01" min="0"
+                      value={reziaVal}
+                      onChange={(e) => setReziaInputs((prev) => ({ ...prev, [row.id]: e.target.value }))}
+                      onKeyDown={(e) => e.key === "Enter" && saveRezia(row)}
+                      className="h-8 text-xs" placeholder="0,00" />
+                    <Button size="sm" className="h-8 shrink-0 px-2" disabled={saving[row.id]} onClick={() => saveRezia(row)}>
+                      {saving[row.id] ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function PricingPage() {
@@ -111,6 +358,7 @@ export default function PricingPage() {
           <TabsTrigger value="lists" data-testid="tab-price-lists"><ListOrdered className="w-4 h-4 mr-1" />{t.pricing.tabLists}</TabsTrigger>
           <TabsTrigger value="matrix" data-testid="tab-matrix"><Grid3X3 className="w-4 h-4 mr-1" />{t.pricing.tabMatrix}</TabsTrigger>
           <TabsTrigger value="calculator" data-testid="tab-calculator"><CalcIcon className="w-4 h-4 mr-1" />{t.pricing.tabCalculator}</TabsTrigger>
+          {canManage && <TabsTrigger value="margin" data-testid="tab-margin"><TrendingUp className="w-4 h-4 mr-1" />{t.pricing.tabMargin}</TabsTrigger>}
         </TabsList>
         <TabsContent value="lists">
           <PriceListsTab lists={lists} loading={listsLoading} selectedId={effectiveListId} onSelect={setSelectedListId} bundle={bundle} canManage={canManage} toast={toast} />
@@ -121,6 +369,11 @@ export default function PricingPage() {
         <TabsContent value="calculator">
           <CalculatorTab lists={lists} products={products} />
         </TabsContent>
+        {canManage && (
+          <TabsContent value="margin">
+            <MarginTab canManage={canManage} toast={toast} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

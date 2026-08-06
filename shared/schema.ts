@@ -8255,10 +8255,20 @@ export const pricingProductCosts = pgTable("pricing_product_costs", {
   productLabel: text("product_label").notNull(), // Classic, Premium, CB+T, PB+T, PB+T+P, PB, T, PL
   grossRevenueEur: decimal("gross_revenue_eur", { precision: 14, scale: 2 }),
   totalCostEur: decimal("total_cost_eur", { precision: 14, scale: 2 }),
+  reziaEur: decimal("rezia_eur", { precision: 14, scale: 2 }),
   note: text("note"),
 }, (table) => ({
   uqPpcCountryLabel: unique("uq_ppc_country_label").on(table.countryCode, table.productLabel),
 }));
+
+// OTP sessions for the protected Margin tab
+export const pricingMarginOtps = pgTable("pricing_margin_otps", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: integer("user_id").notNull(),
+  otpCode: text("otp_code").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+});
 
 // grandfathering: which price list a customer is billed by (used from phase 4)
 export const pricingCustomerPriceLists = pgTable("pricing_customer_price_lists", {

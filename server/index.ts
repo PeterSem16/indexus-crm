@@ -681,6 +681,14 @@ app.use((req, res, next) => {
         ON pricing_collection_prices (price_list_id, coalesce(product_id,''), coalesce(component_id,''));
       CREATE UNIQUE INDEX IF NOT EXISTS uq_psp_list_target_years
         ON pricing_storage_prices (price_list_id, coalesce(product_id,''), coalesce(component_id,''), years);
+      ALTER TABLE pricing_product_costs ADD COLUMN IF NOT EXISTS rezia_eur numeric(14,2);
+      CREATE TABLE IF NOT EXISTS pricing_margin_otps (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id integer NOT NULL,
+        otp_code text NOT NULL,
+        expires_at timestamp NOT NULL,
+        used_at timestamp
+      );
     `);
     console.log('[migration] pricing v2 tables ensured');
   } catch (e: any) {
