@@ -537,7 +537,7 @@ function MarginTab({ canManage, toast }: { canManage: boolean; toast: ReturnType
             );
           })}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
