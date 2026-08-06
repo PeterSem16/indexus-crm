@@ -275,15 +275,21 @@ function MarginTab({ canManage, toast }: { canManage: boolean; toast: ReturnType
                   <MarginGauge pct={mPct} />
                 </div>
 
-                {/* stats grid */}
-                <div className="mt-3 grid grid-cols-3 gap-1 text-center text-[10px]">
+                {/* stats grid — 2×2 so réžia is always a visible deduction */}
+                <div className="mt-3 grid grid-cols-2 gap-1 text-center text-[10px]">
                   <div className="rounded-lg bg-white/70 p-1.5">
                     <div className="text-muted-foreground">{p.marginGrossRevenue}</div>
                     <div className="tabular-nums font-semibold">{fmt(gross)} €</div>
                   </div>
                   <div className="rounded-lg bg-white/70 p-1.5">
                     <div className="text-muted-foreground">{p.marginTotalCost}</div>
-                    <div className="tabular-nums font-semibold text-rose-600">{fmt(Math.abs(cost))} €</div>
+                    <div className="tabular-nums font-semibold text-rose-600">− {fmt(Math.abs(cost))} €</div>
+                  </div>
+                  <div className={`rounded-lg p-1.5 ${rezia > 0 ? "bg-orange-50 border border-orange-200" : "bg-white/70"}`}>
+                    <div className="text-muted-foreground">{p.marginRezia}</div>
+                    <div className={`tabular-nums font-semibold ${rezia > 0 ? "text-orange-600" : "text-muted-foreground"}`}>
+                      {rezia > 0 ? `− ${fmt(rezia)} €` : "—"}
+                    </div>
                   </div>
                   <div className="rounded-lg bg-white/70 p-1.5">
                     <div className="text-muted-foreground">{p.marginValue}</div>
@@ -293,7 +299,7 @@ function MarginTab({ canManage, toast }: { canManage: boolean; toast: ReturnType
 
                 {/* réžia input */}
                 <div className="mt-3 space-y-1">
-                  <label className="text-[10px] font-medium text-muted-foreground">{p.marginRezia} (€)</label>
+                  <label className="text-[10px] font-medium text-muted-foreground">{p.marginRezia} (€) — zadaj a ulož</label>
                   <div className="flex gap-1">
                     <Input type="number" step="0.01" min="0"
                       value={reziaVal}
