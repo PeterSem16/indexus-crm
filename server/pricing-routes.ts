@@ -5,6 +5,7 @@
 // administrators only (admin role OR RBAC module "pricing").
 // ============================================================
 import type { Express, Request, Response, NextFunction } from "express";
+import multer from "multer";
 import { db } from "./db";
 import { eq, and, inArray, desc, asc } from "drizzle-orm";
 import {
@@ -175,6 +176,293 @@ export function registerPricingRoutes(app: Express) {
     const bundle = await loadPriceListBundle(req.params.id);
     if (!bundle) return res.status(404).json({ message: "Price list not found" });
     res.json(bundle);
+  });
+
+  // ── Export price list as a reimportable XLSX template ─────────────────────
+  app.get("/api/pricing/price-lists/:id/export", requireAuth, requirePricingAdmin, async (req, res) => {
+    const bundle = await loadPriceListBundle(req.params.id);
+    if (!bundle) return res.status(404).json({ message: "Price list not found" });
+
+    // load cost rows + items pinned to this price list
+    const [costRows, allCostItems] = await Promise.all([
+      db.select().from(pricingProductCosts)
+        .where(eq(pricingProductCosts.priceListId, req.params.id)),
+      db.select().from(pricingCostItems),
+    ]);
+    const itemsByRow = new Map<string, typeof allCostItems>();
+    for (const item of allCostItems) {
+      const cr = costRows.find((r) => r.id === item.costRowId);
+      if (!cr) continue;
+      if (!itemsByRow.has(item.costRowId)) itemsByRow.set(item.costRowId, []);
+      itemsByRow.get(item.costRowId)!.push(item);
+    }
+
+    const xlsxPkg = await import("xlsx");
+    const XLSX: any = (xlsxPkg as any).default ?? xlsxPkg;
+    const wb = XLSX.utils.book_new();
+
+    const pl = bundle.priceList;
+    const prodById = new Map(bundle.products.map((p: any) => [p.id, p]));
+    const compById = new Map(bundle.components.map((c: any) => [c.id, c]));
+
+    // --- Meta ---
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+      ["Field", "Value"],
+      ["name", pl.name],
+      ["countryCode", pl.countryCode],
+      ["currency", pl.currency],
+      ["fxRateToEur", pl.fxRateToEur ?? ""],
+      ["storageYearOptions", (pl.storageYearOptions ?? []).join(",")],
+      ["#HINT", "Do not change Field names. Import creates a new DRAFT price list."],
+    ]), "Meta");
+
+    // --- CollectionPrices ---
+    const cpRows: any[][] = [["Type", "Code", "Name", "Price", "MaxDiscountPct", "Note"]];
+    for (const cp of bundle.collectionPrices) {
+      const prod = cp.productId ? prodById.get(cp.productId) : null;
+      const comp = cp.componentId ? compById.get(cp.componentId) : null;
+      cpRows.push([
+        prod ? "Product" : "Component",
+        (prod ?? comp)?.code ?? "",
+        (prod ?? comp)?.name ?? "",
+        parseFloat(cp.price),
+        cp.maxCollectionDiscountPct ? parseFloat(cp.maxCollectionDiscountPct) : "",
+        cp.note ?? "",
+      ]);
+    }
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(cpRows), "CollectionPrices");
+
+    // --- StoragePrices ---
+    const spRows: any[][] = [["Type", "Code", "Name", "Years", "Price"]];
+    for (const sp of bundle.storagePrices) {
+      const prod = sp.productId ? prodById.get(sp.productId) : null;
+      const comp = sp.componentId ? compById.get(sp.componentId) : null;
+      spRows.push([
+        prod ? "Product" : "Component",
+        (prod ?? comp)?.code ?? "",
+        (prod ?? comp)?.name ?? "",
+        sp.years,
+        parseFloat(sp.price),
+      ]);
+    }
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(spRows), "StoragePrices");
+
+    // --- StorageDiscounts ---
+    const sdRows: any[][] = [["Years", "DiscountPct"]];
+    for (const sd of bundle.storageDiscounts) sdRows.push([sd.years, parseFloat(sd.discountPct)]);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sdRows), "StorageDiscounts");
+
+    // --- Installments ---
+    const ipRows: any[][] = [["Installments", "SurchargePct"]];
+    for (const ip of bundle.installmentPlans) ipRows.push([ip.installments, parseFloat(ip.surchargePct)]);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ipRows), "Installments");
+
+    // --- IncompleteRules ---
+    const irRows: any[][] = [["OrderedProductCode", "CollectedMask", "ResultLabel", "CollectionPrice", "StoragePricesJSON", "IsOverride", "Note"]];
+    for (const ir of bundle.incompleteRules) {
+      const prod = prodById.get(ir.orderedProductId);
+      irRows.push([
+        prod?.code ?? ir.orderedProductId,
+        ir.collectedMask,
+        ir.resultLabel,
+        parseFloat(ir.collectionPrice),
+        ir.storagePrices ? JSON.stringify(ir.storagePrices) : "",
+        ir.isOverride ? "TRUE" : "FALSE",
+        ir.note ?? "",
+      ]);
+    }
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(irRows), "IncompleteRules");
+
+    // --- AdjustmentRules ---
+    const arRows: any[][] = [["RuleType", "Amount", "Pct", "AppliesTo", "Note", "Enabled", "VolumeOperator", "VolumeMinMl", "VolumeMaxMl"]];
+    for (const ar of bundle.adjustmentRules) {
+      arRows.push([
+        ar.ruleType,
+        ar.amount ? parseFloat(ar.amount) : "",
+        ar.pct ? parseFloat(ar.pct) : "",
+        ar.appliesTo ?? "",
+        ar.note ?? "",
+        ar.enabled !== false ? "TRUE" : "FALSE",
+        (ar as any).volumeOperator ?? "",
+        (ar as any).volumeMinMl ? parseFloat((ar as any).volumeMinMl) : "",
+        (ar as any).volumeMaxMl ? parseFloat((ar as any).volumeMaxMl) : "",
+      ]);
+    }
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(arRows), "AdjustmentRules");
+
+    // --- Costs (if any) ---
+    if (costRows.length > 0) {
+      const maxItems = Math.max(0, ...costRows.map((r) => (itemsByRow.get(r.id) ?? []).length));
+      const costHeader = ["ProductLabel", "GrossRevenueEUR", "TotalCostEUR", "ReziaEUR", "Note"];
+      for (let i = 1; i <= maxItems; i++) costHeader.push(`Item${i}_Label`, `Item${i}_Amount`);
+      const costData: any[][] = [costHeader];
+      for (const cr of costRows) {
+        const items = (itemsByRow.get(cr.id) ?? []).sort((a, b) => a.sortOrder - b.sortOrder);
+        const row: any[] = [
+          cr.productLabel,
+          cr.grossRevenueEur ? parseFloat(cr.grossRevenueEur) : "",
+          cr.totalCostEur ? parseFloat(cr.totalCostEur) : "",
+          cr.reziaEur ? parseFloat(cr.reziaEur) : "",
+          cr.note ?? "",
+        ];
+        for (const item of items) row.push(item.label, parseFloat(item.amountEur));
+        costData.push(row);
+      }
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(costData), "Costs");
+    }
+
+    const buf: Buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+    const safeName = pl.name.replace(/[^a-zA-Z0-9_-]/g, "_");
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="cennik-${pl.countryCode}-${safeName}.xlsx"`);
+    res.send(buf);
+  });
+
+  // ── Import price list from XLSX template (creates new draft) ─────────────
+  const uploadPricingTemplate = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+  app.post("/api/pricing/import-template", requireAuth, requirePricingAdmin, uploadPricingTemplate.single("file"), async (req, res) => {
+    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+    try {
+      const xlsxPkg = await import("xlsx");
+      const XLSX: any = (xlsxPkg as any).default ?? xlsxPkg;
+      const wb = XLSX.read(req.file.buffer, { type: "buffer" });
+      const sheet = (name: string): any[][] => {
+        if (!wb.Sheets[name]) return [];
+        return XLSX.utils.sheet_to_json<any[]>(wb.Sheets[name], { header: 1, raw: false, defval: "" }) as any[][];
+      };
+      const parseNum = (v: any): number | null => {
+        if (v === "" || v === null || v === undefined) return null;
+        const n = parseFloat(String(v));
+        return Number.isFinite(n) ? n : null;
+      };
+
+      // Meta
+      const meta: Record<string, string> = {};
+      for (const [k, v] of sheet("Meta").slice(1)) {
+        if (k && !String(k).startsWith("#")) meta[String(k)] = String(v ?? "");
+      }
+      if (!meta.countryCode || !meta.currency) return res.status(400).json({ message: "Meta sheet is missing countryCode or currency" });
+
+      const [allProducts, allComponents] = await Promise.all([
+        db.select().from(pricingProducts),
+        db.select().from(pricingComponents),
+      ]);
+      const prodByCode = new Map(allProducts.map((p) => [p.code.toUpperCase(), p]));
+      const compByCode = new Map(allComponents.map((c) => [c.code.toUpperCase(), c]));
+
+      const storageYearOptions = meta.storageYearOptions
+        ? meta.storageYearOptions.split(",").map((s) => parseInt(s.trim())).filter((n) => Number.isInteger(n) && n > 0)
+        : null;
+
+      const sessionUser = (req.session as any)?.user;
+      const [newList] = await db.insert(pricingPriceLists).values({
+        countryCode: meta.countryCode.toUpperCase(),
+        currency: meta.currency.toUpperCase(),
+        name: meta.name || `${meta.countryCode} Import ${new Date().toLocaleDateString("sk-SK")}`,
+        fxRateToEur: meta.fxRateToEur || null,
+        status: "draft",
+        storageYearOptions: storageYearOptions?.length ? storageYearOptions : null,
+        note: `Imported from template by ${sessionUser?.name ?? sessionUser?.email ?? "user"}`,
+      }).returning();
+
+      // CollectionPrices
+      for (const [type, code, , priceStr, maxDiscStr, noteStr] of sheet("CollectionPrices").slice(1)) {
+        if (!code || !priceStr) continue;
+        const price = parseNum(priceStr); if (price === null) continue;
+        const prod = String(type) === "Product" ? prodByCode.get(String(code).toUpperCase()) : null;
+        const comp = String(type) !== "Product" ? compByCode.get(String(code).toUpperCase()) : null;
+        if (!prod && !comp) continue;
+        const maxDisc = parseNum(maxDiscStr);
+        await db.insert(pricingCollectionPrices).values({
+          priceListId: newList.id, productId: prod?.id ?? null, componentId: comp?.id ?? null,
+          price: String(price), maxCollectionDiscountPct: maxDisc != null ? String(maxDisc) : null,
+          note: String(noteStr || "") || null,
+        });
+      }
+
+      // StoragePrices
+      for (const [type, code, , yearsStr, priceStr] of sheet("StoragePrices").slice(1)) {
+        if (!code || !priceStr || !yearsStr) continue;
+        const price = parseNum(priceStr); const years = parseInt(String(yearsStr));
+        if (price === null || !Number.isInteger(years) || years <= 0) continue;
+        const prod = String(type) === "Product" ? prodByCode.get(String(code).toUpperCase()) : null;
+        const comp = String(type) !== "Product" ? compByCode.get(String(code).toUpperCase()) : null;
+        if (!prod && !comp) continue;
+        await db.insert(pricingStoragePrices).values({
+          priceListId: newList.id, productId: prod?.id ?? null, componentId: comp?.id ?? null, years, price: String(price),
+        });
+      }
+
+      // StorageDiscounts
+      for (const [yearsStr, pctStr] of sheet("StorageDiscounts").slice(1)) {
+        if (!yearsStr || !pctStr) continue;
+        const years = parseInt(String(yearsStr)); const pct = parseNum(pctStr);
+        if (!Number.isInteger(years) || years <= 0 || pct === null) continue;
+        await db.insert(pricingStorageDiscounts).values({ priceListId: newList.id, years, discountPct: String(pct) });
+      }
+
+      // Installments
+      for (const [instStr, pctStr] of sheet("Installments").slice(1)) {
+        if (!instStr || !pctStr) continue;
+        const installments = parseInt(String(instStr)); const pct = parseNum(pctStr);
+        if (!Number.isInteger(installments) || installments <= 0 || pct === null) continue;
+        await db.insert(pricingInstallmentPlans).values({ priceListId: newList.id, installments, surchargePct: String(pct) });
+      }
+
+      // IncompleteRules
+      for (const [prodCode, mask, label, cpStr, spJson, isOverride, noteStr] of sheet("IncompleteRules").slice(1)) {
+        if (!prodCode || !cpStr) continue;
+        const prod = prodByCode.get(String(prodCode).toUpperCase()); if (!prod) continue;
+        const cp = parseNum(cpStr); if (cp === null) continue;
+        let storagePrices: Record<string, number> | null = null;
+        try { storagePrices = spJson && String(spJson) !== "" ? JSON.parse(String(spJson)) : null; } catch { /* ignore */ }
+        await db.insert(pricingIncompleteRules).values({
+          priceListId: newList.id, orderedProductId: prod.id,
+          collectedMask: String(mask ?? ""), resultLabel: String(label ?? mask ?? ""),
+          collectionPrice: String(cp), storagePrices,
+          isOverride: String(isOverride).toUpperCase() === "TRUE", note: String(noteStr || "") || null,
+        }).onConflictDoNothing();
+      }
+
+      // AdjustmentRules
+      for (const [ruleType, amtStr, pctStr, appliesTo, noteStr, enabled, volOp, volMin, volMax] of sheet("AdjustmentRules").slice(1)) {
+        if (!ruleType) continue;
+        await db.insert(pricingAdjustmentRules).values({
+          priceListId: newList.id, ruleType: String(ruleType),
+          amount: parseNum(amtStr) != null ? String(parseNum(amtStr)) : null,
+          pct: parseNum(pctStr) != null ? String(parseNum(pctStr)) : null,
+          appliesTo: String(appliesTo || "") || null, note: String(noteStr || "") || null,
+          enabled: String(enabled).toUpperCase() !== "FALSE",
+          volumeOperator: String(volOp || "") || null,
+          volumeMinMl: parseNum(volMin) != null ? String(parseNum(volMin)) : null,
+          volumeMaxMl: parseNum(volMax) != null ? String(parseNum(volMax)) : null,
+        });
+      }
+
+      // Costs
+      for (const row of sheet("Costs").slice(1)) {
+        if (!row[0]) continue;
+        const [labelStr, grossStr, totalStr, reziaStr, noteStr, ...itemPairs] = row;
+        const [costRow] = await db.insert(pricingProductCosts).values({
+          countryCode: meta.countryCode.toUpperCase(), productLabel: String(labelStr),
+          grossRevenueEur: parseNum(grossStr) != null ? String(parseNum(grossStr)) : null,
+          totalCostEur: parseNum(totalStr) != null ? String(parseNum(totalStr)) : null,
+          reziaEur: parseNum(reziaStr) != null ? String(parseNum(reziaStr)) : null,
+          note: String(noteStr || "") || null, priceListId: newList.id,
+        }).returning();
+        for (let i = 0; i < itemPairs.length; i += 2) {
+          const iLabel = String(itemPairs[i] ?? ""); const iAmt = parseNum(itemPairs[i + 1]);
+          if (!iLabel || iAmt === null) continue;
+          await db.insert(pricingCostItems).values({ costRowId: costRow.id, label: iLabel, amountEur: String(iAmt), sortOrder: Math.floor(i / 2) });
+        }
+      }
+
+      res.json({ ok: true, priceListId: newList.id, name: newList.name });
+    } catch (e: any) {
+      console.error("[import-template]", e);
+      res.status(500).json({ message: e.message });
+    }
   });
 
   // costs contain margins — pricing administrators only

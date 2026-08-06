@@ -18,7 +18,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Copy, AlertTriangle, CheckCircle2, Check, X, Pencil, Calculator as CalcIcon, ListOrdered, Grid3X3, CopyPlus, CalendarDays, Trash2, Package, Percent, Droplets, Plus, Sparkles, Lock, Unlock, ShieldCheck, TrendingUp, Camera, BarChart3 } from "lucide-react";
+import { Loader2, Copy, AlertTriangle, CheckCircle2, Check, X, Pencil, Calculator as CalcIcon, ListOrdered, Grid3X3, CopyPlus, CalendarDays, Trash2, Package, Percent, Droplets, Plus, Sparkles, Lock, Unlock, ShieldCheck, TrendingUp, Camera, BarChart3, FileDown, Upload, FileSpreadsheet } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, Legend,
@@ -312,54 +312,97 @@ function MarginTab({ canManage, toast }: { canManage: boolean; toast: ReturnType
   }
 
   // ── Unlocked ──────────────────────────────────────────────────────────────
-  const countries = [...new Set(costs.map((c) => c.countryCode))].sort();
-  const activeCountry = countries.includes(country) ? country : countries[0] ?? "SK";
+  const costs_countries = [...new Set(costs.map((c) => c.countryCode))].sort();
+  const activeCountry = costs_countries.includes(country) ? country : costs_countries[0] ?? "SK";
   const filtered = costs.filter((c) => c.countryCode === activeCountry);
   const selectedList = selectorLists.find((l) => l.id === selectedPriceListId) ?? null;
 
+  // group selectorLists by country for the two-level picker
+  const selectorCountries = [...new Set(selectorLists.map((l) => l.countryCode))].sort();
+  const [selectorCountry, setSelectorCountry] = useState<string | null>(null);
+  const effectiveSelectorCountry = selectorCountry ?? selectorCountries[0] ?? null;
+  const listsForCountry = effectiveSelectorCountry
+    ? selectorLists.filter((l) => l.countryCode === effectiveSelectorCountry)
+    : [];
+
+  const switchList = (id: string | null) => {
+    setSelectedPriceListId(id);
+    setExpandedCostRows(new Set());
+    setReziaInputs({});
+    initialized.current = false;
+    // sync cost-row country filter to the selected list's country
+    if (id) {
+      const l = selectorLists.find((x) => x.id === id);
+      if (l) setCountry(l.countryCode);
+    }
+  };
+
   return (
     <div className="mt-4 space-y-4">
-      {/* price list selector + session badge */}
-      <div className="flex flex-wrap items-start gap-3">
-        {/* left: session pill + snapshot btn */}
-        <div className="flex items-center gap-2 flex-wrap flex-1">
-          <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-700">
-            <Unlock className="h-3 w-3" />
-            <span>{p.marginSessionInfo}</span>
-          </div>
-          <Button size="sm" variant="outline"
-            className="h-7 gap-1.5 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-            disabled={takeSnapshot.isPending}
-            onClick={() => takeSnapshot.mutate()}>
-            {takeSnapshot.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
-            {p.marginSnapshotNow}
-          </Button>
+      {/* ── top bar: session pill + snapshot ── */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-700">
+          <Unlock className="h-3 w-3" />
+          <span>{p.marginSessionInfo}</span>
         </div>
-        {/* right: price list selector */}
-        {selectorLists.length > 0 && (
-          <div className="flex flex-wrap gap-1 items-center">
-            <span className="text-[10px] text-muted-foreground mr-1 shrink-0">Cenník:</span>
+        <Button size="sm" variant="outline"
+          className="h-7 gap-1.5 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+          disabled={takeSnapshot.isPending}
+          onClick={() => takeSnapshot.mutate()}>
+          {takeSnapshot.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+          {p.marginSnapshotNow}
+        </Button>
+      </div>
+
+      {/* ── two-level cenník selector ── */}
+      {selectorLists.length > 0 && (
+        <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-3 space-y-2">
+          <div className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wide mb-1">Cenník</div>
+          {/* Level 1: country tabs */}
+          <div className="flex flex-wrap gap-1.5">
             <button
-              onClick={() => { setSelectedPriceListId(null); setExpandedCostRows(new Set()); setReziaInputs({}); initialized.current = false; }}
-              className={`rounded-full px-2.5 py-1 text-[10px] font-semibold transition-all ${selectedPriceListId === null ? "bg-indigo-600 text-white shadow-sm" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
+              onClick={() => { setSelectorCountry(null); switchList(null); }}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all flex items-center gap-1 ${selectedPriceListId === null ? "bg-indigo-600 text-white shadow-sm" : "bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-50"}`}>
               Aktuálne
             </button>
-            {selectorLists.map((l) => (
-              <button key={l.id}
-                onClick={() => { setSelectedPriceListId(l.id); setExpandedCostRows(new Set()); setReziaInputs({}); initialized.current = false; }}
-                className={`rounded-full px-2.5 py-1 text-[10px] font-semibold transition-all flex items-center gap-1 ${selectedPriceListId === l.id ? "bg-indigo-600 text-white shadow-sm" : l.status === "archived" ? "bg-slate-100 text-slate-500 hover:bg-slate-200" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
-                {COUNTRY_FLAGS[l.countryCode] ?? ""} {l.name}
-                {l.status === "archived" && <span className="opacity-70 text-[8px]">archív</span>}
+            <div className="w-px bg-indigo-200 mx-1 self-stretch" />
+            {selectorCountries.map((cc) => (
+              <button key={cc}
+                onClick={() => { setSelectorCountry(cc); }}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all flex items-center gap-1.5 ${effectiveSelectorCountry === cc && selectedPriceListId !== null ? "bg-indigo-600 text-white shadow-sm" : effectiveSelectorCountry === cc ? "bg-white border-2 border-indigo-400 text-indigo-700" : "bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-50"}`}>
+                {COUNTRY_FLAGS[cc] ?? ""} {cc}
               </button>
             ))}
           </div>
-        )}
-      </div>
+          {/* Level 2: price lists for selected country */}
+          {effectiveSelectorCountry && listsForCountry.length > 0 && (
+            <div className="flex flex-wrap gap-1 pt-1 pl-1 border-t border-indigo-100">
+              {listsForCountry.map((l) => {
+                const isActive = selectedPriceListId === l.id;
+                const statusDot = l.status === "active"
+                  ? "bg-emerald-400"
+                  : l.status === "draft"
+                  ? "bg-amber-400"
+                  : "bg-slate-300";
+                return (
+                  <button key={l.id}
+                    onClick={() => switchList(l.id)}
+                    className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition-all flex items-center gap-1.5 ${isActive ? "bg-indigo-600 text-white shadow-sm" : "bg-white border border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-700"}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${isActive ? "bg-white/80" : statusDot}`} />
+                    {l.name}
+                    {l.status === "archived" && !isActive && <span className="text-[9px] text-slate-400">archív</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* country pills */}
-      {countries.length > 0 && (
+      {/* ── cost-row country pills (only when actual cost rows exist) ── */}
+      {costs_countries.length > 1 && (
         <div className="flex flex-wrap gap-1.5">
-          {countries.map((cc) => (
+          {costs_countries.map((cc) => (
             <button key={cc} onClick={() => setCountry(cc)}
               className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${activeCountry === cc ? "bg-indigo-600 text-white shadow-sm" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
               {COUNTRY_FLAGS[cc] ?? ""} {cc}
@@ -368,7 +411,7 @@ function MarginTab({ canManage, toast }: { canManage: boolean; toast: ReturnType
         </div>
       )}
 
-      {/* init button when selected list has no rows yet */}
+      {/* ── init button when selected list has no rows yet ── */}
       {selectedPriceListId && costs.length === 0 && (
         <div className="rounded-2xl border-2 border-dashed border-indigo-200 bg-indigo-50/40 p-8 text-center space-y-3">
           <p className="text-sm font-semibold text-indigo-700">
@@ -848,6 +891,9 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
   const [confirmActivate, setConfirmActivate] = useState<PriceListRow | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<PriceListRow | null>(null);
   const [countryFilter, setCountryFilter] = useState<string>("all");
+  const [importOpen, setImportOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importBusy, setImportBusy] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
   const [copyName, setCopyName] = useState("");
   const [copyFxMode, setCopyFxMode] = useState<"live" | "fixed">("fixed");
@@ -903,6 +949,43 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
     staleTime: 1000 * 60 * 30,
     retry: false,
   });
+
+  const downloadExport = async (listId: string, listName: string) => {
+    try {
+      const res = await fetch(`/api/pricing/price-lists/${listId}/export`, { credentials: "include" });
+      if (!res.ok) throw new Error(await res.text());
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = res.headers.get("content-disposition")?.match(/filename="([^"]+)"/)?.[1] ?? `cennik-${listName}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      toast({ title: "Export zlyhal", description: String(e?.message ?? e), variant: "destructive" });
+    }
+  };
+
+  const handleImport = async () => {
+    if (!importFile) return;
+    setImportBusy(true);
+    try {
+      const form = new FormData();
+      form.append("file", importFile);
+      const res = await fetch("/api/pricing/import-template", { method: "POST", credentials: "include", body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message ?? "Import zlyhal");
+      queryClient.invalidateQueries({ queryKey: ["/api/pricing/price-lists"] });
+      setImportOpen(false);
+      setImportFile(null);
+      onSelect(data.priceListId);
+      toast({ title: `Cenník „${data.name}" vytvorený (draft)` });
+    } catch (e: any) {
+      toast({ title: "Import zlyhal", description: String(e?.message ?? e), variant: "destructive" });
+    } finally {
+      setImportBusy(false);
+    }
+  };
 
   const duplicateMutation = useMutation({
     mutationFn: async () => {
@@ -1108,6 +1191,18 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
           </CardTitle>
           {selected && canManage && (
             <div className="flex items-center gap-2 flex-wrap">
+              <Button size="sm" variant="outline"
+                className="gap-1.5 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                onClick={() => downloadExport(selected.id, selected.name)}
+                data-testid="button-export-list">
+                <FileDown className="w-4 h-4" />XLS
+              </Button>
+              <Button size="sm" variant="outline"
+                className="gap-1.5 border-sky-200 text-sky-700 hover:bg-sky-50"
+                onClick={() => { setImportFile(null); setImportOpen(true); }}
+                data-testid="button-import-list">
+                <Upload className="w-4 h-4" />Import
+              </Button>
               <Button size="sm" variant="outline" onClick={() => { setCopyName(`${selected.name} (${t.pricing.copySuffix})`); setCopyOpen(true); }} data-testid="button-copy-list">
                 <CopyPlus className="w-4 h-4 mr-1" />{t.pricing.copyList}
               </Button>
@@ -1613,6 +1708,49 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
             <Button variant="outline" onClick={() => setConfirmActivate(null)}>{t.pricing.cancel}</Button>
             <Button onClick={() => confirmActivate && activateMutation.mutate(confirmActivate.id)} disabled={activateMutation.isPending} data-testid="button-confirm-activate">
               {activateMutation.isPending && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}{t.pricing.activate}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Import template dialog ── */}
+      <Dialog open={importOpen} onOpenChange={(o) => { if (!o) { setImportOpen(false); setImportFile(null); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileSpreadsheet className="w-5 h-5 text-sky-600" />
+              Import cenníka z XLS šablóny
+            </DialogTitle>
+            <DialogDescription>
+              Nahraj XLS súbor exportovaný z Indexusu. Vytvorí sa nový <strong>draft</strong> cenník so všetkými cenami (a nákladmi ak boli nakonfigurované).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <label className="flex flex-col gap-2">
+              <span className="text-sm font-medium">Súbor (.xlsx)</span>
+              <input
+                type="file"
+                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border file:border-sky-200 file:bg-sky-50 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-sky-700 file:cursor-pointer hover:file:bg-sky-100"
+                onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+              />
+            </label>
+            {importFile && (
+              <div className="flex items-center gap-2 rounded-lg bg-sky-50 border border-sky-200 px-3 py-2 text-xs text-sky-700">
+                <FileSpreadsheet className="w-4 h-4 shrink-0" />
+                <span className="truncate font-medium">{importFile.name}</span>
+                <span className="shrink-0 text-sky-400">({(importFile.size / 1024).toFixed(0)} KB)</span>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setImportOpen(false); setImportFile(null); }}>Zrušiť</Button>
+            <Button
+              className="bg-sky-600 hover:bg-sky-700 text-white gap-1.5"
+              disabled={!importFile || importBusy}
+              onClick={handleImport}>
+              {importBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              Importovať
             </Button>
           </DialogFooter>
         </DialogContent>
