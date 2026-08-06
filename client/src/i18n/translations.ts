@@ -350,6 +350,16 @@ export interface Translations {
     marginTrendNoData: string;
     marginSnapshotNow: string;
     marginSnapshotSaved: string;
+    exportXls: string;
+    exportFailed: string;
+    importBtnLabel: string;
+    importDialogTitle: string;
+    importDialogDesc: string;
+    importFileLabel: string;
+    importCancel: string;
+    importSubmit: string;
+    importFailed: string;
+    importCreated: string;
   };
   beratung: {
     description: string;
@@ -7529,6 +7539,16 @@ export const translations: Record<Locale, Translations> = {
       marginTrendNoData: 'No snapshot data yet. Take a snapshot in the Margin tab first.',
       marginSnapshotNow: 'Take snapshot',
       marginSnapshotSaved: 'Snapshot saved',
+      exportXls: 'XLS',
+      exportFailed: 'Export failed',
+      importBtnLabel: 'Import',
+      importDialogTitle: 'Import price list from XLS template',
+      importDialogDesc: 'Upload an XLS file exported from Indexus. A new draft price list will be created with all prices (and costs if configured).',
+      importFileLabel: 'File (.xlsx)',
+      importCancel: 'Cancel',
+      importSubmit: 'Import',
+      importFailed: 'Import failed',
+      importCreated: 'Price list created (draft)',
     },
     beratung: {
       description: 'Monitoring beratung@cordbloodcenter.com — AI translation and forwarding of emails',
@@ -14760,6 +14780,16 @@ export const translations: Record<Locale, Translations> = {
       marginTrendNoData: 'Zatiaľ žiadne dáta. Najprv vytvor snímku v záložke Marža.',
       marginSnapshotNow: 'Vytvoriť snímku',
       marginSnapshotSaved: 'Snímka uložená',
+      exportXls: 'XLS',
+      exportFailed: 'Export zlyhal',
+      importBtnLabel: 'Import',
+      importDialogTitle: 'Import cenníka z XLS šablóny',
+      importDialogDesc: 'Nahraj XLS súbor exportovaný z Indexusu. Vytvorí sa nový draft cenník so všetkými cenami (a nákladmi ak boli nakonfigurované).',
+      importFileLabel: 'Súbor (.xlsx)',
+      importCancel: 'Zrušiť',
+      importSubmit: 'Importovať',
+      importFailed: 'Import zlyhal',
+      importCreated: 'Cenník vytvorený (draft)',
     },
     beratung: {
       description: 'Monitorovanie schránky beratung@cordbloodcenter.com — AI preklad a preposlanie emailov',
@@ -21927,6 +21957,16 @@ export const translations: Record<Locale, Translations> = {
       marginTrendNoData: 'Zatím žádná data. Nejprve vytvořte snímek na záložce Marže.',
       marginSnapshotNow: 'Vytvořit snímek',
       marginSnapshotSaved: 'Snímek uložen',
+      exportXls: 'XLS',
+      exportFailed: 'Export se nezdařil',
+      importBtnLabel: 'Import',
+      importDialogTitle: 'Import ceníku z XLS šablony',
+      importDialogDesc: 'Nahrajte soubor XLS exportovaný z Indexusu. Vytvoří se nový draft ceník se všemi cenami (a náklady, pokud byly nakonfigurovány).',
+      importFileLabel: 'Soubor (.xlsx)',
+      importCancel: 'Zrušit',
+      importSubmit: 'Importovat',
+      importFailed: 'Import se nezdařil',
+      importCreated: 'Ceník vytvořen (draft)',
     },
     beratung: {
       description: 'Monitorování schránky beratung@cordbloodcenter.com — AI překlad a přeposlání emailů',
@@ -29020,6 +29060,16 @@ export const translations: Record<Locale, Translations> = {
       marginTrendNoData: 'Még nincs adat. Először hozz létre pillanatképet a Margó fülön.',
       marginSnapshotNow: 'Pillanatkép készítése',
       marginSnapshotSaved: 'Pillanatkép mentve',
+      exportXls: 'XLS',
+      exportFailed: 'Exportálás sikertelen',
+      importBtnLabel: 'Import',
+      importDialogTitle: 'Árlista importálása XLS sablonból',
+      importDialogDesc: 'Tölts fel egy Indexusból exportált XLS fájlt. Egy új draft árlista jön létre az összes árral (és költséggel, ha be van állítva).',
+      importFileLabel: 'Fájl (.xlsx)',
+      importCancel: 'Mégse',
+      importSubmit: 'Importálás',
+      importFailed: 'Importálás sikertelen',
+      importCreated: 'Árlista létrehozva (draft)',
     },
     beratung: {
       description: 'A beratung@cordbloodcenter.com postaláda figyelése — AI fordítás és továbbítás',
@@ -36073,6 +36123,16 @@ export const translations: Record<Locale, Translations> = {
       marginTrendNoData: 'Nicio dată încă. Creați un instantaneu în fila Marjă.',
       marginSnapshotNow: 'Creare instantaneu',
       marginSnapshotSaved: 'Instantaneu salvat',
+      exportXls: 'XLS',
+      exportFailed: 'Export eșuat',
+      importBtnLabel: 'Import',
+      importDialogTitle: 'Importați lista de prețuri din șablonul XLS',
+      importDialogDesc: 'Încărcați un fișier XLS exportat din Indexus. Se va crea o nouă listă de prețuri draft cu toate prețurile (și costurile dacă sunt configurate).',
+      importFileLabel: 'Fișier (.xlsx)',
+      importCancel: 'Anulare',
+      importSubmit: 'Importați',
+      importFailed: 'Import eșuat',
+      importCreated: 'Listă de prețuri creată (draft)',
     },
     beratung: {
       description: 'Monitorizarea căsuței beratung@cordbloodcenter.com — traducere AI și redirecționare e-mailuri',
@@ -43046,6 +43106,16 @@ export const translations: Record<Locale, Translations> = {
       marginTrendNoData: 'Nessun dato ancora. Crea uno snapshot nella scheda Margine.',
       marginSnapshotNow: 'Crea snapshot',
       marginSnapshotSaved: 'Snapshot salvato',
+      exportXls: 'XLS',
+      exportFailed: 'Esportazione fallita',
+      importBtnLabel: 'Importa',
+      importDialogTitle: 'Importa listino prezzi da modello XLS',
+      importDialogDesc: 'Carica un file XLS esportato da Indexus. Verrà creato un nuovo listino prezzi bozza con tutti i prezzi (e i costi se configurati).',
+      importFileLabel: 'File (.xlsx)',
+      importCancel: 'Annulla',
+      importSubmit: 'Importa',
+      importFailed: 'Importazione fallita',
+      importCreated: 'Listino prezzi creato (bozza)',
     },
     beratung: {
       description: 'Monitoraggio della casella beratung@cordbloodcenter.com — traduzione AI e inoltro e-mail',
@@ -50021,6 +50091,16 @@ export const translations: Record<Locale, Translations> = {
       marginTrendNoData: 'Noch keine Daten. Erstelle eine Momentaufnahme im Margen-Tab.',
       marginSnapshotNow: 'Momentaufnahme erstellen',
       marginSnapshotSaved: 'Momentaufnahme gespeichert',
+      exportXls: 'XLS',
+      exportFailed: 'Export fehlgeschlagen',
+      importBtnLabel: 'Importieren',
+      importDialogTitle: 'Preisliste aus XLS-Vorlage importieren',
+      importDialogDesc: 'Laden Sie eine aus Indexus exportierte XLS-Datei hoch. Eine neue Entwurfs-Preisliste wird mit allen Preisen erstellt (und Kosten, falls konfiguriert).',
+      importFileLabel: 'Datei (.xlsx)',
+      importCancel: 'Abbrechen',
+      importSubmit: 'Importieren',
+      importFailed: 'Import fehlgeschlagen',
+      importCreated: 'Preisliste erstellt (Entwurf)',
     },
     beratung: {
       description: 'Überwachung des Postfachs beratung@cordbloodcenter.com — KI-Übersetzung und Weiterleitung',

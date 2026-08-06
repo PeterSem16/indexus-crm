@@ -962,7 +962,7 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
       a.click();
       URL.revokeObjectURL(url);
     } catch (e: any) {
-      toast({ title: "Export zlyhal", description: String(e?.message ?? e), variant: "destructive" });
+      toast({ title: t.pricing.exportFailed, description: String(e?.message ?? e), variant: "destructive" });
     }
   };
 
@@ -974,14 +974,14 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
       form.append("file", importFile);
       const res = await fetch("/api/pricing/import-template", { method: "POST", credentials: "include", body: form });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message ?? "Import zlyhal");
+      if (!res.ok) throw new Error(data.message ?? t.pricing.importFailed);
       queryClient.invalidateQueries({ queryKey: ["/api/pricing/price-lists"] });
       setImportOpen(false);
       setImportFile(null);
       onSelect(data.priceListId);
-      toast({ title: `Cenník „${data.name}" vytvorený (draft)` });
+      toast({ title: `„${data.name}" — ${t.pricing.importCreated}` });
     } catch (e: any) {
-      toast({ title: "Import zlyhal", description: String(e?.message ?? e), variant: "destructive" });
+      toast({ title: t.pricing.importFailed, description: String(e?.message ?? e), variant: "destructive" });
     } finally {
       setImportBusy(false);
     }
@@ -1195,13 +1195,13 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
                 className="gap-1.5 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
                 onClick={() => downloadExport(selected.id, selected.name)}
                 data-testid="button-export-list">
-                <FileDown className="w-4 h-4" />XLS
+                <FileDown className="w-4 h-4" />{t.pricing.exportXls}
               </Button>
               <Button size="sm" variant="outline"
                 className="gap-1.5 border-sky-200 text-sky-700 hover:bg-sky-50"
                 onClick={() => { setImportFile(null); setImportOpen(true); }}
                 data-testid="button-import-list">
-                <Upload className="w-4 h-4" />Import
+                <Upload className="w-4 h-4" />{t.pricing.importBtnLabel}
               </Button>
               <Button size="sm" variant="outline" onClick={() => { setCopyName(`${selected.name} (${t.pricing.copySuffix})`); setCopyOpen(true); }} data-testid="button-copy-list">
                 <CopyPlus className="w-4 h-4 mr-1" />{t.pricing.copyList}
@@ -1719,15 +1719,15 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileSpreadsheet className="w-5 h-5 text-sky-600" />
-              Import cenníka z XLS šablóny
+              {t.pricing.importDialogTitle}
             </DialogTitle>
             <DialogDescription>
-              Nahraj XLS súbor exportovaný z Indexusu. Vytvorí sa nový <strong>draft</strong> cenník so všetkými cenami (a nákladmi ak boli nakonfigurované).
+              {t.pricing.importDialogDesc}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <label className="flex flex-col gap-2">
-              <span className="text-sm font-medium">Súbor (.xlsx)</span>
+              <span className="text-sm font-medium">{t.pricing.importFileLabel}</span>
               <input
                 type="file"
                 accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -1744,13 +1744,13 @@ function PriceListsTab({ lists, loading, selectedId, onSelect, bundle, canManage
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setImportOpen(false); setImportFile(null); }}>Zrušiť</Button>
+            <Button variant="outline" onClick={() => { setImportOpen(false); setImportFile(null); }}>{t.pricing.importCancel}</Button>
             <Button
               className="bg-sky-600 hover:bg-sky-700 text-white gap-1.5"
               disabled={!importFile || importBusy}
               onClick={handleImport}>
               {importBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-              Importovať
+              {t.pricing.importSubmit}
             </Button>
           </DialogFooter>
         </DialogContent>
