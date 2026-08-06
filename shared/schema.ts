@@ -8264,7 +8264,7 @@ export const pricingProductCosts = pgTable("pricing_product_costs", {
 // OTP sessions for the protected Margin tab
 export const pricingMarginOtps = pgTable("pricing_margin_otps", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: integer("user_id").notNull(),
+  userId: varchar("user_id").notNull(),
   otpCode: text("otp_code").notNull(),
   expiresAt: timestamp("expires_at").notNull(),
   usedAt: timestamp("used_at"),

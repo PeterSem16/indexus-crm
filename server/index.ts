@@ -684,11 +684,20 @@ app.use((req, res, next) => {
       ALTER TABLE pricing_product_costs ADD COLUMN IF NOT EXISTS rezia_eur numeric(14,2);
       CREATE TABLE IF NOT EXISTS pricing_margin_otps (
         id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id integer NOT NULL,
+        user_id varchar NOT NULL,
         otp_code text NOT NULL,
         expires_at timestamp NOT NULL,
         used_at timestamp
       );
+      DO $$ BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='pricing_margin_otps' AND column_name='user_id' AND data_type='integer'
+        ) THEN
+          TRUNCATE pricing_margin_otps;
+          ALTER TABLE pricing_margin_otps ALTER COLUMN user_id TYPE varchar USING user_id::varchar;
+        END IF;
+      END $$;
     `);
     console.log('[migration] pricing v2 tables ensured');
   } catch (e: any) {
