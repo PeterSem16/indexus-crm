@@ -31124,6 +31124,7 @@ Respond ONLY with valid JSON in this exact format:
 
               if (slItem?.canonicalClinicStatusKey) {
                 const key = slItem.canonicalClinicStatusKey;
+                const confirmedAt = new Date();
                 // Derive phase from the key prefix
                 const phase = key.startsWith("acquisition_") ? "acquisition"
                   : key.startsWith("contract_") || key.startsWith("flyers_") ? "contract"
@@ -31136,9 +31137,86 @@ Respond ONLY with valid JSON in this exact format:
                   campaignContactId,
                   statusListItemId: itemId,
                   confirmedByUserId: userId,
-                  confirmedAt: new Date(),
+                  confirmedAt,
                   note: itemNote ?? null,
                 });
+
+                // ── Back-sync clinic fields from canonical key ────────────────
+                // Maps well-known canonical keys → direct clinic field updates so
+                // the clinic card always reflects the latest cooperation status
+                // without agents having to manually update both places.
+                const clinicFieldUpdate: Partial<{
+                  interestCooperation: string | null;
+                  interestContract: string | null;
+                  contractStatus: string | null;
+                  contractSentDate: Date | null;
+                  contractReturnedDate: Date | null;
+                  hasFlyers: boolean;
+                  flyersSentDate: Date | null;
+                  updatedAt: Date;
+                }> = {};
+
+                switch (key) {
+                  // ── Acquisition phase ──
+                  case "acquisition_interested":
+                    clinicFieldUpdate.interestCooperation = "yes";
+                    break;
+                  case "acquisition_not_interested":
+                    clinicFieldUpdate.interestCooperation = "no";
+                    break;
+                  case "acquisition_in_negotiation":
+                    clinicFieldUpdate.interestCooperation = "yes";
+                    clinicFieldUpdate.interestContract = "yes";
+                    break;
+
+                  // ── Contract phase ──
+                  case "contract_sent":
+                    clinicFieldUpdate.contractStatus = "sent";
+                    clinicFieldUpdate.contractSentDate = confirmedAt;
+                    clinicFieldUpdate.interestContract = "yes";
+                    break;
+                  case "contract_signed":
+                    clinicFieldUpdate.contractStatus = "signed";
+                    clinicFieldUpdate.contractReturnedDate = confirmedAt;
+                    break;
+                  case "contract_rejected":
+                    clinicFieldUpdate.contractStatus = "terminated";
+                    clinicFieldUpdate.interestContract = "no";
+                    break;
+                  case "flyers_sent":
+                  case "flyers_accepted":
+                    clinicFieldUpdate.hasFlyers = true;
+                    clinicFieldUpdate.flyersSentDate = confirmedAt;
+                    break;
+                  case "flyers_rejected":
+                    clinicFieldUpdate.hasFlyers = false;
+                    break;
+
+                  // ── Retention phase ──
+                  case "retention_active":
+                  case "services_confirmed":
+                    clinicFieldUpdate.interestCooperation = "yes";
+                    break;
+                  case "retention_paused":
+                    clinicFieldUpdate.interestCooperation = "maybe";
+                    break;
+                  case "retention_terminated":
+                  case "services_declined":
+                    clinicFieldUpdate.interestCooperation = "no";
+                    break;
+
+                  // acquisition_contacted and auto-generated slug keys:
+                  // recorded in history only — no direct clinic field maps to them
+                  default:
+                    break;
+                }
+
+                if (Object.keys(clinicFieldUpdate).length > 0) {
+                  clinicFieldUpdate.updatedAt = confirmedAt;
+                  await db.update(clinics)
+                    .set(clinicFieldUpdate)
+                    .where(eq(clinics.id, ccRow.clinicId));
+                }
               }
             } catch (coopErr) {
               console.error("[status-list:canonical_clinic_status] write failed:", coopErr);
