@@ -323,34 +323,7 @@ export function registerRepresentativeRoutes(
     }
   });
 
-  // ── GET /api/clinics/distinct-cities
-  app.get("/api/clinics/distinct-cities", requireAuth, async (req, res) => {
-    try {
-      const { countries, regions, districts } = req.query as Record<string, string>;
-      const conditions: string[] = ["city IS NOT NULL", "city != ''"];
-      const params: any[] = [];
-      if (countries) {
-        const arr = countries.split(",").filter(Boolean);
-        params.push(arr);
-        conditions.push(`country_code = ANY($${params.length})`);
-      }
-      if (regions) {
-        const arr = regions.split(",").filter(Boolean);
-        params.push(arr);
-        conditions.push(`region = ANY($${params.length})`);
-      }
-      if (districts) {
-        const arr = districts.split(",").filter(Boolean);
-        params.push(arr);
-        conditions.push(`district = ANY($${params.length})`);
-      }
-      const { rows } = await pool.query(
-        `SELECT DISTINCT city FROM clinics WHERE ${conditions.join(" AND ")} ORDER BY city`,
-        params
-      );
-      res.json(rows.map((r: any) => r.city));
-    } catch (e: any) { res.status(500).json({ message: e.message }); }
-  });
+  // ── GET /api/clinics/distinct-cities is registered early in routes.ts (before /api/clinics/:id)
 
   // ── GET /api/hospitals/distinct-cities
   app.get("/api/hospitals/distinct-cities", requireAuth, async (req, res) => {

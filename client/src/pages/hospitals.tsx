@@ -46,6 +46,7 @@ import { getCountryFlag, getCountryName } from "@/lib/countries";
 import { REGIONS_BY_COUNTRY, DISTRICTS_BY_REGION, getAutoRegion, getAutoDistrict, getDistrictsForRegion, getGeoLabels } from "@/lib/regions";
 import { SuggestRegionButton } from "@/components/suggest-region-button";
 import { EnrichFromWebDialog } from "@/components/enrich-from-web-dialog";
+import { RepresentativePanel } from "@/components/clinic-representative-panel";
 import type { Hospital as HospitalType, Laboratory, SafeUser, Clinic } from "@shared/schema";
 import { COUNTRIES } from "@shared/schema";
 import {
@@ -294,6 +295,7 @@ export function HospitalEditDrawer({ hospital, onClose, onSuccess, portalToBody 
     { id: "basic", label: t.clinics.steps.basic, icon: Building2 },
     { id: "personnel", label: mpnT.personnel || "Personnel", icon: Users },
     { id: "campaigns", label: (t as any).campaigns?.title || "Campaigns", icon: Target },
+    { id: "representative", label: t.representantPanel?.tabLabel || "Reprezentant", icon: UserCheck },
   ];
 
   const drawerContent = (
@@ -505,12 +507,16 @@ export function HospitalEditDrawer({ hospital, onClose, onSuccess, portalToBody 
             {activeSection === "campaigns" && (
               <EntityCampaignTimeline entityType="hospital" entityId={hospital.id} entityName={hospital.fullName || hospital.name} />
             )}
+
+            {activeSection === "representative" && (
+              <RepresentativePanel entityType="hospital" entityId={hospital.id} />
+            )}
           </div>
         </div>
 
         <div className="shrink-0 border-t bg-muted/30 px-5 py-3 flex items-center justify-end gap-2">
           <Button variant="outline" onClick={onClose} data-testid="button-cancel-hospital-drawer">{t.common.cancel}</Button>
-          <Button onClick={handleSubmit} disabled={saveMutation.isPending} data-testid="button-save-hospital-drawer">
+          <Button onClick={handleSubmit} disabled={saveMutation.isPending || activeSection === "representative"} data-testid="button-save-hospital-drawer">
             {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
             {t.common.save}
           </Button>

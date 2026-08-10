@@ -17181,6 +17181,20 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
+  // Must be before /api/clinics/:id to avoid Express catching "distinct-cities" as an :id param
+  app.get("/api/clinics/distinct-cities", requireAuth, async (req, res) => {
+    try {
+      const { countries, regions, districts } = req.query as Record<string, string>;
+      const conditions: string[] = ["city IS NOT NULL", "city != ''"];
+      const params: any[] = [];
+      if (countries) { const arr = countries.split(",").filter(Boolean); params.push(arr); conditions.push(`country_code = ANY($${params.length})`); }
+      if (regions)   { const arr = regions.split(",").filter(Boolean);   params.push(arr); conditions.push(`region = ANY($${params.length})`); }
+      if (districts) { const arr = districts.split(",").filter(Boolean); params.push(arr); conditions.push(`district = ANY($${params.length})`); }
+      const { rows } = await pool.query(`SELECT DISTINCT city FROM clinics WHERE ${conditions.join(" AND ")} ORDER BY city`, params);
+      res.json(rows.map((r: any) => r.city));
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
   app.get("/api/clinics/:id", requireAuth, async (req, res) => {
     try {
       const clinic = await storage.getClinic(req.params.id);
