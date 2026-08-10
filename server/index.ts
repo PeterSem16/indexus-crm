@@ -848,6 +848,35 @@ app.use((req, res, next) => {
     console.error('[migration] Representant role seed error:', e.message);
   }
 
+  // ── Hospital representative assignments table ─────────────────────────────
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS hospital_representative_assignments (
+        id              VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        hospital_id     VARCHAR NOT NULL,
+        user_id         VARCHAR NOT NULL,
+        valid_from      TIMESTAMP NOT NULL DEFAULT now(),
+        valid_to        TIMESTAMP,
+        assigned_by     VARCHAR,
+        assigned_at     TIMESTAMP NOT NULL DEFAULT now(),
+        assignment_type TEXT NOT NULL DEFAULT 'manual',
+        note            TEXT
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_hospital_rep_active
+        ON hospital_representative_assignments (hospital_id)
+        WHERE valid_to IS NULL;
+      CREATE INDEX IF NOT EXISTS idx_hospital_rep_hospital
+        ON hospital_representative_assignments (hospital_id);
+      CREATE INDEX IF NOT EXISTS idx_hospital_rep_user
+        ON hospital_representative_assignments (user_id);
+      CREATE INDEX IF NOT EXISTS idx_hospital_rep_validity
+        ON hospital_representative_assignments (hospital_id, valid_from, valid_to);
+    `);
+    console.log('[migration] hospital_representative_assignments ensured');
+  } catch (e: any) {
+    console.error('[migration] hospital_representative_assignments error:', e.message);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

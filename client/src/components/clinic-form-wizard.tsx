@@ -1037,9 +1037,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
     { key: "basic", icon: Building2, label: t.clinics.steps?.basic || "Info" },
     { key: "address", icon: MapPin, label: t.clinics.steps?.address || "Address" },
     { key: "referral", icon: CircleDot, label: t.clinics.steps.referral },
-    { key: "representative", icon: UserCheck, label: "Reprezentant" },
     { key: "personnel", icon: Users, label: (t as any).personnel || "Personnel" },
     { key: "campaigns", icon: Megaphone, label: (t as any).campaigns?.title || "Campaigns" },
+    { key: "representative", icon: UserCheck, label: t.representantPanel.tabLabel },
   ];
 
   const HeaderWrapper = mode === "inline" ? "div" : SheetHeader;
@@ -2726,16 +2726,16 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
             </div>
           )}
 
-          {activeTab === "representative" && initialData && (
-            <ClinicRepresentativePanel clinicId={initialData.id} />
-          )}
-
           {activeTab === "personnel" && initialData && (
             <InstitutionPersonnelManager entityType="clinic" entityId={initialData.id} entityName={initialData.name} countryCode={initialData.countryCode} inlineMode={mode === "inline"} />
           )}
 
           {activeTab === "campaigns" && initialData && (
             <EntityCampaignTimeline entityType="clinic" entityId={initialData.id} entityName={initialData.name} />
+          )}
+
+          {activeTab === "representative" && initialData && (
+            <ClinicRepresentativePanel clinicId={initialData.id} />
           )}
         </fieldset>
       </div>
@@ -2865,9 +2865,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
     { key: "basic", icon: Building2, label: t.clinics.steps?.basic || "Info" },
     { key: "address", icon: MapPin, label: t.clinics.steps?.address || "Address" },
     { key: "referral", icon: CircleDot, label: t.clinics.steps.referral },
-    { key: "representative", icon: UserCheck, label: "Reprezentant" },
     { key: "personnel", icon: Users, label: (t as any).personnel || "Personnel" },
     { key: "campaigns", icon: Megaphone, label: (t as any).campaigns?.title || "Campaigns" },
+    { key: "representative", icon: UserCheck, label: t.representantPanel.tabLabel },
   ];
 
   return (
@@ -3374,17 +3374,17 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                 </div>
               )}
 
-              {activeTab === "representative" && (
-                <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                  <UserCheck className="h-10 w-10 mb-3 opacity-40" />
-                  <p className="text-sm">Reprezentanta možno priradiť po uložení kliniky.</p>
-                </div>
-              )}
-
               {activeTab === "campaigns" && (
                 <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
                   <Megaphone className="h-10 w-10 mb-3 opacity-40" />
                   <p className="text-sm">{(t as any).campaigns?.noCampaigns || "Campaigns can be added after saving."}</p>
+                </div>
+              )}
+
+              {activeTab === "representative" && (
+                <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                  <UserCheck className="h-10 w-10 mb-3 opacity-40" />
+                  <p className="text-sm">{t.representantPanel.notSaved}</p>
                 </div>
               )}
             </div>

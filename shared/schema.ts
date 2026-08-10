@@ -433,6 +433,29 @@ export type InsertClinicRepresentativeAssignment =
 export type ClinicRepresentativeAssignment =
   typeof clinicRepresentativeAssignments.$inferSelect;
 
+// Priradenie reprezentanta k nemocnici (rovnaká logika ako pre kliniku)
+export const hospitalRepresentativeAssignments = pgTable(
+  "hospital_representative_assignments",
+  {
+    id:             varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    hospitalId:     varchar("hospital_id").notNull(),
+    userId:         varchar("user_id").notNull(),
+    validFrom:      timestamp("valid_from").notNull().default(sql`now()`),
+    validTo:        timestamp("valid_to"),
+    assignedBy:     varchar("assigned_by"),
+    assignedAt:     timestamp("assigned_at").notNull().default(sql`now()`),
+    assignmentType: text("assignment_type").notNull().default("manual"),
+    note:           text("note"),
+  }
+);
+
+export const insertHospitalRepresentativeAssignmentSchema =
+  createInsertSchema(hospitalRepresentativeAssignments).omit({ id: true, assignedAt: true });
+export type InsertHospitalRepresentativeAssignment =
+  z.infer<typeof insertHospitalRepresentativeAssignmentSchema>;
+export type HospitalRepresentativeAssignment =
+  typeof hospitalRepresentativeAssignments.$inferSelect;
+
 export const collaboratorReferrals = pgTable("collaborator_referrals", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   collaboratorId: varchar("collaborator_id").notNull(),

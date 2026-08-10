@@ -15,7 +15,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { COUNTRIES } from "@shared/schema";
 import type { Hospital, Laboratory, SafeUser } from "@shared/schema";
-import { ChevronLeft, ChevronRight, Check, Building2, MapPin, Users, Settings, ExternalLink, Navigation } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Building2, MapPin, Users, Settings, ExternalLink, Navigation, UserCheck } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +31,7 @@ import { getGeoLabels } from "@/lib/regions";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useModuleFieldPermissions } from "@/components/ui/permission-field";
+import { RepresentativePanel } from "@/components/clinic-representative-panel";
 
 interface HospitalFormData {
   legacyId: string;
@@ -77,7 +78,7 @@ export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCanc
   const { isHidden, isReadonly } = useModuleFieldPermissions("hospitals");
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
-  const [inlineTab, setInlineTab] = useState<"basic" | "address" | "contacts" | "settings">("basic");
+  const [inlineTab, setInlineTab] = useState<"basic" | "address" | "contacts" | "settings" | "representative">("basic");
 
   const emptyForm: HospitalFormData = {
     legacyId: "",
@@ -712,6 +713,7 @@ export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCanc
     { id: "address" as const, label: t.customers?.fields?.street || "Adresa", icon: MapPin, step: 1 },
     { id: "contacts" as const, label: t.hospitals?.contactPerson || "Kontakty", icon: Users, step: 2 },
     { id: "settings" as const, label: t.settings?.title || "Nastavenia", icon: Settings, step: 3 },
+    { id: "representative" as const, label: t.representantPanel.tabLabel, icon: UserCheck, step: -1 },
   ];
 
   if (mode === "inline") {
@@ -747,7 +749,16 @@ export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCanc
           {/* Content + footer */}
           <div className="flex flex-col flex-1 overflow-hidden">
             <fieldset disabled={readOnly && !(inlineTab === "contacts" && roEx.personnel)} className="flex-1 overflow-y-auto px-5 py-4 min-w-0" style={{ minInlineSize: 0 }}>
-              {renderStepContent(activeTabInfo.step)}
+              {inlineTab === "representative" && initialData?.id ? (
+                <RepresentativePanel entityType="hospital" entityId={initialData.id} />
+              ) : inlineTab === "representative" ? (
+                <div className="flex flex-col items-center gap-3 py-12 text-center text-muted-foreground">
+                  <UserCheck className="h-10 w-10 opacity-40" />
+                  <p className="text-sm">{t.representantPanel.notSaved}</p>
+                </div>
+              ) : (
+                renderStepContent(activeTabInfo.step)
+              )}
             </fieldset>
             {(!readOnly || roEx.personnel) && (
             <div className="shrink-0 border-t px-5 py-3 flex justify-between bg-background">

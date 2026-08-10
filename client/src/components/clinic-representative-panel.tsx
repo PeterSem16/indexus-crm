@@ -1,33 +1,25 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// ClinicRepresentativePanel
-// Widget na karte kliniky — zobrazí aktuálneho reprezentanta,
-// umožní zmenu, odobratie a zobrazenie histórie priradení.
+// RepresentativePanel  (export alias: ClinicRepresentativePanel for compat)
+// Generický panel pre priradenie reprezentanta – funguje pre kliniku aj nemocnicu.
+// Prop entityType: "clinic" | "hospital"
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, UserCheck, UserX, History, ChevronDown, ChevronUp, UserPlus, CalendarDays, Pencil } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
+  Loader2, UserCheck, UserX, History, ChevronDown, ChevronUp, UserPlus,
+  CalendarDays, Pencil,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/i18n/I18nProvider";
-import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -40,7 +32,8 @@ interface RepUser {
 
 interface Assignment {
   id: string;
-  clinicId: string;
+  clinicId?: string;
+  hospitalId?: string;
   userId: string;
   validFrom: string;
   validTo: string | null;
@@ -50,44 +43,64 @@ interface Assignment {
   user?: { id: string; fullName: string | null; email: string | null } | null;
 }
 
+export type RepresentativeEntityType = "clinic" | "hospital";
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function fmtDate(d: string | null | undefined) {
   if (!d) return "—";
-  try { return format(new Date(d), "d. M. yyyy"); } catch { return d; }
+  try { return format(new Date(d), "d. M. yyyy"); } catch { return String(d); }
 }
 
-function AssignmentTypeBadge({ type }: { type: string }) {
-  const map: Record<string, { label: string; cls: string }> = {
-    manual:        { label: "manuálne",  cls: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" },
-    bulk_region:   { label: "kraj",      cls: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300" },
-    bulk_district: { label: "okres",     cls: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300" },
-    swap:          { label: "výmena",    cls: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300" },
-    import:        { label: "import",    cls: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300" },
+function AssignmentTypeBadge({ type, labels }: { type: string; labels: Record<string, string> }) {
+  const colorMap: Record<string, string> = {
+    manual:        "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+    bulk_region:   "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
+    bulk_district: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300",
+    swap:          "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
+    import:        "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
   };
-  const info = map[type] ?? { label: type, cls: "bg-muted text-muted-foreground" };
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${info.cls}`}>
-      {info.label}
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${colorMap[type] ?? "bg-muted text-muted-foreground"}`}>
+      {labels[type] ?? type}
     </span>
   );
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export function ClinicRepresentativePanel({ clinicId }: { clinicId: string }) {
+interface RepresentativePanelProps {
+  entityType: RepresentativeEntityType;
+  entityId: string;
+}
+
+export function RepresentativePanel({ entityType, entityId }: RepresentativePanelProps) {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
   const { t } = useI18n();
+  const p = t.representantPanel;
+
   const [showHistory, setShowHistory] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [selectedUserId, setSelectedUserId] = useState("");
   const [assignNote, setAssignNote] = useState("");
   const [removeOpen, setRemoveOpen] = useState(false);
 
-  // ── Queries ──────────────────────────────────────────────────────────────
+  const basePath = entityType === "clinic"
+    ? `/api/clinics/${entityId}/representative`
+    : `/api/hospitals/${entityId}/representative`;
+
+  const qkCurrent  = [entityType, entityId, "representative"];
+  const qkHistory  = [entityType, entityId, "representative", "history"];
+  const qkReps     = ["/api/representatives"];
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: qkCurrent });
+    qc.invalidateQueries({ queryKey: qkHistory });
+  };
+
   const { data: currentData, isLoading: currentLoading } = useQuery<{ assignment: Assignment | null }>({
-    queryKey: ["/api/clinics", clinicId, "representative"],
+    queryKey: qkCurrent,
     queryFn: async () => {
-      const res = await fetch(`/api/clinics/${clinicId}/representative`, { credentials: "include" });
+      const res = await fetch(basePath, { credentials: "include" });
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
@@ -95,9 +108,9 @@ export function ClinicRepresentativePanel({ clinicId }: { clinicId: string }) {
   });
 
   const { data: history = [], isLoading: historyLoading } = useQuery<Assignment[]>({
-    queryKey: ["/api/clinics", clinicId, "representative", "history"],
+    queryKey: qkHistory,
     queryFn: async () => {
-      const res = await fetch(`/api/clinics/${clinicId}/representative/history`, { credentials: "include" });
+      const res = await fetch(`${basePath}/history`, { credentials: "include" });
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
@@ -106,7 +119,7 @@ export function ClinicRepresentativePanel({ clinicId }: { clinicId: string }) {
   });
 
   const { data: representatives = [], isLoading: repsLoading } = useQuery<RepUser[]>({
-    queryKey: ["/api/representatives"],
+    queryKey: qkReps,
     queryFn: async () => {
       const res = await fetch("/api/representatives", { credentials: "include" });
       if (!res.ok) throw new Error(await res.text());
@@ -116,58 +129,53 @@ export function ClinicRepresentativePanel({ clinicId }: { clinicId: string }) {
     enabled: assignOpen,
   });
 
-  const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ["/api/clinics", clinicId, "representative"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/clinics", clinicId, "representative", "history"] });
-  };
-
-  // ── Mutations ────────────────────────────────────────────────────────────
   const assignMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/clinics/${clinicId}/representative`, {
+      const res = await fetch(basePath, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: selectedUserId, note: assignNote || null }),
       });
-      if (!res.ok) throw new Error((await res.json())?.message ?? "Chyba pri priradení");
+      if (!res.ok) throw new Error((await res.json())?.message ?? "Error");
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Reprezentant priradený" });
+      toast({ title: p.assignedSuccess });
       invalidate();
       setAssignOpen(false);
       setSelectedUserId("");
       setAssignNote("");
     },
-    onError: (e: any) => toast({ title: "Chyba", description: e.message, variant: "destructive" }),
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const removeMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/clinics/${clinicId}/representative`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error((await res.json())?.message ?? "Chyba pri odobratí");
+      const res = await fetch(basePath, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error((await res.json())?.message ?? "Error");
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Priradenie odobrané" });
+      toast({ title: p.removedSuccess });
       invalidate();
       setRemoveOpen(false);
     },
-    onError: (e: any) => toast({ title: "Chyba", description: e.message, variant: "destructive" }),
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
+
+  const typeLabels: Record<string, string> = {
+    manual: p.typeManual, bulk_region: p.typeBulkRegion,
+    bulk_district: p.typeBulkDistrict, swap: p.typeSwap, import: p.typeImport,
+  };
 
   const current = currentData?.assignment ?? null;
   const currentUserName = current?.user?.fullName ?? current?.user?.email ?? current?.userId ?? null;
 
-  // ── Render ───────────────────────────────────────────────────────────────
   if (currentLoading) {
     return (
       <div className="flex items-center gap-2 py-6 text-muted-foreground text-sm">
-        <Loader2 className="h-4 w-4 animate-spin" /> Načítavam…
+        <Loader2 className="h-4 w-4 animate-spin" /> {t.common.loading}
       </div>
     );
   }
@@ -175,7 +183,9 @@ export function ClinicRepresentativePanel({ clinicId }: { clinicId: string }) {
   return (
     <div className="space-y-4">
       {/* ── Current assignment card ── */}
-      <div className={`rounded-2xl border-2 p-4 space-y-3 transition-colors ${current ? "border-emerald-200 bg-emerald-50/40 dark:border-emerald-900/60 dark:bg-emerald-950/20" : "border-dashed border-muted-foreground/30 bg-muted/30"}`}>
+      <div className={`rounded-2xl border-2 p-4 space-y-3 transition-colors ${current
+        ? "border-emerald-200 bg-emerald-50/40 dark:border-emerald-900/60 dark:bg-emerald-950/20"
+        : "border-dashed border-muted-foreground/30 bg-muted/30"}`}>
         {current ? (
           <>
             <div className="flex items-start justify-between gap-3">
@@ -190,11 +200,11 @@ export function ClinicRepresentativePanel({ clinicId }: { clinicId: string }) {
                   )}
                 </div>
               </div>
-              <AssignmentTypeBadge type={current.assignmentType} />
+              <AssignmentTypeBadge type={current.assignmentType} labels={typeLabels} />
             </div>
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <CalendarDays className="h-3.5 w-3.5 shrink-0" />
-              <span>od {fmtDate(current.validFrom)}</span>
+              <span>{p.since} {fmtDate(current.validFrom)}</span>
             </div>
             {current.note && (
               <p className="text-xs text-muted-foreground italic border-l-2 border-emerald-300 pl-2">{current.note}</p>
@@ -203,13 +213,13 @@ export function ClinicRepresentativePanel({ clinicId }: { clinicId: string }) {
               <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs"
                 onClick={() => { setSelectedUserId(""); setAssignNote(""); setAssignOpen(true); }}>
                 <Pencil className="h-3.5 w-3.5" />
-                Zmeniť reprezentanta
+                {p.changeBtn}
               </Button>
               <Button size="sm" variant="outline"
                 className="gap-1.5 h-7 text-xs border-rose-200 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
                 onClick={() => setRemoveOpen(true)}>
                 <UserX className="h-3.5 w-3.5" />
-                Odobrať
+                {p.removeBtn}
               </Button>
             </div>
           </>
@@ -219,13 +229,13 @@ export function ClinicRepresentativePanel({ clinicId }: { clinicId: string }) {
               <UserPlus className="h-6 w-6 text-muted-foreground" />
             </div>
             <div>
-              <div className="font-medium text-sm">Bez reprezentanta</div>
-              <div className="text-xs text-muted-foreground mt-0.5">Táto klinika nemá priradeného reprezentanta</div>
+              <div className="font-medium text-sm">{p.noRepresentative}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">{p.noRepresentativeDesc}</div>
             </div>
             <Button size="sm" className="gap-1.5"
               onClick={() => { setSelectedUserId(""); setAssignNote(""); setAssignOpen(true); }}>
               <UserPlus className="h-4 w-4" />
-              Priradiť reprezentanta
+              {p.assignBtn}
             </Button>
           </div>
         )}
@@ -236,7 +246,7 @@ export function ClinicRepresentativePanel({ clinicId }: { clinicId: string }) {
         className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
         onClick={() => setShowHistory((v) => !v)}>
         <History className="h-3.5 w-3.5 shrink-0" />
-        <span className="font-medium">História priradení</span>
+        <span className="font-medium">{p.historyTitle}</span>
         {showHistory ? <ChevronUp className="h-3.5 w-3.5 ml-auto" /> : <ChevronDown className="h-3.5 w-3.5 ml-auto" />}
       </button>
 
@@ -244,11 +254,11 @@ export function ClinicRepresentativePanel({ clinicId }: { clinicId: string }) {
         <div className="rounded-xl border bg-muted/20 divide-y text-sm">
           {historyLoading && (
             <div className="flex items-center gap-2 p-4 text-muted-foreground text-xs">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Načítavam históriu…
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t.common.loading}
             </div>
           )}
           {!historyLoading && history.length === 0 && (
-            <div className="p-4 text-center text-xs text-muted-foreground">Žiadna história priradení</div>
+            <div className="p-4 text-center text-xs text-muted-foreground">{p.noHistory}</div>
           )}
           {history.map((h) => {
             const name = h.user?.fullName ?? h.user?.email ?? h.userId;
@@ -259,14 +269,14 @@ export function ClinicRepresentativePanel({ clinicId }: { clinicId: string }) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium truncate">{name}</span>
-                    <AssignmentTypeBadge type={h.assignmentType} />
+                    <AssignmentTypeBadge type={h.assignmentType} labels={typeLabels} />
                     {isCurrent && (
-                      <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">aktuálne</span>
+                      <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">{p.current}</span>
                     )}
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     {fmtDate(h.validFrom)}
-                    {h.validTo ? ` → ${fmtDate(h.validTo)}` : " → teraz"}
+                    {h.validTo ? ` → ${fmtDate(h.validTo)}` : ` → ${p.current}`}
                   </div>
                   {h.note && <div className="text-xs text-muted-foreground italic mt-0.5">{h.note}</div>}
                 </div>
@@ -282,44 +292,42 @@ export function ClinicRepresentativePanel({ clinicId }: { clinicId: string }) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserCheck className="h-5 w-5 text-primary" />
-              {current ? "Zmeniť reprezentanta" : "Priradiť reprezentanta"}
+              {current ? p.changeDialogTitle : p.assignDialogTitle}
             </DialogTitle>
             {current && (
               <DialogDescription>
-                Aktuálne: <strong>{currentUserName}</strong> (od {fmtDate(current.validFrom)})
+                {p.currentlyAssigned} <strong>{currentUserName}</strong> ({p.since} {fmtDate(current.validFrom)})
               </DialogDescription>
             )}
           </DialogHeader>
 
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label>Reprezentant</Label>
+              <Label>{p.tabLabel}</Label>
               <Select value={selectedUserId} onValueChange={setSelectedUserId} disabled={repsLoading}>
                 <SelectTrigger>
-                  <SelectValue placeholder={repsLoading ? "Načítavam…" : "Vyber reprezentanta"} />
+                  <SelectValue placeholder={repsLoading ? t.common.loading : p.selectPlaceholder} />
                 </SelectTrigger>
                 <SelectContent>
                   {representatives.map((r) => (
                     <SelectItem key={r.id} value={r.id}>
                       <span className="font-medium">{r.name}</span>
                       <span className="ml-2 text-xs text-muted-foreground">
-                        {r.clinicCount > 0 ? `${r.clinicCount} kliník` : "bez kliník"}
+                        {r.clinicCount > 0 ? `${r.clinicCount}` : "0"}
                       </span>
                     </SelectItem>
                   ))}
                   {!repsLoading && representatives.length === 0 && (
-                    <div className="px-2 py-3 text-xs text-muted-foreground text-center">
-                      Žiadni používatelia s rolou Reprezentant
-                    </div>
+                    <div className="px-2 py-3 text-xs text-muted-foreground text-center">{p.noRepresentatives}</div>
                   )}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Poznámka (voliteľné)</Label>
+              <Label>{p.noteLabel}</Label>
               <Textarea
                 rows={2}
-                placeholder="Dôvod zmeny, reión, atď."
+                placeholder={p.notePlaceholder}
                 value={assignNote}
                 onChange={(e) => setAssignNote(e.target.value)}
                 className="text-sm resize-none"
@@ -328,12 +336,12 @@ export function ClinicRepresentativePanel({ clinicId }: { clinicId: string }) {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAssignOpen(false)}>Zrušiť</Button>
+            <Button variant="outline" onClick={() => setAssignOpen(false)}>{t.common.cancel}</Button>
             <Button
               disabled={!selectedUserId || assignMutation.isPending}
               onClick={() => assignMutation.mutate()}>
               {assignMutation.isPending && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-              {current ? "Zmeniť" : "Priradiť"}
+              {current ? p.confirmChange : p.confirmAssign}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -343,18 +351,17 @@ export function ClinicRepresentativePanel({ clinicId }: { clinicId: string }) {
       <Dialog open={removeOpen} onOpenChange={(o) => { if (!o) setRemoveOpen(false); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Odobrať reprezentanta</DialogTitle>
+            <DialogTitle>{p.removeDialogTitle}</DialogTitle>
             <DialogDescription>
-              Odoberiete <strong>{currentUserName}</strong> z tejto kliniky.
-              História priradenia zostane zachovaná.
+              <strong>{currentUserName}</strong> — {p.removeDialogDesc}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRemoveOpen(false)}>Zrušiť</Button>
+            <Button variant="outline" onClick={() => setRemoveOpen(false)}>{t.common.cancel}</Button>
             <Button variant="destructive" disabled={removeMutation.isPending}
               onClick={() => removeMutation.mutate()}>
               {removeMutation.isPending && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-              Odobrať
+              {p.removeConfirm}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -362,3 +369,7 @@ export function ClinicRepresentativePanel({ clinicId }: { clinicId: string }) {
     </div>
   );
 }
+
+// Backward-compat alias
+export const ClinicRepresentativePanel = ({ clinicId }: { clinicId: string }) =>
+  <RepresentativePanel entityType="clinic" entityId={clinicId} />;

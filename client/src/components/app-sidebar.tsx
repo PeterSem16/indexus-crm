@@ -29,6 +29,8 @@ import {
   Target,
   HeartPulse,
   ListChecks,
+  UserCheck,
+  Users2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
@@ -117,6 +119,7 @@ export function AppSidebar() {
   ];
 
   const userRoleName = sidebarRoles.find(r => r.id === user?.roleId)?.name;
+  const isRepresentant = userRoleName && ['representant', 'representative'].includes(userRoleName.toLowerCase().replace(/\s+/g, ''));
   const visibleMainItems = mainNavItems.filter(item => {
     const hasModuleAccess = canAccessModule(item.moduleKey);
     const itemRoles = (item as any).roles as string[] | undefined;
@@ -211,6 +214,27 @@ export function AppSidebar() {
                   </CollapsibleContent>
                 </SidebarMenuItem>
               </Collapsible>
+
+              {isRepresentant && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location === "/my-clinics"}>
+                    <Link href="/my-clinics" data-testid="nav-my-clinics">
+                      <UserCheck className="h-4 w-4" />
+                      <span>{t.representantPanel?.myClinicsTitle || "My Clinics"}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              {(user?.role === "admin" || user?.role === "manager") && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location === "/bulk-assign"}>
+                    <Link href="/bulk-assign" data-testid="nav-bulk-assign">
+                      <Users2 className="h-4 w-4" />
+                      <span>{t.representantPanel?.bulkAssignTitle || "Bulk Assign"}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
 
               <Collapsible defaultOpen={location === "/medical-partner-network" || location === "/hospitals"} className="group/collapsible-mpn">
                 <SidebarMenuItem>

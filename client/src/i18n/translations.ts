@@ -7197,6 +7197,23 @@ export interface Translations {
       categoryNames: Record<string, string>;
       statusNames: Record<string, string>;
     };
+  representantPanel: {
+    tabLabel: string; noRepresentative: string; noRepresentativeDesc: string;
+    assignBtn: string; changeBtn: string; removeBtn: string;
+    historyTitle: string; noHistory: string; current: string; since: string;
+    assignDialogTitle: string; changeDialogTitle: string; currentlyAssigned: string;
+    selectPlaceholder: string; noRepresentatives: string; noteLabel: string; notePlaceholder: string;
+    confirmAssign: string; confirmChange: string;
+    removeDialogTitle: string; removeDialogDesc: string; removeConfirm: string;
+    assignedSuccess: string; removedSuccess: string;
+    typeManual: string; typeBulkRegion: string; typeBulkDistrict: string; typeSwap: string; typeImport: string;
+    notSaved: string;
+    bulkAssignTitle: string; swapTitle: string;
+    bulkFrom: string; bulkTo: string; bulkFilterTitle: string;
+    bulkOnlyUnassigned: string; bulkOnlyFrom: string;
+    bulkPreviewCount: string; bulkConfirm: string; bulkDryRunBtn: string;
+    myClinicsTitle: string; myClinicsDesc: string; myClinicsEmpty: string;
+  };
 }
 
 export const translations: Record<Locale, Translations> = {
@@ -14439,6 +14456,23 @@ export const translations: Record<Locale, Translations> = {
         hcp_assigned: 'Assigned healthcare provider', hcp_unassigned_medrep: 'Unassigned to a medical representative', hcp_assigned_medrep: 'Assigned to a medical representative', hcp_unreached: 'Unreached', hcp_reached: 'Reached', hcp_qualified: 'Qualified – provides healthcare to pregnant women', hcp_unqualified: 'Unqualified – does not provide healthcare to pregnant women', hcp_coop_not_offered: 'Cooperation not offered', hcp_coop_considering: 'Cooperation offered – considering', hcp_coop_agreed: 'Cooperation offered – agreed', hcp_coop_disagreed: 'Cooperation offered – disagreed', hcp_cp_not_offered: 'Contract proposal not offered', hcp_cp_considering: 'Contract proposal offered – considering', hcp_cp_not_sent: 'Contract proposal not sent', hcp_cp_sent: 'Contract proposal sent', hcp_cp_accepted: 'Contract proposal offered – accepted', hcp_cp_signed_not_validated: 'Signed contract returned – not validated yet', hcp_cp_signed_not_resent: 'Contract not resent', hcp_cp_signed_resent: 'Contract resent', hcp_cp_validation_failed: 'Contract did not pass validation', hcp_cp_val_not_resent: 'Contract not resent (validation)', hcp_cp_val_resent: 'Contract resent (validation)', hcp_cp_validated: 'Contract validated', hcp_cp_unaccepted: 'Contract proposal offered – unaccepted', hcp_info_not_offered: 'Not offered yet', hcp_info_accepted: 'Offered and offer accepted', hcp_info_not_sent: 'Not sent yet', hcp_info_sent: 'Sent – send again when new version released', hcp_info_not_accepted: 'Offered and offer not accepted', hcp_leaf_not_offered: 'Not offered yet', hcp_leaf_accepted: 'Offered and offer accepted', hcp_leaf_not_sent: 'Not sent yet', hcp_leaf_sent: 'Sent – check at routine callback', hcp_leaf_not_accepted: 'Offered and offer not accepted', hcp_pregbook_not_offered: 'Not offered yet', hcp_pregbook_accepted: 'Offered and offer accepted', hcp_pregbook_not_sent: 'Not sent yet', hcp_pregbook_sent: 'Sent – check at routine callback', hcp_pregbook_not_accepted: 'Offered and offer not accepted', hcp_poster_not_offered: 'Not offered yet', hcp_poster_accepted: 'Offered and offer accepted', hcp_poster_not_sent: 'Not sent yet', hcp_poster_sent: 'Sent – send again when new version released', hcp_poster_not_accepted: 'Offered and offer not accepted',
       },
     },
+    representantPanel: {
+      tabLabel: 'Representative', noRepresentative: 'No representative', noRepresentativeDesc: 'This entity has no assigned representative',
+      assignBtn: 'Assign representative', changeBtn: 'Change representative', removeBtn: 'Remove',
+      historyTitle: 'Assignment history', noHistory: 'No assignment history', current: 'current', since: 'since',
+      assignDialogTitle: 'Assign representative', changeDialogTitle: 'Change representative', currentlyAssigned: 'Currently:',
+      selectPlaceholder: 'Select representative', noRepresentatives: 'No users with Representative role', noteLabel: 'Note (optional)', notePlaceholder: 'Reason for change, region, etc.',
+      confirmAssign: 'Assign', confirmChange: 'Change',
+      removeDialogTitle: 'Remove representative', removeDialogDesc: 'This will remove the representative from this entity. Assignment history will be preserved.', removeConfirm: 'Remove',
+      assignedSuccess: 'Representative assigned', removedSuccess: 'Assignment removed',
+      typeManual: 'manual', typeBulkRegion: 'region', typeBulkDistrict: 'district', typeSwap: 'swap', typeImport: 'import',
+      notSaved: 'A representative can be assigned after saving.',
+      bulkAssignTitle: 'Bulk Assign Representatives', swapTitle: 'Swap Representative',
+      bulkFrom: 'From representative', bulkTo: 'To representative', bulkFilterTitle: 'Filter criteria',
+      bulkOnlyUnassigned: 'Only entities without a representative', bulkOnlyFrom: 'Only entities of selected representative',
+      bulkPreviewCount: 'entities will be reassigned', bulkConfirm: 'Confirm', bulkDryRunBtn: 'Preview',
+      myClinicsTitle: 'My Clinics & Hospitals', myClinicsDesc: 'Entities assigned to you', myClinicsEmpty: 'No clinics or hospitals assigned to you',
+    },
 
   },
   sk: {
@@ -21616,6 +21650,23 @@ export const translations: Record<Locale, Translations> = {
         hcp_assigned: 'Priradený poskytovateľ ZS', hcp_unassigned_medrep: 'Nepriradený k obchodnému zástupcovi', hcp_assigned_medrep: 'Priradený k obchodnému zástupcovi', hcp_unreached: 'Nedovolaný', hcp_reached: 'Dovolaný', hcp_qualified: 'Kvalifikovaný – poskytuje ZS tehotným', hcp_unqualified: 'Nekvalifikovaný – neposkytuje ZS tehotným', hcp_coop_not_offered: 'Spolupráca neponúknutá', hcp_coop_considering: 'Spolupráca ponúknutá – zvažuje', hcp_coop_agreed: 'Spolupráca ponúknutá – súhlasí', hcp_coop_disagreed: 'Spolupráca ponúknutá – nesúhlasí', hcp_cp_not_offered: 'Návrh zmluvy neponúknutý', hcp_cp_considering: 'Návrh zmluvy ponúknutý – zvažuje', hcp_cp_not_sent: 'Návrh zmluvy neodoslaný', hcp_cp_sent: 'Návrh zmluvy odoslaný', hcp_cp_accepted: 'Návrh zmluvy ponúknutý – prijatý', hcp_cp_signed_not_validated: 'Podpísaná zmluva vrátená – ešte nevalidovaná', hcp_cp_signed_not_resent: 'Zmluva neodoslaná znova', hcp_cp_signed_resent: 'Zmluva odoslaná znova', hcp_cp_validation_failed: 'Zmluva neprešla validáciou', hcp_cp_val_not_resent: 'Zmluva neodoslaná znova (validácia)', hcp_cp_val_resent: 'Zmluva odoslaná znova (validácia)', hcp_cp_validated: 'Zmluva validovaná', hcp_cp_unaccepted: 'Návrh zmluvy ponúknutý – neprijatý', hcp_info_not_offered: 'Ešte neponúknuté', hcp_info_accepted: 'Ponúknuté a prijaté', hcp_info_not_sent: 'Ešte neodoslané', hcp_info_sent: 'Odoslané – odoslať znova pri novej verzii', hcp_info_not_accepted: 'Ponúknuté a neprijaté', hcp_leaf_not_offered: 'Ešte neponúknuté', hcp_leaf_accepted: 'Ponúknuté a prijaté', hcp_leaf_not_sent: 'Ešte neodoslané', hcp_leaf_sent: 'Odoslané – skontrolovať pri rutinnom callbacku', hcp_leaf_not_accepted: 'Ponúknuté a neprijaté', hcp_pregbook_not_offered: 'Ešte neponúknuté', hcp_pregbook_accepted: 'Ponúknuté a prijaté', hcp_pregbook_not_sent: 'Ešte neodoslané', hcp_pregbook_sent: 'Odoslané – skontrolovať pri rutinnom callbacku', hcp_pregbook_not_accepted: 'Ponúknuté a neprijaté', hcp_poster_not_offered: 'Ešte neponúknuté', hcp_poster_accepted: 'Ponúknuté a prijaté', hcp_poster_not_sent: 'Ešte neodoslané', hcp_poster_sent: 'Odoslané – odoslať znova pri novej verzii', hcp_poster_not_accepted: 'Ponúknuté a neprijaté',
       },
     },
+    representantPanel: {
+      tabLabel: 'Reprezentant', noRepresentative: 'Bez reprezentanta', noRepresentativeDesc: 'Táto entita nemá priradeného reprezentanta',
+      assignBtn: 'Priradiť reprezentanta', changeBtn: 'Zmeniť reprezentanta', removeBtn: 'Odobrať',
+      historyTitle: 'História priradení', noHistory: 'Žiadna história priradení', current: 'aktuálne', since: 'od',
+      assignDialogTitle: 'Priradiť reprezentanta', changeDialogTitle: 'Zmeniť reprezentanta', currentlyAssigned: 'Aktuálne:',
+      selectPlaceholder: 'Vyber reprezentanta', noRepresentatives: 'Žiadni používatelia s rolou Reprezentant', noteLabel: 'Poznámka (voliteľné)', notePlaceholder: 'Dôvod zmeny, región, atď.',
+      confirmAssign: 'Priradiť', confirmChange: 'Zmeniť',
+      removeDialogTitle: 'Odobrať reprezentanta', removeDialogDesc: 'Odoberiete reprezentanta z tejto entity. História priradenia zostane zachovaná.', removeConfirm: 'Odobrať',
+      assignedSuccess: 'Reprezentant priradený', removedSuccess: 'Priradenie odobrané',
+      typeManual: 'manuálne', typeBulkRegion: 'kraj', typeBulkDistrict: 'okres', typeSwap: 'výmena', typeImport: 'import',
+      notSaved: 'Reprezentanta možno priradiť po uložení.',
+      bulkAssignTitle: 'Hromadné priradenie reprezentanta', swapTitle: 'Výmena reprezentanta',
+      bulkFrom: 'Od reprezentanta', bulkTo: 'K reprezentantovi', bulkFilterTitle: 'Kritériá filtrovania',
+      bulkOnlyUnassigned: 'Iba entity bez reprezentanta', bulkOnlyFrom: 'Iba entity vybraného reprezentanta',
+      bulkPreviewCount: 'entít bude preradených', bulkConfirm: 'Potvrdiť', bulkDryRunBtn: 'Náhľad',
+      myClinicsTitle: 'Moje kliniky a nemocnice', myClinicsDesc: 'Entity v mojej správe', myClinicsEmpty: 'Nemáte žiadne priradené kliniky ani nemocnice',
+    },
 
   },
   cs: {
@@ -28719,6 +28770,23 @@ export const translations: Record<Locale, Translations> = {
         hcp_assigned: 'Přiřazený poskytovatel ZP', hcp_unassigned_medrep: 'Nepřiřazen k obchodnímu zástupci', hcp_assigned_medrep: 'Přiřazen k obchodnímu zástupci', hcp_unreached: 'Nedovolaný', hcp_reached: 'Dovolaný', hcp_qualified: 'Kvalifikovaný – poskytuje ZP těhotným', hcp_unqualified: 'Nekvalifikovaný – neposkytuje ZP těhotným', hcp_coop_not_offered: 'Spolupráce nenabídnuta', hcp_coop_considering: 'Spolupráce nabídnuta – zvažuje', hcp_coop_agreed: 'Spolupráce nabídnuta – souhlasí', hcp_coop_disagreed: 'Spolupráce nabídnuta – nesouhlasí', hcp_cp_not_offered: 'Návrh smlouvy nenabídnut', hcp_cp_considering: 'Návrh smlouvy nabídnut – zvažuje', hcp_cp_not_sent: 'Návrh smlouvy neodeslán', hcp_cp_sent: 'Návrh smlouvy odeslán', hcp_cp_accepted: 'Návrh smlouvy nabídnut – přijat', hcp_cp_signed_not_validated: 'Podepsaná smlouva vrácena – zatím nevalidována', hcp_cp_signed_not_resent: 'Smlouva neodeslána znovu', hcp_cp_signed_resent: 'Smlouva odeslána znovu', hcp_cp_validation_failed: 'Smlouva neprošla validací', hcp_cp_val_not_resent: 'Smlouva neodeslána znovu (validace)', hcp_cp_val_resent: 'Smlouva odeslána znovu (validace)', hcp_cp_validated: 'Smlouva validována', hcp_cp_unaccepted: 'Návrh smlouvy nabídnut – nepřijat', hcp_info_not_offered: 'Zatím nenabídnuto', hcp_info_accepted: 'Nabídnuto a přijato', hcp_info_not_sent: 'Zatím neodesláno', hcp_info_sent: 'Odesláno – odeslat znovu při nové verzi', hcp_info_not_accepted: 'Nabídnuto a nepřijato', hcp_leaf_not_offered: 'Zatím nenabídnuto', hcp_leaf_accepted: 'Nabídnuto a přijato', hcp_leaf_not_sent: 'Zatím neodesláno', hcp_leaf_sent: 'Odesláno – zkontrolovat při rutinním callbacku', hcp_leaf_not_accepted: 'Nabídnuto a nepřijato', hcp_pregbook_not_offered: 'Zatím nenabídnuto', hcp_pregbook_accepted: 'Nabídnuto a přijato', hcp_pregbook_not_sent: 'Zatím neodesláno', hcp_pregbook_sent: 'Odesláno – zkontrolovat při rutinním callbacku', hcp_pregbook_not_accepted: 'Nabídnuto a nepřijato', hcp_poster_not_offered: 'Zatím nenabídnuto', hcp_poster_accepted: 'Nabídnuto a přijato', hcp_poster_not_sent: 'Zatím neodesláno', hcp_poster_sent: 'Odesláno – odeslat znovu při nové verzi', hcp_poster_not_accepted: 'Nabídnuto a nepřijato',
       },
     },
+    representantPanel: {
+      tabLabel: 'Reprezentant', noRepresentative: 'Bez reprezentanta', noRepresentativeDesc: 'Tato entita nemá přiřazeného reprezentanta',
+      assignBtn: 'Přiřadit reprezentanta', changeBtn: 'Změnit reprezentanta', removeBtn: 'Odebrat',
+      historyTitle: 'Historie přiřazení', noHistory: 'Žádná historie přiřazení', current: 'aktuální', since: 'od',
+      assignDialogTitle: 'Přiřadit reprezentanta', changeDialogTitle: 'Změnit reprezentanta', currentlyAssigned: 'Aktuálně:',
+      selectPlaceholder: 'Vyberte reprezentanta', noRepresentatives: 'Žádní uživatelé s rolí Reprezentant', noteLabel: 'Poznámka (volitelná)', notePlaceholder: 'Důvod změny, oblast, atd.',
+      confirmAssign: 'Přiřadit', confirmChange: 'Změnit',
+      removeDialogTitle: 'Odebrat reprezentanta', removeDialogDesc: 'Odeberete reprezentanta z této entity. Historie přiřazení zůstane zachována.', removeConfirm: 'Odebrat',
+      assignedSuccess: 'Reprezentant přiřazen', removedSuccess: 'Přiřazení odebráno',
+      typeManual: 'manuálně', typeBulkRegion: 'kraj', typeBulkDistrict: 'okres', typeSwap: 'výměna', typeImport: 'import',
+      notSaved: 'Reprezentanta lze přiřadit po uložení.',
+      bulkAssignTitle: 'Hromadné přiřazení reprezentanta', swapTitle: 'Výměna reprezentanta',
+      bulkFrom: 'Od reprezentanta', bulkTo: 'K reprezentantovi', bulkFilterTitle: 'Kritéria filtrování',
+      bulkOnlyUnassigned: 'Pouze entity bez reprezentanta', bulkOnlyFrom: 'Pouze entity vybraného reprezentanta',
+      bulkPreviewCount: 'entit bude přeřazeno', bulkConfirm: 'Potvrdit', bulkDryRunBtn: 'Náhled',
+      myClinicsTitle: 'Mé kliniky a nemocnice', myClinicsDesc: 'Entity v mé správě', myClinicsEmpty: 'Nemáte žádné přiřazené kliniky ani nemocnice',
+    },
 
   },
   hu: {
@@ -35782,6 +35850,23 @@ export const translations: Record<Locale, Translations> = {
         hcp_assigned: 'Kijelölt EÜ szolgáltató', hcp_unassigned_medrep: 'Nem rendelt orvosi képviselőhöz', hcp_assigned_medrep: 'Orvosi képviselőhöz rendelve', hcp_unreached: 'Nem elért', hcp_reached: 'Elért', hcp_qualified: 'Minősített – terhes nőknek nyújt EÜ-t', hcp_unqualified: 'Nem minősített – nem nyújt EÜ-t terheseknek', hcp_coop_not_offered: 'Együttműködés nem ajánlva', hcp_coop_considering: 'Együttműködés ajánlva – mérlegeli', hcp_coop_agreed: 'Együttműködés ajánlva – elfogadva', hcp_coop_disagreed: 'Együttműködés ajánlva – elutasítva', hcp_cp_not_offered: 'Szerződésjavaslat nem ajánlva', hcp_cp_considering: 'Szerződésjavaslat ajánlva – mérlegeli', hcp_cp_not_sent: 'Szerződésjavaslat nem elküldve', hcp_cp_sent: 'Szerződésjavaslat elküldve', hcp_cp_accepted: 'Szerződésjavaslat ajánlva – elfogadva', hcp_cp_signed_not_validated: 'Aláírt szerződés visszaküldve – még nem validálva', hcp_cp_signed_not_resent: 'Szerződés nem küldve újra', hcp_cp_signed_resent: 'Szerződés újraküldve', hcp_cp_validation_failed: 'Szerződés nem ment át a validáción', hcp_cp_val_not_resent: 'Szerződés nem küldve újra (validáció)', hcp_cp_val_resent: 'Szerződés újraküldve (validáció)', hcp_cp_validated: 'Szerződés validálva', hcp_cp_unaccepted: 'Szerződésjavaslat ajánlva – nem fogadta el', hcp_info_not_offered: 'Még nem ajánlva', hcp_info_accepted: 'Ajánlva és elfogadva', hcp_info_not_sent: 'Még nem elküldve', hcp_info_sent: 'Elküldve – új verzióknál újraküldés', hcp_info_not_accepted: 'Ajánlva és nem fogadta el', hcp_leaf_not_offered: 'Még nem ajánlva', hcp_leaf_accepted: 'Ajánlva és elfogadva', hcp_leaf_not_sent: 'Még nem elküldve', hcp_leaf_sent: 'Elküldve – ellenőrizni rutinjelentésnél', hcp_leaf_not_accepted: 'Ajánlva és nem fogadta el', hcp_pregbook_not_offered: 'Még nem ajánlva', hcp_pregbook_accepted: 'Ajánlva és elfogadva', hcp_pregbook_not_sent: 'Még nem elküldve', hcp_pregbook_sent: 'Elküldve – ellenőrizni rutinjelentésnél', hcp_pregbook_not_accepted: 'Ajánlva és nem fogadta el', hcp_poster_not_offered: 'Még nem ajánlva', hcp_poster_accepted: 'Ajánlva és elfogadva', hcp_poster_not_sent: 'Még nem elküldve', hcp_poster_sent: 'Elküldve – új verzióknál újraküldés', hcp_poster_not_accepted: 'Ajánlva és nem fogadta el',
       },
     },
+    representantPanel: {
+      tabLabel: 'Képviselő', noRepresentative: 'Nincs képviselő', noRepresentativeDesc: 'Ennek az entitásnak nincs hozzárendelt képviselője',
+      assignBtn: 'Képviselő hozzárendelése', changeBtn: 'Képviselő módosítása', removeBtn: 'Eltávolítás',
+      historyTitle: 'Hozzárendelési előzmények', noHistory: 'Nincs hozzárendelési előzmény', current: 'aktuális', since: 'óta',
+      assignDialogTitle: 'Képviselő hozzárendelése', changeDialogTitle: 'Képviselő módosítása', currentlyAssigned: 'Jelenleg:',
+      selectPlaceholder: 'Válasszon képviselőt', noRepresentatives: 'Nincs Képviselő szerepkörű felhasználó', noteLabel: 'Megjegyzés (opcionális)', notePlaceholder: 'Változtatás oka, régió, stb.',
+      confirmAssign: 'Hozzárendelés', confirmChange: 'Módosítás',
+      removeDialogTitle: 'Képviselő eltávolítása', removeDialogDesc: 'Eltávolítja a képviselőt ebből az entitásból. A hozzárendelési előzmények megmaradnak.', removeConfirm: 'Eltávolítás',
+      assignedSuccess: 'Képviselő hozzárendelve', removedSuccess: 'Hozzárendelés eltávolítva',
+      typeManual: 'manuális', typeBulkRegion: 'régió', typeBulkDistrict: 'járás', typeSwap: 'csere', typeImport: 'import',
+      notSaved: 'Képviselő a mentés után rendelhető hozzá.',
+      bulkAssignTitle: 'Tömeges képviselő-hozzárendelés', swapTitle: 'Képviselő cseréje',
+      bulkFrom: 'Ettől a képviselőtől', bulkTo: 'Ehhez a képviselőhöz', bulkFilterTitle: 'Szűrési feltételek',
+      bulkOnlyUnassigned: 'Csak képviselő nélküli entitások', bulkOnlyFrom: 'Csak a kiválasztott képviselő entitásai',
+      bulkPreviewCount: 'entitás kerül átsorolásra', bulkConfirm: 'Megerősítés', bulkDryRunBtn: 'Előnézet',
+      myClinicsTitle: 'Saját klinikáim és kórházaim', myClinicsDesc: 'Hozzám rendelt entitások', myClinicsEmpty: 'Nincsenek hozzárendelt klinikák vagy kórházak',
+    },
 
   },
   ro: {
@@ -42764,6 +42849,23 @@ export const translations: Record<Locale, Translations> = {
         out_of_scope: 'În afara grupului țintă', data_error: 'Eroare date', missing_phone: 'Lipsește telefon', missing_email: 'Lipsește email',
         hcp_assigned: 'Furnizor de sănătate alocat', hcp_unassigned_medrep: 'Nealocat unui reprezentant medical', hcp_assigned_medrep: 'Alocat unui reprezentant medical', hcp_unreached: 'Necontactat', hcp_reached: 'Contactat', hcp_qualified: 'Calificat – oferă îngrijire femeilor gravide', hcp_unqualified: 'Necalificat – nu oferă îngrijire femeilor gravide', hcp_coop_not_offered: 'Cooperare neofertă', hcp_coop_considering: 'Cooperare ofertă – în considerare', hcp_coop_agreed: 'Cooperare ofertă – acceptată', hcp_coop_disagreed: 'Cooperare ofertă – refuzată', hcp_cp_not_offered: 'Propunere de contract neofertă', hcp_cp_considering: 'Propunere de contract ofertă – în considerare', hcp_cp_not_sent: 'Propunere de contract netrimisă', hcp_cp_sent: 'Propunere de contract trimisă', hcp_cp_accepted: 'Propunere de contract ofertă – acceptată', hcp_cp_signed_not_validated: 'Contract semnat returnat – nevalidat încă', hcp_cp_signed_not_resent: 'Contract netrimis din nou', hcp_cp_signed_resent: 'Contract retrimis', hcp_cp_validation_failed: 'Contractul nu a trecut validarea', hcp_cp_val_not_resent: 'Contract netrimis din nou (validare)', hcp_cp_val_resent: 'Contract retrimis (validare)', hcp_cp_validated: 'Contract validat', hcp_cp_unaccepted: 'Propunere de contract ofertă – neacceptată', hcp_info_not_offered: 'Neofert încă', hcp_info_accepted: 'Ofert și acceptat', hcp_info_not_sent: 'Netrimis încă', hcp_info_sent: 'Trimis – retrimite la versiune nouă', hcp_info_not_accepted: 'Ofert și neacceptat', hcp_leaf_not_offered: 'Neofert încă', hcp_leaf_accepted: 'Ofert și acceptat', hcp_leaf_not_sent: 'Netrimis încă', hcp_leaf_sent: 'Trimis – verificare la callback de rutină', hcp_leaf_not_accepted: 'Ofert și neacceptat', hcp_pregbook_not_offered: 'Neofert încă', hcp_pregbook_accepted: 'Ofert și acceptat', hcp_pregbook_not_sent: 'Netrimis încă', hcp_pregbook_sent: 'Trimis – verificare la callback de rutină', hcp_pregbook_not_accepted: 'Ofert și neacceptat', hcp_poster_not_offered: 'Neofert încă', hcp_poster_accepted: 'Ofert și acceptat', hcp_poster_not_sent: 'Netrimis încă', hcp_poster_sent: 'Trimis – retrimite la versiune nouă', hcp_poster_not_accepted: 'Ofert și neacceptat',
       },
+    },
+    representantPanel: {
+      tabLabel: 'Reprezentant', noRepresentative: 'Fără reprezentant', noRepresentativeDesc: 'Această entitate nu are un reprezentant alocat',
+      assignBtn: 'Alocați reprezentant', changeBtn: 'Schimbați reprezentantul', removeBtn: 'Eliminați',
+      historyTitle: 'Istoric alocare', noHistory: 'Niciun istoric de alocare', current: 'curent', since: 'de la',
+      assignDialogTitle: 'Alocați reprezentant', changeDialogTitle: 'Schimbați reprezentantul', currentlyAssigned: 'Curent:',
+      selectPlaceholder: 'Selectați reprezentant', noRepresentatives: 'Niciun utilizator cu rol Reprezentant', noteLabel: 'Notă (opțional)', notePlaceholder: 'Motiv schimbare, regiune, etc.',
+      confirmAssign: 'Alocați', confirmChange: 'Schimbați',
+      removeDialogTitle: 'Eliminați reprezentantul', removeDialogDesc: 'Eliminați reprezentantul din această entitate. Istoricul de alocare va fi păstrat.', removeConfirm: 'Eliminați',
+      assignedSuccess: 'Reprezentant alocat', removedSuccess: 'Alocare eliminată',
+      typeManual: 'manual', typeBulkRegion: 'județ', typeBulkDistrict: 'district', typeSwap: 'schimb', typeImport: 'import',
+      notSaved: 'Reprezentantul poate fi alocat după salvare.',
+      bulkAssignTitle: 'Alocare în masă', swapTitle: 'Schimb reprezentant',
+      bulkFrom: 'De la reprezentant', bulkTo: 'La reprezentant', bulkFilterTitle: 'Criterii de filtrare',
+      bulkOnlyUnassigned: 'Doar entități fără reprezentant', bulkOnlyFrom: 'Doar entitățile reprezentantului selectat',
+      bulkPreviewCount: 'entități vor fi realocate', bulkConfirm: 'Confirmare', bulkDryRunBtn: 'Previzualizare',
+      myClinicsTitle: 'Clinicile și spitalele mele', myClinicsDesc: 'Entități alocate mie', myClinicsEmpty: 'Nu aveți clinici sau spitale alocate',
     },
 
   },
@@ -49750,6 +49852,23 @@ export const translations: Record<Locale, Translations> = {
         hcp_assigned: 'Fornitore sanitario assegnato', hcp_unassigned_medrep: 'Non assegnato a un rappresentante medico', hcp_assigned_medrep: 'Assegnato a un rappresentante medico', hcp_unreached: 'Non raggiunto', hcp_reached: 'Raggiunto', hcp_qualified: 'Qualificato – fornisce assistenza a donne incinte', hcp_unqualified: 'Non qualificato – non fornisce assistenza a donne incinte', hcp_coop_not_offered: 'Cooperazione non offerta', hcp_coop_considering: 'Cooperazione offerta – in considerazione', hcp_coop_agreed: 'Cooperazione offerta – accettata', hcp_coop_disagreed: 'Cooperazione offerta – rifiutata', hcp_cp_not_offered: 'Proposta di contratto non offerta', hcp_cp_considering: 'Proposta di contratto offerta – in considerazione', hcp_cp_not_sent: 'Proposta di contratto non inviata', hcp_cp_sent: 'Proposta di contratto inviata', hcp_cp_accepted: 'Proposta di contratto offerta – accettata', hcp_cp_signed_not_validated: 'Contratto firmato restituito – non ancora validato', hcp_cp_signed_not_resent: 'Contratto non reinviato', hcp_cp_signed_resent: 'Contratto reinviato', hcp_cp_validation_failed: 'Contratto non superato la validazione', hcp_cp_val_not_resent: 'Contratto non reinviato (validazione)', hcp_cp_val_resent: 'Contratto reinviato (validazione)', hcp_cp_validated: 'Contratto validato', hcp_cp_unaccepted: 'Proposta di contratto offerta – non accettata', hcp_info_not_offered: 'Non ancora offerto', hcp_info_accepted: 'Offerto e accettato', hcp_info_not_sent: 'Non ancora inviato', hcp_info_sent: 'Inviato – reinviare con nuova versione', hcp_info_not_accepted: 'Offerto e non accettato', hcp_leaf_not_offered: 'Non ancora offerto', hcp_leaf_accepted: 'Offerto e accettato', hcp_leaf_not_sent: 'Non ancora inviato', hcp_leaf_sent: 'Inviato – verificare al callback di routine', hcp_leaf_not_accepted: 'Offerto e non accettato', hcp_pregbook_not_offered: 'Non ancora offerto', hcp_pregbook_accepted: 'Offerto e accettato', hcp_pregbook_not_sent: 'Non ancora inviato', hcp_pregbook_sent: 'Inviato – verificare al callback di routine', hcp_pregbook_not_accepted: 'Offerto e non accettato', hcp_poster_not_offered: 'Non ancora offerto', hcp_poster_accepted: 'Offerto e accettato', hcp_poster_not_sent: 'Non ancora inviato', hcp_poster_sent: 'Inviato – reinviare con nuova versione', hcp_poster_not_accepted: 'Offerto e non accettato',
       },
     },
+    representantPanel: {
+      tabLabel: 'Rappresentante', noRepresentative: 'Nessun rappresentante', noRepresentativeDesc: 'Questa entità non ha un rappresentante assegnato',
+      assignBtn: 'Assegna rappresentante', changeBtn: 'Cambia rappresentante', removeBtn: 'Rimuovi',
+      historyTitle: 'Cronologia assegnazioni', noHistory: 'Nessuna cronologia', current: 'attuale', since: 'dal',
+      assignDialogTitle: 'Assegna rappresentante', changeDialogTitle: 'Cambia rappresentante', currentlyAssigned: 'Attualmente:',
+      selectPlaceholder: 'Seleziona rappresentante', noRepresentatives: 'Nessun utente con ruolo Rappresentante', noteLabel: 'Nota (opzionale)', notePlaceholder: 'Motivo del cambio, regione, ecc.',
+      confirmAssign: 'Assegna', confirmChange: 'Cambia',
+      removeDialogTitle: 'Rimuovi rappresentante', removeDialogDesc: 'Rimuoverà il rappresentante da questa entità. La cronologia verrà conservata.', removeConfirm: 'Rimuovi',
+      assignedSuccess: 'Rappresentante assegnato', removedSuccess: 'Assegnazione rimossa',
+      typeManual: 'manuale', typeBulkRegion: 'regione', typeBulkDistrict: 'distretto', typeSwap: 'scambio', typeImport: 'import',
+      notSaved: 'Il rappresentante può essere assegnato dopo il salvataggio.',
+      bulkAssignTitle: 'Assegnazione in blocco', swapTitle: 'Scambio rappresentante',
+      bulkFrom: 'Dal rappresentante', bulkTo: 'Al rappresentante', bulkFilterTitle: 'Criteri di filtro',
+      bulkOnlyUnassigned: 'Solo entità senza rappresentante', bulkOnlyFrom: 'Solo entità del rappresentante selezionato',
+      bulkPreviewCount: 'entità verranno riassegnate', bulkConfirm: 'Conferma', bulkDryRunBtn: 'Anteprima',
+      myClinicsTitle: 'Le mie cliniche e ospedali', myClinicsDesc: 'Entità assegnate a me', myClinicsEmpty: 'Nessuna clinica o ospedale assegnato',
+    },
 
   },
   de: {
@@ -56720,6 +56839,23 @@ export const translations: Record<Locale, Translations> = {
         out_of_scope: 'Außerhalb der Zielgruppe', data_error: 'Datenfehler', missing_phone: 'Telefon fehlt', missing_email: 'Email fehlt',
         hcp_assigned: 'Zugewiesener GDL', hcp_unassigned_medrep: 'Nicht einem Außendienstmitarbeiter zugewiesen', hcp_assigned_medrep: 'Einem Außendienstmitarbeiter zugewiesen', hcp_unreached: 'Nicht erreicht', hcp_reached: 'Erreicht', hcp_qualified: 'Qualifiziert – betreut schwangere Frauen', hcp_unqualified: 'Nicht qualifiziert – betreut keine schwangeren Frauen', hcp_coop_not_offered: 'Kooperation nicht angeboten', hcp_coop_considering: 'Kooperation angeboten – prüft', hcp_coop_agreed: 'Kooperation angeboten – zugestimmt', hcp_coop_disagreed: 'Kooperation angeboten – abgelehnt', hcp_cp_not_offered: 'Vertragsvorschlag nicht angeboten', hcp_cp_considering: 'Vertragsvorschlag angeboten – prüft', hcp_cp_not_sent: 'Vertragsvorschlag nicht gesendet', hcp_cp_sent: 'Vertragsvorschlag gesendet', hcp_cp_accepted: 'Vertragsvorschlag angeboten – angenommen', hcp_cp_signed_not_validated: 'Unterschriebener Vertrag zurückgesendet – noch nicht validiert', hcp_cp_signed_not_resent: 'Vertrag nicht erneut gesendet', hcp_cp_signed_resent: 'Vertrag erneut gesendet', hcp_cp_validation_failed: 'Vertrag hat Validierung nicht bestanden', hcp_cp_val_not_resent: 'Vertrag nicht erneut gesendet (Validierung)', hcp_cp_val_resent: 'Vertrag erneut gesendet (Validierung)', hcp_cp_validated: 'Vertrag validiert', hcp_cp_unaccepted: 'Vertragsvorschlag angeboten – nicht angenommen', hcp_info_not_offered: 'Noch nicht angeboten', hcp_info_accepted: 'Angeboten und angenommen', hcp_info_not_sent: 'Noch nicht gesendet', hcp_info_sent: 'Gesendet – erneut senden bei neuer Version', hcp_info_not_accepted: 'Angeboten und nicht angenommen', hcp_leaf_not_offered: 'Noch nicht angeboten', hcp_leaf_accepted: 'Angeboten und angenommen', hcp_leaf_not_sent: 'Noch nicht gesendet', hcp_leaf_sent: 'Gesendet – prüfen beim Routine-Callback', hcp_leaf_not_accepted: 'Angeboten und nicht angenommen', hcp_pregbook_not_offered: 'Noch nicht angeboten', hcp_pregbook_accepted: 'Angeboten und angenommen', hcp_pregbook_not_sent: 'Noch nicht gesendet', hcp_pregbook_sent: 'Gesendet – prüfen beim Routine-Callback', hcp_pregbook_not_accepted: 'Angeboten und nicht angenommen', hcp_poster_not_offered: 'Noch nicht angeboten', hcp_poster_accepted: 'Angeboten und angenommen', hcp_poster_not_sent: 'Noch nicht gesendet', hcp_poster_sent: 'Gesendet – erneut senden bei neuer Version', hcp_poster_not_accepted: 'Angeboten und nicht angenommen',
       },
+    },
+    representantPanel: {
+      tabLabel: 'Vertreter', noRepresentative: 'Kein Vertreter', noRepresentativeDesc: 'Diese Einheit hat keinen zugewiesenen Vertreter',
+      assignBtn: 'Vertreter zuweisen', changeBtn: 'Vertreter ändern', removeBtn: 'Entfernen',
+      historyTitle: 'Zuweisungshistorie', noHistory: 'Keine Zuweisungshistorie', current: 'aktuell', since: 'seit',
+      assignDialogTitle: 'Vertreter zuweisen', changeDialogTitle: 'Vertreter ändern', currentlyAssigned: 'Aktuell:',
+      selectPlaceholder: 'Vertreter auswählen', noRepresentatives: 'Keine Benutzer mit Vertreter-Rolle', noteLabel: 'Notiz (optional)', notePlaceholder: 'Grund der Änderung, Region, usw.',
+      confirmAssign: 'Zuweisen', confirmChange: 'Ändern',
+      removeDialogTitle: 'Vertreter entfernen', removeDialogDesc: 'Entfernt den Vertreter von dieser Einheit. Die Zuweisungshistorie bleibt erhalten.', removeConfirm: 'Entfernen',
+      assignedSuccess: 'Vertreter zugewiesen', removedSuccess: 'Zuweisung entfernt',
+      typeManual: 'manuell', typeBulkRegion: 'Region', typeBulkDistrict: 'Bezirk', typeSwap: 'Tausch', typeImport: 'Import',
+      notSaved: 'Ein Vertreter kann nach dem Speichern zugewiesen werden.',
+      bulkAssignTitle: 'Massenhafte Vertreterzuweisung', swapTitle: 'Vertreter tauschen',
+      bulkFrom: 'Von Vertreter', bulkTo: 'Zu Vertreter', bulkFilterTitle: 'Filterkriterien',
+      bulkOnlyUnassigned: 'Nur Einheiten ohne Vertreter', bulkOnlyFrom: 'Nur Einheiten des ausgewählten Vertreters',
+      bulkPreviewCount: 'Einheiten werden neu zugewiesen', bulkConfirm: 'Bestätigen', bulkDryRunBtn: 'Vorschau',
+      myClinicsTitle: 'Meine Kliniken & Krankenhäuser', myClinicsDesc: 'Mir zugewiesene Einheiten', myClinicsEmpty: 'Keine Kliniken oder Krankenhäuser zugewiesen',
     },
 
   },

@@ -7,7 +7,9 @@ import { db } from "./db";
 import { eq, and, isNull, lte, or, gt, inArray, desc, sql } from "drizzle-orm";
 import {
   clinicRepresentativeAssignments,
+  hospitalRepresentativeAssignments,
   clinics,
+  hospitals,
   users,
   roles,
   userRoles,
@@ -549,5 +551,165 @@ export function registerRepresentativeRoutes(
       console.error("[representatives] POST /api/clinics/swap-representative", e);
       res.status(500).json({ message: e.message });
     }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // HOSPITAL routes — symetrické ku clinic routes, používajú hospital_representative_assignments
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ── GET /api/hospitals/:id/representative
+  app.get("/api/hospitals/:id/representative", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const at = req.query.at as string | undefined;
+      const ts = at ? new Date(at) : null;
+      const timeCondition = ts && !isNaN(ts.getTime())
+        ? and(lte(hospitalRepresentativeAssignments.validFrom, ts), or(isNull(hospitalRepresentativeAssignments.validTo), gt(hospitalRepresentativeAssignments.validTo, ts)))
+        : isNull(hospitalRepresentativeAssignments.validTo);
+      const condition = and(eq(hospitalRepresentativeAssignments.hospitalId, id), timeCondition);
+      const rows = await db.select({ assignment: hospitalRepresentativeAssignments, user: { id: users.id, fullName: users.fullName, email: users.email } })
+        .from(hospitalRepresentativeAssignments).leftJoin(users, eq(users.id, hospitalRepresentativeAssignments.userId))
+        .where(condition).limit(1);
+      if (!rows.length) return res.json({ assignment: null });
+      res.json({ assignment: { ...rows[0].assignment, user: rows[0].user } });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  // ── GET /api/hospitals/:id/representative/history
+  app.get("/api/hospitals/:id/representative/history", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const rows = await db.select({ assignment: hospitalRepresentativeAssignments, user: { id: users.id, fullName: users.fullName, email: users.email } })
+        .from(hospitalRepresentativeAssignments).leftJoin(users, eq(users.id, hospitalRepresentativeAssignments.userId))
+        .where(eq(hospitalRepresentativeAssignments.hospitalId, id))
+        .orderBy(desc(hospitalRepresentativeAssignments.validFrom));
+      res.json(rows.map(r => ({ ...r.assignment, user: r.user })));
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  // ── POST /api/hospitals/:id/representative
+  app.post("/api/hospitals/:id/representative", requireAuth, requireManagerOrAdmin, async (req, res) => {
+    try {
+      const { id: hospitalId } = req.params;
+      const { userId, validFrom, note } = req.body as { userId: string; validFrom?: string; note?: string };
+      if (!userId) return res.status(400).json({ message: "userId is required" });
+      const effectiveFrom = validFrom ? new Date(validFrom) : new Date();
+      const hospital = await db.select({ id: hospitals.id }).from(hospitals).where(eq(hospitals.id, hospitalId)).limit(1);
+      if (!hospital.length) return res.status(404).json({ message: "Hospital not found" });
+      await db.update(hospitalRepresentativeAssignments).set({ validTo: effectiveFrom })
+        .where(and(eq(hospitalRepresentativeAssignments.hospitalId, hospitalId), isNull(hospitalRepresentativeAssignments.validTo)));
+      const [created] = await db.insert(hospitalRepresentativeAssignments).values({
+        hospitalId, userId, validFrom: effectiveFrom, validTo: null,
+        assignedBy: req.session!.userId, assignmentType: "manual", note: note ?? null,
+      }).returning();
+      res.json({ assignment: created });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  // ── DELETE /api/hospitals/:id/representative
+  app.delete("/api/hospitals/:id/representative", requireAuth, requireManagerOrAdmin, async (req, res) => {
+    try {
+      const { id: hospitalId } = req.params;
+      const updated = await db.update(hospitalRepresentativeAssignments).set({ validTo: new Date() })
+        .where(and(eq(hospitalRepresentativeAssignments.hospitalId, hospitalId), isNull(hospitalRepresentativeAssignments.validTo)))
+        .returning();
+      if (!updated.length) return res.status(404).json({ message: "No active assignment found" });
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  // ── GET /api/representatives/:userId/hospitals
+  app.get("/api/representatives/:userId/hospitals", requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { at, page = "1", limit = "50" } = req.query as Record<string, string>;
+      const ts = at ? new Date(at) : null;
+      const timeCondition = ts && !isNaN(ts.getTime())
+        ? and(lte(hospitalRepresentativeAssignments.validFrom, ts), or(isNull(hospitalRepresentativeAssignments.validTo), gt(hospitalRepresentativeAssignments.validTo, ts)))
+        : isNull(hospitalRepresentativeAssignments.validTo);
+      const assignments = await db.select({ hospitalId: hospitalRepresentativeAssignments.hospitalId, validFrom: hospitalRepresentativeAssignments.validFrom })
+        .from(hospitalRepresentativeAssignments)
+        .where(and(eq(hospitalRepresentativeAssignments.userId, userId), timeCondition));
+      if (!assignments.length) return res.json({ hospitals: [], total: 0 });
+      const hospitalIds = assignments.map(a => a.hospitalId);
+      const assignmentMap = new Map(assignments.map(a => [a.hospitalId, a.validFrom]));
+      const pageNum = Math.max(1, parseInt(page));
+      const limitNum = Math.min(200, Math.max(1, parseInt(limit)));
+      const rows = await db.select({ id: hospitals.id, name: hospitals.name, city: hospitals.city, district: hospitals.district, region: hospitals.region, countryCode: hospitals.countryCode, phone: hospitals.phone, isActive: hospitals.isActive })
+        .from(hospitals).where(inArray(hospitals.id, hospitalIds)).orderBy(hospitals.name).limit(limitNum).offset((pageNum - 1) * limitNum);
+      res.json({ hospitals: rows.map(h => ({ ...h, assignedSince: assignmentMap.get(h.id) ?? null })), total: hospitalIds.length });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  // ── POST /api/hospitals/bulk-assign-representative
+  app.post("/api/hospitals/bulk-assign-representative", requireAuth, requireManagerOrAdmin, async (req, res) => {
+    try {
+      const { userId, criteria = {}, hospitalIds: explicitIds, validFrom, note, dryRun = false } = req.body as {
+        userId: string; criteria?: { country?: string; region?: string | string[]; district?: string | string[]; currentRepresentativeId?: string | null; isActive?: boolean };
+        hospitalIds?: string[]; validFrom?: string; note?: string; dryRun?: boolean;
+      };
+      if (!userId) return res.status(400).json({ message: "userId is required" });
+      const effectiveFrom = validFrom ? new Date(validFrom) : new Date();
+
+      let targetIds: string[];
+      if (explicitIds?.length) {
+        targetIds = explicitIds;
+      } else {
+        let filter: any = undefined;
+        if (criteria.isActive !== undefined) filter = and(filter, eq(hospitals.isActive, criteria.isActive));
+        if (criteria.country) filter = and(filter, eq(hospitals.countryCode, criteria.country));
+        if (criteria.region) {
+          const regions = Array.isArray(criteria.region) ? criteria.region : [criteria.region];
+          filter = and(filter, regions.length === 1 ? eq(hospitals.region, regions[0]) : inArray(hospitals.region, regions));
+        }
+        if (criteria.district) {
+          const districts = Array.isArray(criteria.district) ? criteria.district : [criteria.district];
+          filter = and(filter, districts.length === 1 ? eq(hospitals.district, districts[0]) : inArray(hospitals.district, districts));
+        }
+        const all = await db.select({ id: hospitals.id }).from(hospitals).where(filter ?? undefined);
+        targetIds = all.map(h => h.id);
+        if (criteria.currentRepresentativeId !== undefined) {
+          const active = await db.select({ hospitalId: hospitalRepresentativeAssignments.hospitalId, userId: hospitalRepresentativeAssignments.userId })
+            .from(hospitalRepresentativeAssignments)
+            .where(and(inArray(hospitalRepresentativeAssignments.hospitalId, targetIds), isNull(hospitalRepresentativeAssignments.validTo)));
+          const activeMap = new Map(active.map(a => [a.hospitalId, a.userId]));
+          targetIds = criteria.currentRepresentativeId === null
+            ? targetIds.filter(id => !activeMap.has(id))
+            : targetIds.filter(id => activeMap.get(id) === criteria.currentRepresentativeId);
+        }
+      }
+
+      if (dryRun) return res.json({ affected: targetIds.length, hospitalIds: targetIds, dryRun: true });
+      if (targetIds.length > 0) {
+        await db.update(hospitalRepresentativeAssignments).set({ validTo: effectiveFrom })
+          .where(and(inArray(hospitalRepresentativeAssignments.hospitalId, targetIds), isNull(hospitalRepresentativeAssignments.validTo)));
+        await db.insert(hospitalRepresentativeAssignments).values(
+          targetIds.map(hospitalId => ({ hospitalId, userId, validFrom: effectiveFrom, validTo: null as null, assignedBy: req.session!.userId, assignmentType: "manual", note: note ?? null }))
+        );
+      }
+      res.json({ affected: targetIds.length, hospitalIds: targetIds });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  // ── POST /api/hospitals/swap-representative
+  app.post("/api/hospitals/swap-representative", requireAuth, requireManagerOrAdmin, async (req, res) => {
+    try {
+      const { fromUserId, toUserId, hospitalIds: explicitIds, validFrom, note } = req.body as { fromUserId: string; toUserId: string; hospitalIds?: string[]; validFrom?: string; note?: string };
+      if (!fromUserId || !toUserId) return res.status(400).json({ message: "fromUserId and toUserId are required" });
+      if (fromUserId === toUserId) return res.status(400).json({ message: "Must be different users" });
+      const effectiveFrom = validFrom ? new Date(validFrom) : new Date();
+      const active = await db.select({ hospitalId: hospitalRepresentativeAssignments.hospitalId })
+        .from(hospitalRepresentativeAssignments)
+        .where(and(eq(hospitalRepresentativeAssignments.userId, fromUserId), isNull(hospitalRepresentativeAssignments.validTo)));
+      let targetIds = active.map(a => a.hospitalId);
+      if (explicitIds?.length) targetIds = explicitIds.filter(id => new Set(targetIds).has(id));
+      if (!targetIds.length) return res.json({ swapped: 0 });
+      await db.update(hospitalRepresentativeAssignments).set({ validTo: effectiveFrom })
+        .where(and(inArray(hospitalRepresentativeAssignments.hospitalId, targetIds), eq(hospitalRepresentativeAssignments.userId, fromUserId), isNull(hospitalRepresentativeAssignments.validTo)));
+      await db.insert(hospitalRepresentativeAssignments).values(
+        targetIds.map(hospitalId => ({ hospitalId, userId: toUserId, validFrom: effectiveFrom, validTo: null as null, assignedBy: req.session!.userId, assignmentType: "swap" as const, note: note ?? null }))
+      );
+      res.json({ swapped: targetIds.length, hospitalIds: targetIds });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 }
