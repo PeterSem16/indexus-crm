@@ -305,12 +305,16 @@ export default function CollectionsPage() {
   });
 
   // Hospital lookup: server-side search + country filter
+  // Effective country: form's countryCode → fallback to user's first assigned country
+  const effectiveCountry = formData.countryCode || selectedCountries[0] || "";
+
+  // Hospital lookup: server-side search + country filter (always country-scoped)
   const { data: hospitals = [], isFetching: hospitalsFetching } = useQuery<any[]>({
-    queryKey: ["/api/hospitals/lookup", { q: debouncedHospitalSearch, country: formData.countryCode }],
+    queryKey: ["/api/hospitals/lookup", { q: debouncedHospitalSearch, country: effectiveCountry }],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (debouncedHospitalSearch) params.set("q", debouncedHospitalSearch);
-      if (formData.countryCode) params.set("country", formData.countryCode);
+      if (effectiveCountry) params.set("country", effectiveCountry);
       params.set("limit", "80");
       const res = await fetch(`/api/hospitals/lookup?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed");
@@ -320,13 +324,13 @@ export default function CollectionsPage() {
     enabled: hospitalComboOpen || !!formData.hospitalId,
   });
 
-  // Clinic lookup: server-side search + country filter
+  // Clinic lookup: server-side search + country filter (always country-scoped)
   const { data: clinics = [], isFetching: clinicsFetching } = useQuery<any[]>({
-    queryKey: ["/api/clinics/lookup", { q: debouncedClinicSearch, country: formData.countryCode }],
+    queryKey: ["/api/clinics/lookup", { q: debouncedClinicSearch, country: effectiveCountry }],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (debouncedClinicSearch) params.set("q", debouncedClinicSearch);
-      if (formData.countryCode) params.set("country", formData.countryCode);
+      if (effectiveCountry) params.set("country", effectiveCountry);
       params.set("limit", "80");
       const res = await fetch(`/api/clinics/lookup?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed");

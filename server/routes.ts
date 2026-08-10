@@ -52170,7 +52170,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
         LEFT JOIN partner_categories pc ON pc.id = ca.category_id
         LEFT JOIN contact_channels ch ON ch.person_id = c.id AND ch.is_active = true
         WHERE ca.entity_type = ${entityType} AND ca.entity_id = ${entityId} AND ca.is_active = true
-        GROUP BY ca.id, pc.code, pc.name, c.id
+        GROUP BY ca.id, pc.code, pc.name, pc.sort_order, c.id
         ORDER BY pc.sort_order, c.last_name
       `);
       res.json(rows.rows || []);
