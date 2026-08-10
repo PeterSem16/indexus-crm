@@ -470,6 +470,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [showExtraContacts, setShowExtraContacts] = useState(false);
   const [savePersonDialogOpen, setSavePersonDialogOpen] = useState(false);
+  const [savedClinicId, setSavedClinicId] = useState<string | null>(null);
 
   const buildFormData = (data: Clinic | null | undefined): ClinicFormData => {
     if (!data) return {
@@ -702,6 +703,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
   const [confReferralSearch, setConfReferralSearch] = useState("");
   const [nestedClinicForm, setNestedClinicForm] = useState<{ direction: "recommendedBy" | "suggests"; prefillName: string } | null>(null);
   const userEditedReferralsRef = useRef(false);
+  // In add mode, onSuccess is deferred until the drawer actually closes so the
+  // Representative tab stays visible between save and close.
+  const pendingSuccessRef = useRef(false);
 
   useEffect(() => {
     if (open) {
@@ -717,7 +721,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
       setPipelineMenuOpen(false);
       setExpandedCategory(null);
       setFormData(buildFormData(initialData));
+      setSavedClinicId(null);
       userEditedReferralsRef.current = false;
+      pendingSuccessRef.current = false;
     }
   }, [open, initialData?.id]);
 
@@ -971,7 +977,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
       }
       return savedClinic;
     },
-    onSuccess: () => {
+    onSuccess: (savedClinic) => {
       queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clinics/lookup"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clinic-referrals"] });
@@ -979,8 +985,16 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
       queryClient.invalidateQueries({ queryKey: ["/api/clinic-referred-by-me"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clinic-events"] });
       toast({ title: t.success.saved });
-      onSuccess();
-      onOpenChange(false);
+      if (!initialData && savedClinic?.id) {
+        // Add mode: stay open on the Representative tab.
+        // onSuccess() is deferred until the sheet actually closes via handleAddModeOpenChange.
+        setSavedClinicId(savedClinic.id);
+        setActiveTab("representative");
+        pendingSuccessRef.current = true;
+      } else {
+        onSuccess();
+        onOpenChange(false);
+      }
     },
     onError: () => {
       toast({ title: t.errors.saveFailed, variant: "destructive" });
@@ -994,6 +1008,15 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
       return;
     }
     saveMutation.mutate(formData);
+  };
+
+  // For the add-mode sheet: call onSuccess() exactly once, when the drawer actually closes.
+  const handleAddModeOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && pendingSuccessRef.current) {
+      pendingSuccessRef.current = false;
+      onSuccess();
+    }
+    onOpenChange(nextOpen);
   };
 
   const ProgressBar = () => {
@@ -2872,7 +2895,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
 
   return (
     <>
-      <Sheet open={open} onOpenChange={onOpenChange}>
+      <Sheet open={open} onOpenChange={handleAddModeOpenChange}>
         <SheetContent className={cn("w-[900px] sm:max-w-[900px] p-0 [&>button]:hidden", sheetContentClassName)} style={{ display: 'flex', flexDirection: 'column' }}>
           <div className="shrink-0 border-b px-5 py-3 flex items-center justify-between bg-muted/30">
             <div className="flex items-center gap-2.5">
@@ -2884,7 +2907,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                 <p className="text-xs text-muted-foreground mt-0.5">{(t.clinics as any).addClinicDesc || "Add a new clinic to the system"}</p>
               </div>
             </div>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => onOpenChange(false)} data-testid="button-close-clinic-add-drawer">
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => handleAddModeOpenChange(false)} data-testid="button-close-clinic-add-drawer">
               <X className="h-4 w-4" />
             </Button>
           </div>
@@ -3382,20 +3405,30 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
               )}
 
               {activeTab === "representative" && (
-                <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                  <UserCheck className="h-10 w-10 mb-3 opacity-40" />
-                  <p className="text-sm">{t.representantPanel.notSaved}</p>
-                </div>
+                savedClinicId ? (
+                  <ClinicRepresentativePanel clinicId={savedClinicId} />
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                    <UserCheck className="h-10 w-10 mb-3 opacity-40" />
+                    <p className="text-sm">{t.representantPanel.notSaved}</p>
+                  </div>
+                )
               )}
             </div>
           </div>
 
           <div className="shrink-0 border-t bg-muted/30 px-5 py-3 flex items-center justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-clinic-add">{t.common.cancel}</Button>
-            <Button onClick={handleSave} disabled={saveMutation.isPending} data-testid="button-save-clinic-add">
-              {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
-              {t.common.save}
-            </Button>
+            {savedClinicId ? (
+              <Button onClick={() => handleAddModeOpenChange(false)} data-testid="button-close-clinic-add">{t.common.cancel}</Button>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => handleAddModeOpenChange(false)} data-testid="button-cancel-clinic-add">{t.common.cancel}</Button>
+                <Button onClick={handleSave} disabled={saveMutation.isPending} data-testid="button-save-clinic-add">
+                  {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+                  {t.common.save}
+                </Button>
+              </>
+            )}
           </div>
         </SheetContent>
       </Sheet>

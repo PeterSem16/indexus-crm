@@ -3441,6 +3441,9 @@ export async function registerRoutes(
         name: clinics.name,
         countryCode: clinics.countryCode,
         doctorName: clinics.doctorName,
+        doctorTitle: clinics.doctorTitle,
+        doctorFirstName: clinics.doctorFirstName,
+        doctorLastName: clinics.doctorLastName,
         city: clinics.city,
       }).from(clinics).where(where).orderBy(clinics.name);
       const data = limitParam !== undefined ? await query.limit(limitParam) : await query;
@@ -48378,7 +48381,6 @@ Return ONLY the JSON object.`
   });
 
 
-
   const uploadMsgZip = multer({ storage: multer.diskStorage({ destination: (_req, _file, cb) => { const dir = path.join(process.cwd(), "uploads", "temp"); if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true }); cb(null, dir); }, filename: (_req, _file, cb) => cb(null, `msg-zip-${Date.now()}.zip`) }), limits: { fileSize: 250 * 1024 * 1024 }, fileFilter: (_req, file, cb) => { if (file.mimetype === "application/zip" || file.mimetype === "application/x-zip-compressed" || file.originalname.endsWith(".zip")) cb(null, true); else cb(new Error("Only ZIP files allowed")); } });
 
   app.post("/api/message-templates/import-zip", requireAuth, requireAdminOrManager, (req, res, next) => { req.setTimeout(600000); res.setTimeout(600000); next(); }, uploadMsgZip.single("file"), async (req, res) => {
@@ -52836,7 +52838,6 @@ Napíšte zápis v slovenčine. Buďte struční ale výstižní.`
   setTimeout(() => {
     autoConnectAri().catch(err => console.error("[ARI AutoConnect] Error:", err.message));
   }, 10000);
-
 
 
   // ============= Status Management Engine =============
