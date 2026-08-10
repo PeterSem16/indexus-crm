@@ -165,6 +165,7 @@ export default function CollectionsPage() {
   const [cbuAuditLogs, setCbuAuditLogs] = useState<any[]>([]);
   const [cbuAuditLoading, setCbuAuditLoading] = useState(false);
   const [cbuVerifiedData, setCbuVerifiedData] = useState<any>(null);
+  const [clinicSearch, setClinicSearch] = useState("");
   
   const dateFnsLocale = dateLocales[locale] || enUS;
 
@@ -294,6 +295,25 @@ export default function CollectionsPage() {
 
   const { data: clinics = [] } = useQuery<any[]>({
     queryKey: ["/api/clinics/lookup"],
+    staleTime: 5 * 60 * 1000,
+    enabled: needsLookups,
+  });
+
+  // Personnel assigned to the selected clinic (gynekológ filter)
+  const { data: clinicPersonnel = [] } = useQuery<any[]>({
+    queryKey: ["/api/mpn/institution/clinic", formData.clinicId, "personnel"],
+    queryFn: async () => {
+      const res = await fetch(`/api/mpn/institution/clinic/${formData.clinicId}/personnel`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    staleTime: 2 * 60 * 1000,
+    enabled: !!formData.clinicId,
+  });
+
+  // Users with Representant role
+  const { data: representativeUsers = [] } = useQuery<any[]>({
+    queryKey: ["/api/representatives"],
     staleTime: 5 * 60 * 1000,
     enabled: needsLookups,
   });
@@ -1344,21 +1364,47 @@ export default function CollectionsPage() {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>{(t as any).collections?.clinic || "Ambulancia (gynekológ)"}</Label>
-          <select className={nativeSelectClass} value={formData.clinicId || ""} onChange={(e) => handleFieldChange("clinicId", e.target.value)} data-testid="select-clinic">
+          <Input
+            placeholder="Hľadať ambulanciu..."
+            value={clinicSearch}
+            onChange={(e) => setClinicSearch(e.target.value)}
+            className="h-8 text-sm mb-1"
+          />
+          <select
+            className={nativeSelectClass}
+            value={formData.clinicId || ""}
+            onChange={(e) => {
+              handleFieldChange("clinicId", e.target.value);
+              handleFieldChange("collaboratorId", ""); // reset gynekológ on clinic change
+            }}
+            data-testid="select-clinic"
+            size={5}
+            style={{ height: "auto", overflowY: "auto" }}
+          >
             <option value="">{t.common.select}</option>
-            {clinics.map((c: any) => (
-              <option key={c.id} value={String(c.id)}>{c.name}</option>
-            ))}
+            {clinics
+              .filter((c: any) => !clinicSearch || c.name?.toLowerCase().includes(clinicSearch.toLowerCase()))
+              .map((c: any) => (
+                <option key={c.id} value={String(c.id)}>{c.name}</option>
+              ))}
           </select>
         </div>
         <div className="space-y-2">
           <Label>{(t as any).collections?.gynecologist || "Gynekológ (osoba)"}</Label>
-          <select className={nativeSelectClass} value={formData.collaboratorId || ""} onChange={(e) => handleFieldChange("collaboratorId", e.target.value)} data-testid="select-gynecologist">
-            <option value="">{t.common.noData} — {(t as any).common?.optional || "voliteľné"}</option>
-            {collaborators.map((c: any) => (
-              <option key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</option>
-            ))}
-          </select>
+          {!formData.clinicId ? (
+            <p className="text-xs text-muted-foreground pt-1">Najprv vyberte ambulanciu</p>
+          ) : clinicPersonnel.length === 0 ? (
+            <p className="text-xs text-muted-foreground pt-1">Žiadni personáli priradení k tejto ambulancii</p>
+          ) : (
+            <select className={nativeSelectClass} value={formData.collaboratorId || ""} onChange={(e) => handleFieldChange("collaboratorId", e.target.value)} data-testid="select-gynecologist">
+              <option value="">— {(t as any).common?.optional || "voliteľné"} —</option>
+              {clinicPersonnel.map((p: any) => (
+                <option key={p.person_id} value={String(p.person_id)}>
+                  {[p.title_before, p.first_name, p.last_name, p.title_after].filter(Boolean).join(" ")}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
@@ -1415,8 +1461,8 @@ export default function CollectionsPage() {
           <Label>{t.collections?.representative}</Label>
           <select className={nativeSelectClass} value={formData.representativeId || ""} onChange={(e) => handleFieldChange("representativeId", e.target.value)} data-testid="select-representative">
             <option value="">{t.common.select}</option>
-            {collaborators.map((c: any) => (
-              <option key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</option>
+            {representativeUsers.map((u: any) => (
+              <option key={u.id} value={String(u.id)}>{u.name || u.email}</option>
             ))}
           </select>
         </div>

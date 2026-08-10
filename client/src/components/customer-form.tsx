@@ -1010,14 +1010,17 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                             {(t as any).customers?.caseFields?.clinic || "Ambulancia (gynekológ) — prepojenie na reprezentanta"}
                           </div>
                         </FormLabel>
-                        <Select value={field.value || ""} onValueChange={field.onChange}>
+                        <Select
+                          value={field.value || "__none__"}
+                          onValueChange={(v) => field.onChange(v === "__none__" ? "" : v)}
+                        >
                           <FormControl>
                             <SelectTrigger data-testid="select-customer-clinic">
                               <SelectValue placeholder={(t as any).common?.select || "Vybrať ambulanciu..."} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="">{(t as any).common?.noData || "— žiadna —"}</SelectItem>
+                            <SelectItem value="__none__">{(t as any).common?.noData || "— žiadna —"}</SelectItem>
                             {clinicLookup.map((c: any) => (
                               <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
                             ))}
@@ -1034,14 +1037,17 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                             {(t as any).customers?.caseFields?.gynecologist || "Gynekológ (konkrétna osoba, voliteľné)"}
                           </div>
                         </FormLabel>
-                        <Select value={field.value || ""} onValueChange={field.onChange}>
+                        <Select
+                          value={field.value || "__none__"}
+                          onValueChange={(v) => field.onChange(v === "__none__" ? "" : v)}
+                        >
                           <FormControl>
                             <SelectTrigger data-testid="select-customer-collaborator">
                               <SelectValue placeholder={(t as any).common?.noData || "— voliteľné —"} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="">{(t as any).common?.noData || "— žiadna —"}</SelectItem>
+                            <SelectItem value="__none__">{(t as any).common?.noData || "— žiadna —"}</SelectItem>
                             {collaboratorLookup.map((c: any) => (
                               <SelectItem key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</SelectItem>
                             ))}
