@@ -106,8 +106,8 @@ CELKOVÝ DOPAD NA KPI VYHODNOTENIE (stav po 10. 8. 2026):
   Medzera 1 (ambulancia → reprezentant): ČIASTOČNE VYRIEŠENÁ
     → snapshot pri každom novom odbere automatický; chýba hromadné
       priradenie a backfill historických odberov
-  Medzera 2 (história statusov ambulancií): OTVORENÁ
-    → kanonický status list v Nexus Pulse nie je implementovaný
+  Medzera 2 (história statusov ambulancií): VYRIEŠENÁ
+    → kanonický status list implementovaný (pozri BOD 4.3 nižšie)
   Medzera 3 (odber → ambulancia): VYRIEŠENÁ
     → clinic_id v collections, vyhľadávateľný selector v forme
   Medzera 4 (zaplatené + marža): OTVORENÁ

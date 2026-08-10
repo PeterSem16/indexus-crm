@@ -61,6 +61,7 @@ import {
   insertInboundCallbackSchema,
   campaignStatusListItems,
   campaignStatusListAutomations,
+  clinicCooperationStatuses,
   campaignStatusListQuestions,
   campaignContactStatusListState,
   taskBackOfficeConfirmations,
@@ -13280,6 +13281,41 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   app.get("/api/customers/:customerId/contact-history", requireAuth, _contactHistoryHandler());
   app.get("/api/hospitals/:id/contact-history", requireAuth, _contactHistoryHandler());
+  // GET /api/clinics/:id/cooperation-statuses
+  // Returns the full history of canonical cooperation statuses for a clinic,
+  // plus a "current" map of the latest entry per statusKey.
+  app.get("/api/clinics/:id/cooperation-statuses", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const rows = await db.select({
+        id: clinicCooperationStatuses.id,
+        clinicId: clinicCooperationStatuses.clinicId,
+        statusKey: clinicCooperationStatuses.statusKey,
+        phase: clinicCooperationStatuses.phase,
+        campaignContactId: clinicCooperationStatuses.campaignContactId,
+        statusListItemId: clinicCooperationStatuses.statusListItemId,
+        confirmedByUserId: clinicCooperationStatuses.confirmedByUserId,
+        confirmedAt: clinicCooperationStatuses.confirmedAt,
+        note: clinicCooperationStatuses.note,
+        createdAt: clinicCooperationStatuses.createdAt,
+      })
+        .from(clinicCooperationStatuses)
+        .where(eq(clinicCooperationStatuses.clinicId, id))
+        .orderBy(clinicCooperationStatuses.confirmedAt);
+
+      // Build "current" map: latest entry per statusKey
+      const current: Record<string, typeof rows[0]> = {};
+      for (const row of rows) {
+        current[row.statusKey] = row;
+      }
+
+      return res.json({ history: rows, current });
+    } catch (error) {
+      console.error("Failed to fetch clinic cooperation statuses:", error);
+      return res.status(500).json({ error: "Failed to fetch clinic cooperation statuses" });
+    }
+  });
+
   app.get("/api/clinics/:id/contact-history", requireAuth, _contactHistoryHandler());
   app.get("/api/collaborators/:id/contact-history", requireAuth, _contactHistoryHandler(true));
   app.get("/api/persons/:id/contact-history", requireAuth, _contactHistoryHandler(true));
@@ -30763,6 +30799,40 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             }
           }
           } // end if (!skipAutomations)
+
+          // Write canonical clinic cooperation status if the confirmed item has one set.
+          // Only applies when the campaign contact is a clinic — other contact types are skipped.
+          if (ccRow?.contactType === "clinic" && ccRow.clinicId) {
+            try {
+              const [slItem] = await db.select({
+                canonicalClinicStatusKey: campaignStatusListItems.canonicalClinicStatusKey,
+              })
+                .from(campaignStatusListItems)
+                .where(eq(campaignStatusListItems.id, itemId))
+                .limit(1);
+
+              if (slItem?.canonicalClinicStatusKey) {
+                const key = slItem.canonicalClinicStatusKey;
+                // Derive phase from the key prefix
+                const phase = key.startsWith("acquisition_") ? "acquisition"
+                  : key.startsWith("contract_") || key.startsWith("flyers_") ? "contract"
+                  : "retention";
+
+                await db.insert(clinicCooperationStatuses).values({
+                  clinicId: ccRow.clinicId,
+                  statusKey: key,
+                  phase,
+                  campaignContactId,
+                  statusListItemId: itemId,
+                  confirmedByUserId: userId,
+                  confirmedAt: new Date(),
+                  note: itemNote ?? null,
+                });
+              }
+            } catch (coopErr) {
+              console.error("[status-list:canonical_clinic_status] write failed:", coopErr);
+            }
+          }
 
           // Log to campaign contact history (F9)
           await db.insert(campaignContactHistory).values({

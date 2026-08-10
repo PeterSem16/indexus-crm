@@ -465,6 +465,39 @@ app.use((req, res, next) => {
 
   try {
     await pool.query(`
+      ALTER TABLE campaign_status_list_items
+        ADD COLUMN IF NOT EXISTS canonical_clinic_status_key TEXT;
+    `);
+    console.log('[migration] campaign_status_list_items canonical_clinic_status_key ensured');
+  } catch (e: any) {
+    console.error('[migration] campaign_status_list_items canonical_clinic_status_key error:', e.message);
+  }
+
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS clinic_cooperation_statuses (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        clinic_id VARCHAR NOT NULL,
+        status_key TEXT NOT NULL,
+        phase TEXT NOT NULL,
+        campaign_contact_id VARCHAR,
+        status_list_item_id VARCHAR,
+        confirmed_by_user_id VARCHAR,
+        confirmed_at TIMESTAMP NOT NULL DEFAULT now(),
+        note TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_clinic_coop_clinic ON clinic_cooperation_statuses(clinic_id);
+      CREATE INDEX IF NOT EXISTS idx_clinic_coop_key ON clinic_cooperation_statuses(clinic_id, status_key);
+      CREATE INDEX IF NOT EXISTS idx_clinic_coop_phase ON clinic_cooperation_statuses(clinic_id, phase);
+    `);
+    console.log('[migration] clinic_cooperation_statuses table ensured');
+  } catch (e: any) {
+    console.error('[migration] clinic_cooperation_statuses error:', e.message);
+  }
+
+  try {
+    await pool.query(`
       ALTER TABLE ivr_messages
         ADD COLUMN IF NOT EXISTS prepend_ringtone BOOLEAN NOT NULL DEFAULT FALSE,
         ADD COLUMN IF NOT EXISTS ring_count INTEGER NOT NULL DEFAULT 3,

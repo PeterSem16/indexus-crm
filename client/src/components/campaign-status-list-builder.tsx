@@ -79,9 +79,51 @@ type StatusListItem = {
   autoConfirmOnSubQuestion?: boolean;
   questionSelectionMode?: "multiple" | "single";
   tab?: string | null;
+  canonicalClinicStatusKey?: string | null;
   automations: StatusListAutomation[];
   questions: StatusListQuestion[];
 };
+
+// Kanonické statusy spolupráce ambulancie — pevný číselník podľa fázy.
+// Každá fáza zodpovedá tab-u status listu (acquisition / contract / retention).
+export const CANONICAL_CLINIC_STATUS_GROUPS = [
+  {
+    phase: "acquisition",
+    label: "Acquisition",
+    color: "#3b82f6",
+    keys: [
+      { key: "acquisition_contacted",      label: "Oslovená (prvý kontakt)" },
+      { key: "acquisition_interested",     label: "Záujem o spoluprácu" },
+      { key: "acquisition_not_interested", label: "Nezáujem" },
+      { key: "acquisition_in_negotiation", label: "V rokovaní" },
+    ],
+  },
+  {
+    phase: "contract",
+    label: "Contract",
+    color: "#f59e0b",
+    keys: [
+      { key: "contract_sent",     label: "Zmluva zaslaná" },
+      { key: "contract_signed",   label: "Zmluva podpísaná" },
+      { key: "contract_rejected", label: "Zmluva odmietnutá" },
+      { key: "flyers_sent",       label: "Letáky zaslané" },
+      { key: "flyers_accepted",   label: "Letáky akceptované" },
+      { key: "flyers_rejected",   label: "Letáky odmietnuté" },
+    ],
+  },
+  {
+    phase: "retention",
+    label: "Retention",
+    color: "#22c55e",
+    keys: [
+      { key: "retention_active",     label: "Aktívna spolupráca" },
+      { key: "retention_paused",     label: "Pozastavená spolupráca" },
+      { key: "retention_terminated", label: "Ukončená spolupráca" },
+      { key: "services_confirmed",   label: "Bude poskytovať služby" },
+      { key: "services_declined",    label: "Nebude poskytovať služby" },
+    ],
+  },
+] as const;
 
 const SL: Record<string, Record<string, string>> = {
   nextStep:       { sk: "Nasledujúci krok", en: "Next step", cs: "Další krok", hu: "Következő lépés", ro: "Pasul următor", it: "Passo successivo", de: "Nächster Schritt" },
@@ -155,6 +197,10 @@ const SL: Record<string, Record<string, string>> = {
   qSelModeLbl:    { sk: "Výber podotázok", en: "Sub-question selection", cs: "Výběr podotázek", hu: "Al-kérdés kiválasztás", ro: "Selecție sub-întrebări", it: "Selezione sotto-domande", de: "Unterfrageauswahl" },
   qSelMultiple:   { sk: "Viacnásobný (zaškrtať viacero)", en: "Multiple (checkboxes)", cs: "Více (zaškrtáváčky)", hu: "Többszörös (jelölőnégyzetek)", ro: "Multiple (bifări)", it: "Multiplo (caselle)", de: "Mehrfach (Kontrollkästchen)" },
   qSelSingle:     { sk: "Jednoduchý (iba jedna možnosť)", en: "Single (radio — only one)", cs: "Jednoduchý (jen jedna možnost)", hu: "Egyszerű (csak egy)", ro: "Simplu (doar una)", it: "Singolo (solo uno)", de: "Einfach (nur eines)" },
+
+  canonicalClinicLbl:  { sk: "Kanonický stav ambulancie", en: "Canonical clinic status", cs: "Kanonický stav ambulance", hu: "Kanonikus rendelői státusz", ro: "Status canonic clinică", it: "Stato canonico clinica", de: "Kanonischer Klinikstatus" },
+  canonicalClinicHint: { sk: "Pri potvrdení tejto možnosti systém automaticky zapíše zvolený stav do histórie spolupráce ambulancie (KPI 3.4–3.7). Funguje len pre kontakty typu Ambulancia.", en: "When this option is confirmed, the system automatically records the chosen cooperation state into the clinic's history (KPI 3.4–3.7). Works only for Clinic contact type.", cs: "Při potvrzení této možnosti systém automaticky zapíše zvolený stav do historie spolupráce ambulance. Funguje pouze pro kontakty typu Ambulance.", hu: "Ezen lehetőség megerősítésekor a rendszer automatikusan rögzíti a kiválasztott állapotot a rendelő együttműködési előzményeibe.", ro: "Când această opțiune este confirmată, sistemul înregistrează automat starea aleasă în istoricul cooperării clinicii.", it: "Quando questa opzione viene confermata, il sistema registra automaticamente lo stato scelto nella cronologia di cooperazione della clinica.", de: "Bei Bestätigung dieser Option schreibt das System automatisch den gewählten Status in die Kooperationshistorie der Klinik." },
+  canonicalClinicNone: { sk: "(žiadny — bežná položka)", en: "(none — plain item)", cs: "(žádný — běžná položka)", hu: "(nincs — normál elem)", ro: "(niciunul — element simplu)", it: "(nessuno — elemento normale)", de: "(keiner — normaler Eintrag)" },
 
   ctr_SK: { sk: "Slovensko (SK)", en: "Slovakia (SK)", cs: "Slovensko (SK)", hu: "Szlovákia (SK)", ro: "Slovacia (SK)", it: "Slovacchia (SK)", de: "Slowakei (SK)" },
   ctr_CZ: { sk: "Česko (CZ)", en: "Czech Republic (CZ)", cs: "Česko (CZ)", hu: "Csehország (CZ)", ro: "Cehia (CZ)", it: "Repubblica Ceca (CZ)", de: "Tschechien (CZ)" },
@@ -2481,6 +2527,7 @@ function StatusListItemRow({
     autoConfirmOnSubQuestion: item.autoConfirmOnSubQuestion ?? false,
     questionSelectionMode: (item.questionSelectionMode ?? "multiple") as "multiple" | "single",
     tab: item.tab ?? null as string | null,
+    canonicalClinicStatusKey: item.canonicalClinicStatusKey ?? null as string | null,
   });
 
   const updateMutation = useMutation({
@@ -2696,6 +2743,23 @@ function StatusListItemRow({
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+              <div>
+                <Label className="text-xs mb-1 block" title={sl("canonicalClinicHint", locale)}>{sl("canonicalClinicLbl", locale)}</Label>
+                <Select value={form.canonicalClinicStatusKey ?? "__none__"} onValueChange={v => setForm(f => ({ ...f, canonicalClinicStatusKey: v === "__none__" ? null : v }))}>
+                  <SelectTrigger className="h-8 text-xs" data-testid="select-canonical-clinic-status"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">{sl("canonicalClinicNone", locale)}</SelectItem>
+                    {CANONICAL_CLINIC_STATUS_GROUPS.map(group => (
+                      <React.Fragment key={group.phase}>
+                        <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-t mt-1">{group.label}</div>
+                        {group.keys.map(k => (
+                          <SelectItem key={k.key} value={k.key} className="pl-4">{k.label}</SelectItem>
+                        ))}
+                      </React.Fragment>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setEditMode(false)}>
@@ -3028,6 +3092,7 @@ function AddItemForm({
     autoConfirmOnSubQuestion: false,
     questionSelectionMode: "multiple" as "multiple" | "single",
     tab: null as string | null,
+    canonicalClinicStatusKey: null as string | null,
   });
 
   const addMutation = useMutation({
@@ -3124,6 +3189,23 @@ function AddItemForm({
             </SelectContent>
           </Select>
         </div>
+        <div className="col-span-3">
+          <Label className="text-xs mb-1 block" title={sl("canonicalClinicHint", locale)}>{sl("canonicalClinicLbl", locale)}</Label>
+          <Select value={form.canonicalClinicStatusKey ?? "__none__"} onValueChange={v => setForm(f => ({ ...f, canonicalClinicStatusKey: v === "__none__" ? null : v }))}>
+            <SelectTrigger className="h-8 text-xs" data-testid="select-add-canonical-clinic-status"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">{sl("canonicalClinicNone", locale)}</SelectItem>
+              {CANONICAL_CLINIC_STATUS_GROUPS.map(group => (
+                <React.Fragment key={group.phase}>
+                  <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-t mt-1">{group.label}</div>
+                  {group.keys.map(k => (
+                    <SelectItem key={k.key} value={k.key} className="pl-4">{k.label}</SelectItem>
+                  ))}
+                </React.Fragment>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       <div className="flex justify-end gap-2">
         <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={onCancel}>
@@ -3151,7 +3233,7 @@ function AddOptionForm({ campaignId, existingCount, onSaved, onCancel }: {
 }) {
   const { toast } = useToast();
   const { locale } = useI18n();
-  const [form, setForm] = useState({ label: "", color: "#3b82f6", description: "" });
+  const [form, setForm] = useState({ label: "", color: "#3b82f6", description: "", canonicalClinicStatusKey: null as string | null });
 
   const addMutation = useMutation({
     mutationFn: () => apiRequest("POST", `/api/campaigns/${campaignId}/status-list`, {
@@ -3163,6 +3245,7 @@ function AddOptionForm({ campaignId, existingCount, onSaved, onCancel }: {
       sortOrder: 1000 + existingCount,
       itemType: "option",
       color: form.color,
+      canonicalClinicStatusKey: form.canonicalClinicStatusKey || null,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
@@ -3208,6 +3291,23 @@ function AddOptionForm({ campaignId, existingCount, onSaved, onCancel }: {
               />
             ))}
           </div>
+        </div>
+        <div className="col-span-2">
+          <Label className="text-xs mb-1 block" title={sl("canonicalClinicHint", locale)}>{sl("canonicalClinicLbl", locale)}</Label>
+          <Select value={form.canonicalClinicStatusKey ?? "__none__"} onValueChange={v => setForm(f => ({ ...f, canonicalClinicStatusKey: v === "__none__" ? null : v }))}>
+            <SelectTrigger className="h-8 text-xs" data-testid="select-option-canonical-clinic-status"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">{sl("canonicalClinicNone", locale)}</SelectItem>
+              {CANONICAL_CLINIC_STATUS_GROUPS.map(group => (
+                <React.Fragment key={group.phase}>
+                  <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-t mt-1">{group.label}</div>
+                  {group.keys.map(k => (
+                    <SelectItem key={k.key} value={k.key} className="pl-4">{k.label}</SelectItem>
+                  ))}
+                </React.Fragment>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
       <div className="flex items-center justify-between gap-2">

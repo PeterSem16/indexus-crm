@@ -696,6 +696,18 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
     enabled: !!initialData?.id && open && activeTab === "history",
   });
 
+  type CooperationStatusEntry = {
+    id: string; clinicId: string; statusKey: string; phase: string;
+    campaignContactId: string | null; statusListItemId: string | null;
+    confirmedByUserId: string | null; confirmedAt: string; note: string | null;
+  };
+  const { data: cooperationData } = useQuery<{ history: CooperationStatusEntry[]; current: Record<string, CooperationStatusEntry> }>({
+    queryKey: ["/api/clinics", initialData?.id, "cooperation-statuses"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    enabled: !!initialData?.id && open && activeTab === "cooperation",
+    staleTime: 0,
+  });
+
   const [referrals, setReferrals] = useState<Array<{ clinicId: string; clinicName: string; referralType: string }>>([]);
   const [suggestsReferrals, setSuggestsReferrals] = useState<Array<{ clinicId: string; clinicName: string }>>([]);
   const [referralSearch, setReferralSearch] = useState("");
@@ -1063,7 +1075,39 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
     { key: "personnel", icon: Users, label: (t as any).personnel || "Personnel" },
     { key: "campaigns", icon: Megaphone, label: (t as any).campaigns?.title || "Campaigns" },
     { key: "representative", icon: UserCheck, label: t.representantPanel.tabLabel },
+    { key: "cooperation", icon: Handshake, label: "Spolupráca" },
   ];
+
+  // Phase display config for the cooperation history tab
+  const COOP_PHASES = [
+    { phase: "acquisition", label: "Acquisition", color: "#3b82f6", bgClass: "bg-blue-50 dark:bg-blue-950", borderClass: "border-blue-200 dark:border-blue-800", textClass: "text-blue-700 dark:text-blue-300",
+      keys: [
+        { key: "acquisition_contacted",      label: "Oslovená (prvý kontakt)" },
+        { key: "acquisition_interested",     label: "Záujem o spoluprácu" },
+        { key: "acquisition_not_interested", label: "Nezáujem" },
+        { key: "acquisition_in_negotiation", label: "V rokovaní" },
+      ],
+    },
+    { phase: "contract", label: "Contract", color: "#f59e0b", bgClass: "bg-amber-50 dark:bg-amber-950", borderClass: "border-amber-200 dark:border-amber-800", textClass: "text-amber-700 dark:text-amber-300",
+      keys: [
+        { key: "contract_sent",     label: "Zmluva zaslaná" },
+        { key: "contract_signed",   label: "Zmluva podpísaná" },
+        { key: "contract_rejected", label: "Zmluva odmietnutá" },
+        { key: "flyers_sent",       label: "Letáky zaslané" },
+        { key: "flyers_accepted",   label: "Letáky akceptované" },
+        { key: "flyers_rejected",   label: "Letáky odmietnuté" },
+      ],
+    },
+    { phase: "retention", label: "Retention", color: "#22c55e", bgClass: "bg-green-50 dark:bg-green-950", borderClass: "border-green-200 dark:border-green-800", textClass: "text-green-700 dark:text-green-300",
+      keys: [
+        { key: "retention_active",     label: "Aktívna spolupráca" },
+        { key: "retention_paused",     label: "Pozastavená spolupráca" },
+        { key: "retention_terminated", label: "Ukončená spolupráca" },
+        { key: "services_confirmed",   label: "Bude poskytovať služby" },
+        { key: "services_declined",    label: "Nebude poskytovať služby" },
+      ],
+    },
+  ] as const;
 
   const HeaderWrapper = mode === "inline" ? "div" : SheetHeader;
   const TitleWrapper = mode === "inline" ? "h3" : SheetTitle;
@@ -2760,6 +2804,89 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
           {activeTab === "representative" && initialData && (
             <ClinicRepresentativePanel clinicId={initialData.id} />
           )}
+
+          {activeTab === "cooperation" && (
+            <div className="space-y-5 pb-4">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center justify-center w-6 h-6 rounded-md bg-primary/10"><Handshake className="h-3.5 w-3.5 text-primary" /></div>
+                <div>
+                  <h3 className="text-sm font-semibold">História spolupráce</h3>
+                  <p className="text-xs text-muted-foreground">Kanonické statusy zaznamenané počas status listov kampaní (KPI 3.4–3.7)</p>
+                </div>
+              </div>
+              {!initialData ? (
+                <p className="text-sm text-muted-foreground text-center py-8">Uložte ambulanciu pre zobrazenie histórie spolupráce.</p>
+              ) : !cooperationData ? (
+                <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Current status summary */}
+                  <div className="grid grid-cols-3 gap-3">
+                    {COOP_PHASES.map(phase => {
+                      const phaseKeys = phase.keys;
+                      const latestInPhase = phaseKeys
+                        .map(k => cooperationData.current[k.key])
+                        .filter(Boolean)
+                        .sort((a, b) => new Date(b.confirmedAt).getTime() - new Date(a.confirmedAt).getTime())[0];
+                      const keyLabel = latestInPhase ? phaseKeys.find(k => k.key === latestInPhase.statusKey)?.label : null;
+                      return (
+                        <div key={phase.phase} className={`rounded-lg border p-3 ${phase.bgClass} ${phase.borderClass}`}>
+                          <div className={`text-[10px] font-semibold uppercase tracking-wider mb-1.5 ${phase.textClass}`}>{phase.label}</div>
+                          {keyLabel ? (
+                            <>
+                              <div className="text-xs font-medium leading-tight">{keyLabel}</div>
+                              <div className="text-[10px] text-muted-foreground mt-1">{new Date(latestInPhase!.confirmedAt).toLocaleDateString("sk-SK")}</div>
+                            </>
+                          ) : (
+                            <div className="text-xs text-muted-foreground italic">— žiadny záznam —</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Full history grouped by phase */}
+                  {COOP_PHASES.map(phase => {
+                    const phaseHistory = cooperationData.history
+                      .filter(h => h.phase === phase.phase)
+                      .sort((a, b) => new Date(b.confirmedAt).getTime() - new Date(a.confirmedAt).getTime());
+                    if (phaseHistory.length === 0) return null;
+                    return (
+                      <div key={phase.phase}>
+                        <div className={`flex items-center gap-2 mb-2`}>
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: phase.color }} />
+                          <span className="text-xs font-semibold">{phase.label}</span>
+                          <span className="text-xs text-muted-foreground">({phaseHistory.length})</span>
+                        </div>
+                        <div className="space-y-1.5 pl-4 border-l-2" style={{ borderColor: `${phase.color}40` }}>
+                          {phaseHistory.map(entry => {
+                            const keyLabel = phase.keys.find(k => k.key === entry.statusKey)?.label ?? entry.statusKey;
+                            return (
+                              <div key={entry.id} className="flex items-start justify-between gap-2 text-xs py-1 border-b border-border/40 last:border-0">
+                                <div className="flex-1 min-w-0">
+                                  <span className={`font-medium ${phase.textClass}`}>{keyLabel}</span>
+                                  {entry.note && <span className="text-muted-foreground ml-2">— {entry.note}</span>}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground shrink-0 text-right">
+                                  {new Date(entry.confirmedAt).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {cooperationData.history.length === 0 && (
+                    <div className="text-center py-8 text-sm text-muted-foreground">
+                      <Handshake className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                      <p>Zatiaľ žiadne záznamy spolupráce.</p>
+                      <p className="text-xs mt-1">Záznamy sa vytvárajú automaticky keď koordinátor potvrdí status-list možnosť s nastaveným kanonickým stavom.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </fieldset>
       </div>
 
@@ -2891,6 +3018,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
     { key: "personnel", icon: Users, label: (t as any).personnel || "Personnel" },
     { key: "campaigns", icon: Megaphone, label: (t as any).campaigns?.title || "Campaigns" },
     { key: "representative", icon: UserCheck, label: t.representantPanel.tabLabel },
+    { key: "cooperation", icon: Handshake, label: "Spolupráca" },
   ];
 
   return (
@@ -3413,6 +3541,14 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                     <p className="text-sm">{t.representantPanel.notSaved}</p>
                   </div>
                 )
+              )}
+
+              {activeTab === "cooperation" && (
+                <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                  <Handshake className="h-10 w-10 mb-3 opacity-40" />
+                  <p className="text-sm">História spolupráce bude dostupná po uložení ambulancie.</p>
+                  <p className="text-xs mt-1 max-w-xs">Záznamy sa vytvárajú automaticky pri potvrdení status-list možností s nastaveným kanonickým stavom.</p>
+                </div>
               )}
             </div>
           </div>

@@ -7889,6 +7889,13 @@ export const campaignStatusListItems = pgTable("campaign_status_list_items", {
   autoConfirmOnSubQuestion: boolean("auto_confirm_on_sub_question").notNull().default(false),
   questionSelectionMode: text("question_selection_mode").notNull().default("multiple"), // 'multiple' | 'single'
   tab: text("tab"),  // 'acquisition' | 'retention' | null (null = show in both tabs)
+  // Kanonický stav ambulancie — keď koordinátor potvrdí túto možnosť, systém zapíše
+  // príslušný stav do clinic_cooperation_statuses (história spolupráce s ambulanciou).
+  // Hodnoty: acquisition_contacted | acquisition_interested | acquisition_not_interested |
+  //          acquisition_in_negotiation | contract_sent | contract_signed | contract_rejected |
+  //          flyers_sent | flyers_accepted | flyers_rejected | retention_active |
+  //          retention_paused | retention_terminated | services_confirmed | services_declined
+  canonicalClinicStatusKey: text("canonical_clinic_status_key"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -7909,6 +7916,7 @@ export const insertCampaignStatusListItemSchema = createInsertSchema(campaignSta
   autoConfirmOnSubQuestion: z.boolean().optional().default(false),
   questionSelectionMode: z.enum(["multiple", "single"]).optional().default("multiple"),
   tab: z.string().optional().nullable(),
+  canonicalClinicStatusKey: z.string().optional().nullable(),
 });
 export type CampaignStatusListItem = typeof campaignStatusListItems.$inferSelect;
 export type InsertCampaignStatusListItem = z.infer<typeof insertCampaignStatusListItemSchema>;
@@ -8365,6 +8373,39 @@ export const pricingCustomerPriceLists = pgTable("pricing_customer_price_lists",
 }, (table) => ({
   idxPcplCustomer: index("idx_pcpl_customer").on(table.customerId),
 }));
+
+// ---------------------------------------------------------------------------
+// Kanonické statusy spolupráce ambulancií
+// Každý riadok = jeden moment keď koordinátor potvrdil status-list item
+// s nastaveným canonicalClinicStatusKey. Umožňuje rekonštruovať plnú
+// históriu spolupráce ambulancie (funnel, časy prechodov) pre KPI 3.4–3.7.
+// ---------------------------------------------------------------------------
+export const clinicCooperationStatuses = pgTable("clinic_cooperation_statuses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clinicId: varchar("clinic_id").notNull(),
+  // Kanonický kľúč — pevný číselník, nezávislý od textu status-listu:
+  // acquisition_contacted | acquisition_interested | acquisition_not_interested |
+  // acquisition_in_negotiation | contract_sent | contract_signed | contract_rejected |
+  // flyers_sent | flyers_accepted | flyers_rejected | retention_active |
+  // retention_paused | retention_terminated | services_confirmed | services_declined
+  statusKey: text("status_key").notNull(),
+  // Fáza — acquisition | contract | retention (odvodené od statusKey, ukladané pre rýchly filter)
+  phase: text("phase").notNull(),
+  // Kontext — odkiaľ stav pochádza
+  campaignContactId: varchar("campaign_contact_id"),
+  statusListItemId: varchar("status_list_item_id"),
+  confirmedByUserId: varchar("confirmed_by_user_id"),
+  confirmedAt: timestamp("confirmed_at").notNull().default(sql`now()`),
+  // Voliteľná poznámka zo status-list itemNote
+  note: text("note"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+}, (table) => ({
+  idxClinicCoopClinic: index("idx_clinic_coop_clinic").on(table.clinicId),
+  idxClinicCoopKey: index("idx_clinic_coop_key").on(table.clinicId, table.statusKey),
+  idxClinicCoopPhase: index("idx_clinic_coop_phase").on(table.clinicId, table.phase),
+}));
+
+export type ClinicCooperationStatus = typeof clinicCooperationStatuses.$inferSelect;
 
 export type PricingComponent = typeof pricingComponents.$inferSelect;
 export type PricingProduct = typeof pricingProducts.$inferSelect;
