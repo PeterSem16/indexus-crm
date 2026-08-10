@@ -318,17 +318,21 @@ export default function CollectionsPage() {
     enabled: clinicComboOpen || !!formData.clinicId,
   });
 
-  // Personnel assigned to the selected clinic (gynekológ filter)
-  const { data: clinicPersonnel = [] } = useQuery<any[]>({
-    queryKey: ["/api/mpn/institution/clinic", formData.clinicId, "personnel"],
-    queryFn: async () => {
-      const res = await fetch(`/api/mpn/institution/clinic/${formData.clinicId}/personnel`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
-    staleTime: 2 * 60 * 1000,
-    enabled: !!formData.clinicId,
-  });
+  // Gynecologist options: collaborators filtered by the selected clinic's country code.
+  // We derive this from already-loaded data — no extra fetch needed.
+  const selectedClinicCountry = useMemo(() => {
+    if (!formData.clinicId) return null;
+    const c = clinics.find((c: any) => String(c.id) === formData.clinicId);
+    return c?.countryCode || null;
+  }, [formData.clinicId, clinics]);
+
+  const clinicPersonnel = useMemo(() => {
+    if (!formData.clinicId) return [];
+    if (selectedClinicCountry) {
+      return collaborators.filter((c: any) => c.countryCode === selectedClinicCountry);
+    }
+    return collaborators;
+  }, [formData.clinicId, selectedClinicCountry, collaborators]);
 
   // Users with Representant role
   const { data: representativeUsers = [] } = useQuery<any[]>({
