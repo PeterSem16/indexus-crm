@@ -305,7 +305,7 @@ nescroluje  v Status Engine (Nexus Pulse)
     spolupráce (funnel, časy prechodov).
   - Polia na karte ambulancie (contractStatus, hasFlyers...) sa
     synchronizujú ZO statusov, nie opačne — jeden zdroj pravdy.
-
+myslsl som v dokumente analyza-kpi-......
   PRIRADENIE STATUSOV SPOLUPRÁCE K OTÁZKAM STATUS LISTU
   (rozšírenie nastavení status listu v Mission)
   - Problém dnes: otázky a možnosti v status liste sú voľný text —
