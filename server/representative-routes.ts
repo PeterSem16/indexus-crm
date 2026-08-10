@@ -204,7 +204,7 @@ export function registerRepresentativeRoutes(
           userId,
           validFrom: effectiveFrom,
           validTo: null,
-          assignedBy: req.session!.userId,
+          assignedBy: req.session!.user?.id,
           assignmentType: "manual",
           note: note ?? null,
         })
@@ -318,9 +318,51 @@ export function registerRepresentativeRoutes(
     }
   });
 
+  // ── GET /api/clinics/distinct-cities
+  app.get("/api/clinics/distinct-cities", requireAuth, async (req, res) => {
+    try {
+      const { country, regions, districts } = req.query as Record<string, string>;
+      let where: any = sql`${clinics.city} IS NOT NULL AND ${clinics.city} != ''`;
+      if (country) where = sql`${where} AND ${clinics.countryCode} = ${country}`;
+      if (regions) {
+        const arr = regions.split(",").filter(Boolean);
+        if (arr.length === 1) where = sql`${where} AND ${clinics.region} = ${arr[0]}`;
+        else if (arr.length > 1) where = sql`${where} AND ${clinics.region} = ANY(${arr}::text[])`;
+      }
+      if (districts) {
+        const arr = districts.split(",").filter(Boolean);
+        if (arr.length === 1) where = sql`${where} AND ${clinics.district} = ${arr[0]}`;
+        else if (arr.length > 1) where = sql`${where} AND ${clinics.district} = ANY(${arr}::text[])`;
+      }
+      const rows = await db.selectDistinct({ city: clinics.city }).from(clinics).where(where).orderBy(clinics.city);
+      res.json(rows.map(r => r.city).filter(Boolean));
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  // ── GET /api/hospitals/distinct-cities
+  app.get("/api/hospitals/distinct-cities", requireAuth, async (req, res) => {
+    try {
+      const { country, regions, districts } = req.query as Record<string, string>;
+      let where: any = sql`${hospitals.city} IS NOT NULL AND ${hospitals.city} != ''`;
+      if (country) where = sql`${where} AND ${hospitals.countryCode} = ${country}`;
+      if (regions) {
+        const arr = regions.split(",").filter(Boolean);
+        if (arr.length === 1) where = sql`${where} AND ${hospitals.region} = ${arr[0]}`;
+        else if (arr.length > 1) where = sql`${where} AND ${hospitals.region} = ANY(${arr}::text[])`;
+      }
+      if (districts) {
+        const arr = districts.split(",").filter(Boolean);
+        if (arr.length === 1) where = sql`${where} AND ${hospitals.district} = ${arr[0]}`;
+        else if (arr.length > 1) where = sql`${where} AND ${hospitals.district} = ANY(${arr}::text[])`;
+      }
+      const rows = await db.selectDistinct({ city: hospitals.city }).from(hospitals).where(where).orderBy(hospitals.city);
+      res.json(rows.map(r => r.city).filter(Boolean));
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
   // ── POST /api/clinics/bulk-assign-representative
   // Hromadné priradenie podľa kritérií.
-  // Body: { userId, criteria: { country?, region?, district?, currentRepresentativeId?, isActive? },
+  // Body: { userId, criteria: { country?, region?, district?, city?, currentRepresentativeId?, isActive? },
   //         clinicIds?, validFrom?, note?, dryRun? }
   app.post("/api/clinics/bulk-assign-representative", requireAuth, requireManagerOrAdmin, async (req, res) => {
     try {
@@ -380,6 +422,12 @@ export function registerRepresentativeRoutes(
           } else {
             clinicFilter = and(clinicFilter, inArray(clinics.district, districts));
           }
+        }
+        if ((criteria as any).city) {
+          const cities = Array.isArray((criteria as any).city) ? (criteria as any).city : [(criteria as any).city];
+          clinicFilter = cities.length === 1
+            ? and(clinicFilter, eq(clinics.city, cities[0]))
+            : and(clinicFilter, inArray(clinics.city, cities));
         }
 
         const allClinics = await db
@@ -441,7 +489,7 @@ export function registerRepresentativeRoutes(
           userId,
           validFrom: effectiveFrom,
           validTo: null as null,
-          assignedBy: req.session!.userId,
+          assignedBy: req.session!.user?.id,
           assignmentType: criteria.district
             ? "bulk_district"
             : criteria.region
@@ -525,7 +573,7 @@ export function registerRepresentativeRoutes(
         userId: toUserId,
         validFrom: effectiveFrom,
         validTo: null as null,
-        assignedBy: req.session!.userId,
+        assignedBy: req.session!.user?.id,
         assignmentType: "swap" as const,
         note: note ?? null,
       }));
@@ -586,7 +634,7 @@ export function registerRepresentativeRoutes(
         .where(and(eq(hospitalRepresentativeAssignments.hospitalId, hospitalId), isNull(hospitalRepresentativeAssignments.validTo)));
       const [created] = await db.insert(hospitalRepresentativeAssignments).values({
         hospitalId, userId, validFrom: effectiveFrom, validTo: null,
-        assignedBy: req.session!.userId, assignmentType: "manual", note: note ?? null,
+        assignedBy: req.session!.user?.id, assignmentType: "manual", note: note ?? null,
       }).returning();
       res.json({ assignment: created });
     } catch (e: any) { res.status(500).json({ message: e.message }); }
@@ -652,6 +700,12 @@ export function registerRepresentativeRoutes(
           const districts = Array.isArray(criteria.district) ? criteria.district : [criteria.district];
           filter = and(filter, districts.length === 1 ? eq(hospitals.district, districts[0]) : inArray(hospitals.district, districts));
         }
+        if ((criteria as any).city) {
+          const cities = Array.isArray((criteria as any).city) ? (criteria as any).city : [(criteria as any).city];
+          filter = cities.length === 1
+            ? and(filter, eq(hospitals.city, cities[0]))
+            : and(filter, inArray(hospitals.city, cities));
+        }
         const all = await db.select({ id: hospitals.id }).from(hospitals).where(filter ?? undefined);
         targetIds = all.map(h => h.id);
         if (criteria.currentRepresentativeId !== undefined) {
@@ -670,7 +724,7 @@ export function registerRepresentativeRoutes(
         await db.update(hospitalRepresentativeAssignments).set({ validTo: effectiveFrom })
           .where(and(inArray(hospitalRepresentativeAssignments.hospitalId, targetIds), isNull(hospitalRepresentativeAssignments.validTo)));
         await db.insert(hospitalRepresentativeAssignments).values(
-          targetIds.map(hospitalId => ({ hospitalId, userId, validFrom: effectiveFrom, validTo: null as null, assignedBy: req.session!.userId, assignmentType: "manual", note: note ?? null }))
+          targetIds.map(hospitalId => ({ hospitalId, userId, validFrom: effectiveFrom, validTo: null as null, assignedBy: req.session!.user?.id, assignmentType: "manual", note: note ?? null }))
         );
       }
       res.json({ affected: targetIds.length, hospitalIds: targetIds });
@@ -693,7 +747,7 @@ export function registerRepresentativeRoutes(
       await db.update(hospitalRepresentativeAssignments).set({ validTo: effectiveFrom })
         .where(and(inArray(hospitalRepresentativeAssignments.hospitalId, targetIds), eq(hospitalRepresentativeAssignments.userId, fromUserId), isNull(hospitalRepresentativeAssignments.validTo)));
       await db.insert(hospitalRepresentativeAssignments).values(
-        targetIds.map(hospitalId => ({ hospitalId, userId: toUserId, validFrom: effectiveFrom, validTo: null as null, assignedBy: req.session!.userId, assignmentType: "swap" as const, note: note ?? null }))
+        targetIds.map(hospitalId => ({ hospitalId, userId: toUserId, validFrom: effectiveFrom, validTo: null as null, assignedBy: req.session!.user?.id, assignmentType: "swap" as const, note: note ?? null }))
       );
       res.json({ swapped: targetIds.length, hospitalIds: targetIds });
     } catch (e: any) { res.status(500).json({ message: e.message }); }
