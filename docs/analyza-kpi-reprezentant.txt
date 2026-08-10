@@ -1,6 +1,7 @@
 ANALÝZA: KPI REPREZENTANTA / KOORDINÁTORA ODBEROV
 Mission reporting — Agent performance
 INDEXUS CRM, 24. 7. 2026
+Naposledy aktualizované: 10. 8. 2026
 =====================================================================
 
 ÚVOD — ODPOVEĎ NA EMAIL O KPI REPREZENTANTA
@@ -22,11 +23,13 @@ AKTUÁLNY STAV — čo už dnes systém INDEXUS vie:
     číselné KPI; systém už dnes uchováva nahrávky hovorov,
     AI sentiment, emaily a poznámky, takže manažér má podklady
     na posúdenie komunikácie. Chýba len pohodlný súhrnný pohľad.
-  - Otázka 3 (Aký efekt?) je dnes NAJVÄČŠIA MEDZERA. Systém eviduje
-    odbery, ambulancie aj statusy, ale chýbajú kľúčové väzby:
-    ambulancia nemá priradeného reprezentanta, odber nie je
-    naviazaný na ambulanciu a statusy spolupráce nemajú históriu.
-    Preto KPI 3.1–3.7 z emailu zatiaľ NIE JE MOŽNÉ počítať.
+  - Otázka 3 (Aký efekt?) — k 10. 8. 2026 boli IMPLEMENTOVANÉ
+    obidve kľúčové chýbajúce väzby (medzera 1 a medzera 3):
+    odber teraz nesie clinicId (väzba odber → ambulancia) aj
+    representativeId (snapshot z ambulancie v čase uloženia).
+    Podrobnosti v časti „ZMENY 10. 8. 2026" nižšie.
+    KPI 3.1–3.3 je technicky možné začať počítať; zostávajú
+    otvorenou otázkou manažérske rozhodnutia z kapitoly 5.
 
 NAVRHOVANÉ RIEŠENIE v skratke:
   - Doplniť dve chýbajúce väzby (ambulancia -> reprezentant,
@@ -41,6 +44,76 @@ NAVRHOVANÉ RIEŠENIE v skratke:
 
 Zatiaľ ide o analytický návrh — bez implementácie.
 
+---------------------------------------------------------------------
+ZMENY 10. 8. 2026 — IMPLEMENTOVANÉ
+---------------------------------------------------------------------
+
+BOD 4.1 — Priradenie ambulancia → reprezentant  [ČIASTOČNE HOTOVÉ]
+  Implementované:
+  - Tabuľka clinic_representative_assignments (platnosť od–do) bola
+    zavedená v predchádzajúcom sprint. Ambulancia môže mať priradeného
+    reprezentanta s históriou zmien.
+  - Pri ukladaní odberu (POST/PATCH /api/collections) sa automaticky
+    spustí snapshotCollectionRepresentative(): systém vezme aktuálne
+    priradenie ambulancie a skopíruje representativeId priamo do
+    záznamu odberu. Väzba odber → reprezentant (platný v čase odberu)
+    teda vzniká automaticky — nie manuálne.
+  - Collection forma dostala Representative selector (výber
+    z používateľov s rolou Reprezentant); auto-fill nastáva pri
+    výbere ambulancie, agent môže výber ručne opraviť.
+  Čo stále chýba:
+  - Hromadné priradenie ambulancií podľa regiónu/okresu
+    (bod 4.1, tretí podbod) — nie je implementované.
+  - Reportingová obrazovka „ambulancie v správe reprezentanta X
+    k dátumu Y" — nie je implementovaná.
+  Vplyv na KPI:
+  - Väzba odber → reprezentant teraz EXISTUJE pre všetky nové odbery
+    uložené po 10. 8. 2026. Historické odbery reprezentanta nemajú
+    (kým sa nespustí backfill alebo ručná korekcia).
+  - KPI 3.1–3.3 je pre nové odbery technicky počítateľné; historické
+    dáta budú neúplné, kým sa nespustí hromadné priradenie a backfill.
+
+BOD 4.2 — Väzba odber → ambulancia  [HOTOVÉ]
+  Implementované:
+  - Do tabuľky collections bol pridaný stĺpec clinic_id (VARCHAR).
+  - V collection forme pribudol selector „Ambulancia (gynekológ)":
+    vyhľadávateľný combobox filtrovaný podľa krajiny odberu.
+    Zobrazuje len ambulancie z krajiny daného odberu (server-side
+    aj client-side filter ako poistka).
+  - Výber ambulancie v forme je prepojený s auto-fillom reprezentanta
+    (bod 4.1 vyššie) — jedna akcia zabezpečí obe väzby.
+  Vplyv na KPI:
+  - Reťazec odber → ambulancia → reprezentant teraz uzavretý
+    pre všetky nové odbery.
+  - Výpočet KPI 3.1 (počet odberov na reprezentanta/mesiac),
+    3.2 (obrat) a 3.3 (marža) je technicky možný; zostávajú závislé
+    na manažérskych rozhodnutiach 5b (zdroj „zaplatené") a 5c
+    (koeficient marže).
+
+ĎALŠIE ZMENY (UX / dátová kvalita):
+  - Hospital selector v collection forme nahradený vyhľadávateľným
+    comboboxom — agenti teraz rýchlo nájdu nemocnicu písaním názvu
+    alebo mesta (filtrované podľa krajiny). Zmenšuje riziko výberu
+    nesprávnej nemocnice a tým chybného priradenia v KPI.
+  - Personnel selektory (Cord Blood Collector, Tissue Collector,
+    Placenta Collector, Asistent, Sestra) zobrazujú len personál
+    skutočne priradený k vybranej nemocnici v MPN systéme — nie
+    všetkých spolupracovníkov krajiny. Zvyšuje presnosť záznamu.
+  - Opravená SQL chyba v personnel endpoint (GROUP BY + neexistujúci
+    stĺpec address → streetNumber) — endpoint vracia správne dáta.
+
+CELKOVÝ DOPAD NA KPI VYHODNOTENIE (stav po 10. 8. 2026):
+  Medzera 1 (ambulancia → reprezentant): ČIASTOČNE VYRIEŠENÁ
+    → snapshot pri každom novom odbere automatický; chýba hromadné
+      priradenie a backfill historických odberov
+  Medzera 2 (história statusov ambulancií): OTVORENÁ
+    → kanonický status list v Nexus Pulse nie je implementovaný
+  Medzera 3 (odber → ambulancia): VYRIEŠENÁ
+    → clinic_id v collections, vyhľadávateľný selector v forme
+  Medzera 4 (zaplatené + marža): OTVORENÁ
+    → závisí na rozhodnutiach manažmentu (bod 5b, 5c)
+
+---------------------------------------------------------------------
 
 1. ČO UŽ DNES V SYSTÉME MÁME (dátový základ)
 ---------------------------------------------------------------------
