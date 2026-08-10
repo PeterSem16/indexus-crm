@@ -95,6 +95,12 @@ export function RepresentativePanel({ entityType, entityId }: RepresentativePane
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: qkCurrent });
     qc.invalidateQueries({ queryKey: qkHistory });
+    // Refresh the entity list so the representative column updates immediately
+    if (entityType === "clinic") {
+      qc.invalidateQueries({ queryKey: ["/api/clinics"] });
+    } else {
+      qc.invalidateQueries({ queryKey: ["/api/hospitals"] });
+    }
   };
 
   const { data: currentData, isLoading: currentLoading } = useQuery<{ assignment: Assignment | null }>({

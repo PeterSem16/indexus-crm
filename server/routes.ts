@@ -17249,7 +17249,10 @@ Return ONLY valid JSON, no markdown code blocks.`,
     try {
       const oldClinic = await storage.getClinic(req.params.id);
       const coerced = coerceClinicDates(req.body);
-      const clinic = await storage.updateClinic(req.params.id, coerced);
+      // Strip representativeId — it is a read-only denormalized field managed exclusively
+      // by the manager/admin-only POST /api/clinics/:id/representative endpoint.
+      const { representativeId: _stripped, ...clinicUpdateData } = coerced as any;
+      const clinic = await storage.updateClinic(req.params.id, clinicUpdateData);
       if (!clinic) return res.status(404).json({ error: "Clinic not found" });
       await logActivity(req.session.user!.id, "update", "clinic", clinic.id, clinic.name);
       try {

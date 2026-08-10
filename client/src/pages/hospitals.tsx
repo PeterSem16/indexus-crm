@@ -2696,6 +2696,11 @@ export default function HospitalsPage() {
       cell: (clinic: Clinic) => clinic.city || "-",
     },
     {
+      key: "representative",
+      header: t.hospitals.representative,
+      cell: (clinic: Clinic) => getUserName(clinic.representativeId ?? null),
+    },
+    {
       key: "actions",
       header: t.common.actions,
       cell: (clinic: Clinic) => (

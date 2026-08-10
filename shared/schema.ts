@@ -368,16 +368,19 @@ export const clinics = pgTable("clinics", {
   hasFlyers: boolean("has_flyers").notNull().default(false),
   flyersSentDate: timestamp("flyers_sent_date"),
   flyersLocation: text("flyers_location"),
+  representativeId: varchar("representative_id"), // Aktuálny reprezentant (synchronizovaný z clinic_representative_assignments)
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 }, (table) => ({
   idxClinicsCountry: index("idx_clinics_country").on(table.countryCode),
+  idxClinicsRepresentative: index("idx_clinics_representative").on(table.representativeId),
 }));
 
 export const insertClinicSchema = createInsertSchema(clinics).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+  representativeId: true, // Read-only denormalized field; written only via /api/clinics/:id/representative
 });
 export type InsertClinic = z.infer<typeof insertClinicSchema>;
 export type Clinic = typeof clinics.$inferSelect;
