@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -24,10 +24,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { COUNTRIES, WORLD_COUNTRIES } from "@shared/schema";
 import { CLIENT_STATUSES } from "@shared/schema";
 import type { Customer, ComplaintType, CooperationType, VipStatus, HealthInsurance } from "@shared/schema";
-import { Copy, PhoneCall, User, MapPin, Briefcase, Building2, FileText, Globe, Heart, Baby, ChevronRight, CheckCircle2, Circle, Stethoscope, Phone, Mail, Calendar, Activity, Hospital, FolderOpen, Scale } from "lucide-react";
+import { Copy, PhoneCall, User, MapPin, Briefcase, Building2, FileText, Globe, Heart, Baby, ChevronRight, CheckCircle2, Circle, Stethoscope, Phone, Mail, Calendar, Activity, Hospital, FolderOpen, Scale, Check, ChevronsUpDown, Loader2, X } from "lucide-react";
 import { CallCustomerButton } from "@/components/sip-phone";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -293,7 +295,15 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
   const { data: cooperationTypes = [] } = useQuery<CooperationType[]>({ queryKey: ["/api/config/cooperation-types"] });
   const { data: vipStatuses = [] } = useQuery<VipStatus[]>({ queryKey: ["/api/config/vip-statuses"] });
   const { data: healthInsuranceCompanies = [] } = useQuery<HealthInsurance[]>({ queryKey: ["/api/config/health-insurance"] });
-  const { data: clinicLookup = [] } = useQuery<any[]>({ queryKey: ["/api/clinics/lookup"], staleTime: 5 * 60 * 1000 });
+
+  const [clinicComboOpen, setClinicComboOpen] = useState(false);
+  const [clinicSearch, setClinicSearch] = useState("");
+  const [debouncedClinicSearch, setDebouncedClinicSearch] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedClinicSearch(clinicSearch), 300);
+    return () => clearTimeout(timer);
+  }, [clinicSearch]);
+
   const { data: collaboratorLookup = [] } = useQuery<any[]>({
     queryKey: ["/api/collaborators/lookup"],
     queryFn: async () => {
@@ -375,6 +385,52 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
   const clientStatus = form.watch("clientStatus");
   const registrationSource = form.watch("registrationSource");
   const expectedDeliveryDate = form.watch("expectedDeliveryDate");
+  const watchedClinicId = form.watch("clinicId");
+
+  // Clinic lookup: server-side search + country filter from the live form country value.
+  // Always pins the currently-selected clinic ID (?id=) so it appears in results even if
+  // it's beyond the page limit or the search term doesn't match it.
+  const { data: clinicLookup = [], isFetching: clinicsFetching } = useQuery<any[]>({
+    queryKey: ["/api/clinics/lookup", { q: debouncedClinicSearch, country: selectedCountry, id: watchedClinicId || undefined }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (debouncedClinicSearch) params.set("q", debouncedClinicSearch);
+      if (selectedCountry) params.set("country", selectedCountry);
+      if (watchedClinicId) params.set("id", watchedClinicId);
+      params.set("limit", "80");
+      const res = await fetch(`/api/clinics/lookup?${params.toString()}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    staleTime: 2 * 60 * 1000,
+    enabled: clinicComboOpen || !!watchedClinicId,
+  });
+
+  const selectedClinicCountry = useMemo(() => {
+    if (!watchedClinicId) return null;
+    const c = clinicLookup.find((c: any) => String(c.id) === watchedClinicId);
+    return c?.countryCode || null;
+  }, [watchedClinicId, clinicLookup]);
+
+  // Clear clinic when it belongs to a different country than the customer.
+  // Depends on BOTH selectedCountry and selectedClinicCountry: the lookup is async,
+  // so selectedClinicCountry may be null on the first country-change render and only
+  // resolves after the pinned fetch completes. Watching both ensures the clear fires
+  // once the clinic's country is actually known.
+  useEffect(() => {
+    if (!watchedClinicId || !selectedCountry || !selectedClinicCountry) return;
+    if (selectedClinicCountry !== selectedCountry) {
+      form.setValue("clinicId", "");
+    }
+  }, [selectedCountry, selectedClinicCountry]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const filteredCollaborators = useMemo(() => {
+    if (!watchedClinicId) return collaboratorLookup;
+    if (selectedClinicCountry) {
+      return collaboratorLookup.filter((c: any) => c.countryCode === selectedClinicCountry);
+    }
+    return collaboratorLookup;
+  }, [watchedClinicId, selectedClinicCountry, collaboratorLookup]);
 
   const filteredHealthInsurance = healthInsuranceCompanies.filter(
     hi => hi.countryCode === selectedCountry || !selectedCountry
@@ -1008,24 +1064,89 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                           <div className="flex items-center gap-1.5">
                             <Stethoscope className="h-3.5 w-3.5 text-emerald-600" />
                             {(t as any).customers?.caseFields?.clinic || "Ambulancia (gynekológ) — prepojenie na reprezentanta"}
+                            {selectedCountry && (
+                              <span className="ml-1 text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded uppercase">{selectedCountry}</span>
+                            )}
                           </div>
                         </FormLabel>
-                        <Select
-                          value={field.value || "__none__"}
-                          onValueChange={(v) => field.onChange(v === "__none__" ? "" : v)}
-                        >
-                          <FormControl>
-                            <SelectTrigger data-testid="select-customer-clinic">
-                              <SelectValue placeholder={(t as any).common?.select || "Vybrať ambulanciu..."} />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="__none__">{(t as any).common?.noData || "— žiadna —"}</SelectItem>
-                            {clinicLookup.map((c: any) => (
-                              <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <Popover open={clinicComboOpen} onOpenChange={(o) => { setClinicComboOpen(o); if (o) setClinicSearch(""); }}>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={clinicComboOpen}
+                                className="w-full justify-between font-normal h-9 text-sm"
+                                data-testid="select-customer-clinic"
+                                type="button"
+                              >
+                                <span className="truncate">
+                                  {field.value
+                                    ? (clinicLookup.find((c: any) => String(c.id) === field.value)?.name || "Ambulancia vybraná")
+                                    : <span className="text-muted-foreground">{(t as any).common?.select || "Vybrať ambulanciu..."}</span>
+                                  }
+                                </span>
+                                {clinicsFetching
+                                  ? <Loader2 className="h-4 w-4 animate-spin opacity-50 shrink-0" />
+                                  : <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+                                }
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[320px] p-0" align="start">
+                              <Command shouldFilter={false}>
+                                <CommandInput
+                                  placeholder="Hľadať ambulanciu..."
+                                  value={clinicSearch}
+                                  onValueChange={setClinicSearch}
+                                />
+                                <CommandList>
+                                  {clinicsFetching && (
+                                    <div className="flex items-center justify-center py-4 text-muted-foreground text-sm gap-2">
+                                      <Loader2 className="h-4 w-4 animate-spin" /> Načítavam...
+                                    </div>
+                                  )}
+                                  {!clinicsFetching && clinicLookup.length === 0 && (
+                                    <CommandEmpty>Žiadna ambulancia nenájdená</CommandEmpty>
+                                  )}
+                                  <CommandGroup>
+                                    {!clinicsFetching && field.value && (
+                                      <CommandItem
+                                        value="__clear__"
+                                        onSelect={() => {
+                                          field.onChange("");
+                                          setClinicComboOpen(false);
+                                        }}
+                                        className="text-muted-foreground text-xs"
+                                      >
+                                        <X className="h-3 w-3 mr-2" /> Zrušiť výber
+                                      </CommandItem>
+                                    )}
+                                    {clinicLookup.map((c: any) => (
+                                      <CommandItem
+                                        key={c.id}
+                                        value={String(c.id)}
+                                        onSelect={() => {
+                                          field.onChange(String(c.id));
+                                          setClinicComboOpen(false);
+                                          setClinicSearch("");
+                                        }}
+                                      >
+                                        <Check className={`mr-2 h-4 w-4 ${field.value === String(c.id) ? "opacity-100" : "opacity-0"}`} />
+                                        <div className="flex flex-col">
+                                          <span className="text-sm">{c.name}</span>
+                                          {c.city && <span className="text-xs text-muted-foreground">{c.city}</span>}
+                                        </div>
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                        </FormControl>
+                        {!selectedCountry && (
+                          <p className="text-xs text-amber-600 mt-1">Krajina zákazníka nie je nastavená — ambulancie nie sú filtrované</p>
+                        )}
                         <FormMessage />
                       </FormItem>
                     )} />
@@ -1048,7 +1169,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="__none__">{(t as any).common?.noData || "— žiadna —"}</SelectItem>
-                            {collaboratorLookup.map((c: any) => (
+                            {filteredCollaborators.map((c: any) => (
                               <SelectItem key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</SelectItem>
                             ))}
                           </SelectContent>

@@ -3425,6 +3425,7 @@ export async function registerRoutes(
       const limitParam = hasExplicitLimit
         ? Math.min(parseInt(req.query.limit as string) || 200, 200)
         : (q.length >= 1 ? 200 : undefined);
+      const pinnedId = (req.query.id as string || "").trim();
       const conditions: any[] = [];
       if (q.length >= 1) {
         const s = `%${q}%`;
@@ -3436,7 +3437,7 @@ export async function registerRoutes(
         conditions.push(eq(clinics.countryCode, country));
       }
       const where = conditions.length > 0 ? and(...conditions) : undefined;
-      const query = db.select({
+      const selectFields = {
         id: clinics.id,
         name: clinics.name,
         countryCode: clinics.countryCode,
@@ -3445,8 +3446,14 @@ export async function registerRoutes(
         doctorFirstName: clinics.doctorFirstName,
         doctorLastName: clinics.doctorLastName,
         city: clinics.city,
-      }).from(clinics).where(where).orderBy(clinics.name);
+      };
+      const query = db.select(selectFields).from(clinics).where(where).orderBy(clinics.name);
       const data = limitParam !== undefined ? await query.limit(limitParam) : await query;
+      // If a pinned ID was requested and isn't already in the results, fetch and prepend it
+      if (pinnedId && !data.find(r => r.id === pinnedId)) {
+        const pinned = await db.select(selectFields).from(clinics).where(eq(clinics.id, pinnedId)).limit(1);
+        if (pinned.length > 0) data.unshift(pinned[0]);
+      }
       res.json(data);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch clinic lookup" });
