@@ -53,6 +53,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CallCustomerButton } from "@/components/sip-phone";
 import { InstitutionPersonnelManager, CbcActivityBadgesForRow } from "@/components/institution-personnel-panel";
+import { ClinicRepresentativePanel } from "@/components/clinic-representative-panel";
 import { CollaboratorFormWizard } from "@/components/collaborator-form-wizard";
 import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimeline";
 import { getQueryFn } from "@/lib/queryClient";
@@ -1036,6 +1037,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
     { key: "basic", icon: Building2, label: t.clinics.steps?.basic || "Info" },
     { key: "address", icon: MapPin, label: t.clinics.steps?.address || "Address" },
     { key: "referral", icon: CircleDot, label: t.clinics.steps.referral },
+    { key: "representative", icon: UserCheck, label: "Reprezentant" },
     { key: "personnel", icon: Users, label: (t as any).personnel || "Personnel" },
     { key: "campaigns", icon: Megaphone, label: (t as any).campaigns?.title || "Campaigns" },
   ];
@@ -2724,6 +2726,10 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
             </div>
           )}
 
+          {activeTab === "representative" && initialData && (
+            <ClinicRepresentativePanel clinicId={initialData.id} />
+          )}
+
           {activeTab === "personnel" && initialData && (
             <InstitutionPersonnelManager entityType="clinic" entityId={initialData.id} entityName={initialData.name} countryCode={initialData.countryCode} inlineMode={mode === "inline"} />
           )}
@@ -2859,6 +2865,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
     { key: "basic", icon: Building2, label: t.clinics.steps?.basic || "Info" },
     { key: "address", icon: MapPin, label: t.clinics.steps?.address || "Address" },
     { key: "referral", icon: CircleDot, label: t.clinics.steps.referral },
+    { key: "representative", icon: UserCheck, label: "Reprezentant" },
     { key: "personnel", icon: Users, label: (t as any).personnel || "Personnel" },
     { key: "campaigns", icon: Megaphone, label: (t as any).campaigns?.title || "Campaigns" },
   ];
@@ -3364,6 +3371,13 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                 <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
                   <Users className="h-10 w-10 mb-3 opacity-40" />
                   <p className="text-sm">{(t as any).medicalPartnerNetwork?.noPersonnel || "Personnel can be added after saving."}</p>
+                </div>
+              )}
+
+              {activeTab === "representative" && (
+                <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                  <UserCheck className="h-10 w-10 mb-3 opacity-40" />
+                  <p className="text-sm">Reprezentanta možno priradiť po uložení kliniky.</p>
                 </div>
               )}
 

@@ -49704,6 +49704,8 @@ Return ONLY the JSON object.`
   registerCollaboratorUpdateRoutes(app, requireAuth);
   const { registerPricingRoutes } = await import("./pricing-routes");
   registerPricingRoutes(app);
+  const { registerRepresentativeRoutes } = await import("./representative-routes");
+  registerRepresentativeRoutes(app);
 
   app.get("/api/web-forms", requireAuth, async (_req, res) => {
     try { res.json(await storage.getWebForms()); }

@@ -795,6 +795,59 @@ app.use((req, res, next) => {
     console.error('[migration] beratung tables error:', e.message);
   }
 
+  // ── Clinic Representative Assignments ─────────────────────────────────────
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS clinic_representative_assignments (
+        id              varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        clinic_id       varchar NOT NULL,
+        user_id         varchar NOT NULL,
+        valid_from      timestamptz NOT NULL DEFAULT now(),
+        valid_to        timestamptz,
+        assigned_by     varchar,
+        assigned_at     timestamptz NOT NULL DEFAULT now(),
+        assignment_type text NOT NULL DEFAULT 'manual',
+        note            text
+      );
+
+      -- max. 1 aktívne priradenie na kliniku (valid_to IS NULL)
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_cra_clinic_active
+        ON clinic_representative_assignments (clinic_id)
+        WHERE valid_to IS NULL;
+
+      CREATE INDEX IF NOT EXISTS idx_cra_clinic
+        ON clinic_representative_assignments (clinic_id);
+      CREATE INDEX IF NOT EXISTS idx_cra_user
+        ON clinic_representative_assignments (user_id);
+      CREATE INDEX IF NOT EXISTS idx_cra_at_time
+        ON clinic_representative_assignments (clinic_id, valid_from, valid_to);
+    `);
+    console.log('[migration] clinic_representative_assignments ensured');
+  } catch (e: any) {
+    console.error('[migration] clinic_representative_assignments error:', e.message);
+  }
+
+  // ── Seed rola Representant (pre Replit dev; prod ju má manuálne vytvorenú) ─
+  try {
+    await pool.query(`
+      INSERT INTO roles (id, name, description, department, legacy_role, default_landing_page, is_active, is_system)
+      VALUES (
+        'role-representant',
+        'Representant',
+        'Profile for users who are representatives and have influence over the work of collaborators',
+        'Sales',
+        'user',
+        '/nexus-pulse',
+        true,
+        false
+      )
+      ON CONFLICT (name) DO NOTHING;
+    `);
+    console.log('[migration] Representant role ensured');
+  } catch (e: any) {
+    console.error('[migration] Representant role seed error:', e.message);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

@@ -403,6 +403,36 @@ export const insertClinicReferralSchema = createInsertSchema(clinicReferrals).om
 export type InsertClinicReferral = z.infer<typeof insertClinicReferralSchema>;
 export type ClinicReferral = typeof clinicReferrals.$inferSelect;
 
+// ── Clinic Representative Assignments (s históriou platnosti) ──────────────
+// Každé priradenie má validFrom–validTo; NULL validTo = aktuálne platné.
+// Pri zmene reprezentanta sa staré priradenie uzavrie (validTo = now())
+// a vytvorí sa nové — výsledky sa vždy pripíšu tomu, kto mal kliniku V ČASE.
+export const clinicRepresentativeAssignments = pgTable(
+  "clinic_representative_assignments",
+  {
+    id:             varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    clinicId:       varchar("clinic_id").notNull(),
+    userId:         varchar("user_id").notNull(),          // reprezentant
+    validFrom:      timestamp("valid_from").notNull().default(sql`now()`),
+    validTo:        timestamp("valid_to"),                 // NULL = aktuálne platné
+    assignedBy:     varchar("assigned_by"),               // kto priradil
+    assignedAt:     timestamp("assigned_at").notNull().default(sql`now()`),
+    assignmentType: text("assignment_type").notNull().default("manual"),
+    // 'manual' | 'bulk_region' | 'bulk_district' | 'swap' | 'import'
+    note:           text("note"),
+  }
+);
+
+export const insertClinicRepresentativeAssignmentSchema =
+  createInsertSchema(clinicRepresentativeAssignments).omit({
+    id: true,
+    assignedAt: true,
+  });
+export type InsertClinicRepresentativeAssignment =
+  z.infer<typeof insertClinicRepresentativeAssignmentSchema>;
+export type ClinicRepresentativeAssignment =
+  typeof clinicRepresentativeAssignments.$inferSelect;
+
 export const collaboratorReferrals = pgTable("collaborator_referrals", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   collaboratorId: varchar("collaborator_id").notNull(),
