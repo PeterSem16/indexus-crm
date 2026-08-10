@@ -29284,7 +29284,16 @@ CRITICAL RULES — READ CAREFULLY:
 
 2. CREATE NEW KEYS when truly nothing fits: If a step tracks something genuinely not covered by existing keys, define a new key in "newKeysSuggested" AND immediately use it as suggestedKey for that item. New key naming: use snake_case with a phase prefix (acquisition_, contract_, retention_, assignment_).
 
-3. NULL is a last resort: Only set suggestedKey to null for items that are purely internal/database/system steps with no KPI meaning (e.g. "Database management only — not visible to agents"). For ALL other items, either use an existing key or define + use a new one.
+3. NULL is FORBIDDEN unless the item's description literally contains "not visible to agents", "database management only", or equivalent wording. If you are unsure, pick the closest existing key or invent a new one — do NOT return null. Ambiguous items must get a key.
+
+   FORCED MAPPINGS for common ambiguous items:
+   - "Contract received by partner / clinic" → contract_signed (clinic received = they accepted/signed)
+   - "Signed contract validated / verified" → contract_signed
+   - "Contract returned / confirmed by clinic" → contract_signed
+   - "Unassigned / removed representative" → define new key: assignment_rep_unassigned
+   - "HP reachability / can we reach clinic" → acquisition_contacted
+   - "HP assigned to whom / which rep" → define new key: assignment_rep_assigned
+   - "Contract sending count / how many times sent" → contract_sent
 
 4. EVERY item must appear in suggestions. The array must have exactly ${items.length} entries in the same order.
 
@@ -29385,7 +29394,91 @@ Respond ONLY with valid JSON in this exact format:
         console.log(`[suggest-canonical] fallback: added ${missing.length} missing items with null suggestion`);
       }
 
-      res.json({ suggestions: aiSuggestions, newKeysSuggested: parsed.newKeysSuggested ?? [] });
+      // ── Keyword pattern fallback ──────────────────────────────────────────────
+      // For items where AI still returned null, apply deterministic label/description
+      // pattern matching to catch common cases the AI misses.
+      const KEYWORD_RULES: Array<{ patterns: RegExp[]; key: string; confidence: "medium" | "low"; reasoning: string }> = [
+        // Contract phase
+        { patterns: [/contract.*(receiv|return|back|partner.*sent|signed.*back)/i, /signed contract.*valid/i, /contract.*confirm/i, /zmluva.*(vráten|podpís|potvrden)/i], key: "contract_signed", confidence: "medium", reasoning: "Clinic returned/confirmed a signed contract — matches contract_signed" },
+        { patterns: [/contract.*(send|sent|dispatch|forward|odoslan)/i, /send.*contract/i, /zmluva.*zaslan/i, /počet.*zaslania|zaslanie.*zmluv/i, /contract.*send.*count|sending.*count/i], key: "contract_sent", confidence: "medium", reasoning: "Contract was sent to clinic — matches contract_sent" },
+        { patterns: [/contract.*(reject|declin|refused|odmiet)/i, /zmluva.*odmiet/i], key: "contract_rejected", confidence: "medium", reasoning: "Contract was rejected — matches contract_rejected" },
+        { patterns: [/flyer.*(sent|send|accepted|agreed)/i, /letáky.*(zaslan|prijat)/i], key: "flyers_sent", confidence: "medium", reasoning: "Flyers sent to clinic — matches flyers_sent" },
+        // Acquisition phase
+        { patterns: [/reachab|contactab|dosiahnut|dostupn|contact.*status|can.*reach|reach.*status/i], key: "acquisition_contacted", confidence: "medium", reasoning: "Tracks clinic reachability / contact status — matches acquisition_contacted" },
+        { patterns: [/first.*contact|prvý.*kontakt|contacted.*first/i], key: "acquisition_contacted", confidence: "high", reasoning: "First contact with clinic — matches acquisition_contacted" },
+        { patterns: [/interest|záujem|chce.*spoluprac/i], key: "acquisition_interested", confidence: "medium", reasoning: "Clinic expressed interest — matches acquisition_interested" },
+        { patterns: [/negotiat|rokovan/i], key: "acquisition_in_negotiation", confidence: "medium", reasoning: "Active negotiation ongoing — matches acquisition_in_negotiation" },
+        // Retention phase
+        { patterns: [/active.*cooper|aktívna.*spolupráca|cooper.*active/i], key: "retention_active", confidence: "medium", reasoning: "Active cooperation — matches retention_active" },
+        { patterns: [/terminat|ukončen|ended.*cooper|cooper.*end/i], key: "retention_terminated", confidence: "medium", reasoning: "Cooperation terminated — matches retention_terminated" },
+        { patterns: [/poster.*(sent|send)/i, /postery.*zaslan/i], key: "retention_posters_sent", confidence: "medium", reasoning: "Posters sent — matches retention_posters_sent" },
+        { patterns: [/leaflet|leták.*(sent|send)|letáky.*zaslán/i], key: "retention_leaflets_sent", confidence: "medium", reasoning: "Leaflets sent — matches retention_leaflets_sent" },
+        { patterns: [/pregnan.*book|tehotens.*knižk|knižky.*zaslán/i], key: "retention_pregbook_sent", confidence: "medium", reasoning: "Pregnancy booklets sent — matches retention_pregbook_sent" },
+        { patterns: [/material.*(sent|send)|material.*zaslan/i], key: "retention_materials_sent", confidence: "medium", reasoning: "Marketing materials sent — matches retention_materials_sent" },
+        { patterns: [/service.*(confirm|agreed|yes)/i, /potvrden.*odporúč/i], key: "services_confirmed", confidence: "medium", reasoning: "Clinic confirmed they will recommend services — matches services_confirmed" },
+        { patterns: [/service.*(declin|refused|no)|odmiet.*odporúč/i], key: "services_declined", confidence: "medium", reasoning: "Clinic declined to recommend services — matches services_declined" },
+      ];
+
+      // New keys that the keyword fallback may create (added to newKeysSuggested)
+      const KEYWORD_NEW_KEYS: Array<{ patterns: RegExp[]; key: string; label: string; phase: string; description: string; reasoning: string }> = [
+        { patterns: [/unassign.*rep|rep.*unassign|remove.*rep|bez.*zástup/i], key: "assignment_rep_unassigned", label: "Nezaradený obchodný zástupca", phase: "assignment", description: "Representative was removed or unassigned from this clinic", reasoning: "Clinic was unassigned from a representative — new key assignment_rep_unassigned" },
+        { patterns: [/assign.*rep|rep.*assign|which.*rep|to whom|komu.*priradn|kto.*spravuje|priradn.*kto/i], key: "assignment_rep_assigned", label: "Priradený obchodný zástupca", phase: "assignment", description: "A sales representative has been assigned to this clinic", reasoning: "Tracks which rep is assigned to this clinic — new key assignment_rep_assigned" },
+      ];
+
+      const newKeysFromKeywords = new Map<string, { key: string; label: string; phase: string; description: string }>();
+      let keywordFixed = 0;
+
+      for (const suggestion of aiSuggestions) {
+        if (suggestion.suggestedKey != null) continue; // only fix null suggestions
+        const label: string = (suggestion.itemLabel ?? "").toLowerCase();
+        const item = items.find(i => i.id === suggestion.itemId);
+        const desc: string = ((item?.description ?? "")).toLowerCase();
+        const text = label + " " + desc;
+
+        // Skip items that are explicitly internal/DB-only
+        if (/not visible to agents|database management only|db.*only|interný.*krok/i.test(desc)) continue;
+
+        // Try existing key rules
+        let matched = false;
+        for (const rule of KEYWORD_RULES) {
+          if (rule.patterns.some(p => p.test(text))) {
+            suggestion.suggestedKey = rule.key;
+            suggestion.confidence = rule.confidence;
+            suggestion.reasoning = rule.reasoning + " [keyword-fallback]";
+            keywordFixed++;
+            matched = true;
+            break;
+          }
+        }
+
+        // Try new key rules
+        if (!matched) {
+          for (const rule of KEYWORD_NEW_KEYS) {
+            if (rule.patterns.some(p => p.test(text))) {
+              suggestion.suggestedKey = rule.key;
+              suggestion.confidence = "medium";
+              suggestion.reasoning = rule.reasoning + " [keyword-fallback]";
+              if (!newKeysFromKeywords.has(rule.key)) {
+                newKeysFromKeywords.set(rule.key, { key: rule.key, label: rule.label, phase: rule.phase, description: rule.description });
+              }
+              keywordFixed++;
+              break;
+            }
+          }
+        }
+      }
+
+      if (keywordFixed > 0) {
+        console.log(`[suggest-canonical] keyword-fallback fixed ${keywordFixed} null suggestions`);
+      }
+
+      // Merge keyword-generated new keys with AI-suggested new keys
+      const allNewKeys = [
+        ...(parsed.newKeysSuggested ?? []),
+        ...Array.from(newKeysFromKeywords.values()).filter(nk => !(parsed.newKeysSuggested ?? []).some((ak: any) => ak.key === nk.key)),
+      ];
+
+      res.json({ suggestions: aiSuggestions, newKeysSuggested: allNewKeys });
     } catch (error) {
       console.error("[suggest-canonical] failed:", error);
       res.status(500).json({ error: "AI suggestion failed" });
