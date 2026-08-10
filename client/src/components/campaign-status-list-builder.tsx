@@ -3447,17 +3447,24 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
   async function applyAiSuggestions() {
     if (!aiSuggestData) return;
     setAiSuggestApplying(true);
-    const toApply = aiSuggestData.suggestions.filter(s => aiSuggestSelected.has(s.itemId) && s.suggestedKey !== undefined);
+    // Only apply items that have an actual suggested key (null = no match, don't overwrite)
+    const toApply = aiSuggestData.suggestions.filter(s => aiSuggestSelected.has(s.itemId) && s.suggestedKey != null);
     try {
-      await Promise.all(toApply.map(s =>
-        fetch(`/api/campaigns/${campaignId}/status-list/${s.itemId}`, {
+      const results = await Promise.all(toApply.map(async s => {
+        const res = await fetch(`/api/campaigns/${campaignId}/status-list/${s.itemId}`, {
           method: "PUT", credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ canonicalClinicStatusKey: s.suggestedKey }),
-        })
-      ));
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
-      toast({ title: `✅ ${sl("aiSuggestApplied", locale)} (${toApply.length})` });
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: res.statusText }));
+          throw new Error(`Item ${s.itemId}: ${err?.error ?? res.status}`);
+        }
+        return res.json();
+      }));
+      console.log("[AI apply] saved", results.length, "items, sample:", results[0]);
+      await queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
+      toast({ title: `✅ ${sl("aiSuggestApplied", locale)} (${results.length})` });
       setAiSuggestOpen(false);
     } catch (e) {
       toast({ title: "Apply failed", description: String(e), variant: "destructive" });
