@@ -60,41 +60,33 @@ export function registerRepresentativeRoutes(
   // Vracia id, name, email, počet aktuálne pridelených kliník.
   app.get("/api/representatives", requireAuth, async (req, res) => {
     try {
-      // Nájdi roleId pre rolu s názvom "Representant" (prípadne "Representative")
-      const representantRole = await db
+      // Zisti všetky roleId s názvom Representant/Representative
+      const representantRoles = await db
         .select({ id: roles.id })
         .from(roles)
-        .where(
-          sql`lower(${roles.name}) IN ('representant', 'representative')`
-        )
-        .limit(1);
+        .where(sql`lower(${roles.name}) IN ('representant', 'representative')`);
 
-      let reps: { id: string; fullName: string | null; email: string | null }[] = [];
+      const roleIds = representantRoles.map((r) => r.id);
 
-      if (representantRole.length > 0) {
-        const roleId = representantRole[0].id;
-        // Použí many-to-many user_roles tabuľku
-        const rows = await db
-          .select({
-            id: users.id,
-            fullName: users.fullName,
-            email: users.email,
-          })
-          .from(users)
-          .innerJoin(userRoles, eq(userRoles.userId, users.id))
-          .where(eq(userRoles.roleId, roleId));
-        reps = rows;
-      }
+      // Použí rovnaký prístup ako Users stránka:
+      // user_roles many-to-many OR users.roleId priamy FK — oba mechanizmy dohromady
+      const rawRows = await db.execute<{ id: string; full_name: string | null; email: string | null }>(
+        roleIds.length > 0
+          ? sql`
+              SELECT DISTINCT u.id, u.full_name, u.email
+              FROM users u
+              LEFT JOIN user_roles ur ON ur.user_id = u.id
+              WHERE u.is_active = true
+                AND (
+                  ur.role_id = ANY(${roleIds})
+                  OR u.role_id = ANY(${roleIds})
+                )
+              ORDER BY u.full_name
+            `
+          : sql`SELECT id, full_name, email FROM users WHERE false`
+      );
 
-      // Fallback: users.roleId priamo odkazuje na rolu (alternatívny systém)
-      if (reps.length === 0) {
-        const directRows = await db
-          .select({ id: users.id, fullName: users.fullName, email: users.email })
-          .from(users)
-          .innerJoin(roles, eq(roles.id, users.roleId))
-          .where(sql`lower(${roles.name}) IN ('representant', 'representative')`);
-        reps = directRows;
-      }
+      const reps = (rawRows.rows ?? []) as { id: string; full_name: string | null; email: string | null }[];
 
       // Počet aktuálne pridelených kliník na reprezentanta
       const clinicCounts = await db
@@ -111,7 +103,7 @@ export function registerRepresentativeRoutes(
       res.json(
         reps.map((u) => ({
           id: u.id,
-          name: u.fullName ?? u.email ?? u.id,
+          name: u.full_name ?? u.email ?? u.id,
           email: u.email,
           clinicCount: countMap.get(u.id) ?? 0,
         }))
