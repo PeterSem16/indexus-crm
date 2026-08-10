@@ -3413,6 +3413,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
     newKeysSuggested: Array<{ key: string; label: string; phase: string; description: string }>;
   } | null>(null);
   const [aiSuggestSelected, setAiSuggestSelected] = useState<Set<string>>(new Set());
+  const [aiSuggestManual, setAiSuggestManual] = useState<Record<string, string>>({}); // itemId → manually chosen key for null-suggestion items
   const [aiSuggestApplying, setAiSuggestApplying] = useState(false);
 
   async function runAiSuggest() {
@@ -3420,6 +3421,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
     setAiSuggestOpen(true);
     setAiSuggestData(null);
     setAiSuggestSelected(new Set());
+    setAiSuggestManual({});
     try {
       const res = await fetch(`/api/campaigns/${campaignId}/status-list/suggest-canonical`, {
         method: "POST", credentials: "include",
@@ -3447,22 +3449,44 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
   async function applyAiSuggestions() {
     if (!aiSuggestData) return;
     setAiSuggestApplying(true);
-    // Only apply items that have an actual suggested key (null = no match, don't overwrite)
-    const toApply = aiSuggestData.suggestions.filter(s => aiSuggestSelected.has(s.itemId) && s.suggestedKey != null);
+    // AI-suggested items (selected, non-null key)
+    const aiItems = aiSuggestData.suggestions.filter(s => aiSuggestSelected.has(s.itemId) && s.suggestedKey != null);
+    // Manual overrides (null-suggestion items where user picked a key)
+    const manualItems = Object.entries(aiSuggestManual)
+      .filter(([, key]) => key && key !== "__none__")
+      .map(([itemId, key]) => ({ itemId, canonicalKey: key }));
+
+    const totalCount = aiItems.length + manualItems.length;
+    if (totalCount === 0) return;
+
     try {
-      const results = await Promise.all(toApply.map(async s => {
-        const res = await fetch(`/api/campaigns/${campaignId}/status-list/${s.itemId}`, {
-          method: "PUT", credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ canonicalClinicStatusKey: s.suggestedKey }),
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({ error: res.statusText }));
-          throw new Error(`Item ${s.itemId}: ${err?.error ?? res.status}`);
-        }
-        return res.json();
-      }));
-      console.log("[AI apply] saved", results.length, "items, sample:", results[0]);
+      const results = await Promise.all([
+        ...aiItems.map(async s => {
+          const res = await fetch(`/api/campaigns/${campaignId}/status-list/${s.itemId}`, {
+            method: "PUT", credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ canonicalClinicStatusKey: s.suggestedKey }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: res.statusText }));
+            throw new Error(`Item ${s.itemId}: ${err?.error ?? res.status}`);
+          }
+          return res.json();
+        }),
+        ...manualItems.map(async ({ itemId, canonicalKey }) => {
+          const res = await fetch(`/api/campaigns/${campaignId}/status-list/${itemId}`, {
+            method: "PUT", credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ canonicalClinicStatusKey: canonicalKey }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: res.statusText }));
+            throw new Error(`Item ${itemId}: ${err?.error ?? res.status}`);
+          }
+          return res.json();
+        }),
+      ]);
+      console.log("[AI apply] saved", results.length, "items");
       await queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
       toast({ title: `✅ ${sl("aiSuggestApplied", locale)} (${results.length})` });
       setAiSuggestOpen(false);
@@ -4138,13 +4162,29 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
                   none:        { label: "—",            color: "#94a3b8", bg: "bg-slate-50 dark:bg-slate-900", text: "text-slate-500" },
                 };
 
-                const actionableSuggestions = aiSuggestData.suggestions.filter(s => s.suggestedKey !== s.currentKey);
+                const actionableSuggestions = aiSuggestData.suggestions.filter(s => s.suggestedKey !== s.currentKey && s.suggestedKey != null);
                 const allActionableIds = new Set(actionableSuggestions.map(s => s.itemId));
                 const allSelected = allActionableIds.size > 0 && [...allActionableIds].every(id => aiSuggestSelected.has(id));
+                const manualCount = Object.values(aiSuggestManual).filter(v => v && v !== "__none__").length;
+                const totalPending = aiSuggestSelected.size + manualCount;
+                const alreadyDoneCount = aiSuggestData.suggestions.filter(s => s.currentKey != null && s.suggestedKey === s.currentKey).length;
+                const needsManualCount = grouped["none"].filter(s => s.currentKey == null).length;
 
                 return (
                   <div className="space-y-4">
+                    {/* All-done banner */}
+                    {actionableSuggestions.length === 0 && alreadyDoneCount > 0 && (
+                      <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 px-4 py-3 flex items-start gap-3">
+                        <Check className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">{alreadyDoneCount} položiek má kanonikálny status ✓</p>
+                          {needsManualCount > 0 && <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-0.5">Pre {needsManualCount} položiek bez zhody zvoľte status manuálne nižšie.</p>}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Select all / deselect all */}
+                    {actionableSuggestions.length > 0 && (
                     <div className="flex items-center gap-3 pb-1 border-b">
                       <button
                         className="text-xs text-primary underline-offset-2 hover:underline"
@@ -4154,6 +4194,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
                       </button>
                       <span className="text-xs text-muted-foreground">{aiSuggestSelected.size} / {actionableSuggestions.length} {sl("aiSuggestApply", locale).toLowerCase()}</span>
                     </div>
+                    )}
 
                     {(["acquisition", "contract", "retention", "none"] as const).map(phase => {
                       const phaseItems = grouped[phase];
@@ -4170,16 +4211,18 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
                           <div className="space-y-1.5">
                             {phaseItems.map(s => {
                               const isNew = s.suggestedKey && !allKeys.has(s.suggestedKey);
-                              const unchanged = s.suggestedKey === s.currentKey;
-                              const canSelect = !unchanged;
+                              const unchanged = s.suggestedKey != null && s.suggestedKey === s.currentKey;
+                              const isNullNoKey = !s.suggestedKey && !s.currentKey; // needs manual assignment
+                              const canSelect = !unchanged && s.suggestedKey != null;
                               return (
                                 <div
                                   key={s.itemId}
                                   className={`rounded-lg border px-3 py-2.5 flex items-start gap-3 transition-colors ${
-                                    canSelect && aiSuggestSelected.has(s.itemId)
-                                      ? "border-primary/40 bg-primary/5"
-                                      : "border-border bg-background"
-                                  } ${!canSelect ? "opacity-60" : "cursor-pointer"}`}
+                                    unchanged ? "border-border bg-background opacity-50"
+                                    : canSelect && aiSuggestSelected.has(s.itemId) ? "border-primary/40 bg-primary/5"
+                                    : isNullNoKey ? "border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/30"
+                                    : "border-border bg-background"
+                                  } ${canSelect ? "cursor-pointer" : ""}`}
                                   onClick={() => {
                                     if (!canSelect) return;
                                     setAiSuggestSelected(prev => {
@@ -4189,44 +4232,75 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
                                     });
                                   }}
                                 >
-                                  {/* Checkbox */}
+                                  {/* Checkbox / icon */}
                                   <div className={`mt-0.5 shrink-0 w-4 h-4 rounded border flex items-center justify-center ${
-                                    !canSelect ? "border-muted bg-muted" :
-                                    aiSuggestSelected.has(s.itemId) ? "border-primary bg-primary" : "border-muted-foreground"
+                                    unchanged ? "border-emerald-400 bg-emerald-400" :
+                                    !canSelect && !isNullNoKey ? "border-muted bg-muted" :
+                                    canSelect && aiSuggestSelected.has(s.itemId) ? "border-primary bg-primary" :
+                                    isNullNoKey ? "border-amber-400" : "border-muted-foreground"
                                   }`}>
+                                    {unchanged && <Check className="h-2.5 w-2.5 text-white" />}
                                     {canSelect && aiSuggestSelected.has(s.itemId) && <Check className="h-2.5 w-2.5 text-white" />}
                                   </div>
                                   {/* Content */}
-                                  <div className="flex-1 min-w-0 space-y-1">
+                                  <div className="flex-1 min-w-0 space-y-1.5">
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <span className="text-xs font-medium truncate max-w-[280px]">{s.itemLabel}</span>
                                       <span className={`text-[10px] px-1 py-0.5 rounded font-mono ${s.itemType === "option" ? "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"}`}>
                                         {s.itemType === "option" ? "option" : "step"}
                                       </span>
-                                      {/* Confidence dot */}
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <div className={`w-2 h-2 rounded-full ${confidenceColor(s.confidence)} cursor-default`} />
-                                          </TooltipTrigger>
-                                          <TooltipContent side="top">{confidenceLabel(s.confidence)}</TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
+                                      {!isNullNoKey && (
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <div className={`w-2 h-2 rounded-full ${confidenceColor(s.confidence)} cursor-default`} />
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top">{confidenceLabel(s.confidence)}</TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      )}
                                     </div>
-                                    {/* Keys row */}
-                                    <div className="flex items-center gap-2 text-[11px]">
-                                      <span className="text-muted-foreground">{sl("aiSuggestCurrent", locale)}:</span>
-                                      <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-[10px]">
-                                        {s.currentKey ? keyToLabel(s.currentKey) : "—"}
-                                      </span>
-                                      <span className="text-muted-foreground">→</span>
-                                      <span className={`font-mono px-1.5 py-0.5 rounded text-[10px] ${unchanged ? "bg-muted text-muted-foreground" : `${cfg.bg} ${cfg.text} font-semibold`}`}>
-                                        {s.suggestedKey ? (isNew ? `✨ ${s.suggestedKey}` : keyToLabel(s.suggestedKey)) : "—"}
-                                        {unchanged ? ` ${sl("aiSuggestUnchanged", locale)}` : ""}
-                                      </span>
-                                    </div>
-                                    {/* Reasoning */}
-                                    <p className="text-[11px] text-muted-foreground italic leading-relaxed">{s.reasoning}</p>
+
+                                    {/* Manual select for items with no AI match */}
+                                    {isNullNoKey ? (
+                                      <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                                        <span className="text-[11px] text-amber-600 dark:text-amber-400 shrink-0">Priradiť manuálne:</span>
+                                        <Select
+                                          value={aiSuggestManual[s.itemId] ?? "__none__"}
+                                          onValueChange={v => setAiSuggestManual(prev => ({ ...prev, [s.itemId]: v }))}
+                                        >
+                                          <SelectTrigger className="h-7 text-[11px] flex-1">
+                                            <SelectValue />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="__none__">— ponechať bez kľúča —</SelectItem>
+                                            {CANONICAL_CLINIC_STATUS_GROUPS.map(group => (
+                                              <SelectGroup key={group.phase}>
+                                                <SelectLabel className="text-[10px]">{group.phase}</SelectLabel>
+                                                {group.keys.map(k => (
+                                                  <SelectItem key={k.key} value={k.key} className="text-[11px]">{sl(k.labelKey, locale)}</SelectItem>
+                                                ))}
+                                              </SelectGroup>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center gap-2 text-[11px]">
+                                        <span className="text-muted-foreground">{sl("aiSuggestCurrent", locale)}:</span>
+                                        <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-[10px]">
+                                          {s.currentKey ? keyToLabel(s.currentKey) : "—"}
+                                        </span>
+                                        <span className="text-muted-foreground">→</span>
+                                        <span className={`font-mono px-1.5 py-0.5 rounded text-[10px] ${unchanged ? "bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400" : `${cfg.bg} ${cfg.text} font-semibold`}`}>
+                                          {s.suggestedKey ? (isNew ? `✨ ${s.suggestedKey}` : keyToLabel(s.suggestedKey)) : "—"}
+                                          {unchanged ? ` ✓` : ""}
+                                        </span>
+                                      </div>
+                                    )}
+
+                                    {/* Reasoning — skip for null-no-key items */}
+                                    {!isNullNoKey && <p className="text-[11px] text-muted-foreground italic leading-relaxed">{s.reasoning}</p>}
                                   </div>
                                 </div>
                               );
@@ -4269,11 +4343,14 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
             <Button
               size="sm"
               className="gap-1.5 bg-violet-600 hover:bg-violet-700"
-              disabled={aiSuggestApplying || aiSuggestLoading || aiSuggestSelected.size === 0}
+              disabled={aiSuggestApplying || aiSuggestLoading || (aiSuggestSelected.size + Object.values(aiSuggestManual).filter(v => v && v !== "__none__").length) === 0}
               onClick={applyAiSuggestions}
             >
               {aiSuggestApplying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-              {aiSuggestApplying ? sl("aiSuggestApplying", locale) : `${sl("aiSuggestApply", locale)} (${aiSuggestSelected.size})`}
+              {(() => {
+                const total = aiSuggestSelected.size + Object.values(aiSuggestManual).filter(v => v && v !== "__none__").length;
+                return aiSuggestApplying ? sl("aiSuggestApplying", locale) : `${sl("aiSuggestApply", locale)} (${total})`;
+              })()}
             </Button>
           </DialogFooter>
         </DialogContent>
