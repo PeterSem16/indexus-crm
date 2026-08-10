@@ -3,7 +3,7 @@
 // Generický panel pre priradenie reprezentanta – funguje pre kliniku aj nemocnicu.
 // Prop entityType: "clinic" | "hospital"
 // ─────────────────────────────────────────────────────────────────────────────
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Loader2, UserCheck, UserX, History, ChevronDown, ChevronUp, UserPlus,
@@ -70,9 +70,11 @@ function AssignmentTypeBadge({ type, labels }: { type: string; labels: Record<st
 interface RepresentativePanelProps {
   entityType: RepresentativeEntityType;
   entityId: string;
+  /** Called whenever the assignment status is known or changes. */
+  onAssignmentChange?: (hasAssignment: boolean) => void;
 }
 
-export function RepresentativePanel({ entityType, entityId }: RepresentativePanelProps) {
+export function RepresentativePanel({ entityType, entityId, onAssignmentChange }: RepresentativePanelProps) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const { t } = useI18n();
@@ -112,6 +114,12 @@ export function RepresentativePanel({ entityType, entityId }: RepresentativePane
     },
     staleTime: 30_000,
   });
+
+  useEffect(() => {
+    if (!currentLoading && currentData !== undefined) {
+      onAssignmentChange?.(!!currentData?.assignment);
+    }
+  }, [currentLoading, currentData, onAssignmentChange]);
 
   const { data: history = [], isLoading: historyLoading } = useQuery<Assignment[]>({
     queryKey: qkHistory,

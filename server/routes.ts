@@ -3414,24 +3414,36 @@ export async function registerRoutes(
   app.get("/api/clinics/lookup", requireAuth, async (req, res) => {
     try {
       const q = (req.query.q as string || "").trim();
+      // Support singular ?country=SK (collections) and plural ?countries=SK,CZ (MPN)
       const country = (req.query.country as string || "").trim();
-      const limitParam = Math.min(parseInt(req.query.limit as string) || 50, 200);
+      const countriesList = (req.query.countries as string || "")
+        .split(",").map((c) => c.trim()).filter(Boolean);
+      // Only apply a limit when the caller explicitly requests it or provides a search query.
+      // Callers that omit both (clinic-form-wizard, customer-form, dashboard, hospitals page)
+      // expect the full list — preserve the legacy unbounded behaviour for them.
+      const hasExplicitLimit = typeof req.query.limit === "string" && req.query.limit !== "";
+      const limitParam = hasExplicitLimit
+        ? Math.min(parseInt(req.query.limit as string) || 200, 200)
+        : (q.length >= 1 ? 200 : undefined);
       const conditions: any[] = [];
       if (q.length >= 1) {
         const s = `%${q}%`;
         conditions.push(sql`(${clinics.name} ILIKE ${s} OR ${clinics.doctorName} ILIKE ${s} OR ${clinics.city} ILIKE ${s})`);
       }
-      if (country) {
+      if (countriesList.length > 0) {
+        conditions.push(inArray(clinics.countryCode, countriesList));
+      } else if (country) {
         conditions.push(eq(clinics.countryCode, country));
       }
       const where = conditions.length > 0 ? and(...conditions) : undefined;
-      const data = await db.select({
+      const query = db.select({
         id: clinics.id,
         name: clinics.name,
         countryCode: clinics.countryCode,
         doctorName: clinics.doctorName,
         city: clinics.city,
-      }).from(clinics).where(where).orderBy(clinics.name).limit(limitParam);
+      }).from(clinics).where(where).orderBy(clinics.name);
+      const data = limitParam !== undefined ? await query.limit(limitParam) : await query;
       res.json(data);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch clinic lookup" });

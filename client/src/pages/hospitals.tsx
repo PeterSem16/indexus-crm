@@ -560,6 +560,8 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
   const [formData, setFormData] = useState<HospitalFormData>(defaultFormData);
   const [showLaboratory, setShowLaboratory] = useState(false);
   const [savedHospitalId, setSavedHospitalId] = useState<string | null>(null);
+  const [hasRepresentative, setHasRepresentative] = useState<boolean>(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
   const { data: users = [] } = useQuery<SafeUser[]>({ queryKey: ["/api/users"] });
   const { data: laboratories = [] } = useQuery<Laboratory[]>({ queryKey: ["/api/config/laboratories"] });
@@ -617,9 +619,25 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
     { id: "representative", label: t.representantPanel?.tabLabel || "Reprezentant", icon: UserCheck },
   ];
 
+  // Single guarded-close handler used by ALL dismiss paths (footer, X button, backdrop).
+  // Before save: passes straight through to onClose.
+  // After save without a rep: shows the AlertDialog to ask for confirmation.
+  // After save with a rep: proceeds to onSuccess.
+  const handleAttemptClose = () => {
+    if (!savedHospitalId) {
+      onClose();
+      return;
+    }
+    if (!hasRepresentative) {
+      setShowCloseConfirm(true);
+    } else {
+      onSuccess();
+    }
+  };
+
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200" onClick={onClose} data-testid="hospital-add-backdrop" />
+      <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200" onClick={handleAttemptClose} data-testid="hospital-add-backdrop" />
       <div className="fixed inset-y-0 right-0 z-[51] w-[960px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
         <div className="shrink-0 flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
           <div className="flex items-center gap-3">
@@ -631,7 +649,7 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
               <p className="text-xs text-muted-foreground mt-0.5">{t.hospitals.addHospitalDesc}</p>
             </div>
           </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={onClose} data-testid="button-close-hospital-add-drawer">
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={handleAttemptClose} data-testid="button-close-hospital-add-drawer">
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -818,7 +836,11 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
 
             {activeSection === "representative" && (
               savedHospitalId ? (
-                <RepresentativePanel entityType="hospital" entityId={savedHospitalId} />
+                <RepresentativePanel
+                  entityType="hospital"
+                  entityId={savedHospitalId}
+                  onAssignmentChange={(hasAssignment) => setHasRepresentative(hasAssignment)}
+                />
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
                   <UserCheck className="h-10 w-10 mb-3 opacity-40" />
@@ -833,7 +855,17 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
         <div className="shrink-0 border-t bg-muted/30 px-5 py-3 flex items-center justify-end gap-2">
           {savedHospitalId ? (
             <>
-              <Button variant="outline" onClick={onSuccess} data-testid="button-done-hospital-add">
+              {!hasRepresentative && (
+                <span className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1 mr-2">
+                  <UserX className="h-3.5 w-3.5 shrink-0" />
+                  {t.representantPanel?.noRepresentative}
+                </span>
+              )}
+              <Button
+                variant="outline"
+                onClick={handleAttemptClose}
+                data-testid="button-done-hospital-add"
+              >
                 {(t.common as any).close || "Close"}
               </Button>
             </>
@@ -848,6 +880,21 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
           )}
         </div>
       </div>
+
+      <AlertDialog open={showCloseConfirm} onOpenChange={setShowCloseConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.representantPanel?.closeWithoutRepTitle || "Close without a representative?"}</AlertDialogTitle>
+            <AlertDialogDescription>{t.representantPanel?.closeWithoutRepDesc || "No representative has been assigned yet. Are you sure you want to close?"}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t.common.cancel}</AlertDialogCancel>
+            <AlertDialogAction onClick={onSuccess} data-testid="button-confirm-close-without-rep">
+              {t.representantPanel?.closeWithoutRepConfirm || "Close anyway"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={showMapDialog} onOpenChange={setShowMapDialog}>
         <DialogContent className="max-w-3xl">

@@ -7213,6 +7213,7 @@ export interface Translations {
     bulkOnlyUnassigned: string; bulkOnlyFrom: string;
     bulkPreviewCount: string; bulkConfirm: string; bulkDryRunBtn: string;
     myClinicsTitle: string; myClinicsDesc: string; myClinicsEmpty: string;
+    closeWithoutRepTitle: string; closeWithoutRepDesc: string; closeWithoutRepConfirm: string;
   };
 }
 
@@ -14472,6 +14473,7 @@ export const translations: Record<Locale, Translations> = {
       bulkOnlyUnassigned: 'Only entities without a representative', bulkOnlyFrom: 'Only entities of selected representative',
       bulkPreviewCount: 'entities will be reassigned', bulkConfirm: 'Confirm', bulkDryRunBtn: 'Preview',
       myClinicsTitle: 'My Clinics & Hospitals', myClinicsDesc: 'Entities assigned to you', myClinicsEmpty: 'No clinics or hospitals assigned to you',
+      closeWithoutRepTitle: 'Close without a representative?', closeWithoutRepDesc: 'No representative has been assigned yet. Are you sure you want to close?', closeWithoutRepConfirm: 'Close anyway',
     },
 
   },
@@ -21666,6 +21668,7 @@ export const translations: Record<Locale, Translations> = {
       bulkOnlyUnassigned: 'Iba entity bez reprezentanta', bulkOnlyFrom: 'Iba entity vybraného reprezentanta',
       bulkPreviewCount: 'entít bude preradených', bulkConfirm: 'Potvrdiť', bulkDryRunBtn: 'Náhľad',
       myClinicsTitle: 'Moje kliniky a nemocnice', myClinicsDesc: 'Entity v mojej správe', myClinicsEmpty: 'Nemáte žiadne priradené kliniky ani nemocnice',
+      closeWithoutRepTitle: 'Zatvoriť bez reprezentanta?', closeWithoutRepDesc: 'Reprezentant ešte nebol priradený. Naozaj chcete zatvoriť?', closeWithoutRepConfirm: 'Zatvoriť',
     },
 
   },
@@ -28786,6 +28789,7 @@ export const translations: Record<Locale, Translations> = {
       bulkOnlyUnassigned: 'Pouze entity bez reprezentanta', bulkOnlyFrom: 'Pouze entity vybraného reprezentanta',
       bulkPreviewCount: 'entit bude přeřazeno', bulkConfirm: 'Potvrdit', bulkDryRunBtn: 'Náhled',
       myClinicsTitle: 'Mé kliniky a nemocnice', myClinicsDesc: 'Entity v mé správě', myClinicsEmpty: 'Nemáte žádné přiřazené kliniky ani nemocnice',
+      closeWithoutRepTitle: 'Zavřít bez reprezentanta?', closeWithoutRepDesc: 'Reprezentant dosud nebyl přiřazen. Opravdu chcete zavřít?', closeWithoutRepConfirm: 'Zavřít',
     },
 
   },
@@ -35866,6 +35870,7 @@ export const translations: Record<Locale, Translations> = {
       bulkOnlyUnassigned: 'Csak képviselő nélküli entitások', bulkOnlyFrom: 'Csak a kiválasztott képviselő entitásai',
       bulkPreviewCount: 'entitás kerül átsorolásra', bulkConfirm: 'Megerősítés', bulkDryRunBtn: 'Előnézet',
       myClinicsTitle: 'Saját klinikáim és kórházaim', myClinicsDesc: 'Hozzám rendelt entitások', myClinicsEmpty: 'Nincsenek hozzárendelt klinikák vagy kórházak',
+      closeWithoutRepTitle: 'Bezárás képviselő nélkül?', closeWithoutRepDesc: 'Még nincs képviselő hozzárendelve. Biztosan bezárja?', closeWithoutRepConfirm: 'Bezárás',
     },
 
   },
@@ -42866,6 +42871,7 @@ export const translations: Record<Locale, Translations> = {
       bulkOnlyUnassigned: 'Doar entități fără reprezentant', bulkOnlyFrom: 'Doar entitățile reprezentantului selectat',
       bulkPreviewCount: 'entități vor fi realocate', bulkConfirm: 'Confirmare', bulkDryRunBtn: 'Previzualizare',
       myClinicsTitle: 'Clinicile și spitalele mele', myClinicsDesc: 'Entități alocate mie', myClinicsEmpty: 'Nu aveți clinici sau spitale alocate',
+      closeWithoutRepTitle: 'Închideți fără reprezentant?', closeWithoutRepDesc: 'Nu a fost alocat niciun reprezentant. Sigur doriți să închideți?', closeWithoutRepConfirm: 'Închideți',
     },
 
   },
@@ -49868,6 +49874,7 @@ export const translations: Record<Locale, Translations> = {
       bulkOnlyUnassigned: 'Solo entità senza rappresentante', bulkOnlyFrom: 'Solo entità del rappresentante selezionato',
       bulkPreviewCount: 'entità verranno riassegnate', bulkConfirm: 'Conferma', bulkDryRunBtn: 'Anteprima',
       myClinicsTitle: 'Le mie cliniche e ospedali', myClinicsDesc: 'Entità assegnate a me', myClinicsEmpty: 'Nessuna clinica o ospedale assegnato',
+      closeWithoutRepTitle: 'Chiudere senza rappresentante?', closeWithoutRepDesc: 'Nessun rappresentante è stato ancora assegnato. Sei sicuro di voler chiudere?', closeWithoutRepConfirm: 'Chiudi comunque',
     },
 
   },
@@ -56856,6 +56863,7 @@ export const translations: Record<Locale, Translations> = {
       bulkOnlyUnassigned: 'Nur Einheiten ohne Vertreter', bulkOnlyFrom: 'Nur Einheiten des ausgewählten Vertreters',
       bulkPreviewCount: 'Einheiten werden neu zugewiesen', bulkConfirm: 'Bestätigen', bulkDryRunBtn: 'Vorschau',
       myClinicsTitle: 'Meine Kliniken & Krankenhäuser', myClinicsDesc: 'Mir zugewiesene Einheiten', myClinicsEmpty: 'Keine Kliniken oder Krankenhäuser zugewiesen',
+      closeWithoutRepTitle: 'Ohne Vertreter schließen?', closeWithoutRepDesc: 'Es wurde noch kein Vertreter zugewiesen. Möchten Sie wirklich schließen?', closeWithoutRepConfirm: 'Trotzdem schließen',
     },
 
   },
