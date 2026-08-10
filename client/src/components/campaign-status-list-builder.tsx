@@ -86,44 +86,50 @@ type StatusListItem = {
 
 // Kanonické statusy spolupráce ambulancie — pevný číselník podľa fázy.
 // Každá fáza zodpovedá tab-u status listu (acquisition / contract / retention).
+// labelKey maps to sl() dictionary entries with prefix "csk_"
+// phaseLabelKey maps to sl() entries "csk_phaseAcq" | "csk_phaseCon" | "csk_phaseRet"
 export const CANONICAL_CLINIC_STATUS_GROUPS = [
   {
     phase: "acquisition",
-    label: "Acquisition",
+    phaseLabelKey: "csk_phaseAcq",
     color: "#3b82f6",
     keys: [
-      { key: "acquisition_contacted",      label: "Oslovená (prvý kontakt)" },
-      { key: "acquisition_interested",     label: "Záujem o spoluprácu" },
-      { key: "acquisition_not_interested", label: "Nezáujem" },
-      { key: "acquisition_in_negotiation", label: "V rokovaní" },
+      { key: "acquisition_contacted",      labelKey: "csk_acquisition_contacted" },
+      { key: "acquisition_interested",     labelKey: "csk_acquisition_interested" },
+      { key: "acquisition_not_interested", labelKey: "csk_acquisition_not_interested" },
+      { key: "acquisition_in_negotiation", labelKey: "csk_acquisition_in_negotiation" },
     ],
   },
   {
     phase: "contract",
-    label: "Contract",
+    phaseLabelKey: "csk_phaseCon",
     color: "#f59e0b",
     keys: [
-      { key: "contract_sent",     label: "Zmluva zaslaná" },
-      { key: "contract_signed",   label: "Zmluva podpísaná" },
-      { key: "contract_rejected", label: "Zmluva odmietnutá" },
-      { key: "flyers_sent",       label: "Letáky zaslané" },
-      { key: "flyers_accepted",   label: "Letáky akceptované" },
-      { key: "flyers_rejected",   label: "Letáky odmietnuté" },
+      { key: "contract_sent",     labelKey: "csk_contract_sent" },
+      { key: "contract_signed",   labelKey: "csk_contract_signed" },
+      { key: "contract_rejected", labelKey: "csk_contract_rejected" },
+      { key: "flyers_sent",       labelKey: "csk_flyers_sent" },
+      { key: "flyers_accepted",   labelKey: "csk_flyers_accepted" },
+      { key: "flyers_rejected",   labelKey: "csk_flyers_rejected" },
     ],
   },
   {
     phase: "retention",
-    label: "Retention",
+    phaseLabelKey: "csk_phaseRet",
     color: "#22c55e",
     keys: [
-      { key: "retention_active",     label: "Aktívna spolupráca" },
-      { key: "retention_paused",     label: "Pozastavená spolupráca" },
-      { key: "retention_terminated", label: "Ukončená spolupráca" },
-      { key: "services_confirmed",   label: "Bude poskytovať služby" },
-      { key: "services_declined",    label: "Nebude poskytovať služby" },
+      { key: "retention_active",           labelKey: "csk_retention_active" },
+      { key: "retention_paused",           labelKey: "csk_retention_paused" },
+      { key: "retention_terminated",       labelKey: "csk_retention_terminated" },
+      { key: "services_confirmed",         labelKey: "csk_services_confirmed" },
+      { key: "services_declined",          labelKey: "csk_services_declined" },
+      { key: "retention_leaflets_sent",    labelKey: "csk_retention_leaflets_sent" },
+      { key: "retention_pregbook_sent",    labelKey: "csk_retention_pregbook_sent" },
+      { key: "retention_posters_sent",     labelKey: "csk_retention_posters_sent" },
+      { key: "retention_materials_sent",   labelKey: "csk_retention_materials_sent" },
     ],
   },
-] as const;
+];
 
 const SL: Record<string, Record<string, string>> = {
   nextStep:       { sk: "Nasledujúci krok", en: "Next step", cs: "Další krok", hu: "Következő lépés", ro: "Pasul următor", it: "Passo successivo", de: "Nächster Schritt" },
@@ -201,6 +207,29 @@ const SL: Record<string, Record<string, string>> = {
   canonicalClinicLbl:  { sk: "Kanonický stav ambulancie", en: "Canonical clinic status", cs: "Kanonický stav ambulance", hu: "Kanonikus rendelői státusz", ro: "Status canonic clinică", it: "Stato canonico clinica", de: "Kanonischer Klinikstatus" },
   canonicalClinicHint: { sk: "Pri potvrdení tejto možnosti systém automaticky zapíše zvolený stav do histórie spolupráce ambulancie (KPI 3.4–3.7). Funguje len pre kontakty typu Ambulancia.", en: "When this option is confirmed, the system automatically records the chosen cooperation state into the clinic's history (KPI 3.4–3.7). Works only for Clinic contact type.", cs: "Při potvrzení této možnosti systém automaticky zapíše zvolený stav do historie spolupráce ambulance. Funguje pouze pro kontakty typu Ambulance.", hu: "Ezen lehetőség megerősítésekor a rendszer automatikusan rögzíti a kiválasztott állapotot a rendelő együttműködési előzményeibe.", ro: "Când această opțiune este confirmată, sistemul înregistrează automat starea aleasă în istoricul cooperării clinicii.", it: "Quando questa opzione viene confermata, il sistema registra automaticamente lo stato scelto nella cronologia di cooperazione della clinica.", de: "Bei Bestätigung dieser Option schreibt das System automatisch den gewählten Status in die Kooperationshistorie der Klinik." },
   canonicalClinicNone: { sk: "(žiadny — bežná položka)", en: "(none — plain item)", cs: "(žádný — běžná položka)", hu: "(nincs — normál elem)", ro: "(niciunul — element simplu)", it: "(nessuno — elemento normale)", de: "(keiner — normaler Eintrag)" },
+  // Canonical clinic status key labels — used in builder dropdown (7 languages)
+  csk_phaseAcq:      { sk: "Acquisition", en: "Acquisition", cs: "Acquisition", hu: "Acquisition", ro: "Acquisition", it: "Acquisition", de: "Acquisition" },
+  csk_phaseCon:      { sk: "Contract", en: "Contract", cs: "Contract", hu: "Contract", ro: "Contract", it: "Contract", de: "Contract" },
+  csk_phaseRet:      { sk: "Retention", en: "Retention", cs: "Retention", hu: "Retention", ro: "Retention", it: "Retention", de: "Retention" },
+  csk_acquisition_contacted:      { sk: "Oslovená (prvý kontakt)", en: "First contact made", cs: "Oslovena (první kontakt)", hu: "Megkeresve (első kapcsolatfelvétel)", ro: "Contactată (primul contact)", it: "Contattata (primo contatto)", de: "Kontaktiert (Erstkontakt)" },
+  csk_acquisition_interested:     { sk: "Záujem o spoluprácu", en: "Interested in cooperation", cs: "Zájem o spolupráci", hu: "Érdeklődik az együttműködés iránt", ro: "Interesată de cooperare", it: "Interessata alla cooperazione", de: "Interesse an Zusammenarbeit" },
+  csk_acquisition_not_interested: { sk: "Nezáujem", en: "Not interested", cs: "Nezájem", hu: "Nem érdeklődik", ro: "Neinteresată", it: "Non interessata", de: "Kein Interesse" },
+  csk_acquisition_in_negotiation: { sk: "V rokovaní", en: "In negotiation", cs: "Ve vyjednávání", hu: "Tárgyalás alatt", ro: "În negociere", it: "In negoziazione", de: "In Verhandlung" },
+  csk_contract_sent:              { sk: "Zmluva zaslaná", en: "Contract sent", cs: "Smlouva odeslána", hu: "Szerződés elküldve", ro: "Contract trimis", it: "Contratto inviato", de: "Vertrag gesendet" },
+  csk_contract_signed:            { sk: "Zmluva podpísaná", en: "Contract signed", cs: "Smlouva podepsána", hu: "Szerződés aláírva", ro: "Contract semnat", it: "Contratto firmato", de: "Vertrag unterzeichnet" },
+  csk_contract_rejected:          { sk: "Zmluva odmietnutá", en: "Contract rejected", cs: "Smlouva odmítnuta", hu: "Szerződés elutasítva", ro: "Contract respins", it: "Contratto rifiutato", de: "Vertrag abgelehnt" },
+  csk_flyers_sent:                { sk: "Letáky zaslané", en: "Flyers sent", cs: "Letáky odeslány", hu: "Szórólapok elküldve", ro: "Pliante trimise", it: "Volantini inviati", de: "Flyer gesendet" },
+  csk_flyers_accepted:            { sk: "Letáky akceptované", en: "Flyers accepted", cs: "Letáky přijaty", hu: "Szórólapok elfogadva", ro: "Pliante acceptate", it: "Volantini accettati", de: "Flyer akzeptiert" },
+  csk_flyers_rejected:            { sk: "Letáky odmietnuté", en: "Flyers rejected", cs: "Letáky odmítnuty", hu: "Szórólapok elutasítva", ro: "Pliante respinse", it: "Volantini rifiutati", de: "Flyer abgelehnt" },
+  csk_retention_active:           { sk: "Aktívna spolupráca", en: "Active cooperation", cs: "Aktivní spolupráce", hu: "Aktív együttműködés", ro: "Cooperare activă", it: "Cooperazione attiva", de: "Aktive Zusammenarbeit" },
+  csk_retention_paused:           { sk: "Pozastavená spolupráca", en: "Cooperation paused", cs: "Spolupráce pozastavena", hu: "Együttműködés szünetel", ro: "Cooperare suspendată", it: "Cooperazione in pausa", de: "Zusammenarbeit pausiert" },
+  csk_retention_terminated:       { sk: "Ukončená spolupráca", en: "Cooperation terminated", cs: "Spolupráce ukončena", hu: "Együttműködés megszűnt", ro: "Cooperare încheiată", it: "Cooperazione conclusa", de: "Zusammenarbeit beendet" },
+  csk_services_confirmed:         { sk: "Bude poskytovať služby pacientkám", en: "Will provide services to patients", cs: "Bude poskytovat služby pacientkám", hu: "Igénybe veszi a betegek számára nyújtott szolgáltatásokat", ro: "Va oferi servicii pacientelor", it: "Fornirà servizi alle pazienti", de: "Wird Dienste für Patientinnen anbieten" },
+  csk_services_declined:          { sk: "Nebude poskytovať služby", en: "Will not provide services", cs: "Nebude poskytovat služby", hu: "Nem veszi igénybe a szolgáltatásokat", ro: "Nu va oferi servicii", it: "Non fornirà servizi", de: "Wird keine Dienste anbieten" },
+  csk_retention_leaflets_sent:    { sk: "Letáky zaslané (aktívna spolupráca)", en: "Leaflets sent (active cooperation)", cs: "Letáky odeslány (aktivní spolupráce)", hu: "Szórólapok elküldve (aktív együttműködés)", ro: "Pliante trimise (cooperare activă)", it: "Volantini inviati (cooperazione attiva)", de: "Flyer gesendet (aktive Zusammenarbeit)" },
+  csk_retention_pregbook_sent:    { sk: "Tehotenské knižky zaslané", en: "Pregnancy booklets sent", cs: "Těhotenské knížky odeslány", hu: "Várandós könyvek elküldve", ro: "Cărți de sarcină trimise", it: "Libretti gravidanza inviati", de: "Schwangerschaftsbücher gesendet" },
+  csk_retention_posters_sent:     { sk: "Postery zaslané", en: "Posters sent", cs: "Plakáty odeslány", hu: "Plakátok elküldve", ro: "Postere trimise", it: "Poster inviati", de: "Poster gesendet" },
+  csk_retention_materials_sent:   { sk: "Marketingové materiály zaslané", en: "Marketing materials sent", cs: "Marketingové materiály odeslány", hu: "Marketing anyagok elküldve", ro: "Materiale de marketing trimise", it: "Materiali di marketing inviati", de: "Marketingmaterialien gesendet" },
 
   ctr_SK: { sk: "Slovensko (SK)", en: "Slovakia (SK)", cs: "Slovensko (SK)", hu: "Szlovákia (SK)", ro: "Slovacia (SK)", it: "Slovacchia (SK)", de: "Slowakei (SK)" },
   ctr_CZ: { sk: "Česko (CZ)", en: "Czech Republic (CZ)", cs: "Česko (CZ)", hu: "Csehország (CZ)", ro: "Cehia (CZ)", it: "Repubblica Ceca (CZ)", de: "Tschechien (CZ)" },
@@ -2752,9 +2781,9 @@ function StatusListItemRow({
                     <SelectItem value="__none__">{sl("canonicalClinicNone", locale)}</SelectItem>
                     {CANONICAL_CLINIC_STATUS_GROUPS.map(group => (
                       <React.Fragment key={group.phase}>
-                        <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-t mt-1">{group.label}</div>
+                        <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-t mt-1">{sl(group.phaseLabelKey, locale)}</div>
                         {group.keys.map(k => (
-                          <SelectItem key={k.key} value={k.key} className="pl-4">{k.label}</SelectItem>
+                          <SelectItem key={k.key} value={k.key} className="pl-4">{sl(k.labelKey, locale)}</SelectItem>
                         ))}
                       </React.Fragment>
                     ))}
@@ -3197,9 +3226,9 @@ function AddItemForm({
               <SelectItem value="__none__">{sl("canonicalClinicNone", locale)}</SelectItem>
               {CANONICAL_CLINIC_STATUS_GROUPS.map(group => (
                 <React.Fragment key={group.phase}>
-                  <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-t mt-1">{group.label}</div>
+                  <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-t mt-1">{sl(group.phaseLabelKey, locale)}</div>
                   {group.keys.map(k => (
-                    <SelectItem key={k.key} value={k.key} className="pl-4">{k.label}</SelectItem>
+                    <SelectItem key={k.key} value={k.key} className="pl-4">{sl(k.labelKey, locale)}</SelectItem>
                   ))}
                 </React.Fragment>
               ))}
@@ -3300,9 +3329,9 @@ function AddOptionForm({ campaignId, existingCount, onSaved, onCancel }: {
               <SelectItem value="__none__">{sl("canonicalClinicNone", locale)}</SelectItem>
               {CANONICAL_CLINIC_STATUS_GROUPS.map(group => (
                 <React.Fragment key={group.phase}>
-                  <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-t mt-1">{group.label}</div>
+                  <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-t mt-1">{sl(group.phaseLabelKey, locale)}</div>
                   {group.keys.map(k => (
-                    <SelectItem key={k.key} value={k.key} className="pl-4">{k.label}</SelectItem>
+                    <SelectItem key={k.key} value={k.key} className="pl-4">{sl(k.labelKey, locale)}</SelectItem>
                   ))}
                 </React.Fragment>
               ))}

@@ -96,6 +96,7 @@ adb install -r android/app/build/outputs/apk/release/app-release.apk
 ## User preferences
 Preferred communication style: Simple, everyday language.
 - Always bump `mobile-app/app.json` version (patch + versionCode +1) when making any mobile app changes.
+- **Every new UI string MUST be localized in ALL 7 languages: EN, SK, CS, HU, RO, IT, DE.** No hardcoded Slovak or English strings in components. Add translation keys to `client/src/i18n/translations.ts` AND the TypeScript interface. For builder-specific strings, use the `SL` dictionary in the component. Never ship a feature without full i18n coverage.
 
 ## Server credentials
 

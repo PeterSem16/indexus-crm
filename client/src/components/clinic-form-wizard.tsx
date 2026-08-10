@@ -1068,6 +1068,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
     );
   };
 
+  // tc must be defined before tab arrays that reference it
+  const tc = t.clinics as any;
+
   const clinicEditTabs = [
     { key: "basic", icon: Building2, label: t.clinics.steps?.basic || "Info" },
     { key: "address", icon: MapPin, label: t.clinics.steps?.address || "Address" },
@@ -1075,39 +1078,44 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
     { key: "personnel", icon: Users, label: (t as any).personnel || "Personnel" },
     { key: "campaigns", icon: Megaphone, label: (t as any).campaigns?.title || "Campaigns" },
     { key: "representative", icon: UserCheck, label: t.representantPanel.tabLabel },
-    { key: "cooperation", icon: Handshake, label: "Spolupráca" },
+    { key: "cooperation", icon: Handshake, label: tc.cooperationTab ?? "Cooperation" },
   ];
 
   // Phase display config for the cooperation history tab
+  // COOP_PHASES uses translation keys from t.clinics (csk_* prefix)
   const COOP_PHASES = [
     { phase: "acquisition", label: "Acquisition", color: "#3b82f6", bgClass: "bg-blue-50 dark:bg-blue-950", borderClass: "border-blue-200 dark:border-blue-800", textClass: "text-blue-700 dark:text-blue-300",
       keys: [
-        { key: "acquisition_contacted",      label: "Oslovená (prvý kontakt)" },
-        { key: "acquisition_interested",     label: "Záujem o spoluprácu" },
-        { key: "acquisition_not_interested", label: "Nezáujem" },
-        { key: "acquisition_in_negotiation", label: "V rokovaní" },
+        { key: "acquisition_contacted",      label: tc.csk_acquisition_contacted      ?? "First contact made" },
+        { key: "acquisition_interested",     label: tc.csk_acquisition_interested     ?? "Interested in cooperation" },
+        { key: "acquisition_not_interested", label: tc.csk_acquisition_not_interested ?? "Not interested" },
+        { key: "acquisition_in_negotiation", label: tc.csk_acquisition_in_negotiation ?? "In negotiation" },
       ],
     },
     { phase: "contract", label: "Contract", color: "#f59e0b", bgClass: "bg-amber-50 dark:bg-amber-950", borderClass: "border-amber-200 dark:border-amber-800", textClass: "text-amber-700 dark:text-amber-300",
       keys: [
-        { key: "contract_sent",     label: "Zmluva zaslaná" },
-        { key: "contract_signed",   label: "Zmluva podpísaná" },
-        { key: "contract_rejected", label: "Zmluva odmietnutá" },
-        { key: "flyers_sent",       label: "Letáky zaslané" },
-        { key: "flyers_accepted",   label: "Letáky akceptované" },
-        { key: "flyers_rejected",   label: "Letáky odmietnuté" },
+        { key: "contract_sent",     label: tc.csk_contract_sent     ?? "Contract sent" },
+        { key: "contract_signed",   label: tc.csk_contract_signed   ?? "Contract signed" },
+        { key: "contract_rejected", label: tc.csk_contract_rejected ?? "Contract rejected" },
+        { key: "flyers_sent",       label: tc.csk_flyers_sent       ?? "Flyers sent" },
+        { key: "flyers_accepted",   label: tc.csk_flyers_accepted   ?? "Flyers accepted" },
+        { key: "flyers_rejected",   label: tc.csk_flyers_rejected   ?? "Flyers rejected" },
       ],
     },
     { phase: "retention", label: "Retention", color: "#22c55e", bgClass: "bg-green-50 dark:bg-green-950", borderClass: "border-green-200 dark:border-green-800", textClass: "text-green-700 dark:text-green-300",
       keys: [
-        { key: "retention_active",     label: "Aktívna spolupráca" },
-        { key: "retention_paused",     label: "Pozastavená spolupráca" },
-        { key: "retention_terminated", label: "Ukončená spolupráca" },
-        { key: "services_confirmed",   label: "Bude poskytovať služby" },
-        { key: "services_declined",    label: "Nebude poskytovať služby" },
+        { key: "retention_active",           label: tc.csk_retention_active           ?? "Active cooperation" },
+        { key: "retention_paused",           label: tc.csk_retention_paused           ?? "Cooperation paused" },
+        { key: "retention_terminated",       label: tc.csk_retention_terminated       ?? "Cooperation terminated" },
+        { key: "services_confirmed",         label: tc.csk_services_confirmed         ?? "Will provide services" },
+        { key: "services_declined",          label: tc.csk_services_declined          ?? "Will not provide services" },
+        { key: "retention_leaflets_sent",    label: tc.csk_retention_leaflets_sent    ?? "Leaflets sent" },
+        { key: "retention_pregbook_sent",    label: tc.csk_retention_pregbook_sent    ?? "Pregnancy booklets sent" },
+        { key: "retention_posters_sent",     label: tc.csk_retention_posters_sent     ?? "Posters sent" },
+        { key: "retention_materials_sent",   label: tc.csk_retention_materials_sent   ?? "Marketing materials sent" },
       ],
     },
-  ] as const;
+  ];
 
   const HeaderWrapper = mode === "inline" ? "div" : SheetHeader;
   const TitleWrapper = mode === "inline" ? "h3" : SheetTitle;
@@ -2810,12 +2818,12 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
               <div className="flex items-center gap-2">
                 <div className="flex items-center justify-center w-6 h-6 rounded-md bg-primary/10"><Handshake className="h-3.5 w-3.5 text-primary" /></div>
                 <div>
-                  <h3 className="text-sm font-semibold">História spolupráce</h3>
-                  <p className="text-xs text-muted-foreground">Kanonické statusy zaznamenané počas status listov kampaní (KPI 3.4–3.7)</p>
+                  <h3 className="text-sm font-semibold">{tc.cooperationHistoryTitle ?? "Cooperation history"}</h3>
+                  <p className="text-xs text-muted-foreground">{tc.cooperationHistoryDesc ?? "Canonical cooperation statuses recorded during campaign status lists (KPI 3.4–3.7)"}</p>
                 </div>
               </div>
               {!initialData ? (
-                <p className="text-sm text-muted-foreground text-center py-8">Uložte ambulanciu pre zobrazenie histórie spolupráce.</p>
+                <p className="text-sm text-muted-foreground text-center py-8">{tc.cooperationSaveFirst ?? "Save the clinic to view cooperation history."}</p>
               ) : !cooperationData ? (
                 <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
               ) : (
@@ -2838,7 +2846,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                               <div className="text-[10px] text-muted-foreground mt-1">{new Date(latestInPhase!.confirmedAt).toLocaleDateString("sk-SK")}</div>
                             </>
                           ) : (
-                            <div className="text-xs text-muted-foreground italic">— žiadny záznam —</div>
+                            <div className="text-xs text-muted-foreground italic">{tc.cooperationPhaseNoRecord ?? "— no record —"}</div>
                           )}
                         </div>
                       );
@@ -2879,8 +2887,8 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                   {cooperationData.history.length === 0 && (
                     <div className="text-center py-8 text-sm text-muted-foreground">
                       <Handshake className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                      <p>Zatiaľ žiadne záznamy spolupráce.</p>
-                      <p className="text-xs mt-1">Záznamy sa vytvárajú automaticky keď koordinátor potvrdí status-list možnosť s nastaveným kanonickým stavom.</p>
+                      <p>{tc.cooperationNoData ?? "No cooperation records yet."}</p>
+                      <p className="text-xs mt-1">{tc.cooperationNoDataHint ?? "Records are created automatically when a coordinator confirms a status-list option with a canonical status set."}</p>
                     </div>
                   )}
                 </div>
@@ -3018,7 +3026,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
     { key: "personnel", icon: Users, label: (t as any).personnel || "Personnel" },
     { key: "campaigns", icon: Megaphone, label: (t as any).campaigns?.title || "Campaigns" },
     { key: "representative", icon: UserCheck, label: t.representantPanel.tabLabel },
-    { key: "cooperation", icon: Handshake, label: "Spolupráca" },
+    { key: "cooperation", icon: Handshake, label: tc.cooperationTab ?? "Cooperation" },
   ];
 
   return (
@@ -3546,8 +3554,8 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
               {activeTab === "cooperation" && (
                 <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
                   <Handshake className="h-10 w-10 mb-3 opacity-40" />
-                  <p className="text-sm">História spolupráce bude dostupná po uložení ambulancie.</p>
-                  <p className="text-xs mt-1 max-w-xs">Záznamy sa vytvárajú automaticky pri potvrdení status-list možností s nastaveným kanonickým stavom.</p>
+                  <p className="text-sm">{tc.cooperationSaveFirst ?? "Save the clinic to view cooperation history."}</p>
+                  <p className="text-xs mt-1 max-w-xs">{tc.cooperationNoDataHint ?? "Records are created automatically when a coordinator confirms a status-list option with a canonical status set."}</p>
                 </div>
               )}
             </div>
