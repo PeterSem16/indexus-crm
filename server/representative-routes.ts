@@ -3,7 +3,7 @@
 // Priradenie reprezentanta ku klinike s históriou platnosti.
 // ============================================================
 import type { Express, Request, Response, NextFunction } from "express";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { eq, and, isNull, lte, or, gt, inArray, desc, sql } from "drizzle-orm";
 import {
   clinicRepresentativeAssignments,
@@ -68,39 +68,19 @@ export function registerRepresentativeRoutes(
 
       const roleIds = representantRoles.map((r) => r.id);
 
-      let reps: { id: string; full_name: string | null; email: string | null }[] = [];
-
-      if (roleIds.length > 0) {
-        // 1) cez users.roleId (priamy FK) — najčastejší prípad
-        const byDirectRole = await db
-          .select({ id: users.id, full_name: users.fullName, email: users.email })
-          .from(users)
-          .where(
-            and(
-              eq(users.isActive, true),
-              inArray(users.roleId as any, roleIds)
-            )
-          );
-
-        // 2) cez user_roles many-to-many
-        const byManyToMany = await db
-          .select({ id: users.id, full_name: users.fullName, email: users.email })
-          .from(users)
-          .innerJoin(userRoles, eq(userRoles.userId, users.id))
-          .where(
-            and(
-              eq(users.isActive, true),
-              inArray(userRoles.roleId, roleIds)
-            )
-          );
-
-        // Zlúč bez duplikátov
-        const seen = new Set<string>();
-        for (const r of [...byDirectRole, ...byManyToMany]) {
-          if (!seen.has(r.id)) { seen.add(r.id); reps.push(r); }
-        }
-        reps.sort((a, b) => (a.full_name ?? "").localeCompare(b.full_name ?? ""));
-      }
+      // Raw pool query — overená cesta, funguje s users.role_id (nullable FK)
+      // aj s user_roles many-to-many; rovnaká logika ako Users stránka
+      const { rows: reps } = roleIds.length > 0
+        ? await pool.query<{ id: string; full_name: string | null; email: string | null }>(
+            `SELECT DISTINCT u.id, u.full_name, u.email
+             FROM users u
+             LEFT JOIN user_roles ur ON ur.user_id = u.id
+             WHERE u.is_active = true
+               AND (u.role_id = ANY($1) OR ur.role_id = ANY($1))
+             ORDER BY u.full_name`,
+            [roleIds]
+          )
+        : { rows: [] as { id: string; full_name: string | null; email: string | null }[] };
 
       // Počet aktuálne pridelených kliník na reprezentanta
       const clinicCounts = await db
