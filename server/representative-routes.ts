@@ -321,42 +321,58 @@ export function registerRepresentativeRoutes(
   // ── GET /api/clinics/distinct-cities
   app.get("/api/clinics/distinct-cities", requireAuth, async (req, res) => {
     try {
-      const { country, regions, districts } = req.query as Record<string, string>;
-      let where: any = sql`${clinics.city} IS NOT NULL AND ${clinics.city} != ''`;
-      if (country) where = sql`${where} AND ${clinics.countryCode} = ${country}`;
+      const { countries, regions, districts } = req.query as Record<string, string>;
+      const conditions: string[] = ["city IS NOT NULL", "city != ''"];
+      const params: any[] = [];
+      if (countries) {
+        const arr = countries.split(",").filter(Boolean);
+        params.push(arr);
+        conditions.push(`country_code = ANY($${params.length})`);
+      }
       if (regions) {
         const arr = regions.split(",").filter(Boolean);
-        if (arr.length === 1) where = sql`${where} AND ${clinics.region} = ${arr[0]}`;
-        else if (arr.length > 1) where = sql`${where} AND ${clinics.region} = ANY(${arr}::text[])`;
+        params.push(arr);
+        conditions.push(`region = ANY($${params.length})`);
       }
       if (districts) {
         const arr = districts.split(",").filter(Boolean);
-        if (arr.length === 1) where = sql`${where} AND ${clinics.district} = ${arr[0]}`;
-        else if (arr.length > 1) where = sql`${where} AND ${clinics.district} = ANY(${arr}::text[])`;
+        params.push(arr);
+        conditions.push(`district = ANY($${params.length})`);
       }
-      const rows = await db.selectDistinct({ city: clinics.city }).from(clinics).where(where).orderBy(clinics.city);
-      res.json(rows.map(r => r.city).filter(Boolean));
+      const { rows } = await pool.query(
+        `SELECT DISTINCT city FROM clinics WHERE ${conditions.join(" AND ")} ORDER BY city`,
+        params
+      );
+      res.json(rows.map((r: any) => r.city));
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
   // ── GET /api/hospitals/distinct-cities
   app.get("/api/hospitals/distinct-cities", requireAuth, async (req, res) => {
     try {
-      const { country, regions, districts } = req.query as Record<string, string>;
-      let where: any = sql`${hospitals.city} IS NOT NULL AND ${hospitals.city} != ''`;
-      if (country) where = sql`${where} AND ${hospitals.countryCode} = ${country}`;
+      const { countries, regions, districts } = req.query as Record<string, string>;
+      const conditions: string[] = ["city IS NOT NULL", "city != ''"];
+      const params: any[] = [];
+      if (countries) {
+        const arr = countries.split(",").filter(Boolean);
+        params.push(arr);
+        conditions.push(`country_code = ANY($${params.length})`);
+      }
       if (regions) {
         const arr = regions.split(",").filter(Boolean);
-        if (arr.length === 1) where = sql`${where} AND ${hospitals.region} = ${arr[0]}`;
-        else if (arr.length > 1) where = sql`${where} AND ${hospitals.region} = ANY(${arr}::text[])`;
+        params.push(arr);
+        conditions.push(`region = ANY($${params.length})`);
       }
       if (districts) {
         const arr = districts.split(",").filter(Boolean);
-        if (arr.length === 1) where = sql`${where} AND ${hospitals.district} = ${arr[0]}`;
-        else if (arr.length > 1) where = sql`${where} AND ${hospitals.district} = ANY(${arr}::text[])`;
+        params.push(arr);
+        conditions.push(`district = ANY($${params.length})`);
       }
-      const rows = await db.selectDistinct({ city: hospitals.city }).from(hospitals).where(where).orderBy(hospitals.city);
-      res.json(rows.map(r => r.city).filter(Boolean));
+      const { rows } = await pool.query(
+        `SELECT DISTINCT city FROM hospitals WHERE ${conditions.join(" AND ")} ORDER BY city`,
+        params
+      );
+      res.json(rows.map((r: any) => r.city));
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
@@ -404,7 +420,10 @@ export function registerRepresentativeRoutes(
         if (criteria.isActive !== undefined) {
           clinicFilter = and(clinicFilter, eq(clinics.isActive, criteria.isActive));
         }
-        if (criteria.country) {
+        if ((criteria as any).countries) {
+          const cc = Array.isArray((criteria as any).countries) ? (criteria as any).countries : [(criteria as any).countries];
+          clinicFilter = cc.length === 1 ? and(clinicFilter, eq(clinics.countryCode, cc[0])) : and(clinicFilter, inArray(clinics.countryCode, cc));
+        } else if (criteria.country) {
           clinicFilter = and(clinicFilter, eq(clinics.countryCode, criteria.country));
         }
         if (criteria.region) {
@@ -691,7 +710,12 @@ export function registerRepresentativeRoutes(
       } else {
         let filter: any = undefined;
         if (criteria.isActive !== undefined) filter = and(filter, eq(hospitals.isActive, criteria.isActive));
-        if (criteria.country) filter = and(filter, eq(hospitals.countryCode, criteria.country));
+        if ((criteria as any).countries) {
+          const cc = Array.isArray((criteria as any).countries) ? (criteria as any).countries : [(criteria as any).countries];
+          filter = cc.length === 1 ? and(filter, eq(hospitals.countryCode, cc[0])) : and(filter, inArray(hospitals.countryCode, cc));
+        } else if (criteria.country) {
+          filter = and(filter, eq(hospitals.countryCode, criteria.country));
+        }
         if (criteria.region) {
           const regions = Array.isArray(criteria.region) ? criteria.region : [criteria.region];
           filter = and(filter, regions.length === 1 ? eq(hospitals.region, regions[0]) : inArray(hospitals.region, regions));
