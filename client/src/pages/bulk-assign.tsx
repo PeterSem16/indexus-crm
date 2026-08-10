@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useToast } from "@/hooks/use-toast";
+import { getQueryFn } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -64,12 +65,9 @@ export default function BulkAssignPage() {
 
   const { data: representatives = [], isLoading: repsLoading } = useQuery<RepUser[]>({
     queryKey: ["/api/representatives"],
-    queryFn: async () => {
-      const res = await fetch("/api/representatives", { credentials: "include" });
-      if (!res.ok) throw new Error(await res.text());
-      return res.json();
-    },
-    staleTime: 60_000,
+    queryFn: getQueryFn({ on401: "throw" }),
+    staleTime: 0,
+    refetchOnMount: true,
   });
 
   const regions = country ? (REGIONS_BY_COUNTRY as any)[country] ?? [] : [];
