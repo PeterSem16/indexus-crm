@@ -3393,12 +3393,14 @@ export async function registerRoutes(
       const conditions: any[] = [];
       if (q.length >= 1) {
         const s = `%${q}%`;
-        conditions.push(sql`(${hospitals.name} ILIKE ${s} OR ${hospitals.city} ILIKE ${s} OR ${hospitals.address} ILIKE ${s})`);
+        conditions.push(sql`(${hospitals.name} ILIKE ${s} OR ${hospitals.city} ILIKE ${s} OR ${hospitals.streetNumber} ILIKE ${s})`);
       }
       if (country) {
         conditions.push(eq(hospitals.countryCode, country));
       }
-      const where = conditions.length > 0 ? and(...conditions) : undefined;
+      const where = conditions.length === 0 ? undefined
+        : conditions.length === 1 ? conditions[0]
+        : and(...conditions);
       const data = await db.select({
         id: hospitals.id,
         name: hospitals.name,
@@ -3406,7 +3408,8 @@ export async function registerRoutes(
         city: hospitals.city,
       }).from(hospitals).where(where).orderBy(hospitals.name).limit(limitParam);
       res.json(data);
-    } catch (error) {
+    } catch (error: any) {
+      console.error("[hospitals/lookup] Error:", error?.message, error?.stack?.split("\n")[1]);
       res.status(500).json({ error: "Failed to fetch hospital lookup" });
     }
   });
