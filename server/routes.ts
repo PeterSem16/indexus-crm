@@ -29272,16 +29272,32 @@ ${CANONICAL_KEY_DESCRIPTIONS}
 TASK:
 Analyze the following status list (used in a campaign mission) and for EACH item suggest the most appropriate canonical status key.
 
-CRITICAL RULES:
-- You MUST include EVERY item from the status list in the "suggestions" array — do NOT skip or omit any item, even if suggestedKey is null.
-- The suggestions array must have exactly ${items.length} entries, one per item, in the same order.
-- Suggest a canonical key ONLY if the item semantically matches what that key tracks (a coordinator confirming this step means that canonical state was reached)
-- If an item does not cleanly map to any existing key, set suggestedKey to null (but still include the item!)
-- You MAY also suggest up to 3 NEW canonical keys if there are recurring themes not covered — provide key (snake_case, appropriate prefix), label (Slovak), phase, and description
-- Be precise: a step "Was the contract sent?" maps to contract_sent, not contract_signed
-- Options/sub-items (itemType=option) can also have canonical keys — e.g. a "Yes" answer to "Did the clinic sign the contract?" maps to contract_signed
-- Consider the full context: label, description, and sub-questions
-- Return confidence: "high" if clear match, "medium" if probable, "low" if uncertain
+CRITICAL RULES — READ CAREFULLY:
+
+1. MATCH FIRST: Try hard to match existing keys before creating new ones. Be liberal in matching:
+   - "Contract proposal sent", "Contract sent to clinic", "Contract sending count" → contract_sent
+   - "Contract accepted", "Contract agreed", "Contract signed by clinic" → contract_signed
+   - "Clinic reachable / not reachable", "Can we contact them" → acquisition_contacted
+   - "Clinic expressed interest", "Wants to cooperate" → acquisition_interested
+   - "HP assigned to representative", "Which representative handles this HP" → use assignment_ new key (see below)
+   - Steps about COUNTING or TRACKING an event (e.g. "how many times contract sent") → same key as the event itself
+
+2. CREATE NEW KEYS when truly nothing fits: If a step tracks something genuinely not covered by existing keys, define a new key in "newKeysSuggested" AND immediately use it as suggestedKey for that item. New key naming: use snake_case with a phase prefix (acquisition_, contract_, retention_, assignment_).
+
+3. NULL is a last resort: Only set suggestedKey to null for items that are purely internal/database/system steps with no KPI meaning (e.g. "Database management only — not visible to agents"). For ALL other items, either use an existing key or define + use a new one.
+
+4. EVERY item must appear in suggestions. The array must have exactly ${items.length} entries in the same order.
+
+5. Options (itemType=option) within a step: match to the state that option represents (e.g. "Yes, clinic signed" → contract_signed; "No, clinic declined" → contract_rejected).
+
+6. Confidence: "high" = direct semantic match, "medium" = probable match, "low" = stretch or new key.
+
+EXAMPLES:
+- "Contract Proposal with HP" (step about proposing/sending a contract) → contract_sent (high)
+- "Contract Sending Count" (tracking how many times contract was sent) → contract_sent (medium)
+- "HP Assignment — To Whom" (which rep is assigned to this clinic) → new key: assignment_rep_assigned
+- "Healthcare Provider Reachability Status" (can we reach the clinic) → acquisition_contacted (medium)
+- "Assigned Healthcare Provider" with description "Database management only — not visible to agents" → null (internal system step)
 
 STATUS LIST TO ANALYZE (${items.length} items):
 ${JSON.stringify(listForAI, null, 2)}
@@ -29297,17 +29313,23 @@ Respond ONLY with valid JSON in this exact format:
     },
     {
       "itemId": "...",
+      "suggestedKey": "assignment_rep_assigned",
+      "confidence": "medium",
+      "reasoning": "Tracks which rep is assigned — new key defined in newKeysSuggested"
+    },
+    {
+      "itemId": "...",
       "suggestedKey": null,
       "confidence": "low",
-      "reasoning": "No matching canonical key found for this item"
+      "reasoning": "Pure database/internal step, no KPI value"
     }
   ],
   "newKeysSuggested": [
     {
-      "key": "retention_example",
-      "label": "Slovak label",
-      "phase": "retention",
-      "description": "What this key tracks"
+      "key": "assignment_rep_assigned",
+      "label": "Priradený obchodný zástupca",
+      "phase": "assignment",
+      "description": "Tracks that a sales representative has been assigned to this healthcare provider"
     }
   ]
 }`;

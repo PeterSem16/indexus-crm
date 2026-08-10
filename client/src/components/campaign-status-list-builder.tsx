@@ -4274,6 +4274,16 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
                                           </SelectTrigger>
                                           <SelectContent>
                                             <SelectItem value="__none__">— ponechať bez kľúča —</SelectItem>
+                                            {/* AI-suggested new keys for this run */}
+                                            {aiSuggestData.newKeysSuggested?.length > 0 && (
+                                              <SelectGroup>
+                                                <SelectLabel className="text-[10px] text-violet-600">✨ AI navrhnuté nové</SelectLabel>
+                                                {aiSuggestData.newKeysSuggested.map(k => (
+                                                  <SelectItem key={k.key} value={k.key} className="text-[11px] text-violet-700 dark:text-violet-300 font-mono">{k.key} — {k.label}</SelectItem>
+                                                ))}
+                                              </SelectGroup>
+                                            )}
+                                            {/* Existing canonical keys */}
                                             {CANONICAL_CLINIC_STATUS_GROUPS.map(group => (
                                               <SelectGroup key={group.phase}>
                                                 <SelectLabel className="text-[10px]">{group.phase}</SelectLabel>
