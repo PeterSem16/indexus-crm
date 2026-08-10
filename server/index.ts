@@ -877,6 +877,31 @@ app.use((req, res, next) => {
     console.error('[migration] hospital_representative_assignments error:', e.message);
   }
 
+  // Ensure representative_id column exists on clinics + hospitals, then backfill from assignments
+  try {
+    await pool.query(`ALTER TABLE clinics ADD COLUMN IF NOT EXISTS representative_id varchar`);
+    await pool.query(`ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS representative_id varchar`);
+    await pool.query(`
+      UPDATE clinics c
+      SET representative_id = a.user_id
+      FROM clinic_representative_assignments a
+      WHERE a.clinic_id = c.id
+        AND a.valid_to IS NULL
+        AND (c.representative_id IS NULL OR c.representative_id != a.user_id)
+    `);
+    await pool.query(`
+      UPDATE hospitals h
+      SET representative_id = a.user_id
+      FROM hospital_representative_assignments a
+      WHERE a.hospital_id = h.id
+        AND a.valid_to IS NULL
+        AND (h.representative_id IS NULL OR h.representative_id != a.user_id)
+    `);
+    console.log('[migration] representative_id column + backfill done');
+  } catch (e: any) {
+    console.error('[migration] representative_id backfill error:', e.message);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

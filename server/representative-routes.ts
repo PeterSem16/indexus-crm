@@ -210,6 +210,9 @@ export function registerRepresentativeRoutes(
         })
         .returning();
 
+      // Sync priamo na clinic riadok (UI číta clinic.representativeId)
+      await db.update(clinics).set({ representativeId: userId }).where(eq(clinics.id, clinicId));
+
       res.json({ assignment: created });
     } catch (e: any) {
       console.error("[representatives] POST /api/clinics/:id/representative", e);
@@ -236,6 +239,8 @@ export function registerRepresentativeRoutes(
         .returning();
 
       if (!updated.length) return res.status(404).json({ message: "No active assignment found" });
+      // Vymaž priamo z clinic riadku
+      await db.update(clinics).set({ representativeId: null }).where(eq(clinics.id, clinicId));
       res.json({ ok: true });
     } catch (e: any) {
       console.error("[representatives] DELETE /api/clinics/:id/representative", e);
@@ -518,6 +523,8 @@ export function registerRepresentativeRoutes(
         }));
 
         await db.insert(clinicRepresentativeAssignments).values(insertValues);
+        // Sync priamo na clinic riadky
+        await db.update(clinics).set({ representativeId: userId }).where(inArray(clinics.id, targetClinicIds));
         affected = targetClinicIds.length;
       }
 
@@ -598,6 +605,8 @@ export function registerRepresentativeRoutes(
       }));
 
       await db.insert(clinicRepresentativeAssignments).values(insertValues);
+      // Sync priamo na clinic riadky
+      await db.update(clinics).set({ representativeId: toUserId }).where(inArray(clinics.id, targetClinicIds));
 
       res.json({ swapped: targetClinicIds.length, clinicIds: targetClinicIds });
     } catch (e: any) {
@@ -655,6 +664,8 @@ export function registerRepresentativeRoutes(
         hospitalId, userId, validFrom: effectiveFrom, validTo: null,
         assignedBy: req.session!.user?.id, assignmentType: "manual", note: note ?? null,
       }).returning();
+      // Sync priamo na hospital riadok
+      await db.update(hospitals).set({ representativeId: userId }).where(eq(hospitals.id, hospitalId));
       res.json({ assignment: created });
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
@@ -667,6 +678,8 @@ export function registerRepresentativeRoutes(
         .where(and(eq(hospitalRepresentativeAssignments.hospitalId, hospitalId), isNull(hospitalRepresentativeAssignments.validTo)))
         .returning();
       if (!updated.length) return res.status(404).json({ message: "No active assignment found" });
+      // Vymaž priamo z hospital riadku
+      await db.update(hospitals).set({ representativeId: null }).where(eq(hospitals.id, hospitalId));
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
@@ -750,6 +763,8 @@ export function registerRepresentativeRoutes(
         await db.insert(hospitalRepresentativeAssignments).values(
           targetIds.map(hospitalId => ({ hospitalId, userId, validFrom: effectiveFrom, validTo: null as null, assignedBy: req.session!.user?.id, assignmentType: "manual", note: note ?? null }))
         );
+        // Sync priamo na hospital riadky
+        await db.update(hospitals).set({ representativeId: userId }).where(inArray(hospitals.id, targetIds));
       }
       res.json({ affected: targetIds.length, hospitalIds: targetIds });
     } catch (e: any) { res.status(500).json({ message: e.message }); }
@@ -773,6 +788,8 @@ export function registerRepresentativeRoutes(
       await db.insert(hospitalRepresentativeAssignments).values(
         targetIds.map(hospitalId => ({ hospitalId, userId: toUserId, validFrom: effectiveFrom, validTo: null as null, assignedBy: req.session!.user?.id, assignmentType: "swap" as const, note: note ?? null }))
       );
+      // Sync priamo na hospital riadky
+      await db.update(hospitals).set({ representativeId: toUserId }).where(inArray(hospitals.id, targetIds));
       res.json({ swapped: targetIds.length, hospitalIds: targetIds });
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
