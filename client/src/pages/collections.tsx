@@ -73,6 +73,8 @@ interface CollectionFormData {
   assistantNurseId: string;
   secondNurseId: string;
   representativeId: string;
+  clinicId: string;
+  collaboratorId: string;
   state: string;
   certificate: string;
   laboratoryId: string;
@@ -108,6 +110,8 @@ const initialFormData: CollectionFormData = {
   assistantNurseId: "",
   secondNurseId: "",
   representativeId: "",
+  clinicId: "",
+  collaboratorId: "",
   state: "created",
   certificate: "",
   laboratoryId: "",
@@ -284,6 +288,12 @@ export default function CollectionsPage() {
 
   const { data: hospitals = [] } = useQuery<any[]>({
     queryKey: ["/api/hospitals/lookup"],
+    staleTime: 5 * 60 * 1000,
+    enabled: needsLookups,
+  });
+
+  const { data: clinics = [] } = useQuery<any[]>({
+    queryKey: ["/api/clinics/lookup"],
     staleTime: 5 * 60 * 1000,
     enabled: needsLookups,
   });
@@ -886,6 +896,9 @@ export default function CollectionsPage() {
         clientPhone: customer.phone || prev.clientPhone,
         clientMobile: customer.mobile || prev.clientMobile,
         countryCode: customer.country || prev.countryCode,
+        // Pre-fill ambulancia from the client card if set
+        clinicId: (customer as any).clinicId || prev.clinicId,
+        collaboratorId: (customer as any).collaboratorId || prev.collaboratorId,
       }));
     } else {
       handleFieldChange("customerId", customerId);
@@ -920,6 +933,8 @@ export default function CollectionsPage() {
         assistantNurseId: collection.assistantNurseId || "",
         secondNurseId: collection.secondNurseId || "",
         representativeId: collection.representativeId || "",
+        clinicId: (collection as any).clinicId || "",
+        collaboratorId: (collection as any).collaboratorId || "",
         state: collection.state || "created",
         certificate: collection.certificate || "",
         laboratoryId: collection.laboratoryId || "",
@@ -1324,6 +1339,27 @@ export default function CollectionsPage() {
             <option key={h.id} value={String(h.id)}>{h.name}</option>
           ))}
         </select>
+      </div>
+      {/* Ambulancia (clinic) — link for representative KPI attribution */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>{(t as any).collections?.clinic || "Ambulancia (gynekológ)"}</Label>
+          <select className={nativeSelectClass} value={formData.clinicId || ""} onChange={(e) => handleFieldChange("clinicId", e.target.value)} data-testid="select-clinic">
+            <option value="">{t.common.select}</option>
+            {clinics.map((c: any) => (
+              <option key={c.id} value={String(c.id)}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-2">
+          <Label>{(t as any).collections?.gynecologist || "Gynekológ (osoba)"}</Label>
+          <select className={nativeSelectClass} value={formData.collaboratorId || ""} onChange={(e) => handleFieldChange("collaboratorId", e.target.value)} data-testid="select-gynecologist">
+            <option value="">{t.common.noData} — {(t as any).common?.optional || "voliteľné"}</option>
+            {collaborators.map((c: any) => (
+              <option key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</option>
+            ))}
+          </select>
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">

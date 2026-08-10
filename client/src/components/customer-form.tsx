@@ -104,6 +104,8 @@ const customerFormSchema = z.object({
   gynecologistEmail: z.string().optional(),
   expectedDeliveryDate: z.date().optional().nullable(),
   hospitalName: z.string().optional(),
+  clinicId: z.string().optional(),       // ambulancia gynekológa
+  collaboratorId: z.string().optional(), // konkrétny gynekológ (collaborator)
   registrationSource: z.string().optional(),
 });
 
@@ -291,6 +293,16 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
   const { data: cooperationTypes = [] } = useQuery<CooperationType[]>({ queryKey: ["/api/config/cooperation-types"] });
   const { data: vipStatuses = [] } = useQuery<VipStatus[]>({ queryKey: ["/api/config/vip-statuses"] });
   const { data: healthInsuranceCompanies = [] } = useQuery<HealthInsurance[]>({ queryKey: ["/api/config/health-insurance"] });
+  const { data: clinicLookup = [] } = useQuery<any[]>({ queryKey: ["/api/clinics/lookup"], staleTime: 5 * 60 * 1000 });
+  const { data: collaboratorLookup = [] } = useQuery<any[]>({
+    queryKey: ["/api/collaborators/lookup"],
+    queryFn: async () => {
+      const res = await fetch("/api/collaborators/lookup?limit=500", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   const { data: customerDocuments = [] } = useQuery<any[]>({
     queryKey: ["/api/customers", initialData?.id, "documents"],
@@ -352,6 +364,8 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
       gynecologistEmail: (initialData as any)?.gynecologistEmail || "",
       expectedDeliveryDate: (initialData as any)?.expectedDeliveryDate ? new Date((initialData as any).expectedDeliveryDate) : undefined,
       hospitalName: (initialData as any)?.hospitalName || "",
+      clinicId: (initialData as any)?.clinicId || "",
+      collaboratorId: (initialData as any)?.collaboratorId || "",
       registrationSource: (initialData as any)?.registrationSource || "",
     },
   });
@@ -984,6 +998,55 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                           </div>
                         </FormLabel>
                         <FormControl><Input placeholder="Názov nemocnice..." {...field} data-testid="input-hospital-name" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    {/* Ambulancia link — for representative KPI attribution chain */}
+                    <FormField control={form.control} name="clinicId" render={({ field }) => (
+                      <FormItem className="col-span-2">
+                        <FormLabel>
+                          <div className="flex items-center gap-1.5">
+                            <Stethoscope className="h-3.5 w-3.5 text-emerald-600" />
+                            {(t as any).customers?.caseFields?.clinic || "Ambulancia (gynekológ) — prepojenie na reprezentanta"}
+                          </div>
+                        </FormLabel>
+                        <Select value={field.value || ""} onValueChange={field.onChange}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-customer-clinic">
+                              <SelectValue placeholder={(t as any).common?.select || "Vybrať ambulanciu..."} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="">{(t as any).common?.noData || "— žiadna —"}</SelectItem>
+                            {clinicLookup.map((c: any) => (
+                              <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="collaboratorId" render={({ field }) => (
+                      <FormItem className="col-span-2">
+                        <FormLabel>
+                          <div className="flex items-center gap-1.5">
+                            <User className="h-3.5 w-3.5 text-blue-600" />
+                            {(t as any).customers?.caseFields?.gynecologist || "Gynekológ (konkrétna osoba, voliteľné)"}
+                          </div>
+                        </FormLabel>
+                        <Select value={field.value || ""} onValueChange={field.onChange}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-customer-collaborator">
+                              <SelectValue placeholder={(t as any).common?.noData || "— voliteľné —"} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="">{(t as any).common?.noData || "— žiadna —"}</SelectItem>
+                            {collaboratorLookup.map((c: any) => (
+                              <SelectItem key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )} />

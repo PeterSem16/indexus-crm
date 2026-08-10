@@ -601,6 +601,8 @@ export const customers = pgTable("customers", {
   gynecologistEmail: text("gynecologist_email"),
   expectedDeliveryDate: timestamp("expected_delivery_date"),
   hospitalName: text("hospital_name"),
+  clinicId: varchar("clinic_id"),         // ambulancia gynekológa (FK → clinics, optional)
+  collaboratorId: varchar("collaborator_id"), // konkrétny gynekológ (FK → collaborators, optional)
   
   // Registration source
   registrationSource: text("registration_source"), // web_form, phone, email, in_person, referral
@@ -5471,6 +5473,10 @@ export const collections = pgTable("collections", {
   assistantNurseId: varchar("assistant_nurse_id"),
   secondNurseId: varchar("second_nurse_id"),
   representativeId: varchar("representative_id"),
+
+  // Ambulancia (clinic) link for KPI attribution
+  clinicId: varchar("clinic_id"),         // ambulancia gynekológa (FK → clinics)
+  collaboratorId: varchar("collaborator_id"), // konkrétny gynekológ (FK → collaborators, optional)
   
   // Status dates
   statusCreatedAt: timestamp("status_created_at"),

@@ -902,6 +902,30 @@ app.use((req, res, next) => {
     console.error('[migration] representative_id backfill error:', e.message);
   }
 
+  // Ensure clinic_id + collaborator_id on collections and customers (ambulancia/gynekológ link)
+  try {
+    await pool.query(`ALTER TABLE collections ADD COLUMN IF NOT EXISTS clinic_id varchar`);
+    await pool.query(`ALTER TABLE collections ADD COLUMN IF NOT EXISTS collaborator_id varchar`);
+    await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS clinic_id varchar`);
+    await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS collaborator_id varchar`);
+    // Backfill representative_id for collections that already have a clinic_id set
+    await pool.query(`
+      UPDATE collections c
+      SET representative_id = sub.user_id
+      FROM (
+        SELECT DISTINCT ON (a.clinic_id) a.clinic_id, a.user_id, a.valid_from
+        FROM clinic_representative_assignments a
+        ORDER BY a.clinic_id, a.valid_from DESC
+      ) sub
+      WHERE c.clinic_id = sub.clinic_id
+        AND c.collection_date IS NOT NULL
+        AND c.representative_id IS NULL
+    `);
+    console.log('[migration] collections/customers clinic_id + collaborator_id ensured');
+  } catch (e: any) {
+    console.error('[migration] collections clinic_id error:', e.message);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

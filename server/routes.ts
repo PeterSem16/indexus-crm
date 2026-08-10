@@ -45500,10 +45500,36 @@ Guidelines:
     }
   });
 
+  // Helper: snapshot the representative for a collection from clinic assignments at collection_date
+  async function snapshotCollectionRepresentative(collectionId: string, clinicId: string | null | undefined, collectionDate: Date | string | null | undefined) {
+    if (!clinicId || !collectionDate) return null;
+    try {
+      const snap = await pool.query(
+        `SELECT user_id FROM clinic_representative_assignments
+         WHERE clinic_id = $1
+           AND valid_from <= $2
+           AND (valid_to IS NULL OR valid_to > $2)
+         ORDER BY valid_from DESC LIMIT 1`,
+        [clinicId, collectionDate]
+      );
+      if (snap.rows.length > 0) {
+        await pool.query(
+          `UPDATE collections SET representative_id = $1, updated_at = NOW() WHERE id = $2`,
+          [snap.rows[0].user_id, collectionId]
+        );
+        return snap.rows[0].user_id as string;
+      }
+    } catch (e: any) {
+      console.error("[collection] representative snapshot error:", e.message);
+    }
+    return null;
+  }
+
   // Create collection
   app.post("/api/collections", requireAuth, async (req, res) => {
     try {
       const collection = await storage.createCollection(req.body);
+      await snapshotCollectionRepresentative(collection.id, collection.clinicId, collection.collectionDate);
       await logActivity(req.session.user!.id, "create", "collection", collection.id, collection.cbuNumber || "");
       res.status(201).json(collection);
     } catch (error) {
@@ -45519,6 +45545,7 @@ Guidelines:
       if (!collection) {
         return res.status(404).json({ error: "Collection not found" });
       }
+      await snapshotCollectionRepresentative(collection.id, collection.clinicId, collection.collectionDate);
       await logActivity(req.session.user!.id, "update", "collection", collection.id, collection.cbuNumber || "");
       res.json(collection);
     } catch (error) {
