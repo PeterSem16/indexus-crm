@@ -170,6 +170,9 @@ export default function CollectionsPage() {
   const [clinicComboOpen, setClinicComboOpen] = useState(false);
   const [clinicSearch, setClinicSearch] = useState("");
   const [debouncedClinicSearch, setDebouncedClinicSearch] = useState("");
+  const [hospitalComboOpen, setHospitalComboOpen] = useState(false);
+  const [hospitalSearch, setHospitalSearch] = useState("");
+  const [debouncedHospitalSearch, setDebouncedHospitalSearch] = useState("");
   
   const dateFnsLocale = dateLocales[locale] || enUS;
 
@@ -186,6 +189,11 @@ export default function CollectionsPage() {
     const timer = setTimeout(() => setDebouncedClinicSearch(clinicSearch), 300);
     return () => clearTimeout(timer);
   }, [clinicSearch]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedHospitalSearch(hospitalSearch), 300);
+    return () => clearTimeout(timer);
+  }, [hospitalSearch]);
 
   useEffect(() => { setCollectionPage(1); }, [debouncedSearch, listStatusFilter, selectedCountries]);
 
@@ -296,19 +304,44 @@ export default function CollectionsPage() {
     enabled: needsLookups,
   });
 
-  const { data: hospitals = [] } = useQuery<any[]>({
-    queryKey: ["/api/hospitals/lookup"],
-    staleTime: 5 * 60 * 1000,
-    enabled: needsLookups,
+  // Effective country: collection's country → fallback to user's first assigned country
+  const effectiveCountry = formData.countryCode || selectedCountries[0] || "";
+
+  // Hospital lookup: server-side search + ALWAYS country-filtered
+  const { data: hospitals = [], isFetching: hospitalsFetching } = useQuery<any[]>({
+    queryKey: ["/api/hospitals/lookup", { q: debouncedHospitalSearch, country: effectiveCountry }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (debouncedHospitalSearch) params.set("q", debouncedHospitalSearch);
+      if (effectiveCountry) params.set("country", effectiveCountry);
+      params.set("limit", "80");
+      const res = await fetch(`/api/hospitals/lookup?${params.toString()}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    staleTime: 2 * 60 * 1000,
+    enabled: hospitalComboOpen || !!formData.hospitalId,
   });
 
-  // Clinic lookup: server-side search + country filter from the current collection's countryCode
+  // Hospital personnel: fetched when hospital is selected (for collector selectors)
+  const { data: hospitalPersonnel = [], isFetching: hospitalPersonnelFetching } = useQuery<any[]>({
+    queryKey: ["/api/mpn/institution/hospital", formData.hospitalId, "personnel"],
+    queryFn: async () => {
+      const res = await fetch(`/api/mpn/institution/hospital/${formData.hospitalId}/personnel`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    staleTime: 2 * 60 * 1000,
+    enabled: !!formData.hospitalId,
+  });
+
+  // Clinic lookup: server-side search + ALWAYS country-filtered
   const { data: clinics = [], isFetching: clinicsFetching } = useQuery<any[]>({
-    queryKey: ["/api/clinics/lookup", { q: debouncedClinicSearch, country: formData.countryCode }],
+    queryKey: ["/api/clinics/lookup", { q: debouncedClinicSearch, country: effectiveCountry }],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (debouncedClinicSearch) params.set("q", debouncedClinicSearch);
-      if (formData.countryCode) params.set("country", formData.countryCode);
+      if (effectiveCountry) params.set("country", effectiveCountry);
       params.set("limit", "80");
       const res = await fetch(`/api/clinics/lookup?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed");
@@ -1371,13 +1404,53 @@ export default function CollectionsPage() {
         </div>
       </div>
       <div className="space-y-2">
-        <Label>{t.collections?.hospital}</Label>
-        <select className={nativeSelectClass} value={formData.hospitalId || ""} onChange={(e) => handleFieldChange("hospitalId", e.target.value)} data-testid="select-hospital">
-          <option value="">{t.common.select}</option>
-          {hospitals.map((h: any) => (
-            <option key={h.id} value={String(h.id)}>{h.name}</option>
-          ))}
-        </select>
+        <Label className="flex items-center gap-1.5">
+          <Building2 className="h-3.5 w-3.5 text-blue-600" />
+          {t.collections?.hospital}
+          {effectiveCountry && <span className="ml-1 text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded uppercase">{effectiveCountry}</span>}
+        </Label>
+        <Popover open={hospitalComboOpen} onOpenChange={(o) => { setHospitalComboOpen(o); if (o) setHospitalSearch(""); }}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-9 text-sm" data-testid="select-hospital">
+              <span className="truncate">
+                {formData.hospitalId
+                  ? (hospitals.find((h: any) => String(h.id) === formData.hospitalId)?.name || "Nemocnica vybraná")
+                  : <span className="text-muted-foreground">{t.common.select}...</span>}
+              </span>
+              {hospitalsFetching ? <Loader2 className="h-4 w-4 animate-spin opacity-50 shrink-0" /> : <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[360px] p-0" align="start">
+            <Command shouldFilter={false}>
+              <CommandInput placeholder="Hľadať nemocnicu..." value={hospitalSearch} onValueChange={setHospitalSearch} />
+              <CommandList>
+                {hospitalsFetching && <div className="flex items-center justify-center py-4 text-sm gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Načítavam...</div>}
+                {!hospitalsFetching && hospitals.filter((h: any) => !effectiveCountry || h.countryCode === effectiveCountry).filter((h: any) => !hospitalSearch || `${h.name} ${h.city || ""}`.toLowerCase().includes(hospitalSearch.toLowerCase())).length === 0 && (
+                  <CommandEmpty>Žiadna nemocnica nenájdená{effectiveCountry ? ` pre krajinu ${effectiveCountry}` : ""}</CommandEmpty>
+                )}
+                <CommandGroup>
+                  {formData.hospitalId && (
+                    <CommandItem value="__clear__" onSelect={() => { handleFieldChange("hospitalId", ""); setHospitalComboOpen(false); }} className="text-muted-foreground text-xs">
+                      <X className="h-3 w-3 mr-2" /> Zrušiť výber
+                    </CommandItem>
+                  )}
+                  {hospitals
+                    .filter((h: any) => !effectiveCountry || h.countryCode === effectiveCountry)
+                    .filter((h: any) => !hospitalSearch || `${h.name} ${h.city || ""}`.toLowerCase().includes(hospitalSearch.toLowerCase()))
+                    .map((h: any) => (
+                      <CommandItem key={h.id} value={String(h.id)} onSelect={() => { handleFieldChange("hospitalId", String(h.id)); setHospitalComboOpen(false); setHospitalSearch(""); }}>
+                        <Check className={`mr-2 h-4 w-4 ${formData.hospitalId === String(h.id) ? "opacity-100" : "opacity-0"}`} />
+                        <div className="flex flex-col">
+                          <span className="text-sm">{h.name}</span>
+                          {h.city && <span className="text-xs text-muted-foreground">{h.city}</span>}
+                        </div>
+                      </CommandItem>
+                    ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       </div>
       {/* Ambulancia (clinic) — link for representative KPI attribution */}
       <div className="grid grid-cols-2 gap-4">
@@ -1440,24 +1513,27 @@ export default function CollectionsPage() {
                         <X className="h-3 w-3 mr-2" /> Zrušiť výber
                       </CommandItem>
                     )}
-                    {clinics.map((c: any) => (
-                      <CommandItem
-                        key={c.id}
-                        value={String(c.id)}
-                        onSelect={() => {
-                          handleFieldChange("clinicId", String(c.id));
-                          handleFieldChange("collaboratorId", "");
-                          setClinicComboOpen(false);
-                          setClinicSearch("");
-                        }}
-                      >
-                        <Check className={`mr-2 h-4 w-4 ${formData.clinicId === String(c.id) ? "opacity-100" : "opacity-0"}`} />
-                        <div className="flex flex-col">
-                          <span className="text-sm">{c.name}</span>
-                          {c.city && <span className="text-xs text-muted-foreground">{c.city}</span>}
-                        </div>
-                      </CommandItem>
-                    ))}
+                    {clinics
+                      .filter((c: any) => !effectiveCountry || c.countryCode === effectiveCountry)
+                      .filter((c: any) => !clinicSearch || `${c.name} ${c.city || ""}`.toLowerCase().includes(clinicSearch.toLowerCase()))
+                      .map((c: any) => (
+                        <CommandItem
+                          key={c.id}
+                          value={String(c.id)}
+                          onSelect={() => {
+                            handleFieldChange("clinicId", String(c.id));
+                            handleFieldChange("collaboratorId", "");
+                            setClinicComboOpen(false);
+                            setClinicSearch("");
+                          }}
+                        >
+                          <Check className={`mr-2 h-4 w-4 ${formData.clinicId === String(c.id) ? "opacity-100" : "opacity-0"}`} />
+                          <div className="flex flex-col">
+                            <span className="text-sm">{c.name}</span>
+                            {c.city && <span className="text-xs text-muted-foreground">{c.city}</span>}
+                          </div>
+                        </CommandItem>
+                      ))}
                   </CommandGroup>
                 </CommandList>
               </Command>
@@ -1485,66 +1561,58 @@ export default function CollectionsPage() {
           )}
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>{t.collections?.cordBloodCollector}</Label>
-          <select className={nativeSelectClass} value={formData.cordBloodCollectorId || ""} onChange={(e) => handleFieldChange("cordBloodCollectorId", e.target.value)} data-testid="select-cord-blood-collector">
-            <option value="">{t.common.select}</option>
-            {collaborators.map((c: any) => (
-              <option key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</option>
-            ))}
-          </select>
-        </div>
-        <div className="space-y-2">
-          <Label>{t.collections?.tissueCollector}</Label>
-          <select className={nativeSelectClass} value={formData.tissueCollectorId || ""} onChange={(e) => handleFieldChange("tissueCollectorId", e.target.value)} data-testid="select-tissue-collector">
-            <option value="">{t.common.select}</option>
-            {collaborators.map((c: any) => (
-              <option key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>{t.collections?.placentaCollector}</Label>
-          <select className={nativeSelectClass} value={formData.placentaCollectorId || ""} onChange={(e) => handleFieldChange("placentaCollectorId", e.target.value)} data-testid="select-placenta-collector">
-            <option value="">{t.common.select}</option>
-            {collaborators.map((c: any) => (
-              <option key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</option>
-            ))}
-          </select>
-        </div>
-        <div className="space-y-2">
-          <Label>{t.collections?.assistantNurse}</Label>
-          <select className={nativeSelectClass} value={formData.assistantNurseId || ""} onChange={(e) => handleFieldChange("assistantNurseId", e.target.value)} data-testid="select-assistant-nurse">
-            <option value="">{t.common.select}</option>
-            {collaborators.map((c: any) => (
-              <option key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>{t.collections?.secondNurse}</Label>
-          <select className={nativeSelectClass} value={formData.secondNurseId || ""} onChange={(e) => handleFieldChange("secondNurseId", e.target.value)} data-testid="select-second-nurse">
-            <option value="">{t.common.select}</option>
-            {collaborators.map((c: any) => (
-              <option key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</option>
-            ))}
-          </select>
-        </div>
-        <div className="space-y-2">
-          <Label>{t.collections?.representative}</Label>
-          <select className={nativeSelectClass} value={formData.representativeId || ""} onChange={(e) => handleFieldChange("representativeId", e.target.value)} data-testid="select-representative">
-            <option value="">{t.common.select}</option>
-            {representativeUsers.map((u: any) => (
-              <option key={u.id} value={String(u.id)}>{u.name || u.email}</option>
-            ))}
-          </select>
-        </div>
-      </div>
+      {/* Personnel — hospital-specific when hospital selected, all-country collaborators otherwise */}
+      {(() => {
+        const useHospPersonnel = !!formData.hospitalId;
+        const personnelOptions = useHospPersonnel
+          ? hospitalPersonnel.map((p: any) => ({
+              id: String(p.person_id),
+              label: [p.title_before, p.first_name, p.last_name, p.title_after].filter(Boolean).join(" "),
+            }))
+          : collaborators.map((c: any) => ({
+              id: String(c.id),
+              label: [c.firstName, c.lastName].filter(Boolean).join(" "),
+            }));
+        const noPersonnel = useHospPersonnel && hospitalPersonnelFetching === false && hospitalPersonnel.length === 0;
+        const renderSel = (label: string, field: string, value: string, testId: string) => (
+          <div className="space-y-2">
+            <Label>{label}</Label>
+            {useHospPersonnel && hospitalPersonnelFetching
+              ? <div className="flex items-center gap-2 text-xs text-muted-foreground h-9"><Loader2 className="h-3 w-3 animate-spin" /> Načítavam personál...</div>
+              : noPersonnel
+              ? <p className="text-xs text-amber-600 pt-1">K tejto nemocnici nie sú priradení žiadni personáli v MPN systéme</p>
+              : <select className={nativeSelectClass} value={value} onChange={(e) => handleFieldChange(field, e.target.value)} data-testid={testId}>
+                  <option value="">{t.common.select}</option>
+                  {personnelOptions.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+                </select>
+            }
+          </div>
+        );
+        return (
+          <>
+            <div className="grid grid-cols-2 gap-4">
+              {renderSel(t.collections?.cordBloodCollector || "Cord Blood Collector", "cordBloodCollectorId", formData.cordBloodCollectorId || "", "select-cord-blood-collector")}
+              {renderSel(t.collections?.tissueCollector || "Tissue Collector", "tissueCollectorId", formData.tissueCollectorId || "", "select-tissue-collector")}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {renderSel(t.collections?.placentaCollector || "Placenta Collector", "placentaCollectorId", formData.placentaCollectorId || "", "select-placenta-collector")}
+              {renderSel(t.collections?.assistantNurse || "Assistant Nurse", "assistantNurseId", formData.assistantNurseId || "", "select-assistant-nurse")}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {renderSel(t.collections?.secondNurse || "Second Nurse", "secondNurseId", formData.secondNurseId || "", "select-second-nurse")}
+              <div className="space-y-2">
+                <Label>{t.collections?.representative}</Label>
+                <select className={nativeSelectClass} value={formData.representativeId || ""} onChange={(e) => handleFieldChange("representativeId", e.target.value)} data-testid="select-representative">
+                  <option value="">{t.common.select}</option>
+                  {representativeUsers.map((u: any) => (
+                    <option key={u.id} value={String(u.id)}>{u.name || u.email}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 
