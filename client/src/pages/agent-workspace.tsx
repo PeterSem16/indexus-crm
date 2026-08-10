@@ -6288,6 +6288,12 @@ function CommunicationCanvas({
                           {item.label}
                           {item.required && <span className="ml-1 text-rose-500 text-[10px] font-bold">*</span>}
                         </div>
+                        {item.canonicalClinicStatusKey && (() => {
+                          const ck = item.canonicalClinicStatusKey as string;
+                          const cPhase = ck.startsWith("acquisition_") ? "acq" : ck.startsWith("contract_") || ck.startsWith("flyers_") ? "con" : ck.startsWith("retention_") || ck.startsWith("services_") ? "ret" : "oth";
+                          const cCls = cPhase === "acq" ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-700/40" : cPhase === "con" ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-700/40" : cPhase === "ret" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700/40" : "bg-muted/50 text-muted-foreground border-border/50";
+                          return <span className={`inline-flex items-center mt-0.5 px-1.5 py-px text-[9px] font-mono font-medium rounded border leading-none ${cCls}`}>{ck.replace(/_/g, " ")}</span>;
+                        })()}
                         {item.description && <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{item.description}</p>}
                         {/* Confirmation timestamp — shown on every checked item.
                             If the item is re-staged in batch mode (batchSlSelections) the
@@ -6616,6 +6622,12 @@ function CommunicationCanvas({
                               {child.label}
                               {child.required && <span className="ml-1 text-rose-500">*</span>}
                             </span>
+                            {child.canonicalClinicStatusKey && (() => {
+                              const ck = child.canonicalClinicStatusKey as string;
+                              const cPhase = ck.startsWith("acquisition_") ? "acq" : ck.startsWith("contract_") || ck.startsWith("flyers_") ? "con" : ck.startsWith("retention_") || ck.startsWith("services_") ? "ret" : "oth";
+                              const cCls = cPhase === "acq" ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-700/40" : cPhase === "con" ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-700/40" : cPhase === "ret" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700/40" : "bg-muted/50 text-muted-foreground border-border/50";
+                              return <span className={`inline-flex items-center mt-0.5 px-1.5 py-px text-[9px] font-mono font-medium rounded border leading-none ${cCls}`}>{ck.replace(/_/g, " ")}</span>;
+                            })()}
                             {child.description && <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{child.description}</p>}
                             {childChecked && (() => {
                               const childState = slStateMap.get(String(child.id));

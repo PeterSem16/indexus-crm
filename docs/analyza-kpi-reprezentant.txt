@@ -73,6 +73,39 @@ BOD 4.1 — Priradenie ambulancia → reprezentant  [ČIASTOČNE HOTOVÉ]
   - KPI 3.1–3.3 je pre nové odbery technicky počítateľné; historické
     dáta budú neúplné, kým sa nespustí hromadné priradenie a backfill.
 
+BOD 4.3 — Kanonické statusy v Status Engine + spätná synchronizácia  [ČIASTOČNE HOTOVÉ]
+  Implementované (10. 8. 2026):
+  - Tabuľka clinic_cooperation_statuses: každá zmena kanonického stavu
+    ambulancie má záznam s timestampom, autorom, fázou, odkazom na
+    campaign_contact a status_list_item. História dostupná cez
+    GET /api/clinics/:id/cooperation-statuses.
+  - Stĺpec canonical_clinic_status_key na campaign_status_list_items:
+    manažér v builderi Mission priradí každej položke kanonický kľúč.
+  - Auto-zápis pri potvrdení v Nexus Pulse (timestamp + autor).
+  - Spätná synchronizácia polí ambulancie pri každom potvrdení:
+      acquisition_interested     → interestCooperation="yes"
+      acquisition_not_interested → interestCooperation="no"
+      acquisition_in_negotiation → interestCooperation="yes", interestContract="yes"
+      contract_sent              → contractStatus="sent", contractSentDate=now, interestContract="yes"
+      contract_signed            → contractStatus="signed", contractReturnedDate=now
+      contract_rejected          → contractStatus="terminated", interestContract="no"
+      flyers_sent/accepted       → hasFlyers=true, flyersSentDate=now
+      flyers_rejected            → hasFlyers=false
+      retention_active/services_confirmed  → interestCooperation="yes"
+      retention_paused           → interestCooperation="maybe"
+      retention_terminated/services_declined → interestCooperation="no"
+  - Tab „Spolupráca" na karte ambulancie: aktuálny stav po fázach
+    (acquisition / contract / retention) + plná história.
+  - AI suggest + keyword-fallback + auto-slug záloha pre priradenie
+    kanonických kľúčov k položkám status listu v Mission builderi.
+  - Badge v Nexus Pulse: každá položka zobrazuje kanonický kľúč ako
+    farebnú badge (modrá=acquisition, jantárová=contract, zelená=retention)
+    priamo v zozname bez nutnosti rozbaľovať položku.
+  Čo stále chýba (pozri kapitolu 4.3 v časti 4):
+  - KPI 3.4–3.7 reportovanie (počty, podiely, funnel, časy prechodov).
+  - Kontrola konfigurácie: upozornenie ak mission nemá pokryté všetky
+    kanonické stavy.
+
 BOD 4.2 — Väzba odber → ambulancia  [HOTOVÉ]
   Implementované:
   - Do tabuľky collections bol pridaný stĺpec clinic_id (VARCHAR).
