@@ -29206,6 +29206,130 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
+  // ===== AI Canonical Status Suggestion =====
+  app.post("/api/campaigns/:campaignId/status-list/suggest-canonical", requireAuth, async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      const items = await db.select().from(campaignStatusListItems)
+        .where(eq(campaignStatusListItems.campaignId, campaignId))
+        .orderBy(campaignStatusListItems.sortOrder);
+      const itemIds = items.map(i => i.id);
+      const questions = itemIds.length > 0
+        ? await db.select().from(campaignStatusListQuestions)
+            .where(inArray(campaignStatusListQuestions.itemId, itemIds))
+            .orderBy(campaignStatusListQuestions.sortOrder)
+        : [];
+
+      // Build a compact representation for the AI
+      const listForAI = items.map(item => ({
+        id: item.id,
+        label: item.label,
+        description: item.description ?? null,
+        itemType: item.itemType ?? "step",
+        currentCanonicalKey: item.canonicalClinicStatusKey ?? null,
+        questions: questions.filter(q => q.itemId === item.id).map(q => ({
+          questionText: q.questionText,
+          description: q.description ?? null,
+        })),
+      }));
+
+      const CANONICAL_KEY_DESCRIPTIONS = `
+ACQUISITION PHASE (prefix: acquisition_):
+- acquisition_contacted: First contact was made with the clinic — clinic was called/visited for the first time
+- acquisition_interested: Clinic expressed interest in cooperation with CBC
+- acquisition_not_interested: Clinic declined or is not interested in cooperation
+- acquisition_in_negotiation: Active negotiation ongoing — terms being discussed
+
+CONTRACT PHASE (prefix: contract_ or flyers_):
+- contract_sent: Cooperation contract was sent to clinic for review/signature
+- contract_signed: Contract was signed and returned by clinic
+- contract_rejected: Clinic refused to sign or rejected the contract
+- flyers_sent: Marketing flyers were sent to clinic for initial placement
+- flyers_accepted: Clinic agreed to place flyers in their facility
+- flyers_rejected: Clinic refused to accept or place flyers
+
+RETENTION PHASE (prefix: retention_ or services_):
+- retention_active: Clinic is actively cooperating — contract in force
+- retention_paused: Cooperation temporarily paused (e.g. personnel change, renovation)
+- retention_terminated: Cooperation permanently ended
+- services_confirmed: Clinic confirmed they will recommend CBC services to pregnant patients
+- services_declined: Clinic stated they will NOT recommend CBC services
+- retention_leaflets_sent: Leaflets/brochures sent during active cooperation (routine replenishment)
+- retention_pregbook_sent: Pregnancy booklets sent to clinic
+- retention_posters_sent: Posters sent to clinic
+- retention_materials_sent: General marketing materials sent to clinic
+`.trim();
+
+      const prompt = `You are an expert analyzer for a medical CRM system used by CBC (Cord Blood Center) to track cooperation with gynecology clinics.
+
+The system uses "canonical clinic status keys" to create a unified KPI timeline of each clinic's cooperation journey, regardless of which campaign they are in.
+
+CANONICAL STATUS KEYS AND THEIR MEANINGS:
+${CANONICAL_KEY_DESCRIPTIONS}
+
+TASK:
+Analyze the following status list (used in a campaign mission) and for EACH item suggest the most appropriate canonical status key.
+
+Rules:
+- Suggest a canonical key ONLY if the item semantically matches what that key tracks (a coordinator confirming this step means that canonical state was reached)
+- If an item does not cleanly map to any existing key, set suggestedKey to null
+- You MAY also suggest up to 3 NEW canonical keys if there are recurring themes not covered — provide key (snake_case, appropriate prefix), label (Slovak), phase, and description
+- Be precise: a step "Was the contract sent?" maps to contract_sent, not contract_signed
+- Options/sub-items (itemType=option) can also have canonical keys — e.g. a "Yes" answer to "Did the clinic sign the contract?" maps to contract_signed
+- Consider the full context: label, description, and sub-questions
+- Return confidence: "high" if clear match, "medium" if probable, "low" if uncertain
+
+STATUS LIST TO ANALYZE:
+${JSON.stringify(listForAI, null, 2)}
+
+Respond ONLY with valid JSON in this exact format:
+{
+  "suggestions": [
+    {
+      "itemId": "...",
+      "suggestedKey": "acquisition_contacted" | null,
+      "confidence": "high" | "medium" | "low",
+      "reasoning": "One sentence explanation in English"
+    }
+  ],
+  "newKeysSuggested": [
+    {
+      "key": "retention_example",
+      "label": "Slovak label",
+      "phase": "retention",
+      "description": "What this key tracks"
+    }
+  ]
+}`;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+        temperature: 0.2,
+        max_tokens: 4000,
+      });
+
+      const raw = response.choices[0]?.message?.content ?? "{}";
+      let parsed: any = {};
+      try { parsed = JSON.parse(raw); } catch { parsed = { suggestions: [], newKeysSuggested: [] }; }
+
+      // Attach item labels for frontend convenience
+      const idToItem = new Map(items.map(i => [i.id, i]));
+      const suggestions = (parsed.suggestions ?? []).map((s: any) => ({
+        ...s,
+        itemLabel: idToItem.get(s.itemId)?.label ?? s.itemId,
+        itemType: idToItem.get(s.itemId)?.itemType ?? "step",
+        currentKey: idToItem.get(s.itemId)?.canonicalClinicStatusKey ?? null,
+      }));
+
+      res.json({ suggestions, newKeysSuggested: parsed.newKeysSuggested ?? [] });
+    } catch (error) {
+      console.error("[suggest-canonical] failed:", error);
+      res.status(500).json({ error: "AI suggestion failed" });
+    }
+  });
+
   app.post("/api/campaigns/:campaignId/status-list/reorder", requireAuth, async (req, res) => {
     try {
       const { campaignId } = req.params;

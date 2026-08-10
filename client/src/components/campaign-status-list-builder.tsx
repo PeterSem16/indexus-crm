@@ -9,6 +9,8 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { CLA_TEMPLATE, CLB_TEMPLATE, MPN_TEMPLATE, ROLE_BADGE_MAP, getStepLabel, getAutoLabel, getStepDescription, getAutoTaskDescription } from "@/data/cla-template";
 import { useI18n } from "@/i18n";
@@ -21,7 +23,7 @@ import {
   Star, Heart, Phone, Calendar, User, FileText, MessageCircle, MapPin,
   Clock, DollarSign, Shield, Activity, Home, Building2, Flag, Lightbulb,
   Lock, Award, CircleAlert, CircleCheck, Smile, Stethoscope, Baby, Dna, ClipboardCheck,
-  Settings, Hash, ToggleLeft, Type,
+  Settings, Hash, ToggleLeft, Type, Sparkles,
 } from "lucide-react";
 
 type StatusListAutomation = {
@@ -207,6 +209,25 @@ const SL: Record<string, Record<string, string>> = {
   canonicalClinicLbl:  { sk: "Kanonický stav ambulancie", en: "Canonical clinic status", cs: "Kanonický stav ambulance", hu: "Kanonikus rendelői státusz", ro: "Status canonic clinică", it: "Stato canonico clinica", de: "Kanonischer Klinikstatus" },
   canonicalClinicHint: { sk: "Pri potvrdení tejto možnosti systém automaticky zapíše zvolený stav do histórie spolupráce ambulancie (KPI 3.4–3.7). Funguje len pre kontakty typu Ambulancia.", en: "When this option is confirmed, the system automatically records the chosen cooperation state into the clinic's history (KPI 3.4–3.7). Works only for Clinic contact type.", cs: "Při potvrzení této možnosti systém automaticky zapíše zvolený stav do historie spolupráce ambulance. Funguje pouze pro kontakty typu Ambulance.", hu: "Ezen lehetőség megerősítésekor a rendszer automatikusan rögzíti a kiválasztott állapotot a rendelő együttműködési előzményeibe.", ro: "Când această opțiune este confirmată, sistemul înregistrează automat starea aleasă în istoricul cooperării clinicii.", it: "Quando questa opzione viene confermata, il sistema registra automaticamente lo stato scelto nella cronologia di cooperazione della clinica.", de: "Bei Bestätigung dieser Option schreibt das System automatisch den gewählten Status in die Kooperationshistorie der Klinik." },
   canonicalClinicNone: { sk: "(žiadny — bežná položka)", en: "(none — plain item)", cs: "(žádný — běžná položka)", hu: "(nincs — normál elem)", ro: "(niciunul — element simplu)", it: "(nessuno — elemento normale)", de: "(keiner — normaler Eintrag)" },
+  // AI canonical suggestion dialog
+  aiSuggestBtn:        { sk: "AI kanonické statusy", en: "AI canonical statuses", cs: "AI kanonické statusy", hu: "AI kanonikus állapotok", ro: "AI statusuri canonice", it: "AI stati canonici", de: "KI Kanonikstatus" },
+  aiSuggestTitle:      { sk: "AI návrh kanonických statusov", en: "AI canonical status suggestions", cs: "AI návrh kanonických statusů", hu: "AI kanonikus állapotjavaslatok", ro: "Sugestii AI statusuri canonice", it: "Suggerimenti AI stati canonici", de: "KI Kanonikstatus-Vorschläge" },
+  aiSuggestDesc:       { sk: "AI analyzovala status list a navrhla kanonické statusy pre každú položku. Skontrolujte návrhy a aplikujte vybrané.", en: "AI analyzed the status list and suggested canonical statuses for each item. Review the suggestions and apply selected ones.", cs: "AI analyzovala status list a navrhla kanonické statusy pro každou položku. Zkontrolujte návrhy a aplikujte vybrané.", hu: "Az AI elemezte az állapotlistát és kanonikus állapotokat javasolt minden elemhez. Tekintse át a javaslatokat és alkalmazza a kiválasztottakat.", ro: "AI a analizat lista de status și a sugerat statusuri canonice pentru fiecare element. Examinați sugestiile și aplicați-le pe cele selectate.", it: "L'AI ha analizzato la lista di stato e ha suggerito stati canonici per ogni elemento. Esamina i suggerimenti e applica quelli selezionati.", de: "KI hat die Statusliste analysiert und kanonische Status für jedes Element vorgeschlagen. Überprüfen Sie die Vorschläge und wenden Sie ausgewählte an." },
+  aiSuggestAnalyzing:  { sk: "AI analyzuje status list…", en: "AI is analyzing the status list…", cs: "AI analyzuje status list…", hu: "AI elemzi az állapotlistát…", ro: "AI analizează lista de status…", it: "AI sta analizzando la lista di stato…", de: "KI analysiert die Statusliste…" },
+  aiSuggestApply:      { sk: "Aplikovať vybrané", en: "Apply selected", cs: "Použít vybrané", hu: "Kiválasztottak alkalmazása", ro: "Aplică selectate", it: "Applica selezionati", de: "Ausgewählte anwenden" },
+  aiSuggestApplying:   { sk: "Ukladanie…", en: "Saving…", cs: "Ukládání…", hu: "Mentés…", ro: "Se salvează…", it: "Salvataggio…", de: "Speichern…" },
+  aiSuggestApplied:    { sk: "Kanonické statusy aktualizované", en: "Canonical statuses updated", cs: "Kanonické statusy aktualizovány", hu: "Kanonikus állapotok frissítve", ro: "Statusuri canonice actualizate", it: "Stati canonici aggiornati", de: "Kanonikstatus aktualisiert" },
+  aiSuggestNone:       { sk: "Žiadne návrhy (status list je prázdny alebo všetky položky už majú nastavený kanonický status)", en: "No suggestions (status list is empty or all items already have a canonical status set)", cs: "Žádné návrhy (status list je prázdný nebo všechny položky již mají nastavený kanonický status)", hu: "Nincsenek javaslatok (az állapotlista üres vagy minden elemnek már van kanonikus állapota)", ro: "Nicio sugestie (lista de status este goală sau toate elementele au deja un status canonic)", it: "Nessun suggerimento (lista di stato vuota o tutti gli elementi hanno già uno stato canonico)", de: "Keine Vorschläge (Statusliste leer oder alle Elemente haben bereits einen Kanonikstatus)" },
+  aiSuggestHigh:       { sk: "Vysoká istota", en: "High confidence", cs: "Vysoká jistota", hu: "Magas bizalom", ro: "Încredere ridicată", it: "Alta fiducia", de: "Hohe Konfidenz" },
+  aiSuggestMedium:     { sk: "Stredná istota", en: "Medium confidence", cs: "Střední jistota", hu: "Közepes bizalom", ro: "Încredere medie", it: "Media fiducia", de: "Mittlere Konfidenz" },
+  aiSuggestLow:        { sk: "Nízka istota", en: "Low confidence", cs: "Nízká jistota", hu: "Alacsony bizalom", ro: "Încredere scăzută", it: "Bassa fiducia", de: "Niedrige Konfidenz" },
+  aiSuggestNewKeys:    { sk: "AI navrhuje nové kanonické kľúče", en: "AI suggests new canonical keys", cs: "AI navrhuje nové kanonické klíče", hu: "Az AI új kanonikus kulcsokat javasol", ro: "AI sugerează noi chei canonice", it: "AI suggerisce nuove chiavi canoniche", de: "KI schlägt neue Kanonikschlüssel vor" },
+  aiSuggestNewKeysHint:{ sk: "Tieto kľúče zatiaľ neexistujú v systéme. Ich zavedenie vyžaduje úpravu kódu.", en: "These keys don't exist in the system yet. Adding them requires a code change.", cs: "Tyto klíče v systému zatím neexistují. Jejich zavedení vyžaduje úpravu kódu.", hu: "Ezek a kulcsok még nem léteznek a rendszerben. Hozzáadásuk kódmódosítást igényel.", ro: "Aceste chei nu există încă în sistem. Adăugarea lor necesită o modificare de cod.", it: "Queste chiavi non esistono ancora nel sistema. Aggiungerle richiede una modifica al codice.", de: "Diese Schlüssel existieren noch nicht im System. Ihr Hinzufügen erfordert eine Codeänderung." },
+  aiSuggestSelectAll:  { sk: "Vybrať všetky", en: "Select all", cs: "Vybrat vše", hu: "Összes kijelölése", ro: "Selectează tot", it: "Seleziona tutto", de: "Alle auswählen" },
+  aiSuggestDeselectAll:{ sk: "Zrušiť výber", en: "Deselect all", cs: "Zrušit výběr", hu: "Kijelölés megszüntetése", ro: "Deselectează tot", it: "Deseleziona tutto", de: "Auswahl aufheben" },
+  aiSuggestCurrent:    { sk: "Aktuálny", en: "Current", cs: "Aktuální", hu: "Aktuális", ro: "Curent", it: "Attuale", de: "Aktuell" },
+  aiSuggestProposed:   { sk: "Navrhnutý", en: "Proposed", cs: "Navrhovaný", hu: "Javasolt", ro: "Propus", it: "Proposto", de: "Vorgeschlagen" },
+  aiSuggestUnchanged:  { sk: "(bez zmeny)", en: "(unchanged)", cs: "(beze změny)", hu: "(változatlan)", ro: "(neschimbat)", it: "(invariato)", de: "(unverändert)" },
   // Canonical clinic status key labels — used in builder dropdown (7 languages)
   csk_phaseAcq:      { sk: "Acquisition", en: "Acquisition", cs: "Acquisition", hu: "Acquisition", ro: "Acquisition", it: "Acquisition", de: "Acquisition" },
   csk_phaseCon:      { sk: "Contract", en: "Contract", cs: "Contract", hu: "Contract", ro: "Contract", it: "Contract", de: "Contract" },
@@ -3384,6 +3405,67 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
   const [previewMode, setPreviewMode] = useState(false);
   const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(new Set());
 
+  // AI canonical suggestion state
+  const [aiSuggestOpen, setAiSuggestOpen] = useState(false);
+  const [aiSuggestLoading, setAiSuggestLoading] = useState(false);
+  const [aiSuggestData, setAiSuggestData] = useState<{
+    suggestions: Array<{ itemId: string; itemLabel: string; itemType: string; currentKey: string | null; suggestedKey: string | null; confidence: "high" | "medium" | "low"; reasoning: string }>;
+    newKeysSuggested: Array<{ key: string; label: string; phase: string; description: string }>;
+  } | null>(null);
+  const [aiSuggestSelected, setAiSuggestSelected] = useState<Set<string>>(new Set());
+  const [aiSuggestApplying, setAiSuggestApplying] = useState(false);
+
+  async function runAiSuggest() {
+    setAiSuggestLoading(true);
+    setAiSuggestOpen(true);
+    setAiSuggestData(null);
+    setAiSuggestSelected(new Set());
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/status-list/suggest-canonical`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setAiSuggestData(data);
+      // Pre-select all high+medium confidence suggestions
+      const preSelected = new Set<string>(
+        (data.suggestions ?? [])
+          .filter((s: any) => s.confidence !== "low" && s.suggestedKey && s.suggestedKey !== s.currentKey)
+          .map((s: any) => s.itemId)
+      );
+      setAiSuggestSelected(preSelected);
+    } catch (e) {
+      toast({ title: "AI suggestion failed", description: String(e), variant: "destructive" });
+      setAiSuggestOpen(false);
+    } finally {
+      setAiSuggestLoading(false);
+    }
+  }
+
+  async function applyAiSuggestions() {
+    if (!aiSuggestData) return;
+    setAiSuggestApplying(true);
+    const toApply = aiSuggestData.suggestions.filter(s => aiSuggestSelected.has(s.itemId) && s.suggestedKey !== undefined);
+    try {
+      await Promise.all(toApply.map(s =>
+        fetch(`/api/campaigns/${campaignId}/status-list/${s.itemId}`, {
+          method: "PUT", credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ canonicalClinicStatusKey: s.suggestedKey }),
+        })
+      ));
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
+      toast({ title: `✅ ${sl("aiSuggestApplied", locale)} (${toApply.length})` });
+      setAiSuggestOpen(false);
+    } catch (e) {
+      toast({ title: "Apply failed", description: String(e), variant: "destructive" });
+    } finally {
+      setAiSuggestApplying(false);
+    }
+  }
+
   const { data: items = [], isLoading } = useQuery<StatusListItem[]>({
     queryKey: ["/api/campaigns", campaignId, "status-list"],
     queryFn: () => fetch(`/api/campaigns/${campaignId}/status-list`, { credentials: "include" }).then(r => { if (!r.ok) throw new Error(`Request failed: ${r.status}`); return r.json(); }),
@@ -3562,6 +3644,18 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
         <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={() => setImportOpen(true)} data-testid="btn-open-import-dispositions">
           <Download className="h-3.5 w-3.5 text-emerald-500" />
           {sl("importTitle", locale)}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-700 dark:text-violet-300 dark:hover:bg-violet-950"
+          onClick={runAiSuggest}
+          disabled={aiSuggestLoading || items.length === 0}
+          data-testid="btn-ai-suggest-canonical"
+        >
+          {aiSuggestLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+          {sl("aiSuggestBtn", locale)}
         </Button>
         <Button
           type="button"
@@ -3977,6 +4071,201 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
                 {sl("importBtn", locale)} ({selectedDisps.size})
               </Button>
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ===== AI Canonical Status Suggestion Dialog ===== */}
+      <Dialog open={aiSuggestOpen} onOpenChange={v => { if (!aiSuggestApplying) setAiSuggestOpen(v); }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 pt-5 pb-3 border-b shrink-0">
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Sparkles className="h-4 w-4 text-violet-500" />
+              {sl("aiSuggestTitle", locale)}
+            </DialogTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">{sl("aiSuggestDesc", locale)}</p>
+          </DialogHeader>
+
+          <ScrollArea className="flex-1 min-h-0">
+            <div className="px-6 py-4 space-y-3">
+              {aiSuggestLoading && (
+                <div className="flex flex-col items-center justify-center py-16 gap-3">
+                  <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+                  <p className="text-sm text-muted-foreground">{sl("aiSuggestAnalyzing", locale)}</p>
+                </div>
+              )}
+
+              {!aiSuggestLoading && aiSuggestData && aiSuggestData.suggestions.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-10">{sl("aiSuggestNone", locale)}</p>
+              )}
+
+              {!aiSuggestLoading && aiSuggestData && aiSuggestData.suggestions.length > 0 && (() => {
+                const allKeys = new Set(CANONICAL_CLINIC_STATUS_GROUPS.flatMap(g => g.keys.map(k => k.key)));
+                const keyToLabel = (key: string | null) => {
+                  if (!key) return null;
+                  for (const g of CANONICAL_CLINIC_STATUS_GROUPS) {
+                    const found = g.keys.find(k => k.key === key);
+                    if (found) return sl(found.labelKey, locale);
+                  }
+                  return key;
+                };
+                const confidenceColor = (c: string) =>
+                  c === "high" ? "bg-emerald-500" : c === "medium" ? "bg-amber-400" : "bg-gray-400";
+                const confidenceLabel = (c: string) =>
+                  c === "high" ? sl("aiSuggestHigh", locale) : c === "medium" ? sl("aiSuggestMedium", locale) : sl("aiSuggestLow", locale);
+
+                // Group by phase of suggested key
+                const grouped: Record<string, typeof aiSuggestData.suggestions> = { acquisition: [], contract: [], retention: [], none: [] };
+                for (const s of aiSuggestData.suggestions) {
+                  const phase = s.suggestedKey?.startsWith("acquisition_") ? "acquisition"
+                    : s.suggestedKey?.startsWith("contract_") || s.suggestedKey?.startsWith("flyers_") ? "contract"
+                    : s.suggestedKey ? "retention" : "none";
+                  grouped[phase].push(s);
+                }
+                const phaseConfig: Record<string, { label: string; color: string; bg: string; text: string }> = {
+                  acquisition: { label: "Acquisition", color: "#3b82f6", bg: "bg-blue-50 dark:bg-blue-950", text: "text-blue-700 dark:text-blue-300" },
+                  contract:    { label: "Contract",    color: "#f59e0b", bg: "bg-amber-50 dark:bg-amber-950", text: "text-amber-700 dark:text-amber-300" },
+                  retention:   { label: "Retention",   color: "#22c55e", bg: "bg-green-50 dark:bg-green-950", text: "text-green-700 dark:text-green-300" },
+                  none:        { label: "—",            color: "#94a3b8", bg: "bg-slate-50 dark:bg-slate-900", text: "text-slate-500" },
+                };
+
+                const actionableSuggestions = aiSuggestData.suggestions.filter(s => s.suggestedKey !== s.currentKey);
+                const allActionableIds = new Set(actionableSuggestions.map(s => s.itemId));
+                const allSelected = allActionableIds.size > 0 && [...allActionableIds].every(id => aiSuggestSelected.has(id));
+
+                return (
+                  <div className="space-y-4">
+                    {/* Select all / deselect all */}
+                    <div className="flex items-center gap-3 pb-1 border-b">
+                      <button
+                        className="text-xs text-primary underline-offset-2 hover:underline"
+                        onClick={() => setAiSuggestSelected(allSelected ? new Set() : new Set(allActionableIds))}
+                      >
+                        {allSelected ? sl("aiSuggestDeselectAll", locale) : sl("aiSuggestSelectAll", locale)}
+                      </button>
+                      <span className="text-xs text-muted-foreground">{aiSuggestSelected.size} / {actionableSuggestions.length} {sl("aiSuggestApply", locale).toLowerCase()}</span>
+                    </div>
+
+                    {(["acquisition", "contract", "retention", "none"] as const).map(phase => {
+                      const phaseItems = grouped[phase];
+                      if (phaseItems.length === 0) return null;
+                      const cfg = phaseConfig[phase];
+                      return (
+                        <div key={phase}>
+                          {phase !== "none" && (
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: cfg.color }} />
+                              <span className="text-xs font-semibold">{cfg.label}</span>
+                            </div>
+                          )}
+                          <div className="space-y-1.5">
+                            {phaseItems.map(s => {
+                              const isNew = s.suggestedKey && !allKeys.has(s.suggestedKey);
+                              const unchanged = s.suggestedKey === s.currentKey;
+                              const canSelect = !unchanged;
+                              return (
+                                <div
+                                  key={s.itemId}
+                                  className={`rounded-lg border px-3 py-2.5 flex items-start gap-3 transition-colors ${
+                                    canSelect && aiSuggestSelected.has(s.itemId)
+                                      ? "border-primary/40 bg-primary/5"
+                                      : "border-border bg-background"
+                                  } ${!canSelect ? "opacity-60" : "cursor-pointer"}`}
+                                  onClick={() => {
+                                    if (!canSelect) return;
+                                    setAiSuggestSelected(prev => {
+                                      const next = new Set(prev);
+                                      if (next.has(s.itemId)) next.delete(s.itemId); else next.add(s.itemId);
+                                      return next;
+                                    });
+                                  }}
+                                >
+                                  {/* Checkbox */}
+                                  <div className={`mt-0.5 shrink-0 w-4 h-4 rounded border flex items-center justify-center ${
+                                    !canSelect ? "border-muted bg-muted" :
+                                    aiSuggestSelected.has(s.itemId) ? "border-primary bg-primary" : "border-muted-foreground"
+                                  }`}>
+                                    {canSelect && aiSuggestSelected.has(s.itemId) && <Check className="h-2.5 w-2.5 text-white" />}
+                                  </div>
+                                  {/* Content */}
+                                  <div className="flex-1 min-w-0 space-y-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-xs font-medium truncate max-w-[280px]">{s.itemLabel}</span>
+                                      <span className={`text-[10px] px-1 py-0.5 rounded font-mono ${s.itemType === "option" ? "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"}`}>
+                                        {s.itemType === "option" ? "option" : "step"}
+                                      </span>
+                                      {/* Confidence dot */}
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <div className={`w-2 h-2 rounded-full ${confidenceColor(s.confidence)} cursor-default`} />
+                                          </TooltipTrigger>
+                                          <TooltipContent side="top">{confidenceLabel(s.confidence)}</TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    </div>
+                                    {/* Keys row */}
+                                    <div className="flex items-center gap-2 text-[11px]">
+                                      <span className="text-muted-foreground">{sl("aiSuggestCurrent", locale)}:</span>
+                                      <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-[10px]">
+                                        {s.currentKey ? keyToLabel(s.currentKey) : "—"}
+                                      </span>
+                                      <span className="text-muted-foreground">→</span>
+                                      <span className={`font-mono px-1.5 py-0.5 rounded text-[10px] ${unchanged ? "bg-muted text-muted-foreground" : `${cfg.bg} ${cfg.text} font-semibold`}`}>
+                                        {s.suggestedKey ? (isNew ? `✨ ${s.suggestedKey}` : keyToLabel(s.suggestedKey)) : "—"}
+                                        {unchanged ? ` ${sl("aiSuggestUnchanged", locale)}` : ""}
+                                      </span>
+                                    </div>
+                                    {/* Reasoning */}
+                                    <p className="text-[11px] text-muted-foreground italic leading-relaxed">{s.reasoning}</p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* New keys suggested by AI */}
+                    {aiSuggestData.newKeysSuggested?.length > 0 && (
+                      <div className="rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-950 p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="h-3.5 w-3.5 text-violet-600" />
+                          <span className="text-xs font-semibold text-violet-700 dark:text-violet-300">{sl("aiSuggestNewKeys", locale)}</span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">{sl("aiSuggestNewKeysHint", locale)}</p>
+                        <div className="space-y-1.5">
+                          {aiSuggestData.newKeysSuggested.map(k => (
+                            <div key={k.key} className="text-[11px] font-mono bg-white/60 dark:bg-black/20 rounded px-2 py-1.5 border border-violet-200/60 dark:border-violet-700/60">
+                              <span className="font-semibold text-violet-700 dark:text-violet-300">{k.key}</span>
+                              <span className="text-muted-foreground ml-2">({k.phase})</span>
+                              <span className="ml-2 font-sans not-italic">— {k.label}</span>
+                              {k.description && <div className="text-[10px] text-muted-foreground mt-0.5 font-sans">{k.description}</div>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          </ScrollArea>
+
+          <DialogFooter className="px-6 py-4 border-t shrink-0 flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setAiSuggestOpen(false)} disabled={aiSuggestApplying}>
+              <X className="h-3.5 w-3.5 mr-1" /> {sl("cancelBtn", locale)}
+            </Button>
+            <Button
+              size="sm"
+              className="gap-1.5 bg-violet-600 hover:bg-violet-700"
+              disabled={aiSuggestApplying || aiSuggestLoading || aiSuggestSelected.size === 0}
+              onClick={applyAiSuggestions}
+            >
+              {aiSuggestApplying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+              {aiSuggestApplying ? sl("aiSuggestApplying", locale) : `${sl("aiSuggestApply", locale)} (${aiSuggestSelected.size})`}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
