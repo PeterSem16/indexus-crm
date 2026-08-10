@@ -17,12 +17,12 @@ import {
 
 // ── Auth helpers ─────────────────────────────────────────────────────────────
 const requireAuth = (req: Request, res: Response, next: NextFunction) => {
-  if (!req.session?.userId) return res.status(401).json({ message: "Unauthorized" });
+  if (!req.session?.user) return res.status(401).json({ message: "Unauthorized" });
   next();
 };
 
 const requireManagerOrAdmin = (req: Request, res: Response, next: NextFunction) => {
-  const role = req.session?.role;
+  const role = req.session?.user?.role;
   if (role !== "admin" && role !== "manager") {
     return res.status(403).json({ message: "Requires manager or admin role" });
   }
