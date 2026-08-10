@@ -91,6 +91,9 @@ export function AppSidebar() {
     { title: t.nav.medicalPartnerNetwork, url: "/medical-partner-network", testId: "mpn", moduleKey: "hospitals" },
     { title: t.nav.hospitalsAndClinics, url: "/hospitals", testId: "hospitals", moduleKey: "hospitals" },
     { title: t.nav.collaboratorUpdates, url: "/collaborator-updates", testId: "collaborator-updates", moduleKey: "collaborators" },
+    ...(user?.role === "admin" || user?.role === "manager"
+      ? [{ title: t.representantPanel?.bulkAssignTitle || "Bulk Assign", url: "/bulk-assign", testId: "bulk-assign", moduleKey: "hospitals" }]
+      : []),
   ];
 
   const nexusNavItems = [

@@ -203,30 +203,30 @@ export default function BulkAssignPage() {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Krajina / Country</Label>
-              <Select value={country} onValueChange={v => { setCountry(v); setRegion(""); setDistrict(""); setDryRunResult(null); }}>
+              <Select value={country || "__all__"} onValueChange={v => { setCountry(v === "__all__" ? "" : v); setRegion(""); setDistrict(""); setDryRunResult(null); }}>
                 <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">—</SelectItem>
-                  {COUNTRIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  <SelectItem value="__all__">—</SelectItem>
+                  {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.flag} {c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
               <Label>Kraj / Region</Label>
-              <Select value={region} onValueChange={v => { setRegion(v); setDistrict(""); setDryRunResult(null); }} disabled={!country || regions.length === 0}>
+              <Select value={region || "__all__"} onValueChange={v => { setRegion(v === "__all__" ? "" : v); setDistrict(""); setDryRunResult(null); }} disabled={!country || regions.length === 0}>
                 <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">—</SelectItem>
+                  <SelectItem value="__all__">—</SelectItem>
                   {regions.map((r: string) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
               <Label>Okres / District</Label>
-              <Select value={district} onValueChange={v => { setDistrict(v); setDryRunResult(null); }} disabled={!region || districts.length === 0}>
+              <Select value={district || "__all__"} onValueChange={v => { setDistrict(v === "__all__" ? "" : v); setDryRunResult(null); }} disabled={!region || districts.length === 0}>
                 <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">—</SelectItem>
+                  <SelectItem value="__all__">—</SelectItem>
                   {districts.map((d: string) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -241,10 +241,10 @@ export default function BulkAssignPage() {
           {!onlyUnassigned && (
             <div className="space-y-1.5">
               <Label>{p.bulkOnlyFrom}</Label>
-              <Select value={fromUserId} onValueChange={v => { setFromUserId(v); setDryRunResult(null); }} disabled={repsLoading}>
+              <Select value={fromUserId || "__none__"} onValueChange={v => { setFromUserId(v === "__none__" ? "" : v); setDryRunResult(null); }} disabled={repsLoading}>
                 <SelectTrigger><SelectValue placeholder="— (všetky / all)" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">— (všetky / all)</SelectItem>
+                  <SelectItem value="__none__">— (všetky / all)</SelectItem>
                   {representatives.map(r => (
                     <SelectItem key={r.id} value={r.id}>{r.name} ({r.clinicCount})</SelectItem>
                   ))}
