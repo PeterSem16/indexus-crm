@@ -30,7 +30,6 @@ import {
   HeartPulse,
   ListChecks,
   UserCheck,
-  Users2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
@@ -228,18 +227,7 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
-              {(user?.role === "admin" || user?.role === "manager") && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/bulk-assign"}>
-                    <Link href="/bulk-assign" data-testid="nav-bulk-assign">
-                      <Users2 className="h-4 w-4" />
-                      <span>{t.representantPanel?.bulkAssignTitle || "Bulk Assign"}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-
-              <Collapsible defaultOpen={location === "/medical-partner-network" || location === "/hospitals"} className="group/collapsible-mpn">
+              <Collapsible defaultOpen={location === "/medical-partner-network" || location === "/hospitals" || location === "/bulk-assign"} className="group/collapsible-mpn">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton isActive={location === "/medical-partner-network" || location === "/hospitals"}>

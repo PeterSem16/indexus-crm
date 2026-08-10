@@ -68,25 +68,39 @@ export function registerRepresentativeRoutes(
 
       const roleIds = representantRoles.map((r) => r.id);
 
-      // Použí rovnaký prístup ako Users stránka:
-      // user_roles many-to-many OR users.roleId priamy FK — oba mechanizmy dohromady
-      const rawRows = await db.execute<{ id: string; full_name: string | null; email: string | null }>(
-        roleIds.length > 0
-          ? sql`
-              SELECT DISTINCT u.id, u.full_name, u.email
-              FROM users u
-              LEFT JOIN user_roles ur ON ur.user_id = u.id
-              WHERE u.is_active = true
-                AND (
-                  ur.role_id = ANY(${roleIds})
-                  OR u.role_id = ANY(${roleIds})
-                )
-              ORDER BY u.full_name
-            `
-          : sql`SELECT id, full_name, email FROM users WHERE false`
-      );
+      let reps: { id: string; full_name: string | null; email: string | null }[] = [];
 
-      const reps = (rawRows.rows ?? []) as { id: string; full_name: string | null; email: string | null }[];
+      if (roleIds.length > 0) {
+        // 1) cez users.roleId (priamy FK) — najčastejší prípad
+        const byDirectRole = await db
+          .select({ id: users.id, full_name: users.fullName, email: users.email })
+          .from(users)
+          .where(
+            and(
+              eq(users.isActive, true),
+              inArray(users.roleId as any, roleIds)
+            )
+          );
+
+        // 2) cez user_roles many-to-many
+        const byManyToMany = await db
+          .select({ id: users.id, full_name: users.fullName, email: users.email })
+          .from(users)
+          .innerJoin(userRoles, eq(userRoles.userId, users.id))
+          .where(
+            and(
+              eq(users.isActive, true),
+              inArray(userRoles.roleId, roleIds)
+            )
+          );
+
+        // Zlúč bez duplikátov
+        const seen = new Set<string>();
+        for (const r of [...byDirectRole, ...byManyToMany]) {
+          if (!seen.has(r.id)) { seen.add(r.id); reps.push(r); }
+        }
+        reps.sort((a, b) => (a.full_name ?? "").localeCompare(b.full_name ?? ""));
+      }
 
       // Počet aktuálne pridelených kliník na reprezentanta
       const clinicCounts = await db
