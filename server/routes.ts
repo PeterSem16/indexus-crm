@@ -3391,7 +3391,25 @@ export async function registerRoutes(
 
   app.get("/api/clinics/lookup", requireAuth, async (req, res) => {
     try {
-      const data = await storage.getClinicsLookup();
+      const q = (req.query.q as string || "").trim();
+      const country = (req.query.country as string || "").trim();
+      const limitParam = Math.min(parseInt(req.query.limit as string) || 50, 200);
+      const conditions: any[] = [];
+      if (q.length >= 1) {
+        const s = `%${q}%`;
+        conditions.push(sql`(${clinics.name} ILIKE ${s} OR ${clinics.doctorName} ILIKE ${s} OR ${clinics.city} ILIKE ${s})`);
+      }
+      if (country) {
+        conditions.push(eq(clinics.countryCode, country));
+      }
+      const where = conditions.length > 0 ? and(...conditions) : undefined;
+      const data = await db.select({
+        id: clinics.id,
+        name: clinics.name,
+        countryCode: clinics.countryCode,
+        doctorName: clinics.doctorName,
+        city: clinics.city,
+      }).from(clinics).where(where).orderBy(clinics.name).limit(limitParam);
       res.json(data);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch clinic lookup" });

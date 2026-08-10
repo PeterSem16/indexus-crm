@@ -13,6 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,7 +23,7 @@ import {
   Plus, Search, Eye, Edit, Trash2, Syringe, Building2, User, Calendar, 
   FileText, FlaskConical, AlertCircle, ArrowLeft, ArrowRight, Check, Baby, 
   Users, Clock, LayoutDashboard, List, TrendingUp, Globe, Activity, ChevronLeft, ChevronRight, Download,
-  Loader2, RefreshCw, ChevronDown, BarChart3, Target, Sparkles, AlertTriangle,
+  Loader2, RefreshCw, ChevronDown, ChevronsUpDown, BarChart3, Target, Sparkles, AlertTriangle,
   ArrowUpRight, ArrowDownRight, Minus, Info, HelpCircle, TrendingDown, Upload, ScanLine, Phone, Pencil,
   Heart, Stethoscope, Microscope, Building, Shield, KeyRound, Brain, ClipboardList, Lock, Send, FileSearch, Save, X
 } from "lucide-react";
@@ -165,7 +167,9 @@ export default function CollectionsPage() {
   const [cbuAuditLogs, setCbuAuditLogs] = useState<any[]>([]);
   const [cbuAuditLoading, setCbuAuditLoading] = useState(false);
   const [cbuVerifiedData, setCbuVerifiedData] = useState<any>(null);
+  const [clinicComboOpen, setClinicComboOpen] = useState(false);
   const [clinicSearch, setClinicSearch] = useState("");
+  const [debouncedClinicSearch, setDebouncedClinicSearch] = useState("");
   
   const dateFnsLocale = dateLocales[locale] || enUS;
 
@@ -177,6 +181,11 @@ export default function CollectionsPage() {
     const timer = setTimeout(() => setDebouncedSearch(searchQuery), 400);
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedClinicSearch(clinicSearch), 300);
+    return () => clearTimeout(timer);
+  }, [clinicSearch]);
 
   useEffect(() => { setCollectionPage(1); }, [debouncedSearch, listStatusFilter, selectedCountries]);
 
@@ -293,10 +302,20 @@ export default function CollectionsPage() {
     enabled: needsLookups,
   });
 
-  const { data: clinics = [] } = useQuery<any[]>({
-    queryKey: ["/api/clinics/lookup"],
-    staleTime: 5 * 60 * 1000,
-    enabled: needsLookups,
+  // Clinic lookup: server-side search + country filter from the current collection's countryCode
+  const { data: clinics = [], isFetching: clinicsFetching } = useQuery<any[]>({
+    queryKey: ["/api/clinics/lookup", { q: debouncedClinicSearch, country: formData.countryCode }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (debouncedClinicSearch) params.set("q", debouncedClinicSearch);
+      if (formData.countryCode) params.set("country", formData.countryCode);
+      params.set("limit", "80");
+      const res = await fetch(`/api/clinics/lookup?${params.toString()}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    staleTime: 2 * 60 * 1000,
+    enabled: clinicComboOpen || !!formData.clinicId,
   });
 
   // Personnel assigned to the selected clinic (gynekológ filter)
@@ -1363,31 +1382,90 @@ export default function CollectionsPage() {
       {/* Ambulancia (clinic) — link for representative KPI attribution */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>{(t as any).collections?.clinic || "Ambulancia (gynekológ)"}</Label>
-          <Input
-            placeholder="Hľadať ambulanciu..."
-            value={clinicSearch}
-            onChange={(e) => setClinicSearch(e.target.value)}
-            className="h-8 text-sm mb-1"
-          />
-          <select
-            className={nativeSelectClass}
-            value={formData.clinicId || ""}
-            onChange={(e) => {
-              handleFieldChange("clinicId", e.target.value);
-              handleFieldChange("collaboratorId", ""); // reset gynekológ on clinic change
-            }}
-            data-testid="select-clinic"
-            size={5}
-            style={{ height: "auto", overflowY: "auto" }}
-          >
-            <option value="">{t.common.select}</option>
-            {clinics
-              .filter((c: any) => !clinicSearch || c.name?.toLowerCase().includes(clinicSearch.toLowerCase()))
-              .map((c: any) => (
-                <option key={c.id} value={String(c.id)}>{c.name}</option>
-              ))}
-          </select>
+          <Label className="flex items-center gap-1.5">
+            <Stethoscope className="h-3.5 w-3.5 text-emerald-600" />
+            {(t as any).collections?.clinic || "Ambulancia (gynekológ)"}
+            {formData.countryCode && (
+              <span className="ml-1 text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded uppercase">{formData.countryCode}</span>
+            )}
+          </Label>
+          <Popover open={clinicComboOpen} onOpenChange={(o) => { setClinicComboOpen(o); if (o) setClinicSearch(""); }}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={clinicComboOpen}
+                className="w-full justify-between font-normal h-9 text-sm"
+                data-testid="select-clinic"
+              >
+                <span className="truncate">
+                  {formData.clinicId
+                    ? (clinics.find((c: any) => String(c.id) === formData.clinicId)?.name || "Ambulancia vybraná")
+                    : <span className="text-muted-foreground">Vybrať ambulanciu...</span>
+                  }
+                </span>
+                {clinicsFetching
+                  ? <Loader2 className="h-4 w-4 animate-spin opacity-50 shrink-0" />
+                  : <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+                }
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[320px] p-0" align="start">
+              <Command shouldFilter={false}>
+                <CommandInput
+                  placeholder="Hľadať ambulanciu..."
+                  value={clinicSearch}
+                  onValueChange={setClinicSearch}
+                />
+                <CommandList>
+                  {clinicsFetching && (
+                    <div className="flex items-center justify-center py-4 text-muted-foreground text-sm gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Načítavam...
+                    </div>
+                  )}
+                  {!clinicsFetching && clinics.length === 0 && (
+                    <CommandEmpty>Žiadna ambulancia nenájdená</CommandEmpty>
+                  )}
+                  <CommandGroup>
+                    {!clinicsFetching && formData.clinicId && (
+                      <CommandItem
+                        value="__clear__"
+                        onSelect={() => {
+                          handleFieldChange("clinicId", "");
+                          handleFieldChange("collaboratorId", "");
+                          setClinicComboOpen(false);
+                        }}
+                        className="text-muted-foreground text-xs"
+                      >
+                        <X className="h-3 w-3 mr-2" /> Zrušiť výber
+                      </CommandItem>
+                    )}
+                    {clinics.map((c: any) => (
+                      <CommandItem
+                        key={c.id}
+                        value={String(c.id)}
+                        onSelect={() => {
+                          handleFieldChange("clinicId", String(c.id));
+                          handleFieldChange("collaboratorId", "");
+                          setClinicComboOpen(false);
+                          setClinicSearch("");
+                        }}
+                      >
+                        <Check className={`mr-2 h-4 w-4 ${formData.clinicId === String(c.id) ? "opacity-100" : "opacity-0"}`} />
+                        <div className="flex flex-col">
+                          <span className="text-sm">{c.name}</span>
+                          {c.city && <span className="text-xs text-muted-foreground">{c.city}</span>}
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+          {!formData.countryCode && (
+            <p className="text-xs text-amber-600">Krajina odberu nie je nastavená — ambulancie nie sú filtrované</p>
+          )}
         </div>
         <div className="space-y-2">
           <Label>{(t as any).collections?.gynecologist || "Gynekológ (osoba)"}</Label>
