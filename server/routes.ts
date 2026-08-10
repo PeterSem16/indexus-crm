@@ -29210,9 +29210,11 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   app.post("/api/campaigns/:campaignId/status-list/suggest-canonical", requireAuth, async (req, res) => {
     try {
       const { campaignId } = req.params;
+      console.log(`[suggest-canonical] START campaignId=${campaignId}`);
       const items = await db.select().from(campaignStatusListItems)
         .where(eq(campaignStatusListItems.campaignId, campaignId))
         .orderBy(campaignStatusListItems.sortOrder);
+      console.log(`[suggest-canonical] found ${items.length} items`);
       const itemIds = items.map(i => i.id);
       const questions = itemIds.length > 0
         ? await db.select().from(campaignStatusListQuestions)
@@ -29270,16 +29272,18 @@ ${CANONICAL_KEY_DESCRIPTIONS}
 TASK:
 Analyze the following status list (used in a campaign mission) and for EACH item suggest the most appropriate canonical status key.
 
-Rules:
+CRITICAL RULES:
+- You MUST include EVERY item from the status list in the "suggestions" array — do NOT skip or omit any item, even if suggestedKey is null.
+- The suggestions array must have exactly ${items.length} entries, one per item, in the same order.
 - Suggest a canonical key ONLY if the item semantically matches what that key tracks (a coordinator confirming this step means that canonical state was reached)
-- If an item does not cleanly map to any existing key, set suggestedKey to null
+- If an item does not cleanly map to any existing key, set suggestedKey to null (but still include the item!)
 - You MAY also suggest up to 3 NEW canonical keys if there are recurring themes not covered — provide key (snake_case, appropriate prefix), label (Slovak), phase, and description
 - Be precise: a step "Was the contract sent?" maps to contract_sent, not contract_signed
 - Options/sub-items (itemType=option) can also have canonical keys — e.g. a "Yes" answer to "Did the clinic sign the contract?" maps to contract_signed
 - Consider the full context: label, description, and sub-questions
 - Return confidence: "high" if clear match, "medium" if probable, "low" if uncertain
 
-STATUS LIST TO ANALYZE:
+STATUS LIST TO ANALYZE (${items.length} items):
 ${JSON.stringify(listForAI, null, 2)}
 
 Respond ONLY with valid JSON in this exact format:
@@ -29287,9 +29291,15 @@ Respond ONLY with valid JSON in this exact format:
   "suggestions": [
     {
       "itemId": "...",
-      "suggestedKey": "acquisition_contacted" | null,
-      "confidence": "high" | "medium" | "low",
+      "suggestedKey": "acquisition_contacted",
+      "confidence": "high",
       "reasoning": "One sentence explanation in English"
+    },
+    {
+      "itemId": "...",
+      "suggestedKey": null,
+      "confidence": "low",
+      "reasoning": "No matching canonical key found for this item"
     }
   ],
   "newKeysSuggested": [
@@ -29302,28 +29312,58 @@ Respond ONLY with valid JSON in this exact format:
   ]
 }`;
 
+      console.log(`[suggest-canonical] sending ${JSON.stringify(listForAI).length} chars to OpenAI`);
       const response = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
         temperature: 0.2,
-        max_tokens: 4000,
+        max_tokens: 8000,
       });
 
+      const finishReason = response.choices[0]?.finish_reason;
       const raw = response.choices[0]?.message?.content ?? "{}";
+      console.log(`[suggest-canonical] finish_reason=${finishReason} raw_length=${raw.length}`);
+      if (finishReason === "length") {
+        console.warn("[suggest-canonical] response was truncated by token limit");
+      }
       let parsed: any = {};
-      try { parsed = JSON.parse(raw); } catch { parsed = { suggestions: [], newKeysSuggested: [] }; }
+      try {
+        parsed = JSON.parse(raw);
+        console.log(`[suggest-canonical] parsed: ${(parsed.suggestions ?? []).length} suggestions, ${(parsed.newKeysSuggested ?? []).length} new keys`);
+      } catch (e) {
+        console.error("[suggest-canonical] JSON parse failed:", e, "raw:", raw.slice(0, 500));
+        parsed = { suggestions: [], newKeysSuggested: [] };
+      }
 
       // Attach item labels for frontend convenience
       const idToItem = new Map(items.map(i => [i.id, i]));
-      const suggestions = (parsed.suggestions ?? []).map((s: any) => ({
+      const aiSuggestions: any[] = (parsed.suggestions ?? []).map((s: any) => ({
         ...s,
         itemLabel: idToItem.get(s.itemId)?.label ?? s.itemId,
         itemType: idToItem.get(s.itemId)?.itemType ?? "step",
         currentKey: idToItem.get(s.itemId)?.canonicalClinicStatusKey ?? null,
       }));
 
-      res.json({ suggestions, newKeysSuggested: parsed.newKeysSuggested ?? [] });
+      // Fallback: ensure every item is represented — fill in any that AI omitted
+      const returnedIds = new Set(aiSuggestions.map((s: any) => s.itemId));
+      const missing = items.filter(i => !returnedIds.has(i.id));
+      for (const item of missing) {
+        aiSuggestions.push({
+          itemId: item.id,
+          suggestedKey: null,
+          confidence: "low",
+          reasoning: "No canonical key suggested by AI",
+          itemLabel: item.label,
+          itemType: item.itemType ?? "step",
+          currentKey: item.canonicalClinicStatusKey ?? null,
+        });
+      }
+      if (missing.length > 0) {
+        console.log(`[suggest-canonical] fallback: added ${missing.length} missing items with null suggestion`);
+      }
+
+      res.json({ suggestions: aiSuggestions, newKeysSuggested: parsed.newKeysSuggested ?? [] });
     } catch (error) {
       console.error("[suggest-canonical] failed:", error);
       res.status(500).json({ error: "AI suggestion failed" });

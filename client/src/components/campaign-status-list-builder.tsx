@@ -4100,6 +4100,8 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
               )}
 
               {!aiSuggestLoading && aiSuggestData && aiSuggestData.suggestions.length > 0 && (() => {
+                // Items with no suggestion at all (AI returned null and no current key)
+                const noMatchCount = aiSuggestData.suggestions.filter((s: any) => !s.suggestedKey && !s.currentKey).length;
                 const allKeys = new Set(CANONICAL_CLINIC_STATUS_GROUPS.flatMap(g => g.keys.map(k => k.key)));
                 const keyToLabel = (key: string | null) => {
                   if (!key) return null;
