@@ -29478,6 +29478,38 @@ Respond ONLY with valid JSON in this exact format:
         ...Array.from(newKeysFromKeywords.values()).filter(nk => !(parsed.newKeysSuggested ?? []).some((ak: any) => ak.key === nk.key)),
       ];
 
+      // ── Final safety net: auto-generate a slug key for any item still null ──
+      // This guarantees every item gets SOME canonical key so Apply never silently skips items.
+      let autoGenFixed = 0;
+      const autoGenNewKeys: { key: string; label: string; phase: string; description: string }[] = [];
+      for (const suggestion of aiSuggestions) {
+        if (suggestion.suggestedKey != null) continue;
+        const item = items.find(i => i.id === suggestion.itemId);
+        const desc: string = ((item?.description ?? "")).toLowerCase();
+        // Still skip explicitly internal/DB-only steps
+        if (/not visible to agents|database management only|db.*only|interný.*krok/i.test(desc)) continue;
+        // Slug-ify the label to create a stable canonical key
+        const rawLabel: string = suggestion.itemLabel ?? `item_${suggestion.itemId.slice(0, 8)}`;
+        const slug = rawLabel
+          .toLowerCase()
+          .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // strip diacritics
+          .replace(/[^a-z0-9]+/g, "_")
+          .replace(/^_+|_+$/g, "")
+          .slice(0, 60);
+        suggestion.suggestedKey = slug;
+        suggestion.confidence = "low";
+        suggestion.reasoning = `Auto-generated slug key from label "${rawLabel}" [auto-slug]`;
+        autoGenNewKeys.push({ key: slug, label: rawLabel, phase: "custom", description: `Auto-generated from status list item label` });
+        autoGenFixed++;
+      }
+      if (autoGenFixed > 0) {
+        console.log(`[suggest-canonical] auto-slug fixed ${autoGenFixed} remaining null suggestions`);
+        // Add auto-gen keys to newKeysSuggested if not already present
+        for (const nk of autoGenNewKeys) {
+          if (!allNewKeys.some(k => k.key === nk.key)) allNewKeys.push(nk);
+        }
+      }
+
       res.json({ suggestions: aiSuggestions, newKeysSuggested: allNewKeys });
     } catch (error) {
       console.error("[suggest-canonical] failed:", error);

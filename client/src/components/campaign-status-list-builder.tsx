@@ -3431,10 +3431,10 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setAiSuggestData(data);
-      // Pre-select all high+medium confidence suggestions
+      // Pre-select ALL items that have any suggestion (regardless of confidence), except those already set to the same key
       const preSelected = new Set<string>(
         (data.suggestions ?? [])
-          .filter((s: any) => s.confidence !== "low" && s.suggestedKey && s.suggestedKey !== s.currentKey)
+          .filter((s: any) => s.suggestedKey != null && s.suggestedKey !== s.currentKey)
           .map((s: any) => s.itemId)
       );
       setAiSuggestSelected(preSelected);
@@ -3457,7 +3457,11 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
       .map(([itemId, key]) => ({ itemId, canonicalKey: key }));
 
     const totalCount = aiItems.length + manualItems.length;
-    if (totalCount === 0) return;
+    if (totalCount === 0) {
+      toast({ title: "Nič na aplikovanie", description: "Vyber aspoň jednu položku alebo použi manuálny výber.", variant: "destructive" });
+      setAiSuggestApplying(false);
+      return;
+    }
 
     try {
       const results = await Promise.all([
