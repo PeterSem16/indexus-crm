@@ -332,8 +332,11 @@ The Customers module is the central database of all people who have signed contr
 | **Call history** | All calls with recordings and transcripts |
 | **Email history** | All emails exchanged |
 | **Notes** | Internal notes visible to the team |
+| **Clinic selector** | Searchable combobox filtered by the customer's country — only shows clinics from the matching country |
 
 **Customer statuses** move the customer through the pipeline: Lead → In Progress → Contract Signed → Active → etc. (configurable per country)
+
+> **Clinic (Ambulancia) selector:** When editing a customer record, the clinic field is a searchable dropdown. It only shows clinics from the customer's assigned country. Type any part of the clinic name or city to narrow results instantly.
 
 ---
 
@@ -378,6 +381,17 @@ The Collections module manages the cord blood sample collection process — from
 4. Lab results are entered into INDEXUS (or uploaded via document scanning)
 5. CBU report is generated and delivered to the customer
 6. Sample is confirmed as stored
+
+**Collection form — Hospital & Clinic selectors:**
+
+| Field | Behaviour |
+|---|---|
+| **Hospital** | Searchable combobox — type any part of the name or city; only hospitals from the collection's country are shown |
+| **Clinic (Ambulancia)** | Searchable combobox — filtered by country; selecting a clinic automatically fills the Representative field |
+| **Representative** | Auto-filled when a clinic is selected (based on the clinic's assigned representative); can be changed manually |
+| **Personnel** (Cord Blood Collector, Tissue Collector, Placenta Collector, Assistant Nurse, Second Nurse) | When a hospital is selected, only staff actually assigned to that hospital in the Medical Partner Network are shown; without a hospital, all country collaborators are available |
+
+> **Country filtering:** All hospital and clinic dropdowns automatically limit results to the country of the collection. A country badge (e.g. `SK`) is shown next to each selector label. The filter is applied both server-side (for performance) and client-side (as a safety net against stale cache).
 
 ---
 
