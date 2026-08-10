@@ -86,7 +86,14 @@ export function AppSidebar() {
     { title: "Reports", url: "/reports", icon: BarChart3, testId: "reports", moduleKey: "reports" },
   ];
 
+  // Must be defined BEFORE mpnSubItems to avoid TDZ in production build
+  const userRoleName = sidebarRoles.find(r => r.id === user?.roleId)?.name;
+  const isRepresentant = userRoleName && ['representant', 'representative'].includes(userRoleName.toLowerCase().replace(/\s+/g, ''));
+
   const mpnSubItems = [
+    ...(isRepresentant
+      ? [{ title: t.representantPanel?.myClinicsTitle || "My Network", url: "/my-clinics", testId: "my-clinics", moduleKey: "hospitals", repOnly: true }]
+      : []),
     { title: t.nav.medicalPartnerNetwork, url: "/medical-partner-network", testId: "mpn", moduleKey: "hospitals" },
     { title: t.nav.hospitalsAndClinics, url: "/hospitals", testId: "hospitals", moduleKey: "hospitals" },
     { title: t.nav.collaboratorUpdates, url: "/collaborator-updates", testId: "collaborator-updates", moduleKey: "collaborators" },
@@ -120,8 +127,6 @@ export function AppSidebar() {
     { title: t.nav.pricing, url: "/pricing", testId: "pricing", moduleKey: "pricing" },
   ];
 
-  const userRoleName = sidebarRoles.find(r => r.id === user?.roleId)?.name;
-  const isRepresentant = userRoleName && ['representant', 'representative'].includes(userRoleName.toLowerCase().replace(/\s+/g, ''));
   const visibleMainItems = mainNavItems.filter(item => {
     const hasModuleAccess = canAccessModule(item.moduleKey);
     const itemRoles = (item as any).roles as string[] | undefined;
@@ -217,17 +222,7 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               </Collapsible>
 
-              {isRepresentant && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/my-clinics"}>
-                    <Link href="/my-clinics" data-testid="nav-my-clinics">
-                      <UserCheck className="h-4 w-4" />
-                      <span>{t.representantPanel?.myClinicsTitle || "My Clinics"}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-              <Collapsible defaultOpen={location === "/medical-partner-network" || location === "/hospitals" || location === "/bulk-assign"} className="group/collapsible-mpn">
+              <Collapsible defaultOpen={location === "/medical-partner-network" || location === "/hospitals" || location === "/bulk-assign" || location === "/my-clinics"} className="group/collapsible-mpn">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton isActive={location === "/medical-partner-network" || location === "/hospitals"}>
