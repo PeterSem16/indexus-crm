@@ -4093,7 +4093,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
             <p className="text-xs text-muted-foreground mt-0.5">{sl("aiSuggestDesc", locale)}</p>
           </DialogHeader>
 
-          <div className="overflow-y-auto" style={{ maxHeight: "calc(80vh - 120px)" }}>
+          <div className="overflow-y-auto flex-1 min-h-0">
             <div className="px-6 py-4 space-y-3">
               {aiSuggestLoading && (
                 <div className="flex flex-col items-center justify-center py-16 gap-3">
