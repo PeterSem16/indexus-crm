@@ -4077,7 +4077,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
 
       {/* ===== AI Canonical Status Suggestion Dialog ===== */}
       <Dialog open={aiSuggestOpen} onOpenChange={v => { if (!aiSuggestApplying) setAiSuggestOpen(v); }}>
-        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0 gap-0">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
           <DialogHeader className="px-6 pt-5 pb-3 border-b shrink-0">
             <DialogTitle className="flex items-center gap-2 text-base">
               <Sparkles className="h-4 w-4 text-violet-500" />
