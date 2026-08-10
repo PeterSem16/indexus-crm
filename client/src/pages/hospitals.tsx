@@ -559,16 +559,25 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
   const [showMapDialog, setShowMapDialog] = useState(false);
   const [formData, setFormData] = useState<HospitalFormData>(defaultFormData);
   const [showLaboratory, setShowLaboratory] = useState(false);
+  const [savedHospitalId, setSavedHospitalId] = useState<string | null>(null);
 
   const { data: users = [] } = useQuery<SafeUser[]>({ queryKey: ["/api/users"] });
   const { data: laboratories = [] } = useQuery<Laboratory[]>({ queryKey: ["/api/config/laboratories"] });
   const filteredLaboratories = formData.countryCode ? laboratories.filter((lab) => lab.countryCode === formData.countryCode) : laboratories;
 
   const saveMutation = useMutation({
-    mutationFn: (data: HospitalFormData) => apiRequest("POST", "/api/hospitals", data),
-    onSuccess: () => {
+    mutationFn: (data: HospitalFormData) => apiRequest("POST", "/api/hospitals", data).then((res) => res.json()),
+    onSuccess: (res: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/hospitals/stats"] });
       toast({ title: t.success.saved });
-      onSuccess();
+      const id = res?.id ?? null;
+      if (id) {
+        setSavedHospitalId(String(id));
+        setActiveSection("representative");
+      } else {
+        onSuccess();
+      }
     },
     onError: () => { toast({ title: t.errors.saveFailed, variant: "destructive" }); },
   });
@@ -605,6 +614,7 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
     { id: "basic", label: t.clinics.steps.basic, icon: Building2 },
     { id: "personnel", label: mpnT.personnel || "Personnel", icon: Users },
     { id: "campaigns", label: (t as any).campaigns?.title || "Campaigns", icon: Target },
+    { id: "representative", label: t.representantPanel?.tabLabel || "Reprezentant", icon: UserCheck },
   ];
 
   return (
@@ -805,15 +815,37 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
                 <p className="text-sm">{(t as any).campaigns?.noCampaigns || "Campaigns can be added after saving."}</p>
               </div>
             )}
+
+            {activeSection === "representative" && (
+              savedHospitalId ? (
+                <RepresentativePanel entityType="hospital" entityId={savedHospitalId} />
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                  <UserCheck className="h-10 w-10 mb-3 opacity-40" />
+                  <p className="text-sm font-medium">{t.representantPanel?.tabLabel || "Reprezentant"}</p>
+                  <p className="text-xs mt-1">{t.hospitals.addHospitalDesc || "Save the hospital first to assign a representative."}</p>
+                </div>
+              )
+            )}
           </div>
         </div>
 
         <div className="shrink-0 border-t bg-muted/30 px-5 py-3 flex items-center justify-end gap-2">
-          <Button variant="outline" onClick={onClose} data-testid="button-cancel-hospital-add">{t.common.cancel}</Button>
-          <Button onClick={handleSubmit} disabled={saveMutation.isPending} data-testid="button-save-hospital-add">
-            {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
-            {t.common.save}
-          </Button>
+          {savedHospitalId ? (
+            <>
+              <Button variant="outline" onClick={onSuccess} data-testid="button-done-hospital-add">
+                {(t.common as any).close || "Close"}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" onClick={onClose} data-testid="button-cancel-hospital-add">{t.common.cancel}</Button>
+              <Button onClick={handleSubmit} disabled={saveMutation.isPending} data-testid="button-save-hospital-add">
+                {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+                {t.common.save}
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
