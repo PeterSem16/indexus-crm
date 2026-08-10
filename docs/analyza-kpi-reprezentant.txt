@@ -297,7 +297,7 @@ Back office
   - Z väzby odber -> ambulancia -> reprezentant (platný v čase
     odberu) sa počítajú odbery, obrat a marža na reprezentanta.
 
-4.3 Kanonický status list ambulancie v Status Engine (Nexus Pulse)
+nescroluje  v Status Engine (Nexus Pulse)
   - Jedna oficiálna sada statusov spolupráce (oslovená -> uzavretá ->
     spolupracuje/nespolupracuje; + akceptuje letáky; + zmluva
     podpísaná), vypĺňaná koordinátorom/reprezentantom v Nexus Pulse.

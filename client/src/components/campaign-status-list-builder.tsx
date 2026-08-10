@@ -4077,7 +4077,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
 
       {/* ===== AI Canonical Status Suggestion Dialog ===== */}
       <Dialog open={aiSuggestOpen} onOpenChange={v => { if (!aiSuggestApplying) setAiSuggestOpen(v); }}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
+        <DialogContent className="max-w-3xl p-0 gap-0" style={{ display: "flex", flexDirection: "column", maxHeight: "90vh" }}>
           <DialogHeader className="px-6 pt-5 pb-3 border-b shrink-0">
             <DialogTitle className="flex items-center gap-2 text-base">
               <Sparkles className="h-4 w-4 text-violet-500" />
@@ -4086,7 +4086,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
             <p className="text-xs text-muted-foreground mt-0.5">{sl("aiSuggestDesc", locale)}</p>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 min-h-0">
+          <div className="overflow-y-auto" style={{ maxHeight: "calc(80vh - 120px)" }}>
             <div className="px-6 py-4 space-y-3">
               {aiSuggestLoading && (
                 <div className="flex flex-col items-center justify-center py-16 gap-3">
@@ -4253,7 +4253,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
                 );
               })()}
             </div>
-          </ScrollArea>
+          </div>
 
           <DialogFooter className="px-6 py-4 border-t shrink-0 flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => setAiSuggestOpen(false)} disabled={aiSuggestApplying}>
