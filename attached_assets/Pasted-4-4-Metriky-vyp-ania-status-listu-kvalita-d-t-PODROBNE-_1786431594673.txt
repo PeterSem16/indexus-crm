@@ -1,0 +1,53 @@
+4.4 Metriky vypĺňania status listu (kvalita dát) — PODROBNE
+  Zmysel: všetky KPI 3.4–3.7 stoja na tom, že status listy sú
+  vyplnené poctivo a včas. Tieto metriky merajú disciplínu
+  vypĺňania, nie výkon reprezentanta ako taký.
+
+  a) POKRYTIE (coverage)
+     Definícia: % kontaktovaných ambulancií, ktoré majú po kontakte
+     nastavený status.
+     Výpočet: čitateľ = počet ambulancií, kde po hovore (call_logs)
+     alebo návšteve (visit_events) pribudol záznam v status liste
+     do 24 h (tolerancia 48 h); menovateľ = počet všetkých
+     kontaktovaných ambulancií v období.
+     Vyhodnotenie: mesačne na reprezentanta; cieľ napr. >= 95 %.
+     Signál: nízke pokrytie = reprezentant telefonuje/jazdí, ale
+     nezapisuje -> KPI 3.4–3.7 sú podhodnotené.
+
+  b) ÚPLNOSŤ (completeness)
+     Definícia: % ambulancií v „uzavretom" stave, ktoré majú
+     vyplnené VŠETKY povinné polia statusu:
+       - spolupracuje áno/nie
+       - akceptuje letáky áno/nie
+       - zmluva podpísaná áno/nie
+       - bude poskytovať služby klientkám áno/nie
+     Výpočet: čitateľ = uzavreté ambulancie s kompletne vyplnenými
+     povinnými poľami; menovateľ = všetky uzavreté ambulancie.
+     Vyhodnotenie: priebežne (aktuálny stav) + mesačný trend;
+     cieľ 100 % — neúplný záznam znamená, že ambulancia sa nedá
+     korektne zaradiť do podielov 3.5–3.7.
+     Doplnok: zoznam konkrétnych neúplných záznamov ako pracovný
+     zoznam pre reprezentanta („dopĺňačka").
+
+  c) ONESKORENIE (latency)
+     Definícia: čas medzi kontaktom (koniec hovoru / koniec
+     návštevy) a zápisom statusu.
+     Výpočet: medián + 90. percentil za obdobie; meria sa
+     z timestampov call_logs/visit_events vs. confirmedAt
+     v status liste.
+     Vyhodnotenie: mesačne na reprezentanta; cieľ napr. medián
+     do 1 h, P90 do 24 h.
+     Signál: dlhé oneskorenie = zapisuje sa „z pamäti" na konci
+     týždňa -> nižšia spoľahlivosť dát (aj keď pokrytie vyzerá OK).
+
+  d) KONZISTENTNOSŤ (doplnková kontrola)
+     - Kontakt bez statusu po X dňoch -> automatická pripomienka
+       reprezentantovi (existujúci systém úloh/notifikácií).
+     - Status bez kontaktu (zapísaný status, ale žiadny hovor ani
+       návšteva v okolí) -> príznak na kontrolu manažérom.
+     - Spätné hromadné vypĺňanie (veľa statusov v jednej minúte)
+       -> príznak v reporte kvality dát.
+
+  Prezentácia: samostatná karta „Kvalita dát" v reporte Výkon
+  reprezentanta — semafor (zelená/oranžová/červená) pre pokrytie,
+  úplnosť a oneskorenie, s preklikom na konkrétne chýbajúce záznamy.

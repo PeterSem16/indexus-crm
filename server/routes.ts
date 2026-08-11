@@ -50274,6 +50274,244 @@ Return ONLY the JSON object.`
   const { registerRepresentativeRoutes } = await import("./representative-routes");
   registerRepresentativeRoutes(app);
 
+  // ── 4.4 Representative Data Quality ────────────────────────────────────────
+  // GET /api/representative-performance/data-quality
+  // Returns coverage, completeness, latency, consistency metrics for a rep+period.
+  app.get("/api/representative-performance/data-quality", requireAuth, async (req, res) => {
+    try {
+      const sessionUser = req.session.user;
+      if (!sessionUser || (sessionUser.role !== "admin" && sessionUser.role !== "manager")) {
+        return res.status(403).json({ error: "Admin or manager required" });
+      }
+
+      const { representativeId, from, to } = req.query as Record<string, string>;
+      if (!representativeId || !from || !to) {
+        return res.status(400).json({ error: "representativeId, from, to are required" });
+      }
+
+      const fromDate = new Date(from);
+      const toDate = new Date(to);
+
+      // ── a) COVERAGE ──────────────────────────────────────────────────────
+      const coverageRows = await db.execute(sql`
+        WITH called AS (
+          SELECT DISTINCT cc.clinic_id, cl.ended_at
+          FROM call_logs cl
+          JOIN campaign_contacts cc
+            ON cc.id = cl.campaign_contact_id
+            AND cc.contact_type = 'clinic'
+            AND cc.clinic_id IS NOT NULL
+          JOIN clinic_representative_assignments cra
+            ON cra.clinic_id = cc.clinic_id
+            AND cra.user_id = ${representativeId}
+            AND cra.valid_from <= cl.ended_at
+            AND (cra.valid_to IS NULL OR cra.valid_to > cl.ended_at)
+          WHERE cl.ended_at BETWEEN ${fromDate} AND ${toDate}
+            AND cl.status = 'answered'
+            AND cl.ended_at IS NOT NULL
+        ),
+        covered AS (
+          SELECT DISTINCT c.clinic_id
+          FROM called c
+          WHERE EXISTS (
+            SELECT 1 FROM clinic_cooperation_statuses ccs
+            WHERE ccs.clinic_id = c.clinic_id
+              AND ccs.confirmed_at >= c.ended_at
+              AND ccs.confirmed_at <= c.ended_at + INTERVAL '48 hours'
+          )
+        )
+        SELECT
+          (SELECT COUNT(DISTINCT clinic_id) FROM called)::int AS contacted,
+          (SELECT COUNT(DISTINCT clinic_id) FROM covered)::int AS covered
+      `);
+      const cov = (coverageRows.rows[0] as any) || { contacted: 0, covered: 0 };
+      const contacted = Number(cov.contacted) || 0;
+      const covered = Number(cov.covered) || 0;
+
+      // ── b) COMPLETENESS ──────────────────────────────────────────────────
+      const completenessRows = await db.execute(sql`
+        WITH rep_clinics AS (
+          SELECT c.id AS clinic_id, c.name
+          FROM clinic_representative_assignments cra
+          JOIN clinics c ON c.id = cra.clinic_id
+          WHERE cra.user_id = ${representativeId} AND cra.valid_to IS NULL
+        ),
+        dims AS (
+          SELECT
+            ccs.clinic_id,
+            BOOL_OR(ccs.status_key IN (
+              'acquisition_interested','acquisition_not_interested','acquisition_in_negotiation',
+              'retention_active','retention_paused','retention_terminated'
+            )) AS has_coop,
+            BOOL_OR(ccs.status_key IN ('flyers_sent','flyers_accepted','flyers_rejected')) AS has_flyers,
+            BOOL_OR(ccs.status_key IN ('contract_sent','contract_signed','contract_rejected')) AS has_contract,
+            BOOL_OR(ccs.status_key IN ('services_confirmed','services_declined')) AS has_services
+          FROM clinic_cooperation_statuses ccs
+          WHERE ccs.clinic_id IN (SELECT clinic_id FROM rep_clinics)
+          GROUP BY ccs.clinic_id
+        )
+        SELECT
+          rc.clinic_id,
+          rc.name,
+          COALESCE(d.has_coop, false)     AS has_coop,
+          COALESCE(d.has_flyers, false)   AS has_flyers,
+          COALESCE(d.has_contract, false) AS has_contract,
+          COALESCE(d.has_services, false) AS has_services
+        FROM rep_clinics rc
+        LEFT JOIN dims d ON d.clinic_id = rc.clinic_id
+        ORDER BY rc.name
+      `);
+      const clinicRows = completenessRows.rows as any[];
+      const incompleteList = clinicRows
+        .filter(r => !r.has_coop || !r.has_flyers || !r.has_contract || !r.has_services)
+        .map(r => ({
+          clinicId: r.clinic_id,
+          name: r.name,
+          missing: [
+            !r.has_coop     && "Spolupráca",
+            !r.has_flyers   && "Letáky",
+            !r.has_contract && "Zmluva",
+            !r.has_services && "Služby",
+          ].filter(Boolean),
+        }));
+
+      // ── c) LATENCY ───────────────────────────────────────────────────────
+      const latencyRows = await db.execute(sql`
+        WITH pairs AS (
+          SELECT
+            ccs.id,
+            ccs.confirmed_at,
+            MAX(cl.ended_at) AS call_ended_at
+          FROM clinic_cooperation_statuses ccs
+          JOIN clinic_representative_assignments cra
+            ON cra.clinic_id = ccs.clinic_id
+            AND cra.user_id = ${representativeId}
+            AND cra.valid_from <= ccs.confirmed_at
+            AND (cra.valid_to IS NULL OR cra.valid_to > ccs.confirmed_at)
+          JOIN campaign_contacts cc ON cc.clinic_id = ccs.clinic_id AND cc.contact_type = 'clinic'
+          JOIN call_logs cl
+            ON cl.campaign_contact_id = cc.id
+            AND cl.ended_at IS NOT NULL
+            AND cl.ended_at < ccs.confirmed_at
+            AND cl.ended_at > ccs.confirmed_at - INTERVAL '48 hours'
+            AND cl.status = 'answered'
+          WHERE ccs.confirmed_at BETWEEN ${fromDate} AND ${toDate}
+          GROUP BY ccs.id, ccs.confirmed_at
+        )
+        SELECT
+          COUNT(*)::int AS paired_count,
+          PERCENTILE_CONT(0.5) WITHIN GROUP (
+            ORDER BY EXTRACT(EPOCH FROM (confirmed_at - call_ended_at)) / 3600.0
+          ) AS median_hours,
+          PERCENTILE_CONT(0.9) WITHIN GROUP (
+            ORDER BY EXTRACT(EPOCH FROM (confirmed_at - call_ended_at)) / 3600.0
+          ) AS p90_hours
+        FROM pairs
+      `);
+      const lat = (latencyRows.rows[0] as any) || {};
+
+      // ── d) CONSISTENCY ───────────────────────────────────────────────────
+      // d1: statuses with no nearby answered call (possible retroactive entries)
+      const noCallRows = await db.execute(sql`
+        SELECT
+          ccs.id,
+          ccs.clinic_id,
+          cl.name AS clinic_name,
+          ccs.status_key,
+          ccs.confirmed_at
+        FROM clinic_cooperation_statuses ccs
+        JOIN clinics cl ON cl.id = ccs.clinic_id
+        JOIN clinic_representative_assignments cra
+          ON cra.clinic_id = ccs.clinic_id
+          AND cra.user_id = ${representativeId}
+          AND cra.valid_from <= ccs.confirmed_at
+          AND (cra.valid_to IS NULL OR cra.valid_to > ccs.confirmed_at)
+        WHERE ccs.confirmed_at BETWEEN ${fromDate} AND ${toDate}
+          AND NOT EXISTS (
+            SELECT 1
+            FROM call_logs call2
+            JOIN campaign_contacts cc2 ON cc2.id = call2.campaign_contact_id AND cc2.clinic_id = ccs.clinic_id
+            WHERE call2.status = 'answered'
+              AND call2.ended_at IS NOT NULL
+              AND call2.ended_at BETWEEN ccs.confirmed_at - INTERVAL '24 hours'
+                                     AND ccs.confirmed_at + INTERVAL '24 hours'
+          )
+        ORDER BY ccs.confirmed_at DESC
+        LIMIT 50
+      `);
+
+      // d2: bulk retroactive fills — multiple statuses in < 60s by same user in period
+      const bulkRows = await db.execute(sql`
+        WITH ordered AS (
+          SELECT
+            ccs.confirmed_by_user_id,
+            u.first_name || ' ' || COALESCE(u.last_name, '') AS user_name,
+            ccs.confirmed_at,
+            LAG(ccs.confirmed_at) OVER (
+              PARTITION BY ccs.confirmed_by_user_id ORDER BY ccs.confirmed_at
+            ) AS prev_confirmed_at
+          FROM clinic_cooperation_statuses ccs
+          JOIN users u ON u.id = ccs.confirmed_by_user_id
+          JOIN clinic_representative_assignments cra ON cra.clinic_id = ccs.clinic_id
+            AND cra.user_id = ${representativeId}
+          WHERE ccs.confirmed_at BETWEEN ${fromDate} AND ${toDate}
+        ),
+        rapid AS (
+          SELECT
+            confirmed_by_user_id,
+            user_name,
+            DATE_TRUNC('minute', confirmed_at) AS minute_bucket,
+            COUNT(*) AS cnt
+          FROM ordered
+          WHERE prev_confirmed_at IS NOT NULL
+            AND confirmed_at - prev_confirmed_at < INTERVAL '60 seconds'
+          GROUP BY confirmed_by_user_id, user_name, minute_bucket
+          HAVING COUNT(*) >= 3
+        )
+        SELECT confirmed_by_user_id, user_name, minute_bucket, cnt
+        FROM rapid
+        ORDER BY cnt DESC
+        LIMIT 20
+      `);
+
+      res.json({
+        coverage: {
+          contacted,
+          covered,
+          pct: contacted > 0 ? Math.round((covered / contacted) * 100) : null,
+        },
+        completeness: {
+          total: clinicRows.length,
+          complete: clinicRows.length - incompleteList.length,
+          pct: clinicRows.length > 0 ? Math.round(((clinicRows.length - incompleteList.length) / clinicRows.length) * 100) : null,
+          incomplete: incompleteList,
+        },
+        latency: {
+          pairedCount: Number(lat.paired_count) || 0,
+          medianHours: lat.median_hours != null ? Math.round(Number(lat.median_hours) * 10) / 10 : null,
+          p90Hours: lat.p90_hours != null ? Math.round(Number(lat.p90_hours) * 10) / 10 : null,
+        },
+        consistency: {
+          noCallStatuses: (noCallRows.rows as any[]).map(r => ({
+            clinicId: r.clinic_id,
+            clinicName: r.clinic_name,
+            statusKey: r.status_key,
+            confirmedAt: r.confirmed_at,
+          })),
+          bulkFillFlags: (bulkRows.rows as any[]).map(r => ({
+            userId: r.confirmed_by_user_id,
+            userName: r.user_name,
+            minuteBucket: r.minute_bucket,
+            count: Number(r.cnt),
+          })),
+        },
+      });
+    } catch (err: any) {
+      console.error("[rep-data-quality]", err?.message || err);
+      res.status(500).json({ error: "Failed to compute data quality metrics" });
+    }
+  });
+
   app.get("/api/web-forms", requireAuth, async (_req, res) => {
     try { res.json(await storage.getWebForms()); }
     catch (e: any) { res.status(500).json({ error: e.message }); }

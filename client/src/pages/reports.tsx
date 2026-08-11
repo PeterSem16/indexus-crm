@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { useI18n } from "@/i18n";
@@ -9,11 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Search, FileText, Download, Printer, User, Phone, Mail, MapPin, Calendar,
   FileCheck, CreditCard, AlertTriangle, FlaskConical, Activity, MessageSquare,
   Shield, Baby, Building2, Heart, Clock, CheckCircle2, XCircle, ChevronRight,
-  BarChart3, Briefcase, Receipt, Scale, Beaker, History, Target, Loader2
+  BarChart3, Briefcase, Receipt, Scale, Beaker, History, Target, Loader2,
+  Users, Timer, Zap, AlertCircle, CheckCircle, ListChecks, TrendingUp
 } from "lucide-react";
 
 type Customer = any;
@@ -982,6 +984,44 @@ function CustomerAuditReport({ customerId }: { customerId: string }) {
   );
 }
 
+// ── Traffic-light helper ──────────────────────────────────────────────────────
+function trafficLight(value: number | null, green: number, amber: number, higherIsBetter = true): "green" | "amber" | "red" | "gray" {
+  if (value == null) return "gray";
+  if (higherIsBetter) {
+    if (value >= green) return "green";
+    if (value >= amber) return "amber";
+    return "red";
+  } else {
+    if (value <= green) return "green";
+    if (value <= amber) return "amber";
+    return "red";
+  }
+}
+const tlCls = { green: "bg-emerald-500", amber: "bg-amber-400", red: "bg-red-500", gray: "bg-muted-foreground/30" };
+const tlText = { green: "text-emerald-700 dark:text-emerald-400", amber: "text-amber-700 dark:text-amber-400", red: "text-red-700 dark:text-red-400", gray: "text-muted-foreground" };
+
+function MetricCard({ icon: Icon, title, value, unit, light, sub }: { icon: any; title: string; value: string; unit?: string; light: "green"|"amber"|"red"|"gray"; sub?: string }) {
+  return (
+    <Card>
+      <CardContent className="pt-5 pb-4">
+        <div className="flex items-start gap-3">
+          <div className={`w-3 h-3 rounded-full mt-1 shrink-0 ${tlCls[light]}`} />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{title}</span>
+            </div>
+            <div className={`text-2xl font-bold ${tlText[light]}`}>
+              {value}<span className="text-sm font-normal text-muted-foreground ml-1">{unit}</span>
+            </div>
+            {sub && <p className="text-[11px] text-muted-foreground mt-0.5">{sub}</p>}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function ReportsPage() {
   const { t } = useI18n();
   const { user } = useAuth();
@@ -990,6 +1030,35 @@ export default function ReportsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [selectedCustomerName, setSelectedCustomerName] = useState("");
+
+  // ── 4.4 Data Quality state ──────────────────────────────────────────────
+  const [dqRepId, setDqRepId] = useState<string>("");
+  const [dqMonth, setDqMonth] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
+
+  const { data: allUsers = [] } = useQuery<any[]>({ queryKey: ["/api/users"] });
+  const representatives = useMemo(() =>
+    (allUsers as any[]).filter(u => u.role === "Representant" || u.role === "representant"),
+    [allUsers]
+  );
+
+  const dqFrom = useMemo(() => `${dqMonth}-01T00:00:00.000Z`, [dqMonth]);
+  const dqTo = useMemo(() => {
+    const [y, m] = dqMonth.split("-").map(Number);
+    const last = new Date(y, m, 0); // last day of month
+    return `${dqMonth}-${String(last.getDate()).padStart(2, "0")}T23:59:59.999Z`;
+  }, [dqMonth]);
+
+  const { data: dqData, isFetching: dqLoading } = useQuery<any>({
+    queryKey: ["/api/representative-performance/data-quality", dqRepId, dqFrom, dqTo],
+    queryFn: () =>
+      fetch(`/api/representative-performance/data-quality?representativeId=${dqRepId}&from=${encodeURIComponent(dqFrom)}&to=${encodeURIComponent(dqTo)}`, { credentials: "include" })
+        .then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); }),
+    enabled: !!dqRepId && activeReport === "rep-data-quality",
+    staleTime: 60_000,
+  });
 
   const { data: searchResults = [] } = useQuery<any[]>({
     queryKey: ["/api/customers", { search: debouncedSearch, page: 1, limit: 15 }],
@@ -1013,6 +1082,7 @@ export default function ReportsPage() {
 
   const reportTypes = [
     { id: "customer-audit", label: "Customer Audit", icon: User, description: "Complete customer 360° view with all records" },
+    { id: "rep-data-quality", label: "Kvalita dát – Reprezentant", icon: ListChecks, description: "Pokrytie, úplnosť, oneskorenie a konzistentnosť zápisov status listu" },
   ];
 
   return (
@@ -1132,6 +1202,210 @@ export default function ReportsPage() {
               )}
             </div>
           )}
+        {/* ── 4.4 Representative Data Quality ──────────────────────────── */}
+        {activeReport === "rep-data-quality" && (
+          <div className="space-y-4">
+            {/* Controls */}
+            <Card>
+              <CardContent className="pt-5 pb-4">
+                <div className="flex flex-wrap gap-3 items-end">
+                  <div className="flex-1 min-w-[200px]">
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block uppercase tracking-wide">Reprezentant</label>
+                    <Select value={dqRepId} onValueChange={setDqRepId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Vyber reprezentanta…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {representatives.length === 0 && (
+                          <SelectItem value="__none" disabled>Žiadni reprezentanti</SelectItem>
+                        )}
+                        {representatives.map((u: any) => (
+                          <SelectItem key={u.id} value={u.id}>
+                            {u.firstName} {u.lastName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block uppercase tracking-wide">Mesiac</label>
+                    <input
+                      type="month"
+                      value={dqMonth}
+                      onChange={e => setDqMonth(e.target.value)}
+                      className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                  </div>
+                  {dqLoading && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground self-center" />}
+                </div>
+              </CardContent>
+            </Card>
+
+            {!dqRepId && (
+              <Card className="border-dashed">
+                <CardContent className="py-14 text-center">
+                  <Users className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
+                  <p className="text-muted-foreground">Vyber reprezentanta a mesiac pre zobrazenie metrík</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {dqRepId && dqData && (
+              <>
+                {/* Metric cards row */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  <MetricCard
+                    icon={TrendingUp}
+                    title="Pokrytie"
+                    value={dqData.coverage.pct != null ? `${dqData.coverage.pct}%` : "–"}
+                    light={trafficLight(dqData.coverage.pct, 95, 80)}
+                    sub={`${dqData.coverage.covered} / ${dqData.coverage.contacted} ambulancií do 48h`}
+                  />
+                  <MetricCard
+                    icon={CheckCircle}
+                    title="Úplnosť"
+                    value={dqData.completeness.pct != null ? `${dqData.completeness.pct}%` : "–"}
+                    light={trafficLight(dqData.completeness.pct, 100, 90)}
+                    sub={`${dqData.completeness.complete} / ${dqData.completeness.total} ambulancií kompletných`}
+                  />
+                  <MetricCard
+                    icon={Timer}
+                    title="Oneskorenie – medián"
+                    value={dqData.latency.medianHours != null ? String(dqData.latency.medianHours) : "–"}
+                    unit="h"
+                    light={trafficLight(dqData.latency.medianHours, 1, 24, false)}
+                    sub={`P90: ${dqData.latency.p90Hours != null ? dqData.latency.p90Hours + " h" : "–"} (${dqData.latency.pairedCount} párov)`}
+                  />
+                  <MetricCard
+                    icon={Zap}
+                    title="Konzistentnosť"
+                    value={String((dqData.consistency.noCallStatuses?.length ?? 0) + (dqData.consistency.bulkFillFlags?.length ?? 0))}
+                    unit="príznakov"
+                    light={
+                      (dqData.consistency.noCallStatuses?.length ?? 0) + (dqData.consistency.bulkFillFlags?.length ?? 0) === 0
+                        ? "green" : (dqData.consistency.noCallStatuses?.length ?? 0) + (dqData.consistency.bulkFillFlags?.length ?? 0) <= 3
+                          ? "amber" : "red"
+                    }
+                    sub="Statusy bez hovoru + hromadné záznamy"
+                  />
+                </div>
+
+                {/* Incomplete clinics list */}
+                {dqData.completeness.incomplete?.length > 0 && (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-amber-500" />
+                        Neúplné záznamy – ambulancie ({dqData.completeness.incomplete.length})
+                        <span className="text-xs text-muted-foreground font-normal ml-1">Chýba aspoň jedna z povinných dimenzií</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <div className="max-h-64 overflow-y-auto">
+                        <table className="w-full text-xs">
+                          <thead className="sticky top-0 bg-muted/80">
+                            <tr>
+                              <th className="text-left px-4 py-2 font-semibold">Ambulancia</th>
+                              <th className="text-left px-4 py-2 font-semibold">Chýba</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {dqData.completeness.incomplete.map((row: any, i: number) => (
+                              <tr key={row.clinicId} className={i % 2 === 0 ? "bg-background" : "bg-muted/30"}>
+                                <td className="px-4 py-2 font-medium">{row.name}</td>
+                                <td className="px-4 py-2">
+                                  <div className="flex flex-wrap gap-1">
+                                    {row.missing.map((m: string) => (
+                                      <Badge key={m} variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400">{m}</Badge>
+                                    ))}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Consistency flags */}
+                {(dqData.consistency.noCallStatuses?.length > 0 || dqData.consistency.bulkFillFlags?.length > 0) && (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4 text-red-500" />
+                        Príznaky konzistentnosti
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {dqData.consistency.noCallStatuses?.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Statusy bez blízkeho hovoru (±24 h)</p>
+                          <div className="max-h-40 overflow-y-auto rounded border">
+                            <table className="w-full text-xs">
+                              <thead className="bg-muted/60 sticky top-0">
+                                <tr>
+                                  <th className="text-left px-3 py-1.5 font-semibold">Ambulancia</th>
+                                  <th className="text-left px-3 py-1.5 font-semibold">Status</th>
+                                  <th className="text-left px-3 py-1.5 font-semibold">Potvrdené</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {dqData.consistency.noCallStatuses.map((r: any, i: number) => (
+                                  <tr key={r.clinicId + r.confirmedAt} className={i % 2 === 0 ? "" : "bg-muted/20"}>
+                                    <td className="px-3 py-1.5">{r.clinicName}</td>
+                                    <td className="px-3 py-1.5 font-mono text-[10px]">{r.statusKey?.replace(/_/g, " ")}</td>
+                                    <td className="px-3 py-1.5 text-muted-foreground">{new Date(r.confirmedAt).toLocaleDateString("sk-SK", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" })}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                      {dqData.consistency.bulkFillFlags?.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Hromadné záznamy (&lt; 60 s, ≥ 3 záznamy)</p>
+                          <div className="rounded border">
+                            <table className="w-full text-xs">
+                              <thead className="bg-muted/60">
+                                <tr>
+                                  <th className="text-left px-3 py-1.5 font-semibold">Používateľ</th>
+                                  <th className="text-left px-3 py-1.5 font-semibold">Čas</th>
+                                  <th className="text-left px-3 py-1.5 font-semibold">Počet</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {dqData.consistency.bulkFillFlags.map((r: any, i: number) => (
+                                  <tr key={r.userId + r.minuteBucket} className={i % 2 === 0 ? "" : "bg-muted/20"}>
+                                    <td className="px-3 py-1.5 font-medium">{r.userName}</td>
+                                    <td className="px-3 py-1.5 text-muted-foreground">{new Date(r.minuteBucket).toLocaleString("sk-SK", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" })}</td>
+                                    <td className="px-3 py-1.5 font-bold">{r.count}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* All-clear */}
+                {dqData.completeness.incomplete?.length === 0 && dqData.consistency.noCallStatuses?.length === 0 && dqData.consistency.bulkFillFlags?.length === 0 && (
+                  <Card className="border-emerald-200 dark:border-emerald-800">
+                    <CardContent className="py-8 text-center">
+                      <CheckCircle2 className="h-8 w-8 mx-auto text-emerald-500 mb-2" />
+                      <p className="font-semibold text-emerald-700 dark:text-emerald-400">Všetky záznamy sú kompletné a konzistentné</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            )}
+          </div>
+        )}
         </div>
       </div>
 
