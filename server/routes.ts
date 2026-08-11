@@ -50710,6 +50710,144 @@ Return ONLY the JSON object.`
     }
   });
 
+  // GET /api/representative-performance/hospital-plan
+  // Úloha 2: hospital contact plan (tasks with dueDate) vs reality (call_logs / visit_events).
+  app.get("/api/representative-performance/hospital-plan", requireAuth, async (req, res) => {
+    try {
+      const sessionUser = req.session.user;
+      if (!sessionUser || (sessionUser.role !== "admin" && sessionUser.role !== "manager")) {
+        return res.status(403).json({ error: "Admin or manager required" });
+      }
+      const { representativeId, from, to } = req.query as Record<string, string>;
+      if (!representativeId || !from || !to) {
+        return res.status(400).json({ error: "representativeId, from, to are required" });
+      }
+      const fromDate = new Date(from);
+      const toDate   = new Date(to);
+
+      const rows = await db.execute(sql`
+        WITH hospital_tasks AS (
+          SELECT
+            t.id              AS task_id,
+            t.title           AS task_title,
+            t.due_date,
+            t.status          AS task_status,
+            t.created_at      AS task_created_at,
+            COALESCE(
+              CASE WHEN t.related_entity_type = 'hospital' THEN t.related_entity_id END,
+              t.customer_id
+            ) AS hospital_id
+          FROM tasks t
+          WHERE t.assigned_user_id = ${representativeId}
+            AND t.due_date BETWEEN ${fromDate} AND ${toDate}
+            AND (
+              t.related_entity_type = 'hospital'
+              OR EXISTS (
+                SELECT 1 FROM hospitals h2 WHERE h2.id = t.customer_id
+              )
+            )
+        ),
+        unique_hospitals AS (
+          SELECT DISTINCT hospital_id FROM hospital_tasks WHERE hospital_id IS NOT NULL
+        ),
+        latest_calls AS (
+          SELECT
+            cl.customer_id AS hospital_id,
+            MAX(cl.started_at) AS last_call_at
+          FROM call_logs cl
+          JOIN unique_hospitals uh ON uh.hospital_id = cl.customer_id
+          WHERE cl.status IN ('answered','completed')
+            AND cl.started_at >= ${fromDate}::timestamptz - interval '14 days'
+            AND cl.started_at <= ${toDate}::timestamptz  + interval '3 days'
+          GROUP BY cl.customer_id
+        ),
+        latest_visits AS (
+          SELECT
+            ve.hospital_id,
+            MAX(COALESCE(ve.actual_end, ve.end_time)) AS last_visit_at
+          FROM visit_events ve
+          JOIN unique_hospitals uh ON uh.hospital_id = ve.hospital_id
+          WHERE ve.status IN ('completed')
+            AND COALESCE(ve.actual_end, ve.end_time) >= ${fromDate}::timestamptz - interval '14 days'
+            AND COALESCE(ve.actual_end, ve.end_time) <= ${toDate}::timestamptz  + interval '3 days'
+          GROUP BY ve.hospital_id
+        )
+        SELECT
+          ht.task_id,
+          ht.task_title,
+          ht.due_date,
+          ht.task_status,
+          ht.hospital_id,
+          h.name            AS hospital_name,
+          h.city            AS hospital_city,
+          h.region          AS hospital_region,
+          h.country_code,
+          lc.last_call_at,
+          lv.last_visit_at,
+          GREATEST(lc.last_call_at, lv.last_visit_at) AS last_contact_at,
+          CASE
+            WHEN GREATEST(lc.last_call_at, lv.last_visit_at) IS NOT NULL
+              AND GREATEST(lc.last_call_at, lv.last_visit_at)
+                  >= ht.due_date - interval '14 days'
+            THEN true
+            ELSE false
+          END AS contacted_near_deadline
+        FROM hospital_tasks ht
+        LEFT JOIN hospitals h ON h.id = ht.hospital_id
+        LEFT JOIN latest_calls  lc ON lc.hospital_id = ht.hospital_id
+        LEFT JOIN latest_visits lv ON lv.hospital_id = ht.hospital_id
+        ORDER BY ht.due_date ASC
+      `);
+
+      const now = new Date();
+      const items = (rows.rows as any[]).map(r => {
+        const dueDate        = r.due_date ? new Date(r.due_date) : null;
+        const lastContactAt  = r.last_contact_at ? new Date(r.last_contact_at) : null;
+        const taskCompleted  = r.task_status === "completed";
+        const contactedNear  = Boolean(r.contacted_near_deadline);
+
+        let trafficLight: "green" | "yellow" | "red";
+        if (taskCompleted || contactedNear) {
+          trafficLight = "green";
+        } else if (dueDate && dueDate > now && (dueDate.getTime() - now.getTime()) < 7 * 86_400_000) {
+          trafficLight = "yellow";
+        } else if (dueDate && dueDate < now) {
+          trafficLight = "red";
+        } else {
+          trafficLight = "yellow";
+        }
+
+        return {
+          taskId:          r.task_id,
+          taskTitle:       r.task_title,
+          dueDate:         r.due_date,
+          taskStatus:      r.task_status,
+          hospitalId:      r.hospital_id,
+          hospitalName:    r.hospital_name ?? null,
+          hospitalCity:    r.hospital_city ?? null,
+          hospitalRegion:  r.hospital_region ?? null,
+          countryCode:     r.country_code ?? null,
+          lastCallAt:      r.last_call_at ?? null,
+          lastVisitAt:     r.last_visit_at ?? null,
+          lastContactAt:   r.last_contact_at ?? null,
+          trafficLight,
+        };
+      });
+
+      const summary = {
+        total:     items.length,
+        onTime:    items.filter(i => i.trafficLight === "green").length,
+        dueSoon:   items.filter(i => i.trafficLight === "yellow").length,
+        overdue:   items.filter(i => i.trafficLight === "red").length,
+      };
+
+      res.json({ summary, items });
+    } catch (err: any) {
+      console.error("[hospital-plan]", err?.message || err);
+      res.status(500).json({ error: "Failed to compute hospital plan" });
+    }
+  });
+
   app.get("/api/web-forms", requireAuth, async (_req, res) => {
     try { res.json(await storage.getWebForms()); }
     catch (e: any) { res.status(500).json({ error: e.message }); }

@@ -7271,6 +7271,17 @@ export interface Translations {
     noData: string; pickRepFirst: string; totalAssigned: string;
     phaseNone: string; phaseP1: string; phaseP2: string; phaseP3: string; phaseP4: string;
   };
+  hospitalPlan: {
+    navLabel: string; title: string;
+    selectRep: string; selectRepPlaceholder: string;
+    selectPeriod: string; presetThisMonth: string; presetLastMonth: string; presetLast3: string; presetCampaign: string; presetThisYear: string;
+    totalTasks: string; onTime: string; dueSoon: string; overdue: string;
+    tableTitle: string; hospitalCol: string; taskCol: string; dueDateCol: string; lastContactCol: string; statusCol: string;
+    statusOnTime: string; statusDueSoon: string; statusOverdue: string; statusCompleted: string; statusNoTask: string;
+    lastCall: string; lastVisit: string; noContact: string;
+    noData: string; pickRepFirst: string; noTasks: string;
+    contactWindowNote: string;
+  };
 }
 
 export const translations: Record<Locale, Translations> = {
@@ -14591,6 +14602,18 @@ export const translations: Record<Locale, Translations> = {
       totalAssigned: 'clinics assigned',
       phaseNone: 'Not contacted', phaseP1: 'Approached', phaseP2: 'Interested', phaseP3: 'Contract stage', phaseP4: 'Active',
     },
+    hospitalPlan: {
+      navLabel: 'Hospitals', title: 'Hospital contact plan vs. reality',
+      selectRep: 'Representative', selectRepPlaceholder: 'Choose a representative…',
+      selectPeriod: 'Period', presetThisMonth: 'This month', presetLastMonth: 'Last month', presetLast3: 'Last 3 months', presetCampaign: 'Campaign dates', presetThisYear: 'This year',
+      totalTasks: 'Planned contacts', onTime: 'Contacted on time', dueSoon: 'Due soon', overdue: 'Overdue',
+      tableTitle: 'Contact plan', hospitalCol: 'Hospital', taskCol: 'Task', dueDateCol: 'Due date', lastContactCol: 'Last contact', statusCol: 'Status',
+      statusOnTime: 'On time', statusDueSoon: 'Due soon', statusOverdue: 'Overdue', statusCompleted: 'Completed', statusNoTask: 'No plan',
+      lastCall: 'call', lastVisit: 'visit', noContact: 'No contact recorded',
+      noData: 'No planned contacts for the selected criteria', pickRepFirst: 'Select a representative and period to view the hospital contact plan',
+      noTasks: 'No tasks with deadlines linked to hospitals found for this representative in the selected period.',
+      contactWindowNote: 'Contact matched within ±3 days of the deadline',
+    },
 
   },
   sk: {
@@ -21846,6 +21869,18 @@ export const translations: Record<Locale, Translations> = {
       totalAssigned: 'ambulancií v správe',
       phaseNone: 'Nekontaktovaná', phaseP1: 'Oslovená', phaseP2: 'Záujem', phaseP3: 'Zmluva', phaseP4: 'Aktívna',
     },
+    hospitalPlan: {
+      navLabel: 'Nemocnice', title: 'Plán kontaktov nemocníc vs. realita',
+      selectRep: 'Reprezentant', selectRepPlaceholder: 'Vyber reprezentanta…',
+      selectPeriod: 'Obdobie', presetThisMonth: 'Tento mesiac', presetLastMonth: 'Minulý mesiac', presetLast3: 'Posledné 3 mesiace', presetCampaign: 'Dátumy kampane', presetThisYear: 'Tento rok',
+      totalTasks: 'Plánované kontakty', onTime: 'Kontaktované načas', dueSoon: 'Čoskoro splatné', overdue: 'Po termíne',
+      tableTitle: 'Plán kontaktov', hospitalCol: 'Nemocnica', taskCol: 'Úloha', dueDateCol: 'Termín', lastContactCol: 'Posledný kontakt', statusCol: 'Stav',
+      statusOnTime: 'Načas', statusDueSoon: 'Čoskoro', statusOverdue: 'Po termíne', statusCompleted: 'Dokončené', statusNoTask: 'Bez plánu',
+      lastCall: 'hovor', lastVisit: 'návšteva', noContact: 'Žiadny kontakt',
+      noData: 'Žiadne plánované kontakty pre zvolené kritériá', pickRepFirst: 'Vyber reprezentanta a obdobie pre zobrazenie plánu kontaktov nemocníc',
+      noTasks: 'Pre tohto reprezentanta neboli nájdené žiadne úlohy s termínom napojené na nemocnice v zvolenom období.',
+      contactWindowNote: 'Kontakt spárovaný v okne ±3 dni od termínu',
+    },
 
   },
   cs: {
@@ -29027,6 +29062,18 @@ export const translations: Record<Locale, Translations> = {
       totalAssigned: 'ambulancí ve správě',
       phaseNone: 'Nekontaktovaná', phaseP1: 'Oslovená', phaseP2: 'Zájem', phaseP3: 'Smlouva', phaseP4: 'Aktivní',
     },
+    hospitalPlan: {
+      navLabel: 'Nemocnice', title: 'Plán kontaktů nemocnic vs. realita',
+      selectRep: 'Reprezentant', selectRepPlaceholder: 'Vyberte reprezentanta…',
+      selectPeriod: 'Období', presetThisMonth: 'Tento měsíc', presetLastMonth: 'Minulý měsíc', presetLast3: 'Poslední 3 měsíce', presetCampaign: 'Data kampaně', presetThisYear: 'Letošní rok',
+      totalTasks: 'Plánované kontakty', onTime: 'Kontaktováno včas', dueSoon: 'Brzy splatné', overdue: 'Po termínu',
+      tableTitle: 'Plán kontaktů', hospitalCol: 'Nemocnice', taskCol: 'Úkol', dueDateCol: 'Termín', lastContactCol: 'Poslední kontakt', statusCol: 'Stav',
+      statusOnTime: 'Včas', statusDueSoon: 'Brzy', statusOverdue: 'Po termínu', statusCompleted: 'Dokončeno', statusNoTask: 'Bez plánu',
+      lastCall: 'hovor', lastVisit: 'návštěva', noContact: 'Žádný kontakt',
+      noData: 'Žádné plánované kontakty pro zvolená kritéria', pickRepFirst: 'Vyberte reprezentanta a období pro zobrazení plánu kontaktů nemocnic',
+      noTasks: 'Pro tohoto reprezentanta nebyly nalezeny žádné úkoly s termínem napojené na nemocnice ve zvoleném období.',
+      contactWindowNote: 'Kontakt spárován v okně ±3 dny od termínu',
+    },
 
   },
   hu: {
@@ -36168,6 +36215,18 @@ export const translations: Record<Locale, Translations> = {
       totalAssigned: 'hozzárendelt rendelő',
       phaseNone: 'Nem kapcsolatba lépett', phaseP1: 'Megkeresett', phaseP2: 'Érdeklődő', phaseP3: 'Szerződéses szakasz', phaseP4: 'Aktív',
     },
+    hospitalPlan: {
+      navLabel: 'Kórházak', title: 'Kórházi kapcsolattartási terv vs. valóság',
+      selectRep: 'Képviselő', selectRepPlaceholder: 'Válasszon képviselőt…',
+      selectPeriod: 'Időszak', presetThisMonth: 'Ez a hónap', presetLastMonth: 'Előző hónap', presetLast3: 'Elmúlt 3 hónap', presetCampaign: 'Kampánydátumok', presetThisYear: 'Ez az év',
+      totalTasks: 'Tervezett kapcsolatok', onTime: 'Időben kapcsolatba lépett', dueSoon: 'Hamarosan esedékes', overdue: 'Késedelmes',
+      tableTitle: 'Kapcsolattartási terv', hospitalCol: 'Kórház', taskCol: 'Feladat', dueDateCol: 'Határidő', lastContactCol: 'Utolsó kapcsolat', statusCol: 'Állapot',
+      statusOnTime: 'Időben', statusDueSoon: 'Hamarosan', statusOverdue: 'Késedelmes', statusCompleted: 'Befejezett', statusNoTask: 'Nincs terv',
+      lastCall: 'hívás', lastVisit: 'látogatás', noContact: 'Nincs rögzített kapcsolat',
+      noData: 'Nincs tervezett kapcsolat a kiválasztott feltételekhez', pickRepFirst: 'Válasszon képviselőt és időszakot a kórházi kapcsolattartási terv megtekintéséhez',
+      noTasks: 'Nem találhatók határidőhöz kötött, kórházhoz kapcsolt feladatok ehhez a képviselőhöz a kiválasztott időszakban.',
+      contactWindowNote: 'A kapcsolat ±3 napon belül párosítva a határidőhöz',
+    },
 
   },
   ro: {
@@ -43228,6 +43287,18 @@ export const translations: Record<Locale, Translations> = {
       noData: 'Nicio dată pentru criteriile selectate', pickRepFirst: 'Selectați un reprezentant și o perioadă pentru KPI-urile clinicilor',
       totalAssigned: 'clinici atribuite',
       phaseNone: 'Necontactată', phaseP1: 'Contactată', phaseP2: 'Interesată', phaseP3: 'Etapa contract', phaseP4: 'Activă',
+    },
+    hospitalPlan: {
+      navLabel: 'Spitale', title: 'Plan contacte spitale vs. realitate',
+      selectRep: 'Reprezentant', selectRepPlaceholder: 'Alegeți un reprezentant…',
+      selectPeriod: 'Perioadă', presetThisMonth: 'Luna aceasta', presetLastMonth: 'Luna trecută', presetLast3: 'Ultimele 3 luni', presetCampaign: 'Datele campaniei', presetThisYear: 'Anul acesta',
+      totalTasks: 'Contacte planificate', onTime: 'Contactate la timp', dueSoon: 'Scadente curând', overdue: 'Întârziate',
+      tableTitle: 'Plan de contact', hospitalCol: 'Spital', taskCol: 'Sarcină', dueDateCol: 'Termen', lastContactCol: 'Ultimul contact', statusCol: 'Status',
+      statusOnTime: 'La timp', statusDueSoon: 'Curând', statusOverdue: 'Întârziat', statusCompleted: 'Finalizat', statusNoTask: 'Fără plan',
+      lastCall: 'apel', lastVisit: 'vizită', noContact: 'Niciun contact înregistrat',
+      noData: 'Nicio planificare pentru criteriile selectate', pickRepFirst: 'Selectați un reprezentant și o perioadă pentru planul de contacte spitale',
+      noTasks: 'Nu au fost găsite sarcini cu termen legate de spitale pentru acest reprezentant în perioada selectată.',
+      contactWindowNote: 'Contact potrivit în fereastră ±3 zile față de termen',
     },
 
   },
@@ -50292,6 +50363,18 @@ export const translations: Record<Locale, Translations> = {
       totalAssigned: 'ambulatori assegnati',
       phaseNone: 'Non contattato', phaseP1: 'Contattato', phaseP2: 'Interessato', phaseP3: 'Fase contratto', phaseP4: 'Attivo',
     },
+    hospitalPlan: {
+      navLabel: 'Ospedali', title: 'Piano contatti ospedali vs. realtà',
+      selectRep: 'Rappresentante', selectRepPlaceholder: 'Scegli un rappresentante…',
+      selectPeriod: 'Periodo', presetThisMonth: 'Questo mese', presetLastMonth: 'Mese scorso', presetLast3: 'Ultimi 3 mesi', presetCampaign: 'Date campagna', presetThisYear: "Quest'anno",
+      totalTasks: 'Contatti pianificati', onTime: 'Contattati nei tempi', dueSoon: 'In scadenza', overdue: 'In ritardo',
+      tableTitle: 'Piano di contatto', hospitalCol: 'Ospedale', taskCol: 'Attività', dueDateCol: 'Scadenza', lastContactCol: 'Ultimo contatto', statusCol: 'Stato',
+      statusOnTime: 'Nei tempi', statusDueSoon: 'In scadenza', statusOverdue: 'In ritardo', statusCompleted: 'Completato', statusNoTask: 'Nessun piano',
+      lastCall: 'chiamata', lastVisit: 'visita', noContact: 'Nessun contatto registrato',
+      noData: 'Nessuna pianificazione per i criteri selezionati', pickRepFirst: 'Seleziona un rappresentante e un periodo per visualizzare il piano contatti ospedali',
+      noTasks: 'Nessuna attività con scadenza collegata a ospedali trovata per questo rappresentante nel periodo selezionato.',
+      contactWindowNote: 'Contatto abbinato nella finestra ±3 giorni dalla scadenza',
+    },
 
   },
   de: {
@@ -57340,6 +57423,18 @@ export const translations: Record<Locale, Translations> = {
       noData: 'Keine Daten für die ausgewählten Kriterien', pickRepFirst: 'Wählen Sie einen Vertreter und einen Zeitraum aus, um die Praxis-KPIs anzuzeigen',
       totalAssigned: 'zugewiesene Praxen',
       phaseNone: 'Nicht kontaktiert', phaseP1: 'Kontaktiert', phaseP2: 'Interessiert', phaseP3: 'Vertragsphase', phaseP4: 'Aktiv',
+    },
+    hospitalPlan: {
+      navLabel: 'Krankenhäuser', title: 'Krankenhäuser Kontaktplan vs. Realität',
+      selectRep: 'Vertreter', selectRepPlaceholder: 'Vertreter auswählen…',
+      selectPeriod: 'Zeitraum', presetThisMonth: 'Diesen Monat', presetLastMonth: 'Letzten Monat', presetLast3: 'Letzte 3 Monate', presetCampaign: 'Kampagnenzeitraum', presetThisYear: 'Dieses Jahr',
+      totalTasks: 'Geplante Kontakte', onTime: 'Rechtzeitig kontaktiert', dueSoon: 'Demnächst fällig', overdue: 'Überfällig',
+      tableTitle: 'Kontaktplan', hospitalCol: 'Krankenhaus', taskCol: 'Aufgabe', dueDateCol: 'Fälligkeitsdatum', lastContactCol: 'Letzter Kontakt', statusCol: 'Status',
+      statusOnTime: 'Rechtzeitig', statusDueSoon: 'Demnächst', statusOverdue: 'Überfällig', statusCompleted: 'Abgeschlossen', statusNoTask: 'Kein Plan',
+      lastCall: 'Anruf', lastVisit: 'Besuch', noContact: 'Kein Kontakt erfasst',
+      noData: 'Keine geplanten Kontakte für die ausgewählten Kriterien', pickRepFirst: 'Wählen Sie einen Vertreter und einen Zeitraum aus, um den Krankenhauskontaktplan anzuzeigen',
+      noTasks: 'Für diesen Vertreter wurden im gewählten Zeitraum keine Aufgaben mit Fälligkeitsdatum für Krankenhäuser gefunden.',
+      contactWindowNote: 'Kontakt innerhalb ±3 Tage vom Fälligkeitsdatum zugeordnet',
     },
 
   },

@@ -22,7 +22,7 @@ import {
   ClipboardCheck, PhoneForwarded, FileQuestion, FileWarning, FileX, MailPlus, MailCheck, MailWarning, MailX,
   MinusCircle, Slash, FolderClosed, TrendingUp, CalendarClock, MessageCircle,
   UserPlus, UserMinus, PhoneCall, BookMarked, Newspaper, Image, FileSignature, CalendarCheck, Shuffle,
-  Gauge, Database, PhoneIncoming, PhoneOutgoing,
+  Gauge, Database, PhoneIncoming, PhoneOutgoing, Hospital,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,7 @@ import CampaignReportingPhases from "@/components/campaigns/CampaignReportingPha
 import CampaignAgentProductivity from "@/components/campaigns/CampaignAgentProductivity";
 import CampaignDataQuality from "@/components/campaigns/CampaignDataQuality";
 import CampaignClinicKPIs from "@/components/campaigns/CampaignClinicKPIs";
+import CampaignHospitalPlan from "@/components/campaigns/CampaignHospitalPlan";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7237,6 +7238,10 @@ export default function CampaignDetailPage() {
                 <Building2 className="w-4 h-4 mr-2" />
                 {t.clinicKpi?.navLabel ?? "Kliniky"}
               </TabsTrigger>
+              <TabsTrigger value="report-hospital-plan" data-testid="tab-report-hospital-plan">
+                <Hospital className="w-4 h-4 mr-2" />
+                {t.hospitalPlan?.navLabel ?? "Nemocnice"}
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="report-overview" className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -7791,6 +7796,13 @@ export default function CampaignDetailPage() {
             </TabsContent>
             <TabsContent value="report-clinic-kpis" className="space-y-4">
               <CampaignClinicKPIs
+                campaignId={campaignId}
+                campaignStartDate={campaign?.startDate}
+                campaignEndDate={campaign?.endDate}
+              />
+            </TabsContent>
+            <TabsContent value="report-hospital-plan" className="space-y-4">
+              <CampaignHospitalPlan
                 campaignId={campaignId}
                 campaignStartDate={campaign?.startDate}
                 campaignEndDate={campaign?.endDate}
