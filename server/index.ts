@@ -6,6 +6,7 @@ import { createServer } from "http";
 import { startAlertEvaluator } from "./alert-evaluator";
 import { startSessionCleanup } from "./session-cleanup";
 import { startScheduledReportRunner } from "./scheduled-report-runner";
+import { startKpiSnapshotCron } from "./kpi-snapshot-cron";
 import { ensureIndexes } from "./ensure-indexes";
 import { pool } from "./db";
 
@@ -979,6 +980,10 @@ app.use((req, res, next) => {
       );
       CREATE INDEX IF NOT EXISTS idx_rep_kpi_snapshots_lookup
         ON representative_kpi_snapshots(representative_id, campaign_id, year, month);
+      -- Partial unique index for global (NULL campaign_id) snapshots so ON CONFLICT works
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_rep_kpi_snapshots_global_unique
+        ON representative_kpi_snapshots(representative_id, year, month, kpi_key)
+        WHERE campaign_id IS NULL;
     `);
     console.log('[migration] representative_kpi_snapshots ensured');
   } catch (e: any) {
@@ -1016,6 +1021,7 @@ app.use((req, res, next) => {
       startAlertEvaluator(60 * 1000);
       startSessionCleanup();
       startScheduledReportRunner();
+      startKpiSnapshotCron();
 
       // Build performance indexes in the background (non-blocking, CONCURRENTLY).
       ensureIndexes().catch((err) =>
