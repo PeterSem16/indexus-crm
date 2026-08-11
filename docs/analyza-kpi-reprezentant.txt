@@ -161,7 +161,8 @@ Návštevy v teréne (visit_events, mobilná appka):
 
 Úlohy (tasks):
   - zadávateľ, riešiteľ, deadline, stav, potvrdenie manažérom
-  - pokrýva úlohy č. 2–4 z emailu (manažér zadáva a potvrdzuje)
+  -podme na dalsi KPI zo spec dokumentu
+zadáva a potvrdzuje)
 
 Status listy kampaní (campaign_contact_status_list_state):
   - pri každom statuse KTO ho nastavil a KEDY
