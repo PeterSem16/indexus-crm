@@ -97,7 +97,7 @@ export default function CampaignDataQuality({ campaignId, campaignStartDate, cam
   const [range, setRange]   = useState<DateRange>({ from: defaultFrom, to: defaultTo });
   const [calOpen, setCalOpen] = useState(false);
 
-  // ── Fetch campaign agents (mirrors the Reporting > agent list for this mission) ──
+  // ── Fetch campaign agents + system representatives, merged & deduped ──────
   const { data: agentStats = [] } = useQuery<any[]>({
     queryKey: ["/api/campaigns", campaignId, "agent-stats"],
     queryFn: () =>
@@ -107,9 +107,39 @@ export default function CampaignDataQuality({ campaignId, campaignStartDate, cam
     staleTime: 5 * 60_000,
   });
 
-  // agent-stats shape: { userId, name, avatarUrl, ... }
-  const agents = agentStats as any[];
-  const selectedRep = useMemo(() => agents.find((u: any) => String(u.userId) === repId), [agents, repId]);
+  const { data: systemReps = [] } = useQuery<any[]>({
+    queryKey: ["/api/representatives"],
+    queryFn: () =>
+      fetch("/api/representatives", { credentials: "include" })
+        .then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); }),
+    staleTime: 5 * 60_000,
+  });
+
+  // Normalise both sources to { userId, name, avatarUrl, isRep }
+  // then deduplicate by userId — campaign agents shown first, reps appended
+  const agents = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const a of agentStats as any[]) {
+      map.set(String(a.userId), { userId: String(a.userId), name: a.name, avatarUrl: a.avatarUrl, isRep: false });
+    }
+    for (const r of systemReps as any[]) {
+      const uid = String(r.id);
+      if (!map.has(uid)) {
+        map.set(uid, {
+          userId: uid,
+          name: [r.firstName, r.lastName].filter(Boolean).join(" ") || r.name || uid,
+          avatarUrl: r.avatarUrl ?? null,
+          isRep: true,
+        });
+      } else {
+        // mark existing entry as also a representative
+        map.get(uid)!.isRep = true;
+      }
+    }
+    return Array.from(map.values());
+  }, [agentStats, systemReps]);
+
+  const selectedRep = useMemo(() => agents.find((u: any) => u.userId === repId), [agents, repId]);
 
   // ── Presets ────────────────────────────────────────────────────────────────
   const applyPreset = (preset: string) => {
@@ -173,16 +203,21 @@ export default function CampaignDataQuality({ campaignId, campaignStartDate, cam
                   <SelectItem value="__none" disabled>{rq.selectRepPlaceholder}</SelectItem>
                 )}
                 {agents.map((u: any) => (
-                  <SelectItem key={u.userId} value={String(u.userId)}>
+                  <SelectItem key={u.userId} value={u.userId}>
                     <div className="flex items-center gap-2">
                       {u.avatarUrl ? (
                         <img src={u.avatarUrl} className="w-6 h-6 rounded-full object-cover shrink-0" />
                       ) : (
                         <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
-                          {(u.name?.[0] ?? "?")}
+                          {u.name?.[0] ?? "?"}
                         </div>
                       )}
-                      {u.name}
+                      <span>{u.name}</span>
+                      {u.isRep && (
+                        <span className="ml-auto text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 shrink-0">
+                          rep
+                        </span>
+                      )}
                     </div>
                   </SelectItem>
                 ))}

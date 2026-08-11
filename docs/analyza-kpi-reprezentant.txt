@@ -333,7 +333,7 @@ Back office
 nescroluje  v Status Engine (Nexus Pulse)
   - Jedna oficiálna sada statusov spolupráce (oslovená -> uzavretá ->
     spolupracuje/nespolupracuje; + akceptuje letáky; + zmluva
-    podpísaná), vypĺňaná koordinátoto data quality report mal byt umiestneny v mission - reporting 
+    podpísaná), vypĺňaná koordinátoto data quality report mal byt umiestneny v mission - reporting hodil som to na produkcny server ale tnt report data quality nic neukazuje 
      alebo návšteve (visit_events) pribudol záznam v status liste
      do 24 h (tolerancia 48 h); menovateľ = počet všetkých
      kontaktovaných ambulancií v období.

@@ -50307,7 +50307,7 @@ Return ONLY the JSON object.`
             AND cra.valid_from <= cl.ended_at
             AND (cra.valid_to IS NULL OR cra.valid_to > cl.ended_at)
           WHERE cl.ended_at BETWEEN ${fromDate} AND ${toDate}
-            AND cl.status = 'answered'
+            AND cl.status IN ('answered', 'completed')
             AND cl.ended_at IS NOT NULL
         ),
         covered AS (
@@ -50394,7 +50394,7 @@ Return ONLY the JSON object.`
             AND cl.ended_at IS NOT NULL
             AND cl.ended_at < ccs.confirmed_at
             AND cl.ended_at > ccs.confirmed_at - INTERVAL '48 hours'
-            AND cl.status = 'answered'
+            AND cl.status IN ('answered', 'completed')
           WHERE ccs.confirmed_at BETWEEN ${fromDate} AND ${toDate}
           GROUP BY ccs.id, ccs.confirmed_at
         )
@@ -50431,7 +50431,7 @@ Return ONLY the JSON object.`
             SELECT 1
             FROM call_logs call2
             JOIN campaign_contacts cc2 ON cc2.id = call2.campaign_contact_id AND cc2.clinic_id = ccs.clinic_id
-            WHERE call2.status = 'answered'
+            WHERE call2.status IN ('answered', 'completed')
               AND call2.ended_at IS NOT NULL
               AND call2.ended_at BETWEEN ccs.confirmed_at - INTERVAL '24 hours'
                                      AND ccs.confirmed_at + INTERVAL '24 hours'
