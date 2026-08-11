@@ -50284,13 +50284,43 @@ Return ONLY the JSON object.`
         return res.status(403).json({ error: "Admin or manager required" });
       }
 
-      const { representativeId, from, to } = req.query as Record<string, string>;
+      const { representativeId, from, to, debug } = req.query as Record<string, string>;
       if (!representativeId || !from || !to) {
         return res.status(400).json({ error: "representativeId, from, to are required" });
       }
 
       const fromDate = new Date(from);
       const toDate = new Date(to);
+      const isDebug = debug === "1";
+
+      // ── Diagnostic: counts to help diagnose empty-data issues ──────────────
+      const diagRows = await db.execute(sql`
+        SELECT
+          (SELECT COUNT(*) FROM clinic_representative_assignments
+            WHERE user_id = ${representativeId})::int                     AS cra_total,
+          (SELECT COUNT(*) FROM clinic_representative_assignments
+            WHERE user_id = ${representativeId} AND valid_to IS NULL)::int AS cra_active,
+          (SELECT COUNT(*) FROM call_logs cl
+            JOIN campaign_contacts cc ON cc.id = cl.campaign_contact_id
+              AND cc.contact_type = 'clinic' AND cc.clinic_id IS NOT NULL
+            WHERE cl.ended_at BETWEEN ${fromDate} AND ${toDate}
+              AND cl.status IN ('answered','completed'))::int               AS calls_in_period,
+          (SELECT COUNT(*) FROM call_logs cl
+            JOIN campaign_contacts cc ON cc.id = cl.campaign_contact_id
+              AND cc.contact_type = 'clinic' AND cc.clinic_id IS NOT NULL
+            JOIN clinic_representative_assignments cra ON cra.clinic_id = cc.clinic_id
+              AND cra.user_id = ${representativeId}
+            WHERE cl.ended_at BETWEEN ${fromDate} AND ${toDate}
+              AND cl.status IN ('answered','completed'))::int               AS calls_with_rep_any,
+          (SELECT COUNT(*) FROM clinic_cooperation_statuses
+            WHERE confirmed_at BETWEEN ${fromDate} AND ${toDate})::int     AS ccs_in_period,
+          (SELECT COUNT(*) FROM clinic_cooperation_statuses ccs
+            JOIN clinic_representative_assignments cra ON cra.clinic_id = ccs.clinic_id
+              AND cra.user_id = ${representativeId}
+            WHERE ccs.confirmed_at BETWEEN ${fromDate} AND ${toDate})::int AS ccs_with_rep
+      `);
+      const diag = (diagRows.rows[0] as any) || {};
+      console.log(`[rep-data-quality] repId=${representativeId} from=${from} to=${to} diag=`, JSON.stringify(diag));
 
       // ── a) COVERAGE ──────────────────────────────────────────────────────
       const coverageRows = await db.execute(sql`
@@ -50474,7 +50504,7 @@ Return ONLY the JSON object.`
         LIMIT 20
       `);
 
-      res.json({
+      const payload: any = {
         coverage: {
           contacted,
           covered,
@@ -50505,7 +50535,21 @@ Return ONLY the JSON object.`
             count: Number(r.cnt),
           })),
         },
-      });
+      };
+      if (isDebug) {
+        payload._debug = {
+          representativeId,
+          from,
+          to,
+          cra_total:        Number(diag.cra_total)       || 0,
+          cra_active:       Number(diag.cra_active)      || 0,
+          calls_in_period:  Number(diag.calls_in_period) || 0,
+          calls_with_rep_any: Number(diag.calls_with_rep_any) || 0,
+          ccs_in_period:    Number(diag.ccs_in_period)   || 0,
+          ccs_with_rep:     Number(diag.ccs_with_rep)    || 0,
+        };
+      }
+      res.json(payload);
     } catch (err: any) {
       console.error("[rep-data-quality]", err?.message || err);
       res.status(500).json({ error: "Failed to compute data quality metrics" });
