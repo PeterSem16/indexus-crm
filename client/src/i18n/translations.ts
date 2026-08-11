@@ -7241,6 +7241,21 @@ export interface Translations {
     myClinicsTitle: string; myClinicsDesc: string; myClinicsEmpty: string;
     closeWithoutRepTitle: string; closeWithoutRepDesc: string; closeWithoutRepConfirm: string;
   };
+  repQuality: {
+    pageTitle: string; pageDesc: string; navLabel: string;
+    selectRep: string; selectRepPlaceholder: string;
+    selectPeriod: string; presetThisMonth: string; presetLastMonth: string; presetLast3: string; presetThisYear: string;
+    coverage: string; coverageSub: string;
+    completeness: string; completenessSub: string;
+    latencyMedian: string; latencyMedianSub: string;
+    latencyP90: string; latencyP90Sub: string;
+    consistency: string; consistencySub: string; flagsLabel: string;
+    incompleteTitle: string; incompleteHint: string;
+    missingCoop: string; missingFlyers: string; missingContract: string; missingServices: string;
+    noCallTitle: string; bulkFillTitle: string;
+    statusCol: string; confirmedCol: string; clinicCol: string; userCol: string; timeCol: string; countCol: string;
+    allClean: string; pickRepFirst: string; clinicsOf: string; pairedCalls: string;
+  };
 }
 
 export const translations: Record<Locale, Translations> = {
@@ -14529,6 +14544,22 @@ export const translations: Record<Locale, Translations> = {
       myClinicsTitle: 'My Clinics & Hospitals', myClinicsDesc: 'Entities assigned to you', myClinicsEmpty: 'No clinics or hospitals assigned to you',
       closeWithoutRepTitle: 'Close without a representative?', closeWithoutRepDesc: 'No representative has been assigned yet. Are you sure you want to close?', closeWithoutRepConfirm: 'Close anyway',
     },
+    repQuality: {
+      pageTitle: 'Rep Data Quality', pageDesc: 'Coverage, completeness, latency and consistency of status list entries', navLabel: 'Data Quality',
+      selectRep: 'Representative', selectRepPlaceholder: 'Choose a representative…',
+      selectPeriod: 'Period', presetThisMonth: 'This month', presetLastMonth: 'Last month', presetLast3: 'Last 3 months', presetThisYear: 'This year',
+      coverage: 'Coverage', coverageSub: 'clinics with status within 48 h of a call',
+      completeness: 'Completeness', completenessSub: 'clinics with all 4 required fields filled',
+      latencyMedian: 'Latency – median', latencyMedianSub: 'median time between call and status entry',
+      latencyP90: 'Latency – P90', latencyP90Sub: '90th percentile entry delay',
+      consistency: 'Consistency', consistencySub: 'statuses without nearby call + bulk fills', flagsLabel: 'flags',
+      incompleteTitle: 'Incomplete records', incompleteHint: 'Missing at least one required dimension',
+      missingCoop: 'Cooperation', missingFlyers: 'Flyers', missingContract: 'Contract', missingServices: 'Services',
+      noCallTitle: 'Statuses without a nearby call (±24 h)', bulkFillTitle: 'Bulk fills (< 60 s, ≥ 3 entries)',
+      statusCol: 'Status', confirmedCol: 'Confirmed', clinicCol: 'Clinic', userCol: 'User', timeCol: 'Time', countCol: 'Count',
+      allClean: 'All records are complete and consistent', pickRepFirst: 'Select a representative and period to view metrics',
+      clinicsOf: 'clinics', pairedCalls: 'paired calls',
+    },
 
   },
   sk: {
@@ -21752,6 +21783,22 @@ export const translations: Record<Locale, Translations> = {
       myClinicsTitle: 'Moje kliniky a nemocnice', myClinicsDesc: 'Entity v mojej správe', myClinicsEmpty: 'Nemáte žiadne priradené kliniky ani nemocnice',
       closeWithoutRepTitle: 'Zatvoriť bez reprezentanta?', closeWithoutRepDesc: 'Reprezentant ešte nebol priradený. Naozaj chcete zatvoriť?', closeWithoutRepConfirm: 'Zatvoriť',
     },
+    repQuality: {
+      pageTitle: 'Kvalita dát – Reprezentant', pageDesc: 'Pokrytie, úplnosť, oneskorenie a konzistentnosť zápisov status listu', navLabel: 'Kvalita dát',
+      selectRep: 'Reprezentant', selectRepPlaceholder: 'Vyber reprezentanta…',
+      selectPeriod: 'Obdobie', presetThisMonth: 'Tento mesiac', presetLastMonth: 'Minulý mesiac', presetLast3: 'Posledné 3 mesiace', presetThisYear: 'Tento rok',
+      coverage: 'Pokrytie', coverageSub: 'ambulancií so statusom do 48 h od hovoru',
+      completeness: 'Úplnosť', completenessSub: 'ambulancií so všetkými 4 povinnými poľami',
+      latencyMedian: 'Oneskorenie – medián', latencyMedianSub: 'priemerný čas medzi hovorom a zápisom',
+      latencyP90: 'Oneskorenie – P90', latencyP90Sub: '90. percentil oneskorenia zápisov',
+      consistency: 'Konzistentnosť', consistencySub: 'statusy bez hovoru + hromadné záznamy', flagsLabel: 'príznakov',
+      incompleteTitle: 'Neúplné záznamy', incompleteHint: 'Chýba aspoň jedna z povinných dimenzií',
+      missingCoop: 'Spolupráca', missingFlyers: 'Letáky', missingContract: 'Zmluva', missingServices: 'Služby',
+      noCallTitle: 'Statusy bez blízkeho hovoru (±24 h)', bulkFillTitle: 'Hromadné záznamy (< 60 s, ≥ 3 záznamy)',
+      statusCol: 'Status', confirmedCol: 'Potvrdené', clinicCol: 'Ambulancia', userCol: 'Používateľ', timeCol: 'Čas', countCol: 'Počet',
+      allClean: 'Všetky záznamy sú kompletné a konzistentné', pickRepFirst: 'Vyber reprezentanta a obdobie pre zobrazenie metrík',
+      clinicsOf: 'ambulancií', pairedCalls: 'párovaných hovorov',
+    },
 
   },
   cs: {
@@ -28901,6 +28948,22 @@ export const translations: Record<Locale, Translations> = {
       myClinicsTitle: 'Mé kliniky a nemocnice', myClinicsDesc: 'Entity v mé správě', myClinicsEmpty: 'Nemáte žádné přiřazené kliniky ani nemocnice',
       closeWithoutRepTitle: 'Zavřít bez reprezentanta?', closeWithoutRepDesc: 'Reprezentant dosud nebyl přiřazen. Opravdu chcete zavřít?', closeWithoutRepConfirm: 'Zavřít',
     },
+    repQuality: {
+      pageTitle: 'Kvalita dat – Reprezentant', pageDesc: 'Pokrytí, úplnost, zpoždění a konzistentnost záznamů statusového listu', navLabel: 'Kvalita dat',
+      selectRep: 'Reprezentant', selectRepPlaceholder: 'Vyberte reprezentanta…',
+      selectPeriod: 'Období', presetThisMonth: 'Tento měsíc', presetLastMonth: 'Minulý měsíc', presetLast3: 'Poslední 3 měsíce', presetThisYear: 'Letošní rok',
+      coverage: 'Pokrytí', coverageSub: 'ambulancí se statusem do 48 h od hovoru',
+      completeness: 'Úplnost', completenessSub: 'ambulancí se všemi 4 povinnými poli',
+      latencyMedian: 'Zpoždění – medián', latencyMedianSub: 'průměrná doba mezi hovorem a zápisem',
+      latencyP90: 'Zpoždění – P90', latencyP90Sub: '90. percentil zpoždění zápisů',
+      consistency: 'Konzistentnost', consistencySub: 'statusy bez hovoru + hromadné záznamy', flagsLabel: 'příznaků',
+      incompleteTitle: 'Neúplné záznamy', incompleteHint: 'Chybí alespoň jedna z povinných dimenzí',
+      missingCoop: 'Spolupráce', missingFlyers: 'Letáky', missingContract: 'Smlouva', missingServices: 'Služby',
+      noCallTitle: 'Statusy bez blízkého hovoru (±24 h)', bulkFillTitle: 'Hromadné záznamy (< 60 s, ≥ 3 záznamy)',
+      statusCol: 'Status', confirmedCol: 'Potvrzeno', clinicCol: 'Ambulance', userCol: 'Uživatel', timeCol: 'Čas', countCol: 'Počet',
+      allClean: 'Všechny záznamy jsou kompletní a konzistentní', pickRepFirst: 'Vyberte reprezentanta a období pro zobrazení metrik',
+      clinicsOf: 'ambulancí', pairedCalls: 'spárovaných hovorů',
+    },
 
   },
   hu: {
@@ -36010,6 +36073,22 @@ export const translations: Record<Locale, Translations> = {
       myClinicsTitle: 'Saját klinikáim és kórházaim', myClinicsDesc: 'Hozzám rendelt entitások', myClinicsEmpty: 'Nincsenek hozzárendelt klinikák vagy kórházak',
       closeWithoutRepTitle: 'Bezárás képviselő nélkül?', closeWithoutRepDesc: 'Még nincs képviselő hozzárendelve. Biztosan bezárja?', closeWithoutRepConfirm: 'Bezárás',
     },
+    repQuality: {
+      pageTitle: 'Adatminőség – Képviselő', pageDesc: 'A státuszlista bejegyzések lefedettsége, teljessége, késedelme és konzisztenciája', navLabel: 'Adatminőség',
+      selectRep: 'Képviselő', selectRepPlaceholder: 'Válasszon képviselőt…',
+      selectPeriod: 'Időszak', presetThisMonth: 'Ez a hónap', presetLastMonth: 'Előző hónap', presetLast3: 'Elmúlt 3 hónap', presetThisYear: 'Ez az év',
+      coverage: 'Lefedettség', coverageSub: 'rendelők státusszal 48 órán belül a hívástól',
+      completeness: 'Teljesség', completenessSub: 'rendelők mind a 4 kötelező mezővel kitöltve',
+      latencyMedian: 'Késedelem – medián', latencyMedianSub: 'átlagos idő a hívás és a bejegyzés között',
+      latencyP90: 'Késedelem – P90', latencyP90Sub: 'a bejegyzési késedelem 90. percentilise',
+      consistency: 'Konzisztencia', consistencySub: 'hívás nélküli státuszok + tömeges bejegyzések', flagsLabel: 'jelölő',
+      incompleteTitle: 'Hiányos rekordok', incompleteHint: 'Legalább egy kötelező dimenzió hiányzik',
+      missingCoop: 'Együttműködés', missingFlyers: 'Szórólapok', missingContract: 'Szerződés', missingServices: 'Szolgáltatások',
+      noCallTitle: 'Közeli hívás nélküli státuszok (±24 h)', bulkFillTitle: 'Tömeges bejegyzések (< 60 s, ≥ 3 bejegyzés)',
+      statusCol: 'Státusz', confirmedCol: 'Megerősítve', clinicCol: 'Rendelő', userCol: 'Felhasználó', timeCol: 'Idő', countCol: 'Darab',
+      allClean: 'Minden rekord teljes és konzisztens', pickRepFirst: 'Válasszon képviselőt és időszakot a mutatók megtekintéséhez',
+      clinicsOf: 'rendelő', pairedCalls: 'párosított hívás',
+    },
 
   },
   ro: {
@@ -43038,6 +43117,22 @@ export const translations: Record<Locale, Translations> = {
       bulkPreviewCount: 'entități vor fi realocate', bulkConfirm: 'Confirmare', bulkDryRunBtn: 'Previzualizare',
       myClinicsTitle: 'Clinicile și spitalele mele', myClinicsDesc: 'Entități alocate mie', myClinicsEmpty: 'Nu aveți clinici sau spitale alocate',
       closeWithoutRepTitle: 'Închideți fără reprezentant?', closeWithoutRepDesc: 'Nu a fost alocat niciun reprezentant. Sigur doriți să închideți?', closeWithoutRepConfirm: 'Închideți',
+    },
+    repQuality: {
+      pageTitle: 'Calitatea datelor – Reprezentant', pageDesc: 'Acoperire, completitudine, latență și consistență a înregistrărilor listei de status', navLabel: 'Calitatea datelor',
+      selectRep: 'Reprezentant', selectRepPlaceholder: 'Alegeți un reprezentant…',
+      selectPeriod: 'Perioadă', presetThisMonth: 'Luna aceasta', presetLastMonth: 'Luna trecută', presetLast3: 'Ultimele 3 luni', presetThisYear: 'Anul acesta',
+      coverage: 'Acoperire', coverageSub: 'clinici cu status în 48 h de la apel',
+      completeness: 'Completitudine', completenessSub: 'clinici cu toate cele 4 câmpuri obligatorii completate',
+      latencyMedian: 'Latență – mediană', latencyMedianSub: 'timpul mediu între apel și înregistrare',
+      latencyP90: 'Latență – P90', latencyP90Sub: 'percentila 90 a întârzierii înregistrărilor',
+      consistency: 'Consistență', consistencySub: 'statusuri fără apel + înregistrări în masă', flagsLabel: 'semnalizări',
+      incompleteTitle: 'Înregistrări incomplete', incompleteHint: 'Lipsește cel puțin o dimensiune obligatorie',
+      missingCoop: 'Cooperare', missingFlyers: 'Pliante', missingContract: 'Contract', missingServices: 'Servicii',
+      noCallTitle: 'Statusuri fără apel apropiat (±24 h)', bulkFillTitle: 'Înregistrări în masă (< 60 s, ≥ 3 înregistrări)',
+      statusCol: 'Status', confirmedCol: 'Confirmat', clinicCol: 'Clinică', userCol: 'Utilizator', timeCol: 'Timp', countCol: 'Nr.',
+      allClean: 'Toate înregistrările sunt complete și consistente', pickRepFirst: 'Selectați un reprezentant și o perioadă pentru a vizualiza metricile',
+      clinicsOf: 'clinici', pairedCalls: 'apeluri asociate',
     },
 
   },
@@ -50070,6 +50165,22 @@ export const translations: Record<Locale, Translations> = {
       myClinicsTitle: 'Le mie cliniche e ospedali', myClinicsDesc: 'Entità assegnate a me', myClinicsEmpty: 'Nessuna clinica o ospedale assegnato',
       closeWithoutRepTitle: 'Chiudere senza rappresentante?', closeWithoutRepDesc: 'Nessun rappresentante è stato ancora assegnato. Sei sicuro di voler chiudere?', closeWithoutRepConfirm: 'Chiudi comunque',
     },
+    repQuality: {
+      pageTitle: 'Qualità dei dati – Rappresentante', pageDesc: "Copertura, completezza, latenza e coerenza dei record dell'elenco degli stati", navLabel: 'Qualità dei dati',
+      selectRep: 'Rappresentante', selectRepPlaceholder: 'Scegli un rappresentante…',
+      selectPeriod: 'Periodo', presetThisMonth: 'Questo mese', presetLastMonth: 'Mese scorso', presetLast3: 'Ultimi 3 mesi', presetThisYear: "Quest'anno",
+      coverage: 'Copertura', coverageSub: 'ambulatori con stato entro 48 h dalla chiamata',
+      completeness: 'Completezza', completenessSub: 'ambulatori con tutti i 4 campi obbligatori compilati',
+      latencyMedian: 'Latenza – mediana', latencyMedianSub: 'tempo medio tra chiamata e registrazione',
+      latencyP90: 'Latenza – P90', latencyP90Sub: '90° percentile del ritardo di registrazione',
+      consistency: 'Coerenza', consistencySub: 'stati senza chiamata + registrazioni in blocco', flagsLabel: 'segnalazioni',
+      incompleteTitle: 'Record incompleti', incompleteHint: 'Manca almeno una dimensione obbligatoria',
+      missingCoop: 'Collaborazione', missingFlyers: 'Volantini', missingContract: 'Contratto', missingServices: 'Servizi',
+      noCallTitle: 'Stati senza chiamata vicina (±24 h)', bulkFillTitle: 'Registrazioni in blocco (< 60 s, ≥ 3 voci)',
+      statusCol: 'Stato', confirmedCol: 'Confermato', clinicCol: 'Ambulatorio', userCol: 'Utente', timeCol: 'Orario', countCol: 'N.',
+      allClean: 'Tutti i record sono completi e coerenti', pickRepFirst: 'Seleziona un rappresentante e un periodo per visualizzare le metriche',
+      clinicsOf: 'ambulatori', pairedCalls: 'chiamate abbinate',
+    },
 
   },
   de: {
@@ -57086,6 +57197,22 @@ export const translations: Record<Locale, Translations> = {
       bulkPreviewCount: 'Einheiten werden neu zugewiesen', bulkConfirm: 'Bestätigen', bulkDryRunBtn: 'Vorschau',
       myClinicsTitle: 'Meine Kliniken & Krankenhäuser', myClinicsDesc: 'Mir zugewiesene Einheiten', myClinicsEmpty: 'Keine Kliniken oder Krankenhäuser zugewiesen',
       closeWithoutRepTitle: 'Ohne Vertreter schließen?', closeWithoutRepDesc: 'Es wurde noch kein Vertreter zugewiesen. Möchten Sie wirklich schließen?', closeWithoutRepConfirm: 'Trotzdem schließen',
+    },
+    repQuality: {
+      pageTitle: 'Datenqualität – Vertreter', pageDesc: 'Abdeckung, Vollständigkeit, Latenz und Konsistenz der Statuslisten-Einträge', navLabel: 'Datenqualität',
+      selectRep: 'Vertreter', selectRepPlaceholder: 'Vertreter auswählen…',
+      selectPeriod: 'Zeitraum', presetThisMonth: 'Diesen Monat', presetLastMonth: 'Letzten Monat', presetLast3: 'Letzte 3 Monate', presetThisYear: 'Dieses Jahr',
+      coverage: 'Abdeckung', coverageSub: 'Praxen mit Status innerhalb 48 h nach Anruf',
+      completeness: 'Vollständigkeit', completenessSub: 'Praxen mit allen 4 Pflichtfeldern ausgefüllt',
+      latencyMedian: 'Latenz – Median', latencyMedianSub: 'mittlere Zeit zwischen Anruf und Eintrag',
+      latencyP90: 'Latenz – P90', latencyP90Sub: '90. Perzentil der Eintragslatenz',
+      consistency: 'Konsistenz', consistencySub: 'Status ohne Anruf + Masseneintragungen', flagsLabel: 'Hinweise',
+      incompleteTitle: 'Unvollständige Datensätze', incompleteHint: 'Mindestens eine Pflichtdimension fehlt',
+      missingCoop: 'Zusammenarbeit', missingFlyers: 'Flyer', missingContract: 'Vertrag', missingServices: 'Dienste',
+      noCallTitle: 'Status ohne nahen Anruf (±24 h)', bulkFillTitle: 'Masseneintragungen (< 60 s, ≥ 3 Einträge)',
+      statusCol: 'Status', confirmedCol: 'Bestätigt', clinicCol: 'Praxis', userCol: 'Benutzer', timeCol: 'Zeit', countCol: 'Anzahl',
+      allClean: 'Alle Datensätze sind vollständig und konsistent', pickRepFirst: 'Wählen Sie einen Vertreter und einen Zeitraum aus, um die Metriken anzuzeigen',
+      clinicsOf: 'Praxen', pairedCalls: 'gekoppelte Anrufe',
     },
 
   },

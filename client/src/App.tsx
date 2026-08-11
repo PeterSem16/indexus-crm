@@ -81,6 +81,7 @@ const CollaboratorUpdatePage = lazy(() => import("@/pages/collaborator-update"))
 const CollaboratorUpdatesAdminPage = lazy(() => import("@/pages/collaborator-updates"));
 const MyClinicsPage = lazy(() => import("@/pages/my-clinics"));
 const BulkAssignPage = lazy(() => import("@/pages/bulk-assign"));
+const RepresentativeQualityPage = lazy(() => import("@/pages/representative-quality"));
 import { AgentSessionProvider } from "@/contexts/agent-session-context";
 import NotFound from "@/pages/not-found";
 import { Loader2 } from "lucide-react";
@@ -282,6 +283,7 @@ function AuthenticatedApp() {
                     <Route path="/campaigns" component={CampaignsPage} />
                     <Route path="/campaigns/:id" component={CampaignDetailPage} />
                     <Route path="/campaigns/:id/reports" component={CampaignReportsPage} />
+                    <Route path="/representative-quality" component={RepresentativeQualityPage} />
                     <Route path="/pipeline" component={PipelinePage} />
                     <Route path="/tasks" component={TasksPage} />
                     <Route path="/task-groups" component={TaskGroupsPage} />
