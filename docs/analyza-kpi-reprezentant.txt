@@ -1,7 +1,7 @@
 ANALÝZA: KPI REPREZENTANTA / KOORDINÁTORA ODBEROV
 Mission reporting — Agent performance
 INDEXUS CRM, 24. 7. 2026
-Naposledy aktualizované: 10. 8. 2026
+Naposledy aktualizované: 11. 8. 2026
 =====================================================================
 
 ÚVOD — ODPOVEĎ NA EMAIL O KPI REPREZENTANTA
@@ -18,16 +18,19 @@ AKTUÁLNY STAV — čo už dnes systém INDEXUS vie:
     zapracovaný v reportingu Agent Performance — vrátane vzorca
     z prílohy emailu (normované časy na kontakt + talk time
     + ring time). Kontrolu úloh pri nemocniciach pokrýva existujúci
-    systém úloh s potvrdením manažérom.
+    systém úloh s potvrdením manažérom. Nový tab „Nemocnice"
+    (Úloha 2) v Campaign Reporting zobrazuje plán vs. skutočnosť
+    so semaforom — implementovaný 11. 8. 2026.
   - Otázka 2 (Pracuje dobre?) — v súlade s emailom nenavrhujeme
-    číselné KPI; systém už dnes uchováva nahrávky hovorov,
-    AI sentiment, emaily a poznámky, takže manažér má podklady
-    na posúdenie komunikácie. Chýba len pohodlný súhrnný pohľad.
-  - Otázka 3 (Aký efekt?) — k 10. 8. 2026 boli IMPLEMENTOVANÉ
+    číselné KPI; systém dnes uchováva nahrávky hovorov, AI sentiment,
+    emaily a poznámky. Tab „Komunikácia" (Blok 2) servíruje túto
+    komunikáciu manažérovi na posúdenie — implementovaný 11. 8. 2026.
+  - Otázka 3 (Aký efekt?) — k 10. 8. 2026 boli implementované
     obidve kľúčové chýbajúce väzby (medzera 1 a medzera 3):
     odber teraz nesie clinicId (väzba odber → ambulancia) aj
     representativeId (snapshot z ambulancie v čase uloženia).
-    Podrobnosti v časti „ZMENY 10. 8. 2026" nižšie.
+    Tab „Kliniky" (KPI 3.4–3.7) reportuje funnel a statusové počty
+    — implementovaný 11. 8. 2026.
     KPI 3.1–3.3 je technicky možné začať počítať; zostávajú
     otvorenou otázkou manažérske rozhodnutia z kapitoly 5.
 
@@ -42,8 +45,6 @@ NAVRHOVANÉ RIEŠENIE v skratke:
     konkrétnych vecí na dopracovanie, kapitola 5 sú rozhodnutia,
     ktoré potrebujeme od manažmentu.
 
-Zatiaľ ide o analytický návrh — bez implementácie.
-
 ---------------------------------------------------------------------
 ZMENY 10. 8. 2026 — IMPLEMENTOVANÉ
 ---------------------------------------------------------------------
@@ -51,8 +52,8 @@ ZMENY 10. 8. 2026 — IMPLEMENTOVANÉ
 BOD 4.1 — Priradenie ambulancia → reprezentant  [ČIASTOČNE HOTOVÉ]
   Implementované:
   - Tabuľka clinic_representative_assignments (platnosť od–do) bola
-    zavedená v predchádzajúcom sprint. Ambulancia môže mať priradeného
-    reprezentanta s históriou zmien.
+    zavedená. Ambulancia môže mať priradeného reprezentanta s históriou
+    zmien.
   - Pri ukladaní odberu (POST/PATCH /api/collections) sa automaticky
     spustí snapshotCollectionRepresentative(): systém vezme aktuálne
     priradenie ambulancie a skopíruje representativeId priamo do
@@ -65,7 +66,7 @@ BOD 4.1 — Priradenie ambulancia → reprezentant  [ČIASTOČNE HOTOVÉ]
   - Hromadné priradenie ambulancií podľa regiónu/okresu
     (bod 4.1, tretí podbod) — nie je implementované.
   - Reportingová obrazovka „ambulancie v správe reprezentanta X
-    k dátumu Y" — nie je implementovaná.
+    k dátumu Y" — nie je implementovaná (súčasť bodu 4.7).
   Vplyv na KPI:
   - Väzba odber → reprezentant teraz EXISTUJE pre všetky nové odbery
     uložené po 10. 8. 2026. Historické odbery reprezentanta nemajú
@@ -101,10 +102,9 @@ BOD 4.3 — Kanonické statusy v Status Engine + spätná synchronizácia  [ČIA
   - Badge v Nexus Pulse: každá položka zobrazuje kanonický kľúč ako
     farebnú badge (modrá=acquisition, jantárová=contract, zelená=retention)
     priamo v zozname bez nutnosti rozbaľovať položku.
-  Čo stále chýba (pozri kapitolu 4.3 v časti 4):
-  - KPI 3.4–3.7 reportovanie (počty, podiely, funnel, časy prechodov).
-  - Kontrola konfigurácie: upozornenie ak mission nemá pokryté všetky
-    kanonické stavy.
+  Čo stále chýba:
+  - Kontrola konfigurácie Mission: upozornenie ak mission nemá pokryté
+    všetky kanonické stavy (bod 4.3, posledný podbod).
 
 BOD 4.2 — Väzba odber → ambulancia  [HOTOVÉ]
   Implementované:
@@ -126,12 +126,11 @@ BOD 4.2 — Väzba odber → ambulancia  [HOTOVÉ]
 ĎALŠIE ZMENY (UX / dátová kvalita):
   - Hospital selector v collection forme nahradený vyhľadávateľným
     comboboxom — agenti teraz rýchlo nájdu nemocnicu písaním názvu
-    alebo mesta (filtrované podľa krajiny). Zmenšuje riziko výberu
-    nesprávnej nemocnice a tým chybného priradenia v KPI.
+    alebo mesta (filtrované podľa krajiny).
   - Personnel selektory (Cord Blood Collector, Tissue Collector,
     Placenta Collector, Asistent, Sestra) zobrazujú len personál
     skutočne priradený k vybranej nemocnici v MPN systéme — nie
-    všetkých spolupracovníkov krajiny. Zvyšuje presnosť záznamu.
+    všetkých spolupracovníkov krajiny.
   - Opravená SQL chyba v personnel endpoint (GROUP BY + neexistujúci
     stĺpec address → streetNumber) — endpoint vracia správne dáta.
 
@@ -140,11 +139,102 @@ CELKOVÝ DOPAD NA KPI VYHODNOTENIE (stav po 10. 8. 2026):
     → snapshot pri každom novom odbere automatický; chýba hromadné
       priradenie a backfill historických odberov
   Medzera 2 (história statusov ambulancií): VYRIEŠENÁ
-    → kanonický status list implementovaný (pozri BOD 4.3 nižšie)
+    → kanonický status list implementovaný
   Medzera 3 (odber → ambulancia): VYRIEŠENÁ
     → clinic_id v collections, vyhľadávateľný selector v forme
   Medzera 4 (zaplatené + marža): OTVORENÁ
     → závisí na rozhodnutiach manažmentu (bod 5b, 5c)
+
+---------------------------------------------------------------------
+ZMENY 11. 8. 2026 — IMPLEMENTOVANÉ
+---------------------------------------------------------------------
+
+Všetky tri nové taby boli pridané do Campaign Detail → Reporting
+(vedľa existujúcich tabov Overview / KPI Targets / Status List /
+Agent Productivity / Data Quality).
+
+TAB „KLINIKY" — KPI 3.4–3.7  [HOTOVÉ]
+  Endpoint: GET /api/representative-performance/clinic-kpis
+  Komponenta: CampaignClinicKPIs.tsx
+  Zobrazuje:
+  - Výber reprezentanta (zlúčený zoznam z campaign agents + system
+    representatives, deduplikovaný podľa userId; skutoční reprezentanti
+    majú badge „rep").
+  - Výber obdobia: presets (tento mesiac / minulý mesiac / posledné 3
+    mesiace / dátumy kampane / tento rok) + kalendárový date-range
+    picker.
+  - 4 metrické karty:
+      Oslovené ambulancie  — celkový počet ambulancií s akýmkoľvek
+                             kanonickým záznamom v období
+      Spolupracujú         — počet a % so statusom retention_active
+                             alebo services_confirmed
+      Majú letáky          — počet a % s hasFlyers=true
+      Zmluva podpísaná     — počet a % s contractStatus="signed"
+  - Funnel spolupráce: vizualizácia prechodov
+    Oslovené → Záujem → Zmluva odoslaná → Zmluva podpísaná →
+    Spolupracuje
+  - Medián dní medzi fázami (čas prechodu).
+  - Tabuľka ambulancií s aktuálnym kanonickým stavom, posledným
+    kontaktom a odkazom na kartu ambulancie.
+  Zdroj dát:
+  - clinic_representative_assignments (active = valid_to IS NULL)
+  - clinic_cooperation_statuses (kanonické zmeny s timestampmi)
+  Poznámka: Report zobrazuje nuly, kým nie sú ambulancie hromadne
+  priradené cez stránku /bulk-assign.
+
+TAB „NEMOCNICE" — Úloha 2  [HOTOVÉ]
+  Endpoint: GET /api/representative-performance/hospital-plan
+  Komponenta: CampaignHospitalPlan.tsx
+  Zobrazuje:
+  - Rovnaký selector reprezentanta + dátumové presety ako „Kliniky".
+  - 4 súhrnné karty: celkový počet nemocničných úloh / splnené včas
+    / blíži sa termín (do 7 dní) / po termíne.
+  - Tabuľka nemocníc s úlohami a semaforom (farebný badge):
+      🟢 Zelená  — úloha splnená ALEBO kontakt (hovor/návšteva)
+                   v okne ±14 dní pred termínom
+      🟡 Žltá    — úloha nesplnená, termín do 7 dní, kontakt chýba
+      🔴 Červená — úloha po termíne a žiadny kontakt v okne
+  - Stĺpce: Nemocnica / Úloha / Termín / Posledný kontakt / Stav.
+  - Dátum a typ posledného kontaktu (hovor / návšteva).
+  Zdroj dát:
+  - tasks WHERE assigned_user_id = repId AND due_date IN range
+    AND (related_entity_type='hospital' OR customer_id je nemocnica)
+  - call_logs a visit_events v okne 14 dní pred termínom
+
+TAB „KOMUNIKÁCIA" — Blok 2  [HOTOVÉ]
+  Endpoint: GET /api/representative-performance/communication-review
+  Komponenta: CampaignCommunicationReview.tsx
+  Zobrazuje:
+  - Rovnaký selector reprezentanta + dátumové presety.
+  - 4 súhrnné karty: počet hovorov / počet emailov / pozitívny
+    sentiment / negatívny sentiment.
+  - Filter: Všetko / Hovory / Emaily.
+  - Tlačidlo „Náhodná vzorka (10)": premiešá záznamy a zobrazí
+    10 náhodných z každej kategórie — pre slepý manažérsky review
+    kvality bez výberovej zaujatosti.
+  - Karty nahrávok hovorov:
+      • Meno kontaktu, smer (odchádzajúci/prichádzajúci), čas, trvanie
+      • Sentiment badge (Pozitívny 👍 / Neutrálny – / Negatívny 👎)
+      • Quality score (hviezdičky 1–5 + číselná hodnota)
+      • AI súhrn (excerpt, prvých 3 riadky)
+      • Kľúčové témy a alert keywords ako badges
+      • Rozbaľovací embedded CallRecordingPlayer (počúvanie priamo)
+  - Karty emailov:
+      • Predmet, smer, čas odoslania
+      • AI sentiment badge
+      • Alert badge ak je email označený ako problematický
+      • Excerpt obsahu (prvých 300 znakov)
+      • Meno kontaktu (nemocnica/ambulancia) ak je dostupné
+  Zdroj dát:
+  - call_recordings WHERE user_id = repId AND created_at IN range
+    (JOIN call_logs pre telefónne číslo a čas hovoru)
+  - communication_messages WHERE user_id = repId AND type='email'
+    AND created_at IN range
+  Obmedzenie:
+  - Visit_events sú prepojené cez collaboratorId, nie userId — preto
+    návštevy nie sú zahrnuté vo v1. Pridanie návštev závisí na
+    implementácii väzby collaborator ↔ user (napr. cez email alebo
+    manuálne prepojenie).
 
 ---------------------------------------------------------------------
 
@@ -155,25 +245,42 @@ Hovory (call_logs):
     (začiatok, zdvihnutie, koniec), dĺžka
   - z toho vieme: talk time, ring time, dovolateľnosť, počet hovorov/deň
 
+Nahrávky hovorov (call_recordings):
+  - nahrávka, AI transkripcia, AI sentiment, AI súhrn, quality score,
+    kľúčové témy, alert keywords, analýza dodržiavania skriptu
+  - prepojené na call_logs cez call_log_id
+
 Návštevy v teréne (visit_events, mobilná appka):
   - typ návštevy, skutočný začiatok/koniec, GPS na začiatku aj konci
   - ideálne pre odhad reálne odpracovaného času v teréne
+  - OBMEDZENIE: prepojenie na používateľa je cez collaboratorId,
+    nie userId — chýba priamy FK na tabuľku users
+
+Emaily (communication_messages):
+  - typ (email/sms), smer, predmet, obsah, AI sentiment, AI alert level,
+    príznak agresívneho tónu, stav doručenia
+  - prepojené na userId a customerId (nemocnica/ambulancia/kolaborátor)
 
 Úlohy (tasks):
   - zadávateľ, riešiteľ, deadline, stav, potvrdenie manažérom
-  -podme na dalsi KPI zo spec dokumentu
-zadáva a potvrdzuje)
+  - prepojené na nemocnicu cez related_entity_type='hospital'
+    alebo customer_id
 
 Status listy kampaní (campaign_contact_status_list_state):
   - pri každom statuse KTO ho nastavil a KEDY
   - najlepší zdroj pre históriu vývoja spolupráce
 
+Kanonické statusy ambulancií (clinic_cooperation_statuses):
+  - každá zmena kanonického stavu s timestampom, autorom, fázou
+  - zdroj pre KPI 3.4–3.7 a funnel analýzu
+
 Ambulancie (clinics):
   - polia spolupráca / záujem o zmluvu / stav zmluvy / letáky
   - dátumy odoslania a vrátenia zmluvy
+  - priradenie reprezentanta cez clinic_representative_assignments
 
 Odbery (collections):
-  - priamo representativeId + väzba na nemocnicu a klientku
+  - priamo representativeId + clinicId + väzba na nemocnicu a klientku
 
 Nemocnice (hospitals):
   - priamo representativeId (priradený reprezentant)
@@ -182,32 +289,28 @@ Nemocnice (hospitals):
 2. KĽÚČOVÉ MEDZERY, KTORÉ ANALÝZA ODHALILA
 ---------------------------------------------------------------------
 Medzera 1: Ambulancia nemá priradeného reprezentanta.
-  Nemocnica má representativeId, ambulancia nie. Bez tejto väzby sa
-  nedá spočítať ani jedno KPI z bloku 3 (odbery, obrat, statusy „na
-  reprezentanta"). Treba doplniť priradenie ambulancia -> reprezentant,
-  ideálne s históriou platnosti od–do, aby sa pri zmene reprezentanta
-  nezdedili cudzie výsledky.
+  → ČIASTOČNE VYRIEŠENÉ (10. 8. 2026): tabuľka
+    clinic_representative_assignments zavedená; snapshot pri každom
+    novom odbere automatický. Chýba hromadné priradenie a backfill
+    historických odberov.
 
 Medzera 2: Statusy ambulancie sú len „aktuálny stav", bez histórie.
-  Polia ako interestCooperation alebo hasFlyers sa prepisujú. Vieme
-  povedať „koľko ambulancií dnes spolupracuje", ale nie „koľko ich
-  spolupracovalo k 31. 3." ani „ako dlho trvala cesta od prvého
-  kontaktu po zmluvu". Riešenie: ťahať to zo status listov kampaní
-  (tam história je) alebo robiť mesačné snapshoty stavov ambulancií.
+  → VYRIEŠENÉ (10. 8. 2026): tabuľka clinic_cooperation_statuses
+    s plnou históriou zmien; základ pre KPI 3.4–3.7 a funnel.
 
 Medzera 3: Odber nevieme spoľahlivo priradiť k ambulancii.
-  Email definuje výpočet: zobrať zaplatený odber -> zistiť, ktorá
-  ambulancia poskytla služby -> pripočítať reprezentantovi.
-  collections má nemocnicu a reprezentanta, ale väzba odber ->
-  ambulancia (kde je klientka v starostlivosti) chýba. Bez nej sa
-  KPI 3.1–3.3 nedá počítať podľa definície z emailu.
+  → VYRIEŠENÉ (10. 8. 2026): stĺpec clinic_id v collections;
+    selector v collection forme s auto-fillom.
 
 Medzera 4: „Zaplatený" a marža.
-  Pre obrat treba jasný zdroj „klient zaplatil odber v mesiaci X +
-  suma". Pre maržu (KPI 3.3) treba aj nákladovú stranu (náklady na
-  odber + na reprezentanta) — tá dnes v systéme štruktúrovane nie je.
-  Návrh: maržu v prvej fáze počítať cez konfigurovateľnú priemernú
-  nákladovosť na krajinu, nie cez presné účtovníctvo.
+  → OTVORENÉ: závisí na manažérskych rozhodnutiach 5b a 5c.
+    Bez tohto rozhodnutia KPI 3.1–3.3 nie je možné implementovať.
+
+Medzera 5: Visit_events nie sú prepojené na users.
+  → OTVORENÉ: visit_events.collaboratorId nemá FK na users.id.
+    Návštevy zatiaľ nie sú zahrnuté v tab „Komunikácia".
+    Riešenie: doplniť prepojenie collaborator ↔ user (napr. cez
+    spoločný email) — závisí od rozhodnutia o dátovom modeli.
 
 
 3. NÁVRH VYHODNOCOVANIA PO JEDNOTLIVÝCH KPI
@@ -216,9 +319,9 @@ Medzera 4: „Zaplatený" a marža.
 KPI 1.1 — Odhadovaný pracovný čas (Pracuje reprezentant?)
 
   STAV: Výpočet výkonnosti agenta je UŽ ZAPRACOVANÝ v reportingu —
-  modul Agent Performance. Odhaduje čas práce mimo telefonovania
-  a pripočítava k nemu talk time a ring time; výsledkom je celkový
-  odhadovaný skutočne odpracovaný čas.
+  modul Agent Performance v Campaign Reporting. Odhaduje čas práce
+  mimo telefonovania a pripočítava k nemu talk time a ring time;
+  výsledkom je celkový odhadovaný skutočne odpracovaný čas.
 
   Použité normované časy (koeficienty):
     Trn = read time nový kontakt ........... 15 s
@@ -237,9 +340,6 @@ KPI 1.1 — Odhadovaný pracovný čas (Pracuje reprezentant?)
     + talk time + ring time (z call_logs)
     = celkový odhadovaný skutočne odpracovaný čas
 
-  Skladačka z existujúcich dát, ako v prílohe emailu (odhad
-  nehovorového času + talk time + ring time):
-
   Odpracovaný čas = talk time + ring time (call_logs)
                   + čas návštev (visit_events, GPS-overený)
                   + normovaný čas na dokončené úlohy/administratívu
@@ -247,54 +347,71 @@ KPI 1.1 — Odhadovaný pracovný čas (Pracuje reprezentant?)
 
   Výsledok: odpracovaný čas / oficiálny fond pracovného času
   = NASADENIE v %, mesačne na reprezentanta.
-  Koeficienty (napr. koľko minút „stojí" jeden email, jedna vyplnená
-  karta) konfigurovateľné, aby sa dal odhad ladiť bez zásahov do kódu.
 
-Úloha 2 (nemocnice) — bez nového KPI, ale s prehľadom
-  Systém úloh + manažérske potvrdenie už existuje. Stačí reporting:
-  plán kontaktov nemocníc (úlohy s deadline) vs. skutočnosť (hovor
-  v call_logs / návšteva vo visit_events na danú nemocnicu) —
-  semafor „kontaktované podľa plánu / meškajúce".
+Úloha 2 (nemocnice) — plán kontaktov vs. skutočnosť
+
+  STAV: IMPLEMENTOVANÉ (11. 8. 2026) ako tab „Nemocnice"
+  v Campaign Reporting → Reporting.
+  Zobrazuje semafor pre každú nemocnicu reprezentanta:
+  plán kontaktov (úlohy s deadlinom) vs. skutočnosť (hovory
+  a návštevy v call_logs/visit_events v okne ±14 dní od termínu).
 
 Blok 2 — Pracuje dobre? (kvalitatívne, nie číselné)
-  Súhlas s emailom: čísla to nepovedia. Systém má manažérovi
-  SERVÍROVAŤ KOMUNIKÁCIU NA POSÚDENIE, nie skóre: náhodná vzorka
-  hovorov (nahrávky + AI sentiment už máme), história emailov
-  a poznámok z návštev na jednom mieste. Teda „review view", nie KPI.
+
+  STAV: IMPLEMENTOVANÉ (11. 8. 2026) ako tab „Komunikácia"
+  v Campaign Reporting → Reporting.
+  Servíruje manažérovi na posúdenie: nahrávky hovorov s AI sentimentom
+  a quality score + emaily s AI flagmi. Náhodná vzorka 10 záznamov
+  pre slepý review. Chýbajú návštevy (medzera 5, viď vyššie).
 
 KPI 3.1–3.3 — Odbery, obrat, marža na reprezentanta/mesiac
-  Výpočet presne podľa emailu, s mesačnou uzávierkou:
-    1. zaplatené odbery za mesiac M,
-    2. odber -> ambulancia (nová väzba, medzera 3),
+
+  STAV: BLOKOVANÉ — čaká na manažérske rozhodnutia 5b a 5c.
+  Dátová infraštruktúra je pripravená (väzby z 10. 8. 2026);
+  implementácia môže začať ihneď po rozhodnutí o zdroji „zaplatené"
+  a koeficiente marže.
+  Navrhovaný výpočet:
+    1. zaplatené odbery za mesiac M (zdroj podľa rozhodnutia 5b),
+    2. odber -> ambulancia (clinic_id v collections — hotové),
     3. ambulancia -> reprezentant PLATNÝ V ČASE ODBERU
-       (nová väzba s históriou, medzera 1),
-    4. súčet počtu, obratu, marža cez nákladový koeficient.
+       (clinic_representative_assignments — hotové),
+    4. súčet počtu, obratu, marža cez nákladový koeficient (5c).
   Dôležité: mesačné hodnoty ZMRAZIŤ DO SNAPSHOTU (uzávierka), aby sa
   report spätne nemenil pri oprave dát.
 
 KPI 3.4–3.7 — Statusy ambulancií (skorý signál efektivity)
-  Zjednotiť zdroj pravdy do Status Management Engine: definovať
-  kanonické statusy ambulancie (oslovená -> uzavretá -> spolupracuje /
-  nespolupracuje; + akceptuje letáky; + zmluva podpísaná) ako status
-  list, ktorý reprezentant vypĺňa. Každá zmena má timestamp a autora.
-  Z toho sa počíta:
-    3.4  počet uzavretých ambulancií (kumulatívne aj prírastok/mesiac)
-    3.5–3.7  počty a podiely (spolupracuje, letáky, zmluva) — vždy
-             k dátumu, vďaka histórii
-    + navyše FUNNEL a ČASY PRECHODU medzi stavmi (odpovedá aj na
-      „koľko času trvá komunikácia s ambulanciou typu X" z emailu).
-  Polia na karte ambulancie (contractStatus, hasFlyers...) by sa
-  synchronizovali zo statusov, nie opačne.
+
+  STAV: IMPLEMENTOVANÉ (11. 8. 2026) ako tab „Kliniky"
+  v Campaign Reporting → Reporting.
+  Počíta sa z clinic_cooperation_statuses filtrovaných podľa
+  reprezentanta a obdobia:
+    3.4  počet oslovených ambulancií (kumulatívne aj prírastok/mesiac)
+    3.5  počet a % spolupracujúcich (retention_active / services_confirmed)
+    3.6  počet a % s letákmi (flyers_sent / flyers_accepted)
+    3.7  počet a % s podpísanou zmluvou (contract_signed)
+    +    FUNNEL s počtami prechodov medzi fázami
+    +    MEDIÁN DNÍ medzi fázami (čas prechodu medzi stavmi)
+  Tabuľka ambulancií s aktuálnym kanonickým stavom a posledným kontaktom.
 
 Sledovanie vypĺňania status listu (nové — treba dopracovať)
+
+  STAV: NAIMPLEMENTOVANÉ — navrhnuté, čaká na implementáciu.
   Tri metriky:
-    - POKRYTIE: % kontaktovaných ambulancií (hovor/návšteva existuje),
-      ktoré majú do 24/48 h nastavený status
-    - ÚPLNOSŤ: % ambulancií v „uzavretom" stave s vyplnenými všetkými
-      povinnými poliami (letáky á/n, zmluva á/n, služby á/n)
-    - ONESKORENIE: medián času medzi hovorom/návštevou a zápisom statusu
-  Zároveň poistka kvality dát — všetky KPI 3.4–3.7 stoja na tom,
-  že status listy sú vyplnené.
+    a) POKRYTIE: % kontaktovaných ambulancií (hovor/návšteva existuje),
+       ktoré majú do 24/48 h nastavený status. Cieľ >= 95 %.
+       Signál: nízke pokrytie = reprezentant telefonuje/jazdí,
+       ale nezapisuje → KPI 3.4–3.7 sú podhodnotené.
+    b) ÚPLNOSŤ: % ambulancií v „uzavretom" stave s vyplnenými
+       všetkými povinnými poľami (letáky á/n, zmluva á/n, služby á/n).
+       Cieľ 100 % — neúplný záznam = ambulancia sa nedá zaradiť
+       do podielov 3.5–3.7.
+    c) ONESKORENIE: medián a P90 času medzi kontaktom a zápisom
+       statusu. Cieľ: medián do 1 h, P90 do 24 h.
+    d) KONZISTENTNOSŤ: kontakt bez statusu po X dňoch (automatická
+       pripomienka); status bez kontaktu v okolí (príznak na kontrolu).
+  Prezentácia: karta „Kvalita dát" v reporte Výkon reprezentanta
+  — semafor (zelená/oranžová/červená) pre pokrytie, úplnosť a
+  oneskorenie, s preklikom na konkrétne chýbajúce záznamy.
 
 Back office
   Súhlas s emailom — nie priebežné KPI, len ročný prehľad.
@@ -311,108 +428,85 @@ Back office
 ---------------------------------------------------------------------
 
 4.1 Priradenie ambulancia -> reprezentant (s históriou platnosti)
-  Bez toho nič z bloku 3 nefunguje.
-  - Nová väzba: ambulancia je priradená konkrétnemu reprezentantovi
-    s platnosťou od–do (nie len jedno políčko, ktoré sa prepíše).
-  - Pri zmene reprezentanta sa stará väzba ukončí a založí nová —
-    výsledky (odbery, statusy) sa vždy pripíšu tomu, kto mal
-    ambulanciu v správe V ČASE UDALOSTI.
-  - Hromadné priradenie: podľa regiónu/okresu + možnosť ručnej
-    korekcie; import zo zoznamu.
-  - Reporting potom vie: „ambulancie v správe reprezentanta X
-    k dátumu Y" — základ pre všetky podiely v KPI 3.4–3.7.
+  STAV: ČIASTOČNE HOTOVÉ
+  - Tabuľka clinic_representative_assignments zavedená ✅
+  - Snapshot pri ukladaní odberu ✅
+  - Auto-fill reprezentanta v collection forme ✅
+  - Hromadné priradenie podľa regiónu/okresu + import zo zoznamu ❌
+  - Reportingová obrazovka „ambulancie v správe reprezentanta X
+    k dátumu Y" — základ pre všetky podiely v KPI 3.4–3.7 ❌
+    (súčasť bodu 4.7)
 
 4.2 Väzba odber -> ambulancia (pre KPI 3.1–3.3)
-  - Pri odbere evidovať, ktorá ambulancia poskytla klientke služby
-    (starostlivosť pred odberom), nielen nemocnicu, kde sa odber
-    uskutočnil.
-  - Zdroj: údaj z karty klientky (ošetrujúci gynekológ/ambulancia),
-    s možnosťou doplniť/opraviť pri spracovaní odberu.
-  - Z väzby odber -> ambulancia -> reprezentant (platný v čase
-    odberu) sa počítajú odbery, obrat a marža na reprezentanta.
+  STAV: HOTOVÉ ✅
+  - clinic_id v collections ✅
+  - Vyhľadávateľný selector v collection forme ✅
+  - Auto-fill ambulancie z karty klientky (ošetrujúci gynekológ) ❌
+    (rozšírenie pre budúcnosť)
 
-nescroluje  v Status Engine (Nexus Pulse)
-  - Jedna oficiálna sada statusov spolupráce (oslovená -> uzavretá ->
-    spolupracuje/nespolupracuje; + akceptuje letáky; + zmluva
-    podpísaná), vypĺňaná koordinátoto data quality report mal byt umiestneny v mission - reporting hodil som to na produkcny server ale tnt report data quality nic neukazuje 
-     alebo návšteve (visit_events) pribudol záznam v status liste
-     do 24 h (tolerancia 48 h); menovateľ = počet všetkých
-     kontaktovaných ambulancií v období.
-     Vyhodnotenie: mesačne na reprezentanta; cieľ napr. >= 95 %.
-     Signál: nízke pokrytie = reprezentant telefonuje/jazdí, ale
-     nezapisuje -> KPI 3.4–3.7 sú podhodnotené.
+4.3 Kanonické statusy v Status Engine (Nexus Pulse)
+  STAV: ČIASTOČNE HOTOVÉ
+  - Tabuľka clinic_cooperation_statuses ✅
+  - Auto-zápis pri potvrdení, spätná sync polí ambulancie ✅
+  - Badge v Nexus Pulse ✅
+  - AI suggest pre priradenie kľúčov v Mission builderi ✅
+  - Kontrola konfigurácie Mission: upozornenie ak nemá pokryté
+    všetky kanonické stavy ❌
 
-  b) ÚPLNOSŤ (completeness)
-     Definícia: % ambulancií v „uzavretom" stave, ktoré majú
-     vyplnené VŠETKY povinné polia statusu:
-       - spolupracuje áno/nie
-       - akceptuje letáky áno/nie
-       - zmluva podpísaná áno/nie
-       - bude poskytovať služby klientkám áno/nie
-     Výpočet: čitateľ = uzavreté ambulancie s kompletne vyplnenými
-     povinnými poľami; menovateľ = všetky uzavreté ambulancie.
-     Vyhodnotenie: priebežne (aktuálny stav) + mesačný trend;
-     cieľ 100 % — neúplný záznam znamená, že ambulancia sa nedá
-     korektne zaradiť do podielov 3.5–3.7.
-     Doplnok: zoznam konkrétnych neúplných záznamov ako pracovný
-     zoznam pre reprezentanta („dopĺňačka").
-
-  c) ONESKORENIE (latency)
-     Definícia: čas medzi kontaktom (koniec hovoru / koniec
-     návštevy) a zápisom statusu.
-     Výpočet: medián + 90. percentil za obdobie; meria sa
-     z timestampov call_logs/visit_events vs. confirmedAt
-     v status liste.
-     Vyhodnotenie: mesačne na reprezentanta; cieľ napr. medián
-     do 1 h, P90 do 24 h.
-     Signál: dlhé oneskorenie = zapisuje sa „z pamäti" na konci
-     týždňa -> nižšia spoľahlivosť dát (aj keď pokrytie vyzerá OK).
-
-  d) KONZISTENTNOSŤ (doplnková kontrola)
-     - Kontakt bez statusu po X dňoch -> automatická pripomienka
-       reprezentantovi (existujúci systém úloh/notifikácií).
-     - Status bez kontaktu (zapísaný status, ale žiadny hovor ani
-       návšteva v okolí) -> príznak na kontrolu manažérom.
-     - Spätné hromadné vypĺňanie (veľa statusov v jednej minúte)
-       -> príznak v reporte kvality dát.
-
-  Prezentácia: samostatná karta „Kvalita dát" v reporte Výkon
-  reprezentanta — semafor (zelená/oranžová/červená) pre pokrytie,
-  úplnosť a oneskorenie, s preklikom na konkrétne chýbajúce záznamy.
+4.4 Kontrola kvality vypĺňania status listov
+  STAV: NAIMPLEMENTOVANÉ ❌
+  - Metriky pokrytia, úplnosti, oneskorenia, konzistentnosti
+  - Karta „Kvalita dát" v Výkon reprezentanta s semaforom
 
 4.5 Mesačné snapshoty / uzávierky KPI na reprezentanta
-  - Raz mesačne sa hodnoty (nasadenie, odbery, obrat, marža,
-    statusové počty a podiely) ZMRAZIA do snapshotu.
+  STAV: NAIMPLEMENTOVANÉ ❌
+  - Raz mesačne zmraziť hodnoty (nasadenie, odbery, obrat, marža,
+    statusové počty a podiely) do snapshotu
   - Report sa spätne nemení pri oprave dát; opravy sa prejavia
-    v ďalšej uzávierke (prípadne označená korekcia).
-  - Umožňuje trendy: vývoj po mesiacoch, porovnanie období.
+    v ďalšej uzávierke
+  - Umožňuje trendy: vývoj po mesiacoch, porovnanie období
+  - Závislosť: pre KPI 3.1–3.3 blokované rozhodnutiami 5b, 5c
 
 4.6 Koeficienty (konfigurovateľné, bez zásahu do kódu)
-  - Normované časy pre odhad pracovného času (Trn, Tro, Td, Tnst —
-    už zapracované v Agent Performance) + prípadné ďalšie typy
-    činností (email, vyplnenie karty, cesta).
-  - Nákladové koeficienty na krajinu pre výpočet marže (KPI 3.3).
+  STAV: ČIASTOČNE HOTOVÉ
+  - Normované časy pre odhad pracovného času (Trn, Tro, Td, Tnst)
+    zapracované v Agent Performance ✅
+  - Nákladové koeficienty na krajinu pre výpočet marže (KPI 3.3) ❌
+    (blokované rozhodnutím 5c)
 
 4.7 Reportingová obrazovka „Výkon reprezentanta"
-  - Mesačný prehľad: nasadenie (KPI 1.1), odbery/obrat/marža
-    (3.1–3.3), statusové počty a podiely (3.4–3.7).
-  - Funnel spolupráce s časmi prechodov medzi stavmi.
-  - Karta kvality dát (metriky z bodu 4.4).
-  - Review komunikácie: vzorka nahrávok, emailov a poznámok
-    z návštev pre manažérske posúdenie (blok 2).
+  STAV: ROZDELENÁ DO TABOV — ČIASTOČNE HOTOVÉ
+  - Tab „Kliniky" (KPI 3.4–3.7): funnel + statusové počty ✅
+  - Tab „Nemocnice" (Úloha 2): plán vs. skutočnosť, semafor ✅
+  - Tab „Komunikácia" (Blok 2): nahrávky + emaily, náhodná vzorka ✅
+  - KPI 1.1 (pracovný čas): existujúci tab Agent Performance ✅
+  - Tab „Odbery" (KPI 3.1–3.3): ❌ blokovaný rozhodnutiami 5b, 5c
+  - Karta kvality dát (metriky z bodu 4.4): ❌ naimplementované
+  - Konsolidovaný single-page prehľad per-reprezentant (namiesto
+    prepínania tabov): ❌ naimplementované
+  - Visit events v tab „Komunikácia": ❌ blokované medzierou 5
+    (chýba väzba collaboratorId → userId)
+
+4.8 Väzba visit_events → users (medzera 5)
+  STAV: NAIMPLEMENTOVANÉ ❌
+  - visit_events.collaboratorId nemá FK na users.id
+  - Bez tejto väzby návštevy v teréne nie sú dostupné v tab
+    „Komunikácia" ani v KPI 1.1 (odpracovaný čas cez GPS)
+  - Riešenie: doplniť column userId na collaborators, alebo
+    priradenie collaborator ↔ user cez email v admin UI
 
 
 5. ROZHODNUTIA, KTORÉ POTREBUJEME OD MANAŽMENTU
 ---------------------------------------------------------------------
-Pred začatím implementácie potrebujeme tri rozhodnutia. Nejde
+Pred dokončením implementácie potrebujeme tri rozhodnutia. Nejde
 o technické detaily — každé z nich priamo ovplyvňuje, ako budú
 výsledné čísla vyzerať a ako veľmi im budeme môcť veriť.
 
 a) KTO PRIRADÍ AMBULANCIE REPREZENTANTOM A AKO?
    O čo ide: každé KPI „na reprezentanta" (odbery, obrat, podiely
    spolupracujúcich ambulancií) sa počíta z ambulancií, ktoré má
-   daný reprezentant v správe. Dnes toto priradenie v systéme
-   neexistuje — treba ho raz nastaviť a potom udržiavať.
+   daný reprezentant v správe. Tabuľka priradenia existuje, ale
+   je prázdna — treba ju raz nastaviť a potom udržiavať.
    Možnosti:
      1. Automaticky podľa regiónu/okresu — rýchly štart, vhodné ak
         má každý reprezentant jasne dané územie. Riziko: hraničné
@@ -424,6 +518,8 @@ a) KTO PRIRADÍ AMBULANCIE REPREZENTANTOM A AKO?
    Čo potrebujeme rozhodnúť: ktorý variant, kto bude priradenie
    udržiavať pri zmenách (nový reprezentant, zmena územia)
    a od akého dátumu má platiť.
+   Poznámka: taby „Kliniky" (KPI 3.4–3.7) budú zobrazovať nuly,
+   kým sa ambulancie nepriradia cez stránku /bulk-assign.
 
 b) ODKIAĽ BUDEME VEDIEŤ, ŽE KLIENT ZAPLATIL?
    O čo ide: KPI 3.1–3.3 (odbery, obrat, marža) sa podľa emailu
@@ -459,3 +555,51 @@ c) AKO POČÍTAŤ MARŽU (KPI 3.3)?
 Odporúčanie: rozhodnutia a) a b) sú blokujúce pre výpočet KPI
 bloku 3; rozhodnutie c) vie počkať — marža sa dá doplniť aj
 dodatočne, keď už pobežia odbery a obrat.
+
+
+6. SÚHRN — ČO ZOSTÁVA UROBIŤ (stav 11. 8. 2026)
+---------------------------------------------------------------------
+
+BLOKOVANÉ MANAŽÉRSKYMI ROZHODNUTIAMI (nedá sa implementovať bez nich):
+  ❌ KPI 3.1 — počet zaplatených odberov na reprezentanta/mesiac
+               (čaká na rozhodnutie 5b: zdroj „zaplatené")
+  ❌ KPI 3.2 — obrat na reprezentanta/mesiac
+               (čaká na rozhodnutie 5b)
+  ❌ KPI 3.3 — marža na reprezentanta/mesiac
+               (čaká na rozhodnutie 5b + 5c: koeficient marže)
+  ❌ Tab „Odbery" v Campaign Reporting
+               (odvodený od 3.1–3.3)
+  ❌ Mesačné snapshoty/uzávierky pre 3.1–3.3
+               (odvodený od 3.1–3.3)
+
+BLOKOVANÉ OPERATÍVNYM KROKOM (ľahko odblokované):
+  ⚠️ KPI 3.4–3.7 zobrazujú nuly — ambulancie nie sú priradené
+     reprezentantom. Riešenie: spustiť hromadné priradenie cez
+     stránku /bulk-assign. Odhadovaný čas: 30–60 min manuálnej práce
+     alebo implementácia automatického priradenia podľa regiónu.
+
+VYŽADUJE ĎALŠIU IMPLEMENTÁCIU (bez externých závislostí):
+  ❌ Hromadné priradenie ambulancií podľa regiónu/okresu (4.1)
+  ❌ Kontrola kvality vypĺňania status listov: pokrytie, úplnosť,
+     oneskorenie, konzistentnosť (4.4) — „Kvalita dát" semafor
+  ❌ Mesačné KPI snapshoty / uzávierky (4.5) — pre KPI 3.4–3.7
+     (3.1–3.3 závisí navyše od 5b/5c)
+  ❌ Nákladové koeficienty na krajinu — admin UI pre konfiguráciu (4.6)
+  ❌ Konsolidovaný single-page dashboard „Výkon reprezentanta"
+     — jeden pohľad namiesto prepínania tabov (4.7)
+  ❌ Kontrola konfigurácie Mission: upozornenie ak chýbajú
+     kanonické stavy (4.3, posledný podbod)
+  ❌ Väzba visit_events → users: doplniť userId na collaborators
+     alebo admin mapovanie — odblokuje návštevy v tab „Komunikácia"
+     a GPS-overený čas v KPI 1.1 (4.8)
+
+UŽ IMPLEMENTOVANÉ (prehľad):
+  ✅ KPI 1.1 — pracovný čas (Agent Performance tab)
+  ✅ Úloha 2 — plán kontaktov nemocníc vs. skutočnosť (tab Nemocnice)
+  ✅ Blok 2  — review komunikácie: nahrávky + emaily (tab Komunikácia)
+  ✅ KPI 3.4–3.7 — statusy ambulancií, funnel (tab Kliniky)
+  ✅ Väzba odber → ambulancia (clinic_id v collections)
+  ✅ Väzba ambulancia → reprezentant (clinic_representative_assignments)
+  ✅ Kanonické statusy + história (clinic_cooperation_statuses)
+  ✅ Spätná sync polí ambulancie z Nexus Pulse
+  ✅ Auto-fill reprezentanta v collection forme
