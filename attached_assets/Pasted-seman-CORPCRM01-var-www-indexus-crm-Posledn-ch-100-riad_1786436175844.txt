@@ -1,0 +1,34 @@
+seman@CORPCRM01:/var/www/indexus-crm$ # Posledných 100 riadkov pm2 logov
+pm2 logs --lines 100 --nostream 2>&1 | grep "rep-data-quality"
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist

@@ -50475,7 +50475,7 @@ Return ONLY the JSON object.`
         WITH ordered AS (
           SELECT
             ccs.confirmed_by_user_id,
-            u.first_name || ' ' || COALESCE(u.last_name, '') AS user_name,
+            u.full_name AS user_name,
             ccs.confirmed_at,
             LAG(ccs.confirmed_at) OVER (
               PARTITION BY ccs.confirmed_by_user_id ORDER BY ccs.confirmed_at
@@ -50490,6 +50490,7 @@ Return ONLY the JSON object.`
           SELECT
             confirmed_by_user_id,
             user_name,
+
             DATE_TRUNC('minute', confirmed_at) AS minute_bucket,
             COUNT(*) AS cnt
           FROM ordered

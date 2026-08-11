@@ -1,0 +1,426 @@
+seman@CORPCRM01:/var/www/indexus-crm$ pm2 logs --lines 200 --nostream
+[TAILING] Tailing last 200 lines for [all] processes (change the value with --lines option)
+/home/seman/.pm2/pm2.log last 200 lines:
+PM2        | 2026-08-03T11:18:21: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-03T11:32:04: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-03T11:32:04: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-03T11:32:05: PM2 log: pid=2528733 msg=process killed
+PM2        | 2026-08-03T11:32:05: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-03T11:32:05: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-03T11:49:36: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-03T11:49:36: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-03T11:49:36: PM2 log: pid=2529388 msg=process killed
+PM2        | 2026-08-03T11:49:36: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-03T11:49:36: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-03T11:56:14: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-03T11:56:14: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-03T11:56:15: PM2 log: pid=2529946 msg=process killed
+PM2        | 2026-08-03T11:56:15: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-03T11:56:15: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-03T11:59:18: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-03T11:59:18: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-03T11:59:18: PM2 log: pid=2530340 msg=process killed
+PM2        | 2026-08-03T11:59:18: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-03T11:59:18: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-03T12:37:00: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-03T12:37:00: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-03T12:37:00: PM2 log: pid=2530710 msg=process killed
+PM2        | 2026-08-03T12:37:00: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-03T12:37:00: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-03T12:39:19: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-03T12:39:19: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-03T12:39:19: PM2 log: pid=2531473 msg=process killed
+PM2        | 2026-08-03T12:39:19: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-03T12:39:19: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-03T12:49:24: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-03T12:49:24: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-03T12:49:24: PM2 log: pid=2531862 msg=process killed
+PM2        | 2026-08-03T12:49:24: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-03T12:49:24: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-04T06:07:14: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-04T06:07:14: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-04T06:07:14: PM2 log: pid=2532320 msg=process killed
+PM2        | 2026-08-04T06:07:14: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-04T06:07:14: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-04T06:17:47: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-04T06:17:47: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-04T06:17:47: PM2 log: pid=2544949 msg=process killed
+PM2        | 2026-08-04T06:17:47: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-04T06:17:47: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-04T06:20:48: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-04T06:20:48: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-04T06:20:48: PM2 log: pid=2545451 msg=process killed
+PM2        | 2026-08-04T06:20:48: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-04T06:20:48: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-04T07:57:33: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-04T07:57:33: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-04T07:57:33: PM2 log: pid=2545826 msg=process killed
+PM2        | 2026-08-04T07:57:33: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-04T07:57:33: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-04T09:54:24: PM2 log: [PM2] This PM2 is not UP TO DATE
+PM2        | 2026-08-04T09:54:24: PM2 log: [PM2] Upgrade to version 7.0.3
+PM2        | 2026-08-05T09:38:05: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-05T09:38:05: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-05T09:38:05: PM2 log: pid=2547542 msg=process killed
+PM2        | 2026-08-05T09:38:05: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-05T09:38:05: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-05T09:54:24: PM2 log: [PM2] This PM2 is not UP TO DATE
+PM2        | 2026-08-05T09:54:24: PM2 log: [PM2] Upgrade to version 7.0.3
+PM2        | 2026-08-05T10:03:38: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-05T10:03:38: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-05T10:03:38: PM2 log: pid=2569125 msg=process killed
+PM2        | 2026-08-05T10:03:38: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-05T10:03:38: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-05T10:33:05: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-05T10:33:05: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-05T10:33:05: PM2 log: pid=2570122 msg=process killed
+PM2        | 2026-08-05T10:33:05: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-05T10:33:05: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-05T10:42:40: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-05T10:42:40: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-05T10:42:41: PM2 log: pid=2572106 msg=process killed
+PM2        | 2026-08-05T10:42:41: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-05T10:42:41: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-05T10:55:34: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-05T10:55:34: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-05T10:55:34: PM2 log: pid=2572637 msg=process killed
+PM2        | 2026-08-05T10:55:34: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-05T10:55:34: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-05T11:06:03: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-05T11:06:03: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-05T11:06:03: PM2 log: pid=2573154 msg=process killed
+PM2        | 2026-08-05T11:06:03: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-05T11:06:03: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-05T11:19:52: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-05T11:19:52: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-05T11:19:52: PM2 log: pid=2573826 msg=process killed
+PM2        | 2026-08-05T11:19:52: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-05T11:19:52: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-05T11:31:42: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-05T11:31:42: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-05T11:31:42: PM2 log: pid=2574591 msg=process killed
+PM2        | 2026-08-05T11:31:42: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-05T11:31:42: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-05T11:39:12: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-05T11:39:12: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-05T11:39:12: PM2 log: pid=2575330 msg=process killed
+PM2        | 2026-08-05T11:39:12: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-05T11:39:12: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-05T11:56:31: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-05T11:56:31: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-05T11:56:31: PM2 log: pid=2575871 msg=process killed
+PM2        | 2026-08-05T11:56:31: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-05T11:56:31: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-05T12:00:31: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-05T12:00:31: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-05T12:00:32: PM2 log: pid=2576507 msg=process killed
+PM2        | 2026-08-05T12:00:32: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-05T12:00:32: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-05T12:06:12: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-05T12:06:12: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-05T12:06:12: PM2 log: pid=2576901 msg=process killed
+PM2        | 2026-08-05T12:06:12: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-05T12:06:12: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-05T12:09:48: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-05T12:09:48: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-05T12:09:48: PM2 log: pid=2577407 msg=process killed
+PM2        | 2026-08-05T12:09:48: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-05T12:09:48: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-05T12:18:42: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-05T12:18:42: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-05T12:18:43: PM2 log: pid=2577897 msg=process killed
+PM2        | 2026-08-05T12:18:43: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-05T12:18:43: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-05T12:22:01: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-05T12:22:01: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-05T12:22:01: PM2 log: pid=2578402 msg=process killed
+PM2        | 2026-08-05T12:22:01: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-05T12:22:01: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-05T12:30:40: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-05T12:30:40: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-05T12:30:41: PM2 log: pid=2578812 msg=process killed
+PM2        | 2026-08-05T12:30:41: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-05T12:30:41: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-05T12:46:57: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-05T12:46:57: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-05T12:46:57: PM2 log: pid=2579385 msg=process killed
+PM2        | 2026-08-05T12:46:57: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-05T12:46:57: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-05T12:52:22: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-05T12:52:22: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-05T12:52:22: PM2 log: pid=2580076 msg=process killed
+PM2        | 2026-08-05T12:52:22: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-05T12:52:22: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-05T13:25:56: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-05T13:25:56: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-05T13:25:56: PM2 log: pid=2580469 msg=process killed
+PM2        | 2026-08-05T13:25:56: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-05T13:25:56: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-06T08:39:07: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-06T08:39:07: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-06T08:39:07: PM2 log: pid=2581504 msg=process killed
+PM2        | 2026-08-06T08:39:07: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-06T08:39:07: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-06T09:54:24: PM2 log: [PM2] This PM2 is not UP TO DATE
+PM2        | 2026-08-06T09:54:24: PM2 log: [PM2] Upgrade to version 7.0.3
+PM2        | 2026-08-06T12:04:11: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-06T12:04:11: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-06T12:04:12: PM2 log: pid=2601840 msg=process killed
+PM2        | 2026-08-06T12:04:12: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-06T12:04:12: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-07T09:54:24: PM2 log: [PM2] This PM2 is not UP TO DATE
+PM2        | 2026-08-07T09:54:24: PM2 log: [PM2] Upgrade to version 7.0.3
+PM2        | 2026-08-08T09:54:24: PM2 log: [PM2] This PM2 is not UP TO DATE
+PM2        | 2026-08-08T09:54:24: PM2 log: [PM2] Upgrade to version 7.0.3
+PM2        | 2026-08-09T09:54:24: PM2 log: [PM2] This PM2 is not UP TO DATE
+PM2        | 2026-08-09T09:54:24: PM2 log: [PM2] Upgrade to version 7.0.3
+PM2        | 2026-08-10T09:54:24: PM2 log: [PM2] This PM2 is not UP TO DATE
+PM2        | 2026-08-10T09:54:24: PM2 log: [PM2] Upgrade to version 7.0.3
+PM2        | 2026-08-10T10:03:29: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-10T10:03:29: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-10T10:03:29: PM2 log: pid=2605303 msg=process killed
+PM2        | 2026-08-10T10:03:29: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-10T10:03:29: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-10T13:25:14: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-10T13:25:14: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-10T13:25:14: PM2 log: pid=2676658 msg=process killed
+PM2        | 2026-08-10T13:25:14: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-10T13:25:14: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-10T13:38:16: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-10T13:38:16: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-10T13:38:16: PM2 log: pid=2680161 msg=process killed
+PM2        | 2026-08-10T13:38:16: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-10T13:38:16: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-11T07:54:41: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-11T07:54:42: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-11T07:54:42: PM2 log: pid=2680703 msg=process killed
+PM2        | 2026-08-11T07:54:42: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-11T07:54:42: PM2 log: App [indexus-crm:4] online
+PM2        | 2026-08-11T08:06:28: PM2 log: Stopping app:indexus-crm id:4
+PM2        | 2026-08-11T08:06:28: PM2 log: App [indexus-crm:4] exited with code [0] via signal [SIGINT]
+PM2        | 2026-08-11T08:06:28: PM2 log: pid=2694531 msg=process killed
+PM2        | 2026-08-11T08:06:28: PM2 log: App [indexus-crm:4] starting in -fork mode-
+PM2        | 2026-08-11T08:06:28: PM2 log: App [indexus-crm:4] online
+
+/home/seman/.pm2/logs/pm2-logrotate-error.log last 200 lines:
+/home/seman/.pm2/logs/pm2-logrotate-out.log last 200 lines:
+1|pm2-logr | "/home/seman/.pm2/logs/pm2-logrotate-out__2026-08-11_00-00-00.log" has been created
+1|pm2-logr | "/home/seman/.pm2/logs/indexus-crm-error__2026-08-11_00-00-00.log" has been created
+1|pm2-logr | "pm2-logrotate-out__2026-08-06_00-00-00.log" has been deleted
+1|pm2-logr | "indexus-crm-error__2026-08-04_00-00-00.log" has been deleted
+1|pm2-logr | "/home/seman/.pm2/logs/indexus-crm-out__2026-08-11_00-00-00.log" has been created
+1|pm2-logr | "indexus-crm-out__2026-08-10_00-00-00.log" has been deleted
+1|pm2-logr | "/home/seman/.pm2/logs/indexus-crm-out__2026-08-11_07-55-29.log" has been created
+1|pm2-logr | "indexus-crm-out__2026-08-10_07-51-58.log" has been deleted
+1|pm2-logr | "/home/seman/.pm2/logs/indexus-crm-out__2026-08-11_08-14-59.log" has been created
+1|pm2-logr | "indexus-crm-out__2026-08-10_10-09-28.log" has been deleted
+
+/home/seman/.pm2/logs/indexus-crm-error.log last 200 lines:
+4|indexus- | [PhaseAnalytics] Error: _.getUsers is not a function
+4|indexus- | [PhaseAnalytics] Error: _.getUsers is not a function
+4|indexus- | [MS365] Error fetching recent meetings: GraphError: Invalid or unsupported OData filter. (Parameter 'filterClause')
+4|indexus- |     at new GraphError (/var/www/indexus-crm/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphError.js:34:28)
+4|indexus- |     at GraphErrorHandler.constructErrorFromResponse (/var/www/indexus-crm/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphErrorHandler.js:63:22)
+4|indexus- |     at Function.<anonymous> (/var/www/indexus-crm/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphErrorHandler.js:91:48)
+4|indexus- |     at step (/var/www/indexus-crm/node_modules/tslib/tslib.js:196:27)
+4|indexus- |     at Object.next (/var/www/indexus-crm/node_modules/tslib/tslib.js:177:57)
+4|indexus- |     at /var/www/indexus-crm/node_modules/tslib/tslib.js:170:75
+4|indexus- |     at new Promise (<anonymous>)
+4|indexus- |     at Object.__awaiter (/var/www/indexus-crm/node_modules/tslib/tslib.js:166:16)
+4|indexus- |     at GraphErrorHandler.getError (/var/www/indexus-crm/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphErrorHandler.js:87:24)
+4|indexus- |     at GraphRequest.<anonymous> (/var/www/indexus-crm/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphRequest.js:315:84)
+4|indexus- |     at step (/var/www/indexus-crm/node_modules/tslib/tslib.js:196:27)
+4|indexus- |     at Object.throw (/var/www/indexus-crm/node_modules/tslib/tslib.js:177:57)
+4|indexus- |     at rejected (/var/www/indexus-crm/node_modules/tslib/tslib.js:168:69)
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+4|indexus- |   statusCode: 400,
+4|indexus- |   code: 'InvalidArgument',
+4|indexus- |   requestId: '44a4ef80-6533-4307-ac34-7411bdf86cf6',
+4|indexus- |   date: 2026-08-11T06:25:51.000Z,
+4|indexus- |   body: `{"code":"InvalidArgument","message":"Invalid or unsupported OData filter. (Parameter 'filterClause')","innerError":{"date":"2026-08-11T06:25:51","request-id":"44a4ef80-6533-4307-ac34-7411bdf86cf6","client-request-id":"ed48f52b-50e5-8d34-0bb4-3c58f93f0bc4"}}`,
+4|indexus- |   headers: Headers {
+4|indexus- |     'transfer-encoding': 'chunked',
+4|indexus- |     'content-type': 'application/json',
+4|indexus- |     'content-encoding': 'gzip',
+4|indexus- |     vary: 'Accept-Encoding',
+4|indexus- |     'strict-transport-security': 'max-age=31536000',
+4|indexus- |     'request-id': '44a4ef80-6533-4307-ac34-7411bdf86cf6',
+4|indexus- |     'client-request-id': 'ed48f52b-50e5-8d34-0bb4-3c58f93f0bc4',
+4|indexus- |     'x-ms-ags-diagnostic': '{"ServerInfo":{"DataCenter":"Switzerland North","Slice":"E","Ring":"3","ScaleUnit":"002","RoleInstance":"ZR2PEPF000000BC"}}',
+4|indexus- |     date: 'Tue, 11 Aug 2026 06:25:51 GMT'
+4|indexus- |   }
+4|indexus- | }
+4|indexus- | [BO tasks] entity enrichment failed: error: operator does not exist: character varying = uuid
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:13359
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- |     at async /var/www/indexus-crm/dist/index.cjs:1714:12090 {
+4|indexus- |   length: 210,
+4|indexus- |   severity: 'ERROR',
+4|indexus- |   code: '42883',
+4|indexus- |   detail: undefined,
+4|indexus- |   hint: 'No operator matches the given name and argument types. You might need to add explicit type casts.',
+4|indexus- |   position: '754',
+4|indexus- |   internalPosition: undefined,
+4|indexus- |   internalQuery: undefined,
+4|indexus- |   where: undefined,
+4|indexus- |   schema: undefined,
+4|indexus- |   table: undefined,
+4|indexus- |   column: undefined,
+4|indexus- |   dataType: undefined,
+4|indexus- |   constraint: undefined,
+4|indexus- |   file: 'parse_oper.c',
+4|indexus- |   line: '647',
+4|indexus- |   routine: 'op_error'
+4|indexus- | }
+4|indexus- | Error fetching scheduled invoices stats: RangeError: Maximum call stack size exceeded
+4|indexus- |     at Sje (/var/www/indexus-crm/dist/index.cjs:64:37136)
+4|indexus- |     at n.buildQueryFromSourceParams (/var/www/indexus-crm/dist/index.cjs:64:38928)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:39277
+4|indexus- |     at Array.map (<anonymous>)
+4|indexus- |     at n.buildQueryFromSourceParams (/var/www/indexus-crm/dist/index.cjs:64:38934)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:39277
+4|indexus- |     at Array.map (<anonymous>)
+4|indexus- |     at n.buildQueryFromSourceParams (/var/www/indexus-crm/dist/index.cjs:64:38934)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:38521
+4|indexus- |     at Object.startActiveSpan (/var/www/indexus-crm/dist/index.cjs:64:36165)
+4|indexus- |     at n.toQuery (/var/www/indexus-crm/dist/index.cjs:64:38471)
+4|indexus- |     at Ef.sqlToQuery (/var/www/indexus-crm/dist/index.cjs:70:7032)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:70:15940
+4|indexus- |     at Object.startActiveSpan (/var/www/indexus-crm/dist/index.cjs:64:36165)
+4|indexus- |     at bI._prepare (/var/www/indexus-crm/dist/index.cjs:70:15858)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:70:16166
+4|indexus- | Invoice report error: RangeError: Maximum call stack size exceeded
+4|indexus- |     at Sje (/var/www/indexus-crm/dist/index.cjs:64:37136)
+4|indexus- |     at n.buildQueryFromSourceParams (/var/www/indexus-crm/dist/index.cjs:64:38928)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:39277
+4|indexus- |     at Array.map (<anonymous>)
+4|indexus- |     at n.buildQueryFromSourceParams (/var/www/indexus-crm/dist/index.cjs:64:38934)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:39277
+4|indexus- |     at Array.map (<anonymous>)
+4|indexus- |     at n.buildQueryFromSourceParams (/var/www/indexus-crm/dist/index.cjs:64:38934)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:39277
+4|indexus- |     at Array.map (<anonymous>)
+4|indexus- |     at n.buildQueryFromSourceParams (/var/www/indexus-crm/dist/index.cjs:64:38934)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:38521
+4|indexus- |     at Object.startActiveSpan (/var/www/indexus-crm/dist/index.cjs:64:36165)
+4|indexus- |     at n.toQuery (/var/www/indexus-crm/dist/index.cjs:64:38471)
+4|indexus- |     at Ef.sqlToQuery (/var/www/indexus-crm/dist/index.cjs:70:7032)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:70:15940
+4|indexus- | Invoice report error: RangeError: Maximum call stack size exceeded
+4|indexus- |     at Sje (/var/www/indexus-crm/dist/index.cjs:64:37136)
+4|indexus- |     at n.buildQueryFromSourceParams (/var/www/indexus-crm/dist/index.cjs:64:38928)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:39277
+4|indexus- |     at Array.map (<anonymous>)
+4|indexus- |     at n.buildQueryFromSourceParams (/var/www/indexus-crm/dist/index.cjs:64:38934)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:39277
+4|indexus- |     at Array.map (<anonymous>)
+4|indexus- |     at n.buildQueryFromSourceParams (/var/www/indexus-crm/dist/index.cjs:64:38934)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:39277
+4|indexus- |     at Array.map (<anonymous>)
+4|indexus- |     at n.buildQueryFromSourceParams (/var/www/indexus-crm/dist/index.cjs:64:38934)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:38521
+4|indexus- |     at Object.startActiveSpan (/var/www/indexus-crm/dist/index.cjs:64:36165)
+4|indexus- |     at n.toQuery (/var/www/indexus-crm/dist/index.cjs:64:38471)
+4|indexus- |     at Ef.sqlToQuery (/var/www/indexus-crm/dist/index.cjs:70:7032)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:70:15940
+4|indexus- | Invoice report error: RangeError: Maximum call stack size exceeded
+4|indexus- |     at Sje (/var/www/indexus-crm/dist/index.cjs:64:37136)
+4|indexus- |     at n.buildQueryFromSourceParams (/var/www/indexus-crm/dist/index.cjs:64:38928)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:39277
+4|indexus- |     at Array.map (<anonymous>)
+4|indexus- |     at n.buildQueryFromSourceParams (/var/www/indexus-crm/dist/index.cjs:64:38934)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:39277
+4|indexus- |     at Array.map (<anonymous>)
+4|indexus- |     at n.buildQueryFromSourceParams (/var/www/indexus-crm/dist/index.cjs:64:38934)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:39277
+4|indexus- |     at Array.map (<anonymous>)
+4|indexus- |     at n.buildQueryFromSourceParams (/var/www/indexus-crm/dist/index.cjs:64:38934)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:38521
+4|indexus- |     at Object.startActiveSpan (/var/www/indexus-crm/dist/index.cjs:64:36165)
+4|indexus- |     at n.toQuery (/var/www/indexus-crm/dist/index.cjs:64:38471)
+4|indexus- |     at Ef.sqlToQuery (/var/www/indexus-crm/dist/index.cjs:70:7032)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:70:15940
+4|indexus- | Invoice report error: RangeError: Maximum call stack size exceeded
+4|indexus- |     at Sje (/var/www/indexus-crm/dist/index.cjs:64:37136)
+4|indexus- |     at n.buildQueryFromSourceParams (/var/www/indexus-crm/dist/index.cjs:64:38928)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:39277
+4|indexus- |     at Array.map (<anonymous>)
+4|indexus- |     at n.buildQueryFromSourceParams (/var/www/indexus-crm/dist/index.cjs:64:38934)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:39277
+4|indexus- |     at Array.map (<anonymous>)
+4|indexus- |     at n.buildQueryFromSourceParams (/var/www/indexus-crm/dist/index.cjs:64:38934)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:39277
+4|indexus- |     at Array.map (<anonymous>)
+4|indexus- |     at n.buildQueryFromSourceParams (/var/www/indexus-crm/dist/index.cjs:64:38934)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:38521
+4|indexus- |     at Object.startActiveSpan (/var/www/indexus-crm/dist/index.cjs:64:36165)
+4|indexus- |     at n.toQuery (/var/www/indexus-crm/dist/index.cjs:64:38471)
+4|indexus- |     at Ef.sqlToQuery (/var/www/indexus-crm/dist/index.cjs:70:7032)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:70:15940
+4|indexus- | [PhaseAnalytics] Error: _.getUsers is not a function
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [BO tasks] entity enrichment failed: error: operator does not exist: character varying = uuid
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:13359
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- |     at async /var/www/indexus-crm/dist/index.cjs:1714:12090 {
+4|indexus- |   length: 210,
+4|indexus- |   severity: 'ERROR',
+4|indexus- |   code: '42883',
+4|indexus- |   detail: undefined,
+4|indexus- |   hint: 'No operator matches the given name and argument types. You might need to add explicit type casts.',
+4|indexus- |   position: '754',
+4|indexus- |   internalPosition: undefined,
+4|indexus- |   internalQuery: undefined,
+4|indexus- |   where: undefined,
+4|indexus- |   schema: undefined,
+4|indexus- |   table: undefined,
+4|indexus- |   column: undefined,
+4|indexus- |   dataType: undefined,
+4|indexus- |   constraint: undefined,
+4|indexus- |   file: 'parse_oper.c',
+4|indexus- |   line: '647',
+4|indexus- |   routine: 'op_error'
+4|indexus- | }
+4|indexus- | [PhaseAnalytics] Error: _.getUsers is not a function
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [PhaseAnalytics] Error: _.getUsers is not a function
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [PhaseAnalytics] Error: _.getUsers is not a function
+4|indexus- | [PhaseAnalytics] Error: _.getUsers is not a function
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+4|indexus- | [rep-data-quality] column u.first_name does not exist
+
+/home/seman/.pm2/logs/indexus-crm-out.log last 200 lines:
+4|indexus- | [EmailMonitor] Failed to decrypt tokens for user c8c9999c-6881-4ca3-91cc-99d4ec1da6df
+4|indexus- | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+4|indexus- | 8:15:01 AM [express] GET /api/representative-performance/data-quality 500 in 9ms :: {"error":"Failed to compute data quality metrics"}
+4|indexus- | 8:15:06 AM [express] GET /api/representative-performance/data-quality 500 in 15ms :: {"error":"Failed to compute data quality metrics"}
+
+seman@CORPCRM01:/var/www/indexus-crm$
