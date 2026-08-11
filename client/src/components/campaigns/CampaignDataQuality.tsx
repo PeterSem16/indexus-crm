@@ -80,11 +80,12 @@ function MetricCard({ icon: Icon, title, value, unit, light, sub, loading }: {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 interface Props {
+  campaignId: string;
   campaignStartDate?: string | null;
   campaignEndDate?: string | null;
 }
 
-export default function CampaignDataQuality({ campaignStartDate, campaignEndDate }: Props) {
+export default function CampaignDataQuality({ campaignId, campaignStartDate, campaignEndDate }: Props) {
   const { t } = useI18n();
   const rq = t.repQuality;
 
@@ -96,16 +97,19 @@ export default function CampaignDataQuality({ campaignStartDate, campaignEndDate
   const [range, setRange]   = useState<DateRange>({ from: defaultFrom, to: defaultTo });
   const [calOpen, setCalOpen] = useState(false);
 
-  // ── Fetch representatives via correct endpoint ─────────────────────────────
-  const { data: representatives = [] } = useQuery<any[]>({
-    queryKey: ["/api/representatives"],
+  // ── Fetch campaign agents (mirrors the Reporting > agent list for this mission) ──
+  const { data: agentStats = [] } = useQuery<any[]>({
+    queryKey: ["/api/campaigns", campaignId, "agent-stats"],
     queryFn: () =>
-      fetch("/api/representatives", { credentials: "include" })
+      fetch(`/api/campaigns/${campaignId}/agent-stats`, { credentials: "include" })
         .then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); }),
+    enabled: !!campaignId,
     staleTime: 5 * 60_000,
   });
 
-  const selectedRep = useMemo(() => (representatives as any[]).find((u: any) => String(u.id) === repId), [representatives, repId]);
+  // agent-stats shape: { userId, name, avatarUrl, ... }
+  const agents = agentStats as any[];
+  const selectedRep = useMemo(() => agents.find((u: any) => String(u.userId) === repId), [agents, repId]);
 
   // ── Presets ────────────────────────────────────────────────────────────────
   const applyPreset = (preset: string) => {
@@ -165,17 +169,20 @@ export default function CampaignDataQuality({ campaignStartDate, campaignEndDate
                 <SelectValue placeholder={rq.selectRepPlaceholder} />
               </SelectTrigger>
               <SelectContent>
-                {(representatives as any[]).length === 0 && (
+                {agents.length === 0 && (
                   <SelectItem value="__none" disabled>{rq.selectRepPlaceholder}</SelectItem>
                 )}
-                {(representatives as any[]).map((u: any) => (
-                  <SelectItem key={u.id} value={String(u.id)}>
+                {agents.map((u: any) => (
+                  <SelectItem key={u.userId} value={String(u.userId)}>
                     <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
-                        {(u.firstName?.[0] ?? u.name?.[0] ?? "?")}
-                        {(u.lastName?.[0] ?? "")}
-                      </div>
-                      {u.firstName || u.name} {u.lastName ?? ""}
+                      {u.avatarUrl ? (
+                        <img src={u.avatarUrl} className="w-6 h-6 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
+                          {(u.name?.[0] ?? "?")}
+                        </div>
+                      )}
+                      {u.name}
                     </div>
                   </SelectItem>
                 ))}

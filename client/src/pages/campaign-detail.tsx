@@ -7779,6 +7779,7 @@ export default function CampaignDetailPage() {
             </TabsContent>
             <TabsContent value="report-data-quality" className="space-y-4">
               <CampaignDataQuality
+                campaignId={campaignId}
                 campaignStartDate={campaign?.startDate}
                 campaignEndDate={campaign?.endDate}
               />
