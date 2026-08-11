@@ -7256,6 +7256,21 @@ export interface Translations {
     statusCol: string; confirmedCol: string; clinicCol: string; userCol: string; timeCol: string; countCol: string;
     allClean: string; pickRepFirst: string; clinicsOf: string; pairedCalls: string;
   };
+  clinicKpi: {
+    navLabel: string; title: string;
+    selectRep: string; selectRepPlaceholder: string;
+    selectPeriod: string; presetThisMonth: string; presetLastMonth: string; presetLast3: string; presetCampaign: string; presetThisYear: string;
+    kpi34: string; kpi34Sub: string;
+    kpi35: string; kpi35Sub: string;
+    kpi36: string; kpi36Sub: string;
+    kpi37: string; kpi37Sub: string;
+    funnelTitle: string;
+    phaseContacted: string; phaseInterested: string; phaseContract: string; phaseActive: string;
+    medianDays: string; newInPeriod: string; ofTotal: string;
+    clinicTableTitle: string; nameCol: string; phaseCol: string; firstContactCol: string; cooperationCol: string;
+    noData: string; pickRepFirst: string; totalAssigned: string;
+    phaseNone: string; phaseP1: string; phaseP2: string; phaseP3: string; phaseP4: string;
+  };
 }
 
 export const translations: Record<Locale, Translations> = {
@@ -14560,6 +14575,22 @@ export const translations: Record<Locale, Translations> = {
       allClean: 'All records are complete and consistent', pickRepFirst: 'Select a representative and period to view metrics',
       clinicsOf: 'clinics', pairedCalls: 'paired calls',
     },
+    clinicKpi: {
+      navLabel: 'Clinics', title: 'Clinic Status – Representative',
+      selectRep: 'Representative', selectRepPlaceholder: 'Choose a representative…',
+      selectPeriod: 'Period', presetThisMonth: 'This month', presetLastMonth: 'Last month', presetLast3: 'Last 3 months', presetCampaign: 'Campaign dates', presetThisYear: 'This year',
+      kpi34: 'Approached clinics', kpi34Sub: 'with at least one status recorded',
+      kpi35: 'Cooperating', kpi35Sub: 'actively cooperating (retention active)',
+      kpi36: 'Flyers accepted', kpi36Sub: 'clinics with flyers placed',
+      kpi37: 'Contract signed', kpi37Sub: 'clinics with signed contract',
+      funnelTitle: 'Cooperation funnel',
+      phaseContacted: 'Approached', phaseInterested: 'Interested', phaseContract: 'Contract', phaseActive: 'Active',
+      medianDays: 'median days', newInPeriod: 'new in period', ofTotal: 'of total',
+      clinicTableTitle: 'Clinics by phase', nameCol: 'Clinic', phaseCol: 'Phase', firstContactCol: 'First contact', cooperationCol: 'Status',
+      noData: 'No data for the selected criteria', pickRepFirst: 'Select a representative and period to view clinic KPIs',
+      totalAssigned: 'clinics assigned',
+      phaseNone: 'Not contacted', phaseP1: 'Approached', phaseP2: 'Interested', phaseP3: 'Contract stage', phaseP4: 'Active',
+    },
 
   },
   sk: {
@@ -21799,6 +21830,22 @@ export const translations: Record<Locale, Translations> = {
       allClean: 'Všetky záznamy sú kompletné a konzistentné', pickRepFirst: 'Vyber reprezentanta a obdobie pre zobrazenie metrík',
       clinicsOf: 'ambulancií', pairedCalls: 'párovaných hovorov',
     },
+    clinicKpi: {
+      navLabel: 'Kliniky', title: 'Stav ambulancií – Reprezentant',
+      selectRep: 'Reprezentant', selectRepPlaceholder: 'Vyber reprezentanta…',
+      selectPeriod: 'Obdobie', presetThisMonth: 'Tento mesiac', presetLastMonth: 'Minulý mesiac', presetLast3: 'Posledné 3 mesiace', presetCampaign: 'Dátumy kampane', presetThisYear: 'Tento rok',
+      kpi34: 'Oslovené ambulancie', kpi34Sub: 'aspoň jeden záznam statusu',
+      kpi35: 'Spolupracujúce', kpi35Sub: 'aktívna spolupráca (retention active)',
+      kpi36: 'Letáky prijaté', kpi36Sub: 'ambulancie s umiestnenými letákmi',
+      kpi37: 'Zmluva podpísaná', kpi37Sub: 'ambulancie s podpísanou zmluvou',
+      funnelTitle: 'Funnel spolupráce',
+      phaseContacted: 'Oslovená', phaseInterested: 'Záujem', phaseContract: 'Zmluva', phaseActive: 'Aktívna',
+      medianDays: 'medián dní', newInPeriod: 'nových v období', ofTotal: 'z celku',
+      clinicTableTitle: 'Ambulancie podľa fázy', nameCol: 'Ambulancia', phaseCol: 'Fáza', firstContactCol: 'Prvý kontakt', cooperationCol: 'Stav',
+      noData: 'Žiadne dáta pre zvolené kritériá', pickRepFirst: 'Vyber reprezentanta a obdobie pre zobrazenie KPI kliník',
+      totalAssigned: 'ambulancií v správe',
+      phaseNone: 'Nekontaktovaná', phaseP1: 'Oslovená', phaseP2: 'Záujem', phaseP3: 'Zmluva', phaseP4: 'Aktívna',
+    },
 
   },
   cs: {
@@ -28964,6 +29011,22 @@ export const translations: Record<Locale, Translations> = {
       allClean: 'Všechny záznamy jsou kompletní a konzistentní', pickRepFirst: 'Vyberte reprezentanta a období pro zobrazení metrik',
       clinicsOf: 'ambulancí', pairedCalls: 'spárovaných hovorů',
     },
+    clinicKpi: {
+      navLabel: 'Kliniky', title: 'Stav ambulancí – Reprezentant',
+      selectRep: 'Reprezentant', selectRepPlaceholder: 'Vyberte reprezentanta…',
+      selectPeriod: 'Období', presetThisMonth: 'Tento měsíc', presetLastMonth: 'Minulý měsíc', presetLast3: 'Poslední 3 měsíce', presetCampaign: 'Data kampaně', presetThisYear: 'Letošní rok',
+      kpi34: 'Oslovené ambulance', kpi34Sub: 'alespoň jeden záznam statusu',
+      kpi35: 'Spolupracující', kpi35Sub: 'aktivní spolupráce (retention active)',
+      kpi36: 'Letáky přijaty', kpi36Sub: 'ambulance s umístěnými letáky',
+      kpi37: 'Smlouva podepsána', kpi37Sub: 'ambulance s podepsanou smlouvou',
+      funnelTitle: 'Funnel spolupráce',
+      phaseContacted: 'Oslovená', phaseInterested: 'Zájem', phaseContract: 'Smlouva', phaseActive: 'Aktivní',
+      medianDays: 'medián dní', newInPeriod: 'nových v období', ofTotal: 'z celku',
+      clinicTableTitle: 'Ambulance podle fáze', nameCol: 'Ambulance', phaseCol: 'Fáze', firstContactCol: 'První kontakt', cooperationCol: 'Stav',
+      noData: 'Žádná data pro zvolená kritéria', pickRepFirst: 'Vyberte reprezentanta a období pro zobrazení KPI klinik',
+      totalAssigned: 'ambulancí ve správě',
+      phaseNone: 'Nekontaktovaná', phaseP1: 'Oslovená', phaseP2: 'Zájem', phaseP3: 'Smlouva', phaseP4: 'Aktivní',
+    },
 
   },
   hu: {
@@ -36089,6 +36152,22 @@ export const translations: Record<Locale, Translations> = {
       allClean: 'Minden rekord teljes és konzisztens', pickRepFirst: 'Válasszon képviselőt és időszakot a mutatók megtekintéséhez',
       clinicsOf: 'rendelő', pairedCalls: 'párosított hívás',
     },
+    clinicKpi: {
+      navLabel: 'Rendelők', title: 'Rendelők állapota – Képviselő',
+      selectRep: 'Képviselő', selectRepPlaceholder: 'Válasszon képviselőt…',
+      selectPeriod: 'Időszak', presetThisMonth: 'Ez a hónap', presetLastMonth: 'Előző hónap', presetLast3: 'Elmúlt 3 hónap', presetCampaign: 'Kampánydátumok', presetThisYear: 'Ez az év',
+      kpi34: 'Megkeresett rendelők', kpi34Sub: 'legalább egy státuszrekord',
+      kpi35: 'Együttműködők', kpi35Sub: 'aktív együttműködés (retention active)',
+      kpi36: 'Szórólapot elfogad', kpi36Sub: 'rendelők elhelyezett szórólapokkal',
+      kpi37: 'Szerződés aláírva', kpi37Sub: 'aláírt szerződéssel rendelkező rendelők',
+      funnelTitle: 'Együttműködési tölcsér',
+      phaseContacted: 'Megkeresett', phaseInterested: 'Érdeklődő', phaseContract: 'Szerződés', phaseActive: 'Aktív',
+      medianDays: 'medián nap', newInPeriod: 'új az időszakban', ofTotal: 'összesből',
+      clinicTableTitle: 'Rendelők fázis szerint', nameCol: 'Rendelő', phaseCol: 'Fázis', firstContactCol: 'Első kapcsolat', cooperationCol: 'Állapot',
+      noData: 'Nincs adat a kiválasztott kritériumokhoz', pickRepFirst: 'Válasszon képviselőt és időszakot a rendelői KPI-k megtekintéséhez',
+      totalAssigned: 'hozzárendelt rendelő',
+      phaseNone: 'Nem kapcsolatba lépett', phaseP1: 'Megkeresett', phaseP2: 'Érdeklődő', phaseP3: 'Szerződéses szakasz', phaseP4: 'Aktív',
+    },
 
   },
   ro: {
@@ -43133,6 +43212,22 @@ export const translations: Record<Locale, Translations> = {
       statusCol: 'Status', confirmedCol: 'Confirmat', clinicCol: 'Clinică', userCol: 'Utilizator', timeCol: 'Timp', countCol: 'Nr.',
       allClean: 'Toate înregistrările sunt complete și consistente', pickRepFirst: 'Selectați un reprezentant și o perioadă pentru a vizualiza metricile',
       clinicsOf: 'clinici', pairedCalls: 'apeluri asociate',
+    },
+    clinicKpi: {
+      navLabel: 'Clinici', title: 'Starea clinicilor – Reprezentant',
+      selectRep: 'Reprezentant', selectRepPlaceholder: 'Alegeți un reprezentant…',
+      selectPeriod: 'Perioadă', presetThisMonth: 'Luna aceasta', presetLastMonth: 'Luna trecută', presetLast3: 'Ultimele 3 luni', presetCampaign: 'Datele campaniei', presetThisYear: 'Anul acesta',
+      kpi34: 'Clinici contactate', kpi34Sub: 'cel puțin un status înregistrat',
+      kpi35: 'Cooperante', kpi35Sub: 'cooperare activă (retention active)',
+      kpi36: 'Pliante acceptate', kpi36Sub: 'clinici cu pliante plasate',
+      kpi37: 'Contract semnat', kpi37Sub: 'clinici cu contract semnat',
+      funnelTitle: 'Pâlnie de cooperare',
+      phaseContacted: 'Contactată', phaseInterested: 'Interesată', phaseContract: 'Contract', phaseActive: 'Activă',
+      medianDays: 'zile mediane', newInPeriod: 'noi în perioadă', ofTotal: 'din total',
+      clinicTableTitle: 'Clinici pe faze', nameCol: 'Clinică', phaseCol: 'Fază', firstContactCol: 'Primul contact', cooperationCol: 'Status',
+      noData: 'Nicio dată pentru criteriile selectate', pickRepFirst: 'Selectați un reprezentant și o perioadă pentru KPI-urile clinicilor',
+      totalAssigned: 'clinici atribuite',
+      phaseNone: 'Necontactată', phaseP1: 'Contactată', phaseP2: 'Interesată', phaseP3: 'Etapa contract', phaseP4: 'Activă',
     },
 
   },
@@ -50181,6 +50276,22 @@ export const translations: Record<Locale, Translations> = {
       allClean: 'Tutti i record sono completi e coerenti', pickRepFirst: 'Seleziona un rappresentante e un periodo per visualizzare le metriche',
       clinicsOf: 'ambulatori', pairedCalls: 'chiamate abbinate',
     },
+    clinicKpi: {
+      navLabel: 'Ambulatori', title: 'Stato ambulatori – Rappresentante',
+      selectRep: 'Rappresentante', selectRepPlaceholder: 'Scegli un rappresentante…',
+      selectPeriod: 'Periodo', presetThisMonth: 'Questo mese', presetLastMonth: 'Mese scorso', presetLast3: 'Ultimi 3 mesi', presetCampaign: 'Date campagna', presetThisYear: "Quest'anno",
+      kpi34: 'Ambulatori contattati', kpi34Sub: 'con almeno un record di stato',
+      kpi35: 'Cooperanti', kpi35Sub: 'cooperazione attiva (retention active)',
+      kpi36: 'Volantini accettati', kpi36Sub: 'ambulatori con volantini posizionati',
+      kpi37: 'Contratto firmato', kpi37Sub: 'ambulatori con contratto firmato',
+      funnelTitle: 'Funnel di cooperazione',
+      phaseContacted: 'Contattato', phaseInterested: 'Interessato', phaseContract: 'Contratto', phaseActive: 'Attivo',
+      medianDays: 'giorni mediani', newInPeriod: 'nuovi nel periodo', ofTotal: 'sul totale',
+      clinicTableTitle: 'Ambulatori per fase', nameCol: 'Ambulatorio', phaseCol: 'Fase', firstContactCol: 'Primo contatto', cooperationCol: 'Stato',
+      noData: 'Nessun dato per i criteri selezionati', pickRepFirst: 'Seleziona un rappresentante e un periodo per visualizzare i KPI delle cliniche',
+      totalAssigned: 'ambulatori assegnati',
+      phaseNone: 'Non contattato', phaseP1: 'Contattato', phaseP2: 'Interessato', phaseP3: 'Fase contratto', phaseP4: 'Attivo',
+    },
 
   },
   de: {
@@ -57213,6 +57324,22 @@ export const translations: Record<Locale, Translations> = {
       statusCol: 'Status', confirmedCol: 'Bestätigt', clinicCol: 'Praxis', userCol: 'Benutzer', timeCol: 'Zeit', countCol: 'Anzahl',
       allClean: 'Alle Datensätze sind vollständig und konsistent', pickRepFirst: 'Wählen Sie einen Vertreter und einen Zeitraum aus, um die Metriken anzuzeigen',
       clinicsOf: 'Praxen', pairedCalls: 'gekoppelte Anrufe',
+    },
+    clinicKpi: {
+      navLabel: 'Praxen', title: 'Praxenstatus – Vertreter',
+      selectRep: 'Vertreter', selectRepPlaceholder: 'Vertreter auswählen…',
+      selectPeriod: 'Zeitraum', presetThisMonth: 'Diesen Monat', presetLastMonth: 'Letzten Monat', presetLast3: 'Letzte 3 Monate', presetCampaign: 'Kampagnenzeitraum', presetThisYear: 'Dieses Jahr',
+      kpi34: 'Kontaktierte Praxen', kpi34Sub: 'mit mindestens einem Statusdatensatz',
+      kpi35: 'Kooperierend', kpi35Sub: 'aktive Zusammenarbeit (retention active)',
+      kpi36: 'Flyer akzeptiert', kpi36Sub: 'Praxen mit platzierten Flyern',
+      kpi37: 'Vertrag unterzeichnet', kpi37Sub: 'Praxen mit unterzeichnetem Vertrag',
+      funnelTitle: 'Kooperationstrichter',
+      phaseContacted: 'Kontaktiert', phaseInterested: 'Interessiert', phaseContract: 'Vertrag', phaseActive: 'Aktiv',
+      medianDays: 'Median Tage', newInPeriod: 'neu im Zeitraum', ofTotal: 'von gesamt',
+      clinicTableTitle: 'Praxen nach Phase', nameCol: 'Praxis', phaseCol: 'Phase', firstContactCol: 'Erstkontakt', cooperationCol: 'Status',
+      noData: 'Keine Daten für die ausgewählten Kriterien', pickRepFirst: 'Wählen Sie einen Vertreter und einen Zeitraum aus, um die Praxis-KPIs anzuzeigen',
+      totalAssigned: 'zugewiesene Praxen',
+      phaseNone: 'Nicht kontaktiert', phaseP1: 'Kontaktiert', phaseP2: 'Interessiert', phaseP3: 'Vertragsphase', phaseP4: 'Aktiv',
     },
 
   },

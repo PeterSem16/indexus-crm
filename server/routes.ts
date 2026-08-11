@@ -50557,6 +50557,159 @@ Return ONLY the JSON object.`
     }
   });
 
+  // GET /api/representative-performance/clinic-kpis
+  // KPI 3.4–3.7: clinic status counts, cooperation funnel, transition medians per rep.
+  app.get("/api/representative-performance/clinic-kpis", requireAuth, async (req, res) => {
+    try {
+      const sessionUser = req.session.user;
+      if (!sessionUser || (sessionUser.role !== "admin" && sessionUser.role !== "manager")) {
+        return res.status(403).json({ error: "Admin or manager required" });
+      }
+      const { representativeId, from, to } = req.query as Record<string, string>;
+      if (!representativeId || !from || !to) {
+        return res.status(400).json({ error: "representativeId, from, to are required" });
+      }
+      const fromDate = new Date(from);
+      const toDate   = new Date(to);
+
+      // ── Summary + funnel counts ─────────────────────────────────────────
+      const summaryRows = await db.execute(sql`
+        WITH rep_clinics AS (
+          SELECT cra.clinic_id, c.name
+          FROM clinic_representative_assignments cra
+          JOIN clinics c ON c.id = cra.clinic_id
+          WHERE cra.user_id = ${representativeId} AND cra.valid_to IS NULL
+        ),
+        phases AS (
+          SELECT
+            rc.clinic_id,
+            rc.name,
+            MIN(ccs.confirmed_at) AS phase1_at,
+            MIN(ccs.confirmed_at) FILTER (WHERE ccs.status_key IN (
+              'acquisition_interested','acquisition_in_negotiation'
+            )) AS phase2_at,
+            MIN(ccs.confirmed_at) FILTER (WHERE ccs.status_key IN (
+              'contract_sent','flyers_sent','flyers_accepted'
+            )) AS phase3_at,
+            MIN(ccs.confirmed_at) FILTER (WHERE ccs.status_key IN (
+              'contract_signed','retention_active','services_confirmed'
+            )) AS phase4_at,
+            BOOL_OR(ccs.status_key = 'flyers_accepted')                              AS has_flyers,
+            BOOL_OR(ccs.status_key IN ('retention_active','services_confirmed'))      AS is_cooperating,
+            BOOL_OR(ccs.status_key = 'contract_signed')                              AS has_contract,
+            (ARRAY_AGG(ccs.status_key ORDER BY ccs.confirmed_at DESC))[1]            AS latest_status_key
+          FROM rep_clinics rc
+          LEFT JOIN clinic_cooperation_statuses ccs ON ccs.clinic_id = rc.clinic_id
+          GROUP BY rc.clinic_id, rc.name
+        )
+        SELECT
+          COUNT(*)::int                                                    AS total_assigned,
+          COUNT(*) FILTER (WHERE phase1_at IS NOT NULL)::int              AS approached,
+          COUNT(*) FILTER (WHERE phase1_at BETWEEN ${fromDate} AND ${toDate})::int AS new_in_period,
+          COUNT(*) FILTER (WHERE is_cooperating)::int                     AS cooperating,
+          COUNT(*) FILTER (WHERE has_flyers)::int                         AS with_flyers,
+          COUNT(*) FILTER (WHERE has_contract)::int                       AS with_contract,
+          COUNT(*) FILTER (WHERE phase1_at IS NOT NULL)::int              AS funnel_p1,
+          COUNT(*) FILTER (WHERE phase2_at IS NOT NULL)::int              AS funnel_p2,
+          COUNT(*) FILTER (WHERE phase3_at IS NOT NULL)::int              AS funnel_p3,
+          COUNT(*) FILTER (WHERE phase4_at IS NOT NULL)::int              AS funnel_p4,
+          -- Median transition times in days (NULLs auto-excluded by PERCENTILE_CONT)
+          PERCENTILE_CONT(0.5) WITHIN GROUP (
+            ORDER BY EXTRACT(EPOCH FROM (phase2_at - phase1_at)) / 86400.0
+          ) AS median_p1_p2_days,
+          PERCENTILE_CONT(0.5) WITHIN GROUP (
+            ORDER BY EXTRACT(EPOCH FROM (phase3_at - phase2_at)) / 86400.0
+          ) AS median_p2_p3_days,
+          PERCENTILE_CONT(0.5) WITHIN GROUP (
+            ORDER BY EXTRACT(EPOCH FROM (phase4_at - phase3_at)) / 86400.0
+          ) AS median_p3_p4_days
+        FROM phases
+      `);
+      const s = (summaryRows.rows[0] as any) || {};
+
+      // ── Clinic detail list ───────────────────────────────────────────────
+      const detailRows = await db.execute(sql`
+        WITH rep_clinics AS (
+          SELECT cra.clinic_id, c.name
+          FROM clinic_representative_assignments cra
+          JOIN clinics c ON c.id = cra.clinic_id
+          WHERE cra.user_id = ${representativeId} AND cra.valid_to IS NULL
+        ),
+        phases AS (
+          SELECT
+            rc.clinic_id,
+            rc.name,
+            MIN(ccs.confirmed_at) AS phase1_at,
+            MIN(ccs.confirmed_at) FILTER (WHERE ccs.status_key IN (
+              'acquisition_interested','acquisition_in_negotiation'
+            )) AS phase2_at,
+            MIN(ccs.confirmed_at) FILTER (WHERE ccs.status_key IN (
+              'contract_sent','flyers_sent','flyers_accepted'
+            )) AS phase3_at,
+            MIN(ccs.confirmed_at) FILTER (WHERE ccs.status_key IN (
+              'contract_signed','retention_active','services_confirmed'
+            )) AS phase4_at,
+            BOOL_OR(ccs.status_key = 'flyers_accepted')                         AS has_flyers,
+            BOOL_OR(ccs.status_key IN ('retention_active','services_confirmed')) AS is_cooperating,
+            BOOL_OR(ccs.status_key = 'contract_signed')                         AS has_contract,
+            (ARRAY_AGG(ccs.status_key ORDER BY ccs.confirmed_at DESC))[1]       AS latest_status_key
+          FROM rep_clinics rc
+          LEFT JOIN clinic_cooperation_statuses ccs ON ccs.clinic_id = rc.clinic_id
+          GROUP BY rc.clinic_id, rc.name
+        )
+        SELECT
+          clinic_id, name, phase1_at, phase2_at, phase3_at, phase4_at,
+          has_flyers, is_cooperating, has_contract, latest_status_key,
+          CASE
+            WHEN phase4_at IS NOT NULL THEN 4
+            WHEN phase3_at IS NOT NULL THEN 3
+            WHEN phase2_at IS NOT NULL THEN 2
+            WHEN phase1_at IS NOT NULL THEN 1
+            ELSE 0
+          END AS phase_num
+        FROM phases
+        ORDER BY phase_num DESC, phase1_at DESC NULLS LAST
+        LIMIT 200
+      `);
+
+      res.json({
+        summary: {
+          totalAssigned:  Number(s.total_assigned)  || 0,
+          approached:     Number(s.approached)      || 0,
+          newInPeriod:    Number(s.new_in_period)   || 0,
+          cooperating:    Number(s.cooperating)     || 0,
+          withFlyers:     Number(s.with_flyers)     || 0,
+          withContract:   Number(s.with_contract)   || 0,
+          funnel: {
+            p1: Number(s.funnel_p1) || 0,
+            p2: Number(s.funnel_p2) || 0,
+            p3: Number(s.funnel_p3) || 0,
+            p4: Number(s.funnel_p4) || 0,
+            medianP1P2Days: s.median_p1_p2_days != null ? Math.round(Number(s.median_p1_p2_days) * 10) / 10 : null,
+            medianP2P3Days: s.median_p2_p3_days != null ? Math.round(Number(s.median_p2_p3_days) * 10) / 10 : null,
+            medianP3P4Days: s.median_p3_p4_days != null ? Math.round(Number(s.median_p3_p4_days) * 10) / 10 : null,
+          },
+        },
+        clinics: (detailRows.rows as any[]).map(r => ({
+          clinicId:       r.clinic_id,
+          name:           r.name,
+          phaseNum:       Number(r.phase_num),
+          firstContactAt: r.phase1_at,
+          interestedAt:   r.phase2_at,
+          contractAt:     r.phase3_at,
+          activeAt:       r.phase4_at,
+          hasFlyers:      Boolean(r.has_flyers),
+          isCooperating:  Boolean(r.is_cooperating),
+          hasContract:    Boolean(r.has_contract),
+          latestStatusKey: r.latest_status_key ?? null,
+        })),
+      });
+    } catch (err: any) {
+      console.error("[clinic-kpis]", err?.message || err);
+      res.status(500).json({ error: "Failed to compute clinic KPIs" });
+    }
+  });
+
   app.get("/api/web-forms", requireAuth, async (_req, res) => {
     try { res.json(await storage.getWebForms()); }
     catch (e: any) { res.status(500).json({ error: e.message }); }

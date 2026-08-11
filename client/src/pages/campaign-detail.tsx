@@ -37,6 +37,7 @@ import CampaignPhasesTab from "@/components/campaigns/CampaignPhasesTab";
 import CampaignReportingPhases from "@/components/campaigns/CampaignReportingPhases";
 import CampaignAgentProductivity from "@/components/campaigns/CampaignAgentProductivity";
 import CampaignDataQuality from "@/components/campaigns/CampaignDataQuality";
+import CampaignClinicKPIs from "@/components/campaigns/CampaignClinicKPIs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7232,6 +7233,10 @@ export default function CampaignDetailPage() {
                 <ListChecks className="w-4 h-4 mr-2" />
                 {t.repQuality?.navLabel ?? "Data Quality"}
               </TabsTrigger>
+              <TabsTrigger value="report-clinic-kpis" data-testid="tab-report-clinic-kpis">
+                <Building2 className="w-4 h-4 mr-2" />
+                {t.clinicKpi?.navLabel ?? "Kliniky"}
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="report-overview" className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -7779,6 +7784,13 @@ export default function CampaignDetailPage() {
             </TabsContent>
             <TabsContent value="report-data-quality" className="space-y-4">
               <CampaignDataQuality
+                campaignId={campaignId}
+                campaignStartDate={campaign?.startDate}
+                campaignEndDate={campaign?.endDate}
+              />
+            </TabsContent>
+            <TabsContent value="report-clinic-kpis" className="space-y-4">
+              <CampaignClinicKPIs
                 campaignId={campaignId}
                 campaignStartDate={campaign?.startDate}
                 campaignEndDate={campaign?.endDate}
