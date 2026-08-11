@@ -7299,6 +7299,18 @@ export interface Translations {
     noData: string; pickRepFirst: string; noCalls: string; noEmails: string;
     analysisAnalyzed: string; analysisPending: string; analysisFailed: string;
   };
+  kpiSnapshots: {
+    navLabel: string; title: string;
+    selectRep: string; selectRepPlaceholder: string;
+    noSnapshots: string; pickRepFirst: string;
+    chartTitle: string;
+    kpi34Label: string; kpi35Label: string; kpi36Label: string; kpi37Label: string;
+    totalLabel: string; monthLabel: string;
+    lockedAt: string; notLocked: string;
+    generateBtn: string; generating: string; generated: string; generateError: string;
+    confirmLock: string; confirmLockDesc: string; confirm: string; cancel: string;
+    adminHint: string;
+  };
 }
 
 export const translations: Record<Locale, Translations> = {
@@ -14649,6 +14661,20 @@ export const translations: Record<Locale, Translations> = {
       noCalls: 'No call recordings found', noEmails: 'No emails found',
       analysisAnalyzed: 'Analyzed', analysisPending: 'Pending analysis', analysisFailed: 'Analysis failed',
     },
+    kpiSnapshots: {
+      navLabel: 'Trends', title: 'KPI Trends — monthly snapshots',
+      selectRep: 'Representative', selectRepPlaceholder: 'Choose a representative…',
+      noSnapshots: 'No snapshots yet. Lock a month to start tracking trends.',
+      pickRepFirst: 'Select a representative to view their KPI trend chart.',
+      chartTitle: 'KPI evolution by month',
+      kpi34Label: 'Approached', kpi35Label: 'Cooperating', kpi36Label: 'Flyers', kpi37Label: 'Contract',
+      totalLabel: 'Assigned clinics', monthLabel: 'Month',
+      lockedAt: 'Locked', notLocked: 'Not locked — click Generate to freeze',
+      generateBtn: 'Lock month', generating: 'Generating…', generated: 'Snapshot saved', generateError: 'Generation failed',
+      confirmLock: 'Lock snapshot for', confirmLockDesc: 'This will freeze KPI values for the selected month. Any existing snapshot will be overwritten.',
+      confirm: 'Lock', cancel: 'Cancel',
+      adminHint: 'Generating snapshots requires admin / manager role',
+    },
 
   },
   sk: {
@@ -21934,6 +21960,20 @@ export const translations: Record<Locale, Translations> = {
       noCalls: 'Žiadne nahrávky hovorov', noEmails: 'Žiadne emaily',
       analysisAnalyzed: 'Analyzovaný', analysisPending: 'Čaká na analýzu', analysisFailed: 'Analýza zlyhala',
     },
+    kpiSnapshots: {
+      navLabel: 'Trendy', title: 'KPI trendy — mesačné uzávierky',
+      selectRep: 'Reprezentant', selectRepPlaceholder: 'Vyber reprezentanta…',
+      noSnapshots: 'Žiadne snapshoty. Zamkni mesiac a začni sledovať trendy.',
+      pickRepFirst: 'Vyber reprezentanta pre zobrazenie trendu KPI.',
+      chartTitle: 'Vývoj KPI po mesiacoch',
+      kpi34Label: 'Oslovené', kpi35Label: 'Spolupracujú', kpi36Label: 'Letáky', kpi37Label: 'Zmluva',
+      totalLabel: 'Priradených kliník', monthLabel: 'Mesiac',
+      lockedAt: 'Zamknuté', notLocked: 'Nezamknuté — klikni Uzamknúť',
+      generateBtn: 'Uzamknúť mesiac', generating: 'Generujem…', generated: 'Snapshot uložený', generateError: 'Chyba pri generovaní',
+      confirmLock: 'Uzamknúť snapshot pre', confirmLockDesc: 'Táto akcia zamrazí KPI hodnoty pre zvolený mesiac. Existujúci snapshot bude prepísaný.',
+      confirm: 'Uzamknúť', cancel: 'Zrušiť',
+      adminHint: 'Generovanie snapshotov vyžaduje rolu admin / manažér',
+    },
 
   },
   cs: {
@@ -29145,6 +29185,20 @@ export const translations: Record<Locale, Translations> = {
       noCalls: 'Žádné nahrávky hovorů', noEmails: 'Žádné e-maily',
       analysisAnalyzed: 'Analyzován', analysisPending: 'Čeká na analýzu', analysisFailed: 'Analýza selhala',
     },
+    kpiSnapshots: {
+      navLabel: 'Trendy', title: 'KPI trendy — měsíční uzávěrky',
+      selectRep: 'Reprezentant', selectRepPlaceholder: 'Vyberte reprezentanta…',
+      noSnapshots: 'Žádné snapshoty. Uzamkněte měsíc pro sledování trendů.',
+      pickRepFirst: 'Vyberte reprezentanta pro zobrazení trendu KPI.',
+      chartTitle: 'Vývoj KPI po měsících',
+      kpi34Label: 'Osloveni', kpi35Label: 'Spolupracují', kpi36Label: 'Letáky', kpi37Label: 'Smlouva',
+      totalLabel: 'Přiřazených klinik', monthLabel: 'Měsíc',
+      lockedAt: 'Uzamčeno', notLocked: 'Neuzamčeno — klikněte Uzamknout',
+      generateBtn: 'Uzamknout měsíc', generating: 'Generuji…', generated: 'Snapshot uložen', generateError: 'Chyba při generování',
+      confirmLock: 'Uzamknout snapshot pro', confirmLockDesc: 'Tato akce zmrazí hodnoty KPI pro zvolený měsíc. Existující snapshot bude přepsán.',
+      confirm: 'Uzamknout', cancel: 'Zrušit',
+      adminHint: 'Generování snapshotů vyžaduje roli admin / manažer',
+    },
 
   },
   hu: {
@@ -36316,6 +36370,20 @@ export const translations: Record<Locale, Translations> = {
       noCalls: 'Nincsenek hívásfelvételek', noEmails: 'Nincsenek e-mailek',
       analysisAnalyzed: 'Elemzett', analysisPending: 'Elemzésre vár', analysisFailed: 'Elemzés sikertelen',
     },
+    kpiSnapshots: {
+      navLabel: 'Trendek', title: 'KPI trendek — havi pillanatképek',
+      selectRep: 'Képviselő', selectRepPlaceholder: 'Válasszon képviselőt…',
+      noSnapshots: 'Nincsenek pillanatképek. Zárolja a hónapot a trendek nyomon követéséhez.',
+      pickRepFirst: 'Válasszon képviselőt a KPI trend megtekintéséhez.',
+      chartTitle: 'KPI alakulása hónapok szerint',
+      kpi34Label: 'Megkeresett', kpi35Label: 'Együttműköd.', kpi36Label: 'Szórólapok', kpi37Label: 'Szerződés',
+      totalLabel: 'Hozzárendelt klinikák', monthLabel: 'Hónap',
+      lockedAt: 'Zárolva', notLocked: 'Nincs zárolva — kattintson a Zárolásra',
+      generateBtn: 'Hónap zárolása', generating: 'Generálás…', generated: 'Pillanatkép mentve', generateError: 'Generálás sikertelen',
+      confirmLock: 'Pillanatkép zárolása ehhez:', confirmLockDesc: 'Ez a KPI értékeket a kiválasztott hónapra rögzíti. A meglévő pillanatkép felülíródik.',
+      confirm: 'Zárolás', cancel: 'Mégse',
+      adminHint: 'A pillanatképek generálásához admin / vezető szerepkör szükséges',
+    },
 
   },
   ro: {
@@ -43406,6 +43474,20 @@ export const translations: Record<Locale, Translations> = {
       noData: 'Nicio comunicare pentru criteriile selectate', pickRepFirst: 'Selectați un reprezentant și o perioadă pentru a revizui comunicarea',
       noCalls: 'Nicio înregistrare de apel', noEmails: 'Niciun e-mail',
       analysisAnalyzed: 'Analizat', analysisPending: 'Analiză în așteptare', analysisFailed: 'Analiză eșuată',
+    },
+    kpiSnapshots: {
+      navLabel: 'Tendințe', title: 'Tendințe KPI — instantanee lunare',
+      selectRep: 'Reprezentant', selectRepPlaceholder: 'Alegeți un reprezentant…',
+      noSnapshots: 'Niciun instantaneu. Blocați o lună pentru a urmări tendințele.',
+      pickRepFirst: 'Selectați un reprezentant pentru a vedea graficul de tendințe KPI.',
+      chartTitle: 'Evoluția KPI pe luni',
+      kpi34Label: 'Contactate', kpi35Label: 'Cooperare', kpi36Label: 'Pliante', kpi37Label: 'Contract',
+      totalLabel: 'Clinici atribuite', monthLabel: 'Lună',
+      lockedAt: 'Blocat', notLocked: 'Neblocat — faceți clic pe Blocare',
+      generateBtn: 'Blocare lună', generating: 'Se generează…', generated: 'Instantaneu salvat', generateError: 'Generare eșuată',
+      confirmLock: 'Blocare instantaneu pentru', confirmLockDesc: 'Aceasta va bloca valorile KPI pentru luna selectată. Instantaneul existent va fi suprascris.',
+      confirm: 'Blocare', cancel: 'Anulare',
+      adminHint: 'Generarea instantaneelor necesită rol de admin / manager',
     },
 
   },
@@ -50500,6 +50582,20 @@ export const translations: Record<Locale, Translations> = {
       noCalls: 'Nessuna registrazione trovata', noEmails: 'Nessuna email trovata',
       analysisAnalyzed: 'Analizzato', analysisPending: 'In attesa di analisi', analysisFailed: 'Analisi fallita',
     },
+    kpiSnapshots: {
+      navLabel: 'Tendenze', title: 'Tendenze KPI — snapshot mensili',
+      selectRep: 'Rappresentante', selectRepPlaceholder: 'Scegli un rappresentante…',
+      noSnapshots: 'Nessuno snapshot. Blocca un mese per iniziare a tracciare le tendenze.',
+      pickRepFirst: 'Seleziona un rappresentante per visualizzare il grafico delle tendenze KPI.',
+      chartTitle: 'Evoluzione KPI per mese',
+      kpi34Label: 'Contattate', kpi35Label: 'Cooperazione', kpi36Label: 'Volantini', kpi37Label: 'Contratto',
+      totalLabel: 'Cliniche assegnate', monthLabel: 'Mese',
+      lockedAt: 'Bloccato', notLocked: 'Non bloccato — clicca Blocca',
+      generateBtn: 'Blocca mese', generating: 'Generazione…', generated: 'Snapshot salvato', generateError: 'Generazione fallita',
+      confirmLock: 'Blocca snapshot per', confirmLockDesc: "Questa azione bloccherà i valori KPI per il mese selezionato. Lo snapshot esistente verrà sovrascritto.",
+      confirm: 'Blocca', cancel: 'Annulla',
+      adminHint: 'La generazione degli snapshot richiede il ruolo admin / manager',
+    },
 
   },
   de: {
@@ -57578,6 +57674,20 @@ export const translations: Record<Locale, Translations> = {
       noData: 'Keine Kommunikation für die ausgewählten Kriterien', pickRepFirst: 'Wählen Sie einen Vertreter und einen Zeitraum aus, um die Kommunikation zu überprüfen',
       noCalls: 'Keine Anrufaufzeichnungen gefunden', noEmails: 'Keine E-Mails gefunden',
       analysisAnalyzed: 'Analysiert', analysisPending: 'Analyse ausstehend', analysisFailed: 'Analyse fehlgeschlagen',
+    },
+    kpiSnapshots: {
+      navLabel: 'Trends', title: 'KPI-Trends — monatliche Snapshots',
+      selectRep: 'Vertreter', selectRepPlaceholder: 'Vertreter auswählen…',
+      noSnapshots: 'Keine Snapshots. Sperren Sie einen Monat, um Trends zu verfolgen.',
+      pickRepFirst: 'Wählen Sie einen Vertreter, um das KPI-Trend-Diagramm anzuzeigen.',
+      chartTitle: 'KPI-Entwicklung nach Monaten',
+      kpi34Label: 'Kontaktiert', kpi35Label: 'Kooperation', kpi36Label: 'Flyer', kpi37Label: 'Vertrag',
+      totalLabel: 'Zugewiesene Kliniken', monthLabel: 'Monat',
+      lockedAt: 'Gesperrt', notLocked: 'Nicht gesperrt — klicken Sie auf Sperren',
+      generateBtn: 'Monat sperren', generating: 'Wird generiert…', generated: 'Snapshot gespeichert', generateError: 'Generierung fehlgeschlagen',
+      confirmLock: 'Snapshot sperren für', confirmLockDesc: 'Dadurch werden die KPI-Werte für den ausgewählten Monat eingefroren. Ein vorhandener Snapshot wird überschrieben.',
+      confirm: 'Sperren', cancel: 'Abbrechen',
+      adminHint: 'Das Generieren von Snapshots erfordert die Rolle Admin / Manager',
     },
 
   },

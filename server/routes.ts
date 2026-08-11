@@ -50710,6 +50710,145 @@ Return ONLY the JSON object.`
     }
   });
 
+  // ── KPI Snapshot endpoints ───────────────────────────────────────────────────
+
+  // GET /api/representative-performance/kpi-snapshots
+  // Returns all locked monthly snapshots for a rep, grouped by year+month.
+  app.get("/api/representative-performance/kpi-snapshots", requireAuth, async (req, res) => {
+    try {
+      const sessionUser = req.session.user;
+      if (!sessionUser || (sessionUser.role !== "admin" && sessionUser.role !== "manager")) {
+        return res.status(403).json({ error: "Admin or manager required" });
+      }
+      const { representativeId, campaignId } = req.query as Record<string, string>;
+      if (!representativeId) return res.status(400).json({ error: "representativeId is required" });
+
+      const rows = await db.execute(sql`
+        SELECT year, month, kpi_key, value, numerator, denominator, locked_at, created_by
+        FROM representative_kpi_snapshots
+        WHERE representative_id = ${representativeId}
+          AND (${campaignId ?? null}::varchar IS NULL OR campaign_id = ${campaignId ?? null}::varchar)
+        ORDER BY year ASC, month ASC, kpi_key ASC
+      `);
+
+      // Group by year+month
+      const grouped: Record<string, any> = {};
+      for (const r of rows.rows as any[]) {
+        const key = `${r.year}-${String(r.month).padStart(2, "0")}`;
+        if (!grouped[key]) {
+          grouped[key] = {
+            year: Number(r.year),
+            month: Number(r.month),
+            lockedAt: r.locked_at,
+            kpis: {},
+          };
+        }
+        grouped[key].kpis[r.kpi_key] = {
+          value: r.value != null ? Number(r.value) : null,
+          numerator: r.numerator != null ? Number(r.numerator) : null,
+          denominator: r.denominator != null ? Number(r.denominator) : null,
+        };
+      }
+      res.json(Object.values(grouped));
+    } catch (err: any) {
+      console.error("[kpi-snapshots GET]", err?.message || err);
+      res.status(500).json({ error: "Failed to fetch KPI snapshots" });
+    }
+  });
+
+  // POST /api/representative-performance/kpi-snapshots/generate
+  // Computes and freezes KPI 3.4–3.7 for a given rep + year + month.
+  // Idempotent: existing rows for that rep/campaign/year/month are deleted first.
+  app.post("/api/representative-performance/kpi-snapshots/generate", requireAuth, async (req, res) => {
+    try {
+      const sessionUser = req.session.user;
+      if (!sessionUser || (sessionUser.role !== "admin" && sessionUser.role !== "manager")) {
+        return res.status(403).json({ error: "Admin or manager required" });
+      }
+      const { representativeId, campaignId, year, month } = req.body as Record<string, any>;
+      if (!representativeId || !year || !month) {
+        return res.status(400).json({ error: "representativeId, year, month are required" });
+      }
+      const y = Number(year);
+      const m = Number(month);
+      if (isNaN(y) || isNaN(m) || m < 1 || m > 12) {
+        return res.status(400).json({ error: "Invalid year or month" });
+      }
+
+      // Month boundaries
+      const fromDate = new Date(y, m - 1, 1, 0, 0, 0, 0);
+      const toDate   = new Date(y, m, 0, 23, 59, 59, 999); // last day of month
+
+      // Run the same aggregation as /clinic-kpis but scoped to this month
+      const summaryRows = await db.execute(sql`
+        WITH rep_clinics AS (
+          SELECT cra.clinic_id
+          FROM clinic_representative_assignments cra
+          WHERE cra.user_id = ${representativeId} AND cra.valid_to IS NULL
+        ),
+        phases AS (
+          SELECT
+            rc.clinic_id,
+            MIN(ccs.confirmed_at) AS phase1_at,
+            BOOL_OR(ccs.status_key = 'flyers_accepted')                              AS has_flyers,
+            BOOL_OR(ccs.status_key IN ('retention_active','services_confirmed'))      AS is_cooperating,
+            BOOL_OR(ccs.status_key = 'contract_signed')                              AS has_contract
+          FROM rep_clinics rc
+          LEFT JOIN clinic_cooperation_statuses ccs ON ccs.clinic_id = rc.clinic_id
+          GROUP BY rc.clinic_id
+        )
+        SELECT
+          COUNT(*)::int                                                               AS total_assigned,
+          COUNT(*) FILTER (WHERE phase1_at IS NOT NULL)::int                         AS approached,
+          COUNT(*) FILTER (WHERE phase1_at BETWEEN ${fromDate} AND ${toDate})::int   AS new_in_period,
+          COUNT(*) FILTER (WHERE is_cooperating)::int                                AS cooperating,
+          COUNT(*) FILTER (WHERE has_flyers)::int                                    AS with_flyers,
+          COUNT(*) FILTER (WHERE has_contract)::int                                  AS with_contract
+        FROM phases
+      `);
+      const s = (summaryRows.rows[0] as any) || {};
+      const total       = Number(s.total_assigned)  || 0;
+      const approached  = Number(s.approached)      || 0;
+      const cooperating = Number(s.cooperating)     || 0;
+      const withFlyers  = Number(s.with_flyers)     || 0;
+      const withContract= Number(s.with_contract)   || 0;
+
+      const kpis = [
+        { key: "kpi_34", value: total > 0 ? approached  / total : 0, numerator: approached,   denominator: total },
+        { key: "kpi_35", value: total > 0 ? cooperating / total : 0, numerator: cooperating,  denominator: total },
+        { key: "kpi_36", value: total > 0 ? withFlyers  / total : 0, numerator: withFlyers,   denominator: total },
+        { key: "kpi_37", value: total > 0 ? withContract/ total : 0, numerator: withContract, denominator: total },
+      ];
+
+      // Delete existing rows for this rep+campaign+year+month (idempotent)
+      await db.execute(sql`
+        DELETE FROM representative_kpi_snapshots
+        WHERE representative_id = ${representativeId}
+          AND (${campaignId ?? null}::varchar IS NULL AND campaign_id IS NULL
+               OR campaign_id = ${campaignId ?? null}::varchar)
+          AND year = ${y} AND month = ${m}
+      `);
+
+      // Insert new rows
+      for (const kpi of kpis) {
+        await db.execute(sql`
+          INSERT INTO representative_kpi_snapshots
+            (representative_id, campaign_id, year, month, kpi_key, value, numerator, denominator, locked_at, created_by)
+          VALUES (
+            ${representativeId}, ${campaignId ?? null}, ${y}, ${m},
+            ${kpi.key}, ${kpi.value}, ${kpi.numerator}, ${kpi.denominator},
+            now(), ${sessionUser.id}
+          )
+        `);
+      }
+
+      res.json({ ok: true, year: y, month: m, kpis });
+    } catch (err: any) {
+      console.error("[kpi-snapshots generate]", err?.message || err);
+      res.status(500).json({ error: "Failed to generate KPI snapshot" });
+    }
+  });
+
   // GET /api/representative-performance/hospital-plan
   // Úloha 2: hospital contact plan (tasks with dueDate) vs reality (call_logs / visit_events).
   app.get("/api/representative-performance/hospital-plan", requireAuth, async (req, res) => {

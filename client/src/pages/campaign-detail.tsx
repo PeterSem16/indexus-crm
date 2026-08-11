@@ -40,6 +40,7 @@ import CampaignDataQuality from "@/components/campaigns/CampaignDataQuality";
 import CampaignClinicKPIs from "@/components/campaigns/CampaignClinicKPIs";
 import CampaignHospitalPlan from "@/components/campaigns/CampaignHospitalPlan";
 import CampaignCommunicationReview from "@/components/campaigns/CampaignCommunicationReview";
+import CampaignKpiSnapshots from "@/components/campaigns/CampaignKpiSnapshots";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7247,6 +7248,10 @@ export default function CampaignDetailPage() {
                 <MessageCircle className="w-4 h-4 mr-2" />
                 {t.commReview?.navLabel ?? "Komunikácia"}
               </TabsTrigger>
+              <TabsTrigger value="report-kpi-snapshots" data-testid="tab-report-kpi-snapshots">
+                <TrendingUp className="w-4 h-4 mr-2" />
+                {t.kpiSnapshots?.navLabel ?? "Trendy"}
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="report-overview" className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -7815,6 +7820,13 @@ export default function CampaignDetailPage() {
             </TabsContent>
             <TabsContent value="report-comm-review" className="space-y-4">
               <CampaignCommunicationReview
+                campaignId={campaignId}
+                campaignStartDate={campaign?.startDate}
+                campaignEndDate={campaign?.endDate}
+              />
+            </TabsContent>
+            <TabsContent value="report-kpi-snapshots" className="space-y-4">
+              <CampaignKpiSnapshots
                 campaignId={campaignId}
                 campaignStartDate={campaign?.startDate}
                 campaignEndDate={campaign?.endDate}

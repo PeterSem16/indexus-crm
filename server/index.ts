@@ -959,6 +959,32 @@ app.use((req, res, next) => {
     console.error('[migration] collections clinic_id error:', e.message);
   }
 
+  // representative_kpi_snapshots — frozen monthly KPI snapshots for trend chart
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS representative_kpi_snapshots (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        representative_id varchar NOT NULL,
+        campaign_id varchar,
+        year integer NOT NULL,
+        month integer NOT NULL,
+        country_code text,
+        kpi_key text NOT NULL,
+        value numeric,
+        numerator integer,
+        denominator integer,
+        locked_at timestamp NOT NULL DEFAULT now(),
+        created_by varchar,
+        UNIQUE(representative_id, campaign_id, year, month, kpi_key)
+      );
+      CREATE INDEX IF NOT EXISTS idx_rep_kpi_snapshots_lookup
+        ON representative_kpi_snapshots(representative_id, campaign_id, year, month);
+    `);
+    console.log('[migration] representative_kpi_snapshots ensured');
+  } catch (e: any) {
+    console.error('[migration] representative_kpi_snapshots error:', e.message);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
