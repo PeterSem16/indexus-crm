@@ -286,31 +286,44 @@ Nemocnice (hospitals):
   - priamo representativeId (priradený reprezentant)
 
 
-2. KĽÚČOVÉ MEDZERY, KTORÉ ANALÝZA ODHALILA
+2. STAV RIEŠENIA — PÔVODNÉ DÁTOVÉ MEDZERY
 ---------------------------------------------------------------------
-Medzera 1: Ambulancia nemá priradeného reprezentanta.
-  → ČIASTOČNE VYRIEŠENÉ (10. 8. 2026): tabuľka
-    clinic_representative_assignments zavedená; snapshot pri každom
-    novom odbere automatický. Chýba hromadné priradenie a backfill
-    historických odberov.
+Toto je prehľad piatich pôvodných medzier, ktoré analýza identifikovala.
+Väčšina je už vyriešená.
 
-Medzera 2: Statusy ambulancie sú len „aktuálny stav", bez histórie.
-  → VYRIEŠENÉ (10. 8. 2026): tabuľka clinic_cooperation_statuses
-    s plnou históriou zmien; základ pre KPI 3.4–3.7 a funnel.
+✅ Medzera 1 — Priradenie ambulancia → reprezentant  [VYRIEŠENÉ]
+   Tabuľka clinic_representative_assignments s históriou platnosti od–do.
+   Pri každom uložení odberu sa automaticky snapshotuje reprezentant
+   platný v čase odberu. Collection forma má auto-fill reprezentanta
+   po výbere ambulancie.
+   Zostatok: hromadné priradenie existujúcich ambulancií podľa
+   regiónu/okresu zatiaľ nebolo spustené — tab „Kliniky" preto
+   zobrazuje nuly. Riešenie: spustiť /bulk-assign (30–60 min práce).
 
-Medzera 3: Odber nevieme spoľahlivo priradiť k ambulancii.
-  → VYRIEŠENÉ (10. 8. 2026): stĺpec clinic_id v collections;
-    selector v collection forme s auto-fillom.
+✅ Medzera 2 — História statusov ambulancií  [VYRIEŠENÉ]
+   Tabuľka clinic_cooperation_statuses zaznamenáva každú zmenu
+   kanonického stavu s timestampom a autorom. Základ pre KPI 3.4–3.7,
+   funnel spolupráce a medián dní medzi fázami.
 
-Medzera 4: „Zaplatený" a marža.
-  → OTVORENÉ: závisí na manažérskych rozhodnutiach 5b a 5c.
-    Bez tohto rozhodnutia KPI 3.1–3.3 nie je možné implementovať.
+✅ Medzera 3 — Väzba odber → ambulancia  [VYRIEŠENÉ]
+   Stĺpec clinic_id v tabuľke collections. Vyhľadávateľný selector
+   v collection forme s filtrom podľa krajiny. Reťazec
+   odber → ambulancia → reprezentant je uzavretý pre všetky nové odbery.
 
-Medzera 5: Visit_events nie sú prepojené na users.
-  → OTVORENÉ: visit_events.collaboratorId nemá FK na users.id.
-    Návštevy zatiaľ nie sú zahrnuté v tab „Komunikácia".
-    Riešenie: doplniť prepojenie collaborator ↔ user (napr. cez
-    spoločný email) — závisí od rozhodnutia o dátovom modeli.
+⏳ Medzera 4 — Zdroj „zaplatené" a koeficient marže  [ČAKÁ NA ROZHODNUTIE]
+   KPI 3.1–3.3 (odbery, obrat, marža) sú technicky pripravené na
+   implementáciu, ale závisí na manažérskych rozhodnutiach:
+     b) odkiaľ systém vie, že klient zaplatil (faktúra vs. účtovníctvo)
+     c) aký nákladový koeficient použiť pre výpočet marže
+   Podrobnosti v kapitole 5.
+
+⏳ Medzera 5 — Prepojenie visit_events → users  [ČAKÁ NA ROZHODNUTIE]
+   Záznamy o návštevách v teréne (visit_events) sú prepojené cez
+   collaboratorId, nie userId — nemáme priamy FK na tabuľku users.
+   Dôsledok: návštevy zatiaľ nie sú v tab „Komunikácia" ani v GPS-
+   overenom odpracovanom čase (KPI 1.1).
+   Riešenie: doplniť stĺpec userId na tabuľku collaborators, alebo
+   admin mapovanie collaborator ↔ user cez email.
 
 
 3. NÁVRH VYHODNOCOVANIA PO JEDNOTLIVÝCH KPI
