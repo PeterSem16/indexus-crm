@@ -228,6 +228,15 @@ const SL: Record<string, Record<string, string>> = {
   aiSuggestCurrent:    { sk: "Aktuálny", en: "Current", cs: "Aktuální", hu: "Aktuális", ro: "Curent", it: "Attuale", de: "Aktuell" },
   aiSuggestProposed:   { sk: "Navrhnutý", en: "Proposed", cs: "Navrhovaný", hu: "Javasolt", ro: "Propus", it: "Proposto", de: "Vorgeschlagen" },
   aiSuggestUnchanged:  { sk: "(bez zmeny)", en: "(unchanged)", cs: "(beze změny)", hu: "(változatlan)", ro: "(neschimbat)", it: "(invariato)", de: "(unverändert)" },
+  // Canonical coverage panel
+  coverageTitle:   { sk: "Pokrytie kanonických kľúčov (KPI 3.4–3.7)", en: "Canonical key coverage (KPI 3.4–3.7)", cs: "Pokrytí kanonických klíčů (KPI 3.4–3.7)", hu: "Kanonikus kulcslefedettség (KPI 3.4–3.7)", ro: "Acoperire chei canonice (KPI 3.4–3.7)", it: "Copertura chiavi canoniche (KPI 3.4–3.7)", de: "Kanonikschlüssel-Abdeckung (KPI 3.4–3.7)" },
+  coverageAll:     { sk: "Všetky kľúče pokryté", en: "All keys covered", cs: "Všechny klíče pokryty", hu: "Minden kulcs lefedett", ro: "Toate cheile acoperite", it: "Tutte le chiavi coperte", de: "Alle Schlüssel abgedeckt" },
+  coveragePartial: { sk: "Čiastočné pokrytie", en: "Partial coverage", cs: "Částečné pokrytí", hu: "Részleges lefedettség", ro: "Acoperire parțială", it: "Copertura parziale", de: "Teilweise abgedeckt" },
+  coverageNone:    { sk: "Žiadne kanonické kľúče", en: "No canonical keys assigned", cs: "Žádné kanonické klíče", hu: "Nincsenek kanonikus kulcsok", ro: "Fără chei canonice", it: "Nessuna chiave canonica", de: "Keine kanonischen Schlüssel" },
+  coverageMissing: { sk: "Chýbajúce kľúče — KPI pre túto fázu budú nulové kým nie sú pokryté", en: "Missing keys — KPI for this phase will be zero until covered", cs: "Chybějící klíče — KPI pro tuto fázi bude nulové, dokud nejsou pokryty", hu: "Hiányzó kulcsok — a fázis KPI-ja nulla lesz, amíg nincs lefedve", ro: "Chei lipsă — KPI pentru această fază va fi zero până la acoperire", it: "Chiavi mancanti — i KPI per questa fase saranno zero finché non coperti", de: "Fehlende Schlüssel — KPI für diese Phase ist null bis zur Abdeckung" },
+  coverageOf:      { sk: "z", en: "of", cs: "z", hu: "/", ro: "din", it: "di", de: "von" },
+  coverageHide:    { sk: "Skryť", en: "Hide", cs: "Skrýt", hu: "Elrejtés", ro: "Ascunde", it: "Nascondi", de: "Ausblenden" },
+  coverageShow:    { sk: "Zobraziť detaily", en: "Show details", cs: "Zobrazit podrobnosti", hu: "Részletek mutatása", ro: "Afișare detalii", it: "Mostra dettagli", de: "Details anzeigen" },
   // Canonical clinic status key labels — used in builder dropdown (7 languages)
   csk_phaseAcq:      { sk: "Acquisition", en: "Acquisition", cs: "Acquisition", hu: "Acquisition", ro: "Acquisition", it: "Acquisition", de: "Acquisition" },
   csk_phaseCon:      { sk: "Contract", en: "Contract", cs: "Contract", hu: "Contract", ro: "Contract", it: "Contract", de: "Contract" },
@@ -3389,6 +3398,119 @@ function AddOptionForm({ campaignId, existingCount, onSaved, onCancel }: {
   );
 }
 
+// ── Canonical Coverage Panel ──────────────────────────────────────────────────
+function CanonicalCoveragePanel({ items, locale }: { items: StatusListItem[]; locale: string }) {
+  const [open, setOpen] = useState(false);
+
+  const coveredKeys = new Set(
+    items.map(i => i.canonicalClinicStatusKey).filter(Boolean) as string[]
+  );
+  const allKeyCount = CANONICAL_CLINIC_STATUS_GROUPS.reduce((s, g) => s + g.keys.length, 0);
+  const coveredCount = CANONICAL_CLINIC_STATUS_GROUPS.reduce(
+    (s, g) => s + g.keys.filter(k => coveredKeys.has(k.key)).length,
+    0
+  );
+  const missingByPhase = CANONICAL_CLINIC_STATUS_GROUPS.map(g => ({
+    phase: g.phase,
+    phaseLabelKey: g.phaseLabelKey,
+    color: g.color,
+    missingKeys: g.keys.filter(k => !coveredKeys.has(k.key)),
+  })).filter(g => g.missingKeys.length > 0);
+
+  const allCovered = coveredCount === allKeyCount;
+  const noneCovered = coveredCount === 0;
+
+  const badgeClass = allCovered
+    ? "bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700"
+    : noneCovered
+      ? "bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700"
+      : "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700";
+
+  const panelClass = allCovered
+    ? "border-green-200 dark:border-green-800 bg-green-50/60 dark:bg-green-950/20"
+    : noneCovered
+      ? "border-red-200 dark:border-red-800 bg-red-50/60 dark:bg-red-950/20"
+      : "border-amber-200 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/20";
+
+  const Icon = allCovered ? CircleCheck : CircleAlert;
+  const iconClass = allCovered
+    ? "text-green-600 dark:text-green-400"
+    : noneCovered
+      ? "text-red-600 dark:text-red-400"
+      : "text-amber-600 dark:text-amber-400";
+
+  const statusLabel = allCovered
+    ? sl("coverageAll", locale)
+    : noneCovered
+      ? sl("coverageNone", locale)
+      : sl("coveragePartial", locale);
+
+  return (
+    <div className={`rounded-lg border mb-3 overflow-hidden transition-colors ${panelClass}`}>
+      <button
+        type="button"
+        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:brightness-95 dark:hover:brightness-110 transition-all"
+        onClick={() => setOpen(o => !o)}
+      >
+        <Icon className={`h-3.5 w-3.5 shrink-0 ${iconClass}`} />
+        <span className={`text-xs font-semibold ${iconClass}`}>{sl("coverageTitle", locale)}</span>
+        <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${badgeClass}`}>
+          {coveredCount} {sl("coverageOf", locale)} {allKeyCount}
+        </span>
+        <span className={`text-[11px] font-medium ${iconClass}`}>{statusLabel}</span>
+        <span className="ml-auto">
+          {open
+            ? <ChevronUp className={`h-3.5 w-3.5 ${iconClass}`} />
+            : <ChevronDown className={`h-3.5 w-3.5 ${iconClass}`} />}
+        </span>
+      </button>
+
+      {open && !allCovered && (
+        <div className="px-3 pb-3 pt-0 border-t border-inherit">
+          <p className="text-[10px] text-muted-foreground mb-2 mt-2 italic">
+            {sl("coverageMissing", locale)}
+          </p>
+          <div className="flex flex-col gap-2">
+            {missingByPhase.map(group => (
+              <div key={group.phase}>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span
+                    className="inline-block w-2 h-2 rounded-full shrink-0"
+                    style={{ backgroundColor: group.color }}
+                  />
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                    {sl(group.phaseLabelKey, locale)}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {group.missingKeys.map(k => (
+                    <span
+                      key={k.key}
+                      className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded bg-background border border-dashed text-muted-foreground font-mono"
+                      title={k.key}
+                    >
+                      {sl(k.labelKey, locale)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {open && allCovered && (
+        <div className="px-3 pb-2 pt-1 border-t border-inherit">
+          <p className="text-[11px] text-green-700 dark:text-green-400 flex items-center gap-1">
+            <Check className="h-3 w-3" />
+            {sl("coverageAll", locale)}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }) {
   const { toast } = useToast();
   const { locale } = useI18n();
@@ -3735,6 +3857,8 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
           onCancel={() => setAddingItem(false)}
         />
       )}
+
+      <CanonicalCoveragePanel items={items} locale={locale} />
 
       {previewMode ? (
         <StatusListPreview items={items} locale={locale} />
