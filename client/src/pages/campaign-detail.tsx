@@ -36,6 +36,7 @@ import { ContactCriteriaBuilder, type PreviewCounts } from "@/components/contact
 import CampaignPhasesTab from "@/components/campaigns/CampaignPhasesTab";
 import CampaignReportingPhases from "@/components/campaigns/CampaignReportingPhases";
 import CampaignAgentProductivity from "@/components/campaigns/CampaignAgentProductivity";
+import CampaignDataQuality from "@/components/campaigns/CampaignDataQuality";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7227,6 +7228,10 @@ export default function CampaignDetailPage() {
                 <Gauge className="w-4 h-4 mr-2" />
                 {t.agentProductivity.title}
               </TabsTrigger>
+              <TabsTrigger value="report-data-quality" data-testid="tab-report-data-quality">
+                <ListChecks className="w-4 h-4 mr-2" />
+                {t.repQuality?.navLabel ?? "Data Quality"}
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="report-overview" className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -7771,6 +7776,12 @@ export default function CampaignDetailPage() {
             </TabsContent>
             <TabsContent value="report-productivity" className="space-y-4">
               <CampaignAgentProductivity campaignId={campaignId} campaignName={campaign?.name} />
+            </TabsContent>
+            <TabsContent value="report-data-quality" className="space-y-4">
+              <CampaignDataQuality
+                campaignStartDate={campaign?.startDate}
+                campaignEndDate={campaign?.endDate}
+              />
             </TabsContent>
           </Tabs>
         </TabsContent>

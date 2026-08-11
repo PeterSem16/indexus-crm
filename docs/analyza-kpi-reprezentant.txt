@@ -333,53 +333,7 @@ Back office
 nescroluje  v Status Engine (Nexus Pulse)
   - Jedna oficiálna sada statusov spolupráce (oslovená -> uzavretá ->
     spolupracuje/nespolupracuje; + akceptuje letáky; + zmluva
-    podpísaná), vypĺňaná koordinátorom/reprezentantom v Nexus Pulse.
-  - Každá zmena má timestamp + autora -> úplná história vývoja
-    spolupráce (funnel, časy prechodov).
-  - Polia na karte ambulancie (contractStatus, hasFlyers...) sa
-    synchronizujú ZO statusov, nie opačne — jeden zdroj pravdy.
-myslsl som v dokumente analyza-kpi-......
-  PRIRADENIE STATUSOV SPOLUPRÁCE K OTÁZKAM STATUS LISTU
-  (rozšírenie nastavení status listu v Mission)
-  - Problém dnes: otázky a možnosti v status liste sú voľný text —
-    systém nevie, že možnosť „áno, dáme letáky do čakárne" znamená
-    kanonický stav „AKCEPTUJE LETÁKY". Reporting by musel hádať
-    z textov, čo je krehké a nefunguje naprieč kampaňami/jazykmi.
-  - Návrh: v nastaveniach status listu (builder v Mission) pribudne
-    pri každej otázke, resp. pri každej možnosti odpovede, nové pole
-    „CHARAKTER STATUSU SPOLUPRÁCE" — výber z pevného číselníka
-    kanonických stavov, napr.:
-      * spolupráca: spolupracuje / nespolupracuje / v rokovaní
-      * letáky: akceptuje / neakceptuje
-      * zmluva: podpísaná / odmietnutá / zaslaná
-      * služby klientkám: bude poskytovať / nebude poskytovať
-      * fáza: oslovená / uzavretá
-      * (žiadny) — bežná otázka bez vplyvu na stav spolupráce
-  - Mapovanie robí manažér pri konfigurácii mission — jedna otázka
-    môže niesť aj viac charakterov (napr. definitívna možnosť
-    „spolupracuje + zmluva podpísaná").
-  - Vyhodnotenie: keď koordinátor v Nexus Pulse vyplní odpoveď
-    s priradeným charakterom, systém automaticky zapíše kanonický
-    stav spolupráce ambulancie (s timestampom a autorom z existujúcej
-    status histórie). KPI 3.4–3.7 sa potom počítajú výhradne z týchto
-    kanonických stavov — nezávisle od toho, ako je konkrétny status
-    list v kampani naformulovaný alebo v akom je jazyku.
-  - Bonus: rovnaké mapovanie funguje pre viac misií súčasne —
-    každá krajina/kampaň môže mať vlastné znenie otázok, ale
-    reporting je jednotný.
-  - Kontrola konfigurácie: report upozorní, ak mission nemá pokryté
-    všetky kanonické stavy (napr. žiadna otázka nemapuje „letáky"),
-    aby KPI 3.6 nevychádzalo prázdne omylom.
-
-4.4 Metriky vypĺňania status listu (kvalita dát) — PODROBNE
-  Zmysel: všetky KPI 3.4–3.7 stoja na tom, že status listy sú
-  vyplnené poctivo a včas. Tieto metriky merajú disciplínu
-  vypĺňania, nie výkon reprezentanta ako taký.
-
-  a) POKRYTIE (coverage)
-     Definícia: % kontaktovaných ambulancií, ktoré majú po kontakte
-     nastavený status.
-     Výpočet: čitateľ = počet ambulancií, kde po hovore (call_logs)
+    podpísaná), vypĺňaná koordinátoto data quality report mal byt umiestneny v mission - reporting 
      alebo návšteve (visit_events) pribudol záznam v status liste
      do 24 h (tolerancia 48 h); menovateľ = počet všetkých
      kontaktovaných ambulancií v období.

@@ -106,7 +106,6 @@ export function AppSidebar() {
     { title: "NEXUS Omni", url: "/email", icon: Network, testId: "nexus-omni", moduleKey: "email" },
     { title: "NEXUS Pulse", url: "/agent-workspace", icon: Zap, testId: "nexus-pulse", moduleKey: "nexusPulse" },
     { title: "NEXUS Missions", url: "/campaigns", icon: Target, testId: "nexus-missions", moduleKey: "campaigns" },
-    { title: t.repQuality?.navLabel ?? "Data Quality", url: "/representative-quality", icon: BarChart3, testId: "rep-quality", moduleKey: "reports" },
   ];
 
   const customerSubItems = [
