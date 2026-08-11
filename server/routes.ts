@@ -50901,6 +50901,23 @@ Return ONLY the JSON object.`
         LIMIT 100
       `);
 
+      // ── SMS messages sent/received by rep ────────────────────────────────────
+      const smsRows = await db.execute(sql`
+        SELECT
+          cm.id, cm.direction, cm.content, cm.recipient_phone,
+          cm.status, cm.ai_sentiment, cm.ai_alert_level,
+          cm.created_at, cm.sent_at, cm.customer_id,
+          h.name AS hospital_name, hosp2.name AS clinic_name
+        FROM communication_messages cm
+        LEFT JOIN hospitals h   ON h.id   = cm.customer_id
+        LEFT JOIN clinics hosp2 ON hosp2.id = cm.customer_id
+        WHERE cm.user_id = ${representativeId}
+          AND cm.type = 'sms'
+          AND cm.created_at BETWEEN ${fromDate} AND ${toDate}
+        ORDER BY cm.created_at DESC
+        LIMIT 200
+      `);
+
       const recordings = (recRows.rows as any[]).map(r => ({
         id:              r.id,
         callLogId:       r.call_log_id,
@@ -50920,18 +50937,31 @@ Return ONLY the JSON object.`
       }));
 
       const emails = (emailRows.rows as any[]).map(r => ({
-        id:           r.id,
-        direction:    r.direction,
-        subject:      r.subject ?? null,
-        contentExcerpt: (r.content ?? "").slice(0, 300),
+        id:             r.id,
+        direction:      r.direction,
+        subject:        r.subject ?? null,
+        content:        r.content ?? "",           // full raw content (HTML or plain)
         recipientEmail: r.recipient_email ?? null,
-        status:       r.status,
-        aiSentiment:  r.ai_sentiment ?? null,
-        aiAlertLevel: r.ai_alert_level ?? null,
+        status:         r.status,
+        aiSentiment:    r.ai_sentiment ?? null,
+        aiAlertLevel:   r.ai_alert_level ?? null,
         aiHasAngryTone: Boolean(r.ai_has_angry_tone),
-        contactName:  r.hospital_name ?? r.clinic_name ?? null,
-        sentAt:       r.sent_at ?? r.created_at,
-        createdAt:    r.created_at,
+        contactName:    r.hospital_name ?? r.clinic_name ?? null,
+        sentAt:         r.sent_at ?? r.created_at,
+        createdAt:      r.created_at,
+      }));
+
+      const sms = (smsRows.rows as any[]).map(r => ({
+        id:             r.id,
+        direction:      r.direction,
+        content:        r.content ?? "",
+        recipientPhone: r.recipient_phone ?? null,
+        status:         r.status,
+        aiSentiment:    r.ai_sentiment ?? null,
+        aiAlertLevel:   r.ai_alert_level ?? null,
+        contactName:    r.hospital_name ?? r.clinic_name ?? null,
+        sentAt:         r.sent_at ?? r.created_at,
+        createdAt:      r.created_at,
       }));
 
       const summary = {
@@ -50939,6 +50969,7 @@ Return ONLY the JSON object.`
         analyzedCalls: recordings.filter(r => r.analysisStatus === "analyzed").length,
         totalEmails:   emails.length,
         alertEmails:   emails.filter(e => e.aiAlertLevel && e.aiAlertLevel !== "none").length,
+        totalSms:      sms.length,
         sentimentBreakdown: {
           positive: recordings.filter(r => r.sentiment === "positive").length,
           neutral:  recordings.filter(r => r.sentiment === "neutral").length,
@@ -50946,7 +50977,7 @@ Return ONLY the JSON object.`
         },
       };
 
-      res.json({ summary, recordings, emails });
+      res.json({ summary, recordings, emails, sms });
     } catch (err: any) {
       console.error("[communication-review]", err?.message || err);
       res.status(500).json({ error: "Failed to fetch communication review" });

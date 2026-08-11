@@ -7294,6 +7294,8 @@ export interface Translations {
     randomSample: string; showingOf: string; resetSample: string;
     sectionCalls: string; sectionEmails: string;
     callWith: string; emailSubject: string; noSubject: string;
+    filterSms: string; sectionSms: string; totalSms: string; noSms: string;
+    showFullEmail: string; closeEmail: string;
     noData: string; pickRepFirst: string; noCalls: string; noEmails: string;
     analysisAnalyzed: string; analysisPending: string; analysisFailed: string;
   };
@@ -14641,6 +14643,8 @@ export const translations: Record<Locale, Translations> = {
       randomSample: 'Random sample (10)', showingOf: 'of', resetSample: 'Show all',
       sectionCalls: 'Call recordings', sectionEmails: 'Emails',
       callWith: 'Call', emailSubject: 'Subject', noSubject: '(no subject)',
+      filterSms: 'SMS', sectionSms: 'SMS messages', totalSms: 'SMS', noSms: 'No SMS messages found',
+      showFullEmail: 'Show full email', closeEmail: 'Close',
       noData: 'No communication found for the selected criteria', pickRepFirst: 'Select a representative and period to review their communication',
       noCalls: 'No call recordings found', noEmails: 'No emails found',
       analysisAnalyzed: 'Analyzed', analysisPending: 'Pending analysis', analysisFailed: 'Analysis failed',
@@ -21924,6 +21928,8 @@ export const translations: Record<Locale, Translations> = {
       randomSample: 'Náhodná vzorka (10)', showingOf: 'z', resetSample: 'Zobraziť všetko',
       sectionCalls: 'Nahrávky hovorov', sectionEmails: 'Emaily',
       callWith: 'Hovor', emailSubject: 'Predmet', noSubject: '(bez predmetu)',
+      filterSms: 'SMS', sectionSms: 'SMS správy', totalSms: 'SMS', noSms: 'Žiadne SMS správy',
+      showFullEmail: 'Zobraziť celý email', closeEmail: 'Zavrieť',
       noData: 'Žiadna komunikácia pre zvolené kritériá', pickRepFirst: 'Vyber reprezentanta a obdobie pre review komunikácie',
       noCalls: 'Žiadne nahrávky hovorov', noEmails: 'Žiadne emaily',
       analysisAnalyzed: 'Analyzovaný', analysisPending: 'Čaká na analýzu', analysisFailed: 'Analýza zlyhala',
@@ -29133,6 +29139,8 @@ export const translations: Record<Locale, Translations> = {
       randomSample: 'Náhodný vzorek (10)', showingOf: 'z', resetSample: 'Zobrazit vše',
       sectionCalls: 'Nahrávky hovorů', sectionEmails: 'E-maily',
       callWith: 'Hovor', emailSubject: 'Předmět', noSubject: '(bez předmětu)',
+      filterSms: 'SMS', sectionSms: 'SMS zprávy', totalSms: 'SMS', noSms: 'Žádné SMS zprávy',
+      showFullEmail: 'Zobrazit celý e-mail', closeEmail: 'Zavřít',
       noData: 'Žádná komunikace pro zvolená kritéria', pickRepFirst: 'Vyberte reprezentanta a období pro review komunikace',
       noCalls: 'Žádné nahrávky hovorů', noEmails: 'Žádné e-maily',
       analysisAnalyzed: 'Analyzován', analysisPending: 'Čeká na analýzu', analysisFailed: 'Analýza selhala',
@@ -36302,6 +36310,8 @@ export const translations: Record<Locale, Translations> = {
       randomSample: 'Véletlen minta (10)', showingOf: '/', resetSample: 'Összes megjelenítése',
       sectionCalls: 'Hívásfelvételek', sectionEmails: 'E-mailek',
       callWith: 'Hívás', emailSubject: 'Tárgy', noSubject: '(nincs tárgy)',
+      filterSms: 'SMS', sectionSms: 'SMS üzenetek', totalSms: 'SMS', noSms: 'Nincsenek SMS üzenetek',
+      showFullEmail: 'Teljes e-mail megjelenítése', closeEmail: 'Bezárás',
       noData: 'Nincs kommunikáció a kiválasztott feltételekhez', pickRepFirst: 'Válasszon képviselőt és időszakot a kommunikáció áttekintéséhez',
       noCalls: 'Nincsenek hívásfelvételek', noEmails: 'Nincsenek e-mailek',
       analysisAnalyzed: 'Elemzett', analysisPending: 'Elemzésre vár', analysisFailed: 'Elemzés sikertelen',
@@ -43391,6 +43401,8 @@ export const translations: Record<Locale, Translations> = {
       randomSample: 'Eșantion aleatoriu (10)', showingOf: 'din', resetSample: 'Afișați toate',
       sectionCalls: 'Înregistrări apeluri', sectionEmails: 'E-mailuri',
       callWith: 'Apel', emailSubject: 'Subiect', noSubject: '(fără subiect)',
+      filterSms: 'SMS', sectionSms: 'Mesaje SMS', totalSms: 'SMS', noSms: 'Niciun mesaj SMS',
+      showFullEmail: 'Afișați e-mailul complet', closeEmail: 'Închide',
       noData: 'Nicio comunicare pentru criteriile selectate', pickRepFirst: 'Selectați un reprezentant și o perioadă pentru a revizui comunicarea',
       noCalls: 'Nicio înregistrare de apel', noEmails: 'Niciun e-mail',
       analysisAnalyzed: 'Analizat', analysisPending: 'Analiză în așteptare', analysisFailed: 'Analiză eșuată',
@@ -50482,6 +50494,8 @@ export const translations: Record<Locale, Translations> = {
       randomSample: 'Campione casuale (10)', showingOf: 'di', resetSample: 'Mostra tutto',
       sectionCalls: 'Registrazioni chiamate', sectionEmails: 'Email',
       callWith: 'Chiamata', emailSubject: 'Oggetto', noSubject: '(nessun oggetto)',
+      filterSms: 'SMS', sectionSms: 'Messaggi SMS', totalSms: 'SMS', noSms: 'Nessun messaggio SMS trovato',
+      showFullEmail: 'Mostra email completa', closeEmail: 'Chiudi',
       noData: 'Nessuna comunicazione per i criteri selezionati', pickRepFirst: 'Seleziona un rappresentante e un periodo per rivedere le comunicazioni',
       noCalls: 'Nessuna registrazione trovata', noEmails: 'Nessuna email trovata',
       analysisAnalyzed: 'Analizzato', analysisPending: 'In attesa di analisi', analysisFailed: 'Analisi fallita',
@@ -57559,6 +57573,8 @@ export const translations: Record<Locale, Translations> = {
       randomSample: 'Zufällige Stichprobe (10)', showingOf: 'von', resetSample: 'Alle anzeigen',
       sectionCalls: 'Anrufaufzeichnungen', sectionEmails: 'E-Mails',
       callWith: 'Anruf', emailSubject: 'Betreff', noSubject: '(kein Betreff)',
+      filterSms: 'SMS', sectionSms: 'SMS-Nachrichten', totalSms: 'SMS', noSms: 'Keine SMS-Nachrichten gefunden',
+      showFullEmail: 'Vollständige E-Mail anzeigen', closeEmail: 'Schließen',
       noData: 'Keine Kommunikation für die ausgewählten Kriterien', pickRepFirst: 'Wählen Sie einen Vertreter und einen Zeitraum aus, um die Kommunikation zu überprüfen',
       noCalls: 'Keine Anrufaufzeichnungen gefunden', noEmails: 'Keine E-Mails gefunden',
       analysisAnalyzed: 'Analysiert', analysisPending: 'Analyse ausstehend', analysisFailed: 'Analyse fehlgeschlagen',
