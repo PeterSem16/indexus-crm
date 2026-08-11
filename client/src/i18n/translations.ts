@@ -7282,6 +7282,21 @@ export interface Translations {
     noData: string; pickRepFirst: string; noTasks: string;
     contactWindowNote: string;
   };
+  commReview: {
+    navLabel: string; title: string;
+    selectRep: string; selectRepPlaceholder: string;
+    selectPeriod: string; presetThisMonth: string; presetLastMonth: string; presetLast3: string; presetCampaign: string; presetThisYear: string;
+    filterAll: string; filterCalls: string; filterEmails: string;
+    totalCalls: string; analyzedCalls: string; totalEmails: string; alertEmails: string;
+    sentimentPositive: string; sentimentNeutral: string; sentimentNegative: string; sentimentUnknown: string;
+    qualityScore: string; duration: string; noSummary: string; noTranscription: string;
+    directionOut: string; directionIn: string;
+    randomSample: string; showingOf: string; resetSample: string;
+    sectionCalls: string; sectionEmails: string;
+    callWith: string; emailSubject: string; noSubject: string;
+    noData: string; pickRepFirst: string; noCalls: string; noEmails: string;
+    analysisAnalyzed: string; analysisPending: string; analysisFailed: string;
+  };
 }
 
 export const translations: Record<Locale, Translations> = {
@@ -14614,6 +14629,22 @@ export const translations: Record<Locale, Translations> = {
       noTasks: 'No tasks with deadlines linked to hospitals found for this representative in the selected period.',
       contactWindowNote: 'Contact matched within ±3 days of the deadline',
     },
+    commReview: {
+      navLabel: 'Communication', title: 'Communication review',
+      selectRep: 'Representative', selectRepPlaceholder: 'Choose a representative…',
+      selectPeriod: 'Period', presetThisMonth: 'This month', presetLastMonth: 'Last month', presetLast3: 'Last 3 months', presetCampaign: 'Campaign dates', presetThisYear: 'This year',
+      filterAll: 'All', filterCalls: 'Calls', filterEmails: 'Emails',
+      totalCalls: 'Calls', analyzedCalls: 'Analyzed', totalEmails: 'Emails', alertEmails: 'Alerts',
+      sentimentPositive: 'Positive', sentimentNeutral: 'Neutral', sentimentNegative: 'Negative', sentimentUnknown: 'Not analyzed',
+      qualityScore: 'Quality', duration: 'Duration', noSummary: 'No AI summary yet', noTranscription: 'No transcription',
+      directionOut: 'Outbound', directionIn: 'Inbound',
+      randomSample: 'Random sample (10)', showingOf: 'of', resetSample: 'Show all',
+      sectionCalls: 'Call recordings', sectionEmails: 'Emails',
+      callWith: 'Call', emailSubject: 'Subject', noSubject: '(no subject)',
+      noData: 'No communication found for the selected criteria', pickRepFirst: 'Select a representative and period to review their communication',
+      noCalls: 'No call recordings found', noEmails: 'No emails found',
+      analysisAnalyzed: 'Analyzed', analysisPending: 'Pending analysis', analysisFailed: 'Analysis failed',
+    },
 
   },
   sk: {
@@ -21881,6 +21912,22 @@ export const translations: Record<Locale, Translations> = {
       noTasks: 'Pre tohto reprezentanta neboli nájdené žiadne úlohy s termínom napojené na nemocnice v zvolenom období.',
       contactWindowNote: 'Kontakt spárovaný v okne ±3 dni od termínu',
     },
+    commReview: {
+      navLabel: 'Komunikácia', title: 'Review komunikácie',
+      selectRep: 'Reprezentant', selectRepPlaceholder: 'Vyber reprezentanta…',
+      selectPeriod: 'Obdobie', presetThisMonth: 'Tento mesiac', presetLastMonth: 'Minulý mesiac', presetLast3: 'Posledné 3 mesiace', presetCampaign: 'Dátumy kampane', presetThisYear: 'Tento rok',
+      filterAll: 'Všetko', filterCalls: 'Hovory', filterEmails: 'Emaily',
+      totalCalls: 'Hovorov', analyzedCalls: 'Analyzovaných', totalEmails: 'Emailov', alertEmails: 'Upozornenia',
+      sentimentPositive: 'Pozitívny', sentimentNeutral: 'Neutrálny', sentimentNegative: 'Negatívny', sentimentUnknown: 'Neanalyzovaný',
+      qualityScore: 'Kvalita', duration: 'Trvanie', noSummary: 'AI súhrn čaká', noTranscription: 'Bez prepisu',
+      directionOut: 'Odchádzajúci', directionIn: 'Prichádzajúci',
+      randomSample: 'Náhodná vzorka (10)', showingOf: 'z', resetSample: 'Zobraziť všetko',
+      sectionCalls: 'Nahrávky hovorov', sectionEmails: 'Emaily',
+      callWith: 'Hovor', emailSubject: 'Predmet', noSubject: '(bez predmetu)',
+      noData: 'Žiadna komunikácia pre zvolené kritériá', pickRepFirst: 'Vyber reprezentanta a obdobie pre review komunikácie',
+      noCalls: 'Žiadne nahrávky hovorov', noEmails: 'Žiadne emaily',
+      analysisAnalyzed: 'Analyzovaný', analysisPending: 'Čaká na analýzu', analysisFailed: 'Analýza zlyhala',
+    },
 
   },
   cs: {
@@ -29074,6 +29121,22 @@ export const translations: Record<Locale, Translations> = {
       noTasks: 'Pro tohoto reprezentanta nebyly nalezeny žádné úkoly s termínem napojené na nemocnice ve zvoleném období.',
       contactWindowNote: 'Kontakt spárován v okně ±3 dny od termínu',
     },
+    commReview: {
+      navLabel: 'Komunikace', title: 'Review komunikace',
+      selectRep: 'Reprezentant', selectRepPlaceholder: 'Vyberte reprezentanta…',
+      selectPeriod: 'Období', presetThisMonth: 'Tento měsíc', presetLastMonth: 'Minulý měsíc', presetLast3: 'Poslední 3 měsíce', presetCampaign: 'Data kampaně', presetThisYear: 'Letošní rok',
+      filterAll: 'Vše', filterCalls: 'Hovory', filterEmails: 'E-maily',
+      totalCalls: 'Hovorů', analyzedCalls: 'Analyzovaných', totalEmails: 'E-mailů', alertEmails: 'Upozornění',
+      sentimentPositive: 'Pozitivní', sentimentNeutral: 'Neutrální', sentimentNegative: 'Negativní', sentimentUnknown: 'Neanalyzováno',
+      qualityScore: 'Kvalita', duration: 'Délka', noSummary: 'AI shrnutí čeká', noTranscription: 'Bez přepisu',
+      directionOut: 'Odchozí', directionIn: 'Příchozí',
+      randomSample: 'Náhodný vzorek (10)', showingOf: 'z', resetSample: 'Zobrazit vše',
+      sectionCalls: 'Nahrávky hovorů', sectionEmails: 'E-maily',
+      callWith: 'Hovor', emailSubject: 'Předmět', noSubject: '(bez předmětu)',
+      noData: 'Žádná komunikace pro zvolená kritéria', pickRepFirst: 'Vyberte reprezentanta a období pro review komunikace',
+      noCalls: 'Žádné nahrávky hovorů', noEmails: 'Žádné e-maily',
+      analysisAnalyzed: 'Analyzován', analysisPending: 'Čeká na analýzu', analysisFailed: 'Analýza selhala',
+    },
 
   },
   hu: {
@@ -36227,6 +36290,22 @@ export const translations: Record<Locale, Translations> = {
       noTasks: 'Nem találhatók határidőhöz kötött, kórházhoz kapcsolt feladatok ehhez a képviselőhöz a kiválasztott időszakban.',
       contactWindowNote: 'A kapcsolat ±3 napon belül párosítva a határidőhöz',
     },
+    commReview: {
+      navLabel: 'Kommunikáció', title: 'Kommunikáció áttekintése',
+      selectRep: 'Képviselő', selectRepPlaceholder: 'Válasszon képviselőt…',
+      selectPeriod: 'Időszak', presetThisMonth: 'Ez a hónap', presetLastMonth: 'Előző hónap', presetLast3: 'Elmúlt 3 hónap', presetCampaign: 'Kampánydátumok', presetThisYear: 'Ez az év',
+      filterAll: 'Mind', filterCalls: 'Hívások', filterEmails: 'E-mailek',
+      totalCalls: 'Hívás', analyzedCalls: 'Elemzett', totalEmails: 'E-mail', alertEmails: 'Figyelmeztetés',
+      sentimentPositive: 'Pozitív', sentimentNeutral: 'Semleges', sentimentNegative: 'Negatív', sentimentUnknown: 'Nem elemzett',
+      qualityScore: 'Minőség', duration: 'Időtartam', noSummary: 'AI összefoglaló vár', noTranscription: 'Nincs átírás',
+      directionOut: 'Kimenő', directionIn: 'Bejövő',
+      randomSample: 'Véletlen minta (10)', showingOf: '/', resetSample: 'Összes megjelenítése',
+      sectionCalls: 'Hívásfelvételek', sectionEmails: 'E-mailek',
+      callWith: 'Hívás', emailSubject: 'Tárgy', noSubject: '(nincs tárgy)',
+      noData: 'Nincs kommunikáció a kiválasztott feltételekhez', pickRepFirst: 'Válasszon képviselőt és időszakot a kommunikáció áttekintéséhez',
+      noCalls: 'Nincsenek hívásfelvételek', noEmails: 'Nincsenek e-mailek',
+      analysisAnalyzed: 'Elemzett', analysisPending: 'Elemzésre vár', analysisFailed: 'Elemzés sikertelen',
+    },
 
   },
   ro: {
@@ -43299,6 +43378,22 @@ export const translations: Record<Locale, Translations> = {
       noData: 'Nicio planificare pentru criteriile selectate', pickRepFirst: 'Selectați un reprezentant și o perioadă pentru planul de contacte spitale',
       noTasks: 'Nu au fost găsite sarcini cu termen legate de spitale pentru acest reprezentant în perioada selectată.',
       contactWindowNote: 'Contact potrivit în fereastră ±3 zile față de termen',
+    },
+    commReview: {
+      navLabel: 'Comunicare', title: 'Revizie comunicare',
+      selectRep: 'Reprezentant', selectRepPlaceholder: 'Alegeți un reprezentant…',
+      selectPeriod: 'Perioadă', presetThisMonth: 'Luna aceasta', presetLastMonth: 'Luna trecută', presetLast3: 'Ultimele 3 luni', presetCampaign: 'Datele campaniei', presetThisYear: 'Anul acesta',
+      filterAll: 'Toate', filterCalls: 'Apeluri', filterEmails: 'E-mailuri',
+      totalCalls: 'Apeluri', analyzedCalls: 'Analizate', totalEmails: 'E-mailuri', alertEmails: 'Alerte',
+      sentimentPositive: 'Pozitiv', sentimentNeutral: 'Neutru', sentimentNegative: 'Negativ', sentimentUnknown: 'Neanalyzat',
+      qualityScore: 'Calitate', duration: 'Durată', noSummary: 'Sumar AI în așteptare', noTranscription: 'Fără transcriere',
+      directionOut: 'Ieșit', directionIn: 'Intrat',
+      randomSample: 'Eșantion aleatoriu (10)', showingOf: 'din', resetSample: 'Afișați toate',
+      sectionCalls: 'Înregistrări apeluri', sectionEmails: 'E-mailuri',
+      callWith: 'Apel', emailSubject: 'Subiect', noSubject: '(fără subiect)',
+      noData: 'Nicio comunicare pentru criteriile selectate', pickRepFirst: 'Selectați un reprezentant și o perioadă pentru a revizui comunicarea',
+      noCalls: 'Nicio înregistrare de apel', noEmails: 'Niciun e-mail',
+      analysisAnalyzed: 'Analizat', analysisPending: 'Analiză în așteptare', analysisFailed: 'Analiză eșuată',
     },
 
   },
@@ -50375,6 +50470,22 @@ export const translations: Record<Locale, Translations> = {
       noTasks: 'Nessuna attività con scadenza collegata a ospedali trovata per questo rappresentante nel periodo selezionato.',
       contactWindowNote: 'Contatto abbinato nella finestra ±3 giorni dalla scadenza',
     },
+    commReview: {
+      navLabel: 'Comunicazioni', title: 'Revisione comunicazioni',
+      selectRep: 'Rappresentante', selectRepPlaceholder: 'Scegli un rappresentante…',
+      selectPeriod: 'Periodo', presetThisMonth: 'Questo mese', presetLastMonth: 'Mese scorso', presetLast3: 'Ultimi 3 mesi', presetCampaign: 'Date campagna', presetThisYear: "Quest'anno",
+      filterAll: 'Tutto', filterCalls: 'Chiamate', filterEmails: 'Email',
+      totalCalls: 'Chiamate', analyzedCalls: 'Analizzate', totalEmails: 'Email', alertEmails: 'Alert',
+      sentimentPositive: 'Positivo', sentimentNeutral: 'Neutro', sentimentNegative: 'Negativo', sentimentUnknown: 'Non analizzato',
+      qualityScore: 'Qualità', duration: 'Durata', noSummary: 'Sommario AI in attesa', noTranscription: 'Nessuna trascrizione',
+      directionOut: 'In uscita', directionIn: 'In entrata',
+      randomSample: 'Campione casuale (10)', showingOf: 'di', resetSample: 'Mostra tutto',
+      sectionCalls: 'Registrazioni chiamate', sectionEmails: 'Email',
+      callWith: 'Chiamata', emailSubject: 'Oggetto', noSubject: '(nessun oggetto)',
+      noData: 'Nessuna comunicazione per i criteri selezionati', pickRepFirst: 'Seleziona un rappresentante e un periodo per rivedere le comunicazioni',
+      noCalls: 'Nessuna registrazione trovata', noEmails: 'Nessuna email trovata',
+      analysisAnalyzed: 'Analizzato', analysisPending: 'In attesa di analisi', analysisFailed: 'Analisi fallita',
+    },
 
   },
   de: {
@@ -57435,6 +57546,22 @@ export const translations: Record<Locale, Translations> = {
       noData: 'Keine geplanten Kontakte für die ausgewählten Kriterien', pickRepFirst: 'Wählen Sie einen Vertreter und einen Zeitraum aus, um den Krankenhauskontaktplan anzuzeigen',
       noTasks: 'Für diesen Vertreter wurden im gewählten Zeitraum keine Aufgaben mit Fälligkeitsdatum für Krankenhäuser gefunden.',
       contactWindowNote: 'Kontakt innerhalb ±3 Tage vom Fälligkeitsdatum zugeordnet',
+    },
+    commReview: {
+      navLabel: 'Kommunikation', title: 'Kommunikationsreview',
+      selectRep: 'Vertreter', selectRepPlaceholder: 'Vertreter auswählen…',
+      selectPeriod: 'Zeitraum', presetThisMonth: 'Diesen Monat', presetLastMonth: 'Letzten Monat', presetLast3: 'Letzte 3 Monate', presetCampaign: 'Kampagnenzeitraum', presetThisYear: 'Dieses Jahr',
+      filterAll: 'Alle', filterCalls: 'Anrufe', filterEmails: 'E-Mails',
+      totalCalls: 'Anrufe', analyzedCalls: 'Analysiert', totalEmails: 'E-Mails', alertEmails: 'Warnungen',
+      sentimentPositive: 'Positiv', sentimentNeutral: 'Neutral', sentimentNegative: 'Negativ', sentimentUnknown: 'Nicht analysiert',
+      qualityScore: 'Qualität', duration: 'Dauer', noSummary: 'KI-Zusammenfassung ausstehend', noTranscription: 'Keine Transkription',
+      directionOut: 'Ausgehend', directionIn: 'Eingehend',
+      randomSample: 'Zufällige Stichprobe (10)', showingOf: 'von', resetSample: 'Alle anzeigen',
+      sectionCalls: 'Anrufaufzeichnungen', sectionEmails: 'E-Mails',
+      callWith: 'Anruf', emailSubject: 'Betreff', noSubject: '(kein Betreff)',
+      noData: 'Keine Kommunikation für die ausgewählten Kriterien', pickRepFirst: 'Wählen Sie einen Vertreter und einen Zeitraum aus, um die Kommunikation zu überprüfen',
+      noCalls: 'Keine Anrufaufzeichnungen gefunden', noEmails: 'Keine E-Mails gefunden',
+      analysisAnalyzed: 'Analysiert', analysisPending: 'Analyse ausstehend', analysisFailed: 'Analyse fehlgeschlagen',
     },
 
   },

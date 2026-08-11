@@ -39,6 +39,7 @@ import CampaignAgentProductivity from "@/components/campaigns/CampaignAgentProdu
 import CampaignDataQuality from "@/components/campaigns/CampaignDataQuality";
 import CampaignClinicKPIs from "@/components/campaigns/CampaignClinicKPIs";
 import CampaignHospitalPlan from "@/components/campaigns/CampaignHospitalPlan";
+import CampaignCommunicationReview from "@/components/campaigns/CampaignCommunicationReview";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7242,6 +7243,10 @@ export default function CampaignDetailPage() {
                 <Hospital className="w-4 h-4 mr-2" />
                 {t.hospitalPlan?.navLabel ?? "Nemocnice"}
               </TabsTrigger>
+              <TabsTrigger value="report-comm-review" data-testid="tab-report-comm-review">
+                <MessageCircle className="w-4 h-4 mr-2" />
+                {t.commReview?.navLabel ?? "Komunikácia"}
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="report-overview" className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -7803,6 +7808,13 @@ export default function CampaignDetailPage() {
             </TabsContent>
             <TabsContent value="report-hospital-plan" className="space-y-4">
               <CampaignHospitalPlan
+                campaignId={campaignId}
+                campaignStartDate={campaign?.startDate}
+                campaignEndDate={campaign?.endDate}
+              />
+            </TabsContent>
+            <TabsContent value="report-comm-review" className="space-y-4">
+              <CampaignCommunicationReview
                 campaignId={campaignId}
                 campaignStartDate={campaign?.startDate}
                 campaignEndDate={campaign?.endDate}

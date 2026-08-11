@@ -50848,6 +50848,111 @@ Return ONLY the JSON object.`
     }
   });
 
+  // GET /api/representative-performance/communication-review
+  // Blok 2: call recordings + emails for a representative in a period.
+  app.get("/api/representative-performance/communication-review", requireAuth, async (req, res) => {
+    try {
+      const sessionUser = req.session.user;
+      if (!sessionUser || (sessionUser.role !== "admin" && sessionUser.role !== "manager")) {
+        return res.status(403).json({ error: "Admin or manager required" });
+      }
+      const { representativeId, from, to } = req.query as Record<string, string>;
+      if (!representativeId || !from || !to) {
+        return res.status(400).json({ error: "representativeId, from, to are required" });
+      }
+      const fromDate = new Date(from);
+      const toDate   = new Date(to);
+
+      // ── Call recordings ─────────────────────────────────────────────────
+      const recRows = await db.execute(sql`
+        SELECT
+          cr.id, cr.call_log_id, cr.customer_name, cr.agent_name,
+          cr.duration_seconds, cr.sentiment, cr.quality_score,
+          cr.summary, cr.transcription_text, cr.analysis_status,
+          cr.key_topics, cr.alert_keywords, cr.direction,
+          cr.created_at,
+          cl.started_at, cl.phone_number, cl.customer_id,
+          h.name AS hospital_name, hosp2.name AS hospital2_name
+        FROM call_recordings cr
+        JOIN call_logs cl ON cl.id = cr.call_log_id
+        LEFT JOIN hospitals h  ON h.id  = cl.customer_id
+        LEFT JOIN clinics hosp2 ON hosp2.id = cl.customer_id
+        WHERE cr.user_id = ${representativeId}
+          AND cr.created_at BETWEEN ${fromDate} AND ${toDate}
+        ORDER BY cr.created_at DESC
+        LIMIT 100
+      `);
+
+      // ── Emails sent by rep ───────────────────────────────────────────────
+      const emailRows = await db.execute(sql`
+        SELECT
+          cm.id, cm.type, cm.direction, cm.subject, cm.content,
+          cm.recipient_email, cm.status, cm.ai_sentiment,
+          cm.ai_alert_level, cm.ai_has_angry_tone,
+          cm.created_at, cm.sent_at, cm.customer_id,
+          h.name AS hospital_name, hosp2.name AS clinic_name
+        FROM communication_messages cm
+        LEFT JOIN hospitals h   ON h.id   = cm.customer_id
+        LEFT JOIN clinics hosp2 ON hosp2.id = cm.customer_id
+        WHERE cm.user_id = ${representativeId}
+          AND cm.type = 'email'
+          AND cm.created_at BETWEEN ${fromDate} AND ${toDate}
+        ORDER BY cm.created_at DESC
+        LIMIT 100
+      `);
+
+      const recordings = (recRows.rows as any[]).map(r => ({
+        id:              r.id,
+        callLogId:       r.call_log_id,
+        contactName:     r.customer_name ?? r.hospital_name ?? r.hospital2_name ?? null,
+        agentName:       r.agent_name ?? null,
+        durationSeconds: r.duration_seconds ?? 0,
+        sentiment:       r.sentiment ?? null,
+        qualityScore:    r.quality_score ?? null,
+        summary:         r.summary ?? null,
+        analysisStatus:  r.analysis_status ?? "pending",
+        keyTopics:       r.key_topics ?? [],
+        alertKeywords:   r.alert_keywords ?? [],
+        direction:       r.direction ?? "outbound",
+        phoneNumber:     r.phone_number ?? null,
+        startedAt:       r.started_at ?? r.created_at,
+        createdAt:       r.created_at,
+      }));
+
+      const emails = (emailRows.rows as any[]).map(r => ({
+        id:           r.id,
+        direction:    r.direction,
+        subject:      r.subject ?? null,
+        contentExcerpt: (r.content ?? "").slice(0, 300),
+        recipientEmail: r.recipient_email ?? null,
+        status:       r.status,
+        aiSentiment:  r.ai_sentiment ?? null,
+        aiAlertLevel: r.ai_alert_level ?? null,
+        aiHasAngryTone: Boolean(r.ai_has_angry_tone),
+        contactName:  r.hospital_name ?? r.clinic_name ?? null,
+        sentAt:       r.sent_at ?? r.created_at,
+        createdAt:    r.created_at,
+      }));
+
+      const summary = {
+        totalCalls:    recordings.length,
+        analyzedCalls: recordings.filter(r => r.analysisStatus === "analyzed").length,
+        totalEmails:   emails.length,
+        alertEmails:   emails.filter(e => e.aiAlertLevel && e.aiAlertLevel !== "none").length,
+        sentimentBreakdown: {
+          positive: recordings.filter(r => r.sentiment === "positive").length,
+          neutral:  recordings.filter(r => r.sentiment === "neutral").length,
+          negative: recordings.filter(r => r.sentiment === "negative").length,
+        },
+      };
+
+      res.json({ summary, recordings, emails });
+    } catch (err: any) {
+      console.error("[communication-review]", err?.message || err);
+      res.status(500).json({ error: "Failed to fetch communication review" });
+    }
+  });
+
   app.get("/api/web-forms", requireAuth, async (_req, res) => {
     try { res.json(await storage.getWebForms()); }
     catch (e: any) { res.status(500).json({ error: e.message }); }
