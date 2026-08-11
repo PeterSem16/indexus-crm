@@ -1,7 +1,7 @@
 ANALÝZA: KPI REPREZENTANTA / KOORDINÁTORA ODBEROV
 Mission reporting — Agent performance
 INDEXUS CRM, 24. 7. 2026
-Naposledy aktualizované: 11. 8. 2026
+Naposledy aktualizované: 11. 8. 2026 (rev. 2)
 =====================================================================
 
 ÚVOD — ODPOVEĎ NA EMAIL O KPI REPREZENTANTA
@@ -200,6 +200,38 @@ TAB „NEMOCNICE" — Úloha 2  [HOTOVÉ]
   - tasks WHERE assigned_user_id = repId AND due_date IN range
     AND (related_entity_type='hospital' OR customer_id je nemocnica)
   - call_logs a visit_events v okne 14 dní pred termínom
+
+TAB „TRENDY" — KPI 3.4–3.7 mesačné uzávierky  [HOTOVÉ]
+  Endpoint:   GET  /api/representative-performance/kpi-snapshots
+              POST /api/representative-performance/kpi-snapshots/generate
+  Komponenta: CampaignKpiSnapshots.tsx
+  DB tabuľka: representative_kpi_snapshots (id, representative_id,
+              campaign_id, year, month, kpi_key, value, numerator,
+              denominator, locked_at, created_by)
+  Zobrazuje:
+  - Výber reprezentanta (rovnaký zoznam ako tab „Kliniky").
+  - Tlačidlo „Uzamknúť mesiac" (len admin/manažér) + výber mesiaca:
+      • Pred uzamknutím sa zobrazí potvrdenie s popisom akcie.
+      • POST endpoint prepočíta KPI 3.4–3.7 za zvolený mesiac
+        a uloží numerátor/menovateľ/podiel do uzávierky.
+      • Idempotentný: existujúca uzávierka sa prepíše.
+  - Grouped bar chart (Recharts) — 4 farebné stĺpce na mesiac:
+        modrá   — Oslovené (KPI 3.4)
+        zelená  — Spolupracujú (KPI 3.5)
+        jantár  — Letáky (KPI 3.6)
+        fialová — Zmluva (KPI 3.7)
+      Osa Y: 0–100 %, tooltip s numerátor/menovateľ detailom.
+  - Zoznam uzávierok pod grafom: mesiac / 4 hodnoty / čas zamknutia.
+  - Pre agentov (nie admin): tab je read-only, tlačidlo Uzamknúť
+    sa nezobrazuje (hint o potrebe admin roly).
+  Stav automatizácie:
+  - Ručné uzamykanie (admin klikne tlačidlo) — implementované ✅
+  - Automatické uzamykanie na konci mesiaca (cron job) — v riešení
+    (Úloha 103, IN PROGRESS)
+  Zdroj dát:
+  - clinic_representative_assignments (active = valid_to IS NULL)
+  - clinic_cooperation_statuses (kanonické zmeny s timestampmi)
+  - Rovnaká SQL agregácia ako tab „Kliniky" (scoped na mesiac)
 
 TAB „KOMUNIKÁCIA" — Blok 2  [HOTOVÉ]
   Endpoint: GET /api/representative-performance/communication-review
@@ -472,13 +504,14 @@ Back office
   - Karta „Kvalita dát" v Výkon reprezentanta s semaforom
 
 4.5 Mesačné snapshoty / uzávierky KPI na reprezentanta
-  STAV: NAIMPLEMENTOVANÉ ❌
-  - Raz mesačne zmraziť hodnoty (nasadenie, odbery, obrat, marža,
-    statusové počty a podiely) do snapshotu
-  - Report sa spätne nemení pri oprave dát; opravy sa prejavia
-    v ďalšej uzávierke
-  - Umožňuje trendy: vývoj po mesiacoch, porovnanie období
-  - Závislosť: pre KPI 3.1–3.3 blokované rozhodnutiami 5b, 5c
+  STAV: ČIASTOČNE HOTOVÉ
+  - Tabuľka representative_kpi_snapshots ✅ (11. 8. 2026)
+  - Ručné uzamknutie mesiaca cez tlačidlo v tabe „Trendy" ✅
+  - Grouped bar chart — vývoj KPI 3.4–3.7 po mesiacoch ✅
+  - Report sa spätne nemení pri oprave dát ✅
+  - Automatické mesačné uzamykanie (cron job) ❌ — v riešení (Úloha 103)
+  - Notifikácia manažéra po auto-uzamknutí ❌ (Úloha 104)
+  - Pre KPI 3.1–3.3 stále blokované rozhodnutiami 5b, 5c
 
 4.6 Koeficienty (konfigurovateľné, bez zásahu do kódu)
   STAV: ČIASTOČNE HOTOVÉ
@@ -492,6 +525,7 @@ Back office
   - Tab „Kliniky" (KPI 3.4–3.7): funnel + statusové počty ✅
   - Tab „Nemocnice" (Úloha 2): plán vs. skutočnosť, semafor ✅
   - Tab „Komunikácia" (Blok 2): nahrávky + emaily, náhodná vzorka ✅
+  - Tab „Trendy": mesačné uzávierky KPI 3.4–3.7, bar chart ✅ (11. 8. 2026)
   - KPI 1.1 (pracovný čas): existujúci tab Agent Performance ✅
   - Tab „Odbery" (KPI 3.1–3.3): ❌ blokovaný rozhodnutiami 5b, 5c
   - Karta kvality dát (metriky z bodu 4.4): ❌ naimplementované
@@ -595,8 +629,9 @@ VYŽADUJE ĎALŠIU IMPLEMENTÁCIU (bez externých závislostí):
   ❌ Hromadné priradenie ambulancií podľa regiónu/okresu (4.1)
   ❌ Kontrola kvality vypĺňania status listov: pokrytie, úplnosť,
      oneskorenie, konzistentnosť (4.4) — „Kvalita dát" semafor
-  ❌ Mesačné KPI snapshoty / uzávierky (4.5) — pre KPI 3.4–3.7
-     (3.1–3.3 závisí navyše od 5b/5c)
+  ❌ Automatické mesačné uzamykanie KPI uzávierok (cron job)
+     — v riešení (Úloha 103, IN PROGRESS)
+  ❌ Notifikácia manažéra po auto-uzamknutí (Úloha 104)
   ❌ Nákladové koeficienty na krajinu — admin UI pre konfiguráciu (4.6)
   ❌ Konsolidovaný single-page dashboard „Výkon reprezentanta"
      — jeden pohľad namiesto prepínania tabov (4.7)
@@ -611,6 +646,8 @@ UŽ IMPLEMENTOVANÉ (prehľad):
   ✅ Úloha 2 — plán kontaktov nemocníc vs. skutočnosť (tab Nemocnice)
   ✅ Blok 2  — review komunikácie: nahrávky + emaily (tab Komunikácia)
   ✅ KPI 3.4–3.7 — statusy ambulancií, funnel (tab Kliniky)
+  ✅ Mesačné uzávierky KPI 3.4–3.7 — zamrázanie, bar chart trendov
+     (tab Trendy, tabuľka representative_kpi_snapshots)
   ✅ Väzba odber → ambulancia (clinic_id v collections)
   ✅ Väzba ambulancia → reprezentant (clinic_representative_assignments)
   ✅ Kanonické statusy + história (clinic_cooperation_statuses)
