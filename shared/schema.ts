@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, boolean, timestamp, decimal, integer, numeric, date, serial, jsonb, unique, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, boolean, timestamp, decimal, integer, numeric, date, serial, jsonb, unique, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -1273,6 +1273,9 @@ export const communicationMessages = pgTable("communication_messages", {
   idxCommMessagesContract: index("idx_comm_messages_contract").on(table.contractId),
   idxCommMessagesExternal: index("idx_comm_messages_external").on(table.externalId),
   idxCommMessagesCreatedAt: index("idx_comm_messages_created_at").on(table.createdAt),
+  idxSmstoolsInboundExternalUnique: uniqueIndex("idx_smstools_inbound_external_unique")
+    .on(table.provider, table.direction, table.externalId)
+    .where(sql`${table.provider} = 'smstools' AND ${table.direction} = 'inbound' AND ${table.externalId} IS NOT NULL`),
 }));
 
 // Saved searches - user saved filter presets

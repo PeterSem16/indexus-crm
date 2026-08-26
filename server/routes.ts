@@ -2333,7 +2333,9 @@ export async function registerRoutes(
 
   app.use((req, res, next) => {
     // Redact sensitive query params (handoff token, OAuth code) before logging.
-    const safeUrl = req.url.replace(/([?&](?:token|code)=)[^&]*/gi, "$1[REDACTED]");
+    const safeUrl = req.path === "/api/auth/smstools/callback"
+      ? req.path
+      : req.url.replace(/([?&](?:token|code)=)[^&]*/gi, "$1[REDACTED]");
     if (req.method === "POST" || req.method === "PUT" || req.method === "PATCH" || req.method === "DELETE") {
       console.log(`[REQUEST] ${req.method} ${safeUrl} | session: ${req.session?.user ? req.session.user.id : 'none'} | body-keys: ${req.body ? Object.keys(req.body).join(',') : 'empty'}`);
     }
@@ -14414,7 +14416,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
         }
       } else if (webhookData.type === "inbox") {
         // Store incoming SMS (status = 10)
-        const incomingMessage = await storage.createCommunicationMessage({
+        const [incomingMessage] = await db.insert(communicationMessages).values({
           type: "sms",
           direction: "inbound",
           content: webhookData.text || "",
@@ -14766,18 +14768,37 @@ Return ONLY valid JSON, no markdown code blocks.`,
     });
   });
 
-  // SMSTOOLS delivery callback. It remains closed until callback credentials
-  // are configured in Secrets, rather than accepting unsigned provider data.
-  app.post("/api/auth/smstools/callback", async (req, res) => {
+  // SMSTOOLS callback for delivery states and incoming SMS replies.
+  // It remains closed until callback credentials are configured.
+  app.all("/api/auth/smstools/callback", async (req, res) => {
     try {
-      const { verifySmsToolsCallback, parseSmsToolsStates, mapSmsToolsState } = await import("./lib/smstools");
+      const {
+        verifySmsToolsCallback,
+        parseSmsToolsStates,
+        parseSmsToolsIncomingMessages,
+        mapSmsToolsState,
+      } = await import("./lib/smstools");
       if (!verifySmsToolsCallback(req as any)) {
         return res.status(401).json({ received: false, error: "Invalid callback authentication" });
       }
-      const states = parseSmsToolsStates(req.body);
-      if (states.length === 0) {
-        return res.status(400).json({ received: false, error: "No SMSTOOLS message states supplied" });
+
+      const payload = req.method === "GET" ? req.query : req.body;
+      const states = parseSmsToolsStates(payload);
+      const incomingMessages = parseSmsToolsIncomingMessages(payload);
+      const payloadKeys = payload && typeof payload === "object" ? Object.keys(payload).slice(0, 20) : [];
+      console.log(
+        `[SMSTOOLS callback] method=${req.method} keys=${payloadKeys.join(",") || "none"} ` +
+        `states=${states.length} incoming=${incomingMessages.length}`,
+      );
+
+      if (states.length === 0 && incomingMessages.length === 0) {
+        return res.status(400).json({
+          received: false,
+          error: "Unsupported SMSTOOLS callback payload",
+          acceptedKeys: payloadKeys,
+        });
       }
+
       let updated = 0;
       for (const state of states) {
         const [message] = await db.select().from(communicationMessages)
@@ -14799,7 +14820,157 @@ Return ONLY valid JSON, no markdown code blocks.`,
         });
         updated += 1;
       }
-      res.json({ received: true, processed: states.length, updated });
+
+      let inboundCreated = 0;
+      let inboundDuplicates = 0;
+      for (const incoming of incomingMessages) {
+        if (incoming.messageId) {
+          const [existing] = await db.select({ id: communicationMessages.id })
+            .from(communicationMessages)
+            .where(and(
+              eq(communicationMessages.provider, "smstools"),
+              eq(communicationMessages.direction, "inbound"),
+              eq(communicationMessages.externalId, incoming.messageId),
+            ))
+            .limit(1);
+          if (existing) {
+            inboundDuplicates += 1;
+            continue;
+          }
+        }
+
+        const [incomingMessage] = await db.insert(communicationMessages).values({
+          type: "sms",
+          direction: "inbound",
+          content: incoming.text,
+          senderPhone: incoming.senderPhone,
+          recipientPhone: incoming.recipientPhone,
+          status: "received",
+          provider: "smstools",
+          externalId: incoming.messageId,
+          metadata: incoming.receivedAt || incoming.inReplyToMessageId
+            ? JSON.stringify({
+                providerReceivedAt: incoming.receivedAt,
+                inReplyToExternalId: incoming.inReplyToMessageId,
+              })
+            : undefined,
+        }).onConflictDoNothing().returning();
+        if (!incomingMessage) {
+          inboundDuplicates += 1;
+          continue;
+        }
+        inboundCreated += 1;
+
+        let linkedEntityId: string | undefined;
+        let linkedEntityName: string | null = null;
+        let linkedCountryCode: string | undefined;
+
+        const foundCustomers = await storage.findCustomersByPhone(incoming.senderPhone);
+        if (foundCustomers.length > 0) {
+          const customer = foundCustomers[0];
+          linkedEntityId = customer.id;
+          linkedEntityName = `${customer.firstName || ""} ${customer.lastName || ""}`.trim() || null;
+          linkedCountryCode = customer.country;
+        } else {
+          const normPhone = (phone: string | null | undefined) =>
+            (phone || "").replace(/[\s\-\(\)]/g, "").replace(/^\+?421/, "").replace(/^00421/, "").replace(/^0/, "");
+          const normalizedSender = normPhone(incoming.senderPhone);
+
+          const allHospitals = await db.select({
+            id: hospitals.id,
+            name: hospitals.name,
+            phone: hospitals.phone,
+          }).from(hospitals);
+          const hospital = allHospitals.find(row => normPhone(row.phone) === normalizedSender);
+          if (hospital) {
+            linkedEntityId = hospital.id;
+            linkedEntityName = hospital.name;
+          }
+
+          if (!linkedEntityId) {
+            const allClinics = await db.select({
+              id: clinics.id,
+              name: clinics.name,
+              phone: clinics.phone,
+              phone2: clinics.phone2,
+              phone3: clinics.phone3,
+            }).from(clinics);
+            const clinic = allClinics.find(row =>
+              normPhone(row.phone) === normalizedSender ||
+              normPhone(row.phone2) === normalizedSender ||
+              normPhone(row.phone3) === normalizedSender
+            );
+            if (clinic) {
+              linkedEntityId = clinic.id;
+              linkedEntityName = clinic.name;
+            }
+          }
+
+          if (!linkedEntityId) {
+            const allCollaborators = await db.select({
+              id: collaborators.id,
+              firstName: collaborators.firstName,
+              lastName: collaborators.lastName,
+              phone: collaborators.phone,
+              mobile: collaborators.mobile,
+              mobile2: collaborators.mobile2,
+            }).from(collaborators);
+            const collaborator = allCollaborators.find(row =>
+              normPhone(row.phone) === normalizedSender ||
+              normPhone(row.mobile) === normalizedSender ||
+              normPhone(row.mobile2) === normalizedSender
+            );
+            if (collaborator) {
+              linkedEntityId = collaborator.id;
+              linkedEntityName = `${collaborator.firstName || ""} ${collaborator.lastName || ""}`.trim() || null;
+            }
+          }
+        }
+
+        if (linkedEntityId) {
+          await storage.updateCommunicationMessage(incomingMessage.id, { customerId: linkedEntityId });
+        }
+
+        try {
+          const allUsers = await storage.getAllUsers();
+          const activeUserIds = allUsers
+            .filter((user: any) => user.isActive !== false)
+            .map((user: any) => user.id);
+          if (activeUserIds.length > 0) {
+            await notificationService.sendNotificationToUsers(activeUserIds, {
+              type: "new_sms",
+              title: `Nová SMS od ${linkedEntityName || incoming.senderPhone}`,
+              message: incoming.text.substring(0, 120) || "Prijatá SMS správa",
+              priority: "normal",
+              entityType: "sms",
+              entityId: incomingMessage.id,
+              countryCode: linkedCountryCode,
+              metadata: {
+                senderPhone: incoming.senderPhone,
+                customerId: linkedEntityId || null,
+                customerName: linkedEntityName,
+                messagePreview: incoming.text.substring(0, 200),
+              },
+            });
+          }
+        } catch (notificationError) {
+          console.error("[SMSTOOLS callback] inbound notification failed:", notificationError);
+        }
+
+        console.log(
+          `[SMSTOOLS callback] stored inbound message id=${incomingMessage.id} ` +
+          `linked=${Boolean(linkedEntityId)}`,
+        );
+      }
+
+      res.json({
+        received: true,
+        deliveryStates: states.length,
+        deliveryUpdated: updated,
+        inboundReceived: incomingMessages.length,
+        inboundCreated,
+        inboundDuplicates,
+      });
     } catch (error) {
       console.error("[SMSTOOLS callback] processing failed:", error);
       res.status(500).json({ received: false, error: "Callback processing failed" });

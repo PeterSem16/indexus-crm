@@ -558,6 +558,9 @@ app.use((req, res, next) => {
         ADD COLUMN IF NOT EXISTS ai_does_not_accept_contract BOOLEAN,
         ADD COLUMN IF NOT EXISTS ai_analysis_note TEXT,
         ADD COLUMN IF NOT EXISTS ai_analyzed_at TIMESTAMP;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_smstools_inbound_external_unique
+        ON communication_messages(provider, direction, external_id)
+        WHERE provider = 'smstools' AND direction = 'inbound' AND external_id IS NOT NULL;
     `);
     console.log('[migration] communication_messages direction + sender_phone + AI columns ensured');
   } catch (e: any) {

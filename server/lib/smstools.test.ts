@@ -3,6 +3,7 @@ import {
   isSmsToolsCallbackConfigured,
   mapSmsToolsState,
   normalizeSlovakPhone,
+  parseSmsToolsIncomingMessages,
   parseSmsToolsStates,
   sendSmsTools,
   verifySmsToolsCallback,
@@ -180,6 +181,39 @@ await test("accepts SMSTOOLS callback payload variants", () => {
   assert.equal(mapSmsToolsState(direct), "delivered");
   assert.equal(formEncoded.msgId, "4");
   assert.equal(mapSmsToolsState(formEncoded), "failed");
+});
+
+await test("parses incoming SMSTOOLS reply payload variants", () => {
+  const [nested] = parseSmsToolsIncomingMessages({
+    received_sms: [{
+      msg_id: 15,
+      response_id: 1501,
+      sender_phonenr: "+421905123456",
+      recipient_phonenr: "1234",
+      text: "Áno, súhlasím",
+      ts: "2026-08-26T10:40:00+02:00",
+    }],
+  });
+  const [direct] = parseSmsToolsIncomingMessages({
+    message_id: "16",
+    sender: "0905123456",
+    text: "Prosím zavolajte",
+  });
+  assert.equal(nested.messageId, "1501");
+  assert.equal(nested.inReplyToMessageId, "15");
+  assert.equal(nested.senderPhone, "+421905123456");
+  assert.equal(nested.recipientPhone, "1234");
+  assert.equal(nested.text, "Áno, súhlasím");
+  assert.equal(direct.messageId, "16");
+  assert.equal(direct.text, "Prosím zavolajte");
+  assert.equal(parseSmsToolsStates({
+    message_id: "16",
+    sender: "0905123456",
+    text: "Prosím zavolajte",
+  }).length, 0);
+  assert.equal(parseSmsToolsIncomingMessages({
+    sms_state: [{ msg_id: 17, phonenr: "+421905123456", state_id: "DORUCENA" }],
+  }).length, 0);
 });
 
 await test("authenticates callbacks by query, header, bearer, or basic credentials", () => {

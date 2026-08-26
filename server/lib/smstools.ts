@@ -35,6 +35,16 @@ export interface SmsToolsState {
   raw: unknown;
 }
 
+export interface SmsToolsIncomingMessage {
+  messageId?: string;
+  inReplyToMessageId?: string;
+  senderPhone: string;
+  recipientPhone?: string;
+  text: string;
+  receivedAt?: string;
+  raw: unknown;
+}
+
 function getApiKey(): string | undefined {
   const key = process.env.SMSTOOLS_API_KEY?.trim();
   return key || undefined;
@@ -217,6 +227,10 @@ function parseMaybeJson(value: unknown): unknown {
 
 export function parseSmsToolsStates(body: any): SmsToolsState[] {
   const parsedBody: any = parseMaybeJson(body);
+  const hasExplicitStateContainer = parsedBody?.sms_state != null ||
+    parsedBody?.data?.sms_state != null ||
+    parsedBody?.states != null ||
+    parsedBody?.data?.states != null;
   const candidate = parseMaybeJson(
     parsedBody?.sms_state ??
     parsedBody?.data?.sms_state ??
@@ -231,7 +245,18 @@ export function parseSmsToolsStates(body: any): SmsToolsState[] {
       ? [candidate]
       : [];
   return states
-    .filter((item: any) => item?.msg_id != null || item?.message_id != null)
+    .filter((item: any) =>
+      (item?.msg_id != null || item?.message_id != null) &&
+      (
+        hasExplicitStateContainer ||
+        item?.state_type != null ||
+        item?.stateType != null ||
+        item?.state_id != null ||
+        item?.stateId != null ||
+        item?.status != null ||
+        item?.permanent != null
+      )
+    )
     .map((item: any) => ({
       msgId: String(item.msg_id ?? item.message_id),
       stateType: typeof (item.state_type ?? item.stateType) === "string"
@@ -246,6 +271,76 @@ export function parseSmsToolsStates(body: any): SmsToolsState[] {
         item.permanent === "1",
       raw: item,
     }));
+}
+
+export function parseSmsToolsIncomingMessages(body: any): SmsToolsIncomingMessage[] {
+  const parsedBody: any = parseMaybeJson(body);
+  const containers = [
+    parsedBody?.sms_receive,
+    parsedBody?.sms_received,
+    parsedBody?.received_sms,
+    parsedBody?.incoming_sms,
+    parsedBody?.sms_in,
+    parsedBody?.inbox,
+    parsedBody?.incoming,
+    parsedBody?.received,
+    parsedBody?.data?.sms_receive,
+    parsedBody?.data?.sms_received,
+    parsedBody?.data?.received_sms,
+    parsedBody?.data?.incoming_sms,
+    parsedBody?.data?.sms_in,
+    parsedBody?.data?.inbox,
+    parsedBody?.data?.incoming,
+    parsedBody?.data?.received,
+    parsedBody?.sms_state,
+    parsedBody?.data?.sms_state,
+  ].filter(value => value != null);
+  if (containers.length === 0) containers.push(parsedBody?.data ?? parsedBody);
+  const items = containers.flatMap(rawContainer => {
+    const container = parseMaybeJson(rawContainer);
+    return Array.isArray(container) ? container : [container];
+  });
+
+  return items.flatMap((raw: any) => {
+    const item: any = parseMaybeJson(raw);
+    if (!item || typeof item !== "object") return [];
+
+    const senderPhone = item.sender_phonenr ??
+      item.senderPhonenr ??
+      item.from ??
+      item.sender ??
+      item.sender_phone ??
+      item.senderPhone ??
+      item.phonenr ??
+      item.phone ??
+      item.msisdn ??
+      item.source;
+    const text = item.message ??
+      item.text ??
+      item.sms_text ??
+      item.smsText ??
+      item.content;
+
+    // Delivery-state entries can contain msg_id and phonenr too. Requiring
+    // message text keeps those entries out of the inbound-message path.
+    if (senderPhone == null || text == null) return [];
+
+    return [{
+      messageId: item.response_id != null || item.responseId != null ||
+          item.message_id != null || item.sms_id != null || item.id != null
+        ? String(item.response_id ?? item.responseId ?? item.message_id ?? item.sms_id ?? item.id)
+        : undefined,
+      inReplyToMessageId: item.msg_id != null ? String(item.msg_id) : undefined,
+      senderPhone: String(senderPhone),
+      recipientPhone: item.recipient_phonenr ?? item.recipientPhonenr ??
+        item.to ?? item.recipient ?? item.recipient_phone ??
+        item.recipientPhone ?? item.virtual_number ?? item.destination,
+      text: String(text),
+      receivedAt: item.ts ?? item.received_at ?? item.receivedAt ??
+        item.timestamp ?? item.date ?? item.created_at,
+      raw: item,
+    }];
+  });
 }
 
 export function mapSmsToolsState(state: SmsToolsState): "pending" | "sent" | "delivered" | "failed" {
