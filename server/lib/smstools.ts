@@ -172,7 +172,7 @@ export function verifySmsToolsCallback(req: {
   const queryToken = req.query?.token;
   if (configuredToken) {
     const bearerToken = authorization?.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
-    return secretEquals(String(headerToken || bearerToken || queryToken || ""), configuredToken);
+    if (secretEquals(String(headerToken || bearerToken || queryToken || ""), configuredToken)) return true;
   }
 
   const configuredUser = process.env.SMSTOOLS_CALLBACK_USER?.trim();

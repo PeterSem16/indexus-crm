@@ -199,6 +199,9 @@ await test("authenticates callbacks by query, header, bearer, or basic credentia
     process.env.SMSTOOLS_CALLBACK_PASSWORD = "password";
     const basic = Buffer.from("smstools:password").toString("base64");
     assert.equal(verifySmsToolsCallback({ headers: { authorization: `Basic ${basic}` } }), true);
+
+    process.env.SMSTOOLS_CALLBACK_TOKEN = "legacy-token";
+    assert.equal(verifySmsToolsCallback({ headers: { authorization: `Basic ${basic}` } }), true);
   } finally {
     if (previousToken === undefined) delete process.env.SMSTOOLS_CALLBACK_TOKEN;
     else process.env.SMSTOOLS_CALLBACK_TOKEN = previousToken;
