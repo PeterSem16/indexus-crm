@@ -148,6 +148,7 @@ const SL: Record<string, Record<string, string>> = {
   restrictionsFC: { sk: "Obmedzenia (FC)", en: "Restrictions (FC)", cs: "Omezení (FC)", hu: "Korlátozások (FC)", ro: "Restricții (FC)", it: "Restrizioni (FC)", de: "Einschränkungen (FC)" },
   smsGateway:      { sk: "SMS gateway", en: "SMS gateway", cs: "SMS brána", hu: "SMS átjáró", ro: "Gateway SMS", it: "Gateway SMS", de: "SMS-Gateway" },
   smsGatewayAuto:  { sk: "Predvolená podľa krajiny", en: "Country default", cs: "Výchozí podle země", hu: "Ország szerinti alapértelmezett", ro: "Implicit după țară", it: "Predefinito per paese", de: "Länderstandard" },
+  smsGatewayMission: { sk: "Provider je vynútený nastavením Mission.", en: "The provider is enforced by the Mission settings.", cs: "Provider je vynucen nastavením Mission.", hu: "A szolgáltatót a Mission beállítása írja elő.", ro: "Providerul este impus de setările Mission.", it: "Il provider è imposto dalle impostazioni Mission.", de: "Der Anbieter wird durch die Mission-Einstellungen erzwungen." },
 
   at_assign_task:        { sk: "Priradiť úlohu", en: "Assign task", cs: "Přiřadit úkol", hu: "Feladat hozzárendelése", ro: "Atribuire sarcină", it: "Assegna compito", de: "Aufgabe zuweisen" },
   at_send_email_group:   { sk: "Skupinový email (rola)", en: "Group email (role)", cs: "Skupinový e-mail (role)", hu: "Csoportos e-mail (szerepkör)", ro: "Email de grup (rol)", it: "Email di gruppo (ruolo)", de: "Gruppen-E-Mail (Rolle)" },
@@ -1334,6 +1335,17 @@ function AutomationForm({
 }) {
   const { toast } = useToast();
   const { locale } = useI18n();
+  const { data: campaign } = useQuery<any>({
+    queryKey: ["/api/campaigns", campaignId],
+  });
+  const campaignSmsProvider = (() => {
+    try {
+      const value = campaign?.settings ? JSON.parse(campaign.settings).smsProvider : null;
+      return value === "bulkgate" || value === "smstools" ? value : null;
+    } catch {
+      return null;
+    }
+  })();
   const [form, setForm] = useState({
     actionType: automation?.actionType || "assign_task",
     targetRole: automation?.targetRole || "role:back_office",
@@ -1432,7 +1444,7 @@ function AutomationForm({
         taskPriority: form.taskPriority,
         emailTemplateId: form.emailTemplateId || null,
         smsTemplateId: form.smsTemplateId || null,
-        smsProvider: form.actionType === "send_sms" && form.smsProvider !== "default" ? form.smsProvider : null,
+        smsProvider: form.actionType === "send_sms" && !campaignSmsProvider && form.smsProvider !== "default" ? form.smsProvider : null,
         dispositionId: form.dispositionId || null,
         emailRecipients: ["send_email_group", "notify_email"].includes(form.actionType)
           ? form.emailRecipients.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean)
@@ -1576,7 +1588,11 @@ function AutomationForm({
         {needsSmsText && (
           <div className="col-span-2">
             <Label className="text-xs mb-1 block">{sl("smsGateway", locale)}</Label>
-            <Select value={form.smsProvider} onValueChange={v => setForm(f => ({ ...f, smsProvider: v as "default" | "bulkgate" | "smstools" }))}>
+            <Select
+              value={campaignSmsProvider || form.smsProvider}
+              disabled={!!campaignSmsProvider}
+              onValueChange={v => setForm(f => ({ ...f, smsProvider: v as "default" | "bulkgate" | "smstools" }))}
+            >
               <SelectTrigger className="h-8 text-xs" data-testid="select-status-list-sms-gateway">
                 <SelectValue />
               </SelectTrigger>
@@ -1586,6 +1602,11 @@ function AutomationForm({
                 <SelectItem value="smstools">SMSTOOLS (SK)</SelectItem>
               </SelectContent>
             </Select>
+            {campaignSmsProvider && (
+              <p className="mt-1 text-[10px] text-muted-foreground" data-testid="text-status-list-mission-sms-provider">
+                {sl("smsGatewayMission", locale)} {campaignSmsProvider === "smstools" ? "SMSTOOLS" : "BulkGate"}
+              </p>
+            )}
           </div>
         )}
 

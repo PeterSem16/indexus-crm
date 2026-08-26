@@ -2832,6 +2832,17 @@ function CommunicationCanvas({
   const [emailIsHtml, setEmailIsHtml] = useState(false);
   const [smsMessage, setSmsMessage] = useState("");
   const [smsGateway, setSmsGateway] = useState<"default" | "bulkgate" | "smstools">("default");
+  const campaignSmsProvider = useMemo<"bulkgate" | "smstools" | null>(() => {
+    try {
+      const value = campaign?.settings ? JSON.parse(campaign.settings).smsProvider : null;
+      return value === "bulkgate" || value === "smstools" ? value : null;
+    } catch {
+      return null;
+    }
+  }, [campaign?.settings]);
+  useEffect(() => {
+    setSmsGateway(campaignSmsProvider || "default");
+  }, [campaign?.id, campaignSmsProvider]);
   const { data: smsGatewayStatus } = useQuery<any>({
     queryKey: ["/api/sms-gateways"],
     enabled: activeChannel === "sms",
@@ -5597,7 +5608,11 @@ function CommunicationCanvas({
                 <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
                   {({ sk: "SMS gateway", en: "SMS gateway", cs: "SMS brána", hu: "SMS átjáró", ro: "Gateway SMS", it: "Gateway SMS", de: "SMS-Gateway" } as Record<string, string>)[locale] || "SMS gateway"}
                 </Label>
-                <Select value={smsGateway} onValueChange={v => setSmsGateway(v as "default" | "bulkgate" | "smstools")}>
+                <Select
+                  value={campaignSmsProvider || smsGateway}
+                  disabled={!!campaignSmsProvider}
+                  onValueChange={v => setSmsGateway(v as "default" | "bulkgate" | "smstools")}
+                >
                   <SelectTrigger className="h-8 text-xs" data-testid="select-sms-gateway">
                     <SelectValue />
                   </SelectTrigger>
@@ -5622,6 +5637,19 @@ function CommunicationCanvas({
                     </SelectItem>
                   </SelectContent>
                 </Select>
+                {campaignSmsProvider && (
+                  <p className="text-[11px] text-muted-foreground" data-testid="text-mission-sms-provider-enforced">
+                    {({
+                      sk: `Mission vynucuje ${campaignSmsProvider === "smstools" ? "SMSTOOLS" : "BulkGate"}.`,
+                      en: `This Mission enforces ${campaignSmsProvider === "smstools" ? "SMSTOOLS" : "BulkGate"}.`,
+                      cs: `Tato Mission vynucuje ${campaignSmsProvider === "smstools" ? "SMSTOOLS" : "BulkGate"}.`,
+                      hu: `A Mission által előírt szolgáltató: ${campaignSmsProvider === "smstools" ? "SMSTOOLS" : "BulkGate"}.`,
+                      ro: `Mission impune ${campaignSmsProvider === "smstools" ? "SMSTOOLS" : "BulkGate"}.`,
+                      it: `La Mission impone ${campaignSmsProvider === "smstools" ? "SMSTOOLS" : "BulkGate"}.`,
+                      de: `Diese Mission erzwingt ${campaignSmsProvider === "smstools" ? "SMSTOOLS" : "BulkGate"}.`,
+                    } as Record<string, string>)[locale]}
+                  </p>
+                )}
               </div>
 
               <div className="border-t border-stone-200 dark:border-stone-700/60" />

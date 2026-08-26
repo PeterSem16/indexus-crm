@@ -6814,6 +6814,46 @@ export default function CampaignDetailPage() {
                       </Card>
                       <Card>
                         <CardHeader>
+                          <CardTitle>{t.campaigns.detail.missionSmsProviderTitle}</CardTitle>
+                          <CardDescription>{t.campaigns.detail.missionSmsProviderDesc}</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <Select
+                            value={(() => {
+                              try {
+                                const value = campaign.settings ? JSON.parse(campaign.settings).smsProvider : null;
+                                return value === "bulkgate" || value === "smstools" ? value : "default";
+                              } catch { return "default"; }
+                            })()}
+                            onValueChange={(value) => {
+                              let existing: any = {};
+                              try { if (campaign.settings) existing = JSON.parse(campaign.settings); } catch {}
+                              const merged = { ...existing, smsProvider: value === "default" ? null : value };
+                              apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { settings: JSON.stringify(merged) })
+                                .then(() => {
+                                  toast({ title: t.campaigns.detail.settingsSaved });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+                                })
+                                .catch(() => toast({ title: t.campaigns.detail.error, variant: "destructive" }));
+                            }}
+                          >
+                            <SelectTrigger className="w-80" data-testid="select-mission-sms-provider">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="default">{t.campaigns.detail.missionSmsProviderDefault}</SelectItem>
+                              <SelectItem value="bulkgate">BulkGate</SelectItem>
+                              <SelectItem value="smstools">SMSTOOLS (SK)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            {t.campaigns.detail.missionSmsProviderHint}
+                          </p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader>
                           <CardTitle>{t.campaigns.detail.missionSmsSenderTitle}</CardTitle>
                           <CardDescription>{t.campaigns.detail.missionSmsSenderDesc}</CardDescription>
                         </CardHeader>

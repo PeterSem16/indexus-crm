@@ -6,6 +6,7 @@ import {
   sendSmsTools,
 } from "./smstools";
 import { selectSmsProvider } from "./sms-provider-selection";
+import { applyCampaignSmsProvider, parseCampaignSmsProvider } from "./sms-provider";
 
 let passed = 0;
 let failed = 0;
@@ -78,6 +79,36 @@ await test("never falls back to a provider disabled for the country", () => {
     ],
     configured: { bulkgate: true, smstools: true },
   }).provider, undefined);
+});
+
+await test("parses fixed Mission provider and preserves legacy Missions", () => {
+  assert.equal(parseCampaignSmsProvider(JSON.stringify({ smsProvider: "smstools" })), "smstools");
+  assert.equal(parseCampaignSmsProvider(JSON.stringify({ otherSetting: true })), null);
+  assert.equal(parseCampaignSmsProvider(null), null);
+});
+
+await test("rejects manual Mission provider overrides", () => {
+  const rejected = applyCampaignSmsProvider({
+    campaignProvider: "smstools",
+    requestedProvider: "bulkgate",
+  });
+  assert.equal(rejected.provider, undefined);
+  assert.match(rejected.error || "", /SMSTOOLS/);
+  assert.deepEqual(applyCampaignSmsProvider({
+    campaignProvider: "smstools",
+    requestedProvider: "bulkgate",
+    mode: "override",
+  }), { provider: "smstools" });
+});
+
+await test("enforces BulkGate while country-default Missions stay configurable", () => {
+  assert.deepEqual(applyCampaignSmsProvider({
+    campaignProvider: "bulkgate",
+  }), { provider: "bulkgate" });
+  assert.deepEqual(applyCampaignSmsProvider({
+    campaignProvider: null,
+    requestedProvider: "smstools",
+  }), { provider: "smstools" });
 });
 
 await test("parses accepted message and batch IDs", async () => {

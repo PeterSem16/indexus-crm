@@ -2820,6 +2820,10 @@ export interface Translations {
       nexusPulseEmailAddressLabel: string;
       nexusPulseEmailAddressPlaceholder: string;
       nexusPulseEmailAddressHint: string;
+      missionSmsProviderTitle: string;
+      missionSmsProviderDesc: string;
+      missionSmsProviderDefault: string;
+      missionSmsProviderHint: string;
       missionSmsSenderTitle: string;
       missionSmsSenderDesc: string;
       missionSmsSenderModeDefault: string;
@@ -10640,6 +10644,10 @@ export const translations: Record<Locale, Translations> = {
         nexusPulseEmailAddressLabel: 'Shared mailbox email address',
         nexusPulseEmailAddressPlaceholder: 'info@company.com',
         nexusPulseEmailAddressHint: 'Enter the email of a shared mailbox configured in M365 and added to agent profiles',
+        missionSmsProviderTitle: 'Mission SMS provider',
+        missionSmsProviderDesc: 'Choose the SMS gateway enforced for agents and Mission automations.',
+        missionSmsProviderDefault: 'Country default',
+        missionSmsProviderHint: 'SMSTOOLS is currently available only for Slovak contacts. Existing Missions keep the country-default behavior.',
         missionSmsSenderTitle: 'SMS Sender',
         missionSmsSenderDesc: 'Choose which sender is shown on outgoing SMS in this mission',
         missionSmsSenderModeDefault: 'Default (country settings)',
@@ -17964,6 +17972,10 @@ export const translations: Record<Locale, Translations> = {
         nexusPulseEmailAddressLabel: 'Email adresa zdieľanej schránky',
         nexusPulseEmailAddressPlaceholder: 'info@spolocnost.sk',
         nexusPulseEmailAddressHint: 'Zadajte email zdieľanej schránky nakonfigurovanej v M365 a pridanej do profilov agentov',
+        missionSmsProviderTitle: 'SMS provider Mission',
+        missionSmsProviderDesc: 'Vyberte SMS gateway, ktorú musia používať agenti aj automatizácie Mission.',
+        missionSmsProviderDefault: 'Predvolená podľa krajiny',
+        missionSmsProviderHint: 'SMSTOOLS je momentálne dostupný iba pre slovenské kontakty. Existujúce Mission zostávajú na predvolenom nastavení krajiny.',
         missionSmsSenderTitle: 'Odosielateľ SMS',
         missionSmsSenderDesc: 'Vyberte, aký odosielateľ sa zobrazí pri odchádzajúcich SMS v tejto misii',
         missionSmsSenderModeDefault: 'Predvolené (nastavenie krajiny)',
@@ -25226,6 +25238,10 @@ export const translations: Record<Locale, Translations> = {
         nexusPulseEmailAddressLabel: 'E-mailová adresa sdílené schránky',
         nexusPulseEmailAddressPlaceholder: 'info@spolecnost.cz',
         nexusPulseEmailAddressHint: 'Zadejte e-mail sdílené schránky nakonfigurované v M365 a přidané do profilů agentů',
+        missionSmsProviderTitle: 'SMS provider Mission',
+        missionSmsProviderDesc: 'Vyberte SMS bránu vynucenou pro agenty a automatizace Mission.',
+        missionSmsProviderDefault: 'Výchozí podle země',
+        missionSmsProviderHint: 'SMSTOOLS je nyní dostupný pouze pro slovenské kontakty. Stávající Mission zachovají výchozí nastavení země.',
         missionSmsSenderTitle: 'Odesílatel SMS',
         missionSmsSenderDesc: 'Vyberte, jaký odesílatel se zobrazí u odchozích SMS v této misi',
         missionSmsSenderModeDefault: 'Výchozí (nastavení země)',
@@ -32446,6 +32462,10 @@ export const translations: Record<Locale, Translations> = {
         nexusPulseEmailAddressLabel: 'Megosztott postafiók e-mail-címe',
         nexusPulseEmailAddressPlaceholder: 'info@ceg.hu',
         nexusPulseEmailAddressHint: 'Adja meg az M365-ben konfigurált és az ügynöki profilokhoz hozzáadott megosztott postafiók e-mailjét',
+        missionSmsProviderTitle: 'Mission SMS-szolgáltató',
+        missionSmsProviderDesc: 'Válassza ki az ügynökök és Mission automatizálások számára kötelező SMS-átjárót.',
+        missionSmsProviderDefault: 'Ország szerinti alapértelmezett',
+        missionSmsProviderHint: 'A SMSTOOLS jelenleg csak szlovák kapcsolatokhoz érhető el. A meglévő Mission beállítások megőrzik az ország alapértelmezését.',
         missionSmsSenderTitle: 'SMS feladó',
         missionSmsSenderDesc: 'Válassza ki, milyen feladó jelenjen meg a kimenő SMS-eknél ebben a misszióban',
         missionSmsSenderModeDefault: 'Alapértelmezett (ország beállítása)',
@@ -39551,6 +39571,10 @@ export const translations: Record<Locale, Translations> = {
         nexusPulseEmailAddressLabel: 'Adresa e-mail a cutiei poștale partajate',
         nexusPulseEmailAddressPlaceholder: 'info@companie.ro',
         nexusPulseEmailAddressHint: 'Introduceți e-mailul cutiei poștale partajate configurate în M365 și adăugate în profilurile agenților',
+        missionSmsProviderTitle: 'Provider SMS Mission',
+        missionSmsProviderDesc: 'Selectați gateway-ul SMS impus agenților și automatizărilor Mission.',
+        missionSmsProviderDefault: 'Implicit după țară',
+        missionSmsProviderHint: 'SMSTOOLS este disponibil momentan doar pentru contacte slovace. Mission existente păstrează setarea implicită a țării.',
         missionSmsSenderTitle: 'Expeditor SMS',
         missionSmsSenderDesc: 'Alegeți ce expeditor se afișează la SMS-urile trimise în această misiune',
         missionSmsSenderModeDefault: 'Implicit (setarea țării)',
@@ -46658,6 +46682,10 @@ export const translations: Record<Locale, Translations> = {
         nexusPulseEmailAddressLabel: 'Indirizzo e-mail della casella condivisa',
         nexusPulseEmailAddressPlaceholder: 'info@azienda.it',
         nexusPulseEmailAddressHint: "Inserisci l'e-mail della casella condivisa configurata in M365 e aggiunta ai profili degli agenti",
+        missionSmsProviderTitle: 'Provider SMS Mission',
+        missionSmsProviderDesc: 'Scegli il gateway SMS imposto agli agenti e alle automazioni Mission.',
+        missionSmsProviderDefault: 'Predefinito per paese',
+        missionSmsProviderHint: 'SMSTOOLS è attualmente disponibile solo per i contatti slovacchi. Le Mission esistenti mantengono il comportamento predefinito del paese.',
         missionSmsSenderTitle: 'Mittente SMS',
         missionSmsSenderDesc: 'Scegli quale mittente viene mostrato sugli SMS in uscita in questa missione',
         missionSmsSenderModeDefault: 'Predefinito (impostazione paese)',
@@ -53765,6 +53793,10 @@ export const translations: Record<Locale, Translations> = {
         nexusPulseEmailAddressLabel: 'E-Mail-Adresse des geteilten Postfachs',
         nexusPulseEmailAddressPlaceholder: 'info@unternehmen.de',
         nexusPulseEmailAddressHint: 'Geben Sie die E-Mail des in M365 konfigurierten und den Agentenprofilen hinzugefügten freigegebenen Postfachs ein',
+        missionSmsProviderTitle: 'Mission-SMS-Anbieter',
+        missionSmsProviderDesc: 'Wählen Sie das SMS-Gateway, das für Agenten und Mission-Automatisierungen erzwungen wird.',
+        missionSmsProviderDefault: 'Länderstandard',
+        missionSmsProviderHint: 'SMSTOOLS ist derzeit nur für slowakische Kontakte verfügbar. Bestehende Missionen behalten den Länderstandard.',
         missionSmsSenderTitle: 'SMS-Absender',
         missionSmsSenderDesc: 'Wählen Sie, welcher Absender bei ausgehenden SMS in dieser Mission angezeigt wird',
         missionSmsSenderModeDefault: 'Standard (Ländereinstellung)',

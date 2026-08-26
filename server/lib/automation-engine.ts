@@ -426,6 +426,15 @@ async function actionSendSms(config: any, ctx: any): Promise<ActionResult> {
     const promotional = rendered.kind === "promotional" || rendered.promotional === true;
     const country: string | undefined =
       rendered.country || ctx.event?.countryCode || undefined;
+    // Mission identity must come from the server-emitted event, never from the
+    // editable SMS action config. Campaign-contact events include campaignId in
+    // newValues (or oldValues for delete-style events).
+    const campaignId: string | undefined =
+      ctx.newValues?.campaignId ||
+      ctx.oldValues?.campaignId ||
+      ctx.event?.newValues?.campaignId ||
+      ctx.event?.oldValues?.campaignId ||
+      undefined;
 
     const { sendSmsViaProvider } = await import("./sms-provider");
     const result = await sendSmsViaProvider({
@@ -433,6 +442,8 @@ async function actionSendSms(config: any, ctx: any): Promise<ActionResult> {
       text,
       country,
       provider: rendered.gateway || rendered.provider || rendered.smsProvider,
+      campaignId,
+      campaignProviderMode: "override",
       promotional,
       unicode: rendered.unicode === true,
       tag: rendered.tag || `automation-rule`,
@@ -454,6 +465,7 @@ async function actionSendSms(config: any, ctx: any): Promise<ActionResult> {
           batchId: result.batchId || null,
           source: "automation_engine",
           ruleId: ctx.rule?.id || ctx.event?.ruleId || null,
+          campaignId: campaignId || null,
         }),
       });
       if (result.success) {

@@ -1,5 +1,6 @@
 import { db } from "../db";
-import { smsGatewaySettings, type SmsGatewayProvider } from "@shared/schema";
+import { campaigns, smsGatewaySettings, type SmsGatewayProvider } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { sendTransactionalSms, sendPromotionalSms, isBulkGateConfigured } from "./bulkgate";
 import { isSmsToolsConfigured, sendSmsTools } from "./smstools";
 import { selectSmsProvider } from "./sms-provider-selection";
@@ -18,6 +19,8 @@ export interface SmsProviderSendOptions {
   schedule?: string;
   tag?: string;
   promotional?: boolean;
+  campaignId?: string | null;
+  campaignProviderMode?: "reject-conflict" | "override";
 }
 
 export interface SmsProviderSendResult {
@@ -56,6 +59,45 @@ export function isSmsProvider(value: unknown): value is SmsGatewayProvider {
   return value === "bulkgate" || value === "smstools";
 }
 
+export function parseCampaignSmsProvider(settings: unknown): SmsGatewayProvider | null {
+  try {
+    const parsed = typeof settings === "string" ? JSON.parse(settings) : settings;
+    return isSmsProvider((parsed as any)?.smsProvider) ? (parsed as any).smsProvider : null;
+  } catch {
+    return null;
+  }
+}
+
+export function applyCampaignSmsProvider(input: {
+  campaignProvider?: SmsGatewayProvider | null;
+  requestedProvider?: string | null;
+  mode?: "reject-conflict" | "override";
+}): { provider?: string; error?: string } {
+  const fixed = input.campaignProvider;
+  const requested = input.requestedProvider?.trim().toLowerCase() || undefined;
+  if (!fixed) return { provider: requested };
+  if (input.mode !== "override" && requested && requested !== fixed) {
+    return { error: `Táto Mission vyžaduje SMS provider ${fixed === "smstools" ? "SMSTOOLS" : "BulkGate"}` };
+  }
+  return { provider: fixed };
+}
+
+async function getCampaignSmsProviderRecord(campaignId: string): Promise<{ exists: boolean; provider: SmsGatewayProvider | null }> {
+  const [campaign] = await db.select({ settings: campaigns.settings })
+    .from(campaigns)
+    .where(eq(campaigns.id, campaignId))
+    .limit(1);
+  return {
+    exists: Boolean(campaign),
+    provider: parseCampaignSmsProvider(campaign?.settings),
+  };
+}
+
+export async function getCampaignSmsProvider(campaignId?: string | null): Promise<SmsGatewayProvider | null> {
+  if (!campaignId) return null;
+  return (await getCampaignSmsProviderRecord(campaignId)).provider;
+}
+
 export async function resolveSmsProvider(
   requestedProvider: string | null | undefined,
   country: string | null | undefined,
@@ -72,6 +114,25 @@ export async function resolveSmsProvider(
   });
 }
 
+export async function resolveSmsProviderForCampaign(
+  requestedProvider: string | null | undefined,
+  country: string | null | undefined,
+  campaignId?: string | null,
+  mode: "reject-conflict" | "override" = "reject-conflict",
+): Promise<{ provider?: SmsGatewayProvider; error?: string; campaignProvider?: SmsGatewayProvider | null }> {
+  const campaignRecord = campaignId
+    ? await getCampaignSmsProviderRecord(campaignId)
+    : { exists: true, provider: null };
+  if (!campaignRecord.exists) {
+    return { error: "Mission neexistuje", campaignProvider: null };
+  }
+  const campaignProvider = campaignRecord.provider;
+  const enforced = applyCampaignSmsProvider({ campaignProvider, requestedProvider, mode });
+  if (enforced.error) return { error: enforced.error, campaignProvider };
+  const selection = await resolveSmsProvider(enforced.provider, country);
+  return { ...selection, campaignProvider };
+}
+
 export async function getGatewaySetting(provider: SmsGatewayProvider, country?: string | null): Promise<GatewaySetting | undefined> {
   const settings = await getSmsGatewaySettings();
   const countryCode = normalizedCountry(country);
@@ -80,10 +141,17 @@ export async function getGatewaySetting(provider: SmsGatewayProvider, country?: 
 }
 
 export async function sendSmsViaProvider(options: SmsProviderSendOptions): Promise<SmsProviderSendResult> {
-  const selection = await resolveSmsProvider(options.provider, options.country);
+  const selection = await resolveSmsProviderForCampaign(
+    options.provider,
+    options.country,
+    options.campaignId,
+    options.campaignProviderMode,
+  );
   if (!selection.provider) {
     const requested = options.provider;
-    const fallbackProvider: SmsGatewayProvider = isSmsProvider(requested) ? requested : "bulkgate";
+    const fallbackProvider: SmsGatewayProvider =
+      selection.campaignProvider ||
+      (isSmsProvider(requested) ? requested : "bulkgate");
     return { success: false, provider: fallbackProvider, error: selection.error, errorCode: 400 };
   }
   const provider: SmsGatewayProvider = selection.provider;

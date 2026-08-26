@@ -1053,6 +1053,8 @@ async function runStatusListContactSms(automation: any, ctx: StatusListActionCtx
       text,
       country: ctx.contactCountry ?? undefined,
       provider: automation.smsProvider || automation.gateway || automation.provider,
+      campaignId: ctx.campaignId,
+      campaignProviderMode: "override",
       ...(campaignSender ? { senderId: campaignSender.senderId, senderIdValue: campaignSender.senderIdValue, forceSender: true } : {}),
     });
     const ok = result.success;
@@ -13709,8 +13711,57 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
       const user = req.session.user!;
       
-      const { resolveSmsProvider, sendSmsViaProvider } = await import("./lib/sms-provider");
-      const gatewaySelection = await resolveSmsProvider(requestedProvider, customer.country);
+      const { resolveSmsProviderForCampaign, sendSmsViaProvider } = await import("./lib/sms-provider");
+      let effectiveCampaignId = typeof req.body?.campaignId === "string" && req.body.campaignId.trim()
+        ? req.body.campaignId.trim()
+        : undefined;
+      const activeAgentSession = await storage.getActiveAgentSession(user.id);
+      const sessionCampaignIds = Array.from(new Set([
+        activeAgentSession?.campaignId,
+        ...((activeAgentSession?.campaignIds as string[] | null | undefined) || []),
+      ].filter((id): id is string => Boolean(id))));
+      if (sessionCampaignIds.length > 0) {
+        const matches = await db.select({ campaignId: campaignContacts.campaignId })
+          .from(campaignContacts)
+          .where(and(
+            inArray(campaignContacts.campaignId, sessionCampaignIds),
+            eq(campaignContacts.customerId, customer.id),
+          ));
+        const matchingCampaignIds = Array.from(new Set(matches.map(row => row.campaignId)));
+        if (effectiveCampaignId) {
+          if (!sessionCampaignIds.includes(effectiveCampaignId)) {
+            return res.status(403).json({ error: "SMS Mission nie je súčasťou aktívnej agent session" });
+          }
+          if (!matchingCampaignIds.includes(effectiveCampaignId)) {
+            return res.status(400).json({ error: "Kontakt nepatrí do zvolenej Mission" });
+          }
+        } else if (matchingCampaignIds.length === 1) {
+          effectiveCampaignId = matchingCampaignIds[0];
+        } else {
+          const activeCampaignRows = await db.select({ settings: campaigns.settings })
+            .from(campaigns)
+            .where(inArray(campaigns.id, sessionCampaignIds));
+          const hasFixedProvider = activeCampaignRows.some(row => {
+            try {
+              const value = row.settings ? JSON.parse(row.settings).smsProvider : null;
+              return value === "bulkgate" || value === "smstools";
+            } catch {
+              return false;
+            }
+          });
+          if (hasFixedProvider) {
+            const error = matchingCampaignIds.length === 0
+              ? "Kontakt nepatrí do aktívnej Mission"
+              : "Pre SMS je potrebné jednoznačne vybrať Mission";
+            return res.status(400).json({ error });
+          }
+        }
+      }
+      const gatewaySelection = await resolveSmsProviderForCampaign(
+        requestedProvider,
+        customer.country,
+        effectiveCampaignId,
+      );
       const recordProvider = gatewaySelection.provider || (requestedProvider === "smstools" ? "smstools" : "bulkgate");
 
       // Create message record
@@ -13732,13 +13783,14 @@ Return ONLY valid JSON, no markdown code blocks.`,
       
       const { isBulkGateConfigured } = await import("./lib/bulkgate");
       const { isSmsToolsConfigured } = await import("./lib/smstools");
-      if (gatewaySelection.provider || isBulkGateConfigured() || isSmsToolsConfigured()) {
+      if (gatewaySelection.provider || gatewaySelection.campaignProvider || isBulkGateConfigured() || isSmsToolsConfigured()) {
         try {
           const result = await sendSmsViaProvider({
             number: customer.phone,
             text: content,
             country: customer.country || undefined,
             provider: requestedProvider,
+            campaignId: effectiveCampaignId,
             tag: `customer-${customer.id}`,
             ...(userSmsSenderId ? { senderId: "gText" as const, senderIdValue: userSmsSenderId } : {}),
           });
@@ -13761,7 +13813,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
               status: "failed",
               errorMessage: result.error || "SMS gateway error",
             });
-            return res.status(500).json({ error: "Failed to send SMS", details: result.error });
+            return res.status(result.errorCode === 400 ? 400 : 500).json({
+              error: result.error || "Failed to send SMS",
+            });
           }
         } catch (smsError: any) {
           await storage.updateCommunicationMessage(message.id, {
@@ -13817,6 +13871,78 @@ Return ONLY valid JSON, no markdown code blocks.`,
       }
       
       const user = req.session.user!;
+      let effectiveCampaignId = typeof campaignId === "string" && campaignId.trim() ? campaignId.trim() : undefined;
+
+      // Do not trust campaignId from the compose request. While an agent session is
+      // active, bind SMS sends to one of that session's Missions. This also prevents
+      // bypassing a fixed Mission provider by simply omitting campaignId from a direct
+      // API request.
+      const activeAgentSession = await storage.getActiveAgentSession(user.id);
+      const sessionCampaignIds = Array.from(new Set([
+        activeAgentSession?.campaignId,
+        ...((activeAgentSession?.campaignIds as string[] | null | undefined) || []),
+      ].filter((id): id is string => Boolean(id))));
+      if (sessionCampaignIds.length > 0) {
+        if (effectiveCampaignId && !sessionCampaignIds.includes(effectiveCampaignId)) {
+          return res.status(403).json({ error: "SMS Mission nie je súčasťou aktívnej agent session" });
+        }
+        if (!effectiveCampaignId && sessionCampaignIds.length === 1) {
+          effectiveCampaignId = sessionCampaignIds[0];
+        }
+        if (!effectiveCampaignId && customerId) {
+          const contactField =
+            contactType === "clinic" ? campaignContacts.clinicId :
+            contactType === "hospital" ? campaignContacts.hospitalId :
+            contactType === "collaborator" ? campaignContacts.collaboratorId :
+            campaignContacts.customerId;
+          const matches = await db.select({ campaignId: campaignContacts.campaignId })
+            .from(campaignContacts)
+            .where(and(
+              inArray(campaignContacts.campaignId, sessionCampaignIds),
+              eq(contactField, customerId),
+            ));
+          const matchingCampaignIds = Array.from(new Set(matches.map(row => row.campaignId)));
+          if (matchingCampaignIds.length === 1) effectiveCampaignId = matchingCampaignIds[0];
+        }
+        if (!effectiveCampaignId) {
+          const activeCampaignRows = await db.select({ id: campaigns.id, settings: campaigns.settings })
+            .from(campaigns)
+            .where(inArray(campaigns.id, sessionCampaignIds));
+          const hasFixedProvider = activeCampaignRows.some(row => {
+            try {
+              const value = row.settings ? JSON.parse(row.settings).smsProvider : null;
+              return value === "bulkgate" || value === "smstools";
+            } catch {
+              return false;
+            }
+          });
+          if (hasFixedProvider) {
+            return res.status(400).json({ error: "Pri aktívnej Mission je pre SMS povinný jednoznačný campaignId" });
+          }
+        }
+      }
+
+      // A caller may select only a Mission that actually contains this contact.
+      // This closes the multi-Mission bypass where a contact from a fixed-provider
+      // Mission was submitted with a different, country-default Mission id.
+      if (effectiveCampaignId && customerId) {
+        const contactField =
+          contactType === "clinic" ? campaignContacts.clinicId :
+          contactType === "hospital" ? campaignContacts.hospitalId :
+          contactType === "collaborator" ? campaignContacts.collaboratorId :
+          campaignContacts.customerId;
+        const [campaignContact] = await db.select({ id: campaignContacts.id })
+          .from(campaignContacts)
+          .where(and(
+            eq(campaignContacts.campaignId, effectiveCampaignId),
+            eq(contactField, customerId),
+          ))
+          .limit(1);
+        if (!campaignContact) {
+          return res.status(400).json({ error: "Kontakt nepatrí do zvolenej Mission" });
+        }
+      }
+
       let contact: any = null;
       
       if (customerId) {
@@ -13830,19 +13956,19 @@ Return ONLY valid JSON, no markdown code blocks.`,
         ? [contact.firstName, contact.lastName].filter(Boolean).join(" ") || contact.name || contact.fullName || customerId
         : null;
       
-      const { sendSmsViaProvider, resolveSmsProvider } = await import("./lib/sms-provider");
+      const { sendSmsViaProvider, resolveSmsProviderForCampaign } = await import("./lib/sms-provider");
       const { isBulkGateConfigured, parseCampaignSmsSender } = await import("./lib/bulkgate");
       const { isSmsToolsConfigured } = await import("./lib/smstools");
-      const results: { phone: string; success: boolean; error?: string; smsId?: string; batchId?: string; provider?: string }[] = [];
+      const results: { phone: string; success: boolean; error?: string; errorCode?: number; smsId?: string; batchId?: string; provider?: string }[] = [];
       
       // User-level text sender ID for all SMS in this batch
       const userSmsSenderId = (user as any).smsSenderId as string | null | undefined;
 
       // Per-campaign SMS sender override (mission setting) - takes precedence over user-level and country config
       let campaignSender: { senderId: "gSystem" | "gText" | "gOwn"; senderIdValue: string | null } | null = null;
-      if (campaignId && typeof campaignId === "string") {
+      if (effectiveCampaignId) {
         try {
-          const campaign = await storage.getCampaign(campaignId);
+          const campaign = await storage.getCampaign(effectiveCampaignId);
           campaignSender = parseCampaignSmsSender(campaign?.settings);
         } catch (e) {
           console.error("[send-sms] campaign sender lookup failed:", e);
@@ -13851,7 +13977,11 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
       const hasConfiguredGateway = isBulkGateConfigured() || isSmsToolsConfigured();
       for (const phone of toArray) {
-        const gatewaySelection = await resolveSmsProvider(requestedProvider, contactCountry);
+        const gatewaySelection = await resolveSmsProviderForCampaign(
+          requestedProvider,
+          contactCountry,
+          effectiveCampaignId,
+        );
         const recordProvider = gatewaySelection.provider || (requestedProvider === "smstools" ? "smstools" : "bulkgate");
         // Create message record
         const messageRecord = await storage.createCommunicationMessage({
@@ -13865,16 +13995,18 @@ Return ONLY valid JSON, no markdown code blocks.`,
           provider: recordProvider,
           metadata: JSON.stringify({
             compositionDurationSeconds: compositionDurationSeconds || null,
+            campaignId: effectiveCampaignId || null,
           }),
         });
         
-        if (gatewaySelection.provider || hasConfiguredGateway) {
+        if (gatewaySelection.provider || hasConfiguredGateway || gatewaySelection.campaignProvider) {
           try {
             const result = await sendSmsViaProvider({
               number: phone,
               text: message,
               country: contactCountry,
               provider: requestedProvider,
+              campaignId: effectiveCampaignId,
               tag: customerId ? `customer-${customerId}` : undefined,
               ...(campaignSender
                 ? { senderId: campaignSender.senderId, senderIdValue: campaignSender.senderIdValue, forceSender: true }
@@ -13890,6 +14022,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
                 metadata: JSON.stringify({
                   compositionDurationSeconds: compositionDurationSeconds || null,
                   batchId: result.batchId || null,
+                  campaignId: effectiveCampaignId || null,
                 }),
               });
               
@@ -13902,7 +14035,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
                 status: "failed",
                 errorMessage: result.error || "SMS gateway error",
               });
-            results.push({ phone, success: false, error: result.error, provider: result.provider });
+            results.push({ phone, success: false, error: result.error, errorCode: result.errorCode, provider: result.provider });
             }
           } catch (smsError: any) {
             await storage.updateCommunicationMessage(messageRecord.id, {
@@ -13933,7 +14066,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
       } else if (anySuccess) {
         res.json({ success: true, partial: true, results });
       } else {
-        res.status(500).json({ success: false, error: "Failed to send SMS", results });
+        const firstError = results.find(result => result.error)?.error || "Failed to send SMS";
+        const status = results.some(result => result.errorCode === 400) ? 400 : 500;
+        res.status(status).json({ success: false, error: firstError, results });
       }
     } catch (error) {
       console.error("Error sending SMS:", error);
@@ -25594,6 +25729,23 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
   app.post("/api/campaigns", requireAuth, async (req, res) => {
     try {
+      if (req.body?.settings != null) {
+        let parsedSettings: any;
+        try {
+          parsedSettings = typeof req.body.settings === "string"
+            ? JSON.parse(req.body.settings)
+            : req.body.settings;
+        } catch {
+          return res.status(400).json({ error: "Invalid campaign settings JSON" });
+        }
+        const smsProvider = parsedSettings?.smsProvider;
+        if (smsProvider !== undefined && smsProvider !== null && smsProvider !== "bulkgate" && smsProvider !== "smstools") {
+          return res.status(400).json({ error: "Invalid Mission SMS provider" });
+        }
+        if (smsProvider && !["admin", "manager"].includes(req.session.user!.role)) {
+          return res.status(403).json({ error: "Only managers can set the Mission SMS provider" });
+        }
+      }
       const validatedData = insertCampaignSchema.parse({
         ...req.body,
         createdBy: req.session.user!.id,
@@ -25677,6 +25829,36 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
   app.patch("/api/campaigns/:id", requireAuth, async (req, res) => {
     try {
+      if (req.body?.settings !== undefined) {
+        const currentCampaign = await storage.getCampaign(req.params.id);
+        if (!currentCampaign) {
+          return res.status(404).json({ error: "Campaign not found" });
+        }
+        let currentSettings: any = {};
+        let nextSettings: any;
+        try {
+          if (currentCampaign.settings) currentSettings = JSON.parse(currentCampaign.settings);
+          nextSettings = typeof req.body.settings === "string"
+            ? JSON.parse(req.body.settings)
+            : req.body.settings;
+        } catch {
+          return res.status(400).json({ error: "Invalid campaign settings JSON" });
+        }
+        if (!nextSettings || typeof nextSettings !== "object" || Array.isArray(nextSettings)) {
+          return res.status(400).json({ error: "Invalid campaign settings" });
+        }
+        const smsProvider = nextSettings.smsProvider;
+        if (smsProvider !== undefined && smsProvider !== null && smsProvider !== "bulkgate" && smsProvider !== "smstools") {
+          return res.status(400).json({ error: "Invalid Mission SMS provider" });
+        }
+        if (
+          currentSettings.smsProvider !== smsProvider &&
+          !["admin", "manager"].includes(req.session.user!.role)
+        ) {
+          return res.status(403).json({ error: "Only managers can change the Mission SMS provider" });
+        }
+        req.body.settings = JSON.stringify(nextSettings);
+      }
       const campaign = await storage.updateCampaign(req.params.id, req.body);
       if (!campaign) {
         return res.status(404).json({ error: "Campaign not found" });
