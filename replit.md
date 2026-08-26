@@ -102,8 +102,7 @@ Preferred communication style: Simple, everyday language.
 
 ### CORPCRM01 (77.72.181.113)
 - **SSH user**: seman
-- **PostgreSQL**: `PGPASSWORD=HanyurIfKisck psql -h localhost -U indexus -d indexus_crm`
-  - Host: localhost (na CORPCRM01), user: `indexus`, db: `indexus_crm`, pwd: `HanyurIfKisck`
+- **PostgreSQL**: use the application's `DATABASE_URL` from `/var/www/indexus-crm/.env`; never hardcode or paste database credentials
 - **pm2 process name**: `indexus-crm` (id 4)
 
 ### mediagateway
