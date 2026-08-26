@@ -8,19 +8,19 @@ description: Correct psql command format for running SQL scripts against the pro
 Use this exact format to run SQL files or commands against production:
 
 ```bash
-PGPASSWORD=HanyurIfKisck psql -h localhost -U indexus -d indexus_crm -f <script.sql>
+psql -h localhost -U postgres -d indexus -W -f <script.sql>
 ```
 
 Or for inline queries:
 ```bash
-PGPASSWORD=HanyurIfKisck psql -h localhost -U indexus -d indexus_crm -c "SELECT ..."
+psql -h localhost -U postgres -d indexus -W -c "SELECT ..."
 ```
 
 Or as a connection URL:
 ```bash
-psql "postgresql://indexus:HanyurIfKisck@localhost:5432/indexus_crm" -c "..."
+psql "postgresql://postgres:<password>@localhost:5432/indexus" -c "..."
 ```
 
-**Why:** psql is run locally on CORPCRM01 (not remotely from Replit). The PostgreSQL role is `indexus`, database is `indexus_crm`, host is `localhost`, port `5432`.
+**Why:** psql is run locally on CORPCRM01 (not remotely from Replit). The PostgreSQL role is `postgres`, database is `indexus`, host is `localhost`, port `5432`. The password is intentionally not stored here.
 
 **How to apply:** Any time a SQL script (migration, data export, etc.) needs to be run on production, provide this exact command format with the script filename substituted in.
