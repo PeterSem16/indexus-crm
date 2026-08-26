@@ -5230,6 +5230,34 @@ export const insertGsmSenderConfigSchema = createInsertSchema(gsmSenderConfigs).
 export type InsertGsmSenderConfig = z.infer<typeof insertGsmSenderConfigSchema>;
 export type GsmSenderConfig = typeof gsmSenderConfigs.$inferSelect;
 
+// SMS gateway routing configuration. Credentials stay in Replit Secrets; this
+// table contains only provider routing and non-sensitive sender metadata.
+export const SMS_GATEWAY_PROVIDERS = ["bulkgate", "smstools"] as const;
+export type SmsGatewayProvider = typeof SMS_GATEWAY_PROVIDERS[number];
+
+export const smsGatewaySettings = pgTable("sms_gateway_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  provider: varchar("provider", { length: 20 }).notNull(),
+  countryCode: varchar("country_code", { length: 10 }),
+  isActive: boolean("is_active").notNull().default(true),
+  isDefault: boolean("is_default").notNull().default(false),
+  senderText: varchar("sender_text", { length: 11 }),
+  virtualNumber: varchar("virtual_number", { length: 30 }),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+}, (table) => ({
+  providerCountryUnique: unique("sms_gateway_settings_provider_country").on(table.provider, table.countryCode),
+  providerIndex: index("idx_sms_gateway_settings_provider").on(table.provider),
+}));
+
+export const insertSmsGatewaySettingSchema = createInsertSchema(smsGatewaySettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSmsGatewaySetting = z.infer<typeof insertSmsGatewaySettingSchema>;
+export type SmsGatewaySetting = typeof smsGatewaySettings.$inferSelect;
+
 // ==================== COUNTRY SYSTEM SETTINGS ====================
 // System settings per country for automated emails and SMS alerts
 
@@ -7931,6 +7959,7 @@ export const campaignStatusListAutomations = pgTable("campaign_status_list_autom
   emailTemplateId: varchar("email_template_id"),
   emailRecipients: text("email_recipients").array().notNull().default(sql`ARRAY[]::text[]`),
   smsTemplateId: varchar("sms_template_id"),
+  smsProvider: varchar("sms_provider", { length: 20 }),
   callbackOffsetDays: integer("callback_offset_days"),
   callbackTime: text("callback_time"),
   notifyAgentPulse: boolean("notify_agent_pulse").notNull().default(false),
@@ -7960,6 +7989,7 @@ export const insertCampaignStatusListAutomationSchema = createInsertSchema(campa
   emailTemplateId: z.string().optional().nullable(),
   emailRecipients: z.array(z.string()).optional().default([]),
   smsTemplateId: z.string().optional().nullable(),
+  smsProvider: z.enum(SMS_GATEWAY_PROVIDERS).optional().nullable(),
   callbackOffsetDays: z.number().int().optional().nullable(),
   callbackTime: z.string().optional().nullable(),
   notifyAgentPulse: z.boolean().optional().default(false),

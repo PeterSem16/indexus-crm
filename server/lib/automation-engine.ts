@@ -427,20 +427,55 @@ async function actionSendSms(config: any, ctx: any): Promise<ActionResult> {
     const country: string | undefined =
       rendered.country || ctx.event?.countryCode || undefined;
 
-    const { sendTransactionalSms, sendPromotionalSms } = await import("./bulkgate");
-    const send = promotional ? sendPromotionalSms : sendTransactionalSms;
-    const result = await send({
+    const { sendSmsViaProvider } = await import("./sms-provider");
+    const result = await sendSmsViaProvider({
       number: to,
       text,
       country,
+      provider: rendered.gateway || rendered.provider || rendered.smsProvider,
+      promotional,
       unicode: rendered.unicode === true,
       tag: rendered.tag || `automation-rule`,
     });
 
+    try {
+      const communication = await storage.createCommunicationMessage({
+        customerId: ctx.customer?.id || ctx.contact?.id || ctx.event?.customerId || null,
+        userId: ctx.user?.id || ctx.actor?.id || ctx.event?.userId || null,
+        type: "sms",
+        direction: "outbound",
+        content: text,
+        recipientPhone: to,
+        status: result.success ? "sent" : "failed",
+        provider: result.provider,
+        externalId: result.smsId,
+        errorMessage: result.success ? undefined : result.error,
+        metadata: JSON.stringify({
+          batchId: result.batchId || null,
+          source: "automation_engine",
+          ruleId: ctx.rule?.id || ctx.event?.ruleId || null,
+        }),
+      });
+      if (result.success) {
+        await storage.updateCommunicationMessage(communication.id, { sentAt: new Date() });
+      }
+    } catch (historyError) {
+      console.error("[Automation] SMS communication history write failed:", historyError);
+    }
+
     if (!result.success) {
       return { ok: false, error: result.error || "send_sms failed", output: { errorCode: result.errorCode } };
     }
-    return { ok: true, output: { smsId: result.smsId, number: result.number, kind: promotional ? "promotional" : "transactional" } };
+    return {
+      ok: true,
+      output: {
+        smsId: result.smsId,
+        batchId: result.batchId,
+        provider: result.provider,
+        number: result.number,
+        kind: promotional ? "promotional" : "transactional",
+      },
+    };
   } catch (err: any) {
     return { ok: false, error: err?.message || "send_sms failed" };
   }

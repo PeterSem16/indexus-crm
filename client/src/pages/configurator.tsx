@@ -11073,8 +11073,20 @@ const GSM_COUNTRIES = [
   { code: "CH", name: "Švajčiarsko", flag: "🇨🇭" },
 ];
 
+const SMS_GATEWAY_TEXT = {
+  en: { saved: "SMS gateway configuration saved", saveError: "Gateway save failed", connected: "Connected", notConfigured: "Not configured", defaultSk: "Default for Slovakia", useDefault: "Use as Slovakia default", saveBulkGate: "Save BulkGate", keyConfigured: "API key is securely configured", keyMissing: "SMSTOOLS_API_KEY is missing", callbackLocked: "The callback stays locked until callback credentials are configured.", sender: "Sender text", senderHint: "Max. 11 characters, without spaces or accents.", virtualNumber: "Virtual number", activeSk: "Active for Slovakia", defaultForSk: "Default for Slovakia", credit: "SMSTOOLS credit", creditError: "Credit could not be loaded", refresh: "Refresh", save: "Save SMSTOOLS" },
+  sk: { saved: "Konfigurácia SMS gateway uložená", saveError: "Chyba pri ukladaní gateway", connected: "Pripojené", notConfigured: "Nenakonfigurované", defaultSk: "Predvolená pre SK", useDefault: "Použiť ako predvolenú pre Slovensko", saveBulkGate: "Uložiť BulkGate", keyConfigured: "API kľúč je bezpečne nastavený", keyMissing: "Chýba SMSTOOLS_API_KEY", callbackLocked: "Callback je uzamknutý, kým nebude nastavené callback heslo alebo token.", sender: "Text odosielateľa", senderHint: "Max. 11 znakov, bez medzier a diakritiky.", virtualNumber: "Virtuálne číslo", activeSk: "Aktívna pre Slovensko", defaultForSk: "Predvolená pre Slovensko", credit: "Kredit SMSTOOLS", creditError: "Kredit sa nepodarilo načítať", refresh: "Obnoviť", save: "Uložiť SMSTOOLS" },
+  cs: { saved: "Konfigurace SMS brány uložena", saveError: "Chyba při ukládání brány", connected: "Připojeno", notConfigured: "Nenakonfigurováno", defaultSk: "Výchozí pro Slovensko", useDefault: "Použít jako výchozí pro Slovensko", saveBulkGate: "Uložit BulkGate", keyConfigured: "API klíč je bezpečně nastaven", keyMissing: "Chybí SMSTOOLS_API_KEY", callbackLocked: "Callback zůstane uzamčen, dokud nebudou nastaveny přihlašovací údaje.", sender: "Text odesílatele", senderHint: "Max. 11 znaků, bez mezer a diakritiky.", virtualNumber: "Virtuální číslo", activeSk: "Aktivní pro Slovensko", defaultForSk: "Výchozí pro Slovensko", credit: "Kredit SMSTOOLS", creditError: "Kredit se nepodařilo načíst", refresh: "Obnovit", save: "Uložit SMSTOOLS" },
+  hu: { saved: "Az SMS-átjáró beállítása mentve", saveError: "Az átjáró mentése sikertelen", connected: "Csatlakoztatva", notConfigured: "Nincs beállítva", defaultSk: "Alapértelmezett Szlovákiában", useDefault: "Legyen alapértelmezett Szlovákiában", saveBulkGate: "BulkGate mentése", keyConfigured: "Az API-kulcs biztonságosan be van állítva", keyMissing: "Hiányzik az SMSTOOLS_API_KEY", callbackLocked: "A callback zárolva marad a hitelesítő adatok beállításáig.", sender: "Feladó neve", senderHint: "Legfeljebb 11 karakter, szóköz és ékezet nélkül.", virtualNumber: "Virtuális szám", activeSk: "Aktív Szlovákiában", defaultForSk: "Alapértelmezett Szlovákiában", credit: "SMSTOOLS egyenleg", creditError: "Az egyenleg nem tölthető be", refresh: "Frissítés", save: "SMSTOOLS mentése" },
+  ro: { saved: "Configurația gateway-ului SMS a fost salvată", saveError: "Salvarea gateway-ului a eșuat", connected: "Conectat", notConfigured: "Neconfigurat", defaultSk: "Implicit pentru Slovacia", useDefault: "Folosește implicit pentru Slovacia", saveBulkGate: "Salvează BulkGate", keyConfigured: "Cheia API este configurată în siguranță", keyMissing: "Lipsește SMSTOOLS_API_KEY", callbackLocked: "Callback-ul rămâne blocat până la configurarea autentificării.", sender: "Text expeditor", senderHint: "Max. 11 caractere, fără spații sau diacritice.", virtualNumber: "Număr virtual", activeSk: "Activ pentru Slovacia", defaultForSk: "Implicit pentru Slovacia", credit: "Credit SMSTOOLS", creditError: "Creditul nu a putut fi încărcat", refresh: "Reîncarcă", save: "Salvează SMSTOOLS" },
+  it: { saved: "Configurazione gateway SMS salvata", saveError: "Salvataggio gateway non riuscito", connected: "Connesso", notConfigured: "Non configurato", defaultSk: "Predefinito per la Slovacchia", useDefault: "Usa come predefinito per la Slovacchia", saveBulkGate: "Salva BulkGate", keyConfigured: "La chiave API è configurata in modo sicuro", keyMissing: "SMSTOOLS_API_KEY mancante", callbackLocked: "Il callback resta bloccato finché non vengono configurate le credenziali.", sender: "Testo mittente", senderHint: "Max 11 caratteri, senza spazi o accenti.", virtualNumber: "Numero virtuale", activeSk: "Attivo per la Slovacchia", defaultForSk: "Predefinito per la Slovacchia", credit: "Credito SMSTOOLS", creditError: "Impossibile caricare il credito", refresh: "Aggiorna", save: "Salva SMSTOOLS" },
+  de: { saved: "SMS-Gateway-Konfiguration gespeichert", saveError: "Gateway konnte nicht gespeichert werden", connected: "Verbunden", notConfigured: "Nicht konfiguriert", defaultSk: "Standard für die Slowakei", useDefault: "Als Standard für die Slowakei verwenden", saveBulkGate: "BulkGate speichern", keyConfigured: "API-Schlüssel ist sicher konfiguriert", keyMissing: "SMSTOOLS_API_KEY fehlt", callbackLocked: "Der Callback bleibt gesperrt, bis Zugangsdaten konfiguriert sind.", sender: "Absendertext", senderHint: "Max. 11 Zeichen, ohne Leerzeichen oder Akzente.", virtualNumber: "Virtuelle Nummer", activeSk: "Für die Slowakei aktiv", defaultForSk: "Standard für die Slowakei", credit: "SMSTOOLS-Guthaben", creditError: "Guthaben konnte nicht geladen werden", refresh: "Aktualisieren", save: "SMSTOOLS speichern" },
+} as const;
+
 function GsmSenderTab() {
   const { toast } = useToast();
+  const { locale } = useI18n();
+  const gatewayText = SMS_GATEWAY_TEXT[locale] || SMS_GATEWAY_TEXT.en;
 
   // Query for GSM configs
   const { data: gsmConfigs = [], isLoading: configsLoading } = useQuery<GsmSenderConfig[]>({
@@ -11085,6 +11097,62 @@ function GsmSenderTab() {
   const { data: creditInfo, isLoading: creditLoading, refetch: refetchCredit } = useQuery<{ success: boolean; credit?: number; currency?: string; error?: string }>({
     queryKey: ["/api/integrations/bulkgate/credit"],
     staleTime: 60000,
+  });
+
+  const { data: gatewayInfo, isLoading: gatewaysLoading, refetch: refetchGateways } = useQuery<any>({
+    queryKey: ["/api/sms-gateways?includeCredit=true"],
+    staleTime: 60000,
+  });
+  const smsToolsSetting = gatewayInfo?.settings?.find(
+    (setting: any) => setting.provider === "smstools" && setting.countryCode === "SK",
+  );
+  const bulkGateSetting = gatewayInfo?.settings?.find(
+    (setting: any) => setting.provider === "bulkgate" && setting.countryCode === "SK",
+  );
+  const [smsToolsForm, setSmsToolsForm] = useState({
+    senderText: "CBC",
+    virtualNumber: "",
+    isActive: true,
+    isDefault: false,
+  });
+  const [bulkGateActive, setBulkGateActive] = useState(true);
+  useEffect(() => {
+    if (bulkGateSetting) setBulkGateActive(bulkGateSetting.isActive !== false);
+  }, [bulkGateSetting?.id, bulkGateSetting?.updatedAt]);
+  useEffect(() => {
+    if (!smsToolsSetting) return;
+    setSmsToolsForm({
+      senderText: smsToolsSetting.senderText || "CBC",
+      virtualNumber: smsToolsSetting.virtualNumber || "",
+      isActive: smsToolsSetting.isActive !== false,
+      isDefault: smsToolsSetting.isDefault === true,
+    });
+  }, [smsToolsSetting?.id, smsToolsSetting?.updatedAt]);
+
+  const gatewayMutation = useMutation({
+    mutationFn: async (data: {
+      provider: "bulkgate" | "smstools";
+      countryCode: string;
+      isActive: boolean;
+      isDefault: boolean;
+      senderText?: string;
+      virtualNumber?: string;
+    }) => {
+      const res = await apiRequest("POST", "/api/sms-gateways/config", data);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Gateway configuration failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sms-gateways?includeCredit=true"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sms-gateways"] });
+      toast({ title: gatewayText.saved });
+    },
+    onError: (error: Error) => {
+      toast({ title: gatewayText.saveError, description: error.message, variant: "destructive" });
+    },
   });
 
   // Upsert mutation
@@ -11196,6 +11264,149 @@ function GsmSenderTab() {
             <RefreshCw className={`h-4 w-4 mr-2 ${creditLoading ? 'animate-spin' : ''}`} />
             Obnoviť
           </Button>
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="p-4 border rounded-lg bg-card space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="font-medium">BulkGate</h3>
+              <p className={`text-sm ${gatewayInfo?.providers?.find((p: any) => p.provider === "bulkgate")?.configured ? "text-emerald-600" : "text-destructive"}`}>
+                {gatewayInfo?.providers?.find((p: any) => p.provider === "bulkgate")?.configured ? gatewayText.connected : gatewayText.notConfigured}
+              </p>
+            </div>
+            {bulkGateSetting?.isDefault && <Badge variant="secondary">{gatewayText.defaultSk}</Badge>}
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={bulkGateActive} onCheckedChange={checked => setBulkGateActive(checked === true)} />
+            {gatewayText.activeSk}
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={gatewayMutation.isPending || !gatewayInfo?.providers?.find((p: any) => p.provider === "bulkgate")?.configured}
+              onClick={() => gatewayMutation.mutate({
+                provider: "bulkgate",
+                countryCode: "SK",
+                isActive: bulkGateActive,
+                isDefault: bulkGateSetting?.isDefault === true,
+              })}
+            >
+              {gatewayText.saveBulkGate || "Save BulkGate"}
+            </Button>
+            <Button
+              variant={bulkGateSetting?.isDefault ? "secondary" : "outline"}
+              size="sm"
+              disabled={gatewayMutation.isPending || !bulkGateActive || !gatewayInfo?.providers?.find((p: any) => p.provider === "bulkgate")?.configured}
+              onClick={() => gatewayMutation.mutate({
+                provider: "bulkgate",
+                countryCode: "SK",
+                isActive: true,
+                isDefault: true,
+              })}
+              data-testid="button-set-bulkgate-default-sk"
+            >
+              {gatewayText.useDefault}
+            </Button>
+          </div>
+        </div>
+
+        <div className="p-4 border rounded-lg bg-card space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="font-medium">SMSTOOLS</h3>
+              <p className={`text-sm ${gatewayInfo?.smstools?.configured ? "text-emerald-600" : "text-destructive"}`}>
+                {gatewayInfo?.smstools?.configured ? gatewayText.keyConfigured : gatewayText.keyMissing}
+              </p>
+              {!gatewayInfo?.smstools?.callbackAuthConfigured && (
+                <p className="text-xs text-amber-600 mt-1">
+                  {gatewayText.callbackLocked}
+                </p>
+              )}
+            </div>
+            {smsToolsForm.isDefault && <Badge variant="secondary">{gatewayText.defaultSk}</Badge>}
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label htmlFor="smstools-sender-text">{gatewayText.sender}</Label>
+              <Input
+                id="smstools-sender-text"
+                value={smsToolsForm.senderText}
+                maxLength={11}
+                onChange={e => setSmsToolsForm(prev => ({ ...prev, senderText: e.target.value }))}
+                placeholder="CBC"
+                data-testid="input-smstools-sender"
+              />
+              <p className="text-xs text-muted-foreground">{gatewayText.senderHint}</p>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="smstools-virtual-number">{gatewayText.virtualNumber}</Label>
+              <Input
+                id="smstools-virtual-number"
+                value={smsToolsForm.virtualNumber}
+                onChange={e => setSmsToolsForm(prev => ({ ...prev, virtualNumber: e.target.value }))}
+                placeholder="+421..."
+                data-testid="input-smstools-virtual-number"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-5">
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={smsToolsForm.isActive}
+                onCheckedChange={checked => setSmsToolsForm(prev => ({ ...prev, isActive: checked === true }))}
+              />
+              {gatewayText.activeSk}
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={smsToolsForm.isDefault}
+                onCheckedChange={checked => setSmsToolsForm(prev => ({ ...prev, isDefault: checked === true }))}
+              />
+              {gatewayText.defaultForSk}
+            </label>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs text-muted-foreground">{gatewayText.credit}</p>
+              {gatewaysLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : gatewayInfo?.credits?.smstools?.success ? (
+                <p className="font-semibold text-primary">
+                  {Number(gatewayInfo.credits.smstools.credit).toFixed(2)} {gatewayInfo.credits.smstools.currency || ""}
+                </p>
+              ) : (
+                <p className="text-sm text-destructive">{gatewayInfo?.credits?.smstools?.error || gatewayText.creditError}</p>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => refetchGateways()} disabled={gatewaysLoading}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${gatewaysLoading ? "animate-spin" : ""}`} />
+                {gatewayText.refresh}
+              </Button>
+              <Button
+                size="sm"
+                disabled={gatewayMutation.isPending || !gatewayInfo?.smstools?.configured || !smsToolsForm.senderText.trim()}
+                onClick={() => gatewayMutation.mutate({
+                  provider: "smstools",
+                  countryCode: "SK",
+                  isActive: smsToolsForm.isActive,
+                  isDefault: smsToolsForm.isDefault,
+                  senderText: smsToolsForm.senderText,
+                  virtualNumber: smsToolsForm.virtualNumber,
+                })}
+                data-testid="button-save-smstools"
+              >
+                {gatewayMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                {gatewayText.save}
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 

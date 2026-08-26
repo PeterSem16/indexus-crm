@@ -1000,7 +1000,7 @@ async function runStatusListContactEmail(automation: any, ctx: StatusListActionC
   return { ok: sent, provider };
 }
 
-// Send SMS directly to the contact's phone number via BulkGate.
+// Send SMS directly to the contact's phone number via the configured gateway.
 // SMS text is taken from automation.taskDescription (supports {{contact.name}} etc.).
 async function runStatusListContactSms(automation: any, ctx: StatusListActionCtx): Promise<{ ok: boolean }> {
   const smsText = automation.taskDescription;
@@ -1038,8 +1038,8 @@ async function runStatusListContactSms(automation: any, ctx: StatusListActionCtx
     .replace(/\{\{contact\.name\}\}/g, contactName).replace(/\{\{contact\.phone\}\}/g, contactPhone);
 
   try {
-    const { sendTransactionalSms, isBulkGateConfigured, parseCampaignSmsSender } = await import("./lib/bulkgate");
-    if (!isBulkGateConfigured()) { console.warn("[status-list:contact_sms] BulkGate not configured"); return { ok: false }; }
+    const { sendSmsViaProvider } = await import("./lib/sms-provider");
+    const { parseCampaignSmsSender } = await import("./lib/bulkgate");
     // Per-campaign SMS sender override (mission setting)
     let campaignSender: { senderId: "gSystem" | "gText" | "gOwn"; senderIdValue: string | null } | null = null;
     if (ctx.campaignId) {
@@ -1048,22 +1048,46 @@ async function runStatusListContactSms(automation: any, ctx: StatusListActionCtx
         campaignSender = parseCampaignSmsSender(camp?.settings);
       } catch (e) { console.error("[status-list:contact_sms] campaign sender lookup failed:", e); }
     }
-    const result = await sendTransactionalSms({
+    const result = await sendSmsViaProvider({
       number: contactPhone,
       text,
       country: ctx.contactCountry ?? undefined,
+      provider: automation.smsProvider || automation.gateway || automation.provider,
       ...(campaignSender ? { senderId: campaignSender.senderId, senderIdValue: campaignSender.senderIdValue, forceSender: true } : {}),
     });
     const ok = result.success;
-    console.log(`[status-list:contact_sms] sent=${ok} contact=${ctx.campaignContactId}`);
+    console.log(`[status-list:contact_sms] provider=${result.provider} sent=${ok} contact=${ctx.campaignContactId}`);
+    try {
+      const communication = await storage.createCommunicationMessage({
+        customerId: ccRow.customerId || ccRow.clinicId || ccRow.hospitalId || ccRow.collaboratorId || undefined,
+        userId: ctx.userId,
+        type: "sms",
+        direction: "outbound",
+        content: text,
+        recipientPhone: contactPhone,
+        status: ok ? "sent" : "failed",
+        provider: result.provider,
+        externalId: result.smsId,
+        errorMessage: ok ? undefined : result.error,
+        metadata: JSON.stringify({
+          batchId: result.batchId || null,
+          campaignId: ctx.campaignId,
+          campaignContactId: ctx.campaignContactId,
+          automationId: automation.id,
+        }),
+      });
+      if (ok) {
+        await storage.updateCommunicationMessage(communication.id, { sentAt: new Date() });
+      }
+    } catch (e) { console.error("[status-list:contact_sms] communication log failed:", e); }
     try {
       await db.insert(campaignContactHistory).values({
         campaignContactId: ctx.campaignContactId, userId: ctx.userId, action: "status_list_action",
-        metadata: { actionType: "send_sms", automationId: automation.id, ok, campaignId: ctx.campaignId },
+        metadata: { actionType: "send_sms", automationId: automation.id, ok, provider: result.provider, campaignId: ctx.campaignId },
       });
     } catch (e) { console.error("[status-list:contact_sms] history log failed:", e); }
     return { ok };
-  } catch (e) { console.error("[status-list:contact_sms] BulkGate error:", e); return { ok: false }; }
+  } catch (e) { console.error("[status-list:contact_sms] gateway error:", e); return { ok: false }; }
 }
 
 // Apply the configured disposition to the contact (status + dispositionCode).
@@ -13671,6 +13695,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
         return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
       }
       const { content } = parsed.data;
+      const requestedProvider = typeof req.body?.gateway === "string"
+        ? req.body.gateway
+        : typeof req.body?.provider === "string" ? req.body.provider : undefined;
       
       const customer = await storage.getCustomer(req.params.customerId);
       if (!customer) {
@@ -13682,6 +13709,10 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
       const user = req.session.user!;
       
+      const { resolveSmsProvider, sendSmsViaProvider } = await import("./lib/sms-provider");
+      const gatewaySelection = await resolveSmsProvider(requestedProvider, customer.country);
+      const recordProvider = gatewaySelection.provider || (requestedProvider === "smstools" ? "smstools" : "bulkgate");
+
       // Create message record
       const message = await storage.createCommunicationMessage({
         customerId: req.params.customerId,
@@ -13691,20 +13722,23 @@ Return ONLY valid JSON, no markdown code blocks.`,
         content,
         recipientPhone: customer.phone,
         status: "pending",
-        provider: "bulkgate",
+        provider: recordProvider,
       });
 
-      // Try to send SMS via BulkGate or fallback to simulation
-      const { sendTransactionalSms, isBulkGateConfigured } = await import("./lib/bulkgate");
+      // Try to send through the selected/default gateway. Preserve the old
+      // simulation behavior only when no gateway is configured at all.
       // User-level text sender ID
       const userSmsSenderId = (user as any).smsSenderId as string | null | undefined;
       
-      if (isBulkGateConfigured()) {
+      const { isBulkGateConfigured } = await import("./lib/bulkgate");
+      const { isSmsToolsConfigured } = await import("./lib/smstools");
+      if (gatewaySelection.provider || isBulkGateConfigured() || isSmsToolsConfigured()) {
         try {
-          const result = await sendTransactionalSms({
+          const result = await sendSmsViaProvider({
             number: customer.phone,
             text: content,
             country: customer.country || undefined,
+            provider: requestedProvider,
             tag: `customer-${customer.id}`,
             ...(userSmsSenderId ? { senderId: "gText" as const, senderIdValue: userSmsSenderId } : {}),
           });
@@ -13714,16 +13748,18 @@ Return ONLY valid JSON, no markdown code blocks.`,
               status: "sent",
               sentAt: new Date(),
               externalId: result.smsId,
+              provider: result.provider,
+              metadata: JSON.stringify({ batchId: result.batchId || null }),
             });
             
             await logActivity(user.id, "send_sms", "communication", message.id, 
               `SMS to ${customer.firstName} ${customer.lastName}`);
             
-            return res.json({ ...message, status: "sent", sentAt: new Date(), smsId: result.smsId });
+            return res.json({ ...message, status: "sent", sentAt: new Date(), smsId: result.smsId, provider: result.provider, batchId: result.batchId });
           } else {
             await storage.updateCommunicationMessage(message.id, {
               status: "failed",
-              errorMessage: result.error || "BulkGate error",
+              errorMessage: result.error || "SMS gateway error",
             });
             return res.status(500).json({ error: "Failed to send SMS", details: result.error });
           }
@@ -13736,7 +13772,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
         }
       } else {
         // Simulate sending (for demo purposes when no credentials configured)
-        await storage.updateCommunicationMessage(message.id, {
+          await storage.updateCommunicationMessage(message.id, {
           status: "sent",
           sentAt: new Date(),
         });
@@ -13766,7 +13802,10 @@ Return ONLY valid JSON, no markdown code blocks.`,
   // Send SMS to multiple recipients (used from customer dialog)
   app.post("/api/send-sms", requireAuth, async (req, res) => {
     try {
-      const { to, message, customerId, campaignId, compositionDurationSeconds } = req.body;
+      const { to, message, customerId, contactType, campaignId, compositionDurationSeconds } = req.body;
+      const requestedProvider = typeof req.body?.gateway === "string"
+        ? req.body.gateway
+        : typeof req.body?.provider === "string" ? req.body.provider : undefined;
       
       if (!to || !message) {
         return res.status(400).json({ error: "Missing required fields: to, message" });
@@ -13778,14 +13817,23 @@ Return ONLY valid JSON, no markdown code blocks.`,
       }
       
       const user = req.session.user!;
-      let customer = null;
+      let contact: any = null;
       
       if (customerId) {
-        customer = await storage.getCustomer(customerId);
+        if (contactType === "clinic") contact = await storage.getClinic(customerId);
+        else if (contactType === "hospital") contact = await storage.getHospital(customerId);
+        else if (contactType === "collaborator") contact = await storage.getCollaborator(customerId);
+        else contact = await storage.getCustomer(customerId);
       }
+      const contactCountry = contact?.country || contact?.countryCode || undefined;
+      const contactName = contact
+        ? [contact.firstName, contact.lastName].filter(Boolean).join(" ") || contact.name || contact.fullName || customerId
+        : null;
       
-      const { sendTransactionalSms, isBulkGateConfigured, parseCampaignSmsSender } = await import("./lib/bulkgate");
-      const results: { phone: string; success: boolean; error?: string; smsId?: string }[] = [];
+      const { sendSmsViaProvider, resolveSmsProvider } = await import("./lib/sms-provider");
+      const { isBulkGateConfigured, parseCampaignSmsSender } = await import("./lib/bulkgate");
+      const { isSmsToolsConfigured } = await import("./lib/smstools");
+      const results: { phone: string; success: boolean; error?: string; smsId?: string; batchId?: string; provider?: string }[] = [];
       
       // User-level text sender ID for all SMS in this batch
       const userSmsSenderId = (user as any).smsSenderId as string | null | undefined;
@@ -13801,7 +13849,10 @@ Return ONLY valid JSON, no markdown code blocks.`,
         }
       }
 
+      const hasConfiguredGateway = isBulkGateConfigured() || isSmsToolsConfigured();
       for (const phone of toArray) {
+        const gatewaySelection = await resolveSmsProvider(requestedProvider, contactCountry);
+        const recordProvider = gatewaySelection.provider || (requestedProvider === "smstools" ? "smstools" : "bulkgate");
         // Create message record
         const messageRecord = await storage.createCommunicationMessage({
           customerId: customerId || null,
@@ -13811,18 +13862,19 @@ Return ONLY valid JSON, no markdown code blocks.`,
           content: message,
           recipientPhone: phone,
           status: "pending",
-          provider: "bulkgate",
+          provider: recordProvider,
           metadata: JSON.stringify({
             compositionDurationSeconds: compositionDurationSeconds || null,
           }),
         });
         
-        if (isBulkGateConfigured()) {
+        if (gatewaySelection.provider || hasConfiguredGateway) {
           try {
-            const result = await sendTransactionalSms({
+            const result = await sendSmsViaProvider({
               number: phone,
               text: message,
-              country: customer?.country || undefined,
+              country: contactCountry,
+              provider: requestedProvider,
               tag: customerId ? `customer-${customerId}` : undefined,
               ...(campaignSender
                 ? { senderId: campaignSender.senderId, senderIdValue: campaignSender.senderIdValue, forceSender: true }
@@ -13834,18 +13886,23 @@ Return ONLY valid JSON, no markdown code blocks.`,
                 status: "sent",
                 sentAt: new Date(),
                 externalId: result.smsId,
+                provider: result.provider,
+                metadata: JSON.stringify({
+                  compositionDurationSeconds: compositionDurationSeconds || null,
+                  batchId: result.batchId || null,
+                }),
               });
               
               await logActivity(user.id, "send_sms", "communication", messageRecord.id, 
-                customer ? `SMS to ${customer.firstName} ${customer.lastName}` : `SMS to ${phone}`);
+                contactName ? `SMS to ${contactName}` : `SMS to ${phone}`);
               
-              results.push({ phone, success: true, smsId: result.smsId });
+              results.push({ phone, success: true, smsId: result.smsId, batchId: result.batchId, provider: result.provider });
             } else {
               await storage.updateCommunicationMessage(messageRecord.id, {
                 status: "failed",
-                errorMessage: result.error || "BulkGate error",
+                errorMessage: result.error || "SMS gateway error",
               });
-              results.push({ phone, success: false, error: result.error });
+            results.push({ phone, success: false, error: result.error, provider: result.provider });
             }
           } catch (smsError: any) {
             await storage.updateCommunicationMessage(messageRecord.id, {
@@ -13862,7 +13919,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
           });
           
           await logActivity(user.id, "send_sms", "communication", messageRecord.id, 
-            customer ? `SMS to ${customer.firstName} ${customer.lastName}` : `SMS to ${phone}`, { simulated: true });
+            contactName ? `SMS to ${contactName}` : `SMS to ${phone}`, { simulated: true });
           
           results.push({ phone, success: true });
         }
@@ -14457,6 +14514,145 @@ Return ONLY valid JSON, no markdown code blocks.`,
     } catch (error) {
       console.error("Error fetching BulkGate credit:", error);
       res.status(500).json({ success: false, error: "Failed to fetch credit" });
+    }
+  });
+
+  // SMS provider status, routing metadata, and non-destructive connectivity checks.
+  app.get("/api/sms-gateways", requireAuth, async (req, res) => {
+    try {
+      const { getSmsGatewayStatus } = await import("./lib/sms-provider");
+      const { getCredit: getBulkGateCredit } = await import("./lib/bulkgate");
+      const { getSmsToolsCredit } = await import("./lib/smstools");
+      const status = await getSmsGatewayStatus();
+      const includeCredit = req.query.includeCredit === "true";
+      const [bulkgateCredit, smstoolsCredit] = includeCredit
+        ? await Promise.all([
+            status.providers.find(p => p.provider === "bulkgate")?.configured
+              ? getBulkGateCredit()
+              : Promise.resolve({ success: false, error: "BulkGate nie je nakonfigurovaný" }),
+            status.providers.find(p => p.provider === "smstools")?.configured
+              ? getSmsToolsCredit()
+              : Promise.resolve({ success: false, error: "SMSTOOLS nie je nakonfigurovaný" }),
+          ])
+        : [undefined, undefined];
+      res.json({ ...status, credits: { bulkgate: bulkgateCredit, smstools: smstoolsCredit } });
+    } catch (error) {
+      console.error("[SMS gateways] status failed:", error);
+      res.status(500).json({ error: "Failed to load SMS gateways" });
+    }
+  });
+
+  app.post("/api/sms-gateways/config", requireAuth, async (req, res) => {
+    try {
+      if (!["admin", "manager"].includes(req.session.user?.role || "")) {
+        return res.status(403).json({ error: "Admin or Manager access required" });
+      }
+      const provider = String(req.body?.provider || "").trim().toLowerCase();
+      const countryCode = String(req.body?.countryCode || "").trim().toUpperCase() || null;
+      const isActive = req.body?.isActive !== false;
+      const isDefault = req.body?.isDefault === true;
+      const senderTextRaw = String(req.body?.senderText || "").trim();
+      const virtualNumber = String(req.body?.virtualNumber || "").trim() || null;
+      if (provider !== "bulkgate" && provider !== "smstools") {
+        return res.status(400).json({ error: "Unknown SMS provider" });
+      }
+      if (provider === "smstools" && countryCode && countryCode !== "SK") {
+        return res.status(400).json({ error: "SMSTOOLS is currently allowed only for Slovakia" });
+      }
+      if (senderTextRaw && (senderTextRaw.length > 11 || /\s/.test(senderTextRaw) || !/^[\x20-\x7E]+$/.test(senderTextRaw))) {
+        return res.status(400).json({ error: "Sender text must contain 1–11 ASCII characters without spaces" });
+      }
+      if (isDefault) {
+        if (countryCode) {
+          await pool.query(
+            `UPDATE sms_gateway_settings SET is_default = false, updated_at = now()
+             WHERE country_code = $1`,
+            [countryCode],
+          );
+        } else {
+          await pool.query(
+            `UPDATE sms_gateway_settings SET is_default = false, updated_at = now()
+             WHERE country_code IS NULL`,
+          );
+        }
+      }
+
+      let saved;
+      if (countryCode) {
+        const result = await pool.query(
+          `INSERT INTO sms_gateway_settings
+             (provider, country_code, is_active, is_default, sender_text, virtual_number)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           ON CONFLICT (provider, country_code) DO UPDATE SET
+             is_active = EXCLUDED.is_active,
+             is_default = EXCLUDED.is_default,
+             sender_text = EXCLUDED.sender_text,
+             virtual_number = EXCLUDED.virtual_number,
+             updated_at = now()
+           RETURNING *`,
+          [provider, countryCode, isActive, isDefault, senderTextRaw || null, virtualNumber],
+        );
+        saved = result.rows[0];
+      } else {
+        const existing = await pool.query(
+          `SELECT id FROM sms_gateway_settings WHERE provider = $1 AND country_code IS NULL LIMIT 1`,
+          [provider],
+        );
+        const result = existing.rows[0]
+          ? await pool.query(
+              `UPDATE sms_gateway_settings SET
+                 is_active = $2, is_default = $3, sender_text = $4,
+                 virtual_number = $5, updated_at = now()
+               WHERE id = $1 RETURNING *`,
+              [existing.rows[0].id, isActive, isDefault, senderTextRaw || null, virtualNumber],
+            )
+          : await pool.query(
+              `INSERT INTO sms_gateway_settings
+                 (provider, country_code, is_active, is_default, sender_text, virtual_number)
+               VALUES ($1, NULL, $2, $3, $4, $5) RETURNING *`,
+              [provider, isActive, isDefault, senderTextRaw || null, virtualNumber],
+            );
+        saved = result.rows[0];
+      }
+      await logActivity(req.session.user!.id, "upsert", "sms_gateway_setting", saved.id, `${provider}:${countryCode || "global"}`);
+      res.json(saved);
+    } catch (error) {
+      console.error("[SMS gateways] config save failed:", error);
+      res.status(500).json({ error: "Failed to save SMS gateway configuration" });
+    }
+  });
+
+  // SMSTOOLS delivery callback. It remains closed until callback credentials
+  // are configured in Secrets, rather than accepting unsigned provider data.
+  app.post("/api/auth/smstools/callback", async (req, res) => {
+    try {
+      const { verifySmsToolsCallback, parseSmsToolsStates, mapSmsToolsState } = await import("./lib/smstools");
+      if (!verifySmsToolsCallback(req as any)) {
+        return res.status(401).json({ received: false, error: "Invalid callback authentication" });
+      }
+      const states = parseSmsToolsStates(req.body);
+      let updated = 0;
+      for (const state of states) {
+        const [message] = await db.select().from(communicationMessages)
+          .where(and(
+            eq(communicationMessages.provider, "smstools"),
+            eq(communicationMessages.externalId, state.msgId),
+          ))
+          .limit(1);
+        if (!message) continue;
+        const mapped = mapSmsToolsState(state);
+        if (message.deliveryStatus === "delivered" && mapped !== "delivered") continue;
+        await storage.updateCommunicationMessage(message.id, {
+          deliveryStatus: mapped,
+          status: mapped === "delivered" || mapped === "failed" ? mapped : message.status,
+          deliveredAt: mapped === "delivered" ? (message.deliveredAt || new Date()) : undefined,
+        });
+        updated += 1;
+      }
+      res.json({ received: true, processed: states.length, updated });
+    } catch (error) {
+      console.error("[SMSTOOLS callback] processing failed:", error);
+      res.status(500).json({ received: false, error: "Callback processing failed" });
     }
   });
 
@@ -31046,25 +31242,40 @@ Respond ONLY with valid JSON in this exact format:
                     } catch (e) { console.error("[assign_task] email channel error:", e); }
                   }
 
-                  // SMS — via BulkGate (system-level). Best-effort: skip when not configured or no phone.
+                  // SMS — via the country default gateway. Best-effort: skip when no provider is configured.
                   if (wantSms) {
                     try {
-                      const { sendTransactionalSms, isBulkGateConfigured } = await import("./lib/bulkgate");
-                      if (isBulkGateConfigured()) {
-                        const smsRecipients = assigneeRows.filter(r => !!r.phone);
-                        const smsCtx = boNotifContext ? ` (${boNotifContext})` : "";
-                        for (const r of smsRecipients) {
-                          try {
-                            await sendTransactionalSms({
-                              number: r.phone!,
-                              text: `INDEXUS: Nová úloha - ${taskTitle}${smsCtx}`,
-                              country: contactCountry ?? undefined,
-                            });
-                          } catch (e) { console.error("[assign_task] sms send failed for user", r.id, e instanceof Error ? e.message : String(e)); }
-                        }
-                      } else {
-                        console.warn("[assign_task] sms channel skipped: BulkGate not configured");
+                      const { sendSmsViaProvider } = await import("./lib/sms-provider");
+                      const smsRecipients = assigneeRows.filter(r => !!r.phone);
+                      const smsCtx = boNotifContext ? ` (${boNotifContext})` : "";
+                      for (const r of smsRecipients) {
+                        try {
+                          const notificationText = `INDEXUS: Nová úloha - ${taskTitle}${smsCtx}`;
+                          const result = await sendSmsViaProvider({
+                            number: r.phone!,
+                            text: notificationText,
+                            country: contactCountry ?? undefined,
+                          });
+                          const communication = await storage.createCommunicationMessage({
+                            userId,
+                            type: "sms",
+                            direction: "outbound",
+                            content: notificationText,
+                            recipientPhone: r.phone!,
+                            status: result.success ? "sent" : "failed",
+                            provider: result.provider,
+                            externalId: result.smsId,
+                            errorMessage: result.success ? undefined : result.error,
+                            metadata: JSON.stringify({ batchId: result.batchId || null, purpose: "task_notification" }),
+                          });
+                          if (result.success) {
+                            await storage.updateCommunicationMessage(communication.id, { sentAt: new Date() });
+                          }
+                        } catch (e) { console.error("[assign_task] sms send failed for user", r.id, e instanceof Error ? e.message : String(e)); }
                       }
+                      if (smsRecipients.length === 0) {
+                        console.warn("[assign_task] sms channel skipped: no recipient phone");
+                        }
                     } catch (e) { console.error("[assign_task] sms channel error:", e); }
                   }
                 }
@@ -43917,27 +44128,26 @@ Segment should be one of: hospitals, clinics, ambulances, laboratories, pharmaci
         smsText += `\n${smsCountrySettings.systemSmsSignature}`;
       }
 
-      const { sendTransactionalSms, isBulkGateConfigured } = await import("./lib/bulkgate");
-      if (isBulkGateConfigured()) {
+      const { sendSmsViaProvider } = await import("./lib/sms-provider");
+      const { isBulkGateConfigured } = await import("./lib/bulkgate");
+      const { isSmsToolsConfigured } = await import("./lib/smstools");
+      if (isBulkGateConfigured() || isSmsToolsConfigured()) {
         const hasUnicode = /[^\x00-\x7F]/.test(smsText);
         const cleanPhone = signerPhone.replace(/\s+/g, "");
-        console.log(`[ContractOTP] SMS to ${cleanPhone} (${smsText.length} chars, unicode=${hasUnicode}, country=${countryCode}): ${smsText}`);
-        const result = await sendTransactionalSms({
+        const result = await sendSmsViaProvider({
           number: cleanPhone,
           text: smsText,
           country: countryCode || undefined,
           unicode: hasUnicode,
         });
         if (result.success) {
-          console.log(`[ContractOTP] Sent OTP SMS via BulkGate to ${cleanPhone} (lang=${lang})`);
+          console.log(`[ContractOTP] OTP SMS sent via ${result.provider} (lang=${lang})`);
           return true;
         } else {
-          console.error(`[ContractOTP] BulkGate SMS failed to ${cleanPhone}:`, result.error, `errorCode=${result.errorCode}`);
+          console.error(`[ContractOTP] SMS gateway failed:`, result.error, `errorCode=${result.errorCode}`);
         }
       } else {
-        console.log(`[ContractOTP SMS Simulation] BulkGate not configured`);
-        console.log(`To: ${signerPhone}`);
-        console.log(`Message: ${smsText}`);
+        console.log(`[ContractOTP SMS Simulation] No SMS gateway configured`);
         return true;
       }
       return false;

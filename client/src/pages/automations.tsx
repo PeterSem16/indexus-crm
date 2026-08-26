@@ -1212,6 +1212,17 @@ function ActionEditor({
             </Select>
           </div>
           <div>
+            <Label className="text-xs">SMS gateway</Label>
+            <Select value={action.config.provider || "default"} onValueChange={(v) => setCfg("provider", v === "default" ? undefined : v)}>
+              <SelectTrigger className="h-8 text-xs" data-testid={`select-sms-gateway-${index}`}><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Country default</SelectItem>
+                <SelectItem value="bulkgate">BulkGate</SelectItem>
+                <SelectItem value="smstools">SMSTOOLS (SK)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
             <Label className="text-xs">Country (optional)</Label>
             <Input
               className="h-8 text-xs"

@@ -2754,7 +2754,7 @@ function CommunicationCanvas({
   onChannelChange: (ch: string) => void;
   timeline: TimelineEntry[];
   onSendEmail: (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; compositionDurationSeconds?: number | null }) => void;
-  onSendSms: (data: { to: string[]; message: string; compositionDurationSeconds?: number | null }) => void;
+  onSendSms: (data: { to: string[]; message: string; gateway?: "bulkgate" | "smstools"; compositionDurationSeconds?: number | null }) => void;
   isSendingEmail: boolean;
   isSendingSms: boolean;
   onMakeCall?: (phoneNumber: string) => void;
@@ -2831,6 +2831,12 @@ function CommunicationCanvas({
   const [emailMessage, setEmailMessage] = useState("");
   const [emailIsHtml, setEmailIsHtml] = useState(false);
   const [smsMessage, setSmsMessage] = useState("");
+  const [smsGateway, setSmsGateway] = useState<"default" | "bulkgate" | "smstools">("default");
+  const { data: smsGatewayStatus } = useQuery<any>({
+    queryKey: ["/api/sms-gateways"],
+    enabled: activeChannel === "sms",
+    staleTime: 60_000,
+  });
   const smsTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   useEffect(() => {
     const el = smsTextareaRef.current;
@@ -3998,7 +4004,12 @@ function CommunicationCanvas({
       return;
     }
     const compositionDurationSeconds = smsOpenedAt ? Math.round((Date.now() - smsOpenedAt) / 1000) : null;
-    onSendSms({ to: allPhones, message: smsMessage, compositionDurationSeconds });
+    onSendSms({
+      to: allPhones,
+      message: smsMessage,
+      gateway: smsGateway === "default" ? undefined : smsGateway,
+      compositionDurationSeconds,
+    });
     setSmsMessage("");
     setSelectedPhones([]);
     setSmsCc("");
@@ -5577,6 +5588,40 @@ function CommunicationCanvas({
                     ));
                   })()}
                 </div>
+              </div>
+
+              <div className="border-t border-stone-200 dark:border-stone-700/60" />
+
+              {/* SMS gateway */}
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                  {({ sk: "SMS gateway", en: "SMS gateway", cs: "SMS brána", hu: "SMS átjáró", ro: "Gateway SMS", it: "Gateway SMS", de: "SMS-Gateway" } as Record<string, string>)[locale] || "SMS gateway"}
+                </Label>
+                <Select value={smsGateway} onValueChange={v => setSmsGateway(v as "default" | "bulkgate" | "smstools")}>
+                  <SelectTrigger className="h-8 text-xs" data-testid="select-sms-gateway">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="default">
+                      {({ sk: "Predvolená podľa krajiny", en: "Country default", cs: "Výchozí podle země", hu: "Ország szerinti alapértelmezett", ro: "Implicit după țară", it: "Predefinito per paese", de: "Länderstandard" } as Record<string, string>)[locale] || "Country default"}
+                    </SelectItem>
+                    <SelectItem
+                      value="bulkgate"
+                      disabled={smsGatewayStatus?.providers?.some((p: any) => p.provider === "bulkgate" && (!p.configured || !p.active))}
+                    >
+                      BulkGate
+                    </SelectItem>
+                    <SelectItem
+                      value="smstools"
+                      disabled={
+                        (contactCountry || contact?.country || "SK").toUpperCase() !== "SK" ||
+                        smsGatewayStatus?.providers?.some((p: any) => p.provider === "smstools" && (!p.configured || !p.active))
+                      }
+                    >
+                      SMSTOOLS (SK)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="border-t border-stone-200 dark:border-stone-700/60" />
@@ -11887,11 +11932,13 @@ export default function AgentWorkspacePage() {
   });
 
   const sendSmsMutation = useMutation({
-    mutationFn: async (data: { to: string[]; message: string; customerId?: string; compositionDurationSeconds?: number | null }) => {
+    mutationFn: async (data: { to: string[]; message: string; gateway?: "bulkgate" | "smstools"; customerId?: string; contactType?: string; compositionDurationSeconds?: number | null }) => {
       const res = await apiRequest("POST", "/api/send-sms", {
         to: data.to,
         message: data.message,
+        gateway: data.gateway,
         customerId: data.customerId,
+        contactType: data.contactType,
         campaignId: selectedCampaignId || undefined,
         compositionDurationSeconds: data.compositionDurationSeconds,
       });
@@ -12237,7 +12284,7 @@ export default function AgentWorkspacePage() {
     });
   };
 
-  const handleSendSms = async (data: { to: string[]; message: string; compositionDurationSeconds?: number | null }) => {
+  const handleSendSms = async (data: { to: string[]; message: string; gateway?: "bulkgate" | "smstools"; compositionDurationSeconds?: number | null }) => {
     if (!currentContact) {
       toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.noContactSelected, variant: "destructive" });
       return;
@@ -12277,7 +12324,9 @@ export default function AgentWorkspacePage() {
     sendSmsMutation.mutate({
       to: data.to,
       message: data.message,
+      gateway: data.gateway,
       customerId: currentContact.id,
+      contactType: currentContactType || "customer",
       compositionDurationSeconds: data.compositionDurationSeconds,
     });
   };

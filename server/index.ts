@@ -308,9 +308,10 @@ app.use((req, res, next) => {
     await pool.query(`
       ALTER TABLE campaign_status_list_automations
         ADD COLUMN IF NOT EXISTS email_recipients text[] NOT NULL DEFAULT ARRAY[]::text[],
-        ADD COLUMN IF NOT EXISTS callback_offset_days integer;
+        ADD COLUMN IF NOT EXISTS callback_offset_days integer,
+        ADD COLUMN IF NOT EXISTS sms_provider varchar(20);
     `);
-    console.log('[migration] email_recipients/callback_offset_days ensured on automations');
+    console.log('[migration] email_recipients/callback_offset_days/sms_provider ensured on automations');
 
     await pool.query(`
       ALTER TABLE campaign_status_list_automations
@@ -516,6 +517,29 @@ app.use((req, res, next) => {
     console.log('[migration] users sms_sender_id column ensured');
   } catch (e: any) {
     console.error('[migration] users sms_sender_id error:', e.message);
+  }
+
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS sms_gateway_settings (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        provider varchar(20) NOT NULL,
+        country_code varchar(10),
+        is_active boolean NOT NULL DEFAULT true,
+        is_default boolean NOT NULL DEFAULT false,
+        sender_text varchar(11),
+        virtual_number varchar(30),
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now(),
+        CONSTRAINT sms_gateway_settings_provider_country
+          UNIQUE (provider, country_code)
+      );
+      CREATE INDEX IF NOT EXISTS idx_sms_gateway_settings_provider
+        ON sms_gateway_settings(provider);
+    `);
+    console.log('[migration] sms_gateway_settings table ensured');
+  } catch (e: any) {
+    console.error('[migration] sms_gateway_settings error:', e.message);
   }
 
   try {

@@ -34,12 +34,15 @@ type StatusListAutomation = {
   targetRole: string | null;
   emailTemplateId: string | null;
   smsTemplateId: string | null;
+  smsProvider?: "bulkgate" | "smstools" | null;
   taskDescription: string | null;
   taskDeadlineOffset: string | null;
   taskPriority: string;
   conditionField: string | null;
   conditionOperator: string | null;
   conditionValue: string | null;
+  conditionJson?: string | null;
+  webhookTarget?: string | null;
   dispositionId: string | null;
   taskGroupId: string | null;
   emailRecipients?: string[] | null;
@@ -143,6 +146,8 @@ const SL: Record<string, Record<string, string>> = {
   emailTemplate:  { sk: "Šablóna emailu", en: "Email template", cs: "E-mailová šablona", hu: "E-mail sablon", ro: "Șablon email", it: "Modello email", de: "E-Mail-Vorlage" },
   selectEmail:    { sk: "Vybrať šablónu...", en: "Select template...", cs: "Vybrat šablonu...", hu: "Sablon kiválasztása...", ro: "Selectați șablonul...", it: "Seleziona modello...", de: "Vorlage auswählen..." },
   restrictionsFC: { sk: "Obmedzenia (FC)", en: "Restrictions (FC)", cs: "Omezení (FC)", hu: "Korlátozások (FC)", ro: "Restricții (FC)", it: "Restrizioni (FC)", de: "Einschränkungen (FC)" },
+  smsGateway:      { sk: "SMS gateway", en: "SMS gateway", cs: "SMS brána", hu: "SMS átjáró", ro: "Gateway SMS", it: "Gateway SMS", de: "SMS-Gateway" },
+  smsGatewayAuto:  { sk: "Predvolená podľa krajiny", en: "Country default", cs: "Výchozí podle země", hu: "Ország szerinti alapértelmezett", ro: "Implicit după țară", it: "Predefinito per paese", de: "Länderstandard" },
 
   at_assign_task:        { sk: "Priradiť úlohu", en: "Assign task", cs: "Přiřadit úkol", hu: "Feladat hozzárendelése", ro: "Atribuire sarcină", it: "Assegna compito", de: "Aufgabe zuweisen" },
   at_send_email_group:   { sk: "Skupinový email (rola)", en: "Group email (role)", cs: "Skupinový e-mail (role)", hu: "Csoportos e-mail (szerepkör)", ro: "Email de grup (rol)", it: "Email di gruppo (ruolo)", de: "Gruppen-E-Mail (Rolle)" },
@@ -1338,6 +1343,7 @@ function AutomationForm({
     emailTemplateId: automation?.emailTemplateId || "",
     emailCategoryId: "",
     smsTemplateId: automation?.smsTemplateId || "",
+    smsProvider: automation?.smsProvider || "default",
     conditionType: automation?.conditionJson
       ? ((() => { try { const p = JSON.parse(automation.conditionJson ?? "{}"); return p.__type === "field_changed_to" ? "field_changed_to" : "compound"; } catch { return "compound"; } })())
       : automation?.conditionField === "country" ? "country" : "always",
@@ -1426,6 +1432,7 @@ function AutomationForm({
         taskPriority: form.taskPriority,
         emailTemplateId: form.emailTemplateId || null,
         smsTemplateId: form.smsTemplateId || null,
+        smsProvider: form.actionType === "send_sms" && form.smsProvider !== "default" ? form.smsProvider : null,
         dispositionId: form.dispositionId || null,
         emailRecipients: ["send_email_group", "notify_email"].includes(form.actionType)
           ? form.emailRecipients.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean)
@@ -1563,6 +1570,22 @@ function AutomationForm({
                 </p>
               ) : null;
             })()}
+          </div>
+        )}
+
+        {needsSmsText && (
+          <div className="col-span-2">
+            <Label className="text-xs mb-1 block">{sl("smsGateway", locale)}</Label>
+            <Select value={form.smsProvider} onValueChange={v => setForm(f => ({ ...f, smsProvider: v as "default" | "bulkgate" | "smstools" }))}>
+              <SelectTrigger className="h-8 text-xs" data-testid="select-status-list-sms-gateway">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">{sl("smsGatewayAuto", locale)}</SelectItem>
+                <SelectItem value="bulkgate">BulkGate</SelectItem>
+                <SelectItem value="smstools">SMSTOOLS (SK)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         )}
 
