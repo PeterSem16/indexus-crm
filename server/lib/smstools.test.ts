@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import {
+  isSmsToolsCallbackConfigured,
   mapSmsToolsState,
   normalizeSlovakPhone,
   parseSmsToolsStates,
   sendSmsTools,
+  verifySmsToolsCallback,
 } from "./smstools";
 import { selectSmsProvider } from "./sms-provider-selection";
 import { applyCampaignSmsProvider, parseCampaignSmsProvider } from "./sms-provider";
@@ -162,6 +164,49 @@ await test("parses callbacks and maps terminal delivery states", () => {
   assert.equal(delivered.msgId, "1");
   assert.equal(mapSmsToolsState(delivered), "delivered");
   assert.equal(mapSmsToolsState(failed), "failed");
+});
+
+await test("accepts SMSTOOLS callback payload variants", () => {
+  const [direct] = parseSmsToolsStates({
+    msg_id: 3,
+    stateType: "delivery",
+    status: "delivered",
+    permanent: 1,
+  });
+  const [formEncoded] = parseSmsToolsStates({
+    sms_state: JSON.stringify([{ message_id: 4, state_id: "FAILED", permanent: "1" }]),
+  });
+  assert.equal(direct.msgId, "3");
+  assert.equal(mapSmsToolsState(direct), "delivered");
+  assert.equal(formEncoded.msgId, "4");
+  assert.equal(mapSmsToolsState(formEncoded), "failed");
+});
+
+await test("authenticates callbacks by query, header, bearer, or basic credentials", () => {
+  const previousToken = process.env.SMSTOOLS_CALLBACK_TOKEN;
+  const previousUser = process.env.SMSTOOLS_CALLBACK_USER;
+  const previousPassword = process.env.SMSTOOLS_CALLBACK_PASSWORD;
+  try {
+    process.env.SMSTOOLS_CALLBACK_TOKEN = "callback-secret";
+    assert.equal(isSmsToolsCallbackConfigured(), true);
+    assert.equal(verifySmsToolsCallback({ headers: {}, query: { token: "callback-secret" } }), true);
+    assert.equal(verifySmsToolsCallback({ headers: { "x-smstools-callback-token": "callback-secret" } }), true);
+    assert.equal(verifySmsToolsCallback({ headers: { authorization: "Bearer callback-secret" } }), true);
+    assert.equal(verifySmsToolsCallback({ headers: {}, query: { token: "wrong" } }), false);
+
+    delete process.env.SMSTOOLS_CALLBACK_TOKEN;
+    process.env.SMSTOOLS_CALLBACK_USER = "smstools";
+    process.env.SMSTOOLS_CALLBACK_PASSWORD = "password";
+    const basic = Buffer.from("smstools:password").toString("base64");
+    assert.equal(verifySmsToolsCallback({ headers: { authorization: `Basic ${basic}` } }), true);
+  } finally {
+    if (previousToken === undefined) delete process.env.SMSTOOLS_CALLBACK_TOKEN;
+    else process.env.SMSTOOLS_CALLBACK_TOKEN = previousToken;
+    if (previousUser === undefined) delete process.env.SMSTOOLS_CALLBACK_USER;
+    else process.env.SMSTOOLS_CALLBACK_USER = previousUser;
+    if (previousPassword === undefined) delete process.env.SMSTOOLS_CALLBACK_PASSWORD;
+    else process.env.SMSTOOLS_CALLBACK_PASSWORD = previousPassword;
+  }
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

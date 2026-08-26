@@ -5,6 +5,8 @@
  * never enters the database, client bundle, or application logs.
  */
 
+import { timingSafeEqual } from "node:crypto";
+
 const SMSTOOLS_SEND_URL = "https://api.smstools.sk/3/send_batch";
 const SMSTOOLS_CREDIT_URL = "https://api.smstools.sk/3/credit_remaining";
 
@@ -165,45 +167,91 @@ export function verifySmsToolsCallback(req: {
 }): boolean {
   const configuredToken = process.env.SMSTOOLS_CALLBACK_TOKEN?.trim();
   const headerToken = req.headers["x-smstools-callback-token"];
+  const authorizationValue = req.headers.authorization;
+  const authorization = Array.isArray(authorizationValue) ? authorizationValue[0] : authorizationValue;
   const queryToken = req.query?.token;
   if (configuredToken) {
-    return String(headerToken || queryToken || "") === configuredToken;
+    const bearerToken = authorization?.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
+    return secretEquals(String(headerToken || bearerToken || queryToken || ""), configuredToken);
   }
 
   const configuredUser = process.env.SMSTOOLS_CALLBACK_USER?.trim();
   const configuredPassword = process.env.SMSTOOLS_CALLBACK_PASSWORD;
   if (!configuredUser || !configuredPassword) return false;
-  const authorizationValue = req.headers.authorization;
-  const authorization = Array.isArray(authorizationValue) ? authorizationValue[0] : authorizationValue;
   if (!authorization?.startsWith("Basic ")) return false;
   try {
     const decoded = Buffer.from(authorization.slice(6), "base64").toString("utf8");
     const separator = decoded.indexOf(":");
     return separator >= 0 &&
-      decoded.slice(0, separator) === configuredUser &&
-      decoded.slice(separator + 1) === configuredPassword;
+      secretEquals(decoded.slice(0, separator), configuredUser) &&
+      secretEquals(decoded.slice(separator + 1), configuredPassword);
   } catch {
     return false;
   }
 }
 
+function secretEquals(received: string, expected: string): boolean {
+  const receivedBuffer = Buffer.from(received);
+  const expectedBuffer = Buffer.from(expected);
+  return receivedBuffer.length === expectedBuffer.length &&
+    timingSafeEqual(receivedBuffer, expectedBuffer);
+}
+
+export function isSmsToolsCallbackConfigured(): boolean {
+  return Boolean(
+    process.env.SMSTOOLS_CALLBACK_TOKEN?.trim() ||
+    (process.env.SMSTOOLS_CALLBACK_USER?.trim() && process.env.SMSTOOLS_CALLBACK_PASSWORD),
+  );
+}
+
+function parseMaybeJson(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (!trimmed || (!trimmed.startsWith("{") && !trimmed.startsWith("["))) return value;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}
+
 export function parseSmsToolsStates(body: any): SmsToolsState[] {
-  const states = Array.isArray(body?.sms_state) ? body.sms_state : [];
+  const parsedBody: any = parseMaybeJson(body);
+  const candidate = parseMaybeJson(
+    parsedBody?.sms_state ??
+    parsedBody?.data?.sms_state ??
+    parsedBody?.states ??
+    parsedBody?.data?.states ??
+    parsedBody,
+  );
+  const states = Array.isArray(candidate)
+    ? candidate
+    : candidate && typeof candidate === "object" &&
+        (candidate.msg_id != null || candidate.message_id != null)
+      ? [candidate]
+      : [];
   return states
-    .filter((item: any) => item?.msg_id != null)
+    .filter((item: any) => item?.msg_id != null || item?.message_id != null)
     .map((item: any) => ({
-      msgId: String(item.msg_id),
-      stateType: typeof item.state_type === "string" ? item.state_type : undefined,
-      stateId: typeof item.state_id === "string" ? item.state_id : undefined,
-      permanent: item.permanent === true || item.permanent === "TRUE",
+      msgId: String(item.msg_id ?? item.message_id),
+      stateType: typeof (item.state_type ?? item.stateType) === "string"
+        ? String(item.state_type ?? item.stateType)
+        : undefined,
+      stateId: typeof (item.state_id ?? item.stateId ?? item.status) === "string"
+        ? String(item.state_id ?? item.stateId ?? item.status)
+        : undefined,
+      permanent: item.permanent === true ||
+        String(item.permanent || "").toUpperCase() === "TRUE" ||
+        item.permanent === 1 ||
+        item.permanent === "1",
       raw: item,
     }));
 }
 
 export function mapSmsToolsState(state: SmsToolsState): "pending" | "sent" | "delivered" | "failed" {
   const value = `${state.stateType || ""} ${state.stateId || ""}`.toUpperCase();
-  if (/(CHYB|NEDORUC|REJECT|EXPIRE|ZAMIET|FAILED)/.test(value)) return "failed";
+  if (/(CHYB|NEDORUC|NOT.?DELIVER|UNDELIVER|REJECT|EXPIRE|ZAMIET|FAILED|ERROR|INVALID|BLOCK)/.test(value)) return "failed";
   if (/(DORUC|DELIVER)/.test(value)) return "delivered";
-  if (/(ODOSIEL|SEND|PREBIEHA|PROCESS)/.test(value)) return "sent";
+  if (/(ODOSIEL|SEND|PREBIEHA|PROCESS|SUBMIT|ACCEPT|QUEUE)/.test(value)) return "sent";
   return "pending";
 }

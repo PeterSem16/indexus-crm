@@ -14757,6 +14757,15 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
+  app.get("/api/auth/smstools/callback/status", async (_req, res) => {
+    const { isSmsToolsCallbackConfigured } = await import("./lib/smstools");
+    res.json({
+      ready: isSmsToolsCallbackConfigured(),
+      endpoint: "/api/auth/smstools/callback",
+      methods: ["POST"],
+    });
+  });
+
   // SMSTOOLS delivery callback. It remains closed until callback credentials
   // are configured in Secrets, rather than accepting unsigned provider data.
   app.post("/api/auth/smstools/callback", async (req, res) => {
@@ -14766,6 +14775,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
         return res.status(401).json({ received: false, error: "Invalid callback authentication" });
       }
       const states = parseSmsToolsStates(req.body);
+      if (states.length === 0) {
+        return res.status(400).json({ received: false, error: "No SMSTOOLS message states supplied" });
+      }
       let updated = 0;
       for (const state of states) {
         const [message] = await db.select().from(communicationMessages)
@@ -14781,6 +14793,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
           deliveryStatus: mapped,
           status: mapped === "delivered" || mapped === "failed" ? mapped : message.status,
           deliveredAt: mapped === "delivered" ? (message.deliveredAt || new Date()) : undefined,
+          errorMessage: mapped === "failed"
+            ? [state.stateType, state.stateId].filter(Boolean).join(": ") || "SMSTOOLS delivery failed"
+            : message.errorMessage,
         });
         updated += 1;
       }
