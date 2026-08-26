@@ -14864,14 +14864,77 @@ Return ONLY valid JSON, no markdown code blocks.`,
         let linkedEntityId: string | undefined;
         let linkedEntityName: string | null = null;
         let linkedCountryCode: string | undefined;
+        let linkedEntityType: "customer" | "hospital" | "clinic" | "collaborator" | undefined;
+        let linkedBy: "outbound-message" | "phone" | undefined;
 
-        const foundCustomers = await storage.findCustomersByPhone(incoming.senderPhone);
-        if (foundCustomers.length > 0) {
-          const customer = foundCustomers[0];
-          linkedEntityId = customer.id;
-          linkedEntityName = `${customer.firstName || ""} ${customer.lastName || ""}`.trim() || null;
-          linkedCountryCode = customer.country;
-        } else {
+        // The provider returns msg_id of the original outbound SMS. Prefer that
+        // exact relationship over phone matching, which can be ambiguous when
+        // duplicate contacts share a number or store it in different formats.
+        if (incoming.inReplyToMessageId) {
+          const [outboundMessage] = await db.select({
+            customerId: communicationMessages.customerId,
+          }).from(communicationMessages)
+            .where(and(
+              eq(communicationMessages.provider, "smstools"),
+              eq(communicationMessages.direction, "outbound"),
+              eq(communicationMessages.externalId, incoming.inReplyToMessageId),
+              isNotNull(communicationMessages.customerId),
+            ))
+            .orderBy(desc(communicationMessages.createdAt))
+            .limit(1);
+          if (outboundMessage?.customerId) {
+            linkedEntityId = outboundMessage.customerId;
+            linkedBy = "outbound-message";
+
+            const [customer] = await db.select({
+              firstName: customers.firstName,
+              lastName: customers.lastName,
+              country: customers.country,
+            }).from(customers).where(eq(customers.id, linkedEntityId)).limit(1);
+            if (customer) {
+              linkedEntityType = "customer";
+              linkedEntityName = `${customer.firstName || ""} ${customer.lastName || ""}`.trim() || null;
+              linkedCountryCode = customer.country;
+            } else {
+              const [hospital] = await db.select({ name: hospitals.name })
+                .from(hospitals).where(eq(hospitals.id, linkedEntityId)).limit(1);
+              if (hospital) {
+                linkedEntityType = "hospital";
+                linkedEntityName = hospital.name;
+              } else {
+                const [clinic] = await db.select({ name: clinics.name })
+                  .from(clinics).where(eq(clinics.id, linkedEntityId)).limit(1);
+                if (clinic) {
+                  linkedEntityType = "clinic";
+                  linkedEntityName = clinic.name;
+                } else {
+                  const [collaborator] = await db.select({
+                    firstName: collaborators.firstName,
+                    lastName: collaborators.lastName,
+                  }).from(collaborators).where(eq(collaborators.id, linkedEntityId)).limit(1);
+                  if (collaborator) {
+                    linkedEntityType = "collaborator";
+                    linkedEntityName = `${collaborator.firstName || ""} ${collaborator.lastName || ""}`.trim() || null;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        if (!linkedEntityId) {
+          const foundCustomers = await storage.findCustomersByPhone(incoming.senderPhone);
+          if (foundCustomers.length > 0) {
+            const customer = foundCustomers[0];
+            linkedEntityId = customer.id;
+            linkedEntityName = `${customer.firstName || ""} ${customer.lastName || ""}`.trim() || null;
+            linkedCountryCode = customer.country;
+            linkedEntityType = "customer";
+            linkedBy = "phone";
+          }
+        }
+
+        if (!linkedEntityId) {
           const normPhone = (phone: string | null | undefined) =>
             (phone || "").replace(/[\s\-\(\)]/g, "").replace(/^\+?421/, "").replace(/^00421/, "").replace(/^0/, "");
           const normalizedSender = normPhone(incoming.senderPhone);
@@ -14885,6 +14948,8 @@ Return ONLY valid JSON, no markdown code blocks.`,
           if (hospital) {
             linkedEntityId = hospital.id;
             linkedEntityName = hospital.name;
+            linkedEntityType = "hospital";
+            linkedBy = "phone";
           }
 
           if (!linkedEntityId) {
@@ -14903,6 +14968,8 @@ Return ONLY valid JSON, no markdown code blocks.`,
             if (clinic) {
               linkedEntityId = clinic.id;
               linkedEntityName = clinic.name;
+              linkedEntityType = "clinic";
+              linkedBy = "phone";
             }
           }
 
@@ -14923,6 +14990,8 @@ Return ONLY valid JSON, no markdown code blocks.`,
             if (collaborator) {
               linkedEntityId = collaborator.id;
               linkedEntityName = `${collaborator.firstName || ""} ${collaborator.lastName || ""}`.trim() || null;
+              linkedEntityType = "collaborator";
+              linkedBy = "phone";
             }
           }
         }
@@ -14959,7 +15028,8 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
         console.log(
           `[SMSTOOLS callback] stored inbound message id=${incomingMessage.id} ` +
-          `linked=${Boolean(linkedEntityId)}`,
+          `linked=${Boolean(linkedEntityId)} entityType=${linkedEntityType || "none"} ` +
+          `linkedBy=${linkedBy || "none"} entityId=${linkedEntityId || "none"}`,
         );
       }
 
