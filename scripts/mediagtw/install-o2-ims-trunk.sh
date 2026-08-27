@@ -329,10 +329,9 @@ exten => s,1,NoOp(INBOUND O2 IMS DID=\${ARG1} CID=\${CALLERID(all)})
  same => n,Set(GROUP()=o2-ims)
  same => n,GotoIf(\$[\${GROUP_COUNT(o2-ims)} > 10]?o2-ims-limit,s,1)
  same => n,Set(__CBC_SOURCE_TRUNK=O2)
- same => n,Set(__CBC_SOURCE_IP=\${CHANNEL(recvip)})
  same => n,Set(__CBC_DID=\${ARG1})
  same => n,Set(__CBC_CALLER=\${CALLERID(num)})
- same => n,Stasis(\${INDEXUS_ARI_APP})
+ same => n,Stasis(\${INDEXUS_ARI_APP},\${ARG1})
  same => n,Return()
 
 [o2-ims-rejected]

@@ -197,6 +197,22 @@ import { BackOfficeQuestionsInbox } from "@/components/back-office-questions-inb
 import { MobileAgentWorkspace } from "@/components/mobile-agent-workspace";
 import { useIsMobile } from "@/hooks/use-mobile";
 
+type AgentInboundQueueDid = {
+  didNumber: string;
+  name: string | null;
+  isActive: boolean;
+};
+
+function getAgentQueueDidNumbers(queue: {
+  didNumber: string | null;
+  dids?: AgentInboundQueueDid[];
+}): string[] {
+  return [...new Set([
+    ...(queue.dids || []).filter(did => did.isActive).map(did => did.didNumber),
+    ...(queue.didNumber ? [queue.didNumber] : []),
+  ])];
+}
+
 // Inline i18n for status-list manual action buttons (mission status list).
 // Kept local (like the builder's sl() helper) to avoid editing 7 locale blocks in translations.ts.
 const SL_ACTION_T: Record<string, Record<string, string>> = {
@@ -1343,7 +1359,7 @@ function TaskListPanel({
   activeTaskId: string | null;
   onSelectTask: (task: TaskItem) => void;
   campaigns: { id: string; name: string; contactCount: number; status: string; channel: string; callerIdNumber?: string | null; workingHoursStart?: string | null; workingHoursEnd?: string | null }[];
-  inboundQueues?: { id: string; name: string; didNumber: string | null }[];
+  inboundQueues?: { id: string; name: string; didNumbers: string[] }[];
   sessionInboundQueueIds?: string[];
   selectedCampaignId: string | null;
   onSelectCampaign: (id: string) => void;
@@ -1542,8 +1558,7 @@ function TaskListPanel({
           const inboundDids = (sessionInboundQueueIds || [])
             .map(qId => (inboundQueues || []).find(q => q.id === qId))
             .filter(Boolean)
-            .map(q => q!.didNumber)
-            .filter(Boolean);
+            .flatMap(q => q!.didNumbers);
 
           return (
             <div
@@ -10916,6 +10931,7 @@ export default function AgentWorkspacePage() {
   const { data: myQueues = [] } = useQuery<Array<{
     id: string; name: string; description: string | null; countryCode: string | null;
     didNumber: string | null; strategy: string; isActive: boolean;
+    dids: AgentInboundQueueDid[];
     activeFrom: string | null; activeTo: string | null;
     waiting: number; activeAgents: number; activeCalls: number;
     afterHoursAction: string | null; afterHoursTarget: string | null;
@@ -13588,6 +13604,7 @@ export default function AgentWorkspacePage() {
                     <div className="space-y-2">
                       {myQueues.map((queue) => {
                         const isChecked = selectedLoginQueueIds.includes(queue.id);
+                        const didNumbers = getAgentQueueDidNumbers(queue);
                         return (
                           <button
                             key={queue.id}
@@ -13602,7 +13619,7 @@ export default function AgentWorkspacePage() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-base font-semibold truncate">{queue.name}</p>
-                              {queue.didNumber && <p className="text-xs text-muted-foreground">{queue.didNumber}</p>}
+                              {didNumbers.length > 0 && <p className="text-xs text-muted-foreground">{didNumbers.join(" · ")}</p>}
                             </div>
                             <div className={`h-6 w-6 rounded-lg border-2 flex items-center justify-center shrink-0 ${isChecked ? "bg-green-500 border-green-500" : "border-muted-foreground/30"}`}>
                               {isChecked && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
@@ -13932,6 +13949,7 @@ export default function AgentWorkspacePage() {
                       <div className="space-y-1.5 pr-1">
                         {myQueues.map((queue) => {
                           const isChecked = selectedLoginQueueIds.includes(queue.id);
+                          const didNumbers = getAgentQueueDidNumbers(queue);
                           const isAfterHours = (() => {
                             if (!queue.activeTo) return false;
                             const [h, m] = queue.activeTo.split(":").map(Number);
@@ -13967,7 +13985,7 @@ export default function AgentWorkspacePage() {
                                 <p className="text-sm font-semibold truncate text-foreground">{queue.name}</p>
                                 <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-muted-foreground">
                                   {queue.activeFrom && queue.activeTo && <span>{queue.activeFrom} – {queue.activeTo}</span>}
-                                  {queue.didNumber && <><span className="text-muted-foreground/50">·</span><span>{queue.didNumber}</span></>}
+                                  {didNumbers.length > 0 && <><span className="text-muted-foreground/50">·</span><span>{didNumbers.join(" · ")}</span></>}
                                 </div>
                                 {isAfterHours && (
                                   <div className="flex items-center gap-1 mt-1">
@@ -14181,7 +14199,7 @@ export default function AgentWorkspacePage() {
           activeTaskId={activeTaskId}
           onSelectTask={guardedSelectTask}
           campaigns={activeCampaigns}
-          inboundQueues={myQueues.map(q => ({ id: q.id, name: q.name, didNumber: q.didNumber }))}
+          inboundQueues={myQueues.map(q => ({ id: q.id, name: q.name, didNumbers: getAgentQueueDidNumbers(q) }))}
           sessionInboundQueueIds={sessionInboundQueueIds}
           selectedCampaignId={selectedCampaignId}
           onSelectCampaign={(id: string) => { setSelectedCampaignId(id); setDisposedContactIds(new Set()); queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] }); queryClient.invalidateQueries({ queryKey: ["/api/user/assigned-campaigns"] }); }}

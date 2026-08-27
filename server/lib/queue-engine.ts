@@ -34,6 +34,7 @@ import { decryptTokenSafe } from "./token-crypto";
 import { STORAGE_PATHS } from "../config/storage-paths";
 import { AriClient, type AriEvent, type AriChannel } from "./ari-client";
 import { inboundCallWs } from "./inbound-call-ws";
+import { inboundDidCandidates, resolveInboundDid } from "./inbound-did";
 
 // Agent presence for desk/PJSIP routing is derived from the LIVE Nexus Pulse
 // WebSocket (inboundCallWs). The agent-workspace opens /ws/inbound-calls only while a
@@ -902,7 +903,12 @@ export class QueueEngine extends EventEmitter {
     const rawCallerNumber = channel.caller?.number || stasisArgs[1] || "unknown";
     const callerNumber = rawCallerNumber.split("@")[0];
     const callerName = channel.caller?.name || "";
-    const dialedNumber = channel.dialplan?.exten || stasisArgs[0] || "";
+    const channelDid = await this.ariClient.getChannelVar(channel.id, "CBC_DID").catch(() => null);
+    const dialedNumber = resolveInboundDid({
+      channelVariable: channelDid,
+      stasisArgument: stasisArgs[0],
+      dialplanExtension: channel.dialplan?.exten,
+    });
 
     console.log(`[QueueEngine] === INCOMING CALL ===`);
     console.log(`[QueueEngine]   Caller: ${callerNumber} (${callerName})`);
@@ -935,7 +941,7 @@ export class QueueEngine extends EventEmitter {
         callFallbackDidId: collaborators.callFallbackDidId,
       }).from(collaborators)
         .where(and(
-          eq(collaborators.outboundCallerId, dialedNumber),
+          inArray(collaborators.outboundCallerId, inboundDidCandidates(dialedNumber)),
           eq(collaborators.mobileAppEnabled, true),
         ))
         .limit(1);
@@ -1915,17 +1921,19 @@ export class QueueEngine extends EventEmitter {
   }
 
   private async findQueueForNumber(didNumber: string): Promise<InboundQueue | null> {
-    if (!didNumber) return null;
+    const candidates = inboundDidCandidates(didNumber);
+    if (candidates.length === 0) return null;
     const queues = await db.select().from(inboundQueues)
-      .where(and(eq(inboundQueues.isActive, true), eq(inboundQueues.didNumber, didNumber)))
+      .where(and(eq(inboundQueues.isActive, true), inArray(inboundQueues.didNumber, candidates)))
       .limit(1);
     return queues[0] || null;
   }
 
   private async findDidRouteForNumber(didNumber: string): Promise<typeof didRoutes.$inferSelect | null> {
-    if (!didNumber) return null;
+    const candidates = inboundDidCandidates(didNumber);
+    if (candidates.length === 0) return null;
     const routes = await db.select().from(didRoutes)
-      .where(and(eq(didRoutes.isActive, true), eq(didRoutes.didNumber, didNumber)))
+      .where(and(eq(didRoutes.isActive, true), inArray(didRoutes.didNumber, candidates)))
       .limit(1);
     return routes[0] || null;
   }

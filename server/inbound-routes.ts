@@ -27,6 +27,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { STORAGE_PATHS, DATA_ROOT } from "./config/storage-paths";
 import { emitEvent } from "./lib/event-bus";
+import { groupActiveQueueDids } from "./lib/inbound-did";
 
 const ivrUpload = multer({
   storage: multer.diskStorage({
@@ -1857,6 +1858,24 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         .innerJoin(inboundQueues, eq(queueMembers.queueId, inboundQueues.id))
         .where(and(eq(queueMembers.userId, userId), eq(queueMembers.isActive, true), eq(inboundQueues.isActive, true)));
 
+      const queueIds = memberships.map(m => m.queue.id);
+      const queueDidRoutes = queueIds.length > 0
+        ? await db.select({
+            didNumber: didRoutes.didNumber,
+            targetQueueId: didRoutes.targetQueueId,
+            name: didRoutes.name,
+            isActive: didRoutes.isActive,
+          })
+            .from(didRoutes)
+            .where(and(
+              eq(didRoutes.action, "inbound_queue"),
+              eq(didRoutes.isActive, true),
+              inArray(didRoutes.targetQueueId, queueIds),
+            ))
+            .orderBy(asc(didRoutes.priority), asc(didRoutes.didNumber))
+        : [];
+      const didsByQueue = groupActiveQueueDids(queueDidRoutes);
+
       // Fetch voicemail box names for after-hours display
       const vmBoxIds = [...new Set(memberships.map(m => m.queue.afterHoursVoicemailBoxId).filter(Boolean))] as string[];
       const vmBoxMap = new Map<string, string>();
@@ -1872,6 +1891,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         const stats = engine?.getQueueStats(m.queue.id) || { waiting: 0, active: 0, agents: 0 };
         return {
           ...m.queue,
+          dids: didsByQueue.get(m.queue.id) || [],
           penalty: m.member.penalty,
           waiting: stats.waiting,
           activeAgents: stats.agents,
