@@ -36,6 +36,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { SipSettings, CallLog, User } from "@shared/schema";
+import { resolveOutboundCallProvider } from "@shared/telephony-routing";
 
 function filterSdpCandidates(description: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit> {
   if (!description.sdp) return Promise.resolve(description);
@@ -144,6 +145,9 @@ export function SipPhone({
   const [localCustomerId, setLocalCustomerId] = useState(customerId);
   const localCustomerIdRef = useRef<string | undefined>(customerId);
   const [localCampaignId, setLocalCampaignId] = useState(campaignId);
+  const localCampaignContactIdRef = useRef<string | undefined>(undefined);
+  const localContactTypeRef = useRef<"customer" | "hospital" | "clinic" | "collaborator" | undefined>(undefined);
+  const localProviderRef = useRef<"O2-IMS" | undefined>(undefined);
   const [localCampaignName, setLocalCampaignName] = useState<string | undefined>(undefined);
   const [localCustomerName, setLocalCustomerName] = useState(customerName);
   const [localLeadScore, setLocalLeadScore] = useState<number | undefined>(undefined);
@@ -238,7 +242,12 @@ export function SipPhone({
       userId?: string;
       customerId?: string;
       campaignId?: string;
+      campaignContactId?: string;
       customerName?: string;
+      inboundQueueId?: string;
+      inboundQueueName?: string;
+      inboundCallLogId?: string;
+      metadata?: string;
     }) => {
       const res = await apiRequest("POST", "/api/call-logs", data);
       return res.json();
@@ -740,20 +749,43 @@ export function SipPhone({
     setPhoneNumber(callerNumber);
     setCallState("active");
     ctx.setCallDirection("inbound");
+    ctx.setCallInfo({
+      phoneNumber: callerNumber,
+      callerName: session._inboundCallerName,
+      customerId: session._inboundCustomerId || undefined,
+      contactType: session._inboundContactType || undefined,
+      didNumber: session._inboundDidNumber || undefined,
+      queueId: session._inboundQueueId || undefined,
+      direction: "inbound",
+    });
     ctx.onInboundAnsweredFn.current?.();
     setIsOnHold(false);
     ctx.resetCallTiming();
     callStartTimeRef.current = Date.now();
     ctx.setCallTiming({ callStartTime: Date.now() });
     // Expose updater so agent-workspace can sync localCustomerIdRef and DB call log when opening a different identity
-    callContextRef.current.updateCallCustomerFn.current = (cid: string) => {
+    callContextRef.current.updateCallCustomerFn.current = (cid: string, context) => {
       localCustomerIdRef.current = cid;
       setLocalCustomerId(cid);
+      localContactTypeRef.current = context?.contactType;
+      if (context?.campaignContactId) {
+        localCampaignContactIdRef.current = context.campaignContactId;
+      }
+      const metadata = JSON.stringify({
+        didNumber: session._inboundDidNumber || null,
+        sourceTrunk: session._inboundSourceTrunk || null,
+        contactType: context?.contactType || null,
+        entityId: cid,
+      });
       // Immediately PATCH the call log if it already exists (handles race with async creation)
       if (inboundCallLogIdRef.current) {
         updateCallLogMutation.mutate({
           id: inboundCallLogIdRef.current,
-          data: { customerId: cid },
+          data: {
+            customerId: cid,
+            campaignContactId: context?.campaignContactId,
+            metadata,
+          },
         });
       }
     };
@@ -981,6 +1013,11 @@ export function SipPhone({
       inboundQueueId: session._inboundQueueId || undefined,
       inboundQueueName: session._inboundQueueName || undefined,
       inboundCallLogId: session._inboundCallLogId || undefined,
+      metadata: JSON.stringify({
+        didNumber: session._inboundDidNumber || null,
+        sourceTrunk: session._inboundSourceTrunk || null,
+        contactType: session._inboundContactType || null,
+      }),
     }).then(async (callLogData) => {
       setCurrentCallLogId(callLogData.id);
       inboundCallLogIdRef.current = callLogData.id;
@@ -1150,7 +1187,13 @@ export function SipPhone({
         userId: userId || currentUser?.id,
         customerId: localCustomerIdRef.current,
         campaignId: localCampaignId,
+        campaignContactId: localCampaignContactIdRef.current,
         customerName: localCustomerName,
+        metadata: JSON.stringify({
+          contactType: localContactTypeRef.current || null,
+          provider: localProviderRef.current || null,
+          callerIdNumber: localCallerIdNumberRef.current || collaboratorCallerIdRef.current || null,
+        }),
       });
       setCurrentCallLogId(callLogData.id);
       
@@ -1198,8 +1241,9 @@ export function SipPhone({
       const currentCollaboratorCallerId = collaboratorCallerIdRef.current;
       const effectiveCallerId = currentCallerIdNumber || currentCollaboratorCallerId;
       console.log(`[SIP] Caller ID check: campaign="${currentCallerIdNumber}", collaborator="${currentCollaboratorCallerId}", effective="${effectiveCallerId}"`);
+      const extraHeaders: string[] = [];
       if (effectiveCallerId) {
-        inviterOptions.extraHeaders = [`X-Campaign-CallerID: ${effectiveCallerId}`];
+        extraHeaders.push(`X-Campaign-CallerID: ${effectiveCallerId}`);
         try {
           await fetch("/api/sip/set-outbound-callerid", {
             method: "POST",
@@ -1214,6 +1258,18 @@ export function SipPhone({
         } catch (err) {
           console.warn("[SIP] Failed to set outbound caller ID:", err);
         }
+      }
+      if (localProviderRef.current === "O2-IMS") {
+        extraHeaders.push("X-Provider: O2-IMS");
+      }
+      if (localCampaignContactIdRef.current) {
+        extraHeaders.push(`X-Campaign-Contact-ID: ${localCampaignContactIdRef.current}`);
+      }
+      if (localContactTypeRef.current) {
+        extraHeaders.push(`X-Contact-Type: ${localContactTypeRef.current}`);
+      }
+      if (extraHeaders.length > 0) {
+        inviterOptions.extraHeaders = extraHeaders;
       }
       const inviter = new Inviter(userAgentRef.current, targetUri, inviterOptions);
 
@@ -1422,6 +1478,9 @@ export function SipPhone({
       setLocalCustomerId(callData.customerId?.toString());
       localCustomerIdRef.current = callData.customerId?.toString();
       setLocalCampaignId(callData.campaignId?.toString());
+      localCampaignContactIdRef.current = callData.campaignContactId?.toString();
+      localContactTypeRef.current = callData.contactType;
+      localProviderRef.current = callData.provider ?? resolveOutboundCallProvider(callData.callerIdNumber);
       setLocalCampaignName(callData.campaignName);
       setLocalCustomerName(callData.customerName);
       setLocalLeadScore(callData.leadScore);
@@ -1429,6 +1488,16 @@ export function SipPhone({
       const cid = callData.callerIdNumber || "";
       setLocalCallerIdNumber(cid);
       localCallerIdNumberRef.current = cid;
+      callContextRef.current.setCallInfo({
+        phoneNumber: callData.phoneNumber,
+        callerName: callData.customerName,
+        customerId: callData.customerId?.toString(),
+        campaignId: callData.campaignId?.toString(),
+        campaignContactId: callData.campaignContactId?.toString(),
+        contactType: callData.contactType,
+        provider: callData.provider,
+        direction: "outbound",
+      });
       maxRingSecondsRef.current = callData.maxRingSeconds && callData.maxRingSeconds > 0 ? callData.maxRingSeconds : 0;
       clearPendingCall();
       
@@ -1843,6 +1912,11 @@ export function SipPhone({
         callerName: localCustomerName,
         customerId: localCustomerId,
         campaignId: localCampaignId,
+        campaignContactId: localCampaignContactIdRef.current,
+        contactType: localContactTypeRef.current,
+        didNumber: direction === "inbound" ? (callContextRef.current.callInfo?.didNumber || undefined) : undefined,
+        queueId: activeInboundMetaRef.current?.queueId,
+        provider: localProviderRef.current,
         direction,
         callLogId: currentCallLogId ?? undefined,
         leadScore: localLeadScore,

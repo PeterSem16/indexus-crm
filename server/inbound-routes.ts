@@ -2782,6 +2782,9 @@ function setupQueueEngineWebSocketEvents(engine: QueueEngine): void {
       callerNumber: data.callerNumber,
       queueName: data.queueName,
       queueId: data.queueId,
+      didNumber: data.didNumber,
+      sourceTrunk: data.sourceTrunk,
+      customerId: data.customerId,
       position: data.position,
     });
     const busyAgents = engine.getBusyAgentsForQueue(data.queueId);
@@ -2797,6 +2800,9 @@ function setupQueueEngineWebSocketEvents(engine: QueueEngine): void {
           queueId: data.queueId,
           waitTime: 0,
           channelId: data.channelId || "",
+          didNumber: data.didNumber,
+          sourceTrunk: data.sourceTrunk,
+          customerId: data.customerId,
           recordCalls: false,
           ringtoneId: null,
           isQueueWaiting: true,
@@ -2819,6 +2825,9 @@ function setupQueueEngineWebSocketEvents(engine: QueueEngine): void {
       queueId: data.queueId,
       waitTime: data.waitDuration || 0,
       channelId: data.channelId || "",
+      didNumber: data.didNumber,
+      sourceTrunk: data.sourceTrunk,
+      customerId: data.customerId,
       recordCalls: data.recordCalls ?? false,
       ringtoneId: data.ringtoneId ?? "classic",
     });

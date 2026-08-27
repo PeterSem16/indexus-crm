@@ -188,6 +188,7 @@ import { InboundCallPopup, InboundQueueStatus } from "@/components/agent/Inbound
 import { VoicemailNotifications } from "@/components/agent/VoicemailNotifications";
 import type { Campaign, Customer, CampaignContact, CampaignDisposition, AgentBreakType, Hospital, Clinic, Collaborator } from "@shared/schema";
 import { DISPOSITION_NAME_TRANSLATIONS } from "@shared/schema";
+import { resolveOutboundCallProvider } from "@shared/telephony-routing";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import { getCountryFlag } from "@/lib/countries";
@@ -10324,7 +10325,10 @@ export default function AgentWorkspacePage() {
       // Sync selected identity to sip-phone — sip-phone updates localCustomerIdRef AND PATCHes call log.
       // Skipped for contexts (e.g. missed-calls list) that only want to open a card without touching an active call.
       if (contact && options?.syncCall !== false) {
-        callContext.updateCallCustomerFn.current?.(String(contact.id));
+        callContext.updateCallCustomerFn.current?.(String(contact.id), {
+          contactType: match.entityType,
+          campaignContactId: currentCampaignContactId || undefined,
+        });
       }
 
       if (inboundTaskContext && contact) {
@@ -10394,6 +10398,10 @@ export default function AgentWorkspacePage() {
     recordCalls?: boolean;
     ringtoneId?: string;
     isQueueWaiting?: boolean;
+    didNumber?: string;
+    sourceTrunk?: string;
+    customerId?: string;
+    contactType?: "customer" | "hospital" | "clinic" | "collaborator";
   }>>([]);
   const inboundCallsRef = useRef(inboundCalls);
   inboundCallsRef.current = inboundCalls;
@@ -12636,13 +12644,17 @@ export default function AgentWorkspacePage() {
     if (makeCall && currentContact) {
       agentSession.updateStatus("busy").catch(() => {});
       const customerName = `${currentContact.firstName || ""} ${currentContact.lastName || ""}`.trim();
+      const callerIdNumber = (selectedCampaign as any)?.callerIdNumber || undefined;
       makeCall({
         phoneNumber,
         customerId: currentContact.id,
         customerName: customerName || undefined,
         campaignId: selectedCampaignId || undefined,
         campaignName: selectedCampaign?.name || undefined,
-        callerIdNumber: (selectedCampaign as any)?.callerIdNumber || undefined,
+        campaignContactId: currentCampaignContactId || undefined,
+        contactType: (currentContactType || "customer") as "customer" | "hospital" | "clinic" | "collaborator",
+        callerIdNumber,
+        provider: resolveOutboundCallProvider(callerIdNumber),
         maxRingSeconds: campaignMaxRingSeconds || undefined,
       });
       setTimeline((prev) => [
@@ -12918,6 +12930,10 @@ export default function AgentWorkspacePage() {
                 recordCalls: data.recordCalls ?? false,
                 ringtoneId: data.ringtoneId ?? undefined,
                 isQueueWaiting: data.isQueueWaiting ?? false,
+                didNumber: data.didNumber || undefined,
+                sourceTrunk: data.sourceTrunk || undefined,
+                customerId: data.customerId || undefined,
+                contactType: data.contactType || undefined,
               }];
             });
           } else if (data.type === "call-hangup") {
@@ -13335,6 +13351,10 @@ export default function AgentWorkspacePage() {
         invitation._inboundCallerNumber = callerNumber;
         invitation._inboundCallerName = call.callerName;
         invitation._inboundRecordCalls = !!call.recordCalls;
+        invitation._inboundDidNumber = call.didNumber;
+        invitation._inboundSourceTrunk = call.sourceTrunk;
+        invitation._inboundCustomerId = call.customerId;
+        invitation._inboundContactType = call.contactType;
 
         if (invState === "Established") {
           console.log("[AgentWS] Call already established, proceeding directly");
@@ -13377,6 +13397,10 @@ export default function AgentWorkspacePage() {
           fallbackInvite._inboundCallerNumber = callerNumber;
           fallbackInvite._inboundCallerName = call.callerName;
           fallbackInvite._inboundRecordCalls = !!call.recordCalls;
+          fallbackInvite._inboundDidNumber = call.didNumber;
+          fallbackInvite._inboundSourceTrunk = call.sourceTrunk;
+          fallbackInvite._inboundCustomerId = call.customerId;
+          fallbackInvite._inboundContactType = call.contactType;
           let answeredFallbackInvite = fallbackInvite;
           if (fallbackInvite.state !== "Established") {
             answeredFallbackInvite = await answerIncomingCall({ publishAnsweredSession: false });
@@ -13393,6 +13417,10 @@ export default function AgentWorkspacePage() {
           answeredFallbackInvite._inboundCallerNumber = callerNumber;
           answeredFallbackInvite._inboundCallerName = call.callerName;
           answeredFallbackInvite._inboundRecordCalls = !!call.recordCalls;
+          answeredFallbackInvite._inboundDidNumber = call.didNumber;
+          answeredFallbackInvite._inboundSourceTrunk = call.sourceTrunk;
+          answeredFallbackInvite._inboundCustomerId = call.customerId;
+          answeredFallbackInvite._inboundContactType = call.contactType;
           const shouldAutoRecord = !!call.recordCalls || callContext.autoRecord;
           if (callContext.handleInboundAnsweredFn.current) {
             callContext.handleInboundAnsweredFn.current(answeredFallbackInvite, { autoRecord: shouldAutoRecord });

@@ -7,6 +7,11 @@ interface CallInfo {
   callerName?: string;
   customerId?: string;
   campaignId?: string;
+  campaignContactId?: string;
+  contactType?: "customer" | "hospital" | "clinic" | "collaborator";
+  didNumber?: string;
+  queueId?: string;
+  provider?: "O2-IMS";
   direction: "inbound" | "outbound";
   callLogId?: number;
   leadScore?: number;
@@ -61,7 +66,10 @@ interface CallContextType {
   resumeRecordingFn: React.MutableRefObject<(() => void) | null>;
   startRecordingFn: React.MutableRefObject<(() => void) | null>;
   stopRecordingFn: React.MutableRefObject<(() => void) | null>;
-  updateCallCustomerFn: React.MutableRefObject<((customerId: string) => void) | null>;
+  updateCallCustomerFn: React.MutableRefObject<((customerId: string, context?: {
+    contactType?: "customer" | "hospital" | "clinic" | "collaborator";
+    campaignContactId?: string;
+  }) => void) | null>;
   autoRecord: boolean;
   setAutoRecord: (auto: boolean) => void;
   handleInboundAnsweredFn: React.MutableRefObject<((session: any, options: { autoRecord: boolean }) => void) | null>;
@@ -108,7 +116,10 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const resumeRecordingFn = useRef<(() => void) | null>(null);
   const startRecordingFn = useRef<(() => void) | null>(null);
   const stopRecordingFn = useRef<(() => void) | null>(null);
-  const updateCallCustomerFn = useRef<((customerId: string) => void) | null>(null);
+  const updateCallCustomerFn = useRef<((customerId: string, context?: {
+    contactType?: "customer" | "hospital" | "clinic" | "collaborator";
+    campaignContactId?: string;
+  }) => void) | null>(null);
   const handleInboundAnsweredFn = useRef<((session: any, options: { autoRecord: boolean }) => void) | null>(null);
   const queuedInboundSession = useRef<{ session: any; options: { autoRecord: boolean } } | null>(null);
   const onInboundAnsweredFn = useRef<(() => void) | null>(null);

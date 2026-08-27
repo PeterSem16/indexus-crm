@@ -48,11 +48,14 @@ export interface PendingCall {
   phoneNumber: string;
   customerId?: string;
   campaignId?: string;
+  campaignContactId?: string;
+  contactType?: "customer" | "hospital" | "clinic" | "collaborator";
   campaignName?: string;
   customerName?: string;
   leadScore?: number;
   clientStatus?: string;
   callerIdNumber?: string;
+  provider?: "O2-IMS";
   maxRingSeconds?: number;
 }
 

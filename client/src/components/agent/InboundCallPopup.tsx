@@ -64,6 +64,10 @@ interface InboundCallData {
   queueId: string;
   waitTime: number;
   channelId: string;
+  didNumber?: string;
+  sourceTrunk?: string;
+  customerId?: string;
+  contactType?: "customer" | "hospital" | "clinic" | "collaborator";
   timestamp: number;
   hasSipInvitation?: boolean;
   isQueueWaiting?: boolean;

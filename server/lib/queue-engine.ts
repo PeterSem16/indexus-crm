@@ -50,6 +50,8 @@ export interface QueuedCall {
   callerName: string;
   queueId: string;
   customerId: string | null;
+  didNumber?: string;
+  sourceTrunk?: string;
   enteredAt: Date;
   position: number;
   bridgeId?: string;
@@ -75,6 +77,8 @@ interface PendingAgentCall {
   callerNumber: string;
   callerName: string;
   customerId: string | null;
+  didNumber?: string;
+  sourceTrunk?: string;
   waitDuration: number;
   queueName: string;
   enteredAt: Date;
@@ -98,7 +102,7 @@ export class QueueEngine extends EventEmitter {
   private lastChannelCheck: number = 0;
   private cachedLiveChannels: Set<string> | null = null;
   private pendingWelcome: Map<string, { channelId: string; queueId: string }> = new Map();
-  private pendingWelcomeCallData: Map<string, { channelId: string; queueId: string; callerNumber: string; callerName: string; customerId: string | null; queueName: string }> = new Map();
+  private pendingWelcomeCallData: Map<string, { channelId: string; queueId: string; callerNumber: string; callerName: string; customerId: string | null; queueName: string; didNumber?: string; sourceTrunk?: string }> = new Map();
   private mohPlaybacks: Map<string, string> = new Map();
   private pendingAgentCalls: Map<string, PendingAgentCall> = new Map();
   private activeBridges: Map<string, { bridgeId: string; callerChannelId: string; agentChannelId: string; callId: string; agentId: string }> = new Map();
@@ -514,7 +518,8 @@ export class QueueEngine extends EventEmitter {
           pendingData.queueName,
           pendingData.callerNumber,
           pendingData.callerName,
-          pendingData.customerId
+          pendingData.customerId,
+          { didNumber: pendingData.didNumber, sourceTrunk: pendingData.sourceTrunk },
         );
       }
       return;
@@ -1065,7 +1070,10 @@ export class QueueEngine extends EventEmitter {
             // Ring-only mode: no welcome audio, queue directly after rings
             console.log(`[QueueEngine] Ring-only mode for channel ${channel.id}, queueing after rings`);
             await this.startMohForChannel(channel.id, queue.id);
-            await this.addCallToQueue(channel.id, queue.id, queue.name, callerNumber, callerName, customerId);
+            await this.addCallToQueue(channel.id, queue.id, queue.name, callerNumber, callerName, customerId, {
+              didNumber: dialedNumber,
+              sourceTrunk: sourceTrunk || undefined,
+            });
             welcomePlayed = true;
           } else {
             // message_only or ring_then_message: play welcome audio file
@@ -1080,6 +1088,8 @@ export class QueueEngine extends EventEmitter {
               callerName,
               customerId,
               queueName: queue.name,
+              didNumber: dialedNumber,
+              sourceTrunk: sourceTrunk || undefined,
             });
             await this.ariClient.playMedia(channel.id, `sound:custom/${soundName}`, welcomePbId);
             welcomePlayed = true;
@@ -1093,17 +1103,46 @@ export class QueueEngine extends EventEmitter {
 
     if (!welcomePlayed) {
       await this.startMohForChannel(channel.id, queue.id);
-      await this.addCallToQueue(channel.id, queue.id, queue.name, callerNumber, callerName, customerId);
+      await this.addCallToQueue(channel.id, queue.id, queue.name, callerNumber, callerName, customerId, {
+        didNumber: dialedNumber,
+        sourceTrunk: sourceTrunk || undefined,
+      });
     }
   }
 
-  private async addCallToQueue(channelId: string, queueId: string, queueName: string, callerNumber: string, callerName: string, customerId: string | null): Promise<void> {
+  private async addCallToQueue(
+    channelId: string,
+    queueId: string,
+    queueName: string,
+    callerNumber: string,
+    callerName: string,
+    customerId: string | null,
+    context: { didNumber?: string; sourceTrunk?: string } = {},
+  ): Promise<void> {
+    // IVR, overflow, and no-agent transfers can enter here without passing through
+    // routeCallToQueue. Recover inherited dialplan metadata so those paths do not
+    // lose the original O2 DID/trunk identity.
+    const [channelDid, channelSourceTrunk] = await Promise.all([
+      context.didNumber
+        ? Promise.resolve(null)
+        : this.ariClient.getChannelVar(channelId, "CBC_DID").catch(() => null),
+      context.sourceTrunk
+        ? Promise.resolve(null)
+        : this.ariClient.getChannelVar(channelId, "CBC_SOURCE_TRUNK").catch(() => null),
+    ]);
+    const callContext = {
+      didNumber: context.didNumber || resolveInboundDid({ channelVariable: channelDid }) || undefined,
+      sourceTrunk: context.sourceTrunk || channelSourceTrunk || undefined,
+    };
+
     const callLog = await db.insert(inboundCallLogs).values({
       queueId,
       callerNumber,
       callerName,
       customerId,
       ariChannelId: channelId,
+      didNumber: callContext.didNumber || null,
+      metadata: { sourceTrunk: callContext.sourceTrunk || null },
       status: "queued",
       queuePosition: this.getQueueSize(queueId) + 1,
     }).returning();
@@ -1115,6 +1154,8 @@ export class QueueEngine extends EventEmitter {
       callerName,
       queueId,
       customerId,
+      didNumber: callContext.didNumber,
+      sourceTrunk: callContext.sourceTrunk,
       enteredAt: new Date(),
       position: this.getQueueSize(queueId) + 1,
     };
@@ -1128,6 +1169,8 @@ export class QueueEngine extends EventEmitter {
       callerNumber,
       callerName,
       customerId,
+      didNumber: callContext.didNumber,
+      sourceTrunk: callContext.sourceTrunk,
       position: queuedCall.position,
       channelId,
     });
@@ -2755,6 +2798,8 @@ export class QueueEngine extends EventEmitter {
       callerName: pending.callerName,
       queueId: pending.queueId,
       customerId: pending.customerId,
+      didNumber: pending.didNumber,
+      sourceTrunk: pending.sourceTrunk,
       enteredAt: originalEnteredAt,
       position: this.getQueueSize(pending.queueId) + 1,
       originateFailures: 0,
@@ -2904,6 +2949,15 @@ export class QueueEngine extends EventEmitter {
   }
 
   private async routeCallToQueue(channel: AriChannel, queue: InboundQueue, callerNumber: string, callerName: string): Promise<void> {
+    const [channelDid, sourceTrunk] = await Promise.all([
+      this.ariClient.getChannelVar(channel.id, "CBC_DID").catch(() => null),
+      this.ariClient.getChannelVar(channel.id, "CBC_SOURCE_TRUNK").catch(() => null),
+    ]);
+    const didNumber = resolveInboundDid({
+      channelVariable: channelDid,
+      dialplanExtension: channel.dialplan?.exten,
+    }) || queue.didNumber || "";
+
     if (!this.isWithinBusinessHours(queue)) {
       // Standing forward runs 24/7 (see handleIncomingCall): if any agent opted into
       // standing forward for this queue, bypass after-hours handling and queue the call.
@@ -2928,7 +2982,8 @@ export class QueueEngine extends EventEmitter {
           callerName: callerName || null,
           customerId: customerId || null,
           ariChannelId: channel.id,
-          didNumber: queue.didNumber || "",
+          didNumber,
+          metadata: { sourceTrunk: sourceTrunk || null },
           status: "no_agents",
           abandonReason: "no_agents",
           completedAt: new Date(),
@@ -2979,7 +3034,10 @@ export class QueueEngine extends EventEmitter {
             // Ring-only mode: no welcome audio, queue directly after rings
             console.log(`[QueueEngine] Ring-only mode for channel ${channel.id}, queueing after rings`);
             await this.startMohForChannel(channel.id, queue.id);
-            await this.addCallToQueue(channel.id, queue.id, queue.name, callerNumber, callerName, customerId);
+            await this.addCallToQueue(channel.id, queue.id, queue.name, callerNumber, callerName, customerId, {
+              didNumber,
+              sourceTrunk: sourceTrunk || undefined,
+            });
             welcomePlayed = true;
           } else {
             // message_only or ring_then_message: play welcome audio file
@@ -2993,6 +3051,8 @@ export class QueueEngine extends EventEmitter {
               callerName,
               customerId,
               queueName: queue.name,
+              didNumber,
+              sourceTrunk: sourceTrunk || undefined,
             });
             await this.ariClient.playMedia(channel.id, `sound:custom/${soundName}`, welcomePbId);
             welcomePlayed = true;
@@ -3004,7 +3064,10 @@ export class QueueEngine extends EventEmitter {
     }
     if (!welcomePlayed) {
       await this.startMohForChannel(channel.id, queue.id);
-      await this.addCallToQueue(channel.id, queue.id, queue.name, callerNumber, callerName, customerId);
+      await this.addCallToQueue(channel.id, queue.id, queue.name, callerNumber, callerName, customerId, {
+        didNumber,
+        sourceTrunk: sourceTrunk || undefined,
+      });
     }
   }
 
@@ -3499,6 +3562,8 @@ export class QueueEngine extends EventEmitter {
         callerNumber: call.callerNumber,
         callerName: call.callerName,
         customerId: call.customerId,
+        didNumber: call.didNumber,
+        sourceTrunk: call.sourceTrunk,
         waitDuration,
         recordCalls: queue.recordCalls ?? false,
         ringtoneId: (queue as any).ringtoneId ?? "classic",
@@ -3557,6 +3622,8 @@ export class QueueEngine extends EventEmitter {
           callerNumber: call.callerNumber,
           callerName: call.callerName,
           customerId: call.customerId,
+          didNumber: call.didNumber,
+          sourceTrunk: call.sourceTrunk,
           waitDuration,
           queueName: queue.name,
           enteredAt: call.enteredAt,
@@ -3661,6 +3728,8 @@ export class QueueEngine extends EventEmitter {
       callerNumber: call.callerNumber,
       callerName: call.callerName,
       customerId: call.customerId,
+      didNumber: call.didNumber,
+      sourceTrunk: call.sourceTrunk,
       waitDuration,
       recordCalls: queue.recordCalls ?? false,
       ringtoneId: (queue as any).ringtoneId ?? "classic",
@@ -3741,6 +3810,8 @@ export class QueueEngine extends EventEmitter {
         callerNumber: call.callerNumber,
         callerName: call.callerName,
         customerId: call.customerId,
+        didNumber: call.didNumber,
+        sourceTrunk: call.sourceTrunk,
         waitDuration,
         queueName: queue.name,
         enteredAt: call.enteredAt,

@@ -89,6 +89,10 @@ class InboundCallWebSocketService {
     queueId: string;
     waitTime: number;
     channelId: string;
+    didNumber?: string;
+    sourceTrunk?: string;
+    customerId?: string;
+    contactType?: "customer" | "hospital" | "clinic" | "collaborator";
     recordCalls?: boolean;
     ringtoneId?: string | null;
     isQueueWaiting?: boolean;
