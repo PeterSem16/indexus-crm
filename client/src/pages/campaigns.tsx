@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X, Download, HelpCircle, BookOpen, Type, AlignLeft, ListOrdered, CircleDot, Target, Square, TextCursorInput, Variable, GripVertical, Copy, ArrowUp, ArrowDown, Mic, Coffee, GitBranch, Voicemail, Bot, Filter, Settings, Globe, Minus, AlertCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X, Download, HelpCircle, BookOpen, Type, AlignLeft, ListOrdered, CircleDot, Target, Square, TextCursorInput, Variable, GripVertical, Copy, ArrowUp, ArrowDown, Mic, Coffee, GitBranch, Voicemail, Bot, Filter, Settings, SlidersHorizontal, Globe, Minus, AlertCircle } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { TranscriptSearchContent } from "@/pages/transcript-search";
 import { BreakTypesTab } from "@/components/campaigns/BreakTypesTab";
@@ -690,6 +690,7 @@ function CampaignForm({
   const sidebarItems = [
     { key: "general", label: t.campaigns?.detail?.general || "Základné", icon: Settings },
     { key: "countries", label: t.campaigns?.targetCountries || "Krajiny", icon: Globe },
+    { key: "settings", label: t.campaigns?.detail?.settings || "Settings", icon: SlidersHorizontal },
     { key: "script", label: "Scenár", icon: FileText },
   ];
 
@@ -753,81 +754,6 @@ function CampaignForm({
                     </FormItem>
                   )}
                 />
-
-                <div className="space-y-1.5">
-                  <Label className="text-sm">{t.campaigns?.callerIdNumber || "Caller ID"}</Label>
-                  <Input
-                    data-testid="input-caller-id"
-                    placeholder="+421..."
-                    value={form.watch("callerIdNumber") || ""}
-                    onChange={e => form.setValue("callerIdNumber", e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground italic">{t.campaigns?.callerIdHelp || "Číslo zobrazené volajúcemu pri odchádzajúcich hovoroch"}</p>
-                </div>
-
-                {form.watch("countryCodes").includes("SK") && (
-                  <div className="rounded-lg border p-4 space-y-4" data-testid="mission-sk-outbound-routing">
-                    <div>
-                      <Label className="text-sm font-medium">{t.campaigns.skOutboundRouting}</Label>
-                      <p className="text-xs text-muted-foreground">{t.campaigns.skOutboundRoutingHelp}</p>
-                    </div>
-                    <FormField
-                      control={form.control}
-                      name="skOutboundTrunk"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t.campaigns.outboundTrunk}</FormLabel>
-                          <Select
-                            value={field.value}
-                            onValueChange={(value) => {
-                              field.onChange(value);
-                              if (value === "o2-ims" && !form.getValues("skOutboundCallerIdId")) {
-                                form.setValue("skOutboundCallerIdId", OUTBOUND_CALLER_ID_OPTIONS[0]?.id || "");
-                              }
-                            }}
-                          >
-                            <FormControl>
-                              <SelectTrigger data-testid="select-sk-outbound-trunk">
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="global">{t.campaigns.outboundTrunkGlobal}</SelectItem>
-                              <SelectItem value="sk-existing">{t.campaigns.outboundTrunkExistingSk}</SelectItem>
-                              <SelectItem value="o2-ims">{t.campaigns.outboundTrunkO2}</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-                      )}
-                    />
-                    {form.watch("skOutboundTrunk") === "o2-ims" && (
-                      <FormField
-                        control={form.control}
-                        name="skOutboundCallerIdId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>{t.campaigns.outboundCallerId}</FormLabel>
-                            <Select value={field.value} onValueChange={field.onChange}>
-                              <FormControl>
-                                <SelectTrigger data-testid="select-sk-outbound-caller-id">
-                                  <SelectValue placeholder={t.campaigns.selectOutboundCallerId} />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {OUTBOUND_CALLER_ID_OPTIONS
-                                  .filter(option => option.active && option.countryCode === "SK" && option.trunk === "o2-ims")
-                                  .map(option => (
-                                    <SelectItem key={option.id} value={option.id}>{option.number}</SelectItem>
-                                  ))}
-                              </SelectContent>
-                            </Select>
-                            {!field.value && <p className="text-xs text-destructive">{t.campaigns.outboundCallerIdRequired}</p>}
-                          </FormItem>
-                        )}
-                      />
-                    )}
-                  </div>
-                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
@@ -1001,6 +927,98 @@ function CampaignForm({
                     </FormItem>
                   )}
                 />
+              </div>
+            )}
+
+            {formTab === "settings" && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-base font-semibold">{t.campaigns.detail.settings}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {t.campaigns.skOutboundRoutingHelp}
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-sm">{t.campaigns.callerIdNumber}</Label>
+                  <Input
+                    data-testid="input-caller-id"
+                    placeholder="+421..."
+                    value={form.watch("callerIdNumber") || ""}
+                    onChange={e => form.setValue("callerIdNumber", e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground italic">{t.campaigns.callerIdHelp}</p>
+                </div>
+
+                <div className="rounded-lg border p-4 space-y-4" data-testid="mission-sk-outbound-routing">
+                  <div>
+                    <Label className="text-sm font-medium">{t.campaigns.skOutboundRouting}</Label>
+                    <p className="text-xs text-muted-foreground">{t.campaigns.skOutboundRoutingHelp}</p>
+                  </div>
+                  {!form.watch("countryCodes").includes("SK") ? (
+                    <p className="text-sm text-muted-foreground">
+                      {t.campaigns.targetCountries}: SK
+                    </p>
+                  ) : (
+                    <>
+                      <FormField
+                        control={form.control}
+                        name="skOutboundTrunk"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t.campaigns.outboundTrunk}</FormLabel>
+                            <Select
+                              value={field.value}
+                              onValueChange={(value) => {
+                                field.onChange(value);
+                                if (value === "o2-ims" && !form.getValues("skOutboundCallerIdId")) {
+                                  form.setValue("skOutboundCallerIdId", OUTBOUND_CALLER_ID_OPTIONS[0]?.id || "");
+                                }
+                              }}
+                            >
+                              <FormControl>
+                                <SelectTrigger data-testid="select-sk-outbound-trunk">
+                                  <SelectValue />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="global">{t.campaigns.outboundTrunkGlobal}</SelectItem>
+                                <SelectItem value="sk-existing">{t.campaigns.outboundTrunkExistingSk}</SelectItem>
+                                <SelectItem value="o2-ims">{t.campaigns.outboundTrunkO2}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+                      {form.watch("skOutboundTrunk") === "o2-ims" && (
+                        <FormField
+                          control={form.control}
+                          name="skOutboundCallerIdId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{t.campaigns.outboundCallerId}</FormLabel>
+                              <Select value={field.value} onValueChange={field.onChange}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-sk-outbound-caller-id">
+                                    <SelectValue placeholder={t.campaigns.selectOutboundCallerId} />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {OUTBOUND_CALLER_ID_OPTIONS
+                                    .filter(option => option.active && option.countryCode === "SK" && option.trunk === "o2-ims")
+                                    .map(option => (
+                                      <SelectItem key={option.id} value={option.id}>{option.number}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                              </Select>
+                              {!field.value && <p className="text-xs text-destructive">{t.campaigns.outboundCallerIdRequired}</p>}
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1786,6 +1804,16 @@ export default function CampaignsPage() {
     );
   };
 
+  const getCampaignCallerId = (campaign: Campaign) => {
+    const skRouting = getMissionCountryOutboundRouting(campaign.settings, "SK");
+    if (skRouting.trunk === "o2-ims") {
+      return OUTBOUND_CALLER_ID_OPTIONS.find(option => option.id === skRouting.callerIdId)?.number
+        || campaign.callerIdNumber
+        || null;
+    }
+    return campaign.callerIdNumber || null;
+  };
+
   const columns = [
     {
       key: "name",
@@ -1826,8 +1854,8 @@ export default function CampaignsPage() {
       key: "callerIdNumber",
       header: "Caller ID",
       cell: (campaign: Campaign) => (
-        campaign.callerIdNumber ? (
-          <span className="text-sm font-mono">{campaign.callerIdNumber}</span>
+        getCampaignCallerId(campaign) ? (
+          <span className="text-sm font-mono">{getCampaignCallerId(campaign)}</span>
         ) : (
           <span className="text-xs text-muted-foreground italic">—</span>
         )
