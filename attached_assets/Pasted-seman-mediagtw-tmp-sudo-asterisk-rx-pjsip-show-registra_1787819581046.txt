@@ -1,0 +1,330 @@
+seman@mediagtw:/tmp$ sudo asterisk -rx "pjsip show registrations"
+
+ <Registration/ServerURI..............................>  <Auth....................>  <Status.......>
+==========================================================================================
+
+ o2-ims-registration/sip:sipt1.ims.o2bs.sk:5060          o2-ims-auth                 Rejected          (exp. 292s)
+
+Objects found: 1
+
+seman@mediagtw:/tmp$ sudo asterisk -rx "pjsip show registration o2-ims-registration"
+
+ <Registration/ServerURI..............................>  <Auth....................>  <Status.......>
+==========================================================================================
+
+ o2-ims-registration/sip:sipt1.ims.o2bs.sk:5060          o2-ims-auth                 Rejected          (exp. 216s)
+
+ ParameterName            : ParameterValue
+ =============================================================
+ auth_rejection_permanent : false
+ client_uri               : sip:421222190337@sipt1.ims.o2bs.sk
+ contact_header_params    :
+ contact_user             : 421222190337
+ endpoint                 :
+ expiration               : 300
+ fatal_retry_interval     : 0
+ forbidden_retry_interval : 300
+ line                     : false
+ max_random_initial_delay : 10
+ max_retries              : 10
+ outbound_auth            : o2-ims-auth
+ outbound_proxy           :
+ retry_interval           : 60
+ security_negotiation     : no
+ server_uri               : sip:sipt1.ims.o2bs.sk:5060
+ support_outbound         : no
+ support_path             : false
+ transport                : transport-udp
+ user_agent               :
+
+seman@mediagtw:/tmp$ sudo asterisk -rx "pjsip show endpoint o2-ims-endpoint"
+
+ Endpoint:  <Endpoint/CID.....................................>  <State.....>  <Channels.>
+    I/OAuth:  <AuthId/UserName...........................................................>
+        Aor:  <Aor............................................>  <MaxContact>
+      Contact:  <Aor/ContactUri..........................> <Hash....> <Status> <RTT(ms)..>
+  Transport:  <TransportId........>  <Type>  <cos>  <tos>  <BindAddress..................>
+   Identify:  <Identify/Endpoint.........................................................>
+        Match:  <criteria.........................>
+    Channel:  <ChannelId......................................>  <State.....>  <Time.....>
+        Exten: <DialedExten...........>  CLCID: <ConnectedLineCID.......>
+==========================================================================================
+
+ Endpoint:  o2-ims-endpoint/+421222133230                        Not in use    0 of inf
+    OutAuth:  o2-ims-auth/421222190337
+        Aor:  o2-ims-aor                                         0
+      Contact:  o2-ims-aor/sip:sipt1.ims.o2bs.sk:5060      5422bd683b Avail        75.794
+  Transport:  transport-udp             udp      0      0  0.0.0.0:5060
+   Identify:  o2-ims-identify-1/o2-ims-endpoint
+        Match: 185.103.146.200/32
+
+
+ ParameterName                      : ParameterValue
+ ===================================================================================================
+ 100rel                             : yes
+ accept_multiple_sdp_answers        : false
+ accountcode                        :
+ acl                                :
+ aggregate_mwi                      : true
+ allow                              : (alaw|ulaw|g729)
+ allow_overlap                      : true
+ allow_subscribe                    : true
+ allow_transfer                     : true
+ allow_unauthenticated_options      : false
+ aors                               : o2-ims-aor
+ asymmetric_rtp_codec               : false
+ auth                               :
+ bind_rtp_to_media_address          : false
+ bundle                             : false
+ call_group                         :
+ callerid                           : +421222133230
+ callerid_privacy                   : allowed_not_screened
+ callerid_tag                       :
+ codec_prefs_incoming_answer        : prefer:pending, operation:intersect, keep:all, transcode:allow
+ codec_prefs_incoming_offer         : prefer:pending, operation:intersect, keep:all, transcode:allow
+ codec_prefs_outgoing_answer        : prefer:pending, operation:intersect, keep:all, transcode:allow
+ codec_prefs_outgoing_offer         : prefer:pending, operation:union, keep:all, transcode:allow
+ connected_line_method              : invite
+ contact_acl                        :
+ context                            : from-o2-ims
+ cos_audio                          : 0
+ cos_video                          : 0
+ device_state_busy_at               : 0
+ direct_media                       : false
+ direct_media_glare_mitigation      : none
+ direct_media_method                : invite
+ disable_direct_media_on_nat        : false
+ dtls_auto_generate_cert            : No
+ dtls_ca_file                       :
+ dtls_ca_path                       :
+ dtls_cert_file                     :
+ dtls_cipher                        :
+ dtls_fingerprint                   : SHA-256
+ dtls_private_key                   :
+ dtls_rekey                         : 0
+ dtls_setup                         : active
+ dtls_verify                        : No
+ dtmf_mode                          : rfc4733
+ fax_detect                         : false
+ fax_detect_timeout                 : 0
+ follow_early_media_fork            : true
+ follow_redirect_methods            :
+ force_avp                          : false
+ force_rport                        : true
+ from_domain                        : sipt1.ims.o2bs.sk
+ from_user                          : 421222190337
+ g726_non_standard                  : false
+ geoloc_incoming_call_profile       :
+ geoloc_outgoing_call_profile       :
+ ice_support                        : false
+ identify_by                        : ip
+ ignore_183_without_sdp             : false
+ inband_progress                    : false
+ incoming_call_offer_pref           : local
+ incoming_mwi_mailbox               :
+ language                           :
+ mailboxes                          :
+ max_audio_streams                  : 1
+ max_video_streams                  : 0
+ media_address                      :
+ media_encryption                   : no
+ media_encryption_optimistic        : false
+ media_use_received_transport       : false
+ message_context                    :
+ moh_passthrough                    : false
+ moh_suggest                        : default
+ mwi_from_user                      :
+ mwi_subscribe_replaces_unsolicited : no
+ named_call_group                   :
+ named_pickup_group                 :
+ notify_early_inuse_ringing         : false
+ one_touch_recording                : false
+ outbound_auth                      : o2-ims-auth
+ outbound_proxy                     :
+ outgoing_call_offer_pref           : remote_merge
+ overlap_context                    :
+ pickup_group                       :
+ preferred_codec_only               : false
+ record_off_feature                 : automixmon
+ record_on_feature                  : automixmon
+ redirect_method                    : user
+ refer_blind_progress               : true
+ rewrite_contact                    : true
+ rpid_immediate                     : false
+ rtcp_mux                           : false
+ rtp_engine                         : asterisk
+ rtp_ipv6                           : false
+ rtp_keepalive                      : 15
+ rtp_symmetric                      : true
+ rtp_timeout                        : 60
+ rtp_timeout_hold                   : 0
+ sdp_owner                          : -
+ sdp_session                        : Asterisk
+ security_negotiation               : no
+ send_aoc                           : false
+ send_connected_line                : yes
+ send_diversion                     : true
+ send_history_info                  : false
+ send_pai                           : true
+ send_rpid                          : true
+ set_var                            :
+ srtp_tag_32                        : false
+ stir_shaken                        : no
+ stir_shaken_profile                :
+ sub_min_expiry                     : 0
+ subscribe_context                  :
+ suppress_moh_on_sendonly           : false
+ suppress_q850_reason_headers       : false
+ t38_bind_udptl_to_media_address    : false
+ t38_udptl                          : false
+ t38_udptl_ec                       : none
+ t38_udptl_ipv6                     : false
+ t38_udptl_maxdatagram              : 0
+ t38_udptl_nat                      : false
+ tenantid                           :
+ timers                             : no
+ timers_min_se                      : 90
+ timers_sess_expires                : 1800
+ tone_zone                          :
+ tos_audio                          : 0
+ tos_video                          : 0
+ transport                          : transport-udp
+ trust_connected_line               : yes
+ trust_id_inbound                   : false
+ trust_id_outbound                  : true
+ use_avpf                           : false
+ use_ptime                          : false
+ user_eq_phone                      : false
+ voicemail_extension                :
+ webrtc                             : no
+
+seman@mediagtw:/tmp$ sudo asterisk -rx "pjsip show auths"
+
+  I/OAuth:  <AuthId/UserName.............................................................>
+==========================================================================================
+
+     Auth:  2001-auth/2001
+     Auth:  2002-auth/2002
+     Auth:  2003-auth/2003
+     Auth:  2004-auth/2004
+     Auth:  2005-auth/2005
+     Auth:  2006-auth/2006
+     Auth:  2007-auth/2007
+     Auth:  2008-auth/2008
+     Auth:  2009-auth/2009
+     Auth:  2010-auth/2010
+     Auth:  2011-auth/2011
+     Auth:  2012-auth/2012
+     Auth:  2013-auth/2013
+     Auth:  2014-auth/2014
+     Auth:  2015-auth/2015
+     Auth:  2016-auth/2016
+     Auth:  2017-auth/2017
+     Auth:  2018-auth/2018
+     Auth:  2019-auth/2019
+     Auth:  2020-auth/2020
+     Auth:  2021-auth/2021
+     Auth:  2022-auth/2022
+     Auth:  2023-auth/2023
+     Auth:  2024-auth/2024
+     Auth:  2025-auth/2025
+     Auth:  2026-auth/2026
+     Auth:  2027-auth/2027
+     Auth:  2028-auth/2028
+     Auth:  2029-auth/2029
+     Auth:  2030-auth/2030
+     Auth:  2100-auth/2100
+     Auth:  2101-auth/2101
+     Auth:  2102-auth/2102
+     Auth:  2103-auth/2103
+     Auth:  2104-auth/2104
+     Auth:  2105-auth/2105
+     Auth:  2106-auth/2106
+     Auth:  2107-auth/2107
+     Auth:  2108-auth/2108
+     Auth:  2109-auth/2109
+     Auth:  2110-auth/2110
+     Auth:  2111-auth/2111
+     Auth:  2112-auth/2112
+     Auth:  2113-auth/2113
+     Auth:  2114-auth/2114
+     Auth:  2115-auth/2115
+     Auth:  2116-auth/2116
+     Auth:  2117-auth/2117
+     Auth:  2118-auth/2118
+     Auth:  2119-auth/2119
+     Auth:  2120-auth/2120
+     Auth:  2121-auth/2121
+     Auth:  2122-auth/2122
+     Auth:  2123-auth/2123
+     Auth:  2124-auth/2124
+     Auth:  2125-auth/2125
+     Auth:  2126-auth/2126
+     Auth:  2127-auth/2127
+     Auth:  2128-auth/2128
+     Auth:  2129-auth/2129
+     Auth:  2130-auth/2130
+     Auth:  3100-auth/3100
+     Auth:  3101-auth/3101
+     Auth:  3102-auth/3102
+     Auth:  3103-auth/3103
+     Auth:  3104-auth/3104
+     Auth:  3105-auth/3105
+     Auth:  3106-auth/3106
+     Auth:  3107-auth/3107
+     Auth:  3108-auth/3108
+     Auth:  3109-auth/3109
+     Auth:  3110-auth/3110
+     Auth:  4000-auth/4000
+     Auth:  4001-auth/4001
+     Auth:  4002-auth/4002
+     Auth:  4003-auth/4003
+     Auth:  4004-auth/4004
+     Auth:  4005-auth/4005
+     Auth:  4006-auth/4006
+     Auth:  4007-auth/4007
+     Auth:  4008-auth/4008
+     Auth:  4009-auth/4009
+     Auth:  4010-auth/4010
+     Auth:  4011-auth/4011
+     Auth:  4012-auth/4012
+     Auth:  4013-auth/4013
+     Auth:  4014-auth/4014
+     Auth:  4015-auth/4015
+     Auth:  4016-auth/4016
+     Auth:  4017-auth/4017
+     Auth:  4018-auth/4018
+     Auth:  4019-auth/4019
+     Auth:  4020-auth/4020
+     Auth:  4021-auth/4021
+     Auth:  4022-auth/4022
+     Auth:  4023-auth/4023
+     Auth:  4024-auth/4024
+     Auth:  4025-auth/4025
+     Auth:  4026-auth/4026
+     Auth:  4027-auth/4027
+     Auth:  4028-auth/4028
+     Auth:  4029-auth/4029
+     Auth:  4030-auth/4030
+     Auth:  4031-auth/4031
+     Auth:  4032-auth/4032
+     Auth:  4033-auth/4033
+     Auth:  4034-auth/4034
+     Auth:  4035-auth/4035
+     Auth:  4036-auth/4036
+     Auth:  4037-auth/4037
+     Auth:  4038-auth/4038
+     Auth:  4039-auth/4039
+     Auth:  4040-auth/4040
+     Auth:  o2-ims-auth/421222190337
+
+Objects found: 114
+
+seman@mediagtw:/tmp$ sudo journalctl -u asterisk --since "10 minutes ago" --no-pager \
+  | grep -Ei 'o2|registration|401|403|407|rejected|forbidden|auth' \
+  | tail -80
+seman@mediagtw:/tmp$ sudo tail -200 /var/log/asterisk/full \
+  | grep -Ei 'o2|registration|401|403|407|rejected|forbidden|auth' \
+  | tail -80
+tail: cannot open '/var/log/asterisk/full' for reading: No such file or directory
+seman@
