@@ -187,11 +187,14 @@ if [[ "$managed_installation_exists" -eq 1 && "$UPDATE_EXISTING" -eq 1 ]]; then
   cp -a "$EXTENSIONS_CONF" "$EXTENSIONS_BACKUP"
   log "Backups created: $PJSIP_BACKUP and $EXTENSIONS_BACKUP"
 
+    [[ -f "$PJSIP_SECRET_PATH" ]] ||
+      die "The existing O2 installation has no password file to migrate inline."
     updated_pjsip_fragment="$(mktemp)"
-    awk -v secret_include="$MANAGED_PJSIP_SECRET" '
+    awk -v secret_path="$PJSIP_SECRET_PATH" '
     BEGIN { in_endpoint = 0; has_trust = 0 }
-    /^[[:space:]]*#include[[:space:]].*\/pjsip-o2-ims-secret[.]conf[[:space:]]*$/ {
-      print "#include " secret_include
+    /^[[:space:]]*#include[[:space:]]+(.+\/)?pjsip-o2-ims-secret[.]conf[[:space:]]*$/ {
+      while ((getline secret_line < secret_path) > 0) print secret_line
+      close(secret_path)
       next
     }
     /^\[o2-ims-endpoint\][[:space:]]*$/ {
@@ -298,7 +301,7 @@ type=auth
 auth_type=userpass
 username=$SIP_USERNAME
 realm=o2bssk
-#include $MANAGED_PJSIP_SECRET
+password="$escaped_password"
 
 [o2-ims-registration]
 type=registration
@@ -525,7 +528,7 @@ fi
 
 log "O2 IMS configuration installed for $PROVIDER_HOST (${PROVIDER_IPS[*]})."
 log "Outbound O2 selection requires X-Provider: O2-IMS and a server-side extension entitlement."
-log "The SIP password is stored only in $PJSIP_SECRET_PATH with mode $SECRET_MODE for Asterisk user $ASTERISK_USER."
+log "The SIP password is stored inline in $PJSIP_FRAGMENT_PATH; the protected migration copy is $PJSIP_SECRET_PATH with mode $SECRET_MODE."
 
 if [[ "$RELOAD" -eq 1 ]]; then
   log "Reloading PJSIP..."
