@@ -85,7 +85,9 @@ Expected checks:
 - `o2-ims-registration` is present and reaches `sipt1.ims.o2bs.sk:5060`;
 - `o2-ims-endpoint` uses UDP and has `alaw`, `ulaw`, and `g729` configured;
 - the generated identify object(s) match the current O2 provider address;
-- the endpoint is identified only by provider IP and requires SIP auth;
+- inbound requests are identified only by provider IP, as required by O2;
+- registration and outbound calls use `o2-ims-auth`; inbound calls do not
+  receive a Digest challenge;
 - `route-o2-ims` and `from-o2-ims` are loaded;
 - no existing `trunk-sk-endpoint` or `trunk-ro-endpoint` object changed.
 

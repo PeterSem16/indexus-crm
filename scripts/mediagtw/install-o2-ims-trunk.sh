@@ -226,7 +226,6 @@ context=from-o2-ims
 disallow=all
 allow=alaw,ulaw,g729
 aors=o2-ims-aor
-auth=o2-ims-auth
 outbound_auth=o2-ims-auth
 from_user=$SIP_USERNAME
 from_domain=$PROVIDER_HOST
@@ -442,7 +441,7 @@ if [[ "$RELOAD" -eq 1 ]]; then
 
   log "Checking registered endpoint objects..."
   asterisk -rx 'pjsip show registrations' | grep -F 'o2-ims-registration'
-  asterisk -rx 'pjsip show endpoint o2-ims-endpoint' | grep -E 'Endpoint:|Transport:|Aor:|allow|context|auth|from_domain|identify_by'
+  asterisk -rx 'pjsip show endpoint o2-ims-endpoint' | grep -E 'Endpoint:|Transport:|Aor:|allow|context|outbound_auth|from_domain|identify_by'
   asterisk -rx 'dialplan show route-o2-ims'
   asterisk -rx 'dialplan show from-o2-ims'
 fi

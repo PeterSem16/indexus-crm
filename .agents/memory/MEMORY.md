@@ -58,3 +58,4 @@
 - [Pricing Engine V2](pricing-engine-v2.md) — component-based country price lists + incomplete-collection matrix; LOW_VOLUME is component-conditional; importer wipes+reseeds and self-validates vs workbook.
 - [ISCBC sync script](iscbc-collaborator-sync.md) — incremental re-sync from legacy MSSQL: DB name is CBC (not ISCBC, no instanceName); filter doc_active=1 or you pull 16k dead records; script/migration/sync-collaborators-iscbc.cjs.
 - [Mission SMS provider enforcement](mission-sms-provider-enforcement.md) — derive Mission from server context; manual routes must validate active-session and recipient membership before selecting a gateway.
+- [O2 IMS inbound trust](o2-ims-inbound-trust.md) — O2 confirmed inbound SIP is authorized only by provider IP; never require Digest auth on the inbound endpoint.
