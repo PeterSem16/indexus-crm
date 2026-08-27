@@ -126,8 +126,8 @@ if [[ "$RUNNING_AS_ROOT" -eq 1 ]]; then
   done
   asterisk_pid="$(pgrep -xo asterisk || true)"
   [[ -n "$asterisk_pid" ]] || die "Asterisk must be running so its service account can be detected."
-  ASTERISK_USER="$(ps -o user= -p "$asterisk_pid" | awk 'NR == 1 { gsub(/^[[:space:]]+|[[:space:]]+$/, \"\"); print }')"
-  ASTERISK_GROUP="$(ps -o group= -p "$asterisk_pid" | awk 'NR == 1 { gsub(/^[[:space:]]+|[[:space:]]+$/, \"\"); print }')"
+  ASTERISK_USER="$(ps -o user= -p "$asterisk_pid" | awk 'NR == 1 { gsub(/^[[:space:]]+|[[:space:]]+$/, ""); print }')"
+  ASTERISK_GROUP="$(ps -o group= -p "$asterisk_pid" | awk 'NR == 1 { gsub(/^[[:space:]]+|[[:space:]]+$/, ""); print }')"
   [[ -n "$ASTERISK_USER" && -n "$ASTERISK_GROUP" ]] ||
     die "Could not detect the Asterisk service account."
 else
