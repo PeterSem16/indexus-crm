@@ -116,7 +116,7 @@ if [[ "$RUNNING_AS_ROOT" -ne 1 ]] &&
   die "The non-root test override cannot write under /etc/asterisk."
 fi
 
-for command in asterisk getent awk sort mktemp install cp grep stat date dirname chmod; do
+for command in asterisk getent awk sort mktemp install cp grep stat date dirname chmod sed; do
   command -v "$command" >/dev/null 2>&1 || die "Required command is missing: $command"
 done
 
@@ -126,8 +126,11 @@ if [[ "$RUNNING_AS_ROOT" -eq 1 ]]; then
   done
   asterisk_pid="$(pgrep -xo asterisk || true)"
   [[ -n "$asterisk_pid" ]] || die "Asterisk must be running so its service account can be detected."
-  ASTERISK_USER="$(ps -o user= -p "$asterisk_pid" | awk 'NR == 1 { gsub(/^[[:space:]]+|[[:space:]]+$/, ""); print }')"
-  ASTERISK_GROUP="$(ps -o group= -p "$asterisk_pid" | awk 'NR == 1 { gsub(/^[[:space:]]+|[[:space:]]+$/, ""); print }')"
+  asterisk_cmdline="$(ps -o args= -p "$asterisk_pid")"
+  ASTERISK_USER="$(printf '%s\n' "$asterisk_cmdline" | sed -n 's/.*[[:space:]]-U[[:space:]]\([^[:space:]]*\).*/\1/p')"
+  ASTERISK_GROUP="$(printf '%s\n' "$asterisk_cmdline" | sed -n 's/.*[[:space:]]-G[[:space:]]\([^[:space:]]*\).*/\1/p')"
+  ASTERISK_USER="${ASTERISK_USER:-$(ps -o user= -p "$asterisk_pid" | awk 'NR == 1 { gsub(/^[[:space:]]+|[[:space:]]+$/, ""); print }')}"
+  ASTERISK_GROUP="${ASTERISK_GROUP:-$(ps -o group= -p "$asterisk_pid" | awk 'NR == 1 { gsub(/^[[:space:]]+|[[:space:]]+$/, ""); print }')}"
   [[ -n "$ASTERISK_USER" && -n "$ASTERISK_GROUP" ]] ||
     die "Could not detect the Asterisk service account."
 else
