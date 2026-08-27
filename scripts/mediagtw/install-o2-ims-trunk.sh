@@ -42,6 +42,7 @@ ASTERISK_GROUP=""
 PJSIP_RELOAD_ATTEMPTED=0
 DIALPLAN_RELOAD_ATTEMPTED=0
 SECRET_MODE="0600"
+MANAGED_FILES_WRITTEN=0
 
 log() {
   printf '[o2-ims] %s\n' "$*"
@@ -71,7 +72,11 @@ rollback() {
   if [[ -n "$EXTENSIONS_BACKUP" && -f "$EXTENSIONS_BACKUP" ]]; then
     cp -a "$EXTENSIONS_BACKUP" "$EXTENSIONS_CONF" || true
   fi
-  rm -f "$PJSIP_FRAGMENT_PATH" "$PJSIP_SECRET_PATH" "$EXTENSIONS_FRAGMENT_PATH"
+  # Never remove an existing managed installation during preflight failure.
+  # Only clean files that this invocation actually started writing.
+  if [[ "$MANAGED_FILES_WRITTEN" -eq 1 ]]; then
+    rm -f "$PJSIP_FRAGMENT_PATH" "$PJSIP_SECRET_PATH" "$EXTENSIONS_FRAGMENT_PATH"
+  fi
   if [[ "$PJSIP_RELOAD_ATTEMPTED" -eq 1 ]]; then
     printf '[o2-ims] Reloading restored PJSIP configuration.\n' >&2
     asterisk -rx 'pjsip reload' >/dev/null 2>&1 ||
@@ -164,8 +169,14 @@ if [[ "$managed_installation_exists" -eq 1 && "$UPDATE_EXISTING" -ne 1 ]]; then
 fi
 
 if [[ "$managed_installation_exists" -eq 1 && "$UPDATE_EXISTING" -eq 1 ]]; then
-  [[ -f "$PJSIP_FRAGMENT_PATH" ]] || die "Managed PJSIP fragment is missing: $PJSIP_FRAGMENT_PATH"
-  [[ -f "$EXTENSIONS_FRAGMENT_PATH" ]] || die "Managed dialplan fragment is missing: $EXTENSIONS_FRAGMENT_PATH"
+  if [[ ! -f "$PJSIP_FRAGMENT_PATH" || ! -f "$EXTENSIONS_FRAGMENT_PATH" ]]; then
+    log "Managed include exists but one or more fragments are missing; entering repair mode."
+    REPAIR_EXISTING=1
+  else
+    REPAIR_EXISTING=0
+  fi
+
+  if [[ "${REPAIR_EXISTING:-0}" -eq 0 ]]; then
 
   timestamp="$(date +%Y%m%d-%H%M%S)"
   PJSIP_BACKUP="$PJSIP_CONF.$BACKUP_PREFIX.$timestamp.bak"
@@ -174,8 +185,8 @@ if [[ "$managed_installation_exists" -eq 1 && "$UPDATE_EXISTING" -eq 1 ]]; then
   cp -a "$EXTENSIONS_CONF" "$EXTENSIONS_BACKUP"
   log "Backups created: $PJSIP_BACKUP and $EXTENSIONS_BACKUP"
 
-  updated_pjsip_fragment="$(mktemp)"
-  awk '
+    updated_pjsip_fragment="$(mktemp)"
+    awk '
     BEGIN { in_endpoint = 0; has_trust = 0 }
     /^\[o2-ims-endpoint\][[:space:]]*$/ {
       in_endpoint = 1
@@ -194,41 +205,42 @@ if [[ "$managed_installation_exists" -eq 1 && "$UPDATE_EXISTING" -eq 1 ]]; then
     END {
       if (in_endpoint && !has_trust) print "trust_id_inbound=yes"
     }
-  ' "$PJSIP_FRAGMENT_PATH" > "$updated_pjsip_fragment"
-  install "${INSTALL_OWNER_ARGS[@]}" -m 0644 "$updated_pjsip_fragment" "$PJSIP_FRAGMENT_PATH"
-  rm -f "$updated_pjsip_fragment"
+    ' "$PJSIP_FRAGMENT_PATH" > "$updated_pjsip_fragment"
+    install "${INSTALL_OWNER_ARGS[@]}" -m 0644 "$updated_pjsip_fragment" "$PJSIP_FRAGMENT_PATH"
+    rm -f "$updated_pjsip_fragment"
 
-  updated_extensions_fragment="$(mktemp)"
-  awk '
+    updated_extensions_fragment="$(mktemp)"
+    awk '
     /CHANNEL\(recvip\)/ { next }
     {
       gsub(/Stasis\(\$\{INDEXUS_ARI_APP\}\)[[:space:]]*$/, "Stasis(${INDEXUS_ARI_APP},${ARG1})")
       print
     }
-  ' "$EXTENSIONS_FRAGMENT_PATH" > "$updated_extensions_fragment"
-  install "${INSTALL_OWNER_ARGS[@]}" -m 0644 "$updated_extensions_fragment" "$EXTENSIONS_FRAGMENT_PATH"
-  rm -f "$updated_extensions_fragment"
+    ' "$EXTENSIONS_FRAGMENT_PATH" > "$updated_extensions_fragment"
+    install "${INSTALL_OWNER_ARGS[@]}" -m 0644 "$updated_extensions_fragment" "$EXTENSIONS_FRAGMENT_PATH"
+    rm -f "$updated_extensions_fragment"
 
-  log "Updated existing O2 IMS managed fragments without replacing the protected SIP secret."
-  if [[ "$RELOAD" -eq 1 ]]; then
-    log "Reloading PJSIP..."
-    PJSIP_RELOAD_ATTEMPTED=1
-    pjsip_reload_output="$(asterisk -rx 'pjsip reload' 2>&1)"
-    printf '%s\n' "$pjsip_reload_output"
-    if printf '%s\n' "$pjsip_reload_output" | grep -Eiq 'error|failed|unable'; then
-      die "PJSIP reload reported an error; backups remain available."
-    fi
+    log "Updated existing O2 IMS managed fragments without replacing the protected SIP secret."
+    if [[ "$RELOAD" -eq 1 ]]; then
+      log "Reloading PJSIP..."
+      PJSIP_RELOAD_ATTEMPTED=1
+      pjsip_reload_output="$(asterisk -rx 'pjsip reload' 2>&1)"
+      printf '%s\n' "$pjsip_reload_output"
+      if printf '%s\n' "$pjsip_reload_output" | grep -Eiq 'error|failed|unable'; then
+        die "PJSIP reload reported an error; backups remain available."
+      fi
 
-    log "Reloading dialplan..."
-    DIALPLAN_RELOAD_ATTEMPTED=1
-    dialplan_reload_output="$(asterisk -rx 'dialplan reload' 2>&1)"
-    printf '%s\n' "$dialplan_reload_output"
-    if printf '%s\n' "$dialplan_reload_output" | grep -Eiq 'error|failed|unable'; then
-      die "Dialplan reload reported an error; backups remain available."
+      log "Reloading dialplan..."
+      DIALPLAN_RELOAD_ATTEMPTED=1
+      dialplan_reload_output="$(asterisk -rx 'dialplan reload' 2>&1)"
+      printf '%s\n' "$dialplan_reload_output"
+      if printf '%s\n' "$dialplan_reload_output" | grep -Eiq 'error|failed|unable'; then
+        die "Dialplan reload reported an error; backups remain available."
+      fi
     fi
+    log "Existing O2 IMS update finished. Backups are retained."
+    exit 0
   fi
-  log "Existing O2 IMS update finished. Backups are retained."
-  exit 0
 fi
 
 mapfile -t PROVIDER_IPS < <(getent ahostsv4 "$PROVIDER_HOST" | awk '{print $1}' | sort -u)
@@ -279,14 +291,14 @@ escaped_password="${escaped_password//\"/\\\"}"
 type=auth
 auth_type=userpass
 username=$SIP_USERNAME
-realm=*
+realm=o2bssk
 #include $PJSIP_SECRET_PATH
 
 [o2-ims-registration]
 type=registration
 transport=transport-udp
 outbound_auth=o2-ims-auth
-server_uri=sip:$PROVIDER_HOST:$PROVIDER_PORT
+server_uri=sip:$PROVIDER_HOST
 client_uri=sip:$SIP_USERNAME@$PROVIDER_HOST
 contact_user=$SIP_USERNAME
 retry_interval=60
@@ -296,7 +308,7 @@ auth_rejection_permanent=no
 
 [o2-ims-aor]
 type=aor
-contact=sip:$PROVIDER_HOST:$PROVIDER_PORT
+contact=sip:$PROVIDER_HOST
 qualify_frequency=30
 qualify_timeout=3
 
@@ -443,7 +455,11 @@ cat > "$branch_file" <<'EOF'
  same => n(o2-provider-selection-done),NoOp(O2 provider selection not requested)
 EOF
 patched_extensions="$(mktemp)"
-awk -v anchor="$OUTBOUND_ANCHOR" -v injection="$branch_file" '
+  if [[ "${REPAIR_EXISTING:-0}" -eq 1 ]]; then
+    log "Keeping the existing O2 outbound route in place while repairing missing fragments."
+    rm -f "$branch_file"
+  else
+    awk -v anchor="$OUTBOUND_ANCHOR" -v injection="$branch_file" '
   {
     print
     if (!inserted && index($0, anchor)) {
@@ -455,13 +471,14 @@ awk -v anchor="$OUTBOUND_ANCHOR" -v injection="$branch_file" '
   END {
     if (!inserted) exit 42
   }
-' "$EXTENSIONS_CONF" > "$patched_extensions" || {
-  rm -f "$branch_file" "$patched_extensions"
-  die "Could not find the expected indexus-outbound anchor; no live config was changed."
-}
-rm -f "$branch_file"
-install "${INSTALL_OWNER_ARGS[@]}" -m 0644 "$patched_extensions" "$EXTENSIONS_CONF"
-rm -f "$patched_extensions"
+    ' "$EXTENSIONS_CONF" > "$patched_extensions" || {
+      rm -f "$branch_file" "$patched_extensions"
+      die "Could not find the expected indexus-outbound anchor; no live config was changed."
+    }
+    rm -f "$branch_file"
+    install "${INSTALL_OWNER_ARGS[@]}" -m 0644 "$patched_extensions" "$EXTENSIONS_CONF"
+    rm -f "$patched_extensions"
+  fi
 
 ensure_include() {
   local config_file="$1"
@@ -478,6 +495,7 @@ ensure_include() {
 
 ensure_include "$PJSIP_CONF" "$MANAGED_PJSIP_FRAGMENT"
 ensure_include "$EXTENSIONS_CONF" "$MANAGED_EXTENSIONS_FRAGMENT"
+MANAGED_FILES_WRITTEN=1
 if [[ "$RUNNING_AS_ROOT" -eq 1 ]]; then
   chown root:root "$PJSIP_FRAGMENT_PATH" "$EXTENSIONS_FRAGMENT_PATH"
   chown "root:$ASTERISK_GROUP" "$PJSIP_SECRET_PATH"
@@ -521,10 +539,18 @@ if [[ "$RELOAD" -eq 1 ]]; then
   fi
 
   log "Checking registered endpoint objects..."
-  asterisk -rx 'pjsip show registrations' | grep -F 'o2-ims-registration'
-  asterisk -rx 'pjsip show endpoint o2-ims-endpoint' | grep -E 'Endpoint:|Transport:|Aor:|allow|context|outbound_auth|from_domain|identify_by'
-  asterisk -rx 'dialplan show route-o2-ims'
-  asterisk -rx 'dialplan show from-o2-ims'
+  if ! asterisk -rx 'pjsip show registrations' | grep -F 'o2-ims-registration'; then
+    log "WARNING: O2 registration is not visible yet; it may still be starting after reload."
+  fi
+  if ! asterisk -rx 'pjsip show endpoint o2-ims-endpoint' | grep -E 'Endpoint:|Transport:|Aor:|allow|context|outbound_auth|from_domain|identify_by|trust_id_inbound'; then
+    log "WARNING: O2 endpoint verification returned no matching details."
+  fi
+  if ! asterisk -rx 'dialplan show route-o2-ims'; then
+    log "WARNING: route-o2-ims dialplan verification failed."
+  fi
+  if ! asterisk -rx 'dialplan show from-o2-ims'; then
+    log "WARNING: from-o2-ims dialplan verification failed."
+  fi
 fi
 
 trap - ERR
