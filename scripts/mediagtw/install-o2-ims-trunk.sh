@@ -8,6 +8,7 @@
 # Usage:
 #   sudo ./install-o2-ims-trunk.sh
 #   sudo ./install-o2-ims-trunk.sh --reload
+#   sudo ./install-o2-ims-trunk.sh --update-existing --reload
 #
 set -Eeuo pipefail
 umask 077
@@ -25,6 +26,7 @@ readonly BACKUP_PREFIX="o2-ims-backup"
 PJSIP_CONF="${PJSIP_CONF:-$DEFAULT_PJSIP_CONF}"
 EXTENSIONS_CONF="${EXTENSIONS_CONF:-$DEFAULT_EXTENSIONS_CONF}"
 RELOAD=0
+UPDATE_EXISTING=0
 PJSIP_BACKUP=""
 EXTENSIONS_BACKUP=""
 PJSIP_FRAGMENT_PATH=""
@@ -92,6 +94,9 @@ for arg in "$@"; do
     --reload)
       RELOAD=1
       ;;
+    --update-existing)
+      UPDATE_EXISTING=1
+      ;;
     --help|-h)
       sed -n '1,18p' "$0"
       exit 0
@@ -146,11 +151,84 @@ EXTENSIONS_FRAGMENT_PATH="$EXTENSIONS_DIR/$MANAGED_EXTENSIONS_FRAGMENT"
 
 [[ "$PJSIP_DIR" == "$EXTENSIONS_DIR" ]] || die "pjsip.conf and extensions.conf must share their Asterisk config directory."
 
+managed_installation_exists=0
 if grep -Fq "BEGIN INDEXUS O2 IMS" "$PJSIP_CONF" ||
    grep -Fq "BEGIN INDEXUS O2 IMS" "$EXTENSIONS_CONF" ||
    [[ -f "$PJSIP_FRAGMENT_PATH" ]] ||
    [[ -f "$EXTENSIONS_FRAGMENT_PATH" ]]; then
-  die "An O2 IMS managed installation already exists. Remove it or restore its backup before rerunning."
+  managed_installation_exists=1
+fi
+
+if [[ "$managed_installation_exists" -eq 1 && "$UPDATE_EXISTING" -ne 1 ]]; then
+  die "An O2 IMS managed installation already exists. Use --update-existing --reload to update its managed fragments safely, or restore its backup before a fresh install."
+fi
+
+if [[ "$managed_installation_exists" -eq 1 && "$UPDATE_EXISTING" -eq 1 ]]; then
+  [[ -f "$PJSIP_FRAGMENT_PATH" ]] || die "Managed PJSIP fragment is missing: $PJSIP_FRAGMENT_PATH"
+  [[ -f "$EXTENSIONS_FRAGMENT_PATH" ]] || die "Managed dialplan fragment is missing: $EXTENSIONS_FRAGMENT_PATH"
+
+  timestamp="$(date +%Y%m%d-%H%M%S)"
+  PJSIP_BACKUP="$PJSIP_CONF.$BACKUP_PREFIX.$timestamp.bak"
+  EXTENSIONS_BACKUP="$EXTENSIONS_CONF.$BACKUP_PREFIX.$timestamp.bak"
+  cp -a "$PJSIP_CONF" "$PJSIP_BACKUP"
+  cp -a "$EXTENSIONS_CONF" "$EXTENSIONS_BACKUP"
+  log "Backups created: $PJSIP_BACKUP and $EXTENSIONS_BACKUP"
+
+  updated_pjsip_fragment="$(mktemp)"
+  awk '
+    BEGIN { in_endpoint = 0; has_trust = 0 }
+    /^\[o2-ims-endpoint\][[:space:]]*$/ {
+      in_endpoint = 1
+      has_trust = 0
+      print
+      next
+    }
+    in_endpoint && /^\[/ {
+      if (!has_trust) print "trust_id_inbound=yes"
+      in_endpoint = 0
+    }
+    in_endpoint && /^[[:space:]]*trust_id_inbound[[:space:]]*=/ {
+      has_trust = 1
+    }
+    { print }
+    END {
+      if (in_endpoint && !has_trust) print "trust_id_inbound=yes"
+    }
+  ' "$PJSIP_FRAGMENT_PATH" > "$updated_pjsip_fragment"
+  install "${INSTALL_OWNER_ARGS[@]}" -m 0644 "$updated_pjsip_fragment" "$PJSIP_FRAGMENT_PATH"
+  rm -f "$updated_pjsip_fragment"
+
+  updated_extensions_fragment="$(mktemp)"
+  awk '
+    /CHANNEL\(recvip\)/ { next }
+    {
+      gsub(/Stasis\(\$\{INDEXUS_ARI_APP\}\)[[:space:]]*$/, "Stasis(${INDEXUS_ARI_APP},${ARG1})")
+      print
+    }
+  ' "$EXTENSIONS_FRAGMENT_PATH" > "$updated_extensions_fragment"
+  install "${INSTALL_OWNER_ARGS[@]}" -m 0644 "$updated_extensions_fragment" "$EXTENSIONS_FRAGMENT_PATH"
+  rm -f "$updated_extensions_fragment"
+
+  log "Updated existing O2 IMS managed fragments without replacing the protected SIP secret."
+  if [[ "$RELOAD" -eq 1 ]]; then
+    log "Reloading PJSIP..."
+    PJSIP_RELOAD_ATTEMPTED=1
+    pjsip_reload_output="$(asterisk -rx 'pjsip reload' 2>&1)"
+    printf '%s\n' "$pjsip_reload_output"
+    if printf '%s\n' "$pjsip_reload_output" | grep -Eiq 'error|failed|unable'; then
+      die "PJSIP reload reported an error; backups remain available."
+    fi
+
+    log "Reloading dialplan..."
+    DIALPLAN_RELOAD_ATTEMPTED=1
+    dialplan_reload_output="$(asterisk -rx 'dialplan reload' 2>&1)"
+    printf '%s\n' "$dialplan_reload_output"
+    if printf '%s\n' "$dialplan_reload_output" | grep -Eiq 'error|failed|unable'; then
+      die "Dialplan reload reported an error; backups remain available."
+    fi
+  fi
+  log "Existing O2 IMS update finished. Backups are retained."
+  exit 0
 fi
 
 mapfile -t PROVIDER_IPS < <(getent ahostsv4 "$PROVIDER_HOST" | awk '{print $1}' | sort -u)
