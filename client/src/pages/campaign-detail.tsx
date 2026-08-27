@@ -243,6 +243,11 @@ import type { MessageTemplate } from "@shared/schema";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip as UITooltip, TooltipContent as UITooltipContent, TooltipTrigger as UITooltipTrigger } from "@/components/ui/tooltip";
 import { NexusPulseView } from "@/components/nexus-pulse-view";
+import {
+  OUTBOUND_CALLER_ID_OPTIONS,
+  getMissionCountryOutboundRouting,
+  parseMissionSettings,
+} from "@shared/telephony-routing";
 
 const ICON_PICKER_SET: { name: string; icon: LucideIcon }[] = [
   { name: "Phone", icon: Phone }, { name: "PhoneOff", icon: PhoneOff }, { name: "PhoneMissed", icon: PhoneMissed },
@@ -344,33 +349,86 @@ function CampaignDetailsCard({ campaign }: { campaign: Campaign }) {
   const { t } = useI18n();
   const { toast } = useToast();
   const [editName, setEditName] = useState(campaign.name);
+  const [editDescription, setEditDescription] = useState(campaign.description || "");
+  const [editType, setEditType] = useState(campaign.type || "marketing");
+  const [editChannel, setEditChannel] = useState(campaign.channel || "phone");
+  const [editStatus, setEditStatus] = useState(campaign.status || "draft");
   const [editStartDate, setEditStartDate] = useState(campaign.startDate ? format(new Date(campaign.startDate), "yyyy-MM-dd") : "");
   const [editEndDate, setEditEndDate] = useState(campaign.endDate ? format(new Date(campaign.endDate), "yyyy-MM-dd") : "");
   const [editCountries, setEditCountries] = useState<string[]>(campaign.countryCodes || []);
+  const [editDefaultActiveTab, setEditDefaultActiveTab] = useState(campaign.defaultActiveTab || "phone");
+  const [editCallerIdNumber, setEditCallerIdNumber] = useState(campaign.callerIdNumber || "");
+  const initialRouting = getMissionCountryOutboundRouting(campaign.settings, "SK");
+  const [editOutboundTrunk, setEditOutboundTrunk] = useState(initialRouting.trunk);
+  const [editOutboundCallerIdId, setEditOutboundCallerIdId] = useState(initialRouting.callerIdId || "");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setEditName(campaign.name);
+    setEditDescription(campaign.description || "");
+    setEditType(campaign.type || "marketing");
+    setEditChannel(campaign.channel || "phone");
+    setEditStatus(campaign.status || "draft");
     setEditStartDate(campaign.startDate ? format(new Date(campaign.startDate), "yyyy-MM-dd") : "");
     setEditEndDate(campaign.endDate ? format(new Date(campaign.endDate), "yyyy-MM-dd") : "");
     setEditCountries(campaign.countryCodes || []);
+    setEditDefaultActiveTab(campaign.defaultActiveTab || "phone");
+    setEditCallerIdNumber(campaign.callerIdNumber || "");
+    const routing = getMissionCountryOutboundRouting(campaign.settings, "SK");
+    setEditOutboundTrunk(routing.trunk);
+    setEditOutboundCallerIdId(routing.callerIdId || "");
   }, [campaign]);
 
+  const currentRouting = getMissionCountryOutboundRouting(campaign.settings, "SK");
   const hasChanges = editName !== campaign.name 
+    || editDescription !== (campaign.description || "")
+    || editType !== (campaign.type || "marketing")
+    || editChannel !== (campaign.channel || "phone")
+    || editStatus !== (campaign.status || "draft")
     || editStartDate !== (campaign.startDate ? format(new Date(campaign.startDate), "yyyy-MM-dd") : "")
     || editEndDate !== (campaign.endDate ? format(new Date(campaign.endDate), "yyyy-MM-dd") : "")
-    || JSON.stringify(editCountries.sort()) !== JSON.stringify((campaign.countryCodes || []).sort());
+    || JSON.stringify([...editCountries].sort()) !== JSON.stringify([...(campaign.countryCodes || [])].sort())
+    || editDefaultActiveTab !== (campaign.defaultActiveTab || "phone")
+    || editCallerIdNumber !== (campaign.callerIdNumber || "")
+    || editOutboundTrunk !== currentRouting.trunk
+    || editOutboundCallerIdId !== (currentRouting.callerIdId || "");
 
   const handleSave = async () => {
     setSaving(true);
     try {
+      const currentSettings = parseMissionSettings(campaign.settings) as Record<string, any>;
+      const outboundRoutingByCountry = { ...(currentSettings.outboundRoutingByCountry || {}) };
+      if (editCountries.includes("SK")) {
+        outboundRoutingByCountry.SK = {
+          trunk: editOutboundTrunk,
+          callerIdId: editOutboundTrunk === "o2-ims" ? editOutboundCallerIdId || null : null,
+        };
+      } else {
+        delete outboundRoutingByCountry.SK;
+      }
+
+      const nextSettings = { ...currentSettings };
+      if (Object.keys(outboundRoutingByCountry).length > 0) {
+        nextSettings.outboundRoutingByCountry = outboundRoutingByCountry;
+      } else {
+        delete nextSettings.outboundRoutingByCountry;
+      }
+
       await apiRequest("PATCH", `/api/campaigns/${campaign.id}`, {
         name: editName,
+        description: editDescription || null,
+        type: editType,
+        channel: editChannel,
+        status: editStatus,
         startDate: editStartDate || null,
         endDate: editEndDate || null,
         countryCodes: editCountries,
+        defaultActiveTab: editDefaultActiveTab,
+        callerIdNumber: editCallerIdNumber.trim() || null,
+        settings: JSON.stringify(nextSettings),
       });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       toast({ title: t.campaigns.detail.settingsSaved });
     } catch {
       toast({ title: t.campaigns.detail.error, variant: "destructive" });
@@ -384,12 +442,12 @@ function CampaignDetailsCard({ campaign }: { campaign: Campaign }) {
   };
 
   return (
-    <Card>
+    <Card data-testid="card-mission-settings">
       <CardHeader className="flex flex-row items-center justify-between gap-4">
         <div>
           <CardTitle className="flex items-center gap-2">
-            <FileEdit className="w-5 h-5" />
-            {t.campaigns.detail.editCampaignDetails || t.campaigns.detail.settings}
+            <Settings className="w-5 h-5" />
+            {t.campaigns.detail.settings}
           </CardTitle>
         </div>
         {hasChanges && (
@@ -400,53 +458,130 @@ function CampaignDetailsCard({ campaign }: { campaign: Campaign }) {
         )}
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label>{t.campaigns.name}</Label>
-          <Input
-            value={editName}
-            onChange={(e) => setEditName(e.target.value)}
-            data-testid="input-edit-campaign-name"
-          />
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label>{t.campaigns.campaignName}</Label>
+            <Input value={editName} onChange={(e) => setEditName(e.target.value)} data-testid="input-edit-campaign-name" />
+          </div>
+          <div className="space-y-2">
+            <Label>{t.campaigns.type}</Label>
+            <Select value={editType} onValueChange={setEditType}>
+              <SelectTrigger data-testid="select-edit-campaign-type"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(["marketing", "sales", "follow_up", "retention", "upsell", "other"] as const).map((type) => (
+                  <SelectItem key={type} value={type}>{t.campaigns.types[type]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>{t.campaigns.channel}</Label>
+            <Select value={editChannel} onValueChange={setEditChannel}>
+              <SelectTrigger data-testid="select-edit-campaign-channel"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(["phone", "email", "sms", "mixed"] as const).map((channel) => (
+                  <SelectItem key={channel} value={channel}>{t.campaigns.channels[channel]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>{t.campaigns.status}</Label>
+            <Select value={editStatus} onValueChange={setEditStatus}>
+              <SelectTrigger data-testid="select-edit-campaign-status"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(["draft", "active", "paused", "completed", "cancelled"] as const).map((status) => (
+                  <SelectItem key={status} value={status}>{t.campaigns.statuses[status]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>{t.campaigns.description}</Label>
+          <Textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} data-testid="input-edit-campaign-description" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <Label>{t.campaigns.startDate}</Label>
-            <DateTimePicker
-              value={editStartDate}
-              onChange={setEditStartDate}
-              countryCode={editCountries[0] || "SK"}
-              includeTime={false}
-              placeholder={t.campaigns.startDate}
-              data-testid="input-edit-start-date"
-            />
+            <DateTimePicker value={editStartDate} onChange={setEditStartDate} countryCode={editCountries[0] || "SK"} includeTime={false} placeholder={t.campaigns.startDate} data-testid="input-edit-start-date" />
           </div>
           <div className="space-y-2">
             <Label>{t.campaigns.endDate}</Label>
-            <DateTimePicker
-              value={editEndDate}
-              onChange={setEditEndDate}
-              countryCode={editCountries[0] || "SK"}
-              includeTime={false}
-              placeholder={t.campaigns.endDate}
-              data-testid="input-edit-end-date"
-            />
+            <DateTimePicker value={editEndDate} onChange={setEditEndDate} countryCode={editCountries[0] || "SK"} includeTime={false} placeholder={t.campaigns.endDate} data-testid="input-edit-end-date" />
           </div>
         </div>
         <div className="space-y-2">
-          <Label>{t.campaigns.detail.country}</Label>
+          <Label>{t.campaigns.targetCountries}</Label>
           <div className="flex flex-wrap gap-1.5">
             {COUNTRIES.map(c => (
-              <Badge
-                key={c.code}
-                variant={editCountries.includes(c.code) ? "default" : "outline"}
-                className="cursor-pointer select-none"
-                onClick={() => toggleCountry(c.code)}
-                data-testid={`chip-edit-country-${c.code}`}
-              >
+              <Badge key={c.code} variant={editCountries.includes(c.code) ? "default" : "outline"} className="cursor-pointer select-none" onClick={() => toggleCountry(c.code)} data-testid={`chip-edit-country-${c.code}`}>
                 {c.flag} {c.name}
               </Badge>
             ))}
           </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label>{t.campaigns.defaultTab}</Label>
+            <Select value={editDefaultActiveTab} onValueChange={setEditDefaultActiveTab}>
+              <SelectTrigger data-testid="select-edit-default-active-tab"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="phone">{t.campaigns.channels.phone}</SelectItem>
+                <SelectItem value="script">{t.campaigns.channels.phone} / {t.campaigns.detail.script}</SelectItem>
+                <SelectItem value="email">{t.campaigns.channels.email}</SelectItem>
+                <SelectItem value="sms">SMS</SelectItem>
+                <SelectItem value="checklist">{t.campaigns.detail.statusList}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>{t.campaigns.callerIdNumber}</Label>
+            <Input value={editCallerIdNumber} onChange={(e) => setEditCallerIdNumber(e.target.value)} placeholder="+421..." data-testid="input-caller-id" />
+            <p className="text-xs text-muted-foreground">{t.campaigns.callerIdHelp}</p>
+          </div>
+        </div>
+        <div className="rounded-lg border p-4 space-y-4">
+          <div>
+            <Label className="text-sm font-medium">{t.campaigns.skOutboundRouting}</Label>
+            <p className="text-xs text-muted-foreground">{t.campaigns.skOutboundRoutingHelp}</p>
+          </div>
+          {!editCountries.includes("SK") ? (
+            <p className="text-sm text-muted-foreground">{t.campaigns.targetCountries}: SK</p>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <Label>{t.campaigns.outboundTrunk}</Label>
+                <Select value={editOutboundTrunk} onValueChange={(value: typeof editOutboundTrunk) => {
+                  setEditOutboundTrunk(value);
+                  if (value === "o2-ims" && !editOutboundCallerIdId) {
+                    setEditOutboundCallerIdId(OUTBOUND_CALLER_ID_OPTIONS[0]?.id || "");
+                  }
+                }}>
+                  <SelectTrigger data-testid="select-sk-outbound-trunk"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="global">{t.campaigns.outboundTrunkGlobal}</SelectItem>
+                    <SelectItem value="sk-existing">{t.campaigns.outboundTrunkExistingSk}</SelectItem>
+                    <SelectItem value="o2-ims">{t.campaigns.outboundTrunkO2}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {editOutboundTrunk === "o2-ims" && (
+                <div className="space-y-2">
+                  <Label>{t.campaigns.outboundCallerId}</Label>
+                  <Select value={editOutboundCallerIdId} onValueChange={setEditOutboundCallerIdId}>
+                    <SelectTrigger data-testid="select-sk-outbound-caller-id"><SelectValue placeholder={t.campaigns.selectOutboundCallerId} /></SelectTrigger>
+                    <SelectContent>
+                      {OUTBOUND_CALLER_ID_OPTIONS.filter(option => option.active && option.countryCode === "SK" && option.trunk === "o2-ims").map(option => (
+                        <SelectItem key={option.id} value={option.id}>{option.number}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {!editOutboundCallerIdId && <p className="text-xs text-destructive">{t.campaigns.outboundCallerIdRequired}</p>}
+                </div>
+              )}
+            </>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -6272,38 +6407,6 @@ export default function CampaignDetailPage() {
                           <p className="text-sm text-muted-foreground">{t.campaigns.detail.settingsGroupAgentDesc}</p>
                         </div>
                         <div className="grid gap-4 lg:grid-cols-2 items-start">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>{t.campaigns.detail.defaultAgentTab}</CardTitle>
-                          <CardDescription>
-                            {t.campaigns.detail.defaultAgentTabDesc}
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <Select 
-                            value={campaign.defaultActiveTab || "phone"} 
-                            onValueChange={(v) => {
-                              apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { defaultActiveTab: v })
-                                .then(() => {
-                                  toast({ title: t.campaigns.detail.settingsSaved });
-                                  queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
-                                })
-                                .catch(() => toast({ title: t.campaigns.detail.error, variant: "destructive" }));
-                            }}
-                          >
-                            <SelectTrigger className="w-64" data-testid="select-default-active-tab">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="phone">{t.campaigns.detail.phone}</SelectItem>
-                              <SelectItem value="script">{t.campaigns.detail.script}</SelectItem>
-                              <SelectItem value="email">{t.campaigns.detail.email}</SelectItem>
-                              <SelectItem value="sms">SMS</SelectItem>
-                              <SelectItem value="checklist">{t.campaigns.detail.statusList}</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </CardContent>
-                      </Card>
                       <Card>
                         <CardHeader>
                           <CardTitle>{t.campaigns.detail.maxRingTitle}</CardTitle>

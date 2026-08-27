@@ -76,7 +76,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import {
   OUTBOUND_CALLER_ID_OPTIONS,
   getMissionCountryOutboundRouting,
-  parseMissionSettings,
 } from "@shared/telephony-routing";
 
 const campaignFormSchema = z.object({
@@ -1530,7 +1529,6 @@ export default function CampaignsPage() {
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
   const [deletingCampaign, setDeletingCampaign] = useState<Campaign | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<CampaignTemplate | null>(null);
   const [isComparisonOpen, setIsComparisonOpen] = useState(false);
@@ -1593,20 +1591,6 @@ export default function CampaignsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       setIsDialogOpen(false);
       toast({ title: t.campaigns.created });
-    },
-    onError: () => {
-      toast({ title: t.common.error, variant: "destructive" });
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: (data: CampaignFormData & { id: string }) => 
-      apiRequest("PATCH", `/api/campaigns/${data.id}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
-      setIsDialogOpen(false);
-      setEditingCampaign(null);
-      toast({ title: t.campaigns.updated });
     },
     onError: () => {
       toast({ title: t.common.error, variant: "destructive" });
@@ -1704,10 +1688,7 @@ export default function CampaignsPage() {
       skOutboundCallerIdId,
       ...campaignData
     } = data;
-    const currentSettings = parseMissionSettings(editingCampaign?.settings);
-    const outboundRoutingByCountry = {
-      ...(currentSettings.outboundRoutingByCountry || {}),
-    };
+    const outboundRoutingByCountry: Record<string, { trunk: "global" | "sk-existing" | "o2-ims"; callerIdId: string | null }> = {};
     if (campaignData.countryCodes.includes("SK")) {
       outboundRoutingByCountry.SK = {
         trunk: skOutboundTrunk,
@@ -1715,15 +1696,10 @@ export default function CampaignsPage() {
       };
     }
     const settings = {
-      ...currentSettings,
       ...(Object.keys(outboundRoutingByCountry).length > 0 ? { outboundRoutingByCountry } : {}),
     };
     const payload = { ...campaignData, settings: JSON.stringify(settings) } as CampaignFormData;
-    if (editingCampaign) {
-      updateMutation.mutate({ ...payload, id: editingCampaign.id });
-    } else {
-      createMutation.mutate(payload);
-    }
+    createMutation.mutate(payload);
   };
 
   const getStatusBadge = (status: string) => {
@@ -1906,18 +1882,6 @@ export default function CampaignsPage() {
             data-testid={`button-assign-agents-${campaign.id}`}
           >
             <Users className="h-4 w-4" />
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={(e) => {
-              e.stopPropagation();
-              setEditingCampaign(campaign);
-              setIsDialogOpen(true);
-            }}
-            data-testid={`button-edit-campaign-${campaign.id}`}
-          >
-            <Pencil className="h-4 w-4" />
           </Button>
           <Button
             size="icon"
@@ -2163,23 +2127,18 @@ export default function CampaignsPage() {
       <Sheet open={isDialogOpen} onOpenChange={(open) => {
         setIsDialogOpen(open);
         if (!open) {
-          setEditingCampaign(null);
           setSelectedTemplate(null);
         }
       }}>
         <SheetContent className="w-[900px] sm:max-w-[900px] p-0 flex flex-col" data-testid="sheet-campaign-edit">
           <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0">
             <SheetTitle>
-              {editingCampaign 
-                ? t.campaigns.editCampaign
-                : t.campaigns.addCampaign}
+              {t.campaigns.addCampaign}
             </SheetTitle>
             <SheetDescription>
-              {editingCampaign 
-                ? t.campaigns.editCampaignDesc
-                : t.campaigns.addCampaignDesc}
+              {t.campaigns.addCampaignDesc}
             </SheetDescription>
-            {!editingCampaign && templates.length > 0 && (
+            {templates.length > 0 && (
               <div className="space-y-2 pt-3">
                 <Label className="text-sm font-medium">Použiť šablónu</Label>
                 <Select 
@@ -2212,13 +2171,11 @@ export default function CampaignsPage() {
           <div className="flex-1 min-h-0">
             <CampaignForm
               key={selectedTemplate?.id || "new"}
-              initialData={editingCampaign || undefined}
               templateData={selectedTemplate}
               onSubmit={handleSubmit}
-              isLoading={createMutation.isPending || updateMutation.isPending}
+              isLoading={createMutation.isPending}
               onCancel={() => {
                 setIsDialogOpen(false);
-                setEditingCampaign(null);
                 setSelectedTemplate(null);
               }}
               t={t}
