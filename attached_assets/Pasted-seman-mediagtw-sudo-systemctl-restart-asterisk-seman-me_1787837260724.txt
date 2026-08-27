@@ -1,0 +1,790 @@
+seman@mediagtw:~$ sudo systemctl restart asterisk
+seman@mediagtw:~$ sudo asterisk -rx "pjsip show transport transport-udp"
+
+Transport:  <TransportId........>  <Type>  <cos>  <tos>  <BindAddress....................>
+==========================================================================================
+
+Transport:  transport-udp             udp      0      0  0.0.0.0:5060
+
+ ParameterName               : ParameterValue
+ =====================================================
+ allow_reload                : true
+ allow_wildcard_certs        : No
+ async_operations            : 1
+ bind                        : 0.0.0.0:5060
+ ca_list_file                :
+ ca_list_path                :
+ cert_file                   :
+ cipher                      :
+ cos                         : 0
+ domain                      :
+ external_media_address      : 77.72.181.113
+ external_signaling_address  : 77.72.181.113
+ external_signaling_port     : 0
+ local_net                   : 10.0.0.0/255.0.0.0
+ local_net                   : 172.16.0.0/255.240.0.0
+ local_net                   : 192.168.0.0/255.255.0.0
+ method                      : unspecified
+ password                    :
+ priv_key_file               :
+ protocol                    : udp
+ require_client_cert         : No
+ symmetric_transport         : false
+ tcp_keepalive_enable        : false
+ tcp_keepalive_idle_time     : 30
+ tcp_keepalive_interval_time : 1
+ tcp_keepalive_probe_count   : 5
+ tos                         : 0
+ verify_client               : No
+ verify_server               : No
+ websocket_write_timeout     : 100
+
+seman@mediagtw:~$ sudo asterisk -rvvvvv
+Asterisk 22.8.2, Copyright (C) 1999 - 2025, Sangoma Technologies Corporation and others.
+Created by Mark Spencer <markster@digium.com>
+Asterisk comes with ABSOLUTELY NO WARRANTY; type 'core show warranty' for details.
+This is free software, with components licensed under the GNU General Public
+License version 2 and other licenses; you are welcome to redistribute it under
+certain conditions. Type 'core show license' for details.
+=========================================================================
+Running as user 'asterisk'
+Running under group 'asterisk'
+Connected to Asterisk 22.8.2 currently running on mediagtw (pid = 840377)
+mediagtw*CLI> pjsip set logger host 185.103.146.200
+PJSIP Logging Enabled for host: 185.103.146.200
+<--- Transmitting SIP request (435 bytes) to UDP:185.103.146.200:5060 --->
+OPTIONS sip:sipt1.ims.o2bs.sk SIP/2.0
+Via: SIP/2.0/UDP 77.72.181.113:5060;rport;branch=z9hG4bKPjc3e8c293-d202-47c0-9c2e-943750b1b98c
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=453e2644-01ef-46ab-b796-debbbb5a19ea
+To: <sip:sipt1.ims.o2bs.sk>
+Contact: <sip:421222190337@77.72.181.113:5060>
+Call-ID: 362b56d2-9c15-40f0-8ef2-cc770b38116a
+CSeq: 50441 OPTIONS
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP response (552 bytes) from UDP:185.103.146.200:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 77.72.181.113:5060;branch=z9hG4bKPjc3e8c293-d202-47c0-9c2e-943750b1b98c;received=77.72.181.113;rport=5060
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=453e2644-01ef-46ab-b796-debbbb5a19ea
+To: <sip:sipt1.ims.o2bs.sk>;tag=as7aeb3a7e
+Call-ID: 362b56d2-9c15-40f0-8ef2-cc770b38116a
+CSeq: 50441 OPTIONS
+Server: O2BS SK IMS
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+Contact: <sip:185.103.146.200:5060>
+Accept: application/sdp
+Content-Length: 0
+
+
+mediagtw*CLI> sudo asterisk -rx "pjsip send register o2-ims-registration"
+No such command 'sudo asterisk -rx "pjsip send register o2-ims-registration"' (type 'core show help sudo asterisk' for other possible commands)
+    -- Remote UNIX connection
+    -- Remote UNIX connection disconnected
+<--- Transmitting SIP request (462 bytes) to UDP:185.103.146.200:5060 --->
+REGISTER sip:sipt1.ims.o2bs.sk SIP/2.0
+Via: SIP/2.0/UDP 77.72.181.113:5060;rport;branch=z9hG4bKPjbb3c5493-ae6a-41d8-9593-89708d9b3173
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=5a3637bc-bf5c-4092-aeff-5a03e3ad7570
+To: <sip:421222190337@sipt1.ims.o2bs.sk>
+Call-ID: a00988bf-f400-46ca-b170-5fb88faaa950
+CSeq: 48939 REGISTER
+Contact: <sip:421222190337@77.72.181.113:5060>
+Expires: 0
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP response (588 bytes) from UDP:185.103.146.200:5060 --->
+SIP/2.0 401 Unauthorized
+Via: SIP/2.0/UDP 77.72.181.113:5060;branch=z9hG4bKPjbb3c5493-ae6a-41d8-9593-89708d9b3173;received=77.72.181.113;rport=5060
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=5a3637bc-bf5c-4092-aeff-5a03e3ad7570
+To: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=as66e81ae7
+Call-ID: a00988bf-f400-46ca-b170-5fb88faaa950
+CSeq: 48939 REGISTER
+Server: O2BS SK IMS
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+WWW-Authenticate: Digest algorithm=MD5, realm="o2bssk", nonce="6ac6a852"
+Content-Length: 0
+
+
+<--- Transmitting SIP request (632 bytes) to UDP:185.103.146.200:5060 --->
+REGISTER sip:sipt1.ims.o2bs.sk SIP/2.0
+Via: SIP/2.0/UDP 77.72.181.113:5060;rport;branch=z9hG4bKPjdcd27c43-025c-4d53-94e2-23547bc80fb1
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=5a3637bc-bf5c-4092-aeff-5a03e3ad7570
+To: <sip:421222190337@sipt1.ims.o2bs.sk>
+Call-ID: a00988bf-f400-46ca-b170-5fb88faaa950
+CSeq: 48940 REGISTER
+Contact: <sip:421222190337@77.72.181.113:5060>
+Expires: 0
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Authorization: Digest username="421222190337", realm="o2bssk", nonce="6ac6a852", uri="sip:sipt1.ims.o2bs.sk", response="84a9495f9b7db447da9095a86136956c", algorithm=MD5
+Content-Length:  0
+
+
+<--- Received SIP response (553 bytes) from UDP:185.103.146.200:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 77.72.181.113:5060;branch=z9hG4bKPjdcd27c43-025c-4d53-94e2-23547bc80fb1;received=77.72.181.113;rport=5060
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=5a3637bc-bf5c-4092-aeff-5a03e3ad7570
+To: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=as66e81ae7
+Call-ID: a00988bf-f400-46ca-b170-5fb88faaa950
+CSeq: 48940 REGISTER
+Server: O2BS SK IMS
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+Expires: 0
+Date: Thu, 27 Aug 2026 13:25:21 GMT
+Content-Length: 0
+
+
+<--- Transmitting SIP request (567 bytes) to UDP:185.103.146.200:5060 --->
+REGISTER sip:sipt1.ims.o2bs.sk SIP/2.0
+Via: SIP/2.0/UDP 77.72.181.113:5060;rport;branch=z9hG4bKPj11c47c33-9fdb-48d3-bd02-c5b9ff5d97c7
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=a8907092-2add-45eb-9691-38b3359ce6f1
+To: <sip:421222190337@sipt1.ims.o2bs.sk>
+Call-ID: a00988bf-f400-46ca-b170-5fb88faaa950
+CSeq: 48941 REGISTER
+Contact: <sip:421222190337@77.72.181.113:5060>
+Allow: OPTIONS, REGISTER, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, MESSAGE, REFER, INFO
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP response (588 bytes) from UDP:185.103.146.200:5060 --->
+SIP/2.0 401 Unauthorized
+Via: SIP/2.0/UDP 77.72.181.113:5060;branch=z9hG4bKPj11c47c33-9fdb-48d3-bd02-c5b9ff5d97c7;received=77.72.181.113;rport=5060
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=a8907092-2add-45eb-9691-38b3359ce6f1
+To: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=as66e81ae7
+Call-ID: a00988bf-f400-46ca-b170-5fb88faaa950
+CSeq: 48941 REGISTER
+Server: O2BS SK IMS
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+WWW-Authenticate: Digest algorithm=MD5, realm="o2bssk", nonce="3c401f08"
+Content-Length: 0
+
+
+<--- Transmitting SIP request (737 bytes) to UDP:185.103.146.200:5060 --->
+REGISTER sip:sipt1.ims.o2bs.sk SIP/2.0
+Via: SIP/2.0/UDP 77.72.181.113:5060;rport;branch=z9hG4bKPjf679b505-dcdc-42b7-97a0-fc235036ae02
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=a8907092-2add-45eb-9691-38b3359ce6f1
+To: <sip:421222190337@sipt1.ims.o2bs.sk>
+Call-ID: a00988bf-f400-46ca-b170-5fb88faaa950
+CSeq: 48942 REGISTER
+Contact: <sip:421222190337@77.72.181.113:5060>
+Allow: OPTIONS, REGISTER, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, MESSAGE, REFER, INFO
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Authorization: Digest username="421222190337", realm="o2bssk", nonce="3c401f08", uri="sip:sipt1.ims.o2bs.sk", response="81a59328df43c94f6f20ae261e8c6317", algorithm=MD5
+Content-Length:  0
+
+
+<--- Received SIP request (562 bytes) from UDP:185.103.146.200:5060 --->
+OPTIONS sip:421222190337@77.72.181.113:5060 SIP/2.0
+Via: SIP/2.0/UDP 185.103.146.200:5060;branch=z9hG4bK124bff94;rport
+Max-Forwards: 70
+From: "o2bssk" <sip:o2bssk@sipt1.ims.o2bs.sk>;tag=as5990ad72
+To: <sip:421222190337@77.72.181.113:5060>
+Contact: <sip:o2bssk@185.103.146.200:5060>
+Call-ID: 3e6e65dd3d3159672ac794143f115273@sipt1.ims.o2bs.sk
+CSeq: 102 OPTIONS
+User-Agent: O2BS SK IMS
+Date: Thu, 27 Aug 2026 13:25:24 GMT
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+Content-Length: 0
+
+
+<--- Received SIP response (615 bytes) from UDP:185.103.146.200:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 77.72.181.113:5060;branch=z9hG4bKPjf679b505-dcdc-42b7-97a0-fc235036ae02;received=77.72.181.113;rport=5060
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=a8907092-2add-45eb-9691-38b3359ce6f1
+To: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=as66e81ae7
+Call-ID: a00988bf-f400-46ca-b170-5fb88faaa950
+CSeq: 48942 REGISTER
+Server: O2BS SK IMS
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+Expires: 600
+Contact: <sip:421222190337@77.72.181.113:5060>;expires=600
+Date: Thu, 27 Aug 2026 13:25:24 GMT
+Content-Length: 0
+
+
+<--- Transmitting SIP response (853 bytes) to UDP:185.103.146.200:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 185.103.146.200:5060;rport=5060;received=185.103.146.200;branch=z9hG4bK124bff94
+Call-ID: 3e6e65dd3d3159672ac794143f115273@sipt1.ims.o2bs.sk
+From: "o2bssk" <sip:o2bssk@sipt1.ims.o2bs.sk>;tag=as5990ad72
+To: <sip:421222190337@77.72.181.113>;tag=z9hG4bK124bff94
+CSeq: 102 OPTIONS
+Accept: application/sdp, application/xpidf+xml, application/cpim-pidf+xml, application/pidf+xml, application/dialog-info+xml, application/simple-message-summary, application/pidf+xml, application/dialog-info+xml, application/simple-message-summary, message/sipfrag;version=2.0
+Allow: OPTIONS, REGISTER, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, MESSAGE, REFER, INFO
+Supported: 100rel, timer, replaces, norefersub
+Accept-Encoding: identity
+Accept-Language: en
+Server: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Transmitting SIP request (435 bytes) to UDP:185.103.146.200:5060 --->
+OPTIONS sip:sipt1.ims.o2bs.sk SIP/2.0
+Via: SIP/2.0/UDP 77.72.181.113:5060;rport;branch=z9hG4bKPj2f594d23-4fe3-4177-a5fb-4c0dcb5e9c36
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=27217299-b25c-4437-b9e5-209911fd3608
+To: <sip:sipt1.ims.o2bs.sk>
+Contact: <sip:421222190337@77.72.181.113:5060>
+Call-ID: 7bee6043-512e-46fe-bbab-a192685fb926
+CSeq: 29207 OPTIONS
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP response (552 bytes) from UDP:185.103.146.200:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 77.72.181.113:5060;branch=z9hG4bKPj2f594d23-4fe3-4177-a5fb-4c0dcb5e9c36;received=77.72.181.113;rport=5060
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=27217299-b25c-4437-b9e5-209911fd3608
+To: <sip:sipt1.ims.o2bs.sk>;tag=as03ba727c
+Call-ID: 7bee6043-512e-46fe-bbab-a192685fb926
+CSeq: 29207 OPTIONS
+Server: O2BS SK IMS
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+Contact: <sip:185.103.146.200:5060>
+Accept: application/sdp
+Content-Length: 0
+
+
+<--- Received SIP request (562 bytes) from UDP:185.103.146.200:5060 --->
+OPTIONS sip:421222190337@77.72.181.113:5060 SIP/2.0
+Via: SIP/2.0/UDP 185.103.146.200:5060;branch=z9hG4bK31c3662e;rport
+Max-Forwards: 70
+From: "o2bssk" <sip:o2bssk@sipt1.ims.o2bs.sk>;tag=as72457084
+To: <sip:421222190337@77.72.181.113:5060>
+Contact: <sip:o2bssk@185.103.146.200:5060>
+Call-ID: 7fc0f19a27b640e74e73bbe3689c4540@sipt1.ims.o2bs.sk
+CSeq: 102 OPTIONS
+User-Agent: O2BS SK IMS
+Date: Thu, 27 Aug 2026 13:25:54 GMT
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+Content-Length: 0
+
+
+<--- Transmitting SIP response (853 bytes) to UDP:185.103.146.200:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 185.103.146.200:5060;rport=5060;received=185.103.146.200;branch=z9hG4bK31c3662e
+Call-ID: 7fc0f19a27b640e74e73bbe3689c4540@sipt1.ims.o2bs.sk
+From: "o2bssk" <sip:o2bssk@sipt1.ims.o2bs.sk>;tag=as72457084
+To: <sip:421222190337@77.72.181.113>;tag=z9hG4bK31c3662e
+CSeq: 102 OPTIONS
+Accept: application/sdp, application/xpidf+xml, application/cpim-pidf+xml, application/pidf+xml, application/dialog-info+xml, application/simple-message-summary, application/pidf+xml, application/dialog-info+xml, application/simple-message-summary, message/sipfrag;version=2.0
+Allow: OPTIONS, REGISTER, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, MESSAGE, REFER, INFO
+Supported: 100rel, timer, replaces, norefersub
+Accept-Encoding: identity
+Accept-Language: en
+Server: INDEXUS-Asterisk
+Content-Length:  0
+
+
+mediagtw*CLI> pjsip set logger off
+PJSIP Logging disabled
+mediagtw*CLI> exit
+Asterisk cleanly ending (0).
+Executing last minute cleanups
+seman@mediagtw:~$ sudo asterisk -rvvvvv
+Asterisk 22.8.2, Copyright (C) 1999 - 2025, Sangoma Technologies Corporation and others.
+Created by Mark Spencer <markster@digium.com>
+Asterisk comes with ABSOLUTELY NO WARRANTY; type 'core show warranty' for details.
+This is free software, with components licensed under the GNU General Public
+License version 2 and other licenses; you are welcome to redistribute it under
+certain conditions. Type 'core show license' for details.
+=========================================================================
+Running as user 'asterisk'
+Running under group 'asterisk'
+Connected to Asterisk 22.8.2 currently running on mediagtw (pid = 840377)
+mediagtw*CLI> core set verbose 5
+mediagtw*CLI> core set debug 3
+mediagtw*CLI> pjsip set logger host 185.103.146.200
+Console verbose is still 5.
+Core debug was OFF and is now 3.
+PJSIP Logging Enabled for host: 185.103.146.200
+mediagtw*CLI> rtp set debug ip 185.103.146.200
+RTP Packet Debugging Enabled for address: 185.103.146.200:0
+<--- Transmitting SIP request (435 bytes) to UDP:185.103.146.200:5060 --->
+OPTIONS sip:sipt1.ims.o2bs.sk SIP/2.0
+Via: SIP/2.0/UDP 77.72.181.113:5060;rport;branch=z9hG4bKPj4e389e22-1218-4487-ae83-f86429372582
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=58117f3b-10e5-4de0-9302-02430f6ccda6
+To: <sip:sipt1.ims.o2bs.sk>
+Contact: <sip:421222190337@77.72.181.113:5060>
+Call-ID: 91504fb5-c3b7-4995-a319-a63c9817da89
+CSeq: 41028 OPTIONS
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP response (552 bytes) from UDP:185.103.146.200:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 77.72.181.113:5060;branch=z9hG4bKPj4e389e22-1218-4487-ae83-f86429372582;received=77.72.181.113;rport=5060
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=58117f3b-10e5-4de0-9302-02430f6ccda6
+To: <sip:sipt1.ims.o2bs.sk>;tag=as0791e780
+Call-ID: 91504fb5-c3b7-4995-a319-a63c9817da89
+CSeq: 41028 OPTIONS
+Server: O2BS SK IMS
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+Contact: <sip:185.103.146.200:5060>
+Accept: application/sdp
+Content-Length: 0
+
+
+<--- Received SIP request (1117 bytes) from UDP:185.103.146.200:5060 --->
+INVITE sip:+421940682394@77.72.181.113;user=phone SIP/2.0
+Via: SIP/2.0/UDP 185.103.146.200:5060;branch=z9hG4bK42503c2f;rport
+Max-Forwards: 70
+From: "421948519438" <sip:+421948519438@sipt1.ims.o2bs.sk>;tag=as28d1ed81
+To: <sip:+421940682394@77.72.181.113;user=phone>
+Contact: <sip:+421948519438@185.103.146.200:5060>
+Call-ID: 44a6bd482dc3894542909d026aa75f3c@sipt1.ims.o2bs.sk
+CSeq: 102 INVITE
+User-Agent: O2BS SK IMS
+Date: Thu, 27 Aug 2026 13:27:13 GMT
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+Remote-Party-ID: "421948519438" <sip:+421948519438@sipt1.ims.o2bs.sk>;party=calling;privacy=off;screen=no
+Diversion: <sip:421940682394@185.103.146.200>;reason=unknown
+Content-Type: application/sdp
+Content-Length: 321
+
+v=0
+o=root 438652739 438652739 IN IP4 185.103.146.200
+s=O2BS SK
+c=IN IP4 185.103.146.200
+t=0 0
+m=audio 32480 RTP/AVP 8 0 3 18 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:3 GSM/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=sendrecv
+
+<--- Transmitting SIP response (370 bytes) to UDP:185.103.146.200:5060 --->
+SIP/2.0 100 Trying
+Via: SIP/2.0/UDP 185.103.146.200:5060;rport=5060;received=185.103.146.200;branch=z9hG4bK42503c2f
+Call-ID: 44a6bd482dc3894542909d026aa75f3c@sipt1.ims.o2bs.sk
+From: "421948519438" <sip:+421948519438@sipt1.ims.o2bs.sk>;tag=as28d1ed81
+To: <sip:+421940682394@77.72.181.113;user=phone>
+CSeq: 102 INVITE
+Server: INDEXUS-Asterisk
+Content-Length:  0
+
+
+    -- Executing [+421940682394@from-o2-ims:1] Gosub("PJSIP/o2-ims-endpoint-00000000", "o2-ims-inbound,s,1(421940682394)") in new stack
+    -- Executing [s@o2-ims-inbound:1] NoOp("PJSIP/o2-ims-endpoint-00000000", "INBOUND O2 IMS DID=421940682394 CID="421948519438" <+421948519438>") in new stack
+    -- Executing [s@o2-ims-inbound:2] Set("PJSIP/o2-ims-endpoint-00000000", "GROUP()=o2-ims") in new stack
+    -- Executing [s@o2-ims-inbound:3] GotoIf("PJSIP/o2-ims-endpoint-00000000", "0?o2-ims-limit,s,1") in new stack
+    -- Executing [s@o2-ims-inbound:4] Set("PJSIP/o2-ims-endpoint-00000000", "__CBC_SOURCE_TRUNK=O2") in new stack
+    -- Executing [s@o2-ims-inbound:5] Set("PJSIP/o2-ims-endpoint-00000000", "__CBC_DID=421940682394") in new stack
+    -- Executing [s@o2-ims-inbound:6] Set("PJSIP/o2-ims-endpoint-00000000", "__CBC_CALLER=+421948519438") in new stack
+    -- Executing [s@o2-ims-inbound:7] Stasis("PJSIP/o2-ims-endpoint-00000000", "indexus-inbound,421940682394") in new stack
+<--- Transmitting SIP response (942 bytes) to UDP:185.103.146.200:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 185.103.146.200:5060;rport=5060;received=185.103.146.200;branch=z9hG4bK42503c2f
+Call-ID: 44a6bd482dc3894542909d026aa75f3c@sipt1.ims.o2bs.sk
+From: "421948519438" <sip:+421948519438@sipt1.ims.o2bs.sk>;tag=as28d1ed81
+To: <sip:+421940682394@77.72.181.113;user=phone>;tag=a3e3e1b5-24f1-4e62-8025-a3f8455b8ecf
+CSeq: 102 INVITE
+Server: INDEXUS-Asterisk
+Contact: <sip:77.72.181.113:5060>
+Allow: OPTIONS, REGISTER, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, MESSAGE, REFER, INFO
+Supported: 100rel, replaces, norefersub
+Content-Type: application/sdp
+Content-Length:   308
+
+v=0
+o=- 438652739 438652741 IN IP4 77.72.181.113
+s=Asterisk
+c=IN IP4 77.72.181.113
+t=0 0
+m=audio 18174 RTP/AVP 8 0 18 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=maxptime:140
+a=sendrecv
+
+<--- Received SIP request (461 bytes) from UDP:185.103.146.200:5060 --->
+ACK sip:77.72.181.113:5060 SIP/2.0
+Via: SIP/2.0/UDP 185.103.146.200:5060;branch=z9hG4bK074c03dc;rport
+Max-Forwards: 70
+From: "421948519438" <sip:+421948519438@sipt1.ims.o2bs.sk>;tag=as28d1ed81
+To: <sip:+421940682394@77.72.181.113;user=phone>;tag=a3e3e1b5-24f1-4e62-8025-a3f8455b8ecf
+Contact: <sip:+421948519438@185.103.146.200:5060>
+Call-ID: 44a6bd482dc3894542909d026aa75f3c@sipt1.ims.o2bs.sk
+CSeq: 102 ACK
+User-Agent: O2BS SK IMS
+Content-Length: 0
+
+
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046002, ts 000160, len 000160)
+    -- <PJSIP/o2-ims-endpoint-00000000> Playing 'custom/moh-slow-jazz.slin' (language 'en')
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046003, ts 000320, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046004, ts 000480, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046005, ts 000640, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046006, ts 000800, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046007, ts 000960, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046008, ts 001120, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046009, ts 001280, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046010, ts 001440, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046011, ts 001600, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046012, ts 001760, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046013, ts 001920, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046014, ts 002080, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046015, ts 002240, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046016, ts 002400, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046017, ts 002560, len 000160)
+[Aug 27 13:27:13] NOTICE[840490][C-00000001]: res_stasis_playback.c:277 playback_final_update: 1787837233.0: Playback stopped for sound:custom/moh-slow-jazz
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046018, ts 002720, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046019, ts 002880, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046020, ts 003040, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046021, ts 003200, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046022, ts 003360, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046023, ts 003520, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046024, ts 003680, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046025, ts 003840, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046026, ts 004000, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046027, ts 004160, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046028, ts 004320, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046029, ts 004480, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046030, ts 004640, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046031, ts 004800, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046032, ts 004960, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046033, ts 005120, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046034, ts 005280, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046035, ts 005440, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046036, ts 005600, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046037, ts 005760, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046038, ts 005920, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046039, ts 006080, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046040, ts 006240, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046041, ts 006400, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046042, ts 006560, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046043, ts 006720, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046044, ts 006880, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046045, ts 007040, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046046, ts 007200, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046047, ts 007360, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046048, ts 007520, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046049, ts 007680, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046050, ts 007840, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046051, ts 008000, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046052, ts 008160, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046053, ts 008320, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046054, ts 008480, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046055, ts 008640, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046056, ts 008800, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046057, ts 008960, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046058, ts 009120, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046059, ts 009280, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046060, ts 009440, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046061, ts 009600, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046062, ts 009760, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046063, ts 009920, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046064, ts 010080, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046065, ts 010240, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046066, ts 010400, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046067, ts 010560, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046068, ts 010720, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046069, ts 010880, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046070, ts 011040, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046071, ts 011200, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046072, ts 011360, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046073, ts 011520, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046074, ts 011680, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046075, ts 011840, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046076, ts 012000, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046077, ts 012160, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046078, ts 012320, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046079, ts 012480, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046080, ts 012640, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046081, ts 012800, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046082, ts 012960, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046083, ts 013120, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046084, ts 013280, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046085, ts 013440, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046086, ts 013600, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046087, ts 013760, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046088, ts 013920, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046089, ts 014080, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046090, ts 014240, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046091, ts 014400, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046092, ts 014560, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046093, ts 014720, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046094, ts 014880, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046095, ts 015040, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046096, ts 015200, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046097, ts 015360, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046098, ts 015520, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046099, ts 015680, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046100, ts 015840, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046101, ts 016000, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046102, ts 016160, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046103, ts 016320, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046104, ts 016480, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046105, ts 016640, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046106, ts 016800, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046107, ts 016960, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046108, ts 017120, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046109, ts 017280, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046110, ts 017440, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046111, ts 017600, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046112, ts 017760, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046113, ts 017920, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046114, ts 018080, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046115, ts 018240, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046116, ts 018400, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046117, ts 018560, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046118, ts 018720, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046119, ts 018880, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046120, ts 019040, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046121, ts 019200, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046122, ts 019360, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046123, ts 019520, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046124, ts 019680, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046125, ts 019840, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046126, ts 020000, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046127, ts 020160, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046128, ts 020320, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046129, ts 020480, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046130, ts 020640, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046131, ts 020800, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046132, ts 020960, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046133, ts 021120, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046134, ts 021280, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046135, ts 021440, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046136, ts 021600, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046137, ts 021760, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046138, ts 021920, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046139, ts 022080, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046140, ts 022240, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046141, ts 022400, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046142, ts 022560, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046143, ts 022720, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046144, ts 022880, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046145, ts 023040, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046146, ts 023200, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046147, ts 023360, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046148, ts 023520, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046149, ts 023680, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046150, ts 023840, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046151, ts 024000, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046152, ts 024160, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046153, ts 024320, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046154, ts 024480, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046155, ts 024640, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046156, ts 024800, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046157, ts 024960, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046158, ts 025120, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046159, ts 025280, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046160, ts 025440, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046161, ts 025600, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046162, ts 025760, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046163, ts 025920, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046164, ts 026080, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046165, ts 026240, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046166, ts 026400, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046167, ts 026560, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046168, ts 026720, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046169, ts 026880, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046170, ts 027040, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046171, ts 027200, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046172, ts 027360, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046173, ts 027520, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046174, ts 027680, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046175, ts 027840, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046176, ts 028000, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046177, ts 028160, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046178, ts 028320, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046179, ts 028480, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046180, ts 028640, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046181, ts 028800, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046182, ts 028960, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046183, ts 029120, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046184, ts 029280, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046185, ts 029440, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046186, ts 029600, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046187, ts 029760, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046188, ts 029920, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046189, ts 030080, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046190, ts 030240, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046191, ts 030400, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046192, ts 030560, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046193, ts 030720, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046194, ts 030880, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046195, ts 031040, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046196, ts 031200, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046197, ts 031360, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046198, ts 031520, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046199, ts 031680, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046200, ts 031840, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046201, ts 032000, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046202, ts 032160, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046203, ts 032320, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046204, ts 032480, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046205, ts 032640, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046206, ts 032800, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046207, ts 032960, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046208, ts 033120, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046209, ts 033280, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046210, ts 033440, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046211, ts 033600, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046212, ts 033760, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046213, ts 033920, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046214, ts 034080, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046215, ts 034240, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046216, ts 034400, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046217, ts 034560, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046218, ts 034720, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046219, ts 034880, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046220, ts 035040, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046221, ts 035200, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046222, ts 035360, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046223, ts 035520, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046224, ts 035680, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046225, ts 035840, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046226, ts 036000, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046227, ts 036160, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046228, ts 036320, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046229, ts 036480, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046230, ts 036640, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046231, ts 036800, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046232, ts 036960, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046233, ts 037120, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046234, ts 037280, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046235, ts 037440, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046236, ts 037600, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046237, ts 037760, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046238, ts 037920, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046239, ts 038080, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046240, ts 038240, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046241, ts 038400, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046242, ts 038560, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046243, ts 038720, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046244, ts 038880, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046245, ts 039040, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046246, ts 039200, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046247, ts 039360, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046248, ts 039520, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046249, ts 039680, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046250, ts 039840, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046251, ts 040000, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046252, ts 040160, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046253, ts 040320, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046254, ts 040480, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046255, ts 040640, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046256, ts 040800, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046257, ts 040960, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046258, ts 041120, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046259, ts 041280, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046260, ts 041440, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046261, ts 041600, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046262, ts 041760, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046263, ts 041920, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046264, ts 042080, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046265, ts 042240, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046266, ts 042400, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046267, ts 042560, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046268, ts 042720, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046269, ts 042880, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046270, ts 043040, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046271, ts 043200, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046272, ts 043360, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046273, ts 043520, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046274, ts 043680, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046275, ts 043840, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046276, ts 044000, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046277, ts 044160, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046278, ts 044320, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046279, ts 044480, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046280, ts 044640, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046281, ts 044800, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046282, ts 044960, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046283, ts 045120, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046284, ts 045280, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046285, ts 045440, len 000160)
+Sent RTP packet to      185.103.146.200:32480 (type 08, seq 046286, ts 045600, len 000160)
+<--- Received SIP request (507 bytes) from UDP:185.103.146.200:5060 --->
+BYE sip:77.72.181.113:5060 SIP/2.0
+Via: SIP/2.0/UDP 185.103.146.200:5060;branch=z9hG4bK0221f69a;rport
+Max-Forwards: 70
+From: "421948519438" <sip:+421948519438@sipt1.ims.o2bs.sk>;tag=as28d1ed81
+To: <sip:+421940682394@77.72.181.113;user=phone>;tag=a3e3e1b5-24f1-4e62-8025-a3f8455b8ecf
+Call-ID: 44a6bd482dc3894542909d026aa75f3c@sipt1.ims.o2bs.sk
+CSeq: 103 BYE
+User-Agent: O2BS SK IMS
+Reason: Q.850;cause=16
+X-Asterisk-HangupCause: Normal Clearing
+X-Asterisk-HangupCauseCode: 16
+Content-Length: 0
+
+
+<--- Transmitting SIP response (404 bytes) to UDP:185.103.146.200:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 185.103.146.200:5060;rport=5060;received=185.103.146.200;branch=z9hG4bK0221f69a
+Call-ID: 44a6bd482dc3894542909d026aa75f3c@sipt1.ims.o2bs.sk
+From: "421948519438" <sip:+421948519438@sipt1.ims.o2bs.sk>;tag=as28d1ed81
+To: <sip:+421940682394@77.72.181.113;user=phone>;tag=a3e3e1b5-24f1-4e62-8025-a3f8455b8ecf
+CSeq: 103 BYE
+Server: INDEXUS-Asterisk
+Content-Length:  0
+
+
+[Aug 27 13:27:19] WARNING[840490][C-00000001]: res_stasis_playback.c:280 playback_final_update: 1787837233.0: Playback failed for tone:ring
+<--- Received SIP request (562 bytes) from UDP:185.103.146.200:5060 --->
+OPTIONS sip:421222190337@77.72.181.113:5060 SIP/2.0
+Via: SIP/2.0/UDP 185.103.146.200:5060;branch=z9hG4bK384dba1b;rport
+Max-Forwards: 70
+From: "o2bssk" <sip:o2bssk@sipt1.ims.o2bs.sk>;tag=as449e3eef
+To: <sip:421222190337@77.72.181.113:5060>
+Contact: <sip:o2bssk@185.103.146.200:5060>
+Call-ID: 47c8ef64034ebcbf715552c32876a424@sipt1.ims.o2bs.sk
+CSeq: 102 OPTIONS
+User-Agent: O2BS SK IMS
+Date: Thu, 27 Aug 2026 13:27:25 GMT
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+Content-Length: 0
+
+
+<--- Transmitting SIP response (853 bytes) to UDP:185.103.146.200:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 185.103.146.200:5060;rport=5060;received=185.103.146.200;branch=z9hG4bK384dba1b
+Call-ID: 47c8ef64034ebcbf715552c32876a424@sipt1.ims.o2bs.sk
+From: "o2bssk" <sip:o2bssk@sipt1.ims.o2bs.sk>;tag=as449e3eef
+To: <sip:421222190337@77.72.181.113>;tag=z9hG4bK384dba1b
+CSeq: 102 OPTIONS
+Accept: application/sdp, application/xpidf+xml, application/cpim-pidf+xml, application/pidf+xml, application/dialog-info+xml, application/simple-message-summary, application/pidf+xml, application/dialog-info+xml, application/simple-message-summary, message/sipfrag;version=2.0
+Allow: OPTIONS, REGISTER, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, MESSAGE, REFER, INFO
+Supported: 100rel, timer, replaces, norefersub
+Accept-Encoding: identity
+Accept-Language: en
+Server: INDEXUS-Asterisk
+Content-Length:  0
+
+
+mediag
