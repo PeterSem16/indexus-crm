@@ -1,0 +1,596 @@
+seman@mediagtw:~$ sudo asterisk -rx "pjsip show endpoints"
+
+ Endpoint:  <Endpoint/CID.....................................>  <State.....>  <Channels.>
+    I/OAuth:  <AuthId/UserName...........................................................>
+        Aor:  <Aor............................................>  <MaxContact>
+      Contact:  <Aor/ContactUri..........................> <Hash....> <Status> <RTT(ms)..>
+  Transport:  <TransportId........>  <Type>  <cos>  <tos>  <BindAddress..................>
+   Identify:  <Identify/Endpoint.........................................................>
+        Match:  <criteria.........................>
+    Channel:  <ChannelId......................................>  <State.....>  <Time.....>
+        Exten: <DialedExten...........>  CLCID: <ConnectedLineCID.......>
+==========================================================================================
+
+ Endpoint:  2001                                                 Unavailable   0 of inf
+     InAuth:  2001-auth/2001
+        Aor:  2001                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2002                                                 Unavailable   0 of inf
+     InAuth:  2002-auth/2002
+        Aor:  2002                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2003                                                 Unavailable   0 of inf
+     InAuth:  2003-auth/2003
+        Aor:  2003                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2004                                                 Unavailable   0 of inf
+     InAuth:  2004-auth/2004
+        Aor:  2004                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2005                                                 Unavailable   0 of inf
+     InAuth:  2005-auth/2005
+        Aor:  2005                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2006                                                 Unavailable   0 of inf
+     InAuth:  2006-auth/2006
+        Aor:  2006                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2007                                                 Unavailable   0 of inf
+     InAuth:  2007-auth/2007
+        Aor:  2007                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2008                                                 Unavailable   0 of inf
+     InAuth:  2008-auth/2008
+        Aor:  2008                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2009                                                 Unavailable   0 of inf
+     InAuth:  2009-auth/2009
+        Aor:  2009                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2010                                                 Unavailable   0 of inf
+     InAuth:  2010-auth/2010
+        Aor:  2010                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2011                                                 Unavailable   0 of inf
+     InAuth:  2011-auth/2011
+        Aor:  2011                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2012                                                 Unavailable   0 of inf
+     InAuth:  2012-auth/2012
+        Aor:  2012                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2013                                                 Unavailable   0 of inf
+     InAuth:  2013-auth/2013
+        Aor:  2013                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2014                                                 Unavailable   0 of inf
+     InAuth:  2014-auth/2014
+        Aor:  2014                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2015                                                 Unavailable   0 of inf
+     InAuth:  2015-auth/2015
+        Aor:  2015                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2016                                                 Unavailable   0 of inf
+     InAuth:  2016-auth/2016
+        Aor:  2016                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2017                                                 Unavailable   0 of inf
+     InAuth:  2017-auth/2017
+        Aor:  2017                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2018                                                 Unavailable   0 of inf
+     InAuth:  2018-auth/2018
+        Aor:  2018                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2019                                                 Unavailable   0 of inf
+     InAuth:  2019-auth/2019
+        Aor:  2019                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2020                                                 Unavailable   0 of inf
+     InAuth:  2020-auth/2020
+        Aor:  2020                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2021                                                 Unavailable   0 of inf
+     InAuth:  2021-auth/2021
+        Aor:  2021                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2022                                                 Unavailable   0 of inf
+     InAuth:  2022-auth/2022
+        Aor:  2022                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2023                                                 Unavailable   0 of inf
+     InAuth:  2023-auth/2023
+        Aor:  2023                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2024                                                 Unavailable   0 of inf
+     InAuth:  2024-auth/2024
+        Aor:  2024                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2025                                                 Unavailable   0 of inf
+     InAuth:  2025-auth/2025
+        Aor:  2025                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2026                                                 Unavailable   0 of inf
+     InAuth:  2026-auth/2026
+        Aor:  2026                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2027                                                 Unavailable   0 of inf
+     InAuth:  2027-auth/2027
+        Aor:  2027                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2028                                                 Unavailable   0 of inf
+     InAuth:  2028-auth/2028
+        Aor:  2028                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2029                                                 Unavailable   0 of inf
+     InAuth:  2029-auth/2029
+        Aor:  2029                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2030                                                 Unavailable   0 of inf
+     InAuth:  2030-auth/2030
+        Aor:  2030                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2100                                                 Unavailable   0 of inf
+     InAuth:  2100-auth/2100
+        Aor:  2100                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2101                                                 Unavailable   0 of inf
+     InAuth:  2101-auth/2101
+        Aor:  2101                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2102                                                 Unavailable   0 of inf
+     InAuth:  2102-auth/2102
+        Aor:  2102                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2103                                                 Unavailable   0 of inf
+     InAuth:  2103-auth/2103
+        Aor:  2103                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2104                                                 Unavailable   0 of inf
+     InAuth:  2104-auth/2104
+        Aor:  2104                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2105                                                 Unavailable   0 of inf
+     InAuth:  2105-auth/2105
+        Aor:  2105                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2106                                                 Unavailable   0 of inf
+     InAuth:  2106-auth/2106
+        Aor:  2106                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2107                                                 Unavailable   0 of inf
+     InAuth:  2107-auth/2107
+        Aor:  2107                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2108                                                 Unavailable   0 of inf
+     InAuth:  2108-auth/2108
+        Aor:  2108                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2109                                                 Unavailable   0 of inf
+     InAuth:  2109-auth/2109
+        Aor:  2109                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2110                                                 Unavailable   0 of inf
+     InAuth:  2110-auth/2110
+        Aor:  2110                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2111                                                 Unavailable   0 of inf
+     InAuth:  2111-auth/2111
+        Aor:  2111                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2112                                                 Unavailable   0 of inf
+     InAuth:  2112-auth/2112
+        Aor:  2112                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2113                                                 Unavailable   0 of inf
+     InAuth:  2113-auth/2113
+        Aor:  2113                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2114                                                 Unavailable   0 of inf
+     InAuth:  2114-auth/2114
+        Aor:  2114                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2115                                                 Unavailable   0 of inf
+     InAuth:  2115-auth/2115
+        Aor:  2115                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2116                                                 Unavailable   0 of inf
+     InAuth:  2116-auth/2116
+        Aor:  2116                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2117                                                 Unavailable   0 of inf
+     InAuth:  2117-auth/2117
+        Aor:  2117                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2118                                                 Unavailable   0 of inf
+     InAuth:  2118-auth/2118
+        Aor:  2118                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2119                                                 Unavailable   0 of inf
+     InAuth:  2119-auth/2119
+        Aor:  2119                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2120                                                 Unavailable   0 of inf
+     InAuth:  2120-auth/2120
+        Aor:  2120                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2121                                                 Unavailable   0 of inf
+     InAuth:  2121-auth/2121
+        Aor:  2121                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2122                                                 Unavailable   0 of inf
+     InAuth:  2122-auth/2122
+        Aor:  2122                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2123                                                 Unavailable   0 of inf
+     InAuth:  2123-auth/2123
+        Aor:  2123                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2124                                                 Unavailable   0 of inf
+     InAuth:  2124-auth/2124
+        Aor:  2124                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2125                                                 Unavailable   0 of inf
+     InAuth:  2125-auth/2125
+        Aor:  2125                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2126                                                 Unavailable   0 of inf
+     InAuth:  2126-auth/2126
+        Aor:  2126                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2127                                                 Unavailable   0 of inf
+     InAuth:  2127-auth/2127
+        Aor:  2127                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2128                                                 Unavailable   0 of inf
+     InAuth:  2128-auth/2128
+        Aor:  2128                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2129                                                 Unavailable   0 of inf
+     InAuth:  2129-auth/2129
+        Aor:  2129                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  2130                                                 Unavailable   0 of inf
+     InAuth:  2130-auth/2130
+        Aor:  2130                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  3100                                                 Unavailable   0 of inf
+     InAuth:  3100-auth/3100
+        Aor:  3100                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  3101                                                 Unavailable   0 of inf
+     InAuth:  3101-auth/3101
+        Aor:  3101                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  3102                                                 Unavailable   0 of inf
+     InAuth:  3102-auth/3102
+        Aor:  3102                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  3103                                                 Unavailable   0 of inf
+     InAuth:  3103-auth/3103
+        Aor:  3103                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  3104                                                 Unavailable   0 of inf
+     InAuth:  3104-auth/3104
+        Aor:  3104                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  3105                                                 Unavailable   0 of inf
+     InAuth:  3105-auth/3105
+        Aor:  3105                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  3106                                                 Unavailable   0 of inf
+     InAuth:  3106-auth/3106
+        Aor:  3106                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  3107                                                 Unavailable   0 of inf
+     InAuth:  3107-auth/3107
+        Aor:  3107                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  3108                                                 Unavailable   0 of inf
+     InAuth:  3108-auth/3108
+        Aor:  3108                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  3109                                                 Unavailable   0 of inf
+     InAuth:  3109-auth/3109
+        Aor:  3109                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  3110                                                 Unavailable   0 of inf
+     InAuth:  3110-auth/3110
+        Aor:  3110                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4000                                                 Unavailable   0 of inf
+     InAuth:  4000-auth/4000
+        Aor:  4000                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4001                                                 Unavailable   0 of inf
+     InAuth:  4001-auth/4001
+        Aor:  4001                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4002                                                 Unavailable   0 of inf
+     InAuth:  4002-auth/4002
+        Aor:  4002                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4003                                                 Unavailable   0 of inf
+     InAuth:  4003-auth/4003
+        Aor:  4003                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4004                                                 Unavailable   0 of inf
+     InAuth:  4004-auth/4004
+        Aor:  4004                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4005                                                 Unavailable   0 of inf
+     InAuth:  4005-auth/4005
+        Aor:  4005                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4006                                                 Unavailable   0 of inf
+     InAuth:  4006-auth/4006
+        Aor:  4006                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4007                                                 Unavailable   0 of inf
+     InAuth:  4007-auth/4007
+        Aor:  4007                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4008                                                 Unavailable   0 of inf
+     InAuth:  4008-auth/4008
+        Aor:  4008                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4009                                                 Unavailable   0 of inf
+     InAuth:  4009-auth/4009
+        Aor:  4009                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4010                                                 Unavailable   0 of inf
+     InAuth:  4010-auth/4010
+        Aor:  4010                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4011                                                 Unavailable   0 of inf
+     InAuth:  4011-auth/4011
+        Aor:  4011                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4012                                                 Unavailable   0 of inf
+     InAuth:  4012-auth/4012
+        Aor:  4012                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4013                                                 Unavailable   0 of inf
+     InAuth:  4013-auth/4013
+        Aor:  4013                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4014                                                 Unavailable   0 of inf
+     InAuth:  4014-auth/4014
+        Aor:  4014                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4015                                                 Unavailable   0 of inf
+     InAuth:  4015-auth/4015
+        Aor:  4015                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4016                                                 Unavailable   0 of inf
+     InAuth:  4016-auth/4016
+        Aor:  4016                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4017                                                 Unavailable   0 of inf
+     InAuth:  4017-auth/4017
+        Aor:  4017                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4018                                                 Unavailable   0 of inf
+     InAuth:  4018-auth/4018
+        Aor:  4018                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4019                                                 Unavailable   0 of inf
+     InAuth:  4019-auth/4019
+        Aor:  4019                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4020                                                 Unavailable   0 of inf
+     InAuth:  4020-auth/4020
+        Aor:  4020                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4021                                                 Unavailable   0 of inf
+     InAuth:  4021-auth/4021
+        Aor:  4021                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4022                                                 Unavailable   0 of inf
+     InAuth:  4022-auth/4022
+        Aor:  4022                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4023                                                 Unavailable   0 of inf
+     InAuth:  4023-auth/4023
+        Aor:  4023                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4024                                                 Unavailable   0 of inf
+     InAuth:  4024-auth/4024
+        Aor:  4024                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4025                                                 Unavailable   0 of inf
+     InAuth:  4025-auth/4025
+        Aor:  4025                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4026                                                 Unavailable   0 of inf
+     InAuth:  4026-auth/4026
+        Aor:  4026                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4027                                                 Unavailable   0 of inf
+     InAuth:  4027-auth/4027
+        Aor:  4027                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4028                                                 Unavailable   0 of inf
+     InAuth:  4028-auth/4028
+        Aor:  4028                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4029                                                 Unavailable   0 of inf
+     InAuth:  4029-auth/4029
+        Aor:  4029                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4030                                                 Unavailable   0 of inf
+     InAuth:  4030-auth/4030
+        Aor:  4030                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4031                                                 Unavailable   0 of inf
+     InAuth:  4031-auth/4031
+        Aor:  4031                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4032                                                 Unavailable   0 of inf
+     InAuth:  4032-auth/4032
+        Aor:  4032                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4033                                                 Unavailable   0 of inf
+     InAuth:  4033-auth/4033
+        Aor:  4033                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4034                                                 Unavailable   0 of inf
+     InAuth:  4034-auth/4034
+        Aor:  4034                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4035                                                 Unavailable   0 of inf
+     InAuth:  4035-auth/4035
+        Aor:  4035                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4036                                                 Unavailable   0 of inf
+     InAuth:  4036-auth/4036
+        Aor:  4036                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4037                                                 Unavailable   0 of inf
+     InAuth:  4037-auth/4037
+        Aor:  4037                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4038                                                 Unavailable   0 of inf
+     InAuth:  4038-auth/4038
+        Aor:  4038                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4039                                                 Unavailable   0 of inf
+     InAuth:  4039-auth/4039
+        Aor:  4039                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  4040                                                 Unavailable   0 of inf
+     InAuth:  4040-auth/4040
+        Aor:  4040                                               1
+  Transport:  transport-wss             wss      0      0  0.0.0.0:5060
+
+ Endpoint:  trunk-ro-endpoint                                    Not in use    0 of inf
+        Aor:  trunk-ro-aor                                       0
+      Contact:  trunk-ro-aor/sip:10.33.0.55:5060           712c5b2806 Avail        23.385
+  Transport:  transport-udp             udp      0      0  0.0.0.0:5060
+   Identify:  trunk-ro-identify/trunk-ro-endpoint
+        Match: 10.33.0.55/32
+
+ Endpoint:  trunk-sk-endpoint                                    Not in use    0 of inf
+        Aor:  trunk-sk-aor                                       0
+      Contact:  trunk-sk-aor/sip:10.9.33.2:5060            d94c2ea7f2 Avail        23.845
+  Transport:  transport-udp             udp      0      0  0.0.0.0:5060
+   Identify:  trunk-sk-identify/trunk-sk-endpoint
+        Match: 10.9.33.2/32
+
+
+Objects found: 115
+
+seman@mediagtw:~$
