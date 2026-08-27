@@ -45,7 +45,17 @@ sudo ./install-o2-ims-trunk.sh --reload
 
 Without `--reload`, the files are installed but Asterisk is not reloaded.
 This is the safer option when the operator wants to inspect the generated
-configuration first.
+configuration first. After inspection, reload the already-installed files
+manually; do not run the installer a second time because it intentionally
+refuses to overwrite an existing managed installation:
+
+```bash
+sudo asterisk -rx "pjsip reload"
+sudo asterisk -rx "dialplan reload"
+```
+
+Use `--reload` on the first run only when the operator has already reviewed the
+script and accepts an immediate reload.
 
 The script creates timestamped backups next to both existing configuration
 files. It refuses to overwrite an existing managed O2 installation.
