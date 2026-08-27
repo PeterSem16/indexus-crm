@@ -16,3 +16,16 @@ after reload even when fragment generation and both reloads succeeded.
 **How to apply:** Track write ownership explicitly, distinguish repair from
 fresh install, and reserve destructive rollback for failed writes/reloads.
 Treat immediate registration and informational dialplan checks as nonfatal.
+
+Nested Asterisk config includes for managed fragments in the same configuration
+directory must use the relative filename, not an absolute `/etc/asterisk/...`
+path.
+
+**Why:** The primary relative PJSIP include loaded, but its nested absolute
+secret include was reported as nonexistent even though the file existed and the
+Asterisk service account could read it. The auth object was retained from stale
+state while the registration, AOR, and endpoint were not created.
+
+**How to apply:** Generate `#include fragment-secret.conf`, verify readability
+as the live Asterisk user, and check every expected object after reload rather
+than treating a visible auth object as proof that the whole fragment loaded.

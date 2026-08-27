@@ -1,0 +1,235 @@
+seman@mediagtw:/tmp$ echo "== PJSIP reload =="
+sudo asterisk -rx "pjsip reload"
+== PJSIP reload ==
+Module 'res_pjsip.so' reloaded successfully.
+Module 'res_pjsip_authenticator_digest.so' reloaded successfully.
+Module 'res_pjsip_endpoint_identifier_ip.so' reloaded successfully.
+Module 'res_pjsip_mwi.so' reloaded successfully.
+Module 'res_pjsip_notify.so' reloaded successfully.
+Module 'res_pjsip_outbound_publish.so' reloaded successfully.
+Module 'res_pjsip_publish_asterisk.so' reloaded successfully.
+Module 'res_pjsip_outbound_registration.so' reloaded successfully.
+seman@mediagtw:/tmp$ echo "== loaded O2 objects =="
+
+sudo asterisk -rx "pjsip show auths" |
+  grep -i "o2-ims" || true
+
+sudo asterisk -rx "pjsip show aors" |
+  grep -i "o2-ims" || true
+
+sudo asterisk -rx "pjsip show endpoints" |
+  grep -i "o2-ims" || true
+
+sudo asterisk -rx "pjsip show registrations"
+
+echo "== Asterisk log around reload =="
+
+sudo tail -n 400 /var/log/asterisk/messages.log |
+  grep -Ei "o2-ims|pjsip-o2|sipt1|config|could not|unable|error|warning|invalid|unknown|include" |
+  tail -n 200
+== loaded O2 objects ==
+     Auth:  o2-ims-auth/421222190337
+No objects found.
+
+== Asterisk log around reload ==
+[Aug 26 06:33:27] NOTICE[832501] res_config_ldap.c: No directory user found, anonymous binding as default.
+[Aug 26 06:33:27] ERROR[832501] res_config_ldap.c: No directory URL or host found.
+[Aug 26 06:33:27] ERROR[832501] res_config_ldap.c: Cannot load LDAP RealTime driver.
+[Aug 26 06:33:27] WARNING[832501] http.c: Ignoring unknown option 'live_dangerously' in http.conf
+[Aug 26 06:33:27] WARNING[832501] res_phoneprov.c: Unable to find a valid server address or name.
+[Aug 26 06:33:27] WARNING[832501] res_rtp_asterisk.c: Value for 'probation' could not be read, using default of '4' instead
+[Aug 26 06:33:27] NOTICE[832501] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+[Aug 26 06:33:28] NOTICE[832501] cel_tds.c: cel_tds has no global category, nothing to configure.
+[Aug 26 06:33:28] WARNING[832501] cel_tds.c: cel_tds module had config problems; declining load
+[Aug 26 06:33:28] NOTICE[832501] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+[Aug 26 06:33:28] WARNING[832501] cel_pgsql.c: CEL pgsql config file missing global section.
+[Aug 26 06:33:28] NOTICE[832501] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+[Aug 26 06:33:28] NOTICE[832501] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+[Aug 26 06:33:28] NOTICE[832501] codec_g729a.c: This product includes software developed by the OpenSSL Project
+[Aug 26 06:33:28] WARNING[832501] codec_g729a.c: Failed to initialize G.729 copy protection!
+[Aug 26 06:33:28] WARNING[832501] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 196-196: macro call to ael-dundi-e164 cannot be found in the AEL code!
+[Aug 26 06:33:28] WARNING[832501] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 209-209: macro call to ael-dundi-e164 cannot be found in the AEL code!
+[Aug 26 06:33:28] WARNING[832501] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 328-328: macro call to ael-std-exten-ael cannot be found in the AEL code!
+[Aug 26 06:33:28] WARNING[832501] loader.c: Some non-required modules failed to load.
+[Aug 26 06:33:28] WARNING[832501] loader.c: Module 'res_adsi' has been loaded but may be removed in a future release.
+[Aug 26 06:33:28] WARNING[832501] loader.c: Module 'app_getcpeid' has been loaded but may be removed in a future release.
+[Aug 26 06:33:28] WARNING[832501] loader.c: Module 'app_adsiprog' has been loaded but may be removed in a future release.
+[Aug 26 06:33:28] ERROR[832501] loader.c: cel_tds declined to load.
+[Aug 26 06:33:28] ERROR[832501] loader.c: cdr_radius declined to load.
+[Aug 26 06:33:28] ERROR[832501] loader.c: cdr_tds declined to load.
+[Aug 26 06:33:28] ERROR[832501] loader.c: cdr_sqlite3_custom declined to load.
+[Aug 26 06:33:28] ERROR[832501] loader.c: cel_radius declined to load.
+[Aug 26 06:33:28] ERROR[832501] loader.c: cel_sqlite3_custom declined to load.
+[Aug 26 06:33:28] ERROR[832501] loader.c: cdr_pgsql declined to load.
+[Aug 26 06:33:28] WARNING[832531] pbx_config.c: users.conf is deprecated and will be removed in a future version of Asterisk
+[Aug 26 06:33:41] WARNING[833132] res_config_pgsql.c: PostgreSQL RealTime: No database user found, using 'asterisk' as default.
+[Aug 26 06:33:41] WARNING[833132] res_config_pgsql.c: PostgreSQL RealTime: No database password found, using 'asterisk' as default.
+[Aug 26 06:33:41] WARNING[833132] res_config_pgsql.c: PostgreSQL RealTime: No database host found, using localhost via socket.
+[Aug 26 06:33:41] WARNING[833132] res_config_pgsql.c: PostgreSQL RealTime: No database name found, using 'asterisk' as default.
+[Aug 26 06:33:41] WARNING[833132] res_config_pgsql.c: PostgreSQL RealTime: No database port found, using 5432 as default.
+[Aug 26 06:33:41] WARNING[833132] res_config_pgsql.c: PostgreSQL RealTime: No database socket found, using '/tmp/.s.PGSQL.5432' as default.
+[Aug 26 06:33:41] ERROR[833132] res_config_pgsql.c: PostgreSQL RealTime: Failed to connect database asterisk on :
+[Aug 26 06:33:41] WARNING[833132] res_config_pgsql.c: PostgreSQL RealTime: Couldn't establish connection. Check debug.
+[Aug 26 06:33:41] NOTICE[833132] res_config_ldap.c: No directory user found, anonymous binding as default.
+[Aug 26 06:33:41] ERROR[833132] res_config_ldap.c: No directory URL or host found.
+[Aug 26 06:33:41] ERROR[833132] res_config_ldap.c: Cannot load LDAP RealTime driver.
+[Aug 26 06:33:41] WARNING[833132] http.c: Ignoring unknown option 'live_dangerously' in http.conf
+[Aug 26 06:33:42] WARNING[833132] res_phoneprov.c: Unable to find a valid server address or name.
+[Aug 26 06:33:42] WARNING[833132] res_rtp_asterisk.c: Value for 'probation' could not be read, using default of '4' instead
+[Aug 26 06:33:42] NOTICE[833132] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+[Aug 26 06:33:42] NOTICE[833132] cel_tds.c: cel_tds has no global category, nothing to configure.
+[Aug 26 06:33:42] WARNING[833132] cel_tds.c: cel_tds module had config problems; declining load
+[Aug 26 06:33:42] NOTICE[833132] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+[Aug 26 06:33:42] WARNING[833132] cel_pgsql.c: CEL pgsql config file missing global section.
+[Aug 26 06:33:42] NOTICE[833132] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+[Aug 26 06:33:42] NOTICE[833132] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+[Aug 26 06:33:42] NOTICE[833132] codec_g729a.c: This product includes software developed by the OpenSSL Project
+[Aug 26 06:33:42] WARNING[833132] codec_g729a.c: Failed to initialize G.729 copy protection!
+[Aug 26 06:33:42] WARNING[833132] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 196-196: macro call to ael-dundi-e164 cannot be found in the AEL code!
+[Aug 26 06:33:42] WARNING[833132] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 209-209: macro call to ael-dundi-e164 cannot be found in the AEL code!
+[Aug 26 06:33:42] WARNING[833132] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 328-328: macro call to ael-std-exten-ael cannot be found in the AEL code!
+[Aug 26 06:33:42] WARNING[833132] loader.c: Some non-required modules failed to load.
+[Aug 26 06:33:42] WARNING[833132] loader.c: Module 'res_adsi' has been loaded but may be removed in a future release.
+[Aug 26 06:33:42] WARNING[833132] loader.c: Module 'app_getcpeid' has been loaded but may be removed in a future release.
+[Aug 26 06:33:42] WARNING[833132] loader.c: Module 'app_adsiprog' has been loaded but may be removed in a future release.
+[Aug 26 06:33:42] ERROR[833132] loader.c: cel_tds declined to load.
+[Aug 26 06:33:42] ERROR[833132] loader.c: cdr_radius declined to load.
+[Aug 26 06:33:42] ERROR[833132] loader.c: cdr_tds declined to load.
+[Aug 26 06:33:42] ERROR[833132] loader.c: cdr_sqlite3_custom declined to load.
+[Aug 26 06:33:42] ERROR[833132] loader.c: cel_radius declined to load.
+[Aug 26 06:33:42] ERROR[833132] loader.c: cel_sqlite3_custom declined to load.
+[Aug 26 06:33:42] ERROR[833132] loader.c: cdr_pgsql declined to load.
+[Aug 26 06:33:42] WARNING[833186] pbx_config.c: users.conf is deprecated and will be removed in a future version of Asterisk
+[Aug 26 08:35:57] WARNING[833332] res_http_websocket.c: Web socket closed abruptly
+[Aug 26 08:35:57] WARNING[833332] ari/ari_websockets.c: WebSocket read error: Success
+[Aug 26 08:36:41] WARNING[833619] res_http_websocket.c: Web socket closed abruptly
+[Aug 26 08:36:41] WARNING[833619] ari/ari_websockets.c: WebSocket read error: Success
+[Aug 26 08:37:11] WARNING[833624] res_http_websocket.c: Web socket closed abruptly
+[Aug 26 08:37:11] WARNING[833624] ari/ari_websockets.c: WebSocket read error: Success
+[Aug 26 08:39:22] WARNING[833629] res_http_websocket.c: Web socket closed abruptly
+[Aug 26 08:39:22] WARNING[833629] ari/ari_websockets.c: WebSocket read error: Success
+[Aug 26 08:43:50] WARNING[833636] res_http_websocket.c: Web socket closed abruptly
+[Aug 26 08:43:50] WARNING[833636] ari/ari_websockets.c: WebSocket read error: Success
+[Aug 26 08:52:52] WARNING[833222] pjproject: 	     tsx0x7966340543c8 ..Error sending Response msg 200/REGISTER/cseq=28 (tdta0x79663409ad08): Unknown Error (PJ_EUNKNOWN)
+[Aug 26 18:53:32] WARNING[833650] res_http_websocket.c: Web socket closed abruptly
+[Aug 26 18:53:32] WARNING[833650] ari/ari_websockets.c: WebSocket read error: Success
+[Aug 26 19:24:41] WARNING[835193] res_http_websocket.c: Web socket closed abruptly
+[Aug 26 19:24:41] WARNING[835193] ari/ari_websockets.c: WebSocket read error: Success
+[Aug 26 19:26:32] WARNING[833222] pjproject: 	     tsx0x79663404dfa8 ..Error sending Response msg 200/REGISTER/cseq=7 (tdta0x796634045f08): Unknown Error (PJ_EUNKNOWN)
+[Aug 27 08:30:02] WARNING[833222] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 08:35:02] WARNING[833222] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 08:40:02] WARNING[833222] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 08:45:02] WARNING[833222] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 08:48:14] WARNING[838644] res_config_pgsql.c: PostgreSQL RealTime: No database user found, using 'asterisk' as default.
+[Aug 27 08:48:14] WARNING[838644] res_config_pgsql.c: PostgreSQL RealTime: No database password found, using 'asterisk' as default.
+[Aug 27 08:48:14] WARNING[838644] res_config_pgsql.c: PostgreSQL RealTime: No database host found, using localhost via socket.
+[Aug 27 08:48:14] WARNING[838644] res_config_pgsql.c: PostgreSQL RealTime: No database name found, using 'asterisk' as default.
+[Aug 27 08:48:14] WARNING[838644] res_config_pgsql.c: PostgreSQL RealTime: No database port found, using 5432 as default.
+[Aug 27 08:48:14] WARNING[838644] res_config_pgsql.c: PostgreSQL RealTime: No database socket found, using '/tmp/.s.PGSQL.5432' as default.
+[Aug 27 08:48:14] ERROR[838644] res_config_pgsql.c: PostgreSQL RealTime: Failed to connect database asterisk on :
+[Aug 27 08:48:14] WARNING[838644] res_config_pgsql.c: PostgreSQL RealTime: Couldn't establish connection. Check debug.
+[Aug 27 08:48:14] NOTICE[838644] res_config_ldap.c: No directory user found, anonymous binding as default.
+[Aug 27 08:48:14] ERROR[838644] res_config_ldap.c: No directory URL or host found.
+[Aug 27 08:48:14] ERROR[838644] res_config_ldap.c: Cannot load LDAP RealTime driver.
+[Aug 27 08:48:14] WARNING[838644] http.c: Ignoring unknown option 'live_dangerously' in http.conf
+[Aug 27 08:48:14] WARNING[838644] res_phoneprov.c: Unable to find a valid server address or name.
+[Aug 27 08:48:14] WARNING[838644] res_rtp_asterisk.c: Value for 'probation' could not be read, using default of '4' instead
+[Aug 27 08:48:14] NOTICE[838644] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+[Aug 27 08:48:14] NOTICE[838644] cel_tds.c: cel_tds has no global category, nothing to configure.
+[Aug 27 08:48:14] WARNING[838644] cel_tds.c: cel_tds module had config problems; declining load
+[Aug 27 08:48:14] NOTICE[838644] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+[Aug 27 08:48:14] WARNING[838644] cel_pgsql.c: CEL pgsql config file missing global section.
+[Aug 27 08:48:14] NOTICE[838644] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+[Aug 27 08:48:14] NOTICE[838644] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+[Aug 27 08:48:14] NOTICE[838644] codec_g729a.c: This product includes software developed by the OpenSSL Project
+[Aug 27 08:48:14] WARNING[838644] codec_g729a.c: Failed to initialize G.729 copy protection!
+[Aug 27 08:48:15] WARNING[838644] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 196-196: macro call to ael-dundi-e164 cannot be found in the AEL code!
+[Aug 27 08:48:15] WARNING[838644] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 209-209: macro call to ael-dundi-e164 cannot be found in the AEL code!
+[Aug 27 08:48:15] WARNING[838644] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 328-328: macro call to ael-std-exten-ael cannot be found in the AEL code!
+[Aug 27 08:48:15] WARNING[838644] loader.c: Some non-required modules failed to load.
+[Aug 27 08:48:15] WARNING[838644] loader.c: Module 'res_adsi' has been loaded but may be removed in a future release.
+[Aug 27 08:48:15] WARNING[838644] loader.c: Module 'app_getcpeid' has been loaded but may be removed in a future release.
+[Aug 27 08:48:15] WARNING[838644] loader.c: Module 'app_adsiprog' has been loaded but may be removed in a future release.
+[Aug 27 08:48:15] ERROR[838644] loader.c: cel_tds declined to load.
+[Aug 27 08:48:15] ERROR[838644] loader.c: cdr_radius declined to load.
+[Aug 27 08:48:15] ERROR[838644] loader.c: cdr_tds declined to load.
+[Aug 27 08:48:15] ERROR[838644] loader.c: cdr_sqlite3_custom declined to load.
+[Aug 27 08:48:15] ERROR[838644] loader.c: cel_radius declined to load.
+[Aug 27 08:48:15] ERROR[838644] loader.c: cel_sqlite3_custom declined to load.
+[Aug 27 08:48:15] ERROR[838644] loader.c: cdr_pgsql declined to load.
+[Aug 27 08:48:15] WARNING[838649] pbx_config.c: users.conf is deprecated and will be removed in a future version of Asterisk
+[Aug 27 08:48:24] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 08:51:13] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 08:56:13] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 09:01:13] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 09:06:13] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 09:11:13] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 09:12:46] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 09:13:13] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 09:18:13] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 09:23:13] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 09:28:13] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 09:33:13] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 09:38:13] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 09:43:14] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 09:48:14] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 09:53:14] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 09:58:14] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 09:59:58] WARNING[839107] res_config_pgsql.c: PostgreSQL RealTime: Not connected
+[Aug 27 09:59:58] NOTICE[839107] res_config_ldap.c: No directory user found, anonymous binding as default.
+[Aug 27 09:59:58] ERROR[839107] res_config_ldap.c: No directory URL or host found.
+[Aug 27 09:59:58] NOTICE[839107] res_config_ldap.c: Cannot reload LDAP RealTime driver.
+[Aug 27 09:59:59] WARNING[839107] res_phoneprov.c: Unable to find a valid server address or name.
+[Aug 27 09:59:59] WARNING[839107] codec_g729a.c: Failed to initialize G.729 copy protection!
+[Aug 27 09:59:59] WARNING[839107] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 196-196: macro call to ael-dundi-e164 cannot be found in the AEL code!
+[Aug 27 09:59:59] WARNING[839107] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 209-209: macro call to ael-dundi-e164 cannot be found in the AEL code!
+[Aug 27 09:59:59] WARNING[839107] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 328-328: macro call to ael-std-exten-ael cannot be found in the AEL code!
+[Aug 27 10:00:22] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 10:05:22] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 10:10:22] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 10:15:22] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 10:20:22] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 10:25:22] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 10:30:22] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk:5060' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 10:34:20] WARNING[839213] res_config_pgsql.c: PostgreSQL RealTime: Not connected
+[Aug 27 10:34:20] NOTICE[839213] res_config_ldap.c: No directory user found, anonymous binding as default.
+[Aug 27 10:34:20] ERROR[839213] res_config_ldap.c: No directory URL or host found.
+[Aug 27 10:34:20] NOTICE[839213] res_config_ldap.c: Cannot reload LDAP RealTime driver.
+[Aug 27 10:34:20] WARNING[839213] res_phoneprov.c: Unable to find a valid server address or name.
+[Aug 27 10:34:20] WARNING[839213] codec_g729a.c: Failed to initialize G.729 copy protection!
+[Aug 27 10:34:20] WARNING[839213] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 196-196: macro call to ael-dundi-e164 cannot be found in the AEL code!
+[Aug 27 10:34:20] WARNING[839213] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 209-209: macro call to ael-dundi-e164 cannot be found in the AEL code!
+[Aug 27 10:34:20] WARNING[839213] ael/pval.c: Warning: file /etc/asterisk/extensions.ael, line 328-328: macro call to ael-std-exten-ael cannot be found in the AEL code!
+[Aug 27 10:34:23] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 10:36:38] WARNING[838674] res_pjsip_outbound_registration.c: 403 Forbidden fatal response received from 'sip:sipt1.ims.o2bs.sk' on registration attempt to 'sip:421222190337@sipt1.ims.o2bs.sk', retrying in '300' seconds
+[Aug 27 11:05:57] WARNING[839383][C-00000003] func_channel.c: Unknown or unavailable item requested: 'recvip'
+[Aug 27 11:10:29] WARNING[839398][C-00000004] func_channel.c: Unknown or unavailable item requested: 'recvip'
+[Aug 27 11:29:11] WARNING[838729] res_http_websocket.c: Web socket closed abruptly
+[Aug 27 11:29:11] WARNING[838729] ari/ari_websockets.c: WebSocket read error: Success
+[Aug 27 11:31:47] WARNING[839447][C-00000005] func_channel.c: Unknown or unavailable item requested: 'recvip'
+[Aug 27 11:32:08] WARNING[839447][C-00000005] res_stasis_playback.c: 1787830307.8: Playback failed for sound:custom/moh-slow-jazz
+[Aug 27 11:32:21] WARNING[839458][C-00000006] func_channel.c: Unknown or unavailable item requested: 'recvip'
+[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+[Aug 27 11:56:50] ERROR[838674] res_pjsip/config_auth.c: o2-ims-auth: No plain text or digest password found for algorithm MD5 in supported_algorithms_uas
+[Aug 27 11:56:50] ERROR[838674] res_pjsip/config_auth.c: o2-ims-auth: No plain text or digest password found for algorithm MD5 in supported_algorithms_uac
+[Aug 27 11:56:50] ERROR[838674] res_sorcery_config.c: Could not create an object of type 'auth' with id 'o2-ims-auth' from configuration file 'pjsip.conf'
+[Aug 27 11:56:50] NOTICE[838674] res_sorcery_config.c: Retaining existing configuration for object of type 'auth' with id 'o2-ims-auth'
+[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+[Aug 27 12:00:44] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+[Aug 27 12:00:44] ERROR[838674] res_pjsip/config_auth.c: o2-ims-auth: No plain text or digest password found for algorithm MD5 in supported_algorithms_uas
+[Aug 27 12:00:44] ERROR[838674] res_pjsip/config_auth.c: o2-ims-auth: No plain text or digest password found for algorithm MD5 in supported_algorithms_uac
+[Aug 27 12:00:44] ERROR[838674] res_sorcery_config.c: Could not create an object of type 'auth' with id 'o2-ims-auth' from configuration file 'pjsip.conf'
+[Aug 27 12:00:44] NOTICE[838674] res_sorcery_config.c: Retaining existing configuration for object of type 'auth' with id 'o2-ims-auth'
+seman@medi

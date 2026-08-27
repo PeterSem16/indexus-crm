@@ -188,8 +188,12 @@ if [[ "$managed_installation_exists" -eq 1 && "$UPDATE_EXISTING" -eq 1 ]]; then
   log "Backups created: $PJSIP_BACKUP and $EXTENSIONS_BACKUP"
 
     updated_pjsip_fragment="$(mktemp)"
-    awk '
+    awk -v secret_include="$MANAGED_PJSIP_SECRET" '
     BEGIN { in_endpoint = 0; has_trust = 0 }
+    /^[[:space:]]*#include[[:space:]].*\/pjsip-o2-ims-secret[.]conf[[:space:]]*$/ {
+      print "#include " secret_include
+      next
+    }
     /^\[o2-ims-endpoint\][[:space:]]*$/ {
       in_endpoint = 1
       has_trust = 0
@@ -294,7 +298,7 @@ type=auth
 auth_type=userpass
 username=$SIP_USERNAME
 realm=o2bssk
-#include $PJSIP_SECRET_PATH
+#include $MANAGED_PJSIP_SECRET
 
 [o2-ims-registration]
 type=registration
