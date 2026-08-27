@@ -8,3 +8,5 @@ For O2 SIP troubleshooting, the `received=` and `rport=` values in the provider 
 **Why:** O2 may whitelist the real packet source while Asterisk advertises another public address, creating an address mismatch that is easy to misdiagnose as an O2 routing problem.
 
 **How to apply:** Compare `Via`/`Contact` with `received`/`rport`. Keep O2's whitelist aligned with the provider-visible source, and align the active UDP transport's external signaling/media address with that source when the advertised address is wrong. Validate registration with an actual `REGISTER`; `OPTIONS 200 OK` proves reachability only. If `REGISTER` ends in `403`, have O2 verify the exact SIP username format, password/account activation, registrar authorization, and source-IP policy; do not keep changing NAT settings blindly.
+
+For this O2 trunk, the provider required the explicit auth realm `o2bssk` and a registrar URI without the `:5060` suffix. The corrected registration succeeded after the secret was stored without delimiter quotes.
