@@ -1,0 +1,291 @@
+Asterisk cleanly ending (0).
+Executing last minute cleanups
+seman@mediagtw:~$ mc
+
+seman@mediagtw:~$ sudo sed -n '1,50p' /etc/asterisk/pjsip.conf
+; =========================================================
+; /etc/asterisk/pjsip.conf
+; WORKING GENERATED CONFIG
+; mediagtw / 10.1.2.112
+; =========================================================
+
+[global]
+type=global
+user_agent=INDEXUS-Asterisk
+endpoint_identifier_order=username,ip,anonymous
+
+; =========================================================
+; TRANSPORTS
+; =========================================================
+
+[transport-udp]
+type=transport
+protocol=udp
+bind=0.0.0.0:5060
+allow_reload=yes
+local_net=10.0.0.0/8
+local_net=172.16.0.0/12
+local_net=192.168.0.0/16
+external_signaling_address=77.72.181.113
+external_media_address=77.72.181.113
+
+[transport-wss]
+type=transport
+protocol=wss
+bind=0.0.0.0
+allow_reload=yes
+local_net=10.0.0.0/8
+local_net=172.16.0.0/12
+local_net=192.168.0.0/16
+local_net=10.9.0.0/16
+local_net=10.1.2.0/24
+;external_signaling_address=mediagtw.cordbloodcenter.com
+;external_media_address=mediagtw.cordbloodcenter.com
+external_signaling_address=77.72.181.116
+external_media_address=77.72.181.116
+
+; =========================================================
+; LEGACY TRUNKS
+; =========================================================
+
+
+[trunk-sk-aor]
+type=aor
+contact=sip:10.9.33.2:5060
+qualify_frequency=30
+seman@mediagtw:~$ sudo systemctl restart asterisk
+seman@mediagtw:~$ sudo asterisk -rx "pjsip show transport transport-udp"
+
+Transport:  <TransportId........>  <Type>  <cos>  <tos>  <BindAddress....................>
+==========================================================================================
+
+Transport:  transport-udp             udp      0      0  0.0.0.0:5060
+
+ ParameterName               : ParameterValue
+ =====================================================
+ allow_reload                : true
+ allow_wildcard_certs        : No
+ async_operations            : 1
+ bind                        : 0.0.0.0:5060
+ ca_list_file                :
+ ca_list_path                :
+ cert_file                   :
+ cipher                      :
+ cos                         : 0
+ domain                      :
+ external_media_address      : 77.72.181.113
+ external_signaling_address  : 77.72.181.113
+ external_signaling_port     : 0
+ local_net                   : 10.0.0.0/255.0.0.0
+ local_net                   : 172.16.0.0/255.240.0.0
+ local_net                   : 192.168.0.0/255.255.0.0
+ method                      : unspecified
+ password                    :
+ priv_key_file               :
+ protocol                    : udp
+ require_client_cert         : No
+ symmetric_transport         : false
+ tcp_keepalive_enable        : false
+ tcp_keepalive_idle_time     : 30
+ tcp_keepalive_interval_time : 1
+ tcp_keepalive_probe_count   : 5
+ tos                         : 0
+ verify_client               : No
+ verify_server               : No
+ websocket_write_timeout     : 100
+
+seman@mediagtw:~$ sudo asterisk -rvvvvv
+Asterisk 22.8.2, Copyright (C) 1999 - 2025, Sangoma Technologies Corporation and others.
+Created by Mark Spencer <markster@digium.com>
+Asterisk comes with ABSOLUTELY NO WARRANTY; type 'core show warranty' for details.
+This is free software, with components licensed under the GNU General Public
+License version 2 and other licenses; you are welcome to redistribute it under
+certain conditions. Type 'core show license' for details.
+=========================================================================
+Running as user 'asterisk'
+Running under group 'asterisk'
+Connected to Asterisk 22.8.2 currently running on mediagtw (pid = 840377)
+mediagtw*CLI> pjsip set logger host 185.103.146.200
+PJSIP Logging Enabled for host: 185.103.146.200
+<--- Transmitting SIP request (435 bytes) to UDP:185.103.146.200:5060 --->
+OPTIONS sip:sipt1.ims.o2bs.sk SIP/2.0
+Via: SIP/2.0/UDP 77.72.181.113:5060;rport;branch=z9hG4bKPjc3e8c293-d202-47c0-9c2e-943750b1b98c
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=453e2644-01ef-46ab-b796-debbbb5a19ea
+To: <sip:sipt1.ims.o2bs.sk>
+Contact: <sip:421222190337@77.72.181.113:5060>
+Call-ID: 362b56d2-9c15-40f0-8ef2-cc770b38116a
+CSeq: 50441 OPTIONS
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP response (552 bytes) from UDP:185.103.146.200:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 77.72.181.113:5060;branch=z9hG4bKPjc3e8c293-d202-47c0-9c2e-943750b1b98c;received=77.72.181.113;rport=5060
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=453e2644-01ef-46ab-b796-debbbb5a19ea
+To: <sip:sipt1.ims.o2bs.sk>;tag=as7aeb3a7e
+Call-ID: 362b56d2-9c15-40f0-8ef2-cc770b38116a
+CSeq: 50441 OPTIONS
+Server: O2BS SK IMS
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+Contact: <sip:185.103.146.200:5060>
+Accept: application/sdp
+Content-Length: 0
+
+
+mediagtw*CLI> sudo asterisk -rx "pjsip send register o2-ims-registration"
+No such command 'sudo asterisk -rx "pjsip send register o2-ims-registration"' (type 'core show help sudo asterisk' for other possible commands)
+    -- Remote UNIX connection
+    -- Remote UNIX connection disconnected
+<--- Transmitting SIP request (462 bytes) to UDP:185.103.146.200:5060 --->
+REGISTER sip:sipt1.ims.o2bs.sk SIP/2.0
+Via: SIP/2.0/UDP 77.72.181.113:5060;rport;branch=z9hG4bKPjbb3c5493-ae6a-41d8-9593-89708d9b3173
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=5a3637bc-bf5c-4092-aeff-5a03e3ad7570
+To: <sip:421222190337@sipt1.ims.o2bs.sk>
+Call-ID: a00988bf-f400-46ca-b170-5fb88faaa950
+CSeq: 48939 REGISTER
+Contact: <sip:421222190337@77.72.181.113:5060>
+Expires: 0
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP response (588 bytes) from UDP:185.103.146.200:5060 --->
+SIP/2.0 401 Unauthorized
+Via: SIP/2.0/UDP 77.72.181.113:5060;branch=z9hG4bKPjbb3c5493-ae6a-41d8-9593-89708d9b3173;received=77.72.181.113;rport=5060
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=5a3637bc-bf5c-4092-aeff-5a03e3ad7570
+To: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=as66e81ae7
+Call-ID: a00988bf-f400-46ca-b170-5fb88faaa950
+CSeq: 48939 REGISTER
+Server: O2BS SK IMS
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+WWW-Authenticate: Digest algorithm=MD5, realm="o2bssk", nonce="6ac6a852"
+Content-Length: 0
+
+
+<--- Transmitting SIP request (632 bytes) to UDP:185.103.146.200:5060 --->
+REGISTER sip:sipt1.ims.o2bs.sk SIP/2.0
+Via: SIP/2.0/UDP 77.72.181.113:5060;rport;branch=z9hG4bKPjdcd27c43-025c-4d53-94e2-23547bc80fb1
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=5a3637bc-bf5c-4092-aeff-5a03e3ad7570
+To: <sip:421222190337@sipt1.ims.o2bs.sk>
+Call-ID: a00988bf-f400-46ca-b170-5fb88faaa950
+CSeq: 48940 REGISTER
+Contact: <sip:421222190337@77.72.181.113:5060>
+Expires: 0
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Authorization: Digest username="421222190337", realm="o2bssk", nonce="6ac6a852", uri="sip:sipt1.ims.o2bs.sk", response="84a9495f9b7db447da9095a86136956c", algorithm=MD5
+Content-Length:  0
+
+
+<--- Received SIP response (553 bytes) from UDP:185.103.146.200:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 77.72.181.113:5060;branch=z9hG4bKPjdcd27c43-025c-4d53-94e2-23547bc80fb1;received=77.72.181.113;rport=5060
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=5a3637bc-bf5c-4092-aeff-5a03e3ad7570
+To: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=as66e81ae7
+Call-ID: a00988bf-f400-46ca-b170-5fb88faaa950
+CSeq: 48940 REGISTER
+Server: O2BS SK IMS
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+Expires: 0
+Date: Thu, 27 Aug 2026 13:25:21 GMT
+Content-Length: 0
+
+
+<--- Transmitting SIP request (567 bytes) to UDP:185.103.146.200:5060 --->
+REGISTER sip:sipt1.ims.o2bs.sk SIP/2.0
+Via: SIP/2.0/UDP 77.72.181.113:5060;rport;branch=z9hG4bKPj11c47c33-9fdb-48d3-bd02-c5b9ff5d97c7
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=a8907092-2add-45eb-9691-38b3359ce6f1
+To: <sip:421222190337@sipt1.ims.o2bs.sk>
+Call-ID: a00988bf-f400-46ca-b170-5fb88faaa950
+CSeq: 48941 REGISTER
+Contact: <sip:421222190337@77.72.181.113:5060>
+Allow: OPTIONS, REGISTER, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, MESSAGE, REFER, INFO
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP response (588 bytes) from UDP:185.103.146.200:5060 --->
+SIP/2.0 401 Unauthorized
+Via: SIP/2.0/UDP 77.72.181.113:5060;branch=z9hG4bKPj11c47c33-9fdb-48d3-bd02-c5b9ff5d97c7;received=77.72.181.113;rport=5060
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=a8907092-2add-45eb-9691-38b3359ce6f1
+To: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=as66e81ae7
+Call-ID: a00988bf-f400-46ca-b170-5fb88faaa950
+CSeq: 48941 REGISTER
+Server: O2BS SK IMS
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+WWW-Authenticate: Digest algorithm=MD5, realm="o2bssk", nonce="3c401f08"
+Content-Length: 0
+
+
+<--- Transmitting SIP request (737 bytes) to UDP:185.103.146.200:5060 --->
+REGISTER sip:sipt1.ims.o2bs.sk SIP/2.0
+Via: SIP/2.0/UDP 77.72.181.113:5060;rport;branch=z9hG4bKPjf679b505-dcdc-42b7-97a0-fc235036ae02
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=a8907092-2add-45eb-9691-38b3359ce6f1
+To: <sip:421222190337@sipt1.ims.o2bs.sk>
+Call-ID: a00988bf-f400-46ca-b170-5fb88faaa950
+CSeq: 48942 REGISTER
+Contact: <sip:421222190337@77.72.181.113:5060>
+Allow: OPTIONS, REGISTER, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, MESSAGE, REFER, INFO
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Authorization: Digest username="421222190337", realm="o2bssk", nonce="3c401f08", uri="sip:sipt1.ims.o2bs.sk", response="81a59328df43c94f6f20ae261e8c6317", algorithm=MD5
+Content-Length:  0
+
+
+<--- Received SIP request (562 bytes) from UDP:185.103.146.200:5060 --->
+OPTIONS sip:421222190337@77.72.181.113:5060 SIP/2.0
+Via: SIP/2.0/UDP 185.103.146.200:5060;branch=z9hG4bK124bff94;rport
+Max-Forwards: 70
+From: "o2bssk" <sip:o2bssk@sipt1.ims.o2bs.sk>;tag=as5990ad72
+To: <sip:421222190337@77.72.181.113:5060>
+Contact: <sip:o2bssk@185.103.146.200:5060>
+Call-ID: 3e6e65dd3d3159672ac794143f115273@sipt1.ims.o2bs.sk
+CSeq: 102 OPTIONS
+User-Agent: O2BS SK IMS
+Date: Thu, 27 Aug 2026 13:25:24 GMT
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+Content-Length: 0
+
+
+<--- Received SIP response (615 bytes) from UDP:185.103.146.200:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 77.72.181.113:5060;branch=z9hG4bKPjf679b505-dcdc-42b7-97a0-fc235036ae02;received=77.72.181.113;rport=5060
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=a8907092-2add-45eb-9691-38b3359ce6f1
+To: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=as66e81ae7
+Call-ID: a00988bf-f400-46ca-b170-5fb88faaa950
+CSeq: 48942 REGISTER
+Server: O2BS SK IMS
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+Expires: 600
+Contact: <sip:421222190337@77.72.181.113:5060>;expires=600
+Date: Thu, 27 Aug 2026 13:25:24 GMT
+Content-Length: 0
+
+
+<--- Transmitting SIP response (853 bytes) to UDP:185.103.146.200:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 185.103.146.200:5060;rport=5060;received=185.103.146.200;branch=z9hG4bK124bff94
+Call-ID: 3e6e65dd3d3159672ac794143f115273@sipt1.ims.o2bs.sk
+From: "o2bssk" <sip:o2bssk@sipt1.ims.o2bs.sk>;tag=as5990ad72
+To: <sip:421222190337@77.72.181.113>;tag=z9hG4bK124bff94
+CSeq: 102 OPTIONS
+Accept: application/sdp, application/xpidf+xml, application/cpim-pidf+xml, application/pidf+xml, application/dialog-info+xml, application/simple-message-summary, application/pidf+xml, application/dialog-info+xml, application/simple-message-summary, message/sipfrag;version=2.0
+Allow: OPTIONS, REGISTER, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, MESSAGE, REFER, INFO
+Supported: 100rel, timer, replaces, norefersub
+Accept-Encoding: identity
+Accept-Language: en
+Server: INDEXUS-Asterisk
+Content-Length:  0
+
+
+medi
