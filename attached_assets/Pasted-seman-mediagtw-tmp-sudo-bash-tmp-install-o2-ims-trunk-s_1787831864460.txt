@@ -1,0 +1,43 @@
+seman@mediagtw:/tmp$ sudo bash /tmp/install-o2-ims-trunk.sh --update-existing --reload
+[o2-ims] Managed include exists but one or more fragments are missing; entering repair mode.
+Enter the exact O2-authorized outbound CLI in the form +42122213323x: +421222133230
+Enter the O2 SIP password (input hidden):
+[o2-ims] Backups created: /etc/asterisk/pjsip.conf.o2-ims-backup.20260827-115650.bak and /etc/asterisk/extensions.conf.o2-ims-backup.20260827-115650.bak
+[o2-ims] Keeping the existing O2 outbound route in place while repairing missing fragments.
+[o2-ims] O2 IMS configuration installed for sipt1.ims.o2bs.sk (185.103.146.200).
+[o2-ims] Outbound O2 selection requires X-Provider: O2-IMS and a server-side extension entitlement.
+[o2-ims] The SIP password is stored only in /etc/asterisk/pjsip-o2-ims-secret.conf with mode 0600 for Asterisk user root.
+[o2-ims] Reloading PJSIP...
+Module 'res_pjsip.so' reloaded successfully.
+Module 'res_pjsip_authenticator_digest.so' reloaded successfully.
+Module 'res_pjsip_endpoint_identifier_ip.so' reloaded successfully.
+Module 'res_pjsip_mwi.so' reloaded successfully.
+Module 'res_pjsip_notify.so' reloaded successfully.
+Module 'res_pjsip_outbound_publish.so' reloaded successfully.
+Module 'res_pjsip_publish_asterisk.so' reloaded successfully.
+Module 'res_pjsip_outbound_registration.so' reloaded successfully.
+[o2-ims] Reloading dialplan...
+Dialplan reloaded.
+[o2-ims] Checking registered endpoint objects...
+[o2-ims] WARNING: O2 registration is not visible yet; it may still be starting after reload.
+[o2-ims] WARNING: O2 endpoint verification returned no matching details.
+[ Context 'route-o2-ims' created by 'pbx_config' ]
+  '_+X.' =>         1. Goto(o2-ims-dial,${EXTEN},1)               [extensions-o2-ims.conf:9]
+  '_X.' =>          1. Goto(o2-ims-dial,${EXTEN},1)               [extensions-o2-ims.conf:10]
+
+-= 2 extensions (2 priorities) in 1 context. =-
+[ Context 'from-o2-ims' created by 'pbx_config' ]
+  '+421940682394' => 1. Gosub(o2-ims-inbound,s,1(421940682394))    [extensions-o2-ims.conf:52]
+                    2. Hangup()                                   [extensions-o2-ims.conf:53]
+  '421940682394' => 1. Gosub(o2-ims-inbound,s,1(${EXTEN}))        [extensions-o2-ims.conf:54]
+                    2. Hangup()                                   [extensions-o2-ims.conf:55]
+  '_+42122213323X' => 1. Gosub(o2-ims-inbound,s,1(${EXTEN:1}))      [extensions-o2-ims.conf:48]
+                    2. Hangup()                                   [extensions-o2-ims.conf:49]
+  '_+X.' =>         1. Goto(o2-ims-rejected,s,1)                  [extensions-o2-ims.conf:56]
+  '_42122213323X' => 1. Gosub(o2-ims-inbound,s,1(${EXTEN}))        [extensions-o2-ims.conf:50]
+                    2. Hangup()                                   [extensions-o2-ims.conf:51]
+  '_X.' =>          1. Goto(o2-ims-rejected,s,1)                  [extensions-o2-ims.conf:57]
+
+-= 6 extensions (10 priorities) in 1 context. =-
+[o2-ims] Installation finished. Backups are retained; test registration and calls before removing them.
+seman@med
