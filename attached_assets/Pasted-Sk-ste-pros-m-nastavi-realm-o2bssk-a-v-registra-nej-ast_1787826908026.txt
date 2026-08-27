@@ -1,0 +1,96 @@
+Skúste prosím nastaviť realm=o2bssk a v registračnej čast server_uri=sip:sipt1.ims.o2bs.sk (bez uvedenia portu).
+
+Ďakujem
+
+Róbert Chocheliński
+
+--
+Voice Support Team
+O2 Business Services, a. s.
+Pribinova 40, 811 09 Bratislava
+--
+
+14/08/2026 14:34 - Seman Peter wrote:
+Preveroval som to ale poslane heslo D……V. sa zada byt dobre v konfiguracii 
+ 
+posielam nas konfiguracny set pre dany trunk pre overenie , samozrejeme heslo je v inom subore ale to som overil a je správne 
+ 
+[o2-ims-auth]
+type=auth
+auth_type=userpass
+username=421222190337
+realm=*
+#include /etc/asterisk/pjsip-o2-ims-secret.conf
+ 
+[o2-ims-registration]
+type=registration
+transport=transport-udp
+outbound_auth=o2-ims-auth
+server_uri=sip:sipt1.ims.o2bs.sk:5060
+client_uri=sip:421222190337@sipt1.ims.o2bs.sk
+contact_user=421222190337
+retry_interval=60
+forbidden_retry_interval=300
+expiration=300
+auth_rejection_permanent=no
+ 
+[o2-ims-aor]
+type=aor
+contact=sip:sipt1.ims.o2bs.sk:5060
+qualify_frequency=30
+qualify_timeout=3
+ 
+[o2-ims-endpoint]
+type=endpoint
+transport=transport-udp
+context=from-o2-ims
+disallow=all
+allow=alaw,ulaw,g729
+aors=o2-ims-aor
+outbound_auth=o2-ims-auth
+from_user=421222190337
+from_domain=sipt1.ims.o2bs.sk
+callerid=+421222133230
+dtmf_mode=rfc4733
+direct_media=no
+force_rport=yes
+rewrite_contact=yes
+rtp_symmetric=yes
+rtp_keepalive=15
+rtp_timeout=60
+timers=no
+send_pai=yes
+send_rpid=yes
+trust_id_outbound=yes
+identify_by=ip
+max_audio_streams=1
+max_video_streams=0
+ 
+[o2-ims-identify-1]
+type=identify
+endpoint=o2-ims-endpoint
+match=185.103.146.200/32
+ 
+S pozdravom
+ 
+Peter Seman
+IT Manager&Consultant
+Cord Blood Center Group
+ 
+Adresa: Gallayova 11, 84102 Bratislava
+Mobil:   +421 948 519 438
+E-mail:  seman@cordbloodcenter.com
+Web:     www.cordbloodcenter.com
+ 
+ 
+ 
+Na 27. augusta 2026 @ 11:54:16, Voice O2BS (voice@o2bs.sk) napísal:
+
+ 
+Dobrý deň pán Seman,
+
+Skontrolujte prosím, či sa Vám nevniesol preklep pri prepisovaní hesla z SMS. 
+
+Aktuálne Vás naša strana nedokáže overiť z dôvodu nesprávneho hesla. 
+
+V prípade potreby som Vám k dispozícií. 
