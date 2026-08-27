@@ -137,10 +137,12 @@ if [[ "$RUNNING_AS_ROOT" -eq 1 ]]; then
   asterisk_pid="$(pgrep -xo asterisk || true)"
   [[ -n "$asterisk_pid" ]] || die "Asterisk must be running so its service account can be detected."
   asterisk_cmdline="$(ps -o args= -p "$asterisk_pid")"
-  ASTERISK_USER="$(printf '%s\n' "$asterisk_cmdline" | sed -n 's/.*[[:space:]]-U[[:space:]]\([^[:space:]]*\).*/\1/p')"
-  ASTERISK_GROUP="$(printf '%s\n' "$asterisk_cmdline" | sed -n 's/.*[[:space:]]-G[[:space:]]\([^[:space:]]*\).*/\1/p')"
-  ASTERISK_USER="${ASTERISK_USER:-$(ps -o user= -p "$asterisk_pid" | awk 'NR == 1 { gsub(/^[[:space:]]+|[[:space:]]+$/, ""); print }')}"
-  ASTERISK_GROUP="${ASTERISK_GROUP:-$(ps -o group= -p "$asterisk_pid" | awk 'NR == 1 { gsub(/^[[:space:]]+|[[:space:]]+$/, ""); print }')}"
+  # Use the account of the running master process first. The -U/-G command
+  # line values are not reliable on all distro/systemd combinations.
+  ASTERISK_USER="$(ps -o user= -p "$asterisk_pid" | awk 'NR == 1 { gsub(/^[[:space:]]+|[[:space:]]+$/, ""); print }')"
+  ASTERISK_GROUP="$(ps -o group= -p "$asterisk_pid" | awk 'NR == 1 { gsub(/^[[:space:]]+|[[:space:]]+$/, ""); print }')"
+  ASTERISK_USER="${ASTERISK_USER:-$(printf '%s\n' "$asterisk_cmdline" | sed -n 's/.*[[:space:]]-U[[:space:]]\([^[:space:]]*\).*/\1/p')}"
+  ASTERISK_GROUP="${ASTERISK_GROUP:-$(printf '%s\n' "$asterisk_cmdline" | sed -n 's/.*[[:space:]]-G[[:space:]]\([^[:space:]]*\).*/\1/p')}"
   [[ -n "$ASTERISK_USER" && -n "$ASTERISK_GROUP" ]] ||
     die "Could not detect the Asterisk service account."
 else
