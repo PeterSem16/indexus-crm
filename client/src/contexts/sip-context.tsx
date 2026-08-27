@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "./auth-context";
+import type { OutboundTrunkSelection } from "@shared/telephony-routing";
 
 function filterSdpCandidates(description: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit> {
   if (!description.sdp) return Promise.resolve(description);
@@ -56,6 +57,8 @@ export interface PendingCall {
   clientStatus?: string;
   callerIdNumber?: string;
   provider?: "O2-IMS";
+  outboundTrunk?: OutboundTrunkSelection;
+  outboundCountry?: string;
   maxRingSeconds?: number;
 }
 

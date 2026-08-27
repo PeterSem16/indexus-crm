@@ -73,6 +73,11 @@ import { Label } from "@/components/ui/label";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay, addMonths, subMonths, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { sk } from "date-fns/locale";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  OUTBOUND_CALLER_ID_OPTIONS,
+  getMissionCountryOutboundRouting,
+  parseMissionSettings,
+} from "@shared/telephony-routing";
 
 const campaignFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -87,6 +92,8 @@ const campaignFormSchema = z.object({
   script: z.string().optional(),
   defaultActiveTab: z.enum(["phone", "script", "email", "sms"]).optional().default("phone"),
   callerIdNumber: z.string().optional().default(""),
+  skOutboundTrunk: z.enum(["global", "sk-existing", "o2-ims"]).default("global"),
+  skOutboundCallerIdId: z.string().optional().default(""),
 });
 
 type CampaignFormData = z.infer<typeof campaignFormSchema>;
@@ -621,6 +628,7 @@ function CampaignForm({
 
   const getDefaultValues = () => {
     if (initialData) {
+      const skRouting = getMissionCountryOutboundRouting(initialData.settings, "SK");
       return {
         name: initialData.name,
         description: initialData.description || "",
@@ -634,6 +642,8 @@ function CampaignForm({
         script: initialData.script || "",
         defaultActiveTab: (initialData.defaultActiveTab || "phone") as any,
         callerIdNumber: initialData.callerIdNumber || "",
+        skOutboundTrunk: skRouting.trunk,
+        skOutboundCallerIdId: skRouting.callerIdId || "",
       };
     }
     if (templateData) {
@@ -650,6 +660,8 @@ function CampaignForm({
         script: templateData.script || "",
         defaultActiveTab: "phone" as const,
         callerIdNumber: "",
+        skOutboundTrunk: "global" as const,
+        skOutboundCallerIdId: "",
       };
     }
     return {
@@ -665,6 +677,8 @@ function CampaignForm({
       script: "",
       defaultActiveTab: "phone" as const,
       callerIdNumber: "",
+      skOutboundTrunk: "global" as const,
+      skOutboundCallerIdId: "",
     };
   };
 
@@ -750,6 +764,70 @@ function CampaignForm({
                   />
                   <p className="text-xs text-muted-foreground italic">{t.campaigns?.callerIdHelp || "Číslo zobrazené volajúcemu pri odchádzajúcich hovoroch"}</p>
                 </div>
+
+                {form.watch("countryCodes").includes("SK") && (
+                  <div className="rounded-lg border p-4 space-y-4" data-testid="mission-sk-outbound-routing">
+                    <div>
+                      <Label className="text-sm font-medium">{t.campaigns.skOutboundRouting}</Label>
+                      <p className="text-xs text-muted-foreground">{t.campaigns.skOutboundRoutingHelp}</p>
+                    </div>
+                    <FormField
+                      control={form.control}
+                      name="skOutboundTrunk"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t.campaigns.outboundTrunk}</FormLabel>
+                          <Select
+                            value={field.value}
+                            onValueChange={(value) => {
+                              field.onChange(value);
+                              if (value === "o2-ims" && !form.getValues("skOutboundCallerIdId")) {
+                                form.setValue("skOutboundCallerIdId", OUTBOUND_CALLER_ID_OPTIONS[0]?.id || "");
+                              }
+                            }}
+                          >
+                            <FormControl>
+                              <SelectTrigger data-testid="select-sk-outbound-trunk">
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="global">{t.campaigns.outboundTrunkGlobal}</SelectItem>
+                              <SelectItem value="sk-existing">{t.campaigns.outboundTrunkExistingSk}</SelectItem>
+                              <SelectItem value="o2-ims">{t.campaigns.outboundTrunkO2}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                    {form.watch("skOutboundTrunk") === "o2-ims" && (
+                      <FormField
+                        control={form.control}
+                        name="skOutboundCallerIdId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t.campaigns.outboundCallerId}</FormLabel>
+                            <Select value={field.value} onValueChange={field.onChange}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-sk-outbound-caller-id">
+                                  <SelectValue placeholder={t.campaigns.selectOutboundCallerId} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {OUTBOUND_CALLER_ID_OPTIONS
+                                  .filter(option => option.active && option.countryCode === "SK" && option.trunk === "o2-ims")
+                                  .map(option => (
+                                    <SelectItem key={option.id} value={option.id}>{option.number}</SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                            {!field.value && <p className="text-xs text-destructive">{t.campaigns.outboundCallerIdRequired}</p>}
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
@@ -1603,10 +1681,30 @@ export default function CampaignsPage() {
   }, [campaigns, search, selectedCountries, filterStatus, filterType, filterChannel, filterCreatedBy]);
 
   const handleSubmit = (data: CampaignFormData) => {
+    const {
+      skOutboundTrunk,
+      skOutboundCallerIdId,
+      ...campaignData
+    } = data;
+    const currentSettings = parseMissionSettings(editingCampaign?.settings);
+    const outboundRoutingByCountry = {
+      ...(currentSettings.outboundRoutingByCountry || {}),
+    };
+    if (campaignData.countryCodes.includes("SK")) {
+      outboundRoutingByCountry.SK = {
+        trunk: skOutboundTrunk,
+        callerIdId: skOutboundTrunk === "o2-ims" ? skOutboundCallerIdId : null,
+      };
+    }
+    const settings = {
+      ...currentSettings,
+      ...(Object.keys(outboundRoutingByCountry).length > 0 ? { outboundRoutingByCountry } : {}),
+    };
+    const payload = { ...campaignData, settings: JSON.stringify(settings) } as CampaignFormData;
     if (editingCampaign) {
-      updateMutation.mutate({ ...data, id: editingCampaign.id });
+      updateMutation.mutate({ ...payload, id: editingCampaign.id });
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate(payload);
     }
   };
 

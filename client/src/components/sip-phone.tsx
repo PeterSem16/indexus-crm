@@ -145,9 +145,12 @@ export function SipPhone({
   const [localCustomerId, setLocalCustomerId] = useState(customerId);
   const localCustomerIdRef = useRef<string | undefined>(customerId);
   const [localCampaignId, setLocalCampaignId] = useState(campaignId);
+  const localCampaignIdRef = useRef<string | undefined>(campaignId);
   const localCampaignContactIdRef = useRef<string | undefined>(undefined);
   const localContactTypeRef = useRef<"customer" | "hospital" | "clinic" | "collaborator" | undefined>(undefined);
   const localProviderRef = useRef<"O2-IMS" | undefined>(undefined);
+  const localOutboundTrunkRef = useRef<import("@shared/telephony-routing").OutboundTrunkSelection>("global");
+  const localOutboundCountryRef = useRef<string | undefined>(undefined);
   const [localCampaignName, setLocalCampaignName] = useState<string | undefined>(undefined);
   const [localCustomerName, setLocalCustomerName] = useState(customerName);
   const [localLeadScore, setLocalLeadScore] = useState<number | undefined>(undefined);
@@ -1192,6 +1195,7 @@ export function SipPhone({
         metadata: JSON.stringify({
           contactType: localContactTypeRef.current || null,
           provider: localProviderRef.current || null,
+          outboundTrunk: localOutboundTrunkRef.current,
           callerIdNumber: localCallerIdNumberRef.current || collaboratorCallerIdRef.current || null,
         }),
       });
@@ -1245,22 +1249,34 @@ export function SipPhone({
       if (effectiveCallerId) {
         extraHeaders.push(`X-Campaign-CallerID: ${effectiveCallerId}`);
         try {
-          await fetch("/api/sip/set-outbound-callerid", {
+          const callerIdResponse = await fetch("/api/sip/set-outbound-callerid", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
             body: JSON.stringify({
               sipExtension: sipConfig.username,
               callerIdNumber: effectiveCallerId,
+              campaignId: localCampaignIdRef.current,
+              outboundTrunk: localOutboundTrunkRef.current,
+              outboundCountry: localOutboundCountryRef.current,
             }),
           });
+          if (!callerIdResponse.ok) {
+            const payload = await callerIdResponse.json().catch(() => ({}));
+            throw new Error(payload.error || "Failed to validate outbound Caller ID");
+          }
           console.log(`[SIP] Set outbound caller ID ${effectiveCallerId} for ext ${sipConfig.username} (source: ${currentCallerIdNumber ? "campaign" : "collaborator"})`);
         } catch (err) {
           console.warn("[SIP] Failed to set outbound caller ID:", err);
+          if (localOutboundTrunkRef.current !== "global") throw err;
         }
       }
       if (localProviderRef.current === "O2-IMS") {
         extraHeaders.push("X-Provider: O2-IMS");
+      }
+      extraHeaders.push(`X-Indexus-Outbound-Trunk: ${localOutboundTrunkRef.current}`);
+      if (localCampaignIdRef.current) {
+        extraHeaders.push(`X-Campaign-ID: ${localCampaignIdRef.current}`);
       }
       if (localCampaignContactIdRef.current) {
         extraHeaders.push(`X-Campaign-Contact-ID: ${localCampaignContactIdRef.current}`);
@@ -1478,9 +1494,12 @@ export function SipPhone({
       setLocalCustomerId(callData.customerId?.toString());
       localCustomerIdRef.current = callData.customerId?.toString();
       setLocalCampaignId(callData.campaignId?.toString());
+      localCampaignIdRef.current = callData.campaignId?.toString();
       localCampaignContactIdRef.current = callData.campaignContactId?.toString();
       localContactTypeRef.current = callData.contactType;
       localProviderRef.current = callData.provider ?? resolveOutboundCallProvider(callData.callerIdNumber);
+      localOutboundTrunkRef.current = callData.outboundTrunk || "global";
+      localOutboundCountryRef.current = callData.outboundCountry;
       setLocalCampaignName(callData.campaignName);
       setLocalCustomerName(callData.customerName);
       setLocalLeadScore(callData.leadScore);
@@ -1496,6 +1515,8 @@ export function SipPhone({
         campaignContactId: callData.campaignContactId?.toString(),
         contactType: callData.contactType,
         provider: callData.provider,
+        outboundTrunk: callData.outboundTrunk,
+        outboundCallerId: callData.callerIdNumber,
         direction: "outbound",
       });
       maxRingSecondsRef.current = callData.maxRingSeconds && callData.maxRingSeconds > 0 ? callData.maxRingSeconds : 0;
@@ -1917,6 +1938,8 @@ export function SipPhone({
         didNumber: direction === "inbound" ? (callContextRef.current.callInfo?.didNumber || undefined) : undefined,
         queueId: activeInboundMetaRef.current?.queueId,
         provider: localProviderRef.current,
+        outboundTrunk: localOutboundTrunkRef.current,
+        outboundCallerId: localCallerIdNumberRef.current || undefined,
         direction,
         callLogId: currentCallLogId ?? undefined,
         leadScore: localLeadScore,

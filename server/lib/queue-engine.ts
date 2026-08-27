@@ -23,6 +23,7 @@ import {
   sipExtensions,
   callRecordings,
   ariSettings,
+  campaigns,
   type InboundQueue,
   type QueueMember,
   type InboundCallLog,
@@ -35,6 +36,12 @@ import { STORAGE_PATHS } from "../config/storage-paths";
 import { AriClient, type AriEvent, type AriChannel } from "./ari-client";
 import { inboundCallWs } from "./inbound-call-ws";
 import { inboundDidCandidates, resolveInboundCallerNumber, resolveInboundDid } from "./inbound-did";
+import {
+  inferOutboundCountryCode,
+  normalizePhoneForRouting,
+  resolveMissionOutboundRouting,
+  type ResolvedOutboundRouting,
+} from "@shared/telephony-routing";
 
 // Agent presence for desk/PJSIP routing is derived from the LIVE Nexus Pulse
 // WebSocket (inboundCallWs). The agent-workspace opens /ws/inbound-calls only while a
@@ -458,7 +465,7 @@ export class QueueEngine extends EventEmitter {
     }
   }
 
-  async setOutboundCallerId(sipExtension: string, callerIdNumber: string): Promise<void> {
+  async setOutboundCallerId(sipExtension: string, callerIdNumber: string, allowO2Ims = false): Promise<void> {
     if (!this.subscribedEndpoints.has(sipExtension)) {
       await this.ariClient.subscribeToEndpoint("PJSIP", sipExtension);
       this.subscribedEndpoints.add(sipExtension);
@@ -468,6 +475,12 @@ export class QueueEngine extends EventEmitter {
       callerIdNumber,
       expiresAt: Date.now() + 30000,
     });
+    if (allowO2Ims) {
+      const expiresAtEpoch = Math.floor(Date.now() / 1000) + 30;
+      await this.ariClient.setAsteriskDB("o2ims/pendingcid", sipExtension, `${callerIdNumber}|${expiresAtEpoch}`);
+    } else {
+      await this.ariClient.deleteAsteriskDB("o2ims/pendingcid", sipExtension).catch(() => undefined);
+    }
     console.log(`[QueueEngine] Pending outbound caller ID set: ext=${sipExtension}, callerId=${callerIdNumber} (expires in 30s)`);
   }
 
@@ -584,7 +597,10 @@ export class QueueEngine extends EventEmitter {
     }
 
     // Use the proven forwardToExternalNumber which routes via the correct trunk
-    await this.forwardToExternalNumber(call.channelId, forwardNumber, { fallbackDid: queue.didNumber, callerNumber: call.callerNumber });
+    await this.forwardToExternalNumber(call.channelId, forwardNumber, {
+      fallbackDid: queue.didNumber,
+      callerNumber: call.callerNumber,
+    });
 
     // After handing off to dialplan: set up DB tracking + poll loop for recording/transcript
     if (recordCalls) {
@@ -1476,7 +1492,59 @@ export class QueueEngine extends EventEmitter {
     return cleaned;                       // genuine national / already 00-form — leave untouched
   }
 
-  private async forwardToExternalNumber(channelId: string, number: string, opts?: { fallbackDid?: string | null; callerNumber?: string | null }): Promise<void> {
+  private async resolveForwardMissionRouting(
+    channelId: string,
+    number: string,
+    agentUserId?: string | null,
+  ): Promise<ResolvedOutboundRouting | null> {
+    const campaignId = await this.ariClient.getChannelVar(channelId, "CBC_CAMPAIGN_ID").catch(() => null);
+    if (campaignId) {
+      const campaign = await storage.getCampaign(campaignId).catch(() => undefined);
+      if (campaign) {
+        return resolveMissionOutboundRouting({
+          settings: campaign.settings,
+          countryCode: inferOutboundCountryCode(number, campaign.countryCodes),
+          legacyCallerIdNumber: campaign.callerIdNumber,
+        });
+      }
+    }
+
+    const did = await this.ariClient.getChannelVar(channelId, "CBC_DID").catch(() => null);
+    if (!did) return null;
+    const normalizedDid = normalizePhoneForRouting(did);
+    const candidates = await db.select({
+      id: campaigns.id,
+      settings: campaigns.settings,
+      callerIdNumber: campaigns.callerIdNumber,
+      countryCodes: campaigns.countryCodes,
+    }).from(campaigns).where(eq(campaigns.status, "active"));
+    const matches: ResolvedOutboundRouting[] = [];
+    for (const campaign of candidates) {
+      try {
+        const route = resolveMissionOutboundRouting({
+          settings: campaign.settings,
+          countryCode: "SK",
+          legacyCallerIdNumber: campaign.callerIdNumber,
+        });
+        if (
+          route.trunk === "o2-ims" &&
+          normalizePhoneForRouting(route.callerIdNumber) === normalizedDid
+        ) {
+          matches.push(route);
+        }
+      } catch {}
+    }
+    if (matches.length === 1) return matches[0];
+    if (matches.length > 1) {
+      console.warn(`[QueueEngine] Multiple active Missions use inbound DID ${did}; forwarding keeps global routing`);
+    }
+    return null;
+  }
+
+  private async forwardToExternalNumber(channelId: string, number: string, opts?: {
+    fallbackDid?: string | null;
+    callerNumber?: string | null;
+  }): Promise<void> {
     // Fetch sourceTrunk BEFORE stopping MOH so we know whether to defer the stop.
     // For RO inbound: MOH must keep playing until the ARI bridge is ready (see below).
     const sourceTrunk = await this.ariClient.getChannelVar(channelId, "CBC_SOURCE_TRUNK").catch(() => null);
@@ -1493,6 +1561,10 @@ export class QueueEngine extends EventEmitter {
     this.waitingCalls.delete(channelId);
 
     const norm = number.replace(/^\+/, "").replace(/\s/g, "");
+    const missionRouting = await this.resolveForwardMissionRouting(channelId, number).catch((error) => {
+      console.warn(`[QueueEngine] Could not resolve Mission forwarding route:`, error instanceof Error ? error.message : error);
+      return null;
+    });
 
     // RO inbound: use Local channel originate into Stasis.
     //
@@ -1635,29 +1707,43 @@ export class QueueEngine extends EventEmitter {
       primaryCtx = "from-internal";
     }
 
+    if (missionRouting?.trunk === "o2-ims") {
+      primaryCtx = "route-o2-ims";
+    } else if (missionRouting?.trunk === "sk-existing") {
+      primaryCtx = "from-internal-sk";
+    }
+
     // Caller-ID fix: the continueDialplan forwarding path (unlike the legacy originate
     // path) does not carry the caller's number to the forwarded mobile, so the agent's
     // phone showed no/incorrect CLI on forwarded queue calls. Set CALLERID + CBC_CALLER
     // on the inbound channel before handing to the dialplan (from-internal-* contexts
     // honor CBC_CALLER). Applies to the non-RO path (RO returns above).
-    let fwdCid = (opts?.callerNumber || "").replace(/\s/g, "");
+    let fwdCid = (missionRouting?.callerIdNumber || opts?.callerNumber || "").replace(/\s/g, "");
     if (!fwdCid) {
       try { const ch = await this.ariClient.getChannel(channelId); fwdCid = ch?.caller?.number || ""; } catch {}
     }
     // Normalize SK CLI to the national form SLOVANET requires (see formatSkCliForTrunk).
-    fwdCid = this.formatSkCliForTrunk(fwdCid);
+    if (missionRouting?.trunk !== "o2-ims") {
+      fwdCid = this.formatSkCliForTrunk(fwdCid);
+    }
     if (fwdCid) {
       try {
         await this.ariClient.setChannelVariable(channelId, "CALLERID(num)", fwdCid);
         await this.ariClient.setChannelVariable(channelId, "CALLERID(name)", fwdCid);
         await this.ariClient.setChannelVariable(channelId, "CBC_CALLER", fwdCid);
+        if (missionRouting) {
+          await this.ariClient.setChannelVariable(channelId, "CBC_OUTBOUND_TRUNK", missionRouting.trunk);
+          await this.ariClient.setChannelVariable(channelId, "CBC_OUTBOUND_CALLERID", fwdCid);
+        }
         console.log(`[QueueEngine] forwardToExternalNumber: set CALLERID=${fwdCid} on ${channelId}`);
       } catch (cidErr: any) {
         console.warn(`[QueueEngine] forwardToExternalNumber: failed to set CALLERID:`, cidErr?.message || cidErr);
       }
     }
 
-    const contexts = [primaryCtx, "from-internal", "indexus-outbound"];
+    const contexts = missionRouting?.trunk === "o2-ims" || missionRouting?.trunk === "sk-existing"
+      ? [primaryCtx]
+      : [primaryCtx, "from-internal", "indexus-outbound"];
     let forwarded = false;
     for (const ctx of contexts) {
       try {
@@ -2694,7 +2780,12 @@ export class QueueEngine extends EventEmitter {
 
     const waitDuration = Math.floor((Date.now() - call.enteredAt.getTime()) / 1000);
     const norm = agent.number.replace(/^\+/, "").replace(/\s/g, "");
-    const ctx = this.getOutboundContextForNumber(norm);
+    const missionRouting = await this.resolveForwardMissionRouting(call.channelId, agent.number).catch(() => null);
+    const ctx = missionRouting?.trunk === "o2-ims"
+      ? "route-o2-ims"
+      : missionRouting?.trunk === "sk-existing"
+        ? "from-internal-sk"
+        : this.getOutboundContextForNumber(norm);
     const ringSeconds = Math.min(Math.max(agent.ringSeconds || 25, 5), 55);
     const standingAgentId = `standing:${agent.userId}`;
 
@@ -2724,14 +2815,22 @@ export class QueueEngine extends EventEmitter {
       // requires SK CLI in national 0-form; the upstream DialLog box delivers it as
       // "0"+international (0421…) which SLOVANET rejects as malformed — normalize it
       // (see formatSkCliForTrunk). Only the presented CLI changes, not the dial target.
-      const cbcCaller = this.formatSkCliForTrunk(call.callerNumber || "");
+      const cbcCaller = missionRouting?.trunk === "o2-ims"
+        ? (missionRouting.callerIdNumber || "")
+        : this.formatSkCliForTrunk(call.callerNumber || "");
+      const channelVars: Record<string, string> = {};
+      if (cbcCaller) channelVars.__CBC_CALLER = cbcCaller;
+      if (missionRouting) {
+        channelVars.__CBC_OUTBOUND_TRUNK = missionRouting.trunk;
+        if (missionRouting.callerIdNumber) channelVars.__CBC_OUTBOUND_CALLERID = missionRouting.callerIdNumber;
+      }
       const localChannel = await this.ariClient.originateChannel(
         `Local/${norm}@${ctx}/n`,
         norm,
         ctx,
         call.callerNumber,
         `agent-call,${standingAgentId},${call.channelId}`,
-        cbcCaller ? { __CBC_CALLER: cbcCaller } : undefined,
+        Object.keys(channelVars).length > 0 ? channelVars : undefined,
       );
       console.log(`[QueueEngine] Standing forward: Local channel ${localChannel.id} originated (ctx=${ctx}, ring=${ringSeconds}s)`);
 

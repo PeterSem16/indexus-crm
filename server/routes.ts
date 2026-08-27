@@ -81,6 +81,11 @@ import {
 } from "@shared/schema";
 import Handlebars from "handlebars";
 import { z } from "zod";
+import {
+  inferOutboundCountryCode,
+  resolveMissionOutboundRouting,
+  validateMissionOutboundSettings,
+} from "@shared/telephony-routing";
 import session from "express-session";
 import pgSession from "connect-pg-simple";
 import PDFDocument from "pdfkit";
@@ -26001,6 +26006,12 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         if (smsProvider && !["admin", "manager"].includes(req.session.user!.role)) {
           return res.status(403).json({ error: "Only managers can set the Mission SMS provider" });
         }
+        const outboundRoutingError = validateMissionOutboundSettings(parsedSettings);
+        if (outboundRoutingError) return res.status(400).json({ error: outboundRoutingError });
+        if (parsedSettings?.outboundRoutingByCountry && !["admin", "manager"].includes(req.session.user!.role)) {
+          return res.status(403).json({ error: "Only managers can set Mission outbound routing" });
+        }
+        req.body.settings = JSON.stringify(parsedSettings);
       }
       const validatedData = insertCampaignSchema.parse({
         ...req.body,
@@ -26112,6 +26123,14 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           !["admin", "manager"].includes(req.session.user!.role)
         ) {
           return res.status(403).json({ error: "Only managers can change the Mission SMS provider" });
+        }
+        const outboundRoutingError = validateMissionOutboundSettings(nextSettings);
+        if (outboundRoutingError) return res.status(400).json({ error: outboundRoutingError });
+        if (
+          JSON.stringify(currentSettings.outboundRoutingByCountry || {}) !== JSON.stringify(nextSettings.outboundRoutingByCountry || {}) &&
+          !["admin", "manager"].includes(req.session.user!.role)
+        ) {
+          return res.status(403).json({ error: "Only managers can change Mission outbound routing" });
         }
         req.body.settings = JSON.stringify(nextSettings);
       }
@@ -32451,9 +32470,55 @@ Respond ONLY with valid JSON in this exact format:
 
   app.post("/api/sip/set-outbound-callerid", requireAuth, async (req, res) => {
     try {
-      const { sipExtension, callerIdNumber } = req.body;
+      const { sipExtension, callerIdNumber, campaignId, outboundTrunk, outboundCountry } = req.body;
       if (!sipExtension || !callerIdNumber) {
         return res.status(400).json({ error: "sipExtension and callerIdNumber are required" });
+      }
+
+      let validatedCallerId = callerIdNumber;
+      const sessionUser = req.session.user!;
+      const dbUser = await storage.getUser(sessionUser.id);
+      const [assignedSip] = await db.select({ extension: sipExtensions.extension })
+        .from(sipExtensions)
+        .where(and(
+          eq(sipExtensions.extension, sipExtension),
+          eq(sipExtensions.assignedToUserId, sessionUser.id),
+        ))
+        .limit(1);
+      const authenticatedSipExtension =
+        dbUser?.sipExtension === sipExtension ? sipExtension : assignedSip?.extension;
+      if (!authenticatedSipExtension) {
+        return res.status(403).json({ error: "SIP extension is not assigned to the authenticated user" });
+      }
+      if (outboundTrunk === "o2-ims" && !campaignId) {
+        return res.status(400).json({ error: "Mission is required for O2 IMS routing" });
+      }
+      if (campaignId && outboundTrunk && outboundTrunk !== "global") {
+        const campaign = await storage.getCampaign(campaignId);
+        if (!campaign) return res.status(404).json({ error: "Mission not found" });
+        const role = String(sessionUser.role || "").toLowerCase();
+        const canManageAllMissions = role === "admin" || role === "manager";
+        if (!canManageAllMissions) {
+          const [assignment] = await db.select({ id: campaignAgents.id })
+            .from(campaignAgents)
+            .where(and(
+              eq(campaignAgents.campaignId, campaignId),
+              eq(campaignAgents.userId, sessionUser.id),
+            ))
+            .limit(1);
+          if (!assignment) {
+            return res.status(403).json({ error: "User is not assigned to this Mission" });
+          }
+        }
+        const resolved = resolveMissionOutboundRouting({
+          settings: campaign.settings,
+          countryCode: outboundCountry || inferOutboundCountryCode(undefined, campaign.countryCodes),
+          legacyCallerIdNumber: campaign.callerIdNumber,
+        });
+        if (resolved.trunk !== outboundTrunk || !resolved.callerIdNumber) {
+          return res.status(400).json({ error: "Mission outbound routing does not match the requested trunk" });
+        }
+        validatedCallerId = resolved.callerIdNumber;
       }
 
       const engine = getQueueEngine();
@@ -32461,8 +32526,12 @@ Respond ONLY with valid JSON in this exact format:
         return res.status(503).json({ error: "Queue engine not available" });
       }
 
-      await engine.setOutboundCallerId(sipExtension, callerIdNumber);
-      res.json({ ok: true, message: `Caller ID ${callerIdNumber} set for extension ${sipExtension}` });
+      await engine.setOutboundCallerId(
+        authenticatedSipExtension,
+        validatedCallerId,
+        outboundTrunk === "o2-ims" && !!campaignId,
+      );
+      res.json({ ok: true, message: `Caller ID ${validatedCallerId} set for extension ${sipExtension}` });
     } catch (error) {
       console.error("Failed to set outbound caller ID:", error);
       res.status(500).json({ error: "Failed to set outbound caller ID" });

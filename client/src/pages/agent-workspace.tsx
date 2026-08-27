@@ -188,7 +188,10 @@ import { InboundCallPopup, InboundQueueStatus } from "@/components/agent/Inbound
 import { VoicemailNotifications } from "@/components/agent/VoicemailNotifications";
 import type { Campaign, Customer, CampaignContact, CampaignDisposition, AgentBreakType, Hospital, Clinic, Collaborator } from "@shared/schema";
 import { DISPOSITION_NAME_TRANSLATIONS } from "@shared/schema";
-import { resolveOutboundCallProvider } from "@shared/telephony-routing";
+import {
+  inferOutboundCountryCode,
+  resolveMissionOutboundRouting,
+} from "@shared/telephony-routing";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import { getCountryFlag } from "@/lib/countries";
@@ -12644,7 +12647,22 @@ export default function AgentWorkspacePage() {
     if (makeCall && currentContact) {
       agentSession.updateStatus("busy").catch(() => {});
       const customerName = `${currentContact.firstName || ""} ${currentContact.lastName || ""}`.trim();
-      const callerIdNumber = (selectedCampaign as any)?.callerIdNumber || undefined;
+      const outboundCountry = inferOutboundCountryCode(phoneNumber, selectedCampaign?.countryCodes);
+      let outboundRouting;
+      try {
+        outboundRouting = resolveMissionOutboundRouting({
+          settings: selectedCampaign?.settings,
+          countryCode: outboundCountry,
+          legacyCallerIdNumber: (selectedCampaign as any)?.callerIdNumber,
+        });
+      } catch (error) {
+        toast({
+          title: t.common.error,
+          description: error instanceof Error ? error.message : "Invalid Mission outbound routing",
+          variant: "destructive",
+        });
+        return;
+      }
       makeCall({
         phoneNumber,
         customerId: currentContact.id,
@@ -12653,8 +12671,10 @@ export default function AgentWorkspacePage() {
         campaignName: selectedCampaign?.name || undefined,
         campaignContactId: currentCampaignContactId || undefined,
         contactType: (currentContactType || "customer") as "customer" | "hospital" | "clinic" | "collaborator",
-        callerIdNumber,
-        provider: resolveOutboundCallProvider(callerIdNumber),
+        callerIdNumber: outboundRouting.callerIdNumber,
+        provider: outboundRouting.provider,
+        outboundTrunk: outboundRouting.trunk,
+        outboundCountry,
         maxRingSeconds: campaignMaxRingSeconds || undefined,
       });
       setTimeline((prev) => [

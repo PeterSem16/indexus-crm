@@ -63,3 +63,4 @@
 - [Inbound SIP answer options](inbound-sip-answer-options.md) — every inbound accept UI must use the shared TURN/ICE/DTLS negotiation path, never a reduced local invitation.accept.
 - [Managed Asterisk installer rollback](managed-asterisk-installer-rollback.md) — rollback removes only files created by that run; immediate post-reload registration checks are nonfatal.
 - [Queue bridge timeout claim](queue-bridge-timeout-claim.md) — remove an answered caller from assigned timeout tracking synchronously, before ARI bridge awaits, or overflow can tear down the new bridge.
+- [O2 Mission Caller ID trust](o2-mission-callerid-trust.md) — O2 CLI must come from a short-lived server-created AstDB authorization, never client SIP headers.

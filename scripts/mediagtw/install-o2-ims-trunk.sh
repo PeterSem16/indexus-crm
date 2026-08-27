@@ -253,8 +253,7 @@ if [[ "$managed_installation_exists" -eq 1 && "$UPDATE_EXISTING" -eq 1 ]]; then
         die "Dialplan reload reported an error; backups remain available."
       fi
     fi
-    log "Existing O2 IMS update finished. Backups are retained."
-    exit 0
+    log "Existing O2 IMS fragments migrated; regenerating the managed dialplan and outbound branch."
   fi
 fi
 
@@ -264,11 +263,11 @@ mapfile -t PROVIDER_IPS < <(getent ahostsv4 "$PROVIDER_HOST" | awk '{print $1}' 
 if [[ -n "${O2_IMS_CLI:-}" ]]; then
   CLI_NUMBER="$O2_IMS_CLI"
 else
-  printf 'Enter the exact O2-authorized outbound CLI in the form +42122213323x: '
+  printf 'Enter the exact O2-assigned virtual outbound CLI (for example +421940682394): '
   read -r CLI_NUMBER < /dev/tty
 fi
-[[ "$CLI_NUMBER" =~ ^\+42122213323[0-9]$ ]] ||
-  die "CLI must be one of the assigned +42122213323x numbers."
+[[ "$CLI_NUMBER" =~ ^\+421[0-9]{9}$ ]] ||
+  die "CLI must be an assigned Slovak O2 virtual number in E.164 format."
 
 if [[ -n "${O2_SIP_PASSWORD_FILE:-}" ]]; then
   [[ -f "$O2_SIP_PASSWORD_FILE" ]] || die "O2_SIP_PASSWORD_FILE does not exist."
@@ -402,13 +401,14 @@ exten => _X.,1,GotoIf(\$["\${EXTEN:0:2}"="00"]?o2-00)
  same => n,Hangup()
 
 [o2-ims-common]
-exten => s,1,NoOp(O2 IMS outbound number=\${OUTNUM} cli=\${O2_IMS_CLI})
+exten => s,1,Set(MISSION_CID=\${CBC_OUTBOUND_CALLERID})
+ same => n,ExecIf(\$[\${LEN(\${MISSION_CID})}=0]?Set(MISSION_CID=\${O2_IMS_CLI}))
+ same => n,NoOp(O2 IMS outbound number=\${OUTNUM} cli=\${MISSION_CID})
  same => n,Set(GROUP()=o2-ims)
  same => n,GotoIf(\$[\${GROUP_COUNT(o2-ims)} > 10]?o2-ims-limit,s,1)
- same => n,Set(CALLERID(num)=\${O2_IMS_CLI})
- same => n,Set(CALLERID(name)=\${O2_IMS_CLI})
- same => n,Set(CAMPAIGN_CID=\${PJSIP_HEADER(read,X-Campaign-CallerID)})
- same => n,ExecIf(\$[\${LEN(\${CAMPAIGN_CID})} > 0]?Set(PJSIP_HEADER(add,X-Campaign-CallerID)=\${CAMPAIGN_CID}))
+ same => n,Set(CALLERID(num)=\${MISSION_CID})
+ same => n,Set(CALLERID(name)=\${MISSION_CID})
+ same => n,ExecIf(\$[\${LEN(\${MISSION_CID})} > 0]?Set(PJSIP_HEADER(add,X-Campaign-CallerID)=\${MISSION_CID}))
  same => n,Dial(PJSIP/\${OUTNUM}@o2-ims-endpoint,60)
  same => n,NoOp(O2 IMS result DIALSTATUS=\${DIALSTATUS} HANGUPCAUSE=\${HANGUPCAUSE})
  same => n,Return()
@@ -457,11 +457,21 @@ EOF
 readonly OUTBOUND_ANCHOR='NoOp(Outbound CID: ext=${ORIG_EXT} collab=${COLLAB_CID} campaign=${CAMPAIGN_CID} final=${CALLERID(num)})'
 branch_file="$(mktemp)"
 cat > "$branch_file" <<'EOF'
+ same => n,Set(__CBC_CAMPAIGN_ID=${PJSIP_HEADER(read,X-Campaign-ID)})
+ same => n,Set(__CBC_OUTBOUND_TRUNK=${PJSIP_HEADER(read,X-Indexus-Outbound-Trunk)})
+ same => n,Set(__CBC_OUTBOUND_CALLERID=${CAMPAIGN_CID})
  same => n,Set(O2_PROVIDER=${PJSIP_HEADER(read,X-Provider)})
  same => n,GotoIf($["${O2_PROVIDER}"!="O2-IMS"]?o2-provider-selection-done)
  same => n,Set(O2_AUTH_ENDPOINT=${CHANNEL(endpoint)})
  same => n,Set(O2_ALLOWED=${DB(o2ims/allowed/${O2_AUTH_ENDPOINT})})
- same => n,GotoIf($["${O2_ALLOWED}"="1"]?route-o2-ims,${EXTEN},1:o2-ims-denied,s,1)
+ same => n,GotoIf($["${O2_ALLOWED}"!="1"]?o2-ims-denied,s,1)
+ same => n,Set(SERVER_MISSION_AUTH=${DB(o2ims/pendingcid/${O2_AUTH_ENDPOINT})})
+ same => n,Set(DELETED_MISSION_AUTH=${DB_DELETE(o2ims/pendingcid/${O2_AUTH_ENDPOINT})})
+ same => n,Set(SERVER_MISSION_CID=${CUT(SERVER_MISSION_AUTH,|,1)})
+ same => n,Set(SERVER_MISSION_EXP=${CUT(SERVER_MISSION_AUTH,|,2)})
+ same => n,GotoIf($["${SERVER_MISSION_CID}"="" | ${SERVER_MISSION_EXP} < ${EPOCH}]?o2-ims-denied,s,1)
+ same => n,Set(__CBC_OUTBOUND_CALLERID=${SERVER_MISSION_CID})
+ same => n,Goto(route-o2-ims,${EXTEN},1)
  same => n(o2-provider-selection-done),NoOp(O2 provider selection not requested)
 EOF
 patched_extensions="$(mktemp)"
@@ -470,6 +480,12 @@ patched_extensions="$(mktemp)"
     rm -f "$branch_file"
   else
     awk -v anchor="$OUTBOUND_ANCHOR" -v injection="$branch_file" '
+  /Set\(__CBC_CAMPAIGN_ID=/ || /Set\(__CBC_OUTBOUND_TRUNK=/ || /Set\(__CBC_OUTBOUND_CALLERID=/ { next }
+  /Set\(O2_PROVIDER=.*X-Provider/ { replacing_old_o2_branch = 1; next }
+  replacing_old_o2_branch {
+    if ($0 ~ /o2-provider-selection-done/) replacing_old_o2_branch = 0
+    next
+  }
   {
     print
     if (!inserted && index($0, anchor)) {

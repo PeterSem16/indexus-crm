@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useRef, useCallback, useMemo, type ReactNode } from "react";
+import type { OutboundTrunkSelection } from "@shared/telephony-routing";
 
 export type CallState = "idle" | "connecting" | "ringing" | "active" | "on_hold" | "ended";
 
@@ -12,6 +13,8 @@ interface CallInfo {
   didNumber?: string;
   queueId?: string;
   provider?: "O2-IMS";
+  outboundTrunk?: OutboundTrunkSelection;
+  outboundCallerId?: string;
   direction: "inbound" | "outbound";
   callLogId?: number;
   leadScore?: number;
