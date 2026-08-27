@@ -1,0 +1,45 @@
+seman@mediagtw:/tmp$ grep -RInE '^\[transport-udp\]|external_signaling_address|external_media_address' /etc/asterisk
+/etc/asterisk/pjsip.conf.before-final-generator.bak:16:[transport-udp]
+/etc/asterisk/pjsip.conf.before-final-generator.bak:24:external_signaling_address=10.1.2.112
+/etc/asterisk/pjsip.conf.before-final-generator.bak:25:external_media_address=10.1.2.112
+/etc/asterisk/pjsip.conf.before-final-generator.bak:35:external_signaling_address=mediagtw.cordbloodcenter.com
+/etc/asterisk/pjsip.conf.before-final-generator.bak:36:external_media_address=mediagtw.cordbloodcenter.com
+/etc/asterisk/pjsip.conf.bak:140:;external_media_address=203.0.113.1
+/etc/asterisk/pjsip.conf.bak:141:;external_signaling_address=203.0.113.1
+/etc/asterisk/pjsip.conf.bak:1194:;external_media_address=        ; External IP address to use in RTP handling
+/etc/asterisk/pjsip.conf.bak:1196:;external_signaling_address=    ; External address for SIP signalling (default:
+/etc/asterisk/pjsip.conf:16:[transport-udp]
+/etc/asterisk/pjsip.conf:24:external_signaling_address=77.72.181.116
+/etc/asterisk/pjsip.conf:25:external_media_address=77.72.181.116
+/etc/asterisk/pjsip.conf:37:;external_signaling_address=mediagtw.cordbloodcenter.com
+/etc/asterisk/pjsip.conf:38:;external_media_address=mediagtw.cordbloodcenter.com
+/etc/asterisk/pjsip.conf:39:external_signaling_address=77.72.181.116
+/etc/asterisk/pjsip.conf:40:external_media_address=77.72.181.116
+/etc/asterisk/pjsip.conf.o2-ims-backup.20260827-082615.bak:16:[transport-udp]
+/etc/asterisk/pjsip.conf.o2-ims-backup.20260827-082615.bak:24:external_signaling_address=77.72.181.116
+/etc/asterisk/pjsip.conf.o2-ims-backup.20260827-082615.bak:25:external_media_address=77.72.181.116
+/etc/asterisk/pjsip.conf.o2-ims-backup.20260827-082615.bak:37:;external_signaling_address=mediagtw.cordbloodcenter.com
+/etc/asterisk/pjsip.conf.o2-ims-backup.20260827-082615.bak:38:;external_media_address=mediagtw.cordbloodcenter.com
+/etc/asterisk/pjsip.conf.o2-ims-backup.20260827-082615.bak:39:external_signaling_address=77.72.181.116
+/etc/asterisk/pjsip.conf.o2-ims-backup.20260827-082615.bak:40:external_media_address=77.72.181.116
+/etc/asterisk/pjsip.conf.before-working-generator.bak:16:[transport-udp]
+/etc/asterisk/pjsip.conf.before-working-generator.bak:24:external_signaling_address=10.1.2.112
+/etc/asterisk/pjsip.conf.before-working-generator.bak:25:external_media_address=10.1.2.112
+/etc/asterisk/pjsip.conf.before-working-generator.bak:35:external_signaling_address=mediagtw.cordbloodcenter.com
+/etc/asterisk/pjsip.conf.before-working-generator.bak:36:external_media_address=mediagtw.cordbloodcenter.com
+/etc/asterisk/pjsip.conf.before-expiration-fix.bak:15:[transport-udp]
+/etc/asterisk/pjsip.conf.before-expiration-fix.bak:23:external_signaling_address=10.1.2.112
+/etc/asterisk/pjsip.conf.before-expiration-fix.bak:24:external_media_address=10.1.2.112
+/etc/asterisk/pjsip.conf.before-expiration-fix.bak:34:external_signaling_address=mediagtw.cordbloodcenter.com
+/etc/asterisk/pjsip.conf.before-expiration-fix.bak:35:external_media_address=mediagtw.cordbloodcenter.com
+/etc/asterisk/pjsip.conf.bad-template.bak:16:[transport-udp]
+/etc/asterisk/pjsip.conf.bad-template.bak:24:external_signaling_address=10.1.2.112
+/etc/asterisk/pjsip.conf.bad-template.bak:25:external_media_address=10.1.2.112
+/etc/asterisk/pjsip.conf.bad-template.bak:35:external_signaling_address=mediagtw.cordbloodcenter.com
+/etc/asterisk/pjsip.conf.bad-template.bak:36:external_media_address=mediagtw.cordbloodcenter.com
+/etc/asterisk/pjsip.conf.bak_2026-03-13_11-51-32:16:[transport-udp]
+/etc/asterisk/pjsip.conf.bak_2026-03-13_11-51-32:24:external_signaling_address=10.1.2.112
+/etc/asterisk/pjsip.conf.bak_2026-03-13_11-51-32:25:external_media_address=10.1.2.112
+/etc/asterisk/pjsip.conf.bak_2026-03-13_11-51-32:35:external_signaling_address=mediagtw.cordbloodcenter.com
+/etc/asterisk/pjsip.conf.bak_2026-03-13_11-51-32:36:external_media_address=mediagtw.cordbloodcenter.com
+seman@mediagtw:/tmp$
