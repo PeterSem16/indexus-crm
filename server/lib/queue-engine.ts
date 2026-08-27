@@ -310,6 +310,10 @@ export class QueueEngine extends EventEmitter {
 
     this.ariClient.on("channel-destroyed", (event: AriEvent) => {
       if (event.channel) {
+        console.log(
+          `[QueueEngine] channel-destroyed: channel=${event.channel.id} name=${event.channel.name || "unknown"} ` +
+          `cause=${event.cause ?? "unknown"} causeText=${event.cause_txt || "unknown"}`,
+        );
         this.handleChannelDestroyed(event.channel.id).catch(err => {
           console.error("[QueueEngine] handleChannelDestroyed error:", err instanceof Error ? err.message : err);
         });
@@ -3887,6 +3891,13 @@ export class QueueEngine extends EventEmitter {
     this.pendingAgentCalls.delete(agentChannelId);
     const isTransfer = pending.agentId === "transfer-target";
 
+    // Claim the caller synchronously before the first await. Otherwise checkTimeouts()
+    // can still see it in assignedCalls while stop-MOH/create-bridge is in progress and
+    // fire max-wait overflow, which tears down a bridge immediately after both channels join.
+    const assignedAtAnswer = this.assignedCalls.get(pending.callerChannelId);
+    this.assignedCalls.delete(pending.callerChannelId);
+    this.waitingCalls.delete(pending.callerChannelId);
+
     // ── Ring-all: synchronous claim BEFORE the first await ──────────────────────
     // JavaScript is single-threaded; everything up to the first `await` runs
     // atomically. Two concurrent handleAgentChannelAnswer calls can only interleave
@@ -3904,7 +3915,6 @@ export class QueueEngine extends EventEmitter {
         // We are the winner — claim synchronously (no await until after this block).
         this.ringAllClaimedCallers.add(pending.callerChannelId);
         this.ringAllPending.delete(pending.callerChannelId);
-        this.assignedCalls.delete(pending.callerChannelId);
         // Also clear waitingCalls — a rejected agent's handleChannelDestroyed may
         // have already put the call back there; leaving it would cause a duplicate
         // ring-all on the next queue tick and tear down the winner's bridge.
@@ -4018,6 +4028,17 @@ export class QueueEngine extends EventEmitter {
       console.error(`[QueueEngine] Failed to bridge channels:`, err.message);
       this.ringAllClaimedCallers.delete(pending.callerChannelId);
       try { await this.ariClient.hangupChannel(agentChannelId, "normal"); } catch {}
+      if (assignedAtAnswer && !isTransfer) {
+        const recoveredCall = assignedAtAnswer.call;
+        recoveredCall.position = this.getQueueSize(recoveredCall.queueId) + 1;
+        this.waitingCalls.set(recoveredCall.channelId, recoveredCall);
+        this.recalculatePositions(recoveredCall.queueId);
+        await db.update(inboundCallLogs)
+          .set({ status: "queued", assignedAgentId: null })
+          .where(eq(inboundCallLogs.id, recoveredCall.id))
+          .catch(() => {});
+        await this.startMohForChannel(recoveredCall.channelId, recoveredCall.queueId);
+      }
       if (this.isStandingId(pending.agentId)) {
         this.standingBridgeSignals.delete(agentChannelId);
         this.standingForwardBusy.delete(this.standingUserId(pending.agentId));

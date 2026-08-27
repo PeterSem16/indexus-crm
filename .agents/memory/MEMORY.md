@@ -62,3 +62,4 @@
 - [O2 SIP NAT source address](o2-sip-nat-source-address.md) — trust received/rport as the provider-visible source IP; align transport advertisement with it when Via/Contact differs.
 - [Inbound SIP answer options](inbound-sip-answer-options.md) — every inbound accept UI must use the shared TURN/ICE/DTLS negotiation path, never a reduced local invitation.accept.
 - [Managed Asterisk installer rollback](managed-asterisk-installer-rollback.md) — rollback removes only files created by that run; immediate post-reload registration checks are nonfatal.
+- [Queue bridge timeout claim](queue-bridge-timeout-claim.md) — remove an answered caller from assigned timeout tracking synchronously, before ARI bridge awaits, or overflow can tear down the new bridge.
