@@ -478,8 +478,10 @@ export class QueueEngine extends EventEmitter {
     if (allowO2Ims) {
       const expiresAtEpoch = Math.floor(Date.now() / 1000) + 30;
       await this.ariClient.setAsteriskDB("o2ims/pendingcid", sipExtension, `${callerIdNumber}|${expiresAtEpoch}`);
+      await this.ariClient.setAsteriskDB("o2ims/allowed", sipExtension, "1");
     } else {
       await this.ariClient.deleteAsteriskDB("o2ims/pendingcid", sipExtension).catch(() => undefined);
+      await this.ariClient.deleteAsteriskDB("o2ims/allowed", sipExtension).catch(() => undefined);
     }
     console.log(`[QueueEngine] Pending outbound caller ID set: ext=${sipExtension}, callerId=${callerIdNumber} (expires in 30s)`);
   }
