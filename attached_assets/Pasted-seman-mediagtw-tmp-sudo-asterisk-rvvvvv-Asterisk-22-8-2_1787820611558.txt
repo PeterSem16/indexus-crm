@@ -1,0 +1,67 @@
+seman@mediagtw:/tmp$ sudo asterisk -rvvvvv
+Asterisk 22.8.2, Copyright (C) 1999 - 2025, Sangoma Technologies Corporation and others.
+Created by Mark Spencer <markster@digium.com>
+Asterisk comes with ABSOLUTELY NO WARRANTY; type 'core show warranty' for details.
+This is free software, with components licensed under the GNU General Public
+License version 2 and other licenses; you are welcome to redistribute it under
+certain conditions. Type 'core show license' for details.
+=========================================================================
+Running as user 'asterisk'
+Running under group 'asterisk'
+Connected to Asterisk 22.8.2 currently running on mediagtw (pid = 838644)
+mediagtw*CLI> pjsip set logger host 185.103.146.200
+PJSIP Logging Enabled for host: 185.103.146.200
+<--- Transmitting SIP request (438 bytes) to UDP:185.103.146.200:5060 --->
+OPTIONS sip:sipt1.ims.o2bs.sk:5060 SIP/2.0
+Via: SIP/2.0/UDP 77.72.181.113:5060;rport;branch=z9hG4bKPj21c58e51-65a1-4976-8ccf-735ebd6ae9d5
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=10fe176a-2d73-4590-9564-d569d6cf3191
+To: <sip:sipt1.ims.o2bs.sk>
+Contact: <sip:421222190337@77.72.181.113:5060>
+Call-ID: 8353537a-a532-4019-bd25-038052055223
+CSeq: 279 OPTIONS
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP response (550 bytes) from UDP:185.103.146.200:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 77.72.181.113:5060;branch=z9hG4bKPj21c58e51-65a1-4976-8ccf-735ebd6ae9d5;received=77.72.181.113;rport=5060
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=10fe176a-2d73-4590-9564-d569d6cf3191
+To: <sip:sipt1.ims.o2bs.sk>;tag=as343e9821
+Call-ID: 8353537a-a532-4019-bd25-038052055223
+CSeq: 279 OPTIONS
+Server: O2BS SK IMS
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+Contact: <sip:185.103.146.200:5060>
+Accept: application/sdp
+Content-Length: 0
+
+
+<--- Transmitting SIP request (440 bytes) to UDP:185.103.146.200:5060 --->
+OPTIONS sip:sipt1.ims.o2bs.sk:5060 SIP/2.0
+Via: SIP/2.0/UDP 77.72.181.113:5060;rport;branch=z9hG4bKPjac7b9ac2-afb4-4906-8da0-a5aaa31116c5
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=7fb981e5-c8db-4294-95bb-fe8dca63c629
+To: <sip:sipt1.ims.o2bs.sk>
+Contact: <sip:421222190337@77.72.181.113:5060>
+Call-ID: 939ffd8a-ad6a-484e-96b2-0aef9347ab23
+CSeq: 21558 OPTIONS
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP response (552 bytes) from UDP:185.103.146.200:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 77.72.181.113:5060;branch=z9hG4bKPjac7b9ac2-afb4-4906-8da0-a5aaa31116c5;received=77.72.181.113;rport=5060
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=7fb981e5-c8db-4294-95bb-fe8dca63c629
+To: <sip:sipt1.ims.o2bs.sk>;tag=as1f5b75e3
+Call-ID: 939ffd8a-ad6a-484e-96b2-0aef9347ab23
+CSeq: 21558 OPTIONS
+Server: O2BS SK IMS
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+Contact: <sip:185.103.146.200:5060>
+Accept: application/sdp
+Content-Length: 0
