@@ -1,0 +1,24 @@
+[Aug 27 11:32:08] WARNING[839447][C-00000005]: res_stasis_playback.c:280 playback_final_update: 1787830307.8: Playback failed for sound:custom/moh-slow-jazz
+    -- Executing [+421940682394@from-o2-ims:1] Gosub("PJSIP/o2-ims-endpoint-00000008", "o2-ims-inbound,s,1(421940682394)") in new stack
+    -- Executing [s@o2-ims-inbound:1] NoOp("PJSIP/o2-ims-endpoint-00000008", "INBOUND O2 IMS DID=421940682394 CID="" <+421222133230>") in new stack
+    -- Executing [s@o2-ims-inbound:2] Set("PJSIP/o2-ims-endpoint-00000008", "GROUP()=o2-ims") in new stack
+    -- Executing [s@o2-ims-inbound:3] GotoIf("PJSIP/o2-ims-endpoint-00000008", "0?o2-ims-limit,s,1") in new stack
+    -- Executing [s@o2-ims-inbound:4] Set("PJSIP/o2-ims-endpoint-00000008", "__CBC_SOURCE_TRUNK=O2") in new stack
+[Aug 27 11:32:21] WARNING[839458][C-00000006]: func_channel.c:610 func_channel_read: Unknown or unavailable item requested: 'recvip'
+    -- Executing [s@o2-ims-inbound:5] Set("PJSIP/o2-ims-endpoint-00000008", "__CBC_SOURCE_IP=") in new stack
+    -- Executing [s@o2-ims-inbound:6] Set("PJSIP/o2-ims-endpoint-00000008", "__CBC_DID=421940682394") in new stack
+    -- Executing [s@o2-ims-inbound:7] Set("PJSIP/o2-ims-endpoint-00000008", "__CBC_CALLER=+421222133230") in new stack
+    -- Executing [s@o2-ims-inbound:8] Stasis("PJSIP/o2-ims-endpoint-00000008", "indexus-inbound") in new stack
+    -- <PJSIP/o2-ims-endpoint-00000008> Playing 'custom/moh-slow-jazz.slin' (language 'en')
+[Aug 27 11:32:21] NOTICE[839458][C-00000006]: res_stasis_playback.c:277 playback_final_update: 1787830341.11: Playback stopped for sound:custom/moh-slow-jazz
+    -- <PJSIP/o2-ims-endpoint-00000008> Playing 'custom/moh-slow-jazz.slin' (language 'en')
+    -- Called 2001
+    -- PJSIP/2001-00000009 is ringing
+    -- PJSIP/2001-00000009 answered
+       > Launching Stasis(indexus-inbound,agent-call,67467ce3-7a44-4f67-a3d3-6a251e2991e5,1787830341.11) on PJSIP/2001-00000009
+[Aug 27 11:32:39] NOTICE[839458][C-00000006]: res_stasis_playback.c:277 playback_final_update: 1787830341.11: Playback stopped for sound:custom/moh-slow-jazz
+    -- Channel PJSIP/o2-ims-endpoint-00000008 joined 'simple_bridge' stasis-bridge <ff3e1e29-da3d-4fa3-8946-339a5d91c49d>
+    -- Channel PJSIP/2001-00000009 joined 'simple_bridge' stasis-bridge <ff3e1e29-da3d-4fa3-8946-339a5d91c49d>
+    -- Channel PJSIP/o2-ims-endpoint-00000008 left 'simple_bridge' stasis-bridge <ff3e1e29-da3d-4fa3-8946-339a5d91c49d>
+    -- Channel PJSIP/2001-00000009 left 'simple_bridge' stasis-bridge <ff3e1e29-da3d-4fa3-8946-339a5d91c49d>
+mediagtw*CLI> 641577

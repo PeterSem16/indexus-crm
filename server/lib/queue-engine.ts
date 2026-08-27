@@ -34,7 +34,7 @@ import { decryptTokenSafe } from "./token-crypto";
 import { STORAGE_PATHS } from "../config/storage-paths";
 import { AriClient, type AriEvent, type AriChannel } from "./ari-client";
 import { inboundCallWs } from "./inbound-call-ws";
-import { inboundDidCandidates, resolveInboundDid } from "./inbound-did";
+import { inboundDidCandidates, resolveInboundCallerNumber, resolveInboundDid } from "./inbound-did";
 
 // Agent presence for desk/PJSIP routing is derived from the LIVE Nexus Pulse
 // WebSocket (inboundCallWs). The agent-workspace opens /ws/inbound-calls only while a
@@ -900,10 +900,31 @@ export class QueueEngine extends EventEmitter {
 
     const channel = event.channel;
     const stasisArgs = event.args || [];
-    const rawCallerNumber = channel.caller?.number || stasisArgs[1] || "unknown";
-    const callerNumber = rawCallerNumber.split("@")[0];
     const callerName = channel.caller?.name || "";
-    const channelDid = await this.ariClient.getChannelVar(channel.id, "CBC_DID").catch(() => null);
+    const [
+      channelDid,
+      sourceTrunk,
+      preservedCaller,
+      assertedIdentity,
+      preferredIdentity,
+      remotePartyId,
+    ] = await Promise.all([
+      this.ariClient.getChannelVar(channel.id, "CBC_DID").catch(() => null),
+      this.ariClient.getChannelVar(channel.id, "CBC_SOURCE_TRUNK").catch(() => null),
+      this.ariClient.getChannelVar(channel.id, "CBC_CALLER").catch(() => null),
+      this.ariClient.getChannelVar(channel.id, "PJSIP_HEADER(read,P-Asserted-Identity)").catch(() => null),
+      this.ariClient.getChannelVar(channel.id, "PJSIP_HEADER(read,P-Preferred-Identity)").catch(() => null),
+      this.ariClient.getChannelVar(channel.id, "PJSIP_HEADER(read,Remote-Party-ID)").catch(() => null),
+    ]);
+    const callerNumber = sourceTrunk === "O2"
+      ? resolveInboundCallerNumber({
+          assertedIdentity,
+          preferredIdentity,
+          remotePartyId,
+          preservedCaller,
+          channelCaller: channel.caller?.number || stasisArgs[1],
+        })
+      : (channel.caller?.number || stasisArgs[1] || "unknown").split("@")[0];
     const dialedNumber = resolveInboundDid({
       channelVariable: channelDid,
       stasisArgument: stasisArgs[0],

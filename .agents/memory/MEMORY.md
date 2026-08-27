@@ -60,3 +60,4 @@
 - [Mission SMS provider enforcement](mission-sms-provider-enforcement.md) — derive Mission from server context; manual routes must validate active-session and recipient membership before selecting a gateway.
 - [O2 IMS inbound trust](o2-ims-inbound-trust.md) — O2 confirmed inbound SIP is authorized only by provider IP; never require Digest auth on the inbound endpoint.
 - [O2 SIP NAT source address](o2-sip-nat-source-address.md) — trust received/rport as the provider-visible source IP; align transport advertisement with it when Via/Contact differs.
+- [Inbound SIP answer options](inbound-sip-answer-options.md) — every inbound accept UI must use the shared TURN/ICE/DTLS negotiation path, never a reduced local invitation.accept.

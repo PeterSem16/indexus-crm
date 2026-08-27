@@ -13339,29 +13339,18 @@ export default function AgentWorkspacePage() {
         if (invState === "Established") {
           console.log("[AgentWS] Call already established, proceeding directly");
         } else {
-          try {
-            await invitation.accept({
-              sessionDescriptionHandlerOptions: {
-                constraints: { audio: true, video: false }
-              }
-            });
-            console.log("[AgentWS] SIP accept succeeded");
-          } catch (acceptErr: any) {
-            console.warn("[AgentWS] SIP accept threw:", acceptErr?.message);
-            const postState = invitation.state;
-            if (postState !== "Established" && postState !== "Establishing") {
-              toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.callAcceptError, variant: "destructive" });
-              removeCall();
-              setIncomingCallWithRef(null);
-              acceptingCallRef.current = false;
-              return;
-            }
-            console.log("[AgentWS] Call is", postState, "despite accept error - proceeding");
+          const acceptedInvitation = await answerIncomingCall({ publishAnsweredSession: false });
+          if (!acceptedInvitation) {
+            toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.callAcceptError, variant: "destructive" });
+            removeCall();
+            acceptingCallRef.current = false;
+            return;
           }
+          invitation = acceptedInvitation;
+          console.log("[AgentWS] SIP accept succeeded through shared media setup");
         }
 
         removeCall();
-        setIncomingCallWithRef(null);
         const shouldAutoRecord = !!call.recordCalls || callContext.autoRecord;
         const inboundOptions = { autoRecord: shouldAutoRecord };
         console.log("[AgentWS] Inbound options:", { recordCalls: !!call.recordCalls, globalAutoRecord: callContext.autoRecord, shouldAutoRecord });
@@ -13388,25 +13377,27 @@ export default function AgentWorkspacePage() {
           fallbackInvite._inboundCallerNumber = callerNumber;
           fallbackInvite._inboundCallerName = call.callerName;
           fallbackInvite._inboundRecordCalls = !!call.recordCalls;
-          try {
-            if (fallbackInvite.state !== "Established") {
-              await fallbackInvite.accept({ sessionDescriptionHandlerOptions: { constraints: { audio: true, video: false } } });
-            }
-          } catch (acceptErr: any) {
-            const postState = fallbackInvite.state;
-            if (postState !== "Established" && postState !== "Establishing") {
+          let answeredFallbackInvite = fallbackInvite;
+          if (fallbackInvite.state !== "Established") {
+            answeredFallbackInvite = await answerIncomingCall({ publishAnsweredSession: false });
+            if (!answeredFallbackInvite) {
               toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.callAcceptError, variant: "destructive" });
               acceptingCallRef.current = false;
               return;
             }
           }
           removeCall();
-          setIncomingCallWithRef(null);
+          answeredFallbackInvite._inboundQueueId = call.queueId;
+          answeredFallbackInvite._inboundQueueName = call.queueName;
+          answeredFallbackInvite._inboundCallLogId = call.callId;
+          answeredFallbackInvite._inboundCallerNumber = callerNumber;
+          answeredFallbackInvite._inboundCallerName = call.callerName;
+          answeredFallbackInvite._inboundRecordCalls = !!call.recordCalls;
           const shouldAutoRecord = !!call.recordCalls || callContext.autoRecord;
           if (callContext.handleInboundAnsweredFn.current) {
-            callContext.handleInboundAnsweredFn.current(fallbackInvite, { autoRecord: shouldAutoRecord });
+            callContext.handleInboundAnsweredFn.current(answeredFallbackInvite, { autoRecord: shouldAutoRecord });
           } else {
-            callContext.queuedInboundSession.current = { session: fallbackInvite, options: { autoRecord: shouldAutoRecord } };
+            callContext.queuedInboundSession.current = { session: answeredFallbackInvite, options: { autoRecord: shouldAutoRecord } };
             callContext.setAutoRecord(shouldAutoRecord);
             setAnsweredIncomingSession(fallbackInvite);
           }
@@ -13427,7 +13418,7 @@ export default function AgentWorkspacePage() {
     } finally {
       acceptingCallRef.current = false;
     }
-  }, [incomingCallRef, setIncomingCallWithRef, setAnsweredIncomingSession, callContext, toast, user?.id, agentSession, selectedCampaignId, selectedCampaign]);
+  }, [incomingCallRef, answerIncomingCall, setAnsweredIncomingSession, callContext, toast, user?.id, agentSession, selectedCampaignId, selectedCampaign]);
 
   const handleRejectInboundCall = useCallback((call: InboundCallEntry | null) => {
     if (!call) return;

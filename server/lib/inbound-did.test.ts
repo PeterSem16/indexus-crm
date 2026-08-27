@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import {
+  extractSipIdentityNumber,
   groupActiveQueueDids,
   inboundDidCandidates,
   normalizeInboundDid,
+  resolveInboundCallerNumber,
   resolveInboundDid,
 } from "./inbound-did";
 
@@ -78,6 +80,21 @@ test("keeps multiple active DIDs on one agent queue", () => {
     "421940682394",
   ]);
   assert.equal(grouped.size, 1);
+});
+
+test("extracts the real caller from an IMS asserted identity", () => {
+  assert.equal(
+    extractSipIdentityNumber('"Caller" <sip:+421948519438@sipt1.ims.o2bs.sk>;party=calling'),
+    "+421948519438",
+  );
+  assert.equal(
+    resolveInboundCallerNumber({
+      assertedIdentity: "<sip:+421948519438@ims.o2bs.sk>",
+      preservedCaller: "+421222133230",
+      channelCaller: "+421222133230",
+    }),
+    "+421948519438",
+  );
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

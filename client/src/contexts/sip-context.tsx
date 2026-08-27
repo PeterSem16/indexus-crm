@@ -77,7 +77,7 @@ interface SipContextType {
   incomingCall: IncomingCall | null;
   answeredIncomingSession: any;
   clearAnsweredSession: () => void;
-  answerIncomingCall: () => Promise<any>;
+  answerIncomingCall: (options?: { publishAnsweredSession?: boolean }) => Promise<any>;
   rejectIncomingCall: () => void;
   setIncomingCallWithRef: (value: IncomingCall | null | ((prev: IncomingCall | null) => IncomingCall | null)) => void;
   setAnsweredIncomingSession: (session: any) => void;
@@ -139,7 +139,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
     setAnsweredIncomingSession(null);
   }, []);
 
-  const answerIncomingCall = useCallback(async () => {
+  const answerIncomingCall = useCallback(async (options?: { publishAnsweredSession?: boolean }) => {
     const currentIncoming = incomingCallRef.current;
     if (!currentIncoming?.invitation) {
       console.warn("[SIP] answerIncomingCall called but no invitation available (ref:", !!incomingCallRef.current, ")");
@@ -179,7 +179,9 @@ export function SipProvider({ children }: { children: ReactNode }) {
       invitation._inboundCallerNumber = callerNumber;
       invitation._inboundCallerName = callerName;
       setIncomingCallWithRef(null);
-      setAnsweredIncomingSession(invitation);
+      if (options?.publishAnsweredSession !== false) {
+        setAnsweredIncomingSession(invitation);
+      }
       return invitation;
     } catch (e: any) {
       console.error("[SIP] Failed to answer incoming call:", e);

@@ -243,6 +243,7 @@ rtp_timeout=60
 timers=no
 send_pai=yes
 send_rpid=yes
+trust_id_inbound=yes
 trust_id_outbound=yes
 identify_by=ip
 max_audio_streams=1

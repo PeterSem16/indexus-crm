@@ -59,3 +59,31 @@ export function groupActiveQueueDids<T extends QueueDidRoute>(routes: T[]): Map<
   }
   return didsByQueue;
 }
+
+export function extractSipIdentityNumber(value: string | null | undefined): string {
+  if (!value) return "";
+  const sipMatch = value.match(/sips?:\s*([+]?\d+)/i);
+  if (sipMatch?.[1]) return sipMatch[1];
+  const phoneMatch = value.match(/([+]?\d[\d\s().-]{5,}\d)/);
+  return phoneMatch?.[1]?.replace(/[^\d+]/g, "") || "";
+}
+
+export function resolveInboundCallerNumber(sources: {
+  assertedIdentity?: string | null;
+  preferredIdentity?: string | null;
+  remotePartyId?: string | null;
+  preservedCaller?: string | null;
+  channelCaller?: string | null;
+}): string {
+  for (const source of [
+    sources.assertedIdentity,
+    sources.preferredIdentity,
+    sources.remotePartyId,
+    sources.preservedCaller,
+    sources.channelCaller,
+  ]) {
+    const extracted = extractSipIdentityNumber(source);
+    if (extracted) return extracted;
+  }
+  return "unknown";
+}
