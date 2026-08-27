@@ -1,0 +1,147 @@
+== asterisk process ==
+    PID USER     COMMAND
+ 587685 root     rasterisk r
+ 588191 root     rasterisk r
+ 588362 root     rasterisk r
+ 588628 root     rasterisk r
+ 589881 root     rasterisk r
+ 838644 asterisk /usr/sbin/asterisk -U asterisk -G asterisk
+ 839380 root     rasterisk r
+== pjsip includes ==
+2:; /etc/asterisk/pjsip.conf
+4891:#include pjsip-o2-ims.conf
+== o2 files ==
+-rw-r--r-- 1 asterisk asterisk 18922 Jun  4 20:15 /etc/asterisk/extensions.conf.o2-ims-backup.20260827-082615.bak
+-rw-r--r-- 1 root     root     19439 Aug 27 08:26 /etc/asterisk/extensions.conf.o2-ims-backup.20260827-115650.bak
+-rw-r--r-- 1 root     root      2818 Aug 27 11:56 /etc/asterisk/extensions-o2-ims.conf
+-rw-r--r-- 1 asterisk asterisk 85700 Jun  4 10:26 /etc/asterisk/pjsip.conf.o2-ims-backup.20260827-082615.bak
+-rw-r----- 1 root     asterisk 85788 Aug 27 08:47 /etc/asterisk/pjsip.conf.o2-ims-backup.20260827-115650.bak
+-rw-r--r-- 1 root     root      1197 Aug 27 11:56 /etc/asterisk/pjsip-o2-ims.conf
+-rw------- 1 root     asterisk    26 Aug 27 11:56 /etc/asterisk/pjsip-o2-ims-secret.conf
+== pjsip fragment permissions ==
+f: /etc/asterisk/pjsip-o2-ims.conf
+drwxr-xr-x root     root     /
+drwxr-xr-x root     root     etc
+drwxr-xr-x asterisk asterisk asterisk
+-rw-r--r-- root     root     pjsip-o2-ims.conf
+f: /etc/asterisk/pjsip-o2-ims-secret.conf
+drwxr-xr-x root     root     /
+drwxr-xr-x root     root     etc
+drwxr-xr-x asterisk asterisk asterisk
+-rw------- root     asterisk pjsip-o2-ims-secret.conf
+== reload output ==
+Module 'res_pjsip.so' reloaded successfully.
+Module 'res_pjsip_authenticator_digest.so' reloaded successfully.
+Module 'res_pjsip_endpoint_identifier_ip.so' reloaded successfully.
+Module 'res_pjsip_mwi.so' reloaded successfully.
+Module 'res_pjsip_notify.so' reloaded successfully.
+Module 'res_pjsip_outbound_publish.so' reloaded successfully.
+Module 'res_pjsip_publish_asterisk.so' reloaded successfully.
+Module 'res_pjsip_outbound_registration.so' reloaded successfully.
+== endpoint after reload ==
+Unable to find object o2-ims-endpoint.
+
+== recent Asterisk journal errors ==
+Jul 01 06:01:18 mediagtw.cordbloodcenter.com asterisk[560245]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Jul 01 06:01:18 mediagtw.cordbloodcenter.com asterisk[560245]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Jul 01 06:01:23 mediagtw.cordbloodcenter.com asterisk[560651]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Jul 01 06:01:23 mediagtw.cordbloodcenter.com asterisk[560651]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Jul 01 06:01:26 mediagtw.cordbloodcenter.com asterisk[560879]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Jul 01 06:01:26 mediagtw.cordbloodcenter.com asterisk[560879]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Jul 03 06:49:21 mediagtw.cordbloodcenter.com asterisk[577010]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Jul 03 06:49:21 mediagtw.cordbloodcenter.com asterisk[577010]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Jul 03 06:49:26 mediagtw.cordbloodcenter.com asterisk[577470]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Jul 03 06:49:26 mediagtw.cordbloodcenter.com asterisk[577470]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Jul 11 06:29:32 mediagtw.cordbloodcenter.com asterisk[616145]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Jul 11 06:29:32 mediagtw.cordbloodcenter.com asterisk[616145]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Jul 16 06:08:32 mediagtw.cordbloodcenter.com asterisk[638150]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Jul 16 06:08:32 mediagtw.cordbloodcenter.com asterisk[638150]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Jul 22 06:15:22 mediagtw.cordbloodcenter.com asterisk[672872]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Jul 22 06:15:22 mediagtw.cordbloodcenter.com asterisk[672872]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Jul 23 06:32:40 mediagtw.cordbloodcenter.com asterisk[678113]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Jul 23 06:32:40 mediagtw.cordbloodcenter.com asterisk[678113]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Jul 29 06:48:31 mediagtw.cordbloodcenter.com asterisk[703446]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Jul 29 06:48:31 mediagtw.cordbloodcenter.com asterisk[703446]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Aug 01 06:18:37 mediagtw.cordbloodcenter.com asterisk[715590]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Aug 01 06:18:37 mediagtw.cordbloodcenter.com asterisk[715590]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Aug 11 06:50:23 mediagtw.cordbloodcenter.com asterisk[765725]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Aug 11 06:50:23 mediagtw.cordbloodcenter.com asterisk[765725]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Aug 20 06:54:31 mediagtw.cordbloodcenter.com asterisk[806764]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Aug 20 06:54:31 mediagtw.cordbloodcenter.com asterisk[806764]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Aug 21 06:06:38 mediagtw.cordbloodcenter.com asterisk[811731]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Aug 21 06:06:38 mediagtw.cordbloodcenter.com asterisk[811731]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Aug 26 06:33:28 mediagtw.cordbloodcenter.com asterisk[832501]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Aug 26 06:33:28 mediagtw.cordbloodcenter.com asterisk[832501]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Aug 26 06:33:42 mediagtw.cordbloodcenter.com asterisk[833132]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Aug 26 06:33:42 mediagtw.cordbloodcenter.com asterisk[833132]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Aug 27 08:48:14 mediagtw.cordbloodcenter.com asterisk[838644]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Aug 27 08:48:14 mediagtw.cordbloodcenter.com asterisk[838644]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+== all matching config references ==
+/etc/asterisk/pjsip.conf:4891:#include pjsip-o2-ims.conf
+/etc/asterisk/extensions.conf:129: same => n,GotoIf($["${O2_PROVIDER}"!="O2-IMS"]?o2-provider-selection-done)
+/etc/asterisk/extensions.conf:132: same => n,GotoIf($["${O2_ALLOWED}"="1"]?route-o2-ims,${EXTEN},1:o2-ims-denied,s,1)
+/etc/asterisk/extensions.conf:436:#include extensions-o2-ims.conf
+/etc/asterisk/pjsip-o2-ims.conf:2:; Generated by install-o2-ims-trunk.sh. Do not put the password in this file.
+/etc/asterisk/pjsip-o2-ims.conf:4:[o2-ims-auth]
+/etc/asterisk/pjsip-o2-ims.conf:11:[o2-ims-registration]
+/etc/asterisk/pjsip-o2-ims.conf:14:outbound_auth=o2-ims-auth
+/etc/asterisk/pjsip-o2-ims.conf:23:[o2-ims-aor]
+/etc/asterisk/pjsip-o2-ims.conf:29:[o2-ims-endpoint]
+/etc/asterisk/pjsip-o2-ims.conf:32:context=from-o2-ims
+/etc/asterisk/pjsip-o2-ims.conf:35:aors=o2-ims-aor
+/etc/asterisk/pjsip-o2-ims.conf:36:outbound_auth=o2-ims-auth
+/etc/asterisk/pjsip-o2-ims.conf:56:[o2-ims-identify-1]
+/etc/asterisk/pjsip-o2-ims.conf:58:endpoint=o2-ims-endpoint
+/etc/asterisk/extensions-o2-ims.conf:2:; Generated by install-o2-ims-trunk.sh. Do not edit the live file manually.
+/etc/asterisk/extensions-o2-ims.conf:8:[route-o2-ims]
+/etc/asterisk/extensions-o2-ims.conf:9:exten => _+X.,1,Goto(o2-ims-dial,${EXTEN},1)
+/etc/asterisk/extensions-o2-ims.conf:10:exten => _X.,1,Goto(o2-ims-dial,${EXTEN},1)
+/etc/asterisk/extensions-o2-ims.conf:12:[o2-ims-dial]
+/etc/asterisk/extensions-o2-ims.conf:15: same => n,Gosub(o2-ims-common,s,1)
+/etc/asterisk/extensions-o2-ims.conf:23: same => n,Gosub(o2-ims-common,s,1)
+/etc/asterisk/extensions-o2-ims.conf:26: same => n,Gosub(o2-ims-common,s,1)
+/etc/asterisk/extensions-o2-ims.conf:29: same => n,Gosub(o2-ims-common,s,1)
+/etc/asterisk/extensions-o2-ims.conf:32: same => n,Gosub(o2-ims-common,s,1)
+/etc/asterisk/extensions-o2-ims.conf:35:[o2-ims-common]
+/etc/asterisk/extensions-o2-ims.conf:37: same => n,Set(GROUP()=o2-ims)
+/etc/asterisk/extensions-o2-ims.conf:38: same => n,GotoIf($[${GROUP_COUNT(o2-ims)} > 10]?o2-ims-limit,s,1)
+/etc/asterisk/extensions-o2-ims.conf:43: same => n,Dial(PJSIP/${OUTNUM}@o2-ims-endpoint,60)
+/etc/asterisk/extensions-o2-ims.conf:47:[from-o2-ims]
+/etc/asterisk/extensions-o2-ims.conf:48:exten => _+42122213323X,1,Gosub(o2-ims-inbound,s,1(${EXTEN:1}))
+/etc/asterisk/extensions-o2-ims.conf:50:exten => _42122213323X,1,Gosub(o2-ims-inbound,s,1(${EXTEN}))
+/etc/asterisk/extensions-o2-ims.conf:52:exten => +421940682394,1,Gosub(o2-ims-inbound,s,1(421940682394))
+/etc/asterisk/extensions-o2-ims.conf:54:exten => 421940682394,1,Gosub(o2-ims-inbound,s,1(${EXTEN}))
+/etc/asterisk/extensions-o2-ims.conf:56:exten => _+X.,1,Goto(o2-ims-rejected,s,1)
+/etc/asterisk/extensions-o2-ims.conf:57:exten => _X.,1,Goto(o2-ims-rejected,s,1)
+/etc/asterisk/extensions-o2-ims.conf:59:[o2-ims-inbound]
+/etc/asterisk/extensions-o2-ims.conf:61: same => n,Set(GROUP()=o2-ims)
+/etc/asterisk/extensions-o2-ims.conf:62: same => n,GotoIf($[${GROUP_COUNT(o2-ims)} > 10]?o2-ims-limit,s,1)
+/etc/asterisk/extensions-o2-ims.conf:69:[o2-ims-rejected]
+/etc/asterisk/extensions-o2-ims.conf:73:[o2-ims-denied]
+/etc/asterisk/extensions-o2-ims.conf:77:[o2-ims-limit]
+seman@mediagtw:/tmp$ sudo chown root:asterisk /etc/asterisk/pjsip-o2-ims-secret.conf
+sudo chmod 0640 /etc/asterisk/pjsip-o2-ims-secret.conf
+
+sudo -u asterisk test -r /etc/asterisk/pjsip-o2-ims-secret.conf \
+  && echo "secret readable by asterisk"
+
+sudo asterisk -rx "pjsip reload"
+
+sleep 10
+
+sudo asterisk -rx "pjsip show endpoint o2-ims-endpoint"
+sudo asterisk -rx "pjsip show registrations"
+secret readable by asterisk
+Module 'res_pjsip.so' reloaded successfully.
+Module 'res_pjsip_authenticator_digest.so' reloaded successfully.
+Module 'res_pjsip_endpoint_identifier_ip.so' reloaded successfully.
+Module 'res_pjsip_mwi.so' reloaded successfully.
+Module 'res_pjsip_notify.so' reloaded successfully.
+Module 'res_pjsip_outbound_publish.so' reloaded successfully.
+Module 'res_pjsip_publish_asterisk.so' reloaded successfully.
+Module 'res_pjsip_outbound_registration.so' reloaded successfully.
+Unable to find object o2-ims-endpoint.
+
+No objects found.
+
+seman@mediag
