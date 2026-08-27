@@ -193,7 +193,13 @@ if [[ "$managed_installation_exists" -eq 1 && "$UPDATE_EXISTING" -eq 1 ]]; then
     awk -v secret_path="$PJSIP_SECRET_PATH" '
     BEGIN { in_endpoint = 0; has_trust = 0 }
     /^[[:space:]]*#include[[:space:]]+(.+\/)?pjsip-o2-ims-secret[.]conf[[:space:]]*$/ {
-      while ((getline secret_line < secret_path) > 0) print secret_line
+      while ((getline secret_line < secret_path) > 0) {
+        if (secret_line ~ /^password="/) {
+          sub(/^password="/, "password=", secret_line)
+          sub(/"$/, "", secret_line)
+        }
+        print secret_line
+      }
       close(secret_path)
       next
     }
@@ -286,11 +292,6 @@ cp -a "$PJSIP_CONF" "$PJSIP_BACKUP"
 cp -a "$EXTENSIONS_CONF" "$EXTENSIONS_BACKUP"
 log "Backups created: $PJSIP_BACKUP and $EXTENSIONS_BACKUP"
 
-# Quote the password as an Asterisk config value. The password is only held in
-# this process until the protected secret file is written.
-escaped_password="${SIP_PASSWORD//\\/\\\\}"
-escaped_password="${escaped_password//\"/\\\"}"
-
 {
   cat <<EOF
 ; BEGIN INDEXUS O2 IMS
@@ -301,7 +302,7 @@ type=auth
 auth_type=userpass
 username=$SIP_USERNAME
 realm=o2bssk
-password="$escaped_password"
+password=$SIP_PASSWORD
 
 [o2-ims-registration]
 type=registration
@@ -363,7 +364,7 @@ EOF
   printf '; END INDEXUS O2 IMS\n'
 } > "$PJSIP_FRAGMENT_PATH"
 
-printf 'password="%s"\n' "$escaped_password" > "$PJSIP_SECRET_PATH"
+printf 'password=%s\n' "$SIP_PASSWORD" > "$PJSIP_SECRET_PATH"
 
 cat > "$EXTENSIONS_FRAGMENT_PATH" <<EOF
 ; BEGIN INDEXUS O2 IMS

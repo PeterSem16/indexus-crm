@@ -25,7 +25,7 @@ secret include was reported as nonexistent even though the file existed and the
 Asterisk service account could read it. The auth object was retained from stale
 state while the registration, AOR, and endpoint were not created.
 
-**How to apply:** Generate `password="..."` inside `[o2-ims-auth]`; migrate an
-existing protected password copy into the fragment without printing it, and
-check every expected object after reload rather than treating a visible auth
-object as proof that the whole fragment loaded.
+**How to apply:** Generate an unquoted `password=value` inside
+`[o2-ims-auth]`; migrate an existing protected password copy into the fragment
+without printing it, and check every expected object after reload rather than
+treating a visible auth object as proof that the whole fragment loaded.
