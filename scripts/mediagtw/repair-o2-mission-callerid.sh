@@ -18,7 +18,9 @@ readonly OUTBOUND_ANCHOR='NoOp(Outbound CID: ext=${ORIG_EXT} collab=${COLLAB_CID
 EXTENSIONS_CONF="${EXTENSIONS_CONF:-$DEFAULT_EXTENSIONS_CONF}"
 MANAGED_FRAGMENT="${MANAGED_FRAGMENT:-$(dirname "$EXTENSIONS_CONF")/$MANAGED_FRAGMENT_NAME}"
 BACKUP=""
+FRAGMENT_BACKUP=""
 PATCHED=""
+FRAGMENT_PATCHED=""
 BRANCH=""
 RELOAD_ATTEMPTED=0
 
@@ -32,7 +34,7 @@ die() {
 }
 
 cleanup() {
-  rm -f "${PATCHED:-}" "${BRANCH:-}"
+  rm -f "${PATCHED:-}" "${FRAGMENT_PATCHED:-}" "${BRANCH:-}"
 }
 
 rollback() {
@@ -42,6 +44,9 @@ rollback() {
   if [[ -n "$BACKUP" && -f "$BACKUP" ]]; then
     printf '[o2-callerid-repair] Repair failed; restoring %s\n' "$BACKUP" >&2
     cp -a "$BACKUP" "$EXTENSIONS_CONF"
+    if [[ -n "$FRAGMENT_BACKUP" && -f "$FRAGMENT_BACKUP" ]]; then
+      cp -a "$FRAGMENT_BACKUP" "$MANAGED_FRAGMENT"
+    fi
     if [[ "$RELOAD_ATTEMPTED" -eq 1 ]]; then
       asterisk -rx 'dialplan reload' >/dev/null 2>&1 || true
     fi
@@ -70,8 +75,30 @@ grep -Fq "$OUTBOUND_ANCHOR" "$EXTENSIONS_CONF" ||
   die "The expected outbound Caller ID anchor is missing."
 grep -Fq '[o2-ims-common]' "$MANAGED_FRAGMENT" ||
   die "The managed O2 fragment has no [o2-ims-common] context."
-grep -Fq 'Set(MISSION_CID=${CBC_OUTBOUND_CALLERID})' "$MANAGED_FRAGMENT" ||
-  die "The managed O2 route does not use CBC_OUTBOUND_CALLERID."
+
+if ! grep -Fq 'Set(MISSION_CID=${CBC_OUTBOUND_CALLERID})' "$MANAGED_FRAGMENT"; then
+  FRAGMENT_PATCHED="$(mktemp)"
+  awk '
+    /^\[[^]]+\][[:space:]]*$/ {
+      in_common = ($0 == "[o2-ims-common]")
+    }
+    in_common && /Set\(MISSION_CID=/ && !replaced {
+      sub(/Set\(MISSION_CID=.*\)/, "Set(MISSION_CID=${CBC_OUTBOUND_CALLERID})")
+      replaced = 1
+    }
+    { print }
+    END {
+      if (!replaced) exit 43
+    }
+  ' "$MANAGED_FRAGMENT" > "$FRAGMENT_PATCHED" ||
+    die "The older O2 fragment has no replaceable MISSION_CID assignment."
+
+  grep -Fq 'Set(MISSION_CID=${CBC_OUTBOUND_CALLERID})' "$FRAGMENT_PATCHED" ||
+    die "Could not add CBC_OUTBOUND_CALLERID to the O2 fragment."
+else
+  rm -f "$FRAGMENT_PATCHED"
+  FRAGMENT_PATCHED=""
+fi
 
 BRANCH="$(mktemp)"
 cat > "$BRANCH" <<'EOF'
@@ -139,6 +166,13 @@ else
   cp -a "$EXTENSIONS_CONF" "$BACKUP"
   cat "$PATCHED" > "$EXTENSIONS_CONF"
   log "Dialplan patched. Backup: $BACKUP"
+fi
+
+if [[ -n "$FRAGMENT_PATCHED" ]]; then
+  FRAGMENT_BACKUP="${MANAGED_FRAGMENT}.pre-o2-callerid-repair.$(date +%Y%m%d-%H%M%S).bak"
+  cp -a "$MANAGED_FRAGMENT" "$FRAGMENT_BACKUP"
+  cat "$FRAGMENT_PATCHED" > "$MANAGED_FRAGMENT"
+  log "Older O2 fragment updated. Backup: $FRAGMENT_BACKUP"
 fi
 
 if [[ "${O2_PATCH_SKIP_RELOAD:-}" == "1" ]]; then
