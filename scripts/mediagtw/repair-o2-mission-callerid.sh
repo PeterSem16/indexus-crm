@@ -14,9 +14,11 @@ umask 077
 readonly DEFAULT_EXTENSIONS_CONF="/etc/asterisk/extensions.conf"
 readonly MANAGED_FRAGMENT_NAME="extensions-o2-ims.conf"
 readonly OUTBOUND_ANCHOR='NoOp(Outbound CID: ext=${ORIG_EXT} collab=${COLLAB_CID} campaign=${CAMPAIGN_CID} final=${CALLERID(num)})'
+readonly DEFAULT_MISSION_CLI="+421940682394"
 
 EXTENSIONS_CONF="${EXTENSIONS_CONF:-$DEFAULT_EXTENSIONS_CONF}"
 MANAGED_FRAGMENT="${MANAGED_FRAGMENT:-$(dirname "$EXTENSIONS_CONF")/$MANAGED_FRAGMENT_NAME}"
+MISSION_CLI="${O2_MISSION_CLI:-$DEFAULT_MISSION_CLI}"
 BACKUP=""
 FRAGMENT_BACKUP=""
 PATCHED=""
@@ -69,6 +71,8 @@ done
 
 [[ -f "$EXTENSIONS_CONF" ]] || die "Dialplan config not found: $EXTENSIONS_CONF"
 [[ -f "$MANAGED_FRAGMENT" ]] || die "Managed O2 fragment not found: $MANAGED_FRAGMENT"
+[[ "$MISSION_CLI" =~ ^\+421[0-9]{9}$ ]] ||
+  die "O2_MISSION_CLI must be a Slovak E.164 number."
 
 grep -Fq '[indexus-outbound]' "$EXTENSIONS_CONF" ||
   die "The [indexus-outbound] context is missing."
@@ -77,7 +81,16 @@ grep -Fq "$OUTBOUND_ANCHOR" "$EXTENSIONS_CONF" ||
 grep -Fq '[o2-ims-common]' "$MANAGED_FRAGMENT" ||
   die "The managed O2 fragment has no [o2-ims-common] context."
 
+need_common_repair=0
 if ! grep -Fq 'Set(MISSION_CID=${CBC_OUTBOUND_CALLERID})' "$MANAGED_FRAGMENT"; then
+  need_common_repair=1
+fi
+need_cli_repair=0
+if ! grep -Fq "O2_IMS_CLI=$MISSION_CLI" "$MANAGED_FRAGMENT"; then
+  need_cli_repair=1
+fi
+
+if [[ "$need_common_repair" -eq 1 || "$need_cli_repair" -eq 1 ]]; then
   COMMON="$(mktemp)"
   cat > "$COMMON" <<'EOF'
 [o2-ims-common]
@@ -95,12 +108,25 @@ exten => s,1,Set(MISSION_CID=${CBC_OUTBOUND_CALLERID})
 
 EOF
   FRAGMENT_PATCHED="$(mktemp)"
-  awk -v replacement="$COMMON" '
+  awk -v replacement="$COMMON" -v mission_cli="$MISSION_CLI" -v replace_common="$need_common_repair" '
     $0 == "[o2-ims-common]" {
-      while ((getline line < replacement) > 0) print line
-      close(replacement)
-      replacing_common = 1
-      replaced = 1
+      if (replace_common) {
+        while ((getline line < replacement) > 0) print line
+        close(replacement)
+        replacing_common = 1
+        replaced_common = 1
+        next
+      }
+    }
+    /^\[globals\][[:space:]]*$/ {
+      in_globals = 1
+    }
+    /^\[[^]]+\][[:space:]]*$/ && $0 != "[globals]" {
+      in_globals = 0
+    }
+    in_globals && /^[[:space:]]*O2_IMS_CLI=/ {
+      print "O2_IMS_CLI=" mission_cli
+      replaced_cli = 1
       next
     }
     replacing_common && /^\[[^]]+\][[:space:]]*$/ {
@@ -109,13 +135,16 @@ EOF
     replacing_common { next }
     { print }
     END {
-      if (!replaced) exit 43
+      if (replace_common && !replaced_common) exit 43
+      if (!replaced_cli) exit 44
     }
   ' "$MANAGED_FRAGMENT" > "$FRAGMENT_PATCHED" ||
-    die "The older O2 fragment has no replaceable [o2-ims-common] context."
+    die "The O2 fragment has no replaceable [globals] / [o2-ims-common] configuration."
 
   grep -Fq 'Set(MISSION_CID=${CBC_OUTBOUND_CALLERID})' "$FRAGMENT_PATCHED" ||
     die "Could not add CBC_OUTBOUND_CALLERID to the O2 fragment."
+  grep -Fq "O2_IMS_CLI=$MISSION_CLI" "$FRAGMENT_PATCHED" ||
+    die "Could not update the O2 fallback Caller ID."
   [[ "$(grep -Fc '[o2-ims-common]' "$FRAGMENT_PATCHED")" -eq 1 ]] ||
     die "Patched O2 fragment does not contain exactly one common route."
 else

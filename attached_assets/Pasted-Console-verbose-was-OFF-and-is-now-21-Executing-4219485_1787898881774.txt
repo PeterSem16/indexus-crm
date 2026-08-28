@@ -1,0 +1,47 @@
+Console verbose was OFF and is now 21.
+    -- Executing [+421948519438@webrtc-indexus:1] NoOp("PJSIP/2001-00000002", "WebRTC outbound PLUS caller=2001 dest=+421948519438") in new stack
+    -- Executing [+421948519438@webrtc-indexus:2] Set("PJSIP/2001-00000002", "OUTNUM=421948519438") in new stack
+    -- Executing [+421948519438@webrtc-indexus:3] Goto("PJSIP/2001-00000002", "indexus-outbound,421948519438,1") in new stack
+    -- Goto (indexus-outbound,421948519438,1)
+    -- Executing [421948519438@indexus-outbound:1] NoOp("PJSIP/2001-00000002", "Indexus outbound caller=2001 dest=421948519438") in new stack
+    -- Executing [421948519438@indexus-outbound:2] Set("PJSIP/2001-00000002", "ORIG_EXT=2001") in new stack
+    -- Executing [421948519438@indexus-outbound:3] Set("PJSIP/2001-00000002", "COLLAB_CID=") in new stack
+    -- Executing [421948519438@indexus-outbound:4] ExecIf("PJSIP/2001-00000002", "0?Set(CALLERID(num)=)") in new stack
+    -- Executing [421948519438@indexus-outbound:5] Set("PJSIP/2001-00000002", "CAMPAIGN_CID=+421940682394") in new stack
+    -- Executing [421948519438@indexus-outbound:6] ExecIf("PJSIP/2001-00000002", "1?Set(CALLERID(num)=+421940682394)") in new stack
+    -- Executing [421948519438@indexus-outbound:7] NoOp("PJSIP/2001-00000002", "Outbound CID: ext=2001 collab= campaign=+421940682394 final=+421940682394") in new stack
+    -- Executing [421948519438@indexus-outbound:8] Set("PJSIP/2001-00000002", "__CBC_CAMPAIGN_ID=a65e7775-885c-4413-b2be-e63c92decd3d") in new stack
+    -- Executing [421948519438@indexus-outbound:9] Set("PJSIP/2001-00000002", "__CBC_OUTBOUND_TRUNK=o2-ims") in new stack
+    -- Executing [421948519438@indexus-outbound:10] Set("PJSIP/2001-00000002", "__CBC_OUTBOUND_CALLERID=+421940682394") in new stack
+    -- Executing [421948519438@indexus-outbound:11] Set("PJSIP/2001-00000002", "O2_PROVIDER=O2-IMS") in new stack
+    -- Executing [421948519438@indexus-outbound:12] GotoIf("PJSIP/2001-00000002", "0?o2-provider-selection-done") in new stack
+    -- Executing [421948519438@indexus-outbound:13] Set("PJSIP/2001-00000002", "O2_AUTH_ENDPOINT=2001") in new stack
+    -- Executing [421948519438@indexus-outbound:14] Set("PJSIP/2001-00000002", "O2_ALLOWED=1") in new stack
+    -- Executing [421948519438@indexus-outbound:15] GotoIf("PJSIP/2001-00000002", "0?o2-ims-denied,s,1") in new stack
+    -- Executing [421948519438@indexus-outbound:16] Set("PJSIP/2001-00000002", "SERVER_MISSION_AUTH=+421940682394|1787898868") in new stack
+    -- Executing [421948519438@indexus-outbound:17] Set("PJSIP/2001-00000002", "DELETED_MISSION_AUTH=+421940682394|1787898868") in new stack
+    -- Executing [421948519438@indexus-outbound:18] Set("PJSIP/2001-00000002", "SERVER_MISSION_CID=+421940682394") in new stack
+    -- Executing [421948519438@indexus-outbound:19] Set("PJSIP/2001-00000002", "SERVER_MISSION_EXP=1787898868") in new stack
+    -- Executing [421948519438@indexus-outbound:20] GotoIf("PJSIP/2001-00000002", "0?o2-ims-denied,s,1") in new stack
+    -- Executing [421948519438@indexus-outbound:21] Set("PJSIP/2001-00000002", "__CBC_OUTBOUND_CALLERID=+421940682394") in new stack
+    -- Executing [421948519438@indexus-outbound:22] Goto("PJSIP/2001-00000002", "route-o2-ims,421948519438,1") in new stack
+    -- Goto (route-o2-ims,421948519438,1)
+    -- Executing [421948519438@route-o2-ims:1] Goto("PJSIP/2001-00000002", "o2-ims-dial,421948519438,1") in new stack
+    -- Goto (o2-ims-dial,421948519438,1)
+    -- Executing [421948519438@o2-ims-dial:1] GotoIf("PJSIP/2001-00000002", "0?o2-00") in new stack
+    -- Executing [421948519438@o2-ims-dial:2] GotoIf("PJSIP/2001-00000002", "1?o2-421") in new stack
+    -- Goto (o2-ims-dial,421948519438,10)
+    -- Executing [421948519438@o2-ims-dial:10] Set("PJSIP/2001-00000002", "OUTNUM=+421948519438") in new stack
+    -- Executing [421948519438@o2-ims-dial:11] Gosub("PJSIP/2001-00000002", "o2-ims-common,s,1") in new stack
+    -- Executing [s@o2-ims-common:1] Set("PJSIP/2001-00000002", "MISSION_CID=+421940682394") in new stack
+    -- Executing [s@o2-ims-common:2] ExecIf("PJSIP/2001-00000002", "0?Set(MISSION_CID=+421222133230)") in new stack
+    -- Executing [s@o2-ims-common:3] NoOp("PJSIP/2001-00000002", "O2 IMS outbound number=+421948519438 cli=+421940682394") in new stack
+    -- Executing [s@o2-ims-common:4] Set("PJSIP/2001-00000002", "GROUP()=o2-ims") in new stack
+    -- Executing [s@o2-ims-common:5] GotoIf("PJSIP/2001-00000002", "0?o2-ims-limit,s,1") in new stack
+    -- Executing [s@o2-ims-common:6] Set("PJSIP/2001-00000002", "CALLERID(num)=+421940682394") in new stack
+    -- Executing [s@o2-ims-common:7] Set("PJSIP/2001-00000002", "CALLERID(name)=+421940682394") in new stack
+    -- Executing [s@o2-ims-common:8] ExecIf("PJSIP/2001-00000002", "1?Set(PJSIP_HEADER(add,X-Campaign-CallerID)=+421940682394)") in new stack
+    -- Executing [s@o2-ims-common:9] Dial("PJSIP/2001-00000002", "PJSIP/+421948519438@o2-ims-endpoint,60") in new stack
+    -- Called PJSIP/+421948519438@o2-ims-endpoint
+    -- PJSIP/o2-ims-endpoint-00000003 is making progress passing it to PJSIP/2001-00000002
+mediagtw*CLI>
