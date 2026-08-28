@@ -483,7 +483,7 @@ patched_extensions="$(mktemp)"
   /Set\(__CBC_CAMPAIGN_ID=/ || /Set\(__CBC_OUTBOUND_TRUNK=/ || /Set\(__CBC_OUTBOUND_CALLERID=/ { next }
   /Set\(O2_PROVIDER=.*X-Provider/ { replacing_old_o2_branch = 1; next }
   replacing_old_o2_branch {
-    if ($0 ~ /o2-provider-selection-done/) replacing_old_o2_branch = 0
+    if ($0 ~ /n\(o2-provider-selection-done\),/) replacing_old_o2_branch = 0
     next
   }
   {
