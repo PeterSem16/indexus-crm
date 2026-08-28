@@ -1,0 +1,491 @@
+  -- Executing [+421948519438@webrtc-indexus:1] NoOp("PJSIP/2001-00000006", "WebRTC outbound PLUS caller=2001 dest=+421948519438") in new stack
+    -- Executing [+421948519438@webrtc-indexus:2] Set("PJSIP/2001-00000006", "OUTNUM=421948519438") in new stack
+    -- Executing [+421948519438@webrtc-indexus:3] Goto("PJSIP/2001-00000006", "indexus-outbound,421948519438,1") in new stack
+    -- Goto (indexus-outbound,421948519438,1)
+    -- Executing [421948519438@indexus-outbound:1] NoOp("PJSIP/2001-00000006", "Indexus outbound caller=2001 dest=421948519438") in new stack
+    -- Executing [421948519438@indexus-outbound:2] Set("PJSIP/2001-00000006", "ORIG_EXT=2001") in new stack
+    -- Executing [421948519438@indexus-outbound:3] Set("PJSIP/2001-00000006", "COLLAB_CID=") in new stack
+    -- Executing [421948519438@indexus-outbound:4] ExecIf("PJSIP/2001-00000006", "0?Set(CALLERID(num)=)") in new stack
+    -- Executing [421948519438@indexus-outbound:5] Set("PJSIP/2001-00000006", "CAMPAIGN_CID=+421940682394") in new stack
+    -- Executing [421948519438@indexus-outbound:6] ExecIf("PJSIP/2001-00000006", "1?Set(CALLERID(num)=+421940682394)") in new stack
+    -- Executing [421948519438@indexus-outbound:7] NoOp("PJSIP/2001-00000006", "Outbound CID: ext=2001 collab= campaign=+421940682394 final=+421940682394") in new stack
+    -- Executing [421948519438@indexus-outbound:8] Set("PJSIP/2001-00000006", "__CBC_CAMPAIGN_ID=a65e7775-885c-4413-b2be-e63c92decd3d") in new stack
+    -- Executing [421948519438@indexus-outbound:9] Set("PJSIP/2001-00000006", "__CBC_OUTBOUND_TRUNK=o2-ims") in new stack
+    -- Executing [421948519438@indexus-outbound:10] Set("PJSIP/2001-00000006", "__CBC_OUTBOUND_CALLERID=+421940682394") in new stack
+    -- Executing [421948519438@indexus-outbound:11] Set("PJSIP/2001-00000006", "O2_PROVIDER=O2-IMS") in new stack
+    -- Executing [421948519438@indexus-outbound:12] GotoIf("PJSIP/2001-00000006", "0?o2-provider-selection-done") in new stack
+    -- Executing [421948519438@indexus-outbound:13] Set("PJSIP/2001-00000006", "O2_AUTH_ENDPOINT=2001") in new stack
+    -- Executing [421948519438@indexus-outbound:14] Set("PJSIP/2001-00000006", "O2_ALLOWED=1") in new stack
+    -- Executing [421948519438@indexus-outbound:15] GotoIf("PJSIP/2001-00000006", "0?o2-ims-denied,s,1") in new stack
+    -- Executing [421948519438@indexus-outbound:16] Set("PJSIP/2001-00000006", "SERVER_MISSION_AUTH=+421940682394|1787899249") in new stack
+    -- Executing [421948519438@indexus-outbound:17] Set("PJSIP/2001-00000006", "DELETED_MISSION_AUTH=+421940682394|1787899249") in new stack
+    -- Executing [421948519438@indexus-outbound:18] Set("PJSIP/2001-00000006", "SERVER_MISSION_CID=+421940682394") in new stack
+    -- Executing [421948519438@indexus-outbound:19] Set("PJSIP/2001-00000006", "SERVER_MISSION_EXP=1787899249") in new stack
+    -- Executing [421948519438@indexus-outbound:20] GotoIf("PJSIP/2001-00000006", "0?o2-ims-denied,s,1") in new stack
+    -- Executing [421948519438@indexus-outbound:21] Set("PJSIP/2001-00000006", "__CBC_OUTBOUND_CALLERID=+421940682394") in new stack
+    -- Executing [421948519438@indexus-outbound:22] Goto("PJSIP/2001-00000006", "route-o2-ims,421948519438,1") in new stack
+    -- Goto (route-o2-ims,421948519438,1)
+    -- Executing [421948519438@route-o2-ims:1] Goto("PJSIP/2001-00000006", "o2-ims-dial,421948519438,1") in new stack
+    -- Goto (o2-ims-dial,421948519438,1)
+    -- Executing [421948519438@o2-ims-dial:1] GotoIf("PJSIP/2001-00000006", "0?o2-00") in new stack
+    -- Executing [421948519438@o2-ims-dial:2] GotoIf("PJSIP/2001-00000006", "1?o2-421") in new stack
+    -- Goto (o2-ims-dial,421948519438,10)
+    -- Executing [421948519438@o2-ims-dial:10] Set("PJSIP/2001-00000006", "OUTNUM=+421948519438") in new stack
+    -- Executing [421948519438@o2-ims-dial:11] Gosub("PJSIP/2001-00000006", "o2-ims-common,s,1") in new stack
+    -- Executing [s@o2-ims-common:1] Set("PJSIP/2001-00000006", "MISSION_CID=+421940682394") in new stack
+    -- Executing [s@o2-ims-common:2] ExecIf("PJSIP/2001-00000006", "0?Set(MISSION_CID=+421940682394)") in new stack
+    -- Executing [s@o2-ims-common:3] NoOp("PJSIP/2001-00000006", "O2 IMS outbound number=+421948519438 cli=+421940682394") in new stack
+    -- Executing [s@o2-ims-common:4] Set("PJSIP/2001-00000006", "GROUP()=o2-ims") in new stack
+    -- Executing [s@o2-ims-common:5] GotoIf("PJSIP/2001-00000006", "0?o2-ims-limit,s,1") in new stack
+    -- Executing [s@o2-ims-common:6] Set("PJSIP/2001-00000006", "CALLERID(num)=+421940682394") in new stack
+    -- Executing [s@o2-ims-common:7] Set("PJSIP/2001-00000006", "CALLERID(name)=+421940682394") in new stack
+    -- Executing [s@o2-ims-common:8] ExecIf("PJSIP/2001-00000006", "1?Set(PJSIP_HEADER(add,X-Campaign-CallerID)=+421940682394)") in new stack
+    -- Executing [s@o2-ims-common:9] Dial("PJSIP/2001-00000006", "PJSIP/+421948519438@o2-ims-endpoint,60") in new stack
+    -- Called PJSIP/+421948519438@o2-ims-endpoint
+<--- Transmitting SIP request (1157 bytes) to UDP:185.103.146.200:5060 --->
+INVITE sip:+421948519438@sipt1.ims.o2bs.sk SIP/2.0
+Via: SIP/2.0/UDP 77.72.181.113:5060;rport;branch=z9hG4bKPj606b4766-8c35-4192-816c-f83d816e813f
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=aba2e096-c437-4f76-b086-7d7d1785c071
+To: <sip:+421948519438@sipt1.ims.o2bs.sk>
+Contact: <sip:421222190337@77.72.181.113:5060>
+Call-ID: 81298ce9-03ee-476a-8a32-d4bed0f7f97e
+CSeq: 22846 INVITE
+Allow: OPTIONS, REGISTER, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, MESSAGE, REFER, INFO
+Supported: 100rel, replaces, norefersub, histinfo
+P-Asserted-Identity: "+421940682394" <sip:+421940682394@sipt1.ims.o2bs.sk>
+Remote-Party-ID: "+421940682394" <sip:+421940682394@sipt1.ims.o2bs.sk>;party=calling;privacy=off;screen=no
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Type: application/sdp
+Content-Length:   310
+
+v=0
+o=- 1930508365 1930508365 IN IP4 77.72.181.113
+s=Asterisk
+c=IN IP4 77.72.181.113
+t=0 0
+m=audio 11460 RTP/AVP 0 8 18 101
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=maxptime:140
+a=sendrecv
+
+<--- Received SIP response (587 bytes) from UDP:185.103.146.200:5060 --->
+SIP/2.0 401 Unauthorized
+Via: SIP/2.0/UDP 77.72.181.113:5060;branch=z9hG4bKPj606b4766-8c35-4192-816c-f83d816e813f;received=77.72.181.113;rport=5060
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=aba2e096-c437-4f76-b086-7d7d1785c071
+To: <sip:+421948519438@sipt1.ims.o2bs.sk>;tag=as0d89b25a
+Call-ID: 81298ce9-03ee-476a-8a32-d4bed0f7f97e
+CSeq: 22846 INVITE
+Server: O2BS SK IMS
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+WWW-Authenticate: Digest algorithm=MD5, realm="o2bssk", nonce="665f607f"
+Content-Length: 0
+
+
+<--- Transmitting SIP request (422 bytes) to UDP:185.103.146.200:5060 --->
+ACK sip:+421948519438@sipt1.ims.o2bs.sk SIP/2.0
+Via: SIP/2.0/UDP 77.72.181.113:5060;rport;branch=z9hG4bKPj606b4766-8c35-4192-816c-f83d816e813f
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=aba2e096-c437-4f76-b086-7d7d1785c071
+To: <sip:+421948519438@sipt1.ims.o2bs.sk>;tag=as0d89b25a
+Call-ID: 81298ce9-03ee-476a-8a32-d4bed0f7f97e
+CSeq: 22846 ACK
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Transmitting SIP request (1341 bytes) to UDP:185.103.146.200:5060 --->
+INVITE sip:+421948519438@sipt1.ims.o2bs.sk SIP/2.0
+Via: SIP/2.0/UDP 77.72.181.113:5060;rport;branch=z9hG4bKPjc34c62df-8a93-41b4-9a2a-ba2f368d0022
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=aba2e096-c437-4f76-b086-7d7d1785c071
+To: <sip:+421948519438@sipt1.ims.o2bs.sk>
+Contact: <sip:421222190337@77.72.181.113:5060>
+Call-ID: 81298ce9-03ee-476a-8a32-d4bed0f7f97e
+CSeq: 22847 INVITE
+Allow: OPTIONS, REGISTER, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, MESSAGE, REFER, INFO
+Supported: 100rel, replaces, norefersub, histinfo
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Authorization: Digest username="421222190337", realm="o2bssk", nonce="665f607f", uri="sip:+421948519438@sipt1.ims.o2bs.sk", response="689ac8a1bac322ca5e849f388df768f7", algorithm=MD5
+P-Asserted-Identity: "+421940682394" <sip:+421940682394@sipt1.ims.o2bs.sk>
+Remote-Party-ID: "+421940682394" <sip:+421940682394@sipt1.ims.o2bs.sk>;party=calling;privacy=off;screen=no
+Content-Type: application/sdp
+Content-Length:   310
+
+v=0
+o=- 1930508365 1930508365 IN IP4 77.72.181.113
+s=Asterisk
+c=IN IP4 77.72.181.113
+t=0 0
+m=audio 11460 RTP/AVP 0 8 18 101
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=maxptime:140
+a=sendrecv
+
+<--- Received SIP response (543 bytes) from UDP:185.103.146.200:5060 --->
+SIP/2.0 100 Trying
+Via: SIP/2.0/UDP 77.72.181.113:5060;branch=z9hG4bKPjc34c62df-8a93-41b4-9a2a-ba2f368d0022;received=77.72.181.113;rport=5060
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=aba2e096-c437-4f76-b086-7d7d1785c071
+To: <sip:+421948519438@sipt1.ims.o2bs.sk>
+Call-ID: 81298ce9-03ee-476a-8a32-d4bed0f7f97e
+CSeq: 22847 INVITE
+Server: O2BS SK IMS
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+Contact: <sip:+421948519438@185.103.146.200:5060>
+Content-Length: 0
+
+
+<--- Transmitting SIP request (483 bytes) to WS:10.1.2.111:45814 --->
+OPTIONS sip:rh13chli@10.1.2.111:45814;transport=WS SIP/2.0
+Via: SIP/2.0/WS 10.1.2.112:8088;rport;branch=z9hG4bKPjfd5c90f6-848a-478c-aac7-bc657a283354;alias
+From: <sip:2001@mediagtw.cordbloodcenter.com>;tag=bcd385d8-f1f2-46d5-b76b-c13032d36ea7
+To: <sip:rh13chli@10.1.2.111>
+Contact: <sip:2001@mediagtw.cordbloodcenter.com:5060;transport=ws>
+Call-ID: bd9b1bb3-74c3-4e54-b495-c3d4e7243655
+CSeq: 15544 OPTIONS
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP response (522 bytes) from WS:10.1.2.111:45814 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/WS 10.1.2.112:8088;rport;branch=z9hG4bKPjfd5c90f6-848a-478c-aac7-bc657a283354;alias
+From: <sip:2001@mediagtw.cordbloodcenter.com>;tag=bcd385d8-f1f2-46d5-b76b-c13032d36ea7
+To: <sip:rh13chli@10.1.2.111>;tag=rbgg9kv4s1
+CSeq: 15544 OPTIONS
+Call-ID: bd9b1bb3-74c3-4e54-b495-c3d4e7243655
+Supported: outbound
+User-Agent: SIP.js/0.21.1
+Allow: ACK,BYE,CANCEL,INFO,INVITE,MESSAGE,NOTIFY,OPTIONS,PRACK,REFER,REGISTER,SUBSCRIBE
+Accept: application/sdp,application/dtmf-relay
+Content-Length: 0
+
+
+<--- Received SIP response (899 bytes) from UDP:185.103.146.200:5060 --->
+SIP/2.0 183 Session Progress
+Via: SIP/2.0/UDP 77.72.181.113:5060;branch=z9hG4bKPjc34c62df-8a93-41b4-9a2a-ba2f368d0022;received=77.72.181.113;rport=5060
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=aba2e096-c437-4f76-b086-7d7d1785c071
+To: <sip:+421948519438@sipt1.ims.o2bs.sk>;tag=as0df0e9db
+Call-ID: 81298ce9-03ee-476a-8a32-d4bed0f7f97e
+CSeq: 22847 INVITE
+Server: O2BS SK IMS
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+Contact: <sip:+421948519438@185.103.146.200:5060>
+Content-Type: application/sdp
+Content-Length: 298
+
+v=0
+o=root 722783636 722783636 IN IP4 185.103.146.200
+s=O2BS SK
+c=IN IP4 185.103.146.200
+t=0 0
+m=audio 25090 RTP/AVP 8 0 18 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=sendrecv
+
+    -- PJSIP/o2-ims-endpoint-00000007 is making progress passing it to PJSIP/2001-00000006
+<--- Transmitting SIP response (1400 bytes) to WS:10.1.2.111:45814 --->
+SIP/2.0 183 Session Progress
+Via: SIP/2.0/WSS u7lnojr361vi.invalid;rport=45814;received=10.1.2.111;branch=z9hG4bK235928
+Call-ID: hhsqint1j3oj7gq3e6cb
+From: "2001" <sip:2001@asterisk>;tag=tmv7jl15is
+To: <sip:+421948519438@asterisk>;tag=df8c2490-efb6-4f2f-b84c-efa39e68984b
+CSeq: 2 INVITE
+Server: INDEXUS-Asterisk
+Contact: <sip:10.1.2.112:8088;transport=ws>
+Allow: OPTIONS, REGISTER, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, MESSAGE, REFER, INFO
+Content-Type: application/sdp
+Content-Length:   863
+
+v=0
+o=- 2165214477605287731 2 IN IP4 10.1.2.112
+s=Asterisk
+c=IN IP4 10.1.2.112
+t=0 0
+a=msid-semantic:WMS *
+a=group:BUNDLE 0
+m=audio 18308 UDP/TLS/RTP/SAVPF 0 109 8 101
+a=connection:new
+a=setup:active
+a=fingerprint:SHA-256 37:DA:06:5F:94:B5:C9:21:D8:48:9D:16:C6:25:86:FC:C9:5D:23:00:A6:23:CA:59:08:F2:8A:90:61:87:6D:A3
+a=ice-ufrag:13ff2efc0fa54b344f1d587e25ca92f2
+a=ice-pwd:17debeda2a51b8ea0bdb2dc875bd1346
+a=candidate:Ha010270 1 UDP 2130706431 10.1.2.112 18308 typ host
+a=rtpmap:0 PCMU/8000
+a=rtpmap:109 opus/48000/2
+a=fmtp:109 useinbandfec=1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=maxptime:20
+a=sendrecv
+a=rtcp-mux
+a=ssrc:190476820 cname:f70f8c15-420b-4d52-9473-df34bf714369
+a=msid:ea2f1415-ed14-467b-a05a-c165cd398f3b 7e2e7bc5-52a6-450d-a451-85ce6737b374
+a=rtcp-fb:* transport-cc
+a=mid:0
+
+<--- Received SIP response (885 bytes) from UDP:185.103.146.200:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 77.72.181.113:5060;branch=z9hG4bKPjc34c62df-8a93-41b4-9a2a-ba2f368d0022;received=77.72.181.113;rport=5060
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=aba2e096-c437-4f76-b086-7d7d1785c071
+To: <sip:+421948519438@sipt1.ims.o2bs.sk>;tag=as0df0e9db
+Call-ID: 81298ce9-03ee-476a-8a32-d4bed0f7f97e
+CSeq: 22847 INVITE
+Server: O2BS SK IMS
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+Contact: <sip:+421948519438@185.103.146.200:5060>
+Content-Type: application/sdp
+Content-Length: 298
+
+v=0
+o=root 722783636 722783637 IN IP4 185.103.146.200
+s=O2BS SK
+c=IN IP4 185.103.146.200
+t=0 0
+m=audio 25090 RTP/AVP 8 0 18 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=sendrecv
+
+<--- Transmitting SIP request (425 bytes) to UDP:185.103.146.200:5060 --->
+ACK sip:+421948519438@185.103.146.200:5060 SIP/2.0
+Via: SIP/2.0/UDP 77.72.181.113:5060;rport;branch=z9hG4bKPj07b52869-6093-4287-b882-289eb20e744e
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=aba2e096-c437-4f76-b086-7d7d1785c071
+To: <sip:+421948519438@sipt1.ims.o2bs.sk>;tag=as0df0e9db
+Call-ID: 81298ce9-03ee-476a-8a32-d4bed0f7f97e
+CSeq: 22847 ACK
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+    -- PJSIP/o2-ims-endpoint-00000007 answered PJSIP/2001-00000006
+<--- Transmitting SIP response (1434 bytes) to WS:10.1.2.111:45814 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/WSS u7lnojr361vi.invalid;rport=45814;received=10.1.2.111;branch=z9hG4bK235928
+Call-ID: hhsqint1j3oj7gq3e6cb
+From: "2001" <sip:2001@asterisk>;tag=tmv7jl15is
+To: <sip:+421948519438@asterisk>;tag=df8c2490-efb6-4f2f-b84c-efa39e68984b
+CSeq: 2 INVITE
+Server: INDEXUS-Asterisk
+Allow: OPTIONS, REGISTER, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, MESSAGE, REFER, INFO
+Contact: <sip:10.1.2.112:8088;transport=ws>
+Supported: 100rel, timer, replaces, norefersub
+Content-Type: application/sdp
+Content-Length:   863
+
+v=0
+o=- 2165214477605287731 2 IN IP4 10.1.2.112
+s=Asterisk
+c=IN IP4 10.1.2.112
+t=0 0
+a=msid-semantic:WMS *
+a=group:BUNDLE 0
+m=audio 18308 UDP/TLS/RTP/SAVPF 0 109 8 101
+a=connection:new
+a=setup:active
+a=fingerprint:SHA-256 37:DA:06:5F:94:B5:C9:21:D8:48:9D:16:C6:25:86:FC:C9:5D:23:00:A6:23:CA:59:08:F2:8A:90:61:87:6D:A3
+a=ice-ufrag:13ff2efc0fa54b344f1d587e25ca92f2
+a=ice-pwd:17debeda2a51b8ea0bdb2dc875bd1346
+a=candidate:Ha010270 1 UDP 2130706431 10.1.2.112 18308 typ host
+a=rtpmap:0 PCMU/8000
+a=rtpmap:109 opus/48000/2
+a=fmtp:109 useinbandfec=1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=maxptime:20
+a=sendrecv
+a=rtcp-mux
+a=ssrc:190476820 cname:f70f8c15-420b-4d52-9473-df34bf714369
+a=msid:ea2f1415-ed14-467b-a05a-c165cd398f3b 7e2e7bc5-52a6-450d-a451-85ce6737b374
+a=rtcp-fb:* transport-cc
+a=mid:0
+
+    -- Channel PJSIP/o2-ims-endpoint-00000007 joined 'simple_bridge' basic-bridge <b9c58916-38c9-4971-9049-e3df592cef1d>
+    -- Channel PJSIP/2001-00000006 joined 'simple_bridge' basic-bridge <b9c58916-38c9-4971-9049-e3df592cef1d>
+<--- Received SIP request (361 bytes) from WS:10.1.2.111:45814 --->
+ACK sip:10.1.2.112:8088;transport=ws SIP/2.0
+Via: SIP/2.0/WSS u7lnojr361vi.invalid;branch=z9hG4bK134538
+To: <sip:+421948519438@asterisk>;tag=df8c2490-efb6-4f2f-b84c-efa39e68984b
+From: "2001" <sip:2001@asterisk>;tag=tmv7jl15is
+CSeq: 2 ACK
+Call-ID: hhsqint1j3oj7gq3e6cb
+Max-Forwards: 70
+Supported: outbound
+User-Agent: SIP.js/0.21.1
+Content-Length: 0
+
+
+<--- Received SIP request (659 bytes) from UDP:185.103.146.200:5060 --->
+BYE sip:421222190337@77.72.181.113:5060 SIP/2.0
+Via: SIP/2.0/UDP 185.103.146.200:5060;branch=z9hG4bK112241ab;rport
+Max-Forwards: 70
+From: <sip:+421948519438@sipt1.ims.o2bs.sk>;tag=as0df0e9db
+To: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=aba2e096-c437-4f76-b086-7d7d1785c071
+Call-ID: 81298ce9-03ee-476a-8a32-d4bed0f7f97e
+CSeq: 102 BYE
+User-Agent: O2BS SK IMS
+Proxy-Authorization: Digest username="421222190337", realm="o2bssk", algorithm=MD5, uri="sip:sipt1.ims.o2bs.sk", nonce="665f607f", response="130dc96843fc44eae97518331dfcf718"
+Reason: Q.850;cause=16
+X-Asterisk-HangupCause: Normal Clearing
+X-Asterisk-HangupCauseCode: 16
+Content-Length: 0
+
+
+<--- Transmitting SIP response (367 bytes) to UDP:185.103.146.200:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 185.103.146.200:5060;rport=5060;received=185.103.146.200;branch=z9hG4bK112241ab
+Call-ID: 81298ce9-03ee-476a-8a32-d4bed0f7f97e
+From: <sip:+421948519438@sipt1.ims.o2bs.sk>;tag=as0df0e9db
+To: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=aba2e096-c437-4f76-b086-7d7d1785c071
+CSeq: 102 BYE
+Server: INDEXUS-Asterisk
+Content-Length:  0
+
+
+    -- Channel PJSIP/o2-ims-endpoint-00000007 left 'simple_bridge' basic-bridge <b9c58916-38c9-4971-9049-e3df592cef1d>
+    -- Channel PJSIP/2001-00000006 left 'simple_bridge' basic-bridge <b9c58916-38c9-4971-9049-e3df592cef1d>
+  == Spawn extension (o2-ims-common, s, 9) exited non-zero on 'PJSIP/2001-00000006'
+<--- Transmitting SIP request (422 bytes) to WS:10.1.2.111:45814 --->
+BYE sip:rh13chli@10.1.2.111:45814;transport=WS;ob SIP/2.0
+Via: SIP/2.0/WS 10.1.2.112:8088;rport;branch=z9hG4bKPj4fe3f3a7-e972-4bf4-8350-c5b024436409;alias
+From: <sip:+421948519438@asterisk>;tag=df8c2490-efb6-4f2f-b84c-efa39e68984b
+To: "2001" <sip:2001@asterisk>;tag=tmv7jl15is
+Call-ID: hhsqint1j3oj7gq3e6cb
+CSeq: 8544 BYE
+Reason: Q.850;cause=16
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP response (354 bytes) from WS:10.1.2.111:45814 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/WS 10.1.2.112:8088;rport;branch=z9hG4bKPj4fe3f3a7-e972-4bf4-8350-c5b024436409;alias
+From: <sip:+421948519438@asterisk>;tag=df8c2490-efb6-4f2f-b84c-efa39e68984b
+To: "2001" <sip:2001@asterisk>;tag=tmv7jl15is
+CSeq: 8544 BYE
+Call-ID: hhsqint1j3oj7gq3e6cb
+Supported: outbound
+User-Agent: SIP.js/0.21.1
+Content-Length: 0
+
+
+<--- Transmitting SIP request (435 bytes) to UDP:185.103.146.200:5060 --->
+OPTIONS sip:sipt1.ims.o2bs.sk SIP/2.0
+Via: SIP/2.0/UDP 77.72.181.113:5060;rport;branch=z9hG4bKPj80d3c8c7-25df-4983-905d-128a98910e99
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=95c4ba6f-3666-4266-bd98-0ecec72a4877
+To: <sip:sipt1.ims.o2bs.sk>
+Contact: <sip:421222190337@77.72.181.113:5060>
+Call-ID: ede9bf41-e570-4c99-bc14-637da601861e
+CSeq: 53879 OPTIONS
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP response (552 bytes) from UDP:185.103.146.200:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 77.72.181.113:5060;branch=z9hG4bKPj80d3c8c7-25df-4983-905d-128a98910e99;received=77.72.181.113;rport=5060
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=95c4ba6f-3666-4266-bd98-0ecec72a4877
+To: <sip:sipt1.ims.o2bs.sk>;tag=as4d3cf71b
+Call-ID: ede9bf41-e570-4c99-bc14-637da601861e
+CSeq: 53879 OPTIONS
+Server: O2BS SK IMS
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+Contact: <sip:185.103.146.200:5060>
+Accept: application/sdp
+Content-Length: 0
+
+
+<--- Transmitting SIP request (420 bytes) to UDP:10.9.33.2:5060 --->
+OPTIONS sip:10.9.33.2:5060 SIP/2.0
+Via: SIP/2.0/UDP 10.1.2.112:5060;rport;branch=z9hG4bKPjad3fc050-ad5a-4fed-a0b1-a5cb3cd0b3be
+From: <sip:trunk-sk-endpoint@10.9.33.2>;tag=ad5e82a4-e6ba-448e-bdf2-3fca83db4ccd
+To: <sip:10.9.33.2>
+Contact: <sip:trunk-sk-endpoint@10.1.2.112:5060>
+Call-ID: ae71856a-c569-45d7-8446-c4bb5fc1c026
+CSeq: 33252 OPTIONS
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP response (517 bytes) from UDP:10.9.33.2:5060 --->
+SIP/2.0 404 Not Found
+Via: SIP/2.0/UDP 10.1.2.112:5060;branch=z9hG4bKPjad3fc050-ad5a-4fed-a0b1-a5cb3cd0b3be;received=10.1.2.112;rport=5060
+From: <sip:trunk-sk-endpoint@10.9.33.2>;tag=ad5e82a4-e6ba-448e-bdf2-3fca83db4ccd
+To: <sip:10.9.33.2>;tag=as6aa36ab2
+Call-ID: ae71856a-c569-45d7-8446-c4bb5fc1c026
+CSeq: 33252 OPTIONS
+Server: DialLog.Dialer
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH, MESSAGE
+Supported: replaces, timer
+Accept: application/sdp
+Content-Length: 0
+
+
+<--- Received SIP request (808 bytes) from WS:10.1.2.111:45814 --->
+REGISTER sip:asterisk SIP/2.0
+Via: SIP/2.0/WSS u7lnojr361vi.invalid;branch=z9hG4bK135452
+To: <sip:2001@asterisk>
+From: "2001" <sip:2001@asterisk>;tag=dlv33p1nu2
+CSeq: 95 REGISTER
+Call-ID: hhsqi3d7jv398lcndhra
+Max-Forwards: 70
+Authorization: Digest algorithm=MD5, username="2001", realm="asterisk", nonce="1787899205/e52286cda65e51180f319e908f9748fd", uri="sip:asterisk", response="c8419360220100ca91d3daeb378ef884", opaque="4a39046f5a31291a", qop=auth, cnonce="pnua46vfg3ob", nc=00000001
+X-CRM-Client: indexus
+Contact: <sip:rh13chli@u7lnojr361vi.invalid;transport=ws>;reg-id=1;+sip.instance="<urn:uuid:11fba230-4ba5-462a-ba4e-eee949c9cf0d>";expires=600
+Allow: ACK,CANCEL,INVITE,MESSAGE,BYE,OPTIONS,INFO,NOTIFY,REFER
+Supported: outbound, path, gruu
+User-Agent: SIP.js/0.21.1
+Content-Length: 0
+
+
+<--- Transmitting SIP response (406 bytes) to WS:10.1.2.111:45814 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/WSS u7lnojr361vi.invalid;rport=45814;received=10.1.2.111;branch=z9hG4bK135452
+Call-ID: hhsqi3d7jv398lcndhra
+From: "2001" <sip:2001@asterisk>;tag=dlv33p1nu2
+To: <sip:2001@asterisk>;tag=z9hG4bK135452
+CSeq: 95 REGISTER
+Date: Fri, 28 Aug 2026 06:40:35 GMT
+Contact: <sip:rh13chli@u7lnojr361vi.invalid;transport=WS>;expires=599
+Server: INDEXUS-Asterisk
+Content-Length:  0
+
+
+mediagtw*CLI>
