@@ -1,0 +1,895 @@
+PJSIP Logging enabled
+<--- Received SIP request (562 bytes) from UDP:185.103.146.200:5060 --->
+OPTIONS sip:421222190337@77.72.181.113:5060 SIP/2.0
+Via: SIP/2.0/UDP 185.103.146.200:5060;branch=z9hG4bK23a8e3ec;rport
+Max-Forwards: 70
+From: "o2bssk" <sip:o2bssk@sipt1.ims.o2bs.sk>;tag=as54284def
+To: <sip:421222190337@77.72.181.113:5060>
+Contact: <sip:o2bssk@185.103.146.200:5060>
+Call-ID: 6726ba796812e1247ee64a0f33dd930f@sipt1.ims.o2bs.sk
+CSeq: 102 OPTIONS
+User-Agent: O2BS SK IMS
+Date: Fri, 28 Aug 2026 06:10:02 GMT
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+Content-Length: 0
+
+
+<--- Transmitting SIP response (853 bytes) to UDP:185.103.146.200:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 185.103.146.200:5060;rport=5060;received=185.103.146.200;branch=z9hG4bK23a8e3ec
+Call-ID: 6726ba796812e1247ee64a0f33dd930f@sipt1.ims.o2bs.sk
+From: "o2bssk" <sip:o2bssk@sipt1.ims.o2bs.sk>;tag=as54284def
+To: <sip:421222190337@77.72.181.113>;tag=z9hG4bK23a8e3ec
+CSeq: 102 OPTIONS
+Accept: application/sdp, application/xpidf+xml, application/cpim-pidf+xml, application/pidf+xml, application/dialog-info+xml, application/simple-message-summary, application/pidf+xml, application/dialog-info+xml, application/simple-message-summary, message/sipfrag;version=2.0
+Allow: OPTIONS, REGISTER, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, MESSAGE, REFER, INFO
+Supported: 100rel, timer, replaces, norefersub
+Accept-Encoding: identity
+Accept-Language: en
+Server: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP request (545 bytes) from WS:10.1.2.111:42790 --->
+REGISTER sip:asterisk SIP/2.0
+Via: SIP/2.0/WSS u7lnojr361vi.invalid;branch=z9hG4bK1481403
+To: <sip:2001@asterisk>
+From: "2001" <sip:2001@asterisk>;tag=dlv33p1nu2
+CSeq: 2 REGISTER
+Call-ID: hhsqi3d7jv398lcndhra
+Max-Forwards: 70
+X-CRM-Client: indexus
+Contact: <sip:rh13chli@u7lnojr361vi.invalid;transport=ws>;reg-id=1;+sip.instance="<urn:uuid:11fba230-4ba5-462a-ba4e-eee949c9cf0d>";expires=600
+Allow: ACK,CANCEL,INVITE,MESSAGE,BYE,OPTIONS,INFO,NOTIFY,REFER
+Supported: outbound, path, gruu
+User-Agent: SIP.js/0.21.1
+Content-Length: 0
+
+
+<--- Transmitting SIP response (455 bytes) to WS:10.1.2.111:42790 --->
+SIP/2.0 401 Unauthorized
+Via: SIP/2.0/WSS u7lnojr361vi.invalid;rport=42790;received=10.1.2.111;branch=z9hG4bK1481403
+Call-ID: hhsqi3d7jv398lcndhra
+From: "2001" <sip:2001@asterisk>;tag=dlv33p1nu2
+To: <sip:2001@asterisk>;tag=z9hG4bK1481403
+CSeq: 2 REGISTER
+WWW-Authenticate: Digest realm="asterisk",nonce="1787897405/f53e7a8ac680991d0cde8dadfd052dd7",opaque="6d8570c141289dd0",algorithm=MD5,qop="auth"
+Server: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP request (808 bytes) from WS:10.1.2.111:42790 --->
+REGISTER sip:asterisk SIP/2.0
+Via: SIP/2.0/WSS u7lnojr361vi.invalid;branch=z9hG4bK1674402
+To: <sip:2001@asterisk>
+From: "2001" <sip:2001@asterisk>;tag=dlv33p1nu2
+CSeq: 3 REGISTER
+Call-ID: hhsqi3d7jv398lcndhra
+Max-Forwards: 70
+Authorization: Digest algorithm=MD5, username="2001", realm="asterisk", nonce="1787897405/f53e7a8ac680991d0cde8dadfd052dd7", uri="sip:asterisk", response="10cd44aceab426a89598761e308f3f03", opaque="6d8570c141289dd0", qop=auth, cnonce="glm8bgmo9r7f", nc=00000001
+X-CRM-Client: indexus
+Contact: <sip:rh13chli@u7lnojr361vi.invalid;transport=ws>;reg-id=1;+sip.instance="<urn:uuid:11fba230-4ba5-462a-ba4e-eee949c9cf0d>";expires=600
+Allow: ACK,CANCEL,INVITE,MESSAGE,BYE,OPTIONS,INFO,NOTIFY,REFER
+Supported: outbound, path, gruu
+User-Agent: SIP.js/0.21.1
+Content-Length: 0
+
+
+<--- Transmitting SIP response (407 bytes) to WS:10.1.2.111:42790 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/WSS u7lnojr361vi.invalid;rport=42790;received=10.1.2.111;branch=z9hG4bK1674402
+Call-ID: hhsqi3d7jv398lcndhra
+From: "2001" <sip:2001@asterisk>;tag=dlv33p1nu2
+To: <sip:2001@asterisk>;tag=z9hG4bK1674402
+CSeq: 3 REGISTER
+Date: Fri, 28 Aug 2026 06:10:05 GMT
+Contact: <sip:rh13chli@u7lnojr361vi.invalid;transport=WS>;expires=599
+Server: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Transmitting SIP request (483 bytes) to WS:10.1.2.111:42790 --->
+OPTIONS sip:rh13chli@10.1.2.111:42790;transport=WS SIP/2.0
+Via: SIP/2.0/WS 10.1.2.112:8088;rport;branch=z9hG4bKPja39c86c7-8761-4790-aa79-5c9d990fba82;alias
+From: <sip:2001@mediagtw.cordbloodcenter.com>;tag=17896569-f123-41c1-931e-ed883b3f3667
+To: <sip:rh13chli@10.1.2.111>
+Contact: <sip:2001@mediagtw.cordbloodcenter.com:5060;transport=ws>
+Call-ID: 3500314a-8fb6-43f5-926a-00b89edf2eeb
+CSeq: 20185 OPTIONS
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP response (522 bytes) from WS:10.1.2.111:42790 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/WS 10.1.2.112:8088;rport;branch=z9hG4bKPja39c86c7-8761-4790-aa79-5c9d990fba82;alias
+From: <sip:2001@mediagtw.cordbloodcenter.com>;tag=17896569-f123-41c1-931e-ed883b3f3667
+To: <sip:rh13chli@10.1.2.111>;tag=sjincgora9
+CSeq: 20185 OPTIONS
+Call-ID: 3500314a-8fb6-43f5-926a-00b89edf2eeb
+Supported: outbound
+User-Agent: SIP.js/0.21.1
+Allow: ACK,BYE,CANCEL,INFO,INVITE,MESSAGE,NOTIFY,OPTIONS,PRACK,REFER,REGISTER,SUBSCRIBE
+Accept: application/sdp,application/dtmf-relay
+Content-Length: 0
+
+
+<--- Transmitting SIP request (435 bytes) to UDP:185.103.146.200:5060 --->
+OPTIONS sip:sipt1.ims.o2bs.sk SIP/2.0
+Via: SIP/2.0/UDP 77.72.181.113:5060;rport;branch=z9hG4bKPj0998864e-be9a-487b-914a-729857c5703f
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=4557cd27-1e29-403c-ae1a-fbbdf1568240
+To: <sip:sipt1.ims.o2bs.sk>
+Contact: <sip:421222190337@77.72.181.113:5060>
+Call-ID: 5750371b-924e-4fc3-ac94-87ab177e9ac4
+CSeq: 37273 OPTIONS
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP response (552 bytes) from UDP:185.103.146.200:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 77.72.181.113:5060;branch=z9hG4bKPj0998864e-be9a-487b-914a-729857c5703f;received=77.72.181.113;rport=5060
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=4557cd27-1e29-403c-ae1a-fbbdf1568240
+To: <sip:sipt1.ims.o2bs.sk>;tag=as530b77a8
+Call-ID: 5750371b-924e-4fc3-ac94-87ab177e9ac4
+CSeq: 37273 OPTIONS
+Server: O2BS SK IMS
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+Contact: <sip:185.103.146.200:5060>
+Accept: application/sdp
+Content-Length: 0
+
+
+<--- Received SIP request (499 bytes) from UDP:10.33.0.55:5060 --->
+OPTIONS sip:10.1.2.112;cpd=on SIP/2.0
+Via: SIP/2.0/UDP 10.33.0.55:5060;branch=z9hG4bK71c1be03;rport
+From: "asterisk" <sip:asterisk@10.33.0.55>;tag=as7a3f5e50
+To: <sip:10.1.2.112;cpd=on>
+Contact: <sip:asterisk@10.33.0.55>
+Call-ID: 505058fc1dbef07736c2f7ae257ca216@10.33.0.55
+CSeq: 102 OPTIONS
+User-Agent: DialLog.DialLer
+Max-Forwards: 70
+Date: Fri, 28 Aug 2026 06:10:11 GMT
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO
+Supported: replaces
+Content-Length: 0
+
+
+<--- Transmitting SIP response (824 bytes) to UDP:10.33.0.55:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 10.33.0.55:5060;rport=5060;received=10.33.0.55;branch=z9hG4bK71c1be03
+Call-ID: 505058fc1dbef07736c2f7ae257ca216@10.33.0.55
+From: "asterisk" <sip:asterisk@10.33.0.55>;tag=as7a3f5e50
+To: <sip:10.1.2.112;cpd=on>;tag=z9hG4bK71c1be03
+CSeq: 102 OPTIONS
+Accept: application/sdp, application/xpidf+xml, application/cpim-pidf+xml, application/pidf+xml, application/dialog-info+xml, application/simple-message-summary, application/pidf+xml, application/dialog-info+xml, application/simple-message-summary, message/sipfrag;version=2.0
+Allow: OPTIONS, REGISTER, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, MESSAGE, REFER, INFO
+Supported: 100rel, timer, replaces, norefersub
+Accept-Encoding: identity
+Accept-Language: en
+Server: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Transmitting SIP request (420 bytes) to UDP:10.9.33.2:5060 --->
+OPTIONS sip:10.9.33.2:5060 SIP/2.0
+Via: SIP/2.0/UDP 10.1.2.112:5060;rport;branch=z9hG4bKPj31c1c2e9-2574-41ad-9c30-4d6e5fa97898
+From: <sip:trunk-sk-endpoint@10.9.33.2>;tag=85a0da10-4e7a-499b-92d0-357a2dbf76a8
+To: <sip:10.9.33.2>
+Contact: <sip:trunk-sk-endpoint@10.1.2.112:5060>
+Call-ID: 618d6783-ab3b-44a9-956e-983a416ada7c
+CSeq: 18700 OPTIONS
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP response (517 bytes) from UDP:10.9.33.2:5060 --->
+SIP/2.0 404 Not Found
+Via: SIP/2.0/UDP 10.1.2.112:5060;branch=z9hG4bKPj31c1c2e9-2574-41ad-9c30-4d6e5fa97898;received=10.1.2.112;rport=5060
+From: <sip:trunk-sk-endpoint@10.9.33.2>;tag=85a0da10-4e7a-499b-92d0-357a2dbf76a8
+To: <sip:10.9.33.2>;tag=as123aa1c2
+Call-ID: 618d6783-ab3b-44a9-956e-983a416ada7c
+CSeq: 18700 OPTIONS
+Server: DialLog.Dialer
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH, MESSAGE
+Supported: replaces, timer
+Accept: application/sdp
+Content-Length: 0
+
+
+<--- Transmitting SIP request (405 bytes) to UDP:10.33.0.55:5060 --->
+OPTIONS sip:10.33.0.55:5060 SIP/2.0
+Via: SIP/2.0/UDP 10.1.2.112:5060;rport;branch=z9hG4bKPj81f1bf2e-c0c1-467c-90a9-98d752b04596
+From: <sip:mediagtw@10.1.2.112>;tag=9e0ce44e-711b-4761-a0fc-8a78dfc6d3be
+To: <sip:10.33.0.55>
+Contact: <sip:mediagtw@10.1.2.112:5060>
+Call-ID: 73402341-5a4f-499e-b860-84f9cec4eeb2
+CSeq: 46272 OPTIONS
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP response (490 bytes) from UDP:10.33.0.55:5060 --->
+SIP/2.0 404 Not Found
+Via: SIP/2.0/UDP 10.1.2.112:5060;branch=z9hG4bKPj81f1bf2e-c0c1-467c-90a9-98d752b04596;received=10.1.2.112;rport=5060
+From: <sip:mediagtw@10.1.2.112>;tag=9e0ce44e-711b-4761-a0fc-8a78dfc6d3be
+To: <sip:10.33.0.55>;tag=as7e34ff03
+Call-ID: 73402341-5a4f-499e-b860-84f9cec4eeb2
+CSeq: 46272 OPTIONS
+User-Agent: DialLog.DialLer
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO
+Supported: replaces
+Accept: application/sdp
+Content-Length: 0
+
+
+<--- Received SIP request (2747 bytes) from WS:10.1.2.111:42790 --->
+INVITE sip:+421948519438@asterisk SIP/2.0
+Via: SIP/2.0/WSS u7lnojr361vi.invalid;branch=z9hG4bK791797
+To: <sip:+421948519438@asterisk>
+From: "2001" <sip:2001@asterisk>;tag=ud96krve6a
+CSeq: 1 INVITE
+Call-ID: hhsqi5tld2bdu7bj1li3
+Max-Forwards: 70
+X-Campaign-CallerID: +421940682394
+X-Provider: O2-IMS
+X-Indexus-Outbound-Trunk: o2-ims
+X-Campaign-ID: a65e7775-885c-4413-b2be-e63c92decd3d
+X-Campaign-Contact-ID: 84b081e6-9d19-47e4-a93f-9384bcba9ca8
+X-Contact-Type: clinic
+Contact: <sip:rh13chli@u7lnojr361vi.invalid;transport=ws;ob>
+Allow: ACK,CANCEL,INVITE,MESSAGE,BYE,OPTIONS,INFO,NOTIFY,REFER
+Supported: outbound
+User-Agent: SIP.js/0.21.1
+Content-Type: application/sdp
+Content-Length: 2039
+
+v=0
+o=mozilla...THIS_IS_SDPARTA-99.0 3136597543362779616 0 IN IP4 0.0.0.0
+s=-
+t=0 0
+a=sendrecv
+a=fingerprint:sha-256 AA:E2:21:B4:24:07:DA:5E:F5:CF:23:2E:4B:27:D4:C4:2E:77:96:1A:75:C4:92:99:76:B1:4F:8D:0F:7D:2F:47
+a=group:BUNDLE 0
+a=ice-options:trickle
+a=msid-semantic:WMS *
+m=audio 56975 UDP/TLS/RTP/SAVPF 109 9 0 8 101
+c=IN IP4 77.72.181.113
+a=candidate:0 1 UDP 2122252543 10.9.5.73 63994 typ host
+a=candidate:2 1 TCP 2105524479 10.9.5.73 9 typ host tcptype active
+a=candidate:0 2 UDP 2122252542 10.9.5.73 61423 typ host
+a=candidate:2 2 TCP 2105524478 10.9.5.73 9 typ host tcptype active
+a=candidate:1 1 UDP 1686052351 212.55.232.226 63994 typ srflx raddr 10.9.5.73 rport 63994
+a=candidate:1 2 UDP 1686052350 212.55.232.226 61423 typ srflx raddr 10.9.5.73 rport 61423
+a=candidate:3 1 UDP 8331263 77.72.181.113 56975 typ relay raddr 77.72.181.113 rport 56975
+a=candidate:3 2 UDP 8331262 77.72.181.113 54853 typ relay raddr 77.72.181.113 rport 54853
+a=candidate:1 1 UDP 1686052863 212.55.232.226 63994 typ srflx raddr 10.9.5.73 rport 63994
+a=candidate:1 2 UDP 1686052862 212.55.232.226 61423 typ srflx raddr 10.9.5.73 rport 61423
+a=sendrecv
+a=extmap:1 urn:ietf:params:rtp-hdrext:ssrc-audio-level
+a=extmap:2/recvonly urn:ietf:params:rtp-hdrext:csrc-audio-level
+a=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid
+a=extmap:7 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01
+a=extmap-allow-mixed
+a=fmtp:109 maxplaybackrate=48000;stereo=1;useinbandfec=1
+a=fmtp:101 0-15
+a=ice-pwd:89db9d82fe81ee188a5a880dd1f3bc73
+a=ice-ufrag:0d5571fd
+a=mid:0
+a=msid:{2f73b9b8-7429-4064-bd65-b6496b873eff} {e8b016a2-09a9-40b5-b936-6ac248c1b6e2}
+a=rtcp:54853 IN IP4 77.72.181.113
+a=rtcp-fb:109 transport-cc
+a=rtcp-fb:9 transport-cc
+a=rtcp-fb:0 transport-cc
+a=rtcp-fb:8 transport-cc
+a=rtcp-mux
+a=rtpmap:109 opus/48000/2
+a=rtpmap:9 G722/8000/1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=setup:actpass
+a=ssrc:1504513250 cname:{3547b570-e74d-4649-9ad5-0a81aa6ef321}
+
+<--- Transmitting SIP response (460 bytes) to WS:10.1.2.111:42790 --->
+SIP/2.0 401 Unauthorized
+Via: SIP/2.0/WSS u7lnojr361vi.invalid;rport=42790;received=10.1.2.111;branch=z9hG4bK791797
+Call-ID: hhsqi5tld2bdu7bj1li3
+From: "2001" <sip:2001@asterisk>;tag=ud96krve6a
+To: <sip:+421948519438@asterisk>;tag=z9hG4bK791797
+CSeq: 1 INVITE
+WWW-Authenticate: Digest realm="asterisk",nonce="1787897422/950aed5d2d82ae398717e28d6f984904",opaque="393a41ad51526a83",algorithm=MD5,qop="auth"
+Server: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP request (284 bytes) from WS:10.1.2.111:42790 --->
+ACK sip:+421948519438@asterisk SIP/2.0
+Via: SIP/2.0/WSS u7lnojr361vi.invalid;branch=z9hG4bK791797
+To: <sip:+421948519438@asterisk>;tag=z9hG4bK791797
+From: "2001" <sip:2001@asterisk>;tag=ud96krve6a
+Call-ID: hhsqi5tld2bdu7bj1li3
+CSeq: 1 ACK
+Max-Forwards: 70
+Content-Length: 0
+
+
+<--- Received SIP request (3025 bytes) from WS:10.1.2.111:42790 --->
+INVITE sip:+421948519438@asterisk SIP/2.0
+Via: SIP/2.0/WSS u7lnojr361vi.invalid;branch=z9hG4bK8678759
+To: <sip:+421948519438@asterisk>
+From: "2001" <sip:2001@asterisk>;tag=ud96krve6a
+CSeq: 2 INVITE
+Call-ID: hhsqi5tld2bdu7bj1li3
+Max-Forwards: 70
+Authorization: Digest algorithm=MD5, username="2001", realm="asterisk", nonce="1787897422/950aed5d2d82ae398717e28d6f984904", uri="sip:+421948519438@asterisk", response="b6b042da13055922e626f89b1e5bf0e0", opaque="393a41ad51526a83", qop=auth, cnonce="mbn4s2f8srt0", nc=00000001
+X-Campaign-CallerID: +421940682394
+X-Provider: O2-IMS
+X-Indexus-Outbound-Trunk: o2-ims
+X-Campaign-ID: a65e7775-885c-4413-b2be-e63c92decd3d
+X-Campaign-Contact-ID: 84b081e6-9d19-47e4-a93f-9384bcba9ca8
+X-Contact-Type: clinic
+Contact: <sip:rh13chli@u7lnojr361vi.invalid;transport=ws;ob>
+Allow: ACK,CANCEL,INVITE,MESSAGE,BYE,OPTIONS,INFO,NOTIFY,REFER
+Supported: outbound
+User-Agent: SIP.js/0.21.1
+Content-Type: application/sdp
+Content-Length: 2039
+
+v=0
+o=mozilla...THIS_IS_SDPARTA-99.0 3136597543362779616 0 IN IP4 0.0.0.0
+s=-
+t=0 0
+a=sendrecv
+a=fingerprint:sha-256 AA:E2:21:B4:24:07:DA:5E:F5:CF:23:2E:4B:27:D4:C4:2E:77:96:1A:75:C4:92:99:76:B1:4F:8D:0F:7D:2F:47
+a=group:BUNDLE 0
+a=ice-options:trickle
+a=msid-semantic:WMS *
+m=audio 56975 UDP/TLS/RTP/SAVPF 109 9 0 8 101
+c=IN IP4 77.72.181.113
+a=candidate:0 1 UDP 2122252543 10.9.5.73 63994 typ host
+a=candidate:2 1 TCP 2105524479 10.9.5.73 9 typ host tcptype active
+a=candidate:0 2 UDP 2122252542 10.9.5.73 61423 typ host
+a=candidate:2 2 TCP 2105524478 10.9.5.73 9 typ host tcptype active
+a=candidate:1 1 UDP 1686052351 212.55.232.226 63994 typ srflx raddr 10.9.5.73 rport 63994
+a=candidate:1 2 UDP 1686052350 212.55.232.226 61423 typ srflx raddr 10.9.5.73 rport 61423
+a=candidate:3 1 UDP 8331263 77.72.181.113 56975 typ relay raddr 77.72.181.113 rport 56975
+a=candidate:3 2 UDP 8331262 77.72.181.113 54853 typ relay raddr 77.72.181.113 rport 54853
+a=candidate:1 1 UDP 1686052863 212.55.232.226 63994 typ srflx raddr 10.9.5.73 rport 63994
+a=candidate:1 2 UDP 1686052862 212.55.232.226 61423 typ srflx raddr 10.9.5.73 rport 61423
+a=sendrecv
+a=extmap:1 urn:ietf:params:rtp-hdrext:ssrc-audio-level
+a=extmap:2/recvonly urn:ietf:params:rtp-hdrext:csrc-audio-level
+a=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid
+a=extmap:7 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01
+a=extmap-allow-mixed
+a=fmtp:109 maxplaybackrate=48000;stereo=1;useinbandfec=1
+a=fmtp:101 0-15
+a=ice-pwd:89db9d82fe81ee188a5a880dd1f3bc73
+a=ice-ufrag:0d5571fd
+a=mid:0
+a=msid:{2f73b9b8-7429-4064-bd65-b6496b873eff} {e8b016a2-09a9-40b5-b936-6ac248c1b6e2}
+a=rtcp:54853 IN IP4 77.72.181.113
+a=rtcp-fb:109 transport-cc
+a=rtcp-fb:9 transport-cc
+a=rtcp-fb:0 transport-cc
+a=rtcp-fb:8 transport-cc
+a=rtcp-mux
+a=rtpmap:109 opus/48000/2
+a=rtpmap:9 G722/8000/1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=setup:actpass
+a=ssrc:1504513250 cname:{3547b570-e74d-4649-9ad5-0a81aa6ef321}
+
+<--- Transmitting SIP response (291 bytes) to WS:10.1.2.111:42790 --->
+SIP/2.0 100 Trying
+Via: SIP/2.0/WSS u7lnojr361vi.invalid;rport=42790;received=10.1.2.111;branch=z9hG4bK8678759
+Call-ID: hhsqi5tld2bdu7bj1li3
+From: "2001" <sip:2001@asterisk>;tag=ud96krve6a
+To: <sip:+421948519438@asterisk>
+CSeq: 2 INVITE
+Server: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Transmitting SIP request (1156 bytes) to UDP:185.103.146.200:5060 --->
+INVITE sip:+421948519438@sipt1.ims.o2bs.sk SIP/2.0
+Via: SIP/2.0/UDP 77.72.181.113:5060;rport;branch=z9hG4bKPjbcb50630-0f9d-4da9-b781-e3fe70517bb8
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=e36261e5-090c-4575-b0eb-e2823d2821ad
+To: <sip:+421948519438@sipt1.ims.o2bs.sk>
+Contact: <sip:421222190337@77.72.181.113:5060>
+Call-ID: 6dafc01c-5c24-4989-809e-6387ae91a41c
+CSeq: 6218 INVITE
+Allow: OPTIONS, REGISTER, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, MESSAGE, REFER, INFO
+Supported: 100rel, replaces, norefersub, histinfo
+P-Asserted-Identity: "+421222133230" <sip:+421222133230@sipt1.ims.o2bs.sk>
+Remote-Party-ID: "+421222133230" <sip:+421222133230@sipt1.ims.o2bs.sk>;party=calling;privacy=off;screen=no
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Type: application/sdp
+Content-Length:   310
+
+v=0
+o=- 1497109708 1497109708 IN IP4 77.72.181.113
+s=Asterisk
+c=IN IP4 77.72.181.113
+t=0 0
+m=audio 13956 RTP/AVP 0 8 18 101
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=maxptime:140
+a=sendrecv
+
+<--- Received SIP response (586 bytes) from UDP:185.103.146.200:5060 --->
+SIP/2.0 401 Unauthorized
+Via: SIP/2.0/UDP 77.72.181.113:5060;branch=z9hG4bKPjbcb50630-0f9d-4da9-b781-e3fe70517bb8;received=77.72.181.113;rport=5060
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=e36261e5-090c-4575-b0eb-e2823d2821ad
+To: <sip:+421948519438@sipt1.ims.o2bs.sk>;tag=as13a9e189
+Call-ID: 6dafc01c-5c24-4989-809e-6387ae91a41c
+CSeq: 6218 INVITE
+Server: O2BS SK IMS
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+WWW-Authenticate: Digest algorithm=MD5, realm="o2bssk", nonce="15155ed6"
+Content-Length: 0
+
+
+<--- Transmitting SIP request (421 bytes) to UDP:185.103.146.200:5060 --->
+ACK sip:+421948519438@sipt1.ims.o2bs.sk SIP/2.0
+Via: SIP/2.0/UDP 77.72.181.113:5060;rport;branch=z9hG4bKPjbcb50630-0f9d-4da9-b781-e3fe70517bb8
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=e36261e5-090c-4575-b0eb-e2823d2821ad
+To: <sip:+421948519438@sipt1.ims.o2bs.sk>;tag=as13a9e189
+Call-ID: 6dafc01c-5c24-4989-809e-6387ae91a41c
+CSeq: 6218 ACK
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Transmitting SIP request (1340 bytes) to UDP:185.103.146.200:5060 --->
+INVITE sip:+421948519438@sipt1.ims.o2bs.sk SIP/2.0
+Via: SIP/2.0/UDP 77.72.181.113:5060;rport;branch=z9hG4bKPjba38706c-b010-4f79-a66f-060c39a4ec79
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=e36261e5-090c-4575-b0eb-e2823d2821ad
+To: <sip:+421948519438@sipt1.ims.o2bs.sk>
+Contact: <sip:421222190337@77.72.181.113:5060>
+Call-ID: 6dafc01c-5c24-4989-809e-6387ae91a41c
+CSeq: 6219 INVITE
+Allow: OPTIONS, REGISTER, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, MESSAGE, REFER, INFO
+Supported: 100rel, replaces, norefersub, histinfo
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Authorization: Digest username="421222190337", realm="o2bssk", nonce="15155ed6", uri="sip:+421948519438@sipt1.ims.o2bs.sk", response="e0f6ac2e972a3cd9ad2de36b769300ee", algorithm=MD5
+P-Asserted-Identity: "+421222133230" <sip:+421222133230@sipt1.ims.o2bs.sk>
+Remote-Party-ID: "+421222133230" <sip:+421222133230@sipt1.ims.o2bs.sk>;party=calling;privacy=off;screen=no
+Content-Type: application/sdp
+Content-Length:   310
+
+v=0
+o=- 1497109708 1497109708 IN IP4 77.72.181.113
+s=Asterisk
+c=IN IP4 77.72.181.113
+t=0 0
+m=audio 13956 RTP/AVP 0 8 18 101
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=maxptime:140
+a=sendrecv
+
+<--- Received SIP response (542 bytes) from UDP:185.103.146.200:5060 --->
+SIP/2.0 100 Trying
+Via: SIP/2.0/UDP 77.72.181.113:5060;branch=z9hG4bKPjba38706c-b010-4f79-a66f-060c39a4ec79;received=77.72.181.113;rport=5060
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=e36261e5-090c-4575-b0eb-e2823d2821ad
+To: <sip:+421948519438@sipt1.ims.o2bs.sk>
+Call-ID: 6dafc01c-5c24-4989-809e-6387ae91a41c
+CSeq: 6219 INVITE
+Server: O2BS SK IMS
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+Contact: <sip:+421948519438@185.103.146.200:5060>
+Content-Length: 0
+
+
+<--- Received SIP response (900 bytes) from UDP:185.103.146.200:5060 --->
+SIP/2.0 183 Session Progress
+Via: SIP/2.0/UDP 77.72.181.113:5060;branch=z9hG4bKPjba38706c-b010-4f79-a66f-060c39a4ec79;received=77.72.181.113;rport=5060
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=e36261e5-090c-4575-b0eb-e2823d2821ad
+To: <sip:+421948519438@sipt1.ims.o2bs.sk>;tag=as745d7669
+Call-ID: 6dafc01c-5c24-4989-809e-6387ae91a41c
+CSeq: 6219 INVITE
+Server: O2BS SK IMS
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+Contact: <sip:+421948519438@185.103.146.200:5060>
+Content-Type: application/sdp
+Content-Length: 300
+
+v=0
+o=root 1769982829 1769982829 IN IP4 185.103.146.200
+s=O2BS SK
+c=IN IP4 185.103.146.200
+t=0 0
+m=audio 32594 RTP/AVP 8 0 18 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=sendrecv
+
+<--- Transmitting SIP response (1401 bytes) to WS:10.1.2.111:42790 --->
+SIP/2.0 183 Session Progress
+Via: SIP/2.0/WSS u7lnojr361vi.invalid;rport=42790;received=10.1.2.111;branch=z9hG4bK8678759
+Call-ID: hhsqi5tld2bdu7bj1li3
+From: "2001" <sip:2001@asterisk>;tag=ud96krve6a
+To: <sip:+421948519438@asterisk>;tag=e1dd3902-06cf-4336-a767-55393014733e
+CSeq: 2 INVITE
+Server: INDEXUS-Asterisk
+Contact: <sip:10.1.2.112:8088;transport=ws>
+Allow: OPTIONS, REGISTER, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, MESSAGE, REFER, INFO
+Content-Type: application/sdp
+Content-Length:   863
+
+v=0
+o=- 3136597543362779616 2 IN IP4 10.1.2.112
+s=Asterisk
+c=IN IP4 10.1.2.112
+t=0 0
+a=msid-semantic:WMS *
+a=group:BUNDLE 0
+m=audio 17178 UDP/TLS/RTP/SAVPF 0 109 8 101
+a=connection:new
+a=setup:active
+a=fingerprint:SHA-256 37:DA:06:5F:94:B5:C9:21:D8:48:9D:16:C6:25:86:FC:C9:5D:23:00:A6:23:CA:59:08:F2:8A:90:61:87:6D:A3
+a=ice-ufrag:282ff02876dd35dc28b2a5771b25c2d9
+a=ice-pwd:7a0e143717551f0815d478262d9f7eef
+a=candidate:Ha010270 1 UDP 2130706431 10.1.2.112 17178 typ host
+a=rtpmap:0 PCMU/8000
+a=rtpmap:109 opus/48000/2
+a=fmtp:109 useinbandfec=1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=maxptime:20
+a=sendrecv
+a=rtcp-mux
+a=ssrc:126484944 cname:b4b3d972-1c98-4279-828d-21d7bf4ef589
+a=msid:10f6cb7d-1267-4221-88f8-9c7277f27bd0 a02bc2ce-f3e4-4b53-ae60-b178f7ecacde
+a=rtcp-fb:* transport-cc
+a=mid:0
+
+Sent Comfort Noise RTP packet to 185.103.146.200:32594 (type 02, seq 013148, ts 000000, len 000001)
+<--- Received SIP response (886 bytes) from UDP:185.103.146.200:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 77.72.181.113:5060;branch=z9hG4bKPjba38706c-b010-4f79-a66f-060c39a4ec79;received=77.72.181.113;rport=5060
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=e36261e5-090c-4575-b0eb-e2823d2821ad
+To: <sip:+421948519438@sipt1.ims.o2bs.sk>;tag=as745d7669
+Call-ID: 6dafc01c-5c24-4989-809e-6387ae91a41c
+CSeq: 6219 INVITE
+Server: O2BS SK IMS
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+Contact: <sip:+421948519438@185.103.146.200:5060>
+Content-Type: application/sdp
+Content-Length: 300
+
+v=0
+o=root 1769982829 1769982830 IN IP4 185.103.146.200
+s=O2BS SK
+c=IN IP4 185.103.146.200
+t=0 0
+m=audio 32594 RTP/AVP 8 0 18 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=sendrecv
+
+<--- Transmitting SIP request (424 bytes) to UDP:185.103.146.200:5060 --->
+ACK sip:+421948519438@185.103.146.200:5060 SIP/2.0
+Via: SIP/2.0/UDP 77.72.181.113:5060;rport;branch=z9hG4bKPj019a49ad-39da-4f1b-9067-6ee9bca3c799
+From: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=e36261e5-090c-4575-b0eb-e2823d2821ad
+To: <sip:+421948519438@sipt1.ims.o2bs.sk>;tag=as745d7669
+Call-ID: 6dafc01c-5c24-4989-809e-6387ae91a41c
+CSeq: 6219 ACK
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Transmitting SIP response (1435 bytes) to WS:10.1.2.111:42790 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/WSS u7lnojr361vi.invalid;rport=42790;received=10.1.2.111;branch=z9hG4bK8678759
+Call-ID: hhsqi5tld2bdu7bj1li3
+From: "2001" <sip:2001@asterisk>;tag=ud96krve6a
+To: <sip:+421948519438@asterisk>;tag=e1dd3902-06cf-4336-a767-55393014733e
+CSeq: 2 INVITE
+Server: INDEXUS-Asterisk
+Allow: OPTIONS, REGISTER, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, MESSAGE, REFER, INFO
+Contact: <sip:10.1.2.112:8088;transport=ws>
+Supported: 100rel, timer, replaces, norefersub
+Content-Type: application/sdp
+Content-Length:   863
+
+v=0
+o=- 3136597543362779616 2 IN IP4 10.1.2.112
+s=Asterisk
+c=IN IP4 10.1.2.112
+t=0 0
+a=msid-semantic:WMS *
+a=group:BUNDLE 0
+m=audio 17178 UDP/TLS/RTP/SAVPF 0 109 8 101
+a=connection:new
+a=setup:active
+a=fingerprint:SHA-256 37:DA:06:5F:94:B5:C9:21:D8:48:9D:16:C6:25:86:FC:C9:5D:23:00:A6:23:CA:59:08:F2:8A:90:61:87:6D:A3
+a=ice-ufrag:282ff02876dd35dc28b2a5771b25c2d9
+a=ice-pwd:7a0e143717551f0815d478262d9f7eef
+a=candidate:Ha010270 1 UDP 2130706431 10.1.2.112 17178 typ host
+a=rtpmap:0 PCMU/8000
+a=rtpmap:109 opus/48000/2
+a=fmtp:109 useinbandfec=1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=maxptime:20
+a=sendrecv
+a=rtcp-mux
+a=ssrc:126484944 cname:b4b3d972-1c98-4279-828d-21d7bf4ef589
+a=msid:10f6cb7d-1267-4221-88f8-9c7277f27bd0 a02bc2ce-f3e4-4b53-ae60-b178f7ecacde
+a=rtcp-fb:* transport-cc
+a=mid:0
+
+<--- Received SIP request (362 bytes) from WS:10.1.2.111:42790 --->
+ACK sip:10.1.2.112:8088;transport=ws SIP/2.0
+Via: SIP/2.0/WSS u7lnojr361vi.invalid;branch=z9hG4bK3347530
+To: <sip:+421948519438@asterisk>;tag=e1dd3902-06cf-4336-a767-55393014733e
+From: "2001" <sip:2001@asterisk>;tag=ud96krve6a
+CSeq: 2 ACK
+Call-ID: hhsqi5tld2bdu7bj1li3
+Max-Forwards: 70
+Supported: outbound
+User-Agent: SIP.js/0.21.1
+Content-Length: 0
+
+
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013149, ts 466245824, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013150, ts 466245984, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013151, ts 466246144, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013152, ts 466246304, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013153, ts 466246464, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013154, ts 466246624, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013155, ts 466246784, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013156, ts 466246944, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013157, ts 466247104, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013158, ts 466247264, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013159, ts 466247424, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013160, ts 466247584, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013161, ts 466247744, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013162, ts 466247904, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013163, ts 466248064, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013164, ts 466248224, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013165, ts 466248384, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013166, ts 466248544, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013167, ts 466248704, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013168, ts 466248864, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013169, ts 466249024, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013170, ts 466249184, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013171, ts 466249344, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013172, ts 466249504, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013173, ts 466249664, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013174, ts 466249824, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013175, ts 466249984, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013176, ts 466250144, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013177, ts 466250304, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013178, ts 466250464, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013179, ts 466250624, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013180, ts 466250784, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013181, ts 466250944, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013182, ts 466251104, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013183, ts 466251264, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013184, ts 466251424, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013185, ts 466251584, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013186, ts 466251744, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013187, ts 466251904, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013188, ts 466252064, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013189, ts 466252224, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013190, ts 466252384, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013191, ts 466252544, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013192, ts 466252704, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013193, ts 466252864, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013194, ts 466253024, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013195, ts 466253184, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013196, ts 466253344, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013197, ts 466253504, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013198, ts 466253664, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013199, ts 466253824, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013200, ts 466253984, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013201, ts 466254144, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013202, ts 466254304, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013203, ts 466254464, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013204, ts 466254624, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013205, ts 466254784, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013206, ts 466254944, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013207, ts 466255104, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013208, ts 466255264, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013209, ts 466255424, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013210, ts 466255584, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013211, ts 466255744, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013212, ts 466255904, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013213, ts 466256064, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013214, ts 466256224, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013215, ts 466256384, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013216, ts 466256544, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013217, ts 466256704, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013218, ts 466256864, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013219, ts 466257024, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013220, ts 466257184, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013221, ts 466257344, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013222, ts 466257504, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013223, ts 466257664, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013224, ts 466257824, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013225, ts 466257984, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013226, ts 466258144, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013227, ts 466258304, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013228, ts 466258464, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013229, ts 466258624, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013230, ts 466258784, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013231, ts 466258944, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013232, ts 466259104, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013233, ts 466259264, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013234, ts 466259424, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013235, ts 466259584, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013236, ts 466259744, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013237, ts 466259904, len 000160)
+Sent RTP packet to      185.103.146.200:32594 (type 08, seq 013238, ts 466260064, len 000160)
+<--- Received SIP request (659 bytes) from UDP:185.103.146.200:5060 --->
+BYE sip:421222190337@77.72.181.113:5060 SIP/2.0
+Via: SIP/2.0/UDP 185.103.146.200:5060;branch=z9hG4bK11c8c3e2;rport
+Max-Forwards: 70
+From: <sip:+421948519438@sipt1.ims.o2bs.sk>;tag=as745d7669
+To: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=e36261e5-090c-4575-b0eb-e2823d2821ad
+Call-ID: 6dafc01c-5c24-4989-809e-6387ae91a41c
+CSeq: 102 BYE
+User-Agent: O2BS SK IMS
+Proxy-Authorization: Digest username="421222190337", realm="o2bssk", algorithm=MD5, uri="sip:sipt1.ims.o2bs.sk", nonce="15155ed6", response="e355b4754622a372391e5c84651496cc"
+Reason: Q.850;cause=16
+X-Asterisk-HangupCause: Normal Clearing
+X-Asterisk-HangupCauseCode: 16
+Content-Length: 0
+
+
+<--- Transmitting SIP response (367 bytes) to UDP:185.103.146.200:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 185.103.146.200:5060;rport=5060;received=185.103.146.200;branch=z9hG4bK11c8c3e2
+Call-ID: 6dafc01c-5c24-4989-809e-6387ae91a41c
+From: <sip:+421948519438@sipt1.ims.o2bs.sk>;tag=as745d7669
+To: <sip:421222190337@sipt1.ims.o2bs.sk>;tag=e36261e5-090c-4575-b0eb-e2823d2821ad
+CSeq: 102 BYE
+Server: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Transmitting SIP request (422 bytes) to WS:10.1.2.111:42790 --->
+BYE sip:rh13chli@10.1.2.111:42790;transport=WS;ob SIP/2.0
+Via: SIP/2.0/WS 10.1.2.112:8088;rport;branch=z9hG4bKPjbae6f253-726d-4e41-b9b5-1759e4879a28;alias
+From: <sip:+421948519438@asterisk>;tag=e1dd3902-06cf-4336-a767-55393014733e
+To: "2001" <sip:2001@asterisk>;tag=ud96krve6a
+Call-ID: hhsqi5tld2bdu7bj1li3
+CSeq: 3357 BYE
+Reason: Q.850;cause=16
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP response (354 bytes) from WS:10.1.2.111:42790 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/WS 10.1.2.112:8088;rport;branch=z9hG4bKPjbae6f253-726d-4e41-b9b5-1759e4879a28;alias
+From: <sip:+421948519438@asterisk>;tag=e1dd3902-06cf-4336-a767-55393014733e
+To: "2001" <sip:2001@asterisk>;tag=ud96krve6a
+CSeq: 3357 BYE
+Call-ID: hhsqi5tld2bdu7bj1li3
+Supported: outbound
+User-Agent: SIP.js/0.21.1
+Content-Length: 0
+
+
+<--- Received SIP request (562 bytes) from UDP:185.103.146.200:5060 --->
+OPTIONS sip:421222190337@77.72.181.113:5060 SIP/2.0
+Via: SIP/2.0/UDP 185.103.146.200:5060;branch=z9hG4bK2cc61b83;rport
+Max-Forwards: 70
+From: "o2bssk" <sip:o2bssk@sipt1.ims.o2bs.sk>;tag=as658e946b
+To: <sip:421222190337@77.72.181.113:5060>
+Contact: <sip:o2bssk@185.103.146.200:5060>
+Call-ID: 66af087519ad0cb2656b03827cf26bad@sipt1.ims.o2bs.sk
+CSeq: 102 OPTIONS
+User-Agent: O2BS SK IMS
+Date: Fri, 28 Aug 2026 06:10:32 GMT
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, SUBSCRIBE, NOTIFY, INFO, PUBLISH
+Supported: replaces, timer
+Content-Length: 0
+
+
+<--- Transmitting SIP response (853 bytes) to UDP:185.103.146.200:5060 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 185.103.146.200:5060;rport=5060;received=185.103.146.200;branch=z9hG4bK2cc61b83
+Call-ID: 66af087519ad0cb2656b03827cf26bad@sipt1.ims.o2bs.sk
+From: "o2bssk" <sip:o2bssk@sipt1.ims.o2bs.sk>;tag=as658e946b
+To: <sip:421222190337@77.72.181.113>;tag=z9hG4bK2cc61b83
+CSeq: 102 OPTIONS
+Accept: application/sdp, application/xpidf+xml, application/cpim-pidf+xml, application/pidf+xml, application/dialog-info+xml, application/simple-message-summary, application/pidf+xml, application/dialog-info+xml, application/simple-message-summary, message/sipfrag;version=2.0
+Allow: OPTIONS, REGISTER, SUBSCRIBE, NOTIFY, PUBLISH, INVITE, ACK, BYE, CANCEL, UPDATE, PRACK, MESSAGE, REFER, INFO
+Supported: 100rel, timer, replaces, norefersub
+Accept-Encoding: identity
+Accept-Language: en
+Server: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Received SIP request (808 bytes) from WS:10.1.2.111:42790 --->
+REGISTER sip:asterisk SIP/2.0
+Via: SIP/2.0/WSS u7lnojr361vi.invalid;branch=z9hG4bK4328862
+To: <sip:2001@asterisk>
+From: "2001" <sip:2001@asterisk>;tag=dlv33p1nu2
+CSeq: 4 REGISTER
+Call-ID: hhsqi3d7jv398lcndhra
+Max-Forwards: 70
+Authorization: Digest algorithm=MD5, username="2001", realm="asterisk", nonce="1787897405/f53e7a8ac680991d0cde8dadfd052dd7", uri="sip:asterisk", response="10cd44aceab426a89598761e308f3f03", opaque="6d8570c141289dd0", qop=auth, cnonce="glm8bgmo9r7f", nc=00000001
+X-CRM-Client: indexus
+Contact: <sip:rh13chli@u7lnojr361vi.invalid;transport=ws>;reg-id=1;+sip.instance="<urn:uuid:11fba230-4ba5-462a-ba4e-eee949c9cf0d>";expires=600
+Allow: ACK,CANCEL,INVITE,MESSAGE,BYE,OPTIONS,INFO,NOTIFY,REFER
+Supported: outbound, path, gruu
+User-Agent: SIP.js/0.21.1
+Content-Length: 0
+
+
+<--- Transmitting SIP response (407 bytes) to WS:10.1.2.111:42790 --->
+SIP/2.0 200 OK
+Via: SIP/2.0/WSS u7lnojr361vi.invalid;rport=42790;received=10.1.2.111;branch=z9hG4bK4328862
+Call-ID: hhsqi3d7jv398lcndhra
+From: "2001" <sip:2001@asterisk>;tag=dlv33p1nu2
+To: <sip:2001@asterisk>;tag=z9hG4bK4328862
+CSeq: 4 REGISTER
+Date: Fri, 28 Aug 2026 06:10:35 GMT
+Contact: <sip:rh13chli@u7lnojr361vi.invalid;transport=WS>;expires=599
+Server: INDEXUS-Asterisk
+Content-Length:  0
+
+
+<--- Transmitting SIP request (483 bytes) to WS:10.1.2.111:42790 --->
+OPTIONS sip:rh13chli@10.1.2.111:42790;transport=WS SIP/2.0
+Via: SIP/2.0/WS 10.1.2.112:8088;rport;branch=z9hG4bKPj7d330015-6be5-4b65-aa5e-bbe2a97e3e78;alias
+From: <sip:2001@mediagtw.cordbloodcenter.com>;tag=76ab983c-b86b-475b-a6bd-6bbea6e5ece1
+To: <sip:rh13chli@10.1.2.111>
+Contact: <sip:2001@mediagtw.cordbloodcenter.com:5060;transport=ws>
+Call-ID: 812a1472-70d6-4ee2-a3b7-ea53be1f952a
+CSeq: 32023 OPTIONS
+Max-Forwards: 70
+User-Agent: INDEXUS-Asterisk
+Content-Length:  0
+

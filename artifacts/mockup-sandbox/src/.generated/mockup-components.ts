@@ -2,21 +2,21 @@
 type ModuleMap = Record<string, () => Promise<Record<string, unknown>>>;
 export const modules: ModuleMap = {
   "./components/mockups/beratung-email/BeratungEmailMockup.tsx": () => import("../components/mockups/beratung-email/BeratungEmailMockup.tsx"),
-  "./components/mockups/callback-cards/VariantA.tsx": () => import("../components/mockups/callback-cards/VariantA.tsx"),
-  "./components/mockups/callback-cards/VariantB.tsx": () => import("../components/mockups/callback-cards/VariantB.tsx"),
-  "./components/mockups/callback-cards/VariantC.tsx": () => import("../components/mockups/callback-cards/VariantC.tsx"),
   "./components/mockups/beratung-variants/VariantA.tsx": () => import("../components/mockups/beratung-variants/VariantA.tsx"),
   "./components/mockups/beratung-variants/VariantB.tsx": () => import("../components/mockups/beratung-variants/VariantB.tsx"),
   "./components/mockups/beratung-variants/VariantC.tsx": () => import("../components/mockups/beratung-variants/VariantC.tsx"),
+  "./components/mockups/callback-cards/VariantA.tsx": () => import("../components/mockups/callback-cards/VariantA.tsx"),
+  "./components/mockups/callback-cards/VariantB.tsx": () => import("../components/mockups/callback-cards/VariantB.tsx"),
+  "./components/mockups/callback-cards/VariantC.tsx": () => import("../components/mockups/callback-cards/VariantC.tsx"),
   "./components/mockups/calls-player/VariantA.tsx": () => import("../components/mockups/calls-player/VariantA.tsx"),
   "./components/mockups/calls-player/VariantB.tsx": () => import("../components/mockups/calls-player/VariantB.tsx"),
   "./components/mockups/calls-player/VariantC.tsx": () => import("../components/mockups/calls-player/VariantC.tsx"),
   "./components/mockups/calls-redesign/MediaPlayer.tsx": () => import("../components/mockups/calls-redesign/MediaPlayer.tsx"),
   "./components/mockups/calls-redesign/Studio.tsx": () => import("../components/mockups/calls-redesign/Studio.tsx"),
-  "./components/mockups/disp-variants/ExpandedCategories.tsx": () => import("../components/mockups/disp-variants/ExpandedCategories.tsx"),
-  "./components/mockups/disp-variants/FlatList.tsx": () => import("../components/mockups/disp-variants/FlatList.tsx"),
   "./components/mockups/checklist-panel/VariantA.tsx": () => import("../components/mockups/checklist-panel/VariantA.tsx"),
   "./components/mockups/checklist-panel/VariantB.tsx": () => import("../components/mockups/checklist-panel/VariantB.tsx"),
+  "./components/mockups/disp-variants/ExpandedCategories.tsx": () => import("../components/mockups/disp-variants/ExpandedCategories.tsx"),
+  "./components/mockups/disp-variants/FlatList.tsx": () => import("../components/mockups/disp-variants/FlatList.tsx"),
   "./components/mockups/disposition-checklist/InlineChecklist.tsx": () => import("../components/mockups/disposition-checklist/InlineChecklist.tsx"),
   "./components/mockups/disposition-checklist/TwoStepChecklist.tsx": () => import("../components/mockups/disposition-checklist/TwoStepChecklist.tsx"),
   "./components/mockups/driver-app/DispatchDetail.tsx": () => import("../components/mockups/driver-app/DispatchDetail.tsx"),
@@ -39,6 +39,6 @@ export const modules: ModuleMap = {
   "./components/mockups/substatus-variants/AccentRows.tsx": () => import("../components/mockups/substatus-variants/AccentRows.tsx"),
   "./components/mockups/substatus-variants/SelectableCards.tsx": () => import("../components/mockups/substatus-variants/SelectableCards.tsx"),
   "./components/mockups/substatus-variants/TogglePills.tsx": () => import("../components/mockups/substatus-variants/TogglePills.tsx"),
-  "./components/mockups/templates/EditorialCybersecurityLaunchEmail-sj9g_3/App.tsx": () => import("../components/mockups/templates/EditorialCybersecurityLaunchEmail-sj9g_3/App.tsx"),
-  "./components/mockups/templates/VintageIceCreamNewsletter-Ixaez0/App.tsx": () => import("../components/mockups/templates/VintageIceCreamNewsletter-Ixaez0/App.tsx")
+  "./components/mockups/templates/VintageIceCreamNewsletter-Ixaez0/App.tsx": () => import("../components/mockups/templates/VintageIceCreamNewsletter-Ixaez0/App.tsx"),
+  "./components/mockups/templates/EditorialCybersecurityLaunchEmail-sj9g_3/App.tsx": () => import("../components/mockups/templates/EditorialCybersecurityLaunchEmail-sj9g_3/App.tsx")
 };
