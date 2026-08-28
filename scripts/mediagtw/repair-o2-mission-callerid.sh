@@ -13,16 +13,22 @@ umask 077
 
 readonly DEFAULT_EXTENSIONS_CONF="/etc/asterisk/extensions.conf"
 readonly MANAGED_FRAGMENT_NAME="extensions-o2-ims.conf"
+readonly DEFAULT_PJSIP_CONF="/etc/asterisk/pjsip.conf"
+readonly PJSIP_FRAGMENT_NAME="pjsip-o2-ims.conf"
 readonly OUTBOUND_ANCHOR='NoOp(Outbound CID: ext=${ORIG_EXT} collab=${COLLAB_CID} campaign=${CAMPAIGN_CID} final=${CALLERID(num)})'
 readonly DEFAULT_MISSION_CLI="+421940682394"
 
 EXTENSIONS_CONF="${EXTENSIONS_CONF:-$DEFAULT_EXTENSIONS_CONF}"
 MANAGED_FRAGMENT="${MANAGED_FRAGMENT:-$(dirname "$EXTENSIONS_CONF")/$MANAGED_FRAGMENT_NAME}"
+PJSIP_CONF="${PJSIP_CONF:-$DEFAULT_PJSIP_CONF}"
+PJSIP_FRAGMENT="${PJSIP_FRAGMENT:-$(dirname "$PJSIP_CONF")/$PJSIP_FRAGMENT_NAME}"
 MISSION_CLI="${O2_MISSION_CLI:-$DEFAULT_MISSION_CLI}"
 BACKUP=""
 FRAGMENT_BACKUP=""
+PJSIP_BACKUP=""
 PATCHED=""
 FRAGMENT_PATCHED=""
+PJSIP_PATCHED=""
 BRANCH=""
 COMMON=""
 RELOAD_ATTEMPTED=0
@@ -37,7 +43,7 @@ die() {
 }
 
 cleanup() {
-  rm -f "${PATCHED:-}" "${FRAGMENT_PATCHED:-}" "${BRANCH:-}" "${COMMON:-}"
+  rm -f "${PATCHED:-}" "${FRAGMENT_PATCHED:-}" "${PJSIP_PATCHED:-}" "${BRANCH:-}" "${COMMON:-}"
 }
 
 rollback() {
@@ -50,8 +56,12 @@ rollback() {
     if [[ -n "$FRAGMENT_BACKUP" && -f "$FRAGMENT_BACKUP" ]]; then
       cp -a "$FRAGMENT_BACKUP" "$MANAGED_FRAGMENT"
     fi
+    if [[ -n "$PJSIP_BACKUP" && -f "$PJSIP_BACKUP" ]]; then
+      cp -a "$PJSIP_BACKUP" "$PJSIP_FRAGMENT"
+    fi
     if [[ "$RELOAD_ATTEMPTED" -eq 1 ]]; then
       asterisk -rx 'dialplan reload' >/dev/null 2>&1 || true
+      asterisk -rx 'pjsip reload' >/dev/null 2>&1 || true
     fi
   fi
   cleanup
@@ -71,6 +81,7 @@ done
 
 [[ -f "$EXTENSIONS_CONF" ]] || die "Dialplan config not found: $EXTENSIONS_CONF"
 [[ -f "$MANAGED_FRAGMENT" ]] || die "Managed O2 fragment not found: $MANAGED_FRAGMENT"
+[[ -f "$PJSIP_FRAGMENT" ]] || die "Managed O2 PJSIP fragment not found: $PJSIP_FRAGMENT"
 [[ "$MISSION_CLI" =~ ^\+421[0-9]{9}$ ]] ||
   die "O2_MISSION_CLI must be a Slovak E.164 number."
 
@@ -227,6 +238,44 @@ if [[ -n "$FRAGMENT_PATCHED" ]]; then
   log "Older O2 fragment updated. Backup: $FRAGMENT_BACKUP"
 fi
 
+PJSIP_PATCHED="$(mktemp)"
+awk '
+  /^\[[^]]+\][[:space:]]*$/ {
+    in_endpoint = ($0 == "[o2-ims-endpoint]")
+  }
+  in_endpoint && /^[[:space:]]*from_user[[:space:]]*=/ {
+    removed_from_user = 1
+    next
+  }
+  { print }
+  END {
+    if (!removed_from_user) exit 45
+  }
+' "$PJSIP_FRAGMENT" > "$PJSIP_PATCHED" || {
+  rm -f "$PJSIP_PATCHED"
+  PJSIP_PATCHED=""
+  if grep -Fq '[o2-ims-endpoint]' "$PJSIP_FRAGMENT" &&
+     ! awk '
+       /^\[[^]]+\][[:space:]]*$/ { in_endpoint = ($0 == "[o2-ims-endpoint]") }
+       in_endpoint && /^[[:space:]]*from_user[[:space:]]*=/ { found = 1 }
+       END { exit found ? 0 : 1 }
+     ' "$PJSIP_FRAGMENT"; then
+    log "O2 endpoint already derives From from CALLERID(num)."
+  else
+    die "Could not find from_user in [o2-ims-endpoint], and the endpoint is not verifiably present."
+  fi
+}
+
+if [[ -n "$PJSIP_PATCHED" ]]; then
+  if grep -A20 -F '[o2-ims-endpoint]' "$PJSIP_PATCHED" | grep -Eq '^[[:space:]]*from_user[[:space:]]*='; then
+    die "The O2 endpoint still contains from_user."
+  fi
+  PJSIP_BACKUP="${PJSIP_FRAGMENT}.pre-o2-callerid-repair.$(date +%Y%m%d-%H%M%S).bak"
+  cp -a "$PJSIP_FRAGMENT" "$PJSIP_BACKUP"
+  cat "$PJSIP_PATCHED" > "$PJSIP_FRAGMENT"
+  log "O2 endpoint updated to derive From from CALLERID(num). Backup: $PJSIP_BACKUP"
+fi
+
 if [[ "${O2_PATCH_SKIP_RELOAD:-}" == "1" ]]; then
   log "Reload skipped by test override."
   exit 0
@@ -236,6 +285,8 @@ command -v asterisk >/dev/null 2>&1 || die "Asterisk CLI is missing."
 RELOAD_ATTEMPTED=1
 reload_output="$(asterisk -rx 'dialplan reload' 2>&1)"
 printf '%s\n' "$reload_output"
+pjsip_reload_output="$(asterisk -rx 'pjsip reload' 2>&1)"
+printf '%s\n' "$pjsip_reload_output"
 
 dialplan_output="$(asterisk -rx 'dialplan show indexus-outbound' 2>&1)"
 grep -Fq 'o2ims/pendingcid/${O2_AUTH_ENDPOINT}' <<<"$dialplan_output" ||

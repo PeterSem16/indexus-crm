@@ -329,7 +329,9 @@ disallow=all
 allow=alaw,ulaw,g729
 aors=o2-ims-aor
 outbound_auth=o2-ims-auth
-from_user=$SIP_USERNAME
+# Do not set from_user: Asterisk then derives the From user from
+# CALLERID(num), allowing the server-authorized Mission CLI. Digest
+# authentication still uses o2-ims-auth / SIP_USERNAME.
 from_domain=$PROVIDER_HOST
 callerid=$CLI_NUMBER
 dtmf_mode=rfc4733
