@@ -22,6 +22,7 @@ FRAGMENT_BACKUP=""
 PATCHED=""
 FRAGMENT_PATCHED=""
 BRANCH=""
+COMMON=""
 RELOAD_ATTEMPTED=0
 
 log() {
@@ -34,7 +35,7 @@ die() {
 }
 
 cleanup() {
-  rm -f "${PATCHED:-}" "${FRAGMENT_PATCHED:-}" "${BRANCH:-}"
+  rm -f "${PATCHED:-}" "${FRAGMENT_PATCHED:-}" "${BRANCH:-}" "${COMMON:-}"
 }
 
 rollback() {
@@ -77,24 +78,46 @@ grep -Fq '[o2-ims-common]' "$MANAGED_FRAGMENT" ||
   die "The managed O2 fragment has no [o2-ims-common] context."
 
 if ! grep -Fq 'Set(MISSION_CID=${CBC_OUTBOUND_CALLERID})' "$MANAGED_FRAGMENT"; then
+  COMMON="$(mktemp)"
+  cat > "$COMMON" <<'EOF'
+[o2-ims-common]
+exten => s,1,Set(MISSION_CID=${CBC_OUTBOUND_CALLERID})
+ same => n,ExecIf($[${LEN(${MISSION_CID})}=0]?Set(MISSION_CID=${O2_IMS_CLI}))
+ same => n,NoOp(O2 IMS outbound number=${OUTNUM} cli=${MISSION_CID})
+ same => n,Set(GROUP()=o2-ims)
+ same => n,GotoIf($[${GROUP_COUNT(o2-ims)} > 10]?o2-ims-limit,s,1)
+ same => n,Set(CALLERID(num)=${MISSION_CID})
+ same => n,Set(CALLERID(name)=${MISSION_CID})
+ same => n,ExecIf($[${LEN(${MISSION_CID})} > 0]?Set(PJSIP_HEADER(add,X-Campaign-CallerID)=${MISSION_CID}))
+ same => n,Dial(PJSIP/${OUTNUM}@o2-ims-endpoint,60)
+ same => n,NoOp(O2 IMS result DIALSTATUS=${DIALSTATUS} HANGUPCAUSE=${HANGUPCAUSE})
+ same => n,Return()
+
+EOF
   FRAGMENT_PATCHED="$(mktemp)"
-  awk '
-    /^\[[^]]+\][[:space:]]*$/ {
-      in_common = ($0 == "[o2-ims-common]")
-    }
-    in_common && /Set\(MISSION_CID=/ && !replaced {
-      sub(/Set\(MISSION_CID=.*\)/, "Set(MISSION_CID=${CBC_OUTBOUND_CALLERID})")
+  awk -v replacement="$COMMON" '
+    $0 == "[o2-ims-common]" {
+      while ((getline line < replacement) > 0) print line
+      close(replacement)
+      replacing_common = 1
       replaced = 1
+      next
     }
+    replacing_common && /^\[[^]]+\][[:space:]]*$/ {
+      replacing_common = 0
+    }
+    replacing_common { next }
     { print }
     END {
       if (!replaced) exit 43
     }
   ' "$MANAGED_FRAGMENT" > "$FRAGMENT_PATCHED" ||
-    die "The older O2 fragment has no replaceable MISSION_CID assignment."
+    die "The older O2 fragment has no replaceable [o2-ims-common] context."
 
   grep -Fq 'Set(MISSION_CID=${CBC_OUTBOUND_CALLERID})' "$FRAGMENT_PATCHED" ||
     die "Could not add CBC_OUTBOUND_CALLERID to the O2 fragment."
+  [[ "$(grep -Fc '[o2-ims-common]' "$FRAGMENT_PATCHED")" -eq 1 ]] ||
+    die "Patched O2 fragment does not contain exactly one common route."
 else
   rm -f "$FRAGMENT_PATCHED"
   FRAGMENT_PATCHED=""
