@@ -33932,9 +33932,8 @@ Respond ONLY with valid JSON in this exact format:
     }
   });
 
-  // Trusted Mission web capture.  MixMonitor's mixed output is discarded and only
-  // the receive stream on the agent endpoint (audio entering Asterisk from agent)
-  // is written.
+  // Trusted Mission web capture. MixMonitor's mixed output is discarded and only
+  // the receive stream entering mediagtw from the agent-side trunk is written.
   app.post("/api/call-logs/:id/start-agent-recording", requireAuth, async (req, res) => {
     try {
       const user = req.session.user!;
@@ -34015,6 +34014,12 @@ Respond ONLY with valid JSON in this exact format:
       const matches: Array<{ server: typeof servers[number]; channel: any; sipCallId: string }> = [];
       for (const server of servers) {
         if (!inboundAriChannelId) {
+          // Outbound browser calls reach the provider through mediagtw. On that
+          // host the browser/agent is represented by the trusted SK trunk leg,
+          // so the channel name cannot be matched to the agent's SIP extension.
+          // Ownership is instead bound by the authenticated call-log owner and
+          // its one-time, server-issued correlation token below.
+          if (server.host !== ASTERISK_MEDIAGTW_HOST) continue;
           try {
             const sshPort = cfg.sshPort || 22;
             const channelList = await sendAmiListActionViaSshTunnel(
@@ -34023,15 +34028,12 @@ Respond ONLY with valid JSON in this exact format:
               "CoreShowChannelsComplete",
             );
             if (!channelList.success) continue;
+            const scan = { events: channelList.events.length, pjsipUp: 0, correlation: 0, phone: 0, callId: 0 };
             for (const event of channelList.events) {
               if (event.Event !== "CoreShowChannel" || event.ChannelStateDesc !== "Up") continue;
               const channelName = String(event.Channel || "");
-              const normalizedChannelName = channelName.toLowerCase();
-              const belongsToOwner = [...identities].some(identity =>
-                normalizedChannelName.startsWith(`pjsip/${identity}-`) ||
-                normalizedChannelName === `pjsip/${identity}`
-              );
-              if (!belongsToOwner) continue;
+              if (!channelName.toLowerCase().startsWith("pjsip/")) continue;
+              scan.pjsipUp++;
 
               const correlationResult = await sendAmiActionViaSshTunnel(
                 server.host, sshPort, cfg.sshUsername, cfg.sshPassword, cfg.username, cfg.password,
@@ -34047,6 +34049,7 @@ Respond ONLY with valid JSON in this exact format:
                   !crypto.timingSafeEqual(Buffer.from(candidateHash), Buffer.from(recordingCorrelationHash))) {
                 continue;
               }
+              scan.correlation++;
 
               const extensionResult = await sendAmiActionViaSshTunnel(
                 server.host, sshPort, cfg.sshUsername, cfg.sshPassword, cfg.username, cfg.password,
@@ -34056,6 +34059,7 @@ Respond ONLY with valid JSON in this exact format:
                 ? String(extensionResult.response.match(/^Value:\s*(.*)$/mi)?.[1] || "").replace(/\D/g, "").slice(-9)
                 : "";
               if (!recordingExpectedPhone || actualPhone !== recordingExpectedPhone) continue;
+              scan.phone++;
 
               const callIdResult = await sendAmiActionViaSshTunnel(
                 server.host, sshPort, cfg.sshUsername, cfg.sshPassword, cfg.username, cfg.password,
@@ -34065,6 +34069,7 @@ Respond ONLY with valid JSON in this exact format:
                 ? String(callIdResult.response.match(/^Value:\s*(.*)$/mi)?.[1] || "").trim()
                 : "";
               if (channelSipCallId) {
+                scan.callId++;
                 matches.push({
                   server,
                   channel: { id: event.Uniqueid || channelName, name: channelName },
@@ -34072,6 +34077,7 @@ Respond ONLY with valid JSON in this exact format:
                 });
               }
             }
+            console.info("[AgentOnlyRecording] AMI binding scan", callLog.id, server.host, scan);
           } catch (error) {
             console.warn("[AgentOnlyRecording] AMI channel lookup failed", callLog.id, server.host,
               error instanceof Error ? error.message : error);
