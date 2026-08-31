@@ -26,6 +26,144 @@ export interface AmiActionResult {
   response: string;
 }
 
+export interface AmiListActionResult {
+  success: boolean;
+  response: string;
+  events: Array<Record<string, string>>;
+}
+
+/**
+ * Sends an AMI list action and waits for its *Complete event. The regular
+ * helper intentionally returns on the first Response packet, which is too
+ * early for actions such as CoreShowChannels whose rows arrive as events.
+ */
+export function sendAmiListActionViaSshTunnel(
+  host: string,
+  sshPort: number,
+  sshUsername: string,
+  sshPassword: string,
+  amiUsername: string,
+  amiPassword: string,
+  actionFields: Record<string, string>,
+  completionEvent: string,
+): Promise<AmiListActionResult> {
+  return new Promise((resolve, reject) => {
+    const conn = new SshClient();
+    const timer = setTimeout(() => {
+      conn.end();
+      reject(new Error(`SSH tunnel timeout connecting to ${host}:${sshPort}`));
+    }, 15000);
+
+    conn.on("ready", () => {
+      conn.forwardOut("127.0.0.1", 0, "127.0.0.1", 5038, (err, stream) => {
+        if (err) {
+          clearTimeout(timer);
+          conn.end();
+          reject(new Error(`SSH port forward to AMI failed: ${err.message}`));
+          return;
+        }
+
+        let buffer = "";
+        let phase: "banner" | "login" | "action" | "done" = "banner";
+        let actionResponse = "";
+        const events: Array<Record<string, string>> = [];
+
+        const finish = (result: AmiListActionResult) => {
+          if (phase === "done") return;
+          phase = "done";
+          clearTimeout(timer);
+          conn.end();
+          resolve(result);
+        };
+        const parsePacket = (packet: string) => {
+          const fields: Record<string, string> = {};
+          for (const line of packet.split("\r\n")) {
+            const separator = line.indexOf(":");
+            if (separator > 0) fields[line.slice(0, separator).trim()] = line.slice(separator + 1).trim();
+          }
+          return fields;
+        };
+        const sendLogin = () => {
+          stream.write(`Action: Login\r\nUsername: ${amiUsername}\r\nSecret: ${amiPassword}\r\n\r\n`);
+          phase = "login";
+        };
+        const sendAction = () => {
+          const lines = Object.entries(actionFields).map(([k, v]) => `${k}: ${v}`).join("\r\n");
+          stream.write(lines + "\r\n\r\n");
+          phase = "action";
+        };
+
+        stream.on("data", (chunk: Buffer) => {
+          buffer += chunk.toString();
+          if (phase === "banner") {
+            const idx = buffer.indexOf("\r\n");
+            if (idx !== -1) {
+              buffer = buffer.slice(idx + 2);
+              sendLogin();
+            }
+            return;
+          }
+          while (true) {
+            const idx = buffer.indexOf("\r\n\r\n");
+            if (idx === -1) break;
+            const packet = buffer.slice(0, idx);
+            buffer = buffer.slice(idx + 4);
+            const fields = parsePacket(packet);
+            if (phase === "login" && fields.Response) {
+              if (fields.Response === "Success") sendAction();
+              else {
+                clearTimeout(timer);
+                conn.end();
+                reject(new Error(`AMI login failed: ${packet}`));
+              }
+              continue;
+            }
+            if (phase !== "action") continue;
+            if (fields.Response) {
+              actionResponse = packet;
+              if (fields.Response !== "Success") {
+                finish({ success: false, response: packet, events });
+              }
+              continue;
+            }
+            if (fields.Event) {
+              if (fields.Event === completionEvent) {
+                finish({ success: true, response: actionResponse, events });
+                return;
+              }
+              events.push(fields);
+            }
+          }
+        });
+        stream.on("error", (streamError: Error) => {
+          clearTimeout(timer);
+          conn.end();
+          reject(new Error(`AMI tunnel stream error: ${streamError.message}`));
+        });
+        stream.on("close", () => {
+          if (phase !== "done") {
+            clearTimeout(timer);
+            conn.end();
+            reject(new Error(`AMI tunnel closed in phase '${phase}'`));
+          }
+        });
+      });
+    });
+    conn.on("error", (connectionError) => {
+      clearTimeout(timer);
+      reject(new Error(`SSH connection error: ${connectionError.message}`));
+    });
+    conn.connect({
+      host,
+      port: sshPort,
+      username: sshUsername,
+      password: sshPassword,
+      readyTimeout: 8000,
+      hostVerifier: () => true,
+    });
+  });
+}
+
 /**
  * Sends an AMI action to Asterisk by tunneling through SSH.
  * AMI port 5038 may be blocked externally but always listens on localhost on the Asterisk server.

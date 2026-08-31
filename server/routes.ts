@@ -119,7 +119,7 @@ import QRCode from "qrcode";
 import { PDFDocument as PDFLibDocument, rgb, degrees, StandardFonts } from "pdf-lib";
 import { notificationService } from "./lib/notification-service";
 import * as mailchimpApi from "./lib/mailchimp";
-import { sendAmiActionViaSshTunnel, downloadFileViaSsh, runSshCommand } from "./lib/ami-client";
+import { sendAmiActionViaSshTunnel, sendAmiListActionViaSshTunnel, downloadFileViaSsh, runSshCommand } from "./lib/ami-client";
 import * as XLSX from "xlsx";
 import { STORAGE_PATHS, ensureAllDirectoriesExist, getPublicUrl, getRelativePath, getAbsolutePath, DATA_ROOT } from "./config/storage-paths";
 
@@ -34014,6 +34014,70 @@ Respond ONLY with valid JSON in this exact format:
 
       const matches: Array<{ server: typeof servers[number]; channel: any; sipCallId: string }> = [];
       for (const server of servers) {
+        if (!inboundAriChannelId) {
+          try {
+            const sshPort = cfg.sshPort || 22;
+            const channelList = await sendAmiListActionViaSshTunnel(
+              server.host, sshPort, cfg.sshUsername, cfg.sshPassword, cfg.username, cfg.password,
+              { Action: "CoreShowChannels" },
+              "CoreShowChannelsComplete",
+            );
+            if (!channelList.success) continue;
+            for (const event of channelList.events) {
+              if (event.Event !== "CoreShowChannel" || event.ChannelStateDesc !== "Up") continue;
+              const channelName = String(event.Channel || "");
+              const normalizedChannelName = channelName.toLowerCase();
+              const belongsToOwner = [...identities].some(identity =>
+                normalizedChannelName.startsWith(`pjsip/${identity}-`) ||
+                normalizedChannelName === `pjsip/${identity}`
+              );
+              if (!belongsToOwner) continue;
+
+              const correlationResult = await sendAmiActionViaSshTunnel(
+                server.host, sshPort, cfg.sshUsername, cfg.sshPassword, cfg.username, cfg.password,
+                { Action: "GetVar", Channel: channelName, Variable: "INDEXUS_RECORDING_CORRELATION" },
+              );
+              const correlationToken = correlationResult.success
+                ? String(correlationResult.response.match(/^Value:\s*(.*)$/mi)?.[1] || "").trim()
+                : "";
+              const candidateHash = correlationToken
+                ? crypto.createHash("sha256").update(correlationToken).digest("hex")
+                : "";
+              if (!candidateHash || candidateHash.length !== recordingCorrelationHash.length ||
+                  !crypto.timingSafeEqual(Buffer.from(candidateHash), Buffer.from(recordingCorrelationHash))) {
+                continue;
+              }
+
+              const extensionResult = await sendAmiActionViaSshTunnel(
+                server.host, sshPort, cfg.sshUsername, cfg.sshPassword, cfg.username, cfg.password,
+                { Action: "GetVar", Channel: channelName, Variable: "EXTEN" },
+              );
+              const actualPhone = extensionResult.success
+                ? String(extensionResult.response.match(/^Value:\s*(.*)$/mi)?.[1] || "").replace(/\D/g, "").slice(-9)
+                : "";
+              if (!recordingExpectedPhone || actualPhone !== recordingExpectedPhone) continue;
+
+              const callIdResult = await sendAmiActionViaSshTunnel(
+                server.host, sshPort, cfg.sshUsername, cfg.sshPassword, cfg.username, cfg.password,
+                { Action: "GetVar", Channel: channelName, Variable: "CHANNEL(pjsip,call-id)" },
+              );
+              const channelSipCallId = callIdResult.success
+                ? String(callIdResult.response.match(/^Value:\s*(.*)$/mi)?.[1] || "").trim()
+                : "";
+              if (channelSipCallId) {
+                matches.push({
+                  server,
+                  channel: { id: event.Uniqueid || channelName, name: channelName },
+                  sipCallId: channelSipCallId,
+                });
+              }
+            }
+          } catch (error) {
+            console.warn("[AgentOnlyRecording] AMI channel lookup failed", callLog.id, server.host,
+              error instanceof Error ? error.message : error);
+          }
+          continue;
+        }
         try {
           const response = await fetch(`${ariProtocol}://${server.host}:${server.port}/ari/channels`, {
             headers: { Authorization: authHeader },
