@@ -1,0 +1,31 @@
+seman@CORPCRM01:/var/www/indexus-crm$ CALL_ID='72610c7a-5aba-41a9-a175-ff378591da84'
+
+pm2 logs indexus-crm --lines 250 --nostream --timestamp 2>&1 \
+  | grep -A12 -B3 -E \
+  "$CALL_ID|SSH-Download|Finalize failed|Verified cleanup failed|Finalized"
+4|indexus- |   "message": "Channel not in Stasis application"
+4|indexus- | }
+4|indexus- | [kpi-cron] Startup catch-up error: for SELECT DISTINCT, ORDER BY expressions must appear in select list
+4|indexus- | [AgentOnlyRecording] AMI binding scan 72610c7a-5aba-41a9-a175-ff378591da84 mediagtw.cordbloodcenter.com {
+4|indexus- |   source: 'AMI',
+4|indexus- |   events: 2,
+4|indexus- |   pjsipUp: 2,
+4|indexus- |   correlation: 1,
+4|indexus- |   phone: 1,
+4|indexus- |   callId: 1
+4|indexus- | }
+4|indexus- | [AgentOnlyRecording] Started 72610c7a-5aba-41a9-a175-ff378591da84 context=database
+4|indexus- | [AgentOnlyRecording] Finalize requested 72610c7a-5aba-41a9-a175-ff378591da84 context=memory
+4|indexus- | [Beratung] ROPC token acquisition failed: AADSTS50126: Error validating credentials due to invalid username or password. Trace ID: f3532f8b-a6da-456f-9004-1e8a5f827f00 Correlation ID: de909c7b-bf9a-4ea4-98eb-87d05719f78b Timestamp: 2026-08-31 16:14:59Z
+4|indexus- | [Beratung] Cannot fetch emails — no valid access token
+4|indexus- | [Beratung] ROPC token acquisition failed: AADSTS50126: Error validating credentials due to invalid username or password. Trace ID: 2dda1bcc-59b8-4e73-a9cd-1a05e0f98700 Correlation ID: 9ad5ac14-13ec-431e-9f9a-6bf239eb8741 Timestamp: 2026-08-31 16:17:14Z
+4|indexus- | [Beratung] Cannot fetch emails — no valid access token
+4|indexus- | [Beratung] ROPC token acquisition failed: AADSTS50126: Error validating credentials due to invalid username or password. Trace ID: 753dcf89-4f37-45c7-83f8-6bde8c46cb00 Correlation ID: 3ace194f-0c58-4088-ad86-1242f1f9b39b Timestamp: 2026-08-31 16:20:14Z
+4|indexus- | [Beratung] Cannot fetch emails — no valid access token
+4|indexus- | [Beratung] ROPC token acquisition failed: AADSTS50126: Error validating credentials due to invalid username or password. Trace ID: 7e2bfe5c-56b6-43cc-95ed-4dec1754ad00 Correlation ID: 14b1bacf-a541-49be-8304-146f737836be Timestamp: 2026-08-31 16:23:14Z
+4|indexus- | [Beratung] Cannot fetch emails — no valid access token
+4|indexus- | [Beratung] ROPC token acquisition failed: AADSTS50126: Error validating credentials due to invalid username or password. Trace ID: 2cbc6bb3-6b18-4d95-868c-0506b55c7b00 Correlation ID: 4b510201-c38d-46f9-b1aa-bb68f8e18f7f Timestamp: 2026-08-31 16:26:14Z
+4|indexus- | [Beratung] Cannot fetch emails — no valid access token
+4|indexus- | [Beratung] ROPC token acquisition failed: AADSTS50126: Error validating credentials due to invalid username or password. Trace ID: d1bb6e9f-301a-4f9d-93bc-3e91a2b57900 Correlation ID: 367ccb06-d0cd-4b42-80f5-2fb95ee624a4 Timestamp: 2026-08-31 16:29:14Z
+4|indexus- | [Beratung] Cannot fetch emails — no valid access token
+seman@CORPCRM01:/var/www/indexus-crm$
