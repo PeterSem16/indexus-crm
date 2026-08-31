@@ -119,7 +119,7 @@ import QRCode from "qrcode";
 import { PDFDocument as PDFLibDocument, rgb, degrees, StandardFonts } from "pdf-lib";
 import { notificationService } from "./lib/notification-service";
 import * as mailchimpApi from "./lib/mailchimp";
-import { sendAmiActionViaSshTunnel, sendAmiListActionViaSshTunnel, downloadFileViaSsh, runSshCommand } from "./lib/ami-client";
+import { sendAmiActionViaSshTunnel, downloadFileViaSsh, runSshCommand } from "./lib/ami-client";
 import * as XLSX from "xlsx";
 import { STORAGE_PATHS, ensureAllDirectoriesExist, getPublicUrl, getRelativePath, getAbsolutePath, DATA_ROOT } from "./config/storage-paths";
 
@@ -33987,10 +33987,12 @@ Respond ONLY with valid JSON in this exact format:
       if (!identities.size) return res.status(409).json({ error: "No unambiguous SIP endpoint is assigned to this user" });
 
       const [cfg] = await db.select().from(ariSettings).limit(1);
-      if (!cfg?.username || !cfg.password || !cfg.sshUsername || !cfg.sshPassword) {
-        return res.status(503).json({ error: "Asterisk recording credentials are not configured" });
+      if (!cfg?.sshUsername || !cfg.sshPassword) {
+        return res.status(503).json({ error: "Asterisk SSH recording credentials are not configured" });
       }
-      const authHeader = "Basic " + Buffer.from(`${cfg.username}:${cfg.password}`).toString("base64");
+      const authHeader = cfg.username && cfg.password
+        ? "Basic " + Buffer.from(`${cfg.username}:${cfg.password}`).toString("base64")
+        : "";
       const ariProtocol = cfg.protocol || "http";
       const servers = [
         { host: ASTERISK_SK_HOST, port: ASTERISK_SK_PORT },
@@ -33998,6 +34000,7 @@ Respond ONLY with valid JSON in this exact format:
       ];
       let inboundAriChannelId: string | null = null;
       if (callLog.inboundCallLogId) {
+        if (!authHeader) return res.status(503).json({ error: "Asterisk ARI credentials are not configured" });
         const [inboundLog] = await db.select({
           ariChannelId: inboundCallLogs.ariChannelId,
           assignedAgentId: inboundCallLogs.assignedAgentId,
@@ -34011,6 +34014,20 @@ Respond ONLY with valid JSON in this exact format:
         return res.status(409).json({ error: "Outbound call has no server-issued recording correlation" });
       }
 
+      const shellQuote = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`;
+      const asteriskCliCommand = (command: string) => {
+        const quoted = shellQuote(command);
+        return `sudo -n asterisk -rx ${quoted} 2>/dev/null || asterisk -rx ${quoted} 2>/dev/null`;
+      };
+      const parseCliVariable = (output: string, variable: string) => {
+        const escaped = variable.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return String(
+          output.match(new RegExp(`^\\s*${escaped}\\s*=\\s*(.*)$`, "mi"))?.[1] ||
+          output.match(/^\\s*Value:\\s*(.*)$/mi)?.[1] ||
+          output.match(/\bis\s+'([^']*)'/i)?.[1] ||
+          "",
+        ).trim();
+      };
       const matches: Array<{ server: typeof servers[number]; channel: any; sipCallId: string }> = [];
       for (const server of servers) {
         if (!inboundAriChannelId) {
@@ -34022,69 +34039,36 @@ Respond ONLY with valid JSON in this exact format:
           if (server.host !== ASTERISK_MEDIAGTW_HOST) continue;
           try {
             const sshPort = cfg.sshPort || 22;
-            const parseConciseChannels = (output: string) => output
+            const cliOutput = await runSshCommand(
+              server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
+              asteriskCliCommand("core show channels concise"),
+            );
+            const channelEvents = cliOutput
               .split(/\r?\n/)
-              .map(line => line.replace(/^Output:\s*/i, "").trim())
+              .map(line => line.trim())
               .filter(line => line.includes("!"))
               .map(line => {
                 const fields = line.split("!");
                 return {
                   Event: "CoreShowChannel",
                   Channel: fields[0] || "",
+                  Exten: fields[2] || "",
                   ChannelStateDesc: fields[4] || "",
                   Uniqueid: fields[0] || "",
                 };
               });
-            let channelEvents: Array<Record<string, string>> = [];
-            let channelSource = "CoreShowChannels";
-            const channelList = await sendAmiListActionViaSshTunnel(
-              server.host, sshPort, cfg.sshUsername, cfg.sshPassword, cfg.username, cfg.password,
-              { Action: "CoreShowChannels" },
-              "CoreShowChannelsComplete",
-            );
-            if (channelList.success) {
-              channelEvents = channelList.events;
-            }
-            if (!channelEvents.length) {
-              channelSource = "Status";
-              const statusList = await sendAmiListActionViaSshTunnel(
-                server.host, sshPort, cfg.sshUsername, cfg.sshPassword, cfg.username, cfg.password,
-                { Action: "Status" },
-                "StatusComplete",
-              );
-              if (statusList.success) channelEvents = statusList.events;
-            }
-            if (!channelEvents.length) {
-              channelSource = "AMICommand";
-              const commandResult = await sendAmiActionViaSshTunnel(
-                server.host, sshPort, cfg.sshUsername, cfg.sshPassword, cfg.username, cfg.password,
-                { Action: "Command", Command: "core show channels concise" },
-              );
-              channelEvents = parseConciseChannels(commandResult.response);
-            }
-            if (!channelEvents.length) {
-              channelSource = "SSHCommand";
-              const cliOutput = await runSshCommand(
-                server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
-                "sudo -n asterisk -rx 'core show channels concise' 2>/dev/null || asterisk -rx 'core show channels concise' 2>/dev/null || true",
-              );
-              channelEvents = parseConciseChannels(cliOutput);
-            }
-            const scan = { source: channelSource, events: channelEvents.length, pjsipUp: 0, correlation: 0, phone: 0, callId: 0 };
+            const scan = { source: "SSHCLI", events: channelEvents.length, pjsipUp: 0, correlation: 0, phone: 0, callId: 0 };
             for (const event of channelEvents) {
-              if ((event.Event !== "CoreShowChannel" && event.Event !== "Status") ||
-                  event.ChannelStateDesc !== "Up") continue;
+              if (event.ChannelStateDesc !== "Up") continue;
               const channelName = String(event.Channel || "");
-              if (!channelName.toLowerCase().startsWith("pjsip/")) continue;
+              if (!/^PJSIP\/[A-Za-z0-9_.:@+-]+$/.test(channelName)) continue;
               scan.pjsipUp++;
 
-              const correlationResult = await sendAmiActionViaSshTunnel(
-                server.host, sshPort, cfg.sshUsername, cfg.sshPassword, cfg.username, cfg.password,
-                { Action: "GetVar", Channel: channelName, Variable: "INDEXUS_RECORDING_CORRELATION" },
+              const channelDetails = await runSshCommand(
+                server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
+                asteriskCliCommand(`core show channel ${channelName}`),
               );
-              const correlationToken = correlationResult.success
-                ? String(correlationResult.response.match(/^Value:\s*(.*)$/mi)?.[1] || "").trim()
-                : "";
+              const correlationToken = parseCliVariable(channelDetails, "INDEXUS_RECORDING_CORRELATION");
               const candidateHash = correlationToken
                 ? crypto.createHash("sha256").update(correlationToken).digest("hex")
                 : "";
@@ -34094,31 +34078,18 @@ Respond ONLY with valid JSON in this exact format:
               }
               scan.correlation++;
 
-              const extensionResult = await sendAmiActionViaSshTunnel(
-                server.host, sshPort, cfg.sshUsername, cfg.sshPassword, cfg.username, cfg.password,
-                { Action: "GetVar", Channel: channelName, Variable: "EXTEN" },
-              );
-              const actualPhone = extensionResult.success
-                ? String(extensionResult.response.match(/^Value:\s*(.*)$/mi)?.[1] || "").replace(/\D/g, "").slice(-9)
-                : "";
+              const actualPhone = String(event.Exten || parseCliVariable(channelDetails, "EXTEN"))
+                .replace(/\D/g, "").slice(-9);
               if (!recordingExpectedPhone || actualPhone !== recordingExpectedPhone) continue;
               scan.phone++;
 
-              const callIdResult = await sendAmiActionViaSshTunnel(
-                server.host, sshPort, cfg.sshUsername, cfg.sshPassword, cfg.username, cfg.password,
-                { Action: "GetVar", Channel: channelName, Variable: "CHANNEL(pjsip,call-id)" },
-              );
-              const channelSipCallId = callIdResult.success
-                ? String(callIdResult.response.match(/^Value:\s*(.*)$/mi)?.[1] || "").trim()
-                : "";
-              if (channelSipCallId) {
-                scan.callId++;
-                matches.push({
-                  server,
-                  channel: { id: event.Uniqueid || channelName, name: channelName },
-                  sipCallId: channelSipCallId,
-                });
-              }
+              const serverChannelId = `asterisk-channel:${event.Uniqueid || channelName}`;
+              scan.callId++;
+              matches.push({
+                server,
+                channel: { id: event.Uniqueid || channelName, name: channelName },
+                sipCallId: serverChannelId,
+              });
             }
             console.info("[AgentOnlyRecording] AMI binding scan", callLog.id, server.host, scan);
           } catch (error) {
@@ -34200,16 +34171,22 @@ Respond ONLY with valid JSON in this exact format:
       const recordingName = `web_agent_${callLog.id}_${Date.now()}`;
       const amiFilePath = `/var/spool/asterisk/monitor/${recordingName}_agent`;
       const sshPort = cfg.sshPort || 22;
-      const amiResult = await sendAmiActionViaSshTunnel(
-        server.host, sshPort, cfg.sshUsername, cfg.sshPassword, cfg.username, cfg.password,
-        {
-          Action: "MixMonitor",
-          Channel: channel.name,
-          File: "/dev/null",
-          Options: `r(${amiFilePath}.wav)`,
-        },
+      const mixMonitorCommand = `mixmonitor start ${channel.name} /dev/null,r(${amiFilePath}.wav)`;
+      await runSshCommand(
+        server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
+        asteriskCliCommand(mixMonitorCommand),
       );
-      if (!amiResult.success) {
+      const mixMonitorList = await runSshCommand(
+        server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
+        asteriskCliCommand(`mixmonitor list ${channel.name}`),
+      );
+      if (!mixMonitorList.includes(`${amiFilePath}.wav`)) {
+        const quotedFailedPath = shellQuote(`${amiFilePath}.wav`);
+        try {
+          await runSshCommand(server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
+            `sudo -n rm -f ${quotedFailedPath} 2>/dev/null || rm -f ${quotedFailedPath} 2>/dev/null || true`);
+        } catch {}
+        console.warn("[AgentOnlyRecording] SSH CLI MixMonitor rejected", callLog.id);
         return res.status(503).json({ error: "Asterisk rejected directional agent recording" });
       }
       let consumedMetadata: Record<string, unknown> = {};
@@ -34321,8 +34298,12 @@ Respond ONLY with valid JSON in this exact format:
     } finally {
       if (shouldCleanup && active?.kind === "web_agent_only") {
         mobileActiveRecordings.delete(callLogId);
-        runSshCommand(active.sshHost, active.sshPort, active.sshUser, active.sshPass,
-          `sudo rm -f "${active.amiFilePath}.wav" 2>/dev/null; echo deleted`).catch(() => {});
+        try {
+          const remotePath = `${active.amiFilePath}.wav`;
+          const quotedPath = `'${remotePath.replace(/'/g, `'\\''`)}'`;
+          await runSshCommand(active.sshHost, active.sshPort, active.sshUser, active.sshPass,
+            `sudo -n rm -f ${quotedPath} 2>/dev/null || rm -f ${quotedPath} 2>/dev/null || true`);
+        } catch {}
       }
     }
   });
