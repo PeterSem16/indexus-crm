@@ -498,16 +498,30 @@ export function SipPhone({
     if (trustedAgentRecordingStartAttemptsRef.current.has(key)) return false;
     trustedAgentRecordingStartAttemptsRef.current.add(key);
     try {
-      await apiRequest("PATCH", `/api/call-logs/${key}`, {
-        status: "answered",
-        answeredAt: new Date().toISOString(),
-      });
-      await apiRequest("POST", `/api/call-logs/${key}/start-agent-recording`, {});
-      trustedAgentRecordingStartedRef.current.add(key);
-      if (String(session.state) !== "Terminated") {
-        startRecording(session, snapshot);
+      for (let attempt = 1; attempt <= 5; attempt++) {
+        try {
+          await apiRequest("PATCH", `/api/call-logs/${key}`, {
+            status: "answered",
+            answeredAt: new Date().toISOString(),
+          });
+          await apiRequest("POST", `/api/call-logs/${key}/start-agent-recording`, {});
+          trustedAgentRecordingStartedRef.current.add(key);
+          if (String(session.state) !== "Terminated") {
+            startRecording(session, snapshot);
+          }
+          return true;
+        } catch (error: any) {
+          const status = Number(error?.status || 0);
+          const retryableBindingFailure = status === 409 &&
+            String(error?.message || "").includes("bind this call log");
+          console.warn(`[Recording] Trusted start attempt ${attempt}/5 failed`, {
+            status,
+            message: error?.message || String(error),
+          });
+          if (!retryableBindingFailure || attempt === 5) throw error;
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
       }
-      return true;
     } catch (error) {
       console.error("[Recording] Trusted agent-only recording failed to start:", error);
       discardLocalRecording();

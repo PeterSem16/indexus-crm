@@ -33941,8 +33941,12 @@ Respond ONLY with valid JSON in this exact format:
       const [callLog] = await db.select().from(callLogs).where(eq(callLogs.id, req.params.id)).limit(1);
       if (!callLog) return res.status(404).json({ error: "Call log not found" });
       if (callLog.userId !== user.id) return res.status(403).json({ error: "Only the call owner can start recording" });
-      if (!callLog.campaignId) return res.status(403).json({ error: "Agent-only recording requires a Mission call" });
+      if (!callLog.campaignId) {
+        console.warn("[AgentOnlyRecording] Start rejected", callLog.id, "reason=missing_mission");
+        return res.status(403).json({ error: "Agent-only recording requires a Mission call" });
+      }
       if (callLog.status !== "answered" || callLog.endedAt) {
+        console.warn("[AgentOnlyRecording] Start rejected", callLog.id, `reason=not_active_answered status=${callLog.status}`);
         return res.status(409).json({ error: "Agent-only recording requires an active answered call" });
       }
       if (callLog.sipCallId) {
@@ -33962,6 +33966,7 @@ Respond ONLY with valid JSON in this exact format:
         recordingExpectedPhone = String(metadata?.recordingExpectedPhone || "");
       } catch {}
       if (!snapshot?.active || snapshot.mode !== "agent_only") {
+        console.warn("[AgentOnlyRecording] Start rejected", callLog.id, "reason=inactive_snapshot");
         return res.status(403).json({ error: "Agent-only recording was not authorized when this call started" });
       }
       if (mobileActiveRecordings.has(callLog.id)) {
@@ -34003,6 +34008,7 @@ Respond ONLY with valid JSON in this exact format:
         }
         inboundAriChannelId = inboundLog.ariChannelId;
       } else if (!recordingCorrelationHash) {
+        console.warn("[AgentOnlyRecording] Start rejected", callLog.id, "reason=missing_correlation");
         return res.status(409).json({ error: "Outbound call has no server-issued recording correlation" });
       }
 
@@ -34073,6 +34079,7 @@ Respond ONLY with valid JSON in this exact format:
         } catch {}
       }
       if (matches.length !== 1) {
+        console.warn("[AgentOnlyRecording] Start rejected", callLog.id, `reason=sip_binding_matches_${matches.length}`);
         return res.status(409).json({ error: "Could not bind this call log to exactly one active SIP channel" });
       }
 

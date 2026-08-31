@@ -10,6 +10,7 @@ async function throwIfResNotOk(res: Response) {
       const json = JSON.parse(text);
       if (json.error) {
         const err = new Error(json.error);
+        (err as any).status = res.status;
         if (json.detail) (err as any).detail = json.detail;
         throw err;
       }
