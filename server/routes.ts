@@ -34045,7 +34045,7 @@ Respond ONLY with valid JSON in this exact format:
                 if (!inboundBridgeChannelIds.has(channel.id)) continue;
               } else {
                 const correlationResponse = await fetch(
-                  `${ariProtocol}://${server.host}:${server.port}/ari/channels/${encodeURIComponent(channel.id)}/variable?variable=${encodeURIComponent("PJSIP_HEADER(read,X-Indexus-Recording-Correlation)")}`,
+                  `${ariProtocol}://${server.host}:${server.port}/ari/channels/${encodeURIComponent(channel.id)}/variable?variable=INDEXUS_RECORDING_CORRELATION`,
                   { headers: { Authorization: authHeader }, signal: AbortSignal.timeout(3000) },
                 );
                 if (!correlationResponse.ok) continue;

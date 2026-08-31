@@ -165,6 +165,7 @@ fi
 
 BRANCH="$(mktemp)"
 cat > "$BRANCH" <<'EOF'
+ same => n,Set(INDEXUS_RECORDING_CORRELATION=${PJSIP_HEADER(read,X-Indexus-Recording-Correlation)})
  same => n,Set(__CBC_CAMPAIGN_ID=${PJSIP_HEADER(read,X-Campaign-ID)})
  same => n,Set(__CBC_OUTBOUND_TRUNK=${PJSIP_HEADER(read,X-Indexus-Outbound-Trunk)})
  same => n,Set(__CBC_OUTBOUND_CALLERID=${CAMPAIGN_CID})
@@ -189,6 +190,7 @@ awk -v anchor="$OUTBOUND_ANCHOR" -v injection="$BRANCH" '
     in_outbound = ($0 == "[indexus-outbound]")
   }
 
+  in_outbound && /Set\(INDEXUS_RECORDING_CORRELATION=/ { next }
   in_outbound && /Set\(__CBC_CAMPAIGN_ID=/ { next }
   in_outbound && /Set\(__CBC_OUTBOUND_TRUNK=/ { next }
   in_outbound && /Set\(__CBC_OUTBOUND_CALLERID=/ { next }
@@ -289,6 +291,8 @@ pjsip_reload_output="$(asterisk -rx 'pjsip reload' 2>&1)"
 printf '%s\n' "$pjsip_reload_output"
 
 dialplan_output="$(asterisk -rx 'dialplan show indexus-outbound' 2>&1)"
+grep -Fq 'INDEXUS_RECORDING_CORRELATION=${PJSIP_HEADER(read,X-Indexus-Recording-Correlation)}' <<<"$dialplan_output" ||
+  die "Reloaded dialplan does not materialize the recording correlation header."
 grep -Fq 'o2ims/pendingcid/${O2_AUTH_ENDPOINT}' <<<"$dialplan_output" ||
   die "Reloaded dialplan does not contain the pending Caller ID lookup."
 grep -Fq 'route-o2-ims' <<<"$dialplan_output" ||

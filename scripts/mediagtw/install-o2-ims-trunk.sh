@@ -459,6 +459,7 @@ EOF
 readonly OUTBOUND_ANCHOR='NoOp(Outbound CID: ext=${ORIG_EXT} collab=${COLLAB_CID} campaign=${CAMPAIGN_CID} final=${CALLERID(num)})'
 branch_file="$(mktemp)"
 cat > "$branch_file" <<'EOF'
+ same => n,Set(INDEXUS_RECORDING_CORRELATION=${PJSIP_HEADER(read,X-Indexus-Recording-Correlation)})
  same => n,Set(__CBC_CAMPAIGN_ID=${PJSIP_HEADER(read,X-Campaign-ID)})
  same => n,Set(__CBC_OUTBOUND_TRUNK=${PJSIP_HEADER(read,X-Indexus-Outbound-Trunk)})
  same => n,Set(__CBC_OUTBOUND_CALLERID=${CAMPAIGN_CID})
@@ -482,7 +483,7 @@ patched_extensions="$(mktemp)"
     rm -f "$branch_file"
   else
     awk -v anchor="$OUTBOUND_ANCHOR" -v injection="$branch_file" '
-  /Set\(__CBC_CAMPAIGN_ID=/ || /Set\(__CBC_OUTBOUND_TRUNK=/ || /Set\(__CBC_OUTBOUND_CALLERID=/ { next }
+  /Set\(INDEXUS_RECORDING_CORRELATION=/ || /Set\(__CBC_CAMPAIGN_ID=/ || /Set\(__CBC_OUTBOUND_TRUNK=/ || /Set\(__CBC_OUTBOUND_CALLERID=/ { next }
   /Set\(O2_PROVIDER=.*X-Provider/ { replacing_old_o2_branch = 1; next }
   replacing_old_o2_branch {
     if ($0 ~ /n\(o2-provider-selection-done\),/) replacing_old_o2_branch = 0
