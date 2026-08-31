@@ -34460,6 +34460,7 @@ Respond ONLY with valid JSON in this exact format:
       if (!active.amiChannelName || !process.env.MEDIAGTW_AMI_PASSWORD) {
         throw new Error("Trusted mediagtw AMI stop context is unavailable");
       }
+      console.warn("[AgentOnlyRecording] Finalize stage", callLogId, "stage=ami_stop_started");
       const stopped = await sendAmiActionViaSshTunnel(
         active.sshHost, active.sshPort, active.sshUser, active.sshPass,
         "indexus_recording", process.env.MEDIAGTW_AMI_PASSWORD,
@@ -34474,11 +34475,13 @@ Respond ONLY with valid JSON in this exact format:
         throw new Error("AMI could not stop the mediagtw MixMonitor");
       }
       active.amiMixMonitorId = undefined;
+      console.warn("[AgentOnlyRecording] Finalize stage", callLogId, "stage=ami_stop_completed");
       await new Promise(resolve => setTimeout(resolve, 150));
     };
     const cleanupActiveRemoteRecording = async () => {
       if (!shouldCleanup || active?.kind !== "web_agent_only") return;
       await stopActiveRemoteRecording();
+      console.warn("[AgentOnlyRecording] Finalize stage", callLogId, "stage=remote_cleanup_started");
       const shellQuote = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`;
       const quotedPattern = shellQuote(`${active.recordingName}_agent*`);
       const cleanupCommand =
@@ -34496,6 +34499,7 @@ Respond ONLY with valid JSON in this exact format:
           cleanupOutput.includes("__INDEXUS_RECORDING_CLEANUP_FAILED__")) {
         throw new Error("Could not verify mediagtw recording cleanup");
       }
+      console.warn("[AgentOnlyRecording] Finalize stage", callLogId, "stage=remote_cleanup_completed");
       await db.execute(sql`
         UPDATE call_logs
         SET metadata = (
@@ -34550,24 +34554,34 @@ Respond ONLY with valid JSON in this exact format:
       }
       console.warn("[AgentOnlyRecording] Finalize requested", callLogId,
         `context=${activeSource || "missing"}`);
+      console.warn("[AgentOnlyRecording] Finalize stage", callLogId, "stage=existing_recording_lookup_started");
       const [existingRecording] = await db.select().from(callRecordings).where(and(
         eq(callRecordings.callLogId, callLogId),
         eq(callRecordings.recordingMode, "agent_only"),
       )).orderBy(desc(callRecordings.createdAt)).limit(1);
+      console.warn("[AgentOnlyRecording] Finalize stage", callLogId,
+        `stage=existing_recording_lookup_completed found=${Boolean(existingRecording)}`);
       if (existingRecording) {
         if (active?.kind === "web_agent_only") {
           if (!active.sipCallId || callLog.sipCallId !== active.sipCallId) {
+            console.warn("[AgentOnlyRecording] Finalize rejected", callLogId,
+              "reason=existing_recording_binding_mismatch");
             return res.status(409).json({ error: "The active recording is not bound to this call log" });
           }
           shouldCleanup = true;
           await cleanupActiveRemoteRecording();
         }
+        console.warn("[AgentOnlyRecording] Finalize reused existing", callLogId);
         return res.status(200).json(existingRecording);
       }
       if (!active || active.kind !== "web_agent_only" || !active.recordingPolicySnapshot) {
+        console.warn("[AgentOnlyRecording] Finalize rejected", callLogId,
+          "reason=trusted_recording_context_missing");
         return res.status(404).json({ error: "No trusted agent-only recording is active" });
       }
       if (!active.sipCallId || callLog.sipCallId !== active.sipCallId) {
+        console.warn("[AgentOnlyRecording] Finalize rejected", callLogId,
+          "reason=active_recording_binding_mismatch");
         return res.status(409).json({ error: "The active recording is not bound to this call log" });
       }
       shouldCleanup = true;
@@ -34594,17 +34608,28 @@ Respond ONLY with valid JSON in this exact format:
       let downloaded: Awaited<ReturnType<typeof downloadFileViaSsh>> | null = null;
       for (let attempt = 0; attempt < 4; attempt++) {
         if (attempt) await new Promise(resolve => setTimeout(resolve, 1500));
+        console.warn("[AgentOnlyRecording] Finalize stage", callLogId,
+          `stage=download_attempt_started attempt=${attempt + 1}`);
         try {
           downloaded = await downloadFileViaSsh(
             active.sshHost, active.sshPort, active.sshUser, active.sshPass,
             `${active.amiFilePath}.wav`, { exactPath: true },
           );
           if (downloaded?.buffer?.length >= 100 &&
-              downloaded.foundPath === `${active.amiFilePath}.wav`) break;
-        } catch {}
+              downloaded.foundPath === `${active.amiFilePath}.wav`) {
+            console.warn("[AgentOnlyRecording] Finalize stage", callLogId,
+              `stage=download_attempt_completed attempt=${attempt + 1} bytes=${downloaded.buffer.length}`);
+            break;
+          }
+        } catch (downloadError) {
+          console.warn("[AgentOnlyRecording] Download attempt failed", callLogId,
+            `attempt=${attempt + 1}`,
+            downloadError instanceof Error ? downloadError.message : downloadError);
+        }
       }
       if (!downloaded?.buffer || downloaded.buffer.length < 100 ||
           downloaded.foundPath !== `${active.amiFilePath}.wav`) {
+        console.warn("[AgentOnlyRecording] Finalize empty recording", callLogId);
         const concurrentRecording = await db.transaction(async tx => {
           await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${callLog.id}))`);
           const [recording] = await tx.select().from(callRecordings).where(and(
