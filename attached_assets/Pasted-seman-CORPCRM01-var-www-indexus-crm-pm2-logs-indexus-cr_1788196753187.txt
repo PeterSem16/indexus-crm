@@ -1,0 +1,51 @@
+seman@CORPCRM01:/var/www/indexus-crm$ pm2 logs indexus-crm --lines 350 --nostream --timestamp 2>&1 \
+  | grep -E "AgentOnlyRecording|Recording.*failed|Trusted agent"
+4|indexus- | [AgentOnlyRecording] AMI binding scan d6255c11-a01a-4355-9056-684c3dc2295a mediagtw.cordbloodcenter.com {
+4|indexus- | [AgentOnlyRecording] AMI MixMonitor rejected d6255c11-a01a-4355-9056-684c3dc2295a Response: Error ActionID: 375fbc63-e31a-42ad-b863-bc87b4958dc6 Message: Permission denied
+4|indexus- | [AgentOnlyRecording] AMI binding scan 634c0bb5-040c-45af-8d8a-93f200d832dc mediagtw.cordbloodcenter.com {
+4|indexus- | [AgentOnlyRecording] AMI binding scan 72610c7a-5aba-41a9-a175-ff378591da84 mediagtw.cordbloodcenter.com {
+4|indexus- | [AgentOnlyRecording] Started 72610c7a-5aba-41a9-a175-ff378591da84 context=database
+4|indexus- | [AgentOnlyRecording] Finalize requested 72610c7a-5aba-41a9-a175-ff378591da84 context=memory
+4|indexus- | [AgentOnlyRecording] AMI binding scan 43bc738b-a124-484e-889e-445a62b0dbb9 mediagtw.cordbloodcenter.com {
+4|indexus- | [AgentOnlyRecording] Started 43bc738b-a124-484e-889e-445a62b0dbb9 context=database
+4|indexus- | [AgentOnlyRecording] Finalize requested 43bc738b-a124-484e-889e-445a62b0dbb9 context=memory
+4|indexus- | [AgentOnlyRecording] Finalize stage 43bc738b-a124-484e-889e-445a62b0dbb9 stage=existing_recording_lookup_started
+4|indexus- | [AgentOnlyRecording] Finalize stage 43bc738b-a124-484e-889e-445a62b0dbb9 stage=existing_recording_lookup_completed found=false
+4|indexus- | [AgentOnlyRecording] Finalize stage 43bc738b-a124-484e-889e-445a62b0dbb9 stage=ami_stop_started
+4|indexus- | [AgentOnlyRecording] Finalize stage 43bc738b-a124-484e-889e-445a62b0dbb9 stage=ami_stop_completed
+4|indexus- | [AgentOnlyRecording] Finalize stage 43bc738b-a124-484e-889e-445a62b0dbb9 stage=download_attempt_started attempt=1
+4|indexus- | [AgentOnlyRecording] Download attempt failed 43bc738b-a124-484e-889e-445a62b0dbb9 attempt=1 Recording file not found at exact path /var/spool/asterisk/monitor/web_agent_43bc738b-a124-484e-889e-445a62b0dbb9_1788195380914_agent.wav
+4|indexus- | [AgentOnlyRecording] Finalize stage 43bc738b-a124-484e-889e-445a62b0dbb9 stage=download_attempt_started attempt=2
+4|indexus- | [AgentOnlyRecording] Download attempt failed 43bc738b-a124-484e-889e-445a62b0dbb9 attempt=2 Recording file not found at exact path /var/spool/asterisk/monitor/web_agent_43bc738b-a124-484e-889e-445a62b0dbb9_1788195380914_agent.wav
+4|indexus- | [AgentOnlyRecording] Finalize stage 43bc738b-a124-484e-889e-445a62b0dbb9 stage=download_attempt_started attempt=3
+4|indexus- | [AgentOnlyRecording] Download attempt failed 43bc738b-a124-484e-889e-445a62b0dbb9 attempt=3 Recording file not found at exact path /var/spool/asterisk/monitor/web_agent_43bc738b-a124-484e-889e-445a62b0dbb9_1788195380914_agent.wav
+4|indexus- | [AgentOnlyRecording] Finalize stage 43bc738b-a124-484e-889e-445a62b0dbb9 stage=download_attempt_started attempt=4
+4|indexus- | [AgentOnlyRecording] Download attempt failed 43bc738b-a124-484e-889e-445a62b0dbb9 attempt=4 Recording file not found at exact path /var/spool/asterisk/monitor/web_agent_43bc738b-a124-484e-889e-445a62b0dbb9_1788195380914_agent.wav
+4|indexus- | [AgentOnlyRecording] Finalize empty recording 43bc738b-a124-484e-889e-445a62b0dbb9
+4|indexus- | [AgentOnlyRecording] Finalize stage 43bc738b-a124-484e-889e-445a62b0dbb9 stage=remote_cleanup_started
+4|indexus- | [AgentOnlyRecording] Finalize stage 43bc738b-a124-484e-889e-445a62b0dbb9 stage=remote_cleanup_completed
+4|indexus- | [AgentOnlyRecording] AMI binding scan 18dc4474-56db-4a10-acd5-937d93e8b658 mediagtw.cordbloodcenter.com {
+4|indexus- | [AgentOnlyRecording] Started 18dc4474-56db-4a10-acd5-937d93e8b658 context=database
+4|indexus- | [AgentOnlyRecording] Finalize requested 18dc4474-56db-4a10-acd5-937d93e8b658 context=memory
+4|indexus- | [AgentOnlyRecording] Finalize stage 18dc4474-56db-4a10-acd5-937d93e8b658 stage=existing_recording_lookup_started
+4|indexus- | [AgentOnlyRecording] Finalize stage 18dc4474-56db-4a10-acd5-937d93e8b658 stage=existing_recording_lookup_completed found=false
+4|indexus- | [AgentOnlyRecording] Finalize stage 18dc4474-56db-4a10-acd5-937d93e8b658 stage=ami_stop_started
+4|indexus- | [AgentOnlyRecording] Finalize stage 18dc4474-56db-4a10-acd5-937d93e8b658 stage=ami_stop_completed
+4|indexus- | [AgentOnlyRecording] Finalize stage 18dc4474-56db-4a10-acd5-937d93e8b658 stage=download_attempt_started attempt=1
+4|indexus- | [AgentOnlyRecording] Finalize stage 18dc4474-56db-4a10-acd5-937d93e8b658 stage=download_attempt_completed attempt=1 bytes=165804
+4|indexus- | [AgentOnlyRecording] Finalize stage 18dc4474-56db-4a10-acd5-937d93e8b658 stage=remote_cleanup_started
+4|indexus- | [AgentOnlyRecording] Finalize stage 18dc4474-56db-4a10-acd5-937d93e8b658 stage=remote_cleanup_completed
+4|indexus- | [AgentOnlyRecording] Finalized 18dc4474-56db-4a10-acd5-937d93e8b658 inserted=true bytes=165804
+4|indexus- | [AgentOnlyRecording] AMI binding scan 778a5ca7-f35d-41ff-80fb-b0749cbb69d5 mediagtw.cordbloodcenter.com {
+4|indexus- | [AgentOnlyRecording] Started 778a5ca7-f35d-41ff-80fb-b0749cbb69d5 context=database
+4|indexus- | [AgentOnlyRecording] Finalize requested 778a5ca7-f35d-41ff-80fb-b0749cbb69d5 context=memory
+4|indexus- | [AgentOnlyRecording] Finalize stage 778a5ca7-f35d-41ff-80fb-b0749cbb69d5 stage=existing_recording_lookup_started
+4|indexus- | [AgentOnlyRecording] Finalize stage 778a5ca7-f35d-41ff-80fb-b0749cbb69d5 stage=existing_recording_lookup_completed found=false
+4|indexus- | [AgentOnlyRecording] Finalize stage 778a5ca7-f35d-41ff-80fb-b0749cbb69d5 stage=ami_stop_started
+4|indexus- | [AgentOnlyRecording] Finalize stage 778a5ca7-f35d-41ff-80fb-b0749cbb69d5 stage=ami_stop_completed
+4|indexus- | [AgentOnlyRecording] Finalize stage 778a5ca7-f35d-41ff-80fb-b0749cbb69d5 stage=download_attempt_started attempt=1
+4|indexus- | [AgentOnlyRecording] Finalize stage 778a5ca7-f35d-41ff-80fb-b0749cbb69d5 stage=download_attempt_completed attempt=1 bytes=489004
+4|indexus- | [AgentOnlyRecording] Finalize stage 778a5ca7-f35d-41ff-80fb-b0749cbb69d5 stage=remote_cleanup_started
+4|indexus- | [AgentOnlyRecording] Finalize stage 778a5ca7-f35d-41ff-80fb-b0749cbb69d5 stage=remote_cleanup_completed
+4|indexus- | [AgentOnlyRecording] Finalized 778a5ca7-f35d-41ff-80fb-b0749cbb69d5 inserted=true bytes=489004
+seman
