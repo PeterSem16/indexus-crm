@@ -34177,7 +34177,13 @@ Respond ONLY with valid JSON in this exact format:
       const amiFilePath = `/var/spool/asterisk/monitor/${recordingName}_agent`;
       const sshPort = cfg.sshPort || 22;
       const mixMonitorCommand = `mixmonitor start ${channel.name} /dev/null,r(${amiFilePath}.wav)`;
-      const quotedRecordingPath = shellQuote(`${amiFilePath}.wav`);
+      const quotedRecordingPattern = shellQuote(`${recordingName}_agent*`);
+      const findRecordingCommand =
+        `sudo -n find /var/spool/asterisk/ -type f -name ${quotedRecordingPattern} -not -empty -print -quit 2>/dev/null ` +
+        `|| find /var/spool/asterisk/ -type f -name ${quotedRecordingPattern} -not -empty -print -quit 2>/dev/null`;
+      const deleteRecordingCommand =
+        `sudo -n find /var/spool/asterisk/ -type f -name ${quotedRecordingPattern} -delete 2>/dev/null ` +
+        `|| find /var/spool/asterisk/ -type f -name ${quotedRecordingPattern} -delete 2>/dev/null || true`;
       let remoteStartAttempted = false;
       let activeRecordingPersisted = false;
       try {
@@ -34189,7 +34195,7 @@ Respond ONLY with valid JSON in this exact format:
         const recordingProbe = await runSshCommand(
           server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
           `for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do ` +
-          `if sudo -n test -s ${quotedRecordingPath} 2>/dev/null || test -s ${quotedRecordingPath} 2>/dev/null; ` +
+          `candidate=$(${findRecordingCommand}); if [ -n "$candidate" ]; ` +
           `then printf '__INDEXUS_RECORDING_FILE_READY__'; break; fi; sleep 0.1; done; true`,
         );
         if (!recordingProbe.includes("__INDEXUS_RECORDING_FILE_READY__")) {
@@ -34227,7 +34233,7 @@ Respond ONLY with valid JSON in this exact format:
         if (remoteStartAttempted && !activeRecordingPersisted) {
           try {
             await runSshCommand(server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
-              `sudo -n rm -f ${quotedRecordingPath} 2>/dev/null || rm -f ${quotedRecordingPath} 2>/dev/null || true`);
+              deleteRecordingCommand);
           } catch {}
         }
       }
@@ -34317,10 +34323,10 @@ Respond ONLY with valid JSON in this exact format:
       if (shouldCleanup && active?.kind === "web_agent_only") {
         mobileActiveRecordings.delete(callLogId);
         try {
-          const remotePath = `${active.amiFilePath}.wav`;
-          const quotedPath = `'${remotePath.replace(/'/g, `'\\''`)}'`;
+          const quotedPattern = shellQuote(`${active.recordingName}_agent*`);
           await runSshCommand(active.sshHost, active.sshPort, active.sshUser, active.sshPass,
-            `sudo -n rm -f ${quotedPath} 2>/dev/null || rm -f ${quotedPath} 2>/dev/null || true`);
+            `sudo -n find /var/spool/asterisk/ -type f -name ${quotedPattern} -delete 2>/dev/null ` +
+            `|| find /var/spool/asterisk/ -type f -name ${quotedPattern} -delete 2>/dev/null || true`);
         } catch {}
       }
     }
