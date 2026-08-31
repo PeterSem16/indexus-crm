@@ -34078,7 +34078,12 @@ Respond ONLY with valid JSON in this exact format:
               }
               scan.correlation++;
 
-              const actualPhone = String(event.Exten || parseCliVariable(channelDetails, "EXTEN"))
+              const actualPhone = String(
+                parseCliVariable(channelDetails, "OUTNUM") ||
+                parseCliVariable(channelDetails, "EXTEN") ||
+                event.Exten ||
+                "",
+              )
                 .replace(/\D/g, "").slice(-9);
               if (!recordingExpectedPhone || actualPhone !== recordingExpectedPhone) continue;
               scan.phone++;
