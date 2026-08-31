@@ -138,6 +138,50 @@ interface MobileRecordingInfo {
   amiMixMonitorId?: string;
   sipCallId?: string;
 }
+
+interface PersistedAgentOnlyRecordingContext {
+  version: 1;
+  recordingName: string;
+  amiFilePath: string;
+  amiChannelName: string;
+  amiMixMonitorId: string;
+  sipCallId: string;
+}
+
+function readPersistedAgentOnlyRecordingContext(
+  callLogId: string,
+  metadata: string | null | undefined,
+  boundSipCallId: string | null | undefined,
+): PersistedAgentOnlyRecordingContext | null {
+  let value: any;
+  try {
+    value = metadata ? JSON.parse(metadata)?.agentOnlyRecordingContext : null;
+  } catch {
+    return null;
+  }
+  if (!value || value.version !== 1) return null;
+  const recordingName = String(value.recordingName || "");
+  const expectedPrefix = `web_agent_${callLogId}_`;
+  if (!recordingName.startsWith(expectedPrefix) ||
+      !/^web_agent_[A-Za-z0-9-]+_[0-9]+$/.test(recordingName)) return null;
+  const amiFilePath = String(value.amiFilePath || "");
+  if (amiFilePath !== `/var/spool/asterisk/monitor/${recordingName}_agent`) return null;
+  const amiChannelName = String(value.amiChannelName || "");
+  if (!/^PJSIP\/[A-Za-z0-9_.:@+-]+$/.test(amiChannelName)) return null;
+  const amiMixMonitorId = String(value.amiMixMonitorId || "");
+  if (!/^[A-Za-z0-9._:-]{1,128}$/.test(amiMixMonitorId)) return null;
+  const sipCallId = String(value.sipCallId || "");
+  if (!sipCallId || !boundSipCallId || sipCallId !== boundSipCallId) return null;
+  return {
+    version: 1,
+    recordingName,
+    amiFilePath,
+    amiChannelName,
+    amiMixMonitorId,
+    sipCallId,
+  };
+}
+
 // Tracks active server-side AMI recordings for mobile calls: callLogId → info
 const mobileActiveRecordings = new Map<string, MobileRecordingInfo>();
 
@@ -33906,6 +33950,13 @@ Respond ONLY with valid JSON in this exact format:
           delete nextMetadata.recordingCorrelationHash;
           delete nextMetadata.recordingExpectedPhone;
         }
+        // This is server-owned state used to finalize an active MixMonitor from
+        // any PM2 worker. Never allow a client PATCH to replace or manufacture it.
+        if (oldMetadata.agentOnlyRecordingContext) {
+          nextMetadata.agentOnlyRecordingContext = oldMetadata.agentOnlyRecordingContext;
+        } else {
+          delete nextMetadata.agentOnlyRecordingContext;
+        }
         req.body.metadata = JSON.stringify(nextMetadata);
       }
       const log = await storage.updateCallLog(req.params.id, req.body);
@@ -34330,6 +34381,14 @@ Respond ONLY with valid JSON in this exact format:
         try { if (callLog.metadata) consumedMetadata = JSON.parse(callLog.metadata); } catch {}
         delete consumedMetadata.recordingCorrelationHash;
         delete consumedMetadata.recordingExpectedPhone;
+        consumedMetadata.agentOnlyRecordingContext = {
+          version: 1,
+          recordingName,
+          amiFilePath,
+          amiChannelName: channel.name,
+          amiMixMonitorId: mixMonitorId,
+          sipCallId,
+        } satisfies PersistedAgentOnlyRecordingContext;
         const [bound] = await db.update(callLogs).set({
           sipCallId,
           metadata: JSON.stringify(consumedMetadata),
@@ -34357,6 +34416,7 @@ Respond ONLY with valid JSON in this exact format:
           sipCallId,
         });
         activeRecordingPersisted = true;
+        console.warn("[AgentOnlyRecording] Started", callLog.id, "context=database");
         res.status(201).json({ success: true, recordingMode: "agent_only" });
       } finally {
         let terminalError: unknown = null;
@@ -34390,7 +34450,7 @@ Respond ONLY with valid JSON in this exact format:
 
   app.post("/api/call-logs/:id/finalize-agent-recording", requireAuth, async (req, res) => {
     const callLogId = req.params.id;
-    const active = mobileActiveRecordings.get(callLogId);
+    let active = mobileActiveRecordings.get(callLogId);
     let shouldCleanup = false;
     let persistedRecording: any = null;
     let persistedRecordingNeedsAnalysis = false;
@@ -34436,6 +34496,14 @@ Respond ONLY with valid JSON in this exact format:
           cleanupOutput.includes("__INDEXUS_RECORDING_CLEANUP_FAILED__")) {
         throw new Error("Could not verify mediagtw recording cleanup");
       }
+      await db.execute(sql`
+        UPDATE call_logs
+        SET metadata = (
+          COALESCE(NULLIF(metadata, ''), '{}')::jsonb
+          - 'agentOnlyRecordingContext'
+        )::text
+        WHERE id = ${callLogId}
+      `);
       mobileActiveRecordings.delete(callLogId);
       shouldCleanup = false;
     };
@@ -34444,6 +34512,44 @@ Respond ONLY with valid JSON in this exact format:
       const [callLog] = await db.select().from(callLogs).where(eq(callLogs.id, callLogId)).limit(1);
       if (!callLog) return res.status(404).json({ error: "Call log not found" });
       if (callLog.userId !== user.id) return res.status(403).json({ error: "Only the call owner can finalize recording" });
+      let activeSource = active ? "memory" : "";
+      if (!active) {
+        const persisted = readPersistedAgentOnlyRecordingContext(
+          callLog.id,
+          callLog.metadata,
+          callLog.sipCallId,
+        );
+        if (persisted) {
+          const [cfg] = await db.select().from(ariSettings).limit(1);
+          if (!cfg?.sshUsername || !cfg.sshPassword) {
+            return res.status(503).json({ error: "Asterisk SSH recording credentials are not configured" });
+          }
+          active = {
+            recordingName: persisted.recordingName,
+            amiFilePath: persisted.amiFilePath,
+            sshHost: ASTERISK_MEDIAGTW_HOST,
+            sshPort: cfg.sshPort || 22,
+            sshUser: cfg.sshUsername,
+            sshPass: cfg.sshPassword,
+            kind: "web_agent_only",
+            recordingPolicySnapshot: (() => {
+              try {
+                return callLog.metadata
+                  ? JSON.parse(callLog.metadata)?.recordingPolicySnapshot
+                  : undefined;
+              } catch {
+                return undefined;
+              }
+            })(),
+            amiChannelName: persisted.amiChannelName,
+            amiMixMonitorId: persisted.amiMixMonitorId,
+            sipCallId: persisted.sipCallId,
+          };
+          activeSource = "database";
+        }
+      }
+      console.warn("[AgentOnlyRecording] Finalize requested", callLogId,
+        `context=${activeSource || "missing"}`);
       const [existingRecording] = await db.select().from(callRecordings).where(and(
         eq(callRecordings.callLogId, callLogId),
         eq(callRecordings.recordingMode, "agent_only"),
@@ -34557,6 +34663,8 @@ Respond ONLY with valid JSON in this exact format:
       persistedRecording = persistence.recording;
       persistedRecordingNeedsAnalysis = persistence.inserted;
       await cleanupActiveRemoteRecording();
+      console.warn("[AgentOnlyRecording] Finalized", callLogId,
+        `inserted=${persistence.inserted}`, `bytes=${downloaded.buffer.length}`);
       if (persistence.inserted && process.env.OPENAI_API_KEY) {
         processCallRecordingAnalysis(persistence.recording.id, persistence.recording.filePath).catch(error =>
           console.error("[AgentOnlyRecording] Analysis failed:", error));
