@@ -1,0 +1,32 @@
+seman@CORPCRM01:/var/www/indexus-crm$ cd /var/www/indexus-crm
+
+echo "=== REMOTE ==="
+git remote -v
+
+echo "=== COMMIT ==="
+git rev-parse HEAD
+git log -1 --oneline
+
+echo "=== ENDPOINT IN DEPLOYED SOURCE ==="
+grep -n "start-agent-recording\|finalize-agent-recording" server/routes.ts
+
+echo "=== CALL RECORDING LOGS ==="
+pm2 logs indexus-crm --lines 1500 --nostream 2>&1 \
+  | grep -Ei "AgentOnlyRecording|Recording|MixMonitor|call-record|call log|PJSIP|ARI|recording" \
+  | tail -200
+=== REMOTE ===
+origin	git@github.com:PeterSem16/indexus-crm.git (fetch)
+origin	git@github.com:PeterSem16/indexus-crm.git (push)
+=== COMMIT ===
+581aad799e0b983c83fe19413519b2f930066e75
+581aad79 (HEAD -> main, origin/main, origin/HEAD) Refactor SIP phone and call player components
+=== ENDPOINT IN DEPLOYED SOURCE ===
+33938:  app.post("/api/call-logs/:id/start-agent-recording", requireAuth, async (req, res) => {
+34125:  app.post("/api/call-logs/:id/finalize-agent-recording", requireAuth, async (req, res) => {
+=== CALL RECORDING LOGS ===
+4|indexus- | [QueueEngine] Failed to set caller ID on channel 1788166807.42: ARI POST /channels/1788166807.42/variable?variable=CAMPAIGN_CID&value=%2B421940682394 failed: 409 {
+4|indexus- | [QueueEngine] Failed to set caller ID on channel 1788167010.45: ARI POST /channels/1788167010.45/variable?variable=CAMPAIGN_CID&value=%2B421940682394 failed: 409 {
+4|indexus- | [QueueEngine] Failed to set caller ID on channel 1788167258.48: ARI POST /channels/1788167258.48/variable?variable=CAMPAIGN_CID&value=%2B421940682394 failed: 409 {
+4|indexus- | [QueueEngine] Failed to set caller ID on channel 1788172697.51: ARI POST /channels/1788172697.51/variable?variable=CAMPAIGN_CID&value=%2B421940682394 failed: 409 {
+4|indexus- | 10:43:56 AM [express] GET /api/agent/abandoned-calls 304 in 4ms :: [{"id":"e5b5d436-9476-4453-9416-9a2583e40322","queueId":"0106e99f-6a0f-475a-b22e-99eea1b82f60","callLogId":null,"callerNumber":"+421948519438","callerName":"421948519438","customerId":"67be9f54-fd84-4532-84fc-6cad9bdff6ce","assignedAgentId":null,"ariChannelId":"1788166572.24","didNumber":"421940682394","status":"timeout","enteredQueueAt":"2026-08-31T08:56:25.898Z","answeredAt":null,"completedAt":"2026-08-31T08:56:56.934Z","waitDurationSeconds":31,"talkDurationSeconds":0,"queuePosition":1,"abandonReason":"timeout","transferredTo":null,"calledBack":false,"calledBackAt":null,"calledBackByUserId":null,"metadata":{"sourceTrunk":"O2"},"createdAt":"2026-08-31T08:56:25.898Z","queueName":"Inbound Medical Partner Cooperation","customerName":"Laura Tkačinská","customerPhone":"421948519438","calledBackByUserName":null}]
+seman@CORPCRM01:/var/www/indexus-crm$
