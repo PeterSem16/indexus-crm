@@ -37,6 +37,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { SipSettings, CallLog, User } from "@shared/schema";
 import { resolveOutboundCallProvider } from "@shared/telephony-routing";
+import type { MissionCallRecordingSnapshot } from "@shared/mission-recording";
 
 function filterSdpCandidates(description: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit> {
   if (!description.sdp) return Promise.resolve(description);
@@ -191,6 +192,8 @@ export function SipPhone({
   const [callDuration, setCallDuration] = useState(0);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [currentCallLogId, setCurrentCallLogId] = useState<number | null>(null);
+  const currentCallLogIdRef = useRef<number | null>(null);
+  useEffect(() => { currentCallLogIdRef.current = currentCallLogId; }, [currentCallLogId]);
   const [sipConfig, setSipConfig] = useState<SipConfig>(config || {
     server: "",
     username: "",
@@ -222,6 +225,17 @@ export function SipPhone({
   const recordingDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
   const recordingSourceNodesRef = useRef<MediaStreamAudioSourceNode[]>([]);
   const pauseToneNodesRef = useRef<{ oscillators: OscillatorNode[]; gains: GainNode[] } | null>(null);
+  const recordingSnapshotRef = useRef<MissionCallRecordingSnapshot | undefined>(undefined);
+  const customerActivitySegmentsRef = useRef<Array<{ startMs: number; endMs: number }>>([]);
+  const customerSpeechStartedAtRef = useRef<number | null>(null);
+  const recordingVadStartedAtRef = useRef(0);
+  const customerSpeechActiveRef = useRef(false);
+  const remoteAnalyserTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const remoteAnalyserNodesRef = useRef<AudioNode[]>([]);
+  const recordingPausedRef = useRef(false);
+  const trustedAgentRecordingStartAttemptsRef = useRef<Set<string>>(new Set());
+  const trustedAgentRecordingStartedRef = useRef<Set<string>>(new Set());
+  const trustedAgentRecordingFinalizedRef = useRef<Set<string>>(new Set());
   const callContextRef = useRef(callContext);
   callContextRef.current = callContext;
 
@@ -280,8 +294,62 @@ export function SipPhone({
     }
   });
 
-  const startRecording = useCallback((session: Session) => {
+  const cleanupRecordingAnalysis = useCallback(() => {
+    if (remoteAnalyserTimerRef.current) {
+      clearInterval(remoteAnalyserTimerRef.current);
+      remoteAnalyserTimerRef.current = null;
+    }
+    if (customerSpeechActiveRef.current && customerSpeechStartedAtRef.current !== null) {
+      customerActivitySegmentsRef.current.push({
+        startMs: Math.max(0, customerSpeechStartedAtRef.current - recordingVadStartedAtRef.current),
+        endMs: Math.max(0, Date.now() - recordingVadStartedAtRef.current),
+      });
+    }
+    customerSpeechActiveRef.current = false;
+    customerSpeechStartedAtRef.current = null;
+    for (const node of remoteAnalyserNodesRef.current) {
+      try { node.disconnect(); } catch {}
+    }
+    remoteAnalyserNodesRef.current = [];
+  }, []);
+
+  const discardLocalRecording = useCallback(() => {
+    cleanupRecordingAnalysis();
+    recordingPausedRef.current = false;
+    if (pauseToneNodesRef.current) {
+      for (const oscillator of pauseToneNodesRef.current.oscillators) {
+        try { oscillator.stop(); oscillator.disconnect(); } catch {}
+      }
+      for (const gain of pauseToneNodesRef.current.gains) {
+        try { gain.disconnect(); } catch {}
+      }
+      pauseToneNodesRef.current = null;
+    }
+    const recorder = mediaRecorderRef.current;
+    mediaRecorderRef.current = null;
+    if (recorder && recorder.state !== "inactive") {
+      recorder.ondataavailable = null;
+      recorder.onstop = null;
+      try { recorder.stop(); } catch {}
+    }
+    recordingChunksRef.current = [];
+    recordingDestinationRef.current = null;
+    recordingSourceNodesRef.current = [];
+    isRecordingRef.current = false;
+    callContextRef.current.setIsRecording(false);
+    callContextRef.current.setIsRecordingPaused(false);
+    if (recordingContextRef.current && recordingContextRef.current.state !== "closed") {
+      try { recordingContextRef.current.close(); } catch {}
+    }
+    recordingContextRef.current = null;
+  }, [cleanupRecordingAnalysis]);
+
+  const startRecording = useCallback((session: Session, recordingSnapshot?: MissionCallRecordingSnapshot) => {
     try {
+      if (recordingSnapshot && !recordingSnapshot.active) {
+        console.log("[Recording] Mission policy is inactive; recording not started");
+        return;
+      }
       console.log("[Recording] startRecording called, session state:", (session as any)?.state);
       const sdh = session.sessionDescriptionHandler;
       if (!sdh) { console.warn("[Recording] No sessionDescriptionHandler - cannot record"); return; }
@@ -294,6 +362,11 @@ export function SipPhone({
       const destination = recCtx.createMediaStreamDestination();
       recordingDestinationRef.current = destination;
       recordingSourceNodesRef.current = [];
+      recordingSnapshotRef.current = recordingSnapshot;
+      recordingVadStartedAtRef.current = Date.now();
+      customerActivitySegmentsRef.current = [];
+      customerSpeechActiveRef.current = false;
+      customerSpeechStartedAtRef.current = null;
 
       const localSenders = pc.getSenders();
       const localAudioSender = localSenders.find(s => s.track?.kind === "audio");
@@ -309,9 +382,65 @@ export function SipPhone({
           try {
             const remoteStream = new MediaStream([track]);
             const remoteSource = recCtx.createMediaStreamSource(remoteStream);
-            remoteSource.connect(destination);
-            recordingSourceNodesRef.current.push(remoteSource);
-            console.log("[Recording] Remote audio track connected to recorder");
+            if (recordingSnapshot?.mode === "agent_only") {
+              // Never connect customer audio to the recorded destination. It is
+              // analysed only to preserve an activity audit without retaining speech.
+              const analyser = recCtx.createAnalyser();
+              analyser.fftSize = 1024;
+              analyser.smoothingTimeConstant = 0.6;
+              remoteSource.connect(analyser);
+              remoteAnalyserNodesRef.current.push(remoteSource, analyser);
+              const samples = new Uint8Array(analyser.fftSize);
+              let lastSpeechAt = 0;
+              const injectSoftTone = () => {
+                if (recordingPausedRef.current || recCtx.state === "closed") return;
+                const osc = recCtx.createOscillator();
+                const gain = recCtx.createGain();
+                const now = recCtx.currentTime;
+                osc.frequency.setValueAtTime(880, now);
+                gain.gain.setValueAtTime(0, now);
+                gain.gain.linearRampToValueAtTime(0.018, now + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+                osc.connect(gain);
+                gain.connect(destination);
+                osc.start(now);
+                osc.stop(now + 0.13);
+                osc.onended = () => { try { osc.disconnect(); gain.disconnect(); } catch {} };
+              };
+              if (!remoteAnalyserTimerRef.current) {
+                remoteAnalyserTimerRef.current = setInterval(() => {
+                  if (recCtx.state === "closed") return;
+                  analyser.getByteTimeDomainData(samples);
+                  let sum = 0;
+                  for (let index = 0; index < samples.length; index++) {
+                    const sample = samples[index];
+                    const normalized = (sample - 128) / 128;
+                    sum += normalized * normalized;
+                  }
+                  const speaking = Math.sqrt(sum / samples.length) > 0.018;
+                  const now = Date.now();
+                  if (speaking) {
+                    lastSpeechAt = now;
+                    if (!customerSpeechActiveRef.current) {
+                      customerSpeechActiveRef.current = true;
+                      customerSpeechStartedAtRef.current = now;
+                      injectSoftTone();
+                    }
+                  } else if (customerSpeechActiveRef.current && now - lastSpeechAt > 500) {
+                    customerActivitySegmentsRef.current.push({
+                      startMs: Math.max(0, (customerSpeechStartedAtRef.current || now) - recordingVadStartedAtRef.current),
+                      endMs: Math.max(0, lastSpeechAt - recordingVadStartedAtRef.current),
+                    });
+                    customerSpeechActiveRef.current = false;
+                    customerSpeechStartedAtRef.current = null;
+                  }
+                }, 100);
+              }
+            } else {
+              remoteSource.connect(destination);
+              recordingSourceNodesRef.current.push(remoteSource);
+              console.log("[Recording] Remote audio track connected to recorder");
+            }
           } catch (e) {
             console.warn("[Recording] Could not connect remote track:", e);
           }
@@ -358,8 +487,59 @@ export function SipPhone({
     }
   }, []);
 
+  const startTrustedAgentRecording = useCallback(async (
+    callLogId: string | number,
+    session: Session,
+    snapshot: MissionCallRecordingSnapshot,
+  ) => {
+    if (!snapshot.active || snapshot.mode !== "agent_only") return false;
+    const key = String(callLogId);
+    if (trustedAgentRecordingStartedRef.current.has(key)) return true;
+    if (trustedAgentRecordingStartAttemptsRef.current.has(key)) return false;
+    trustedAgentRecordingStartAttemptsRef.current.add(key);
+    try {
+      await apiRequest("PATCH", `/api/call-logs/${key}`, {
+        status: "answered",
+        answeredAt: new Date().toISOString(),
+      });
+      await apiRequest("POST", `/api/call-logs/${key}/start-agent-recording`, {});
+      trustedAgentRecordingStartedRef.current.add(key);
+      if (String(session.state) !== "Terminated") {
+        startRecording(session, snapshot);
+      }
+      return true;
+    } catch (error) {
+      console.error("[Recording] Trusted agent-only recording failed to start:", error);
+      discardLocalRecording();
+      return false;
+    }
+  }, [discardLocalRecording, startRecording]);
+
+  const finalizeTrustedAgentRecording = useCallback(async (callLogId: string | number) => {
+    const snapshot = recordingSnapshotRef.current;
+    if (!snapshot?.active || snapshot.mode !== "agent_only") return false;
+    const key = String(callLogId);
+    if (trustedAgentRecordingFinalizedRef.current.has(key)) return true;
+    trustedAgentRecordingFinalizedRef.current.add(key);
+    cleanupRecordingAnalysis();
+    const customerActivitySegments = [...customerActivitySegmentsRef.current];
+    // Browser audio is only a transient VAD source in this mode. Discard it
+    // before any asynchronous work so no path can upload the local blob.
+    discardLocalRecording();
+    try {
+      await apiRequest("POST", `/api/call-logs/${key}/finalize-agent-recording`, {
+        customerActivitySegments,
+      });
+      return true;
+    } catch (error) {
+      console.error("[Recording] Trusted agent-only recording failed to finalize:", error);
+      return false;
+    }
+  }, [cleanupRecordingAnalysis, discardLocalRecording]);
+
   const pauseRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      recordingPausedRef.current = true;
       const recCtx = recordingContextRef.current;
       const destination = recordingDestinationRef.current;
       if (recCtx && destination && recCtx.state !== "closed") {
@@ -417,6 +597,7 @@ export function SipPhone({
 
   const resumeRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      recordingPausedRef.current = false;
       const recCtx = recordingContextRef.current;
       const destination = recordingDestinationRef.current;
       if (recCtx && destination && recCtx.state !== "closed") {
@@ -464,17 +645,38 @@ export function SipPhone({
 
   const manualStartRecording = useCallback(() => {
     if (isRecordingRef.current) return;
+    const snapshot = recordingSnapshotRef.current;
+    if (snapshot && !snapshot.active) {
+      console.warn("[Recording] Manual recording blocked by inactive Mission policy");
+      return;
+    }
     const session = sessionRef.current;
     if (session) {
-      startRecording(session);
+      if (snapshot?.mode === "agent_only") {
+        if (currentCallLogIdRef.current) {
+          void startTrustedAgentRecording(currentCallLogIdRef.current, session, snapshot);
+        }
+        return;
+      }
+      startRecording(session, snapshot);
     }
-  }, [startRecording]);
+  }, [startRecording, startTrustedAgentRecording]);
 
   const manualStopRecording = useCallback(() => {
+    if (recordingSnapshotRef.current?.active && recordingSnapshotRef.current.mode === "agent_only") {
+      if (currentCallLogIdRef.current) {
+        void finalizeTrustedAgentRecording(currentCallLogIdRef.current);
+      } else {
+        discardLocalRecording();
+      }
+      return;
+    }
     if (!isRecordingRef.current || !mediaRecorderRef.current) return;
     isRecordingRef.current = false;
     callContextRef.current.setIsRecording(false);
     callContextRef.current.setIsRecordingPaused(false);
+    recordingPausedRef.current = false;
+    cleanupRecordingAnalysis();
     if (pauseToneNodesRef.current) {
       for (const o of pauseToneNodesRef.current.oscillators) { try { o.stop(); o.disconnect(); } catch (e) {} }
       for (const g of pauseToneNodesRef.current.gains) { try { g.disconnect(); } catch (e) {} }
@@ -489,7 +691,7 @@ export function SipPhone({
       try { recordingContextRef.current.close(); } catch (e) {}
       recordingContextRef.current = null;
     }
-  }, []);
+  }, [cleanupRecordingAnalysis, discardLocalRecording, finalizeTrustedAgentRecording]);
 
   useEffect(() => {
     const ctx = callContextRef.current;
@@ -506,10 +708,16 @@ export function SipPhone({
   }, [pauseRecording, resumeRecording, manualStartRecording, manualStopRecording]);
 
   const stopRecordingAndUpload = useCallback((callLogId: string | number, duration: number) => {
+    if (recordingSnapshotRef.current?.active && recordingSnapshotRef.current.mode === "agent_only") {
+      void finalizeTrustedAgentRecording(callLogId);
+      return;
+    }
     if (!mediaRecorderRef.current || !isRecordingRef.current) return;
     isRecordingRef.current = false;
     callContextRef.current.setIsRecording(false);
     callContextRef.current.setIsRecordingPaused(false);
+    recordingPausedRef.current = false;
+    cleanupRecordingAnalysis();
     if (pauseToneNodesRef.current) {
       for (const o of pauseToneNodesRef.current.oscillators) { try { o.stop(); o.disconnect(); } catch (e) {} }
       for (const g of pauseToneNodesRef.current.gains) { try { g.disconnect(); } catch (e) {} }
@@ -545,6 +753,11 @@ export function SipPhone({
       formData.append("campaignName", localCampaignName || "");
       formData.append("phoneNumber", phoneNumber);
       formData.append("durationSeconds", String(duration));
+      if (recordingSnapshotRef.current) {
+        formData.append("recordingSnapshot", JSON.stringify(recordingSnapshotRef.current));
+        formData.append("recordingMode", recordingSnapshotRef.current.mode);
+        formData.append("customerActivitySegments", JSON.stringify(customerActivitySegmentsRef.current));
+      }
       if (activeInboundMetaRef.current?.direction) {
         formData.append("direction", activeInboundMetaRef.current.direction);
       }
@@ -582,7 +795,7 @@ export function SipPhone({
       } catch (e) {}
       recordingContextRef.current = null;
     }
-  }, [localCustomerId, localCampaignId, localCampaignName, localCustomerName, currentUser, phoneNumber]);
+  }, [localCustomerId, localCampaignId, localCampaignName, localCustomerName, currentUser, phoneNumber, cleanupRecordingAnalysis, finalizeTrustedAgentRecording]);
 
   const isSipConfigured = Boolean(
     globalSipSettings?.server && 
@@ -628,6 +841,7 @@ export function SipPhone({
   }, []);
 
   const cleanup = useCallback(() => {
+    cleanupRecordingAnalysis();
     if (callTimerRef.current) {
       clearInterval(callTimerRef.current);
     }
@@ -657,7 +871,7 @@ export function SipPhone({
         console.error("Error closing audio context:", e);
       }
     }
-  }, []);
+  }, [cleanupRecordingAnalysis]);
 
   const playRingtone = useCallback(() => {
     const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -734,7 +948,7 @@ export function SipPhone({
     return () => stopRingtone();
   }, [callState, startRingtone, stopRingtone]);
 
-  const handleInboundAnswered = useCallback((session: any, options: { autoRecord: boolean }) => {
+  const handleInboundAnswered = useCallback((session: any, options: { autoRecord: boolean; recordingSnapshot?: MissionCallRecordingSnapshot }) => {
     console.log("[SIP-INBOUND] === handleInboundAnswered START ===");
     console.log("[SIP-INBOUND] Session state:", session?.state);
     console.log("[SIP-INBOUND] autoRecord option:", options.autoRecord);
@@ -748,6 +962,8 @@ export function SipPhone({
     }
 
     sessionRef.current = session;
+    recordingSnapshotRef.current = options.recordingSnapshot;
+    customerActivitySegmentsRef.current = [];
     const callerNumber = session._inboundCallerNumber || "Unknown";
     setPhoneNumber(callerNumber);
     setCallState("active");
@@ -759,6 +975,7 @@ export function SipPhone({
       contactType: session._inboundContactType || undefined,
       didNumber: session._inboundDidNumber || undefined,
       queueId: session._inboundQueueId || undefined,
+      recordingSnapshot: options.recordingSnapshot,
       direction: "inbound",
     });
     ctx.onInboundAnsweredFn.current?.();
@@ -779,6 +996,7 @@ export function SipPhone({
         sourceTrunk: session._inboundSourceTrunk || null,
         contactType: context?.contactType || null,
         entityId: cid,
+          recordingPolicySnapshot: options.recordingSnapshot || null,
       });
       // Immediately PATCH the call log if it already exists (handles race with async creation)
       if (inboundCallLogIdRef.current) {
@@ -827,12 +1045,14 @@ export function SipPhone({
         return;
       }
       console.log("[SIP-INBOUND] PC state:", pc.connectionState, "senders:", pc.getSenders().length, "receivers:", pc.getReceivers().length);
-      startRecording(session);
+      startRecording(session, options.recordingSnapshot);
     };
 
-    if (options.autoRecord) {
+    if (options.autoRecord && options.recordingSnapshot?.mode !== "agent_only") {
       console.log("[SIP-INBOUND] Auto-recording enabled, starting in 500ms...");
       setTimeout(() => doStartRecording(1), 500);
+    } else if (options.autoRecord) {
+      console.log("[SIP-INBOUND] Waiting for trusted agent-only server recording start");
     } else {
       console.log("[SIP-INBOUND] Auto-recording NOT enabled for this call");
     }
@@ -881,7 +1101,9 @@ export function SipPhone({
           console.log("[SIP-INBOUND] Stopping recording and uploading, callLogId:", inboundCallLogIdRef.current);
           stopRecordingAndUpload(inboundCallLogIdRef.current, duration);
         } else {
-          if (mediaRecorderRef.current) { try { mediaRecorderRef.current.stop(); } catch {} mediaRecorderRef.current = null; isRecordingRef.current = false; ctxNow.setIsRecording(false); ctxNow.setIsRecordingPaused(false); recordingChunksRef.current = []; }
+          if (options.recordingSnapshot?.active && options.recordingSnapshot.mode === "agent_only") {
+            stopRecordingAndUpload(inboundCallLogIdRef.current, 0);
+          } else if (mediaRecorderRef.current) { cleanupRecordingAnalysis(); try { mediaRecorderRef.current.stop(); } catch {} mediaRecorderRef.current = null; isRecordingRef.current = false; ctxNow.setIsRecording(false); ctxNow.setIsRecordingPaused(false); recordingChunksRef.current = []; }
         }
       } else {
         // Race condition: call log not yet created — store metadata for deferred update
@@ -890,7 +1112,7 @@ export function SipPhone({
         if (duration > 0) {
           console.log("[SIP-INBOUND] Will stop recording, but cannot upload until call log ID is known");
         } else {
-          if (mediaRecorderRef.current) { try { mediaRecorderRef.current.stop(); } catch {} mediaRecorderRef.current = null; isRecordingRef.current = false; ctxNow.setIsRecording(false); ctxNow.setIsRecordingPaused(false); recordingChunksRef.current = []; }
+          if (mediaRecorderRef.current) { cleanupRecordingAnalysis(); try { mediaRecorderRef.current.stop(); } catch {} mediaRecorderRef.current = null; isRecordingRef.current = false; ctxNow.setIsRecording(false); ctxNow.setIsRecordingPaused(false); recordingChunksRef.current = []; }
         }
       }
       ctxNow.setAutoRecord(true);
@@ -1016,15 +1238,21 @@ export function SipPhone({
       inboundQueueId: session._inboundQueueId || undefined,
       inboundQueueName: session._inboundQueueName || undefined,
       inboundCallLogId: session._inboundCallLogId || undefined,
+      campaignId: session._inboundCampaignId || undefined,
       metadata: JSON.stringify({
         didNumber: session._inboundDidNumber || null,
         sourceTrunk: session._inboundSourceTrunk || null,
         contactType: session._inboundContactType || null,
+        recordingPolicySnapshot: options.recordingSnapshot || null,
       }),
     }).then(async (callLogData) => {
       setCurrentCallLogId(callLogData.id);
+      currentCallLogIdRef.current = callLogData.id;
       inboundCallLogIdRef.current = callLogData.id;
       console.log("[SIP-INBOUND] Call log created, id:", callLogData.id);
+      if (options.recordingSnapshot?.active && options.recordingSnapshot.mode === "agent_only") {
+        await startTrustedAgentRecording(callLogData.id, session, options.recordingSnapshot);
+      }
 
       // Resolve the actual caller's customerId and update both the callLog and local state
       const resolvedCustomerId = await resolveInboundCustomerId(callerNumber);
@@ -1055,7 +1283,7 @@ export function SipPhone({
           },
           customerId: m.customerId || resolvedCustomerId,
         });
-        if (m.duration > 0) {
+        if (m.duration > 0 || (options.recordingSnapshot?.active && options.recordingSnapshot.mode === "agent_only")) {
           stopRecordingAndUpload(callLogData.id, m.duration);
         }
       }
@@ -1064,7 +1292,7 @@ export function SipPhone({
     }).catch((err) => {
       console.error("[SIP-INBOUND] Failed to create call log:", err);
     });
-  }, [startRecording, stopRecordingAndUpload, onCallStart, onCallEnd]);
+  }, [startRecording, startTrustedAgentRecording, stopRecordingAndUpload, cleanupRecordingAnalysis, onCallStart, onCallEnd]);
 
   const handleInboundAnsweredRef = useRef(handleInboundAnswered);
   handleInboundAnsweredRef.current = handleInboundAnswered;
@@ -1100,8 +1328,9 @@ export function SipPhone({
     console.log("[SIP-INBOUND] answeredIncomingSession changed (fallback path), calling handleInboundAnswered");
     const session = answeredIncomingSession;
     clearAnsweredSession();
-    const shouldRecord = callContextRef.current.autoRecord || session._inboundRecordCalls;
-    handleInboundAnsweredRef.current(session, { autoRecord: shouldRecord });
+    const recordingSnapshot = session._inboundRecordingSnapshot as MissionCallRecordingSnapshot | undefined;
+    const shouldRecord = recordingSnapshot ? recordingSnapshot.active : (callContextRef.current.autoRecord || session._inboundRecordCalls);
+    handleInboundAnsweredRef.current(session, { autoRecord: shouldRecord, recordingSnapshot });
   }, [answeredIncomingSession]);
 
   const connect = useCallback(async () => {
@@ -1197,9 +1426,11 @@ export function SipPhone({
           provider: localProviderRef.current || null,
           outboundTrunk: localOutboundTrunkRef.current,
           callerIdNumber: localCallerIdNumberRef.current || collaboratorCallerIdRef.current || null,
+          recordingPolicySnapshot: recordingSnapshotRef.current || null,
         }),
       });
       setCurrentCallLogId(callLogData.id);
+      currentCallLogIdRef.current = callLogData.id;
       
       const realm = sipConfig.realm || sipConfig.server;
       const cleanedPhone = currentPhone.replace(/[\s\-\(\)]/g, "");
@@ -1284,6 +1515,9 @@ export function SipPhone({
       if (localContactTypeRef.current) {
         extraHeaders.push(`X-Contact-Type: ${localContactTypeRef.current}`);
       }
+      if (callLogData.recordingCorrelationToken) {
+        extraHeaders.push(`X-Indexus-Recording-Correlation: ${callLogData.recordingCorrelationToken}`);
+      }
       if (extraHeaders.length > 0) {
         inviterOptions.extraHeaders = extraHeaders;
       }
@@ -1355,8 +1589,11 @@ export function SipPhone({
             });
             onCallStart?.(phoneNumber, callLogId);
             setupAudio(inviter);
-            if (callContextRef.current.autoRecord) {
-              setTimeout(() => startRecording(inviter), 500);
+            const recordingSnapshot = recordingSnapshotRef.current;
+            if (recordingSnapshot?.active && recordingSnapshot.mode === "agent_only") {
+              void startTrustedAgentRecording(callLogId, inviter, recordingSnapshot);
+            } else if (recordingSnapshot ? recordingSnapshot.active : callContextRef.current.autoRecord) {
+              setTimeout(() => startRecording(inviter, recordingSnapshot), 500);
             }
             break;
           case SessionState.Terminated:
@@ -1400,7 +1637,10 @@ export function SipPhone({
             if (duration > 0) {
               stopRecordingAndUpload(callLogId, duration);
             } else {
-              if (mediaRecorderRef.current) {
+              if (recordingSnapshotRef.current?.active && recordingSnapshotRef.current.mode === "agent_only") {
+                stopRecordingAndUpload(callLogId, 0);
+              } else if (mediaRecorderRef.current) {
+                cleanupRecordingAnalysis();
                 if (pauseToneNodesRef.current) { for (const o of pauseToneNodesRef.current.oscillators) { try { o.stop(); o.disconnect(); } catch (e) {} } for (const g of pauseToneNodesRef.current.gains) { try { g.disconnect(); } catch (e) {} } pauseToneNodesRef.current = null; }
                 try { mediaRecorderRef.current.stop(); } catch (e) {}
                 mediaRecorderRef.current = null;
@@ -1500,6 +1740,7 @@ export function SipPhone({
       localProviderRef.current = callData.provider ?? resolveOutboundCallProvider(callData.callerIdNumber);
       localOutboundTrunkRef.current = callData.outboundTrunk || "global";
       localOutboundCountryRef.current = callData.outboundCountry;
+      recordingSnapshotRef.current = callData.recordingSnapshot;
       setLocalCampaignName(callData.campaignName);
       setLocalCustomerName(callData.customerName);
       setLocalLeadScore(callData.leadScore);
@@ -1517,6 +1758,7 @@ export function SipPhone({
         provider: callData.provider,
         outboundTrunk: callData.outboundTrunk,
         outboundCallerId: callData.callerIdNumber,
+        recordingSnapshot: callData.recordingSnapshot,
         direction: "outbound",
       });
       maxRingSecondsRef.current = callData.maxRingSeconds && callData.maxRingSeconds > 0 ? callData.maxRingSeconds : 0;
@@ -1576,8 +1818,9 @@ export function SipPhone({
       console.log("[SIP-INBOUND] SipPhone answered successfully, delegating to handleInboundAnswered");
       session._inboundCallerNumber = session._inboundCallerNumber || incomingCall.callerNumber;
       session._inboundCallerName = session._inboundCallerName || incomingCall.callerName;
-      const shouldRecord = callContextRef.current.autoRecord || session._inboundRecordCalls;
-      handleInboundAnsweredRef.current(session, { autoRecord: shouldRecord });
+      const recordingSnapshot = session._inboundRecordingSnapshot as MissionCallRecordingSnapshot | undefined;
+      const shouldRecord = recordingSnapshot ? recordingSnapshot.active : (callContextRef.current.autoRecord || session._inboundRecordCalls);
+      handleInboundAnsweredRef.current(session, { autoRecord: shouldRecord, recordingSnapshot });
       
       answerGuardRef.current = false;
     } catch (error: any) {
@@ -1679,6 +1922,9 @@ export function SipPhone({
 
   const remoteHangup = useCallback(() => {
     console.log("[SIP-INBOUND] remoteHangup called (caller/server initiated), session state:", sessionRef.current?.state);
+    if (currentCallLogIdRef.current && recordingSnapshotRef.current?.active && recordingSnapshotRef.current.mode === "agent_only") {
+      void finalizeTrustedAgentRecording(currentCallLogIdRef.current);
+    }
     if (sessionRef.current) {
       try {
         if (sessionRef.current.state === SessionState.Established) {
@@ -1699,11 +1945,14 @@ export function SipPhone({
     if (callTimerRef.current) {
       clearInterval(callTimerRef.current);
     }
-  }, []);
+  }, [finalizeTrustedAgentRecording]);
 
   const endCall = useCallback(() => {
     console.log("[SIP-INBOUND] endCall called, session state:", sessionRef.current?.state);
     userHungUpRef.current = true;
+    if (currentCallLogId && recordingSnapshotRef.current?.active && recordingSnapshotRef.current.mode === "agent_only") {
+      void finalizeTrustedAgentRecording(currentCallLogId);
+    }
     ringTimedOutRef.current = false;
     if (maxRingTimerRef.current) {
       clearTimeout(maxRingTimerRef.current);
@@ -1748,7 +1997,7 @@ export function SipPhone({
     if (callTimerRef.current) {
       clearInterval(callTimerRef.current);
     }
-  }, [currentCallLogId, updateCallLogMutation]);
+  }, [currentCallLogId, updateCallLogMutation, finalizeTrustedAgentRecording]);
 
   const forceResetCall = useCallback(() => {
     ringTimedOutRef.current = false;
@@ -1771,7 +2020,9 @@ export function SipPhone({
       if (duration > 0) {
         stopRecordingAndUpload(currentCallLogId, duration);
       } else {
-        if (mediaRecorderRef.current) {
+        if (recordingSnapshotRef.current?.active && recordingSnapshotRef.current.mode === "agent_only") {
+          stopRecordingAndUpload(currentCallLogId, 0);
+        } else if (mediaRecorderRef.current) {
           if (pauseToneNodesRef.current) { for (const o of pauseToneNodesRef.current.oscillators) { try { o.stop(); o.disconnect(); } catch (e) {} } for (const g of pauseToneNodesRef.current.gains) { try { g.disconnect(); } catch (e) {} } pauseToneNodesRef.current = null; }
           try { mediaRecorderRef.current.stop(); } catch (e) {}
           mediaRecorderRef.current = null;

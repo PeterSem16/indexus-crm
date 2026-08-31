@@ -86,6 +86,11 @@ import {
   resolveMissionOutboundRouting,
   validateMissionOutboundSettings,
 } from "@shared/telephony-routing";
+import {
+  resolveMissionRecordingPolicy,
+  validateMissionRecordingSettings,
+  type MissionCallRecordingSnapshot,
+} from "@shared/mission-recording";
 import session from "express-session";
 import pgSession from "connect-pg-simple";
 import PDFDocument from "pdfkit";
@@ -126,6 +131,10 @@ interface MobileRecordingInfo {
   sshPort: number;
   sshUser: string;
   sshPass: string;
+  kind?: "mobile_mixed" | "web_agent_only";
+  recordingPolicySnapshot?: MissionCallRecordingSnapshot;
+  ariChannelId?: string;
+  sipCallId?: string;
 }
 // Tracks active server-side AMI recordings for mobile calls: callLogId → info
 const mobileActiveRecordings = new Map<string, MobileRecordingInfo>();
@@ -20225,6 +20234,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const { username, password, protocol: ariProtocol = "http" } = ariSettingsList[0];
       const authHeader = "Basic " + Buffer.from(`${username}:${password}`).toString("base64");
       const callLogId = req.params.id;
+      if (mobileActiveRecordings.has(callLogId)) {
+        return res.status(409).json({ error: "A server recording is already active for this call" });
+      }
       const recordingName = `mobile_${callLogId}_${Date.now()}`;
 
       const servers = [
@@ -20441,7 +20453,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const callLogId = req.params.id;
       console.log(`[FinalizeRecording] Called for callLogId=${callLogId}, activeRecordings=${JSON.stringify([...mobileActiveRecordings.keys()])}`);
       const recInfo = mobileActiveRecordings.get(callLogId);
-      if (!recInfo) {
+      if (!recInfo || recInfo.kind === "web_agent_only") {
         console.warn(`[FinalizeRecording] No recording found in Map for callLogId=${callLogId} — map has ${mobileActiveRecordings.size} entries`);
         return res.json({ success: false, message: "No active server recording found for this call" });
       }
@@ -26008,6 +26020,11 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         }
         const outboundRoutingError = validateMissionOutboundSettings(parsedSettings);
         if (outboundRoutingError) return res.status(400).json({ error: outboundRoutingError });
+        const recordingPolicyError = validateMissionRecordingSettings(parsedSettings);
+        if (recordingPolicyError) return res.status(400).json({ error: recordingPolicyError });
+        if (parsedSettings?.callRecordingPolicy && !["admin", "manager"].includes(req.session.user!.role)) {
+          return res.status(403).json({ error: "Only managers can set Mission call recording" });
+        }
         if (parsedSettings?.outboundRoutingByCountry && !["admin", "manager"].includes(req.session.user!.role)) {
           return res.status(403).json({ error: "Only managers can set Mission outbound routing" });
         }
@@ -26126,6 +26143,14 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         }
         const outboundRoutingError = validateMissionOutboundSettings(nextSettings);
         if (outboundRoutingError) return res.status(400).json({ error: outboundRoutingError });
+        const recordingPolicyError = validateMissionRecordingSettings(nextSettings);
+        if (recordingPolicyError) return res.status(400).json({ error: recordingPolicyError });
+        if (
+          JSON.stringify(currentSettings.callRecordingPolicy || null) !== JSON.stringify(nextSettings.callRecordingPolicy || null) &&
+          !["admin", "manager"].includes(req.session.user!.role)
+        ) {
+          return res.status(403).json({ error: "Only managers can change Mission call recording" });
+        }
         if (
           JSON.stringify(currentSettings.outboundRoutingByCountry || {}) !== JSON.stringify(nextSettings.outboundRoutingByCountry || {}) &&
           !["admin", "manager"].includes(req.session.user!.role)
@@ -33741,9 +33766,86 @@ Respond ONLY with valid JSON in this exact format:
   // Create a new call log (when call starts)
   app.post("/api/call-logs", requireAuth, async (req, res) => {
     try {
+      // A Mission recording decision is immutable for the lifetime of a call.  Do
+      // not accept a browser-provided decision, even when callers supply metadata.
+      let metadata: Record<string, unknown> = {};
+      if (req.body?.metadata) {
+        try {
+          const parsed = typeof req.body.metadata === "string" ? JSON.parse(req.body.metadata) : req.body.metadata;
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) metadata = parsed;
+        } catch {
+          return res.status(400).json({ error: "Invalid call log metadata JSON" });
+        }
+      }
+      const sessionUserId = req.session.user!.id;
+      if (req.body?.direction === "inbound") {
+        if (req.body?.inboundCallLogId) {
+          const [trustedInbound] = await db.select().from(inboundCallLogs)
+            .where(eq(inboundCallLogs.id, String(req.body.inboundCallLogId))).limit(1);
+          if (!trustedInbound || trustedInbound.assignedAgentId !== sessionUserId || trustedInbound.callLogId) {
+            return res.status(403).json({ error: "Inbound call is not assigned to this agent" });
+          }
+          const inboundMetadata = trustedInbound.metadata && typeof trustedInbound.metadata === "object"
+            ? trustedInbound.metadata as Record<string, unknown> : {};
+          req.body.campaignId = typeof inboundMetadata.campaignId === "string"
+            ? inboundMetadata.campaignId : undefined;
+        } else {
+          delete req.body.campaignId;
+        }
+      } else if (req.body?.campaignId) {
+        if (!req.body?.campaignContactId) {
+          return res.status(400).json({ error: "Mission calls require a campaign contact" });
+        }
+        const [trustedContact] = await db.select().from(campaignContacts).where(and(
+          eq(campaignContacts.id, String(req.body.campaignContactId)),
+          eq(campaignContacts.campaignId, String(req.body.campaignId)),
+        )).limit(1);
+        if (!trustedContact) return res.status(403).json({ error: "Campaign contact does not belong to this Mission" });
+
+        let trustedPhones: Array<string | null | undefined> = [];
+        if (trustedContact.contactType === "clinic" && trustedContact.clinicId) {
+          const [entity] = await db.select({ phone: clinics.phone, phone2: clinics.phone2, phone3: clinics.phone3 })
+            .from(clinics).where(eq(clinics.id, trustedContact.clinicId)).limit(1);
+          trustedPhones = entity ? [entity.phone, entity.phone2, entity.phone3] : [];
+        } else if (trustedContact.contactType === "hospital" && trustedContact.hospitalId) {
+          const [entity] = await db.select({ phone: hospitals.phone })
+            .from(hospitals).where(eq(hospitals.id, trustedContact.hospitalId)).limit(1);
+          trustedPhones = entity ? [entity.phone] : [];
+        } else if (trustedContact.contactType === "collaborator" && trustedContact.collaboratorId) {
+          const [entity] = await db.select({ phone: collaborators.phone, mobile: collaborators.mobile, mobile2: collaborators.mobile2 })
+            .from(collaborators).where(eq(collaborators.id, trustedContact.collaboratorId)).limit(1);
+          trustedPhones = entity ? [entity.phone, entity.mobile, entity.mobile2] : [];
+        } else if (trustedContact.customerId) {
+          const [entity] = await db.select({ phone: customers.phone, mobile: customers.mobile, mobile2: customers.mobile2 })
+            .from(customers).where(eq(customers.id, trustedContact.customerId)).limit(1);
+          trustedPhones = entity ? [entity.phone, entity.mobile, entity.mobile2] : [];
+        }
+        const normalizePhone = (value: unknown) => String(value || "").replace(/\D/g, "").slice(-9);
+        const requestedPhone = normalizePhone(req.body.phoneNumber);
+        if (!requestedPhone || !trustedPhones.some(phone => normalizePhone(phone) === requestedPhone)) {
+          return res.status(403).json({ error: "Dialed number does not belong to this campaign contact" });
+        }
+      }
+
+      if (req.body?.campaignId) {
+        const [campaign] = await db.select({ settings: campaigns.settings })
+          .from(campaigns).where(eq(campaigns.id, String(req.body.campaignId))).limit(1);
+        if (!campaign) return res.status(400).json({ error: "Campaign not found" });
+        metadata.recordingPolicySnapshot = resolveMissionRecordingPolicy(campaign.settings);
+      }
+      let recordingCorrelationToken: string | undefined;
+      const snapshot = metadata.recordingPolicySnapshot as MissionCallRecordingSnapshot | undefined;
+      if (req.body?.direction === "outbound" && snapshot?.active && snapshot.mode === "agent_only") {
+        recordingCorrelationToken = crypto.randomBytes(32).toString("base64url");
+        metadata.recordingCorrelationHash = crypto.createHash("sha256")
+          .update(recordingCorrelationToken)
+          .digest("hex");
+        metadata.recordingExpectedPhone = String(req.body.phoneNumber || "").replace(/\D/g, "").slice(-9);
+      }
       const validated = insertCallLogSchema.parse({
         ...req.body,
-        userId: req.session.user?.id
+        metadata: Object.keys(metadata).length ? JSON.stringify(metadata) : null,
+        userId: sessionUserId
       });
       const log = await storage.createCallLog(validated);
 
@@ -33757,7 +33859,7 @@ Respond ONLY with valid JSON in this exact format:
           .catch((err) => console.error("[CallLog] Failed to update inbound call log:", err));
       }
 
-      res.status(201).json(log);
+      res.status(201).json(recordingCorrelationToken ? { ...log, recordingCorrelationToken } : log);
     } catch (error: any) {
       console.error("Failed to create call log:", error);
       res.status(400).json({ error: error.message || "Failed to create call log" });
@@ -33767,6 +33869,43 @@ Respond ONLY with valid JSON in this exact format:
   // Update a call log (when call ends or status changes)
   app.patch("/api/call-logs/:id", requireAuth, async (req, res) => {
     try {
+      const [existingLog] = await db.select().from(callLogs).where(eq(callLogs.id, req.params.id)).limit(1);
+      if (!existingLog) return res.status(404).json({ error: "Call log not found" });
+      const currentUser = req.session.user!;
+      if (existingLog.userId !== currentUser.id && !["admin", "manager"].includes(currentUser.role)) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      // Attribution and the policy lookup key are fixed when the call starts.
+      delete req.body.userId;
+      delete req.body.campaignId;
+      // Preserve the start-time recording snapshot across all later call-log writes.
+      if (req.body?.metadata !== undefined) {
+        let oldMetadata: Record<string, unknown> = {};
+        let nextMetadata: Record<string, unknown> = {};
+        try {
+          if (existingLog.metadata) oldMetadata = JSON.parse(existingLog.metadata);
+          nextMetadata = typeof req.body.metadata === "string" ? JSON.parse(req.body.metadata) : req.body.metadata;
+        } catch {
+          return res.status(400).json({ error: "Invalid call log metadata JSON" });
+        }
+        if (!nextMetadata || typeof nextMetadata !== "object" || Array.isArray(nextMetadata)) {
+          return res.status(400).json({ error: "Invalid call log metadata" });
+        }
+        if (oldMetadata.recordingPolicySnapshot) {
+          nextMetadata.recordingPolicySnapshot = oldMetadata.recordingPolicySnapshot;
+        } else {
+          // A later request cannot manufacture the start-time authorization.
+          delete nextMetadata.recordingPolicySnapshot;
+        }
+        if (oldMetadata.recordingCorrelationHash) {
+          nextMetadata.recordingCorrelationHash = oldMetadata.recordingCorrelationHash;
+          nextMetadata.recordingExpectedPhone = oldMetadata.recordingExpectedPhone;
+        } else {
+          delete nextMetadata.recordingCorrelationHash;
+          delete nextMetadata.recordingExpectedPhone;
+        }
+        req.body.metadata = JSON.stringify(nextMetadata);
+      }
       const log = await storage.updateCallLog(req.params.id, req.body);
       if (!log) {
         return res.status(404).json({ error: "Call log not found" });
@@ -33790,6 +33929,281 @@ Respond ONLY with valid JSON in this exact format:
     } catch (error: any) {
       console.error("Failed to update call log:", error);
       res.status(400).json({ error: error.message || "Failed to update call log" });
+    }
+  });
+
+  // Trusted Mission web capture.  MixMonitor's mixed output is discarded and only
+  // the receive stream on the agent endpoint (audio entering Asterisk from agent)
+  // is written.
+  app.post("/api/call-logs/:id/start-agent-recording", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      const [callLog] = await db.select().from(callLogs).where(eq(callLogs.id, req.params.id)).limit(1);
+      if (!callLog) return res.status(404).json({ error: "Call log not found" });
+      if (callLog.userId !== user.id) return res.status(403).json({ error: "Only the call owner can start recording" });
+      if (!callLog.campaignId) return res.status(403).json({ error: "Agent-only recording requires a Mission call" });
+      if (callLog.status !== "answered" || callLog.endedAt) {
+        return res.status(409).json({ error: "Agent-only recording requires an active answered call" });
+      }
+      if (callLog.sipCallId) {
+        return res.status(409).json({ error: "This call log is already bound to a SIP call" });
+      }
+      if (Date.now() - new Date(callLog.startedAt).getTime() > 60 * 60 * 1000) {
+        return res.status(409).json({ error: "Call log is too old to start recording" });
+      }
+
+      let snapshot: MissionCallRecordingSnapshot | null = null;
+      let recordingCorrelationHash = "";
+      let recordingExpectedPhone = "";
+      try {
+        const metadata = callLog.metadata ? JSON.parse(callLog.metadata) : {};
+        snapshot = metadata?.recordingPolicySnapshot || null;
+        recordingCorrelationHash = String(metadata?.recordingCorrelationHash || "");
+        recordingExpectedPhone = String(metadata?.recordingExpectedPhone || "");
+      } catch {}
+      if (!snapshot?.active || snapshot.mode !== "agent_only") {
+        return res.status(403).json({ error: "Agent-only recording was not authorized when this call started" });
+      }
+      if (mobileActiveRecordings.has(callLog.id)) {
+        return res.status(409).json({ error: "A server recording is already active for this call" });
+      }
+
+      const [owner] = await db.select({ sipExtension: users.sipExtension }).from(users)
+        .where(eq(users.id, callLog.userId)).limit(1);
+      const assignedExtensions = await db.select({
+        extension: sipExtensions.extension,
+        sipUsername: sipExtensions.sipUsername,
+      }).from(sipExtensions).where(eq(sipExtensions.assignedToUserId, callLog.userId));
+      const identities = new Set<string>();
+      if (owner?.sipExtension?.trim()) identities.add(owner.sipExtension.trim().toLowerCase());
+      for (const ext of assignedExtensions) {
+        if (ext.extension?.trim()) identities.add(ext.extension.trim().toLowerCase());
+        if (ext.sipUsername?.trim()) identities.add(ext.sipUsername.trim().toLowerCase());
+      }
+      if (!identities.size) return res.status(409).json({ error: "No unambiguous SIP endpoint is assigned to this user" });
+
+      const [cfg] = await db.select().from(ariSettings).limit(1);
+      if (!cfg?.username || !cfg.password || !cfg.sshUsername || !cfg.sshPassword) {
+        return res.status(503).json({ error: "Asterisk recording credentials are not configured" });
+      }
+      const authHeader = "Basic " + Buffer.from(`${cfg.username}:${cfg.password}`).toString("base64");
+      const ariProtocol = cfg.protocol || "http";
+      const servers = [
+        { host: ASTERISK_SK_HOST, port: ASTERISK_SK_PORT },
+        { host: ASTERISK_MEDIAGTW_HOST, port: ASTERISK_MEDIAGTW_PORT },
+      ];
+      let inboundAriChannelId: string | null = null;
+      if (callLog.inboundCallLogId) {
+        const [inboundLog] = await db.select({
+          ariChannelId: inboundCallLogs.ariChannelId,
+          assignedAgentId: inboundCallLogs.assignedAgentId,
+        }).from(inboundCallLogs).where(eq(inboundCallLogs.id, callLog.inboundCallLogId)).limit(1);
+        if (!inboundLog?.ariChannelId || inboundLog.assignedAgentId !== user.id) {
+          return res.status(409).json({ error: "Inbound call has no trusted ARI ownership binding" });
+        }
+        inboundAriChannelId = inboundLog.ariChannelId;
+      } else if (!recordingCorrelationHash) {
+        return res.status(409).json({ error: "Outbound call has no server-issued recording correlation" });
+      }
+
+      const matches: Array<{ server: typeof servers[number]; channel: any; sipCallId: string }> = [];
+      for (const server of servers) {
+        try {
+          const response = await fetch(`${ariProtocol}://${server.host}:${server.port}/ari/channels`, {
+            headers: { Authorization: authHeader },
+            signal: AbortSignal.timeout(3000),
+          });
+          if (!response.ok) continue;
+          const channels: any[] = await response.json();
+          let inboundBridgeChannelIds: Set<string> | null = null;
+          if (inboundAriChannelId) {
+            const bridgesResponse = await fetch(`${ariProtocol}://${server.host}:${server.port}/ari/bridges`, {
+              headers: { Authorization: authHeader },
+              signal: AbortSignal.timeout(3000),
+            });
+            if (!bridgesResponse.ok) continue;
+            const bridges: any[] = await bridgesResponse.json();
+            const matchingBridges = bridges.filter(bridge =>
+              Array.isArray(bridge.channels) && bridge.channels.includes(inboundAriChannelId));
+            if (matchingBridges.length !== 1) continue;
+            inboundBridgeChannelIds = new Set(matchingBridges[0].channels);
+          }
+          for (const channel of channels) {
+            const channelName = String(channel.name || "").toLowerCase();
+            const belongsToOwner = [...identities].some(identity =>
+              channelName.startsWith(`pjsip/${identity}-`) || channelName === `pjsip/${identity}`
+            );
+            if (!belongsToOwner) continue;
+            try {
+              if (inboundBridgeChannelIds) {
+                if (!inboundBridgeChannelIds.has(channel.id)) continue;
+              } else {
+                const correlationResponse = await fetch(
+                  `${ariProtocol}://${server.host}:${server.port}/ari/channels/${encodeURIComponent(channel.id)}/variable?variable=${encodeURIComponent("PJSIP_HEADER(read,X-Indexus-Recording-Correlation)")}`,
+                  { headers: { Authorization: authHeader }, signal: AbortSignal.timeout(3000) },
+                );
+                if (!correlationResponse.ok) continue;
+                const correlationToken = String((await correlationResponse.json())?.value || "").trim();
+                const candidateHash = correlationToken
+                  ? crypto.createHash("sha256").update(correlationToken).digest("hex")
+                  : "";
+                if (!candidateHash || candidateHash.length !== recordingCorrelationHash.length ||
+                    !crypto.timingSafeEqual(Buffer.from(candidateHash), Buffer.from(recordingCorrelationHash))) {
+                  continue;
+                }
+                const extensionResponse = await fetch(
+                  `${ariProtocol}://${server.host}:${server.port}/ari/channels/${encodeURIComponent(channel.id)}/variable?variable=EXTEN`,
+                  { headers: { Authorization: authHeader }, signal: AbortSignal.timeout(3000) },
+                );
+                if (!extensionResponse.ok) continue;
+                const actualPhone = String((await extensionResponse.json())?.value || "").replace(/\D/g, "").slice(-9);
+                if (!recordingExpectedPhone || actualPhone !== recordingExpectedPhone) continue;
+              }
+              const callIdResponse = await fetch(
+                `${ariProtocol}://${server.host}:${server.port}/ari/channels/${encodeURIComponent(channel.id)}/variable?variable=${encodeURIComponent("CHANNEL(pjsip,call-id)")}`,
+                { headers: { Authorization: authHeader }, signal: AbortSignal.timeout(3000) },
+              );
+              if (!callIdResponse.ok) continue;
+              const channelSipCallId = String((await callIdResponse.json())?.value || "").trim();
+              if (channelSipCallId) {
+                matches.push({ server, channel, sipCallId: channelSipCallId });
+              }
+            } catch {}
+          }
+        } catch {}
+      }
+      if (matches.length !== 1) {
+        return res.status(409).json({ error: "Could not bind this call log to exactly one active SIP channel" });
+      }
+
+      const { server, channel, sipCallId } = matches[0];
+      const recordingName = `web_agent_${callLog.id}_${Date.now()}`;
+      const amiFilePath = `/var/spool/asterisk/monitor/${recordingName}_agent`;
+      const sshPort = cfg.sshPort || 22;
+      const amiResult = await sendAmiActionViaSshTunnel(
+        server.host, sshPort, cfg.sshUsername, cfg.sshPassword, cfg.username, cfg.password,
+        {
+          Action: "MixMonitor",
+          Channel: channel.name,
+          File: "/dev/null",
+          Options: `r(${amiFilePath}.wav)`,
+        },
+      );
+      if (!amiResult.success) {
+        return res.status(503).json({ error: "Asterisk rejected directional agent recording" });
+      }
+      let consumedMetadata: Record<string, unknown> = {};
+      try { if (callLog.metadata) consumedMetadata = JSON.parse(callLog.metadata); } catch {}
+      delete consumedMetadata.recordingCorrelationHash;
+      delete consumedMetadata.recordingExpectedPhone;
+      await db.update(callLogs).set({
+        sipCallId,
+        metadata: JSON.stringify(consumedMetadata),
+      }).where(and(
+        eq(callLogs.id, callLog.id),
+        eq(callLogs.userId, user.id),
+      ));
+      mobileActiveRecordings.set(callLog.id, {
+        recordingName,
+        amiFilePath,
+        sshHost: server.host,
+        sshPort,
+        sshUser: cfg.sshUsername,
+        sshPass: cfg.sshPassword,
+        kind: "web_agent_only",
+        recordingPolicySnapshot: snapshot,
+        ariChannelId: channel.id,
+        sipCallId,
+      });
+      res.status(201).json({ success: true, recordingMode: "agent_only" });
+    } catch (error: any) {
+      console.error("[AgentOnlyRecording] Start failed:", error);
+      res.status(500).json({ error: error.message || "Failed to start agent-only recording" });
+    }
+  });
+
+  app.post("/api/call-logs/:id/finalize-agent-recording", requireAuth, async (req, res) => {
+    const callLogId = req.params.id;
+    const active = mobileActiveRecordings.get(callLogId);
+    let shouldCleanup = false;
+    try {
+      const user = req.session.user!;
+      const [callLog] = await db.select().from(callLogs).where(eq(callLogs.id, callLogId)).limit(1);
+      if (!callLog) return res.status(404).json({ error: "Call log not found" });
+      if (callLog.userId !== user.id) return res.status(403).json({ error: "Only the call owner can finalize recording" });
+      if (!active || active.kind !== "web_agent_only" || !active.recordingPolicySnapshot) {
+        return res.status(404).json({ error: "No trusted agent-only recording is active" });
+      }
+      if (!active.sipCallId || callLog.sipCallId !== active.sipCallId) {
+        return res.status(409).json({ error: "The active recording is not bound to this call log" });
+      }
+      shouldCleanup = true;
+
+      let rawSegments: unknown = req.body?.customerActivitySegments ?? req.body?.vadSegments ?? [];
+      if (typeof rawSegments === "string") rawSegments = JSON.parse(rawSegments);
+      if (!Array.isArray(rawSegments)) return res.status(400).json({ error: "Invalid VAD activity segments" });
+      const maxMs = callLog.durationSeconds && callLog.durationSeconds > 0
+        ? callLog.durationSeconds * 1000 + 5000 : Number.MAX_SAFE_INTEGER;
+      const segments = rawSegments.map((item: any) => {
+        if (!item || typeof item !== "object" || Array.isArray(item)) throw new Error("Invalid VAD activity segment");
+        const startMs = Number(item.startMs ?? (Number(item.start) * 1000));
+        const endMs = Number(item.endMs ?? (Number(item.end) * 1000));
+        if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || startMs < 0 || endMs < startMs || endMs > maxMs) {
+          throw new Error("Invalid VAD activity segment timestamps");
+        }
+        return { startMs: Math.round(startMs), endMs: Math.round(endMs) };
+      });
+
+      let downloaded: Awaited<ReturnType<typeof downloadFileViaSsh>> | null = null;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        if (attempt) await new Promise(resolve => setTimeout(resolve, 1500));
+        try {
+          downloaded = await downloadFileViaSsh(
+            active.sshHost, active.sshPort, active.sshUser, active.sshPass, active.amiFilePath,
+          );
+          if (downloaded?.buffer?.length >= 100) break;
+        } catch {}
+      }
+      if (!downloaded?.buffer || downloaded.buffer.length < 100) {
+        return res.status(422).json({ error: "Directional agent recording is empty" });
+      }
+      const filename = `agent_${new Date().toISOString().replace(/[:.]/g, "-")}_${callLog.id.substring(0, 8)}.wav`;
+      const filePath = path.join(STORAGE_PATHS.callRecordings, filename);
+      fs.mkdirSync(STORAGE_PATHS.callRecordings, { recursive: true });
+      fs.writeFileSync(filePath, downloaded.buffer);
+      const [recording] = await db.insert(callRecordings).values({
+        callLogId: callLog.id,
+        userId: callLog.userId,
+        customerId: callLog.customerId || null,
+        campaignId: callLog.campaignId,
+        filename,
+        filePath,
+        mimeType: "audio/wav",
+        fileSizeBytes: downloaded.buffer.length,
+        durationSeconds: callLog.durationSeconds || null,
+        phoneNumber: callLog.phoneNumber,
+        direction: callLog.direction,
+        analysisStatus: "pending",
+        recordingMode: "agent_only",
+        recordingPolicySnapshot: active.recordingPolicySnapshot,
+        customerActivitySegments: segments,
+      }).returning();
+      mobileActiveRecordings.delete(callLogId);
+      if (process.env.OPENAI_API_KEY) {
+        processCallRecordingAnalysis(recording.id, filePath).catch(error =>
+          console.error("[AgentOnlyRecording] Analysis failed:", error));
+      }
+      res.status(201).json(recording);
+    } catch (error: any) {
+      console.error("[AgentOnlyRecording] Finalize failed:", error);
+      res.status(error?.message?.startsWith("Invalid VAD") ? 400 : 500)
+        .json({ error: error.message || "Failed to finalize agent-only recording" });
+    } finally {
+      if (shouldCleanup && active?.kind === "web_agent_only") {
+        mobileActiveRecordings.delete(callLogId);
+        runSshCommand(active.sshHost, active.sshPort, active.sshUser, active.sshPass,
+          `sudo rm -f "${active.amiFilePath}.wav" 2>/dev/null; echo deleted`).catch(() => {});
+      }
     }
   });
 
@@ -34181,6 +34595,11 @@ Respond ONLY with valid JSON in this exact format:
       }
 
       const [recording] = await db.select().from(callRecordings).where(eq(callRecordings.id, recordingId));
+      const isAgentOnlyRecording = recording?.recordingMode === "agent_only";
+      const customerActivityMarkers = isAgentOnlyRecording ? recording?.customerActivitySegments ?? [] : null;
+      const agentOnlyResult = isAgentOnlyRecording
+        ? { audioScope: "agent_only", customerActivitySegments: customerActivityMarkers }
+        : undefined;
       let campaignScriptText = "";
       if (recording?.campaignId) {
         const [campaign] = await db.select({ script: campaigns.script, name: campaigns.name }).from(campaigns).where(eq(campaigns.id, recording.campaignId));
@@ -34230,6 +34649,7 @@ Respond ONLY with valid JSON in this exact format:
           sentiment: "neutral",
           qualityScore: 5,
           summary: "Nahrávka je príliš krátka na prepis",
+          ...(agentOnlyResult ? { analysisResult: agentOnlyResult } : {}),
           analyzedAt: new Date(),
         }).where(eq(callRecordings.id, recordingId));
         return;
@@ -34250,6 +34670,7 @@ Respond ONLY with valid JSON in this exact format:
             response_format: "text",
           });
           transcriptionText = transcriptionResult as unknown as string;
+          transcriptionLanguage = userLanguage;
           console.log(`[CallAnalysis] Transcription complete for ${recordingId}: ${transcriptionText.length} chars, language hint: ${userLanguage} (attempt ${attempt + 1})`);
           break;
         } catch (whisperErr: any) {
@@ -34259,11 +34680,38 @@ Respond ONLY with valid JSON in this exact format:
           if (attempt === maxRetries) {
             await db.update(callRecordings).set({
               analysisStatus: "failed",
-              analysisResult: { error: `Transcription failed after ${maxRetries + 1} attempts: ${whisperErr.message}` },
+              analysisResult: {
+                ...(agentOnlyResult || {}),
+                error: `Transcription failed after ${maxRetries + 1} attempts: ${whisperErr.message}`,
+              },
             }).where(eq(callRecordings.id, recordingId));
             return;
           }
           await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
+        }
+      }
+
+      if (isAgentOnlyRecording && Array.isArray(customerActivityMarkers) && customerActivityMarkers.length > 0) {
+        const customerRespondedLabels: Record<string, string> = {
+          sk: "Zákazník odpovedal",
+          cs: "Zákazník odpověděl",
+          hu: "Az ügyfél válaszolt",
+          ro: "Clientul a răspuns",
+          it: "Il cliente ha risposto",
+          de: "Kunde hat geantwortet",
+          en: "Customer responded",
+        };
+        const label = customerRespondedLabels[userLanguage] || customerRespondedLabels.en;
+        const markers = customerActivityMarkers
+          .filter((segment: any) => Number.isFinite(segment?.startSeconds))
+          .map((segment: any) => {
+            const seconds = Math.max(0, Math.floor(segment.startSeconds));
+            const minutePart = Math.floor(seconds / 60);
+            const secondPart = String(seconds % 60).padStart(2, "0");
+            return `[${minutePart}:${secondPart}] ${label}`;
+          });
+        if (markers.length > 0) {
+          transcriptionText = `${transcriptionText.trim()}\n\n${markers.join("\n")}`.trim();
         }
       }
 
@@ -34289,6 +34737,7 @@ Respond ONLY with valid JSON in this exact format:
           summary: "Krátky alebo neidentifikovateľný hovor",
           keyTopics: [],
           actionItems: [],
+          ...(agentOnlyResult ? { analysisResult: agentOnlyResult } : {}),
           analyzedAt: new Date(),
         }).where(eq(callRecordings.id, recordingId));
 
@@ -34325,7 +34774,7 @@ ${campaignScriptText.substring(0, 2000)}
 
         console.log(`[CallAnalysis] Starting GPT-4o analysis for ${recordingId}, language: ${userLanguage}, transcript: ${transcriptionText.length} chars, hasScript: ${!!campaignScriptText}`);
 
-        const analysisPrompt = `Analyze the following phone call transcript from a cord blood banking call center.
+        const analysisPrompt = `Analyze the following ${isAgentOnlyRecording ? "AGENT-ONLY audio" : "phone call"} transcript from a cord blood banking call center.
 
 IMPORTANT: All text fields in the response (summary, keyTopics, actionItems, complianceNotes, scriptComplianceDetails) MUST be written in ${userLanguageName} (language code: ${userLanguage}).
 
@@ -34350,7 +34799,7 @@ Return analysis in JSON format with exactly these fields:
 }
 
 Rules:
-- sentiment: overall client sentiment during the call
+- ${isAgentOnlyRecording ? "This is agent-only audio. Do not infer, quote, or attribute any customer speech; base the analysis only on what the agent says." : "sentiment: overall client sentiment during the call"}
 - qualityScore: rate agent service quality (professionalism, empathy, problem resolution, procedure compliance)
 - keyTopics: main topics of the call (max 5), written in ${userLanguageName}
 - actionItems: what needs to be done after the call (max 5), written in ${userLanguageName}
@@ -34371,6 +34820,11 @@ Rules:
         const analysisText = analysisResponse.choices[0]?.message?.content || "{}";
         console.log(`[CallAnalysis] GPT-4o raw response for ${recordingId}: ${analysisText.substring(0, 500)}`);
         const analysis = JSON.parse(analysisText);
+        if (isAgentOnlyRecording) {
+          // Markers originate from activity detection, not a fabricated customer transcript.
+          analysis.customerActivitySegments = customerActivityMarkers;
+          analysis.audioScope = "agent_only";
+        }
 
         console.log(`[CallAnalysis] Parsed GPT response for ${recordingId}: sentiment=${analysis.sentiment}, quality=${analysis.qualityScore}, scriptScore=${analysis.scriptComplianceScore}, hasScriptDetails=${!!analysis.scriptComplianceDetails}, topics=${(analysis.keyTopics || []).length}, actions=${(analysis.actionItems || []).length}`);
 
@@ -34461,11 +34915,74 @@ Rules:
       const { callLogId, customerId, campaignId, customerName, agentName, campaignName, phoneNumber, durationSeconds, direction, inboundQueueId, inboundQueueName } = req.body;
 
       if (!callLogId) return res.status(400).json({ error: "callLogId is required" });
+      const discardUpload = () => {
+        try { if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); } catch {}
+      };
+      const [callLog] = await db.select().from(callLogs).where(eq(callLogs.id, String(callLogId))).limit(1);
+      if (!callLog) {
+        discardUpload();
+        return res.status(404).json({ error: "Call log not found" });
+      }
+      if (callLog.userId !== user.id && !["admin", "manager"].includes(user.role)) {
+        discardUpload();
+        return res.status(403).json({ error: "Access denied" });
+      }
+      if (!["admin", "manager"].includes(user.role) && callLog.userId !== user.id) {
+        discardUpload();
+        return res.status(403).json({ error: "Access denied" });
+      }
+      // Campaign identity and policy always come from the call log, never multipart
+      // fields supplied by the browser.
+      const effectiveCampaignId = callLog.campaignId || null;
+      let recordingSnapshot: MissionCallRecordingSnapshot | null = null;
+      if (effectiveCampaignId) {
+        try {
+          const metadata = callLog.metadata ? JSON.parse(callLog.metadata) : {};
+          recordingSnapshot = metadata?.recordingPolicySnapshot || null;
+        } catch {}
+        if (!recordingSnapshot || !recordingSnapshot.active) {
+          discardUpload();
+          return res.status(403).json({ error: "Recording was not authorized when this call started" });
+        }
+        if (recordingSnapshot.mode === "agent_only") {
+          discardUpload();
+          return res.status(403).json({ error: "Agent-only recordings must use trusted server capture" });
+        }
+      }
+      let customerActivitySegments: Array<{ startSeconds: number; endSeconds: number }> | null = null;
+      if (recordingSnapshot?.mode === "agent_only" && req.body.customerActivitySegments !== undefined) {
+        try {
+          const parsed = typeof req.body.customerActivitySegments === "string"
+            ? JSON.parse(req.body.customerActivitySegments) : req.body.customerActivitySegments;
+          if (!Array.isArray(parsed) || parsed.length > 1000 || parsed.some(segment =>
+            !segment || typeof segment !== "object" || Array.isArray(segment) ||
+            !Number.isFinite(segment.startedAtMs) || !Number.isFinite(segment.endedAtMs) ||
+            segment.endedAtMs < segment.startedAtMs
+          )) {
+            throw new Error("invalid segments");
+          }
+          const baseTime = (callLog.answeredAt || callLog.startedAt).getTime();
+          const maxDuration = Math.max(0, Number(durationSeconds) || callLog.durationSeconds || 0);
+          customerActivitySegments = parsed.map(segment => ({
+            startSeconds: Math.max(0, (segment.startedAtMs - baseTime) / 1000),
+            endSeconds: Math.max(0, (segment.endedAtMs - baseTime) / 1000),
+          })).filter(segment =>
+            segment.endSeconds >= segment.startSeconds &&
+            (!maxDuration || segment.startSeconds <= maxDuration + 5)
+          ).map(segment => ({
+            startSeconds: Number(segment.startSeconds.toFixed(2)),
+            endSeconds: Number(Math.min(segment.endSeconds, maxDuration || segment.endSeconds).toFixed(2)),
+          }));
+        } catch {
+          discardUpload();
+          return res.status(400).json({ error: "Invalid customer activity segments" });
+        }
+      }
 
       let resolvedCampaignName = campaignName || null;
-      if (!resolvedCampaignName && campaignId) {
+      if (!resolvedCampaignName && effectiveCampaignId) {
         try {
-          const [campaign] = await db.select({ name: campaigns.name }).from(campaigns).where(eq(campaigns.id, campaignId));
+          const [campaign] = await db.select({ name: campaigns.name }).from(campaigns).where(eq(campaigns.id, effectiveCampaignId));
           if (campaign?.name) {
             resolvedCampaignName = campaign.name;
           }
@@ -34497,8 +35014,8 @@ Rules:
       const recordingData = {
         callLogId: String(callLogId),
         userId: user.id,
-        customerId: customerId || null,
-        campaignId: campaignId || null,
+        customerId: callLog.customerId || customerId || null,
+        campaignId: effectiveCampaignId,
         filename: req.file.filename,
         filePath: req.file.path,
         mimeType: req.file.mimetype,
@@ -34507,11 +35024,14 @@ Rules:
         customerName: customerName || null,
         agentName: agentName || null,
         campaignName: resolvedCampaignName,
-        phoneNumber: phoneNumber || null,
+        phoneNumber: callLog.phoneNumber || phoneNumber || null,
         analysisStatus: "pending",
-        direction: direction || "outbound",
-        inboundQueueId: inboundQueueId || null,
-        inboundQueueName: inboundQueueName || null,
+        direction: callLog.direction || direction || "outbound",
+        inboundQueueId: callLog.inboundQueueId || inboundQueueId || null,
+        inboundQueueName: callLog.inboundQueueName || inboundQueueName || null,
+        recordingMode: recordingSnapshot?.mode || null,
+        recordingPolicySnapshot: recordingSnapshot,
+        customerActivitySegments,
       };
 
       const [recording] = await db.insert(callRecordings).values(recordingData).returning();

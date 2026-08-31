@@ -3916,6 +3916,9 @@ export const callRecordings = pgTable("call_recordings", {
   direction: text("direction").default("outbound"),
   inboundQueueId: varchar("inbound_queue_id"),
   inboundQueueName: text("inbound_queue_name"),
+  recordingMode: text("recording_mode"),
+  recordingPolicySnapshot: jsonb("recording_policy_snapshot"),
+  customerActivitySegments: jsonb("customer_activity_segments"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 

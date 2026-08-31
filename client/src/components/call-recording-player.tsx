@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Play, Pause, Download, Mic, Loader2, ChevronDown, ChevronUp, FileText, Brain, Star, AlertTriangle, CheckCircle2, ListChecks, Tag, RefreshCw, ClipboardCheck, ShieldAlert, SkipBack, SkipForward } from "lucide-react";
+import { Play, Pause, Download, Mic, Loader2, ChevronDown, ChevronUp, FileText, Brain, Star, AlertTriangle, CheckCircle2, ListChecks, Tag, RefreshCw, ClipboardCheck, ShieldAlert, SkipBack, SkipForward, MessageCircle } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/auth-context";
 import { useI18n } from "@/i18n";
@@ -59,6 +59,57 @@ function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function CustomerActivityMarkers({
+  recording,
+  currentTime,
+  onSeek,
+}: {
+  recording: CallRecording;
+  currentTime: number;
+  onSeek: (time: number) => void;
+}) {
+  const { t } = useI18n();
+  const segments = Array.isArray((recording as any).customerActivitySegments)
+    ? (recording as any).customerActivitySegments.filter((segment: any) =>
+        Number.isFinite(segment?.startSeconds) && Number.isFinite(segment?.endSeconds))
+    : [];
+  if ((recording as any).recordingMode !== "agent_only") return null;
+  return (
+    <div className="mt-2 space-y-1.5" data-testid="customer-activity-markers">
+      <div className="flex items-center gap-1.5">
+        <Badge variant="outline" className="h-5 text-[10px]">
+          <Mic className="mr-1 h-2.5 w-2.5" />
+          {t.campaigns.detail.callRecordingAgentOnlyBadge}
+        </Badge>
+        {segments.length > 0 && (
+          <span className="text-[10px] text-muted-foreground">{t.campaigns.detail.callRecordingCustomerActivity}</span>
+        )}
+      </div>
+      {segments.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {segments.map((segment: any, index: number) => {
+            const active = currentTime >= segment.startSeconds && currentTime <= segment.endSeconds;
+            return (
+              <button
+                key={`${segment.startSeconds}-${index}`}
+                type="button"
+                onClick={() => onSeek(segment.startSeconds)}
+                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition-colors ${
+                  active ? "border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "border-border text-muted-foreground hover:text-foreground"
+                }`}
+                data-testid={`customer-activity-marker-${index}`}
+              >
+                <MessageCircle className="h-2.5 w-2.5" />
+                {formatTime(segment.startSeconds)} · {t.campaigns.detail.callRecordingCustomerResponded}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function SentimentIcon({ sentiment }: { sentiment: string | null }) {
@@ -660,6 +711,7 @@ function RecordingItem({ recording, compact, onTimeUpdate, waveNames }: { record
             onSeek={handleWaveformSeek}
             trackNames={[waveNames?.[0] || (recording as any).agentName || "", waveNames?.[1] || ""]}
           />
+          <CustomerActivityMarkers recording={recording} currentTime={currentTime} onSeek={handleWaveformSeek} />
 
           {/* Disposition + Checklist */}
           {disposition && (
@@ -746,6 +798,7 @@ function RecordingItem({ recording, compact, onTimeUpdate, waveNames }: { record
         isPlaying={isPlaying}
         onSeek={handleWaveformSeek}
       />
+      <CustomerActivityMarkers recording={recording} currentTime={currentTime} onSeek={handleWaveformSeek} />
 
       <div className="flex items-center gap-2 mt-2">
         <span className="text-[10px] text-primary font-mono font-semibold w-10">

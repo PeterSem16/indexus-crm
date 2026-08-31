@@ -1,9 +1,10 @@
 import { createContext, useContext, useState, useRef, useCallback, useMemo, type ReactNode } from "react";
 import type { OutboundTrunkSelection } from "@shared/telephony-routing";
+import type { MissionCallRecordingSnapshot } from "@shared/mission-recording";
 
 export type CallState = "idle" | "connecting" | "ringing" | "active" | "on_hold" | "ended";
 
-interface CallInfo {
+export interface CallInfo {
   phoneNumber: string;
   callerName?: string;
   customerId?: string;
@@ -19,6 +20,7 @@ interface CallInfo {
   callLogId?: number;
   leadScore?: number;
   clientStatus?: string;
+  recordingSnapshot?: MissionCallRecordingSnapshot;
 }
 
 export interface CallTimingMeta {
@@ -75,8 +77,8 @@ interface CallContextType {
   }) => void) | null>;
   autoRecord: boolean;
   setAutoRecord: (auto: boolean) => void;
-  handleInboundAnsweredFn: React.MutableRefObject<((session: any, options: { autoRecord: boolean }) => void) | null>;
-  queuedInboundSession: React.MutableRefObject<{ session: any; options: { autoRecord: boolean } } | null>;
+  handleInboundAnsweredFn: React.MutableRefObject<((session: any, options: { autoRecord: boolean; recordingSnapshot?: MissionCallRecordingSnapshot }) => void) | null>;
+  queuedInboundSession: React.MutableRefObject<{ session: any; options: { autoRecord: boolean; recordingSnapshot?: MissionCallRecordingSnapshot } } | null>;
   onInboundAnsweredFn: React.MutableRefObject<(() => void) | null>;
 }
 
@@ -123,8 +125,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
     contactType?: "customer" | "hospital" | "clinic" | "collaborator";
     campaignContactId?: string;
   }) => void) | null>(null);
-  const handleInboundAnsweredFn = useRef<((session: any, options: { autoRecord: boolean }) => void) | null>(null);
-  const queuedInboundSession = useRef<{ session: any; options: { autoRecord: boolean } } | null>(null);
+  const handleInboundAnsweredFn = useRef<((session: any, options: { autoRecord: boolean; recordingSnapshot?: MissionCallRecordingSnapshot }) => void) | null>(null);
+  const queuedInboundSession = useRef<{ session: any; options: { autoRecord: boolean; recordingSnapshot?: MissionCallRecordingSnapshot } } | null>(null);
   const onInboundAnsweredFn = useRef<(() => void) | null>(null);
 
   const setCallTiming = useCallback((partial: Partial<CallTimingMeta>) => {

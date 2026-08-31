@@ -645,6 +645,21 @@ export class AriClient extends EventEmitter {
     }
   }
 
+  /**
+   * Read a channel variable without turning transport/server failures into a
+   * legitimate "variable is absent" result. Asterisk reports an unset channel
+   * variable as 404; that is the only failure treated as a positive absence.
+   */
+  async getChannelVarStrict(channelId: string, variable: string): Promise<string | null> {
+    try {
+      const result = await this.ariRequest("GET", `/channels/${channelId}/variable?variable=${encodeURIComponent(variable)}`);
+      return result?.value || null;
+    } catch (error: any) {
+      if (String(error?.message || error).includes("failed: 404")) return null;
+      throw error;
+    }
+  }
+
   async subscribeToEndpoint(tech: string, resource: string): Promise<void> {
     try {
       await this.ariRequest("POST", `/applications/${this.config.appName}/subscription?eventSource=endpoint:${tech}/${resource}`);

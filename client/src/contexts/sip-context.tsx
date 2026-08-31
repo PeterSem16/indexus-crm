@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useRef, useCallback, ty
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "./auth-context";
 import type { OutboundTrunkSelection } from "@shared/telephony-routing";
+import type { MissionCallRecordingSnapshot } from "@shared/mission-recording";
 
 function filterSdpCandidates(description: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit> {
   if (!description.sdp) return Promise.resolve(description);
@@ -60,6 +61,7 @@ export interface PendingCall {
   outboundTrunk?: OutboundTrunkSelection;
   outboundCountry?: string;
   maxRingSeconds?: number;
+  recordingSnapshot?: MissionCallRecordingSnapshot;
 }
 
 export interface IncomingCall {

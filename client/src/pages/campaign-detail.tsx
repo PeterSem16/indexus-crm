@@ -248,6 +248,65 @@ import {
   getMissionCountryOutboundRouting,
   parseMissionSettings,
 } from "@shared/telephony-routing";
+import {
+  getMissionRecordingPolicy,
+  MISSION_RECORDING_TIMEZONE,
+  type MissionRecordingMode,
+} from "@shared/mission-recording";
+
+type RecordingValidityPreset = "unlimited" | "week" | "month" | "custom";
+
+function formatBratislavaDate(iso: string | null): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: MISSION_RECORDING_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const value = (type: string) => parts.find(part => part.type === type)?.value || "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
+}
+
+function bratislavaEndOfDayToIso(dateValue: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) return null;
+  const [year, month, day] = dateValue.split("-").map(Number);
+  let timestamp = Date.UTC(year, month - 1, day, 23, 59, 59, 999);
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: MISSION_RECORDING_TIMEZONE,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  });
+  for (let i = 0; i < 2; i++) {
+    const parts = formatter.formatToParts(new Date(timestamp));
+    const value = (type: string) => Number(parts.find(part => part.type === type)?.value || 0);
+    const asUtc = Date.UTC(value("year"), value("month") - 1, value("day"), value("hour"), value("minute"), value("second"));
+    timestamp += Date.UTC(year, month - 1, day, 23, 59, 59) - asUtc;
+  }
+  return new Date(timestamp).toISOString();
+}
+
+function bratislavaDateAfterDays(days: number): string {
+  const today = formatBratislavaDate(new Date().toISOString());
+  const [year, month, day] = today.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+function bratislavaDateAfterMonth(): string {
+  const today = formatBratislavaDate(new Date().toISOString());
+  const [year, month, day] = today.split("-").map(Number);
+  const target = new Date(Date.UTC(year, month - 1, day));
+  target.setUTCMonth(target.getUTCMonth() + 1);
+  return target.toISOString().slice(0, 10);
+}
+
+function recordingPresetFor(policy: ReturnType<typeof getMissionRecordingPolicy>): RecordingValidityPreset {
+  if (!policy.activeUntil) return "unlimited";
+  const days = (new Date(policy.activeUntil).getTime() - Date.now()) / 86_400_000;
+  return days > 5 && days < 9 ? "week" : days > 26 && days < 33 ? "month" : "custom";
+}
 
 const ICON_PICKER_SET: { name: string; icon: LucideIcon }[] = [
   { name: "Phone", icon: Phone }, { name: "PhoneOff", icon: PhoneOff }, { name: "PhoneMissed", icon: PhoneMissed },
@@ -359,8 +418,13 @@ function CampaignDetailsCard({ campaign }: { campaign: Campaign }) {
   const [editDefaultActiveTab, setEditDefaultActiveTab] = useState(campaign.defaultActiveTab || "phone");
   const [editCallerIdNumber, setEditCallerIdNumber] = useState(campaign.callerIdNumber || "");
   const initialRouting = getMissionCountryOutboundRouting(campaign.settings, "SK");
+  const initialRecordingPolicy = getMissionRecordingPolicy(campaign.settings);
   const [editOutboundTrunk, setEditOutboundTrunk] = useState(initialRouting.trunk);
   const [editOutboundCallerIdId, setEditOutboundCallerIdId] = useState(initialRouting.callerIdId || "");
+  const [editCallRecordingEnabled, setEditCallRecordingEnabled] = useState(initialRecordingPolicy.enabled);
+  const [editCallRecordingValidity, setEditCallRecordingValidity] = useState<RecordingValidityPreset>(recordingPresetFor(initialRecordingPolicy));
+  const [editCallRecordingEndDate, setEditCallRecordingEndDate] = useState(formatBratislavaDate(initialRecordingPolicy.activeUntil));
+  const [editCallRecordingMode, setEditCallRecordingMode] = useState<MissionRecordingMode>(initialRecordingPolicy.mode);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -377,9 +441,20 @@ function CampaignDetailsCard({ campaign }: { campaign: Campaign }) {
     const routing = getMissionCountryOutboundRouting(campaign.settings, "SK");
     setEditOutboundTrunk(routing.trunk);
     setEditOutboundCallerIdId(routing.callerIdId || "");
+    const recordingPolicy = getMissionRecordingPolicy(campaign.settings);
+    setEditCallRecordingEnabled(recordingPolicy.enabled);
+    setEditCallRecordingValidity(recordingPresetFor(recordingPolicy));
+    setEditCallRecordingEndDate(formatBratislavaDate(recordingPolicy.activeUntil));
+    setEditCallRecordingMode(recordingPolicy.mode);
   }, [campaign]);
 
   const currentRouting = getMissionCountryOutboundRouting(campaign.settings, "SK");
+  const currentRecordingPolicy = getMissionRecordingPolicy(campaign.settings);
+  const recordingEndDateValid = editCallRecordingValidity !== "custom" || !!bratislavaEndOfDayToIso(editCallRecordingEndDate);
+  const recordingHasChanges = editCallRecordingEnabled !== currentRecordingPolicy.enabled
+    || editCallRecordingValidity !== recordingPresetFor(currentRecordingPolicy)
+    || (editCallRecordingValidity === "custom" && editCallRecordingEndDate !== formatBratislavaDate(currentRecordingPolicy.activeUntil))
+    || editCallRecordingMode !== currentRecordingPolicy.mode;
   const hasChanges = editName !== campaign.name 
     || editDescription !== (campaign.description || "")
     || editType !== (campaign.type || "marketing")
@@ -391,7 +466,8 @@ function CampaignDetailsCard({ campaign }: { campaign: Campaign }) {
     || editDefaultActiveTab !== (campaign.defaultActiveTab || "phone")
     || editCallerIdNumber !== (campaign.callerIdNumber || "")
     || editOutboundTrunk !== currentRouting.trunk
-    || editOutboundCallerIdId !== (currentRouting.callerIdId || "");
+    || editOutboundCallerIdId !== (currentRouting.callerIdId || "")
+    || recordingHasChanges;
 
   const handleSave = async () => {
     setSaving(true);
@@ -408,6 +484,31 @@ function CampaignDetailsCard({ campaign }: { campaign: Campaign }) {
       }
 
       const nextSettings = { ...currentSettings };
+      if (recordingHasChanges) {
+        const now = new Date();
+        const activeUntil = editCallRecordingValidity === "unlimited"
+          ? null
+          : editCallRecordingValidity === "custom"
+            ? bratislavaEndOfDayToIso(editCallRecordingEndDate)
+            : bratislavaEndOfDayToIso(
+                editCallRecordingValidity === "week" ? bratislavaDateAfterDays(7) : bratislavaDateAfterMonth()
+              );
+        if (editCallRecordingValidity === "custom" && !activeUntil) {
+          toast({ title: t.campaigns.detail.callRecordingEndDateRequired, variant: "destructive" });
+          return;
+        }
+        nextSettings.callRecordingPolicy = {
+          ...(currentSettings.callRecordingPolicy && typeof currentSettings.callRecordingPolicy === "object"
+            ? currentSettings.callRecordingPolicy
+            : {}),
+          enabled: editCallRecordingEnabled,
+          activeFrom: currentRecordingPolicy.activeFrom || now.toISOString(),
+          activeUntil,
+          mode: editCallRecordingMode,
+          customerMask: "soft_tone",
+          timezone: MISSION_RECORDING_TIMEZONE,
+        };
+      }
       if (Object.keys(outboundRoutingByCountry).length > 0) {
         nextSettings.outboundRoutingByCountry = outboundRoutingByCountry;
       } else {
@@ -451,7 +552,7 @@ function CampaignDetailsCard({ campaign }: { campaign: Campaign }) {
           </CardTitle>
         </div>
         {hasChanges && (
-          <Button onClick={handleSave} disabled={saving || !editName.trim()} data-testid="button-save-campaign-details">
+          <Button onClick={handleSave} disabled={saving || !editName.trim() || !recordingEndDateValid} data-testid="button-save-campaign-details">
             <Save className="w-4 h-4 mr-2" />
             {saving ? t.campaigns.detail.saving : t.common.save}
           </Button>
@@ -540,6 +641,57 @@ function CampaignDetailsCard({ campaign }: { campaign: Campaign }) {
             <Input value={editCallerIdNumber} onChange={(e) => setEditCallerIdNumber(e.target.value)} placeholder="+421..." data-testid="input-caller-id" />
             <p className="text-xs text-muted-foreground">{t.campaigns.callerIdHelp}</p>
           </div>
+        </div>
+        <div className="rounded-lg border p-4 space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <Label className="text-sm font-medium">{t.campaigns.detail.callRecordingTitle}</Label>
+              <p className="text-xs text-muted-foreground">{t.campaigns.detail.callRecordingDesc}</p>
+            </div>
+            <Switch
+              checked={editCallRecordingEnabled}
+              onCheckedChange={setEditCallRecordingEnabled}
+              data-testid="switch-call-recording-enabled"
+            />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>{t.campaigns.detail.callRecordingValidity}</Label>
+              <Select value={editCallRecordingValidity} onValueChange={(value: RecordingValidityPreset) => setEditCallRecordingValidity(value)}>
+                <SelectTrigger data-testid="select-call-recording-validity"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unlimited">{t.campaigns.detail.callRecordingUnlimited}</SelectItem>
+                  <SelectItem value="week">{t.campaigns.detail.callRecordingWeek}</SelectItem>
+                  <SelectItem value="month">{t.campaigns.detail.callRecordingMonth}</SelectItem>
+                  <SelectItem value="custom">{t.campaigns.detail.callRecordingCustom}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{t.campaigns.detail.callRecordingMode}</Label>
+              <Select value={editCallRecordingMode} onValueChange={(value: MissionRecordingMode) => setEditCallRecordingMode(value)}>
+                <SelectTrigger data-testid="select-call-recording-mode"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="both">{t.campaigns.detail.callRecordingBoth}</SelectItem>
+                  <SelectItem value="agent_only">{t.campaigns.detail.callRecordingAgentOnly}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {editCallRecordingValidity === "custom" && (
+              <div className="space-y-2">
+                <Label>{t.campaigns.detail.callRecordingEndDate}</Label>
+                <Input
+                  type="date"
+                  value={editCallRecordingEndDate}
+                  onChange={(event) => setEditCallRecordingEndDate(event.target.value)}
+                  min={formatBratislavaDate(new Date().toISOString())}
+                  data-testid="input-call-recording-end-date"
+                />
+                {!recordingEndDateValid && <p className="text-xs text-destructive">{t.campaigns.detail.callRecordingEndDateRequired}</p>}
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">{t.campaigns.detail.callRecordingTimezone}</p>
         </div>
         <div className="rounded-lg border p-4 space-y-4">
           <div>

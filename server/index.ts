@@ -161,6 +161,9 @@ app.use((req, res, next) => {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS position text;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS standing_forward_enabled boolean NOT NULL DEFAULT false;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS standing_forward_ring_seconds integer NOT NULL DEFAULT 25;
+      ALTER TABLE call_recordings ADD COLUMN IF NOT EXISTS recording_mode text;
+      ALTER TABLE call_recordings ADD COLUMN IF NOT EXISTS recording_policy_snapshot jsonb;
+      ALTER TABLE call_recordings ADD COLUMN IF NOT EXISTS customer_activity_segments jsonb;
       ALTER TABLE campaign_contacts ADD COLUMN IF NOT EXISTS callback_status_list_item_id varchar;
       ALTER TABLE campaign_contact_status_list_state ADD COLUMN IF NOT EXISTS item_note TEXT;
       ALTER TABLE campaign_contact_status_list_state ADD COLUMN IF NOT EXISTS note_updated_at TIMESTAMP;

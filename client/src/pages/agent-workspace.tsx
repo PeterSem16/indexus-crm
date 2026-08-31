@@ -192,6 +192,7 @@ import {
   inferOutboundCountryCode,
   resolveMissionOutboundRouting,
 } from "@shared/telephony-routing";
+import { resolveMissionRecordingPolicy } from "@shared/mission-recording";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import { getCountryFlag } from "@/lib/countries";
@@ -10405,6 +10406,7 @@ export default function AgentWorkspacePage() {
     sourceTrunk?: string;
     customerId?: string;
     contactType?: "customer" | "hospital" | "clinic" | "collaborator";
+    campaignId?: string;
   }>>([]);
   const inboundCallsRef = useRef(inboundCalls);
   inboundCallsRef.current = inboundCalls;
@@ -12676,6 +12678,9 @@ export default function AgentWorkspacePage() {
         outboundTrunk: outboundRouting.trunk,
         outboundCountry,
         maxRingSeconds: campaignMaxRingSeconds || undefined,
+        recordingSnapshot: selectedCampaign
+          ? Object.freeze(resolveMissionRecordingPolicy(selectedCampaign.settings))
+          : undefined,
       });
       setTimeline((prev) => [
         ...prev,
@@ -12954,6 +12959,7 @@ export default function AgentWorkspacePage() {
                 sourceTrunk: data.sourceTrunk || undefined,
                 customerId: data.customerId || undefined,
                 contactType: data.contactType || undefined,
+                campaignId: data.campaignId || undefined,
               }];
             });
           } else if (data.type === "call-hangup") {
@@ -13244,6 +13250,13 @@ export default function AgentWorkspacePage() {
 
     const removeCall = () => setInboundCalls(prev => prev.filter(c => c.callId !== call.callId));
     const callerNumber = call.callerNumber;
+    // Queue calls are governed by the Mission that identified them (or the
+    // currently selected Mission when that is the known queue context). An
+    // unidentifiable queue call deliberately keeps its existing queue/global rule.
+    const inboundCampaign = campaigns.find(c => c.id === (call.campaignId || selectedCampaignId));
+    const recordingSnapshot = inboundCampaign
+      ? Object.freeze(resolveMissionRecordingPolicy(inboundCampaign.settings))
+      : undefined;
 
     const setupCallContext = async () => {
       setActiveChannel("phone");
@@ -13375,6 +13388,8 @@ export default function AgentWorkspacePage() {
         invitation._inboundSourceTrunk = call.sourceTrunk;
         invitation._inboundCustomerId = call.customerId;
         invitation._inboundContactType = call.contactType;
+        invitation._inboundRecordingSnapshot = recordingSnapshot;
+        invitation._inboundCampaignId = inboundCampaign?.id;
 
         if (invState === "Established") {
           console.log("[AgentWS] Call already established, proceeding directly");
@@ -13391,8 +13406,10 @@ export default function AgentWorkspacePage() {
         }
 
         removeCall();
-        const shouldAutoRecord = !!call.recordCalls || callContext.autoRecord;
-        const inboundOptions = { autoRecord: shouldAutoRecord };
+        const shouldAutoRecord = recordingSnapshot
+          ? recordingSnapshot.active
+          : (!!call.recordCalls || callContext.autoRecord);
+        const inboundOptions = { autoRecord: shouldAutoRecord, recordingSnapshot };
         console.log("[AgentWS] Inbound options:", { recordCalls: !!call.recordCalls, globalAutoRecord: callContext.autoRecord, shouldAutoRecord });
         console.log("[AgentWS] handleInboundAnsweredFn registered:", !!callContext.handleInboundAnsweredFn.current);
         if (callContext.handleInboundAnsweredFn.current) {
@@ -13421,6 +13438,8 @@ export default function AgentWorkspacePage() {
           fallbackInvite._inboundSourceTrunk = call.sourceTrunk;
           fallbackInvite._inboundCustomerId = call.customerId;
           fallbackInvite._inboundContactType = call.contactType;
+          fallbackInvite._inboundRecordingSnapshot = recordingSnapshot;
+          fallbackInvite._inboundCampaignId = inboundCampaign?.id;
           let answeredFallbackInvite = fallbackInvite;
           if (fallbackInvite.state !== "Established") {
             answeredFallbackInvite = await answerIncomingCall({ publishAnsweredSession: false });
@@ -13441,11 +13460,15 @@ export default function AgentWorkspacePage() {
           answeredFallbackInvite._inboundSourceTrunk = call.sourceTrunk;
           answeredFallbackInvite._inboundCustomerId = call.customerId;
           answeredFallbackInvite._inboundContactType = call.contactType;
-          const shouldAutoRecord = !!call.recordCalls || callContext.autoRecord;
+          answeredFallbackInvite._inboundRecordingSnapshot = recordingSnapshot;
+          answeredFallbackInvite._inboundCampaignId = inboundCampaign?.id;
+          const shouldAutoRecord = recordingSnapshot
+            ? recordingSnapshot.active
+            : (!!call.recordCalls || callContext.autoRecord);
           if (callContext.handleInboundAnsweredFn.current) {
-            callContext.handleInboundAnsweredFn.current(answeredFallbackInvite, { autoRecord: shouldAutoRecord });
+            callContext.handleInboundAnsweredFn.current(answeredFallbackInvite, { autoRecord: shouldAutoRecord, recordingSnapshot });
           } else {
-            callContext.queuedInboundSession.current = { session: answeredFallbackInvite, options: { autoRecord: shouldAutoRecord } };
+            callContext.queuedInboundSession.current = { session: answeredFallbackInvite, options: { autoRecord: shouldAutoRecord, recordingSnapshot } };
             callContext.setAutoRecord(shouldAutoRecord);
             setAnsweredIncomingSession(fallbackInvite);
           }
@@ -13466,7 +13489,7 @@ export default function AgentWorkspacePage() {
     } finally {
       acceptingCallRef.current = false;
     }
-  }, [incomingCallRef, answerIncomingCall, setAnsweredIncomingSession, callContext, toast, user?.id, agentSession, selectedCampaignId, selectedCampaign]);
+  }, [incomingCallRef, answerIncomingCall, setAnsweredIncomingSession, callContext, toast, user?.id, agentSession, selectedCampaignId, selectedCampaign, campaigns]);
 
   const handleRejectInboundCall = useCallback((call: InboundCallEntry | null) => {
     if (!call) return;

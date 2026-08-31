@@ -42,6 +42,7 @@ import {
   resolveMissionOutboundRouting,
   type ResolvedOutboundRouting,
 } from "@shared/telephony-routing";
+import { resolveMissionRecordingPolicy, type MissionCallRecordingSnapshot } from "@shared/mission-recording";
 
 // Agent presence for desk/PJSIP routing is derived from the LIVE Nexus Pulse
 // WebSocket (inboundCallWs). The agent-workspace opens /ws/inbound-calls only while a
@@ -147,6 +148,8 @@ export class QueueEngine extends EventEmitter {
     customerId: string | null;
     callerNumber: string;
     callRecordingMode: string;
+    campaignId?: string | null;
+    recordingPolicySnapshot?: MissionCallRecordingSnapshot | null;
   }> = new Map();
 
   // ── Standing forward (mobile fallback when no desk agent is logged in) ──────────
@@ -587,7 +590,32 @@ export class QueueEngine extends EventEmitter {
 
     // Set INDEXUS_REC_NAME channel variable BEFORE continueDialplan so the dialplan
     // picks it up and runs MixMonitor on the call leg before dialling the external number.
-    const recordCalls = queue.recordCalls !== false;
+    let campaignId: string | null = null;
+    let campaignClassificationVerified = false;
+    try {
+      campaignId = (await this.ariClient.getChannelVarStrict(call.channelId, "CBC_CAMPAIGN_ID")) || null;
+      campaignClassificationVerified = true;
+    } catch (error) {
+      console.warn(
+        `[QueueForwardedRec] Could not classify call ${call.channelId} as Mission/non-Mission; recording disabled:`,
+        error instanceof Error ? error.message : error,
+      );
+    }
+    let recordingSnapshot: MissionCallRecordingSnapshot | null = null;
+    if (campaignId) {
+      const campaign = await storage.getCampaign(campaignId).catch(() => undefined);
+      if (campaign) recordingSnapshot = resolveMissionRecordingPolicy(campaign.settings);
+    }
+    // The dialplan's plain MixMonitor produces mixed audio. There is no verified
+    // directional configuration on this path, so Mission agent-only fails closed.
+    const recordCalls = campaignClassificationVerified && queue.recordCalls !== false &&
+      (!campaignId || !!recordingSnapshot && recordingSnapshot.active && recordingSnapshot.mode === "both");
+    if (campaignId && !recordingSnapshot) {
+      console.warn(`[QueueForwardedRec] Mission ${campaignId} could not be resolved; recording disabled`);
+    }
+    if (recordingSnapshot?.active && recordingSnapshot.mode === "agent_only") {
+      console.warn("[QueueForwardedRec] Agent-only Mission capture unavailable on dialplan MixMonitor; recording disabled");
+    }
     const recordingName = `qfwd_${call.channelId.replace(/-/g, "_")}_${Date.now()}`;
     if (recordCalls) {
       try {
@@ -605,10 +633,8 @@ export class QueueEngine extends EventEmitter {
     });
 
     // After handing off to dialplan: set up DB tracking + poll loop for recording/transcript
-    if (recordCalls) {
-      this.setupQueueForwardedCallTracking(call, agent.userId, agentUser, queue, forwardNumber, recordingName)
-        .catch(e => console.warn("[QueueForwardedRec] Tracking setup failed:", e instanceof Error ? e.message : e));
-    }
+    this.setupQueueForwardedCallTracking(call, agent.userId, agentUser, queue, forwardNumber, recordingName, campaignId, recordingSnapshot, recordCalls)
+      .catch(e => console.warn("[QueueForwardedRec] Tracking setup failed:", e instanceof Error ? e.message : e));
   }
 
   private async setupQueueForwardedCallTracking(
@@ -618,6 +644,9 @@ export class QueueEngine extends EventEmitter {
     queue: any,
     forwardNumber: string,
     recordingName: string,
+    campaignId: string | null,
+    recordingSnapshot: MissionCallRecordingSnapshot | null,
+    recordCalls: boolean,
   ): Promise<void> {
     // 1. Create callLogs entry so the recording can be linked and shown in Missions
     let callLogId: string | null = null;
@@ -625,6 +654,7 @@ export class QueueEngine extends EventEmitter {
       const [callLog] = await db.insert(callLogs).values({
         userId: agentUserId,
         customerId: call.customerId || null,
+        campaignId: campaignId || null,
         phoneNumber: call.callerNumber,
         direction: "inbound",
         status: "forwarded",
@@ -635,7 +665,11 @@ export class QueueEngine extends EventEmitter {
         inboundQueueName: queue.name,
         inboundCallLogId: call.id,
         sipCallId: call.channelId,
-        metadata: JSON.stringify({ queueForwarded: true, agentName: agentUser.fullName }),
+        metadata: JSON.stringify({
+          queueForwarded: true,
+          agentName: agentUser.fullName,
+          ...(recordingSnapshot ? { recordingPolicySnapshot: recordingSnapshot } : {}),
+        }),
       } as any).returning({ id: callLogs.id });
       callLogId = callLog?.id || null;
       if (callLogId) {
@@ -652,6 +686,7 @@ export class QueueEngine extends EventEmitter {
     }
 
     if (!callLogId) return;
+    if (!recordCalls) return;
 
     // 2. Load ARI/SSH settings for post-call recording download
     const [cfg] = await db.select().from(ariSettings).limit(1);
@@ -680,6 +715,8 @@ export class QueueEngine extends EventEmitter {
       customerId: call.customerId || null,
       callerNumber: call.callerNumber,
       callRecordingMode: "full",
+        campaignId,
+        recordingPolicySnapshot: recordingSnapshot,
     };
     this.forwardedCallTracking.set(call.channelId, tracking);
 
@@ -1144,13 +1181,20 @@ export class QueueEngine extends EventEmitter {
     // IVR, overflow, and no-agent transfers can enter here without passing through
     // routeCallToQueue. Recover inherited dialplan metadata so those paths do not
     // lose the original O2 DID/trunk identity.
-    const [channelDid, channelSourceTrunk] = await Promise.all([
+    const [channelDid, channelSourceTrunk, channelCampaignId] = await Promise.all([
       context.didNumber
         ? Promise.resolve(null)
         : this.ariClient.getChannelVar(channelId, "CBC_DID").catch(() => null),
       context.sourceTrunk
         ? Promise.resolve(null)
         : this.ariClient.getChannelVar(channelId, "CBC_SOURCE_TRUNK").catch(() => null),
+      this.ariClient.getChannelVarStrict(channelId, "CBC_CAMPAIGN_ID").catch(error => {
+        console.warn(
+          `[QueueEngine] Could not establish Mission context for inbound call ${channelId}:`,
+          error instanceof Error ? error.message : error,
+        );
+        return null;
+      }),
     ]);
     const callContext = {
       didNumber: context.didNumber || resolveInboundDid({ channelVariable: channelDid }) || undefined,
@@ -1164,7 +1208,10 @@ export class QueueEngine extends EventEmitter {
       customerId,
       ariChannelId: channelId,
       didNumber: callContext.didNumber || null,
-      metadata: { sourceTrunk: callContext.sourceTrunk || null },
+      metadata: {
+        sourceTrunk: callContext.sourceTrunk || null,
+        campaignId: channelCampaignId || null,
+      },
       status: "queued",
       queuePosition: this.getQueueSize(queueId) + 1,
     }).returning();
@@ -1176,6 +1223,7 @@ export class QueueEngine extends EventEmitter {
       callerName,
       queueId,
       customerId,
+      campaignId: channelCampaignId || null,
       didNumber: callContext.didNumber,
       sourceTrunk: callContext.sourceTrunk,
       enteredAt: new Date(),
@@ -1279,6 +1327,43 @@ export class QueueEngine extends EventEmitter {
     // + register channel-destroyed listener for duration tracking and post-call processing
     const startRecordingAndTracking = async (callLogId: string) => {
       try {
+        let campaignId: string | null;
+        try {
+          campaignId = (await this.ariClient.getChannelVarStrict(channel.id, "CBC_CAMPAIGN_ID")) || null;
+        } catch (error) {
+          console.warn(
+            `[ForwardedRecording] Could not classify call ${channel.id} as Mission/non-Mission; recording disabled:`,
+            error instanceof Error ? error.message : error,
+          );
+          return;
+        }
+        let missionSnapshot: MissionCallRecordingSnapshot | null = null;
+        if (campaignId) {
+          const campaign = await storage.getCampaign(campaignId).catch(() => undefined);
+          if (campaign) missionSnapshot = resolveMissionRecordingPolicy(campaign.settings);
+          // This path uses dialplan MixMonitor (mixed audio); directional exclusion
+          // has not been verified, so agent-only is deliberately not captured.
+          if (!missionSnapshot?.active || missionSnapshot.mode === "agent_only") {
+            console.warn(`[ForwardedRecording] Mission recording disabled for ${channel.id}; inactive or agent-only cannot safely use mixed capture`);
+            return;
+          }
+          const [existingLog] = await db.select({ metadata: callLogs.metadata }).from(callLogs)
+            .where(eq(callLogs.id, callLogId)).limit(1);
+          let metadata: Record<string, unknown> = {};
+          try { if (existingLog?.metadata) metadata = JSON.parse(existingLog.metadata); } catch {}
+          if (!metadata.recordingPolicySnapshot) {
+            await db.update(callLogs).set({
+              campaignId,
+              metadata: JSON.stringify({ ...metadata, recordingPolicySnapshot: missionSnapshot }),
+            }).where(eq(callLogs.id, callLogId));
+          }
+        }
+        const callRecordingMode = missionSnapshot ? "full"
+          : ((collab as any).callRecordingMode ?? (collab.mobileCallRecording ? "full" : "off"));
+        if (callRecordingMode === "off") {
+          console.log(`[ForwardedRecording] Recording mode=off for collab ${collab.id}, skipping`);
+          return;
+        }
         const [cfg] = await db.select().from(ariSettings).limit(1);
         const sshInfo = (cfg?.host && cfg?.sshUsername && cfg?.sshPassword)
           ? { host: cfg.host, sshPort: cfg.sshPort || 22, sshUsername: cfg.sshUsername, sshPassword: cfg.sshPassword, amiUsername: cfg.username, amiPassword: cfg.password }
@@ -1295,14 +1380,6 @@ export class QueueEngine extends EventEmitter {
           console.warn(`[ForwardedRecording] Could not set INDEXUS_REC_NAME:`, varErr instanceof Error ? varErr.message : varErr);
         }
 
-        const callRecordingMode = (collab as any).callRecordingMode ?? (collab.mobileCallRecording ? "full" : "off");
-
-        // Skip channel variable if recording is fully off
-        if (callRecordingMode === "off") {
-          console.log(`[ForwardedRecording] Recording mode=off for collab ${collab.id}, skipping`);
-          return;
-        }
-
         const tracking = {
           callLogId,
           inboundChannelId: channel.id,
@@ -1314,6 +1391,8 @@ export class QueueEngine extends EventEmitter {
           customerId: customerId || null,
           callerNumber,
           callRecordingMode,
+          campaignId,
+          recordingPolicySnapshot: missionSnapshot,
         };
         this.forwardedCallTracking.set(channel.id, tracking);
 
@@ -1846,6 +1925,8 @@ export class QueueEngine extends EventEmitter {
       customerId: string | null;
       callerNumber: string;
       callRecordingMode: string;
+      campaignId?: string | null;
+      recordingPolicySnapshot?: MissionCallRecordingSnapshot | null;
     },
     durationSeconds: number,
   ): Promise<void> {
@@ -1948,6 +2029,7 @@ export class QueueEngine extends EventEmitter {
           callLogId: tracking.callLogId,
           userId: tracking.collaboratorId,
           customerId: tracking.customerId || null,
+          campaignId: tracking.campaignId || null,
           filename,
           filePath,
           mimeType: "audio/wav",
@@ -1957,6 +2039,8 @@ export class QueueEngine extends EventEmitter {
           agentName: "Forwarded Call",
           direction: "inbound",
           analysisStatus: "pending",
+          recordingMode: tracking.recordingPolicySnapshot?.mode || null,
+          recordingPolicySnapshot: tracking.recordingPolicySnapshot || null,
         }).returning({ id: callRecordings.id });
         recordingId = rec?.id || null;
         console.log(`[ForwardedRecording] Saved callRecording ${recordingId}`);
