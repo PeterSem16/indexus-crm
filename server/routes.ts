@@ -34022,15 +34022,58 @@ Respond ONLY with valid JSON in this exact format:
           if (server.host !== ASTERISK_MEDIAGTW_HOST) continue;
           try {
             const sshPort = cfg.sshPort || 22;
+            const parseConciseChannels = (output: string) => output
+              .split(/\r?\n/)
+              .map(line => line.replace(/^Output:\s*/i, "").trim())
+              .filter(line => line.includes("!"))
+              .map(line => {
+                const fields = line.split("!");
+                return {
+                  Event: "CoreShowChannel",
+                  Channel: fields[0] || "",
+                  ChannelStateDesc: fields[4] || "",
+                  Uniqueid: fields[0] || "",
+                };
+              });
+            let channelEvents: Array<Record<string, string>> = [];
+            let channelSource = "CoreShowChannels";
             const channelList = await sendAmiListActionViaSshTunnel(
               server.host, sshPort, cfg.sshUsername, cfg.sshPassword, cfg.username, cfg.password,
               { Action: "CoreShowChannels" },
               "CoreShowChannelsComplete",
             );
-            if (!channelList.success) continue;
-            const scan = { events: channelList.events.length, pjsipUp: 0, correlation: 0, phone: 0, callId: 0 };
-            for (const event of channelList.events) {
-              if (event.Event !== "CoreShowChannel" || event.ChannelStateDesc !== "Up") continue;
+            if (channelList.success) {
+              channelEvents = channelList.events;
+            }
+            if (!channelEvents.length) {
+              channelSource = "Status";
+              const statusList = await sendAmiListActionViaSshTunnel(
+                server.host, sshPort, cfg.sshUsername, cfg.sshPassword, cfg.username, cfg.password,
+                { Action: "Status" },
+                "StatusComplete",
+              );
+              if (statusList.success) channelEvents = statusList.events;
+            }
+            if (!channelEvents.length) {
+              channelSource = "AMICommand";
+              const commandResult = await sendAmiActionViaSshTunnel(
+                server.host, sshPort, cfg.sshUsername, cfg.sshPassword, cfg.username, cfg.password,
+                { Action: "Command", Command: "core show channels concise" },
+              );
+              channelEvents = parseConciseChannels(commandResult.response);
+            }
+            if (!channelEvents.length) {
+              channelSource = "SSHCommand";
+              const cliOutput = await runSshCommand(
+                server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
+                "sudo -n asterisk -rx 'core show channels concise' 2>/dev/null || asterisk -rx 'core show channels concise' 2>/dev/null || true",
+              );
+              channelEvents = parseConciseChannels(cliOutput);
+            }
+            const scan = { source: channelSource, events: channelEvents.length, pjsipUp: 0, correlation: 0, phone: 0, callId: 0 };
+            for (const event of channelEvents) {
+              if ((event.Event !== "CoreShowChannel" && event.Event !== "Status") ||
+                  event.ChannelStateDesc !== "Up") continue;
               const channelName = String(event.Channel || "");
               if (!channelName.toLowerCase().startsWith("pjsip/")) continue;
               scan.pjsipUp++;
