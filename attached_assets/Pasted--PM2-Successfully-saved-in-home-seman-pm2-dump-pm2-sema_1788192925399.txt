@@ -1,0 +1,162 @@
+[PM2] Successfully saved in /home/seman/.pm2/dump.pm2
+seman@CORPCRM01:/var/www/indexus-crm$ pm2 logs indexus-crm --lines 250 --nostream --timestamp 2>&1 \
+  | grep -A10 -B3 -E \
+  'AMI binding scan|AgentOnlyRecording|SSH-Download'
+4|indexus- | 4:14:58 PM [express] GET /api/auth/me 401 in 2ms :: {"user":null}
+
+/home/seman/.pm2/logs/indexus-crm-error.log last 250 lines:
+4|indexus- | [AgentOnlyRecording] AMI binding scan f4c1a237-0b2c-44fa-95fb-c62c24956716 mediagtw.cordbloodcenter.com {
+4|indexus- |   source: 'AMI',
+4|indexus- |   events: 0,
+4|indexus- |   pjsipUp: 0,
+4|indexus- |   correlation: 0,
+4|indexus- |   phone: 0,
+4|indexus- |   callId: 0
+4|indexus- | }
+4|indexus- | [AgentOnlyRecording] Start rejected f4c1a237-0b2c-44fa-95fb-c62c24956716 reason=sip_binding_matches_0
+4|indexus- | [AgentOnlyRecording] AMI binding scan f4c1a237-0b2c-44fa-95fb-c62c24956716 mediagtw.cordbloodcenter.com {
+4|indexus- |   source: 'AMI',
+4|indexus- |   events: 0,
+4|indexus- |   pjsipUp: 0,
+4|indexus- |   correlation: 0,
+4|indexus- |   phone: 0,
+4|indexus- |   callId: 0
+4|indexus- | }
+4|indexus- | [AgentOnlyRecording] Start rejected f4c1a237-0b2c-44fa-95fb-c62c24956716 reason=sip_binding_matches_0
+4|indexus- | [AgentOnlyRecording] AMI binding scan f4c1a237-0b2c-44fa-95fb-c62c24956716 mediagtw.cordbloodcenter.com {
+4|indexus- |   source: 'AMI',
+4|indexus- |   events: 0,
+4|indexus- |   pjsipUp: 0,
+4|indexus- |   correlation: 0,
+4|indexus- |   phone: 0,
+4|indexus- |   callId: 0
+4|indexus- | }
+4|indexus- | [AgentOnlyRecording] Start rejected f4c1a237-0b2c-44fa-95fb-c62c24956716 reason=sip_binding_matches_0
+4|indexus- | [AgentOnlyRecording] AMI binding scan f4c1a237-0b2c-44fa-95fb-c62c24956716 mediagtw.cordbloodcenter.com {
+4|indexus- |   source: 'AMI',
+4|indexus- |   events: 0,
+4|indexus- |   pjsipUp: 0,
+4|indexus- |   correlation: 0,
+4|indexus- |   phone: 0,
+4|indexus- |   callId: 0
+4|indexus- | }
+4|indexus- | [AgentOnlyRecording] Start rejected f4c1a237-0b2c-44fa-95fb-c62c24956716 reason=sip_binding_matches_0
+4|indexus- | [AgentOnlyRecording] AMI binding scan f4c1a237-0b2c-44fa-95fb-c62c24956716 mediagtw.cordbloodcenter.com {
+4|indexus- |   source: 'AMI',
+4|indexus- |   events: 0,
+4|indexus- |   pjsipUp: 0,
+4|indexus- |   correlation: 0,
+4|indexus- |   phone: 0,
+4|indexus- |   callId: 0
+4|indexus- | }
+4|indexus- | [AgentOnlyRecording] Start rejected f4c1a237-0b2c-44fa-95fb-c62c24956716 reason=sip_binding_matches_0
+4|indexus- | [Beratung] ROPC token acquisition failed: AADSTS50126: Error validating credentials due to invalid username or password. Trace ID: 207a7be8-b3ed-4115-9900-1165dd4bb200 Correlation ID: f9eafff6-f773-446a-949b-cb2ea6e9f422 Timestamp: 2026-08-31 13:54:13Z
+4|indexus- | [Beratung] Cannot fetch emails — no valid access token
+4|indexus- | [QueueEngine] Failed to set caller ID on channel 1788184479.93: ARI POST /channels/1788184479.93/variable?variable=CAMPAIGN_CID&value=%2B421940682394 failed: 409 {
+4|indexus- |   "message": "Channel not in Stasis application"
+4|indexus- | }
+4|indexus- | [AgentOnlyRecording] AMI binding scan d2e60c1b-ca8b-4a87-a5c0-d4d5b0ed278d mediagtw.cordbloodcenter.com {
+4|indexus- |   source: 'AMI',
+4|indexus- |   events: 0,
+4|indexus- |   pjsipUp: 0,
+4|indexus- |   correlation: 0,
+4|indexus- |   phone: 0,
+4|indexus- |   callId: 0
+4|indexus- | }
+4|indexus- | [AgentOnlyRecording] Start rejected d2e60c1b-ca8b-4a87-a5c0-d4d5b0ed278d reason=sip_binding_matches_0
+4|indexus- | [AgentOnlyRecording] AMI binding scan d2e60c1b-ca8b-4a87-a5c0-d4d5b0ed278d mediagtw.cordbloodcenter.com {
+4|indexus- |   source: 'AMI',
+4|indexus- |   events: 0,
+4|indexus- |   pjsipUp: 0,
+4|indexus- |   correlation: 0,
+4|indexus- |   phone: 0,
+4|indexus- |   callId: 0
+4|indexus- | }
+4|indexus- | [AgentOnlyRecording] Start rejected d2e60c1b-ca8b-4a87-a5c0-d4d5b0ed278d reason=sip_binding_matches_0
+4|indexus- | [AgentOnlyRecording] AMI binding scan d2e60c1b-ca8b-4a87-a5c0-d4d5b0ed278d mediagtw.cordbloodcenter.com {
+4|indexus- |   source: 'AMI',
+4|indexus- |   events: 0,
+4|indexus- |   pjsipUp: 0,
+4|indexus- |   correlation: 0,
+4|indexus- |   phone: 0,
+4|indexus- |   callId: 0
+4|indexus- | }
+4|indexus- | [AgentOnlyRecording] Start rejected d2e60c1b-ca8b-4a87-a5c0-d4d5b0ed278d reason=sip_binding_matches_0
+4|indexus- | [AgentOnlyRecording] AMI binding scan d2e60c1b-ca8b-4a87-a5c0-d4d5b0ed278d mediagtw.cordbloodcenter.com {
+4|indexus- |   source: 'AMI',
+4|indexus- |   events: 0,
+4|indexus- |   pjsipUp: 0,
+4|indexus- |   correlation: 0,
+4|indexus- |   phone: 0,
+4|indexus- |   callId: 0
+4|indexus- | }
+4|indexus- | [AgentOnlyRecording] Start rejected d2e60c1b-ca8b-4a87-a5c0-d4d5b0ed278d reason=sip_binding_matches_0
+4|indexus- | [AgentOnlyRecording] AMI binding scan d2e60c1b-ca8b-4a87-a5c0-d4d5b0ed278d mediagtw.cordbloodcenter.com {
+4|indexus- |   source: 'AMI',
+4|indexus- |   events: 0,
+4|indexus- |   pjsipUp: 0,
+4|indexus- |   correlation: 0,
+4|indexus- |   phone: 0,
+4|indexus- |   callId: 0
+4|indexus- | }
+4|indexus- | [AgentOnlyRecording] Start rejected d2e60c1b-ca8b-4a87-a5c0-d4d5b0ed278d reason=sip_binding_matches_0
+4|indexus- | [Beratung] ROPC token acquisition failed: AADSTS50126: Error validating credentials due to invalid username or password. Trace ID: 38d17f30-0205-401a-be86-78daba307000 Correlation ID: 4ecd6e1c-2948-4038-ad92-3b84ea9a7837 Timestamp: 2026-08-31 13:57:14Z
+4|indexus- | [Beratung] Cannot fetch emails — no valid access token
+4|indexus- | [Beratung] ROPC token acquisition failed: AADSTS50126: Error validating credentials due to invalid username or password. Trace ID: 25792f7e-f8ee-4627-8607-1d5c5f80b200 Correlation ID: 5dfe0510-58b4-44db-ba6e-49da1484426d Timestamp: 2026-08-31 14:00:13Z
+4|indexus- | [Beratung] Cannot fetch emails — no valid access token
+4|indexus- | [Beratung] ROPC token acquisition failed: AADSTS50126: Error validating credentials due to invalid username or password. Trace ID: 1f51d051-bac7-4f24-9e84-16f9e9407900 Correlation ID: 4e1e80da-8301-4046-b2a3-88b0f16adcc8 Timestamp: 2026-08-31 14:03:13Z
+4|indexus- | [Beratung] Cannot fetch emails — no valid access token
+4|indexus- | [Beratung] ROPC token acquisition failed: AADSTS50126: Error validating credentials due to invalid username or password. Trace ID: 135c4eca-9555-4075-891c-1eabc4e89d00 Correlation ID: 7e2f0162-648b-41b0-acdc-f563ccb516ee Timestamp: 2026-08-31 14:06:13Z
+4|indexus- | [Beratung] Cannot fetch emails — no valid access token
+4|indexus- | [Beratung] ROPC token acquisition failed: AADSTS50126: Error validating credentials due to invalid username or password. Trace ID: cc16d55e-62f3-4dff-b894-636410347b00 Correlation ID: 5c5bf3d1-33f4-4939-a2a8-10ee16b71843 Timestamp: 2026-08-31 14:09:14Z
+4|indexus- | [Beratung] Cannot fetch emails — no valid access token
+--
+4|indexus- | [QueueEngine] Failed to set caller ID on channel 1788191407.96: ARI POST /channels/1788191407.96/variable?variable=CAMPAIGN_CID&value=%2B421940682394 failed: 409 {
+4|indexus- |   "message": "Channel not in Stasis application"
+4|indexus- | }
+4|indexus- | [AgentOnlyRecording] AMI binding scan d6255c11-a01a-4355-9056-684c3dc2295a mediagtw.cordbloodcenter.com {
+4|indexus- |   source: 'AMI',
+4|indexus- |   events: 2,
+4|indexus- |   pjsipUp: 2,
+4|indexus- |   correlation: 1,
+4|indexus- |   phone: 1,
+4|indexus- |   callId: 1
+4|indexus- | }
+4|indexus- | [AgentOnlyRecording] AMI MixMonitor rejected d6255c11-a01a-4355-9056-684c3dc2295a Response: Error ActionID: 375fbc63-e31a-42ad-b863-bc87b4958dc6 Message: Permission denied
+4|indexus- | [kpi-cron] Hourly check error: for SELECT DISTINCT, ORDER BY expressions must appear in select list
+4|indexus- | [Beratung] ROPC token acquisition failed: AADSTS50126: Error validating credentials due to invalid username or password. Trace ID: 3eea2908-864f-4099-a16b-e7a3ecfe5c00 Correlation ID: 93b9d1a6-21c4-49eb-80f0-ed8a2eef9d0e Timestamp: 2026-08-31 15:51:13Z
+4|indexus- | [Beratung] Cannot fetch emails — no valid access token
+4|indexus- | [Beratung] ROPC token acquisition failed: AADSTS50126: Error validating credentials due to invalid username or password. Trace ID: d5e996a1-8147-4ae3-a89e-f11e009a8700 Correlation ID: b6b52765-851a-4096-815e-8cfc664cd0df Timestamp: 2026-08-31 15:54:13Z
+4|indexus- | [Beratung] Cannot fetch emails — no valid access token
+4|indexus- | [QueueEngine] Failed to set caller ID on channel 1788191745.99: ARI POST /channels/1788191745.99/variable?variable=CAMPAIGN_CID&value=%2B421940682394 failed: 409 {
+4|indexus- |   "message": "Channel not in Stasis application"
+4|indexus- | }
+4|indexus- | [AgentOnlyRecording] AMI binding scan 634c0bb5-040c-45af-8d8a-93f200d832dc mediagtw.cordbloodcenter.com {
+4|indexus- |   source: 'AMI',
+4|indexus- |   events: 2,
+4|indexus- |   pjsipUp: 2,
+4|indexus- |   correlation: 1,
+4|indexus- |   phone: 1,
+4|indexus- |   callId: 1
+4|indexus- | }
+4|indexus- | [Beratung] ROPC token acquisition failed: AADSTS50126: Error validating credentials due to invalid username or password. Trace ID: 655407b5-d9da-408c-bbd7-453cacd28400 Correlation ID: 4b99bbff-c24f-4229-8009-c874a676b758 Timestamp: 2026-08-31 15:57:14Z
+4|indexus- | [Beratung] Cannot fetch emails — no valid access token
+4|indexus- | [Beratung] ROPC token acquisition failed: AADSTS50126: Error validating credentials due to invalid username or password. Trace ID: 08586f99-28b4-4320-acb2-648621425a00 Correlation ID: 74d448b8-24e9-4707-a947-0ac4c42c1432 Timestamp: 2026-08-31 16:00:14Z
+--
+4|indexus- |   "message": "Channel not in Stasis application"
+4|indexus- | }
+4|indexus- | [kpi-cron] Startup catch-up error: for SELECT DISTINCT, ORDER BY expressions must appear in select list
+4|indexus- | [AgentOnlyRecording] AMI binding scan 72610c7a-5aba-41a9-a175-ff378591da84 mediagtw.cordbloodcenter.com {
+4|indexus- |   source: 'AMI',
+4|indexus- |   events: 2,
+4|indexus- |   pjsipUp: 2,
+4|indexus- |   correlation: 1,
+4|indexus- |   phone: 1,
+4|indexus- |   callId: 1
+4|indexus- | }
+4|indexus- | [AgentOnlyRecording] Started 72610c7a-5aba-41a9-a175-ff378591da84 context=database
+4|indexus- | [AgentOnlyRecording] Finalize requested 72610c7a-5aba-41a9-a175-ff378591da84 context=memory
+4|indexus- | [Beratung] ROPC token acquisition failed: AADSTS50126: Error validating credentials due to invalid username or password. Trace ID: f3532f8b-a6da-456f-9004-1e8a5f827f00 Correlation ID: de909c7b-bf9a-4ea4-98eb-87d05719f78b Timestamp: 2026-08-31 16:14:59Z
+4|indexus- | [Beratung] Cannot fetch emails — no valid access token
+
+sema
