@@ -544,6 +544,9 @@ export function SipPhone({
       await apiRequest("POST", `/api/call-logs/${key}/finalize-agent-recording`, {
         customerActivitySegments,
       });
+      queryClient.invalidateQueries({ queryKey: ["/api/call-recordings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/call-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/call-logs/browse"] });
       return true;
     } catch (error) {
       console.error("[Recording] Trusted agent-only recording failed to finalize:", error);

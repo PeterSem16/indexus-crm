@@ -510,6 +510,8 @@ export function CallRecordingPlayer(props: CallRecordingPlayerProps) {
       return res.json();
     },
     enabled: !!callLogId,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   if (isLoading) return null;
