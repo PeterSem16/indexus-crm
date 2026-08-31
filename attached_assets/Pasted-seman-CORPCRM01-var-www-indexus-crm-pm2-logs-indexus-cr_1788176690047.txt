@@ -1,0 +1,23 @@
+seman@CORPCRM01:/var/www/indexus-crm$ pm2 logs indexus-crm --lines 500 --nostream --timestamp 2>&1 \
+  | grep -E "AgentOnlyRecording|AMI channel lookup|start-agent-recording|finalize-agent-recording"
+4|indexus- | [AgentOnlyRecording] Start rejected 2d608dcd-0d37-44be-b187-a51f5b1f9316 reason=sip_binding_matches_0
+4|indexus- | [AgentOnlyRecording] Start rejected 2d608dcd-0d37-44be-b187-a51f5b1f9316 reason=sip_binding_matches_0
+4|indexus- | [AgentOnlyRecording] Start rejected 2d608dcd-0d37-44be-b187-a51f5b1f9316 reason=sip_binding_matches_0
+4|indexus- | [AgentOnlyRecording] Start rejected 2d608dcd-0d37-44be-b187-a51f5b1f9316 reason=sip_binding_matches_0
+4|indexus- | [AgentOnlyRecording] Start rejected 2d608dcd-0d37-44be-b187-a51f5b1f9316 reason=sip_binding_matches_0
+4|indexus- | [AgentOnlyRecording] Start rejected 8ae9b852-da47-4c38-be79-4a52c144b589 reason=sip_binding_matches_0
+4|indexus- | [AgentOnlyRecording] Start rejected 8ae9b852-da47-4c38-be79-4a52c144b589 reason=sip_binding_matches_0
+4|indexus- | [AgentOnlyRecording] Start rejected 8ae9b852-da47-4c38-be79-4a52c144b589 reason=sip_binding_matches_0
+4|indexus- | [AgentOnlyRecording] Start rejected 8ae9b852-da47-4c38-be79-4a52c144b589 reason=sip_binding_matches_0
+4|indexus- | [AgentOnlyRecording] Start rejected 8ae9b852-da47-4c38-be79-4a52c144b589 reason=sip_binding_matches_0
+4|indexus- | [AgentOnlyRecording] AMI channel lookup failed 8eb0cd46-d9a8-42b1-8b25-e0efd7c680e7 10.9.33.2 SSH connection error: All configured authentication methods failed
+4|indexus- | [AgentOnlyRecording] Start rejected 8eb0cd46-d9a8-42b1-8b25-e0efd7c680e7 reason=sip_binding_matches_0
+4|indexus- | [AgentOnlyRecording] AMI channel lookup failed 8eb0cd46-d9a8-42b1-8b25-e0efd7c680e7 10.9.33.2 SSH connection error: All configured authentication methods failed
+4|indexus- | [AgentOnlyRecording] Start rejected 8eb0cd46-d9a8-42b1-8b25-e0efd7c680e7 reason=sip_binding_matches_0
+4|indexus- | [AgentOnlyRecording] AMI channel lookup failed 8eb0cd46-d9a8-42b1-8b25-e0efd7c680e7 10.9.33.2 SSH connection error: All configured authentication methods failed
+4|indexus- | [AgentOnlyRecording] Start rejected 8eb0cd46-d9a8-42b1-8b25-e0efd7c680e7 reason=sip_binding_matches_0
+4|indexus- | [AgentOnlyRecording] AMI channel lookup failed 8eb0cd46-d9a8-42b1-8b25-e0efd7c680e7 10.9.33.2 SSH connection error: All configured authentication methods failed
+4|indexus- | [AgentOnlyRecording] Start rejected 8eb0cd46-d9a8-42b1-8b25-e0efd7c680e7 reason=sip_binding_matches_0
+4|indexus- | [AgentOnlyRecording] AMI channel lookup failed 8eb0cd46-d9a8-42b1-8b25-e0efd7c680e7 10.9.33.2 SSH connection error: All configured authentication methods failed
+4|indexus- | [AgentOnlyRecording] Start rejected 8eb0cd46-d9a8-42b1-8b25-e0efd7c680e7 reason=sip_binding_matches_0
+seman@CORPCRM01:/var/www/indexus-crm$
