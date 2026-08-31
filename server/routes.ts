@@ -34091,9 +34091,9 @@ Respond ONLY with valid JSON in this exact format:
                 sipCallId: serverChannelId,
               });
             }
-            console.info("[AgentOnlyRecording] AMI binding scan", callLog.id, server.host, scan);
+            console.warn("[AgentOnlyRecording] SSH CLI binding scan", callLog.id, server.host, scan);
           } catch (error) {
-            console.warn("[AgentOnlyRecording] AMI channel lookup failed", callLog.id, server.host,
+            console.warn("[AgentOnlyRecording] SSH CLI channel lookup failed", callLog.id, server.host,
               error instanceof Error ? error.message : error);
           }
           continue;
