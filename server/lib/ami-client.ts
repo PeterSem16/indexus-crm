@@ -327,7 +327,8 @@ export function downloadFileViaSsh(
   sshPort: number,
   username: string,
   password: string,
-  basePath: string
+  basePath: string,
+  options?: { exactPath?: boolean },
 ): Promise<{ buffer: Buffer; foundPath: string }> {
   return new Promise((resolve, reject) => {
     const conn = new SshClient();
@@ -338,13 +339,16 @@ export function downloadFileViaSsh(
     }, 20000);
 
     conn.on("ready", () => {
-      // Find the actual file — first try known extensions at the specified path,
-      // then fall back to a recursive find across the whole Asterisk spool (catches wrong-dir cases)
+      const shellQuote = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`;
+      // Exact mode is used after a trusted MixMonitor list response identified
+      // one receive file. Other callers retain legacy extension/spool discovery.
       const baseName = basePath.split("/").pop() || "";
-      const findCmd = [
-        `ls "${basePath}.wav" "${basePath}.WAV" "${basePath}.ulaw" "${basePath}.gsm" "${basePath}.sln" "${basePath}.raw" "${basePath}^wav.raw" 2>/dev/null | head -1`,
-        `find /var/spool/asterisk/ -name "${baseName}*" -not -empty 2>/dev/null | head -1`,
-      ].join(" || ");
+      const findCmd = options?.exactPath
+        ? `test -s ${shellQuote(basePath)} && printf '%s' ${shellQuote(basePath)}`
+        : [
+            `ls "${basePath}.wav" "${basePath}.WAV" "${basePath}.ulaw" "${basePath}.gsm" "${basePath}.sln" "${basePath}.raw" "${basePath}^wav.raw" 2>/dev/null | head -1`,
+            `find /var/spool/asterisk/ -name "${baseName}*" -not -empty 2>/dev/null | head -1`,
+          ].join(" || ");
       let foundPath = "";
 
       conn.exec(findCmd, (err, findStream) => {
@@ -362,13 +366,15 @@ export function downloadFileViaSsh(
           if (!foundPath) {
             clearTimeout(timer);
             conn.end();
-            reject(new Error(`Recording file not found at ${basePath}.* (also searched /var/spool/asterisk/ recursively)`));
+            reject(new Error(options?.exactPath
+              ? `Recording file not found at exact path ${basePath}`
+              : `Recording file not found at ${basePath}.* (also searched /var/spool/asterisk/ recursively)`));
             return;
           }
           console.log(`[SSH-Download] Found recording at: ${foundPath}`);
 
           // Download the file via cat
-          conn.exec(`cat "${foundPath}"`, (err2, catStream) => {
+          conn.exec(`cat ${shellQuote(foundPath)}`, (err2, catStream) => {
             if (err2) {
               clearTimeout(timer);
               conn.end();
