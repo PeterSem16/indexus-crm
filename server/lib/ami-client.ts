@@ -344,7 +344,7 @@ export function downloadFileViaSsh(
       // one receive file. Other callers retain legacy extension/spool discovery.
       const baseName = basePath.split("/").pop() || "";
       const findCmd = options?.exactPath
-        ? `test -s ${shellQuote(basePath)} && printf '%s' ${shellQuote(basePath)}`
+        ? `test -f ${shellQuote(basePath)} && printf '%s' ${shellQuote(basePath)}`
         : [
             `ls "${basePath}.wav" "${basePath}.WAV" "${basePath}.ulaw" "${basePath}.gsm" "${basePath}.sln" "${basePath}.raw" "${basePath}^wav.raw" 2>/dev/null | head -1`,
             `find /var/spool/asterisk/ -name "${baseName}*" -not -empty 2>/dev/null | head -1`,

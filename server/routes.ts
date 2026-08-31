@@ -34301,7 +34301,6 @@ Respond ONLY with valid JSON in this exact format:
               Action: "MixMonitor",
               ActionID: crypto.randomUUID(),
               Channel: channel.name,
-              File: "/dev/null",
               Options: `r(${amiFilePath}.wav)i(${mixMonitorIdVariable})`,
             },
           );
