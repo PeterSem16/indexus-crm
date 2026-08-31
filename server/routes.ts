@@ -34182,7 +34182,7 @@ Respond ONLY with valid JSON in this exact format:
       let activeRecordingPersisted = false;
       try {
         remoteStartAttempted = true;
-        await runSshCommand(
+        const mixMonitorOutput = await runSshCommand(
           server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
           asteriskCliCommand(mixMonitorCommand),
         );
@@ -34193,7 +34193,9 @@ Respond ONLY with valid JSON in this exact format:
           `then printf '__INDEXUS_RECORDING_FILE_READY__'; break; fi; sleep 0.1; done; true`,
         );
         if (!recordingProbe.includes("__INDEXUS_RECORDING_FILE_READY__")) {
-          console.warn("[AgentOnlyRecording] SSH CLI MixMonitor rejected", callLog.id);
+          console.warn("[AgentOnlyRecording] SSH CLI MixMonitor rejected", callLog.id, {
+            output: String(mixMonitorOutput || "").replace(/[\r\n]+/g, " ").slice(0, 500),
+          });
           return res.status(503).json({ error: "Asterisk rejected directional agent recording" });
         }
         let consumedMetadata: Record<string, unknown> = {};
