@@ -1418,7 +1418,10 @@ export function SipPhone({
         status: "initiated",
         userId: userId || currentUser?.id,
         customerId: localCustomerIdRef.current,
-        campaignId: localCampaignId,
+        // pendingCall updates state and refs immediately before dialing. The state
+        // value in this callback can still belong to the previous render, while
+        // the ref already contains the Mission selected for this exact call.
+        campaignId: localCampaignIdRef.current,
         campaignContactId: localCampaignContactIdRef.current,
         customerName: localCustomerName,
         metadata: JSON.stringify({
