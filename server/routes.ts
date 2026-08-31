@@ -34177,47 +34177,58 @@ Respond ONLY with valid JSON in this exact format:
       const amiFilePath = `/var/spool/asterisk/monitor/${recordingName}_agent`;
       const sshPort = cfg.sshPort || 22;
       const mixMonitorCommand = `mixmonitor start ${channel.name} /dev/null,r(${amiFilePath}.wav)`;
-      await runSshCommand(
-        server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
-        asteriskCliCommand(mixMonitorCommand),
-      );
-      const mixMonitorList = await runSshCommand(
-        server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
-        asteriskCliCommand(`mixmonitor list ${channel.name}`),
-      );
-      if (!mixMonitorList.includes(`${amiFilePath}.wav`)) {
-        const quotedFailedPath = shellQuote(`${amiFilePath}.wav`);
-        try {
-          await runSshCommand(server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
-            `sudo -n rm -f ${quotedFailedPath} 2>/dev/null || rm -f ${quotedFailedPath} 2>/dev/null || true`);
-        } catch {}
-        console.warn("[AgentOnlyRecording] SSH CLI MixMonitor rejected", callLog.id);
-        return res.status(503).json({ error: "Asterisk rejected directional agent recording" });
+      const quotedRecordingPath = shellQuote(`${amiFilePath}.wav`);
+      let remoteStartAttempted = false;
+      let activeRecordingPersisted = false;
+      try {
+        remoteStartAttempted = true;
+        await runSshCommand(
+          server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
+          asteriskCliCommand(mixMonitorCommand),
+        );
+        const recordingProbe = await runSshCommand(
+          server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
+          `for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do ` +
+          `if sudo -n test -s ${quotedRecordingPath} 2>/dev/null || test -s ${quotedRecordingPath} 2>/dev/null; ` +
+          `then printf '__INDEXUS_RECORDING_FILE_READY__'; break; fi; sleep 0.1; done; true`,
+        );
+        if (!recordingProbe.includes("__INDEXUS_RECORDING_FILE_READY__")) {
+          console.warn("[AgentOnlyRecording] SSH CLI MixMonitor rejected", callLog.id);
+          return res.status(503).json({ error: "Asterisk rejected directional agent recording" });
+        }
+        let consumedMetadata: Record<string, unknown> = {};
+        try { if (callLog.metadata) consumedMetadata = JSON.parse(callLog.metadata); } catch {}
+        delete consumedMetadata.recordingCorrelationHash;
+        delete consumedMetadata.recordingExpectedPhone;
+        await db.update(callLogs).set({
+          sipCallId,
+          metadata: JSON.stringify(consumedMetadata),
+        }).where(and(
+          eq(callLogs.id, callLog.id),
+          eq(callLogs.userId, user.id),
+        ));
+        mobileActiveRecordings.set(callLog.id, {
+          recordingName,
+          amiFilePath,
+          sshHost: server.host,
+          sshPort,
+          sshUser: cfg.sshUsername,
+          sshPass: cfg.sshPassword,
+          kind: "web_agent_only",
+          recordingPolicySnapshot: snapshot,
+          ariChannelId: channel.id,
+          sipCallId,
+        });
+        activeRecordingPersisted = true;
+        res.status(201).json({ success: true, recordingMode: "agent_only" });
+      } finally {
+        if (remoteStartAttempted && !activeRecordingPersisted) {
+          try {
+            await runSshCommand(server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
+              `sudo -n rm -f ${quotedRecordingPath} 2>/dev/null || rm -f ${quotedRecordingPath} 2>/dev/null || true`);
+          } catch {}
+        }
       }
-      let consumedMetadata: Record<string, unknown> = {};
-      try { if (callLog.metadata) consumedMetadata = JSON.parse(callLog.metadata); } catch {}
-      delete consumedMetadata.recordingCorrelationHash;
-      delete consumedMetadata.recordingExpectedPhone;
-      await db.update(callLogs).set({
-        sipCallId,
-        metadata: JSON.stringify(consumedMetadata),
-      }).where(and(
-        eq(callLogs.id, callLog.id),
-        eq(callLogs.userId, user.id),
-      ));
-      mobileActiveRecordings.set(callLog.id, {
-        recordingName,
-        amiFilePath,
-        sshHost: server.host,
-        sshPort,
-        sshUser: cfg.sshUsername,
-        sshPass: cfg.sshPassword,
-        kind: "web_agent_only",
-        recordingPolicySnapshot: snapshot,
-        ariChannelId: channel.id,
-        sipCallId,
-      });
-      res.status(201).json({ success: true, recordingMode: "agent_only" });
     } catch (error: any) {
       console.error("[AgentOnlyRecording] Start failed:", error);
       res.status(500).json({ error: error.message || "Failed to start agent-only recording" });
