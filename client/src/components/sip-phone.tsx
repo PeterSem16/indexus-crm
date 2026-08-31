@@ -1432,6 +1432,25 @@ export function SipPhone({
           recordingPolicySnapshot: recordingSnapshotRef.current || null,
         }),
       });
+      if (localCampaignIdRef.current) {
+        // The server resolves the immutable Mission policy from persisted
+        // settings when it creates the call log. Use that authoritative
+        // snapshot for the actual call instead of a possibly stale campaign
+        // object still held by the browser.
+        let serverRecordingSnapshot: MissionCallRecordingSnapshot | undefined;
+        try {
+          const serverMetadata = typeof callLogData.metadata === "string"
+            ? JSON.parse(callLogData.metadata)
+            : callLogData.metadata;
+          const candidate = serverMetadata?.recordingPolicySnapshot;
+          if (candidate && typeof candidate === "object") {
+            serverRecordingSnapshot = candidate as MissionCallRecordingSnapshot;
+          }
+        } catch (error) {
+          console.error("[Recording] Invalid server recording policy snapshot:", error);
+        }
+        recordingSnapshotRef.current = serverRecordingSnapshot;
+      }
       setCurrentCallLogId(callLogData.id);
       currentCallLogIdRef.current = callLogData.id;
       
