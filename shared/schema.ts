@@ -3920,7 +3920,11 @@ export const callRecordings = pgTable("call_recordings", {
   recordingPolicySnapshot: jsonb("recording_policy_snapshot"),
   customerActivitySegments: jsonb("customer_activity_segments"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
-});
+}, (table) => ({
+  agentOnlyCallLogUnique: uniqueIndex("uq_call_recordings_agent_only_call_log")
+    .on(table.callLogId)
+    .where(sql`${table.recordingMode} = 'agent_only'`),
+}));
 
 export const insertCallRecordingSchema = createInsertSchema(callRecordings).omit({
   id: true,

@@ -119,7 +119,7 @@ import QRCode from "qrcode";
 import { PDFDocument as PDFLibDocument, rgb, degrees, StandardFonts } from "pdf-lib";
 import { notificationService } from "./lib/notification-service";
 import * as mailchimpApi from "./lib/mailchimp";
-import { sendAmiActionViaSshTunnel, downloadFileViaSsh, runSshCommand } from "./lib/ami-client";
+import { sendAmiActionViaSshTunnel, sendAmiListActionViaSshTunnel, downloadFileViaSsh, runSshCommand } from "./lib/ami-client";
 import * as XLSX from "xlsx";
 import { STORAGE_PATHS, ensureAllDirectoriesExist, getPublicUrl, getRelativePath, getAbsolutePath, DATA_ROOT } from "./config/storage-paths";
 
@@ -134,6 +134,8 @@ interface MobileRecordingInfo {
   kind?: "mobile_mixed" | "web_agent_only";
   recordingPolicySnapshot?: MissionCallRecordingSnapshot;
   ariChannelId?: string;
+  amiChannelName?: string;
+  amiMixMonitorId?: string;
   sipCallId?: string;
 }
 // Tracks active server-side AMI recordings for mobile calls: callLogId → info
@@ -33990,6 +33992,8 @@ Respond ONLY with valid JSON in this exact format:
       if (!cfg?.sshUsername || !cfg.sshPassword) {
         return res.status(503).json({ error: "Asterisk SSH recording credentials are not configured" });
       }
+      const amiUsername = "indexus_recording";
+      const amiPassword = process.env.MEDIAGTW_AMI_PASSWORD || "";
       const authHeader = cfg.username && cfg.password
         ? "Basic " + Buffer.from(`${cfg.username}:${cfg.password}`).toString("base64")
         : "";
@@ -34013,62 +34017,45 @@ Respond ONLY with valid JSON in this exact format:
         console.warn("[AgentOnlyRecording] Start rejected", callLog.id, "reason=missing_correlation");
         return res.status(409).json({ error: "Outbound call has no server-issued recording correlation" });
       }
+      const usesMediagtwAmi = !inboundAriChannelId;
+      if (usesMediagtwAmi && !amiPassword) {
+        return res.status(503).json({ error: "Mediagtw AMI recording credentials are not configured" });
+      }
 
-      const shellQuote = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`;
-      const asteriskCliCommand = (command: string) => {
-        const quoted = shellQuote(command);
-        return `sudo -n asterisk -rx ${quoted} 2>/dev/null || asterisk -rx ${quoted} 2>/dev/null`;
-      };
-      const parseCliVariable = (output: string, variable: string) => {
-        const escaped = variable.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        return String(
-          output.match(new RegExp(`^\\s*${escaped}\\s*=\\s*(.*)$`, "mi"))?.[1] ||
-          output.match(/^\\s*Value:\\s*(.*)$/mi)?.[1] ||
-          output.match(/\bis\s+'([^']*)'/i)?.[1] ||
-          "",
-        ).trim();
+      const parseAmiField = (packet: string, field: string) => {
+        const escaped = field.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return String(packet.match(new RegExp(`^${escaped}:\\s*(.*)$`, "mi"))?.[1] || "").trim();
       };
       const matches: Array<{ server: typeof servers[number]; channel: any; sipCallId: string }> = [];
       for (const server of servers) {
         if (!inboundAriChannelId) {
-          // Outbound browser calls reach the provider through mediagtw. On that
-          // host the browser/agent is represented by the trusted SK trunk leg,
-          // so the channel name cannot be matched to the agent's SIP extension.
-          // Ownership is instead bound by the authenticated call-log owner and
-          // its one-time, server-issued correlation token below.
+          // Outbound browser calls reach the provider through mediagtw. AMI is
+          // bound to localhost there and reached through the existing SSH tunnel.
           if (server.host !== ASTERISK_MEDIAGTW_HOST) continue;
           try {
             const sshPort = cfg.sshPort || 22;
-            const cliOutput = await runSshCommand(
+            const channelResult = await sendAmiListActionViaSshTunnel(
               server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
-              asteriskCliCommand("core show channels concise"),
+              amiUsername, amiPassword,
+              { Action: "CoreShowChannels", ActionID: crypto.randomUUID() },
+              "CoreShowChannelsComplete",
             );
-            const channelEvents = cliOutput
-              .split(/\r?\n/)
-              .map(line => line.trim())
-              .filter(line => line.includes("!"))
-              .map(line => {
-                const fields = line.split("!");
-                return {
-                  Event: "CoreShowChannel",
-                  Channel: fields[0] || "",
-                  Exten: fields[2] || "",
-                  ChannelStateDesc: fields[4] || "",
-                  Uniqueid: fields[0] || "",
-                };
-              });
-            const scan = { source: "SSHCLI", events: channelEvents.length, pjsipUp: 0, correlation: 0, phone: 0, callId: 0 };
-            for (const event of channelEvents) {
+            const scan = { source: "AMI", events: channelResult.events.length, pjsipUp: 0, correlation: 0, phone: 0, callId: 0 };
+            for (const event of channelResult.events) {
               if (event.ChannelStateDesc !== "Up") continue;
               const channelName = String(event.Channel || "");
               if (!/^PJSIP\/[A-Za-z0-9_.:@+-]+$/.test(channelName)) continue;
               scan.pjsipUp++;
 
-              const channelDetails = await runSshCommand(
-                server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
-                asteriskCliCommand(`core show channel ${channelName}`),
-              );
-              const correlationToken = parseCliVariable(channelDetails, "INDEXUS_RECORDING_CORRELATION");
+              const getVariable = async (variable: string) => {
+                const result = await sendAmiActionViaSshTunnel(
+                  server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
+                  amiUsername, amiPassword,
+                  { Action: "Getvar", ActionID: crypto.randomUUID(), Channel: channelName, Variable: variable },
+                );
+                return result.success ? parseAmiField(result.response, "Value") : "";
+              };
+              const correlationToken = await getVariable("INDEXUS_RECORDING_CORRELATION");
               const candidateHash = correlationToken
                 ? crypto.createHash("sha256").update(correlationToken).digest("hex")
                 : "";
@@ -34079,26 +34066,26 @@ Respond ONLY with valid JSON in this exact format:
               scan.correlation++;
 
               const actualPhone = String(
-                parseCliVariable(channelDetails, "OUTNUM") ||
-                parseCliVariable(channelDetails, "EXTEN") ||
+                await getVariable("OUTNUM") ||
+                await getVariable("EXTEN") ||
                 event.Exten ||
                 "",
-              )
-                .replace(/\D/g, "").slice(-9);
+              ).replace(/\D/g, "").slice(-9);
               if (!recordingExpectedPhone || actualPhone !== recordingExpectedPhone) continue;
               scan.phone++;
 
-              const serverChannelId = `asterisk-channel:${event.Uniqueid || channelName}`;
+              const channelSipCallId = await getVariable("CHANNEL(pjsip,call-id)");
+              if (!channelSipCallId) continue;
               scan.callId++;
               matches.push({
                 server,
                 channel: { id: event.Uniqueid || channelName, name: channelName },
-                sipCallId: serverChannelId,
+                sipCallId: channelSipCallId,
               });
             }
-            console.warn("[AgentOnlyRecording] SSH CLI binding scan", callLog.id, server.host, scan);
+            console.warn("[AgentOnlyRecording] AMI binding scan", callLog.id, server.host, scan);
           } catch (error) {
-            console.warn("[AgentOnlyRecording] SSH CLI channel lookup failed", callLog.id, server.host,
+            console.warn("[AgentOnlyRecording] AMI channel lookup failed", callLog.id, server.host,
               error instanceof Error ? error.message : error);
           }
           continue;
@@ -34176,45 +34163,185 @@ Respond ONLY with valid JSON in this exact format:
       const recordingName = `web_agent_${callLog.id}_${Date.now()}`;
       const amiFilePath = `/var/spool/asterisk/monitor/${recordingName}_agent`;
       const sshPort = cfg.sshPort || 22;
-      const mixMonitorCommand = `mixmonitor start ${channel.name} /dev/null,r(${amiFilePath}.wav)`;
+      const shellQuote = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`;
       const quotedRecordingPattern = shellQuote(`${recordingName}_agent*`);
-      const findRecordingCommand =
-        `sudo -n find /var/spool/asterisk/ -type f -name ${quotedRecordingPattern} -not -empty -print -quit 2>/dev/null ` +
-        `|| find /var/spool/asterisk/ -type f -name ${quotedRecordingPattern} -not -empty -print -quit 2>/dev/null`;
       const deleteRecordingCommand =
-        `sudo -n find /var/spool/asterisk/ -type f -name ${quotedRecordingPattern} -delete 2>/dev/null ` +
-        `|| find /var/spool/asterisk/ -type f -name ${quotedRecordingPattern} -delete 2>/dev/null || true`;
+        `if sudo -n find /var/spool/asterisk/ -type f -name ${quotedRecordingPattern} -delete 2>/dev/null; then :; ` +
+        `elif find /var/spool/asterisk/ -type f -name ${quotedRecordingPattern} -delete 2>/dev/null; then :; ` +
+        `else printf '__INDEXUS_RECORDING_CLEANUP_FAILED__'; fi; ` +
+        `if remaining=$(sudo -n find /var/spool/asterisk/ -type f -name ${quotedRecordingPattern} -print -quit 2>/dev/null); then :; ` +
+        `elif remaining=$(find /var/spool/asterisk/ -type f -name ${quotedRecordingPattern} -print -quit 2>/dev/null); then :; ` +
+        `else printf '__INDEXUS_RECORDING_CLEANUP_FAILED__'; remaining='unknown'; fi; ` +
+        `if [ -z "$remaining" ]; then printf '__INDEXUS_RECORDING_CLEAN__'; fi`;
+      let mixMonitorStarted = false;
+      let mixMonitorId = "";
+      let retainStartClaim = false;
       let remoteStartAttempted = false;
-      let activeRecordingPersisted = false;
-      try {
-        remoteStartAttempted = true;
-        const mixMonitorOutput = await runSshCommand(
-          server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
-          asteriskCliCommand(mixMonitorCommand),
-        );
-        const recordingProbe = await runSshCommand(
-          server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
-          `for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do ` +
-          `candidate=$(${findRecordingCommand}); if [ -n "$candidate" ]; ` +
-          `then printf '__INDEXUS_RECORDING_FILE_READY__'; break; fi; sleep 0.1; done; true`,
-        );
-        if (!recordingProbe.includes("__INDEXUS_RECORDING_FILE_READY__")) {
-          console.warn("[AgentOnlyRecording] SSH CLI MixMonitor rejected", callLog.id, {
-            output: String(mixMonitorOutput || "").replace(/[\r\n]+/g, " ").slice(0, 500),
+      let remoteStartDefinitivelyRejected = false;
+      const cleanupRemoteRecording = async () => {
+        let exactStopConfirmed = false;
+        if (mixMonitorStarted) {
+          if (!mixMonitorId) {
+            retainStartClaim = true;
+            console.error("[AgentOnlyRecording] Refusing channel-wide MixMonitor stop", {
+              callLogId: callLog.id,
+              channel: channel.name,
+              recordingPath: `${amiFilePath}.wav`,
+            });
+            throw new Error("Mediagtw MixMonitor identity is unavailable; manual cleanup is required");
+          }
+          const stopFields: Record<string, string> = {
+            Action: "StopMixMonitor",
+            ActionID: crypto.randomUUID(),
+            Channel: channel.name,
+            MixMonitorID: mixMonitorId,
+          };
+          const stopped = await sendAmiActionViaSshTunnel(
+            server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
+            amiUsername, amiPassword, stopFields,
+          );
+          if (!stopped.success && !/no such channel|not found/i.test(stopped.response)) {
+            throw new Error("AMI could not stop the mediagtw MixMonitor");
+          }
+          mixMonitorStarted = false;
+          exactStopConfirmed = true;
+          await new Promise(resolve => setTimeout(resolve, 150));
+        } else if (usesMediagtwAmi && remoteStartAttempted && !remoteStartDefinitivelyRejected) {
+          retainStartClaim = true;
+          console.error("[AgentOnlyRecording] Ambiguous AMI MixMonitor dispatch; manual cleanup required", {
+            callLogId: callLog.id,
+            channel: channel.name,
+            recordingPath: `${amiFilePath}.wav`,
           });
-          return res.status(503).json({ error: "Asterisk rejected directional agent recording" });
+          throw new Error("Mediagtw MixMonitor dispatch outcome is unknown; manual cleanup is required");
+        }
+        const cleanupOutput = await runSshCommand(
+          server.host, sshPort, cfg.sshUsername, cfg.sshPassword, deleteRecordingCommand,
+        );
+        if (!cleanupOutput.includes("__INDEXUS_RECORDING_CLEAN__") ||
+            cleanupOutput.includes("__INDEXUS_RECORDING_CLEANUP_FAILED__")) {
+          throw new Error("Could not verify mediagtw recording cleanup");
+        }
+        if (!usesMediagtwAmi || exactStopConfirmed || remoteStartDefinitivelyRejected) {
+          retainStartClaim = false;
+        }
+      };
+      let activeRecordingPersisted = false;
+      const startClaim = `indexus-recording-claim:${Date.now()}:${crypto.randomUUID()}`;
+      let startClaimHeld = false;
+      try {
+        const [claimed] = await db.update(callLogs).set({ sipCallId: startClaim }).where(and(
+          eq(callLogs.id, callLog.id),
+          eq(callLogs.userId, user.id),
+          isNull(callLogs.sipCallId),
+        )).returning({ id: callLogs.id });
+        if (!claimed) {
+          return res.status(409).json({ error: "A recording start is already in progress for this call" });
+        }
+        startClaimHeld = true;
+        remoteStartAttempted = true;
+        if (usesMediagtwAmi) {
+          retainStartClaim = true;
+          const mixMonitorIdVariable = "INDEXUS_RECORDING_MIXMONITOR_ID";
+          const mixMonitorResult = await sendAmiActionViaSshTunnel(
+            server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
+            amiUsername, amiPassword,
+            {
+              Action: "MixMonitor",
+              ActionID: crypto.randomUUID(),
+              Channel: channel.name,
+              File: "/dev/null",
+              Options: `r(${amiFilePath}.wav)i(${mixMonitorIdVariable})`,
+            },
+          );
+          if (!mixMonitorResult.success) {
+            remoteStartDefinitivelyRejected = true;
+            console.warn("[AgentOnlyRecording] AMI MixMonitor rejected", callLog.id,
+              mixMonitorResult.response.replace(/[\r\n]+/g, " ").slice(0, 500));
+            return res.status(503).json({ error: "Asterisk rejected directional agent recording" });
+          }
+          mixMonitorStarted = true;
+          for (let attempt = 0; attempt < 5 && !mixMonitorId; attempt++) {
+            if (attempt) await new Promise(resolve => setTimeout(resolve, 100));
+            const idResult = await sendAmiActionViaSshTunnel(
+              server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
+              amiUsername, amiPassword,
+              {
+                Action: "Getvar",
+                ActionID: crypto.randomUUID(),
+                Channel: channel.name,
+                Variable: mixMonitorIdVariable,
+              },
+            );
+            if (idResult.success) mixMonitorId = parseAmiField(idResult.response, "Value");
+          }
+          if (!/^[A-Za-z0-9._:-]{1,128}$/.test(mixMonitorId)) {
+            console.error("[AgentOnlyRecording] AMI MixMonitor ID missing; manual cleanup required", {
+              callLogId: callLog.id,
+              recordingPath: `${amiFilePath}.wav`,
+            });
+            throw new Error("Asterisk did not confirm the directional recording identity");
+          }
+        } else {
+          // Preserve the existing inbound ARI-bound recording start behavior.
+          const asteriskCliCommand = (command: string) => {
+            const quoted = shellQuote(command);
+            return `sudo -n asterisk -rx ${quoted} 2>/dev/null || asterisk -rx ${quoted} 2>/dev/null`;
+          };
+          const mixMonitorOutput = await runSshCommand(
+            server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
+            asteriskCliCommand(`mixmonitor start ${channel.name} /dev/null,r(${amiFilePath}.wav)`),
+          );
+          if (/failed|error|no such channel|not found/i.test(mixMonitorOutput)) {
+            console.warn("[AgentOnlyRecording] Inbound MixMonitor rejected", callLog.id,
+              mixMonitorOutput.replace(/[\r\n]+/g, " ").slice(0, 500));
+            return res.status(503).json({ error: "Asterisk rejected directional agent recording" });
+          }
+          const hasExactInboundReceiveFile = (output: string) => {
+            const lines = String(output).trim().split(/\r?\n/);
+            if (lines.length !== 3 ||
+                lines[0] !== "MixMonitor ID\tFile\tReceive File\tTransmit File" ||
+                !/^=+$/.test(lines[1])) return false;
+            const columns = lines[2].split("\t");
+            if (columns.length !== 3 && columns.length !== 4) return false;
+            if (columns.length === 4 && columns[3].trim() !== "") return false;
+            return /^0x[0-9a-f]+$/i.test(columns[0].trim()) &&
+              columns[1].trim() === "/dev/null" &&
+              columns[2].trim() === `${amiFilePath}.wav`;
+          };
+          let recordingProbe = "";
+          for (let attempt = 0; attempt < 5; attempt++) {
+            if (attempt) await new Promise(resolve => setTimeout(resolve, 100));
+            recordingProbe = await runSshCommand(
+              server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
+              asteriskCliCommand(`mixmonitor list ${channel.name}`),
+            );
+            if (hasExactInboundReceiveFile(recordingProbe)) break;
+          }
+          if (!hasExactInboundReceiveFile(recordingProbe)) {
+            console.warn("[AgentOnlyRecording] Inbound MixMonitor verification failed", callLog.id, {
+              startOutput: mixMonitorOutput.replace(/[\r\n]+/g, " ").slice(0, 500),
+              listOutput: recordingProbe.replace(/[\r\n]+/g, " ").slice(0, 500),
+            });
+            return res.status(503).json({ error: "Asterisk rejected directional agent recording" });
+          }
         }
         let consumedMetadata: Record<string, unknown> = {};
         try { if (callLog.metadata) consumedMetadata = JSON.parse(callLog.metadata); } catch {}
         delete consumedMetadata.recordingCorrelationHash;
         delete consumedMetadata.recordingExpectedPhone;
-        await db.update(callLogs).set({
+        const [bound] = await db.update(callLogs).set({
           sipCallId,
           metadata: JSON.stringify(consumedMetadata),
         }).where(and(
           eq(callLogs.id, callLog.id),
           eq(callLogs.userId, user.id),
-        ));
+          eq(callLogs.sipCallId, startClaim),
+        )).returning({ id: callLogs.id });
+        if (!bound) {
+          return res.status(409).json({ error: "The recording start claim was lost" });
+        }
+        startClaimHeld = false;
         mobileActiveRecordings.set(callLog.id, {
           recordingName,
           amiFilePath,
@@ -34225,20 +34352,38 @@ Respond ONLY with valid JSON in this exact format:
           kind: "web_agent_only",
           recordingPolicySnapshot: snapshot,
           ariChannelId: channel.id,
+          amiChannelName: usesMediagtwAmi ? channel.name : undefined,
+          amiMixMonitorId: usesMediagtwAmi ? mixMonitorId : undefined,
           sipCallId,
         });
         activeRecordingPersisted = true;
         res.status(201).json({ success: true, recordingMode: "agent_only" });
       } finally {
-        if (remoteStartAttempted && !activeRecordingPersisted) {
-          try {
-            await runSshCommand(server.host, sshPort, cfg.sshUsername, cfg.sshPassword,
-              deleteRecordingCommand);
-          } catch {}
+        let terminalError: unknown = null;
+        try {
+          if (remoteStartAttempted && !activeRecordingPersisted) {
+            await cleanupRemoteRecording();
+          }
+        } catch (cleanupError) {
+          terminalError = cleanupError;
+        } finally {
+          if (startClaimHeld && !retainStartClaim) {
+            try {
+              await db.update(callLogs).set({ sipCallId: null }).where(and(
+                eq(callLogs.id, callLog.id),
+                eq(callLogs.sipCallId, startClaim),
+              ));
+            } catch (claimError) {
+              if (!terminalError) terminalError = claimError;
+              else console.error("[AgentOnlyRecording] Start claim release also failed", claimError);
+            }
+          }
         }
+        if (terminalError) throw terminalError;
       }
     } catch (error: any) {
       console.error("[AgentOnlyRecording] Start failed:", error);
+      if (res.headersSent) return;
       res.status(500).json({ error: error.message || "Failed to start agent-only recording" });
     }
   });
@@ -34247,11 +34392,72 @@ Respond ONLY with valid JSON in this exact format:
     const callLogId = req.params.id;
     const active = mobileActiveRecordings.get(callLogId);
     let shouldCleanup = false;
+    let persistedRecording: any = null;
+    let persistedRecordingNeedsAnalysis = false;
+    let unpersistedLocalFilePath: string | null = null;
+    const stopActiveRemoteRecording = async () => {
+      if (!shouldCleanup || active?.kind !== "web_agent_only" || !active.amiMixMonitorId) return;
+      if (!active.amiChannelName || !process.env.MEDIAGTW_AMI_PASSWORD) {
+        throw new Error("Trusted mediagtw AMI stop context is unavailable");
+      }
+      const stopped = await sendAmiActionViaSshTunnel(
+        active.sshHost, active.sshPort, active.sshUser, active.sshPass,
+        "indexus_recording", process.env.MEDIAGTW_AMI_PASSWORD,
+        {
+          Action: "StopMixMonitor",
+          ActionID: crypto.randomUUID(),
+          Channel: active.amiChannelName,
+          MixMonitorID: active.amiMixMonitorId,
+        },
+      );
+      if (!stopped.success && !/no such channel|not found/i.test(stopped.response)) {
+        throw new Error("AMI could not stop the mediagtw MixMonitor");
+      }
+      active.amiMixMonitorId = undefined;
+      await new Promise(resolve => setTimeout(resolve, 150));
+    };
+    const cleanupActiveRemoteRecording = async () => {
+      if (!shouldCleanup || active?.kind !== "web_agent_only") return;
+      await stopActiveRemoteRecording();
+      const shellQuote = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`;
+      const quotedPattern = shellQuote(`${active.recordingName}_agent*`);
+      const cleanupCommand =
+        `if sudo -n find /var/spool/asterisk/ -type f -name ${quotedPattern} -delete 2>/dev/null; then :; ` +
+        `elif find /var/spool/asterisk/ -type f -name ${quotedPattern} -delete 2>/dev/null; then :; ` +
+        `else printf '__INDEXUS_RECORDING_CLEANUP_FAILED__'; fi; ` +
+        `if remaining=$(sudo -n find /var/spool/asterisk/ -type f -name ${quotedPattern} -print -quit 2>/dev/null); then :; ` +
+        `elif remaining=$(find /var/spool/asterisk/ -type f -name ${quotedPattern} -print -quit 2>/dev/null); then :; ` +
+        `else printf '__INDEXUS_RECORDING_CLEANUP_FAILED__'; remaining='unknown'; fi; ` +
+        `if [ -z "$remaining" ]; then printf '__INDEXUS_RECORDING_CLEAN__'; fi`;
+      const cleanupOutput = await runSshCommand(
+        active.sshHost, active.sshPort, active.sshUser, active.sshPass, cleanupCommand,
+      );
+      if (!cleanupOutput.includes("__INDEXUS_RECORDING_CLEAN__") ||
+          cleanupOutput.includes("__INDEXUS_RECORDING_CLEANUP_FAILED__")) {
+        throw new Error("Could not verify mediagtw recording cleanup");
+      }
+      mobileActiveRecordings.delete(callLogId);
+      shouldCleanup = false;
+    };
     try {
       const user = req.session.user!;
       const [callLog] = await db.select().from(callLogs).where(eq(callLogs.id, callLogId)).limit(1);
       if (!callLog) return res.status(404).json({ error: "Call log not found" });
       if (callLog.userId !== user.id) return res.status(403).json({ error: "Only the call owner can finalize recording" });
+      const [existingRecording] = await db.select().from(callRecordings).where(and(
+        eq(callRecordings.callLogId, callLogId),
+        eq(callRecordings.recordingMode, "agent_only"),
+      )).orderBy(desc(callRecordings.createdAt)).limit(1);
+      if (existingRecording) {
+        if (active?.kind === "web_agent_only") {
+          if (!active.sipCallId || callLog.sipCallId !== active.sipCallId) {
+            return res.status(409).json({ error: "The active recording is not bound to this call log" });
+          }
+          shouldCleanup = true;
+          await cleanupActiveRemoteRecording();
+        }
+        return res.status(200).json(existingRecording);
+      }
       if (!active || active.kind !== "web_agent_only" || !active.recordingPolicySnapshot) {
         return res.status(404).json({ error: "No trusted agent-only recording is active" });
       }
@@ -34259,10 +34465,14 @@ Respond ONLY with valid JSON in this exact format:
         return res.status(409).json({ error: "The active recording is not bound to this call log" });
       }
       shouldCleanup = true;
+      await stopActiveRemoteRecording();
 
       let rawSegments: unknown = req.body?.customerActivitySegments ?? req.body?.vadSegments ?? [];
       if (typeof rawSegments === "string") rawSegments = JSON.parse(rawSegments);
-      if (!Array.isArray(rawSegments)) return res.status(400).json({ error: "Invalid VAD activity segments" });
+      if (!Array.isArray(rawSegments)) {
+        await cleanupActiveRemoteRecording();
+        return res.status(400).json({ error: "Invalid VAD activity segments" });
+      }
       const maxMs = callLog.durationSeconds && callLog.durationSeconds > 0
         ? callLog.durationSeconds * 1000 + 5000 : Number.MAX_SAFE_INTEGER;
       const segments = rawSegments.map((item: any) => {
@@ -34280,55 +34490,102 @@ Respond ONLY with valid JSON in this exact format:
         if (attempt) await new Promise(resolve => setTimeout(resolve, 1500));
         try {
           downloaded = await downloadFileViaSsh(
-            active.sshHost, active.sshPort, active.sshUser, active.sshPass, active.amiFilePath,
+            active.sshHost, active.sshPort, active.sshUser, active.sshPass,
+            `${active.amiFilePath}.wav`, { exactPath: true },
           );
-          if (downloaded?.buffer?.length >= 100) break;
+          if (downloaded?.buffer?.length >= 100 &&
+              downloaded.foundPath === `${active.amiFilePath}.wav`) break;
         } catch {}
       }
-      if (!downloaded?.buffer || downloaded.buffer.length < 100) {
+      if (!downloaded?.buffer || downloaded.buffer.length < 100 ||
+          downloaded.foundPath !== `${active.amiFilePath}.wav`) {
+        const concurrentRecording = await db.transaction(async tx => {
+          await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${callLog.id}))`);
+          const [recording] = await tx.select().from(callRecordings).where(and(
+            eq(callRecordings.callLogId, callLog.id),
+            eq(callRecordings.recordingMode, "agent_only"),
+          )).orderBy(desc(callRecordings.createdAt)).limit(1);
+          return recording || null;
+        });
+        await cleanupActiveRemoteRecording();
+        if (concurrentRecording) return res.status(200).json(concurrentRecording);
         return res.status(422).json({ error: "Directional agent recording is empty" });
       }
-      const filename = `agent_${new Date().toISOString().replace(/[:.]/g, "-")}_${callLog.id.substring(0, 8)}.wav`;
-      const filePath = path.join(STORAGE_PATHS.callRecordings, filename);
-      fs.mkdirSync(STORAGE_PATHS.callRecordings, { recursive: true });
-      fs.writeFileSync(filePath, downloaded.buffer);
-      const [recording] = await db.insert(callRecordings).values({
-        callLogId: callLog.id,
-        userId: callLog.userId,
-        customerId: callLog.customerId || null,
-        campaignId: callLog.campaignId,
-        filename,
-        filePath,
-        mimeType: "audio/wav",
-        fileSizeBytes: downloaded.buffer.length,
-        durationSeconds: callLog.durationSeconds || null,
-        phoneNumber: callLog.phoneNumber,
-        direction: callLog.direction,
-        analysisStatus: "pending",
-        recordingMode: "agent_only",
-        recordingPolicySnapshot: active.recordingPolicySnapshot,
-        customerActivitySegments: segments,
-      }).returning();
-      mobileActiveRecordings.delete(callLogId);
-      if (process.env.OPENAI_API_KEY) {
-        processCallRecordingAnalysis(recording.id, filePath).catch(error =>
+      const persistence = await db.transaction(async tx => {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${callLog.id}))`);
+        const [concurrentRecording] = await tx.select().from(callRecordings).where(and(
+          eq(callRecordings.callLogId, callLog.id),
+          eq(callRecordings.recordingMode, "agent_only"),
+        )).orderBy(desc(callRecordings.createdAt)).limit(1);
+        if (concurrentRecording) return { recording: concurrentRecording, inserted: false };
+        const filename =
+          `agent_${new Date().toISOString().replace(/[:.]/g, "-")}_${callLog.id.substring(0, 8)}_${crypto.randomUUID()}.wav`;
+        const filePath = path.join(STORAGE_PATHS.callRecordings, filename);
+        fs.mkdirSync(STORAGE_PATHS.callRecordings, { recursive: true });
+        unpersistedLocalFilePath = filePath;
+        fs.writeFileSync(filePath, downloaded.buffer);
+        const [recording] = await tx.insert(callRecordings).values({
+          callLogId: callLog.id,
+          userId: callLog.userId,
+          customerId: callLog.customerId || null,
+          campaignId: callLog.campaignId,
+          filename,
+          filePath,
+          mimeType: "audio/wav",
+          fileSizeBytes: downloaded.buffer.length,
+          durationSeconds: callLog.durationSeconds || null,
+          phoneNumber: callLog.phoneNumber,
+          direction: callLog.direction,
+          analysisStatus: "pending",
+          recordingMode: "agent_only",
+          recordingPolicySnapshot: active.recordingPolicySnapshot,
+          customerActivitySegments: segments,
+        }).onConflictDoNothing().returning();
+        if (!recording) {
+          fs.rmSync(filePath, { force: true });
+          unpersistedLocalFilePath = null;
+          const [winner] = await tx.select().from(callRecordings).where(and(
+            eq(callRecordings.callLogId, callLog.id),
+            eq(callRecordings.recordingMode, "agent_only"),
+          )).orderBy(desc(callRecordings.createdAt)).limit(1);
+          if (!winner) throw new Error("Agent-only recording uniqueness conflict could not be recovered");
+          return { recording: winner, inserted: false };
+        }
+        return { recording, inserted: true };
+      });
+      if (persistence.inserted) unpersistedLocalFilePath = null;
+      persistedRecording = persistence.recording;
+      persistedRecordingNeedsAnalysis = persistence.inserted;
+      await cleanupActiveRemoteRecording();
+      if (persistence.inserted && process.env.OPENAI_API_KEY) {
+        processCallRecordingAnalysis(persistence.recording.id, persistence.recording.filePath).catch(error =>
           console.error("[AgentOnlyRecording] Analysis failed:", error));
       }
-      res.status(201).json(recording);
+      res.status(persistence.inserted ? 201 : 200).json(persistence.recording);
     } catch (error: any) {
       console.error("[AgentOnlyRecording] Finalize failed:", error);
-      res.status(error?.message?.startsWith("Invalid VAD") ? 400 : 500)
-        .json({ error: error.message || "Failed to finalize agent-only recording" });
-    } finally {
-      if (shouldCleanup && active?.kind === "web_agent_only") {
-        mobileActiveRecordings.delete(callLogId);
-        try {
-          const quotedPattern = shellQuote(`${active.recordingName}_agent*`);
-          await runSshCommand(active.sshHost, active.sshPort, active.sshUser, active.sshPass,
-            `sudo -n find /var/spool/asterisk/ -type f -name ${quotedPattern} -delete 2>/dev/null ` +
-            `|| find /var/spool/asterisk/ -type f -name ${quotedPattern} -delete 2>/dev/null || true`);
-        } catch {}
+      if (unpersistedLocalFilePath) {
+        try { fs.rmSync(unpersistedLocalFilePath, { force: true }); } catch {}
+        unpersistedLocalFilePath = null;
       }
+      let responseError = error;
+      if (shouldCleanup) {
+        try {
+          await cleanupActiveRemoteRecording();
+        } catch (cleanupError: any) {
+          console.error("[AgentOnlyRecording] Verified cleanup failed:", cleanupError);
+          responseError = cleanupError;
+        }
+      }
+      if (persistedRecording && !shouldCleanup) {
+        if (persistedRecordingNeedsAnalysis && process.env.OPENAI_API_KEY) {
+          processCallRecordingAnalysis(persistedRecording.id, persistedRecording.filePath).catch(analysisError =>
+            console.error("[AgentOnlyRecording] Analysis failed:", analysisError));
+        }
+        return res.status(201).json(persistedRecording);
+      }
+      res.status(responseError?.message?.startsWith("Invalid VAD") ? 400 : 500)
+        .json({ error: responseError.message || "Failed to finalize agent-only recording" });
     }
   });
 

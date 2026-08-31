@@ -412,6 +412,43 @@ app.use((req, res, next) => {
     console.error('[migration] Error:', e.message);
   }
 
+  // Agent-only recordings must be unique per call log across every writer.
+  // This migration is intentionally fatal: starting the API without the
+  // invariant would permit duplicate files and ambiguous communication history.
+  const duplicateAgentOnlyRecordings = await pool.query(`
+    SELECT call_log_id, count(*)::integer AS count
+    FROM call_recordings
+    WHERE recording_mode = 'agent_only'
+    GROUP BY call_log_id
+    HAVING count(*) > 1
+    LIMIT 10
+  `);
+  if (duplicateAgentOnlyRecordings.rows.length > 0) {
+    throw new Error(
+      `[migration] Refusing startup: duplicate agent-only recordings exist for ${duplicateAgentOnlyRecordings.rows.length} call log(s)`,
+    );
+  }
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_call_recordings_agent_only_call_log
+      ON call_recordings (call_log_id)
+      WHERE recording_mode = 'agent_only'
+  `);
+  const agentOnlyIndex = await pool.query(`
+    SELECT i.indisunique, pg_get_indexdef(i.indexrelid) AS definition
+    FROM pg_index i
+    JOIN pg_class c ON c.oid = i.indexrelid
+    WHERE c.relname = 'uq_call_recordings_agent_only_call_log'
+      AND c.relnamespace = current_schema()::regnamespace
+    LIMIT 1
+  `);
+  const agentOnlyIndexDefinition = String(agentOnlyIndex.rows[0]?.definition || "");
+  if (agentOnlyIndex.rows[0]?.indisunique !== true ||
+      !agentOnlyIndexDefinition.includes("(call_log_id)") ||
+      !agentOnlyIndexDefinition.includes("recording_mode")) {
+    throw new Error("[migration] Agent-only recording unique index verification failed");
+  }
+  console.log("[migration] Agent-only recording uniqueness verified");
+
   // contact_field_snapshots — delta tracking for field_changed_to automation conditions
   try {
     await pool.query(`
