@@ -1,0 +1,120 @@
+[apiRequest] Response status: 200 index-DT5AyX_J.js:9:99963
+[SIP] Periodic re-registration... index-DT5AyX_J.js:56:201
+Tue Sep 01 2026 10:58:51 GMT+0200 (stredoeurópsky letný čas) | sip.Registerer | Waiting toggled to true index-DT5AyX_J.js:87:61619
+Tue Sep 01 2026 10:58:51 GMT+0200 (stredoeurópsky letný čas) | sip.Registerer | Waiting toggled to false index-DT5AyX_J.js:87:61619
+[apiRequest] GET /api/agent/bo-questions no data index-DT5AyX_J.js:9:99686
+[apiRequest] Body length: 0 index-DT5AyX_J.js:9:99787
+[apiRequest] Response status: 200 index-DT5AyX_J.js:9:99963
+[apiRequest] PATCH /api/agent-sessions/856fd3ea-e6bd-4693-905e-9417d3c7a3f0/status with data index-DT5AyX_J.js:9:99686
+[apiRequest] Body length: 17 index-DT5AyX_J.js:9:99787
+[apiRequest] Response status: 200 index-DT5AyX_J.js:9:99963
+[SIP] ensureRegistered: already registered and connected index-DT5AyX_J.js:56:5246
+[apiRequest] POST /api/call-logs with data index-DT5AyX_J.js:9:99686
+[apiRequest] Body length: 739 index-DT5AyX_J.js:9:99787
+[apiRequest] Response status: 201 index-DT5AyX_J.js:9:99963
+[SIP] makeCall → raw="+421948519438" cleaned="+421948519438" realm="asterisk" index-DT5AyX_J.js:130:29354
+[SIP] Caller ID check: campaign="+421940682394", collaborator="", effective="+421940682394" index-DT5AyX_J.js:130:30216
+[SIP] Failed to set outbound caller ID: Error: Failed to set outbound caller ID
+    Is https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:130
+index-DT5AyX_J.js:130:30896
+[SIP] Call error: Failed to set outbound caller ID Error: Failed to set outbound caller ID
+    Is https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:130
+index-DT5AyX_J.js:130:34323
+[apiRequest] PATCH /api/call-logs/34872c46-f7d8-4035-ac28-3ce02c6c98d8 with data index-DT5AyX_J.js:9:99686
+[apiRequest] Body length: 56 index-DT5AyX_J.js:9:99787
+[apiRequest] Response status: 200 index-DT5AyX_J.js:9:99963
+[SIP] Periodic re-registration... index-DT5AyX_J.js:56:201
+Tue Sep 01 2026 10:59:21 GMT+0200 (stredoeurópsky letný čas) | sip.Registerer | Waiting toggled to true index-DT5AyX_J.js:87:61619
+Tue Sep 01 2026 10:59:21 GMT+0200 (stredoeurópsky letný čas) | sip.Registerer | Waiting toggled to false index-DT5AyX_J.js:87:61619
+[QuotaCheck] Response: {"quotas":null,"usage":null,"blocked":false} 2 index-DT5AyX_J.js:255:261493
+[SIP] Periodic re-registration... index-DT5AyX_J.js:56:201
+Tue Sep 01 2026 10:59:51 GMT+0200 (stredoeurópsky letný čas) | sip.Registerer | Waiting toggled to true index-DT5AyX_J.js:87:61619
+Tue Sep 01 2026 10:59:51 GMT+0200 (stredoeurópsky letný čas) | sip.Registerer | Waiting toggled to false index-DT5AyX_J.js:87:61619
+[SIP] Page visible - checking registration... index-DT5AyX_J.js:56:6298
+Tue Sep 01 2026 11:00:09 GMT+0200 (stredoeurópsky letný čas) | sip.Registerer | Waiting toggled to true index-DT5AyX_J.js:87:61619
+Tue Sep 01 2026 11:00:09 GMT+0200 (stredoeurópsky letný čas) | sip.Registerer | Waiting toggled to false index-DT5AyX_J.js:87:61619
+[apiRequest] GET /api/agent/bo-questions no data index-DT5AyX_J.js:9:99686
+[apiRequest] Body length: 0 index-DT5AyX_J.js:9:99787
+[apiRequest] Response status: 200 index-DT5AyX_J.js:9:99963
+[SIP] Periodic re-registration... index-DT5AyX_J.js:56:201
+Tue Sep 01 2026 11:00:21 GMT+0200 (stredoeurópsky letný čas) | sip.Registerer | Waiting toggled to true index-DT5AyX_J.js:87:61619
+Tue Sep 01 2026 11:00:21 GMT+0200 (stredoeurópsky letný čas) | sip.Registerer | Waiting toggled to false index-DT5AyX_J.js:87:61619
+XHR GET
+https://indexus.cordbloodcenter.com/api/agent/queue-status/a126578f-312f-4299-ba47-74957b719cb6
+[HTTP/2 404  31ms]
+XHR GET
+https://indexus.cordbloodcenter.com/api/agent/queue-status/a126578f-312f-4299-ba47-74957b719cb6
+[HTTP/2 404  198ms]
+[apiRequest] PATCH /api/agent-sessions/856fd3ea-e6bd-4693-905e-9417d3c7a3f0/status with data index-DT5AyX_J.js:9:99686
+[apiRequest] Body length: 17 index-DT5AyX_J.js:9:99787
+[apiRequest] Response status: 200 index-DT5AyX_J.js:9:99963
+[SIP] ensureRegistered: already registered and connected index-DT5AyX_J.js:56:5246
+[apiRequest] POST /api/call-logs with data index-DT5AyX_J.js:9:99686
+[apiRequest] Body length: 739 index-DT5AyX_J.js:9:99787
+[apiRequest] Response status: 201 index-DT5AyX_J.js:9:99963
+[SIP] makeCall → raw="+421948519438" cleaned="+421948519438" realm="asterisk" index-DT5AyX_J.js:130:29354
+[SIP] Caller ID check: campaign="+421940682394", collaborator="", effective="+421940682394" index-DT5AyX_J.js:130:30216
+XHR POST
+https://indexus.cordbloodcenter.com/api/sip/set-outbound-callerid
+[HTTP/2 500  31ms]
+[SIP] Failed to set outbound caller ID: Error: Failed to set outbound caller ID
+    Is https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:130
+    ROe https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:130
+    setTimeout handler*ROe/< https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:130
+    hw https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:9
+    Ex https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:9
+    Rre https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:9
+    Gu https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:7
+    sze https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:9
+    qg https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:9
+    Ere https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:9
+    j https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:2
+    E https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:2
+index-DT5AyX_J.js:130:30896
+[SIP] Call error: Failed to set outbound caller ID Error: Failed to set outbound caller ID
+    Is https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:130
+    ROe https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:130
+    setTimeout handler*ROe/< https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:130
+    hw https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:9
+    Ex https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:9
+    Rre https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:9
+    Gu https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:7
+    sze https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:9
+    qg https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:9
+    Ere https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:9
+    j https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:2
+    E https://indexus.cordbloodcenter.com/assets/index-DT5AyX_J.js:2
+index-DT5AyX_J.js:130:34323
+[apiRequest] GET /api/agent/bo-questions no data index-DT5AyX_J.js:9:99686
+[apiRequest] Body length: 0 index-DT5AyX_J.js:9:99787
+[apiRequest] Response status: 200 index-DT5AyX_J.js:9:99963
+[QuotaCheck] Response: {"quotas":null,"usage":null,"blocked":false} index-DT5AyX_J.js:255:261493
+XHR GET
+https://indexus.cordbloodcenter.com/api/agent/queue-status/a126578f-312f-4299-ba47-74957b719cb6
+[HTTP/2 404  29ms]
+XHR GET
+https://indexus.cordbloodcenter.com/api/agent/queue-status/a126578f-312f-4299-ba47-74957b719cb6
+[HTTP/2 404  33ms]
+XHR GET
+https://indexus.cordbloodcenter.com/api/agent/queue-status/a126578f-312f-4299-ba47-74957b719cb6
+[HTTP/2 404  32ms]
+XHR GET
+https://indexus.cordbloodcenter.com/api/agent/queue-status/a126578f-312f-4299-ba47-74957b719cb6
+[HTTP/2 404  31ms]
+[apiRequest] GET /api/agent/bo-questions no data index-DT5AyX_J.js:9:99686
+[apiRequest] Body length: 0 index-DT5AyX_J.js:9:99787
+[apiRequest] Response status: 200 index-DT5AyX_J.js:9:99963
+[SIP] Periodic re-registration... index-DT5AyX_J.js:56:201
+Tue Sep 01 2026 11:00:51 GMT+0200 (stredoeurópsky letný čas) | sip.Registerer | Waiting toggled to true index-DT5AyX_J.js:87:61619
+Tue Sep 01 2026 11:00:51 GMT+0200 (stredoeurópsky letný čas) | sip.Registerer | Waiting toggled to false index-DT5AyX_J.js:87:61619
+XHR GET
+https://indexus.cordbloodcenter.com/api/agent/queue-status/a126578f-312f-4299-ba47-74957b719cb6
+[HTTP/2 404  34ms]
+XHR GET
+https://indexus.cordbloodcenter.com/api/agent/queue-status/a126578f-312f-4299-ba47-74957b719cb6
+[HTTP/2 404  36ms]
+XHR GET
+https://indexus.cordbloodcenter.com/api/agent/queue-status/a126578f-312f-4299-ba47-74957b719cb6
+[HTTP/2 404  30ms]
+ 
+​
