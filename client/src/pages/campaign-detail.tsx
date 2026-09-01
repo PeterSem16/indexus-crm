@@ -450,7 +450,9 @@ function CampaignDetailsCard({ campaign }: { campaign: Campaign }) {
 
   const currentRouting = getMissionCountryOutboundRouting(campaign.settings, "SK");
   const currentRecordingPolicy = getMissionRecordingPolicy(campaign.settings);
-  const recordingEndDateValid = editCallRecordingValidity !== "custom" || !!bratislavaEndOfDayToIso(editCallRecordingEndDate);
+  const recordingEndDateValid = !editCallRecordingEnabled
+    || editCallRecordingValidity !== "custom"
+    || !!bratislavaEndOfDayToIso(editCallRecordingEndDate);
   const recordingHasChanges = editCallRecordingEnabled !== currentRecordingPolicy.enabled
     || editCallRecordingValidity !== recordingPresetFor(currentRecordingPolicy)
     || (editCallRecordingValidity === "custom" && editCallRecordingEndDate !== formatBratislavaDate(currentRecordingPolicy.activeUntil))
@@ -486,14 +488,14 @@ function CampaignDetailsCard({ campaign }: { campaign: Campaign }) {
       const nextSettings = { ...currentSettings };
       if (recordingHasChanges) {
         const now = new Date();
-        const activeUntil = editCallRecordingValidity === "unlimited"
+        const activeUntil = !editCallRecordingEnabled || editCallRecordingValidity === "unlimited"
           ? null
           : editCallRecordingValidity === "custom"
             ? bratislavaEndOfDayToIso(editCallRecordingEndDate)
             : bratislavaEndOfDayToIso(
                 editCallRecordingValidity === "week" ? bratislavaDateAfterDays(7) : bratislavaDateAfterMonth()
               );
-        if (editCallRecordingValidity === "custom" && !activeUntil) {
+        if (editCallRecordingEnabled && editCallRecordingValidity === "custom" && !activeUntil) {
           toast({ title: t.campaigns.detail.callRecordingEndDateRequired, variant: "destructive" });
           return;
         }
@@ -642,42 +644,67 @@ function CampaignDetailsCard({ campaign }: { campaign: Campaign }) {
             <p className="text-xs text-muted-foreground">{t.campaigns.callerIdHelp}</p>
           </div>
         </div>
-        <div className="rounded-lg border p-4 space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <Label className="text-sm font-medium">{t.campaigns.detail.callRecordingTitle}</Label>
-              <p className="text-xs text-muted-foreground">{t.campaigns.detail.callRecordingDesc}</p>
+        <div className={`rounded-xl border-2 p-4 space-y-4 transition-colors ${
+          editCallRecordingEnabled
+            ? "border-emerald-500/60 bg-emerald-500/5"
+            : "border-border bg-muted/20"
+        }`}>
+          <label htmlFor="call-recording-enabled" className="flex items-center justify-between gap-4 cursor-pointer">
+            <div className="flex items-center gap-3">
+              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                editCallRecordingEnabled
+                  ? "bg-emerald-500 text-white"
+                  : "bg-muted text-muted-foreground"
+              }`}>
+                {editCallRecordingEnabled
+                  ? <Volume2 className="h-5 w-5" />
+                  : <VolumeX className="h-5 w-5" />}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-semibold cursor-pointer">{t.campaigns.detail.callRecordingTitle}</Label>
+                  <Badge variant={editCallRecordingEnabled ? "default" : "secondary"} className={editCallRecordingEnabled ? "bg-emerald-600 hover:bg-emerald-600" : ""}>
+                    {editCallRecordingEnabled ? t.common.active : t.common.inactive}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">{t.campaigns.detail.callRecordingDesc}</p>
+              </div>
             </div>
             <Switch
+              id="call-recording-enabled"
               checked={editCallRecordingEnabled}
               onCheckedChange={setEditCallRecordingEnabled}
+              className="scale-125 data-[state=checked]:bg-emerald-600"
               data-testid="switch-call-recording-enabled"
             />
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>{t.campaigns.detail.callRecordingValidity}</Label>
-              <Select value={editCallRecordingValidity} onValueChange={(value: RecordingValidityPreset) => setEditCallRecordingValidity(value)}>
-                <SelectTrigger data-testid="select-call-recording-validity"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="unlimited">{t.campaigns.detail.callRecordingUnlimited}</SelectItem>
-                  <SelectItem value="week">{t.campaigns.detail.callRecordingWeek}</SelectItem>
-                  <SelectItem value="month">{t.campaigns.detail.callRecordingMonth}</SelectItem>
-                  <SelectItem value="custom">{t.campaigns.detail.callRecordingCustom}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>{t.campaigns.detail.callRecordingMode}</Label>
-              <Select value={editCallRecordingMode} onValueChange={(value: MissionRecordingMode) => setEditCallRecordingMode(value)}>
-                <SelectTrigger data-testid="select-call-recording-mode"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="both">{t.campaigns.detail.callRecordingBoth}</SelectItem>
-                  <SelectItem value="agent_only">{t.campaigns.detail.callRecordingAgentOnly}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {editCallRecordingValidity === "custom" && (
+          </label>
+          {editCallRecordingEnabled && (
+            <div className="border-t border-emerald-500/20 pt-4 space-y-4" data-testid="call-recording-options">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>{t.campaigns.detail.callRecordingValidity}</Label>
+                  <Select value={editCallRecordingValidity} onValueChange={(value: RecordingValidityPreset) => setEditCallRecordingValidity(value)}>
+                    <SelectTrigger data-testid="select-call-recording-validity"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unlimited">{t.campaigns.detail.callRecordingUnlimited}</SelectItem>
+                      <SelectItem value="week">{t.campaigns.detail.callRecordingWeek}</SelectItem>
+                      <SelectItem value="month">{t.campaigns.detail.callRecordingMonth}</SelectItem>
+                      <SelectItem value="custom">{t.campaigns.detail.callRecordingCustom}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t.campaigns.detail.callRecordingMode}</Label>
+                  <Select value={editCallRecordingMode} onValueChange={(value: MissionRecordingMode) => setEditCallRecordingMode(value)}>
+                    <SelectTrigger data-testid="select-call-recording-mode"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="both">{t.campaigns.detail.callRecordingBoth}</SelectItem>
+                      <SelectItem value="agent_only">{t.campaigns.detail.callRecordingAgentOnly}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              {editCallRecordingValidity === "custom" && (
               <div className="space-y-2">
                 <Label>{t.campaigns.detail.callRecordingEndDate}</Label>
                 <Input
@@ -689,9 +716,10 @@ function CampaignDetailsCard({ campaign }: { campaign: Campaign }) {
                 />
                 {!recordingEndDateValid && <p className="text-xs text-destructive">{t.campaigns.detail.callRecordingEndDateRequired}</p>}
               </div>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground">{t.campaigns.detail.callRecordingTimezone}</p>
+              )}
+              <p className="text-xs text-muted-foreground">{t.campaigns.detail.callRecordingTimezone}</p>
+            </div>
+          )}
         </div>
         <div className="rounded-lg border p-4 space-y-4">
           <div>
@@ -2371,7 +2399,19 @@ function DefaultTemplatesCard({ campaign }: { campaign: Campaign }) {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid gap-6 lg:grid-cols-2 items-start">
+        <Tabs defaultValue="templates">
+          <TabsList className="mb-5">
+            <TabsTrigger value="templates" data-testid="tab-default-message-templates">
+              <FileEdit className="h-4 w-4 mr-2" />
+              {t.campaigns.detail.defaultTemplatesTitle}
+            </TabsTrigger>
+            <TabsTrigger value="reply-signature" data-testid="tab-reply-email-signature">
+              <FileSignature className="h-4 w-4 mr-2" />
+              {t.campaigns.detail.replyEmailSignatureTitle}
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="templates" className="mt-0">
+            <div className="grid gap-6 lg:grid-cols-2 items-start">
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Mail className="h-4 w-4 text-blue-500" />
@@ -2458,8 +2498,10 @@ function DefaultTemplatesCard({ campaign }: { campaign: Campaign }) {
             </div>
           </div>
         </div>
-        </div>
-        <div className="mt-6 space-y-2">
+            </div>
+          </TabsContent>
+          <TabsContent value="reply-signature" className="mt-0">
+            <div className="space-y-2">
           <Label className="text-sm font-medium flex items-center gap-2">
             <Mail className="h-4 w-4 text-blue-500" />
             {t.campaigns.detail.replyEmailSignatureTitle}
@@ -2485,7 +2527,9 @@ function DefaultTemplatesCard({ campaign }: { campaign: Campaign }) {
               </div>
             </div>
           </div>
-        </div>
+            </div>
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );

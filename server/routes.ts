@@ -91,6 +91,7 @@ import {
   validateMissionRecordingSettings,
   type MissionCallRecordingSnapshot,
 } from "@shared/mission-recording";
+import { cloneCampaignWithConfiguration } from "./lib/clone-campaign";
 import session from "express-session";
 import pgSession from "connect-pg-simple";
 import PDFDocument from "pdfkit";
@@ -29101,22 +29102,17 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   // Clone campaign endpoint
   app.post("/api/campaigns/:id/clone", requireAuth, async (req, res) => {
     try {
-      const sourceCampaign = await storage.getCampaign(req.params.id);
-      if (!sourceCampaign) {
+      if (!["admin", "manager"].includes(req.session.user!.role)) {
+        return res.status(403).json({ error: "Only managers can clone Missions" });
+      }
+      const clonedCampaign = await cloneCampaignWithConfiguration(
+        req.params.id,
+        req.session.user!.id,
+        typeof req.body?.name === "string" ? req.body.name : undefined,
+      );
+      if (!clonedCampaign) {
         return res.status(404).json({ error: "Campaign not found" });
       }
-
-      const { name } = req.body;
-      const clonedCampaign = await storage.createCampaign({
-        name: name || `${sourceCampaign.name} (kópia)`,
-        description: sourceCampaign.description,
-        type: sourceCampaign.type as any,
-        status: "draft",
-        countryCodes: sourceCampaign.countryCodes || [],
-        criteria: sourceCampaign.criteria,
-        settings: sourceCampaign.settings,
-        createdBy: req.session.user!.id,
-      });
 
       res.status(201).json(clonedCampaign);
     } catch (error) {
