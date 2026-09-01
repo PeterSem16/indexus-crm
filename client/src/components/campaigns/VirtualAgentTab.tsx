@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
-import { Bot, Plus, Pencil, Trash2, Phone, Clock, MessageSquare, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Loader2, Volume2, Settings, Cpu, Info, Zap, Mic, Globe, RefreshCw, ExternalLink } from "lucide-react";
+import { Bot, Plus, Pencil, Trash2, Phone, Clock, MessageSquare, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Loader2, Volume2, Settings, Cpu, Info, Zap, Mic, Globe, RefreshCw, ExternalLink, BrainCircuit, AudioLines, Route, Headphones, Timer, BookOpen } from "lucide-react";
 import { format } from "date-fns";
 import type { VirtualAgentConfig, VirtualAgentConversation } from "@shared/schema";
 
@@ -203,11 +203,34 @@ export function VirtualAgentTab() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex gap-2">
+    <div className="space-y-5">
+      <div className="relative overflow-hidden rounded-2xl border border-teal-200/80 bg-gradient-to-br from-teal-50 via-background to-rose-50 p-5 shadow-sm dark:border-teal-900/50 dark:from-teal-950/25 dark:to-rose-950/15">
+        <div className="pointer-events-none absolute -bottom-16 -right-8 h-40 w-40 rounded-full bg-teal-300/20 blur-3xl" />
+        <div className="relative flex items-start justify-between gap-4 flex-wrap">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-teal-500/15 text-teal-700 dark:text-teal-300"><BrainCircuit className="h-5 w-5" /></div>
+            <div>
+              <p className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-teal-700/80 dark:text-teal-300/80"><AudioLines className="h-3 w-3" /> voice intelligence</p>
+              <h3 className="text-xl font-semibold tracking-tight">Virtual agent operations</h3>
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">Configure how your AI answers inbound calls, then review every conversation.</p>
+            </div>
+          </div>
+          {activeView === "configs" && (
+            <Button onClick={() => { resetForm(); setEditingConfig(null); setIsDialogOpen(true); }} className="shrink-0 bg-teal-600 text-white shadow-sm hover:bg-teal-700" data-testid="btn-add-va-config">
+              <Plus className="h-4 w-4 mr-2" /> Nová konfigurácia
+            </Button>
+          )}
+        </div>
+        <div className="relative mt-4 flex flex-wrap gap-2">
+          <Badge variant="outline" className="border-teal-200 bg-background/70 px-3 py-1 text-teal-800 dark:border-teal-800 dark:text-teal-200"><Bot className="mr-1.5 h-3.5 w-3.5" /> {configs.length} agentov</Badge>
+          <Badge variant="outline" className="border-rose-200 bg-background/70 px-3 py-1 text-rose-800 dark:border-rose-800 dark:text-rose-200"><MessageSquare className="mr-1.5 h-3.5 w-3.5" /> {conversations.length} konverzácií</Badge>
+        </div>
+      </div>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex gap-2 rounded-xl bg-muted/50 p-1">
           <Button
-            variant={activeView === "configs" ? "default" : "outline"}
+            variant={activeView === "configs" ? "default" : "ghost"}
+            className={activeView === "configs" ? "bg-teal-600 hover:bg-teal-700" : ""}
             onClick={() => setActiveView("configs")}
             data-testid="btn-va-configs"
           >
@@ -215,7 +238,8 @@ export function VirtualAgentTab() {
             Konfigurácie ({configs.length})
           </Button>
           <Button
-            variant={activeView === "conversations" ? "default" : "outline"}
+            variant={activeView === "conversations" ? "default" : "ghost"}
+            className={activeView === "conversations" ? "bg-rose-600 hover:bg-rose-700" : ""}
             onClick={() => setActiveView("conversations")}
             data-testid="btn-va-conversations"
           >
@@ -223,12 +247,6 @@ export function VirtualAgentTab() {
             Konverzácie ({conversations.length})
           </Button>
         </div>
-        {activeView === "configs" && (
-          <Button onClick={() => { resetForm(); setEditingConfig(null); setIsDialogOpen(true); }} data-testid="btn-add-va-config">
-            <Plus className="h-4 w-4 mr-2" />
-            Nová konfigurácia
-          </Button>
-        )}
       </div>
 
       {activeView === "configs" && (
@@ -236,10 +254,10 @@ export function VirtualAgentTab() {
           {configsLoading && <Loader2 className="h-6 w-6 animate-spin" />}
           {configs.map((config) => (
             <Card key={config.id} data-testid={`card-va-config-${config.id}`}>
-              <CardHeader className="pb-3">
+              <CardHeader className="border-b border-teal-200/50 bg-teal-50/30 pb-3 dark:border-teal-900/40 dark:bg-teal-950/15">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Bot className="h-4 w-4" />
+                    <Bot className="h-4 w-4 text-teal-600" />
                     {config.name}
                   </CardTitle>
                   <Badge variant={config.isActive ? "default" : "secondary"}>
@@ -247,7 +265,7 @@ export function VirtualAgentTab() {
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-3 pt-4">
                 <div className="flex flex-wrap gap-2 text-xs">
                   <Badge variant="outline" className="gap-1">
                     <Volume2 className="h-3 w-3" />
@@ -257,7 +275,7 @@ export function VirtualAgentTab() {
                     {LANGUAGES.find(l => l.value === config.language)?.label || config.language}
                   </Badge>
                   <Badge variant="outline" className="gap-1">
-                    <Cpu className="h-3 w-3" />
+                    <BrainCircuit className="h-3 w-3" />
                     {(config as any).gptModel || "gpt-4o-mini"}
                   </Badge>
                   <Badge variant="outline">
@@ -299,10 +317,10 @@ export function VirtualAgentTab() {
           {conversationsLoading && <Loader2 className="h-6 w-6 animate-spin" />}
           {conversations.map((conv) => (
             <Card key={conv.id} data-testid={`card-va-conv-${conv.id}`}>
-              <CardContent className="p-4">
+              <CardContent className="border-l-4 border-rose-300 p-4 dark:border-rose-800">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-3">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <Headphones className="h-4 w-4 text-rose-600" />
                     <span className="font-mono text-sm font-medium">{conv.callerNumber}</span>
                     {conv.callerName && <span className="text-sm text-muted-foreground">({conv.callerName})</span>}
                   </div>
@@ -323,8 +341,8 @@ export function VirtualAgentTab() {
                     <Clock className="h-3 w-3" />
                     {conv.createdAt ? format(new Date(conv.createdAt), "dd.MM.yyyy HH:mm") : "—"}
                   </span>
-                  <span>{conv.durationSeconds}s</span>
-                  <span>{conv.turns} výmen</span>
+                  <span className="flex items-center gap-1"><Timer className="h-3 w-3" />{conv.durationSeconds}s</span>
+                  <span className="flex items-center gap-1"><Route className="h-3 w-3" />{conv.turns} výmen</span>
                   <Badge variant={conv.status === "completed" ? "default" : "secondary"} className="text-[10px]">
                     {conv.status === "completed" ? "Dokončená" : conv.status === "active" ? "Aktívna" : conv.status}
                   </Badge>
@@ -391,8 +409,8 @@ export function VirtualAgentTab() {
         setIsDialogOpen(open);
         if (!open) { setEditingConfig(null); resetForm(); }
       }}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-h-[92vh] overflow-y-auto rounded-2xl border-teal-200/80 p-0 shadow-2xl dark:border-teal-900/60 sm:max-w-3xl">
+          <DialogHeader className="border-b border-teal-200/60 bg-gradient-to-r from-teal-50 via-background to-rose-50 px-6 py-5 dark:border-teal-900/40 dark:from-teal-950/30 dark:to-rose-950/15">
             <DialogTitle className="flex items-center gap-2">
               <Bot className="h-5 w-5" />
               {editingConfig ? "Upraviť konfiguráciu" : "Nová konfigurácia virtuálneho agenta"}
@@ -402,28 +420,28 @@ export function VirtualAgentTab() {
             </DialogDescription>
           </DialogHeader>
 
-          <Tabs value={dialogTab} onValueChange={setDialogTab}>
-            <TabsList className="w-full grid grid-cols-4">
+          <Tabs value={dialogTab} onValueChange={setDialogTab} className="px-6 py-5">
+            <TabsList className="h-auto w-full grid grid-cols-2 gap-1 bg-teal-50/70 p-1 sm:grid-cols-4 dark:bg-teal-950/20">
               <TabsTrigger value="general" className="gap-1.5" data-testid="tab-va-general">
                 <Settings className="h-3.5 w-3.5" />
                 Základné
               </TabsTrigger>
               <TabsTrigger value="voice" className="gap-1.5" data-testid="tab-va-voice">
-                <Volume2 className="h-3.5 w-3.5" />
+                <Volume2 className="h-3.5 w-3.5 text-rose-600" />
                 Hlas a reč
               </TabsTrigger>
               <TabsTrigger value="ai" className="gap-1.5" data-testid="tab-va-ai">
-                <Cpu className="h-3.5 w-3.5" />
+                <BrainCircuit className="h-3.5 w-3.5 text-teal-600" />
                 AI Model
               </TabsTrigger>
               <TabsTrigger value="knowledge" className="gap-1.5" data-testid="tab-va-knowledge">
-                <Globe className="h-3.5 w-3.5" />
+                <BookOpen className="h-3.5 w-3.5 text-amber-600" />
                 Znalosti
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="general" className="space-y-4 mt-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label>Názov konfigurácie</Label>
                   <Input

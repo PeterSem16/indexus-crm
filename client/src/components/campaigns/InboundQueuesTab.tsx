@@ -53,6 +53,7 @@ import {
   Mail,
   Sparkles,
   CheckCircle2,
+  Route as RouteIcon,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -189,6 +190,8 @@ interface FormData {
   noAgentsVoicemailBoxId: string | null;
   noAgentsUserId: string | null;
   noAgentsIvrMenuId: string | null;
+  noAgentsVirtualAgentId: string | null;
+  overflowVirtualAgentId: string | null;
   emailEnabled: boolean;
   emailAccountId: string | null;
   smsEnabled: boolean;
@@ -570,8 +573,8 @@ export function InboundQueuesTab() {
             {queues.map((queue) => (
               <Card key={queue.id} className={`overflow-hidden border-sky-200/70 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-sky-900/50 ${!queue.isActive ? "opacity-60" : ""}`}>
                 <CardHeader className="border-b border-sky-200/50 bg-sky-50/35 pb-3 dark:border-sky-900/40 dark:bg-sky-950/15">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex min-w-0 items-start gap-3">
                       <div className="rounded-2xl bg-sky-500/15 p-2.5 text-sky-700 dark:text-sky-300">
                         <PhoneIncoming className="h-5 w-5" />
                       </div>
@@ -610,7 +613,7 @@ export function InboundQueuesTab() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3 lg:justify-end">
                         <div className="flex items-center gap-2 text-sm">
                           <div className="min-w-[3.5rem] rounded-xl bg-orange-50/80 px-2 py-1.5 text-center dark:bg-orange-950/20">
                           <div className="font-semibold text-orange-600" data-testid={`text-waiting-${queue.id}`}>
@@ -631,7 +634,7 @@ export function InboundQueuesTab() {
                           <div className="text-xs text-muted-foreground">{iq.agents}</div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 self-end lg:self-auto">
                         <Button variant="ghost" size="icon" onClick={() => openEdit(queue)} data-testid={`btn-edit-queue-${queue.id}`}>
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -678,15 +681,19 @@ export function InboundQueuesTab() {
              <Tabs value={formTab} onValueChange={setFormTab} className="w-full bg-background px-6 py-5">
                <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto bg-sky-50/70 p-1 dark:bg-sky-950/20">
                 <TabsTrigger value="general" data-testid="tab-queue-general">
+                   <Users className="mr-1.5 h-3.5 w-3.5" />
                   {tx.tabGeneral}
                 </TabsTrigger>
                 <TabsTrigger value="audio" data-testid="tab-queue-audio">
+                   <Volume2 className="mr-1.5 h-3.5 w-3.5" />
                   {tx.tabAudio}
                 </TabsTrigger>
                 <TabsTrigger value="overflow" data-testid="tab-queue-overflow">
+                   <RouteIcon className="mr-1.5 h-3.5 w-3.5" />
                   {tx.tabOverflow}
                 </TabsTrigger>
                 <TabsTrigger value="hours" data-testid="tab-queue-hours">
+                   <Clock className="mr-1.5 h-3.5 w-3.5" />
                   {tx.tabHours}
                 </TabsTrigger>
               </TabsList>

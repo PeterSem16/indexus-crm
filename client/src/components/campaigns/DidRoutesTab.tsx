@@ -154,9 +154,13 @@ export function DidRoutesTab() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: Partial<DidRoute>) => apiRequest("POST", "/api/did-routes", data),
+    mutationFn: async (data: Partial<DidRoute>) => {
+      const response = await apiRequest("POST", "/api/did-routes", data);
+      return response.json() as Promise<DidRoute>;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/did-routes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inbound-queues"] });
       setIsDialogOpen(false);
       toast({ title: dr.routeCreated || "DID route created" });
     },
@@ -166,9 +170,13 @@ export function DidRoutesTab() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<DidRoute> }) => apiRequest("PUT", `/api/did-routes/${id}`, data),
+    mutationFn: async ({ id, data }: { id: string; data: Partial<DidRoute> }) => {
+      const response = await apiRequest("PUT", `/api/did-routes/${id}`, data);
+      return response.json() as Promise<DidRoute>;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/did-routes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inbound-queues"] });
       setIsDialogOpen(false);
       setEditingRoute(null);
       toast({ title: dr.routeUpdated || "DID route updated" });
@@ -182,6 +190,7 @@ export function DidRoutesTab() {
     mutationFn: (id: string) => apiRequest("DELETE", `/api/did-routes/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/did-routes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inbound-queues"] });
       setDeleteConfirm(null);
       toast({ title: dr.routeDeleted || "DID route deleted" });
     },
@@ -219,6 +228,10 @@ export function DidRoutesTab() {
   const handleSave = () => {
     if (!form.didNumber?.trim()) {
       toast({ title: dr.error || "Error", description: dr.didNumberRequired || "DID number is required", variant: "destructive" });
+      return;
+    }
+    if (form.action === "inbound_queue" && !form.targetQueueId) {
+      toast({ title: dr.error || "Error", description: dr.selectQueue || "Select queue", variant: "destructive" });
       return;
     }
     if (editingRoute) {

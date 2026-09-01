@@ -18903,27 +18903,6 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
-  // GET /api/did-routes — list active DID routes for fallback selector
-  app.get("/api/did-routes", requireAuth, async (_req, res) => {
-    try {
-      const routes = await db
-        .select({
-          id: didRoutes.id,
-          didNumber: didRoutes.didNumber,
-          name: didRoutes.name,
-          countryCode: didRoutes.countryCode,
-          action: didRoutes.action,
-          isActive: didRoutes.isActive,
-        })
-        .from(didRoutes)
-        .orderBy(asc(didRoutes.countryCode), asc(didRoutes.didNumber));
-      res.json(routes);
-    } catch (error) {
-      console.error("Failed to fetch DID routes:", error);
-      res.status(500).json({ error: "Failed to fetch DID routes" });
-    }
-  });
-
   // Collaborator call forwarding
   app.get("/api/collaborators/:id/call-forwarding", requireAuth, async (req, res) => {
     try {

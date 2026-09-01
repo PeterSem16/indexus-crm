@@ -1987,6 +1987,21 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       if (!data.didNumber?.trim()) {
         return res.status(400).json({ error: "DID number is required" });
       }
+      if (data.action === "inbound_queue") {
+        if (!data.targetQueueId) {
+          return res.status(400).json({ error: "Target queue is required" });
+        }
+        const [targetQueue] = await db.select({ id: inboundQueues.id, isActive: inboundQueues.isActive })
+          .from(inboundQueues)
+          .where(eq(inboundQueues.id, data.targetQueueId))
+          .limit(1);
+        if (!targetQueue) {
+          return res.status(400).json({ error: "Selected target queue does not exist" });
+        }
+        if (!targetQueue.isActive) {
+          return res.status(400).json({ error: "Selected target queue is inactive" });
+        }
+      }
       const created = await db.insert(didRoutes).values(data).returning();
       if (created[0].action === "inbound_queue" && created[0].targetQueueId) {
         await db.update(inboundQueues)
@@ -2023,6 +2038,25 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         return res.status(400).json({ error: "Invalid action type" });
       }
       const [oldRoute] = await db.select().from(didRoutes).where(eq(didRoutes.id, req.params.id)).limit(1);
+      const effectiveAction = data.action ?? oldRoute?.action;
+      const effectiveTargetQueueId = data.targetQueueId !== undefined
+        ? data.targetQueueId
+        : oldRoute?.targetQueueId;
+      if (effectiveAction === "inbound_queue") {
+        if (!effectiveTargetQueueId) {
+          return res.status(400).json({ error: "Target queue is required" });
+        }
+        const [targetQueue] = await db.select({ id: inboundQueues.id, isActive: inboundQueues.isActive })
+          .from(inboundQueues)
+          .where(eq(inboundQueues.id, effectiveTargetQueueId))
+          .limit(1);
+        if (!targetQueue) {
+          return res.status(400).json({ error: "Selected target queue does not exist" });
+        }
+        if (!targetQueue.isActive) {
+          return res.status(400).json({ error: "Selected target queue is inactive" });
+        }
+      }
       const updated = await db.update(didRoutes)
         .set({ ...data, updatedAt: new Date() })
         .where(eq(didRoutes.id, req.params.id))

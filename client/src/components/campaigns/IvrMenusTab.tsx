@@ -33,6 +33,11 @@ import {
   ChevronUp,
   ChevronDown,
   GripVertical,
+  Megaphone,
+  Timer,
+  GitBranch,
+  Voicemail,
+  AudioLines,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -315,20 +320,35 @@ export function IvrMenusTab() {
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div>
-          <h3 className="text-lg font-semibold" data-testid="text-ivr-menus-title">
+    <div className="space-y-5">
+      <div className="relative overflow-hidden rounded-2xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-background to-amber-50 p-5 shadow-sm dark:border-violet-900/50 dark:from-violet-950/25 dark:to-amber-950/15">
+        <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-violet-300/20 blur-3xl" />
+        <div className="relative flex items-start justify-between gap-4 flex-wrap">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-500/15 text-violet-700 dark:text-violet-300">
+              <GitBranch className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-violet-700/80 dark:text-violet-300/80">
+                <AudioLines className="h-3 w-3" /> inbound logic
+              </p>
+              <h3 className="text-xl font-semibold tracking-tight" data-testid="text-ivr-menus-title">
             {im.title || "IVR Menus"}
-          </h3>
-          <p className="text-sm text-muted-foreground">
+              </h3>
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
             {im.description || "Manage IVR decision trees for inbound call routing"}
-          </p>
+              </p>
+            </div>
+          </div>
+          <Button onClick={openCreate} className="shrink-0 bg-violet-600 text-white shadow-sm hover:bg-violet-700" data-testid="btn-create-ivr-menu">
+            <Plus className="h-4 w-4 mr-2" />
+            {im.createMenu || "Create Menu"}
+          </Button>
         </div>
-        <Button onClick={openCreate} data-testid="btn-create-ivr-menu">
-          <Plus className="h-4 w-4 mr-2" />
-          {im.createMenu || "Create Menu"}
-        </Button>
+        <div className="relative mt-4 flex flex-wrap gap-2">
+          <Badge variant="outline" className="border-violet-200 bg-background/70 px-3 py-1 text-violet-800 dark:border-violet-800 dark:text-violet-200"><GitBranch className="mr-1.5 h-3.5 w-3.5" /> {menus.length} menus</Badge>
+          <Badge variant="outline" className="border-amber-200 bg-background/70 px-3 py-1 text-amber-800 dark:border-amber-800 dark:text-amber-200"><Megaphone className="mr-1.5 h-3.5 w-3.5" /> voice prompts</Badge>
+        </div>
       </div>
 
       {isLoading ? (
@@ -337,7 +357,7 @@ export function IvrMenusTab() {
         </div>
       ) : menus.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <CardContent className="flex flex-col items-center justify-center rounded-2xl border-violet-100 bg-violet-50/30 py-12 text-muted-foreground dark:border-violet-900/30 dark:bg-violet-950/10">
             <TreePine className="h-12 w-12 mb-3 opacity-30" />
             <p>{im.noMenus || "No IVR menus configured yet"}</p>
             <Button className="mt-4" onClick={openCreate} data-testid="btn-create-first-ivr-menu">
@@ -349,12 +369,12 @@ export function IvrMenusTab() {
       ) : (
         <div className="space-y-3">
           {menus.map((menu) => (
-            <Card key={menu.id} className={!menu.isActive ? "opacity-60" : ""} data-testid={`card-ivr-menu-${menu.id}`}>
-              <CardHeader className="pb-3">
+            <Card key={menu.id} className={`overflow-hidden border-violet-200/70 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-violet-900/50 ${!menu.isActive ? "opacity-60" : ""}`} data-testid={`card-ivr-menu-${menu.id}`}>
+              <CardHeader className="border-b border-violet-200/50 bg-violet-50/35 pb-3 dark:border-violet-900/40 dark:bg-violet-950/15">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-primary/10">
-                      <TreePine className="h-5 w-5 text-primary" />
+                    <div className="rounded-2xl bg-violet-500/15 p-2.5 text-violet-700 dark:text-violet-300">
+                      <GitBranch className="h-5 w-5" />
                     </div>
                     <div>
                       <CardTitle className="text-base" data-testid={`text-ivr-menu-name-${menu.id}`}>
@@ -365,7 +385,7 @@ export function IvrMenusTab() {
                           <Badge variant="outline" className="text-xs">{menu.countryCode}</Badge>
                         )}
                         <Badge variant="secondary" className="text-xs" data-testid={`badge-options-count-${menu.id}`}>
-                          <Hash className="h-3 w-3 mr-1" />
+                            <Hash className="h-3 w-3 mr-1" />
                           {menu.options?.length || 0} {im.options || "options"}
                         </Badge>
                         {getMessageName(menu.promptMessageId) && (
@@ -419,13 +439,14 @@ export function IvrMenusTab() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) closeDialog(); }}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto" data-testid="dialog-ivr-menu-form">
-          <DialogHeader>
-            <DialogTitle>{editingMenu ? (im.editMenu || "Edit IVR Menu") : (im.createIvrMenu || "Create IVR Menu")}</DialogTitle>
+          <DialogContent className="max-h-[92vh] overflow-y-auto rounded-2xl border-violet-200/80 p-0 shadow-2xl dark:border-violet-900/60 sm:max-w-3xl" data-testid="dialog-ivr-menu-form">
+          <DialogHeader className="border-b border-violet-200/60 bg-gradient-to-r from-violet-50 via-background to-amber-50 px-6 py-5 dark:border-violet-900/40 dark:from-violet-950/30 dark:to-amber-950/15">
+            <DialogTitle className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500/15 text-violet-700 dark:text-violet-300"><GitBranch className="h-4 w-4" /></span>{editingMenu ? (im.editMenu || "Edit IVR Menu") : (im.createIvrMenu || "Create IVR Menu")}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
+          <div className="space-y-5 px-6 py-5">
+            <div className="rounded-xl border border-violet-200/70 bg-violet-50/30 p-4 dark:border-violet-900/40 dark:bg-violet-950/10">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="col-span-1 sm:col-span-2">
                 <Label>{im.nameLabel || "Name"} *</Label>
                 <Input
                   value={formData.name}
@@ -434,7 +455,7 @@ export function IvrMenusTab() {
                   data-testid="input-ivr-menu-name"
                 />
               </div>
-              <div className="col-span-2">
+              <div className="col-span-1 sm:col-span-2">
                 <Label>{im.descriptionLabel || "Description"}</Label>
                 <Textarea
                   value={formData.description}
@@ -521,7 +542,7 @@ export function IvrMenusTab() {
                   data-testid="input-timeout"
                 />
               </div>
-              <div className="col-span-2 flex items-center gap-2">
+              <div className="col-span-1 flex items-center gap-2 sm:col-span-2">
                 <Switch
                   checked={formData.isActive}
                   onCheckedChange={(v) => setFormData((f) => ({ ...f, isActive: v }))}
@@ -531,10 +552,11 @@ export function IvrMenusTab() {
               </div>
             </div>
 
-            <div className="border-t pt-4">
+            </div>
+            <div className="rounded-xl border border-amber-200/70 bg-amber-50/25 p-4 dark:border-amber-900/40 dark:bg-amber-950/10">
               <div className="flex items-center justify-between mb-3">
                 <h4 className="text-sm font-medium flex items-center gap-2">
-                  <Hash className="h-4 w-4" />
+                  <Megaphone className="h-4 w-4 text-amber-600" />
                   {im.dtmfOptions || "DTMF Options"}
                 </h4>
                 <Button
@@ -625,7 +647,7 @@ function DtmfOptionRow({
   const availableMenus = ivrMenus.filter((m) => m.id !== editingMenuId);
 
   return (
-    <div className="border rounded-lg p-3 space-y-2" data-testid={`dtmf-option-row-${index}`}>
+    <div className="rounded-xl border border-amber-200/70 bg-background/75 p-3 shadow-sm transition-colors hover:border-amber-300 dark:border-amber-900/50" data-testid={`dtmf-option-row-${index}`}>
       <div className="flex items-center gap-2 flex-wrap">
         <div className="flex items-center gap-1">
           <Button
@@ -651,7 +673,7 @@ function DtmfOptionRow({
           <GripVertical className="h-4 w-4 text-muted-foreground" />
         </div>
 
-        <div className="w-20">
+        <div className="w-full sm:w-20">
           <Select value={option.dtmfKey} onValueChange={(v) => onUpdate({ dtmfKey: v })}>
             <SelectTrigger data-testid={`select-dtmf-key-${index}`}><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -662,7 +684,7 @@ function DtmfOptionRow({
           </Select>
         </div>
 
-        <div className="flex-1 min-w-[120px]">
+        <div className="min-w-[120px] flex-1">
           <Input
             value={option.label}
             onChange={(e) => onUpdate({ label: e.target.value })}
@@ -671,7 +693,7 @@ function DtmfOptionRow({
           />
         </div>
 
-        <div className="w-32">
+        <div className="w-full sm:w-32">
           <Select
             value={option.action}
             onValueChange={(v) => onUpdate({ action: v, targetId: null })}
@@ -686,7 +708,7 @@ function DtmfOptionRow({
         </div>
 
         {needsTarget && (
-          <div className="w-48">
+          <div className="w-full sm:w-48">
             {option.action === "queue" && (
               <Select
                 value={option.targetId || "none"}
@@ -740,7 +762,7 @@ function DtmfOptionRow({
           </div>
         )}
 
-        <div className="w-40">
+        <div className="w-full sm:w-40">
           <Select
             value={option.announcementId || "none"}
             onValueChange={(v) => onUpdate({ announcementId: v === "none" ? null : v })}
