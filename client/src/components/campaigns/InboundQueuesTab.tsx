@@ -51,6 +51,8 @@ import {
   UserX,
   Megaphone,
   Mail,
+  Sparkles,
+  CheckCircle2,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -512,20 +514,42 @@ export function InboundQueuesTab() {
   );
 
   return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold" data-testid="text-inbound-queues-title">
-              {iq.title}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {iq.description}
-            </p>
+      <div className="space-y-5">
+        <div className="relative overflow-hidden rounded-2xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-emerald-50 p-5 shadow-sm dark:border-sky-900/60 dark:from-sky-950/30 dark:via-background dark:to-emerald-950/20">
+          <div className="pointer-events-none absolute -bottom-16 -right-8 h-40 w-40 rounded-full bg-emerald-300/20 blur-3xl dark:bg-emerald-600/10" />
+          <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-500/15 text-sky-700 dark:text-sky-300">
+                <PhoneIncoming className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-sky-700/80 dark:text-sky-300/80">
+                  <Sparkles className="h-3 w-3" />
+                  {tx.channels}
+                </p>
+                <h3 className="text-xl font-semibold tracking-tight" data-testid="text-inbound-queues-title">
+                  {iq.title}
+                </h3>
+                <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                  {iq.description}
+                </p>
+              </div>
+            </div>
+            <Button onClick={() => { resetForm(); setShowCreateDialog(true); }} className="shrink-0 bg-sky-600 text-white shadow-sm hover:bg-sky-700" data-testid="btn-create-queue">
+              <Plus className="mr-2 h-4 w-4" />
+              {iq.createQueue}
+            </Button>
           </div>
-          <Button onClick={() => { resetForm(); setShowCreateDialog(true); }} data-testid="btn-create-queue">
-            <Plus className="h-4 w-4 mr-2" />
-            {iq.createQueue}
-          </Button>
+          <div className="relative mt-5 flex flex-wrap gap-2">
+            <Badge variant="outline" className="border-sky-200 bg-white/70 px-3 py-1 text-sky-800 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-200">
+              <PhoneIncoming className="mr-1.5 h-3.5 w-3.5" />
+              {queues.length} {iq.title}
+            </Badge>
+            <Badge variant="outline" className="border-emerald-200 bg-white/70 px-3 py-1 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">
+              <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+              {queues.filter(queue => queue.isActive).length} {iq.active}
+            </Badge>
+          </div>
         </div>
 
         {isLoading ? (
@@ -544,12 +568,12 @@ export function InboundQueuesTab() {
         ) : (
           <div className="space-y-3">
             {queues.map((queue) => (
-              <Card key={queue.id} className={!queue.isActive ? "opacity-60" : ""}>
-                <CardHeader className="pb-3">
+              <Card key={queue.id} className={`overflow-hidden border-sky-200/70 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-sky-900/50 ${!queue.isActive ? "opacity-60" : ""}`}>
+                <CardHeader className="border-b border-sky-200/50 bg-sky-50/35 pb-3 dark:border-sky-900/40 dark:bg-sky-950/15">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-primary/10">
-                        <PhoneIncoming className="h-5 w-5 text-primary" />
+                      <div className="rounded-2xl bg-sky-500/15 p-2.5 text-sky-700 dark:text-sky-300">
+                        <PhoneIncoming className="h-5 w-5" />
                       </div>
                       <div>
                         <CardTitle className="text-base" data-testid={`text-queue-name-${queue.id}`}>
@@ -587,20 +611,20 @@ export function InboundQueuesTab() {
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-6 text-sm">
-                        <div className="text-center">
+                        <div className="flex items-center gap-2 text-sm">
+                          <div className="min-w-[3.5rem] rounded-xl bg-orange-50/80 px-2 py-1.5 text-center dark:bg-orange-950/20">
                           <div className="font-semibold text-orange-600" data-testid={`text-waiting-${queue.id}`}>
                             {queue.stats?.waiting || 0}
                           </div>
                           <div className="text-xs text-muted-foreground">{iq.waiting}</div>
                         </div>
-                        <div className="text-center">
+                          <div className="min-w-[3.5rem] rounded-xl bg-emerald-50/80 px-2 py-1.5 text-center dark:bg-emerald-950/20">
                           <div className="font-semibold text-green-600" data-testid={`text-active-${queue.id}`}>
                             {queue.stats?.active || 0}
                           </div>
                           <div className="text-xs text-muted-foreground">{iq.active}</div>
                         </div>
-                        <div className="text-center">
+                          <div className="min-w-[3.5rem] rounded-xl bg-sky-50/80 px-2 py-1.5 text-center dark:bg-sky-950/20">
                           <div className="font-semibold" data-testid={`text-agents-${queue.id}`}>
                             {queue.stats?.agents || 0}
                           </div>
@@ -641,13 +665,18 @@ export function InboundQueuesTab() {
         )}
 
         <Dialog open={showCreateDialog || !!editingQueue} onOpenChange={(o) => { if (!o) { setShowCreateDialog(false); setEditingQueue(null); } }}>
-          <DialogContent className="sm:max-w-4xl max-h-[92vh] overflow-y-auto" data-testid="dialog-queue-form">
-            <DialogHeader>
-              <DialogTitle className="text-lg">{editingQueue ? iq.editQueue : iq.createQueue}</DialogTitle>
+            <DialogContent className="max-h-[92vh] overflow-y-auto rounded-2xl border-sky-200/80 p-0 shadow-2xl dark:border-sky-900/60 sm:max-w-4xl" data-testid="dialog-queue-form">
+             <DialogHeader className="border-b border-sky-200/60 bg-gradient-to-r from-sky-50 via-white to-emerald-50 px-6 py-5 dark:border-sky-900/40 dark:from-sky-950/30 dark:via-background dark:to-emerald-950/20">
+               <DialogTitle className="flex items-center gap-3 text-lg">
+                 <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/15 text-sky-700 dark:text-sky-300">
+                   <PhoneIncoming className="h-4 w-4" />
+                 </span>
+                 {editingQueue ? iq.editQueue : iq.createQueue}
+               </DialogTitle>
             </DialogHeader>
 
-            <Tabs value={formTab} onValueChange={setFormTab} className="w-full">
-              <TabsList>
+             <Tabs value={formTab} onValueChange={setFormTab} className="w-full bg-background px-6 py-5">
+               <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto bg-sky-50/70 p-1 dark:bg-sky-950/20">
                 <TabsTrigger value="general" data-testid="tab-queue-general">
                   {tx.tabGeneral}
                 </TabsTrigger>
@@ -662,7 +691,7 @@ export function InboundQueuesTab() {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="general" className="mt-6 space-y-6">
+             <TabsContent value="general" className="mt-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                   <div className="col-span-1 md:col-span-2 space-y-1.5">
                     <Label className="text-sm">{iq.queueName} <span className="text-destructive">*</span></Label>
@@ -777,9 +806,9 @@ export function InboundQueuesTab() {
                   </div>
                 </div>
 
-                <div className="border-b pb-1">
-                  <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <UserX className="h-4 w-4" />
+                 <div className="border-b border-orange-200/70 pb-2 dark:border-orange-900/50">
+                   <h4 className="flex items-center gap-2 text-sm font-semibold text-orange-800 dark:text-orange-200">
+                     <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-500/15"><UserX className="h-4 w-4" /></span>
                     {tx.noAgentsRule}
                   </h4>
                 </div>
@@ -904,9 +933,9 @@ export function InboundQueuesTab() {
                   )}
                 </div>
 
-                <div className="border-b pb-1">
-                  <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <Mail className="h-4 w-4" />
+                 <div className="border-b border-emerald-200/70 pb-2 dark:border-emerald-900/50">
+                   <h4 className="flex items-center gap-2 text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+                     <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/15"><Mail className="h-4 w-4" /></span>
                     {tx.channels}
                   </h4>
                 </div>

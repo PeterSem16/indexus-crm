@@ -42,6 +42,9 @@ import {
   GitBranch,
   User,
   Menu,
+  Sparkles,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -67,6 +70,7 @@ interface DidRoute {
 interface InboundQueue {
   id: string;
   name: string;
+  didNumber: string | null;
   isActive: boolean;
 }
 
@@ -193,6 +197,7 @@ export function DidRoutesTab() {
   };
 
   const openEdit = (route: DidRoute) => {
+    const linkedQueue = route.action === "inbound_queue" ? findQueueForRoute(route) : undefined;
     setEditingRoute(route);
     setForm({
       didNumber: route.didNumber,
@@ -200,7 +205,7 @@ export function DidRoutesTab() {
       description: route.description || "",
       countryCode: route.countryCode || "",
       action: route.action,
-      targetQueueId: route.targetQueueId || "",
+      targetQueueId: route.targetQueueId || linkedQueue?.id || "",
       targetIvrMenuId: route.targetIvrMenuId || "",
       targetUserId: route.targetUserId || "",
       targetExtension: route.targetExtension || "",
@@ -233,11 +238,22 @@ export function DidRoutesTab() {
     return opt.icon;
   };
 
+  const findQueueForRoute = (route: Pick<DidRoute, "action" | "targetQueueId" | "didNumber">) => {
+    if (route.action !== "inbound_queue") return undefined;
+    const byId = route.targetQueueId
+      ? queues.find(q => String(q.id) === String(route.targetQueueId))
+      : undefined;
+    if (byId) return byId;
+
+    // Older routes linked the DID to the queue's didNumber instead of targetQueueId.
+    return queues.find(q => q.didNumber && q.didNumber === route.didNumber);
+  };
+
   const getTargetDisplay = (route: DidRoute) => {
     switch (route.action) {
       case "inbound_queue": {
-        const queue = queues.find(q => q.id === route.targetQueueId);
-        return queue ? queue.name : route.targetQueueId || "-";
+        const queue = findQueueForRoute(route);
+        return queue ? queue.name : route.targetQueueId || dr.selectQueue || "-";
       }
       case "ivr_menu": {
         const menu = ivrMenus.find(m => m.id === route.targetIvrMenuId);
@@ -259,20 +275,54 @@ export function DidRoutesTab() {
   };
 
   const isPending = createMutation.isPending || updateMutation.isPending;
+  const activeRouteCount = routes.filter(route => route.isActive).length;
+  const inboundRouteCount = routes.filter(route => route.action === "inbound_queue").length;
+  const selectedQueue = form.targetQueueId
+    ? queues.find(q => String(q.id) === String(form.targetQueueId))
+    : undefined;
+  const queueOptions = queues.filter(q =>
+    q.isActive || String(q.id) === String(form.targetQueueId || "")
+  );
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold" data-testid="text-did-routes-title">{dr.title || "DID Routing"}</h3>
-          <p className="text-sm text-muted-foreground">
-            {dr.description || "Configure routing of incoming calls by DID number"}
-          </p>
+    <div className="p-4 sm:p-6 space-y-5">
+      <div className="relative overflow-hidden rounded-2xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-orange-50 p-5 shadow-sm dark:border-violet-900/60 dark:from-violet-950/30 dark:via-background dark:to-orange-950/20">
+        <div className="pointer-events-none absolute -right-10 -top-12 h-36 w-36 rounded-full bg-violet-300/20 blur-2xl dark:bg-violet-600/10" />
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-500/15 text-violet-700 dark:text-violet-300">
+              <GitBranch className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-violet-700/80 dark:text-violet-300/80">
+                <Sparkles className="h-3 w-3" />
+                {dr.action || "Action"}
+              </p>
+              <h3 className="text-xl font-semibold tracking-tight" data-testid="text-did-routes-title">{dr.title || "DID Routing"}</h3>
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                {dr.description || "Configure routing of incoming calls by DID number"}
+              </p>
+            </div>
+          </div>
+          <Button onClick={openCreate} className="shrink-0 bg-violet-600 text-white shadow-sm hover:bg-violet-700" data-testid="button-add-did-route">
+            <Plus className="mr-2 h-4 w-4" />
+            {dr.addDid || "Add DID"}
+          </Button>
         </div>
-        <Button onClick={openCreate} data-testid="button-add-did-route">
-          <Plus className="w-4 h-4 mr-2" />
-          {dr.addDid || "Add DID"}
-        </Button>
+        <div className="relative mt-5 flex flex-wrap gap-2">
+          <Badge variant="outline" className="border-violet-200 bg-white/70 px-3 py-1 text-violet-800 dark:border-violet-800 dark:bg-violet-950/30 dark:text-violet-200">
+            <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+            {activeRouteCount} {dr.active || "Active"}
+          </Badge>
+          <Badge variant="outline" className="border-orange-200 bg-white/70 px-3 py-1 text-orange-800 dark:border-orange-800 dark:bg-orange-950/30 dark:text-orange-200">
+            <PhoneIncoming className="mr-1.5 h-3.5 w-3.5" />
+            {inboundRouteCount} {dr.target || "Target"}
+          </Badge>
+          <Badge variant="outline" className="border-slate-200 bg-white/70 px-3 py-1 text-slate-700 dark:border-slate-700 dark:bg-slate-950/30 dark:text-slate-200">
+            <GitBranch className="mr-1.5 h-3.5 w-3.5" />
+            {routes.length} {dr.action || "Action"}
+          </Badge>
+        </div>
       </div>
 
       {isLoading ? (
@@ -288,9 +338,9 @@ export function DidRoutesTab() {
           </CardContent>
         </Card>
       ) : (
-        <Card>
+        <Card className="overflow-hidden border-violet-200/70 shadow-sm dark:border-violet-900/50">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-violet-50/70 dark:bg-violet-950/20">
               <TableRow>
                 <TableHead>{dr.didNumber || "DID Number"}</TableHead>
                 <TableHead>{dr.name || "Name"}</TableHead>
@@ -306,7 +356,7 @@ export function DidRoutesTab() {
               {routes.map((route) => {
                 const ActionIcon = getActionIcon(route.action);
                 return (
-                  <TableRow key={route.id} data-testid={`row-did-route-${route.id}`}>
+                  <TableRow key={route.id} className="transition-colors hover:bg-violet-50/45 dark:hover:bg-violet-950/20" data-testid={`row-did-route-${route.id}`}>
                     <TableCell className="font-mono font-medium" data-testid={`text-did-number-${route.id}`}>
                       <div className="flex items-center gap-2">
                         <Phone className="w-4 h-4 text-muted-foreground" />
@@ -319,13 +369,26 @@ export function DidRoutesTab() {
                         <Badge variant="outline">{route.countryCode}</Badge>
                       ) : "-"}
                     </TableCell>
-                    <TableCell>
+                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <ActionIcon className="w-4 h-4" />
+                         <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/10 text-violet-700 dark:text-violet-300">
+                           <ActionIcon className="h-4 w-4" />
+                         </span>
                         <span>{getActionLabel(route.action)}</span>
                       </div>
                     </TableCell>
-                    <TableCell data-testid={`text-did-target-${route.id}`}>{getTargetDisplay(route)}</TableCell>
+                     <TableCell data-testid={`text-did-target-${route.id}`}>
+                       <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${
+                         route.action === "inbound_queue" && findQueueForRoute(route)
+                           ? "border-orange-200 bg-orange-50 text-orange-800 dark:border-orange-800 dark:bg-orange-950/30 dark:text-orange-200"
+                           : "border-muted bg-muted/40 text-muted-foreground"
+                       }`}>
+                         {route.action === "inbound_queue" && findQueueForRoute(route)
+                           ? <PhoneIncoming className="h-3.5 w-3.5" />
+                           : <AlertCircle className="h-3.5 w-3.5" />}
+                         {getTargetDisplay(route)}
+                       </span>
+                     </TableCell>
                     <TableCell>{route.priority}</TableCell>
                     <TableCell>
                       <Badge variant={route.isActive ? "default" : "secondary"} data-testid={`badge-did-status-${route.id}`}>
@@ -351,14 +414,17 @@ export function DidRoutesTab() {
       )}
 
       <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open) { setIsDialogOpen(false); setEditingRoute(null); } }}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle data-testid="text-did-dialog-title">
-              {editingRoute ? (dr.editRoute || "Edit DID Route") : (dr.createRoute || "New DID Route")}
-            </DialogTitle>
+         <DialogContent className="max-h-[88vh] max-w-lg overflow-y-auto overflow-x-hidden rounded-2xl border-violet-200/80 p-0 shadow-2xl dark:border-violet-900/60">
+           <DialogHeader className="border-b border-violet-200/60 bg-gradient-to-r from-violet-50 via-white to-orange-50 px-6 py-5 dark:border-violet-900/40 dark:from-violet-950/30 dark:via-background dark:to-orange-950/20">
+             <DialogTitle className="flex items-center gap-3 text-lg" data-testid="text-did-dialog-title">
+               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500/15 text-violet-700 dark:text-violet-300">
+                 <GitBranch className="h-4 w-4" />
+               </span>
+               {editingRoute ? (dr.editRoute || "Edit DID Route") : (dr.createRoute || "New DID Route")}
+             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
+           <div className="space-y-4 bg-background px-6 py-5">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{dr.didNumberLabel || "DID Number"} *</Label>
@@ -421,19 +487,37 @@ export function DidRoutesTab() {
               </Select>
             </div>
 
-            {form.action === "inbound_queue" && (
-              <div className="space-y-2">
+             {form.action === "inbound_queue" && (
+               <div className="rounded-xl border border-orange-200/80 bg-orange-50/35 p-3.5 space-y-2.5 dark:border-orange-900/60 dark:bg-orange-950/15">
                 <Label>{dr.targetQueue || "Target Queue"}</Label>
                 <Select value={form.targetQueueId || ""} onValueChange={(v) => setForm({ ...form, targetQueueId: v })}>
                   <SelectTrigger data-testid="select-did-target-queue">
                     <SelectValue placeholder={dr.selectQueue || "Select queue"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {queues.filter(q => q.isActive).map(q => (
-                      <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>
+                     {queueOptions.map(q => (
+                       <SelectItem key={q.id} value={String(q.id)}>
+                         <span className="flex items-center gap-2">
+                           <PhoneIncoming className="h-3.5 w-3.5 text-orange-600" />
+                           {q.name}
+                           {!q.isActive && <span className="text-xs text-muted-foreground">({dr.inactive || "Inactive"})</span>}
+                         </span>
+                       </SelectItem>
                     ))}
+                     {form.targetQueueId && !selectedQueue && (
+                       <SelectItem value={String(form.targetQueueId)}>
+                         {String(form.targetQueueId)}
+                       </SelectItem>
+                     )}
                   </SelectContent>
                 </Select>
+                 {selectedQueue && (
+                   <div className="flex items-center gap-2 text-xs text-orange-800 dark:text-orange-200">
+                     <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                     <span>{selectedQueue.name}</span>
+                     {!selectedQueue.isActive && <Badge variant="outline" className="border-orange-300 px-1.5 py-0 text-[10px]">{dr.inactive || "Inactive"}</Badge>}
+                   </div>
+                 )}
               </div>
             )}
 
@@ -526,7 +610,7 @@ export function DidRoutesTab() {
             </div>
           </div>
 
-          <DialogFooter>
+           <DialogFooter className="border-t border-violet-200/60 bg-muted/20 px-6 py-4 dark:border-violet-900/40">
             <Button variant="outline" onClick={() => { setIsDialogOpen(false); setEditingRoute(null); }} data-testid="button-did-cancel">
               {dr.cancel || "Cancel"}
             </Button>
