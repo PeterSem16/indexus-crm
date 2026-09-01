@@ -212,10 +212,14 @@ function getAgentQueueDidNumbers(queue: {
   didNumber: string | null;
   dids?: AgentInboundQueueDid[];
 }): string[] {
-  return [...new Set([
-    ...(queue.dids || []).filter(did => did.isActive).map(did => did.didNumber),
-    ...(queue.didNumber ? [queue.didNumber] : []),
-  ])];
+  // `/api/agent/my-queues` already resolves DID numbers from active routes.
+  // Do not append the legacy queue.didNumber here: it has no active/inactive
+  // status and can point to a DID route that was disabled in DID Routing.
+  return [...new Set(
+    (queue.dids || [])
+      .filter(did => did.isActive)
+      .map(did => did.didNumber),
+  )];
 }
 
 // Inline i18n for status-list manual action buttons (mission status list).
