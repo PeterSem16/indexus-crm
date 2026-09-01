@@ -1,0 +1,42 @@
+seman@mediagtw:~$ sudo systemctl status asterisk --no-pager -l
+sudo ss -ltnp | grep -E ':8088|:8089'
+sudo asterisk -rx "http show status"
+sudo journalctl -u asterisk --since "15 minutes ago" --no-pager | tail -200
+● asterisk.service - Asterisk PBX
+     Loaded: loaded (/etc/systemd/system/asterisk.service; enabled; preset: enabled)
+     Active: active (running) since Fri 2026-08-28 06:15:52 UTC; 4 days ago
+    Process: 844635 ExecStart=/usr/sbin/asterisk -U asterisk -G asterisk (code=exited, status=0/SUCCESS)
+   Main PID: 844638 (asterisk)
+      Tasks: 84 (limit: 9429)
+     Memory: 61.7M (peak: 63.8M)
+        CPU: 22min 3.339s
+     CGroup: /system.slice/asterisk.service
+             └─844638 /usr/sbin/asterisk -U asterisk -G asterisk
+
+Aug 28 06:15:52 mediagtw.cordbloodcenter.com systemd[1]: Starting asterisk.service - Asterisk PBX...
+Aug 28 06:15:52 mediagtw.cordbloodcenter.com asterisk[844635]: Unable to install capabilities.
+Aug 28 06:15:52 mediagtw.cordbloodcenter.com systemd[1]: asterisk.service: Can't open PID file /run/asterisk/asterisk.pid (yet?) after start: No such file or directory
+Aug 28 06:15:52 mediagtw.cordbloodcenter.com systemd[1]: Started asterisk.service - Asterisk PBX.
+Aug 28 06:15:53 mediagtw.cordbloodcenter.com asterisk[844638]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+Aug 28 06:15:53 mediagtw.cordbloodcenter.com asterisk[844638]: radcli: rc_read_config: rc_read_config: can't open /etc/radiusclient-ng/radiusclient.conf: No such file or directory
+LISTEN 0      10           0.0.0.0:8088      0.0.0.0:*    users:(("asterisk",pid=844638,fd=7))
+LISTEN 0      10           0.0.0.0:8089      0.0.0.0:*    users:(("asterisk",pid=844638,fd=8))
+HTTP Server Status:
+Prefix:
+Server: Asterisk
+Server Enabled and Bound to 0.0.0.0:8088
+
+HTTPS Server Enabled and Bound to 0.0.0.0:8089
+
+Enabled URI's:
+/httpstatus => Asterisk HTTP General Status
+/phoneprov/... => Asterisk HTTP Phone Provisioning Tool
+/metrics/... => Prometheus Metrics URI
+/media/... => Media over Websocket
+/ari/... => Asterisk RESTful API
+/ws => Asterisk HTTP WebSocket
+
+Enabled Redirects:
+  None.
+-- No entries --
+seman@mediagtw:~$
