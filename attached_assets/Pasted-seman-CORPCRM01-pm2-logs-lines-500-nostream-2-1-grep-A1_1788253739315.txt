@@ -1,0 +1,159 @@
+seman@CORPCRM01:~$ pm2 logs --lines 500 --nostream 2>&1 | \
+grep -A12 -B12 -E 'Failed to set outbound caller ID|ARI (POST|GET)|o2ims|pendingcid|set-outbound-callerid'
+4|indexus- |   internalPosition: undefined,
+4|indexus- |   internalQuery: undefined,
+4|indexus- |   where: undefined,
+4|indexus- |   schema: undefined,
+4|indexus- |   table: undefined,
+4|indexus- |   column: undefined,
+4|indexus- |   dataType: undefined,
+4|indexus- |   constraint: undefined,
+4|indexus- |   file: 'parse_oper.c',
+4|indexus- |   line: '647',
+4|indexus- |   routine: 'op_error'
+4|indexus- | }
+4|indexus- | Failed to set outbound caller ID: ReferenceError: campaignAgents is not defined
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1798:2061
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- | Failed to set outbound caller ID: ReferenceError: campaignAgents is not defined
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1798:2061
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- | Failed to set outbound caller ID: ReferenceError: campaignAgents is not defined
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1798:2061
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- | Failed to set outbound caller ID: ReferenceError: campaignAgents is not defined
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1798:2061
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- | Failed to set outbound caller ID: ReferenceError: campaignAgents is not defined
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1798:2061
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- | [Beratung] ROPC token acquisition failed: AADSTS50126: Error validating credentials due to invalid username or password. Trace ID: 213866e0-a9d6-49a9-b985-5b773eb52200 Correlation ID: 089c2934-11c5-40a3-b42b-1a367c4c3975 Timestamp: 2026-09-01 08:51:14Z
+4|indexus- | [Beratung] Cannot fetch emails — no valid access token
+4|indexus- | [Beratung] ROPC token acquisition failed: AADSTS50126: Error validating credentials due to invalid username or password. Trace ID: d981562e-0722-4164-afac-a45ace151f00 Correlation ID: c516b5b2-0e5a-4a8c-b7eb-2c81db4f1838 Timestamp: 2026-09-01 08:54:14Z
+4|indexus- | [Beratung] Cannot fetch emails — no valid access token
+4|indexus- | Failed to set outbound caller ID: ReferenceError: campaignAgents is not defined
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1798:2061
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- | [BO tasks] entity enrichment failed: error: operator does not exist: character varying = uuid
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:13359
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- |     at async /var/www/indexus-crm/dist/index.cjs:1741:12090 {
+4|indexus- |   length: 210,
+4|indexus- |   severity: 'ERROR',
+4|indexus- |   code: '42883',
+4|indexus- |   detail: undefined,
+4|indexus- |   hint: 'No operator matches the given name and argument types. You might need to add explicit type casts.',
+4|indexus- |   position: '754',
+--
+4|indexus- |   where: undefined,
+4|indexus- |   schema: undefined,
+4|indexus- |   table: undefined,
+4|indexus- |   column: undefined,
+4|indexus- |   dataType: undefined,
+4|indexus- |   constraint: undefined,
+4|indexus- |   file: 'parse_oper.c',
+4|indexus- |   line: '647',
+4|indexus- |   routine: 'op_error'
+4|indexus- | }
+4|indexus- | [Beratung] ROPC token acquisition failed: AADSTS50126: Error validating credentials due to invalid username or password. Trace ID: 9fe4dc63-47c0-41a4-9be3-3e5ea2a82300 Correlation ID: 63877c3c-2f5e-4fb7-9f23-daf6f53b56fb Timestamp: 2026-09-01 08:57:15Z
+4|indexus- | [Beratung] Cannot fetch emails — no valid access token
+4|indexus- | Failed to set outbound caller ID: ReferenceError: campaignAgents is not defined
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1798:2061
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- | [BO tasks] entity enrichment failed: error: operator does not exist: character varying = uuid
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:13359
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- |     at async /var/www/indexus-crm/dist/index.cjs:1741:12090 {
+4|indexus- |   length: 210,
+4|indexus- |   severity: 'ERROR',
+4|indexus- |   code: '42883',
+4|indexus- |   detail: undefined,
+4|indexus- |   hint: 'No operator matches the given name and argument types. You might need to add explicit type casts.',
+4|indexus- |   position: '754',
+4|indexus- |   internalPosition: undefined,
+4|indexus- |   internalQuery: undefined,
+4|indexus- |   where: undefined,
+4|indexus- |   schema: undefined,
+4|indexus- |   table: undefined,
+4|indexus- |   column: undefined,
+4|indexus- |   dataType: undefined,
+4|indexus- |   constraint: undefined,
+4|indexus- |   file: 'parse_oper.c',
+4|indexus- |   line: '647',
+4|indexus- |   routine: 'op_error'
+4|indexus- | }
+4|indexus- | Failed to set outbound caller ID: ReferenceError: campaignAgents is not defined
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1798:2061
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- | Failed to set outbound caller ID: ReferenceError: campaignAgents is not defined
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1798:2061
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- | [MS365] Token decryption failed: Error: Unsupported state or unable to authenticate data
+4|indexus- |     at Decipheriv.final (node:internal/crypto/cipher:193:29)
+4|indexus- |     at j5 (/var/www/indexus-crm/dist/index.cjs:140:20058)
+4|indexus- |     at pl (/var/www/indexus-crm/dist/index.cjs:140:20250)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1290:38409
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- | [MS365] Token decryption failed: Error: Unsupported state or unable to authenticate data
+4|indexus- |     at Decipheriv.final (node:internal/crypto/cipher:193:29)
+4|indexus- |     at j5 (/var/www/indexus-crm/dist/index.cjs:140:20058)
+4|indexus- |     at pl (/var/www/indexus-crm/dist/index.cjs:140:20250)
+--
+4|indexus- |   internalPosition: undefined,
+4|indexus- |   internalQuery: undefined,
+4|indexus- |   where: undefined,
+4|indexus- |   schema: undefined,
+4|indexus- |   table: undefined,
+4|indexus- |   column: undefined,
+4|indexus- |   dataType: undefined,
+4|indexus- |   constraint: undefined,
+4|indexus- |   file: 'parse_oper.c',
+4|indexus- |   line: '647',
+4|indexus- |   routine: 'op_error'
+4|indexus- | }
+4|indexus- | Failed to set outbound caller ID: ReferenceError: campaignAgents is not defined
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1798:2061
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- | [Beratung] ROPC token acquisition failed: AADSTS50126: Error validating credentials due to invalid username or password. Trace ID: 97a29f01-2452-4cad-9972-848517e22000 Correlation ID: c4e713a7-c65b-41e3-8486-f96aab8f995a Timestamp: 2026-09-01 09:00:14Z
+4|indexus- | [Beratung] Cannot fetch emails — no valid access token
+4|indexus- | [MS365] Token decryption failed: Error: Unsupported state or unable to authenticate data
+4|indexus- |     at Decipheriv.final (node:internal/crypto/cipher:193:29)
+4|indexus- |     at j5 (/var/www/indexus-crm/dist/index.cjs:140:20058)
+4|indexus- |     at pl (/var/www/indexus-crm/dist/index.cjs:140:20250)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1290:38409
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- | Failed to set outbound caller ID: ReferenceError: campaignAgents is not defined
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1798:2061
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- | [MS365] Token decryption failed: Error: Unsupported state or unable to authenticate data
+4|indexus- |     at Decipheriv.final (node:internal/crypto/cipher:193:29)
+4|indexus- |     at j5 (/var/www/indexus-crm/dist/index.cjs:140:20058)
+4|indexus- |     at pl (/var/www/indexus-crm/dist/index.cjs:140:20250)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1290:38409
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- | [MS365] Token decryption failed: Error: Unsupported state or unable to authenticate data
+4|indexus- |     at Decipheriv.final (node:internal/crypto/cipher:193:29)
+4|indexus- |     at j5 (/var/www/indexus-crm/dist/index.cjs:140:20058)
+4|indexus- |     at pl (/var/www/indexus-crm/dist/index.cjs:140:20250)
+--
+4|indexus- | [MS365] Token decryption failed: Error: Unsupported state or unable to authenticate data
+4|indexus- |     at Decipheriv.final (node:internal/crypto/cipher:193:29)
+4|indexus- |     at j5 (/var/www/indexus-crm/dist/index.cjs:140:20058)
+4|indexus- |     at pl (/var/www/indexus-crm/dist/index.cjs:140:20250)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1290:38409
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- | [MS365] Token decryption failed: Error: Unsupported state or unable to authenticate data
+4|indexus- |     at Decipheriv.final (node:internal/crypto/cipher:193:29)
+4|indexus- |     at j5 (/var/www/indexus-crm/dist/index.cjs:140:20058)
+4|indexus- |     at pl (/var/www/indexus-crm/dist/index.cjs:140:20250)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1290:38409
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- | Failed to set outbound caller ID: ReferenceError: campaignAgents is not defined
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1798:2061
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+4|indexus- | [MS365] Token decryption failed: Error: Unsupported state or unable to authenticate data
+4|indexus- |     at Decipheriv.final (node:internal/crypto/cipher:193:29)
+4|indexus- |     at j5 (/var/www/indexus-crm/dist/index.cjs:140:20058)
+4|indexus- |     at pl (/var/www/indexus-crm/dist/index.cjs:140:20250)
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1290:38409
+4|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
