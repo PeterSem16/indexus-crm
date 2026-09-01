@@ -2,12 +2,12 @@
 type ModuleMap = Record<string, () => Promise<Record<string, unknown>>>;
 export const modules: ModuleMap = {
   "./components/mockups/beratung-email/BeratungEmailMockup.tsx": () => import("../components/mockups/beratung-email/BeratungEmailMockup.tsx"),
-  "./components/mockups/beratung-variants/VariantA.tsx": () => import("../components/mockups/beratung-variants/VariantA.tsx"),
-  "./components/mockups/beratung-variants/VariantB.tsx": () => import("../components/mockups/beratung-variants/VariantB.tsx"),
-  "./components/mockups/beratung-variants/VariantC.tsx": () => import("../components/mockups/beratung-variants/VariantC.tsx"),
   "./components/mockups/callback-cards/VariantA.tsx": () => import("../components/mockups/callback-cards/VariantA.tsx"),
   "./components/mockups/callback-cards/VariantB.tsx": () => import("../components/mockups/callback-cards/VariantB.tsx"),
   "./components/mockups/callback-cards/VariantC.tsx": () => import("../components/mockups/callback-cards/VariantC.tsx"),
+  "./components/mockups/beratung-variants/VariantA.tsx": () => import("../components/mockups/beratung-variants/VariantA.tsx"),
+  "./components/mockups/beratung-variants/VariantB.tsx": () => import("../components/mockups/beratung-variants/VariantB.tsx"),
+  "./components/mockups/beratung-variants/VariantC.tsx": () => import("../components/mockups/beratung-variants/VariantC.tsx"),
   "./components/mockups/calls-player/VariantA.tsx": () => import("../components/mockups/calls-player/VariantA.tsx"),
   "./components/mockups/calls-player/VariantB.tsx": () => import("../components/mockups/calls-player/VariantB.tsx"),
   "./components/mockups/calls-player/VariantC.tsx": () => import("../components/mockups/calls-player/VariantC.tsx"),
