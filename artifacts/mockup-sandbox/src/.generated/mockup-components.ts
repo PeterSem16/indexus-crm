@@ -2,12 +2,12 @@
 type ModuleMap = Record<string, () => Promise<Record<string, unknown>>>;
 export const modules: ModuleMap = {
   "./components/mockups/beratung-email/BeratungEmailMockup.tsx": () => import("../components/mockups/beratung-email/BeratungEmailMockup.tsx"),
-  "./components/mockups/callback-cards/VariantA.tsx": () => import("../components/mockups/callback-cards/VariantA.tsx"),
-  "./components/mockups/callback-cards/VariantB.tsx": () => import("../components/mockups/callback-cards/VariantB.tsx"),
-  "./components/mockups/callback-cards/VariantC.tsx": () => import("../components/mockups/callback-cards/VariantC.tsx"),
   "./components/mockups/beratung-variants/VariantA.tsx": () => import("../components/mockups/beratung-variants/VariantA.tsx"),
   "./components/mockups/beratung-variants/VariantB.tsx": () => import("../components/mockups/beratung-variants/VariantB.tsx"),
   "./components/mockups/beratung-variants/VariantC.tsx": () => import("../components/mockups/beratung-variants/VariantC.tsx"),
+  "./components/mockups/callback-cards/VariantA.tsx": () => import("../components/mockups/callback-cards/VariantA.tsx"),
+  "./components/mockups/callback-cards/VariantB.tsx": () => import("../components/mockups/callback-cards/VariantB.tsx"),
+  "./components/mockups/callback-cards/VariantC.tsx": () => import("../components/mockups/callback-cards/VariantC.tsx"),
   "./components/mockups/calls-player/VariantA.tsx": () => import("../components/mockups/calls-player/VariantA.tsx"),
   "./components/mockups/calls-player/VariantB.tsx": () => import("../components/mockups/calls-player/VariantB.tsx"),
   "./components/mockups/calls-player/VariantC.tsx": () => import("../components/mockups/calls-player/VariantC.tsx"),
@@ -26,6 +26,7 @@ export const modules: ModuleMap = {
   "./components/mockups/filter-variants/ChipFilter.tsx": () => import("../components/mockups/filter-variants/ChipFilter.tsx"),
   "./components/mockups/filter-variants/SidebarFilter.tsx": () => import("../components/mockups/filter-variants/SidebarFilter.tsx"),
   "./components/mockups/filter-variants/ToolbarFilter.tsx": () => import("../components/mockups/filter-variants/ToolbarFilter.tsx"),
+  "./components/mockups/mission-settings/MissionSettingsGeneralPreview.tsx": () => import("../components/mockups/mission-settings/MissionSettingsGeneralPreview.tsx"),
   "./components/mockups/pricing-configurator/Calculator.tsx": () => import("../components/mockups/pricing-configurator/Calculator.tsx"),
   "./components/mockups/pricing-configurator/Matrix.tsx": () => import("../components/mockups/pricing-configurator/Matrix.tsx"),
   "./components/mockups/pricing-configurator/PriceLists.tsx": () => import("../components/mockups/pricing-configurator/PriceLists.tsx"),

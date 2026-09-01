@@ -1,0 +1,58 @@
+.mission-settings-preview {
+  --ms-background: 0 0% 100%;
+  --ms-foreground: 0 0% 9%;
+  --ms-border: 0 0% 91%;
+  --ms-card: 0 0% 98%;
+  --ms-muted: 355 6% 92%;
+  --ms-muted-foreground: 0 0% 35%;
+  --ms-primary: 355 85% 42%;
+  --ms-primary-foreground: 0 0% 98%;
+  --ms-radius: .5rem;
+  background: hsl(var(--ms-background));
+  color: hsl(var(--ms-foreground));
+  font-family: "Open Sans", Arial, sans-serif;
+}
+
+.mission-settings-preview * { box-sizing: border-box; }
+.mission-settings-preview button,
+.mission-settings-preview input,
+.mission-settings-preview select,
+.mission-settings-preview textarea { font: inherit; }
+.mission-settings-preview button { cursor: pointer; }
+.mission-settings-preview .ms-card {
+  border: 1px solid hsl(var(--ms-border));
+  border-radius: var(--ms-radius);
+  background: hsl(var(--ms-card));
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgb(0 0 0 / .04);
+}
+.mission-settings-preview .ms-card:hover { box-shadow: 0 5px 12px rgb(0 0 0 / .08); transform: translateY(-1px); }
+.mission-settings-preview .ms-card-head { padding: 18px 20px 15px; border-bottom: 1px solid currentColor; border-bottom-color: color-mix(in srgb, currentColor 16%, transparent); }
+.mission-settings-preview .ms-card-body { padding: 19px 20px; }
+.mission-settings-preview .ms-title { margin: 0; font-size: 16px; font-weight: 650; }
+.mission-settings-preview .ms-desc { margin: 5px 0 0; color: hsl(var(--ms-muted-foreground)); font-size: 13px; line-height: 1.4; }
+.mission-settings-preview .ms-label { display: block; margin-bottom: 7px; font-size: 13px; font-weight: 600; }
+.mission-settings-preview .ms-input,
+.mission-settings-preview .ms-select,
+.mission-settings-preview .ms-textarea {
+  width: 100%; min-height: 38px; border: 1px solid hsl(var(--ms-border)); border-radius: 6px;
+  background: white; color: inherit; padding: 8px 10px; outline-color: hsl(var(--ms-primary));
+}
+.mission-settings-preview .ms-textarea { min-height: 65px; resize: vertical; }
+.mission-settings-preview .ms-switch {
+  position: relative; width: 38px; height: 22px; flex: none; padding: 0; border: 0; border-radius: 999px;
+  background: #c9c9c9; transition: background .15s;
+}
+.mission-settings-preview .ms-switch::after {
+  content: ""; position: absolute; width: 18px; height: 18px; left: 2px; top: 2px; border-radius: 50%;
+  background: white; box-shadow: 0 1px 2px rgb(0 0 0 / .25); transition: transform .15s;
+}
+.mission-settings-preview .ms-switch[data-on="true"] { background: hsl(var(--ms-primary)); }
+.mission-settings-preview .ms-switch[data-on="true"]::after { transform: translateX(16px); }
+.mission-settings-preview .ms-save {
+  border: 0; border-radius: 6px; padding: 9px 13px; background: hsl(var(--ms-primary)); color: white; font-weight: 600; font-size: 13px;
+}
+.mission-settings-preview .ms-subtab { border: 1px solid transparent; background: transparent; }
+.mission-settings-preview .ms-subtab.active { background: white; border-color: hsl(var(--ms-border)); box-shadow: 0 1px 2px rgb(0 0 0 / .06); }
+.mission-settings-preview .ms-choice.active { border-color: hsl(var(--ms-primary)); background: hsl(var(--ms-primary) / .05); color: hsl(var(--ms-primary)); }
+.mission-settings-preview .ms-choice { border: 2px solid hsl(var(--ms-border)); background: transparent; border-radius: 8px; }

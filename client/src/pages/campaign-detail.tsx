@@ -545,11 +545,13 @@ function CampaignDetailsCard({ campaign }: { campaign: Campaign }) {
   };
 
   return (
-    <Card data-testid="card-mission-settings">
-      <CardHeader className="flex flex-row items-center justify-between gap-4">
+    <Card data-testid="card-mission-settings" className="border-amber-200/80 bg-amber-50/30 shadow-sm transition-shadow hover:shadow-md dark:border-amber-900/60 dark:bg-amber-950/10">
+      <CardHeader className="flex flex-row items-center justify-between gap-4 border-b border-amber-200/60 pb-4 dark:border-amber-900/40">
         <div>
           <CardTitle className="flex items-center gap-2">
-            <Settings className="w-5 h-5" />
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-300">
+              <Settings className="w-5 h-5" />
+            </span>
             {t.campaigns.detail.settings}
           </CardTitle>
         </div>
@@ -560,7 +562,7 @@ function CampaignDetailsCard({ campaign }: { campaign: Campaign }) {
           </Button>
         )}
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-5">
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <Label>{t.campaigns.campaignName}</Label>
@@ -721,7 +723,7 @@ function CampaignDetailsCard({ campaign }: { campaign: Campaign }) {
             </div>
           )}
         </div>
-        <div className="rounded-lg border p-4 space-y-4">
+         <div className="rounded-xl border border-sky-200/80 bg-sky-50/35 p-4 space-y-4 transition-colors hover:border-sky-300 dark:border-sky-900/60 dark:bg-sky-950/10 dark:hover:border-sky-800">
           <div>
             <Label className="text-sm font-medium">{t.campaigns.skOutboundRouting}</Label>
             <p className="text-xs text-muted-foreground">{t.campaigns.skOutboundRoutingHelp}</p>
@@ -2267,11 +2269,11 @@ function AutoModeCard({ campaign }: { campaign: Campaign }) {
   });
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="border-orange-200/80 bg-orange-50/25 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-orange-900/60 dark:bg-orange-950/10">
+      <CardHeader className="border-b border-orange-200/60 dark:border-orange-900/40">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div>
-            <CardTitle>{t.campaigns.detail.autoMode}</CardTitle>
+            <CardTitle className="flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-md bg-orange-500/15 text-orange-700 dark:text-orange-300"><Zap className="h-4 w-4" /></span>{t.campaigns.detail.autoMode}</CardTitle>
             <CardDescription>{t.campaigns.detail.autoModeDesc}</CardDescription>
           </div>
           {hasChanges && (
@@ -2382,11 +2384,11 @@ function DefaultTemplatesCard({ campaign }: { campaign: Campaign }) {
   });
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="border-fuchsia-200/80 bg-fuchsia-50/20 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-fuchsia-900/60 dark:bg-fuchsia-950/10">
+      <CardHeader className="border-b border-fuchsia-200/60 dark:border-fuchsia-900/40">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div>
-            <CardTitle>{t.campaigns.detail.defaultTemplatesTitle}</CardTitle>
+            <CardTitle className="flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-md bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300"><FileEdit className="h-4 w-4" /></span>{t.campaigns.detail.defaultTemplatesTitle}</CardTitle>
             <CardDescription>
               {t.campaigns.detail.defaultTemplatesDesc}
             </CardDescription>
@@ -6592,20 +6594,20 @@ export default function CampaignDetailPage() {
                     <div className="space-y-8">
                       <section className="space-y-3">
                         <div className="space-y-0.5">
-                          <h3 className="text-base font-semibold">{t.campaigns.detail.settingsGroupBasic}</h3>
+                          <h3 className="flex items-center gap-2 text-base font-semibold"><span className="h-2 w-2 rounded-full bg-amber-500" />{t.campaigns.detail.settingsGroupBasic}</h3>
                           <p className="text-sm text-muted-foreground">{t.campaigns.detail.settingsGroupBasicDesc}</p>
                         </div>
                         <CampaignDetailsCard campaign={campaign} />
                       </section>
                       <section className="space-y-3">
                         <div className="space-y-0.5">
-                          <h3 className="text-base font-semibold">{t.campaigns.detail.settingsGroupAgent}</h3>
+                          <h3 className="flex items-center gap-2 text-base font-semibold"><span className="h-2 w-2 rounded-full bg-violet-500" />{t.campaigns.detail.settingsGroupAgent}</h3>
                           <p className="text-sm text-muted-foreground">{t.campaigns.detail.settingsGroupAgentDesc}</p>
                         </div>
                         <div className="grid gap-4 lg:grid-cols-2 items-start">
-                      <Card>
+                      <Card className="border-violet-200/80 bg-violet-50/25 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-violet-900/60 dark:bg-violet-950/10">
                         <CardHeader>
-                          <CardTitle>{t.campaigns.detail.maxRingTitle}</CardTitle>
+                          <CardTitle className="flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-md bg-violet-500/15 text-violet-700 dark:text-violet-300"><Phone className="h-4 w-4" /></span>{t.campaigns.detail.maxRingTitle}</CardTitle>
                           <CardDescription>
                             {t.campaigns.detail.maxRingDesc}
                           </CardDescription>
@@ -6647,9 +6649,9 @@ export default function CampaignDetailPage() {
                           </div>
                         </CardContent>
                       </Card>
-                      <Card>
+                      <Card className="border-cyan-200/80 bg-cyan-50/25 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-cyan-900/60 dark:bg-cyan-950/10">
                         <CardHeader>
-                          <CardTitle>{t.campaigns.detail.defaultOnlyAssignedTitle}</CardTitle>
+                          <CardTitle className="flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-md bg-cyan-500/15 text-cyan-700 dark:text-cyan-300"><UserCheck className="h-4 w-4" /></span>{t.campaigns.detail.defaultOnlyAssignedTitle}</CardTitle>
                           <CardDescription>
                             {t.campaigns.detail.defaultOnlyAssignedDesc}
                           </CardDescription>
@@ -6677,9 +6679,9 @@ export default function CampaignDetailPage() {
                           />
                         </CardContent>
                       </Card>
-                      <Card>
+                      <Card className="border-rose-200/80 bg-rose-50/25 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-rose-900/60 dark:bg-rose-950/10">
                         <CardHeader>
-                          <CardTitle>{t.campaigns.detail.showScriptTitle}</CardTitle>
+                          <CardTitle className="flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-md bg-rose-500/15 text-rose-700 dark:text-rose-300"><ScrollText className="h-4 w-4" /></span>{t.campaigns.detail.showScriptTitle}</CardTitle>
                           <CardDescription>
                             {t.campaigns.detail.showScriptDesc}
                           </CardDescription>
@@ -6707,9 +6709,9 @@ export default function CampaignDetailPage() {
                           />
                         </CardContent>
                       </Card>
-                      <Card>
+                      <Card className="border-lime-200/80 bg-lime-50/25 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-lime-900/60 dark:bg-lime-950/10">
                         <CardHeader>
-                          <CardTitle>{t.campaigns.detail.readOnlyCardsTitle}</CardTitle>
+                          <CardTitle className="flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-md bg-lime-500/15 text-lime-700 dark:text-lime-300"><ShieldCheck className="h-4 w-4" /></span>{t.campaigns.detail.readOnlyCardsTitle}</CardTitle>
                           <CardDescription>
                             {t.campaigns.detail.readOnlyCardsDesc}
                           </CardDescription>
@@ -6783,7 +6785,7 @@ export default function CampaignDetailPage() {
                       </section>
                       <section className="space-y-3">
                         <div className="space-y-0.5">
-                          <h3 className="text-base font-semibold">{t.campaigns.detail.settingsGroupDialer}</h3>
+                          <h3 className="flex items-center gap-2 text-base font-semibold"><span className="h-2 w-2 rounded-full bg-orange-500" />{t.campaigns.detail.settingsGroupDialer}</h3>
                           <p className="text-sm text-muted-foreground">{t.campaigns.detail.settingsGroupDialerDesc}</p>
                         </div>
                         <div className="space-y-4">
@@ -6792,12 +6794,12 @@ export default function CampaignDetailPage() {
                       </section>
                       <section className="space-y-3">
                         <div className="space-y-0.5">
-                          <h3 className="text-base font-semibold">{t.campaigns.detail.settingsGroupWorkflow}</h3>
+                          <h3 className="flex items-center gap-2 text-base font-semibold"><span className="h-2 w-2 rounded-full bg-rose-500" />{t.campaigns.detail.settingsGroupWorkflow}</h3>
                           <p className="text-sm text-muted-foreground">{t.campaigns.detail.settingsGroupWorkflowDesc}</p>
                         </div>
                         <div className="grid gap-4 lg:grid-cols-2 items-start">
-                      <Card>
-                        <CardHeader>
+                      <Card className="border-rose-200/80 bg-rose-50/20 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-rose-900/60 dark:bg-rose-950/10">
+                        <CardHeader className="border-b border-rose-200/60 dark:border-rose-900/40">
                           <CardTitle>{t.campaigns.detail.workflowModeTitle}</CardTitle>
                           <CardDescription>
                             {t.campaigns.detail.workflowModeDesc}
@@ -6837,8 +6839,8 @@ export default function CampaignDetailPage() {
                           </div>
                         </CardContent>
                       </Card>
-                      <Card>
-                        <CardHeader>
+                      <Card className="border-indigo-200/80 bg-indigo-50/20 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-indigo-900/60 dark:bg-indigo-950/10">
+                        <CardHeader className="border-b border-indigo-200/60 dark:border-indigo-900/40">
                           <CardTitle>{t.campaigns.detail.statusListModeTitle}</CardTitle>
                           <CardDescription>
                             {t.campaigns.detail.statusListModeDesc}
@@ -6878,8 +6880,8 @@ export default function CampaignDetailPage() {
                           </div>
                         </CardContent>
                       </Card>
-                      <Card>
-                        <CardHeader>
+                      <Card className="border-teal-200/80 bg-teal-50/20 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-teal-900/60 dark:bg-teal-950/10">
+                        <CardHeader className="border-b border-teal-200/60 dark:border-teal-900/40">
                           <CardTitle>{t.campaigns.detail.dispositionModeTitle}</CardTitle>
                           <CardDescription>
                             {t.campaigns.detail.dispositionModeDesc}
@@ -6925,8 +6927,8 @@ export default function CampaignDetailPage() {
                           </p>
                         </CardContent>
                       </Card>
-                      <Card>
-                        <CardHeader>
+                      <Card className="border-pink-200/80 bg-pink-50/20 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-pink-900/60 dark:bg-pink-950/10">
+                        <CardHeader className="border-b border-pink-200/60 dark:border-pink-900/40">
                           <CardTitle>{t.campaigns.detail.autoOpenDispositionTitle}</CardTitle>
                           <CardDescription>{t.campaigns.detail.autoOpenDispositionDesc}</CardDescription>
                         </CardHeader>
@@ -6963,8 +6965,8 @@ export default function CampaignDetailPage() {
                           </div>
                         </CardContent>
                       </Card>
-                      <Card>
-                        <CardHeader>
+                      <Card className="border-amber-200/80 bg-amber-50/20 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-amber-900/60 dark:bg-amber-950/10">
+                        <CardHeader className="border-b border-amber-200/60 dark:border-amber-900/40">
                           <CardTitle>{t.campaigns.detail.keepContactOpenAfterDispositionTitle}</CardTitle>
                           <CardDescription>{t.campaigns.detail.keepContactOpenAfterDispositionDesc}</CardDescription>
                         </CardHeader>
@@ -7003,8 +7005,8 @@ export default function CampaignDetailPage() {
                           </div>
                         </CardContent>
                       </Card>
-                      <Card>
-                        <CardHeader>
+                      <Card className="border-cyan-200/80 bg-cyan-50/20 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-cyan-900/60 dark:bg-cyan-950/10">
+                        <CardHeader className="border-b border-cyan-200/60 dark:border-cyan-900/40">
                           <CardTitle>{t.campaigns.detail.skipEmailSmsDispositionTitle}</CardTitle>
                           <CardDescription>{t.campaigns.detail.skipEmailSmsDispositionDesc}</CardDescription>
                         </CardHeader>
@@ -7047,12 +7049,12 @@ export default function CampaignDetailPage() {
                       </section>
                       <section className="space-y-3">
                         <div className="space-y-0.5">
-                          <h3 className="text-base font-semibold">{t.campaigns.detail.settingsGroupCommunication}</h3>
+                          <h3 className="flex items-center gap-2 text-base font-semibold"><span className="h-2 w-2 rounded-full bg-cyan-500" />{t.campaigns.detail.settingsGroupCommunication}</h3>
                           <p className="text-sm text-muted-foreground">{t.campaigns.detail.settingsGroupCommunicationDesc}</p>
                         </div>
                         <div className="grid gap-4 lg:grid-cols-2 items-start">
-                      <Card>
-                        <CardHeader>
+                      <Card className="border-cyan-200/80 bg-cyan-50/20 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-cyan-900/60 dark:bg-cyan-950/10">
+                        <CardHeader className="border-b border-cyan-200/60 dark:border-cyan-900/40">
                           <CardTitle>{t.campaigns.detail.nexusPulseEmailTitle}</CardTitle>
                           <CardDescription>{t.campaigns.detail.nexusPulseEmailDesc}</CardDescription>
                         </CardHeader>
@@ -7111,8 +7113,8 @@ export default function CampaignDetailPage() {
                           })()}
                         </CardContent>
                       </Card>
-                      <Card>
-                        <CardHeader>
+                      <Card className="border-emerald-200/80 bg-emerald-50/20 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-emerald-900/60 dark:bg-emerald-950/10">
+                        <CardHeader className="border-b border-emerald-200/60 dark:border-emerald-900/40">
                           <CardTitle>{t.campaigns.detail.missionSmsProviderTitle}</CardTitle>
                           <CardDescription>{t.campaigns.detail.missionSmsProviderDesc}</CardDescription>
                         </CardHeader>
@@ -7151,8 +7153,8 @@ export default function CampaignDetailPage() {
                           </p>
                         </CardContent>
                       </Card>
-                      <Card>
-                        <CardHeader>
+                      <Card className="border-sky-200/80 bg-sky-50/20 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-sky-900/60 dark:bg-sky-950/10">
+                        <CardHeader className="border-b border-sky-200/60 dark:border-sky-900/40">
                           <CardTitle>{t.campaigns.detail.missionSmsSenderTitle}</CardTitle>
                           <CardDescription>{t.campaigns.detail.missionSmsSenderDesc}</CardDescription>
                         </CardHeader>
@@ -7225,12 +7227,12 @@ export default function CampaignDetailPage() {
                       </section>
                       <section className="space-y-3">
                         <div className="space-y-0.5">
-                          <h3 className="text-base font-semibold">{t.campaigns.detail.settingsGroupAutomation}</h3>
+                          <h3 className="flex items-center gap-2 text-base font-semibold"><span className="h-2 w-2 rounded-full bg-violet-500" />{t.campaigns.detail.settingsGroupAutomation}</h3>
                           <p className="text-sm text-muted-foreground">{t.campaigns.detail.settingsGroupAutomationDesc}</p>
                         </div>
                         <div className="space-y-4">
-                      <Card>
-                        <CardHeader>
+                       <Card className="border-violet-200/80 bg-violet-50/20 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-violet-900/60 dark:bg-violet-950/10">
+                         <CardHeader className="border-b border-violet-200/60 dark:border-violet-900/40">
                           <CardTitle>{t.campaigns.detail.queueDisplayModeTitle}</CardTitle>
                           <CardDescription>
                             {t.campaigns.detail.queueDisplayModeDesc}
