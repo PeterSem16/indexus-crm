@@ -1,0 +1,59 @@
+tcpdump: data link type LINUX_SLL2
+tcpdump: verbose output suppressed, use -v[v]... for full protocol decode
+listening on any, link-type LINUX_SLL2 (Linux cooked v2), snapshot length 262144 bytes
+09:07:07.656686 eth0  Out IP 10.1.2.111.52868 > 10.1.2.112.8088: Flags [P.], seq 3627702003:3627702825, ack 1811039019, win 501, options [nop,nop,TS val 3130928485 ecr 2133762411], length 822
+09:07:07.656943 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.52868: Flags [.], ack 822, win 542, options [nop,nop,TS val 2133770151 ecr 3130928485], length 0
+09:07:07.658297 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.52868: Flags [P.], seq 1:487, ack 822, win 543, options [nop,nop,TS val 2133770152 ecr 3130928485], length 486
+09:07:07.658303 eth0  Out IP 10.1.2.111.52868 > 10.1.2.112.8088: Flags [.], ack 487, win 501, options [nop,nop,TS val 3130928487 ecr 2133770152], length 0
+09:07:07.658312 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.35384: Flags [P.], seq 2740084273:2740084759, ack 1809388599, win 543, options [nop,nop,TS val 2133770152 ecr 3130921465], length 486
+09:07:07.658325 eth0  Out IP 10.1.2.111.35384 > 10.1.2.112.8088: Flags [.], ack 486, win 501, options [nop,nop,TS val 3130928487 ecr 2133770152], length 0
+09:07:07.658404 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.52868: Flags [P.], seq 487:904, ack 822, win 543, options [nop,nop,TS val 2133770152 ecr 3130928485], length 417
+09:07:07.658410 eth0  Out IP 10.1.2.111.52868 > 10.1.2.112.8088: Flags [.], ack 904, win 501, options [nop,nop,TS val 3130928487 ecr 2133770152], length 0
+09:07:07.689260 eth0  Out IP 10.1.2.111.52868 > 10.1.2.112.8088: Flags [P.], seq 822:1351, ack 904, win 501, options [nop,nop,TS val 3130928518 ecr 2133770152], length 529
+09:07:07.692329 eth0  Out IP 10.1.2.111.52868 > 10.1.2.112.8088: Flags [P.], seq 1351:1361, ack 904, win 501, options [nop,nop,TS val 3130928521 ecr 2133770152], length 10
+09:07:07.692496 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.52868: Flags [.], ack 1361, win 543, options [nop,nop,TS val 2133770187 ecr 3130928518], length 0
+09:07:07.698867 eth0  Out IP 10.1.2.111.35384 > 10.1.2.112.8088: Flags [P.], seq 1:530, ack 486, win 501, options [nop,nop,TS val 3130928527 ecr 2133770152], length 529
+09:07:07.699156 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.35384: Flags [.], ack 530, win 543, options [nop,nop,TS val 2133770193 ecr 3130928527], length 0
+09:07:12.079709 eth0  Out IP 10.1.2.111.50340 > 10.1.2.112.8088: Flags [P.], seq 2741023720:2741023730, ack 352363725, win 501, options [nop,nop,TS val 3130932908 ecr 2133769445], length 10
+09:07:12.079993 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.50340: Flags [.], ack 10, win 543, options [nop,nop,TS val 2133774574 ecr 3130932908], length 0
+09:07:14.802885 eth0  Out IP 10.1.2.111.35384 > 10.1.2.112.8088: Flags [P.], seq 530:540, ack 486, win 501, options [nop,nop,TS val 3130935631 ecr 2133770193], length 10
+09:07:14.803153 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.35384: Flags [.], ack 540, win 543, options [nop,nop,TS val 2133777297 ecr 3130935631], length 0
+09:07:15.636096 eth0  Out IP 10.1.2.111.35384 > 10.1.2.112.8088: Flags [P.], seq 540:1367, ack 486, win 501, options [nop,nop,TS val 3130936464 ecr 2133777297], length 827
+09:07:15.636352 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.35384: Flags [.], ack 1367, win 542, options [nop,nop,TS val 2133778130 ecr 3130936464], length 0
+09:07:15.637145 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.35384: Flags [P.], seq 486:957, ack 1367, win 543, options [nop,nop,TS val 2133778131 ecr 3130936464], length 471
+09:07:15.637154 eth0  Out IP 10.1.2.111.35384 > 10.1.2.112.8088: Flags [.], ack 957, win 501, options [nop,nop,TS val 3130936465 ecr 2133778131], length 0
+09:07:15.674083 eth0  Out IP 10.1.2.111.35384 > 10.1.2.112.8088: Flags [P.], seq 1367:2184, ack 957, win 501, options [nop,nop,TS val 3130936502 ecr 2133778131], length 817
+09:07:15.675074 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.35384: Flags [P.], seq 957:1369, ack 2184, win 543, options [nop,nop,TS val 2133778169 ecr 3130936502], length 412
+09:07:15.675235 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.35384: Flags [P.], seq 1369:1856, ack 2184, win 543, options [nop,nop,TS val 2133778169 ecr 3130936502], length 487
+09:07:15.675242 eth0  Out IP 10.1.2.111.35384 > 10.1.2.112.8088: Flags [.], ack 1856, win 501, options [nop,nop,TS val 3130936504 ecr 2133778169], length 0
+09:07:15.675328 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.52868: Flags [P.], seq 904:1391, ack 1361, win 543, options [nop,nop,TS val 2133778169 ecr 3130928518], length 487
+09:07:15.704438 eth0  Out IP 10.1.2.111.52868 > 10.1.2.112.8088: Flags [P.], seq 1361:1891, ack 1391, win 501, options [nop,nop,TS val 3130936533 ecr 2133778169], length 530
+09:07:15.719236 eth0  Out IP 10.1.2.111.35384 > 10.1.2.112.8088: Flags [P.], seq 2184:2714, ack 1856, win 501, options [nop,nop,TS val 3130936548 ecr 2133778169], length 530
+09:07:15.745557 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.52868: Flags [.], ack 1891, win 543, options [nop,nop,TS val 2133778240 ecr 3130936533], length 0
+09:07:15.760445 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.35384: Flags [.], ack 2714, win 543, options [nop,nop,TS val 2133778255 ecr 3130936548], length 0
+09:07:15.969385 eth0  Out IP 10.1.2.111.52868 > 10.1.2.112.8088: Flags [P.], seq 1891:1901, ack 1391, win 501, options [nop,nop,TS val 3130936798 ecr 2133778240], length 10
+09:07:15.969562 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.52868: Flags [.], ack 1901, win 543, options [nop,nop,TS val 2133778464 ecr 3130936798], length 0
+09:07:21.125692 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.50340: Flags [P.], seq 1:487, ack 10, win 543, options [nop,nop,TS val 2133783619 ecr 3130932908], length 486
+09:07:21.125720 eth0  Out IP 10.1.2.111.50340 > 10.1.2.112.8088: Flags [.], ack 487, win 501, options [nop,nop,TS val 3130941954 ecr 2133783619], length 0
+09:07:21.161403 eth0  Out IP 10.1.2.111.50340 > 10.1.2.112.8088: Flags [P.], seq 10:539, ack 487, win 501, options [nop,nop,TS val 3130941990 ecr 2133783619], length 529
+09:07:21.161652 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.50340: Flags [.], ack 539, win 543, options [nop,nop,TS val 2133783656 ecr 3130941990], length 0
+09:07:21.839742 eth0  Out IP 10.1.2.111.50340 > 10.1.2.112.8088: Flags [P.], seq 539:1356, ack 487, win 501, options [nop,nop,TS val 3130942668 ecr 2133783656], length 817
+09:07:21.840036 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.50340: Flags [.], ack 1356, win 542, options [nop,nop,TS val 2133784334 ecr 3130942668], length 0
+09:07:21.840455 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.50340: Flags [P.], seq 487:958, ack 1356, win 543, options [nop,nop,TS val 2133784335 ecr 3130942668], length 471
+09:07:21.875787 eth0  Out IP 10.1.2.111.50340 > 10.1.2.112.8088: Flags [P.], seq 1356:2173, ack 958, win 501, options [nop,nop,TS val 3130942704 ecr 2133784335], length 817
+09:07:21.876817 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.50340: Flags [P.], seq 958:1370, ack 2173, win 543, options [nop,nop,TS val 2133784371 ecr 3130942704], length 412
+09:07:21.917179 eth0  Out IP 10.1.2.111.50340 > 10.1.2.112.8088: Flags [.], ack 1370, win 501, options [nop,nop,TS val 3130942746 ecr 2133784371], length 0
+09:07:21.955885 eth0  Out IP 10.1.2.111.50340 > 10.1.2.112.8088: Flags [P.], seq 2173:2183, ack 1370, win 501, options [nop,nop,TS val 3130942784 ecr 2133784371], length 10
+09:07:21.996423 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.50340: Flags [.], ack 2183, win 543, options [nop,nop,TS val 2133784491 ecr 3130942784], length 0
+09:07:22.702737 eth0  Out IP 10.1.2.111.52868 > 10.1.2.112.8088: Flags [P.], seq 1901:1911, ack 1391, win 501, options [nop,nop,TS val 3130943531 ecr 2133778464], length 10
+09:07:22.703015 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.52868: Flags [.], ack 1911, win 543, options [nop,nop,TS val 2133785197 ecr 3130943531], length 0
+09:07:24.392329 eth0  Out IP 10.1.2.111.42936 > 10.1.2.112.8088: Flags [S], seq 297059190, win 64240, options [mss 1460,sackOK,TS val 3130945221 ecr 0,nop,wscale 7], length 0
+09:07:24.392680 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.42936: Flags [S.], seq 1675417085, ack 297059191, win 65160, options [mss 1460,sackOK,TS val 2133786887 ecr 3130945221,nop,wscale 7], length 0
+09:07:24.392709 eth0  Out IP 10.1.2.111.42936 > 10.1.2.112.8088: Flags [.], ack 1, win 502, options [nop,nop,TS val 3130945221 ecr 2133786887], length 0
+09:07:24.392956 eth0  Out IP 10.1.2.111.42936 > 10.1.2.112.8088: Flags [P.], seq 1:273, ack 1, win 502, options [nop,nop,TS val 3130945221 ecr 2133786887], length 272
+09:07:24.393141 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.42936: Flags [.], ack 273, win 507, options [nop,nop,TS val 2133786887 ecr 3130945221], length 0
+09:07:24.393350 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.42936: Flags [P.], seq 1:696, ack 273, win 507, options [nop,nop,TS val 2133786887 ecr 3130945221], length 695
+09:07:24.393358 eth0  Out IP 10.1.2.111.42936 > 10.1.2.112.8088: Flags [.], ack 696, win 499, options [nop,nop,TS val 3130945222 ecr 2133786887], length 0
+09:07:24.393951 eth0  Out IP 10.1.2.111.47478 > 10.1.2.112.8088: Flags [P.], seq 1637385084:1637385090, ack 828274671, win 1511, options [nop,nop,TS val 3130945222 ecr 2133756887], length 6
+09:07:24.394223 eth0  In  IP 10.1.2.112.8088 > 10.1.2.111.47478: Flags [P.], seq 1:3, ack 6, win 507, options [nop,nop,TS val 2133786888 ecr 3130945222], length 2
+09:07:24.394237 eth0  Out IP 10.1.2.111.47478 > 10.1.2.112.8088: Flags [.], ack 3, win 1511, options [nop,nop,TS val 3130945223 ecr 2133786888], length 0
