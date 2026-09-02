@@ -66,3 +66,4 @@
 - [O2 Mission Caller ID trust](o2-mission-callerid-trust.md) — O2 CLI must come from a short-lived server-created AstDB authorization, never client SIP headers.
 - [Mission recording authorization](mission-recording-authorization.md) — recording permission must be server-derived and bound to the actual SIP/ARI call; browser metadata or audio is never authoritative.
 - [Mediagtw agent-only recording control](mediagtw-agent-recording-control.md) — outbound recording uses localhost-only mediagtw AMI through SSH; external production needs its own PM2 secret.
+- [Ubuntu PostgreSQL CSV exports](psql-csv-export.md) — multiline `\copy` is unreliable in this psql; use `psql --csv -f - > file` and generate dynamic column lists when excluding secrets.
