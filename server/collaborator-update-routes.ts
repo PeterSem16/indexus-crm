@@ -17,6 +17,7 @@ import { decryptTokenSafe, encryptTokenWithMarker } from "./lib/token-crypto";
 // (system country mailbox | creator's own account | dedicated connected mailbox).
 // Refreshed tokens are written back to the proper store.
 async function resolveSenderAccessToken(campaign: any): Promise<{ accessToken?: string; error?: string }> {
+  try {
   if (campaign.senderType === "own") {
     if (!campaign.senderUserId) return { error: "No sender user set for this campaign" };
     const conn: any = await storage.getUserMs365Connection(campaign.senderUserId);
@@ -32,8 +33,10 @@ async function resolveSenderAccessToken(campaign: any): Promise<{ accessToken?: 
     if (tokenInfo.refreshed) {
       try {
         await storage.updateUserMs365Connection(campaign.senderUserId, {
-          accessToken: tokenInfo.accessToken,
-          refreshToken: (tokenInfo as any).refreshToken || conn.refreshToken,
+          accessToken: encryptTokenWithMarker(tokenInfo.accessToken),
+          refreshToken: (tokenInfo as any).refreshToken
+            ? encryptTokenWithMarker((tokenInfo as any).refreshToken)
+            : conn.refreshToken,
           tokenExpiresAt: (tokenInfo as any).expiresOn || undefined,
         } as any);
       } catch {}
@@ -74,13 +77,26 @@ async function resolveSenderAccessToken(campaign: any): Promise<{ accessToken?: 
   if (tokenInfo.refreshed) {
     try {
       await storage.updateSystemMs365Connection(campaign.senderCountryCode, {
-        accessToken: tokenInfo.accessToken,
-        refreshToken: (tokenInfo as any).refreshToken || conn.refreshToken,
+        accessToken: encryptTokenWithMarker(tokenInfo.accessToken),
+        refreshToken: (tokenInfo as any).refreshToken
+          ? encryptTokenWithMarker((tokenInfo as any).refreshToken)
+          : conn.refreshToken,
         tokenExpiresAt: (tokenInfo as any).expiresOn || undefined,
       } as any);
     } catch {}
   }
   return { accessToken: tokenInfo.accessToken };
+  } catch (err: any) {
+    if (/unable to authenticate data|unsupported state|bad decrypt/i.test(String(err?.message || ""))) {
+      const mailbox = campaign.senderType === "custom"
+        ? "dedicated campaign mailbox"
+        : campaign.senderType === "own"
+          ? "personal MS365 mailbox"
+          : `${campaign.senderCountryCode || "system"} system mailbox`;
+      return { error: `The saved authentication for the ${mailbox} is no longer valid. Reconnect this mailbox and try again.` };
+    }
+    return { error: err?.message || "Sender mailbox authentication failed" };
+  }
 }
 
 // Collaborator columns editable through the public form
@@ -568,8 +584,8 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
     }
   });
 
-  // Edit campaign settings (name, subject, body) — allowed for draft and
-  // paused campaigns; only future emails use the new text.
+  // Edit campaign settings and sender. Existing sent messages are unchanged;
+  // the selection is used by test sends, pending sends, resends and reminders.
   app.patch("/api/collaborator-update-campaigns/:id/settings", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const [campaign] = await db.select().from(collaboratorUpdateCampaigns)
@@ -581,16 +597,43 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
       if (!name || !subject || !body.trim()) {
         return res.status(400).json({ message: "Name, subject and body are required" });
       }
-      // Atomic status gate: only draft/paused campaigns are editable; the
-      // predicate closes the race with a concurrent /send flipping to sending.
+      const senderType = ["system", "own", "custom"].includes(req.body?.senderType)
+        ? req.body.senderType
+        : campaign.senderType;
+      const senderCountryCode = typeof req.body?.senderCountryCode === "string"
+        ? req.body.senderCountryCode.trim().toUpperCase()
+        : campaign.senderCountryCode;
+      const sessionUserId = (req.session as any)?.user?.id || (req.session as any)?.userId || null;
+      if (senderType === "system") {
+        if (!senderCountryCode) return res.status(400).json({ message: "System sender mailbox is required" });
+        const conn: any = await storage.getSystemMs365Connection(senderCountryCode);
+        if (!conn?.accessToken || conn.isConnected === false) {
+          return res.status(400).json({ message: `System MS365 mailbox for ${senderCountryCode} is not connected` });
+        }
+      }
+      if (senderType === "own") {
+        if (!sessionUserId) return res.status(400).json({ message: "No user session" });
+        const conn: any = await storage.getUserMs365Connection(sessionUserId);
+        if (!conn?.accessToken || conn.isConnected === false) {
+          return res.status(400).json({ message: "Your MS365 account is not connected — connect it in your profile first" });
+        }
+      }
       const updated = await db.update(collaboratorUpdateCampaigns)
-        .set({ name, emailSubject: subject, emailBody: body, updatedAt: new Date() })
+        .set({
+          name,
+          emailSubject: subject,
+          emailBody: body,
+          senderType,
+          senderCountryCode: senderType === "system" ? senderCountryCode : "",
+          senderUserId: senderType === "own" ? sessionUserId : null,
+          updatedAt: new Date(),
+        })
         .where(and(
           eq(collaboratorUpdateCampaigns.id, campaign.id),
-          inArray(collaboratorUpdateCampaigns.status, ["draft", "paused"]),
+          ne(collaboratorUpdateCampaigns.status, "sending"),
         )).returning({ id: collaboratorUpdateCampaigns.id });
       if (updated.length === 0) {
-        return res.status(409).json({ message: "Settings can only be edited for draft or paused campaigns" });
+        return res.status(409).json({ message: "Settings cannot be changed while the campaign is sending" });
       }
       res.json({ ok: true });
     } catch (err: any) {

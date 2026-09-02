@@ -1123,13 +1123,27 @@ function EditFilterDialog({ campaign, l, toast, open, onOpenChange }: any) {
 }
 
 function SettingsDialog({ campaign, l, toast, open, onOpenChange }: any) {
+  const { user } = useAuth();
   const [name, setName] = useState(campaign.name || "");
   const [subject, setSubject] = useState(campaign.emailSubject || "");
   const [body, setBody] = useState(campaign.emailBody || "");
+  const [senderType, setSenderType] = useState(campaign.senderType || "system");
+  const [senderCountryCode, setSenderCountryCode] = useState(campaign.senderCountryCode || "");
+  const { data: connections = [] } = useQuery<any[]>({
+    queryKey: ["/api/config/system-ms365-connections"],
+    enabled: open,
+  });
+  const { data: ownConn } = useQuery<any>({
+    queryKey: ["/api/users", user?.id, "ms365-connection"],
+    enabled: open && !!user?.id && senderType === "own",
+  });
+  const ownConnected = !!ownConn?.isConnected && !!ownConn?.hasTokens;
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("PATCH", `/api/collaborator-update-campaigns/${campaign.id}/settings`, { name, subject, body });
+      const res = await apiRequest("PATCH", `/api/collaborator-update-campaigns/${campaign.id}/settings`, {
+        name, subject, body, senderType, senderCountryCode,
+      });
       return res.json();
     },
     onSuccess: () => {
@@ -1152,6 +1166,46 @@ function SettingsDialog({ campaign, l, toast, open, onOpenChange }: any) {
             <Label>{l.name}</Label>
             <Input value={name} onChange={e => setName(e.target.value)} data-testid="input-settings-name" />
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>{l.senderTypeL}</Label>
+              <Select value={senderType} onValueChange={setSenderType}>
+                <SelectTrigger data-testid="select-settings-sender-type"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="system">{l.senderTypeSystem}</SelectItem>
+                  <SelectItem value="own">{l.senderTypeOwn}</SelectItem>
+                  <SelectItem value="custom">{l.senderTypeCustom}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {senderType === "system" ? (
+              <div className="space-y-1.5">
+                <Label>{l.senderMailbox}</Label>
+                <Select value={senderCountryCode} onValueChange={setSenderCountryCode}>
+                  <SelectTrigger data-testid="select-settings-sender"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {connections.filter((c: any) => c.isConnected).map((c: any) => (
+                      <SelectItem key={c.countryCode} value={c.countryCode}>{c.email} ({c.countryCode})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : senderType === "own" ? (
+              <div className="space-y-1.5">
+                <Label>{l.senderMailbox}</Label>
+                <p className={`text-sm pt-2 ${ownConnected ? "text-muted-foreground" : "text-destructive"}`}>
+                  {ownConnected ? (ownConn?.email || l.senderConnected) : l.ownNotConnected}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Label>{l.senderMailbox}</Label>
+                <p className="text-sm pt-2 text-muted-foreground">
+                  {campaign.senderCustomEmail || l.senderCustomHint}
+                </p>
+              </div>
+            )}
+          </div>
           <div className="space-y-1.5">
             <Label>{l.subject}</Label>
             <Input value={subject} onChange={e => setSubject(e.target.value)} data-testid="input-settings-subject" />
@@ -1166,7 +1220,9 @@ function SettingsDialog({ campaign, l, toast, open, onOpenChange }: any) {
           <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-settings-cancel">{l.cancel}</Button>
           <Button
             onClick={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending || !name.trim() || !subject.trim() || !body.trim()}
+            disabled={saveMutation.isPending || !name.trim() || !subject.trim() || !body.trim()
+              || (senderType === "system" && !senderCountryCode)
+              || (senderType === "own" && !ownConnected)}
             data-testid="button-settings-save"
           >
             {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
