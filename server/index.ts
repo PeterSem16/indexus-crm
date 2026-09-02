@@ -597,7 +597,11 @@ app.use((req, res, next) => {
         ADD COLUMN IF NOT EXISTS ai_wants_consent BOOLEAN,
         ADD COLUMN IF NOT EXISTS ai_does_not_accept_contract BOOLEAN,
         ADD COLUMN IF NOT EXISTS ai_analysis_note TEXT,
-        ADD COLUMN IF NOT EXISTS ai_analyzed_at TIMESTAMP;
+        ADD COLUMN IF NOT EXISTS ai_analyzed_at TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS handled_at TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS handled_by_user_id VARCHAR;
+      CREATE INDEX IF NOT EXISTS idx_comm_messages_unhandled_inbound
+        ON communication_messages(direction, type, handled_at);
       CREATE UNIQUE INDEX IF NOT EXISTS idx_smstools_inbound_external_unique
         ON communication_messages(provider, direction, external_id)
         WHERE provider = 'smstools' AND direction = 'inbound' AND external_id IS NOT NULL;

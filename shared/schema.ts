@@ -1254,6 +1254,8 @@ export const communicationMessages = pgTable("communication_messages", {
   deliveryStatus: text("delivery_status"), // delivery report status
   errorMessage: text("error_message"),
   metadata: text("metadata"), // JSON metadata including compositionDurationSeconds
+  handledAt: timestamp("handled_at"),
+  handledByUserId: varchar("handled_by_user_id"),
   contractId: varchar("contract_id"),
   sentAt: timestamp("sent_at"),
   deliveredAt: timestamp("delivered_at"),
@@ -1273,6 +1275,7 @@ export const communicationMessages = pgTable("communication_messages", {
   idxCommMessagesContract: index("idx_comm_messages_contract").on(table.contractId),
   idxCommMessagesExternal: index("idx_comm_messages_external").on(table.externalId),
   idxCommMessagesCreatedAt: index("idx_comm_messages_created_at").on(table.createdAt),
+  idxCommMessagesUnhandledInbound: index("idx_comm_messages_unhandled_inbound").on(table.direction, table.type, table.handledAt),
   idxSmstoolsInboundExternalUnique: uniqueIndex("idx_smstools_inbound_external_unique")
     .on(table.provider, table.direction, table.externalId)
     .where(sql`${table.provider} = 'smstools' AND ${table.direction} = 'inbound' AND ${table.externalId} IS NOT NULL`),

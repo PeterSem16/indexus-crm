@@ -10192,7 +10192,9 @@ export default function AgentWorkspacePage() {
   const [scheduledQueueOpen, setScheduledQueueOpen] = useState(false);
   const [abandonedCallsOpen, setAbandonedCallsOpen] = useState(false);
   const [myActivityOpen, setMyActivityOpen] = useState(false);
+  const [missedChannel, setMissedChannel] = useState<"calls" | "email" | "sms">("calls");
   const [abandonedCallsFilter, setAbandonedCallsFilter] = useState<"all" | "pending" | "handled">("all");
+  const [activeMissedMessageId, setActiveMissedMessageId] = useState<string | null>(null);
   const [missedCallNotifs, setMissedCallNotifs] = useState<Array<{ id: number; title: string; description: string }>>([]);
   const pendingCallbackAbandonedIdRef = useRef<string | null>(null);
   const [historyDetailModal, setHistoryDetailModal] = useState<TimelineEntry | ContactHistory | null>(null);
@@ -10999,6 +11001,12 @@ export default function AgentWorkspacePage() {
 
   const { data: abandonedCalls = [] } = useQuery<any[]>({
     queryKey: ["/api/agent/abandoned-calls"],
+    enabled: !!hasAccess && agentSession.isSessionActive,
+    refetchInterval: 30000,
+  });
+
+  const { data: missedMessages = [] } = useQuery<any[]>({
+    queryKey: ["/api/agent/missed-messages"],
     enabled: !!hasAccess && agentSession.isSessionActive,
     refetchInterval: 30000,
   });
@@ -11973,6 +11981,12 @@ export default function AgentWorkspacePage() {
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "activity-logs"] });
         queryClient.invalidateQueries({ queryKey: ["/api/entity-history", variables.customerId] });
       }
+      if (activeMissedMessageId) {
+        apiRequest("POST", `/api/agent/missed-messages/${activeMissedMessageId}/handled`, {})
+          .then(() => queryClient.invalidateQueries({ queryKey: ["/api/agent/missed-messages"] }))
+          .catch(() => {});
+        setActiveMissedMessageId(null);
+      }
       if (!variables.isReply && currentCampaignContactId && selectedCampaignId) {
         const campaignSettings = selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {};
         if (campaignSettings.dispositionMode === "script" || campaignSettings.skipEmailSmsDisposition === true) {
@@ -12029,6 +12043,12 @@ export default function AgentWorkspacePage() {
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "messages"] });
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "activity-logs"] });
         queryClient.invalidateQueries({ queryKey: ["/api/entity-history", variables.customerId] });
+      }
+      if (activeMissedMessageId) {
+        apiRequest("POST", `/api/agent/missed-messages/${activeMissedMessageId}/handled`, {})
+          .then(() => queryClient.invalidateQueries({ queryKey: ["/api/agent/missed-messages"] }))
+          .catch(() => {});
+        setActiveMissedMessageId(null);
       }
       if (currentCampaignContactId) {
         const campSettings = (() => { try { return selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {}; } catch { return {}; } })();
@@ -16433,7 +16453,7 @@ export default function AgentWorkspacePage() {
         </SheetContent>
       </Sheet>
 
-      <Dialog open={abandonedCallsOpen} onOpenChange={(open) => { setAbandonedCallsOpen(open); if (!open) setAbandonedCallsFilter("all"); }} modal={false}>
+      <Dialog open={abandonedCallsOpen} onOpenChange={(open) => { setAbandonedCallsOpen(open); if (!open) { setAbandonedCallsFilter("all"); setMissedChannel("calls"); } }} modal={false}>
         <DialogContent
           className="sm:max-w-[580px] max-h-[82vh] flex flex-col overflow-hidden p-0 gap-0 shadow-2xl ring-1 ring-black/10 dark:ring-white/10"
           onInteractOutside={(e) => e.preventDefault()}
@@ -16446,18 +16466,35 @@ export default function AgentWorkspacePage() {
               <PhoneOff className="h-5 w-5" style={{ color: "#B5622E" }} />
             </div>
             <div>
-              <DialogTitle className="text-lg font-bold leading-tight">{t.agentWorkspace.missedCallsTitle}</DialogTitle>
+              <DialogTitle className="text-lg font-bold leading-tight">{t.agentWorkspace.missedTitle}</DialogTitle>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {abandonedCalls.filter((c: any) => !c.calledBack).length} {t.agentWorkspace.missedUnhandledCount} · {abandonedCalls.filter((c: any) => !!c.calledBack).length} {t.agentWorkspace.missedHandledCount}
+                {(abandonedCalls.filter((c: any) => !c.calledBack).length + missedMessages.filter((m: any) => !m.handledAt).length)} {t.agentWorkspace.missedUnhandledCount}
               </p>
             </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-1 px-5 pb-3 shrink-0">
+            {([
+              ["calls", t.agentWorkspace.missedCallsTab, PhoneOff, abandonedCalls.filter((c: any) => !c.calledBack).length],
+              ["email", t.agentWorkspace.missedEmailsTab, Mail, missedMessages.filter((m: any) => m.type === "email" && !m.handledAt).length],
+              ["sms", t.agentWorkspace.missedSmsTab, MessageSquare, missedMessages.filter((m: any) => m.type === "sms" && !m.handledAt).length],
+            ] as const).map(([key, label, Icon, count]) => (
+              <button key={key} onClick={() => { setMissedChannel(key); setAbandonedCallsFilter("all"); }}
+                className={`flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-semibold transition-colors ${missedChannel === key ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted"}`}>
+                <Icon className="h-3.5 w-3.5" /> {label}
+                {count > 0 && <span className={`rounded-full px-1.5 text-[10px] ${missedChannel === key ? "bg-white/20" : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"}`}>{count}</span>}
+              </button>
+            ))}
           </div>
 
           {/* Filter tabs */}
           <div className="flex items-center gap-1.5 px-5 pb-3 border-b shrink-0">
             {(["all", "pending", "handled"] as const).map((f) => {
               const labels = { all: t.agentWorkspace.filterAll, pending: t.agentWorkspace.filterPending, handled: t.agentWorkspace.filterHandled };
-              const count = f === "all" ? abandonedCalls.length : f === "pending" ? abandonedCalls.filter((c: any) => !c.calledBack).length : abandonedCalls.filter((c: any) => !!c.calledBack).length;
+              const channelItems = missedChannel === "calls" ? abandonedCalls : missedMessages.filter((m: any) => m.type === missedChannel);
+              const count = f === "all" ? channelItems.length : f === "pending"
+                ? channelItems.filter((item: any) => missedChannel === "calls" ? !item.calledBack : !item.handledAt).length
+                : channelItems.filter((item: any) => missedChannel === "calls" ? !!item.calledBack : !!item.handledAt).length;
               return (
                 <button key={f} onClick={() => setAbandonedCallsFilter(f)}
                   className="px-3 py-1 rounded-full text-xs font-medium transition-all border"
@@ -16473,7 +16510,52 @@ export default function AgentWorkspacePage() {
 
           {/* Sections */}
           <div className="flex-1 min-h-0 overflow-y-auto">
-            {(() => {
+            {missedChannel !== "calls" && (() => {
+              const channelMessages = missedMessages.filter((m: any) =>
+                m.type === missedChannel && (abandonedCallsFilter === "all" ? true : abandonedCallsFilter === "pending" ? !m.handledAt : !!m.handledAt)
+              );
+              if (channelMessages.length === 0) return (
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                  <CheckCircle className="h-12 w-12 mb-3 text-green-500/40" />
+                  <p className="font-medium text-sm">{t.agentWorkspace.noMissedMessages}</p>
+                </div>
+              );
+              return <div className="space-y-2 p-4">{channelMessages.map((message: any) => {
+                const Icon = message.type === "email" ? Mail : MessageSquare;
+                return <div key={message.id} className="rounded-xl border bg-card p-3" data-testid={`missed-message-${message.id}`}>
+                  <div className="flex gap-3">
+                    <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${message.handledAt ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300" : "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300"}`}>
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-semibold text-sm truncate">{message.contactName || message.sender}</p>
+                        <span className="text-[10px] text-muted-foreground shrink-0">{message.createdAt ? format(new Date(message.createdAt), "dd.MM. HH:mm") : ""}</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground truncate">{message.campaignName} · {message.sender}</p>
+                      {message.subject && <p className="text-xs font-medium mt-1 truncate">{message.subject}</p>}
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{String(message.content || "").replace(/<[^>]*>/g, " ")}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        {!message.handledAt && <Button size="sm" className="h-7 text-xs" onClick={async () => {
+                          const opened = await handleSelectInboundMatch({ entityType: message.contactType, id: message.entityId, name: message.contactName || "", phone: message.senderPhone || "" }, "card", undefined, { syncCall: false });
+                          if (opened) {
+                            setActiveMissedMessageId(message.id);
+                            setSelectedCampaignId(message.campaignId);
+                            setAbandonedCallsOpen(false);
+                          }
+                        }}>{t.agentWorkspace.replyBtn}</Button>}
+                        {!message.handledAt && <Button size="sm" variant="outline" className="h-7 text-xs" onClick={async () => {
+                          await apiRequest("POST", `/api/agent/missed-messages/${message.id}/handled`, {});
+                          queryClient.invalidateQueries({ queryKey: ["/api/agent/missed-messages"] });
+                        }}>{t.agentWorkspace.markHandledBtn}</Button>}
+                        {message.handledAt && <span className="text-[11px] text-green-600 flex items-center gap-1"><CheckCircle className="h-3 w-3" />{message.handledByUserName || t.agentWorkspace.handledBy}</span>}
+                      </div>
+                    </div>
+                  </div>
+                </div>;
+              })}</div>;
+            })()}
+            {missedChannel === "calls" && (() => {
               const allFiltered = abandonedCalls.filter((c: any) =>
                 abandonedCallsFilter === "all" ? true
                 : abandonedCallsFilter === "pending" ? !c.calledBack

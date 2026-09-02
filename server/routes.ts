@@ -25527,6 +25527,100 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
+  // Inbound email/SMS matched to contacts in missions selected for the
+  // agent's current shift. Mission scope is always derived server-side.
+  app.get("/api/agent/missed-messages", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user!.id;
+      const [session] = await db.select({
+        campaignId: agentSessions.campaignId,
+        campaignIds: agentSessions.campaignIds,
+      }).from(agentSessions)
+        .where(and(eq(agentSessions.userId, userId), isNull(agentSessions.endedAt)))
+        .orderBy(desc(agentSessions.startedAt))
+        .limit(1);
+      const missionIds = [...new Set([
+        ...(session?.campaignIds || []),
+        ...(session?.campaignId ? [session.campaignId] : []),
+      ])];
+      if (missionIds.length === 0) return res.json([]);
+
+      const rows = await pool.query(`
+        WITH matched AS (
+          SELECT DISTINCT ON (cm.id)
+            cm.id, cm.type, cm.subject, cm.content,
+            cm.sender_phone AS "senderPhone",
+            cm.customer_id AS "entityId",
+            cm.created_at AS "createdAt",
+            cm.handled_at AS "handledAt",
+            cm.handled_by_user_id AS "handledByUserId",
+            COALESCE(cm.metadata::jsonb ->> 'from', cm.sender_phone) AS sender,
+            COALESCE(cm.metadata::jsonb ->> 'senderName', '') AS "senderName",
+            COALESCE(cm.metadata::jsonb ->> 'contactType', cc.contact_type, 'customer') AS "contactType",
+            cc.id AS "campaignContactId",
+            c.id AS "campaignId", c.name AS "campaignName"
+          FROM communication_messages cm
+          JOIN campaign_contacts cc ON cc.campaign_id = ANY($1::varchar[])
+            AND (cc.customer_id = cm.customer_id OR cc.clinic_id = cm.customer_id
+              OR cc.hospital_id = cm.customer_id OR cc.collaborator_id = cm.customer_id)
+          JOIN campaigns c ON c.id = cc.campaign_id
+          WHERE cm.direction = 'inbound' AND cm.type IN ('email', 'sms')
+            AND cm.customer_id IS NOT NULL
+          ORDER BY cm.id, cm.created_at DESC, c.name
+        )
+        SELECT m.*, u.full_name AS "handledByUserName",
+          CASE
+            WHEN m."contactType" = 'clinic' THEN COALESCE(cl.name, m."senderName", m.sender)
+            WHEN m."contactType" = 'hospital' THEN COALESCE(h.name, m."senderName", m.sender)
+            WHEN m."contactType" = 'collaborator' THEN COALESCE(NULLIF(concat_ws(' ', co.first_name, co.last_name), ''), m."senderName", m.sender)
+            ELSE COALESCE(NULLIF(concat_ws(' ', cu.first_name, cu.last_name), ''), m."senderName", m.sender)
+          END AS "contactName"
+        FROM matched m
+        LEFT JOIN users u ON u.id = m."handledByUserId"
+        LEFT JOIN customers cu ON m."contactType" = 'customer' AND cu.id = m."entityId"
+        LEFT JOIN clinics cl ON m."contactType" = 'clinic' AND cl.id = m."entityId"
+        LEFT JOIN hospitals h ON m."contactType" = 'hospital' AND h.id = m."entityId"
+        LEFT JOIN collaborators co ON m."contactType" = 'collaborator' AND co.id = m."entityId"
+        WHERE m."handledAt" IS NULL OR m."handledAt" >= now() - interval '24 hours'
+        ORDER BY (m."handledAt" IS NULL) DESC, m."createdAt" DESC
+      `, [missionIds]);
+      res.json(rows.rows);
+    } catch (error) {
+      console.error("Failed to fetch missed messages:", error);
+      res.status(500).json({ error: "Failed to fetch missed messages" });
+    }
+  });
+
+  app.post("/api/agent/missed-messages/:messageId/handled", requireAuth, async (req, res) => {
+    try {
+      const result = await pool.query(`
+        UPDATE communication_messages cm
+        SET handled_at = now(), handled_by_user_id = $1
+        WHERE cm.id = $2 AND cm.direction = 'inbound' AND cm.type IN ('email', 'sms')
+          AND EXISTS (
+            SELECT 1
+            FROM agent_sessions s
+            JOIN campaign_contacts cc
+              ON cc.campaign_id = ANY(
+                CASE WHEN cardinality(s.campaign_ids) > 0
+                  THEN s.campaign_ids
+                  ELSE ARRAY[s.campaign_id]::text[]
+                END
+              )
+            WHERE s.user_id = $1 AND s.ended_at IS NULL
+              AND (cc.customer_id = cm.customer_id OR cc.clinic_id = cm.customer_id
+                OR cc.hospital_id = cm.customer_id OR cc.collaborator_id = cm.customer_id)
+          )
+        RETURNING cm.id
+      `, [req.session.user!.id, req.params.messageId]);
+      if (result.rowCount === 0) return res.status(404).json({ error: "Message not found" });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to mark missed message handled:", error);
+      res.status(500).json({ error: "Failed to mark message handled" });
+    }
+  });
+
   // Today's agent activity — calls, with customer names
   app.get("/api/agent/today-calls", requireAuth, async (req, res) => {
     try {
