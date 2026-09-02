@@ -32,6 +32,7 @@ function ccInitials(cc: any): string {
   return n.split(" ").filter(Boolean).map((w: string) => w[0]).slice(0, 2).join("").toUpperCase() || "?";
 }
 function ccSearchMatch(cc: any, q: string, field = "all"): boolean {
+  if (field === "referral") return !!cc.hasReferral;
   if (!q.trim()) return true;
   const lower = q.toLowerCase();
   const ql = lower.replace(/\s/g, "");
@@ -1347,7 +1348,8 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
 
   // When user is actively searching, use allCampaignContacts (all statuses) so search finds
   // previously contacted/completed entries too — matching NexusPulse behavior.
-  const searchPool = searchQ.trim() && allCampaignContacts ? allCampaignContacts : campaignContacts;
+  const referralFilterActive = searchField === "referral";
+  const searchPool = (searchQ.trim() || referralFilterActive) && allCampaignContacts ? allCampaignContacts : campaignContacts;
 
   const byTab = (() => {
     let base =
@@ -1383,6 +1385,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
     { value: "city",    label: np.searchFieldCity    || "Mesto" },
     { value: "entity",  label: np.searchFieldEntity  || "Zariadenie" },
     { value: "address", label: np.searchFieldAddress || "Adresa" },
+    { value: "referral", label: t?.agentWorkspace?.fieldPickerReferral || "Referral" },
   ];
 
   return (
@@ -1413,7 +1416,10 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                 onChange={e => setSearchQ(e.target.value)}
                 placeholder={searchField === "all"
                   ? (np.searchContacts || "Hľadať meno, tel., email, mesto…")
+                  : searchField === "referral"
+                  ? (t?.agentWorkspace?.fieldPickerReferral || "Referral")
                   : `${np.searchIn || "Hľadať:"} ${SEARCH_FIELDS.find(f => f.value === searchField)?.label}`}
+                disabled={searchField === "referral"}
                 className="w-full h-10 pl-9 pr-8 rounded-xl border bg-background text-sm focus:outline-none transition-colors"
                 style={{ borderColor: searchQ ? ST.terra : undefined }}
                 data-testid="input-mobile-search"
@@ -1440,7 +1446,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                 <div className="absolute right-0 top-11 z-50 bg-background border rounded-xl shadow-xl py-1 w-44">
                   {SEARCH_FIELDS.map(f => (
                     <button key={f.value}
-                      onClick={() => { setSearchField(f.value); setShowFieldPicker(false); }}
+                      onClick={() => { setSearchField(f.value); setSearchQ(""); setShowFieldPicker(false); }}
                       className="w-full text-left px-3 py-2 text-xs hover:bg-muted flex items-center justify-between"
                       style={searchField === f.value ? { color: ST.terra, fontWeight: 700 } : {}}>
                       {f.label}
