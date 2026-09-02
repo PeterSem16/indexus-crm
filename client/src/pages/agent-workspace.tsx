@@ -9609,38 +9609,30 @@ function ScheduledQueuePanel({
   const nextWeekStart = addDays(weekEnd, 1);
   const nextWeekEnd = endOfWeek(nextWeekStart, { weekStartsOn: 1 });
 
+  const getTimeBucket = (scheduledAt: string): Exclude<typeof timeFilter, "all"> => {
+    const d = new Date(scheduledAt);
+    if (isBefore(d, now)) return "overdue";
+    if (isWithinInterval(d, { start: todayStart, end: todayEnd })) return "today";
+    if (isWithinInterval(d, { start: todayStart, end: weekEnd })) return "thisWeek";
+    if (isWithinInterval(d, { start: nextWeekStart, end: nextWeekEnd })) return "nextWeek";
+    return "later";
+  };
+
   const counts = useMemo(() => {
-    const n = new Date();
-    let overdue = 0, today = 0, thisWeek = 0, nextW = 0, later = 0;
+    const timeCounts = { overdue: 0, today: 0, thisWeek: 0, nextWeek: 0, later: 0 };
     const typeCounts = { callback: 0, email: 0, sms: 0 };
     for (const item of scheduledItems) {
-      const d = new Date(item.scheduledAt);
       typeCounts[item.type]++;
-      if (isBefore(d, n)) overdue++;
-      else if (isWithinInterval(d, { start: todayStart, end: todayEnd })) today++;
-      else if (isWithinInterval(d, { start: todayStart, end: weekEnd })) thisWeek++;
-      else if (isWithinInterval(d, { start: nextWeekStart, end: nextWeekEnd })) nextW++;
-      else later++;
+      timeCounts[getTimeBucket(item.scheduledAt)]++;
     }
-    return { overdue, today, thisWeek, nextWeek: nextW, later, ...typeCounts };
-  }, [scheduledItems]);
+    return { ...timeCounts, ...typeCounts };
+  }, [scheduledItems, now, todayStart, todayEnd, weekEnd, nextWeekStart, nextWeekEnd]);
 
   const filteredItems = useMemo(() => {
-    const n = new Date();
     let items = scheduledItems;
     if (filterType !== "all") items = items.filter(item => item.type === filterType);
     if (timeFilter !== "all") {
-      items = items.filter(item => {
-        const d = new Date(item.scheduledAt);
-        switch (timeFilter) {
-          case "overdue": return isBefore(d, n);
-          case "today": return isWithinInterval(d, { start: todayStart, end: todayEnd });
-          case "thisWeek": return isWithinInterval(d, { start: todayStart, end: weekEnd });
-          case "nextWeek": return isWithinInterval(d, { start: nextWeekStart, end: nextWeekEnd });
-          case "later": return !isBefore(d, nextWeekEnd);
-          default: return true;
-        }
-      });
+      items = items.filter(item => getTimeBucket(item.scheduledAt) === timeFilter);
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -9660,7 +9652,7 @@ function ScheduledQueuePanel({
       return sortDir === "desc" ? -cmp : cmp;
     });
     return items;
-  }, [scheduledItems, filterType, timeFilter, searchQuery, sortField, sortDir]);
+  }, [scheduledItems, filterType, timeFilter, searchQuery, sortField, sortDir, now, todayStart, todayEnd, weekEnd, nextWeekStart, nextWeekEnd]);
 
   const isOverdue = (scheduledAt: string) => new Date(scheduledAt) < new Date();
 
