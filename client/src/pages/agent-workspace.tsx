@@ -3259,13 +3259,21 @@ function CommunicationCanvas({
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
 
       if (slBatchAction === "reschedule") {
+        const selectedCallbackItem = Array.from(batchSlSelections)
+          .map(itemId => (dbStatusList as any[]).find((item: any) => String(item.id) === String(itemId)))
+          .find((item: any) => (item?.automations || []).some((automation: any) =>
+            automation.actionType === "set_callback" || automation.actionType === "set_contact_status"
+          ));
         await apiRequest("PATCH", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}`, {
+          status: "callback_scheduled",
           callbackDate: slBatchCallbackDt || null,
           callbackNote: slBatchCallbackNote || null,
+          callbackStatusListItemId: selectedCallbackItem?.id ?? null,
+          assignedTo: user?.id || null,
         });
         queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts"] });
         queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+        await queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
         let dtLabel = "";
         try {
           const d = new Date(slBatchCallbackDt);
@@ -3314,7 +3322,7 @@ function CommunicationCanvas({
     } finally {
       setSlBatchSaving(false);
     }
-  }, [campaign?.id, campaignContactId, batchSlSelections, batchSlNotes, slBatchAction, slBatchCallbackDt, slBatchCallbackNote, contactCountry, locale, onCloseCallAfterStatusList, toast, dbStatusList, dbSlChecked]);
+  }, [campaign?.id, campaignContactId, batchSlSelections, batchSlNotes, slBatchAction, slBatchCallbackDt, slBatchCallbackNote, contactCountry, locale, onCloseCallAfterStatusList, toast, dbStatusList, dbSlChecked, user?.id]);
 
   // Manual ("run now") trigger for a single configured status-list automation.
   const [slRunningAuto, setSlRunningAuto] = useState<Set<string>>(new Set());
