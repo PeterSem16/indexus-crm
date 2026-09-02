@@ -509,6 +509,7 @@ interface EnrichedCampaignContact extends CampaignContact {
   hospital?: Hospital | null;
   clinic?: Clinic | null;
   collaborator?: Collaborator | null;
+  hasReferral?: boolean;
 }
 
 interface TaskItem {
@@ -14882,11 +14883,14 @@ export default function AgentWorkspacePage() {
                   type="text"
                   placeholder={modalSearchField === "all"
                     ? "Hľadať meno, telefón, email, mesto…"
-                    : `Hľadať podľa: ${({"name":"Meno","phone":"Telefón","email":"Email","city":"Mesto","address":"Adresa","zip":"PSČ","ico":"IČO"})[modalSearchField] || "všetky polia"}`}
+                     : modalSearchField === "referral"
+                     ? t.agentWorkspace.fieldPickerReferral
+                  : `Hľadať podľa: ${({"name":"Meno","phone":"Telefón","email":"Email","city":"Mesto","address":"Adresa","zip":"PSČ","ico":"IČO","referral":t.agentWorkspace.fieldPickerReferral})[modalSearchField] || "všetky polia"}`}
                   value={modalSearch}
                   onChange={(e) => { setModalSearch(e.target.value); setShowSearchSuggestions(true); }}
                   onFocus={() => modalSearch && setShowSearchSuggestions(true)}
                   onBlur={() => setTimeout(() => setShowSearchSuggestions(false), 180)}
+                   disabled={modalSearchField === "referral"}
                   className="w-full h-9 pl-9 pr-8 rounded-xl border bg-background text-sm focus:outline-none transition-colors"
                   style={{ borderColor: modalSearch ? "#B5622E" : undefined }}
                   data-testid="input-modal-search"
@@ -14932,8 +14936,8 @@ export default function AgentWorkspacePage() {
                   return (
                     <div className="absolute top-full left-0 right-0 mt-1 bg-background border border-border rounded-xl shadow-2xl z-[200] max-h-52 overflow-y-auto">
                       <div className="px-3 py-1.5 border-b border-border/50 flex items-center gap-1.5">
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                          {({"name":t.agentWorkspace.fieldPickerName,"phone":t.agentWorkspace.fieldPickerPhone,"email":t.agentWorkspace.fieldPickerEmail,"city":t.agentWorkspace.fieldPickerCity,"address":t.agentWorkspace.fieldPickerAddress,"zip":t.agentWorkspace.fieldPickerZip,"ico":t.agentWorkspace.fieldPickerIco})[modalSearchField]}
+                         <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                           {({"name":t.agentWorkspace.fieldPickerName,"phone":t.agentWorkspace.fieldPickerPhone,"email":t.agentWorkspace.fieldPickerEmail,"city":t.agentWorkspace.fieldPickerCity,"address":t.agentWorkspace.fieldPickerAddress,"zip":t.agentWorkspace.fieldPickerZip,"ico":t.agentWorkspace.fieldPickerIco,"referral":t.agentWorkspace.fieldPickerReferral})[modalSearchField]}
                         </span>
                         <span className="text-[10px] text-muted-foreground/60">— {suggestions.length} {t.agentWorkspace.resultsCount}</span>
                       </div>
@@ -14963,11 +14967,11 @@ export default function AgentWorkspacePage() {
                   data-testid="btn-modal-field-picker"
                 >
                   <SlidersHorizontal className="h-3.5 w-3.5" />
-                  {({"all":t.agentWorkspace.fieldPickerAll,"name":t.agentWorkspace.fieldPickerName,"phone":t.agentWorkspace.fieldPickerPhone,"email":t.agentWorkspace.fieldPickerEmail,"city":t.agentWorkspace.fieldPickerCity,"address":t.agentWorkspace.fieldPickerAddress,"zip":t.agentWorkspace.fieldPickerZip,"region":t.agentWorkspace.fieldPickerRegion,"district":t.agentWorkspace.fieldPickerDistrict,"country":t.agentWorkspace.fieldPickerCountry,"ico":t.agentWorkspace.fieldPickerIco})[modalSearchField] ?? t.agentWorkspace.fieldPickerAll}
+                   {({"all":t.agentWorkspace.fieldPickerAll,"name":t.agentWorkspace.fieldPickerName,"phone":t.agentWorkspace.fieldPickerPhone,"email":t.agentWorkspace.fieldPickerEmail,"city":t.agentWorkspace.fieldPickerCity,"address":t.agentWorkspace.fieldPickerAddress,"zip":t.agentWorkspace.fieldPickerZip,"region":t.agentWorkspace.fieldPickerRegion,"district":t.agentWorkspace.fieldPickerDistrict,"country":t.agentWorkspace.fieldPickerCountry,"ico":t.agentWorkspace.fieldPickerIco,"referral":t.agentWorkspace.fieldPickerReferral})[modalSearchField] ?? t.agentWorkspace.fieldPickerAll}
                 </button>
                 {showModalFieldPicker && (
                   <div className="absolute right-0 top-10 z-50 bg-background border rounded-xl shadow-xl py-1 w-40">
-                    {([[  "all",t.agentWorkspace.fieldPickerAllFields],["name",t.agentWorkspace.fieldPickerName],["phone",t.agentWorkspace.fieldPickerPhone],["email",t.agentWorkspace.fieldPickerEmail],["city",t.agentWorkspace.fieldPickerCity],["address",t.agentWorkspace.fieldPickerAddress],["zip",t.agentWorkspace.fieldPickerZip],["region",t.agentWorkspace.fieldPickerRegion],["district",t.agentWorkspace.fieldPickerDistrict],["country",t.agentWorkspace.fieldPickerCountry],["ico",t.agentWorkspace.fieldPickerIco]] as [string,string][]).map(([val, lbl]) => (
+                    {([[  "all",t.agentWorkspace.fieldPickerAllFields],["name",t.agentWorkspace.fieldPickerName],["phone",t.agentWorkspace.fieldPickerPhone],["email",t.agentWorkspace.fieldPickerEmail],["city",t.agentWorkspace.fieldPickerCity],["address",t.agentWorkspace.fieldPickerAddress],["zip",t.agentWorkspace.fieldPickerZip],["region",t.agentWorkspace.fieldPickerRegion],["district",t.agentWorkspace.fieldPickerDistrict],["country",t.agentWorkspace.fieldPickerCountry],["ico",t.agentWorkspace.fieldPickerIco],["referral",t.agentWorkspace.fieldPickerReferral]] as [string,string][]).map(([val, lbl]) => (
                       <button key={val} onClick={() => { setModalSearchField(val); setShowModalFieldPicker(false); setModalSearch(""); setShowSearchSuggestions(false); }}
                         className="w-full text-left px-3 py-2 text-xs hover:bg-muted flex items-center justify-between"
                         style={modalSearchField === val ? { color: "#B5622E", fontWeight: 700 } : {}}>
@@ -15123,7 +15127,7 @@ export default function AgentWorkspacePage() {
               };
 
               // Grouped view when no search/filter active
-              if (modalFilter === "all" && !modalSearch) {
+               if (modalFilter === "all" && !modalSearch && modalSearchField !== "referral") {
                 const groups = [
                   { id: "due", label: t.agentWorkspace.groupDue, ac: "#B5622E", Icon: PhoneCall, items: [...sortedPendingContacts.filter(cc => isCbM(cc) && isDueM(cc))].sort(sortByDateM) },
                   { id: "my-cb", label: t.agentWorkspace.groupMyCb, ac: "#5B4FCF", Icon: Clock, items: sortedPendingContacts.filter(cc => isCbM(cc) && isMineM(cc) && !isDueM(cc)).sort(sortByDateM) },
@@ -15182,10 +15186,12 @@ export default function AgentWorkspacePage() {
               }
 
               // Flat filtered view — search ALL contacts (not just pending) so disposed contacts are still findable
-              const searchPool = modalSearch ? rawCampaignContacts : sortedPendingContacts;
+               const referralFilterActive = modalSearchField === "referral";
+               const searchPool = modalSearch || referralFilterActive ? rawCampaignContacts : sortedPendingContacts;
               let filtered = searchPool.filter(cc => {
                 const entityInfo = getEntityDisplayInfo(cc);
                 if (!entityInfo) return false;
+                 if (referralFilterActive && !cc.hasReferral) return false;
                 if (modalSearch) {
                   const q = modalSearch.toLowerCase();
                   const ql = q.replace(/\s/g, "");
@@ -15199,7 +15205,8 @@ export default function AgentWorkspacePage() {
                     region:   [cc.customer?.region,cc.hospital?.region,cc.clinic?.region,cc.collaborator?.region].filter(Boolean).join(" ").toLowerCase().includes(q),
                     district: [cc.customer?.district,cc.hospital?.district,cc.clinic?.district,cc.collaborator?.district].filter(Boolean).join(" ").toLowerCase().includes(q),
                     country:  [cc.customer?.country,cc.hospital?.countryCode,cc.clinic?.countryCode,cc.collaborator?.countryCode].filter(Boolean).join(" ").toLowerCase().includes(q),
-                    ico:      (cc.hospital?.ico||cc.clinic?.ico||"").toLowerCase().includes(q),
+                     ico:      (cc.hospital?.ico||cc.clinic?.ico||"").toLowerCase().includes(q),
+                     referral: !!cc.hasReferral,
                   };
                   const matches = modalSearchField === "all"
                     ? Object.values(fieldChecks).some(Boolean)

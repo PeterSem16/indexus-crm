@@ -4095,6 +4095,7 @@ export interface Translations {
     fieldPickerDistrict: string;
     fieldPickerCountry: string;
     fieldPickerIco: string;
+    fieldPickerReferral: string;
     sortCallbackAsc: string;
     sortNameAsc: string;
     sortAttemptsDesc: string;
@@ -11946,6 +11947,7 @@ export const translations: Record<Locale, Translations> = {
       fieldPickerDistrict: 'District',
       fieldPickerCountry: 'Country',
       fieldPickerIco: 'Company ID',
+      fieldPickerReferral: 'Referral',
       sortCallbackAsc: 'Callback (soonest)',
       sortNameAsc: 'Name (A-Z)',
       sortAttemptsDesc: 'Attempts (most)',
@@ -19258,6 +19260,7 @@ export const translations: Record<Locale, Translations> = {
       fieldPickerDistrict: 'Okres',
       fieldPickerCountry: 'Krajina',
       fieldPickerIco: 'IČO',
+      fieldPickerReferral: 'Odporúčanie',
       sortCallbackAsc: 'Callback (najskôr)',
       sortNameAsc: 'Meno (A-Z)',
       sortAttemptsDesc: 'Pokusov (najviac)',
@@ -26556,6 +26559,7 @@ export const translations: Record<Locale, Translations> = {
       fieldPickerDistrict: 'Okres',
       fieldPickerCountry: 'Země',
       fieldPickerIco: 'IČO',
+      fieldPickerReferral: 'Doporučení',
       sortCallbackAsc: 'Callback (nejdříve)',
       sortNameAsc: 'Jméno (A-Z)',
       sortAttemptsDesc: 'Pokusů (nejvíce)',
@@ -33802,6 +33806,7 @@ export const translations: Record<Locale, Translations> = {
       fieldPickerDistrict: 'Kerület',
       fieldPickerCountry: 'Ország',
       fieldPickerIco: 'Cégazonosító',
+      fieldPickerReferral: 'Ajánlás',
       sortCallbackAsc: 'Visszahívás (leghamarabb)',
       sortNameAsc: 'Név (A-Z)',
       sortAttemptsDesc: 'Kísérletek (legtöbb)',
@@ -40943,6 +40948,7 @@ export const translations: Record<Locale, Translations> = {
       fieldPickerDistrict: 'Județ',
       fieldPickerCountry: 'Țară',
       fieldPickerIco: 'CUI',
+      fieldPickerReferral: 'Recomandare',
       sortCallbackAsc: 'Callback (cel mai devreme)',
       sortNameAsc: 'Nume (A-Z)',
       sortAttemptsDesc: 'Încercări (cele mai multe)',
@@ -48086,6 +48092,7 @@ export const translations: Record<Locale, Translations> = {
       fieldPickerDistrict: 'Distretto',
       fieldPickerCountry: 'Paese',
       fieldPickerIco: 'P.IVA',
+      fieldPickerReferral: 'Segnalazione',
       sortCallbackAsc: 'Callback (prima)',
       sortNameAsc: 'Nome (A-Z)',
       sortAttemptsDesc: 'Tentativi (di più)',
@@ -55229,6 +55236,7 @@ export const translations: Record<Locale, Translations> = {
       fieldPickerDistrict: 'Bezirk',
       fieldPickerCountry: 'Land',
       fieldPickerIco: 'Firmennr.',
+      fieldPickerReferral: 'Empfehlung',
       sortCallbackAsc: 'Rückruf (früheste)',
       sortNameAsc: 'Name (A-Z)',
       sortAttemptsDesc: 'Versuche (meiste)',

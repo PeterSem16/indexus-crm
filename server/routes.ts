@@ -28714,6 +28714,41 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       } else {
         contacts = await storage.getCampaignContacts(req.params.id);
       }
+
+      // Resolve referral membership once for the contacts in this mission.
+      // A contact has a referral when it is either the referred-to entity or
+      // the referring entity. This keeps the Mission contacts filter fast and
+      // avoids one referral query per contact.
+      const clinicContactIds = contacts.map((contact: any) => contact.clinicId).filter(Boolean);
+      const collaboratorContactIds = contacts.map((contact: any) => contact.collaboratorId).filter(Boolean);
+      const clinicReferralIds = new Set<string>();
+      const collaboratorReferralIds = new Set<string>();
+      if (clinicContactIds.length > 0) {
+        const rows = await db.select({
+          clinicId: clinicReferrals.clinicId,
+          referringClinicId: clinicReferrals.referringClinicId,
+        }).from(clinicReferrals).where(or(
+          inArray(clinicReferrals.clinicId, clinicContactIds),
+          inArray(clinicReferrals.referringClinicId, clinicContactIds),
+        ));
+        for (const row of rows) {
+          clinicReferralIds.add(row.clinicId);
+          clinicReferralIds.add(row.referringClinicId);
+        }
+      }
+      if (collaboratorContactIds.length > 0) {
+        const rows = await db.select({
+          collaboratorId: collaboratorReferrals.collaboratorId,
+          referringCollaboratorId: collaboratorReferrals.referringCollaboratorId,
+        }).from(collaboratorReferrals).where(or(
+          inArray(collaboratorReferrals.collaboratorId, collaboratorContactIds),
+          inArray(collaboratorReferrals.referringCollaboratorId, collaboratorContactIds),
+        ));
+        for (const row of rows) {
+          collaboratorReferralIds.add(row.collaboratorId);
+          collaboratorReferralIds.add(row.referringCollaboratorId);
+        }
+      }
       
       const enrichedContacts = await Promise.all(
         contacts.map(async (contact) => {
@@ -28727,7 +28762,12 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           } else if (contact.customerId) {
             customer = await storage.getCustomer(contact.customerId);
           }
-          return { ...contact, customer, hospital, clinic, collaborator };
+          const hasReferral = contact.clinicId
+            ? clinicReferralIds.has(contact.clinicId)
+            : contact.collaboratorId
+              ? collaboratorReferralIds.has(contact.collaboratorId)
+              : false;
+          return { ...contact, customer, hospital, clinic, collaborator, hasReferral };
         })
       );
       
