@@ -712,16 +712,29 @@ export async function getMailFolderMessages(
   const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
   
   try {
-    const countResult = await client.api(`${basePath}/mailFolders/${folderId}/messages/$count`).get();
-    
     const result = await client.api(`${basePath}/mailFolders/${folderId}/messages`)
       .select('id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isRead,bodyPreview,hasAttachments,importance,flag')
       .orderby('receivedDateTime desc')
       .top(top)
       .skip(skip)
       .get();
-    
-    return { emails: result.value || [], totalCount: countResult || 0 };
+
+    const emails = result.value || [];
+    let totalCount = skip + emails.length;
+
+    try {
+      const countResult = await client.api(`${basePath}/mailFolders/${folderId}/messages/$count`).get();
+      if (typeof countResult === 'number' && Number.isFinite(countResult)) {
+        totalCount = countResult;
+      }
+    } catch (countError: any) {
+      console.warn(
+        `[MS365] Could not get message count for ${mailboxEmail || 'personal'} mailbox; returning messages without an exact count:`,
+        countError?.message || countError
+      );
+    }
+
+    return { emails, totalCount };
   } catch (error) {
     console.error(`[MS365] Error getting folder messages:`, error);
     return { emails: [], totalCount: 0 };
