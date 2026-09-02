@@ -59,6 +59,8 @@ ADDRESSES_FILE="$OUT_DIR/personnel_addresses.csv"
 CHANNELS_FILE="$OUT_DIR/personnel_channels.csv"
 OTHER_DATA_FILE="$OUT_DIR/personnel_other_data.csv"
 AGREEMENTS_FILE="$OUT_DIR/personnel_agreements.csv"
+CLINIC_REFERRALS_FILE="$OUT_DIR/clinic_referrals.csv"
+PERSON_REFERRALS_FILE="$OUT_DIR/personnel_referrals.csv"
 
 # Zober všetky stĺpce collaborators okrem credential hashu. Výstup tak ostane
 # úplný aj po pridaní nového ne-citlivého stĺpca do tabuľky.
@@ -132,6 +134,83 @@ export_query "$PERSONNEL_FILE" <<'SQL'
   FROM links l
   JOIN public.collaborators p ON p.id = l.person_id
   ORDER BY l.clinic_name, p.last_name, p.first_name, p.id
+SQL
+
+# Referral väzby klinika -> klinika. Zahrnuté sú referral záznamy, kde je
+# filtrovaná SK/PZS klinika buď cieľom, alebo zdrojom odporúčania.
+export_query "$CLINIC_REFERRALS_FILE" <<'SQL'
+  WITH eligible_clinics AS (
+    SELECT c.id, c.name, c.pzs_code
+    FROM public.clinics c
+    WHERE upper(trim(coalesce(c.country_code, ''))) = 'SK'
+      AND nullif(trim(c.pzs_code), '') IS NOT NULL
+  )
+  SELECT
+    cr.id AS referral_id,
+    cr.clinic_id AS target_clinic_id,
+    target.name AS target_clinic_name,
+    target.pzs_code AS target_clinic_pzs_code,
+    cr.referring_clinic_id AS referring_clinic_id,
+    source.name AS referring_clinic_name,
+    source.pzs_code AS referring_clinic_pzs_code,
+    cr.referral_type,
+    cr.conference_name,
+    cr.conference_date,
+    cr.notes,
+    cr.created_at
+  FROM public.clinic_referrals cr
+  JOIN public.clinics target ON target.id = cr.clinic_id
+  JOIN public.clinics source ON source.id = cr.referring_clinic_id
+  WHERE EXISTS (
+    SELECT 1 FROM eligible_clinics ec
+    WHERE ec.id = cr.clinic_id OR ec.id = cr.referring_clinic_id
+  )
+  ORDER BY target.name, source.name, cr.created_at, cr.id
+SQL
+
+# Referral väzby osoba -> osoba. Zahrnuté sú záznamy, kde je personál
+# prepojený s filtrovanou klinikou buď odporúčanou, alebo odporúčajúcou osobou.
+export_query "$PERSON_REFERRALS_FILE" <<'SQL'
+  WITH eligible_clinics AS (
+    SELECT c.id
+    FROM public.clinics c
+    WHERE upper(trim(coalesce(c.country_code, ''))) = 'SK'
+      AND nullif(trim(c.pzs_code), '') IS NOT NULL
+  ),
+  linked_people AS (
+    SELECT ca.person_id
+    FROM public.contact_assignments ca
+    JOIN eligible_clinics c ON c.id = ca.entity_id
+    WHERE ca.entity_type = 'clinic'
+    UNION
+    SELECT p.id
+    FROM public.collaborators p
+    JOIN eligible_clinics c
+      ON p.clinic_id = c.id OR c.id = ANY(coalesce(p.clinic_ids, ARRAY[]::text[]))
+  )
+  SELECT
+    cr.id AS referral_id,
+    cr.collaborator_id AS target_person_id,
+    concat_ws(' ', target.title_before, target.first_name, target.last_name, target.title_after)
+      AS target_person_name,
+    target.email AS target_person_email,
+    target.country_code AS target_person_country_code,
+    cr.referring_collaborator_id AS referring_person_id,
+    concat_ws(' ', source.title_before, source.first_name, source.last_name, source.title_after)
+      AS referring_person_name,
+    source.email AS referring_person_email,
+    source.country_code AS referring_person_country_code,
+    cr.referral_type,
+    cr.conference_name,
+    cr.conference_date,
+    cr.notes,
+    cr.created_at
+  FROM public.collaborator_referrals cr
+  JOIN public.collaborators target ON target.id = cr.collaborator_id
+  JOIN public.collaborators source ON source.id = cr.referring_collaborator_id
+  WHERE EXISTS (SELECT 1 FROM linked_people lp WHERE lp.person_id = cr.collaborator_id)
+     OR EXISTS (SELECT 1 FROM linked_people lp WHERE lp.person_id = cr.referring_collaborator_id)
+  ORDER BY target.last_name, target.first_name, source.last_name, cr.created_at, cr.id
 SQL
 
 export_query "$ASSIGNMENTS_FILE" <<'SQL'
@@ -267,7 +346,9 @@ for file in \
   "$ADDRESSES_FILE" \
   "$CHANNELS_FILE" \
   "$OTHER_DATA_FILE" \
-  "$AGREEMENTS_FILE"; do
+  "$AGREEMENTS_FILE" \
+  "$CLINIC_REFERRALS_FILE" \
+  "$PERSON_REFERRALS_FILE"; do
   printf '  %-34s %s riadkov\n' "$(basename "$file")" "$(( $(wc -l < "$file") - 1 ))"
 done
 echo "Poznámka: mobile_password_hash nebol exportovaný."
