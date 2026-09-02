@@ -828,7 +828,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
   const [showHistory, setShowHistory] = useState(true);
   const [showNotes, setShowNotes] = useState(true);
   const [searchQ, setSearchQ] = useState("");
-  const [filterTab, setFilterTab] = useState<"callable"|"callbacks"|"pending"|"all">("callable");
+  const [filterTab, setFilterTab] = useState<"callable"|"callbacks"|"pending"|"all"|"referral">("callable");
   const [showOnlyMineCallbacks, setShowOnlyMineCallbacks] = useState(false);
   const [searchField, setSearchField] = useState("all");
   const [showFieldPicker, setShowFieldPicker] = useState(false);
@@ -1356,6 +1356,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
       filterTab === "callable"  ? searchPool.filter((cc: any) => callableStatuses.includes(cc.status))
       : filterTab === "callbacks" ? searchPool.filter((cc: any) => cc.status === "callback_scheduled")
       : filterTab === "pending"   ? searchPool.filter((cc: any) => cc.status === "pending")
+      : filterTab === "referral"   ? searchPool.filter((cc: any) => cc.hasReferral)
       : searchPool;
     if (filterTab === "callbacks" && showOnlyMineCallbacks) {
       base = base.filter((cc: any) =>
@@ -1375,6 +1376,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
     tab === "callable"  ? campaignContacts.filter((cc: any) => callableStatuses.includes(cc.status)).length
     : tab === "callbacks" ? campaignContacts.filter((cc: any) => cc.status === "callback_scheduled").length
     : tab === "pending"   ? campaignContacts.filter((cc: any) => cc.status === "pending").length
+    : tab === "referral"  ? (allCampaignContacts || campaignContacts).filter((cc: any) => cc.hasReferral).length
     : campaignContacts.length;
 
   const SEARCH_FIELDS = [
@@ -1460,12 +1462,13 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
 
           {/* Filter tabs */}
           <div className="flex gap-1.5">
-            {(["callable","callbacks","pending","all"] as const).map(tab => {
+            {(["callable","callbacks","pending","all","referral"] as const).map(tab => {
               const labels: Record<string, string> = {
                 callable: np.tabCallable||"Na volanie",
                 callbacks: np.tabCallbacks||"Callbacky",
                 pending: np.tabPending||"Nové",
                 all: np.tabAll||"Všetky",
+                referral: t?.agentWorkspace?.fieldPickerReferral || "Referral",
               };
               return (
                 <button key={tab} onClick={() => setFilterTab(tab)}

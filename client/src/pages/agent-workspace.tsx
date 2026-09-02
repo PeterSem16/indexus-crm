@@ -10380,7 +10380,7 @@ export default function AgentWorkspacePage() {
   const ringTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [callActiveContactId, setCallActiveContactId] = useState<string | number | null>(null);
   const callActiveContactIdSetRef = useRef(false);
-  const [modalFilter, setModalFilter] = useState<"all" | "my_callbacks" | "team_callbacks" | "pending" | "due">("all");
+  const [modalFilter, setModalFilter] = useState<"all" | "my_callbacks" | "team_callbacks" | "pending" | "due" | "referral">("all");
   const [modalSort, setModalSort] = useState<"callback_asc" | "name_asc" | "attempts_desc">("callback_asc");
   const [modalSearch, setModalSearch] = useState("");
   const [modalSearchField, setModalSearchField] = useState("all");
@@ -14997,12 +14997,13 @@ export default function AgentWorkspacePage() {
             </div>
             {/* Filter tabs */}
             <div className="flex gap-1.5">
-              {([
+               {([
                 { key: "all", label: t.agentWorkspace.filterAll },
                 { key: "due", label: t.agentWorkspace.filterDue },
                 { key: "my_callbacks", label: t.agentWorkspace.filterMyCB },
                 { key: "team_callbacks", label: t.agentWorkspace.filterTeamCB },
                 { key: "pending", label: t.agentWorkspace.filterPending },
+                 { key: "referral", label: t.agentWorkspace.fieldPickerReferral },
               ] as const).map(tab => (
                 <button key={tab.key}
                   onClick={() => setModalFilter(tab.key)}
@@ -15186,7 +15187,7 @@ export default function AgentWorkspacePage() {
               }
 
               // Flat filtered view — search ALL contacts (not just pending) so disposed contacts are still findable
-               const referralFilterActive = modalSearchField === "referral";
+               const referralFilterActive = modalSearchField === "referral" || modalFilter === "referral";
                const searchPool = modalSearch || referralFilterActive ? rawCampaignContacts : sortedPendingContacts;
               let filtered = searchPool.filter(cc => {
                 const entityInfo = getEntityDisplayInfo(cc);
@@ -15217,7 +15218,8 @@ export default function AgentWorkspacePage() {
                   case "my_callbacks": return isCbM(cc) && isMineM(cc);
                   case "team_callbacks": return isCbM(cc) && isTeamM(cc);
                   case "due": return isCbM(cc) && isDueM(cc);
-                  case "pending": return cc.status === "pending";
+                   case "pending": return cc.status === "pending";
+                   case "referral": return !!cc.hasReferral;
                   default: return true;
                 }
               });
@@ -15240,7 +15242,7 @@ export default function AgentWorkspacePage() {
                 );
               }
 
-              const flatAc = modalFilter === "due" ? "#B5622E" : modalFilter === "my_callbacks" ? "#5B4FCF" : modalFilter === "team_callbacks" ? "#2E75B6" : modalFilter === "pending" ? "#5A7A5A" : "#7A6858";
+               const flatAc = modalFilter === "due" ? "#B5622E" : modalFilter === "my_callbacks" ? "#5B4FCF" : modalFilter === "team_callbacks" ? "#2E75B6" : modalFilter === "pending" ? "#5A7A5A" : modalFilter === "referral" ? "#8B5CF6" : "#7A6858";
               return (
                 <div className="space-y-2 py-3">
                   <div className="text-xs px-1 pb-1 font-medium text-muted-foreground">
