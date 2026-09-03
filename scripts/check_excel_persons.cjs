@@ -320,6 +320,14 @@ async function main() {
     for (const row of emailRowsResult.filter(row => row.status === "FOUND_ID_AND_EMAIL")) {
       console.log(`  ${row.excel_collaborator_id} | ${row.db_name} | ${row.db_email}`);
     }
+    console.log("\nRows requiring comparison/decision:");
+    for (const row of emailRowsResult.filter(row => row.status !== "FOUND_ID_AND_EMAIL")) {
+      console.log(
+        `  ${row.status} | ` +
+        `EXCEL: ${row.excel_collaborator_id} | ${row.excel_name} | ${row.excel_email} | ` +
+        `DB: ${row.db_legacy_id || "(nenájdené)"} | ${row.db_name || "(nenájdené)"} | ${row.db_email || "(bez emailu)"}`
+      );
+    }
     console.log("\nPersons found through DPP agreements:");
     for (const row of dppRowsResult) {
       for (const person of row.found_persons) {
