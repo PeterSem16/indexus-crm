@@ -8021,6 +8021,34 @@ export const insertCampaignStatusListAutomationSchema = createInsertSchema(campa
 export type CampaignStatusListAutomation = typeof campaignStatusListAutomations.$inferSelect;
 export type InsertCampaignStatusListAutomation = z.infer<typeof insertCampaignStatusListAutomationSchema>;
 
+export const nexusPulseModuleRevisions = pgTable("nexus_pulse_module_revisions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull(),
+  versionNumber: integer("version_number").notNull(),
+  status: text("status").notNull().default("active"),
+  parentRevisionId: varchar("parent_revision_id"),
+  restoredFromRevisionId: varchar("restored_from_revision_id"),
+  snapshot: jsonb("snapshot").notNull(),
+  changes: jsonb("changes").notNull().default(sql`'[]'::jsonb`),
+  contentHash: varchar("content_hash", { length: 64 }).notNull(),
+  changeNote: text("change_note"),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  verifiedAt: timestamp("verified_at"),
+  activatedAt: timestamp("activated_at"),
+}, (table) => ({
+  campaignVersionUnique: uniqueIndex("nexus_pulse_module_revisions_campaign_version_unique").on(table.campaignId, table.versionNumber),
+  campaignCreatedIdx: index("nexus_pulse_module_revisions_campaign_created_idx").on(table.campaignId, table.createdAt),
+  campaignHashIdx: index("nexus_pulse_module_revisions_campaign_hash_idx").on(table.campaignId, table.contentHash),
+}));
+
+export const insertNexusPulseModuleRevisionSchema = createInsertSchema(nexusPulseModuleRevisions).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertNexusPulseModuleRevision = z.infer<typeof insertNexusPulseModuleRevisionSchema>;
+export type NexusPulseModuleRevision = typeof nexusPulseModuleRevisions.$inferSelect;
+
 export const campaignStatusListQuestions = pgTable("campaign_status_list_questions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   itemId: varchar("item_id").notNull(),

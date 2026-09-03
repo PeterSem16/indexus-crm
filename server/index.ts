@@ -477,6 +477,36 @@ app.use((req, res, next) => {
 
   try {
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS nexus_pulse_module_revisions (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        campaign_id VARCHAR NOT NULL,
+        version_number INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active',
+        parent_revision_id VARCHAR,
+        restored_from_revision_id VARCHAR,
+        snapshot JSONB NOT NULL,
+        changes JSONB NOT NULL DEFAULT '[]'::jsonb,
+        content_hash VARCHAR(64) NOT NULL,
+        change_note TEXT,
+        created_by VARCHAR,
+        created_at TIMESTAMP NOT NULL DEFAULT now(),
+        verified_at TIMESTAMP,
+        activated_at TIMESTAMP
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS nexus_pulse_module_revisions_campaign_version_unique
+        ON nexus_pulse_module_revisions (campaign_id, version_number);
+      CREATE INDEX IF NOT EXISTS nexus_pulse_module_revisions_campaign_created_idx
+        ON nexus_pulse_module_revisions (campaign_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS nexus_pulse_module_revisions_campaign_hash_idx
+        ON nexus_pulse_module_revisions (campaign_id, content_hash);
+    `);
+    console.log('[migration] nexus_pulse_module_revisions ensured');
+  } catch (e: any) {
+    console.error('[migration] nexus_pulse_module_revisions error:', e.message);
+  }
+
+  try {
+    await pool.query(`
       ALTER TABLE campaign_status_list_items
         ADD COLUMN IF NOT EXISTS auto_confirm_on_sub_question BOOLEAN NOT NULL DEFAULT FALSE;
     `);

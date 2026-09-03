@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, Link, useLocation } from "wouter";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
+import { NexusPulseVersionPanel } from "@/components/nexus-pulse-version-panel";
 import { CHART_PALETTE } from "@/lib/chart-colors";
 import { sanitizeSignatureHtml } from "@/lib/sanitize-html";
 import { 
@@ -7365,6 +7366,10 @@ export default function CampaignDetailPage() {
 
                   {settingsSubTab === "status_list" && (
                     <div className="space-y-4">
+                      <NexusPulseVersionPanel
+                        campaignId={campaignId}
+                        campaignStatus={campaign.status}
+                      />
                       <CampaignStatusListBuilder campaignId={campaignId} />
                     </div>
                   )}

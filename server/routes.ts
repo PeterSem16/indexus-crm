@@ -1,6 +1,7 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { registerInboundRoutes, autoConnectAri } from "./inbound-routes";
 import { registerCollaboratorUpdateRoutes } from "./collaborator-update-routes";
+import { registerNexusPulseVersionRoutes } from "./nexus-pulse-version-routes";
 import { getQueueEngine } from "./lib/queue-engine";
 import { createServer, type Server } from "http";
 import crypto from "crypto";
@@ -52129,6 +52130,7 @@ Return ONLY the JSON object.`
 
   registerInboundRoutes(app, requireAuth);
   registerCollaboratorUpdateRoutes(app, requireAuth);
+  registerNexusPulseVersionRoutes(app, requireAuth);
   const { registerPricingRoutes } = await import("./pricing-routes");
   registerPricingRoutes(app);
   const { registerRepresentativeRoutes } = await import("./representative-routes");
