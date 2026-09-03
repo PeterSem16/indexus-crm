@@ -1,0 +1,206 @@
+node scripts/check_excel_persons.cjs \
+  --xlsx /tmp/emailspolupracovniciCZ2026.xlsx \
+  --output /tmp/excel-person-check
+=== Excel → INDEXUS persons check ===
+Email sheet: 149 rows
+  FOUND_ID_AND_EMAIL: 142
+  FOUND_ID_EMAIL_MISMATCH: 6
+  FOUND_EMAIL_ONLY: 0
+  NOT_FOUND: 1
+DPP sheet: 8 unique agreement numbers
+  FOUND: 8
+  NOT_FOUND: 0
+
+Persons found by ID and email:
+  13556 | Soňa Stoklasová | stosona@seznam.cz
+  14118 | Mgr. Anna Holinková | anna.holinkova@nemocnicesumperk.cz
+  14176 | Jana Pithartová DiS. | jana.p01@seznam.cz
+  14281 | MUDr. Ivan Poustka | gynpou@seznam.cz
+  14844 | Lucie Černá | 8176@seznam.cz
+  15157 | Radka Frýbová | radkafrybova@seznam.cz
+  15260 | Mgr. Julie Straková | julie.strakova@seznam.cz
+  15390 | Jindřiška Foldynová | jindra.fol@centrum.cz
+  15480 | Bc. Kateřina Rousková | katka.balasova@centrum.cz
+  15570 | Iveta Kuzmaničová Dis | krylova.iveta@seznam.cz
+  15572 | MUDr. Dorota Misiak | d.raczki@gmail.com
+  15573 | MUDr. Martina Volnerová | martinavolnerova@seznam.cz
+  15734 | Ivana Cvičková | laholovaiva@seznam.cz
+  15828 | Soňa Srnáková | sona.mullerova@seznam.cz
+  16513 | MUDr. Anna Edita Hemalová | anyas@seznam.cz
+  16536 | Mgr. Anna Němečková | a.nemeckova88@gmail.com
+  16607 | Bc. Alena Chrstošová | alena.chrstosova@seznam.cz
+  16613 | Pavla Sojková | sojka.pavla@centrum.sk
+  16627 | Bc. Aneta Sovová | anetasovova@gmail.com
+  16718 | Bc. Monika Novotná | machova98@seznam.cz
+  25285 | Mgr. Nela Héniková | n.henikova@seznam.cz
+  25705 | Bc. Teraza Smyčková | smyckova.t@seznam.cz
+  25748 | Bc. Marianna Královičová | kralovicova.marianna@gmail.com
+  25970 | Pavla Jelínková | pavla.jelinkova@mediterra.cz
+  26025 | Ludmila Abrahámová | lidkabr@email.cz
+  26141 | Pavla Mičudová | favi77@seznam.cz
+  26143 | Bc. Veronika Kmochová | nika.slunicko@seznam.cz
+  26321 | MUDr. Ivana Svobodová | ivana.svobodova92@gmail.com
+  26328 | Bc Petra Cibulková | bartosovap83@gmail.com
+  26347 | Adriana Nerudová | adi@nerudovi.cz
+  26464 | Bc. Vanda Zelinová | vanda.zelinova@gmail.com
+  26570 | Bc. Sára Novohradská | novohradska.sara@gmail.com
+  26571 | Tereza Padevětová DiS | tereza.padevetova@volny.cz
+  26654 | MUDr. Nikol Stefaniszek | nikolstefa@seznam.cz
+  26891 | Bc. Martina Rozmilerová | rozmilevka@seznam.cz
+  26901 | Bc. Blanka Ullrychová | ullrychovablanka@seznam.cz
+  26929 | Bc. Klára Niklová | klaraniklova@seznam.cz
+  27182 | Zdeňka Salvová | zdenka-strakova@seznam.cz
+  27347 | Bc. Miluše Kučerová | miluse.kucerova@nemzn.cz
+  27364 | Bc. Lucie Velíková | luckavelikova@seznam.cz
+  27387 | Bc. Dominika Kudrnovská | kudr.dominika@seznam.cz
+  27481 | Mgr. Zuzana Dubovická | zuzana.dubovicka788@gmail.com
+  27573 | Jana Pochylová Dis. | janek.hal@seznam.cz
+  28137 | Bc. Nikola Dolanská | nikola.dolanska@seznam.cz
+  28215 | Bc. Simona Stibůrková | michalkova24@seznam.cz
+  28281 | Bc. Romana Medková | romana.medkova@centrum.cz
+  28342 | Kateřina Adamová | katkaadamova@seznam.cz
+  28455 | Bc. Barbora Šplíchalová | baraspl@seznam.cz
+  28522 | MUDr. Ladislava Weisová | weisova.ladislava@nemtru.cz
+  28557 | Iva Harabišová | iva.harabisova@seznam.cz
+  28683 | Bc. Michaela Klímová | brabcova.miska@seznam.cz
+  28690 | Mgr. Pavlína Tučková | pavcatuckova@seznam.cz
+  28764 | Bc. Tereza Kozlová | terezkakozlova@seznam.cz
+  28804 | Bc. Vendula Mrvíková | mrvikova.vendula@seznam.cz
+  28933 | Jana Vacková | zelinka28@seznam.cz
+  28960 | Bc. Veronika Judová | judovav@seznam.cz
+  29014 | MUDr. Tatiana Bučková | tbbmuk@gmail.com
+  29071 | Bc. Simona Panochová | simona.panochova@seznam.cz
+  29197 | Mgr. Tereza Prokopová | terka.prokopova@seznam.cz
+  29304 | Mgr. Lenka Lindovská | kolar.lenka@email.cz
+  29331 | Bc. Eliška Svobodová | eliska.svobodova@seznam.cz
+  29336 | Bc. Božena Volfová | bozena.volfova@domazlice.nemocnicepk.cz
+  29348 | Bc. Kristýna Vašťáková | kristyna.vastakova@seznam.cz
+  29359 | MUDr. Olha Burkot | olechkadonets@gmail.com
+  29371 | MUDr. Vít Dvořák | vit.dvorak@nemzn.cz
+  29397 | Bc. Eva Sýkorová | sykorova.stud.jcu@seznam.cz
+  29421 | Bc. Kristýna Kultová | kultova.kristyna@gmail.com
+  29423 | Bc. Dagmar Lovecká | dagmar.lovecka@gmail.com
+  29435 | Bc. Vladimíra Máselníková | vladimira.maselnikova@bnzlin.sk
+  29503 | Mgr. Nikola Heclová | heclovan@seznam.cz
+  29626 | MUDr. Barbora Homolová | barbora.homolova@volny.cz
+  29627 | Mgr. Klára Hricová | klara.hricova@seznam.cz
+  29629 | Bc. Markéta Jandová | marketa.jandova@ftn.cz
+  29631 | Bc. Anna Březíková Dis. | annabrezikova@gmail.com
+  29632 | Mgr. Jana Netolická | jana.netolicka@nemta.cz
+  29635 | Rebeca Šmejcká | rebeca.smejcka@ftn.cz
+  29651 | MUDr. Sabina Šindelářová | sabina2016227@gmail.com
+  29652 | Bc. Kateřina Válková | kacisval@seznam.cz
+  29691 | Helena Schmiedhamerová | helena.schmiedhamerova@gmail.com
+  29695 | MUDr. Katarína Piptová | kpiptova@gmail.com
+  29705 | Bc. Martina Nováčková | primamata@seznam.cz
+  29709 | Eva Pešek | eva.pesek@email.cz
+  29788 | MUDr. Karolína Belasová | karolina.belasova@email.cz
+  29789 | Bc. Eliška Marie Tomanová | tomanova.e9@gmail.com
+  29790 | Bc. Pavlína Štěpánová | pstepanova10@gmail.com
+  29798 | Bc. Vlasta Chrstošová | vlasticka.chrstosova@seznam.cz
+  29803 | MUDr. Kristýna Dondová | kristyna.dond@seznam.cz
+  29845 | Bc. Dominika Bochňáková | bochnakovadominika@gmail.com
+  29882 | Bc. Dorota Vaňková | dorka.lakoma@gmail.com
+  29889 | Bc. Petra Charvátová | petruskacharvatova@seznam.cz
+  29891 | Bc. Kateřina Červenková | kacacervenkova@seznam.cz
+  29892 | MUDr. Sára Franclová | sara.francl@seznam.cz
+  29893 | Bc. Eliška Vokurková | vokurkovaeliska@seznam.cz
+  3862 | Mgr. Markéta Čtvrtlíková | tkacmar@seznam.cz
+  3936 | Bc. Klára Daňková | dankova.klara@seznam.cz
+  3937 | Lucie Heribanová | heribanova@klikni.cz
+  3944 | Kateřina Jindrová | jindrova.katerina@seznam.cz
+  4095 | Mgr. Jiřina Burešová | dee16@centrum.cz
+  4133 | MUDr. Marie Novotná | marie.novot@seznam.cz
+  4273 | Bc. Simona Orsáková | simona.orsakova@seznam.cz
+  4322 | Bc. Lenka Přikrylová Simandlová | prikrylovasimandlova@centrum.cz
+  4338 | MUDr. Lucie Trýbová | duskl@seznam.cz
+  4373 | Mgr. Vendula Válková | valkova.vendula@email.cz
+  4495 | Jaroslava Rožánková | jarka.rozankova@seznam.cz
+  4561 | Eva Minaříková | eva.minarik@atlas.cz
+  4583 | Mgr. Kateřina Urbanová | katurbanova@seznam.cz
+  4611 | Monika Škrlandová | skrlandova@seznam.cz
+  4675 | Kateřina Řezáčová DiS. | katerina.rezacova@centrum.cz
+  4711 | Martina Sychravová | martina.sych@email.cz
+  4721 | Blanka Horáková DiS. | blanickaz@seznam.cz
+  4742 | Vladimíra Pecková | v.peckova@seznam.cz
+  4818 | Jaroslava Ondráčková | kapondr@seznam.cz
+  4978 | Pavla Čechová | aurora.k@seznam.cz
+  5038 | Drahomíra Danielová | daniedra@seznam.cz
+  5057 | Milena Dominiková | milena.dominikova@email.cz
+  5109 | Jana Fialová | milanajana@centrum.cz
+  5171 | MUDr. Lubomír Hašlík | lubomir.haslik@seznam.cz
+  5182 | Bc. Petra Heincová | heincova@seznam.cz
+  5280 | Pavla Janáková | pavla.janakova@seznam.cz
+  5394 | Ladislava Ježková | jezkolad@seznam.cz
+  5402 | Bc. Dita Jodasová | jodasovadita@seznam.cz
+  5524 | Helena Králová | kral.helca@seznam.cz
+  5646 | Veronika Pažúrová | v.pazurova@seznam.cz
+  5658 | Irena Peřinová | perinovairena@seznam.cz
+  5758 | Mgr. Lenka Mikešová | mikesova.lenka@nemtru.cz
+  5767 | Barbora Petličková | bajcapet@seznam.cz
+  5929 | Ilona Setničková | ika.poly@seznam.cz
+  6005 | Mgr. Simona Vízková | simonasoukupova@seznam.cz
+  6025 | Sylva Šťastná | sy.lva@seznam.cz
+  6052 | Renata Šulerová | sulerovarenata@seznam.cz
+  6098 | Andrea Kastnerová DiS. | ada.t@email.cz
+  6118 | Anita Uhlířová | anita_h@seznam.cz
+  6200 | Miroslava Tylová | mirdasekv@seznam.cz
+  6216 | Marta Zahradníková | zarta@centrum.cz
+  6249 | Eva Zuzánková | zuzankova@seznam.cz
+  6253 | Ivana Šťastná | ivicastastna@seznam.cz
+  6536 | Petra Plemeníková | plemenikova.peta@seznam.cz
+  6657 | Mgr. Regina Slowik | regina.slowik@nemtr.cz
+  9254 | Petra Vízdalová | perta@email.cz
+  9296 | Bc. Lenka Petřeková | lenka.petrekova@4seznam.cz
+  9328 | Bc. Hana Melánová | h.bartuskova@seznam.cz
+  9379 | MUDr. Jana Brdková | ja.janouskova@tiscali.cz
+
+Persons found through DPP agreements:
+  DPP 6128 | 26871 | Bc. Monika Chánová | monika.chanova@upmd.cz
+  DPP 6128 | 26871 | Bc. Monika Chánová | monika.chanova@upmd.cz
+  DPP 6128 | 26871 | Bc. Monika Chánová | monika.chanova@upmd.cz
+  DPP 1446 | 5758 | Mgr. Lenka Mikešová | mikesova.lenka@nemtru.cz
+  DPP 1446 | 5758 | Mgr. Lenka Mikešová | mikesova.lenka@nemtru.cz
+  DPP 1359 | 5692 | Lada Macečková | lada.maceckova@seznam.cz
+  DPP 1359 | 5692 | Lada Macečková | lada.maceckova@seznam.cz
+  DPP 1359 | 5692 | Lada Macečková | lada.maceckova@seznam.cz
+  DPP 1359 | 5692 | Lada Macečková | lada.maceckova@seznam.cz
+  DPP 1359 | 5692 | Lada Macečková | lada.maceckova@seznam.cz
+  DPP 1359 | 5692 | Lada Macečková | lada.maceckova@seznam.cz
+  DPP 1359 | 5692 | Lada Macečková | lada.maceckova@seznam.cz
+  DPP 1359 | 5692 | Lada Macečková | lada.maceckova@seznam.cz
+  DPP 2027 | 6414 | Mgr. Martina Andrésová | martina.andresova@fnol.cz
+  DPP 2027 | 6414 | Mgr. Martina Andrésová | martina.andresova@fnol.cz
+  DPP 2027 | 6414 | Mgr. Martina Andrésová | martina.andresova@fnol.cz
+  DPP 2027 | 6414 | Mgr. Martina Andrésová | martina.andresova@fnol.cz
+  DPP 2027 | 6414 | Mgr. Martina Andrésová | martina.andresova@fnol.cz
+  DPP 2027 | 6414 | Mgr. Martina Andrésová | martina.andresova@fnol.cz
+  DPP 2027 | 6414 | Mgr. Martina Andrésová | martina.andresova@fnol.cz
+  DPP 5502 | 6005 | Mgr. Simona Vízková | simonasoukupova@seznam.cz
+  DPP 5502 | 6005 | Mgr. Simona Vízková | simonasoukupova@seznam.cz
+  DPP 5502 | 6005 | Mgr. Simona Vízková | simonasoukupova@seznam.cz
+  DPP 5502 | 6005 | Mgr. Simona Vízková | simonasoukupova@seznam.cz
+  DPP 5502 | 6005 | Mgr. Simona Vízková | simonasoukupova@seznam.cz
+  DPP 5502 | 6005 | Mgr. Simona Vízková | simonasoukupova@seznam.cz
+  DPP 0552 | 5052 | Jarmila Dočkalová | j.dockalova@tiscali.cz
+  DPP 0552 | 5052 | Jarmila Dočkalová | j.dockalova@tiscali.cz
+  DPP 0552 | 5052 | Jarmila Dočkalová | j.dockalova@tiscali.cz
+  DPP 0552 | 5052 | Jarmila Dočkalová | j.dockalova@tiscali.cz
+  DPP 0552 | 5052 | Jarmila Dočkalová | j.dockalova@tiscali.cz
+  DPP 0552 | 5052 | Jarmila Dočkalová | j.dockalova@tiscali.cz
+  DPP 0552 | 5052 | Jarmila Dočkalová | j.dockalova@tiscali.cz
+  DPP 0552 | 5052 | Jarmila Dočkalová | j.dockalova@tiscali.cz
+  DPP 1262 | 5207 | Soňa Holcmanová | holcmanova.s@gmail.com
+  DPP 1262 | 5207 | Soňa Holcmanová | holcmanova.s@gmail.com
+  DPP 1262 | 5207 | Soňa Holcmanová | holcmanova.s@gmail.com
+  DPP 1262 | 5207 | Soňa Holcmanová | holcmanova.s@gmail.com
+  DPP 1262 | 5207 | Soňa Holcmanová | holcmanova.s@gmail.com
+  DPP 1262 | 5207 | Soňa Holcmanová | holcmanova.s@gmail.com
+  DPP 1262 | 5207 | Soňa Holcmanová | holcmanova.s@gmail.com
+  DPP 1262 | 5207 | Soňa Holcmanová | holcmanova.s@gmail.com
+  DPP 5959 | 25970 | Pavla Jelínková | pavla.jelinkova@mediterra.cz
+  DPP 5959 | 25970 | Pavla Jelínková | pavla.jelinkova@mediterra.cz
+  DPP 5959 | 25970 | Pavla Jelínková | pavla.jelinkova@mediterra.cz
+  DPP 5959 | 25970 | Pavla Jelínková | pavla.jelinkova@mediterra.cz
+
+CSV/JSON reports written to: /tmp/excel-person-check
