@@ -1058,7 +1058,7 @@ function TopBar({
   t,
   onOpenScheduledQueue,
   scheduledQueueCounts,
-  abandonedCallsCount,
+  missedCommunicationsCount,
   onOpenAbandonedCalls,
   onOpenMyActivity,
   inboundRingtoneEnabled,
@@ -1083,7 +1083,7 @@ function TopBar({
   t: any;
   onOpenScheduledQueue?: () => void;
   scheduledQueueCounts?: { total: number; overdue: number };
-  abandonedCallsCount?: number;
+  missedCommunicationsCount?: number;
   onOpenAbandonedCalls?: () => void;
   onOpenMyActivity?: () => void;
   inboundRingtoneEnabled?: boolean;
@@ -1300,13 +1300,13 @@ function TopBar({
               >
                 <PhoneOff className="h-3.5 w-3.5 text-destructive" />
                 <span className="text-xs hidden xl:inline">{t.agentWorkspace.missedLabel}</span>
-                {(abandonedCallsCount || 0) > 0 && (
+                {(missedCommunicationsCount || 0) > 0 && (
                   <Badge
                     variant="destructive"
                     className="text-[9px] h-4 min-w-[16px] px-1 ml-0.5"
                     data-testid="badge-abandoned-total"
                   >
-                    {abandonedCallsCount}
+                    {missedCommunicationsCount}
                   </Badge>
                 )}
               </Button>
@@ -14212,7 +14212,10 @@ export default function AgentWorkspacePage() {
         t={t}
         onOpenScheduledQueue={() => setScheduledQueueOpen(true)}
         scheduledQueueCounts={scheduledQueueCounts}
-        abandonedCallsCount={abandonedCalls.filter((c: any) => !c.calledBack).length}
+        missedCommunicationsCount={
+          abandonedCalls.filter((c: any) => !c.calledBack).length
+          + missedMessages.filter((m: any) => !m.handledAt).length
+        }
         onOpenAbandonedCalls={() => setAbandonedCallsOpen(true)}
         onOpenMyActivity={() => setMyActivityOpen(true)}
         inboundRingtoneEnabled={inboundRingtoneEnabled}
