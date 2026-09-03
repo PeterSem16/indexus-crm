@@ -198,6 +198,26 @@ function safeCampaign(c: any) {
   return rest;
 }
 
+const DEFAULT_JMHZ_CONTACT_EMAIL = "spolupracovnik@cordcenter.cz";
+
+// The public JMHZ form may show a contact address, but never sender tokens.
+// Resolve the address from the configured campaign mailbox where possible.
+async function getPublicCampaignContactEmail(campaign: any): Promise<string> {
+  try {
+    if ((campaign?.senderType === "custom" || campaign?.senderType === "shared")
+        && campaign.senderCustomEmail) {
+      return campaign.senderCustomEmail;
+    }
+    if (campaign?.senderType === "own" && campaign.senderUserId) {
+      const connection: any = await storage.getUserMs365Connection(campaign.senderUserId);
+      if (connection?.email) return connection.email;
+    }
+    const connection: any = await storage.getSystemMs365Connection(campaign?.senderCountryCode || "");
+    if (connection?.email) return connection.email;
+  } catch {}
+  return DEFAULT_JMHZ_CONTACT_EMAIL;
+}
+
 function getBaseUrl(req: Request): string {
   if (process.env.APP_BASE_URL) return process.env.APP_BASE_URL.replace(/\/$/, "");
   return `${req.protocol}://${req.get("host")}`;
@@ -1368,10 +1388,12 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
       // JMHZ form collects NEW data — only the collaborator's name, profession
       // and stored maiden name are exposed so the person can verify identity
       if (formType === "jmhz") {
+        const contactEmail = await getPublicCampaignContactEmail(camp);
         if (reqRow.token.startsWith("test-")) {
           return res.json({
             language: reqRow.language,
             formType,
+            contactEmail,
             birthNumberMasked: null,
             collaboratorName: [TEST_SAMPLE.titleBefore, TEST_SAMPLE.firstName, TEST_SAMPLE.lastName].filter(Boolean).join(" "),
             collaboratorInfo: {
@@ -1403,6 +1425,7 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
         return res.json({
           language: reqRow.language,
           formType,
+          contactEmail,
           birthNumberMasked: null,
           collaboratorName: [cj.titleBefore, cj.firstName, cj.lastName].filter(Boolean).join(" "),
           collaboratorInfo: {

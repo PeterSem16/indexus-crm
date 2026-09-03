@@ -163,6 +163,7 @@ const T: Record<Lang, Record<string, string>> = {
 type FormResponse = {
   language: Lang;
   formType?: string;
+  contactEmail?: string;
   birthNumberMasked: string | null;
   collaboratorName: string;
   collaboratorInfo?: {
@@ -185,7 +186,7 @@ const JMHZ = {
   submit: "Odeslat údaje",
   submitting: "Odesílám…",
   successTitle: "Děkujeme",
-  success: "Děkujeme, Vaše údaje byly úspěšně přijaty. V případě dotazů nás kontaktujte na [DOPLNIT KONTAKT].",
+  success: "Děkujeme, Vaše údaje byly úspěšně přijaty. V případě dotazů nás kontaktujte na {{contactEmail}}.",
   requiredError: "Toto pole je povinné. Prosíme o jeho vyplnění před odeslaním formuláře.",
   errorSubmit: "Odeslání selhalo, zkuste to prosím znovu.",
   selectPlaceholder: "Vyberte ze seznamu",
@@ -289,10 +290,13 @@ const JMHZ_SECTION_ICONS: Record<string, any> = {
   isLeadingEmployee: BadgeCheck,
 };
 
-function JmhzForm({ token, collaboratorName, collaboratorInfo }: {
+const DEFAULT_JMHZ_CONTACT_EMAIL = "spolupracovnik@cordcenter.cz";
+
+function JmhzForm({ token, collaboratorName, collaboratorInfo, contactEmail }: {
   token: string;
   collaboratorName?: string;
   collaboratorInfo?: FormResponse["collaboratorInfo"];
+  contactEmail?: string;
 }) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [consent, setConsent] = useState(false);
@@ -343,7 +347,9 @@ function JmhzForm({ token, collaboratorName, collaboratorInfo }: {
               <CheckCircle2 className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
             </div>
             <CardTitle data-testid="text-thanks-title">{JMHZ.successTitle}</CardTitle>
-            <CardDescription>{JMHZ.success}</CardDescription>
+            <CardDescription>
+              {JMHZ.success.replace("{{contactEmail}}", contactEmail || DEFAULT_JMHZ_CONTACT_EMAIL)}
+            </CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -725,6 +731,7 @@ export default function CollaboratorUpdatePage() {
         token={token}
         collaboratorName={query.data.collaboratorName}
         collaboratorInfo={query.data.collaboratorInfo}
+        contactEmail={query.data.contactEmail}
       />
     );
   }
