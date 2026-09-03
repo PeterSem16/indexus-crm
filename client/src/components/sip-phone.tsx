@@ -215,6 +215,10 @@ export function SipPhone({
   const callStartTimeRef = useRef<number>(0);
   const audioContextRef = useRef<AudioContext | null>(null);
   const micGainNodeRef = useRef<GainNode | null>(null);
+  const micSourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const micDestinationNodeRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+  const micRawTrackRef = useRef<MediaStreamTrack | null>(null);
+  const micProcessedTrackRef = useRef<MediaStreamTrack | null>(null);
   const userHungUpRef = useRef<boolean>(false);
   const pendingCallProcessedRef = useRef<boolean>(false);
   const forceIdleRef = useRef<boolean>(false);
@@ -871,8 +875,21 @@ export function SipPhone({
     setAudioHealth("idle");
   }, []);
 
+  const releaseMicrophonePipeline = useCallback(() => {
+    try { micSourceNodeRef.current?.disconnect(); } catch (_) {}
+    try { micGainNodeRef.current?.disconnect(); } catch (_) {}
+    try { micRawTrackRef.current?.stop(); } catch (_) {}
+    try { micProcessedTrackRef.current?.stop(); } catch (_) {}
+    micSourceNodeRef.current = null;
+    micDestinationNodeRef.current = null;
+    micRawTrackRef.current = null;
+    micProcessedTrackRef.current = null;
+    micGainNodeRef.current = null;
+  }, []);
+
   const cleanup = useCallback(() => {
     clearMediaHealthMonitoring();
+    releaseMicrophonePipeline();
     cleanupRecordingAnalysis();
     if (callTimerRef.current) {
       clearInterval(callTimerRef.current);
@@ -903,7 +920,7 @@ export function SipPhone({
         console.error("Error closing audio context:", e);
       }
     }
-  }, [cleanupRecordingAnalysis, clearMediaHealthMonitoring]);
+  }, [cleanupRecordingAnalysis, clearMediaHealthMonitoring, releaseMicrophonePipeline]);
 
   const playRingtone = useCallback(() => {
     const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -1900,6 +1917,48 @@ export function SipPhone({
     });
   }, [rejectIncomingCall, toast]);
 
+  const installMicrophoneTrack = useCallback(async (
+    audioSender: RTCRtpSender,
+    rawTrack: MediaStreamTrack,
+  ) => {
+    const previousSenderTrack = audioSender.track;
+    const wasEnabled = previousSenderTrack?.enabled !== false;
+    const audioContext = audioContextRef.current && audioContextRef.current.state !== "closed"
+      ? audioContextRef.current
+      : new AudioContext();
+    audioContextRef.current = audioContext;
+    if (audioContext.state === "suspended") await audioContext.resume();
+
+    const source = audioContext.createMediaStreamSource(new MediaStream([rawTrack]));
+    const gainNode = audioContext.createGain();
+    gainNode.gain.value = micVolume / 100;
+    const destination = audioContext.createMediaStreamDestination();
+    source.connect(gainNode);
+    gainNode.connect(destination);
+    const processedTrack = destination.stream.getAudioTracks()[0];
+    processedTrack.enabled = wasEnabled;
+
+    await audioSender.replaceTrack(processedTrack);
+
+    try { micSourceNodeRef.current?.disconnect(); } catch (_) {}
+    try { micGainNodeRef.current?.disconnect(); } catch (_) {}
+    if (micRawTrackRef.current && micRawTrackRef.current !== rawTrack) {
+      try { micRawTrackRef.current.stop(); } catch (_) {}
+    }
+    if (micProcessedTrackRef.current && micProcessedTrackRef.current !== previousSenderTrack) {
+      try { micProcessedTrackRef.current.stop(); } catch (_) {}
+    }
+    if (previousSenderTrack && previousSenderTrack !== rawTrack && previousSenderTrack !== processedTrack) {
+      try { previousSenderTrack.stop(); } catch (_) {}
+    }
+
+    micSourceNodeRef.current = source;
+    micGainNodeRef.current = gainNode;
+    micDestinationNodeRef.current = destination;
+    micRawTrackRef.current = rawTrack;
+    micProcessedTrackRef.current = processedTrack;
+  }, [micVolume]);
+
   const startMediaHealthMonitoring = useCallback((session: Session, peerConnection: RTCPeerConnection) => {
     clearMediaHealthMonitoring();
     mediaHealthSessionRef.current = session;
@@ -2082,45 +2141,65 @@ export function SipPhone({
       const audioSender = senders.find(s => s.track?.kind === "audio");
       
       if (audioSender?.track) {
-        // Create AudioContext for microphone processing
-        if (!audioContextRef.current) {
-          audioContextRef.current = new AudioContext();
-        }
-        
-        const audioContext = audioContextRef.current;
-        
-        // Resume AudioContext if suspended (required after user gesture)
-        if (audioContext.state === "suspended") {
-          await audioContext.resume();
-        }
-        
-        // Get the local audio stream
-        const localStream = new MediaStream([audioSender.track]);
-        const source = audioContext.createMediaStreamSource(localStream);
-        
-        // Create gain node for microphone volume control
-        const gainNode = audioContext.createGain();
-        gainNode.gain.value = micVolume / 100;
-        micGainNodeRef.current = gainNode;
-        
-        // Create destination for processed audio
-        const destination = audioContext.createMediaStreamDestination();
-        
-        // Connect: source -> gain -> destination
-        source.connect(gainNode);
-        gainNode.connect(destination);
-        
-        // Replace the track in the sender with the processed track
-        const processedTrack = destination.stream.getAudioTracks()[0];
-        await audioSender.replaceTrack(processedTrack);
+        await installMicrophoneTrack(audioSender, audioSender.track);
       }
     } catch (error) {
       console.error("Error setting up microphone gain control:", error);
     }
   };
 
+  useEffect(() => {
+    const mediaDevices = navigator.mediaDevices;
+    if (!mediaDevices?.addEventListener) return;
+    let debounceTimer: number | null = null;
+
+    const handleDeviceChange = () => {
+      if (debounceTimer !== null) window.clearTimeout(debounceTimer);
+      debounceTimer = window.setTimeout(async () => {
+        debounceTimer = null;
+        const session = sessionRef.current;
+        if (!session || session.state !== SessionState.Established) return;
+        const peerConnection = (session.sessionDescriptionHandler as any)?.peerConnection as RTCPeerConnection | undefined;
+        const audioSender = peerConnection?.getSenders().find((sender) => sender.track?.kind === "audio");
+        if (!audioSender) return;
+
+        try {
+          console.log("[SIP-MEDIA] Audio devices changed — switching to current default microphone");
+          const stream = await mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
+            video: false,
+          });
+          const newTrack = stream.getAudioTracks()[0];
+          if (!newTrack) throw new Error("No microphone track available");
+          await installMicrophoneTrack(audioSender, newTrack);
+          setAudioHealth("checking");
+          console.log("[SIP-MEDIA] Microphone track replaced after device change");
+        } catch (error) {
+          console.error("[SIP-MEDIA] Failed to switch microphone after device change:", error);
+          setAudioHealth("warning");
+          toast({
+            title: t.agentWorkspace.audioConnectionFailedTitle,
+            description: t.agentWorkspace.audioDeviceChangeFailedDesc,
+            variant: "destructive",
+          });
+        }
+      }, 700);
+    };
+
+    mediaDevices.addEventListener("devicechange", handleDeviceChange);
+    return () => {
+      mediaDevices.removeEventListener("devicechange", handleDeviceChange);
+      if (debounceTimer !== null) window.clearTimeout(debounceTimer);
+    };
+  }, [installMicrophoneTrack, t.agentWorkspace, toast]);
+
   const remoteHangup = useCallback(() => {
     clearMediaHealthMonitoring();
+    releaseMicrophonePipeline();
     console.log("[SIP-INBOUND] remoteHangup called (caller/server initiated), session state:", sessionRef.current?.state);
     if (currentCallLogIdRef.current && recordingSnapshotRef.current?.active && recordingSnapshotRef.current.mode === "agent_only") {
       void finalizeTrustedAgentRecording(currentCallLogIdRef.current);
@@ -2145,10 +2224,11 @@ export function SipPhone({
     if (callTimerRef.current) {
       clearInterval(callTimerRef.current);
     }
-  }, [finalizeTrustedAgentRecording, clearMediaHealthMonitoring]);
+  }, [finalizeTrustedAgentRecording, clearMediaHealthMonitoring, releaseMicrophonePipeline]);
 
   const endCall = useCallback(() => {
     clearMediaHealthMonitoring();
+    releaseMicrophonePipeline();
     console.log("[SIP-INBOUND] endCall called, session state:", sessionRef.current?.state);
     userHungUpRef.current = true;
     if (currentCallLogId && recordingSnapshotRef.current?.active && recordingSnapshotRef.current.mode === "agent_only") {
@@ -2198,10 +2278,11 @@ export function SipPhone({
     if (callTimerRef.current) {
       clearInterval(callTimerRef.current);
     }
-  }, [currentCallLogId, updateCallLogMutation, finalizeTrustedAgentRecording, clearMediaHealthMonitoring]);
+  }, [currentCallLogId, updateCallLogMutation, finalizeTrustedAgentRecording, clearMediaHealthMonitoring, releaseMicrophonePipeline]);
 
   const forceResetCall = useCallback(() => {
     clearMediaHealthMonitoring();
+    releaseMicrophonePipeline();
     ringTimedOutRef.current = false;
     if (maxRingTimerRef.current) {
       clearTimeout(maxRingTimerRef.current);
@@ -2283,7 +2364,7 @@ export function SipPhone({
     callContextRef.current.resetCallTiming();
     callContextRef.current.setIsMuted(false);
     callContextRef.current.setIsOnHold(false);
-  }, [currentCallLogId, updateCallLogMutation, localCustomerId, clearMediaHealthMonitoring]);
+  }, [currentCallLogId, updateCallLogMutation, localCustomerId, clearMediaHealthMonitoring, releaseMicrophonePipeline]);
 
   const toggleMute = useCallback(() => {
     if (!sessionRef.current) return;

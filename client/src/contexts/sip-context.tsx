@@ -100,7 +100,26 @@ const RECONNECT_BASE_DELAY = 1_000;
 const RECONNECT_MAX_DELAY = 15_000;
 const KEEPALIVE_INTERVAL = 15_000;
 const ENSURE_REGISTERED_TIMEOUT = 8_000;
-const WATCHDOG_INTERVAL = 55_000;
+const WATCHDOG_INTERVAL = 30_000;
+const SIP_OPERATION_TIMEOUT = 12_000;
+const SLEEP_GAP_THRESHOLD = 45_000;
+const FULL_REBUILD_AFTER_ATTEMPTS = 3;
+
+function withTimeout<T>(operation: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
+    operation.then(
+      (value) => {
+        clearTimeout(timeout);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      },
+    );
+  });
+}
 
 export function SipProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -134,6 +153,9 @@ export function SipProvider({ children }: { children: ReactNode }) {
   const isConnectingRef = useRef(false);
   const registeredCallbacksRef = useRef<Array<() => void>>([]);
   const isRegisteredRef = useRef(false);
+  const reRegisterInFlightRef = useRef(false);
+  const scheduleReconnectRef = useRef<() => void>(() => {});
+  const fullRegisterRef = useRef<() => Promise<void>>(async () => {});
 
   const makeCall = useCallback((call: PendingCall) => {
     setPendingCall(call);
@@ -264,40 +286,57 @@ export function SipProvider({ children }: { children: ReactNode }) {
         const transport = userAgentRef.current?.transport;
         if (transport && (transport as any)._ws?.readyState === WebSocket.OPEN) {
           (transport as any)._ws.send("\r\n\r\n");
+        } else if (!intentionalDisconnectRef.current && navigator.onLine !== false) {
+          setRegisteredState(false);
+          scheduleReconnectRef.current();
         }
-      } catch (e) {}
+      } catch (e) {
+        console.warn("[SIP] Keepalive failed — scheduling reconnect", e);
+        setRegisteredState(false);
+        scheduleReconnectRef.current();
+      }
     }, KEEPALIVE_INTERVAL);
-  }, []);
+  }, [setRegisteredState]);
 
   const startReRegisterTimer = useCallback(() => {
     if (reRegisterTimerRef.current) {
       clearInterval(reRegisterTimerRef.current);
     }
     reRegisterTimerRef.current = setInterval(async () => {
+      if (reRegisterInFlightRef.current || intentionalDisconnectRef.current || navigator.onLine === false) return;
       try {
         if (registererRef.current && userAgentRef.current) {
           const transport = userAgentRef.current.transport;
           if (transport && transport.isConnected()) {
             console.log("[SIP] Periodic re-registration...");
-            await registererRef.current.register();
+            reRegisterInFlightRef.current = true;
+            await withTimeout(registererRef.current.register(), SIP_OPERATION_TIMEOUT, "Periodic REGISTER");
+          } else {
+            setRegisteredState(false);
+            scheduleReconnectRef.current();
           }
         }
       } catch (e) {
         console.warn("[SIP] Re-registration failed:", e);
+        setRegisteredState(false);
+        scheduleReconnectRef.current();
+      } finally {
+        reRegisterInFlightRef.current = false;
       }
     }, RE_REGISTER_INTERVAL);
-  }, []);
+  }, [setRegisteredState]);
 
   const doReconnectNow = useCallback(async (): Promise<boolean> => {
     if (!userAgentRef.current || !registererRef.current) return false;
+    if (navigator.onLine === false) return false;
     try {
       const transport = userAgentRef.current.transport;
       if (transport && !transport.isConnected()) {
         console.log("[SIP] Immediate reconnect: connecting transport...");
-        await transport.connect();
+        await withTimeout(transport.connect(), SIP_OPERATION_TIMEOUT, "SIP transport reconnect");
       }
       console.log("[SIP] Immediate reconnect: sending REGISTER...");
-      await registererRef.current.register();
+      await withTimeout(registererRef.current.register(), SIP_OPERATION_TIMEOUT, "SIP REGISTER");
       reconnectAttemptRef.current = 0;
       return true;
     } catch (e: any) {
@@ -308,6 +347,10 @@ export function SipProvider({ children }: { children: ReactNode }) {
 
   const scheduleReconnect = useCallback(() => {
     if (intentionalDisconnectRef.current || isConnectingRef.current) return;
+    if (navigator.onLine === false) {
+      console.log("[SIP] Reconnect paused while browser is offline");
+      return;
+    }
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
     }
@@ -320,18 +363,27 @@ export function SipProvider({ children }: { children: ReactNode }) {
       reconnectTimerRef.current = null;
       if (intentionalDisconnectRef.current) return;
 
+      let ok = false;
       try {
         isConnectingRef.current = true;
-        const ok = await doReconnectNow();
-        if (!ok) {
-          reconnectAttemptRef.current = attempt + 1;
-          scheduleReconnect();
-        }
+        ok = await doReconnectNow();
       } finally {
         isConnectingRef.current = false;
       }
+      if (ok) return;
+
+      const nextAttempt = attempt + 1;
+      reconnectAttemptRef.current = nextAttempt;
+      if (nextAttempt >= FULL_REBUILD_AFTER_ATTEMPTS) {
+        console.warn("[SIP] Reconnect repeatedly failed — rebuilding UserAgent");
+        reconnectAttemptRef.current = 0;
+        void fullRegisterRef.current();
+        return;
+      }
+      scheduleReconnectRef.current();
     }, delay);
   }, [doReconnectNow]);
+  scheduleReconnectRef.current = scheduleReconnect;
 
   const handleIncomingInvite = useCallback((invitation: any) => {
     const remoteIdentity = invitation.remoteIdentity;
@@ -515,7 +567,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
         }
       };
 
-      await userAgent.start();
+      await withTimeout(userAgent.start(), SIP_OPERATION_TIMEOUT + 5_000, "SIP UserAgent start");
       console.log("[SIP] UserAgent started");
 
       const registerer = new Registerer(userAgent, {
@@ -565,7 +617,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
         }
       });
 
-      await registerer.register();
+      await withTimeout(registerer.register(), SIP_OPERATION_TIMEOUT, "Initial SIP REGISTER");
       console.log("[SIP] Initial REGISTER sent");
 
       startReRegisterTimer();
@@ -573,6 +625,13 @@ export function SipProvider({ children }: { children: ReactNode }) {
 
     } catch (error: any) {
       console.error("[SIP] Registration failed:", error);
+      const failedRegisterer = registererRef.current;
+      const failedUserAgent = userAgentRef.current;
+      registererRef.current = null;
+      userAgentRef.current = null;
+      if (failedRegisterer) void failedRegisterer.unregister().catch(() => {});
+      if (failedUserAgent) void failedUserAgent.stop().catch(() => {});
+      clearTimers();
       setRegistrationError(error.message || "Registration failed");
       setRegisteredState(false);
       setIsRegistering(false);
@@ -583,6 +642,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
       isConnectingRef.current = false;
     }
   }, [canRegister, sipSettings, user, clearTimers, startReRegisterTimer, startKeepalive, scheduleReconnect, setRegisteredState]);
+  fullRegisterRef.current = register;
 
   const ensureRegistered = useCallback(async (): Promise<boolean> => {
     if (isRegisteredRef.current) {
@@ -661,36 +721,82 @@ export function SipProvider({ children }: { children: ReactNode }) {
   }, [user, unregister]);
 
   useEffect(() => {
+    let lastLifecycleCheck = Date.now();
+
+    const recoverAfterInterruption = async (reason: string) => {
+      if (intentionalDisconnectRef.current || !canRegister() || navigator.onLine === false) return;
+      console.log(`[SIP] ${reason} — validating transport and registration`);
+      reconnectAttemptRef.current = 0;
+
+      if (!userAgentRef.current || !registererRef.current) {
+        void fullRegisterRef.current();
+        return;
+      }
+
+      if (isConnectingRef.current) return;
+      isConnectingRef.current = true;
+      let ok = false;
+      try {
+        ok = await doReconnectNow();
+      } finally {
+        isConnectingRef.current = false;
+      }
+      if (!ok) {
+        setRegisteredState(false);
+        scheduleReconnectRef.current();
+      }
+    };
+
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        console.log("[SIP] Page visible - checking registration...");
-        const transport = userAgentRef.current?.transport;
-        if (transport && !transport.isConnected() && !intentionalDisconnectRef.current) {
-          console.log("[SIP] Transport not connected after page focus, reconnecting...");
-          reconnectAttemptRef.current = 0;
-          scheduleReconnect();
-        } else if (registererRef.current && transport?.isConnected()) {
-          registererRef.current.register().catch(() => {});
-        }
+        void recoverAfterInterruption("Page visible/wake");
       }
     };
 
     const handleOnline = () => {
-      console.log("[SIP] Network online - reconnecting...");
-      if (!intentionalDisconnectRef.current && userAgentRef.current) {
-        reconnectAttemptRef.current = 0;
-        scheduleReconnect();
+      void recoverAfterInterruption("Network online");
+    };
+
+    const handleOffline = () => {
+      console.warn("[SIP] Browser offline — pausing reconnect until network returns");
+      setRegisteredState(false);
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
       }
+    };
+
+    const handleNetworkChange = () => {
+      void recoverAfterInterruption("Network/VPN/NAT changed");
+    };
+
+    const handlePageShow = () => {
+      void recoverAfterInterruption("Page restored");
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("pageshow", handlePageShow);
+    const networkConnection = (navigator as any).connection;
+    networkConnection?.addEventListener?.("change", handleNetworkChange);
+    const lifecycleTimer = window.setInterval(() => {
+      const now = Date.now();
+      if (now - lastLifecycleCheck > SLEEP_GAP_THRESHOLD) {
+        void recoverAfterInterruption("Sleep gap detected");
+      }
+      lastLifecycleCheck = now;
+    }, KEEPALIVE_INTERVAL);
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("pageshow", handlePageShow);
+      networkConnection?.removeEventListener?.("change", handleNetworkChange);
+      window.clearInterval(lifecycleTimer);
     };
-  }, [scheduleReconnect]);
+  }, [canRegister, doReconnectNow, setRegisteredState]);
 
   // Watchdog: every WATCHDOG_INTERVAL check if we're still registered.
   // Catches cases where the Registerer silently dies (e.g. server-side expiry,
@@ -700,13 +806,15 @@ export function SipProvider({ children }: { children: ReactNode }) {
     if (!canRegister()) return;
     const id = setInterval(() => {
       if (intentionalDisconnectRef.current || isConnectingRef.current) return;
-      if (!isRegisteredRef.current) {
-        console.log("[SIP] Watchdog: not registered — triggering full re-registration");
-        register();
+      const transport = userAgentRef.current?.transport;
+      if (!isRegisteredRef.current || !transport?.isConnected()) {
+        console.log("[SIP] Watchdog: registration or transport unhealthy — recovering");
+        setRegisteredState(false);
+        scheduleReconnectRef.current();
       }
     }, WATCHDOG_INTERVAL);
     return () => clearInterval(id);
-  }, [canRegister, register]);
+  }, [canRegister, setRegisteredState]);
 
   useEffect(() => {
     return () => {

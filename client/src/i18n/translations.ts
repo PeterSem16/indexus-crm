@@ -3946,6 +3946,7 @@ export interface Translations {
     audioOneWayTitle: string;
     audioOneWayDesc: string;
     audioPlaybackBlockedDesc: string;
+    audioDeviceChangeFailedDesc: string;
     callCancelledLabel: string;
     callerHungUp: string;
     callAcceptError: string;
@@ -11813,6 +11814,7 @@ export const translations: Record<Locale, Translations> = {
       audioOneWayTitle: 'One-way audio detected',
       audioOneWayDesc: 'Only one audio direction is working. Check the microphone, speakers, and network connection, then reconnect the call.',
       audioPlaybackBlockedDesc: 'The browser could not play the call audio. Check the selected speaker and browser sound permission.',
+      audioDeviceChangeFailedDesc: 'The new microphone could not be activated. Check the headset connection and browser microphone permission.',
       callCancelledLabel: 'Call cancelled',
       callerHungUp: 'Caller hung up',
       callAcceptError: 'Failed to accept call',
@@ -19136,6 +19138,7 @@ export const translations: Record<Locale, Translations> = {
       audioOneWayTitle: 'Zistený jednosmerný zvuk',
       audioOneWayDesc: 'Funguje iba jeden smer zvuku. Skontrolujte mikrofón, reproduktory a sieťové pripojenie a potom hovor spojte znova.',
       audioPlaybackBlockedDesc: 'Prehliadač nedokázal prehrať zvuk hovoru. Skontrolujte vybraný reproduktor a povolenie zvuku v prehliadači.',
+      audioDeviceChangeFailedDesc: 'Nový mikrofón sa nepodarilo aktivovať. Skontrolujte pripojenie headsetu a povolenie mikrofónu v prehliadači.',
       callCancelledLabel: 'Hovor zrušený',
       callerHungUp: 'Volajúci zavesil',
       callAcceptError: 'Nepodarilo sa prijať hovor',
@@ -26445,6 +26448,7 @@ export const translations: Record<Locale, Translations> = {
       audioOneWayTitle: 'Zjištěn jednosměrný zvuk',
       audioOneWayDesc: 'Funguje pouze jeden směr zvuku. Zkontrolujte mikrofon, reproduktory a síťové připojení a poté hovor spojte znovu.',
       audioPlaybackBlockedDesc: 'Prohlížeč nedokázal přehrát zvuk hovoru. Zkontrolujte vybraný reproduktor a oprávnění zvuku v prohlížeči.',
+      audioDeviceChangeFailedDesc: 'Nový mikrofon se nepodařilo aktivovat. Zkontrolujte připojení náhlavní soupravy a oprávnění mikrofonu v prohlížeči.',
       callCancelledLabel: 'Hovor zrušen',
       callerHungUp: 'Volající zavěsil',
       callAcceptError: 'Nepodařilo se přijmout hovor',
@@ -33710,6 +33714,7 @@ export const translations: Record<Locale, Translations> = {
       audioOneWayTitle: 'Egyirányú hang észlelhető',
       audioOneWayDesc: 'Csak az egyik hangirány működik. Ellenőrizze a mikrofont, a hangszórókat és a hálózati kapcsolatot, majd csatlakoztassa újra a hívást.',
       audioPlaybackBlockedDesc: 'A böngésző nem tudta lejátszani a hívás hangját. Ellenőrizze a kiválasztott hangszórót és a böngésző hangengedélyét.',
+      audioDeviceChangeFailedDesc: 'Az új mikrofont nem sikerült aktiválni. Ellenőrizze a headset csatlakozását és a böngésző mikrofonengedélyét.',
       callCancelledLabel: 'Hívás törölve',
       callerHungUp: 'A hívó letette',
       callAcceptError: 'Nem sikerült fogadni a hívást',
@@ -40862,6 +40867,7 @@ export const translations: Record<Locale, Translations> = {
       audioOneWayTitle: 'Sunet unidirecțional detectat',
       audioOneWayDesc: 'Funcționează o singură direcție audio. Verificați microfonul, difuzoarele și conexiunea la rețea, apoi reconectați apelul.',
       audioPlaybackBlockedDesc: 'Browserul nu a putut reda sunetul apelului. Verificați difuzorul selectat și permisiunea audio a browserului.',
+      audioDeviceChangeFailedDesc: 'Noul microfon nu a putut fi activat. Verificați conexiunea căștilor și permisiunea pentru microfon din browser.',
       callCancelledLabel: 'Apel anulat',
       callerHungUp: 'Apelantul a închis',
       callAcceptError: 'Nu s-a putut accepta apelul',
@@ -48016,6 +48022,7 @@ export const translations: Record<Locale, Translations> = {
       audioOneWayTitle: 'Audio a senso unico rilevato',
       audioOneWayDesc: 'Funziona solo una direzione audio. Controlla microfono, altoparlanti e connessione di rete, quindi riconnetti la chiamata.',
       audioPlaybackBlockedDesc: 'Il browser non ha potuto riprodurre l\'audio della chiamata. Controlla l\'altoparlante selezionato e l\'autorizzazione audio del browser.',
+      audioDeviceChangeFailedDesc: 'Non è stato possibile attivare il nuovo microfono. Controlla il collegamento delle cuffie e l\'autorizzazione del microfono nel browser.',
       callCancelledLabel: 'Chiamata annullata',
       callerHungUp: 'Il chiamante ha riattaccato',
       callAcceptError: 'Impossibile accettare la chiamata',
@@ -55170,6 +55177,7 @@ export const translations: Record<Locale, Translations> = {
       audioOneWayTitle: 'Einseitiges Audio erkannt',
       audioOneWayDesc: 'Nur eine Audio-Richtung funktioniert. Prüfen Sie Mikrofon, Lautsprecher und Netzwerkverbindung und verbinden Sie den Anruf erneut.',
       audioPlaybackBlockedDesc: 'Der Browser konnte den Anrufton nicht wiedergeben. Prüfen Sie den ausgewählten Lautsprecher und die Audioberechtigung des Browsers.',
+      audioDeviceChangeFailedDesc: 'Das neue Mikrofon konnte nicht aktiviert werden. Prüfen Sie die Headset-Verbindung und die Mikrofonberechtigung des Browsers.',
       callCancelledLabel: 'Anruf abgebrochen',
       callerHungUp: 'Anrufer hat aufgelegt',
       callAcceptError: 'Anruf konnte nicht angenommen werden',
