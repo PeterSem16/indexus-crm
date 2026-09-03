@@ -1139,6 +1139,17 @@ function SettingsDialog({ campaign, l, toast, open, onOpenChange }: any) {
   });
   const ownConnected = !!ownConn?.isConnected && !!ownConn?.hasTokens;
 
+  const senderAuthMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/collaborator-update-campaigns/${campaign.id}/sender-auth`);
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      if (data?.authUrl) window.location.href = data.authUrl;
+    },
+    onError: (e: any) => toast({ title: l.errorTitle, description: e?.message, variant: "destructive" }),
+  });
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("PATCH", `/api/collaborator-update-campaigns/${campaign.id}/settings`, {
@@ -1200,9 +1211,30 @@ function SettingsDialog({ campaign, l, toast, open, onOpenChange }: any) {
             ) : (
               <div className="space-y-1.5">
                 <Label>{l.senderMailbox}</Label>
-                <p className="text-sm pt-2 text-muted-foreground">
-                  {campaign.senderCustomEmail || l.senderCustomHint}
-                </p>
+                <div className="flex items-center gap-2 pt-1">
+                  {campaign.senderCustomEmail ? (
+                    <p className="text-sm text-green-600 dark:text-green-400 truncate" data-testid="text-settings-custom-sender">
+                      {campaign.senderCustomEmail}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground flex-1" data-testid="text-settings-custom-sender-hint">
+                      {l.senderCustomHint}
+                    </p>
+                  )}
+                  <Button
+                    type="button"
+                    variant={campaign.senderCustomEmail ? "outline" : "default"}
+                    size="sm"
+                    onClick={() => senderAuthMutation.mutate()}
+                    disabled={senderAuthMutation.isPending}
+                    data-testid="button-settings-connect-sender"
+                  >
+                    {senderAuthMutation.isPending
+                      ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      : <Mail className="h-4 w-4 mr-1" />}
+                    {l.connectSender}
+                  </Button>
+                </div>
               </div>
             )}
           </div>
