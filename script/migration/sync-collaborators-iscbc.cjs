@@ -16,6 +16,15 @@ const { Pool } = require('pg');
 const { normalizePhone, normalizeEmail, normalizeName, normalizeNationalId, normalizePostalCode, normalizeCity } = require('./consolidate-contacts.cjs');
 
 const COMMIT = process.argv.includes('--commit');
+const SKIP_AGREEMENTS = process.argv.includes('--skip-agreements');
+const OVERWRITE_EMAIL = process.argv.includes('--overwrite-email');
+const onlyDocIdArgIndex = process.argv.indexOf('--only-doc-id');
+const ONLY_DOC_ID = onlyDocIdArgIndex >= 0
+  ? String(process.argv[onlyDocIdArgIndex + 1] || '').trim()
+  : '';
+if (ONLY_DOC_ID && !/^\d+$/.test(ONLY_DOC_ID)) {
+  throw new Error('--only-doc-id must be a numeric ISCBC doc_id');
+}
 
 const MSSQL_CONFIG = {
   user: 'cbcuser',
@@ -104,6 +113,7 @@ async function main() {
   } catch (e) { log(`WARN health_insurance_companies: ${e.message}`); }
 
   // ---------- MSSQL: všetci spolupracovníci ----------
+  const collaboratorFilter = ONLY_DOC_ID ? `AND d.doc_id = ${ONLY_DOC_ID}` : '';
   const collabs = await mssqlPool.request().query(`
     SELECT d.doc_id, d.per_id, d.cty_id, d.rer_id, d.add_id, d.add_id_firm,
            d.doc_active, d.doc_note, d.doc_IBAN, d.doc_SWIFT,
@@ -119,7 +129,8 @@ async function main() {
     FROM Collaborators d
     LEFT JOIN CollaboratorTypes ct ON ct.cty_id = d.cty_id
     LEFT JOIN PersonalData pd ON pd.per_id = d.per_id AND pd.pda_valid = 1
-    WHERE d.doc_active = 1
+     WHERE d.doc_active = 1
+       ${collaboratorFilter}
     ORDER BY d.doc_id
   `);
   log(`ISCBC: ${collabs.recordset.length} AKTÍVNYCH spolupracovníkov (doc_active = 1)`);
@@ -192,15 +203,18 @@ async function main() {
         const email = normalizeEmail(row.pda_email);
         const mobile = normalizePhone(row.pda_mobile, countryCode);
         const birthNo = normalizeNationalId(row.pda_id_number);
-        const needs = (!ex.email && email) || (!ex.mobile && mobile) || (!ex.birth_number && birthNo);
+        const needs = (OVERWRITE_EMAIL && email && normalizeEmail(ex.email) !== email)
+          || (!OVERWRITE_EMAIL && !ex.email && email)
+          || (!ex.mobile && mobile)
+          || (!ex.birth_number && birthNo);
         if (needs) {
           if (COMMIT) {
             await pgPool.query(`UPDATE collaborators SET
-              email = COALESCE(email, $2),
+              email = CASE WHEN $5::boolean AND $2 IS NOT NULL AND $2 <> '' THEN $2 ELSE COALESCE(email, $2) END,
               mobile = COALESCE(mobile, $3),
               birth_number = COALESCE(birth_number, $4),
               updated_at = now()
-            WHERE id = $1`, [ex.id, email, mobile, birthNo]);
+            WHERE id = $1`, [ex.id, email, mobile, birthNo, OVERWRITE_EMAIL]);
           }
           updated++;
         } else {
@@ -295,6 +309,14 @@ async function main() {
   if (!COMMIT && toInsertPreview.length) {
     log(`Ukážka nových (prvých ${toInsertPreview.length}):`);
     toInsertPreview.forEach(p => log(`  + ${p}`));
+  }
+
+  if (SKIP_AGREEMENTS) {
+    log('Dohody: preskočené (--skip-agreements)');
+    log('=== HOTOVO ===');
+    await mssqlPool.close();
+    await pgPool.end();
+    return;
   }
 
   // ---------- 2. Agreements: insert chýbajúcich ----------
