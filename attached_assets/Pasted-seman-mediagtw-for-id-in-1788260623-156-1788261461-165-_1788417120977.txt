@@ -1,0 +1,526 @@
+seman@mediagtw:~$ for id in \
+  1788260623.156 \
+  1788261461.165 \
+  1788262196.174
+do
+  echo "===== $id ====="
+  sudo zgrep -H "$id" \
+    /var/log/asterisk/messages.log* \
+    /var/log/asterisk/full* \
+    2>/dev/null
+done
+===== 1788260623.156 =====
+===== 1788261461.165 =====
+===== 1788262196.174 =====
+seman@mediagtw:~$ date
+timedatectl | grep -E 'Time zone|Local time|Universal time'
+Thu Sep  3 06:31:30 AM UTC 2026
+               Local time: Thu 2026-09-03 06:31:30 UTC
+           Universal time: Thu 2026-09-03 06:31:30 UTC
+                Time zone: Etc/UTC (UTC, +0000)
+seman@mediagtw:~$ sudo zgrep -H -E \
+'2005-00000061|2005-00000067|2005-0000006d|trunk-sk|o2-ims|RTP|ICE|DTLS|Strict RTP|audio' \
+/var/log/asterisk/messages.log* \
+/var/log/asterisk/full* \
+2>/dev/null | tail -500
+/var/log/asterisk/messages.log:[Jul 11 06:29:32] NOTICE[616145] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+/var/log/asterisk/messages.log:[Jul 11 06:29:32] NOTICE[616145] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+/var/log/asterisk/messages.log:[Jul 11 13:01:23] NOTICE[616201] res_pjsip/pjsip_transport_management.c: Shutting down transport 'WS to 10.1.2.111:59416' since no request was received in 32 seconds
+/var/log/asterisk/messages.log:[Jul 13 06:20:19] NOTICE[624285][C-00000001] res_stasis_playback.c: 1783923619.0: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 13 06:24:11] NOTICE[624298][C-00000003] res_stasis_playback.c: 1783923851.6: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 13 06:33:37] NOTICE[624451][C-00000005] res_stasis_playback.c: 1783924417.12: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 13 07:14:36] NOTICE[624559][C-00000007] res_stasis_playback.c: 1783926876.18: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 13 07:16:57] NOTICE[624572][C-00000009] res_stasis_playback.c: 1783927016.24: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 13 07:21:15] NOTICE[624589][C-0000000b] res_stasis_playback.c: 1783927274.30: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 13 07:23:19] NOTICE[624600][C-0000000d] res_stasis_playback.c: 1783927399.36: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 13 08:15:23] NOTICE[624869][C-0000000f] res_stasis_playback.c: 1783930523.42: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 13 08:21:11] NOTICE[624893][C-00000011] res_stasis_playback.c: 1783930871.48: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 13 08:21:34] NOTICE[624893][C-00000011] res_stasis_playback.c: 1783930871.48: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 13 11:35:18] NOTICE[625432][C-00000014] res_stasis_playback.c: 1783942517.58: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 13 11:36:33] NOTICE[625450][C-00000018] res_stasis_playback.c: 1783942593.72: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 13 11:36:52] NOTICE[625450][C-00000018] res_stasis_playback.c: 1783942593.72: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 13 11:53:18] NOTICE[625500][C-0000001a] res_stasis_playback.c: 1783943598.79: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 13 11:53:49] NOTICE[625500][C-0000001a] res_stasis_playback.c: 1783943598.79: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 13 12:46:58] NOTICE[625660][C-0000001f] res_stasis_playback.c: 1783946817.95: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 13 12:56:01] NOTICE[626139][C-00000029] res_stasis_playback.c: 1783947361.125: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 13 13:30:11] NOTICE[626234][C-0000002f] res_stasis_playback.c: 1783949411.143: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 13 13:30:54] NOTICE[626234][C-0000002f] res_stasis_playback.c: 1783949411.143: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 13 13:32:47] NOTICE[626268][C-00000030] res_stasis_playback.c: 1783949566.146: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 13 13:33:32] NOTICE[626268][C-00000030] res_stasis_playback.c: 1783949566.146: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 13 13:34:44] NOTICE[626295][C-00000035] res_stasis_playback.c: 1783949683.164: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 13 13:35:04] NOTICE[626295][C-00000035] res_stasis_playback.c: 1783949683.164: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 14 08:31:59] NOTICE[629257][C-00000039] res_stasis_playback.c: 1784017918.177: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 14 08:32:24] NOTICE[629257][C-00000039] res_stasis_playback.c: 1784017918.177: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 16 06:08:31] NOTICE[638150] loader.c: 355 modules will be loaded.
+/var/log/asterisk/messages.log:[Jul 16 06:08:31] NOTICE[638150] res_config_ldap.c: No directory user found, anonymous binding as default.
+/var/log/asterisk/messages.log:[Jul 16 06:08:31] NOTICE[638150] cdr.c: CDR simple logging enabled.
+/var/log/asterisk/messages.log:[Jul 16 06:08:31] NOTICE[638150] indications.c: Default country for indication tones: us
+/var/log/asterisk/messages.log:[Jul 16 06:08:31] NOTICE[638150] indications.c: Setting default indication country to 'us'
+/var/log/asterisk/messages.log:[Jul 16 06:08:32] NOTICE[638150] res_smdi.c: No SMDI interfaces are available to listen on, not starting SMDI listener.
+/var/log/asterisk/messages.log:[Jul 16 06:08:32] NOTICE[638150] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+/var/log/asterisk/messages.log:[Jul 16 06:08:32] NOTICE[638150] cel_tds.c: cel_tds has no global category, nothing to configure.
+/var/log/asterisk/messages.log:[Jul 16 06:08:32] NOTICE[638150] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Jul 16 06:08:32] NOTICE[638150] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+/var/log/asterisk/messages.log:[Jul 16 06:08:32] NOTICE[638150] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Jul 16 06:08:32] NOTICE[638150] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+/var/log/asterisk/messages.log:[Jul 16 06:08:32] NOTICE[638150] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+/var/log/asterisk/messages.log:[Jul 16 06:08:32] NOTICE[638150] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+/var/log/asterisk/messages.log:[Jul 16 06:08:32] NOTICE[638150] codec_g729a.c: Please see the full license text supplied by the accompanying
+/var/log/asterisk/messages.log:[Jul 16 06:08:32] NOTICE[638150] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+/var/log/asterisk/messages.log:[Jul 16 06:08:32] NOTICE[638150] codec_g729a.c: This product includes software developed by the OpenSSL Project
+/var/log/asterisk/messages.log:[Jul 16 06:08:32] NOTICE[638150] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+/var/log/asterisk/messages.log:[Jul 16 06:08:32] NOTICE[638150] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+/var/log/asterisk/messages.log:[Jul 17 11:48:49] NOTICE[643203][C-00000003] res_stasis_playback.c: 1784288928.6: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 17 11:50:09] NOTICE[643216][C-00000004] res_stasis_playback.c: 1784289009.9: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 17 11:50:16] NOTICE[643223][C-00000005] res_stasis_playback.c: 1784289016.10: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 17 11:50:30] NOTICE[643216][C-00000004] res_stasis_playback.c: 1784289009.9: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 17 11:57:31] NOTICE[643256][C-00000006] res_stasis_playback.c: 1784289451.17: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Jul 22 06:15:21] NOTICE[672872] loader.c: 355 modules will be loaded.
+/var/log/asterisk/messages.log:[Jul 22 06:15:22] NOTICE[672872] res_config_ldap.c: No directory user found, anonymous binding as default.
+/var/log/asterisk/messages.log:[Jul 22 06:15:22] NOTICE[672872] cdr.c: CDR simple logging enabled.
+/var/log/asterisk/messages.log:[Jul 22 06:15:22] NOTICE[672872] indications.c: Default country for indication tones: us
+/var/log/asterisk/messages.log:[Jul 22 06:15:22] NOTICE[672872] indications.c: Setting default indication country to 'us'
+/var/log/asterisk/messages.log:[Jul 22 06:15:22] NOTICE[672872] res_smdi.c: No SMDI interfaces are available to listen on, not starting SMDI listener.
+/var/log/asterisk/messages.log:[Jul 22 06:15:22] NOTICE[672872] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+/var/log/asterisk/messages.log:[Jul 22 06:15:22] NOTICE[672872] cel_tds.c: cel_tds has no global category, nothing to configure.
+/var/log/asterisk/messages.log:[Jul 22 06:15:22] NOTICE[672872] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Jul 22 06:15:22] NOTICE[672872] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+/var/log/asterisk/messages.log:[Jul 22 06:15:22] NOTICE[672872] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Jul 22 06:15:22] NOTICE[672872] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+/var/log/asterisk/messages.log:[Jul 22 06:15:22] NOTICE[672872] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+/var/log/asterisk/messages.log:[Jul 22 06:15:22] NOTICE[672872] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+/var/log/asterisk/messages.log:[Jul 22 06:15:22] NOTICE[672872] codec_g729a.c: Please see the full license text supplied by the accompanying
+/var/log/asterisk/messages.log:[Jul 22 06:15:22] NOTICE[672872] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+/var/log/asterisk/messages.log:[Jul 22 06:15:22] NOTICE[672872] codec_g729a.c: This product includes software developed by the OpenSSL Project
+/var/log/asterisk/messages.log:[Jul 22 06:15:22] NOTICE[672872] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+/var/log/asterisk/messages.log:[Jul 22 06:15:22] NOTICE[672872] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+/var/log/asterisk/messages.log:[Jul 23 06:32:39] NOTICE[678113] loader.c: 355 modules will be loaded.
+/var/log/asterisk/messages.log:[Jul 23 06:32:39] NOTICE[678113] res_config_ldap.c: No directory user found, anonymous binding as default.
+/var/log/asterisk/messages.log:[Jul 23 06:32:39] NOTICE[678113] cdr.c: CDR simple logging enabled.
+/var/log/asterisk/messages.log:[Jul 23 06:32:39] NOTICE[678113] indications.c: Default country for indication tones: us
+/var/log/asterisk/messages.log:[Jul 23 06:32:39] NOTICE[678113] indications.c: Setting default indication country to 'us'
+/var/log/asterisk/messages.log:[Jul 23 06:32:39] NOTICE[678113] res_smdi.c: No SMDI interfaces are available to listen on, not starting SMDI listener.
+/var/log/asterisk/messages.log:[Jul 23 06:32:40] NOTICE[678113] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+/var/log/asterisk/messages.log:[Jul 23 06:32:40] NOTICE[678113] cel_tds.c: cel_tds has no global category, nothing to configure.
+/var/log/asterisk/messages.log:[Jul 23 06:32:40] NOTICE[678113] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Jul 23 06:32:40] NOTICE[678113] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+/var/log/asterisk/messages.log:[Jul 23 06:32:40] NOTICE[678113] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Jul 23 06:32:40] NOTICE[678113] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+/var/log/asterisk/messages.log:[Jul 23 06:32:40] NOTICE[678113] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+/var/log/asterisk/messages.log:[Jul 23 06:32:40] NOTICE[678113] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+/var/log/asterisk/messages.log:[Jul 23 06:32:40] NOTICE[678113] codec_g729a.c: Please see the full license text supplied by the accompanying
+/var/log/asterisk/messages.log:[Jul 23 06:32:40] NOTICE[678113] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+/var/log/asterisk/messages.log:[Jul 23 06:32:40] NOTICE[678113] codec_g729a.c: This product includes software developed by the OpenSSL Project
+/var/log/asterisk/messages.log:[Jul 23 06:32:40] NOTICE[678113] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+/var/log/asterisk/messages.log:[Jul 23 06:32:40] NOTICE[678113] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+/var/log/asterisk/messages.log:[Jul 29 06:48:30] NOTICE[703446] loader.c: 355 modules will be loaded.
+/var/log/asterisk/messages.log:[Jul 29 06:48:31] NOTICE[703446] res_config_ldap.c: No directory user found, anonymous binding as default.
+/var/log/asterisk/messages.log:[Jul 29 06:48:31] NOTICE[703446] cdr.c: CDR simple logging enabled.
+/var/log/asterisk/messages.log:[Jul 29 06:48:31] NOTICE[703446] indications.c: Default country for indication tones: us
+/var/log/asterisk/messages.log:[Jul 29 06:48:31] NOTICE[703446] indications.c: Setting default indication country to 'us'
+/var/log/asterisk/messages.log:[Jul 29 06:48:31] NOTICE[703446] res_smdi.c: No SMDI interfaces are available to listen on, not starting SMDI listener.
+/var/log/asterisk/messages.log:[Jul 29 06:48:31] NOTICE[703446] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+/var/log/asterisk/messages.log:[Jul 29 06:48:31] NOTICE[703446] cel_tds.c: cel_tds has no global category, nothing to configure.
+/var/log/asterisk/messages.log:[Jul 29 06:48:31] NOTICE[703446] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Jul 29 06:48:31] NOTICE[703446] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+/var/log/asterisk/messages.log:[Jul 29 06:48:31] NOTICE[703446] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Jul 29 06:48:31] NOTICE[703446] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+/var/log/asterisk/messages.log:[Jul 29 06:48:31] NOTICE[703446] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+/var/log/asterisk/messages.log:[Jul 29 06:48:31] NOTICE[703446] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+/var/log/asterisk/messages.log:[Jul 29 06:48:31] NOTICE[703446] codec_g729a.c: Please see the full license text supplied by the accompanying
+/var/log/asterisk/messages.log:[Jul 29 06:48:31] NOTICE[703446] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+/var/log/asterisk/messages.log:[Jul 29 06:48:31] NOTICE[703446] codec_g729a.c: This product includes software developed by the OpenSSL Project
+/var/log/asterisk/messages.log:[Jul 29 06:48:31] NOTICE[703446] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+/var/log/asterisk/messages.log:[Jul 29 06:48:31] NOTICE[703446] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+/var/log/asterisk/messages.log:[Jul 31 08:57:18] NOTICE[703586] res_pjsip/pjsip_transport_management.c: Shutting down transport 'WS to 10.1.2.111:58904' since no request was received in 32 seconds
+/var/log/asterisk/messages.log:[Jul 31 08:58:17] NOTICE[703586] res_pjsip/pjsip_transport_management.c: Shutting down transport 'WS to 10.1.2.111:49270' since no request was received in 32 seconds
+/var/log/asterisk/messages.log:[Aug  1 06:18:37] NOTICE[715590] loader.c: 355 modules will be loaded.
+/var/log/asterisk/messages.log:[Aug  1 06:18:37] NOTICE[715590] res_config_ldap.c: No directory user found, anonymous binding as default.
+/var/log/asterisk/messages.log:[Aug  1 06:18:37] NOTICE[715590] cdr.c: CDR simple logging enabled.
+/var/log/asterisk/messages.log:[Aug  1 06:18:37] NOTICE[715590] indications.c: Default country for indication tones: us
+/var/log/asterisk/messages.log:[Aug  1 06:18:37] NOTICE[715590] indications.c: Setting default indication country to 'us'
+/var/log/asterisk/messages.log:[Aug  1 06:18:37] NOTICE[715590] res_smdi.c: No SMDI interfaces are available to listen on, not starting SMDI listener.
+/var/log/asterisk/messages.log:[Aug  1 06:18:37] NOTICE[715590] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+/var/log/asterisk/messages.log:[Aug  1 06:18:37] NOTICE[715590] cel_tds.c: cel_tds has no global category, nothing to configure.
+/var/log/asterisk/messages.log:[Aug  1 06:18:37] NOTICE[715590] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Aug  1 06:18:37] NOTICE[715590] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+/var/log/asterisk/messages.log:[Aug  1 06:18:37] NOTICE[715590] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Aug  1 06:18:37] NOTICE[715590] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+/var/log/asterisk/messages.log:[Aug  1 06:18:37] NOTICE[715590] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+/var/log/asterisk/messages.log:[Aug  1 06:18:37] NOTICE[715590] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+/var/log/asterisk/messages.log:[Aug  1 06:18:37] NOTICE[715590] codec_g729a.c: Please see the full license text supplied by the accompanying
+/var/log/asterisk/messages.log:[Aug  1 06:18:37] NOTICE[715590] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+/var/log/asterisk/messages.log:[Aug  1 06:18:37] NOTICE[715590] codec_g729a.c: This product includes software developed by the OpenSSL Project
+/var/log/asterisk/messages.log:[Aug  1 06:18:37] NOTICE[715590] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+/var/log/asterisk/messages.log:[Aug  1 06:18:37] NOTICE[715590] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+/var/log/asterisk/messages.log:[Aug 11 06:50:22] NOTICE[765725] loader.c: 355 modules will be loaded.
+/var/log/asterisk/messages.log:[Aug 11 06:50:22] NOTICE[765725] res_config_ldap.c: No directory user found, anonymous binding as default.
+/var/log/asterisk/messages.log:[Aug 11 06:50:22] NOTICE[765725] cdr.c: CDR simple logging enabled.
+/var/log/asterisk/messages.log:[Aug 11 06:50:22] NOTICE[765725] indications.c: Default country for indication tones: us
+/var/log/asterisk/messages.log:[Aug 11 06:50:22] NOTICE[765725] indications.c: Setting default indication country to 'us'
+/var/log/asterisk/messages.log:[Aug 11 06:50:22] NOTICE[765725] res_smdi.c: No SMDI interfaces are available to listen on, not starting SMDI listener.
+/var/log/asterisk/messages.log:[Aug 11 06:50:23] NOTICE[765725] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+/var/log/asterisk/messages.log:[Aug 11 06:50:23] NOTICE[765725] cel_tds.c: cel_tds has no global category, nothing to configure.
+/var/log/asterisk/messages.log:[Aug 11 06:50:23] NOTICE[765725] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Aug 11 06:50:23] NOTICE[765725] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+/var/log/asterisk/messages.log:[Aug 11 06:50:23] NOTICE[765725] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Aug 11 06:50:23] NOTICE[765725] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+/var/log/asterisk/messages.log:[Aug 11 06:50:23] NOTICE[765725] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+/var/log/asterisk/messages.log:[Aug 11 06:50:23] NOTICE[765725] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+/var/log/asterisk/messages.log:[Aug 11 06:50:23] NOTICE[765725] codec_g729a.c: Please see the full license text supplied by the accompanying
+/var/log/asterisk/messages.log:[Aug 11 06:50:23] NOTICE[765725] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+/var/log/asterisk/messages.log:[Aug 11 06:50:23] NOTICE[765725] codec_g729a.c: This product includes software developed by the OpenSSL Project
+/var/log/asterisk/messages.log:[Aug 11 06:50:23] NOTICE[765725] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+/var/log/asterisk/messages.log:[Aug 11 06:50:23] NOTICE[765725] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+/var/log/asterisk/messages.log:[Aug 18 07:34:56] NOTICE[765838] res_pjsip/pjsip_transport_management.c: Shutting down transport 'WS to 10.1.2.111:50308' since no request was received in 32 seconds
+/var/log/asterisk/messages.log:[Aug 18 07:51:52] NOTICE[765838] res_pjsip/pjsip_transport_management.c: Shutting down transport 'WS to 10.1.2.111:35254' since no request was received in 32 seconds
+/var/log/asterisk/messages.log:[Aug 20 06:54:30] NOTICE[806764] loader.c: 355 modules will be loaded.
+/var/log/asterisk/messages.log:[Aug 20 06:54:31] NOTICE[806764] res_config_ldap.c: No directory user found, anonymous binding as default.
+/var/log/asterisk/messages.log:[Aug 20 06:54:31] NOTICE[806764] cdr.c: CDR simple logging enabled.
+/var/log/asterisk/messages.log:[Aug 20 06:54:31] NOTICE[806764] indications.c: Default country for indication tones: us
+/var/log/asterisk/messages.log:[Aug 20 06:54:31] NOTICE[806764] indications.c: Setting default indication country to 'us'
+/var/log/asterisk/messages.log:[Aug 20 06:54:31] NOTICE[806764] res_smdi.c: No SMDI interfaces are available to listen on, not starting SMDI listener.
+/var/log/asterisk/messages.log:[Aug 20 06:54:31] NOTICE[806764] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+/var/log/asterisk/messages.log:[Aug 20 06:54:31] NOTICE[806764] cel_tds.c: cel_tds has no global category, nothing to configure.
+/var/log/asterisk/messages.log:[Aug 20 06:54:31] NOTICE[806764] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Aug 20 06:54:31] NOTICE[806764] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+/var/log/asterisk/messages.log:[Aug 20 06:54:31] NOTICE[806764] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Aug 20 06:54:31] NOTICE[806764] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+/var/log/asterisk/messages.log:[Aug 20 06:54:31] NOTICE[806764] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+/var/log/asterisk/messages.log:[Aug 20 06:54:31] NOTICE[806764] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+/var/log/asterisk/messages.log:[Aug 20 06:54:31] NOTICE[806764] codec_g729a.c: Please see the full license text supplied by the accompanying
+/var/log/asterisk/messages.log:[Aug 20 06:54:31] NOTICE[806764] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+/var/log/asterisk/messages.log:[Aug 20 06:54:31] NOTICE[806764] codec_g729a.c: This product includes software developed by the OpenSSL Project
+/var/log/asterisk/messages.log:[Aug 20 06:54:31] NOTICE[806764] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+/var/log/asterisk/messages.log:[Aug 20 06:54:31] NOTICE[806764] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+/var/log/asterisk/messages.log:[Aug 21 06:06:37] NOTICE[811731] loader.c: 355 modules will be loaded.
+/var/log/asterisk/messages.log:[Aug 21 06:06:37] NOTICE[811731] res_config_ldap.c: No directory user found, anonymous binding as default.
+/var/log/asterisk/messages.log:[Aug 21 06:06:37] NOTICE[811731] cdr.c: CDR simple logging enabled.
+/var/log/asterisk/messages.log:[Aug 21 06:06:37] NOTICE[811731] indications.c: Default country for indication tones: us
+/var/log/asterisk/messages.log:[Aug 21 06:06:37] NOTICE[811731] indications.c: Setting default indication country to 'us'
+/var/log/asterisk/messages.log:[Aug 21 06:06:37] NOTICE[811731] res_smdi.c: No SMDI interfaces are available to listen on, not starting SMDI listener.
+/var/log/asterisk/messages.log:[Aug 21 06:06:38] NOTICE[811731] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+/var/log/asterisk/messages.log:[Aug 21 06:06:38] NOTICE[811731] cel_tds.c: cel_tds has no global category, nothing to configure.
+/var/log/asterisk/messages.log:[Aug 21 06:06:38] NOTICE[811731] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Aug 21 06:06:38] NOTICE[811731] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+/var/log/asterisk/messages.log:[Aug 21 06:06:38] NOTICE[811731] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Aug 21 06:06:38] NOTICE[811731] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+/var/log/asterisk/messages.log:[Aug 21 06:06:38] NOTICE[811731] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+/var/log/asterisk/messages.log:[Aug 21 06:06:38] NOTICE[811731] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+/var/log/asterisk/messages.log:[Aug 21 06:06:38] NOTICE[811731] codec_g729a.c: Please see the full license text supplied by the accompanying
+/var/log/asterisk/messages.log:[Aug 21 06:06:38] NOTICE[811731] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+/var/log/asterisk/messages.log:[Aug 21 06:06:38] NOTICE[811731] codec_g729a.c: This product includes software developed by the OpenSSL Project
+/var/log/asterisk/messages.log:[Aug 21 06:06:38] NOTICE[811731] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+/var/log/asterisk/messages.log:[Aug 21 06:06:38] NOTICE[811731] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+/var/log/asterisk/messages.log:[Aug 26 06:33:27] NOTICE[832501] loader.c: 355 modules will be loaded.
+/var/log/asterisk/messages.log:[Aug 26 06:33:27] NOTICE[832501] res_config_ldap.c: No directory user found, anonymous binding as default.
+/var/log/asterisk/messages.log:[Aug 26 06:33:27] NOTICE[832501] cdr.c: CDR simple logging enabled.
+/var/log/asterisk/messages.log:[Aug 26 06:33:27] NOTICE[832501] indications.c: Default country for indication tones: us
+/var/log/asterisk/messages.log:[Aug 26 06:33:27] NOTICE[832501] indications.c: Setting default indication country to 'us'
+/var/log/asterisk/messages.log:[Aug 26 06:33:27] NOTICE[832501] res_smdi.c: No SMDI interfaces are available to listen on, not starting SMDI listener.
+/var/log/asterisk/messages.log:[Aug 26 06:33:27] NOTICE[832501] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+/var/log/asterisk/messages.log:[Aug 26 06:33:28] NOTICE[832501] cel_tds.c: cel_tds has no global category, nothing to configure.
+/var/log/asterisk/messages.log:[Aug 26 06:33:28] NOTICE[832501] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Aug 26 06:33:28] NOTICE[832501] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+/var/log/asterisk/messages.log:[Aug 26 06:33:28] NOTICE[832501] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Aug 26 06:33:28] NOTICE[832501] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+/var/log/asterisk/messages.log:[Aug 26 06:33:28] NOTICE[832501] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+/var/log/asterisk/messages.log:[Aug 26 06:33:28] NOTICE[832501] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+/var/log/asterisk/messages.log:[Aug 26 06:33:28] NOTICE[832501] codec_g729a.c: Please see the full license text supplied by the accompanying
+/var/log/asterisk/messages.log:[Aug 26 06:33:28] NOTICE[832501] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+/var/log/asterisk/messages.log:[Aug 26 06:33:28] NOTICE[832501] codec_g729a.c: This product includes software developed by the OpenSSL Project
+/var/log/asterisk/messages.log:[Aug 26 06:33:28] NOTICE[832501] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+/var/log/asterisk/messages.log:[Aug 26 06:33:28] NOTICE[832501] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+/var/log/asterisk/messages.log:[Aug 26 06:33:41] NOTICE[833132] loader.c: 355 modules will be loaded.
+/var/log/asterisk/messages.log:[Aug 26 06:33:41] NOTICE[833132] res_config_ldap.c: No directory user found, anonymous binding as default.
+/var/log/asterisk/messages.log:[Aug 26 06:33:41] NOTICE[833132] cdr.c: CDR simple logging enabled.
+/var/log/asterisk/messages.log:[Aug 26 06:33:41] NOTICE[833132] indications.c: Default country for indication tones: us
+/var/log/asterisk/messages.log:[Aug 26 06:33:41] NOTICE[833132] indications.c: Setting default indication country to 'us'
+/var/log/asterisk/messages.log:[Aug 26 06:33:42] NOTICE[833132] res_smdi.c: No SMDI interfaces are available to listen on, not starting SMDI listener.
+/var/log/asterisk/messages.log:[Aug 26 06:33:42] NOTICE[833132] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+/var/log/asterisk/messages.log:[Aug 26 06:33:42] NOTICE[833132] cel_tds.c: cel_tds has no global category, nothing to configure.
+/var/log/asterisk/messages.log:[Aug 26 06:33:42] NOTICE[833132] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Aug 26 06:33:42] NOTICE[833132] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+/var/log/asterisk/messages.log:[Aug 26 06:33:42] NOTICE[833132] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Aug 26 06:33:42] NOTICE[833132] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+/var/log/asterisk/messages.log:[Aug 26 06:33:42] NOTICE[833132] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+/var/log/asterisk/messages.log:[Aug 26 06:33:42] NOTICE[833132] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+/var/log/asterisk/messages.log:[Aug 26 06:33:42] NOTICE[833132] codec_g729a.c: Please see the full license text supplied by the accompanying
+/var/log/asterisk/messages.log:[Aug 26 06:33:42] NOTICE[833132] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+/var/log/asterisk/messages.log:[Aug 26 06:33:42] NOTICE[833132] codec_g729a.c: This product includes software developed by the OpenSSL Project
+/var/log/asterisk/messages.log:[Aug 26 06:33:42] NOTICE[833132] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+/var/log/asterisk/messages.log:[Aug 26 06:33:42] NOTICE[833132] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+/var/log/asterisk/messages.log:[Aug 27 08:29:57] NOTICE[833222] sorcery.c: Type 'system' is not reloadable, maintaining previous values
+/var/log/asterisk/messages.log:[Aug 27 08:48:14] NOTICE[838644] loader.c: 355 modules will be loaded.
+/var/log/asterisk/messages.log:[Aug 27 08:48:14] NOTICE[838644] res_config_ldap.c: No directory user found, anonymous binding as default.
+/var/log/asterisk/messages.log:[Aug 27 08:48:14] NOTICE[838644] cdr.c: CDR simple logging enabled.
+/var/log/asterisk/messages.log:[Aug 27 08:48:14] NOTICE[838644] indications.c: Default country for indication tones: us
+/var/log/asterisk/messages.log:[Aug 27 08:48:14] NOTICE[838644] indications.c: Setting default indication country to 'us'
+/var/log/asterisk/messages.log:[Aug 27 08:48:14] NOTICE[838644] res_smdi.c: No SMDI interfaces are available to listen on, not starting SMDI listener.
+/var/log/asterisk/messages.log:[Aug 27 08:48:14] NOTICE[838644] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+/var/log/asterisk/messages.log:[Aug 27 08:48:14] NOTICE[838644] cel_tds.c: cel_tds has no global category, nothing to configure.
+/var/log/asterisk/messages.log:[Aug 27 08:48:14] NOTICE[838644] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Aug 27 08:48:14] NOTICE[838644] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+/var/log/asterisk/messages.log:[Aug 27 08:48:14] NOTICE[838644] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Aug 27 08:48:14] NOTICE[838644] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+/var/log/asterisk/messages.log:[Aug 27 08:48:14] NOTICE[838644] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+/var/log/asterisk/messages.log:[Aug 27 08:48:14] NOTICE[838644] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+/var/log/asterisk/messages.log:[Aug 27 08:48:14] NOTICE[838644] codec_g729a.c: Please see the full license text supplied by the accompanying
+/var/log/asterisk/messages.log:[Aug 27 08:48:14] NOTICE[838644] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+/var/log/asterisk/messages.log:[Aug 27 08:48:14] NOTICE[838644] codec_g729a.c: This product includes software developed by the OpenSSL Project
+/var/log/asterisk/messages.log:[Aug 27 08:48:14] NOTICE[838644] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+/var/log/asterisk/messages.log:[Aug 27 08:48:14] NOTICE[838644] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+/var/log/asterisk/messages.log:[Aug 27 09:59:58] NOTICE[839107] res_config_ldap.c: No directory user found, anonymous binding as default.
+/var/log/asterisk/messages.log:[Aug 27 09:59:58] NOTICE[839107] res_config_ldap.c: Cannot reload LDAP RealTime driver.
+/var/log/asterisk/messages.log:[Aug 27 09:59:59] NOTICE[839107] sorcery.c: Type 'system' is not reloadable, maintaining previous values
+/var/log/asterisk/messages.log:[Aug 27 09:59:59] NOTICE[839107] cdr.c: CDR simple logging enabled.
+/var/log/asterisk/messages.log:[Aug 27 09:59:59] NOTICE[838674] sorcery.c: Type 'system' is not reloadable, maintaining previous values
+/var/log/asterisk/messages.log:[Aug 27 09:59:59] NOTICE[839107] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+/var/log/asterisk/messages.log:[Aug 27 09:59:59] NOTICE[839107] app_queue.c: queuerules.conf has not changed since it was last loaded. Not taking any action.
+/var/log/asterisk/messages.log:[Aug 27 10:34:20] NOTICE[839213] res_config_ldap.c: No directory user found, anonymous binding as default.
+/var/log/asterisk/messages.log:[Aug 27 10:34:20] NOTICE[839213] res_config_ldap.c: Cannot reload LDAP RealTime driver.
+/var/log/asterisk/messages.log:[Aug 27 10:34:20] NOTICE[839213] sorcery.c: Type 'system' is not reloadable, maintaining previous values
+/var/log/asterisk/messages.log:[Aug 27 10:34:20] NOTICE[839213] cdr.c: CDR simple logging enabled.
+/var/log/asterisk/messages.log:[Aug 27 10:34:20] NOTICE[838674] sorcery.c: Type 'system' is not reloadable, maintaining previous values
+/var/log/asterisk/messages.log:[Aug 27 10:34:20] NOTICE[839213] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+/var/log/asterisk/messages.log:[Aug 27 10:34:20] NOTICE[839213] app_queue.c: queuerules.conf has not changed since it was last loaded. Not taking any action.
+/var/log/asterisk/messages.log:[Aug 27 10:36:23] NOTICE[838674] sorcery.c: Type 'system' is not reloadable, maintaining previous values
+/var/log/asterisk/messages.log:[Aug 27 10:39:04] NOTICE[838674] sorcery.c: Type 'system' is not reloadable, maintaining previous values
+/var/log/asterisk/messages.log:[Aug 27 10:56:04] NOTICE[838674] sorcery.c: Type 'system' is not reloadable, maintaining previous values
+/var/log/asterisk/messages.log:[Aug 27 11:31:48] NOTICE[839447][C-00000005] res_stasis_playback.c: 1787830307.8: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Aug 27 11:32:21] NOTICE[839458][C-00000006] res_stasis_playback.c: 1787830341.11: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Aug 27 11:32:39] NOTICE[839458][C-00000006] res_stasis_playback.c: 1787830341.11: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+/var/log/asterisk/messages.log:[Aug 27 11:56:50] ERROR[838674] res_pjsip/config_auth.c: o2-ims-auth: No plain text or digest password found for algorithm MD5 in supported_algorithms_uas
+/var/log/asterisk/messages.log:[Aug 27 11:56:50] ERROR[838674] res_pjsip/config_auth.c: o2-ims-auth: No plain text or digest password found for algorithm MD5 in supported_algorithms_uac
+/var/log/asterisk/messages.log:[Aug 27 11:56:50] ERROR[838674] res_sorcery_config.c: Could not create an object of type 'auth' with id 'o2-ims-auth' from configuration file 'pjsip.conf'
+/var/log/asterisk/messages.log:[Aug 27 11:56:50] NOTICE[838674] res_sorcery_config.c: Retaining existing configuration for object of type 'auth' with id 'o2-ims-auth'
+/var/log/asterisk/messages.log:[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+/var/log/asterisk/messages.log:[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+/var/log/asterisk/messages.log:[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+/var/log/asterisk/messages.log:[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+/var/log/asterisk/messages.log:[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+/var/log/asterisk/messages.log:[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+/var/log/asterisk/messages.log:[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+/var/log/asterisk/messages.log:[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+/var/log/asterisk/messages.log:[Aug 27 11:56:50] NOTICE[838674] sorcery.c: Type 'system' is not reloadable, maintaining previous values
+/var/log/asterisk/messages.log:[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+/var/log/asterisk/messages.log:[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+/var/log/asterisk/messages.log:[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+/var/log/asterisk/messages.log:[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+/var/log/asterisk/messages.log:[Aug 27 11:56:50] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+/var/log/asterisk/messages.log:[Aug 27 12:00:44] ERROR[838674] config.c: The file '/etc/asterisk/pjsip-o2-ims-secret.conf' was listed as a #include but it does not exist.
+/var/log/asterisk/messages.log:[Aug 27 12:00:44] ERROR[838674] res_pjsip/config_auth.c: o2-ims-auth: No plain text or digest password found for algorithm MD5 in supported_algorithms_uas
+/var/log/asterisk/messages.log:[Aug 27 12:00:44] ERROR[838674] res_pjsip/config_auth.c: o2-ims-auth: No plain text or digest password found for algorithm MD5 in supported_algorithms_uac
+/var/log/asterisk/messages.log:[Aug 27 12:00:44] ERROR[838674] res_sorcery_config.c: Could not create an object of type 'auth' with id 'o2-ims-auth' from configuration file 'pjsip.conf'
+/var/log/asterisk/messages.log:[Aug 27 12:00:44] NOTICE[838674] res_sorcery_config.c: Retaining existing configuration for object of type 'auth' with id 'o2-ims-auth'
+/var/log/asterisk/messages.log:[Aug 27 12:00:44] NOTICE[838674] sorcery.c: Type 'system' is not reloadable, maintaining previous values
+/var/log/asterisk/messages.log:[Aug 27 12:02:03] NOTICE[838674] sorcery.c: Type 'system' is not reloadable, maintaining previous values
+/var/log/asterisk/messages.log:[Aug 27 12:17:21] NOTICE[838674] sorcery.c: Type 'system' is not reloadable, maintaining previous values
+/var/log/asterisk/messages.log:[Aug 27 12:18:00] NOTICE[838674] sorcery.c: Type 'system' is not reloadable, maintaining previous values
+/var/log/asterisk/messages.log:[Aug 27 12:18:54] NOTICE[838674] sorcery.c: Type 'system' is not reloadable, maintaining previous values
+/var/log/asterisk/messages.log:[Aug 27 12:21:03] NOTICE[838674] sorcery.c: Type 'system' is not reloadable, maintaining previous values
+/var/log/asterisk/messages.log:[Aug 27 12:21:56] NOTICE[838674] sorcery.c: Type 'system' is not reloadable, maintaining previous values
+/var/log/asterisk/messages.log:[Aug 27 12:24:08] NOTICE[838674] sorcery.c: Type 'system' is not reloadable, maintaining previous values
+/var/log/asterisk/messages.log:[Aug 27 12:26:12] NOTICE[838674] sorcery.c: Type 'system' is not reloadable, maintaining previous values
+/var/log/asterisk/messages.log:[Aug 27 12:28:40] NOTICE[838674] sorcery.c: Type 'system' is not reloadable, maintaining previous values
+/var/log/asterisk/messages.log:[Aug 27 12:56:15] NOTICE[840174][C-00000007] res_stasis_playback.c: 1787835375.15: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Aug 27 12:56:32] NOTICE[840174][C-00000007] res_stasis_playback.c: 1787835375.15: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Aug 27 13:21:32] NOTICE[840344][C-00000008] res_stasis_playback.c: 1787836891.19: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Aug 27 13:21:50] NOTICE[840344][C-00000008] res_stasis_playback.c: 1787836891.19: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Aug 27 13:24:29] NOTICE[840377] loader.c: 355 modules will be loaded.
+/var/log/asterisk/messages.log:[Aug 27 13:24:29] NOTICE[840377] res_config_ldap.c: No directory user found, anonymous binding as default.
+/var/log/asterisk/messages.log:[Aug 27 13:24:29] NOTICE[840377] cdr.c: CDR simple logging enabled.
+/var/log/asterisk/messages.log:[Aug 27 13:24:29] NOTICE[840377] indications.c: Default country for indication tones: us
+/var/log/asterisk/messages.log:[Aug 27 13:24:29] NOTICE[840377] indications.c: Setting default indication country to 'us'
+/var/log/asterisk/messages.log:[Aug 27 13:24:29] NOTICE[840377] res_smdi.c: No SMDI interfaces are available to listen on, not starting SMDI listener.
+/var/log/asterisk/messages.log:[Aug 27 13:24:29] NOTICE[840377] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+/var/log/asterisk/messages.log:[Aug 27 13:24:29] NOTICE[840377] cel_tds.c: cel_tds has no global category, nothing to configure.
+/var/log/asterisk/messages.log:[Aug 27 13:24:29] NOTICE[840377] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Aug 27 13:24:29] NOTICE[840377] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+/var/log/asterisk/messages.log:[Aug 27 13:24:29] NOTICE[840377] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Aug 27 13:24:29] NOTICE[840377] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+/var/log/asterisk/messages.log:[Aug 27 13:24:29] NOTICE[840377] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+/var/log/asterisk/messages.log:[Aug 27 13:24:29] NOTICE[840377] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+/var/log/asterisk/messages.log:[Aug 27 13:24:29] NOTICE[840377] codec_g729a.c: Please see the full license text supplied by the accompanying
+/var/log/asterisk/messages.log:[Aug 27 13:24:29] NOTICE[840377] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+/var/log/asterisk/messages.log:[Aug 27 13:24:29] NOTICE[840377] codec_g729a.c: This product includes software developed by the OpenSSL Project
+/var/log/asterisk/messages.log:[Aug 27 13:24:29] NOTICE[840377] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+/var/log/asterisk/messages.log:[Aug 27 13:24:29] NOTICE[840377] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+/var/log/asterisk/messages.log:[Aug 27 13:27:13] NOTICE[840490][C-00000001] res_stasis_playback.c: 1787837233.0: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Aug 27 19:55:02] NOTICE[840414] res_pjsip/pjsip_transport_management.c: Shutting down transport 'WS to 10.1.2.111:46122' since no request was received in 32 seconds
+/var/log/asterisk/messages.log:[Aug 28 06:15:47] NOTICE[844389] loader.c: 355 modules will be loaded.
+/var/log/asterisk/messages.log:[Aug 28 06:15:47] NOTICE[844389] res_config_ldap.c: No directory user found, anonymous binding as default.
+/var/log/asterisk/messages.log:[Aug 28 06:15:47] NOTICE[844389] cdr.c: CDR simple logging enabled.
+/var/log/asterisk/messages.log:[Aug 28 06:15:47] NOTICE[844389] indications.c: Default country for indication tones: us
+/var/log/asterisk/messages.log:[Aug 28 06:15:47] NOTICE[844389] indications.c: Setting default indication country to 'us'
+/var/log/asterisk/messages.log:[Aug 28 06:15:47] NOTICE[844389] res_smdi.c: No SMDI interfaces are available to listen on, not starting SMDI listener.
+/var/log/asterisk/messages.log:[Aug 28 06:15:48] NOTICE[844389] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+/var/log/asterisk/messages.log:[Aug 28 06:15:48] NOTICE[844389] cel_tds.c: cel_tds has no global category, nothing to configure.
+/var/log/asterisk/messages.log:[Aug 28 06:15:48] NOTICE[844389] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Aug 28 06:15:48] NOTICE[844389] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+/var/log/asterisk/messages.log:[Aug 28 06:15:48] NOTICE[844389] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Aug 28 06:15:48] NOTICE[844389] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+/var/log/asterisk/messages.log:[Aug 28 06:15:48] NOTICE[844389] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+/var/log/asterisk/messages.log:[Aug 28 06:15:48] NOTICE[844389] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+/var/log/asterisk/messages.log:[Aug 28 06:15:48] NOTICE[844389] codec_g729a.c: Please see the full license text supplied by the accompanying
+/var/log/asterisk/messages.log:[Aug 28 06:15:48] NOTICE[844389] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+/var/log/asterisk/messages.log:[Aug 28 06:15:48] NOTICE[844389] codec_g729a.c: This product includes software developed by the OpenSSL Project
+/var/log/asterisk/messages.log:[Aug 28 06:15:48] NOTICE[844389] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+/var/log/asterisk/messages.log:[Aug 28 06:15:48] NOTICE[844389] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+/var/log/asterisk/messages.log:[Aug 28 06:15:52] NOTICE[844638] loader.c: 355 modules will be loaded.
+/var/log/asterisk/messages.log:[Aug 28 06:15:52] NOTICE[844638] res_config_ldap.c: No directory user found, anonymous binding as default.
+/var/log/asterisk/messages.log:[Aug 28 06:15:52] NOTICE[844638] cdr.c: CDR simple logging enabled.
+/var/log/asterisk/messages.log:[Aug 28 06:15:52] NOTICE[844638] indications.c: Default country for indication tones: us
+/var/log/asterisk/messages.log:[Aug 28 06:15:52] NOTICE[844638] indications.c: Setting default indication country to 'us'
+/var/log/asterisk/messages.log:[Aug 28 06:15:52] NOTICE[844638] res_smdi.c: No SMDI interfaces are available to listen on, not starting SMDI listener.
+/var/log/asterisk/messages.log:[Aug 28 06:15:53] NOTICE[844638] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+/var/log/asterisk/messages.log:[Aug 28 06:15:53] NOTICE[844638] cel_tds.c: cel_tds has no global category, nothing to configure.
+/var/log/asterisk/messages.log:[Aug 28 06:15:53] NOTICE[844638] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Aug 28 06:15:53] NOTICE[844638] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+/var/log/asterisk/messages.log:[Aug 28 06:15:53] NOTICE[844638] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Aug 28 06:15:53] NOTICE[844638] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+/var/log/asterisk/messages.log:[Aug 28 06:15:53] NOTICE[844638] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+/var/log/asterisk/messages.log:[Aug 28 06:15:53] NOTICE[844638] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+/var/log/asterisk/messages.log:[Aug 28 06:15:53] NOTICE[844638] codec_g729a.c: Please see the full license text supplied by the accompanying
+/var/log/asterisk/messages.log:[Aug 28 06:15:53] NOTICE[844638] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+/var/log/asterisk/messages.log:[Aug 28 06:15:53] NOTICE[844638] codec_g729a.c: This product includes software developed by the OpenSSL Project
+/var/log/asterisk/messages.log:[Aug 28 06:15:53] NOTICE[844638] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+/var/log/asterisk/messages.log:[Aug 28 06:15:53] NOTICE[844638] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+/var/log/asterisk/messages.log:[Aug 28 08:14:28] NOTICE[844705] sorcery.c: Type 'system' is not reloadable, maintaining previous values
+/var/log/asterisk/messages.log:[Aug 28 08:17:19] NOTICE[845367][C-00000006] res_stasis_playback.c: 1787905039.15: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Aug 29 14:02:09] NOTICE[850382][C-00000008] res_stasis_playback.c: 1788012129.20: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Aug 29 14:02:30] NOTICE[850382][C-00000008] res_stasis_playback.c: 1788012129.20: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Aug 31 08:56:12] NOTICE[858037][C-00000009] res_stasis_playback.c: 1788166572.24: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Aug 31 08:56:43] NOTICE[858037][C-00000009] res_rtp_asterisk.c: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client address: 185.103.146.200:29278
+/var/log/asterisk/messages.log:[Aug 31 08:56:56] NOTICE[858037][C-00000009] res_stasis_playback.c: 1788166572.24: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Aug 31 08:58:37] NOTICE[858063][C-0000000d] res_stasis_playback.c: 1788166716.38: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Aug 31 08:58:56] NOTICE[858063][C-0000000d] res_stasis_playback.c: 1788166716.38: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Aug 31 08:59:27] NOTICE[858078][C-0000000d] res_rtp_asterisk.c: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client address: 185.103.146.200:26990
+/var/log/asterisk/messages.log:[Aug 31 09:04:04] NOTICE[858116][C-0000000f] res_rtp_asterisk.c: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client address: 185.103.146.200:29526
+/var/log/asterisk/messages.log:[Aug 31 10:38:55] NOTICE[858438][C-00000011] res_rtp_asterisk.c: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client address: 185.103.146.200:26078
+/var/log/asterisk/messages.log:[Aug 31 11:27:14] NOTICE[844705] sorcery.c: Type 'system' is not reloadable, maintaining previous values
+/var/log/asterisk/messages.log:[Aug 31 11:44:21] NOTICE[858760][C-00000016] res_rtp_asterisk.c: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client address: 185.103.146.200:26522
+/var/log/asterisk/messages.log:[Aug 31 17:16:48] NOTICE[869751][C-00000025] res_rtp_asterisk.c: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client address: 185.103.146.200:32454
+/var/log/asterisk/messages.log:[Aug 31 17:32:53] NOTICE[871058][C-00000027] res_rtp_asterisk.c: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client address: 185.103.146.200:28122
+/var/log/asterisk/messages.log:[Sep  1 09:19:47] NOTICE[875736][C-00000032] res_rtp_asterisk.c: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client address: 185.103.146.200:29350
+/var/log/asterisk/messages.log:[Sep  1 09:38:44] NOTICE[876806][C-00000033] res_rtp_asterisk.c: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client address: 185.103.146.200:27660
+/var/log/asterisk/messages.log:[Sep  1 11:18:17] NOTICE[878845][C-00000037] res_rtp_asterisk.c: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client address: 185.103.146.200:27426
+/var/log/asterisk/messages.log:[Sep  1 11:24:21] NOTICE[879444][C-00000039] res_rtp_asterisk.c: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client address: 185.103.146.200:27420
+/var/log/asterisk/messages.log:[Sep  1 11:30:23] NOTICE[880622][C-0000003b] res_stasis_playback.c: 1788262222.177: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Sep  2 06:58:28] NOTICE[884743] loader.c: 355 modules will be loaded.
+/var/log/asterisk/messages.log:[Sep  2 06:58:28] NOTICE[884743] res_config_ldap.c: No directory user found, anonymous binding as default.
+/var/log/asterisk/messages.log:[Sep  2 06:58:28] NOTICE[884743] cdr.c: CDR simple logging enabled.
+/var/log/asterisk/messages.log:[Sep  2 06:58:28] NOTICE[884743] indications.c: Default country for indication tones: us
+/var/log/asterisk/messages.log:[Sep  2 06:58:28] NOTICE[884743] indications.c: Setting default indication country to 'us'
+/var/log/asterisk/messages.log:[Sep  2 06:58:28] NOTICE[884743] res_smdi.c: No SMDI interfaces are available to listen on, not starting SMDI listener.
+/var/log/asterisk/messages.log:[Sep  2 06:58:28] NOTICE[884743] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+/var/log/asterisk/messages.log:[Sep  2 06:58:28] NOTICE[884743] cel_tds.c: cel_tds has no global category, nothing to configure.
+/var/log/asterisk/messages.log:[Sep  2 06:58:28] NOTICE[884743] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Sep  2 06:58:28] NOTICE[884743] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+/var/log/asterisk/messages.log:[Sep  2 06:58:28] NOTICE[884743] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Sep  2 06:58:28] NOTICE[884743] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+/var/log/asterisk/messages.log:[Sep  2 06:58:28] NOTICE[884743] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+/var/log/asterisk/messages.log:[Sep  2 06:58:28] NOTICE[884743] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+/var/log/asterisk/messages.log:[Sep  2 06:58:28] NOTICE[884743] codec_g729a.c: Please see the full license text supplied by the accompanying
+/var/log/asterisk/messages.log:[Sep  2 06:58:28] NOTICE[884743] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+/var/log/asterisk/messages.log:[Sep  2 06:58:28] NOTICE[884743] codec_g729a.c: This product includes software developed by the OpenSSL Project
+/var/log/asterisk/messages.log:[Sep  2 06:58:28] NOTICE[884743] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+/var/log/asterisk/messages.log:[Sep  2 06:58:28] NOTICE[884743] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+/var/log/asterisk/messages.log:[Sep  2 06:58:47] NOTICE[885504] loader.c: 355 modules will be loaded.
+/var/log/asterisk/messages.log:[Sep  2 06:58:47] NOTICE[885504] res_config_ldap.c: No directory user found, anonymous binding as default.
+/var/log/asterisk/messages.log:[Sep  2 06:58:47] NOTICE[885504] cdr.c: CDR simple logging enabled.
+/var/log/asterisk/messages.log:[Sep  2 06:58:47] NOTICE[885504] indications.c: Default country for indication tones: us
+/var/log/asterisk/messages.log:[Sep  2 06:58:47] NOTICE[885504] indications.c: Setting default indication country to 'us'
+/var/log/asterisk/messages.log:[Sep  2 06:58:47] NOTICE[885504] res_smdi.c: No SMDI interfaces are available to listen on, not starting SMDI listener.
+/var/log/asterisk/messages.log:[Sep  2 06:58:47] NOTICE[885504] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+/var/log/asterisk/messages.log:[Sep  2 06:58:47] NOTICE[885504] cel_tds.c: cel_tds has no global category, nothing to configure.
+/var/log/asterisk/messages.log:[Sep  2 06:58:47] NOTICE[885504] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Sep  2 06:58:47] NOTICE[885504] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+/var/log/asterisk/messages.log:[Sep  2 06:58:47] NOTICE[885504] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Sep  2 06:58:47] NOTICE[885504] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+/var/log/asterisk/messages.log:[Sep  2 06:58:47] NOTICE[885504] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+/var/log/asterisk/messages.log:[Sep  2 06:58:47] NOTICE[885504] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+/var/log/asterisk/messages.log:[Sep  2 06:58:47] NOTICE[885504] codec_g729a.c: Please see the full license text supplied by the accompanying
+/var/log/asterisk/messages.log:[Sep  2 06:58:47] NOTICE[885504] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+/var/log/asterisk/messages.log:[Sep  2 06:58:47] NOTICE[885504] codec_g729a.c: This product includes software developed by the OpenSSL Project
+/var/log/asterisk/messages.log:[Sep  2 06:58:47] NOTICE[885504] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+/var/log/asterisk/messages.log:[Sep  2 06:58:47] NOTICE[885504] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+/var/log/asterisk/messages.log:[Sep  2 06:58:58] NOTICE[886055] loader.c: 355 modules will be loaded.
+/var/log/asterisk/messages.log:[Sep  2 06:58:58] NOTICE[886055] res_config_ldap.c: No directory user found, anonymous binding as default.
+/var/log/asterisk/messages.log:[Sep  2 06:58:58] NOTICE[886055] cdr.c: CDR simple logging enabled.
+/var/log/asterisk/messages.log:[Sep  2 06:58:58] NOTICE[886055] indications.c: Default country for indication tones: us
+/var/log/asterisk/messages.log:[Sep  2 06:58:58] NOTICE[886055] indications.c: Setting default indication country to 'us'
+/var/log/asterisk/messages.log:[Sep  2 06:58:58] NOTICE[886055] res_smdi.c: No SMDI interfaces are available to listen on, not starting SMDI listener.
+/var/log/asterisk/messages.log:[Sep  2 06:58:59] NOTICE[886055] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+/var/log/asterisk/messages.log:[Sep  2 06:58:59] NOTICE[886055] cel_tds.c: cel_tds has no global category, nothing to configure.
+/var/log/asterisk/messages.log:[Sep  2 06:58:59] NOTICE[886055] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Sep  2 06:58:59] NOTICE[886055] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+/var/log/asterisk/messages.log:[Sep  2 06:58:59] NOTICE[886055] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Sep  2 06:58:59] NOTICE[886055] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+/var/log/asterisk/messages.log:[Sep  2 06:58:59] NOTICE[886055] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+/var/log/asterisk/messages.log:[Sep  2 06:58:59] NOTICE[886055] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+/var/log/asterisk/messages.log:[Sep  2 06:58:59] NOTICE[886055] codec_g729a.c: Please see the full license text supplied by the accompanying
+/var/log/asterisk/messages.log:[Sep  2 06:58:59] NOTICE[886055] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+/var/log/asterisk/messages.log:[Sep  2 06:58:59] NOTICE[886055] codec_g729a.c: This product includes software developed by the OpenSSL Project
+/var/log/asterisk/messages.log:[Sep  2 06:58:59] NOTICE[886055] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+/var/log/asterisk/messages.log:[Sep  2 06:58:59] NOTICE[886055] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+/var/log/asterisk/messages.log:[Sep  2 06:59:24] NOTICE[887088] loader.c: 355 modules will be loaded.
+/var/log/asterisk/messages.log:[Sep  2 06:59:24] NOTICE[887088] res_config_ldap.c: No directory user found, anonymous binding as default.
+/var/log/asterisk/messages.log:[Sep  2 06:59:24] NOTICE[887088] cdr.c: CDR simple logging enabled.
+/var/log/asterisk/messages.log:[Sep  2 06:59:24] NOTICE[887088] indications.c: Default country for indication tones: us
+/var/log/asterisk/messages.log:[Sep  2 06:59:24] NOTICE[887088] indications.c: Setting default indication country to 'us'
+/var/log/asterisk/messages.log:[Sep  2 06:59:24] NOTICE[887088] res_smdi.c: No SMDI interfaces are available to listen on, not starting SMDI listener.
+/var/log/asterisk/messages.log:[Sep  2 06:59:24] NOTICE[887088] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+/var/log/asterisk/messages.log:[Sep  2 06:59:24] NOTICE[887088] cel_tds.c: cel_tds has no global category, nothing to configure.
+/var/log/asterisk/messages.log:[Sep  2 06:59:24] NOTICE[887088] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Sep  2 06:59:24] NOTICE[887088] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+/var/log/asterisk/messages.log:[Sep  2 06:59:24] NOTICE[887088] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Sep  2 06:59:24] NOTICE[887088] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+/var/log/asterisk/messages.log:[Sep  2 06:59:24] NOTICE[887088] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+/var/log/asterisk/messages.log:[Sep  2 06:59:24] NOTICE[887088] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+/var/log/asterisk/messages.log:[Sep  2 06:59:24] NOTICE[887088] codec_g729a.c: Please see the full license text supplied by the accompanying
+/var/log/asterisk/messages.log:[Sep  2 06:59:24] NOTICE[887088] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+/var/log/asterisk/messages.log:[Sep  2 06:59:24] NOTICE[887088] codec_g729a.c: This product includes software developed by the OpenSSL Project
+/var/log/asterisk/messages.log:[Sep  2 06:59:24] NOTICE[887088] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+/var/log/asterisk/messages.log:[Sep  2 06:59:24] NOTICE[887088] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+/var/log/asterisk/messages.log:[Sep  2 06:59:44] NOTICE[888017] loader.c: 355 modules will be loaded.
+/var/log/asterisk/messages.log:[Sep  2 06:59:44] NOTICE[888017] res_config_ldap.c: No directory user found, anonymous binding as default.
+/var/log/asterisk/messages.log:[Sep  2 06:59:44] NOTICE[888017] cdr.c: CDR simple logging enabled.
+/var/log/asterisk/messages.log:[Sep  2 06:59:44] NOTICE[888017] indications.c: Default country for indication tones: us
+/var/log/asterisk/messages.log:[Sep  2 06:59:44] NOTICE[888017] indications.c: Setting default indication country to 'us'
+/var/log/asterisk/messages.log:[Sep  2 06:59:44] NOTICE[888017] res_smdi.c: No SMDI interfaces are available to listen on, not starting SMDI listener.
+/var/log/asterisk/messages.log:[Sep  2 06:59:44] NOTICE[888017] confbridge/conf_config_parser.c: Adding default_menu menu to app_confbridge
+/var/log/asterisk/messages.log:[Sep  2 06:59:44] NOTICE[888017] cel_tds.c: cel_tds has no global category, nothing to configure.
+/var/log/asterisk/messages.log:[Sep  2 06:59:44] NOTICE[888017] cdr_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Sep  2 06:59:44] NOTICE[888017] cel_custom.c: No mappings found in cel_custom.conf. Not logging CEL to custom CSVs.
+/var/log/asterisk/messages.log:[Sep  2 06:59:44] NOTICE[888017] cel_radius.c: Cannot load radiusclient-ng configuration file /etc/radiusclient-ng/radiusclient.conf.
+/var/log/asterisk/messages.log:[Sep  2 06:59:44] NOTICE[888017] cdr_pgsql.c: cdr_pgsql configuration contains no global section, skipping module load.
+/var/log/asterisk/messages.log:[Sep  2 06:59:44] NOTICE[888017] codec_g729a.c: G.729A transcoding module version 22.0_3.1.11, Copyright (C) 1999-2009 Digium, Inc.
+/var/log/asterisk/messages.log:[Sep  2 06:59:44] NOTICE[888017] codec_g729a.c: This module is supplied under a commercial license granted by Digium, Inc.
+/var/log/asterisk/messages.log:[Sep  2 06:59:44] NOTICE[888017] codec_g729a.c: Please see the full license text supplied by the accompanying
+/var/log/asterisk/messages.log:[Sep  2 06:59:44] NOTICE[888017] codec_g729a.c: "register" utility, or ask for a copy from Digium.
+/var/log/asterisk/messages.log:[Sep  2 06:59:44] NOTICE[888017] codec_g729a.c: This product includes software developed by the OpenSSL Project
+/var/log/asterisk/messages.log:[Sep  2 06:59:44] NOTICE[888017] codec_g729a.c: for use in the OpenSSL Toolkit. (http://www.openssl.org/)
+/var/log/asterisk/messages.log:[Sep  2 06:59:44] NOTICE[888017] codec_g729a.c: Copyright (C) 1998-2006 The OpenSSL Project
+/var/log/asterisk/messages.log:[Sep  2 07:00:16] NOTICE[888086] res_pjsip/pjsip_transport_management.c: Shutting down transport 'WS to 10.1.2.111:56690' since no request was received in 32 seconds
+/var/log/asterisk/messages.log:[Sep  2 07:39:50] NOTICE[888406][C-00000001] res_rtp_asterisk.c: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client address: 185.103.146.200:28442
+/var/log/asterisk/messages.log:[Sep  2 07:47:54] NOTICE[890171][C-00000004] res_stasis_playback.c: 1788335274.9: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Sep  2 07:48:25] NOTICE[890171][C-00000004] res_rtp_asterisk.c: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client address: 185.103.146.200:31628
+/var/log/asterisk/messages.log:[Sep  2 07:48:25] NOTICE[890171][C-00000004] res_stasis_playback.c: 1788335274.9: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Sep  2 07:49:23] NOTICE[890193][C-00000005] res_stasis_playback.c: 1788335362.13: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Sep  2 07:49:53] NOTICE[890193][C-00000005] res_rtp_asterisk.c: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client address: 185.103.146.200:30744
+/var/log/asterisk/messages.log:[Sep  2 07:50:05] NOTICE[890193][C-00000005] res_stasis_playback.c: 1788335362.13: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Sep  2 07:51:43] NOTICE[890219][C-00000006] res_stasis_playback.c: 1788335503.16: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Sep  2 07:52:09] NOTICE[890219][C-00000006] res_stasis_playback.c: 1788335503.16: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Sep  2 07:52:40] NOTICE[890235][C-00000006] res_rtp_asterisk.c: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client address: 185.103.146.200:31870
+/var/log/asterisk/messages.log:[Sep  2 07:53:12] NOTICE[890241][C-00000007] res_stasis_playback.c: 1788335592.20: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Sep  2 07:53:43] NOTICE[890241][C-00000007] res_rtp_asterisk.c: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client address: 185.103.146.200:29088
+/var/log/asterisk/messages.log:[Sep  2 07:53:53] NOTICE[890241][C-00000007] res_stasis_playback.c: 1788335592.20: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Sep  2 07:56:00] NOTICE[890269][C-00000008] res_stasis_playback.c: 1788335760.24: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Sep  2 07:56:31] NOTICE[890269][C-00000008] res_rtp_asterisk.c: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client address: 185.103.146.200:28860
+/var/log/asterisk/messages.log:[Sep  2 07:56:43] NOTICE[890269][C-00000008] res_stasis_playback.c: 1788335760.24: Playback stopped for sound:custom/moh-slow-jazz
+/var/log/asterisk/messages.log:[Sep  2 10:25:09] NOTICE[890651][C-00000009] res_rtp_asterisk.c: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client address: 185.103.146.200:24752
+/var/log/asterisk/messages.log:[Sep  2 10:26:56] NOTICE[891315][C-0000000a] res_rtp_asterisk.c: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client address: 185.103.146.200:25848
+/var/log/asterisk/messages.log:[Sep  2 12:03:04] NOTICE[892144][C-0000000b] res_rtp_asterisk.c: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client address: 185.103.146.200:30382
+seman@mediagtw:
