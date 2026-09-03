@@ -78,6 +78,65 @@ adb install -r android/app/build/outputs/apk/release/app-release.apk
 - **AI Integration**: Deep integration with OpenAI GPT-4o for AI assistant, transcription, sentiment analysis, and lead intelligence.
 - **Multi-country Design**: Core features like i18n, regional data, and country-specific filters are built-in from the ground up.
 
+## SIP telefónia — celodenná stabilita a audio diagnostika
+
+Built-in SIP telefón v `client/src/contexts/sip-context.tsx` udržiava registráciu aktívnu počas celého pracovného dňa a automaticky sa zotavuje z bežných prerušení prehliadača alebo siete. SIP WebSocket proxy (`/wss-asterisk/`) je súčasťou existujúcej architektúry a pri úpravách registrácie sa nesmie nahrádzať ani obchádzať priamym browser → mediagtw spojením.
+
+### Udržiavanie registrácie
+
+- SIP registrácia používa `REGISTER` s platnosťou 600 sekúnd, periodický refresh a WebSocket keepalive.
+- Reconnect je pozastavený, keď je prehliadač offline, a obnoví sa po udalosti `online`.
+- Registrácia sa znovu overuje pri:
+  - návrate k viditeľnej karte alebo prebudení počítača zo sleepu,
+  - obnovení stránky (`pageshow`),
+  - návrate siete,
+  - zmene sieťového profilu/VPN/NAT cez Network Information API,
+  - zlyhaní keepalive alebo watchdog kontroly.
+- Reconnect používa backoff od 1 sekundy do 15 sekúnd. Po troch neúspešných pokusoch sa vytvorí nový SIP UserAgent, aby sa odstránil zatuhnutý WebSocket alebo starý NAT stav.
+- Transport a REGISTER operácie majú timeout. Po neúspešnom štarte sa čiastočne vytvorený UserAgent vyčistí a ďalší pokus začína nanovo.
+- Watchdog kontroluje každých 30 sekúnd, či sú transport aj registrácia stále zdravé.
+- Úmyselné odregistrovanie pri odhlásení alebo vypnutí telefónu reconnect nespúšťa.
+
+### Výmena headsetu
+
+`client/src/components/sip-phone.tsx` počúva `navigator.mediaDevices` udalosť `devicechange`. Po pripojení, odpojení alebo výmene headsetu počas aktívneho hovoru:
+
+- načíta aktuálny predvolený mikrofón,
+- znovu vytvorí mikrofónový gain/audio pipeline,
+- vymení track cez `RTCRtpSender.replaceTrack()` bez nového SIP hovoru,
+- zachová stav mute a uvoľní staré audio tracky,
+- pri zlyhaní zobrazí lokalizované upozornenie.
+
+### Kontrola skutočného audio toku
+
+Po nadviazaní hovoru sa okrem SIP stavu kontroluje aj WebRTC media cesta:
+
+- `RTCPeerConnection.connectionState` a `iceConnectionState`,
+- audio sendery a receivery,
+- `getStats()` pre `packetsSent/Received` a `bytesSent/Received`,
+- úspešné prehratie vzdialeného `<audio>` elementu.
+
+Po 12-sekundovej tolerancii sa rozlišujú tieto stavy:
+
+- žiadny RTP tok,
+- jednosmerný tok browser → Asterisk,
+- jednosmerný tok Asterisk → browser,
+- zdravý obojsmerný tok.
+
+Agent vidí stav „kontrolujem audio“, „audio pripojené“ alebo „audio problém“. Zlyhanie ICE/PeerConnection ukončí chybnú session; krátke ticho druhej strany samo o sebe hovor neukončuje.
+
+Klasifikácia RTP je oddelená v `client/src/lib/sip-audio-health.ts` a simuluje sa príkazom:
+
+```bash
+npx tsx client/src/lib/sip-audio-health.test.ts
+```
+
+Test pokrýva nulový tok, oba smery jednosmerného toku, zdravý obojsmerný tok a pakety bez prenesených bajtov.
+
+### Prevádzkové obmedzenie
+
+Obnovenie SIP registrácie po strate siete, sleep alebo zmene VPN/NAT chráni ďalšie hovory. Už prebiehajúci hovor však nemusí prežiť úplnú zmenu IP/NAT, pretože WebRTC ICE cesta môže vyžadovať SIP re-INVITE/ICE restart. Výmena headsetu počas hovoru je podporovaná bez tohto obmedzenia.
+
 ## Product
 - **Customer & User Management**: Role-based access, comprehensive dashboard.
 - **Collections Management**: OCR extraction from documents, CBU report downloads.
