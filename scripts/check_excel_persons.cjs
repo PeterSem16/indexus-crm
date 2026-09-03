@@ -54,6 +54,12 @@ function normalizeDpp(value) {
   return `DPP ${String(Number(match[1]))}`;
 }
 
+function firstEmailFromRow(row) {
+  return Object.values(row)
+    .map(value => normalizeEmail(value))
+    .find(value => value.includes("@")) || "";
+}
+
 function csvCell(value) {
   const s = value == null ? "" : String(value);
   return `"${s.replace(/"/g, '""')}"`;
@@ -110,7 +116,8 @@ function loadWorkbookRows(inputPath) {
       excelRow: index + 2,
       agreementNumber: text(row["Dohoda"] || row["ID spolupracovníka"]),
       dppKey: normalizeDpp(row["Dohoda"] || row["ID spolupracovníka"]),
-      excelEmail: normalizeEmail(row.Email || row["Email"]),
+      // Some DPP emails are in an unnamed last column in this workbook.
+      excelEmail: firstEmailFromRow(row),
     })).filter(row => row.dppKey),
   };
 }
@@ -215,6 +222,11 @@ async function main() {
           db_legacy_id: row.legacy_id || "",
           db_name: personName(row),
           db_email: row.email || "",
+          email_status: row.email
+            ? (input.excelEmail
+              ? normalizeEmail(row.email) === input.excelEmail ? "EMAIL_MATCH" : "EMAIL_MISMATCH"
+              : "EMAIL_FOUND")
+            : "EMAIL_MISSING",
           db_is_active: row.is_active,
         })),
       };
@@ -240,6 +252,7 @@ async function main() {
             db_legacy_id: person.db_legacy_id,
             db_name: person.db_name,
             db_email: person.db_email,
+            email_status: person.email_status,
             db_is_active: person.db_is_active,
           }))
         : [{
@@ -254,7 +267,7 @@ async function main() {
       "excel_row", "excel_agreement_number", "normalized_agreement_number",
       "excel_email", "status", "found_count", "agreement_id",
       "db_agreement_number", "db_person_id", "db_legacy_id", "db_name",
-      "db_email", "db_is_active",
+      "db_email", "email_status", "db_is_active",
     ]);
 
     const summary = {
@@ -269,6 +282,19 @@ async function main() {
       dpp_unique_numbers: dppRowsResult.length,
       dpp_found_numbers: dppRowsResult.filter(row => row.status === "FOUND").length,
       dpp_not_found_numbers: dppRowsResult.filter(row => row.status === "NOT_FOUND").length,
+      dpp_persons_found: dppRowsResult.reduce((count, row) => count + row.found_persons.length, 0),
+      dpp_emails_present: dppRowsResult.reduce((count, row) =>
+        count + row.found_persons.filter(person =>
+          person.email_status === "EMAIL_FOUND" ||
+          person.email_status === "EMAIL_MATCH" ||
+          person.email_status === "EMAIL_MISMATCH"
+        ).length, 0),
+      dpp_emails_missing: dppRowsResult.reduce((count, row) =>
+        count + row.found_persons.filter(person => person.email_status === "EMAIL_MISSING").length, 0),
+      dpp_email_matches: dppRowsResult.reduce((count, row) =>
+        count + row.found_persons.filter(person => person.email_status === "EMAIL_MATCH").length, 0),
+      dpp_email_mismatches: dppRowsResult.reduce((count, row) =>
+        count + row.found_persons.filter(person => person.email_status === "EMAIL_MISMATCH").length, 0),
       output_directory: path.resolve(outputDir),
     };
     fs.writeFileSync(path.join(outputDir, "summary.json"), `${JSON.stringify(summary, null, 2)}\n`);
@@ -282,6 +308,13 @@ async function main() {
     console.log(`DPP sheet: ${summary.dpp_unique_numbers} unique agreement numbers`);
     console.log(`  FOUND: ${summary.dpp_found_numbers}`);
     console.log(`  NOT_FOUND: ${summary.dpp_not_found_numbers}`);
+    console.log(`  persons found: ${summary.dpp_persons_found}`);
+    console.log(`  persons with email: ${summary.dpp_emails_present}`);
+    console.log(`  persons without email: ${summary.dpp_emails_missing}`);
+    if (summary.dpp_email_matches || summary.dpp_email_mismatches) {
+      console.log(`  Excel/DB email matches: ${summary.dpp_email_matches}`);
+      console.log(`  Excel/DB email mismatches: ${summary.dpp_email_mismatches}`);
+    }
 
     console.log("\nPersons found by ID and email:");
     for (const row of emailRowsResult.filter(row => row.status === "FOUND_ID_AND_EMAIL")) {
@@ -290,7 +323,7 @@ async function main() {
     console.log("\nPersons found through DPP agreements:");
     for (const row of dppRowsResult) {
       for (const person of row.found_persons) {
-        console.log(`  ${row.excel_agreement_number} | ${person.db_legacy_id} | ${person.db_name} | ${person.db_email}`);
+        console.log(`  ${row.excel_agreement_number} | ${person.db_legacy_id} | ${person.db_name} | ${person.db_email || "(email chýba)"} | ${person.email_status}`);
       }
     }
     console.log(`\nCSV/JSON reports written to: ${path.resolve(outputDir)}`);
