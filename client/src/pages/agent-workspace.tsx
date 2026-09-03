@@ -1058,7 +1058,7 @@ function TopBar({
   t,
   onOpenScheduledQueue,
   scheduledQueueCounts,
-  missedCommunicationsCount,
+  missedCommunicationCounts,
   onOpenAbandonedCalls,
   onOpenMyActivity,
   inboundRingtoneEnabled,
@@ -1083,7 +1083,7 @@ function TopBar({
   t: any;
   onOpenScheduledQueue?: () => void;
   scheduledQueueCounts?: { total: number; overdue: number };
-  missedCommunicationsCount?: number;
+  missedCommunicationCounts?: { calls: number; emails: number; sms: number };
   onOpenAbandonedCalls?: () => void;
   onOpenMyActivity?: () => void;
   inboundRingtoneEnabled?: boolean;
@@ -1300,15 +1300,35 @@ function TopBar({
               >
                 <PhoneOff className="h-3.5 w-3.5 text-destructive" />
                 <span className="text-xs hidden xl:inline">{t.agentWorkspace.missedLabel}</span>
-                {(missedCommunicationsCount || 0) > 0 && (
+                <span className="flex items-center gap-0.5 ml-0.5" aria-label={t.agentWorkspace.missedLabel}>
                   <Badge
-                    variant="destructive"
-                    className="text-[9px] h-4 min-w-[16px] px-1 ml-0.5"
-                    data-testid="badge-abandoned-total"
+                    className="text-[9px] h-4 min-w-[18px] px-1 gap-0.5 border-0 bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-950/60 dark:text-red-300"
+                    title={t.agentWorkspace.missedCallsTab}
+                    aria-label={`${t.agentWorkspace.missedCallsTab}: ${missedCommunicationCounts?.calls || 0}`}
+                    data-testid="badge-missed-calls"
                   >
-                    {missedCommunicationsCount}
+                    <PhoneOff className="h-2.5 w-2.5" />
+                    {missedCommunicationCounts?.calls || 0}
                   </Badge>
-                )}
+                  <Badge
+                    className="text-[9px] h-4 min-w-[18px] px-1 gap-0.5 border-0 bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-950/60 dark:text-green-300"
+                    title={t.agentWorkspace.missedEmailsTab}
+                    aria-label={`${t.agentWorkspace.missedEmailsTab}: ${missedCommunicationCounts?.emails || 0}`}
+                    data-testid="badge-missed-emails"
+                  >
+                    <Mail className="h-2.5 w-2.5" />
+                    {missedCommunicationCounts?.emails || 0}
+                  </Badge>
+                  <Badge
+                    className="text-[9px] h-4 min-w-[18px] px-1 gap-0.5 border-0 bg-orange-100 text-orange-700 hover:bg-orange-100 dark:bg-orange-950/60 dark:text-orange-300"
+                    title={t.agentWorkspace.missedSmsTab}
+                    aria-label={`${t.agentWorkspace.missedSmsTab}: ${missedCommunicationCounts?.sms || 0}`}
+                    data-testid="badge-missed-sms"
+                  >
+                    <MessageSquare className="h-2.5 w-2.5" />
+                    {missedCommunicationCounts?.sms || 0}
+                  </Badge>
+                </span>
               </Button>
             </>
           )}
@@ -14212,10 +14232,11 @@ export default function AgentWorkspacePage() {
         t={t}
         onOpenScheduledQueue={() => setScheduledQueueOpen(true)}
         scheduledQueueCounts={scheduledQueueCounts}
-        missedCommunicationsCount={
-          abandonedCalls.filter((c: any) => !c.calledBack).length
-          + missedMessages.filter((m: any) => !m.handledAt).length
-        }
+        missedCommunicationCounts={{
+          calls: abandonedCalls.filter((c: any) => !c.calledBack).length,
+          emails: missedMessages.filter((m: any) => m.type === "email" && !m.handledAt).length,
+          sms: missedMessages.filter((m: any) => m.type === "sms" && !m.handledAt).length,
+        }}
         onOpenAbandonedCalls={() => setAbandonedCallsOpen(true)}
         onOpenMyActivity={() => setMyActivityOpen(true)}
         inboundRingtoneEnabled={inboundRingtoneEnabled}
