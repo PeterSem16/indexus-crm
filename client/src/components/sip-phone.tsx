@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useI18n } from "@/i18n";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { SipSettings, CallLog, User } from "@shared/schema";
 import { resolveOutboundCallProvider } from "@shared/telephony-routing";
@@ -126,6 +127,7 @@ interface SipPhoneProps {
 }
 
 type CallState = "idle" | "connecting" | "ringing" | "active" | "on_hold" | "ended";
+type AudioHealthState = "idle" | "checking" | "connected" | "warning" | "failed";
 
 export function SipPhone({ 
   config, 
@@ -140,6 +142,7 @@ export function SipPhone({
   hideSettingsAndRegistration = false
 }: SipPhoneProps) {
   const { toast } = useToast();
+  const { t } = useI18n();
   const { isRegistered, isRegistering, registrationError, register, unregister, ensureRegistered, userAgentRef, registererRef, pendingCall, clearPendingCall, incomingCall, answeredIncomingSession, clearAnsweredSession, answerIncomingCall, rejectIncomingCall } = useSip();
   const { waitingForReg: dialWaiting, elapsedSec: dialElapsed, startWaiting: startDialWaiting } = useRegistrationTimer(isRegistered, isRegistering);
   const callContext = useCall();
@@ -202,6 +205,9 @@ export function SipPhone({
   });
   const sessionRef = useRef<Session | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [audioHealth, setAudioHealth] = useState<AudioHealthState>("idle");
+  const mediaHealthCleanupRef = useRef<(() => void) | null>(null);
+  const mediaHealthSessionRef = useRef<Session | null>(null);
   const ringtoneRef = useRef<HTMLAudioElement | null>(null);
   const ringtoneIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -857,7 +863,15 @@ export function SipPhone({
     };
   }, []);
 
+  const clearMediaHealthMonitoring = useCallback(() => {
+    mediaHealthCleanupRef.current?.();
+    mediaHealthCleanupRef.current = null;
+    mediaHealthSessionRef.current = null;
+    setAudioHealth("idle");
+  }, []);
+
   const cleanup = useCallback(() => {
+    clearMediaHealthMonitoring();
     cleanupRecordingAnalysis();
     if (callTimerRef.current) {
       clearInterval(callTimerRef.current);
@@ -888,7 +902,7 @@ export function SipPhone({
         console.error("Error closing audio context:", e);
       }
     }
-  }, [cleanupRecordingAnalysis]);
+  }, [cleanupRecordingAnalysis, clearMediaHealthMonitoring]);
 
   const playRingtone = useCallback(() => {
     const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -1085,6 +1099,7 @@ export function SipPhone({
       if (stateStr !== "Terminated" && state !== SessionState.Terminated) return;
       if (terminatedHandled) { console.log("[SIP-INBOUND] onTerminated already handled, skipping duplicate"); return; }
       terminatedHandled = true;
+      clearMediaHealthMonitoring();
       if (hangupPollRef.current) { clearInterval(hangupPollRef.current); hangupPollRef.current = null; }
       if (forceIdleRef.current) { forceIdleRef.current = false; return; }
       console.log("[SIP-INBOUND] === CALL TERMINATED ===");
@@ -1637,6 +1652,7 @@ export function SipPhone({
             break;
           case SessionState.Terminated:
             makeCallGuardRef.current = false;
+            clearMediaHealthMonitoring();
             if (maxRingTimerRef.current) {
               clearTimeout(maxRingTimerRef.current);
               maxRingTimerRef.current = null;
@@ -1883,6 +1899,131 @@ export function SipPhone({
     });
   }, [rejectIncomingCall, toast]);
 
+  const startMediaHealthMonitoring = useCallback((session: Session, peerConnection: RTCPeerConnection) => {
+    clearMediaHealthMonitoring();
+    mediaHealthSessionRef.current = session;
+    setAudioHealth("checking");
+
+    const startedAt = Date.now();
+    let stopped = false;
+    let warningShown = false;
+    let failureShown = false;
+    let disconnectedAt: number | null = null;
+
+    const showFailure = (terminate: boolean) => {
+      if (failureShown || stopped || mediaHealthSessionRef.current !== session) return;
+      failureShown = true;
+      setAudioHealth("failed");
+      console.error("[SIP-MEDIA] Audio connection failed", {
+        connectionState: peerConnection.connectionState,
+        iceConnectionState: peerConnection.iceConnectionState,
+        terminate,
+      });
+      toast({
+        title: t.agentWorkspace.audioConnectionFailedTitle,
+        description: t.agentWorkspace.audioConnectionFailedDesc,
+        variant: "destructive",
+      });
+      if (terminate && session.state === SessionState.Established) {
+        try {
+          session.bye();
+        } catch (error) {
+          console.error("[SIP-MEDIA] Failed to terminate broken media session:", error);
+        }
+      }
+    };
+
+    const showNoFlowWarning = () => {
+      if (warningShown || failureShown || stopped || mediaHealthSessionRef.current !== session) return;
+      warningShown = true;
+      setAudioHealth("warning");
+      console.warn("[SIP-MEDIA] Call established but bidirectional audio packets were not detected");
+      toast({
+        title: t.agentWorkspace.audioNoFlowTitle,
+        description: t.agentWorkspace.audioNoFlowDesc,
+        variant: "destructive",
+      });
+    };
+
+    const checkConnectionState = () => {
+      const connectionState = peerConnection.connectionState;
+      const iceState = peerConnection.iceConnectionState;
+      console.log(`[SIP-MEDIA] State: pc=${connectionState} ice=${iceState}`);
+
+      if (
+        connectionState === "failed" ||
+        iceState === "failed" ||
+        connectionState === "closed" ||
+        iceState === "closed"
+      ) {
+        showFailure(true);
+        return;
+      }
+
+      if (connectionState === "disconnected" || iceState === "disconnected") {
+        disconnectedAt ??= Date.now();
+        if (Date.now() - disconnectedAt >= 8_000) showFailure(false);
+      } else {
+        disconnectedAt = null;
+      }
+    };
+
+    const checkStats = async () => {
+      if (stopped || mediaHealthSessionRef.current !== session || session.state !== SessionState.Established) return;
+      checkConnectionState();
+      try {
+        const stats = await peerConnection.getStats();
+        let inboundPackets = 0;
+        let outboundPackets = 0;
+        let inboundBytes = 0;
+        let outboundBytes = 0;
+
+        stats.forEach((report: any) => {
+          const isAudio = report.kind === "audio" || report.mediaType === "audio";
+          if (!isAudio || report.isRemote) return;
+          if (report.type === "inbound-rtp") {
+            inboundPackets += Number(report.packetsReceived || 0);
+            inboundBytes += Number(report.bytesReceived || 0);
+          } else if (report.type === "outbound-rtp") {
+            outboundPackets += Number(report.packetsSent || 0);
+            outboundBytes += Number(report.bytesSent || 0);
+          }
+        });
+
+        console.log("[SIP-MEDIA] Audio RTP stats", {
+          inboundPackets,
+          outboundPackets,
+          inboundBytes,
+          outboundBytes,
+          pc: peerConnection.connectionState,
+          ice: peerConnection.iceConnectionState,
+        });
+
+        if (inboundPackets > 0 && outboundPackets > 0 && inboundBytes > 0 && outboundBytes > 0) {
+          if (!failureShown) setAudioHealth("connected");
+        } else if (Date.now() - startedAt >= 12_000) {
+          showNoFlowWarning();
+        }
+      } catch (error) {
+        console.warn("[SIP-MEDIA] Unable to read WebRTC audio statistics:", error);
+      }
+    };
+
+    const onConnectionStateChange = () => checkConnectionState();
+    const onIceConnectionStateChange = () => checkConnectionState();
+    peerConnection.addEventListener("connectionstatechange", onConnectionStateChange);
+    peerConnection.addEventListener("iceconnectionstatechange", onIceConnectionStateChange);
+    const timer = window.setInterval(() => { void checkStats(); }, 2_000);
+    void checkStats();
+
+    mediaHealthCleanupRef.current = () => {
+      stopped = true;
+      window.clearInterval(timer);
+      peerConnection.removeEventListener("connectionstatechange", onConnectionStateChange);
+      peerConnection.removeEventListener("iceconnectionstatechange", onIceConnectionStateChange);
+    };
+  }, [clearMediaHealthMonitoring, t.agentWorkspace, toast]);
+
   const setupAudio = async (session: Session) => {
     console.log("[SIP-INBOUND] setupAudio called, session state:", (session as any)?.state);
     const sessionDescriptionHandler = session.sessionDescriptionHandler;
@@ -1891,16 +2032,28 @@ export function SipPhone({
     const peerConnection = (sessionDescriptionHandler as any).peerConnection as RTCPeerConnection;
     if (!peerConnection) { console.warn("[SIP-INBOUND] setupAudio: No peerConnection, aborting"); return; }
     console.log("[SIP-INBOUND] setupAudio: PC state:", peerConnection.connectionState, "senders:", peerConnection.getSenders().length, "receivers:", peerConnection.getReceivers().length);
+    startMediaHealthMonitoring(session, peerConnection);
+
+    const playRemoteAudio = (stream: MediaStream) => {
+      if (!audioRef.current) return;
+      audioRef.current.srcObject = stream;
+      audioRef.current.play().catch((error) => {
+        console.error("[SIP-MEDIA] Remote audio playback failed:", error);
+        setAudioHealth("warning");
+        toast({
+          title: t.agentWorkspace.audioConnectionFailedTitle,
+          description: t.agentWorkspace.audioPlaybackBlockedDesc,
+          variant: "destructive",
+        });
+      });
+    };
 
     // Set up remote audio (speaker) with ontrack listener for new tracks
     peerConnection.ontrack = (event) => {
       if (event.track.kind === "audio" && audioRef.current) {
         console.log("[SIP] Remote audio track received via ontrack");
         const remoteStream = new MediaStream([event.track]);
-        audioRef.current.srcObject = remoteStream;
-        audioRef.current.play().catch((e) => {
-          console.warn("[SIP] Autoplay blocked, waiting for user gesture:", e);
-        });
+        playRemoteAudio(remoteStream);
       }
     };
 
@@ -1909,10 +2062,7 @@ export function SipPhone({
       if (receiver.track && receiver.track.kind === "audio") {
         console.log("[SIP] Remote audio track found in existing receivers");
         const remoteStream = new MediaStream([receiver.track]);
-        if (audioRef.current) {
-          audioRef.current.srcObject = remoteStream;
-          audioRef.current.play().catch(console.error);
-        }
+        playRemoteAudio(remoteStream);
       }
     });
 
@@ -1960,6 +2110,7 @@ export function SipPhone({
   };
 
   const remoteHangup = useCallback(() => {
+    clearMediaHealthMonitoring();
     console.log("[SIP-INBOUND] remoteHangup called (caller/server initiated), session state:", sessionRef.current?.state);
     if (currentCallLogIdRef.current && recordingSnapshotRef.current?.active && recordingSnapshotRef.current.mode === "agent_only") {
       void finalizeTrustedAgentRecording(currentCallLogIdRef.current);
@@ -1984,9 +2135,10 @@ export function SipPhone({
     if (callTimerRef.current) {
       clearInterval(callTimerRef.current);
     }
-  }, [finalizeTrustedAgentRecording]);
+  }, [finalizeTrustedAgentRecording, clearMediaHealthMonitoring]);
 
   const endCall = useCallback(() => {
+    clearMediaHealthMonitoring();
     console.log("[SIP-INBOUND] endCall called, session state:", sessionRef.current?.state);
     userHungUpRef.current = true;
     if (currentCallLogId && recordingSnapshotRef.current?.active && recordingSnapshotRef.current.mode === "agent_only") {
@@ -2036,9 +2188,10 @@ export function SipPhone({
     if (callTimerRef.current) {
       clearInterval(callTimerRef.current);
     }
-  }, [currentCallLogId, updateCallLogMutation, finalizeTrustedAgentRecording]);
+  }, [currentCallLogId, updateCallLogMutation, finalizeTrustedAgentRecording, clearMediaHealthMonitoring]);
 
   const forceResetCall = useCallback(() => {
+    clearMediaHealthMonitoring();
     ringTimedOutRef.current = false;
     if (maxRingTimerRef.current) {
       clearTimeout(maxRingTimerRef.current);
@@ -2120,7 +2273,7 @@ export function SipPhone({
     callContextRef.current.resetCallTiming();
     callContextRef.current.setIsMuted(false);
     callContextRef.current.setIsOnHold(false);
-  }, [currentCallLogId, updateCallLogMutation, localCustomerId]);
+  }, [currentCallLogId, updateCallLogMutation, localCustomerId, clearMediaHealthMonitoring]);
 
   const toggleMute = useCallback(() => {
     if (!sessionRef.current) return;
@@ -2270,7 +2423,9 @@ export function SipPhone({
       case "ringing":
         return <Badge className="bg-yellow-500">Zvoní...</Badge>;
       case "active":
-        return <Badge className="bg-green-500">Aktívny hovor</Badge>;
+        if (audioHealth === "checking") return <Badge className="bg-amber-500">{t.agentWorkspace.audioChecking}</Badge>;
+        if (audioHealth === "warning" || audioHealth === "failed") return <Badge variant="destructive">{t.agentWorkspace.audioIssue}</Badge>;
+        return <Badge className="bg-green-500">{audioHealth === "connected" ? t.agentWorkspace.audioConnected : "Aktívny hovor"}</Badge>;
       case "on_hold":
         return <Badge className="bg-orange-500">Podržané</Badge>;
       case "ended":
