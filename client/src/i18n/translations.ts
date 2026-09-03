@@ -3943,6 +3943,8 @@ export interface Translations {
     audioConnectionFailedDesc: string;
     audioNoFlowTitle: string;
     audioNoFlowDesc: string;
+    audioOneWayTitle: string;
+    audioOneWayDesc: string;
     audioPlaybackBlockedDesc: string;
     callCancelledLabel: string;
     callerHungUp: string;
@@ -11808,6 +11810,8 @@ export const translations: Record<Locale, Translations> = {
       audioConnectionFailedDesc: 'The media connection failed. End the call and try again.',
       audioNoFlowTitle: 'No audio detected',
       audioNoFlowDesc: 'The call is connected, but no bidirectional audio flow was detected. Check the microphone and speakers, then reconnect the call.',
+      audioOneWayTitle: 'One-way audio detected',
+      audioOneWayDesc: 'Only one audio direction is working. Check the microphone, speakers, and network connection, then reconnect the call.',
       audioPlaybackBlockedDesc: 'The browser could not play the call audio. Check the selected speaker and browser sound permission.',
       callCancelledLabel: 'Call cancelled',
       callerHungUp: 'Caller hung up',
@@ -19129,6 +19133,8 @@ export const translations: Record<Locale, Translations> = {
       audioConnectionFailedDesc: 'Media spojenie zlyhalo. Ukončite hovor a skúste ho znova.',
       audioNoFlowTitle: 'Audio nebolo zistené',
       audioNoFlowDesc: 'Hovor je spojený, ale nezistil sa obojsmerný audio tok. Skontrolujte mikrofón a reproduktory a potom hovor spojte znova.',
+      audioOneWayTitle: 'Zistený jednosmerný zvuk',
+      audioOneWayDesc: 'Funguje iba jeden smer zvuku. Skontrolujte mikrofón, reproduktory a sieťové pripojenie a potom hovor spojte znova.',
       audioPlaybackBlockedDesc: 'Prehliadač nedokázal prehrať zvuk hovoru. Skontrolujte vybraný reproduktor a povolenie zvuku v prehliadači.',
       callCancelledLabel: 'Hovor zrušený',
       callerHungUp: 'Volajúci zavesil',
@@ -26436,6 +26442,8 @@ export const translations: Record<Locale, Translations> = {
       audioConnectionFailedDesc: 'Mediální spojení selhalo. Ukončete hovor a zkuste jej znovu.',
       audioNoFlowTitle: 'Audio nebylo zjištěno',
       audioNoFlowDesc: 'Hovor je spojen, ale nebyl zjištěn obousměrný audio tok. Zkontrolujte mikrofon a reproduktory a poté hovor spojte znovu.',
+      audioOneWayTitle: 'Zjištěn jednosměrný zvuk',
+      audioOneWayDesc: 'Funguje pouze jeden směr zvuku. Zkontrolujte mikrofon, reproduktory a síťové připojení a poté hovor spojte znovu.',
       audioPlaybackBlockedDesc: 'Prohlížeč nedokázal přehrát zvuk hovoru. Zkontrolujte vybraný reproduktor a oprávnění zvuku v prohlížeči.',
       callCancelledLabel: 'Hovor zrušen',
       callerHungUp: 'Volající zavěsil',
@@ -33699,6 +33707,8 @@ export const translations: Record<Locale, Translations> = {
       audioConnectionFailedDesc: 'A médiakapcsolat megszakadt. Fejezze be a hívást, majd próbálja újra.',
       audioNoFlowTitle: 'Nem észlelhető hang',
       audioNoFlowDesc: 'A hívás csatlakozott, de nem észlelhető kétirányú hangforgalom. Ellenőrizze a mikrofont és a hangszórókat, majd indítsa újra a hívást.',
+      audioOneWayTitle: 'Egyirányú hang észlelhető',
+      audioOneWayDesc: 'Csak az egyik hangirány működik. Ellenőrizze a mikrofont, a hangszórókat és a hálózati kapcsolatot, majd csatlakoztassa újra a hívást.',
       audioPlaybackBlockedDesc: 'A böngésző nem tudta lejátszani a hívás hangját. Ellenőrizze a kiválasztott hangszórót és a böngésző hangengedélyét.',
       callCancelledLabel: 'Hívás törölve',
       callerHungUp: 'A hívó letette',
@@ -40849,6 +40859,8 @@ export const translations: Record<Locale, Translations> = {
       audioConnectionFailedDesc: 'Conexiunea media a eșuat. Încheiați apelul și încercați din nou.',
       audioNoFlowTitle: 'Nu s-a detectat sunet',
       audioNoFlowDesc: 'Apelul este conectat, dar nu a fost detectat un flux audio bidirecțional. Verificați microfonul și difuzoarele, apoi reconectați apelul.',
+      audioOneWayTitle: 'Sunet unidirecțional detectat',
+      audioOneWayDesc: 'Funcționează o singură direcție audio. Verificați microfonul, difuzoarele și conexiunea la rețea, apoi reconectați apelul.',
       audioPlaybackBlockedDesc: 'Browserul nu a putut reda sunetul apelului. Verificați difuzorul selectat și permisiunea audio a browserului.',
       callCancelledLabel: 'Apel anulat',
       callerHungUp: 'Apelantul a închis',
@@ -48001,6 +48013,8 @@ export const translations: Record<Locale, Translations> = {
       audioConnectionFailedDesc: 'La connessione multimediale non è riuscita. Termina la chiamata e riprova.',
       audioNoFlowTitle: 'Audio non rilevato',
       audioNoFlowDesc: 'La chiamata è connessa, ma non è stato rilevato un flusso audio bidirezionale. Controlla microfono e altoparlanti, quindi riconnetti la chiamata.',
+      audioOneWayTitle: 'Audio a senso unico rilevato',
+      audioOneWayDesc: 'Funziona solo una direzione audio. Controlla microfono, altoparlanti e connessione di rete, quindi riconnetti la chiamata.',
       audioPlaybackBlockedDesc: 'Il browser non ha potuto riprodurre l\'audio della chiamata. Controlla l\'altoparlante selezionato e l\'autorizzazione audio del browser.',
       callCancelledLabel: 'Chiamata annullata',
       callerHungUp: 'Il chiamante ha riattaccato',
@@ -55153,6 +55167,8 @@ export const translations: Record<Locale, Translations> = {
       audioConnectionFailedDesc: 'Die Medienverbindung ist fehlgeschlagen. Beenden Sie den Anruf und versuchen Sie es erneut.',
       audioNoFlowTitle: 'Kein Audio erkannt',
       audioNoFlowDesc: 'Der Anruf ist verbunden, aber es wurde kein bidirektionaler Audiofluss erkannt. Prüfen Sie Mikrofon und Lautsprecher und verbinden Sie den Anruf erneut.',
+      audioOneWayTitle: 'Einseitiges Audio erkannt',
+      audioOneWayDesc: 'Nur eine Audio-Richtung funktioniert. Prüfen Sie Mikrofon, Lautsprecher und Netzwerkverbindung und verbinden Sie den Anruf erneut.',
       audioPlaybackBlockedDesc: 'Der Browser konnte den Anrufton nicht wiedergeben. Prüfen Sie den ausgewählten Lautsprecher und die Audioberechtigung des Browsers.',
       callCancelledLabel: 'Anruf abgebrochen',
       callerHungUp: 'Anrufer hat aufgelegt',

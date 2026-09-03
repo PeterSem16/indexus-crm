@@ -39,6 +39,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { SipSettings, CallLog, User } from "@shared/schema";
 import { resolveOutboundCallProvider } from "@shared/telephony-routing";
 import type { MissionCallRecordingSnapshot } from "@shared/mission-recording";
+import { classifyAudioRtpStats, type AudioRtpHealth } from "@/lib/sip-audio-health";
 
 function filterSdpCandidates(description: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit> {
   if (!description.sdp) return Promise.resolve(description);
@@ -1933,14 +1934,15 @@ export function SipPhone({
       }
     };
 
-    const showNoFlowWarning = () => {
+    const showNoFlowWarning = (health: Exclude<AudioRtpHealth, "healthy">) => {
       if (warningShown || failureShown || stopped || mediaHealthSessionRef.current !== session) return;
       warningShown = true;
       setAudioHealth("warning");
-      console.warn("[SIP-MEDIA] Call established but bidirectional audio packets were not detected");
+      const oneWay = health === "inbound-only" || health === "outbound-only";
+      console.warn("[SIP-MEDIA] Call established with incomplete audio flow", { health });
       toast({
-        title: t.agentWorkspace.audioNoFlowTitle,
-        description: t.agentWorkspace.audioNoFlowDesc,
+        title: oneWay ? t.agentWorkspace.audioOneWayTitle : t.agentWorkspace.audioNoFlowTitle,
+        description: oneWay ? t.agentWorkspace.audioOneWayDesc : t.agentWorkspace.audioNoFlowDesc,
         variant: "destructive",
       });
     };
@@ -1999,10 +2001,18 @@ export function SipPhone({
           ice: peerConnection.iceConnectionState,
         });
 
-        if (inboundPackets > 0 && outboundPackets > 0 && inboundBytes > 0 && outboundBytes > 0) {
+        const health = classifyAudioRtpStats({
+          inboundPackets,
+          outboundPackets,
+          inboundBytes,
+          outboundBytes,
+        });
+        console.log("[SIP-MEDIA] Audio RTP health:", health);
+
+        if (health === "healthy") {
           if (!failureShown) setAudioHealth("connected");
         } else if (Date.now() - startedAt >= 12_000) {
-          showNoFlowWarning();
+          showNoFlowWarning(health);
         }
       } catch (error) {
         console.warn("[SIP-MEDIA] Unable to read WebRTC audio statistics:", error);
