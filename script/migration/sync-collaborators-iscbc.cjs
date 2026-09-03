@@ -25,6 +25,9 @@ const ONLY_DOC_ID = onlyDocIdArgIndex >= 0
 if (ONLY_DOC_ID && !/^\d+$/.test(ONLY_DOC_ID)) {
   throw new Error('--only-doc-id must be a numeric ISCBC doc_id');
 }
+if (ONLY_DOC_ID && SKIP_AGREEMENTS) {
+  throw new Error('--skip-agreements cannot be combined with --only-doc-id; targeted imports must include the collaborator agreements');
+}
 
 const MSSQL_CONFIG = {
   user: 'cbcuser',
@@ -325,6 +328,7 @@ async function main() {
   const pgC2 = await pgPool.query('SELECT id, legacy_id FROM collaborators WHERE legacy_id IS NOT NULL');
   for (const r of pgC2.rows) collabLookup[r.legacy_id] = r.id;
 
+  const agreementFilter = ONLY_DOC_ID ? `WHERE ca.doc_id = ${ONLY_DOC_ID}` : '';
   const agreements = await mssqlPool.request().query(`
     SELECT ca.cag_id, ca.doc_id, ca.cag_number,
            ca.cag_from, ca.cag_to,
@@ -335,9 +339,10 @@ async function main() {
            ca.cag_social_insurance_cancel,
            ca.cag_note
     FROM CollaboratorAgreements ca
+    ${agreementFilter}
     ORDER BY ca.cag_id
   `);
-  log(`ISCBC: ${agreements.recordset.length} dohôd`);
+  log(`ISCBC: ${agreements.recordset.length} dohôd${ONLY_DOC_ID ? ` pre doc_id=${ONLY_DOC_ID}` : ''}`);
 
   let agrInserted = 0, agrSkipped = 0, agrNoCollab = 0, agrErrors = 0;
   for (const row of agreements.recordset) {
