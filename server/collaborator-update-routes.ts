@@ -10,13 +10,24 @@ import {
   insertCollaboratorUpdateCampaignSchema,
 } from "@shared/schema";
 import { storage } from "./storage";
-import { sendEmail as ms365SendEmail, getValidAccessToken } from "./lib/ms365";
+import {
+  sendEmail as ms365SendEmail,
+  sendEmailFromSharedMailbox as ms365SendEmailFromSharedMailbox,
+  getValidAccessToken,
+} from "./lib/ms365";
 import { decryptTokenSafe, encryptTokenWithMarker } from "./lib/token-crypto";
 
 // Resolve a valid MS365 access token for the campaign's configured sender
-// (system country mailbox | creator's own account | dedicated connected mailbox).
+// (system country mailbox | creator's own account | shared mailbox via the
+// creator's MS365 connection | dedicated connected mailbox).
 // Refreshed tokens are written back to the proper store.
-async function resolveSenderAccessToken(campaign: any): Promise<{ accessToken?: string; error?: string }> {
+type ResolvedSender = {
+  accessToken?: string;
+  error?: string;
+  sharedMailboxEmail?: string;
+};
+
+async function resolveSenderAccessToken(campaign: any): Promise<ResolvedSender> {
   try {
   if (campaign.senderType === "own") {
     if (!campaign.senderUserId) return { error: "No sender user set for this campaign" };
@@ -42,6 +53,40 @@ async function resolveSenderAccessToken(campaign: any): Promise<{ accessToken?: 
       } catch {}
     }
     return { accessToken: tokenInfo.accessToken };
+  }
+  if (campaign.senderType === "shared") {
+    if (!campaign.senderUserId || !campaign.senderCustomEmail) {
+      return { error: "Shared mailbox is not configured for this campaign" };
+    }
+    const sharedMailboxes = await storage.getUserMs365SharedMailboxes(campaign.senderUserId);
+    const sharedMailbox = sharedMailboxes.find((mailbox) =>
+      mailbox.isActive && mailbox.email.toLowerCase() === campaign.senderCustomEmail.toLowerCase()
+    );
+    if (!sharedMailbox) {
+      return { error: "Selected shared mailbox is no longer available for this user" };
+    }
+    const conn: any = await storage.getUserMs365Connection(campaign.senderUserId);
+    if (!conn?.accessToken || conn.isConnected === false) {
+      return { error: "MS365 account for the shared mailbox is not connected" };
+    }
+    const tokenInfo = await getValidAccessToken(
+      decryptTokenSafe(conn.accessToken),
+      conn.tokenExpiresAt,
+      conn.refreshToken ? decryptTokenSafe(conn.refreshToken) : null,
+    );
+    if (!tokenInfo?.accessToken) return { error: "MS365 token refresh failed for the shared mailbox" };
+    if (tokenInfo.refreshed) {
+      try {
+        await storage.updateUserMs365Connection(campaign.senderUserId, {
+          accessToken: encryptTokenWithMarker(tokenInfo.accessToken),
+          refreshToken: (tokenInfo as any).refreshToken
+            ? encryptTokenWithMarker((tokenInfo as any).refreshToken)
+            : conn.refreshToken,
+          tokenExpiresAt: (tokenInfo as any).expiresOn || undefined,
+        } as any);
+      } catch {}
+    }
+    return { accessToken: tokenInfo.accessToken, sharedMailboxEmail: sharedMailbox.email };
   }
   if (campaign.senderType === "custom") {
     if (!campaign.senderCustomAccessToken) return { error: "Sender mailbox is not connected yet" };
@@ -97,6 +142,20 @@ async function resolveSenderAccessToken(campaign: any): Promise<{ accessToken?: 
     }
     return { error: err?.message || "Sender mailbox authentication failed" };
   }
+}
+
+async function sendWithResolvedSender(
+  sender: ResolvedSender,
+  to: string[],
+  subject: string,
+  body: string,
+): Promise<void> {
+  if (!sender.accessToken) throw new Error(sender.error || "Sender mailbox unavailable");
+  if (sender.sharedMailboxEmail) {
+    await ms365SendEmailFromSharedMailbox(sender.accessToken, sender.sharedMailboxEmail, to, subject, body, true);
+    return;
+  }
+  await ms365SendEmail(sender.accessToken, to, subject, body, true);
 }
 
 // Collaborator columns editable through the public form
@@ -318,7 +377,7 @@ async function sendCampaignEmails(campaignId: string, baseUrl: string, onlyRemin
       .where(eq(collaboratorUpdateCampaigns.id, campaignId));
     return;
   }
-  let senderAccessToken = sender.accessToken;
+  let activeSender = sender;
 
   const statuses = onlyReminder ? ["sent", "opened"] : ["pending", "send_failed"];
   const requests = await db.select().from(collaboratorUpdateRequests)
@@ -361,7 +420,7 @@ async function sendCampaignEmails(campaignId: string, baseUrl: string, onlyRemin
       body += `<p><a href="${link}">${link}</a></p>`;
     }
     try {
-      await ms365SendEmail(senderAccessToken, [reqRow.email], subject, body, true);
+      await sendWithResolvedSender(activeSender, [reqRow.email], subject, body);
       await db.update(collaboratorUpdateRequests)
         .set(onlyReminder
           ? { remindedAt: new Date(), sendError: null }
@@ -383,7 +442,7 @@ async function sendCampaignEmails(campaignId: string, baseUrl: string, onlyRemin
       const [freshCampaign] = await db.select().from(collaboratorUpdateCampaigns)
         .where(eq(collaboratorUpdateCampaigns.id, campaignId));
       const refreshed = freshCampaign ? await resolveSenderAccessToken(freshCampaign) : null;
-      if (refreshed?.accessToken) senderAccessToken = refreshed.accessToken;
+      if (refreshed?.accessToken) activeSender = refreshed;
     }
   }
 
@@ -519,10 +578,11 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
       if (parsed.formType && !["update", "jmhz"].includes(parsed.formType)) {
         return res.status(400).json({ message: "Invalid form type" });
       }
-      const senderType = ["system", "own", "custom"].includes(parsed.senderType || "")
+      const senderType = ["system", "own", "shared", "custom"].includes(parsed.senderType || "")
         ? parsed.senderType!
         : "system";
       const sessionUserId = (req.session as any)?.user?.id || (req.session as any)?.userId || null;
+      let sharedMailbox: any = null;
       if (senderType === "system" && !parsed.senderCountryCode) {
         return res.status(400).json({ message: "Sender mailbox is required" });
       }
@@ -533,6 +593,22 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
           return res.status(400).json({ message: "Your MS365 account is not connected — connect it in your profile first" });
         }
       }
+      if (senderType === "shared") {
+        if (!sessionUserId) return res.status(400).json({ message: "No user session" });
+        const sharedMailboxId = typeof req.body?.senderSharedMailboxId === "string"
+          ? req.body.senderSharedMailboxId
+          : "";
+        sharedMailbox = sharedMailboxId
+          ? await storage.getUserMs365SharedMailbox(sharedMailboxId)
+          : null;
+        if (!sharedMailbox || sharedMailbox.userId !== sessionUserId || !sharedMailbox.isActive) {
+          return res.status(400).json({ message: "Select an active shared mailbox from your profile" });
+        }
+        const ownConn: any = await storage.getUserMs365Connection(sessionUserId);
+        if (!ownConn?.accessToken || ownConn.isConnected === false) {
+          return res.status(400).json({ message: "Connect your MS365 account before using a shared mailbox" });
+        }
+      }
       const recipients = await findRecipients((parsed.filterCriteria || {}) as FilterCriteria);
       if (recipients.length === 0) {
         return res.status(400).json({ message: "No recipients match the filter" });
@@ -541,7 +617,9 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
         ...parsed,
         senderType,
         senderCountryCode: parsed.senderCountryCode || "",
-        senderUserId: senderType === "own" ? sessionUserId : null,
+        senderUserId: senderType === "own" || senderType === "shared" ? sessionUserId : null,
+        senderCustomEmail: senderType === "shared" ? sharedMailbox.email : null,
+        senderCustomDisplayName: senderType === "shared" ? sharedMailbox.displayName : null,
         createdBy: sessionUserId,
       }).returning();
 
@@ -597,13 +675,14 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
       if (!name || !subject || !body.trim()) {
         return res.status(400).json({ message: "Name, subject and body are required" });
       }
-      const senderType = ["system", "own", "custom"].includes(req.body?.senderType)
+      const senderType = ["system", "own", "shared", "custom"].includes(req.body?.senderType)
         ? req.body.senderType
         : campaign.senderType;
       const senderCountryCode = typeof req.body?.senderCountryCode === "string"
         ? req.body.senderCountryCode.trim().toUpperCase()
         : campaign.senderCountryCode;
       const sessionUserId = (req.session as any)?.user?.id || (req.session as any)?.userId || null;
+      let sharedMailbox: any = null;
       if (senderType === "system") {
         if (!senderCountryCode) return res.status(400).json({ message: "System sender mailbox is required" });
         const conn: any = await storage.getSystemMs365Connection(senderCountryCode);
@@ -618,6 +697,23 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
           return res.status(400).json({ message: "Your MS365 account is not connected — connect it in your profile first" });
         }
       }
+      if (senderType === "shared") {
+        if (!sessionUserId) return res.status(400).json({ message: "No user session" });
+        const sharedMailboxId = typeof req.body?.senderSharedMailboxId === "string"
+          ? req.body.senderSharedMailboxId
+          : "";
+        sharedMailbox = sharedMailboxId
+          ? await storage.getUserMs365SharedMailbox(sharedMailboxId)
+          : null;
+        if (!sharedMailbox || sharedMailbox.userId !== sessionUserId || !sharedMailbox.isActive) {
+          return res.status(400).json({ message: "Select an active shared mailbox from your profile" });
+        }
+        const ownConn: any = await storage.getUserMs365Connection(sessionUserId);
+        if (!ownConn?.accessToken || ownConn.isConnected === false) {
+          return res.status(400).json({ message: "Connect your MS365 account before using a shared mailbox" });
+        }
+      }
+      const preserveDedicatedSender = senderType === "custom" && campaign.senderType === "custom";
       const updated = await db.update(collaboratorUpdateCampaigns)
         .set({
           name,
@@ -625,7 +721,16 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
           emailBody: body,
           senderType,
           senderCountryCode: senderType === "system" ? senderCountryCode : "",
-          senderUserId: senderType === "own" ? sessionUserId : null,
+          senderUserId: senderType === "own" || senderType === "shared" ? sessionUserId : null,
+          senderCustomEmail: senderType === "shared"
+            ? sharedMailbox.email
+            : preserveDedicatedSender ? campaign.senderCustomEmail : null,
+          senderCustomDisplayName: senderType === "shared"
+            ? sharedMailbox.displayName
+            : preserveDedicatedSender ? campaign.senderCustomDisplayName : null,
+          senderCustomAccessToken: preserveDedicatedSender ? campaign.senderCustomAccessToken : null,
+          senderCustomRefreshToken: preserveDedicatedSender ? campaign.senderCustomRefreshToken : null,
+          senderCustomTokenExpiresAt: preserveDedicatedSender ? campaign.senderCustomTokenExpiresAt : null,
           updatedAt: new Date(),
         })
         .where(and(
@@ -969,7 +1074,6 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
       if (!senderOne.accessToken) {
         return res.status(400).json({ message: senderOne.error || "Sender mailbox unavailable" });
       }
-      const oneAccessToken = senderOne.accessToken;
 
       const [c] = await db.select().from(collaborators)
         .where(eq(collaborators.id, reqRow.collaboratorId));
@@ -1002,7 +1106,7 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
           return res.status(409).json({ message: "Request state changed — refresh and try again" });
         }
         try {
-          await ms365SendEmail(oneAccessToken, [reqRow.email], subject, body, true);
+          await sendWithResolvedSender(senderOne, [reqRow.email], subject, body);
           res.json({ ok: true, resend: false });
         } catch (err: any) {
           await db.update(collaboratorUpdateRequests)
@@ -1015,7 +1119,7 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
         }
       } else {
         try {
-          await ms365SendEmail(oneAccessToken, [reqRow.email], subject, body, true);
+          await sendWithResolvedSender(senderOne, [reqRow.email], subject, body);
           await db.update(collaboratorUpdateRequests)
             .set({ remindedAt: new Date(), sendError: null })
             .where(and(
@@ -1096,7 +1200,7 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
       const senderTest = await resolveSenderAccessToken(campaign);
       if (!senderTest.accessToken) return markFailed(senderTest.error || "MS365 mailbox not connected");
       try {
-        await ms365SendEmail(senderTest.accessToken, [testEmail], subject, body, true);
+        await sendWithResolvedSender(senderTest, [testEmail], subject, body);
       } catch (err: any) {
         return markFailed(err?.message || "send failed");
       }

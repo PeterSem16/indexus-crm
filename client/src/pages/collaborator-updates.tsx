@@ -25,6 +25,7 @@ import { useAuth } from "@/contexts/auth-context";
 
 function senderLabel(c: any, l: any): string {
   if (c?.senderType === "own") return c.senderCustomEmail || l.senderTypeOwn;
+  if (c?.senderType === "shared") return c.senderCustomEmail || l.senderNotConnected;
   if (c?.senderType === "custom") return c.senderCustomEmail || l.senderNotConnected;
   return c?.senderCountryCode || "";
 }
@@ -171,9 +172,9 @@ const L: Record<string, Record<string, string>> = {
     fieldBirthCountry: "Country of birth", fieldEducationRequired: "Education required for the job", fieldIsLeading: "Leading employee",
     approveSelected: "Approve selected", bulkApproveT: "Approve selected submissions?", bulkApproveD: "The changes from all selected submissions will be written to the collaborator cards. This cannot be undone.",
     bulkApprovedToast: "Submissions approved", selectAllLbl: "Select all",
-    senderTypeL: "Sender", senderTypeSystem: "System mailbox (country)", senderTypeOwn: "My mailbox (MS365)", senderTypeCustom: "Dedicated mailbox (connect)",
+    senderTypeL: "Sender", senderTypeSystem: "System mailbox (country)", senderTypeOwn: "My mailbox (MS365)", senderTypeShared: "Shared mailbox", senderTypeCustom: "Dedicated mailbox (connect)",
     senderCustomHint: "Connect the mailbox after creating the campaign, before sending.", ownNotConnected: "Your MS365 account is not connected — connect it in your profile first.",
-    senderConnected: "Sender mailbox connected", senderNotConnected: "Mailbox not connected", connectSender: "Connect mailbox",
+    senderConnected: "Sender mailbox connected", senderNotConnected: "Mailbox not connected", connectSender: "Connect mailbox", sharedMailboxNone: "No shared mailbox is configured in your profile.",
   },
   sk: {
     pageTitle: "Aktualizácie údajov spolupracovníkov", pageDesc: "E-mailové kampane so žiadosťou o aktualizáciu osobných údajov cez bezpečný odkaz.",
@@ -220,9 +221,9 @@ const L: Record<string, Record<string, string>> = {
     fieldBirthCountry: "Krajina narodenia", fieldEducationRequired: "Vzdelanie požadované pre výkon práce", fieldIsLeading: "Vedúci zamestnanec",
     approveSelected: "Schváliť vybrané", bulkApproveT: "Schváliť vybrané vyplnenia?", bulkApproveD: "Zmeny zo všetkých vybraných vyplnení sa zapíšu do kariet spolupracovníkov. Túto akciu nie je možné vrátiť späť.",
     bulkApprovedToast: "Vyplnenia schválené", selectAllLbl: "Vybrať všetko",
-    senderTypeL: "Odosielateľ", senderTypeSystem: "Systémová schránka (krajina)", senderTypeOwn: "Moja schránka (MS365)", senderTypeCustom: "Vyhradená schránka (pripojiť)",
+    senderTypeL: "Odosielateľ", senderTypeSystem: "Systémová schránka (krajina)", senderTypeOwn: "Moja schránka (MS365)", senderTypeShared: "Shared mailbox", senderTypeCustom: "Vyhradená schránka (pripojiť)",
     senderCustomHint: "Schránku pripojíš po vytvorení kampane, pred odoslaním.", ownNotConnected: "Tvoje MS365 konto nie je pripojené — najprv ho pripoj v profile.",
-    senderConnected: "Odosielacia schránka pripojená", senderNotConnected: "Schránka nepripojená", connectSender: "Pripojiť schránku",
+    senderConnected: "Odosielacia schránka pripojená", senderNotConnected: "Schránka nepripojená", connectSender: "Pripojiť schránku", sharedMailboxNone: "V profile nemáš nastavený žiadny shared mailbox.",
   },
   cs: {
     pageTitle: "Aktualizace údajů spolupracovníků", pageDesc: "E-mailové kampaně se žádostí o aktualizaci osobních údajů přes bezpečný odkaz.",
@@ -269,9 +270,9 @@ const L: Record<string, Record<string, string>> = {
     fieldBirthCountry: "Země narození", fieldEducationRequired: "Vzdělání požadované pro výkon práce", fieldIsLeading: "Vedoucí zaměstnanec",
     approveSelected: "Schválit vybrané", bulkApproveT: "Schválit vybraná vyplnění?", bulkApproveD: "Změny ze všech vybraných vyplnění se zapíší do karet spolupracovníků. Tuto akci nelze vrátit zpět.",
     bulkApprovedToast: "Vyplnění schválena", selectAllLbl: "Vybrat vše",
-    senderTypeL: "Odesílatel", senderTypeSystem: "Systémová schránka (země)", senderTypeOwn: "Moje schránka (MS365)", senderTypeCustom: "Vyhrazená schránka (připojit)",
+    senderTypeL: "Odesílatel", senderTypeSystem: "Systémová schránka (země)", senderTypeOwn: "Moje schránka (MS365)", senderTypeShared: "Sdílená schránka", senderTypeCustom: "Vyhrazená schránka (připojit)",
     senderCustomHint: "Schránku připojíte po vytvoření kampaně, před odesláním.", ownNotConnected: "Váš účet MS365 není připojen — nejprve jej připojte v profilu.",
-    senderConnected: "Odesílací schránka připojena", senderNotConnected: "Schránka nepřipojena", connectSender: "Připojit schránku",
+    senderConnected: "Odesílací schránka připojena", senderNotConnected: "Schránka nepřipojena", connectSender: "Připojit schránku", sharedMailboxNone: "V profilu nemáte nastavenou žádnou sdílenou schránku.",
   },
   hu: {
     pageTitle: "Partneradatok frissítése", pageDesc: "E-mail kampányok, amelyekben biztonságos linken keresztül kérjük a partnerek adatainak frissítését.",
@@ -318,9 +319,9 @@ const L: Record<string, Record<string, string>> = {
     fieldBirthCountry: "Születési ország", fieldEducationRequired: "A munkakörhöz szükséges végzettség", fieldIsLeading: "Vezető beosztású munkavállaló",
     approveSelected: "Kijelöltek jóváhagyása", bulkApproveT: "Jóváhagyja a kijelölt beküldéseket?", bulkApproveD: "Az összes kijelölt beküldés módosításai bekerülnek a partnerkartonokba. Ez a művelet nem vonható vissza.",
     bulkApprovedToast: "Beküldések jóváhagyva", selectAllLbl: "Összes kijelölése",
-    senderTypeL: "Feladó", senderTypeSystem: "Rendszerpostafiók (ország)", senderTypeOwn: "Saját postafiók (MS365)", senderTypeCustom: "Dedikált postafiók (csatlakoztatás)",
+    senderTypeL: "Feladó", senderTypeSystem: "Rendszerpostafiók (ország)", senderTypeOwn: "Saját postafiók (MS365)", senderTypeShared: "Megosztott postafiók", senderTypeCustom: "Dedikált postafiók (csatlakoztatás)",
     senderCustomHint: "A postafiókot a kampány létrehozása után, küldés előtt csatlakoztassa.", ownNotConnected: "Az MS365-fiókja nincs csatlakoztatva — először csatlakoztassa a profiljában.",
-    senderConnected: "Feladó postafiók csatlakoztatva", senderNotConnected: "Postafiók nincs csatlakoztatva", connectSender: "Postafiók csatlakoztatása",
+    senderConnected: "Feladó postafiók csatlakoztatva", senderNotConnected: "Postafiók nincs csatlakoztatva", connectSender: "Postafiók csatlakoztatása", sharedMailboxNone: "Nincs megosztott postafiók beállítva a profiljában.",
   },
   ro: {
     pageTitle: "Actualizarea datelor colaboratorilor", pageDesc: "Campanii de e-mail prin care colaboratorii își actualizează datele printr-un link securizat.",
@@ -367,9 +368,9 @@ const L: Record<string, Record<string, string>> = {
     fieldBirthCountry: "Țara nașterii", fieldEducationRequired: "Studii necesare pentru post", fieldIsLeading: "Angajat cu funcție de conducere",
     approveSelected: "Aprobă selectate", bulkApproveT: "Aprobați completările selectate?", bulkApproveD: "Modificările din toate completările selectate vor fi scrise în fișele colaboratorilor. Această acțiune nu poate fi anulată.",
     bulkApprovedToast: "Completări aprobate", selectAllLbl: "Selectează tot",
-    senderTypeL: "Expeditor", senderTypeSystem: "Căsuță de sistem (țară)", senderTypeOwn: "Căsuța mea (MS365)", senderTypeCustom: "Căsuță dedicată (conectare)",
+    senderTypeL: "Expeditor", senderTypeSystem: "Căsuță de sistem (țară)", senderTypeOwn: "Căsuța mea (MS365)", senderTypeShared: "Căsuță poștală partajată", senderTypeCustom: "Căsuță dedicată (conectare)",
     senderCustomHint: "Conectați căsuța după crearea campaniei, înainte de trimitere.", ownNotConnected: "Contul dvs. MS365 nu este conectat — conectați-l mai întâi în profil.",
-    senderConnected: "Căsuța expeditorului conectată", senderNotConnected: "Căsuță neconectată", connectSender: "Conectează căsuța",
+    senderConnected: "Căsuța expeditorului conectată", senderNotConnected: "Căsuță neconectată", connectSender: "Conectează căsuța", sharedMailboxNone: "Nu este configurată nicio căsuță partajată în profil.",
   },
   it: {
     pageTitle: "Aggiornamento dati collaboratori", pageDesc: "Campagne e-mail per chiedere ai collaboratori di aggiornare i propri dati tramite link sicuro.",
@@ -416,9 +417,9 @@ const L: Record<string, Record<string, string>> = {
     fieldBirthCountry: "Paese di nascita", fieldEducationRequired: "Istruzione richiesta per la mansione", fieldIsLeading: "Dipendente con ruolo dirigenziale",
     approveSelected: "Approva selezionati", bulkApproveT: "Approvare gli invii selezionati?", bulkApproveD: "Le modifiche di tutti gli invii selezionati verranno scritte nelle schede dei collaboratori. Questa azione non può essere annullata.",
     bulkApprovedToast: "Invii approvati", selectAllLbl: "Seleziona tutto",
-    senderTypeL: "Mittente", senderTypeSystem: "Casella di sistema (paese)", senderTypeOwn: "La mia casella (MS365)", senderTypeCustom: "Casella dedicata (collegare)",
+    senderTypeL: "Mittente", senderTypeSystem: "Casella di sistema (paese)", senderTypeOwn: "La mia casella (MS365)", senderTypeShared: "Casella condivisa", senderTypeCustom: "Casella dedicata (collegare)",
     senderCustomHint: "Collega la casella dopo aver creato la campagna, prima dell'invio.", ownNotConnected: "Il tuo account MS365 non è collegato — collegalo prima nel profilo.",
-    senderConnected: "Casella mittente collegata", senderNotConnected: "Casella non collegata", connectSender: "Collega casella",
+    senderConnected: "Casella mittente collegata", senderNotConnected: "Casella non collegata", connectSender: "Collega casella", sharedMailboxNone: "Nessuna casella condivisa è configurata nel profilo.",
   },
   de: {
     pageTitle: "Aktualisierung der Partnerdaten", pageDesc: "E-Mail-Kampagnen, mit denen Partner über einen sicheren Link ihre Daten aktualisieren.",
@@ -465,9 +466,9 @@ const L: Record<string, Record<string, string>> = {
     fieldBirthCountry: "Geburtsland", fieldEducationRequired: "Für die Tätigkeit erforderliche Ausbildung", fieldIsLeading: "Leitender Mitarbeiter",
     approveSelected: "Ausgewählte genehmigen", bulkApproveT: "Ausgewählte Einreichungen genehmigen?", bulkApproveD: "Die Änderungen aller ausgewählten Einreichungen werden in die Partnerkarten geschrieben. Diese Aktion kann nicht rückgängig gemacht werden.",
     bulkApprovedToast: "Einreichungen genehmigt", selectAllLbl: "Alle auswählen",
-    senderTypeL: "Absender", senderTypeSystem: "Systempostfach (Land)", senderTypeOwn: "Mein Postfach (MS365)", senderTypeCustom: "Dediziertes Postfach (verbinden)",
+    senderTypeL: "Absender", senderTypeSystem: "Systempostfach (Land)", senderTypeOwn: "Mein Postfach (MS365)", senderTypeShared: "Freigegebenes Postfach", senderTypeCustom: "Dediziertes Postfach (verbinden)",
     senderCustomHint: "Verbinden Sie das Postfach nach dem Erstellen der Kampagne, vor dem Versand.", ownNotConnected: "Ihr MS365-Konto ist nicht verbunden — verbinden Sie es zuerst in Ihrem Profil.",
-    senderConnected: "Absenderpostfach verbunden", senderNotConnected: "Postfach nicht verbunden", connectSender: "Postfach verbinden",
+    senderConnected: "Absenderpostfach verbunden", senderNotConnected: "Postfach nicht verbunden", connectSender: "Postfach verbinden", sharedMailboxNone: "In Ihrem Profil ist kein freigegebenes Postfach eingerichtet.",
   },
 };
 
@@ -603,6 +604,7 @@ function CreateCampaignDialog({ open, onOpenChange, l, toast }: any) {
   const [name, setName] = useState("");
   const [senderType, setSenderType] = useState("system");
   const [senderCountryCode, setSenderCountryCode] = useState("");
+  const [senderSharedMailboxId, setSenderSharedMailboxId] = useState("");
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [tokenValidDays, setTokenValidDays] = useState(30);
@@ -631,7 +633,16 @@ function CreateCampaignDialog({ open, onOpenChange, l, toast }: any) {
   });
   const { data: ownConn } = useQuery<any>({
     queryKey: ["/api/users", user?.id, "ms365-connection"],
-    enabled: open && !!user?.id && senderType === "own",
+    enabled: open && !!user?.id && (senderType === "own" || senderType === "shared"),
+  });
+  const { data: sharedMailboxes = [] } = useQuery<any[]>({
+    queryKey: ["/api/users", user?.id, "ms365-shared-mailboxes"],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const res = await fetch(`/api/users/${user.id}/ms365-shared-mailboxes`, { credentials: "include" });
+      return res.ok ? res.json() : [];
+    },
+    enabled: open && !!user?.id && senderType === "shared",
   });
   const ownConnected = !!ownConn?.isConnected && !!ownConn?.hasTokens;
 
@@ -684,6 +695,7 @@ function CreateCampaignDialog({ open, onOpenChange, l, toast }: any) {
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/collaborator-update-campaigns", {
         name, senderType, senderCountryCode: senderType === "system" ? senderCountryCode : "",
+        senderSharedMailboxId: senderType === "shared" ? senderSharedMailboxId : undefined,
         emailSubject, emailBody, language, formType, tokenValidDays, filterCriteria,
       });
       return res.json();
@@ -697,7 +709,13 @@ function CreateCampaignDialog({ open, onOpenChange, l, toast }: any) {
     onError: (e: any) => toast({ title: l.errorTitle, description: e?.message, variant: "destructive" }),
   });
 
-  const senderOk = senderType === "system" ? !!senderCountryCode : senderType === "own" ? ownConnected : true;
+  const senderOk = senderType === "system"
+    ? !!senderCountryCode
+    : senderType === "own"
+      ? ownConnected
+      : senderType === "shared"
+        ? ownConnected && !!senderSharedMailboxId
+        : true;
   const canCreate = name.trim() && senderOk && emailSubject.trim() && emailBody.trim();
 
   return (
@@ -720,6 +738,7 @@ function CreateCampaignDialog({ open, onOpenChange, l, toast }: any) {
                 <SelectContent>
                   <SelectItem value="system">{l.senderTypeSystem}</SelectItem>
                   <SelectItem value="own">{l.senderTypeOwn}</SelectItem>
+                  <SelectItem value="shared">{l.senderTypeShared}</SelectItem>
                   <SelectItem value="custom">{l.senderTypeCustom}</SelectItem>
                 </SelectContent>
               </Select>
@@ -744,6 +763,24 @@ function CreateCampaignDialog({ open, onOpenChange, l, toast }: any) {
                 <p className={`text-sm pt-2 ${ownConnected ? "text-muted-foreground" : "text-destructive"}`} data-testid="text-own-sender-status">
                   {ownConnected ? (ownConn?.email || l.senderConnected) : l.ownNotConnected}
                 </p>
+              </div>
+            ) : senderType === "shared" ? (
+              <div className="space-y-1.5">
+                <Label>{l.senderMailbox}</Label>
+                {sharedMailboxes.some((mailbox: any) => mailbox.isActive) ? (
+                  <Select value={senderSharedMailboxId} onValueChange={setSenderSharedMailboxId}>
+                    <SelectTrigger data-testid="select-shared-sender"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {sharedMailboxes.filter((mailbox: any) => mailbox.isActive).map((mailbox: any) => (
+                        <SelectItem key={mailbox.id} value={mailbox.id}>
+                          {mailbox.displayName} ({mailbox.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="text-sm pt-2 text-destructive">{l.sharedMailboxNone}</p>
+                )}
               </div>
             ) : (
               <div className="space-y-1.5">
@@ -1129,15 +1166,33 @@ function SettingsDialog({ campaign, l, toast, open, onOpenChange }: any) {
   const [body, setBody] = useState(campaign.emailBody || "");
   const [senderType, setSenderType] = useState(campaign.senderType || "system");
   const [senderCountryCode, setSenderCountryCode] = useState(campaign.senderCountryCode || "");
+  const [senderSharedMailboxId, setSenderSharedMailboxId] = useState("");
   const { data: connections = [] } = useQuery<any[]>({
     queryKey: ["/api/config/system-ms365-connections"],
     enabled: open,
   });
   const { data: ownConn } = useQuery<any>({
     queryKey: ["/api/users", user?.id, "ms365-connection"],
-    enabled: open && !!user?.id && senderType === "own",
+    enabled: open && !!user?.id && (senderType === "own" || senderType === "shared"),
+  });
+  const { data: sharedMailboxes = [] } = useQuery<any[]>({
+    queryKey: ["/api/users", user?.id, "ms365-shared-mailboxes"],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const res = await fetch(`/api/users/${user.id}/ms365-shared-mailboxes`, { credentials: "include" });
+      return res.ok ? res.json() : [];
+    },
+    enabled: open && !!user?.id && senderType === "shared",
   });
   const ownConnected = !!ownConn?.isConnected && !!ownConn?.hasTokens;
+
+  useEffect(() => {
+    if (senderType !== "shared" || senderSharedMailboxId || sharedMailboxes.length === 0) return;
+    const current = sharedMailboxes.find((mailbox: any) =>
+      mailbox.isActive && mailbox.email.toLowerCase() === String(campaign.senderCustomEmail || "").toLowerCase()
+    );
+    if (current) setSenderSharedMailboxId(current.id);
+  }, [campaign.senderCustomEmail, senderSharedMailboxId, senderType, sharedMailboxes]);
 
   const senderAuthMutation = useMutation({
     mutationFn: async () => {
@@ -1154,6 +1209,7 @@ function SettingsDialog({ campaign, l, toast, open, onOpenChange }: any) {
     mutationFn: async () => {
       const res = await apiRequest("PATCH", `/api/collaborator-update-campaigns/${campaign.id}/settings`, {
         name, subject, body, senderType, senderCountryCode,
+        senderSharedMailboxId: senderType === "shared" ? senderSharedMailboxId : undefined,
       });
       return res.json();
     },
@@ -1185,6 +1241,7 @@ function SettingsDialog({ campaign, l, toast, open, onOpenChange }: any) {
                 <SelectContent>
                   <SelectItem value="system">{l.senderTypeSystem}</SelectItem>
                   <SelectItem value="own">{l.senderTypeOwn}</SelectItem>
+                  <SelectItem value="shared">{l.senderTypeShared}</SelectItem>
                   <SelectItem value="custom">{l.senderTypeCustom}</SelectItem>
                 </SelectContent>
               </Select>
@@ -1207,6 +1264,24 @@ function SettingsDialog({ campaign, l, toast, open, onOpenChange }: any) {
                 <p className={`text-sm pt-2 ${ownConnected ? "text-muted-foreground" : "text-destructive"}`}>
                   {ownConnected ? (ownConn?.email || l.senderConnected) : l.ownNotConnected}
                 </p>
+              </div>
+            ) : senderType === "shared" ? (
+              <div className="space-y-1.5">
+                <Label>{l.senderMailbox}</Label>
+                {sharedMailboxes.some((mailbox: any) => mailbox.isActive) ? (
+                  <Select value={senderSharedMailboxId} onValueChange={setSenderSharedMailboxId}>
+                    <SelectTrigger data-testid="select-settings-shared-sender"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {sharedMailboxes.filter((mailbox: any) => mailbox.isActive).map((mailbox: any) => (
+                        <SelectItem key={mailbox.id} value={mailbox.id}>
+                          {mailbox.displayName} ({mailbox.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="text-sm pt-2 text-destructive">{l.sharedMailboxNone}</p>
+                )}
               </div>
             ) : (
               <div className="space-y-1.5">
@@ -1254,7 +1329,8 @@ function SettingsDialog({ campaign, l, toast, open, onOpenChange }: any) {
             onClick={() => saveMutation.mutate()}
             disabled={saveMutation.isPending || !name.trim() || !subject.trim() || !body.trim()
               || (senderType === "system" && !senderCountryCode)
-              || (senderType === "own" && !ownConnected)}
+              || (senderType === "own" && !ownConnected)
+              || (senderType === "shared" && (!ownConnected || !senderSharedMailboxId))}
             data-testid="button-settings-save"
           >
             {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
