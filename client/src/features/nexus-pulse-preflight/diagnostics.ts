@@ -30,6 +30,15 @@ export function isChromiumDesktop(ua = typeof navigator !== "undefined" ? naviga
   return chromium && !mobile;
 }
 
+export function isPulseReadinessEnvironmentValid(
+  ua = typeof navigator !== "undefined" ? navigator.userAgent : "",
+  platform = typeof navigator !== "undefined" ? navigator.platform : "",
+  secure = typeof window !== "undefined" ? window.isSecureContext || window.location.hostname === "localhost" : false,
+  online = typeof navigator !== "undefined" ? navigator.onLine !== false : false,
+) {
+  return isChromiumDesktop(ua, platform) && secure && online;
+}
+
 export function classify(results: DiagnosticResult[]): DiagnosticState {
   if (results.some((r) => r.state === "pending")) return "checking";
   if (results.some((r) => r.severity === "critical" && r.state === "fail")) return "blocked";

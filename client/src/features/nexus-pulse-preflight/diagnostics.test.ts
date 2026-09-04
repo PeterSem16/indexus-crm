@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { classify, classifyIceResult, hasCriticalFailure, isChromiumDesktop, isCompleteDiagnosticRun, type DiagnosticResult } from "./diagnostics";
+import { classify, classifyIceResult, hasCriticalFailure, isChromiumDesktop, isCompleteDiagnosticRun, isPulseReadinessEnvironmentValid, type DiagnosticResult } from "./diagnostics";
 
 describe("NEXUS Pulse preflight classification", () => {
   it("rejects mobile and non-Chromium browsers", () => {
     expect(isChromiumDesktop("Mozilla/5.0 Chrome/121.0 Safari/537.36", "Win32")).toBe(true);
     expect(isChromiumDesktop("Mozilla/5.0 Firefox/122.0", "Win32")).toBe(false);
     expect(isChromiumDesktop("Mozilla/5.0 Chrome/121.0 Mobile Safari", "Android")).toBe(false);
+  });
+  it("invalidates saved readiness in Firefox, insecure contexts, and offline mode", () => {
+    expect(isPulseReadinessEnvironmentValid("Mozilla/5.0 Chrome/121.0 Safari/537.36", "Win32", true, true)).toBe(true);
+    expect(isPulseReadinessEnvironmentValid("Mozilla/5.0 Firefox/122.0", "Win32", true, true)).toBe(false);
+    expect(isPulseReadinessEnvironmentValid("Mozilla/5.0 Chrome/121.0 Safari/537.36", "Win32", false, true)).toBe(false);
+    expect(isPulseReadinessEnvironmentValid("Mozilla/5.0 Chrome/121.0 Safari/537.36", "Win32", true, false)).toBe(false);
   });
   it("keeps warnings non-blocking", () => {
     const results = [{ key: "network" as const, severity: "warning" as const, state: "warn" as const }];

@@ -8,12 +8,20 @@ import { usePermissions } from "@/contexts/permissions-context";
 import { useSip } from "@/contexts/sip-context";
 import { useI18n } from "@/i18n";
 import { PulseDiagnostics } from "./PulseDiagnostics";
+import { isPulseReadinessEnvironmentValid } from "./diagnostics";
 import { pulseCopy } from "./translations";
 
 type Props = { children: ReactNode };
 type Status = "checking" | "ready" | "warning" | "blocked";
 
 function userKey(user: any) { return String(user?.id ?? user?.userId ?? user?.username ?? "unknown"); }
+
+function readStoredReadiness(key: string) {
+  if (sessionStorage.getItem(key) !== "1") return false;
+  if (isPulseReadinessEnvironmentValid()) return true;
+  sessionStorage.removeItem(key);
+  return false;
+}
 
 export function PulseGate({ children }: Props) {
   const { user } = useAuth();
@@ -25,7 +33,7 @@ export function PulseGate({ children }: Props) {
   const key = `nexus-pulse-ready:${userKey(user)}`;
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<Status>("checking");
-  const [acknowledged, setAcknowledged] = useState(() => sessionStorage.getItem(key) === "1");
+  const [acknowledged, setAcknowledged] = useState(() => readStoredReadiness(key));
   const ready = allowed && acknowledged;
   const { isRegistered } = useSip();
   useEffect(() => {
@@ -38,7 +46,8 @@ export function PulseGate({ children }: Props) {
   }, [allowed, acknowledged, isRegistered, key]);
   useEffect(() => {
     const openFromHeader = () => setOpen(true);
-    const sync = () => setAcknowledged(sessionStorage.getItem(key) === "1");
+    const sync = () => setAcknowledged(readStoredReadiness(key));
+    sync();
     window.addEventListener("nexus-pulse-open", openFromHeader);
     window.addEventListener("nexus-pulse-ready", sync);
     return () => { window.removeEventListener("nexus-pulse-open", openFromHeader); window.removeEventListener("nexus-pulse-ready", sync); };
@@ -69,8 +78,12 @@ export function PulseGate({ children }: Props) {
 export function PulseHeaderButton() {
   const { user } = useAuth(); const { canAccessModule, isLoading } = usePermissions(); const { isRegistered } = useSip(); const { locale } = useI18n(); const t = pulseCopy(locale); const [location] = useLocation();
   const allowed = !!user && !isLoading && canAccessModule("nexusPulse"); const key = `nexus-pulse-ready:${userKey(user)}`;
-  const [open, setOpen] = useState(false); const [status, setStatus] = useState<Status>(sessionStorage.getItem(key) === "1" ? "ready" : "checking");
-  const sync = useCallback(() => { const ready = sessionStorage.getItem(key) === "1"; setStatus(ready ? (isRegistered ? "ready" : "warning") : "checking"); }, [isRegistered, key]);
+  const [open, setOpen] = useState(false); const [status, setStatus] = useState<Status>("checking");
+  const sync = useCallback(() => {
+    const environmentValid = isPulseReadinessEnvironmentValid();
+    const ready = readStoredReadiness(key);
+    setStatus(!environmentValid ? "blocked" : ready ? (isRegistered ? "ready" : "warning") : "checking");
+  }, [isRegistered, key]);
   useEffect(() => {
     sync();
     const handleReady = () => sync();
