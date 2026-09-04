@@ -85,6 +85,7 @@ const RepresentativeQualityPage = lazy(() => import("@/pages/representative-qual
 import { AgentSessionProvider } from "@/contexts/agent-session-context";
 import NotFound from "@/pages/not-found";
 import { Loader2 } from "lucide-react";
+import { PulseGate, PulseHeaderButton } from "@/features/nexus-pulse-preflight/PulsePreflightProvider";
 
 function PageLoader() {
   return (
@@ -255,6 +256,7 @@ function AuthenticatedApp() {
                   <QuickCreate />
                   {(user as any)?.showEmailQueue && <EmailNotifications />}
                   {(user as any)?.showNotificationBell !== false && <NotificationBell />}
+                  <PulseHeaderButton />
                   <NexusButton nexusEnabled={user?.nexusEnabled ?? false} />
                   {(user as any)?.showSipPhone && <SipPhoneHeaderButton user={user} sipContext={sipContext} />}
                   <TourTrigger />
@@ -308,11 +310,13 @@ function AuthenticatedApp() {
                     <Route path="/training-room" component={TrainingRoomPage} />
                     <Route path="/medical-partner-network" component={MedicalPartnerNetworkPage} />
                     <Route path="/agent-workspace">
-                      <ErrorBoundary>
-                        <AgentSessionProvider>
-                          <AgentWorkspacePage />
-                        </AgentSessionProvider>
-                      </ErrorBoundary>
+                      <PulseGate>
+                        <ErrorBoundary>
+                          <AgentSessionProvider>
+                            <AgentWorkspacePage />
+                          </AgentSessionProvider>
+                        </ErrorBoundary>
+                      </PulseGate>
                     </Route>
                     <Route path="/login">
                       <Redirect to={(user as any)?.roleLandingPage || "/"} />
