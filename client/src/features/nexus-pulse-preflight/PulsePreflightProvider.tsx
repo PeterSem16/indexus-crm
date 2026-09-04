@@ -132,7 +132,7 @@ export function PulseGate({ children }: Props) {
 }
 
 export function PulseHeaderButton() {
-  const { user } = useAuth(); const { canAccessModule, isLoading } = usePermissions(); const { isRegistered } = useSip(); const { locale } = useI18n(); const t = pulseCopy(locale); const [location] = useLocation();
+  const { user } = useAuth(); const { canAccessModule, isLoading } = usePermissions(); const { isRegistered } = useSip(); const { locale } = useI18n(); const t = pulseCopy(locale); const [location, setLocation] = useLocation();
   const allowed = !!user && !isLoading && canAccessModule("nexusPulse"); const key = pulseReadinessStorageKey(userKey(user));
   const [open, setOpen] = useState(false); const [status, setStatus] = useState<Status>("checking");
   const workspaceRoute = location.split(/[?#]/, 1)[0].replace(/\/+$/, "") === "/agent-workspace";
@@ -158,5 +158,5 @@ export function PulseHeaderButton() {
   if (!allowed) return null;
   const statusLabel = status === "ready" ? t.ready : status === "warning" ? t.warning : status === "blocked" ? t.blocked : t.working;
   const dotColor = status === "ready" ? "bg-emerald-500" : status === "warning" ? "bg-amber-500" : status === "blocked" ? "bg-destructive" : "bg-muted-foreground";
-  return <><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative" onClick={() => { if (workspaceRoute) window.dispatchEvent(new Event("nexus-pulse-open")); else setOpen(true); }} aria-label={`${t.title}: ${statusLabel}`} data-testid="button-pulse-status"><Activity className="h-5 w-5" /><span aria-hidden="true" className={`absolute right-1.5 top-1.5 h-2 w-2 rounded-full ring-2 ring-background ${dotColor}`} /></Button></TooltipTrigger><TooltipContent><p>{t.title}: {statusLabel}</p></TooltipContent></Tooltip>{!workspaceRoute && <PulseDiagnostics open={open} userId={userKey(user)} onClose={() => { setOpen(false); sync(); }} onReady={() => { sessionStorage.setItem(key, "1"); window.dispatchEvent(new Event("nexus-pulse-ready")); setOpen(false); sync(); }} />}</>;
+  return <><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative" onClick={() => { if (workspaceRoute) window.dispatchEvent(new Event("nexus-pulse-open")); else setOpen(true); }} aria-label={`${t.title}: ${statusLabel}`} data-testid="button-pulse-status"><Activity className="h-5 w-5" /><span aria-hidden="true" className={`absolute right-1.5 top-1.5 h-2 w-2 rounded-full ring-2 ring-background ${dotColor}`} /></Button></TooltipTrigger><TooltipContent><p>{t.title}: {statusLabel}</p></TooltipContent></Tooltip>{!workspaceRoute && <PulseDiagnostics open={open} userId={userKey(user)} onClose={() => { setOpen(false); sync(); }} onReady={() => { sessionStorage.setItem(key, "1"); window.dispatchEvent(new Event("nexus-pulse-ready")); setOpen(false); setLocation("/agent-workspace"); }} />}</>;
 }
