@@ -70,3 +70,4 @@
 - [Module snapshot settings isolation](module-snapshot-settings-isolation.md) — version snapshots whitelist module-owned campaign.settings keys; restore merges them and must never replace the shared settings object.
 - [Pulse gate escape](pulse-gate-escape.md) — mandatory readiness may block Agent Workspace, but must always offer a clear non-bypass return to normal INDEXUS.
 - [Pulse mandatory M365 readiness](pulse-m365-readiness.md) — every readiness run requires the agent’s connected M365 account; never derive this check from the selected Mission.
+- [Pulse quick sound recheck](pulse-quick-sound-recheck.md) — sound-only verification may reuse an existing valid readiness result, but must never bypass a started or failed full check.

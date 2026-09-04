@@ -5,12 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useSip } from "@/contexts/sip-context";
 import { useI18n } from "@/i18n";
-import { classify, classifyIceResult, gatherIce, hasCriticalFailure, isChromiumDesktop, isCompletePulseReadinessRun, type DiagnosticResult, type DiagnosticState } from "./diagnostics";
+import { canUseQuickSoundVerification, classify, classifyIceResult, gatherIce, hasCriticalFailure, isChromiumDesktop, isCompletePulseReadinessRun, type DiagnosticResult, type DiagnosticState } from "./diagnostics";
 import { pulseCopy } from "./translations";
 
-type Props = { open: boolean; required?: boolean; keepWakeLock?: boolean; userId: string; onClose: () => void; onReady: () => void; onExit?: () => void };
+type Props = { open: boolean; required?: boolean; keepWakeLock?: boolean; hasValidReadiness?: boolean; userId: string; onClose: () => void; onReady: () => void; onExit?: () => void };
 
-export function PulseDiagnostics({ open, required = false, keepWakeLock = false, userId, onClose, onReady, onExit }: Props) {
+export function PulseDiagnostics({ open, required = false, keepWakeLock = false, hasValidReadiness = false, userId, onClose, onReady, onExit }: Props) {
   const { locale } = useI18n();
   const t = pulseCopy(locale);
   const { isRegistered, ensureRegistered } = useSip();
@@ -157,12 +157,13 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   };
   const finalResults = useMemo(() => [...results, { key: "sound" as const, severity: "critical" as const, state: soundError ? "fail" as const : heard ? "pass" as const : "pending" as const, detail: soundError ? t.soundFail : t.soundDetail }], [heard, results, soundError, t.soundDetail, t.soundFail]);
   const diagnosticsComplete = isCompletePulseReadinessRun(results);
-  const finalState = diagnosticsComplete && heard ? classify(finalResults) : (state === "blocked" ? "blocked" : "checking");
+  const quickSoundVerified = canUseQuickSoundVerification({ hasValidReadiness, diagnosticState: state, runCompleted, heard, soundError });
+  const finalState = quickSoundVerified ? "ready" : diagnosticsComplete && heard ? classify(finalResults) : (state === "blocked" ? "blocked" : "checking");
   const labels: Record<string, string> = Object.fromEntries(["browser","secure","online","microphone","input","output","sound","ice","sip","m365Account","notifications","network","wakeLock","devices"].map((k) => [k, t[k as keyof typeof t] as string]));
   const mainResults = finalResults.filter((item) => item.key !== "network" && item.key !== "devices");
   const advisoryResults = finalResults.filter((item) => item.key === "network" || item.key === "devices");
   const statusText = finalState === "ready" ? t.ready : finalState === "warning" ? t.warning : finalState === "blocked" ? t.blocked : t.working;
-  const canContinue = runCompleted && diagnosticsComplete && heard && !hasCriticalFailure(finalResults) && (finalState === "ready" || finalState === "warning");
+  const canContinue = quickSoundVerified || (runCompleted && diagnosticsComplete && heard && !hasCriticalFailure(finalResults) && (finalState === "ready" || finalState === "warning"));
   const acknowledge = () => {
     if (!canContinue) return;
     onReady();

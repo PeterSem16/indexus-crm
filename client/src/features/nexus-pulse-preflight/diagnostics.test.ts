@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classify, classifyIceResult, hasCriticalFailure, isChromiumDesktop, isCompleteDiagnosticRun, isCompletePulseReadinessRun, isPulseReadinessEnvironmentValid, isPulseSessionProtected, pulseReadinessStorageKey, type DiagnosticResult } from "./diagnostics";
+import { canUseQuickSoundVerification, classify, classifyIceResult, hasCriticalFailure, isChromiumDesktop, isCompleteDiagnosticRun, isCompletePulseReadinessRun, isPulseReadinessEnvironmentValid, isPulseSessionProtected, pulseReadinessStorageKey, type DiagnosticResult } from "./diagnostics";
 
 describe("NEXUS Pulse preflight classification", () => {
   it("rejects mobile and non-Chromium browsers", () => {
@@ -36,6 +36,33 @@ describe("NEXUS Pulse preflight classification", () => {
       { key: "sound", severity: "critical", state: "pass" },
     ];
     expect(isCompleteDiagnosticRun(soundOnly)).toBe(false);
+  });
+  it("allows a sound-only recheck only while an existing readiness result is still valid", () => {
+    expect(canUseQuickSoundVerification({
+      hasValidReadiness: true,
+      diagnosticState: "idle",
+      runCompleted: false,
+      heard: true,
+      soundError: false,
+    })).toBe(true);
+    expect(canUseQuickSoundVerification({
+      hasValidReadiness: false,
+      diagnosticState: "idle",
+      runCompleted: false,
+      heard: true,
+      soundError: false,
+    })).toBe(false);
+  });
+  it("does not let sound confirmation bypass a started or failed full check", () => {
+    for (const diagnosticState of ["checking", "ready", "warning", "blocked"] as const) {
+      expect(canUseQuickSoundVerification({
+        hasValidReadiness: true,
+        diagnosticState,
+        runCompleted: diagnosticState !== "checking",
+        heard: true,
+        soundError: false,
+      })).toBe(false);
+    }
   });
   it("requires every environment check before completion", () => {
     const keys = ["browser", "secure", "online", "microphone", "input", "output", "ice", "sip", "notifications", "network", "wakeLock", "devices"] as const;
