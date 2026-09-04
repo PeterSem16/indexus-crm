@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classify, classifyIceResult, hasCriticalFailure, isChromiumDesktop, isCompleteDiagnosticRun, isPulseReadinessEnvironmentValid, missionRequiresUserM365, type DiagnosticResult } from "./diagnostics";
+import { classify, classifyIceResult, hasCriticalFailure, isChromiumDesktop, isCompleteDiagnosticRun, isPulseReadinessEnvironmentValid, isPulseSessionProtected, missionRequiresUserM365, type DiagnosticResult } from "./diagnostics";
 
 describe("NEXUS Pulse preflight classification", () => {
   it("rejects mobile and non-Chromium browsers", () => {
@@ -52,5 +52,12 @@ describe("NEXUS Pulse preflight classification", () => {
     expect(missionRequiresUserM365("email", JSON.stringify({ nexusPulseEmailMode: "system" }))).toBe(false);
     expect(missionRequiresUserM365("phone", JSON.stringify({ nexusPulseEmailMode: "user" }))).toBe(false);
     expect(missionRequiresUserM365("sms", null)).toBe(false);
+  });
+  it("protects an in-progress call and post-call transition from readiness unmounts", () => {
+    for (const state of ["connecting", "ringing", "active", "on_hold", "ended"]) {
+      expect(isPulseSessionProtected(state)).toBe(true);
+    }
+    expect(isPulseSessionProtected("idle")).toBe(false);
+    expect(isPulseSessionProtected(null)).toBe(false);
   });
 });

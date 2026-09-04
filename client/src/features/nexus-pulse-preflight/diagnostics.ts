@@ -35,6 +35,10 @@ export function missionRequiresUserM365(channel?: string | null, settings?: stri
   }
 }
 
+export function isPulseSessionProtected(callState?: string | null) {
+  return ["connecting", "ringing", "active", "on_hold", "ended"].includes(String(callState || ""));
+}
+
 export function isChromiumDesktop(ua = typeof navigator !== "undefined" ? navigator.userAgent : "", platform = typeof navigator !== "undefined" ? navigator.platform : "") {
   const mobile = /Android|iPhone|iPad|Mobile/i.test(ua) || /iPhone|iPad/i.test(platform);
   const chromium = /Chrome|Chromium|Edg\//i.test(ua) && !/Firefox|OPR\/|Opera|SamsungBrowser/i.test(ua);
