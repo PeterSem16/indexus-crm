@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
-import { Activity, AlertTriangle, Check, Loader2 } from "lucide-react";
+import { Activity, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
 import { useSip } from "@/contexts/sip-context";
@@ -70,8 +71,19 @@ export function PulseHeaderButton() {
   const allowed = !!user && !isLoading && canAccessModule("nexusPulse"); const key = `nexus-pulse-ready:${userKey(user)}`;
   const [open, setOpen] = useState(false); const [status, setStatus] = useState<Status>(sessionStorage.getItem(key) === "1" ? "ready" : "checking");
   const sync = useCallback(() => { const ready = sessionStorage.getItem(key) === "1"; setStatus(ready ? (isRegistered ? "ready" : "warning") : "checking"); }, [isRegistered, key]);
-  useEffect(() => { sync(); const handler = () => sync(); window.addEventListener("nexus-pulse-ready", handler); window.addEventListener("nexus-pulse-invalidated", handler); return () => { window.removeEventListener("nexus-pulse-ready", handler); window.removeEventListener("nexus-pulse-invalidated", handler); }; }, [sync]);
+  useEffect(() => {
+    sync();
+    const handleReady = () => sync();
+    const handleInvalidated = () => setStatus("blocked");
+    window.addEventListener("nexus-pulse-ready", handleReady);
+    window.addEventListener("nexus-pulse-invalidated", handleInvalidated);
+    return () => {
+      window.removeEventListener("nexus-pulse-ready", handleReady);
+      window.removeEventListener("nexus-pulse-invalidated", handleInvalidated);
+    };
+  }, [sync]);
   if (!allowed) return null;
-  const color = status === "ready" ? "text-emerald-600 border-emerald-200" : status === "warning" ? "text-amber-700 border-amber-200" : status === "blocked" ? "text-destructive border-destructive/30" : "text-muted-foreground";
-  return <><Button variant="outline" size="sm" className={`gap-1.5 ${color}`} onClick={() => { if (location === "/agent-workspace") window.dispatchEvent(new Event("nexus-pulse-open")); else setOpen(true); }} aria-label={t.title} data-testid="button-pulse-status"><Activity className="h-3.5 w-3.5" /> <span className="hidden md:inline">Pulse</span>{status === "ready" ? <Check className="h-3 w-3" /> : status === "warning" ? <AlertTriangle className="h-3 w-3" /> : null}</Button>{location !== "/agent-workspace" && <PulseDiagnostics open={open} userId={userKey(user)} onClose={() => { setOpen(false); sync(); }} onReady={() => { sessionStorage.setItem(`nexus-pulse-ready:${userKey(user)}`, "1"); window.dispatchEvent(new Event("nexus-pulse-ready")); setOpen(false); sync(); }} />}</>;
+  const statusLabel = status === "ready" ? t.ready : status === "warning" ? t.warning : status === "blocked" ? t.blocked : t.working;
+  const dotColor = status === "ready" ? "bg-emerald-500" : status === "warning" ? "bg-amber-500" : status === "blocked" ? "bg-destructive" : "bg-muted-foreground";
+  return <><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative" onClick={() => { if (location === "/agent-workspace") window.dispatchEvent(new Event("nexus-pulse-open")); else setOpen(true); }} aria-label={`${t.title}: ${statusLabel}`} data-testid="button-pulse-status"><Activity className="h-5 w-5" /><span aria-hidden="true" className={`absolute right-1.5 top-1.5 h-2 w-2 rounded-full ring-2 ring-background ${dotColor}`} /></Button></TooltipTrigger><TooltipContent><p>{t.title}: {statusLabel}</p></TooltipContent></Tooltip>{location !== "/agent-workspace" && <PulseDiagnostics open={open} userId={userKey(user)} onClose={() => { setOpen(false); sync(); }} onReady={() => { sessionStorage.setItem(`nexus-pulse-ready:${userKey(user)}`, "1"); window.dispatchEvent(new Event("nexus-pulse-ready")); setOpen(false); sync(); }} />}</>;
 }
