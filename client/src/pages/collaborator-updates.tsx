@@ -1453,31 +1453,47 @@ function CampaignDetail({ campaign, l, toast, onBack }: any) {
       const res = await apiRequest("POST", `/api/collaborator-update-requests/${id}/${action}`);
       return res.json();
     },
-    onSuccess: (_d, vars) => {
+    onSuccess: (updatedRequest: any, vars) => {
       toast({ title: vars.action === "approve" ? l.approved : l.rejected });
       invalidate();
+      if (vars.action === "approve" && updatedRequest?.collaboratorId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
+        queryClient.invalidateQueries({
+          queryKey: ["/api/collaborators", updatedRequest.collaboratorId],
+        });
+      }
     },
     onError: (e: any) => toast({ title: l.errorTitle, description: e?.message, variant: "destructive" }),
   });
 
   const bulkApproveMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      let ok = 0; const errors: string[] = [];
+      let ok = 0; const errors: string[] = []; const collaboratorIds = new Set<string>();
       for (const id of ids) {
         try {
-          await apiRequest("POST", `/api/collaborator-update-requests/${id}/approve`);
+          const res = await apiRequest("POST", `/api/collaborator-update-requests/${id}/approve`);
+          const updatedRequest = await res.json();
+          if (updatedRequest?.collaboratorId) collaboratorIds.add(updatedRequest.collaboratorId);
           ok++;
         } catch (e: any) {
           errors.push(e?.message || "error");
         }
       }
-      return { ok, errors };
+      return { ok, errors, collaboratorIds: Array.from(collaboratorIds) };
     },
-    onSuccess: ({ ok, errors }) => {
+    onSuccess: ({ ok, errors, collaboratorIds }) => {
       if (ok > 0) toast({ title: `${l.bulkApprovedToast}: ${ok}` });
       if (errors.length > 0) toast({ title: l.errorTitle, description: errors[0], variant: "destructive" });
       setSelectedApprovals(new Set());
       invalidate();
+      if (collaboratorIds.length > 0) {
+        queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
+        for (const collaboratorId of collaboratorIds) {
+          queryClient.invalidateQueries({
+            queryKey: ["/api/collaborators", collaboratorId],
+          });
+        }
+      }
     },
     onError: (e: any) => toast({ title: l.errorTitle, description: e?.message, variant: "destructive" }),
   });

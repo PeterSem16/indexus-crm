@@ -1295,7 +1295,7 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
         }
       }
 
-      const reviewerId = (req.session as any)?.userId || null;
+      const reviewerId = req.session.user?.id || null;
       const [updated] = await db.update(collaboratorUpdateRequests).set({
         status: "approved",
         reviewedBy: reviewerId,
@@ -1349,7 +1349,7 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
     try {
       const [updated] = await db.update(collaboratorUpdateRequests).set({
         status: "rejected",
-        reviewedBy: (req.session as any)?.userId || null,
+        reviewedBy: req.session.user?.id || null,
         reviewedAt: new Date(),
         reviewNote: req.body?.note || null,
       }).where(and(

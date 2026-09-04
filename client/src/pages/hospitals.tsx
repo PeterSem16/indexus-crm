@@ -1408,7 +1408,12 @@ function HospitalNetworksTab() {
 
   const { data: allHospitals = [] } = useQuery<any[]>({ queryKey: ["/api/hospitals"] });
   const { data: allClinics = [] } = useQuery<any[]>({ queryKey: ["/api/clinics/lookup"] });
-  const { data: allCollaborators = [] } = useQuery<any[]>({ queryKey: ["/api/collaborators"] });
+  const { data: allCollaborators = [] } = useQuery<any[]>({
+    queryKey: ["/api/collaborators"],
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+  });
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
