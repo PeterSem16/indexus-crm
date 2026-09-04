@@ -7,6 +7,7 @@ import { Play, Pause, Download, Mic, Loader2, ChevronDown, ChevronUp, FileText, 
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/auth-context";
 import { useI18n } from "@/i18n";
+import { beginPulseRecordingPlayback } from "@/features/nexus-pulse-preflight/recording-playback";
 import type { CallRecording } from "@shared/schema";
 
 interface CallLogDisposition {
@@ -539,6 +540,7 @@ function RecordingItem({ recording, compact, onTimeUpdate, waveNames }: { record
   const [showAnalysis, setShowAnalysis] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const animationRef = useRef<number | null>(null);
+  const releasePlaybackProtectionRef = useRef<(() => void) | null>(null);
 
   const audioSrc = `/api/call-recordings/${recording.id}/stream`;
 
@@ -596,6 +598,26 @@ function RecordingItem({ recording, compact, onTimeUpdate, waveNames }: { record
     }
   }, [duration]);
 
+  const releasePlaybackProtection = useCallback(() => {
+    releasePlaybackProtectionRef.current?.();
+    releasePlaybackProtectionRef.current = null;
+  }, []);
+
+  useEffect(() => () => {
+    if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.onloadedmetadata = null;
+      audio.onended = null;
+      audio.onerror = null;
+      audio.removeAttribute("src");
+      audio.load();
+      audioRef.current = null;
+    }
+    releasePlaybackProtection();
+  }, [releasePlaybackProtection]);
+
   const togglePlay = useCallback(() => {
     if (!audioRef.current) {
       const audio = new Audio(audioSrc);
@@ -606,12 +628,14 @@ function RecordingItem({ recording, compact, onTimeUpdate, waveNames }: { record
         }
       };
       audio.onended = () => {
+        releasePlaybackProtection();
         setIsPlaying(false);
         setCurrentTime(0);
         if (animationRef.current) cancelAnimationFrame(animationRef.current);
         onTimeUpdateRef.current?.({ currentTime: 0, duration: audio.duration || duration, isPlaying: false });
       };
       audio.onerror = () => {
+        releasePlaybackProtection();
         setIsPlaying(false);
         console.error("[Recording] Playback error");
       };
@@ -619,15 +643,22 @@ function RecordingItem({ recording, compact, onTimeUpdate, waveNames }: { record
 
     if (isPlaying) {
       audioRef.current.pause();
+      releasePlaybackProtection();
       setIsPlaying(false);
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
       onTimeUpdateRef.current?.({ currentTime: audioRef.current.currentTime, duration: audioRef.current.duration || duration, isPlaying: false });
     } else {
-      audioRef.current.play();
-      setIsPlaying(true);
-      animationRef.current = requestAnimationFrame(updateProgress);
+      releasePlaybackProtectionRef.current = beginPulseRecordingPlayback();
+      void audioRef.current.play().then(() => {
+        setIsPlaying(true);
+        animationRef.current = requestAnimationFrame(updateProgress);
+      }).catch((error) => {
+        releasePlaybackProtection();
+        setIsPlaying(false);
+        console.error("[Recording] Playback failed", error);
+      });
     }
-  }, [isPlaying, audioSrc, updateProgress]);
+  }, [isPlaying, audioSrc, duration, releasePlaybackProtection, updateProgress]);
 
 
   const handleDownload = useCallback(() => {

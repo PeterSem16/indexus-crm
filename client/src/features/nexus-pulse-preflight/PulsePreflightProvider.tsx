@@ -11,6 +11,7 @@ import { useI18n } from "@/i18n";
 import { useToast } from "@/hooks/use-toast";
 import { PulseDiagnostics } from "./PulseDiagnostics";
 import { isPulseReadinessEnvironmentValid, isPulseSessionProtected, pulseReadinessStorageKey } from "./diagnostics";
+import { isPulseRecordingPlaybackActive } from "./recording-playback";
 import { pulseCopy } from "./translations";
 
 type Props = { children: ReactNode };
@@ -39,8 +40,9 @@ export function PulseGate({ children }: Props) {
   const [status, setStatus] = useState<Status>("checking");
   const [acknowledged, setAcknowledged] = useState(() => readStoredReadiness(key));
   const [afterCallWorkActive, setAfterCallWorkActive] = useState(false);
+  const [recordingPlaybackActive, setRecordingPlaybackActive] = useState(isPulseRecordingPlaybackActive);
   const ready = allowed && acknowledged;
-  const workProtected = isPulseSessionProtected(callState) || afterCallWorkActive;
+  const workProtected = isPulseSessionProtected(callState) || afterCallWorkActive || recordingPlaybackActive;
   const workProtectedRef = useRef(workProtected);
   const deferredInvalidation = useRef(false);
   const deferredNoticeShown = useRef(false);
@@ -108,6 +110,15 @@ export function PulseGate({ children }: Props) {
     window.addEventListener("nexus-pulse-work-protection", updateWorkProtection);
     return () => window.removeEventListener("nexus-pulse-work-protection", updateWorkProtection);
   }, []);
+  useEffect(() => {
+    const updateRecordingProtection = (event: Event) => {
+      const active = !!(event as CustomEvent<{ active?: boolean }>).detail?.active;
+      workProtectedRef.current = isPulseSessionProtected(callState) || afterCallWorkActive || active;
+      setRecordingPlaybackActive(active);
+    };
+    window.addEventListener("nexus-pulse-recording-playback", updateRecordingProtection);
+    return () => window.removeEventListener("nexus-pulse-recording-playback", updateRecordingProtection);
+  }, [afterCallWorkActive, callState]);
   useEffect(() => { if (allowed && !ready) setOpen(true); }, [allowed, ready]);
   useEffect(() => {
     if (!allowed) return;
