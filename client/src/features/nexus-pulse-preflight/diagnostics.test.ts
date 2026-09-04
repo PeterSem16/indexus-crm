@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classify, classifyIceResult, hasCriticalFailure, isChromiumDesktop, isCompleteDiagnosticRun, isPulseReadinessEnvironmentValid, isPulseSessionProtected, missionRequiresUserM365, type DiagnosticResult } from "./diagnostics";
+import { classify, classifyIceResult, hasCriticalFailure, isChromiumDesktop, isCompleteDiagnosticRun, isCompletePulseReadinessRun, isPulseReadinessEnvironmentValid, isPulseSessionProtected, pulseReadinessStorageKey, type DiagnosticResult } from "./diagnostics";
 
 describe("NEXUS Pulse preflight classification", () => {
   it("rejects mobile and non-Chromium browsers", () => {
@@ -12,6 +12,9 @@ describe("NEXUS Pulse preflight classification", () => {
     expect(isPulseReadinessEnvironmentValid("Mozilla/5.0 Firefox/122.0", "Win32", true, true)).toBe(false);
     expect(isPulseReadinessEnvironmentValid("Mozilla/5.0 Chrome/121.0 Safari/537.36", "Win32", false, true)).toBe(false);
     expect(isPulseReadinessEnvironmentValid("Mozilla/5.0 Chrome/121.0 Safari/537.36", "Win32", true, false)).toBe(false);
+  });
+  it("uses the M365-required readiness storage version", () => {
+    expect(pulseReadinessStorageKey("42")).toBe("nexus-pulse-ready-v2:42");
   });
   it("keeps warnings non-blocking", () => {
     const results = [{ key: "network" as const, severity: "warning" as const, state: "warn" as const }];
@@ -45,13 +48,8 @@ describe("NEXUS Pulse preflight classification", () => {
     expect(isCompleteDiagnosticRun(complete.filter((result) => result.key !== "sip"))).toBe(false);
     expect(isCompleteDiagnosticRun(complete, ["m365Account"])).toBe(false);
     expect(isCompleteDiagnosticRun([...complete, { key: "m365Account", severity: "critical", state: "pass" }], ["m365Account"])).toBe(true);
-  });
-  it("requires M365 only for email-capable missions using the user account", () => {
-    expect(missionRequiresUserM365("email", JSON.stringify({ nexusPulseEmailMode: "user" }))).toBe(true);
-    expect(missionRequiresUserM365("mixed", null)).toBe(true);
-    expect(missionRequiresUserM365("email", JSON.stringify({ nexusPulseEmailMode: "system" }))).toBe(false);
-    expect(missionRequiresUserM365("phone", JSON.stringify({ nexusPulseEmailMode: "user" }))).toBe(false);
-    expect(missionRequiresUserM365("sms", null)).toBe(false);
+    expect(isCompletePulseReadinessRun(complete)).toBe(false);
+    expect(isCompletePulseReadinessRun([...complete, { key: "m365Account", severity: "critical", state: "pass" }])).toBe(true);
   });
   it("protects an in-progress call and post-call transition from readiness unmounts", () => {
     for (const state of ["connecting", "ringing", "active", "on_hold", "ended"]) {

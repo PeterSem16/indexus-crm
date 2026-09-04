@@ -19,20 +19,17 @@ const REQUIRED_RUN_KEYS: DiagnosticKey[] = [
   "ice", "sip", "notifications", "network", "wakeLock", "devices",
 ];
 
+export function pulseReadinessStorageKey(userId: string) {
+  return `nexus-pulse-ready-v2:${userId}`;
+}
+
 export function isCompleteDiagnosticRun(results: DiagnosticResult[], additionalRequiredKeys: DiagnosticKey[] = []) {
   const resultKeys = new Set(results.map((result) => result.key));
   return [...REQUIRED_RUN_KEYS, ...additionalRequiredKeys].every((key) => resultKeys.has(key));
 }
 
-export function missionRequiresUserM365(channel?: string | null, settings?: string | null) {
-  if (channel !== "email" && channel !== "mixed") return false;
-  if (!settings) return true;
-  try {
-    const mode = JSON.parse(settings).nexusPulseEmailMode;
-    return !mode || mode === "user";
-  } catch {
-    return true;
-  }
+export function isCompletePulseReadinessRun(results: DiagnosticResult[]) {
+  return isCompleteDiagnosticRun(results, ["m365Account"]);
 }
 
 export function isPulseSessionProtected(callState?: string | null) {

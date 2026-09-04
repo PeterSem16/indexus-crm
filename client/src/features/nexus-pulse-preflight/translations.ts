@@ -54,11 +54,20 @@ const subtitles: Record<PulseLocale, string> = {
   it: "Un rapido controllo della connessione e dei dispositivi prima delle chiamate. Nessun audio viene registrato o archiviato.",
   de: "Eine kurze Verbindungs- und Geräteprüfung vor dem Telefonieren. Audio wird weder aufgezeichnet noch gespeichert.",
 };
+const m365RequiredMessages: Record<PulseLocale, string> = {
+  en: "A connected Microsoft 365 account is required for NEXUS Pulse. Open Settings → Microsoft 365, connect your account, then run this check again.",
+  sk: "Pre NEXUS Pulse je potrebný pripojený účet Microsoft 365. Otvorte Nastavenia → Microsoft 365, pripojte účet a potom spustite kontrolu znova.",
+  cs: "Pro NEXUS Pulse je vyžadován připojený účet Microsoft 365. Otevřete Nastavení → Microsoft 365, připojte účet a spusťte kontrolu znovu.",
+  hu: "A NEXUS Pulse használatához csatlakoztatott Microsoft 365-fiók szükséges. Nyissa meg a Beállítások → Microsoft 365 oldalt, csatlakoztassa a fiókot, majd futtassa újra az ellenőrzést.",
+  ro: "Pentru NEXUS Pulse este necesar un cont Microsoft 365 conectat. Deschideți Setări → Microsoft 365, conectați contul și rulați din nou verificarea.",
+  it: "Per NEXUS Pulse è necessario un account Microsoft 365 collegato. Apri Impostazioni → Microsoft 365, collega l'account e ripeti il controllo.",
+  de: "Für NEXUS Pulse ist ein verbundenes Microsoft-365-Konto erforderlich. Öffnen Sie Einstellungen → Microsoft 365, verbinden Sie Ihr Konto und führen Sie die Prüfung erneut aus.",
+};
 ro.soundFail = "Sunetul de test nu a putut fi redat. Încercați din nou.";
 it.soundFail = "Impossibile riprodurre il suono di test. Riprova.";
 de.soundFail = "Der Testton konnte nicht abgespielt werden. Versuchen Sie es erneut.";
 const sets: Record<PulseLocale, PulseCopy> = { en, sk, cs, hu, ro, it, de };
 export function pulseCopy(locale?: string): PulseCopy {
   const selectedLocale = sets[locale as PulseLocale] ? locale as PulseLocale : "en";
-  return { ...sets[selectedLocale], subtitle: subtitles[selectedLocale] };
+  return { ...sets[selectedLocale], subtitle: subtitles[selectedLocale], continue: "NEXUS Pulse", m365Required: m365RequiredMessages[selectedLocale] };
 }

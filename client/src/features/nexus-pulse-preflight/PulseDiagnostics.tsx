@@ -5,12 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useSip } from "@/contexts/sip-context";
 import { useI18n } from "@/i18n";
-import { classify, classifyIceResult, gatherIce, hasCriticalFailure, isChromiumDesktop, isCompleteDiagnosticRun, type DiagnosticResult, type DiagnosticState } from "./diagnostics";
+import { classify, classifyIceResult, gatherIce, hasCriticalFailure, isChromiumDesktop, isCompletePulseReadinessRun, type DiagnosticResult, type DiagnosticState } from "./diagnostics";
 import { pulseCopy } from "./translations";
 
-type Props = { open: boolean; required?: boolean; keepWakeLock?: boolean; requiresUserM365?: boolean; missionScopeKey?: string; userId: string; onClose: () => void; onReady: () => void; onExit?: () => void };
+type Props = { open: boolean; required?: boolean; keepWakeLock?: boolean; userId: string; onClose: () => void; onReady: () => void; onExit?: () => void };
 
-export function PulseDiagnostics({ open, required = false, keepWakeLock = false, requiresUserM365 = false, missionScopeKey = "general", userId, onClose, onReady, onExit }: Props) {
+export function PulseDiagnostics({ open, required = false, keepWakeLock = false, userId, onClose, onReady, onExit }: Props) {
   const { locale } = useI18n();
   const t = pulseCopy(locale);
   const { isRegistered, ensureRegistered } = useSip();
@@ -20,7 +20,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   const [soundPlayed, setSoundPlayed] = useState(false);
   const [soundError, setSoundError] = useState(false);
   const [running, setRunning] = useState(false);
-  const [completedScope, setCompletedScope] = useState<string | null>(null);
+  const [runCompleted, setRunCompleted] = useState(false);
   const wakeLock = useRef<any>(null);
   const wakeLockGeneration = useRef(0);
   const runGeneration = useRef(0);
@@ -52,7 +52,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     const abortController = new AbortController();
     runAbort.current = abortController;
     setRunning(true); setState("checking"); setHeard(false); setSoundPlayed(false); setSoundError(false);
-    setCompletedScope(null);
+    setRunCompleted(false);
     const wakeOk = await acquireWakeLock();
     if (generation !== runGeneration.current) return;
     const r: DiagnosticResult[] = [];
@@ -77,18 +77,16 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     const registered = isRegistered || await ensureRegistered().catch(() => false);
     if (generation !== runGeneration.current) return;
     add("sip", "critical", registered, registered ? t.sipDetail : t.sipFail);
-    if (requiresUserM365) {
-      try {
-        const response = await fetch(`/api/users/${encodeURIComponent(userId)}/ms365-connection`, { credentials: "include", signal: abortController.signal });
-        if (generation !== runGeneration.current) return;
-        if (!response.ok) throw new Error("MS365 status request failed");
-        const connection = await response.json();
-        const connected = !!(connection?.isConnected && connection?.hasTokens);
-        add("m365Account", "critical", connected, connected ? t.m365Connected : t.m365Required);
-      } catch {
-        if (generation !== runGeneration.current || abortController.signal.aborted) return;
-        add("m365Account", "critical", false, t.m365CheckFailed);
-      }
+    try {
+      const response = await fetch(`/api/users/${encodeURIComponent(userId)}/ms365-connection`, { credentials: "include", signal: abortController.signal });
+      if (generation !== runGeneration.current) return;
+      if (!response.ok) throw new Error("MS365 status request failed");
+      const connection = await response.json();
+      const connected = !!(connection?.isConnected && connection?.hasTokens);
+      add("m365Account", "critical", connected, connected ? t.m365Connected : t.m365Required);
+    } catch {
+      if (generation !== runGeneration.current || abortController.signal.aborted) return;
+      add("m365Account", "critical", false, t.m365CheckFailed);
     }
     r.push({ key: "notifications", severity: "warning", state: typeof Notification !== "undefined" && Notification.permission === "granted" ? "pass" : "warn", detail: t.notificationsDetail });
     const networkType = String((navigator as any).connection?.type || "").toLowerCase();
@@ -98,8 +96,8 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     const physicalOutputs = devices.filter((d) => d.kind === "audiooutput" && d.deviceId !== "default" && d.deviceId !== "communications");
     r.push({ key: "devices", severity: "warning", state: "warn", detail: physicalInputs.length > 1 || physicalOutputs.length > 1 ? t.devicesDetail : t.devicesSingleDetail });
     if (generation !== runGeneration.current) return;
-    setResults(r); setState(classify(r)); setCompletedScope(missionScopeKey); setRunning(false);
-  }, [acquireWakeLock, ensureRegistered, isRegistered, missionScopeKey, requiresUserM365, t, userId]);
+    setResults(r); setState(classify(r)); setRunCompleted(true); setRunning(false);
+  }, [acquireWakeLock, ensureRegistered, isRegistered, t, userId]);
   useEffect(() => () => {
     runGeneration.current += 1;
     runAbort.current?.abort();
@@ -109,6 +107,9 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   }, []);
   useEffect(() => {
     if (!open && !keepWakeLock) {
+      runGeneration.current += 1;
+      runAbort.current?.abort();
+      setRunning(false);
       wakeLockGeneration.current += 1;
       void wakeLock.current?.release?.();
       wakeLock.current = null;
@@ -122,9 +123,9 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     setHeard(false);
     setSoundPlayed(false);
     setSoundError(false);
-    setCompletedScope(null);
+    setRunCompleted(false);
     setRunning(false);
-  }, [missionScopeKey, requiresUserM365]);
+  }, [userId]);
   useEffect(() => {
     const onVisible = () => {
       if ((open || keepWakeLock) && document.visibilityState === "visible" && state !== "idle" && !wakeLock.current) {
@@ -155,16 +156,15 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
       : item));
   };
   const finalResults = useMemo(() => [...results, { key: "sound" as const, severity: "critical" as const, state: soundError ? "fail" as const : heard ? "pass" as const : "pending" as const, detail: soundError ? t.soundFail : t.soundDetail }], [heard, results, soundError, t.soundDetail, t.soundFail]);
-  const diagnosticsComplete = isCompleteDiagnosticRun(results, requiresUserM365 ? ["m365Account"] : []);
+  const diagnosticsComplete = isCompletePulseReadinessRun(results);
   const finalState = diagnosticsComplete && heard ? classify(finalResults) : (state === "blocked" ? "blocked" : "checking");
   const labels: Record<string, string> = Object.fromEntries(["browser","secure","online","microphone","input","output","sound","ice","sip","m365Account","notifications","network","wakeLock","devices"].map((k) => [k, t[k as keyof typeof t] as string]));
   const mainResults = finalResults.filter((item) => item.key !== "network" && item.key !== "devices");
   const advisoryResults = finalResults.filter((item) => item.key === "network" || item.key === "devices");
   const statusText = finalState === "ready" ? t.ready : finalState === "warning" ? t.warning : finalState === "blocked" ? t.blocked : t.working;
-  const canContinue = completedScope === missionScopeKey && diagnosticsComplete && heard && !hasCriticalFailure(finalResults) && (finalState === "ready" || finalState === "warning");
+  const canContinue = runCompleted && diagnosticsComplete && heard && !hasCriticalFailure(finalResults) && (finalState === "ready" || finalState === "warning");
   const acknowledge = () => {
     if (!canContinue) return;
-    sessionStorage.setItem(`nexus-pulse-ready:${userId}`, "1");
     onReady();
   };
   return <Dialog open={open} onOpenChange={(v) => !required && !v && onClose()}>
