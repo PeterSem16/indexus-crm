@@ -68,3 +68,4 @@
 - [Mediagtw agent-only recording control](mediagtw-agent-recording-control.md) — outbound recording uses localhost-only mediagtw AMI through SSH; external production needs its own PM2 secret.
 - [Ubuntu PostgreSQL CSV exports](psql-csv-export.md) — multiline `\copy` is unreliable in this psql; use `psql --csv -f - > file` and generate dynamic column lists when excluding secrets.
 - [Module snapshot settings isolation](module-snapshot-settings-isolation.md) — version snapshots whitelist module-owned campaign.settings keys; restore merges them and must never replace the shared settings object.
+- [Pulse gate escape](pulse-gate-escape.md) — mandatory readiness may block Agent Workspace, but must always offer a clear non-bypass return to normal INDEXUS.

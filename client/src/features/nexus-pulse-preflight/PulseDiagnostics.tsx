@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Check, CircleDot, Headphones, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, CircleDot, Headphones, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -8,9 +8,9 @@ import { useI18n } from "@/i18n";
 import { classify, classifyIceResult, gatherIce, hasCriticalFailure, isChromiumDesktop, type DiagnosticResult, type DiagnosticState } from "./diagnostics";
 import { pulseCopy } from "./translations";
 
-type Props = { open: boolean; required?: boolean; keepWakeLock?: boolean; userId: string; onClose: () => void; onReady: () => void };
+type Props = { open: boolean; required?: boolean; keepWakeLock?: boolean; userId: string; onClose: () => void; onReady: () => void; onExit?: () => void };
 
-export function PulseDiagnostics({ open, required = false, keepWakeLock = false, userId, onClose, onReady }: Props) {
+export function PulseDiagnostics({ open, required = false, keepWakeLock = false, userId, onClose, onReady, onExit }: Props) {
   const { locale } = useI18n();
   const t = pulseCopy(locale);
   const { isRegistered, ensureRegistered } = useSip();
@@ -121,12 +121,18 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   const statusText = finalState === "ready" ? t.ready : finalState === "warning" ? t.warning : finalState === "blocked" ? t.blocked : t.working;
   const acknowledge = () => { sessionStorage.setItem(`nexus-pulse-ready:${userId}`, "1"); onReady(); };
   return <Dialog open={open} onOpenChange={(v) => !required && !v && onClose()}>
-    <DialogContent hideCloseButton={required} className="max-w-2xl max-h-[92dvh] overflow-y-auto" data-testid="nexus-pulse-dialog">
-      <DialogHeader><DialogTitle className="flex items-center gap-2 text-xl"><ShieldCheck className="h-5 w-5 text-primary" />{t.title}</DialogTitle><DialogDescription>{t.subtitle}</DialogDescription></DialogHeader>
-      <div className="flex items-center justify-between rounded-lg border bg-muted/40 p-3"><span className="font-medium">{statusText}</span><Badge variant={finalState === "blocked" ? "destructive" : finalState === "ready" ? "default" : "secondary"}>{statusText}</Badge></div>
-      <div className="grid gap-2 sm:grid-cols-2" aria-live="polite">{finalResults.map((item) => <div key={item.key} className="flex gap-3 rounded-lg border p-3"><div className="mt-0.5">{item.state === "pass" ? <Check className="h-4 w-4 text-emerald-600" /> : item.state === "fail" ? <AlertTriangle className="h-4 w-4 text-destructive" /> : <CircleDot className="h-4 w-4 text-amber-600" />}</div><div className="min-w-0"><div className="text-sm font-medium">{labels[item.key]}</div>{item.detail && <div className="text-xs text-muted-foreground">{item.detail}</div>}</div></div>)}</div>
-      <div className="rounded-lg border border-primary/20 bg-primary/5 p-4"><div className="flex items-center gap-2 font-medium"><Headphones className="h-4 w-4" />{t.sound}</div><p className="mt-1 text-sm text-muted-foreground">{soundError ? t.soundFail : t.soundDetail}</p><div className="mt-3 flex flex-wrap items-center gap-3"><Button variant="outline" onClick={() => void play()} data-testid="button-pulse-sound">{t.play}</Button><label className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={!soundPlayed || soundError} checked={heard} onChange={(e) => setHeard(e.target.checked)} />{t.heard}</label></div></div>
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button variant="outline" onClick={() => void run()} disabled={running} data-testid="button-pulse-retry">{running ? t.working : state === "idle" ? t.start : t.retry}</Button>{typeof Notification !== "undefined" && Notification.permission === "default" && <Button variant="ghost" onClick={() => void requestNotifications()}>{t.notifications}</Button>}{!required && <Button variant="ghost" onClick={onClose}>{t.close}</Button>}<Button onClick={acknowledge} disabled={finalState === "blocked" || finalState === "checking" || !heard || hasCriticalFailure(finalResults)} data-testid="button-pulse-continue">{t.continue}</Button></div>
+     <DialogContent hideCloseButton={required} className="max-w-2xl max-h-[92dvh] overflow-y-auto border-primary/15 bg-background/95 p-0 shadow-2xl shadow-primary/10 backdrop-blur" data-testid="nexus-pulse-dialog">
+       <div className="relative overflow-hidden rounded-[inherit]">
+         <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-primary/10 blur-3xl" />
+         <div className="pointer-events-none absolute -left-20 top-24 h-32 w-32 rounded-full bg-amber-300/10 blur-3xl" />
+         <div className="relative space-y-5 p-5 sm:p-7">
+           <DialogHeader><DialogTitle className="flex items-center gap-3 text-xl tracking-tight"><span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/15"><ShieldCheck className="h-5 w-5" /></span><span>{t.title}</span></DialogTitle><DialogDescription className="pl-13">{t.subtitle}</DialogDescription></DialogHeader>
+           <div className="flex items-center justify-between rounded-2xl border border-primary/15 bg-primary/[0.06] p-4 transition-colors" aria-live="polite"><div><span className="font-semibold">{statusText}</span></div><Badge className="rounded-full px-3 py-1" variant={finalState === "blocked" ? "destructive" : finalState === "ready" ? "default" : "secondary"}>{statusText}</Badge></div>
+           <div className="grid gap-2 sm:grid-cols-2" aria-live="polite">{finalResults.map((item, index) => <div key={item.key} className="animate-in fade-in slide-in-from-bottom-1 flex gap-3 rounded-xl border border-border/70 bg-card/60 p-3 transition-colors hover:border-primary/25" style={{ animationDelay: `${Math.min(index * 35, 350)}ms` }}><div className="mt-0.5">{item.state === "pass" ? <Check className="h-4 w-4 text-emerald-600" /> : item.state === "fail" ? <AlertTriangle className="h-4 w-4 text-destructive" /> : <CircleDot className="h-4 w-4 text-amber-600" />}</div><div className="min-w-0"><div className="text-sm font-medium">{labels[item.key]}</div>{item.detail && <div className="text-xs leading-relaxed text-muted-foreground">{item.detail}</div>}</div></div>)}</div>
+           <div className="rounded-2xl border border-primary/20 bg-primary/[0.055] p-4"><div className="flex items-center gap-2 font-semibold"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10"><Headphones className="h-4 w-4 text-primary" /></span>{t.sound}</div><p className="mt-2 text-sm leading-relaxed text-muted-foreground">{soundError ? t.soundFail : t.soundDetail}</p><div className="mt-3 flex flex-wrap items-center gap-3"><Button variant="outline" className="rounded-xl" onClick={() => void play()} data-testid="button-pulse-sound">{t.play}</Button><label className="flex cursor-pointer items-center gap-2 text-sm"><input className="h-4 w-4 accent-primary" type="checkbox" disabled={!soundPlayed || soundError} checked={heard} onChange={(e) => setHeard(e.target.checked)} />{t.heard}</label></div></div>
+            <div className="flex flex-col-reverse gap-2 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-end">{required && onExit && <Button variant="ghost" className="mr-auto justify-start gap-2 text-muted-foreground hover:text-foreground" onClick={onExit} data-testid="button-pulse-return"><ArrowLeft className="h-4 w-4" />{t.returnToIndexus}</Button>}<Button variant="outline" className="rounded-xl" onClick={() => void run()} disabled={running} data-testid="button-pulse-retry">{running ? t.working : state === "idle" ? t.start : t.retry}</Button>{typeof Notification !== "undefined" && Notification.permission === "default" && <Button variant="ghost" onClick={() => void requestNotifications()}>{t.notifications}</Button>}{!required && <Button variant="ghost" onClick={onClose}>{t.close}</Button>}<Button className="rounded-xl" onClick={acknowledge} disabled={finalState === "blocked" || finalState === "checking" || !heard || hasCriticalFailure(finalResults)} data-testid="button-pulse-continue">{t.continue}</Button></div>
+         </div>
+       </div>
     </DialogContent>
   </Dialog>;
 }

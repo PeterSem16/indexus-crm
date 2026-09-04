@@ -16,6 +16,7 @@ function userKey(user: any) { return String(user?.id ?? user?.userId ?? user?.us
 
 export function PulseGate({ children }: Props) {
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const { locale } = useI18n();
   const copy = pulseCopy(locale);
   const { canAccessModule, isLoading } = usePermissions();
@@ -59,7 +60,7 @@ export function PulseGate({ children }: Props) {
   }, [allowed, key]);
   if (isLoading) return <div className="flex min-h-[60dvh] items-center justify-center text-sm text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin" />{copy.working}</div>;
   if (!user || !allowed) return <>{children}</>;
-  return <><PulseDiagnostics open={open} required={!ready} keepWakeLock userId={userKey(user)} onClose={() => setOpen(false)} onReady={() => { sessionStorage.setItem(key, "1"); setAcknowledged(true); setStatus("ready"); setOpen(false); window.dispatchEvent(new Event("nexus-pulse-ready")); }} />{ready ? children : <div className="flex min-h-[60dvh] items-center justify-center"><div className="text-center text-muted-foreground"><Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin" />{copy.working}</div></div>}</>;
+  return <><PulseDiagnostics open={open} required={!ready} keepWakeLock userId={userKey(user)} onClose={() => setOpen(false)} onExit={() => setLocation("/")} onReady={() => { sessionStorage.setItem(key, "1"); setAcknowledged(true); setStatus("ready"); setOpen(false); window.dispatchEvent(new Event("nexus-pulse-ready")); }} />{ready ? children : <div className="flex min-h-[60dvh] items-center justify-center"><div className="text-center text-muted-foreground"><Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin" />{copy.working}</div></div>}</>;
 }
 
 export function PulseHeaderButton() {
