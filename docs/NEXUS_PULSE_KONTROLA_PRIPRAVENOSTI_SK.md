@@ -8,6 +8,21 @@ Kontrola sa zobrazí až po prihlásení a iba používateľom, ktorí majú opr
 
 Počas kontroly sa zvuk **nenahráva ani neukladá** a žiadny testovací zvuk sa neposiela na server.
 
+## Informácie už v onboardingovom e-maile
+
+Používateľ dostane základnú prípravu ešte pred prvým prihlásením. Onboardingový e-mail pre používateľov hlasových služieb a NEXUS Pulse obsahuje odporúčané technické zabezpečenie a softvérové požiadavky:
+
+- pracovný počítač s Windows 10/11 alebo aktuálnym macOS,
+- najnovší 64-bitový Google Chrome alebo Microsoft Edge s automatickými aktualizáciami,
+- povolený mikrofón, zvuk/automatické prehrávanie a oznámenia pre stránku INDEXUS,
+- odporúčanú káblovú USB náhlavnú súpravu Plantronics/Poly Blackwire,
+- požiadavky na sieť a firewall: HTTPS/WSS na TCP 443, WebRTC/UDP médiá a STUN na UDP 19302,
+- kroky pred začiatkom zmeny vrátane pripojenia headsetu, kontroly zvuku, zatvorenia Teams/Zoom a zabránenia uspatiu počítača.
+
+Onboardingový e-mail slúži ako príprava pracoviska. Kontrola pripravenosti pri vstupe do Pulse následne overí, či aktuálne prostredie tieto požiadavky skutočne spĺňa.
+
+![Technické požiadavky v onboardingovom e-maile](images/nexus-pulse-onboarding-requirements-sk.png)
+
 ## Ako kontrolu spustiť
 
 1. V ľavom menu otvorte **NEXUS Pulse** alebo kliknite na stavovú ikonu Pulse v hornej lište.
@@ -19,6 +34,8 @@ Počas kontroly sa zvuk **nenahráva ani neukladá** a žiadny testovací zvuk s
 7. Keď sú všetky povinné kontroly úspešné, kliknite na **Pokračovať do pracoviska**.
 
 Samotné potvrdenie testovacieho zvuku nestačí. Systém dovolí pokračovať až po dokončení celej kontroly a bez kritickej chyby.
+
+![Kontrola pripravenosti NEXUS Pulse](images/nexus-pulse-readiness-check-sk.png)
 
 ## Význam celkových stavov
 
@@ -136,6 +153,8 @@ Kompaktná ikona NEXUS Pulse obsahuje farebnú bodku:
 - **sivá** — kontrola prebieha alebo ešte nebola dokončená.
 
 Po podržaní kurzora sa zobrazí názov a aktuálny stav. Kliknutím na ikonu sa otvorí diagnostika.
+
+![Stavová ikona NEXUS Pulse](../attached_assets/Snímka_obrazovky_2026-09-04_o_9.58.21_1788508783816.png)
 
 ## Platnosť úspešnej kontroly
 

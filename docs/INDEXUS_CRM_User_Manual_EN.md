@@ -200,7 +200,7 @@ The compact Pulse icon in the top bar shows:
 - **Red dot** — blocked or invalidated
 - **Grey dot** — checking or not yet completed
 
-For the complete Slovak user guide, including every diagnostic item and troubleshooting steps, see [NEXUS Pulse — kontrola pripravenosti](NEXUS_PULSE_KONTROLA_PRIPRAVENOSTI_SK.md).
+For the complete English guide, including every diagnostic item and troubleshooting steps, see [NEXUS Pulse — readiness check](NEXUS_PULSE_READINESS_CHECK_EN.md). A [Slovak version](NEXUS_PULSE_KONTROLA_PRIPRAVENOSTI_SK.md) is also available.
 
 ### Agent Dashboard
 
