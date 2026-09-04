@@ -210,3 +210,17 @@ mtime_ms = 1788512138426
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/97cafbd8-713e-4947-91fe-a5a1331eb7a3/5716d562-d6ed-46f5-83b8-8a740c39816e"
 storage_version_token = "1788512187105700"
 content_type = "application/pdf"
+
+[[outputs]]
+id = "HvveRoP9iCSamX_tJXd5a"
+uri = "file://.agents/outputs/NEXUS_Pulse_Checklist_pre_externeho_testera_SK.pdf"
+type = "pdf"
+title = "NEXUS Pulse – checklist pre externého testera"
+description = "Vyplniteľné 8-stranové PDF so 17 testami, výsledkom Prešiel/Neprešiel/S výhradami/Netestované a poznámkou pri každom teste."
+logical_id = "2d096f01-a63f-4e18-a58c-cd8edc14a11f"
+content_hash = "sha256:900d7bb462f34cb73f2ad2f23439940ffb517ef96f611b7b43cd65c032e12e74"
+size = 838757
+mtime_ms = 1788515813905
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/2d096f01-a63f-4e18-a58c-cd8edc14a11f/52beec10-38f3-4fc9-88e6-e446c57536e1"
+storage_version_token = "1788515824645447"
+content_type = "application/pdf"
