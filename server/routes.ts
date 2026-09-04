@@ -37812,6 +37812,114 @@ Rules:
     },
   };
 
+  const ONBOARDING_ENVIRONMENT_I18N: Record<string, Record<string, string>> = {
+    sk: {
+      environmentLabel: "Technické požiadavky",
+      environmentTitle: "Pracovné prostredie pre INDEXUS a hlasové služby",
+      environmentIntro: "Pre spoľahlivé hovory používajte pracovný počítač s podporovaným prehliadačom, správne povoleným zvukom a kvalitnou USB náhlavnou súpravou.",
+      browserTitle: "Počítač a prehliadač",
+      browserDesc: "Windows 10/11 alebo aktuálny macOS; najnovší 64-bitový Google Chrome alebo Microsoft Edge (Chromium) s automatickými aktualizáciami. Firefox, Safari, mobilný prehliadač a anonymný režim nie sú pre webové hovory odporúčané. Kartu INDEXUS nechajte počas zmeny otvorenú a vypnite pre ňu uspávanie kariet/úsporu pamäte.",
+      permissionsTitle: "Oprávnenia prehliadača",
+      permissionsDesc: "Pre stránku INDEXUS nastavte Mikrofón = Povoliť, Zvuk/automatické prehrávanie = Povoliť a Oznámenia = Povoliť. Ako vstup aj výstup vyberte pripojenú náhlavnú súpravu. Zmeny oprávnení potvrďte obnovením stránky.",
+      headsetTitle: "Odporúčaná náhlavná súprava",
+      headsetDesc: "Odporúčame káblovú USB súpravu Plantronics/Poly Blackwire s obojsmernými slúchadlami, výklopným mikrofónom s potlačením okolitého hluku a fyzickým tlačidlom Mute. Nepoužívajte reproduktory ani mikrofón notebooku; Bluetooth používajte iba výnimočne pre možné prepínanie audio profilu a vybitie batérie.",
+      networkTitle: "Sieť a firewall",
+      networkDesc: "Uprednostnite stabilné káblové pripojenie; kvalitná Wi-Fi je prípustná. VPN, proxy a firewall nesmú blokovať HTTPS/WSS na TCP 443, WebRTC/UDP médiá ani STUN na UDP 19302 pre stun.l.google.com a stun1.l.google.com.",
+      beforeShiftTitle: "Pred začiatkom zmeny",
+      beforeShiftDesc: "Pripojte headset ešte pred otvorením INDEXUS, skontrolujte správny mikrofón a reproduktor, zatvorte aplikácie používajúce zvuk (napr. Teams/Zoom), ponechajte počítač pripojený k sieti a zabráňte jeho uspaniu počas zmeny.",
+    },
+    cs: {
+      environmentLabel: "Technické požadavky",
+      environmentTitle: "Pracovní prostředí pro INDEXUS a hlasové služby",
+      environmentIntro: "Pro spolehlivé hovory používejte pracovní počítač s podporovaným prohlížečem, správně povoleným zvukem a kvalitní USB náhlavní soupravou.",
+      browserTitle: "Počítač a prohlížeč",
+      browserDesc: "Windows 10/11 nebo aktuální macOS; nejnovější 64bitový Google Chrome nebo Microsoft Edge (Chromium) s automatickými aktualizacemi. Firefox, Safari, mobilní prohlížeč a anonymní režim nejsou pro webové hovory doporučeny. Kartu INDEXUS nechte během směny otevřenou a vypněte pro ni uspávání karet/úsporu paměti.",
+      permissionsTitle: "Oprávnění prohlížeče",
+      permissionsDesc: "Pro stránku INDEXUS nastavte Mikrofon = Povolit, Zvuk/automatické přehrávání = Povolit a Oznámení = Povolit. Jako vstup i výstup vyberte připojenou náhlavní soupravu. Změny oprávnění potvrďte obnovením stránky.",
+      headsetTitle: "Doporučená náhlavní souprava",
+      headsetDesc: "Doporučujeme kabelovou USB soupravu Plantronics/Poly Blackwire s oboustrannými sluchátky, výklopným mikrofonem s potlačením okolního hluku a fyzickým tlačítkem Mute. Nepoužívejte reproduktory ani mikrofon notebooku; Bluetooth používejte jen výjimečně kvůli přepínání audio profilu a vybití baterie.",
+      networkTitle: "Síť a firewall",
+      networkDesc: "Upřednostněte stabilní kabelové připojení; kvalitní Wi-Fi je přípustná. VPN, proxy a firewall nesmí blokovat HTTPS/WSS na TCP 443, WebRTC/UDP média ani STUN na UDP 19302 pro stun.l.google.com a stun1.l.google.com.",
+      beforeShiftTitle: "Před zahájením směny",
+      beforeShiftDesc: "Připojte headset před otevřením INDEXUS, zkontrolujte správný mikrofon a reproduktor, zavřete aplikace používající zvuk (např. Teams/Zoom), ponechte počítač připojený k síti a zabraňte jeho uspání během směny.",
+    },
+    ro: {
+      environmentLabel: "Cerințe tehnice",
+      environmentTitle: "Mediul de lucru pentru INDEXUS și serviciile vocale",
+      environmentIntro: "Pentru apeluri fiabile, utilizați un computer de serviciu cu un browser acceptat, sunet permis corect și o cască USB de calitate.",
+      browserTitle: "Computer și browser",
+      browserDesc: "Windows 10/11 sau o versiune macOS actuală; cea mai nouă versiune pe 64 de biți a Google Chrome sau Microsoft Edge (Chromium), cu actualizări automate. Firefox, Safari, browserele mobile și modul incognito nu sunt recomandate pentru apelurile web. Mențineți fila INDEXUS deschisă în timpul turei și dezactivați suspendarea filei/economisirea memoriei pentru aceasta.",
+      permissionsTitle: "Permisiunile browserului",
+      permissionsDesc: "Pentru site-ul INDEXUS setați Microfon = Permite, Sunet/redare automată = Permite și Notificări = Permite. Selectați casca conectată atât ca intrare, cât și ca ieșire. După modificarea permisiunilor, reîncărcați pagina.",
+      headsetTitle: "Cască recomandată",
+      headsetDesc: "Recomandăm o cască USB cu fir Plantronics/Poly Blackwire, cu două difuzoare, microfon cu braț și reducerea zgomotului, plus buton fizic Mute. Nu utilizați difuzoarele sau microfonul laptopului; utilizați Bluetooth doar excepțional din cauza comutării profilului audio și a bateriei.",
+      networkTitle: "Rețea și firewall",
+      networkDesc: "Preferați o conexiune stabilă prin cablu; o rețea Wi-Fi de calitate este acceptabilă. VPN-ul, proxy-ul și firewall-ul nu trebuie să blocheze HTTPS/WSS pe TCP 443, traficul media WebRTC/UDP sau STUN pe UDP 19302 pentru stun.l.google.com și stun1.l.google.com.",
+      beforeShiftTitle: "Înainte de începerea turei",
+      beforeShiftDesc: "Conectați casca înainte de a deschide INDEXUS, verificați microfonul și difuzorul selectate, închideți aplicațiile care utilizează sunetul (de ex. Teams/Zoom), mențineți computerul conectat la rețea și împiedicați intrarea lui în repaus.",
+    },
+    hu: {
+      environmentLabel: "Műszaki követelmények",
+      environmentTitle: "Munkakörnyezet az INDEXUS és a hangszolgáltatások számára",
+      environmentIntro: "A megbízható hívásokhoz támogatott böngészővel, megfelelő hangengedélyekkel és minőségi USB headsettel rendelkező munkahelyi számítógépet használjon.",
+      browserTitle: "Számítógép és böngésző",
+      browserDesc: "Windows 10/11 vagy naprakész macOS; a Google Chrome vagy Microsoft Edge (Chromium) legújabb 64 bites verziója automatikus frissítéssel. A Firefox, Safari, mobilböngésző és inkognitó mód nem ajánlott webes hívásokhoz. A műszak alatt tartsa nyitva az INDEXUS lapot, és kapcsolja ki hozzá a lapaltatást/memóriatakarékosságot.",
+      permissionsTitle: "Böngészőengedélyek",
+      permissionsDesc: "Az INDEXUS webhelyhez állítsa be: Mikrofon = Engedélyezés, Hang/automatikus lejátszás = Engedélyezés és Értesítések = Engedélyezés. Bemenetként és kimenetként is a csatlakoztatott headsetet válassza. Az engedélyek módosítása után frissítse az oldalt.",
+      headsetTitle: "Ajánlott headset",
+      headsetDesc: "Vezetékes USB Plantronics/Poly Blackwire headsetet ajánlunk kétoldalas fülhallgatóval, zajszűrős karos mikrofonnal és fizikai Mute gombbal. Ne használja a laptop hangszóróját vagy mikrofonját; Bluetooth csak kivételesen ajánlott az audioprofil-váltás és az akkumulátor miatt.",
+      networkTitle: "Hálózat és tűzfal",
+      networkDesc: "A stabil vezetékes kapcsolatot részesítse előnyben; jó minőségű Wi-Fi elfogadható. A VPN, proxy és tűzfal nem blokkolhatja a HTTPS/WSS TCP 443 kapcsolatot, a WebRTC/UDP médiaforgalmat és a STUN UDP 19302 kapcsolatot a stun.l.google.com és stun1.l.google.com címekhez.",
+      beforeShiftTitle: "A műszak megkezdése előtt",
+      beforeShiftDesc: "Az INDEXUS megnyitása előtt csatlakoztassa a headsetet, ellenőrizze a kiválasztott mikrofont és hangszórót, zárja be a hangot használó alkalmazásokat (pl. Teams/Zoom), tartsa hálózaton a számítógépet, és akadályozza meg az alvó módot.",
+    },
+    it: {
+      environmentLabel: "Requisiti tecnici",
+      environmentTitle: "Ambiente di lavoro per INDEXUS e i servizi vocali",
+      environmentIntro: "Per chiamate affidabili, utilizzare un computer aziendale con browser supportato, autorizzazioni audio corrette e cuffie USB di qualità.",
+      browserTitle: "Computer e browser",
+      browserDesc: "Windows 10/11 o una versione macOS aggiornata; ultima versione a 64 bit di Google Chrome o Microsoft Edge (Chromium) con aggiornamenti automatici. Firefox, Safari, browser mobili e modalità in incognito non sono consigliati per le chiamate web. Tenere aperta la scheda INDEXUS durante il turno e disattivare per essa la sospensione delle schede/il risparmio memoria.",
+      permissionsTitle: "Autorizzazioni del browser",
+      permissionsDesc: "Per il sito INDEXUS impostare Microfono = Consenti, Audio/riproduzione automatica = Consenti e Notifiche = Consenti. Selezionare le cuffie collegate sia come ingresso sia come uscita. Dopo una modifica delle autorizzazioni, ricaricare la pagina.",
+      headsetTitle: "Cuffie consigliate",
+      headsetDesc: "Consigliamo cuffie USB cablate Plantronics/Poly Blackwire, binaurali, con microfono ad asta a cancellazione del rumore e pulsante fisico Mute. Non utilizzare altoparlanti o microfono del portatile; usare il Bluetooth solo eccezionalmente per il cambio del profilo audio e la batteria.",
+      networkTitle: "Rete e firewall",
+      networkDesc: "Preferire una connessione cablata stabile; una buona rete Wi-Fi è accettabile. VPN, proxy e firewall non devono bloccare HTTPS/WSS su TCP 443, i media WebRTC/UDP o STUN su UDP 19302 verso stun.l.google.com e stun1.l.google.com.",
+      beforeShiftTitle: "Prima di iniziare il turno",
+      beforeShiftDesc: "Collegare le cuffie prima di aprire INDEXUS, verificare microfono e altoparlante selezionati, chiudere le applicazioni che usano l'audio (ad es. Teams/Zoom), mantenere il computer collegato alla rete e impedirne la sospensione.",
+    },
+    de: {
+      environmentLabel: "Technische Voraussetzungen",
+      environmentTitle: "Arbeitsumgebung für INDEXUS und Sprachdienste",
+      environmentIntro: "Verwenden Sie für zuverlässige Anrufe einen Arbeitscomputer mit unterstütztem Browser, korrekt freigegebenem Audio und einem hochwertigen USB-Headset.",
+      browserTitle: "Computer und Browser",
+      browserDesc: "Windows 10/11 oder eine aktuelle macOS-Version; neueste 64-Bit-Version von Google Chrome oder Microsoft Edge (Chromium) mit automatischen Updates. Firefox, Safari, mobile Browser und Inkognito-Modus werden für Webanrufe nicht empfohlen. Lassen Sie den INDEXUS-Tab während der Schicht geöffnet und deaktivieren Sie dafür Tab-Ruhezustand/Speichersparmodus.",
+      permissionsTitle: "Browser-Berechtigungen",
+      permissionsDesc: "Stellen Sie für die INDEXUS-Seite Mikrofon = Zulassen, Ton/Autoplay = Zulassen und Benachrichtigungen = Zulassen ein. Wählen Sie das angeschlossene Headset als Ein- und Ausgabegerät. Laden Sie die Seite nach Änderungen der Berechtigungen neu.",
+      headsetTitle: "Empfohlenes Headset",
+      headsetDesc: "Wir empfehlen ein kabelgebundenes USB-Headset Plantronics/Poly Blackwire mit beidseitigen Hörmuscheln, geräuschunterdrückendem Bügelmikrofon und physischer Mute-Taste. Verwenden Sie nicht Lautsprecher oder Mikrofon des Laptops; Bluetooth nur ausnahmsweise wegen Audioprofilwechsel und Akkubetrieb.",
+      networkTitle: "Netzwerk und Firewall",
+      networkDesc: "Bevorzugen Sie eine stabile Kabelverbindung; gutes WLAN ist zulässig. VPN, Proxy und Firewall dürfen HTTPS/WSS über TCP 443, WebRTC/UDP-Medien sowie STUN über UDP 19302 zu stun.l.google.com und stun1.l.google.com nicht blockieren.",
+      beforeShiftTitle: "Vor Schichtbeginn",
+      beforeShiftDesc: "Schließen Sie das Headset vor dem Öffnen von INDEXUS an, prüfen Sie das ausgewählte Mikrofon und den Lautsprecher, schließen Sie Audio-Anwendungen (z. B. Teams/Zoom), halten Sie den Computer online und verhindern Sie den Ruhezustand während der Schicht.",
+    },
+    en: {
+      environmentLabel: "Technical requirements",
+      environmentTitle: "Work environment for INDEXUS and voice services",
+      environmentIntro: "For reliable calls, use a work computer with a supported browser, correctly permitted audio and a quality USB headset.",
+      browserTitle: "Computer and browser",
+      browserDesc: "Windows 10/11 or a current macOS version; the latest 64-bit Google Chrome or Microsoft Edge (Chromium) with automatic updates. Firefox, Safari, mobile browsers and Incognito mode are not recommended for web calls. Keep the INDEXUS tab open during the shift and disable tab sleeping/memory saving for it.",
+      permissionsTitle: "Browser permissions",
+      permissionsDesc: "For the INDEXUS site set Microphone = Allow, Sound/autoplay = Allow and Notifications = Allow. Select the connected headset as both input and output. Reload the page after changing permissions.",
+      headsetTitle: "Recommended headset",
+      headsetDesc: "We recommend a wired USB Plantronics/Poly Blackwire headset with two earphones, a noise-cancelling boom microphone and a physical Mute button. Do not use laptop speakers or microphone; use Bluetooth only exceptionally due to audio-profile switching and battery limitations.",
+      networkTitle: "Network and firewall",
+      networkDesc: "Prefer a stable wired connection; good-quality Wi-Fi is acceptable. VPN, proxy and firewall must not block HTTPS/WSS on TCP 443, WebRTC/UDP media, or STUN on UDP 19302 to stun.l.google.com and stun1.l.google.com.",
+      beforeShiftTitle: "Before starting the shift",
+      beforeShiftDesc: "Connect the headset before opening INDEXUS, verify the selected microphone and speaker, close applications using audio (for example Teams/Zoom), keep the computer online and prevent it from sleeping during the shift.",
+    },
+  };
+
   const COUNTRY_LANG_MAP: Record<string, string> = { SK: "sk", CZ: "cs", HU: "hu", RO: "ro", AT: "de", IT: "it", DE: "de" };
 
   const COUNTRY_NAME_MAP: Record<string, Record<string, string>> = {
@@ -37835,7 +37943,10 @@ Rules:
     const countries = user.assignedCountries || [];
     const countryCode = countries[0] || "SK";
     const lang = countries.length > 1 ? "en" : (COUNTRY_LANG_MAP[countryCode] || "en");
-    const t = ONBOARDING_I18N[lang] || ONBOARDING_I18N.en;
+    const t = {
+      ...(ONBOARDING_I18N[lang] || ONBOARDING_I18N.en),
+      ...(ONBOARDING_ENVIRONMENT_I18N[lang] || ONBOARDING_ENVIRONMENT_I18N.en),
+    };
 
     const countryName = COUNTRY_NAME_MAP[countryCode]?.[lang] || countryCode;
     const countryFlag = COUNTRY_FLAG_MAP[countryCode] || "\ud83c\udff3\ufe0f";
