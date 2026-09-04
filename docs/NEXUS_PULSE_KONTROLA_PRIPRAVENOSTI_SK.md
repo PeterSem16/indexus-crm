@@ -35,7 +35,9 @@ Onboardingový e-mail slúži ako príprava pracoviska. Kontrola pripravenosti p
 
 Samotné potvrdenie testovacieho zvuku nestačí. Systém dovolí pokračovať až po dokončení celej kontroly a bez kritickej chyby.
 
-![Kontrola pripravenosti NEXUS Pulse](images/nexus-pulse-readiness-check-sk.png)
+![Kontrola pripravenosti NEXUS Pulse — prehľad kontrol](images/nexus-pulse-readiness-check-overview.png)
+
+![Kontrola pripravenosti NEXUS Pulse — testovací zvuk](images/nexus-pulse-readiness-check-test-sound.png)
 
 ## Význam celkových stavov
 

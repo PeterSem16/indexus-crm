@@ -35,7 +35,9 @@ The onboarding email prepares the workstation. The readiness check performed whe
 
 Confirming the test sound alone is not sufficient. The system permits entry only after the complete check finishes without a critical failure.
 
-![NEXUS Pulse readiness check](../attached_assets/Snímka_obrazovky_2026-09-04_o_9.45.49_1788508024365.png)
+![NEXUS Pulse readiness check — check overview](images/nexus-pulse-readiness-check-overview.png)
+
+![NEXUS Pulse readiness check — test sound](images/nexus-pulse-readiness-check-test-sound.png)
 
 ## Overall status meanings
 
