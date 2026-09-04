@@ -5,7 +5,7 @@ export const GOOGLE_STUN_SERVERS = [
 
 export type DiagnosticState = "checking" | "ready" | "warning" | "blocked" | "idle";
 export type DiagnosticSeverity = "critical" | "warning";
-export type DiagnosticKey = "browser" | "secure" | "online" | "microphone" | "input" | "output" | "sound" | "ice" | "sip" | "notifications" | "network" | "wakeLock" | "devices";
+export type DiagnosticKey = "browser" | "secure" | "online" | "microphone" | "input" | "output" | "sound" | "ice" | "sip" | "m365Account" | "notifications" | "network" | "wakeLock" | "devices";
 
 export interface DiagnosticResult {
   key: DiagnosticKey;
@@ -19,9 +19,20 @@ const REQUIRED_RUN_KEYS: DiagnosticKey[] = [
   "ice", "sip", "notifications", "network", "wakeLock", "devices",
 ];
 
-export function isCompleteDiagnosticRun(results: DiagnosticResult[]) {
+export function isCompleteDiagnosticRun(results: DiagnosticResult[], additionalRequiredKeys: DiagnosticKey[] = []) {
   const resultKeys = new Set(results.map((result) => result.key));
-  return REQUIRED_RUN_KEYS.every((key) => resultKeys.has(key));
+  return [...REQUIRED_RUN_KEYS, ...additionalRequiredKeys].every((key) => resultKeys.has(key));
+}
+
+export function missionRequiresUserM365(channel?: string | null, settings?: string | null) {
+  if (channel !== "email" && channel !== "mixed") return false;
+  if (!settings) return true;
+  try {
+    const mode = JSON.parse(settings).nexusPulseEmailMode;
+    return !mode || mode === "user";
+  } catch {
+    return true;
+  }
 }
 
 export function isChromiumDesktop(ua = typeof navigator !== "undefined" ? navigator.userAgent : "", platform = typeof navigator !== "undefined" ? navigator.platform : "") {

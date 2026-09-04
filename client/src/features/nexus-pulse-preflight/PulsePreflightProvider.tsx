@@ -13,11 +13,12 @@ import { pulseCopy } from "./translations";
 
 type Props = { children: ReactNode };
 type Status = "checking" | "ready" | "warning" | "blocked";
+type MissionRequirements = { campaignId: string | null; requiresUserM365: boolean };
 
 function userKey(user: any) { return String(user?.id ?? user?.userId ?? user?.username ?? "unknown"); }
 
 function readStoredReadiness(key: string) {
-  if (sessionStorage.getItem(key) !== "1") return false;
+  if (!sessionStorage.getItem(key)) return false;
   if (isPulseReadinessEnvironmentValid()) return true;
   sessionStorage.removeItem(key);
   return false;
@@ -34,6 +35,7 @@ export function PulseGate({ children }: Props) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<Status>("checking");
   const [acknowledged, setAcknowledged] = useState(() => readStoredReadiness(key));
+  const [missionRequirements, setMissionRequirements] = useState<MissionRequirements>({ campaignId: null, requiresUserM365: false });
   const ready = allowed && acknowledged;
   const { isRegistered } = useSip();
   useEffect(() => {
@@ -51,6 +53,29 @@ export function PulseGate({ children }: Props) {
     window.addEventListener("nexus-pulse-open", openFromHeader);
     window.addEventListener("nexus-pulse-ready", sync);
     return () => { window.removeEventListener("nexus-pulse-open", openFromHeader); window.removeEventListener("nexus-pulse-ready", sync); };
+  }, [key]);
+  useEffect(() => {
+    const updateMissionRequirements = (event: Event) => {
+      const detail = (event as CustomEvent<Partial<MissionRequirements>>).detail;
+      const next: MissionRequirements = {
+        campaignId: detail?.campaignId ? String(detail.campaignId) : null,
+        requiresUserM365: !!detail?.requiresUserM365,
+      };
+      setMissionRequirements((current) => {
+        const missionRelevantChange = (current.requiresUserM365 || next.requiresUserM365)
+          && (current.campaignId !== next.campaignId || current.requiresUserM365 !== next.requiresUserM365);
+        if (missionRelevantChange) {
+          sessionStorage.removeItem(key);
+          setAcknowledged(false);
+          setStatus("blocked");
+          setOpen(true);
+          window.dispatchEvent(new Event("nexus-pulse-invalidated"));
+        }
+        return next;
+      });
+    };
+    window.addEventListener("nexus-pulse-mission-requirements", updateMissionRequirements);
+    return () => window.removeEventListener("nexus-pulse-mission-requirements", updateMissionRequirements);
   }, [key]);
   useEffect(() => { if (allowed && !ready) setOpen(true); }, [allowed, ready]);
   useEffect(() => {
@@ -72,7 +97,7 @@ export function PulseGate({ children }: Props) {
   if (!user || !allowed) return <>{children}</>;
   const roleLandingPage = (user as any)?.roleLandingPage || "/";
   const safeExitPage = roleLandingPage === "/agent-workspace" ? "/" : roleLandingPage;
-  return <><PulseDiagnostics open={open} required={!ready} keepWakeLock userId={userKey(user)} onClose={() => setOpen(false)} onExit={() => setLocation(safeExitPage)} onReady={() => { sessionStorage.setItem(key, "1"); setAcknowledged(true); setStatus("ready"); setOpen(false); window.dispatchEvent(new Event("nexus-pulse-ready")); }} />{ready ? children : <div className="flex min-h-[60dvh] items-center justify-center"><div className="text-center text-muted-foreground"><Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin" />{copy.working}</div></div>}</>;
+  return <><PulseDiagnostics open={open} required={!ready} keepWakeLock userId={userKey(user)} missionScopeKey={missionRequirements.campaignId || "general"} requiresUserM365={missionRequirements.requiresUserM365} onClose={() => setOpen(false)} onExit={() => setLocation(safeExitPage)} onReady={() => { sessionStorage.setItem(key, JSON.stringify(missionRequirements)); setAcknowledged(true); setStatus("ready"); setOpen(false); window.dispatchEvent(new Event("nexus-pulse-ready")); }} />{ready ? children : <div className="flex min-h-[60dvh] items-center justify-center"><div className="text-center text-muted-foreground"><Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin" />{copy.working}</div></div>}</>;
 }
 
 export function PulseHeaderButton() {

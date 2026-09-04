@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { NexusPulseView } from "@/components/nexus-pulse-view";
+import { missionRequiresUserM365 } from "@/features/nexus-pulse-preflight/diagnostics";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -11221,6 +11222,15 @@ export default function AgentWorkspacePage() {
     if (!selectedCampaign?.settings) return "user";
     try { return (JSON.parse(selectedCampaign.settings).nexusPulseEmailMode as "system" | "user" | "custom") || "user"; } catch { return "user"; }
   }, [selectedCampaign?.settings]);
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("nexus-pulse-mission-requirements", {
+      detail: {
+        campaignId: selectedCampaign?.id ?? null,
+        requiresUserM365: missionRequiresUserM365(selectedCampaign?.channel, selectedCampaign?.settings),
+      },
+    }));
+  }, [selectedCampaign?.channel, selectedCampaign?.id, selectedCampaign?.settings]);
 
   const campaignEmailAddress = useMemo(() => {
     if (!selectedCampaign?.settings) return "";

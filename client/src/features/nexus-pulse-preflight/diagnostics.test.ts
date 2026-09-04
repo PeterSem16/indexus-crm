@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classify, classifyIceResult, hasCriticalFailure, isChromiumDesktop, isCompleteDiagnosticRun, isPulseReadinessEnvironmentValid, type DiagnosticResult } from "./diagnostics";
+import { classify, classifyIceResult, hasCriticalFailure, isChromiumDesktop, isCompleteDiagnosticRun, isPulseReadinessEnvironmentValid, missionRequiresUserM365, type DiagnosticResult } from "./diagnostics";
 
 describe("NEXUS Pulse preflight classification", () => {
   it("rejects mobile and non-Chromium browsers", () => {
@@ -43,5 +43,14 @@ describe("NEXUS Pulse preflight classification", () => {
     }));
     expect(isCompleteDiagnosticRun(complete)).toBe(true);
     expect(isCompleteDiagnosticRun(complete.filter((result) => result.key !== "sip"))).toBe(false);
+    expect(isCompleteDiagnosticRun(complete, ["m365Account"])).toBe(false);
+    expect(isCompleteDiagnosticRun([...complete, { key: "m365Account", severity: "critical", state: "pass" }], ["m365Account"])).toBe(true);
+  });
+  it("requires M365 only for email-capable missions using the user account", () => {
+    expect(missionRequiresUserM365("email", JSON.stringify({ nexusPulseEmailMode: "user" }))).toBe(true);
+    expect(missionRequiresUserM365("mixed", null)).toBe(true);
+    expect(missionRequiresUserM365("email", JSON.stringify({ nexusPulseEmailMode: "system" }))).toBe(false);
+    expect(missionRequiresUserM365("phone", JSON.stringify({ nexusPulseEmailMode: "user" }))).toBe(false);
+    expect(missionRequiresUserM365("sms", null)).toBe(false);
   });
 });
