@@ -176,6 +176,32 @@ NEXUS Omni is the integrated email client and communication hub.
 
 NEXUS Pulse is the full-featured call center agent workspace. This is where agents spend most of their working day.
 
+### Required Readiness Check
+
+Before the Agent Workspace opens, NEXUS Pulse runs a required readiness check for users who have access to the module. It verifies the current desktop Chromium browser, secure connection, online status, microphone permission, audio input and output, a user-confirmed test sound, and SIP/WSS registration.
+
+The check also reports non-blocking recommendations for the ICE connection path, browser notifications, network type, screen wake lock, and multiple audio devices. These recommendations may produce a **Ready with notes** result, but they do not prevent calling.
+
+The user interface shows four clear overall states:
+- **Checking your calling setup…** — the check is still running or incomplete
+- **Ready for calls** — all required checks passed
+- **Ready with notes** — required checks passed with one or more recommendations
+- **Action required** — a required check failed and workspace entry is blocked
+
+The agent must play the local test sound and confirm that it was heard. Sound confirmation alone cannot bypass the remaining checks. No audio is recorded, stored, or sent to the server during diagnostics.
+
+If the required check fails, **Return to INDEXUS** takes the agent back to the landing page configured for their role without marking the check as successful. Opening NEXUS Pulse again starts the protected entry flow again.
+
+A successful result is stored only in the current browser session and separately for each user. It is invalidated after relevant environment changes such as going offline, changing network or audio devices, a long computer sleep, or a sustained SIP disconnection. Saved readiness is never accepted in an unsupported browser, insecure context, or offline state.
+
+The compact Pulse icon in the top bar shows:
+- **Green dot** — ready
+- **Orange dot** — ready with notes or within the short SIP reconnection tolerance
+- **Red dot** — blocked or invalidated
+- **Grey dot** — checking or not yet completed
+
+For the complete Slovak user guide, including every diagnostic item and troubleshooting steps, see [NEXUS Pulse — kontrola pripravenosti](NEXUS_PULSE_KONTROLA_PRIPRAVENOSTI_SK.md).
+
 ### Agent Dashboard
 
 When an agent opens NEXUS Pulse, they see:
