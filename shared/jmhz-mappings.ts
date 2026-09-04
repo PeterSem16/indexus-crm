@@ -1,0 +1,33 @@
+export const JMHZ_EDUCATION_TO_CARD_VALUE: Record<string, string> = {
+  "Bez vzdělání": "A",
+  "Neúplné základní vzdělání": "B",
+  "Základní vzdělání": "C",
+  "Nižší střední vzdělání": "D",
+  "Nižší střední odborné vzdělání": "E",
+  "Střední odborné vzdělání s výučním listem": "H",
+  "Střední nebo střední odborné vzdělání bez maturity a výučního listu": "J",
+  "Úplné střední všeobecné vzdělání": "K",
+  "Úplné střední odborné vzdělání s vyučením i maturitou": "L",
+  "Úplné střední odborné vzdělání s maturitou (bez vyučení)": "M",
+  "Vyšší odborné vzdělání": "N",
+  "Vyšší odborné vzdělání v konzervatoři": "P",
+  "Vysokoškolské bakalářské vzdělání": "R",
+  "Vysokoškolské magisterské vzdělání": "T",
+  "Vysokoškolské doktorské vzdělání": "V",
+};
+
+export const JMHZ_PROFESSION_TO_CARD_VALUE: Record<string, string> = {
+  "Lékaři v gynekologii a porodnictví (specialisté)": "gynecology_specialists",
+  "Všeobecní lékaři (lékaři v přípravě/absolventi)": "general_practitioners",
+  "Primáři v oblasti zdravotnictví": "chief_physicians",
+  "Vedoucí lékaři a ředitelé zdravotnických zařízení": "medical_directors",
+  "Porodní asistentky se specializací": "specialized_midwives",
+  "Staniční sestry (porodní asistentky)": "charge_midwives",
+  "Porodní asistentky bez specializace": "midwives_no_specialization",
+  "Vrchní a staniční sestry (všeobecné sestry)": "head_nurses",
+  "Sestry pro péči v chirurgických oborech": "surgical_nurses",
+  "Všeobecné sestry bez specializace": "general_nurses_no_spec",
+  "Sestry pro péči v interních oborech": "internal_medicine_nurses",
+  "Praktické sestry (dříve zdravotničtí asistenti)": "practical_nurses",
+  "Ošetřovatelé ve zdravotnických zařízeních": "healthcare_assistants",
+};

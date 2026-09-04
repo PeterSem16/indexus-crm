@@ -9,6 +9,31 @@ import { startScheduledReportRunner } from "./scheduled-report-runner";
 import { startKpiSnapshotCron } from "./kpi-snapshot-cron";
 import { ensureIndexes } from "./ensure-indexes";
 import { pool } from "./db";
+import {
+  JMHZ_EDUCATION_TO_CARD_VALUE,
+  JMHZ_PROFESSION_TO_CARD_VALUE,
+} from "@shared/jmhz-mappings";
+
+async function normalizeJmhzCardValues(
+  column: "highest_education" | "professional_classification",
+  mapping: Record<string, string>,
+): Promise<number> {
+  const entries = Object.entries(mapping);
+  const params: unknown[] = [];
+  const cases = entries.map(([label, value]) => {
+    const labelParam = params.push(label);
+    const valueParam = params.push(value);
+    return `WHEN $${labelParam} THEN $${valueParam}`;
+  });
+  const labelsParam = params.push(entries.map(([label]) => label));
+  const result = await pool.query(
+    `UPDATE collaborators
+        SET ${column} = CASE ${column} ${cases.join(" ")} ELSE ${column} END
+      WHERE ${column} = ANY($${labelsParam}::text[])`,
+    params,
+  );
+  return result.rowCount || 0;
+}
 
 process.on('SIGHUP', () => {
   console.log('[server] Received SIGHUP, shutting down...');
@@ -259,6 +284,18 @@ app.use((req, res, next) => {
         ALTER COLUMN country_code TYPE varchar(64);
     `);
     console.log('[migration] collaborator_update tables ensured');
+
+    const normalizedEducation = await normalizeJmhzCardValues(
+      "highest_education",
+      JMHZ_EDUCATION_TO_CARD_VALUE,
+    );
+    const normalizedProfessions = await normalizeJmhzCardValues(
+      "professional_classification",
+      JMHZ_PROFESSION_TO_CARD_VALUE,
+    );
+    console.log(
+      `[migration] JMHZ collaborator card values normalized: education=${normalizedEducation}, professions=${normalizedProfessions}`,
+    );
 
     await pool.query(`
       ALTER TABLE campaign_status_list_automations

@@ -16,6 +16,10 @@ import {
   getValidAccessToken,
 } from "./lib/ms365";
 import { decryptTokenSafe, encryptTokenWithMarker } from "./lib/token-crypto";
+import {
+  JMHZ_EDUCATION_TO_CARD_VALUE,
+  JMHZ_PROFESSION_TO_CARD_VALUE,
+} from "@shared/jmhz-mappings";
 
 // Resolve a valid MS365 access token for the campaign's configured sender
 // (system country mailbox | creator's own account | shared mailbox via the
@@ -298,6 +302,7 @@ function validateJmhzSubmission(data: Record<string, any>): string | null {
   }
   if (!(JMHZ_EDUCATION_LEVELS as readonly string[]).includes(String(data.educationHighest).trim())) return "educationHighest";
   if (!(JMHZ_EDUCATION_LEVELS as readonly string[]).includes(String(data.educationRequired).trim())) return "educationRequired";
+  if (!(JMHZ_PROFESSIONS as readonly string[]).includes(String(data.profession).trim())) return "profession";
   if (!["Ano", "Ne"].includes(String(data.isLeadingEmployee).trim())) return "isLeadingEmployee";
   return null;
 }
@@ -1261,6 +1266,14 @@ export function registerCollaboratorUpdateRoutes(app: Express, requireAuth: any)
           const jf = ch.field.slice(5);
           if (jf === "isLeadingEmployee") {
             collabUpdate.isManager = String(ch.newValue).trim() === "Ano";
+          } else if (jf === "educationHighest") {
+            const submittedValue = String(ch.newValue ?? "").trim();
+            collabUpdate.highestEducation =
+              JMHZ_EDUCATION_TO_CARD_VALUE[submittedValue] ?? submittedValue;
+          } else if (jf === "profession") {
+            const submittedValue = String(ch.newValue ?? "").trim();
+            collabUpdate.professionalClassification =
+              JMHZ_PROFESSION_TO_CARD_VALUE[submittedValue] ?? submittedValue;
           } else if (JMHZ_TO_COLLAB_COLUMN[jf]) {
             collabUpdate[JMHZ_TO_COLLAB_COLUMN[jf]] = ch.newValue;
           }
