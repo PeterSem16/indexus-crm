@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classify, classifyIceResult, hasCriticalFailure, isChromiumDesktop } from "./diagnostics";
+import { classify, classifyIceResult, hasCriticalFailure, isChromiumDesktop, isCompleteDiagnosticRun, type DiagnosticResult } from "./diagnostics";
 
 describe("NEXUS Pulse preflight classification", () => {
   it("rejects mobile and non-Chromium browsers", () => {
@@ -21,5 +21,21 @@ describe("NEXUS Pulse preflight classification", () => {
     expect(classifyIceResult({ ok: false, hasPublicCandidate: false })).toEqual({ severity: "warning", state: "warn" });
     expect(classifyIceResult({ ok: true, hasPublicCandidate: false })).toEqual({ severity: "warning", state: "warn" });
     expect(classifyIceResult({ ok: true, hasPublicCandidate: true })).toEqual({ severity: "warning", state: "pass" });
+  });
+  it("never treats sound confirmation as a completed diagnostic run", () => {
+    const soundOnly: DiagnosticResult[] = [
+      { key: "sound", severity: "critical", state: "pass" },
+    ];
+    expect(isCompleteDiagnosticRun(soundOnly)).toBe(false);
+  });
+  it("requires every environment check before completion", () => {
+    const keys = ["browser", "secure", "online", "microphone", "input", "output", "ice", "sip", "notifications", "network", "wakeLock", "devices"] as const;
+    const complete = keys.map((key): DiagnosticResult => ({
+      key,
+      severity: ["ice", "notifications", "network", "wakeLock", "devices"].includes(key) ? "warning" : "critical",
+      state: "pass",
+    }));
+    expect(isCompleteDiagnosticRun(complete)).toBe(true);
+    expect(isCompleteDiagnosticRun(complete.filter((result) => result.key !== "sip"))).toBe(false);
   });
 });

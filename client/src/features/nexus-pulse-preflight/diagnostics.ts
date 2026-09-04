@@ -14,6 +14,16 @@ export interface DiagnosticResult {
   detail?: string;
 }
 
+const REQUIRED_RUN_KEYS: DiagnosticKey[] = [
+  "browser", "secure", "online", "microphone", "input", "output",
+  "ice", "sip", "notifications", "network", "wakeLock", "devices",
+];
+
+export function isCompleteDiagnosticRun(results: DiagnosticResult[]) {
+  const resultKeys = new Set(results.map((result) => result.key));
+  return REQUIRED_RUN_KEYS.every((key) => resultKeys.has(key));
+}
+
 export function isChromiumDesktop(ua = typeof navigator !== "undefined" ? navigator.userAgent : "", platform = typeof navigator !== "undefined" ? navigator.platform : "") {
   const mobile = /Android|iPhone|iPad|Mobile/i.test(ua) || /iPhone|iPad/i.test(platform);
   const chromium = /Chrome|Chromium|Edg\//i.test(ua) && !/Firefox|OPR\/|Opera|SamsungBrowser/i.test(ua);
