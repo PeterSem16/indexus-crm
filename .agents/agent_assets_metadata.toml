@@ -6,153 +6,193 @@ id = "RwqYmszvVQqKx4SwXgh3A"
 uri = "file://script/migration/partner-acquisition-agent-guide.md"
 type = "text"
 title = "Partner Acquisition — Návod pre agenta"
+logical_id = "c22113ae-a488-4bd3-a144-d6038c3dcc1a"
 
 [[outputs]]
 id = "8qA5pUV_LCDxAkXc5XPkj"
 uri = "file://script/migration/partner-acquisition-callcenter-guide.md"
 type = "text"
 title = "Partner Acquisition — Návod pre call centrum"
+logical_id = "ab0bb6ae-1abd-428f-b18b-62bfe6c53be6"
 
 [[outputs]]
 id = "fWb91GjfMTTCKWghSil10"
 uri = "file://script/migration/partner-acquisition-admin-guide.md"
 type = "text"
 title = "Partner Acquisition — Návod pre správcu kampane"
+logical_id = "6bb2ab3b-27e0-463b-b146-4044ff3c6e7d"
 
 [[outputs]]
 id = "uCI6gbk5LGax22A8Naj5V"
 uri = "file://docs/INDEXUS_Connect_User_Guide.md"
 type = "text"
 title = "INDEXUS Connect — User Guide (English)"
+logical_id = "9f02bb89-ee07-4554-82c1-8eef055a0b76"
 
 [[outputs]]
 id = "Ebttcabq0UTz5vkDUQX0f"
 uri = "file://exports/INDEXUS_AI_naklady_odhad.md"
 type = "text"
 title = "INDEXUS – Odhad nákladov na AI tokeny"
+logical_id = "4e44f5d0-31cc-4f0d-b0ef-3303d46d64f6"
 
 [[outputs]]
 id = "GBItsP8nWjCOEpn7nibtg"
 uri = "file://attached_assets/import_mapping_report.md"
 type = "text"
 title = "INDEXUS Import – Mapping Report"
+logical_id = "e35a468a-663a-4f69-938d-90253c0f9de9"
 
 [[outputs]]
 id = "9SV16N8rbA-pRZlk3RmvO"
 uri = "file://docs/UBUNTU_DEPLOY.md"
 type = "text"
 title = "INDEXUS CRM — nasadenie na Ubuntu server"
+logical_id = "f2a12899-6a27-4390-b638-de81e64ca5a9"
 
 [[outputs]]
 id = "etxGeOmpojG-qU5oo5xHP"
 uri = "file://attached_assets/healthcare_network_documentation.md"
 type = "text"
 title = "INDEXUS — Healthcare Network Dokumentácia"
+logical_id = "23b10848-eabf-4e6f-9da4-47d1cb02d9d2"
 
 [[outputs]]
 id = "Pat2i3rjaOMgBg5k9_T7t"
 uri = "file://attached_assets/healthcare_network_documentation_EN.md"
 type = "text"
 title = "Healthcare Network Documentation (English — Markdown)"
+logical_id = "3fd570ad-58af-47e4-9fd9-9b97737e0865"
 
 [[outputs]]
 id = "2K5O3r4gQCPa3QM3_2x0p"
 uri = "file://attached_assets/healthcare_network_documentation_SK.docx"
 type = "word_document"
 title = "Healthcare Network Dokumentácia (Slovensky — DOCX)"
+logical_id = "833ed851-2030-4330-8d78-0a1345540385"
 
 [[outputs]]
 id = "woBJMG8SJlIRrIbUreI_R"
 uri = "file://attached_assets/healthcare_network_documentation_EN.docx"
 type = "word_document"
 title = "Healthcare Network Documentation (English — DOCX)"
+logical_id = "9e18b4cd-e8fe-4f0e-961f-48de296eb65c"
 
 [[outputs]]
 id = "k_Km3mBxMCcEgs9sk95Xh"
 uri = "file://attached_assets/user-manuals/healthcare_network_documentation.md"
 type = "text"
 title = "Healthcare Network Dokumentácia SK (aktualizovaná)"
+logical_id = "cdd01f8c-a648-418e-bc77-11aa79c15de1"
 
 [[outputs]]
 id = "WSz9mZGh1qGGY7cQWqH9F"
 uri = "file://attached_assets/user-manuals/healthcare_network_documentation_EN.md"
 type = "text"
 title = "Healthcare Network Documentation EN (updated)"
+logical_id = "5d645663-e9c7-48ce-9d43-3041c5154ca2"
 
 [[outputs]]
 id = "hpdv2iq6Hks-ld5aHq41J"
 uri = "file://attached_assets/user-manuals/healthcare_network_documentation_SK.docx"
 type = "word_document"
 title = "Healthcare Network SK — DOCX (aktualizovaný)"
+logical_id = "526ce854-0c7d-44d0-af8a-c49ae4027456"
 
 [[outputs]]
 id = "_I1pNXqhwKvreIjfyHZ7-"
 uri = "file://attached_assets/user-manuals/healthcare_network_documentation_EN.docx"
 type = "word_document"
 title = "Healthcare Network EN — DOCX (updated)"
+logical_id = "0d026f01-9071-4eaf-839b-8077a7344153"
 
 [[outputs]]
 id = "B2Z_iEwT2rGLvx3vxYRMs"
 uri = "file://docs/INDEXUS_Connect_User_Guide_EN.docx"
 type = "word_document"
 title = "INDEXUS Connect — User Guide EN (Word)"
+logical_id = "b6143a4a-42d6-43ca-a233-6f20cf96e796"
 
 [[outputs]]
 id = "WMuZyY1NMN-qDzH4EShoc"
 uri = "file://docs/INDEXUS_CRM_User_Manual_EN.docx"
 type = "word_document"
 title = "INDEXUS CRM — User Manual EN (Word)"
+logical_id = "5e69a764-8468-45f4-87fc-6a51ea75e09c"
 
 [[outputs]]
 id = "Mu2LMHhY44KMfL3--00nn"
 uri = "file://docs/NEXUSPOINT_SharePoint_Analysis_EN.docx"
 type = "word_document"
 title = "NexusPoint — SharePoint Analysis & Roadmap"
+logical_id = "7bd15e4e-7d8d-4d89-b0d4-4a27affbdd7d"
 
 [[outputs]]
 id = "RJ9_zHP7Yz_fQLXAtTigu"
 uri = "file://indexus_overview.md"
 type = "text"
 title = "INDEXUS — Prehľad modulov & Control Check"
+logical_id = "1e93d769-af4b-4c5c-8bbd-a6f0cd64a136"
 
 [[outputs]]
 id = "OZhqIKwQSS6ETBL7RdCWX"
 uri = "file://indexus_overview.docx"
 type = "word_document"
 title = "INDEXUS CRM — Finálny dokument (v3)"
+logical_id = "3fbfd68d-b912-4f80-9291-5a438c2aa053"
 
 [[outputs]]
 id = "NfMogEM-w4cXduqANnTBF"
 uri = "file://einvoicing_analysis.docx"
 type = "word_document"
 title = "e-Invoicing Analýza — SK, CH, RO, CZ, HU, IT"
+logical_id = "eeb1850b-a928-4cf9-acfc-bf62c802202d"
 
 [[outputs]]
 id = "z5-JfNPtM7Ja1KmsvvwP5"
 uri = "file://eso_integration_analysis.docx"
 type = "word_document"
 title = "ESO Integrácia — Návrh riešenia"
+logical_id = "9542353e-e49b-4c6c-93f8-b8dfde43d158"
 
 [[outputs]]
 id = "Bolkokiel2X4SMZZ90WvO"
 uri = "file://attached_assets/INDEXUS_KPI_System_Agenti.xlsx"
 type = "table"
 title = "INDEXUS — KPI Systém Agentov (Nexus Pulse & Missions)"
+logical_id = "2ca13698-84b0-4d71-afb1-d0b061bb923a"
 
 [[outputs]]
 id = "fvrhqjtYkvzPDqI_Lou7w"
 uri = "file://docs/slovanet-callerid-test-summary.md"
 type = "text"
 title = "Sumár testovania Caller ID pri presmerovaní — pre SLOVANET support"
+logical_id = "d90810c2-5213-4dd8-8e75-3b7ce8076cac"
 
 [[outputs]]
 id = "pn8Bl4YvJWeN10KonlmLJ"
 uri = "file://docs/analyza-kpi-reprezentant.txt"
 type = "text"
 title = "Analýza KPI reprezentanta (s úvodom a rozpracovaným bodom 5)"
+logical_id = "0525191a-9256-441a-aea7-1480c21f7d4d"
 
 [[outputs]]
 id = "0R_ju6wTCG1qweiL7G6du"
 uri = "file://docs/analyza-cennik-produkty.txt"
 type = "text"
 title = "Analýza: nový produktový modul — skladanie cien podľa krajín (v2, rozhodnutia)"
+logical_id = "9fd8f1e8-9f3b-4d2a-bee7-09ae152d3568"
+
+[[outputs]]
+id = "MnWbez5Pucb8k5i2lmLU-"
+uri = "file://docs/NEXUS_PULSE_Kontrola_pripravenosti_SK.pdf"
+type = "pdf"
+title = "NEXUS Pulse – kontrola pripravenosti"
+description = "Formátovaná 6-stranová slovenská používateľská príručka vo formáte PDF."
+logical_id = "a81e1db2-6c42-4d53-b6d9-2539e3453372"
+content_hash = "sha256:1075a2ebb79d593cf62e9c2480048506fa8baa042456837a4f1d886a1557c2b0"
+size = 115563
+mtime_ms = 1788511351292
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/a81e1db2-6c42-4d53-b6d9-2539e3453372/d8f97bd2-1ff3-40fb-b668-3f734f6b3ccc"
+storage_version_token = "1788511375593613"
+content_type = "application/pdf"
