@@ -430,6 +430,9 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   const labels: Record<string, string> = Object.fromEntries(["browser","secure","online","microphone","input","output","voice","sound","ice","sip","m365Account","notifications","network","latency","wakeLock","devices"].map((k) => [k, t[k as keyof typeof t] as string]));
   const mainResults = finalResults.filter((item) => !["network", "devices", "latency", "microphone", "input", "output", "voice", "sound"].includes(item.key));
   const advisoryResults = finalResults.filter((item) => item.key === "network" || item.key === "devices");
+  const failedAudioResults = runCompleted
+    ? finalResults.filter((item) => ["microphone", "input", "output", "voice", "sound"].includes(item.key) && item.state === "fail")
+    : [];
   const statusText = finalState === "ready" ? t.ready : finalState === "warning" ? t.warning : finalState === "blocked" ? t.blocked : t.working;
   const canContinue = quickChecksPassed || (runCompleted && diagnosticsComplete && heard && !hasCriticalFailure(finalResults) && (finalState === "ready" || finalState === "warning"));
   const latencyResult = results.find((item) => item.key === "latency");
@@ -489,6 +492,11 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
                  <div className="mx-auto mt-3 flex w-fit items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,.8)] motion-safe:animate-pulse" /><h2 className="text-lg font-semibold text-emerald-900 dark:text-emerald-100">{finalState === "warning" ? t.warning : t.callingReadyTitle}</h2></div>
                  <p className="mx-auto mt-1 max-w-md text-sm leading-relaxed text-emerald-800/75 dark:text-emerald-100/75">{finalState === "warning" ? t.callingReadyWarningDetail : t.callingReadyDetail}</p>
                 <p className="mt-2 text-xs text-emerald-800/65 dark:text-emerald-100/65">{t.confirmationSound}</p>
+              </section>}
+              {failedAudioResults.length > 0 && <section className="rounded-2xl border-2 border-destructive/35 bg-destructive/[0.06] p-4 shadow-sm" aria-live="assertive" aria-label={t.blocked}>
+                <div className="flex items-start gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-destructive/12 text-destructive"><AlertTriangle className="h-5 w-5" /></span><div><h2 className="font-bold text-destructive">{t.blocked}</h2><p className="mt-0.5 text-xs text-muted-foreground">{t.deepCheckRequired}</p></div></div>
+                <div className="mt-4 space-y-2">{failedAudioResults.map((item) => <div key={item.key} className="flex items-start gap-3 rounded-xl border border-destructive/20 bg-background/75 p-3"><span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive"><X className="h-3.5 w-3.5" /></span><div className="min-w-0 flex-1"><div className="text-sm font-bold text-destructive">{labels[item.key]}</div><div className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{item.detail || (item.key === "sound" ? t.quickSpeakerFailed : t.voiceNotDetected)}</div></div></div>)}</div>
+                <div className="mt-3 flex flex-wrap gap-2">{failedAudioResults.some((item) => ["microphone", "input", "voice"].includes(item.key)) && <Button size="sm" variant="outline" className="rounded-lg border-destructive/25" onClick={() => void runQuickMic()}><Mic className="h-4 w-4" />{t.quickMicRun}</Button>}{failedAudioResults.some((item) => ["output", "sound"].includes(item.key)) && <Button size="sm" variant="outline" className="rounded-lg border-destructive/25" onClick={() => setActiveAudioTest("output")}><Headphones className="h-4 w-4" />{t.quickSpeakerRun}</Button>}</div>
               </section>}
              {running && <section className="overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/[0.10] via-primary/[0.04] to-background p-4 shadow-sm" aria-live="polite" aria-label={t.progressTitle}>
               <div className="mb-3 flex items-center justify-between gap-4">
