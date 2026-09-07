@@ -47,9 +47,13 @@ describe("NEXUS Pulse preflight classification", () => {
   });
   it("can space latency samples over a meaningful measurement window", async () => {
     const started = performance.now();
+    const samples: Array<{ sample: number | null; index: number; total: number }> = [];
     const result = await import("./diagnostics").then(({ measureSameOriginLatency }) =>
-      measureSameOriginLatency(async () => new Response(null, { status: 204 }), "/", 3, 10));
+      measureSameOriginLatency(async () => new Response(null, { status: 204 }), "/", 3, 10, (sample, index, total) => samples.push({ sample, index, total })));
     expect(result?.samples).toBe(3);
+    expect(samples).toHaveLength(3);
+    expect(samples.map(({ index, total }) => ({ index, total }))).toEqual([{ index: 0, total: 3 }, { index: 1, total: 3 }, { index: 2, total: 3 }]);
+    expect(samples.every(({ sample }) => sample !== null)).toBe(true);
     expect(performance.now() - started).toBeGreaterThanOrEqual(18);
   });
   it("classifies practical latency into clear call-quality levels", () => {

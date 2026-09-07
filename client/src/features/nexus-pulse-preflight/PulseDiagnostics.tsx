@@ -30,6 +30,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   const [quickMicStatus, setQuickMicStatus] = useState<"idle" | "pending" | "pass" | "fail">("idle");
   const [quickSpeakerStatus, setQuickSpeakerStatus] = useState<"idle" | "pending" | "pass" | "fail">("idle");
   const [quickLatencyStatus, setQuickLatencyStatus] = useState<"idle" | "pending" | "pass" | "warn" | "fail">("idle");
+  const [quickLatencySamples, setQuickLatencySamples] = useState<number[]>([]);
   const [activeAudioTest, setActiveAudioTest] = useState<"browser" | "microphone" | "output" | "latency" | "progress" | null>(null);
   const successSoundPlayed = useRef(false);
   const wakeLock = useRef<any>(null);
@@ -67,7 +68,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     const abortController = new AbortController();
     runAbort.current = abortController;
     heardRef.current = false;
-    setRunning(true); setState("checking"); setHeard(false); setSoundPlayed(false); setSoundError(false); setResults([]); setLatencyMetrics(null); setQuickMicStatus("idle"); setQuickSpeakerStatus("idle"); setQuickLatencyStatus("idle");
+    setRunning(true); setState("checking"); setHeard(false); setSoundPlayed(false); setSoundError(false); setResults([]); setLatencyMetrics(null); setQuickLatencySamples([]); setQuickMicStatus("idle"); setQuickSpeakerStatus("idle"); setQuickLatencyStatus("idle");
     setActiveAudioTest("browser");
     setRunCompleted(false);
     setProgress(5); setProgressDetail(t.progressStarting);
@@ -76,7 +77,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
       setProgress(value);
       setProgressDetail(detail);
     };
-    const pauseForResult = () => new Promise<void>((resolve) => window.setTimeout(resolve, 420));
+    const pauseForResult = () => new Promise<void>((resolve) => window.setTimeout(resolve, 900));
     const wakeOk = await acquireWakeLock();
     if (generation !== runGeneration.current) return;
     advance(15, t.progressEnvironment);
@@ -115,6 +116,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     add("input", "critical", hasInput, hasInput ? `${t.availableInputs}: ${inputLabels.join(", ") || t.deviceLabelsUnavailable}` : t.inputDetail);
     add("output", "critical", hasOutput, hasOutput ? `${t.availableOutputs}: ${defaultOutput?.label || t.deviceLabelsUnavailable}; ${outputLabels.join(", ") || t.deviceLabelsUnavailable}` : t.outputDetail);
     let voiceDetected = false;
+    let sustainedVoiceFrames = 0;
     if (stream) {
       let context: AudioContext | undefined;
       let frame: number | undefined;
@@ -130,7 +132,8 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
           const update = () => {
             analyser.getByteTimeDomainData(samples);
             const level = rmsFromTimeDomain(samples);
-            voiceDetected ||= hasVoiceLevel(level);
+            sustainedVoiceFrames = hasVoiceLevel(level, 0.025) ? sustainedVoiceFrames + 1 : 0;
+            voiceDetected ||= sustainedVoiceFrames >= 8;
             if (generation === runGeneration.current) setMicRms(level);
             if (performance.now() - started >= 3000 || generation !== runGeneration.current) { resolve(); return; }
             frame = requestAnimationFrame(update);
@@ -229,6 +232,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
       setQuickMicStatus("idle");
       setQuickSpeakerStatus("idle");
       setQuickLatencyStatus("idle");
+      setQuickLatencySamples([]);
       setActiveAudioTest(null);
       successSoundPlayed.current = false;
       wakeLockGeneration.current += 1;
@@ -252,6 +256,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     setQuickMicStatus("idle");
     setQuickSpeakerStatus("idle");
     setQuickLatencyStatus("idle");
+    setQuickLatencySamples([]);
     setActiveAudioTest(null);
     setRunCompleted(false);
     setRunning(false);
@@ -301,7 +306,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   const runQuickMic = async () => {
     setActiveAudioTest("microphone");
     setQuickMicStatus("pending"); setMicTesting(true); setMicRms(0);
-    let stream: MediaStream | undefined; let context: AudioContext | undefined; let frame: number | undefined; let detected = false;
+    let stream: MediaStream | undefined; let context: AudioContext | undefined; let frame: number | undefined; let detected = false; let sustainedVoiceFrames = 0;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       context = new AudioContext();
@@ -312,7 +317,10 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
         const started = performance.now();
         const update = () => {
           analyser.getByteTimeDomainData(samples);
-          const level = rmsFromTimeDomain(samples); detected ||= hasVoiceLevel(level); setMicRms(level);
+          const level = rmsFromTimeDomain(samples);
+          sustainedVoiceFrames = hasVoiceLevel(level, 0.025) ? sustainedVoiceFrames + 1 : 0;
+          detected ||= sustainedVoiceFrames >= 8;
+          setMicRms(level);
           if (performance.now() - started >= 1800) { resolve(); return; }
           frame = requestAnimationFrame(update);
         };
@@ -329,9 +337,11 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   };
   const runQuickLatency = async () => {
     setActiveAudioTest("latency");
-    setQuickLatencyStatus("pending"); setLatencyMetrics(null);
+    setQuickLatencyStatus("pending"); setLatencyMetrics(null); setQuickLatencySamples([]);
     await new Promise((resolve) => window.setTimeout(resolve, 280));
-    const latency = await measureSameOriginLatency(undefined, undefined, 8, 650);
+    const latency = await measureSameOriginLatency(undefined, undefined, 8, 650, (sample) => {
+      setQuickLatencySamples((current) => [...current, sample == null ? 0 : Math.round(sample)]);
+    });
     if (!latency) { setQuickLatencyStatus("fail"); return; }
     const quality = classifyLatencyQuality(latency.latency, latency.jitter);
     setLatencyMetrics({ ...latency, quality }); setQuickLatencyStatus(quality === "good" ? "pass" : quality === "warning" ? "warn" : "fail");
@@ -340,7 +350,11 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     if (!confirmed) {
       heardRef.current = false;
       setHeard(false);
-      setQuickSpeakerStatus(soundError ? "fail" : "idle");
+      setQuickSpeakerStatus("fail");
+      setSoundError(false);
+      setActiveAudioTest(null);
+      soundConfirmationResolver.current?.();
+      soundConfirmationResolver.current = null;
       return;
     }
     setHeard(false);
@@ -362,11 +376,11 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
       ? { ...item, state: permission === "granted" ? "pass" : "warn", detail: permission === "granted" ? t.notificationsEnabled : permission === "denied" ? t.notificationsDenied : t.notificationsDetail }
       : item));
   };
-  const finalResults = useMemo(() => [...results, { key: "sound" as const, severity: "critical" as const, state: soundError ? "fail" as const : heard ? "pass" as const : "pending" as const, detail: soundError ? t.soundFail : t.soundDetail }], [heard, results, soundError, t.soundDetail, t.soundFail]);
+  const finalResults = useMemo(() => [...results, { key: "sound" as const, severity: "critical" as const, state: soundError || quickSpeakerStatus === "fail" ? "fail" as const : heard ? "pass" as const : "pending" as const, detail: soundError ? t.soundFail : quickSpeakerStatus === "fail" ? t.quickSpeakerFailed : t.soundDetail }], [heard, quickSpeakerStatus, results, soundError, t.quickSpeakerFailed, t.soundDetail, t.soundFail]);
   const diagnosticsComplete = isCompletePulseReadinessRun(results);
   const quickSpeakerPassed = hasValidReadiness && !runCompleted && quickSpeakerStatus === "pass" && heard && !soundError;
   const quickChecksPassed = hasValidReadiness && !runCompleted && quickMicStatus === "pass" && quickSpeakerPassed && quickLatencyStatus === "pass";
-  const finalState = quickChecksPassed ? "ready" : diagnosticsComplete && heard ? classify(finalResults) : (state === "blocked" ? "blocked" : "checking");
+  const finalState = quickChecksPassed ? "ready" : runCompleted && quickSpeakerStatus === "fail" ? "blocked" : diagnosticsComplete && heard ? classify(finalResults) : (state === "blocked" ? "blocked" : "checking");
   const labels: Record<string, string> = Object.fromEntries(["browser","secure","online","microphone","input","output","voice","sound","ice","sip","m365Account","notifications","network","latency","wakeLock","devices"].map((k) => [k, t[k as keyof typeof t] as string]));
   const mainResults = finalResults.filter((item) => !["network", "devices", "latency", "microphone", "input", "output", "voice", "sound"].includes(item.key));
   const advisoryResults = finalResults.filter((item) => item.key === "network" || item.key === "devices");
@@ -471,14 +485,14 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{heard ? t.quickSpeakerPassed : soundPlayed ? t.soundPlayed : t.soundDetail}</p>
                      {!heard && <div className="mt-6 space-y-3">
                        <Button size="lg" className="h-12 w-full rounded-xl bg-amber-500 font-bold text-white shadow-lg shadow-amber-500/20 hover:bg-amber-600" onClick={() => void play()} disabled={quickSpeakerStatus === "pending"}>{quickSpeakerStatus === "pending" && !soundPlayed ? <Loader2 className="h-5 w-5 animate-spin" /> : <Play className="h-5 w-5 fill-current" />}{t.play}</Button>
-                       {soundPlayed && !soundError && <div className="rounded-2xl border-2 border-emerald-500/45 bg-emerald-500/[0.09] p-3 motion-safe:animate-pulse"><div className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-300">{t.soundConfirmHint}</div><Button size="lg" className="h-14 w-full rounded-xl bg-emerald-600 text-base font-extrabold text-white shadow-lg shadow-emerald-500/25 hover:bg-emerald-700" disabled={quickSpeakerStatus === "pending"} onClick={() => void confirmSpeaker(true)}><CheckCircle2 className="h-6 w-6" />{quickSpeakerStatus === "pending" ? t.quickSpeakerPending : t.heard}</Button></div>}
+                       {soundPlayed && !soundError && <div className="rounded-2xl border-2 border-emerald-500/45 bg-emerald-500/[0.09] p-3"><div className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-300">{t.soundConfirmHint}</div><div className="grid gap-2 sm:grid-cols-2"><Button size="lg" variant="outline" className="h-14 rounded-xl border-destructive/35 font-bold text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={quickSpeakerStatus === "pending"} onClick={() => void confirmSpeaker(false)}><X className="h-5 w-5" />{t.didNotHear || t.quickSpeakerFailed}</Button><Button size="lg" className="h-14 rounded-xl bg-emerald-600 font-extrabold text-white shadow-lg shadow-emerald-500/25 hover:bg-emerald-700 motion-safe:animate-pulse" disabled={quickSpeakerStatus === "pending"} onClick={() => void confirmSpeaker(true)}><CheckCircle2 className="h-6 w-6" />{quickSpeakerStatus === "pending" ? t.quickSpeakerPending : t.heard}</Button></div></div>}
                      </div>}
                      {heard && <div className="mt-5 flex items-center justify-center gap-2 font-semibold text-emerald-600 animate-in zoom-in-75"><CheckCircle2 className="h-6 w-6" />{t.quickSpeakerPassed}</div>}
                    </> : activeAudioTest === "latency" ? <>
                      <div className={`relative mx-auto flex h-20 w-20 items-center justify-center rounded-full text-white shadow-lg ${quickLatencyStatus === "pass" ? "bg-emerald-500 shadow-emerald-500/30" : quickLatencyStatus === "warn" ? "bg-amber-500 shadow-amber-500/30" : quickLatencyStatus === "fail" ? "bg-destructive shadow-destructive/30" : "bg-sky-500 shadow-sky-500/30"}`}><Signal className="relative h-9 w-9" /></div>
                      <h2 className="relative mt-5 text-2xl font-bold">{t.latency}</h2>
                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{quickLatencyStatus === "pending" ? t.quickLatencyPending : quickLatencyStatus === "pass" ? t.quickLatencyPassed : quickLatencyStatus === "warn" ? t.quickLatencyWarning : t.quickLatencyFailed}</p>
-                     <div className="mx-auto mt-7 flex h-24 items-end justify-center gap-2" aria-hidden="true">{[35,62,48,78,55,88,67,96].map((height, index) => <span key={index} className={`w-5 rounded-t-lg ${quickLatencyStatus === "pass" ? "bg-emerald-500" : quickLatencyStatus === "warn" ? "bg-amber-500" : quickLatencyStatus === "fail" ? "bg-destructive" : "bg-sky-500 motion-safe:animate-pulse"}`} style={{ height: `${height}%`, animationDelay: `${index * 120}ms` }} />)}</div>
+                     <div className="relative mx-auto mt-7 h-32 overflow-hidden rounded-2xl border border-sky-500/20 bg-gradient-to-b from-sky-500/[0.08] to-transparent p-3" aria-label={t.quickLatencyPending}><div className="absolute inset-x-3 bottom-3 border-t border-dashed border-sky-500/20" /><div className="flex h-full items-end gap-1.5">{Array.from({ length: 8 }, (_, index) => { const sample = quickLatencySamples[index]; const height = sample == null ? 8 : Math.max(14, Math.min(100, sample / 3)); return <div key={index} className="flex h-full flex-1 items-end"><span className={`w-full rounded-t-md transition-all duration-500 ${sample == null ? "bg-sky-500/15" : quickLatencyStatus === "fail" ? "bg-destructive" : quickLatencyStatus === "warn" ? "bg-amber-500" : "bg-sky-500"}`} style={{ height: `${height}%` }}>{sample != null && <span className="sr-only">{sample} ms</span>}</span></div>; })}</div>{quickLatencyStatus === "pending" && <div className="absolute inset-x-0 top-0 h-0.5 bg-sky-400 shadow-[0_0_12px_rgba(56,189,248,.9)] motion-safe:animate-pulse" />}<div className="absolute bottom-1 right-3 text-[10px] font-bold tabular-nums text-sky-700 dark:text-sky-300">{quickLatencySamples.length}/8</div></div>
                      {latencyMetrics && <div className="mt-6 grid grid-cols-2 gap-2"><div className="rounded-xl bg-muted/60 p-3"><div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t.latencyDetail}</div><div className="mt-1 font-mono text-xl font-bold">{latencyMetrics.latency} ms</div></div><div className="rounded-xl bg-muted/60 p-3"><div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t.jitterDetail}</div><div className="mt-1 font-mono text-xl font-bold">{latencyMetrics.jitter} ms</div></div></div>}
                    </> : <>
                      <div className="relative mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30"><span className="absolute inset-0 rounded-full bg-primary/30 motion-safe:animate-ping" /><Loader2 className="relative h-9 w-9 animate-spin" /></div>
