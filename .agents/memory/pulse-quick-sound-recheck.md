@@ -13,4 +13,4 @@ The quick latency check should sample for roughly five seconds rather than repor
 
 Microphone and speaker checks use focused modal steps in both quick and full runs. The full run automatically advances from the microphone result to speaker confirmation; the main readiness view shows their final states rather than duplicating the interaction.
 
-Microphone readiness requires a sustained voice-level signal, not one above-threshold frame, because device startup noise can otherwise create a false pass. Speaker confirmation must offer explicit heard and did-not-hear outcomes; a negative answer blocks readiness.
+Microphone readiness first calibrates ambient noise, then requires sustained signal above that adaptive floor; one loud frame or idle device noise must not pass. Show real frequency data during speech. Speaker confirmation offers explicit heard/did-not-hear outcomes, and a negative answer blocks readiness.
