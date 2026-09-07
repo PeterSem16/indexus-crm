@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "./auth-context";
 import type { OutboundTrunkSelection } from "@shared/telephony-routing";
 import type { MissionCallRecordingSnapshot } from "@shared/mission-recording";
+import { reportVoiceIncident } from "@/lib/voice-incident-logger";
 
 function filterSdpCandidates(description: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit> {
   if (!description.sdp) return Promise.resolve(description);
@@ -556,6 +557,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
       };
 
       userAgent.transport.onDisconnect = (error?: Error) => {
+        if (!intentionalDisconnectRef.current) reportVoiceIncident("sip_transport_disconnected");
         console.warn("[SIP] Transport disconnected", error?.message || "");
         setRegisteredState(false);
         if (keepaliveTimerRef.current) {
@@ -590,6 +592,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
         } else if (newState === RegistererState.Unregistered) {
           setRegisteredState(false);
           if (!intentionalDisconnectRef.current) {
+            reportVoiceIncident("sip_registration_disconnected", "warning");
             // If transport is still up, the server dropped our registration —
             // re-register immediately instead of going through slow reconnect backoff.
             const transport = userAgentRef.current?.transport;

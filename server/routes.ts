@@ -2465,6 +2465,120 @@ export async function registerRoutes(
     next();
   };
 
+  // Coarse operational telemetry only. The deliberately tiny allowlist makes
+  // it impossible for callers to submit call content, addresses, SDP or SIP
+  // credentials by accident.
+  const VOICE_INCIDENT_KINDS = new Set([
+    "browser_offline",
+    "sip_transport_disconnected",
+    "sip_registration_disconnected",
+    "ice_failed",
+    "ice_disconnected_sustained",
+    "audio_no_flow",
+    "audio_one_way",
+    "network_quality_degraded",
+  ]);
+  const VOICE_INCIDENT_SEVERITIES = new Set(["warning", "error"]);
+  const VOICE_CONNECTION_STATES = new Set(["new", "connecting", "connected", "disconnected", "failed", "closed"]);
+  const VOICE_ICE_STATES = new Set(["new", "checking", "connected", "completed", "disconnected", "failed", "closed"]);
+  const voiceIncidentRateLimit = new Map<string, { startedAt: number; count: number }>();
+  const VOICE_INCIDENT_RATE_WINDOW_MS = 60_000;
+  const VOICE_INCIDENT_RATE_MAX = 12;
+
+  app.post("/api/voice-network-incidents", requireAuth, async (req, res) => {
+    const body = req.body;
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return res.status(400).json({ error: "Invalid incident payload" });
+    }
+    const allowedKeys = new Set(["kind", "severity", "callLogId", "connectionState", "iceState", "rttMs", "jitterMs", "packetLossPermille"]);
+    const keys = Object.keys(body);
+    if (keys.some((key) => !allowedKeys.has(key))) {
+      return res.status(400).json({ error: "Invalid incident fields" });
+    }
+    const { kind, severity, callLogId, connectionState, iceState, rttMs, jitterMs, packetLossPermille } = body;
+    if (typeof kind !== "string" || typeof severity !== "string" ||
+        !VOICE_INCIDENT_KINDS.has(kind) || !VOICE_INCIDENT_SEVERITIES.has(severity) ||
+        typeof callLogId !== "string" || !callLogId || callLogId.length > 64 ||
+        (connectionState !== undefined && (typeof connectionState !== "string" || !VOICE_CONNECTION_STATES.has(connectionState))) ||
+        (iceState !== undefined && (typeof iceState !== "string" || !VOICE_ICE_STATES.has(iceState))) ||
+        ![rttMs, jitterMs].every((value) => value === undefined || (Number.isInteger(value) && value >= 0 && value <= 60_000)) ||
+        (packetLossPermille !== undefined && (!Number.isInteger(packetLossPermille) || packetLossPermille < 0 || packetLossPermille > 1000))) {
+      return res.status(400).json({ error: "Invalid incident values" });
+    }
+    const userId = req.session.user!.id;
+    const now = Date.now();
+    const rate = voiceIncidentRateLimit.get(userId);
+    const current = !rate || now - rate.startedAt >= VOICE_INCIDENT_RATE_WINDOW_MS
+      ? { startedAt: now, count: 0 }
+      : rate;
+    if (current.count >= VOICE_INCIDENT_RATE_MAX) {
+      return res.status(429).json({ error: "Too many incident reports" });
+    }
+    current.count += 1;
+    voiceIncidentRateLimit.set(userId, current);
+    try {
+      const ownedCall = await pool.query(
+        `SELECT id FROM call_logs
+         WHERE id = $1 AND user_id = $2 AND ended_at IS NULL
+           AND status IN ('initiated', 'ringing', 'answered')
+         LIMIT 1`,
+        [callLogId, userId],
+      );
+      const verifiedCallLogId = ownedCall.rows[0]?.id;
+      if (!verifiedCallLogId) return res.status(409).json({ error: "Call is no longer active" });
+      const result = await pool.query(
+        `INSERT INTO voice_network_incidents
+          (user_id, call_log_id, kind, severity, connection_state, ice_state, rtt_ms, jitter_ms, packet_loss_permille)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, created_at`,
+        [userId, verifiedCallLogId, kind, severity, connectionState ?? null, iceState ?? null, rttMs ?? null, jitterMs ?? null, packetLossPermille ?? null],
+      );
+      return res.status(201).json({ id: result.rows[0].id, createdAt: result.rows[0].created_at });
+    } catch (error) {
+      console.error("[voice-network-incidents] create failed", error);
+      return res.status(500).json({ error: "Could not save incident" });
+    }
+  });
+
+  app.get("/api/admin/voice-network-incidents", requireAuth, async (req, res) => {
+    if (req.session.user?.role !== "admin") return res.status(403).json({ error: "Admin access required" });
+    const { from, to, kind, severity, page = "1", pageSize = "25" } = req.query;
+    const parsedPage = Number(page);
+    const parsedPageSize = Number(pageSize);
+    if (!Number.isInteger(parsedPage) || parsedPage < 1 || !Number.isInteger(parsedPageSize) || parsedPageSize < 1 || parsedPageSize > 100 ||
+        (kind !== undefined && (typeof kind !== "string" || !VOICE_INCIDENT_KINDS.has(kind))) ||
+        (severity !== undefined && (typeof severity !== "string" || !VOICE_INCIDENT_SEVERITIES.has(severity)))) {
+      return res.status(400).json({ error: "Invalid filters" });
+    }
+    const params: unknown[] = [];
+    const where: string[] = [];
+    for (const [value, column, operator] of [[from, "i.created_at", ">="], [to, "i.created_at", "<="]] as const) {
+      if (value !== undefined) {
+        if (typeof value !== "string" || Number.isNaN(Date.parse(value))) return res.status(400).json({ error: "Invalid date filter" });
+        params.push(value); where.push(`${column} ${operator} $${params.length}`);
+      }
+    }
+    if (kind) { params.push(kind); where.push(`i.kind = $${params.length}`); }
+    if (severity) { params.push(severity); where.push(`i.severity = $${params.length}`); }
+    const clause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+    params.push(parsedPageSize, (parsedPage - 1) * parsedPageSize);
+    try {
+      const [items, total] = await Promise.all([
+        pool.query(`SELECT i.id, i.call_log_id AS "callLogId", i.kind, i.severity,
+                           i.connection_state AS "connectionState", i.ice_state AS "iceState",
+                           i.rtt_ms AS "rttMs", i.jitter_ms AS "jitterMs",
+                           i.packet_loss_permille AS "packetLossPermille",
+                           i.created_at AS "createdAt", u.full_name AS "userName"
+                    FROM voice_network_incidents i JOIN users u ON u.id = i.user_id
+                    ${clause} ORDER BY i.created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`, params),
+        pool.query(`SELECT count(*)::integer AS total FROM voice_network_incidents i ${clause}`, params.slice(0, -2)),
+      ]);
+      return res.json({ items: items.rows, total: total.rows[0].total, page: parsedPage, pageSize: parsedPageSize });
+    } catch (error) {
+      console.error("[voice-network-incidents] list failed", error);
+      return res.status(500).json({ error: "Could not load incidents" });
+    }
+  });
+
   // Beratung Email Monitor routes (requires requireAuth defined above)
   registerBeratungRoutes(app, requireAuth);
 

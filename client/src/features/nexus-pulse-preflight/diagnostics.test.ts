@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canUseQuickSoundVerification, classify, classifyIceResult, hasCriticalFailure, isChromiumDesktop, isCompleteDiagnosticRun, isCompletePulseReadinessRun, isPulseReadinessEnvironmentValid, isPulseSessionProtected, pulseReadinessStorageKey, type DiagnosticResult } from "./diagnostics";
+import { canUseQuickSoundVerification, classify, classifyIceResult, hasCriticalFailure, hasVoiceLevel, isChromiumDesktop, isCompleteDiagnosticRun, isCompletePulseReadinessRun, isProbableSameHeadset, isPulseReadinessEnvironmentValid, isPulseSessionProtected, normalizeAudioDeviceLabel, pulseReadinessStorageKey, rmsFromTimeDomain, summarizeLatency, type DiagnosticResult } from "./diagnostics";
 
 describe("NEXUS Pulse preflight classification", () => {
   it("rejects mobile and non-Chromium browsers", () => {
@@ -30,6 +30,20 @@ describe("NEXUS Pulse preflight classification", () => {
     expect(classifyIceResult({ ok: false, hasPublicCandidate: false })).toEqual({ severity: "warning", state: "warn" });
     expect(classifyIceResult({ ok: true, hasPublicCandidate: false })).toEqual({ severity: "warning", state: "warn" });
     expect(classifyIceResult({ ok: true, hasPublicCandidate: true })).toEqual({ severity: "warning", state: "pass" });
+  });
+  it("normalizes audio labels and only reports cautious probable headset matches", () => {
+    expect(normalizeAudioDeviceLabel("Jabra Evolve 65 (USB Audio Device)")).toBe("jabra evolve 65");
+    expect(isProbableSameHeadset("Jabra Evolve 65 microphone", "Jabra Evolve 65 headphones")).toBe(true);
+    expect(isProbableSameHeadset("Built-in microphone", "Desk speakers")).toBe(false);
+  });
+  it("calculates microphone RMS and keeps voice detection threshold explicit", () => {
+    expect(rmsFromTimeDomain(new Uint8Array([128, 128, 128]))).toBe(0);
+    expect(hasVoiceLevel(rmsFromTimeDomain(new Uint8Array([100, 156])))).toBe(true);
+    expect(hasVoiceLevel(0.014)).toBe(false);
+  });
+  it("summarizes practical request latency and jitter without failed samples", () => {
+    expect(summarizeLatency([24, 30, 26, 40])).toEqual({ latency: 28, jitter: 16, samples: 4 });
+    expect(summarizeLatency([])).toBeNull();
   });
   it("never treats sound confirmation as a completed diagnostic run", () => {
     const soundOnly: DiagnosticResult[] = [
@@ -65,10 +79,10 @@ describe("NEXUS Pulse preflight classification", () => {
     }
   });
   it("requires every environment check before completion", () => {
-    const keys = ["browser", "secure", "online", "microphone", "input", "output", "ice", "sip", "notifications", "network", "wakeLock", "devices"] as const;
+    const keys = ["browser", "secure", "online", "microphone", "input", "output", "voice", "ice", "sip", "notifications", "network", "latency", "wakeLock", "devices"] as const;
     const complete = keys.map((key): DiagnosticResult => ({
       key,
-      severity: ["ice", "notifications", "network", "wakeLock", "devices"].includes(key) ? "warning" : "critical",
+      severity: ["ice", "notifications", "network", "latency", "wakeLock", "devices"].includes(key) ? "warning" : "critical",
       state: "pass",
     }));
     expect(isCompleteDiagnosticRun(complete)).toBe(true);

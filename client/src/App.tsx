@@ -82,6 +82,7 @@ const CollaboratorUpdatesAdminPage = lazy(() => import("@/pages/collaborator-upd
 const MyClinicsPage = lazy(() => import("@/pages/my-clinics"));
 const BulkAssignPage = lazy(() => import("@/pages/bulk-assign"));
 const RepresentativeQualityPage = lazy(() => import("@/pages/representative-quality"));
+const VoiceNetworkIncidentsPage = lazy(() => import("@/pages/voice-network-incidents"));
 import { AgentSessionProvider } from "@/contexts/agent-session-context";
 import NotFound from "@/pages/not-found";
 import { Loader2 } from "lucide-react";
@@ -269,6 +270,7 @@ function AuthenticatedApp() {
                   <Switch>
                     <Route path="/" component={Dashboard} />
                     <Route path="/users" component={UsersPage} />
+                    <Route path="/voice-network-incidents" component={VoiceNetworkIncidentsPage} />
                     <Route path="/customers" component={CustomersPage} />
                     <Route path="/products" component={ProductsPage} />
                     <Route path="/invoices" component={InvoicesPage} />

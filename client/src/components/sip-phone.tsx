@@ -40,6 +40,7 @@ import type { SipSettings, CallLog, User } from "@shared/schema";
 import { resolveOutboundCallProvider } from "@shared/telephony-routing";
 import type { MissionCallRecordingSnapshot } from "@shared/mission-recording";
 import { classifyAudioRtpStats, type AudioRtpHealth } from "@/lib/sip-audio-health";
+import { reportVoiceIncident, setVoiceIncidentCallContext } from "@/lib/voice-incident-logger";
 
 function filterSdpCandidates(description: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit> {
   if (!description.sdp) return Promise.resolve(description);
@@ -197,7 +198,11 @@ export function SipPhone({
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [currentCallLogId, setCurrentCallLogId] = useState<number | null>(null);
   const currentCallLogIdRef = useRef<number | null>(null);
-  useEffect(() => { currentCallLogIdRef.current = currentCallLogId; }, [currentCallLogId]);
+  useEffect(() => {
+    currentCallLogIdRef.current = currentCallLogId;
+    setVoiceIncidentCallContext(currentCallLogId);
+    return () => setVoiceIncidentCallContext(null);
+  }, [currentCallLogId]);
   const [sipConfig, setSipConfig] = useState<SipConfig>(config || {
     server: "",
     username: "",
@@ -1969,6 +1974,14 @@ export function SipPhone({
     let warningShown = false;
     let failureShown = false;
     let disconnectedAt: number | null = null;
+    let degradedQualitySamples = 0;
+    let latestMetrics: { rttMs?: number; jitterMs?: number; packetLossPermille?: number } = {};
+    const incidentMetrics = () => ({
+      callLogId: currentCallLogIdRef.current,
+      connectionState: peerConnection.connectionState,
+      iceState: peerConnection.iceConnectionState,
+      ...latestMetrics,
+    });
 
     const showFailure = (terminate: boolean) => {
       if (failureShown || stopped || mediaHealthSessionRef.current !== session) return;
@@ -1998,6 +2011,7 @@ export function SipPhone({
       warningShown = true;
       setAudioHealth("warning");
       const oneWay = health === "inbound-only" || health === "outbound-only";
+      reportVoiceIncident(oneWay ? "audio_one_way" : "audio_no_flow", "error", incidentMetrics());
       console.warn("[SIP-MEDIA] Call established with incomplete audio flow", { health });
       toast({
         title: oneWay ? t.agentWorkspace.audioOneWayTitle : t.agentWorkspace.audioNoFlowTitle,
@@ -2007,6 +2021,7 @@ export function SipPhone({
     };
 
     const checkConnectionState = () => {
+      if (stopped || mediaHealthSessionRef.current !== session || session.state !== SessionState.Established) return;
       const connectionState = peerConnection.connectionState;
       const iceState = peerConnection.iceConnectionState;
       console.log(`[SIP-MEDIA] State: pc=${connectionState} ice=${iceState}`);
@@ -2017,13 +2032,17 @@ export function SipPhone({
         connectionState === "closed" ||
         iceState === "closed"
       ) {
+        reportVoiceIncident("ice_failed", "error", incidentMetrics());
         showFailure(true);
         return;
       }
 
       if (connectionState === "disconnected" || iceState === "disconnected") {
         disconnectedAt ??= Date.now();
-        if (Date.now() - disconnectedAt >= 8_000) showFailure(false);
+        if (Date.now() - disconnectedAt >= 8_000) {
+          reportVoiceIncident("ice_disconnected_sustained", "error", incidentMetrics());
+          showFailure(false);
+        }
       } else {
         disconnectedAt = null;
       }
@@ -2034,22 +2053,48 @@ export function SipPhone({
       checkConnectionState();
       try {
         const stats = await peerConnection.getStats();
+        if (stopped || mediaHealthSessionRef.current !== session || session.state !== SessionState.Established) return;
         let inboundPackets = 0;
         let outboundPackets = 0;
         let inboundBytes = 0;
         let outboundBytes = 0;
+        let packetsLost = 0;
+        let jitterMs = 0;
+        let rttMs = 0;
 
         stats.forEach((report: any) => {
           const isAudio = report.kind === "audio" || report.mediaType === "audio";
-          if (!isAudio || report.isRemote) return;
-          if (report.type === "inbound-rtp") {
+          if (report.type === "candidate-pair" && report.state === "succeeded") {
+            rttMs = Math.max(rttMs, Number(report.currentRoundTripTime || 0) * 1000);
+            return;
+          }
+          if (!isAudio) return;
+          if (report.type === "inbound-rtp" && !report.isRemote) {
             inboundPackets += Number(report.packetsReceived || 0);
             inboundBytes += Number(report.bytesReceived || 0);
-          } else if (report.type === "outbound-rtp") {
+            packetsLost += Math.max(0, Number(report.packetsLost || 0));
+            jitterMs = Math.max(jitterMs, Number(report.jitter || 0) * 1000);
+          } else if (report.type === "outbound-rtp" && !report.isRemote) {
             outboundPackets += Number(report.packetsSent || 0);
             outboundBytes += Number(report.bytesSent || 0);
+          } else if (report.type === "remote-inbound-rtp") {
+            rttMs = Math.max(rttMs, Number(report.roundTripTime || 0) * 1000);
+            jitterMs = Math.max(jitterMs, Number(report.jitter || 0) * 1000);
           }
         });
+        const receivedTotal = inboundPackets + packetsLost;
+        latestMetrics = {
+          ...(rttMs > 0 ? { rttMs: Math.round(rttMs) } : {}),
+          ...(jitterMs > 0 ? { jitterMs: Math.round(jitterMs) } : {}),
+          ...(receivedTotal > 0 ? { packetLossPermille: Math.min(1000, Math.round((packetsLost / receivedTotal) * 1000)) } : {}),
+        };
+        const degraded = (latestMetrics.rttMs ?? 0) >= 300
+          || (latestMetrics.jitterMs ?? 0) >= 50
+          || (latestMetrics.packetLossPermille ?? 0) >= 50;
+        degradedQualitySamples = degraded ? degradedQualitySamples + 1 : 0;
+        if (degradedQualitySamples === 3) {
+          reportVoiceIncident("network_quality_degraded", "warning", incidentMetrics());
+        }
 
         console.log("[SIP-MEDIA] Audio RTP stats", {
           inboundPackets,
@@ -2082,6 +2127,8 @@ export function SipPhone({
     const onIceConnectionStateChange = () => checkConnectionState();
     peerConnection.addEventListener("connectionstatechange", onConnectionStateChange);
     peerConnection.addEventListener("iceconnectionstatechange", onIceConnectionStateChange);
+    const onOffline = () => reportVoiceIncident("browser_offline", "error", incidentMetrics());
+    window.addEventListener("offline", onOffline);
     const timer = window.setInterval(() => { void checkStats(); }, 2_000);
     void checkStats();
 
@@ -2090,6 +2137,7 @@ export function SipPhone({
       window.clearInterval(timer);
       peerConnection.removeEventListener("connectionstatechange", onConnectionStateChange);
       peerConnection.removeEventListener("iceconnectionstatechange", onIceConnectionStateChange);
+      window.removeEventListener("offline", onOffline);
     };
   }, [clearMediaHealthMonitoring, t.agentWorkspace, toast]);
 

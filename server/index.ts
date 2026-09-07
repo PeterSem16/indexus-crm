@@ -171,6 +171,36 @@ app.use((req, res, next) => {
 (async () => {
   try {
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS voice_network_incidents (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id varchar NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        call_log_id varchar,
+        kind varchar(48) NOT NULL,
+        severity varchar(16) NOT NULL,
+        connection_state varchar(24),
+        ice_state varchar(24),
+        rtt_ms integer,
+        jitter_ms integer,
+        packet_loss_permille integer,
+        created_at timestamp NOT NULL DEFAULT now()
+      );
+      ALTER TABLE voice_network_incidents
+        ADD COLUMN IF NOT EXISTS call_log_id varchar,
+        ADD COLUMN IF NOT EXISTS connection_state varchar(24),
+        ADD COLUMN IF NOT EXISTS ice_state varchar(24),
+        ADD COLUMN IF NOT EXISTS rtt_ms integer,
+        ADD COLUMN IF NOT EXISTS jitter_ms integer,
+        ADD COLUMN IF NOT EXISTS packet_loss_permille integer;
+      CREATE INDEX IF NOT EXISTS idx_voice_network_incidents_created_at
+        ON voice_network_incidents (created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_voice_network_incidents_filters
+        ON voice_network_incidents (kind, severity, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_voice_network_incidents_call_log
+        ON voice_network_incidents (call_log_id, created_at DESC);
+    `);
+    console.log("[migration] voice_network_incidents ensured");
+
+    await pool.query(`
       ALTER TABLE customers ADD COLUMN IF NOT EXISTS gynecologist_name TEXT;
       ALTER TABLE customers ADD COLUMN IF NOT EXISTS gynecologist_phone TEXT;
       ALTER TABLE customers ADD COLUMN IF NOT EXISTS gynecologist_email TEXT;

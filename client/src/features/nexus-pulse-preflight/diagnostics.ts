@@ -5,7 +5,7 @@ export const GOOGLE_STUN_SERVERS = [
 
 export type DiagnosticState = "checking" | "ready" | "warning" | "blocked" | "idle";
 export type DiagnosticSeverity = "critical" | "warning";
-export type DiagnosticKey = "browser" | "secure" | "online" | "microphone" | "input" | "output" | "sound" | "ice" | "sip" | "m365Account" | "notifications" | "network" | "wakeLock" | "devices";
+export type DiagnosticKey = "browser" | "secure" | "online" | "microphone" | "input" | "output" | "voice" | "sound" | "ice" | "sip" | "m365Account" | "notifications" | "network" | "latency" | "wakeLock" | "devices";
 
 export interface DiagnosticResult {
   key: DiagnosticKey;
@@ -15,8 +15,8 @@ export interface DiagnosticResult {
 }
 
 const REQUIRED_RUN_KEYS: DiagnosticKey[] = [
-  "browser", "secure", "online", "microphone", "input", "output",
-  "ice", "sip", "notifications", "network", "wakeLock", "devices",
+  "browser", "secure", "online", "microphone", "input", "output", "voice",
+  "ice", "sip", "notifications", "network", "latency", "wakeLock", "devices",
 ];
 
 export function pulseReadinessStorageKey(userId: string) {
@@ -82,11 +82,61 @@ export function classifyIceResult(result: { ok: boolean; hasPublicCandidate: boo
     : { severity: "warning", state: "warn" };
 }
 
-export async function gatherIce(timeoutMs = 4500): Promise<{ ok: boolean; hasPublicCandidate: boolean }> {
-  if (typeof RTCPeerConnection === "undefined") return { ok: false, hasPublicCandidate: false };
+export function normalizeAudioDeviceLabel(label: string) {
+  return label.toLowerCase().replace(/\([^)]*\)/g, " ").replace(/[^a-z0-9]+/g, " ").trim()
+    .replace(/\b(default|communications|audio|device|headset|headphones|microphone|speakers?)\b/g, " ")
+    .replace(/\s+/g, " ").trim();
+}
+
+export function isProbableSameHeadset(inputLabel: string, outputLabel: string) {
+  const input = normalizeAudioDeviceLabel(inputLabel);
+  const output = normalizeAudioDeviceLabel(outputLabel);
+  return !!input && !!output && (input === output || input.includes(output) || output.includes(input));
+}
+
+export function rmsFromTimeDomain(samples: Uint8Array) {
+  if (!samples.length) return 0;
+  const squared = Array.from(samples).reduce((total, value) => {
+    const sample = (value - 128) / 128;
+    return total + sample * sample;
+  }, 0);
+  return Math.sqrt(squared / samples.length);
+}
+
+export function hasVoiceLevel(rms: number, threshold = 0.015) {
+  return rms >= threshold;
+}
+
+export function summarizeLatency(samples: number[]) {
+  const usable = samples.filter((sample) => Number.isFinite(sample) && sample >= 0);
+  if (!usable.length) return null;
+  const sorted = [...usable].sort((a, b) => a - b);
+  const midpoint = Math.floor(sorted.length / 2);
+  const latency = sorted.length % 2 ? sorted[midpoint] : (sorted[midpoint - 1] + sorted[midpoint]) / 2;
+  const jitter = usable.length < 2 ? 0 : Math.max(...usable) - Math.min(...usable);
+  return { latency: Math.round(latency), jitter: Math.round(jitter), samples: usable.length };
+}
+
+export async function measureSameOriginLatency(request = (input: RequestInfo | URL, init?: RequestInit) => fetch(input, init), url = typeof window === "undefined" ? "/" : window.location.href, attempts = 4) {
+  const samples: number[] = [];
+  for (let index = 0; index < attempts; index += 1) {
+    const started = performance.now();
+    try {
+      await request(url, { method: "HEAD", cache: "no-store", credentials: "same-origin" });
+      samples.push(performance.now() - started);
+    } catch {
+      // A failed request is intentionally omitted: this advisory must not block calling.
+    }
+  }
+  return summarizeLatency(samples);
+}
+
+export async function gatherIce(timeoutMs = 4500): Promise<{ ok: boolean; hasPublicCandidate: boolean; pathType: "relay" | "server-reflexive" | "host" | "unavailable" }> {
+  if (typeof RTCPeerConnection === "undefined") return { ok: false, hasPublicCandidate: false, pathType: "unavailable" };
   const pc = new RTCPeerConnection({ iceServers: GOOGLE_STUN_SERVERS.map((urls) => ({ urls })) });
   let hasCandidate = false;
   let hasPublicCandidate = false;
+  let pathType: "relay" | "server-reflexive" | "host" | "unavailable" = "unavailable";
   try {
     pc.createDataChannel("preflight");
     const gathered = new Promise<void>((resolve) => {
@@ -94,15 +144,17 @@ export async function gatherIce(timeoutMs = 4500): Promise<{ ok: boolean; hasPub
       pc.onicecandidate = (event) => {
         if (!event.candidate) { window.clearTimeout(timer); resolve(); return; }
         hasCandidate = true;
-        if (/ typ (srflx|relay) /.test(event.candidate.candidate)) hasPublicCandidate = true;
+        if (/ typ relay /.test(event.candidate.candidate)) { hasPublicCandidate = true; pathType = "relay"; }
+        else if (/ typ srflx /.test(event.candidate.candidate)) { hasPublicCandidate = true; if (pathType !== "relay") pathType = "server-reflexive"; }
+        else if (/ typ host /.test(event.candidate.candidate) && pathType === "unavailable") pathType = "host";
       };
     });
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
     await gathered;
-    return { ok: hasCandidate, hasPublicCandidate };
+    return { ok: hasCandidate, hasPublicCandidate, pathType };
   } catch {
-    return { ok: false, hasPublicCandidate: false };
+    return { ok: false, hasPublicCandidate: false, pathType: "unavailable" };
   } finally {
     pc.onicecandidate = null;
     pc.close();

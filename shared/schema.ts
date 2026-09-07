@@ -219,6 +219,27 @@ export const userSessions = pgTable("user_sessions", {
   idxUserSessionsUserActive: index("idx_user_sessions_user_active").on(table.userId, table.isActive),
 }));
 
+// Intentionally contains only coarse, non-identifying diagnostics. Detailed
+// browser/SIP data (numbers, IPs, SDP, credentials and media) must never be
+// persisted in this operational incident log.
+export const voiceNetworkIncidents = pgTable("voice_network_incidents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  callLogId: varchar("call_log_id"),
+  kind: varchar("kind", { length: 48 }).notNull(),
+  severity: varchar("severity", { length: 16 }).notNull(),
+  connectionState: varchar("connection_state", { length: 24 }),
+  iceState: varchar("ice_state", { length: 24 }),
+  rttMs: integer("rtt_ms"),
+  jitterMs: integer("jitter_ms"),
+  packetLossPermille: integer("packet_loss_permille"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+}, (table) => ({
+  createdAtIdx: index("idx_voice_network_incidents_created_at").on(table.createdAt),
+  filtersIdx: index("idx_voice_network_incidents_filters").on(table.kind, table.severity, table.createdAt),
+  callLogIdx: index("idx_voice_network_incidents_call_log").on(table.callLogId, table.createdAt),
+}));
+
 // Configuration tables for settings
 // Complaint types - configurable in settings
 export const complaintTypes = pgTable("complaint_types", {
