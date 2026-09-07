@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useSip } from "@/contexts/sip-context";
 import { useI18n } from "@/i18n";
-import { canUseQuickSoundVerification, classify, classifyIceResult, classifyLatencyQuality, gatherIce, hasCriticalFailure, hasVoiceLevel, isChromiumDesktop, isCompletePulseReadinessRun, isProbableSameHeadset, measureSameOriginLatency, rmsFromTimeDomain, type DiagnosticResult, type DiagnosticState } from "./diagnostics";
+import { classify, classifyIceResult, classifyLatencyQuality, gatherIce, hasCriticalFailure, hasVoiceLevel, isChromiumDesktop, isCompletePulseReadinessRun, isProbableSameHeadset, measureSameOriginLatency, rmsFromTimeDomain, type DiagnosticResult, type DiagnosticState } from "./diagnostics";
 import { pulseCopy } from "./translations";
 
 type Props = { open: boolean; required?: boolean; keepWakeLock?: boolean; hasValidReadiness?: boolean; userId: string; onClose: () => void; onReady: () => void; onExit?: () => void };
@@ -27,6 +27,10 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   const [micRms, setMicRms] = useState(0);
   const [micTesting, setMicTesting] = useState(false);
   const [latencyMetrics, setLatencyMetrics] = useState<{ latency: number; jitter: number; samples: number; quality: "good" | "warning" | "poor" } | null>(null);
+  const [quickMicStatus, setQuickMicStatus] = useState<"idle" | "pending" | "pass" | "fail">("idle");
+  const [quickSpeakerStatus, setQuickSpeakerStatus] = useState<"idle" | "pending" | "pass" | "fail">("idle");
+  const [quickLatencyStatus, setQuickLatencyStatus] = useState<"idle" | "pending" | "pass" | "warn" | "fail">("idle");
+  const successSoundPlayed = useRef(false);
   const wakeLock = useRef<any>(null);
   const wakeLockGeneration = useRef(0);
   const runGeneration = useRef(0);
@@ -57,7 +61,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     runAbort.current?.abort();
     const abortController = new AbortController();
     runAbort.current = abortController;
-    setRunning(true); setState("checking"); setHeard(false); setSoundPlayed(false); setSoundError(false); setResults([]); setLatencyMetrics(null);
+    setRunning(true); setState("checking"); setHeard(false); setSoundPlayed(false); setSoundError(false); setResults([]); setLatencyMetrics(null); setQuickMicStatus("idle"); setQuickSpeakerStatus("idle"); setQuickLatencyStatus("idle");
     setRunCompleted(false);
     setProgress(5); setProgressDetail(t.progressStarting);
     const advance = (value: number, detail: string) => {
@@ -65,6 +69,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
       setProgress(value);
       setProgressDetail(detail);
     };
+    const pauseForResult = () => new Promise<void>((resolve) => window.setTimeout(resolve, 420));
     const wakeOk = await acquireWakeLock();
     if (generation !== runGeneration.current) return;
     advance(15, t.progressEnvironment);
@@ -76,6 +81,8 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     add("browser", "critical", isChromiumDesktop(), t.browserDetail);
     add("secure", "critical", window.isSecureContext || window.location.hostname === "localhost", t.secureDetail);
     add("online", "critical", navigator.onLine !== false, navigator.onLine === false ? t.onlineDetail : undefined);
+    await pauseForResult();
+    if (generation !== runGeneration.current) return;
     advance(28, t.progressAudio);
     let stream: MediaStream | undefined;
     let microphoneLabel = "";
@@ -133,6 +140,8 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     }
     if (generation !== runGeneration.current) return;
     add("voice", "critical", voiceDetected, voiceDetected ? t.voiceDetected : t.voiceNotDetected);
+    await pauseForResult();
+    if (generation !== runGeneration.current) return;
     advance(45, t.progressNetwork);
     const ice = await gatherIce();
     if (generation !== runGeneration.current) return;
@@ -143,10 +152,14 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     if (latency) setLatencyMetrics({ ...latency, quality: latencyQuality! });
     r.push({ key: "latency", severity: "warning", state: latencyQuality === "good" ? "pass" : "warn", detail: latency ? `${t.latencyDetail}: ${latency.latency} ms · ${t.jitterDetail}: ${latency.jitter} ms (${latency.samples}/4)` : t.latencyUnavailable });
     setResults([...r]);
+    await pauseForResult();
+    if (generation !== runGeneration.current) return;
     advance(65, t.progressSip);
     const registered = isRegistered || await ensureRegistered().catch(() => false);
     if (generation !== runGeneration.current) return;
     add("sip", "critical", registered, registered ? t.sipDetail : t.sipFail);
+    await pauseForResult();
+    if (generation !== runGeneration.current) return;
     advance(80, t.progressM365);
     try {
       const response = await fetch(`/api/users/${encodeURIComponent(userId)}/ms365-connection`, { credentials: "include", signal: abortController.signal });
@@ -159,6 +172,8 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
       if (generation !== runGeneration.current || abortController.signal.aborted) return;
       add("m365Account", "critical", false, t.m365CheckFailed);
     }
+    await pauseForResult();
+    if (generation !== runGeneration.current) return;
     advance(94, t.progressFinishing);
     r.push({ key: "notifications", severity: "warning", state: typeof Notification !== "undefined" && Notification.permission === "granted" ? "pass" : "warn", detail: t.notificationsDetail });
     const networkType = String((navigator as any).connection?.type || "").toLowerCase();
@@ -168,6 +183,8 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     const physicalOutputs = devices.filter((d) => d.kind === "audiooutput" && d.deviceId !== "default" && d.deviceId !== "communications");
     const probablePair = physicalInputs.some((input) => physicalOutputs.some((output) => (input.groupId && input.groupId === output.groupId) || isProbableSameHeadset(input.label, output.label)));
     r.push({ key: "devices", severity: "warning", state: "warn", detail: probablePair ? t.devicesProbableMatch : physicalInputs.length > 1 || physicalOutputs.length > 1 ? t.devicesDetail : t.devicesSingleDetail });
+    if (generation !== runGeneration.current) return;
+    await pauseForResult();
     if (generation !== runGeneration.current) return;
     setProgress(100);
     setResults(r); setState(classify(r)); setRunCompleted(true); setRunning(false);
@@ -185,6 +202,10 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
       runAbort.current?.abort();
       setRunning(false);
       setProgress(0);
+      setQuickMicStatus("idle");
+      setQuickSpeakerStatus("idle");
+      setQuickLatencyStatus("idle");
+      successSoundPlayed.current = false;
       wakeLockGeneration.current += 1;
       void wakeLock.current?.release?.();
       wakeLock.current = null;
@@ -201,6 +222,9 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     setMicRms(0);
     setMicTesting(false);
     setLatencyMetrics(null);
+    setQuickMicStatus("idle");
+    setQuickSpeakerStatus("idle");
+    setQuickLatencyStatus("idle");
     setRunCompleted(false);
     setRunning(false);
     setProgress(0);
@@ -216,7 +240,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [acquireWakeLock, keepWakeLock, open, state]);
   const play = async () => {
-    setSoundPlayed(false); setSoundError(false); setHeard(false);
+    setSoundPlayed(false); setSoundError(false); setHeard(false); setQuickSpeakerStatus("pending");
     let ctx: AudioContext | undefined;
     try {
       ctx = new AudioContext();
@@ -224,8 +248,74 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
       const osc = ctx.createOscillator(); const gain = ctx.createGain();
       osc.frequency.value = 660; gain.gain.value = 0.08; osc.connect(gain).connect(ctx.destination);
       osc.onended = () => { void ctx?.close(); };
-      osc.start(); osc.stop(ctx.currentTime + .22); setSoundPlayed(true);
-    } catch { setSoundError(true); if (ctx) void ctx.close(); }
+      osc.start(); osc.stop(ctx.currentTime + .22);
+      await new Promise((resolve) => window.setTimeout(resolve, 320));
+      setSoundPlayed(true); setQuickSpeakerStatus("idle");
+    } catch { setSoundError(true); setQuickSpeakerStatus("fail"); if (ctx) void ctx.close(); }
+  };
+  const playConfirmation = async () => {
+    let ctx: AudioContext | undefined;
+    try {
+      ctx = new AudioContext(); await ctx.resume();
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.045, ctx.currentTime + 0.025);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.42);
+      const first = ctx.createOscillator(); const second = ctx.createOscillator();
+      first.frequency.value = 660; second.frequency.value = 880;
+      first.connect(gain); second.connect(gain); gain.connect(ctx.destination);
+      second.onended = () => { void ctx?.close(); };
+      first.start(); first.stop(ctx.currentTime + 0.2);
+      second.start(ctx.currentTime + 0.16); second.stop(ctx.currentTime + 0.42);
+    } catch { if (ctx) void ctx.close(); }
+  };
+  const runQuickMic = async () => {
+    setQuickMicStatus("pending"); setMicTesting(true); setMicRms(0);
+    let stream: MediaStream | undefined; let context: AudioContext | undefined; let frame: number | undefined; let detected = false;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      context = new AudioContext();
+      const analyser = context.createAnalyser(); analyser.fftSize = 1024;
+      context.createMediaStreamSource(stream).connect(analyser);
+      const samples = new Uint8Array(analyser.fftSize);
+      await new Promise<void>((resolve) => {
+        const started = performance.now();
+        const update = () => {
+          analyser.getByteTimeDomainData(samples);
+          const level = rmsFromTimeDomain(samples); detected ||= hasVoiceLevel(level); setMicRms(level);
+          if (performance.now() - started >= 1800) { resolve(); return; }
+          frame = requestAnimationFrame(update);
+        };
+        update();
+      });
+      const nextStatus = detected ? "pass" : "fail";
+      setQuickMicStatus(nextStatus);
+      if (runCompleted) setResults((current) => current.map((item) => item.key === "voice" ? { ...item, state: nextStatus, detail: detected ? t.voiceDetected : t.voiceNotDetected } : item));
+    } catch {
+      setQuickMicStatus("fail");
+      if (runCompleted) setResults((current) => current.map((item) => item.key === "voice" ? { ...item, state: "fail", detail: t.voiceNotDetected } : item));
+    }
+    finally { if (frame) cancelAnimationFrame(frame); stream?.getTracks().forEach((track) => track.stop()); void context?.close(); setMicTesting(false); }
+  };
+  const runQuickLatency = async () => {
+    setQuickLatencyStatus("pending"); setLatencyMetrics(null);
+    await new Promise((resolve) => window.setTimeout(resolve, 280));
+    const latency = await measureSameOriginLatency();
+    if (!latency) { setQuickLatencyStatus("fail"); return; }
+    const quality = classifyLatencyQuality(latency.latency, latency.jitter);
+    setLatencyMetrics({ ...latency, quality }); setQuickLatencyStatus(quality === "good" ? "pass" : quality === "warning" ? "warn" : "fail");
+  };
+  const confirmSpeaker = async (confirmed: boolean) => {
+    if (!confirmed) {
+      setHeard(false);
+      setQuickSpeakerStatus(soundError ? "fail" : "idle");
+      return;
+    }
+    setHeard(false);
+    setQuickSpeakerStatus("pending");
+    await new Promise((resolve) => window.setTimeout(resolve, 480));
+    setHeard(true);
+    setQuickSpeakerStatus("pass");
   };
   const requestNotifications = async () => {
     if (typeof Notification === "undefined") return;
@@ -237,13 +327,14 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   };
   const finalResults = useMemo(() => [...results, { key: "sound" as const, severity: "critical" as const, state: soundError ? "fail" as const : heard ? "pass" as const : "pending" as const, detail: soundError ? t.soundFail : t.soundDetail }], [heard, results, soundError, t.soundDetail, t.soundFail]);
   const diagnosticsComplete = isCompletePulseReadinessRun(results);
-  const quickSoundVerified = canUseQuickSoundVerification({ hasValidReadiness, diagnosticState: state, runCompleted, heard, soundError });
-  const finalState = quickSoundVerified ? "ready" : diagnosticsComplete && heard ? classify(finalResults) : (state === "blocked" ? "blocked" : "checking");
+  const quickSpeakerPassed = hasValidReadiness && !runCompleted && quickSpeakerStatus === "pass" && heard && !soundError;
+  const quickChecksPassed = hasValidReadiness && !runCompleted && quickMicStatus === "pass" && quickSpeakerPassed && quickLatencyStatus === "pass";
+  const finalState = quickChecksPassed ? "ready" : diagnosticsComplete && heard ? classify(finalResults) : (state === "blocked" ? "blocked" : "checking");
   const labels: Record<string, string> = Object.fromEntries(["browser","secure","online","microphone","input","output","voice","sound","ice","sip","m365Account","notifications","network","latency","wakeLock","devices"].map((k) => [k, t[k as keyof typeof t] as string]));
   const mainResults = finalResults.filter((item) => !["network", "devices", "latency", "microphone", "input", "output", "voice", "sound"].includes(item.key));
   const advisoryResults = finalResults.filter((item) => item.key === "network" || item.key === "devices");
   const statusText = finalState === "ready" ? t.ready : finalState === "warning" ? t.warning : finalState === "blocked" ? t.blocked : t.working;
-  const canContinue = quickSoundVerified || (runCompleted && diagnosticsComplete && heard && !hasCriticalFailure(finalResults) && (finalState === "ready" || finalState === "warning"));
+  const canContinue = quickChecksPassed || (runCompleted && diagnosticsComplete && heard && !hasCriticalFailure(finalResults) && (finalState === "ready" || finalState === "warning"));
   const latencyResult = results.find((item) => item.key === "latency");
   const latencyVerdict = !latencyMetrics ? null : latencyMetrics.quality === "good"
     ? { label: t.latencyGood || t.ready, tone: "text-emerald-700 dark:text-emerald-300", icon: "✓", panel: "border-emerald-500/25 bg-emerald-500/[0.055]" }
@@ -266,6 +357,13 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     if (!canContinue) return;
     onReady();
   };
+  useEffect(() => {
+    if (!open) { successSoundPlayed.current = false; return; }
+    if ((quickChecksPassed || (runCompleted && (finalState === "ready" || finalState === "warning"))) && !successSoundPlayed.current) {
+      successSoundPlayed.current = true;
+      void playConfirmation();
+    }
+  }, [finalState, open, quickChecksPassed, runCompleted]);
   return <Dialog open={open} onOpenChange={(v) => !required && !v && onClose()}>
      <DialogContent hideCloseButton={required} className="max-w-2xl max-h-[92dvh] overflow-y-auto border-primary/15 bg-background/95 p-0 shadow-2xl shadow-primary/10 backdrop-blur" data-testid="nexus-pulse-dialog">
        <div className="relative overflow-hidden rounded-[inherit]">
@@ -274,6 +372,27 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
          <div className="relative space-y-5 p-5 sm:p-7">
             <DialogHeader><DialogTitle className="flex items-center gap-3 text-xl tracking-tight"><span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/15"><ShieldCheck className="h-5 w-5" /></span><span>{t.title}</span></DialogTitle><DialogDescription className="pl-13">{t.subtitle}</DialogDescription></DialogHeader>
             <div className="flex items-center justify-between rounded-2xl border border-primary/15 bg-primary/[0.06] p-4 transition-colors" aria-live="polite"><div><div className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary/70">NEXUS Pulse</div><span className="font-semibold">{statusText}</span></div><Badge className="rounded-full px-3 py-1" variant={finalState === "blocked" ? "destructive" : finalState === "ready" ? "default" : "secondary"}>{statusText}</Badge></div>
+              {hasValidReadiness && state === "idle" && !runCompleted && <section className="rounded-2xl border border-primary/20 bg-primary/[0.045] p-4" aria-labelledby="pulse-quick-title">
+                <div className="mb-3 flex items-start justify-between gap-3"><div><h2 id="pulse-quick-title" className="text-sm font-semibold">{t.quickChecksTitle}</h2><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t.quickChecksDetail}</p></div><Badge variant="outline" className="shrink-0 border-primary/25 text-primary">{t.advisoryBadge}</Badge></div>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {[
+                    { key:"mic", label:t.microphone, status:quickMicStatus, pending:t.quickMicPending, pass:t.quickMicPassed, fail:t.quickMicFailed, action:t.quickMicRun, onClick:runQuickMic },
+                    { key:"speaker", label:t.output, status:quickSpeakerStatus, pending:t.quickSpeakerPending, pass:t.quickSpeakerPassed, fail:t.quickSpeakerFailed, action:t.quickSpeakerRun, onClick:() => void play() },
+                    { key:"latency", label:t.latency, status:quickLatencyStatus, pending:t.quickLatencyPending, pass:t.quickLatencyPassed, fail:quickLatencyStatus === "warn" ? t.quickLatencyWarning : t.quickLatencyFailed, action:t.quickLatencyRun, onClick:() => void runQuickLatency() },
+                  ].map((check) => <div key={check.key} className={`rounded-xl border p-3 transition-colors ${check.status === "pass" ? "border-emerald-500/30 bg-emerald-500/[0.06]" : check.status === "fail" ? "border-destructive/30 bg-destructive/[0.05]" : check.status === "warn" ? "border-amber-500/30 bg-amber-500/[0.06]" : "border-border/70 bg-card/50"}`}>
+                    <div className="flex items-center justify-between gap-2"><span className="text-xs font-semibold">{check.label}</span>{check.status === "pending" ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : check.status === "pass" ? <CheckCircle2 className="h-4 w-4 text-emerald-600 motion-safe:animate-pulse" /> : check.status === "fail" ? <AlertTriangle className="h-4 w-4 text-destructive" /> : check.status === "warn" ? <AlertTriangle className="h-4 w-4 text-amber-600" /> : <CircleDot className="h-4 w-4 text-muted-foreground" />}</div>
+                    <p className="mt-2 min-h-8 text-[11px] leading-relaxed text-muted-foreground">{check.status === "pending" ? check.pending : check.status === "pass" ? check.pass : check.status === "fail" || check.status === "warn" ? check.fail : t.quickChecksDetail}</p>
+                    <Button variant="ghost" size="sm" className="mt-2 h-7 px-2 text-xs text-primary" disabled={check.status === "pending"} onClick={check.onClick}>{check.action}</Button>
+                  </div>)}
+                </div>
+                <p className={`mt-3 text-xs font-medium ${quickChecksPassed ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300"}`}>{quickChecksPassed ? t.deepCheckNotRequired : t.deepCheckRequired}</p>
+              </section>}
+              {(quickChecksPassed || (runCompleted && (finalState === "ready" || finalState === "warning"))) && <section className="pulse-ready-treatment rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.055] p-5 text-center" aria-live="polite">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-700 ring-1 ring-emerald-500/25 motion-safe:animate-pulse"><CheckCircle2 className="h-6 w-6" /></div>
+                 <div className="mx-auto mt-3 flex w-fit items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,.8)] motion-safe:animate-pulse" /><h2 className="text-lg font-semibold text-emerald-900 dark:text-emerald-100">{finalState === "warning" ? t.warning : t.callingReadyTitle}</h2></div>
+                 <p className="mx-auto mt-1 max-w-md text-sm leading-relaxed text-emerald-800/75 dark:text-emerald-100/75">{finalState === "warning" ? t.callingReadyWarningDetail : t.callingReadyDetail}</p>
+                <p className="mt-2 text-xs text-emerald-800/65 dark:text-emerald-100/65">{t.confirmationSound}</p>
+              </section>}
              {running && <section className="overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/[0.10] via-primary/[0.04] to-background p-4 shadow-sm" aria-live="polite" aria-label={t.progressTitle}>
               <div className="mb-3 flex items-center justify-between gap-4">
                  <div className="flex min-w-0 items-center gap-3"><span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary"><span className="absolute inset-0 animate-ping rounded-xl bg-primary/10" /><Loader2 className="relative h-4 w-4 animate-spin" /></span><div className="min-w-0"><div className="text-sm font-semibold">{t.progressTitle}</div><div className="truncate text-xs text-muted-foreground">{progressDetail}</div></div></div>
@@ -294,12 +413,13 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
                   <div className="flex items-start justify-between gap-3"><div className="flex items-center gap-2"><span className={`flex h-9 w-9 items-center justify-center rounded-xl ${micTesting ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"}`}><Mic className="h-4 w-4" /></span><div><div className="text-sm font-semibold">{t.microphone}</div><div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t.voice}</div></div></div>{micTesting ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : voiceResult?.state === "pass" ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : voiceResult?.state === "fail" || inputResult?.state === "fail" ? <AlertTriangle className="h-5 w-5 text-destructive" /> : <CircleDot className="h-5 w-5 text-muted-foreground" />}</div>
                   <div className="mt-3 rounded-xl border border-primary/10 bg-background/60 px-3 py-2 text-xs leading-relaxed text-muted-foreground">{micTesting ? t.voiceTesting : voiceResult?.detail || inputResult?.detail || t.micDetail}</div>
                   {inputDevicesResult?.detail && <div className="mt-2 flex items-center gap-2 rounded-lg bg-primary/[0.06] px-2.5 py-2 text-[11px] text-primary"><Mic className="h-3 w-3 shrink-0" /><span className="truncate">{inputDevicesResult.detail}</span></div>}
-                  {micTesting && <div className="mt-3 flex items-end gap-1" aria-hidden="true">{[.3,.55,.8,.45,.7,.35,.6,.9,.5,.25].map((height, i) => <span key={i} className="w-1.5 rounded-full bg-primary transition-transform" style={{ height: `${Math.max(6, height * (8 + micRms * 110))}px` }} />)}</div>}
+                   {!running && <Button variant="ghost" size="sm" className="mt-2 h-7 px-2 text-xs text-primary" onClick={() => void runQuickMic()}>{t.quickMicRun}</Button>}
+                   {micTesting && <div className="mt-3 flex items-end gap-1" aria-hidden="true">{[.3,.55,.8,.45,.7,.35,.6,.9,.5,.25].map((height, i) => <span key={i} className="w-1.5 rounded-full bg-primary transition-transform" style={{ height: `${Math.max(6, height * (8 + micRms * 110))}px` }} />)}</div>}
                 </section>
                 <section className={`rounded-2xl border p-4 transition-all ${soundPlayed ? "border-amber-500/40 bg-amber-500/[0.06]" : "border-border/70 bg-card/60"}`} aria-label={t.output}>
                   <div className="flex items-start justify-between gap-3"><div className="flex items-center gap-2"><span className={`flex h-9 w-9 items-center justify-center rounded-xl ${soundPlayed ? "bg-amber-500 text-white" : "bg-amber-500/10 text-amber-700 dark:text-amber-300"}`}><Headphones className="h-4 w-4" /></span><div><div className="text-sm font-semibold">{t.output}</div><div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t.sound}</div></div></div>{heard ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <Radio className="h-4 w-4 text-amber-600" />}</div>
                   <div className="mt-3 rounded-xl border border-amber-500/10 bg-background/60 px-3 py-2 text-xs leading-relaxed text-muted-foreground">{outputResult?.detail || t.soundDetail}</div>
-                  <div className="mt-3 flex flex-wrap items-center gap-2"><Button variant={soundPlayed ? "secondary" : "default"} size="sm" className="rounded-lg" onClick={() => void play()} data-testid="button-pulse-sound"><Play className="h-3.5 w-3.5 fill-current" />{soundPlayed ? t.soundPlayed : t.play}</Button><label className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs transition-colors ${heard ? "border-emerald-500/40 bg-emerald-500/10" : "border-border/70"}`}><input className="h-3.5 w-3.5 accent-primary" type="checkbox" disabled={!soundPlayed || soundError} checked={heard} onChange={(e) => setHeard(e.target.checked)} />{t.heard}</label></div>
+                   <div className="mt-3 flex flex-wrap items-center gap-2"><Button variant={soundPlayed ? "secondary" : "default"} size="sm" className="rounded-lg" onClick={() => void play()} disabled={quickSpeakerStatus === "pending"} data-testid="button-pulse-sound">{quickSpeakerStatus === "pending" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5 fill-current" />}{soundPlayed ? t.soundPlayed : t.play}</Button><label className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs transition-colors ${heard ? "border-emerald-500/40 bg-emerald-500/10" : "border-border/70"}`}><input className="h-3.5 w-3.5 accent-primary" type="checkbox" disabled={!soundPlayed || soundError || quickSpeakerStatus === "pending"} checked={heard} onChange={(e) => void confirmSpeaker(e.target.checked)} />{quickSpeakerStatus === "pending" && soundPlayed ? t.quickSpeakerPending : t.heard}</label></div>
                 </section>
               </div>
               <div className="grid gap-2 sm:grid-cols-2" aria-live="polite">{mainResults.map((item, index) => <div key={item.key} className={`animate-in fade-in slide-in-from-bottom-1 flex gap-3 rounded-xl border p-3 transition-colors ${item.key === "notifications" || item.key === "m365Account" ? "sm:col-span-2" : ""} ${item.state === "pass" ? "border-emerald-500/20 bg-emerald-500/[0.035]" : item.key === "m365Account" && item.state === "fail" ? "border-destructive/40 bg-destructive/[0.06]" : "border-border/70 bg-card/60 hover:border-primary/25"}`} style={{ animationDelay: `${Math.min(index * 35, 350)}ms` }}><div className="mt-0.5">{item.key === "m365Account" && item.state === "pass" ? <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/15"><MailCheck className="h-3.5 w-3.5 text-emerald-600" /></span> : item.state === "pass" ? <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/15"><Check className="h-3.5 w-3.5 text-emerald-600" /></span> : item.state === "fail" ? <span className="flex h-5 w-5 items-center justify-center rounded-full bg-destructive/10"><AlertTriangle className="h-3.5 w-3.5 text-destructive" /></span> : <CircleDot className="h-4 w-4 text-amber-600" />}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-2"><div className="text-sm font-medium">{labels[item.key]}</div>{item.key === "notifications" && item.state !== "pass" && typeof Notification !== "undefined" && Notification.permission === "default" && <Button variant="outline" size="sm" className="rounded-lg border-primary/30 text-primary" onClick={() => void requestNotifications()} data-testid="button-pulse-notifications"><Bell className="h-4 w-4" />{t.notificationsEnable}</Button>}</div>{item.detail && <div className={`text-xs leading-relaxed ${item.key === "m365Account" && item.state === "fail" ? "font-medium text-destructive" : "text-muted-foreground"}`}>{item.detail}</div>}{item.key === "notifications" && item.state !== "pass" && typeof Notification === "undefined" && <div className="text-xs leading-relaxed text-amber-700">{t.notificationsUnsupported}</div>}{item.key === "notifications" && item.state !== "pass" && typeof Notification !== "undefined" && Notification.permission === "default" && <div className="mt-1 text-xs leading-relaxed text-muted-foreground">{t.notificationsPrompt}</div>}</div></div>)}</div>
