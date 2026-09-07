@@ -233,6 +233,7 @@ export function SipPhone({
   const ringTimedOutRef = useRef<boolean>(false);
   const activeInboundMetaRef = useRef<{ queueId?: string; queueName?: string; direction?: string } | null>(null);
   const inboundTerminatedListenerRef = useRef<{ session: any; listener: (state: any) => void } | null>(null);
+  const inboundFinalizeRef = useRef<(() => void) | null>(null);
   const hangupPollRef = useRef<NodeJS.Timeout | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingChunksRef = useRef<Blob[]>([]);
@@ -557,17 +558,27 @@ export function SipPhone({
     // before any asynchronous work so no path can upload the local blob.
     discardLocalRecording();
     try {
-      await apiRequest("POST", `/api/call-logs/${key}/finalize-agent-recording`, {
-        customerActivitySegments,
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/call-recordings"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/call-logs"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/call-logs/browse"] });
-      return true;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          await apiRequest("POST", `/api/call-logs/${key}/finalize-agent-recording`, {
+            customerActivitySegments,
+          });
+          queryClient.invalidateQueries({ queryKey: ["/api/call-recordings"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/call-logs"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/call-logs/browse"] });
+          return true;
+        } catch (error) {
+          console.error(`[Recording] Trusted agent-only recording finalize attempt ${attempt}/3 failed:`, error);
+          if (attempt === 3) throw error;
+          await new Promise(resolve => setTimeout(resolve, attempt * 500));
+        }
+      }
     } catch (error) {
       console.error("[Recording] Trusted agent-only recording failed to finalize:", error);
+      trustedAgentRecordingFinalizedRef.current.delete(key);
       return false;
     }
+    return false;
   }, [cleanupRecordingAnalysis, discardLocalRecording]);
 
   const pauseRecording = useCallback(() => {
@@ -1122,6 +1133,7 @@ export function SipPhone({
       if (stateStr !== "Terminated" && state !== SessionState.Terminated) return;
       if (terminatedHandled) { console.log("[SIP-INBOUND] onTerminated already handled, skipping duplicate"); return; }
       terminatedHandled = true;
+      inboundFinalizeRef.current = null;
       clearMediaHealthMonitoring();
       if (hangupPollRef.current) { clearInterval(hangupPollRef.current); hangupPollRef.current = null; }
       if (forceIdleRef.current) { forceIdleRef.current = false; return; }
@@ -1184,6 +1196,7 @@ export function SipPhone({
         }, 3000);
       }
     };
+    inboundFinalizeRef.current = () => onTerminated(SessionState.Terminated);
 
     if (session.stateChange) {
       session.stateChange.addListener(onTerminated);
@@ -1204,7 +1217,6 @@ export function SipPhone({
       const triggerHangupDetection = (source: string) => {
         if (terminatedHandled) return;
         console.warn(`[SIP-INBOUND] Hang-up detected via: ${source}`);
-        terminatedHandled = true;
         if (hangupPollRef.current) { clearInterval(hangupPollRef.current); hangupPollRef.current = null; }
         onTerminated(SessionState.Terminated);
       };
@@ -2245,21 +2257,46 @@ export function SipPhone({
     };
   }, [installMicrophoneTrack, t.agentWorkspace, toast]);
 
+  const finalizeInboundIfCurrent = useCallback((capturedSession: Session, source: string) => {
+    if (sessionRef.current !== capturedSession) return;
+    console.warn(`[SIP-INBOUND] Finalizing current inbound call via: ${source}`);
+    inboundFinalizeRef.current?.();
+  }, []);
+
+  const sendByeWithInboundFallback = useCallback((capturedSession: Session, source: string) => {
+    try {
+      void Promise.resolve(capturedSession.bye()).catch((error) => {
+        console.error(`[SIP-INBOUND] BYE failed (${source}), finalizing locally:`, error);
+        finalizeInboundIfCurrent(capturedSession, `${source} BYE rejection`);
+      });
+    } catch (error) {
+      console.error(`[SIP-INBOUND] BYE threw (${source}), finalizing locally:`, error);
+      finalizeInboundIfCurrent(capturedSession, `${source} BYE exception`);
+      return;
+    }
+    // SIP.js normally emits Terminated after BYE. Keep a session-bound local
+    // fallback so a delayed result from this call can never finalize a later one.
+    setTimeout(() => {
+      finalizeInboundIfCurrent(capturedSession, `${source} termination timeout`);
+    }, 1200);
+  }, [finalizeInboundIfCurrent]);
+
   const remoteHangup = useCallback(() => {
     clearMediaHealthMonitoring();
     releaseMicrophonePipeline();
     console.log("[SIP-INBOUND] remoteHangup called (caller/server initiated), session state:", sessionRef.current?.state);
-    if (currentCallLogIdRef.current && recordingSnapshotRef.current?.active && recordingSnapshotRef.current.mode === "agent_only") {
-      void finalizeTrustedAgentRecording(currentCallLogIdRef.current);
-    }
-    if (sessionRef.current) {
+    const session = sessionRef.current;
+    if (session) {
       try {
-        if (sessionRef.current.state === SessionState.Established) {
+        if (session.state === SessionState.Established || String(session.state) === "Established") {
           console.log("[SIP-INBOUND] remoteHangup: sending BYE");
-          sessionRef.current.bye();
+          sendByeWithInboundFallback(session, "server remote hangup");
+        } else {
+          finalizeInboundIfCurrent(session, "server remote hangup");
         }
       } catch (error) {
         console.error("Error in remoteHangup:", error);
+        finalizeInboundIfCurrent(session, "server remote hangup exception");
       }
     }
     if (audioContextRef.current) {
@@ -2272,29 +2309,29 @@ export function SipPhone({
     if (callTimerRef.current) {
       clearInterval(callTimerRef.current);
     }
-  }, [finalizeTrustedAgentRecording, clearMediaHealthMonitoring, releaseMicrophonePipeline]);
+  }, [clearMediaHealthMonitoring, releaseMicrophonePipeline, sendByeWithInboundFallback, finalizeInboundIfCurrent]);
 
   const endCall = useCallback(() => {
     clearMediaHealthMonitoring();
     releaseMicrophonePipeline();
     console.log("[SIP-INBOUND] endCall called, session state:", sessionRef.current?.state);
     userHungUpRef.current = true;
-    if (currentCallLogId && recordingSnapshotRef.current?.active && recordingSnapshotRef.current.mode === "agent_only") {
-      void finalizeTrustedAgentRecording(currentCallLogId);
-    }
     ringTimedOutRef.current = false;
     if (maxRingTimerRef.current) {
       clearTimeout(maxRingTimerRef.current);
       maxRingTimerRef.current = null;
     }
-    if (sessionRef.current) {
+    const session = sessionRef.current;
+    if (session) {
       try {
-        if (sessionRef.current.state === SessionState.Established) {
+        if (session.state === SessionState.Established || String(session.state) === "Established") {
           console.log("[SIP-INBOUND] Sending BYE to end call");
-          sessionRef.current.bye();
+          sendByeWithInboundFallback(session, "agent end call");
+        } else if (session.state === SessionState.Terminated || String(session.state) === "Terminated") {
+          finalizeInboundIfCurrent(session, "agent end already-terminated call");
         } else {
           console.log("[SIP-INBOUND] Cancelling call (not established)");
-          (sessionRef.current as Inviter).cancel?.();
+          (session as Inviter).cancel?.();
           if (currentCallLogId) {
             updateCallLogMutation.mutate({
               id: currentCallLogId,
@@ -2326,7 +2363,7 @@ export function SipPhone({
     if (callTimerRef.current) {
       clearInterval(callTimerRef.current);
     }
-  }, [currentCallLogId, updateCallLogMutation, finalizeTrustedAgentRecording, clearMediaHealthMonitoring, releaseMicrophonePipeline]);
+  }, [currentCallLogId, updateCallLogMutation, clearMediaHealthMonitoring, releaseMicrophonePipeline, sendByeWithInboundFallback, finalizeInboundIfCurrent]);
 
   const forceResetCall = useCallback(() => {
     clearMediaHealthMonitoring();
