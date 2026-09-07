@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ArrowLeft, AudioLines, Bell, Check, CheckCircle2, CircleDot, Headphones, Loader2, MailCheck, Mic, Play, Radio, ShieldCheck, Signal, Wifi } from "lucide-react";
+import { AlertTriangle, ArrowLeft, AudioLines, Bell, Check, CheckCircle2, CircleDot, Globe2, Headphones, Loader2, MailCheck, Mic, Play, Radio, ShieldCheck, Signal, Wifi, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -30,7 +30,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   const [quickMicStatus, setQuickMicStatus] = useState<"idle" | "pending" | "pass" | "fail">("idle");
   const [quickSpeakerStatus, setQuickSpeakerStatus] = useState<"idle" | "pending" | "pass" | "fail">("idle");
   const [quickLatencyStatus, setQuickLatencyStatus] = useState<"idle" | "pending" | "pass" | "warn" | "fail">("idle");
-  const [activeAudioTest, setActiveAudioTest] = useState<"microphone" | "output" | null>(null);
+  const [activeAudioTest, setActiveAudioTest] = useState<"browser" | "microphone" | "output" | "latency" | "progress" | null>(null);
   const successSoundPlayed = useRef(false);
   const wakeLock = useRef<any>(null);
   const wakeLockGeneration = useRef(0);
@@ -68,7 +68,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     runAbort.current = abortController;
     heardRef.current = false;
     setRunning(true); setState("checking"); setHeard(false); setSoundPlayed(false); setSoundError(false); setResults([]); setLatencyMetrics(null); setQuickMicStatus("idle"); setQuickSpeakerStatus("idle"); setQuickLatencyStatus("idle");
-    setActiveAudioTest("microphone");
+    setActiveAudioTest("browser");
     setRunCompleted(false);
     setProgress(5); setProgressDetail(t.progressStarting);
     const advance = (value: number, detail: string) => {
@@ -88,9 +88,10 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     add("browser", "critical", isChromiumDesktop(), t.browserDetail);
     add("secure", "critical", window.isSecureContext || window.location.hostname === "localhost", t.secureDetail);
     add("online", "critical", navigator.onLine !== false, navigator.onLine === false ? t.onlineDetail : undefined);
-    await pauseForResult();
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 1100));
     if (generation !== runGeneration.current) return;
     advance(28, t.progressAudio);
+    setActiveAudioTest("microphone");
     let stream: MediaStream | undefined;
     let microphoneLabel = "";
     try {
@@ -158,7 +159,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     }
     soundConfirmationResolver.current = null;
     if (generation !== runGeneration.current) return;
-    setActiveAudioTest(null);
+    setActiveAudioTest("progress");
     await pauseForResult();
     if (generation !== runGeneration.current) return;
     advance(45, t.progressNetwork);
@@ -206,7 +207,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     await pauseForResult();
     if (generation !== runGeneration.current) return;
     setProgress(100);
-    setResults(r); setState(classify(r)); setRunCompleted(true); setRunning(false);
+    setResults(r); setState(classify(r)); setRunCompleted(true); setRunning(false); setActiveAudioTest(null);
   }, [acquireWakeLock, ensureRegistered, isRegistered, t, userId]);
   useEffect(() => () => {
     runGeneration.current += 1;
@@ -327,6 +328,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     finally { if (frame) cancelAnimationFrame(frame); stream?.getTracks().forEach((track) => track.stop()); void context?.close(); setMicTesting(false); }
   };
   const runQuickLatency = async () => {
+    setActiveAudioTest("latency");
     setQuickLatencyStatus("pending"); setLatencyMetrics(null);
     await new Promise((resolve) => window.setTimeout(resolve, 280));
     const latency = await measureSameOriginLatency(undefined, undefined, 8, 650);
@@ -443,44 +445,47 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
                 })}</div>
                {micTesting && <div className="mt-3"><div className="mb-1 flex justify-between text-xs text-muted-foreground"><span>{t.voiceTesting}</span><span>{Math.round(micRms * 100)}%</span></div><Progress value={Math.min(micRms * 1200, 100)} className="h-2 bg-emerald-500/15 [&>div]:bg-emerald-500" /></div>}
             </section>}
-              <div className="grid gap-3 sm:grid-cols-2">
-                <section className={`rounded-2xl border p-4 transition-all ${micTesting ? "border-primary/50 bg-primary/[0.08] shadow-sm" : "border-border/70 bg-card/60"}`} aria-label={t.microphone}>
-                  <div className="flex items-start justify-between gap-3"><div className="flex items-center gap-2"><span className={`flex h-9 w-9 items-center justify-center rounded-xl ${micTesting ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"}`}><Mic className="h-4 w-4" /></span><div><div className="text-sm font-semibold">{t.microphone}</div><div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t.voice}</div></div></div>{micTesting ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : voiceResult?.state === "pass" ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : voiceResult?.state === "fail" || inputResult?.state === "fail" ? <AlertTriangle className="h-5 w-5 text-destructive" /> : <CircleDot className="h-5 w-5 text-muted-foreground" />}</div>
-                   <div className="mt-3 rounded-xl border border-primary/10 bg-background/60 px-3 py-2 text-xs leading-relaxed text-muted-foreground">{micTesting ? t.quickMicPending : voiceResult?.detail || (quickMicStatus === "pass" ? t.quickMicPassed : quickMicStatus === "fail" ? t.quickMicFailed : inputResult?.detail || t.micDetail)}</div>
-                  {inputDevicesResult?.detail && <div className="mt-2 flex items-center gap-2 rounded-lg bg-primary/[0.06] px-2.5 py-2 text-[11px] text-primary"><Mic className="h-3 w-3 shrink-0" /><span className="truncate">{inputDevicesResult.detail}</span></div>}
-                   {!running && <Button variant="ghost" size="sm" className="mt-2 h-7 px-2 text-xs text-primary" onClick={() => void runQuickMic()}>{t.quickMicRun}</Button>}
-                </section>
-                <section className={`rounded-2xl border p-4 transition-all ${soundPlayed ? "border-amber-500/40 bg-amber-500/[0.06]" : "border-border/70 bg-card/60"}`} aria-label={t.output}>
-                  <div className="flex items-start justify-between gap-3"><div className="flex items-center gap-2"><span className={`flex h-9 w-9 items-center justify-center rounded-xl ${soundPlayed ? "bg-amber-500 text-white" : "bg-amber-500/10 text-amber-700 dark:text-amber-300"}`}><Headphones className="h-4 w-4" /></span><div><div className="text-sm font-semibold">{t.output}</div><div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t.sound}</div></div></div>{heard ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <Radio className="h-4 w-4 text-amber-600" />}</div>
-                   <div className="mt-3 rounded-xl border border-amber-500/10 bg-background/60 px-3 py-2 text-xs leading-relaxed text-muted-foreground">{heard ? t.quickSpeakerPassed : soundError ? t.soundFail : outputResult?.detail || t.soundDetail}</div>
-                   {!heard && <Button variant="default" size="sm" className="mt-3 w-full rounded-lg" onClick={() => setActiveAudioTest("output")} data-testid="button-pulse-sound"><Headphones className="h-4 w-4" />{t.quickSpeakerRun}</Button>}
-                </section>
-              </div>
               <div className="grid gap-2 sm:grid-cols-2" aria-live="polite">{mainResults.map((item, index) => <div key={item.key} className={`animate-in fade-in slide-in-from-bottom-1 flex gap-3 rounded-xl border p-3 transition-colors ${item.key === "notifications" || item.key === "m365Account" ? "sm:col-span-2" : ""} ${item.state === "pass" ? "border-emerald-500/20 bg-emerald-500/[0.035]" : item.key === "m365Account" && item.state === "fail" ? "border-destructive/40 bg-destructive/[0.06]" : "border-border/70 bg-card/60 hover:border-primary/25"}`} style={{ animationDelay: `${Math.min(index * 35, 350)}ms` }}><div className="mt-0.5">{item.key === "m365Account" && item.state === "pass" ? <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/15"><MailCheck className="h-3.5 w-3.5 text-emerald-600" /></span> : item.state === "pass" ? <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/15"><Check className="h-3.5 w-3.5 text-emerald-600" /></span> : item.state === "fail" ? <span className="flex h-5 w-5 items-center justify-center rounded-full bg-destructive/10"><AlertTriangle className="h-3.5 w-3.5 text-destructive" /></span> : <CircleDot className="h-4 w-4 text-amber-600" />}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-2"><div className="text-sm font-medium">{labels[item.key]}</div>{item.key === "notifications" && item.state !== "pass" && typeof Notification !== "undefined" && Notification.permission === "default" && <Button variant="outline" size="sm" className="rounded-lg border-primary/30 text-primary" onClick={() => void requestNotifications()} data-testid="button-pulse-notifications"><Bell className="h-4 w-4" />{t.notificationsEnable}</Button>}</div>{item.detail && <div className={`text-xs leading-relaxed ${item.key === "m365Account" && item.state === "fail" ? "font-medium text-destructive" : "text-muted-foreground"}`}>{item.detail}</div>}{item.key === "notifications" && item.state !== "pass" && typeof Notification === "undefined" && <div className="text-xs leading-relaxed text-amber-700">{t.notificationsUnsupported}</div>}{item.key === "notifications" && item.state !== "pass" && typeof Notification !== "undefined" && Notification.permission === "default" && <div className="mt-1 text-xs leading-relaxed text-muted-foreground">{t.notificationsPrompt}</div>}</div></div>)}</div>
              {advisoryResults.length > 0 && <section className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.07] p-4" aria-label={t.advisoryTitle}><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-100"><AlertTriangle className="h-4 w-4 text-amber-600" />{t.advisoryTitle}</div><Badge variant="outline" className="border-amber-500/40 bg-background/50 text-amber-800 dark:text-amber-200">{t.advisoryBadge}</Badge></div><div className="grid gap-3 sm:grid-cols-2">{advisoryResults.map((item) => <div key={item.key} className="rounded-xl border border-amber-500/20 bg-background/70 p-3"><div className="flex items-center gap-2 text-sm font-medium">{item.key === "network" || item.key === "latency" ? <Wifi className="h-4 w-4 text-amber-600" /> : <AudioLines className="h-4 w-4 text-amber-600" />}{labels[item.key]}</div><p className="mt-2 text-xs leading-relaxed text-muted-foreground">{item.detail}</p><p className="mt-2 text-xs font-medium leading-relaxed text-foreground">{item.key === "network" || item.key === "latency" ? t.networkAction : t.devicesAction}</p></div>)}</div></section>}
              {latencyResult && <section className={`rounded-2xl border p-4 ${latencyVerdict?.panel || "border-sky-500/20 bg-sky-500/[0.045]"}`} aria-label={t.latency}><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2 font-semibold"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-sky-500/10 text-sky-700 dark:text-sky-300"><Signal className="h-4 w-4" /></span>{t.latency}</div>{latencyVerdict && <span className={`flex items-center gap-1.5 text-xs font-bold ${latencyVerdict.tone}`}><span className="flex h-5 w-5 items-center justify-center rounded-full border-current/30 bg-current/10">{latencyVerdict.icon}</span>{latencyVerdict.label}</span>}</div><div className="mt-3 grid grid-cols-2 gap-2"><div className="rounded-xl bg-background/65 p-3"><div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t.latencyDetail}</div><div className="mt-1 font-mono text-xl font-bold">{latencyMetrics ? `${latencyMetrics.latency} ms` : "—"}</div></div><div className="rounded-xl bg-background/65 p-3"><div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t.jitterDetail}</div><div className="mt-1 font-mono text-xl font-bold">{latencyMetrics ? `${latencyMetrics.jitter} ms` : "—"}</div></div></div><p className="mt-3 text-xs leading-relaxed text-muted-foreground">{latencyResult.detail || t.latencyUnavailable}</p><p className="mt-2 text-xs font-medium leading-relaxed text-foreground">{t.networkAction}</p></section>}
-               <div className="flex flex-col-reverse gap-2 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-end">{required && onExit && <Button variant="ghost" className="mr-auto justify-start gap-2 text-muted-foreground hover:text-foreground" onClick={onExit} data-testid="button-pulse-return"><ArrowLeft className="h-4 w-4" />{t.returnToIndexus}</Button>}<Button variant="outline" className="rounded-xl" onClick={() => void run()} disabled={running} data-testid="button-pulse-retry">{running ? t.working : state === "idle" ? t.start : t.retry}</Button>{!required && <Button variant="ghost" onClick={onClose}>{t.close}</Button>}<Button className="rounded-xl" onClick={acknowledge} disabled={!canContinue} data-testid="button-pulse-continue">{t.continue}</Button></div>
+               <div className="flex flex-col-reverse gap-2 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-end">{required && onExit && <Button variant="ghost" className="mr-auto justify-start gap-2 text-muted-foreground hover:text-foreground" onClick={onExit} data-testid="button-pulse-return"><ArrowLeft className="h-4 w-4" />{t.returnToIndexus}</Button>}<Button variant="outline" className="rounded-xl" onClick={() => void run()} disabled={running} data-testid="button-pulse-retry">{running ? t.working : state === "idle" ? t.start : t.retry}</Button><Button className="rounded-xl" onClick={acknowledge} disabled={!canContinue} data-testid="button-pulse-continue">{t.continue}</Button></div>
                {activeAudioTest && <div className="fixed inset-0 z-[10030] flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm animate-in fade-in duration-200" role="dialog" aria-modal="true" aria-label={activeAudioTest === "microphone" ? t.voice : t.sound}>
-                 <div className={`relative w-full max-w-md overflow-hidden rounded-3xl border bg-background p-6 text-center shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-3 duration-300 ${activeAudioTest === "microphone" ? "border-primary/40 shadow-primary/20" : "border-amber-500/45 shadow-amber-500/20"}`}>
+                 <div className={`relative w-full max-w-md overflow-hidden rounded-3xl border bg-background p-6 text-center shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-3 duration-300 ${activeAudioTest === "output" ? "border-amber-500/45 shadow-amber-500/20" : "border-primary/40 shadow-primary/20"}`}>
                    <div className={`pointer-events-none absolute inset-x-8 top-0 h-24 rounded-full blur-3xl ${activeAudioTest === "microphone" ? "bg-primary/20" : "bg-amber-400/20"}`} />
-                   {activeAudioTest === "microphone" ? <>
+                   {!running && <button type="button" className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" onClick={() => setActiveAudioTest(null)} aria-label={t.close}><X className="h-5 w-5" /></button>}
+                   {activeAudioTest === "browser" ? <>
+                     <div className="relative mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-sky-500 text-white shadow-lg shadow-sky-500/30"><span className="absolute inset-0 rounded-full bg-sky-400/35 motion-safe:animate-ping" /><Globe2 className="relative h-9 w-9" /></div>
+                     <h2 className="relative mt-5 text-2xl font-bold">{t.browser}</h2>
+                     <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{t.progressEnvironment}</p>
+                     <div className="mt-6 flex items-center justify-center gap-2 rounded-2xl bg-sky-500/[0.08] p-4 font-semibold text-sky-700 dark:text-sky-300"><Loader2 className="h-5 w-5 animate-spin" />{t.working}</div>
+                   </> : activeAudioTest === "microphone" ? <>
                      <div className="relative mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30"><span className="absolute inset-0 rounded-full bg-primary/30 motion-safe:animate-ping" /><Mic className="relative h-9 w-9" /></div>
                      <h2 className="relative mt-5 text-2xl font-bold">{t.voice}</h2>
                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{micTesting ? t.voiceTesting : quickMicStatus === "pass" || voiceResult?.state === "pass" ? t.quickMicPassed : quickMicStatus === "fail" || voiceResult?.state === "fail" ? t.voiceNotDetected : t.micDetail}</p>
                      <div className="mx-auto mt-6 flex h-24 items-center justify-center gap-1.5" aria-hidden="true">{[.35,.55,.8,.45,.7,.95,.6,.82,.5,.3].map((height, i) => <span key={i} className={`w-2 rounded-full transition-all duration-100 ${quickMicStatus === "pass" || voiceResult?.state === "pass" ? "bg-emerald-500" : "bg-primary"}`} style={{ height: `${Math.max(8, height * (18 + micRms * 260))}px` }} />)}</div>
                      {(quickMicStatus === "pass" || voiceResult?.state === "pass") && <div className="mt-3 flex items-center justify-center gap-2 font-semibold text-emerald-600 animate-in zoom-in-75"><CheckCircle2 className="h-6 w-6" />{t.quickMicPassed}</div>}
                      {(quickMicStatus === "fail" || voiceResult?.state === "fail") && !running && <Button className="mt-5 w-full rounded-xl" onClick={() => void runQuickMic()}><Mic className="h-4 w-4" />{t.quickMicRun}</Button>}
-                     {!running && !micTesting && <Button variant="ghost" className="mt-3" onClick={() => setActiveAudioTest(null)}>{t.close}</Button>}
-                   </> : <>
+                   </> : activeAudioTest === "output" ? <>
                      <div className={`relative mx-auto flex h-20 w-20 items-center justify-center rounded-full shadow-lg ${heard ? "bg-emerald-500 text-white shadow-emerald-500/30" : "bg-amber-500 text-white shadow-amber-500/30"}`}>{!heard && <span className="absolute inset-0 rounded-full bg-amber-400/35 motion-safe:animate-ping" />}{heard ? <CheckCircle2 className="relative h-9 w-9" /> : <Headphones className="relative h-9 w-9" />}</div>
                      <h2 className="relative mt-5 text-2xl font-bold">{t.output}</h2>
                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{heard ? t.quickSpeakerPassed : soundPlayed ? t.soundPlayed : t.soundDetail}</p>
                      {!heard && <div className="mt-6 space-y-3">
                        <Button size="lg" className="h-12 w-full rounded-xl bg-amber-500 font-bold text-white shadow-lg shadow-amber-500/20 hover:bg-amber-600" onClick={() => void play()} disabled={quickSpeakerStatus === "pending"}>{quickSpeakerStatus === "pending" && !soundPlayed ? <Loader2 className="h-5 w-5 animate-spin" /> : <Play className="h-5 w-5 fill-current" />}{t.play}</Button>
-                       <Button size="lg" variant="outline" className="h-12 w-full rounded-xl border-emerald-500/40 font-bold text-emerald-700 hover:bg-emerald-500/10" disabled={!soundPlayed || soundError || quickSpeakerStatus === "pending"} onClick={() => void confirmSpeaker(true)}><CheckCircle2 className="h-5 w-5" />{quickSpeakerStatus === "pending" && soundPlayed ? t.quickSpeakerPending : t.heard}</Button>
+                       {soundPlayed && !soundError && <div className="rounded-2xl border-2 border-emerald-500/45 bg-emerald-500/[0.09] p-3 motion-safe:animate-pulse"><div className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-300">{t.soundConfirmHint}</div><Button size="lg" className="h-14 w-full rounded-xl bg-emerald-600 text-base font-extrabold text-white shadow-lg shadow-emerald-500/25 hover:bg-emerald-700" disabled={quickSpeakerStatus === "pending"} onClick={() => void confirmSpeaker(true)}><CheckCircle2 className="h-6 w-6" />{quickSpeakerStatus === "pending" ? t.quickSpeakerPending : t.heard}</Button></div>}
                      </div>}
                      {heard && <div className="mt-5 flex items-center justify-center gap-2 font-semibold text-emerald-600 animate-in zoom-in-75"><CheckCircle2 className="h-6 w-6" />{t.quickSpeakerPassed}</div>}
-                     {!running && <Button variant="ghost" className="mt-3" onClick={() => setActiveAudioTest(null)}>{t.close}</Button>}
+                   </> : activeAudioTest === "latency" ? <>
+                     <div className={`relative mx-auto flex h-20 w-20 items-center justify-center rounded-full text-white shadow-lg ${quickLatencyStatus === "pass" ? "bg-emerald-500 shadow-emerald-500/30" : quickLatencyStatus === "warn" ? "bg-amber-500 shadow-amber-500/30" : quickLatencyStatus === "fail" ? "bg-destructive shadow-destructive/30" : "bg-sky-500 shadow-sky-500/30"}`}><Signal className="relative h-9 w-9" /></div>
+                     <h2 className="relative mt-5 text-2xl font-bold">{t.latency}</h2>
+                     <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{quickLatencyStatus === "pending" ? t.quickLatencyPending : quickLatencyStatus === "pass" ? t.quickLatencyPassed : quickLatencyStatus === "warn" ? t.quickLatencyWarning : t.quickLatencyFailed}</p>
+                     <div className="mx-auto mt-7 flex h-24 items-end justify-center gap-2" aria-hidden="true">{[35,62,48,78,55,88,67,96].map((height, index) => <span key={index} className={`w-5 rounded-t-lg ${quickLatencyStatus === "pass" ? "bg-emerald-500" : quickLatencyStatus === "warn" ? "bg-amber-500" : quickLatencyStatus === "fail" ? "bg-destructive" : "bg-sky-500 motion-safe:animate-pulse"}`} style={{ height: `${height}%`, animationDelay: `${index * 120}ms` }} />)}</div>
+                     {latencyMetrics && <div className="mt-6 grid grid-cols-2 gap-2"><div className="rounded-xl bg-muted/60 p-3"><div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t.latencyDetail}</div><div className="mt-1 font-mono text-xl font-bold">{latencyMetrics.latency} ms</div></div><div className="rounded-xl bg-muted/60 p-3"><div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t.jitterDetail}</div><div className="mt-1 font-mono text-xl font-bold">{latencyMetrics.jitter} ms</div></div></div>}
+                   </> : <>
+                     <div className="relative mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30"><span className="absolute inset-0 rounded-full bg-primary/30 motion-safe:animate-ping" /><Loader2 className="relative h-9 w-9 animate-spin" /></div>
+                     <h2 className="relative mt-5 text-2xl font-bold">{t.progressTitle}</h2>
+                     <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{progressDetail}</p>
+                     <Progress value={progress} className="mt-6 h-3 bg-primary/10 [&>div]:transition-all [&>div]:duration-500" />
+                     <div className="mt-5 space-y-2 text-left">{phaseItems.map((phase) => { const complete = progress > phase.at + 8; const active = progress >= phase.at && !complete; return <div key={phase.at} className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm ${active ? "border-primary/30 bg-primary/[0.08] font-semibold text-primary" : complete ? "border-emerald-500/20 bg-emerald-500/[0.06] text-emerald-700 dark:text-emerald-300" : "border-border/60 text-muted-foreground"}`}>{active ? <Loader2 className="h-4 w-4 animate-spin" /> : complete ? <CheckCircle2 className="h-4 w-4" /> : <CircleDot className="h-4 w-4 opacity-50" />}<span>{phase.label.replace(/…$/, "")}</span></div>; })}</div>
                    </>}
                  </div>
                </div>}
