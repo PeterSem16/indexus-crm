@@ -25,6 +25,8 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   const [progress, setProgress] = useState(0);
   const [progressDetail, setProgressDetail] = useState(t.progressStarting);
   const [micRms, setMicRms] = useState(0);
+  const [micBands, setMicBands] = useState<number[]>(Array(14).fill(0));
+  const [micPhase, setMicPhase] = useState<"idle" | "calibrating" | "listening" | "complete">("idle");
   const [micTesting, setMicTesting] = useState(false);
   const [latencyMetrics, setLatencyMetrics] = useState<{ latency: number; jitter: number; samples: number; quality: "good" | "warning" | "poor" } | null>(null);
   const [quickMicStatus, setQuickMicStatus] = useState<"idle" | "pending" | "pass" | "fail">("idle");
@@ -96,7 +98,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     let stream: MediaStream | undefined;
     let microphoneLabel = "";
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
       if (generation !== runGeneration.current) { stream.getTracks().forEach((track) => track.stop()); return; }
       microphoneLabel = stream.getAudioTracks()[0]?.label || "";
       add("microphone", "critical", true, microphoneLabel ? `${t.micCurrent}: ${microphoneLabel}` : t.micCurrentUnavailable);
@@ -116,7 +118,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     add("input", "critical", hasInput, hasInput ? `${t.availableInputs}: ${inputLabels.join(", ") || t.deviceLabelsUnavailable}` : t.inputDetail);
     add("output", "critical", hasOutput, hasOutput ? `${t.availableOutputs}: ${defaultOutput?.label || t.deviceLabelsUnavailable}; ${outputLabels.join(", ") || t.deviceLabelsUnavailable}` : t.outputDetail);
     let voiceDetected = false;
-    let sustainedVoiceFrames = 0;
+    let voicedFrames = 0;
     if (stream) {
       let context: AudioContext | undefined;
       let frame: number | undefined;
@@ -124,18 +126,40 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
         context = new AudioContext();
         const analyser = context.createAnalyser();
         analyser.fftSize = 1024;
+        analyser.smoothingTimeConstant = 0.72;
         context.createMediaStreamSource(stream).connect(analyser);
         const samples = new Uint8Array(analyser.fftSize);
-        setMicTesting(true); setMicRms(0);
+        const frequencies = new Uint8Array(analyser.frequencyBinCount);
+        let baselineTotal = 0;
+        let baselineFrames = 0;
+        setMicTesting(true); setMicRms(0); setMicBands(Array(14).fill(0)); setMicPhase("calibrating");
         await new Promise<void>((resolve) => {
           const started = performance.now();
           const update = () => {
             analyser.getByteTimeDomainData(samples);
+            analyser.getByteFrequencyData(frequencies);
             const level = rmsFromTimeDomain(samples);
-            sustainedVoiceFrames = hasVoiceLevel(level, 0.025) ? sustainedVoiceFrames + 1 : 0;
-            voiceDetected ||= sustainedVoiceFrames >= 8;
-            if (generation === runGeneration.current) setMicRms(level);
-            if (performance.now() - started >= 3000 || generation !== runGeneration.current) { resolve(); return; }
+            const elapsed = performance.now() - started;
+            if (elapsed < 800) {
+              baselineTotal += level;
+              baselineFrames += 1;
+            } else {
+              const noiseFloor = baselineFrames ? baselineTotal / baselineFrames : 0.01;
+              const threshold = Math.max(0.035, noiseFloor * 2.4 + 0.008);
+              if (level >= threshold) voicedFrames += 1;
+              voiceDetected ||= voicedFrames >= 24;
+            }
+            if (generation === runGeneration.current) {
+              setMicRms(level);
+              setMicPhase(elapsed < 800 ? "calibrating" : "listening");
+              const bucketSize = Math.floor(frequencies.length / 28);
+              setMicBands(Array.from({ length: 14 }, (_, index) => {
+                let total = 0;
+                for (let offset = 0; offset < bucketSize; offset += 1) total += frequencies[index * bucketSize + offset] || 0;
+                return total / Math.max(1, bucketSize) / 255;
+              }));
+            }
+            if (elapsed >= 4000 || generation !== runGeneration.current) { resolve(); return; }
             frame = requestAnimationFrame(update);
           };
           update();
@@ -145,6 +169,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
       } finally {
         if (frame) cancelAnimationFrame(frame);
         setMicTesting(false);
+        setMicPhase("complete");
         void context?.close();
         stream.getTracks().forEach((track) => track.stop());
       }
@@ -251,6 +276,8 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     setSoundPlayed(false);
     setSoundError(false);
     setMicRms(0);
+    setMicBands(Array(14).fill(0));
+    setMicPhase("idle");
     setMicTesting(false);
     setLatencyMetrics(null);
     setQuickMicStatus("idle");
@@ -306,22 +333,41 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   const runQuickMic = async () => {
     setActiveAudioTest("microphone");
     setQuickMicStatus("pending"); setMicTesting(true); setMicRms(0);
-    let stream: MediaStream | undefined; let context: AudioContext | undefined; let frame: number | undefined; let detected = false; let sustainedVoiceFrames = 0;
+    let stream: MediaStream | undefined; let context: AudioContext | undefined; let frame: number | undefined; let detected = false; let voicedFrames = 0;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
       context = new AudioContext();
-      const analyser = context.createAnalyser(); analyser.fftSize = 1024;
+      const analyser = context.createAnalyser(); analyser.fftSize = 1024; analyser.smoothingTimeConstant = 0.72;
       context.createMediaStreamSource(stream).connect(analyser);
       const samples = new Uint8Array(analyser.fftSize);
+      const frequencies = new Uint8Array(analyser.frequencyBinCount);
+      let baselineTotal = 0; let baselineFrames = 0;
+      setMicBands(Array(14).fill(0)); setMicPhase("calibrating");
       await new Promise<void>((resolve) => {
         const started = performance.now();
         const update = () => {
           analyser.getByteTimeDomainData(samples);
+          analyser.getByteFrequencyData(frequencies);
           const level = rmsFromTimeDomain(samples);
-          sustainedVoiceFrames = hasVoiceLevel(level, 0.025) ? sustainedVoiceFrames + 1 : 0;
-          detected ||= sustainedVoiceFrames >= 8;
+          const elapsed = performance.now() - started;
+          if (elapsed < 800) {
+            baselineTotal += level;
+            baselineFrames += 1;
+          } else {
+            const noiseFloor = baselineFrames ? baselineTotal / baselineFrames : 0.01;
+            const threshold = Math.max(0.035, noiseFloor * 2.4 + 0.008);
+            if (level >= threshold) voicedFrames += 1;
+            detected ||= voicedFrames >= 24;
+          }
           setMicRms(level);
-          if (performance.now() - started >= 1800) { resolve(); return; }
+          setMicPhase(elapsed < 800 ? "calibrating" : "listening");
+          const bucketSize = Math.floor(frequencies.length / 28);
+          setMicBands(Array.from({ length: 14 }, (_, index) => {
+            let total = 0;
+            for (let offset = 0; offset < bucketSize; offset += 1) total += frequencies[index * bucketSize + offset] || 0;
+            return total / Math.max(1, bucketSize) / 255;
+          }));
+          if (elapsed >= 4000) { resolve(); return; }
           frame = requestAnimationFrame(update);
         };
         update();
@@ -333,7 +379,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
       setQuickMicStatus("fail");
       if (runCompleted) setResults((current) => current.map((item) => item.key === "voice" ? { ...item, state: "fail", detail: t.voiceNotDetected } : item));
     }
-    finally { if (frame) cancelAnimationFrame(frame); stream?.getTracks().forEach((track) => track.stop()); void context?.close(); setMicTesting(false); }
+    finally { if (frame) cancelAnimationFrame(frame); stream?.getTracks().forEach((track) => track.stop()); void context?.close(); setMicTesting(false); setMicPhase("complete"); }
   };
   const runQuickLatency = async () => {
     setActiveAudioTest("latency");
@@ -475,8 +521,8 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
                    </> : activeAudioTest === "microphone" ? <>
                      <div className="relative mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30"><span className="absolute inset-0 rounded-full bg-primary/30 motion-safe:animate-ping" /><Mic className="relative h-9 w-9" /></div>
                      <h2 className="relative mt-5 text-2xl font-bold">{t.voice}</h2>
-                     <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{micTesting ? t.voiceTesting : quickMicStatus === "pass" || voiceResult?.state === "pass" ? t.quickMicPassed : quickMicStatus === "fail" || voiceResult?.state === "fail" ? t.voiceNotDetected : t.micDetail}</p>
-                     <div className="mx-auto mt-6 flex h-24 items-center justify-center gap-1.5" aria-hidden="true">{[.35,.55,.8,.45,.7,.95,.6,.82,.5,.3].map((height, i) => <span key={i} className={`w-2 rounded-full transition-all duration-100 ${quickMicStatus === "pass" || voiceResult?.state === "pass" ? "bg-emerald-500" : "bg-primary"}`} style={{ height: `${Math.max(8, height * (18 + micRms * 260))}px` }} />)}</div>
+                     <p className={`mt-3 rounded-xl px-4 py-3 text-sm font-semibold leading-relaxed ${micPhase === "listening" ? "bg-primary/10 text-primary" : "bg-muted/60 text-muted-foreground"}`}>{micTesting ? micPhase === "calibrating" ? t.micCalibrating || t.voiceTesting : t.micSpeakNow || t.voiceTesting : quickMicStatus === "pass" || voiceResult?.state === "pass" ? t.quickMicPassed : quickMicStatus === "fail" || voiceResult?.state === "fail" ? t.voiceNotDetected : t.micDetail}</p>
+                     <div className="relative mx-auto mt-5 flex h-32 items-center justify-center gap-1 overflow-hidden rounded-2xl border border-primary/15 bg-gradient-to-b from-primary/[0.08] via-background to-primary/[0.04] px-4" aria-label={t.voiceTesting}><div className="absolute inset-x-4 top-1/2 border-t border-dashed border-primary/15" />{micBands.map((level, i) => <span key={i} className={`relative w-2.5 rounded-full transition-[height,background-color] duration-75 ${quickMicStatus === "pass" || voiceResult?.state === "pass" ? "bg-emerald-500" : micPhase === "calibrating" ? "bg-sky-400" : "bg-primary"}`} style={{ height: `${Math.max(6, Math.min(112, 6 + level * 150))}px`, opacity: micTesting ? 0.72 + level * 0.28 : 0.35 }} />)}{micTesting && <span className="absolute bottom-2 right-3 rounded-full bg-background/85 px-2 py-1 text-[10px] font-bold tabular-nums text-primary shadow-sm">{Math.round(micRms * 1000)}</span>}</div>
                      {(quickMicStatus === "pass" || voiceResult?.state === "pass") && <div className="mt-3 flex items-center justify-center gap-2 font-semibold text-emerald-600 animate-in zoom-in-75"><CheckCircle2 className="h-6 w-6" />{t.quickMicPassed}</div>}
                      {(quickMicStatus === "fail" || voiceResult?.state === "fail") && !running && <Button className="mt-5 w-full rounded-xl" onClick={() => void runQuickMic()}><Mic className="h-4 w-4" />{t.quickMicRun}</Button>}
                    </> : activeAudioTest === "output" ? <>
@@ -485,7 +531,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{heard ? t.quickSpeakerPassed : soundPlayed ? t.soundPlayed : t.soundDetail}</p>
                      {!heard && <div className="mt-6 space-y-3">
                        <Button size="lg" className="h-12 w-full rounded-xl bg-amber-500 font-bold text-white shadow-lg shadow-amber-500/20 hover:bg-amber-600" onClick={() => void play()} disabled={quickSpeakerStatus === "pending"}>{quickSpeakerStatus === "pending" && !soundPlayed ? <Loader2 className="h-5 w-5 animate-spin" /> : <Play className="h-5 w-5 fill-current" />}{t.play}</Button>
-                       {soundPlayed && !soundError && <div className="rounded-2xl border-2 border-emerald-500/45 bg-emerald-500/[0.09] p-3"><div className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-300">{t.soundConfirmHint}</div><div className="grid gap-2 sm:grid-cols-2"><Button size="lg" variant="outline" className="h-14 rounded-xl border-destructive/35 font-bold text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={quickSpeakerStatus === "pending"} onClick={() => void confirmSpeaker(false)}><X className="h-5 w-5" />{t.didNotHear || t.quickSpeakerFailed}</Button><Button size="lg" className="h-14 rounded-xl bg-emerald-600 font-extrabold text-white shadow-lg shadow-emerald-500/25 hover:bg-emerald-700 motion-safe:animate-pulse" disabled={quickSpeakerStatus === "pending"} onClick={() => void confirmSpeaker(true)}><CheckCircle2 className="h-6 w-6" />{quickSpeakerStatus === "pending" ? t.quickSpeakerPending : t.heard}</Button></div></div>}
+                       {soundPlayed && !soundError && <div className="rounded-xl border border-border/70 bg-muted/35 p-3"><div className="mb-2 text-[11px] font-semibold text-muted-foreground">{t.soundConfirmHint}</div><div className="flex flex-col gap-2 sm:flex-row sm:justify-center"><Button size="sm" variant="outline" className="h-10 rounded-lg border-destructive/25 px-4 text-xs font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={quickSpeakerStatus === "pending"} onClick={() => void confirmSpeaker(false)}><X className="h-4 w-4" />{t.didNotHear || t.quickSpeakerFailed}</Button><Button size="sm" className="h-10 rounded-lg bg-emerald-600 px-4 text-xs font-bold text-white shadow-sm hover:bg-emerald-700" disabled={quickSpeakerStatus === "pending"} onClick={() => void confirmSpeaker(true)}><CheckCircle2 className="h-4 w-4" />{quickSpeakerStatus === "pending" ? t.quickSpeakerPending : t.heard}</Button></div></div>}
                      </div>}
                      {heard && <div className="mt-5 flex items-center justify-center gap-2 font-semibold text-emerald-600 animate-in zoom-in-75"><CheckCircle2 className="h-6 w-6" />{t.quickSpeakerPassed}</div>}
                    </> : activeAudioTest === "latency" ? <>
