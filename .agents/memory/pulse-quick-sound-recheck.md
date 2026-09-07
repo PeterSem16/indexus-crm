@@ -12,3 +12,5 @@ A voluntary quick recheck may reuse an existing valid NEXUS Pulse readiness resu
 The quick latency check should sample for roughly five seconds rather than report a single instant. In a full run, microphone voice detection must be followed immediately by interactive speaker confirmation; only then may network, SIP, and account checks continue.
 
 Microphone and speaker checks use focused modal steps in both quick and full runs. The full run automatically advances from the microphone result to speaker confirmation; the main readiness view shows their final states rather than duplicating the interaction.
+
+Microphone readiness requires a sustained voice-level signal, not one above-threshold frame, because device startup noise can otherwise create a false pass. Speaker confirmation must offer explicit heard and did-not-hear outcomes; a negative answer blocks readiness.
