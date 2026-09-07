@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ArrowLeft, AudioLines, Bell, Check, CircleDot, Headphones, MailCheck, Play, ShieldCheck, Volume2, Wifi } from "lucide-react";
+import { AlertTriangle, ArrowLeft, AudioLines, Bell, Check, CheckCircle2, CircleDot, Headphones, Loader2, MailCheck, Mic, Play, Radio, ShieldCheck, Signal, Wifi } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useSip } from "@/contexts/sip-context";
 import { useI18n } from "@/i18n";
-import { canUseQuickSoundVerification, classify, classifyIceResult, gatherIce, hasCriticalFailure, hasVoiceLevel, isChromiumDesktop, isCompletePulseReadinessRun, isProbableSameHeadset, measureSameOriginLatency, rmsFromTimeDomain, type DiagnosticResult, type DiagnosticState } from "./diagnostics";
+import { canUseQuickSoundVerification, classify, classifyIceResult, classifyLatencyQuality, gatherIce, hasCriticalFailure, hasVoiceLevel, isChromiumDesktop, isCompletePulseReadinessRun, isProbableSameHeadset, measureSameOriginLatency, rmsFromTimeDomain, type DiagnosticResult, type DiagnosticState } from "./diagnostics";
 import { pulseCopy } from "./translations";
 
 type Props = { open: boolean; required?: boolean; keepWakeLock?: boolean; hasValidReadiness?: boolean; userId: string; onClose: () => void; onReady: () => void; onExit?: () => void };
@@ -26,6 +26,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   const [progressDetail, setProgressDetail] = useState(t.progressStarting);
   const [micRms, setMicRms] = useState(0);
   const [micTesting, setMicTesting] = useState(false);
+  const [latencyMetrics, setLatencyMetrics] = useState<{ latency: number; jitter: number; samples: number; quality: "good" | "warning" | "poor" } | null>(null);
   const wakeLock = useRef<any>(null);
   const wakeLockGeneration = useRef(0);
   const runGeneration = useRef(0);
@@ -56,7 +57,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     runAbort.current?.abort();
     const abortController = new AbortController();
     runAbort.current = abortController;
-    setRunning(true); setState("checking"); setHeard(false); setSoundPlayed(false); setSoundError(false);
+    setRunning(true); setState("checking"); setHeard(false); setSoundPlayed(false); setSoundError(false); setResults([]); setLatencyMetrics(null);
     setRunCompleted(false);
     setProgress(5); setProgressDetail(t.progressStarting);
     const advance = (value: number, detail: string) => {
@@ -68,7 +69,10 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     if (generation !== runGeneration.current) return;
     advance(15, t.progressEnvironment);
     const r: DiagnosticResult[] = [];
-    const add = (key: DiagnosticResult["key"], severity: DiagnosticResult["severity"], pass: boolean, detail?: string) => r.push({ key, severity, state: pass ? "pass" : "fail", detail });
+    const add = (key: DiagnosticResult["key"], severity: DiagnosticResult["severity"], pass: boolean, detail?: string) => {
+      r.push({ key, severity, state: pass ? "pass" : "fail", detail });
+      if (generation === runGeneration.current) setResults([...r]);
+    };
     add("browser", "critical", isChromiumDesktop(), t.browserDetail);
     add("secure", "critical", window.isSecureContext || window.location.hostname === "localhost", t.secureDetail);
     add("online", "critical", navigator.onLine !== false, navigator.onLine === false ? t.onlineDetail : undefined);
@@ -135,7 +139,10 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     const iceClassification = classifyIceResult(ice);
     r.push({ key: "ice", ...iceClassification, detail: ice.ok ? `${t.icePath}: ${ice.pathType === "relay" ? t.iceRelay : ice.pathType === "server-reflexive" ? t.iceServerReflexive : t.iceHost}` : t.iceFail });
     const latency = await measureSameOriginLatency();
-    r.push({ key: "latency", severity: "warning", state: latency ? "pass" : "warn", detail: latency ? `${t.latencyDetail}: ${latency.latency} ms · ${t.jitterDetail}: ${latency.jitter} ms (${latency.samples}/4)` : t.latencyUnavailable });
+    const latencyQuality = latency ? classifyLatencyQuality(latency.latency, latency.jitter) : null;
+    if (latency) setLatencyMetrics({ ...latency, quality: latencyQuality! });
+    r.push({ key: "latency", severity: "warning", state: latencyQuality === "good" ? "pass" : "warn", detail: latency ? `${t.latencyDetail}: ${latency.latency} ms · ${t.jitterDetail}: ${latency.jitter} ms (${latency.samples}/4)` : t.latencyUnavailable });
+    setResults([...r]);
     advance(65, t.progressSip);
     const registered = isRegistered || await ensureRegistered().catch(() => false);
     if (generation !== runGeneration.current) return;
@@ -193,6 +200,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     setSoundError(false);
     setMicRms(0);
     setMicTesting(false);
+    setLatencyMetrics(null);
     setRunCompleted(false);
     setRunning(false);
     setProgress(0);
@@ -232,10 +240,28 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   const quickSoundVerified = canUseQuickSoundVerification({ hasValidReadiness, diagnosticState: state, runCompleted, heard, soundError });
   const finalState = quickSoundVerified ? "ready" : diagnosticsComplete && heard ? classify(finalResults) : (state === "blocked" ? "blocked" : "checking");
   const labels: Record<string, string> = Object.fromEntries(["browser","secure","online","microphone","input","output","voice","sound","ice","sip","m365Account","notifications","network","latency","wakeLock","devices"].map((k) => [k, t[k as keyof typeof t] as string]));
-  const mainResults = finalResults.filter((item) => item.key !== "network" && item.key !== "devices" && item.key !== "latency");
-  const advisoryResults = finalResults.filter((item) => item.key === "network" || item.key === "devices" || item.key === "latency");
+  const mainResults = finalResults.filter((item) => !["network", "devices", "latency", "microphone", "input", "output", "voice", "sound"].includes(item.key));
+  const advisoryResults = finalResults.filter((item) => item.key === "network" || item.key === "devices");
   const statusText = finalState === "ready" ? t.ready : finalState === "warning" ? t.warning : finalState === "blocked" ? t.blocked : t.working;
   const canContinue = quickSoundVerified || (runCompleted && diagnosticsComplete && heard && !hasCriticalFailure(finalResults) && (finalState === "ready" || finalState === "warning"));
+  const latencyResult = results.find((item) => item.key === "latency");
+  const latencyVerdict = !latencyMetrics ? null : latencyMetrics.quality === "good"
+    ? { label: t.latencyGood || t.ready, tone: "text-emerald-700 dark:text-emerald-300", icon: "✓", panel: "border-emerald-500/25 bg-emerald-500/[0.055]" }
+    : latencyMetrics.quality === "warning"
+      ? { label: t.latencyWarning || t.warning, tone: "text-amber-700 dark:text-amber-300", icon: "!", panel: "border-amber-500/30 bg-amber-500/[0.065]" }
+      : { label: t.latencyPoor || t.blocked, tone: "text-destructive", icon: "×", panel: "border-destructive/35 bg-destructive/[0.055]" };
+  const phaseItems = [
+    { at: 15, label: t.progressEnvironment },
+    { at: 28, label: t.progressAudio },
+    { at: 45, label: t.progressNetwork },
+    { at: 65, label: t.progressSip },
+    { at: 80, label: t.progressM365 },
+    { at: 94, label: t.progressFinishing },
+  ];
+  const inputResult = finalResults.find((item) => item.key === "microphone");
+  const voiceResult = finalResults.find((item) => item.key === "voice");
+  const inputDevicesResult = finalResults.find((item) => item.key === "input");
+  const outputResult = finalResults.find((item) => item.key === "output");
   const acknowledge = () => {
     if (!canContinue) return;
     onReady();
@@ -246,19 +272,39 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
          <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-primary/10 blur-3xl" />
          <div className="pointer-events-none absolute -left-20 top-24 h-32 w-32 rounded-full bg-amber-300/10 blur-3xl" />
          <div className="relative space-y-5 p-5 sm:p-7">
-           <DialogHeader><DialogTitle className="flex items-center gap-3 text-xl tracking-tight"><span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/15"><ShieldCheck className="h-5 w-5" /></span><span>{t.title}</span></DialogTitle><DialogDescription className="pl-13">{t.subtitle}</DialogDescription></DialogHeader>
-           <div className="flex items-center justify-between rounded-2xl border border-primary/15 bg-primary/[0.06] p-4 transition-colors" aria-live="polite"><div><span className="font-semibold">{statusText}</span></div><Badge className="rounded-full px-3 py-1" variant={finalState === "blocked" ? "destructive" : finalState === "ready" ? "default" : "secondary"}>{statusText}</Badge></div>
+            <DialogHeader><DialogTitle className="flex items-center gap-3 text-xl tracking-tight"><span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/15"><ShieldCheck className="h-5 w-5" /></span><span>{t.title}</span></DialogTitle><DialogDescription className="pl-13">{t.subtitle}</DialogDescription></DialogHeader>
+            <div className="flex items-center justify-between rounded-2xl border border-primary/15 bg-primary/[0.06] p-4 transition-colors" aria-live="polite"><div><div className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary/70">NEXUS Pulse</div><span className="font-semibold">{statusText}</span></div><Badge className="rounded-full px-3 py-1" variant={finalState === "blocked" ? "destructive" : finalState === "ready" ? "default" : "secondary"}>{statusText}</Badge></div>
              {running && <section className="overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/[0.10] via-primary/[0.04] to-background p-4 shadow-sm" aria-live="polite" aria-label={t.progressTitle}>
               <div className="mb-3 flex items-center justify-between gap-4">
-                <div className="flex min-w-0 items-center gap-3"><span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary"><span className="absolute inset-0 animate-ping rounded-xl bg-primary/10" /><CircleDot className="relative h-4 w-4 animate-pulse" /></span><div className="min-w-0"><div className="text-sm font-semibold">{t.progressTitle}</div><div className="truncate text-xs text-muted-foreground">{progressDetail}</div></div></div>
+                 <div className="flex min-w-0 items-center gap-3"><span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary"><span className="absolute inset-0 animate-ping rounded-xl bg-primary/10" /><Loader2 className="relative h-4 w-4 animate-spin" /></span><div className="min-w-0"><div className="text-sm font-semibold">{t.progressTitle}</div><div className="truncate text-xs text-muted-foreground">{progressDetail}</div></div></div>
                 <span className="tabular-nums text-sm font-bold text-primary">{progress}%</span>
               </div>
                <Progress value={progress} className="h-2.5 bg-primary/10 [&>div]:transition-all [&>div]:duration-500" />
+                <div className="mt-4 grid grid-cols-2 gap-1.5 sm:grid-cols-3" aria-label={t.progressTitle}>{phaseItems.map((phase, index) => {
+                  const complete = progress > phase.at + 8;
+                  const active = progress >= phase.at && !complete;
+                  return <div key={phase.at} className={`flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] transition-colors ${active ? "bg-primary/15 font-semibold text-primary" : complete ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "text-muted-foreground/65"}`}>
+                    {active ? <Loader2 className="h-3 w-3 shrink-0 animate-spin" /> : complete ? <CheckCircle2 className="h-3 w-3 shrink-0" /> : <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-40" />}<span className="truncate">{phase.label.replace(/…$/, "")}</span>
+                  </div>;
+                })}</div>
                {micTesting && <div className="mt-3"><div className="mb-1 flex justify-between text-xs text-muted-foreground"><span>{t.voiceTesting}</span><span>{Math.round(micRms * 100)}%</span></div><Progress value={Math.min(micRms * 1200, 100)} className="h-2 bg-emerald-500/15 [&>div]:bg-emerald-500" /></div>}
             </section>}
-             <div className="grid gap-2 sm:grid-cols-2" aria-live="polite">{mainResults.map((item, index) => <div key={item.key} className={`animate-in fade-in slide-in-from-bottom-1 flex gap-3 rounded-xl border bg-card/60 p-3 transition-colors ${item.key === "notifications" || item.key === "m365Account" ? "sm:col-span-2" : ""} ${item.key === "m365Account" && item.state === "fail" ? "border-destructive/40 bg-destructive/[0.06]" : "border-border/70 hover:border-primary/25"}`} style={{ animationDelay: `${Math.min(index * 35, 350)}ms` }}><div className="mt-0.5">{item.key === "m365Account" && item.state === "pass" ? <MailCheck className="h-4 w-4 text-emerald-600" /> : item.state === "pass" ? <Check className="h-4 w-4 text-emerald-600" /> : item.state === "fail" ? <AlertTriangle className="h-4 w-4 text-destructive" /> : <CircleDot className="h-4 w-4 text-amber-600" />}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-2"><div className="text-sm font-medium">{labels[item.key]}</div>{item.key === "notifications" && item.state !== "pass" && typeof Notification !== "undefined" && Notification.permission === "default" && <Button variant="outline" size="sm" className="rounded-lg border-primary/30 text-primary" onClick={() => void requestNotifications()} data-testid="button-pulse-notifications"><Bell className="h-4 w-4" />{t.notificationsEnable}</Button>}</div>{item.detail && <div className={`text-xs leading-relaxed ${item.key === "m365Account" && item.state === "fail" ? "font-medium text-destructive" : "text-muted-foreground"}`}>{item.detail}</div>}{item.key === "notifications" && item.state !== "pass" && typeof Notification === "undefined" && <div className="text-xs leading-relaxed text-amber-700">{t.notificationsUnsupported}</div>}{item.key === "notifications" && item.state !== "pass" && typeof Notification !== "undefined" && Notification.permission === "default" && <div className="mt-1 text-xs leading-relaxed text-muted-foreground">{t.notificationsPrompt}</div>}</div></div>)}</div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <section className={`rounded-2xl border p-4 transition-all ${micTesting ? "border-primary/50 bg-primary/[0.08] shadow-sm" : "border-border/70 bg-card/60"}`} aria-label={t.microphone}>
+                  <div className="flex items-start justify-between gap-3"><div className="flex items-center gap-2"><span className={`flex h-9 w-9 items-center justify-center rounded-xl ${micTesting ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"}`}><Mic className="h-4 w-4" /></span><div><div className="text-sm font-semibold">{t.microphone}</div><div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t.voice}</div></div></div>{micTesting ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : voiceResult?.state === "pass" ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : voiceResult?.state === "fail" || inputResult?.state === "fail" ? <AlertTriangle className="h-5 w-5 text-destructive" /> : <CircleDot className="h-5 w-5 text-muted-foreground" />}</div>
+                  <div className="mt-3 rounded-xl border border-primary/10 bg-background/60 px-3 py-2 text-xs leading-relaxed text-muted-foreground">{micTesting ? t.voiceTesting : voiceResult?.detail || inputResult?.detail || t.micDetail}</div>
+                  {inputDevicesResult?.detail && <div className="mt-2 flex items-center gap-2 rounded-lg bg-primary/[0.06] px-2.5 py-2 text-[11px] text-primary"><Mic className="h-3 w-3 shrink-0" /><span className="truncate">{inputDevicesResult.detail}</span></div>}
+                  {micTesting && <div className="mt-3 flex items-end gap-1" aria-hidden="true">{[.3,.55,.8,.45,.7,.35,.6,.9,.5,.25].map((height, i) => <span key={i} className="w-1.5 rounded-full bg-primary transition-transform" style={{ height: `${Math.max(6, height * (8 + micRms * 110))}px` }} />)}</div>}
+                </section>
+                <section className={`rounded-2xl border p-4 transition-all ${soundPlayed ? "border-amber-500/40 bg-amber-500/[0.06]" : "border-border/70 bg-card/60"}`} aria-label={t.output}>
+                  <div className="flex items-start justify-between gap-3"><div className="flex items-center gap-2"><span className={`flex h-9 w-9 items-center justify-center rounded-xl ${soundPlayed ? "bg-amber-500 text-white" : "bg-amber-500/10 text-amber-700 dark:text-amber-300"}`}><Headphones className="h-4 w-4" /></span><div><div className="text-sm font-semibold">{t.output}</div><div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t.sound}</div></div></div>{heard ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <Radio className="h-4 w-4 text-amber-600" />}</div>
+                  <div className="mt-3 rounded-xl border border-amber-500/10 bg-background/60 px-3 py-2 text-xs leading-relaxed text-muted-foreground">{outputResult?.detail || t.soundDetail}</div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2"><Button variant={soundPlayed ? "secondary" : "default"} size="sm" className="rounded-lg" onClick={() => void play()} data-testid="button-pulse-sound"><Play className="h-3.5 w-3.5 fill-current" />{soundPlayed ? t.soundPlayed : t.play}</Button><label className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs transition-colors ${heard ? "border-emerald-500/40 bg-emerald-500/10" : "border-border/70"}`}><input className="h-3.5 w-3.5 accent-primary" type="checkbox" disabled={!soundPlayed || soundError} checked={heard} onChange={(e) => setHeard(e.target.checked)} />{t.heard}</label></div>
+                </section>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2" aria-live="polite">{mainResults.map((item, index) => <div key={item.key} className={`animate-in fade-in slide-in-from-bottom-1 flex gap-3 rounded-xl border p-3 transition-colors ${item.key === "notifications" || item.key === "m365Account" ? "sm:col-span-2" : ""} ${item.state === "pass" ? "border-emerald-500/20 bg-emerald-500/[0.035]" : item.key === "m365Account" && item.state === "fail" ? "border-destructive/40 bg-destructive/[0.06]" : "border-border/70 bg-card/60 hover:border-primary/25"}`} style={{ animationDelay: `${Math.min(index * 35, 350)}ms` }}><div className="mt-0.5">{item.key === "m365Account" && item.state === "pass" ? <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/15"><MailCheck className="h-3.5 w-3.5 text-emerald-600" /></span> : item.state === "pass" ? <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/15"><Check className="h-3.5 w-3.5 text-emerald-600" /></span> : item.state === "fail" ? <span className="flex h-5 w-5 items-center justify-center rounded-full bg-destructive/10"><AlertTriangle className="h-3.5 w-3.5 text-destructive" /></span> : <CircleDot className="h-4 w-4 text-amber-600" />}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-2"><div className="text-sm font-medium">{labels[item.key]}</div>{item.key === "notifications" && item.state !== "pass" && typeof Notification !== "undefined" && Notification.permission === "default" && <Button variant="outline" size="sm" className="rounded-lg border-primary/30 text-primary" onClick={() => void requestNotifications()} data-testid="button-pulse-notifications"><Bell className="h-4 w-4" />{t.notificationsEnable}</Button>}</div>{item.detail && <div className={`text-xs leading-relaxed ${item.key === "m365Account" && item.state === "fail" ? "font-medium text-destructive" : "text-muted-foreground"}`}>{item.detail}</div>}{item.key === "notifications" && item.state !== "pass" && typeof Notification === "undefined" && <div className="text-xs leading-relaxed text-amber-700">{t.notificationsUnsupported}</div>}{item.key === "notifications" && item.state !== "pass" && typeof Notification !== "undefined" && Notification.permission === "default" && <div className="mt-1 text-xs leading-relaxed text-muted-foreground">{t.notificationsPrompt}</div>}</div></div>)}</div>
              {advisoryResults.length > 0 && <section className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.07] p-4" aria-label={t.advisoryTitle}><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-100"><AlertTriangle className="h-4 w-4 text-amber-600" />{t.advisoryTitle}</div><Badge variant="outline" className="border-amber-500/40 bg-background/50 text-amber-800 dark:text-amber-200">{t.advisoryBadge}</Badge></div><div className="grid gap-3 sm:grid-cols-2">{advisoryResults.map((item) => <div key={item.key} className="rounded-xl border border-amber-500/20 bg-background/70 p-3"><div className="flex items-center gap-2 text-sm font-medium">{item.key === "network" || item.key === "latency" ? <Wifi className="h-4 w-4 text-amber-600" /> : <AudioLines className="h-4 w-4 text-amber-600" />}{labels[item.key]}</div><p className="mt-2 text-xs leading-relaxed text-muted-foreground">{item.detail}</p><p className="mt-2 text-xs font-medium leading-relaxed text-foreground">{item.key === "network" || item.key === "latency" ? t.networkAction : t.devicesAction}</p></div>)}</div></section>}
-            <div className="rounded-2xl border border-primary/20 bg-primary/[0.055] p-4"><div className="flex items-center gap-2 font-semibold"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10"><Headphones className="h-4 w-4 text-primary" /></span>{t.sound}</div><p className="mt-2 text-sm leading-relaxed text-muted-foreground">{soundError ? t.soundFail : soundPlayed ? t.soundPlayed : t.soundDetail}</p><div className="mt-3 flex flex-wrap items-center gap-3"><Button variant={soundPlayed ? "secondary" : "default"} className="rounded-xl min-w-40" onClick={() => void play()} data-testid="button-pulse-sound"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-background/20">{soundPlayed ? <Volume2 className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}</span>{soundPlayed ? t.soundPlayed : t.play}</Button><label className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors ${heard ? "border-emerald-500/40 bg-emerald-500/10" : "border-border/70 bg-background/40"}`}><input className="h-4 w-4 accent-primary" type="checkbox" disabled={!soundPlayed || soundError} checked={heard} onChange={(e) => setHeard(e.target.checked)} />{t.heard}</label></div><div className="mt-2 text-xs text-muted-foreground">{t.soundConfirmHint}</div></div>
+             {latencyResult && <section className={`rounded-2xl border p-4 ${latencyVerdict?.panel || "border-sky-500/20 bg-sky-500/[0.045]"}`} aria-label={t.latency}><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2 font-semibold"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-sky-500/10 text-sky-700 dark:text-sky-300"><Signal className="h-4 w-4" /></span>{t.latency}</div>{latencyVerdict && <span className={`flex items-center gap-1.5 text-xs font-bold ${latencyVerdict.tone}`}><span className="flex h-5 w-5 items-center justify-center rounded-full border-current/30 bg-current/10">{latencyVerdict.icon}</span>{latencyVerdict.label}</span>}</div><div className="mt-3 grid grid-cols-2 gap-2"><div className="rounded-xl bg-background/65 p-3"><div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t.latencyDetail}</div><div className="mt-1 font-mono text-xl font-bold">{latencyMetrics ? `${latencyMetrics.latency} ms` : "—"}</div></div><div className="rounded-xl bg-background/65 p-3"><div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t.jitterDetail}</div><div className="mt-1 font-mono text-xl font-bold">{latencyMetrics ? `${latencyMetrics.jitter} ms` : "—"}</div></div></div><p className="mt-3 text-xs leading-relaxed text-muted-foreground">{latencyResult.detail || t.latencyUnavailable}</p><p className="mt-2 text-xs font-medium leading-relaxed text-foreground">{t.networkAction}</p></section>}
               <div className="flex flex-col-reverse gap-2 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-end">{required && onExit && <Button variant="ghost" className="mr-auto justify-start gap-2 text-muted-foreground hover:text-foreground" onClick={onExit} data-testid="button-pulse-return"><ArrowLeft className="h-4 w-4" />{t.returnToIndexus}</Button>}<Button variant="outline" className="rounded-xl" onClick={() => void run()} disabled={running} data-testid="button-pulse-retry">{running ? t.working : state === "idle" ? t.start : t.retry}</Button>{!required && <Button variant="ghost" onClick={onClose}>{t.close}</Button>}<Button className="rounded-xl" onClick={acknowledge} disabled={!canContinue} data-testid="button-pulse-continue">{t.continue}</Button></div>
          </div>
        </div>

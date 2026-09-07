@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canUseQuickSoundVerification, classify, classifyIceResult, hasCriticalFailure, hasVoiceLevel, isChromiumDesktop, isCompleteDiagnosticRun, isCompletePulseReadinessRun, isProbableSameHeadset, isPulseReadinessEnvironmentValid, isPulseSessionProtected, normalizeAudioDeviceLabel, pulseReadinessStorageKey, rmsFromTimeDomain, summarizeLatency, type DiagnosticResult } from "./diagnostics";
+import { canUseQuickSoundVerification, classify, classifyIceResult, classifyLatencyQuality, hasCriticalFailure, hasVoiceLevel, isChromiumDesktop, isCompleteDiagnosticRun, isCompletePulseReadinessRun, isProbableSameHeadset, isPulseReadinessEnvironmentValid, isPulseSessionProtected, normalizeAudioDeviceLabel, pulseReadinessStorageKey, rmsFromTimeDomain, summarizeLatency, type DiagnosticResult } from "./diagnostics";
 
 describe("NEXUS Pulse preflight classification", () => {
   it("rejects mobile and non-Chromium browsers", () => {
@@ -44,6 +44,12 @@ describe("NEXUS Pulse preflight classification", () => {
   it("summarizes practical request latency and jitter without failed samples", () => {
     expect(summarizeLatency([24, 30, 26, 40])).toEqual({ latency: 28, jitter: 16, samples: 4 });
     expect(summarizeLatency([])).toBeNull();
+  });
+  it("classifies practical latency into clear call-quality levels", () => {
+    expect(classifyLatencyQuality(26, 4)).toBe("good");
+    expect(classifyLatencyQuality(180, 35)).toBe("warning");
+    expect(classifyLatencyQuality(310, 20)).toBe("poor");
+    expect(classifyLatencyQuality(90, 100)).toBe("poor");
   });
   it("never treats sound confirmation as a completed diagnostic run", () => {
     const soundOnly: DiagnosticResult[] = [

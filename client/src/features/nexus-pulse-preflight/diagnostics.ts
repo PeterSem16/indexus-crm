@@ -117,6 +117,12 @@ export function summarizeLatency(samples: number[]) {
   return { latency: Math.round(latency), jitter: Math.round(jitter), samples: usable.length };
 }
 
+export function classifyLatencyQuality(latency: number, jitter: number): "good" | "warning" | "poor" {
+  if (latency <= 120 && jitter <= 30) return "good";
+  if (latency <= 250 && jitter <= 80) return "warning";
+  return "poor";
+}
+
 export async function measureSameOriginLatency(request = (input: RequestInfo | URL, init?: RequestInit) => fetch(input, init), url = typeof window === "undefined" ? "/" : window.location.href, attempts = 4) {
   const samples: number[] = [];
   for (let index = 0; index < attempts; index += 1) {
