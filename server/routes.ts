@@ -34048,6 +34048,7 @@ Respond ONLY with valid JSON in this exact format:
         }
       }
       const sessionUserId = req.session.user!.id;
+      let trustedInboundRecordingSnapshot: MissionCallRecordingSnapshot | null = null;
       if (req.body?.direction === "inbound") {
         if (req.body?.inboundCallLogId) {
           const [trustedInbound] = await db.select().from(inboundCallLogs)
@@ -34059,6 +34060,10 @@ Respond ONLY with valid JSON in this exact format:
             ? trustedInbound.metadata as Record<string, unknown> : {};
           req.body.campaignId = typeof inboundMetadata.campaignId === "string"
             ? inboundMetadata.campaignId : undefined;
+          trustedInboundRecordingSnapshot = inboundMetadata.recordingPolicySnapshot &&
+            typeof inboundMetadata.recordingPolicySnapshot === "object"
+            ? inboundMetadata.recordingPolicySnapshot as MissionCallRecordingSnapshot
+            : null;
         } else {
           delete req.body.campaignId;
         }
@@ -34097,7 +34102,13 @@ Respond ONLY with valid JSON in this exact format:
         }
       }
 
-      if (req.body?.campaignId) {
+      if (req.body?.direction === "inbound") {
+        if (trustedInboundRecordingSnapshot) {
+          metadata.recordingPolicySnapshot = trustedInboundRecordingSnapshot;
+        } else {
+          delete metadata.recordingPolicySnapshot;
+        }
+      } else if (req.body?.campaignId) {
         const [campaign] = await db.select({ settings: campaigns.settings })
           .from(campaigns).where(eq(campaigns.id, String(req.body.campaignId))).limit(1);
         if (!campaign) return res.status(400).json({ error: "Campaign not found" });

@@ -193,7 +193,7 @@ import {
   inferOutboundCountryCode,
   resolveMissionOutboundRouting,
 } from "@shared/telephony-routing";
-import { resolveMissionRecordingPolicy } from "@shared/mission-recording";
+import type { MissionCallRecordingSnapshot } from "@shared/mission-recording";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import { getCountryFlag } from "@/lib/countries";
@@ -10435,6 +10435,7 @@ export default function AgentWorkspacePage() {
     customerId?: string;
     contactType?: "customer" | "hospital" | "clinic" | "collaborator";
     campaignId?: string;
+    recordingSnapshot?: MissionCallRecordingSnapshot;
   }>>([]);
   const inboundCallsRef = useRef(inboundCalls);
   inboundCallsRef.current = inboundCalls;
@@ -13012,6 +13013,7 @@ export default function AgentWorkspacePage() {
                 customerId: data.customerId || undefined,
                 contactType: data.contactType || undefined,
                 campaignId: data.campaignId || undefined,
+                recordingSnapshot: data.recordingSnapshot || undefined,
               }];
             });
           } else if (data.type === "call-hangup") {
@@ -13302,13 +13304,10 @@ export default function AgentWorkspacePage() {
 
     const removeCall = () => setInboundCalls(prev => prev.filter(c => c.callId !== call.callId));
     const callerNumber = call.callerNumber;
-    // Queue calls are governed by the Mission that identified them (or the
-    // currently selected Mission when that is the known queue context). An
-    // unidentifiable queue call deliberately keeps its existing queue/global rule.
-    const inboundCampaign = campaigns.find(c => c.id === (call.campaignId || selectedCampaignId));
-    const recordingSnapshot = inboundCampaign
-      ? Object.freeze(resolveMissionRecordingPolicy(inboundCampaign.settings))
+    const recordingSnapshot = call.recordingSnapshot
+      ? Object.freeze(call.recordingSnapshot)
       : undefined;
+    const inboundCampaignId = call.campaignId;
 
     const setupCallContext = async () => {
       setActiveChannel("phone");
@@ -13441,7 +13440,7 @@ export default function AgentWorkspacePage() {
         invitation._inboundCustomerId = call.customerId;
         invitation._inboundContactType = call.contactType;
         invitation._inboundRecordingSnapshot = recordingSnapshot;
-        invitation._inboundCampaignId = inboundCampaign?.id;
+        invitation._inboundCampaignId = inboundCampaignId;
 
         if (invState === "Established") {
           console.log("[AgentWS] Call already established, proceeding directly");
@@ -13491,7 +13490,7 @@ export default function AgentWorkspacePage() {
           fallbackInvite._inboundCustomerId = call.customerId;
           fallbackInvite._inboundContactType = call.contactType;
           fallbackInvite._inboundRecordingSnapshot = recordingSnapshot;
-          fallbackInvite._inboundCampaignId = inboundCampaign?.id;
+          fallbackInvite._inboundCampaignId = inboundCampaignId;
           let answeredFallbackInvite = fallbackInvite;
           if (fallbackInvite.state !== "Established") {
             answeredFallbackInvite = await answerIncomingCall({ publishAnsweredSession: false });
@@ -13513,7 +13512,7 @@ export default function AgentWorkspacePage() {
           answeredFallbackInvite._inboundCustomerId = call.customerId;
           answeredFallbackInvite._inboundContactType = call.contactType;
           answeredFallbackInvite._inboundRecordingSnapshot = recordingSnapshot;
-          answeredFallbackInvite._inboundCampaignId = inboundCampaign?.id;
+          answeredFallbackInvite._inboundCampaignId = inboundCampaignId;
           const shouldAutoRecord = recordingSnapshot
             ? recordingSnapshot.active
             : (!!call.recordCalls || callContext.autoRecord);

@@ -58,6 +58,7 @@ export interface QueuedCall {
   callerName: string;
   queueId: string;
   customerId: string | null;
+  campaignId?: string | null;
   didNumber?: string;
   sourceTrunk?: string;
   enteredAt: Date;
@@ -3738,6 +3739,7 @@ export class QueueEngine extends EventEmitter {
       agentIds: new Set<string>(),
     };
     this.ringAllPending.set(call.channelId, ringAllState);
+    const recordingContext = await this.resolveQueuedCallRecordingContext(call, queue);
 
     for (const agent of agents) {
       ringAllState.agentIds.add(agent.userId);
@@ -3754,7 +3756,9 @@ export class QueueEngine extends EventEmitter {
         didNumber: call.didNumber,
         sourceTrunk: call.sourceTrunk,
         waitDuration,
-        recordCalls: queue.recordCalls ?? false,
+        recordCalls: recordingContext.recordCalls,
+        campaignId: recordingContext.campaignId,
+        recordingSnapshot: recordingContext.recordingSnapshot,
         ringtoneId: (queue as any).ringtoneId ?? "classic",
         ringAll: true,
       });
@@ -3908,6 +3912,7 @@ export class QueueEngine extends EventEmitter {
       })
       .where(eq(inboundCallLogs.id, call.id));
 
+    const recordingContext = await this.resolveQueuedCallRecordingContext(call, queue);
     this.emit("call-assigned", {
       callId: call.id,
       channelId: call.channelId,
@@ -3920,7 +3925,9 @@ export class QueueEngine extends EventEmitter {
       didNumber: call.didNumber,
       sourceTrunk: call.sourceTrunk,
       waitDuration,
-      recordCalls: queue.recordCalls ?? false,
+      recordCalls: recordingContext.recordCalls,
+      campaignId: recordingContext.campaignId,
+      recordingSnapshot: recordingContext.recordingSnapshot,
       ringtoneId: (queue as any).ringtoneId ?? "classic",
     });
 
@@ -4070,6 +4077,53 @@ export class QueueEngine extends EventEmitter {
 
       this.updateAgentStatus(agent.userId, "available", null);
     }
+  }
+
+  private async resolveQueuedCallRecordingContext(call: QueuedCall, queue: InboundQueue): Promise<{
+    campaignId: string | null;
+    recordingSnapshot: MissionCallRecordingSnapshot | null;
+    recordCalls: boolean;
+  }> {
+    const campaignId = call.campaignId || null;
+    if (!campaignId) {
+      return {
+        campaignId: null,
+        recordingSnapshot: null,
+        recordCalls: queue.recordCalls ?? false,
+      };
+    }
+
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    const campaign = await Promise.race([
+      storage.getCampaign(campaignId).catch(() => undefined),
+      new Promise<undefined>((resolve) => {
+        timeout = setTimeout(() => resolve(undefined), 750);
+      }),
+    ]);
+    if (timeout) clearTimeout(timeout);
+    if (!campaign) {
+      console.warn(`[QueueRecording] Mission ${campaignId} lookup failed or timed out; inbound recording disabled`);
+      await db.update(inboundCallLogs).set({
+        metadata: sql`COALESCE(${inboundCallLogs.metadata}, '{}'::jsonb) || ${JSON.stringify({
+          campaignId,
+          recordingPolicySnapshot: null,
+        })}::jsonb`,
+      }).where(eq(inboundCallLogs.id, call.id));
+      return { campaignId, recordingSnapshot: null, recordCalls: false };
+    }
+
+    const recordingSnapshot = resolveMissionRecordingPolicy(campaign.settings);
+    await db.update(inboundCallLogs).set({
+      metadata: sql`COALESCE(${inboundCallLogs.metadata}, '{}'::jsonb) || ${JSON.stringify({
+        campaignId,
+        recordingPolicySnapshot: recordingSnapshot,
+      })}::jsonb`,
+    }).where(eq(inboundCallLogs.id, call.id));
+    return {
+      campaignId,
+      recordingSnapshot,
+      recordCalls: recordingSnapshot.active,
+    };
   }
 
   private async handleAgentChannelAnswer(agentChannelId: string, pending: PendingAgentCall): Promise<void> {

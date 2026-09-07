@@ -1,5 +1,6 @@
 import { WebSocket, WebSocketServer } from "ws";
 import { Server } from "http";
+import type { MissionCallRecordingSnapshot } from "@shared/mission-recording";
 
 interface ConnectedAgent {
   ws: WebSocket;
@@ -94,6 +95,8 @@ class InboundCallWebSocketService {
     customerId?: string;
     contactType?: "customer" | "hospital" | "clinic" | "collaborator";
     recordCalls?: boolean;
+    campaignId?: string | null;
+    recordingSnapshot?: MissionCallRecordingSnapshot | null;
     ringtoneId?: string | null;
     isQueueWaiting?: boolean;
   }) {

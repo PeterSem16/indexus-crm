@@ -2863,6 +2863,8 @@ function setupQueueEngineWebSocketEvents(engine: QueueEngine): void {
       sourceTrunk: data.sourceTrunk,
       customerId: data.customerId,
       recordCalls: data.recordCalls ?? false,
+      campaignId: data.campaignId ?? null,
+      recordingSnapshot: data.recordingSnapshot ?? null,
       ringtoneId: data.ringtoneId ?? "classic",
     });
     const notified = busyAgentNotifications.get(data.callId);
