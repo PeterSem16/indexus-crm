@@ -35,6 +35,8 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   const wakeLockGeneration = useRef(0);
   const runGeneration = useRef(0);
   const runAbort = useRef<AbortController | null>(null);
+  const soundConfirmationResolver = useRef<(() => void) | null>(null);
+  const heardRef = useRef(false);
   const acquireWakeLock = useCallback(async () => {
     const generation = ++wakeLockGeneration.current;
     await wakeLock.current?.release?.();
@@ -58,9 +60,12 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   }, []);
   const run = useCallback(async () => {
     const generation = ++runGeneration.current;
+    soundConfirmationResolver.current?.();
+    soundConfirmationResolver.current = null;
     runAbort.current?.abort();
     const abortController = new AbortController();
     runAbort.current = abortController;
+    heardRef.current = false;
     setRunning(true); setState("checking"); setHeard(false); setSoundPlayed(false); setSoundError(false); setResults([]); setLatencyMetrics(null); setQuickMicStatus("idle"); setQuickSpeakerStatus("idle"); setQuickLatencyStatus("idle");
     setRunCompleted(false);
     setProgress(5); setProgressDetail(t.progressStarting);
@@ -142,6 +147,16 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     add("voice", "critical", voiceDetected, voiceDetected ? t.voiceDetected : t.voiceNotDetected);
     await pauseForResult();
     if (generation !== runGeneration.current) return;
+    setProgressDetail(t.soundDetail);
+    if (!heardRef.current) {
+      await new Promise<void>((resolve) => {
+        soundConfirmationResolver.current = resolve;
+      });
+    }
+    soundConfirmationResolver.current = null;
+    if (generation !== runGeneration.current) return;
+    await pauseForResult();
+    if (generation !== runGeneration.current) return;
     advance(45, t.progressNetwork);
     const ice = await gatherIce();
     if (generation !== runGeneration.current) return;
@@ -191,6 +206,8 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   }, [acquireWakeLock, ensureRegistered, isRegistered, t, userId]);
   useEffect(() => () => {
     runGeneration.current += 1;
+    soundConfirmationResolver.current?.();
+    soundConfirmationResolver.current = null;
     runAbort.current?.abort();
     wakeLockGeneration.current += 1;
     void wakeLock.current?.release?.();
@@ -199,6 +216,8 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   useEffect(() => {
     if (!open && !keepWakeLock) {
       runGeneration.current += 1;
+      soundConfirmationResolver.current?.();
+      soundConfirmationResolver.current = null;
       runAbort.current?.abort();
       setRunning(false);
       setProgress(0);
@@ -213,6 +232,8 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   }, [keepWakeLock, open]);
   useEffect(() => {
     runGeneration.current += 1;
+    soundConfirmationResolver.current?.();
+    soundConfirmationResolver.current = null;
     runAbort.current?.abort();
     setState("idle");
     setResults([]);
@@ -240,6 +261,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [acquireWakeLock, keepWakeLock, open, state]);
   const play = async () => {
+    heardRef.current = false;
     setSoundPlayed(false); setSoundError(false); setHeard(false); setQuickSpeakerStatus("pending");
     let ctx: AudioContext | undefined;
     try {
@@ -300,13 +322,14 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   const runQuickLatency = async () => {
     setQuickLatencyStatus("pending"); setLatencyMetrics(null);
     await new Promise((resolve) => window.setTimeout(resolve, 280));
-    const latency = await measureSameOriginLatency();
+    const latency = await measureSameOriginLatency(undefined, undefined, 8, 650);
     if (!latency) { setQuickLatencyStatus("fail"); return; }
     const quality = classifyLatencyQuality(latency.latency, latency.jitter);
     setLatencyMetrics({ ...latency, quality }); setQuickLatencyStatus(quality === "good" ? "pass" : quality === "warning" ? "warn" : "fail");
   };
   const confirmSpeaker = async (confirmed: boolean) => {
     if (!confirmed) {
+      heardRef.current = false;
       setHeard(false);
       setQuickSpeakerStatus(soundError ? "fail" : "idle");
       return;
@@ -314,8 +337,11 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     setHeard(false);
     setQuickSpeakerStatus("pending");
     await new Promise((resolve) => window.setTimeout(resolve, 480));
+    heardRef.current = true;
     setHeard(true);
     setQuickSpeakerStatus("pass");
+    soundConfirmationResolver.current?.();
+    soundConfirmationResolver.current = null;
   };
   const requestNotifications = async () => {
     if (typeof Notification === "undefined") return;
@@ -376,13 +402,13 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
                 <div className="mb-3 flex items-start justify-between gap-3"><div><h2 id="pulse-quick-title" className="text-sm font-semibold">{t.quickChecksTitle}</h2><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t.quickChecksDetail}</p></div><Badge variant="outline" className="shrink-0 border-primary/25 text-primary">{t.advisoryBadge}</Badge></div>
                 <div className="grid gap-2 sm:grid-cols-3">
                   {[
-                    { key:"mic", label:t.microphone, status:quickMicStatus, pending:t.quickMicPending, pass:t.quickMicPassed, fail:t.quickMicFailed, action:t.quickMicRun, onClick:runQuickMic },
-                    { key:"speaker", label:t.output, status:quickSpeakerStatus, pending:t.quickSpeakerPending, pass:t.quickSpeakerPassed, fail:t.quickSpeakerFailed, action:t.quickSpeakerRun, onClick:() => void play() },
-                    { key:"latency", label:t.latency, status:quickLatencyStatus, pending:t.quickLatencyPending, pass:t.quickLatencyPassed, fail:quickLatencyStatus === "warn" ? t.quickLatencyWarning : t.quickLatencyFailed, action:t.quickLatencyRun, onClick:() => void runQuickLatency() },
+                    { key:"mic", label:t.microphone, status:quickMicStatus, pending:t.quickMicPending, pass:t.quickMicPassed, fail:t.quickMicFailed, action:t.quickMicRun, icon:<Mic className="h-4 w-4" />, onClick:runQuickMic },
+                    { key:"speaker", label:t.output, status:quickSpeakerStatus, pending:t.quickSpeakerPending, pass:t.quickSpeakerPassed, fail:t.quickSpeakerFailed, action:t.quickSpeakerRun, icon:<Play className="h-4 w-4 fill-current" />, onClick:() => void play() },
+                    { key:"latency", label:t.latency, status:quickLatencyStatus, pending:t.quickLatencyPending, pass:t.quickLatencyPassed, fail:quickLatencyStatus === "warn" ? t.quickLatencyWarning : t.quickLatencyFailed, action:t.quickLatencyRun, icon:<Signal className="h-4 w-4" />, onClick:() => void runQuickLatency() },
                   ].map((check) => <div key={check.key} className={`rounded-xl border p-3 transition-colors ${check.status === "pass" ? "border-emerald-500/30 bg-emerald-500/[0.06]" : check.status === "fail" ? "border-destructive/30 bg-destructive/[0.05]" : check.status === "warn" ? "border-amber-500/30 bg-amber-500/[0.06]" : "border-border/70 bg-card/50"}`}>
                     <div className="flex items-center justify-between gap-2"><span className="text-xs font-semibold">{check.label}</span>{check.status === "pending" ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : check.status === "pass" ? <CheckCircle2 className="h-4 w-4 text-emerald-600 motion-safe:animate-pulse" /> : check.status === "fail" ? <AlertTriangle className="h-4 w-4 text-destructive" /> : check.status === "warn" ? <AlertTriangle className="h-4 w-4 text-amber-600" /> : <CircleDot className="h-4 w-4 text-muted-foreground" />}</div>
                     <p className="mt-2 min-h-8 text-[11px] leading-relaxed text-muted-foreground">{check.status === "pending" ? check.pending : check.status === "pass" ? check.pass : check.status === "fail" || check.status === "warn" ? check.fail : t.quickChecksDetail}</p>
-                    <Button variant="ghost" size="sm" className="mt-2 h-7 px-2 text-xs text-primary" disabled={check.status === "pending"} onClick={check.onClick}>{check.action}</Button>
+                    <Button variant={check.status === "pass" ? "outline" : "default"} size="sm" className={`mt-3 h-9 w-full justify-center rounded-lg px-3 text-xs font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${check.status === "pass" ? "border-emerald-500/35 bg-emerald-500/[0.07] text-emerald-700 hover:bg-emerald-500/10 hover:text-emerald-800" : ""}`} disabled={check.status === "pending"} onClick={check.onClick}>{check.status === "pending" ? <Loader2 className="h-4 w-4 animate-spin" /> : check.icon}{check.action}</Button>
                   </div>)}
                 </div>
                 <p className={`mt-3 text-xs font-medium ${quickChecksPassed ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300"}`}>{quickChecksPassed ? t.deepCheckNotRequired : t.deepCheckRequired}</p>

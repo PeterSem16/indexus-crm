@@ -123,7 +123,7 @@ export function classifyLatencyQuality(latency: number, jitter: number): "good" 
   return "poor";
 }
 
-export async function measureSameOriginLatency(request = (input: RequestInfo | URL, init?: RequestInit) => fetch(input, init), url = typeof window === "undefined" ? "/" : window.location.href, attempts = 4) {
+export async function measureSameOriginLatency(request = (input: RequestInfo | URL, init?: RequestInit) => fetch(input, init), url = typeof window === "undefined" ? "/" : window.location.href, attempts = 4, delayMs = 0) {
   const samples: number[] = [];
   for (let index = 0; index < attempts; index += 1) {
     const started = performance.now();
@@ -132,6 +132,9 @@ export async function measureSameOriginLatency(request = (input: RequestInfo | U
       samples.push(performance.now() - started);
     } catch {
       // A failed request is intentionally omitted: this advisory must not block calling.
+    }
+    if (delayMs > 0 && index < attempts - 1) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   }
   return summarizeLatency(samples);
