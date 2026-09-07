@@ -107,16 +107,37 @@ async function checkUserEmails(userId: string, connection: any) {
       await storage.updateUserMs365Connection(userId, updateData);
     }
     
-    const emails = await getRecentEmails(tokenResult.accessToken, undefined, 20, false);
-    
-    for (const email of emails) {
+    const sharedMailboxes = await storage.getUserMs365SharedMailboxes(userId);
+    const mailboxTargets: Array<{ mailboxEmail?: string; cacheIdentity: string }> = [
+      {
+        mailboxEmail: undefined,
+        cacheIdentity: String(connection.email || `user:${userId}`).toLowerCase(),
+      },
+      ...sharedMailboxes
+        .filter(mailbox => mailbox.isActive && mailbox.email)
+        .map(mailbox => ({
+          mailboxEmail: mailbox.email,
+          cacheIdentity: mailbox.email.toLowerCase(),
+        })),
+    ];
+
+    for (const mailbox of mailboxTargets) {
+      const emails = await getRecentEmails(
+        tokenResult.accessToken,
+        mailbox.mailboxEmail,
+        20,
+        false,
+      );
+
+      for (const email of emails) {
       const emailId = email.id;
-      
-      if (processedEmailsMap[emailId]) {
+      const processedKey = `${mailbox.cacheIdentity}:${emailId}`;
+
+      if (processedEmailsMap[processedKey]) {
         continue;
       }
-      
-      processedEmailsMap[emailId] = { emailId, processedAt: new Date() };
+
+      processedEmailsMap[processedKey] = { emailId: processedKey, processedAt: new Date() };
       
       const content = email.bodyPreview || email.body?.content || "";
       if (!content || content.length < 10) {
@@ -245,6 +266,7 @@ async function checkUserEmails(userId: string, connection: any) {
                   senderName,
                   conversationId: conversationId || null,
                   contactType: linkedType,
+                   mailboxEmail: mailbox.mailboxEmail || connection.email || null,
                   isHtml: email.body?.contentType?.toLowerCase().includes("html") ?? false,
                 }),
               });
@@ -255,6 +277,7 @@ async function checkUserEmails(userId: string, connection: any) {
           console.error(`[EmailMonitor] Failed to link inbound email ${emailId}:`, linkError);
         }
       }
+    }
     }
   } catch (error) {
     console.error(`[EmailMonitor] Error checking emails for user ${userId}:`, error);
