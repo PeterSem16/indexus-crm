@@ -2240,6 +2240,7 @@ export function SipPhone({
           console.log("[SIP-MEDIA] Microphone track replaced after device change");
         } catch (error) {
           console.error("[SIP-MEDIA] Failed to switch microphone after device change:", error);
+          reportVoiceIncident("audio_device_change_failed", "error");
           setAudioHealth("warning");
           toast({
             title: t.agentWorkspace.audioConnectionFailedTitle,

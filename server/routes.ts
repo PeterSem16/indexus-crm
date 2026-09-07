@@ -2476,6 +2476,7 @@ export async function registerRoutes(
     "ice_disconnected_sustained",
     "audio_no_flow",
     "audio_one_way",
+    "audio_device_change_failed",
     "network_quality_degraded",
   ]);
   const VOICE_INCIDENT_SEVERITIES = new Set(["warning", "error"]);
@@ -2519,8 +2520,8 @@ export async function registerRoutes(
     try {
       const ownedCall = await pool.query(
         `SELECT id FROM call_logs
-         WHERE id = $1 AND user_id = $2 AND ended_at IS NULL
-           AND status IN ('initiated', 'ringing', 'answered')
+         WHERE id = $1 AND user_id = $2
+           AND (ended_at IS NULL OR ended_at >= NOW() - INTERVAL '5 minutes')
          LIMIT 1`,
         [callLogId, userId],
       );
@@ -2551,10 +2552,10 @@ export async function registerRoutes(
     }
     const params: unknown[] = [];
     const where: string[] = [];
-    for (const [value, column, operator] of [[from, "i.created_at", ">="], [to, "i.created_at", "<="]] as const) {
+    for (const [value, column, operator] of [[from, "i.created_at", ">="], [to, "i.created_at", "<"]] as const) {
       if (value !== undefined) {
         if (typeof value !== "string" || Number.isNaN(Date.parse(value))) return res.status(400).json({ error: "Invalid date filter" });
-        params.push(value); where.push(`${column} ${operator} $${params.length}`);
+        params.push(value); where.push(`${column} ${operator} ($${params.length}::timestamptz AT TIME ZONE 'UTC')`);
       }
     }
     if (kind) { params.push(kind); where.push(`i.kind = $${params.length}`); }
@@ -2567,8 +2568,11 @@ export async function registerRoutes(
                            i.connection_state AS "connectionState", i.ice_state AS "iceState",
                            i.rtt_ms AS "rttMs", i.jitter_ms AS "jitterMs",
                            i.packet_loss_permille AS "packetLossPermille",
-                           i.created_at AS "createdAt", u.full_name AS "userName"
+                           i.created_at AS "createdAt", u.full_name AS "userName",
+                           NULLIF(TRIM(CONCAT_WS(' ', c.first_name, c.last_name)), '') AS "customerName"
                     FROM voice_network_incidents i JOIN users u ON u.id = i.user_id
+                     LEFT JOIN call_logs cl ON cl.id = i.call_log_id
+                     LEFT JOIN customers c ON c.id = cl.customer_id
                     ${clause} ORDER BY i.created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`, params),
         pool.query(`SELECT count(*)::integer AS total FROM voice_network_incidents i ${clause}`, params.slice(0, -2)),
       ]);

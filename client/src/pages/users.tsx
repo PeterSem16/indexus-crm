@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, UserCheck, UserX, Search, Filter, Users, Activity, Download, Calendar, CalendarIcon, Clock, BarChart3, Shield, LogIn, Monitor, RefreshCw, XCircle, History, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, FileSpreadsheet, Phone, Mail, MessageSquare, List } from "lucide-react";
+import { Plus, Pencil, Trash2, UserCheck, UserX, Search, Filter, Users, Activity, Download, Calendar, CalendarIcon, Clock, BarChart3, Shield, ShieldAlert, LogIn, Monitor, RefreshCw, XCircle, History, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, FileSpreadsheet, Phone, Mail, MessageSquare, List } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { usePermissions } from "@/contexts/permissions-context";
 import { useAuth } from "@/contexts/auth-context";
@@ -68,6 +68,7 @@ import { format, formatDistanceToNow, subDays, startOfDay, endOfDay } from "date
 import { sk, cs, hu, ro, it, de, enUS } from "date-fns/locale";
 import { PageHeader } from "@/components/page-header";
 import { DataTable } from "@/components/data-table";
+import VoiceNetworkIncidentsPage from "@/pages/voice-network-incidents";
 import { StatusBadge } from "@/components/status-badge";
 import { CountryBadges } from "@/components/country-filter";
 import { UserForm, type UserFormData } from "@/components/user-form";
@@ -149,6 +150,12 @@ import { ACTIVITY_COLORS, CHART_PALETTE, STATUS_COLORS } from '@/lib/chart-color
 export default function UsersPage() {
   const { toast } = useToast();
   const { t, locale } = useI18n();
+  const voiceIncidentTabLabel = {
+    en: "Voice & network incidents", sk: "Hlasové a sieťové incidenty",
+    cs: "Hlasové a síťové incidenty", hu: "Hang- és hálózati incidensek",
+    ro: "Incidente voce și rețea", it: "Incidenti voce e rete",
+    de: "Sprach- und Netzwerkvorfälle",
+  }[locale] || "Voice & network incidents";
   const { canAdd, canEdit } = usePermissions();
   const { user: authUser } = useAuth();
   const isAdminOrManager = authUser?.role === 'admin' || authUser?.role === 'manager';
@@ -1037,7 +1044,7 @@ export default function UsersPage() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         {isAdminOrManager ? (
-        <TabsList className="grid w-full grid-cols-3 max-w-xl">
+        <TabsList className={`grid w-full ${authUser?.role === "admin" ? "grid-cols-4 max-w-4xl" : "grid-cols-3 max-w-xl"}`}>
           <TabsTrigger value="users" className="flex items-center gap-2" data-testid="tab-users">
             <Users className="h-4 w-4" />
             {t.users.title}
@@ -1050,6 +1057,12 @@ export default function UsersPage() {
             <BarChart3 className="h-4 w-4" />
             {t.activityReports.title}
           </TabsTrigger>
+          {authUser?.role === "admin" && (
+            <TabsTrigger value="voice-incidents" className="flex items-center gap-2" data-testid="tab-voice-network-incidents">
+              <ShieldAlert className="h-4 w-4" />
+              {voiceIncidentTabLabel}
+            </TabsTrigger>
+          )}
         </TabsList>
         ) : null}
 
@@ -2093,6 +2106,11 @@ export default function UsersPage() {
             </>
           )}
         </TabsContent>
+        {authUser?.role === "admin" && (
+          <TabsContent value="voice-incidents" className="space-y-4">
+            <VoiceNetworkIncidentsPage embedded />
+          </TabsContent>
+        )}
       </Tabs>
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>

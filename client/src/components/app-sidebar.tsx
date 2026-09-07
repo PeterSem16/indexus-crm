@@ -28,7 +28,6 @@ import {
   Zap,
   Target,
   HeartPulse,
-  ShieldAlert,
   ListChecks,
   UserCheck,
 } from "lucide-react";
@@ -65,13 +64,7 @@ export function AppSidebar() {
   const { user, logout } = useAuth();
   const [userSettingsOpen, setUserSettingsOpen] = useState(false);
   const { canAccessModule } = usePermissions();
-  const { t, locale } = useI18n();
-  const voiceIncidentLabel = {
-    en: "Voice & network incidents", sk: "Hlasové a sieťové incidenty",
-    cs: "Hlasové a síťové incidenty", hu: "Hang- és hálózati incidensek",
-    ro: "Incidente voce și rețea", it: "Incidenti voce e rete",
-    de: "Sprach- und Netzwerkvorfälle",
-  }[locale] || "Voice & network incidents";
+  const { t } = useI18n();
 
   const { data: tasks = [] } = useQuery<Task[]>({
     queryKey: ["/api/tasks"],
@@ -125,7 +118,6 @@ export function AppSidebar() {
   
   const adminNavItems = [
     { title: t.nav.users, url: "/users", icon: UserCog, testId: "users", moduleKey: "users" },
-    ...(user?.role === "admin" ? [{ title: voiceIncidentLabel, url: "/voice-network-incidents", icon: ShieldAlert, testId: "voice-network-incidents", moduleKey: "settings" }] : []),
     { title: t.nav.settings, url: "/settings", icon: Settings, testId: "settings", moduleKey: "settings" },
   ];
 

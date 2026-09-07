@@ -6,6 +6,7 @@ export type VoiceIncidentKind =
   | "ice_disconnected_sustained"
   | "audio_no_flow"
   | "audio_one_way"
+  | "audio_device_change_failed"
   | "network_quality_degraded";
 
 const lastReported = new Map<VoiceIncidentKind, number>();
