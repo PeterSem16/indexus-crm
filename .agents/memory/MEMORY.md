@@ -72,3 +72,4 @@
 - [Pulse mandatory M365 readiness](pulse-m365-readiness.md) — every readiness run requires the agent’s connected M365 account; never derive this check from the selected Mission.
 - [Pulse quick readiness recheck](pulse-quick-sound-recheck.md) — reuse valid readiness only after fresh microphone, speaker, and latency checks; never bypass a started full check.
 - [Pulse incident telemetry](pulse-incident-telemetry.md) — persist only bounded active-call health events; queue offline failures, and never log media, numbers, SDP, candidates, IPs, or credentials.
+- [Pulse inbound call finalization](pulse-inbound-call-finalization.md) — agent End, SIP termination, media failure, and server hangup must share one idempotent history/recording finalizer.

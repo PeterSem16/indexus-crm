@@ -22,3 +22,11 @@ psql "$DATABASE_URL" -c "SELECT ..."
 **Why:** psql is run locally on CORPCRM01, and direct credentials previously supplied for the `postgres` role failed authentication. The running app's `DATABASE_URL` is authoritative. Sourcing the whole `.env` is unsafe because unrelated values can contain shell metacharacters. The password is intentionally not stored here.
 
 **How to apply:** Use the extraction command immediately before production `psql` commands and `unset DATABASE_URL` afterward. Never print the variable or paste its value into chat.
+
+## Access boundary
+
+Do not attempt SSH from Replit to CORPCRM01. Prepare safe diagnostic or maintenance commands for the user to run directly in the Ubuntu console, then analyze the redacted output they return.
+
+**Why:** SSH from Replit to CORPCRM01 is not possible; connection attempts time out. Repeating them wastes time and cannot diagnose production.
+
+**How to apply:** For every Ubuntu investigation, give one copy-paste command block that avoids printing secrets. Ask the user to return only its output.
