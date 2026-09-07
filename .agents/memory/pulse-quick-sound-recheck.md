@@ -1,10 +1,10 @@
 ---
-name: Pulse quick sound recheck
-description: Rules for rechecking test audio without forcing a redundant full Pulse readiness run.
+name: Pulse quick readiness recheck
+description: Rules for rechecking microphone, speaker, and network without forcing a redundant full Pulse readiness run.
 ---
 
-A voluntary sound-only recheck may reuse an existing valid NEXUS Pulse readiness result and allow entry after the agent confirms the test sound.
+A voluntary quick recheck may reuse an existing valid NEXUS Pulse readiness result only after three manual checks pass: local microphone voice detection, speaker playback confirmation, and acceptable network latency.
 
-**Why:** Treating the sound-only action as a new incomplete diagnostic run disables entry even though all other required checks already passed, forcing an unnecessary full recheck.
+**Why:** Current device and network conditions can change even while the saved deep readiness result remains valid. The three quick checks provide fresh confidence without repeating every full check.
 
-**How to apply:** Enable the quick path only while readiness is still valid and no full diagnostic run has started. Once a full run starts, its critical results are authoritative and sound confirmation must never bypass a failure or incomplete run.
+**How to apply:** Enable the quick path only while readiness is still valid and no full diagnostic run has started. A failed or warning quick check requires the full run. Once that starts, its results are authoritative and quick checks must never bypass it.
