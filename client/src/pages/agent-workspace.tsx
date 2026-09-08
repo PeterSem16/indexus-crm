@@ -7612,6 +7612,7 @@ function NoteCard({ note, canManage, onUpdate, onDelete, onOpen, t }: NoteCardPr
 
 function CustomerInfoPanel({
   contact,
+  phoneOverride,
   contactType,
   campaign,
   callNotes,
@@ -7658,6 +7659,7 @@ function CustomerInfoPanel({
   campaignContactId,
 }: {
   contact: Customer | null;
+  phoneOverride?: string | null;
   contactType?: string;
   campaign: Campaign | null;
   callNotes: string;
@@ -8894,9 +8896,9 @@ function CustomerInfoPanel({
               </h4>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { key: "call", icon: Phone, label: t.agentWorkspace.callAction, color: "#B5622E", disabled: !(contact.phone || localPhoneOverride), testId: "btn-quick-call" },
+                  { key: "call", icon: Phone, label: t.agentWorkspace.callAction, color: "#B5622E", disabled: !(phoneOverride || contact.phone), testId: "btn-quick-call" },
                   { key: "email", icon: Mail, label: t.agentWorkspace.emailAction, color: "#5B4FCF", disabled: !contact.email, testId: "btn-quick-email" },
-                  { key: "sms", icon: MessageSquare, label: t.agentWorkspace.smsAction, color: "#2E75B6", disabled: !(contact.phone || localPhoneOverride), testId: "btn-quick-sms" },
+                  { key: "sms", icon: MessageSquare, label: t.agentWorkspace.smsAction, color: "#2E75B6", disabled: !(phoneOverride || contact.phone), testId: "btn-quick-sms" },
                   { key: "task", icon: CalendarPlus, label: t.agentWorkspace.taskAction, color: "#7A6858", disabled: false, testId: "btn-quick-task" },
                 ].map(({ key, icon: Icon, label, color, disabled, testId }) => {
                   const actionProps = {
@@ -8923,8 +8925,8 @@ function CustomerInfoPanel({
 
                   return key === "call" ? (
                     <PulseQuickDialButton
-                    key={key}
-                      phoneNumber={localPhoneOverride || contact.phone}
+                      key={key}
+                      phoneNumber={phoneOverride || contact.phone}
                       onDial={() => onQuickAction(key)}
                       errorMessage={t.agentWorkspace.errorLabel}
                       {...{ ...actionProps, disabled: undefined, "data-testid": undefined }}
