@@ -62,6 +62,7 @@ import {
   insertInboundCallbackSchema,
   campaignStatusListItems,
   campaignStatusListAutomations,
+  nexusPulseModuleRevisions,
   clinicCooperationStatuses,
   campaignStatusListQuestions,
   campaignContactStatusListState,
@@ -51462,10 +51463,11 @@ Return ONLY the JSON object.`
         workingHoursStart: string; workingHoursEnd: string;
         dailyCallQuota: number | null; contactsToday: number;
         maxContactsPerDay: number | null; conversionGoal: number;
+        activeVersionNumber: number | null;
       }> = {};
 
       if (campaignIds.length > 0) {
-        const [schedules, opSettings, campRows] = await Promise.all([
+        const [schedules, opSettings, campRows, activeVersions] = await Promise.all([
           db.select().from(campaignSchedules).where(inArray(campaignSchedules.campaignId, campaignIds)),
           db.select().from(campaignOperatorSettings).where(and(
             inArray(campaignOperatorSettings.campaignId, campaignIds),
@@ -51473,10 +51475,18 @@ Return ONLY the JSON object.`
           )),
           db.select({ id: campaigns.id, conversionGoal: campaigns.conversionGoal, settings: campaigns.settings })
             .from(campaigns).where(inArray(campaigns.id, campaignIds)),
+          db.select({
+            campaignId: nexusPulseModuleRevisions.campaignId,
+            versionNumber: nexusPulseModuleRevisions.versionNumber,
+          }).from(nexusPulseModuleRevisions).where(and(
+            inArray(nexusPulseModuleRevisions.campaignId, campaignIds),
+            eq(nexusPulseModuleRevisions.status, "active"),
+          )),
         ]);
         const scheduleMap = new Map(schedules.map(s => [s.campaignId, s]));
         const opMap = new Map(opSettings.map(s => [s.campaignId, s]));
         const campMap = new Map(campRows.map(c => [c.id, c]));
+        const activeVersionMap = new Map(activeVersions.map(version => [version.campaignId, version.versionNumber]));
         const todayDOW = new Date().getDay(); // 0=Sun,1=Mon,...,6=Sat
 
         for (const cId of campaignIds) {
@@ -51507,6 +51517,7 @@ Return ONLY the JSON object.`
             contactsToday,
             maxContactsPerDay: op?.maxContactsPerDay ?? null,
             conversionGoal: parseFloat(camp?.conversionGoal || "0"),
+            activeVersionNumber: activeVersionMap.get(cId) ?? null,
           };
         }
       }

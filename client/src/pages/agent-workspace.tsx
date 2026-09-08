@@ -10996,7 +10996,7 @@ export default function AgentWorkspacePage() {
     totalCallMinutes: number;
     totalWorkMinutes: number;
     dispositionsToday: number;
-    campaignData: Record<string, { workingHoursStart: string; workingHoursEnd: string; dailyCallQuota: number | null; contactsToday: number; maxContactsPerDay: number | null; conversionGoal: number }>;
+    campaignData: Record<string, { workingHoursStart: string; workingHoursEnd: string; dailyCallQuota: number | null; contactsToday: number; maxContactsPerDay: number | null; conversionGoal: number; activeVersionNumber: number | null }>;
   }>({
     queryKey: [`/api/agent-sessions/shift-data?campaignIds=${shiftDataCampaignIds}`],
     enabled: !!hasAccess,
@@ -13696,9 +13696,16 @@ export default function AgentWorkspacePage() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-base font-semibold truncate">{campaign.name}</p>
-                            {campaign.countryCodes?.length > 0 && (
-                              <p className="text-xs text-muted-foreground">{campaign.countryCodes.map((c: string) => getCountryFlag(c)).join(" ")}</p>
-                            )}
+                             <div className="flex items-center gap-2 flex-wrap">
+                               {campaign.countryCodes?.length > 0 && (
+                                 <p className="text-xs text-muted-foreground">{campaign.countryCodes.map((c: string) => getCountryFlag(c)).join(" ")}</p>
+                               )}
+                               {shiftData?.campaignData?.[campaign.id]?.activeVersionNumber != null && (
+                                 <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300">
+                                   {t.campaigns.detail.nexusActiveVersion}: v{shiftData.campaignData[campaign.id].activeVersionNumber}
+                                 </span>
+                               )}
+                             </div>
                           </div>
                           <div className={`h-6 w-6 rounded-lg border-2 flex items-center justify-center shrink-0 ${isChecked ? "bg-primary border-primary" : "border-muted-foreground/30"}`}>
                             {isChecked && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
@@ -14007,6 +14014,11 @@ export default function AgentWorkspacePage() {
                                   {campaign.startDate && (
                                     <span className="text-[10px] text-muted-foreground">{format(new Date(campaign.startDate), "dd.MM.yy")} – {campaign.endDate ? format(new Date(campaign.endDate), "dd.MM.yy") : "..."}</span>
                                   )}
+                                   {shiftData?.campaignData?.[campaign.id]?.activeVersionNumber != null && (
+                                     <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300">
+                                       {t.campaigns.detail.nexusActiveVersion}: v{shiftData.campaignData[campaign.id].activeVersionNumber}
+                                     </span>
+                                   )}
                                 </div>
                                 {(() => {
                                   const cd = shiftData?.campaignData?.[campaign.id];
