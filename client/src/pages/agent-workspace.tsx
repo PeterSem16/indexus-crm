@@ -9850,7 +9850,7 @@ function ScheduledQueuePanel({
               </div>
             </div>
 
-            <div className="hidden sm:grid grid-cols-[1fr_140px_80px_120px_90px] gap-2 px-4 py-1.5 border-b bg-muted/40 text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex-shrink-0">
+            <div className="hidden lg:grid lg:grid-cols-[minmax(210px,1.8fr)_minmax(100px,0.65fr)_minmax(145px,1.15fr)_minmax(130px,1fr)_96px] gap-2 px-4 py-1.5 border-b bg-muted/40 text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex-shrink-0">
               <span>{t.agentWorkspace.scheduledContact}</span>
               <span>{t.agentWorkspace.scheduledDate}</span>
               <span>{t.agentWorkspace.scheduledStep || "Step"}</span>
@@ -9891,7 +9891,7 @@ function ScheduledQueuePanel({
                       <div
                         key={item.id}
                         data-testid={`scheduled-item-${item.id}`}
-                        className={`grid grid-cols-1 sm:grid-cols-[1fr_140px_80px_120px_90px] gap-x-2 gap-y-0.5 items-center px-4 py-2.5 border-b transition-colors hover:bg-muted/30 ${
+                        className={`grid grid-cols-1 lg:grid-cols-[minmax(210px,1.8fr)_minmax(100px,0.65fr)_minmax(145px,1.15fr)_minmax(130px,1fr)_96px] gap-x-2 gap-y-1.5 items-center px-4 py-2.5 border-b transition-colors hover:bg-muted/30 ${
                           itemOverdue ? "bg-destructive/[0.03]" : idx % 2 === 0 ? "" : "bg-muted/20"
                         }`}
                       >
@@ -9963,11 +9963,11 @@ function ScheduledQueuePanel({
                           </div>
                         </div>
 
-                        <div className="flex items-center">
+                        <div className="flex items-center min-w-0 overflow-hidden">
                           {item.callbackStatusListLabel ? (
                             <div className="flex flex-col gap-0.5 items-start" data-testid={`text-scheduled-step-${item.id}`}>
-                              <span
-                                className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 max-w-[170px] truncate"
+                                <span
+                                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 max-w-full truncate"
                                 title={item.callbackStatusListLabel}
                               >
                                 {item.callbackStatusListLabel}
@@ -10011,21 +10011,21 @@ function ScheduledQueuePanel({
                           )}
                         </div>
 
-                        <div className="text-[11px] text-muted-foreground truncate">
+                          <div className="text-[11px] text-muted-foreground min-w-0 overflow-hidden">
                           {item.isOutsideMission ? (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">
                               <PhoneIncoming className="h-2.5 w-2.5 shrink-0" />
                               {t.agentWorkspace.outsideMissionLabel}
                             </span>
                           ) : (
-                            <span className="flex items-center gap-1">
+                              <span className="flex items-center gap-1 min-w-0">
                               <Megaphone className="h-3 w-3 shrink-0" />
                               <span className="truncate">{item.campaignName}</span>
                             </span>
                           )}
                         </div>
 
-                        <div className="flex items-center justify-end gap-0.5">
+                        <div className="flex items-center justify-end gap-0.5 min-w-[96px]">
                           {item.type === "callback" && (
                             <Button
                               variant="ghost"
