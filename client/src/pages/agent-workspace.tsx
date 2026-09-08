@@ -9296,7 +9296,7 @@ function MyActivityPanel({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
-      <DialogContent className="sm:max-w-3xl lg:max-w-5xl w-[95vw] max-h-[90vh] !flex !flex-col p-0 shadow-2xl ring-1 ring-black/10 dark:ring-white/10">
+      <DialogContent className="!w-[calc(100vw-2rem)] !max-w-[calc(100vw-2rem)] !h-[calc(100vh-2rem)] !max-h-[calc(100vh-2rem)] sm:!w-[calc(100vw-3rem)] sm:!max-w-[calc(100vw-3rem)] sm:!h-[calc(100vh-3rem)] sm:!max-h-[calc(100vh-3rem)] lg:!w-[calc(100vw-4rem)] lg:!max-w-[calc(100vw-4rem)] lg:!h-[calc(100vh-4rem)] lg:!max-h-[calc(100vh-4rem)] !flex !flex-col overflow-hidden p-0 shadow-2xl ring-1 ring-black/10 dark:ring-white/10">
         <div className="flex items-center gap-3 pl-5 pr-14 pt-5 pb-3 border-b flex-shrink-0">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: "#B5622E18" }}>
             <History className="h-5 w-5" style={{ color: "#B5622E" }} />
@@ -16493,7 +16493,7 @@ export default function AgentWorkspacePage() {
 
       <Dialog open={abandonedCallsOpen} onOpenChange={(open) => { setAbandonedCallsOpen(open); if (!open) { setAbandonedCallsFilter("all"); setMissedChannel("calls"); } }} modal={false}>
         <DialogContent
-          className="sm:max-w-[580px] max-h-[82vh] flex flex-col overflow-hidden p-0 gap-0 shadow-2xl ring-1 ring-black/10 dark:ring-white/10"
+          className="!w-[calc(100vw-2rem)] !max-w-[calc(100vw-2rem)] !h-[calc(100vh-2rem)] !max-h-[calc(100vh-2rem)] sm:!w-[calc(100vw-3rem)] sm:!max-w-[calc(100vw-3rem)] sm:!h-[calc(100vh-3rem)] sm:!max-h-[calc(100vh-3rem)] lg:!w-[calc(100vw-4rem)] lg:!max-w-[calc(100vw-4rem)] lg:!h-[calc(100vh-4rem)] lg:!max-h-[calc(100vh-4rem)] flex flex-col overflow-hidden p-0 gap-0 shadow-2xl ring-1 ring-black/10 dark:ring-white/10"
           onInteractOutside={(e) => e.preventDefault()}
           onPointerDownOutside={(e) => e.preventDefault()}
           onFocusOutside={(e) => e.preventDefault()}
