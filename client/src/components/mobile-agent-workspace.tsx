@@ -9,6 +9,7 @@ import { Phone, PhoneOff, PhoneIncoming, Mic, MicOff, PauseCircle, PlayCircle,
   History, PhoneCall, Stethoscope, UserX, Globe, Share2, UserCheck,
   MessageSquare, Send, Volume2, Save } from "lucide-react";
 import { format } from "date-fns";
+import { PulseMobileDialButton } from "@/components/pulse-dial-button";
 
 /* ── helpers ────────────────────────────────────────────────────────── */
 const fmtDur = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -1289,15 +1290,16 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
           {phoneNumbers.length > 0 ? (
             <div className="flex flex-col gap-2">
               {phoneNumbers.map(({ label, value }) => (
-                <button key={value} onClick={() => onMakeCall(value)}
+                <PulseMobileDialButton key={value} label={label} phoneNumber={value} onDial={onMakeCall}
+                   errorMessage={t?.agentWorkspace?.errorLabel}
                    className="w-full h-14 rounded-2xl bg-green-500 hover:bg-green-600 text-white font-bold flex items-center justify-center gap-3 shadow-lg shadow-green-500/20 active:scale-[0.98] transition-all"
-                  data-testid={`btn-mobile-call-${label.toLowerCase().replace(/\s/g, "-")}`}>
+                >
                   <Phone className="h-6 w-6 shrink-0" />
                   <div className="flex flex-col items-start leading-tight">
                     <span className="text-[10px] font-normal opacity-80">{label}</span>
                     <span className="text-base">{value}</span>
                   </div>
-                </button>
+                </PulseMobileDialButton>
               ))}
             </div>
           ) : (

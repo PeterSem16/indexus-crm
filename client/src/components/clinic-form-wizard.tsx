@@ -63,6 +63,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { PhoneNumberField } from "@/components/phone-number-field";
 import { Wand2 } from "lucide-react";
+import { PulseClinicDialButton } from "@/components/pulse-dial-button";
 
 interface ClinicFormData {
   name: string;
@@ -1530,9 +1531,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                             <div className="flex items-center gap-1">
                               <div className="flex-1 min-w-0"><PhoneNumberField value={formData.phone} onChange={(v) => { setFormData({ ...formData, phone: v }); onPhoneChange?.(v); }} defaultCountryCode={formData.countryCode || "SK"} data-testid="input-clinic-phone" /></div>
                               {onCallPhone ? (
-                                <button type="button" onClick={() => formData.phone && onCallPhone(formData.phone)} disabled={!formData.phone} className="flex-shrink-0 h-8 w-8 flex items-center justify-center rounded-md bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors" title="Volať" data-testid="btn-call-phone1">
+                                <PulseClinicDialButton phoneNumber={formData.phone} onDial={onCallPhone} errorMessage={t.agentWorkspace.errorLabel} className="flex-shrink-0 h-8 w-8 flex items-center justify-center rounded-md bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors" title="Volať">
                                   <Phone className="h-3.5 w-3.5" />
-                                </button>
+                                </PulseClinicDialButton>
                               ) : (
                                 <CallSlot phoneNumber={formData.phone} customerId={initialData?.id} customerName={doctorFullName || formData.name || initialData?.name} />
                               )}

@@ -4,6 +4,8 @@ import { useLocation } from "wouter";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
+import { createPulseDialEntryPoints, requestPulseDial } from "@/lib/pulse-dial-request";
+import { PulseMainDialButton, PulseQuickDialButton } from "@/components/pulse-dial-button";
 import { SopPanel } from "@/components/agent/SopPanel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -2744,6 +2746,7 @@ function CommunicationCanvas({
   isSendingEmail,
   isSendingSms,
   onMakeCall,
+  onClinicMakeCall,
   isSipRegistered,
   onOpenScriptModal,
   onUpdateContact,
@@ -2804,6 +2807,7 @@ function CommunicationCanvas({
   isSendingEmail: boolean;
   isSendingSms: boolean;
   onMakeCall?: (phoneNumber: string) => void;
+  onClinicMakeCall?: (phoneNumber: string) => void;
   isSipRegistered?: boolean;
   onOpenScriptModal: () => void;
   onUpdateContact?: (data: CustomerFormData) => void;
@@ -4331,16 +4335,15 @@ function CommunicationCanvas({
             }
 
             return (
-              <Button
-                size="sm"
-                onClick={() => onMakeCall?.(phone)}
-                disabled={!onMakeCall}
-                data-testid="btn-call-from-canvas"
+              <PulseMainDialButton
+                phoneNumber={phone}
+                onDial={onMakeCall}
+                errorMessage={t.agentWorkspace.errorLabel}
                 className="h-8 px-3 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Phone className="h-3.5 w-3.5 shrink-0" />
                 {phone}
-              </Button>
+              </PulseMainDialButton>
             );
           })()}
         </div>
@@ -4616,7 +4619,7 @@ function CommunicationCanvas({
                       } catch {}
                     }}
                     onPhoneChange={(p) => onPhoneOverrideChange?.(p || null)}
-                    onCallPhone={(p) => onMakeCall?.(p)}
+                    onCallPhone={onClinicMakeCall}
                     mode="inline"
                     readOnly={cardsReadOnly}
                     readOnlyExceptions={cardsReadOnlyExceptions}
@@ -8895,28 +8898,45 @@ function CustomerInfoPanel({
                   { key: "email", icon: Mail, label: t.agentWorkspace.emailAction, color: "#5B4FCF", disabled: !contact.email, testId: "btn-quick-email" },
                   { key: "sms", icon: MessageSquare, label: t.agentWorkspace.smsAction, color: "#2E75B6", disabled: !(contact.phone || localPhoneOverride), testId: "btn-quick-sms" },
                   { key: "task", icon: CalendarPlus, label: t.agentWorkspace.taskAction, color: "#7A6858", disabled: false, testId: "btn-quick-task" },
-                ].map(({ key, icon: Icon, label, color, disabled, testId }) => (
-                  <button
-                    key={key}
-                    onClick={() => !disabled && onQuickAction(key)}
-                    disabled={disabled}
-                    data-testid={testId}
-                    className="flex items-center gap-2 p-2 rounded-xl text-left transition-all"
-                    style={{
+                ].map(({ key, icon: Icon, label, color, disabled, testId }) => {
+                  const actionProps = {
+                    disabled,
+                    "data-testid": testId,
+                    className: "flex items-center gap-2 p-2 rounded-xl text-left transition-all",
+                    style: {
                       background: "hsl(var(--card))",
-                      border: `1px solid hsl(var(--border))`,
+                      border: "1px solid hsl(var(--border))",
                       borderLeft: `3px solid ${color}`,
                       color: "hsl(var(--foreground))",
                       opacity: disabled ? 0.4 : 1,
                       cursor: disabled ? "not-allowed" : "pointer",
-                    }}
-                    onMouseEnter={(e) => { if (!disabled) (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = ""; }}
-                  >
-                    <Icon className="h-3.5 w-3.5 shrink-0" style={{ color }} />
-                    <span className="text-xs font-medium truncate">{label}</span>
-                  </button>
-                ))}
+                    },
+                    onMouseEnter: (e: React.MouseEvent<HTMLButtonElement>) => { if (!disabled) e.currentTarget.style.transform = "translateY(-1px)"; },
+                    onMouseLeave: (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.transform = ""; },
+                  };
+                  const content = (
+                    <>
+                      <Icon className="h-3.5 w-3.5 shrink-0" style={{ color }} />
+                      <span className="text-xs font-medium truncate">{label}</span>
+                    </>
+                  );
+
+                  return key === "call" ? (
+                    <PulseQuickDialButton
+                    key={key}
+                      phoneNumber={localPhoneOverride || contact.phone}
+                      onDial={() => onQuickAction(key)}
+                      errorMessage={t.agentWorkspace.errorLabel}
+                      {...{ ...actionProps, disabled: undefined, "data-testid": undefined }}
+                    >
+                      {content}
+                    </PulseQuickDialButton>
+                  ) : (
+                    <button key={key} onClick={() => !disabled && onQuickAction(key)} {...actionProps}>
+                      {content}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -12750,14 +12770,17 @@ export default function AgentWorkspacePage() {
       ]);
   };
 
+  const pulseDialEntryPoints = createPulseDialEntryPoints(
+    handleMakeCall,
+    isSipRegistered,
+  );
+
   const handleQuickAction = (action: string) => {
     switch (action) {
       case "call": {
         setActiveChannel("phone");
         const phoneToCall = currentPhoneOverride || currentClinicData?.phone || currentCollaboratorData?.phone || currentContact?.phone;
-        if (phoneToCall) {
-          handleMakeCall(phoneToCall);
-        }
+        return requestPulseDial(pulseDialEntryPoints.quick, phoneToCall);
         break;
       }
       case "email":
@@ -14390,7 +14413,7 @@ export default function AgentWorkspacePage() {
               onToggleMute={() => callContext.toggleMuteFn.current?.()}
               onToggleHold={() => callContext.toggleHoldFn.current?.()}
               onSendDtmf={(digit) => callContext.sendDtmfFn.current?.(digit)}
-              onMakeCall={handleMakeCall}
+              onMakeCall={pulseDialEntryPoints.mobile}
               isSipRegistered={isSipRegistered}
               sipIncomingCall={sipIncomingCall}
               onAnswerIncoming={answerIncomingCall}
@@ -14694,7 +14717,8 @@ export default function AgentWorkspacePage() {
               onSendSms={handleSendSms}
               isSendingEmail={sendEmailMutation.isPending}
               isSendingSms={sendSmsMutation.isPending}
-              onMakeCall={handleMakeCall}
+              onMakeCall={pulseDialEntryPoints.main}
+              onClinicMakeCall={pulseDialEntryPoints.clinic}
               isSipRegistered={isSipRegistered}
               onOpenScriptModal={() => setScriptModalOpen(true)}
               onUpdateContact={(data) => updateContactMutation.mutate(data)}
