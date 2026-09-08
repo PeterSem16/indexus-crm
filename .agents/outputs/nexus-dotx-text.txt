@@ -1,0 +1,76 @@
+2026 09 1. a 4.
+1. Zistené chyby
+Nestabilný zvuk hovoru – pri opakovanom volaní na to isté číslo bolo počuť hovor len niekedy, inokedy vôbec. Neviem identifikovať v čom bol hovor iný. Zopakovalo sa to (nemenil som nič iba čas a „smer“ volania).
+14:02 4.9.2026 outbound, nepočul som ani jeden smer.
+14:03 4.9.2026 Inbound fungoval
+14:06 4.9.2026 outbound, nepočul som ani jeden smer.
+14:28 4.9.2026 outbound fungoval
+Systém sám ukončil hovor – pri jednom volaní došlo k zloženiu telefónu zo strany systému. 13:59 4.9.2026 systém sám ukončil volanie. KO to vidí ako keby by HP zložil
+Preplánovanie nefunguje vždy – partnera sme v systéme preplánoval, ale zmena sa nie vždy nepremietla do fronty (Queue).
+Nesprávna identita volajúceho – volal som aj zo svojho Indexusu a na druhej strane sa zobrazilo, že volá Patin Indexus.
+Nefunkčný e-mail – historicky fungoval, teraz hlási aj po obnovení stránky: „Session Expired. Please refresh the page and log in again.“ KO tak momentálne nevedia z Indexusu odoslať e-mail vôbec.Toto sa stalo aj z môjho melichar@cordbloodcenter.com úctu keď som sa snažil o 14:15 poslať email. Skúšal som sa odhlásiť, spraviť si ten test znova ale nič nepomohlo.
+Stále sa viem dostať ako KO do dasbshordu Obr. Dashboard. Nevyriešené
+2. Otázky
+Kde nájdeme notifikácie na nové e-maily a SMS? OK
+Kde sa dá preplánovať telefonát bez zásahu do „Status list“ – teda okrem fronty? Typický prípad: volám s lekárom, nedozviem sa nič nové (status sa nemení) alebo lekár zloží, a napriek tomu si potrebujem hovor preplánovať. Viem o možnosti mimo karty vo Fronte (Queue).
+Prosím o vysvetlenie čo znamená to číslo za „/“  ?
+3. Požiadavka na úpravu
+Podpis odchádzajúceho e-mailu nech automaticky obsahuje telefónne číslo priradené danému koordinátorovi v Indexuse.Bude testovať neskôr u Paťi
+Prosím v systéme ponechaj iba emailové templatey kt. som Ti poslal (sú tam ešte testovacie). Tie moje majú názov dokumentu:
+Medical Partner email 01 SK v01 2026_05_26
+Medical partner email with information materials attached SK V01 2026_05_26
+2026 08 18
+Nove kontakty: nech ako prvé poradí (dávkované) sú tie s referenciou. Inak povedané, aby KO najprv odvolával kontakty s referenciou
+Preusporadanie: Napr. raz za týždeň preuposporiadanie HP kontaktov tak, aby sa nové kontakty s referenciou dostali na prvé miesta (kontakt už mohol existovať ale po tom, ako máme aj referenciu, tak aby sa dostal na prvé miesta pre KO na obvolanie).
+Poradie volania na deň:
+Callback
+HP s referenciou
+HP bez referencie
+NEW to do desktop:
+Obr. „Status“ vysvetlenie úlohy tejto časti
+Po zmene „Personnel“ sa dáta uložili v Indexuse ale už sa nepoužili v Email template
+Nemôžem (toto môže byť vyriešené vo Fáze 2) jeden status mať zvolených viacero možností (Obr. Checklist)
+Telefonáty od 14:49 som nepočul ani na jednej strane ale nahrávky sa nahrali. Telefonáty som počul od 15:15
+Volanie na neznáme číslo (zmeškané číslo kt nemáme v karte) nefunguje (Obr. Volanie neznáme číslo). Nevidím na obrazovke kde volám a počujem 3 x vyzváňací tón.
+OLD to do desktop:
+Presmerovanie: Ak je nastavené tel. číslo na presmerovanie a zároveň KO nie je prihlásený v Indexuse (mobil ani desktop) nastane presmerovanie telefonátu na dané telefónne číslo. Nebudeme nastavovať čas od do pre presmerovanie. OK
+Zmena dát v Indexuse (všetkých): Iba manažér DB môže zmeniť dáta (databázu). KO a KO manažér môže iba eskalovať zmenu na DB manažéra. Ako KO som mohol meniť dáta.
+Pri prihlásení nezobrazovať dashboard s reportom.Zobrazuje sa mi Dashboard (Obr. dashboard). KO nemá vidieť tento dashboard.
+Denný limit je na dovolania (lead zdvihol telefón).Mal som viac telefonátov ale číslo sa pripočítalo iba 2x. Volal som aj „New Contacts“ (tam som si zmeniť tel. číslo na moje aby som mohol spraviť test). Pri odoslaní emailu to počítadlo fungovalo.
+Zmeškaný hovor: po kliknutí nech sa dostanem na kartu HP.Rovno volal
+Odstraniť obrázok 1. OK
+V histórii nebolo zobrazené posledné volanie.aktualizácia je niekedy okamžite a niekedy po X minútach
+Zmenil som názov aj e-mail v karte, ale v histórii som videl iba zmenu názvu.podarilo sa mi oboje zmeniť, ale nie som prihlásený ako Administrátor DB, teda nemal by som mať túto možnosť.
+Nemohol som uložiť KO job position – job position nebol ani v e-mailovej šablóne.OK
+Zmenil som e-mail, ale k zmene nedošlo okamžite. Zmena nastala po obnovení stránky (refresh).OK
+Po obnovení stránky (refresh) nech sa KO nedostane do dashboardu.OK
+V e-mailovej šablóne nefungovalo oslovenie „Vážený pán..."OK
+Pri odpovedi (reply) na e-mail nech sa pridá podpis.Nepridal sa
+Po odoslaní e-mailu dostanem správu, ako keby som odoslal 2 e-maily (obr. 2).OK
+Status list sa neuložil.Obr. „Confirm step“
+Tlačidlo „Yes, confirm nefunguje“. „Cancel“ funguje (skúšal som Chrome, Edge aj FireFox). Po hodine testovania (iné testy) to začalo fungovať. Neviem čo to blokovalo a neviem či sa to bude opakovať.
+Vo fáze 1 nemá byť automatizácia.
+Pre SMS je potrebné nastaviť nové číslo (lebo som už z toho čísla dostal niečo iné).Ak sa nepodarí vyriešiť volanie a SMS z jedného mobilného čísla (jedno tel. číslo pre jedného KO). Toto bude znovu aktuálna úloha
+Pozor na časovú zónu.OK
+Pri presmerovaní na mobil mi po zrušení hovoru HP ešte dlho zvonilo na desktope.OK
+Pri presmerovanom telefónnom hovore neviem, kto volal.OK
+Ak sa KO nedovolal, nevie zložiť telefón. Telefonát na HP bol automaticky ukončený, ale u KO stále zvoní a neviem to ukončiť.OK
+Volal som na sekundárne tel. číslo a tento úkon sa nezobrazil v histórii.OK
+Chýba možnosť upraviť poznámku.OK
+Ak hľadám podľa tel. čísla, nenájdem ho, ak je napr. sekundárne.OK
+Osobné údaje KO nevie meniť, ale vyzerá to ako chyba (error).Už viem ale, už by som nemal vedieť lebo nie som Admin Databázy
+Ak je nastavené presmerovanie na mobil, zobrazí sa text „Private" namiesto tel. čísla.OK
+ak niekto volá na tel. číslo KO, ktoré nie je v DB?Dávalo mi možno vybrať o koho ide (klinika,...)  ale nestihol resp. nevedel som zodvihnúť telefonát (potom to automaticky zložilo). Na 2nd pokus sa mi podarilo zodvihnúť telefonát a mohol som priebežne vypĺňať informácie do karty. Bolo by dobré aby tam už bolo pred-vyplnené číslo kt, mi volá. Počas volania som klikol na uložiť.
+Telefonát pokračoval ale karta sa zavrela, nemohol som napr. zložiť telefonát
+Uložený kontakt som nenašiel
+Toto mobile:
+Nepodarilo sa mi otvoriť indexusu (edge, chrome, firefox)
+Stalo sa, že hovor raz nebolo počuť.
+Po prihlásení sa do Indexusu cez mobil som sa dostal do dashboardu.
+Zasekáva sa to na mojom mobile (Android, Samsung Galaxy).
+Obr. 2
+Obr. „Confirm step“
+Obr. Status
+Obr. Dashboard
+Obr. Check list
+Obr. Volanie neznáme číslo

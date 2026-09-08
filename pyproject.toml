@@ -10,4 +10,5 @@ dependencies = [
     "pandas>=2.3.3",
     "pdf2docx>=0.5.8",
     "pypandoc-binary>=1.17",
+    "reportlab>=5.0.1",
 ]
