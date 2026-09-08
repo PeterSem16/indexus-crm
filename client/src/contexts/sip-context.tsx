@@ -274,9 +274,32 @@ export function SipProvider({ children }: { children: ReactNode }) {
     isRegisteredRef.current = val;
     setIsRegistered(val);
     if (val) {
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      reconnectAttemptRef.current = 0;
       notifyRegistered();
     }
   }, [notifyRegistered]);
+
+  const waitForRegisteredState = useCallback((timeoutMs = 4_000): Promise<boolean> => {
+    if (isRegisteredRef.current) return Promise.resolve(true);
+    return new Promise<boolean>((resolve) => {
+      let settled = false;
+      const onRegistered = () => finish(true);
+      const finish = (registered: boolean) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        const index = registeredCallbacksRef.current.indexOf(onRegistered);
+        if (index >= 0) registeredCallbacksRef.current.splice(index, 1);
+        resolve(registered);
+      };
+      const timeout = setTimeout(() => finish(isRegisteredRef.current), timeoutMs);
+      registeredCallbacksRef.current.push(onRegistered);
+    });
+  }, []);
 
   const startKeepalive = useCallback(() => {
     if (keepaliveTimerRef.current) {
@@ -338,16 +361,22 @@ export function SipProvider({ children }: { children: ReactNode }) {
       }
       console.log("[SIP] Immediate reconnect: sending REGISTER...");
       await withTimeout(registererRef.current.register(), SIP_OPERATION_TIMEOUT, "SIP REGISTER");
+      const confirmed = await waitForRegisteredState();
+      if (!confirmed) {
+        throw new Error("SIP REGISTER was sent but registration was not confirmed");
+      }
       reconnectAttemptRef.current = 0;
       return true;
     } catch (e: any) {
       console.warn("[SIP] Immediate reconnect failed:", e.message);
       return false;
     }
-  }, []);
+  }, [waitForRegisteredState]);
 
   const scheduleReconnect = useCallback(() => {
     if (intentionalDisconnectRef.current || isConnectingRef.current) return;
+    const transport = userAgentRef.current?.transport;
+    if (isRegisteredRef.current && transport?.isConnected()) return;
     if (navigator.onLine === false) {
       console.log("[SIP] Reconnect paused while browser is offline");
       return;
@@ -367,9 +396,11 @@ export function SipProvider({ children }: { children: ReactNode }) {
       let ok = false;
       try {
         isConnectingRef.current = true;
+        setIsRegistering(true);
         ok = await doReconnectNow();
       } finally {
         isConnectingRef.current = false;
+        if (!ok) setIsRegistering(false);
       }
       if (ok) return;
 
@@ -418,6 +449,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
     intentionalDisconnectRef.current = false;
     setIsRegistering(true);
     setRegistrationError(null);
+    let retryAfterFailure = false;
 
     try {
       if (registererRef.current) {
@@ -599,7 +631,12 @@ export function SipProvider({ children }: { children: ReactNode }) {
             if (transport?.isConnected()) {
               setTimeout(() => {
                 if (!intentionalDisconnectRef.current && registererRef.current) {
-                  registererRef.current.register().catch(() => {});
+                  setIsRegistering(true);
+                  registererRef.current.register().catch((error: unknown) => {
+                    console.warn("[SIP] Immediate re-registration failed:", error);
+                    setIsRegistering(false);
+                    scheduleReconnectRef.current();
+                  });
                 }
               }, 300);
             } else {
@@ -639,10 +676,13 @@ export function SipProvider({ children }: { children: ReactNode }) {
       setRegisteredState(false);
       setIsRegistering(false);
       if (!intentionalDisconnectRef.current) {
-        scheduleReconnect();
+        retryAfterFailure = true;
       }
     } finally {
       isConnectingRef.current = false;
+      if (retryAfterFailure && !intentionalDisconnectRef.current) {
+        scheduleReconnectRef.current();
+      }
     }
   }, [canRegister, sipSettings, user, clearTimers, startReRegisterTimer, startKeepalive, scheduleReconnect, setRegisteredState]);
   fullRegisterRef.current = register;

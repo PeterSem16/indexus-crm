@@ -1,0 +1,10 @@
+---
+name: SIP full-register retry ordering
+description: Preventing automatic SIP recovery from silently stopping after a failed full UserAgent rebuild.
+---
+
+When a full SIP registration attempt fails, clear the in-flight/connecting guard before scheduling the next retry. A reconnect attempt is successful only after the Registerer reaches `Registered`, not merely when `register()` finishes sending the request.
+
+**Why:** Scheduling from the registration catch block while the connecting guard was still set caused the scheduler to reject the retry. The agent then stayed unregistered until manually unregistering and registering again.
+
+**How to apply:** Defer retry scheduling to post-cleanup/finalization, continue retries with bounded backoff while the session is eligible, cancel pending retries immediately after confirmed registration, and stop them only for an intentional disconnect or offline browser.
