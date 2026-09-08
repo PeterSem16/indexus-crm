@@ -37,6 +37,18 @@ Context-driven dials reset the ref (absent value → 0). If you add another per-
 campaign setting, follow the same PendingCall→ref path and remember the dialpad
 inheritance edge.
 
+For Mission calls, the browser-provided max-ring value is only provisional.
+The call-log creation endpoint must snapshot `maxRingSeconds` from the persisted
+Mission settings, and the SIP caller must replace its ref with that trusted value
+before constructing the Inviter.
+
+**Why:** the browser's campaign list can be stale or incomplete even though the
+selected Mission id and contact are valid; treating that cache as authoritative
+silently turns a configured ring limit into zero.
+
+**How to apply:** snapshot critical call policy server-side alongside recording
+policy, return it in call-log metadata, and consume it synchronously before INVITE.
+
 Scheduled/queue-item dials use `item.campaignId` which may differ from the
 selected mission — resolve that item's own campaign settings, don't reuse the
 selected-campaign memo.

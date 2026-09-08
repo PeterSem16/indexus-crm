@@ -34118,6 +34118,17 @@ Respond ONLY with valid JSON in this exact format:
           .from(campaigns).where(eq(campaigns.id, String(req.body.campaignId))).limit(1);
         if (!campaign) return res.status(400).json({ error: "Campaign not found" });
         metadata.recordingPolicySnapshot = resolveMissionRecordingPolicy(campaign.settings);
+        try {
+          const settings = typeof campaign.settings === "string"
+            ? JSON.parse(campaign.settings)
+            : campaign.settings;
+          const maxRingSeconds = Number(settings?.maxRingSeconds);
+          metadata.maxRingSeconds = Number.isFinite(maxRingSeconds) && maxRingSeconds > 0
+            ? Math.min(300, Math.floor(maxRingSeconds))
+            : 0;
+        } catch {
+          metadata.maxRingSeconds = 0;
+        }
       }
       let recordingCorrelationToken: string | undefined;
       const snapshot = metadata.recordingPolicySnapshot as MissionCallRecordingSnapshot | undefined;

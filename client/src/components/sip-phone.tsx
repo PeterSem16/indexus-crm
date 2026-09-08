@@ -1513,6 +1513,10 @@ export function SipPhone({
           if (candidate && typeof candidate === "object") {
             serverRecordingSnapshot = candidate as MissionCallRecordingSnapshot;
           }
+          const trustedMaxRingSeconds = Number(serverMetadata?.maxRingSeconds);
+          maxRingSecondsRef.current = Number.isFinite(trustedMaxRingSeconds) && trustedMaxRingSeconds > 0
+            ? Math.min(300, Math.floor(trustedMaxRingSeconds))
+            : 0;
         } catch (error) {
           console.error("[Recording] Invalid server recording policy snapshot:", error);
         }
@@ -2333,6 +2337,12 @@ export function SipPhone({
         } else {
           console.log("[SIP-INBOUND] Cancelling call (not established)");
           (session as Inviter).cancel?.();
+          setCallState("ended");
+          callContextRef.current.setCallState("ended");
+          callContextRef.current.setCallTiming({
+            callEndTime: Date.now(),
+            hungUpBy: "user",
+          });
           if (currentCallLogId) {
             updateCallLogMutation.mutate({
               id: currentCallLogId,

@@ -1,0 +1,66 @@
+*** System restart required ***
+Last login: Thu Sep  3 06:27:55 2026 from 10.9.5.73
+seman@mediagtw:~$ grep -Ei -C 25 \
+'915.?796.?900|Sep  8 13:24|Sep  8 13:25|Sep  8 11:24|Sep  8 11:25' \
+/var/log/asterisk/messages.log | tail -800
+[Sep  8 08:16:12] WARNING[933332] ari/ari_websockets.c: WebSocket read error: Success
+[Sep  8 08:26:49] WARNING[933345] res_http_websocket.c: Web socket closed abruptly
+[Sep  8 08:26:49] WARNING[933345] ari/ari_websockets.c: WebSocket read error: Success
+[Sep  8 08:31:31] WARNING[933372] res_http_websocket.c: Web socket closed abruptly
+[Sep  8 08:31:31] WARNING[933372] ari/ari_websockets.c: WebSocket read error: Success
+[Sep  8 08:31:58] WARNING[888079] pjproject: 	     tsx0x7115e03491d8 ..Error sending Response msg 200/REGISTER/cseq=4 (tdta0x7115e02cc938): Unknown Error (PJ_EUNKNOWN)
+[Sep  8 09:15:31] WARNING[933467] res_http_websocket.c: Web socket closed abruptly
+[Sep  8 09:33:01] WARNING[933503] res_http_websocket.c: Web socket closed abruptly
+[Sep  8 09:44:58] WARNING[888079] pjproject: 	     tsx0x7115e02b67b8 ..Error sending Response msg 200/REGISTER/cseq=34 (tdta0x7115e034fa48): Unknown Error (PJ_EUNKNOWN)
+[Sep  8 09:48:51] WARNING[933513] res_http_websocket.c: Web socket closed abruptly
+[Sep  8 10:00:18] WARNING[888079] pjproject: 	     tsx0x7115e03302c8 ..Error sending Response msg 200/REGISTER/cseq=49 (tdta0x7115e02f4d08): Unknown Error (PJ_EUNKNOWN)
+[Sep  8 10:25:26] WARNING[933388] res_http_websocket.c: Web socket closed abruptly
+[Sep  8 10:25:26] WARNING[933388] ari/ari_websockets.c: WebSocket read error: Success
+[Sep  8 10:33:41] WARNING[933650] res_http_websocket.c: Web socket closed abruptly
+[Sep  8 10:33:41] WARNING[933650] ari/ari_websockets.c: WebSocket read error: Success
+[Sep  8 10:39:11] WARNING[933668] res_http_websocket.c: Web socket closed abruptly
+[Sep  8 10:39:11] WARNING[933668] ari/ari_websockets.c: WebSocket read error: Success
+[Sep  8 10:51:14] WARNING[933681] res_http_websocket.c: Web socket closed abruptly
+[Sep  8 10:51:14] WARNING[933681] ari/ari_websockets.c: WebSocket read error: Success
+[Sep  8 10:52:20] NOTICE[933736][C-00000024] res_rtp_asterisk.c: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client address: 185.103.146.200:27452
+[Sep  8 10:57:40] NOTICE[934498][C-00000025] res_rtp_asterisk.c: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client address: 185.103.146.200:25410
+[Sep  8 11:18:10] WARNING[933731] res_http_websocket.c: Web socket closed abruptly
+[Sep  8 11:18:10] WARNING[933731] ari/ari_websockets.c: WebSocket read error: Success
+[Sep  8 11:20:28] NOTICE[936910][C-0000002c] res_rtp_asterisk.c: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client address: 185.103.146.200:28244
+[Sep  8 11:21:39] NOTICE[937497][C-0000002d] res_rtp_asterisk.c: Comfort noise support incomplete in Asterisk (RFC 3389). Please turn off on client if possible. Client address: 185.103.146.200:32234
+[Sep  8 11:25:28] NOTICE[938672][C-0000002f] res_stasis_playback.c: 1788866728.148: Playback stopped for sound:custom/moh-slow-jazz
+[Sep  8 11:25:39] WARNING[938672][C-0000002f] res_stasis_playback.c: 1788866728.148: Playback failed for tone:ring
+seman@mediagtw:~$ grep -E \
+'l6tvr2c1fifh9f9vboq1|915.?796.?900' \
+/var/log/asterisk/cdr-csv/Master.csv | tail -30
+"","0232399030","421915796900","route-sk","""2005"" <0232399030>","PJSIP/2005-0000003a","PJSIP/trunk-sk-endpoint-0000003b","Dial","PJSIP/0915796900@trunk-sk-endpoint,60","2026-07-13 13:08:34","2026-07-13 13:08:52","2026-07-13 13:09:05",31,13,"ANSWERED","DOCUMENTATION","1783948114.128",""
+"","2005","421915796900","route-sk","""2005"" <2005>","PJSIP/2005-0000003c","PJSIP/trunk-sk-endpoint-0000003d","Dial","PJSIP/0915796900@trunk-sk-endpoint,60","2026-07-13 13:09:31",,"2026-07-13 13:10:31",60,0,"NO ANSWER","DOCUMENTATION","1783948171.131",""
+"","2005","421915796900","route-sk","""2005"" <2005>","PJSIP/2005-0000003e","PJSIP/trunk-sk-endpoint-0000003f","Dial","PJSIP/0915796900@trunk-sk-endpoint,60","2026-07-13 13:11:43","2026-07-13 13:11:53","2026-07-13 13:12:08",24,15,"ANSWERED","DOCUMENTATION","1783948303.134",""
+"","2005","421915796900","route-sk","""2005"" <2005>","PJSIP/2005-00000040","PJSIP/trunk-sk-endpoint-00000041","Dial","PJSIP/0915796900@trunk-sk-endpoint,60","2026-07-13 13:14:53","2026-07-13 13:15:01","2026-07-13 13:15:10",16,8,"ANSWERED","DOCUMENTATION","1783948493.137",""
+"","0232399030","421915796900","route-sk","""2005"" <0232399030>","PJSIP/2005-00000042","PJSIP/trunk-sk-endpoint-00000043","Dial","PJSIP/0915796900@trunk-sk-endpoint,60","2026-07-13 13:16:32","2026-07-13 13:16:37","2026-07-13 13:16:51",18,13,"ANSWERED","DOCUMENTATION","1783948592.140",""
+"","0040731818209","421915796900","from-internal-sk","""0040731818209"" <0040731818209>","Local/421915796900@from-internal-sk-0000000d;2","PJSIP/trunk-sk-endpoint-00000047","Dial","PJSIP/0915796900@trunk-sk-endpoint,60","2026-07-13 13:33:00",,"2026-07-13 13:33:13",12,0,"BUSY","DOCUMENTATION","1783949580.148",""
+"","0040731818209","421915796900","from-internal-sk","""0040731818209"" <0040731818209>","Local/421915796900@from-internal-sk-0000000e;2","PJSIP/trunk-sk-endpoint-00000048","Dial","PJSIP/0915796900@trunk-sk-endpoint,60","2026-07-13 13:33:14",,"2026-07-13 13:33:21",7,0,"BUSY","DOCUMENTATION","1783949594.152",""
+"","0040731818209","421915796900","from-internal-sk","""0040731818209"" <0040731818209>","Local/421915796900@from-internal-sk-0000000f;2","PJSIP/trunk-sk-endpoint-00000049","Dial","PJSIP/0915796900@trunk-sk-endpoint,60","2026-07-13 13:33:22",,"2026-07-13 13:33:30",8,0,"BUSY","DOCUMENTATION","1783949602.156",""
+"","0040731818209","421915796900","from-internal-sk","""0040731818209"" <0040731818209>","Local/421915796900@from-internal-sk-00000010;2","PJSIP/trunk-sk-endpoint-0000004a","Dial","PJSIP/0915796900@trunk-sk-endpoint,60","2026-07-13 13:33:32",,"2026-07-13 13:33:32",0,0,"NO ANSWER","DOCUMENTATION","1783949612.160",""
+"","0232399030","421915796900","route-sk","""2005"" <0232399030>","PJSIP/2005-00000000","PJSIP/trunk-sk-endpoint-00000001","Dial","PJSIP/0915796900@trunk-sk-endpoint,60","2026-07-17 11:41:44","2026-07-17 11:41:56","2026-07-17 11:42:18",34,22,"ANSWERED","DOCUMENTATION","1784288504.0",""
+"","0232399030","421915796900","route-sk","""2005"" <0232399030>","PJSIP/2005-00000002","PJSIP/trunk-sk-endpoint-00000003","Dial","PJSIP/0915796900@trunk-sk-endpoint,60","2026-07-17 11:45:10","2026-07-17 11:45:22","2026-07-17 11:45:45",35,23,"ANSWERED","DOCUMENTATION","1784288710.3",""
+"","0421915796900","0232399030","from-sk-trunk",""""" <0421915796900>","PJSIP/trunk-sk-endpoint-0000000b","","Stasis","indexus-inbound","2026-07-17 11:57:31","2026-07-17 11:57:31","2026-07-17 11:57:58",27,27,"ANSWERED","DOCUMENTATION","1784289451.17",""
+"","0232399030","421915796900","route-sk","""2005"" <0232399030>","PJSIP/2005-0000000d","PJSIP/trunk-sk-endpoint-0000000e","Dial","PJSIP/0915796900@trunk-sk-endpoint,60","2026-07-17 11:58:24","2026-07-17 11:58:32","2026-07-17 11:58:44",19,11,"ANSWERED","DOCUMENTATION","1784289504.20",""
+"","0232399030","421915796900","route-sk","""2005"" <0232399030>","PJSIP/2005-0000000f","PJSIP/trunk-sk-endpoint-00000010","Dial","PJSIP/0915796900@trunk-sk-endpoint,60","2026-07-17 12:00:29","2026-07-17 12:00:35","2026-07-17 12:00:43",14,8,"ANSWERED","DOCUMENTATION","1784289629.23",""
+"","+421940682394","421915796900","o2-ims-dial","""+421940682394"" <+421940682394>","PJSIP/2001-00000057","PJSIP/o2-ims-endpoint-00000058","Dial","PJSIP/+421915796900@o2-ims-endpoint,60","2026-09-01 08:10:12",,"2026-09-01 08:10:29",17,0,"NO ANSWER","DOCUMENTATION","1788250212.141",""
+"","+421940682394","421915796900","o2-ims-dial","""+421940682394"" <+421940682394>","PJSIP/2005-00000061","PJSIP/o2-ims-endpoint-00000062","Dial","PJSIP/+421915796900@o2-ims-endpoint,60","2026-09-01 11:03:43","2026-09-01 11:03:56","2026-09-01 11:04:10",27,14,"ANSWERED","DOCUMENTATION","1788260623.156",""
+"","+421940682394","421915796900","o2-ims-dial","""+421940682394"" <+421940682394>","PJSIP/2005-00000067","PJSIP/o2-ims-endpoint-00000068","Dial","PJSIP/+421915796900@o2-ims-endpoint,60","2026-09-01 11:17:41","2026-09-01 11:17:46","2026-09-01 11:18:22",41,36,"ANSWERED","DOCUMENTATION","1788261461.165",""
+"","+421940682394","421915796900","o2-ims-dial","""+421940682394"" <+421940682394>","PJSIP/2005-00000069","PJSIP/o2-ims-endpoint-0000006a","Dial","PJSIP/+421915796900@o2-ims-endpoint,60","2026-09-01 11:20:35",,"2026-09-01 11:20:39",4,0,"BUSY","DOCUMENTATION","1788261635.168",""
+"","+421940682394","421915796900","o2-ims-dial","""+421940682394"" <+421940682394>","PJSIP/2005-0000006d","PJSIP/o2-ims-endpoint-0000006e","Dial","PJSIP/+421915796900@o2-ims-endpoint,60","2026-09-01 11:29:56","2026-09-01 11:30:00","2026-09-01 11:30:06",10,5,"ANSWERED","DOCUMENTATION","1788262196.174",""
+"","+421915796900","+421940682394","from-o2-ims","""421915796900"" <+421915796900>","PJSIP/o2-ims-endpoint-0000006f","","Stasis","indexus-inbound,421940682394","2026-09-01 11:30:22","2026-09-01 11:30:22","2026-09-01 11:30:49",26,26,"ANSWERED","DOCUMENTATION","1788262222.177",""
+"","+421940682394","421915796900","o2-ims-dial","""+421940682394"" <+421940682394>","PJSIP/2005-00000070","PJSIP/o2-ims-endpoint-00000071","Dial","PJSIP/+421915796900@o2-ims-endpoint,60","2026-09-01 12:21:36",,"2026-09-01 12:21:43",6,0,"NO ANSWER","DOCUMENTATION","1788265296.179",""
+"","+421940682394","421915796900","o2-ims-dial","""+421940682394"" <+421940682394>","PJSIP/2005-00000072","PJSIP/o2-ims-endpoint-00000073","Dial","PJSIP/+421915796900@o2-ims-endpoint,60","2026-09-01 12:22:04",,"2026-09-01 12:22:21",16,0,"BUSY","DOCUMENTATION","1788265324.182",""
+"","+421940682394","421915796900","o2-ims-dial","""+421940682394"" <+421940682394>","PJSIP/2005-00000016","PJSIP/o2-ims-endpoint-00000017","Dial","PJSIP/+421915796900@o2-ims-endpoint,60","2026-09-04 11:59:01","2026-09-04 11:59:18","2026-09-04 11:59:38",36,20,"ANSWERED","DOCUMENTATION","1788523141.36",""
+"","+421940682394","421915796900","o2-ims-dial","""+421940682394"" <+421940682394>","PJSIP/2005-00000018","PJSIP/o2-ims-endpoint-00000019","Dial","PJSIP/+421915796900@o2-ims-endpoint,60","2026-09-04 12:01:18","2026-09-04 12:01:29","2026-09-04 12:01:49",30,20,"ANSWERED","DOCUMENTATION","1788523278.39",""
+"","+421915796900","s","webrtc-indexus",""""" <+421915796900>","PJSIP/2005-0000001b","","Stasis","indexus-inbound,agent-call,2a52aba2-6db8-4994-8502-27c651ab0972,1788523381.42","2026-09-04 12:03:15","2026-09-04 12:03:23","2026-09-04 12:03:23",8,0,"ANSWERED","DOCUMENTATION","1788523395.43",""
+"","+421915796900","+421940682394","from-o2-ims","""421915796900"" <+421915796900>","PJSIP/o2-ims-endpoint-0000001a","PJSIP/2005-0000001b","Stasis","indexus-inbound,421940682394","2026-09-04 12:03:01","2026-09-04 12:03:01","2026-09-04 12:04:08",66,66,"ANSWERED","DOCUMENTATION","1788523381.42",""
+"","+421940682394","421915796900","o2-ims-dial","""+421940682394"" <+421940682394>","PJSIP/2005-0000001c","PJSIP/o2-ims-endpoint-0000001d","Dial","PJSIP/+421915796900@o2-ims-endpoint,60","2026-09-04 12:06:21","2026-09-04 12:06:31","2026-09-04 12:06:49",28,18,"ANSWERED","DOCUMENTATION","1788523581.46",""
+"","+421940682394","421915796900","o2-ims-dial","""+421940682394"" <+421940682394>","PJSIP/2005-0000001e","PJSIP/o2-ims-endpoint-0000001f","Dial","PJSIP/+421915796900@o2-ims-endpoint,60","2026-09-04 12:28:07","2026-09-04 12:28:15","2026-09-04 12:28:21",14,5,"ANSWERED","DOCUMENTATION","1788524887.49",""
+"","+421940682394","421915796900","o2-ims-dial","""+421940682394"" <+421940682394>","PJSIP/2001-00000059","PJSIP/o2-ims-endpoint-0000005a","Dial","PJSIP/+421915796900@o2-ims-endpoint,60","2026-09-08 11:24:56","2026-09-08 11:25:11","2026-09-08 11:25:26",30,14,"ANSWERED","DOCUMENTATION","1788866696.145",""
+"","+421915796900","+421940682394","from-o2-ims","""421915796900"" <+421915796900>","PJSIP/o2-ims-endpoint-0000005b","","Stasis","indexus-inbound,421940682394","2026-09-08 11:25:28","2026-09-08 11:25:28","2026-09-08 11:25:39",11,11,"ANSWERED","DOCUMENTATION","1788866728.148",""
+seman@mediag

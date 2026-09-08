@@ -1,0 +1,30 @@
+DATABASE_URL="$(
+  sed -n 's/^DATABASE_URL=//p' .env |
+  head -1 |
+  sed -e 's/^"//' -e 's/"$//'
+)"
+
+psql "$DATABASE_URL" --csv <<'SQL'
+SELECT
+  id AS call_log_id,
+  phone_number,
+  status,
+  started_at,
+  answered_at,
+  ended_at,
+  duration_seconds,
+  hung_up_by,
+  sip_call_id,
+  campaign_id,
+  campaign_contact_id,
+  metadata
+FROM call_logs
+WHERE started_at BETWEEN
+      TIMESTAMP '2026-09-08 11:28:00'
+  AND TIMESTAMP '2026-09-08 11:34:00'
+ORDER BY started_at;
+SQL
+call_log_id,phone_number,status,started_at,answered_at,ended_at,duration_seconds,hung_up_by,sip_call_id,campaign_id,campaign_contact_id,metadata
+85fc4880-0db4-4e8f-80ea-c38968854063,+421948519438,cancelled,2026-09-08 11:29:14.898459,,2026-09-08 11:29:58.598,0,user,,a65e7775-885c-4413-b2be-e63c92decd3d,c3c0a80e-d0ac-4042-b4fa-59e1f655a847,"{""contactType"":""clinic"",""provider"":""O2-IMS"",""outboundTrunk"":""o2-ims"",""callerIdNumber"":""+421940682394"",""recordingPolicySnapshot"":{""enabled"":true,""activeFrom"":""2026-08-31T10:36:58.574Z"",""activeUntil"":null,""mode"":""agent_only"",""customerMask"":""soft_tone"",""timezone"":""Europe/Bratislava"",""active"":true,""evaluatedAt"":""2026-09-08T11:29:14.896Z""},""recordingCorrelationHash"":""c3ba984efbb276502ad7b8bd60f24a64afdfcd7f725bcdd05903b8cf50ffc7b7"",""recordingExpectedPhone"":""948519438""}"
+67019a34-2977-44e3-8cbd-100e19c208dd,+421948519438,cancelled,2026-09-08 11:30:17.262885,,2026-09-08 11:30:24.351,0,user,,a65e7775-885c-4413-b2be-e63c92decd3d,84b081e6-9d19-47e4-a93f-9384bcba9ca8,"{""contactType"":""clinic"",""provider"":""O2-IMS"",""outboundTrunk"":""o2-ims"",""callerIdNumber"":""+421940682394"",""recordingPolicySnapshot"":{""enabled"":true,""activeFrom"":""2026-08-31T10:36:58.574Z"",""activeUntil"":null,""mode"":""agent_only"",""customerMask"":""soft_tone"",""timezone"":""Europe/Bratislava"",""active"":true,""evaluatedAt"":""2026-09-08T11:30:17.260Z""},""recordingCorrelationHash"":""b3f45f5e2f48e3c851bce12eabf55120a3e949aecdd40740cda088d8fc3ed240"",""recordingExpectedPhone"":""948519438""}"
+seman@CORPCRM01:/var/www/indexus-crm$
