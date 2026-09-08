@@ -75,3 +75,4 @@
 - [Pulse inbound call finalization](pulse-inbound-call-finalization.md) — agent End, SIP termination, media failure, and server hangup must share one idempotent history/recording finalizer.
 - [Pulse dial actions must not trust UI registration state](pulse-dial-registration-gate.md) — call buttons always dispatch; SIP ensureRegistered owns recovery, and failure must be visible.
 - [SIP full-register retry ordering](sip-full-register-retry-ordering.md) — schedule retry only after clearing the connecting guard; REGISTER send is not success until Registered is confirmed.
+- [WebRTC TURN relay policy](webrtc-turn-relay-policy.md) — behind the reverse-proxied Asterisk topology, configured TURN must use relay-only ICE or Chrome can release the relay Asterisk selected.

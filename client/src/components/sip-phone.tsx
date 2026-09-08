@@ -1534,6 +1534,9 @@ export function SipPhone({
         throw new Error(`Invalid target URI: sip:${cleanedPhone}@${realm}`);
       }
 
+      const hasTurnServer = Boolean(
+        globalSipSettings?.turnServer || globalSipSettings?.turnServerAlt,
+      );
       const inviterOptions: any = {
         sessionDescriptionHandlerOptions: {
           constraints: {
@@ -1560,6 +1563,10 @@ export function SipPhone({
                 credential: (globalSipSettings as any).turnPassword || undefined,
               }] : []),
             ],
+            // Keep the TURN allocation selected for the entire call. Allowing
+            // host/srflx candidates here can make Chrome release the relay while
+            // Asterisk continues sending RTP to it.
+            iceTransportPolicy: hasTurnServer ? "relay" : "all",
             bundlePolicy: "max-bundle",
             rtcpMuxPolicy: "require",
           },

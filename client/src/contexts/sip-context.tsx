@@ -202,6 +202,10 @@ export function SipProvider({ children }: { children: ReactNode }) {
               { urls: "stun:stun1.l.google.com:19302" },
               ...answerTurnServers,
             ],
+            // The browser and Asterisk must agree on one media path. When TURN
+            // is configured, do not let Chrome nominate an unreachable private
+            // candidate and immediately release the relay Asterisk selected.
+            iceTransportPolicy: (answerTurnServers.length > 0 ? "relay" : "all") as RTCIceTransportPolicy,
             bundlePolicy: "max-bundle",
             rtcpMuxPolicy: "require",
           },
@@ -522,6 +526,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
               { urls: "stun:stun1.l.google.com:19302" },
               ...turnIceServers,
             ],
+            iceTransportPolicy: (turnIceServers.length > 0 ? "relay" : "all") as RTCIceTransportPolicy,
             bundlePolicy: "max-bundle",
             rtcpMuxPolicy: "require",
           },

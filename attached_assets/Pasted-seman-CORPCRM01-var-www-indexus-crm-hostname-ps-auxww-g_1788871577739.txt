@@ -1,0 +1,159 @@
+seman@CORPCRM01:/var/www/indexus-crm$ hostname
+
+ps auxww | grep -Ei '[c]oturn|[t]urnserver'
+
+sudo systemctl status coturn --no-pager
+sudo systemctl status turnserver --no-pager
+
+sudo systemctl list-units --type=service --all | grep -Ei 'turn|coturn'
+
+sudo ss -lntup | grep -E ':(3478|5349|443)([[:space:]]|$)'
+CORPCRM01
+turnser+ 3135113  0.0  0.0 1087944 22784 ?       Ssl  Sep02   2:19 /usr/bin/turnserver -c /etc/turnserver.conf --pidfile=
+● coturn.service - coTURN STUN/TURN Server
+     Loaded: loaded (/usr/lib/systemd/system/coturn.service; enabled; preset: enabled)
+     Active: active (running) since Wed 2026-09-02 06:42:02 UTC; 6 days ago
+       Docs: man:coturn(1)
+             man:turnadmin(1)
+             man:turnserver(1)
+   Main PID: 3135113 (turnserver)
+      Tasks: 15 (limit: 38420)
+     Memory: 10.5M (peak: 11.5M)
+        CPU: 2min 19.544s
+     CGroup: /system.slice/coturn.service
+             └─3135113 /usr/bin/turnserver -c /etc/turnserver.conf --pidfile=
+
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539382: : session 000000000000000182: realm <indexus.cordbloodcenter.com> user <indexus_turn>: incoming packet …sed, success
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539393: : session 000000000000000182: peer 10.1.2.112 lifetime updated: 300
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539393: : session 004000000000000178: peer 10.1.2.112 lifetime updated: 300
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539393: : session 000000000000000182: realm <indexus.cordbloodcenter.com> user <indexus_turn>: incoming packet …sed, success
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539393: : session 004000000000000178: realm <indexus.cordbloodcenter.com> user <indexus_turn>: incoming packet …sed, success
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539411: : session 000000000000000182: refreshed, realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, …thod=TLSv1.2
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539411: : session 000000000000000182: realm <indexus.cordbloodcenter.com> user <indexus_turn>: incoming packet …sed, success
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539411: : session 004000000000000178: refreshed, realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, …thod=TLSv1.2
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539411: : session 000000000000000182: TLS/TCP socket disconnected: 10.9.5.72:51712
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539411: : session 004000000000000178: realm <indexus.cordbloodcenter.com> user <indexus_turn>: incoming packet …sed, success
+Hint: Some lines were ellipsized, use -l to show in full.
+Unit turnserver.service could not be found.
+  coturn.service                                                                            loaded    active   running coTURN STUN/TURN Server
+udp   UNCONN 0      0            0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=3135113,fd=79))
+udp   UNCONN 0      0            0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=3135113,fd=78))
+udp   UNCONN 0      0            0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=3135113,fd=77))
+udp   UNCONN 0      0            0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=3135113,fd=76))
+udp   UNCONN 0      0            0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=3135113,fd=74))
+udp   UNCONN 0      0            0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=3135113,fd=71))
+udp   UNCONN 0      0            0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=3135113,fd=68))
+udp   UNCONN 0      0            0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=3135113,fd=63))
+tcp   LISTEN 0      1024         0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=3135113,fd=67))
+tcp   LISTEN 0      1024         0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=3135113,fd=66))
+tcp   LISTEN 0      1024         0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=3135113,fd=59))
+tcp   LISTEN 0      1024         0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=3135113,fd=55))
+tcp   LISTEN 0      1024         0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=3135113,fd=51))
+tcp   LISTEN 0      1024         0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=3135113,fd=36))
+tcp   LISTEN 0      1024         0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=3135113,fd=34))
+tcp   LISTEN 0      1024         0.0.0.0:3478       0.0.0.0:*    users:(("turnserver",pid=3135113,fd=25))
+tcp   LISTEN 0      511          0.0.0.0:443        0.0.0.0:*    users:(("nginx",pid=3111248,fd=8),("nginx",pid=3111247,fd=8),("nginx",pid=3111245,fd=8),("nginx",pid=3111244,fd=8),("nginx",pid=3111243,fd=8),("nginx",pid=3111242,fd=8),("nginx",pid=3111241,fd=8),("nginx",pid=3111240,fd=8),("nginx",pid=3111239,fd=8))
+tcp   LISTEN 0      511          0.0.0.0:5349       0.0.0.0:*    users:(("nginx",pid=3111248,fd=9),("nginx",pid=3111247,fd=9),("nginx",pid=3111245,fd=9),("nginx",pid=3111244,fd=9),("nginx",pid=3111243,fd=9),("nginx",pid=3111242,fd=9),("nginx",pid=3111241,fd=9),("nginx",pid=3111240,fd=9),("nginx",pid=3111239,fd=9))
+seman@CORPCRM01:/var/www/indexus-crm$ sudo find /etc /opt /usr/local/etc \
+  -maxdepth 4 \
+  -type f \
+  \( -iname '*turn*.conf' -o -iname 'turnserver.conf' \) \
+  2>/dev/null
+/etc/turnserver.conf
+seman@CORPCRM01:/var/www/indexus-crm$ sudo journalctl -u coturn \
+  --since "2026-09-08 12:30:00 UTC" \
+  --until "2026-09-08 12:33:30 UTC" \
+  --no-pager
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 535701: : session 001000000000000198: usage: realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, rp=3, rb=268, sp=3, sb=316
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 535701: : session 001000000000000198: peer usage: realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, rp=0, rb=0, sp=0, sb=0
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 535701: : session 006000000000000217: realm <indexus.cordbloodcenter.com> user <indexus_turn>: incoming packet REFRESH processed, success
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 535701: : session 001000000000000198: closed (2nd stage), user <indexus_turn> realm <indexus.cordbloodcenter.com> origin <>, local 0.0.0.0:5350, remote 10.9.5.72:64581, reason: TLS/TCP socket buffer operation error (callback)
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 535701: : session 001000000000000198: delete: realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 535701: : session 006000000000000217: TLS/TCP socket disconnected: 127.0.0.1:57772
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 535701: : session 006000000000000217: usage: realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, rp=3, rb=268, sp=3, sb=316
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 535701: : session 006000000000000217: peer usage: realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, rp=0, rb=0, sp=0, sb=0
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 535701: : session 006000000000000217: closed (2nd stage), user <indexus_turn> realm <indexus.cordbloodcenter.com> origin <>, local 0.0.0.0:5350, remote 127.0.0.1:57772, reason: TLS/TCP socket buffer operation error (callback)
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 535701: : session 006000000000000217: delete: realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 537449: : session 002000000000000192: usage: realm=<indexus.cordbloodcenter.com>, username=<>, rp=1, rb=20, sp=1, sb=88
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 537449: : session 002000000000000192: peer usage: realm=<indexus.cordbloodcenter.com>, username=<>, rp=0, rb=0, sp=0, sb=0
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 537449: : session 002000000000000192: closed (2nd stage), user <> realm <indexus.cordbloodcenter.com> origin <>, local 0.0.0.0:3478, remote 151.243.11.242:20886, reason: allocation watchdog determined stale session state
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 537811: : session 002000000000000193: usage: realm=<indexus.cordbloodcenter.com>, username=<>, rp=1, rb=20, sp=1, sb=88
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 537811: : session 002000000000000193: peer usage: realm=<indexus.cordbloodcenter.com>, username=<>, rp=0, rb=0, sp=0, sb=0
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 537811: : session 002000000000000193: closed (2nd stage), user <> realm <indexus.cordbloodcenter.com> origin <>, local 0.0.0.0:3478, remote 151.243.11.242:43375, reason: allocation watchdog determined stale session state
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 537917: : session 002000000000000194: usage: realm=<indexus.cordbloodcenter.com>, username=<>, rp=1, rb=20, sp=1, sb=88
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 537917: : session 002000000000000194: peer usage: realm=<indexus.cordbloodcenter.com>, username=<>, rp=0, rb=0, sp=0, sb=0
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 537917: : session 002000000000000194: closed (2nd stage), user <> realm <indexus.cordbloodcenter.com> origin <>, local 0.0.0.0:3478, remote 151.243.11.242:27122, reason: allocation watchdog determined stale session state
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 538775: : session 002000000000000195: usage: realm=<indexus.cordbloodcenter.com>, username=<>, rp=707, rb=14140, sp=707, sb=62216
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 538775: : session 002000000000000195: peer usage: realm=<indexus.cordbloodcenter.com>, username=<>, rp=0, rb=0, sp=0, sb=0
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 538775: : session 002000000000000195: closed (2nd stage), user <> realm <indexus.cordbloodcenter.com> origin <>, local 0.0.0.0:3478, remote 180.93.32.171:15779, reason: allocation watchdog determined stale session state
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 538835: : session 002000000000000196: usage: realm=<indexus.cordbloodcenter.com>, username=<>, rp=1, rb=20, sp=1, sb=88
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 538835: : session 002000000000000196: peer usage: realm=<indexus.cordbloodcenter.com>, username=<>, rp=0, rb=0, sp=0, sb=0
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 538835: : session 002000000000000196: closed (2nd stage), user <> realm <indexus.cordbloodcenter.com> origin <>, local 0.0.0.0:3478, remote 180.93.32.171:15779, reason: allocation watchdog determined stale session state
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 539305: : IPv4. tcp or tls connected to: 10.9.5.72:51651
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 539305: : IPv4. tcp or tls connected to: 127.0.0.1:53530
+Sep 08 12:30:27 CORPCRM01 turnserver[3135113]: 539305: : session 007000000000000274: realm <indexus.cordbloodcenter.com> user <>: incoming packet message processed, error 401: Unauthorized
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539305: : session 000000000000000181: realm <indexus.cordbloodcenter.com> user <>: incoming packet message processed, error 401: Unauthorized
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539305: : IPv4. Local relay addr: 10.1.2.111:59585
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539305: : session 007000000000000274: new, realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, lifetime=600, cipher=ECDHE-RSA-AES256-GCM-SHA384, method=TLSv1.2
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539305: : session 007000000000000274: realm <indexus.cordbloodcenter.com> user <indexus_turn>: incoming packet ALLOCATE processed, success
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539305: : IPv4. Local relay addr: 10.1.2.111:62027
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539305: : session 000000000000000181: new, realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, lifetime=600, cipher=ECDHE-RSA-AES256-GCM-SHA384, method=TLSv1.2
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539305: : session 000000000000000181: realm <indexus.cordbloodcenter.com> user <indexus_turn>: incoming packet ALLOCATE processed, success
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539312: : session 007000000000000274: refreshed, realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, lifetime=0, cipher=ECDHE-RSA-AES256-GCM-SHA384, method=TLSv1.2
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539312: : session 007000000000000274: realm <indexus.cordbloodcenter.com> user <indexus_turn>: incoming packet REFRESH processed, success
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539312: : session 007000000000000274: TLS/TCP socket disconnected: 10.9.5.72:51651
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539312: : session 007000000000000274: usage: realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, rp=3, rb=268, sp=3, sb=316
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539312: : session 007000000000000274: peer usage: realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, rp=0, rb=0, sp=0, sb=0
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539312: : session 007000000000000274: closed (2nd stage), user <indexus_turn> realm <indexus.cordbloodcenter.com> origin <>, local 0.0.0.0:5350, remote 10.9.5.72:51651, reason: TLS/TCP socket buffer operation error (callback)
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539312: : session 007000000000000274: delete: realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539312: : session 000000000000000181: refreshed, realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, lifetime=0, cipher=ECDHE-RSA-AES256-GCM-SHA384, method=TLSv1.2
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539312: : session 000000000000000181: realm <indexus.cordbloodcenter.com> user <indexus_turn>: incoming packet REFRESH processed, success
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539312: : ERROR: session 000000000000000181: TLS/TCP socket error: Broken pipe 127.0.0.1:53530
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539312: : session 000000000000000181: usage: realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, rp=3, rb=268, sp=3, sb=316
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539312: : session 000000000000000181: peer usage: realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, rp=0, rb=0, sp=0, sb=0
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539312: : session 000000000000000181: closed (2nd stage), user <indexus_turn> realm <indexus.cordbloodcenter.com> origin <>, local 0.0.0.0:5350, remote 127.0.0.1:53530, reason: TLS/TCP socket buffer operation error (callback)
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539312: : session 000000000000000181: delete: realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539316: : IPv4. tcp or tls connected to: 10.9.5.72:51667
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539316: : IPv4. tcp or tls connected to: 127.0.0.1:47858
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539316: : session 001000000000000200: realm <indexus.cordbloodcenter.com> user <>: incoming packet message processed, error 401: Unauthorized
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539316: : session 001000000000000199: realm <indexus.cordbloodcenter.com> user <>: incoming packet message processed, error 401: Unauthorized
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539316: : IPv4. Local relay addr: 10.1.2.111:59037
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539316: : session 001000000000000200: new, realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, lifetime=600, cipher=ECDHE-RSA-AES256-GCM-SHA384, method=TLSv1.2
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539316: : session 001000000000000200: realm <indexus.cordbloodcenter.com> user <indexus_turn>: incoming packet ALLOCATE processed, success
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539316: : IPv4. Local relay addr: 10.1.2.111:58520
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539316: : session 001000000000000199: new, realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, lifetime=600, cipher=ECDHE-RSA-AES256-GCM-SHA384, method=TLSv1.2
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539316: : session 001000000000000199: realm <indexus.cordbloodcenter.com> user <indexus_turn>: incoming packet ALLOCATE processed, success
+Sep 08 12:31:09 CORPCRM01 turnserver[3135113]: 539346: : session 001000000000000199: refreshed, realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, lifetime=0, cipher=ECDHE-RSA-AES256-GCM-SHA384, method=TLSv1.2
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539346: : session 001000000000000199: realm <indexus.cordbloodcenter.com> user <indexus_turn>: incoming packet REFRESH processed, success
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539346: : session 001000000000000199: TLS/TCP socket disconnected: 10.9.5.72:51667
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539346: : session 001000000000000199: usage: realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, rp=3, rb=268, sp=3, sb=316
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539346: : session 001000000000000199: peer usage: realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, rp=0, rb=0, sp=0, sb=0
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539346: : session 001000000000000199: closed (2nd stage), user <indexus_turn> realm <indexus.cordbloodcenter.com> origin <>, local 0.0.0.0:5350, remote 10.9.5.72:51667, reason: TLS/TCP socket buffer operation error (callback)
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539346: : session 001000000000000199: delete: realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539346: : session 001000000000000200: refreshed, realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, lifetime=0, cipher=ECDHE-RSA-AES256-GCM-SHA384, method=TLSv1.2
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539346: : session 001000000000000200: realm <indexus.cordbloodcenter.com> user <indexus_turn>: incoming packet REFRESH processed, success
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539346: : ERROR: session 001000000000000200: TLS/TCP socket error: Broken pipe 127.0.0.1:47858
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539346: : session 001000000000000200: usage: realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, rp=3, rb=268, sp=3, sb=316
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539346: : session 001000000000000200: peer usage: realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, rp=0, rb=0, sp=0, sb=0
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539346: : session 001000000000000200: closed (2nd stage), user <indexus_turn> realm <indexus.cordbloodcenter.com> origin <>, local 0.0.0.0:5350, remote 127.0.0.1:47858, reason: TLS/TCP socket buffer operation error (callback)
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539346: : session 001000000000000200: delete: realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539382: : IPv4. tcp or tls connected to: 10.9.5.72:51712
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539382: : IPv4. tcp or tls connected to: 127.0.0.1:57996
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539382: : session 000000000000000182: realm <indexus.cordbloodcenter.com> user <>: incoming packet message processed, error 401: Unauthorized
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539382: : session 004000000000000178: realm <indexus.cordbloodcenter.com> user <>: incoming packet message processed, error 401: Unauthorized
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539382: : IPv4. Local relay addr: 10.1.2.111:64492
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539382: : IPv4. Local relay addr: 10.1.2.111:59690
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539382: : session 004000000000000178: new, realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, lifetime=600, cipher=ECDHE-RSA-AES256-GCM-SHA384, method=TLSv1.2
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539382: : session 000000000000000182: new, realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, lifetime=600, cipher=ECDHE-RSA-AES256-GCM-SHA384, method=TLSv1.2
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539382: : session 004000000000000178: realm <indexus.cordbloodcenter.com> user <indexus_turn>: incoming packet ALLOCATE processed, success
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539382: : session 000000000000000182: realm <indexus.cordbloodcenter.com> user <indexus_turn>: incoming packet ALLOCATE processed, success
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539393: : session 000000000000000182: peer 10.1.2.112 lifetime updated: 300
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539393: : session 004000000000000178: peer 10.1.2.112 lifetime updated: 300
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539393: : session 000000000000000182: realm <indexus.cordbloodcenter.com> user <indexus_turn>: incoming packet CREATE_PERMISSION processed, success
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539393: : session 004000000000000178: realm <indexus.cordbloodcenter.com> user <indexus_turn>: incoming packet CREATE_PERMISSION processed, success
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539411: : session 000000000000000182: refreshed, realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, lifetime=0, cipher=ECDHE-RSA-AES256-GCM-SHA384, method=TLSv1.2
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539411: : session 000000000000000182: realm <indexus.cordbloodcenter.com> user <indexus_turn>: incoming packet REFRESH processed, success
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539411: : session 004000000000000178: refreshed, realm=<indexus.cordbloodcenter.com>, username=<indexus_turn>, lifetime=0, cipher=ECDHE-RSA-AES256-GCM-SHA384, method=TLSv1.2
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539411: : session 000000000000000182: TLS/TCP socket disconnected: 10.9.5.72:51712
+Sep 08 12:32:14 CORPCRM01 turnserver[3135113]: 539411: : session 004000000000000178: realm <indexus.cordbloodcenter.com> user <indexus_turn>: incoming packet REFRESH processed, success
+seman@CORPCRM01:/var
