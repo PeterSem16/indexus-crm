@@ -9717,7 +9717,7 @@ function ScheduledQueuePanel({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
-      <DialogContent className="sm:max-w-5xl max-h-[85vh] !flex !flex-col overflow-hidden p-0 shadow-2xl ring-1 ring-black/10 dark:ring-white/10">
+      <DialogContent className="!w-[calc(100vw-2rem)] !max-w-[calc(100vw-2rem)] !h-[calc(100vh-2rem)] !max-h-[calc(100vh-2rem)] sm:!w-[calc(100vw-3rem)] sm:!max-w-[calc(100vw-3rem)] sm:!h-[calc(100vh-3rem)] sm:!max-h-[calc(100vh-3rem)] lg:!w-[calc(100vw-4rem)] lg:!max-w-[calc(100vw-4rem)] lg:!h-[calc(100vh-4rem)] lg:!max-h-[calc(100vh-4rem)] !flex !flex-col overflow-hidden p-0 shadow-2xl ring-1 ring-black/10 dark:ring-white/10">
         <div className="flex items-center justify-between pl-5 pr-14 pt-5 pb-3 border-b flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
@@ -10216,7 +10216,6 @@ export default function AgentWorkspacePage() {
   const [myActivityOpen, setMyActivityOpen] = useState(false);
   const [missedChannel, setMissedChannel] = useState<"calls" | "email" | "sms">("calls");
   const [abandonedCallsFilter, setAbandonedCallsFilter] = useState<"all" | "pending" | "handled">("all");
-  const [activeMissedMessageId, setActiveMissedMessageId] = useState<string | null>(null);
   const [missedCallNotifs, setMissedCallNotifs] = useState<Array<{ id: number; title: string; description: string }>>([]);
   const pendingCallbackAbandonedIdRef = useRef<string | null>(null);
   const [historyDetailModal, setHistoryDetailModal] = useState<TimelineEntry | ContactHistory | null>(null);
@@ -11033,6 +11032,18 @@ export default function AgentWorkspacePage() {
     enabled: !!hasAccess && agentSession.isSessionActive,
     refetchInterval: 30000,
   });
+
+  const markMissedMessageHandled = useCallback(async (messageId: string) => {
+    await apiRequest("POST", `/api/agent/missed-messages/${messageId}/handled`, {});
+    await queryClient.invalidateQueries({ queryKey: ["/api/agent/missed-messages"] });
+  }, [queryClient]);
+
+  const markMissedCallHandled = useCallback(async (callId: string | number) => {
+    await apiRequest("POST", `/api/agent/abandoned-calls/${callId}/called-back`, {});
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/abandoned-calls"] }),
+    ]);
+  }, [queryClient]);
 
   const { data: legacyCampaignDispositions = [] } = useQuery<CampaignDisposition[]>({
     queryKey: ["/api/campaigns", selectedCampaignId, "dispositions"],
@@ -12010,12 +12021,6 @@ export default function AgentWorkspacePage() {
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "activity-logs"] });
         queryClient.invalidateQueries({ queryKey: ["/api/entity-history", variables.customerId] });
       }
-      if (activeMissedMessageId) {
-        apiRequest("POST", `/api/agent/missed-messages/${activeMissedMessageId}/handled`, {})
-          .then(() => queryClient.invalidateQueries({ queryKey: ["/api/agent/missed-messages"] }))
-          .catch(() => {});
-        setActiveMissedMessageId(null);
-      }
       if (!variables.isReply && currentCampaignContactId && selectedCampaignId) {
         const campaignSettings = selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {};
         if (campaignSettings.dispositionMode === "script" || campaignSettings.skipEmailSmsDisposition === true) {
@@ -12072,12 +12077,6 @@ export default function AgentWorkspacePage() {
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "messages"] });
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "activity-logs"] });
         queryClient.invalidateQueries({ queryKey: ["/api/entity-history", variables.customerId] });
-      }
-      if (activeMissedMessageId) {
-        apiRequest("POST", `/api/agent/missed-messages/${activeMissedMessageId}/handled`, {})
-          .then(() => queryClient.invalidateQueries({ queryKey: ["/api/agent/missed-messages"] }))
-          .catch(() => {});
-        setActiveMissedMessageId(null);
       }
       if (currentCampaignContactId) {
         const campSettings = (() => { try { return selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {}; } catch { return {}; } })();
@@ -16578,14 +16577,18 @@ export default function AgentWorkspacePage() {
                         {!message.handledAt && <Button size="sm" className="h-7 text-xs" onClick={async () => {
                           const opened = await handleSelectInboundMatch({ entityType: message.contactType, id: message.entityId, name: message.contactName || "", phone: message.senderPhone || "" }, "card", undefined, { syncCall: false });
                           if (opened) {
-                            setActiveMissedMessageId(message.id);
+                             try {
+                               await markMissedMessageHandled(message.id);
+                             } catch (error) {
+                               console.error("Failed to mark missed message handled after opening card:", error);
+                               return;
+                             }
                             setSelectedCampaignId(message.campaignId);
                             setAbandonedCallsOpen(false);
                           }
                         }}>{t.agentWorkspace.replyBtn}</Button>}
                         {!message.handledAt && <Button size="sm" variant="outline" className="h-7 text-xs" onClick={async () => {
-                          await apiRequest("POST", `/api/agent/missed-messages/${message.id}/handled`, {});
-                          queryClient.invalidateQueries({ queryKey: ["/api/agent/missed-messages"] });
+                           await markMissedMessageHandled(message.id);
                         }}>{t.agentWorkspace.markHandledBtn}</Button>}
                         {message.handledAt && <span className="text-[11px] text-green-600 flex items-center gap-1"><CheckCircle className="h-3 w-3" />{message.handledByUserName || t.agentWorkspace.handledBy}</span>}
                       </div>
@@ -16695,6 +16698,12 @@ export default function AgentWorkspacePage() {
                               }
                             } catch (e) { console.error("Failed to open card for missed call:", e); }
                             if (opened) {
+                               try {
+                                 await markMissedCallHandled(call.id);
+                               } catch (error) {
+                                 console.error("Failed to mark missed call handled after opening card:", error);
+                                 return;
+                               }
                               setCurrentCampaignContactId(null);
                               setRightTab("actions");
                               setAbandonedCallsOpen(false);
@@ -16707,6 +16716,23 @@ export default function AgentWorkspacePage() {
                           <User className="h-3 w-3" /> {t.agentWorkspace.openCardBtn || t.agentWorkspace.callBackBtn}
                         </Button>
                       )}
+                       {!isCalledBack && (
+                         <Button
+                           size="sm"
+                           variant="outline"
+                           className="h-7 text-xs px-2.5 shrink-0"
+                           onClick={async () => {
+                             try {
+                               await markMissedCallHandled(call.id);
+                             } catch (error) {
+                               console.error("Failed to mark missed call handled:", error);
+                             }
+                           }}
+                           data-testid={`btn-mark-handled-call-${call.id}`}
+                         >
+                           {t.agentWorkspace.markHandledBtn}
+                         </Button>
+                       )}
                     </div>
                   </div>
                 );
