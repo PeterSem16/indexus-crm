@@ -4339,7 +4339,7 @@ function CommunicationCanvas({
                 phoneNumber={phone}
                 onDial={onMakeCall}
                 errorMessage={t.agentWorkspace.errorLabel}
-                className="h-8 px-3 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-md bg-green-600 px-3 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Phone className="h-3.5 w-3.5 shrink-0" />
                 {phone}
