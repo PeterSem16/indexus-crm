@@ -6556,6 +6556,7 @@ export default function CampaignDetailPage() {
               <div className="w-56 border-r bg-muted/20 py-3 px-3 flex flex-col gap-1 shrink-0">
                   {[
                     { value: "general", icon: Settings, label: t.campaigns.detail.general, desc: t.campaigns.detail.subGeneralDesc },
+                    { value: "nexus_versions", icon: History, label: t.campaigns.detail.nexusVersioningTitle, desc: t.campaigns.detail.nexusVersioningSubtitle },
                     { value: "scheduling", icon: Clock, label: t.campaigns.detail.scheduling, desc: t.campaigns.detail.subSchedulingDesc },
                     { value: "operators", icon: Shield, label: t.campaigns.detail.operator, desc: t.campaigns.detail.subOperatorsDesc },
                     { value: "dispositions", icon: CheckCheck, label: t.campaigns.detail.dispositions, desc: t.campaigns.detail.subDispositionsDesc },
@@ -7281,6 +7282,15 @@ export default function CampaignDetailPage() {
                     </div>
                   )}
 
+                  {settingsSubTab === "nexus_versions" && (
+                    <div className="space-y-4">
+                      <NexusPulseVersionPanel
+                        campaignId={campaignId}
+                        campaignStatus={campaign.status}
+                      />
+                    </div>
+                  )}
+
                   {settingsSubTab === "operators" && (
                     <div className="space-y-6">
                       <Card>
@@ -7366,10 +7376,6 @@ export default function CampaignDetailPage() {
 
                   {settingsSubTab === "status_list" && (
                     <div className="space-y-4">
-                      <NexusPulseVersionPanel
-                        campaignId={campaignId}
-                        campaignStatus={campaign.status}
-                      />
                       <CampaignStatusListBuilder campaignId={campaignId} />
                     </div>
                   )}
