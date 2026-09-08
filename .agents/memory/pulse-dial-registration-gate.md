@@ -7,4 +7,4 @@ NEXUS Pulse call buttons must always enter the central call-dispatch path. Do no
 
 **Why:** The rendered registration flag can briefly lag behind the live transport during reconnects. UI gating caused a recurring failure where an apparently usable phone button did nothing, even though the SIP layer could have verified or restored registration.
 
-**How to apply:** Route desktop header, quick action, inline entity-card, and mobile phone buttons through the same central handler. Let the SIP layer ensure registration immediately before dialing; never return silently for a stale UI registration value.
+**How to apply:** Route desktop header, quick action, inline entity-card, and mobile phone buttons through the same central handler. Let the SIP layer ensure registration immediately before dialing; never return silently for a stale UI registration value. Set the agent to `busy` only after the call has been enqueued to SIP. Keep routing, recording-policy, and enqueue failures distinguishable, and never let optional metadata processing block enqueue without a visible reason.

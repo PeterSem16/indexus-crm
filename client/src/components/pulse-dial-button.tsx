@@ -43,7 +43,7 @@ function PulseDialButton({
         {children}
       </button>
       {dialFailed ? (
-        <span role="alert" className="text-xs font-medium text-destructive">
+        <span role="alert" className="sr-only">
           {errorMessage}
         </span>
       ) : null}

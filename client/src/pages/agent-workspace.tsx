@@ -12688,46 +12688,50 @@ export default function AgentWorkspacePage() {
   };
 
   const handleMakeCall = async (phoneNumber: string) => {
-    const normalizedPhone = phoneNumber.trim();
-    if (!normalizedPhone || !makeCall || !currentContact) {
-      toast({ title: t.agentWorkspace.errorLabel, variant: "destructive" });
-      return;
-    }
-    if (selectedCampaignId) {
-      try {
-        const qRes = await fetch(`/api/campaigns/${selectedCampaignId}/quota-check`, { credentials: "include" });
-        if (qRes.ok) {
-          const qData = await qRes.json();
-          const hasAnyQuota = qData.quotas && (qData.quotas.calls !== null || qData.quotas.emails !== null || qData.quotas.sms !== null);
-          if (hasAnyQuota) {
-            setQuotas(qData.quotas);
-            if (qData.usage) {
-              quotaDataRef.current = { usage: qData.usage };
-              setStats({ calls: qData.usage.calls || 0, emails: qData.usage.emails || 0, sms: qData.usage.sms || 0 });
+    let stage = "validate";
+    try {
+      const normalizedPhone = phoneNumber.trim();
+      if (!normalizedPhone || !makeCall || !currentContact) {
+        toast({ title: t.agentWorkspace.errorLabel, variant: "destructive" });
+        return;
+      }
+      if (selectedCampaignId) {
+        stage = "quota-check";
+        try {
+          const qRes = await fetch(`/api/campaigns/${selectedCampaignId}/quota-check`, { credentials: "include" });
+          if (qRes.ok) {
+            const qData = await qRes.json();
+            const hasAnyQuota = qData.quotas && (qData.quotas.calls !== null || qData.quotas.emails !== null || qData.quotas.sms !== null);
+            if (hasAnyQuota) {
+              setQuotas(qData.quotas);
+              if (qData.usage) {
+                quotaDataRef.current = { usage: qData.usage };
+                setStats({ calls: qData.usage.calls || 0, emails: qData.usage.emails || 0, sms: qData.usage.sms || 0 });
+              }
+            }
+            if (qData.blocked?.calls) {
+              toast({
+                title: t.agentWorkspace?.quotaReached || "Daily quota reached",
+                description: t.agentWorkspace?.callQuotaReached || "You have reached your daily call limit for this campaign.",
+                variant: "destructive",
+              });
+              return;
             }
           }
-          if (qData.blocked?.calls) {
-            toast({
-              title: t.agentWorkspace?.quotaReached || "Daily quota reached",
-              description: t.agentWorkspace?.callQuotaReached || "You have reached your daily call limit for this campaign.",
-              variant: "destructive",
-            });
-            return;
-          }
-        }
-      } catch {}
-    }
-    if (isQuotaBlocked("calls")) {
-      toast({
-        title: t.agentWorkspace?.quotaReached || "Daily quota reached",
-        description: t.agentWorkspace?.callQuotaReached || "You have reached your daily call limit for this campaign.",
-        variant: "destructive",
-      });
-      return;
-    }
-    agentSession.updateStatus("busy").catch(() => {});
-    const customerName = `${currentContact.firstName || ""} ${currentContact.lastName || ""}`.trim();
-    const outboundCountry = inferOutboundCountryCode(normalizedPhone, selectedCampaign?.countryCodes);
+        } catch {}
+      }
+      if (isQuotaBlocked("calls")) {
+        toast({
+          title: t.agentWorkspace?.quotaReached || "Daily quota reached",
+          description: t.agentWorkspace?.callQuotaReached || "You have reached your daily call limit for this campaign.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      stage = "mission-routing";
+      const customerName = `${currentContact.firstName || ""} ${currentContact.lastName || ""}`.trim();
+      const outboundCountry = inferOutboundCountryCode(normalizedPhone, selectedCampaign?.countryCodes);
       let outboundRouting;
       try {
         outboundRouting = resolveMissionOutboundRouting({
@@ -12743,6 +12747,18 @@ export default function AgentWorkspacePage() {
         });
         return;
       }
+
+      stage = "recording-policy";
+      let recordingSnapshot;
+      try {
+        recordingSnapshot = selectedCampaign
+          ? Object.freeze(resolveMissionRecordingPolicy(selectedCampaign.settings))
+          : undefined;
+      } catch (error) {
+        console.error(`[PulseDial] recording-policy: ${error instanceof Error ? error.message : "unknown error"}`);
+      }
+
+      stage = "sip-enqueue";
       makeCall({
         phoneNumber: normalizedPhone,
         customerId: currentContact.id,
@@ -12756,10 +12772,10 @@ export default function AgentWorkspacePage() {
         outboundTrunk: outboundRouting.trunk,
         outboundCountry,
         maxRingSeconds: campaignMaxRingSeconds || undefined,
-        recordingSnapshot: selectedCampaign
-          ? Object.freeze(resolveMissionRecordingPolicy(selectedCampaign.settings))
-          : undefined,
+        recordingSnapshot,
       });
+
+      agentSession.updateStatus("busy").catch(() => {});
       setTimeline((prev) => [
         ...prev,
         {
@@ -12770,6 +12786,15 @@ export default function AgentWorkspacePage() {
           content: `Hovor na ${normalizedPhone}`,
         },
       ]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "unknown error";
+      console.error(`[PulseDial] ${stage}: ${message}`);
+      toast({
+        title: t.agentWorkspace.errorLabel,
+        description: message,
+        variant: "destructive",
+      });
+    }
   };
 
   const pulseDialEntryPoints = createPulseDialEntryPoints(
