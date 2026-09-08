@@ -37,6 +37,10 @@ function sdpUnholdModifier(description: SessionDescription): Promise<SessionDesc
   });
 }
 
+function unchangedSdpModifier(description: SessionDescription): Promise<SessionDescription> {
+  return Promise.resolve(description);
+}
+
 function setLocalMicEnabled(session: Session, enabled: boolean): void {
   try {
     const sdh = session.sessionDescriptionHandler as any;
@@ -73,8 +77,35 @@ async function sendReinviteWithModifier(
   });
 }
 
+export async function restartSessionMedia(session: Session): Promise<void> {
+  if (!session) throw new Error("No session");
+  const sessionAny = session as any;
+  if (sessionAny.__isHeld) throw new Error("Cannot recover media while the call is on hold");
+  if (sessionAny.__mediaRecoveryInProgress) throw new Error("Media recovery is already in progress");
+
+  const peerConnection = sessionAny.sessionDescriptionHandler?.peerConnection as RTCPeerConnection | undefined;
+  if (!peerConnection) throw new Error("Session has no peer connection");
+  if (typeof peerConnection.restartIce !== "function") throw new Error("ICE restart is not supported");
+
+  sessionAny.__mediaRecoveryInProgress = true;
+  try {
+    peerConnection.getSenders().forEach((sender) => {
+      if (sender.track?.kind === "audio") sender.track.enabled = true;
+    });
+    peerConnection.restartIce();
+    // Do not race this transaction with a local timeout. A timed-out Promise
+    // would leave the SIP re-INVITE running and could overlap a subsequent BYE.
+    await sendReinviteWithModifier(session, unchangedSdpModifier);
+  } finally {
+    sessionAny.__mediaRecoveryInProgress = false;
+  }
+}
+
 export async function hold(session: Session): Promise<void> {
   const wasHeld = !!(session as any).__isHeld;
+  if ((session as any).__mediaRecoveryInProgress) {
+    throw new Error("Cannot place the call on hold while media recovery is in progress");
+  }
   
   setLocalMicEnabled(session, false);
   
@@ -91,6 +122,9 @@ export async function hold(session: Session): Promise<void> {
 
 export async function unhold(session: Session): Promise<void> {
   const wasHeld = !!(session as any).__isHeld;
+  if ((session as any).__mediaRecoveryInProgress) {
+    throw new Error("Cannot resume the call while media recovery is in progress");
+  }
   
   try {
     await sendReinviteWithModifier(session, sdpUnholdModifier);

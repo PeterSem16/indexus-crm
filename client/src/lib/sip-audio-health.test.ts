@@ -6,7 +6,7 @@
  */
 
 import assert from "node:assert/strict";
-import { classifyAudioRtpStats, type AudioRtpStats } from "./sip-audio-health";
+import { audioRtpDelta, classifyAudioRtpStats, type AudioRtpStats } from "./sip-audio-health";
 
 const stats = (overrides: Partial<AudioRtpStats>): AudioRtpStats => ({
   inboundPackets: 0,
@@ -42,6 +42,51 @@ assert.equal(
   "packets without bytes are not a valid audio flow",
 );
 console.log("  ✓ packets without bytes → no-flow");
+passed++;
+
+const baseline = stats({
+  inboundPackets: 100,
+  outboundPackets: 120,
+  inboundBytes: 16_000,
+  outboundBytes: 19_200,
+});
+
+assert.equal(
+  classifyAudioRtpStats(audioRtpDelta(baseline, stats({
+    inboundPackets: 110,
+    outboundPackets: 130,
+    inboundBytes: 17_600,
+    outboundBytes: 20_800,
+  }))),
+  "healthy",
+  "growing counters in both directions are healthy",
+);
+console.log("  ✓ bidirectional RTP counter growth → healthy");
+passed++;
+
+assert.equal(
+  classifyAudioRtpStats(audioRtpDelta(baseline, stats({
+    ...baseline,
+    outboundPackets: 130,
+    outboundBytes: 20_800,
+  }))),
+  "outbound-only",
+  "stalled inbound counters must be detected even when cumulative counters are nonzero",
+);
+console.log("  ✓ stalled inbound RTP counters → outbound-only");
+passed++;
+
+assert.deepEqual(
+  audioRtpDelta(baseline, stats({
+    inboundPackets: 1,
+    outboundPackets: 1,
+    inboundBytes: 1,
+    outboundBytes: 1,
+  })),
+  stats({}),
+  "counter resets after ICE recovery must not create negative deltas",
+);
+console.log("  ✓ RTP counter reset → zero delta");
 passed++;
 
 console.log(`\n${passed} RTP simulations passed`);

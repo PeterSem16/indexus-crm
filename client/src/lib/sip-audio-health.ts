@@ -11,6 +11,18 @@ export interface AudioRtpStats {
   outboundBytes: number;
 }
 
+export function audioRtpDelta(
+  previous: AudioRtpStats,
+  current: AudioRtpStats,
+): AudioRtpStats {
+  return {
+    inboundPackets: Math.max(0, current.inboundPackets - previous.inboundPackets),
+    outboundPackets: Math.max(0, current.outboundPackets - previous.outboundPackets),
+    inboundBytes: Math.max(0, current.inboundBytes - previous.inboundBytes),
+    outboundBytes: Math.max(0, current.outboundBytes - previous.outboundBytes),
+  };
+}
+
 /**
  * Classifies the media direction independently from SIP signaling.
  *

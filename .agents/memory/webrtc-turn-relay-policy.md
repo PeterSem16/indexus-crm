@@ -17,3 +17,10 @@ bidirectional silence even though the carrier-to-Asterisk RTP leg is healthy.
 creation. Diagnose a recurrence by correlating Asterisk RTP endpoints with Coturn
 allocation lifetime and peer-usage counters; do not infer media health from SIP
 ANSWERED or ICE connected alone.
+
+For an established outbound call, judge health from growth between consecutive
+inbound/outbound RTP counters, not from cumulative nonzero values. A confirmed
+one-way/no-flow call may attempt one session-scoped ICE restart, but the restart
+must be signaled through a completed SIP re-INVITE. Never race that transaction
+with a local timeout followed by BYE, and never silently redial. Suppress recovery
+while held and preserve the one-attempt marker if SIP.js replaces the PeerConnection.

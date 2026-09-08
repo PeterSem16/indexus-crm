@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { UserAgent, Registerer, RegistererState, Inviter, Session, SessionState } from "sip.js";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient, getQueryFn } from "@/lib/queryClient";
-import { holdToggle as sipHoldToggle, isHeld as sipIsHeld } from "@/lib/sip-hold";
+import { holdToggle as sipHoldToggle, isHeld as sipIsHeld, restartSessionMedia } from "@/lib/sip-hold";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -39,7 +39,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { SipSettings, CallLog, User } from "@shared/schema";
 import { resolveOutboundCallProvider } from "@shared/telephony-routing";
 import type { MissionCallRecordingSnapshot } from "@shared/mission-recording";
-import { classifyAudioRtpStats, type AudioRtpHealth } from "@/lib/sip-audio-health";
+import { audioRtpDelta, classifyAudioRtpStats, type AudioRtpHealth, type AudioRtpStats } from "@/lib/sip-audio-health";
 import { reportVoiceIncident, setVoiceIncidentCallContext } from "@/lib/voice-incident-logger";
 
 function filterSdpCandidates(description: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit> {
@@ -214,6 +214,12 @@ export function SipPhone({
   const [audioHealth, setAudioHealth] = useState<AudioHealthState>("idle");
   const mediaHealthCleanupRef = useRef<(() => void) | null>(null);
   const mediaHealthSessionRef = useRef<Session | null>(null);
+  const startMediaHealthMonitoringRef = useRef<(
+    session: Session,
+    peerConnection: RTCPeerConnection,
+    direction: "inbound" | "outbound",
+  ) => void>(() => {});
+  const outboundTerminatedSessionsRef = useRef<WeakSet<object>>(new WeakSet());
   const ringtoneRef = useRef<HTMLAudioElement | null>(null);
   const ringtoneIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -1090,7 +1096,7 @@ export function SipPhone({
     }, 1000);
     callTimerRef.current = timer;
 
-    setupAudio(session);
+    setupAudio(session, "inbound");
 
     const doStartRecording = (attempt: number = 1) => {
       if (String(session.state) === "Terminated") {
@@ -1688,7 +1694,7 @@ export function SipPhone({
               customerId: localCustomerIdRef.current
             });
             onCallStart?.(phoneNumber, callLogId);
-            setupAudio(inviter);
+            setupAudio(inviter, "outbound");
             const recordingSnapshot = recordingSnapshotRef.current;
             if (recordingSnapshot?.active && recordingSnapshot.mode === "agent_only") {
               void startTrustedAgentRecording(callLogId, inviter, recordingSnapshot);
@@ -1708,6 +1714,8 @@ export function SipPhone({
               ringTimedOutRef.current = false;
               break;
             }
+            if (outboundTerminatedSessionsRef.current.has(inviter)) break;
+            outboundTerminatedSessionsRef.current.add(inviter);
             const duration = callStartTimeRef.current 
               ? Math.floor((Date.now() - callStartTimeRef.current) / 1000) 
               : 0;
@@ -1987,7 +1995,11 @@ export function SipPhone({
     micProcessedTrackRef.current = processedTrack;
   }, [micVolume]);
 
-  const startMediaHealthMonitoring = useCallback((session: Session, peerConnection: RTCPeerConnection) => {
+  const startMediaHealthMonitoring = useCallback((
+    session: Session,
+    peerConnection: RTCPeerConnection,
+    direction: "inbound" | "outbound",
+  ) => {
     clearMediaHealthMonitoring();
     mediaHealthSessionRef.current = session;
     setAudioHealth("checking");
@@ -1998,6 +2010,12 @@ export function SipPhone({
     let failureShown = false;
     let disconnectedAt: number | null = null;
     let degradedQualitySamples = 0;
+    let previousRtpStats: AudioRtpStats | null = null;
+    let unhealthyDeltaSamples = 0;
+    let recoveryAttempted = Boolean((session as any).__mediaRecoveryAttempted);
+    let recoveryInProgress = false;
+    let recoveryGraceUntil = 0;
+    let playbackRecoveryAttempted = false;
     let latestMetrics: { rttMs?: number; jitterMs?: number; packetLossPermille?: number } = {};
     const incidentMetrics = () => ({
       callLogId: currentCallLogIdRef.current,
@@ -2041,6 +2059,59 @@ export function SipPhone({
         description: oneWay ? t.agentWorkspace.audioOneWayDesc : t.agentWorkspace.audioNoFlowDesc,
         variant: "destructive",
       });
+    };
+
+    const attemptMediaRecovery = async (health: Exclude<AudioRtpHealth, "healthy">) => {
+      if (
+        recoveryAttempted ||
+        recoveryInProgress ||
+        failureShown ||
+        stopped ||
+        mediaHealthSessionRef.current !== session ||
+        sessionRef.current !== session ||
+        session.state !== SessionState.Established
+      ) return;
+
+      recoveryAttempted = true;
+      (session as any).__mediaRecoveryAttempted = true;
+      recoveryInProgress = true;
+      showNoFlowWarning(health);
+      console.warn("[SIP-MEDIA] Restarting ICE after sustained incomplete RTP flow", { health });
+
+      try {
+        await restartSessionMedia(session);
+        if (
+          stopped ||
+          mediaHealthSessionRef.current !== session ||
+          sessionRef.current !== session ||
+          session.state !== SessionState.Established
+        ) return;
+        const recoveredPeerConnection = (session.sessionDescriptionHandler as any)?.peerConnection as RTCPeerConnection | undefined;
+        if (!recoveredPeerConnection) {
+          showFailure(true);
+          return;
+        }
+        if (recoveredPeerConnection !== peerConnection) {
+          console.log("[SIP-MEDIA] SIP.js replaced the peer connection during recovery; restarting monitoring");
+          startMediaHealthMonitoringRef.current(session, recoveredPeerConnection, direction);
+          return;
+        }
+        previousRtpStats = null;
+        unhealthyDeltaSamples = 0;
+        recoveryGraceUntil = Date.now() + 8_000;
+        console.log("[SIP-MEDIA] ICE restart re-INVITE completed; verifying RTP flow");
+      } catch (error) {
+        console.error("[SIP-MEDIA] Media recovery failed:", error);
+        if ((session as any).__isHeld) {
+          recoveryAttempted = false;
+          (session as any).__mediaRecoveryAttempted = false;
+          unhealthyDeltaSamples = 0;
+          return;
+        }
+        showFailure(true);
+      } finally {
+        recoveryInProgress = false;
+      }
     };
 
     const checkConnectionState = () => {
@@ -2128,19 +2199,60 @@ export function SipPhone({
           ice: peerConnection.iceConnectionState,
         });
 
-        const health = classifyAudioRtpStats({
+        const currentRtpStats: AudioRtpStats = {
           inboundPackets,
           outboundPackets,
           inboundBytes,
           outboundBytes,
-        });
+        };
+        const health = classifyAudioRtpStats(currentRtpStats);
         console.log("[SIP-MEDIA] Audio RTP health:", health);
 
         if (health === "healthy") {
           if (!failureShown) setAudioHealth("connected");
-        } else if (Date.now() - startedAt >= 12_000) {
-          showNoFlowWarning(health);
         }
+
+        if (previousRtpStats) {
+          const delta = audioRtpDelta(previousRtpStats, currentRtpStats);
+          const deltaHealth = classifyAudioRtpStats(delta);
+
+          if (
+            !playbackRecoveryAttempted &&
+            delta.inboundPackets > 0 &&
+            delta.inboundBytes > 0 &&
+            audioRef.current?.srcObject &&
+            audioRef.current.paused
+          ) {
+            playbackRecoveryAttempted = true;
+            void audioRef.current.play().catch((error) => {
+              console.error("[SIP-MEDIA] Automatic remote audio playback recovery failed:", error);
+              setAudioHealth("warning");
+            });
+          }
+
+          if ((session as any).__isHeld) {
+            unhealthyDeltaSamples = 0;
+            previousRtpStats = currentRtpStats;
+            return;
+          }
+
+          const graceElapsed = Date.now() - startedAt >= 8_000 && Date.now() >= recoveryGraceUntil;
+          unhealthyDeltaSamples = graceElapsed && deltaHealth !== "healthy"
+            ? unhealthyDeltaSamples + 1
+            : 0;
+
+          if (unhealthyDeltaSamples >= 3) {
+            if (direction === "inbound") {
+              showNoFlowWarning(deltaHealth as Exclude<AudioRtpHealth, "healthy">);
+              unhealthyDeltaSamples = 0;
+            } else if (!recoveryAttempted) {
+              void attemptMediaRecovery(deltaHealth as Exclude<AudioRtpHealth, "healthy">);
+            } else if (!recoveryInProgress) {
+              showFailure(true);
+            }
+          }
+        }
+        previousRtpStats = currentRtpStats;
       } catch (error) {
         console.warn("[SIP-MEDIA] Unable to read WebRTC audio statistics:", error);
       }
@@ -2163,8 +2275,9 @@ export function SipPhone({
       window.removeEventListener("offline", onOffline);
     };
   }, [clearMediaHealthMonitoring, t.agentWorkspace, toast]);
+  startMediaHealthMonitoringRef.current = startMediaHealthMonitoring;
 
-  const setupAudio = async (session: Session) => {
+  const setupAudio = async (session: Session, direction: "inbound" | "outbound") => {
     console.log("[SIP-INBOUND] setupAudio called, session state:", (session as any)?.state);
     const sessionDescriptionHandler = session.sessionDescriptionHandler;
     if (!sessionDescriptionHandler) { console.warn("[SIP-INBOUND] setupAudio: No SDH, aborting"); return; }
@@ -2172,7 +2285,7 @@ export function SipPhone({
     const peerConnection = (sessionDescriptionHandler as any).peerConnection as RTCPeerConnection;
     if (!peerConnection) { console.warn("[SIP-INBOUND] setupAudio: No peerConnection, aborting"); return; }
     console.log("[SIP-INBOUND] setupAudio: PC state:", peerConnection.connectionState, "senders:", peerConnection.getSenders().length, "receivers:", peerConnection.getReceivers().length);
-    startMediaHealthMonitoring(session, peerConnection);
+    startMediaHealthMonitoring(session, peerConnection, direction);
 
     const playRemoteAudio = (stream: MediaStream) => {
       if (!audioRef.current) return;
