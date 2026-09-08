@@ -73,3 +73,4 @@
 - [Pulse quick readiness recheck](pulse-quick-sound-recheck.md) — reuse valid readiness only after fresh microphone, speaker, and latency checks; never bypass a started full check.
 - [Pulse incident telemetry](pulse-incident-telemetry.md) — persist only bounded active-call health events; queue offline failures, and never log media, numbers, SDP, candidates, IPs, or credentials.
 - [Pulse inbound call finalization](pulse-inbound-call-finalization.md) — agent End, SIP termination, media failure, and server hangup must share one idempotent history/recording finalizer.
+- [Pulse dial actions must not trust UI registration state](pulse-dial-registration-gate.md) — call buttons always dispatch; SIP ensureRegistered owns recovery, and failure must be visible.

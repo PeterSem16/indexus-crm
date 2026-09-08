@@ -4333,8 +4333,8 @@ function CommunicationCanvas({
             return (
               <Button
                 size="sm"
-                onClick={() => isSipRegistered && onMakeCall ? onMakeCall(phone) : undefined}
-                disabled={!isSipRegistered || !onMakeCall}
+                onClick={() => onMakeCall?.(phone)}
+                disabled={!onMakeCall}
                 data-testid="btn-call-from-canvas"
                 className="h-8 px-3 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -12666,6 +12666,11 @@ export default function AgentWorkspacePage() {
   };
 
   const handleMakeCall = async (phoneNumber: string) => {
+    const normalizedPhone = phoneNumber.trim();
+    if (!normalizedPhone || !makeCall || !currentContact) {
+      toast({ title: t.agentWorkspace.errorLabel, variant: "destructive" });
+      return;
+    }
     if (selectedCampaignId) {
       try {
         const qRes = await fetch(`/api/campaigns/${selectedCampaignId}/quota-check`, { credentials: "include" });
@@ -12698,10 +12703,9 @@ export default function AgentWorkspacePage() {
       });
       return;
     }
-    if (makeCall && currentContact) {
-      agentSession.updateStatus("busy").catch(() => {});
-      const customerName = `${currentContact.firstName || ""} ${currentContact.lastName || ""}`.trim();
-      const outboundCountry = inferOutboundCountryCode(phoneNumber, selectedCampaign?.countryCodes);
+    agentSession.updateStatus("busy").catch(() => {});
+    const customerName = `${currentContact.firstName || ""} ${currentContact.lastName || ""}`.trim();
+    const outboundCountry = inferOutboundCountryCode(normalizedPhone, selectedCampaign?.countryCodes);
       let outboundRouting;
       try {
         outboundRouting = resolveMissionOutboundRouting({
@@ -12718,7 +12722,7 @@ export default function AgentWorkspacePage() {
         return;
       }
       makeCall({
-        phoneNumber,
+        phoneNumber: normalizedPhone,
         customerId: currentContact.id,
         customerName: customerName || undefined,
         campaignId: selectedCampaignId || undefined,
@@ -12741,10 +12745,9 @@ export default function AgentWorkspacePage() {
           type: "call",
           direction: "outbound",
           timestamp: new Date(),
-          content: `Hovor na ${phoneNumber}`,
+          content: `Hovor na ${normalizedPhone}`,
         },
       ]);
-    }
   };
 
   const handleQuickAction = (action: string) => {
@@ -12752,7 +12755,7 @@ export default function AgentWorkspacePage() {
       case "call": {
         setActiveChannel("phone");
         const phoneToCall = currentPhoneOverride || currentClinicData?.phone || currentCollaboratorData?.phone || currentContact?.phone;
-        if (phoneToCall && isSipRegistered) {
+        if (phoneToCall) {
           handleMakeCall(phoneToCall);
         }
         break;

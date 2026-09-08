@@ -1290,8 +1290,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
             <div className="flex flex-col gap-2">
               {phoneNumbers.map(({ label, value }) => (
                 <button key={value} onClick={() => onMakeCall(value)}
-                  disabled={!isSipRegistered}
-                  className="w-full h-14 rounded-2xl bg-green-500 hover:bg-green-600 disabled:opacity-40 text-white font-bold flex items-center justify-center gap-3 shadow-lg shadow-green-500/20 active:scale-[0.98] transition-all"
+                   className="w-full h-14 rounded-2xl bg-green-500 hover:bg-green-600 text-white font-bold flex items-center justify-center gap-3 shadow-lg shadow-green-500/20 active:scale-[0.98] transition-all"
                   data-testid={`btn-mobile-call-${label.toLowerCase().replace(/\s/g, "-")}`}>
                   <Phone className="h-6 w-6 shrink-0" />
                   <div className="flex flex-col items-start leading-tight">
