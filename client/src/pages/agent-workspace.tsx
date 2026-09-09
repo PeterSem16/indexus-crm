@@ -560,6 +560,13 @@ interface ContactHistory {
   dispositionColor?: string | null;
   dispositionIcon?: string | null;
   dispositionChecklistNames?: string[] | null;
+  outcomeBadges?: Array<{
+    kind: "status_list" | "disposition" | "callback";
+    code?: string;
+    label?: string;
+    color?: string | null;
+    callbackDate?: string | null;
+  }>;
   metadata?: any;
 }
 
@@ -8437,7 +8444,7 @@ function CustomerInfoPanel({
                               {item.type === "disposition" && (
                                 <span className={`${isModal ? "text-xs" : "text-[9px]"} font-semibold`} style={{ color: itemAc }}>{t.agentWorkspace.historyDispositionType}</span>
                               )}
-                              {(item as any).dispositionName && (() => {
+                              {!isCall && (item as any).dispositionName && (() => {
                                 const dColor = (item as any).dispositionColor || "gray";
                                 const colorMap: Record<string, string> = {
                                   green: "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800",
@@ -8462,6 +8469,22 @@ function CustomerInfoPanel({
                                   </>
                                 );
                               })()}
+                              {isCall && item.outcomeBadges?.map((badge, index) => {
+                                const color = badge.color || (badge.kind === "callback" ? "#2563eb" : "#059669");
+                                const label = badge.kind === "callback"
+                                  ? t.agentWorkspace.dispCbScheduledTitle
+                                  : (badge.label || badge.code || "—");
+                                return (
+                                  <span
+                                    key={`${badge.kind}-${badge.code || index}`}
+                                    className={`inline-flex items-center gap-1 ${isModal ? "text-[10px] h-5 px-2" : "text-[9px] h-4 px-1.5"} rounded-full border font-semibold`}
+                                    style={{ backgroundColor: `${color}18`, color, borderColor: `${color}45` }}
+                                  >
+                                    {badge.kind === "callback" && <Calendar className="h-2.5 w-2.5" />}
+                                    {label}
+                                  </span>
+                                );
+                              })}
                               {item.status && item.type !== "disposition" && (
                                 <span
                                   className={`inline-flex items-center ${isModal ? "text-[10px] h-5 px-2" : "text-[9px] h-4 px-1.5"} rounded-full font-medium`}
@@ -8580,7 +8603,7 @@ function CustomerInfoPanel({
                         </div>
                         {isCall && item.callLogId && (
                           <div className={`${isModal ? "px-3 pb-2" : "px-2.5 pb-2"}`} onClick={(e) => e.stopPropagation()}>
-                            <CallRecordingPlayer callLogId={item.callLogId} compact />
+                            <CallRecordingPlayer callLogId={item.callLogId} compact outcomeBadges={item.outcomeBadges} />
                           </div>
                         )}
                         <div className={`flex items-center gap-2 ${isModal ? "px-3 pb-2.5 text-xs" : "px-2.5 pb-2 text-[9px]"} flex-wrap text-muted-foreground`}>
@@ -11643,6 +11666,7 @@ export default function AgentWorkspacePage() {
       dispositionColor: item.dispositionColor || null,
       dispositionIcon: item.dispositionIcon || null,
       dispositionChecklistNames: item.dispositionChecklistNames || null,
+      outcomeBadges: item.outcomeBadges || [],
       metadata: item.metadata || null,
     }));
   }, [persistentHistory]);

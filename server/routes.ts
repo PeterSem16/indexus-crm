@@ -81,6 +81,7 @@ import {
   insertTaskGroupSchema,
   insertTaskGroupMemberSchema,
 } from "@shared/schema";
+import { eventsForCallOutcome, selectCallOutcomeBadges } from "./call-outcome";
 import Handlebars from "handlebars";
 import { z } from "zod";
 import {
@@ -13246,6 +13247,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
           content: `Hovor ${call.direction === "inbound" ? "prichádzajúci" : "odchádzajúci"}: ${call.phoneNumber}`,
           details: duration ? `Trvanie: ${duration}` : null,
           duration: call.durationSeconds,
+          _endedAt: call.endedAt || null,
           notes: call.notes,
           campaignId: call.campaignId,
           callLogId: call.id,
@@ -13337,6 +13339,20 @@ Return ONLY valid JSON, no markdown code blocks.`,
       const allDispositions = allCampaignIdsForDisp.length > 0
         ? await db.select().from(campaignDispositions).where(inArray(campaignDispositions.campaignId, allCampaignIdsForDisp))
         : [];
+      const campaignWorkflowRows = allCampaignIdsForDisp.length > 0
+        ? await db.select({ id: campaigns.id, settings: campaigns.settings }).from(campaigns).where(inArray(campaigns.id, allCampaignIdsForDisp))
+        : [];
+      const campaignWorkflowMap = new Map(campaignWorkflowRows.map((campaign) => {
+        try {
+          const settings = campaign.settings ? JSON.parse(campaign.settings) : {};
+          return [campaign.id, {
+            workflowMode: settings.workflowMode === "status_list" ? "status_list" : "disposition",
+            statusListMode: settings.statusListMode === "batch" ? "batch" : "immediate",
+          }] as const;
+        } catch {
+          return [campaign.id, { workflowMode: "disposition", statusListMode: "immediate" }] as const;
+        }
+      }));
 
       // Batch-resolve status list item labels for status_list_confirmation history entries
       const slConfirmItemIds = [...new Set(
@@ -13346,13 +13362,15 @@ Return ONLY valid JSON, no markdown code blocks.`,
       )];
       const slItemLabelMap = new Map<string, string>();
       const slItemDescMap = new Map<string, string | null>();
+      const slItemColorMap = new Map<string, string | null>();
       if (slConfirmItemIds.length > 0) {
-        const slItems = await db.select({ id: campaignStatusListItems.id, label: campaignStatusListItems.label, description: campaignStatusListItems.description })
+        const slItems = await db.select({ id: campaignStatusListItems.id, label: campaignStatusListItems.label, description: campaignStatusListItems.description, color: campaignStatusListItems.color })
           .from(campaignStatusListItems)
           .where(inArray(campaignStatusListItems.id, slConfirmItemIds));
         for (const item of slItems) {
           slItemLabelMap.set(item.id, item.label);
           slItemDescMap.set(item.id, item.description ?? null);
+          slItemColorMap.set(item.id, item.color ?? null);
         }
       }
       const dispCodeToName = new Map<string, { name: string; color: string | null; icon: string | null; actionType: string }>();
@@ -13381,38 +13399,69 @@ Return ONLY valid JSON, no markdown code blocks.`,
       // Map by cc.id for direct campaignContactId matching
       const ccDispMapById = new Map<string, { campaignId: string; dispositionCode: string | null; checklistCodes: string[] | null }>();
       // Map by campaignId for fallback matching when campaignContactId is not on the call log
-      const ccDispByCampaignId = new Map<string, { dispositionCode: string | null; checklistCodes: string[] | null }>();
+      const ccDispByCampaignId = new Map<string, { id: string; dispositionCode: string | null; checklistCodes: string[] | null }>();
       for (const cc of entityCampaignContacts) {
         ccDispMapById.set(cc.id, { campaignId: cc.campaignId, dispositionCode: cc.dispositionCode, checklistCodes: cc.dispositionChecklistCodes });
         // Prefer the entry that has a disposition set
         const existing = ccDispByCampaignId.get(cc.campaignId);
         if (!existing || (cc.dispositionCode && !existing.dispositionCode)) {
-          ccDispByCampaignId.set(cc.campaignId, { dispositionCode: cc.dispositionCode, checklistCodes: cc.dispositionChecklistCodes });
+          ccDispByCampaignId.set(cc.campaignId, { id: cc.id, dispositionCode: cc.dispositionCode, checklistCodes: cc.dispositionChecklistCodes });
         }
+      }
+
+      const callsByContact = new Map<string, any[]>();
+      for (const item of historyItems) {
+        if (item.type !== "call" || !item.campaignId) continue;
+        const contactId = item.campaignContactId || ccDispByCampaignId.get(item.campaignId)?.id;
+        if (!contactId) continue;
+        const calls = callsByContact.get(contactId) || [];
+        calls.push(item);
+        callsByContact.set(contactId, calls);
+      }
+      for (const calls of callsByContact.values()) {
+        calls.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
       }
 
       for (const item of historyItems) {
         if (item.type === "call") {
-          let disp: { dispositionCode: string | null; checklistCodes: string[] | null; campaignId: string } | null = null;
-          if (item.campaignContactId && ccDispMapById.has(item.campaignContactId)) {
-            const d = ccDispMapById.get(item.campaignContactId)!;
-            disp = { ...d, campaignId: d.campaignId };
-          } else if (item.campaignId && ccDispByCampaignId.has(item.campaignId)) {
-            const d = ccDispByCampaignId.get(item.campaignId)!;
-            disp = { ...d, campaignId: item.campaignId };
+          const campaignId = item.campaignId as string | null;
+          const contactId = item.campaignContactId || (campaignId ? ccDispByCampaignId.get(campaignId)?.id : null);
+          if (!campaignId || !contactId) continue;
+
+          const callStart = new Date(item.timestamp).getTime();
+          const callEnd = item._endedAt
+            ? new Date(item._endedAt).getTime()
+            : callStart + Math.max(0, Number(item.duration || 0)) * 1000;
+          const sameContactCalls = callsByContact.get(contactId) || [];
+          const nextCall = sameContactCalls.find((candidate) => new Date(candidate.timestamp).getTime() > callStart);
+          const relevantHistory = eventsForCallOutcome(
+            campaignHistory.filter((entry) => entry.campaignContactId === contactId),
+            new Date(callStart),
+            new Date(callEnd),
+            nextCall?.timestamp || null,
+          );
+          const workflow = campaignWorkflowMap.get(campaignId) || { workflowMode: "disposition", statusListMode: "immediate" };
+          const statusListItems = new Map<string, { label: string; color: string | null }>();
+          for (const [id, label] of slItemLabelMap) {
+            statusListItems.set(id, { label, color: slItemColorMap.get(id) || null });
           }
-          if (disp?.dispositionCode) {
-            const key = `${disp.campaignId}::${disp.dispositionCode}`;
-            const dInfo = dispCampaignCodeToInfo.get(key) || dispCodeToName.get(disp.dispositionCode);
-            item.dispositionCode = disp.dispositionCode;
-            item.dispositionName = dInfo?.name || null;
-            item.dispositionColor = dInfo?.color || null;
-            item.dispositionChecklistCodes = disp.checklistCodes || [];
-            item.dispositionChecklistNames = (disp.checklistCodes || []).map((code: string) => {
-              const ck = dispCampaignCodeToInfo.get(`${disp!.campaignId}::${code}`) || dispCodeToName.get(code);
-              return ck?.name || code;
-            });
+          const dispositions = new Map<string, { name: string; color: string | null }>();
+          for (const disposition of allDispositions) {
+            if (disposition.campaignId === campaignId) {
+              dispositions.set(disposition.code, { name: disposition.name, color: disposition.color || null });
+            }
           }
+          const outcomeBadges = selectCallOutcomeBadges({
+            events: relevantHistory,
+            workflowMode: workflow.workflowMode,
+            statusListMode: workflow.statusListMode,
+            statusListItems,
+            dispositions,
+          });
+          item.workflowMode = workflow.workflowMode;
+          item.statusListMode = workflow.statusListMode;
+          item.outcomeBadges = outcomeBadges;
+          delete item._endedAt;
         }
       }
 

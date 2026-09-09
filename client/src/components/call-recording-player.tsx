@@ -18,6 +18,14 @@ interface CallLogDisposition {
   checklistItems: { code: string; name: string; color: string | null; icon: string | null }[];
 }
 
+interface CallOutcomeBadge {
+  kind: "status_list" | "disposition" | "callback";
+  code?: string;
+  label?: string;
+  color?: string | null;
+  callbackDate?: string | null;
+}
+
 export interface PlaybackState {
   currentTime: number;
   duration: number;
@@ -30,6 +38,7 @@ interface CallRecordingPlayerProps {
   onTimeUpdate?: (state: PlaybackState) => void;
   agentLabel?: string;
   customerLabel?: string;
+  outcomeBadges?: CallOutcomeBadge[];
 }
 
 interface RecordingAnalysis {
@@ -501,8 +510,38 @@ function DispositionPanel({ disposition }: { disposition: CallLogDisposition }) 
   );
 }
 
+function CallOutcomeBadges({ badges, compact }: { badges: CallOutcomeBadge[]; compact: boolean }) {
+  const { t } = useI18n();
+  if (!badges.length) return null;
+  return (
+    <div className={`flex items-start gap-1.5 flex-wrap mt-2 pt-2 ${compact ? "border-t border-indigo-100/60 dark:border-indigo-900/30" : "border-t border-border/40"}`} data-testid="call-outcome-section">
+      <Tag className={`${compact ? "h-3 w-3" : "h-3.5 w-3.5"} text-muted-foreground shrink-0 mt-0.5`} />
+      {badges.map((badge, index) => {
+        const color = badge.color || (badge.kind === "callback" ? "#2563eb" : "#059669");
+        const label = badge.kind === "callback"
+          ? t.agentWorkspace.dispCbScheduledTitle
+          : (badge.label || badge.code || "—");
+        return (
+          <Badge
+            key={`${badge.kind}-${badge.code || index}`}
+            variant={badge.kind === "callback" ? "outline" : "secondary"}
+            className={`${compact ? "text-[10px] h-4" : "text-[11px] h-5"} font-medium`}
+            style={{ backgroundColor: `${color}18`, color, borderColor: `${color}55` }}
+            data-testid={`badge-call-outcome-${badge.kind}`}
+          >
+            {badge.kind === "callback"
+              ? <MessageCircle className={`${compact ? "h-2 w-2" : "h-2.5 w-2.5"} mr-1`} />
+              : <CheckCircle2 className={`${compact ? "h-2 w-2" : "h-2.5 w-2.5"} mr-1`} />}
+            {label}
+          </Badge>
+        );
+      })}
+    </div>
+  );
+}
+
 export function CallRecordingPlayer(props: CallRecordingPlayerProps) {
-  const { callLogId, compact = false, onTimeUpdate } = props;
+  const { callLogId, compact = false, onTimeUpdate, outcomeBadges } = props;
   const { data: recordings = [], isLoading } = useQuery<CallRecording[]>({
     queryKey: ["/api/call-recordings", { callLogId: String(callLogId) }],
     queryFn: async () => {
@@ -523,13 +562,13 @@ export function CallRecordingPlayer(props: CallRecordingPlayerProps) {
   return (
     <div className="space-y-1.5 mt-2">
       {recordings.map((rec) => (
-        <RecordingItem key={rec.id} recording={rec} compact={compact} onTimeUpdate={onTimeUpdate} waveNames={waveNames} />
+        <RecordingItem key={rec.id} recording={rec} compact={compact} onTimeUpdate={onTimeUpdate} waveNames={waveNames} outcomeBadges={outcomeBadges} />
       ))}
     </div>
   );
 }
 
-function RecordingItem({ recording, compact, onTimeUpdate, waveNames }: { recording: CallRecording; compact: boolean; onTimeUpdate?: (state: PlaybackState) => void; waveNames?: string[] }) {
+function RecordingItem({ recording, compact, onTimeUpdate, waveNames, outcomeBadges }: { recording: CallRecording; compact: boolean; onTimeUpdate?: (state: PlaybackState) => void; waveNames?: string[]; outcomeBadges?: CallOutcomeBadge[] }) {
   const { user } = useAuth();
   const canReanalyze = user && ["admin", "manager"].includes(user.role);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -558,7 +597,7 @@ function RecordingItem({ recording, compact, onTimeUpdate, waveNames }: { record
       if (!res.ok) return null;
       return res.json();
     },
-    enabled: !!(recCampaignId || recCallLogId),
+    enabled: outcomeBadges === undefined && !!(recCampaignId || recCallLogId),
   });
 
   const { data: analysis, isLoading: analysisLoading } = useQuery<RecordingAnalysis>({
@@ -747,7 +786,8 @@ function RecordingItem({ recording, compact, onTimeUpdate, waveNames }: { record
           <CustomerActivityMarkers recording={recording} currentTime={currentTime} onSeek={handleWaveformSeek} />
 
           {/* Disposition + Checklist */}
-          {disposition && (
+          {outcomeBadges !== undefined && <CallOutcomeBadges badges={outcomeBadges} compact />}
+          {outcomeBadges === undefined && disposition && (
             <div className="flex items-start gap-1.5 flex-wrap mt-2 pt-2 border-t border-indigo-100/60 dark:border-indigo-900/30" data-testid="disposition-section">
               <Tag className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
               <Badge
@@ -877,7 +917,8 @@ function RecordingItem({ recording, compact, onTimeUpdate, waveNames }: { record
       )}
 
       {/* Disposition + Checklist — always visible below player */}
-      {disposition && (
+      {outcomeBadges !== undefined && <CallOutcomeBadges badges={outcomeBadges} compact={false} />}
+      {outcomeBadges === undefined && disposition && (
         <div className="flex items-start gap-1.5 flex-wrap mt-2 pt-2 border-t border-border/40" data-testid="disposition-section">
           <Tag className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
           <div className="flex flex-wrap gap-1">
