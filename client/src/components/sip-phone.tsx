@@ -232,7 +232,6 @@ export function SipPhone({
   const micProcessedTrackRef = useRef<MediaStreamTrack | null>(null);
   const userHungUpRef = useRef<boolean>(false);
   const pendingCallProcessedRef = useRef<boolean>(false);
-  const forceIdleRef = useRef<boolean>(false);
   // Per-mission max ring duration for outbound calls (0 = no limit).
   const maxRingSecondsRef = useRef<number>(0);
   const maxRingTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -240,6 +239,10 @@ export function SipPhone({
   const activeInboundMetaRef = useRef<{ queueId?: string; queueName?: string; direction?: string } | null>(null);
   const inboundTerminatedListenerRef = useRef<{ session: any; listener: (state: any) => void } | null>(null);
   const inboundFinalizeRef = useRef<(() => void) | null>(null);
+  const activeSessionFinalizeRef = useRef<{
+    session: Session;
+    finalize: (source: string) => void;
+  } | null>(null);
   const hangupPollRef = useRef<NodeJS.Timeout | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingChunksRef = useRef<Blob[]>([]);
@@ -261,6 +264,21 @@ export function SipPhone({
   const trustedAgentRecordingFinalizedRef = useRef<Set<string>>(new Set());
   const callContextRef = useRef(callContext);
   callContextRef.current = callContext;
+
+  const schedulePostCallRegistrationRecovery = useCallback((endedSession: Session | null) => {
+    window.setTimeout(() => {
+      const currentSession = sessionRef.current;
+      if (currentSession && currentSession !== endedSession) {
+        console.log("[SIP] Skipping post-call registration recovery during a newer call");
+        return;
+      }
+      void ensureRegistered().then((registered) => {
+        if (!registered) {
+          console.warn("[SIP] Post-call registration recovery is still pending");
+        }
+      });
+    }, 250);
+  }, [ensureRegistered]);
 
   const { data: globalSipSettings, isLoading: sipSettingsLoading } = useQuery<SipSettings | null>({
     queryKey: ["/api/sip-settings"],
@@ -529,8 +547,15 @@ export function SipPhone({
           });
           await apiRequest("POST", `/api/call-logs/${key}/start-agent-recording`, {});
           trustedAgentRecordingStartedRef.current.add(key);
-          if (String(session.state) !== "Terminated") {
+          const activeFinalizer = activeSessionFinalizeRef.current;
+          if (
+            sessionRef.current === session &&
+            activeFinalizer?.session === session &&
+            String(session.state) !== "Terminated"
+          ) {
             startRecording(session, snapshot);
+          } else {
+            console.log("[Recording] Skipping local recording start for a finalized call");
           }
           return true;
         } catch (error: any) {
@@ -913,6 +938,12 @@ export function SipPhone({
     clearMediaHealthMonitoring();
     releaseMicrophonePipeline();
     cleanupRecordingAnalysis();
+    activeSessionFinalizeRef.current = null;
+    inboundFinalizeRef.current = null;
+    if (hangupPollRef.current) {
+      clearInterval(hangupPollRef.current);
+      hangupPollRef.current = null;
+    }
     if (callTimerRef.current) {
       clearInterval(callTimerRef.current);
     }
@@ -1099,8 +1130,13 @@ export function SipPhone({
     setupAudio(session, "inbound");
 
     const doStartRecording = (attempt: number = 1) => {
-      if (String(session.state) === "Terminated") {
-        console.warn("[SIP-INBOUND] Session already terminated, skipping recording attempt", attempt);
+      const activeFinalizer = activeSessionFinalizeRef.current;
+      if (
+        sessionRef.current !== session ||
+        activeFinalizer?.session !== session ||
+        String(session.state) === "Terminated"
+      ) {
+        console.warn("[SIP-INBOUND] Session no longer active, skipping recording attempt", attempt);
         return;
       }
       console.log("[SIP-INBOUND] Starting recording attempt", attempt);
@@ -1137,12 +1173,18 @@ export function SipPhone({
       const stateStr = String(state);
       console.log("[SIP-INBOUND] Session state changed:", stateStr);
       if (stateStr !== "Terminated" && state !== SessionState.Terminated) return;
+      if (sessionRef.current !== session) {
+        console.log("[SIP-INBOUND] Ignoring termination signal from a stale session");
+        return;
+      }
       if (terminatedHandled) { console.log("[SIP-INBOUND] onTerminated already handled, skipping duplicate"); return; }
       terminatedHandled = true;
       inboundFinalizeRef.current = null;
+      if (activeSessionFinalizeRef.current?.session === session) {
+        activeSessionFinalizeRef.current = null;
+      }
       clearMediaHealthMonitoring();
       if (hangupPollRef.current) { clearInterval(hangupPollRef.current); hangupPollRef.current = null; }
-      if (forceIdleRef.current) { forceIdleRef.current = false; return; }
       console.log("[SIP-INBOUND] === CALL TERMINATED ===");
       inboundTerminatedListenerRef.current = null;
       const ctxNow = callContextRef.current;
@@ -1190,11 +1232,16 @@ export function SipPhone({
       }
       ctxNow.setAutoRecord(true);
       onCallEnd?.(duration, duration > 0 ? "completed" : "failed", inboundCallLogIdRef.current || 0);
+      schedulePostCallRegistrationRecovery(session);
       setCurrentCallLogId(null);
       setLocalCallerIdNumber("");
       activeInboundMetaRef.current = null;
       if (!ctxNow.preventAutoReset) {
         setTimeout(() => {
+          if (sessionRef.current !== session) {
+            console.log("[SIP-INBOUND] Skipping stale auto-reset after a newer call started");
+            return;
+          }
           setCallStateLocal((prev) => { if (prev === "ended") { callContextRef.current.setCallState("idle"); callContextRef.current.setCallInfo(null); callContextRef.current.resetCallTiming(); return "idle"; } return prev; });
           setCallDuration(0);
           callContextRef.current.setCallDuration(0);
@@ -1203,6 +1250,10 @@ export function SipPhone({
       }
     };
     inboundFinalizeRef.current = () => onTerminated(SessionState.Terminated);
+    activeSessionFinalizeRef.current = {
+      session,
+      finalize: () => onTerminated(SessionState.Terminated),
+    };
 
     if (session.stateChange) {
       session.stateChange.addListener(onTerminated);
@@ -1221,7 +1272,7 @@ export function SipPhone({
 
       // Helper to trigger hangup via a named mechanism (avoids duplicate firing)
       const triggerHangupDetection = (source: string) => {
-        if (terminatedHandled) return;
+        if (terminatedHandled || sessionRef.current !== session) return;
         console.warn(`[SIP-INBOUND] Hang-up detected via: ${source}`);
         if (hangupPollRef.current) { clearInterval(hangupPollRef.current); hangupPollRef.current = null; }
         onTerminated(SessionState.Terminated);
@@ -1365,7 +1416,7 @@ export function SipPhone({
     }).catch((err) => {
       console.error("[SIP-INBOUND] Failed to create call log:", err);
     });
-  }, [startRecording, startTrustedAgentRecording, stopRecordingAndUpload, cleanupRecordingAnalysis, onCallStart, onCallEnd]);
+  }, [startRecording, startTrustedAgentRecording, stopRecordingAndUpload, cleanupRecordingAnalysis, onCallStart, onCallEnd, schedulePostCallRegistrationRecovery]);
 
   const handleInboundAnsweredRef = useRef(handleInboundAnswered);
   handleInboundAnsweredRef.current = handleInboundAnswered;
@@ -1632,7 +1683,7 @@ export function SipPhone({
       sessionRef.current = inviter;
       const callLogId = callLogData.id;
 
-      inviter.stateChange.addListener((state) => {
+      const onOutboundStateChange = (state: SessionState) => {
         console.log("Call state:", state);
         switch (state) {
           case SessionState.Establishing:
@@ -1695,27 +1746,70 @@ export function SipPhone({
             });
             onCallStart?.(phoneNumber, callLogId);
             setupAudio(inviter, "outbound");
+            if (hangupPollRef.current) clearInterval(hangupPollRef.current);
+            hangupPollRef.current = setInterval(() => {
+              if (sessionRef.current !== inviter) {
+                if (hangupPollRef.current) clearInterval(hangupPollRef.current);
+                hangupPollRef.current = null;
+                return;
+              }
+              const sipState = String(inviter.state);
+              const sdh = inviter.sessionDescriptionHandler;
+              const pc: RTCPeerConnection | null = sdh ? (sdh as any).peerConnection : null;
+              const pcFailed = pc && (
+                pc.connectionState === "closed" ||
+                pc.connectionState === "failed" ||
+                pc.iceConnectionState === "closed" ||
+                pc.iceConnectionState === "failed"
+              );
+              if (sipState === "Terminated" || pcFailed) {
+                const source = sipState === "Terminated"
+                  ? "outbound SIP state poll"
+                  : `outbound PC/ICE poll (conn=${pc?.connectionState} ice=${pc?.iceConnectionState})`;
+                const activeFinalizer = activeSessionFinalizeRef.current;
+                if (activeFinalizer?.session === inviter) {
+                  activeFinalizer.finalize(source);
+                }
+              }
+            }, 1000);
             const recordingSnapshot = recordingSnapshotRef.current;
             if (recordingSnapshot?.active && recordingSnapshot.mode === "agent_only") {
               void startTrustedAgentRecording(callLogId, inviter, recordingSnapshot);
             } else if (recordingSnapshot ? recordingSnapshot.active : callContextRef.current.autoRecord) {
-              setTimeout(() => startRecording(inviter, recordingSnapshot), 500);
+              setTimeout(() => {
+                const activeFinalizer = activeSessionFinalizeRef.current;
+                if (
+                  sessionRef.current === inviter &&
+                  activeFinalizer?.session === inviter &&
+                  String(inviter.state) !== "Terminated"
+                ) {
+                  startRecording(inviter, recordingSnapshot);
+                } else {
+                  console.log("[Recording] Skipping delayed recording start for a finalized outbound call");
+                }
+              }, 500);
             }
             break;
           case SessionState.Terminated:
+            if (sessionRef.current !== inviter) {
+              console.log("[SIP-OUTBOUND] Ignoring termination signal from a stale session");
+              break;
+            }
             makeCallGuardRef.current = false;
             clearMediaHealthMonitoring();
             if (maxRingTimerRef.current) {
               clearTimeout(maxRingTimerRef.current);
               maxRingTimerRef.current = null;
             }
-            if (forceIdleRef.current) {
-              forceIdleRef.current = false;
-              ringTimedOutRef.current = false;
-              break;
-            }
             if (outboundTerminatedSessionsRef.current.has(inviter)) break;
             outboundTerminatedSessionsRef.current.add(inviter);
+            if (activeSessionFinalizeRef.current?.session === inviter) {
+              activeSessionFinalizeRef.current = null;
+            }
+            if (hangupPollRef.current) {
+              clearInterval(hangupPollRef.current);
+              hangupPollRef.current = null;
+            }
             const duration = callStartTimeRef.current 
               ? Math.floor((Date.now() - callStartTimeRef.current) / 1000) 
               : 0;
@@ -1763,9 +1857,14 @@ export function SipPhone({
             }
             callContextRef.current.setAutoRecord(true);
             onCallEnd?.(duration, terminatedStatus, callLogId);
+            schedulePostCallRegistrationRecovery(inviter);
             setCurrentCallLogId(null);
             if (!callContextRef.current.preventAutoReset) {
               setTimeout(() => {
+                if (sessionRef.current !== inviter) {
+                  console.log("[SIP-OUTBOUND] Skipping stale auto-reset after a newer call started");
+                  return;
+                }
                 setCallStateLocal((prev) => {
                   if (prev === "ended") {
                     callContextRef.current.setCallState("idle");
@@ -1782,7 +1881,15 @@ export function SipPhone({
             }
             break;
         }
-      });
+      };
+      activeSessionFinalizeRef.current = {
+        session: inviter,
+        finalize: (source) => {
+          console.warn(`[SIP-OUTBOUND] Finalizing current call via: ${source}`);
+          onOutboundStateChange(SessionState.Terminated);
+        },
+      };
+      inviter.stateChange.addListener(onOutboundStateChange);
 
       await inviter.invite();
     } catch (error) {
@@ -2382,29 +2489,31 @@ export function SipPhone({
     };
   }, [installMicrophoneTrack, t.agentWorkspace, toast]);
 
-  const finalizeInboundIfCurrent = useCallback((capturedSession: Session, source: string) => {
+  const finalizeSessionIfCurrent = useCallback((capturedSession: Session, source: string) => {
     if (sessionRef.current !== capturedSession) return;
-    console.warn(`[SIP-INBOUND] Finalizing current inbound call via: ${source}`);
-    inboundFinalizeRef.current?.();
+    const activeFinalizer = activeSessionFinalizeRef.current;
+    if (!activeFinalizer || activeFinalizer.session !== capturedSession) return;
+    console.warn(`[SIP] Finalizing current call via: ${source}`);
+    activeFinalizer.finalize(source);
   }, []);
 
   const sendByeWithInboundFallback = useCallback((capturedSession: Session, source: string) => {
     try {
       void Promise.resolve(capturedSession.bye()).catch((error) => {
         console.error(`[SIP-INBOUND] BYE failed (${source}), finalizing locally:`, error);
-        finalizeInboundIfCurrent(capturedSession, `${source} BYE rejection`);
+        finalizeSessionIfCurrent(capturedSession, `${source} BYE rejection`);
       });
     } catch (error) {
       console.error(`[SIP-INBOUND] BYE threw (${source}), finalizing locally:`, error);
-      finalizeInboundIfCurrent(capturedSession, `${source} BYE exception`);
+      finalizeSessionIfCurrent(capturedSession, `${source} BYE exception`);
       return;
     }
     // SIP.js normally emits Terminated after BYE. Keep a session-bound local
     // fallback so a delayed result from this call can never finalize a later one.
     setTimeout(() => {
-      finalizeInboundIfCurrent(capturedSession, `${source} termination timeout`);
+      finalizeSessionIfCurrent(capturedSession, `${source} termination timeout`);
     }, 1200);
-  }, [finalizeInboundIfCurrent]);
+  }, [finalizeSessionIfCurrent]);
 
   const remoteHangup = useCallback(() => {
     clearMediaHealthMonitoring();
@@ -2417,11 +2526,11 @@ export function SipPhone({
           console.log("[SIP-INBOUND] remoteHangup: sending BYE");
           sendByeWithInboundFallback(session, "server remote hangup");
         } else {
-          finalizeInboundIfCurrent(session, "server remote hangup");
+          finalizeSessionIfCurrent(session, "server remote hangup");
         }
       } catch (error) {
         console.error("Error in remoteHangup:", error);
-        finalizeInboundIfCurrent(session, "server remote hangup exception");
+        finalizeSessionIfCurrent(session, "server remote hangup exception");
       }
     }
     if (audioContextRef.current) {
@@ -2434,7 +2543,7 @@ export function SipPhone({
     if (callTimerRef.current) {
       clearInterval(callTimerRef.current);
     }
-  }, [clearMediaHealthMonitoring, releaseMicrophonePipeline, sendByeWithInboundFallback, finalizeInboundIfCurrent]);
+  }, [clearMediaHealthMonitoring, releaseMicrophonePipeline, sendByeWithInboundFallback, finalizeSessionIfCurrent]);
 
   const endCall = useCallback(() => {
     clearMediaHealthMonitoring();
@@ -2453,7 +2562,7 @@ export function SipPhone({
           console.log("[SIP-INBOUND] Sending BYE to end call");
           sendByeWithInboundFallback(session, "agent end call");
         } else if (session.state === SessionState.Terminated || String(session.state) === "Terminated") {
-          finalizeInboundIfCurrent(session, "agent end already-terminated call");
+          finalizeSessionIfCurrent(session, "agent end already-terminated call");
         } else {
           console.log("[SIP-INBOUND] Cancelling call (not established)");
           (session as Inviter).cancel?.();
@@ -2494,23 +2603,23 @@ export function SipPhone({
     if (callTimerRef.current) {
       clearInterval(callTimerRef.current);
     }
-  }, [currentCallLogId, updateCallLogMutation, clearMediaHealthMonitoring, releaseMicrophonePipeline, sendByeWithInboundFallback, finalizeInboundIfCurrent]);
+  }, [currentCallLogId, updateCallLogMutation, clearMediaHealthMonitoring, releaseMicrophonePipeline, sendByeWithInboundFallback, finalizeSessionIfCurrent]);
 
   const forceResetCall = useCallback(() => {
     clearMediaHealthMonitoring();
     releaseMicrophonePipeline();
+    activeSessionFinalizeRef.current = null;
+    inboundFinalizeRef.current = null;
+    if (hangupPollRef.current) {
+      clearInterval(hangupPollRef.current);
+      hangupPollRef.current = null;
+    }
     ringTimedOutRef.current = false;
     if (maxRingTimerRef.current) {
       clearTimeout(maxRingTimerRef.current);
       maxRingTimerRef.current = null;
     }
-    // Only arm the forceIdle flag when there is an active SIP session.
-    // If called without a session (e.g. at session end with no live call),
-    // leaving the flag true would cause the NEXT call's onTerminated to
-    // early-return and never fire setCallState("ended").
-    if (sessionRef.current) {
-      forceIdleRef.current = true;
-    }
+    const resetSession = sessionRef.current;
 
     if (currentCallLogId) {
       const duration = callStartTimeRef.current 
@@ -2545,12 +2654,15 @@ export function SipPhone({
       });
     }
 
-    if (sessionRef.current) {
+    // Invalidate ownership before signaling. SIP.js may emit Terminated
+    // synchronously from bye(), and that old event must not finalize twice.
+    sessionRef.current = null;
+    if (resetSession) {
       try {
-        if (sessionRef.current.state === SessionState.Established) {
-          sessionRef.current.bye();
-        } else if (sessionRef.current.state !== SessionState.Terminated) {
-          (sessionRef.current as Inviter).cancel?.();
+        if (resetSession.state === SessionState.Established) {
+          resetSession.bye();
+        } else if (resetSession.state !== SessionState.Terminated) {
+          (resetSession as Inviter).cancel?.();
         }
       } catch (e) {
         console.error("Error force-ending call:", e);
@@ -2566,7 +2678,6 @@ export function SipPhone({
     if (callTimerRef.current) {
       clearInterval(callTimerRef.current);
     }
-    sessionRef.current = null;
     callStartTimeRef.current = 0;
     userHungUpRef.current = false;
     setCallStateLocal("idle");
@@ -2580,7 +2691,8 @@ export function SipPhone({
     callContextRef.current.resetCallTiming();
     callContextRef.current.setIsMuted(false);
     callContextRef.current.setIsOnHold(false);
-  }, [currentCallLogId, updateCallLogMutation, localCustomerId, clearMediaHealthMonitoring, releaseMicrophonePipeline]);
+    schedulePostCallRegistrationRecovery(resetSession);
+  }, [currentCallLogId, updateCallLogMutation, localCustomerId, clearMediaHealthMonitoring, releaseMicrophonePipeline, schedulePostCallRegistrationRecovery]);
 
   const toggleMute = useCallback(() => {
     if (!sessionRef.current) return;
