@@ -9,11 +9,11 @@ Initial no-flow or one-way RTP immediately after SIP establishment must never by
 
 **How to apply:** Keep initial advisory state separate from confirmed interruption and exhausted-recovery state. Permit one bounded recovery only when eligible, and escalate visibly if RTP remains unhealthy afterward.
 
-Outbound calls have a separate answer-time exception for the reproducible long-ring boundary: after at least 10 seconds of ringing, sample post-answer RTP before acting. If bidirectional RTP is already flowing, leave the call untouched. If it is not flowing, or early-dialog ICE was observed failed/disconnected, perform one session-owned ICE re-INVITE, preserve mute, rebind remote audio, and restart monitoring with a fresh baseline and convergence grace.
+Outbound calls use SIP late offer: the initial INVITE has no SDP, and the browser creates its WebRTC peer connection, ICE/TURN path, and SDP answer only after the destination answers. Never create the outbound media path at dial time or use ring-duration-triggered re-INVITE as a workaround.
 
 **Why:** Production testing confirmed that calls answered before 10 seconds had audio while calls answered after 10 seconds consistently did not, even though the Mission allowed a longer ring duration.
 
-**How to apply:** Mission max-ring remains only the unanswered-call cancellation deadline. Never shorten it to hide the media defect, and never force recovery solely from elapsed ring time without first checking post-answer bidirectional RTP.
+**How to apply:** Mission max-ring remains only the unanswered-call cancellation deadline. Never shorten it to hide the media defect. Once the final response creates a confirmed dialog, neither automatic timeout nor agent hangup may send CANCEL while late-offer ICE/ACK is still being prepared; wait for establishment, then use a single BYE.
 
 Server-originated hangup events must be matched to the exact active inbound call ID and SIP session/finalizer before any microphone cleanup, local finalization, or BYE. Ring-timeout CANCEL must recheck session identity and state after a short final-response grace.
 

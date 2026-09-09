@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import {
   isCorrelatedInboundHangup,
+  shouldApplyEstablishedSessionEffects,
   shouldCancelAfterRingGrace,
-  shouldRecoverOutboundMediaAfterAnswer,
 } from "./sip-session-guards";
 
 const inboundA = {};
@@ -29,54 +29,22 @@ assert.equal(isCorrelatedInboundHangup({
 assert.equal(shouldCancelAfterRingGrace({ sameSession: true, sessionState: "Establishing" }), true);
 assert.equal(shouldCancelAfterRingGrace({ sameSession: true, sessionState: "Established" }), false);
 assert.equal(shouldCancelAfterRingGrace({ sameSession: false, sessionState: "Establishing" }), false);
-
-assert.equal(shouldRecoverOutboundMediaAfterAnswer({
-  ringDurationMs: 9_900,
-  earlyIceDegraded: false,
-  postAnswerBidirectionalRtp: false,
-  sessionState: "Established",
-  isHeld: false,
-  recoveryAttempted: false,
-}), false, "a short ring without ICE failure does not force renegotiation");
-assert.equal(shouldRecoverOutboundMediaAfterAnswer({
-  ringDurationMs: 10_100,
-  earlyIceDegraded: false,
-  postAnswerBidirectionalRtp: false,
-  sessionState: "Established",
-  isHeld: false,
-  recoveryAttempted: false,
-}), true, "a long ring with no post-answer RTP refreshes ICE once");
-assert.equal(shouldRecoverOutboundMediaAfterAnswer({
-  ringDurationMs: 29_000,
-  earlyIceDegraded: false,
-  postAnswerBidirectionalRtp: true,
-  sessionState: "Established",
-  isHeld: false,
-  recoveryAttempted: false,
-}), false, "healthy long-ringing calls are never renegotiated");
-assert.equal(shouldRecoverOutboundMediaAfterAnswer({
-  ringDurationMs: 9_000,
-  earlyIceDegraded: true,
-  postAnswerBidirectionalRtp: false,
-  sessionState: "Established",
-  isHeld: false,
-  recoveryAttempted: false,
-}), true, "observed early-dialog ICE failure permits answer-time recovery");
-assert.equal(shouldRecoverOutboundMediaAfterAnswer({
-  ringDurationMs: 29_000,
-  earlyIceDegraded: true,
-  postAnswerBidirectionalRtp: false,
-  sessionState: "Established",
-  isHeld: true,
-  recoveryAttempted: false,
-}), false, "answer-time recovery cannot run on hold");
-assert.equal(shouldRecoverOutboundMediaAfterAnswer({
-  ringDurationMs: 29_000,
-  earlyIceDegraded: true,
-  postAnswerBidirectionalRtp: false,
-  sessionState: "Terminated",
-  isHeld: false,
-  recoveryAttempted: false,
-}), false, "answer-time recovery cannot run after termination");
+assert.equal(shouldCancelAfterRingGrace({
+  sameSession: true,
+  sessionState: "Establishing",
+  finalResponseReceived: true,
+}), false, "max-ring must not CANCEL while an accepted late offer is creating ICE and ACK");
+assert.equal(shouldApplyEstablishedSessionEffects({
+  sameSession: true,
+  ownsFinalizer: true,
+}), true, "the current owned session may activate shared call state");
+assert.equal(shouldApplyEstablishedSessionEffects({
+  sameSession: false,
+  ownsFinalizer: true,
+}), false, "a stale established session cannot mutate a newer call");
+assert.equal(shouldApplyEstablishedSessionEffects({
+  sameSession: true,
+  ownsFinalizer: false,
+}), false, "an already-finalized session cannot reactivate shared call state");
 
 console.log("SIP session correlation guards passed");

@@ -20,26 +20,17 @@ export function isCorrelatedInboundHangup(input: {
 export function shouldCancelAfterRingGrace(input: {
   sameSession: boolean;
   sessionState: string;
+  finalResponseReceived?: boolean;
 }): boolean {
   return input.sameSession &&
+    !input.finalResponseReceived &&
     input.sessionState !== "Established" &&
     input.sessionState !== "Terminated";
 }
 
-export function shouldRecoverOutboundMediaAfterAnswer(input: {
-  ringDurationMs: number;
-  earlyIceDegraded: boolean;
-  postAnswerBidirectionalRtp: boolean;
-  sessionState: string;
-  isHeld: boolean;
-  recoveryAttempted: boolean;
+export function shouldApplyEstablishedSessionEffects(input: {
+  sameSession: boolean;
+  ownsFinalizer: boolean;
 }): boolean {
-  if (
-    input.sessionState !== "Established" ||
-    input.isHeld ||
-    input.recoveryAttempted ||
-    input.postAnswerBidirectionalRtp
-  ) return false;
-
-  return input.earlyIceDegraded || input.ringDurationMs >= 10_000;
+  return input.sameSession && input.ownsFinalizer;
 }

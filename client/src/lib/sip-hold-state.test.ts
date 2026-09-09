@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { isHeldCallRecoveryCandidate, recoverHeldSessionMedia, restartSessionMedia, shouldAttemptHeldCallRecovery, unhold } from "./sip-hold";
+import { endSessionBounded, isHeldCallRecoveryCandidate, recoverHeldSessionMedia, restartSessionMedia, shouldAttemptHeldCallRecovery, unhold } from "./sip-hold";
 
 const session = (isHeld: boolean, desiredHeld: boolean | undefined) => ({
   __isHeld: isHeld,
@@ -68,5 +68,43 @@ await new Promise((resolve) => setTimeout(resolve, 0));
 mediaDelegates[0].onAccept();
 await mutedRecovery;
 assert.equal(mutedTrack.enabled, false, "media recovery must preserve explicit microphone mute");
+
+const lateOfferListeners = new Set<(state: string) => void>();
+let lateOfferCancelCount = 0;
+let lateOfferByeCount = 0;
+const acceptedLateOfferSession: any = {
+  state: "Establishing",
+  _dialog: {},
+  stateChange: {
+    addListener(listener: (state: string) => void) { lateOfferListeners.add(listener); },
+    removeListener(listener: (state: string) => void) { lateOfferListeners.delete(listener); },
+  },
+  cancel() { lateOfferCancelCount++; },
+  bye() { lateOfferByeCount++; },
+};
+const acceptedLateOfferEnd = endSessionBounded(acceptedLateOfferSession, 5);
+await new Promise((resolve) => setTimeout(resolve, 10));
+assert.equal(lateOfferCancelCount, 0, "an accepted late-offer dialog must never receive CANCEL");
+acceptedLateOfferSession.state = "Established";
+lateOfferListeners.forEach((listener) => listener("Established"));
+await acceptedLateOfferEnd;
+assert.equal(lateOfferCancelCount, 0, "settled accepted dialog still must not receive CANCEL");
+assert.equal(lateOfferByeCount, 1, "accepted late-offer hangup sends exactly one BYE after negotiation");
+
+let stalledEstablishedByeCount = 0;
+let stalledEstablishedCancelCount = 0;
+const stalledEstablishedSession: any = {
+  state: "Established",
+  _dialog: {},
+  __sipOperationQueue: new Promise<void>(() => {}),
+  stateChange: { addListener() {}, removeListener() {} },
+  cancel() { stalledEstablishedCancelCount++; },
+  bye() { stalledEstablishedByeCount++; },
+};
+await endSessionBounded(stalledEstablishedSession, 5);
+assert.equal(stalledEstablishedCancelCount, 0, "an established dialog is never cancelled");
+assert.equal(stalledEstablishedByeCount, 1, "emergency termination bypasses a stalled SIP operation with one BYE");
+await endSessionBounded(stalledEstablishedSession, 5);
+assert.equal(stalledEstablishedByeCount, 1, "repeated termination requests cannot send duplicate BYE");
 
 console.log("SIP hold recovery intent tests passed");

@@ -288,6 +288,42 @@ export function isHoldTransitioning(session: Session): boolean {
     || (!!sessionAny.__desiredHeld !== !!sessionAny.__isHeld);
 }
 
+export function hasConfirmedDialog(session: Session): boolean {
+  return Boolean((session as any)?._dialog);
+}
+
+function waitForEstablishedOrTerminated(session: Session, timeoutMs = 15_000): Promise<"Established" | "Terminated"> {
+  const current = String(session.state);
+  if (current === "Established" || current === "Terminated") {
+    return Promise.resolve(current);
+  }
+  return new Promise((resolve, reject) => {
+    const finish = (state?: "Established" | "Terminated", error?: Error) => {
+      window.clearTimeout(timer);
+      session.stateChange?.removeListener(onStateChange);
+      if (error) reject(error);
+      else resolve(state!);
+    };
+    const onStateChange = (state: unknown) => {
+      const value = String(state);
+      if (value === "Established" || value === "Terminated") {
+        finish(value);
+      }
+    };
+    const timer = window.setTimeout(() => {
+      finish(undefined, new Error("Accepted SIP dialog did not finish media negotiation"));
+    }, timeoutMs);
+    session.stateChange?.addListener(onStateChange);
+  });
+}
+
+async function sendByeOnce(session: Session): Promise<void> {
+  const sessionAny = session as any;
+  if (sessionAny.__terminationByeSent) return;
+  sessionAny.__terminationByeSent = true;
+  await Promise.resolve(session.bye());
+}
+
 export function endSessionAfterSipOperations(session: Session): Promise<void> {
   const sessionAny = session as any;
   sessionAny.__terminationRequested = true;
@@ -295,7 +331,12 @@ export function endSessionAfterSipOperations(session: Session): Promise<void> {
   return enqueueSipOperation(session, "terminate", async () => {
     if (String(session.state) === "Terminated") return;
     if (String(session.state) === "Established") {
-      await Promise.resolve(session.bye());
+      await sendByeOnce(session);
+      return;
+    }
+    if (hasConfirmedDialog(session)) {
+      const settledState = await waitForEstablishedOrTerminated(session);
+      if (settledState === "Established") await sendByeOnce(session);
       return;
     }
     await Promise.resolve(sessionAny.cancel?.());
@@ -308,7 +349,12 @@ export async function forceEndSessionNow(session: Session): Promise<void> {
   sessionAny.__desiredHeld = false;
   if (String(session.state) === "Terminated") return;
   if (String(session.state) === "Established") {
-    await Promise.resolve(session.bye());
+    await sendByeOnce(session);
+    return;
+  }
+  if (hasConfirmedDialog(session)) {
+    const settledState = await waitForEstablishedOrTerminated(session);
+    if (settledState === "Established") await sendByeOnce(session);
     return;
   }
   await Promise.resolve(sessionAny.cancel?.());
@@ -318,6 +364,9 @@ export function endSessionBounded(session: Session, timeoutMs = 1500): Promise<v
   const queuedEnd = endSessionAfterSipOperations(session);
   const emergencyEnd = new Promise<void>((resolve, reject) => {
     window.setTimeout(() => {
+      // forceEndSessionNow preserves the distinction between a normal
+      // established dialog (send BYE immediately) and an accepted late-offer
+      // dialog still preparing its ACK (wait, never send CANCEL).
       forceEndSessionNow(session).then(resolve, reject);
     }, timeoutMs);
   });
