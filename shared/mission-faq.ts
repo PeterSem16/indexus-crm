@@ -2,6 +2,7 @@ export interface MissionFaqItem {
   id: string;
   question: string;
   answer: string;
+  category?: string;
 }
 
 const MAX_FAQ_ITEMS = 100;
@@ -37,6 +38,9 @@ export function normalizeMissionFaqItems(value: unknown): MissionFaqItem[] {
       ? raw.question.replace(/<[^>]*>/g, "").trim().slice(0, MAX_QUESTION_LENGTH)
       : "";
     const answer = sanitizeMissionFaqAnswer(raw.answer);
+    const category = typeof raw.category === "string"
+      ? raw.category.replace(/<[^>]*>/g, "").trim().slice(0, 100)
+      : "";
     const answerText = answer
       .replace(/<[^>]*>/g, "")
       .replace(/&nbsp;|&#160;/gi, " ")
@@ -48,7 +52,7 @@ export function normalizeMissionFaqItems(value: unknown): MissionFaqItem[] {
     if (!id || seen.has(id)) id = `faq-${index + 1}`;
     while (seen.has(id)) id = `${id}-${index + 1}`;
     seen.add(id);
-    items.push({ id, question, answer });
+    items.push({ id, question, answer, ...(category ? { category } : {}) });
   }
   return items;
 }

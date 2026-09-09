@@ -10,17 +10,10 @@ import {
 import { useI18n } from "@/i18n";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { readMissionFaq } from "@/lib/mission-faq";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-
-function readFaq(settings: string | null | undefined): MissionFaqItem[] {
-  try {
-    return normalizeMissionFaqItems(JSON.parse(settings || "{}").faq);
-  } catch {
-    return [];
-  }
-}
 
 function SimpleBoldEditor({
   value,
@@ -90,9 +83,9 @@ function SimpleBoldEditor({
 }
 
 export function MissionFaqSettings({ campaign }: { campaign: Campaign }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { toast } = useToast();
-  const [items, setItems] = useState<MissionFaqItem[]>(() => readFaq(campaign.settings));
+  const [items, setItems] = useState<MissionFaqItem[]>(() => readMissionFaq(campaign.settings, locale));
   const [modified, setModified] = useState(false);
   const hasIncompleteItem = items.some((item) => (
     !item.question.trim()
@@ -100,19 +93,15 @@ export function MissionFaqSettings({ campaign }: { campaign: Campaign }) {
   ));
 
   useEffect(() => {
-    setItems(readFaq(campaign.settings));
+    setItems(readMissionFaq(campaign.settings, locale));
     setModified(false);
-  }, [campaign.id, campaign.settings]);
+  }, [campaign.id, campaign.settings, locale]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      let settings: Record<string, unknown> = {};
-      try {
-        settings = JSON.parse(campaign.settings || "{}");
-      } catch {}
       const faq = normalizeMissionFaqItems(items);
-      return apiRequest("PATCH", `/api/campaigns/${campaign.id}`, {
-        settings: JSON.stringify({ ...settings, faq }),
+      return apiRequest("PATCH", `/api/campaigns/${campaign.id}/faq`, {
+        faq,
       });
     },
     onSuccess: () => {
@@ -143,6 +132,7 @@ export function MissionFaqSettings({ campaign }: { campaign: Campaign }) {
         id: typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `faq-${Date.now()}`,
         question: "",
         answer: "",
+        category: t.campaigns.faq.category,
       },
     ]);
     setModified(true);
@@ -209,6 +199,13 @@ export function MissionFaqSettings({ campaign }: { campaign: Campaign }) {
                 <Trash2 className="h-4 w-4" />
               </Button>
             </div>
+            <Input
+              value={item.category || ""}
+              maxLength={100}
+              placeholder={t.campaigns.faq.category}
+              onChange={(event) => updateItem(item.id, { category: event.target.value })}
+              data-testid={`input-mission-faq-category-${item.id}`}
+            />
             <SimpleBoldEditor
               value={item.answer}
               onChange={(answer) => updateItem(item.id, { answer })}

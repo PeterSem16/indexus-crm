@@ -26632,6 +26632,40 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
+  app.patch("/api/campaigns/:id/faq", requireAuth, async (req, res) => {
+    try {
+      const sessionUser = req.session.user;
+      if (!sessionUser || !["admin", "manager"].includes(sessionUser.role)) {
+        return res.status(403).json({ error: "Only managers can change Mission FAQ" });
+      }
+      const currentCampaign = await storage.getCampaign(req.params.id);
+      if (!currentCampaign) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+      const faq = normalizeMissionFaqItems(req.body?.faq);
+      const faqJson = JSON.stringify(faq);
+      await db
+        .update(campaigns)
+        .set({
+          settings: sql`jsonb_set(COALESCE(NULLIF(${campaigns.settings}, '')::jsonb, '{}'::jsonb), '{faq}', ${faqJson}::jsonb, true)::text`,
+          updatedAt: new Date(),
+        })
+        .where(eq(campaigns.id, req.params.id));
+      const campaign = await storage.getCampaign(req.params.id);
+      await logActivity(
+        sessionUser.id,
+        "updated_campaign_faq",
+        "campaign",
+        req.params.id,
+        currentCampaign.name,
+      );
+      res.json(campaign);
+    } catch (error) {
+      console.error("Failed to update Mission FAQ:", error);
+      res.status(500).json({ error: "Failed to update Mission FAQ" });
+    }
+  });
+
   app.patch("/api/campaigns/:id", requireAuth, async (req, res) => {
     try {
       if (req.body?.settings !== undefined) {

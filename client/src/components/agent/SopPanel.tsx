@@ -18,7 +18,8 @@ import {
   type LucideIcon
 } from "lucide-react";
 import type { Campaign, SopArticle, SopCategory, SopArticleRead } from "@shared/schema";
-import { normalizeMissionFaqItems, sanitizeMissionFaqAnswer } from "@shared/mission-faq";
+import { sanitizeMissionFaqAnswer } from "@shared/mission-faq";
+import { readMissionFaq } from "@/lib/mission-faq";
 
 const ICON_MAP: Record<string, LucideIcon> = {
   "clipboard": Clipboard, "folder-closed": FolderClosed, "folder-open": FolderOpen,
@@ -121,7 +122,7 @@ interface SopPanelProps {
 }
 
 export function SopPanel({ campaignId, userId }: SopPanelProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -186,12 +187,8 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
   });
 
   const missionFaq = useMemo(() => {
-    try {
-      return normalizeMissionFaqItems(JSON.parse(campaign?.settings || "{}").faq);
-    } catch {
-      return [];
-    }
-  }, [campaign?.settings]);
+    return readMissionFaq(campaign?.settings, locale);
+  }, [campaign?.settings, locale]);
 
   const { data: userReads = [] } = useQuery<SopArticleRead[]>({
     queryKey: ["/api/sop/user-reads"],

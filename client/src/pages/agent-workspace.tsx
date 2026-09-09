@@ -18,6 +18,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { NexusPulseView } from "@/components/nexus-pulse-view";
 import { isPulseAgentWorkProtected } from "@/features/nexus-pulse-preflight/diagnostics";
+import { readMissionFaq } from "@/lib/mission-faq";
+import { sanitizeMissionFaqAnswer } from "@shared/mission-faq";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -8780,7 +8782,10 @@ function CustomerInfoPanel({
               { id: "8", question: "Ist es für Geschwister kompatibel?", answer: "Ja, Nabelschnurblut ist mit höherer Wahrscheinlichkeit zwischen Geschwistern kompatibel (25% volle Übereinstimmung). Für das Kind selbst beträgt die Übereinstimmung 100%.", category: "Behandlung" },
             ],
           };
-          const campaignFaqs = sampleFaqData[locale] || sampleFaqData.en;
+          const campaignFaqs = readMissionFaq(campaign?.settings, locale).map((faq) => ({
+            ...faq,
+            category: faq.category || t.campaigns.faq.category,
+          }));
 
           const [expandedFaqId, setExpandedFaqId] = [faqExpandedId, setFaqExpandedId];
           const [faqSearch, setFaqSearch] = [faqSearchQuery, setFaqSearchQuery];
@@ -8903,11 +8908,10 @@ function CustomerInfoPanel({
                                   <div
                                     className={`${isModal ? "px-3 pb-3 pt-1 ml-6" : "px-2 pb-2 pt-0.5 ml-5"} border-t border-border`}
                                   >
-                                    <p
+                                    <div
                                       className={`${isModal ? "text-sm" : "text-[11px]"} leading-relaxed text-muted-foreground`}
-                                    >
-                                      {faq.answer}
-                                    </p>
+                                      dangerouslySetInnerHTML={{ __html: sanitizeMissionFaqAnswer(faq.answer) }}
+                                    />
                                   </div>
                                 )}
                               </div>

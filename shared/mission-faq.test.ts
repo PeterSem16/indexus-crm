@@ -15,11 +15,11 @@ assert.equal(
 
 assert.deepEqual(
   normalizeMissionFaqItems([
-    { id: "bad id!", question: " Question ", answer: "<b>Answer</b>" },
+    { id: "bad id!", question: " Question ", answer: "<b>Answer</b>", category: "<b> General </b>" },
     { id: "incomplete", question: "", answer: "Answer" },
     { id: "also-incomplete", question: "Question", answer: "<strong></strong>" },
   ]),
-  [{ id: "badid", question: "Question", answer: "<strong>Answer</strong>" }],
+  [{ id: "badid", question: "Question", answer: "<strong>Answer</strong>", category: "General" }],
 );
 
 console.log("Mission FAQ tests passed");
