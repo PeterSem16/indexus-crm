@@ -3962,6 +3962,8 @@ export interface Translations {
     mediaRecoveryTitle: string;
     mediaRecoveryDesc: string;
     mediaRecoveryProgress: string;
+    mediaWarningTitle: string;
+    mediaWarningDesc: string;
     mediaCriticalTitle: string;
     mediaCriticalDesc: string;
     audioConnectionFailedTitle: string;
@@ -11855,6 +11857,8 @@ export const translations: Record<Locale, Translations> = {
       mediaRecoveryTitle: 'Restoring the call',
       mediaRecoveryDesc: 'A temporary network or audio interruption was detected. NEXUS Pulse is repairing the connection.',
       mediaRecoveryProgress: 'Temporary interruption — automatic recovery is in progress.',
+      mediaWarningTitle: 'Call audio is unstable',
+      mediaWarningDesc: 'We are still checking the connection. Keep the caller informed while NEXUS Pulse verifies the audio.',
       mediaCriticalTitle: 'Critical call audio problem',
       mediaCriticalDesc: 'One-way or missing audio persists after automatic recovery.',
       audioConnectionFailedTitle: 'Audio connection failed',
@@ -19204,6 +19208,8 @@ export const translations: Record<Locale, Translations> = {
       mediaRecoveryTitle: 'Obnovujem hovor',
       mediaRecoveryDesc: 'Zistil sa krátky výpadok siete alebo audia. NEXUS Pulse opravuje spojenie.',
       mediaRecoveryProgress: 'Krátkodobý výpadok — prebieha automatická obnova.',
+      mediaWarningTitle: 'Audio hovoru je nestabilné',
+      mediaWarningDesc: 'Spojenie ešte kontrolujeme. Informujte volajúceho, kým NEXUS Pulse overí audio.',
       mediaCriticalTitle: 'Kritický problém s audiom hovoru',
       mediaCriticalDesc: 'Jednosmerné alebo chýbajúce audio pretrváva aj po automatickej obnove.',
       audioConnectionFailedTitle: 'Audio spojenie zlyhalo',
@@ -26539,6 +26545,8 @@ export const translations: Record<Locale, Translations> = {
       mediaRecoveryTitle: 'Obnovuji hovor',
       mediaRecoveryDesc: 'Byl zjištěn krátký výpadek sítě nebo zvuku. NEXUS Pulse opravuje spojení.',
       mediaRecoveryProgress: 'Krátkodobý výpadek — probíhá automatická obnova.',
+      mediaWarningTitle: 'Zvuk hovoru je nestabilní',
+      mediaWarningDesc: 'Připojení stále kontrolujeme. Informujte volajícího, než NEXUS Pulse ověří zvuk.',
       mediaCriticalTitle: 'Kritický problém se zvukem hovoru',
       mediaCriticalDesc: 'Jednosměrný nebo chybějící zvuk přetrvává i po automatické obnově.',
       audioConnectionFailedTitle: 'Audio spojení selhalo',
@@ -33830,6 +33838,8 @@ export const translations: Record<Locale, Translations> = {
       mediaRecoveryTitle: 'Hívás helyreállítása',
       mediaRecoveryDesc: 'Rövid hálózati vagy hangkimaradást észleltünk. A NEXUS Pulse javítja a kapcsolatot.',
       mediaRecoveryProgress: 'Átmeneti kimaradás — automatikus helyreállítás folyamatban.',
+      mediaWarningTitle: 'A hívás hangja instabil',
+      mediaWarningDesc: 'A kapcsolat ellenőrzése még folyamatban van. Tájékoztassa a hívót, amíg a NEXUS Pulse ellenőrzi a hangot.',
       mediaCriticalTitle: 'Kritikus híváshang-probléma',
       mediaCriticalDesc: 'Az egyirányú vagy hiányzó hang az automatikus helyreállítás után is fennáll.',
       audioConnectionFailedTitle: 'A hangkapcsolat sikertelen',
@@ -41008,6 +41018,8 @@ export const translations: Record<Locale, Translations> = {
       mediaRecoveryTitle: 'Se restabilește apelul',
       mediaRecoveryDesc: 'A fost detectată o întrerupere temporară a rețelei sau sunetului. NEXUS Pulse repară conexiunea.',
       mediaRecoveryProgress: 'Întrerupere temporară — recuperarea automată este în curs.',
+      mediaWarningTitle: 'Sunetul apelului este instabil',
+      mediaWarningDesc: 'Conexiunea este încă verificată. Informați apelantul până când NEXUS Pulse verifică sunetul.',
       mediaCriticalTitle: 'Problemă critică a sunetului apelului',
       mediaCriticalDesc: 'Sunetul unidirecțional sau absent persistă după recuperarea automată.',
       audioConnectionFailedTitle: 'Conexiunea audio a eșuat',
@@ -48188,6 +48200,8 @@ export const translations: Record<Locale, Translations> = {
       mediaRecoveryTitle: 'Ripristino della chiamata',
       mediaRecoveryDesc: 'È stata rilevata una breve interruzione di rete o audio. NEXUS Pulse sta riparando la connessione.',
       mediaRecoveryProgress: 'Interruzione temporanea — ripristino automatico in corso.',
+      mediaWarningTitle: 'L’audio della chiamata è instabile',
+      mediaWarningDesc: 'La connessione è ancora in verifica. Informa il chiamante mentre NEXUS Pulse controlla l’audio.',
       mediaCriticalTitle: 'Problema audio critico',
       mediaCriticalDesc: 'L’audio unidirezionale o assente persiste dopo il ripristino automatico.',
       audioConnectionFailedTitle: 'Connessione audio non riuscita',
@@ -55368,6 +55382,8 @@ export const translations: Record<Locale, Translations> = {
       mediaRecoveryTitle: 'Anruf wird wiederhergestellt',
       mediaRecoveryDesc: 'Eine kurze Netzwerk- oder Audiounterbrechung wurde erkannt. NEXUS Pulse repariert die Verbindung.',
       mediaRecoveryProgress: 'Kurzzeitige Unterbrechung — automatische Wiederherstellung läuft.',
+      mediaWarningTitle: 'Der Anrufton ist instabil',
+      mediaWarningDesc: 'Die Verbindung wird noch geprüft. Informieren Sie den Anrufer, während NEXUS Pulse das Audio überprüft.',
       mediaCriticalTitle: 'Kritisches Audioproblem im Anruf',
       mediaCriticalDesc: 'Einseitiges oder fehlendes Audio besteht nach der automatischen Wiederherstellung fort.',
       audioConnectionFailedTitle: 'Audioverbindung fehlgeschlagen',

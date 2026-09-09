@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { UserAgent, Registerer, RegistererState, Inviter, Session, SessionState } from "sip.js";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient, getQueryFn } from "@/lib/queryClient";
@@ -30,7 +31,11 @@ import {
   X,
   Settings,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Activity,
+  AudioLines,
+  TriangleAlert,
+  WifiOff
 } from "lucide-react";
 import {
   Dialog,
@@ -221,6 +226,8 @@ export function SipPhone({
   const [audioHealth, setAudioHealth] = useState<AudioHealthState>("idle");
   const heldRecoverySessionRef = useRef<Session | null>(null);
   const requestHeldCallRecoveryRef = useRef<(session: Session, source: string) => void>(() => {});
+  const refreshRemoteAudioRef = useRef<(session: Session) => Promise<boolean>>(async () => false);
+  const recoverSessionMediaOnceRef = useRef<(session: Session) => Promise<boolean>>(async () => false);
   const mediaHealthCleanupRef = useRef<(() => void) | null>(null);
   const mediaHealthSessionRef = useRef<Session | null>(null);
   const startMediaHealthMonitoringRef = useRef<(
@@ -2140,6 +2147,27 @@ export function SipPhone({
     micProcessedTrackRef.current = processedTrack;
   }, [micVolume]);
 
+  const recoverSessionMediaOnce = useCallback(async (session: Session): Promise<boolean> => {
+    const sessionAny = session as any;
+    if (sessionAny.__mediaRecoveryPromise) {
+      return sessionAny.__mediaRecoveryPromise;
+    }
+    if (sessionAny.__mediaRecoveryAttempted) return false;
+
+    sessionAny.__mediaRecoveryAttempted = true;
+    const recoveryPromise = (async () => {
+      await restartSessionMedia(session);
+      return true;
+    })().finally(() => {
+      if (sessionAny.__mediaRecoveryPromise === recoveryPromise) {
+        sessionAny.__mediaRecoveryPromise = null;
+      }
+    });
+    sessionAny.__mediaRecoveryPromise = recoveryPromise;
+    return recoveryPromise;
+  }, []);
+  recoverSessionMediaOnceRef.current = recoverSessionMediaOnce;
+
   const requestHeldCallRecovery = useCallback(async (session: Session, source: string) => {
     const sessionAny = session as any;
     const activeFinalizer = activeSessionFinalizeRef.current;
@@ -2152,6 +2180,13 @@ export function SipPhone({
     ) return;
 
     const holdEpisode = Number(sessionAny.__holdEpisode || 0);
+    if (
+      sessionAny.__holdRecoveryAttemptsEpisode === holdEpisode &&
+      Number(sessionAny.__holdRecoveryAttempts || 0) >= 2
+    ) {
+      setAudioHealth("failed");
+      return;
+    }
     sessionAny.__holdRecoveryEpisode = holdEpisode;
     sessionAny.__holdRecoveryNeeded = true;
     setAudioHealth("recovering");
@@ -2160,6 +2195,16 @@ export function SipPhone({
     if (!navigator.onLine || sessionAny.__holdRecoveryInProgress) return;
     sessionAny.__holdRecoveryInProgress = true;
     heldRecoverySessionRef.current = session;
+    let resumedFromHold = false;
+    const stillOwnsRecovery = () => (
+      sessionRef.current === session &&
+      session.state === SessionState.Established &&
+      activeSessionFinalizeRef.current?.session === session &&
+      sessionAny.__holdRecoveryEpisode === holdEpisode &&
+      Number(sessionAny.__holdEpisode || 0) === holdEpisode &&
+      sessionAny.__holdRecoveryNeeded &&
+      !sessionAny.__terminationRequested
+    );
 
     try {
       const registrationRestored = await Promise.race([
@@ -2178,20 +2223,35 @@ export function SipPhone({
       ) {
         if (!registrationRestored && sessionRef.current === session) {
           setAudioHealth("failed");
-          toast({
-            title: t.agentWorkspace.holdRecoveryFailedTitle,
-            description: t.agentWorkspace.holdRecoveryFailedDesc,
-            variant: "destructive",
-          });
         }
         return;
       }
 
-      toast({
-        title: t.agentWorkspace.holdRecoveryTitle,
-        description: t.agentWorkspace.holdRecoveryDesc,
-      });
-      await sipUnhold(session, "recovery");
+      let unholdError: unknown = null;
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        if (!stillOwnsRecovery()) return;
+        if (sessionAny.__holdRecoveryAttemptsEpisode !== holdEpisode) {
+          sessionAny.__holdRecoveryAttemptsEpisode = holdEpisode;
+          sessionAny.__holdRecoveryAttempts = 0;
+        }
+        if (Number(sessionAny.__holdRecoveryAttempts || 0) >= 2) break;
+        sessionAny.__holdRecoveryAttempts = Number(sessionAny.__holdRecoveryAttempts || 0) + 1;
+        try {
+          await sipUnhold(session, "recovery");
+          unholdError = null;
+          break;
+        } catch (error) {
+          unholdError = error;
+          console.warn(`[SIP-HOLD-RECOVERY] Resume attempt ${attempt}/2 failed:`, error);
+          if (attempt === 1) {
+            await new Promise((resolve) => window.setTimeout(resolve, 1200));
+            if (!stillOwnsRecovery()) return;
+            const retryRegistrationReady = await ensureRegistered();
+            if (!retryRegistrationReady || !stillOwnsRecovery()) return;
+          }
+        }
+      }
+      if (unholdError) throw unholdError;
       if (
         sessionRef.current !== session ||
         session.state !== SessionState.Established ||
@@ -2202,10 +2262,37 @@ export function SipPhone({
 
       sessionAny.__holdRecoveryNeeded = false;
       sessionAny.__postHoldRecoveryActive = true;
-      sessionAny.__postHoldRecoveryUntil = Date.now() + 12_000;
+      sessionAny.__postHoldRecoveryUntil = Date.now() + 16_000;
+      resumedFromHold = true;
       setIsOnHold(false);
       setCallState("active");
-      setAudioHealth("checking");
+      setAudioHealth("recovering");
+      await refreshRemoteAudioRef.current(session);
+      if (
+        sessionRef.current !== session ||
+        activeSessionFinalizeRef.current?.session !== session ||
+        Number(sessionAny.__holdEpisode || 0) !== holdEpisode ||
+        sessionAny.__terminationRequested
+      ) return;
+
+      // A network collision while Asterisk was generating MOH leaves the
+      // browser-to-Asterisk media path suspect even after a successful unhold.
+      // Repair ICE immediately instead of waiting for delayed one-way detection.
+      if (!sessionAny.__mediaRecoveryAttempted) {
+        await recoverSessionMediaOnceRef.current(session);
+        if (
+          sessionRef.current !== session ||
+          session.state !== SessionState.Established ||
+          sessionAny.__terminationRequested
+        ) return;
+        await refreshRemoteAudioRef.current(session);
+        if (
+          sessionRef.current !== session ||
+          activeSessionFinalizeRef.current?.session !== session ||
+          Number(sessionAny.__holdEpisode || 0) !== holdEpisode ||
+          sessionAny.__terminationRequested
+        ) return;
+      }
 
       const recoveredPeerConnection = sessionAny.sessionDescriptionHandler?.peerConnection as RTCPeerConnection | undefined;
       if (!recoveredPeerConnection) throw new Error("Recovered session has no peer connection");
@@ -2220,15 +2307,10 @@ export function SipPhone({
         sessionRef.current === session &&
         activeSessionFinalizeRef.current?.session === session &&
         sessionAny.__holdRecoveryEpisode === holdEpisode &&
-        sessionAny.__holdRecoveryNeeded &&
+        (sessionAny.__holdRecoveryNeeded || resumedFromHold) &&
         !sessionAny.__terminationRequested
       ) {
         setAudioHealth("failed");
-        toast({
-          title: t.agentWorkspace.holdRecoveryFailedTitle,
-          description: t.agentWorkspace.holdRecoveryFailedDesc,
-          variant: "destructive",
-        });
       }
     } finally {
       sessionAny.__holdRecoveryInProgress = false;
@@ -2265,7 +2347,6 @@ export function SipPhone({
 
     const startedAt = Date.now();
     let stopped = false;
-    let warningShown = false;
     let connectionWarningShown = false;
     let failureShown = false;
     let disconnectedAt: number | null = null;
@@ -2273,7 +2354,6 @@ export function SipPhone({
     let previousRtpStats: AudioRtpStats | null = null;
     let unhealthyDeltaSamples = 0;
     let healthyDeltaSamples = 0;
-    let recoveryAttempted = Boolean((session as any).__mediaRecoveryAttempted);
     let recoveryInProgress = false;
     let recoveryGraceUntil = 0;
     let playbackRecoveryAttempted = false;
@@ -2294,11 +2374,6 @@ export function SipPhone({
         iceConnectionState: peerConnection.iceConnectionState,
         terminate,
       });
-      toast({
-        title: t.agentWorkspace.audioConnectionFailedTitle,
-        description: t.agentWorkspace.audioConnectionFailedDesc,
-        variant: "destructive",
-      });
       if (terminate && session.state === SessionState.Established) {
         void endSessionBounded(session).catch((error) => {
           console.error("[SIP-MEDIA] Failed to terminate broken media session:", error);
@@ -2306,23 +2381,17 @@ export function SipPhone({
       }
     };
 
-    const showNoFlowWarning = (health: Exclude<AudioRtpHealth, "healthy">) => {
-      if (warningShown || failureShown || stopped || mediaHealthSessionRef.current !== session) return;
-      warningShown = true;
-      setAudioHealth("warning");
+    const reportNoFlowFailure = (health: Exclude<AudioRtpHealth, "healthy">) => {
+      if (failureShown || stopped || mediaHealthSessionRef.current !== session) return;
       const oneWay = health === "inbound-only" || health === "outbound-only";
       reportVoiceIncident(oneWay ? "audio_one_way" : "audio_no_flow", "error", incidentMetrics());
       console.warn("[SIP-MEDIA] Call established with incomplete audio flow", { health });
-      toast({
-        title: oneWay ? t.agentWorkspace.audioOneWayTitle : t.agentWorkspace.audioNoFlowTitle,
-        description: oneWay ? t.agentWorkspace.audioOneWayDesc : t.agentWorkspace.audioNoFlowDesc,
-        variant: "destructive",
-      });
     };
 
     const attemptMediaRecovery = async (health: Exclude<AudioRtpHealth, "healthy">) => {
       if (
-        recoveryAttempted ||
+        (session as any).__mediaRecoveryAttempted ||
+        (session as any).__mediaRecoveryPromise ||
         recoveryInProgress ||
         failureShown ||
         stopped ||
@@ -2333,18 +2402,12 @@ export function SipPhone({
         isHoldTransitioning(session)
       ) return;
 
-      recoveryAttempted = true;
-      (session as any).__mediaRecoveryAttempted = true;
       recoveryInProgress = true;
       setAudioHealth("recovering");
-      toast({
-        title: t.agentWorkspace.mediaRecoveryTitle,
-        description: t.agentWorkspace.mediaRecoveryDesc,
-      });
       console.warn("[SIP-MEDIA] Restarting ICE after sustained incomplete RTP flow", { health });
 
       try {
-        await restartSessionMedia(session);
+        await recoverSessionMediaOnceRef.current(session);
         if (
           stopped ||
           mediaHealthSessionRef.current !== session ||
@@ -2369,10 +2432,6 @@ export function SipPhone({
       } catch (error) {
         console.error("[SIP-MEDIA] Media recovery failed:", error);
         if (sipIsHeld(session) || isHoldTransitioning(session)) {
-          if (!(session as any).__mediaRecoveryIceStarted) {
-            recoveryAttempted = false;
-            (session as any).__mediaRecoveryAttempted = false;
-          }
           unhealthyDeltaSamples = 0;
           return;
         }
@@ -2389,6 +2448,10 @@ export function SipPhone({
       const sessionAny = session as any;
       const postHoldRecoveryActive = sessionAny.__postHoldRecoveryActive
         && Date.now() < Number(sessionAny.__postHoldRecoveryUntil || 0);
+      if (sessionAny.__holdRecoveryInProgress) {
+        setAudioHealth("recovering");
+        return;
+      }
       console.log(`[SIP-MEDIA] State: pc=${connectionState} ice=${iceState}`);
 
       if (connectionState === "closed" || iceState === "closed") {
@@ -2407,7 +2470,7 @@ export function SipPhone({
           return;
         }
         if (postHoldRecoveryActive) {
-          if (!recoveryAttempted && !recoveryInProgress) {
+          if (!sessionAny.__mediaRecoveryAttempted && !sessionAny.__mediaRecoveryPromise && !recoveryInProgress) {
             void attemptMediaRecovery("no-flow");
           }
           return;
@@ -2427,7 +2490,7 @@ export function SipPhone({
             reportVoiceIncident("ice_disconnected_sustained", "error", incidentMetrics());
           }
           if (postHoldRecoveryActive) {
-            if (!recoveryAttempted && !recoveryInProgress) {
+            if (!sessionAny.__mediaRecoveryAttempted && !sessionAny.__mediaRecoveryPromise && !recoveryInProgress) {
               void attemptMediaRecovery("no-flow");
             }
             return;
@@ -2446,6 +2509,7 @@ export function SipPhone({
     const checkStats = async () => {
       if (stopped || mediaHealthSessionRef.current !== session || session.state !== SessionState.Established) return;
       checkConnectionState();
+      if ((session as any).__holdRecoveryInProgress) return;
       try {
         const stats = await peerConnection.getStats();
         if (stopped || mediaHealthSessionRef.current !== session || session.state !== SessionState.Established) return;
@@ -2542,16 +2606,15 @@ export function SipPhone({
 
           if (healthyDeltaSamples >= 2 && !failureShown) {
             (session as any).__postHoldRecoveryActive = false;
-            warningShown = false;
             connectionWarningShown = false;
             setAudioHealth("connected");
           }
 
           if (unhealthyDeltaSamples >= 3) {
-            if (!recoveryAttempted) {
+            if (!(session as any).__mediaRecoveryAttempted && !(session as any).__mediaRecoveryPromise) {
               void attemptMediaRecovery(deltaHealth as Exclude<AudioRtpHealth, "healthy">);
-            } else if (!recoveryInProgress) {
-              showNoFlowWarning(deltaHealth as Exclude<AudioRtpHealth, "healthy">);
+            } else if (!(session as any).__mediaRecoveryPromise && !recoveryInProgress) {
+              reportNoFlowFailure(deltaHealth as Exclude<AudioRtpHealth, "healthy">);
               showFailure(true);
             }
           }
@@ -2616,6 +2679,28 @@ export function SipPhone({
           variant: "destructive",
         });
       });
+    };
+    refreshRemoteAudioRef.current = async (targetSession: Session) => {
+      if (sessionRef.current !== targetSession || targetSession.state !== SessionState.Established) return false;
+      const currentPeerConnection = (targetSession.sessionDescriptionHandler as any)?.peerConnection as RTCPeerConnection | undefined;
+      if (!currentPeerConnection || !audioRef.current) return false;
+      const remoteTracks = currentPeerConnection
+        .getReceivers()
+        .map((receiver) => receiver.track)
+        .filter((track): track is MediaStreamTrack => !!track && track.kind === "audio" && track.readyState === "live");
+      if (remoteTracks.length === 0) return false;
+      audioRef.current.srcObject = new MediaStream(remoteTracks);
+      void audioRef.current.play().catch((error) => {
+        console.error("[SIP-MEDIA] Rebound remote audio playback failed:", error);
+        setAudioHealth("warning");
+        toast({
+          title: t.agentWorkspace.audioConnectionFailedTitle,
+          description: t.agentWorkspace.audioPlaybackBlockedDesc,
+          variant: "destructive",
+        });
+      });
+      console.log("[SIP-MEDIA] Remote audio rebound to live receiver track");
+      return true;
     };
 
     // Set up remote audio (speaker) with ontrack listener for new tracks
@@ -3077,9 +3162,73 @@ export function SipPhone({
   };
 
   const dialPadButtons = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
+  const showMediaHealth = (callState === "active" || callState === "on_hold")
+    && ["checking", "recovering", "warning", "failed"].includes(audioHealth);
+  const mediaHealthOverlay = showMediaHealth ? createPortal(
+    <div
+      className="fixed left-1/2 top-5 z-[10040] w-[min(92vw,460px)] -translate-x-1/2"
+      role={audioHealth === "failed" ? "alert" : "status"}
+      aria-live={audioHealth === "failed" ? "assertive" : "polite"}
+      data-testid="call-media-health-alert"
+    >
+      <div className={`relative overflow-hidden rounded-2xl border p-4 shadow-2xl backdrop-blur-xl ${
+        audioHealth === "failed"
+          ? "border-red-400/70 bg-gradient-to-br from-red-600/95 to-rose-800/95 text-white"
+          : audioHealth === "warning"
+            ? "border-orange-300/80 bg-gradient-to-br from-amber-50/95 to-orange-100/95 text-amber-950 dark:from-amber-950/95 dark:to-orange-950/95 dark:text-amber-50"
+            : "border-sky-300/80 bg-gradient-to-br from-sky-50/95 to-cyan-100/95 text-sky-950 dark:from-sky-950/95 dark:to-cyan-950/95 dark:text-sky-50"
+      }`}>
+        <div className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-white/20 blur-2xl" />
+        <div className="relative flex items-center gap-3.5">
+          <div className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
+            audioHealth === "failed"
+              ? "bg-white/18"
+              : audioHealth === "warning"
+                ? "bg-amber-500/15"
+                : "bg-sky-500/15"
+          }`}>
+            {audioHealth === "failed"
+              ? <TriangleAlert className="h-6 w-6" aria-hidden="true" />
+              : audioHealth === "warning"
+                ? <AudioLines className="h-6 w-6" aria-hidden="true" />
+                : audioHealth === "recovering"
+                  ? <WifiOff className="h-6 w-6" aria-hidden="true" />
+                  : <Activity className="h-6 w-6" aria-hidden="true" />}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="mb-0.5 flex items-center gap-2">
+              <span className="text-[10px] font-extrabold uppercase tracking-[0.18em] opacity-70">NEXUS Pulse</span>
+              {(audioHealth === "checking" || audioHealth === "recovering") && (
+                <Loader2 className="h-3.5 w-3.5 animate-spin opacity-70 motion-reduce:animate-none" aria-hidden="true" />
+              )}
+            </div>
+            <div className="text-sm font-bold">
+              {audioHealth === "failed"
+                ? t.agentWorkspace.mediaCriticalTitle
+                : audioHealth === "warning"
+                  ? t.agentWorkspace.mediaWarningTitle
+                  : audioHealth === "recovering"
+                    ? t.agentWorkspace.mediaRecoveryTitle
+                    : t.agentWorkspace.audioChecking}
+            </div>
+            <div className="mt-1 text-xs leading-relaxed opacity-85">
+              {audioHealth === "failed"
+                ? t.agentWorkspace.mediaCriticalDesc
+                : audioHealth === "warning"
+                  ? t.agentWorkspace.mediaWarningDesc
+                  : t.agentWorkspace.mediaRecoveryProgress}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  ) : null;
 
   if (compact) {
     return (
+      <>
+      {mediaHealthOverlay}
       <div className="flex items-center gap-2">
         <audio ref={audioRef} autoPlay />
         {callState === "idle" ? (
@@ -3173,10 +3322,13 @@ export function SipPhone({
           </DialogContent>
         </Dialog>
       </div>
+      </>
     );
   }
 
   return (
+    <>
+    {mediaHealthOverlay}
     <Card className="w-full max-w-sm">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -3440,6 +3592,7 @@ export function SipPhone({
         </DialogContent>
       </Dialog>
     </Card>
+    </>
   );
 }
 
