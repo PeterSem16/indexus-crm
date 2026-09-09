@@ -6,8 +6,16 @@ export interface MissionFaqItem {
 }
 
 const MAX_FAQ_ITEMS = 100;
+const MAX_FAQ_CATEGORIES = 100;
 const MAX_QUESTION_LENGTH = 300;
 const MAX_ANSWER_LENGTH = 10_000;
+const MAX_CATEGORY_LENGTH = 100;
+
+function sanitizeMissionFaqCategory(value: unknown): string {
+  return typeof value === "string"
+    ? value.replace(/<[^>]*>/g, "").trim().slice(0, MAX_CATEGORY_LENGTH)
+    : "";
+}
 
 export function sanitizeMissionFaqAnswer(value: unknown): string {
   if (typeof value !== "string") return "";
@@ -17,10 +25,17 @@ export function sanitizeMissionFaqAnswer(value: unknown): string {
     .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
     .replace(/<b(?:\s[^>]*)?>/gi, "<strong>")
     .replace(/<\/b>/gi, "</strong>")
+    .replace(/<i(?:\s[^>]*)?>/gi, "<em>")
+    .replace(/<\/i>/gi, "</em>")
     .replace(/<strong(?:\s[^>]*)?>/gi, "<strong>")
+    .replace(/<\/strong(?:\s[^>]*)?>/gi, "</strong>")
+    .replace(/<em(?:\s[^>]*)?>/gi, "<em>")
+    .replace(/<\/em(?:\s[^>]*)?>/gi, "</em>")
+    .replace(/<u(?:\s[^>]*)?>/gi, "<u>")
+    .replace(/<\/u(?:\s[^>]*)?>/gi, "</u>")
     .replace(/<br(?:\s[^>]*)?>/gi, "<br>")
     .replace(/<\/?(?:div|p)(?:\s[^>]*)?>/gi, (tag) => tag.startsWith("</") ? "<br>" : "")
-    .replace(/<(?!\/?strong>|br>)[^>]*>/gi, "")
+    .replace(/<(?!\/?(?:strong|em|u)>|br>)[^>]*>/gi, "")
     .replace(/(?:<br>){3,}/gi, "<br><br>")
     .replace(/^(?:<br>)+|(?:<br>)+$/gi, "")
     .trim();
@@ -38,9 +53,7 @@ export function normalizeMissionFaqItems(value: unknown): MissionFaqItem[] {
       ? raw.question.replace(/<[^>]*>/g, "").trim().slice(0, MAX_QUESTION_LENGTH)
       : "";
     const answer = sanitizeMissionFaqAnswer(raw.answer);
-    const category = typeof raw.category === "string"
-      ? raw.category.replace(/<[^>]*>/g, "").trim().slice(0, 100)
-      : "";
+    const category = sanitizeMissionFaqCategory(raw.category);
     const answerText = answer
       .replace(/<[^>]*>/g, "")
       .replace(/&nbsp;|&#160;/gi, " ")
@@ -55,4 +68,28 @@ export function normalizeMissionFaqItems(value: unknown): MissionFaqItem[] {
     items.push({ id, question, answer, ...(category ? { category } : {}) });
   }
   return items;
+}
+
+export function normalizeMissionFaqCategoryOrder(
+  value: unknown,
+  items: MissionFaqItem[] = [],
+  fallbackCategory = "",
+): string[] {
+  const seen = new Set<string>();
+  const categories: string[] = [];
+  const add = (candidate: unknown) => {
+    const category = sanitizeMissionFaqCategory(candidate);
+    if (!category || seen.has(category) || categories.length >= MAX_FAQ_CATEGORIES) return;
+    seen.add(category);
+    categories.push(category);
+  };
+
+  if (Array.isArray(value)) value.forEach(add);
+  let hasUncategorizedItem = false;
+  items.forEach((item) => {
+    if (item.category) add(item.category);
+    else hasUncategorizedItem = true;
+  });
+  if (hasUncategorizedItem || categories.length === 0) add(fallbackCategory);
+  return categories;
 }

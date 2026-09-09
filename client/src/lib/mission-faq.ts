@@ -1,4 +1,8 @@
-import { normalizeMissionFaqItems, type MissionFaqItem } from "@shared/mission-faq";
+import {
+  normalizeMissionFaqCategoryOrder,
+  normalizeMissionFaqItems,
+  type MissionFaqItem,
+} from "@shared/mission-faq";
 
 const defaults: Record<string, MissionFaqItem[]> = {
   en: [
@@ -85,4 +89,17 @@ export function readMissionFaq(settings: string | null | undefined, locale: stri
     }
   } catch {}
   return defaultMissionFaq(locale);
+}
+
+export function readMissionFaqCategoryOrder(
+  settings: string | null | undefined,
+  items: MissionFaqItem[],
+  fallbackCategory: string,
+): string[] {
+  try {
+    const parsed = JSON.parse(settings || "{}");
+    return normalizeMissionFaqCategoryOrder(parsed.faqCategoryOrder, items, fallbackCategory);
+  } catch {
+    return normalizeMissionFaqCategoryOrder([], items, fallbackCategory);
+  }
 }

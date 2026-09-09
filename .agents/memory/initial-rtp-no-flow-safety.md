@@ -11,7 +11,7 @@ Initial no-flow or one-way RTP immediately after SIP establishment must never by
 
 Outbound calls use SIP late offer: the initial INVITE has no SDP, and the browser creates its WebRTC peer connection, ICE/TURN path, and SDP answer only after the destination answers. Never create the outbound media path at dial time or use ring-duration-triggered re-INVITE as a workaround.
 
-**Why:** Production testing confirmed that calls answered before 10 seconds had audio while calls answered after 10 seconds consistently did not, even though the Mission allowed a longer ring duration.
+**Why:** Production testing confirmed that calls answered before 10 seconds had audio while calls answered after 10 seconds consistently did not, even though the Mission allowed a longer ring duration. On 2026-09-09, the user confirmed that the deployed late-offer solution remained reliable in real production use and that long ringing no longer damaged audio.
 
 **How to apply:** Mission max-ring remains only the unanswered-call cancellation deadline. Never shorten it to hide the media defect. Once the final response creates a confirmed dialog, neither automatic timeout nor agent hangup may send CANCEL while late-offer ICE/ACK is still being prepared; wait for establishment, then use a single BYE.
 

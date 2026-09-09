@@ -82,7 +82,7 @@ import {
   insertTaskGroupMemberSchema,
 } from "@shared/schema";
 import { eventsForCallOutcome, selectCallOutcomeBadges } from "./call-outcome";
-import { normalizeMissionFaqItems } from "@shared/mission-faq";
+import { normalizeMissionFaqCategoryOrder, normalizeMissionFaqItems } from "@shared/mission-faq";
 import Handlebars from "handlebars";
 import { z } from "zod";
 import {
@@ -26643,11 +26643,18 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         return res.status(404).json({ error: "Campaign not found" });
       }
       const faq = normalizeMissionFaqItems(req.body?.faq);
+      const faqCategoryOrder = normalizeMissionFaqCategoryOrder(req.body?.faqCategoryOrder, faq);
       const faqJson = JSON.stringify(faq);
+      const faqCategoryOrderJson = JSON.stringify(faqCategoryOrder);
       await db
         .update(campaigns)
         .set({
-          settings: sql`jsonb_set(COALESCE(NULLIF(${campaigns.settings}, '')::jsonb, '{}'::jsonb), '{faq}', ${faqJson}::jsonb, true)::text`,
+          settings: sql`jsonb_set(
+            jsonb_set(COALESCE(NULLIF(${campaigns.settings}, '')::jsonb, '{}'::jsonb), '{faq}', ${faqJson}::jsonb, true),
+            '{faqCategoryOrder}',
+            ${faqCategoryOrderJson}::jsonb,
+            true
+          )::text`,
           updatedAt: new Date(),
         })
         .where(eq(campaigns.id, req.params.id));
@@ -26686,6 +26693,23 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         if (!nextSettings || typeof nextSettings !== "object" || Array.isArray(nextSettings)) {
           return res.status(400).json({ error: "Invalid campaign settings" });
         }
+        const canManageMissionFaq = ["admin", "manager"].includes(req.session.user!.role);
+        const faqWasExplicitlyChanged = (
+          Object.prototype.hasOwnProperty.call(nextSettings, "faq")
+          && JSON.stringify(currentSettings.faq ?? null) !== JSON.stringify(nextSettings.faq ?? null)
+        ) || (
+          Object.prototype.hasOwnProperty.call(nextSettings, "faqCategoryOrder")
+          && JSON.stringify(currentSettings.faqCategoryOrder ?? null) !== JSON.stringify(nextSettings.faqCategoryOrder ?? null)
+        );
+        if (faqWasExplicitlyChanged && !canManageMissionFaq) {
+          return res.status(403).json({ error: "Only managers can change Mission FAQ" });
+        }
+        if (!canManageMissionFaq) {
+          if (currentSettings.faq === undefined) delete nextSettings.faq;
+          else nextSettings.faq = currentSettings.faq;
+          if (currentSettings.faqCategoryOrder === undefined) delete nextSettings.faqCategoryOrder;
+          else nextSettings.faqCategoryOrder = currentSettings.faqCategoryOrder;
+        }
         const smsProvider = nextSettings.smsProvider;
         if (smsProvider !== undefined && smsProvider !== null && smsProvider !== "bulkgate" && smsProvider !== "smstools") {
           return res.status(400).json({ error: "Invalid Mission SMS provider" });
@@ -26700,8 +26724,14 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         if (outboundRoutingError) return res.status(400).json({ error: outboundRoutingError });
         const recordingPolicyError = validateMissionRecordingSettings(nextSettings);
         if (recordingPolicyError) return res.status(400).json({ error: recordingPolicyError });
-        if (nextSettings.faq !== undefined) {
+        if (canManageMissionFaq && nextSettings.faq !== undefined) {
           nextSettings.faq = normalizeMissionFaqItems(nextSettings.faq);
+        }
+        if (canManageMissionFaq && (nextSettings.faq !== undefined || nextSettings.faqCategoryOrder !== undefined)) {
+          nextSettings.faqCategoryOrder = normalizeMissionFaqCategoryOrder(
+            nextSettings.faqCategoryOrder,
+            nextSettings.faq || [],
+          );
         }
         if (
           JSON.stringify(currentSettings.callRecordingPolicy || null) !== JSON.stringify(nextSettings.callRecordingPolicy || null) &&

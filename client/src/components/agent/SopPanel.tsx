@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import type { Campaign, SopArticle, SopCategory, SopArticleRead } from "@shared/schema";
 import { sanitizeMissionFaqAnswer } from "@shared/mission-faq";
-import { readMissionFaq } from "@/lib/mission-faq";
+import { readMissionFaq, readMissionFaqCategoryOrder } from "@/lib/mission-faq";
 
 const ICON_MAP: Record<string, LucideIcon> = {
   "clipboard": Clipboard, "folder-closed": FolderClosed, "folder-open": FolderOpen,
@@ -189,6 +189,16 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
   const missionFaq = useMemo(() => {
     return readMissionFaq(campaign?.settings, locale);
   }, [campaign?.settings, locale]);
+  const missionFaqGroups = useMemo(() => {
+    const fallback = t.campaigns.faq.category;
+    const categories = readMissionFaqCategoryOrder(campaign?.settings, missionFaq, fallback);
+    return categories
+      .map((category) => ({
+        category,
+        items: missionFaq.filter((faq) => (faq.category || fallback) === category),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [campaign?.settings, missionFaq, t.campaigns.faq.category]);
 
   const { data: userReads = [] } = useQuery<SopArticleRead[]>({
     queryKey: ["/api/sop/user-reads"],
@@ -659,37 +669,47 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
               </span>
               <Badge variant="secondary" className="ml-auto text-[9px] h-4 px-1">{missionFaq.length}</Badge>
             </div>
-            {missionFaq.map((faq) => {
-              const expanded = expandedFaqIds.has(faq.id);
-              return (
-                <div key={faq.id} className="border-b last:border-b-0">
-                  <button
-                    type="button"
-                    className="w-full flex items-start gap-2 px-3 py-2.5 text-left hover:bg-muted/50 transition-colors"
-                    onClick={() => setExpandedFaqIds((current) => {
-                      const next = new Set(current);
-                      if (next.has(faq.id)) next.delete(faq.id);
-                      else next.add(faq.id);
-                      return next;
-                    })}
-                    data-testid={`mission-faq-agent-question-${faq.id}`}
-                  >
-                    <HelpCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-blue-600" />
-                    <span className="flex-1 text-xs font-medium leading-snug">{faq.question || "—"}</span>
-                    {expanded
-                      ? <ChevronUp className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      : <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
-                  </button>
-                  {expanded && (
-                    <div
-                      className="px-8 pb-3 text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap [&_strong]:font-semibold [&_strong]:text-foreground"
-                      dangerouslySetInnerHTML={{ __html: sanitizeMissionFaqAnswer(faq.answer) }}
-                      data-testid={`mission-faq-agent-answer-${faq.id}`}
-                    />
-                  )}
+            {missionFaqGroups.map((group) => (
+              <div key={group.category} className="border-b last:border-b-0">
+                <div className="flex items-center gap-1.5 bg-muted/25 px-3 py-1.5">
+                  <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {group.category}
+                  </span>
+                  <span className="text-[9px] text-muted-foreground/70">({group.items.length})</span>
                 </div>
-              );
-            })}
+                {group.items.map((faq) => {
+                  const expanded = expandedFaqIds.has(faq.id);
+                  return (
+                    <div key={faq.id} className="border-t first:border-t-0">
+                      <button
+                        type="button"
+                        className="w-full flex items-start gap-2 px-3 py-2.5 text-left hover:bg-muted/50 transition-colors"
+                        onClick={() => setExpandedFaqIds((current) => {
+                          const next = new Set(current);
+                          if (next.has(faq.id)) next.delete(faq.id);
+                          else next.add(faq.id);
+                          return next;
+                        })}
+                        data-testid={`mission-faq-agent-question-${faq.id}`}
+                      >
+                        <HelpCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-blue-600" />
+                        <span className="flex-1 text-xs font-medium leading-snug">{faq.question || "—"}</span>
+                        {expanded
+                          ? <ChevronUp className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          : <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                      </button>
+                      {expanded && (
+                        <div
+                          className="px-8 pb-3 text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap [&_strong]:font-semibold [&_strong]:text-foreground [&_em]:italic [&_u]:underline"
+                          dangerouslySetInnerHTML={{ __html: sanitizeMissionFaqAnswer(faq.answer) }}
+                          data-testid={`mission-faq-agent-answer-${faq.id}`}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
           </div>
         )}
         {isLoadingAll ? (

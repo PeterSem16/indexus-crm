@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { NexusPulseView } from "@/components/nexus-pulse-view";
 import { isPulseAgentWorkProtected } from "@/features/nexus-pulse-preflight/diagnostics";
-import { readMissionFaq } from "@/lib/mission-faq";
+import { readMissionFaq, readMissionFaqCategoryOrder } from "@/lib/mission-faq";
 import { sanitizeMissionFaqAnswer } from "@shared/mission-faq";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -8790,7 +8790,11 @@ function CustomerInfoPanel({
           const [expandedFaqId, setExpandedFaqId] = [faqExpandedId, setFaqExpandedId];
           const [faqSearch, setFaqSearch] = [faqSearchQuery, setFaqSearchQuery];
 
-          const categories = [...new Set(campaignFaqs.map(f => f.category))];
+          const categories = readMissionFaqCategoryOrder(
+            campaign?.settings,
+            campaignFaqs,
+            t.campaigns.faq.category,
+          );
           const filteredFaqs = campaignFaqs.filter(f => {
             if (!faqSearch.trim()) return true;
             const q = faqSearch.toLowerCase();
@@ -8909,7 +8913,7 @@ function CustomerInfoPanel({
                                     className={`${isModal ? "px-3 pb-3 pt-1 ml-6" : "px-2 pb-2 pt-0.5 ml-5"} border-t border-border`}
                                   >
                                     <div
-                                      className={`${isModal ? "text-sm" : "text-[11px]"} leading-relaxed text-muted-foreground`}
+                                      className={`${isModal ? "text-sm" : "text-[11px]"} whitespace-pre-wrap leading-relaxed text-muted-foreground [&_strong]:font-semibold [&_strong]:text-foreground [&_em]:italic [&_u]:underline`}
                                       dangerouslySetInnerHTML={{ __html: sanitizeMissionFaqAnswer(faq.answer) }}
                                     />
                                   </div>

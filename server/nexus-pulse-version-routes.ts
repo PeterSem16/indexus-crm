@@ -10,6 +10,7 @@ import {
   campaignStatusListQuestions,
   nexusPulseModuleRevisions,
 } from "@shared/schema";
+import { normalizeMissionFaqCategoryOrder, normalizeMissionFaqItems } from "@shared/mission-faq";
 
 type Snapshot = {
   schemaVersion: 1;
@@ -36,6 +37,7 @@ const NEXUS_PULSE_SETTING_KEYS = [
   "nexusPulseEmailAddress",
   "queueDisplayMode",
   "faq",
+  "faqCategoryOrder",
 ] as const;
 
 const stripTimestamps = <T extends Record<string, unknown>>(row: T) => {
@@ -260,6 +262,13 @@ async function restoreSnapshot(executor: any, campaignId: string, snapshot: Snap
   const restoredNexusSettings = snapshot.campaign.settings;
   if (restoredNexusSettings && typeof restoredNexusSettings === "object" && !Array.isArray(restoredNexusSettings)) {
     Object.assign(mergedSettings, restoredNexusSettings);
+  }
+  if (mergedSettings.faq !== undefined) {
+    mergedSettings.faq = normalizeMissionFaqItems(mergedSettings.faq);
+    mergedSettings.faqCategoryOrder = normalizeMissionFaqCategoryOrder(
+      mergedSettings.faqCategoryOrder,
+      mergedSettings.faq,
+    );
   }
 
   await executor
