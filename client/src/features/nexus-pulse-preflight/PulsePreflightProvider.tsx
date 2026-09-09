@@ -47,6 +47,7 @@ export function PulseGate({ children }: Props) {
   const [autoStartDeferredRecheckRequest, setAutoStartDeferredRecheckRequest] = useState(0);
   const ready = allowed && acknowledged;
   const workProtected = isPulseSessionProtected(callState) || afterCallWorkActive || recordingPlaybackActive;
+  const diagnosticsBlocked = ["connecting", "ringing", "active", "on_hold"].includes(callState) || recordingPlaybackActive;
   const workProtectedRef = useRef(workProtected);
   const deferredInvalidation = useRef(false);
   const deferredNoticeShown = useRef(false);
@@ -101,15 +102,15 @@ export function PulseGate({ children }: Props) {
     return () => window.clearTimeout(timer);
   }, [allowed, acknowledged, isRegistered, requestInvalidation]);
   useEffect(() => {
-    if (workProtected || !deferredInvalidation.current) return;
+    if ((workProtected && callState !== "ended") || !deferredInvalidation.current) return;
     const timer = window.setTimeout(() => {
-      if (workProtectedRef.current || !deferredInvalidation.current) return;
+      if ((workProtectedRef.current && callState !== "ended") || !deferredInvalidation.current) return;
       deferredInvalidation.current = false;
       deferredNoticeShown.current = false;
       presentDeferredRecheck();
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [presentDeferredRecheck, workProtected]);
+  }, [callState, presentDeferredRecheck, workProtected]);
   useEffect(() => {
     const openFromHeader = () => setOpen(true);
     const sync = () => {
@@ -150,13 +151,14 @@ export function PulseGate({ children }: Props) {
     const mediaDevices = navigator.mediaDevices;
     window.addEventListener("offline", invalidate); mediaDevices?.addEventListener?.("devicechange", invalidate);
     window.addEventListener("online", invalidate);
+    window.addEventListener("nexus-pulse-media-critical", invalidate);
     const connection = (navigator as any).connection; connection?.addEventListener?.("change", invalidate);
     const lifecycleTimer = window.setInterval(() => {
       const now = Date.now();
       if (now - lastLifecycleCheck > 45000) invalidate();
       lastLifecycleCheck = now;
     }, 15000);
-    return () => { window.removeEventListener("offline", invalidate); mediaDevices?.removeEventListener?.("devicechange", invalidate); window.removeEventListener("online", invalidate); connection?.removeEventListener?.("change", invalidate); window.clearInterval(lifecycleTimer); };
+    return () => { window.removeEventListener("offline", invalidate); mediaDevices?.removeEventListener?.("devicechange", invalidate); window.removeEventListener("online", invalidate); window.removeEventListener("nexus-pulse-media-critical", invalidate); connection?.removeEventListener?.("change", invalidate); window.clearInterval(lifecycleTimer); };
   }, [allowed, requestInvalidation]);
   if (isLoading) return <div className="flex min-h-[60dvh] items-center justify-center text-sm text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin" />{copy.working}</div>;
   if (!user || !allowed) return <>{children}</>;
@@ -186,7 +188,7 @@ export function PulseGate({ children }: Props) {
         </div>
       </AlertDialogContent>
     </AlertDialog>
-    <PulseDiagnostics open={open && !workProtected && !showDeferredRecheckIntro} required={!ready} keepWakeLock hasValidReadiness={ready} autoStartRequest={autoStartDeferredRecheckRequest} userId={userKey(user)} onClose={() => setOpen(false)} onExit={() => setLocation(safeExitPage)} onReady={() => { sessionStorage.setItem(key, "1"); hasEnteredPulseRef.current = true; setAcknowledged(true); setStatus("ready"); setOpen(false); window.dispatchEvent(new Event("nexus-pulse-ready")); }} />
+    <PulseDiagnostics open={open && !diagnosticsBlocked && !showDeferredRecheckIntro} required={!ready} keepWakeLock hasValidReadiness={ready} autoStartRequest={autoStartDeferredRecheckRequest} userId={userKey(user)} onClose={() => setOpen(false)} onExit={() => setLocation(safeExitPage)} onReady={() => { sessionStorage.setItem(key, "1"); hasEnteredPulseRef.current = true; setAcknowledged(true); setStatus("ready"); setOpen(false); window.dispatchEvent(new Event("nexus-pulse-ready")); }} />
     {hasEnteredPulseRef.current || ready ? children : <div className="flex min-h-[60dvh] items-center justify-center"><div className="text-center text-muted-foreground"><Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin" />{copy.working}</div></div>}
   </>;
 }

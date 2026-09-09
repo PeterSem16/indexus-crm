@@ -30,7 +30,7 @@ export interface CallTimingMeta {
   callEndTime: number | null;
   ringDurationSeconds: number | null;
   talkDurationSeconds: number | null;
-  hungUpBy: "user" | "customer" | null;
+  hungUpBy: "user" | "customer" | "system" | null;
 }
 
 interface CallContextType {

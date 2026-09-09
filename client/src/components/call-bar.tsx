@@ -104,10 +104,9 @@ export function CallBar() {
               : t.agentWorkspace.mediaRecoveryProgress}
           </div>
         </div>
-        {!healthIsCritical && <Loader2 className="h-5 w-5 shrink-0 animate-spin" />}
       </div>
-      <div className={`h-1 ${healthIsCritical ? "bg-red-400" : "bg-amber-200 dark:bg-amber-900"}`}>
-        {!healthIsCritical && <div className="h-full w-1/3 animate-pulse bg-amber-500" />}
+      <div className={`h-1.5 ${healthIsCritical ? "bg-red-400" : "overflow-hidden bg-amber-200 dark:bg-amber-900"}`}>
+        {!healthIsCritical && <div className="h-full w-2/3 rounded-r-full bg-gradient-to-r from-amber-500 via-yellow-300 to-amber-500 motion-safe:animate-pulse" />}
       </div>
     </div>,
     document.body,

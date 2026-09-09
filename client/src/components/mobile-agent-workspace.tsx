@@ -69,7 +69,7 @@ export interface MobileAgentWorkspaceProps {
   callState: string;
   callDuration: number;
   ringDuration: number;
-  hungUpBy: "user" | "customer" | null;
+  hungUpBy: "user" | "customer" | "system" | null;
   isMuted: boolean;
   isOnHold: boolean;
   callerNumber: string;
@@ -1219,7 +1219,11 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
             <p className="font-bold">{np.callEnded || "Call ended"}</p>
             {hungUpBy && (
               <p className="text-xs text-muted-foreground mt-1">
-                {hungUpBy === "user" ? np.hungUpByAgent || "You hung up" : np.hungUpByCustomer || "Customer hung up"}
+                {hungUpBy === "user"
+                  ? np.hungUpByAgent || "You hung up"
+                  : hungUpBy === "customer"
+                    ? np.hungUpByCustomer || "Customer hung up"
+                    : np.callEnded || "Call ended"}
               </p>
             )}
             <p className="text-sm text-muted-foreground mt-1">{fmtDur(callDuration)}</p>

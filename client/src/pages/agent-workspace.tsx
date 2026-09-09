@@ -2823,7 +2823,7 @@ function CommunicationCanvas({
   callState?: string;
   callDuration?: number;
   ringDuration?: number;
-  hungUpBy?: "user" | "customer" | null;
+  hungUpBy?: "user" | "customer" | "system" | null;
   isMuted?: boolean;
   isOnHold?: boolean;
   volume?: number;
@@ -7682,7 +7682,7 @@ function CustomerInfoPanel({
   callState: string;
   callDuration: number;
   ringDuration: number;
-  hungUpBy: "user" | "customer" | null;
+  hungUpBy: "user" | "customer" | "system" | null;
   onEndCall: () => void;
   onOpenDispositionFromCall: () => void;
   wrapUpElapsed?: number;
