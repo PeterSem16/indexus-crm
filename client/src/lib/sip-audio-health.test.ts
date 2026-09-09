@@ -6,7 +6,7 @@
  */
 
 import assert from "node:assert/strict";
-import { audioRtpDelta, classifyAudioRtpStats, type AudioRtpStats } from "./sip-audio-health";
+import { audioRtpDelta, classifyAudioRtpStats, shouldRetainRecheckAfterTermination, type AudioRtpStats } from "./sip-audio-health";
 
 const stats = (overrides: Partial<AudioRtpStats>): AudioRtpStats => ({
   inboundPackets: 0,
@@ -87,6 +87,33 @@ assert.deepEqual(
   "counter resets after ICE recovery must not create negative deltas",
 );
 console.log("  ✓ RTP counter reset → zero delta");
+passed++;
+
+assert.equal(shouldRetainRecheckAfterTermination({
+  explicitlyEnded: false,
+  interruptionUnresolved: true,
+  recoveredAt: null,
+  now: 100_000,
+}), true, "an unresolved network termination must retain the readiness recheck");
+assert.equal(shouldRetainRecheckAfterTermination({
+  explicitlyEnded: false,
+  interruptionUnresolved: false,
+  recoveredAt: 90_000,
+  now: 100_000,
+}), true, "a termination inside the recovery stability window must retain the readiness recheck");
+assert.equal(shouldRetainRecheckAfterTermination({
+  explicitlyEnded: true,
+  interruptionUnresolved: true,
+  recoveredAt: 90_000,
+  now: 100_000,
+}), false, "an explicit agent/customer hangup must not create a false recovery recheck");
+assert.equal(shouldRetainRecheckAfterTermination({
+  explicitlyEnded: false,
+  interruptionUnresolved: false,
+  recoveredAt: 70_000,
+  now: 100_000,
+}), false, "a stable recovered call may end normally without another recheck");
+console.log("  ✓ unstable termination retains readiness recheck");
 passed++;
 
 console.log(`\n${passed} RTP simulations passed`);

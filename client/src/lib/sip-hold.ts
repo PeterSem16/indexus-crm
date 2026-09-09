@@ -56,7 +56,7 @@ function setLocalMicEnabled(session: Session, enabled: boolean): void {
   }
 }
 
-type SipOperationName = "hold" | "unhold" | "media-recovery" | "terminate";
+type SipOperationName = "hold" | "unhold" | "hold-recovery" | "media-recovery" | "terminate";
 
 function enqueueSipOperation(
   session: Session,
@@ -170,6 +170,30 @@ export async function restartSessionMedia(session: Session): Promise<void> {
   });
 }
 
+export async function recoverHeldSessionMedia(session: Session): Promise<void> {
+  if (!session) throw new Error("No session");
+  const sessionAny = session as any;
+  const intentVersion = Number(sessionAny.__holdIntentVersion || 0);
+  return enqueueSipOperation(session, "hold-recovery", async () => {
+    if (sessionAny.__isHeld !== true || sessionAny.__desiredHeld !== true) {
+      throw new Error("Held-call recovery no longer owns the current hold intent");
+    }
+    const peerConnection = sessionAny.sessionDescriptionHandler?.peerConnection as RTCPeerConnection | undefined;
+    if (!peerConnection) throw new Error("Session has no peer connection");
+    setLocalMicEnabled(session, false);
+    if (typeof peerConnection.restartIce === "function") {
+      sessionAny.__mediaRecoveryIceStarted = true;
+      peerConnection.restartIce();
+    }
+    await sendReinviteWithModifier(session, sdpHoldModifier);
+    // A manual unhold may have been queued while this re-INVITE was awaiting
+    // its final response. Never overwrite that newer intent.
+    if (Number(sessionAny.__holdIntentVersion || 0) === intentVersion) {
+      sessionAny.__isHeld = true;
+    }
+  });
+}
+
 export async function hold(session: Session): Promise<void> {
   const sessionAny = session as any;
   const intentVersion = Number(sessionAny.__holdIntentVersion || 0) + 1;
@@ -246,9 +270,18 @@ export function isHeld(session: Session): boolean {
   return !!(session as any).__isHeld;
 }
 
-export function isInterruptedUnhold(session: Session): boolean {
+export function isHeldCallRecoveryCandidate(session: Session): boolean {
   const sessionAny = session as any;
-  return sessionAny.__isHeld === true && sessionAny.__desiredHeld === false;
+  return sessionAny.__isHeld === true && typeof sessionAny.__desiredHeld === "boolean";
+}
+
+export function shouldAttemptHeldCallRecovery(
+  attempts: number,
+  graceUntil: number,
+  now: number,
+  maxAttempts = 2,
+): boolean {
+  return attempts < maxAttempts && now >= graceUntil;
 }
 
 export function isHoldTransitioning(session: Session): boolean {

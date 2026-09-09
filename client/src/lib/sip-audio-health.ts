@@ -38,3 +38,17 @@ export function classifyAudioRtpStats(stats: AudioRtpStats): AudioRtpHealth {
   if (hasOutbound) return "outbound-only";
   return "no-flow";
 }
+
+export function shouldRetainRecheckAfterTermination(input: {
+  explicitlyEnded: boolean;
+  interruptionUnresolved: boolean;
+  recoveredAt: number | null;
+  now: number;
+  stabilityWindowMs?: number;
+}): boolean {
+  if (input.explicitlyEnded) return false;
+  const recentlyRecovered = input.recoveredAt !== null
+    && input.recoveredAt > 0
+    && input.now - input.recoveredAt < (input.stabilityWindowMs ?? 20_000);
+  return input.interruptionUnresolved || recentlyRecovered;
+}

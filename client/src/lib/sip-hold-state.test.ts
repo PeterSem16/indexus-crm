@@ -1,14 +1,48 @@
 import assert from "node:assert/strict";
-import { isInterruptedUnhold } from "./sip-hold";
+import { isHeldCallRecoveryCandidate, recoverHeldSessionMedia, shouldAttemptHeldCallRecovery, unhold } from "./sip-hold";
 
 const session = (isHeld: boolean, desiredHeld: boolean | undefined) => ({
   __isHeld: isHeld,
   __desiredHeld: desiredHeld,
 }) as any;
 
-assert.equal(isInterruptedUnhold(session(false, false)), false, "an active call must use media recovery, not MOH recovery");
-assert.equal(isInterruptedUnhold(session(true, true)), false, "an intentional hold must stay held");
-assert.equal(isInterruptedUnhold(session(true, undefined)), false, "an unknown hold intent must not auto-unhold");
-assert.equal(isInterruptedUnhold(session(true, false)), true, "only an interrupted unhold may run hold recovery");
+assert.equal(isHeldCallRecoveryCandidate(session(false, false)), false, "an active call must use media recovery, not held-call recovery");
+assert.equal(isHeldCallRecoveryCandidate(session(true, true)), true, "a network-interrupted intentional hold must be recoverable");
+assert.equal(isHeldCallRecoveryCandidate(session(true, undefined)), false, "an unknown hold intent must not be changed automatically");
+assert.equal(isHeldCallRecoveryCandidate(session(true, false)), true, "an interrupted unhold must be recoverable");
+assert.equal(shouldAttemptHeldCallRecovery(0, 0, 100), true, "the first held-call recovery attempt is allowed");
+assert.equal(shouldAttemptHeldCallRecovery(1, 200, 100), false, "recovery waits for its convergence grace period");
+assert.equal(shouldAttemptHeldCallRecovery(2, 0, 100), false, "held-call recovery is bounded");
+
+(globalThis as any).window = globalThis;
+const inviteDelegates: any[] = [];
+const raceSession: any = {
+  state: "Established",
+  __isHeld: true,
+  __desiredHeld: true,
+  __holdIntentVersion: 1,
+  sessionDescriptionHandler: {
+    peerConnection: {
+      restartIce() {},
+      getSenders() { return [{ track: { kind: "audio", enabled: false } }]; },
+    },
+  },
+  stateChange: { addListener() {}, removeListener() {} },
+  invite(options: any) {
+    inviteDelegates.push(options.requestDelegate);
+    return Promise.resolve();
+  },
+};
+const heldRecovery = recoverHeldSessionMedia(raceSession);
+await new Promise((resolve) => setTimeout(resolve, 0));
+const manualUnhold = unhold(raceSession);
+assert.equal(raceSession.__desiredHeld, false, "manual unhold records its newer intent synchronously");
+inviteDelegates[0].onAccept();
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(raceSession.__desiredHeld, false, "completed held recovery must not overwrite manual unhold intent");
+inviteDelegates[1].onAccept();
+await Promise.all([heldRecovery, manualUnhold]);
+assert.equal(raceSession.__isHeld, false, "queued manual unhold completes physically");
+assert.equal(raceSession.__desiredHeld, false, "physical and desired hold state remain aligned");
 
 console.log("SIP hold recovery intent tests passed");
