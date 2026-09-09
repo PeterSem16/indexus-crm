@@ -54,8 +54,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { SipSettings, CallLog, User } from "@shared/schema";
 import { resolveOutboundCallProvider } from "@shared/telephony-routing";
 import type { MissionCallRecordingSnapshot } from "@shared/mission-recording";
-import { audioRtpDelta, classifyAudioRtpStats, shouldRetainRecheckAfterTermination, type AudioRtpHealth, type AudioRtpStats } from "@/lib/sip-audio-health";
+import { audioRtpDelta, classifyAudioRtpStats, nextMediaFailureAction, shouldAttemptAutomaticMediaRecovery, shouldRetainRecheckAfterTermination, type AudioRtpHealth, type AudioRtpStats } from "@/lib/sip-audio-health";
 import { reportVoiceIncident, setVoiceIncidentCallContext } from "@/lib/voice-incident-logger";
+import { isCorrelatedInboundHangup, shouldCancelAfterRingGrace } from "@/lib/sip-session-guards";
 
 function filterSdpCandidates(description: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit> {
   if (!description.sdp) return Promise.resolve(description);
@@ -291,7 +292,7 @@ export function SipPhone({
   const maxRingSecondsRef = useRef<number>(0);
   const maxRingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const ringTimedOutRef = useRef<boolean>(false);
-  const activeInboundMetaRef = useRef<{ queueId?: string; queueName?: string; direction?: string } | null>(null);
+  const activeInboundMetaRef = useRef<{ callId?: string; queueId?: string; queueName?: string; direction?: string; session?: Session } | null>(null);
   const inboundTerminatedListenerRef = useRef<{ session: any; listener: (state: any) => void } | null>(null);
   const inboundFinalizeRef = useRef<(() => void) | null>(null);
   const activeSessionFinalizeRef = useRef<{
@@ -1174,9 +1175,11 @@ export function SipPhone({
     };
 
     activeInboundMetaRef.current = {
+      callId: session._inboundCallLogId ? String(session._inboundCallLogId) : undefined,
       queueId: session._inboundQueueId,
       queueName: session._inboundQueueName,
       direction: "inbound",
+      session,
     };
 
     if (callTimerRef.current) clearInterval(callTimerRef.current);
@@ -1760,6 +1763,7 @@ export function SipPhone({
       }
       const inviter = new Inviter(userAgentRef.current, targetUri, inviterOptions);
 
+      activeInboundMetaRef.current = null;
       sessionRef.current = inviter;
       serverConfirmedRemoteHangupSessionRef.current = null;
       const callLogId = callLogData.id;
@@ -1783,10 +1787,25 @@ export function SipPhone({
             if (maxRingSecondsRef.current > 0) {
               const maxRing = maxRingSecondsRef.current;
               maxRingTimerRef.current = setTimeout(() => {
-                maxRingTimerRef.current = null;
                 const s = sessionRef.current;
-                // Only auto-end if this call is still ringing (not answered/ended).
-                if (s === inviter && s.state !== SessionState.Established && s.state !== SessionState.Terminated) {
+                if (!shouldCancelAfterRingGrace({
+                  sameSession: s === inviter,
+                  sessionState: String(s?.state || ""),
+                })) {
+                  maxRingTimerRef.current = null;
+                  return;
+                }
+                // A final 200 OK may already be queued at the exact ring
+                // deadline while SIP.js still exposes Establishing. Give the
+                // final response a short grace, then verify the same session
+                // is still unanswered before sending CANCEL.
+                maxRingTimerRef.current = setTimeout(() => {
+                  maxRingTimerRef.current = null;
+                  const current = sessionRef.current;
+                  if (!shouldCancelAfterRingGrace({
+                    sameSession: current === inviter,
+                    sessionState: String(current?.state || ""),
+                  })) return;
                   console.log(`[SIP] Max ring duration (${maxRing}s) exceeded — auto-ending unanswered call`);
                   ringTimedOutRef.current = true;
                   userHungUpRef.current = false;
@@ -1797,7 +1816,7 @@ export function SipPhone({
                     description: `Hovor sa automaticky ukončil po ${maxRing} s bez prijatia.`,
                     variant: "destructive",
                   });
-                }
+                }, 1_200);
               }, maxRing * 1000);
             }
             break;
@@ -2457,6 +2476,7 @@ export function SipPhone({
     let recoveryInProgress = false;
     let recoveryGraceUntil = 0;
     let playbackRecoveryAttempted = false;
+    let initialNoFlowWarningShown = false;
     let mediaValidatedHealthy = false;
     let mediaInterruptionObserved = Boolean((session as any).__mediaInterruptionObserved);
     let mediaRecoveryNotified = false;
@@ -2516,6 +2536,7 @@ export function SipPhone({
 
     const attemptMediaRecovery = async (health: Exclude<AudioRtpHealth, "healthy">) => {
       if (
+        !shouldAttemptAutomaticMediaRecovery({ mediaValidatedHealthy, interruptionObserved: mediaInterruptionObserved }) ||
         (session as any).__mediaRecoveryAttempted ||
         (session as any).__mediaRecoveryPromise ||
         recoveryInProgress ||
@@ -2807,9 +2828,25 @@ export function SipPhone({
           }
 
           if (unhealthyDeltaSamples >= 3) {
-            if (!(session as any).__mediaRecoveryAttempted && !(session as any).__mediaRecoveryPromise) {
+            const failureAction = nextMediaFailureAction({
+              recoveryEligible: shouldAttemptAutomaticMediaRecovery({
+                mediaValidatedHealthy,
+                interruptionObserved: mediaInterruptionObserved,
+              }),
+              recoveryAttempted: Boolean((session as any).__mediaRecoveryAttempted),
+              recoveryPending: Boolean((session as any).__mediaRecoveryPromise || recoveryInProgress),
+            });
+            if (failureAction === "recover") {
               void attemptMediaRecovery(deltaHealth as Exclude<AudioRtpHealth, "healthy">);
-            } else if (!(session as any).__mediaRecoveryPromise && !recoveryInProgress) {
+            } else if (failureAction === "advise") {
+              if (!initialNoFlowWarningShown) {
+                initialNoFlowWarningShown = true;
+                reportNoFlowFailure(deltaHealth as Exclude<AudioRtpHealth, "healthy">);
+                markMediaCritical(session);
+                console.warn("[SIP-MEDIA] Initial incomplete RTP reported without renegotiating the call");
+              }
+              unhealthyDeltaSamples = 0;
+            } else if (failureAction === "fail") {
               reportNoFlowFailure(deltaHealth as Exclude<AudioRtpHealth, "healthy">);
               showFailure();
             }
@@ -3015,11 +3052,26 @@ export function SipPhone({
       });
   }, [finalizeSessionIfCurrent]);
 
-  const remoteHangup = useCallback(() => {
+  const remoteHangup = useCallback((callId: string) => {
+    const activeInbound = activeInboundMetaRef.current;
+    const session = sessionRef.current;
+    if (
+      !activeInbound ||
+      !isCorrelatedInboundHangup({
+        eventCallId: String(callId),
+        activeCallId: activeInbound.callId,
+        activeDirection: activeInbound.direction,
+        activeSession: activeInbound.session,
+        currentSession: session,
+        finalizerSession: activeSessionFinalizeRef.current?.session,
+      })
+    ) {
+      console.warn("[SIP-INBOUND] Ignoring uncorrelated server hangup event");
+      return;
+    }
     clearMediaHealthMonitoring();
     releaseMicrophonePipeline();
     console.log("[SIP-INBOUND] remoteHangup called (caller/server initiated), session state:", sessionRef.current?.state);
-    const session = sessionRef.current;
     if (session) {
       if (activeSessionFinalizeRef.current?.session !== session) {
         console.warn("[SIP-INBOUND] Ignoring late server hangup for a finalized session");
@@ -3164,6 +3216,7 @@ export function SipPhone({
 
     // Invalidate ownership before signaling. SIP.js may emit Terminated
     // synchronously from bye(), and that old event must not finalize twice.
+    activeInboundMetaRef.current = null;
     sessionRef.current = null;
     if (resetSession) {
       void endSessionBounded(resetSession).catch((e) => {

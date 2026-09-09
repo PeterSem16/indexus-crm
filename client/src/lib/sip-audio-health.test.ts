@@ -6,7 +6,14 @@
  */
 
 import assert from "node:assert/strict";
-import { audioRtpDelta, classifyAudioRtpStats, shouldRetainRecheckAfterTermination, type AudioRtpStats } from "./sip-audio-health";
+import {
+  audioRtpDelta,
+  classifyAudioRtpStats,
+  nextMediaFailureAction,
+  shouldAttemptAutomaticMediaRecovery,
+  shouldRetainRecheckAfterTermination,
+  type AudioRtpStats,
+} from "./sip-audio-health";
 
 const stats = (overrides: Partial<AudioRtpStats>): AudioRtpStats => ({
   inboundPackets: 0,
@@ -114,6 +121,51 @@ assert.equal(shouldRetainRecheckAfterTermination({
   now: 100_000,
 }), false, "a stable recovered call may end normally without another recheck");
 console.log("  ✓ unstable termination retains readiness recheck");
+passed++;
+
+assert.equal(
+  shouldAttemptAutomaticMediaRecovery({
+    mediaValidatedHealthy: false,
+    interruptionObserved: false,
+  }),
+  false,
+  "initial no-flow must not renegotiate a newly answered call",
+);
+assert.equal(
+  shouldAttemptAutomaticMediaRecovery({
+    mediaValidatedHealthy: true,
+    interruptionObserved: false,
+  }),
+  true,
+  "a previously healthy media path may recover after later RTP loss",
+);
+assert.equal(
+  shouldAttemptAutomaticMediaRecovery({
+    mediaValidatedHealthy: false,
+    interruptionObserved: true,
+  }),
+  true,
+  "a correlated network/SIP/ICE interruption may recover",
+);
+console.log("  ✓ automatic recovery requires prior health or a correlated interruption");
+passed++;
+
+assert.equal(nextMediaFailureAction({
+  recoveryEligible: false,
+  recoveryAttempted: false,
+  recoveryPending: false,
+}), "advise", "initial no-flow only advises");
+assert.equal(nextMediaFailureAction({
+  recoveryEligible: true,
+  recoveryAttempted: false,
+  recoveryPending: false,
+}), "recover", "a later correlated interruption enables one recovery");
+assert.equal(nextMediaFailureAction({
+  recoveryEligible: true,
+  recoveryAttempted: true,
+  recoveryPending: false,
+}), "fail", "unhealthy RTP after completed recovery escalates instead of remaining recovering");
+console.log("  ✓ media failure lifecycle advises, recovers once, then escalates");
 passed++;
 
 console.log(`\n${passed} RTP simulations passed`);

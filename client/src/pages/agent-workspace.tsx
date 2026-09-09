@@ -13194,7 +13194,7 @@ export default function AgentWorkspacePage() {
           } else if (data.type === "call-hangup") {
             // Server confirmed caller hung up — terminate SIP session WITHOUT marking agent as hanger-upper
             console.log("[AgentWS] Server-side call-hangup received, triggering remote hangup");
-            callContext.remoteHangupFn.current?.();
+            callContext.remoteHangupFn.current?.(String(data.callId || ""));
           } else if (data.type === "call-cancelled") {
             const cancelledNum = data.callerNumber?.replace(/[\s\-\(\)]/g, "");
             setInboundCalls(prev => prev.filter(c => {

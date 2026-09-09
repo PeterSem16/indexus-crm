@@ -62,7 +62,7 @@ interface CallContextType {
   setCallTiming: (timing: Partial<CallTimingMeta>) => void;
   resetCallTiming: () => void;
   endCallFn: React.MutableRefObject<(() => void) | null>;
-  remoteHangupFn: React.MutableRefObject<(() => void) | null>;
+  remoteHangupFn: React.MutableRefObject<((callId: string) => void) | null>;
   forceResetCallFn: React.MutableRefObject<(() => void) | null>;
   toggleMuteFn: React.MutableRefObject<(() => void) | null>;
   toggleHoldFn: React.MutableRefObject<(() => void) | null>;
@@ -113,7 +113,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const [autoRecord, setAutoRecord] = useState(true);
   
   const endCallFn = useRef<(() => void) | null>(null);
-  const remoteHangupFn = useRef<(() => void) | null>(null);
+  const remoteHangupFn = useRef<((callId: string) => void) | null>(null);
   const forceResetCallFn = useRef<(() => void) | null>(null);
   const toggleMuteFn = useRef<(() => void) | null>(null);
   const toggleHoldFn = useRef<(() => void) | null>(null);

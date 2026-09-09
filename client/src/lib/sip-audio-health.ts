@@ -52,3 +52,27 @@ export function shouldRetainRecheckAfterTermination(input: {
     && input.now - input.recoveredAt < (input.stabilityWindowMs ?? 20_000);
   return input.interruptionUnresolved || recentlyRecovered;
 }
+
+export function shouldAttemptAutomaticMediaRecovery(input: {
+  mediaValidatedHealthy: boolean;
+  interruptionObserved: boolean;
+}): boolean {
+  // Initial no-flow is not proof that renegotiation is safe. An ICE restart
+  // re-INVITE may jeopardize a newly answered call. Automatic recovery is
+  // reserved for a media path that was previously healthy or a correlated
+  // network/SIP/ICE interruption.
+  return input.mediaValidatedHealthy || input.interruptionObserved;
+}
+
+export type MediaFailureAction = "advise" | "recover" | "wait" | "fail";
+
+export function nextMediaFailureAction(input: {
+  recoveryEligible: boolean;
+  recoveryAttempted: boolean;
+  recoveryPending: boolean;
+}): MediaFailureAction {
+  if (input.recoveryPending) return "wait";
+  if (!input.recoveryEligible) return "advise";
+  if (!input.recoveryAttempted) return "recover";
+  return "fail";
+}
