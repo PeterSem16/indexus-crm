@@ -94,6 +94,30 @@ import {
   validateMissionRecordingSettings,
   type MissionCallRecordingSnapshot,
 } from "@shared/mission-recording";
+
+function recordingModeFromCallMetadata(metadata: unknown): "off" | "both" | "agent_only" | null {
+  try {
+    const parsed = typeof metadata === "string" ? JSON.parse(metadata) : (metadata || {});
+    const snapshot = parsed?.recordingPolicySnapshot;
+    if (!snapshot || typeof snapshot !== "object") return null;
+    if (snapshot.active === false) return "off";
+    if (snapshot.mode === "both" || snapshot.mode === "agent_only") return snapshot.mode;
+  } catch {}
+  return null;
+}
+
+function inboundHangupAttribution(
+  status: string | null | undefined,
+  abandonReason: string | null | undefined,
+): "customer" | "system" | null {
+  if (["caller_hangup", "caller_hangup_before_overflow", "caller_left_stasis", "channel_gone"].includes(abandonReason || "")) {
+    return "customer";
+  }
+  if (["abandoned", "timeout", "overflow", "no_agents"].includes(status || "") || abandonReason) {
+    return "system";
+  }
+  return null;
+}
 import { cloneCampaignWithConfiguration } from "./lib/clone-campaign";
 import session from "express-session";
 import pgSession from "connect-pg-simple";
@@ -13161,8 +13185,15 @@ Return ONLY valid JSON, no markdown code blocks.`,
       db.select({
         log: inboundCallLogs,
         queueName: inboundQueues.name,
+         linkedCall: {
+           id: callLogs.id,
+           durationSeconds: callLogs.durationSeconds,
+           hungUpBy: callLogs.hungUpBy,
+           metadata: callLogs.metadata,
+         },
       }).from(inboundCallLogs)
         .leftJoin(inboundQueues, eq(inboundCallLogs.queueId, inboundQueues.id))
+         .leftJoin(callLogs, eq(inboundCallLogs.callLogId, callLogs.id))
         .where(
           entityPhone
             ? or(
@@ -13235,6 +13266,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
       for (const call of callLogsList) {
         const agentName = userMap.get(call.userId) || "Neznámy";
         const duration = call.durationSeconds ? `${Math.floor(call.durationSeconds / 60)}:${String(call.durationSeconds % 60).padStart(2, "0")}` : null;
+        const recordingMode = recordingModeFromCallMetadata(call.metadata);
         historyItems.push({
           id: `call-${call.id}`,
           type: "call",
@@ -13247,6 +13279,8 @@ Return ONLY valid JSON, no markdown code blocks.`,
           content: `Hovor ${call.direction === "inbound" ? "prichádzajúci" : "odchádzajúci"}: ${call.phoneNumber}`,
           details: duration ? `Trvanie: ${duration}` : null,
           duration: call.durationSeconds,
+          hungUpBy: call.hungUpBy || null,
+          recordingMode,
           _endedAt: call.endedAt || null,
           notes: call.notes,
           campaignId: call.campaignId,
@@ -13256,7 +13290,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
       }
 
       const existingCallLogIds = new Set(callLogsList.filter(c => c.id).map(c => c.id));
-      for (const { log: inLog, queueName } of inboundLogs) {
+      for (const { log: inLog, queueName, linkedCall } of inboundLogs) {
         if (inLog.callLogId && existingCallLogIds.has(inLog.callLogId)) continue;
         const agentName = inLog.assignedAgentId ? (userMap.get(inLog.assignedAgentId) || "Neznámy") : null;
         const inboundStatusLabels: Record<string, string> = {
@@ -13265,7 +13299,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
           overflow: "Pretečenie", transferred: "Presmerovaný",
         };
         const waitDur = inLog.waitDurationSeconds || 0;
-        const talkDur = inLog.talkDurationSeconds || 0;
+        const talkDur = linkedCall?.durationSeconds ?? inLog.talkDurationSeconds ?? 0;
         const durationStr = talkDur > 0 ? `${Math.floor(talkDur / 60)}:${String(talkDur % 60).padStart(2, "0")}` : null;
         const waitStr = waitDur > 0 ? `Čakanie: ${waitDur}s` : null;
         const detailParts = [durationStr ? `Trvanie: ${durationStr}` : null, waitStr].filter(Boolean);
@@ -13280,10 +13314,13 @@ Return ONLY valid JSON, no markdown code blocks.`,
           agentId: inLog.assignedAgentId,
           content: `Prichádzajúci hovor: ${inLog.callerNumber}${queueName ? ` → ${queueName}` : ""}`,
           details: detailParts.length > 0 ? detailParts.join(", ") : null,
-          duration: talkDur || null,
+          duration: talkDur,
+          hungUpBy: linkedCall?.hungUpBy || inboundHangupAttribution(inLog.status, inLog.abandonReason),
+          recordingMode: recordingModeFromCallMetadata(linkedCall?.metadata) ?? recordingModeFromCallMetadata(inLog.metadata),
           notes: inLog.abandonReason === "caller_hangup" ? "Zákazník ukončil hovor" : null,
           queueName: queueName || null,
           inboundCallLogId: inLog.id,
+          callLogId: linkedCall?.id || null,
         });
       }
 
@@ -25693,9 +25730,19 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       if (!phone) return res.status(400).json({ error: "phone required" });
 
       const [inboundLogs, inboundCbs, allUsers] = await Promise.all([
-        db.select({ log: inboundCallLogs, queueName: inboundQueues.name })
+        db.select({
+          log: inboundCallLogs,
+          queueName: inboundQueues.name,
+          linkedCall: {
+            id: callLogs.id,
+            durationSeconds: callLogs.durationSeconds,
+            hungUpBy: callLogs.hungUpBy,
+            metadata: callLogs.metadata,
+          },
+        })
           .from(inboundCallLogs)
           .leftJoin(inboundQueues, eq(inboundCallLogs.queueId, inboundQueues.id))
+          .leftJoin(callLogs, eq(inboundCallLogs.callLogId, callLogs.id))
           .where(eq(inboundCallLogs.callerNumber, phone))
           .orderBy(desc(inboundCallLogs.enteredQueueAt))
           .limit(50),
@@ -25715,9 +25762,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         overflow: "Pretečenie", transferred: "Presmerovaný",
       };
 
-      for (const { log: inLog, queueName } of inboundLogs) {
+      for (const { log: inLog, queueName, linkedCall } of inboundLogs) {
         const agentName = inLog.assignedAgentId ? (userMap.get(inLog.assignedAgentId) || "Neznámy") : null;
-        const talkDur = inLog.talkDurationSeconds || 0;
+        const talkDur = linkedCall?.durationSeconds ?? inLog.talkDurationSeconds ?? 0;
         const durationStr = talkDur > 0 ? `${Math.floor(talkDur / 60)}:${String(talkDur % 60).padStart(2, "0")}` : null;
         historyItems.push({
           id: `inbound-${inLog.id}`,
@@ -25730,10 +25777,13 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           agentId: inLog.assignedAgentId,
           content: `Prichádzajúci hovor: ${inLog.callerNumber}${queueName ? ` → ${queueName}` : ""}`,
           details: durationStr ? `Trvanie: ${durationStr}` : null,
-          duration: talkDur || null,
+          duration: talkDur,
+          hungUpBy: linkedCall?.hungUpBy || inboundHangupAttribution(inLog.status, inLog.abandonReason),
+          recordingMode: recordingModeFromCallMetadata(linkedCall?.metadata) ?? recordingModeFromCallMetadata(inLog.metadata),
           notes: null,
           queueName: queueName || null,
           inboundCallLogId: inLog.id,
+          callLogId: linkedCall?.id || null,
         });
       }
 
@@ -25972,13 +26022,120 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const has = (m: Record<string, string>, id: string) => Object.prototype.hasOwnProperty.call(m, id);
 
       const ccIds = [...new Set(calls.filter(c => c.campaignContactId).map(c => c.campaignContactId as string))];
-      let dispositionMap: Record<string, string | null> = {};
       let ccContactTypeMap: Record<string, { contactType: string; customerId?: string | null; clinicId?: string | null; hospitalId?: string | null; collaboratorId?: string | null }> = {};
       if (ccIds.length > 0) {
-        const ccRows = await db.select({ id: campaignContacts.id, dispositionCode: campaignContacts.dispositionCode, contactType: campaignContacts.contactType, customerId: campaignContacts.customerId, clinicId: campaignContacts.clinicId, hospitalId: campaignContacts.hospitalId, collaboratorId: campaignContacts.collaboratorId }).from(campaignContacts).where(inArray(campaignContacts.id, ccIds));
+        const ccRows = await db.select({ id: campaignContacts.id, contactType: campaignContacts.contactType, customerId: campaignContacts.customerId, clinicId: campaignContacts.clinicId, hospitalId: campaignContacts.hospitalId, collaboratorId: campaignContacts.collaboratorId }).from(campaignContacts).where(inArray(campaignContacts.id, ccIds));
         for (const cc of ccRows) {
-          dispositionMap[cc.id] = cc.dispositionCode;
           ccContactTypeMap[cc.id] = { contactType: cc.contactType, customerId: cc.customerId, clinicId: cc.clinicId, hospitalId: cc.hospitalId, collaboratorId: cc.collaboratorId };
+        }
+      }
+
+      // Resolve each call's outcome with the same call-bound workflow rules used by
+      // Communication history and Queue. Never show the contact's current mutable
+      // disposition as though it were the result of every call in today's shift.
+      const todayOutcomeByCallId = new Map<string, ReturnType<typeof selectCallOutcomeBadges>>();
+      const todayWorkflowByCampaign = new Map<string, {
+        workflowMode: "status_list" | "disposition";
+        statusListMode: "batch" | "immediate";
+      }>();
+      const campaignCalls = calls.filter(call => call.campaignContactId && call.campaignId);
+      const todayCampaignIds = [...new Set(campaignCalls.map(call => call.campaignId!))];
+      if (campaignCalls.length > 0) {
+        const earliestCallStart = new Date(Math.min(...campaignCalls.map(call => new Date(call.startedAt).getTime())));
+        const latestOutcomeWindowEnd = new Date(Math.max(...campaignCalls.map(call => {
+          const startedAt = new Date(call.startedAt).getTime();
+          const endedAt = call.endedAt
+            ? new Date(call.endedAt).getTime()
+            : startedAt + Math.max(0, call.durationSeconds || 0) * 1000;
+          return Math.max(startedAt, endedAt) + 30 * 60 * 1000;
+        })));
+        const [todayHistory, todayCampaignRows, todayStatusItems, todayDispositions] = await Promise.all([
+          db.select().from(campaignContactHistory)
+            .where(and(
+              inArray(campaignContactHistory.campaignContactId, ccIds),
+              gte(campaignContactHistory.createdAt, earliestCallStart),
+              lte(campaignContactHistory.createdAt, latestOutcomeWindowEnd),
+            ))
+            .orderBy(asc(campaignContactHistory.createdAt)),
+          db.select({ id: campaigns.id, settings: campaigns.settings }).from(campaigns)
+            .where(inArray(campaigns.id, todayCampaignIds)),
+          db.select({
+            id: campaignStatusListItems.id,
+            label: campaignStatusListItems.label,
+            color: campaignStatusListItems.color,
+          }).from(campaignStatusListItems)
+            .where(inArray(campaignStatusListItems.campaignId, todayCampaignIds)),
+          db.select({
+            campaignId: campaignDispositions.campaignId,
+            code: campaignDispositions.code,
+            name: campaignDispositions.name,
+            color: campaignDispositions.color,
+          }).from(campaignDispositions)
+            .where(inArray(campaignDispositions.campaignId, todayCampaignIds)),
+        ]);
+
+        for (const campaign of todayCampaignRows) {
+          try {
+            const settings = campaign.settings ? JSON.parse(campaign.settings) : {};
+            todayWorkflowByCampaign.set(campaign.id, {
+              workflowMode: settings.workflowMode === "status_list" ? "status_list" : "disposition",
+              statusListMode: settings.statusListMode === "batch" ? "batch" : "immediate",
+            });
+          } catch {
+            todayWorkflowByCampaign.set(campaign.id, { workflowMode: "disposition", statusListMode: "immediate" });
+          }
+        }
+
+        const statusItemMap = new Map(todayStatusItems.map(item => [
+          item.id,
+          { label: item.label, color: item.color || null },
+        ]));
+        const dispositionMapByCampaign = new Map<string, Map<string, { name: string; color: string | null }>>();
+        for (const disposition of todayDispositions) {
+          const lookup = dispositionMapByCampaign.get(disposition.campaignId) || new Map();
+          lookup.set(disposition.code, { name: disposition.name, color: disposition.color || null });
+          dispositionMapByCampaign.set(disposition.campaignId, lookup);
+        }
+
+        const callsByContact = new Map<string, typeof calls>();
+        const historyByContact = new Map<string, typeof todayHistory>();
+        for (const event of todayHistory) {
+          const contactHistory = historyByContact.get(event.campaignContactId) || [];
+          contactHistory.push(event);
+          historyByContact.set(event.campaignContactId, contactHistory);
+        }
+        for (const call of calls) {
+          if (!call.campaignContactId) continue;
+          const contactCalls = callsByContact.get(call.campaignContactId) || [];
+          contactCalls.push(call);
+          callsByContact.set(call.campaignContactId, contactCalls);
+        }
+        for (const contactCalls of callsByContact.values()) {
+          contactCalls.sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime());
+          for (let index = 0; index < contactCalls.length; index++) {
+            const call = contactCalls[index];
+            if (!call.campaignId) continue;
+            const workflow = todayWorkflowByCampaign.get(call.campaignId) || {
+              workflowMode: "disposition" as const,
+              statusListMode: "immediate" as const,
+            };
+            const callEnd = call.endedAt || new Date(
+              new Date(call.startedAt).getTime() + Math.max(0, call.durationSeconds || 0) * 1000,
+            );
+            const relevantEvents = eventsForCallOutcome(
+              historyByContact.get(call.campaignContactId!) || [],
+              call.startedAt,
+              callEnd,
+              contactCalls[index + 1]?.startedAt || null,
+            );
+            todayOutcomeByCallId.set(call.id, selectCallOutcomeBadges({
+              events: relevantEvents,
+              workflowMode: workflow.workflowMode,
+              statusListMode: workflow.statusListMode,
+              statusListItems: statusItemMap,
+              dispositions: dispositionMapByCampaign.get(call.campaignId) || new Map(),
+            }));
+          }
         }
       }
 
@@ -26166,7 +26323,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           entityId,
           campaignContactId: c.campaignContactId,
           campaignId: c.campaignId,
-          dispositionCode: c.campaignContactId ? (dispositionMap[c.campaignContactId] ?? null) : null,
+          workflowMode: c.campaignId ? (todayWorkflowByCampaign.get(c.campaignId)?.workflowMode || null) : null,
+          statusListMode: c.campaignId ? (todayWorkflowByCampaign.get(c.campaignId)?.statusListMode || null) : null,
+          outcomeBadges: todayOutcomeByCallId.get(c.id) || [],
           inboundQueueName: c.inboundQueueName,
         };
       });

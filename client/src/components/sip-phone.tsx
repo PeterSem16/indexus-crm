@@ -2186,7 +2186,9 @@ export function SipPhone({
     ) return;
     audioHealthRef.current = "failed";
     setAudioHealth("failed");
-    window.dispatchEvent(new Event("nexus-pulse-media-critical"));
+    window.dispatchEvent(new CustomEvent("nexus-pulse-media-critical", {
+      detail: { episodeId: (session as any).__mediaInterruptionEpisodeId || null },
+    }));
   }, []);
 
   const requestHeldCallRecovery = useCallback(async (session: Session, source: string) => {
@@ -2379,6 +2381,8 @@ export function SipPhone({
     let recoveryGraceUntil = 0;
     let playbackRecoveryAttempted = false;
     let mediaValidatedHealthy = false;
+    let mediaInterruptionObserved = Boolean((session as any).__mediaInterruptionObserved);
+    let mediaRecoveryNotified = false;
     let latestMetrics: { rttMs?: number; jitterMs?: number; packetLossPermille?: number } = {};
     const incidentMetrics = () => ({
       callLogId: currentCallLogIdRef.current,
@@ -2386,6 +2390,27 @@ export function SipPhone({
       iceState: peerConnection.iceConnectionState,
       ...latestMetrics,
     });
+    const beginMediaInterruption = (connectionKey?: string) => {
+      const sessionAny = session as any;
+      if (
+        connectionKey &&
+        !sessionAny.__mediaInterruptionEpisodeId &&
+        sessionAny.__mediaAcknowledgedBadConnectionKey === connectionKey
+      ) {
+        return null;
+      }
+      mediaInterruptionObserved = true;
+      mediaRecoveryNotified = false;
+      sessionAny.__mediaInterruptionObserved = true;
+      if (!sessionAny.__mediaInterruptionEpisodeId) {
+        sessionAny.__mediaInterruptionCounter = Number(sessionAny.__mediaInterruptionCounter || 0) + 1;
+        sessionAny.__mediaInterruptionEpisodeId = `${currentCallLogIdRef.current || sessionAny.id || "sip"}:${Date.now()}:${sessionAny.__mediaInterruptionCounter}`;
+        window.dispatchEvent(new CustomEvent("nexus-pulse-media-interrupted", {
+          detail: { episodeId: sessionAny.__mediaInterruptionEpisodeId },
+        }));
+      }
+      return sessionAny.__mediaInterruptionEpisodeId as string;
+    };
 
     const showFailure = () => {
       if (failureShown || stopped || mediaHealthSessionRef.current !== session) return;
@@ -2419,6 +2444,7 @@ export function SipPhone({
       ) return;
 
       recoveryInProgress = true;
+      beginMediaInterruption();
       setAudioHealth("recovering");
       console.warn("[SIP-MEDIA] Restarting ICE after sustained incomplete RTP flow", { health });
 
@@ -2475,6 +2501,8 @@ export function SipPhone({
       console.log(`[SIP-MEDIA] State: pc=${connectionState} ice=${iceState}`);
 
       if (connectionState === "closed" || iceState === "closed") {
+        const connectionKey = `${connectionState}/${iceState}`;
+        if (!beginMediaInterruption(connectionKey) && mediaValidatedHealthy) return;
         reportVoiceIncident("ice_failed", "error", incidentMetrics());
         showFailure();
         return;
@@ -2484,6 +2512,8 @@ export function SipPhone({
         connectionState === "failed" ||
         iceState === "failed"
       ) {
+        const connectionKey = `${connectionState}/${iceState}`;
+        if (!beginMediaInterruption(connectionKey) && mediaValidatedHealthy) return;
         reportVoiceIncident("ice_failed", "error", incidentMetrics());
         if (sessionAny.__isHeld) {
           void requestHeldCallRecovery(session, `held PC/ICE ${connectionState}/${iceState}`);
@@ -2506,6 +2536,7 @@ export function SipPhone({
       }
 
       if (connectionState === "disconnected" || iceState === "disconnected") {
+        beginMediaInterruption(`${connectionState}/${iceState}`);
         disconnectedAt ??= Date.now();
         if ((session as any).__isHeld) {
           void requestHeldCallRecovery(session, `held PC/ICE disconnected`);
@@ -2529,6 +2560,7 @@ export function SipPhone({
       } else {
         disconnectedAt = null;
         connectionWarningShown = false;
+        sessionAny.__mediaAcknowledgedBadConnectionKey = null;
       }
     };
 
@@ -2642,6 +2674,25 @@ export function SipPhone({
               previousRtpStats = currentRtpStats;
               return;
             }
+            if (mediaInterruptionObserved && !mediaRecoveryNotified) {
+              mediaRecoveryNotified = true;
+              const recoveredEpisodeId = sessionAny.__mediaInterruptionEpisodeId;
+              const connectionStateKey = (
+                peerConnection.connectionState === "disconnected" ||
+                peerConnection.connectionState === "failed" ||
+                peerConnection.iceConnectionState === "disconnected" ||
+                peerConnection.iceConnectionState === "failed"
+              ) ? `${peerConnection.connectionState}/${peerConnection.iceConnectionState}` : null;
+              sessionAny.__mediaInterruptionObserved = false;
+              sessionAny.__mediaInterruptionEpisodeId = null;
+              sessionAny.__mediaAcknowledgedBadConnectionKey = connectionStateKey;
+              sessionAny.__mediaRecoveryAttempted = false;
+              mediaInterruptionObserved = false;
+              window.dispatchEvent(new CustomEvent("nexus-pulse-media-recovered", {
+                detail: { episodeId: recoveredEpisodeId },
+              }));
+              console.log("[SIP-MEDIA] Bidirectional RTP restored; deferred network recheck cleared");
+            }
             sessionAny.__postHoldRecoveryActive = false;
             sessionAny.__holdRecoveryNeeded = false;
             connectionWarningShown = false;
@@ -2681,6 +2732,7 @@ export function SipPhone({
     peerConnection.addEventListener("connectionstatechange", onConnectionStateChange);
     peerConnection.addEventListener("iceconnectionstatechange", onIceConnectionStateChange);
     const onOffline = () => {
+      beginMediaInterruption();
       reportVoiceIncident("browser_offline", "error", incidentMetrics());
       if ((session as any).__isHeld) {
         (session as any).__holdRecoveryNeeded = true;

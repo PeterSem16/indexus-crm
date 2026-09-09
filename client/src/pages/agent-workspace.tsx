@@ -537,6 +537,8 @@ interface ContactHistory {
   direction?: "inbound" | "outbound";
   date: string;
   duration?: number;
+  hungUpBy?: "user" | "customer" | "system" | null;
+  recordingMode?: "off" | "both" | "agent_only" | null;
   status?: string;
   statusCode?: string;
   notes?: string;
@@ -8491,6 +8493,40 @@ function CustomerInfoPanel({
                                   style={{ background: `${itemAc}15`, color: itemAc, border: `1px solid ${itemAc}25` }}
                                 >{localizeHistoryStatus(t, item.statusCode, item.status)}</span>
                               )}
+                              {isCall && item.recordingMode && (
+                                <span className={`inline-flex items-center gap-1 ${isModal ? "text-[10px] h-5 px-2" : "text-[9px] h-4 px-1.5"} rounded-full border font-semibold ${
+                                  item.recordingMode === "off"
+                                    ? "border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                                    : item.recordingMode === "agent_only"
+                                      ? "border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-300"
+                                      : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                                }`}>
+                                  {item.recordingMode === "off" ? <MicOff className="h-2.5 w-2.5" /> : <Mic className="h-2.5 w-2.5" />}
+                                  {item.recordingMode === "off"
+                                    ? t.agentWorkspace.historyRecordingOff
+                                    : item.recordingMode === "agent_only"
+                                      ? t.agentWorkspace.historyRecordingAgentOnly
+                                      : t.agentWorkspace.historyRecordingBoth}
+                                </span>
+                              )}
+                              {isCall && typeof item.duration === "number" && (
+                                <span className={`inline-flex items-center gap-1 ${isModal ? "text-[10px] h-5 px-2" : "text-[9px] h-4 px-1.5"} rounded-full border border-blue-200 bg-blue-50 font-semibold text-blue-700 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300`}>
+                                  <Clock className="h-2.5 w-2.5" />
+                                  {t.agentWorkspace.historyCallDuration}: {Math.floor(Math.max(0, item.duration) / 60)}:{String(Math.max(0, item.duration) % 60).padStart(2, "0")}
+                                </span>
+                              )}
+                              {isCall && item.hungUpBy && (
+                                <span className={`inline-flex items-center gap-1 ${isModal ? "text-[10px] h-5 px-2" : "text-[9px] h-4 px-1.5"} rounded-full border border-orange-200 bg-orange-50 font-semibold text-orange-700 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-300`}>
+                                  <PhoneOff className="h-2.5 w-2.5" />
+                                  {t.agentWorkspace.historyEndedBy}: {
+                                    item.hungUpBy === "user"
+                                      ? t.agentWorkspace.historyEndedByAgent
+                                      : item.hungUpBy === "customer"
+                                        ? t.agentWorkspace.historyEndedByCustomer
+                                        : t.agentWorkspace.historyEndedBySystem
+                                  }
+                                </span>
+                              )}
                               {(item.type === "email" || item.type === "sms") && item.sentiment && (
                                 <SentimentBadge sentiment={item.sentiment} size={isModal ? "md" : "sm"} />
                               )}
@@ -9268,11 +9304,12 @@ function MyActivityPanel({
   };
 
   const formatDuration = (secs: number | null) => {
-    if (!secs || secs <= 0) return null;
-    if (secs < 60) return `${secs}s`;
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return s > 0 ? `${m}m ${s}s` : `${m}m`;
+    if (secs === null || secs === undefined || !Number.isFinite(secs)) return null;
+    const total = Math.max(0, Math.floor(secs));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   };
 
   // Missed queue calls live in inbound_call_logs with NO agent userId, so the
@@ -9489,11 +9526,25 @@ function MyActivityPanel({
                               <span className="opacity-60">{t.agentWorkspace.todayCallsQueue}</span> {item.inboundQueueName}
                             </span>
                           )}
-                          {item.dispositionCode && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800">
-                              <FileText className="h-2.5 w-2.5" />{item.dispositionCode}
-                            </span>
-                          )}
+                          {item.workflowMode && item.outcomeBadges?.map((badge: any, index: number) => {
+                            const color = badge.color || (badge.kind === "callback" ? "#2563eb" : "#059669");
+                            const label = badge.kind === "callback"
+                              ? t.agentWorkspace.dispCbScheduledTitle
+                              : (badge.label || badge.code || "—");
+                            return (
+                              <span
+                                key={`${badge.kind}-${badge.code || index}`}
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border max-w-full truncate"
+                                style={{ backgroundColor: `${color}18`, color, borderColor: `${color}45` }}
+                                title={label}
+                              >
+                                {badge.kind === "callback"
+                                  ? <Calendar className="h-2.5 w-2.5 shrink-0" />
+                                  : <FileText className="h-2.5 w-2.5 shrink-0" />}
+                                {label}
+                              </span>
+                            );
+                          })}
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-2 shrink-0">
@@ -11682,6 +11733,8 @@ export default function AgentWorkspacePage() {
       direction: item.direction,
       date: item.timestamp || new Date().toISOString(),
       duration: item.duration,
+      hungUpBy: item.hungUpBy || null,
+      recordingMode: item.recordingMode || null,
       status: item.status,
       statusCode: item.statusCode,
       notes: item.notes,

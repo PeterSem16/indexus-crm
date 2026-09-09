@@ -50,18 +50,28 @@ export function PulseGate({ children }: Props) {
   const diagnosticsBlocked = ["connecting", "ringing", "active", "on_hold"].includes(callState) || recordingPlaybackActive;
   const workProtectedRef = useRef(workProtected);
   const deferredInvalidation = useRef(false);
+  const deferredInvalidationReasons = useRef(new Set<string>());
+  const deferredMediaEpisodeRef = useRef<string | null>(null);
+  const validatedMediaEpisodeRef = useRef<string | null>(null);
   const deferredNoticeShown = useRef(false);
   const suppressRequiredOpenRef = useRef(false);
   useLayoutEffect(() => {
     workProtectedRef.current = workProtected;
   }, [workProtected]);
   const { isRegistered } = useSip();
+  const isRegisteredRef = useRef(isRegistered);
+  useLayoutEffect(() => {
+    isRegisteredRef.current = isRegistered;
+  }, [isRegistered]);
   useEffect(() => {
     sessionStorage.removeItem(key.replace("nexus-pulse-ready-v2:", "nexus-pulse-ready:"));
   }, [key]);
   const invalidateNow = useCallback(() => {
     suppressRequiredOpenRef.current = false;
     deferredInvalidation.current = false;
+    deferredInvalidationReasons.current.clear();
+    deferredMediaEpisodeRef.current = null;
+    validatedMediaEpisodeRef.current = null;
     deferredNoticeShown.current = false;
     sessionStorage.removeItem(key);
     setAcknowledged(false);
@@ -72,6 +82,9 @@ export function PulseGate({ children }: Props) {
   const presentDeferredRecheck = useCallback(() => {
     suppressRequiredOpenRef.current = false;
     deferredInvalidation.current = false;
+    deferredInvalidationReasons.current.clear();
+    deferredMediaEpisodeRef.current = null;
+    validatedMediaEpisodeRef.current = null;
     deferredNoticeShown.current = false;
     sessionStorage.removeItem(key);
     setAcknowledged(false);
@@ -80,9 +93,10 @@ export function PulseGate({ children }: Props) {
     setShowDeferredRecheckIntro(true);
     window.dispatchEvent(new Event("nexus-pulse-invalidated"));
   }, [key]);
-  const requestInvalidation = useCallback(() => {
+  const requestInvalidation = useCallback((reason = "environment") => {
     if (workProtectedRef.current) {
       deferredInvalidation.current = true;
+      deferredInvalidationReasons.current.add(reason);
       setStatus("warning");
       window.dispatchEvent(new Event("nexus-pulse-recheck-deferred"));
       if (!deferredNoticeShown.current) {
@@ -97,15 +111,36 @@ export function PulseGate({ children }: Props) {
     if (!allowed || !acknowledged || isRegistered) return;
     setStatus("warning");
     const timer = window.setTimeout(() => {
-      if (!isRegistered) requestInvalidation();
+      if (!isRegisteredRef.current) requestInvalidation("registration");
     }, 14000);
     return () => window.clearTimeout(timer);
   }, [allowed, acknowledged, isRegistered, requestInvalidation]);
+  useEffect(() => {
+    if (
+      !isRegistered ||
+      !deferredInvalidation.current ||
+      !validatedMediaEpisodeRef.current ||
+      deferredMediaEpisodeRef.current !== validatedMediaEpisodeRef.current
+    ) return;
+    deferredInvalidationReasons.current.delete("registration");
+    if (deferredInvalidationReasons.current.size > 0) return;
+    deferredInvalidation.current = false;
+    deferredMediaEpisodeRef.current = null;
+    validatedMediaEpisodeRef.current = null;
+    deferredNoticeShown.current = false;
+    const storedReady = readStoredReadiness(key);
+    setAcknowledged(storedReady);
+    setStatus(storedReady ? "ready" : "blocked");
+    if (storedReady) window.dispatchEvent(new Event("nexus-pulse-ready"));
+  }, [isRegistered, key]);
   useEffect(() => {
     if ((workProtected && callState !== "ended") || !deferredInvalidation.current) return;
     const timer = window.setTimeout(() => {
       if ((workProtectedRef.current && callState !== "ended") || !deferredInvalidation.current) return;
       deferredInvalidation.current = false;
+      deferredInvalidationReasons.current.clear();
+      deferredMediaEpisodeRef.current = null;
+      validatedMediaEpisodeRef.current = null;
       deferredNoticeShown.current = false;
       presentDeferredRecheck();
     }, 500);
@@ -146,20 +181,68 @@ export function PulseGate({ children }: Props) {
   }, [allowed, ready, showDeferredRecheckIntro]);
   useEffect(() => {
     if (!allowed) return;
-    const invalidate = () => requestInvalidation();
+    const invalidateFor = (reason: string) => () => requestInvalidation(reason);
+    const offline = invalidateFor("network");
+    const online = invalidateFor("network");
+    const deviceChanged = invalidateFor("device");
+    const connectionChanged = invalidateFor("network");
+    const mediaInterrupted = (event: Event) => {
+      const episodeId = (event as CustomEvent<{ episodeId?: string }>).detail?.episodeId;
+      if (!episodeId) return;
+      deferredMediaEpisodeRef.current = episodeId;
+      requestInvalidation("network");
+    };
+    const mediaCritical = (event: Event) => {
+      const episodeId = (event as CustomEvent<{ episodeId?: string }>).detail?.episodeId;
+      if (episodeId) deferredMediaEpisodeRef.current = episodeId;
+      requestInvalidation("media");
+    };
+    const mediaRecovered = (event: Event) => {
+      const episodeId = (event as CustomEvent<{ episodeId?: string }>).detail?.episodeId;
+      if (!episodeId || deferredMediaEpisodeRef.current !== episodeId) return;
+      validatedMediaEpisodeRef.current = episodeId;
+      deferredInvalidationReasons.current.delete("network");
+      deferredInvalidationReasons.current.delete("media");
+      deferredInvalidationReasons.current.delete("lifecycle");
+      if (!isRegisteredRef.current) {
+        setStatus("warning");
+        return;
+      }
+      deferredInvalidationReasons.current.delete("registration");
+      if (!deferredInvalidation.current || deferredInvalidationReasons.current.size > 0) return;
+      deferredInvalidation.current = false;
+      deferredMediaEpisodeRef.current = null;
+      validatedMediaEpisodeRef.current = null;
+      deferredNoticeShown.current = false;
+      const storedReady = readStoredReadiness(key);
+      setAcknowledged(storedReady);
+      setStatus(storedReady ? (isRegisteredRef.current ? "ready" : "warning") : "blocked");
+      if (storedReady) window.dispatchEvent(new Event("nexus-pulse-ready"));
+    };
     let lastLifecycleCheck = Date.now();
     const mediaDevices = navigator.mediaDevices;
-    window.addEventListener("offline", invalidate); mediaDevices?.addEventListener?.("devicechange", invalidate);
-    window.addEventListener("online", invalidate);
-    window.addEventListener("nexus-pulse-media-critical", invalidate);
-    const connection = (navigator as any).connection; connection?.addEventListener?.("change", invalidate);
+    window.addEventListener("offline", offline); mediaDevices?.addEventListener?.("devicechange", deviceChanged);
+    window.addEventListener("online", online);
+    window.addEventListener("nexus-pulse-media-interrupted", mediaInterrupted);
+    window.addEventListener("nexus-pulse-media-critical", mediaCritical);
+    window.addEventListener("nexus-pulse-media-recovered", mediaRecovered);
+    const connection = (navigator as any).connection; connection?.addEventListener?.("change", connectionChanged);
     const lifecycleTimer = window.setInterval(() => {
       const now = Date.now();
-      if (now - lastLifecycleCheck > 45000) invalidate();
+      if (now - lastLifecycleCheck > 45000) requestInvalidation("lifecycle");
       lastLifecycleCheck = now;
     }, 15000);
-    return () => { window.removeEventListener("offline", invalidate); mediaDevices?.removeEventListener?.("devicechange", invalidate); window.removeEventListener("online", invalidate); window.removeEventListener("nexus-pulse-media-critical", invalidate); connection?.removeEventListener?.("change", invalidate); window.clearInterval(lifecycleTimer); };
-  }, [allowed, requestInvalidation]);
+    return () => {
+      window.removeEventListener("offline", offline);
+      mediaDevices?.removeEventListener?.("devicechange", deviceChanged);
+      window.removeEventListener("online", online);
+      window.removeEventListener("nexus-pulse-media-interrupted", mediaInterrupted);
+      window.removeEventListener("nexus-pulse-media-critical", mediaCritical);
+      window.removeEventListener("nexus-pulse-media-recovered", mediaRecovered);
+      connection?.removeEventListener?.("change", connectionChanged);
+      window.clearInterval(lifecycleTimer);
+    };
+  }, [allowed, key, requestInvalidation]);
   if (isLoading) return <div className="flex min-h-[60dvh] items-center justify-center text-sm text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin" />{copy.working}</div>;
   if (!user || !allowed) return <>{children}</>;
   const roleLandingPage = (user as any)?.roleLandingPage || "/";
