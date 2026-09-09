@@ -9128,6 +9128,15 @@ interface ScheduledItem {
   isOutsideMission?: boolean;
   inboundCallbackId?: number;
   calledBack?: boolean;
+  workflowMode?: "status_list" | "disposition";
+  statusListMode?: "batch" | "immediate";
+  outcomeBadges?: Array<{
+    kind: "status_list" | "disposition" | "callback";
+    code?: string;
+    label?: string;
+    color?: string | null;
+    callbackDate?: string | null;
+  }>;
 }
 
 interface InboundCb {
@@ -9340,8 +9349,8 @@ function MyActivityPanel({
   ];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
-      <DialogContent className="!w-[calc(100vw-2rem)] !max-w-[calc(100vw-2rem)] !h-[calc(100vh-2rem)] !max-h-[calc(100vh-2rem)] sm:!w-[calc(100vw-3rem)] sm:!max-w-[calc(100vw-3rem)] sm:!h-[calc(100vh-3rem)] sm:!max-h-[calc(100vh-3rem)] lg:!w-[calc(100vw-4rem)] lg:!max-w-[calc(100vw-4rem)] lg:!h-[calc(100vh-4rem)] lg:!max-h-[calc(100vh-4rem)] !flex !flex-col overflow-hidden p-0 shadow-2xl ring-1 ring-black/10 dark:ring-white/10">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent overlayClassName="!bg-slate-950/30 backdrop-blur-[1px]" className="!w-[calc(100vw-2rem)] !max-w-[calc(100vw-2rem)] !h-[calc(100vh-2rem)] !max-h-[calc(100vh-2rem)] sm:!w-[calc(100vw-3rem)] sm:!max-w-[calc(100vw-3rem)] sm:!h-[calc(100vh-3rem)] sm:!max-h-[calc(100vh-3rem)] lg:!w-[calc(100vw-4rem)] lg:!max-w-[calc(100vw-4rem)] lg:!h-[calc(100vh-4rem)] lg:!max-h-[calc(100vh-4rem)] !flex !flex-col overflow-hidden p-0 shadow-2xl ring-1 ring-black/10 dark:ring-white/10">
         <div className="flex items-center gap-3 pl-5 pr-14 pt-5 pb-3 border-b flex-shrink-0">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: "#B5622E18" }}>
             <History className="h-5 w-5" style={{ color: "#B5622E" }} />
@@ -9761,8 +9770,8 @@ function ScheduledQueuePanel({
   ];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
-      <DialogContent className="!w-[calc(100vw-2rem)] !max-w-[calc(100vw-2rem)] !h-[calc(100vh-2rem)] !max-h-[calc(100vh-2rem)] sm:!w-[calc(100vw-3rem)] sm:!max-w-[calc(100vw-3rem)] sm:!h-[calc(100vh-3rem)] sm:!max-h-[calc(100vh-3rem)] lg:!w-[calc(100vw-4rem)] lg:!max-w-[calc(100vw-4rem)] lg:!h-[calc(100vh-4rem)] lg:!max-h-[calc(100vh-4rem)] !flex !flex-col overflow-hidden p-0 shadow-2xl ring-1 ring-black/10 dark:ring-white/10">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent overlayClassName="!bg-slate-950/30 backdrop-blur-[1px]" className="!w-[calc(100vw-2rem)] !max-w-[calc(100vw-2rem)] !h-[calc(100vh-2rem)] !max-h-[calc(100vh-2rem)] sm:!w-[calc(100vw-3rem)] sm:!max-w-[calc(100vw-3rem)] sm:!h-[calc(100vh-3rem)] sm:!max-h-[calc(100vh-3rem)] lg:!w-[calc(100vw-4rem)] lg:!max-w-[calc(100vw-4rem)] lg:!h-[calc(100vh-4rem)] lg:!max-h-[calc(100vh-4rem)] !flex !flex-col overflow-hidden p-0 shadow-2xl ring-1 ring-black/10 dark:ring-white/10">
         <div className="flex items-center justify-between pl-5 pr-14 pt-5 pb-3 border-b flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
@@ -10009,7 +10018,33 @@ function ScheduledQueuePanel({
                         </div>
 
                         <div className="flex items-center min-w-0 overflow-hidden">
-                          {item.callbackStatusListLabel ? (
+                          {item.workflowMode && item.outcomeBadges?.length ? (
+                            <div className="flex flex-col gap-0.5 items-start" data-testid={`text-scheduled-step-${item.id}`}>
+                              {item.outcomeBadges.map((badge, index) => {
+                                const color = badge.color || (badge.kind === "callback" ? "#2563eb" : "#059669");
+                                const label = badge.kind === "callback"
+                                  ? t.agentWorkspace.dispCbScheduledTitle
+                                  : (badge.label || badge.code || "—");
+                                return (
+                                  <span
+                                    key={`${badge.kind}-${badge.code || index}`}
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border max-w-full truncate"
+                                    style={{ backgroundColor: `${color}18`, color, borderColor: `${color}45` }}
+                                    title={label}
+                                  >
+                                    {badge.kind === "callback" && <Calendar className="h-2.5 w-2.5 shrink-0" />}
+                                    {label}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          ) : item.workflowMode ? (
+                            item.stepName ? (
+                              <span className="text-[11px] text-muted-foreground truncate" data-testid={`text-scheduled-step-${item.id}`}>
+                                {item.stepIndex ? `${item.stepIndex}. ` : ""}{item.stepName}
+                              </span>
+                            ) : <span className="text-[10px] text-muted-foreground/50">—</span>
+                          ) : item.callbackStatusListLabel ? (
                             <div className="flex flex-col gap-0.5 items-start" data-testid={`text-scheduled-step-${item.id}`}>
                                 <span
                                   className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 max-w-full truncate"
@@ -16581,8 +16616,9 @@ export default function AgentWorkspacePage() {
         </SheetContent>
       </Sheet>
 
-      <Dialog open={abandonedCallsOpen} onOpenChange={(open) => { setAbandonedCallsOpen(open); if (!open) { setAbandonedCallsFilter("all"); setMissedChannel("calls"); } }} modal={false}>
+      <Dialog open={abandonedCallsOpen} onOpenChange={(open) => { setAbandonedCallsOpen(open); if (!open) { setAbandonedCallsFilter("all"); setMissedChannel("calls"); } }}>
         <DialogContent
+          overlayClassName="!bg-slate-950/30 backdrop-blur-[1px]"
           className="!w-[calc(100vw-2rem)] !max-w-[calc(100vw-2rem)] !h-[calc(100vh-2rem)] !max-h-[calc(100vh-2rem)] sm:!w-[calc(100vw-3rem)] sm:!max-w-[calc(100vw-3rem)] sm:!h-[calc(100vh-3rem)] sm:!max-h-[calc(100vh-3rem)] lg:!w-[calc(100vw-4rem)] lg:!max-w-[calc(100vw-4rem)] lg:!h-[calc(100vh-4rem)] lg:!max-h-[calc(100vh-4rem)] flex flex-col overflow-hidden p-0 gap-0 shadow-2xl ring-1 ring-black/10 dark:ring-white/10"
           onInteractOutside={(e) => e.preventDefault()}
           onPointerDownOutside={(e) => e.preventDefault()}

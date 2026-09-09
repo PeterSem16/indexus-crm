@@ -25079,6 +25079,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           dispositionChecklistCodes: (row.ccDispositionChecklistCodes as string[] | null) || [],
           callbackStatusListItemId: row.ccCallbackSlItemId || null,
           campaignQueueDisplayMode: (() => { try { return row.campaignSettings ? (JSON.parse(row.campaignSettings).queueDisplayMode || null) : null; } catch { return null; } })(),
+          workflowMode: (() => { try { return row.campaignSettings && JSON.parse(row.campaignSettings).workflowMode === "status_list" ? "status_list" : "disposition"; } catch { return "disposition"; } })(),
+          statusListMode: (() => { try { return row.campaignSettings && JSON.parse(row.campaignSettings).statusListMode === "batch" ? "batch" : "immediate"; } catch { return "immediate"; } })(),
         });
       }
 
@@ -25130,6 +25132,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           dispositionCode: row.ccDispositionCode || null,
           dispositionChecklistCodes: (row.ccDispositionChecklistCodes as string[] | null) || [],
           campaignQueueDisplayMode: (() => { try { return row.campaignSettings ? (JSON.parse(row.campaignSettings).queueDisplayMode || null) : null; } catch { return null; } })(),
+          workflowMode: (() => { try { return row.campaignSettings && JSON.parse(row.campaignSettings).workflowMode === "status_list" ? "status_list" : "disposition"; } catch { return "disposition"; } })(),
+          statusListMode: (() => { try { return row.campaignSettings && JSON.parse(row.campaignSettings).statusListMode === "batch" ? "batch" : "immediate"; } catch { return "immediate"; } })(),
         });
       }
 
@@ -25166,6 +25170,72 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         for (const item of items as any[]) {
           if (item.callbackStatusListItemId) {
             item.callbackStatusListLabel = slLabelLookup.get(item.callbackStatusListItemId) || null;
+          }
+        }
+      }
+
+      // Use the exact same call-bound outcome rules as Communication history.
+      // Never derive the Queue Step column from the contact's current mutable status.
+      const queueContactIds = [...new Set((items as any[]).map(i => i.campaignContactId).filter(Boolean))] as string[];
+      if (queueContactIds.length > 0) {
+        const [queueHistory, queueCalls, queueStatusItems] = await Promise.all([
+          db.select().from(campaignContactHistory)
+            .where(inArray(campaignContactHistory.campaignContactId, queueContactIds))
+            .orderBy(asc(campaignContactHistory.createdAt)),
+          db.select({
+            campaignContactId: callLogs.campaignContactId,
+            campaignId: callLogs.campaignId,
+            startedAt: callLogs.startedAt,
+            createdAt: callLogs.createdAt,
+            endedAt: callLogs.endedAt,
+            durationSeconds: callLogs.durationSeconds,
+          }).from(callLogs)
+            .where(inArray(callLogs.campaignContactId, queueContactIds))
+            .orderBy(asc(callLogs.startedAt)),
+          db.select({
+            id: campaignStatusListItems.id,
+            label: campaignStatusListItems.label,
+            color: campaignStatusListItems.color,
+          }).from(campaignStatusListItems),
+        ]);
+        const queueStatusItemMap = new Map(queueStatusItems.map(statusItem => [
+          statusItem.id,
+          { label: statusItem.label, color: statusItem.color || null },
+        ]));
+        const queueDispositionMapByCampaign = new Map<string, Map<string, { name: string; color: string | null }>>();
+        for (const disposition of queueDispositions) {
+          const lookup = queueDispositionMapByCampaign.get(disposition.campaignId) || new Map();
+          lookup.set(disposition.code, { name: disposition.name, color: disposition.color || null });
+          queueDispositionMapByCampaign.set(disposition.campaignId, lookup);
+        }
+
+        for (const item of items as any[]) {
+          const contactHistory = queueHistory.filter(entry => entry.campaignContactId === item.campaignContactId);
+          const contactCalls = queueCalls
+            .filter(call => call.campaignContactId === item.campaignContactId)
+            .sort((a, b) => new Date(a.startedAt || a.createdAt).getTime() - new Date(b.startedAt || b.createdAt).getTime());
+          item.outcomeBadges = [];
+          for (let callIndex = contactCalls.length - 1; callIndex >= 0; callIndex--) {
+            const call = contactCalls[callIndex];
+            const callStart = call.startedAt || call.createdAt;
+            const callEnd = call.endedAt || new Date(new Date(callStart).getTime() + Math.max(0, call.durationSeconds || 0) * 1000);
+            const relevantEvents = eventsForCallOutcome(
+              contactHistory,
+              callStart,
+              callEnd,
+              contactCalls[callIndex + 1]?.startedAt || contactCalls[callIndex + 1]?.createdAt || null,
+            );
+            const badges = selectCallOutcomeBadges({
+              events: relevantEvents,
+              workflowMode: item.workflowMode,
+              statusListMode: item.statusListMode,
+              statusListItems: queueStatusItemMap,
+              dispositions: queueDispositionMapByCampaign.get(item.campaignId) || new Map(),
+            });
+            if (badges.length > 0) {
+              item.outcomeBadges = badges;
+              break;
+            }
           }
         }
       }
