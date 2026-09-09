@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
-import { Activity, Loader2 } from "lucide-react";
+import { Activity, ArrowLeft, ArrowRight, HeartPulse, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
@@ -39,13 +40,16 @@ export function PulseGate({ children }: Props) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<Status>("checking");
   const [acknowledged, setAcknowledged] = useState(() => readStoredReadiness(key));
+  const hasEnteredPulseRef = useRef(acknowledged);
   const [afterCallWorkActive, setAfterCallWorkActive] = useState(false);
   const [recordingPlaybackActive, setRecordingPlaybackActive] = useState(isPulseRecordingPlaybackActive);
+  const [showDeferredRecheckIntro, setShowDeferredRecheckIntro] = useState(false);
   const ready = allowed && acknowledged;
   const workProtected = isPulseSessionProtected(callState) || afterCallWorkActive || recordingPlaybackActive;
   const workProtectedRef = useRef(workProtected);
   const deferredInvalidation = useRef(false);
   const deferredNoticeShown = useRef(false);
+  const suppressRequiredOpenRef = useRef(false);
   useLayoutEffect(() => {
     workProtectedRef.current = workProtected;
   }, [workProtected]);
@@ -54,12 +58,24 @@ export function PulseGate({ children }: Props) {
     sessionStorage.removeItem(key.replace("nexus-pulse-ready-v2:", "nexus-pulse-ready:"));
   }, [key]);
   const invalidateNow = useCallback(() => {
+    suppressRequiredOpenRef.current = false;
     deferredInvalidation.current = false;
     deferredNoticeShown.current = false;
     sessionStorage.removeItem(key);
     setAcknowledged(false);
     setStatus("blocked");
     setOpen(true);
+    window.dispatchEvent(new Event("nexus-pulse-invalidated"));
+  }, [key]);
+  const presentDeferredRecheck = useCallback(() => {
+    suppressRequiredOpenRef.current = false;
+    deferredInvalidation.current = false;
+    deferredNoticeShown.current = false;
+    sessionStorage.removeItem(key);
+    setAcknowledged(false);
+    setStatus("blocked");
+    setOpen(false);
+    setShowDeferredRecheckIntro(true);
     window.dispatchEvent(new Event("nexus-pulse-invalidated"));
   }, [key]);
   const requestInvalidation = useCallback(() => {
@@ -89,14 +105,18 @@ export function PulseGate({ children }: Props) {
       if (workProtectedRef.current || !deferredInvalidation.current) return;
       deferredInvalidation.current = false;
       deferredNoticeShown.current = false;
-      invalidateNow();
+      presentDeferredRecheck();
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [invalidateNow, workProtected]);
+  }, [presentDeferredRecheck, workProtected]);
   useEffect(() => {
     const openFromHeader = () => setOpen(true);
     const sync = () => {
-      if (!workProtectedRef.current) setAcknowledged(readStoredReadiness(key));
+      if (!workProtectedRef.current) {
+        const storedReady = readStoredReadiness(key);
+        if (storedReady) hasEnteredPulseRef.current = true;
+        setAcknowledged(storedReady);
+      }
     };
     sync();
     window.addEventListener("nexus-pulse-open", openFromHeader);
@@ -119,7 +139,9 @@ export function PulseGate({ children }: Props) {
     window.addEventListener("nexus-pulse-recording-playback", updateRecordingProtection);
     return () => window.removeEventListener("nexus-pulse-recording-playback", updateRecordingProtection);
   }, [afterCallWorkActive, callState]);
-  useEffect(() => { if (allowed && !ready) setOpen(true); }, [allowed, ready]);
+  useEffect(() => {
+    if (allowed && !ready && !showDeferredRecheckIntro && !suppressRequiredOpenRef.current) setOpen(true);
+  }, [allowed, ready, showDeferredRecheckIntro]);
   useEffect(() => {
     if (!allowed) return;
     const invalidate = () => requestInvalidation();
@@ -139,7 +161,33 @@ export function PulseGate({ children }: Props) {
   if (!user || !allowed) return <>{children}</>;
   const roleLandingPage = (user as any)?.roleLandingPage || "/";
   const safeExitPage = roleLandingPage === "/agent-workspace" ? "/" : roleLandingPage;
-  return <><PulseDiagnostics open={open && !workProtected} required={!ready} keepWakeLock hasValidReadiness={ready} userId={userKey(user)} onClose={() => setOpen(false)} onExit={() => setLocation(safeExitPage)} onReady={() => { sessionStorage.setItem(key, "1"); setAcknowledged(true); setStatus("ready"); setOpen(false); window.dispatchEvent(new Event("nexus-pulse-ready")); }} />{ready || workProtected ? children : <div className="flex min-h-[60dvh] items-center justify-center"><div className="text-center text-muted-foreground"><Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin" />{copy.working}</div></div>}</>;
+  return <>
+    <AlertDialog open={showDeferredRecheckIntro}>
+      <AlertDialogContent overlayClassName="z-[10034] bg-slate-950/70 backdrop-blur-md motion-reduce:animate-none" className="z-[10035] max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-[2rem] border-amber-300/35 bg-background p-0 shadow-2xl shadow-amber-950/30 motion-reduce:animate-none" data-testid="nexus-pulse-recheck-intro">
+        <div className="relative overflow-hidden rounded-[inherit]">
+          <div className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-amber-400/20 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-20 -left-16 h-48 w-48 rounded-full bg-primary/15 blur-3xl" />
+          <div className="relative p-6 text-center sm:p-8">
+            <div className="relative mx-auto flex h-20 w-20 items-center justify-center rounded-[1.6rem] bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-xl shadow-amber-500/25">
+              <span className="absolute inset-0 rounded-[1.6rem] bg-amber-300/30 motion-safe:animate-ping motion-reduce:hidden" />
+              <HeartPulse className="relative h-10 w-10" aria-hidden="true" />
+            </div>
+            <div className="mt-5 flex items-center justify-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-300"><Sparkles className="h-4 w-4" aria-hidden="true" />{copy.recheckIntroEyebrow}</div>
+            <AlertDialogTitle className="mt-2 text-center text-2xl font-bold tracking-tight sm:text-3xl">{copy.recheckIntroTitle}</AlertDialogTitle>
+            <AlertDialogDescription className="mx-auto mt-3 max-w-md text-center text-sm leading-relaxed text-muted-foreground">{copy.recheckIntroDetail}</AlertDialogDescription>
+            <Button size="lg" className="mt-7 h-14 w-full rounded-2xl bg-gradient-to-r from-primary to-red-600 text-base font-bold text-white shadow-lg shadow-primary/25 transition-all hover:-translate-y-0.5 hover:shadow-xl" onClick={() => { setShowDeferredRecheckIntro(false); invalidateNow(); }} data-testid="button-pulse-start-required-recheck">
+              {copy.recheckIntroStart}<ArrowRight className="h-5 w-5" aria-hidden="true" />
+            </Button>
+            <Button variant="ghost" className="mt-3 h-11 w-full rounded-xl text-muted-foreground hover:text-foreground" onClick={() => { suppressRequiredOpenRef.current = true; setShowDeferredRecheckIntro(false); setOpen(false); setLocation(safeExitPage); }} data-testid="button-pulse-recheck-return">
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />{copy.returnToIndexus}
+            </Button>
+          </div>
+        </div>
+      </AlertDialogContent>
+    </AlertDialog>
+    <PulseDiagnostics open={open && !workProtected && !showDeferredRecheckIntro} required={!ready} keepWakeLock hasValidReadiness={ready} userId={userKey(user)} onClose={() => setOpen(false)} onExit={() => setLocation(safeExitPage)} onReady={() => { sessionStorage.setItem(key, "1"); hasEnteredPulseRef.current = true; setAcknowledged(true); setStatus("ready"); setOpen(false); window.dispatchEvent(new Event("nexus-pulse-ready")); }} />
+    {hasEnteredPulseRef.current || ready ? children : <div className="flex min-h-[60dvh] items-center justify-center"><div className="text-center text-muted-foreground"><Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin" />{copy.working}</div></div>}
+  </>;
 }
 
 export function PulseHeaderButton() {
