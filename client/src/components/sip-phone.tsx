@@ -3272,11 +3272,13 @@ export function SipPhone({
                 ? t.agentWorkspace.mediaCriticalDesc
                 : audioHealth === "warning"
                   ? t.agentWorkspace.mediaWarningDesc
-                  : t.agentWorkspace.mediaRecoveryProgress}
+                  : audioHealth === "recovering"
+                    ? t.agentWorkspace.mediaRecoveryProgress
+                    : t.agentWorkspace.audioCheckingDesc}
             </div>
             {(audioHealth === "checking" || audioHealth === "recovering") && (
               <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-sky-950/15 dark:bg-white/15" aria-hidden="true">
-                <div className="h-full w-2/3 rounded-full bg-gradient-to-r from-sky-500 via-cyan-300 to-sky-500 motion-safe:animate-pulse" />
+                <div className="nexus-pulse-progress h-full w-2/5 rounded-full bg-gradient-to-r from-sky-500 via-cyan-300 to-sky-500" />
               </div>
             )}
           </div>

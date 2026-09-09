@@ -106,7 +106,7 @@ export function CallBar() {
         </div>
       </div>
       <div className={`h-1.5 ${healthIsCritical ? "bg-red-400" : "overflow-hidden bg-amber-200 dark:bg-amber-900"}`}>
-        {!healthIsCritical && <div className="h-full w-2/3 rounded-r-full bg-gradient-to-r from-amber-500 via-yellow-300 to-amber-500 motion-safe:animate-pulse" />}
+        {!healthIsCritical && <div className="nexus-pulse-progress h-full w-2/5 rounded-full bg-gradient-to-r from-amber-500 via-yellow-300 to-amber-500" />}
       </div>
     </div>,
     document.body,

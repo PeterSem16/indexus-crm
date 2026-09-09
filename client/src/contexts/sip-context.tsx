@@ -95,6 +95,12 @@ interface SipContextType {
 
 const SipContext = createContext<SipContextType | undefined>(undefined);
 
+function hasActiveSipDialog(userAgent: any): boolean {
+  return Object.values(userAgent?._sessions || {}).some((session: any) =>
+    String(session?.state) === "Established",
+  );
+}
+
 const REGISTER_EXPIRES = 600;
 const RE_REGISTER_INTERVAL = 30_000;
 const RECONNECT_BASE_DELAY = 1_000;
@@ -354,17 +360,88 @@ export function SipProvider({ children }: { children: ReactNode }) {
     }, RE_REGISTER_INTERVAL);
   }, [setRegisteredState]);
 
+  const createRegistererForExistingUa = useCallback(async (userAgent: any) => {
+    const { Registerer, RegistererState } = await import("sip.js");
+    if (userAgentRef.current !== userAgent) {
+      throw new Error("SIP UserAgent changed before Registerer recreation");
+    }
+    // Concurrent ensureRegistered/scheduled reconnect callers can arrive while
+    // the dynamic import is pending. Reuse the winner instead of orphaning a
+    // second Registerer with its own refresh lifecycle.
+    const currentRegisterer = registererRef.current;
+    if (currentRegisterer && String(currentRegisterer.state) !== "Terminated") {
+      return currentRegisterer;
+    }
+    const registerer = new Registerer(userAgent, {
+      expires: REGISTER_EXPIRES,
+      refreshFrequency: 70,
+      regId: 1,
+      extraHeaders: ["X-CRM-Client: indexus"],
+    });
+    registererRef.current = registerer;
+    registerer.stateChange.addListener((newState: any) => {
+      if (registererRef.current !== registerer) return;
+      console.log("[SIP] Registerer state:", newState);
+      if (newState === RegistererState.Registered) {
+        setRegisteredState(true);
+        setIsRegistering(false);
+        setRegistrationError(null);
+        reconnectAttemptRef.current = 0;
+      } else if (newState === RegistererState.Unregistered) {
+        setRegisteredState(false);
+        if (!intentionalDisconnectRef.current) {
+          reportVoiceIncident("sip_registration_disconnected", "warning");
+          const transport = userAgentRef.current?.transport;
+          if (transport?.isConnected()) {
+            setTimeout(() => {
+              if (
+                !intentionalDisconnectRef.current &&
+                registererRef.current === registerer &&
+                String(registerer.state) !== "Terminated"
+              ) {
+                setIsRegistering(true);
+                registerer.register().catch((error: unknown) => {
+                  console.warn("[SIP] Immediate re-registration failed:", error);
+                  setIsRegistering(false);
+                  scheduleReconnectRef.current();
+                });
+              }
+            }, 300);
+          } else {
+            scheduleReconnectRef.current();
+          }
+        }
+      } else if (newState === RegistererState.Terminated) {
+        setRegisteredState(false);
+        setIsRegistering(false);
+        registererRef.current = null;
+        if (!intentionalDisconnectRef.current) {
+          console.warn("[SIP] Registerer terminated unexpectedly — recreating it on the existing UserAgent");
+          scheduleReconnectRef.current();
+        }
+      }
+    });
+    return registerer;
+  }, [setRegisteredState]);
+
   const doReconnectNow = useCallback(async (): Promise<boolean> => {
-    if (!userAgentRef.current || !registererRef.current) return false;
+    if (!userAgentRef.current) return false;
     if (navigator.onLine === false) return false;
     try {
-      const transport = userAgentRef.current.transport;
+      const userAgent = userAgentRef.current;
+      const transport = userAgent.transport;
       if (transport && !transport.isConnected()) {
         console.log("[SIP] Immediate reconnect: connecting transport...");
         await withTimeout(transport.connect(), SIP_OPERATION_TIMEOUT, "SIP transport reconnect");
       }
+      if (userAgentRef.current !== userAgent) return false;
+      let registerer = registererRef.current;
+      if (!registerer || String(registerer.state) === "Terminated") {
+        console.log("[SIP] Recreating Registerer without replacing the active UserAgent");
+        registerer = await createRegistererForExistingUa(userAgent);
+      }
       console.log("[SIP] Immediate reconnect: sending REGISTER...");
-      await withTimeout(registererRef.current.register(), SIP_OPERATION_TIMEOUT, "SIP REGISTER");
+      await withTimeout(registerer.register(), SIP_OPERATION_TIMEOUT, "SIP REGISTER");
       const confirmed = await waitForRegisteredState();
       if (!confirmed) {
         throw new Error("SIP REGISTER was sent but registration was not confirmed");
@@ -375,7 +452,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
       console.warn("[SIP] Immediate reconnect failed:", e.message);
       return false;
     }
-  }, [waitForRegisteredState]);
+  }, [createRegistererForExistingUa, waitForRegisteredState]);
 
   const scheduleReconnect = useCallback(() => {
     if (intentionalDisconnectRef.current || isConnectingRef.current) return;
@@ -448,6 +525,15 @@ export function SipProvider({ children }: { children: ReactNode }) {
   const register = useCallback(async () => {
     if (!canRegister()) return;
     if (isConnectingRef.current) return;
+    if (hasActiveSipDialog(userAgentRef.current)) {
+      // Rebuilding the UserAgent calls stop(), which disposes every active
+      // dialog. During a network interruption keep the existing dialog alive
+      // and continue reconnecting only its transport/REGISTER.
+      console.warn("[SIP] Full UserAgent rebuild deferred while a call is established");
+      setRegisteredState(false);
+      scheduleReconnectRef.current();
+      return;
+    }
 
     isConnectingRef.current = true;
     intentionalDisconnectRef.current = false;
@@ -456,17 +542,29 @@ export function SipProvider({ children }: { children: ReactNode }) {
     let retryAfterFailure = false;
 
     try {
-      if (registererRef.current) {
-        try { await registererRef.current.unregister(); } catch (_) {}
-        registererRef.current = null;
+      const existingUserAgent = userAgentRef.current;
+      const existingRegisterer = registererRef.current;
+      if (existingRegisterer) {
+        try { await existingRegisterer.unregister(); } catch (_) {}
+        if (hasActiveSipDialog(existingUserAgent)) {
+          console.warn("[SIP] UserAgent rebuild cancelled because a call became established during cleanup");
+          retryAfterFailure = true;
+          return;
+        }
+        if (registererRef.current === existingRegisterer) registererRef.current = null;
       }
-      if (userAgentRef.current) {
-        try { await userAgentRef.current.stop(); } catch (_) {}
-        userAgentRef.current = null;
+      if (existingUserAgent) {
+        if (hasActiveSipDialog(existingUserAgent)) {
+          console.warn("[SIP] UserAgent stop cancelled because a call is established");
+          retryAfterFailure = true;
+          return;
+        }
+        try { await existingUserAgent.stop(); } catch (_) {}
+        if (userAgentRef.current === existingUserAgent) userAgentRef.current = null;
       }
       clearTimers();
 
-      const { UserAgent, Registerer, RegistererState } = await import("sip.js");
+      const { UserAgent } = await import("sip.js");
 
       const realm = sipSettings!.realm || sipSettings!.server;
       // Always route through the INDEXUS built-in WS proxy (/wss-asterisk/)
@@ -609,58 +707,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
       await withTimeout(userAgent.start(), SIP_OPERATION_TIMEOUT + 5_000, "SIP UserAgent start");
       console.log("[SIP] UserAgent started");
 
-      const registerer = new Registerer(userAgent, {
-        expires: REGISTER_EXPIRES,
-        refreshFrequency: 70,
-        regId: 1,
-        extraHeaders: [
-          "X-CRM-Client: indexus",
-        ],
-      });
-      registererRef.current = registerer;
-
-      registerer.stateChange.addListener((newState: any) => {
-        console.log("[SIP] Registerer state:", newState);
-        if (newState === RegistererState.Registered) {
-          setRegisteredState(true);
-          setIsRegistering(false);
-          setRegistrationError(null);
-          reconnectAttemptRef.current = 0;
-        } else if (newState === RegistererState.Unregistered) {
-          setRegisteredState(false);
-          if (!intentionalDisconnectRef.current) {
-            reportVoiceIncident("sip_registration_disconnected", "warning");
-            // If transport is still up, the server dropped our registration —
-            // re-register immediately instead of going through slow reconnect backoff.
-            const transport = userAgentRef.current?.transport;
-            if (transport?.isConnected()) {
-              setTimeout(() => {
-                if (!intentionalDisconnectRef.current && registererRef.current) {
-                  setIsRegistering(true);
-                  registererRef.current.register().catch((error: unknown) => {
-                    console.warn("[SIP] Immediate re-registration failed:", error);
-                    setIsRegistering(false);
-                    scheduleReconnectRef.current();
-                  });
-                }
-              }, 300);
-            } else {
-              scheduleReconnect();
-            }
-          }
-        } else if (newState === RegistererState.Terminated) {
-          setRegisteredState(false);
-          setIsRegistering(false);
-          if (!intentionalDisconnectRef.current) {
-            console.warn("[SIP] Registerer terminated unexpectedly — rebuilding UA in 2s...");
-            setTimeout(() => {
-              if (!intentionalDisconnectRef.current && !isConnectingRef.current) {
-                register();
-              }
-            }, 2_000);
-          }
-        }
-      });
+      const registerer = await createRegistererForExistingUa(userAgent);
 
       await withTimeout(registerer.register(), SIP_OPERATION_TIMEOUT, "Initial SIP REGISTER");
       console.log("[SIP] Initial REGISTER sent");
@@ -672,11 +719,22 @@ export function SipProvider({ children }: { children: ReactNode }) {
       console.error("[SIP] Registration failed:", error);
       const failedRegisterer = registererRef.current;
       const failedUserAgent = userAgentRef.current;
-      registererRef.current = null;
-      userAgentRef.current = null;
-      if (failedRegisterer) void failedRegisterer.unregister().catch(() => {});
-      if (failedUserAgent) void failedUserAgent.stop().catch(() => {});
-      clearTimers();
+      if (failedRegisterer && !hasActiveSipDialog(failedUserAgent)) {
+        await failedRegisterer.unregister().catch(() => {});
+      }
+      if (failedUserAgent && hasActiveSipDialog(failedUserAgent)) {
+        console.warn("[SIP] Preserving UserAgent after registration failure because it owns an active call");
+        if (registererRef.current === failedRegisterer && String(failedRegisterer?.state) === "Terminated") {
+          registererRef.current = null;
+        }
+      } else {
+        if (registererRef.current === failedRegisterer) registererRef.current = null;
+        if (failedUserAgent && !hasActiveSipDialog(failedUserAgent)) {
+          await failedUserAgent.stop().catch(() => {});
+        }
+        if (userAgentRef.current === failedUserAgent) userAgentRef.current = null;
+        clearTimers();
+      }
       setRegistrationError(error.message || "Registration failed");
       setRegisteredState(false);
       setIsRegistering(false);
@@ -689,7 +747,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
         scheduleReconnectRef.current();
       }
     }
-  }, [canRegister, sipSettings, user, clearTimers, startReRegisterTimer, startKeepalive, scheduleReconnect, setRegisteredState]);
+  }, [canRegister, sipSettings, user, clearTimers, createRegistererForExistingUa, startReRegisterTimer, startKeepalive, scheduleReconnect, setRegisteredState]);
   fullRegisterRef.current = register;
 
   const ensureRegistered = useCallback(async (): Promise<boolean> => {

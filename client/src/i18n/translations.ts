@@ -3953,6 +3953,7 @@ export interface Translations {
     callerHangupLabel: string;
     sipInviteNotReady: string;
     audioChecking: string;
+    audioCheckingDesc: string;
     audioConnected: string;
     audioIssue: string;
     holdRecoveryTitle: string;
@@ -11848,6 +11849,7 @@ export const translations: Record<Locale, Translations> = {
       callerHangupLabel: 'Caller hung up',
       sipInviteNotReady: 'SIP invite has not arrived yet. Try again.',
       audioChecking: 'Checking audio…',
+      audioCheckingDesc: 'NEXUS Pulse is checking the call quality and two-way audio.',
       audioConnected: 'Audio connected',
       audioIssue: 'Audio problem',
       holdRecoveryTitle: 'Returning to the call',
@@ -19199,6 +19201,7 @@ export const translations: Record<Locale, Translations> = {
       callerHangupLabel: 'Volajúci zavesil',
       sipInviteNotReady: 'SIP pozvánka ešte nedorazila. Skúste znovu.',
       audioChecking: 'Kontrolujem audio…',
+      audioCheckingDesc: 'NEXUS Pulse kontroluje kvalitu hovoru a obojsmerný prenos zvuku.',
       audioConnected: 'Audio pripojené',
       audioIssue: 'Problém s audiom',
       holdRecoveryTitle: 'Návrat k hovoru',
@@ -26536,6 +26539,7 @@ export const translations: Record<Locale, Translations> = {
       callerHangupLabel: 'Volající zavěsil',
       sipInviteNotReady: 'SIP pozvánka ještě nedorazila. Zkuste znovu.',
       audioChecking: 'Kontroluji audio…',
+      audioCheckingDesc: 'NEXUS Pulse kontroluje kvalitu hovoru a obousměrný přenos zvuku.',
       audioConnected: 'Audio připojeno',
       audioIssue: 'Problém s audiem',
       holdRecoveryTitle: 'Návrat k hovoru',
@@ -33829,6 +33833,7 @@ export const translations: Record<Locale, Translations> = {
       callerHangupLabel: 'A hívó letette',
       sipInviteNotReady: 'A SIP meghívó még nem érkezett meg. Próbálja újra.',
       audioChecking: 'Hang ellenőrzése…',
+      audioCheckingDesc: 'A NEXUS Pulse ellenőrzi a hívás minőségét és a kétirányú hangot.',
       audioConnected: 'Hang csatlakoztatva',
       audioIssue: 'Hangprobléma',
       holdRecoveryTitle: 'Visszatérés a híváshoz',
@@ -41009,6 +41014,7 @@ export const translations: Record<Locale, Translations> = {
       callerHangupLabel: 'Apelantul a închis',
       sipInviteNotReady: 'Invitația SIP nu a sosit încă. Încercați din nou.',
       audioChecking: 'Se verifică sunetul…',
+      audioCheckingDesc: 'NEXUS Pulse verifică calitatea apelului și sunetul bidirecțional.',
       audioConnected: 'Sunet conectat',
       audioIssue: 'Problemă audio',
       holdRecoveryTitle: 'Revenire la apel',
@@ -48191,6 +48197,7 @@ export const translations: Record<Locale, Translations> = {
       callerHangupLabel: 'Il chiamante ha riattaccato',
       sipInviteNotReady: 'L\'invito SIP non è ancora arrivato. Riprova.',
       audioChecking: 'Controllo audio…',
+      audioCheckingDesc: 'NEXUS Pulse sta verificando la qualità della chiamata e l’audio bidirezionale.',
       audioConnected: 'Audio connesso',
       audioIssue: 'Problema audio',
       holdRecoveryTitle: 'Ritorno alla chiamata',
@@ -55373,6 +55380,7 @@ export const translations: Record<Locale, Translations> = {
       callerHangupLabel: 'Anrufer hat aufgelegt',
       sipInviteNotReady: 'SIP-Einladung ist noch nicht eingetroffen. Versuchen Sie es erneut.',
       audioChecking: 'Audio wird geprüft…',
+      audioCheckingDesc: 'NEXUS Pulse prüft die Gesprächsqualität und die beidseitige Audioübertragung.',
       audioConnected: 'Audio verbunden',
       audioIssue: 'Audioproblem',
       holdRecoveryTitle: 'Rückkehr zum Anruf',
