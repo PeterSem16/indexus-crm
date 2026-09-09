@@ -19,6 +19,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { NexusPulseView } from "@/components/nexus-pulse-view";
 import { isPulseAgentWorkProtected } from "@/features/nexus-pulse-preflight/diagnostics";
 import { readMissionFaq, readMissionFaqCategoryOrder } from "@/lib/mission-faq";
+import {
+  advancePulseCallCountTracker,
+  EMPTY_PULSE_CALL_COUNT_TRACKER,
+} from "@/lib/pulse-session-call-counter";
 import { sanitizeMissionFaqAnswer } from "@shared/mission-faq";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -10323,11 +10327,6 @@ export default function AgentWorkspacePage() {
         setQuotas(data.quotas);
         if (data.usage) {
           quotaDataRef.current = { usage: data.usage };
-          setStats({
-            calls: data.usage.calls || 0,
-            emails: data.usage.emails || 0,
-            sms: data.usage.sms || 0,
-          });
         }
       } else {
         setQuotas(null);
@@ -10536,6 +10535,7 @@ export default function AgentWorkspacePage() {
     }
   };
   const callWasActiveRef = useRef(false);
+  const callCountTrackerRef = useRef({ ...EMPTY_PULSE_CALL_COUNT_TRACKER });
   const [ringDuration, setRingDuration] = useState(0);
   const ringTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [callActiveContactId, setCallActiveContactId] = useState<string | number | null>(null);
@@ -10848,8 +10848,8 @@ export default function AgentWorkspacePage() {
     if (!quotas) return false;
     const limit = quotas[type];
     if (limit === null || limit === undefined) return false;
-    return stats[type] >= limit;
-  }, [quotas, stats]);
+    return (quotaDataRef.current?.usage[type] || 0) >= limit;
+  }, [quotas]);
 
   useEffect(() => {
     if (user && hasModuleAccess && !hasAccess && workspaceAccess !== undefined) {
@@ -10894,6 +10894,16 @@ export default function AgentWorkspacePage() {
 
   useEffect(() => {
     const curr = callContext.callState;
+    const callCountUpdate = advancePulseCallCountTracker(
+      callCountTrackerRef.current,
+      prevCallStateRef.current,
+      curr,
+    );
+    callCountTrackerRef.current = callCountUpdate.tracker;
+    const isInboundCall = wasInboundCallRef.current || callContext.callDirection === "inbound";
+    if (callCountUpdate.increment && !isInboundCall) {
+      setStats((previous) => ({ ...previous, calls: previous.calls + 1 }));
+    }
     if (curr === "connecting" || curr === "ringing") {
       callWasActiveRef.current = true;
       if (!ringTimerRef.current) {
@@ -10923,7 +10933,6 @@ export default function AgentWorkspacePage() {
         const quotaCampaignId = selectedCampaignId;
         setTimeout(() => fetchQuotaCheck(quotaCampaignId), 3000);
       }
-      const isInboundCall = wasInboundCallRef.current || callContext.callDirection === "inbound";
       const campSettings = (() => { try { return selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {}; } catch { return {}; } })();
       if (campSettings.workflowMode === "status_list") {
         // status_list mode: always start ACW immediately for any call (inbound or outbound)
@@ -12409,12 +12418,14 @@ export default function AgentWorkspacePage() {
         callContext.setCallInfo(null);
       }
       callWasActiveRef.current = false;
+      callCountTrackerRef.current = { ...EMPTY_PULSE_CALL_COUNT_TRACKER };
       prevCallStateRef.current = "idle";
       setDispositionModalOpen(false);
       setMandatoryDisposition(false);
       setCallEndTimestamp(null);
       setRingDuration(0);
       setCallNotes("");
+      setStats({ calls: 0, emails: 0, sms: 0 });
 
       const loginIds = selectedLoginCampaignIds.length > 0 ? selectedLoginCampaignIds : (selectedCampaignId ? [selectedCampaignId] : []);
       await agentSession.startSession(loginIds.length > 0 ? loginIds[0] : null, loginIds, selectedLoginQueueIds);
@@ -12454,6 +12465,7 @@ export default function AgentWorkspacePage() {
       setRingDuration(0);
       setCallNotes("");
       callWasActiveRef.current = false;
+      callCountTrackerRef.current = { ...EMPTY_PULSE_CALL_COUNT_TRACKER };
       prevCallStateRef.current = "idle";
       if (ringTimerRef.current) {
         clearInterval(ringTimerRef.current);
@@ -12503,7 +12515,6 @@ export default function AgentWorkspacePage() {
             setQuotas(qData.quotas);
             if (qData.usage) {
               quotaDataRef.current = { usage: qData.usage };
-              setStats({ calls: qData.usage.calls || 0, emails: qData.usage.emails || 0, sms: qData.usage.sms || 0 });
             }
           }
           if (qData.blocked?.emails) {
@@ -12557,7 +12568,6 @@ export default function AgentWorkspacePage() {
             setQuotas(qData.quotas);
             if (qData.usage) {
               quotaDataRef.current = { usage: qData.usage };
-              setStats({ calls: qData.usage.calls || 0, emails: qData.usage.emails || 0, sms: qData.usage.sms || 0 });
             }
           }
           if (qData.blocked?.sms) {
@@ -12833,7 +12843,6 @@ export default function AgentWorkspacePage() {
               setQuotas(qData.quotas);
               if (qData.usage) {
                 quotaDataRef.current = { usage: qData.usage };
-                setStats({ calls: qData.usage.calls || 0, emails: qData.usage.emails || 0, sms: qData.usage.sms || 0 });
               }
             }
             if (qData.blocked?.calls) {
@@ -12988,11 +12997,6 @@ export default function AgentWorkspacePage() {
             setQuotas(qData.quotas);
             if (qData.usage) {
               quotaDataRef.current = { usage: qData.usage };
-              setStats({
-                calls: qData.usage.calls || 0,
-                emails: qData.usage.emails || 0,
-                sms: qData.usage.sms || 0,
-              });
             }
           }
         }
@@ -16317,7 +16321,6 @@ export default function AgentWorkspacePage() {
               callerIdNumber: undefined,
               maxRingSeconds: getCampaignMaxRingSeconds(item.campaignId) || undefined,
             });
-            setStats(prev => ({ ...prev, calls: prev.calls + 1 }));
           }
         }}
         onOpenEntity={async (type, id, campaignContactId, campaignId) => {

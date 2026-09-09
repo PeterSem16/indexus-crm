@@ -1815,8 +1815,8 @@ export function SipPhone({
                   try { (inviter as Inviter).cancel?.(); } catch (e) { console.error("[SIP] Error cancelling on max-ring timeout:", e); }
                   playNotConnectedTone();
                   toast({
-                    title: "Hovor nebol spojený",
-                    description: `Hovor sa automaticky ukončil po ${maxRing} s bez prijatia.`,
+                    title: t.agentWorkspace.maxRingTimeoutTitle,
+                    description: t.agentWorkspace.maxRingTimeoutDesc.replace("{seconds}", String(maxRing)),
                     variant: "destructive",
                   });
                 }, 1_200);
@@ -2046,7 +2046,7 @@ export function SipPhone({
       setCallState("idle");
       makeCallGuardRef.current = false;
     }
-  }, [phoneNumber, sipConfig.server, sipConfig.realm, ensureRegistered, onCallStart, onCallEnd, toast, createCallLogMutation, updateCallLogMutation, userId, currentUser, localCustomerId, localCampaignId, localCustomerName, currentCallLogId, isSipConfigured, collaboratorCallerId]);
+  }, [phoneNumber, sipConfig.server, sipConfig.realm, ensureRegistered, onCallStart, onCallEnd, t.agentWorkspace, toast, createCallLogMutation, updateCallLogMutation, userId, currentUser, localCustomerId, localCampaignId, localCustomerName, currentCallLogId, isSipConfigured, collaboratorCallerId]);
 
   const isRegisteredRef = useRef(isRegistered);
   useEffect(() => { isRegisteredRef.current = isRegistered; }, [isRegistered]);
@@ -2145,7 +2145,6 @@ export function SipPhone({
     
     try {
       console.log("[SIP-INBOUND] SipPhone answer button clicked, caller:", incomingCall.callerNumber);
-      setCallState("active");
       callContextRef.current.resetCallTiming();
       setPhoneNumber(incomingCall.callerNumber);
       
