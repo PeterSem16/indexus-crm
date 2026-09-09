@@ -1323,16 +1323,15 @@ export function SipPhone({
         if (terminatedHandled) { clearInterval(hangupPollRef.current!); hangupPollRef.current = null; return; }
         const pollState = String(session.state);
         if (pollState === "Terminated") { triggerHangupDetection("SIP stateChange poll"); return; }
-        // Also poll the WebRTC PeerConnection state directly
+        // PeerConnection failure is a recoverable media incident, not proof
+        // that the caller ended the SIP dialog. Media-health monitoring owns
+        // ICE recovery; only SIP/server termination may finalize the call.
         const sdhNow = session.sessionDescriptionHandler;
         const pcNow: RTCPeerConnection | null = sdhNow ? (sdhNow as any).peerConnection : null;
         if (pcNow) {
           const connState = pcNow.connectionState;
           const iceState = pcNow.iceConnectionState;
           console.log(`[SIP-INBOUND] Poll: sipState=${pollState} pcConn=${connState} ice=${iceState}`);
-          if (connState === "closed" || connState === "failed" || iceState === "closed" || iceState === "failed") {
-            triggerHangupDetection(`PC/ICE poll (conn=${connState} ice=${iceState})`);
-          }
         }
       }, 1000);
 
@@ -1350,12 +1349,10 @@ export function SipPhone({
         pc2.addEventListener("connectionstatechange", () => {
           const s = pc2.connectionState;
           console.log("[SIP-INBOUND] PC connectionstatechange:", s);
-          if (s === "closed" || s === "failed") triggerHangupDetection(`PC connectionstatechange=${s}`);
         });
         pc2.addEventListener("iceconnectionstatechange", () => {
           const s = pc2.iceConnectionState;
           console.log("[SIP-INBOUND] PC iceconnectionstatechange:", s);
-          if (s === "closed" || s === "failed") triggerHangupDetection(`ICE iceconnectionstatechange=${s}`);
         });
 
         // Monitor remote audio track "ended" event
@@ -1363,7 +1360,6 @@ export function SipPhone({
           if (track.kind !== "audio") return;
           track.addEventListener("ended", () => {
             console.log("[SIP-INBOUND] Remote audio track ended");
-            triggerHangupDetection("remote audio track ended");
           });
         };
         pc2.getReceivers().forEach(r => { if (r.track) attachTrackEndedListener(r.track); });
@@ -1795,28 +1791,8 @@ export function SipPhone({
               const sipState = String(inviter.state);
               const sdh = inviter.sessionDescriptionHandler;
               const pc: RTCPeerConnection | null = sdh ? (sdh as any).peerConnection : null;
-              const pcFailed = pc && (
-                pc.connectionState === "closed" ||
-                pc.connectionState === "failed" ||
-                pc.iceConnectionState === "closed" ||
-                pc.iceConnectionState === "failed"
-              );
-              if (sipState === "Terminated" || pcFailed) {
-                const source = sipState === "Terminated"
-                  ? "outbound SIP state poll"
-                  : `outbound PC/ICE poll (conn=${pc?.connectionState} ice=${pc?.iceConnectionState})`;
-                if (
-                  sipState !== "Terminated" &&
-                  (
-                    sipIsHeld(inviter) ||
-                    isHoldTransitioning(inviter) ||
-                    (inviter as any).__holdRecoveryInProgress ||
-                    ((inviter as any).__postHoldRecoveryActive && Date.now() < Number((inviter as any).__postHoldRecoveryUntil || 0))
-                  )
-                ) {
-                  requestHeldCallRecoveryRef.current(inviter, source);
-                  return;
-                }
+              if (sipState === "Terminated") {
+                const source = "outbound SIP state poll";
                 const activeFinalizer = activeSessionFinalizeRef.current;
                 if (activeFinalizer?.session === inviter) {
                   activeFinalizer.finalize(source);
@@ -2480,7 +2456,13 @@ export function SipPhone({
           }
           return;
         }
-        showFailure();
+        if (!sessionAny.__mediaRecoveryAttempted && !sessionAny.__mediaRecoveryPromise && !recoveryInProgress) {
+          void attemptMediaRecovery("no-flow");
+          return;
+        }
+        if (!sessionAny.__mediaRecoveryPromise && !recoveryInProgress) {
+          showFailure();
+        }
         return;
       }
 
