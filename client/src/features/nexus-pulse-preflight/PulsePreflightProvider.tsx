@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
-import { Activity, ArrowLeft, ArrowRight, HeartPulse, Loader2, Sparkles } from "lucide-react";
+import { Activity, ArrowLeft, ArrowRight, Clock3, HeartPulse, Loader2, ShieldCheck, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -11,7 +11,7 @@ import { useCall } from "@/contexts/call-context";
 import { useI18n } from "@/i18n";
 import { useToast } from "@/hooks/use-toast";
 import { PulseDiagnostics } from "./PulseDiagnostics";
-import { isPulseReadinessEnvironmentValid, isPulseSessionProtected, pulseReadinessStorageKey } from "./diagnostics";
+import { isPulseReadinessEnvironmentValid, isPulseSessionProtected, pulseReadinessStorageKey, shouldPresentDeferredRecheck, shouldRetainStoredReadiness } from "./diagnostics";
 import { isPulseRecordingPlaybackActive } from "./recording-playback";
 import { pulseCopy } from "./translations";
 
@@ -20,9 +20,10 @@ type Status = "checking" | "ready" | "warning" | "blocked";
 
 function userKey(user: any) { return String(user?.id ?? user?.userId ?? user?.username ?? "unknown"); }
 
-function readStoredReadiness(key: string) {
-  if (!sessionStorage.getItem(key)) return false;
-  if (isPulseReadinessEnvironmentValid()) return true;
+function readStoredReadiness(key: string, workProtected = false) {
+  const hasStoredReadiness = !!sessionStorage.getItem(key);
+  if (shouldRetainStoredReadiness(hasStoredReadiness, isPulseReadinessEnvironmentValid(), workProtected)) return true;
+  if (!hasStoredReadiness) return false;
   sessionStorage.removeItem(key);
   return false;
 }
@@ -47,7 +48,7 @@ export function PulseGate({ children }: Props) {
   const [autoStartDeferredRecheckRequest, setAutoStartDeferredRecheckRequest] = useState(0);
   const ready = allowed && acknowledged;
   const workProtected = isPulseSessionProtected(callState) || afterCallWorkActive || recordingPlaybackActive;
-  const diagnosticsBlocked = ["connecting", "ringing", "active", "on_hold"].includes(callState) || recordingPlaybackActive;
+  const diagnosticsBlocked = workProtected;
   const workProtectedRef = useRef(workProtected);
   const deferredInvalidation = useRef(false);
   const deferredInvalidationReasons = useRef(new Set<string>());
@@ -101,12 +102,34 @@ export function PulseGate({ children }: Props) {
       window.dispatchEvent(new Event("nexus-pulse-recheck-deferred"));
       if (!deferredNoticeShown.current) {
         deferredNoticeShown.current = true;
-        toast({ title: copy.recheckDeferredTitle, description: copy.recheckDeferredDetail });
+        toast({
+          title: copy.recheckDeferredTitle,
+          description: (
+            <div className="space-y-3">
+              <p className="leading-relaxed text-foreground/80">{copy.recheckDeferredDetail}</p>
+              <div className="flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+                  <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                  {copy.recheckDeferredCallSafe}
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-1 text-[11px] font-bold text-amber-700 dark:text-amber-300">
+                  <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
+                  {copy.recheckDeferredNext}
+                </span>
+              </div>
+              <div className="h-1 overflow-hidden rounded-full bg-amber-500/15">
+                <div className="h-full w-2/3 rounded-full bg-gradient-to-r from-emerald-500 via-sky-500 to-amber-500 motion-safe:animate-pulse" />
+              </div>
+            </div>
+          ),
+          duration: 12_000,
+          className: "border-amber-300/70 bg-gradient-to-br from-background via-background to-amber-50/95 shadow-2xl shadow-amber-950/20 dark:border-amber-700/60 dark:to-amber-950/50",
+        });
       }
       return;
     }
     invalidateNow();
-  }, [copy.recheckDeferredDetail, copy.recheckDeferredTitle, invalidateNow, toast]);
+  }, [copy.recheckDeferredCallSafe, copy.recheckDeferredDetail, copy.recheckDeferredNext, copy.recheckDeferredTitle, invalidateNow, toast]);
   useEffect(() => {
     if (!allowed || !acknowledged || isRegistered) return;
     setStatus("warning");
@@ -134,9 +157,9 @@ export function PulseGate({ children }: Props) {
     if (storedReady) window.dispatchEvent(new Event("nexus-pulse-ready"));
   }, [isRegistered, key]);
   useEffect(() => {
-    if ((workProtected && callState !== "ended") || !deferredInvalidation.current) return;
+    if (!shouldPresentDeferredRecheck(workProtected, deferredInvalidation.current)) return;
     const timer = window.setTimeout(() => {
-      if ((workProtectedRef.current && callState !== "ended") || !deferredInvalidation.current) return;
+      if (!shouldPresentDeferredRecheck(workProtectedRef.current, deferredInvalidation.current)) return;
       deferredInvalidation.current = false;
       deferredInvalidationReasons.current.clear();
       deferredMediaEpisodeRef.current = null;
@@ -145,9 +168,11 @@ export function PulseGate({ children }: Props) {
       presentDeferredRecheck();
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [callState, presentDeferredRecheck, workProtected]);
+  }, [presentDeferredRecheck, workProtected]);
   useEffect(() => {
-    const openFromHeader = () => setOpen(true);
+    const openFromHeader = () => {
+      if (!workProtectedRef.current) setOpen(true);
+    };
     const sync = () => {
       if (!workProtectedRef.current) {
         const storedReady = readStoredReadiness(key);
@@ -162,11 +187,13 @@ export function PulseGate({ children }: Props) {
   }, [key]);
   useEffect(() => {
     const updateWorkProtection = (event: Event) => {
-      setAfterCallWorkActive(!!(event as CustomEvent<{ protected?: boolean }>).detail?.protected);
+      const protectedByWorkspace = !!(event as CustomEvent<{ protected?: boolean }>).detail?.protected;
+      workProtectedRef.current = isPulseSessionProtected(callState) || protectedByWorkspace || recordingPlaybackActive;
+      setAfterCallWorkActive(protectedByWorkspace);
     };
     window.addEventListener("nexus-pulse-work-protection", updateWorkProtection);
     return () => window.removeEventListener("nexus-pulse-work-protection", updateWorkProtection);
-  }, []);
+  }, [callState, recordingPlaybackActive]);
   useEffect(() => {
     const updateRecordingProtection = (event: Event) => {
       const active = !!(event as CustomEvent<{ active?: boolean }>).detail?.active;
@@ -177,15 +204,18 @@ export function PulseGate({ children }: Props) {
     return () => window.removeEventListener("nexus-pulse-recording-playback", updateRecordingProtection);
   }, [afterCallWorkActive, callState]);
   useEffect(() => {
-    if (allowed && !ready && !showDeferredRecheckIntro && !suppressRequiredOpenRef.current) setOpen(true);
-  }, [allowed, ready, showDeferredRecheckIntro]);
+    if (allowed && !ready && !workProtected && !showDeferredRecheckIntro && !suppressRequiredOpenRef.current) setOpen(true);
+  }, [allowed, ready, showDeferredRecheckIntro, workProtected]);
   useEffect(() => {
     if (!allowed) return;
     const invalidateFor = (reason: string) => () => requestInvalidation(reason);
-    const offline = invalidateFor("network");
-    const online = invalidateFor("network");
+    const offline = () => {
+      if (!workProtectedRef.current) requestInvalidation("network");
+    };
     const deviceChanged = invalidateFor("device");
-    const connectionChanged = invalidateFor("network");
+    const connectionChanged = () => {
+      if (!workProtectedRef.current) requestInvalidation("network");
+    };
     const mediaInterrupted = (event: Event) => {
       const episodeId = (event as CustomEvent<{ episodeId?: string }>).detail?.episodeId;
       if (!episodeId) return;
@@ -203,7 +233,6 @@ export function PulseGate({ children }: Props) {
       validatedMediaEpisodeRef.current = episodeId;
       deferredInvalidationReasons.current.delete("network");
       deferredInvalidationReasons.current.delete("media");
-      deferredInvalidationReasons.current.delete("lifecycle");
       if (!isRegisteredRef.current) {
         setStatus("warning");
         return;
@@ -222,7 +251,6 @@ export function PulseGate({ children }: Props) {
     let lastLifecycleCheck = Date.now();
     const mediaDevices = navigator.mediaDevices;
     window.addEventListener("offline", offline); mediaDevices?.addEventListener?.("devicechange", deviceChanged);
-    window.addEventListener("online", online);
     window.addEventListener("nexus-pulse-media-interrupted", mediaInterrupted);
     window.addEventListener("nexus-pulse-media-critical", mediaCritical);
     window.addEventListener("nexus-pulse-media-recovered", mediaRecovered);
@@ -235,7 +263,6 @@ export function PulseGate({ children }: Props) {
     return () => {
       window.removeEventListener("offline", offline);
       mediaDevices?.removeEventListener?.("devicechange", deviceChanged);
-      window.removeEventListener("online", online);
       window.removeEventListener("nexus-pulse-media-interrupted", mediaInterrupted);
       window.removeEventListener("nexus-pulse-media-critical", mediaCritical);
       window.removeEventListener("nexus-pulse-media-recovered", mediaRecovered);
@@ -248,7 +275,7 @@ export function PulseGate({ children }: Props) {
   const roleLandingPage = (user as any)?.roleLandingPage || "/";
   const safeExitPage = roleLandingPage === "/agent-workspace" ? "/" : roleLandingPage;
   return <>
-    <AlertDialog open={showDeferredRecheckIntro}>
+    <AlertDialog open={showDeferredRecheckIntro && !workProtected}>
       <AlertDialogContent overlayClassName="z-[10034] bg-slate-950/70 backdrop-blur-md motion-reduce:animate-none" className="z-[10035] max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-[2rem] border-amber-300/35 bg-background p-0 shadow-2xl shadow-amber-950/30 motion-reduce:animate-none" data-testid="nexus-pulse-recheck-intro">
         <div className="relative overflow-hidden rounded-[inherit]">
           <div className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-amber-400/20 blur-3xl" />
@@ -277,15 +304,18 @@ export function PulseGate({ children }: Props) {
 }
 
 export function PulseHeaderButton() {
-  const { user } = useAuth(); const { canAccessModule, isLoading } = usePermissions(); const { isRegistered } = useSip(); const { locale } = useI18n(); const t = pulseCopy(locale); const [location, setLocation] = useLocation();
+  const { user } = useAuth(); const { canAccessModule, isLoading } = usePermissions(); const { isRegistered } = useSip(); const { callState } = useCall(); const { locale } = useI18n(); const t = pulseCopy(locale); const [location, setLocation] = useLocation();
   const allowed = !!user && !isLoading && canAccessModule("nexusPulse"); const key = pulseReadinessStorageKey(userKey(user));
   const [open, setOpen] = useState(false); const [status, setStatus] = useState<Status>("checking");
+  const [workspaceProtected, setWorkspaceProtected] = useState(false);
+  const [recordingProtected, setRecordingProtected] = useState(isPulseRecordingPlaybackActive);
+  const workProtected = isPulseSessionProtected(callState) || workspaceProtected || recordingProtected;
   const workspaceRoute = location.split(/[?#]/, 1)[0].replace(/\/+$/, "") === "/agent-workspace";
   const sync = useCallback(() => {
     const environmentValid = isPulseReadinessEnvironmentValid();
-    const ready = readStoredReadiness(key);
+    const ready = readStoredReadiness(key, workProtected);
     setStatus(!environmentValid ? "blocked" : ready ? (isRegistered ? "ready" : "warning") : "checking");
-  }, [isRegistered, key]);
+  }, [isRegistered, key, workProtected]);
   useEffect(() => {
     sync();
     const handleReady = () => sync();
@@ -300,8 +330,25 @@ export function PulseHeaderButton() {
       window.removeEventListener("nexus-pulse-recheck-deferred", handleDeferred);
     };
   }, [sync]);
+  useEffect(() => {
+    const handleWorkProtection = (event: Event) => {
+      setWorkspaceProtected(!!(event as CustomEvent<{ protected?: boolean }>).detail?.protected);
+    };
+    const handleRecordingProtection = (event: Event) => {
+      setRecordingProtected(!!(event as CustomEvent<{ active?: boolean }>).detail?.active);
+    };
+    window.addEventListener("nexus-pulse-work-protection", handleWorkProtection);
+    window.addEventListener("nexus-pulse-recording-playback", handleRecordingProtection);
+    return () => {
+      window.removeEventListener("nexus-pulse-work-protection", handleWorkProtection);
+      window.removeEventListener("nexus-pulse-recording-playback", handleRecordingProtection);
+    };
+  }, []);
+  useEffect(() => {
+    if (workProtected) setOpen(false);
+  }, [workProtected]);
   if (!allowed) return null;
   const statusLabel = status === "ready" ? t.ready : status === "warning" ? t.warning : status === "blocked" ? t.blocked : t.working;
   const dotColor = status === "ready" ? "bg-emerald-500" : status === "warning" ? "bg-amber-500" : status === "blocked" ? "bg-destructive" : "bg-muted-foreground";
-  return <><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative" onClick={() => { if (workspaceRoute) window.dispatchEvent(new Event("nexus-pulse-open")); else setOpen(true); }} aria-label={`${t.title}: ${statusLabel}`} data-testid="button-pulse-status"><Activity className="h-5 w-5" /><span aria-hidden="true" className={`absolute right-1.5 top-1.5 h-2 w-2 rounded-full ring-2 ring-background ${dotColor}`} /></Button></TooltipTrigger><TooltipContent><p>{t.title}: {statusLabel}</p></TooltipContent></Tooltip>{!workspaceRoute && <PulseDiagnostics open={open} hasValidReadiness={readStoredReadiness(key)} userId={userKey(user)} onClose={() => { setOpen(false); sync(); }} onReady={() => { sessionStorage.setItem(key, "1"); window.dispatchEvent(new Event("nexus-pulse-ready")); setOpen(false); setLocation("/agent-workspace"); }} />}</>;
+  return <><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative" onClick={() => { if (workProtected) return; if (workspaceRoute) window.dispatchEvent(new Event("nexus-pulse-open")); else setOpen(true); }} aria-label={`${t.title}: ${statusLabel}`} data-testid="button-pulse-status"><Activity className="h-5 w-5" /><span aria-hidden="true" className={`absolute right-1.5 top-1.5 h-2 w-2 rounded-full ring-2 ring-background ${dotColor}`} /></Button></TooltipTrigger><TooltipContent><p>{t.title}: {statusLabel}</p></TooltipContent></Tooltip>{!workspaceRoute && <PulseDiagnostics open={open && !workProtected} hasValidReadiness={readStoredReadiness(key, workProtected)} userId={userKey(user)} onClose={() => { setOpen(false); sync(); }} onReady={() => { sessionStorage.setItem(key, "1"); window.dispatchEvent(new Event("nexus-pulse-ready")); setOpen(false); setLocation("/agent-workspace"); }} />}</>;
 }

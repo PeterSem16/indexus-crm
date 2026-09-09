@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { NexusPulseView } from "@/components/nexus-pulse-view";
-import { isPulseSessionProtected } from "@/features/nexus-pulse-preflight/diagnostics";
+import { isPulseAgentWorkProtected } from "@/features/nexus-pulse-preflight/diagnostics";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -10340,6 +10340,7 @@ export default function AgentWorkspacePage() {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [isLoadingInboundContact, setIsLoadingInboundContact] = useState(false);
   const [acwStartedAt, setAcwStartedAt] = useState<number | null>(null);
+  const [pulseWrapUpProtected, setPulseWrapUpProtected] = useState(false);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [isAutoMode, setIsAutoMode] = useState(false);
   const [scheduledQueueOpen, setScheduledQueueOpen] = useState(false);
@@ -11368,9 +11369,9 @@ export default function AgentWorkspacePage() {
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("nexus-pulse-work-protection", {
-      detail: { protected: isPulseSessionProtected(callContext.callState) || !!acwStartedAt },
+      detail: { protected: isPulseAgentWorkProtected(callContext.callState, !!acwStartedAt, pulseWrapUpProtected) },
     }));
-  }, [acwStartedAt, callContext.callState]);
+  }, [acwStartedAt, callContext.callState, pulseWrapUpProtected]);
 
   const campaignEmailAddress = useMemo(() => {
     if (!selectedCampaign?.settings) return "";
@@ -11976,6 +11977,7 @@ export default function AgentWorkspacePage() {
     })();
 
     if (!isNewContactActive) {
+      setPulseWrapUpProtected(true);
       callContext.resetCallTiming();
       callContext.setCallState("idle");
       callContext.setCallDuration(0);
@@ -12005,6 +12007,7 @@ export default function AgentWorkspacePage() {
         const isAuto = isAutoMode || campaignAutoSettings.autoMode;
         const wrapUpDelay = isAuto ? (campaignAutoSettings.autoDelaySeconds || 5) * 1000 : 2000;
         setTimeout(async () => {
+          setPulseWrapUpProtected(false);
           try {
             await agentSession.updateStatus("available");
             if (isAuto) handleNextContact(true);
@@ -12015,6 +12018,7 @@ export default function AgentWorkspacePage() {
   };
 
   const handleCloseCallAfterStatusList = useCallback(async () => {
+    setPulseWrapUpProtected(true);
     // Capture timing BEFORE reset so we can persist call meta
     const timing = callContext.callTiming;
     const dispositionElapsed = callEndTimestamp ? Math.round((Date.now() - callEndTimestamp) / 1000) : null;
@@ -12063,6 +12067,7 @@ export default function AgentWorkspacePage() {
     const isAuto = isAutoMode || campaignAutoSettings.autoMode;
     const wrapUpDelay = isAuto ? (campaignAutoSettings.autoDelaySeconds || 5) * 1000 : 2000;
     setTimeout(async () => {
+      setPulseWrapUpProtected(false);
       try {
         await agentSession.updateStatus("available");
         if (isAuto) handleNextContact(true);
@@ -12071,6 +12076,7 @@ export default function AgentWorkspacePage() {
   }, [callContext, callEndTimestamp, currentCampaignContactId, selectedCampaignId, activeTaskId, isAutoMode, campaignAutoSettings, agentSession]);
 
   const handleCloseAcwTask = useCallback(async () => {
+    setPulseWrapUpProtected(true);
     // If the call is still in a non-idle state (preventAutoReset=true blocked the idle timer),
     // reset the SIP context directly — calling forceResetCallFn on an already-terminated
     // session triggers a second SessionState.Terminated event which briefly shows "Ukončiť hovor".
@@ -12101,6 +12107,7 @@ export default function AgentWorkspacePage() {
     const isAuto = isAutoMode || campaignAutoSettings.autoMode;
     const wrapUpDelay = isAuto ? (campaignAutoSettings.autoDelaySeconds || 5) * 1000 : 2000;
     setTimeout(async () => {
+      setPulseWrapUpProtected(false);
       try {
         await agentSession.updateStatus("available");
         if (isAuto) handleNextContact(true);

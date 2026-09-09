@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canUseQuickSoundVerification, classify, classifyIceResult, classifyLatencyQuality, hasCriticalFailure, hasVoiceLevel, isChromiumDesktop, isCompleteDiagnosticRun, isCompletePulseReadinessRun, isProbableSameHeadset, isPulseReadinessEnvironmentValid, isPulseSessionProtected, normalizeAudioDeviceLabel, pulseReadinessStorageKey, rmsFromTimeDomain, summarizeLatency, type DiagnosticResult } from "./diagnostics";
+import { canUseQuickSoundVerification, classify, classifyIceResult, classifyLatencyQuality, hasCriticalFailure, hasVoiceLevel, isChromiumDesktop, isCompleteDiagnosticRun, isCompletePulseReadinessRun, isProbableSameHeadset, isPulseAgentWorkProtected, isPulseReadinessEnvironmentValid, isPulseSessionProtected, normalizeAudioDeviceLabel, pulseReadinessStorageKey, rmsFromTimeDomain, shouldPresentDeferredRecheck, shouldRetainStoredReadiness, summarizeLatency, type DiagnosticResult } from "./diagnostics";
 
 describe("NEXUS Pulse preflight classification", () => {
   it("rejects mobile and non-Chromium browsers", () => {
@@ -115,5 +115,23 @@ describe("NEXUS Pulse preflight classification", () => {
     }
     expect(isPulseSessionProtected("idle")).toBe(false);
     expect(isPulseSessionProtected(null)).toBe(false);
+  });
+  it("never presents a deferred recheck while a call or wrap-up is protected", () => {
+    expect(shouldPresentDeferredRecheck(true, true)).toBe(false);
+    expect(shouldPresentDeferredRecheck(true, false)).toBe(false);
+    expect(shouldPresentDeferredRecheck(false, true)).toBe(true);
+    expect(shouldPresentDeferredRecheck(false, false)).toBe(false);
+  });
+  it("retains saved readiness during a protected offline incident", () => {
+    expect(shouldRetainStoredReadiness(true, false, true)).toBe(true);
+    expect(shouldRetainStoredReadiness(true, true, false)).toBe(true);
+    expect(shouldRetainStoredReadiness(true, false, false)).toBe(false);
+    expect(shouldRetainStoredReadiness(false, true, true)).toBe(false);
+  });
+  it("protects the complete timed wrap-up lifecycle even after call state becomes idle", () => {
+    expect(isPulseAgentWorkProtected("idle", false, true)).toBe(true);
+    expect(shouldPresentDeferredRecheck(isPulseAgentWorkProtected("idle", false, true), true)).toBe(false);
+    expect(isPulseAgentWorkProtected("idle", false, false)).toBe(false);
+    expect(shouldPresentDeferredRecheck(isPulseAgentWorkProtected("idle", false, false), true)).toBe(true);
   });
 });

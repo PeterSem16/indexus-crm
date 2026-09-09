@@ -36,6 +36,26 @@ export function isPulseSessionProtected(callState?: string | null) {
   return ["connecting", "ringing", "active", "on_hold", "ended"].includes(String(callState || ""));
 }
 
+export function isPulseAgentWorkProtected(
+  callState?: string | null,
+  afterCallWorkActive = false,
+  timedWrapUpActive = false,
+) {
+  return isPulseSessionProtected(callState) || afterCallWorkActive || timedWrapUpActive;
+}
+
+export function shouldPresentDeferredRecheck(workProtected: boolean, hasDeferredInvalidation: boolean) {
+  return hasDeferredInvalidation && !workProtected;
+}
+
+export function shouldRetainStoredReadiness(
+  hasStoredReadiness: boolean,
+  environmentValid: boolean,
+  workProtected: boolean,
+) {
+  return hasStoredReadiness && (environmentValid || workProtected);
+}
+
 export function canUseQuickSoundVerification(options: {
   hasValidReadiness: boolean;
   diagnosticState: DiagnosticState;

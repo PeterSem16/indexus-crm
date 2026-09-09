@@ -246,6 +246,11 @@ export function isHeld(session: Session): boolean {
   return !!(session as any).__isHeld;
 }
 
+export function isInterruptedUnhold(session: Session): boolean {
+  const sessionAny = session as any;
+  return sessionAny.__isHeld === true && sessionAny.__desiredHeld === false;
+}
+
 export function isHoldTransitioning(session: Session): boolean {
   const sessionAny = session as any;
   return sessionAny.__activeSipOperation === "hold"

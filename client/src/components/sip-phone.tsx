@@ -7,6 +7,7 @@ import {
   endSessionBounded,
   holdToggle as sipHoldToggle,
   isHeld as sipIsHeld,
+  isInterruptedUnhold,
   isHoldTransitioning,
   restartSessionMedia,
   unhold as sipUnhold,
@@ -2197,7 +2198,7 @@ export function SipPhone({
     if (
       sessionRef.current !== session ||
       session.state !== SessionState.Established ||
-      !sessionAny.__isHeld ||
+      !isInterruptedUnhold(session) ||
       activeFinalizer?.session !== session ||
       sessionAny.__terminationRequested
     ) return;
@@ -2225,6 +2226,7 @@ export function SipPhone({
       activeSessionFinalizeRef.current?.session === session &&
       sessionAny.__holdRecoveryEpisode === holdEpisode &&
       Number(sessionAny.__holdEpisode || 0) === holdEpisode &&
+      isInterruptedUnhold(session) &&
       sessionAny.__holdRecoveryNeeded &&
       !sessionAny.__terminationRequested
     );
@@ -2238,7 +2240,7 @@ export function SipPhone({
         !registrationRestored ||
         sessionRef.current !== session ||
         session.state !== SessionState.Established ||
-        !sessionAny.__isHeld ||
+        !isInterruptedUnhold(session) ||
         !sessionAny.__holdRecoveryNeeded ||
         sessionAny.__holdRecoveryEpisode !== holdEpisode ||
         activeSessionFinalizeRef.current?.session !== session ||
@@ -2348,7 +2350,7 @@ export function SipPhone({
 
   useEffect(() => {
     const session = sessionRef.current;
-    if (!session || session.state !== SessionState.Established || !(session as any).__isHeld) return;
+    if (!session || session.state !== SessionState.Established || !isInterruptedUnhold(session)) return;
     if (!isRegistered) {
       (session as any).__holdRecoveryNeeded = true;
       setAudioHealth("recovering");
@@ -2403,6 +2405,10 @@ export function SipPhone({
       mediaRecoveryNotified = false;
       sessionAny.__mediaInterruptionObserved = true;
       if (!sessionAny.__mediaInterruptionEpisodeId) {
+        previousRtpStats = null;
+        healthyDeltaSamples = 0;
+        unhealthyDeltaSamples = 0;
+        mediaValidatedHealthy = false;
         sessionAny.__mediaInterruptionCounter = Number(sessionAny.__mediaInterruptionCounter || 0) + 1;
         sessionAny.__mediaInterruptionEpisodeId = `${currentCallLogIdRef.current || sessionAny.id || "sip"}:${Date.now()}:${sessionAny.__mediaInterruptionCounter}`;
         window.dispatchEvent(new CustomEvent("nexus-pulse-media-interrupted", {
@@ -2516,7 +2522,9 @@ export function SipPhone({
         if (!beginMediaInterruption(connectionKey) && mediaValidatedHealthy) return;
         reportVoiceIncident("ice_failed", "error", incidentMetrics());
         if (sessionAny.__isHeld) {
-          void requestHeldCallRecovery(session, `held PC/ICE ${connectionState}/${iceState}`);
+          if (isInterruptedUnhold(session)) {
+            void requestHeldCallRecovery(session, `interrupted unhold PC/ICE ${connectionState}/${iceState}`);
+          }
           return;
         }
         if (postHoldRecoveryActive) {
@@ -2538,8 +2546,8 @@ export function SipPhone({
       if (connectionState === "disconnected" || iceState === "disconnected") {
         beginMediaInterruption(`${connectionState}/${iceState}`);
         disconnectedAt ??= Date.now();
-        if ((session as any).__isHeld) {
-          void requestHeldCallRecovery(session, `held PC/ICE disconnected`);
+        if (isInterruptedUnhold(session)) {
+          void requestHeldCallRecovery(session, "interrupted unhold PC/ICE disconnected");
         }
         if (Date.now() - disconnectedAt >= 8_000) {
           if (!connectionWarningShown) {
@@ -2569,8 +2577,13 @@ export function SipPhone({
       checkConnectionState();
       if ((session as any).__holdRecoveryInProgress) return;
       try {
+        const statsEpisodeId = (session as any).__mediaInterruptionEpisodeId || null;
         const stats = await peerConnection.getStats();
         if (stopped || mediaHealthSessionRef.current !== session || session.state !== SessionState.Established) return;
+        if (((session as any).__mediaInterruptionEpisodeId || null) !== statsEpisodeId) {
+          console.log("[SIP-MEDIA] Ignoring RTP stats captured across a media episode boundary");
+          return;
+        }
         let inboundPackets = 0;
         let outboundPackets = 0;
         let inboundBytes = 0;
@@ -2734,13 +2747,13 @@ export function SipPhone({
     const onOffline = () => {
       beginMediaInterruption();
       reportVoiceIncident("browser_offline", "error", incidentMetrics());
-      if ((session as any).__isHeld) {
+      if (isInterruptedUnhold(session)) {
         (session as any).__holdRecoveryNeeded = true;
         setAudioHealth("recovering");
       }
     };
     const onOnline = () => {
-      if ((session as any).__isHeld && (session as any).__holdRecoveryNeeded) {
+      if (isInterruptedUnhold(session) && (session as any).__holdRecoveryNeeded) {
         void requestHeldCallRecovery(session, "browser online");
       }
     };
