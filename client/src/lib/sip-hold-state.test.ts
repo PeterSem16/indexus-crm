@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { isHeldCallRecoveryCandidate, recoverHeldSessionMedia, shouldAttemptHeldCallRecovery, unhold } from "./sip-hold";
+import { isHeldCallRecoveryCandidate, recoverHeldSessionMedia, restartSessionMedia, shouldAttemptHeldCallRecovery, unhold } from "./sip-hold";
 
 const session = (isHeld: boolean, desiredHeld: boolean | undefined) => ({
   __isHeld: isHeld,
@@ -44,5 +44,29 @@ inviteDelegates[1].onAccept();
 await Promise.all([heldRecovery, manualUnhold]);
 assert.equal(raceSession.__isHeld, false, "queued manual unhold completes physically");
 assert.equal(raceSession.__desiredHeld, false, "physical and desired hold state remain aligned");
+
+const mutedTrack = { kind: "audio", enabled: false };
+const mediaDelegates: any[] = [];
+const mutedSession: any = {
+  state: "Established",
+  __isHeld: false,
+  __desiredHeld: false,
+  sessionDescriptionHandler: {
+    peerConnection: {
+      restartIce() {},
+      getSenders() { return [{ track: mutedTrack }]; },
+    },
+  },
+  stateChange: { addListener() {}, removeListener() {} },
+  invite(options: any) {
+    mediaDelegates.push(options.requestDelegate);
+    return Promise.resolve();
+  },
+};
+const mutedRecovery = restartSessionMedia(mutedSession);
+await new Promise((resolve) => setTimeout(resolve, 0));
+mediaDelegates[0].onAccept();
+await mutedRecovery;
+assert.equal(mutedTrack.enabled, false, "media recovery must preserve explicit microphone mute");
 
 console.log("SIP hold recovery intent tests passed");

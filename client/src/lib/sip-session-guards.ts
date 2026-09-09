@@ -25,3 +25,21 @@ export function shouldCancelAfterRingGrace(input: {
     input.sessionState !== "Established" &&
     input.sessionState !== "Terminated";
 }
+
+export function shouldRecoverOutboundMediaAfterAnswer(input: {
+  ringDurationMs: number;
+  earlyIceDegraded: boolean;
+  postAnswerBidirectionalRtp: boolean;
+  sessionState: string;
+  isHeld: boolean;
+  recoveryAttempted: boolean;
+}): boolean {
+  if (
+    input.sessionState !== "Established" ||
+    input.isHeld ||
+    input.recoveryAttempted ||
+    input.postAnswerBidirectionalRtp
+  ) return false;
+
+  return input.earlyIceDegraded || input.ringDurationMs >= 10_000;
+}

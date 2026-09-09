@@ -56,7 +56,7 @@ import { resolveOutboundCallProvider } from "@shared/telephony-routing";
 import type { MissionCallRecordingSnapshot } from "@shared/mission-recording";
 import { audioRtpDelta, classifyAudioRtpStats, nextMediaFailureAction, shouldAttemptAutomaticMediaRecovery, shouldRetainRecheckAfterTermination, type AudioRtpHealth, type AudioRtpStats } from "@/lib/sip-audio-health";
 import { reportVoiceIncident, setVoiceIncidentCallContext } from "@/lib/voice-incident-logger";
-import { isCorrelatedInboundHangup, shouldCancelAfterRingGrace } from "@/lib/sip-session-guards";
+import { isCorrelatedInboundHangup, shouldCancelAfterRingGrace, shouldRecoverOutboundMediaAfterAnswer } from "@/lib/sip-session-guards";
 
 function filterSdpCandidates(description: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit> {
   if (!description.sdp) return Promise.resolve(description);
@@ -1767,13 +1767,154 @@ export function SipPhone({
       sessionRef.current = inviter;
       serverConfirmedRemoteHangupSessionRef.current = null;
       const callLogId = callLogData.id;
+      let outboundRingStartedAt = 0;
+      let earlyDialogIceDegraded = false;
+      let earlyDialogWatchTimer: ReturnType<typeof window.setInterval> | null = null;
+      const stopEarlyDialogWatch = () => {
+        if (earlyDialogWatchTimer !== null) {
+          window.clearInterval(earlyDialogWatchTimer);
+          earlyDialogWatchTimer = null;
+        }
+      };
+      const readAudioCounters = async (peerConnection: RTCPeerConnection): Promise<AudioRtpStats> => {
+        const counters: AudioRtpStats = {
+          inboundPackets: 0,
+          outboundPackets: 0,
+          inboundBytes: 0,
+          outboundBytes: 0,
+        };
+        const reports = await peerConnection.getStats();
+        reports.forEach((report) => {
+          const isAudio = report.kind === "audio" || report.mediaType === "audio";
+          if (!isAudio) return;
+          if (report.type === "inbound-rtp" && !report.isRemote) {
+            counters.inboundPackets += Number(report.packetsReceived || 0);
+            counters.inboundBytes += Number(report.bytesReceived || 0);
+          } else if (report.type === "outbound-rtp" && !report.isRemote) {
+            counters.outboundPackets += Number(report.packetsSent || 0);
+            counters.outboundBytes += Number(report.bytesSent || 0);
+          }
+        });
+        return counters;
+      };
+      const verifyLongRingMediaAfterAnswer = async (ringDurationMs: number) => {
+        const sessionAny = inviter as any;
+        try {
+          await new Promise<void>((resolve) => window.setTimeout(resolve, 350));
+          if (
+            sessionRef.current !== inviter ||
+            activeSessionFinalizeRef.current?.session !== inviter ||
+            inviter.state !== SessionState.Established ||
+            sessionAny.__terminationRequested
+          ) return;
+          const peerConnection = sessionAny.sessionDescriptionHandler?.peerConnection as RTCPeerConnection | undefined;
+          if (!peerConnection) return;
+          const baseline = await readAudioCounters(peerConnection);
+          if (
+            sessionRef.current !== inviter ||
+            activeSessionFinalizeRef.current?.session !== inviter ||
+            inviter.state !== SessionState.Established ||
+            sessionAny.__terminationRequested ||
+            sessionAny.sessionDescriptionHandler?.peerConnection !== peerConnection
+          ) return;
+          await new Promise<void>((resolve) => window.setTimeout(resolve, 1_000));
+          if (
+            sessionRef.current !== inviter ||
+            activeSessionFinalizeRef.current?.session !== inviter ||
+            inviter.state !== SessionState.Established ||
+            sessionAny.__terminationRequested
+          ) return;
+          const current = await readAudioCounters(peerConnection);
+          if (
+            sessionRef.current !== inviter ||
+            activeSessionFinalizeRef.current?.session !== inviter ||
+            inviter.state !== SessionState.Established ||
+            sessionAny.__terminationRequested ||
+            sessionAny.sessionDescriptionHandler?.peerConnection !== peerConnection
+          ) return;
+          const rtpHealth = classifyAudioRtpStats(audioRtpDelta(baseline, current));
+          const shouldRecover = shouldRecoverOutboundMediaAfterAnswer({
+            ringDurationMs,
+            earlyIceDegraded: earlyDialogIceDegraded,
+            postAnswerBidirectionalRtp: rtpHealth === "healthy",
+            sessionState: String(inviter.state),
+            isHeld: sipIsHeld(inviter) || isHoldTransitioning(inviter),
+            recoveryAttempted: Boolean(sessionAny.__mediaRecoveryAttempted),
+          });
+          console.log("[SIP-MEDIA] Long-ring answer verification", {
+            ringDurationMs,
+            earlyIceDegraded: earlyDialogIceDegraded,
+            rtpHealth,
+            shouldRecover,
+          });
+          if (!shouldRecover) return;
+          try {
+            beginMediaInterruptionRef.current(inviter, "long-ring-answer");
+            setAudioHealth("recovering");
+            const recovered = await recoverSessionMediaOnceRef.current(inviter);
+            if (
+              !recovered ||
+              sessionRef.current !== inviter ||
+              activeSessionFinalizeRef.current?.session !== inviter ||
+              inviter.state !== SessionState.Established ||
+              sessionAny.__terminationRequested
+            ) return;
+            const recoveredPeerConnection = sessionAny.sessionDescriptionHandler?.peerConnection as RTCPeerConnection | undefined;
+            if (!recoveredPeerConnection) throw new Error("Recovered session has no peer connection");
+            await refreshRemoteAudioRef.current(inviter);
+            if (
+              sessionRef.current !== inviter ||
+              activeSessionFinalizeRef.current?.session !== inviter ||
+              inviter.state !== SessionState.Established ||
+              sessionAny.__terminationRequested
+            ) return;
+            // Discard every RTP sample collected against the pre-answer ICE
+            // path. The restarted monitor supplies a fresh baseline and its own
+            // eight-second convergence window before it can escalate again.
+            startMediaHealthMonitoringRef.current(inviter, recoveredPeerConnection, "outbound");
+            console.log("[SIP-MEDIA] Refreshed ICE after long-ring answer without bidirectional RTP");
+          } catch (recoveryError) {
+            if (
+              sessionRef.current === inviter &&
+              activeSessionFinalizeRef.current?.session === inviter &&
+              inviter.state === SessionState.Established &&
+              !sessionAny.__terminationRequested
+            ) {
+              console.error("[SIP-MEDIA] Long-ring answer recovery failed:", recoveryError);
+              markMediaCritical(inviter);
+            }
+          }
+        } catch (error) {
+          // WebRTC telemetry is advisory. A rejected getStats() must never
+          // change call health or be confused with a recovery transaction.
+          console.warn("[SIP-MEDIA] Long-ring answer verification unavailable:", error);
+        }
+      };
 
       const onOutboundStateChange = (state: SessionState) => {
         console.log("Call state:", state);
         switch (state) {
           case SessionState.Establishing:
+            outboundRingStartedAt = Date.now();
             setCallState("ringing");
-            callContextRef.current.setCallTiming({ ringStartTime: Date.now() });
+            callContextRef.current.setCallTiming({ ringStartTime: outboundRingStartedAt });
+            stopEarlyDialogWatch();
+            earlyDialogWatchTimer = window.setInterval(() => {
+              if (sessionRef.current !== inviter || inviter.state !== SessionState.Establishing) {
+                stopEarlyDialogWatch();
+                return;
+              }
+              const peerConnection = (inviter as any).sessionDescriptionHandler?.peerConnection as RTCPeerConnection | undefined;
+              if (!peerConnection) return;
+              if (
+                peerConnection.connectionState === "failed" ||
+                peerConnection.connectionState === "disconnected" ||
+                peerConnection.iceConnectionState === "failed" ||
+                peerConnection.iceConnectionState === "disconnected"
+              ) {
+                earlyDialogIceDegraded = true;
+              }
+            }, 500);
             updateCallLogMutation.mutate({
               id: callLogId,
               data: { status: "ringing" },
@@ -1821,6 +1962,7 @@ export function SipPhone({
             }
             break;
           case SessionState.Established:
+            stopEarlyDialogWatch();
             makeCallGuardRef.current = false;
             if (maxRingTimerRef.current) {
               clearTimeout(maxRingTimerRef.current);
@@ -1831,10 +1973,11 @@ export function SipPhone({
             setIsOnHold(false);
             callStartTimeRef.current = Date.now();
             const ringEnd = Date.now();
-            const ringStart = callContextRef.current.callTiming.ringStartTime;
+            const ringStart = outboundRingStartedAt || callContextRef.current.callTiming.ringStartTime;
+            const ringDurationMs = ringStart ? Math.max(0, ringEnd - ringStart) : 0;
             callContextRef.current.setCallTiming({
               callStartTime: ringEnd,
-              ringDurationSeconds: ringStart ? Math.round((ringEnd - ringStart) / 1000) : null,
+              ringDurationSeconds: ringStart ? Math.round(ringDurationMs / 1000) : null,
             });
             callTimerRef.current = setInterval(() => {
               setCallDuration(Math.floor((Date.now() - callStartTimeRef.current) / 1000));
@@ -1846,6 +1989,7 @@ export function SipPhone({
             });
             onCallStart?.(phoneNumber, callLogId);
             setupAudio(inviter, "outbound");
+            void verifyLongRingMediaAfterAnswer(ringDurationMs);
             if (hangupPollRef.current) clearInterval(hangupPollRef.current);
             hangupPollRef.current = setInterval(() => {
               if (sessionRef.current !== inviter) {
@@ -1883,6 +2027,7 @@ export function SipPhone({
             }
             break;
           case SessionState.Terminated:
+            stopEarlyDialogWatch();
             if (sessionRef.current !== inviter) {
               console.log("[SIP-OUTBOUND] Ignoring termination signal from a stale session");
               break;

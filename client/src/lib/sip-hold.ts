@@ -156,9 +156,6 @@ export async function restartSessionMedia(session: Session): Promise<void> {
 
     sessionAny.__mediaRecoveryInProgress = true;
     try {
-      peerConnection.getSenders().forEach((sender) => {
-        if (sender.track?.kind === "audio") sender.track.enabled = true;
-      });
       sessionAny.__mediaRecoveryIceStarted = true;
       peerConnection.restartIce();
       // Do not race this transaction with a local timeout. A timed-out Promise
