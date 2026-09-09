@@ -35,6 +35,7 @@ const NEXUS_PULSE_SETTING_KEYS = [
   "nexusPulseEmailMode",
   "nexusPulseEmailAddress",
   "queueDisplayMode",
+  "faq",
 ] as const;
 
 const stripTimestamps = <T extends Record<string, unknown>>(row: T) => {

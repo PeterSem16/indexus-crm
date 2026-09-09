@@ -5,6 +5,7 @@ import { useRoute, Link, useLocation } from "wouter";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { NexusPulseVersionPanel } from "@/components/nexus-pulse-version-panel";
+import { MissionFaqSettings } from "@/components/mission-faq-settings";
 import { CHART_PALETTE } from "@/lib/chart-colors";
 import { sanitizeSignatureHtml } from "@/lib/sanitize-html";
 import { 
@@ -6562,6 +6563,7 @@ export default function CampaignDetailPage() {
                     { value: "dispositions", icon: CheckCheck, label: t.campaigns.detail.dispositions, desc: t.campaigns.detail.subDispositionsDesc },
                     { value: "status_list", icon: ListChecks, label: "Status List", desc: t.campaigns.detail.subStatusListDesc },
                     { value: "script", icon: ScrollText, label: t.campaigns.detail.script, desc: t.campaigns.detail.subScriptDesc },
+                    { value: "faq", icon: HelpCircle, label: t.campaigns.detail.faqTitle, desc: t.campaigns.detail.subFaqDesc },
                     { value: "phases", icon: Layers, label: t.campaigns.detail.phases, desc: t.campaigns.detail.subPhasesDesc },
                   ].map((tab) => {
                     const isActive = settingsSubTab === tab.value;
@@ -7377,6 +7379,12 @@ export default function CampaignDetailPage() {
                   {settingsSubTab === "status_list" && (
                     <div className="space-y-4">
                       <CampaignStatusListBuilder campaignId={campaignId} />
+                    </div>
+                  )}
+
+                  {settingsSubTab === "faq" && (
+                    <div className="space-y-4">
+                      <MissionFaqSettings campaign={campaign} />
                     </div>
                   )}
 

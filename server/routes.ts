@@ -82,6 +82,7 @@ import {
   insertTaskGroupMemberSchema,
 } from "@shared/schema";
 import { eventsForCallOutcome, selectCallOutcomeBadges } from "./call-outcome";
+import { normalizeMissionFaqItems } from "@shared/mission-faq";
 import Handlebars from "handlebars";
 import { z } from "zod";
 import {
@@ -26665,6 +26666,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         if (outboundRoutingError) return res.status(400).json({ error: outboundRoutingError });
         const recordingPolicyError = validateMissionRecordingSettings(nextSettings);
         if (recordingPolicyError) return res.status(400).json({ error: recordingPolicyError });
+        if (nextSettings.faq !== undefined) {
+          nextSettings.faq = normalizeMissionFaqItems(nextSettings.faq);
+        }
         if (
           JSON.stringify(currentSettings.callRecordingPolicy || null) !== JSON.stringify(nextSettings.callRecordingPolicy || null) &&
           !["admin", "manager"].includes(req.session.user!.role)
