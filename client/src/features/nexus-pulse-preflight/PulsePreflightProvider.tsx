@@ -44,6 +44,7 @@ export function PulseGate({ children }: Props) {
   const [afterCallWorkActive, setAfterCallWorkActive] = useState(false);
   const [recordingPlaybackActive, setRecordingPlaybackActive] = useState(isPulseRecordingPlaybackActive);
   const [showDeferredRecheckIntro, setShowDeferredRecheckIntro] = useState(false);
+  const [autoStartDeferredRecheckRequest, setAutoStartDeferredRecheckRequest] = useState(0);
   const ready = allowed && acknowledged;
   const workProtected = isPulseSessionProtected(callState) || afterCallWorkActive || recordingPlaybackActive;
   const workProtectedRef = useRef(workProtected);
@@ -175,7 +176,7 @@ export function PulseGate({ children }: Props) {
             <div className="mt-5 flex items-center justify-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-300"><Sparkles className="h-4 w-4" aria-hidden="true" />{copy.recheckIntroEyebrow}</div>
             <AlertDialogTitle className="mt-2 text-center text-2xl font-bold tracking-tight sm:text-3xl">{copy.recheckIntroTitle}</AlertDialogTitle>
             <AlertDialogDescription className="mx-auto mt-3 max-w-md text-center text-sm leading-relaxed text-muted-foreground">{copy.recheckIntroDetail}</AlertDialogDescription>
-            <Button size="lg" className="mt-7 h-14 w-full rounded-2xl bg-gradient-to-r from-primary to-red-600 text-base font-bold text-white shadow-lg shadow-primary/25 transition-all hover:-translate-y-0.5 hover:shadow-xl" onClick={() => { setShowDeferredRecheckIntro(false); invalidateNow(); }} data-testid="button-pulse-start-required-recheck">
+            <Button size="lg" className="mt-7 h-14 w-full rounded-2xl bg-gradient-to-r from-primary to-red-600 text-base font-bold text-white shadow-lg shadow-primary/25 transition-all hover:-translate-y-0.5 hover:shadow-xl" onClick={() => { setAutoStartDeferredRecheckRequest((request) => request + 1); setShowDeferredRecheckIntro(false); invalidateNow(); }} data-testid="button-pulse-start-required-recheck">
               {copy.recheckIntroStart}<ArrowRight className="h-5 w-5" aria-hidden="true" />
             </Button>
             <Button variant="ghost" className="mt-3 h-11 w-full rounded-xl text-muted-foreground hover:text-foreground" onClick={() => { suppressRequiredOpenRef.current = true; setShowDeferredRecheckIntro(false); setOpen(false); setLocation(safeExitPage); }} data-testid="button-pulse-recheck-return">
@@ -185,7 +186,7 @@ export function PulseGate({ children }: Props) {
         </div>
       </AlertDialogContent>
     </AlertDialog>
-    <PulseDiagnostics open={open && !workProtected && !showDeferredRecheckIntro} required={!ready} keepWakeLock hasValidReadiness={ready} userId={userKey(user)} onClose={() => setOpen(false)} onExit={() => setLocation(safeExitPage)} onReady={() => { sessionStorage.setItem(key, "1"); hasEnteredPulseRef.current = true; setAcknowledged(true); setStatus("ready"); setOpen(false); window.dispatchEvent(new Event("nexus-pulse-ready")); }} />
+    <PulseDiagnostics open={open && !workProtected && !showDeferredRecheckIntro} required={!ready} keepWakeLock hasValidReadiness={ready} autoStartRequest={autoStartDeferredRecheckRequest} userId={userKey(user)} onClose={() => setOpen(false)} onExit={() => setLocation(safeExitPage)} onReady={() => { sessionStorage.setItem(key, "1"); hasEnteredPulseRef.current = true; setAcknowledged(true); setStatus("ready"); setOpen(false); window.dispatchEvent(new Event("nexus-pulse-ready")); }} />
     {hasEnteredPulseRef.current || ready ? children : <div className="flex min-h-[60dvh] items-center justify-center"><div className="text-center text-muted-foreground"><Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin" />{copy.working}</div></div>}
   </>;
 }

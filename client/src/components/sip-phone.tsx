@@ -224,12 +224,18 @@ export function SipPhone({
   const sessionRef = useRef<Session | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [audioHealth, setAudioHealth] = useState<AudioHealthState>("idle");
+  const [mediaAlertDismissed, setMediaAlertDismissed] = useState(false);
   const heldRecoverySessionRef = useRef<Session | null>(null);
   const requestHeldCallRecoveryRef = useRef<(session: Session, source: string) => void>(() => {});
   const refreshRemoteAudioRef = useRef<(session: Session) => Promise<boolean>>(async () => false);
   const recoverSessionMediaOnceRef = useRef<(session: Session) => Promise<boolean>>(async () => false);
   const mediaHealthCleanupRef = useRef<(() => void) | null>(null);
   const mediaHealthSessionRef = useRef<Session | null>(null);
+  useEffect(() => {
+    if (audioHealth === "idle" || audioHealth === "connected") {
+      setMediaAlertDismissed(false);
+    }
+  }, [audioHealth]);
   const startMediaHealthMonitoringRef = useRef<(
     session: Session,
     peerConnection: RTCPeerConnection,
@@ -2357,6 +2363,7 @@ export function SipPhone({
     let recoveryInProgress = false;
     let recoveryGraceUntil = 0;
     let playbackRecoveryAttempted = false;
+    let mediaValidatedHealthy = false;
     let latestMetrics: { rttMs?: number; jitterMs?: number; packetLossPermille?: number } = {};
     const incidentMetrics = () => ({
       callLogId: currentCallLogIdRef.current,
@@ -2365,20 +2372,14 @@ export function SipPhone({
       ...latestMetrics,
     });
 
-    const showFailure = (terminate: boolean) => {
+    const showFailure = () => {
       if (failureShown || stopped || mediaHealthSessionRef.current !== session) return;
       failureShown = true;
       setAudioHealth("failed");
       console.error("[SIP-MEDIA] Audio connection failed", {
         connectionState: peerConnection.connectionState,
         iceConnectionState: peerConnection.iceConnectionState,
-        terminate,
       });
-      if (terminate && session.state === SessionState.Established) {
-        void endSessionBounded(session).catch((error) => {
-          console.error("[SIP-MEDIA] Failed to terminate broken media session:", error);
-        });
-      }
     };
 
     const reportNoFlowFailure = (health: Exclude<AudioRtpHealth, "healthy">) => {
@@ -2416,7 +2417,7 @@ export function SipPhone({
         ) return;
         const recoveredPeerConnection = (session.sessionDescriptionHandler as any)?.peerConnection as RTCPeerConnection | undefined;
         if (!recoveredPeerConnection) {
-          showFailure(true);
+          showFailure();
           return;
         }
         if (recoveredPeerConnection !== peerConnection) {
@@ -2431,11 +2432,15 @@ export function SipPhone({
         console.log("[SIP-MEDIA] ICE restart re-INVITE completed; verifying RTP flow");
       } catch (error) {
         console.error("[SIP-MEDIA] Media recovery failed:", error);
+        if (mediaValidatedHealthy) {
+          console.log("[SIP-MEDIA] Ignoring stale recovery failure after bidirectional RTP was restored");
+          return;
+        }
         if (sipIsHeld(session) || isHoldTransitioning(session)) {
           unhealthyDeltaSamples = 0;
           return;
         }
-        showFailure(true);
+        showFailure();
       } finally {
         recoveryInProgress = false;
       }
@@ -2456,7 +2461,7 @@ export function SipPhone({
 
       if (connectionState === "closed" || iceState === "closed") {
         reportVoiceIncident("ice_failed", "error", incidentMetrics());
-        showFailure(true);
+        showFailure();
         return;
       }
 
@@ -2475,7 +2480,7 @@ export function SipPhone({
           }
           return;
         }
-        showFailure(true);
+        showFailure();
         return;
       }
 
@@ -2604,9 +2609,34 @@ export function SipPhone({
             ? unhealthyDeltaSamples + 1
             : 0;
 
-          if (healthyDeltaSamples >= 2 && !failureShown) {
-            (session as any).__postHoldRecoveryActive = false;
+          if (healthyDeltaSamples >= 2) {
+            const sessionAny = session as any;
+            mediaValidatedHealthy = true;
+            if (
+              recoveryInProgress ||
+              sessionAny.__mediaRecoveryPromise ||
+              sessionAny.__activeSipOperation === "media-recovery"
+            ) {
+              setAudioHealth("recovering");
+              previousRtpStats = currentRtpStats;
+              return;
+            }
+            sessionAny.__postHoldRecoveryActive = false;
+            sessionAny.__holdRecoveryNeeded = false;
             connectionWarningShown = false;
+            unhealthyDeltaSamples = 0;
+            failureShown = false;
+            if (
+              sessionRef.current === session &&
+              session.state === SessionState.Established &&
+              !sessionAny.__isHeld &&
+              !sessionAny.__desiredHeld &&
+              sessionAny.__activeSipOperation !== "hold" &&
+              sessionAny.__activeSipOperation !== "unhold"
+            ) {
+              setIsOnHold(false);
+              setCallState("active");
+            }
             setAudioHealth("connected");
           }
 
@@ -2615,7 +2645,7 @@ export function SipPhone({
               void attemptMediaRecovery(deltaHealth as Exclude<AudioRtpHealth, "healthy">);
             } else if (!(session as any).__mediaRecoveryPromise && !recoveryInProgress) {
               reportNoFlowFailure(deltaHealth as Exclude<AudioRtpHealth, "healthy">);
-              showFailure(true);
+              showFailure();
             }
           }
         }
@@ -2822,11 +2852,14 @@ export function SipPhone({
     const session = sessionRef.current;
     if (session) {
       try {
+        // The server/caller has already ended the call. Finalize the active
+        // local call immediately; a post-reconnect SIP state event or BYE
+        // response may never arrive.
+        finalizeSessionIfCurrent(session, "server remote hangup");
         if (session.state === SessionState.Established || String(session.state) === "Established") {
-          console.log("[SIP-INBOUND] remoteHangup: sending BYE");
-          sendByeWithInboundFallback(session, "server remote hangup");
-        } else {
-          finalizeSessionIfCurrent(session, "server remote hangup");
+          void endSessionBounded(session).catch((error) => {
+            console.warn("[SIP-INBOUND] Best-effort cleanup after remote hangup failed:", error);
+          });
         }
       } catch (error) {
         console.error("Error in remoteHangup:", error);
@@ -2843,7 +2876,7 @@ export function SipPhone({
     if (callTimerRef.current) {
       clearInterval(callTimerRef.current);
     }
-  }, [clearMediaHealthMonitoring, releaseMicrophonePipeline, sendByeWithInboundFallback, finalizeSessionIfCurrent]);
+  }, [clearMediaHealthMonitoring, releaseMicrophonePipeline, finalizeSessionIfCurrent]);
 
   const endCall = useCallback(() => {
     clearMediaHealthMonitoring();
@@ -3162,7 +3195,7 @@ export function SipPhone({
   };
 
   const dialPadButtons = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
-  const showMediaHealth = (callState === "active" || callState === "on_hold")
+  const showMediaHealth = !mediaAlertDismissed && (callState === "active" || callState === "on_hold")
     && ["checking", "recovering", "warning", "failed"].includes(audioHealth);
   const mediaHealthOverlay = showMediaHealth ? createPortal(
     <div
@@ -3179,7 +3212,7 @@ export function SipPhone({
             : "border-sky-300/80 bg-gradient-to-br from-sky-50/95 to-cyan-100/95 text-sky-950 dark:from-sky-950/95 dark:to-cyan-950/95 dark:text-sky-50"
       }`}>
         <div className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-white/20 blur-2xl" />
-        <div className="relative flex items-center gap-3.5">
+        <div className="relative flex items-center gap-3.5 pr-8">
           <div className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
             audioHealth === "failed"
               ? "bg-white/18"
@@ -3219,6 +3252,15 @@ export function SipPhone({
                   : t.agentWorkspace.mediaRecoveryProgress}
             </div>
           </div>
+          <button
+            type="button"
+            className="absolute right-0 top-0 flex h-8 w-8 items-center justify-center rounded-full text-current/75 transition-colors hover:bg-white/15 hover:text-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current/60"
+            onClick={() => setMediaAlertDismissed(true)}
+            aria-label={t.common.close}
+            data-testid="button-dismiss-call-media-health"
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
         </div>
       </div>
     </div>,

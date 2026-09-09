@@ -10,9 +10,9 @@ import { useI18n } from "@/i18n";
 import { classify, classifyIceResult, classifyLatencyQuality, gatherIce, hasCriticalFailure, hasVoiceLevel, isChromiumDesktop, isCompletePulseReadinessRun, isProbableSameHeadset, measureSameOriginLatency, rmsFromTimeDomain, type DiagnosticResult, type DiagnosticState } from "./diagnostics";
 import { pulseCopy } from "./translations";
 
-type Props = { open: boolean; required?: boolean; keepWakeLock?: boolean; hasValidReadiness?: boolean; userId: string; onClose: () => void; onReady: () => void; onExit?: () => void };
+type Props = { open: boolean; required?: boolean; keepWakeLock?: boolean; hasValidReadiness?: boolean; autoStartRequest?: number; userId: string; onClose: () => void; onReady: () => void; onExit?: () => void };
 
-export function PulseDiagnostics({ open, required = false, keepWakeLock = false, hasValidReadiness = false, userId, onClose, onReady, onExit }: Props) {
+export function PulseDiagnostics({ open, required = false, keepWakeLock = false, hasValidReadiness = false, autoStartRequest = 0, userId, onClose, onReady, onExit }: Props) {
   const { locale } = useI18n();
   const t = pulseCopy(locale);
   const { isRegistered, ensureRegistered } = useSip();
@@ -43,6 +43,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   const runGeneration = useRef(0);
   const runAbort = useRef<AbortController | null>(null);
   const soundConfirmationResolver = useRef<(() => void) | null>(null);
+  const consumedAutoStartRequest = useRef(0);
   const heardRef = useRef(false);
   const acquireWakeLock = useCallback(async () => {
     const generation = ++wakeLockGeneration.current;
@@ -240,6 +241,11 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     setProgress(100);
     setResults(r); setState(classify(r)); setRunCompleted(true); setRunning(false); setActiveAudioTest(null);
   }, [acquireWakeLock, ensureRegistered, isRegistered, t, userId]);
+  useEffect(() => {
+    if (!open || autoStartRequest <= 0 || consumedAutoStartRequest.current === autoStartRequest) return;
+    consumedAutoStartRequest.current = autoStartRequest;
+    void run();
+  }, [autoStartRequest, open, run]);
   useEffect(() => () => {
     runGeneration.current += 1;
     soundConfirmationResolver.current?.();

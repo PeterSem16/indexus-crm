@@ -86,7 +86,8 @@ function enqueueSipOperation(
 
 async function sendReinviteWithModifier(
   session: Session, 
-  modifier: (desc: SessionDescription) => Promise<SessionDescription>
+  modifier: (desc: SessionDescription) => Promise<SessionDescription>,
+  terminateOnTimeout = true,
 ): Promise<void> {
   if (!session) throw new Error("No session");
   
@@ -101,6 +102,13 @@ async function sendReinviteWithModifier(
     let settled = false;
     const transactionDeadline = window.setTimeout(() => {
       if (settled) return;
+      if (!terminateOnTimeout) {
+        // This deadline is informational only for media recovery. SIP.js still
+        // owns an outstanding re-INVITE transaction and rejects any later
+        // Hold/unhold re-INVITE until the real final response arrives.
+        console.warn("[SIP Hold] Media recovery re-INVITE is still awaiting a final response");
+        return;
+      }
       sessionAny.__terminationRequested = true;
       console.error("[SIP Hold] re-INVITE did not receive a final response; terminating the dialog");
       void Promise.resolve(
@@ -166,7 +174,7 @@ export async function restartSessionMedia(session: Session): Promise<void> {
       peerConnection.restartIce();
       // Do not race this transaction with a local timeout. A timed-out Promise
       // would leave the SIP re-INVITE running and could overlap a subsequent BYE.
-      await sendReinviteWithModifier(session, unchangedSdpModifier);
+      await sendReinviteWithModifier(session, unchangedSdpModifier, false);
     } finally {
       sessionAny.__mediaRecoveryInProgress = false;
     }
