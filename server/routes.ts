@@ -25139,9 +25139,11 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
       // Resolve disposition names and checklist names for queue items
       const queueCampaignIds = [...new Set((items as any[]).map(i => i.campaignId).filter(Boolean))];
+      const queueDispositions = queueCampaignIds.length > 0
+        ? await db.select().from(campaignDispositions)
+            .where(inArray(campaignDispositions.campaignId, queueCampaignIds))
+        : [];
       if (queueCampaignIds.length > 0) {
-        const queueDispositions = await db.select().from(campaignDispositions)
-          .where(inArray(campaignDispositions.campaignId, queueCampaignIds));
         const queueDispLookup = new Map<string, string>();
         for (const d of queueDispositions) {
           queueDispLookup.set(`${d.campaignId}::${d.code}`, d.name);
