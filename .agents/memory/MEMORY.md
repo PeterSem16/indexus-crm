@@ -77,3 +77,4 @@
 - [SIP full-register retry ordering](sip-full-register-retry-ordering.md) — schedule retry only after clearing the connecting guard; REGISTER send is not success until Registered is confirmed.
 - [WebRTC TURN relay policy](webrtc-turn-relay-policy.md) — behind the reverse-proxied Asterisk topology, configured TURN must use relay-only ICE or Chrome can release the relay Asterisk selected.
 - [Call history outcomes](call-history-outcomes.md) — call badges come from timestamped events in that call’s window and Mission workflow mode, never mutable campaign-contact state.
+- [MOH collision recovery](moh-collision-recovery.md) — auto-unhold only after a correlated network/SIP/ICE collision; serialize re-INVITEs and verify fresh bidirectional RTP.

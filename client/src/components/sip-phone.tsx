@@ -2,7 +2,14 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { UserAgent, Registerer, RegistererState, Inviter, Session, SessionState } from "sip.js";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient, getQueryFn } from "@/lib/queryClient";
-import { holdToggle as sipHoldToggle, isHeld as sipIsHeld, restartSessionMedia } from "@/lib/sip-hold";
+import {
+  endSessionBounded,
+  holdToggle as sipHoldToggle,
+  isHeld as sipIsHeld,
+  isHoldTransitioning,
+  restartSessionMedia,
+  unhold as sipUnhold,
+} from "@/lib/sip-hold";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -129,7 +136,7 @@ interface SipPhoneProps {
 }
 
 type CallState = "idle" | "connecting" | "ringing" | "active" | "on_hold" | "ended";
-type AudioHealthState = "idle" | "checking" | "connected" | "warning" | "failed";
+type AudioHealthState = "idle" | "checking" | "connected" | "recovering" | "warning" | "failed";
 
 export function SipPhone({ 
   config, 
@@ -212,6 +219,8 @@ export function SipPhone({
   const sessionRef = useRef<Session | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [audioHealth, setAudioHealth] = useState<AudioHealthState>("idle");
+  const heldRecoverySessionRef = useRef<Session | null>(null);
+  const requestHeldCallRecoveryRef = useRef<(session: Session, source: string) => void>(() => {});
   const mediaHealthCleanupRef = useRef<(() => void) | null>(null);
   const mediaHealthSessionRef = useRef<Session | null>(null);
   const startMediaHealthMonitoringRef = useRef<(
@@ -264,6 +273,10 @@ export function SipPhone({
   const trustedAgentRecordingFinalizedRef = useRef<Set<string>>(new Set());
   const callContextRef = useRef(callContext);
   callContextRef.current = callContext;
+
+  useEffect(() => {
+    callContextRef.current.setMediaHealth(audioHealth);
+  }, [audioHealth]);
 
   const schedulePostCallRegistrationRecovery = useCallback((endedSession: Session | null) => {
     window.setTimeout(() => {
@@ -958,7 +971,7 @@ export function SipPhone({
     if (sessionRef.current) {
       try {
         if (sessionRef.current.state === SessionState.Established) {
-          sessionRef.current.bye();
+          void endSessionBounded(sessionRef.current);
         }
       } catch (e) {
         console.error("Error ending session:", e);
@@ -1273,6 +1286,19 @@ export function SipPhone({
       // Helper to trigger hangup via a named mechanism (avoids duplicate firing)
       const triggerHangupDetection = (source: string) => {
         if (terminatedHandled || sessionRef.current !== session) return;
+        const sessionAny = session as any;
+        if (
+          source !== "SIP stateChange poll" &&
+          (
+            sipIsHeld(session) ||
+            isHoldTransitioning(session) ||
+            sessionAny.__holdRecoveryInProgress ||
+            (sessionAny.__postHoldRecoveryActive && Date.now() < Number(sessionAny.__postHoldRecoveryUntil || 0))
+          )
+        ) {
+          requestHeldCallRecoveryRef.current(session, source);
+          return;
+        }
         console.warn(`[SIP-INBOUND] Hang-up detected via: ${source}`);
         if (hangupPollRef.current) { clearInterval(hangupPollRef.current); hangupPollRef.current = null; }
         onTerminated(SessionState.Terminated);
@@ -1766,6 +1792,18 @@ export function SipPhone({
                 const source = sipState === "Terminated"
                   ? "outbound SIP state poll"
                   : `outbound PC/ICE poll (conn=${pc?.connectionState} ice=${pc?.iceConnectionState})`;
+                if (
+                  sipState !== "Terminated" &&
+                  (
+                    sipIsHeld(inviter) ||
+                    isHoldTransitioning(inviter) ||
+                    (inviter as any).__holdRecoveryInProgress ||
+                    ((inviter as any).__postHoldRecoveryActive && Date.now() < Number((inviter as any).__postHoldRecoveryUntil || 0))
+                  )
+                ) {
+                  requestHeldCallRecoveryRef.current(inviter, source);
+                  return;
+                }
                 const activeFinalizer = activeSessionFinalizeRef.current;
                 if (activeFinalizer?.session === inviter) {
                   activeFinalizer.finalize(source);
@@ -2102,6 +2140,120 @@ export function SipPhone({
     micProcessedTrackRef.current = processedTrack;
   }, [micVolume]);
 
+  const requestHeldCallRecovery = useCallback(async (session: Session, source: string) => {
+    const sessionAny = session as any;
+    const activeFinalizer = activeSessionFinalizeRef.current;
+    if (
+      sessionRef.current !== session ||
+      session.state !== SessionState.Established ||
+      !sessionAny.__isHeld ||
+      activeFinalizer?.session !== session ||
+      sessionAny.__terminationRequested
+    ) return;
+
+    const holdEpisode = Number(sessionAny.__holdEpisode || 0);
+    sessionAny.__holdRecoveryEpisode = holdEpisode;
+    sessionAny.__holdRecoveryNeeded = true;
+    setAudioHealth("recovering");
+    console.warn(`[SIP-HOLD-RECOVERY] Network collision detected via ${source}`);
+
+    if (!navigator.onLine || sessionAny.__holdRecoveryInProgress) return;
+    sessionAny.__holdRecoveryInProgress = true;
+    heldRecoverySessionRef.current = session;
+
+    try {
+      const registrationRestored = await Promise.race([
+        ensureRegistered(),
+        new Promise<boolean>((resolve) => window.setTimeout(() => resolve(false), 15_000)),
+      ]);
+      if (
+        !registrationRestored ||
+        sessionRef.current !== session ||
+        session.state !== SessionState.Established ||
+        !sessionAny.__isHeld ||
+        !sessionAny.__holdRecoveryNeeded ||
+        sessionAny.__holdRecoveryEpisode !== holdEpisode ||
+        activeSessionFinalizeRef.current?.session !== session ||
+        sessionAny.__terminationRequested
+      ) {
+        if (!registrationRestored && sessionRef.current === session) {
+          setAudioHealth("failed");
+          toast({
+            title: t.agentWorkspace.holdRecoveryFailedTitle,
+            description: t.agentWorkspace.holdRecoveryFailedDesc,
+            variant: "destructive",
+          });
+        }
+        return;
+      }
+
+      toast({
+        title: t.agentWorkspace.holdRecoveryTitle,
+        description: t.agentWorkspace.holdRecoveryDesc,
+      });
+      await sipUnhold(session, "recovery");
+      if (
+        sessionRef.current !== session ||
+        session.state !== SessionState.Established ||
+        sessionAny.__holdRecoveryEpisode !== holdEpisode ||
+        activeSessionFinalizeRef.current?.session !== session ||
+        sessionAny.__terminationRequested
+      ) return;
+
+      sessionAny.__holdRecoveryNeeded = false;
+      sessionAny.__postHoldRecoveryActive = true;
+      sessionAny.__postHoldRecoveryUntil = Date.now() + 12_000;
+      setIsOnHold(false);
+      setCallState("active");
+      setAudioHealth("checking");
+
+      const recoveredPeerConnection = sessionAny.sessionDescriptionHandler?.peerConnection as RTCPeerConnection | undefined;
+      if (!recoveredPeerConnection) throw new Error("Recovered session has no peer connection");
+      startMediaHealthMonitoringRef.current(
+        session,
+        recoveredPeerConnection,
+        activeInboundMetaRef.current?.direction === "inbound" ? "inbound" : "outbound",
+      );
+    } catch (error) {
+      console.error("[SIP-HOLD-RECOVERY] Failed to return from MOH:", error);
+      if (
+        sessionRef.current === session &&
+        activeSessionFinalizeRef.current?.session === session &&
+        sessionAny.__holdRecoveryEpisode === holdEpisode &&
+        sessionAny.__holdRecoveryNeeded &&
+        !sessionAny.__terminationRequested
+      ) {
+        setAudioHealth("failed");
+        toast({
+          title: t.agentWorkspace.holdRecoveryFailedTitle,
+          description: t.agentWorkspace.holdRecoveryFailedDesc,
+          variant: "destructive",
+        });
+      }
+    } finally {
+      sessionAny.__holdRecoveryInProgress = false;
+      if (heldRecoverySessionRef.current === session) {
+        heldRecoverySessionRef.current = null;
+      }
+    }
+  }, [ensureRegistered, setCallState, setIsOnHold, t.agentWorkspace, toast]);
+  requestHeldCallRecoveryRef.current = (session, source) => {
+    void requestHeldCallRecovery(session, source);
+  };
+
+  useEffect(() => {
+    const session = sessionRef.current;
+    if (!session || session.state !== SessionState.Established || !(session as any).__isHeld) return;
+    if (!isRegistered) {
+      (session as any).__holdRecoveryNeeded = true;
+      setAudioHealth("recovering");
+      return;
+    }
+    if ((session as any).__holdRecoveryNeeded) {
+      void requestHeldCallRecovery(session, "SIP registration restored");
+    }
+  }, [isRegistered, requestHeldCallRecovery]);
+
   const startMediaHealthMonitoring = useCallback((
     session: Session,
     peerConnection: RTCPeerConnection,
@@ -2114,11 +2266,13 @@ export function SipPhone({
     const startedAt = Date.now();
     let stopped = false;
     let warningShown = false;
+    let connectionWarningShown = false;
     let failureShown = false;
     let disconnectedAt: number | null = null;
     let degradedQualitySamples = 0;
     let previousRtpStats: AudioRtpStats | null = null;
     let unhealthyDeltaSamples = 0;
+    let healthyDeltaSamples = 0;
     let recoveryAttempted = Boolean((session as any).__mediaRecoveryAttempted);
     let recoveryInProgress = false;
     let recoveryGraceUntil = 0;
@@ -2146,11 +2300,9 @@ export function SipPhone({
         variant: "destructive",
       });
       if (terminate && session.state === SessionState.Established) {
-        try {
-          session.bye();
-        } catch (error) {
+        void endSessionBounded(session).catch((error) => {
           console.error("[SIP-MEDIA] Failed to terminate broken media session:", error);
-        }
+        });
       }
     };
 
@@ -2176,13 +2328,19 @@ export function SipPhone({
         stopped ||
         mediaHealthSessionRef.current !== session ||
         sessionRef.current !== session ||
-        session.state !== SessionState.Established
+        session.state !== SessionState.Established ||
+        sipIsHeld(session) ||
+        isHoldTransitioning(session)
       ) return;
 
       recoveryAttempted = true;
       (session as any).__mediaRecoveryAttempted = true;
       recoveryInProgress = true;
-      showNoFlowWarning(health);
+      setAudioHealth("recovering");
+      toast({
+        title: t.agentWorkspace.mediaRecoveryTitle,
+        description: t.agentWorkspace.mediaRecoveryDesc,
+      });
       console.warn("[SIP-MEDIA] Restarting ICE after sustained incomplete RTP flow", { health });
 
       try {
@@ -2205,13 +2363,16 @@ export function SipPhone({
         }
         previousRtpStats = null;
         unhealthyDeltaSamples = 0;
+        healthyDeltaSamples = 0;
         recoveryGraceUntil = Date.now() + 8_000;
         console.log("[SIP-MEDIA] ICE restart re-INVITE completed; verifying RTP flow");
       } catch (error) {
         console.error("[SIP-MEDIA] Media recovery failed:", error);
-        if ((session as any).__isHeld) {
-          recoveryAttempted = false;
-          (session as any).__mediaRecoveryAttempted = false;
+        if (sipIsHeld(session) || isHoldTransitioning(session)) {
+          if (!(session as any).__mediaRecoveryIceStarted) {
+            recoveryAttempted = false;
+            (session as any).__mediaRecoveryAttempted = false;
+          }
           unhealthyDeltaSamples = 0;
           return;
         }
@@ -2225,27 +2386,60 @@ export function SipPhone({
       if (stopped || mediaHealthSessionRef.current !== session || session.state !== SessionState.Established) return;
       const connectionState = peerConnection.connectionState;
       const iceState = peerConnection.iceConnectionState;
+      const sessionAny = session as any;
+      const postHoldRecoveryActive = sessionAny.__postHoldRecoveryActive
+        && Date.now() < Number(sessionAny.__postHoldRecoveryUntil || 0);
       console.log(`[SIP-MEDIA] State: pc=${connectionState} ice=${iceState}`);
+
+      if (connectionState === "closed" || iceState === "closed") {
+        reportVoiceIncident("ice_failed", "error", incidentMetrics());
+        showFailure(true);
+        return;
+      }
 
       if (
         connectionState === "failed" ||
-        iceState === "failed" ||
-        connectionState === "closed" ||
-        iceState === "closed"
+        iceState === "failed"
       ) {
         reportVoiceIncident("ice_failed", "error", incidentMetrics());
+        if (sessionAny.__isHeld) {
+          void requestHeldCallRecovery(session, `held PC/ICE ${connectionState}/${iceState}`);
+          return;
+        }
+        if (postHoldRecoveryActive) {
+          if (!recoveryAttempted && !recoveryInProgress) {
+            void attemptMediaRecovery("no-flow");
+          }
+          return;
+        }
         showFailure(true);
         return;
       }
 
       if (connectionState === "disconnected" || iceState === "disconnected") {
         disconnectedAt ??= Date.now();
+        if ((session as any).__isHeld) {
+          void requestHeldCallRecovery(session, `held PC/ICE disconnected`);
+        }
         if (Date.now() - disconnectedAt >= 8_000) {
-          reportVoiceIncident("ice_disconnected_sustained", "error", incidentMetrics());
-          showFailure(false);
+          if (!connectionWarningShown) {
+            connectionWarningShown = true;
+            reportVoiceIncident("ice_disconnected_sustained", "error", incidentMetrics());
+          }
+          if (postHoldRecoveryActive) {
+            if (!recoveryAttempted && !recoveryInProgress) {
+              void attemptMediaRecovery("no-flow");
+            }
+            return;
+          }
+          if (recoveryInProgress || Date.now() < recoveryGraceUntil) return;
+          // Disconnected ICE alone is a reversible warning. RTP verification
+          // below owns terminal escalation and can also clear this state.
+          setAudioHealth("warning");
         }
       } else {
         disconnectedAt = null;
+        connectionWarningShown = false;
       }
     };
 
@@ -2315,10 +2509,6 @@ export function SipPhone({
         const health = classifyAudioRtpStats(currentRtpStats);
         console.log("[SIP-MEDIA] Audio RTP health:", health);
 
-        if (health === "healthy") {
-          if (!failureShown) setAudioHealth("connected");
-        }
-
         if (previousRtpStats) {
           const delta = audioRtpDelta(previousRtpStats, currentRtpStats);
           const deltaHealth = classifyAudioRtpStats(delta);
@@ -2337,24 +2527,31 @@ export function SipPhone({
             });
           }
 
-          if ((session as any).__isHeld) {
+          if (sipIsHeld(session) || isHoldTransitioning(session)) {
             unhealthyDeltaSamples = 0;
+            healthyDeltaSamples = 0;
             previousRtpStats = currentRtpStats;
             return;
           }
 
           const graceElapsed = Date.now() - startedAt >= 8_000 && Date.now() >= recoveryGraceUntil;
+          healthyDeltaSamples = deltaHealth === "healthy" ? healthyDeltaSamples + 1 : 0;
           unhealthyDeltaSamples = graceElapsed && deltaHealth !== "healthy"
             ? unhealthyDeltaSamples + 1
             : 0;
 
+          if (healthyDeltaSamples >= 2 && !failureShown) {
+            (session as any).__postHoldRecoveryActive = false;
+            warningShown = false;
+            connectionWarningShown = false;
+            setAudioHealth("connected");
+          }
+
           if (unhealthyDeltaSamples >= 3) {
-            if (direction === "inbound") {
-              showNoFlowWarning(deltaHealth as Exclude<AudioRtpHealth, "healthy">);
-              unhealthyDeltaSamples = 0;
-            } else if (!recoveryAttempted) {
+            if (!recoveryAttempted) {
               void attemptMediaRecovery(deltaHealth as Exclude<AudioRtpHealth, "healthy">);
             } else if (!recoveryInProgress) {
+              showNoFlowWarning(deltaHealth as Exclude<AudioRtpHealth, "healthy">);
               showFailure(true);
             }
           }
@@ -2369,8 +2566,20 @@ export function SipPhone({
     const onIceConnectionStateChange = () => checkConnectionState();
     peerConnection.addEventListener("connectionstatechange", onConnectionStateChange);
     peerConnection.addEventListener("iceconnectionstatechange", onIceConnectionStateChange);
-    const onOffline = () => reportVoiceIncident("browser_offline", "error", incidentMetrics());
+    const onOffline = () => {
+      reportVoiceIncident("browser_offline", "error", incidentMetrics());
+      if ((session as any).__isHeld) {
+        (session as any).__holdRecoveryNeeded = true;
+        setAudioHealth("recovering");
+      }
+    };
+    const onOnline = () => {
+      if ((session as any).__isHeld && (session as any).__holdRecoveryNeeded) {
+        void requestHeldCallRecovery(session, "browser online");
+      }
+    };
     window.addEventListener("offline", onOffline);
+    window.addEventListener("online", onOnline);
     const timer = window.setInterval(() => { void checkStats(); }, 2_000);
     void checkStats();
 
@@ -2380,8 +2589,9 @@ export function SipPhone({
       peerConnection.removeEventListener("connectionstatechange", onConnectionStateChange);
       peerConnection.removeEventListener("iceconnectionstatechange", onIceConnectionStateChange);
       window.removeEventListener("offline", onOffline);
+      window.removeEventListener("online", onOnline);
     };
-  }, [clearMediaHealthMonitoring, t.agentWorkspace, toast]);
+  }, [clearMediaHealthMonitoring, requestHeldCallRecovery, t.agentWorkspace, toast]);
   startMediaHealthMonitoringRef.current = startMediaHealthMonitoring;
 
   const setupAudio = async (session: Session, direction: "inbound" | "outbound") => {
@@ -2498,21 +2708,26 @@ export function SipPhone({
   }, []);
 
   const sendByeWithInboundFallback = useCallback((capturedSession: Session, source: string) => {
-    try {
-      void Promise.resolve(capturedSession.bye()).catch((error) => {
+    setTimeout(() => {
+      if (
+        sessionRef.current !== capturedSession ||
+        activeSessionFinalizeRef.current?.session !== capturedSession
+      ) return;
+      console.warn(`[SIP] Emergency call teardown after blocked termination queue (${source})`);
+      finalizeSessionIfCurrent(capturedSession, `${source} emergency termination timeout`);
+    }, 1700);
+    void endSessionBounded(capturedSession)
+      .then(() => {
+        // SIP.js normally emits Terminated after BYE. Keep a session-bound
+        // fallback so a delayed result can never finalize a later call.
+        setTimeout(() => {
+          finalizeSessionIfCurrent(capturedSession, `${source} termination timeout`);
+        }, 1200);
+      })
+      .catch((error) => {
         console.error(`[SIP-INBOUND] BYE failed (${source}), finalizing locally:`, error);
         finalizeSessionIfCurrent(capturedSession, `${source} BYE rejection`);
       });
-    } catch (error) {
-      console.error(`[SIP-INBOUND] BYE threw (${source}), finalizing locally:`, error);
-      finalizeSessionIfCurrent(capturedSession, `${source} BYE exception`);
-      return;
-    }
-    // SIP.js normally emits Terminated after BYE. Keep a session-bound local
-    // fallback so a delayed result from this call can never finalize a later one.
-    setTimeout(() => {
-      finalizeSessionIfCurrent(capturedSession, `${source} termination timeout`);
-    }, 1200);
   }, [finalizeSessionIfCurrent]);
 
   const remoteHangup = useCallback(() => {
@@ -2658,15 +2873,9 @@ export function SipPhone({
     // synchronously from bye(), and that old event must not finalize twice.
     sessionRef.current = null;
     if (resetSession) {
-      try {
-        if (resetSession.state === SessionState.Established) {
-          resetSession.bye();
-        } else if (resetSession.state !== SessionState.Terminated) {
-          (resetSession as Inviter).cancel?.();
-        }
-      } catch (e) {
+      void endSessionBounded(resetSession).catch((e) => {
         console.error("Error force-ending call:", e);
-      }
+      });
     }
     if (audioContextRef.current) {
       try {
@@ -2713,21 +2922,32 @@ export function SipPhone({
   }, [isMuted]);
 
   const toggleHold = useCallback(async () => {
-    if (!sessionRef.current || sessionRef.current.state !== SessionState.Established) {
+    const session = sessionRef.current;
+    if (!session || session.state !== SessionState.Established) {
       console.warn("[SIP] Cannot toggle hold - no active established session");
       return;
     }
 
-    const previousHoldState = sipIsHeld(sessionRef.current);
-    
     try {
-      const nowHeld = await sipHoldToggle(sessionRef.current);
+      const nowHeld = await sipHoldToggle(session);
+      if (
+        sessionRef.current !== session ||
+        session.state !== SessionState.Established ||
+        activeSessionFinalizeRef.current?.session !== session ||
+        (session as any).__terminationRequested
+      ) return;
       setIsOnHold(nowHeld);
       setCallState(nowHeld ? "on_hold" : "active");
     } catch (error) {
       console.error("[SIP] Hold toggle error:", error);
-      setIsOnHold(previousHoldState);
-      setCallState(previousHoldState ? "on_hold" : "active");
+      if (
+        sessionRef.current !== session ||
+        activeSessionFinalizeRef.current?.session !== session ||
+        (session as any).__terminationRequested
+      ) return;
+      const actualHoldState = sipIsHeld(session);
+      setIsOnHold(actualHoldState);
+      setCallState(actualHoldState ? "on_hold" : "active");
       toast({
         title: "Hold error",
         description: "Failed to toggle hold state via re-INVITE",

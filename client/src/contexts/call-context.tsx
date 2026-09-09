@@ -3,6 +3,7 @@ import type { OutboundTrunkSelection } from "@shared/telephony-routing";
 import type { MissionCallRecordingSnapshot } from "@shared/mission-recording";
 
 export type CallState = "idle" | "connecting" | "ringing" | "active" | "on_hold" | "ended";
+export type CallMediaHealth = "idle" | "checking" | "connected" | "recovering" | "warning" | "failed";
 
 export interface CallInfo {
   phoneNumber: string;
@@ -43,6 +44,7 @@ interface CallContextType {
   isRecordingPaused: boolean;
   volume: number;
   micVolume: number;
+  mediaHealth: CallMediaHealth;
   callTiming: CallTimingMeta;
   preventAutoReset: boolean;
   setPreventAutoReset: (prevent: boolean) => void;
@@ -56,6 +58,7 @@ interface CallContextType {
   setIsRecordingPaused: (paused: boolean) => void;
   setVolume: (vol: number) => void;
   setMicVolume: (vol: number) => void;
+  setMediaHealth: (health: CallMediaHealth) => void;
   setCallTiming: (timing: Partial<CallTimingMeta>) => void;
   resetCallTiming: () => void;
   endCallFn: React.MutableRefObject<(() => void) | null>;
@@ -104,6 +107,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const [isRecordingPaused, setIsRecordingPaused] = useState(false);
   const [volume, setVolume] = useState(80);
   const [micVolume, setMicVolume] = useState(100);
+  const [mediaHealth, setMediaHealth] = useState<CallMediaHealth>("idle");
   const [callTiming, setCallTimingState] = useState<CallTimingMeta>({ ...defaultTiming });
   const [preventAutoReset, setPreventAutoReset] = useState(false);
   const [autoRecord, setAutoRecord] = useState(true);
@@ -148,6 +152,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     isRecordingPaused,
     volume,
     micVolume,
+    mediaHealth,
     callTiming,
     preventAutoReset,
     setPreventAutoReset,
@@ -161,6 +166,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     setIsRecordingPaused,
     setVolume,
     setMicVolume,
+    setMediaHealth,
     setCallTiming,
     resetCallTiming,
     endCallFn,
@@ -182,7 +188,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     handleInboundAnsweredFn,
     queuedInboundSession,
     onInboundAnsweredFn,
-  }), [callState, callInfo, callDirection, callDuration, isMuted, isOnHold, isRecording, isRecordingPaused, volume, micVolume, callTiming, preventAutoReset, autoRecord, setCallTiming, resetCallTiming]);
+  }), [callState, callInfo, callDirection, callDuration, isMuted, isOnHold, isRecording, isRecordingPaused, volume, micVolume, mediaHealth, callTiming, preventAutoReset, autoRecord, setCallTiming, resetCallTiming]);
 
   return (
     <CallContext.Provider value={contextValue}>

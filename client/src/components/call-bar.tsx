@@ -15,7 +15,9 @@ import {
   Play,
   Loader2,
   Grid3X3,
-  Volume2
+  Volume2,
+  Activity,
+  TriangleAlert
 } from "lucide-react";
 
 function formatDuration(seconds: number): string {
@@ -41,6 +43,7 @@ export function CallBar() {
     isOnHold,
     volume,
     micVolume,
+    mediaHealth,
     endCallFn,
     toggleMuteFn,
     toggleHoldFn,
@@ -64,12 +67,55 @@ export function CallBar() {
     }
   }, [isVisible, callState]);
 
-  if (!isVisible) {
-    return null;
-  }
-
   const isConnecting = callState === "connecting" || callState === "ringing";
   const isActive = callState === "active" || callState === "on_hold";
+  const showHealthOverlay = isActive && ["checking", "recovering", "warning", "failed"].includes(mediaHealth);
+  const healthIsCritical = mediaHealth === "warning" || mediaHealth === "failed";
+  const healthOverlay = showHealthOverlay ? createPortal(
+    <div
+      className={`fixed top-4 left-1/2 -translate-x-1/2 z-[10030] w-[min(92vw,430px)] overflow-hidden rounded-xl border shadow-2xl backdrop-blur-md ${
+        healthIsCritical
+          ? "border-red-500/70 bg-red-950/95 text-red-50"
+          : "border-amber-400/70 bg-amber-50/95 text-amber-950 dark:bg-amber-950/95 dark:text-amber-50"
+      }`}
+      role="status"
+      aria-live={healthIsCritical ? "assertive" : "polite"}
+      data-testid="call-media-health-alert"
+    >
+      <div className="flex items-center gap-3 px-4 py-3">
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+          healthIsCritical ? "bg-red-500/25" : "bg-amber-500/20"
+        }`}>
+          {healthIsCritical
+            ? <TriangleAlert className="h-5 w-5" />
+            : <Activity className="h-5 w-5 animate-pulse" />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="font-semibold">
+            {healthIsCritical
+              ? t.agentWorkspace.mediaCriticalTitle
+              : mediaHealth === "recovering"
+                ? t.agentWorkspace.mediaRecoveryTitle
+                : t.agentWorkspace.audioChecking}
+          </div>
+          <div className={`mt-0.5 text-xs ${healthIsCritical ? "text-red-100" : "text-amber-800 dark:text-amber-100"}`}>
+            {healthIsCritical
+              ? t.agentWorkspace.mediaCriticalDesc
+              : t.agentWorkspace.mediaRecoveryProgress}
+          </div>
+        </div>
+        {!healthIsCritical && <Loader2 className="h-5 w-5 shrink-0 animate-spin" />}
+      </div>
+      <div className={`h-1 ${healthIsCritical ? "bg-red-400" : "bg-amber-200 dark:bg-amber-900"}`}>
+        {!healthIsCritical && <div className="h-full w-1/3 animate-pulse bg-amber-500" />}
+      </div>
+    </div>,
+    document.body,
+  ) : null;
+
+  if (!isVisible) {
+    return healthOverlay;
+  }
 
   const handleEndCall = () => {
     if (endCallFn.current) {
@@ -305,6 +351,7 @@ export function CallBar() {
     <>
       <div className="shrink-0" style={{ height: barHeight || 48 }} />
       {createPortal(barContent, document.body)}
+      {healthOverlay}
     </>
   );
 }
