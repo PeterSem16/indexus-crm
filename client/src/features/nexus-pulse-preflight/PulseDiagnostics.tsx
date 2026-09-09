@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ArrowLeft, AudioLines, Bell, Check, CheckCircle2, CircleDot, Globe2, Headphones, Loader2, MailCheck, Mic, Play, Radio, ShieldCheck, Signal, Wifi, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, AudioLines, Bell, Check, CheckCircle2, CircleDot, Globe2, Headphones, ListChecks, Loader2, MailCheck, Mic, Play, Radio, Rocket, RotateCcw, ShieldCheck, Signal, Sparkles, Wifi, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useSip } from "@/contexts/sip-context";
 import { useI18n } from "@/i18n";
 import { classify, classifyIceResult, classifyLatencyQuality, gatherIce, hasCriticalFailure, hasVoiceLevel, isChromiumDesktop, isCompletePulseReadinessRun, isProbableSameHeadset, measureSameOriginLatency, rmsFromTimeDomain, type DiagnosticResult, type DiagnosticState } from "./diagnostics";
@@ -34,6 +35,8 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   const [quickLatencyStatus, setQuickLatencyStatus] = useState<"idle" | "pending" | "pass" | "warn" | "fail">("idle");
   const [quickLatencySamples, setQuickLatencySamples] = useState<number[]>([]);
   const [activeAudioTest, setActiveAudioTest] = useState<"browser" | "microphone" | "output" | "latency" | "progress" | null>(null);
+  const [showCompletionActions, setShowCompletionActions] = useState(false);
+  const [completionActionsDismissed, setCompletionActionsDismissed] = useState(false);
   const successSoundPlayed = useRef(false);
   const wakeLock = useRef<any>(null);
   const wakeLockGeneration = useRef(0);
@@ -70,7 +73,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     const abortController = new AbortController();
     runAbort.current = abortController;
     heardRef.current = false;
-    setRunning(true); setState("checking"); setHeard(false); setSoundPlayed(false); setSoundError(false); setResults([]); setLatencyMetrics(null); setQuickLatencySamples([]); setQuickMicStatus("idle"); setQuickSpeakerStatus("idle"); setQuickLatencyStatus("idle");
+    setShowCompletionActions(false); setCompletionActionsDismissed(false); setRunning(true); setState("checking"); setHeard(false); setSoundPlayed(false); setSoundError(false); setResults([]); setLatencyMetrics(null); setQuickLatencySamples([]); setQuickMicStatus("idle"); setQuickSpeakerStatus("idle"); setQuickLatencyStatus("idle");
     setActiveAudioTest("browser");
     setRunCompleted(false);
     setProgress(5); setProgressDetail(t.progressStarting);
@@ -464,6 +467,14 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
       void playConfirmation();
     }
   }, [finalState, open, quickChecksPassed, runCompleted]);
+  useEffect(() => {
+    if (!open || running || !canContinue || completionActionsDismissed) {
+      setShowCompletionActions(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setShowCompletionActions(true), 650);
+    return () => window.clearTimeout(timer);
+  }, [canContinue, completionActionsDismissed, open, running]);
   return <Dialog open={open} onOpenChange={(v) => !required && !v && onClose()}>
      <DialogContent hideCloseButton={required} className="max-w-2xl max-h-[92dvh] overflow-y-auto border-primary/15 bg-background/95 p-0 shadow-2xl shadow-primary/10 backdrop-blur" data-testid="nexus-pulse-dialog">
        <div className="relative overflow-hidden rounded-[inherit]">
@@ -517,6 +528,34 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
              {advisoryResults.length > 0 && <section className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.07] p-4" aria-label={t.advisoryTitle}><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-100"><AlertTriangle className="h-4 w-4 text-amber-600" />{t.advisoryTitle}</div><Badge variant="outline" className="border-amber-500/40 bg-background/50 text-amber-800 dark:text-amber-200">{t.advisoryBadge}</Badge></div><div className="grid gap-3 sm:grid-cols-2">{advisoryResults.map((item) => <div key={item.key} className="rounded-xl border border-amber-500/20 bg-background/70 p-3"><div className="flex items-center gap-2 text-sm font-medium">{item.key === "network" || item.key === "latency" ? <Wifi className="h-4 w-4 text-amber-600" /> : <AudioLines className="h-4 w-4 text-amber-600" />}{labels[item.key]}</div><p className="mt-2 text-xs leading-relaxed text-muted-foreground">{item.detail}</p><p className="mt-2 text-xs font-medium leading-relaxed text-foreground">{item.key === "network" || item.key === "latency" ? t.networkAction : t.devicesAction}</p></div>)}</div></section>}
              {latencyResult && <section className={`rounded-2xl border p-4 ${latencyVerdict?.panel || "border-sky-500/20 bg-sky-500/[0.045]"}`} aria-label={t.latency}><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2 font-semibold"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-sky-500/10 text-sky-700 dark:text-sky-300"><Signal className="h-4 w-4" /></span>{t.latency}</div>{latencyVerdict && <span className={`flex items-center gap-1.5 text-xs font-bold ${latencyVerdict.tone}`}><span className="flex h-5 w-5 items-center justify-center rounded-full border-current/30 bg-current/10">{latencyVerdict.icon}</span>{latencyVerdict.label}</span>}</div><div className="mt-3 grid grid-cols-2 gap-2"><div className="rounded-xl bg-background/65 p-3"><div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t.latencyDetail}</div><div className="mt-1 font-mono text-xl font-bold">{latencyMetrics ? `${latencyMetrics.latency} ms` : "—"}</div></div><div className="rounded-xl bg-background/65 p-3"><div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t.jitterDetail}</div><div className="mt-1 font-mono text-xl font-bold">{latencyMetrics ? `${latencyMetrics.jitter} ms` : "—"}</div></div></div><p className="mt-3 text-xs leading-relaxed text-muted-foreground">{latencyResult.detail || t.latencyUnavailable}</p><p className="mt-2 text-xs font-medium leading-relaxed text-foreground">{t.networkAction}</p></section>}
                <div className="flex flex-col-reverse gap-2 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-end">{required && onExit && <Button variant="ghost" className="mr-auto justify-start gap-2 text-muted-foreground hover:text-foreground" onClick={onExit} data-testid="button-pulse-return"><ArrowLeft className="h-4 w-4" />{t.returnToIndexus}</Button>}<Button variant="outline" className="rounded-xl" onClick={() => void run()} disabled={running} data-testid="button-pulse-retry">{running ? t.working : state === "idle" ? t.start : t.retry}</Button><Button className="rounded-xl" onClick={acknowledge} disabled={!canContinue} data-testid="button-pulse-continue">{t.continue}</Button></div>
+                <AlertDialog open={showCompletionActions} onOpenChange={(nextOpen) => { if (!nextOpen) { setCompletionActionsDismissed(true); setShowCompletionActions(false); } }}>
+                  <AlertDialogContent overlayClassName="z-[10034] bg-slate-950/70 backdrop-blur-md motion-reduce:animate-none" className="z-[10035] max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-[2rem] border-emerald-300/35 bg-background p-0 shadow-2xl shadow-emerald-950/30 motion-reduce:animate-none" data-testid="nexus-pulse-completion-dialog">
+                  <div className="relative overflow-hidden rounded-[inherit]">
+                    <div className="pointer-events-none absolute -right-14 -top-16 h-44 w-44 rounded-full bg-emerald-400/20 blur-3xl" />
+                    <div className="pointer-events-none absolute -bottom-20 -left-14 h-48 w-48 rounded-full bg-primary/15 blur-3xl" />
+                    <div className="relative p-6 text-center sm:p-8">
+                      <div className="relative mx-auto flex h-20 w-20 items-center justify-center rounded-[1.6rem] bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-xl shadow-emerald-500/25">
+                        <span className="absolute inset-0 rounded-[1.6rem] bg-emerald-400/25 motion-safe:animate-ping motion-reduce:hidden" />
+                        <CheckCircle2 className="relative h-10 w-10" aria-hidden="true" />
+                      </div>
+                      <div className="mt-5 flex items-center justify-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-300"><Sparkles className="h-4 w-4" aria-hidden="true" />NEXUS Pulse</div>
+                      <AlertDialogTitle className="mt-2 text-center text-2xl font-bold tracking-tight sm:text-3xl">{finalState === "warning" ? t.completionWarningTitle : t.completionTitle}</AlertDialogTitle>
+                      <AlertDialogDescription className="mx-auto mt-3 max-w-md text-center text-sm leading-relaxed text-muted-foreground">{finalState === "warning" ? t.completionWarningDetail : t.completionDetail}</AlertDialogDescription>
+                      <Button size="lg" className="mt-7 h-14 w-full rounded-2xl bg-gradient-to-r from-primary to-red-600 text-base font-bold text-white shadow-lg shadow-primary/25 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/30" onClick={acknowledge} data-testid="button-pulse-completion-enter">
+                        <Rocket className="h-5 w-5" aria-hidden="true" />{t.enterPulse}
+                      </Button>
+                      <Button variant="outline" className="mt-3 h-11 w-full rounded-xl border-emerald-500/25 bg-emerald-500/[0.045] font-semibold text-emerald-800 hover:bg-emerald-500/10 hover:text-emerald-900 dark:text-emerald-200 dark:hover:text-emerald-100" onClick={() => { setCompletionActionsDismissed(true); setShowCompletionActions(false); }} data-testid="button-pulse-completion-results">
+                        <ListChecks className="h-4 w-4" aria-hidden="true" />{t.viewResults}
+                      </Button>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        <Button variant="outline" className="h-11 rounded-xl" onClick={() => { setShowCompletionActions(false); void run(); }} data-testid="button-pulse-completion-retry"><RotateCcw className="h-4 w-4" aria-hidden="true" />{t.retry}</Button>
+                        <Button variant="ghost" className="h-11 rounded-xl text-muted-foreground hover:text-foreground" onClick={() => { setShowCompletionActions(false); (onExit || onClose)(); }} data-testid="button-pulse-completion-return"><ArrowLeft className="h-4 w-4" aria-hidden="true" />{t.returnToIndexus}</Button>
+                      </div>
+                      <p className="mt-4 text-xs text-muted-foreground/75">{t.completionHint}</p>
+                    </div>
+                  </div>
+                  </AlertDialogContent>
+                </AlertDialog>
                {activeAudioTest && <div className="fixed inset-0 z-[10030] flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm animate-in fade-in duration-200" role="dialog" aria-modal="true" aria-label={activeAudioTest === "microphone" ? t.voice : t.sound}>
                  <div className={`relative w-full max-w-md overflow-hidden rounded-3xl border bg-background p-6 text-center shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-3 duration-300 ${activeAudioTest === "output" ? "border-amber-500/45 shadow-amber-500/20" : "border-primary/40 shadow-primary/20"}`}>
                    <div className={`pointer-events-none absolute inset-x-8 top-0 h-24 rounded-full blur-3xl ${activeAudioTest === "microphone" ? "bg-primary/20" : "bg-amber-400/20"}`} />
