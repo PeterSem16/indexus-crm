@@ -139,6 +139,13 @@ class InboundCallWebSocketService {
     });
   }
 
+  notifyCallRequeued(agentUserId: string, callId: string) {
+    this.sendToAgent(agentUserId, {
+      type: "call-requeued",
+      callId,
+    });
+  }
+
   notifyQueueStats(agentUserId: string, stats: {
     queueId: string;
     queueName: string;

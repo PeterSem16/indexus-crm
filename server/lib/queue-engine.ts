@@ -4289,6 +4289,12 @@ export class QueueEngine extends EventEmitter {
           .where(eq(inboundCallLogs.id, recoveredCall.id))
           .catch(() => {});
         await this.startMohForChannel(recoveredCall.channelId, recoveredCall.queueId);
+        if (!this.isStandingId(pending.agentId)) {
+          // The browser has already claimed this call id while accepting its
+          // SIP invitation. It must be explicitly released before the queue
+          // re-offers the recovered call to an agent.
+          inboundCallWs.notifyCallRequeued(pending.agentId, pending.callId);
+        }
       }
       if (this.isStandingId(pending.agentId)) {
         this.standingBridgeSignals.delete(agentChannelId);
@@ -4300,6 +4306,14 @@ export class QueueEngine extends EventEmitter {
   }
 
   async agentAnsweredCall(callId: string, agentId: string, agentChannelId?: string): Promise<void> {
+    if (!agentChannelId) {
+      // Browser SIP acceptance is completed by the agent-channel Stasis path
+      // above. Pre-marking the queue record here would make that guarded
+      // queued/ringing -> answered transition fail and destroy the new bridge.
+      console.warn(`[QueueEngine] Ignoring pre-bridge answer acknowledgement for ${callId} from ${agentId}`);
+      return;
+    }
+
     const callLog = await db.select().from(inboundCallLogs).where(eq(inboundCallLogs.id, callId)).limit(1);
     if (!callLog[0]) return;
 

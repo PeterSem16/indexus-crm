@@ -9,6 +9,11 @@ import {
   requestPulseDial,
   shouldFinalizeAcwBeforeExplicitDial,
 } from "@/lib/pulse-dial-request";
+import {
+  claimInboundCall,
+  releaseInboundCallClaim,
+  shouldIgnoreInboundCallNotification,
+} from "@/lib/inbound-call-claim";
 import { PulseMainDialButton, PulseQuickDialButton } from "@/components/pulse-dial-button";
 import { SopPanel } from "@/components/agent/SopPanel";
 import { Button } from "@/components/ui/button";
@@ -10592,12 +10597,19 @@ function AgentWorkspacePageContent() {
   forwardedCallActiveRef.current = forwardedCallActive;
   const sessionQueueIdsRef = useRef<string[]>([]);
   const cancelledCallIdsRef = useRef<Set<string>>(new Set());
+  const claimedInboundCallIdsRef = useRef<Set<string>>(new Set());
   const openingContactsRef = useRef<Set<string>>(new Set());
   const pendingCcIdRef = useRef<string | null>(null);
   const filteredCallerNumbersRef = useRef<Map<string, number>>(new Map());
   const acceptingCallRef = useRef(false);
   const wasInboundCallRef = useRef(false);
   const dialingRef = useRef(false);
+
+  useEffect(() => {
+    if (!agentSession.isSessionActive) {
+      claimedInboundCallIdsRef.current.clear();
+    }
+  }, [agentSession.isSessionActive]);
 
   // Register callback so sip-phone triggers wasInboundCallRef=true on every answered inbound call
   useEffect(() => {
@@ -13233,6 +13245,10 @@ function AgentWorkspacePageContent() {
               if (num) filteredCallerNumbersRef.current.set(num, Date.now());
               return;
             }
+            if (shouldIgnoreInboundCallNotification(claimedInboundCallIdsRef.current, String(data.callId))) {
+              console.log(`[AgentWS] Ignoring replay for accepted inbound call ${data.callId}`);
+              return;
+            }
             console.log(`[AgentWS] === INBOUND CALL POPUP === from ${data.callerNumber}`);
             setInboundCalls(prev => {
               if (prev.some(c => c.callId === data.callId)) return prev;
@@ -13260,6 +13276,13 @@ function AgentWorkspacePageContent() {
             // Server confirmed caller hung up — terminate SIP session WITHOUT marking agent as hanger-upper
             console.log("[AgentWS] Server-side call-hangup received, triggering remote hangup");
             callContext.remoteHangupFn.current?.(String(data.callId || ""));
+          } else if (data.type === "call-requeued") {
+            // The agent accepted the SIP invite but ARI could not form the
+            // bridge. The server will send a fresh offer for the same call id.
+            // Release only that id so ordinary replay protection stays intact.
+            console.warn(`[AgentWS] Inbound call ${data.callId} returned to the queue after bridge recovery`);
+            releaseInboundCallClaim(claimedInboundCallIdsRef.current, String(data.callId));
+            setInboundCalls(prev => prev.filter(c => c.callId !== data.callId));
           } else if (data.type === "call-cancelled") {
             const cancelledNum = data.callerNumber?.replace(/[\s\-\(\)]/g, "");
             setInboundCalls(prev => prev.filter(c => {
@@ -13538,11 +13561,20 @@ function AgentWorkspacePageContent() {
       console.log("[AgentWS] Accept already in progress, ignoring duplicate click");
       return;
     }
+    if (!claimInboundCall(claimedInboundCallIdsRef.current, call.callId)) {
+      console.log(`[AgentWS] Inbound call ${call.callId} is already being handled`);
+      return;
+    }
+
     acceptingCallRef.current = true;
     wasInboundCallRef.current = true;
     setIsLoadingInboundContact(true);
 
     const removeCall = () => setInboundCalls(prev => prev.filter(c => c.callId !== call.callId));
+    const releaseForRetry = () => {
+      releaseInboundCallClaim(claimedInboundCallIdsRef.current, call.callId);
+      setIsLoadingInboundContact(false);
+    };
     const callerNumber = call.callerNumber;
     const recordingSnapshot = call.recordingSnapshot
       ? Object.freeze(call.recordingSnapshot)
@@ -13556,10 +13588,6 @@ function AgentWorkspacePageContent() {
       agentSession.updateStatus("busy").catch(() => {});
 
       callContext.setAutoRecord(!!call.recordCalls);
-
-      if (call.callId && !call.callId.startsWith("sip-")) {
-        apiRequest("POST", `/api/inbound-calls/${call.callId}/answer`, { userId: user?.id }).catch(() => {});
-      }
 
       // Fetch ALL entity matches for this number so agent can pick the right one
       let anyFound = false;
@@ -13643,144 +13671,86 @@ function AgentWorkspacePageContent() {
     };
 
     try {
-      if (call.hasSipInvitation || call.sipInvitation) {
-        console.log("[AgentWS] Accepting inbound call via SIP:", callerNumber);
+      // The browser can accept a queue call only through the registered SIP
+      // invitation. Never pre-mark the queue entry as answered: the ARI bridge
+      // owns that guarded state transition when the agent channel becomes ready.
+      console.log("[AgentWS] Accepting inbound call via SIP:", callerNumber);
+      let invitation = call.sipInvitation || incomingCallRef?.current?.invitation;
 
-        let invitation = call.sipInvitation || incomingCallRef?.current?.invitation;
-
-        if (!invitation) {
-          await new Promise(r => setTimeout(r, 200));
-          invitation = incomingCallRef?.current?.invitation;
-        }
-
-        if (!invitation) {
-          toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.sipInviteNotReady, variant: "destructive" });
-          acceptingCallRef.current = false;
-          return;
-        }
-
-        const invState = invitation.state;
-        console.log("[AgentWS] SIP invitation state:", invState);
-
-        if (invState === "Terminated" || invState === "Canceled") {
-          toast({ title: t.agentWorkspace.callCancelledLabel, description: t.agentWorkspace.callerHungUp });
-          removeCall();
-          acceptingCallRef.current = false;
-          return;
-        }
-
-        invitation._inboundQueueId = call.queueId;
-        invitation._inboundQueueName = call.queueName;
-        invitation._inboundCallLogId = call.callId;
-        invitation._inboundCallerNumber = callerNumber;
-        invitation._inboundCallerName = call.callerName;
-        invitation._inboundRecordCalls = !!call.recordCalls;
-        invitation._inboundDidNumber = call.didNumber;
-        invitation._inboundSourceTrunk = call.sourceTrunk;
-        invitation._inboundCustomerId = call.customerId;
-        invitation._inboundContactType = call.contactType;
-        invitation._inboundRecordingSnapshot = recordingSnapshot;
-        invitation._inboundCampaignId = inboundCampaignId;
-
-        if (invState === "Established") {
-          console.log("[AgentWS] Call already established, proceeding directly");
-        } else {
-          const acceptedInvitation = await answerIncomingCall({ publishAnsweredSession: false });
-          if (!acceptedInvitation) {
-            toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.callAcceptError, variant: "destructive" });
-            removeCall();
-            acceptingCallRef.current = false;
-            return;
-          }
-          invitation = acceptedInvitation;
-          console.log("[AgentWS] SIP accept succeeded through shared media setup");
-        }
-
-        removeCall();
-        const shouldAutoRecord = recordingSnapshot
-          ? recordingSnapshot.active
-          : (!!call.recordCalls || callContext.autoRecord);
-        const inboundOptions = { autoRecord: shouldAutoRecord, recordingSnapshot };
-        console.log("[AgentWS] Inbound options:", { recordCalls: !!call.recordCalls, globalAutoRecord: callContext.autoRecord, shouldAutoRecord });
-        console.log("[AgentWS] handleInboundAnsweredFn registered:", !!callContext.handleInboundAnsweredFn.current);
-        if (callContext.handleInboundAnsweredFn.current) {
-          console.log("[AgentWS] Calling handleInboundAnswered directly");
-          callContext.handleInboundAnsweredFn.current(invitation, inboundOptions);
-        } else {
-          console.warn("[AgentWS] handleInboundAnsweredFn not registered, queuing session");
-          callContext.queuedInboundSession.current = { session: invitation, options: inboundOptions };
-          callContext.setAutoRecord(shouldAutoRecord);
-          setAnsweredIncomingSession(invitation);
-        }
-        toast({ title: t.agentWorkspace.callAccepted, description: `${t.agentWorkspace.connectedWith} ${callerNumber}` });
-        await setupCallContext();
-      } else {
-        // Fallback: even if not linked via useEffect (number format mismatch), check incomingCallRef
-        const fallbackInvite = incomingCallRef?.current?.invitation;
-        if (fallbackInvite && fallbackInvite.state !== "Terminated" && fallbackInvite.state !== "Canceled") {
-          console.log("[AgentWS] hasSipInvitation=false but invite found in ref, accepting via SIP fallback");
-          fallbackInvite._inboundQueueId = call.queueId;
-          fallbackInvite._inboundQueueName = call.queueName;
-          fallbackInvite._inboundCallLogId = call.callId;
-          fallbackInvite._inboundCallerNumber = callerNumber;
-          fallbackInvite._inboundCallerName = call.callerName;
-          fallbackInvite._inboundRecordCalls = !!call.recordCalls;
-          fallbackInvite._inboundDidNumber = call.didNumber;
-          fallbackInvite._inboundSourceTrunk = call.sourceTrunk;
-          fallbackInvite._inboundCustomerId = call.customerId;
-          fallbackInvite._inboundContactType = call.contactType;
-          fallbackInvite._inboundRecordingSnapshot = recordingSnapshot;
-          fallbackInvite._inboundCampaignId = inboundCampaignId;
-          let answeredFallbackInvite = fallbackInvite;
-          if (fallbackInvite.state !== "Established") {
-            answeredFallbackInvite = await answerIncomingCall({ publishAnsweredSession: false });
-            if (!answeredFallbackInvite) {
-              toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.callAcceptError, variant: "destructive" });
-              acceptingCallRef.current = false;
-              return;
-            }
-          }
-          removeCall();
-          answeredFallbackInvite._inboundQueueId = call.queueId;
-          answeredFallbackInvite._inboundQueueName = call.queueName;
-          answeredFallbackInvite._inboundCallLogId = call.callId;
-          answeredFallbackInvite._inboundCallerNumber = callerNumber;
-          answeredFallbackInvite._inboundCallerName = call.callerName;
-          answeredFallbackInvite._inboundRecordCalls = !!call.recordCalls;
-          answeredFallbackInvite._inboundDidNumber = call.didNumber;
-          answeredFallbackInvite._inboundSourceTrunk = call.sourceTrunk;
-          answeredFallbackInvite._inboundCustomerId = call.customerId;
-          answeredFallbackInvite._inboundContactType = call.contactType;
-          answeredFallbackInvite._inboundRecordingSnapshot = recordingSnapshot;
-          answeredFallbackInvite._inboundCampaignId = inboundCampaignId;
-          const shouldAutoRecord = recordingSnapshot
-            ? recordingSnapshot.active
-            : (!!call.recordCalls || callContext.autoRecord);
-          if (callContext.handleInboundAnsweredFn.current) {
-            callContext.handleInboundAnsweredFn.current(answeredFallbackInvite, { autoRecord: shouldAutoRecord, recordingSnapshot });
-          } else {
-            callContext.queuedInboundSession.current = { session: answeredFallbackInvite, options: { autoRecord: shouldAutoRecord, recordingSnapshot } };
-            callContext.setAutoRecord(shouldAutoRecord);
-            setAnsweredIncomingSession(fallbackInvite);
-          }
-          toast({ title: t.agentWorkspace.callAccepted, description: `${t.agentWorkspace.connectedWith} ${callerNumber}` });
-          await setupCallContext();
-        } else {
-          await apiRequest("POST", `/api/inbound-calls/${call.callId}/answer`, { userId: user?.id });
-          toast({ title: t.agentWorkspace.callAccepted });
-          removeCall();
-          await setupCallContext();
-          setForwardedCallActive({ callId: call.callId, callerNumber, callerName: call.callerName, startedAt: new Date() });
-        }
+      if (!invitation) {
+        await new Promise(r => setTimeout(r, 200));
+        invitation = incomingCallRef?.current?.invitation;
       }
+
+      if (!invitation) {
+        releaseForRetry();
+        toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.sipInviteNotReady, variant: "destructive" });
+        return;
+      }
+
+      const invState = invitation.state;
+      console.log("[AgentWS] SIP invitation state:", invState);
+
+      if (invState === "Terminated" || invState === "Canceled") {
+        toast({ title: t.agentWorkspace.callCancelledLabel, description: t.agentWorkspace.callerHungUp });
+        removeCall();
+        releaseForRetry();
+        return;
+      }
+
+      invitation._inboundQueueId = call.queueId;
+      invitation._inboundQueueName = call.queueName;
+      invitation._inboundCallLogId = call.callId;
+      invitation._inboundCallerNumber = callerNumber;
+      invitation._inboundCallerName = call.callerName;
+      invitation._inboundRecordCalls = !!call.recordCalls;
+      invitation._inboundDidNumber = call.didNumber;
+      invitation._inboundSourceTrunk = call.sourceTrunk;
+      invitation._inboundCustomerId = call.customerId;
+      invitation._inboundContactType = call.contactType;
+      invitation._inboundRecordingSnapshot = recordingSnapshot;
+      invitation._inboundCampaignId = inboundCampaignId;
+
+      if (invState !== "Established") {
+        const acceptedInvitation = await answerIncomingCall({ publishAnsweredSession: false });
+        if (!acceptedInvitation) {
+          removeCall();
+          releaseForRetry();
+          toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.callAcceptError, variant: "destructive" });
+          return;
+        }
+        invitation = acceptedInvitation;
+        console.log("[AgentWS] SIP accept succeeded through shared media setup");
+      }
+
+      removeCall();
+      const shouldAutoRecord = recordingSnapshot
+        ? recordingSnapshot.active
+        : (!!call.recordCalls || callContext.autoRecord);
+      const inboundOptions = { autoRecord: shouldAutoRecord, recordingSnapshot };
+      if (callContext.handleInboundAnsweredFn.current) {
+        callContext.handleInboundAnsweredFn.current(invitation, inboundOptions);
+      } else {
+        console.warn("[AgentWS] handleInboundAnsweredFn not registered, queuing session");
+        callContext.queuedInboundSession.current = { session: invitation, options: inboundOptions };
+        callContext.setAutoRecord(shouldAutoRecord);
+        setAnsweredIncomingSession(invitation);
+      }
+      toast({ title: t.agentWorkspace.callAccepted, description: `${t.agentWorkspace.connectedWith} ${callerNumber}` });
+      // Opening or choosing a CRM card must not delay or alter the live
+      // SIP/ARI call. This work intentionally runs after acceptance.
+      void setupCallContext().catch((error) => {
+        console.error("[AgentWS] Failed to prepare inbound CRM context:", error);
+        setIsLoadingInboundContact(false);
+      });
     } catch (err: any) {
       console.error("[AgentWS] Error accepting call:", err);
+      releaseForRetry();
       toast({ title: t.agentWorkspace.errorLabel, description: err.message || t.agentWorkspace.callAcceptError, variant: "destructive" });
-      setIsLoadingInboundContact(false);
     } finally {
       acceptingCallRef.current = false;
     }
-  }, [incomingCallRef, answerIncomingCall, setAnsweredIncomingSession, callContext, toast, user?.id, agentSession, selectedCampaignId, selectedCampaign, campaigns]);
+  }, [incomingCallRef, answerIncomingCall, setAnsweredIncomingSession, callContext, toast, agentSession, selectedCampaignId, selectedCampaign, campaigns]);
 
   const handleRejectInboundCall = useCallback((call: InboundCallEntry | null) => {
     if (!call) return;
