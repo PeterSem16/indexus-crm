@@ -52,3 +52,27 @@ policy, return it in call-log metadata, and consume it synchronously before INVI
 Scheduled/queue-item dials use `item.campaignId` which may differ from the
 selected mission — resolve that item's own campaign settings, don't reuse the
 selected-campaign memo.
+
+# Negative INVITE response ordering and pending dials
+
+**Rule:** An external dial request received while a call is connecting, ringing,
+active, on hold, or ended must be rejected rather than retained for automatic
+execution. Only an idle phone may consume a pending dial request.
+
+**Why:** A request retained during ringing can execute immediately after the
+first call reaches `ended`, which silently dials a different number after a
+max-ring timeout.
+
+**How to apply:** Treat pending dial requests as one-shot idle-state commands,
+not a general queue.
+
+**Rule:** Persist an unanswered outbound result only once, after allowing the
+negative INVITE response callback to run.
+
+**Why:** SIP.js can emit `Terminated` before `requestDelegate.onReject`. A
+provisional `failed` write followed by a `busy` correction is unsafe because
+independent network mutations can finish out of order and restore `failed`.
+
+**How to apply:** Bind the deferred classification to the exact session/call
+generation, then make one final write. Max-ring timeout and explicit local
+cancel remain authoritative and need no response wait.

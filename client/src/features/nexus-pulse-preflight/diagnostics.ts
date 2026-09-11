@@ -23,6 +23,46 @@ export function pulseReadinessStorageKey(userId: string) {
   return `nexus-pulse-ready-v2:${userId}`;
 }
 
+export const AUDIO_DEVICE_SNAPSHOT_VERSION = 1;
+export type AudioDeviceSnapshot = {
+  version: typeof AUDIO_DEVICE_SNAPSHOT_VERSION;
+  devices: Array<{ kind: "audioinput" | "audiooutput"; deviceId: string; groupId: string; label: string }>;
+};
+
+export function pulseAudioDeviceBaselineStorageKey(userId: string) {
+  return `nexus-pulse-audio-devices-v${AUDIO_DEVICE_SNAPSHOT_VERSION}:${userId}`;
+}
+
+/** Reduce browser-specific aliases and ordering differences to a stable device identity. */
+export function normalizeAudioDeviceSnapshot(devices: Array<Pick<MediaDeviceInfo, "kind" | "deviceId" | "groupId" | "label">>): AudioDeviceSnapshot {
+  const normalized = devices
+    .filter((device): device is typeof device & { kind: "audioinput" | "audiooutput" } =>
+      device.kind === "audioinput" || device.kind === "audiooutput")
+    .map((device) => ({
+      kind: device.kind,
+      deviceId: String(device.deviceId || ""),
+      groupId: String(device.groupId || ""),
+      label: normalizeAudioDeviceLabel(String(device.label || "")),
+    }))
+    .sort((a, b) => `${a.kind}:${a.deviceId}:${a.groupId}:${a.label}`.localeCompare(`${b.kind}:${b.deviceId}:${b.groupId}:${b.label}`));
+  return { version: AUDIO_DEVICE_SNAPSHOT_VERSION, devices: normalized };
+}
+
+export function audioDeviceSnapshotsEqual(left: AudioDeviceSnapshot | null | undefined, right: AudioDeviceSnapshot | null | undefined) {
+  return !!left && !!right && left.version === right.version
+    && JSON.stringify(left.devices) === JSON.stringify(right.devices);
+}
+
+export function parseAudioDeviceSnapshot(value: string | null): AudioDeviceSnapshot | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value) as AudioDeviceSnapshot;
+    return parsed?.version === AUDIO_DEVICE_SNAPSHOT_VERSION && Array.isArray(parsed.devices) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 export function isCompleteDiagnosticRun(results: DiagnosticResult[], additionalRequiredKeys: DiagnosticKey[] = []) {
   const resultKeys = new Set(results.map((result) => result.key));
   return [...REQUIRED_RUN_KEYS, ...additionalRequiredKeys].every((key) => resultKeys.has(key));

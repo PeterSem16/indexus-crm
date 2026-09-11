@@ -210,6 +210,7 @@ import { BackOfficePanel } from "@/components/back-office-panel";
 import { BackOfficeQuestionsInbox } from "@/components/back-office-questions-inbox";
 import { MobileAgentWorkspace } from "@/components/mobile-agent-workspace";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { getInboundSelectionContext, resolveMissedCallCardTarget } from "@/lib/missed-call-card-resolver";
 
 type AgentInboundQueueDid = {
   didNumber: string;
@@ -10554,7 +10555,7 @@ export default function AgentWorkspacePage() {
   const prevStatusBeforeBackOffice = useRef<AgentStatus | null>(null);
   const [allowInboundInBO, setAllowInboundInBO] = useState(false);
   const [contractWizardOpen, setContractWizardOpen] = useState(false);
-  const [pendingInboundMatches, setPendingInboundMatches] = useState<{ phone: string; matches: PhoneMatch[]; callId?: string } | null>(null);
+  const [pendingInboundMatches, setPendingInboundMatches] = useState<{ phone: string; matches: PhoneMatch[]; callId?: string; missedCallId?: string } | null>(null);
   const [pendingUnknownCaller, setPendingUnknownCaller] = useState<{ phone: string } | null>(null);
   const [createFromCallType, setCreateFromCallType] = useState<"customer" | "hospital" | "clinic" | "person" | null>(null);
   const [createIsLoading, setCreateIsLoading] = useState(false);
@@ -16877,19 +16878,19 @@ export default function AgentWorkspacePage() {
                             const phoneNum = call.customerPhone || call.callerNumber;
                             let opened = false;
                             try {
-                              if (call.customerId) {
-                                opened = await handleSelectInboundMatch(
-                                  { entityType: "customer", id: String(call.customerId), name: call.customerName || "", phone: phoneNum || "" },
-                                  "card",
-                                  undefined,
-                                  { syncCall: false }
-                                );
+                              const persistedTarget = resolveMissedCallCardTarget(call.customerId, phoneNum || "", []);
+                              if (persistedTarget.kind === "match") {
+                                opened = await handleSelectInboundMatch(persistedTarget.match, "card", undefined, { syncCall: false });
                               } else if (phoneNum) {
                                 const lookupRes = await fetch(`/api/phone/lookup-all?phone=${encodeURIComponent(phoneNum)}`, { credentials: "include" });
                                 if (lookupRes.ok) {
-                                  const matches: PhoneMatch[] = await lookupRes.json();
-                                  if (Array.isArray(matches) && matches.length > 0) {
-                                    opened = await handleSelectInboundMatch(matches[0], "card", undefined, { syncCall: false });
+                                    const matches: PhoneMatch[] = await lookupRes.json();
+                                    const resolution = resolveMissedCallCardTarget(call.customerId, phoneNum, Array.isArray(matches) ? matches : []);
+                                    if (resolution.kind === "match") {
+                                      opened = await handleSelectInboundMatch(resolution.match, "card", undefined, { syncCall: false });
+                                    } else if (resolution.kind === "ambiguous") {
+                                      setPendingInboundMatches({ phone: phoneNum, matches: resolution.matches, missedCallId: String(call.id) });
+                                      return;
                                   }
                                 }
                               }
@@ -17539,8 +17540,24 @@ export default function AgentWorkspacePage() {
                     const ctx = pendingInboundMatches
                       ? { callId: pendingInboundMatches.callId, campaignId: selectedCampaignId || "", campaignName: selectedCampaign?.name || "Inbound", callerNumber: pendingInboundMatches.phone }
                       : undefined;
+                    const missedCallId = pendingInboundMatches?.missedCallId;
                     setPendingInboundMatches(null);
-                    await handleSelectInboundMatch(match, "card", ctx);
+                    const opened = await handleSelectInboundMatch(
+                      match,
+                      "card",
+                      getInboundSelectionContext(missedCallId, ctx || {}),
+                      { syncCall: !missedCallId },
+                    );
+                    if (opened && missedCallId) {
+                      try {
+                        await markMissedCallHandled(missedCallId);
+                        setCurrentCampaignContactId(null);
+                        setRightTab("actions");
+                        setAbandonedCallsOpen(false);
+                      } catch (error) {
+                        console.error("Failed to mark missed call handled after selection:", error);
+                      }
+                    }
                   }}
                 >
                   <div className={`p-2 rounded-md border ${colorMap[match.entityType] || "bg-muted"}`}>

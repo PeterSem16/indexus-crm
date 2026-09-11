@@ -1202,6 +1202,7 @@ export class QueueEngine extends EventEmitter {
       sourceTrunk: context.sourceTrunk || channelSourceTrunk || undefined,
     };
 
+    const enteredQueueAt = new Date();
     const callLog = await db.insert(inboundCallLogs).values({
       queueId,
       callerNumber,
@@ -1214,6 +1215,7 @@ export class QueueEngine extends EventEmitter {
         campaignId: channelCampaignId || null,
       },
       status: "queued",
+      enteredQueueAt,
       queuePosition: this.getQueueSize(queueId) + 1,
     }).returning();
 
@@ -1227,7 +1229,7 @@ export class QueueEngine extends EventEmitter {
       campaignId: channelCampaignId || null,
       didNumber: callContext.didNumber,
       sourceTrunk: callContext.sourceTrunk,
-      enteredAt: new Date(),
+      enteredAt: enteredQueueAt,
       position: this.getQueueSize(queueId) + 1,
     };
 
@@ -4250,12 +4252,22 @@ export class QueueEngine extends EventEmitter {
       }
 
       if (!isTransfer && !pending.callId.startsWith("transfer-")) {
-        await db.update(inboundCallLogs)
+        const [answerTransition] = await db.update(inboundCallLogs)
           .set({
             status: "answered",
             answeredAt: new Date(),
           })
-          .where(eq(inboundCallLogs.id, pending.callId));
+          .where(and(
+            eq(inboundCallLogs.id, pending.callId),
+            inArray(inboundCallLogs.status, ["queued", "ringing"]),
+          ))
+          .returning({ id: inboundCallLogs.id });
+        if (!answerTransition) {
+          this.activeBridges.delete(pending.callerChannelId);
+          this.activeBridges.delete(agentChannelId);
+          try { await this.ariClient.destroyBridge(bridge.id); } catch {}
+          throw new Error(`call ${pending.callId} was no longer answerable`);
+        }
       }
 
       this.emit("call-answered", {
@@ -4959,7 +4971,7 @@ export class QueueEngine extends EventEmitter {
     }
   }
 
-  private async handleOverflow(channelId: string, queue: InboundQueue, callerNumber: string = "unknown", callerName: string = ""): Promise<void> {
+  private async handleOverflow(channelId: string, queue: InboundQueue, callerNumber: string = "unknown", callerName: string = "", preservedCall?: QueuedCall): Promise<void> {
     try {
       console.log(`[QueueEngine] Handling overflow for channel ${channelId}: action=${queue.overflowAction}, caller=${callerNumber}`);
       switch (queue.overflowAction) {
@@ -5000,7 +5012,7 @@ export class QueueEngine extends EventEmitter {
         case "queue":
           if (queue.overflowTarget) {
             console.log(`[QueueEngine] Overflow: routing to queue ${queue.overflowTarget}`);
-            const call = this.waitingCalls.get(channelId);
+            const call = this.waitingCalls.get(channelId) || preservedCall;
             if (call) {
               const oldQueueId = call.queueId;
               this.waitingCalls.delete(channelId);
@@ -5008,7 +5020,29 @@ export class QueueEngine extends EventEmitter {
               this.recalculatePositions(oldQueueId);
               call.queueId = queue.overflowTarget;
               call.position = this.getQueueSize(queue.overflowTarget) + 1;
-              call.enteredAt = new Date();
+              const requeuedAt = new Date();
+              const [requeued] = await db.update(inboundCallLogs)
+                .set({
+                  queueId: queue.overflowTarget,
+                  status: "queued",
+                  enteredQueueAt: requeuedAt,
+                  queuePosition: call.position,
+                  assignedAgentId: null,
+                  answeredAt: null,
+                  completedAt: null,
+                  abandonReason: null,
+                  waitDurationSeconds: 0,
+                  talkDurationSeconds: 0,
+                })
+                .where(and(
+                  eq(inboundCallLogs.id, call.id),
+                  eq(inboundCallLogs.status, "timeout"),
+                ))
+                .returning({ id: inboundCallLogs.id });
+              if (!requeued) {
+                throw new Error(`queue overflow return failed for call ${call.id}`);
+              }
+              call.enteredAt = requeuedAt;
               this.waitingCalls.set(channelId, call);
               await this.startMohForChannel(channelId, queue.overflowTarget);
             } else {
@@ -5235,6 +5269,31 @@ export class QueueEngine extends EventEmitter {
 
     try {
       console.log(`[QueueEngine] >>>>>>> OVERFLOW FIRING for call ${callId}, channel=${channelId}, waited=${Math.floor(waitSeconds)}s, maxWait=${queue.maxWaitTime}s, action=${queue.overflowAction} <<<<<<<`);
+      const preservedCall = this.waitingCalls.get(channelId) || this.assignedCalls.get(channelId)?.call;
+
+      // Claim the terminal transition before touching in-memory tracking or any
+      // channels. A late ARI event must never destructively race an answer or
+      // another overflow worker.
+      const [claimed] = await db.update(inboundCallLogs)
+        .set({
+          status: "timeout",
+          completedAt: sql`GREATEST(CURRENT_TIMESTAMP, ${inboundCallLogs.enteredQueueAt})`,
+          abandonReason: "timeout",
+          waitDurationSeconds: Math.floor(waitSeconds),
+          assignedAgentId: null,
+        })
+        .where(and(
+          eq(inboundCallLogs.id, callId),
+          inArray(inboundCallLogs.status, ["queued", "ringing"]),
+        ))
+        .returning({
+          enteredQueueAt: inboundCallLogs.enteredQueueAt,
+          status: inboundCallLogs.status,
+        });
+      if (!claimed) {
+        console.log(`[QueueEngine] >>>>>>> OVERFLOW SKIPPED for call ${callId} - state changed concurrently or row missing <<<<<<<`);
+        return;
+      }
 
       this.waitingCalls.delete(channelId);
       this.assignedCalls.delete(channelId);
@@ -5253,16 +5312,6 @@ export class QueueEngine extends EventEmitter {
         }
       }
 
-      await db.update(inboundCallLogs)
-        .set({
-          status: "timeout",
-          completedAt: new Date(),
-          abandonReason: "timeout",
-          waitDurationSeconds: Math.floor(waitSeconds),
-          assignedAgentId: null,
-        })
-        .where(eq(inboundCallLogs.id, callId));
-
       let channelAlive = false;
       try {
         await this.ariClient.getChannel(channelId);
@@ -5278,7 +5327,7 @@ export class QueueEngine extends EventEmitter {
             status: "abandoned",
             abandonReason: "caller_hangup_before_overflow",
           })
-          .where(eq(inboundCallLogs.id, callId));
+          .where(and(eq(inboundCallLogs.id, callId), eq(inboundCallLogs.status, "timeout")));
 
         this.emit("call-timeout", { callId, queueId: queue.id, callerNumber, callerName, assignedAgentId: agentId, queueName: queue.name });
         this.emit("call-cancelled", { callId, callerNumber, callerName, queueId: queue.id, queueName: queue.name, reason: "caller_hangup" });
@@ -5292,7 +5341,7 @@ export class QueueEngine extends EventEmitter {
       const needsSafetyHangup = queue.overflowAction === "voicemail" || queue.overflowAction === "hangup" || queue.overflowAction === "announcement" || !queue.overflowAction;
 
       try {
-        await this.handleOverflow(channelId, queue, callerNumber, callerName);
+        await this.handleOverflow(channelId, queue, callerNumber, callerName, preservedCall);
         console.log(`[QueueEngine] >>>>>>> OVERFLOW COMPLETED for call ${callId}, action=${queue.overflowAction} <<<<<<<`);
       } catch (err) {
         console.error(`[QueueEngine] >>>>>>> OVERFLOW FAILED for call ${callId}:`, err instanceof Error ? err.message : err, "<<<<<<<");
@@ -5433,26 +5482,15 @@ export class QueueEngine extends EventEmitter {
         continue;
       }
 
-      const [freshQueue] = await db.select().from(inboundQueues).where(eq(inboundQueues.id, queue.id)).limit(1);
-      const maxWait = freshQueue?.maxWaitTime || queue.maxWaitTime || 0;
+      const maxWait = queue.maxWaitTime || 0;
       if (!maxWait || maxWait <= 0) continue;
 
       const totalWaitTime = (now - call.enteredAt.getTime()) / 1000;
       console.log(`[QueueEngine] checkTimeouts ASSIGNED: call=${call.id}, waited=${Math.floor(totalWaitTime)}s/${maxWait}s, agent=${agentId}, caller=${call.callerNumber}`);
 
       if (totalWaitTime >= maxWait) {
-        const callLog = await db.select().from(inboundCallLogs).where(eq(inboundCallLogs.id, call.id)).limit(1);
-        const dbStatus = callLog[0]?.status;
-        console.log(`[QueueEngine] checkTimeouts: call ${call.id} EXCEEDED maxWaitTime! totalWait=${Math.floor(totalWaitTime)}s >= maxWait=${maxWait}s, dbStatus=${dbStatus}`);
-
-        if (dbStatus === "answered" || dbStatus === "completed") {
-          console.log(`[QueueEngine] checkTimeouts: call ${call.id} already ${dbStatus}, just cleaning up tracking`);
-          this.assignedCalls.delete(channelId);
-          continue;
-        }
-
-        const overflowQueue = freshQueue || queue;
-        await this.fireOverflowForCall(channelId, call.id, overflowQueue, call.callerNumber, call.callerName || "", totalWaitTime, agentId);
+        console.log(`[QueueEngine] checkTimeouts: call ${call.id} exceeded maxWaitTime; attempting guarded overflow claim`);
+        await this.fireOverflowForCall(channelId, call.id, queue, call.callerNumber, call.callerName || "", totalWaitTime, agentId);
       }
     }
 
@@ -5485,10 +5523,12 @@ export class QueueEngine extends EventEmitter {
         const queue = queuesCache.get(callLog.queueId || "");
         if (!queue || !queue.maxWaitTime || queue.maxWaitTime <= 0) continue;
 
-        const createdAt = callLog.createdAt ? new Date(callLog.createdAt).getTime() : 0;
-        if (createdAt === 0) continue;
+        const enteredQueueAt = callLog.enteredQueueAt
+          ? new Date(callLog.enteredQueueAt).getTime()
+          : (callLog.createdAt ? new Date(callLog.createdAt).getTime() : 0);
+        if (enteredQueueAt === 0) continue;
 
-        const waitTime = (now - createdAt) / 1000;
+        const waitTime = (now - enteredQueueAt) / 1000;
         if (waitTime > queue.maxWaitTime) {
           console.log(`[QueueEngine] >>>>>>> DB SAFETY NET: call ${callLog.id} stuck in DB as "${callLog.status}" for ${Math.floor(waitTime)}s (maxWait=${queue.maxWaitTime}s), channel=${callLog.ariChannelId} <<<<<<<`);
 

@@ -57,6 +57,7 @@ import type { MissionCallRecordingSnapshot } from "@shared/mission-recording";
 import { audioRtpDelta, classifyAudioRtpStats, nextMediaFailureAction, shouldAttemptAutomaticMediaRecovery, shouldRetainRecheckAfterTermination, type AudioRtpHealth, type AudioRtpStats } from "@/lib/sip-audio-health";
 import { reportVoiceIncident, setVoiceIncidentCallContext } from "@/lib/voice-incident-logger";
 import { isCorrelatedInboundHangup, shouldApplyEstablishedSessionEffects, shouldCancelAfterRingGrace } from "@/lib/sip-session-guards";
+import { classifyOutboundTermination, classifyOutboundTerminationWithDeferredResponse } from "@/lib/sip-outbound-outcome";
 
 function filterSdpCandidates(description: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit> {
   if (!description.sdp) return Promise.resolve(description);
@@ -286,6 +287,10 @@ export function SipPhone({
   const micRawTrackRef = useRef<MediaStreamTrack | null>(null);
   const micProcessedTrackRef = useRef<MediaStreamTrack | null>(null);
   const userHungUpRef = useRef<boolean>(false);
+  const outboundAnsweredRef = useRef<boolean>(false);
+  const outboundFinalStatusCodeRef = useRef<number | null>(null);
+  const outboundGenerationRef = useRef(0);
+  const outboundOutcomeCorrectedRef = useRef<WeakSet<object>>(new WeakSet());
   const serverConfirmedRemoteHangupSessionRef = useRef<Session | null>(null);
   const pendingCallProcessedRef = useRef<boolean>(false);
   // Per-mission max ring duration for outbound calls (0 = no limit).
@@ -1583,7 +1588,10 @@ export function SipPhone({
       return;
     }
     makeCallGuardRef.current = true;
+    const outboundGeneration = ++outboundGenerationRef.current;
     userHungUpRef.current = false;
+    outboundAnsweredRef.current = false;
+    outboundFinalStatusCodeRef.current = null;
     
     if (!isSipConfigured) {
       toast({
@@ -1837,6 +1845,7 @@ export function SipPhone({
               break;
             }
             makeCallGuardRef.current = false;
+            outboundAnsweredRef.current = true;
             if (maxRingTimerRef.current) {
               clearTimeout(maxRingTimerRef.current);
               maxRingTimerRef.current = null;
@@ -1925,9 +1934,6 @@ export function SipPhone({
               clearInterval(hangupPollRef.current);
               hangupPollRef.current = null;
             }
-            const duration = callStartTimeRef.current 
-              ? Math.floor((Date.now() - callStartTimeRef.current) / 1000) 
-              : 0;
             const ringTimedOut = ringTimedOutRef.current;
             ringTimedOutRef.current = false;
             setCallState("ended");
@@ -1936,35 +1942,72 @@ export function SipPhone({
               clearInterval(callTimerRef.current);
             }
             const mediaInterrupted = ["recovering", "warning", "failed"].includes(audioHealthRef.current);
-            const hungUpBy = ringTimedOut
-              ? "system"
-              : userHungUpRef.current
-                ? "user"
-                : serverConfirmedRemoteHangupSessionRef.current === inviter
-                  ? "customer"
-                  : mediaInterrupted
-                    ? "system"
-                    : "customer";
+            const outcome = classifyOutboundTermination({
+              answered: outboundAnsweredRef.current,
+              elapsedSeconds: callStartTimeRef.current ? (Date.now() - callStartTimeRef.current) / 1000 : 0,
+              ringTimedOut,
+              userHungUp: userHungUpRef.current,
+              remoteHangup: serverConfirmedRemoteHangupSessionRef.current === inviter,
+              mediaInterrupted,
+              finalStatusCode: outboundFinalStatusCodeRef.current,
+            });
+            const { duration, hungUpBy } = outcome;
+            const initialFinalStatusCode = outboundFinalStatusCodeRef.current;
+            const wasUserHungUp = userHungUpRef.current;
             userHungUpRef.current = false;
             if (serverConfirmedRemoteHangupSessionRef.current === inviter) {
               serverConfirmedRemoteHangupSessionRef.current = null;
             }
-            const terminatedStatus = ringTimedOut ? "no_answer" : (duration > 0 ? "completed" : "failed");
+            const deferUnansweredPersistence = !outboundAnsweredRef.current
+              && initialFinalStatusCode == null
+              && !ringTimedOut
+              && !wasUserHungUp;
             callContextRef.current.setCallTiming({
               callEndTime: Date.now(),
               talkDurationSeconds: duration > 0 ? duration : null,
               hungUpBy,
             });
-            updateCallLogMutation.mutate({
-              id: callLogId,
-              data: { 
-                status: terminatedStatus,
-                endedAt: new Date().toISOString(),
-                durationSeconds: duration,
-                hungUpBy
-              },
-              customerId: localCustomerIdRef.current
-            });
+            const persistOutcome = (finalOutcome: typeof outcome) => {
+              updateCallLogMutation.mutate({
+                id: callLogId,
+                data: {
+                  status: finalOutcome.status,
+                  endedAt: new Date().toISOString(),
+                  durationSeconds: finalOutcome.duration,
+                  hungUpBy: finalOutcome.hungUpBy,
+                },
+                customerId: localCustomerIdRef.current,
+              });
+              onCallEnd?.(finalOutcome.duration, finalOutcome.status, callLogId);
+            };
+            if (deferUnansweredPersistence) {
+              // SIP.js transitions to Terminated before requestDelegate.onReject.
+              // Persist exactly once after that callback has had one turn to run.
+              setTimeout(() => {
+                if (
+                  sessionRef.current !== inviter ||
+                  outboundGenerationRef.current !== outboundGeneration ||
+                  outboundOutcomeCorrectedRef.current.has(inviter)
+                ) return;
+                const deferredCode = outboundFinalStatusCodeRef.current;
+                const deferredOutcome = classifyOutboundTerminationWithDeferredResponse({
+                  answered: false,
+                  elapsedSeconds: 0,
+                  userHungUp: false,
+                  ringTimedOut: false,
+                  finalStatusCode: initialFinalStatusCode,
+                }, deferredCode);
+                outboundOutcomeCorrectedRef.current.add(inviter);
+                callContextRef.current.setCallTiming({
+                  callEndTime: Date.now(),
+                  talkDurationSeconds: 0,
+                  hungUpBy: deferredOutcome.hungUpBy,
+                });
+                persistOutcome(deferredOutcome);
+              }, 10);
+            } else {
+              persistOutcome(outcome);
+            }
             if (duration > 0) {
               stopRecordingAndUpload(callLogId, duration);
             } else {
@@ -1984,7 +2027,6 @@ export function SipPhone({
               }
             }
             callContextRef.current.setAutoRecord(true);
-            onCallEnd?.(duration, terminatedStatus, callLogId);
             schedulePostCallRegistrationRecovery(inviter);
             setCurrentCallLogId(null);
             if (!callContextRef.current.preventAutoReset) {
@@ -2023,7 +2065,14 @@ export function SipPhone({
       // creates its peer connection and SDP answer only after the destination
       // answers, so audio cannot age or fail merely because ringing exceeded
       // ten seconds. Mission max-ring remains the independent CANCEL deadline.
-      await inviter.invite({ withoutSdp: true });
+      await inviter.invite({
+        withoutSdp: true,
+        requestDelegate: {
+          onReject: (response: any) => {
+            outboundFinalStatusCodeRef.current = Number(response?.message?.statusCode) || null;
+          },
+        },
+      });
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       console.error("[SIP] Call error:", errMsg, error);
@@ -2070,12 +2119,16 @@ export function SipPhone({
   }, [isRegistered, isRegistering, register, startDialWaiting, makeCall]);
 
   useEffect(() => {
-    if (pendingCall && (callState === "idle" || callState === "ended")) {
-      if (callState === "ended") {
-        setCallState("idle");
-        setCallDuration(0);
-        sessionRef.current = null;
-      }
+    if (pendingCall && callState !== "idle") {
+      clearPendingCall();
+      toast({
+        title: t.callBar?.active || t.agentWorkspace.errorLabel,
+        description: t.agentWorkspace.errorLabel,
+        variant: "destructive",
+      });
+      return;
+    }
+    if (pendingCall && callState === "idle") {
       const callData = pendingCall;
       phoneNumberRef.current = callData.phoneNumber;
       setPhoneNumber(callData.phoneNumber);
@@ -2116,15 +2169,10 @@ export function SipPhone({
         makeCall();
       }, 100);
     }
-  }, [pendingCall, callState, clearPendingCall, makeCall]);
+  }, [pendingCall, callState, clearPendingCall, makeCall, toast, t.agentWorkspace]);
 
   useEffect(() => {
-    if (pendingCallProcessedRef.current && isRegistered && (callState === "idle" || callState === "ended")) {
-      if (callState === "ended") {
-        setCallState("idle");
-        setCallDuration(0);
-        sessionRef.current = null;
-      }
+    if (pendingCallProcessedRef.current && isRegistered && callState === "idle") {
       pendingCallProcessedRef.current = false;
       setTimeout(() => {
         makeCall();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canUseQuickSoundVerification, classify, classifyIceResult, classifyLatencyQuality, hasCriticalFailure, hasVoiceLevel, isChromiumDesktop, isCompleteDiagnosticRun, isCompletePulseReadinessRun, isProbableSameHeadset, isPulseAgentWorkProtected, isPulseReadinessEnvironmentValid, isPulseSessionProtected, normalizeAudioDeviceLabel, pulseReadinessStorageKey, rmsFromTimeDomain, shouldPresentDeferredRecheck, shouldRetainStoredReadiness, summarizeLatency, type DiagnosticResult } from "./diagnostics";
+import { audioDeviceSnapshotsEqual, canUseQuickSoundVerification, classify, classifyIceResult, classifyLatencyQuality, hasCriticalFailure, hasVoiceLevel, isChromiumDesktop, isCompleteDiagnosticRun, isCompletePulseReadinessRun, isProbableSameHeadset, isPulseAgentWorkProtected, isPulseReadinessEnvironmentValid, isPulseSessionProtected, normalizeAudioDeviceLabel, normalizeAudioDeviceSnapshot, parseAudioDeviceSnapshot, pulseAudioDeviceBaselineStorageKey, pulseReadinessStorageKey, rmsFromTimeDomain, shouldPresentDeferredRecheck, shouldRetainStoredReadiness, summarizeLatency, type DiagnosticResult } from "./diagnostics";
 
 describe("NEXUS Pulse preflight classification", () => {
   it("rejects mobile and non-Chromium browsers", () => {
@@ -35,6 +35,30 @@ describe("NEXUS Pulse preflight classification", () => {
     expect(normalizeAudioDeviceLabel("Jabra Evolve 65 (USB Audio Device)")).toBe("jabra evolve 65");
     expect(isProbableSameHeadset("Jabra Evolve 65 microphone", "Jabra Evolve 65 headphones")).toBe(true);
     expect(isProbableSameHeadset("Built-in microphone", "Desk speakers")).toBe(false);
+  });
+  it("retains audio aliases so default-device changes invalidate readiness", () => {
+    const first = normalizeAudioDeviceSnapshot([
+      { kind: "videoinput", deviceId: "camera", groupId: "camera-group", label: "Camera" },
+      { kind: "audiooutput", deviceId: "default", groupId: "desk", label: "Desk speakers (Default)" },
+      { kind: "audiooutput", deviceId: "communications", groupId: "headset", label: "Jabra headset (Communications)" },
+    ]);
+    const second = normalizeAudioDeviceSnapshot([
+      { kind: "audiooutput", deviceId: "communications", groupId: "headset", label: "Jabra headset (Communications)" },
+      { kind: "audiooutput", deviceId: "default", groupId: "headset", label: "Jabra headset (Default)" },
+    ]);
+    expect(first.devices).toHaveLength(2);
+    expect(audioDeviceSnapshotsEqual(first, second)).toBe(false);
+    expect(parseAudioDeviceSnapshot(JSON.stringify(first))).toEqual(first);
+    expect(parseAudioDeviceSnapshot("{bad")).toBeNull();
+    expect(pulseAudioDeviceBaselineStorageKey("42")).toBe("nexus-pulse-audio-devices-v1:42");
+  });
+  it("keeps alias-only snapshots stable when their targets do not change", () => {
+    const first = normalizeAudioDeviceSnapshot([
+      { kind: "audiooutput", deviceId: "communications", groupId: "g-1", label: "Headset (Communications)" },
+      { kind: "audiooutput", deviceId: "default", groupId: "g-1", label: "Headset (Default)" },
+    ]);
+    const reordered = normalizeAudioDeviceSnapshot([...first.devices].reverse());
+    expect(audioDeviceSnapshotsEqual(first, reordered)).toBe(true);
   });
   it("calculates microphone RMS and keeps voice detection threshold explicit", () => {
     expect(rmsFromTimeDomain(new Uint8Array([128, 128, 128]))).toBe(0);
