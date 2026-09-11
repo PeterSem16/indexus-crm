@@ -4020,6 +4020,7 @@ export interface Translations {
     inboundAccept: string;
     inboundAcceptTitle: string;
     inboundReject: string;
+    inboundDismiss: string;
     inboundConnecting: string;
     inboundWaitingSip: string;
     inboundConnectingMsg: string;
@@ -11961,6 +11962,7 @@ export const translations: Record<Locale, Translations> = {
       inboundAccept: 'Accept',
       inboundAcceptTitle: 'Accept call',
       inboundReject: 'Reject',
+      inboundDismiss: 'Dismiss',
       inboundConnecting: 'Connecting...',
       inboundWaitingSip: 'Waiting for SIP connection...',
       inboundConnectingMsg: 'Connecting call...',
@@ -19351,6 +19353,7 @@ export const translations: Record<Locale, Translations> = {
       inboundAccept: 'Prijať',
       inboundAcceptTitle: 'Prijať hovor',
       inboundReject: 'Odmietnuť',
+      inboundDismiss: 'Zavrieť',
       inboundConnecting: 'Pripájam...',
       inboundWaitingSip: 'Čakám na SIP pripojenie...',
       inboundConnectingMsg: 'Pripájam hovor...',
@@ -26728,6 +26731,7 @@ export const translations: Record<Locale, Translations> = {
       inboundAccept: 'Přijmout',
       inboundAcceptTitle: 'Přijmout hovor',
       inboundReject: 'Odmítnout',
+      inboundDismiss: 'Zavřít',
       inboundConnecting: 'Připojuji...',
       inboundWaitingSip: 'Čekám na SIP připojení...',
       inboundConnectingMsg: 'Připojuji hovor...',
@@ -34061,6 +34065,7 @@ export const translations: Record<Locale, Translations> = {
       inboundAccept: 'Fogadás',
       inboundAcceptTitle: 'Hívás fogadása',
       inboundReject: 'Elutasítás',
+      inboundDismiss: 'Bezárás',
       inboundConnecting: 'Csatlakozás...',
       inboundWaitingSip: 'SIP kapcsolatra várok...',
       inboundConnectingMsg: 'Hívás csatlakoztatása...',
@@ -41281,6 +41286,7 @@ export const translations: Record<Locale, Translations> = {
       inboundAccept: 'Răspunde',
       inboundAcceptTitle: 'Răspunde la apel',
       inboundReject: 'Respinge',
+      inboundDismiss: 'Închide',
       inboundConnecting: 'Se conectează...',
       inboundWaitingSip: 'Aștept conexiunea SIP...',
       inboundConnectingMsg: 'Se conectează apelul...',
@@ -48503,6 +48509,7 @@ export const translations: Record<Locale, Translations> = {
       inboundAccept: 'Accetta',
       inboundAcceptTitle: 'Accetta chiamata',
       inboundReject: 'Rifiuta',
+      inboundDismiss: 'Chiudi',
       inboundConnecting: 'Connessione...',
       inboundWaitingSip: 'Attendo connessione SIP...',
       inboundConnectingMsg: 'Connessione chiamata...',
@@ -55725,6 +55732,7 @@ export const translations: Record<Locale, Translations> = {
       inboundAccept: 'Annehmen',
       inboundAcceptTitle: 'Anruf annehmen',
       inboundReject: 'Ablehnen',
+      inboundDismiss: 'Schließen',
       inboundConnecting: 'Verbinde...',
       inboundWaitingSip: 'Warte auf SIP-Verbindung...',
       inboundConnectingMsg: 'Verbinde Anruf...',

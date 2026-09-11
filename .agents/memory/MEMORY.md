@@ -85,3 +85,4 @@
 - [Nexus Pulse notification boundary](nexus-pulse-notification-boundary.md) — workflow toasts use Focused Status and its chime; live-call audio/media/hold diagnostics retain legacy silent styling.
 - [Agent phone-card recall](agent-phone-card-recall.md) — remembered inbound card choices are agent-private, advisory, and keyed without cross-country phone-number collisions.
 - [Mockup preview first-load timing](mockup-preview-first-load.md) — a sandbox screenshot just after a Vite restart can capture the dynamic loader's blank state; verify once more before marking the frame failed.
+- [Inbound popup visual hierarchy](inbound-popup-visual-hierarchy.md) — caller-first identity layout is approved; keep red limited to urgency, missed calls, and reject.

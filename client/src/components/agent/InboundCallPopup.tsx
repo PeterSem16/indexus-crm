@@ -15,7 +15,6 @@ import {
   PhoneOff,
   Phone,
   PhoneCall,
-  User,
   Clock,
   Building2,
   X,
@@ -24,7 +23,6 @@ import {
   Maximize2,
   AlertTriangle,
   PhoneMissed,
-  Bell,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
@@ -258,157 +256,165 @@ function CallCard({ call, onAccept, onReject, onDismiss, isFirst }: {
 
   return (
     <div
-      className={`p-3 rounded-lg border ${
-        isUrgentRepeatedCaller
-          ? "border-red-500 bg-red-50 dark:bg-red-950/30 ring-2 ring-red-400/40 animate-pulse"
-          : isFirst
-            ? "border-green-500/50 bg-green-50/50 dark:bg-green-950/20"
-            : "border-border bg-card"
-      } transition-all`}
+      className="overflow-hidden rounded-2xl border border-emerald-900/15 bg-card shadow-sm transition-all dark:border-emerald-200/15"
       data-testid={`inbound-call-card-${call.callId}`}
     >
-      <div className="flex items-start gap-3">
-        <Avatar
-          className={`h-10 w-10 border-2 shrink-0 ${
-            isUrgentRepeatedCaller ? "border-red-300" : isFirst ? "border-green-200" : "border-muted"
-          }`}
-        >
-          <AvatarFallback
-            className={`text-sm font-semibold ${
-              isUrgentRepeatedCaller
-                ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-200"
-                : isFirst
-                  ? "bg-green-100 text-green-700"
-                  : "bg-muted"
-            }`}
-          >
-            {initials}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span
-              className="font-semibold text-sm break-words"
-              title={displayName}
-              data-testid={`text-caller-${call.callId}`}
-            >
-              {displayName}
-            </span>
-            {primaryMatch && (
-              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${entityTypeColors[primaryMatch.entityType] || "bg-muted text-muted-foreground"}`}>
-                {entityTypeLabels[primaryMatch.entityType] || primaryMatch.entityType}
+      <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_15rem]">
+        <div className="min-w-0 p-4 sm:p-5">
+          <div className="flex items-start gap-3.5">
+            <Avatar className="h-14 w-14 shrink-0 rounded-2xl border border-emerald-700/25">
+              <AvatarFallback className="rounded-2xl bg-emerald-100 text-lg font-semibold tracking-wide text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 pt-0.5">
+              <span
+                className="block break-words text-lg font-semibold leading-tight text-emerald-950 dark:text-emerald-50"
+                title={displayName}
+                data-testid={`text-caller-${call.callId}`}
+              >
+                {displayName}
               </span>
-            )}
-            {isLastSelected && phoneMatches.length > 1 && (
-              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 shrink-0">
-                {aw.inboundSelectRecommended}
-              </Badge>
-            )}
-            {phoneMatches.length > 1 && (
-              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 shrink-0">
-                +{phoneMatches.length - 1}
-              </Badge>
-            )}
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
-              {call.queueName}
-            </Badge>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                {primaryMatch && (
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold ${entityTypeColors[primaryMatch.entityType] || "bg-muted text-muted-foreground"}`}>
+                    {entityTypeLabels[primaryMatch.entityType] || primaryMatch.entityType}
+                  </span>
+                )}
+                {isLastSelected && phoneMatches.length > 1 && (
+                  <Badge variant="secondary" className="h-4 shrink-0 px-1.5 py-0 text-[9px]">
+                    {aw.inboundSelectRecommended}
+                  </Badge>
+                )}
+                {phoneMatches.length > 1 && (
+                  <Badge variant="secondary" className="h-4 shrink-0 px-1.5 py-0 text-[9px]">
+                    +{phoneMatches.length - 1}
+                  </Badge>
+                )}
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
-            {primaryMatch?.name && (
-              <span data-testid={`text-caller-number-${call.callId}`}>{call.callerNumber}</span>
-            )}
-            {primaryMatch?.subtype && (
-              <span className="flex items-center gap-0.5">
-                <Building2 className="h-3 w-3" />
-                {primaryMatch.subtype}
+
+          <div className="mt-4 grid gap-2.5 border-t border-emerald-900/10 pt-3.5 text-xs text-muted-foreground dark:border-emerald-100/10">
+            <div className="flex items-start gap-2.5">
+              <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-700/60 dark:text-emerald-300/60" />
+              <div className="min-w-0">
+                <Badge variant="outline" className="max-w-full px-1.5 py-0 text-[10px] font-medium">
+                  <span className="truncate">{call.queueName}</span>
+                </Badge>
+                {primaryMatch?.subtype && (
+                  <div className="mt-1 break-words">{primaryMatch.subtype}</div>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <PhoneIncoming className="h-3.5 w-3.5 shrink-0 text-emerald-700/60 dark:text-emerald-300/60" />
+              <span className="break-all font-semibold text-foreground" data-testid={`text-caller-number-${call.callId}`}>
+                {call.callerNumber}
               </span>
-            )}
-            <span className="flex items-center gap-0.5">
-              <Clock className="h-3 w-3" />
-              <CallTimer timestamp={call.timestamp} />
-            </span>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <Clock className="h-3.5 w-3.5 shrink-0 text-emerald-700/60 dark:text-emerald-300/60" />
+              <span className="font-semibold tabular-nums text-foreground"><CallTimer timestamp={call.timestamp} /></span>
+            </div>
           </div>
+
           {totalToday > 0 && (
-            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap" data-testid={`today-stats-${call.callId}`}>
+            <div className="mt-4 flex flex-wrap items-center gap-1.5" data-testid={`today-stats-${call.callId}`}>
               <Badge
                 variant="secondary"
-                className="text-[10px] px-1.5 py-0 h-5"
+                className="h-5 px-1.5 py-0 text-[10px]"
                 title={aw.inboundTodayHint}
               >
-                <PhoneIncoming className="h-3 w-3 mr-1" />
+                <PhoneIncoming className="mr-1 h-3 w-3" />
                 {aw.inboundTodayLabel} {totalToday} {totalToday === 1 ? aw.inboundCallSingular : totalToday < 5 ? aw.inboundCallFew : aw.inboundCallMany}
               </Badge>
               {missedToday > 0 && (
                 <Badge
                   variant="outline"
-                  className="text-[10px] px-1.5 py-0 h-5 border-red-300 text-red-700 dark:text-red-300 dark:border-red-700"
+                  className="h-5 border-red-300 bg-red-50/50 px-1.5 py-0 text-[10px] text-red-700 dark:border-red-800 dark:bg-red-950/20 dark:text-red-300"
                   data-testid={`missed-stats-${call.callId}`}
                 >
-                  <PhoneMissed className="h-3 w-3 mr-1" />
+                  <PhoneMissed className="mr-1 h-3 w-3" />
                   {missedToday} {aw.inboundMissedLabel}
                 </Badge>
               )}
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <Button
-            size="sm"
-            variant="default"
-            onClick={handleAccept}
-            disabled={!canAccept || isAccepting || isRejecting}
-            title={canAccept ? aw.inboundAcceptTitle : aw.inboundWaitingSip}
-            data-testid={`btn-accept-${call.callId}`}
-          >
-            {isAccepting ? (
-              <Clock className="h-3.5 w-3.5 mr-1 animate-spin" />
-            ) : (
-              <Phone className="h-3.5 w-3.5 mr-1" />
-            )}
-            {isAccepting ? aw.inboundConnecting : aw.inboundAccept}
-          </Button>
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={handleReject}
-            disabled={isAccepting || isRejecting}
-            data-testid={`btn-reject-${call.callId}`}
-          >
-            <PhoneOff className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={() => onDismiss(call.callId)}
-            data-testid={`btn-dismiss-${call.callId}`}
-          >
-            <X className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </div>
-      {isUrgentRepeatedCaller && (
-        <div
-          className="mt-2 px-2.5 py-2 rounded-md bg-red-600 text-white text-xs font-medium flex items-start gap-2 shadow-sm"
-          data-testid={`urgent-alert-${call.callId}`}
-        >
-          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <div className="flex items-center gap-1.5">
-              <Bell className="h-3.5 w-3.5" />
-              <span className="font-semibold uppercase tracking-wide">{aw.inboundUrgentTitle}</span>
+
+        <aside className={`flex min-h-[13.5rem] flex-col justify-between border-t p-3.5 sm:border-l sm:border-t-0 ${
+          isUrgentRepeatedCaller
+            ? "border-red-900/15 bg-red-50/55 dark:border-red-200/15 dark:bg-red-950/15"
+            : "border-emerald-900/10 bg-emerald-50/30 dark:border-emerald-100/10 dark:bg-emerald-950/10"
+        }`}>
+          {isUrgentRepeatedCaller ? (
+            <div className="flex items-start gap-2 text-red-800 dark:text-red-200" data-testid={`urgent-alert-${call.callId}`}>
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div className="text-[11px] leading-relaxed">
+                <div className="font-semibold tracking-wide">{aw.inboundUrgentTitle}</div>
+                <div className="mt-1 text-red-900/80 dark:text-red-100/80">
+                  {aw.inboundUrgentDesc.replace('{n}', String(totalToday + 1))}
+                </div>
+              </div>
             </div>
-            <div className="mt-0.5 text-white/95">
-              {aw.inboundUrgentDesc.replace('{n}', String(totalToday + 1))}
+          ) : (
+            <div className="flex items-center gap-2 text-xs font-medium text-emerald-800 dark:text-emerald-200">
+              <PhoneIncoming className="h-4 w-4" />
+              {aw.inboundCallsTitle}
             </div>
+          )}
+
+          <div className="mt-5 grid gap-2">
+            <Button
+              size="sm"
+              onClick={handleAccept}
+              disabled={!canAccept || isAccepting || isRejecting}
+              title={canAccept ? aw.inboundAcceptTitle : aw.inboundWaitingSip}
+              className="h-10 w-full gap-1.5 bg-emerald-700 font-semibold text-white hover:bg-emerald-800 dark:bg-emerald-700 dark:hover:bg-emerald-600"
+              data-testid={`btn-accept-${call.callId}`}
+            >
+              {isAccepting ? (
+                <Clock className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Phone className="h-3.5 w-3.5" />
+              )}
+              {isAccepting ? aw.inboundConnecting : aw.inboundAccept}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleReject}
+              disabled={isAccepting || isRejecting}
+              className="h-9 w-full gap-1.5 border-red-300 bg-transparent font-semibold text-red-700 hover:bg-red-50 hover:text-red-800 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/30"
+              data-testid={`btn-reject-${call.callId}`}
+            >
+              <PhoneOff className="h-3.5 w-3.5" />
+              {aw.inboundReject}
+            </Button>
           </div>
-        </div>
-      )}
+        </aside>
+      </div>
+
       {call.hasSipInvitation === false && !call.isQueueWaiting && (
-        <div className="mt-1.5 text-xs text-muted-foreground flex items-center gap-1">
+        <div className="flex items-center gap-1 border-t border-emerald-900/10 px-4 py-2 text-xs text-muted-foreground dark:border-emerald-100/10">
           <Clock className="h-3 w-3 animate-spin" />
           {aw.inboundConnectingMsg}
         </div>
       )}
+
+      <div className="flex justify-end border-t border-emerald-900/10 px-3 py-1.5 dark:border-emerald-100/10">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 gap-1 px-2 text-[10px] text-muted-foreground"
+          onClick={() => onDismiss(call.callId)}
+          data-testid={`btn-dismiss-${call.callId}`}
+        >
+          <X className="h-3.5 w-3.5" />
+          {aw.inboundDismiss}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -686,16 +692,16 @@ export function InboundCallPopup({ inboundCalls, onAccept, onReject, onDismiss, 
   }
 
   return (
-    <div className="fixed top-4 right-4 z-[100] w-[600px] max-w-[calc(100vw-2rem)] animate-in slide-in-from-top-4 duration-300" data-testid="inbound-call-overlay">
-      <Card className="shadow-2xl border-2 border-green-500/50" data-testid="inbound-call-popup">
-        <CardHeader className="pb-2 bg-gradient-to-r from-green-600/10 to-green-500/5 border-b px-4 py-3">
+    <div className="fixed right-4 top-4 z-[100] w-[728px] max-w-[calc(100vw-2rem)] animate-in slide-in-from-top-4 duration-300" data-testid="inbound-call-overlay">
+      <Card className="overflow-hidden border border-emerald-900/20 shadow-[0_24px_65px_rgba(27,64,57,0.19)] dark:border-emerald-200/20" data-testid="inbound-call-popup">
+        <CardHeader className="border-b border-emerald-900/10 bg-emerald-50/70 px-4 py-3 dark:border-emerald-100/10 dark:bg-emerald-950/30">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm flex items-center gap-2">
               <div className="relative">
-                <PhoneIncoming className="h-4 w-4 text-green-600" />
+                <PhoneIncoming className="h-4 w-4 text-emerald-700 dark:text-emerald-300" />
                 <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
                 </span>
               </div>
               {aw.inboundCallsTitle}
