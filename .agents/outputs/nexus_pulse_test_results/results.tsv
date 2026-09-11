@@ -1,0 +1,79 @@
+
+### NEXUS_Pulse_komplexny_testovaci_formular_SK_2026_09_10_melicha_1789110011368.widgets.json
+CALL-OUT-01	PASS	actual=13:03 OK13:04 OK13:07 OK13:09 OK13:12 OK
+CALL-OUT-02	PASS	actual=
+CALL-OUT-03	CONDITIONAL	actual=10.9. 13:28 outband  (6900) nechal som system zlozit10.9. 13:29 zodvihol PeťoPotom sa to nezopakoval
+CALL-OUT-04	CONDITIONAL	actual=10.9. 13:40 call duration 10:41, ale spolu nevolai10.9. 13:48 obsadena linka ale "customer hung up"
+CALL-OUT-05	PASS	actual=
+CALL-OUT-06	PASS	actual=
+CALL-OUT-07	NOT_TESTED	actual=Navrhujem aby KO mohol pridať nové číslo (nie editovať stare)
+CALL-OUT-08	NOT_TESTED	actual=toto bolo vysvetlene, mame iba jedno mob. cislo
+CALL-OUT-09	PASS	actual=
+CALL-IN-01	PASS	actual=
+CALL-IN-02	PASS	actual=
+CALL-IN-03	CONDITIONAL	actual=ak otvorim Missed call, tak vidim kartu "osoby", nevie sa prepnut do klasickej karty ani z nej volat
+CALL-IN-04	FAIL	actual=ak agent nedvíha - odkazovka - agent nevie ze ide odkazovka. Ma moznost zodvihnut, ta nefunguje.
+CALL-IN-05	CONDITIONAL	actual=Chcel som aby volal milka ako neznama.Aj sa to tak tvarilo.Potom ju sparovzla klalita na zacia 15:17
+CALL-IN-06	CONDITIONAL	actual=ak otvorim Missed call, tak vidim kartu "osobyL, nevie sa prepnut do klasickej karty ani z nej volat
+CALL-IN-08	PASS	actual=
+
+### NEXUS_Pulse_komplexny_testovaci_formular_SK_seman_1789110053949.widgets.json
+PR-01	PASS	actual=nepodarilo sa vstupit do nexus Pulse bez vstupnej kontroly a diagnostiky   11:07
+PR-02	PASS	actual=po prihlaseni v prehliadaci Firefox si system nezapamatal povone funkcne nastavenie 11:11
+PR-03	PASS	actual=
+PR-04	PASS	actual=indikator stavu bol zlty a neskor cierny po obnove a teste uz bol zeleny
+PR-05	PASS	actual=
+PR-06	PASS	actual=
+PR-07	PASS	actual=
+PR-08	PASS	actual=
+PR-09	PASS	actual=
+PR-10	PASS	actual=registracia sa neobnovila musel som sa zaregistrovat cez moj profilocakaval som znovu registraciu
+PR-11	PASS	actual=
+PR-12	CONDITIONAL	actual=po zmene audio zariadenia sa nezneplatilo ready !
+PR-13	PASS	actual=
+ONB-01	PASS	actual=
+VER-01	PASS	actual=
+VER-02	NOT_TESTED	actual=zatial netestovane pretoze mame iba prvu verziu
+VER-03	NOT_TESTED	actual=zatial netestovane mame iba prvu verziu
+CALL-OUT-01	PASS	actual=
+CALL-OUT-02	PASS	actual=
+CALL-OUT-03	PASS	actual=casovy ring time je nastaveny na 30 skeund co je ok a testovanie to potvrdilo
+CALL-OUT-04	PASS	actual=spravne viditelny stav pre agenta preco volajuci ukoncil
+CALL-OUT-06	PASS	actual=
+CALL-OUT-07	NOT_TESTED	actual=
+CALL-OUT-08	PASS	actual=
+CALL-OUT-09	PASS	actual=bolo vykonany niekolko testovacoch hovor viac ako 10 minut a zidny z nich neskoncil samovolne
+CALL-IN-01	PASS	actual=
+CALL-IN-02	PASS	actual=
+CALL-IN-03	PASS	actual=
+CALL-IN-04	PASS	actual=volajuci dostal informaciu ze vsetci su obsadení a budu mu volat neskor
+CALL-IN-05	NOT_TESTED	actual=nebolo testovane ale uz sa tato funkcia pri prvom volani cisla 94851438 spravne nastavila na nový
+CALL-IN-06	PASS	actual=
+CALL-IN-07	PASS	actual=
+CALL-IN-08	PASS	actual=
+MEDIA-01	PASS	actual=
+MEDIA-02	PASS	actual=
+MEDIA-03	PASS	actual=
+MEDIA-04	PASS	actual=
+MEDIA-05	PASS	actual=
+CB-01	PASS	actual=
+CB-02	PASS	actual=
+CB-03	PASS	actual=
+CB-04	PASS	actual=
+CB-05	PASS	actual=
+SL-01	PASS	actual=
+SL-02	PASS	actual=
+SL-03	PASS	actual=
+COM-01	PASS	actual=
+COM-02	PASS	actual=
+COM-03	PASS	actual=
+COM-04	PASS	actual=
+ACC-01	PASS	actual=
+ACC-02	PASS	actual=
+ACC-03	PASS	actual=
+ACC-04	PASS	actual=
+QUEUE-01	PASS	actual=
+COM-05	PASS	actual=
+CARD-01	PASS	actual=
+CARD-02	PASS	actual=
+UX-01	PASS	actual=

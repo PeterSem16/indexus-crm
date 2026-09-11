@@ -1,0 +1,2490 @@
+=== PAGE 1 ===
+INDEXUS · NEXUS PULSE
+✓
+NEXUS Pulse
+Komplexný testovací formulár
+Opakovateľné funkčné, regresné a hovorové testovanie
+Dokument spája:
+• 17 testov z externého checklistu
+• výsledky a chyby z testovania 1. a 4. septembra 2026
+• kompletné inbound/outbound scenáre a všetky spôsoby ukončenia
+• callbacky, preplánovanie a jednotlivé úlohy Status Listu
+• onboarding, verzie Pulse, komunikáciu, históriu a nahrávky
+Verzia dokumentu: 1.0 · september 2026
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 1
+
+
+=== PAGE 2 ===
+INDEXUS · NEXUS PULSE
+IDENTIFIKÁCIA TESTU
+Identifikácia testovacieho cyklu
+Vyplňte pred začatím. Nepoužívajte reálne citlivé údaje mimo schválených testovacích
+kontaktov.
+Meno testera
+Dátum testovania
+Prostredie / URL
+Prehliadač a presná verzia
+Operačný systém
+Počítač / zariadenie
+Headset / mikrofón / výstup
+Sieť: Ethernet / Wi-Fi / VPN
+Testovací účet
+Rola a oprávnenia
+Testovacia kampaň / Mission
+Verzia / commit / čas nasadenia
+Rozsah testovania a známe obmedzenia
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 2
+Peter Seman
+8.9.2026
+indexus.cordbloodcenter.com
+Verzia 152.0.7977.76 (oficiálna zostava) (arm64)
+macOS
+M3 AIR
+Plantronics
+etherent/ wifif
+admin
+Administrátor
+Medical Partner Cooperation
+v1
+
+
+=== PAGE 3 ===
+INDEXUS · NEXUS PULSE
+POKYNY
+Ako dokument používať
+Každý test je navrhnutý tak, aby ho mohol iný tester vykonať znovu bez znalosti
+predchádzajúceho cyklu.
+1
+Pred testom
+Použite schválenú testovaciu Mission, testovaciu kartu a čísla. Zapíšte presný
+prehliadač, rolu a headset.
+2
+Počas testu
+Zaškrtnite každý kontrolný bod samostatne. Pri hovore je meno zákazníckej karty
+povinné; zapisujte iba posledné štyri číslice čísla.
+3
+Status List
+Každú zobrazenú úlohu/otázku prepíšte do riadka a označte Passed, Failed alebo N/A.
+Celý scenár môže byť PASS iba ak prešli všetky povinné úlohy.
+4
+Preplánovanie
+Vždy zapíšte očakávaný nový termín a skutočný termín z Queue po uložení. Skontrolujte
+kartu, Queue aj badge bez refreshu.
+5
+Chyba
+Uveďte ID testu, presný čas, kroky, očakávaný a skutočný výsledok. Priložte
+screenshot; pri hovore čas, smer a zákaznícku kartu.
+6
+Výsledok
+PASS = všetko prešlo; FAIL = kritická odchýlka; S výhradami = nekritická odchýlka;
+Netestované = scenár nebol vykonaný.
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 3
+
+
+=== PAGE 4 ===
+INDEXUS · NEXUS PULSE
+VYSVETLENIE OTÁZOK
+Technické požiadavky v onboardingovom e-maile
+Čo presne má tester overiť — nejde iba o prítomnosť jednej vety v e-maile.
+Komu sa blok zobrazí
+Pulse technický blok má dostať používateľ hlasových služieb podľa roly/oddelenia alebo
+zapnutého SIP. Bežný používateľ bez Pulse ho nemá dostať.
+Jazyk
+Obsah sa zvolí podľa priradenej krajiny; pri viacerých krajinách sa očakáva angličtina.
+Počítač a prehliadač
+Windows 10/11 alebo aktuálny macOS; najnovší 64-bit Google Chrome alebo Microsoft Edge
+založený na Chromium s automatickými aktualizáciami.
+Povolenia stránky
+Mikrofón, zvuk/automatické prehrávanie a oznámenia pre INDEXUS musia byť Allow. Headset musí
+byť dostupný ako vstup aj výstup.
+Headset
+Odporúčaná je káblová USB súprava Plantronics/Poly Blackwire s ramienkovým mikrofónom a
+fyzickým Mute. Reproduktory notebooku sa neodporúčajú; Bluetooth iba výnimočne.
+Sieť a firewall
+Preferovaný je Ethernet. Povolené musia byť HTTPS/WSS TCP 443, WebRTC/UDP médiá a STUN UDP
+19302 pre stun.l.google.com a stun1.l.google.com. VPN/proxy nesmie spojenie blokovať.
+Pred zmenou
+Pripojiť headset, overiť mikrofón a reproduktor, zavrieť Teams/Zoom, ponechať počítač na
+napájaní a zabrániť uspatiu.
+Quick start
+E-mail má vysvetliť otvorenie Pulse, výber Mission, Start Shift/End Shift, prestávky a
+pravidlo presmerovania iba mimo počítača.
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 4
+
+
+=== PAGE 5 ===
+INDEXUS · NEXUS PULSE
+VYSVETLENIE OTÁZOK
+Verzia NEXUS Pulse v kampani
+Čo verzia znamená, kde sa nachádza a čo sa musí pri teste reálne overiť.
+Nie je to edícia aplikácie
+Pole nevyberá „starý/nový Pulse“. Ide o automaticky číslovanú revíziu konfigurácie kampane: v1,
+v2, v3… Jedna revízia je Active, staršie sú Superseded.
+Kde ju nájsť
+Campaign detail → Settings → Status list → panel verzií NEXUS Pulse. Panel je dostupný iba
+administrátorovi alebo manažérovi.
+Čo snapshot obsahuje
+Vybrané Pulse nastavenia kampane, defaultný aktívny tab, položky Status Listu, otázky a
+automatizácie. Ostatné nesúvisiace campaign settings sa pri restore nemajú prepísať.
+Vytvorenie verzie
+Po skutočnej zmene konfigurácie vytvorte novú verziu a voliteľnú poznámku. Bez zmeny obsahu sa
+duplicitná verzia nemá vytvoriť.
+Uloženie a refresh
+Po obnovení stránky musí zostať rovnaké číslo Active verzie, poznámka aj konfigurácia Status
+Listu.
+Vplyv na Agent Workspace
+Workspace nemá vlastný prepínač verzie. Používa obnovenú konfiguráciu kampane; tester preto
+musí otvoriť kontakt a overiť položky, otázky a defaultný tab.
+Restore
+Obnova vyžaduje potvrdenie a je zakázaná pre aktívnu kampaň. Kampaň treba pozastaviť, obnoviť
+staršiu verziu a potom overiť konfiguráciu aj Agent Workspace.
+Bezpečnosť dát
+Položky už použité pri kontaktoch sa pri restore nemajú deštruktívne odstrániť; systém ich môže
+skryť. Audit a číslovanie verzií musia zostať zachované.
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 5
+
+
+=== PAGE 6 ===
+INDEXUS · NEXUS PULSE
+A · KONTROLA PRIPRAVENOSTI
+PR-01  Vstup cez menu a hornú ikonu
+Diagnostika sa zobrazí oboma vstupmi a nepustí používateľa do pracoviska pred dokončením.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Odhláste sa/prihláste sa a otvorte NEXUS Pulse cez ľavé menu.
+2. Vráťte sa do INDEXUS a otvorte diagnostiku hornou stavovou ikonou.
+3. Bez dokončenia povinných kontrol skúste pokračovať.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Diagnostika sa otvorila z menu.
+Diagnostika sa otvorila z hornej ikony.
+Agent Workspace zostal pred úspechom zablokovaný.
+Späť do INDEXUS nevytvorilo úspešný stav.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 6
+nepodarilo sa vstupit do nexus Pulse bez vstupnej kontroly a diagnostiky   11:07
+
+
+=== PAGE 7 ===
+INDEXUS · NEXUS PULSE
+A · KONTROLA PRIPRAVENOSTI
+PR-02  Nepodporovaný prehliadač a starý Ready stav
+Firefox/Opera/mobilný prehliadač nesmie použiť starý úspešný session stav.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. V podporovanom prehliadači dokončite kontrolu.
+2. Otvorte rovnaký účet v nepodporovanom prehliadači alebo simulujte nepodporované prostredie.
+3. Skontrolujte blokovanie a stavovú ikonu.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Nepodporovaný prehliadač je jasne označený.
+Starý Ready stav nepovolil vstup.
+Používateľ dostal návod použiť Chrome/Edge.
+Ostatné časti INDEXUS zostali dostupné.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 7
+po prihlaseni v prehliadaci Firefox si system nezapamatal povone funkcne nastavenie 11:11
+11:11
+
+
+=== PAGE 8 ===
+INDEXUS · NEXUS PULSE
+A · KONTROLA PRIPRAVENOSTI
+PR-03  HTTPS a bezpečné prostredie
+Nezabezpečené spojenie zablokuje hlasové funkcie a zruší použitie uloženého Ready stavu.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Otvorte produkčné prostredie cez HTTPS a spustite kontrolu.
+2. V kontrolovanom prostredí otestujte stav bez secure contextu.
+3. Skúste použiť predchádzajúci Ready stav.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+HTTPS bolo vyhodnotené ako bezpečné.
+Nezabezpečené prostredie bolo blokované.
+Uložená pripravenosť sa nepoužila.
+Chybové vysvetlenie bolo zrozumiteľné.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 8
+11:12
+
+
+=== PAGE 9 ===
+INDEXUS · NEXUS PULSE
+A · KONTROLA PRIPRAVENOSTI
+PR-04  Offline režim a návrat online
+Offline stav zruší pripravenosť; návrat online neobíde nové overenie.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Po úspešnej kontrole prepnite prehliadač/počítač offline.
+2. Sledujte stavovú ikonu a prístup do Pulse.
+3. Obnovte internet a spustite kontrolu znova.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Offline stav bol detegovaný.
+Pripravenosť sa zrušila.
+Po návrate sa spojenia obnovili.
+Pred vstupom sa vykonalo nové overenie.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 9
+indikator stavu bol zlty a neskor cierny po obnove a teste uz bol zeleny
+11:16
+
+
+=== PAGE 10 ===
+INDEXUS · NEXUS PULSE
+A · KONTROLA PRIPRAVENOSTI
+PR-05  Povolenie mikrofónu
+Allow prejde; Deny zablokuje a po oprave sa dá test úspešne zopakovať.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Spustite kontrolu s povoleným mikrofónom.
+2. Zmeňte povolenie stránky na Block a spustite znova.
+3. Povoľte mikrofón v nastavení stránky a zopakujte.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Allow stav prešiel.
+Deny stav zablokoval vstup.
+Zobrazený návod smeroval do povolení stránky.
+Testovací stream sa po kontrole ukončil.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 10
+11:19
+
+
+=== PAGE 11 ===
+INDEXUS · NEXUS PULSE
+A · KONTROLA PRIPRAVENOSTI
+PR-06  Zvukový vstup, výstup a viac zariadení
+Systém nájde mikrofón aj výstup a upozorní pri viacerých zariadeniach.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Spustite test s pripojeným USB headsetom.
+2. Odpojte vstup alebo výstup a zopakujte.
+3. Pripojte viac audio zariadení.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Headset bol nájdený ako vstup.
+Headset bol nájdený ako výstup.
+Chýbajúce zariadenie zablokovalo kontrolu.
+Viac zariadení vytvorilo upozornenie, nie tichý výber.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 11
+11:20
+
+
+=== PAGE 12 ===
+INDEXUS · NEXUS PULSE
+A · KONTROLA PRIPRAVENOSTI
+PR-07  Testovací zvuk bez bypassu
+Potvrdenie je možné až po prehratí a neobíde žiadnu inú povinnú kontrolu.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Skúste potvrdiť zvuk pred kliknutím na Prehrať testovací zvuk.
+2. Prehrajte tón, potvrďte počutie.
+3. Nechajte inú povinnú kontrolu v stave FAIL a skúste pokračovať.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Potvrdenie bolo pred prehratím nedostupné.
+Tón sa prehral lokálne.
+Potvrdenie zvuku sa uložilo.
+Iná chyba stále blokovala vstup.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 12
+11:22
+
+
+=== PAGE 13 ===
+INDEXUS · NEXUS PULSE
+A · KONTROLA PRIPRAVENOSTI
+PR-08  Oznámenia
+Allow sa uloží; Deny je upozornenie, nie kritický bypass ani blok hovoru.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Kliknite Povoliť oznámenia a povoľte ich.
+2. Zopakujte s Deny/Block.
+3. Dokončite ostatné povinné kontroly.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Allow bol rozpoznaný.
+Deny zobrazil upozornenie.
+Deny neoznačil všetko bezdôvodne ako PASS.
+Pri splnení povinných kontrol bolo možné pokračovať.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 13
+11:25
+
+
+=== PAGE 14 ===
+INDEXUS · NEXUS PULSE
+A · KONTROLA PRIPRAVENOSTI
+PR-09  Stavová ikona
+Farba a tooltip zodpovedajú kontrole, Ready, warning a blocked stavu.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Pozorujte ikonu počas kontroly.
+2. Vyvolajte úspech, upozornenie a kritickú chybu.
+3. Kliknite na ikonu v každom stave.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Sivá = kontrola/neukončené.
+Zelená = pripravené.
+Oranžová = upozornenie/tolerancia.
+Červená = blokované.
+Klik otvoril diagnostiku.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 14
+11:26
+
+
+=== PAGE 15 ===
+INDEXUS · NEXUS PULSE
+A · KONTROLA PRIPRAVENOSTI
+PR-10  SIP/WSS registrácia a 14-sekundová tolerancia
+Krátky výpadok sa obnoví automaticky; dlhší zruší pripravenosť.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Dokončite kontrolu so SIP Registered.
+2. Prerušte WSS/internet na menej než 14 sekúnd a obnovte.
+3. Zopakujte s výpadkom dlhším než 14 sekúnd.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+SIP sa pôvodne zaregistroval.
+Krátky výpadok zobrazil tolerančný stav.
+Registrácia sa obnovila bez refreshu.
+Dlhý výpadok zrušil Ready stav.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 15
+registracia sa neobnovila musel som sa zaregistrovat cez moj profil 
+ocakaval som znovu registraciu
+11:30
+
+
+=== PAGE 16 ===
+INDEXUS · NEXUS PULSE
+A · KONTROLA PRIPRAVENOSTI
+PR-11  ICE/STUN a typ siete
+ICE je informačné; SIP je rozhodujúce. Wi-Fi je warning, Ethernet odporúčaný.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Spustite kontrolu na Ethernet.
+2. Zopakujte na Wi-Fi alebo s neznámym typom siete.
+3. Pozorujte ICE/STUN pri funkčnej SIP registrácii.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Ethernet bol odporúčaný.
+Wi-Fi vytvorila iba upozornenie.
+ICE výsledok bol zobrazený.
+Samotný informačný ICE warning neblokoval funkčné SIP.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 16
+11:31
+
+
+=== PAGE 17 ===
+INDEXUS · NEXUS PULSE
+A · KONTROLA PRIPRAVENOSTI
+PR-12  Zmena siete, headsetu a uspatie
+Zmena prevádzkového prostredia zruší starú pripravenosť.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Po úspechu zmeňte sieť.
+2. Zmeňte/pripojte/odpojte audio zariadenie.
+3. Uspite a prebuďte počítač alebo simulujte dlhé pozastavenie.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Zmena siete zneplatnila Ready.
+Zmena audio zariadenia zneplatnila Ready.
+Dlhé uspatie vyžiadalo nové overenie.
+Nová kontrola použila aktuálne zariadenia.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 17
+po zmene audio zariadenia sa nezneplatilo ready !
+11:38
+
+
+=== PAGE 18 ===
+INDEXUS · NEXUS PULSE
+A · KONTROLA PRIPRAVENOSTI
+PR-13  Bezpečný návrat do INDEXUS
+Používateľ nikdy nezostane uväznený v povinnej diagnostike ani v redirect slučke.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Vyvolajte povinnú chybu.
+2. Kliknite Späť do INDEXUS.
+3. Znova otvorte Pulse.
+4. Otestujte účet, ktorého landing page je Agent Workspace.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Návrat otvoril vhodnú INDEXUS stránku.
+Nevznikla redirect slučka.
+Návrat nevytvoril Ready stav.
+Pri ďalšom vstupe sa diagnostika ukázala znova.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 18
+11:38
+
+
+=== PAGE 19 ===
+INDEXUS · NEXUS PULSE
+B · ONBOARDING A VERZIE
+ONB-01  Technické požiadavky v onboardingovom
+e-maile
+Overiť správne publikum, jazyk a celý technický Pulse blok.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Vytvorte/otvorte Pulse používateľa a preview onboarding e-mailu.
+2. Porovnajte obsah s vysvetlením v tomto dokumente.
+3. Zopakujte pre používateľa bez Pulse a pre jednu/viac krajín.
+4. Odošlite na kontrolnú schránku a overte zobrazenie.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Pulse používateľ dostal technický blok.
+Používateľ bez Pulse ho nedostal.
+Jazyk zodpovedal krajine/pravidlu viacerých krajín.
+OS, Chrome/Edge a povolenia boli uvedené.
+USB headset a sieť/firewall/STUN boli uvedené.
+Kroky pred zmenou a quick start boli uvedené.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 19
+11:41
+
+
+=== PAGE 20 ===
+INDEXUS · NEXUS PULSE
+B · ONBOARDING A VERZIE
+VER-01  Vytvorenie a zachovanie verzie Pulse
+Po zmene vznikne nová Active revízia a prežije refresh.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Ako admin/manager otvorte Campaign → Settings → Status list.
+2. Zmeňte jednu testovaciu Pulse položku a vytvorte verziu s poznámkou.
+3. Zapíšte číslo verzie a obnovte stránku.
+4. Otvorte kontakt v Agent Workspace.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Panel verzií bol dostupný iba oprávnenej role.
+Vzniklo nasledujúce číslo vN.
+Nová verzia bola Active.
+Poznámka a Active stav prežili refresh.
+Agent Workspace použil novú konfiguráciu.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 20
+11:42
+
+
+=== PAGE 21 ===
+INDEXUS · NEXUS PULSE
+B · ONBOARDING A VERZIE
+VER-02  Bez duplicitnej verzie bez zmeny
+Rovnaký obsah nesmie vytvoriť ďalšiu revíziu.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Zapíšte aktuálne číslo Active verzie.
+2. Bez zmeny konfigurácie skúste vytvoriť ďalšiu verziu.
+3. Obnovte stránku.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Systém oznámil, že obsah je nezmenený.
+Nevzniklo nové číslo verzie.
+Pôvodná Active verzia zostala aktívna.
+Konfigurácia sa nezmenila.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 21
+zatial netestovane pretoze mame iba prvu verziu
+
+
+=== PAGE 22 ===
+INDEXUS · NEXUS PULSE
+B · ONBOARDING A VERZIE
+VER-03  Restore staršej verzie
+Restore je bezpečný, auditovateľný a ovplyvní reálny Status List.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Na aktívnej kampani skúste restore a potvrďte očakávané odmietnutie.
+2. Kampaň pozastavte.
+3. Obnovte staršiu verziu s confirmáciou.
+4. Overte campaign settings, Status List a Agent Workspace.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Aktívna kampaň restore odmietla.
+Pozastavená kampaň restore dovolila.
+Vznikla správna Active revízia/audit.
+Nesúvisiace campaign settings zostali zachované.
+Použité položky neboli deštruktívne stratené.
+Workspace zobrazil obnovenú konfiguráciu.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 22
+zatial netestovane mame iba prvu verziu
+
+
+=== PAGE 23 ===
+INDEXUS · NEXUS PULSE
+C · ODCHÁDZAJÚCE HOVORY
+CALL-OUT-01  Odchádzajúci hovor — zákazník ukončí
+Celý tok dialing → ringing → active → remote hangup sa správne finalizuje.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Otvorte kartu zákazníka a zavolajte.
+2. Overte oba smery zvuku.
+3. Požiadajte zákazníka, aby ukončil hovor.
+4. Overte UI, History a nahrávku podľa politiky.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Zobrazené stavy mali správne poradie.
+Remote hangup okamžite ukončil UI.
+História obsahovala smer, čas a trvanie.
+Nahrávka zodpovedala Mission politike.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+Testované číslo — iba posledné 4 čísliceČas začiatku
+Čas ukončenia
+Ukončil
+Agent počul zákazníka
+Zákazník počul agenta
+História uložená
+Nahrávka dostupná podľa politiky
+UI hovoru sa správne ukončilo
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 23
+Tes Ambulancia CityMed MUDr. Peter Seman
+948519438
+12:51
+12:53
+zakaznik
+
+
+=== PAGE 24 ===
+INDEXUS · NEXUS PULSE
+C · ODCHÁDZAJÚCE HOVORY
+CALL-OUT-02  Odchádzajúci hovor — agent ukončí
+End call odošle BYE a finalizuje UI, históriu aj nahrávku.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Začnite úspešný odchádzajúci hovor.
+2. Po overení zvuku kliknite End call.
+3. Sledujte ukončenie na oboch stranách.
+4. Skontrolujte History a recording.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+End call reagovalo na prvé kliknutie.
+Zákazníkovi sa hovor ukončil.
+UI nezostalo aktívne/zvoniace.
+História a recording sa finalizovali.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+Testované číslo — iba posledné 4 čísliceČas začiatku
+Čas ukončenia
+Ukončil
+Agent počul zákazníka
+Zákazník počul agenta
+História uložená
+Nahrávka dostupná podľa politiky
+UI hovoru sa správne ukončilo
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 24
+Tes Klinika Viva MUDr. Peter Seman
+948519438
+12:57
+12:58
+agent
+
+
+=== PAGE 25 ===
+INDEXUS · NEXUS PULSE
+C · ODCHÁDZAJÚCE HOVORY
+CALL-OUT-03  Odchádzajúci hovor — bez
+odpovede/zrušenie
+Agent môže zrušiť ringing a neúspešný hovor nezostane visieť.
+REGRESNÝ KONTEXT Z TESTOV 1. A 4. 9. 2026
+Predchádzajúca chyba: pri nedovolaní agent nevedel zložiť; telefonát sa ukončil na druhej
+strane, ale UI ďalej zvonilo. Neskôr označené OK.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Volajte na číslo, ktoré nezdvihne.
+2. Počas ringing kliknite zrušiť/End.
+3. Zopakujte a nechajte timeout.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Agent mohol ringing zrušiť.
+Timeout ukončil UI.
+Nevznikol aktívny ghost call.
+History zaznamenala správny výsledok.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+Testované číslo — iba posledné 4 čísliceČas začiatku
+Čas ukončenia
+Ukončil
+Agent počul zákazníka
+Zákazník počul agenta
+História uložená
+Nahrávka dostupná podľa politiky
+UI hovoru sa správne ukončilo
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 25
+Tes Poliklinika Lilium MUDr. Peter Seman
+948519438
+13.04
+13:05
+casovy ring time je nastaveny na 30 skeund co je ok a testovanie to potvrdilo
+
+
+=== PAGE 26 ===
+INDEXUS · NEXUS PULSE
+C · ODCHÁDZAJÚCE HOVORY
+CALL-OUT-04  Odchádzajúci hovor —
+busy/rejected/invalid
+Každý neúspešný SIP výsledok má zrozumiteľný stav a čisté ukončenie.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Otestujte obsadené číslo.
+2. Otestujte odmietnutie zákazníkom.
+3. Otestujte neplatné/nedostupné číslo.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Busy bol rozpoznaný.
+Rejected bol rozpoznaný.
+Invalid/unavailable zobrazil zrozumiteľnú chybu.
+Žiadny variant nezostal aktívny.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+Testované číslo — iba posledné 4 čísliceČas začiatku
+Čas ukončenia
+Ukončil
+Agent počul zákazníka
+Zákazník počul agenta
+História uložená
+Nahrávka dostupná podľa politiky
+UI hovoru sa správne ukončilo
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 26
+Tes Med Centrum Bella MUDr. Peter Seman
+948519438
+13:06
+13:07
+zakaznik
+spravne viditelny stav pre agenta preco volajuci ukoncil
+
+
+=== PAGE 27 ===
+INDEXUS · NEXUS PULSE
+C · ODCHÁDZAJÚCE HOVORY
+CALL-OUT-05  Opakované outbound hovory — stabilita
+zvuku
+Päť po sebe idúcich hovorov musí mať konzistentný obojsmerný zvuk.
+REGRESNÝ KONTEXT Z TESTOV 1. A 4. 9. 2026
+FAIL 4. 9. 2026: 14:02 a 14:06 nebolo počuť ani jeden smer; 14:28 hovor fungoval. Od 14:49
+boli hovory bez zvuku, od 15:15 opäť fungovali; nahrávky pritom vznikli.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Na tú istú kartu uskutočnite najmenej 5 hovorov.
+2. Pri každom potvrďte oba smery zvuku.
+3. Zapíšte presný čas každého pokusu.
+4. Porovnajte History a recordings.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Všetkých 5 hovorov malo obojsmerný zvuk.
+Nebola potrebná zmena nastavení medzi pokusmi.
+Každý pokus bol v History.
+Recording stav zodpovedal realite.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+Testované číslo — iba posledné 4 čísliceČas začiatku
+Čas ukončenia
+Ukončil
+Agent počul zákazníka
+Zákazník počul agenta
+História uložená
+Nahrávka dostupná podľa politiky
+UI hovoru sa správne ukončilo
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 27
+Melichar SRO MUDr. Peter Seman
+948519438
+13:11
+13:22
+agent, zazanik
+1. hovor 13:11 
+2. hovor 13:15 
+3. hovor 13:18 
+4 hovor 13:20
+
+
+=== PAGE 28 ===
+INDEXUS · NEXUS PULSE
+C · ODCHÁDZAJÚCE HOVORY
+CALL-OUT-06  Sekundárne telefónne číslo
+Volanie na sekundárne číslo sa priradí ku karte a objaví v histórii.
+REGRESNÝ KONTEXT Z TESTOV 1. A 4. 9. 2026
+Predchádzajúca chyba: volanie na sekundárne číslo nebolo v histórii; neskôr označené OK.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Na karte vyberte sekundárne číslo.
+2. Uskutočnite a ukončite hovor.
+3. Otvorte History a vyhľadajte záznam.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Vytočilo sa zvolené sekundárne číslo.
+Hovor bol priradený správnej karte.
+History obsahovala záznam.
+Vyhľadávanie podľa sekundárneho čísla našlo kartu.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+Testované číslo — iba posledné 4 čísliceČas začiatku
+Čas ukončenia
+Ukončil
+Agent počul zákazníka
+Zákazník počul agenta
+História uložená
+Nahrávka dostupná podľa politiky
+UI hovoru sa správne ukončilo
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 28
+Melichar SRO MUDr. Peter Seman
+915 796 900
+15.40
+15:42
+agent
+
+
+=== PAGE 29 ===
+INDEXUS · NEXUS PULSE
+C · ODCHÁDZAJÚCE HOVORY
+CALL-OUT-07  Volanie na neznáme číslo
+Dialpad jasne zobrazí cieľ, umožní ukončiť hovor a uloží korektný záznam.
+REGRESNÝ KONTEXT Z TESTOV 1. A 4. 9. 2026
+FAIL 18. 8. 2026: pri neznámom čísle nebolo jasné, kam sa volá, a tester počul tri
+vyzváňacie tóny.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Zadajte číslo, ktoré nie je v databáze.
+2. Spustite hovor a sledujte zobrazený cieľ.
+3. Ukončite agentom aj vzdialenou stranou v dvoch pokusoch.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+UI zobrazilo volané číslo/cieľ.
+Nevzniklo viacnásobné zvonenie.
+End call fungovalo.
+History nezobrazila nesprávnu kartu.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+Testované číslo — iba posledné 4 čísliceČas začiatku
+Čas ukončenia
+Ukončil
+Agent počul zákazníka
+Zákazník počul agenta
+História uložená
+Nahrávka dostupná podľa politiky
+UI hovoru sa správne ukončilo
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 29
+
+
+=== PAGE 30 ===
+INDEXUS · NEXUS PULSE
+C · ODCHÁDZAJÚCE HOVORY
+CALL-OUT-08  Správna identita volajúceho
+Zobrazený CLI patrí aktuálnemu agentovi/Mission, nie inému koordinátorovi.
+REGRESNÝ KONTEXT Z TESTOV 1. A 4. 9. 2026
+FAIL 4. 9. 2026: hovor zo svojho INDEXUS účtu sa na druhej strane zobrazil ako „Patin
+Indexus“.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Zapíšte očakávanú identitu Mission/agenta.
+2. Uskutočnite outbound hovor na kontrolný telefón.
+3. Porovnajte zobrazenú identitu.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Zobrazený CLI bol autorizovaný pre Mission.
+Nezobrazila sa identita iného agenta.
+Opakovaný hovor mal rovnakú správnu identitu.
+History bola priradená skutočnému agentovi.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+Testované číslo — iba posledné 4 čísliceČas začiatku
+Čas ukončenia
+Ukončil
+Agent počul zákazníka
+Zákazník počul agenta
+História uložená
+Nahrávka dostupná podľa politiky
+UI hovoru sa správne ukončilo
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 30
+Tes Klinika Viva
+948519438
+11:25
+11:26
+zakaznik
+
+
+=== PAGE 31 ===
+INDEXUS · NEXUS PULSE
+C · ODCHÁDZAJÚCE HOVORY
+CALL-OUT-09  Systém nesmie samovoľne ukončiť aktív
+hovor
+Stabilný aktívny hovor zostane spojený až do vedomého ukončenia.
+REGRESNÝ KONTEXT Z TESTOV 1. A 4. 9. 2026
+FAIL 4. 9. 2026 o 13:59: systém sám ukončil hovor; druhá strana ho vnímala, akoby zložil
+volaný partner.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Nadviažte outbound hovor.
+2. Nechajte ho aktívny aspoň 5 minút bez kliknutí.
+3. Sledujte SIP, audio a UI.
+4. Ukončite riadeným spôsobom.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Hovor sa samovoľne neukončil.
+Audio zostalo obojsmerné.
+UI zostalo aktívne.
+Ukončenie bolo v History správne klasifikované.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+Testované číslo — iba posledné 4 čísliceČas začiatku
+Čas ukončenia
+Ukončil
+Agent počul zákazníka
+Zákazník počul agenta
+História uložená
+Nahrávka dostupná podľa politiky
+UI hovoru sa správne ukončilo
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 31
+Tes Klinika Viva, Melichar SRO
+948519438
+9.9.2026 16:55
+9.9.2026 17:10
+zakaznik
+bolo vykonany niekolko testovacoch hovor viac ako 10 minut a zidny z nich neskoncil samovolne
+
+
+=== PAGE 32 ===
+INDEXUS · NEXUS PULSE
+D · PRICHÁDZAJÚCE HOVORY
+CALL-IN-01  Prichádzajúci hovor — agent prijme a
+ukončí
+Popup, prijatie, audio, End call, History a recording fungujú ako jeden tok.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Z testovacieho čísla zavolajte na agenta.
+2. Prijmite hovor.
+3. Overte oba smery zvuku.
+4. Ukončite tlačidlom End call.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Popup zobrazil správnu identitu.
+Prijatie spojilo audio.
+End call ukončilo obe strany.
+History a recording sa finalizovali.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+Testované číslo — iba posledné 4 čísliceČas začiatku
+Čas ukončenia
+Ukončil
+Agent počul zákazníka
+Zákazník počul agenta
+História uložená
+Nahrávka dostupná podľa politiky
+UI hovoru sa správne ukončilo
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 32
+Tes Poliklinika Lilium MUDr. Peter Seman
+948519438
+15:43
+15:45
+agent
+
+
+=== PAGE 33 ===
+INDEXUS · NEXUS PULSE
+D · PRICHÁDZAJÚCE HOVORY
+CALL-IN-02  Prichádzajúci hovor — zákazník ukončí
+Vzdialené BYE okamžite odstráni aktívny stav a dokončí záznam.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Prijmite inbound hovor.
+2. Po overení zvuku nech zákazník zloží.
+3. Bez ďalšej akcie sledujte UI a History.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+UI sa okamžite ukončilo.
+Agent nezostal v busy/active stave.
+History obsahovala čas a trvanie.
+Recording sa finalizoval podľa politiky.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+Testované číslo — iba posledné 4 čísliceČas začiatku
+Čas ukončenia
+Ukončil
+Agent počul zákazníka
+Zákazník počul agenta
+História uložená
+Nahrávka dostupná podľa politiky
+UI hovoru sa správne ukončilo
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 33
+Melichar SRO
+948519438
+10.9.2026 11:32
+11:34
+zazanik
+
+
+=== PAGE 34 ===
+INDEXUS · NEXUS PULSE
+D · PRICHÁDZAJÚCE HOVORY
+CALL-IN-03  Volajúci zruší pred prijatím
+Ringing popup sa odstráni a vznikne správny missed/cancelled výsledok.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Nechajte inbound hovor zvoniť.
+2. Pred prijatím nech volajúci zloží.
+3. Skontrolujte popup, Missed a History.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Popup zmizol bez zásahu agenta.
+Zvonenie sa zastavilo.
+Missed/History nevytvorili duplicitu.
+Klik na záznam otvoril správnu kartu.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+Testované číslo — iba posledné 4 čísliceČas začiatku
+Čas ukončenia
+Ukončil
+Agent počul zákazníka
+Zákazník počul agenta
+História uložená
+Nahrávka dostupná podľa politiky
+UI hovoru sa správne ukončilo
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 34
+Laura Tkačinská
+948519438
+11:35
+11:36
+zazanik
+
+
+=== PAGE 35 ===
+INDEXUS · NEXUS PULSE
+D · PRICHÁDZAJÚCE HOVORY
+CALL-IN-04  Agent odmietne prichádzajúci hovor
+Odmietnutie ukončí ringing a správne klasifikuje výsledok.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Vyvolajte inbound hovor.
+2. Kliknite odmietnuť.
+3. Skontrolujte stav volajúceho, popup a History.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Odmietnutie reagovalo na prvé kliknutie.
+Popup a zvonenie skončili.
+Agent sa vrátil do správneho stavu.
+History mala správny výsledok.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+Testované číslo — iba posledné 4 čísliceČas začiatku
+Čas ukončenia
+Ukončil
+Agent počul zákazníka
+Zákazník počul agenta
+História uložená
+Nahrávka dostupná podľa politiky
+UI hovoru sa správne ukončilo
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 35
+Laura Tkačinska
+948519438
+11:39
+11:40
+agent
+volajuci dostal informaciu ze vsetci su obsadení a budu mu volat neskor
+
+
+=== PAGE 36 ===
+INDEXUS · NEXUS PULSE
+D · PRICHÁDZAJÚCE HOVORY
+CALL-IN-05  Neznámy volajúci — vytvorenie a uloženie
+karty počas hovoru
+Číslo je predvyplnené, hovor pokračuje po uložení a ovládanie hovoru zostane dostupné.
+REGRESNÝ KONTEXT Z TESTOV 1. A 4. 9. 2026
+FAIL 18. 8. 2026: po uložení novej karty sa karta zavrela, hovor pokračoval, ale tester už
+nemohol hovor ukončiť; uložený kontakt následne nenašiel.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Z neznámeho čísla zavolajte na Pulse.
+2. Prijmite a zvoľte typ kontaktu.
+3. Počas hovoru vyplňte a uložte novú kartu.
+4. Pokračujte v hovore a ukončite ho.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Číslo volajúceho bolo predvyplnené.
+Kontakt sa dal uložiť a neskôr nájsť.
+Uloženie nezakrylo ovládanie hovoru.
+Hovor pokračoval a End call fungovalo.
+History sa priradila novej karte.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+Testované číslo — iba posledné 4 čísliceČas začiatku
+Čas ukončenia
+Ukončil
+Agent počul zákazníka
+Zákazník počul agenta
+História uložená
+Nahrávka dostupná podľa politiky
+UI hovoru sa správne ukončilo
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 36
+nebolo testovane ale uz sa tato funkcia pri prvom volani cisla 94851438 spravne nastavila na nový
+
+
+=== PAGE 37 ===
+INDEXUS · NEXUS PULSE
+D · PRICHÁDZAJÚCE HOVORY
+CALL-IN-06  Zmeškaný hovor otvorí správnu kartu
+Kliknutie na missed záznam otvorí existujúcu kartu bez broken linku.
+REGRESNÝ KONTEXT Z TESTOV 1. A 4. 9. 2026
+Predchádzajúca požiadavka: po kliknutí na zmeškaný hovor otvoriť kartu HP; neskôr správanie
+fungovalo priamym volaním.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Nechajte známy kontakt vytvoriť missed hovor.
+2. Kliknite na záznam v Missed.
+3. Porovnajte otvorenú kartu s volajúcim.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Missed obsahoval iba jeden záznam.
+Otvorila sa správna karta.
+Karta existovala a nevrátila 404.
+Callback/volanie bolo možné spustiť.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+Testované číslo — iba posledné 4 čísliceČas začiatku
+Čas ukončenia
+Ukončil
+Agent počul zákazníka
+Zákazník počul agenta
+História uložená
+Nahrávka dostupná podľa politiky
+UI hovoru sa správne ukončilo
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 37
+Melichar SRO
+948519438
+11:43
+11:43
+
+
+=== PAGE 38 ===
+INDEXUS · NEXUS PULSE
+D · PRICHÁDZAJÚCE HOVORY
+CALL-IN-07  Presmerovanie pri odhlásenom agentovi
+Hovor ide na mobil iba keď agent nie je prítomný; mobil vidí použiteľnú identitu.
+REGRESNÝ KONTEXT Z TESTOV 1. A 4. 9. 2026
+Predchádzajúce výsledky: presmerovanie pri neprihlásenom KO označené OK; dlhé zvonenie
+desktopu po zrušení a text Private boli neskôr označené OK.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Nastavte standing forwarding číslo.
+2. Úplne zatvorte/odhláste Pulse.
+3. Zavolajte na agenta a prijmite/odmietnite na mobile.
+4. Zopakujte s otvoreným Pulse.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Odhlásený agent bol presmerovaný na mobil.
+Desktop súčasne dlho nezvonil.
+Mobil zobrazil číslo/identitu, nie Private.
+Pri online agentovi mal prioritu desk podľa konfigurácie.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+Testované číslo — iba posledné 4 čísliceČas začiatku
+Čas ukončenia
+Ukončil
+Agent počul zákazníka
+Zákazník počul agenta
+História uložená
+Nahrávka dostupná podľa politiky
+UI hovoru sa správne ukončilo
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 38
+Laura Tkačinska
+948519438
+11:47
+11:48
+
+
+=== PAGE 39 ===
+INDEXUS · NEXUS PULSE
+D · PRICHÁDZAJÚCE HOVORY
+CALL-IN-08  Viackanálové upozornenie bez duplicít
+Web/push/SMS podľa konfigurácie upozornia práve raz a bez citlivého obsahu.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Povoľte konfigurované notifikačné kanály.
+2. Vyvolajte jeden inbound hovor.
+3. Spočítajte webové, push a SMS upozornenia.
+4. Skontrolujte obsah a redakciu.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Každý povolený kanál upozornil práve raz.
+Zakázaný kanál neupozornil.
+Obsah neobsahoval neočakávané osobné údaje.
+Notifikácia smerovala správnemu agentovi.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+Testované číslo — iba posledné 4 čísliceČas začiatku
+Čas ukončenia
+Ukončil
+Agent počul zákazníka
+Zákazník počul agenta
+História uložená
+Nahrávka dostupná podľa politiky
+UI hovoru sa správne ukončilo
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 39
+Laura Tkačinska
+
+
+=== PAGE 40 ===
+INDEXUS · NEXUS PULSE
+E · MÉDIÁ, HISTÓRIA A NAHRÁVKY
+MEDIA-01  Výmena headsetu počas aktívneho hovoru
+Zmena zariadenia nahradí stopu alebo zobrazí incident; hovor a ovládanie ostanú funkčné.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Začnite aktívny obojsmerný hovor.
+2. Odpojte pôvodný headset a pripojte druhý.
+3. Pokračujte v hovore a overte zvuk.
+4. Skontrolujte Voice & network incidents pri chybe prepnutia.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Systém detegoval device change.
+Nový mikrofón bol použitý alebo sa zobrazila jasná chyba.
+Pri chybe vznikol audio_device_change_failed incident.
+Hovor sa dal ukončiť a zapísal do History.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+Testované číslo — iba posledné 4 čísliceČas začiatku
+Čas ukončenia
+Ukončil
+Agent počul zákazníka
+Zákazník počul agenta
+História uložená
+Nahrávka dostupná podľa politiky
+UI hovoru sa správne ukončilo
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 40
+
+
+=== PAGE 41 ===
+INDEXUS · NEXUS PULSE
+E · MÉDIÁ, HISTÓRIA A NAHRÁVKY
+MEDIA-02  Jednosmerný alebo chýbajúci zvuk
+Aktívny SIP hovor bez médií vytvorí zrozumiteľné upozornenie a incident.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. V kontrolovanom prostredí zablokujte jeden smer audia.
+2. Zopakujte bez toku v oboch smeroch.
+3. Sledujte upozornenie a incidenty.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Jednosmerný zvuk bol rozpoznaný.
+Žiadny tok zvuku bol rozpoznaný.
+Upozornenie bolo zrozumiteľné.
+Incident bol viazaný na správny hovor.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+Testované číslo — iba posledné 4 čísliceČas začiatku
+Čas ukončenia
+Ukončil
+Agent počul zákazníka
+Zákazník počul agenta
+História uložená
+Nahrávka dostupná podľa politiky
+UI hovoru sa správne ukončilo
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 41
+
+
+=== PAGE 42 ===
+INDEXUS · NEXUS PULSE
+E · MÉDIÁ, HISTÓRIA A NAHRÁVKY
+MEDIA-03  History sa obnoví bez oneskorenia
+Nový hovor sa zobrazí po finalizácii bez refreshu a bez minútového čakania.
+REGRESNÝ KONTEXT Z TESTOV 1. A 4. 9. 2026
+Predchádzajúca chyba: posledné volanie sa niekedy zobrazilo okamžite a inokedy až po
+neurčitom čase.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Otvorte History pred hovorom.
+2. Uskutočnite a ukončite testovací hovor.
+3. Sledujte zoznam bez refreshu.
+4. Obnovte stránku a porovnajte.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Záznam sa objavil okamžite.
+Nevznikla duplicita.
+Dátum, čas, smer a trvanie sedeli.
+Po refreshi zostal rovnaký záznam.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+Testované číslo — iba posledné 4 čísliceČas začiatku
+Čas ukončenia
+Ukončil
+Agent počul zákazníka
+Zákazník počul agenta
+História uložená
+Nahrávka dostupná podľa politiky
+UI hovoru sa správne ukončilo
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 42
+
+
+=== PAGE 43 ===
+INDEXUS · NEXUS PULSE
+E · MÉDIÁ, HISTÓRIA A NAHRÁVKY
+MEDIA-04  Nahrávanie režimu both
+Pri aktívnej politike both sa uloží prehrateľná nahrávka a je viazaná na správny hovor.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. V Mission nastavte a snapshotujte recording policy both.
+2. Uskutočnite inbound aj outbound hovor.
+3. Ukončite raz agentom a raz zákazníkom.
+4. Overte prehratie z History.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Oba smery vytvorili nahrávku.
+Oba spôsoby ukončenia ju finalizovali.
+Nahrávka patrila správnej karte/hovoru.
+Prehratie obsahovalo očakávané kanály.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+Testované číslo — iba posledné 4 čísliceČas začiatku
+Čas ukončenia
+Ukončil
+Agent počul zákazníka
+Zákazník počul agenta
+História uložená
+Nahrávka dostupná podľa politiky
+UI hovoru sa správne ukončilo
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 43
+
+
+=== PAGE 44 ===
+INDEXUS · NEXUS PULSE
+E · MÉDIÁ, HISTÓRIA A NAHRÁVKY
+MEDIA-05  Nahrávanie režimu agent_only a vypnuté
+Agent-only zachytí iba povolený smer; inactive nevytvorí recording.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Otestujte inbound/outbound v Mission s agent_only.
+2. Overte výslednú zvukovú stopu.
+3. Zopakujte s recording inactive.
+4. Skontrolujte History a serverové výsledky.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Agent-only vytvoril nahrávku iba podľa politiky.
+Inbound aj outbound sa finalizovali.
+Inactive nevytvorilo nahrávku.
+Zmena politiky počas hovoru nezmenila snapshot rozbehnutého hovoru.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+Testované číslo — iba posledné 4 čísliceČas začiatku
+Čas ukončenia
+Ukončil
+Agent počul zákazníka
+Zákazník počul agenta
+História uložená
+Nahrávka dostupná podľa politiky
+UI hovoru sa správne ukončilo
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 44
+
+
+=== PAGE 45 ===
+INDEXUS · NEXUS PULSE
+F · CALLBACKY A PREPLÁNOVANIE
+CB-01  Preplánovanie počas hovoru bez zmeny Status
+Listu
+Agent vie naplánovať ďalší kontakt aj keď sa status nezmenil.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Počas hovoru otvorte plánovanie callbacku.
+2. Nemeňte odpovede Status Listu.
+3. Zadajte nový dátum, čas a poznámku.
+4. Uložte a skontrolujte Queue, badge a kartu.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Preplánovanie bolo dostupné počas hovoru.
+Status sa nemusel meniť.
+Nový termín sa uložil.
+Queue sa obnovila bez refreshu.
+Pôvodný termín nezostal duplicitne.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+Testované číslo — iba posledné 4 čísliceČas začiatku
+Čas ukončenia
+Ukončil
+Agent počul zákazníka
+Zákazník počul agenta
+História uložená
+Nahrávka dostupná podľa politiky
+UI hovoru sa správne ukončilo
+Očakávaný nový dátum a čas callbacku
+Skutočný dátum a čas vo fronte po uložení
+Meno karty zákazníka / kontaktu (povinné)
+Poznámka k preplánovaniu
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 45
+Tes Klinika Viva
+948519438
+11:55
+11:56
+17.9.2026 12:00
+17.9.2026 12:00
+Tes Klinika Viva
+bola uložená
+
+
+=== PAGE 46 ===
+INDEXUS · NEXUS PULSE
+F · CALLBACKY A PREPLÁNOVANIE
+CB-02  Preplánovanie z Queue
+Úprava vo fronte sa okamžite prejaví vo všetkých zobrazeniach.
+REGRESNÝ KONTEXT Z TESTOV 1. A 4. 9. 2026
+FAIL 4. 9. 2026: partner bol preplánovaný, ale zmena sa nie vždy premietla do Queue.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. V Queue vyberte callback.
+2. Zmeňte dátum, čas a poznámku.
+3. Uložte bez refreshu.
+4. Porovnajte Queue, badge a detail karty.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Nový termín sa zobrazil v Queue.
+Badge sa aktualizoval.
+Detail karty ukázal rovnaký termín.
+Po refreshi termín zostal.
+Nevznikla duplicita.
+Očakávaný nový dátum a čas callbacku
+Skutočný dátum a čas vo fronte po uložení
+Meno karty zákazníka / kontaktu (povinné)
+Poznámka k preplánovaniu
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 46
+24.9.2026 12:00
+24.9.2026 12:00
+Tes Klinika Viva
+
+
+=== PAGE 47 ===
+INDEXUS · NEXUS PULSE
+F · CALLBACKY A PREPLÁNOVANIE
+CB-03  Hromadné preplánovanie
+Viac callbackov dostane správny termín a poznámku bez duplicít.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Vyberte najmenej tri callbacky.
+2. Nastavte spoločný nový dátum/čas a poznámku.
+3. Uložte.
+4. Overte každý kontakt samostatne.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Všetky vybrané callbacky sa zmenili.
+Nevybrané zostali bez zmeny.
+Každý termín bol vo fronte iba raz.
+Po refreshi sa výsledok zachoval.
+Očakávaný nový dátum a čas callbacku
+Skutočný dátum a čas vo fronte po uložení
+Meno karty zákazníka / kontaktu (povinné)
+Poznámka k preplánovaniu
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 47
+
+
+=== PAGE 48 ===
+INDEXUS · NEXUS PULSE
+F · CALLBACKY A PREPLÁNOVANIE
+CB-04  Queue počty, farby a časové filtre
+Omeškané/dnes/tento týždeň/neskôr sú konzistentné so zoznamom.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Pripravte callback v každej časovej skupine.
+2. Prepnite všetky filtre.
+3. Porovnajte badge s počtom riadkov.
+4. Skontrolujte farby blízkeho a omeškaného termínu.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Počty súhlasili so zoznamom.
+Omeškané bolo červené.
+Blízky termín bol oranžový.
+Každý callback bol iba raz.
+Časová zóna Europe/Bratislava bola správna.
+Očakávaný nový dátum a čas callbacku
+Skutočný dátum a čas vo fronte po uložení
+Meno karty zákazníka / kontaktu (povinné)
+Poznámka k preplánovaniu
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 48
+
+
+=== PAGE 49 ===
+INDEXUS · NEXUS PULSE
+F · CALLBACKY A PREPLÁNOVANIE
+CB-05  Vytvorenie, zrušenie a okamžité obnovenie
+Každá callback mutácia invaliduje Queue, badge aj detail.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Vytvorte callback.
+2. Preplánujte ho.
+3. Zrušte ho.
+4. Po každom kroku sledujte tri zobrazenia bez refreshu.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Vytvorenie sa prejavilo okamžite.
+Preplánovanie sa prejavilo okamžite.
+Zrušenie sa prejavilo okamžite.
+Queue, badge a detail boli konzistentné.
+Očakávaný nový dátum a čas callbacku
+Skutočný dátum a čas vo fronte po uložení
+Meno karty zákazníka / kontaktu (povinné)
+Poznámka k preplánovaniu
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 49
+2.10.2026 09:00
+2.10.2026 09:00
+Tes Ambulancia Aurora
+
+
+=== PAGE 50 ===
+INDEXUS · NEXUS PULSE
+G · STATUS LIST
+SL-01  Uloženie a potvrdenie Status Listu
+Confirm funguje stabilne a každá úloha má samostatne overiteľný výsledok.
+REGRESNÝ KONTEXT Z TESTOV 1. A 4. 9. 2026
+FAIL v skoršom teste: Status List sa neuložil a „Yes, confirm“ nefungovalo v Chrome, Edge
+ani Firefox; po približne hodine začalo fungovať bez známej príčiny.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Otvorte testovaciu kartu a Status List.
+2. Vyplňte všetky zobrazené povinné úlohy.
+3. Kliknite uložiť/confirm a potom Yes, confirm.
+4. Znovu otvorte kartu a porovnajte odpovede.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Confirm reagoval na prvé kliknutie.
+Všetky odpovede sa uložili.
+Povinné úlohy boli jasne označené.
+Po znovuotvorení zostali výsledky.
+Nevznikla neočakávaná automatizácia.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+Testované číslo — iba posledné 4 čísliceČas začiatku
+Čas ukončenia
+Ukončil
+Agent počul zákazníka
+Zákazník počul agenta
+História uložená
+Nahrávka dostupná podľa politiky
+UI hovoru sa správne ukončilo
+STATUS LIST — výsledok každej úlohy
+Úloha 1 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 2 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 3 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 4 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 5 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 6 — názov / otázka
+Passed
+Failed
+N/A
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 50
+Melichar SRO
+
+
+=== PAGE 51 ===
+INDEXUS · NEXUS PULSE
+G · STATUS LIST
+SL-01 — Status List, pokračovanie
+Úloha 7 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 8 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 9 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 10 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 11 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 12 — názov / otázka
+Passed
+Failed
+N/A
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 51
+
+
+=== PAGE 52 ===
+INDEXUS · NEXUS PULSE
+G · STATUS LIST
+SL-02  Status List a callback v jednom toku
+Uloženie odpovedí a preplánovanie sa navzájom nestratia.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Počas hovoru vyplňte Status List.
+2. Zadajte callback.
+3. Potvrďte Status List.
+4. Ukončite hovor a overte kartu aj Queue.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Status List sa uložil.
+Callback sa uložil.
+Queue zobrazila správny termín.
+History obsahovala hovor.
+Každá úloha mala správny výsledok.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+Testované číslo — iba posledné 4 čísliceČas začiatku
+Čas ukončenia
+Ukončil
+Agent počul zákazníka
+Zákazník počul agenta
+História uložená
+Nahrávka dostupná podľa politiky
+UI hovoru sa správne ukončilo
+Očakávaný nový dátum a čas callbacku
+Skutočný dátum a čas vo fronte po uložení
+Meno karty zákazníka / kontaktu (povinné)
+Poznámka k preplánovaniu
+STATUS LIST — výsledok každej úlohy
+Úloha 1 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 2 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 3 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 4 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 5 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 6 — názov / otázka
+Passed
+Failed
+N/A
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 52
+Melichar SRO
+16/09 09:00
+16/09 09:00
+Melichar SRO
+
+
+=== PAGE 53 ===
+INDEXUS · NEXUS PULSE
+G · STATUS LIST
+SL-02 — Status List, pokračovanie
+Úloha 7 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 8 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 9 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 10 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 11 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 12 — názov / otázka
+Passed
+Failed
+N/A
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 53
+
+
+=== PAGE 54 ===
+INDEXUS · NEXUS PULSE
+G · STATUS LIST
+SL-03  Viac možností a podotázky
+Konfigurácia otázok zodpovedá Mission a odpovede sa uložia bez straty.
+REGRESNÝ KONTEXT Z TESTOV 1. A 4. 9. 2026
+Predchádzajúca požiadavka: jeden status potreboval viac zvolených možností; v pôvodnej fáze
+to bolo evidované ako možná fáza 2.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Vyberte položku s viac možnosťami/podotázkami.
+2. Označte všetky povolené kombinácie.
+3. Uložte a znovu otvorte.
+4. Porovnajte s konfiguráciou Active Pulse verzie.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+UI dovolilo iba nakonfigurované kombinácie.
+Všetky vybrané odpovede sa uložili.
+Podotázky sa zobrazili podľa pravidiel.
+Výsledok prežil refresh.
+Meno karty zákazníka / kontaktu (povinné)
+Kampaň / Mission
+STATUS LIST — výsledok každej úlohy
+Úloha 1 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 2 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 3 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 4 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 5 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 6 — názov / otázka
+Passed
+Failed
+N/A
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 54
+Melichar SRO
+
+
+=== PAGE 55 ===
+INDEXUS · NEXUS PULSE
+G · STATUS LIST
+SL-03 — Status List, pokračovanie
+Úloha 7 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 8 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 9 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 10 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 11 — názov / otázka
+Passed
+Failed
+N/A
+Úloha 12 — názov / otázka
+Passed
+Failed
+N/A
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 55
+
+
+=== PAGE 56 ===
+INDEXUS · NEXUS PULSE
+H · E-MAIL, SMS A NOTIFIKÁCIE
+COM-01  Odoslanie e-mailu a platná M365 relácia
+E-mail sa odošle práve raz bez Session Expired pri platnom účte.
+REGRESNÝ KONTEXT Z TESTOV 1. A 4. 9. 2026
+FAIL 4. 9. 2026 o 14:15: odoslanie hlásilo „Session Expired. Please refresh the page and log
+in again“ aj po odhlásení a novej kontrole.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Pripojte platný M365 účet.
+2. Z testovacej karty odošlite e-mail.
+3. Zopakujte po refreshi a novom prihlásení.
+4. Skontrolujte odoslanú poštu a CRM históriu.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+M365 readiness bola úspešná.
+E-mail sa odoslal.
+Nevznikla Session Expired chyba.
+Správa bola práve raz v odoslanej pošte.
+CRM zobrazilo iba jednu notifikáciu/záznam.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 56
+
+
+=== PAGE 57 ===
+INDEXUS · NEXUS PULSE
+H · E-MAIL, SMS A NOTIFIKÁCIE
+COM-02  Oslovenie, personalizácia a podpis
+Šablóna používa aktuálne údaje a správny osobný/campaign podpis.
+REGRESNÝ KONTEXT Z TESTOV 1. A 4. 9. 2026
+Predchádzajúce výsledky: oslovenie „Vážený pán“ a KO job position boli neskôr označené OK;
+po zmene Personnel sa nové dáta v template nepoužili; reply podpis chýbal.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Zmeňte testovací údaj Personnel/job position oprávneným spôsobom.
+2. Aplikujte šablónu s oslovením a podpisom.
+3. Odošlite nový e-mail.
+4. Odpovedzte na prijatý e-mail.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Oslovenie zodpovedalo kontaktu.
+Šablóna použila aktuálne údaje.
+Nový e-mail mal správny podpis a telefón.
+Reply mal správny podpis.
+Nevznikli nevyplnené premenné.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 57
+
+
+=== PAGE 58 ===
+INDEXUS · NEXUS PULSE
+H · E-MAIL, SMS A NOTIFIKÁCIE
+COM-03  E-mailové upozornenie z automatizácie
+Udalosť odošle práve jeden e-mail zo správnej country schránky bez PII v externom upozornení.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Na kontrolnom kontakte vyvolajte nakonfigurovanú udalosť.
+2. Skontrolujte príjemcu a odosielateľa.
+3. Porovnajte predmet a počet správ.
+4. Skontrolujte CRM audit.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Prišiel práve jeden e-mail.
+Odosielateľ bol správna country schránka.
+Predmet a obsah zodpovedali konfigurácii.
+Externá notifikácia neobsahovala neočakávané PII.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 58
+
+
+=== PAGE 59 ===
+INDEXUS · NEXUS PULSE
+H · E-MAIL, SMS A NOTIFIKÁCIE
+COM-04  SMS upozornenie a poskytovateľ
+SMS ide práve raz cez Mission provider a chyba doručenia je zrozumiteľná.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Použite schválené kontrolné číslo.
+2. Vyvolajte SMS udalosť.
+3. Overte poskytovateľa a doručenie.
+4. Zopakujte s kontrolovanou chybou.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+SMS prišla práve raz.
+Použil sa správny Mission provider.
+Odosielateľ zodpovedal konfigurácii.
+Chyba bola zrozumiteľná bez úniku raw vendor údajov.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 59
+
+
+=== PAGE 60 ===
+INDEXUS · NEXUS PULSE
+I · PRÍSTUP A REGRESIE
+ACC-01  KO sa po prihlásení ani refreshi nedostane
+na Dashboard
+Landing page a oprávnenia neukážu reportovací Dashboard neoprávnenej role.
+REGRESNÝ KONTEXT Z TESTOV 1. A 4. 9. 2026
+Predchádzajúca chyba: KO videl Dashboard; refresh ho tam opakovane pustil. Neskôr refresh
+scenár označený OK, ale v zápise zostalo aj „Nevyriešené“ pre dashboard.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Prihláste sa ako KO.
+2. Skontrolujte landing page.
+3. Skúste priamu URL Dashboard.
+4. Obnovte stránku v Pulse aj mimo Pulse.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+KO skončil na povolenej landing page.
+Dashboard nebol v menu.
+Priama URL bola odmietnutá/presmerovaná.
+Refresh oprávnenie neobišiel.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 60
+
+
+=== PAGE 61 ===
+INDEXUS · NEXUS PULSE
+I · PRÍSTUP A REGRESIE
+ACC-02  Úprava osobných údajov iba oprávnenou rolou
+KO a KO manager nemôžu meniť DB dáta, ale dostanú zrozumiteľný read-only/escalation stav.
+REGRESNÝ KONTEXT Z TESTOV 1. A 4. 9. 2026
+Predchádzajúca chyba: KO mohol meniť údaje; inokedy zákaz pôsobil ako generická chyba.
+Tester neskôr pochopil obmedzenie, no požadoval jasnejšie správanie.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Ako KO otvorte osobné údaje.
+2. Skúste editáciu a uloženie.
+3. Zopakujte ako KO manager a DB manager.
+4. Skontrolujte audit/escalation.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+KO nemohol priamo meniť DB dáta.
+KO manager dodržal nakonfigurované oprávnenie.
+DB manager mohol oprávnenú zmenu.
+Neoprávnený používateľ dostal jasné vysvetlenie.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 61
+
+
+=== PAGE 62 ===
+INDEXUS · NEXUS PULSE
+I · PRÍSTUP A REGRESIE
+ACC-03  Denný limit a počítadlá aktivity
+Počítadlo započíta iba dovolané hovory a správne odlíši ostatné aktivity.
+REGRESNÝ KONTEXT Z TESTOV 1. A 4. 9. 2026
+Predchádzajúci výsledok: tester mal viac telefonátov, ale počítadlo sa zvýšilo iba dvakrát;
+pri e-mailoch počítadlo fungovalo.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Zapíšte počiatočný stav počítadiel.
+2. Urobte answered, unanswered a rejected hovor.
+3. Odošlite testovací e-mail.
+4. Porovnajte zmenu s pravidlom denného limitu.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Answered hovor sa započítal.
+Unanswered/rejected sa nezapočítal ako dovolaný.
+E-mail sa započítal iba do správnej metriky.
+Počty sa obnovili bez duplicít.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 62
+
+
+=== PAGE 63 ===
+INDEXUS · NEXUS PULSE
+I · PRÍSTUP A REGRESIE
+ACC-04  Mobilný prístup a podporované prostredie
+Mobil dostane jasný podporovaný/nepodporovaný stav a nesmie obísť role ani readiness.
+REGRESNÝ KONTEXT Z TESTOV 1. A 4. 9. 2026
+Predchádzajúce výsledky na Android Samsung Galaxy: INDEXUS sa v Edge/Chrome/Firefox
+nepodarilo otvoriť, inokedy sa používateľ dostal na Dashboard a aplikácia sa zasekávala.
+Mobilný Pulse však nie je podporovaný pre hovory.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Otvorte INDEXUS na schválenom mobilnom zariadení.
+2. Prihláste sa ako KO.
+3. Skúste otvoriť Pulse a Dashboard.
+4. Porovnajte správanie s deklarovanou podporou.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Bežný INDEXUS zobrazil definované správanie.
+Mobilný Pulse jasne oznámil nepodporované hovory.
+Dashboard oprávnenie sa neobišlo.
+Nevznikla nekonečná slučka alebo zamrznutie.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 63
+
+
+=== PAGE 64 ===
+INDEXUS · NEXUS PULSE
+I · PRÍSTUP A REGRESIE
+QUEUE-01  Poradie kontaktov v dennej Queue
+Callbacky a nové kontakty s referenciou majú definovanú prioritu.
+REGRESNÝ KONTEXT Z TESTOV 1. A 4. 9. 2026
+Požiadavka z 18. 8. 2026: poradie volania má byť Callback → HP s referenciou → HP bez
+referencie; nové referencie sa majú pravidelne dostať vyššie.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Pripravte kontakt v každej z troch skupín.
+2. Otvorte/obnovte dennú Queue.
+3. Porovnajte poradie s pravidlom.
+4. Pridajte referenciu existujúcemu kontaktu a spustite dostupné preusporiadanie.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Callbacky boli prvé.
+Kontakty s referenciou boli pred kontaktmi bez referencie.
+Nová referencia ovplyvnila poradie.
+Nevznikli duplicity ani strata kontaktu.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 64
+
+
+=== PAGE 65 ===
+INDEXUS · NEXUS PULSE
+H · E-MAIL, SMS A NOTIFIKÁCIE
+COM-05  Iba schválené e-mailové šablóny
+Agent vidí iba dohodnuté produkčné šablóny a žiadne testovacie zvyšky.
+REGRESNÝ KONTEXT Z TESTOV 1. A 4. 9. 2026
+Požadované názvy: „Medical Partner email 01 SK v01 2026_05_26“ a „Medical partner email with
+information materials attached SK V01 2026_05_26“.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Otvorte výber šablón v testovacej Mission.
+2. Vyhľadajte oba schválené názvy.
+3. Skontrolujte celý zoznam na testovacie/duplicitné šablóny.
+4. Aplikujte obe schválené šablóny.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Obe schválené šablóny boli dostupné.
+Nezostali nežiaduce testovacie šablóny.
+Obsah a prílohy zodpovedali názvu.
+Aplikovanie nevytvorilo nevyplnené premenné.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 65
+
+
+=== PAGE 66 ===
+INDEXUS · NEXUS PULSE
+I · PRÍSTUP A REGRESIE
+CARD-01  Zmena mena a e-mailu sa prejaví okamžite a
+v histórii
+Uložená karta, šablóny aj história používajú čerstvé údaje bez refreshu.
+REGRESNÝ KONTEXT Z TESTOV 1. A 4. 9. 2026
+Predchádzajúce výsledky: po zmene mena a e-mailu história ukázala iba meno; e-mail sa
+inokedy zmenil až po refreshi. Neskôr bola zmena e-mailu označená OK.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Oprávnenou rolou zmeňte testovacie meno a e-mail.
+2. Uložte kartu a bez refreshu ju znovu otvorte.
+3. Skontrolujte History.
+4. Aplikujte e-mailovú šablónu.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Karta okamžite ukázala nové meno.
+Karta okamžite ukázala nový e-mail.
+History zaznamenala obe zmeny.
+Šablóna použila aktuálne údaje.
+Po refreshi zostal rovnaký stav.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 66
+
+
+=== PAGE 67 ===
+INDEXUS · NEXUS PULSE
+I · PRÍSTUP A REGRESIE
+CARD-02  Úprava poznámky na karte
+Existujúcu poznámku možno oprávnene upraviť a zmena sa zachová.
+REGRESNÝ KONTEXT Z TESTOV 1. A 4. 9. 2026
+Predchádzajúca chyba: chýbala možnosť upraviť poznámku; neskôr označené OK.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Na testovacej karte vytvorte poznámku.
+2. Upravte jej text.
+3. Uložte a znovu otvorte kartu.
+4. Skontrolujte audit/autora a čas.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Editácia bola dostupná oprávnenej role.
+Nový text sa uložil.
+Po znovuotvorení zostal aktuálny.
+Audit neukázal nesprávneho autora.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 67
+
+
+=== PAGE 68 ===
+INDEXUS · NEXUS PULSE
+I · PRÍSTUP A REGRESIE
+UX-01  Počítadlo aktivity a číslo za lomkou
+Tester rozumie obom hodnotám a čísla zodpovedajú nakonfigurovanému dennému cieľu.
+REGRESNÝ KONTEXT Z TESTOV 1. A 4. 9. 2026
+Otázka z Wordu: „Čo znamená číslo za /?“ Na pôvodnom Pulse screenshote bolo zobrazenie
+podobné 1/50 bez vysvetlenia.
+PREDPOKLADY
+Tester je prihlásený správnym účtom a má dostupné testovacie prostredie.
+KROKY
+1. Nájdite počítadlo v hornej lište Pulse.
+2. Otvorte tooltip/pomocný text.
+3. Urobte aktivitu, ktorá sa má započítať.
+4. Porovnajte prvé číslo a denný cieľ za lomkou.
+KONTROLNÉ BODY — zaškrtnite každý bod, ktorý prešiel
+Aktuálna hodnota mala zrozumiteľný názov.
+Hodnota za lomkou bola vysvetlená ako cieľ/limit podľa konfigurácie.
+Po započítateľnej aktivite sa zmenilo správne číslo.
+Tooltip/label nevyžadoval hádanie významu.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Skutočný výsledok / odchýlka
+Dôkaz: screenshot, čas, incident ID alebo odkaz
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 68
+
+
+=== PAGE 69 ===
+INDEXUS · NEXUS PULSE
+ZÁVEREČNÝ PROTOKOL
+Celkové vyhodnotenie testovacieho cyklu
+Testovanie môže byť označené ako úspešné iba vtedy, keď neexistuje otvorený kritický FAIL.
+CELKOVÝ VÝSLEDOK TESTU — označte iba jednu možnosť
+Prešiel
+Neprešiel
+S výhradami
+Netestované
+Počet PASS
+Počet FAIL
+Počet s výhradami
+Počet netestovaných
+Kritické blokery — ID testu a stručný popis
+Súhrnná poznámka a odporúčanie k nasadeniu
+Požadované retesty / zodpovedná osoba / termín
+Meno a iniciály testera
+Dátum uzavretia
+INDEXUS · NEXUS Pulse · komplexné opakovateľné testovanie
+Strana 69
