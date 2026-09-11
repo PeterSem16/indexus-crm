@@ -84,3 +84,4 @@
 - [Pulse session activity counters](pulse-session-activity-counters.md) — header/My Activity counts outbound actions in the current session; daily quota usage is separate and must never overwrite it.
 - [Nexus Pulse notification boundary](nexus-pulse-notification-boundary.md) — workflow toasts use Focused Status and its chime; live-call audio/media/hold diagnostics retain legacy silent styling.
 - [Agent phone-card recall](agent-phone-card-recall.md) — remembered inbound card choices are agent-private, advisory, and keyed without cross-country phone-number collisions.
+- [Mockup preview first-load timing](mockup-preview-first-load.md) — a sandbox screenshot just after a Vite restart can capture the dynamic loader's blank state; verify once more before marking the frame failed.
