@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useI18n } from "@/i18n";
 import { useQuery } from "@tanstack/react-query";
+import {
+  getRememberedPhoneCard,
+  type RememberedPhoneCard,
+} from "@/lib/phone-card-preference";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -82,6 +86,59 @@ interface InboundCallPopupProps {
   activeCallState?: string;
 }
 
+type PhoneLookupMatch = {
+  entityType: string;
+  id: string;
+  name: string;
+  phone: string;
+  subtype?: string;
+};
+
+/**
+ * The card displayed for a duplicate-number inbound call is this agent's
+ * remembered choice only while that card remains part of the current lookup.
+ */
+function useInboundCallDisplayMatch(callerNumber?: string) {
+  const { data: phoneMatches = [] } = useQuery<PhoneLookupMatch[]>({
+    queryKey: ["/api/phone/lookup-all", callerNumber],
+    queryFn: async () => {
+      if (!callerNumber) return [];
+      const res = await fetch(`/api/phone/lookup-all?phone=${encodeURIComponent(callerNumber)}`, {
+        credentials: "include",
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: !!callerNumber,
+    staleTime: 30000,
+  });
+
+  const preferenceQuery = useQuery<RememberedPhoneCard | null>({
+    queryKey: ["/api/phone/preferences", callerNumber],
+    queryFn: async () => {
+      if (!callerNumber) return null;
+      const res = await fetch(`/api/phone/preferences?phone=${encodeURIComponent(callerNumber)}`, {
+        credentials: "include",
+      });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!callerNumber,
+    staleTime: 30000,
+  });
+
+  const lastSelectedMatch = getRememberedPhoneCard(phoneMatches, preferenceQuery.data);
+  const mayUseLookupFallback = preferenceQuery.isSuccess || preferenceQuery.isError;
+  return {
+    phoneMatches,
+    // Do not briefly show the lookup's first record while the saved choice is
+    // still loading: the first match is arbitrary for duplicate numbers.
+    displayMatch: lastSelectedMatch ?? (mayUseLookupFallback ? phoneMatches[0] ?? null : null),
+    isLastSelected: !!lastSelectedMatch,
+  };
+}
+
 function CallTimer({ timestamp }: { timestamp: number }) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
@@ -133,21 +190,11 @@ function CallCard({ call, onAccept, onReject, onDismiss, isFirst }: {
     onReject(call);
   }, [call, onReject, isAccepting, isRejecting]);
 
-  const { data: phoneMatches = [] } = useQuery<Array<{ entityType: string; id: string; name: string; phone: string; subtype?: string }>>({
-    queryKey: ["/api/phone/lookup-all", call.callerNumber],
-    queryFn: async () => {
-      if (!call.callerNumber) return [];
-      const res = await fetch(`/api/phone/lookup-all?phone=${encodeURIComponent(call.callerNumber)}`, {
-        credentials: "include",
-      });
-      if (!res.ok) return [];
-      return res.json();
-    },
-    enabled: !!call.callerNumber,
-    staleTime: 30000,
-  });
-
-  const primaryMatch = phoneMatches[0] ?? null;
+  const {
+    phoneMatches,
+    displayMatch: primaryMatch,
+    isLastSelected,
+  } = useInboundCallDisplayMatch(call.callerNumber);
 
   const { data: todayHistory } = useQuery<{
     total: number;
@@ -251,6 +298,11 @@ function CallCard({ call, onAccept, onReject, onDismiss, isFirst }: {
               <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${entityTypeColors[primaryMatch.entityType] || "bg-muted text-muted-foreground"}`}>
                 {entityTypeLabels[primaryMatch.entityType] || primaryMatch.entityType}
               </span>
+            )}
+            {isLastSelected && phoneMatches.length > 1 && (
+              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 shrink-0">
+                {aw.inboundSelectRecommended}
+              </Badge>
             )}
             {phoneMatches.length > 1 && (
               <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 shrink-0">
@@ -411,19 +463,11 @@ function BusyIncomingIndicator({ inboundCalls, hasActiveCall, onAccept, onReject
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isExpanded]);
 
-  const { data: pillPhoneMatches = [] } = useQuery<Array<{ entityType: string; id: string; name: string; phone: string; subtype?: string }>>({
-    queryKey: ["/api/phone/lookup-all", firstCall?.callerNumber],
-    queryFn: async () => {
-      if (!firstCall?.callerNumber) return [];
-      const res = await fetch(`/api/phone/lookup-all?phone=${encodeURIComponent(firstCall.callerNumber)}`, {
-        credentials: "include",
-      });
-      if (!res.ok) return [];
-      return res.json();
-    },
-    enabled: !!firstCall?.callerNumber,
-    staleTime: 30000,
-  });
+  const {
+    phoneMatches: pillPhoneMatches,
+    displayMatch: pillPrimaryMatch,
+    isLastSelected: pillIsLastSelected,
+  } = useInboundCallDisplayMatch(firstCall?.callerNumber);
 
   const [busySinceRing, setBusySinceRing] = useState(firstCall ? Math.floor((Date.now() - firstCall.timestamp) / 1000) : 0);
   useEffect(() => {
@@ -434,7 +478,6 @@ function BusyIncomingIndicator({ inboundCalls, hasActiveCall, onAccept, onReject
 
   if (!firstCall) return null;
 
-  const pillPrimaryMatch = pillPhoneMatches[0] ?? null;
   const isQueueWaiting = !!firstCall.isQueueWaiting;
   const canAnswer = !hasActiveCall && !isQueueWaiting && (firstCall.hasSipInvitation === true || busySinceRing >= 8);
   const displayName = pillPrimaryMatch?.name || firstCall.callerNumber;
@@ -535,6 +578,11 @@ function BusyIncomingIndicator({ inboundCalls, hasActiveCall, onAccept, onReject
                     }`}>
                       {({ customer: aw.entityTypeCustomer, hospital: aw.entityTypeHospital, clinic: aw.entityTypeClinic, collaborator: aw.entityTypeCollaborator } as Record<string,string>)[pillPrimaryMatch.entityType] || pillPrimaryMatch.entityType}
                     </span>
+                  )}
+                  {pillIsLastSelected && pillPhoneMatches.length > 1 && (
+                    <Badge variant="secondary" className="text-[9px] h-4 px-1.5">
+                      {aw.inboundSelectRecommended}
+                    </Badge>
                   )}
                   {pillPhoneMatches.length > 1 && (
                     <span className="text-[9px] font-semibold px-1 py-0.5 rounded bg-gray-100 text-gray-600">+{pillPhoneMatches.length - 1}</span>

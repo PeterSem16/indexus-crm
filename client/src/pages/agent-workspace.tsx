@@ -4462,7 +4462,6 @@ function CommunicationCanvas({
             );
           })()}
         </div>
-                       {!isCalledBack && <MissedCallCardPreview call={call} />}
       </div>
 
       <div className="border-b bg-card shrink-0">
@@ -10613,6 +10612,13 @@ function AgentWorkspacePageContent() {
             entityType: match.entityType,
             entityId: String(match.id),
           }),
+        }).then((response) => {
+          if (!response.ok) {
+            throw new Error(`Preference save failed with ${response.status}`);
+          }
+          queryClient.invalidateQueries({
+            queryKey: ["/api/phone/preferences", options.rememberPhone],
+          });
         }).catch((error) => {
           console.warn("[AgentWS] Could not remember selected phone card:", error);
         });
@@ -17013,6 +17019,7 @@ function AgentWorkspacePageContent() {
                           );
                         })()}
                       </div>
+                      {!isCalledBack && <MissedCallCardPreview call={call} />}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <div className="text-right">
