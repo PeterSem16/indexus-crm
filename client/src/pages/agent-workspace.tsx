@@ -529,6 +529,90 @@ interface PhoneMatch {
   subtype?: string;
 }
 
+function MissedCallCardPreview({ call }: { call: any }) {
+  const { t } = useI18n();
+  const phone = call.customerPhone || call.callerNumber || "";
+  const customerId = call.customerId;
+  const hasExplicitCustomer = customerId !== null && customerId !== undefined && String(customerId).length > 0;
+  const { data: explicitCustomer } = useQuery<Customer | null>({
+    queryKey: ["/api/customers", String(customerId || "")],
+    queryFn: async () => {
+      const res = await fetch(`/api/customers/${encodeURIComponent(String(customerId))}`, { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: hasExplicitCustomer,
+    staleTime: 60000,
+  });
+  const { data: lookupMatches = [] } = useQuery<PhoneMatch[]>({
+    queryKey: ["/api/phone/lookup-all", phone],
+    queryFn: async () => {
+      const res = await fetch(`/api/phone/lookup-all?phone=${encodeURIComponent(phone)}`, { credentials: "include" });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: !hasExplicitCustomer && !!phone,
+    staleTime: 60000,
+  });
+  const { data: preference } = useQuery<RememberedPhoneCard | null>({
+    queryKey: ["/api/phone/preferences", phone],
+    queryFn: async () => {
+      const res = await fetch(`/api/phone/preferences?phone=${encodeURIComponent(phone)}`, { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !hasExplicitCustomer && !!phone,
+    staleTime: 60000,
+  });
+
+  const explicitMatch: PhoneMatch | undefined = explicitCustomer
+    ? {
+      entityType: "customer",
+      id: String(explicitCustomer.id),
+      name: [explicitCustomer.firstName, explicitCustomer.lastName].filter(Boolean).join(" "),
+      phone: explicitCustomer.phone || phone,
+    }
+    : undefined;
+  const rememberedMatch = getRememberedPhoneCard(lookupMatches, preference);
+  const resolution = resolveMissedCallCardTarget(customerId, phone, lookupMatches, rememberedMatch);
+  const match = explicitMatch || (resolution.kind === "match" ? resolution.match : undefined);
+  if (!match || !match.name) return null;
+
+  const labelMap: Record<string, string> = {
+    customer: t.agentWorkspace.entityTypeCustomer,
+    hospital: t.agentWorkspace.entityTypeHospital,
+    clinic: t.agentWorkspace.entityTypeClinic,
+    collaborator: t.agentWorkspace.entityTypeCollaborator,
+  };
+  const iconMap: Record<string, React.ReactNode> = {
+    customer: <User className="h-3.5 w-3.5" />,
+    hospital: <Building2 className="h-3.5 w-3.5" />,
+    clinic: <Building2 className="h-3.5 w-3.5" />,
+    collaborator: <Handshake className="h-3.5 w-3.5" />,
+  };
+  const toneMap: Record<string, string> = {
+    customer: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-300",
+    hospital: "border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-900 dark:bg-purple-950/30 dark:text-purple-300",
+    clinic: "border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-900 dark:bg-cyan-950/30 dark:text-cyan-300",
+    collaborator: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300",
+  };
+  const isRemembered = !hasExplicitCustomer && rememberedMatch
+    && rememberedMatch.entityType === match.entityType && rememberedMatch.id === match.id;
+  return (
+    <div className={`mt-2 flex min-w-0 items-center gap-2 rounded-lg border px-2 py-1.5 text-xs ${toneMap[match.entityType] || "border-border bg-muted text-foreground"}`}>
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-background/70">{iconMap[match.entityType]}</span>
+      <div className="min-w-0">
+        <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide">
+          <span>{t.agentWorkspace.recognisedCard}</span>
+          {isRemembered && <span className="normal-case tracking-normal opacity-75">· {t.agentWorkspace.lastSelectedCard}</span>}
+        </div>
+        <div className="truncate font-medium text-foreground">{match.name} <span className="font-normal text-muted-foreground">· {labelMap[match.entityType] || match.entityType}</span></div>
+      </div>
+    </div>
+  );
+}
+
 interface EnrichedCampaignContact extends CampaignContact {
   customer: Customer | null;
   hospital?: Hospital | null;
@@ -4378,6 +4462,7 @@ function CommunicationCanvas({
             );
           })()}
         </div>
+                       {!isCalledBack && <MissedCallCardPreview call={call} />}
       </div>
 
       <div className="border-b bg-card shrink-0">
@@ -17598,7 +17683,7 @@ function AgentWorkspacePageContent() {
 
       {/* Post-accept entity selection modal — shown when multiple phone matches exist */}
       <Dialog open={!!pendingInboundMatches} onOpenChange={(open) => { if (!open) setPendingInboundMatches(null); }}>
-        <DialogContent className="max-w-lg gap-0 overflow-hidden border-primary/15 p-0 shadow-2xl" data-testid="dialog-entity-selection">
+        <DialogContent className="max-w-2xl gap-0 overflow-hidden border-primary/15 p-0 shadow-2xl" data-testid="dialog-entity-selection">
           <DialogHeader className="relative overflow-hidden border-b bg-gradient-to-br from-emerald-50 via-background to-sky-50 px-6 pb-5 pt-6 dark:from-emerald-950/30 dark:via-background dark:to-sky-950/20">
             <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-emerald-300/20 blur-2xl dark:bg-emerald-400/10" />
             <DialogTitle className="relative flex items-center gap-3 text-xl">
@@ -17614,14 +17699,22 @@ function AgentWorkspacePageContent() {
               <Phone className="h-3.5 w-3.5" />
               <span className="font-mono">{pendingInboundMatches?.phone}</span>
             </div>
+             <div className="relative mt-3 text-xs font-semibold text-muted-foreground">
+               {t.agentWorkspace.inboundSelectCount.replace("{count}", String(pendingInboundMatches?.matches.length || 0))}
+             </div>
           </DialogHeader>
-          <div className="max-h-[min(50vh,25rem)] space-y-3 overflow-y-auto px-6 py-5">
+          <div className="max-h-[min(60vh,34rem)] space-y-3 overflow-y-auto px-6 py-5">
             {pendingInboundMatches?.preferredMatch && (
-              <div className="flex items-center gap-2 rounded-xl border border-amber-200/70 bg-amber-50/75 px-3 py-2 text-xs font-medium text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/25 dark:text-amber-200">
+               <div className="flex items-center gap-2 rounded-xl border border-amber-200/70 bg-amber-50/75 px-3 py-2 text-xs font-medium text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/25 dark:text-amber-200">
                 <Sparkles className="h-4 w-4 shrink-0 text-amber-500" />
-                {t.agentWorkspace.inboundSelectLastUsed}
+                 <span><strong>{t.agentWorkspace.inboundSelectRecommendedSection}:</strong> {t.agentWorkspace.inboundSelectLastUsed}</span>
               </div>
             )}
+             {pendingInboundMatches?.preferredMatch && (
+               <div className="pt-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                 {t.agentWorkspace.inboundSelectRecommendedSection}
+               </div>
+             )}
             {pendingInboundMatches?.matches.map((match) => {
               const colorMap: Record<string, string> = {
                 customer: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-900",
@@ -17643,15 +17736,17 @@ function AgentWorkspacePageContent() {
               };
               const isRemembered = match.entityType === pendingInboundMatches?.preferredMatch?.entityType
                 && match.id === pendingInboundMatches?.preferredMatch?.id;
-              return (
+               if (pendingInboundMatches?.preferredMatch && !isRemembered) return null;
+               return (
                 <button
                   key={`${match.entityType}-${match.id}`}
-                  className={`group relative w-full overflow-hidden rounded-2xl border p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
+                   className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-2xl border p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
                     isRemembered
                       ? "border-amber-300 bg-gradient-to-r from-amber-50 via-background to-orange-50 shadow-sm dark:border-amber-800 dark:from-amber-950/30 dark:via-background dark:to-orange-950/20"
                       : "border-border/70 bg-card hover:border-primary/25 hover:bg-muted/40"
                   }`}
                   data-testid={`btn-select-entity-${match.entityType}-${match.id}`}
+                   aria-label={`${labelMap[match.entityType] || match.entityType}: ${match.name}. ${t.agentWorkspace.openCardBtn}`}
                   onClick={() => void handlePendingInboundMatchSelect(match)}
                 >
                   {isRemembered && (
@@ -17672,10 +17767,45 @@ function AgentWorkspacePageContent() {
                   <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${colorMap[match.entityType] || "bg-muted"}`}>
                     {labelMap[match.entityType] || match.entityType}
                   </span>
-                  <ArrowRight className={`h-4 w-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 ${isRemembered ? "text-amber-600 dark:text-amber-300" : "text-muted-foreground"}`} />
+                   <span className={`flex shrink-0 items-center gap-1 text-xs font-semibold ${isRemembered ? "text-amber-600 dark:text-amber-300" : "text-primary"}`}>
+                     {t.agentWorkspace.openCardBtn}
+                     <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                   </span>
                 </button>
               );
             })}
+             {pendingInboundMatches?.preferredMatch && (
+               <div className="pt-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                 {t.agentWorkspace.inboundSelectAlternatives}
+               </div>
+             )}
+             {pendingInboundMatches?.preferredMatch && pendingInboundMatches.matches.filter((match) =>
+               !(match.entityType === pendingInboundMatches.preferredMatch?.entityType && match.id === pendingInboundMatches.preferredMatch?.id)
+             ).map((match) => {
+               const labelMap: Record<string, string> = {
+                 customer: t.agentWorkspace.entityTypeCustomer,
+                 hospital: t.agentWorkspace.entityTypeHospital,
+                 clinic: t.agentWorkspace.entityTypeClinic,
+                 collaborator: t.agentWorkspace.entityTypeCollaborator,
+               };
+               const colorMap: Record<string, string> = {
+                 customer: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-900",
+                 hospital: "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-900",
+                 clinic: "bg-cyan-100 text-cyan-700 border-cyan-200 dark:bg-cyan-950/50 dark:text-cyan-300 dark:border-cyan-900",
+                 collaborator: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-900",
+               };
+               return (
+                 <button key={`alternative-${match.entityType}-${match.id}`} className="group flex w-full items-center gap-3 rounded-2xl border border-border/70 bg-card p-4 text-left transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:bg-muted/40 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60" data-testid={`btn-select-entity-${match.entityType}-${match.id}`} onClick={() => void handlePendingInboundMatchSelect(match)} aria-label={`${labelMap[match.entityType] || match.entityType}: ${match.name}. ${t.agentWorkspace.openCardBtn}`}>
+                   <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border shadow-sm ${colorMap[match.entityType] || "bg-muted"}`}>{match.entityType === "customer" ? <User className="h-4 w-4" /> : match.entityType === "collaborator" ? <Users className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}</div>
+                   <div className="min-w-0 flex-1">
+                     <div className="truncate text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{labelMap[match.entityType] || match.entityType}</div>
+                     <div className="truncate font-semibold">{match.name}</div>
+                     {match.subtype && <div className="truncate text-xs text-muted-foreground">{match.subtype}</div>}
+                   </div>
+                   <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-primary">{t.agentWorkspace.openCardBtn}<ArrowRight className="h-4 w-4" /></span>
+                 </button>
+               );
+             })}
           </div>
           <DialogFooter className="border-t bg-muted/20 px-6 py-3">
             <Button variant="ghost" size="sm" onClick={() => setPendingInboundMatches(null)} data-testid="btn-entity-selection-skip">

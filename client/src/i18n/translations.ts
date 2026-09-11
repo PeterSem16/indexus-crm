@@ -4039,6 +4039,11 @@ export interface Translations {
     inboundSelectSkip: string;
     inboundSelectRecommended: string;
     inboundSelectLastUsed: string;
+    inboundSelectCount: string;
+    inboundSelectRecommendedSection: string;
+    inboundSelectAlternatives: string;
+    recognisedCard: string;
+    lastSelectedCard: string;
     inboundBusyCallTitle: string;
     inboundQueueTitle: string;
     inboundQueueWaitingMsg: string;
@@ -11966,6 +11971,7 @@ export const translations: Record<Locale, Translations> = {
       entityTypeCustomer: 'Customer', entityTypeHospital: 'Hospital', entityTypeClinic: 'Clinic', entityTypeCollaborator: 'Collaborator',
       inboundSelectTitle: 'Select contact for call', inboundSelectDesc: 'Number {phone} is linked to multiple contacts. Choose the one to associate this call with.', inboundSelectSkip: 'Skip',
       inboundSelectRecommended: 'Last selected', inboundSelectLastUsed: 'You opened this card for this number last time.',
+      inboundSelectCount: '{count} matching cards', inboundSelectRecommendedSection: 'Recommended card', inboundSelectAlternatives: 'Other matching cards', recognisedCard: 'Recognised card', lastSelectedCard: 'Last selected',
       inboundBusyCallTitle: 'Incoming call',
       inboundQueueTitle: 'Waiting in queue',
       inboundQueueWaitingMsg: 'Call is waiting in queue. Change status to Available to accept it.',
@@ -19353,6 +19359,7 @@ export const translations: Record<Locale, Translations> = {
       entityTypeCustomer: 'Zákazník', entityTypeHospital: 'Nemocnica', entityTypeClinic: 'Klinika', entityTypeCollaborator: 'Spolupracovník',
       inboundSelectTitle: 'Vyberte kontakt pre hovor', inboundSelectDesc: 'Číslo {phone} je priradené viacerým kontaktom. Vyberte, ku komu chcete tento hovor priradiť.', inboundSelectSkip: 'Preskočiť',
       inboundSelectRecommended: 'Posledná otvorená karta', inboundSelectLastUsed: 'Pri tomto čísle ste naposledy otvorili túto kartu.',
+      inboundSelectCount: '{count} zodpovedajúce karty', inboundSelectRecommendedSection: 'Odporúčaná karta', inboundSelectAlternatives: 'Ďalšie zodpovedajúce karty', recognisedCard: 'Rozpoznaná karta', lastSelectedCard: 'Naposledy vybraná',
       inboundBusyCallTitle: 'Prichádzajúci hovor',
       inboundQueueTitle: 'Čaká vo fronte',
       inboundQueueWaitingMsg: 'Hovor čaká vo fronte. Zmeňte stav na Dostupný pre jeho prijatie.',
@@ -26727,6 +26734,7 @@ export const translations: Record<Locale, Translations> = {
       entityTypeCustomer: 'Zákazník', entityTypeHospital: 'Nemocnice', entityTypeClinic: 'Klinika', entityTypeCollaborator: 'Spolupracovník',
       inboundSelectTitle: 'Vyberte kontakt pro hovor', inboundSelectDesc: 'Číslo {phone} je přiřazeno více kontaktům. Vyberte, ke komu chcete tento hovor přiřadit.', inboundSelectSkip: 'Přeskočit',
       inboundSelectRecommended: 'Poslední otevřená karta', inboundSelectLastUsed: 'U tohoto čísla jste naposledy otevřeli tuto kartu.',
+      inboundSelectCount: '{count} odpovídající karty', inboundSelectRecommendedSection: 'Doporučená karta', inboundSelectAlternatives: 'Další odpovídající karty', recognisedCard: 'Rozpoznaná karta', lastSelectedCard: 'Naposledy vybraná',
       inboundBusyCallTitle: 'Příchozí hovor',
       inboundQueueTitle: 'Čeká ve frontě',
       inboundQueueWaitingMsg: 'Hovor čeká ve frontě. Změňte stav na Dostupný pro jeho přijetí.',
@@ -34057,6 +34065,7 @@ export const translations: Record<Locale, Translations> = {
       entityTypeCustomer: 'Ügyfél', entityTypeHospital: 'Kórház', entityTypeClinic: 'Klinika', entityTypeCollaborator: 'Együttműködő',
       inboundSelectTitle: 'Kontakt kiválasztása a híváshoz', inboundSelectDesc: 'A(z) {phone} szám több kapcsolathoz van rendelve. Válassza ki, melyikhez rendeli ezt a hívást.', inboundSelectSkip: 'Kihagyás',
       inboundSelectRecommended: 'Legutóbb megnyitott kártya', inboundSelectLastUsed: 'Ennél a számnál legutóbb ezt a kártyát nyitotta meg.',
+      inboundSelectCount: '{count} egyező kártya', inboundSelectRecommendedSection: 'Ajánlott kártya', inboundSelectAlternatives: 'További egyező kártyák', recognisedCard: 'Felismerhető kártya', lastSelectedCard: 'Legutóbb kiválasztva',
       inboundBusyCallTitle: 'Bejövő hívás',
       inboundQueueTitle: 'Sorban vár',
       inboundQueueWaitingMsg: 'A hívás várakozik a sorban. Váltson Elérhető állapotra a fogadáshoz.',
@@ -41274,6 +41283,7 @@ export const translations: Record<Locale, Translations> = {
       entityTypeCustomer: 'Client', entityTypeHospital: 'Spital', entityTypeClinic: 'Clinică', entityTypeCollaborator: 'Colaborator',
       inboundSelectTitle: 'Selectați contactul pentru apel', inboundSelectDesc: 'Numărul {phone} este asociat mai multor contacte. Alegeți cărui contact doriți să atribuiți acest apel.', inboundSelectSkip: 'Omiteți',
       inboundSelectRecommended: 'Ultimul card deschis', inboundSelectLastUsed: 'Pentru acest număr ați deschis ultima dată acest card.',
+      inboundSelectCount: '{count} carduri potrivite', inboundSelectRecommendedSection: 'Card recomandat', inboundSelectAlternatives: 'Alte carduri potrivite', recognisedCard: 'Card recunoscut', lastSelectedCard: 'Selectat ultima dată',
       inboundBusyCallTitle: 'Apel primit',
       inboundQueueTitle: 'Așteaptă în coadă',
       inboundQueueWaitingMsg: 'Apelul așteaptă în coadă. Schimbați starea la Disponibil pentru a răspunde.',
@@ -48493,6 +48503,7 @@ export const translations: Record<Locale, Translations> = {
       entityTypeCustomer: 'Cliente', entityTypeHospital: 'Ospedale', entityTypeClinic: 'Clinica', entityTypeCollaborator: 'Collaboratore',
       inboundSelectTitle: 'Seleziona contatto per la chiamata', inboundSelectDesc: 'Il numero {phone} è associato a più contatti. Seleziona a chi associare questa chiamata.', inboundSelectSkip: 'Salta',
       inboundSelectRecommended: 'Ultima scheda aperta', inboundSelectLastUsed: 'Per questo numero hai aperto questa scheda l’ultima volta.',
+      inboundSelectCount: '{count} schede corrispondenti', inboundSelectRecommendedSection: 'Scheda consigliata', inboundSelectAlternatives: 'Altre schede corrispondenti', recognisedCard: 'Scheda riconosciuta', lastSelectedCard: 'Selezionata l’ultima volta',
       inboundBusyCallTitle: 'Chiamata in arrivo',
       inboundQueueTitle: 'In attesa in coda',
       inboundQueueWaitingMsg: 'La chiamata è in attesa in coda. Cambia stato in Disponibile per accettarla.',
@@ -55712,6 +55723,7 @@ export const translations: Record<Locale, Translations> = {
       entityTypeCustomer: 'Kunde', entityTypeHospital: 'Krankenhaus', entityTypeClinic: 'Klinik', entityTypeCollaborator: 'Mitarbeiter',
       inboundSelectTitle: 'Kontakt für Anruf auswählen', inboundSelectDesc: 'Die Nummer {phone} ist mehreren Kontakten zugeordnet. Wählen Sie, welchem Kontakt dieser Anruf zugeordnet werden soll.', inboundSelectSkip: 'Überspringen',
       inboundSelectRecommended: 'Zuletzt geöffnete Karte', inboundSelectLastUsed: 'Für diese Nummer haben Sie zuletzt diese Karte geöffnet.',
+      inboundSelectCount: '{count} passende Karten', inboundSelectRecommendedSection: 'Empfohlene Karte', inboundSelectAlternatives: 'Weitere passende Karten', recognisedCard: 'Erkannte Karte', lastSelectedCard: 'Zuletzt ausgewählt',
       inboundBusyCallTitle: 'Eingehender Anruf',
       inboundQueueTitle: 'Wartet in Warteschlange',
       inboundQueueWaitingMsg: 'Der Anruf wartet in der Warteschlange. Ändern Sie den Status auf Verfügbar, um ihn anzunehmen.',
