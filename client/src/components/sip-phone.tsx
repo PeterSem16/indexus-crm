@@ -1825,7 +1825,8 @@ export function SipPhone({
                   toast({
                     title: t.agentWorkspace.maxRingTimeoutTitle,
                     description: t.agentWorkspace.maxRingTimeoutDesc.replace("{seconds}", String(maxRing)),
-                    variant: "destructive",
+                    variant: "pulse",
+                    pulseState: "ended",
                   });
                 }, 1_200);
               }, maxRing * 1000);

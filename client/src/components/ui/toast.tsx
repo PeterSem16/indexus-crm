@@ -6,6 +6,7 @@ import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const ToastProvider = ToastPrimitives.Provider
+type PulseToastState = "ended" | "acw" | "next" | "connected" | "warning"
 
 const ToastViewport = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Viewport>,
@@ -30,6 +31,8 @@ const toastVariants = cva(
         default: "border-sky-200/80 bg-gradient-to-br from-background/98 to-sky-50/95 text-foreground dark:border-sky-800/70 dark:to-sky-950/95",
         destructive:
           "destructive group border-red-500 bg-red-700 text-white dark:border-red-400 dark:bg-red-800",
+        pulse:
+          "pulse group items-start rounded-xl border-[#e2c4b8] border-l-4 border-l-[#b95446] bg-[#fffaf6] text-[#4a3e3d] shadow-[0_12px_26px_rgba(71,53,44,0.16)] backdrop-blur-none dark:border-[#7d554d] dark:border-l-[#d87568] dark:bg-[#2b2423] dark:text-[#f8eeea]",
       },
     },
     defaultVariants: {
@@ -41,11 +44,14 @@ const toastVariants = cva(
 const Toast = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Root>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Root> &
-    VariantProps<typeof toastVariants>
->(({ className, variant, ...props }, ref) => {
+    VariantProps<typeof toastVariants> & {
+      pulseState?: PulseToastState
+    }
+>(({ className, variant, pulseState, ...props }, ref) => {
   return (
     <ToastPrimitives.Root
       ref={ref}
+      data-pulse-state={pulseState}
       className={cn(toastVariants({ variant }), className)}
       {...props}
     />
@@ -116,6 +122,7 @@ type ToastProps = React.ComponentPropsWithoutRef<typeof Toast>
 type ToastActionElement = React.ReactElement<typeof ToastAction>
 
 export {
+  type PulseToastState,
   type ToastProps,
   type ToastActionElement,
   ToastProvider,

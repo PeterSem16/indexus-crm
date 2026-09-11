@@ -12940,6 +12940,8 @@ export default function AgentWorkspacePage() {
         toast({
           title: t.agentWorkspace.acwFinalizingForCall,
           description: t.agentWorkspace.acwFinalizingForCallDesc,
+          variant: "pulse",
+          pulseState: "acw",
         });
         await finalizeAcwBeforeExplicitDial();
         // The SIP consumer may only read a pending request when CallContext has
