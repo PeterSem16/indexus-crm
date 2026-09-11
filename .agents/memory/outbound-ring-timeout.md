@@ -66,6 +66,19 @@ max-ring timeout.
 **How to apply:** Treat pending dial requests as one-shot idle-state commands,
 not a general queue.
 
+**Rule:** An explicit user dial during `ended` + active ACW is the sole exception:
+persist the previous call's ACW first, reset that terminated call to `idle`, and
+only then enqueue the exact number the user clicked. Do not clear the current
+contact/task, and do not schedule an automatic next contact.
+
+**Why:** ACW is not a live SIP call, so blocking the click as "Active call" is
+incorrect; retaining the request in the generic pending-call mechanism would
+reintroduce automatic dialing after timeout.
+
+**How to apply:** Keep this transition in the explicit UI dial path. Live states
+(`connecting`, `ringing`, `active`, `on_hold`) must still reject the request, and
+the SIP pending-call consumer must remain idle-only.
+
 **Rule:** Persist an unanswered outbound result only once, after allowing the
 negative INVITE response callback to run.
 

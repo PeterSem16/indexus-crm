@@ -4,7 +4,11 @@ import { useLocation } from "wouter";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
-import { createPulseDialEntryPoints, requestPulseDial } from "@/lib/pulse-dial-request";
+import {
+  createPulseDialEntryPoints,
+  requestPulseDial,
+  shouldFinalizeAcwBeforeExplicitDial,
+} from "@/lib/pulse-dial-request";
 import { PulseMainDialButton, PulseQuickDialButton } from "@/components/pulse-dial-button";
 import { SopPanel } from "@/components/agent/SopPanel";
 import { Button } from "@/components/ui/button";
@@ -12133,6 +12137,42 @@ export default function AgentWorkspacePage() {
     }, wrapUpDelay);
   }, [callContext, acwStartedAt, currentCampaignContactId, selectedCampaignId, activeTaskId, isAutoMode, campaignAutoSettings, agentSession]);
 
+  const finalizeAcwBeforeExplicitDial = useCallback(async () => {
+    if (!shouldFinalizeAcwBeforeExplicitDial(callContext.callState, acwStartedAt)) {
+      return;
+    }
+
+    const previousAcwStartedAt = acwStartedAt;
+    const previousCampaignContactId = currentCampaignContactId;
+    const previousCampaignId = selectedCampaignId;
+
+    if (previousCampaignContactId && previousCampaignId) {
+      const acwDurationSeconds = Math.max(
+        0,
+        Math.round((Date.now() - previousAcwStartedAt) / 1000),
+      );
+      await apiRequest(
+        "PATCH",
+        `/api/campaigns/${previousCampaignId}/contacts/${previousCampaignContactId}`,
+        { callMeta: { acwDurationSeconds } },
+      );
+    }
+
+    callWasActiveRef.current = false;
+    prevCallStateRef.current = "idle";
+    callContext.setCallState("idle");
+    callContext.setCallInfo(null);
+    callContext.resetCallTiming();
+    setAcwStartedAt(null);
+    setCallEndTimestamp(null);
+    setRingDuration(0);
+  }, [
+    callContext,
+    acwStartedAt,
+    currentCampaignContactId,
+    selectedCampaignId,
+  ]);
+
   const sendEmailMutation = useMutation({
     mutationFn: async (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; customerId?: string; contactType?: string; compositionDurationSeconds?: number | null; useSystemMailbox?: boolean; campaignCountryCode?: string; isReply?: boolean }) => {
       const res = await apiRequest("POST", "/api/ms365/send-email-from-mailbox", {
@@ -12893,6 +12933,11 @@ export default function AgentWorkspacePage() {
           : undefined;
       } catch (error) {
         console.error(`[PulseDial] recording-policy: ${error instanceof Error ? error.message : "unknown error"}`);
+      }
+
+      if (shouldFinalizeAcwBeforeExplicitDial(callContext.callState, acwStartedAt)) {
+        stage = "finalize-acw";
+        await finalizeAcwBeforeExplicitDial();
       }
 
       stage = "sip-enqueue";

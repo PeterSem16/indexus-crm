@@ -1,5 +1,12 @@
 export type PulseDialHandler = (phoneNumber: string) => void | Promise<void>;
 
+export function shouldFinalizeAcwBeforeExplicitDial(
+  callState: string,
+  acwStartedAt: number | null | undefined,
+): boolean {
+  return callState === "ended" && typeof acwStartedAt === "number";
+}
+
 export function requestPulseDial(
   handler: PulseDialHandler | undefined,
   phoneNumber: string | null | undefined,
