@@ -32,6 +32,18 @@ describe("resolveMissedCallCardTarget", () => {
     });
   });
 
+  it("uses the remembered card when a missed number still has multiple matches", () => {
+    const matches = [
+      { entityType: "customer" as const, id: "customer-1", name: "Customer" },
+      { entityType: "hospital" as const, id: "hospital-1", name: "Hospital" },
+    ];
+
+    expect(resolveMissedCallCardTarget(null, "+421900000", matches, matches[1])).toEqual({
+      kind: "match",
+      match: matches[1],
+    });
+  });
+
   it("does not create live inbound context for a historical missed call", () => {
     const liveContext = { callId: "live-call", campaignId: "campaign-1", callerNumber: "+421900000" };
     expect(getInboundSelectionContext("missed-call-1", liveContext)).toBeUndefined();

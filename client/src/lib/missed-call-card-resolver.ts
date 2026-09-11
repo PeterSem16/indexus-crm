@@ -38,12 +38,18 @@ export function resolveMissedCallCardTarget(
   customerId: string | number | null | undefined,
   phone: string,
   matches: MissedCallMatch[],
+  rememberedMatch?: MissedCallMatch,
 ): MissedCallCardResolution {
   if (customerId !== null && customerId !== undefined && String(customerId).length > 0) {
     return {
       kind: "match",
       match: { entityType: "customer", id: String(customerId), name: "", phone },
     };
+  }
+  if (rememberedMatch && matches.some(
+    (match) => match.entityType === rememberedMatch.entityType && match.id === rememberedMatch.id,
+  )) {
+    return { kind: "match", match: rememberedMatch };
   }
   if (matches.length === 1) return { kind: "match", match: matches[0] };
   if (matches.length > 1) return { kind: "ambiguous", matches };

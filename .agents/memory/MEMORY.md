@@ -83,3 +83,4 @@
 - [Initial RTP no-flow safety](initial-rtp-no-flow-safety.md) — initial silence only alerts; ICE re-INVITE requires prior healthy RTP or a correlated interruption; server hangups are session-bound.
 - [Pulse session activity counters](pulse-session-activity-counters.md) — header/My Activity counts outbound actions in the current session; daily quota usage is separate and must never overwrite it.
 - [Nexus Pulse notification boundary](nexus-pulse-notification-boundary.md) — workflow toasts use Focused Status and its chime; live-call audio/media/hold diagnostics retain legacy silent styling.
+- [Agent phone-card recall](agent-phone-card-recall.md) — remembered inbound card choices are agent-private, advisory, and keyed without cross-country phone-number collisions.

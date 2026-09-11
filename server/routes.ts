@@ -11,6 +11,7 @@ import { eq, ne, desc, and, gte, lte, inArray, isNotNull, isNull, or, count, sql
 import { db, pool } from "./db";
 import { evaluateAutomationCondition, updateFieldSnapshot } from "./lib/condition-evaluator";
 import { storage } from "./storage";
+import { normalizePhonePreferenceKey } from "@shared/phone-preference-key";
 import { 
   numberRanges,
   insertUserSchema, insertCustomerSchema, updateUserSchema, loginSchema, userSessions, communicationMessages,
@@ -3836,50 +3837,135 @@ export async function registerRoutes(
     }
   });
 
+  type PhoneLookupMatch = {
+    entityType: "customer" | "hospital" | "clinic" | "collaborator";
+    id: string;
+    name: string;
+    phone: string;
+    subtype?: string;
+  };
+
+  const getPhoneLookupMatches = async (phone: string): Promise<PhoneLookupMatch[]> => {
+    const normalized = phone.replace(/[\s\-\(\)]/g, "");
+    const shortNum = normalized.replace(/^(\+|00)/, "").replace(/^421|^420|^36|^40|^39|^49|^1/, "");
+    const matches = (candidate: string | null | undefined): boolean => {
+      if (!candidate) return false;
+      const normalizedCandidate = candidate.replace(/[\s\-\(\)]/g, "");
+      return normalizedCandidate === normalized
+        || normalizedCandidate.endsWith(shortNum)
+        || normalized.endsWith(normalizedCandidate.replace(/^(\+|00)/, "").replace(/^421|^420|^36|^40|^39|^49|^1/, ""));
+    };
+
+    const results: PhoneLookupMatch[] = [];
+    const [allCustomers, allHospitals, allClinics, allCollaborators] = await Promise.all([
+      storage.getAllCustomers(),
+      storage.getAllHospitals(),
+      storage.getAllClinics(),
+      storage.getAllCollaborators(),
+    ]);
+
+    for (const customer of allCustomers) {
+      const hit = [customer.phone, customer.mobile, (customer as any).mobile2, (customer as any).otherContact].find(matches);
+      if (hit) results.push({ entityType: "customer", id: String(customer.id), name: `${customer.firstName} ${customer.lastName}`, phone: hit });
+    }
+    for (const hospital of allHospitals) {
+      if (matches(hospital.phone)) results.push({ entityType: "hospital", id: String(hospital.id), name: hospital.name, phone: hospital.phone! });
+    }
+    for (const clinic of allClinics) {
+      const hit = [(clinic as any).phone, (clinic as any).phone2, (clinic as any).phone3].find(matches);
+      if (hit) results.push({ entityType: "clinic", id: String(clinic.id), name: clinic.name, phone: hit, subtype: (clinic as any).doctorName || undefined });
+    }
+    for (const collaborator of allCollaborators) {
+      const hit = [(collaborator as any).phone, (collaborator as any).mobile, (collaborator as any).mobile2, (collaborator as any).otherContact].find(matches);
+      if (hit) results.push({ entityType: "collaborator", id: String(collaborator.id), name: `${collaborator.firstName} ${collaborator.lastName}`, phone: hit, subtype: (collaborator as any).collaboratorType || undefined });
+    }
+
+    return results;
+  };
+
   // Multi-entity phone lookup — returns ALL matches across customers, hospitals, clinics, collaborators
   app.get("/api/phone/lookup-all", requireAuth, async (req: Request, res: Response) => {
     try {
       const phone = req.query.phone as string;
       if (!phone) return res.status(400).json({ error: "Phone parameter required" });
-
-      const normalized = phone.replace(/[\s\-\(\)]/g, "");
-      const shortNum = normalized.replace(/^(\+|00)/, "").replace(/^421|^420|^36|^40|^39|^49|^1/, "");
-
-      const matches = (p: string | null | undefined): boolean => {
-        if (!p) return false;
-        const norm = p.replace(/[\s\-\(\)]/g, "");
-        return norm === normalized || norm.endsWith(shortNum) || normalized.endsWith(norm.replace(/^(\+|00)/, "").replace(/^421|^420|^36|^40|^39|^49|^1/, ""));
-      };
-
-      const results: Array<{ entityType: string; id: string; name: string; phone: string; subtype?: string }> = [];
-
-      const [allCustomers, allHospitals, allClinics, allCollaborators] = await Promise.all([
-        storage.getAllCustomers(),
-        storage.getAllHospitals(),
-        storage.getAllClinics(),
-        storage.getAllCollaborators(),
-      ]);
-
-      for (const c of allCustomers) {
-        const hit = [c.phone, c.mobile, (c as any).mobile2, (c as any).otherContact].find(p => matches(p));
-        if (hit) results.push({ entityType: "customer", id: c.id, name: `${c.firstName} ${c.lastName}`, phone: hit });
-      }
-      for (const h of allHospitals) {
-        if (matches(h.phone)) results.push({ entityType: "hospital", id: h.id, name: h.name, phone: h.phone! });
-      }
-      for (const c of allClinics) {
-        const hit = [(c as any).phone, (c as any).phone2, (c as any).phone3].find((p: string | null) => matches(p));
-        if (hit) results.push({ entityType: "clinic", id: c.id, name: c.name, phone: hit, subtype: (c as any).doctorName || undefined });
-      }
-      for (const c of allCollaborators) {
-        const hit = [(c as any).phone, (c as any).mobile, (c as any).mobile2, (c as any).otherContact].find((p: string | null) => matches(p));
-        if (hit) results.push({ entityType: "collaborator", id: c.id, name: `${c.firstName} ${c.lastName}`, phone: hit, subtype: (c as any).collaboratorType || undefined });
-      }
-
-      res.json(results);
+      res.json(await getPhoneLookupMatches(phone));
     } catch (error) {
       console.error("Error in phone lookup-all:", error);
       res.status(500).json({ error: "Failed to lookup phone" });
+    }
+  });
+
+  // The choice is private to the current agent and advisory. The caller
+  // verifies it against its current lookup before showing or opening a card.
+  app.get("/api/phone/preferences", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const phone = String(req.query.phone || "");
+      const normalizedPhone = normalizePhonePreferenceKey(phone);
+      if (!normalizedPhone) return res.status(400).json({ error: "Phone parameter required" });
+
+      const result: any = await db.execute(sql`
+        SELECT entity_type, entity_id, last_selected_at
+        FROM agent_phone_entity_preferences
+        WHERE user_id = ${req.session.user!.id}
+          AND normalized_phone = ${normalizedPhone}
+        LIMIT 1
+      `);
+      const preference = result.rows?.[0];
+      if (!preference) return res.json(null);
+
+      res.json({
+        entityType: preference.entity_type,
+        entityId: preference.entity_id,
+        lastSelectedAt: preference.last_selected_at,
+      });
+    } catch (error) {
+      console.error("Error fetching agent phone-card preference:", error);
+      res.status(500).json({ error: "Failed to fetch phone preference" });
+    }
+  });
+
+  app.put("/api/phone/preferences", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const phone = typeof req.body?.phone === "string" ? req.body.phone : "";
+      const entityType = typeof req.body?.entityType === "string" ? req.body.entityType : "";
+      const entityId = typeof req.body?.entityId === "string" ? req.body.entityId : "";
+      const normalizedPhone = normalizePhonePreferenceKey(phone);
+      const validTypes = new Set(["customer", "hospital", "clinic", "collaborator"]);
+      if (!normalizedPhone || !validTypes.has(entityType) || !entityId.trim()) {
+        return res.status(400).json({ error: "Invalid phone-card preference" });
+      }
+
+      // Do not allow the client to associate arbitrary cards: the selected
+      // entity must still own/match the provided phone number.
+      const matches = await getPhoneLookupMatches(phone);
+      const selectedMatchExists = matches.some(
+        (match) => match.entityType === entityType && match.id === entityId,
+      );
+      if (!selectedMatchExists) {
+        return res.status(400).json({ error: "Selected entity does not match this phone number" });
+      }
+
+      await db.execute(sql`
+        INSERT INTO agent_phone_entity_preferences
+          (id, user_id, normalized_phone, entity_type, entity_id, last_selected_at)
+        VALUES (
+          gen_random_uuid(),
+          ${req.session.user!.id},
+          ${normalizedPhone},
+          ${entityType},
+          ${entityId},
+          now()
+        )
+        ON CONFLICT (user_id, normalized_phone)
+        DO UPDATE SET
+          entity_type = EXCLUDED.entity_type,
+          entity_id = EXCLUDED.entity_id,
+          last_selected_at = now()
+      `);
+      res.status(204).end();
+    } catch (error) {
+      console.error("Error saving agent phone-card preference:", error);
+      res.status(500).json({ error: "Failed to save phone preference" });
     }
   });
 

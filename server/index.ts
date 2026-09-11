@@ -1158,6 +1158,24 @@ app.use((req, res, next) => {
     console.error('[migration] representative_kpi_snapshots error:', e.message);
   }
 
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS agent_phone_entity_preferences (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id varchar NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        normalized_phone text NOT NULL,
+        entity_type text NOT NULL,
+        entity_id varchar NOT NULL,
+        last_selected_at timestamp NOT NULL DEFAULT now()
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS agent_phone_entity_preferences_user_phone_unique
+        ON agent_phone_entity_preferences(user_id, normalized_phone);
+    `);
+    console.log('[migration] agent_phone_entity_preferences ensured');
+  } catch (e: any) {
+    console.error('[migration] agent_phone_entity_preferences error:', e.message);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

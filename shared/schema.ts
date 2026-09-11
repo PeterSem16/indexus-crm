@@ -6463,6 +6463,25 @@ export const insertInboundCallLogSchema = createInsertSchema(inboundCallLogs).om
 export type InsertInboundCallLog = z.infer<typeof insertInboundCallLogSchema>;
 export type InboundCallLog = typeof inboundCallLogs.$inferSelect;
 
+// Last card an agent explicitly opened for a caller number. The entity is
+// polymorphic, so no entity foreign key is stored; callers must validate it
+// against the current phone lookup before using it.
+export const agentPhoneEntityPreferences = pgTable("agent_phone_entity_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  normalizedPhone: text("normalized_phone").notNull(),
+  entityType: text("entity_type").notNull(),
+  entityId: varchar("entity_id").notNull(),
+  lastSelectedAt: timestamp("last_selected_at").notNull().default(sql`now()`),
+}, (table) => ({
+  uniqueAgentPhone: uniqueIndex("agent_phone_entity_preferences_user_phone_unique").on(
+    table.userId,
+    table.normalizedPhone,
+  ),
+}));
+
+export type AgentPhoneEntityPreference = typeof agentPhoneEntityPreferences.$inferSelect;
+
 // DID Routes - routing configuration for DID (Direct Inward Dialing) numbers
 export const didRoutes = pgTable("did_routes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

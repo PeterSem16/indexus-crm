@@ -14,6 +14,11 @@ import {
   releaseInboundCallClaim,
   shouldIgnoreInboundCallNotification,
 } from "@/lib/inbound-call-claim";
+import {
+  getRememberedPhoneCard,
+  orderPhoneMatchesWithRememberedCard,
+  type RememberedPhoneCard,
+} from "@/lib/phone-card-preference";
 import { PulseMainDialButton, PulseQuickDialButton } from "@/components/pulse-dial-button";
 import { SopPanel } from "@/components/agent/SopPanel";
 import { Button } from "@/components/ui/button";
@@ -10424,11 +10429,19 @@ function AgentWorkspacePageContent() {
     staleTime: 60000,
   });
 
+  const fetchRememberedPhoneCard = async (phone: string): Promise<RememberedPhoneCard | null> => {
+    if (!phone || phone === "Unknown") return null;
+    const response = await fetch(`/api/phone/preferences?phone=${encodeURIComponent(phone)}`, {
+      credentials: "include",
+    });
+    return response.ok ? response.json() : null;
+  };
+
   const handleSelectInboundMatch = async (
     match: PhoneMatch,
     mode: "card" | "details" | "open",
     inboundTaskContext?: { callId?: string; campaignId?: string; campaignName?: string; callerNumber?: string },
-    options?: { syncCall?: boolean }
+    options?: { syncCall?: boolean; rememberPhone?: string }
   ): Promise<boolean> => {
     try {
       let contact: Customer | null = null;
@@ -10503,12 +10516,33 @@ function AgentWorkspacePageContent() {
         setTimeout(() => setPhoneSubTabOverride(null), 100);
       }
 
+      // A remembered card is recorded only after the requested card actually
+      // loaded, and only for a deliberate phone-call card-open action.
+      if (contact && options?.rememberPhone) {
+        void fetch("/api/phone/preferences", {
+          method: "PUT",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phone: options.rememberPhone,
+            entityType: match.entityType,
+            entityId: String(match.id),
+          }),
+        }).catch((error) => {
+          console.warn("[AgentWS] Could not remember selected phone card:", error);
+        });
+      }
+
+      if (contact && inboundTaskContext) {
+        setCurrentCampaignContactId(null);
+      }
+
       // Sync selected identity to sip-phone — sip-phone updates localCustomerIdRef AND PATCHes call log.
       // Skipped for contexts (e.g. missed-calls list) that only want to open a card without touching an active call.
       if (contact && options?.syncCall !== false) {
         callContext.updateCallCustomerFn.current?.(String(contact.id), {
           contactType: match.entityType,
-          campaignContactId: currentCampaignContactId || undefined,
+          campaignContactId: inboundTaskContext ? undefined : currentCampaignContactId || undefined,
         });
       }
 
@@ -10565,7 +10599,13 @@ function AgentWorkspacePageContent() {
   const prevStatusBeforeBackOffice = useRef<AgentStatus | null>(null);
   const [allowInboundInBO, setAllowInboundInBO] = useState(false);
   const [contractWizardOpen, setContractWizardOpen] = useState(false);
-  const [pendingInboundMatches, setPendingInboundMatches] = useState<{ phone: string; matches: PhoneMatch[]; callId?: string; missedCallId?: string } | null>(null);
+  const [pendingInboundMatches, setPendingInboundMatches] = useState<{
+    phone: string;
+    matches: PhoneMatch[];
+    preferredMatch?: PhoneMatch;
+    callId?: string;
+    missedCallId?: string;
+  } | null>(null);
   const [pendingUnknownCaller, setPendingUnknownCaller] = useState<{ phone: string } | null>(null);
   const [createFromCallType, setCreateFromCallType] = useState<"customer" | "hospital" | "clinic" | "person" | null>(null);
   const [createIsLoading, setCreateIsLoading] = useState(false);
@@ -10593,6 +10633,38 @@ function AgentWorkspacePageContent() {
   const [forwardedCallActive, setForwardedCallActive] = useState<{
     callId: string; callerNumber: string; callerName?: string; startedAt: Date;
   } | null>(null);
+
+  const handlePendingInboundMatchSelect = async (match: PhoneMatch) => {
+    const pending = pendingInboundMatches;
+    if (!pending) return;
+    const context = pending.callId
+      ? {
+        callId: pending.callId,
+        campaignId: selectedCampaignId || "",
+        campaignName: selectedCampaign?.name || "Inbound",
+        callerNumber: pending.phone,
+      }
+      : undefined;
+    const missedCallId = pending.missedCallId;
+
+    setPendingInboundMatches(null);
+    const opened = await handleSelectInboundMatch(
+      match,
+      "card",
+      getInboundSelectionContext(missedCallId, context || {}),
+      { syncCall: !missedCallId, rememberPhone: pending.phone },
+    );
+    if (opened && missedCallId) {
+      try {
+        await markMissedCallHandled(missedCallId);
+        setCurrentCampaignContactId(null);
+        setRightTab("actions");
+        setAbandonedCallsOpen(false);
+      } catch (error) {
+        console.error("Failed to mark missed call handled after selection:", error);
+      }
+    }
+  };
   const forwardedCallActiveRef = useRef(forwardedCallActive);
   forwardedCallActiveRef.current = forwardedCallActive;
   const sessionQueueIdsRef = useRef<string[]>([]);
@@ -13592,13 +13664,23 @@ function AgentWorkspacePageContent() {
       // Fetch ALL entity matches for this number so agent can pick the right one
       let anyFound = false;
       try {
-        const allRes = await fetch(`/api/phone/lookup-all?phone=${encodeURIComponent(callerNumber)}`, { credentials: "include" });
+        const [allRes, preferenceRes] = await Promise.all([
+          fetch(`/api/phone/lookup-all?phone=${encodeURIComponent(callerNumber)}`, { credentials: "include" }),
+          fetchRememberedPhoneCard(callerNumber),
+        ]);
         if (allRes.ok) {
           const allMatches: PhoneMatch[] = await allRes.json();
+          const rememberedMatch = getRememberedPhoneCard(allMatches, preferenceRes);
           if (allMatches.length > 1) {
-            // Multiple matches — show entity selection modal; agent will pick
+            // Multiple matches — keep each option accessible, but promote the
+            // card this agent last chose for this phone number.
             anyFound = true;
-            setPendingInboundMatches({ phone: callerNumber, matches: allMatches, callId: call.callId });
+            setPendingInboundMatches({
+              phone: callerNumber,
+              matches: orderPhoneMatchesWithRememberedCard(allMatches, rememberedMatch),
+              preferredMatch: rememberedMatch,
+              callId: call.callId,
+            });
             setTimeline([{
               id: `sys-inbound-${Date.now()}`,
               type: "system",
@@ -13607,49 +13689,13 @@ function AgentWorkspacePageContent() {
             }]);
           } else if (allMatches.length === 1) {
             // Single match — auto-load it (customer or any other entity type)
-            anyFound = true;
             const m = allMatches[0];
-            if (m.entityType === "customer") {
-              const custRes = await fetch(`/api/customers/${m.id}`, { credentials: "include" });
-              if (custRes.ok) {
-                const customer = await custRes.json();
-                setCurrentContact(customer);
-                setCurrentCampaignContactId(null);
-                const newTask: TaskItem = {
-                  id: `task-inbound-${Date.now()}`,
-                  contact: customer,
-                  campaignId: selectedCampaignId || "",
-                  campaignName: selectedCampaign?.name || "Inbound",
-                  campaignContactId: null,
-                  channel: "phone",
-                  startedAt: new Date(),
-                  status: "active",
-                  direction: "inbound",
-                };
-                const dupTask4 = tasksRef.current.find(t => !t.campaignContactId && t.contact?.id === customer.id);
-                if (dupTask4) {
-                  setActiveTaskId(dupTask4.id);
-                } else {
-                  setTasks((prev) => [...prev, newTask]);
-                  setActiveTaskId(newTask.id);
-                  setTimeline([{
-                    id: `sys-inbound-${Date.now()}`,
-                    type: "system",
-                    timestamp: new Date(),
-                    content: `Prichádzajúci hovor od ${m.name} (${callerNumber})`,
-                    details: "Inbound call",
-                  }]);
-                }
-              }
-            } else {
-              // Hospital / clinic / collaborator — load entity, set card, and create task
-              await handleSelectInboundMatch(m, "card", {
-                callId: call.callId,
-                campaignId: selectedCampaignId || "",
-                campaignName: selectedCampaign?.name || "Inbound",
-                callerNumber,
-              });
-            }
+            anyFound = await handleSelectInboundMatch(m, "card", {
+              callId: call.callId,
+              campaignId: selectedCampaignId || "",
+              campaignName: selectedCampaign?.name || "Inbound",
+              callerNumber,
+            });
           }
         }
       } catch (lookupErr) {
@@ -16906,16 +16952,41 @@ function AgentWorkspacePageContent() {
                             try {
                               const persistedTarget = resolveMissedCallCardTarget(call.customerId, phoneNum || "", []);
                               if (persistedTarget.kind === "match") {
-                                opened = await handleSelectInboundMatch(persistedTarget.match, "card", undefined, { syncCall: false });
+                                opened = await handleSelectInboundMatch(
+                                  persistedTarget.match,
+                                  "card",
+                                  undefined,
+                                  { syncCall: false, rememberPhone: phoneNum },
+                                );
                               } else if (phoneNum) {
-                                const lookupRes = await fetch(`/api/phone/lookup-all?phone=${encodeURIComponent(phoneNum)}`, { credentials: "include" });
+                                const [lookupRes, preference] = await Promise.all([
+                                  fetch(`/api/phone/lookup-all?phone=${encodeURIComponent(phoneNum)}`, { credentials: "include" }),
+                                  fetchRememberedPhoneCard(phoneNum),
+                                ]);
                                 if (lookupRes.ok) {
                                     const matches: PhoneMatch[] = await lookupRes.json();
-                                    const resolution = resolveMissedCallCardTarget(call.customerId, phoneNum, Array.isArray(matches) ? matches : []);
+                                  const validMatches = Array.isArray(matches) ? matches : [];
+                                  const rememberedMatch = getRememberedPhoneCard(validMatches, preference);
+                                  const resolution = resolveMissedCallCardTarget(
+                                    call.customerId,
+                                    phoneNum,
+                                    validMatches,
+                                    rememberedMatch,
+                                  );
                                     if (resolution.kind === "match") {
-                                      opened = await handleSelectInboundMatch(resolution.match, "card", undefined, { syncCall: false });
+                                    opened = await handleSelectInboundMatch(
+                                      resolution.match,
+                                      "card",
+                                      undefined,
+                                      { syncCall: false, rememberPhone: phoneNum },
+                                    );
                                     } else if (resolution.kind === "ambiguous") {
-                                      setPendingInboundMatches({ phone: phoneNum, matches: resolution.matches, missedCallId: String(call.id) });
+                                    setPendingInboundMatches({
+                                      phone: phoneNum,
+                                      matches: orderPhoneMatchesWithRememberedCard(resolution.matches, rememberedMatch),
+                                      preferredMatch: rememberedMatch,
+                                      missedCallId: String(call.id),
+                                    });
                                       return;
                                   }
                                 }
@@ -17527,23 +17598,36 @@ function AgentWorkspacePageContent() {
 
       {/* Post-accept entity selection modal — shown when multiple phone matches exist */}
       <Dialog open={!!pendingInboundMatches} onOpenChange={(open) => { if (!open) setPendingInboundMatches(null); }}>
-        <DialogContent className="max-w-md" data-testid="dialog-entity-selection">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <PhoneIncoming className="h-5 w-5 text-green-600" />
+        <DialogContent className="max-w-lg gap-0 overflow-hidden border-primary/15 p-0 shadow-2xl" data-testid="dialog-entity-selection">
+          <DialogHeader className="relative overflow-hidden border-b bg-gradient-to-br from-emerald-50 via-background to-sky-50 px-6 pb-5 pt-6 dark:from-emerald-950/30 dark:via-background dark:to-sky-950/20">
+            <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-emerald-300/20 blur-2xl dark:bg-emerald-400/10" />
+            <DialogTitle className="relative flex items-center gap-3 text-xl">
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/25">
+                <PhoneIncoming className="h-5 w-5" />
+              </span>
               {t.agentWorkspace.inboundSelectTitle}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="relative mt-3 text-sm leading-6">
               {t.agentWorkspace.inboundSelectDesc.replace("{phone}", pendingInboundMatches?.phone || "")}
             </DialogDescription>
+            <div className="relative mt-4 inline-flex w-fit items-center gap-2 rounded-full border border-emerald-200/80 bg-white/80 px-3 py-1.5 text-xs font-semibold text-emerald-800 shadow-sm dark:border-emerald-800 dark:bg-background/70 dark:text-emerald-300">
+              <Phone className="h-3.5 w-3.5" />
+              <span className="font-mono">{pendingInboundMatches?.phone}</span>
+            </div>
           </DialogHeader>
-          <div className="space-y-2 py-2 max-h-80 overflow-y-auto">
+          <div className="max-h-[min(50vh,25rem)] space-y-3 overflow-y-auto px-6 py-5">
+            {pendingInboundMatches?.preferredMatch && (
+              <div className="flex items-center gap-2 rounded-xl border border-amber-200/70 bg-amber-50/75 px-3 py-2 text-xs font-medium text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/25 dark:text-amber-200">
+                <Sparkles className="h-4 w-4 shrink-0 text-amber-500" />
+                {t.agentWorkspace.inboundSelectLastUsed}
+              </div>
+            )}
             {pendingInboundMatches?.matches.map((match) => {
               const colorMap: Record<string, string> = {
-                customer: "bg-blue-100 text-blue-700 border-blue-200",
-                hospital: "bg-purple-100 text-purple-700 border-purple-200",
-                clinic: "bg-cyan-100 text-cyan-700 border-cyan-200",
-                collaborator: "bg-amber-100 text-amber-700 border-amber-200",
+                customer: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-900",
+                hospital: "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-900",
+                clinic: "bg-cyan-100 text-cyan-700 border-cyan-200 dark:bg-cyan-950/50 dark:text-cyan-300 dark:border-cyan-900",
+                collaborator: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-900",
               };
               const labelMap: Record<string, string> = {
                 customer: t.agentWorkspace.entityTypeCustomer,
@@ -17557,52 +17641,43 @@ function AgentWorkspacePageContent() {
                 clinic: <Building2 className="h-4 w-4 shrink-0" />,
                 collaborator: <Users className="h-4 w-4 shrink-0" />,
               };
+              const isRemembered = match.entityType === pendingInboundMatches?.preferredMatch?.entityType
+                && match.id === pendingInboundMatches?.preferredMatch?.id;
               return (
                 <button
                   key={`${match.entityType}-${match.id}`}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg border hover:bg-accent transition-colors text-left group"
+                  className={`group relative w-full overflow-hidden rounded-2xl border p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
+                    isRemembered
+                      ? "border-amber-300 bg-gradient-to-r from-amber-50 via-background to-orange-50 shadow-sm dark:border-amber-800 dark:from-amber-950/30 dark:via-background dark:to-orange-950/20"
+                      : "border-border/70 bg-card hover:border-primary/25 hover:bg-muted/40"
+                  }`}
                   data-testid={`btn-select-entity-${match.entityType}-${match.id}`}
-                  onClick={async () => {
-                    const ctx = pendingInboundMatches
-                      ? { callId: pendingInboundMatches.callId, campaignId: selectedCampaignId || "", campaignName: selectedCampaign?.name || "Inbound", callerNumber: pendingInboundMatches.phone }
-                      : undefined;
-                    const missedCallId = pendingInboundMatches?.missedCallId;
-                    setPendingInboundMatches(null);
-                    const opened = await handleSelectInboundMatch(
-                      match,
-                      "card",
-                      getInboundSelectionContext(missedCallId, ctx || {}),
-                      { syncCall: !missedCallId },
-                    );
-                    if (opened && missedCallId) {
-                      try {
-                        await markMissedCallHandled(missedCallId);
-                        setCurrentCampaignContactId(null);
-                        setRightTab("actions");
-                        setAbandonedCallsOpen(false);
-                      } catch (error) {
-                        console.error("Failed to mark missed call handled after selection:", error);
-                      }
-                    }
-                  }}
+                  onClick={() => void handlePendingInboundMatchSelect(match)}
                 >
-                  <div className={`p-2 rounded-md border ${colorMap[match.entityType] || "bg-muted"}`}>
+                  {isRemembered && (
+                    <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-amber-200/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900 dark:bg-amber-900/60 dark:text-amber-100">
+                      <Sparkles className="h-3 w-3" />
+                      {t.agentWorkspace.inboundSelectRecommended}
+                    </span>
+                  )}
+                  <div className={`flex h-11 w-11 items-center justify-center rounded-xl border shadow-sm ${colorMap[match.entityType] || "bg-muted"}`}>
                     {iconMap[match.entityType]}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm truncate">{match.name}</div>
+                  <div className={`min-w-0 flex-1 ${isRemembered ? "pr-28" : ""}`}>
+                    <div className="truncate font-semibold">{match.name}</div>
                     {match.subtype && (
-                      <div className="text-xs text-muted-foreground truncate">{match.subtype}</div>
+                      <div className="mt-0.5 truncate text-xs text-muted-foreground">{match.subtype}</div>
                     )}
                   </div>
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${colorMap[match.entityType] || "bg-muted"}`}>
+                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${colorMap[match.entityType] || "bg-muted"}`}>
                     {labelMap[match.entityType] || match.entityType}
                   </span>
+                  <ArrowRight className={`h-4 w-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 ${isRemembered ? "text-amber-600 dark:text-amber-300" : "text-muted-foreground"}`} />
                 </button>
               );
             })}
           </div>
-          <DialogFooter>
+          <DialogFooter className="border-t bg-muted/20 px-6 py-3">
             <Button variant="ghost" size="sm" onClick={() => setPendingInboundMatches(null)} data-testid="btn-entity-selection-skip">
               {t.agentWorkspace.inboundSelectSkip}
             </Button>

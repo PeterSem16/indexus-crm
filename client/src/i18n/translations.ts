@@ -668,6 +668,7 @@ export interface Translations {
     connecting: string;
     ringing: string;
     active: string;
+    callInProgress: string;
     onHold: string;
     unknownCaller: string;
     inbound: string;
@@ -4036,6 +4037,8 @@ export interface Translations {
     inboundSelectTitle: string;
     inboundSelectDesc: string;
     inboundSelectSkip: string;
+    inboundSelectRecommended: string;
+    inboundSelectLastUsed: string;
     inboundBusyCallTitle: string;
     inboundQueueTitle: string;
     inboundQueueWaitingMsg: string;
@@ -8140,6 +8143,7 @@ export const translations: Record<Locale, Translations> = {
       connecting: 'Connecting...',
       ringing: 'Ringing...',
       active: 'Active call',
+      callInProgress: 'A call is already in progress. End it before starting another call.',
       onHold: 'On hold',
       unknownCaller: 'Unknown',
       inbound: 'Inbound',
@@ -11961,6 +11965,7 @@ export const translations: Record<Locale, Translations> = {
       inboundUrgentDesc: 'This caller has called {n} times today and the last call was not handled. Answer this call as a priority.',
       entityTypeCustomer: 'Customer', entityTypeHospital: 'Hospital', entityTypeClinic: 'Clinic', entityTypeCollaborator: 'Collaborator',
       inboundSelectTitle: 'Select contact for call', inboundSelectDesc: 'Number {phone} is linked to multiple contacts. Choose the one to associate this call with.', inboundSelectSkip: 'Skip',
+      inboundSelectRecommended: 'Last selected', inboundSelectLastUsed: 'You opened this card for this number last time.',
       inboundBusyCallTitle: 'Incoming call',
       inboundQueueTitle: 'Waiting in queue',
       inboundQueueWaitingMsg: 'Call is waiting in queue. Change status to Available to accept it.',
@@ -19347,6 +19352,7 @@ export const translations: Record<Locale, Translations> = {
       inboundUrgentDesc: 'Tento volajúci dnes volal už {n}× a posledný hovor nebol vybavený. Prijmite hovor prioritne.',
       entityTypeCustomer: 'Zákazník', entityTypeHospital: 'Nemocnica', entityTypeClinic: 'Klinika', entityTypeCollaborator: 'Spolupracovník',
       inboundSelectTitle: 'Vyberte kontakt pre hovor', inboundSelectDesc: 'Číslo {phone} je priradené viacerým kontaktom. Vyberte, ku komu chcete tento hovor priradiť.', inboundSelectSkip: 'Preskočiť',
+      inboundSelectRecommended: 'Posledná otvorená karta', inboundSelectLastUsed: 'Pri tomto čísle ste naposledy otvorili túto kartu.',
       inboundBusyCallTitle: 'Prichádzajúci hovor',
       inboundQueueTitle: 'Čaká vo fronte',
       inboundQueueWaitingMsg: 'Hovor čaká vo fronte. Zmeňte stav na Dostupný pre jeho prijatie.',
@@ -21047,6 +21053,7 @@ export const translations: Record<Locale, Translations> = {
       connecting: 'Pripájam...',
       ringing: 'Vyzváňa...',
       active: 'Aktívny hovor',
+      callInProgress: 'Práve prebieha hovor. Pred začatím ďalšieho hovoru ho najprv ukončite.',
       onHold: 'Podržaný',
       unknownCaller: 'Neznámy',
       inbound: 'Prichádzajúci',
@@ -26719,6 +26726,7 @@ export const translations: Record<Locale, Translations> = {
       inboundUrgentDesc: 'Tento volající dnes volal již {n}× a poslední hovor nebyl vyřízen. Přijměte hovor přednostně.',
       entityTypeCustomer: 'Zákazník', entityTypeHospital: 'Nemocnice', entityTypeClinic: 'Klinika', entityTypeCollaborator: 'Spolupracovník',
       inboundSelectTitle: 'Vyberte kontakt pro hovor', inboundSelectDesc: 'Číslo {phone} je přiřazeno více kontaktům. Vyberte, ke komu chcete tento hovor přiřadit.', inboundSelectSkip: 'Přeskočit',
+      inboundSelectRecommended: 'Poslední otevřená karta', inboundSelectLastUsed: 'U tohoto čísla jste naposledy otevřeli tuto kartu.',
       inboundBusyCallTitle: 'Příchozí hovor',
       inboundQueueTitle: 'Čeká ve frontě',
       inboundQueueWaitingMsg: 'Hovor čeká ve frontě. Změňte stav na Dostupný pro jeho přijetí.',
@@ -28382,6 +28390,7 @@ export const translations: Record<Locale, Translations> = {
       connecting: 'Připojuji...',
       ringing: 'Vyzvání...',
       active: 'Aktivní hovor',
+      callInProgress: 'Právě probíhá hovor. Před zahájením dalšího hovoru jej nejprve ukončete.',
       onHold: 'Podrženo',
       unknownCaller: 'Neznámý',
       inbound: 'Příchozí',
@@ -34047,6 +34056,7 @@ export const translations: Record<Locale, Translations> = {
       inboundUrgentDesc: 'Ez a hívó ma már {n}× hívott és az utolsó hívás nem lett kezelve. Fogadja el prioritásként.',
       entityTypeCustomer: 'Ügyfél', entityTypeHospital: 'Kórház', entityTypeClinic: 'Klinika', entityTypeCollaborator: 'Együttműködő',
       inboundSelectTitle: 'Kontakt kiválasztása a híváshoz', inboundSelectDesc: 'A(z) {phone} szám több kapcsolathoz van rendelve. Válassza ki, melyikhez rendeli ezt a hívást.', inboundSelectSkip: 'Kihagyás',
+      inboundSelectRecommended: 'Legutóbb megnyitott kártya', inboundSelectLastUsed: 'Ennél a számnál legutóbb ezt a kártyát nyitotta meg.',
       inboundBusyCallTitle: 'Bejövő hívás',
       inboundQueueTitle: 'Sorban vár',
       inboundQueueWaitingMsg: 'A hívás várakozik a sorban. Váltson Elérhető állapotra a fogadáshoz.',
@@ -35677,6 +35687,7 @@ export const translations: Record<Locale, Translations> = {
       connecting: 'Csatlakozás...',
       ringing: 'Csörög...',
       active: 'Aktív hívás',
+      callInProgress: 'Már folyamatban van egy hívás. Új hívás indítása előtt fejezze be azt.',
       onHold: 'Tartva',
       unknownCaller: 'Ismeretlen',
       inbound: 'Bejövő',
@@ -41262,6 +41273,7 @@ export const translations: Record<Locale, Translations> = {
       inboundUrgentDesc: 'Acest apelant a sunat de {n} ori azi și ultimul apel nu a fost gestionat. Răspundeți cu prioritate.',
       entityTypeCustomer: 'Client', entityTypeHospital: 'Spital', entityTypeClinic: 'Clinică', entityTypeCollaborator: 'Colaborator',
       inboundSelectTitle: 'Selectați contactul pentru apel', inboundSelectDesc: 'Numărul {phone} este asociat mai multor contacte. Alegeți cărui contact doriți să atribuiți acest apel.', inboundSelectSkip: 'Omiteți',
+      inboundSelectRecommended: 'Ultimul card deschis', inboundSelectLastUsed: 'Pentru acest număr ați deschis ultima dată acest card.',
       inboundBusyCallTitle: 'Apel primit',
       inboundQueueTitle: 'Așteaptă în coadă',
       inboundQueueWaitingMsg: 'Apelul așteaptă în coadă. Schimbați starea la Disponibil pentru a răspunde.',
@@ -42892,6 +42904,7 @@ export const translations: Record<Locale, Translations> = {
       connecting: 'Se conectează...',
       ringing: 'Sună...',
       active: 'Apel activ',
+      callInProgress: 'Un apel este deja în desfășurare. Încheiați-l înainte de a începe un alt apel.',
       onHold: 'În așteptare',
       unknownCaller: 'Necunoscut',
       inbound: 'Primit',
@@ -48479,6 +48492,7 @@ export const translations: Record<Locale, Translations> = {
       inboundUrgentDesc: "Questo chiamante ha chiamato {n} volte oggi e l'ultima chiamata non è stata gestita. Rispondere con priorità.",
       entityTypeCustomer: 'Cliente', entityTypeHospital: 'Ospedale', entityTypeClinic: 'Clinica', entityTypeCollaborator: 'Collaboratore',
       inboundSelectTitle: 'Seleziona contatto per la chiamata', inboundSelectDesc: 'Il numero {phone} è associato a più contatti. Seleziona a chi associare questa chiamata.', inboundSelectSkip: 'Salta',
+      inboundSelectRecommended: 'Ultima scheda aperta', inboundSelectLastUsed: 'Per questo numero hai aperto questa scheda l’ultima volta.',
       inboundBusyCallTitle: 'Chiamata in arrivo',
       inboundQueueTitle: 'In attesa in coda',
       inboundQueueWaitingMsg: 'La chiamata è in attesa in coda. Cambia stato in Disponibile per accettarla.',
@@ -50109,6 +50123,7 @@ export const translations: Record<Locale, Translations> = {
       connecting: 'Connessione...',
       ringing: 'Squilla...',
       active: 'Chiamata attiva',
+      callInProgress: 'È già in corso una chiamata. Terminarla prima di avviarne un’altra.',
       onHold: 'In attesa',
       unknownCaller: 'Sconosciuto',
       inbound: 'In entrata',
@@ -55696,6 +55711,7 @@ export const translations: Record<Locale, Translations> = {
       inboundUrgentDesc: 'Dieser Anrufer hat heute bereits {n}× angerufen und der letzte Anruf wurde nicht bearbeitet. Nehmen Sie den Anruf vorrangig entgegen.',
       entityTypeCustomer: 'Kunde', entityTypeHospital: 'Krankenhaus', entityTypeClinic: 'Klinik', entityTypeCollaborator: 'Mitarbeiter',
       inboundSelectTitle: 'Kontakt für Anruf auswählen', inboundSelectDesc: 'Die Nummer {phone} ist mehreren Kontakten zugeordnet. Wählen Sie, welchem Kontakt dieser Anruf zugeordnet werden soll.', inboundSelectSkip: 'Überspringen',
+      inboundSelectRecommended: 'Zuletzt geöffnete Karte', inboundSelectLastUsed: 'Für diese Nummer haben Sie zuletzt diese Karte geöffnet.',
       inboundBusyCallTitle: 'Eingehender Anruf',
       inboundQueueTitle: 'Wartet in Warteschlange',
       inboundQueueWaitingMsg: 'Der Anruf wartet in der Warteschlange. Ändern Sie den Status auf Verfügbar, um ihn anzunehmen.',
@@ -57313,6 +57329,7 @@ export const translations: Record<Locale, Translations> = {
       connecting: 'Verbindung wird hergestellt...',
       ringing: 'Klingelt...',
       active: 'Aktiver Anruf',
+      callInProgress: 'Ein Anruf läuft bereits. Beenden Sie ihn, bevor Sie einen weiteren Anruf starten.',
       onHold: 'Gehalten',
       unknownCaller: 'Unbekannt',
       inbound: 'Eingehend',

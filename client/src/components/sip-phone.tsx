@@ -2124,8 +2124,7 @@ export function SipPhone({
       clearPendingCall();
       toast({
         title: t.callBar?.active || t.agentWorkspace.errorLabel,
-        description: t.agentWorkspace.errorLabel,
-        variant: "destructive",
+        description: t.callBar?.callInProgress || t.callBar?.active,
       });
       return;
     }
