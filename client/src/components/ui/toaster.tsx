@@ -11,7 +11,9 @@ import {
 import {
   AlertTriangle,
   BellRing,
+  CheckCircle2,
   ClipboardList,
+  Info,
   PhoneCall,
   PhoneForwarded,
   PhoneOff,
@@ -23,6 +25,8 @@ const pulseIcons = {
   next: PhoneForwarded,
   connected: PhoneCall,
   warning: AlertTriangle,
+  success: CheckCircle2,
+  info: Info,
 } satisfies Record<PulseToastState, typeof PhoneOff>
 
 const pulseSteps: PulseToastState[] = ["ended", "acw", "next"]
@@ -38,13 +42,20 @@ export function Toaster() {
         const activePulseState = pulseState ?? "warning"
         const PulseIcon = pulseIcons[activePulseState]
         const activeStep = pulseSteps.indexOf(activePulseState)
+        const pulseIconStyle = activePulseState === "success" || activePulseState === "connected"
+          ? "bg-[#e3f0e9] text-[#40826b] dark:bg-[#29483d] dark:text-[#83c5ac]"
+          : activePulseState === "info" || activePulseState === "next"
+            ? "bg-[#e5f0f2] text-[#477f91] dark:bg-[#293f47] dark:text-[#86b9c8]"
+            : activePulseState === "acw"
+              ? "bg-[#f9edce] text-[#a2732f] dark:bg-[#514329] dark:text-[#ddb86c]"
+              : "bg-[#f7e3dc] text-[#b65046] dark:bg-[#553631] dark:text-[#f09a8e]"
         return (
           <Toast key={id} pulseState={pulseState} {...props}>
             <div className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
               destructive
                 ? "bg-white/15"
                 : pulse
-                  ? "h-[30px] w-[30px] rounded-lg bg-[#f7e3dc] text-[#b65046] dark:bg-[#553631] dark:text-[#f09a8e]"
+                  ? `h-[30px] w-[30px] rounded-lg ${pulseIconStyle}`
                   : "bg-sky-500/10 text-sky-600 dark:text-sky-300"
             }`}>
               {pulse

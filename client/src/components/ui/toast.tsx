@@ -6,7 +6,7 @@ import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const ToastProvider = ToastPrimitives.Provider
-type PulseToastState = "ended" | "acw" | "next" | "connected" | "warning"
+type PulseToastState = "ended" | "acw" | "next" | "connected" | "warning" | "success" | "info"
 
 const ToastViewport = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Viewport>,
@@ -32,7 +32,7 @@ const toastVariants = cva(
         destructive:
           "destructive group border-red-500 bg-red-700 text-white dark:border-red-400 dark:bg-red-800",
         pulse:
-          "pulse group items-start rounded-xl border-[#e2c4b8] border-l-4 border-l-[#b95446] bg-[#fffaf6] text-[#4a3e3d] shadow-[0_12px_26px_rgba(71,53,44,0.16)] backdrop-blur-none dark:border-[#7d554d] dark:border-l-[#d87568] dark:bg-[#2b2423] dark:text-[#f8eeea]",
+          "pulse group items-start rounded-xl border-[#e2c4b8] border-l-4 border-l-[#b95446] bg-[#fffaf6] text-[#4a3e3d] shadow-[0_12px_26px_rgba(71,53,44,0.16)] backdrop-blur-none data-[pulse-state=success]:border-l-[#40826b] data-[pulse-state=info]:border-l-[#477f91] data-[pulse-state=connected]:border-l-[#40826b] data-[pulse-state=acw]:border-l-[#a2732f] data-[pulse-state=next]:border-l-[#477f91] dark:border-[#7d554d] dark:border-l-[#d87568] dark:bg-[#2b2423] dark:text-[#f8eeea]",
       },
     },
     defaultVariants: {

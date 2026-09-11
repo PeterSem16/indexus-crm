@@ -184,7 +184,8 @@ import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getInboundRingtonePreset } from "@/lib/inbound-ringtones";
 import { sanitizeSignatureHtml } from "@/lib/sanitize-html";
-import { useToast } from "@/hooks/use-toast";
+import { PulseToastScope } from "@/hooks/use-toast";
+import { usePulseToast } from "@/hooks/use-pulse-toast";
 import { useSip } from "@/contexts/sip-context";
 import { useCall } from "@/contexts/call-context";
 import { format, addBusinessDays, startOfDay, endOfDay, addDays, startOfWeek, endOfWeek, isWithinInterval, isBefore } from "date-fns";
@@ -2881,7 +2882,7 @@ function CommunicationCanvas({
 }) {
   const { t, locale } = useI18n();
   const { user } = useAuth();
-  const { toast } = useToast();
+  const { toast } = usePulseToast();
   const smsChatEndRef = useRef<HTMLDivElement>(null);
   const emailChatEndRef = useRef<HTMLDivElement>(null);
   const [smsSearch, setSmsSearch] = useState("");
@@ -7726,7 +7727,7 @@ function CustomerInfoPanel({
   campaignContactId?: string | null;
 }) {
   const { t, locale } = useI18n();
-  const { toast } = useToast();
+  const { toast } = usePulseToast();
   const { user: noteUser } = useAuth();
   const callContext = useCall();
   const [acwElapsed, setAcwElapsed] = useState(0);
@@ -9719,7 +9720,7 @@ function ScheduledQueuePanel({
   const [sortField, setSortField] = useState<"date" | "name" | "campaign">("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const { t } = useI18n();
-  const { toast } = useToast();
+  const { toast } = usePulseToast();
 
   const [onlyMine, setOnlyMine] = useState(false);
 
@@ -10282,10 +10283,10 @@ function ScheduledQueuePanel({
   );
 }
 
-export default function AgentWorkspacePage() {
+function AgentWorkspacePageContent() {
   const { t, locale } = useI18n();
   const { user, logout } = useAuth();
-  const { toast } = useToast();
+  const { toast } = usePulseToast();
   const nContacts = (n: number) => {
     const s = n === 1 ? t.agentWorkspace.contactSingular : (n >= 2 && n <= 4) ? t.agentWorkspace.contactFew : t.agentWorkspace.contactPlural;
     return `${n} ${s}`;
@@ -17666,5 +17667,13 @@ export default function AgentWorkspacePage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function AgentWorkspacePage() {
+  return (
+    <PulseToastScope>
+      <AgentWorkspacePageContent />
+    </PulseToastScope>
   );
 }

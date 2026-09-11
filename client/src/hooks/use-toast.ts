@@ -4,9 +4,18 @@ import type {
   ToastActionElement,
   ToastProps,
 } from "@/components/ui/toast"
+import {
+  installPulseNotificationAudioUnlock,
+  playPulseNotificationChime,
+} from "@/lib/pulse-notification-chime"
 
 const TOAST_LIMIT = 1
 const TOAST_REMOVE_DELAY = 1000000
+const PulseToastContext = React.createContext(false)
+
+export function PulseToastScope({ children }: { children: React.ReactNode }) {
+  return React.createElement(PulseToastContext.Provider, { value: true }, children)
+}
 
 type ToasterToast = ToastProps & {
   id: string
@@ -137,9 +146,9 @@ function dispatch(action: Action) {
   })
 }
 
-type Toast = Omit<ToasterToast, "id">
+export type ToastInput = Omit<ToasterToast, "id">
 
-function toast({ ...props }: Toast) {
+function toast({ ...props }: ToastInput) {
   const id = genId()
 
   const update = (props: ToasterToast) =>
@@ -170,6 +179,7 @@ function toast({ ...props }: Toast) {
 
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState)
+  const isPulseScoped = React.useContext(PulseToastContext)
 
   React.useEffect(() => {
     listeners.push(setState)
@@ -181,9 +191,25 @@ function useToast() {
     }
   }, [state])
 
+  React.useEffect(() => {
+    if (isPulseScoped) installPulseNotificationAudioUnlock()
+  }, [isPulseScoped])
+
+  const scopedToast = React.useCallback((props: ToastInput) => {
+    if (!isPulseScoped) return toast(props)
+    playPulseNotificationChime()
+    return toast({
+      ...props,
+      variant: "pulse",
+      pulseState: props.pulseState
+        ?? (props.variant === "destructive" ? "warning" : "success"),
+    })
+  }, [isPulseScoped])
+
   return {
     ...state,
-    toast,
+    toast: scopedToast,
+    rawToast: toast,
     dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
   }
 }

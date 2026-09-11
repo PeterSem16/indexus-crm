@@ -48,7 +48,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { usePulseToast } from "@/hooks/use-pulse-toast";
 import { useI18n } from "@/i18n";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { SipSettings, CallLog, User } from "@shared/schema";
@@ -160,7 +160,7 @@ export function SipPhone({
   customerName,
   hideSettingsAndRegistration = false
 }: SipPhoneProps) {
-  const { toast } = useToast();
+  const { toast, qualityToast } = usePulseToast();
   const { t } = useI18n();
   const { isRegistered, isRegistering, registrationError, register, unregister, ensureRegistered, userAgentRef, registererRef, pendingCall, clearPendingCall, incomingCall, answeredIncomingSession, clearAnsweredSession, answerIncomingCall, rejectIncomingCall } = useSip();
   const { waitingForReg: dialWaiting, elapsedSec: dialElapsed, startWaiting: startDialWaiting } = useRegistrationTimer(isRegistered, isRegistering);
@@ -2985,7 +2985,7 @@ export function SipPhone({
       audioRef.current.play().catch((error) => {
         console.error("[SIP-MEDIA] Remote audio playback failed:", error);
         setAudioHealth("warning");
-        toast({
+        qualityToast({
           title: t.agentWorkspace.audioConnectionFailedTitle,
           description: t.agentWorkspace.audioPlaybackBlockedDesc,
           variant: "destructive",
@@ -3005,7 +3005,7 @@ export function SipPhone({
       void audioRef.current.play().catch((error) => {
         console.error("[SIP-MEDIA] Rebound remote audio playback failed:", error);
         setAudioHealth("warning");
-        toast({
+        qualityToast({
           title: t.agentWorkspace.audioConnectionFailedTitle,
           description: t.agentWorkspace.audioPlaybackBlockedDesc,
           variant: "destructive",
@@ -3080,7 +3080,7 @@ export function SipPhone({
           console.error("[SIP-MEDIA] Failed to switch microphone after device change:", error);
           reportVoiceIncident("audio_device_change_failed", "error");
           setAudioHealth("warning");
-          toast({
+          qualityToast({
             title: t.agentWorkspace.audioConnectionFailedTitle,
             description: t.agentWorkspace.audioDeviceChangeFailedDesc,
             variant: "destructive",
@@ -3378,7 +3378,7 @@ export function SipPhone({
       const actualHoldState = sipIsHeld(session);
       setIsOnHold(actualHoldState);
       setCallState(actualHoldState ? "on_hold" : "active");
-      toast({
+      qualityToast({
         title: "Hold error",
         description: "Failed to toggle hold state via re-INVITE",
         variant: "destructive"
