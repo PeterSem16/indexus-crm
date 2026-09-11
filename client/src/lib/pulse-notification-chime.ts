@@ -31,8 +31,9 @@ function schedulePulseTone(
   oscillator.type = type;
   oscillator.frequency.setValueAtTime(frequency, startsAt);
   gain.gain.setValueAtTime(0.0001, startsAt);
-  gain.gain.exponentialRampToValueAtTime(volume, startsAt + 0.012);
-  gain.gain.setValueAtTime(volume, Math.max(startsAt + 0.012, endsAt - 0.18));
+  const attackEndsAt = Math.min(startsAt + 0.055, startsAt + duration * 0.35);
+  gain.gain.exponentialRampToValueAtTime(volume, attackEndsAt);
+  gain.gain.setValueAtTime(volume, Math.max(attackEndsAt, endsAt - 0.14));
   gain.gain.exponentialRampToValueAtTime(0.0001, endsAt);
   oscillator.connect(gain);
   gain.connect(context.destination);
@@ -70,10 +71,9 @@ export function playPulseNotificationChime(): void {
     if (context.state === "suspended") void context.resume();
     const startsAt = context.currentTime + 0.02;
 
-    // A soft, short ambient pad rather than a sharp attention chime.
-    // The two low-volume sine tones overlap and fade out together.
-    schedulePulseTone(context, startsAt, 0, 0.38, 329.63, "sine", 0.042);
-    schedulePulseTone(context, startsAt, 0.04, 0.44, 493.88, "sine", 0.026);
+    // A near-whisper warm pad: low notes, a slow attack, and no sharp peak.
+    schedulePulseTone(context, startsAt, 0, 0.28, 261.63, "sine", 0.016);
+    schedulePulseTone(context, startsAt, 0.055, 0.27, 329.63, "sine", 0.006);
   } catch {
     // Keep the visual notification working when autoplay or Web Audio is unavailable.
   }
