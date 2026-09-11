@@ -4008,6 +4008,8 @@ export interface Translations {
     callAccepted: string;
     connectedWith: string;
     callRejected: string;
+    callErrorTitle: string;
+    callErrorDescription: string;
     errorLabel: string;
     checklistStep2: string;
     checklistOptional: string;
@@ -11947,6 +11949,8 @@ export const translations: Record<Locale, Translations> = {
       callAccepted: 'Call accepted',
       connectedWith: 'Connected with',
       callRejected: 'Call rejected',
+      callErrorTitle: 'Call error',
+      callErrorDescription: 'The call could not be completed',
       errorLabel: 'Error',
       checklistStep2: 'Step 2 of 2 – Details',
       checklistOptional: 'You can continue without checking — checklist is optional.',
@@ -19335,6 +19339,8 @@ export const translations: Record<Locale, Translations> = {
       callAccepted: 'Hovor prijatý',
       connectedWith: 'Prepojený s',
       callRejected: 'Hovor odmietnutý',
+      callErrorTitle: 'Chyba hovoru',
+      callErrorDescription: 'Hovor sa nepodarilo uskutočniť',
       errorLabel: 'Chyba',
       checklistStep2: 'Krok 2 z 2 – Detaily',
       checklistOptional: 'Môžete pokračovať bez zaškrtnutia — checklist je voliteľný.',
@@ -26710,6 +26716,8 @@ export const translations: Record<Locale, Translations> = {
       callAccepted: 'Hovor přijat',
       connectedWith: 'Připojen s',
       callRejected: 'Hovor odmítnut',
+      callErrorTitle: 'Chyba hovoru',
+      callErrorDescription: 'Hovor se nepodařilo uskutečnit',
       errorLabel: 'Chyba',
       checklistStep2: 'Krok 2 ze 2 – Detaily',
       checklistOptional: 'Můžete pokračovat bez zaškrtnutí — checklist je volitelný.',
@@ -34041,6 +34049,8 @@ export const translations: Record<Locale, Translations> = {
       callAccepted: 'Hívás fogadva',
       connectedWith: 'Kapcsolódva:',
       callRejected: 'Hívás elutasítva',
+      callErrorTitle: 'Híváshiba',
+      callErrorDescription: 'A hívást nem sikerült létrehozni',
       errorLabel: 'Hiba',
       checklistStep2: '2/2. lépés – Részletek',
       checklistOptional: 'Folytathat jelölés nélkül — az ellenőrző lista opcionális.',
@@ -41259,6 +41269,8 @@ export const translations: Record<Locale, Translations> = {
       callAccepted: 'Apel acceptat',
       connectedWith: 'Conectat cu',
       callRejected: 'Apel respins',
+      callErrorTitle: 'Eroare apel',
+      callErrorDescription: 'Apelul nu a putut fi efectuat',
       errorLabel: 'Eroare',
       checklistStep2: 'Pasul 2 din 2 – Detalii',
       checklistOptional: 'Puteți continua fără a bifa — lista este opțională.',
@@ -48479,6 +48491,8 @@ export const translations: Record<Locale, Translations> = {
       callAccepted: 'Chiamata accettata',
       connectedWith: 'Collegato con',
       callRejected: 'Chiamata rifiutata',
+      callErrorTitle: 'Errore chiamata',
+      callErrorDescription: 'Non è stato possibile effettuare la chiamata',
       errorLabel: 'Errore',
       checklistStep2: 'Passo 2 di 2 – Dettagli',
       checklistOptional: 'Puoi continuare senza spuntare — la checklist è opzionale.',
@@ -55699,6 +55713,8 @@ export const translations: Record<Locale, Translations> = {
       callAccepted: 'Anruf angenommen',
       connectedWith: 'Verbunden mit',
       callRejected: 'Anruf abgelehnt',
+      callErrorTitle: 'Anruffehler',
+      callErrorDescription: 'Der Anruf konnte nicht durchgeführt werden',
       errorLabel: 'Fehler',
       checklistStep2: 'Schritt 2 von 2 – Details',
       checklistOptional: 'Sie können ohne Ankreuzen fortfahren — die Checkliste ist optional.',

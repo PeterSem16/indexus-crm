@@ -2089,8 +2089,8 @@ export function SipPhone({
         setCurrentCallLogId(null);
       }
       toast({
-        title: "Chyba hovoru",
-        description: "Nepodarilo sa uskutočniť hovor",
+        title: t.agentWorkspace.callErrorTitle,
+        description: t.agentWorkspace.callErrorDescription,
         variant: "destructive"
       });
       setCallState("idle");
@@ -2221,15 +2221,15 @@ export function SipPhone({
     } catch (error: any) {
       console.error("[SIP] Error handling incoming call:", error);
       toast({
-        title: "Chyba hovoru",
-        description: "Nepodarilo sa spracovať prichádzajúci hovor",
+        title: t.agentWorkspace.callErrorTitle,
+        description: t.agentWorkspace.callAcceptError,
         variant: "destructive"
       });
       setCallState("idle");
       answerGuardRef.current = false;
       sipPhoneAnsweredRef.current = false;
     }
-  }, [incomingCall, answerIncomingCall, toast]);
+  }, [incomingCall, answerIncomingCall, toast, t.agentWorkspace.callErrorTitle, t.agentWorkspace.callAcceptError]);
 
   const handleRejectIncoming = useCallback(() => {
     rejectIncomingCall();
