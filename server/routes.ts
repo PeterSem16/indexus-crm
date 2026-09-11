@@ -11,7 +11,7 @@ import { eq, ne, desc, and, gte, lte, inArray, isNotNull, isNull, or, count, sql
 import { db, pool } from "./db";
 import { evaluateAutomationCondition, updateFieldSnapshot } from "./lib/condition-evaluator";
 import { storage } from "./storage";
-import { normalizePhonePreferenceKey } from "@shared/phone-preference-key";
+import { registerPhoneCardPreferenceRoutes, type PhoneLookupMatch } from "./phone-card-preference-routes";
 import { 
   numberRanges,
   insertUserSchema, insertCustomerSchema, updateUserSchema, loginSchema, userSessions, communicationMessages,
@@ -3837,14 +3837,6 @@ export async function registerRoutes(
     }
   });
 
-  type PhoneLookupMatch = {
-    entityType: "customer" | "hospital" | "clinic" | "collaborator";
-    id: string;
-    name: string;
-    phone: string;
-    subtype?: string;
-  };
-
   const getPhoneLookupMatches = async (phone: string): Promise<PhoneLookupMatch[]> => {
     const normalized = phone.replace(/[\s\-\(\)]/g, "");
     const shortNum = normalized.replace(/^(\+|00)/, "").replace(/^421|^420|^36|^40|^39|^49|^1/, "");
@@ -3895,79 +3887,7 @@ export async function registerRoutes(
     }
   });
 
-  // The choice is private to the current agent and advisory. The caller
-  // verifies it against its current lookup before showing or opening a card.
-  app.get("/api/phone/preferences", requireAuth, async (req: Request, res: Response) => {
-    try {
-      const phone = String(req.query.phone || "");
-      const normalizedPhone = normalizePhonePreferenceKey(phone);
-      if (!normalizedPhone) return res.status(400).json({ error: "Phone parameter required" });
-
-      const result: any = await db.execute(sql`
-        SELECT entity_type, entity_id, last_selected_at
-        FROM agent_phone_entity_preferences
-        WHERE user_id = ${req.session.user!.id}
-          AND normalized_phone = ${normalizedPhone}
-        LIMIT 1
-      `);
-      const preference = result.rows?.[0];
-      if (!preference) return res.json(null);
-
-      res.json({
-        entityType: preference.entity_type,
-        entityId: preference.entity_id,
-        lastSelectedAt: preference.last_selected_at,
-      });
-    } catch (error) {
-      console.error("Error fetching agent phone-card preference:", error);
-      res.status(500).json({ error: "Failed to fetch phone preference" });
-    }
-  });
-
-  app.put("/api/phone/preferences", requireAuth, async (req: Request, res: Response) => {
-    try {
-      const phone = typeof req.body?.phone === "string" ? req.body.phone : "";
-      const entityType = typeof req.body?.entityType === "string" ? req.body.entityType : "";
-      const entityId = typeof req.body?.entityId === "string" ? req.body.entityId : "";
-      const normalizedPhone = normalizePhonePreferenceKey(phone);
-      const validTypes = new Set(["customer", "hospital", "clinic", "collaborator"]);
-      if (!normalizedPhone || !validTypes.has(entityType) || !entityId.trim()) {
-        return res.status(400).json({ error: "Invalid phone-card preference" });
-      }
-
-      // Do not allow the client to associate arbitrary cards: the selected
-      // entity must still own/match the provided phone number.
-      const matches = await getPhoneLookupMatches(phone);
-      const selectedMatchExists = matches.some(
-        (match) => match.entityType === entityType && match.id === entityId,
-      );
-      if (!selectedMatchExists) {
-        return res.status(400).json({ error: "Selected entity does not match this phone number" });
-      }
-
-      await db.execute(sql`
-        INSERT INTO agent_phone_entity_preferences
-          (id, user_id, normalized_phone, entity_type, entity_id, last_selected_at)
-        VALUES (
-          gen_random_uuid(),
-          ${req.session.user!.id},
-          ${normalizedPhone},
-          ${entityType},
-          ${entityId},
-          now()
-        )
-        ON CONFLICT (user_id, normalized_phone)
-        DO UPDATE SET
-          entity_type = EXCLUDED.entity_type,
-          entity_id = EXCLUDED.entity_id,
-          last_selected_at = now()
-      `);
-      res.status(204).end();
-    } catch (error) {
-      console.error("Error saving agent phone-card preference:", error);
-      res.status(500).json({ error: "Failed to save phone preference" });
-    }
-  });
+  registerPhoneCardPreferenceRoutes(app, requireAuth, getPhoneLookupMatches);
 
   app.get("/api/customers/lookup-phone", requireAuth, async (req, res) => {
     try {
