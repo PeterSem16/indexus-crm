@@ -238,3 +238,17 @@ mtime_ms = 1788852166989
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/a48206d3-1d7e-41aa-a4fd-e2ea4b635dad/450b49fb-09a1-4999-891c-e18e69b3cf53"
 storage_version_token = "1788852204527685"
 content_type = "application/pdf"
+
+[[outputs]]
+id = "uP1iouYkXwSpY7jO0WXnX"
+uri = "file://.agents/outputs/nexus_pulse_test_results/NEXUS_Pulse_regresny_testovaci_formular_oprav_SK.pdf"
+type = "pdf"
+title = "NEXUS Pulse — regresný testovací formulár opráv"
+description = "Vyplniteľný slovenský PDF formulár so súhrnom výsledkov Seman/Melicha a tromi novými regresnými testami potvrdených opráv."
+logical_id = "b5fe0ac9-4b7b-4432-8826-ed78007faa50"
+content_hash = "sha256:d578cee52cdc34ce2e4e37507664ce1dc09bf29a16a46b210fd191212ce228df"
+size = 111138
+mtime_ms = 1789119070625
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/b5fe0ac9-4b7b-4432-8826-ed78007faa50/2b4d71a5-a7c7-4809-8a51-793dd211d8a9"
+storage_version_token = "1789119186994581"
+content_type = "application/pdf"

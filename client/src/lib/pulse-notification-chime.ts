@@ -70,9 +70,10 @@ export function playPulseNotificationChime(): void {
     if (context.state === "suspended") void context.resume();
     const startsAt = context.currentTime + 0.02;
 
-    schedulePulseTone(context, startsAt, 0, 0.3, 587.33, "sine", 0.12);
-    schedulePulseTone(context, startsAt, 0.13, 0.34, 783.99, "triangle", 0.11);
-    schedulePulseTone(context, startsAt, 0.27, 0.56, 1174.66, "sine", 0.075);
+    // A soft, short ambient pad rather than a sharp attention chime.
+    // The two low-volume sine tones overlap and fade out together.
+    schedulePulseTone(context, startsAt, 0, 0.38, 329.63, "sine", 0.042);
+    schedulePulseTone(context, startsAt, 0.04, 0.44, 493.88, "sine", 0.026);
   } catch {
     // Keep the visual notification working when autoplay or Web Audio is unavailable.
   }
