@@ -10,7 +10,8 @@ always takes priority.
 
 **Why:** A number may legitimately match multiple entity types, while records
 can be edited or deleted later. Treating an old selection as authoritative can
-open the wrong card.
+open the wrong card. The valid-remembered-card behavior was confirmed as the
+expected inbound and missed-call experience.
 
 **How to apply:** Persist full international digits, treating `+` and `00`
 forms as equivalent, but never remove country prefixes. An unqualified local

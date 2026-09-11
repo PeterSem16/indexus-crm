@@ -10697,6 +10697,7 @@ function AgentWorkspacePageContent() {
     callId?: string;
     missedCallId?: string;
   } | null>(null);
+  const [openingMissedCallId, setOpeningMissedCallId] = useState<string | null>(null);
   const [pendingUnknownCaller, setPendingUnknownCaller] = useState<{ phone: string } | null>(null);
   const [createFromCallType, setCreateFromCallType] = useState<"customer" | "hospital" | "clinic" | "person" | null>(null);
   const [createIsLoading, setCreateIsLoading] = useState(false);
@@ -17019,7 +17020,7 @@ function AgentWorkspacePageContent() {
                           );
                         })()}
                       </div>
-                      {!isCalledBack && <MissedCallCardPreview call={call} />}
+                      <MissedCallCardPreview call={call} />
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <div className="text-right">
@@ -17038,9 +17039,11 @@ function AgentWorkspacePageContent() {
                         </span>
                       ) : (
                         <Button size="sm" variant="default" className="h-7 text-xs gap-1 px-2.5 shrink-0"
+                          disabled={openingMissedCallId === String(call.id)}
                           onClick={async () => {
                             const phoneNum = call.customerPhone || call.callerNumber;
                             let opened = false;
+                            setOpeningMissedCallId(String(call.id));
                             try {
                               const persistedTarget = resolveMissedCallCardTarget(call.customerId, phoneNum || "", []);
                               if (persistedTarget.kind === "match") {
@@ -17051,13 +17054,18 @@ function AgentWorkspacePageContent() {
                                   { syncCall: false, rememberPhone: phoneNum },
                                 );
                               } else if (phoneNum) {
-                                const [lookupRes, preference] = await Promise.all([
-                                  fetch(`/api/phone/lookup-all?phone=${encodeURIComponent(phoneNum)}`, { credentials: "include" }),
-                                  fetchRememberedPhoneCard(phoneNum),
-                                ]);
-                                if (lookupRes.ok) {
-                                    const matches: PhoneMatch[] = await lookupRes.json();
-                                  const validMatches = Array.isArray(matches) ? matches : [];
+                                 const cachedMatches = queryClient.getQueryData<PhoneMatch[]>(["/api/phone/lookup-all", phoneNum]);
+                                 const cachedPreference = queryClient.getQueryData<RememberedPhoneCard | null>(["/api/phone/preferences", phoneNum]);
+                                 const [matches, preference] = await Promise.all([
+                                   Array.isArray(cachedMatches)
+                                     ? Promise.resolve(cachedMatches)
+                                     : fetch(`/api/phone/lookup-all?phone=${encodeURIComponent(phoneNum)}`, { credentials: "include" })
+                                       .then(async response => response.ok ? response.json() : []),
+                                   cachedPreference !== undefined
+                                     ? Promise.resolve(cachedPreference)
+                                     : fetchRememberedPhoneCard(phoneNum),
+                                 ]);
+                                   const validMatches = Array.isArray(matches) ? matches : [];
                                   const rememberedMatch = getRememberedPhoneCard(validMatches, preference);
                                   const resolution = resolveMissedCallCardTarget(
                                     call.customerId,
@@ -17079,9 +17087,9 @@ function AgentWorkspacePageContent() {
                                       preferredMatch: rememberedMatch,
                                       missedCallId: String(call.id),
                                     });
+                                      setOpeningMissedCallId(null);
                                       return;
                                   }
-                                }
                               }
                             } catch (e) { console.error("Failed to open card for missed call:", e); }
                             if (opened) {
@@ -17089,6 +17097,7 @@ function AgentWorkspacePageContent() {
                                  await markMissedCallHandled(call.id);
                                } catch (error) {
                                  console.error("Failed to mark missed call handled after opening card:", error);
+                                 setOpeningMissedCallId(null);
                                  return;
                                }
                               setCurrentCampaignContactId(null);
@@ -17097,10 +17106,16 @@ function AgentWorkspacePageContent() {
                             } else {
                               toast({ title: t.agentWorkspace.missedNoContactFound, variant: "destructive" });
                             }
+                             setOpeningMissedCallId(null);
                           }}
                           data-testid={`btn-callback-${call.id}`}
                         >
-                          <User className="h-3 w-3" /> {t.agentWorkspace.openCardBtn || t.agentWorkspace.callBackBtn}
+                          {openingMissedCallId === String(call.id)
+                            ? <Loader2 className="h-3 w-3 animate-spin" />
+                            : <User className="h-3 w-3" />}
+                          {openingMissedCallId === String(call.id)
+                            ? t.agentWorkspace.openingCard
+                            : (t.agentWorkspace.openCardBtn || t.agentWorkspace.callBackBtn)}
                         </Button>
                       )}
                        {!isCalledBack && (
