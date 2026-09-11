@@ -12937,7 +12937,15 @@ export default function AgentWorkspacePage() {
 
       if (shouldFinalizeAcwBeforeExplicitDial(callContext.callState, acwStartedAt)) {
         stage = "finalize-acw";
+        toast({
+          title: t.agentWorkspace.acwFinalizingForCall,
+          description: t.agentWorkspace.acwFinalizingForCallDesc,
+        });
         await finalizeAcwBeforeExplicitDial();
+        // The SIP consumer may only read a pending request when CallContext has
+        // committed the idle state. Waiting one macrotask avoids classifying this
+        // explicit ACW transition as a concurrent active call.
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
       }
 
       stage = "sip-enqueue";

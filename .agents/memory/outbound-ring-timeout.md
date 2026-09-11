@@ -77,7 +77,10 @@ reintroduce automatic dialing after timeout.
 
 **How to apply:** Keep this transition in the explicit UI dial path. Live states
 (`connecting`, `ringing`, `active`, `on_hold`) must still reject the request, and
-the SIP pending-call consumer must remain idle-only.
+the SIP pending-call consumer must remain idle-only. A React state setter does
+not synchronously commit `idle`; wait one render/macrotask before enqueueing the
+new pending call, or the SIP consumer can still see `ended` and reject it as an
+active call.
 
 **Rule:** Persist an unanswered outbound result only once, after allowing the
 negative INVITE response callback to run.

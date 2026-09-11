@@ -3950,6 +3950,8 @@ export interface Translations {
     enterDisposition: string;
     wrapUpPending: string;
     acwCloseTask: string;
+    acwFinalizingForCall: string;
+    acwFinalizingForCallDesc: string;
     inboundContactLoading: string;
     resultLabel: string;
     emailSent: string;
@@ -11878,6 +11880,8 @@ export const translations: Record<Locale, Translations> = {
       enterDisposition: 'Enter disposition',
       wrapUpPending: 'Awaiting disposition',
       acwCloseTask: 'Close task',
+      acwFinalizingForCall: 'Finishing after-call work',
+      acwFinalizingForCallDesc: 'Your selected number will be called next.',
       inboundContactLoading: 'Loading contact...',
       resultLabel: 'Result',
       emailSent: 'Email sent',
@@ -19262,6 +19266,8 @@ export const translations: Record<Locale, Translations> = {
       enterDisposition: 'Zadať dispozíciu',
       wrapUpPending: 'Čakanie na dispozíciu',
       acwCloseTask: 'Zatvoriť task',
+      acwFinalizingForCall: 'Ukončujem prácu po hovore',
+      acwFinalizingForCallDesc: 'Následne sa vytočí vybrané číslo.',
       inboundContactLoading: 'Kontakt sa načítava...',
       resultLabel: 'Výsledok',
       emailSent: 'Email odoslaný',
@@ -26632,6 +26638,8 @@ export const translations: Record<Locale, Translations> = {
       enterDisposition: 'Zadat dispozici',
       wrapUpPending: 'Čekání na dispozici',
       acwCloseTask: 'Zavřít task',
+      acwFinalizingForCall: 'Dokončuji práci po hovoru',
+      acwFinalizingForCallDesc: 'Následně se vytočí vybrané číslo.',
       inboundContactLoading: 'Načítání kontaktu...',
       resultLabel: 'Výsledek',
       emailSent: 'Email odeslán',
@@ -33958,6 +33966,8 @@ export const translations: Record<Locale, Translations> = {
       enterDisposition: 'Diszpozíció megadása',
       wrapUpPending: 'Diszpozícióra vár',
       acwCloseTask: 'Feladat bezárása',
+      acwFinalizingForCall: 'Hívás utáni munka lezárása',
+      acwFinalizingForCallDesc: 'Ezután a kiválasztott számot hívjuk.',
       inboundContactLoading: 'Névjegy betöltése...',
       resultLabel: 'Eredmény',
       emailSent: 'Email elküldve',
@@ -41171,6 +41181,8 @@ export const translations: Record<Locale, Translations> = {
       enterDisposition: 'Introduceți dispoziția',
       wrapUpPending: 'Așteptare dispoziție',
       acwCloseTask: 'Închide task',
+      acwFinalizingForCall: 'Finalizez activitatea de după apel',
+      acwFinalizingForCallDesc: 'Apoi va fi apelat numărul selectat.',
       inboundContactLoading: 'Se încarcă contactul...',
       resultLabel: 'Rezultat',
       emailSent: 'Email trimis',
@@ -48386,6 +48398,8 @@ export const translations: Record<Locale, Translations> = {
       enterDisposition: 'Inserisci disposizione',
       wrapUpPending: 'In attesa di disposizione',
       acwCloseTask: 'Chiudi task',
+      acwFinalizingForCall: 'Completo il lavoro dopo la chiamata',
+      acwFinalizingForCallDesc: 'Successivamente verrà chiamato il numero selezionato.',
       inboundContactLoading: 'Caricamento contatto...',
       resultLabel: 'Risultato',
       emailSent: 'Email inviata',
@@ -55601,6 +55615,8 @@ export const translations: Record<Locale, Translations> = {
       enterDisposition: 'Disposition eingeben',
       wrapUpPending: 'Warte auf Disposition',
       acwCloseTask: 'Aufgabe schließen',
+      acwFinalizingForCall: 'Nachbearbeitung wird abgeschlossen',
+      acwFinalizingForCallDesc: 'Danach wird die ausgewählte Nummer angerufen.',
       inboundContactLoading: 'Kontakt wird geladen...',
       resultLabel: 'Ergebnis',
       emailSent: 'Email gesendet',
