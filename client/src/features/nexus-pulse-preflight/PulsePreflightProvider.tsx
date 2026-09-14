@@ -57,6 +57,7 @@ export function PulseGate({ children }: Props) {
   const [afterCallWorkActive, setAfterCallWorkActive] = useState(false);
   const [recordingPlaybackActive, setRecordingPlaybackActive] = useState(isPulseRecordingPlaybackActive);
   const [showDeferredRecheckIntro, setShowDeferredRecheckIntro] = useState(false);
+  const [diagnosticsGeneration, setDiagnosticsGeneration] = useState(0);
   const [autoStartDeferredRecheckRequest, setAutoStartDeferredRecheckRequest] = useState(0);
   const ready = allowed && acknowledged;
   const workProtected = isPulseSessionProtected(callState) || afterCallWorkActive || recordingPlaybackActive;
@@ -103,6 +104,9 @@ export function PulseGate({ children }: Props) {
     setAcknowledged(false);
     setStatus("blocked");
     setOpen(false);
+    // A completed run belongs to the previous device/network environment.
+    // Remount only diagnostics, never the call/workspace subtree.
+    setDiagnosticsGeneration(generation => generation + 1);
     setShowDeferredRecheckIntro(true);
     window.dispatchEvent(new Event("nexus-pulse-invalidated"));
   }, [key]);
@@ -140,8 +144,8 @@ export function PulseGate({ children }: Props) {
       }
       return;
     }
-    invalidateNow();
-  }, [copy.recheckDeferredCallSafe, copy.recheckDeferredDetail, copy.recheckDeferredNext, copy.recheckDeferredTitle, invalidateNow, toast]);
+    presentDeferredRecheck();
+  }, [copy.recheckDeferredCallSafe, copy.recheckDeferredDetail, copy.recheckDeferredNext, copy.recheckDeferredTitle, presentDeferredRecheck, toast]);
   useEffect(() => {
     if (!allowed || !acknowledged || isRegistered) return;
     setStatus("warning");
@@ -326,7 +330,7 @@ export function PulseGate({ children }: Props) {
         </div>
       </AlertDialogContent>
     </AlertDialog>
-    <PulseDiagnostics open={open && !diagnosticsBlocked && !showDeferredRecheckIntro} required={!ready} keepWakeLock hasValidReadiness={ready} autoStartRequest={autoStartDeferredRecheckRequest} userId={userKey(user)} onClose={() => setOpen(false)} onExit={() => setLocation(safeExitPage)} onReady={() => {
+    <PulseDiagnostics key={`${userKey(user)}:${diagnosticsGeneration}`} open={open && !diagnosticsBlocked && !showDeferredRecheckIntro} required={!ready} keepWakeLock hasValidReadiness={ready} autoStartRequest={autoStartDeferredRecheckRequest} userId={userKey(user)} onClose={() => setOpen(false)} onExit={() => setLocation(safeExitPage)} onReady={() => {
       sessionStorage.setItem(key, "1");
       hasEnteredPulseRef.current = true;
       setAcknowledged(true); setStatus("ready"); setOpen(false);
