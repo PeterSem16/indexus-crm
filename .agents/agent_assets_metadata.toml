@@ -299,14 +299,14 @@ content_type = "image/png"
 id = "djM8Nlu_FfIZsEobM_8Ky"
 uri = "file://attached_assets/priority-preview/implemented-original-desktop.png"
 type = "image"
-title = "Priority Builder – implementovaný desktop"
-description = "Aktuálny komponent aplikácie podľa pôvodného návrhu s tmavým panelom INDEXUS. Snímka z prehliadačového testu s testovacími kontaktmi, nie canvas ani živé CRM dáta."
+title = "Desktopový modal aplikácie – Priority Builder"
+description = "Desktopová verzia aktuálne implementovaného komponentu s tmavým panelom INDEXUS, skupinami a Live result. Snímka z prehliadačového testu s testovacími kontaktmi, nie canvas návrh."
 logical_id = "64577555-bdb5-4242-bcc4-0af9b9815d9e"
 content_hash = "sha256:7f21c9ad331baec2151a33c260039693a93ea833529f5422e7060a336d8df841"
 size = 118885
 mtime_ms = 1789376102414
-storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/64577555-bdb5-4242-bcc4-0af9b9815d9e/9b32149d-4b47-459a-84d6-da72cce84bf7"
-storage_version_token = "1789376114397477"
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/64577555-bdb5-4242-bcc4-0af9b9815d9e/3f145cbd-ac86-4e52-8a93-4852ebc969d2"
+storage_version_token = "1789376182776485"
 content_type = "image/png"
 
 [[outputs]]
