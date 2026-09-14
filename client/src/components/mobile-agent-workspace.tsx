@@ -7,9 +7,11 @@ import { Phone, PhoneOff, PhoneIncoming, Mic, MicOff, PauseCircle, PlayCircle,
   Clock, ChevronRight, AlertCircle, FileText, ListChecks,
   Mail, MapPin, Calendar, ArrowLeft, Search, X, Baby, Building2, SlidersHorizontal,
   History, PhoneCall, Stethoscope, UserX, Globe, Share2, UserCheck,
-  MessageSquare, Send, Volume2, Save } from "lucide-react";
+  MessageSquare, Send, Volume2, Save, Layers3 } from "lucide-react";
 import { format } from "date-fns";
 import { PulseMobileDialButton } from "@/components/pulse-dial-button";
+import { priorityBuilderCopy } from "@/components/agent/priority-builder-copy";
+import { getPriorityContactCityLocation, type PriorityQueueItem, type PriorityQueueSegmentId } from "@/components/agent/priority-builder";
 
 /* ── helpers ────────────────────────────────────────────────────────── */
 const fmtDur = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -41,7 +43,7 @@ function ccSearchMatch(cc: any, q: string, field = "all"): boolean {
     name:    ccName(cc).toLowerCase().includes(lower),
     phone:   [ccPhone(cc), cc.customer?.mobile||"", cc.collaborator?.mobile||"", cc.clinic?.phone2||"", cc.hospital?.phone2||""].some(p => p.replace(/\s/g,"").includes(ql)),
     email:   (cc.customer?.email || cc.hospital?.email || cc.clinic?.email || cc.collaborator?.email || "").toLowerCase().includes(lower),
-    city:    (cc.customer?.city || cc.hospital?.city || cc.clinic?.city || cc.collaborator?.city || "").toLowerCase().includes(lower),
+    city:    (cc.priorityCity || cc.customer?.city || cc.hospital?.city || cc.clinic?.city || cc.collaborator?.city || "").toLowerCase().includes(lower),
     entity:  [(cc.clinic?.clinicName||cc.clinic?.name||""),(cc.hospital?.name||"")].some(s=>s.toLowerCase().includes(lower)),
     address: (cc.customer?.address || cc.hospital?.address || cc.clinic?.address || "").toLowerCase().includes(lower),
   };
@@ -107,6 +109,8 @@ export interface MobileAgentWorkspaceProps {
   locale: string;
   currentUserId?: string;
   allCampaignContacts?: any[];
+  priorityQueue?: Array<PriorityQueueItem & { contact: any; segment: PriorityQueueSegmentId }>;
+  cityGroupingEnabled?: boolean;
   inboundCallbacks?: any[];
   onOpenInboundCallback?: (callback: any) => void | Promise<void>;
   onCallInboundCallback?: (callback: any) => void | Promise<void>;
@@ -879,12 +883,13 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
     statusListMode, batchSlSelections, onBatchSave,
     agentStatus, isOnBreak, workTime, breakTypes,
     onEndSession, onStartBreak, onEndBreak,
-    onFullLogout, t, currentUserId, allCampaignContacts, inboundCallbacks = [],
+    onFullLogout, t, currentUserId, allCampaignContacts, priorityQueue = [], cityGroupingEnabled = false, inboundCallbacks = [],
     onOpenInboundCallback, onCallInboundCallback,
     volume = 80, micVolume = 100, onVolumeChange, onMicVolumeChange,
   } = props;
 
   const np = t?.nexusPulse || {};
+  const cityCopy = priorityBuilderCopy[(props.locale || "en") as keyof typeof priorityBuilderCopy] || priorityBuilderCopy.en;
 
   const [dtmfOpen, setDtmfOpen] = useState(false);
   const [breakMenuOpen, setBreakMenuOpen] = useState(false);
@@ -897,6 +902,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
   const [showOnlyMineCallbacks, setShowOnlyMineCallbacks] = useState(false);
   const [searchField, setSearchField] = useState("all");
   const [showFieldPicker, setShowFieldPicker] = useState(false);
+  const [collapsedCityGroups, setCollapsedCityGroups] = useState<Set<string>>(new Set());
 
 
   useEffect(() => { setShowHistory(true); setShowNotes(true); }, [contact?.id]);
@@ -1441,7 +1447,57 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
   const filteredPending  = byTab.filter((cc: any) => cc.status === "pending").filter(cc => ccSearchMatch(cc, searchQ, searchField));
   const filteredOthers   = byTab.filter((cc: any) => !callableStatuses.includes(cc.status)).filter(cc => ccSearchMatch(cc, searchQ, searchField));
   const totalFiltered = filteredOverdue.length + filteredUpcoming.length + filteredPending.length + filteredOthers.length;
-
+  const visibleContactIds = new Set([...filteredOverdue, ...filteredUpcoming, ...filteredPending, ...filteredOthers].map((cc: any) => String(cc.id)));
+  const cityGroups = cityGroupingEnabled
+    ? (() => {
+      const segments = new Map<string, {
+        items: any[];
+        cities: Map<string, { items: any[]; city?: { city: string; countryCode: string } }>;
+      }>();
+      const add = (contact: any, segment: string, cityGroup?: { key: string | null; city: string | null; countryCode: string | null }) => {
+        const location = cityGroup?.key
+          ? { key: cityGroup.key, city: cityGroup.city || "", countryCode: cityGroup.countryCode || "" }
+          : getPriorityContactCityLocation(contact as any);
+        const key = location?.key || "__unknown__";
+        let segmentGroup = segments.get(segment);
+        if (!segmentGroup) {
+          segmentGroup = { items: [], cities: new Map() };
+          segments.set(segment, segmentGroup);
+        }
+        segmentGroup.items.push(contact);
+        const city = segmentGroup.cities.get(key);
+        if (city) city.items.push(contact);
+        else segmentGroup.cities.set(key, {
+          items: [contact],
+          city: location ? { city: location.city, countryCode: location.countryCode } : undefined,
+        });
+      };
+      const queuedIds = new Set<string>();
+      priorityQueue.forEach(item => {
+        if (visibleContactIds.has(String(item.contact.id))) {
+          queuedIds.add(String(item.contact.id));
+          add(item.contact, item.segment, item.cityGroup);
+        }
+      });
+      [...filteredOverdue, ...filteredUpcoming, ...filteredPending, ...filteredOthers].forEach((contact: any) => {
+        if (!queuedIds.has(String(contact.id))) add(contact, "other");
+      });
+      return Array.from(segments.entries()).map(([segment, group]) => ({
+        segment,
+        segmentLabel: segment === "other"
+          ? (t?.agentWorkspace?.priorityBuilderOther || "Other")
+          : (t?.agentWorkspace?.priorityBuilderSegmentLabels?.[segment as keyof typeof t.agentWorkspace.priorityBuilderSegmentLabels] || segment),
+        items: group.items,
+        cityGroups: Array.from(group.cities.entries()).map(([key, cityGroup]) => ({
+          key: `${segment}:${key}`,
+          items: cityGroup.items,
+          label: cityGroup.city?.city
+            ? `${cityGroup.city.city}${cityGroup.city.countryCode ? cityCopy.cityCountrySeparator + cityGroup.city.countryCode : ""}`
+            : cityCopy.unknownCity,
+        })),
+      })).filter(group => group.items.length > 0);
+    })()
+    : [];
   const tabCount = (tab: string) =>
     tab === "callable"  ? campaignContacts.filter((cc: any) => callableStatuses.includes(cc.status)).length
     : tab === "callbacks" ? campaignContacts.filter((cc: any) => cc.status === "callback_scheduled").length
@@ -1610,6 +1666,56 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
           </div>
         ) : (
           <div className="flex flex-col gap-2 px-4 pb-4 pt-2">
+             {cityGroupingEnabled && cityGroups.length > 0 ? cityGroups.map(segment => (
+               <div key={segment.segment} className="space-y-2" data-testid={`mobile-city-segment-${segment.segment}`}>
+                 <div className="flex items-center gap-2 px-1 pt-1">
+                   <Layers3 className="h-3.5 w-3.5 text-primary" />
+                   <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{segment.segmentLabel}</span>
+                   <span className="text-[10px] text-muted-foreground">({segment.items.length})</span>
+                 </div>
+                 {segment.cityGroups.map(group => {
+                   const expanded = !collapsedCityGroups.has(group.key);
+                   return (
+                     <div key={group.key} className="rounded-xl border bg-card overflow-hidden" data-testid={`mobile-city-group-${group.key}`}>
+                       <button
+                         type="button"
+                         className="w-full flex items-center justify-between gap-2 px-3 py-3 text-left"
+                         onClick={() => setCollapsedCityGroups(previous => {
+                           const next = new Set(previous);
+                           if (next.has(group.key)) next.delete(group.key); else next.add(group.key);
+                           return next;
+                         })}
+                         aria-expanded={expanded}
+                       >
+                         <span className="flex items-center gap-2 min-w-0">
+                           <MapPin className="h-4 w-4 shrink-0 text-primary" />
+                           <span className="font-bold text-sm truncate">{group.label}</span>
+                           <span className="text-[10px] text-muted-foreground shrink-0">({group.items.length})</span>
+                         </span>
+                         {expanded ? <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                       </button>
+                       {expanded && (
+                         <div className="flex flex-col gap-2 px-3 pb-3">
+                           {group.items.map((cc: any) => (
+                             <ContactRow
+                               key={cc.id}
+                               cc={cc}
+                               onSelect={onSelectContact}
+                               isOverdue={cc.status === "callback_scheduled" && cc.callbackDate && new Date(cc.callbackDate) <= now}
+                               isUpcoming={cc.status === "callback_scheduled" && cc.callbackDate && new Date(cc.callbackDate) > now}
+                               callbackDate={cc.callbackDate}
+                               np={np}
+                               currentUserId={currentUserId}
+                             />
+                           ))}
+                         </div>
+                       )}
+                     </div>
+                   );
+                 })}
+               </div>
+             )) : (
+               <>
             {filteredOverdue.length > 0 && (
               <>
                 <div className="flex items-center gap-2 mt-1 mb-0.5">
@@ -1668,6 +1774,8 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                 ))}
               </>
             )}
+               </>
+             )}
           </div>
         )}
       </div>

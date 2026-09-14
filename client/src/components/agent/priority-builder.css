@@ -69,6 +69,12 @@
 .priority-builder-kicker { color: #9b897b; font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 .priority-builder-title { margin: 2px 0 0; font-size: 18px; font-weight: 700; letter-spacing: -.02em; }
 .priority-builder-toolbar { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; padding: 12px 21px; border-bottom: 1px solid #e6e0da; background: #fff; }
+.priority-builder-city-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 9px; border: 1px solid #d9d1ca; border-radius: 9px; color: #594e46; font-size: 11px; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.priority-builder-city-toggle input { accent-color: #b5622e; }
+.priority-builder-city-toggle:has(input:disabled) { opacity: .55; cursor: default; }
+.priority-builder-city-status { display: flex; flex: 0 0 auto; align-items: center; min-height: 27px; padding: 0 21px; border-bottom: 1px solid #eee6e0; background: #fffaf7; color: #8f7462; font-size: 10px; }
+.priority-builder-city-status [role="alert"] { color: #a34e35; }
+.priority-builder-city-status button { margin-left: 6px; border: 0; background: transparent; color: inherit; font: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }
 .priority-builder-persistence-error { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 21px; background: #fff4ef; color: #934b30; border-bottom: 1px solid #ead6ca; font-size: 10px; font-weight: 700; }
 .priority-builder-persistence-error .priority-builder-button { height: 27px; font-size: 10px; }
 .priority-builder-mobile-controls { display: none; }
@@ -84,6 +90,13 @@
 .priority-builder-section-head, .priority-builder-preview-head { display: flex; align-items: end; justify-content: space-between; gap: 10px; margin-bottom: 9px; }
 .priority-builder-section-head h2, .priority-builder-preview h2 { margin: 0; font-size: 13px; }
 .priority-builder-section-head p, .priority-builder-preview-head p { margin: 3px 0 0; color: #988b81; font-size: 11px; }
+.priority-builder-preview-city-group { margin-top: 8px; border: 1px solid #dce6d7; border-radius: 10px; background: #fff; overflow: hidden; }
+.priority-builder-preview-segment-group { margin-top: 10px; }
+.priority-builder-preview-segment-heading { display: flex; align-items: center; gap: 5px; padding: 4px 3px; color: #64519d; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+.priority-builder-preview-segment-heading strong { margin-left: auto; font-weight: 800; }
+.priority-builder-preview-city-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 0; padding: 8px 10px; background: #eef5eb; color: #4e7046; font: inherit; font-size: 10px; font-weight: 800; text-align: left; cursor: pointer; }
+.priority-builder-preview-city-toggle span { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
+.priority-builder-preview-city-toggle strong { font-weight: 800; }
 .priority-builder-total { padding: 5px 8px; border-radius: 20px; background: #eee7e1; color: #74675e; font-size: 11px; font-weight: 700; text-align: center; }
 .priority-builder-row { position: relative; display: grid; min-width: 0; grid-template-columns: 17px 25px 27px minmax(0, 1fr) auto; align-items: center; gap: 8px; margin: 8px 0; padding: 9px 10px; border: 1px solid #ddd5ce; border-radius: 12px; background: #fff; box-shadow: 0 1px 2px rgba(56,40,30,.03); cursor: pointer; }
 .priority-builder-row.selected { border-color: #b5622e; box-shadow: 0 0 0 2px #b5622e1c; }
@@ -117,6 +130,8 @@
 .priority-builder-card-chip-position .priority-builder-card-chip-icon { background: #d9853b; color: #fff; }
 .priority-builder-card-chip-group { border-color: #cbc2e4; background: #f1eefb; color: #64519d; }
 .priority-builder-card-chip-group .priority-builder-card-chip-icon { background: #7860b8; color: #fff; }
+.priority-builder-card-chip-city { border-color: #c7d8be; background: #eef5eb; color: #4e7046; }
+.priority-builder-card-chip-city .priority-builder-card-chip-icon { background: #5e7a5a; color: #fff; }
 .priority-builder-card-chip-callback { border-color: #b8d9d4; background: #e8f4f1; color: #2f6c66; }
 .priority-builder-card-chip-callback .priority-builder-card-chip-icon { background: #337e7b; color: #fff; }
 .priority-builder-card-chip-attempts { border-color: #c4d9bf; background: #eef6eb; color: #477340; }

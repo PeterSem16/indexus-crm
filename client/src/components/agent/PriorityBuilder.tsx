@@ -3,7 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   ArrowDown, ArrowUp, CalendarClock, Check, ChevronDown, ChevronRight, Copy, GripVertical,
   Layers3, ListFilter, ListOrdered, MoreHorizontal, Pencil, PhoneCall, RotateCcw, Save,
-  Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Users, X,
+  MapPin, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Users, X,
 } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -13,6 +13,7 @@ import {
   buildPriorityQueueWithFallback,
   DEFAULT_PRIORITY_VIEW,
   filterPriorityContacts,
+  getPriorityContactCityLocation,
   getPriorityContactName,
   matchesPrioritySegment,
   parsePriorityView,
@@ -20,6 +21,8 @@ import {
   PRIORITY_PRESETS,
   PRIORITY_SEGMENT_IDS,
   type PriorityContact,
+  type PriorityQueueItem,
+  type PriorityQueueSegmentId,
   type PrioritySegment,
   type PrioritySegmentId,
   type PrioritySort,
@@ -89,6 +92,61 @@ function formatAttemptSummary(
   return `${copy.callAttempts}: ${count === 0 ? copy.noAttempts : count}`;
 }
 
+function eligibleCityKeys(contacts: PriorityContact[]): string[] {
+  return Array.from(new Set(
+    contacts
+      .map(contact => getPriorityContactCityLocation(contact)?.key)
+      .filter((key): key is string => Boolean(key)),
+  ));
+}
+
+function snapshotCityGrouping(view: PriorityView, contacts: PriorityContact[]): PriorityView {
+  if (!view.cityGrouping?.enabled) return view;
+  const eligible = new Set(eligibleCityKeys(contacts));
+  const known = new Set(view.cityGrouping.rankedKeys.filter(key => eligible.has(key)));
+  const unknown = new Set(view.cityGrouping.unknownKeys.filter(key => eligible.has(key) && !known.has(key)));
+  return {
+    ...view,
+    cityGrouping: {
+      enabled: true,
+      rankedKeys: Array.from(known),
+      unknownKeys: Array.from(unknown),
+    },
+  };
+}
+
+async function rankEligibleCities(contacts: PriorityContact[], signal: AbortSignal | undefined, tooManyMessage: string, failedMessage: string): Promise<{ rankedKeys: string[]; unknownKeys: string[] }> {
+  const cities = Array.from(new Map(
+    contacts
+      .map(contact => getPriorityContactCityLocation(contact))
+      .filter((location): location is NonNullable<typeof location> => Boolean(location))
+      .map(location => [location.key, { key: location.key, city: location.city, countryCode: location.countryCode }]),
+  ).values());
+  if (cities.length > 500) {
+    throw new Error(tooManyMessage);
+  }
+  const response = await fetch("/api/agent/priority-builder/city-ranking", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    signal,
+    body: JSON.stringify({ cities }),
+  });
+  let body: any = null;
+  try { body = await response.json(); } catch { /* explicit status below */ }
+  if (!response.ok) {
+    throw new Error(body?.error || body?.message || failedMessage);
+  }
+  if (!Array.isArray(body?.rankedKeys) || !Array.isArray(body?.unknownKeys)) throw new Error(failedMessage);
+  const rankedKeys = body.rankedKeys.filter((key: unknown): key is string => typeof key === "string");
+  const returnedUnknown = body.unknownKeys.filter((key: unknown): key is string => typeof key === "string");
+  const submitted = new Set(cities.map(city => city.key));
+  const ranked = Array.from(new Set<string>(rankedKeys)).filter(key => submitted.has(key));
+  const unknown = Array.from(new Set<string>([...returnedUnknown, ...cities.map(city => city.key)]))
+    .filter(key => submitted.has(key) && !ranked.includes(key));
+  return { rankedKeys: ranked, unknownKeys: unknown };
+}
+
 /** Production personal contact ordering editor; data and call actions remain parent-owned. */
 export function PriorityBuilder({
   contacts,
@@ -126,6 +184,12 @@ export function PriorityBuilder({
   const lastWriteRef = useRef<PriorityWrite | null>(null);
   const [persistencePending, setPersistencePending] = useState(false);
   const [persistenceFailed, setPersistenceFailed] = useState(false);
+  const [cityRankingPending, setCityRankingPending] = useState(false);
+  const [cityRankingError, setCityRankingError] = useState<string | null>(null);
+  const cityRankingRequestRef = useRef(0);
+  const cityRankingAbortRef = useRef<AbortController | null>(null);
+  const mountedRef = useRef(true);
+  const [collapsedPreviewCities, setCollapsedPreviewCities] = useState<Set<string>>(new Set());
 
   const { data: searches = [], isLoading: searchesLoading, isError: searchesError, refetch: refetchSearches } = useQuery<SavedSearch[]>({
     queryKey: ["/api/saved-searches", PRIORITY_BUILDER_MODULE],
@@ -142,6 +206,22 @@ export function PriorityBuilder({
     [searches],
   );
 
+  useEffect(() => () => {
+    mountedRef.current = false;
+    cityRankingRequestRef.current += 1;
+    cityRankingAbortRef.current?.abort();
+  }, []);
+
+  const viewSignature = useMemo(() => JSON.stringify(view), [view]);
+  const contactsSignature = useMemo(() => JSON.stringify(eligibleCityKeys(contacts).sort()), [contacts]);
+  useEffect(() => {
+    if (!cityRankingPending) return;
+    cityRankingRequestRef.current += 1;
+    cityRankingAbortRef.current?.abort();
+    cityRankingAbortRef.current = null;
+    setCityRankingPending(false);
+  }, [viewSignature, contactsSignature]);
+
   // A late saved-search response must never replace a preset/draft the agent selected.
   useEffect(() => {
     if (searchesLoading || searchesError || hydratedRef.current) return;
@@ -157,13 +237,14 @@ export function PriorityBuilder({
     if (!defaultEntry && !userSelectedRef.current) setSaved(true);
   }, [searchesError, searchesLoading, usableSearches]);
 
+  const effectiveView = useMemo(() => snapshotCityGrouping(view, contacts), [contacts, view]);
   const queue = useMemo(
-    () => buildPriorityQueue(contacts, view, currentUserId),
-    [contacts, currentUserId, view],
+    () => buildPriorityQueue(contacts, effectiveView, currentUserId),
+    [contacts, currentUserId, effectiveView],
   );
   const previewQueue = useMemo(
-    () => buildPriorityQueueWithFallback(contacts, view, currentUserId),
-    [contacts, currentUserId, view],
+    () => buildPriorityQueueWithFallback(contacts, effectiveView, currentUserId),
+    [contacts, currentUserId, effectiveView],
   );
   const segmentCounts = useMemo(() => {
     const counts = new Map<PrioritySegmentId, number>();
@@ -184,6 +265,68 @@ export function PriorityBuilder({
     [previewQueue],
   );
   const isPreset = !!view.presetId;
+
+  const requestCityRanking = async () => {
+    const requestId = ++cityRankingRequestRef.current;
+    cityRankingAbortRef.current?.abort();
+    const abortController = new AbortController();
+    cityRankingAbortRef.current = abortController;
+    setCityRankingPending(true);
+    setCityRankingError(null);
+    try {
+      const result = await rankEligibleCities(contacts, abortController.signal, copy.cityRankingTooMany, copy.cityRankingError);
+      if (!mountedRef.current || requestId !== cityRankingRequestRef.current) return;
+      setCityRankingPending(false);
+      userSelectedRef.current = true;
+      setView(current => ({
+        ...current,
+        presetId: undefined,
+        cityGrouping: { enabled: true, rankedKeys: result.rankedKeys, unknownKeys: result.unknownKeys },
+      }));
+      setSavedId(null);
+      setActiveName("__draft__");
+      setSaved(false);
+    } catch (error) {
+      if (!mountedRef.current || requestId !== cityRankingRequestRef.current) return;
+      setCityRankingError(error instanceof Error ? error.message : String(error));
+    } finally {
+      if (cityRankingAbortRef.current === abortController) cityRankingAbortRef.current = null;
+      if (mountedRef.current && requestId === cityRankingRequestRef.current) setCityRankingPending(false);
+    }
+  };
+  const toggleCityGrouping = () => {
+    if (searchesLoading || searchesError || persistencePending) return;
+    if (cityRankingError && !view.cityGrouping?.enabled) {
+      cityRankingRequestRef.current += 1;
+      cityRankingAbortRef.current?.abort();
+      cityRankingAbortRef.current = null;
+      setCityRankingPending(false);
+      setCityRankingError(null);
+      return;
+    }
+    if (view.cityGrouping?.enabled) {
+      cityRankingRequestRef.current += 1;
+      cityRankingAbortRef.current?.abort();
+      cityRankingAbortRef.current = null;
+      userSelectedRef.current = true;
+      setView(current => ({ ...current, presetId: undefined, cityGrouping: undefined }));
+      setSavedId(null);
+      setActiveName("__draft__");
+      setSaved(false);
+      setCityRankingPending(false);
+      setCityRankingError(null);
+      return;
+    }
+    if (cityRankingPending) {
+      cityRankingRequestRef.current += 1;
+      cityRankingAbortRef.current?.abort();
+      cityRankingAbortRef.current = null;
+      setCityRankingPending(false);
+      setCityRankingError(null);
+      return;
+    }
+    void requestCityRanking();
+  };
 
   const writeMutation = useMutation({
     mutationFn: async (command: PriorityWrite) => {
@@ -227,16 +370,20 @@ export function PriorityBuilder({
   });
   const persist = (command: PriorityWrite) => {
     if (writeInFlightRef.current) return false;
+    if (cityRankingPending || cityRankingError) return false;
+    const nextCommand = command.kind === "save"
+      ? { ...command, next: snapshotCityGrouping(command.next, contacts) }
+      : command;
     writeInFlightRef.current = true;
-    lastWriteRef.current = command;
+    lastWriteRef.current = nextCommand;
     setPersistencePending(true);
     setPersistenceFailed(false);
     setSaved(false);
-    writeMutation.mutate(command);
+    writeMutation.mutate(nextCommand);
     return true;
   };
-  const actionsLocked = searchesLoading || searchesError || !saved || persistencePending;
-  const viewControlsDisabled = searchesLoading || searchesError || persistencePending;
+  const actionsLocked = searchesLoading || searchesError || !saved || persistencePending || cityRankingPending || !!cityRankingError;
+  const viewControlsDisabled = searchesLoading || searchesError || persistencePending || cityRankingPending || !!cityRankingError;
 
   const makeDraft = (segments: PrioritySegment[]) => {
     if (writeInFlightRef.current) return;
@@ -308,6 +455,52 @@ export function PriorityBuilder({
   const whyCopy = view.segments.length > 1
     ? `${segmentNames[view.segments[0].id]} ${copy.whyOne} ${segmentNames[view.segments[1].id]}, ${copy.whyMany}`
     : `${segmentNames[view.segments[0]?.id]} ${copy.whyMany}`;
+  const previewSegmentGroups = useMemo(() => {
+    if (!view.cityGrouping?.enabled) return [];
+    const segments = new Map<PriorityQueueSegmentId, typeof filteredQueue>();
+    for (const item of filteredQueue) {
+      segments.set(item.segment, [...(segments.get(item.segment) || []), item]);
+    }
+    return Array.from(segments.entries()).map(([segment, items]) => {
+      const cities = new Map<string, typeof filteredQueue>();
+      for (const item of items) {
+        const key = item.cityGroup?.key || "__unknown__";
+        cities.set(key, [...(cities.get(key) || []), item]);
+      }
+      return {
+        segment,
+        label: segment === "other" ? copy.otherGroup : segmentNames[segment as PrioritySegmentId],
+        items,
+        cityGroups: Array.from(cities.entries()).map(([key, cityItems]) => {
+          const city = cityItems[0]?.cityGroup;
+          return {
+            key: `${segment}:${key}`,
+            label: city?.city
+              ? `${city.city}${city.countryCode ? copy.cityCountrySeparator + city.countryCode : ""}`
+              : copy.unknownCity,
+            items: cityItems,
+          };
+        }),
+      };
+    });
+  }, [copy.cityCountrySeparator, copy.otherGroup, copy.unknownCity, filteredQueue, segmentNames, view.cityGrouping?.enabled]);
+  const renderPreviewCard = ({ contact, segment, cityGroup }: PriorityQueueItem) => {
+    const name = getPriorityContactName(contact);
+    const callbackDateTime = formatCallbackDateTime(contact.callbackDate, locale);
+    const queuePosition = queuePositions.get(contact.id) || 0;
+    const groupName = segment === "other" ? copy.otherGroup : segmentNames[segment];
+    const attemptSummary = formatAttemptSummary(contact.attemptCount, copy);
+    return <button type="button" className="priority-builder-card" key={contact.id} onClick={() => onSelectContact(contact)}>
+      <span className="priority-builder-card-row"><span className="priority-builder-avatar">{name.slice(0, 1).toUpperCase()}</span><strong className="priority-builder-card-name">{name}</strong></span>
+      <span className="priority-builder-card-chips">
+        <span className="priority-builder-card-chip priority-builder-card-chip-position"><span className="priority-builder-card-chip-icon"><ListOrdered size={11} /></span>{queuePosition === 1 ? `${copy.nextUp} — ` : ""}{copy.queuePosition} {queuePosition}</span>
+        <span className="priority-builder-card-chip priority-builder-card-chip-group"><span className="priority-builder-card-chip-icon"><Layers3 size={11} /></span>{copy.group}: {groupName}</span>
+        {view.cityGrouping?.enabled && <span className="priority-builder-card-chip priority-builder-card-chip-city"><span className="priority-builder-card-chip-icon"><MapPin size={11} /></span>{cityGroup?.city || copy.unknownCity}{cityGroup?.countryCode ? `${copy.cityCountrySeparator}${cityGroup.countryCode}` : ""}</span>}
+        <span className="priority-builder-card-chip priority-builder-card-chip-callback"><span className="priority-builder-card-chip-icon"><CalendarClock size={11} /></span>{copy.scheduledCallback}: {callbackDateTime || copy.notScheduled}</span>
+        <span className="priority-builder-card-chip priority-builder-card-chip-attempts"><span className="priority-builder-card-chip-icon"><PhoneCall size={11} /></span>{attemptSummary}</span>
+      </span>
+    </button>;
+  };
 
   return (
     <section className={`priority-builder ${className}`} aria-label={t.agentWorkspace.priorityBuilderTitle}>
@@ -357,6 +550,36 @@ export function PriorityBuilder({
             <option value="city">{t.agentWorkspace.fieldPickerCity}</option>
           </select>
           <button type="button" className="priority-builder-button" disabled={viewControlsDisabled} onClick={reset}><RotateCcw size={14} />{copy.reset}</button>
+          <label className="priority-builder-city-toggle">
+            <input
+              type="checkbox"
+              data-testid="toggle-priority-city-grouping"
+              checked={!!view.cityGrouping?.enabled || cityRankingPending || !!cityRankingError}
+              onChange={toggleCityGrouping}
+              disabled={searchesLoading || !!searchesError || persistencePending}
+            />
+            <span>{copy.groupByCity}</span>
+          </label>
+          {view.cityGrouping?.enabled && (
+            <button
+              type="button"
+              className="priority-builder-button"
+              data-testid="btn-priority-city-rerank"
+              disabled={cityRankingPending || persistencePending || searchesLoading || !!searchesError}
+              onClick={() => void requestCityRanking()}
+            >
+              <RotateCcw size={14} />{copy.cityRankingRefresh}
+            </button>
+          )}
+        </div>
+        <div className="priority-builder-city-status" role="status" data-testid="priority-city-status">
+          {cityRankingPending
+            ? <span>{copy.cityRankingPending}</span>
+            : cityRankingError
+              ? <span role="alert">{copy.cityRankingError} {cityRankingError} <button type="button" data-testid="btn-priority-city-retry" onClick={() => void requestCityRanking()}>{copy.cityRankingRetry}</button></span>
+              : view.cityGrouping?.enabled
+                ? <span>{copy.cityRankingReady} · {copy.cityRankingEstimated}: {eligibleCityKeys(contacts).length} {copy.cityRankingLocations}</span>
+                : <span>{copy.groupByCityHint}</span>}
         </div>
         {(searchesError || persistenceFailed) && <div className="priority-builder-persistence-error" role="alert">
           <span>{searchesError ? copy.loadError : copy.saveError}</span>
@@ -411,22 +634,25 @@ export function PriorityBuilder({
           <aside className="priority-builder-preview">
             <div className="priority-builder-preview-head"><div><h2>{copy.liveResult}</h2><p>{copy.workNext}</p></div><strong style={{ color: "#b5622e", fontSize: 16 }}>{previewQueue.length}</strong></div>
             <div className="priority-builder-impact"><Check size={15} /><span><strong>{copy.dedupActive}</strong><br />{overlapCount} {copy.dedupDetail}</span></div>
-            {filteredQueue.map(({ contact, segment }) => {
-              const name = getPriorityContactName(contact);
-              const callbackDateTime = formatCallbackDateTime(contact.callbackDate, locale);
-              const queuePosition = queuePositions.get(contact.id) || 0;
-              const groupName = segment === "other" ? copy.otherGroup : segmentNames[segment];
-              const attemptSummary = formatAttemptSummary(contact.attemptCount, copy);
-              return <button type="button" className="priority-builder-card" key={contact.id} onClick={() => onSelectContact(contact)}>
-                <span className="priority-builder-card-row"><span className="priority-builder-avatar">{name.slice(0, 1).toUpperCase()}</span><strong className="priority-builder-card-name">{name}</strong></span>
-                <span className="priority-builder-card-chips">
-                  <span className="priority-builder-card-chip priority-builder-card-chip-position"><span className="priority-builder-card-chip-icon"><ListOrdered size={11} /></span>{queuePosition === 1 ? `${copy.nextUp} — ` : ""}{copy.queuePosition} {queuePosition}</span>
-                  <span className="priority-builder-card-chip priority-builder-card-chip-group"><span className="priority-builder-card-chip-icon"><Layers3 size={11} /></span>{copy.group}: {groupName}</span>
-                  <span className="priority-builder-card-chip priority-builder-card-chip-callback"><span className="priority-builder-card-chip-icon"><CalendarClock size={11} /></span>{copy.scheduledCallback}: {callbackDateTime || copy.notScheduled}</span>
-                  <span className="priority-builder-card-chip priority-builder-card-chip-attempts"><span className="priority-builder-card-chip-icon"><PhoneCall size={11} /></span>{attemptSummary}</span>
-                </span>
-              </button>;
-            })}
+            {view.cityGrouping?.enabled
+              ? previewSegmentGroups.map(segment => <div key={segment.segment} className="priority-builder-preview-segment-group">
+                <div className="priority-builder-preview-segment-heading"><Layers3 size={12} />{segment.label}<strong>({segment.items.length})</strong></div>
+                {segment.cityGroups.map(group => {
+                  const expanded = !collapsedPreviewCities.has(group.key);
+                  return <div key={group.key} className="priority-builder-preview-city-group">
+                    <button type="button" className="priority-builder-preview-city-toggle" onClick={() => setCollapsedPreviewCities(previous => {
+                      const next = new Set(previous);
+                      if (next.has(group.key)) next.delete(group.key); else next.add(group.key);
+                      return next;
+                    })} aria-expanded={expanded}>
+                      <span><MapPin size={12} />{group.label} <strong>({group.items.length})</strong></span>
+                      {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                    </button>
+                    {expanded && group.items.map(renderPreviewCard)}
+                  </div>;
+                })}
+              </div>)
+              : filteredQueue.map(renderPreviewCard)}
             {filteredQueue.length === 0 && <p className="priority-builder-detail" style={{ textAlign: "center", padding: "24px 0" }}>{t.agentWorkspace.priorityBuilderNoResults}</p>}
             <div className="priority-builder-rule"><div className="priority-builder-rule-top"><Check size={14} color="#337e7b" /><strong>{copy.whyThisOrder}</strong></div><div className="priority-builder-rule-copy">{whyCopy}</div></div>
           </aside>

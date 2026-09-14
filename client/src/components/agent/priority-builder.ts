@@ -1,4 +1,5 @@
 import type { CampaignContact } from "@shared/schema";
+import { normalizeCityLocation, type NormalizedCityLocation } from "@shared/priority-city";
 import { z } from "zod";
 
 export const PRIORITY_BUILDER_MODULE = "agent-priority-builder";
@@ -39,6 +40,12 @@ export interface PriorityView {
   name: string;
   segments: PrioritySegment[];
   presetId?: PriorityPresetId;
+  /** Optional city ordering snapshot. Omitted means the legacy segment-only queue. */
+  cityGrouping?: {
+    enabled: boolean;
+    rankedKeys: string[];
+    unknownKeys: string[];
+  };
 }
 
 export type PriorityPresetId = "referral_first" | "todays_callbacks" | "fresh_opportunities" | "recovery_desk";
@@ -47,10 +54,18 @@ export type PriorityContact = Omit<CampaignContact, "attemptCount"> & {
   /** campaign_contacts defaults this to zero, but defensive UI paths may omit it. */
   attemptCount?: number | null;
   hasReferral?: boolean;
-  customer?: { firstName?: string | null; lastName?: string | null; name?: string | null } | null;
-  hospital?: { name?: string | null } | null;
-  clinic?: { name?: string | null } | null;
-  collaborator?: { firstName?: string | null; lastName?: string | null; name?: string | null } | null;
+  priorityCity?: string | null;
+  priorityCountryCode?: unknown;
+  customer?: {
+    firstName?: string | null; lastName?: string | null; name?: string | null;
+    city?: string | null; country?: unknown;
+  } | null;
+  hospital?: { name?: string | null; city?: string | null; countryCode?: unknown } | null;
+  clinic?: { name?: string | null; city?: string | null; countryCode?: unknown } | null;
+  collaborator?: {
+    firstName?: string | null; lastName?: string | null; name?: string | null;
+    city?: string | null; countryCode?: unknown;
+  } | null;
 };
 
 const pendingStatuses = new Set(["pending", "callback_scheduled"]);
@@ -74,6 +89,11 @@ const priorityViewSchema = z.object({
   name: z.string().trim().min(1).max(120),
   segments: z.array(prioritySegmentSchema).min(1),
   presetId: z.enum(["referral_first", "todays_callbacks", "fresh_opportunities", "recovery_desk"]).optional(),
+  cityGrouping: z.object({
+    enabled: z.boolean(),
+    rankedKeys: z.array(z.string().trim().min(1)).max(500),
+    unknownKeys: z.array(z.string().trim().min(1)).max(500),
+  }).optional(),
 });
 
 export const PRIORITY_PRESETS: readonly PriorityView[] = [
@@ -105,12 +125,40 @@ export const DEFAULT_PRIORITY_VIEW = PRIORITY_PRESETS[0];
 export function parsePriorityView(value: unknown): PriorityView | null {
   const result = priorityViewSchema.safeParse(value);
   if (!result.success) return null;
+  const rankedKeys = Array.from(new Set(result.data.cityGrouping?.rankedKeys || []));
   return {
     version: 1,
     name: result.data.name,
     segments: result.data.segments as PrioritySegment[],
     presetId: result.data.presetId,
+    cityGrouping: result.data.cityGrouping
+      ? {
+        enabled: result.data.cityGrouping.enabled,
+        rankedKeys,
+        unknownKeys: Array.from(new Set(result.data.cityGrouping.unknownKeys)).filter(key => !rankedKeys.includes(key)),
+      }
+      : undefined,
   };
+}
+
+/**
+ * The shared normalizer is intentionally mirrored here until the shared module
+ * is available to the client bundle. Keep location extraction type-specific:
+ * a clinic's countryCode must never be read from a similarly-shaped customer.
+ */
+export type PriorityCityLocation = NormalizedCityLocation;
+
+/** Resolve the location from the contact's declared entity type. */
+export function getPriorityContactCityLocation(contact: PriorityContact): PriorityCityLocation | null {
+  const enriched = contact as PriorityContact & { priorityCity?: string | null; priorityCountryCode?: unknown };
+  if ("priorityCity" in enriched || "priorityCountryCode" in enriched) {
+    return normalizeCityLocation(enriched.priorityCountryCode, enriched.priorityCity);
+  }
+  const type = String((contact as PriorityContact & { contactType?: string }).contactType || "customer");
+  if (type === "hospital") return normalizeCityLocation(contact.hospital?.countryCode, contact.hospital?.city);
+  if (type === "clinic") return normalizeCityLocation(contact.clinic?.countryCode, contact.clinic?.city);
+  if (type === "collaborator") return normalizeCityLocation(contact.collaborator?.countryCode, contact.collaborator?.city);
+  return normalizeCityLocation(contact.customer?.country, contact.customer?.city);
 }
 
 export function getPriorityContactName(contact: PriorityContact): string {
@@ -239,12 +287,93 @@ export function buildPriorityQueue(
 
 export type PriorityQueueSegmentId = PrioritySegmentId | "other";
 
+export interface PriorityCityGroup {
+  key: string | null;
+  city: string | null;
+  countryCode: string | null;
+}
+
+export interface PriorityQueueItem {
+  contact: PriorityContact;
+  segment: PriorityQueueSegmentId;
+  cityGroup?: PriorityCityGroup;
+}
+
+function cityGroupSort(
+  a: { location: PriorityCityLocation | null; contacts: PriorityContact[] },
+  b: { location: PriorityCityLocation | null; contacts: PriorityContact[] },
+  rankedKeys: string[],
+  unknownKeys: string[],
+): number {
+  if (!a.location && !b.location) return 0;
+  if (!a.location) return 1;
+  if (!b.location) return -1;
+  const rank = new Map(rankedKeys.map((key, index) => [key, index]));
+  const unknown = new Set(unknownKeys);
+  const aUnknown = unknown.has(a.location.key);
+  const bUnknown = unknown.has(b.location.key);
+  if (aUnknown && !bUnknown) return 1;
+  if (!aUnknown && bUnknown) return -1;
+  const aRank = rank.get(a.location.key);
+  const bRank = rank.get(b.location.key);
+  if (aRank !== undefined && bRank !== undefined && aRank !== bRank) return aRank - bRank;
+  if (aRank !== undefined) return -1;
+  if (bRank !== undefined) return 1;
+  return `${a.location.city} ${a.location.countryCode}`.localeCompare(
+    `${b.location.city} ${b.location.countryCode}`,
+    undefined,
+    { sensitivity: "base" },
+  ) || a.location.key.localeCompare(b.location.key);
+}
+
 export function buildPriorityQueueWithFallback(
   contacts: PriorityContact[],
   view: PriorityView,
   currentUserId?: string,
   now = new Date(),
-): Array<{ contact: PriorityContact; segment: PriorityQueueSegmentId }> {
+): PriorityQueueItem[] {
+  if (view.cityGrouping?.enabled) {
+    // Segment assignment is authoritative. City grouping is only a secondary
+    // ordering inside each first-match segment; never let a city pull a later
+    // segment ahead of an earlier one.
+    const baseQueue = buildPriorityQueueWithFallback(
+      contacts,
+      { ...view, cityGrouping: undefined },
+      currentUserId,
+      now,
+    );
+    const segmentGroups = new Map<PriorityQueueSegmentId, {
+      items: PriorityQueueItem[];
+      cities: Map<string, { location: PriorityCityLocation | null; items: PriorityQueueItem[]; contacts: PriorityContact[] }>;
+    }>();
+    for (const item of baseQueue) {
+      let segment = segmentGroups.get(item.segment);
+      if (!segment) {
+        segment = { items: [], cities: new Map() };
+        segmentGroups.set(item.segment, segment);
+      }
+      segment.items.push(item);
+      const location = getPriorityContactCityLocation(item.contact);
+      const key = location?.key || "__unknown__";
+      const city = segment.cities.get(key);
+      if (city) {
+        city.items.push(item);
+        city.contacts.push(item.contact);
+      } else {
+        segment.cities.set(key, { location, items: [item], contacts: [item.contact] });
+      }
+    }
+    return Array.from(segmentGroups.values()).flatMap(segment =>
+      Array.from(segment.cities.values())
+        .sort((a, b) => cityGroupSort(a, b, view.cityGrouping!.rankedKeys, view.cityGrouping!.unknownKeys))
+        .flatMap(city => {
+          const cityGroup: PriorityCityGroup = city.location
+            ? { key: city.location.key, city: city.location.city, countryCode: city.location.countryCode }
+            : { key: null, city: null, countryCode: null };
+          return city.items.map(item => ({ ...item, cityGroup }));
+        }),
+    );
+  }
   const queue = buildPriorityQueue(contacts, view, currentUserId, now);
   const used = new Set(queue.map(item => item.contact.id));
   return [
@@ -267,7 +396,7 @@ export function filterPriorityContacts(
       getPriorityContactName(contact),
       (entity as { phone?: string | null } | null)?.phone || "",
       (entity as { email?: string | null } | null)?.email || "",
-      (entity as { city?: string | null } | null)?.city || "",
+      contact.priorityCity || (entity as { city?: string | null } | null)?.city || "",
     ];
     const index = field === "name" ? 0 : field === "phone" ? 1 : field === "email" ? 2 : field === "city" ? 3 : -1;
     const searchable = index === -1

@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 type SavedViewPayload = { name: string; module: string; filters: string; isDefault: boolean };
 type SavedView = SavedViewPayload & { id: string };
+type CityRankingPayload = { cities: Array<{ key: string; city: string; countryCode: string }> };
 
 async function installSavedSearchApi(page: Page, options: { failGets?: number; failWrites?: number; postDelayMs?: number } = {}) {
   const savedViews: SavedView[] = [];
@@ -47,6 +48,30 @@ async function installSavedSearchApi(page: Page, options: { failGets?: number; f
     await route.fulfill({ status: 204, body: "" });
   });
   return { savedViews, writes, patchIds };
+}
+
+async function installCityRankingApi(page: Page, options: {
+  responses?: Array<{ rankedKeys: string[]; unknownKeys: string[] }>;
+  fail?: boolean;
+  delayMs?: number;
+} = {}) {
+  const requests: CityRankingPayload[] = [];
+  let responseIndex = 0;
+  await page.route("**/api/agent/priority-builder/city-ranking", async route => {
+    const body = JSON.parse(route.request().postData() || "{}") as CityRankingPayload;
+    requests.push(body);
+    if (options.delayMs) await new Promise(resolve => setTimeout(resolve, options.delayMs));
+    if (options.fail) {
+      await route.fulfill({ status: 502, contentType: "application/json", body: JSON.stringify({ error: "fixture city ranking failure" }) });
+      return;
+    }
+    const response = options.responses?.[Math.min(responseIndex++, (options.responses?.length || 1) - 1)] || {
+      rankedKeys: body.cities.map(city => city.key),
+      unknownKeys: [],
+    };
+    await route.fulfill({ contentType: "application/json", body: JSON.stringify(response) });
+  });
+  return { requests };
 }
 
 async function openFixture(page: Page, viewport: { width: number; height: number }) {
@@ -119,7 +144,7 @@ test("draft controls add, reorder, remove, reset, save, reopen and delete a pers
   const addGroup = page.getByRole("combobox", { name: "Add group" });
   await addGroup.selectOption({ label: "My scheduled" });
   await expect(page.locator(".priority-builder-row").last()).toContainText("My scheduled");
-  await expect(page.getByRole("status")).toContainText("Unsaved changes");
+  await expect(page.locator(".priority-builder-status")).toContainText("Unsaved changes");
   await expect(page.getByRole("button", { name: /Auto/ })).toBeDisabled();
   await expect(page.locator(".priority-builder-queue-hint:visible")).toHaveText("Save changes before Auto or Next use this order.");
   await page.getByRole("button", { name: "Move group up" }).last().click();
@@ -132,7 +157,7 @@ test("draft controls add, reorder, remove, reset, save, reopen and delete a pers
   await page.getByRole("button", { name: "Rename view" }).click();
   await expect(page.getByRole("textbox", { name: "Saved view name" })).toBeFocused();
   await page.getByRole("button", { name: "Save view" }).click();
-  await expect(page.getByRole("status")).toContainText("Saved to Contacts");
+  await expect(page.locator(".priority-builder-status")).toContainText("Saved to Contacts");
   await expect(page.getByRole("button", { name: /Auto/ })).toBeEnabled();
   await expect.poll(() => api.savedViews.length).toBe(1);
   expect(api.savedViews[0].isDefault).toBe(true);
@@ -253,8 +278,115 @@ test("saved-view load and write failures keep queue actions locked and expose re
   await expect(page.getByRole("alert")).toContainText("The view could not be saved.");
   await expect(page.getByRole("button", { name: /Auto/ })).toBeDisabled();
   await page.getByRole("alert").getByRole("button", { name: "Retry" }).click();
-  await expect(page.getByRole("status")).toContainText("Saved to Contacts");
+  await expect(page.locator(".priority-builder-status")).toContainText("Saved to Contacts");
   await expect(page.getByRole("button", { name: /Auto/ })).toBeEnabled();
+});
+
+test("city groups rank, lock while pending, save/reopen, refresh new cities, and keep legacy ordering when disabled", async ({ page }) => {
+  const savedApi = await installSavedSearchApi(page);
+  const cityApi = await installCityRankingApi(page, {
+    responses: [
+      {
+        rankedKeys: ["AT:vienna", "SK:bratislava", "CZ:prague", "CZ:brno", "SK:nitra"],
+        unknownKeys: ["SK:zilina"],
+      },
+      {
+        rankedKeys: ["SK:trnava", "AT:vienna", "SK:bratislava", "CZ:prague", "CZ:brno", "SK:nitra", "SK:zilina"],
+        unknownKeys: [],
+      },
+    ],
+    delayMs: 120,
+  });
+  await openFixture(page, { width: 1280, height: 720 });
+
+  const grouping = page.getByTestId("toggle-priority-city-grouping");
+  await grouping.check();
+  await expect(page.getByTestId("priority-city-status")).toContainText("Ranking cities");
+  await expect(page.getByRole("button", { name: "Save view" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /Auto/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Next contact" })).toBeDisabled();
+  await expect(page.getByTestId("priority-city-status")).toContainText("AI city order ready");
+  expect(cityApi.requests).toHaveLength(1);
+  expect(cityApi.requests[0].cities.map(city => city.key)).toEqual([
+    "SK:zilina", "SK:bratislava", "CZ:prague", "CZ:brno", "AT:vienna", "SK:nitra",
+  ]);
+  expect(cityApi.requests[0].cities.some(city => city.city === "")).toBe(false);
+  await expect(page.locator(".priority-builder-preview-city-group")).toHaveCount(8);
+  await expect(page.locator(".priority-builder-preview-segment-group").first()).toContainText("Referral");
+  await expect(page.locator(".priority-builder-preview-segment-group").first().locator(".priority-builder-preview-city-group").first()).toContainText("Bratislava");
+  const firstCityGroup = page.locator(".priority-builder-preview-city-group").first();
+  await firstCityGroup.locator(".priority-builder-preview-city-toggle").click();
+  await expect(firstCityGroup.locator(".priority-builder-card")).toHaveCount(0);
+  await firstCityGroup.locator(".priority-builder-preview-city-toggle").click();
+  await expect(firstCityGroup.locator(".priority-builder-card")).toHaveCount(1);
+  await page.screenshot({ path: "/tmp/priority-city-desktop.png" });
+
+  await page.getByRole("textbox", { name: "Saved view name" }).fill("City fixture queue");
+  await page.getByRole("button", { name: "Save view" }).click();
+  await expect(page.locator(".priority-builder-status")).toContainText("Saved to Contacts");
+  await expect.poll(() => savedApi.savedViews.length).toBe(1);
+  const savedFilters = JSON.parse(savedApi.savedViews[0].filters);
+  expect(savedFilters.cityGrouping).toMatchObject({
+    enabled: true,
+    rankedKeys: ["AT:vienna", "SK:bratislava", "CZ:prague", "CZ:brno", "SK:nitra"],
+    unknownKeys: ["SK:zilina"],
+  });
+
+  await page.reload();
+  await expect(page.getByTestId("toggle-priority-city-grouping")).toBeChecked();
+  await expect(page.locator(".priority-builder-preview-city-group")).toHaveCount(8);
+
+  await page.evaluate(() => {
+    const fixtureWindow = window as Window & { priorityFixtureAddCity?: () => void };
+    fixtureWindow.priorityFixtureAddCity?.();
+  });
+  await expect(page.getByRole("button", { name: "Trnava, SK (1)" })).toBeVisible();
+  await expect(page.locator(".priority-builder-preview-city-group")).toHaveCount(9);
+  await expect(page.locator(".priority-builder-preview-segment-group").first().locator(".priority-builder-preview-city-group").first()).toContainText("Bratislava");
+  await page.getByTestId("btn-priority-city-rerank").click();
+  await expect(page.getByTestId("priority-city-status")).toContainText("AI city order ready");
+  await expect.poll(() => cityApi.requests.length).toBe(2);
+  await expect(page.locator(".priority-builder-preview-city-group").filter({ hasText: "Trnava" }).first()).toBeVisible();
+  await expect(page.getByTestId("toggle-priority-city-grouping")).toBeChecked();
+
+  await page.getByTestId("toggle-priority-city-grouping").click();
+  await expect(page.locator(".priority-builder-preview-city-group")).toHaveCount(0);
+  await expect(page.locator(".priority-builder-row").first()).toContainText("Referral");
+  await expect(page.getByRole("button", { name: /Auto/ })).toBeDisabled();
+});
+
+test("city ranking failure exposes retry and locks queue actions", async ({ page }) => {
+  await installSavedSearchApi(page);
+  await installCityRankingApi(page, { fail: true });
+  await openFixture(page, { width: 1280, height: 720 });
+  await page.getByTestId("toggle-priority-city-grouping").click();
+  await expect(page.getByTestId("priority-city-status")).toContainText("City ranking failed");
+  await expect(page.getByTestId("btn-priority-city-retry")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save view" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /Auto/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Next contact" })).toBeDisabled();
+  await page.getByTestId("toggle-priority-city-grouping").click();
+  await expect(page.getByTestId("toggle-priority-city-grouping")).not.toBeChecked();
+  await expect(page.getByTestId("priority-city-status")).not.toContainText("City ranking failed");
+  await expect(page.getByRole("button", { name: /Auto/ })).toBeEnabled();
+});
+
+test("city grouped parent Next follows the first saved city contact", async ({ page }) => {
+  await installSavedSearchApi(page);
+  await installCityRankingApi(page, {
+    responses: [{ rankedKeys: ["AT:vienna", "SK:bratislava", "SK:zilina", "CZ:brno", "CZ:prague", "SK:nitra"], unknownKeys: [] }],
+  });
+  await openFixture(page, { width: 390, height: 844 });
+  await page.getByTestId("toggle-priority-city-grouping").check();
+  await expect(page.getByTestId("priority-city-status")).toContainText("AI city order ready");
+  await page.getByRole("textbox", { name: "Saved view name" }).fill("City mobile queue");
+  await page.getByRole("button", { name: "Save view" }).click();
+  await expect(page.locator(".priority-builder-status")).toContainText("Saved to Contacts");
+  await expect(page.getByRole("button", { name: "Next contact" })).toBeEnabled();
+  await page.screenshot({ path: "/tmp/priority-city-mobile.png" });
+  await page.getByRole("button", { name: "Next contact" }).click();
+  await expect(page.getByTestId("priority-fixture-next-contact")).toHaveText("referral-2");
+  await expect(page.locator(".priority-builder-preview")).toBeHidden();
 });
 
 test("a delayed activation is serialized and duplicate names retain the POST response id", async ({ page }) => {
@@ -269,7 +401,7 @@ test("a delayed activation is serialized and duplicate names retain the POST res
   await page.getByRole("combobox", { name: "Add group" }).selectOption({ label: "My scheduled" });
   await page.getByRole("textbox", { name: "Saved view name" }).fill("Same name");
   await page.getByRole("button", { name: "Save view" }).click();
-  await expect(page.getByRole("status")).toContainText("Saved to Contacts");
+  await expect(page.locator(".priority-builder-status")).toContainText("Saved to Contacts");
   const createdId = api.savedViews.find(view => view.name === "Same name")!.id;
   api.savedViews.push({ ...api.savedViews.find(view => view.name === "Same name")!, id: "same-name-other" });
   await page.getByRole("combobox", { name: "Add group" }).selectOption({ label: "Team scheduled" });

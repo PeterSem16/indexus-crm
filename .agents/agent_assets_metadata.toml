@@ -336,3 +336,17 @@ mtime_ms = 1789377875843
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/8c13a542-cb15-44be-8eb0-8aedfe6c57d8/b2a0acc9-eb14-4c4c-96f8-297b39970ec1"
 storage_version_token = "1789377921980099"
 content_type = "image/png"
+
+[[outputs]]
+id = "lrcsmUd5KI5AKTMS_FKEk"
+uri = "file://attached_assets/priority-preview/priority-city-desktop.png"
+type = "image"
+title = "Priority Builder – podskupiny podľa miest"
+description = "Skutočný komponent aplikácie s testovacími kontaktmi: pôvodná skupina → mesto → kontakty. Voliteľné AI poradie miest sa uloží s osobným pohľadom."
+logical_id = "50dc84b2-f2f1-4c17-89fd-8168819df8b2"
+content_hash = "sha256:effe25c0dfd890aac6c9e638ba47b880236af26aed9f888aacd940b334c40836"
+size = 137235
+mtime_ms = 1789383441352
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/50dc84b2-f2f1-4c17-89fd-8168819df8b2/e425aedb-deea-4bf8-a513-45cba43dc72d"
+storage_version_token = "1789383448201761"
+content_type = "image/png"

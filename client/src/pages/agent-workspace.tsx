@@ -234,8 +234,10 @@ import {
   getBratislavaDateKey,
   parsePriorityView,
   PRIORITY_BUILDER_MODULE,
+  type PriorityQueueItem,
   type PriorityQueueSegmentId,
 } from "@/components/agent/priority-builder";
+import { priorityBuilderCopy } from "@/components/agent/priority-builder-copy";
 import type { SavedSearch } from "@shared/schema";
 import { buildScheduledCallbackPatch } from "@shared/scheduled-callback";
 
@@ -1505,6 +1507,7 @@ function TaskListPanel({
   onOpenContactsModal,
   activePriorityViewName,
   priorityQueue,
+  cityGroupingEnabled,
   isAutoMode,
   onToggleAutoMode,
   autoCountdown,
@@ -1541,7 +1544,8 @@ function TaskListPanel({
   autoCountdown: number | null;
   onOpenContactsModal: () => void;
   activePriorityViewName?: string;
-  priorityQueue: Array<{ contact: EnrichedCampaignContact; segment: PriorityQueueSegmentId }>;
+  priorityQueue: Array<PriorityQueueItem & { contact: EnrichedCampaignContact }>;
+  cityGroupingEnabled?: boolean;
   onOpenTasksModal: () => void;
   onCancelTask: (taskId: string) => void;
   agentStatus: AgentStatus;
@@ -1553,7 +1557,8 @@ function TaskListPanel({
   onOpenInboundCallback?: (callback: InboundCb) => void | Promise<void>;
   onCallInboundCallback?: (callback: InboundCb) => void | Promise<void>;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const priorityCopy = priorityBuilderCopy[locale];
   const filteredCampaigns = useMemo(() => {
     if (channelFilter === "all") return campaigns;
     return campaigns.filter((c) => c.channel === channelFilter);
@@ -1904,18 +1909,45 @@ function TaskListPanel({
                   stale: t.agentWorkspace.priorityBuilderSegmentLabels.stale,
                   other: t.agentWorkspace.priorityBuilderOther,
                 };
-                const contactGroups = Array.from(new Set(priorityQueue.map(item => item.segment)))
-                  .map(segment => {
+                const contactGroups = cityGroupingEnabled
+                  ? Array.from(new Set(priorityQueue.map(item => item.segment))).map(segment => {
+                    const segmentItems = priorityQueue.filter(item => item.segment === segment);
+                    const cityGroups = Array.from(new Set(segmentItems.map(item => item.cityGroup?.key || "__unknown__"))).map(cityKey => {
+                      const items = segmentItems.filter(item => (item.cityGroup?.key || "__unknown__") === cityKey);
+                      const city = items[0]?.cityGroup;
+                      return {
+                        id: `city:${segment}:${cityKey}`,
+                        label: city?.city
+                          ? `${city.city}${city.countryCode ? priorityCopy.cityCountrySeparator + city.countryCode : ""}`
+                          : priorityCopy.unknownCity,
+                        items: items.map(item => item.contact),
+                        ac: "#5E7A5A",
+                        Icon: MapPin,
+                      };
+                    }).filter(group => group.items.length > 0);
                     const style = groupStyle[segment] || groupStyle.other;
                     return {
                       id: segment,
                       label: segmentLabels[segment] || segment,
-                      items: priorityQueue.filter(item => item.segment === segment).map(item => item.contact),
+                      items: segmentItems.map(item => item.contact),
+                      cityGroups,
                       ac: style.ac,
                       Icon: style.Icon,
                     };
-                  })
-                  .filter(group => group.items.length > 0);
+                  }).filter(group => group.items.length > 0)
+                  : Array.from(new Set(priorityQueue.map(item => item.segment)))
+                    .map(segment => {
+                      const style = groupStyle[segment] || groupStyle.other;
+                      return {
+                        id: segment,
+                        label: segmentLabels[segment] || segment,
+                        items: priorityQueue.filter(item => item.segment === segment).map(item => item.contact),
+                        cityGroups: [],
+                        ac: style.ac,
+                        Icon: style.Icon,
+                      };
+                    })
+                    .filter(group => group.items.length > 0);
 
                 if (contactGroups.length === 0 && (!inboundCallbacks || inboundCallbacks.length === 0)) {
                   return (
@@ -1933,8 +1965,89 @@ function TaskListPanel({
                   collaborator: Handshake,
                   customer: User,
                 };
+                const renderContactCard = (cc: any, ac: string, isDisabled: boolean) => {
+                  const entityDisplay = getEntityDisplayInfo(cc);
+                  if (!entityDisplay) return null;
+                  const callbackDateStr = cc.callbackDate ? format(new Date(cc.callbackDate), "dd.MM. HH:mm") : null;
+                  const TypeIcon = typeIconMap[entityDisplay.type] || User;
+                  return (
+                    <div
+                      key={cc.id}
+                      className={`rounded-xl px-2.5 py-2 transition-all duration-200 ${isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                      style={{
+                        background: "hsl(var(--background))",
+                        border: `1px solid ${ac}25`,
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                      }}
+                      onMouseEnter={isDisabled ? undefined : (e) => {
+                        const el = e.currentTarget as HTMLElement;
+                        el.style.borderColor = `${ac}60`;
+                        el.style.boxShadow = `0 4px 10px ${ac}18`;
+                        el.style.transform = "translateY(-1px)";
+                      }}
+                      onMouseLeave={isDisabled ? undefined : (e) => {
+                        const el = e.currentTarget as HTMLElement;
+                        el.style.borderColor = `${ac}25`;
+                        el.style.boxShadow = "0 1px 3px rgba(0,0,0,0.05)";
+                        el.style.transform = "translateY(0)";
+                      }}
+                      onClick={() => { if (!isDisabled) onSelectCampaignContact(cc); }}
+                      data-testid={`contact-item-${cc.id}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="h-8 w-8 rounded-full flex items-center justify-center shrink-0"
+                          style={{ background: `${ac}15`, border: `1.5px solid ${ac}30` }}
+                        >
+                          <TypeIcon className="h-3.5 w-3.5" style={{ color: ac }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold truncate" style={{ color: "hsl(var(--foreground))" }}>
+                            {entityDisplay.name}
+                          </p>
+                          <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                            {callbackDateStr ? (
+                              <>
+                                <Calendar className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />
+                                <span className="text-[10px] text-muted-foreground">{callbackDateStr}</span>
+                              </>
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground">{entityDisplay.subtitle}</span>
+                            )}
+                          </div>
+                          {cc.callbackNote && (
+                            <p className="text-[9px] mt-0.5 truncate italic text-muted-foreground" title={cc.callbackNote}>
+                              📝 {cc.callbackNote}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {cc.attemptCount > 0 && (
+                            <span
+                              className="text-[10px] font-bold w-6 h-6 flex items-center justify-center rounded-full"
+                              style={{ background: `${ac}18`, color: ac }}
+                            >
+                              {cc.attemptCount}x
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            className="h-7 w-7 rounded-xl flex items-center justify-center transition-all duration-150"
+                            style={{ background: ac, color: "#fff", boxShadow: `0 2px 5px ${ac}40` }}
+                            onMouseEnter={e => (e.currentTarget.style.filter = "brightness(1.12)")}
+                            onMouseLeave={e => (e.currentTarget.style.filter = "none")}
+                            onClick={e => { e.stopPropagation(); if (!isDisabled) onSelectCampaignContact(cc); }}
+                            data-testid={`btn-call-${cc.id}`}
+                          >
+                            <Phone className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                };
 
-                return contactGroups.map(({ id, label, items, ac, Icon }) => {
+                return contactGroups.map(({ id, label, items, ac, Icon, cityGroups }) => {
                   const isOpen = expandedGroups.has(id);
                   const isDisabled = agentStatus === "wrap_up" || agentStatus === "break";
                   return (
@@ -1980,87 +2093,30 @@ function TaskListPanel({
 
                       {isOpen && (
                         <div className="p-2 space-y-1.5" style={{ background: "hsl(var(--card))" }}>
-                          {items.map(cc => {
-                            const entityDisplay = getEntityDisplayInfo(cc);
-                            if (!entityDisplay) return null;
-                            const callbackDateStr = cc.callbackDate ? format(new Date(cc.callbackDate), "dd.MM. HH:mm") : null;
-                            const TypeIcon = typeIconMap[entityDisplay.type] || User;
-                            return (
-                              <div
-                                key={cc.id}
-                                className={`rounded-xl px-2.5 py-2 transition-all duration-200 ${isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-                                style={{
-                                  background: "hsl(var(--background))",
-                                  border: `1px solid ${ac}25`,
-                                  boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-                                }}
-                                onMouseEnter={isDisabled ? undefined : (e) => {
-                                  const el = e.currentTarget as HTMLElement;
-                                  el.style.borderColor = `${ac}60`;
-                                  el.style.boxShadow = `0 4px 10px ${ac}18`;
-                                  el.style.transform = "translateY(-1px)";
-                                }}
-                                onMouseLeave={isDisabled ? undefined : (e) => {
-                                  const el = e.currentTarget as HTMLElement;
-                                  el.style.borderColor = `${ac}25`;
-                                  el.style.boxShadow = "0 1px 3px rgba(0,0,0,0.05)";
-                                  el.style.transform = "translateY(0)";
-                                }}
-                                onClick={() => { if (!isDisabled) onSelectCampaignContact(cc); }}
-                                data-testid={`contact-item-${cc.id}`}
-                              >
-                                <div className="flex items-center gap-2">
-                                  <div
-                                    className="h-8 w-8 rounded-full flex items-center justify-center shrink-0"
-                                    style={{ background: `${ac}15`, border: `1.5px solid ${ac}30` }}
+                          {cityGroupingEnabled
+                            ? cityGroups.map(cityGroup => {
+                              const cityIsOpen = expandedGroups.has(cityGroup.id);
+                              return (
+                                <div key={cityGroup.id} className="rounded-xl overflow-hidden" style={{ border: `1px solid ${cityGroup.ac}35` }}>
+                                  <button
+                                    type="button"
+                                    className="w-full flex items-center gap-2 px-2.5 py-2 text-left"
+                                    style={{ background: `${cityGroup.ac}10` }}
+                                    onClick={() => toggleGroup(cityGroup.id)}
+                                    aria-expanded={cityIsOpen}
                                   >
-                                    <TypeIcon className="h-3.5 w-3.5" style={{ color: ac }} />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-semibold truncate" style={{ color: "hsl(var(--foreground))" }}>
-                                      {entityDisplay.name}
-                                    </p>
-                                    <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                                      {callbackDateStr ? (
-                                        <>
-                                          <Calendar className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />
-                                          <span className="text-[10px] text-muted-foreground">{callbackDateStr}</span>
-                                        </>
-                                      ) : (
-                                        <span className="text-[10px] text-muted-foreground">{entityDisplay.subtitle}</span>
-                                      )}
-                                    </div>
-                                    {cc.callbackNote && (
-                                      <p className="text-[9px] mt-0.5 truncate italic text-muted-foreground" title={cc.callbackNote}>
-                                        📝 {cc.callbackNote}
-                                      </p>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-1 shrink-0">
-                                    {cc.attemptCount > 0 && (
-                                      <span
-                                        className="text-[10px] font-bold w-6 h-6 flex items-center justify-center rounded-full"
-                                        style={{ background: `${ac}18`, color: ac }}
-                                      >
-                                        {cc.attemptCount}x
-                                      </span>
-                                    )}
-                                    <button
-                                      type="button"
-                                      className="h-7 w-7 rounded-xl flex items-center justify-center transition-all duration-150"
-                                      style={{ background: ac, color: "#fff", boxShadow: `0 2px 5px ${ac}40` }}
-                                      onMouseEnter={e => (e.currentTarget.style.filter = "brightness(1.12)")}
-                                      onMouseLeave={e => (e.currentTarget.style.filter = "none")}
-                                      onClick={e => { e.stopPropagation(); if (!isDisabled) onSelectCampaignContact(cc); }}
-                                      data-testid={`btn-call-${cc.id}`}
-                                    >
-                                      <Phone className="h-3 w-3" />
-                                    </button>
-                                  </div>
+                                    <MapPin className="h-3.5 w-3.5 shrink-0" style={{ color: cityGroup.ac }} />
+                                    <span className="flex-1 text-[10px] font-bold">{cityGroup.label}</span>
+                                    <span className="text-[10px] text-muted-foreground">{cityGroup.items.length}</span>
+                                    {cityIsOpen
+                                      ? <ChevronUp className="h-3 w-3" style={{ color: cityGroup.ac }} />
+                                      : <ChevronDown className="h-3 w-3" style={{ color: cityGroup.ac }} />}
+                                  </button>
+                                  {cityIsOpen && <div className="p-1.5 space-y-1.5">{cityGroup.items.map(cc => renderContactCard(cc, ac, isDisabled))}</div>}
                                 </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            })
+                            : items.map(cc => renderContactCard(cc, ac, isDisabled))}
                         </div>
                       )}
                     </div>
@@ -14875,6 +14931,7 @@ function AgentWorkspacePageContent() {
           isLoadingContact={false}
           campaignContacts={authoritativePriorityContacts as EnrichedCampaignContact[]}
           priorityQueue={authoritativePriorityQueue as Array<{ contact: EnrichedCampaignContact; segment: PriorityQueueSegmentId }>}
+           cityGroupingEnabled={!!persistedPriorityView.cityGrouping?.enabled}
           onSelectCampaignContact={guardedSelectCampaignContact}
           currentUserId={user?.id}
           isAutoMode={isAutoMode}
@@ -14914,6 +14971,8 @@ function AgentWorkspacePageContent() {
               campaign={selectedCampaign}
               campaignContacts={authoritativePriorityContacts}
               allCampaignContacts={rawCampaignContacts}
+               priorityQueue={authoritativePriorityQueue as Array<PriorityQueueItem & { contact: EnrichedCampaignContact }>}
+               cityGroupingEnabled={!!persistedPriorityView.cityGrouping?.enabled}
                inboundCallbacks={agentInboundCallbacks}
                onOpenInboundCallback={handleOpenInboundCallback}
                onCallInboundCallback={handleCallInboundCallback}

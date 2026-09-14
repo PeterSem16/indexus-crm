@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Dialog, DialogContent } from "../src/components/ui/dialog";
@@ -31,7 +31,7 @@ const contacts: PriorityContact[] = [
     createdAt: new Date("2026-01-01T08:00:00.000Z"),
     updatedAt: new Date("2026-01-01T08:00:00.000Z"),
     hasReferral: true,
-    customer: { firstName: "Melichar", lastName: "SRO" },
+    customer: { firstName: "Melichar", lastName: "SRO", city: "Zilina", country: "SK" },
   },
   {
     id: "referral-2",
@@ -44,7 +44,7 @@ const contacts: PriorityContact[] = [
     createdAt: new Date("2026-01-02T08:00:00.000Z"),
     updatedAt: new Date("2026-01-02T08:00:00.000Z"),
     hasReferral: true,
-    customer: { firstName: "Tes AmbuMed", lastName: "Partner" },
+    customer: { firstName: "Tes AmbuMed", lastName: "Partner", city: "Bratislava", country: "SK" },
   },
   {
     id: "scheduled-1",
@@ -57,7 +57,7 @@ const contacts: PriorityContact[] = [
     callbackDate: todayAtNine,
     createdAt: new Date("2026-01-03T08:00:00.000Z"),
     updatedAt: new Date("2026-01-03T08:00:00.000Z"),
-    customer: { firstName: "Tes Klinika", lastName: "Medifem X" },
+    customer: { firstName: "Tes Klinika", lastName: "Medifem X", city: "Prague", country: "CZ" },
   },
   {
     id: "scheduled-2",
@@ -83,7 +83,7 @@ const contacts: PriorityContact[] = [
     priorityScore: 60,
     createdAt: new Date("2026-01-05T08:00:00.000Z"),
     updatedAt: new Date("2026-01-05T08:00:00.000Z"),
-    customer: { firstName: "Tes Centrum", lastName: "CarePoint" },
+    customer: { firstName: "Tes Centrum", lastName: "CarePoint", city: "Brno", country: "CZ" },
   },
   {
     id: "new-2",
@@ -95,7 +95,7 @@ const contacts: PriorityContact[] = [
     priorityScore: 50,
     createdAt: new Date("2026-01-06T08:00:00.000Z"),
     updatedAt: new Date("2026-01-06T08:00:00.000Z"),
-    customer: { firstName: "Tes Ambulancia", lastName: "Femina" },
+    customer: { firstName: "Tes Ambulancia", lastName: "Femina", city: "Vienna", country: "AT" },
   },
   {
     id: "mine-1",
@@ -108,7 +108,7 @@ const contacts: PriorityContact[] = [
     callbackDate: tomorrowAtNine,
     createdAt: new Date("2026-01-07T08:00:00.000Z"),
     updatedAt: new Date("2026-01-07T08:00:00.000Z"),
-    customer: { firstName: "Tes Ambulancia", lastName: "Medis" },
+    customer: { firstName: "Tes Ambulancia", lastName: "Medis", city: "Bratislava", country: "SK" },
   },
   {
     id: "missed-1",
@@ -120,15 +120,28 @@ const contacts: PriorityContact[] = [
     priorityScore: 30,
     createdAt: new Date("2026-01-08T08:00:00.000Z"),
     updatedAt: new Date("2026-01-08T08:00:00.000Z"),
-    customer: { firstName: "Tes Centrum", lastName: "Zena Plus" },
+    customer: { firstName: "Tes Centrum", lastName: "Zena Plus", city: "Nitra", country: "SK" },
   },
 ];
 
 function Fixture() {
   const [open, setOpen] = useState(true);
+  const [fixtureContacts, setFixtureContacts] = useState(contacts);
   const [auto, setAuto] = useState(false);
   const [nextCalls, setNextCalls] = useState(0);
   const [nextContactId, setNextContactId] = useState("");
+
+  useEffect(() => {
+    const fixtureWindow = window as Window & { priorityFixtureAddCity?: () => void };
+    fixtureWindow.priorityFixtureAddCity = () => setFixtureContacts(current => [...current, {
+      ...contacts[0],
+      id: "new-city-contact",
+      hasReferral: false,
+      priorityScore: 15,
+      customer: { firstName: "Nové mesto", lastName: "Fixture", city: "Trnava", country: "SK" },
+    }]);
+    return () => { delete fixtureWindow.priorityFixtureAddCity; };
+  }, []);
 
   return (
     <>
@@ -141,7 +154,7 @@ function Fixture() {
         >
           <PriorityBuilder
             className="h-full min-h-0 flex-1 rounded-none border-0"
-            contacts={contacts}
+            contacts={fixtureContacts}
             currentUserId="agent-fixture"
             onClose={() => setOpen(false)}
             isAutoMode={auto}
@@ -151,7 +164,7 @@ function Fixture() {
               const persisted = queryClient.getQueryData<Array<{ isDefault: boolean; filters: string }>>(["/api/saved-searches", PRIORITY_BUILDER_MODULE]);
               const active = persisted?.find(view => view.isDefault);
               const view = active ? parsePriorityView(JSON.parse(active.filters)) || DEFAULT_PRIORITY_VIEW : DEFAULT_PRIORITY_VIEW;
-              const next = buildPriorityQueueWithFallback(contacts, view, "agent-fixture")[0];
+              const next = buildPriorityQueueWithFallback(fixtureContacts, view, "agent-fixture")[0];
               setNextCalls(value => value + 1);
               setNextContactId(next?.contact.id || "");
             }}

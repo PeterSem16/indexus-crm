@@ -35,7 +35,7 @@ import {
   insertVisitEventSchema, visitEvents,
   campaignDispositions, insertCampaignDispositionSchema,
   DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS, DISPOSITION_NAME_TRANSLATIONS,
-  callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaignAgents, campaigns, customers, users, entityCampaignTimeline, mobileContacts, collaborators, billingDetails,
+  callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaignAgents, campaigns, customers, users, entityCampaignTimeline, mobileContacts, collaborators, collaboratorAddresses, billingDetails,
   collections, executiveSummaries, collectionLabResults, collectionSprievodnyList, cbuReportAudit, cbuReportOtp, searchResults, searchJobs, leadCampaigns,
   customerDocuments, customerDebtCollection, customerConsents, activityLogs as activityLogsTable, customerEmailNotifications,
   insertLeadSourceSchema, insertLeadCampaignSchema, queryTemplates, insertQueryTemplateSchema, webhookConfigs, insertWebhookConfigSchema, leadSources,
@@ -153,6 +153,11 @@ import mammoth from "mammoth";
 import QRCode from "qrcode";
 import { PDFDocument as PDFLibDocument, rgb, degrees, StandardFonts } from "pdf-lib";
 import { notificationService } from "./lib/notification-service";
+import { normalizeCollaboratorPriorityCity } from "./lib/collaborator-priority-city";
+import {
+  rankPriorityCities,
+  PriorityCityRankingError,
+} from "./lib/priority-city-ranking";
 import * as mailchimpApi from "./lib/mailchimp";
 import { sendAmiActionViaSshTunnel, sendAmiListActionViaSshTunnel, downloadFileViaSsh, runSshCommand } from "./lib/ami-client";
 import * as XLSX from "xlsx";
@@ -22809,6 +22814,19 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   });
 
   // ============= Saved Searches Routes =============
+
+  app.post("/api/agent/priority-builder/city-ranking", requireAuth, async (req, res) => {
+    try {
+      const result = await rankPriorityCities(req.session.user!.id, req.body);
+      return res.json(result);
+    } catch (error) {
+      if (error instanceof PriorityCityRankingError) {
+        return res.status(error.status).json({ error: error.message });
+      }
+      console.error("Priority city ranking failed:", error);
+      return res.status(502).json({ error: "AI city ranking failed" });
+    }
+  });
   
   app.get("/api/saved-searches", requireAuth, async (req, res) => {
     try {
@@ -29310,6 +29328,39 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         contacts = await storage.getCampaignContacts(req.params.id);
       }
 
+      // Collaborators keep their city/country in collaborator_addresses rather
+      // than on the collaborator row. Load all relevant addresses once and
+      // expose only the normalized city fields needed by the priority queue.
+      const collaboratorIds = [...new Set(
+        contacts
+          .map((contact: any) => contact.contactType === "collaborator" ? contact.collaboratorId : null)
+          .filter((id: unknown): id is string => typeof id === "string" && id.length > 0),
+      )];
+      const priorityCityByCollaborator = new Map<string, ReturnType<typeof normalizeCollaboratorPriorityCity>>();
+      if (collaboratorIds.length > 0) {
+        const addressRows = await db.select({
+          id: collaboratorAddresses.id,
+          collaboratorId: collaboratorAddresses.collaboratorId,
+          addressType: collaboratorAddresses.addressType,
+          city: collaboratorAddresses.city,
+          countryCode: collaboratorAddresses.countryCode,
+          createdAt: collaboratorAddresses.createdAt,
+        }).from(collaboratorAddresses)
+          .where(inArray(collaboratorAddresses.collaboratorId, collaboratorIds));
+        const addressesByCollaborator = new Map<string, typeof addressRows>();
+        for (const address of addressRows) {
+          const existing = addressesByCollaborator.get(address.collaboratorId) || [];
+          existing.push(address);
+          addressesByCollaborator.set(address.collaboratorId, existing);
+        }
+        for (const collaboratorId of collaboratorIds) {
+          priorityCityByCollaborator.set(
+            collaboratorId,
+            normalizeCollaboratorPriorityCity(addressesByCollaborator.get(collaboratorId) || []),
+          );
+        }
+      }
+
       // Resolve referral membership once for the contacts in this mission.
       // A contact has a referral when it is either the referred-to entity or
       // the referring entity. This keeps the Mission contacts filter fast and
@@ -29362,7 +29413,23 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             : contact.collaboratorId
               ? collaboratorReferralIds.has(contact.collaboratorId)
               : false;
-          return { ...contact, customer, hospital, clinic, collaborator, hasReferral };
+          const priorityCity = contact.contactType === "collaborator" && contact.collaboratorId
+            ? priorityCityByCollaborator.get(contact.collaboratorId)
+            : null;
+          return {
+            ...contact,
+            customer,
+            hospital,
+            clinic,
+            collaborator,
+            hasReferral,
+            ...(contact.contactType === "collaborator"
+              ? {
+                priorityCity: priorityCity?.city ?? null,
+                priorityCountryCode: priorityCity?.countryCode ?? null,
+              }
+              : {}),
+          };
         })
       );
       
