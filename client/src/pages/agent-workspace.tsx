@@ -15290,11 +15290,12 @@ function AgentWorkspacePageContent() {
       </div>
 
       <Dialog open={contactsModalOpen} onOpenChange={setContactsModalOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col overflow-hidden p-0 gap-0">
+        <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col overflow-hidden p-0 gap-0 [&>button]:hidden">
           <PriorityBuilder
             className="min-h-[34rem] flex-1 rounded-none border-0"
             contacts={sortedPendingContacts}
             currentUserId={user?.id}
+            onClose={() => setContactsModalOpen(false)}
             onSelectContact={(contact) => {
               const campaignContact = sortedPendingContacts.find(item => item.id === contact.id);
               if (campaignContact) {

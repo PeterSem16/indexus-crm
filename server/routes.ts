@@ -25407,7 +25407,6 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           .from(inboundCallbacks)
           .where(
             and(
-              gte(inboundCallbacks.createdAt, startOfDay(new Date())),
               isNotNull(inboundCallbacks.callbackDate),
               eq(inboundCallbacks.calledBack, false),
               or(
@@ -25763,7 +25762,6 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         .from(inboundCallbacks)
         .where(
           and(
-            gte(inboundCallbacks.createdAt, startOfDay(new Date())),
             or(
               eq(inboundCallbacks.userId, user.id),
               eq(inboundCallbacks.assignedTo, user.id),

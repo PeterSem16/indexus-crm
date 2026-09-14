@@ -87,3 +87,4 @@
 - [Mockup preview first-load timing](mockup-preview-first-load.md) — a sandbox screenshot just after a Vite restart can capture the dynamic loader's blank state; verify once more before marking the frame failed.
 - [Inbound popup visual hierarchy](inbound-popup-visual-hierarchy.md) — caller-first identity layout is approved; keep red limited to urgency, missed calls, and reject.
 - [Agent priority queue authority](agent-priority-queue-authority.md) — personal priority ordering applies after campaign eligibility and must drive sidebar, mobile, Auto, and Next from one queue.
+- [Rescheduled inbound callback visibility](inbound-callback-visibility.md) — pending callback queries must not filter by creation day; day grouping uses Europe/Bratislava callback time.

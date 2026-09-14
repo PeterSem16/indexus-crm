@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, Check, Copy, Pencil, Save, ShieldCheck, Trash2, Users } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Copy, Pencil, Save, Search, ShieldCheck, Trash2, X } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { SavedSearch } from "@shared/schema";
@@ -24,6 +24,7 @@ interface PriorityBuilderProps {
   contacts: PriorityContact[];
   currentUserId?: string;
   onSelectContact: (contact: PriorityContact) => void;
+  onClose?: () => void;
   className?: string;
 }
 
@@ -35,6 +36,13 @@ function savedSearchView(search: SavedSearch): PriorityView | null {
   }
 }
 
+function formatCallbackTime(value: unknown): string | null {
+  if (!value) return null;
+  const date = new Date(String(value));
+  if (!Number.isFinite(date.getTime())) return null;
+  return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(date);
+}
+
 /**
  * Production queue editor. Saved views use the authenticated saved-search endpoint;
  * no browser storage or client-supplied user identity is involved.
@@ -43,6 +51,7 @@ export function PriorityBuilder({
   contacts,
   currentUserId,
   onSelectContact,
+  onClose,
   className = "",
 }: PriorityBuilderProps) {
   const { t } = useI18n();
@@ -83,6 +92,7 @@ export function PriorityBuilder({
     if (defaultEntry) {
       setSavedId(defaultEntry.search.id);
       setView(defaultEntry.view);
+      setSelectedId(defaultEntry.view.segments[0]?.id || "");
       setActiveName(defaultEntry.view.presetId || defaultEntry.search.id);
     }
   }, [usableSearches]);
@@ -109,15 +119,19 @@ export function PriorityBuilder({
     },
     onSuccess: async (_, variables) => {
       await queryClient.invalidateQueries({ queryKey: ["/api/saved-searches", PRIORITY_BUILDER_MODULE] });
+      let persistedId = variables.id;
       if (!variables.id) {
         const fresh = await fetch(`/api/saved-searches?module=${PRIORITY_BUILDER_MODULE}`, { credentials: "include" });
         if (fresh.ok) {
           const values = await fresh.json() as SavedSearch[];
           const match = values.find(item => item.name === variables.next.name);
-          if (match) setSavedId(match.id);
+          if (match) {
+            persistedId = match.id;
+            setSavedId(match.id);
+          }
         }
       }
-      setActiveName(variables.next.presetId || variables.next.name);
+      setActiveName(variables.next.presetId || persistedId || "__draft__");
       setSaved(true);
     },
   });
@@ -141,7 +155,18 @@ export function PriorityBuilder({
   });
 
   const updateSegments = (segments: PrioritySegment[]) => {
-    setView(current => ({ ...current, segments }));
+    if (view.presetId) {
+      setSavedId(null);
+      setActiveName("__draft__");
+      setView(current => ({
+        ...current,
+        name: `${presetLabels[current.presetId!] || current.name}${t.agentWorkspace.priorityBuilderDuplicateSuffix}`,
+        presetId: undefined,
+        segments,
+      }));
+    } else {
+      setView(current => ({ ...current, segments }));
+    }
     setSaved(false);
   };
   const move = (index: number, direction: -1 | 1) => {
@@ -157,6 +182,7 @@ export function PriorityBuilder({
   };
   const activate = (next: PriorityView, id?: string) => {
     setView(next);
+    setSelectedId(next.segments[0]?.id || "");
     const persisted = id || usableSearches.find(entry => entry.view.presetId === next.presetId)?.search.id;
     setSavedId(persisted || null);
     setActiveName(next.presetId || persisted || next.name);
@@ -165,40 +191,62 @@ export function PriorityBuilder({
   };
 
   return (
-    <section className={`flex min-h-0 flex-col overflow-hidden rounded-xl border bg-background ${className}`} aria-label={t.agentWorkspace.priorityBuilderTitle}>
-      <header className="flex shrink-0 flex-wrap items-center gap-3 border-b px-4 py-3">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <Users className="h-5 w-5 text-primary" aria-hidden="true" />
-          <div className="min-w-0">
-            <h2 className="truncate text-base font-semibold">{t.agentWorkspace.priorityBuilderTitle}</h2>
-            <p className="text-xs text-muted-foreground">{t.agentWorkspace.priorityBuilderSubtitle}</p>
-          </div>
-        </div>
-        <select
-          className="h-9 max-w-[13rem] rounded-md border bg-background px-2 text-sm"
-          value={activeName}
-          onChange={event => {
-            const preset = PRIORITY_PRESETS.find(item => item.presetId === event.target.value);
-            const entry = usableSearches.find(item => item.search.id === event.target.value);
-            if (preset) activate(preset);
-            else if (entry) activate(entry.view, entry.search.id);
-          }}
-          aria-label={t.agentWorkspace.priorityBuilderActiveView}
-        >
-          {PRIORITY_PRESETS.map(preset => <option key={preset.presetId} value={preset.presetId}>{presetLabels[preset.presetId!]}</option>)}
-          {usableSearches.filter(entry => !entry.view.presetId)
-            .map(entry => <option key={entry.search.id} value={entry.search.id}>{entry.view.name}</option>)}
-        </select>
-      </header>
-
-      <div className="grid min-h-0 flex-1 gap-4 overflow-auto p-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(17rem,.75fr)]">
-        <div className="min-w-0 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold">{t.agentWorkspace.priorityBuilderSegments}</h3>
+    <section className={`flex min-h-0 flex-col overflow-hidden rounded-xl border bg-background ${className}`} aria-label={t.agentWorkspace.priorityBuilderSegments}>
+      <style>{`
+        .priority-builder-shell{width:100%;height:100%;min-height:500px;display:flex;flex-direction:column;overflow:hidden;background:#fff;color:#292522;font-family:"Open Sans",sans-serif}
+        .priority-builder-head{height:58px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 16px;border-bottom:1px solid #e8e4e0}
+        .priority-builder-title{font-size:13px;font-weight:800;letter-spacing:-.01em}
+        .priority-builder-head-actions{display:flex;align-items:center;gap:8px}
+        .priority-builder-add{height:30px;min-width:130px;border:1px solid #e1ddd8;border-radius:6px;background:#fbfaf9;color:#625a55;font:inherit;font-size:11px;padding:0 9px;outline-color:#bd4f58}
+        .priority-builder-close{border:0;background:transparent;color:#827a74;cursor:pointer;padding:4px}
+        .priority-builder-close:hover{color:#292522}
+        .priority-builder-content{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(270px,.8fr);min-height:0;flex:1}
+        .priority-builder-groups{padding:12px 14px 8px;overflow:auto}
+        .priority-builder-results{border-left:1px solid #ece8e4;background:#fbfaf9;padding:12px 11px;overflow:auto}
+        .priority-builder-group{border:1px solid #e6e2de;border-radius:8px;background:#fff;margin-bottom:7px;padding:10px 11px 8px;cursor:pointer}
+        .priority-builder-group:hover{border-color:#d6b3b4}
+        .priority-builder-group.selected{border-color:#d56269;box-shadow:0 0 0 1px #d5626940;background:#fffafa}
+        .priority-builder-row{display:flex;align-items:center;gap:8px}
+        .priority-builder-number{width:27px;height:27px;border-radius:50%;background:#fae4e4;color:#bf4e57;display:grid;place-items:center;font-size:11px;font-weight:800;flex:none}
+        .priority-builder-group-title{font-size:12px;font-weight:800;flex:1}
+        .priority-builder-group-detail{font-size:10px;color:#99908a;margin-top:2px}
+        .priority-builder-group-actions{display:flex;align-items:center;gap:4px;color:#a69c95}
+        .priority-builder-mini{border:0;background:transparent;border-radius:4px;padding:3px;color:inherit;cursor:pointer}
+        .priority-builder-mini:hover:not(:disabled){background:#f5eeee;color:#bd4f58}
+        .priority-builder-mini:disabled{opacity:.28;cursor:default}
+        .priority-builder-sort{display:flex;align-items:center;gap:8px;margin:8px 0 0 35px;font-size:10px;color:#958b84}
+        .priority-builder-sort select{height:25px;border:1px solid #e1dcd7;border-radius:5px;background:#fff;color:#766d66;font:inherit;font-size:10px;padding:0 8px;min-width:144px}
+        .priority-builder-note{min-height:27px;background:#f6f5f4;color:#8b837d;border-radius:5px;font-size:10px;display:flex;align-items:center;gap:6px;padding:5px 9px;margin:9px 0}
+        .priority-builder-results-head{display:flex;align-items:center;justify-content:space-between;margin:0 1px 8px}
+        .priority-builder-results-head h3{font-size:13px;margin:0}
+        .priority-builder-total{font-size:12px;color:#c4535b;font-weight:800}
+        .priority-builder-results-tools{display:flex;gap:5px;margin-bottom:7px}
+        .priority-builder-results-tools select,.priority-builder-search{height:29px;border:1px solid #e4ded8;border-radius:5px;background:#fff;color:#706963;font:inherit;font-size:10px;padding:0 7px}
+        .priority-builder-search{flex:1;display:flex;align-items:center;gap:5px}
+        .priority-builder-search input{border:0;outline:0;width:100%;font:inherit;color:#4e4742;background:transparent}
+        .priority-builder-contact{min-height:37px;display:flex;align-items:center;gap:8px;border:1px solid #ebe5e0;background:#fff;border-radius:5px;padding:5px 8px;margin:5px 0;text-align:left}
+        .priority-builder-avatar{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#f8e3e4;color:#c1545c;font-size:10px;font-weight:800;flex:none}
+        .priority-builder-contact-name{font-size:10px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+        .priority-builder-contact-meta{font-size:9px;color:#9a918b;white-space:nowrap}
+        .priority-builder-contact-index{font-size:10px;color:#766b65}
+        .priority-builder-footer{min-height:53px;display:flex;align-items:center;gap:7px;border-top:1px solid #e8e3de;padding:0 14px}
+        .priority-builder-footer input{height:32px;border:1px solid #447bd0;border-radius:5px;padding:0 8px;font:inherit;font-size:11px;flex:1;outline:0;box-shadow:0 0 0 1px #c6daf7;min-width:100px}
+        .priority-builder-footer button{height:32px;border:1px solid #e3ddd8;border-radius:5px;background:#fff;color:#716963;padding:0 10px;display:inline-flex;align-items:center;gap:5px;font:inherit;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap}
+        .priority-builder-footer button:hover{background:#faf5f3}
+        .priority-builder-footer .priority-builder-save{background:#dd858b;border-color:#dd858b;color:#fff}
+        .priority-builder-footer .priority-builder-save:hover{background:#ce6e76}
+        .priority-builder-footer .priority-builder-delete{color:#b54f57}
+        .priority-builder-status{font-size:10px;color:#958b84;white-space:nowrap;display:inline-flex;align-items:center;gap:3px}
+        .priority-builder-status.saved{color:#478c82}
+        @media(max-width:680px){.priority-builder-content{grid-template-columns:1fr}.priority-builder-results{display:none}.priority-builder-footer{flex-wrap:wrap;height:auto;padding:9px}.priority-builder-footer input{min-width:150px}.priority-builder-status{width:100%}}
+      `}</style>
+      <section className="priority-builder-shell">
+        <header className="priority-builder-head">
+          <strong className="priority-builder-title">{t.agentWorkspace.priorityBuilderSegments}</strong>
+          <div className="priority-builder-head-actions">
             <select
-              className="h-8 rounded-md border bg-background px-2 text-xs"
+              className="priority-builder-add"
               value=""
-              disabled={isPreset}
               onChange={event => { if (event.target.value) addSegment(event.target.value as PrioritySegmentId); }}
               aria-label={t.agentWorkspace.priorityBuilderAddSegment}
             >
@@ -206,79 +254,100 @@ export function PriorityBuilder({
               {PRIORITY_SEGMENT_IDS.filter(id => !view.segments.some(segment => segment.id === id))
                 .map(id => <option key={id} value={id}>{segmentNames[id]}</option>)}
             </select>
+            {onClose && <button type="button" className="priority-builder-close" onClick={onClose} aria-label={t.common.close}><X size={16} /></button>}
           </div>
-          <div className="space-y-2">
+        </header>
+        <div className="priority-builder-content">
+          <section className="priority-builder-groups">
             {view.segments.map((segment, index) => (
               <article
                 key={segment.id}
                 onClick={() => setSelectedId(segment.id)}
-                className={`rounded-lg border p-3 transition-colors ${selectedId === segment.id ? "border-primary bg-primary/5" : "bg-card"}`}
+                onKeyDown={event => { if (event.key === "Enter" || event.key === " ") setSelectedId(segment.id); }}
+                className={`priority-builder-group ${selectedId === segment.id ? "selected" : ""}`}
+                tabIndex={0}
+                role="button"
+                aria-pressed={selectedId === segment.id}
               >
-                <div className="flex items-center gap-3">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary" aria-label={`${index + 1}`}>
-                    {index + 1}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <h4 className="truncate text-sm font-semibold">{segmentNames[segment.id]}</h4>
-                    <p className="text-[11px] text-muted-foreground">{t.agentWorkspace.priorityBuilderFirstMatch}</p>
+                <div className="priority-builder-row">
+                  <span className="priority-builder-number" aria-label={`${index + 1}`}>{index + 1}</span>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div className="priority-builder-group-title">{segmentNames[segment.id]}{index === 0 && <ShieldCheck size={13} color="#c4525b" style={{ verticalAlign: "-2px", marginLeft: 5 }} aria-label={t.agentWorkspace.priorityBuilderHighestPriority} />}</div>
+                    <div className="priority-builder-group-detail">{t.agentWorkspace.priorityBuilderFirstMatch}</div>
                   </div>
-                  {index === 0 && <ShieldCheck className="h-4 w-4 shrink-0 text-primary" aria-label={t.agentWorkspace.priorityBuilderHighestPriority} />}
-                  <div className="flex items-center gap-1">
-                    <button type="button" className="rounded p-1.5 hover:bg-muted disabled:opacity-40" onClick={event => { event.stopPropagation(); move(index, -1); }} disabled={isPreset || index === 0} aria-label={t.agentWorkspace.priorityBuilderMoveUp}><ArrowUp className="h-4 w-4" /></button>
-                    <button type="button" className="rounded p-1.5 hover:bg-muted disabled:opacity-40" onClick={event => { event.stopPropagation(); move(index, 1); }} disabled={isPreset || index === view.segments.length - 1} aria-label={t.agentWorkspace.priorityBuilderMoveDown}><ArrowDown className="h-4 w-4" /></button>
+                  <div className="priority-builder-group-actions">
+                    <button type="button" className="priority-builder-mini" onClick={event => { event.stopPropagation(); move(index, -1); }} disabled={index === 0} aria-label={t.agentWorkspace.priorityBuilderMoveUp}><ArrowUp size={14} /></button>
+                    <button type="button" className="priority-builder-mini" onClick={event => { event.stopPropagation(); move(index, 1); }} disabled={index === view.segments.length - 1} aria-label={t.agentWorkspace.priorityBuilderMoveDown}><ArrowDown size={14} /></button>
                   </div>
                 </div>
-                <div className="mt-2 flex items-center gap-2 pl-11">
-                  <label className="text-[11px] text-muted-foreground" htmlFor={`priority-sort-${segment.id}`}>{t.agentWorkspace.priorityBuilderSortBy}</label>
-                  <select disabled={isPreset} id={`priority-sort-${segment.id}`} className="h-7 rounded border bg-background px-2 text-xs" value={segment.sort} onChange={event => updateSegments(view.segments.map(item => item.id === segment.id ? { ...item, sort: event.target.value as PrioritySort } : item))}>
+                <div className="priority-builder-sort">
+                  <label htmlFor={`priority-sort-${segment.id}`}>{t.agentWorkspace.priorityBuilderSortBy}</label>
+                  <select id={`priority-sort-${segment.id}`} value={segment.sort} onChange={event => updateSegments(view.segments.map(item => item.id === segment.id ? { ...item, sort: event.target.value as PrioritySort } : item))} onClick={event => event.stopPropagation()}>
                     {Object.entries(sortLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
                   </select>
                 </div>
               </article>
             ))}
-          </div>
-          <div className="flex items-center gap-2 rounded-md bg-muted/50 p-2 text-[11px] text-muted-foreground">
-            <Check className="h-3.5 w-3.5 text-primary" /> {t.agentWorkspace.priorityBuilderDeduplication}
-          </div>
+            <div className="priority-builder-note"><Check size={13} color="#c4545d" /> {t.agentWorkspace.priorityBuilderDeduplication}</div>
+          </section>
+          <aside className="priority-builder-results">
+            <div className="priority-builder-results-head"><h3>{t.agentWorkspace.priorityBuilderLiveResults}</h3><span className="priority-builder-total">{queue.length}</span></div>
+            <div className="priority-builder-results-tools">
+              <select aria-label={t.agentWorkspace.fieldPickerAllFields} value={searchField} onChange={event => setSearchField(event.target.value as typeof searchField)}>
+                <option value="all">{t.agentWorkspace.fieldPickerAllFields}</option>
+                <option value="name">{t.agentWorkspace.fieldPickerName}</option>
+                <option value="phone">{t.agentWorkspace.fieldPickerPhone}</option>
+                <option value="email">{t.agentWorkspace.fieldPickerEmail}</option>
+                <option value="city">{t.agentWorkspace.fieldPickerCity}</option>
+              </select>
+              <label className="priority-builder-search"><Search size={12} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder={t.agentWorkspace.priorityBuilderSearch} aria-label={t.agentWorkspace.priorityBuilderSearch} /></label>
+            </div>
+            <div>
+              {filteredQueue.map(({ contact, segment }) => {
+                const callbackTime = formatCallbackTime(contact.callbackDate);
+                return <button type="button" key={contact.id} onClick={() => onSelectContact(contact)} className="priority-builder-contact">
+                  <span className="priority-builder-avatar">{getPriorityContactName(contact).slice(0, 1).toUpperCase()}</span>
+                  <span className="priority-builder-contact-name">{getPriorityContactName(contact)}</span>
+                  <span className="priority-builder-contact-meta">{segment === "other" ? t.agentWorkspace.priorityBuilderOther : segmentNames[segment]}{callbackTime ? ` · ${callbackTime}` : ""}</span>
+                  <span className="priority-builder-contact-index">#{segment === "other" ? "—" : view.segments.findIndex(item => item.id === segment) + 1}</span>
+                </button>;
+              })}
+              {filteredQueue.length === 0 && <p className="py-8 text-center text-xs text-muted-foreground">{t.agentWorkspace.priorityBuilderNoResults}</p>}
+            </div>
+          </aside>
         </div>
-
-        <aside className="min-w-0 rounded-lg border bg-card p-3">
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold">{t.agentWorkspace.priorityBuilderLiveResults}</h3>
-            <span className="text-sm font-semibold text-primary">{queue.length}</span>
-          </div>
-          <div className="mb-2 flex gap-1">
-            <select className="h-8 rounded-md border bg-background px-1 text-[11px]" value={searchField} onChange={event => setSearchField(event.target.value as typeof searchField)} aria-label={t.agentWorkspace.fieldPickerAllFields}>
-              <option value="all">{t.agentWorkspace.fieldPickerAllFields}</option>
-              <option value="name">{t.agentWorkspace.fieldPickerName}</option>
-              <option value="phone">{t.agentWorkspace.fieldPickerPhone}</option>
-              <option value="email">{t.agentWorkspace.fieldPickerEmail}</option>
-              <option value="city">{t.agentWorkspace.fieldPickerCity}</option>
-            </select>
-            <input className="h-8 min-w-0 flex-1 rounded-md border bg-background px-2 text-xs" value={query} onChange={event => setQuery(event.target.value)} placeholder={t.agentWorkspace.priorityBuilderSearch} aria-label={t.agentWorkspace.priorityBuilderSearch} />
-          </div>
-          <div className="max-h-[25rem] space-y-1.5 overflow-auto">
-            {filteredQueue.map(({ contact, segment }) => (
-              <button type="button" key={contact.id} onClick={() => onSelectContact(contact)} className="flex w-full items-center gap-2 rounded-md border p-2 text-left hover:bg-muted">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">{getPriorityContactName(contact).slice(0, 1).toUpperCase()}</span>
-                <span className="min-w-0 flex-1 truncate text-xs font-medium">{getPriorityContactName(contact)}</span>
-                <span className="text-[10px] text-muted-foreground">#{segment === "other" ? "—" : view.segments.findIndex(item => item.id === segment) + 1}</span>
-              </button>
-            ))}
-            {filteredQueue.length === 0 && <p className="py-8 text-center text-xs text-muted-foreground">{t.agentWorkspace.priorityBuilderNoResults}</p>}
-          </div>
-        </aside>
-      </div>
-
-      <footer className="flex shrink-0 flex-wrap items-center gap-2 border-t px-4 py-3">
-        <input readOnly={isPreset} className="h-9 min-w-[10rem] flex-1 rounded-md border bg-background px-2 text-sm" value={isPreset ? (presetLabels[view.presetId!] || view.name) : view.name} onChange={event => { setView(current => ({ ...current, name: event.target.value })); setSaved(false); }} aria-label={t.agentWorkspace.priorityBuilderViewName} />
-        <button type="button" className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground disabled:opacity-50" onClick={() => saveMutation.mutate({ id: savedId, next: view, isDefault: true })} disabled={isPreset || !view.name.trim() || saveMutation.isPending}><Save className="h-3.5 w-3.5" />{t.agentWorkspace.priorityBuilderSave}</button>
-        <button type="button" className="inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-xs" onClick={() => { setSavedId(null); setView(current => ({ ...current, name: `${isPreset ? (presetLabels[current.presetId!] || current.name) : current.name}${t.agentWorkspace.priorityBuilderDuplicateSuffix}`, presetId: undefined })); setSaved(false); }}><Copy className="h-3.5 w-3.5" />{t.agentWorkspace.priorityBuilderDuplicate}</button>
-        {savedId && !view.presetId && <button type="button" className="inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-xs text-destructive" onClick={() => { deleteMutation.mutate(savedId); setSavedId(null); setView(DEFAULT_PRIORITY_VIEW); }}><Trash2 className="h-3.5 w-3.5" />{t.agentWorkspace.priorityBuilderDelete}</button>}
-        <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-muted-foreground" role="status">
-          {saved ? <><Check className="h-3 w-3 text-primary" />{t.agentWorkspace.priorityBuilderSaved}</> : <><Pencil className="h-3 w-3" />{t.agentWorkspace.priorityBuilderUnsaved}</>}
-        </span>
-      </footer>
+        <footer className="priority-builder-footer">
+          <select
+            className="priority-builder-add"
+            style={{ minWidth: 145 }}
+            value={activeName}
+            onChange={event => {
+              const preset = PRIORITY_PRESETS.find(item => item.presetId === event.target.value);
+              const entry = usableSearches.find(item => item.search.id === event.target.value);
+              if (preset) activate(preset);
+              else if (entry) activate(entry.view, entry.search.id);
+            }}
+            aria-label={t.agentWorkspace.priorityBuilderActiveView}
+          >
+            {PRIORITY_PRESETS.map(preset => <option key={preset.presetId} value={preset.presetId}>{presetLabels[preset.presetId!]}</option>)}
+            {usableSearches.filter(entry => !entry.view.presetId)
+              .map(entry => <option key={entry.search.id} value={entry.search.id}>{entry.view.name}</option>)}
+            {activeName === "__draft__" && <option value="__draft__">{view.name}</option>}
+            {activeName !== "__draft__"
+              && !PRIORITY_PRESETS.some(preset => preset.presetId === activeName)
+              && !usableSearches.some(entry => entry.search.id === activeName)
+              && !isPreset
+              && <option value={activeName}>{view.name}</option>}
+          </select>
+          <input readOnly={isPreset} value={isPreset ? (presetLabels[view.presetId!] || view.name) : view.name} onChange={event => { setView(current => ({ ...current, name: event.target.value })); setSaved(false); }} aria-label={t.agentWorkspace.priorityBuilderViewName} />
+          <button type="button" className="priority-builder-save" onClick={() => saveMutation.mutate({ id: savedId, next: view, isDefault: true })} disabled={isPreset || !view.name.trim() || saveMutation.isPending}><Save size={13} />{t.agentWorkspace.priorityBuilderSave}</button>
+          <button type="button" onClick={() => { setSavedId(null); setActiveName("__draft__"); setView(current => ({ ...current, name: `${isPreset ? (presetLabels[current.presetId!] || current.name) : current.name}${t.agentWorkspace.priorityBuilderDuplicateSuffix}`, presetId: undefined })); setSaved(false); }}><Copy size={13} />{t.agentWorkspace.priorityBuilderDuplicate}</button>
+          {savedId && !view.presetId && <button type="button" className="priority-builder-delete" onClick={() => { deleteMutation.mutate(savedId); setSavedId(null); setActiveName(PRIORITY_PRESETS[0].presetId!); setView(DEFAULT_PRIORITY_VIEW); }}><Trash2 size={13} />{t.agentWorkspace.priorityBuilderDelete}</button>}
+          <span className={`priority-builder-status ${saved ? "saved" : ""}`} role="status">
+            {saved ? <><Check size={12} />{t.agentWorkspace.priorityBuilderSaved}</> : <><Pencil size={12} />{t.agentWorkspace.priorityBuilderUnsaved}</>}
+          </span>
+        </footer>
+      </section>
     </section>
   );
 }

@@ -35,6 +35,19 @@ describe("priority builder pure queue functions", () => {
     expect(matchesPrioritySegment(contact("missed", { attemptCount: 2 }), "unhandled", "agent", now)).toBe(true);
   });
 
+  it("classifies Scheduled today in the Europe/Bratislava work timezone", () => {
+    const bratislavaTodayAfterUtcMidnight = contact("today-boundary", {
+      status: "callback_scheduled",
+      callbackDate: new Date("2025-01-14T23:30:00.000Z"),
+    });
+    const bratislavaTomorrowBeforeUtcMidnight = contact("tomorrow-boundary", {
+      status: "callback_scheduled",
+      callbackDate: new Date("2025-01-15T23:30:00.000Z"),
+    });
+    expect(matchesPrioritySegment(bratislavaTodayAfterUtcMidnight, "scheduled_today", "agent", now)).toBe(true);
+    expect(matchesPrioritySegment(bratislavaTomorrowBeforeUtcMidnight, "scheduled_today", "agent", now)).toBe(false);
+  });
+
   it("deduplicates in segment order, not source order", () => {
     const first = contact("first", { hasReferral: true, attemptCount: 2 });
     const second = contact("second");
