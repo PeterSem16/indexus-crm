@@ -79,6 +79,7 @@ export interface MobileAgentWorkspaceProps {
   onSendDtmf: (digit: string) => void;
   onMakeCall: (phone: string) => void;
   isSipRegistered: boolean;
+  phoneOverride?: string | null;
 
   sipIncomingCall: any;
   onAnswerIncoming: () => void;
@@ -106,6 +107,9 @@ export interface MobileAgentWorkspaceProps {
   locale: string;
   currentUserId?: string;
   allCampaignContacts?: any[];
+  inboundCallbacks?: any[];
+  onOpenInboundCallback?: (callback: any) => void | Promise<void>;
+  onCallInboundCallback?: (callback: any) => void | Promise<void>;
 
   volume?: number;
   micVolume?: number;
@@ -680,6 +684,65 @@ function ContactRow({ cc, onSelect, isOverdue, isUpcoming, callbackDate, np, cur
   );
 }
 
+function InboundCallbackRow({ callback, onOpen, onCall, t }: {
+  callback: any;
+  onOpen?: (callback: any) => void | Promise<void>;
+  onCall?: (callback: any) => void | Promise<void>;
+  t: any;
+}) {
+  const np = t?.nexusPulse || {};
+  const isDone = Boolean(callback.calledBack);
+  const dateLabel = callback.callbackDate
+    ? (() => {
+        try { return format(new Date(callback.callbackDate), "d. M. HH:mm"); }
+        catch { return callback.callbackDate; }
+      })()
+    : null;
+
+  return (
+    <div
+      className="w-full flex items-center gap-3 p-3 rounded-2xl border bg-card active:scale-[0.98] transition-all cursor-pointer"
+      style={{ borderColor: isDone ? "#16a34a55" : "#C45A1140" }}
+      onClick={() => onOpen?.(callback)}
+      data-testid={`btn-mobile-inbound-callback-${callback.id}`}
+    >
+      <div className="h-11 w-11 rounded-xl flex items-center justify-center text-sm font-bold text-white shrink-0" style={{ background: isDone ? "#16a34a" : "#C45A11" }}>
+        <PhoneIncoming className="h-5 w-5" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-bold truncate">{callback.name || callback.phone}</p>
+        <p className="text-xs text-muted-foreground truncate">{callback.phone}</p>
+        <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+          {isDone ? (
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-green-700 dark:text-green-400">
+              <Check className="h-3 w-3" />
+              {t?.agentWorkspace?.inboundCallbackDone || "Done"}
+            </span>
+          ) : dateLabel ? (
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground">
+              <Calendar className="h-3 w-3" />
+              {dateLabel}
+            </span>
+          ) : null}
+        </div>
+        {callback.notes && (
+          <p className="text-[10px] mt-0.5 truncate italic text-muted-foreground">{callback.notes}</p>
+        )}
+      </div>
+      <button
+        type="button"
+        className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 text-white active:scale-95 transition-all"
+        style={{ background: "#C45A11" }}
+        title={t?.agentWorkspace?.callNow || "Call now"}
+        onClick={(event) => { event.stopPropagation(); onCall?.(callback); }}
+        data-testid={`btn-mobile-inbound-callback-call-${callback.id}`}
+      >
+        <PhoneCall className="h-5 w-5" />
+      </button>
+    </div>
+  );
+}
+
 /* ── contact info sub-component (own state so clicks always work) ─── */
 function MobileContactInfoCards({
   contact, phoneNumbers, recentCalls, contactNotes, np,
@@ -809,14 +872,15 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
     currentCampaignContactId, onSelectContact, onClearContact,
     callState, callDuration, ringDuration, hungUpBy,
     isMuted, isOnHold, callerNumber,
-    onEndCall, onToggleMute, onToggleHold, onSendDtmf, onMakeCall, isSipRegistered,
+    onEndCall, onToggleMute, onToggleHold, onSendDtmf, onMakeCall, isSipRegistered, phoneOverride,
     sipIncomingCall, onAnswerIncoming, onRejectIncoming,
     onOpenDisposition, isStatusListMode,
     dbStatusList, dbSlChecked, onSlToggle,
     statusListMode, batchSlSelections, onBatchSave,
     agentStatus, isOnBreak, workTime, breakTypes,
     onEndSession, onStartBreak, onEndBreak,
-    onFullLogout, t, currentUserId, allCampaignContacts,
+    onFullLogout, t, currentUserId, allCampaignContacts, inboundCallbacks = [],
+    onOpenInboundCallback, onCallInboundCallback,
     volume = 80, micVolume = 100, onVolumeChange, onMicVolumeChange,
   } = props;
 
@@ -910,7 +974,8 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
     const add = (label: string, val: string | null | undefined) => {
       if (val && !seen.has(val)) { seen.add(val); result.push({ label, value: val }); }
     };
-    add(np.phone || "Phone", contact.phone);
+    add(np.phone || "Phone", phoneOverride || contact.phone);
+    if (phoneOverride && phoneOverride !== contact.phone) add(np.otherContact || "Other", contact.phone);
     add(np.mobile || "Mobile", contact.mobile);
     add(np.phone2 || "Phone 2", contact.phone2 || contact.mobile2);
     add(np.otherContact || "Other", contact.otherContact);
@@ -1503,6 +1568,31 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
             </button>
           )}
         </div>
+
+        {inboundCallbacks.length > 0 && (
+          <div className="px-4 pt-2 pb-1">
+            <div className="flex items-center gap-2 mt-1 mb-2">
+              <div className="h-px flex-1 rounded" style={{ background: "#C45A1140" }} />
+              <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: "#C45A11" }}>
+                <PhoneIncoming className="h-3 w-3" />
+                {t?.agentWorkspace?.outsideMissionLabel || np.outsideMission || "Mimo misie"}
+                <span className="opacity-70">({inboundCallbacks.length})</span>
+              </span>
+              <div className="h-px flex-1 rounded" style={{ background: "#C45A1140" }} />
+            </div>
+            <div className="flex flex-col gap-2">
+              {inboundCallbacks.map((callback: any) => (
+                <InboundCallbackRow
+                  key={callback.id}
+                  callback={callback}
+                  onOpen={onOpenInboundCallback}
+                  onCall={onCallInboundCallback}
+                  t={t}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         {totalFiltered === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center text-muted-foreground">

@@ -226,6 +226,7 @@ import { BackOfficeQuestionsInbox } from "@/components/back-office-questions-inb
 import { MobileAgentWorkspace } from "@/components/mobile-agent-workspace";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getInboundSelectionContext, resolveMissedCallCardTarget } from "@/lib/missed-call-card-resolver";
+import { buildOutsideMissionCallbackDialMetadata } from "@/lib/outside-mission-callback";
 import PriorityBuilder, { PRIORITY_BUILDER_DIALOG_CLASS_NAME } from "@/components/agent/PriorityBuilder";
 import {
   buildPriorityQueueWithFallback,
@@ -1515,6 +1516,8 @@ function TaskListPanel({
   callIsActive,
   inboundCallbacks,
   onMarkInboundCallbackDone,
+  onOpenInboundCallback,
+  onCallInboundCallback,
 }: {
   tasks: TaskItem[];
   activeTaskId: string | null;
@@ -1547,6 +1550,8 @@ function TaskListPanel({
   callIsActive?: boolean;
   inboundCallbacks?: InboundCb[];
   onMarkInboundCallbackDone?: (id: number) => void;
+  onOpenInboundCallback?: (callback: InboundCb) => void | Promise<void>;
+  onCallInboundCallback?: (callback: InboundCb) => void | Promise<void>;
 }) {
   const { t } = useI18n();
   const filteredCampaigns = useMemo(() => {
@@ -2105,10 +2110,11 @@ function TaskListPanel({
                       return (
                         <div
                           key={cb.id}
-                          className={`rounded-xl px-2.5 py-2 transition-all duration-200 ${isDone ? "opacity-50" : ""}`}
-                          style={{ background: isDone ? "hsl(var(--muted))" : "hsl(var(--background))", border: `1px solid ${isDone ? "#16a34a40" : `${ac}25`}`, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}
-                          onMouseEnter={e => { if (!isDone) { const el = e.currentTarget as HTMLElement; el.style.borderColor = `${ac}60`; el.style.boxShadow = `0 4px 10px ${ac}18`; } }}
-                          onMouseLeave={e => { if (!isDone) { const el = e.currentTarget as HTMLElement; el.style.borderColor = `${ac}25`; el.style.boxShadow = "0 1px 3px rgba(0,0,0,0.05)"; } }}
+                          className="rounded-xl px-2.5 py-2 transition-all duration-200 cursor-pointer"
+                          style={{ background: isDone ? "#16a34a08" : "hsl(var(--background))", border: `1px solid ${isDone ? "#16a34a55" : `${ac}25`}`, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}
+                          onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = `${ac}60`; el.style.boxShadow = `0 4px 10px ${ac}18`; }}
+                          onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = isDone ? "#16a34a55" : `${ac}25`; el.style.boxShadow = "0 1px 3px rgba(0,0,0,0.05)"; }}
+                          onClick={() => onOpenInboundCallback?.(cb)}
                           data-testid={`inbound-cb-item-${cb.id}`}
                         >
                           <div className="flex items-center gap-2">
@@ -2116,7 +2122,7 @@ function TaskListPanel({
                               {isDone ? <CheckCheck className="h-3.5 w-3.5 text-green-600" /> : <PhoneIncoming className="h-3.5 w-3.5" style={{ color: ac }} />}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className={`text-xs font-semibold truncate ${isDone ? "line-through text-muted-foreground" : ""}`} style={isDone ? {} : { color: "hsl(var(--foreground))" }}>{cb.name || cb.phone}</p>
+                              <p className="text-xs font-semibold truncate" style={{ color: "hsl(var(--foreground))" }}>{cb.name || cb.phone}</p>
                               <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                                 {isDone ? (
                                   <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-green-700 dark:text-green-400">
@@ -2135,12 +2141,24 @@ function TaskListPanel({
                                   </>
                                 )}
                               </div>
-                              {cb.notes && !isDone && (
+                              {cb.notes && (
                                 <p className="text-[9px] mt-0.5 truncate italic text-muted-foreground" title={cb.notes}>📝 {cb.notes}</p>
                               )}
                             </div>
-                            {!isDone && (
-                              <div className="flex items-center gap-1 shrink-0">
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                title={t.agentWorkspace.callNow}
+                                className="h-6 w-6 rounded-lg flex items-center justify-center transition-all duration-150"
+                                style={{ background: `${ac}20`, color: ac }}
+                                onMouseEnter={e => (e.currentTarget.style.background = `${ac}30`)}
+                                onMouseLeave={e => (e.currentTarget.style.background = `${ac}20`)}
+                                onClick={e => { e.stopPropagation(); onCallInboundCallback?.(cb); }}
+                                data-testid={`btn-icb-call-${cb.id}`}
+                              >
+                                <PhoneCall className="h-3 w-3" />
+                              </button>
+                              {!isDone && (
                                 <button
                                   type="button"
                                   title="Označiť ako vybavené"
@@ -2153,8 +2171,8 @@ function TaskListPanel({
                                 >
                                   <Check className="h-3 w-3" />
                                 </button>
-                              </div>
-                            )}
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -9807,7 +9825,15 @@ function ScheduledQueuePanel({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onOpenContact?: (contactId: string, campaignId: string, campaignContactId: string, channel: "phone" | "email" | "sms", contactType?: string, contactPhone?: string) => void;
+  onOpenContact?: (
+    contactId: string,
+    campaignId: string,
+    campaignContactId: string,
+    channel: "phone" | "email" | "sms",
+    contactType?: string,
+    contactPhone?: string,
+    options?: { outsideMission?: boolean },
+  ) => void;
   showOnlyAssigned?: boolean;
   onToggleAssigned?: (v: boolean) => void;
 }) {
@@ -10300,7 +10326,7 @@ function ScheduledQueuePanel({
                               data-testid={`btn-scheduled-call-${item.id}`}
                               onClick={() => {
                                 if (onOpenContact) {
-                                  onOpenContact(item.contactId, item.campaignId, item.campaignContactId, "phone", item.contactType, item.isOutsideMission ? item.contactPhone : undefined);
+                                  onOpenContact(item.contactId, item.campaignId, item.campaignContactId, "phone", item.contactType, item.isOutsideMission ? item.contactPhone : undefined, { outsideMission: item.isOutsideMission });
                                   onOpenChange(false);
                                 }
                               }}
@@ -10317,7 +10343,7 @@ function ScheduledQueuePanel({
                               data-testid={`btn-scheduled-send-${item.id}`}
                               onClick={() => {
                                 if (onOpenContact) {
-                                  onOpenContact(item.contactId, item.campaignId, item.campaignContactId, item.type as "email" | "sms", item.contactType, item.isOutsideMission ? item.contactPhone : undefined);
+                                  onOpenContact(item.contactId, item.campaignId, item.campaignContactId, item.type as "email" | "sms", item.contactType, item.isOutsideMission ? item.contactPhone : undefined, { outsideMission: item.isOutsideMission });
                                   onOpenChange(false);
                                 }
                               }}
@@ -10417,6 +10443,11 @@ function AgentWorkspacePageContent() {
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [currentContact, setCurrentContact] = useState<Customer | null>(null);
   const [currentPhoneOverride, setCurrentPhoneOverride] = useState<string | null>(null);
+  // Outside-Mission callbacks must not inherit the selected Mission while
+  // React is committing the contact switch.  Keep the exact call context in
+  // refs so the deferred SIP request cannot read stale Mission state.
+  const outsideMissionContactRef = useRef<Customer | null>(null);
+  const outsideMissionContactActiveRef = useRef(false);
   const [currentContactType, setCurrentContactType] = useState<string>("customer");
   const [currentHospitalData, setCurrentHospitalData] = useState<Hospital | null>(null);
   const [currentClinicData, setCurrentClinicData] = useState<Clinic | null>(null);
@@ -10550,6 +10581,9 @@ function AgentWorkspacePageContent() {
     options?: { syncCall?: boolean; rememberPhone?: string }
   ): Promise<boolean> => {
     try {
+      outsideMissionContactActiveRef.current = false;
+      outsideMissionContactRef.current = null;
+      setCurrentPhoneOverride(null);
       let contact: Customer | null = null;
       if (match.entityType === "customer") {
         const res = await fetch(`/api/customers/${match.id}`, { credentials: "include" });
@@ -12930,6 +12964,9 @@ function AgentWorkspacePageContent() {
     openingContactsRef.current.add(lcLockKey);
     setTimeout(() => openingContactsRef.current.delete(lcLockKey), 1000);
 
+    outsideMissionContactActiveRef.current = false;
+    outsideMissionContactRef.current = null;
+    setCurrentPhoneOverride(null);
     setCurrentContact(customer);
     agentSession.updateStatus("busy").catch(() => {});
     setCallNotes("");
@@ -12994,6 +13031,8 @@ function AgentWorkspacePageContent() {
   const handleSelectCampaignContact = (enrichedContact: EnrichedCampaignContact) => {
     const currentStatus = agentSession.status;
     if (currentStatus === "wrap_up" || currentStatus === "break") return;
+    outsideMissionContactActiveRef.current = false;
+    outsideMissionContactRef.current = null;
     if (callContext.callState === "ended") {
       callContext.resetCallTiming();
       callContext.setCallState("idle");
@@ -13054,6 +13093,8 @@ function AgentWorkspacePageContent() {
   };
 
   const handleSelectTask = (task: TaskItem) => {
+    outsideMissionContactActiveRef.current = false;
+    outsideMissionContactRef.current = null;
     setActiveTaskId(task.id);
     setCurrentContact(task.contact);
     setCurrentPhoneOverride(null);
@@ -13088,6 +13129,8 @@ function AgentWorkspacePageContent() {
   const handleCancelTask = (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
     if (activeTaskId === taskId) {
+      outsideMissionContactActiveRef.current = false;
+      outsideMissionContactRef.current = null;
       setActiveTaskId(null);
       setCurrentContact(null);
       setCurrentPhoneOverride(null);
@@ -13103,15 +13146,20 @@ function AgentWorkspacePageContent() {
     });
   };
 
-  const handleMakeCall = async (phoneNumber: string) => {
+  const handleMakeCall = async (
+    phoneNumber: string,
+    context?: { contactOverride?: Customer; outsideMission?: boolean },
+  ) => {
     let stage = "validate";
     try {
       const normalizedPhone = phoneNumber.trim();
-      if (!normalizedPhone || !makeCall || !currentContact) {
+      const callContact = context?.contactOverride || outsideMissionContactRef.current || currentContact;
+      const isOutsideMission = context?.outsideMission ?? outsideMissionContactActiveRef.current;
+      if (!normalizedPhone || !makeCall || !callContact) {
         toast({ title: t.agentWorkspace.errorLabel, variant: "destructive" });
         return;
       }
-      if (selectedCampaignId) {
+      if (selectedCampaignId && !isOutsideMission) {
         stage = "quota-check";
         try {
           const qRes = await fetch(`/api/campaigns/${selectedCampaignId}/quota-check`, { credentials: "include" });
@@ -13135,7 +13183,7 @@ function AgentWorkspacePageContent() {
           }
         } catch {}
       }
-      if (isQuotaBlocked("calls")) {
+      if (!isOutsideMission && isQuotaBlocked("calls")) {
         toast({
           title: t.agentWorkspace?.quotaReached || "Daily quota reached",
           description: t.agentWorkspace?.callQuotaReached || "You have reached your daily call limit for this campaign.",
@@ -13145,14 +13193,17 @@ function AgentWorkspacePageContent() {
       }
 
       stage = "mission-routing";
-      const customerName = `${currentContact.firstName || ""} ${currentContact.lastName || ""}`.trim();
-      const outboundCountry = inferOutboundCountryCode(normalizedPhone, selectedCampaign?.countryCodes);
+      const customerName = `${callContact.firstName || ""} ${callContact.lastName || ""}`.trim();
+      const outboundCountry = inferOutboundCountryCode(
+        normalizedPhone,
+        isOutsideMission ? undefined : selectedCampaign?.countryCodes,
+      );
       let outboundRouting;
       try {
         outboundRouting = resolveMissionOutboundRouting({
-          settings: selectedCampaign?.settings,
+          settings: isOutsideMission ? undefined : selectedCampaign?.settings,
           countryCode: outboundCountry,
-          legacyCallerIdNumber: (selectedCampaign as any)?.callerIdNumber,
+          legacyCallerIdNumber: isOutsideMission ? undefined : (selectedCampaign as any)?.callerIdNumber,
         });
       } catch (error) {
         toast({
@@ -13166,7 +13217,7 @@ function AgentWorkspacePageContent() {
       stage = "recording-policy";
       let recordingSnapshot;
       try {
-        recordingSnapshot = selectedCampaign
+        recordingSnapshot = !isOutsideMission && selectedCampaign
           ? Object.freeze(resolveMissionRecordingPolicy(selectedCampaign.settings))
           : undefined;
       } catch (error) {
@@ -13189,19 +13240,30 @@ function AgentWorkspacePageContent() {
       }
 
       stage = "sip-enqueue";
+      const outsideMissionMetadata = isOutsideMission
+        ? buildOutsideMissionCallbackDialMetadata({
+            phone: normalizedPhone,
+            customerId: callContact.id,
+            customerName: customerName || null,
+          })
+        : null;
+      if (isOutsideMission && !outsideMissionMetadata) {
+        toast({ title: t.agentWorkspace.errorLabel, variant: "destructive" });
+        return;
+      }
       makeCall({
         phoneNumber: normalizedPhone,
-        customerId: currentContact.id,
-        customerName: customerName || undefined,
-        campaignId: selectedCampaignId || undefined,
-        campaignName: selectedCampaign?.name || undefined,
-        campaignContactId: currentCampaignContactId || undefined,
-        contactType: (currentContactType || "customer") as "customer" | "hospital" | "clinic" | "collaborator",
+        customerId: isOutsideMission ? outsideMissionMetadata?.customerId : (callContact.id || undefined),
+        customerName: isOutsideMission ? outsideMissionMetadata?.customerName : (customerName || undefined),
+        campaignId: isOutsideMission ? undefined : (selectedCampaignId || undefined),
+        campaignName: isOutsideMission ? undefined : (selectedCampaign?.name || undefined),
+        campaignContactId: isOutsideMission ? undefined : (currentCampaignContactId || undefined),
+        contactType: (isOutsideMission ? "customer" : (currentContactType || "customer")) as "customer" | "hospital" | "clinic" | "collaborator",
         callerIdNumber: outboundRouting.callerIdNumber,
         provider: outboundRouting.provider,
         outboundTrunk: outboundRouting.trunk,
         outboundCountry,
-        maxRingSeconds: campaignMaxRingSeconds || undefined,
+        maxRingSeconds: isOutsideMission ? undefined : (campaignMaxRingSeconds || undefined),
         recordingSnapshot,
       });
 
@@ -13264,37 +13326,48 @@ function AgentWorkspacePageContent() {
     }
   };
 
-  const handleOpenScheduledContact = async (contactId: string, campaignId: string, campaignContactId: string, channel: "phone" | "email" | "sms", contactType?: string, contactPhone?: string) => {
-    const lockKey = campaignContactId || contactId;
-    if (openingContactsRef.current.has(lockKey)) return;
+  const handleOpenScheduledContact = async (
+    contactId: string,
+    campaignId: string,
+    campaignContactId: string,
+    channel: "phone" | "email" | "sms",
+    contactType?: string,
+    contactPhone?: string,
+    options?: { outsideMission?: boolean; callbackName?: string | null; callbackNotes?: string | null },
+  ): Promise<Customer | null> => {
+    const isOutsideMission = options?.outsideMission ?? !campaignId;
+    const lockKey = campaignContactId || contactId || contactPhone || "outside-mission-contact";
+    if (openingContactsRef.current.has(lockKey)) return null;
     openingContactsRef.current.add(lockKey);
     try {
     const existingTask = tasksRef.current.find(t =>
-      campaignContactId
+      !isOutsideMission && campaignContactId
         ? t.campaignContactId === campaignContactId
-        : t.contact?.id === contactId
+        : !isOutsideMission && t.contact?.id === contactId
     );
     if (existingTask) {
       setActiveTaskId(existingTask.id);
-      return;
+      return existingTask.contact;
     }
     try {
       const quotaType = channel === "phone" ? "calls" : channel === "email" ? "emails" : "sms";
       let blocked = false;
-      try {
-        const qRes = await fetch(`/api/campaigns/${campaignId}/quota-check`, { credentials: "include" });
-        if (qRes.ok) {
-          const qData = await qRes.json();
-          if (qData.blocked && qData.blocked[quotaType]) blocked = true;
-          const hasAnyQuota = qData.quotas && (qData.quotas.calls !== null || qData.quotas.emails !== null || qData.quotas.sms !== null);
-          if (hasAnyQuota && campaignId === selectedCampaignId) {
-            setQuotas(qData.quotas);
-            if (qData.usage) {
-              quotaDataRef.current = { usage: qData.usage };
+      if (!isOutsideMission) {
+        try {
+          const qRes = await fetch(`/api/campaigns/${campaignId}/quota-check`, { credentials: "include" });
+          if (qRes.ok) {
+            const qData = await qRes.json();
+            if (qData.blocked && qData.blocked[quotaType]) blocked = true;
+            const hasAnyQuota = qData.quotas && (qData.quotas.calls !== null || qData.quotas.emails !== null || qData.quotas.sms !== null);
+            if (hasAnyQuota && campaignId === selectedCampaignId) {
+              setQuotas(qData.quotas);
+              if (qData.usage) {
+                quotaDataRef.current = { usage: qData.usage };
+              }
             }
           }
-        }
-      } catch {}
+        } catch {}
+      }
       if (blocked) {
         const quotaMsg = quotaType === "calls"
           ? (t.agentWorkspace?.callQuotaReached || "Daily call quota reached")
@@ -13302,7 +13375,7 @@ function AgentWorkspacePageContent() {
           ? (t.agentWorkspace?.emailQuotaReached || "Daily email quota reached")
           : (t.agentWorkspace?.smsQuotaReached || "Daily SMS quota reached");
         toast({ title: t.agentWorkspace?.quotaReached || "Quota reached", description: quotaMsg, variant: "destructive" });
-        return;
+        return null;
       }
       let customer: any;
       let _clinicEntity: any = null;
@@ -13366,7 +13439,7 @@ function AgentWorkspacePageContent() {
         // Virtual contact: inbound caller with no customer record
         customer = {
           id: "",
-          firstName: contactPhone,
+          firstName: options?.callbackName || contactPhone,
           lastName: "",
           phone: contactPhone,
           email: "",
@@ -13381,17 +13454,28 @@ function AgentWorkspacePageContent() {
         customer = await res.json();
       }
 
-      if (selectedCampaignId !== campaignId) {
-        setSelectedCampaignId(campaignId);
+      if (isOutsideMission) {
+        outsideMissionContactActiveRef.current = true;
+        outsideMissionContactRef.current = customer as Customer;
+        setSelectedCampaignId(null);
+        setCurrentCampaignContactId(null);
+        setCurrentPhoneOverride(contactPhone || customer.phone || null);
+      } else {
+        outsideMissionContactActiveRef.current = false;
+        outsideMissionContactRef.current = null;
+        if (selectedCampaignId !== campaignId) {
+          setSelectedCampaignId(campaignId);
+        }
+        setCurrentCampaignContactId(campaignContactId);
+        setCurrentPhoneOverride(null);
       }
-      setCurrentCampaignContactId(campaignContactId);
       setCurrentContact(customer);
       setCurrentContactType(cType as any);
       setCurrentClinicData(_clinicEntity);
       setCurrentHospitalData(_hospitalEntity);
       setCurrentCollaboratorData(_collaboratorEntity);
       agentSession.updateStatus("busy").catch(() => {});
-      setCallNotes("");
+       setCallNotes(options?.callbackNotes || "");
       setActiveChannel(channel);
       setRightTab("actions");
 
@@ -13400,9 +13484,9 @@ function AgentWorkspacePageContent() {
       const newTask: TaskItem = {
         id: `task-${Date.now()}`,
         contact: customer,
-        campaignId,
-        campaignName: campaign?.name || "",
-        campaignContactId,
+         campaignId: isOutsideMission ? "" : campaignId,
+         campaignName: isOutsideMission ? "" : (campaign?.name || ""),
+         campaignContactId: isOutsideMission ? null : campaignContactId,
         channel: campaignChannel,
         startedAt: new Date(),
         status: "active",
@@ -13412,9 +13496,9 @@ function AgentWorkspacePageContent() {
         collaboratorData: _collaboratorEntity,
       };
       const dupTask3 = tasksRef.current.find(t =>
-        newTask.campaignContactId
+        !isOutsideMission && newTask.campaignContactId
           ? t.campaignContactId === newTask.campaignContactId
-          : !t.campaignContactId && t.contact?.id === customer.id
+          : !isOutsideMission && !t.campaignContactId && t.contact?.id === customer.id
       );
       if (dupTask3) {
         setActiveTaskId(dupTask3.id);
@@ -13429,12 +13513,46 @@ function AgentWorkspacePageContent() {
             content: `Kontakt otvorený z naplánovanej fronty (${channel === "phone" ? "spätné volanie" : channel})`,
           },
         ]);
-      }
+     }
+     return customer as Customer;
     } catch (err) {
       toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.contactLoadError, variant: "destructive" });
+      return null;
     }
     } finally {
       openingContactsRef.current.delete(lockKey);
+    }
+  };
+
+  const handleOpenInboundCallback = async (callback: InboundCb): Promise<Customer | null> => {
+    return handleOpenScheduledContact(
+      callback.customerId || "",
+      "",
+      "",
+      "phone",
+      "customer",
+      callback.phone,
+      {
+        outsideMission: true,
+        callbackName: callback.name,
+        callbackNotes: callback.notes,
+      },
+    );
+  };
+
+  const handleCallInboundCallback = async (callback: InboundCb) => {
+    const contact = await handleOpenInboundCallback(callback);
+    if (!contact) return;
+    const dial = buildOutsideMissionCallbackDialMetadata({
+      phone: callback.phone,
+      customerId: contact.id,
+      customerName: `${contact.firstName || ""} ${contact.lastName || ""}`.trim() || callback.name,
+    });
+    if (dial) {
+      await handleMakeCall(dial.phoneNumber, {
+        contactOverride: contact,
+        outsideMission: true,
+      });
     }
   };
 
@@ -14740,7 +14858,15 @@ function AgentWorkspacePageContent() {
           inboundQueues={myQueues.map(q => ({ id: q.id, name: q.name, didNumbers: getAgentQueueDidNumbers(q) }))}
           sessionInboundQueueIds={sessionInboundQueueIds}
           selectedCampaignId={selectedCampaignId}
-          onSelectCampaign={(id: string) => { setSelectedCampaignId(id); setDisposedContactIds(new Set()); queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] }); queryClient.invalidateQueries({ queryKey: ["/api/user/assigned-campaigns"] }); }}
+           onSelectCampaign={(id: string) => {
+             outsideMissionContactActiveRef.current = false;
+             outsideMissionContactRef.current = null;
+             setCurrentPhoneOverride(null);
+             setSelectedCampaignId(id);
+             setDisposedContactIds(new Set());
+             queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+             queryClient.invalidateQueries({ queryKey: ["/api/user/assigned-campaigns"] });
+           }}
           showOnlyAssigned={showOnlyAssigned}
           onToggleAssigned={setShowOnlyAssigned}
           channelFilter={channelFilter}
@@ -14763,6 +14889,8 @@ function AgentWorkspacePageContent() {
           callContactId={callActiveContactId}
           callIsActive={["active", "on_hold", "connecting", "ringing"].includes(callContext.callState)}
           inboundCallbacks={agentInboundCallbacks}
+           onOpenInboundCallback={handleOpenInboundCallback}
+           onCallInboundCallback={handleCallInboundCallback}
           onMarkInboundCallbackDone={async (id) => {
             try {
               await apiRequest("PATCH", `/api/agent/inbound-callbacks/${id}`, { calledBack: true });
@@ -14786,6 +14914,9 @@ function AgentWorkspacePageContent() {
               campaign={selectedCampaign}
               campaignContacts={authoritativePriorityContacts}
               allCampaignContacts={rawCampaignContacts}
+               inboundCallbacks={agentInboundCallbacks}
+               onOpenInboundCallback={handleOpenInboundCallback}
+               onCallInboundCallback={handleCallInboundCallback}
               currentCampaignContactId={effectiveCampaignContactId}
               onSelectContact={(cc) => guardedSelectCampaignContact(cc)}
               callState={callContext.callState}
@@ -14801,6 +14932,7 @@ function AgentWorkspacePageContent() {
               onSendDtmf={(digit) => callContext.sendDtmfFn.current?.(digit)}
               onMakeCall={pulseDialEntryPoints.mobile}
               isSipRegistered={isSipRegistered}
+              phoneOverride={currentPhoneOverride}
               sipIncomingCall={sipIncomingCall}
               onAnswerIncoming={answerIncomingCall}
               onRejectIncoming={rejectIncomingCall}
@@ -14827,6 +14959,8 @@ function AgentWorkspacePageContent() {
               contactType={currentContactType}
               onClearContact={() => guardedClearContact(() => {
                 pendingCcIdRef.current = null;
+                 outsideMissionContactActiveRef.current = false;
+                 outsideMissionContactRef.current = null;
                 if (activeTaskId) {
                   setTasks((prev) => prev.filter((tk) => tk.id !== activeTaskId));
                   setActiveTaskId(null);
@@ -15161,6 +15295,8 @@ function AgentWorkspacePageContent() {
               campaignEmailAddress={campaignEmailAddress}
               onClearContact={() => guardedClearContact(() => {
                 pendingCcIdRef.current = null;
+                outsideMissionContactActiveRef.current = false;
+                outsideMissionContactRef.current = null;
                 if (activeTaskId) {
                   setTasks((prev) => prev.filter((tk) => tk.id !== activeTaskId));
                   setActiveTaskId(null);
@@ -16576,6 +16712,9 @@ function AgentWorkspacePageContent() {
             return;
           }
           // No campaign context — fetch entity directly and load into workspace
+          outsideMissionContactActiveRef.current = false;
+          outsideMissionContactRef.current = null;
+          setCurrentPhoneOverride(null);
           try {
             let ok = false;
             if (type === "customer") {
