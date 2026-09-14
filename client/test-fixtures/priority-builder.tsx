@@ -8,6 +8,7 @@ import {
 } from "../src/lib/queryClient";
 import { I18nProvider } from "../src/i18n";
 import type { PriorityContact } from "../src/components/agent/priority-builder";
+import { buildPriorityQueueWithFallback, parsePriorityView, DEFAULT_PRIORITY_VIEW, PRIORITY_BUILDER_MODULE } from "../src/components/agent/priority-builder";
 import "../src/index.css";
 
 document.documentElement.setAttribute("data-agent-fullscreen", "true");
@@ -123,10 +124,13 @@ const contacts: PriorityContact[] = [
 ];
 
 const dialogClassName =
-  "!w-[min(880px,calc(100vw-52px))] !max-w-none !flex flex-col h-[min(532px,calc(100dvh-36px))] min-h-[500px] max-h-[calc(100dvh-36px)] overflow-hidden p-0 gap-0 !rounded-[9px] !border-0 !shadow-[0_22px_70px_rgba(27,22,19,0.35)] max-[680px]:!w-[calc(100vw-16px)] max-[680px]:!h-[calc(100dvh-16px)] max-[680px]:!min-h-0 max-[680px]:!max-h-none [&>button]:hidden";
+  "!w-[min(1080px,calc(100vw-52px))] !max-w-none !flex flex-col h-[min(680px,calc(100dvh-32px))] min-h-[590px] max-h-[calc(100dvh-32px)] overflow-hidden p-0 gap-0 !rounded-[20px] !border-0 !shadow-[0_25px_75px_rgba(65,47,35,0.18)] max-[800px]:!w-[calc(100vw-16px)] max-[800px]:!h-[calc(100dvh-16px)] max-[800px]:!min-h-0 max-[800px]:!max-h-none [&>button]:hidden";
 
 function Fixture() {
   const [open, setOpen] = useState(true);
+  const [auto, setAuto] = useState(false);
+  const [nextCalls, setNextCalls] = useState(0);
+  const [nextContactId, setNextContactId] = useState("");
 
   return (
     <>
@@ -142,10 +146,24 @@ function Fixture() {
             contacts={contacts}
             currentUserId="agent-fixture"
             onClose={() => setOpen(false)}
+            isAutoMode={auto}
+            onToggleAutoMode={() => setAuto(value => !value)}
+            onNextContact={() => {
+              // Parent-owned queue reads the persisted shared cache, not the local editor draft.
+              const persisted = queryClient.getQueryData<Array<{ isDefault: boolean; filters: string }>>(["/api/saved-searches", PRIORITY_BUILDER_MODULE]);
+              const active = persisted?.find(view => view.isDefault);
+              const view = active ? parsePriorityView(JSON.parse(active.filters)) || DEFAULT_PRIORITY_VIEW : DEFAULT_PRIORITY_VIEW;
+              const next = buildPriorityQueueWithFallback(contacts, view, "agent-fixture")[0];
+              setNextCalls(value => value + 1);
+              setNextContactId(next?.contact.id || "");
+            }}
             onSelectContact={() => undefined}
           />
         </DialogContent>
       </Dialog>
+      <output data-testid="priority-fixture-next-calls">{nextCalls}</output>
+      <output data-testid="priority-fixture-next-contact">{nextContactId}</output>
+      <output data-testid="priority-fixture-auto">{String(auto)}</output>
     </>
   );
 }

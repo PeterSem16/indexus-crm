@@ -294,3 +294,31 @@ mtime_ms = 1789374866200
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/659f1f87-4e76-471f-9ddd-8098b8e6bc0d/a6ab8477-948d-49ef-82b1-77ff6bd03f01"
 storage_version_token = "1789374875991955"
 content_type = "image/png"
+
+[[outputs]]
+id = "djM8Nlu_FfIZsEobM_8Ky"
+uri = "file://attached_assets/priority-preview/implemented-original-desktop.png"
+type = "image"
+title = "Priority Builder – implementovaný desktop"
+description = "Aktuálny komponent aplikácie podľa pôvodného návrhu s tmavým panelom INDEXUS. Snímka z prehliadačového testu s testovacími kontaktmi, nie canvas ani živé CRM dáta."
+logical_id = "64577555-bdb5-4242-bcc4-0af9b9815d9e"
+content_hash = "sha256:7f21c9ad331baec2151a33c260039693a93ea833529f5422e7060a336d8df841"
+size = 118885
+mtime_ms = 1789376102414
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/64577555-bdb5-4242-bcc4-0af9b9815d9e/9b32149d-4b47-459a-84d6-da72cce84bf7"
+storage_version_token = "1789376114397477"
+content_type = "image/png"
+
+[[outputs]]
+id = "P6_Fe1xqNJa6wFpkQT7Z-"
+uri = "file://attached_assets/priority-preview/implemented-original-mobile.png"
+type = "image"
+title = "Priority Builder – implementovaný mobil"
+description = "Mobilná verzia skutočného komponentu aplikácie vrátane výberu pohľadov a ovládania queue. Testovacie kontakty."
+logical_id = "a0230888-36cd-4eab-8e81-2d18f3aff703"
+content_hash = "sha256:50ef773c1ecf95ff3420815e781a2d32bc0722cbd4a8c64519cf0ffc6657eaab"
+size = 61677
+mtime_ms = 1789376102417
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/a0230888-36cd-4eab-8e81-2d18f3aff703/acec797f-6b80-4ef1-b722-162f3ab39bc7"
+storage_version_token = "1789376115098229"
+content_type = "image/png"
