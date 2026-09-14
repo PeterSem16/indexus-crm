@@ -15,7 +15,7 @@ The builder may preview an unsaved draft, but Auto/Next must wait for successful
 
 **How to apply:** Lock queue actions during hydration, drafts, writes, and errors. In integration tests, derive the parent queue from persisted data rather than hardcoding the expected next contact.
 
-City grouping is subordinate to segment priority: first-match segment → ranked city → configured within-group sort. AI rankings are approximate saved snapshots, not authoritative population figures.
+City grouping is subordinate to segment priority: first-match segment → ranked city → optional referral-first partition → configured within-group sort. AI rankings are approximate saved snapshots, not authoritative population figures.
 
 **Why:** Sorting all contacts by city first lets a new contact in a large city jump ahead of a referral in a smaller city. The user requested city subgroups inside each existing group, not a replacement priority scheme.
 
@@ -32,3 +32,9 @@ The Referral segment represents new, uncalled referrals, not all contacts ever r
 **Why:** The user expects a called and rescheduled referral to leave new referrals and remain in scheduled work without duplication.
 
 **How to apply:** Require a known zero attempt count and no existing callback scheduling; retain scheduled contacts in later matching groups or fallback.
+
+Per-group referral-first ordering and Referral badges represent referral origin, including already called/scheduled contacts; this differs from membership in New referrals.
+
+**Why:** The user wants referrals prioritized within each city's scheduled work too, without returning them to the new-referral group.
+
+**How to apply:** Keep origin and new-referral eligibility separate. Default the per-group option on, persist explicit off, and sort within each partition using the group's configured sort.

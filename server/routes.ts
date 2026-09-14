@@ -227,35 +227,35 @@ const mobileActiveRecordings = new Map<string, MobileRecordingInfo>();
 
 const priorityPresetDefinitions = {
   referral_first: {
-    name: "Referral first",
+    name: "New referrals first",
     segments: [
-      { id: "referral", sort: "priority" },
-      { id: "scheduled_today", sort: "callback_asc" },
-      { id: "new", sort: "created_desc" },
+      { id: "referral", sort: "priority", referralsFirst: true },
+      { id: "scheduled_today", sort: "callback_asc", referralsFirst: true },
+      { id: "new", sort: "created_desc", referralsFirst: true },
     ],
   },
   todays_callbacks: {
     name: "Today's callbacks",
     segments: [
-      { id: "scheduled_today", sort: "callback_asc" },
-      { id: "due", sort: "callback_asc" },
-      { id: "new", sort: "created_desc" },
+      { id: "scheduled_today", sort: "callback_asc", referralsFirst: true },
+      { id: "due", sort: "callback_asc", referralsFirst: true },
+      { id: "new", sort: "created_desc", referralsFirst: true },
     ],
   },
   fresh_opportunities: {
     name: "Fresh opportunities",
     segments: [
-      { id: "new", sort: "created_desc" },
-      { id: "referral", sort: "priority" },
-      { id: "never_called", sort: "name_asc" },
+      { id: "new", sort: "created_desc", referralsFirst: true },
+      { id: "referral", sort: "priority", referralsFirst: true },
+      { id: "never_called", sort: "name_asc", referralsFirst: true },
     ],
   },
   recovery_desk: {
     name: "Recovery desk",
     segments: [
-      { id: "unhandled", sort: "attempts_desc" },
-      { id: "stale", sort: "last_contact_asc" },
-      { id: "assigned_others", sort: "callback_asc" },
+      { id: "unhandled", sort: "attempts_desc", referralsFirst: true },
+      { id: "stale", sort: "last_contact_asc", referralsFirst: true },
+      { id: "assigned_others", sort: "callback_asc", referralsFirst: true },
     ],
   },
 } as const;
@@ -266,12 +266,21 @@ const prioritySavedViewSchema = z.object({
   segments: z.array(z.object({
     id: z.enum(["referral", "scheduled_today", "due", "new", "my_scheduled", "team_scheduled", "assigned_others", "unhandled", "never_called", "recently_contacted", "stale"]),
     sort: z.enum(["priority", "name_asc", "name_desc", "attempts_desc", "attempts_asc", "last_contact_asc", "last_contact_desc", "callback_asc", "callback_desc", "created_desc", "created_asc"]),
+    referralsFirst: z.boolean().default(true),
   })).min(1),
   presetId: z.enum(["referral_first", "todays_callbacks", "fresh_opportunities", "recovery_desk"]).optional(),
+  cityGrouping: z.object({
+    enabled: z.boolean(),
+    rankedKeys: z.array(z.string().trim().min(1)).max(500),
+    unknownKeys: z.array(z.string().trim().min(1)).max(500),
+    mode: z.enum(["all", "selected"]).optional(),
+    selectedKeys: z.array(z.string().trim().min(1)).max(500).optional(),
+  }).optional(),
 }).superRefine((view, context) => {
   if (!view.presetId) return;
   const canonical = priorityPresetDefinitions[view.presetId];
-  if (view.name !== canonical.name || JSON.stringify(view.segments) !== JSON.stringify(canonical.segments)) {
+  const legacyNames = view.presetId === "referral_first" ? ["Referral first"] : [];
+  if (![canonical.name, ...legacyNames].includes(view.name) || JSON.stringify(view.segments) !== JSON.stringify(canonical.segments)) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["presetId"],

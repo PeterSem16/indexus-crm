@@ -120,6 +120,9 @@
 .priority-builder-actions { grid-column: 4 / -1; display: flex; align-items: center; gap: 6px; min-width: 0; margin-top: 2px; padding-top: 8px; border-top: 1px solid #eee9e5; }
 .priority-builder-actions-label { color: #998b81; font-size: 10px; white-space: nowrap; }
 .priority-builder-sort { height: 27px; min-width: 0; max-width: 150px; flex: 1; border: 1px solid #dfd8d1; border-radius: 7px; padding: 0 7px; background: #fbfaf8; color: #5b5048; font: inherit; font-size: 10px; outline-color: #b5622e; }
+.priority-builder-referral-toggle { display: inline-flex; align-items: center; gap: 4px; min-width: 0; color: #66584f; font-size: 10px; white-space: nowrap; cursor: pointer; }
+.priority-builder-referral-toggle input { accent-color: #7860b8; }
+.priority-builder-referral-toggle input:disabled { cursor: default; }
 .priority-builder-mini { display: inline-grid; place-items: center; border: 0; border-radius: 5px; padding: 4px; background: transparent; color: #96887d; cursor: pointer; }
 .priority-builder-mini:hover:not(:disabled) { background: #f2ebe5; color: #b5622e; }
 .priority-builder-mini:disabled { opacity: .35; cursor: default; }
@@ -140,6 +143,7 @@
 .priority-builder-card-chip-position .priority-builder-card-chip-icon { background: #d9853b; color: #fff; }
 .priority-builder-card-chip-group { border-color: #cbc2e4; background: #f1eefb; color: #64519d; }
 .priority-builder-card-chip-group .priority-builder-card-chip-icon { background: #7860b8; color: #fff; }
+.priority-builder-card-chip-referral { border-color: #d7c9ed; background: #f5f0fc; color: #654d96; }
 .priority-builder-card-chip-city { border-color: #c7d8be; background: #eef5eb; color: #4e7046; }
 .priority-builder-card-chip-city .priority-builder-card-chip-icon { background: #5e7a5a; color: #fff; }
 .priority-builder-card-chip-callback { border-color: #b8d9d4; background: #e8f4f1; color: #2f6c66; }
@@ -177,6 +181,7 @@
   .priority-builder-row { grid-template-columns: 14px 22px 25px minmax(0, 1fr) auto; gap: 6px; padding: 8px; }
   .priority-builder-actions { grid-column: 4 / -1; }
   .priority-builder-actions-label { display: none; }
+  .priority-builder-referral-toggle span { display: none; }
   .priority-builder-save { flex-wrap: wrap; padding: 9px 14px; }
   .priority-builder-save input { flex: 1; width: auto; min-width: 120px; }
   .priority-builder-status { width: 100%; }

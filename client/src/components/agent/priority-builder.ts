@@ -33,6 +33,8 @@ export type PrioritySegmentId =
 export interface PrioritySegment {
   id: PrioritySegmentId;
   sort: PrioritySort;
+  /** Put referral-origin contacts before non-referrals within this group. */
+  referralsFirst?: boolean;
 }
 
 export interface PriorityView {
@@ -89,6 +91,7 @@ const prioritySegmentSchema = z.object({
     "last_contact_asc", "last_contact_desc", "callback_asc", "callback_desc",
     "created_desc", "created_asc",
   ]),
+  referralsFirst: z.boolean().default(true),
 });
 
 const priorityViewSchema = z.object({
@@ -109,22 +112,22 @@ export const PRIORITY_PRESETS: readonly PriorityView[] = [
   {
     version: 1, name: "New referrals first", presetId: "referral_first",
     segments: [
-      { id: "referral", sort: "priority" },
-      { id: "scheduled_today", sort: "callback_asc" },
-      { id: "new", sort: "created_desc" },
+      { id: "referral", sort: "priority", referralsFirst: true },
+      { id: "scheduled_today", sort: "callback_asc", referralsFirst: true },
+      { id: "new", sort: "created_desc", referralsFirst: true },
     ],
   },
   {
     version: 1, name: "Today's callbacks", presetId: "todays_callbacks",
-    segments: [{ id: "scheduled_today", sort: "callback_asc" }, { id: "due", sort: "callback_asc" }, { id: "new", sort: "created_desc" }],
+    segments: [{ id: "scheduled_today", sort: "callback_asc", referralsFirst: true }, { id: "due", sort: "callback_asc", referralsFirst: true }, { id: "new", sort: "created_desc", referralsFirst: true }],
   },
   {
     version: 1, name: "Fresh opportunities", presetId: "fresh_opportunities",
-    segments: [{ id: "new", sort: "created_desc" }, { id: "referral", sort: "priority" }, { id: "never_called", sort: "name_asc" }],
+    segments: [{ id: "new", sort: "created_desc", referralsFirst: true }, { id: "referral", sort: "priority", referralsFirst: true }, { id: "never_called", sort: "name_asc", referralsFirst: true }],
   },
   {
     version: 1, name: "Recovery desk", presetId: "recovery_desk",
-    segments: [{ id: "unhandled", sort: "attempts_desc" }, { id: "stale", sort: "last_contact_asc" }, { id: "assigned_others", sort: "callback_asc" }],
+    segments: [{ id: "unhandled", sort: "attempts_desc", referralsFirst: true }, { id: "stale", sort: "last_contact_asc", referralsFirst: true }, { id: "assigned_others", sort: "callback_asc", referralsFirst: true }],
   },
 ];
 
@@ -138,7 +141,12 @@ export function parsePriorityView(value: unknown): PriorityView | null {
   return {
     version: 1,
     name: result.data.name,
-    segments: result.data.segments as PrioritySegment[],
+    segments: result.data.segments.map(segment => ({
+      ...segment,
+      // Views saved before referral partitioning are intentionally upgraded
+      // on read so reopening an old view meets the new default.
+      referralsFirst: segment.referralsFirst ?? true,
+    })) as PrioritySegment[],
     presetId: result.data.presetId,
     cityGrouping: result.data.cityGrouping
       ? {
@@ -240,6 +248,11 @@ export function isPriorityNewReferral(contact: PriorityContact): boolean {
   return contact.hasReferral === true && attemptCount === 0 && !alreadyScheduled;
 }
 
+/** Referral origin is retained as a priority/badge signal after any call. */
+export function isPriorityReferral(contact: PriorityContact): boolean {
+  return contact.hasReferral === true;
+}
+
 function appDateKey(value: number): string {
   const parts = new Intl.DateTimeFormat("en", {
     timeZone: PRIORITY_QUEUE_TIME_ZONE,
@@ -322,6 +335,23 @@ export function sortPriorityContacts(
   });
 }
 
+/**
+ * Keep a group's configured sort intact while optionally partitioning referral
+ * origin contacts ahead of all other contacts.  This is deliberately applied
+ * after first-match assignment, never across groups.
+ */
+function sortPriorityContactsWithinReferralPartitions(
+  contacts: PriorityContact[],
+  sort: PrioritySort,
+  referralsFirst = true,
+): PriorityContact[] {
+  if (!referralsFirst) return sortPriorityContacts(contacts, sort);
+  return [
+    ...sortPriorityContacts(contacts.filter(isPriorityReferral), sort),
+    ...sortPriorityContacts(contacts.filter(contact => !isPriorityReferral(contact)), sort),
+  ];
+}
+
 /** Apply groups top-to-bottom. A contact belongs to its first matching group only. */
 export function buildPriorityQueue(
   contacts: PriorityContact[],
@@ -333,9 +363,10 @@ export function buildPriorityQueue(
   const result: Array<{ contact: PriorityContact; segment: PrioritySegmentId }> = [];
   const scopedContacts = filterPriorityContactsByCity(contacts, view);
   for (const segment of view.segments) {
-    const matches = sortPriorityContacts(
+    const matches = sortPriorityContactsWithinReferralPartitions(
       scopedContacts.filter(contact => !used.has(contact.id) && matchesPrioritySegment(contact, segment.id, currentUserId, now)),
       segment.sort,
+      segment.referralsFirst !== false,
     );
     for (const contact of matches) {
       used.add(contact.id);
@@ -405,12 +436,20 @@ export function buildPriorityQueueWithFallback(
     );
     const segmentGroups = new Map<PriorityQueueSegmentId, {
       items: PriorityQueueItem[];
+      sort: PrioritySort;
+      referralsFirst: boolean;
       cities: Map<string, { location: PriorityCityLocation | null; items: PriorityQueueItem[]; contacts: PriorityContact[] }>;
     }>();
     for (const item of baseQueue) {
       let segment = segmentGroups.get(item.segment);
       if (!segment) {
-        segment = { items: [], cities: new Map() };
+        const configuredSegment = view.segments.find(candidate => candidate.id === item.segment);
+        segment = {
+          items: [],
+          sort: configuredSegment?.sort || "priority",
+          referralsFirst: configuredSegment?.referralsFirst !== false,
+          cities: new Map(),
+        };
         segmentGroups.set(item.segment, segment);
       }
       segment.items.push(item);
@@ -431,7 +470,14 @@ export function buildPriorityQueueWithFallback(
           const cityGroup: PriorityCityGroup = city.location
             ? { key: city.location.key, city: city.location.city, countryCode: city.location.countryCode }
             : { key: null, city: null, countryCode: null };
-          return city.items.map(item => ({ ...item, cityGroup }));
+          return sortPriorityContactsWithinReferralPartitions(
+            city.contacts,
+            segment.sort,
+            segment.referralsFirst,
+          ).map(contact => {
+            const item = city.items.find(candidate => candidate.contact.id === contact.id)!;
+            return { ...item, cityGroup };
+          });
         }),
     );
   }
@@ -439,7 +485,7 @@ export function buildPriorityQueueWithFallback(
   const used = new Set(queue.map(item => item.contact.id));
   return [
     ...queue,
-    ...sortPriorityContacts(scopedContacts.filter(contact => !used.has(contact.id)), "priority")
+    ...sortPriorityContactsWithinReferralPartitions(scopedContacts.filter(contact => !used.has(contact.id)), "priority")
       .map(contact => ({ contact, segment: "other" as const })),
   ];
 }

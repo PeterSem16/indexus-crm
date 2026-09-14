@@ -233,6 +233,7 @@ import {
   DEFAULT_PRIORITY_VIEW,
   filterPriorityContactsByCity,
   getBratislavaDateKey,
+  isPriorityReferral,
   isPriorityNewReferral,
   parsePriorityView,
   PRIORITY_BUILDER_MODULE,
@@ -2016,6 +2017,11 @@ function TaskListPanel({
                             ) : (
                               <span className="text-[10px] text-muted-foreground">{entityDisplay.subtitle}</span>
                             )}
+                           {isPriorityReferral(cc) && (
+                             <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: "#f1ebfb", color: "#654d96", border: "1px solid #d7c9ed" }}>
+                               {priorityCopy.referralBadge}
+                             </span>
+                           )}
                           </div>
                           {cc.callbackNote && (
                             <p className="text-[9px] mt-0.5 truncate italic text-muted-foreground" title={cc.callbackNote}>
@@ -15774,7 +15780,14 @@ function AgentWorkspacePageContent() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold truncate text-foreground">{entityInfo.name}</p>
-                      <p className="text-xs truncate text-muted-foreground">{entityInfo.subtitle}</p>
+                       <div className="flex items-center gap-1">
+                         <p className="text-xs truncate text-muted-foreground">{entityInfo.subtitle}</p>
+                         {isPriorityReferral(cc) && (
+                           <span className="inline-flex shrink-0 items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: "#f1ebfb", color: "#654d96", border: "1px solid #d7c9ed" }}>
+                             {priorityCopy.referralBadge}
+                           </span>
+                         )}
+                       </div>
                       {cc.callbackNote && (
                         <p className="text-[10px] mt-0.5 truncate italic" style={{ color: "#B08060" }} title={cc.callbackNote}>📝 {cc.callbackNote}</p>
                       )}

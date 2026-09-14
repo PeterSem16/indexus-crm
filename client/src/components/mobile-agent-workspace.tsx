@@ -11,7 +11,7 @@ import { Phone, PhoneOff, PhoneIncoming, Mic, MicOff, PauseCircle, PlayCircle,
 import { format } from "date-fns";
 import { PulseMobileDialButton } from "@/components/pulse-dial-button";
 import { priorityBuilderCopy } from "@/components/agent/priority-builder-copy";
-import { getPriorityContactCityLocation, isPriorityNewReferral, type PriorityQueueItem, type PriorityQueueSegmentId } from "@/components/agent/priority-builder";
+import { getPriorityContactCityLocation, isPriorityNewReferral, isPriorityReferral, type PriorityQueueItem, type PriorityQueueSegmentId } from "@/components/agent/priority-builder";
 
 /* ── helpers ────────────────────────────────────────────────────────── */
 const fmtDur = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -630,11 +630,12 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
 }
 
 /* ── ContactRow ─────────────────────────────────────────────────────── */
-function ContactRow({ cc, onSelect, isOverdue, isUpcoming, callbackDate, np, currentUserId }: {
+function ContactRow({ cc, onSelect, isOverdue, isUpcoming, callbackDate, np, currentUserId, referralBadge }: {
   cc: any; onSelect: (cc: any) => void;
   isOverdue?: boolean; isUpcoming?: boolean;
   callbackDate?: string; np: any;
   currentUserId?: string;
+  referralBadge?: string;
 }) {
   const name = ccName(cc);
   const phone = ccPhone(cc);
@@ -664,6 +665,11 @@ function ContactRow({ cc, onSelect, isOverdue, isUpcoming, callbackDate, np, cur
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold truncate">{name}</p>
         {phone && <p className="text-xs text-muted-foreground truncate">{phone}</p>}
+         {isPriorityReferral(cc) && (
+           <span className="inline-flex w-fit items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: "#f1ebfb", color: "#654d96", borderColor: "#d7c9ed" }}>
+             {referralBadge || "Referral"}
+           </span>
+         )}
         {callbackDate && (
           <div className="flex items-center gap-1 mt-0.5">
             <Calendar className={`h-3 w-3 ${isOtherAgent ? "text-amber-500" : isOverdue ? "text-red-500" : "text-blue-500"}`} />
@@ -1708,6 +1714,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                                callbackDate={cc.callbackDate}
                                np={np}
                                currentUserId={currentUserId}
+                                referralBadge={cityCopy.referralBadge}
                              />
                            ))}
                          </div>
@@ -1728,7 +1735,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                   <div className="h-px flex-1 rounded" style={{ background: `${ST.terra}40` }} />
                 </div>
                 {filteredOverdue.map(cc => (
-                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} isOverdue callbackDate={cc.callbackDate} np={np} currentUserId={currentUserId} />
+                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} isOverdue callbackDate={cc.callbackDate} np={np} currentUserId={currentUserId} referralBadge={cityCopy.referralBadge} />
                 ))}
               </>
             )}
@@ -1742,7 +1749,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                   <div className="h-px flex-1 rounded" style={{ background: `${ST.sage}40` }} />
                 </div>
                 {filteredUpcoming.map(cc => (
-                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} isUpcoming callbackDate={cc.callbackDate} np={np} currentUserId={currentUserId} />
+                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} isUpcoming callbackDate={cc.callbackDate} np={np} currentUserId={currentUserId} referralBadge={cityCopy.referralBadge} />
                 ))}
               </>
             )}
@@ -1758,7 +1765,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                   </div>
                 )}
                 {filteredPending.map(cc => (
-                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} np={np} />
+                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} np={np} referralBadge={cityCopy.referralBadge} />
                 ))}
               </>
             )}
@@ -1772,7 +1779,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                   <div className="h-px flex-1 bg-border" />
                 </div>
                 {filteredOthers.map(cc => (
-                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} np={np} />
+                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} np={np} referralBadge={cityCopy.referralBadge} />
                 ))}
               </>
             )}

@@ -137,6 +137,27 @@ test("original desktop layout has Indexus sidebar, derived first-match counts, p
   await expect(page.locator(".priority-builder-card")).toContainText("Melichar");
 });
 
+test("referral-first group toggle persists independently and referral badges remain visible", async ({ page }) => {
+  const api = await installSavedSearchApi(page);
+  await openFixture(page, { width: 1280, height: 720 });
+  const toggles = page.locator(".priority-builder-referral-toggle input");
+  await expect(toggles).toHaveCount(3);
+  await expect(toggles.nth(1)).toBeChecked();
+  await expect(page.locator(".priority-builder-card-chip-referral")).toHaveCount(2);
+  await toggles.nth(1).uncheck();
+  await expect(page.getByRole("button", { name: /Auto/ })).toBeDisabled();
+  await page.getByRole("textbox", { name: "Saved view name" }).fill("Referral group settings");
+  await page.getByRole("button", { name: "Save view" }).click();
+  await expect(page.locator(".priority-builder-status")).toContainText("Saved to Contacts");
+  await expect.poll(() => api.savedViews.length).toBe(1);
+  expect(JSON.parse(api.savedViews[0].filters).segments.map((segment: { referralsFirst: boolean }) => segment.referralsFirst)).toEqual([true, false, true]);
+  await page.reload();
+  await expect(toggles.nth(1)).not.toBeChecked();
+  await expect(toggles.first()).toBeChecked();
+  await expect(page.locator(".priority-builder-card-chip-referral")).toHaveCount(2);
+  await page.screenshot({ path: "/tmp/priority-referral-group-settings.png" });
+});
+
 test("draft controls add, reorder, remove, reset, save, reopen and delete a personal view", async ({ page }) => {
   const api = await installSavedSearchApi(page);
   await openFixture(page, { width: 1280, height: 720 });
@@ -208,7 +229,9 @@ test("original responsive mobile layout retains controls and delegates Auto and 
   await expect(page.getByTestId("priority-fixture-auto")).toHaveText("true");
   await page.getByRole("button", { name: "Next contact" }).click();
   await expect(page.getByTestId("priority-fixture-next-calls")).toHaveText("1");
-  await expect(page.getByTestId("priority-fixture-next-contact")).toHaveText("new-2");
+  // New contacts includes referrals; enabled referral-first takes precedence
+  // over created-desc, which still orders the two referral contacts.
+  await expect(page.getByTestId("priority-fixture-next-contact")).toHaveText("referral-2");
   expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false);
   await page.getByRole("button", { name: "Close" }).click();
   await expect(page.getByTestId("priority-fixture-closed")).toBeVisible();

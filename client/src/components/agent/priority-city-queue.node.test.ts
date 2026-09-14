@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   buildPriorityQueueWithFallback, DEFAULT_PRIORITY_VIEW, getPriorityContactCityLocation,
-  parsePriorityView, type PriorityContact, type PriorityView,
+  isPriorityReferral, parsePriorityView, type PriorityContact, type PriorityView,
 } from "./priority-builder";
 
 const now = new Date("2026-09-14T08:00:00Z");
@@ -147,6 +147,8 @@ test("referrals require an explicit zero attempt and leave the Referral group wh
   ]);
   assert.equal(result.find(item => item.contact.id === "zero-scheduled-referral")?.segment, "other");
   assert.equal(result.find(item => item.contact.id === "rescheduled-referral")?.segment, "other");
+  assert.equal(isPriorityReferral(rescheduled), true);
+  assert.equal(isPriorityReferral(zeroScheduled), true);
 });
 
 test("a referral with a callback date cannot fall into New even when its status is still pending", () => {
@@ -161,4 +163,44 @@ test("a referral with a callback date cannot fall into New even when its status 
     segments: [{ id: "referral", sort: "priority" }, { id: "new", sort: "created_desc" }],
   }, "agent", now);
   assert.equal(result[0]?.segment, "other");
+});
+
+test("referral partitioning is applied within each city without changing city or segment precedence", () => {
+  const input = [
+    contact("ordinary-a", "Bratislava", "SK", { priorityScore: 100 }),
+    contact("referral-a", "Bratislava", "SK", { hasReferral: true, priorityScore: 1 }),
+    contact("referral-b", "Vienna", "AT", { hasReferral: true, priorityScore: 1 }),
+    contact("ordinary-b", "Vienna", "AT", { priorityScore: 100 }),
+  ];
+  const result = buildPriorityQueueWithFallback(input, {
+    ...DEFAULT_PRIORITY_VIEW,
+    segments: [{ id: "new", sort: "priority", referralsFirst: true }],
+    cityGrouping: { enabled: true, rankedKeys: ["SK:bratislava", "AT:vienna"], unknownKeys: [] },
+  }, "agent", now);
+  assert.deepEqual(result.map(item => item.contact.id), [
+    "referral-a", "ordinary-a", "referral-b", "ordinary-b",
+  ]);
+  assert.ok(isPriorityReferral(result[0].contact));
+  assert.ok(isPriorityReferral(result[2].contact));
+});
+
+test("disabled referral toggles preserve the configured ordinary sort", () => {
+  const input = [
+    contact("ordinary", "Bratislava", "SK", { priorityScore: 100 }),
+    contact("referral", "Bratislava", "SK", { hasReferral: true, priorityScore: 1 }),
+  ];
+  const result = buildPriorityQueueWithFallback(input, {
+    ...DEFAULT_PRIORITY_VIEW,
+    segments: [{ id: "new", sort: "priority", referralsFirst: false }],
+  }, "agent", now);
+  assert.deepEqual(result.map(item => item.contact.id), ["ordinary", "referral"]);
+});
+
+test("legacy segments normalize referral priority to enabled on parse and serialization", () => {
+  const parsed = parsePriorityView({
+    ...DEFAULT_PRIORITY_VIEW,
+    segments: [{ id: "new", sort: "name_asc" }],
+  })!;
+  assert.equal(parsed.segments[0].referralsFirst, true);
+  assert.equal(JSON.parse(JSON.stringify(parsed)).segments[0].referralsFirst, true);
 });

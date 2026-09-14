@@ -17,6 +17,7 @@ import {
   getPriorityContactCityLocation,
   getPriorityCitySelectionMode,
   getPriorityContactName,
+  isPriorityReferral,
   matchesPrioritySegment,
   parsePriorityView,
   PRIORITY_BUILDER_MODULE,
@@ -476,7 +477,7 @@ export function PriorityBuilder({
   };
   const addSegment = (id: PrioritySegmentId) => {
     if (view.segments.some(segment => segment.id === id)) return;
-    makeDraft([...view.segments, { id, sort: "priority" }]);
+    makeDraft([...view.segments, { id, sort: "priority", referralsFirst: true }]);
   };
   const removeSegment = (id: PrioritySegmentId) => {
     if (view.segments.length <= 1) return;
@@ -560,6 +561,7 @@ export function PriorityBuilder({
       <span className="priority-builder-card-chips">
         <span className="priority-builder-card-chip priority-builder-card-chip-position"><span className="priority-builder-card-chip-icon"><ListOrdered size={11} /></span>{queuePosition === 1 ? `${copy.nextUp} — ` : ""}{copy.queuePosition} {queuePosition}</span>
         <span className="priority-builder-card-chip priority-builder-card-chip-group"><span className="priority-builder-card-chip-icon"><Layers3 size={11} /></span>{copy.group}: {groupName}</span>
+        {isPriorityReferral(contact) && <span className="priority-builder-card-chip priority-builder-card-chip-referral">{copy.referralBadge}</span>}
         {view.cityGrouping?.enabled && <span className="priority-builder-card-chip priority-builder-card-chip-city"><span className="priority-builder-card-chip-icon"><MapPin size={11} /></span>{cityGroup?.city || copy.unknownCity}{cityGroup?.countryCode ? `${copy.cityCountrySeparator}${cityGroup.countryCode}` : ""}</span>}
         <span className="priority-builder-card-chip priority-builder-card-chip-callback"><span className="priority-builder-card-chip-icon"><CalendarClock size={11} /></span>{copy.scheduledCallback}: {callbackDateTime || copy.notScheduled}</span>
         <span className="priority-builder-card-chip priority-builder-card-chip-attempts"><span className="priority-builder-card-chip-icon"><PhoneCall size={11} /></span>{attemptSummary}</span>
@@ -740,6 +742,16 @@ export function PriorityBuilder({
                   <select className="priority-builder-sort" disabled={viewControlsDisabled} value={segment.sort} onChange={event => makeDraft(view.segments.map(item => item.id === segment.id ? { ...item, sort: event.target.value as PrioritySort } : item))} aria-label={`${t.agentWorkspace.priorityBuilderSortBy} ${segmentNames[segment.id]}`}>
                     {Object.entries(sortLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
                   </select>
+                   <label className="priority-builder-referral-toggle" title={copy.referralsFirst}>
+                     <input
+                       type="checkbox"
+                       checked={segment.referralsFirst !== false}
+                       disabled={viewControlsDisabled}
+                       onChange={event => makeDraft(view.segments.map(item => item.id === segment.id ? { ...item, referralsFirst: event.target.checked } : item))}
+                       aria-label={`${copy.referralsFirst}: ${segmentNames[segment.id]}`}
+                     />
+                     <span>{copy.referralsFirst}</span>
+                   </label>
                   <span style={{ marginLeft: "auto", display: "flex" }}>
                     <button type="button" className="priority-builder-mini" onClick={() => move(index, -1)} disabled={viewControlsDisabled || index === 0} aria-label={t.agentWorkspace.priorityBuilderMoveUp}><ArrowUp size={14} /></button>
                     <button type="button" className="priority-builder-mini" onClick={() => move(index, 1)} disabled={viewControlsDisabled || index === view.segments.length - 1} aria-label={t.agentWorkspace.priorityBuilderMoveDown}><ArrowDown size={14} /></button>
