@@ -8,6 +8,7 @@
     "build": "tsx script/build.ts",
     "start": "NODE_ENV=production node dist/index.cjs",
     "test:pulse-dial-browser": "playwright test e2e/pulse-dial.spec.ts",
+    "test:clone-campaign": "bash script/test-clone-campaign.sh",
     "check": "tsc",
     "db:push": "drizzle-kit push"
   },

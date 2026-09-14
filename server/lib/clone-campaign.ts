@@ -9,6 +9,7 @@ import {
   campaignDispositions,
   campaignStatusAssignments,
   campaignPhases,
+  campaignMailchimpSync,
   campaignStatusListItems,
   campaignStatusListQuestions,
   campaignStatusListAutomations,
@@ -27,9 +28,21 @@ function remapIdsDeep(value: unknown, idMap: Map<string, string>): unknown {
   return value;
 }
 
+export function cloneOperatorScript(script: string | null): string | null;
+export function cloneOperatorScript(script: unknown): unknown;
 export function cloneOperatorScript(script: unknown): unknown {
-  const parsed = operatorScriptSchema.safeParse(script);
+  let decoded = script;
+  if (typeof script === "string") {
+    try {
+      decoded = JSON.parse(script);
+    } catch {
+      return script;
+    }
+  }
+  const parsed = operatorScriptSchema.safeParse(decoded);
   if (!parsed.success) return script;
+  // Validation must not add defaults or strip additional persisted properties.
+  const source = decoded as typeof parsed.data;
 
   const stepIdMap = new Map(parsed.data.steps.map(step => [step.id, randomUUID()]));
   const elementIdMap = new Map(
@@ -37,10 +50,10 @@ export function cloneOperatorScript(script: unknown): unknown {
   );
   const remapStepId = (id: string | undefined) => id ? stepIdMap.get(id) ?? id : undefined;
 
-  return {
-    ...parsed.data,
-    startStepId: remapStepId(parsed.data.startStepId),
-    steps: parsed.data.steps.map(step => ({
+  const cloned = {
+    ...source,
+    startStepId: remapStepId(source.startStepId),
+    steps: source.steps.map(step => ({
       ...step,
       id: stepIdMap.get(step.id)!,
       nextStepId: remapStepId(step.nextStepId),
@@ -55,14 +68,16 @@ export function cloneOperatorScript(script: unknown): unknown {
       })),
     })),
   };
+  return typeof script === "string" ? JSON.stringify(cloned) : cloned;
 }
 
 export async function cloneCampaignWithConfiguration(
   sourceCampaignId: string,
   createdBy: string,
   requestedName?: string,
+  database: typeof db = db,
 ) {
-  return db.transaction(async tx => {
+  return database.transaction(async tx => {
     const [sourceCampaign] = await tx.select().from(campaigns)
       .where(eq(campaigns.id, sourceCampaignId))
       .limit(1);
@@ -99,6 +114,7 @@ export async function cloneCampaignWithConfiguration(
       sourcePhases,
       sourceStatusItems,
       sourceSopArticles,
+      sourceMailchimpSync,
     ] = await Promise.all([
       tx.select().from(campaignAgents).where(eq(campaignAgents.campaignId, sourceCampaignId)),
       tx.select().from(campaignSchedules).where(eq(campaignSchedules.campaignId, sourceCampaignId)),
@@ -108,6 +124,7 @@ export async function cloneCampaignWithConfiguration(
       tx.select().from(campaignPhases).where(eq(campaignPhases.campaignId, sourceCampaignId)),
       tx.select().from(campaignStatusListItems).where(eq(campaignStatusListItems.campaignId, sourceCampaignId)),
       tx.select().from(sopCampaignArticles).where(eq(sopCampaignArticles.campaignId, sourceCampaignId)),
+      tx.select().from(campaignMailchimpSync).where(eq(campaignMailchimpSync.campaignId, sourceCampaignId)),
     ]);
 
     if (sourceAgents.length) {
@@ -298,6 +315,18 @@ export async function cloneCampaignWithConfiguration(
         id: randomUUID(),
         articleId: row.articleId,
         campaignId: newCampaignId,
+      })));
+    }
+
+    // Audience selection is reusable configuration. Remote campaign identity,
+    // synchronization progress and webhook registration belong only to the source.
+    if (sourceMailchimpSync.length) {
+      await tx.insert(campaignMailchimpSync).values(sourceMailchimpSync.map(row => ({
+        id: randomUUID(),
+        campaignId: newCampaignId,
+        mailchimpListId: row.mailchimpListId,
+        selectedTags: row.selectedTags,
+        selectedSegmentId: row.selectedSegmentId,
       })));
     }
 

@@ -38,6 +38,10 @@ args = "Start application"
 task = "workflow.run"
 args = "test"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "clone-campaign"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -57,6 +61,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsx client/src/lib/back-office-alert.test.ts && npx tsx client/src/lib/phone-card-preference.test.ts && npx tsx client/src/lib/missed-call-card-resolver.node.test.ts && npx tsx shared/phone-preference-key.test.ts && npx tsx client/src/lib/repeated-inbound-card-flow.test.ts && npx tsx server/phone-card-preference-routes.test.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "clone-campaign"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run test:clone-campaign"
 
 [workflows.workflow.metadata]
 isValidation = true
