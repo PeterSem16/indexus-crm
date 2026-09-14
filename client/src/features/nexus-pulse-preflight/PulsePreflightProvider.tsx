@@ -58,6 +58,7 @@ export function PulseGate({ children }: Props) {
   const [recordingPlaybackActive, setRecordingPlaybackActive] = useState(isPulseRecordingPlaybackActive);
   const [showDeferredRecheckIntro, setShowDeferredRecheckIntro] = useState(false);
   const [diagnosticsGeneration, setDiagnosticsGeneration] = useState(0);
+  const diagnosticsGenerationRef = useRef(0);
   const [autoStartDeferredRecheckRequest, setAutoStartDeferredRecheckRequest] = useState(0);
   const ready = allowed && acknowledged;
   const workProtected = isPulseSessionProtected(callState) || afterCallWorkActive || recordingPlaybackActive;
@@ -68,6 +69,7 @@ export function PulseGate({ children }: Props) {
   const deferredMediaEpisodeRef = useRef<string | null>(null);
   const validatedMediaEpisodeRef = useRef<string | null>(null);
   const deferredNoticeShown = useRef(false);
+  const requiredRecheckPendingRef = useRef(false);
   const suppressRequiredOpenRef = useRef(false);
   useLayoutEffect(() => {
     workProtectedRef.current = workProtected;
@@ -94,6 +96,10 @@ export function PulseGate({ children }: Props) {
     window.dispatchEvent(new Event("nexus-pulse-invalidated"));
   }, [key]);
   const presentDeferredRecheck = useCallback(() => {
+    // Polling, focus, and devicechange may all report the same old baseline
+    // while its replacement is being tested. Invalidate once, not every poll.
+    if (requiredRecheckPendingRef.current) return;
+    requiredRecheckPendingRef.current = true;
     suppressRequiredOpenRef.current = false;
     deferredInvalidation.current = false;
     deferredInvalidationReasons.current.clear();
@@ -106,7 +112,7 @@ export function PulseGate({ children }: Props) {
     setOpen(false);
     // A completed run belongs to the previous device/network environment.
     // Remount only diagnostics, never the call/workspace subtree.
-    setDiagnosticsGeneration(generation => generation + 1);
+    setDiagnosticsGeneration(++diagnosticsGenerationRef.current);
     setShowDeferredRecheckIntro(true);
     window.dispatchEvent(new Event("nexus-pulse-invalidated"));
   }, [key]);
@@ -331,13 +337,15 @@ export function PulseGate({ children }: Props) {
       </AlertDialogContent>
     </AlertDialog>
     <PulseDiagnostics key={`${userKey(user)}:${diagnosticsGeneration}`} open={open && !diagnosticsBlocked && !showDeferredRecheckIntro} required={!ready} keepWakeLock hasValidReadiness={ready} autoStartRequest={autoStartDeferredRecheckRequest} userId={userKey(user)} onClose={() => setOpen(false)} onExit={() => setLocation(safeExitPage)} onReady={() => {
-      sessionStorage.setItem(key, "1");
-      hasEnteredPulseRef.current = true;
-      setAcknowledged(true); setStatus("ready"); setOpen(false);
       void readAudioDeviceSnapshot().then((snapshot) => {
+        if (diagnosticsGeneration !== diagnosticsGenerationRef.current) return;
         if (snapshot) sessionStorage.setItem(pulseAudioDeviceBaselineStorageKey(userKey(user)), JSON.stringify(snapshot));
+        sessionStorage.setItem(key, "1");
+        hasEnteredPulseRef.current = true;
+        setAcknowledged(true); setStatus("ready"); setOpen(false);
+        requiredRecheckPendingRef.current = false;
+        window.dispatchEvent(new Event("nexus-pulse-ready"));
       });
-      window.dispatchEvent(new Event("nexus-pulse-ready"));
     }} />
     {hasEnteredPulseRef.current || ready ? children : <div className="flex min-h-[60dvh] items-center justify-center"><div className="text-center text-muted-foreground"><Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin" />{copy.working}</div></div>}
   </>;

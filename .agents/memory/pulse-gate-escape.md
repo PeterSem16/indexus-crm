@@ -5,6 +5,12 @@ description: Product rule for mandatory NEXUS Pulse readiness checks.
 
 The NEXUS Pulse readiness check may block Agent Workspace before work starts, but it must never trap the user or interrupt a live call, post-call wrap-up, or recorded-call playback; always provide a clear route back to normal INDEXUS.
 
+Environment-triggered rechecks must discard old diagnostic completion state only once per pending recheck. Coalesce repeated device polling/focus/network reports until a successful run commits its new device baseline.
+
+**Why:** The old baseline remains different throughout testing; resetting the diagnostic component on every observation aborts and restarts the test indefinitely. Clearing the pending latch in a late baseline promise can also unlock a newer recheck incorrectly.
+
+**How to apply:** Keep workspace/call identity intact, invalidate only diagnostics, and commit the baseline before readiness and latch release. Guard asynchronous completion against the current invalidation generation. Test repeated observer reports during the run, not just the first reopening.
+
 **Why:** Unmounting Agent Workspace when readiness becomes invalid also unmounts the SIP phone and sends BYE, cancelling a healthy live call. Programmatic recording audio may likewise continue after its controls unmount, leaving an unstoppable orphaned playback. A failed check without an exit can also leave agents stuck.
 
 **How to apply:** During connecting/ringing/active/hold, post-call work, and recording playback, defer invalidation, keep Agent Workspace mounted, and show only a deduplicated notification. Once an agent has entered Pulse, keep the workspace mounted behind every later required check so the exact customer card, Mission, tabs, and draft context survive; only the first-entry gate may substitute a loading view. Every programmatic audio player must release protection and stop/detach audio on pause, end, error, failed play, and unmount. Run the required check only after protected work finishes.
