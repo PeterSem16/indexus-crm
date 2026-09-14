@@ -138,8 +138,15 @@ logical_id = "1e93d769-af4b-4c5c-8bbd-a6f0cd64a136"
 id = "OZhqIKwQSS6ETBL7RdCWX"
 uri = "file://indexus_overview.docx"
 type = "word_document"
-title = "INDEXUS CRM — Finálny dokument (v3)"
+title = "INDEXUS Overview — revízia 14. 9. 2026"
+description = "Editovateľný prehľad dokončených funkcií, aktuálneho stavu a krokov od Pricing V2 po Laboratory Connect."
 logical_id = "3fbfd68d-b912-4f80-9291-5a438c2aa053"
+content_hash = "sha256:7d611af393c0b52ac68d043d53d82adb16f7c886dae8e1b8f6d8d0201cce8ed1"
+size = 24557
+mtime_ms = 1789415041003
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/3fbfd68d-b912-4f80-9291-5a438c2aa053/e88c3140-b9a1-44c0-8cc2-c7724f9ec893"
+storage_version_token = "1789415106073103"
+content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 [[outputs]]
 id = "NfMogEM-w4cXduqANnTBF"
@@ -350,3 +357,17 @@ mtime_ms = 1789383441352
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/50dc84b2-f2f1-4c17-89fd-8168819df8b2/e425aedb-deea-4bf8-a513-45cba43dc72d"
 storage_version_token = "1789383448201761"
 content_type = "image/png"
+
+[[outputs]]
+id = "iqHGEvG3-Uk2_7MVdDDDP"
+uri = "file://docs/deliverables/indexus-overview-2026-09-14.zip"
+type = "unspecified"
+title = "Dokumenty a produkčný SQL kontrolný skript"
+description = "DOCX, PDF, Markdown a read-only SQL s návodom pre Ubuntu. Produkčné dotazy zatiaľ neboli vykonané."
+logical_id = "af13482f-cee7-4085-95dc-00c060494c41"
+content_hash = "sha256:319567393561a713c9b80427bf9ea5cc456f30e463f5b360f91baec3c8f247a1"
+size = 127525
+mtime_ms = 1789415092895
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/af13482f-cee7-4085-95dc-00c060494c41/1f0784d6-0c05-499c-aa0f-53096416140e"
+storage_version_token = "1789415106850619"
+content_type = "application/octet-stream"
