@@ -322,3 +322,17 @@ mtime_ms = 1789376102417
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/a0230888-36cd-4eab-8e81-2d18f3aff703/acec797f-6b80-4ef1-b722-162f3ab39bc7"
 storage_version_token = "1789376115098229"
 content_type = "image/png"
+
+[[outputs]]
+id = "Zk341pv73OUbA7QEM3rmR"
+uri = "file://attached_assets/priority-preview/priority-clear-desktop.png"
+type = "image"
+title = "Širší modal a zrozumiteľné karty kontaktov"
+description = "Aktuálny komponent aplikácie s farebnými popismi poradia, skupiny, termínu a pokusov o volanie. Snímka z testu s testovacími kontaktmi."
+logical_id = "8c13a542-cb15-44be-8eb0-8aedfe6c57d8"
+content_hash = "sha256:d277730e4cf73f6043011fc5be267b9cc3aee33492a2342001070b5c637f97a0"
+size = 155572
+mtime_ms = 1789377875843
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/8c13a542-cb15-44be-8eb0-8aedfe6c57d8/b2a0acc9-eb14-4c4c-96f8-297b39970ec1"
+storage_version_token = "1789377921980099"
+content_type = "image/png"

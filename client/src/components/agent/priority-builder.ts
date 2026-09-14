@@ -43,13 +43,15 @@ export interface PriorityView {
 
 export type PriorityPresetId = "referral_first" | "todays_callbacks" | "fresh_opportunities" | "recovery_desk";
 
-export interface PriorityContact extends CampaignContact {
+export type PriorityContact = Omit<CampaignContact, "attemptCount"> & {
+  /** campaign_contacts defaults this to zero, but defensive UI paths may omit it. */
+  attemptCount?: number | null;
   hasReferral?: boolean;
   customer?: { firstName?: string | null; lastName?: string | null; name?: string | null } | null;
   hospital?: { name?: string | null } | null;
   clinic?: { name?: string | null } | null;
   collaborator?: { firstName?: string | null; lastName?: string | null; name?: string | null } | null;
-}
+};
 
 const pendingStatuses = new Set(["pending", "callback_scheduled"]);
 

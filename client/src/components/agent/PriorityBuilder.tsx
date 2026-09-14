@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
-  ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, Copy, GripVertical,
-  ListFilter, MoreHorizontal, Pencil, PhoneCall, RotateCcw, Save,
+  ArrowDown, ArrowUp, CalendarClock, Check, ChevronDown, ChevronRight, Copy, GripVertical,
+  Layers3, ListFilter, ListOrdered, MoreHorizontal, Pencil, PhoneCall, RotateCcw, Save,
   Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Users, X,
 } from "lucide-react";
 import { useI18n } from "@/i18n";
@@ -66,11 +66,27 @@ function savedSearchView(search: SavedSearch): PriorityView | null {
   }
 }
 
-function formatCallbackTime(value: unknown): string | null {
+function formatCallbackDateTime(value: unknown, locale: string): string | null {
   if (!value) return null;
   const date = new Date(String(value));
   if (!Number.isFinite(date.getTime())) return null;
-  return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(date);
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: "Europe/Bratislava",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function formatAttemptSummary(
+  value: unknown,
+  copy: { callAttempts: string; noAttempts: string; unknownAttempts: string },
+): string {
+  const count = typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
+  if (count === null) return `${copy.callAttempts}: ${copy.unknownAttempts}`;
+  return `${copy.callAttempts}: ${count === 0 ? copy.noAttempts : count}`;
 }
 
 /** Production personal contact ordering editor; data and call actions remain parent-owned. */
@@ -163,6 +179,10 @@ export function PriorityBuilder({
     const matching = new Set(filterPriorityContacts(contacts, query, searchField).map(contact => contact.id));
     return previewQueue.filter(item => matching.has(item.contact.id));
   }, [contacts, previewQueue, query, searchField]);
+  const queuePositions = useMemo(
+    () => new Map(previewQueue.map((item, index) => [item.contact.id, index + 1])),
+    [previewQueue],
+  );
   const isPreset = !!view.presetId;
 
   const writeMutation = useMutation({
@@ -393,10 +413,18 @@ export function PriorityBuilder({
             <div className="priority-builder-impact"><Check size={15} /><span><strong>{copy.dedupActive}</strong><br />{overlapCount} {copy.dedupDetail}</span></div>
             {filteredQueue.map(({ contact, segment }) => {
               const name = getPriorityContactName(contact);
-              const callbackTime = formatCallbackTime(contact.callbackDate);
-              const priority = segment === "other" ? "—" : view.segments.findIndex(item => item.id === segment) + 1;
+              const callbackDateTime = formatCallbackDateTime(contact.callbackDate, locale);
+              const queuePosition = queuePositions.get(contact.id) || 0;
+              const groupName = segment === "other" ? copy.otherGroup : segmentNames[segment];
+              const attemptSummary = formatAttemptSummary(contact.attemptCount, copy);
               return <button type="button" className="priority-builder-card" key={contact.id} onClick={() => onSelectContact(contact)}>
-                <span className="priority-builder-card-row"><span className="priority-builder-avatar">{name.slice(0, 1).toUpperCase()}</span><span style={{ minWidth: 0, flex: 1 }}><strong className="priority-builder-card-name">{name}</strong><small>{segment === "other" ? t.agentWorkspace.priorityBuilderOther : segmentNames[segment]}{callbackTime ? ` · ${callbackTime}` : ""}{contact.attemptCount ? ` · ${contact.attemptCount}` : ""}</small></span><span className="priority-builder-tag">#{priority}</span></span>
+                <span className="priority-builder-card-row"><span className="priority-builder-avatar">{name.slice(0, 1).toUpperCase()}</span><strong className="priority-builder-card-name">{name}</strong></span>
+                <span className="priority-builder-card-chips">
+                  <span className="priority-builder-card-chip priority-builder-card-chip-position"><span className="priority-builder-card-chip-icon"><ListOrdered size={11} /></span>{queuePosition === 1 ? `${copy.nextUp} — ` : ""}{copy.queuePosition} {queuePosition}</span>
+                  <span className="priority-builder-card-chip priority-builder-card-chip-group"><span className="priority-builder-card-chip-icon"><Layers3 size={11} /></span>{copy.group}: {groupName}</span>
+                  <span className="priority-builder-card-chip priority-builder-card-chip-callback"><span className="priority-builder-card-chip-icon"><CalendarClock size={11} /></span>{copy.scheduledCallback}: {callbackDateTime || copy.notScheduled}</span>
+                  <span className="priority-builder-card-chip priority-builder-card-chip-attempts"><span className="priority-builder-card-chip-icon"><PhoneCall size={11} /></span>{attemptSummary}</span>
+                </span>
               </button>;
             })}
             {filteredQueue.length === 0 && <p className="priority-builder-detail" style={{ textAlign: "center", padding: "24px 0" }}>{t.agentWorkspace.priorityBuilderNoResults}</p>}

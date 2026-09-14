@@ -65,7 +65,8 @@ const contacts: PriorityContact[] = [
     contactType: "customer",
     status: "callback_scheduled",
     assignedTo: "other-agent",
-    attemptCount: 0,
+    // Exercise the UI's unknown-count state separately from an explicit zero.
+    attemptCount: undefined as unknown as number,
     priorityScore: 70,
     callbackDate: tomorrowAtNine,
     createdAt: new Date("2026-01-04T08:00:00.000Z"),

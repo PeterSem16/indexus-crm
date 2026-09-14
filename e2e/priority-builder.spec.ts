@@ -65,7 +65,7 @@ test("original desktop layout has Indexus sidebar, derived first-match counts, p
   await openFixture(page, { width: 1280, height: 720 });
 
   const dialog = page.getByRole("dialog");
-  await expect.poll(async () => (await dialog.boundingBox())?.width || 0).toBe(1080);
+  await expect.poll(async () => (await dialog.boundingBox())?.width || 0).toBe(1216);
   await expect.poll(async () => (await dialog.boundingBox())?.height || 0).toBe(656);
   await expect(page.locator(".priority-builder-sidebar")).toBeVisible();
   await expect(page.getByText("Evaluation order")).toBeVisible();
@@ -80,7 +80,26 @@ test("original desktop layout has Indexus sidebar, derived first-match counts, p
   expect(previewBox).not.toBeNull();
   expect(firstResultBox).not.toBeNull();
   expect(firstResultBox!.width).toBeGreaterThanOrEqual(previewBox!.width - 35); // 17px padding per side plus 1px border
-  await page.screenshot({ path: "/tmp/original-priority-production-desktop.png" });
+  const firstCard = page.locator(".priority-builder-card").filter({ hasText: "Melichar" });
+  await expect(firstCard).toContainText("Next up");
+  await expect(firstCard).toContainText("Queue position 1");
+  await expect(firstCard).toContainText("Group: Referral");
+  await expect(firstCard).toContainText("Scheduled callback: Not scheduled");
+  await expect(firstCard).toContainText("Call attempts in this Mission: 2");
+  const secondReferral = page.locator(".priority-builder-card").filter({ hasText: "Tes AmbuMed" });
+  await expect(secondReferral).toContainText("Queue position 2");
+  await expect(secondReferral).toContainText("Group: Referral");
+  await expect(secondReferral).not.toContainText("Next up");
+  const scheduledCard = page.locator(".priority-builder-card").filter({ hasText: "Tes Klinika" });
+  await expect(scheduledCard).toContainText("Group: Scheduled today");
+  await expect(scheduledCard).toContainText("Call attempts in this Mission: No attempts");
+  expect(await scheduledCard.textContent()).toMatch(/Scheduled callback:.*\d{4}/);
+  const fallbackCard = page.locator(".priority-builder-card").filter({ hasText: "Tes Zdravotné" });
+  await expect(fallbackCard).toContainText("Queue position 6");
+  await expect(fallbackCard).toContainText("Group: Other eligible contacts");
+  await expect(fallbackCard).toContainText("Call attempts in this Mission: Unknown");
+  expect(await fallbackCard.textContent()).toMatch(/Scheduled callback:.*\d{4}/);
+  await page.screenshot({ path: "/tmp/priority-clear-desktop.png" });
 
   for (const name of ["Referral first", "Today's callbacks", "Fresh opportunities", "Recovery desk"]) {
     await page.getByRole("button", { name }).last().click();
@@ -213,10 +232,8 @@ test("priority builder stays inside the viewport across desktop, tablet and mobi
     await expect(page.getByRole("button", { name: "Close" })).toBeVisible();
 
     if (viewport.width === 1920) {
-      await page.screenshot({ path: "/tmp/priority-responsive-desktop.png" });
-    }
-    if (viewport.width === 390) {
-      await page.screenshot({ path: "/tmp/priority-responsive-mobile.png" });
+      await expect.poll(async () => (await dialog.boundingBox())?.width || 0).toBe(1856);
+      await page.screenshot({ path: "/tmp/priority-clear-wide.png" });
     }
   }
 });

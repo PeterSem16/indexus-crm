@@ -28,8 +28,8 @@
 }
 @media (min-width: 1024px) {
   .priority-builder-dialog {
-    width: min(1080px, calc(100vw - 4rem)) !important;
-    max-width: min(1080px, calc(100vw - 4rem)) !important;
+    width: calc(100vw - 4rem) !important;
+    max-width: calc(100vw - 4rem) !important;
     height: calc(100vh - 4rem) !important;
     height: calc(100dvh - 4rem) !important;
     max-height: calc(100vh - 4rem) !important;
@@ -105,13 +105,22 @@
 .priority-builder-menu button:hover { background: #fff3ee; }
 .priority-builder-add { width: 100%; height: 34px; margin-top: 3px; border: 1px dashed #c9b5a6; border-radius: 10px; padding: 0 10px; background: #fffaf7; color: #9b694a; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
 .priority-builder-impact { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 12px; padding: 10px 11px; border: 1px solid #bbd7d3; border-radius: 11px; background: #e5f0ee; color: #326965; font-size: 11px; }
-.priority-builder-card { display: block; width: 100%; margin: 7px 0; padding: 9px 10px; border: 1px solid #e4ddd6; border-radius: 10px; background: #fff; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.priority-builder-card:hover { border-color: #c4a48e; }
+.priority-builder-card { display: block; width: 100%; margin: 7px 0; padding: 10px 11px; border: 1px solid #e2d5cb; border-radius: 12px; background: linear-gradient(135deg, #fffdfb, #fff8f3); color: inherit; font: inherit; text-align: left; cursor: pointer; box-shadow: 0 2px 6px rgba(56,40,30,.04); }
+.priority-builder-card:hover { border-color: #c4a48e; box-shadow: 0 4px 12px rgba(56,40,30,.08); }
 .priority-builder-card-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .priority-builder-avatar { width: 25px; height: 25px; display: grid; flex: 0 0 auto; place-items: center; border-radius: 8px; background: #efe4d9; color: #9b5f35; font-size: 10px; font-weight: 800; }
-.priority-builder-card-name { overflow: hidden; display: block; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.priority-builder-card small { display: block; overflow: hidden; color: #958980; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.priority-builder-tag { margin-left: auto; padding: 3px 5px; border-radius: 5px; background: #f0ebf8; color: #7860b8; font-size: 9px; }
+.priority-builder-card-name { overflow: hidden; display: block; min-width: 0; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.priority-builder-card-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+.priority-builder-card-chip { display: inline-flex; max-width: 100%; align-items: center; gap: 4px; min-height: 22px; border: 1px solid; border-radius: 999px; padding: 3px 7px 3px 4px; font-size: 9px; font-weight: 700; line-height: 1.2; white-space: normal; }
+.priority-builder-card-chip-icon { display: inline-grid; width: 17px; height: 17px; flex: 0 0 auto; place-items: center; border-radius: 999px; }
+.priority-builder-card-chip-position { border-color: #e6c8a9; background: #fff0df; color: #925222; }
+.priority-builder-card-chip-position .priority-builder-card-chip-icon { background: #d9853b; color: #fff; }
+.priority-builder-card-chip-group { border-color: #cbc2e4; background: #f1eefb; color: #64519d; }
+.priority-builder-card-chip-group .priority-builder-card-chip-icon { background: #7860b8; color: #fff; }
+.priority-builder-card-chip-callback { border-color: #b8d9d4; background: #e8f4f1; color: #2f6c66; }
+.priority-builder-card-chip-callback .priority-builder-card-chip-icon { background: #337e7b; color: #fff; }
+.priority-builder-card-chip-attempts { border-color: #c4d9bf; background: #eef6eb; color: #477340; }
+.priority-builder-card-chip-attempts .priority-builder-card-chip-icon { background: #5a8b52; color: #fff; }
 .priority-builder-rule { margin-top: 10px; padding: 11px 12px; border: 1px solid #e3dbd4; border-radius: 11px; background: #fff; }
 .priority-builder-rule-top { display: flex; align-items: center; gap: 8px; }
 .priority-builder-rule-top strong { font-size: 12px; }
