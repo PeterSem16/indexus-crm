@@ -8,3 +8,9 @@ Pending inbound callbacks must remain queryable regardless of when their record 
 **Why:** A callback created on an earlier day can be rescheduled to today. Filtering pending rows by creation day makes the successful reschedule disappear from both the scheduled queue and the agent callback list.
 
 **How to apply:** Scope callback queries by ownership, completion state, and callback presence as needed, but not by creation day. Compare calendar dates using the explicit application timezone.
+
+The scheduled Queue's time filters are exclusive: a past-due call belongs to Overdue, not Today, even if its date is today.
+
+**Why:** The user explicitly confirmed this is intended behavior. Do not diagnose disappearance from Today alone as a missing callback.
+
+**How to apply:** Check Overdue before changing callback visibility. Keep this separate from Priority Builder's first-match contact groups.
