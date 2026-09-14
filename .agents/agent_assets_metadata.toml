@@ -280,3 +280,17 @@ mtime_ms = 1789374690528
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/96114b95-811b-43f8-b8ea-7ce33a77f267/d3288188-5fc6-4275-8265-d367b426e6be"
 storage_version_token = "1789374702024813"
 content_type = "image/png"
+
+[[outputs]]
+id = "rxhe6tuTq_z_bxQXaSLqZ"
+uri = "file://attached_assets/priority-preview/original-priority-builder.png"
+type = "image"
+title = "Pôvodný Priority Builder z histórie návrhu"
+description = "Vykreslenie pôvodného komponentu pred jeho prepísaním: tmavý panel INDEXUS, farebné skupiny a podrobný Live result. Referenčná snímka; aplikácia ani canvas tým neboli zmenené."
+logical_id = "659f1f87-4e76-471f-9ddd-8098b8e6bc0d"
+content_hash = "sha256:6ea5ccb983217d1479a0858b7e1ac43e7f3bf2968452302ead971125bea889e4"
+size = 168472
+mtime_ms = 1789374866200
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/659f1f87-4e76-471f-9ddd-8098b8e6bc0d/a6ab8477-948d-49ef-82b1-77ff6bd03f01"
+storage_version_token = "1789374875991955"
+content_type = "image/png"
