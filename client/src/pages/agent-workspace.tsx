@@ -2093,8 +2093,8 @@ function TaskListPanel({
                     <PhoneIncoming className="h-4 w-4 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="font-bold text-xs text-foreground">Mimo misie</div>
-                    <div className="text-[10px] mt-0.5 text-muted-foreground">{inboundCallbacks.length} {inboundCallbacks.length === 1 ? "callback" : inboundCallbacks.length >= 2 && inboundCallbacks.length <= 4 ? "callbacky" : "callbackov"}</div>
+                    <div className="font-bold text-xs text-foreground">{t.agentWorkspace.outsideMissionLabel}</div>
+                    <div className="text-[10px] mt-0.5 text-muted-foreground">{t.agentWorkspace.outsideMissionCallbackCount.replace("{count}", String(inboundCallbacks.length))}</div>
                   </div>
                   <span className="text-xs font-bold min-w-[26px] h-6 flex items-center justify-center rounded-full px-1.5 shrink-0" style={{ background: ac, color: "#fff" }}>
                     {inboundCallbacks.length}

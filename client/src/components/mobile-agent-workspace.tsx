@@ -1575,7 +1575,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
               <div className="h-px flex-1 rounded" style={{ background: "#C45A1140" }} />
               <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: "#C45A11" }}>
                 <PhoneIncoming className="h-3 w-3" />
-                {t?.agentWorkspace?.outsideMissionLabel || np.outsideMission || "Mimo misie"}
+                {t.agentWorkspace.outsideMissionLabel}
                 <span className="opacity-70">({inboundCallbacks.length})</span>
               </span>
               <div className="h-px flex-1 rounded" style={{ background: "#C45A1140" }} />

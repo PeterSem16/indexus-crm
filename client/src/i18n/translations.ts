@@ -4162,6 +4162,7 @@ export interface Translations {
     todayCallsAnswered: string;
     inboundCallbackDone: string;
     outsideMissionLabel: string;
+    outsideMissionCallbackCount: string;
     myShiftFilterAll: string;
     myShiftFilterCalls: string;
     myShiftFilterEmail: string;
@@ -12121,6 +12122,7 @@ export const translations: Record<Locale, Translations> = {
       todayCallsAnswered: 'answered',
       inboundCallbackDone: 'Done',
       outsideMissionLabel: 'Outside mission',
+      outsideMissionCallbackCount: 'Callbacks: {count}',
       myShiftFilterAll: 'All',
       myShiftFilterCalls: 'Calls',
       myShiftFilterEmail: 'Email',
@@ -19540,6 +19542,7 @@ export const translations: Record<Locale, Translations> = {
       todayCallsAnswered: 'zodvihnutých',
       inboundCallbackDone: 'Vybavené',
       outsideMissionLabel: 'Mimo misie',
+      outsideMissionCallbackCount: 'Spätné volania: {count}',
       myShiftFilterAll: 'Všetko',
       myShiftFilterCalls: 'Hovory',
       myShiftFilterEmail: 'Email',
@@ -26946,6 +26949,7 @@ export const translations: Record<Locale, Translations> = {
       todayCallsAnswered: 'přijatých',
       inboundCallbackDone: 'Vybaveno',
       outsideMissionLabel: 'Mimo mise',
+      outsideMissionCallbackCount: 'Zpětná volání: {count}',
       myShiftFilterAll: 'Vše',
       myShiftFilterCalls: 'Hovory',
       myShiftFilterEmail: 'Email',
@@ -34092,6 +34096,9 @@ export const translations: Record<Locale, Translations> = {
       sortAsc: 'Növekvő',
       sortDesc: 'Csökkenő',
       scheduledContact: 'Kapcsolat',
+      outsideMissionLabel: 'Küldetésen kívül',
+      outsideMissionCallbackCount: 'Visszahívások: {count}',
+      inboundCallbackDone: 'Kész',
       scheduledStep: 'Lépés',
       scheduledCampaign: 'Kampány',
       scheduledDate: 'Ütemezve',
@@ -41342,6 +41349,9 @@ export const translations: Record<Locale, Translations> = {
       sortDesc: 'Descrescător',
       scheduledContact: 'Contact',
       scheduledStep: 'Pas',
+      outsideMissionLabel: 'În afara misiunii',
+      outsideMissionCallbackCount: 'Reapelări: {count}',
+      inboundCallbackDone: 'Finalizat',
       scheduledCampaign: 'Campanie',
       scheduledDate: 'Programat',
       scheduledType: 'Tip',
@@ -48592,6 +48602,9 @@ export const translations: Record<Locale, Translations> = {
       sortAsc: 'Crescente',
       sortDesc: 'Decrescente',
       scheduledContact: 'Contatto',
+      outsideMissionLabel: 'Fuori missione',
+      outsideMissionCallbackCount: 'Richiamate: {count}',
+      inboundCallbackDone: 'Completato',
       scheduledStep: 'Passo',
       scheduledCampaign: 'Campagna',
       scheduledDate: 'Programmato',
@@ -55844,6 +55857,9 @@ export const translations: Record<Locale, Translations> = {
       sortDesc: 'Absteigend',
       scheduledContact: 'Kontakt',
       scheduledStep: 'Schritt',
+      outsideMissionLabel: 'Außerhalb der Mission',
+      outsideMissionCallbackCount: 'Rückrufe: {count}',
+      inboundCallbackDone: 'Erledigt',
       scheduledCampaign: 'Kampagne',
       scheduledDate: 'Geplant',
       scheduledType: 'Typ',
