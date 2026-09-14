@@ -154,6 +154,8 @@ import QRCode from "qrcode";
 import { PDFDocument as PDFLibDocument, rgb, degrees, StandardFonts } from "pdf-lib";
 import { notificationService } from "./lib/notification-service";
 import { normalizeCollaboratorPriorityCity } from "./lib/collaborator-priority-city";
+import { resolveScheduledQueueContact } from "./lib/scheduled-queue-metadata";
+import { canAgentReadCampaignByWorkspaceCountry } from "./lib/agent-workspace-country-access";
 import {
   rankPriorityCities,
   PriorityCityRankingError,
@@ -25154,6 +25156,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const user = req.session.user!;
       const now = new Date();
       const onlyMine = req.query.onlyMine === "true";
+      const workspaceAccess = await storage.getAgentWorkspaceAccess(user.id);
+      const workspaceCountryCodes = workspaceAccess.map(access => access.countryCode);
 
       const scheduledContacts = await db
         .select({
@@ -25173,18 +25177,31 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           customerLastName: customers.lastName,
           customerPhone: customers.phone,
           customerEmail: customers.email,
+          customerCity: customers.city,
+          customerCountry: customers.country,
           clinicName: clinics.name,
           clinicDoctorFirstName: clinics.doctorFirstName,
           clinicDoctorLastName: clinics.doctorLastName,
           clinicPhone: clinics.phone,
           clinicEmail: clinics.email,
+          clinicCity: clinics.city,
+          clinicCountryCode: clinics.countryCode,
           hospitalName: hospitals.name,
           hospitalPhone: hospitals.phone,
           hospitalEmail: hospitals.email,
+          hospitalCity: hospitals.city,
+          hospitalCountryCode: hospitals.countryCode,
+          collaboratorFirstName: collaborators.firstName,
+          collaboratorLastName: collaborators.lastName,
+          collaboratorPhone: collaborators.phone,
+          collaboratorMobile: collaborators.mobile,
+          collaboratorEmail: collaborators.email,
+          collaboratorCountryCode: collaborators.countryCode,
           campaignName: campaigns.name,
           campaignChannel: campaigns.channel,
           campaignScript: campaigns.script,
           campaignSettings: campaigns.settings,
+          campaignCountryCodes: campaigns.countryCodes,
           ccCurrentStepId: campaignContacts.currentScriptStepId,
           ccDispositionCode: campaignContacts.dispositionCode,
           ccDispositionChecklistCodes: campaignContacts.dispositionChecklistCodes,
@@ -25194,6 +25211,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         .leftJoin(customers, eq(campaignContacts.customerId, customers.id))
         .leftJoin(clinics, eq(campaignContacts.clinicId, clinics.id))
         .leftJoin(hospitals, eq(campaignContacts.hospitalId, hospitals.id))
+        .leftJoin(collaborators, eq(campaignContacts.collaboratorId, collaborators.id))
         .innerJoin(campaigns, eq(campaignContacts.campaignId, campaigns.id))
         .where(
           onlyMine
@@ -25224,22 +25242,36 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           ccContactType: campaignContacts.contactType,
           ccClinicId: campaignContacts.clinicId,
           ccHospitalId: campaignContacts.hospitalId,
+          ccCollaboratorId: campaignContacts.collaboratorId,
           customerFirstName: customers.firstName,
           customerLastName: customers.lastName,
           customerPhone: customers.phone,
           customerEmail: customers.email,
+          customerCity: customers.city,
+          customerCountry: customers.country,
           clinicName: clinics.name,
           clinicDoctorFirstName: clinics.doctorFirstName,
           clinicDoctorLastName: clinics.doctorLastName,
           clinicPhone: clinics.phone,
           clinicEmail: clinics.email,
+          clinicCity: clinics.city,
+          clinicCountryCode: clinics.countryCode,
           hospitalName: hospitals.name,
           hospitalPhone: hospitals.phone,
           hospitalEmail: hospitals.email,
+          hospitalCity: hospitals.city,
+          hospitalCountryCode: hospitals.countryCode,
+          collaboratorFirstName: collaborators.firstName,
+          collaboratorLastName: collaborators.lastName,
+          collaboratorPhone: collaborators.phone,
+          collaboratorMobile: collaborators.mobile,
+          collaboratorEmail: collaborators.email,
+          collaboratorCountryCode: collaborators.countryCode,
           campaignName: campaigns.name,
           campaignChannel: campaigns.channel,
           campaignScript: campaigns.script,
           campaignSettings: campaigns.settings,
+          campaignCountryCodes: campaigns.countryCodes,
           ccCurrentStepId: campaignContacts.currentScriptStepId,
           ccDispositionCode: campaignContacts.dispositionCode,
           ccDispositionChecklistCodes: campaignContacts.dispositionChecklistCodes,
@@ -25249,6 +25281,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         .leftJoin(customers, eq(campaignContacts.customerId, customers.id))
         .leftJoin(clinics, eq(campaignContacts.clinicId, clinics.id))
         .leftJoin(hospitals, eq(campaignContacts.hospitalId, hospitals.id))
+        .leftJoin(collaborators, eq(campaignContacts.collaboratorId, collaborators.id))
         .innerJoin(campaigns, eq(campaignContacts.campaignId, campaigns.id))
         .where(
           and(
@@ -25284,51 +25317,100 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         return { stepName: null, stepIndex: null };
       }
 
+      // Keep the queue's referral semantics aligned with the Contacts sidebar:
+      // only an actual clinic/collaborator referral relation marks a contact as
+      // a referral.  In particular, do not infer a referral from a polymorphic
+      // id or from an unrelated customer's registration source.
+      const queueRows = [...scheduledContacts, ...scheduledSessions] as Array<any>;
+      const queueClinicIds = [...new Set(queueRows.map(row => row.ccClinicId).filter(Boolean))] as string[];
+      const queueCollaboratorIds = [...new Set(queueRows.map(row => row.ccCollaboratorId).filter(Boolean))] as string[];
+      const [queueClinicReferralRows, queueCollaboratorReferralRows, queueCollaboratorAddressRows] = await Promise.all([
+        queueClinicIds.length > 0
+          ? db.select({
+              clinicId: clinicReferrals.clinicId,
+              referringClinicId: clinicReferrals.referringClinicId,
+            }).from(clinicReferrals).where(or(
+              inArray(clinicReferrals.clinicId, queueClinicIds),
+              inArray(clinicReferrals.referringClinicId, queueClinicIds),
+            ))
+          : Promise.resolve([]),
+        queueCollaboratorIds.length > 0
+          ? db.select({
+              collaboratorId: collaboratorReferrals.collaboratorId,
+              referringCollaboratorId: collaboratorReferrals.referringCollaboratorId,
+            }).from(collaboratorReferrals).where(or(
+              inArray(collaboratorReferrals.collaboratorId, queueCollaboratorIds),
+              inArray(collaboratorReferrals.referringCollaboratorId, queueCollaboratorIds),
+            ))
+          : Promise.resolve([]),
+        queueCollaboratorIds.length > 0
+          ? db.select({
+              id: collaboratorAddresses.id,
+              collaboratorId: collaboratorAddresses.collaboratorId,
+              addressType: collaboratorAddresses.addressType,
+              city: collaboratorAddresses.city,
+              countryCode: collaboratorAddresses.countryCode,
+              createdAt: collaboratorAddresses.createdAt,
+            }).from(collaboratorAddresses).where(inArray(collaboratorAddresses.collaboratorId, queueCollaboratorIds))
+          : Promise.resolve([]),
+      ]);
+      const queueClinicReferralIds = new Set<string>();
+      for (const row of queueClinicReferralRows) {
+        queueClinicReferralIds.add(row.clinicId);
+        queueClinicReferralIds.add(row.referringClinicId);
+      }
+      const queueCollaboratorReferralIds = new Set<string>();
+      for (const row of queueCollaboratorReferralRows) {
+        queueCollaboratorReferralIds.add(row.collaboratorId);
+        queueCollaboratorReferralIds.add(row.referringCollaboratorId);
+      }
+      const collaboratorAddressesById = new Map<string, typeof queueCollaboratorAddressRows>();
+      for (const address of queueCollaboratorAddressRows) {
+        const addresses = collaboratorAddressesById.get(address.collaboratorId) || [];
+        addresses.push(address);
+        collaboratorAddressesById.set(address.collaboratorId, addresses);
+      }
+      const priorityCityByCollaborator = new Map<string, { city: string; countryCode: string }>();
+      for (const [collaboratorId, addresses] of collaboratorAddressesById) {
+        const location = normalizeCollaboratorPriorityCity(addresses);
+        if (location) priorityCityByCollaborator.set(collaboratorId, location);
+      }
+
       for (const row of scheduledContacts) {
         // Keep the SQL allow-list and the application predicate in sync. The
         // latter protects this read path if a driver returns an unexpected
         // null/invalid callback value despite the SQL predicates.
         if (!isEligibleScheduledCampaignCallback(row.ccStatus, row.ccCallbackDate)) continue;
+        if (!canAgentReadCampaignByWorkspaceCountry({
+          role: user.role,
+          workspaceCountryCodes,
+          campaignCountryCodes: row.campaignCountryCodes,
+        })) continue;
         const key = `cc-${row.ccId}`;
         if (seenIds.has(key)) continue;
         seenIds.add(key);
-        const contactType = row.ccContactType || "customer";
-        let contactName = "";
-        let contactPhone = "";
-        let contactEmail = "";
-        let contactId = row.ccCustomerId;
-        if (contactType === "clinic") {
-          contactName = row.clinicDoctorLastName 
-            ? `${row.clinicDoctorFirstName || ""} ${row.clinicDoctorLastName}`.trim() + (row.clinicName ? ` (${row.clinicName})` : "")
-            : row.clinicName || "";
-          contactPhone = row.clinicPhone || "";
-          contactEmail = row.clinicEmail || "";
-          contactId = row.ccClinicId || row.ccCustomerId;
-        } else if (contactType === "hospital") {
-          contactName = row.hospitalName || "";
-          contactPhone = row.hospitalPhone || "";
-          contactEmail = row.hospitalEmail || "";
-          contactId = row.ccHospitalId || row.ccCustomerId;
-        } else {
-          contactName = `${row.customerFirstName || ""} ${row.customerLastName || ""}`.trim();
-          contactPhone = row.customerPhone || "";
-          contactEmail = row.customerEmail || "";
-        }
+        const contact = resolveScheduledQueueContact(row, {
+          clinic: queueClinicReferralIds,
+          collaborator: queueCollaboratorReferralIds,
+        }, priorityCityByCollaborator);
         const stepInfo = resolveStepInfo(row.campaignScript, row.ccCurrentStepId);
         items.push({
           id: row.ccId,
           campaignContactId: row.ccId,
           type: channelTypeMap[row.campaignChannel || "phone"] || "callback",
-          contactId,
-          contactName,
-          contactPhone,
-          contactEmail,
-          contactType,
+          contactId: contact.contactId,
+          contactName: contact.contactName,
+          contactPhone: contact.contactPhone,
+          contactEmail: contact.contactEmail,
+          contactType: contact.contactType,
           campaignId: row.ccCampaignId,
           campaignName: row.campaignName,
           scheduledAt: row.ccCallbackDate,
           notes: row.ccCallbackNote || row.ccNotes || "",
           status: "pending",
+          hasReferral: contact.hasReferral,
+          priorityCity: contact.priorityCity,
+          priorityCountryCode: contact.priorityCountryCode,
           stepName: stepInfo.stepName,
           stepIndex: stepInfo.stepIndex,
           dispositionCode: row.ccDispositionCode || null,
@@ -25345,44 +25427,34 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         if (seenIds.has(`cc-${row.sessionCampaignContactId}`)) continue;
         const key = `session-${row.sessionId}`;
         if (seenIds.has(key)) continue;
+        if (!canAgentReadCampaignByWorkspaceCountry({
+          role: user.role,
+          workspaceCountryCodes,
+          campaignCountryCodes: row.campaignCountryCodes,
+        })) continue;
         seenIds.add(key);
-        const sContactType = row.ccContactType || "customer";
-        let sContactName = "";
-        let sContactPhone = "";
-        let sContactEmail = "";
-        let sContactId = row.ccCustomerId;
-        if (sContactType === "clinic") {
-          sContactName = row.clinicDoctorLastName 
-            ? `${row.clinicDoctorFirstName || ""} ${row.clinicDoctorLastName}`.trim() + (row.clinicName ? ` (${row.clinicName})` : "")
-            : row.clinicName || "";
-          sContactPhone = row.clinicPhone || "";
-          sContactEmail = row.clinicEmail || "";
-          sContactId = row.ccClinicId || row.ccCustomerId;
-        } else if (sContactType === "hospital") {
-          sContactName = row.hospitalName || "";
-          sContactPhone = row.hospitalPhone || "";
-          sContactEmail = row.hospitalEmail || "";
-          sContactId = row.ccHospitalId || row.ccCustomerId;
-        } else {
-          sContactName = `${row.customerFirstName || ""} ${row.customerLastName || ""}`.trim();
-          sContactPhone = row.customerPhone || "";
-          sContactEmail = row.customerEmail || "";
-        }
+        const contact = resolveScheduledQueueContact(row, {
+          clinic: queueClinicReferralIds,
+          collaborator: queueCollaboratorReferralIds,
+        }, priorityCityByCollaborator);
         const sStepInfo = resolveStepInfo(row.campaignScript, row.ccCurrentStepId);
         items.push({
           id: row.sessionId,
           campaignContactId: row.sessionCampaignContactId,
           type: channelTypeMap[row.campaignChannel || "phone"] || "callback",
-          contactId: sContactId,
-          contactName: sContactName,
-          contactPhone: sContactPhone,
-          contactEmail: sContactEmail,
-          contactType: sContactType,
+          contactId: contact.contactId,
+          contactName: contact.contactName,
+          contactPhone: contact.contactPhone,
+          contactEmail: contact.contactEmail,
+          contactType: contact.contactType,
           campaignId: row.ccCampaignId,
           campaignName: row.campaignName,
           scheduledAt: row.sessionCallbackDate,
           notes: row.sessionNotes || "",
           status: "pending",
+          hasReferral: contact.hasReferral,
+          priorityCity: contact.priorityCity,
+          priorityCountryCode: contact.priorityCountryCode,
           stepName: sStepInfo.stepName,
           stepIndex: sStepInfo.stepIndex,
           dispositionCode: row.ccDispositionCode || null,

@@ -228,6 +228,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { getInboundSelectionContext, resolveMissedCallCardTarget } from "@/lib/missed-call-card-resolver";
 import { buildOutsideMissionCallbackDialMetadata } from "@/lib/outside-mission-callback";
 import PriorityBuilder, { PRIORITY_BUILDER_DIALOG_CLASS_NAME } from "@/components/agent/PriorityBuilder";
+import { QueueMetadataBadges } from "@/components/agent/queue-metadata-badges";
 import {
   buildPriorityQueueWithFallback,
   createReferralCitiesPriorityView,
@@ -9347,6 +9348,9 @@ interface ScheduledItem {
   contactPhone: string;
   contactEmail: string;
   contactType?: "customer" | "clinic" | "hospital" | "collaborator";
+  hasReferral?: boolean;
+  priorityCity?: string | null;
+  priorityCountryCode?: string | null;
   campaignId: string;
   campaignName: string;
   scheduledAt: string;
@@ -9908,8 +9912,9 @@ function ScheduledQueuePanel({
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<"date" | "name" | "campaign">("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { toast } = usePulseToast();
+  const priorityCopy = priorityBuilderCopy[locale];
 
   const [onlyMine, setOnlyMine] = useState(false);
 
@@ -10256,6 +10261,7 @@ function ScheduledQueuePanel({
                                   {t.agentWorkspace.overdueLabel}
                                 </Badge>
                               )}
+                              <QueueMetadataBadges contact={item as any} copy={priorityCopy} testIdSuffix={item.id} />
                             </div>
                             <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
                               {item.contactPhone && (

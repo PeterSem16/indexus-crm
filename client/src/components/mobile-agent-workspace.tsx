@@ -11,6 +11,7 @@ import { Phone, PhoneOff, PhoneIncoming, Mic, MicOff, PauseCircle, PlayCircle,
 import { format } from "date-fns";
 import { PulseMobileDialButton } from "@/components/pulse-dial-button";
 import { priorityBuilderCopy } from "@/components/agent/priority-builder-copy";
+import { QueueMetadataBadges } from "@/components/agent/queue-metadata-badges";
 import { getPriorityContactCityLocation, isPriorityNewReferral, isPriorityReferral, type PriorityQueueItem, type PriorityQueueSegmentId } from "@/components/agent/priority-builder";
 
 /* ── helpers ────────────────────────────────────────────────────────── */
@@ -630,12 +631,13 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
 }
 
 /* ── ContactRow ─────────────────────────────────────────────────────── */
-function ContactRow({ cc, onSelect, isOverdue, isUpcoming, callbackDate, np, currentUserId, referralBadge }: {
+function ContactRow({ cc, onSelect, isOverdue, isUpcoming, callbackDate, np, currentUserId, referralBadge, cityCountrySeparator }: {
   cc: any; onSelect: (cc: any) => void;
   isOverdue?: boolean; isUpcoming?: boolean;
   callbackDate?: string; np: any;
   currentUserId?: string;
   referralBadge?: string;
+  cityCountrySeparator?: string;
 }) {
   const name = ccName(cc);
   const phone = ccPhone(cc);
@@ -665,11 +667,7 @@ function ContactRow({ cc, onSelect, isOverdue, isUpcoming, callbackDate, np, cur
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold truncate">{name}</p>
         {phone && <p className="text-xs text-muted-foreground truncate">{phone}</p>}
-         {isPriorityReferral(cc) && (
-           <span className="inline-flex w-fit items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: "#f1ebfb", color: "#654d96", borderColor: "#d7c9ed" }}>
-             {referralBadge || "Referral"}
-           </span>
-         )}
+         <QueueMetadataBadges contact={cc} copy={{ referralBadge: referralBadge || "Referral", cityCountrySeparator: cityCountrySeparator || ", " }} />
         {callbackDate && (
           <div className="flex items-center gap-1 mt-0.5">
             <Calendar className={`h-3 w-3 ${isOtherAgent ? "text-amber-500" : isOverdue ? "text-red-500" : "text-blue-500"}`} />
@@ -1715,6 +1713,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                                np={np}
                                currentUserId={currentUserId}
                                 referralBadge={cityCopy.referralBadge}
+                                cityCountrySeparator={cityCopy.cityCountrySeparator}
                              />
                            ))}
                          </div>
@@ -1735,7 +1734,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                   <div className="h-px flex-1 rounded" style={{ background: `${ST.terra}40` }} />
                 </div>
                 {filteredOverdue.map(cc => (
-                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} isOverdue callbackDate={cc.callbackDate} np={np} currentUserId={currentUserId} referralBadge={cityCopy.referralBadge} />
+                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} isOverdue callbackDate={cc.callbackDate} np={np} currentUserId={currentUserId} referralBadge={cityCopy.referralBadge} cityCountrySeparator={cityCopy.cityCountrySeparator} />
                 ))}
               </>
             )}
@@ -1749,7 +1748,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                   <div className="h-px flex-1 rounded" style={{ background: `${ST.sage}40` }} />
                 </div>
                 {filteredUpcoming.map(cc => (
-                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} isUpcoming callbackDate={cc.callbackDate} np={np} currentUserId={currentUserId} referralBadge={cityCopy.referralBadge} />
+                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} isUpcoming callbackDate={cc.callbackDate} np={np} currentUserId={currentUserId} referralBadge={cityCopy.referralBadge} cityCountrySeparator={cityCopy.cityCountrySeparator} />
                 ))}
               </>
             )}
@@ -1765,7 +1764,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                   </div>
                 )}
                 {filteredPending.map(cc => (
-                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} np={np} referralBadge={cityCopy.referralBadge} />
+                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} np={np} referralBadge={cityCopy.referralBadge} cityCountrySeparator={cityCopy.cityCountrySeparator} />
                 ))}
               </>
             )}
@@ -1779,7 +1778,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                   <div className="h-px flex-1 bg-border" />
                 </div>
                 {filteredOthers.map(cc => (
-                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} np={np} referralBadge={cityCopy.referralBadge} />
+                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} np={np} referralBadge={cityCopy.referralBadge} cityCountrySeparator={cityCopy.cityCountrySeparator} />
                 ))}
               </>
             )}

@@ -9,6 +9,8 @@ import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimelin
 import { ClinicFormSheet } from "@/components/clinic-form-wizard";
 import { CollaboratorsContent } from "@/pages/collaborators";
 import { EntityFilter, type FilterRule, type FilterField, type FilterPreset } from "@/components/shared/EntityFilter";
+import { getMedicalPartnerFilterFields, getMedicalPartnerFilterPresets } from "@/components/shared/medical-partner-filter-fields";
+import { matchesMedicalPartnerRules, matchesMedicalPartnerSearch } from "@shared/medical-partner-filter";
 import { InstitutionPersonnelPanel, InstitutionPersonnelManager, CbcActivityBadgesForRow } from "@/components/institution-personnel-panel";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
@@ -1881,7 +1883,7 @@ export default function HospitalsPage() {
   ]), [sk]);
 
   // ── Filter field definitions (full schema coverage) ────────────────
-  const hospitalFilterFields: FilterField[] = useMemo(() => ([
+  const legacyHospitalFilterFields: FilterField[] = useMemo(() => ([
     { key: "country", label: sk ? "Krajina" : "Country", type: "multiselect", icon: Globe, options: COUNTRY_OPTIONS },
     { key: "status", label: sk ? "Status" : "Status", type: "select", icon: Activity, options: STATUS_OPTIONS },
     { key: "personnel", label: sk ? "Personál" : "Personnel", type: "select", icon: Users, options: [
@@ -1930,7 +1932,7 @@ export default function HospitalsPage() {
     { value: "contract:active", label: sk ? "Aktívna zmluva" : "Active Contract" },
   ]), [sk]);
 
-  const clinicFilterFields: FilterField[] = useMemo(() => ([
+  const legacyClinicFilterFields: FilterField[] = useMemo(() => ([
     { key: "country", label: sk ? "Krajina" : "Country", type: "multiselect", icon: Globe, options: COUNTRY_OPTIONS },
     { key: "status", label: sk ? "Status" : "Status", type: "select", icon: Activity, options: STATUS_OPTIONS },
     { key: "pipeline", label: sk ? "Pipeline status" : "Pipeline Status", type: "select", icon: ListChecks, options: PIPELINE_OPTIONS },
@@ -2002,14 +2004,14 @@ export default function HospitalsPage() {
     { key: "legacyId", label: "Legacy ID", type: "text", icon: FileText },
   ]), [sk, COUNTRY_OPTIONS, STATUS_OPTIONS, BOOL_OPTIONS, PIPELINE_OPTIONS]);
 
-  const hospitalFilterPresets: FilterPreset[] = useMemo(() => ([
+  const legacyHospitalFilterPresets: FilterPreset[] = useMemo(() => ([
     { id: "active", label: sk ? "Iba aktívne" : "Active only", rules: [{ id: "p-active", conjunction: "and", field: "status", op: "is", value: "active" }] },
     { id: "with-personnel", label: sk ? "S personálom" : "With personnel", rules: [{ id: "p-pers", conjunction: "and", field: "personnel", op: "is", value: "with" }] },
     { id: "svet-zdravia", label: "Svet Zdravia", rules: [{ id: "p-sz", conjunction: "and", field: "svetZdravia", op: "is", value: "true" }] },
     { id: "no-email", label: sk ? "Bez emailu" : "Missing email", rules: [{ id: "p-noem", conjunction: "and", field: "hasEmail", op: "is", value: "false" }] },
   ]), [sk]);
 
-  const clinicFilterPresets: FilterPreset[] = useMemo(() => ([
+  const legacyClinicFilterPresets: FilterPreset[] = useMemo(() => ([
     { id: "active", label: sk ? "Iba aktívne" : "Active only", rules: [{ id: "p-active", conjunction: "and", field: "status", op: "is", value: "active" }] },
     { id: "active-contract", label: sk ? "Aktívna zmluva" : "Active contract", rules: [{ id: "p-ac", conjunction: "and", field: "pipeline", op: "is", value: "contract:active" }] },
     { id: "interested", label: sk ? "Záujem o spoluprácu" : "Interested in coop", rules: [{ id: "p-int", conjunction: "and", field: "interestCooperation", op: "is", value: "interested" }] },
@@ -2017,10 +2019,35 @@ export default function HospitalsPage() {
     { id: "from-conference", label: sk ? "Z konferencie" : "From conference", rules: [{ id: "p-conf", conjunction: "and", field: "isFromConference", op: "is", value: "true" }] },
   ]), [sk]);
 
-  const hospitalQueryParams: Record<string, any> = { page: hospitalPage, limit: hospitalPageSize };
-  if (debouncedHospitalSearch) hospitalQueryParams.search = debouncedHospitalSearch;
+  const hospitalFilterFields = useMemo(
+    () => getMedicalPartnerFilterFields("hospital", locale, users, laboratories),
+    [locale, users, laboratories],
+  );
+  const clinicFilterFields = useMemo(
+    () => getMedicalPartnerFilterFields("clinic", locale, users, laboratories),
+    [locale, users, laboratories],
+  );
+  const hospitalFilterPresets = useMemo(
+    () => getMedicalPartnerFilterPresets("hospital", locale),
+    [locale],
+  );
+  const clinicFilterPresets = useMemo(
+    () => getMedicalPartnerFilterPresets("clinic", locale),
+    [locale],
+  );
+
+  const hospitalNeedsFullDataset = useMemo(
+    () => hospitalFilterRules.some((r) => r.field !== "country" || r.conjunction === "or"),
+    [hospitalFilterRules],
+  );
+  const hospitalQueryParams: Record<string, any> = hospitalNeedsFullDataset
+    ? {}
+    : { page: hospitalPage, limit: hospitalPageSize };
+  if (debouncedHospitalSearch && !hospitalNeedsFullDataset) hospitalQueryParams.search = debouncedHospitalSearch;
   {
-    const countryRule = hospitalFilterRules.find((r) => r.field === "country" && (r.op === "is" || r.op === "isAny"));
+    const countryRule = !hospitalNeedsFullDataset
+      ? hospitalFilterRules.find((r) => r.field === "country" && (r.op === "is" || r.op === "isAny"))
+      : undefined;
     const ruleVals = countryRule ? (Array.isArray(countryRule.value) ? countryRule.value.filter(Boolean) : (countryRule.value ? [countryRule.value] : [])) : [];
     if (ruleVals.length === 1) {
       hospitalQueryParams.country = ruleVals[0];
@@ -2036,8 +2063,8 @@ export default function HospitalsPage() {
   const hospitals = hospitalsPaginatedResult?.data || [];
   const serverHospitalsTotal = hospitalsPaginatedResult?.total || 0;
 
-  // Detect whether any non-server-handled rule is active (forces full-dataset fetch
-  // so client-side filtering can compute the correct count and full export).
+  // Detect whether any non-server-handled rule is active (forces full-dataset
+  // fetch so client-side filtering can compute the correct count and export).
   const clinicNeedsFullDataset = useMemo(() => {
     return clinicFilterRules.some((r) => {
       if (r.field !== "country") return true;
@@ -2050,9 +2077,11 @@ export default function HospitalsPage() {
   const clinicQueryParams: Record<string, any> = clinicNeedsFullDataset
     ? {}
     : { page: clinicPage, limit: clinicPageSize };
-  if (debouncedClinicSearch) clinicQueryParams.search = debouncedClinicSearch;
+  if (debouncedClinicSearch && !clinicNeedsFullDataset) clinicQueryParams.search = debouncedClinicSearch;
   {
-    const countryRule = clinicFilterRules.find((r) => r.field === "country" && (r.op === "is" || r.op === "isAny"));
+    const countryRule = !clinicNeedsFullDataset
+      ? clinicFilterRules.find((r) => r.field === "country" && (r.op === "is" || r.op === "isAny"))
+      : undefined;
     const ruleVals = countryRule ? (Array.isArray(countryRule.value) ? countryRule.value.filter(Boolean) : (countryRule.value ? [countryRule.value] : [])) : [];
     if (ruleVals.length === 1) {
       clinicQueryParams.country = ruleVals[0];
@@ -2180,106 +2209,10 @@ export default function HospitalsPage() {
   }, {} as Record<string, number>);
 
   const filteredAndSortedClinics = (() => {
-    const isClinicHandledByServer = (r: FilterRule): boolean => {
-      if (r.field !== "country") return false;
-      if (r.op !== "is" && r.op !== "isAny") return false;
-      if (Array.isArray(r.value)) return r.value.length === 1 && !!r.value[0];
-      return !!r.value;
-    };
-    const cClientRules = clinicFilterRules.filter((r) => !isClinicHandledByServer(r));
-
-    const matchClinicRule = (c: any, r: FilterRule): boolean => {
-      const isEq = r.op === "is" || r.op === "isAny";
-      const isNeq = r.op === "isNot";
-      const contains = r.op === "contains";
-      const isEmpty = r.op === "isEmpty";
-      const isNotEmpty = r.op === "isNotEmpty";
-
-      const get = (): string => {
-        switch (r.field) {
-          case "country": return c.countryCode || "";
-          case "status": return c.isActive ? "active" : "inactive";
-          case "pipeline": {
-            if (c.contractStatus) return `contract:${c.contractStatus}`;
-            if (c.interestContract) return `contract_int:${c.interestContract}`;
-            if (c.interestCooperation) return `coop:${c.interestCooperation}`;
-            if (c.initialStatus) return `initial:${c.initialStatus}`;
-            return "no_status";
-          }
-          case "name": return c.name || "";
-          case "doctorName": return c.doctorName || "";
-          case "doctorTitle": return c.doctorTitle || "";
-          case "doctorFirstName": return c.doctorFirstName || "";
-          case "doctorLastName": return c.doctorLastName || "";
-          case "ico": return c.ico || "";
-          case "pzsCode": return c.pzsCode || "";
-          case "pzsName": return c.pzsName || "";
-          case "idZz": return c.idZz || "";
-          case "city": return c.city || "";
-          case "region": return c.region || "";
-          case "district": return c.district || "";
-          case "street": return c.street || "";
-          case "streetNumber": return c.streetNumber || "";
-          case "postalCode": return c.postalCode || "";
-          case "address": return [c.street, c.streetNumber, c.city].filter(Boolean).join(" ");
-          case "phone": return c.phone || "";
-          case "phone2": return c.phone2 || "";
-          case "phone3": return c.phone3 || "";
-          case "email": return c.email || "";
-          case "email2": return c.email2 || "";
-          case "email3": return c.email3 || "";
-          case "website": return c.website || "";
-          case "hasWebsite": return c.website ? "true" : "false";
-          case "hasPhone": return (c.phone || c.phone2 || c.phone3) ? "true" : "false";
-          case "hasEmail": return (c.email || c.email2 || c.email3) ? "true" : "false";
-          case "hasGps": return (c.gpsLat && c.gpsLng) ? "true" : "false";
-          case "isReferredByDoctor": return c.isReferredByDoctor ? "true" : "false";
-          case "isFromConference": return c.isFromConference ? "true" : "false";
-          case "conferenceName": return c.conferenceName || "";
-          case "initialStatus": return c.initialStatus || "";
-          case "interestCooperation": return c.interestCooperation || "";
-          case "interestContract": return c.interestContract || "";
-          case "contractStatus": return c.contractStatus || "";
-          case "lastCallResult": return c.lastCallResult || "";
-          case "lastCallNote": return c.lastCallNote || "";
-          case "leadSource": return c.leadSource || "";
-          case "leadSourceNotes": return c.leadSourceNotes || "";
-          case "leadSourceDate": return c.leadSourceDate ? String(c.leadSourceDate).slice(0, 10) : "";
-          case "conferenceDate": return c.conferenceDate ? String(c.conferenceDate).slice(0, 10) : "";
-          case "nextContactDate": return c.nextContactDate ? String(c.nextContactDate).slice(0, 10) : "";
-          case "contractSentDate": return c.contractSentDate ? String(c.contractSentDate).slice(0, 10) : "";
-          case "contractReturnedDate": return c.contractReturnedDate ? String(c.contractReturnedDate).slice(0, 10) : "";
-          case "hasFlyers": return c.hasFlyers ? "true" : "false";
-          case "flyersSentDate": return c.flyersSentDate ? String(c.flyersSentDate).slice(0, 10) : "";
-          case "flyersLocation": return c.flyersLocation || "";
-          case "doctorPositionCategoryId": return c.doctorPositionCategoryId || "";
-          case "orientationNumber": return c.orientationNumber || "";
-          case "tags": return Array.isArray(c.tags) ? c.tags.join(",") : (c.tags || "");
-          case "notes": return c.notes || "";
-          case "legacyId": return c.legacyId || "";
-          default: return "";
-        }
-      };
-      const fieldVal = String(get());
-      const isBoolField = ["hasWebsite","hasPhone","hasEmail","hasGps","isReferredByDoctor","isFromConference","hasFlyers"].includes(r.field);
-      if (isEmpty) return isBoolField ? fieldVal === "false" : !fieldVal;
-      if (isNotEmpty) return isBoolField ? fieldVal === "true" : !!fieldVal;
-      if (contains) {
-        if (Array.isArray(r.value)) return r.value.some((v) => v && fieldVal.toLowerCase().includes(String(v).toLowerCase()));
-        return r.value ? fieldVal.toLowerCase().includes(String(r.value).toLowerCase()) : true;
-      }
-      if (isEq) {
-        if (Array.isArray(r.value)) return r.value.some((v) => v && fieldVal === v);
-        return r.value ? fieldVal === r.value : true;
-      }
-      if (isNeq) {
-        if (Array.isArray(r.value)) return r.value.every((v) => !v || fieldVal !== v);
-        return r.value ? fieldVal !== r.value : true;
-      }
-      return true;
-    };
-
-    let result = clinics.filter((clinic) => cClientRules.every((r) => matchClinicRule(clinic as any, r)));
+    let result = clinics.filter((clinic) =>
+      matchesMedicalPartnerSearch("clinic", clinic as unknown as Record<string, any>, debouncedClinicSearch)
+      && matchesMedicalPartnerRules("clinic", clinic as unknown as Record<string, any>, clinicFilterRules),
+    );
     
     // Then sort
     result.sort((a, b) => {
@@ -2378,74 +2311,12 @@ export default function HospitalsPage() {
 
   // Filtered and sorted hospitals (search + country done server-side)
   const filteredAndSortedHospitals = (() => {
-    const isHospHandledByServer = (r: FilterRule): boolean => {
-      if (r.field !== "country") return false;
-      if (r.op !== "is" && r.op !== "isAny") return false;
-      if (Array.isArray(r.value)) return r.value.length === 1 && !!r.value[0];
-      return !!r.value;
-    };
-    const hClientRules = hospitalFilterRules.filter((r) => !isHospHandledByServer(r));
-
-    const matchHospitalRule = (h: any, r: FilterRule): boolean => {
-      const isEq = r.op === "is" || r.op === "isAny";
-      const isNeq = r.op === "isNot";
-      const contains = r.op === "contains";
-      const isEmpty = r.op === "isEmpty";
-      const isNotEmpty = r.op === "isNotEmpty";
-
-      const get = (): string => {
-        switch (r.field) {
-          case "country": return h.countryCode || "";
-          case "status": return h.isActive ? "active" : "inactive";
-          case "personnel": {
-            const cnt = personnelCounts?.[h.id] || 0;
-            return cnt > 0 ? "with" : "without";
-          }
-          case "name": return h.name || "";
-          case "fullName": return h.fullName || h.name || "";
-          case "city": return h.city || "";
-          case "region": return h.region || "";
-          case "district": return h.district || "";
-          case "postalCode": return h.postalCode || "";
-          case "streetNumber": return h.streetNumber || h.street || "";
-          case "contactPerson": return h.contactPerson || "";
-          case "phone": return h.phone || "";
-          case "email": return h.email || "";
-          case "svetZdravia": return h.svetZdravia ? "true" : "false";
-          case "autoRecruiting": return h.autoRecruiting ? "true" : "false";
-          case "representativeId": return h.representativeId || "";
-          case "responsiblePersonId": return h.responsiblePersonId || "";
-          case "laboratoryId": return h.laboratoryId || "";
-          case "tags": return Array.isArray(h.tags) ? h.tags.join(",") : (h.tags || "");
-          case "dataSource": return h.dataSource || "";
-          case "createdByCollaboratorId": return h.createdByCollaboratorId || "";
-          case "legacyId": return h.legacyId || "";
-          case "hasPhone": return h.phone ? "true" : "false";
-          case "hasEmail": return h.email ? "true" : "false";
-          case "hasGps": return (h.gpsLat && h.gpsLng) ? "true" : "false";
-          default: return "";
-        }
-      };
-      const fieldVal = String(get());
-      const isBoolField = ["svetZdravia","autoRecruiting","hasPhone","hasEmail","hasGps"].includes(r.field);
-      if (isEmpty) return isBoolField ? fieldVal === "false" : !fieldVal;
-      if (isNotEmpty) return isBoolField ? fieldVal === "true" : !!fieldVal;
-      if (contains) {
-        if (Array.isArray(r.value)) return r.value.some((v) => v && fieldVal.toLowerCase().includes(String(v).toLowerCase()));
-        return r.value ? fieldVal.toLowerCase().includes(String(r.value).toLowerCase()) : true;
-      }
-      if (isEq) {
-        if (Array.isArray(r.value)) return r.value.some((v) => v && fieldVal === v);
-        return r.value ? fieldVal === r.value : true;
-      }
-      if (isNeq) {
-        if (Array.isArray(r.value)) return r.value.every((v) => !v || fieldVal !== v);
-        return r.value ? fieldVal !== r.value : true;
-      }
-      return true;
-    };
-
-    let result = hospitals.filter((hospital) => hClientRules.every((r) => matchHospitalRule(hospital as any, r)));
+    let result = hospitals.filter((hospital) =>
+      matchesMedicalPartnerSearch("hospital", hospital as unknown as Record<string, any>, debouncedHospitalSearch)
+      && matchesMedicalPartnerRules("hospital", hospital as unknown as Record<string, any>, hospitalFilterRules, {
+        hasPersonnel: (personnelCounts?.[hospital.id] || 0) > 0,
+      }),
+    );
     
     // Then sort
     result.sort((a, b) => {
@@ -2486,8 +2357,16 @@ export default function HospitalsPage() {
     return result;
   })();
   
-  const totalHospitalPages = Math.ceil(serverHospitalsTotal / hospitalPageSize);
-  const paginatedHospitals = filteredAndSortedHospitals;
+  const filteredHospitalsTotal = hospitalNeedsFullDataset
+    ? filteredAndSortedHospitals.length
+    : serverHospitalsTotal;
+  const totalHospitalPages = Math.max(1, Math.ceil(filteredHospitalsTotal / hospitalPageSize));
+  const paginatedHospitals = hospitalNeedsFullDataset
+    ? filteredAndSortedHospitals.slice(
+        (hospitalPage - 1) * hospitalPageSize,
+        hospitalPage * hospitalPageSize,
+      )
+    : filteredAndSortedHospitals;
   
   // Reset page when filters change
   const handleHospitalFilterChange = () => {

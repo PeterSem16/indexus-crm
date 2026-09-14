@@ -10,10 +10,22 @@ import {
   hospitalRepresentativeAssignments,
   clinics,
   hospitals,
+  collaborators,
+  contactAssignments,
   users,
   roles,
   userRoles,
 } from "@shared/schema";
+import {
+  matchesMedicalPartnerRules,
+  matchesMedicalPartnerSearch,
+  previewSelectionMatches,
+  validateMedicalPartnerRules,
+  type MedicalPartnerEntity,
+  type MedicalPartnerFilterRule,
+} from "@shared/medical-partner-filter";
+import { COUNTRIES } from "@shared/schema";
+import { createHash } from "node:crypto";
 
 // ── Auth helpers ─────────────────────────────────────────────────────────────
 const requireAuth = (req: Request, res: Response, next: NextFunction) => {
@@ -28,6 +40,254 @@ const requireManagerOrAdmin = (req: Request, res: Response, next: NextFunction) 
   }
   next();
 };
+
+type BulkCriteria = {
+  country?: string;
+  countries?: string[];
+  region?: string | string[];
+  district?: string | string[];
+  city?: string | string[];
+  currentRepresentativeId?: string | null;
+  isActive?: boolean;
+  filterRules?: unknown;
+  search?: string;
+  countryScope?: unknown;
+};
+
+type BulkSelectionInput = {
+  entity: MedicalPartnerEntity;
+  criteria: BulkCriteria;
+  explicitIds?: string[];
+  fromUserId?: string;
+  req: Request;
+};
+
+const OPERATING_COUNTRIES = new Set(COUNTRIES.map((country) => country.code));
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function parseStringList(value: unknown, name: string): string[] | undefined {
+  if (value === undefined) return undefined;
+  const list = Array.isArray(value) ? value : [value];
+  if (list.some((item) => typeof item !== "string" || !item.trim())) {
+    throw new Error(`${name} must contain non-empty strings`);
+  }
+  return list as string[];
+}
+
+function parseCriteria(raw: unknown): BulkCriteria {
+  if (raw === undefined) return {};
+  if (!isObject(raw)) throw new Error("criteria must be an object");
+  const allowed = new Set([
+    "country", "countries", "region", "district", "city", "currentRepresentativeId",
+    "isActive", "filterRules", "search", "countryScope",
+  ]);
+  for (const key of Object.keys(raw)) {
+    if (!allowed.has(key)) throw new Error(`Unsupported criteria field: ${key}`);
+  }
+  if (raw.country !== undefined && (typeof raw.country !== "string" || !raw.country.trim())) {
+    throw new Error("criteria.country must be a non-empty string");
+  }
+  if (raw.isActive !== undefined && typeof raw.isActive !== "boolean") {
+    throw new Error("criteria.isActive must be a boolean");
+  }
+  if (
+    raw.currentRepresentativeId !== undefined
+    && raw.currentRepresentativeId !== null
+    && (typeof raw.currentRepresentativeId !== "string" || !raw.currentRepresentativeId.trim())
+  ) {
+    throw new Error("criteria.currentRepresentativeId must be a string or null");
+  }
+  const criteria: BulkCriteria = {
+    country: raw.country as string | undefined,
+    countries: parseStringList(raw.countries, "criteria.countries"),
+    region: Array.isArray(raw.region)
+      ? parseStringList(raw.region, "criteria.region")
+      : raw.region as string | undefined,
+    district: Array.isArray(raw.district)
+      ? parseStringList(raw.district, "criteria.district")
+      : raw.district as string | undefined,
+    city: Array.isArray(raw.city)
+      ? parseStringList(raw.city, "criteria.city")
+      : raw.city as string | undefined,
+    currentRepresentativeId: raw.currentRepresentativeId as string | null | undefined,
+    isActive: raw.isActive as boolean | undefined,
+    filterRules: raw.filterRules,
+    search: raw.search as string | undefined,
+    countryScope: raw.countryScope,
+  };
+  for (const [name, value] of [["region", criteria.region], ["district", criteria.district], ["city", criteria.city]] as const) {
+    if (value !== undefined) {
+      const values = Array.isArray(value) ? value : [value];
+      if (values.some((item) => typeof item !== "string" || !item.trim())) {
+        throw new Error(`criteria.${name} must contain non-empty strings`);
+      }
+    }
+  }
+  if (criteria.search !== undefined && typeof criteria.search !== "string") {
+    throw new Error("criteria.search must be a string");
+  }
+  return criteria;
+}
+
+function parseCountryCodes(value: unknown, name: string): string[] | undefined {
+  const list = parseStringList(value, name);
+  if (!list) return undefined;
+  const normalized = [...new Set(list.map((country) => country.toUpperCase()))];
+  const invalid = normalized.filter((country) => !OPERATING_COUNTRIES.has(country));
+  if (invalid.length) throw new Error(`${name} contains unsupported country code(s): ${invalid.join(", ")}`);
+  return normalized;
+}
+
+function countryScopeForRequest(req: Request, requested: unknown): string[] | undefined {
+  const requestedCodes = parseCountryCodes(requested, "criteria.countryScope");
+  const assigned = req.session.user?.assignedCountries;
+  const assignedCodes = req.session.user?.role !== "admin" && Array.isArray(assigned) && assigned.length
+    ? parseCountryCodes(assigned, "user.assignedCountries")
+    : undefined;
+  if (!assignedCodes) return requestedCodes;
+  if (!requestedCodes) return assignedCodes;
+  return requestedCodes.filter((country) => assignedCodes.includes(country));
+}
+
+function valuesForCriteria(value: string | string[] | undefined): string[] {
+  return value === undefined ? [] : Array.isArray(value) ? value : [value];
+}
+
+function validatePreviewIds(raw: unknown, name: string): string[] {
+  if (!Array.isArray(raw) || raw.some((id) => typeof id !== "string" || !id.trim())) {
+    throw new Error(`${name} must be an array of non-empty strings`);
+  }
+  return raw;
+}
+
+/**
+ * Resolve the complete selection on the server.  It intentionally does not
+ * use page/limit or a client-provided count, so preview and confirm operate
+ * on the same full set.
+ */
+async function resolveBulkSelection(input: BulkSelectionInput): Promise<{
+  ids: string[];
+  rules: MedicalPartnerFilterRule[];
+  scope: string[] | undefined;
+}> {
+  const { entity, criteria, explicitIds, fromUserId, req } = input;
+  const rawRules = criteria.filterRules;
+  const rules = validateMedicalPartnerRules(entity, rawRules);
+  const scope = countryScopeForRequest(req, criteria.countryScope);
+  const table = entity === "clinic" ? clinics : hospitals;
+  const assignmentTable = entity === "clinic"
+    ? clinicRepresentativeAssignments
+    : hospitalRepresentativeAssignments;
+  const assignmentKey = entity === "clinic"
+    ? clinicRepresentativeAssignments.clinicId
+    : hospitalRepresentativeAssignments.hospitalId;
+  const activeAssignments = await db
+    .select({ entityId: assignmentKey, userId: assignmentTable.userId })
+    .from(assignmentTable)
+    .where(isNull(assignmentTable.validTo));
+  const representativeByEntity = new Map(
+    activeAssignments.map((row) => [row.entityId, row.userId]),
+  );
+
+  const personnelRows = await db
+    .select({ entityId: contactAssignments.entityId })
+    .from(contactAssignments)
+    .where(
+      and(
+        eq(contactAssignments.entityType, entity),
+        eq(contactAssignments.isActive, true),
+      ),
+    );
+  const personnelByEntity = new Set(personnelRows.map((row) => row.entityId));
+  if (entity === "hospital") {
+    const legacyRows = await db.select({
+      hospitalId: collaborators.hospitalId,
+      hospitalIds: collaborators.hospitalIds,
+    }).from(collaborators);
+    // Legacy links are part of the existing Hospitals personnel filter.  They
+    // are included here without changing the clinic semantics.
+    for (const row of legacyRows) {
+      const linked = [
+        row.hospitalId,
+        ...(Array.isArray(row.hospitalIds) ? row.hospitalIds : []),
+      ].filter(Boolean) as string[];
+      for (const id of linked) {
+        personnelByEntity.add(id);
+      }
+    }
+  }
+
+  const rows = await db.select().from(table);
+  const countryValues = [
+    ...valuesForCriteria(criteria.country),
+    ...valuesForCriteria(criteria.countries),
+  ].map((country) => country.toUpperCase());
+  const regionValues = valuesForCriteria(criteria.region);
+  const districtValues = valuesForCriteria(criteria.district);
+  const cityValues = valuesForCriteria(criteria.city);
+  const explicitSet = explicitIds ? new Set(explicitIds) : null;
+
+  return {
+    ids: rows
+      .filter((row) => {
+        const id = row.id;
+        if (explicitSet && !explicitSet.has(id)) return false;
+        if (scope && !scope.includes(row.countryCode)) return false;
+        if (countryValues.length && !countryValues.includes(row.countryCode)) return false;
+        if (criteria.isActive !== undefined && row.isActive !== criteria.isActive) return false;
+        if (regionValues.length && !regionValues.includes(row.region || "")) return false;
+        if (districtValues.length && !districtValues.includes(row.district || "")) return false;
+        if (cityValues.length && !cityValues.includes(row.city || "")) return false;
+        if (!matchesMedicalPartnerSearch(entity, row as Record<string, any>, criteria.search)) return false;
+        const representativeId = representativeByEntity.get(id) ?? null;
+        if (
+          criteria.currentRepresentativeId !== undefined
+          && representativeId !== criteria.currentRepresentativeId
+        ) return false;
+        if (fromUserId && representativeId !== fromUserId) return false;
+        return matchesMedicalPartnerRules(entity, row as Record<string, any>, rules, {
+          representativeId,
+          hasPersonnel: personnelByEntity.has(id),
+        });
+      })
+      .sort(),
+    rules,
+    scope,
+  };
+}
+
+function bulkPreviewFingerprint(input: {
+  entity: MedicalPartnerEntity;
+  targetUserId: string;
+  fromUserId?: string;
+  criteria: BulkCriteria;
+  rules: MedicalPartnerFilterRule[];
+  scope: string[] | undefined;
+  ids: string[];
+}): string {
+  const canonical = {
+    entity: input.entity,
+    targetUserId: input.targetUserId,
+    fromUserId: input.fromUserId ?? null,
+    criteria: {
+      country: input.criteria.country ?? null,
+      countries: input.criteria.countries ?? null,
+      region: input.criteria.region ?? null,
+      district: input.criteria.district ?? null,
+      city: input.criteria.city ?? null,
+      currentRepresentativeId: input.criteria.currentRepresentativeId ?? null,
+      isActive: input.criteria.isActive ?? null,
+      search: input.criteria.search ?? null,
+      scope: input.scope ?? null,
+      filterRules: input.rules,
+    },
+    ids: [...input.ids].sort(),
+  };
+  return createHash("sha256").update(JSON.stringify(canonical)).digest("hex");
+}
 
 // ── Helper: assignment platné k danému dátumu ─────────────────────────────
 function atTimeCondition(clinicIdVal: string, at?: string) {
@@ -355,113 +615,59 @@ export function registerRepresentativeRoutes(
   });
 
   // ── POST /api/clinics/bulk-assign-representative
-  // Hromadné priradenie podľa kritérií.
-  // Body: { userId, criteria: { country?, region?, district?, city?, currentRepresentativeId?, isActive? },
-  //         clinicIds?, validFrom?, note?, dryRun? }
+  // Hromadné priradenie podľa kritérií.  Both preview and confirm resolve the
+  // complete selection server-side; confirm also verifies the preview IDs.
   app.post("/api/clinics/bulk-assign-representative", requireAuth, requireManagerOrAdmin, async (req, res) => {
     try {
-      const {
-        userId,
-        criteria = {},
-        clinicIds: explicitClinicIds,
-        validFrom,
-        note,
-        dryRun = false,
-      } = req.body as {
-        userId: string;
-        criteria?: {
-          country?: string;
-          region?: string | string[];
-          district?: string | string[];
-          currentRepresentativeId?: string | null;
-          isActive?: boolean;
-        };
-        clinicIds?: string[];
-        validFrom?: string;
-        note?: string;
-        dryRun?: boolean;
-      };
-
-      if (!userId) return res.status(400).json({ message: "userId is required" });
-
-      const now = new Date();
-      const effectiveFrom = validFrom ? new Date(validFrom) : now;
-
-      let targetClinicIds: string[];
-
-      if (explicitClinicIds && explicitClinicIds.length > 0) {
-        targetClinicIds = explicitClinicIds;
-      } else {
-        // Zostroj WHERE podmienku na kliniky
-        let clinicFilter: any = undefined;
-
-        if (criteria.isActive !== undefined) {
-          clinicFilter = and(clinicFilter, eq(clinics.isActive, criteria.isActive));
-        }
-        if ((criteria as any).countries) {
-          const cc = Array.isArray((criteria as any).countries) ? (criteria as any).countries : [(criteria as any).countries];
-          clinicFilter = cc.length === 1 ? and(clinicFilter, eq(clinics.countryCode, cc[0])) : and(clinicFilter, inArray(clinics.countryCode, cc));
-        } else if (criteria.country) {
-          clinicFilter = and(clinicFilter, eq(clinics.countryCode, criteria.country));
-        }
-        if (criteria.region) {
-          const regions = Array.isArray(criteria.region) ? criteria.region : [criteria.region];
-          if (regions.length === 1) {
-            clinicFilter = and(clinicFilter, eq(clinics.region, regions[0]));
-          } else {
-            clinicFilter = and(clinicFilter, inArray(clinics.region, regions));
-          }
-        }
-        if (criteria.district) {
-          const districts = Array.isArray(criteria.district) ? criteria.district : [criteria.district];
-          if (districts.length === 1) {
-            clinicFilter = and(clinicFilter, eq(clinics.district, districts[0]));
-          } else {
-            clinicFilter = and(clinicFilter, inArray(clinics.district, districts));
-          }
-        }
-        if ((criteria as any).city) {
-          const cities = Array.isArray((criteria as any).city) ? (criteria as any).city : [(criteria as any).city];
-          clinicFilter = cities.length === 1
-            ? and(clinicFilter, eq(clinics.city, cities[0]))
-            : and(clinicFilter, inArray(clinics.city, cities));
-        }
-
-        const allClinics = await db
-          .select({ id: clinics.id })
-          .from(clinics)
-          .where(clinicFilter ?? undefined);
-
-        let allIds = allClinics.map((c) => c.id);
-
-        // Filtruj podľa currentRepresentativeId
-        if (criteria.currentRepresentativeId !== undefined) {
-          const activeAssignments = await db
-            .select({ clinicId: clinicRepresentativeAssignments.clinicId, userId: clinicRepresentativeAssignments.userId })
-            .from(clinicRepresentativeAssignments)
-            .where(
-              and(
-                inArray(clinicRepresentativeAssignments.clinicId, allIds),
-                isNull(clinicRepresentativeAssignments.validTo)
-              )
-            );
-
-          const assignedMap = new Map(activeAssignments.map((a) => [a.clinicId, a.userId]));
-
-          if (criteria.currentRepresentativeId === null) {
-            // Iba kliniky BEZ aktuálneho reprezentanta
-            allIds = allIds.filter((id) => !assignedMap.has(id));
-          } else {
-            // Iba kliniky S konkrétnym reprezentantom
-            allIds = allIds.filter((id) => assignedMap.get(id) === criteria.currentRepresentativeId);
-          }
-        }
-
-        targetClinicIds = allIds;
+      const body = isObject(req.body) ? req.body : {};
+      const userId = body.userId;
+      if (typeof userId !== "string" || !userId.trim()) {
+        return res.status(400).json({ message: "userId is required" });
       }
-
-      if (dryRun) {
-        return res.json({ affected: targetClinicIds.length, skipped: 0, clinicIds: targetClinicIds, dryRun: true });
+      const criteria = parseCriteria(body.criteria);
+      const explicitClinicIds = body.clinicIds === undefined
+        ? undefined
+        : validatePreviewIds(body.clinicIds, "clinicIds");
+      const dryRun = body.dryRun === true;
+      const previewIds = body.previewIds === undefined
+        ? undefined
+        : validatePreviewIds(body.previewIds, "previewIds");
+      const now = new Date();
+      const effectiveFrom = body.validFrom ? new Date(String(body.validFrom)) : now;
+      if (isNaN(effectiveFrom.getTime())) return res.status(400).json({ message: "validFrom must be a valid date" });
+      const selection = await resolveBulkSelection({
+        entity: "clinic",
+        criteria,
+        explicitIds: explicitClinicIds,
+        req,
+      });
+      const targetClinicIds = selection.ids;
+      const previewFingerprint = bulkPreviewFingerprint({
+        entity: "clinic",
+        targetUserId: userId,
+        criteria,
+        rules: selection.rules,
+        scope: selection.scope,
+        ids: targetClinicIds,
+      });
+      if (dryRun) return res.json({
+        affected: targetClinicIds.length,
+        skipped: 0,
+        clinicIds: targetClinicIds,
+        previewIds: targetClinicIds,
+        previewTargetUserId: userId,
+        previewFingerprint,
+        dryRun: true,
+      });
+      if (!previewIds) return res.status(400).json({ message: "A fresh preview is required before confirming" });
+      if (typeof body.previewFingerprint !== "string" || body.previewFingerprint !== previewFingerprint) {
+        return res.status(409).json({ message: "Preview metadata changed; run preview again" });
+      }
+      if (body.previewTargetUserId !== undefined && body.previewTargetUserId !== userId) {
+        return res.status(409).json({ message: "Preview target representative changed; run preview again" });
+      }
+      if (!previewSelectionMatches(previewIds, targetClinicIds)) {
+        return res.status(409).json({ message: "Preview is stale; run preview again" });
       }
 
       // Ostrý zápis — pre každú kliniku: uzavri starú väzbu + vytvor novú
@@ -488,11 +694,11 @@ export function registerRepresentativeRoutes(
           validTo: null as null,
           assignedBy: req.session!.user?.id,
           assignmentType: criteria.district
-            ? "bulk_district"
+             ? "bulk_district"
             : criteria.region
             ? "bulk_region"
             : "manual",
-          note: note ?? null,
+           note: typeof body.note === "string" ? body.note : null,
         }));
 
         await db.insert(clinicRepresentativeAssignments).values(insertValues);
@@ -503,6 +709,9 @@ export function registerRepresentativeRoutes(
 
       res.json({ affected, skipped, clinicIds: targetClinicIds });
     } catch (e: any) {
+      if (e instanceof Error && /filterRules|criteria|countryScope|clinicIds|previewIds|validFrom|Unsupported/.test(e.message)) {
+        return res.status(400).json({ message: e.message });
+      }
       console.error("[representatives] POST /api/clinics/bulk-assign-representative", e);
       res.status(500).json({ message: e.message });
     }
@@ -510,49 +719,65 @@ export function registerRepresentativeRoutes(
 
   // ── POST /api/clinics/swap-representative
   // Rýchla výmena: presunie kliniky od jedného reprezentanta k inému.
-  // Body: { fromUserId, toUserId, clinicIds?, validFrom?, note? }
+  // Supports the same full criteria/preview contract as bulk assignment.
   app.post("/api/clinics/swap-representative", requireAuth, requireManagerOrAdmin, async (req, res) => {
     try {
-      const { fromUserId, toUserId, clinicIds: explicitClinicIds, validFrom, note } = req.body as {
-        fromUserId: string;
-        toUserId: string;
-        clinicIds?: string[];
-        validFrom?: string;
-        note?: string;
-      };
-
-      if (!fromUserId || !toUserId) {
+      const body = isObject(req.body) ? req.body : {};
+      const fromUserId = body.fromUserId;
+      const toUserId = body.toUserId;
+      if (typeof fromUserId !== "string" || !fromUserId || typeof toUserId !== "string" || !toUserId) {
         return res.status(400).json({ message: "fromUserId and toUserId are required" });
       }
       if (fromUserId === toUserId) {
         return res.status(400).json({ message: "fromUserId and toUserId must be different" });
       }
-
-      const now = new Date();
-      const effectiveFrom = validFrom ? new Date(validFrom) : now;
-
-      // Zisti kliniky fromUserId (aktívne priradenia)
-      const activeAssignments = await db
-        .select({ clinicId: clinicRepresentativeAssignments.clinicId })
-        .from(clinicRepresentativeAssignments)
-        .where(
-          and(
-            eq(clinicRepresentativeAssignments.userId, fromUserId),
-            isNull(clinicRepresentativeAssignments.validTo)
-          )
-        );
-
-      let targetClinicIds = activeAssignments.map((a) => a.clinicId);
-
-      if (explicitClinicIds && explicitClinicIds.length > 0) {
-        // Filtruj len na explicitne zadané + musia patriť fromUserId
-        const fromSet = new Set(targetClinicIds);
-        targetClinicIds = explicitClinicIds.filter((id) => fromSet.has(id));
+      const criteria = parseCriteria(body.criteria);
+      const explicitClinicIds = body.clinicIds === undefined
+        ? undefined
+        : validatePreviewIds(body.clinicIds, "clinicIds");
+      const dryRun = body.dryRun === true;
+      const previewIds = body.previewIds === undefined
+        ? undefined
+        : validatePreviewIds(body.previewIds, "previewIds");
+      const effectiveFrom = body.validFrom ? new Date(String(body.validFrom)) : new Date();
+      if (isNaN(effectiveFrom.getTime())) return res.status(400).json({ message: "validFrom must be a valid date" });
+      const selection = await resolveBulkSelection({
+        entity: "clinic",
+        criteria,
+        explicitIds: explicitClinicIds,
+        fromUserId,
+        req,
+      });
+      const targetClinicIds = selection.ids;
+      const previewFingerprint = bulkPreviewFingerprint({
+        entity: "clinic",
+        targetUserId: toUserId,
+        fromUserId,
+        criteria,
+        rules: selection.rules,
+        scope: selection.scope,
+        ids: targetClinicIds,
+      });
+      if (dryRun) return res.json({
+        swapped: targetClinicIds.length,
+        affected: targetClinicIds.length,
+        clinicIds: targetClinicIds,
+        previewIds: targetClinicIds,
+        previewTargetUserId: toUserId,
+        previewFingerprint,
+        dryRun: true,
+      });
+      if (!previewIds) return res.status(400).json({ message: "A fresh preview is required before confirming" });
+      if (typeof body.previewFingerprint !== "string" || body.previewFingerprint !== previewFingerprint) {
+        return res.status(409).json({ message: "Preview metadata changed; run preview again" });
       }
-
-      if (targetClinicIds.length === 0) {
-        return res.json({ swapped: 0 });
+      if (body.previewTargetUserId !== undefined && body.previewTargetUserId !== toUserId) {
+        return res.status(409).json({ message: "Preview target representative changed; run preview again" });
       }
+      if (!previewSelectionMatches(previewIds, targetClinicIds)) {
+        return res.status(409).json({ message: "Preview is stale; run preview again" });
+      }
+      if (targetClinicIds.length === 0) return res.json({ swapped: 0, clinicIds: [] });
 
       // Uzavri staré priradenia
       await db
@@ -574,7 +799,7 @@ export function registerRepresentativeRoutes(
         validTo: null as null,
         assignedBy: req.session!.user?.id,
         assignmentType: "swap" as const,
-        note: note ?? null,
+         note: typeof body.note === "string" ? body.note : null,
       }));
 
       await db.insert(clinicRepresentativeAssignments).values(insertValues);
@@ -583,6 +808,9 @@ export function registerRepresentativeRoutes(
 
       res.json({ swapped: targetClinicIds.length, clinicIds: targetClinicIds });
     } catch (e: any) {
+      if (e instanceof Error && /filterRules|criteria|countryScope|clinicIds|previewIds|validFrom|Unsupported/.test(e.message)) {
+        return res.status(400).json({ message: e.message });
+      }
       console.error("[representatives] POST /api/clinics/swap-representative", e);
       res.status(500).json({ message: e.message });
     }
@@ -683,87 +911,158 @@ export function registerRepresentativeRoutes(
   // ── POST /api/hospitals/bulk-assign-representative
   app.post("/api/hospitals/bulk-assign-representative", requireAuth, requireManagerOrAdmin, async (req, res) => {
     try {
-      const { userId, criteria = {}, hospitalIds: explicitIds, validFrom, note, dryRun = false } = req.body as {
-        userId: string; criteria?: { country?: string; region?: string | string[]; district?: string | string[]; currentRepresentativeId?: string | null; isActive?: boolean };
-        hospitalIds?: string[]; validFrom?: string; note?: string; dryRun?: boolean;
-      };
-      if (!userId) return res.status(400).json({ message: "userId is required" });
-      const effectiveFrom = validFrom ? new Date(validFrom) : new Date();
-
-      let targetIds: string[];
-      if (explicitIds?.length) {
-        targetIds = explicitIds;
-      } else {
-        let filter: any = undefined;
-        if (criteria.isActive !== undefined) filter = and(filter, eq(hospitals.isActive, criteria.isActive));
-        if ((criteria as any).countries) {
-          const cc = Array.isArray((criteria as any).countries) ? (criteria as any).countries : [(criteria as any).countries];
-          filter = cc.length === 1 ? and(filter, eq(hospitals.countryCode, cc[0])) : and(filter, inArray(hospitals.countryCode, cc));
-        } else if (criteria.country) {
-          filter = and(filter, eq(hospitals.countryCode, criteria.country));
-        }
-        if (criteria.region) {
-          const regions = Array.isArray(criteria.region) ? criteria.region : [criteria.region];
-          filter = and(filter, regions.length === 1 ? eq(hospitals.region, regions[0]) : inArray(hospitals.region, regions));
-        }
-        if (criteria.district) {
-          const districts = Array.isArray(criteria.district) ? criteria.district : [criteria.district];
-          filter = and(filter, districts.length === 1 ? eq(hospitals.district, districts[0]) : inArray(hospitals.district, districts));
-        }
-        if ((criteria as any).city) {
-          const cities = Array.isArray((criteria as any).city) ? (criteria as any).city : [(criteria as any).city];
-          filter = cities.length === 1
-            ? and(filter, eq(hospitals.city, cities[0]))
-            : and(filter, inArray(hospitals.city, cities));
-        }
-        const all = await db.select({ id: hospitals.id }).from(hospitals).where(filter ?? undefined);
-        targetIds = all.map(h => h.id);
-        if (criteria.currentRepresentativeId !== undefined) {
-          const active = await db.select({ hospitalId: hospitalRepresentativeAssignments.hospitalId, userId: hospitalRepresentativeAssignments.userId })
-            .from(hospitalRepresentativeAssignments)
-            .where(and(inArray(hospitalRepresentativeAssignments.hospitalId, targetIds), isNull(hospitalRepresentativeAssignments.validTo)));
-          const activeMap = new Map(active.map(a => [a.hospitalId, a.userId]));
-          targetIds = criteria.currentRepresentativeId === null
-            ? targetIds.filter(id => !activeMap.has(id))
-            : targetIds.filter(id => activeMap.get(id) === criteria.currentRepresentativeId);
-        }
+      const body = isObject(req.body) ? req.body : {};
+      const userId = body.userId;
+      if (typeof userId !== "string" || !userId.trim()) {
+        return res.status(400).json({ message: "userId is required" });
       }
-
-      if (dryRun) return res.json({ affected: targetIds.length, hospitalIds: targetIds, dryRun: true });
+      const criteria = parseCriteria(body.criteria);
+      const explicitIds = body.hospitalIds === undefined
+        ? undefined
+        : validatePreviewIds(body.hospitalIds, "hospitalIds");
+      const dryRun = body.dryRun === true;
+      const previewIds = body.previewIds === undefined
+        ? undefined
+        : validatePreviewIds(body.previewIds, "previewIds");
+      const effectiveFrom = body.validFrom ? new Date(String(body.validFrom)) : new Date();
+      if (isNaN(effectiveFrom.getTime())) return res.status(400).json({ message: "validFrom must be a valid date" });
+      const selection = await resolveBulkSelection({
+        entity: "hospital",
+        criteria,
+        explicitIds,
+        req,
+      });
+      const targetIds = selection.ids;
+      const previewFingerprint = bulkPreviewFingerprint({
+        entity: "hospital",
+        targetUserId: userId,
+        criteria,
+        rules: selection.rules,
+        scope: selection.scope,
+        ids: targetIds,
+      });
+      if (dryRun) return res.json({
+        affected: targetIds.length,
+        hospitalIds: targetIds,
+        previewIds: targetIds,
+        previewTargetUserId: userId,
+        previewFingerprint,
+        dryRun: true,
+      });
+      if (!previewIds) return res.status(400).json({ message: "A fresh preview is required before confirming" });
+      if (typeof body.previewFingerprint !== "string" || body.previewFingerprint !== previewFingerprint) {
+        return res.status(409).json({ message: "Preview metadata changed; run preview again" });
+      }
+      if (body.previewTargetUserId !== undefined && body.previewTargetUserId !== userId) {
+        return res.status(409).json({ message: "Preview target representative changed; run preview again" });
+      }
+      if (!previewSelectionMatches(previewIds, targetIds)) {
+        return res.status(409).json({ message: "Preview is stale; run preview again" });
+      }
       if (targetIds.length > 0) {
         await db.update(hospitalRepresentativeAssignments).set({ validTo: effectiveFrom })
           .where(and(inArray(hospitalRepresentativeAssignments.hospitalId, targetIds), isNull(hospitalRepresentativeAssignments.validTo)));
         await db.insert(hospitalRepresentativeAssignments).values(
-          targetIds.map(hospitalId => ({ hospitalId, userId, validFrom: effectiveFrom, validTo: null as null, assignedBy: req.session!.user?.id, assignmentType: "manual", note: note ?? null }))
+          targetIds.map(hospitalId => ({
+            hospitalId,
+            userId,
+            validFrom: effectiveFrom,
+            validTo: null as null,
+            assignedBy: req.session!.user?.id,
+            assignmentType: "manual",
+            note: typeof body.note === "string" ? body.note : null,
+          }))
         );
         // Sync priamo na hospital riadky
         await db.update(hospitals).set({ representativeId: userId }).where(inArray(hospitals.id, targetIds));
       }
       res.json({ affected: targetIds.length, hospitalIds: targetIds });
-    } catch (e: any) { res.status(500).json({ message: e.message }); }
+    } catch (e: any) {
+      if (e instanceof Error && /filterRules|criteria|countryScope|hospitalIds|previewIds|validFrom|Unsupported/.test(e.message)) {
+        return res.status(400).json({ message: e.message });
+      }
+      res.status(500).json({ message: e.message });
+    }
   });
 
   // ── POST /api/hospitals/swap-representative
   app.post("/api/hospitals/swap-representative", requireAuth, requireManagerOrAdmin, async (req, res) => {
     try {
-      const { fromUserId, toUserId, hospitalIds: explicitIds, validFrom, note } = req.body as { fromUserId: string; toUserId: string; hospitalIds?: string[]; validFrom?: string; note?: string };
-      if (!fromUserId || !toUserId) return res.status(400).json({ message: "fromUserId and toUserId are required" });
+      const body = isObject(req.body) ? req.body : {};
+      const fromUserId = body.fromUserId;
+      const toUserId = body.toUserId;
+      if (typeof fromUserId !== "string" || !fromUserId || typeof toUserId !== "string" || !toUserId) {
+        return res.status(400).json({ message: "fromUserId and toUserId are required" });
+      }
       if (fromUserId === toUserId) return res.status(400).json({ message: "Must be different users" });
-      const effectiveFrom = validFrom ? new Date(validFrom) : new Date();
-      const active = await db.select({ hospitalId: hospitalRepresentativeAssignments.hospitalId })
-        .from(hospitalRepresentativeAssignments)
-        .where(and(eq(hospitalRepresentativeAssignments.userId, fromUserId), isNull(hospitalRepresentativeAssignments.validTo)));
-      let targetIds = active.map(a => a.hospitalId);
-      if (explicitIds?.length) targetIds = explicitIds.filter(id => new Set(targetIds).has(id));
-      if (!targetIds.length) return res.json({ swapped: 0 });
+      const criteria = parseCriteria(body.criteria);
+      const explicitIds = body.hospitalIds === undefined
+        ? undefined
+        : validatePreviewIds(body.hospitalIds, "hospitalIds");
+      const dryRun = body.dryRun === true;
+      const previewIds = body.previewIds === undefined
+        ? undefined
+        : validatePreviewIds(body.previewIds, "previewIds");
+      const effectiveFrom = body.validFrom ? new Date(String(body.validFrom)) : new Date();
+      if (isNaN(effectiveFrom.getTime())) return res.status(400).json({ message: "validFrom must be a valid date" });
+      const selection = await resolveBulkSelection({
+        entity: "hospital",
+        criteria,
+        explicitIds,
+        fromUserId,
+        req,
+      });
+      const targetIds = selection.ids;
+      const previewFingerprint = bulkPreviewFingerprint({
+        entity: "hospital",
+        targetUserId: toUserId,
+        fromUserId,
+        criteria,
+        rules: selection.rules,
+        scope: selection.scope,
+        ids: targetIds,
+      });
+      if (dryRun) return res.json({
+        swapped: targetIds.length,
+        affected: targetIds.length,
+        hospitalIds: targetIds,
+        previewIds: targetIds,
+        previewTargetUserId: toUserId,
+        previewFingerprint,
+        dryRun: true,
+      });
+      if (!previewIds) return res.status(400).json({ message: "A fresh preview is required before confirming" });
+      if (typeof body.previewFingerprint !== "string" || body.previewFingerprint !== previewFingerprint) {
+        return res.status(409).json({ message: "Preview metadata changed; run preview again" });
+      }
+      if (body.previewTargetUserId !== undefined && body.previewTargetUserId !== toUserId) {
+        return res.status(409).json({ message: "Preview target representative changed; run preview again" });
+      }
+      if (!previewSelectionMatches(previewIds, targetIds)) {
+        return res.status(409).json({ message: "Preview is stale; run preview again" });
+      }
+      if (!targetIds.length) return res.json({ swapped: 0, hospitalIds: [] });
       await db.update(hospitalRepresentativeAssignments).set({ validTo: effectiveFrom })
         .where(and(inArray(hospitalRepresentativeAssignments.hospitalId, targetIds), eq(hospitalRepresentativeAssignments.userId, fromUserId), isNull(hospitalRepresentativeAssignments.validTo)));
       await db.insert(hospitalRepresentativeAssignments).values(
-        targetIds.map(hospitalId => ({ hospitalId, userId: toUserId, validFrom: effectiveFrom, validTo: null as null, assignedBy: req.session!.user?.id, assignmentType: "swap" as const, note: note ?? null }))
+        targetIds.map(hospitalId => ({
+          hospitalId,
+          userId: toUserId,
+          validFrom: effectiveFrom,
+          validTo: null as null,
+          assignedBy: req.session!.user?.id,
+          assignmentType: "swap" as const,
+          note: typeof body.note === "string" ? body.note : null,
+        }))
       );
       // Sync priamo na hospital riadky
       await db.update(hospitals).set({ representativeId: toUserId }).where(inArray(hospitals.id, targetIds));
       res.json({ swapped: targetIds.length, hospitalIds: targetIds });
-    } catch (e: any) { res.status(500).json({ message: e.message }); }
+    } catch (e: any) {
+      if (e instanceof Error && /filterRules|criteria|countryScope|hospitalIds|previewIds|validFrom|Unsupported/.test(e.message)) {
+        return res.status(400).json({ message: e.message });
+      }
+      res.status(500).json({ message: e.message });
+    }
   });
 }

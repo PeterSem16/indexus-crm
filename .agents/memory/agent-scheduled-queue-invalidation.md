@@ -5,6 +5,10 @@ description: Which react-query key backs the agent's callback queue, and why cal
 
 # Agent scheduled-call queue invalidation
 
+Scheduled queue campaign visibility follows Agent Workspace access countries, not the user's separate general CRM assigned-country list.
+
+**Why:** These scopes are independent; substituting CRM scope can both hide allowed callbacks and expose campaigns the workspace excludes.
+
 The agent workspace scheduled-call **queue panel** is backed by react-query key
 `["/api/agent/scheduled-queue"]` and the always-visible **badge count** by
 `["/api/agent/scheduled-queue", "badge"]` — both hit `GET /api/agent/scheduled-queue`.
