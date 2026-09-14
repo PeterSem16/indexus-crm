@@ -252,3 +252,31 @@ mtime_ms = 1789119070625
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/b5fe0ac9-4b7b-4432-8826-ed78007faa50/2b4d71a5-a7c7-4809-8a51-793dd211d8a9"
 storage_version_token = "1789119186994581"
 content_type = "application/pdf"
+
+[[outputs]]
+id = "mRBAxLcDsHav-1XZ-K1m3"
+uri = "file://attached_assets/priority-preview/modal-desktop.png"
+type = "image"
+title = "Aktuálny modal – desktop"
+description = "Čerstvá snímka skutočného komponentu aplikácie s produkčnými štýlmi a fullscreen režimom. Testovacie kontakty, nie živé CRM dáta; nejde o canvas návrh."
+logical_id = "a748e7c8-1334-40b9-8d36-9890baee3f2e"
+content_hash = "sha256:fbae170ca709c5d804ba4c4e24568d3b363bc642cf525f0a98bd045ea938b624"
+size = 69164
+mtime_ms = 1789374690525
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/a748e7c8-1334-40b9-8d36-9890baee3f2e/f48539b5-e12a-4710-9ec0-e7fedb0f8cf8"
+storage_version_token = "1789374701287841"
+content_type = "image/png"
+
+[[outputs]]
+id = "mZmqwZ48n7HZIzkRDgyxC"
+uri = "file://attached_assets/priority-preview/modal-mobile.png"
+type = "image"
+title = "Aktuálny modal – mobil"
+description = "Ten istý komponent pri mobilnej šírke 390 px, s testovacími kontaktmi."
+logical_id = "96114b95-811b-43f8-b8ea-7ce33a77f267"
+content_hash = "sha256:9170262970abcf00e898854b593061f3835f7b25745eccb3d2c7d5b0284a4a7d"
+size = 37421
+mtime_ms = 1789374690528
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/96114b95-811b-43f8-b8ea-7ce33a77f267/d3288188-5fc6-4275-8265-d367b426e6be"
+storage_version_token = "1789374702024813"
+content_type = "image/png"
