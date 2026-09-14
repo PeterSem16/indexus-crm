@@ -4,6 +4,7 @@ import {
   DEFAULT_PRIORITY_VIEW,
   buildPriorityQueueWithFallback,
   filterPriorityContacts,
+  getBratislavaDateKey,
   matchesPrioritySegment,
   parsePriorityView,
   PRIORITY_PRESETS,
@@ -35,6 +36,19 @@ describe("priority builder pure queue functions", () => {
     expect(matchesPrioritySegment(contact("missed", { attemptCount: 2 }), "unhandled", "agent", now)).toBe(true);
   });
 
+  it("keeps a pending contact with a callback date in Scheduled today before New", () => {
+    const pendingCallback = contact("pending-callback", { callbackDate: now });
+    const view = {
+      ...DEFAULT_PRIORITY_VIEW,
+      segments: [
+        { id: "scheduled_today" as const, sort: "callback_asc" as const },
+        { id: "new" as const, sort: "created_desc" as const },
+      ],
+    };
+    const queue = buildPriorityQueue([pendingCallback], view, "agent", now);
+    expect(queue).toEqual([{ contact: pendingCallback, segment: "scheduled_today" }]);
+  });
+
   it("classifies Scheduled today in the Europe/Bratislava work timezone", () => {
     const bratislavaTodayAfterUtcMidnight = contact("today-boundary", {
       status: "callback_scheduled",
@@ -46,6 +60,12 @@ describe("priority builder pure queue functions", () => {
     });
     expect(matchesPrioritySegment(bratislavaTodayAfterUtcMidnight, "scheduled_today", "agent", now)).toBe(true);
     expect(matchesPrioritySegment(bratislavaTomorrowBeforeUtcMidnight, "scheduled_today", "agent", now)).toBe(false);
+  });
+
+  it("exposes the same Bratislava calendar key used by queue buckets", () => {
+    expect(getBratislavaDateKey("2025-01-14T23:30:00.000Z")).toBe("2025-01-15");
+    expect(getBratislavaDateKey("2025-01-15T23:30:00.000Z")).toBe("2025-01-16");
+    expect(getBratislavaDateKey("not-a-date")).toBeNull();
   });
 
   it("deduplicates in segment order, not source order", () => {

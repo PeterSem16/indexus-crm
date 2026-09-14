@@ -88,3 +88,4 @@
 - [Inbound popup visual hierarchy](inbound-popup-visual-hierarchy.md) — caller-first identity layout is approved; keep red limited to urgency, missed calls, and reject.
 - [Agent priority queue authority](agent-priority-queue-authority.md) — personal priority ordering applies after campaign eligibility and must drive sidebar, mobile, Auto, and Next from one queue.
 - [Rescheduled inbound callback visibility](inbound-callback-visibility.md) — pending callback queries must not filter by creation day; day grouping uses Europe/Bratislava callback time.
+- [Pulse fullscreen modal verification](pulse-fullscreen-modal-verification.md) — verify real modal components under fullscreen ancestor styles; isolated canvas and login screenshots miss hidden controls.

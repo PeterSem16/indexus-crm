@@ -96,6 +96,11 @@ import {
   validateMissionRecordingSettings,
   type MissionCallRecordingSnapshot,
 } from "@shared/mission-recording";
+import {
+  SCHEDULED_CALLBACK_STATUSES,
+  isEligibleScheduledCampaignCallback,
+  normalizeLegacyScheduledCallbackStatus,
+} from "@shared/scheduled-callback";
 
 function recordingModeFromCallMetadata(metadata: unknown): "off" | "both" | "agent_only" | null {
   try {
@@ -25104,7 +25109,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         .where(
           onlyMine
             ? and(
-                eq(campaignContacts.status, "callback_scheduled"),
+                inArray(campaignContacts.status, SCHEDULED_CALLBACK_STATUSES),
                 isNotNull(campaignContacts.callbackDate),
                 or(
                   eq(campaignContacts.assignedTo, user.id),
@@ -25113,7 +25118,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
                 )
               )
             : and(
-                eq(campaignContacts.status, "callback_scheduled"),
+                inArray(campaignContacts.status, SCHEDULED_CALLBACK_STATUSES),
                 isNotNull(campaignContacts.callbackDate)
               )
         );
@@ -25191,6 +25196,10 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       }
 
       for (const row of scheduledContacts) {
+        // Keep the SQL allow-list and the application predicate in sync. The
+        // latter protects this read path if a driver returns an unexpected
+        // null/invalid callback value despite the SQL predicates.
+        if (!isEligibleScheduledCampaignCallback(row.ccStatus, row.ccCallbackDate)) continue;
         const key = `cc-${row.ccId}`;
         if (seenIds.has(key)) continue;
         seenIds.add(key);
@@ -29400,6 +29409,19 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         updatePayload.callbackStatusListItemId = null;
       }
 
+      // A persisted callback date is a scheduled callback, even when a legacy
+      // client omitted the status field (for example, mobile batch reschedule).
+      // The scheduled queue intentionally requires this status so stale
+      // pending rows cannot disappear from the queue.
+      const normalizedCallbackStatus = normalizeLegacyScheduledCallbackStatus(
+        updatePayload.status,
+        updatePayload.callbackDate,
+        existingContact.status,
+      );
+      if (normalizedCallbackStatus !== undefined || Object.prototype.hasOwnProperty.call(updatePayload, "status")) {
+        updatePayload.status = normalizedCallbackStatus;
+      }
+
       // ── Server-side disposition automation ──────────────────────────────
       // Look up the actual disposition definition to reliably apply its
       // actionType + callbackOffsetDays, regardless of what the client sent.
@@ -32806,7 +32828,8 @@ Respond ONLY with valid JSON in this exact format:
       const callbacks = await db.select().from(campaignContacts)
         .where(and(
           eq(campaignContacts.assignedTo, userId),
-          eq(campaignContacts.status, "callback_scheduled"),
+          inArray(campaignContacts.status, SCHEDULED_CALLBACK_STATUSES),
+          isNotNull(campaignContacts.callbackDate),
           lte(campaignContacts.callbackDate, now)
         ));
       res.json(callbacks);

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, Check, Copy, Pencil, Save, Search, ShieldCheck, Trash2, X } from "lucide-react";
 import { useI18n } from "@/i18n";
@@ -71,7 +71,7 @@ export function PriorityBuilder({
   const [saved, setSaved] = useState(false);
   const [activeName, setActiveName] = useState<string>(DEFAULT_PRIORITY_VIEW.presetId!);
 
-  const { data: searches = [] } = useQuery<SavedSearch[]>({
+  const { data: searches = [], isLoading: searchesLoading } = useQuery<SavedSearch[]>({
     queryKey: ["/api/saved-searches", PRIORITY_BUILDER_MODULE],
     queryFn: async () => {
       const response = await fetch(`/api/saved-searches?module=${PRIORITY_BUILDER_MODULE}`, { credentials: "include" });
@@ -87,7 +87,9 @@ export function PriorityBuilder({
     [searches],
   );
 
+  const initializedDefaultRef = useRef(false);
   useEffect(() => {
+    if (searchesLoading || initializedDefaultRef.current) return;
     const defaultEntry = usableSearches.find(entry => entry.search.isDefault);
     if (defaultEntry) {
       setSavedId(defaultEntry.search.id);
@@ -95,7 +97,8 @@ export function PriorityBuilder({
       setSelectedId(defaultEntry.view.segments[0]?.id || "");
       setActiveName(defaultEntry.view.presetId || defaultEntry.search.id);
     }
-  }, [usableSearches]);
+    initializedDefaultRef.current = true;
+  }, [searchesLoading, usableSearches]);
 
   const queue = useMemo(() => buildPriorityQueue(contacts, view, currentUserId), [contacts, currentUserId, view]);
   const filteredQueue = useMemo(() => {
@@ -193,14 +196,14 @@ export function PriorityBuilder({
   return (
     <section className={`flex min-h-0 flex-col overflow-hidden rounded-xl border bg-background ${className}`} aria-label={t.agentWorkspace.priorityBuilderSegments}>
       <style>{`
-        .priority-builder-shell{width:100%;height:100%;min-height:500px;display:flex;flex-direction:column;overflow:hidden;background:#fff;color:#292522;font-family:"Open Sans",sans-serif}
-        .priority-builder-head{height:58px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 16px;border-bottom:1px solid #e8e4e0}
+        .priority-builder-shell{width:100%;height:100%;min-width:0;min-height:500px;display:flex;flex:1 1 auto;flex-direction:column;overflow:hidden;background:#fff;color:#292522;font-family:"Open Sans",sans-serif}
+        .priority-builder-head{height:58px;min-height:58px;display:flex;flex:none;align-items:center;justify-content:space-between;gap:12px;padding:0 16px;border-bottom:1px solid #e8e4e0}
         .priority-builder-title{font-size:13px;font-weight:800;letter-spacing:-.01em}
-        .priority-builder-head-actions{display:flex;align-items:center;gap:8px}
-        .priority-builder-add{height:30px;min-width:130px;border:1px solid #e1ddd8;border-radius:6px;background:#fbfaf9;color:#625a55;font:inherit;font-size:11px;padding:0 9px;outline-color:#bd4f58}
+        .priority-builder-head-actions{display:flex;align-items:center;gap:12px}
+        .priority-builder-add{height:30px;min-width:130px;border:1px solid #e1ddd8;border-radius:6px;background:#fbfaf9;color:#7c746e;font:inherit;font-size:11px;padding:0 9px;outline-color:#bd4f58}
         .priority-builder-close{border:0;background:transparent;color:#827a74;cursor:pointer;padding:4px}
         .priority-builder-close:hover{color:#292522}
-        .priority-builder-content{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(270px,.8fr);min-height:0;flex:1}
+        .priority-builder-content{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(270px,.8fr);min-height:0;flex:1 1 auto;overflow:hidden}
         .priority-builder-groups{padding:12px 14px 8px;overflow:auto}
         .priority-builder-results{border-left:1px solid #ece8e4;background:#fbfaf9;padding:12px 11px;overflow:auto}
         .priority-builder-group{border:1px solid #e6e2de;border-radius:8px;background:#fff;margin-bottom:7px;padding:10px 11px 8px;cursor:pointer}
@@ -216,7 +219,7 @@ export function PriorityBuilder({
         .priority-builder-mini:disabled{opacity:.28;cursor:default}
         .priority-builder-sort{display:flex;align-items:center;gap:8px;margin:8px 0 0 35px;font-size:10px;color:#958b84}
         .priority-builder-sort select{height:25px;border:1px solid #e1dcd7;border-radius:5px;background:#fff;color:#766d66;font:inherit;font-size:10px;padding:0 8px;min-width:144px}
-        .priority-builder-note{min-height:27px;background:#f6f5f4;color:#8b837d;border-radius:5px;font-size:10px;display:flex;align-items:center;gap:6px;padding:5px 9px;margin:9px 0}
+        .priority-builder-note{height:27px;min-height:27px;display:flex;flex:none;align-items:center;gap:6px;background:#f6f5f4;color:#8b837d;border-radius:5px;font-size:10px;padding:0 9px;margin:9px 0}
         .priority-builder-results-head{display:flex;align-items:center;justify-content:space-between;margin:0 1px 8px}
         .priority-builder-results-head h3{font-size:13px;margin:0}
         .priority-builder-total{font-size:12px;color:#c4535b;font-weight:800}
@@ -224,12 +227,12 @@ export function PriorityBuilder({
         .priority-builder-results-tools select,.priority-builder-search{height:29px;border:1px solid #e4ded8;border-radius:5px;background:#fff;color:#706963;font:inherit;font-size:10px;padding:0 7px}
         .priority-builder-search{flex:1;display:flex;align-items:center;gap:5px}
         .priority-builder-search input{border:0;outline:0;width:100%;font:inherit;color:#4e4742;background:transparent}
-        .priority-builder-contact{min-height:37px;display:flex;align-items:center;gap:8px;border:1px solid #ebe5e0;background:#fff;border-radius:5px;padding:5px 8px;margin:5px 0;text-align:left}
+        .priority-builder-contact{width:100%;height:37px;min-height:37px;display:flex;flex:none;align-items:center;gap:8px;border:1px solid #ebe5e0;background:#fff;border-radius:5px;padding:5px 8px;margin:5px 0;text-align:left}
         .priority-builder-avatar{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#f8e3e4;color:#c1545c;font-size:10px;font-weight:800;flex:none}
         .priority-builder-contact-name{font-size:10px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
         .priority-builder-contact-meta{font-size:9px;color:#9a918b;white-space:nowrap}
         .priority-builder-contact-index{font-size:10px;color:#766b65}
-        .priority-builder-footer{min-height:53px;display:flex;align-items:center;gap:7px;border-top:1px solid #e8e3de;padding:0 14px}
+        .priority-builder-footer{height:53px;min-height:53px;display:flex;flex:none;align-items:center;gap:7px;border-top:1px solid #e8e3de;padding:0 14px}
         .priority-builder-footer input{height:32px;border:1px solid #447bd0;border-radius:5px;padding:0 8px;font:inherit;font-size:11px;flex:1;outline:0;box-shadow:0 0 0 1px #c6daf7;min-width:100px}
         .priority-builder-footer button{height:32px;border:1px solid #e3ddd8;border-radius:5px;background:#fff;color:#716963;padding:0 10px;display:inline-flex;align-items:center;gap:5px;font:inherit;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap}
         .priority-builder-footer button:hover{background:#faf5f3}
@@ -238,10 +241,10 @@ export function PriorityBuilder({
         .priority-builder-footer .priority-builder-delete{color:#b54f57}
         .priority-builder-status{font-size:10px;color:#958b84;white-space:nowrap;display:inline-flex;align-items:center;gap:3px}
         .priority-builder-status.saved{color:#478c82}
-        @media(max-width:680px){.priority-builder-content{grid-template-columns:1fr}.priority-builder-results{display:none}.priority-builder-footer{flex-wrap:wrap;height:auto;padding:9px}.priority-builder-footer input{min-width:150px}.priority-builder-status{width:100%}}
+        @media(max-width:680px){.priority-builder-shell{min-height:0}.priority-builder-content{grid-template-columns:1fr}.priority-builder-results{display:none}.priority-builder-footer{flex-wrap:wrap;height:auto;padding:9px}.priority-builder-footer input{min-width:150px}.priority-builder-status{width:100%}}
       `}</style>
       <section className="priority-builder-shell">
-        <header className="priority-builder-head">
+        <div className="priority-builder-head" role="banner">
           <strong className="priority-builder-title">{t.agentWorkspace.priorityBuilderSegments}</strong>
           <div className="priority-builder-head-actions">
             <select
@@ -256,7 +259,7 @@ export function PriorityBuilder({
             </select>
             {onClose && <button type="button" className="priority-builder-close" onClick={onClose} aria-label={t.common.close}><X size={16} /></button>}
           </div>
-        </header>
+        </div>
         <div className="priority-builder-content">
           <section className="priority-builder-groups">
             {view.segments.map((segment, index) => (

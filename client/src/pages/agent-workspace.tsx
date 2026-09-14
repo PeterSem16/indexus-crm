@@ -198,7 +198,7 @@ import { PulseToastScope } from "@/hooks/use-toast";
 import { usePulseToast } from "@/hooks/use-pulse-toast";
 import { useSip } from "@/contexts/sip-context";
 import { useCall } from "@/contexts/call-context";
-import { format, addBusinessDays, startOfDay, endOfDay, addDays, startOfWeek, endOfWeek, isWithinInterval, isBefore } from "date-fns";
+import { format, addBusinessDays, startOfDay, addDays, startOfWeek } from "date-fns";
 import { sk } from "date-fns/locale";
 import { useAgentSession } from "@/contexts/agent-session-context";
 import { CustomerDetailsContent } from "@/pages/customers";
@@ -230,11 +230,13 @@ import PriorityBuilder from "@/components/agent/PriorityBuilder";
 import {
   buildPriorityQueueWithFallback,
   DEFAULT_PRIORITY_VIEW,
+  getBratislavaDateKey,
   parsePriorityView,
   PRIORITY_BUILDER_MODULE,
   type PriorityQueueSegmentId,
 } from "@/components/agent/priority-builder";
 import type { SavedSearch } from "@shared/schema";
+import { buildScheduledCallbackPatch } from "@shared/scheduled-callback";
 
 type AgentInboundQueueDid = {
   didNumber: string;
@@ -9843,18 +9845,37 @@ function ScheduledQueuePanel({
   }, [open]);
 
   const now = new Date();
-  const todayStart = startOfDay(now);
-  const todayEnd = endOfDay(now);
-  const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-  const nextWeekStart = addDays(weekEnd, 1);
-  const nextWeekEnd = endOfWeek(nextWeekStart, { weekStartsOn: 1 });
+  const nowTime = now.getTime();
+  const calendarDayMs = 24 * 60 * 60 * 1000;
+  const todayKey = getBratislavaDateKey(now);
+  const todayDayIndex = todayKey
+    ? (() => {
+        const [year, month, day] = todayKey.split("-").map(Number);
+        return Date.UTC(year, month - 1, day);
+      })()
+    : Number.NaN;
+  const currentWeekStartDayIndex = Number.isFinite(todayDayIndex)
+    ? todayDayIndex - ((new Date(todayDayIndex).getUTCDay() + 6) % 7) * calendarDayMs
+    : Number.NaN;
+
+  const getBratislavaDayIndex = (value: string): number => {
+    const key = getBratislavaDateKey(value);
+    if (!key) return Number.NaN;
+    const [year, month, day] = key.split("-").map(Number);
+    return Date.UTC(year, month - 1, day);
+  };
 
   const getTimeBucket = (scheduledAt: string): Exclude<typeof timeFilter, "all"> => {
     const d = new Date(scheduledAt);
-    if (isBefore(d, now)) return "overdue";
-    if (isWithinInterval(d, { start: todayStart, end: todayEnd })) return "today";
-    if (isWithinInterval(d, { start: todayStart, end: weekEnd })) return "thisWeek";
-    if (isWithinInterval(d, { start: nextWeekStart, end: nextWeekEnd })) return "nextWeek";
+    if (!Number.isFinite(d.getTime())) return "later";
+    if (d.getTime() < nowTime) return "overdue";
+    const dayIndex = getBratislavaDayIndex(scheduledAt);
+    if (!Number.isFinite(dayIndex) || !Number.isFinite(todayDayIndex)) return "later";
+    const dayOffset = Math.round((dayIndex - todayDayIndex) / calendarDayMs);
+    if (dayOffset === 0) return "today";
+    const weekOffset = Math.round((dayIndex - currentWeekStartDayIndex) / calendarDayMs);
+    if (weekOffset >= 0 && weekOffset <= 6) return "thisWeek";
+    if (weekOffset >= 7 && weekOffset <= 13) return "nextWeek";
     return "later";
   };
 
@@ -9866,7 +9887,7 @@ function ScheduledQueuePanel({
       timeCounts[getTimeBucket(item.scheduledAt)]++;
     }
     return { ...timeCounts, ...typeCounts };
-  }, [scheduledItems, now, todayStart, todayEnd, weekEnd, nextWeekStart, nextWeekEnd]);
+  }, [scheduledItems, nowTime, todayDayIndex, currentWeekStartDayIndex]);
 
   const filteredItems = useMemo(() => {
     let items = scheduledItems;
@@ -9892,7 +9913,7 @@ function ScheduledQueuePanel({
       return sortDir === "desc" ? -cmp : cmp;
     });
     return items;
-  }, [scheduledItems, filterType, timeFilter, searchQuery, sortField, sortDir, now, todayStart, todayEnd, weekEnd, nextWeekStart, nextWeekEnd]);
+  }, [scheduledItems, filterType, timeFilter, searchQuery, sortField, sortDir, nowTime, todayDayIndex, currentWeekStartDayIndex]);
 
   const isOverdue = (scheduledAt: string) => new Date(scheduledAt) < new Date();
 
@@ -11705,8 +11726,10 @@ function AgentWorkspacePageContent() {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-state"] });
       if (mobileSlBatchAction === "reschedule") {
         await apiRequest("PATCH", `/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}`, {
-          callbackDate: mobileSlBatchCallbackDt || null,
-          callbackNote: mobileSlBatchCallbackNote || null,
+          ...buildScheduledCallbackPatch(
+            mobileSlBatchCallbackDt || null,
+            mobileSlBatchCallbackNote || null,
+          ),
         });
         queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts"] });
         queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
@@ -15290,9 +15313,9 @@ function AgentWorkspacePageContent() {
       </div>
 
       <Dialog open={contactsModalOpen} onOpenChange={setContactsModalOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col overflow-hidden p-0 gap-0 [&>button]:hidden">
+        <DialogContent overlayClassName="!bg-[rgba(29,25,23,0.74)]" className="!w-[min(880px,calc(100vw-52px))] !max-w-none !flex flex-col h-[min(532px,calc(100dvh-36px))] min-h-[500px] max-h-[calc(100dvh-36px)] overflow-hidden p-0 gap-0 !rounded-[9px] !border-0 !shadow-[0_22px_70px_rgba(27,22,19,0.35)] max-[680px]:!w-[calc(100vw-16px)] max-[680px]:!h-[calc(100dvh-16px)] max-[680px]:!min-h-0 max-[680px]:!max-h-none [&>button]:hidden">
           <PriorityBuilder
-            className="min-h-[34rem] flex-1 rounded-none border-0"
+            className="h-full min-h-0 flex-1 rounded-none border-0"
             contacts={sortedPendingContacts}
             currentUserId={user?.id}
             onClose={() => setContactsModalOpen(false)}

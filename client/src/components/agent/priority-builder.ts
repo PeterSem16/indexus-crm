@@ -142,6 +142,12 @@ function appDateKey(value: number): string {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
+/** Return the app's calendar date for a value, independent of browser timezone. */
+export function getBratislavaDateKey(value: unknown): string | null {
+  const date = timestamp(value);
+  return date === null ? null : appDateKey(date);
+}
+
 function sameDay(a: number, b: number): boolean {
   return appDateKey(a) === appDateKey(b);
 }
