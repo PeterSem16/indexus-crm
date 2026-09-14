@@ -438,7 +438,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   const quickChecksPassed = hasValidReadiness && !runCompleted && quickMicStatus === "pass" && quickSpeakerPassed && quickLatencyStatus === "pass";
   const finalState = quickChecksPassed ? "ready" : runCompleted && quickSpeakerStatus === "fail" ? "blocked" : diagnosticsComplete && heard ? classify(finalResults) : (state === "blocked" ? "blocked" : "checking");
   const labels: Record<string, string> = Object.fromEntries(["browser","secure","online","microphone","input","output","voice","sound","ice","sip","m365Account","notifications","network","latency","wakeLock","devices"].map((k) => [k, t[k as keyof typeof t] as string]));
-  const mainResults = finalResults.filter((item) => !["network", "devices", "latency", "microphone", "input", "output", "voice", "sound"].includes(item.key));
+  const mainResults = finalResults.filter((item) => !["network", "devices", "microphone", "input", "output", "voice", "sound"].includes(item.key));
   const advisoryResults = finalResults.filter((item) => item.key === "network" || item.key === "devices");
   const failedAudioResults = runCompleted
     ? finalResults.filter((item) => ["microphone", "input", "output", "voice", "sound"].includes(item.key) && item.state === "fail")
