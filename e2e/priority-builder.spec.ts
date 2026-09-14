@@ -66,7 +66,7 @@ test("original desktop layout has Indexus sidebar, derived first-match counts, p
 
   const dialog = page.getByRole("dialog");
   await expect.poll(async () => (await dialog.boundingBox())?.width || 0).toBe(1080);
-  await expect.poll(async () => (await dialog.boundingBox())?.height || 0).toBe(680);
+  await expect.poll(async () => (await dialog.boundingBox())?.height || 0).toBe(656);
   await expect(page.locator(".priority-builder-sidebar")).toBeVisible();
   await expect(page.getByText("Evaluation order")).toBeVisible();
   await expect(page.getByText("Live result")).toBeVisible();
@@ -168,6 +168,57 @@ test("original responsive mobile layout retains controls and delegates Auto and 
   expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false);
   await page.getByRole("button", { name: "Close" }).click();
   await expect(page.getByTestId("priority-fixture-closed")).toBeVisible();
+});
+
+test("priority builder stays inside the viewport across desktop, tablet and mobile dimensions", async ({ page }) => {
+  await installSavedSearchApi(page);
+  const viewports = [
+    { width: 1920, height: 1080 },
+    { width: 1280, height: 720 },
+    { width: 1024, height: 600 },
+    { width: 820, height: 600 },
+    { width: 768, height: 1024 },
+    { width: 390, height: 844 },
+    { width: 844, height: 390 },
+  ];
+
+  for (const viewport of viewports) {
+    await openFixture(page, viewport);
+    const dialog = page.getByRole("dialog");
+    const dialogBox = await dialog.boundingBox();
+    expect(dialogBox).not.toBeNull();
+    expect(dialogBox!.x).toBeGreaterThanOrEqual(0);
+    expect(dialogBox!.y).toBeGreaterThanOrEqual(0);
+    expect(dialogBox!.x + dialogBox!.width).toBeLessThanOrEqual(viewport.width);
+    expect(dialogBox!.y + dialogBox!.height).toBeLessThanOrEqual(viewport.height);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+    const addGroup = page.getByRole("combobox", { name: "Add group" });
+    const save = page.getByRole("button", { name: "Save view" });
+    await addGroup.scrollIntoViewIfNeeded();
+    await expect(addGroup).toBeVisible();
+    await expect(save).toBeVisible();
+    if (viewport.height <= 600) {
+      const editorMetrics = await page.locator(".priority-builder-editor").evaluate(element => ({
+        clientHeight: element.clientHeight,
+        scrollHeight: element.scrollHeight,
+        scrollTop: element.scrollTop,
+      }));
+      expect(editorMetrics.scrollHeight).toBeGreaterThan(editorMetrics.clientHeight);
+      expect(editorMetrics.scrollTop).toBeGreaterThan(0);
+    }
+    const saveBox = await save.boundingBox();
+    expect(saveBox).not.toBeNull();
+    expect(saveBox!.y + saveBox!.height).toBeLessThanOrEqual(viewport.height);
+    await expect(page.getByRole("button", { name: "Close" })).toBeVisible();
+
+    if (viewport.width === 1920) {
+      await page.screenshot({ path: "/tmp/priority-responsive-desktop.png" });
+    }
+    if (viewport.width === 390) {
+      await page.screenshot({ path: "/tmp/priority-responsive-mobile.png" });
+    }
+  }
 });
 
 test("saved-view load and write failures keep queue actions locked and expose retry", async ({ page }) => {

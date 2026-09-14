@@ -28,6 +28,9 @@ import {
 import { priorityBuilderCopy } from "./priority-builder-copy";
 import "./priority-builder.css";
 
+/** Shared by the production dialog and the responsive browser fixture. */
+export const PRIORITY_BUILDER_DIALOG_CLASS_NAME = "priority-builder-dialog";
+
 interface PriorityBuilderProps {
   /** Already eligibility-filtered contacts. The parent remains the authoritative queue owner. */
   contacts: PriorityContact[];

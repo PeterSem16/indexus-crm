@@ -226,7 +226,7 @@ import { BackOfficeQuestionsInbox } from "@/components/back-office-questions-inb
 import { MobileAgentWorkspace } from "@/components/mobile-agent-workspace";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getInboundSelectionContext, resolveMissedCallCardTarget } from "@/lib/missed-call-card-resolver";
-import PriorityBuilder from "@/components/agent/PriorityBuilder";
+import PriorityBuilder, { PRIORITY_BUILDER_DIALOG_CLASS_NAME } from "@/components/agent/PriorityBuilder";
 import {
   buildPriorityQueueWithFallback,
   DEFAULT_PRIORITY_VIEW,
@@ -15313,7 +15313,7 @@ function AgentWorkspacePageContent() {
       </div>
 
       <Dialog open={contactsModalOpen} onOpenChange={setContactsModalOpen}>
-        <DialogContent overlayClassName="!bg-[rgba(29,25,23,0.74)]" className="!w-[min(1080px,calc(100vw-52px))] !max-w-none !flex flex-col h-[min(680px,calc(100dvh-32px))] min-h-[590px] max-h-[calc(100dvh-32px)] overflow-hidden p-0 gap-0 !rounded-[20px] !border-0 !shadow-[0_25px_75px_rgba(65,47,35,0.18)] max-[800px]:!w-[calc(100vw-16px)] max-[800px]:!h-[calc(100dvh-16px)] max-[800px]:!min-h-0 max-[800px]:!max-h-none [&>button]:hidden">
+        <DialogContent overlayClassName="!bg-[rgba(29,25,23,0.74)]" className={PRIORITY_BUILDER_DIALOG_CLASS_NAME}>
           <PriorityBuilder
             className="h-full min-h-0 flex-1 rounded-none border-0"
             contacts={sortedPendingContacts}

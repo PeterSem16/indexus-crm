@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Dialog, DialogContent } from "../src/components/ui/dialog";
-import PriorityBuilder from "../src/components/agent/PriorityBuilder";
+import PriorityBuilder, { PRIORITY_BUILDER_DIALOG_CLASS_NAME } from "../src/components/agent/PriorityBuilder";
 import {
   queryClient,
 } from "../src/lib/queryClient";
@@ -123,9 +123,6 @@ const contacts: PriorityContact[] = [
   },
 ];
 
-const dialogClassName =
-  "!w-[min(1080px,calc(100vw-52px))] !max-w-none !flex flex-col h-[min(680px,calc(100dvh-32px))] min-h-[590px] max-h-[calc(100dvh-32px)] overflow-hidden p-0 gap-0 !rounded-[20px] !border-0 !shadow-[0_25px_75px_rgba(65,47,35,0.18)] max-[800px]:!w-[calc(100vw-16px)] max-[800px]:!h-[calc(100dvh-16px)] max-[800px]:!min-h-0 max-[800px]:!max-h-none [&>button]:hidden";
-
 function Fixture() {
   const [open, setOpen] = useState(true);
   const [auto, setAuto] = useState(false);
@@ -139,7 +136,7 @@ function Fixture() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
           overlayClassName="!bg-[rgba(29,25,23,0.74)]"
-          className={dialogClassName}
+          className={PRIORITY_BUILDER_DIALOG_CLASS_NAME}
         >
           <PriorityBuilder
             className="h-full min-h-0 flex-1 rounded-none border-0"
