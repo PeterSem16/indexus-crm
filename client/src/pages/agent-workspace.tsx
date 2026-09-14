@@ -226,6 +226,15 @@ import { BackOfficeQuestionsInbox } from "@/components/back-office-questions-inb
 import { MobileAgentWorkspace } from "@/components/mobile-agent-workspace";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getInboundSelectionContext, resolveMissedCallCardTarget } from "@/lib/missed-call-card-resolver";
+import PriorityBuilder from "@/components/agent/PriorityBuilder";
+import {
+  buildPriorityQueueWithFallback,
+  DEFAULT_PRIORITY_VIEW,
+  parsePriorityView,
+  PRIORITY_BUILDER_MODULE,
+  type PriorityQueueSegmentId,
+} from "@/components/agent/priority-builder";
+import type { SavedSearch } from "@shared/schema";
 
 type AgentInboundQueueDid = {
   didNumber: string;
@@ -1491,6 +1500,8 @@ function TaskListPanel({
   onSelectCampaignContact,
   currentUserId,
   onOpenContactsModal,
+  activePriorityViewName,
+  priorityQueue,
   isAutoMode,
   onToggleAutoMode,
   autoCountdown,
@@ -1524,6 +1535,8 @@ function TaskListPanel({
   onToggleAutoMode: () => void;
   autoCountdown: number | null;
   onOpenContactsModal: () => void;
+  activePriorityViewName?: string;
+  priorityQueue: Array<{ contact: EnrichedCampaignContact; segment: PriorityQueueSegmentId }>;
   onOpenTasksModal: () => void;
   onCancelTask: (taskId: string) => void;
   agentStatus: AgentStatus;
@@ -1833,6 +1846,7 @@ function TaskListPanel({
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                 {t.agentWorkspace.contacts} ({campaignContacts.length})
+                {activePriorityViewName && <span className="ml-1 normal-case font-normal text-primary">· {activePriorityViewName}</span>}
               </span>
               <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); onOpenContactsModal(); }} data-testid="btn-maximize-contacts"><Maximize2 className="h-3.5 w-3.5" /></Button>
             </div>
@@ -1855,59 +1869,46 @@ function TaskListPanel({
           <ScrollArea className="flex-1">
             <div className="px-2 pb-3 pt-1 space-y-2">
               {(() => {
-                const now = new Date();
-                const isDue = (cc: EnrichedCampaignContact) => cc.callbackDate && new Date(cc.callbackDate) <= now;
-                const isMine = (cc: EnrichedCampaignContact) => cc.assignedTo === currentUserId;
-                const isTeam = (cc: EnrichedCampaignContact) => !cc.assignedTo;
-                const isCb = (cc: EnrichedCampaignContact) => cc.status === "callback_scheduled";
-                const sortByDate = (a: EnrichedCampaignContact, b: EnrichedCampaignContact) => {
-                  const aDate = a.callbackDate ? new Date(a.callbackDate).getTime() : Infinity;
-                  const bDate = b.callbackDate ? new Date(b.callbackDate).getTime() : Infinity;
-                  return aDate - bDate;
+                const groupStyle: Record<string, { ac: string; Icon: typeof Users }> = {
+                  referral: { ac: "#7860B8", Icon: Flag },
+                  scheduled_today: { ac: "#B5622E", Icon: Calendar },
+                  due: { ac: "#B5622E", Icon: PhoneCall },
+                  new: { ac: "#337E7B", Icon: Users },
+                  my_scheduled: { ac: "#4C6D96", Icon: Clock },
+                  team_scheduled: { ac: "#2E75B6", Icon: Users },
+                  assigned_others: { ac: "#7A6858", Icon: User },
+                  unhandled: { ac: "#A16E47", Icon: AlertTriangle },
+                  never_called: { ac: "#5A7A5A", Icon: Users },
+                  recently_contacted: { ac: "#5A7A5A", Icon: PhoneCall },
+                  stale: { ac: "#8B6F47", Icon: Clock },
+                  other: { ac: "#6B7280", Icon: Users },
                 };
-
-                const contactGroups = [
-                  {
-                    id: "due",
-                    label: t.agentWorkspace.groupDue,
-                    items: [
-                      ...campaignContacts.filter(cc => isCb(cc) && isMine(cc) && isDue(cc)).sort(sortByDate),
-                      ...campaignContacts.filter(cc => isCb(cc) && isTeam(cc) && isDue(cc)).sort(sortByDate),
-                    ],
-                    ac: "#B5622E",
-                    Icon: PhoneCall,
-                  },
-                  {
-                    id: "my-cb",
-                    label: t.agentWorkspace.groupMyCb,
-                    items: campaignContacts.filter(cc => isCb(cc) && (isMine(cc) || isTeam(cc)) && !isDue(cc)).sort(sortByDate),
-                    ac: "#5B4FCF",
-                    Icon: Clock,
-                  },
-                  ...(!showOnlyAssigned ? [
-                    {
-                      id: "team-cb",
-                      label: t.agentWorkspace.groupTeamCb,
-                      items: campaignContacts.filter(cc => isCb(cc) && cc.assignedTo && !isMine(cc) && !isDue(cc)).sort(sortByDate),
-                      ac: "#2E75B6",
-                      Icon: Users,
-                    },
-                    {
-                      id: "other-cb",
-                      label: t.agentWorkspace.groupOtherCb,
-                      items: campaignContacts.filter(cc => isCb(cc) && cc.assignedTo && cc.assignedTo !== currentUserId).sort(sortByDate),
-                      ac: "#7A6858",
-                      Icon: User,
-                    },
-                  ] : []),
-                  {
-                    id: "pending",
-                    label: t.agentWorkspace.groupPending,
-                    items: campaignContacts.filter(cc => cc.status === "pending"),
-                    ac: "#5A7A5A",
-                    Icon: Users,
-                  },
-                ].filter(g => g.items.length > 0);
+                const segmentLabels: Record<string, string> = {
+                  referral: t.agentWorkspace.priorityBuilderSegmentLabels.referral,
+                  scheduled_today: t.agentWorkspace.priorityBuilderSegmentLabels.scheduled_today,
+                  due: t.agentWorkspace.priorityBuilderSegmentLabels.due,
+                  new: t.agentWorkspace.priorityBuilderSegmentLabels.new,
+                  my_scheduled: t.agentWorkspace.priorityBuilderSegmentLabels.my_scheduled,
+                  team_scheduled: t.agentWorkspace.priorityBuilderSegmentLabels.team_scheduled,
+                  assigned_others: t.agentWorkspace.priorityBuilderSegmentLabels.assigned_others,
+                  unhandled: t.agentWorkspace.priorityBuilderSegmentLabels.unhandled,
+                  never_called: t.agentWorkspace.priorityBuilderSegmentLabels.never_called,
+                  recently_contacted: t.agentWorkspace.priorityBuilderSegmentLabels.recently_contacted,
+                  stale: t.agentWorkspace.priorityBuilderSegmentLabels.stale,
+                  other: t.agentWorkspace.priorityBuilderOther,
+                };
+                const contactGroups = Array.from(new Set(priorityQueue.map(item => item.segment)))
+                  .map(segment => {
+                    const style = groupStyle[segment] || groupStyle.other;
+                    return {
+                      id: segment,
+                      label: segmentLabels[segment] || segment,
+                      items: priorityQueue.filter(item => item.segment === segment).map(item => item.contact),
+                      ac: style.ac,
+                      Icon: style.Icon,
+                    };
+                  })
+                  .filter(group => group.items.length > 0);
 
                 if (contactGroups.length === 0 && (!inboundCallbacks || inboundCallbacks.length === 0)) {
                   return (
@@ -11504,6 +11505,32 @@ function AgentWorkspacePageContent() {
     });
   }, [rawCampaignContacts, disposedContactIds]);
 
+  const { data: savedPriorityViews = [] } = useQuery<SavedSearch[]>({
+    queryKey: ["/api/saved-searches", PRIORITY_BUILDER_MODULE],
+    queryFn: async () => {
+      const response = await fetch(`/api/saved-searches?module=${PRIORITY_BUILDER_MODULE}`, { credentials: "include" });
+      if (!response.ok) return [];
+      return response.json();
+    },
+  });
+  const persistedPriorityView = useMemo(() => {
+    const active = savedPriorityViews.find(item => item.isDefault);
+    if (!active) return DEFAULT_PRIORITY_VIEW;
+    try {
+      return parsePriorityView(JSON.parse(active.filters)) || DEFAULT_PRIORITY_VIEW;
+    } catch {
+      return DEFAULT_PRIORITY_VIEW;
+    }
+  }, [savedPriorityViews]);
+  const activePriorityViewLabel = persistedPriorityView.presetId
+    ? ({
+      referral_first: t.agentWorkspace.priorityBuilderPresetReferral,
+      todays_callbacks: t.agentWorkspace.priorityBuilderPresetToday,
+      fresh_opportunities: t.agentWorkspace.priorityBuilderPresetFresh,
+      recovery_desk: t.agentWorkspace.priorityBuilderPresetRecovery,
+    } as Record<string, string>)[persistedPriorityView.presetId] || persistedPriorityView.name
+    : persistedPriorityView.name;
+
   const currentCampaignContact = useMemo(() => {
     if (!currentCampaignContactId) return null;
     return rawCampaignContacts.find(cc => cc.id === currentCampaignContactId) || null;
@@ -11841,6 +11868,17 @@ function AgentWorkspacePageContent() {
     });
   }, [pendingCampaignContacts, campaignAutoSettings, user?.id]);
 
+  // Priority is applied only after campaign assignment/condition eligibility.
+  // The fallback keeps eligible contacts reachable without changing saved view order.
+  const authoritativePriorityQueue = useMemo(
+    () => buildPriorityQueueWithFallback(sortedPendingContacts, persistedPriorityView, user?.id),
+    [sortedPendingContacts, persistedPriorityView, user?.id],
+  );
+  const authoritativePriorityContacts = useMemo(
+    () => authoritativePriorityQueue.map(item => item.contact),
+    [authoritativePriorityQueue],
+  );
+
   const { data: campaignContactCounts = {} } = useQuery<Record<string, { total: number; pending: number }>>({
     queryKey: ["/api/campaigns/contact-counts"],
     enabled: !!hasAccess,
@@ -11964,7 +12002,7 @@ function AgentWorkspacePageContent() {
       clearInterval(autoTimerRef.current);
       autoTimerRef.current = null;
     }
-    if (!isAutoMode || currentContact || sortedPendingContacts.length === 0) {
+    if (!isAutoMode || currentContact || authoritativePriorityContacts.length === 0) {
       setAutoCountdown(null);
       return;
     }
@@ -11977,18 +12015,18 @@ function AgentWorkspacePageContent() {
         if (autoTimerRef.current) clearInterval(autoTimerRef.current);
         autoTimerRef.current = null;
         setAutoCountdown(null);
-        const next = sortedPendingContacts[0];
-        if (next?.customer) {
+        const next = authoritativePriorityContacts[0];
+        if (next) {
           pendingCcIdRef.current = next.id ? String(next.id) : null;
           setCurrentCampaignContactId(next.id);
-          loadContact(next.customer);
+          handleSelectCampaignContact(next);
         }
       } else {
         setAutoCountdown(remaining);
       }
     }, 1000);
     return () => { if (autoTimerRef.current) clearInterval(autoTimerRef.current); };
-  }, [isAutoMode, currentContact, sortedPendingContacts, campaignAutoSettings.autoDelaySeconds]);
+  }, [isAutoMode, currentContact, authoritativePriorityContacts, campaignAutoSettings.autoDelaySeconds]);
 
   useEffect(() => {
     setIsAutoMode(false);
@@ -12924,8 +12962,8 @@ function AgentWorkspacePageContent() {
       const currentStatus = agentSession.status;
       if (currentStatus === "wrap_up" || currentStatus === "break") return;
     }
-    if (sortedPendingContacts.length > 0) {
-      const nextEnriched = sortedPendingContacts[0];
+    if (authoritativePriorityContacts.length > 0) {
+      const nextEnriched = authoritativePriorityContacts[0];
       handleSelectCampaignContact(nextEnriched);
     }
   };
@@ -14686,13 +14724,15 @@ function AgentWorkspacePageContent() {
           onChannelFilterChange={setChannelFilter}
           onLoadNextContact={guardedNextContact}
           isLoadingContact={false}
-          campaignContacts={sortedPendingContacts}
+          campaignContacts={authoritativePriorityContacts as EnrichedCampaignContact[]}
+          priorityQueue={authoritativePriorityQueue as Array<{ contact: EnrichedCampaignContact; segment: PriorityQueueSegmentId }>}
           onSelectCampaignContact={guardedSelectCampaignContact}
           currentUserId={user?.id}
           isAutoMode={isAutoMode}
           onToggleAutoMode={handleToggleAutoMode}
           autoCountdown={autoCountdown}
           onOpenContactsModal={() => { setModalFilter("all"); setModalSearch(""); setContactsModalOpen(true); }}
+          activePriorityViewName={activePriorityViewLabel}
           onOpenTasksModal={() => setTasksModalOpen(true)}
           onCancelTask={handleCancelTask}
           agentStatus={agentSession.status}
@@ -14721,7 +14761,7 @@ function AgentWorkspacePageContent() {
             <MobileAgentWorkspace
               contact={currentContact}
               campaign={selectedCampaign}
-              campaignContacts={sortedPendingContacts}
+              campaignContacts={authoritativePriorityContacts}
               allCampaignContacts={rawCampaignContacts}
               currentCampaignContactId={effectiveCampaignContactId}
               onSelectContact={(cc) => guardedSelectCampaignContact(cc)}
@@ -15250,7 +15290,20 @@ function AgentWorkspacePageContent() {
       </div>
 
       <Dialog open={contactsModalOpen} onOpenChange={setContactsModalOpen}>
-        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col overflow-hidden p-0 gap-0">
+        <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col overflow-hidden p-0 gap-0">
+          <PriorityBuilder
+            className="min-h-[34rem] flex-1 rounded-none border-0"
+            contacts={sortedPendingContacts}
+            currentUserId={user?.id}
+            onSelectContact={(contact) => {
+              const campaignContact = sortedPendingContacts.find(item => item.id === contact.id);
+              if (campaignContact) {
+                guardedSelectCampaignContact(campaignContact);
+                setContactsModalOpen(false);
+              }
+            }}
+          />
+          <div className="hidden">
           {/* S&T Header */}
           <div className="flex items-center gap-3 px-6 pt-5 pb-4 border-b shrink-0">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl shrink-0" style={{ background: "#B5622E18" }}>
@@ -15643,6 +15696,7 @@ function AgentWorkspacePageContent() {
                 </div>
               );
             })()}
+          </div>
           </div>
         </DialogContent>
       </Dialog>

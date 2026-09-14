@@ -647,6 +647,8 @@ export interface IStorage {
   // Saved Searches
   getSavedSearchesByUser(userId: string, module?: string): Promise<SavedSearch[]>;
   createSavedSearch(data: InsertSavedSearch): Promise<SavedSearch>;
+  updateSavedSearchForUser(id: string, userId: string, data: Partial<InsertSavedSearch>): Promise<SavedSearch | undefined>;
+  setDefaultSavedSearchForUser(id: string, userId: string, module: string): Promise<SavedSearch | undefined>;
   deleteSavedSearch(id: string): Promise<boolean>;
   deleteSavedSearchForUser(id: string, userId: string): Promise<boolean>;
 
@@ -4103,6 +4105,27 @@ export class DatabaseStorage implements IStorage {
   async createSavedSearch(data: InsertSavedSearch): Promise<SavedSearch> {
     const [created] = await db.insert(savedSearches).values(data).returning();
     return created;
+  }
+
+  async updateSavedSearchForUser(id: string, userId: string, data: Partial<InsertSavedSearch>): Promise<SavedSearch | undefined> {
+    const [updated] = await db.update(savedSearches)
+      .set(data)
+      .where(and(eq(savedSearches.id, id), eq(savedSearches.userId, userId)))
+      .returning();
+    return updated || undefined;
+  }
+
+  async setDefaultSavedSearchForUser(id: string, userId: string, module: string): Promise<SavedSearch | undefined> {
+    return db.transaction(async (tx) => {
+      await tx.update(savedSearches)
+        .set({ isDefault: false })
+        .where(and(eq(savedSearches.userId, userId), eq(savedSearches.module, module)));
+      const [updated] = await tx.update(savedSearches)
+        .set({ isDefault: true })
+        .where(and(eq(savedSearches.id, id), eq(savedSearches.userId, userId), eq(savedSearches.module, module)))
+        .returning();
+      return updated || undefined;
+    });
   }
 
   async deleteSavedSearch(id: string): Promise<boolean> {

@@ -215,6 +215,72 @@ function readPersistedAgentOnlyRecordingContext(
 // Tracks active server-side AMI recordings for mobile calls: callLogId → info
 const mobileActiveRecordings = new Map<string, MobileRecordingInfo>();
 
+const priorityPresetDefinitions = {
+  referral_first: {
+    name: "Referral first",
+    segments: [
+      { id: "referral", sort: "priority" },
+      { id: "scheduled_today", sort: "callback_asc" },
+      { id: "new", sort: "created_desc" },
+    ],
+  },
+  todays_callbacks: {
+    name: "Today's callbacks",
+    segments: [
+      { id: "scheduled_today", sort: "callback_asc" },
+      { id: "due", sort: "callback_asc" },
+      { id: "new", sort: "created_desc" },
+    ],
+  },
+  fresh_opportunities: {
+    name: "Fresh opportunities",
+    segments: [
+      { id: "new", sort: "created_desc" },
+      { id: "referral", sort: "priority" },
+      { id: "never_called", sort: "name_asc" },
+    ],
+  },
+  recovery_desk: {
+    name: "Recovery desk",
+    segments: [
+      { id: "unhandled", sort: "attempts_desc" },
+      { id: "stale", sort: "last_contact_asc" },
+      { id: "assigned_others", sort: "callback_asc" },
+    ],
+  },
+} as const;
+
+const prioritySavedViewSchema = z.object({
+  version: z.literal(1),
+  name: z.string().trim().min(1).max(120),
+  segments: z.array(z.object({
+    id: z.enum(["referral", "scheduled_today", "due", "new", "my_scheduled", "team_scheduled", "assigned_others", "unhandled", "never_called", "recently_contacted", "stale"]),
+    sort: z.enum(["priority", "name_asc", "name_desc", "attempts_desc", "attempts_asc", "last_contact_asc", "last_contact_desc", "callback_asc", "callback_desc", "created_desc", "created_asc"]),
+  })).min(1),
+  presetId: z.enum(["referral_first", "todays_callbacks", "fresh_opportunities", "recovery_desk"]).optional(),
+}).superRefine((view, context) => {
+  if (!view.presetId) return;
+  const canonical = priorityPresetDefinitions[view.presetId];
+  if (view.name !== canonical.name || JSON.stringify(view.segments) !== JSON.stringify(canonical.segments)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["presetId"],
+      message: "System priority preset does not match its canonical definition",
+    });
+  }
+});
+
+function validatePrioritySavedFilters(module: string, filters: string): z.infer<typeof prioritySavedViewSchema> | undefined {
+  if (module !== "agent-priority-builder") return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(filters);
+  } catch {
+    throw new z.ZodError([{ code: "custom", path: ["filters"], message: "Invalid priority view JSON" }]);
+  }
+  return prioritySavedViewSchema.parse(parsed);
+}
+
 // Initialize all storage directories
 ensureAllDirectoriesExist();
 
@@ -22758,8 +22824,13 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         ...req.body,
         userId,
       });
+      validatePrioritySavedFilters(validatedData.module, validatedData.filters);
       
       const search = await storage.createSavedSearch(validatedData);
+      if (validatedData.isDefault) {
+        const active = await storage.setDefaultSavedSearchForUser(search.id, userId, search.module);
+        return res.status(201).json(active || search);
+      }
       res.status(201).json(search);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -22770,12 +22841,55 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
+  app.patch("/api/saved-searches/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user!.id;
+      const existing = (await storage.getSavedSearchesByUser(userId)).find(search => search.id === req.params.id);
+      if (!existing) return res.status(404).json({ error: "Saved search not found" });
+      const validated = z.object({
+        name: z.string().min(1).optional(),
+        module: z.string().min(1).optional(),
+        filters: z.string().optional(),
+        isDefault: z.boolean().optional(),
+      }).parse(req.body) as {
+        name?: string;
+        module?: string;
+        filters?: string;
+        isDefault?: boolean;
+      };
+      if (validated.module && validated.module !== existing.module) {
+        return res.status(400).json({ error: "Saved search module cannot be changed" });
+      }
+      if (validated.filters) {
+        const existingPriorityView = validatePrioritySavedFilters(existing.module, existing.filters);
+        const updatedPriorityView = validatePrioritySavedFilters(validated.module || existing.module, validated.filters);
+        if (existing.module === "agent-priority-builder"
+          && existingPriorityView?.presetId !== updatedPriorityView?.presetId) {
+          return res.status(400).json({ error: "Saved priority view identity cannot be changed" });
+        }
+      }
+      const updated = await storage.updateSavedSearchForUser(req.params.id, userId, validated);
+      if (!updated) return res.status(404).json({ error: "Saved search not found" });
+      if (validated.isDefault) {
+        const active = await storage.setDefaultSavedSearchForUser(updated.id, userId, updated.module);
+        return res.json(active || updated);
+      }
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid data", details: error.errors });
+      }
+      console.error("Failed to update saved search:", error);
+      res.status(500).json({ error: "Failed to update saved search" });
+    }
+  });
+
   app.delete("/api/saved-searches/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const userId = req.session.user!.id;
       
-      // Verify ownership before deleting
+      // Verify ownership before deleting.
       const deleted = await storage.deleteSavedSearchForUser(id, userId);
       if (!deleted) {
         return res.status(404).json({ error: "Saved search not found" });
