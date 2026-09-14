@@ -4,8 +4,26 @@ type SavedViewPayload = { name: string; module: string; filters: string; isDefau
 type SavedView = SavedViewPayload & { id: string };
 type CityRankingPayload = { cities: Array<{ key: string; city: string; countryCode: string }> };
 
-async function installSavedSearchApi(page: Page, options: { failGets?: number; failWrites?: number; postDelayMs?: number } = {}) {
-  const savedViews: SavedView[] = [];
+const existingUnrankedView: SavedView = {
+  id: "existing-unranked", name: "Existing queue", module: "agent-priority-builder", isDefault: true,
+  filters: JSON.stringify({
+    version: 1, name: "Existing queue",
+    segments: [
+      { id: "referral", sort: "priority", referralsFirst: true },
+      { id: "scheduled_today", sort: "priority", referralsFirst: true },
+      { id: "new", sort: "created_desc", referralsFirst: true },
+      { id: "my_scheduled", sort: "priority", referralsFirst: true },
+    ],
+  }),
+};
+
+async function installSavedSearchApi(page: Page, options: {
+  failGets?: number;
+  failWrites?: number;
+  postDelayMs?: number;
+  initialViews?: SavedView[];
+} = {}) {
+  const savedViews: SavedView[] = [...(options.initialViews || [])];
   const writes: SavedViewPayload[] = [];
   const patchIds: string[] = [];
   let nextId = 1;
@@ -46,6 +64,15 @@ async function installSavedSearchApi(page: Page, options: { failGets?: number; f
     }
     if (request.method() === "DELETE" && index >= 0) savedViews.splice(index, 1);
     await route.fulfill({ status: 204, body: "" });
+  });
+  // The first-run default ranks its current fixture pool automatically. Tests
+  // that call installCityRankingApi register a later, scenario-specific route.
+  await page.route("**/api/agent/priority-builder/city-ranking", async route => {
+    const body = JSON.parse(route.request().postData() || "{}") as CityRankingPayload;
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ rankedKeys: body.cities.map(city => city.key), unknownKeys: [] }),
+    });
   });
   return { savedViews, writes, patchIds };
 }
@@ -104,7 +131,7 @@ test("original desktop layout has Indexus sidebar, derived first-match counts, p
   const firstResultBox = await page.locator(".priority-builder-card").first().boundingBox();
   expect(previewBox).not.toBeNull();
   expect(firstResultBox).not.toBeNull();
-  expect(firstResultBox!.width).toBeGreaterThanOrEqual(previewBox!.width - 35); // 17px padding per side plus 1px border
+  expect(firstResultBox!.width).toBeGreaterThanOrEqual(previewBox!.width - 40); // padding, border, and scrollbar
   const firstCard = page.locator(".priority-builder-card").filter({ hasText: "Melichar" });
   await expect(firstCard).toContainText("Next up");
   await expect(firstCard).toContainText("Queue position 1");
@@ -120,7 +147,7 @@ test("original desktop layout has Indexus sidebar, derived first-match counts, p
   await expect(scheduledCard).toContainText("Call attempts in this Mission: No attempts");
   expect(await scheduledCard.textContent()).toMatch(/Scheduled callback:.*\d{4}/);
   const fallbackCard = page.locator(".priority-builder-card").filter({ hasText: "Tes Zdravotné" });
-  await expect(fallbackCard).toContainText("Queue position 6");
+  await expect(fallbackCard).toContainText("Queue position 8");
   await expect(fallbackCard).toContainText("Group: Other eligible contacts");
   await expect(fallbackCard).toContainText("Call attempts in this Mission: Unknown");
   expect(await fallbackCard.textContent()).toMatch(/Scheduled callback:.*\d{4}/);
@@ -130,18 +157,87 @@ test("original desktop layout has Indexus sidebar, derived first-match counts, p
     await page.getByRole("button", { name }).last().click();
     await expect(page.locator(".priority-builder-side-item.active").last()).toContainText(name);
   }
-  expect(api.writes.filter(write => write.isDefault)).toHaveLength(4);
+  // One idempotent first-run seed plus the four explicit preset activations.
+  expect(api.writes.filter(write => write.isDefault)).toHaveLength(5);
 
   await page.getByRole("textbox", { name: "Search contacts" }).fill("Melichar");
   await expect(page.locator(".priority-builder-card")).toHaveCount(1);
   await expect(page.locator(".priority-builder-card")).toContainText("Melichar");
 });
 
+test("first-time mission users receive one persisted Referral + cities snapshot", async ({ page }) => {
+  const api = await installSavedSearchApi(page);
+  const cityApi = await installCityRankingApi(page);
+  await openFixture(page, { width: 1280, height: 720 });
+
+  await expect.poll(() => api.savedViews.length).toBe(1);
+  const saved = JSON.parse(api.savedViews[0].filters);
+  expect(saved).toMatchObject({
+    name: "Referral + cities",
+    presetId: "referral_cities",
+    cityGrouping: { enabled: true, mode: "all" },
+  });
+  expect(saved.segments).toEqual([
+    { id: "referral", sort: "priority", referralsFirst: true },
+    { id: "scheduled_today", sort: "priority", referralsFirst: true },
+    { id: "new", sort: "created_desc", referralsFirst: true },
+    { id: "my_scheduled", sort: "priority", referralsFirst: true },
+  ]);
+  expect(cityApi.requests).toHaveLength(1);
+  expect(cityApi.requests[0].cities.every(city => Object.keys(city).sort().join(",") === "city,countryCode,key")).toBe(true);
+  await expect(page.getByRole("button", { name: /Auto/ })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Referral + cities" }).last()).toBeVisible();
+});
+
+test("an existing active personal view is preserved and skips first-run ranking", async ({ page }) => {
+  const personalView = {
+    id: "existing-personal",
+    name: "My saved queue",
+    module: "agent-priority-builder",
+    isDefault: true,
+    filters: JSON.stringify({
+      version: 1,
+      name: "My saved queue",
+      segments: [{ id: "new", sort: "name_asc", referralsFirst: false }],
+    }),
+  } satisfies SavedView;
+  const api = await installSavedSearchApi(page, { initialViews: [personalView] });
+  const cityApi = await installCityRankingApi(page);
+  await openFixture(page, { width: 1280, height: 720 });
+
+  await expect(page.locator(".priority-builder-row").first()).toContainText("New contacts");
+  await expect(page.getByRole("textbox", { name: "Saved view name" })).toHaveValue("My saved queue");
+  await expect.poll(() => api.writes.length).toBe(0);
+  expect(cityApi.requests).toHaveLength(0);
+});
+
+test("retained saved rows without a default remain usable and do not trigger seeding", async ({ page }) => {
+  const retainedViews = ["Older queue", "Another queue"].map((name, index) => ({
+    id: `retained-${index}`,
+    name,
+    module: "agent-priority-builder",
+    isDefault: false,
+    filters: JSON.stringify({
+      version: 1,
+      name,
+      segments: [{ id: index ? "referral" : "new", sort: "created_desc", referralsFirst: true }],
+    }),
+  } satisfies SavedView));
+  const api = await installSavedSearchApi(page, { initialViews: retainedViews });
+  const cityApi = await installCityRankingApi(page);
+  await openFixture(page, { width: 1280, height: 720 });
+
+  await expect(page.getByRole("textbox", { name: "Saved view name" })).toHaveValue("Older queue");
+  await expect(page.getByRole("button", { name: /Auto/ })).toBeEnabled();
+  await expect.poll(() => api.writes.length).toBe(0);
+  expect(cityApi.requests).toHaveLength(0);
+});
+
 test("referral-first group toggle persists independently and referral badges remain visible", async ({ page }) => {
   const api = await installSavedSearchApi(page);
   await openFixture(page, { width: 1280, height: 720 });
   const toggles = page.locator(".priority-builder-referral-toggle input");
-  await expect(toggles).toHaveCount(3);
+  await expect(toggles).toHaveCount(4);
   await expect(toggles.nth(1)).toBeChecked();
   await expect(page.locator(".priority-builder-card-chip-referral")).toHaveCount(2);
   await toggles.nth(1).uncheck();
@@ -149,8 +245,9 @@ test("referral-first group toggle persists independently and referral badges rem
   await page.getByRole("textbox", { name: "Saved view name" }).fill("Referral group settings");
   await page.getByRole("button", { name: "Save view" }).click();
   await expect(page.locator(".priority-builder-status")).toContainText("Saved to Contacts");
-  await expect.poll(() => api.savedViews.length).toBe(1);
-  expect(JSON.parse(api.savedViews[0].filters).segments.map((segment: { referralsFirst: boolean }) => segment.referralsFirst)).toEqual([true, false, true]);
+  await expect.poll(() => api.savedViews.length).toBe(2);
+  const customView = api.savedViews.find(view => view.name === "Referral group settings")!;
+  expect(JSON.parse(customView.filters).segments.map((segment: { referralsFirst: boolean }) => segment.referralsFirst)).toEqual([true, false, true, true]);
   await page.reload();
   await expect(toggles.nth(1)).not.toBeChecked();
   await expect(toggles.first()).toBeChecked();
@@ -163,16 +260,16 @@ test("draft controls add, reorder, remove, reset, save, reopen and delete a pers
   await openFixture(page, { width: 1280, height: 720 });
 
   const addGroup = page.getByRole("combobox", { name: "Add group" });
-  await addGroup.selectOption({ label: "My scheduled" });
-  await expect(page.locator(".priority-builder-row").last()).toContainText("My scheduled");
+  await addGroup.selectOption({ label: "Team scheduled" });
+  await expect(page.locator(".priority-builder-row").last()).toContainText("Team scheduled");
   await expect(page.locator(".priority-builder-status")).toContainText("Unsaved changes");
   await expect(page.getByRole("button", { name: /Auto/ })).toBeDisabled();
   await expect(page.locator(".priority-builder-queue-hint:visible")).toHaveText("Save changes before Auto or Next use this order.");
   await page.getByRole("button", { name: "Move group up" }).last().click();
-  await expect(page.locator(".priority-builder-row").nth(2)).toContainText("My scheduled");
+  await expect(page.locator(".priority-builder-row").nth(3)).toContainText("Team scheduled");
   await page.getByRole("button", { name: "More segment actions" }).last().click();
   await page.getByRole("button", { name: "Remove segment" }).click();
-  await expect(page.locator(".priority-builder-row")).toHaveCount(3);
+  await expect(page.locator(".priority-builder-row")).toHaveCount(4);
 
   await page.getByRole("textbox", { name: "Saved view name" }).fill("Fixture custom queue");
   await page.getByRole("button", { name: "Rename view" }).click();
@@ -180,9 +277,9 @@ test("draft controls add, reorder, remove, reset, save, reopen and delete a pers
   await page.getByRole("button", { name: "Save view" }).click();
   await expect(page.locator(".priority-builder-status")).toContainText("Saved to Contacts");
   await expect(page.getByRole("button", { name: /Auto/ })).toBeEnabled();
-  await expect.poll(() => api.savedViews.length).toBe(1);
-  expect(api.savedViews[0].isDefault).toBe(true);
-  expect(JSON.parse(api.savedViews[0].filters)).not.toHaveProperty("presetId");
+  await expect.poll(() => api.savedViews.length).toBe(2);
+  expect(api.savedViews.find(view => view.name === "Fixture custom queue")!.isDefault).toBe(true);
+  expect(JSON.parse(api.savedViews.find(view => view.name === "Fixture custom queue")!.filters)).not.toHaveProperty("presetId");
   await expect(page.getByRole("button", { name: "Fixture custom queue" }).last()).toBeVisible();
   await page.getByRole("button", { name: "Duplicate" }).click();
   await expect(page.getByRole("textbox", { name: "Saved view name" })).toHaveValue("Fixture custom queue copy");
@@ -195,12 +292,12 @@ test("draft controls add, reorder, remove, reset, save, reopen and delete a pers
   await expect.poll(() => api.savedViews.some(view => view.name === "Fixture custom queue")).toBe(false);
 
   await page.getByRole("button", { name: "Reset" }).click();
-  await expect(page.locator(".priority-builder-row")).toHaveCount(3);
+  await expect(page.locator(".priority-builder-row")).toHaveCount(4);
   await expect(page.locator(".priority-builder-row").first()).toContainText("New referrals");
 });
 
 test("original responsive mobile layout retains controls and delegates Auto and Next", async ({ page }) => {
-  await installSavedSearchApi(page, { postDelayMs: 150 });
+  await installSavedSearchApi(page, { postDelayMs: 1500 });
   await openFixture(page, { width: 390, height: 844 });
 
   const dialog = page.getByRole("dialog");
@@ -287,7 +384,7 @@ test("priority builder stays inside the viewport across desktop, tablet and mobi
 });
 
 test("saved-view load and write failures keep queue actions locked and expose retry", async ({ page }) => {
-  await installSavedSearchApi(page, { failGets: 1, failWrites: 1 });
+  await installSavedSearchApi(page, { failGets: 1, failWrites: 1, initialViews: [existingUnrankedView] });
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto("/test-fixtures/priority-builder.html");
   await expect(page.getByRole("alert")).toContainText("Saved views could not be loaded.");
@@ -295,7 +392,7 @@ test("saved-view load and write failures keep queue actions locked and expose re
   await page.getByRole("button", { name: "Retry" }).click();
   await expect(page.getByRole("combobox", { name: "Add group" })).toBeEnabled();
 
-  await page.getByRole("combobox", { name: "Add group" }).selectOption({ label: "My scheduled" });
+  await page.getByRole("combobox", { name: "Add group" }).selectOption({ label: "Team scheduled" });
   await page.getByRole("textbox", { name: "Saved view name" }).fill("Failure queue");
   await page.getByRole("button", { name: "Save view" }).click();
   await expect(page.getByRole("alert")).toContainText("The view could not be saved.");
@@ -306,7 +403,7 @@ test("saved-view load and write failures keep queue actions locked and expose re
 });
 
 test("city groups rank, lock while pending, save/reopen, refresh new cities, and keep legacy ordering when disabled", async ({ page }) => {
-  const savedApi = await installSavedSearchApi(page);
+  const savedApi = await installSavedSearchApi(page, { initialViews: [existingUnrankedView] });
   const cityApi = await installCityRankingApi(page, {
     responses: [
       {
@@ -344,11 +441,12 @@ test("city groups rank, lock while pending, save/reopen, refresh new cities, and
   await expect(firstCityGroup.locator(".priority-builder-card")).toHaveCount(1);
   await page.screenshot({ path: "/tmp/priority-city-desktop.png" });
 
+  await page.getByRole("button", { name: "Duplicate" }).click();
   await page.getByRole("textbox", { name: "Saved view name" }).fill("City fixture queue");
   await page.getByRole("button", { name: "Save view" }).click();
   await expect(page.locator(".priority-builder-status")).toContainText("Saved to Contacts");
-  await expect.poll(() => savedApi.savedViews.length).toBe(1);
-  const savedFilters = JSON.parse(savedApi.savedViews[0].filters);
+  await expect.poll(() => savedApi.savedViews.length).toBe(2);
+  const savedFilters = JSON.parse(savedApi.savedViews.find(view => view.name === "City fixture queue")!.filters);
   expect(savedFilters.cityGrouping).toMatchObject({
     enabled: true,
     rankedKeys: ["AT:vienna", "SK:bratislava", "CZ:prague", "CZ:brno", "SK:nitra"],
@@ -379,7 +477,7 @@ test("city groups rank, lock while pending, save/reopen, refresh new cities, and
 });
 
 test("city ranking failure exposes retry and locks queue actions", async ({ page }) => {
-  await installSavedSearchApi(page);
+  await installSavedSearchApi(page, { initialViews: [existingUnrankedView] });
   await installCityRankingApi(page, { fail: true });
   await openFixture(page, { width: 1280, height: 720 });
   await page.getByTestId("toggle-priority-city-grouping").click();
@@ -402,6 +500,7 @@ test("city grouped parent Next follows the first saved city contact", async ({ p
   await openFixture(page, { width: 390, height: 844 });
   await page.getByTestId("toggle-priority-city-grouping").check();
   await expect(page.getByTestId("priority-city-status")).toContainText("AI city order ready");
+  await page.getByRole("button", { name: "Duplicate" }).click();
   await page.getByRole("textbox", { name: "Saved view name" }).fill("City mobile queue");
   await page.getByRole("button", { name: "Save view" }).click();
   await expect(page.locator(".priority-builder-status")).toContainText("Saved to Contacts");
@@ -425,6 +524,7 @@ test("selected cities stay authoritative for saved, reopened, empty and parent N
   const bratislava = page.getByTestId("priority-city-option-SK:bratislava");
   await expect(bratislava).toBeVisible();
   await bratislava.check();
+  await page.getByRole("button", { name: "Duplicate" }).click();
   await page.getByRole("textbox", { name: "Saved view name" }).fill("Selected city queue");
   await page.getByRole("button", { name: "Save view" }).click();
   await expect(page.locator(".priority-builder-status")).toContainText("Saved to Contacts");
@@ -447,7 +547,7 @@ test("a delayed activation is serialized and duplicate names retain the POST res
 
   await page.getByRole("button", { name: "Fresh opportunities" }).last().click();
   await expect(page.getByRole("button", { name: "Recovery desk" }).last()).toBeDisabled();
-  await expect.poll(() => api.writes.length).toBe(1);
+  await expect.poll(() => api.writes.length).toBe(2);
   await expect(page.locator(".priority-builder-row").first()).toContainText("New contacts");
 
   await page.getByRole("combobox", { name: "Add group" }).selectOption({ label: "My scheduled" });

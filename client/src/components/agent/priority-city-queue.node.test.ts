@@ -43,7 +43,7 @@ test("missing cities and fallback contacts are retained; saved city snapshots ro
   assert.deepEqual(result.map(x => x.contact.id), ["known", "unknown", "fallback"]);
   assert.equal(result[1].cityGroup?.key, null);
   assert.equal(result[2].segment, "other");
-  const legacy = parsePriorityView(JSON.parse(JSON.stringify(DEFAULT_PRIORITY_VIEW)))!;
+  const legacy = parsePriorityView({ version: 1, name: "Legacy", segments: [{ id: "new", sort: "priority" }] })!;
   assert.ok(!legacy.cityGrouping?.enabled);
   assert.ok(buildPriorityQueueWithFallback(input, legacy, "agent", now).every(x => !x.cityGroup));
 });
@@ -133,6 +133,7 @@ test("referrals require an explicit zero attempt and leave the Referral group wh
     unknownCount, rescheduled, zeroScheduled, fresh,
   ], {
     ...DEFAULT_PRIORITY_VIEW,
+    cityGrouping: undefined,
     segments: [
       { id: "referral", sort: "name_asc" },
       { id: "scheduled_today", sort: "callback_asc" },

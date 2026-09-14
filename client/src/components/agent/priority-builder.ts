@@ -57,7 +57,12 @@ export interface PriorityView {
   };
 }
 
-export type PriorityPresetId = "referral_first" | "todays_callbacks" | "fresh_opportunities" | "recovery_desk";
+export type PriorityPresetId =
+  | "referral_cities"
+  | "referral_first"
+  | "todays_callbacks"
+  | "fresh_opportunities"
+  | "recovery_desk";
 
 export type PriorityContact = Omit<CampaignContact, "attemptCount"> & {
   /** campaign_contacts defaults this to zero, but defensive UI paths may omit it. */
@@ -98,7 +103,7 @@ const priorityViewSchema = z.object({
   version: z.literal(1),
   name: z.string().trim().min(1).max(120),
   segments: z.array(prioritySegmentSchema).min(1),
-  presetId: z.enum(["referral_first", "todays_callbacks", "fresh_opportunities", "recovery_desk"]).optional(),
+  presetId: z.enum(["referral_cities", "referral_first", "todays_callbacks", "fresh_opportunities", "recovery_desk"]).optional(),
   cityGrouping: z.object({
     enabled: z.boolean(),
     rankedKeys: z.array(z.string().trim().min(1)).max(500),
@@ -108,7 +113,37 @@ const priorityViewSchema = z.object({
   }).optional(),
 });
 
+/**
+ * The first-run view deliberately contains no client-invented city order.
+ * `rankedKeys`/`unknownKeys` are filled only by the authenticated ranking
+ * endpoint once the mission has supplied an eligible city pool.
+ */
+export function createReferralCitiesPriorityView(
+  rankedKeys: string[] = [],
+  unknownKeys: string[] = [],
+): PriorityView {
+  return {
+    version: 1,
+    name: "Referral + cities",
+    presetId: "referral_cities",
+    segments: [
+      { id: "referral", sort: "priority", referralsFirst: true },
+      { id: "scheduled_today", sort: "priority", referralsFirst: true },
+      { id: "new", sort: "created_desc", referralsFirst: true },
+      { id: "my_scheduled", sort: "priority", referralsFirst: true },
+    ],
+    cityGrouping: {
+      enabled: true,
+      rankedKeys: Array.from(new Set(rankedKeys)),
+      unknownKeys: Array.from(new Set(unknownKeys)).filter(key => !rankedKeys.includes(key)),
+      mode: "all",
+      selectedKeys: [],
+    },
+  };
+}
+
 export const PRIORITY_PRESETS: readonly PriorityView[] = [
+  createReferralCitiesPriorityView(),
   {
     version: 1, name: "New referrals first", presetId: "referral_first",
     segments: [
@@ -131,7 +166,9 @@ export const PRIORITY_PRESETS: readonly PriorityView[] = [
   },
 ];
 
-export const DEFAULT_PRIORITY_VIEW = PRIORITY_PRESETS[0];
+/** First-run and reset target. A persisted first-run view replaces its empty
+ * city snapshot with the AI response before it becomes authoritative. */
+export const DEFAULT_PRIORITY_VIEW = createReferralCitiesPriorityView();
 
 /** Validate persisted JSON at the boundary. Unknown segment/sort values are rejected. */
 export function parsePriorityView(value: unknown): PriorityView | null {

@@ -647,6 +647,13 @@ export interface IStorage {
   // Saved Searches
   getSavedSearchesByUser(userId: string, module?: string): Promise<SavedSearch[]>;
   createSavedSearch(data: InsertSavedSearch): Promise<SavedSearch>;
+  /**
+   * Create the first view exactly once. The transaction-level advisory lock
+   * closes the first-login race between the workspace and builder; retained
+   * legacy rows (even without a default) are never overwritten.
+   */
+  ensureDefaultSavedSearchForUser(data: InsertSavedSearch): Promise<SavedSearch>;
+  updateDefaultSavedSearchForUser(id: string, userId: string, data: Partial<InsertSavedSearch>): Promise<SavedSearch | undefined>;
   updateSavedSearchForUser(id: string, userId: string, data: Partial<InsertSavedSearch>): Promise<SavedSearch | undefined>;
   setDefaultSavedSearchForUser(id: string, userId: string, module: string): Promise<SavedSearch | undefined>;
   deleteSavedSearch(id: string): Promise<boolean>;
@@ -4107,6 +4114,48 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  async ensureDefaultSavedSearchForUser(data: InsertSavedSearch): Promise<SavedSearch> {
+    return db.transaction(async (tx) => {
+      // There is no partial unique index on legacy saved-search data.  Lock a
+      // stable per-user/module key so two first-run clients cannot both insert
+      // a view (including the legacy case where rows exist but none is default).
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`${data.userId}:${data.module}:default`}))`);
+      const [existing] = await tx.select().from(savedSearches)
+        .where(and(
+          eq(savedSearches.userId, data.userId),
+          eq(savedSearches.module, data.module),
+        ))
+        .limit(1);
+      if (existing) return existing;
+      const [created] = await tx.insert(savedSearches)
+        .values({ ...data, isDefault: true })
+        .returning();
+      return created;
+    });
+  }
+
+  async updateDefaultSavedSearchForUser(
+    id: string,
+    userId: string,
+    data: Partial<InsertSavedSearch>,
+  ): Promise<SavedSearch | undefined> {
+    return db.transaction(async (tx) => {
+      // Snapshot upgrades use compare-and-swap semantics: never resurrect an
+      // old active view after another tab has selected a newer one.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`${userId}:${data.module || "agent-priority-builder"}:default`}))`);
+      const [updated] = await tx.update(savedSearches)
+        .set({ ...data, isDefault: true })
+        .where(and(
+          eq(savedSearches.id, id),
+          eq(savedSearches.userId, userId),
+          eq(savedSearches.module, data.module || "agent-priority-builder"),
+          eq(savedSearches.isDefault, true),
+        ))
+        .returning();
+      return updated || undefined;
+    });
+  }
+
   async updateSavedSearchForUser(id: string, userId: string, data: Partial<InsertSavedSearch>): Promise<SavedSearch | undefined> {
     const [updated] = await db.update(savedSearches)
       .set(data)
@@ -4117,6 +4166,7 @@ export class DatabaseStorage implements IStorage {
 
   async setDefaultSavedSearchForUser(id: string, userId: string, module: string): Promise<SavedSearch | undefined> {
     return db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`${userId}:${module}:default`}))`);
       await tx.update(savedSearches)
         .set({ isDefault: false })
         .where(and(eq(savedSearches.userId, userId), eq(savedSearches.module, module)));

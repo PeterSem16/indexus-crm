@@ -38,3 +38,9 @@ Per-group referral-first ordering and Referral badges represent referral origin,
 **Why:** The user wants referrals prioritized within each city's scheduled work too, without returning them to the new-referral group.
 
 **How to apply:** Keep origin and new-referral eligibility separate. Default the per-group option on, persist explicit off, and sort within each partition using the group's configured sort.
+
+New agents start with Referral + cities once a Mission supplies eligible cities; preserve existing saved settings, including retained views without a default.
+
+**Why:** The user approved referral-first city subgroups and requested this as the first-login default, not a migration that replaces agents' personal choices.
+
+**How to apply:** Seed only when no module views exist; city-snapshot completion must conditionally update only the still-active unchanged view. Async initialization effects must use stable input signatures, not their own pending/error state as restart dependencies, or setting pending aborts the request itself.

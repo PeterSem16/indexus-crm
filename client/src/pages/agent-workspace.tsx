@@ -230,9 +230,11 @@ import { buildOutsideMissionCallbackDialMetadata } from "@/lib/outside-mission-c
 import PriorityBuilder, { PRIORITY_BUILDER_DIALOG_CLASS_NAME } from "@/components/agent/PriorityBuilder";
 import {
   buildPriorityQueueWithFallback,
+  createReferralCitiesPriorityView,
   DEFAULT_PRIORITY_VIEW,
   filterPriorityContactsByCity,
   getBratislavaDateKey,
+  getPriorityContactCityLocation,
   isPriorityReferral,
   isPriorityNewReferral,
   parsePriorityView,
@@ -11637,16 +11639,150 @@ function AgentWorkspacePageContent() {
       return views;
     },
   });
-  const priorityViewsReady = !priorityViewsPending && !priorityViewsFailed;
+  const [prioritySeedState, setPrioritySeedState] = useState<"idle" | "pending" | "complete" | "error">("idle");
+  const [prioritySeedRetryNonce, setPrioritySeedRetryNonce] = useState(0);
+  const prioritySeedAttemptRef = useRef<string | null>(null);
+  const priorityInitialCities = useMemo(() => {
+    const locations = new Map<string, { key: string; city: string; countryCode: string }>();
+    for (const contact of pendingCampaignContacts) {
+      const location = getPriorityContactCityLocation(contact as any);
+      if (location) locations.set(location.key, location);
+    }
+    return Array.from(locations.values());
+  }, [pendingCampaignContacts]);
+  const priorityInitialCitySignature = useMemo(
+    () => priorityInitialCities.map(city => city.key).sort().join(","),
+    [priorityInitialCities],
+  );
+  const activePrioritySearch = useMemo(
+    () => savedPriorityViews.find(item => item.isDefault) || null,
+    [savedPriorityViews],
+  );
+  const activePrioritySearchSignature = activePrioritySearch
+    ? `${activePrioritySearch.id}:${activePrioritySearch.filters}`
+    : "";
+  const fallbackPrioritySearch = useMemo(
+    () => savedPriorityViews.find(item => {
+      try { return !!parsePriorityView(JSON.parse(item.filters)); } catch { return false; }
+    }) || null,
+    [savedPriorityViews],
+  );
+  const activePriorityView = useMemo(() => {
+    if (!activePrioritySearch) return null;
+    try { return parsePriorityView(JSON.parse(activePrioritySearch.filters)); } catch { return null; }
+  }, [activePrioritySearch]);
+  const activePriorityNeedsCitySnapshot = !!activePrioritySearch
+    && activePriorityView?.presetId === "referral_cities"
+    && !!activePriorityView?.cityGrouping?.enabled
+    && ((activePriorityView?.cityGrouping?.rankedKeys.length || 0) + (activePriorityView?.cityGrouping?.unknownKeys.length || 0) === 0)
+    && priorityInitialCities.length > 0;
+  useEffect(() => {
+    if (activePrioritySearch && !activePriorityNeedsCitySnapshot && prioritySeedState === "error") {
+      setPrioritySeedState("complete");
+    }
+  }, [activePriorityNeedsCitySnapshot, activePrioritySearch, prioritySeedState]);
+
+  /**
+   * Seed only after a real mission pool has supplied cities.  Login can render
+   * this workspace before a mission is selected, so an empty pool must not
+   * trigger an AI request or persist a made-up ordering.
+   */
+  useEffect(() => {
+    if (priorityViewsPending || priorityViewsFailed || prioritySeedState === "error"
+      || (!activePrioritySearch && savedPriorityViews.length > 0)) return;
+    if (activePrioritySearch && !activePriorityNeedsCitySnapshot) return;
+    if (!selectedCampaignId || priorityInitialCities.length === 0) return;
+    const attemptKey = `${selectedCampaignId}:${activePrioritySearch?.id || "new"}:${priorityInitialCitySignature}`;
+    if (prioritySeedAttemptRef.current === attemptKey) return;
+    prioritySeedAttemptRef.current = attemptKey;
+    setPrioritySeedState("pending");
+    let cancelled = false;
+    const controller = new AbortController();
+    const seed = async () => {
+      try {
+        const rankingResponse = await fetch("/api/agent/priority-builder/city-ranking", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cities: priorityInitialCities }),
+          signal: controller.signal,
+        });
+        let rankingBody: any = null;
+        try { rankingBody = await rankingResponse.json(); } catch { /* explicit status below */ }
+        if (!rankingResponse.ok) throw new Error(rankingBody?.error || "Initial city ranking failed");
+        const rankedKeys = rankingBody?.rankedKeys;
+        const unknownKeys = rankingBody?.unknownKeys;
+        const submittedKeys = new Set(priorityInitialCities.map(city => city.key));
+        if (!Array.isArray(rankedKeys) || !Array.isArray(unknownKeys)
+          || [...rankedKeys, ...unknownKeys].some(key => typeof key !== "string")
+          || new Set(rankedKeys).size !== rankedKeys.length
+          || new Set(unknownKeys).size !== unknownKeys.length
+          || rankedKeys.some(key => unknownKeys.includes(key))
+          || rankedKeys.length + unknownKeys.length !== submittedKeys.size
+          || [...rankedKeys, ...unknownKeys].some(key => !submittedKeys.has(key))) {
+          throw new Error("Initial city ranking returned an invalid snapshot");
+        }
+        const view = createReferralCitiesPriorityView(rankedKeys, unknownKeys);
+        if (cancelled) return;
+        const saveResponse = await fetch("/api/saved-searches/priority-builder/initial", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: view.name,
+            module: PRIORITY_BUILDER_MODULE,
+            filters: JSON.stringify(view),
+            isDefault: true,
+            ...(activePrioritySearch ? { existingId: activePrioritySearch.id } : {}),
+          }),
+          signal: controller.signal,
+        });
+        let saveBody: any = null;
+        try { saveBody = await saveResponse.json(); } catch { /* explicit status below */ }
+        if (!saveResponse.ok || !saveBody?.id) throw new Error("Initial priority view could not be saved");
+        if (cancelled) return;
+        setPrioritySeedState("complete");
+        // Publish the persisted result before invalidating so Auto/Next and
+        // the builder converge on the same snapshot without an empty render.
+        queryClient.setQueryData<SavedSearch[]>(["/api/saved-searches", PRIORITY_BUILDER_MODULE], [saveBody]);
+        await queryClient.invalidateQueries({ queryKey: ["/api/saved-searches", PRIORITY_BUILDER_MODULE] });
+      } catch {
+        if (!cancelled) {
+          prioritySeedAttemptRef.current = null;
+          setPrioritySeedState("error");
+        }
+      } finally {
+        if (!cancelled) void retryPriorityViews();
+      }
+    };
+    void seed();
+    return () => { cancelled = true; controller.abort(); };
+  }, [
+    activePriorityNeedsCitySnapshot,
+    activePrioritySearchSignature,
+    priorityInitialCitySignature,
+    priorityViewsFailed,
+    priorityViewsPending,
+    prioritySeedRetryNonce,
+    savedPriorityViews.length,
+    selectedCampaignId,
+  ]);
+
+  // An empty city pool is a legitimate pre-mission state; as soon as cities
+  // exist, an unseeded first-run view is not authoritative until persistence
+  // succeeds. Existing active personal views remain untouched.
+  const priorityViewsReady = !priorityViewsPending && !priorityViewsFailed
+    && (!!activePrioritySearch && !activePriorityNeedsCitySnapshot
+      || (!activePrioritySearch && (priorityInitialCities.length === 0 || !!fallbackPrioritySearch)));
   const persistedPriorityView = useMemo(() => {
-    const active = savedPriorityViews.find(item => item.isDefault);
+    const active = activePrioritySearch || fallbackPrioritySearch;
     if (!active) return DEFAULT_PRIORITY_VIEW;
     try {
       return parsePriorityView(JSON.parse(active.filters)) || DEFAULT_PRIORITY_VIEW;
     } catch {
       return DEFAULT_PRIORITY_VIEW;
     }
-  }, [savedPriorityViews]);
+  }, [activePrioritySearch, fallbackPrioritySearch]);
   // City selection is an authoritative mission scope, not just a visual
   // grouping. Keep the full raw mission payload available for unrelated
   // outside-mission callback flows, while scoped copies feed all in-mission
@@ -11657,6 +11793,7 @@ function AgentWorkspacePageContent() {
   );
   const activePriorityViewLabel = persistedPriorityView.presetId
     ? ({
+      referral_cities: priorityBuilderCopy[locale].referralCitiesPreset,
       referral_first: t.agentWorkspace.priorityBuilderPresetReferral,
       todays_callbacks: t.agentWorkspace.priorityBuilderPresetToday,
       fresh_opportunities: t.agentWorkspace.priorityBuilderPresetFresh,
@@ -14997,6 +15134,22 @@ function AgentWorkspacePageContent() {
           <div role="alert" className="flex items-center justify-between gap-2 border-b px-4 py-2 text-sm text-destructive">
             <span>{priorityBuilderCopy[locale].loadError}</span>
             <Button variant="outline" size="sm" onClick={() => retryPriorityViews()}>
+              {priorityBuilderCopy[locale].retry}
+            </Button>
+          </div>
+        )}
+        {prioritySeedState === "error" && !priorityViewsFailed && (
+          <div role="alert" className="flex items-center justify-between gap-2 border-b px-4 py-2 text-sm text-destructive">
+            <span>{priorityBuilderCopy[locale].cityRankingError}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                prioritySeedAttemptRef.current = null;
+                setPrioritySeedState("idle");
+                setPrioritySeedRetryNonce(value => value + 1);
+              }}
+            >
               {priorityBuilderCopy[locale].retry}
             </Button>
           </div>

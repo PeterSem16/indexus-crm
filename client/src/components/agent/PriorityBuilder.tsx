@@ -50,7 +50,14 @@ interface PriorityBuilderProps {
   isAutoMode?: boolean;
   className?: string;
 }
-type PriorityWrite = { kind: "save"; id?: string | null; next: PriorityView; isDefault: boolean } | { kind: "delete"; id: string };
+type PriorityWrite = {
+  kind: "save";
+  id?: string | null;
+  next: PriorityView;
+  isDefault: boolean;
+  /** Use the idempotent first-run lifecycle instead of ordinary user save. */
+  initial?: boolean;
+} | { kind: "delete"; id: string };
 
 const segmentVisuals: Record<PrioritySegmentId, { icon: string; color: string }> = {
   referral: { icon: "R", color: "#7860b8" },
@@ -160,13 +167,20 @@ async function rankEligibleCities(contacts: PriorityContact[], signal: AbortSign
     throw new Error(body?.error || body?.message || failedMessage);
   }
   if (!Array.isArray(body?.rankedKeys) || !Array.isArray(body?.unknownKeys)) throw new Error(failedMessage);
-  const rankedKeys = body.rankedKeys.filter((key: unknown): key is string => typeof key === "string");
-  const returnedUnknown = body.unknownKeys.filter((key: unknown): key is string => typeof key === "string");
+  const rankedKeys: string[] = body.rankedKeys.filter((key: unknown): key is string => typeof key === "string");
+  const returnedUnknown: string[] = body.unknownKeys.filter((key: unknown): key is string => typeof key === "string");
   const submitted = new Set(cities.map(city => city.key));
-  const ranked = Array.from(new Set<string>(rankedKeys)).filter(key => submitted.has(key));
-  const unknown = Array.from(new Set<string>([...returnedUnknown, ...cities.map(city => city.key)]))
-    .filter(key => submitted.has(key) && !ranked.includes(key));
-  return { rankedKeys: ranked, unknownKeys: unknown };
+  const rankedSet = new Set<string>(rankedKeys);
+  const unknownSet = new Set<string>(returnedUnknown);
+  if (rankedSet.size !== rankedKeys.length
+    || unknownSet.size !== returnedUnknown.length
+    || rankedKeys.some(key => unknownSet.has(key))
+    || rankedKeys.length + returnedUnknown.length !== submitted.size
+    || [...Array.from(rankedSet), ...Array.from(unknownSet)].some(key => !submitted.has(key))) {
+    throw new Error(failedMessage);
+  }
+  // Never turn an omitted model result into a guessed "unknown" bucket.
+  return { rankedKeys, unknownKeys: returnedUnknown };
 }
 
 /** Production personal contact ordering editor; data and call actions remain parent-owned. */
@@ -188,6 +202,7 @@ export function PriorityBuilder({
   } as Record<PrioritySegmentId, string>;
   const sortLabels = t.agentWorkspace.priorityBuilderSortLabels as Record<PrioritySort, string>;
   const presetLabels: Record<string, string> = {
+    referral_cities: copy.referralCitiesPreset,
     referral_first: t.agentWorkspace.priorityBuilderPresetReferral,
     todays_callbacks: t.agentWorkspace.priorityBuilderPresetToday,
     fresh_opportunities: t.agentWorkspace.priorityBuilderPresetFresh,
@@ -249,7 +264,7 @@ export function PriorityBuilder({
 
   // A late saved-search response must never replace a preset/draft the agent selected.
   useEffect(() => {
-    if (searchesLoading || searchesError || hydratedRef.current) return;
+    if (searchesLoading || searchesError || (hydratedRef.current && !usableSearches.some(entry => entry.search.isDefault))) return;
     const defaultEntry = usableSearches.find(entry => entry.search.isDefault);
     if (defaultEntry && !userSelectedRef.current) {
       setView(defaultEntry.view);
@@ -257,10 +272,28 @@ export function PriorityBuilder({
       setSelectedId(defaultEntry.view.segments[0]?.id || "");
       setActiveName(defaultEntry.view.presetId || defaultEntry.search.id);
       setSaved(true);
+    } else if (!defaultEntry && usableSearches[0] && !userSelectedRef.current) {
+      // Legacy data can contain saved rows with no active/default row. Keep
+      // that data usable and let the agent choose from it; do not seed over
+      // the retained personal views.
+      const fallbackEntry = usableSearches[0];
+      setView(fallbackEntry.view);
+      setSavedId(fallbackEntry.search.id);
+      setSelectedId(fallbackEntry.view.segments[0]?.id || "");
+      setActiveName(fallbackEntry.view.presetId || fallbackEntry.search.id);
+      setSaved(true);
     }
-    hydratedRef.current = true;
-    if (!defaultEntry && !userSelectedRef.current) setSaved(true);
-  }, [searchesError, searchesLoading, usableSearches]);
+    // Keep first-run city views locked until the workspace's idempotent
+    // seeding request publishes an active persisted snapshot. With no eligible
+    // city there is nothing to rank yet, so the empty-mission editor may still
+    // be inspected without claiming queue authority.
+    const waitingForInitialSeed = !defaultEntry && usableSearches.length === 0
+      && !userSelectedRef.current && eligibleCityKeys(contacts).length > 0;
+    hydratedRef.current = !waitingForInitialSeed;
+    if (!defaultEntry && !userSelectedRef.current) {
+      setSaved(!waitingForInitialSeed && (usableSearches.length > 0 || searches.length === 0));
+    }
+  }, [contacts, searches, searchesError, searchesLoading, usableSearches]);
 
   const effectiveView = useMemo(() => snapshotCityGrouping(view, contacts), [contacts, view]);
   const cityOptions = useMemo(() => eligibleCityOptions(contacts), [contacts]);
@@ -299,7 +332,12 @@ export function PriorityBuilder({
   );
   const isPreset = !!view.presetId;
 
-  const requestCityRanking = async () => {
+  const requestCityRanking = async (
+    baseView: PriorityView = view,
+    persistResult = false,
+    persistedId?: string,
+    initial = false,
+  ) => {
     const requestId = ++cityRankingRequestRef.current;
     cityRankingAbortRef.current?.abort();
     const abortController = new AbortController();
@@ -311,22 +349,40 @@ export function PriorityBuilder({
       if (!mountedRef.current || requestId !== cityRankingRequestRef.current) return;
       setCityRankingPending(false);
       userSelectedRef.current = true;
-      setView(current => ({
-        ...current,
-        presetId: undefined,
+      const rankedView: PriorityView = {
+        ...baseView,
+        // Referral + cities is a protected built-in whose saved form includes
+        // a per-mission AI snapshot. Other drafts become ordinary personal
+        // views once their city order is explicitly requested.
+        presetId: baseView.presetId === "referral_cities" ? "referral_cities" : undefined,
         cityGrouping: {
           enabled: true,
           rankedKeys: result.rankedKeys,
           unknownKeys: result.unknownKeys,
-          mode: getPriorityCitySelectionMode(current.cityGrouping),
-          selectedKeys: Array.from(new Set(current.cityGrouping?.selectedKeys || [])),
+          mode: getPriorityCitySelectionMode(baseView.cityGrouping),
+          selectedKeys: Array.from(new Set(baseView.cityGrouping?.selectedKeys || [])),
         },
-      }));
-      if (view.presetId) {
+      };
+      setView(rankedView);
+      if (baseView.presetId && baseView.presetId !== "referral_cities") {
         setSavedId(null);
         setActiveName("__draft__");
       }
       setSaved(false);
+      if (persistResult) {
+        const command: PriorityWrite = {
+          kind: "save",
+          id: persistedId || null,
+          next: rankedView,
+          isDefault: true,
+          initial,
+        };
+        writeInFlightRef.current = true;
+        lastWriteRef.current = command;
+        setPersistencePending(true);
+        setPersistenceFailed(false);
+        writeMutation.mutate(command);
+      }
     } catch (error) {
       if (!mountedRef.current || requestId !== cityRankingRequestRef.current) return;
       setCityRankingError(error instanceof Error ? error.message : String(error));
@@ -400,11 +456,33 @@ export function PriorityBuilder({
         await apiRequest("DELETE", `/api/saved-searches/${command.id}`);
         return { kind: "delete" as const };
       }
-      const payload = { name: command.next.name, module: PRIORITY_BUILDER_MODULE, filters: JSON.stringify(command.next), isDefault: command.isDefault };
-      const response = await apiRequest(command.id ? "PATCH" : "POST", command.id ? `/api/saved-searches/${command.id}` : "/api/saved-searches", payload);
-      const created = command.id ? null : await response.json() as Pick<SavedSearch, "id">;
-      if (!command.id && !created?.id) throw new Error("Saved view response did not include an id");
-      return { kind: "save" as const, persistedId: command.id || created!.id, next: command.next };
+      const payload = {
+        name: command.next.name,
+        module: PRIORITY_BUILDER_MODULE,
+        filters: JSON.stringify(command.next),
+        isDefault: command.isDefault,
+        ...(command.initial && command.id ? { existingId: command.id } : {}),
+      };
+      const response = await apiRequest(
+        command.initial ? "POST" : (command.id ? "PATCH" : "POST"),
+        command.initial
+          ? "/api/saved-searches/priority-builder/initial"
+          : (command.id ? `/api/saved-searches/${command.id}` : "/api/saved-searches"),
+        payload,
+      );
+      const persisted = response.status === 204
+        ? { id: command.id || "", filters: JSON.stringify(command.next) }
+        : await response.json() as Pick<SavedSearch, "id" | "filters">;
+      if (!persisted?.id) throw new Error("Saved view response did not include an id");
+      const persistedView = typeof persisted.filters === "string"
+        ? parsePriorityView(JSON.parse(persisted.filters))
+        : null;
+      return {
+        kind: "save" as const,
+        persistedId: persisted.id,
+        next: persistedView || command.next,
+        initial: !!command.initial,
+      };
     },
     onSuccess: async (result) => {
       try {
@@ -417,6 +495,10 @@ export function PriorityBuilder({
         } else {
           setSavedId(result.persistedId);
           setActiveName(result.next.presetId || result.persistedId);
+          if (result.initial) {
+            setView(result.next);
+            setSelectedId(result.next.segments[0]?.id || "");
+          }
         }
         setSaved(true);
         setPersistenceFailed(false);
@@ -434,6 +516,24 @@ export function PriorityBuilder({
       setPersistencePending(false);
     },
   });
+  // The production workspace also performs this seed so Auto/Next are never
+  // enabled on a draft. Keeping the idempotent request here covers a builder
+  // opened before that parent effect completes, without creating duplicates.
+  useEffect(() => {
+    if (searchesLoading || searchesError || persistencePending || cityRankingPending || cityRankingError) return;
+    if (searches.length > 0 || usableSearches.some(entry => entry.search.isDefault)) return;
+    if (eligibleCityKeys(contacts).length === 0 || userSelectedRef.current) return;
+    void requestCityRanking(DEFAULT_PRIORITY_VIEW, true, undefined, true);
+  }, [
+    cityRankingError,
+    cityRankingPending,
+    contactsSignature,
+    persistencePending,
+    searches,
+    searchesError,
+    searchesLoading,
+    usableSearches,
+  ]);
   const persist = (command: PriorityWrite) => {
     if (writeInFlightRef.current) return false;
     if (cityRankingPending || cityRankingError) return false;
@@ -448,8 +548,17 @@ export function PriorityBuilder({
     writeMutation.mutate(nextCommand);
     return true;
   };
-  const actionsLocked = searchesLoading || searchesError || !saved || persistencePending || cityRankingPending || !!cityRankingError;
-  const viewControlsDisabled = searchesLoading || searchesError || persistencePending || cityRankingPending || !!cityRankingError;
+  const initialSeedPending = !searchesLoading
+    && !searchesError
+    && (
+      (searches.length === 0
+        && !usableSearches.some(entry => entry.search.isDefault)
+        && !userSelectedRef.current
+        && eligibleCityKeys(contacts).length > 0)
+      || (searches.length > 0 && usableSearches.length === 0)
+    );
+  const actionsLocked = searchesLoading || searchesError || initialSeedPending || !saved || persistencePending || cityRankingPending || !!cityRankingError;
+  const viewControlsDisabled = searchesLoading || searchesError || initialSeedPending || persistencePending || cityRankingPending || !!cityRankingError;
 
   const makeDraft = (segments: PrioritySegment[]) => {
     if (writeInFlightRef.current) return;
@@ -495,6 +604,12 @@ export function PriorityBuilder({
     setActiveName(next.presetId || id || next.name);
     setMenuSegmentId(null);
     const persistedId = id || usableSearches.find(entry => entry.view.presetId === next.presetId)?.search.id;
+    if (next.presetId === "referral_cities"
+      && (next.cityGrouping?.rankedKeys.length || 0) === 0
+      && eligibleCityKeys(contacts).length > 0) {
+      void requestCityRanking(next, true, persistedId, !!persistedId);
+      return;
+    }
     persist({ kind: "save", id: persistedId, next, isDefault: true });
   };
   const reset = () => {
@@ -505,6 +620,10 @@ export function PriorityBuilder({
     setSavedId(persistedId || null);
     setSelectedId(DEFAULT_PRIORITY_VIEW.segments[0].id);
     setActiveName(DEFAULT_PRIORITY_VIEW.presetId!);
+    if (eligibleCityKeys(contacts).length > 0) {
+      void requestCityRanking(DEFAULT_PRIORITY_VIEW, true, persistedId);
+      return;
+    }
     persist({ kind: "save", id: persistedId, next: DEFAULT_PRIORITY_VIEW, isDefault: true });
   };
   const duplicate = () => {
@@ -692,7 +811,13 @@ export function PriorityBuilder({
               className="priority-builder-button"
               data-testid="btn-priority-city-rerank"
               disabled={cityRankingPending || persistencePending || searchesLoading || !!searchesError}
-              onClick={() => void requestCityRanking()}
+              onClick={() => void requestCityRanking(
+                view,
+                view.presetId === "referral_cities",
+                savedId || undefined,
+                (searches.length === 0 && !usableSearches.some(entry => entry.search.isDefault))
+                || (!!savedId && view.presetId === "referral_cities"),
+              )}
             >
               <RotateCcw size={14} />{copy.cityRankingRefresh}
             </button>
@@ -702,7 +827,13 @@ export function PriorityBuilder({
           {cityRankingPending
             ? <span>{copy.cityRankingPending}</span>
             : cityRankingError
-              ? <span role="alert">{copy.cityRankingError} {cityRankingError} <button type="button" data-testid="btn-priority-city-retry" onClick={() => void requestCityRanking()}>{copy.cityRankingRetry}</button></span>
+              ? <span role="alert">{copy.cityRankingError} {cityRankingError} <button type="button" data-testid="btn-priority-city-retry" onClick={() => void requestCityRanking(
+                view,
+                view.presetId === "referral_cities",
+                savedId || undefined,
+                (searches.length === 0 && !usableSearches.some(entry => entry.search.isDefault))
+                || (!!savedId && view.presetId === "referral_cities"),
+              )}>{copy.cityRankingRetry}</button></span>
               : view.cityGrouping?.enabled
                 ? <span>{copy.cityRankingReady} · {copy.cityRankingEstimated}: {eligibleCityKeys(contacts).length} {copy.cityRankingLocations}</span>
                 : <span>{copy.groupByCityHint}</span>}

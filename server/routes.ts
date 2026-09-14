@@ -226,6 +226,15 @@ function readPersistedAgentOnlyRecordingContext(
 const mobileActiveRecordings = new Map<string, MobileRecordingInfo>();
 
 const priorityPresetDefinitions = {
+  referral_cities: {
+    name: "Referral + cities",
+    segments: [
+      { id: "referral", sort: "priority", referralsFirst: true },
+      { id: "scheduled_today", sort: "priority", referralsFirst: true },
+      { id: "new", sort: "created_desc", referralsFirst: true },
+      { id: "my_scheduled", sort: "priority", referralsFirst: true },
+    ],
+  },
   referral_first: {
     name: "New referrals first",
     segments: [
@@ -268,7 +277,7 @@ const prioritySavedViewSchema = z.object({
     sort: z.enum(["priority", "name_asc", "name_desc", "attempts_desc", "attempts_asc", "last_contact_asc", "last_contact_desc", "callback_asc", "callback_desc", "created_desc", "created_asc"]),
     referralsFirst: z.boolean().default(true),
   })).min(1),
-  presetId: z.enum(["referral_first", "todays_callbacks", "fresh_opportunities", "recovery_desk"]).optional(),
+  presetId: z.enum(["referral_cities", "referral_first", "todays_callbacks", "fresh_opportunities", "recovery_desk"]).optional(),
   cityGrouping: z.object({
     enabled: z.boolean(),
     rankedKeys: z.array(z.string().trim().min(1)).max(500),
@@ -280,7 +289,16 @@ const prioritySavedViewSchema = z.object({
   if (!view.presetId) return;
   const canonical = priorityPresetDefinitions[view.presetId];
   const legacyNames = view.presetId === "referral_first" ? ["Referral first"] : [];
-  if (![canonical.name, ...legacyNames].includes(view.name) || JSON.stringify(view.segments) !== JSON.stringify(canonical.segments)) {
+  const segmentsMatch = JSON.stringify(view.segments) === JSON.stringify(canonical.segments);
+  // The first-run preset carries an authenticated AI snapshot.  Its city keys
+  // are intentionally not canonical values: they belong to the current
+  // mission pool and must be reusable by every queue consumer.
+  const cityGroupingMatch = view.presetId === "referral_cities"
+    ? view.cityGrouping?.enabled === true
+      && (view.cityGrouping.mode || "all") === "all"
+      && (view.cityGrouping.selectedKeys || []).length === 0
+    : true;
+  if (![canonical.name, ...legacyNames].includes(view.name) || !segmentsMatch || !cityGroupingMatch) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["presetId"],
@@ -22849,6 +22867,39 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
+  /**
+   * First-run priority view creation is deliberately separate from ordinary
+   * user saves. It is idempotent: any retained personal row wins, including
+   * legacy rows with no default, while the city snapshot is being ranked.
+   */
+  app.post("/api/saved-searches/priority-builder/initial", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user!.id;
+      const existingId = typeof req.body?.existingId === "string" ? req.body.existingId : undefined;
+      const validatedData = insertSavedSearchSchema.parse({
+        ...req.body,
+        userId,
+        module: "agent-priority-builder",
+        isDefault: true,
+      });
+      validatePrioritySavedFilters(validatedData.module, validatedData.filters);
+      // An active-view snapshot upgrade is a compare-and-swap.  If another
+      // tab selected a newer view while ranking was in flight, the conditional
+      // update returns no row rather than stealing isDefault back.
+      const search = existingId
+        ? await storage.updateDefaultSavedSearchForUser(existingId, userId, validatedData)
+        : await storage.ensureDefaultSavedSearchForUser(validatedData);
+      if (!search) return res.status(409).json({ error: "Priority view is no longer active" });
+      return res.status(200).json(search);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid data", details: error.errors });
+      }
+      console.error("Failed to create initial priority view:", error);
+      return res.status(500).json({ error: "Failed to create initial priority view" });
+    }
+  });
+
   app.post("/api/saved-searches", requireAuth, async (req, res) => {
     try {
       const userId = req.session.user!.id;
@@ -22858,7 +22909,11 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       });
       validatePrioritySavedFilters(validatedData.module, validatedData.filters);
       
-      const search = await storage.createSavedSearch(validatedData);
+      // Default promotion is performed under the per-user/module advisory
+      // lock below; do not expose a transient unlocked isDefault=true row.
+      const search = await storage.createSavedSearch(
+        validatedData.isDefault ? { ...validatedData, isDefault: false } : validatedData,
+      );
       if (validatedData.isDefault) {
         const active = await storage.setDefaultSavedSearchForUser(search.id, userId, search.module);
         return res.status(201).json(active || search);
@@ -22900,7 +22955,14 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           return res.status(400).json({ error: "Saved priority view identity cannot be changed" });
         }
       }
-      const updated = await storage.updateSavedSearchForUser(req.params.id, userId, validated);
+      // Promote only inside setDefaultSavedSearchForUser's locked
+      // transaction. Writing isDefault=true here would let a stale tab race
+      // with another tab's newer selection.
+      const updated = await storage.updateSavedSearchForUser(
+        req.params.id,
+        userId,
+        validated.isDefault ? { ...validated, isDefault: false } : validated,
+      );
       if (!updated) return res.status(404).json({ error: "Saved search not found" });
       if (validated.isDefault) {
         const active = await storage.setDefaultSavedSearchForUser(updated.id, userId, updated.module);

@@ -3,6 +3,7 @@ import {
   buildPriorityQueue,
   DEFAULT_PRIORITY_VIEW,
   buildPriorityQueueWithFallback,
+  createReferralCitiesPriorityView,
   filterPriorityContacts,
   getBratislavaDateKey,
   getPriorityContactCityLocation,
@@ -93,11 +94,26 @@ describe("priority builder pure queue functions", () => {
     expect(sorted.map(item => item.id)).toEqual(["a", "b", "z"]);
   });
 
-  it("ships four protected presets and defaults to New referrals first", () => {
-    expect(PRIORITY_PRESETS).toHaveLength(4);
+  it("ships the localized-safe Referral + cities preset as the first-run default", () => {
+    expect(PRIORITY_PRESETS).toHaveLength(5);
     expect(PRIORITY_PRESETS.every(preset => !!preset.presetId)).toBe(true);
-    expect(DEFAULT_PRIORITY_VIEW.name).toBe("New referrals first");
-    expect(parsePriorityView(JSON.parse(JSON.stringify(DEFAULT_PRIORITY_VIEW)))).toMatchObject({ name: "New referrals first" });
+    expect(DEFAULT_PRIORITY_VIEW).toMatchObject({
+      name: "Referral + cities",
+      presetId: "referral_cities",
+      cityGrouping: { enabled: true, mode: "all", rankedKeys: [], unknownKeys: [] },
+    });
+    expect(DEFAULT_PRIORITY_VIEW.segments).toEqual([
+      { id: "referral", sort: "priority", referralsFirst: true },
+      { id: "scheduled_today", sort: "priority", referralsFirst: true },
+      { id: "new", sort: "created_desc", referralsFirst: true },
+      { id: "my_scheduled", sort: "priority", referralsFirst: true },
+    ]);
+    expect(parsePriorityView(JSON.parse(JSON.stringify(DEFAULT_PRIORITY_VIEW)))).toMatchObject({ name: "Referral + cities" });
+    expect(createReferralCitiesPriorityView(["SK:bratislava"], ["SK:zilina"]).cityGrouping).toMatchObject({
+      rankedKeys: ["SK:bratislava"],
+      unknownKeys: ["SK:zilina"],
+      mode: "all",
+    });
     expect(parsePriorityView({ version: 1, name: "unsafe", segments: [{ id: "unknown", sort: "priority" }] })).toBeNull();
   });
 
@@ -116,7 +132,8 @@ describe("priority builder pure queue functions", () => {
     }, "agent", now);
     expect(grouped.map(item => item.contact.id)).toEqual(["bratislava-referral", "kosice-new", "unknown"]);
     expect(grouped.map(item => item.cityGroup?.key)).toEqual(["SK:bratislava", "SK:kosice", null]);
-    expect(buildPriorityQueueWithFallback([kosiceNew, bratislavaReferral], DEFAULT_PRIORITY_VIEW, "agent", now)
+    const legacyView = PRIORITY_PRESETS.find(preset => preset.presetId === "referral_first")!;
+    expect(buildPriorityQueueWithFallback([kosiceNew, bratislavaReferral], legacyView, "agent", now)
       .every(item => !item.cityGroup)).toBe(true);
   });
 
