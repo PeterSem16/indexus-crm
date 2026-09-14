@@ -10485,6 +10485,7 @@ function ScheduledQueuePanel({
 
 function AgentWorkspacePageContent() {
   const { t, locale } = useI18n();
+  const priorityCopy = priorityBuilderCopy[locale];
   const { user, logout } = useAuth();
   const { toast } = usePulseToast();
   const nContacts = (n: number) => {

@@ -20,3 +20,7 @@ component-scoped closure being visible from another component's handler. Have th
 component delegate to the module-level function so behavior stays in one place. Related but
 distinct failure mode: usecallback-deps-tdz.md (const declared after the useCallback that lists it
 in deps).
+
+For a focused regression when full-repo typechecking is impractical, use TypeScript symbol binding with `noResolve` to verify each affected identifier resolves in its component scope.
+
+**Why:** Isolated modal fixtures do not execute references in the full workspace parent, and successful production builds do not detect unbound translation variables.

@@ -1,0 +1,51 @@
+Component Error
+priorityCopy is not defined
+Component Stack:
+
+    at Axt (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:245:253549)
+    at HTe (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:9:104263)
+    at Pxt
+    at ltt (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:128:212114)
+    at Jie (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:248:168806)
+    at Ixt (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:248:152912)
+    at Mr (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:9:64864)
+    at x1 (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:9:65685)
+    at Suspense
+    at div
+    at main
+    at div
+    at div
+    at div
+    at Provider (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:9:107884)
+    at TooltipProvider (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:9:704928)
+    at S3e (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:52:16522)
+    at c3e (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:52:10993)
+    at _Fe (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:62:119225)
+    at OBe (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:127:114299)
+    at b0e (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:49:2076066)
+    at b0t (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:248:170350)
+    at QEe (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:49:2095836)
+    at ZEe (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:49:2082331)
+    at k0t (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:248:170498)
+    at Jie (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:248:168806)
+    at y0t (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:248:169990)
+    at l3e (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:50:716)
+    at GEe (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:49:2080983)
+    at S0t (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:248:174478)
+    at Provider (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:9:107884)
+    at TooltipProvider (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:9:704928)
+    at h_e (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:9:713358)
+    at aTe (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:9:66183)
+    at w0t
+ReferenceError: priorityCopy is not defined
+    at Axt (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:247:77366)
+    at _i (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:7:17937)
+    at soe (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:9:45600)
+    at aoe (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:9:41104)
+    at lPe (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:9:41028)
+    at iz (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:9:40878)
+    at T$ (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:9:37086)
+    at Jse (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:9:37902)
+    at Nd (https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:7:3277)
+    at https://indexus.cordbloodcenter.com/assets/index-BGg33Az-.js:9:35372
+Retry
