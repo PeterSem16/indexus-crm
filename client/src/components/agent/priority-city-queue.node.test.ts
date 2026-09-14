@@ -58,3 +58,107 @@ test("entity locations are country-specific and collaborator enrichment is respe
   });
   assert.equal(getPriorityContactCityLocation(collaborator)?.key, "CZ:brno");
 });
+
+test("selected city mode is a strict authoritative allow-list, including empty and unknown buckets", () => {
+  const input = [
+    contact("bratislava", "Bratislava"),
+    contact("same-name-hu", "Bratislava", "HU"),
+    contact("unknown"),
+  ];
+  const selected = {
+    ...view,
+    cityGrouping: {
+      ...view.cityGrouping!,
+      mode: "selected" as const,
+      selectedKeys: ["SK:bratislava"],
+    },
+  };
+  assert.deepEqual(
+    buildPriorityQueueWithFallback(input, selected, "agent", now).map(item => item.contact.id),
+    ["bratislava"],
+  );
+  assert.deepEqual(
+    buildPriorityQueueWithFallback(input, {
+      ...selected,
+      cityGrouping: { ...selected.cityGrouping!, selectedKeys: [] },
+    }, "agent", now),
+    [],
+  );
+  assert.deepEqual(
+    buildPriorityQueueWithFallback(input, {
+      ...selected,
+      cityGrouping: { ...selected.cityGrouping!, selectedKeys: ["__unknown__"] },
+    }, "agent", now).map(item => item.contact.id),
+    ["unknown"],
+  );
+});
+
+test("legacy city snapshots parse as all cities and new cities remain outside a selected snapshot", () => {
+  const legacy = parsePriorityView({
+    ...view,
+    cityGrouping: {
+      enabled: true,
+      rankedKeys: ["SK:bratislava"],
+      unknownKeys: [],
+    },
+  })!;
+  assert.equal(legacy.cityGrouping?.mode, "all");
+  const selected = parsePriorityView({
+    ...legacy,
+    cityGrouping: { ...legacy.cityGrouping!, mode: "selected", selectedKeys: ["SK:bratislava"] },
+  })!;
+  const withNewCity = [contact("old", "Bratislava"), contact("new", "Trnava")];
+  assert.deepEqual(
+    buildPriorityQueueWithFallback(withNewCity, selected, "agent", now).map(item => item.contact.id),
+    ["old"],
+  );
+});
+
+test("referrals require an explicit zero attempt and leave the Referral group when scheduled", () => {
+  const fresh = contact("fresh-referral", undefined, "SK", { hasReferral: true, attemptCount: 0 });
+  const unknownCount = contact("unknown-count", undefined, "SK", { hasReferral: true, attemptCount: undefined });
+  const rescheduled = contact("rescheduled-referral", "Bratislava", "SK", {
+    hasReferral: true,
+    attemptCount: 2,
+    status: "callback_scheduled",
+    callbackDate: new Date("2026-09-15T08:00:00Z"),
+  });
+  const zeroScheduled = contact("zero-scheduled-referral", "Bratislava", "SK", {
+    hasReferral: true,
+    attemptCount: 0,
+    status: "callback_scheduled",
+    callbackDate: new Date("2026-09-15T08:00:00Z"),
+  });
+  const result = buildPriorityQueueWithFallback([
+    unknownCount, rescheduled, zeroScheduled, fresh,
+  ], {
+    ...DEFAULT_PRIORITY_VIEW,
+    segments: [
+      { id: "referral", sort: "name_asc" },
+      { id: "scheduled_today", sort: "callback_asc" },
+      { id: "new", sort: "created_desc" },
+    ],
+  }, "agent", now);
+  assert.deepEqual(result.map(item => [item.contact.id, item.segment]), [
+    ["fresh-referral", "referral"],
+    ["rescheduled-referral", "other"],
+    ["unknown-count", "other"],
+    ["zero-scheduled-referral", "other"],
+  ]);
+  assert.equal(result.find(item => item.contact.id === "zero-scheduled-referral")?.segment, "other");
+  assert.equal(result.find(item => item.contact.id === "rescheduled-referral")?.segment, "other");
+});
+
+test("a referral with a callback date cannot fall into New even when its status is still pending", () => {
+  const callbackPending = contact("callback-pending", undefined, "SK", {
+    hasReferral: true,
+    attemptCount: 0,
+    status: "pending",
+    callbackDate: new Date("2026-09-15T08:00:00Z"),
+  });
+  const result = buildPriorityQueueWithFallback([callbackPending], {
+    ...DEFAULT_PRIORITY_VIEW,
+    segments: [{ id: "referral", sort: "priority" }, { id: "new", sort: "created_desc" }],
+  }, "agent", now);
+  assert.equal(result[0]?.segment, "other");
+});

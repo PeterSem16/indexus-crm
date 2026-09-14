@@ -11,7 +11,7 @@ import { Phone, PhoneOff, PhoneIncoming, Mic, MicOff, PauseCircle, PlayCircle,
 import { format } from "date-fns";
 import { PulseMobileDialButton } from "@/components/pulse-dial-button";
 import { priorityBuilderCopy } from "@/components/agent/priority-builder-copy";
-import { getPriorityContactCityLocation, type PriorityQueueItem, type PriorityQueueSegmentId } from "@/components/agent/priority-builder";
+import { getPriorityContactCityLocation, isPriorityNewReferral, type PriorityQueueItem, type PriorityQueueSegmentId } from "@/components/agent/priority-builder";
 
 /* ── helpers ────────────────────────────────────────────────────────── */
 const fmtDur = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -35,7 +35,7 @@ function ccInitials(cc: any): string {
   return n.split(" ").filter(Boolean).map((w: string) => w[0]).slice(0, 2).join("").toUpperCase() || "?";
 }
 function ccSearchMatch(cc: any, q: string, field = "all"): boolean {
-  if (field === "referral") return !!cc.hasReferral;
+  if (field === "referral") return isPriorityNewReferral(cc);
   if (!q.trim()) return true;
   const lower = q.toLowerCase();
   const ql = lower.replace(/\s/g, "");
@@ -1432,7 +1432,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
       filterTab === "callable"  ? searchPool.filter((cc: any) => callableStatuses.includes(cc.status))
       : filterTab === "callbacks" ? searchPool.filter((cc: any) => cc.status === "callback_scheduled")
       : filterTab === "pending"   ? searchPool.filter((cc: any) => cc.status === "pending")
-      : filterTab === "referral"   ? searchPool.filter((cc: any) => cc.hasReferral)
+      : filterTab === "referral"   ? searchPool.filter((cc: any) => isPriorityNewReferral(cc))
       : searchPool;
     if (filterTab === "callbacks" && showOnlyMineCallbacks) {
       base = base.filter((cc: any) =>
@@ -1486,7 +1486,9 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
         segment,
         segmentLabel: segment === "other"
           ? (t?.agentWorkspace?.priorityBuilderOther || "Other")
-          : (t?.agentWorkspace?.priorityBuilderSegmentLabels?.[segment as keyof typeof t.agentWorkspace.priorityBuilderSegmentLabels] || segment),
+          : segment === "referral"
+            ? cityCopy.newReferrals
+            : (t?.agentWorkspace?.priorityBuilderSegmentLabels?.[segment as keyof typeof t.agentWorkspace.priorityBuilderSegmentLabels] || segment),
         items: group.items,
         cityGroups: Array.from(group.cities.entries()).map(([key, cityGroup]) => ({
           key: `${segment}:${key}`,
@@ -1502,7 +1504,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
     tab === "callable"  ? campaignContacts.filter((cc: any) => callableStatuses.includes(cc.status)).length
     : tab === "callbacks" ? campaignContacts.filter((cc: any) => cc.status === "callback_scheduled").length
     : tab === "pending"   ? campaignContacts.filter((cc: any) => cc.status === "pending").length
-    : tab === "referral"  ? (allCampaignContacts || campaignContacts).filter((cc: any) => cc.hasReferral).length
+    : tab === "referral"  ? (allCampaignContacts || campaignContacts).filter((cc: any) => isPriorityNewReferral(cc)).length
     : campaignContacts.length;
 
   const SEARCH_FIELDS = [
@@ -1513,7 +1515,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
     { value: "city",    label: np.searchFieldCity    || "Mesto" },
     { value: "entity",  label: np.searchFieldEntity  || "Zariadenie" },
     { value: "address", label: np.searchFieldAddress || "Adresa" },
-    { value: "referral", label: t?.agentWorkspace?.fieldPickerReferral || "Referral" },
+    { value: "referral", label: cityCopy.newReferrals },
   ];
 
   return (
@@ -1545,7 +1547,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                 placeholder={searchField === "all"
                   ? (np.searchContacts || "Hľadať meno, tel., email, mesto…")
                   : searchField === "referral"
-                  ? (t?.agentWorkspace?.fieldPickerReferral || "Referral")
+                  ? cityCopy.newReferrals
                   : `${np.searchIn || "Hľadať:"} ${SEARCH_FIELDS.find(f => f.value === searchField)?.label}`}
                 disabled={searchField === "referral"}
                 className="w-full h-10 pl-9 pr-8 rounded-xl border bg-background text-sm focus:outline-none transition-colors"
@@ -1594,7 +1596,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                 callbacks: np.tabCallbacks||"Callbacky",
                 pending: np.tabPending||"Nové",
                 all: np.tabAll||"Všetky",
-                referral: t?.agentWorkspace?.fieldPickerReferral || "Referral",
+                referral: cityCopy.newReferrals,
               };
               return (
                 <button key={tab} onClick={() => setFilterTab(tab)}

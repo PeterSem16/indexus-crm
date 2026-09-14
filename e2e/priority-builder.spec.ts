@@ -95,7 +95,7 @@ test("original desktop layout has Indexus sidebar, derived first-match counts, p
   await expect(page.locator(".priority-builder-sidebar")).toBeVisible();
   await expect(page.getByText("Evaluation order")).toBeVisible();
   await expect(page.getByText("Live result")).toBeVisible();
-  await expect(page.locator(".priority-builder-row").first()).toContainText("Referral");
+  await expect(page.locator(".priority-builder-row").first()).toContainText("New referrals");
   await expect(page.locator(".priority-builder-row").first().locator(".priority-builder-count")).toHaveText("2");
   await expect(page.locator(".priority-builder-section-head .priority-builder-total")).toContainText("8 eligible contacts");
   await expect(page.getByText("Deduplication active.")).toBeVisible();
@@ -108,12 +108,12 @@ test("original desktop layout has Indexus sidebar, derived first-match counts, p
   const firstCard = page.locator(".priority-builder-card").filter({ hasText: "Melichar" });
   await expect(firstCard).toContainText("Next up");
   await expect(firstCard).toContainText("Queue position 1");
-  await expect(firstCard).toContainText("Group: Referral");
+  await expect(firstCard).toContainText("Group: New referrals");
   await expect(firstCard).toContainText("Scheduled callback: Not scheduled");
-  await expect(firstCard).toContainText("Call attempts in this Mission: 2");
+  await expect(firstCard).toContainText("Call attempts in this Mission: No attempts");
   const secondReferral = page.locator(".priority-builder-card").filter({ hasText: "Tes AmbuMed" });
   await expect(secondReferral).toContainText("Queue position 2");
-  await expect(secondReferral).toContainText("Group: Referral");
+  await expect(secondReferral).toContainText("Group: New referrals");
   await expect(secondReferral).not.toContainText("Next up");
   const scheduledCard = page.locator(".priority-builder-card").filter({ hasText: "Tes Klinika" });
   await expect(scheduledCard).toContainText("Group: Scheduled today");
@@ -126,7 +126,7 @@ test("original desktop layout has Indexus sidebar, derived first-match counts, p
   expect(await fallbackCard.textContent()).toMatch(/Scheduled callback:.*\d{4}/);
   await page.screenshot({ path: "/tmp/priority-clear-desktop.png" });
 
-  for (const name of ["Referral first", "Today's callbacks", "Fresh opportunities", "Recovery desk"]) {
+  for (const name of ["New referrals first", "Today's callbacks", "Fresh opportunities", "Recovery desk"]) {
     await page.getByRole("button", { name }).last().click();
     await expect(page.locator(".priority-builder-side-item.active").last()).toContainText(name);
   }
@@ -175,7 +175,7 @@ test("draft controls add, reorder, remove, reset, save, reopen and delete a pers
 
   await page.getByRole("button", { name: "Reset" }).click();
   await expect(page.locator(".priority-builder-row")).toHaveCount(3);
-  await expect(page.locator(".priority-builder-row").first()).toContainText("Referral");
+  await expect(page.locator(".priority-builder-row").first()).toContainText("New referrals");
 });
 
 test("original responsive mobile layout retains controls and delegates Auto and Next", async ({ page }) => {
@@ -312,7 +312,7 @@ test("city groups rank, lock while pending, save/reopen, refresh new cities, and
   ]);
   expect(cityApi.requests[0].cities.some(city => city.city === "")).toBe(false);
   await expect(page.locator(".priority-builder-preview-city-group")).toHaveCount(8);
-  await expect(page.locator(".priority-builder-preview-segment-group").first()).toContainText("Referral");
+  await expect(page.locator(".priority-builder-preview-segment-group").first()).toContainText("New referrals");
   await expect(page.locator(".priority-builder-preview-segment-group").first().locator(".priority-builder-preview-city-group").first()).toContainText("Bratislava");
   const firstCityGroup = page.locator(".priority-builder-preview-city-group").first();
   await firstCityGroup.locator(".priority-builder-preview-city-toggle").click();
@@ -351,7 +351,7 @@ test("city groups rank, lock while pending, save/reopen, refresh new cities, and
 
   await page.getByTestId("toggle-priority-city-grouping").click();
   await expect(page.locator(".priority-builder-preview-city-group")).toHaveCount(0);
-  await expect(page.locator(".priority-builder-row").first()).toContainText("Referral");
+  await expect(page.locator(".priority-builder-row").first()).toContainText("New referrals");
   await expect(page.getByRole("button", { name: /Auto/ })).toBeDisabled();
 });
 
@@ -387,6 +387,35 @@ test("city grouped parent Next follows the first saved city contact", async ({ p
   await page.getByRole("button", { name: "Next contact" }).click();
   await expect(page.getByTestId("priority-fixture-next-contact")).toHaveText("referral-2");
   await expect(page.locator(".priority-builder-preview")).toBeHidden();
+});
+
+test("selected cities stay authoritative for saved, reopened, empty and parent Next states", async ({ page }) => {
+  await installSavedSearchApi(page);
+  await installCityRankingApi(page, {
+    responses: [{ rankedKeys: ["AT:vienna", "SK:bratislava", "SK:zilina", "CZ:brno", "CZ:prague", "SK:nitra"], unknownKeys: [] }],
+  });
+  await openFixture(page, { width: 390, height: 844 });
+
+  await page.getByTestId("toggle-priority-city-grouping").check();
+  await expect(page.getByTestId("priority-city-mode-all")).toBeChecked();
+  await page.getByTestId("priority-city-mode-selected").check();
+  const bratislava = page.getByTestId("priority-city-option-SK:bratislava");
+  await expect(bratislava).toBeVisible();
+  await bratislava.check();
+  await page.getByRole("textbox", { name: "Saved view name" }).fill("Selected city queue");
+  await page.getByRole("button", { name: "Save view" }).click();
+  await expect(page.locator(".priority-builder-status")).toContainText("Saved to Contacts");
+  await page.getByRole("button", { name: "Next contact" }).click();
+  await expect(page.getByTestId("priority-fixture-next-contact")).toHaveText("referral-2");
+
+  await page.reload();
+  await expect(page.getByTestId("priority-city-mode-selected")).toBeChecked();
+  await expect(page.getByTestId("priority-city-option-SK:bratislava")).toBeChecked();
+  await page.getByTestId("priority-city-option-SK:bratislava").uncheck();
+  await page.getByRole("button", { name: "Save view" }).click();
+  await expect(page.locator(".priority-builder-status")).toContainText("Saved to Contacts");
+  await page.getByRole("button", { name: "Next contact" }).click();
+  await expect(page.getByTestId("priority-fixture-next-contact")).toHaveText("");
 });
 
 test("a delayed activation is serialized and duplicate names retain the POST response id", async ({ page }) => {

@@ -12,14 +12,18 @@ import {
   buildPriorityQueue,
   buildPriorityQueueWithFallback,
   DEFAULT_PRIORITY_VIEW,
+  filterPriorityContactsByCity,
   filterPriorityContacts,
   getPriorityContactCityLocation,
+  getPriorityCitySelectionMode,
   getPriorityContactName,
   matchesPrioritySegment,
   parsePriorityView,
   PRIORITY_BUILDER_MODULE,
   PRIORITY_PRESETS,
   PRIORITY_SEGMENT_IDS,
+  PRIORITY_UNKNOWN_CITY_KEY,
+  type PriorityCitySelectionMode,
   type PriorityContact,
   type PriorityQueueItem,
   type PriorityQueueSegmentId,
@@ -111,8 +115,25 @@ function snapshotCityGrouping(view: PriorityView, contacts: PriorityContact[]): 
       enabled: true,
       rankedKeys: Array.from(known),
       unknownKeys: Array.from(unknown),
+      mode: getPriorityCitySelectionMode(view.cityGrouping),
+      selectedKeys: Array.from(new Set(view.cityGrouping.selectedKeys || [])),
     },
   };
+}
+
+function eligibleCityOptions(contacts: PriorityContact[]): Array<{ key: string; city: string; countryCode: string }> {
+  const locations = new Map<string, { key: string; city: string; countryCode: string }>();
+  let hasUnknown = false;
+  for (const contact of contacts) {
+    const location = getPriorityContactCityLocation(contact);
+    if (location) locations.set(location.key, location);
+    else hasUnknown = true;
+  }
+  const result = Array.from(locations.values()).sort((a, b) =>
+    `${a.city} ${a.countryCode}`.localeCompare(`${b.city} ${b.countryCode}`, undefined, { sensitivity: "base" }),
+  );
+  if (hasUnknown) result.push({ key: PRIORITY_UNKNOWN_CITY_KEY, city: "", countryCode: "" });
+  return result;
 }
 
 async function rankEligibleCities(contacts: PriorityContact[], signal: AbortSignal | undefined, tooManyMessage: string, failedMessage: string): Promise<{ rankedKeys: string[]; unknownKeys: string[] }> {
@@ -160,7 +181,10 @@ export function PriorityBuilder({
 }: PriorityBuilderProps) {
   const { t, locale } = useI18n();
   const copy = priorityBuilderCopy[locale];
-  const segmentNames = t.agentWorkspace.priorityBuilderSegmentLabels as Record<PrioritySegmentId, string>;
+  const segmentNames = {
+    ...(t.agentWorkspace.priorityBuilderSegmentLabels as Record<PrioritySegmentId, string>),
+    referral: copy.newReferrals,
+  } as Record<PrioritySegmentId, string>;
   const sortLabels = t.agentWorkspace.priorityBuilderSortLabels as Record<PrioritySort, string>;
   const presetLabels: Record<string, string> = {
     referral_first: t.agentWorkspace.priorityBuilderPresetReferral,
@@ -238,6 +262,12 @@ export function PriorityBuilder({
   }, [searchesError, searchesLoading, usableSearches]);
 
   const effectiveView = useMemo(() => snapshotCityGrouping(view, contacts), [contacts, view]);
+  const cityOptions = useMemo(() => eligibleCityOptions(contacts), [contacts]);
+  const cityGroupingMode: PriorityCitySelectionMode = getPriorityCitySelectionMode(view.cityGrouping);
+  const selectedCityKeys = useMemo(
+    () => new Set(view.cityGrouping?.selectedKeys || []),
+    [view.cityGrouping?.selectedKeys],
+  );
   const queue = useMemo(
     () => buildPriorityQueue(contacts, effectiveView, currentUserId),
     [contacts, currentUserId, effectiveView],
@@ -252,8 +282,10 @@ export function PriorityBuilder({
     return counts;
   }, [queue]);
   const overlapCount = useMemo(
-    () => contacts.filter(contact => view.segments.filter(segment => matchesPrioritySegment(contact, segment.id, currentUserId)).length > 1).length,
-    [contacts, currentUserId, view.segments],
+    () => filterPriorityContactsByCity(contacts, view).filter(
+      contact => view.segments.filter(segment => matchesPrioritySegment(contact, segment.id, currentUserId)).length > 1,
+    ).length,
+    [contacts, currentUserId, view],
   );
   const filteredQueue = useMemo(() => {
     if (!query.trim()) return previewQueue;
@@ -281,10 +313,18 @@ export function PriorityBuilder({
       setView(current => ({
         ...current,
         presetId: undefined,
-        cityGrouping: { enabled: true, rankedKeys: result.rankedKeys, unknownKeys: result.unknownKeys },
+        cityGrouping: {
+          enabled: true,
+          rankedKeys: result.rankedKeys,
+          unknownKeys: result.unknownKeys,
+          mode: getPriorityCitySelectionMode(current.cityGrouping),
+          selectedKeys: Array.from(new Set(current.cityGrouping?.selectedKeys || [])),
+        },
       }));
-      setSavedId(null);
-      setActiveName("__draft__");
+      if (view.presetId) {
+        setSavedId(null);
+        setActiveName("__draft__");
+      }
       setSaved(false);
     } catch (error) {
       if (!mountedRef.current || requestId !== cityRankingRequestRef.current) return;
@@ -326,6 +366,31 @@ export function PriorityBuilder({
       return;
     }
     void requestCityRanking();
+  };
+
+  const updateCitySelection = (next: { mode: PriorityCitySelectionMode; selectedKeys: string[] }) => {
+    if (!view.cityGrouping?.enabled || searchesLoading || searchesError || persistencePending || cityRankingPending) return;
+    userSelectedRef.current = true;
+    const wasPreset = !!view.presetId;
+    setView(current => ({
+      ...current,
+      name: wasPreset
+        ? `${presetLabels[current.presetId!] || current.name}${t.agentWorkspace.priorityBuilderDuplicateSuffix}`
+        : current.name,
+      presetId: undefined,
+      cityGrouping: {
+        enabled: true,
+        rankedKeys: current.cityGrouping?.rankedKeys || [],
+        unknownKeys: current.cityGrouping?.unknownKeys || [],
+        mode: next.mode,
+        selectedKeys: Array.from(new Set(next.selectedKeys)),
+      },
+    }));
+    if (wasPreset) {
+      setSavedId(null);
+      setActiveName("__draft__");
+    }
+    setSaved(false);
   };
 
   const writeMutation = useMutation({
@@ -560,6 +625,65 @@ export function PriorityBuilder({
             />
             <span>{copy.groupByCity}</span>
           </label>
+          {view.cityGrouping?.enabled && (
+            <div className="priority-builder-city-selection" data-testid="priority-city-selection">
+              <div className="priority-builder-city-modes" role="radiogroup" aria-label={copy.groupByCity}>
+                <label>
+                  <input
+                    type="radio"
+                    name="priority-city-mode"
+                    data-testid="priority-city-mode-all"
+                    checked={cityGroupingMode === "all"}
+                    onChange={() => updateCitySelection({ mode: "all", selectedKeys: Array.from(selectedCityKeys) })}
+                    disabled={searchesLoading || !!searchesError || persistencePending || cityRankingPending}
+                  />
+                  <span>{copy.allCities}</span>
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name="priority-city-mode"
+                    data-testid="priority-city-mode-selected"
+                    checked={cityGroupingMode === "selected"}
+                    onChange={() => updateCitySelection({ mode: "selected", selectedKeys: Array.from(selectedCityKeys) })}
+                    disabled={searchesLoading || !!searchesError || persistencePending || cityRankingPending}
+                  />
+                  <span>{copy.onlySelectedCities}</span>
+                </label>
+              </div>
+              {cityGroupingMode === "selected" && (
+                <div className="priority-builder-city-options" data-testid="priority-city-options">
+                  {cityOptions.map(option => {
+                    const isUnknown = option.key === PRIORITY_UNKNOWN_CITY_KEY;
+                    const label = isUnknown
+                      ? copy.unknownCity
+                      : `${option.city}${option.countryCode ? copy.cityCountrySeparator + option.countryCode : ""}`;
+                    return (
+                      <label key={option.key} className="priority-builder-city-option">
+                        <input
+                          type="checkbox"
+                          data-testid={`priority-city-option-${option.key}`}
+                          checked={selectedCityKeys.has(option.key)}
+                          onChange={() => {
+                            const next = new Set(selectedCityKeys);
+                            if (next.has(option.key)) next.delete(option.key); else next.add(option.key);
+                            updateCitySelection({ mode: "selected", selectedKeys: Array.from(next) });
+                          }}
+                          disabled={searchesLoading || !!searchesError || persistencePending || cityRankingPending}
+                        />
+                        <span>{label}</span>
+                      </label>
+                    );
+                  })}
+                  {cityOptions.length === 0 && <span className="priority-builder-city-empty">{copy.noSelectedCities}</span>}
+                  {cityOptions.length > 0 && selectedCityKeys.size === 0 && (
+                    <span className="priority-builder-city-empty">{copy.noSelectedCities}</span>
+                  )}
+                  <span className="priority-builder-city-hint">{copy.citySelectionHint}</span>
+                </div>
+              )}
+            </div>
+          )}
           {view.cityGrouping?.enabled && (
             <button
               type="button"

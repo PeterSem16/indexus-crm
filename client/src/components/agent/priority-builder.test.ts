@@ -70,7 +70,7 @@ describe("priority builder pure queue functions", () => {
   });
 
   it("deduplicates in segment order, not source order", () => {
-    const first = contact("first", { hasReferral: true, attemptCount: 2 });
+    const first = contact("first", { hasReferral: true, attemptCount: 0 });
     const second = contact("second");
     const queue = buildPriorityQueue([second, first], DEFAULT_PRIORITY_VIEW, "agent", now);
     expect(queue.map(item => item.contact.id)).toEqual(["first", "second"]);
@@ -93,11 +93,11 @@ describe("priority builder pure queue functions", () => {
     expect(sorted.map(item => item.id)).toEqual(["a", "b", "z"]);
   });
 
-  it("ships four protected presets and defaults to Referral first", () => {
+  it("ships four protected presets and defaults to New referrals first", () => {
     expect(PRIORITY_PRESETS).toHaveLength(4);
     expect(PRIORITY_PRESETS.every(preset => !!preset.presetId)).toBe(true);
-    expect(DEFAULT_PRIORITY_VIEW.name).toBe("Referral first");
-    expect(parsePriorityView(JSON.parse(JSON.stringify(DEFAULT_PRIORITY_VIEW)))).toMatchObject({ name: "Referral first" });
+    expect(DEFAULT_PRIORITY_VIEW.name).toBe("New referrals first");
+    expect(parsePriorityView(JSON.parse(JSON.stringify(DEFAULT_PRIORITY_VIEW)))).toMatchObject({ name: "New referrals first" });
     expect(parsePriorityView({ version: 1, name: "unsafe", segments: [{ id: "unknown", sort: "priority" }] })).toBeNull();
   });
 

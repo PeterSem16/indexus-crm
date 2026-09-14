@@ -45,6 +45,13 @@ export interface PriorityView {
     enabled: boolean;
     rankedKeys: string[];
     unknownKeys: string[];
+    /**
+     * Legacy city snapshots omitted mode and therefore mean all cities.
+     * `selected` is deliberately an allow-list: an empty list selects no
+     * contacts, rather than accidentally falling back to all.
+     */
+    mode?: "all" | "selected";
+    selectedKeys?: string[];
   };
 }
 
@@ -93,12 +100,14 @@ const priorityViewSchema = z.object({
     enabled: z.boolean(),
     rankedKeys: z.array(z.string().trim().min(1)).max(500),
     unknownKeys: z.array(z.string().trim().min(1)).max(500),
+    mode: z.enum(["all", "selected"]).optional(),
+    selectedKeys: z.array(z.string().trim().min(1)).max(500).optional(),
   }).optional(),
 });
 
 export const PRIORITY_PRESETS: readonly PriorityView[] = [
   {
-    version: 1, name: "Referral first", presetId: "referral_first",
+    version: 1, name: "New referrals first", presetId: "referral_first",
     segments: [
       { id: "referral", sort: "priority" },
       { id: "scheduled_today", sort: "callback_asc" },
@@ -136,6 +145,10 @@ export function parsePriorityView(value: unknown): PriorityView | null {
         enabled: result.data.cityGrouping.enabled,
         rankedKeys,
         unknownKeys: Array.from(new Set(result.data.cityGrouping.unknownKeys)).filter(key => !rankedKeys.includes(key)),
+        // Before city selection existed, an enabled grouping always meant all
+        // cities. Keep that meaning when old personal views are reopened.
+        mode: result.data.cityGrouping.mode || "all",
+        selectedKeys: Array.from(new Set(result.data.cityGrouping.selectedKeys || [])),
       }
       : undefined,
   };
@@ -181,6 +194,52 @@ function timestamp(value: unknown): number | null {
 
 const PRIORITY_QUEUE_TIME_ZONE = "Europe/Bratislava";
 
+/** Stable bucket key for contacts without a usable city/country pair. */
+export const PRIORITY_UNKNOWN_CITY_KEY = "__unknown__";
+
+export type PriorityCitySelectionMode = "all" | "selected";
+
+export function getPriorityCitySelectionMode(
+  grouping: PriorityView["cityGrouping"] | null | undefined,
+): PriorityCitySelectionMode {
+  return grouping?.mode === "selected" ? "selected" : "all";
+}
+
+/**
+ * Return the city/country allow-list applied to the authoritative mission
+ * queue. This is intentionally separate from city ordering: ordering may be
+ * stale or unavailable while an explicit selection must remain authoritative.
+ */
+export function filterPriorityContactsByCity(
+  contacts: PriorityContact[],
+  viewOrGrouping: PriorityView | PriorityView["cityGrouping"] | null | undefined,
+): PriorityContact[] {
+  const grouping = "cityGrouping" in (viewOrGrouping || {})
+    ? (viewOrGrouping as PriorityView).cityGrouping
+    : viewOrGrouping as PriorityView["cityGrouping"] | undefined;
+  if (!grouping?.enabled || getPriorityCitySelectionMode(grouping) !== "selected") {
+    return contacts;
+  }
+  const selected = new Set(grouping.selectedKeys || []);
+  return contacts.filter(contact => selected.has(
+    getPriorityContactCityLocation(contact)?.key || PRIORITY_UNKNOWN_CITY_KEY,
+  ));
+}
+
+/**
+ * Referral means a new, never-dialed referral. Unknown attempt counts are not
+ * treated as zero. A callback date/status is already scheduled work, so it
+ * cannot be pulled ahead by the Referral-first preset even when its count is
+ * still zero.
+ */
+export function isPriorityNewReferral(contact: PriorityContact): boolean {
+  const attemptCount = contact.attemptCount;
+  const callback = timestamp(contact.callbackDate);
+  const alreadyScheduled = contact.status === "callback_scheduled"
+    || (pendingStatuses.has(contact.status) && callback !== null);
+  return contact.hasReferral === true && attemptCount === 0 && !alreadyScheduled;
+}
+
 function appDateKey(value: number): string {
   const parts = new Intl.DateTimeFormat("en", {
     timeZone: PRIORITY_QUEUE_TIME_ZONE,
@@ -213,15 +272,15 @@ export function matchesPrioritySegment(
   const pending = pendingStatuses.has(contact.status);
   const nowTime = now.getTime();
   switch (segmentId) {
-    case "referral": return contact.hasReferral === true;
+    case "referral": return isPriorityNewReferral(contact);
     case "scheduled_today": return pending && callback !== null && sameDay(callback, nowTime);
     case "due": return pending && callback !== null && callback <= nowTime;
-    case "new": return contact.status === "pending" && (contact.attemptCount || 0) === 0;
+    case "new": return contact.status === "pending" && contact.attemptCount === 0 && callback === null;
     case "my_scheduled": return pending && callback !== null && !!currentUserId && contact.assignedTo === currentUserId;
     case "team_scheduled": return pending && callback !== null && !contact.assignedTo;
     case "assigned_others": return pending && callback !== null && !!contact.assignedTo && contact.assignedTo !== currentUserId;
     case "unhandled": return pending && (contact.attemptCount || 0) > 0;
-    case "never_called": return pending && (contact.attemptCount || 0) === 0;
+    case "never_called": return pending && contact.attemptCount === 0 && callback === null;
     case "recently_contacted": return lastAttempt !== null && nowTime - lastAttempt <= 7 * 24 * 60 * 60 * 1000;
     // "Stale" intentionally uses only campaign-contact timestamps: an unworked contact
     // is stale after seven days, and a worked one after thirty days.
@@ -272,9 +331,10 @@ export function buildPriorityQueue(
 ): Array<{ contact: PriorityContact; segment: PrioritySegmentId }> {
   const used = new Set<string>();
   const result: Array<{ contact: PriorityContact; segment: PrioritySegmentId }> = [];
+  const scopedContacts = filterPriorityContactsByCity(contacts, view);
   for (const segment of view.segments) {
     const matches = sortPriorityContacts(
-      contacts.filter(contact => !used.has(contact.id) && matchesPrioritySegment(contact, segment.id, currentUserId, now)),
+      scopedContacts.filter(contact => !used.has(contact.id) && matchesPrioritySegment(contact, segment.id, currentUserId, now)),
       segment.sort,
     );
     for (const contact of matches) {
@@ -332,12 +392,13 @@ export function buildPriorityQueueWithFallback(
   currentUserId?: string,
   now = new Date(),
 ): PriorityQueueItem[] {
+  const scopedContacts = filterPriorityContactsByCity(contacts, view);
   if (view.cityGrouping?.enabled) {
     // Segment assignment is authoritative. City grouping is only a secondary
     // ordering inside each first-match segment; never let a city pull a later
     // segment ahead of an earlier one.
     const baseQueue = buildPriorityQueueWithFallback(
-      contacts,
+      scopedContacts,
       { ...view, cityGrouping: undefined },
       currentUserId,
       now,
@@ -354,7 +415,7 @@ export function buildPriorityQueueWithFallback(
       }
       segment.items.push(item);
       const location = getPriorityContactCityLocation(item.contact);
-      const key = location?.key || "__unknown__";
+      const key = location?.key || PRIORITY_UNKNOWN_CITY_KEY;
       const city = segment.cities.get(key);
       if (city) {
         city.items.push(item);
@@ -374,11 +435,11 @@ export function buildPriorityQueueWithFallback(
         }),
     );
   }
-  const queue = buildPriorityQueue(contacts, view, currentUserId, now);
+  const queue = buildPriorityQueue(scopedContacts, view, currentUserId, now);
   const used = new Set(queue.map(item => item.contact.id));
   return [
     ...queue,
-    ...sortPriorityContacts(contacts.filter(contact => !used.has(contact.id)), "priority")
+    ...sortPriorityContacts(scopedContacts.filter(contact => !used.has(contact.id)), "priority")
       .map(contact => ({ contact, segment: "other" as const })),
   ];
 }

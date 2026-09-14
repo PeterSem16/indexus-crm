@@ -20,3 +20,15 @@ City grouping is subordinate to segment priority: first-match segment → ranked
 **Why:** Sorting all contacts by city first lets a new contact in a large city jump ahead of a referral in a smaller city. The user requested city subgroups inside each existing group, not a replacement priority scheme.
 
 **How to apply:** Test a lower-priority contact in a higher-ranked city against a referral in a lower-ranked city. Keep missing-city contacts and country-specific identities; allow canceling a failed ranking without trapping the agent.
+
+Explicit city selection is a queue constraint, not merely a display filter. Empty selection means no contacts; unresolved saved-view loading must fail closed.
+
+**Why:** Falling back to an all-city default on an API error lets Auto dial contacts outside the agent's saved selection.
+
+**How to apply:** Gate parent Contacts, search and dialing consumers until saved authority is known, not only the builder modal.
+
+The Referral segment represents new, uncalled referrals, not all contacts ever referred.
+
+**Why:** The user expects a called and rescheduled referral to leave new referrals and remain in scheduled work without duplication.
+
+**How to apply:** Require a known zero attempt count and no existing callback scheduling; retain scheduled contacts in later matching groups or fallback.
