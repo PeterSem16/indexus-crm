@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, HeadingLevel, WidthType, AlignmentType, Footer, PageNumber } from "docx";
+import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, HeadingLevel, WidthType, AlignmentType, Footer, PageNumber, PageBreak } from "docx";
 
 // The reviewed Markdown is the single source of truth; never duplicate its content here.
 const input = process.argv[2] || "indexus_overview.md";
@@ -10,6 +10,10 @@ const runs = (text) => text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean).ma
 let code = false;
 for (let i = 0; i < lines.length; i++) {
   const line = lines[i];
+  if (!code && line.trim() === "<!-- pagebreak -->") {
+    children.push(new Paragraph({ children: [new PageBreak()] }));
+    continue;
+  }
   if (line.startsWith("```")) { code = !code; continue; }
   if (code) {
     children.push(new Paragraph({ children: [new TextRun({ text: line, font: "Consolas", size: 16 })], shading: { fill: "F1F5F9" }, spacing: { after: 30 } }));

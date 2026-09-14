@@ -1,13 +1,13 @@
 # INDEXUS CRM — Aktuálny prehľad a plán dokončenia
 
 > **Revízia:** 14. september 2026
-> **Rozsah:** revízia oproti májovému prehľadu; aktuálna implementácia CRM, Nexus Pulse, Mission a nadväzujúceho obchodno-laboratórneho procesu.
-> **Podklady:** aktuálny zdrojový kód a regresné testy, stavový dokument Pricing Engine V2, potvrdenie prevádzky Nexus Pulse/Mission vlastníkom systému.
+> **Rozsah:** revízia oproti májovému prehľadu; aktuálna implementácia CRM, Nexus Pulse, Mission, obchodno-laboratórneho procesu a kompletný plán migrácie ISCBC.
+> **Podklady:** aktuálny zdrojový kód, vykonané cielené regresné overenia a existujúce testovacie rutiny, stavový dokument Pricing Engine V2 a dokumentácia migrácie ISCBC → INDEXUS.
 > **Produkčné dáta:** v tejto revízii nebol vykonaný prístup na CORPCRM01 ani SQL dotazy proti produkcii. Staré počty nie sú aktuálnym stavom.
 
 ## 1. Manažérsky súhrn
 
-INDEXUS už nie je iba evidencia zákazníkov a historických zmlúv. Obsahuje funkčné agentúrne pracovisko Nexus Pulse, riadenie práce cez Mission, prichádzajúce aj odchádzajúce volania, fronty, callbacky, nahrávanie a nadväzujúcu komunikáciu. **Nexus Pulse a Mission sú podľa potvrdenia vlastníka systému plne funkčné v používanom pracovnom flow.** Existencia jednotlivých funkcií bola porovnaná s aktuálnym kódom.
+INDEXUS už nie je iba evidencia zákazníkov a historických zmlúv. Obsahuje funkčné agentúrne pracovisko Nexus Pulse, riadenie práce cez Mission, prichádzajúce aj odchádzajúce volania, fronty, callbacky, nahrávanie a nadväzujúcu komunikáciu. **Nexus Pulse a Mission boli implementované; ich kľúčové mechanizmy boli overované sadou testovacích rutín.** Cielené vykonané regresné overenia, rozsah automatizovaných scenárov a limity testov sú uvedené v kapitole 12. Implementácia bola porovnaná s aktuálnym kódom.
 
 Najnovšie opravy v repozitári však nie sú automaticky dôkazom ich nasadenia na produkciu. Tento dokument nie je záznamom nového produkčného akceptačného testu a neoznačuje všetky krajiny, brány či externých partnerov za nezávisle otestovaných.
 
@@ -21,7 +21,7 @@ Nový Pricing Engine V2, zmluvný modul, fakturačný modul a Laboratory Connect
 
 | Označenie | Význam |
 |---|---|
-| Funkčné — potvrdené vlastníkom | Vlastník potvrdil používaný pracovný flow; nejde o nové nezávislé overenie produkcie. |
+| Implementované a cielene testované | Funkcia existuje a jej konkrétne scenáre boli overené vykonanými testami; rozsah a výsledky sú uvedené v kapitole 12. Neznamená to univerzálnu produkčnú akceptáciu. |
 | Implementované | V repozitári je funkčný kód príslušnej časti; nasadenie a produkčné dáta môžu vyžadovať potvrdenie. |
 | Čiastočne prepojené | Moduly existujú, ale chýba spoločný proces, kontrola alebo automatické odovzdanie dát. |
 | Na dopracovanie / overenie | Konkrétna medzera v kóde alebo chýbajúci produkčný či obchodný dôkaz. |
@@ -30,7 +30,7 @@ Nový Pricing Engine V2, zmluvný modul, fakturačný modul a Laboratory Connect
 
 | Oblasť | Aktuálna etapa | Čo zostáva |
 |---|---|---|
-| Nexus Pulse + Mission | Funkčné — potvrdené vlastníkom; implementácia a regresné testy v repozitári | Prevádzkové monitorovanie, priebežné opravy, potvrdenie nasadenia posledných zmien. |
+| Nexus Pulse + Mission | Implementované a cielene testované; podrobnosti v kapitole 12 | Prevádzkové monitorovanie, priebežné opravy, potvrdenie nasadenia posledných zmien. |
 | Hlasové trasy a SMS brány | Implementovaný výber podľa Mission a krajiny | Evidovať akceptáciu každej používanej kombinácie krajina/trasa/brána. |
 | Priority Builder a osobná fronta | Implementované | Prevádzkové overenie najnovších opráv uloženia a zobrazenia. |
 | Healthcare Network / Back Office | Implementované rozšírenia | Samostatné menšie požiadavky zostávajú; nejde o blokovanie celého Pulse. |
@@ -38,6 +38,7 @@ Nový Pricing Engine V2, zmluvný modul, fakturačný modul a Laboratory Connect
 | Contracts | Existujúci modul a cenové snapshoty v modeli | Napojenie na autoritatívny V2 výpočet a cenovú verziu. |
 | Invoicing | Existujúce UI, dátový model a generovanie | Zmluvne viazaná V2 fakturácia, položky, meny, dane, splátky a bezpečné opakovanie. |
 | Laboratory Connect | Implementované interné formuláre aj externé API | Zjednotiť spracovanie, autorizáciu laboratória, históriu výsledkov a obchodné následky. |
+| Migrácia ISCBC | Implementované migračné skripty a mapovania; rozsah v kapitole 11 | Zjednotiť migračnú cestu, doplniť otvorené domény, vykonať reconciliáciu a riadené prepnutie. |
 | Úplný obchodno-laboratórny proces | Integračná etapa pred dokončením | Akceptačný scenár od cenníka až po výsledok, faktúru a úhradu. |
 
 ## 2. Čo pribudlo alebo sa dokončilo od pôvodného prehľadu
@@ -263,7 +264,7 @@ Zákazníci, kliniky, nemocnice, spolupracovníci, komunikácia, zmluvy, odbery,
 
 Pôvodné údaje z mája boli: 205 tabuliek, 165 462 zákazníkov, 236 935 zmlúv, 198 066 odberov, 1 163 268 komunikačných správ, 0 faktúr a 15 fakturačných položiek. **Ide výhradne o historický snapshot.** Aktuálne počty, chýbajúce poisťovne, používateľské roly a väzby odberov treba znovu overiť. Ani počet prázdnych väzieb sám osebe neurčuje, že sa majú doplniť automaticky alebo záznamy zmazať.
 
-Staré tvrdenie o nefunkčnom ARI/telefónii sa nepoužíva ako aktuálny stav: nahrádza ho vyššie uvedené potvrdenie funkčného Pulse/Mission a popis dnešnej implementácie. Staré plány obsahujú aj rozhodnutia, ktoré sa odvtedy implementovali; nepreberajú sa bez porovnania.
+Staré tvrdenie o nefunkčnom ARI/telefónii sa nepoužíva ako aktuálny stav: nahrádza ho aktuálny popis implementácie Pulse/Mission a konkrétne regresné overenia v kapitole 12. Staré plány obsahujú aj rozhodnutia, ktoré sa odvtedy implementovali; nepreberajú sa bez porovnania.
 
 Úplný pôvodný text je zachovaný ako historická príloha v `docs/indexus-overview-2026-05-archive.md`, s odstráneným heslom z pôvodného prihlasovacieho príkazu. Archív nie je prevádzkový návod ani aktuálny backlog.
 
@@ -296,3 +297,139 @@ Pošlite výsledný TXT. Z neho sa doplní dátovo overená príloha: pokrytie c
 | Laboratory Connect | `client/src/pages/collections.tsx`, interné `/api/collections/:id/lab-results` a externé `/api/v1/lab-results` cesty v `server/routes.ts`, laboratórne úložisko v `server/storage.ts`. |
 
 **Záver:** komunikačné a agentúrne jadro je funkčné. Cenový engine a obchodno-laboratórne moduly sú už významne implementované. Aktuálne sme pred dokončením ich spoločného, auditovateľného end-to-end procesu; najvyššou prioritou je cenová verzia a snapshot, bezpečné laboratórne spracovanie a fakturácia z rovnakého podkladu.
+
+
+## 11. Migrácia ISCBC → INDEXUS — rozsah a realizačný plán
+
+### 11.1 Čo už máme pripravené
+
+Migrácia nie je nový projekt začínajúci analýzou od nuly. Existujú implementované importné skripty, mapovania identifikátorov, prevody stavov a kontrolné rutiny. Primárny prevádzkový podklad je docs/migration-iscbc-to-indexus.md (migračná vetva v20.5). Širšiu inventúru zdroja obsahuje script/migration/README-MIGRATION-ANALYSIS.md; postupy čistenia a obnovy sú v script/migration/MIGRATION-PROCEDURES.md.
+
+Zdrojom je legacy ISCBC na Microsoft SQL Serveri, databáza CBC. Cieľom je existujúci PostgreSQL INDEXUS. Migrácia musí zachovať pôvodné identifikátory, krajinu, vlastníctvo údajov, historické ceny, dátumy a vzájomné väzby. Nemá spätne prepočítať staré zmluvy dnešným cenníkom ani znovu odoslať historické e-maily, SMS či faktúry.
+
+**Rozlišujeme tri výsledky:** technický import dát, overenú zhodu so zdrojom a použiteľnosť dát v novom pracovnom procese. Až všetky tri znamenajú dokončenú migráciu. Dostupnosť importéra sama osebe nepotvrdzuje aktuálny obsah produkcie.
+
+### 11.2 Migračný katalóg — čo vieme preniesť
+
+| Doména | Implementovaná schopnosť / cieľ | Podmienka dokončenia |
+|---|---|---|
+| Nemocnice a referenčné údaje | Import nemocníc, kategórií a adries; vo fázovej vetve aj referencie potrebné pre ďalšie importy. | Skontrolovať krajiny, referencie a jednoznačné mapovanie; nepreberať automaticky všetky legacy číselníky. |
+| Spolupracovníci | Osoby, kontakty, adresy, dohody a aktivity pri odberoch do evidencie spolupracovníkov a súvisiacich tabuliek. | Zachovať väzby na odbery a dohody. Samostatný synchronizačný skript overiť voči plnému historickému importu. |
+| Zákazníci | Klienti, osobné a kontaktné údaje, adresy a stavy do zákazníckej evidencie. | Kontrola identity, krajiny a duplicít; žiadne zlučovanie len podľa spoločného telefónu alebo e-mailu. |
+| Potenciálni zákazníci a prípady | Potenciálni klienti bez zmluvy; súvisiace údaje o prípadoch a účastníkoch odberu. | Oddeliť potenciálny prípad od existujúceho zákazníka a zachovať rodinné väzby bez nechcených duplicít. |
+| Odbery | Záznamy odberov, identifikátory, dátumy, stavy a dostupné väzby na zákazníkov a partnerov. | Doplniť a overiť väzby na zmluvu, produkt, laboratórium a spolupracovníkov po importe závislých entít. |
+| Laboratórne výsledky | Historické LabResults do collection_lab_results vrátane väzby na odber. | Viac výsledkov k odberu môže byť legitímna história; overiť jednotky, stav, verzie a význam údajov pre V2. |
+| Poznámky | ClientRemarks do customer_notes. | Zachovať autora, čas a dostupný kontext; nevydávať importovanú poznámku za nový úkon agenta. |
+| Telefonická komunikácia | PhoneCommunications do communication_messages. | Odlišovať historickú aktivitu od nového Pulse hovoru. Prenos metadát nedokazuje prenos zvukových nahrávok. |
+| Zmluvy | Zmluvy, stavy, služby, historické ceny, príplatky, zálohy a platobné podklady; contract_instances a historické customer_documents/JSON. | Rozlíšiť hodnoty uložené v archíve od polí používaných aplikáciou; historický JSON nie je automaticky V2 cenový snapshot. |
+| Faktúry a finančná história | Importné cesty pre faktúry, položky, realizované a plánované platby; v20 uchováva rozsiahle historické údaje aj v dokumentoch/JSON. | Overiť konkrétnu vetvu importu: archív faktúry nemusí vytvoriť aktívne invoice_items ani korektné párovanie platieb. |
+| Splátky a plánované faktúry | Podklady zo scheduled payments a zmluvných harmonogramov do historických údajov a scheduled_invoices. | Neprevziať historický splnený termín ako nový pokyn na fakturáciu; overiť otvorené a už realizované záväzky. |
+| Pohľadávky a vymáhanie | Import piatich zdrojových dlžníckych evidencií do customer_debt_collection. | Zhodnosť dlžnej sumy a stavu musí byť preukázaná voči faktúram a úhradám, nie iba počtom záznamov. |
+| Normalizácia kontaktov | consolidate-contacts.cjs obsahuje normalizáciu a detekciu duplicít. | Pravidlá schváliť vopred; uchovať pôvodnú hodnotu a audit úpravy, neprepísať bez kontroly novšie INDEXUS údaje. |
+
+**Dôležité:** nevyhlasujeme, že každé pole každej legacy tabuľky už má aktívny ekvivalent v INDEXUS. Časť dát má implementovanú historickú reprezentáciu; ich zapojenie do nového obchodného procesu je samostatná integračná práca.
+
+### 11.3 Otvorené alebo samostatne riešené domény
+
+- **Súbory, podpísané dokumenty a prílohy:** širšia analýza počíta so samostatným prenosom súborového úložiska. Databázový customer_documents/JSON nie je dôkaz prenosu PDF, skenov alebo binárnych príloh. Potrebný je manifest, kontrolný súčet, mapovanie vlastníka, prístupových práv a overenie otvorenia súboru.
+- **Odmeny spolupracovníkov, doprava a kuriéri:** uvedené v širšej analýze; kompletná vykonateľná cesta nebola v audite doložená. Pred zaradením do hotového rozsahu treba potvrdiť cieľový model, mapovanie a importér.
+- **Úplný audit zmien a ďalšie komunikačné archívy:** import poznámok a telefonických záznamov nepokrýva automaticky všetky auditné udalosti, e-maily, SMS a nahrávky. Každý archív vyžaduje osobitnú inventúru zdroja a dôkaz migrácie.
+- **Produkty, historické cenníky a meny:** referenčné importy nie sú automatickým prevodom legacy cien do Pricing Engine V2. Treba explicitné priradenie historických podmienok alebo nemenný legacy snapshot; existujúci importér V2 sa nesmie bez kontroly použiť na používaný cenník.
+- **Účtovné integrácie a kompletné číselníky:** inventúra zdrojových tabuliek je širšia než preukázaný prevádzkový import. Každá doména dostane rozhodnutie: aktívne migrovať, zachovať iba v archíve alebo vedome neprenášať.
+- **Legacy používateľské rozhranie:** staré UI/BSP konfigurácie, lokalizácie, dashboardové widgety, testovacie/záložné tabuľky a prechodné odosielacie fronty sa nemigrujú ako aktívne údaje. Prístupy a roly sa nastavia podľa bezpečnostného modelu INDEXUS; staré prihlasovacie údaje sa nekopírujú do dokumentácie ani logov.
+
+### 11.4 Použiteľné nástroje a ich hranice
+
+Hlavná prevádzková vetva používa script/migration/test-migration-20.cjs. Napriek názvu obsahuje skutočné zápisy do cieľovej databázy — **nie je to read-only test**. Dokumentácia popisuje postupné kroky, dávkovanie, oddelený import zmlúv/faktúr a označenie prenesených záznamov pomocou legacy_id, data_source a podľa domény created_by.
+
+Existuje aj fázová rodina: run-migration.sh, migrate-phase1-reference.cjs, migrate-phase2-core.cjs, migrate-phase3-collections.cjs a migrate-phase4-invoices.cjs v script/migration/. Tieto vetvy sa nesmú bez porovnania kombinovať nad rovnakými dátami. Pred produkčným použitím treba zvoliť jednu autoritatívnu cestu a zosúladiť jej výstupy s aktuálnou schémou, najmä pri zmluvách, fakturačných položkách a úhradách.
+
+verify-migration.cjs porovnáva počty vybraných zdrojových a cieľových evidencií. Nie je úplným dôkazom finančnej zhody, správnych väzieb ani bezpečnej opakovateľnosti importu. Obsahuje aj vzorky osobných údajov; jeho surový výstup sa neposiela do chatu. Zdieľajú sa iba anonymizované agregácie. Prehľadový SQL z kapitoly 9 nenahrádza samostatnú zdrojovo-cieľovú reconciliáciu ISCBC.
+
+### 11.5 Etapy riadenej migrácie
+
+**M0 — Inventúra a schválenie rozsahu.** Zaznamenať verziu aplikácie, zdrojovej a cieľovej schémy, krajiny, časový rozsah a dátový objem. Pre každú doménu uviesť zdroj, cieľ, transformačné pravidlá, vlastníka kontroly a spôsob akceptácie. Výstup: schválený migračný katalóg vrátane archívov a výnimiek.
+
+**M1 — Mapovanie a historická kontinuita.** Zostaviť jednoznačné mapy zdrojových identifikátorov na INDEXUS ID. Schváliť stavy, krajiny, meny, časové pásma, číselné rady, produkty a cenové verzie. Rozhodnúť konflikt medzi starou hodnotou a novšou ručnou úpravou v INDEXUS. Výstup: žiadna nejednoznačná väzba bez evidovanej výnimky.
+
+**M2 — Príprava a obnova.** Overiť zálohu a skutočne nacvičiť obnovu na kontrolovanom prostredí. Použiť minimálne oprávnenia, oddelené spojenia a bezpečné prihlasovanie. Vypnúť následné automatizácie importu, odosielanie správ a generovanie dokladov. Výstup: schválený návratový postup a import bez vonkajších účinkov.
+
+**M3 — Reprezentatívny pilot.** Na oddelenej kópii preniesť vzorku každej krajiny a typu prípadu: nový/potenciálny klient, historická zmluva, úplný/neúplný odber, opravený výsledok, uhradená/neuhradená faktúra, splátka a príloha. Vzorka musí zachovať závislosti, nestačí náhodný limit riadkov každej tabuľky. Výstup: rovnaký prípad dohľadateľný od zákazníka po finančný zostatok.
+
+**M4 — Dávkový import v poradí závislostí.** Referencie → nemocnice a spolupracovníci → zákazníci → zmluvy a ich cenové podklady → odbery, účastníci a výsledky → dokumenty, komunikácia a poznámky → faktúry, položky, platby, harmonogramy a pohľadávky. Prevádzková v20 dokumentácia má odbery pred zmluvami; ak zostane toto poradie, následné doplnenie a kontrola zmluvných väzieb je povinný explicitný krok. Veľké domény spracovať samostatne, s kontrolnými bodmi a logom dávok.
+
+**M5 — Reconciliácia a opakovaný beh.** Porovnať oprávnený zdrojový rozsah s cieľom po doménach, krajinách a stavoch. Testovať prerušenie a opakovanie dávky: nevzniknú duplicity, nové doklady ani prepis novších údajov. Kontrolovať unikátnosť legacy identít, neexistujúce referencie, zachovanie cien, príloh a histórie. Výstup: reprodukovateľný kontrolný protokol, nie iba hlásenie skriptu o dokončení.
+
+**M6 — Obchodná akceptácia.** Back Office, financie a laboratórna prevádzka overia reálne typy prípadov v UI. Osobitne sa skúša pokračovanie historickej zmluvy v novom systéme, nová faktúra po migrácii a oprava lab výsledku bez prepisu vydaného dokladu. Výstup: žiadna blokujúca dátová alebo funkčná chyba.
+
+**M7 — Finálny prenos zmien a prepnutie.** Dohodnúť servisné okno a zastaviť zápisy do legacy. Zaznamenať hranicu posledných zmien a vykonať overený delta prenos vrátane zmien stavov a riešenia zmazaných záznamov. Dostupný spolupracovnícky sync nie je univerzálny delta mechanizmus celej databázy; ten treba pre každú doménu doložiť alebo nahradiť schváleným finálnym exportom počas odstávky. Po reconciliácii povoliť INDEXUS ako jediný zapisujúci systém.
+
+**M8 — Stabilizácia a odovzdanie.** Monitorovať chyby, neúplné väzby, fronty, splatnosti a finančné zostatky. ISCBC ponechať dočasne read-only podľa schválenej retenčnej politiky. Odovzdať mapovania, výnimky, návody, prevádzkový dohľad a výsledky kontrol. Legacy vypnúť až po vyriešení závislostí a archívneho prístupu.
+
+### 11.6 Akceptačné podmienky a návrat
+
+| Kontrola | Podmienka prijatia |
+|---|---|
+| Úplnosť | Každý záznam schváleného zdrojového rozsahu má cieľ alebo zdôvodnenú výnimku; rozdiel nie je skrytý súhrnným počtom. |
+| Identita a väzby | Jednoznačná legacy mapa; žiadna nevysvetlená duplicita ani neexistujúci povinný odkaz. |
+| Financie | Po krajinách a menách súhlasia základy, dane, celkové sumy, úhrady a otvorené zostatky; tolerancie zaokrúhlenia sú vopred schválené. |
+| História | Historická cena a vydaný doklad sa nemenia podľa súčasného V2; zachované sú pôvod a časové súvislosti. |
+| Súbory a prístupy | Kontrolné súčty, počet súborov, vlastníctvo, oprávnenia a otvorenie reprezentatívnych príloh sú overené. |
+| Opakovateľnosť | Reštart dávky nevytvorí duplicity ani neodošle správu alebo doklad druhýkrát. |
+| Pokračovanie práce | Migrovaný aj nový prípad úspešne prejdú procesom zmluva → odber → výsledok → faktúra → úhrada. |
+| Obnova | Nacvičený návrat, určený rozhodovateľ, maximálna prípustná strata dát a čas obnovy. |
+
+Pred prepnutím možno chybný import v izolovanom cieli zahodiť a obnoviť zálohu. V živej zmiešanej databáze sa nesmie použiť plošné čistenie ani mazanie iba podľa data_source; mohli pribudnúť ručné úpravy a nové väzby. Ani čiastočný cleanup nie je automaticky bezpečný. Po prepnutí treba najprv zastaviť zápisy, zachovať všetky nové INDEXUS zmeny a schváliť ich spätné prenesenie alebo dočasný read-only režim. Samotné obnovenie starej zálohy bez zachovania týchto zmien by spôsobilo stratu dát.
+
+## 12. Implementácie a testovacie rutiny — dôkazová mapa
+
+### 12.1 Už vykonané cielené overenia
+
+Nasledujúce výsledky pochádzajú z predchádzajúcich vývojových overení zaznamenaných pri realizácii zmien. Pri tejto dokumentačnej revízii sa testy znovu nespúšťali; nejde o nový produkčný test ani o výsledok celej testovacej sady na aktuálnej verzii.
+
+| Implementácia | Vykonané overenie | Čo výsledok preukazuje |
+|---|---|---|
+| Pulse — opakovaná povinná kontrola po zmene prostredia | 3 browser scenáre a 25 Vitest testov prešli pri oprave; e2e/pulse-gate-invalidation.spec.ts a súvisiace pulse-gate fixtures/rutiny. | Kontrola sa obnoví po zmene prostredia; súbežné invalidácie nespúšťajú cyklické reštarty a staré async dokončenie neuvoľní novú kontrolu. |
+| Pulse — viditeľnosť latencie | latency-result-visibility.node.test.ts prešiel po cielenej oprave. | Latencia/jitter už nie sú nesprávne vylúčené z hlavného zobrazenia diagnostiky. |
+| Priority Builder | 3 cielené browser scenáre v e2e/priority-builder.spec.ts prešli pri oprave. | Uloženie referral_cities, explicitná reaktivácia a zachovanie požiadavky pri prepnutí pohľadu. |
+
+Existujú aj manuálne formuláre komplexného testovania Pulse zo septembra 2026. Obsahujú úspešné, podmienené, neúspešné aj nevykonané scenáre. Preto sa nepoužívajú ako tvrdenie, že úplne všetky funkcie a prostredia prešli. Nálezy zo staršieho testu treba spárovať s následnou opravou a regresným scenárom; staré zlyhanie nie je automaticky dnešný stav a samotná oprava nie je univerzálnou akceptáciou.
+
+### 12.2 Dostupné automatizované rutiny a rozsah
+
+Táto tabuľka je katalóg existujúcich testov, nie dodatočne vytvorený zoznam úspešných behov. Kde nie je vyššie uvedený vykonaný výsledok, dokument potvrdzuje dostupnosť rutiny, nie jej dnešný PASS.
+
+| Oblasť | Konkrétne rutiny | Rozsah a hranica |
+|---|---|---|
+| Readiness a volanie | e2e/pulse-readiness.spec.ts; e2e/pulse-dial.spec.ts; client/src/features/nexus-pulse-preflight/diagnostics.test.ts, presentation-state.test.ts, recording-playback.test.ts. | Prístup do pracoviska, diagnostika a spracovanie dial požiadaviek; browser fixture nie je živý operátorský hovor. |
+| Mission FAQ a nahrávanie | shared/mission-faq.test.ts; client/src/lib/mission-faq.test.ts; shared/mission-recording.test.ts; client/src/lib/mission-recording.test.ts. | Pravidlá Mission, FAQ a nahrávania; samostatne treba prevádzkové overenie uloženia a prehratia konkrétneho hovoru. |
+| Hlasové trasy a SMS | shared/telephony-routing.test.ts; server/lib/inbound-did.test.ts; server/lib/smstools.test.ts. | Validácia a spracovanie routingu/poskytovateľa; nie potvrdenie doručenia SMS alebo akceptácie každého Caller ID operátorom. |
+| Inbound karta a callbacky | client/src/lib/inbound-call-claim.test.ts; client/src/lib/repeated-inbound-card-flow.test.ts; shared/scheduled-callback.test.ts. | Korelácia inbound udalosti, opakovaný výber karty a callback pravidlá. |
+| Priority a mestá | server/lib/priority-city-ranking.test.ts; server/lib/collaborator-priority-city.test.ts; shared/priority-city.test.ts; e2e/priority-builder.spec.ts. | Pravidlá osobného poradia, referral miest a správanie editora vrátane chybových stavov. |
+| Klonovanie Mission | server/lib/clone-campaign.test.ts; server/lib/clone-campaign.integration.test.ts; script/test-clone-campaign.sh. | Jednotkové a integračné porovnanie klonu, nových identít a väzieb. Integračný beh vyžaduje kontrolované testovacie dáta. |
+| Back Office a partneri | client/src/lib/back-office-alert.test.ts; shared/medical-partner-filter.test.ts. | Spracovanie upozornení a zhodná logika filtrov; nenahrádza úplnú akceptáciu všetkých rolí a úkonov BO. |
+| Migrácia | script/migration/test-mssql-connection.cjs; test-migration-20.cjs; verify-migration.cjs. | Spojenie, vykonateľný import a čiastkové porovnanie. Importná rutina zapisuje dáta; názov test nie je záruka bezpečného dry-run. |
+
+### 12.3 Čo ešte musí pokryť finálna akceptácia
+
+Pre Pricing V2, Contracts, Laboratory Connect a Invoicing existuje významná implementácia a stavová dokumentácia; v audite nebol doložený uzavretý úspešný end-to-end protokol celého reťazca. Cenový import so samokontrolou nie je náhradou nezávislých obchodných testov.
+
+Pred úplným prechodom treba vykonať maticu: krajina × produkt × historická/nová cena × úplný/neúplný odber × zľava × splátka × oprava výsledku. Overiť aj odmietnutie neoprávneného zápisu, opakovanú správu laboratória, súbežnú fakturáciu, nedostupnú bránu a obnovu po prerušení. Pre migráciu pribudnú finančná reconciliácia, prílohy, delta prenos a rollback.
+
+Každý finálny protokol má obsahovať verziu aplikácie, prostredie, dátum, použitú dátovú vzorku, príkaz alebo manuálny scenár, očakávaný/skutočný výsledok a otvorené výnimky. Tak možno stav „implementované a testované“ podložiť konkrétnym rozsahom namiesto všeobecného vyhlásenia.
+
+<!-- pagebreak -->
+
+## 13. Záverečné resumé — čo presne dokončiť pre plnohodnotný INDEXUS CRM
+
+INDEXUS už má implementované CRM evidencie, agentúrne pracovisko Nexus Pulse, Mission, hlasovú a SMS komunikáciu, Back Office, cenový engine, zmluvy, odbery, fakturačné funkcie a laboratórne API. Kľúčové opravy pracoviska boli cielene regresne otestované. Existuje aj rozsiahly migračný základ ISCBC. **Zostávajúca práca je najmä integrácia, overenie dát a riadený prechod — nie výstavba CRM od začiatku.**
+
+1. **Uzavrieť inventúru a rozhodnutia:** schváliť migračný katalóg, historické cenové pravidlá, otvorené domény a jednu autoritatívnu migračnú cestu. Získať aktuálne agregované údaje zo zdroja a cieľa.
+2. **Dokončiť obchodný základ:** priradiť V2 cenovú verziu zákazníkovi, uložiť záväzný cenový snapshot do zmluvy a zachovať historické ISCBC podmienky. Odstrániť závislosť nového predaja od legacy kalkulácie až po overení parity.
+3. **Prepojiť odber a laboratórium:** zjednotiť interné a externé spracovanie, identifikáciu odberu, autorizáciu, históriu a opravy výsledkov. Odovzdávať schválený výsledok do rovnakého cenového vyhodnotenia.
+4. **Dokončiť finančný cyklus:** vytvárať faktúry a položky zo schváleného zmluvného/výsledkového podkladu; zabezpečiť meny, dane, splátky, skladné, úhrady, opravné doklady a idempotenciu.
+5. **Dokončiť a nacvičiť migráciu:** preniesť schválené dáta aj súbory, doplniť väzby a chýbajúce mapovania, otestovať opakovanie importu a preukázať zhodu počtov, financií a historických podmienok.
+6. **Urobiť spoločný pilot:** overiť nový aj migrovaný prípad od kontaktu a hovoru cez zmluvu, odber a výsledok až po faktúru a úhradu. Uzavrieť blokujúce nálezy a odovzdať testovací protokol.
+7. **Riadené prepnutie a prevádzka:** vykonať finálny prenos zmien, povoliť jediný zapisujúci systém, pripraviť obnovu, monitoring, používateľské návody a dočasný read-only prístup k legacy archívu.
+
+**Cieľový stav:** nový aj historický zákazník sa obslúži v INDEXUS bez paralelného ručného prepisovania do ISCBC. Každá zmluva, odber, výsledok, faktúra a úhrada má dohľadateľný pôvod, správne väzby a kontrolovanú históriu. Až úspešná procesná akceptácia spolu s dátovou reconciliáciou a nacvičenou obnovou umožní označiť prechod za dokončený.
