@@ -46,6 +46,18 @@ async function installSavedSearchApi(page: Page, options: {
       return;
     }
     if (request.method() === "POST") {
+      if (url.pathname.endsWith("/priority-builder/initial") && (body as SavedViewPayload & { existingId?: string }).existingId) {
+        const existingId = (body as SavedViewPayload & { existingId: string }).existingId;
+        const existing = savedViews.find(view => view.id === existingId && view.isDefault);
+        if (!existing) {
+          await route.fulfill({ status: 409, json: { error: "Priority view is no longer active" } });
+          return;
+        }
+        writes.push(body);
+        Object.assign(existing, body);
+        await route.fulfill({ json: existing });
+        return;
+      }
       if (options.postDelayMs) await new Promise(resolve => setTimeout(resolve, options.postDelayMs));
       writes.push(body);
       savedViews.forEach(view => { view.isDefault = false; });
@@ -187,6 +199,28 @@ test("first-time mission users receive one persisted Referral + cities snapshot"
   expect(cityApi.requests[0].cities.every(city => Object.keys(city).sort().join(",") === "city,countryCode,key")).toBe(true);
   await expect(page.getByRole("button", { name: /Auto/ })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Referral + cities" }).last()).toBeVisible();
+});
+
+test("returning to Referral + cities reactivates and saves the existing preset", async ({ page }) => {
+  const api = await installSavedSearchApi(page);
+  await openFixture(page, { width: 1280, height: 720 });
+  await expect.poll(() => api.savedViews.length).toBe(1);
+  const originalId = api.savedViews[0].id;
+  await page.getByRole("button", { name: "Today's callbacks", exact: true }).last().click();
+  await expect.poll(() => api.savedViews.find(view => view.id === originalId)?.isDefault).toBe(false);
+  await expect(page.getByRole("button", { name: "Referral + cities", exact: true }).last()).toBeEnabled();
+  await page.getByRole("button", { name: "Referral + cities", exact: true }).last().click();
+  await expect.poll(() => api.savedViews.filter(view => view.isDefault).map(view => ({ id: view.id, preset: JSON.parse(view.filters).presetId })) ).toEqual([{ id: originalId, preset: "referral_cities" }]);
+  await expect(page.getByRole("button", { name: "Save view", exact: true })).toBeEnabled();
+  const writesBefore = api.patchIds.length;
+  await page.getByRole("button", { name: "Save view", exact: true }).click();
+  await expect.poll(() => api.patchIds.length).toBeGreaterThan(writesBefore);
+  expect(api.patchIds.at(-1)).toBe(originalId);
+  expect(api.savedViews.filter(view => JSON.parse(view.filters).presetId === "referral_cities")).toHaveLength(1);
+  await page.reload();
+  await expect(page.getByRole("textbox", { name: "Saved view name" })).toHaveValue("Referral + cities");
+  await expect(page.getByRole("button", { name: "Save view", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: /Auto/ })).toBeEnabled();
 });
 
 test("an existing active personal view is preserved and skips first-run ranking", async ({ page }) => {

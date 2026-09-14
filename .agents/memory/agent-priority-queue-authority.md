@@ -44,3 +44,9 @@ New agents start with Referral + cities once a Mission supplies eligible cities;
 **Why:** The user approved referral-first city subgroups and requested this as the first-login default, not a migration that replaces agents' personal choices.
 
 **How to apply:** Seed only when no module views exist; city-snapshot completion must conditionally update only the still-active unchanged view. Async initialization effects must use stable input signatures, not their own pending/error state as restart dependencies, or setting pending aborts the request itself.
+
+Explicit preset reactivation must use ordinary persistence, not the initial snapshot compare-and-swap endpoint.
+
+**Why:** An intentionally reselected preset is inactive by definition after switching to another view; the initialization endpoint correctly rejects updating it. Ranking cancellation must compare against the requested target view, not mistake the initiating view change for a subsequent edit.
+
+**How to apply:** Keep automatic initialization protected, but allow explicit Referral + cities save/reactivation to update its existing record. Regression-test switching away, returning, saving, and reopening with the original identity.

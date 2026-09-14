@@ -254,8 +254,11 @@ export function PriorityBuilder({
 
   const viewSignature = useMemo(() => JSON.stringify(view), [view]);
   const contactsSignature = useMemo(() => JSON.stringify(eligibleCityKeys(contacts).sort()), [contacts]);
+  const cityRankingScopeRef = useRef<{ view: string; contacts: string } | null>(null);
   useEffect(() => {
     if (!cityRankingPending) return;
+    if (cityRankingScopeRef.current?.view === viewSignature
+      && cityRankingScopeRef.current.contacts === contactsSignature) return;
     cityRankingRequestRef.current += 1;
     cityRankingAbortRef.current?.abort();
     cityRankingAbortRef.current = null;
@@ -339,6 +342,7 @@ export function PriorityBuilder({
     initial = false,
   ) => {
     const requestId = ++cityRankingRequestRef.current;
+    cityRankingScopeRef.current = { view: JSON.stringify(baseView), contacts: contactsSignature };
     cityRankingAbortRef.current?.abort();
     const abortController = new AbortController();
     cityRankingAbortRef.current = abortController;
@@ -599,6 +603,7 @@ export function PriorityBuilder({
     if (viewControlsDisabled || writeInFlightRef.current) return;
     userSelectedRef.current = true;
     setView(next);
+    setSaved(false);
     setSavedId(id || usableSearches.find(entry => entry.view.presetId === next.presetId)?.search.id || null);
     setSelectedId(next.segments[0]?.id || "");
     setActiveName(next.presetId || id || next.name);
@@ -607,7 +612,9 @@ export function PriorityBuilder({
     if (next.presetId === "referral_cities"
       && (next.cityGrouping?.rankedKeys.length || 0) === 0
       && eligibleCityKeys(contacts).length > 0) {
-      void requestCityRanking(next, true, persistedId, !!persistedId);
+      // Explicit selection may reactivate an inactive preset. The initial
+      // snapshot endpoint intentionally only updates an already-active view.
+      void requestCityRanking(next, true, persistedId);
       return;
     }
     persist({ kind: "save", id: persistedId, next, isDefault: true });
@@ -815,8 +822,7 @@ export function PriorityBuilder({
                 view,
                 view.presetId === "referral_cities",
                 savedId || undefined,
-                (searches.length === 0 && !usableSearches.some(entry => entry.search.isDefault))
-                || (!!savedId && view.presetId === "referral_cities"),
+                searches.length === 0,
               )}
             >
               <RotateCcw size={14} />{copy.cityRankingRefresh}
@@ -831,8 +837,7 @@ export function PriorityBuilder({
                 view,
                 view.presetId === "referral_cities",
                 savedId || undefined,
-                (searches.length === 0 && !usableSearches.some(entry => entry.search.isDefault))
-                || (!!savedId && view.presetId === "referral_cities"),
+                searches.length === 0,
               )}>{copy.cityRankingRetry}</button></span>
               : view.cityGrouping?.enabled
                 ? <span>{copy.cityRankingReady} · {copy.cityRankingEstimated}: {eligibleCityKeys(contacts).length} {copy.cityRankingLocations}</span>
@@ -926,7 +931,7 @@ export function PriorityBuilder({
         </div>
         <footer className="priority-builder-save">
           <input ref={nameInputRef} readOnly={isPreset || viewControlsDisabled} value={isPreset ? presetLabels[view.presetId!] : view.name} onChange={event => { userSelectedRef.current = true; setView(current => ({ ...current, name: event.target.value })); setSaved(false); }} aria-label={t.agentWorkspace.priorityBuilderViewName} />
-          <button type="button" className="priority-builder-button primary" onClick={() => persist({ kind: "save", id: savedId, next: view, isDefault: true })} disabled={isPreset || !view.name.trim() || viewControlsDisabled}><Save size={14} />{t.agentWorkspace.priorityBuilderSave}</button>
+          <button type="button" className="priority-builder-button primary" onClick={() => persist({ kind: "save", id: savedId, next: view, isDefault: true })} disabled={(isPreset && view.presetId !== "referral_cities") || !view.name.trim() || viewControlsDisabled}><Save size={14} />{t.agentWorkspace.priorityBuilderSave}</button>
           <button type="button" className="priority-builder-button" disabled={viewControlsDisabled} onClick={duplicate}><Copy size={14} />{t.agentWorkspace.priorityBuilderDuplicate}</button>
           <button type="button" className="priority-builder-button" onClick={() => nameInputRef.current?.focus()} disabled={isPreset || viewControlsDisabled} aria-label={copy.renameView}><Pencil size={14} /></button>
           {savedId && !isPreset && <button type="button" className="priority-builder-button" onClick={() => persist({ kind: "delete", id: savedId })} disabled={viewControlsDisabled}><Trash2 size={14} />{t.agentWorkspace.priorityBuilderDelete}</button>}
