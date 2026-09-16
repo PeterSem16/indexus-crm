@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { EditableEmailFrame } from "@/components/editable-email-frame";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useI18n } from "@/i18n";
@@ -5105,10 +5106,12 @@ function CommunicationCanvas({
                     data-testid="textarea-email-html-edit"
                   />
                 ) : (
-                  <iframe
-                    srcDoc={emailMessage}
-                    sandbox="allow-same-origin"
-                    className="w-full h-full bg-white"
+                  <EditableEmailFrame
+                    value={emailMessage}
+                    onChange={(html) => {
+                      emailBodyDirtyRef.current = true;
+                      setEmailMessage(html);
+                    }}
                     title="Email preview"
                   />
                 )
@@ -5189,10 +5192,12 @@ function CommunicationCanvas({
                           spellCheck={false}
                         />
                       ) : (
-                        <iframe
-                          srcDoc={emailMessage}
-                          sandbox="allow-same-origin"
-                          className="h-full w-full bg-white"
+                        <EditableEmailFrame
+                          value={emailMessage}
+                          onChange={(html) => {
+                            emailBodyDirtyRef.current = true;
+                            setEmailMessage(html);
+                          }}
                           title="Email preview expanded"
                         />
                       )}

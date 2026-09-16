@@ -44,6 +44,7 @@ assert.equal(buildConfiguredEmailBody(undefined, legacy), "");
 // Mission settings take priority for ordinary emails, even before the
 // mailbox lookup completes or when the personal signature is disabled.
 const missionHtml = '<table><tr><td>Mission Agent</td></tr></table>';
+assert.ok(buildConfiguredEmailBody(undefined, legacy, missionHtml).startsWith("<p><br></p><p><br></p><p><br></p>"));
 assert.match(buildConfiguredEmailBody(undefined, legacy, missionHtml), /Mission Agent/);
 assert.doesNotMatch(buildConfiguredEmailBody({ htmlContent: "Personal", isActive: true }, legacy, missionHtml), /Personal|Legacy/);
 assert.match(buildConfiguredEmailBody({ isActive: false, missing: false }, legacy, missionHtml), /Mission Agent/);

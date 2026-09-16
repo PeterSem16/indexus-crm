@@ -112,11 +112,12 @@ export function buildConfiguredEmailBody(
       : signature?.htmlContent || "";
   if (!raw.trim()) return "";
   const safe = sanitizeSignatureHtml(raw);
-  if (/class\s*=\s*["']email-signature["']/i.test(safe)) return safe;
+  const writingSpace = '<p><br></p><p><br></p><p><br></p>';
+  if (/class\s*=\s*["']email-signature["']/i.test(safe)) return writingSpace + safe;
   const content = /<\s*[a-z][^>]*>/i.test(safe)
     ? safe
     : safe.replace(/\r?\n/g, "<br>");
-  return `<p><br></p><div class="email-signature">${content}</div>`;
+  return `${writingSpace}<div class="email-signature">${content}</div>`;
 }
 
 export interface EmailSignatureBodyReconciliation {

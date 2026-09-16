@@ -1,4 +1,8 @@
 ## Non-template compose lifecycle
+HTML compose must remain directly editable, with blank writing paragraphs above the signature; a read-only iframe is not a composer.
+**Why:** automatically selecting HTML for a signature exposed the old preview-only path and prevented agents from writing ordinary messages.
+**How to apply:** verify actual typing and draft synchronization in both normal and expanded HTML views, not just the visible signature.
+
 Ordinary non-template emails must use the current Mission's configured HTML signature, not the mailbox signature. Personal signatures are fallback only when that Mission field is empty; resolve only the current Mission, never another membership.
 **Why:** the user explicitly requires the Mission settings signature for new emails as well as replies.
 **How to apply:** load Mission signature before considering personal fallback, resolve agent variables, and sanitize it through the same lifecycle used for open, Cancel, and successful-send reset.
