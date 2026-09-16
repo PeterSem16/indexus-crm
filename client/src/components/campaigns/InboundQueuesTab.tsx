@@ -40,9 +40,9 @@ import {
   PhoneIncoming,
   Clock,
   UserPlus,
-  UserMinus,
   ChevronDown,
   ChevronUp,
+  UserMinus,
   Volume2,
   Play,
   Square,
@@ -640,9 +640,10 @@ export function InboundQueuesTab() {
                         </Button>
                         <Button variant="ghost" size="icon"
                           onClick={() => setExpandedQueue(expandedQueue === queue.id ? null : queue.id)}
+                          title={iq.agents}
                           data-testid={`btn-expand-queue-${queue.id}`}
                         >
-                          {expandedQueue === queue.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          {expandedQueue === queue.id ? <Users className="h-4 w-4 text-sky-700 dark:text-sky-300" /> : <UserPlus className="h-4 w-4 text-sky-700 dark:text-sky-300" />}
                         </Button>
                         <Button variant="ghost" size="icon"
                           onClick={() => { if (confirm(tx.confirmDelete)) deleteMutation.mutate(queue.id); }}

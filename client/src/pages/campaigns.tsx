@@ -1927,9 +1927,9 @@ export default function CampaignsPage() {
               <Megaphone className="h-4 w-4" />
               {t.campaigns.title}
             </TabsTrigger>
-            <TabsTrigger value="access" className="gap-2" data-testid="tab-access">
-              <Shield className="h-4 w-4" />
-              {t.campaigns.agentAccess.agentAccessTab}
+            <TabsTrigger value="inbound" className="gap-2" data-testid="tab-inbound">
+              <Phone className="h-4 w-4" />
+              Inbound
             </TabsTrigger>
             <TabsTrigger value="transcripts" className="gap-2" data-testid="tab-transcripts">
               <Mic className="h-4 w-4" />
@@ -1939,10 +1939,6 @@ export default function CampaignsPage() {
               <Coffee className="h-4 w-4" />
               {locale === "sk" ? "Prestávky" : "Breaks"}
             </TabsTrigger>
-            <TabsTrigger value="inbound" className="gap-2" data-testid="tab-inbound">
-              <Phone className="h-4 w-4" />
-              Inbound
-            </TabsTrigger>
             <TabsTrigger value="sop" className="gap-2" data-testid="tab-sop">
               <BookOpen className="h-4 w-4" />
               {t.sop.title}
@@ -1951,6 +1947,39 @@ export default function CampaignsPage() {
         </div>
 
         <TabsContent value="campaigns" className="flex-1 overflow-auto p-6 mt-0">
+          <div className="space-y-5">
+            <div className="relative overflow-hidden rounded-2xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-background to-sky-50 p-5 shadow-sm dark:border-violet-900/50 dark:from-violet-950/25 dark:to-sky-950/15">
+              <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-violet-300/20 blur-3xl dark:bg-violet-600/10" />
+              <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-500/15 text-violet-700 dark:text-violet-300">
+                    <Megaphone className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-violet-700/80 dark:text-violet-300/80">
+                      <Target className="h-3 w-3" />
+                      {t.campaigns.title}
+                    </p>
+                    <h3 className="text-xl font-semibold tracking-tight">{t.campaigns.title}</h3>
+                    <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t.campaigns.description}</p>
+                  </div>
+                </div>
+                <Button onClick={() => setIsDialogOpen(true)} className="shrink-0 bg-violet-600 text-white shadow-sm hover:bg-violet-700" data-testid="button-add-campaign-header">
+                  <Plus className="mr-2 h-4 w-4" />
+                  {t.campaigns.addCampaign}
+                </Button>
+              </div>
+              <div className="relative mt-5 flex flex-wrap gap-2">
+                <Badge variant="outline" className="border-violet-200 bg-background/70 px-3 py-1 text-violet-800 dark:border-violet-800 dark:text-violet-200">
+                  <Megaphone className="mr-1.5 h-3.5 w-3.5" />
+                  {campaigns.length} {t.campaigns.title}
+                </Badge>
+                <Badge variant="outline" className="border-sky-200 bg-background/70 px-3 py-1 text-sky-800 dark:border-sky-800 dark:text-sky-200">
+                  <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
+                  {campaigns.filter(campaign => campaign.status === "active").length} {(t.campaigns.statuses as Record<string, string>).active || "Active"}
+                </Badge>
+              </div>
+            </div>
           <Card>
             <CardHeader className="pb-4 space-y-3">
               <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -2101,10 +2130,7 @@ export default function CampaignsPage() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="access" className="flex-1 overflow-auto mt-0">
-          <AgentWorkspaceAccessTab />
+          </div>
         </TabsContent>
 
         <TabsContent value="transcripts" className="flex-1 overflow-hidden mt-0">

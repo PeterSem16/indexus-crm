@@ -562,23 +562,45 @@ export function IvrMessagesTab() {
   const isSaving = createMutation.isPending || updateMutation.isPending || ttsMutation.isPending || stockMohMutation.isPending || regenerateTtsMutation.isPending || regenerateStockMohMutation.isPending;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div>
-          <h3 className="text-lg font-semibold" data-testid="text-ivr-messages-title">
-            {ivr.title}
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            {ivr.description}
-          </p>
+    <div className="space-y-5">
+      <div className="relative overflow-hidden rounded-2xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-background to-emerald-50 p-5 shadow-sm dark:border-sky-900/60 dark:from-sky-950/30 dark:via-background dark:to-emerald-950/20">
+        <div className="pointer-events-none absolute -bottom-16 -right-8 h-40 w-40 rounded-full bg-emerald-300/20 blur-3xl dark:bg-emerald-600/10" />
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-500/15 text-sky-700 dark:text-sky-300">
+              <Volume2 className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-sky-700/80 dark:text-sky-300/80">
+                <FileAudio className="h-3 w-3" />
+                {ivr.title}
+              </p>
+              <h3 className="text-xl font-semibold tracking-tight" data-testid="text-ivr-messages-title">
+                {ivr.title}
+              </h3>
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                {ivr.description}
+              </p>
+            </div>
+          </div>
+          <Button onClick={openCreate} className="shrink-0 bg-sky-600 text-white shadow-sm hover:bg-sky-700" data-testid="btn-create-ivr-message">
+            <Plus className="h-4 w-4 mr-2" />
+            {ivr.addMessage}
+          </Button>
         </div>
-        <Button onClick={openCreate} data-testid="btn-create-ivr-message">
-          <Plus className="h-4 w-4 mr-2" />
-          {ivr.addMessage}
-        </Button>
+        <div className="relative mt-5 flex flex-wrap gap-2">
+          <Badge variant="outline" className="border-sky-200 bg-white/70 px-3 py-1 text-sky-800 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-200">
+            <FileAudio className="mr-1.5 h-3.5 w-3.5" />
+            {messages.length} {ivr.title}
+          </Badge>
+          <Badge variant="outline" className="border-emerald-200 bg-white/70 px-3 py-1 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">
+            <Check className="mr-1.5 h-3.5 w-3.5" />
+            {messages.filter(message => message.isActive).length} {ivr.active}
+          </Badge>
+        </div>
       </div>
 
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-3 flex-wrap rounded-2xl border border-sky-100 bg-sky-50/30 p-3 dark:border-sky-900/30 dark:bg-sky-950/10">
         <div className="flex items-center gap-2">
           <Label className="text-sm text-muted-foreground whitespace-nowrap">{ivr.filterType}</Label>
           <Select value={filterType} onValueChange={setFilterType}>
@@ -1066,7 +1088,7 @@ export function IvrMessagesTab() {
                     disabled={!formData.textContent.trim() || regenerateTtsMutation.isPending}
                     onClick={() => {
                       if (!formData.textContent.trim()) return;
-                      const rFields = isWelcome ? {
+                      const rFields = formData.type === "welcome" ? {
                         prependRingtone: welcomeMode === "ring_then_message",
                         ringCount: formData.ringCount,
                         ringtoneOnly: false as const,
