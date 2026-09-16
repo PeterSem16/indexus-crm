@@ -2140,11 +2140,11 @@ export default function CampaignsPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="transcripts" className="flex-1 overflow-hidden mt-0">
+        <TabsContent value="transcripts" className="flex-1 min-h-0 overflow-hidden mt-4 px-2 sm:px-4">
           <TranscriptSearchContent />
         </TabsContent>
 
-        <TabsContent value="breaks" className="flex-1 overflow-auto mt-0">
+        <TabsContent value="breaks" className="flex-1 overflow-auto mt-4 px-2 sm:px-4">
           <BreakTypesTab />
         </TabsContent>
 

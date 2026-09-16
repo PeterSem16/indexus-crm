@@ -943,10 +943,10 @@ export function TranscriptSearchContent() {
   const selectedLog = selectedCallLogId ? filteredCallLogs.find(l => l.id === selectedCallLogId) ?? null : null;
 
   return (
-    <div className="flex flex-col h-full bg-muted/20">
+    <div className="flex min-h-0 h-full flex-col bg-muted/20 px-2 py-3 sm:px-4 sm:py-4">
 
       {/* ── Top header ── */}
-      <div className="bg-background border-b px-4 py-2.5 flex items-center gap-3 shrink-0" data-testid="calls-header">
+      <div className="flex flex-wrap items-center gap-3 overflow-hidden rounded-t-2xl border border-border bg-background px-3 py-3 shadow-sm sm:px-5" data-testid="calls-header">
         <div className="flex items-center gap-2.5 shrink-0">
           <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
             <Phone className="h-3.5 w-3.5 text-primary-foreground" />
@@ -995,8 +995,8 @@ export function TranscriptSearchContent() {
         )}
       </div>
 
-      {activeTab === "browse" && (
-        <div className="bg-background/95 border-b px-4 py-3 shrink-0" data-testid="calls-filter-toolbar">
+       {activeTab === "browse" && (
+        <div className="border-x border-b border-border bg-background/95 px-3 py-3 shrink-0 sm:px-5" data-testid="calls-filter-toolbar">
           <div className="flex items-center gap-2.5 flex-wrap">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
@@ -1005,7 +1005,7 @@ export function TranscriptSearchContent() {
               <div className="leading-tight hidden xl:block">
                 <div className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground">{ca.dateFrom}</div>
                 <div className="text-xs font-medium">{ca.customRange}</div>
-              </div>
+           </div>
             </div>
 
             <Select value={datePreset} onValueChange={(value) => {
@@ -1101,22 +1101,28 @@ export function TranscriptSearchContent() {
 
             <div className="h-7 w-px bg-border hidden lg:block mx-0.5" />
 
-            <Select value={browseCampaignFilter || "all"} onValueChange={v => setBrowseCampaignFilter(v === "all" ? "" : v)}>
-              <SelectTrigger className="h-9 w-[190px] text-xs" data-testid="select-toolbar-campaign"><SelectValue placeholder={ca.campaign} /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{ca.allCampaigns}</SelectItem>
-                <SelectItem value="__none__">{ca.noCampaign}</SelectItem>
-                {(uniqueCampaigns.length > 0 ? uniqueCampaigns : campaignsList).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <div className="flex h-9 w-[210px] items-center gap-2 rounded-md border bg-background px-2.5">
+              <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">{ca.campaign}</span>
+              <Select value={browseCampaignFilter || "all"} onValueChange={v => setBrowseCampaignFilter(v === "all" ? "" : v)}>
+                <SelectTrigger className="h-7 min-w-0 flex-1 border-0 bg-transparent px-0 text-xs shadow-none focus:ring-0" data-testid="select-toolbar-campaign"><SelectValue placeholder={ca.campaign} /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{ca.allCampaigns}</SelectItem>
+                  <SelectItem value="__none__">{ca.noCampaign}</SelectItem>
+                  {(uniqueCampaigns.length > 0 ? uniqueCampaigns : campaignsList).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Select value={browseQueueFilter || "all"} onValueChange={v => setBrowseQueueFilter(v === "all" ? "" : v)}>
-              <SelectTrigger className="h-9 w-[190px] text-xs" data-testid="select-toolbar-queue"><SelectValue placeholder={ca.inboundQueue} /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{ca.allQueues}</SelectItem>
-                {uniqueQueues.map(q => <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <div className="flex h-9 w-[230px] items-center gap-2 rounded-md border bg-background px-2.5">
+              <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">{ca.inboundQueue}</span>
+              <Select value={browseQueueFilter || "all"} onValueChange={v => setBrowseQueueFilter(v === "all" ? "" : v)}>
+                <SelectTrigger className="h-7 min-w-0 flex-1 border-0 bg-transparent px-0 text-xs shadow-none focus:ring-0" data-testid="select-toolbar-queue"><SelectValue placeholder={ca.inboundQueue} /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{ca.allQueues}</SelectItem>
+                  {uniqueQueues.map(q => <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
 
             <Button variant={showFilters || activeFilterCount > 0 ? "secondary" : "outline"} size="sm"
               className="h-9 gap-2 ml-auto" onClick={() => setShowFilters(!showFilters)} data-testid="btn-toolbar-more-filters">
@@ -1125,15 +1131,46 @@ export function TranscriptSearchContent() {
               {activeFilterCount > 0 && <Badge className="h-5 min-w-5 px-1.5">{activeFilterCount}</Badge>}
             </Button>
           </div>
+           {showFilters && (
+             <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border bg-muted/20 pt-3" data-testid="calls-advanced-filters">
+               <span className="mr-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{ca.filters}</span>
+               <Select value={browseDirectionFilter || "all"} onValueChange={v => setBrowseDirectionFilter(v === "all" ? "" : v)}>
+                 <SelectTrigger className="h-8 w-[135px] text-[10px]" data-testid="select-browse-direction"><SelectValue placeholder={ca.direction} /></SelectTrigger>
+                 <SelectContent><SelectItem value="all">{ca.allDirections}</SelectItem><SelectItem value="inbound">{ca.inbound}</SelectItem><SelectItem value="outbound">{ca.outbound}</SelectItem></SelectContent>
+               </Select>
+               <Select value={browseStatusFilter || "all"} onValueChange={v => setBrowseStatusFilter(v === "all" ? "" : v)}>
+                 <SelectTrigger className="h-8 w-[135px] text-[10px]" data-testid="select-browse-status"><SelectValue placeholder={ca.status} /></SelectTrigger>
+                 <SelectContent><SelectItem value="all">{ca.allStatuses}</SelectItem><SelectItem value="completed">{ca.statusCompleted}</SelectItem><SelectItem value="no_answer">{ca.statusNoAnswer}</SelectItem><SelectItem value="failed">{ca.statusFailed}</SelectItem><SelectItem value="busy">{ca.statusBusy}</SelectItem></SelectContent>
+               </Select>
+               <Select value={browseSentimentFilter || "all"} onValueChange={v => setBrowseSentimentFilter(v === "all" ? "" : v)}>
+                 <SelectTrigger className="h-8 w-[135px] text-[10px]" data-testid="select-browse-sentiment"><SelectValue placeholder={ca.sentiment} /></SelectTrigger>
+                 <SelectContent><SelectItem value="all">{ca.allSentiments}</SelectItem><SelectItem value="positive">{ca.positive}</SelectItem><SelectItem value="neutral">{ca.neutral}</SelectItem><SelectItem value="negative">{ca.negative}</SelectItem><SelectItem value="angry">{ca.angry}</SelectItem></SelectContent>
+               </Select>
+               <Select value={browseRecordingFilter || "all"} onValueChange={v => setBrowseRecordingFilter(v === "all" ? "" : v)}>
+                 <SelectTrigger className="h-8 w-[135px] text-[10px]" data-testid="select-browse-recording"><SelectValue placeholder={ca.recording} /></SelectTrigger>
+                 <SelectContent><SelectItem value="all">{ca.allRecordings}</SelectItem><SelectItem value="recorded">{ca.withRecording}</SelectItem><SelectItem value="not_recorded">{ca.withoutRecording}</SelectItem><SelectItem value="analyzed">{ca.analyzed}</SelectItem><SelectItem value="transcribed">{ca.withTranscript}</SelectItem></SelectContent>
+               </Select>
+               {uniqueAgents.length > 0 && (
+                 <Select value={browseAgentFilter || "all"} onValueChange={v => setBrowseAgentFilter(v === "all" ? "" : v)}>
+                   <SelectTrigger className="h-8 w-[150px] text-[10px]" data-testid="select-browse-agent"><SelectValue placeholder={ca.agent} /></SelectTrigger>
+                   <SelectContent><SelectItem value="all">{ca.allAgents}</SelectItem>{uniqueAgents.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
+                 </Select>
+               )}
+               <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground cursor-pointer"><input type="checkbox" checked={browseHasAlertsFilter} onChange={e => setBrowseHasAlertsFilter(e.target.checked)} className="h-3 w-3" data-testid="checkbox-has-alerts" />{ca.withAlerts}</label>
+               <label className="flex items-center gap-1.5 text-[10px] text-violet-600 dark:text-violet-400 cursor-pointer font-medium"><input type="checkbox" checked={browseMobileFilter} onChange={e => setBrowseMobileFilter(e.target.checked)} className="h-3 w-3 accent-violet-600" data-testid="checkbox-mobile-filter" /><Smartphone className="h-3 w-3" />INDEXUS Connect</label>
+               <label className="flex items-center gap-1.5 text-[10px] text-amber-600 cursor-pointer font-medium"><input type="checkbox" checked={browseImportantFilter} onChange={e => setBrowseImportantFilter(e.target.checked)} className="h-3 w-3 accent-amber-500" data-testid="checkbox-important-filter" /><Star className="h-3 w-3 fill-amber-400" />Dôležité</label>
+               {activeFilterCount > 0 && <button onClick={clearFilters} className="text-[10px] text-primary hover:underline" data-testid="btn-clear-browse-filters">{ca.clearFilters}</button>}
+             </div>
+           )}
         </div>
       )}
 
       {/* ── Browse mode ── */}
       {activeTab === "browse" && (
-        <div className="flex flex-1 min-h-0">
+        <div className="flex flex-1 min-h-0 overflow-hidden rounded-b-2xl border-x border-b border-border">
 
           {/* Left: list */}
-          <div className="w-[280px] shrink-0 bg-background border-r flex flex-col min-h-0">
+          <div className="w-[300px] max-w-[42vw] shrink-0 bg-background border-r flex flex-col min-h-0">
             {/* Search + filter */}
             <div className="px-3 py-2 border-b space-y-1.5 shrink-0">
               <div className="flex gap-1.5">
@@ -1144,91 +1181,8 @@ export function TranscriptSearchContent() {
                     className="bg-transparent outline-none flex-1 placeholder-muted-foreground text-foreground"
                     data-testid="input-browse-search" />
                 </div>
-                <button onClick={() => setShowFilters(!showFilters)} data-testid="btn-browse-filters"
-                  className={`relative px-2.5 rounded-lg border text-xs transition-colors ${showFilters || activeFilterCount > 0 ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"}`}>
-                  <SlidersHorizontal className="h-3.5 w-3.5" />
-                  {activeFilterCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[9px] flex items-center justify-center font-bold">{activeFilterCount}</span>
-                  )}
-                </button>
               </div>
 
-              {showFilters && (
-                <div className="space-y-2 pb-1">
-                  <div className="grid grid-cols-2 gap-1">
-                    <Select value={browseDirectionFilter || "all"} onValueChange={v => setBrowseDirectionFilter(v === "all" ? "" : v)}>
-                      <SelectTrigger className="h-7 text-[10px]" data-testid="select-browse-direction"><SelectValue placeholder={ca.direction} /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">{ca.allDirections}</SelectItem>
-                        <SelectItem value="inbound">{ca.inbound}</SelectItem>
-                        <SelectItem value="outbound">{ca.outbound}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select value={browseStatusFilter || "all"} onValueChange={v => setBrowseStatusFilter(v === "all" ? "" : v)}>
-                      <SelectTrigger className="h-7 text-[10px]" data-testid="select-browse-status"><SelectValue placeholder={ca.status} /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">{ca.allStatuses}</SelectItem>
-                        <SelectItem value="completed">{ca.statusCompleted}</SelectItem>
-                        <SelectItem value="no_answer">{ca.statusNoAnswer}</SelectItem>
-                        <SelectItem value="failed">{ca.statusFailed}</SelectItem>
-                        <SelectItem value="busy">{ca.statusBusy}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select value={browseSentimentFilter || "all"} onValueChange={v => setBrowseSentimentFilter(v === "all" ? "" : v)}>
-                      <SelectTrigger className="h-7 text-[10px]" data-testid="select-browse-sentiment"><SelectValue placeholder={ca.sentiment} /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">{ca.allSentiments}</SelectItem>
-                        <SelectItem value="positive">{ca.positive}</SelectItem>
-                        <SelectItem value="neutral">{ca.neutral}</SelectItem>
-                        <SelectItem value="negative">{ca.negative}</SelectItem>
-                        <SelectItem value="angry">{ca.angry}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select value={browseRecordingFilter || "all"} onValueChange={v => setBrowseRecordingFilter(v === "all" ? "" : v)}>
-                      <SelectTrigger className="h-7 text-[10px]" data-testid="select-browse-recording"><SelectValue placeholder={ca.recording} /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">{ca.allRecordings}</SelectItem>
-                        <SelectItem value="recorded">{ca.withRecording}</SelectItem>
-                        <SelectItem value="not_recorded">{ca.withoutRecording}</SelectItem>
-                        <SelectItem value="analyzed">{ca.analyzed}</SelectItem>
-                        <SelectItem value="transcribed">{ca.withTranscript}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {uniqueAgents.length > 0 && (
-                    <Select value={browseAgentFilter || "all"} onValueChange={v => setBrowseAgentFilter(v === "all" ? "" : v)}>
-                      <SelectTrigger className="h-7 text-[10px] w-full" data-testid="select-browse-agent"><SelectValue placeholder={ca.agent} /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">{ca.allAgents}</SelectItem>
-                        {uniqueAgents.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground cursor-pointer">
-                        <input type="checkbox" checked={browseHasAlertsFilter} onChange={e => setBrowseHasAlertsFilter(e.target.checked)} className="h-3 w-3" data-testid="checkbox-has-alerts" />
-                        {ca.withAlerts}
-                      </label>
-                      <label className="flex items-center gap-1.5 text-[10px] text-violet-600 dark:text-violet-400 cursor-pointer font-medium">
-                        <input type="checkbox" checked={browseMobileFilter} onChange={e => setBrowseMobileFilter(e.target.checked)} className="h-3 w-3 accent-violet-600" data-testid="checkbox-mobile-filter" />
-                        <Smartphone className="h-3 w-3" />
-                        INDEXUS Connect
-                      </label>
-                      <label className="flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400 cursor-pointer font-medium">
-                        <input type="checkbox" checked={browseImportantFilter} onChange={e => setBrowseImportantFilter(e.target.checked)} className="h-3 w-3 accent-amber-500" data-testid="checkbox-important-filter" />
-                        <Star className="h-3 w-3 fill-amber-400" />
-                        Dôležité
-                      </label>
-                    </div>
-                    {activeFilterCount > 0 && (
-                      <button onClick={clearFilters} className="text-[10px] text-primary hover:underline" data-testid="btn-clear-browse-filters">
-                        {ca.clearFilters}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Call list */}
@@ -1273,7 +1227,7 @@ export function TranscriptSearchContent() {
 
       {/* ── Search mode ── */}
       {activeTab === "search" && (
-        <div className="flex-1 min-h-0 flex flex-col">
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden rounded-b-2xl border-x border-b border-border">
           {/* Search filters */}
           <div className="px-4 py-2 border-b bg-background shrink-0 flex items-center gap-3 flex-wrap">
             <Select value={sentimentFilter || "all"} onValueChange={v => setSentimentFilter(v === "all" ? "" : v)}>
