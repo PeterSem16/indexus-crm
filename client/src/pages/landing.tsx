@@ -176,10 +176,21 @@ export default function LandingPage() {
 
   // Step 2b: MS365 login
   const handleMs365Login = async () => {
+    const isEmbeddedPreview = window.self !== window.top;
+    const authWindow = isEmbeddedPreview ? window.open("about:blank", "_blank") : null;
     setIsLoading(true);
     try {
-      await loginWithMs365(username);
+      const authUrl = await loginWithMs365(username);
+      if (authWindow && !authWindow.closed) {
+        authWindow.opener = null;
+        authWindow.location.href = authUrl;
+      } else if (isEmbeddedPreview && window.top) {
+        window.top.location.href = authUrl;
+      } else {
+        window.location.href = authUrl;
+      }
     } catch (error: any) {
+      authWindow?.close();
       toast({
         title: "Error",
         description: error.message || "Failed to connect to Microsoft 365",
