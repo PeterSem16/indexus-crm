@@ -1937,7 +1937,7 @@ export default function CampaignsPage() {
             </TabsTrigger>
             <TabsTrigger value="transcripts" className="gap-2" data-testid="tab-transcripts">
               <Mic className="h-4 w-4" />
-              {inboundUi.transcripts}
+              {t.callAnalysis.pageTitle}
             </TabsTrigger>
             <TabsTrigger value="breaks" className="gap-2" data-testid="tab-breaks">
               <Coffee className="h-4 w-4" />

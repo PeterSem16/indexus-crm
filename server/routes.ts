@@ -32894,7 +32894,7 @@ Respond ONLY with valid JSON in this exact format:
             campaignContactId,
             userId,
             action: "status_list_confirmation",
-            metadata: { statusListItemId: itemId, confirmed: true, campaignId },
+            metadata: { statusListItemId: itemId, confirmed: true, campaignId, itemNote: itemNote ?? null },
           });
         } else {
           // Item already confirmed — update itemNote ONLY when the caller supplies
@@ -32910,6 +32910,12 @@ Respond ONLY with valid JSON in this exact format:
               ))
               .returning();
             stateRow = updated ?? existing[0];
+            await db.insert(campaignContactHistory).values({
+              campaignContactId,
+              userId,
+              action: "status_list_note_update",
+              metadata: { statusListItemId: itemId, campaignId, itemNote },
+            });
           } else {
             stateRow = existing[0];
           }
@@ -32943,7 +32949,8 @@ Respond ONLY with valid JSON in this exact format:
   // Update just the note on an existing confirmed status-list item (with timestamp).
   app.patch("/api/campaigns/:campaignId/contacts/:campaignContactId/status-list-state/:itemId/note", requireAuth, async (req, res) => {
     try {
-      const { campaignContactId, itemId } = req.params;
+      const { campaignId, campaignContactId, itemId } = req.params;
+      const userId = req.session.user!.id;
       const { note } = req.body as { note?: string | null };
       await db.update(campaignContactStatusListState)
         .set({ itemNote: note ?? null, noteUpdatedAt: new Date() })
@@ -32951,6 +32958,12 @@ Respond ONLY with valid JSON in this exact format:
           eq(campaignContactStatusListState.campaignContactId, campaignContactId),
           eq(campaignContactStatusListState.statusListItemId, itemId)
         ));
+      await db.insert(campaignContactHistory).values({
+        campaignContactId,
+        userId,
+        action: "status_list_note_update",
+        metadata: { statusListItemId: itemId, campaignId, itemNote: note ?? null },
+      });
       res.json({ ok: true });
     } catch (error) {
       console.error("Failed to update status list item note:", error);
@@ -34487,12 +34500,19 @@ Respond ONLY with valid JSON in this exact format:
       const user = req.session.user;
       if (!user) return res.status(401).json({ error: "Not authenticated" });
 
-      const { limit: limitParam } = req.query;
-      const limitNum = parseInt(limitParam as string) || 50;
+      const { limit: limitParam, offset: offsetParam, dateFrom, dateTo } = req.query;
+      const limitNum = Math.min(Math.max(parseInt(limitParam as string) || 50, 1), 500);
+      const offsetNum = Math.max(parseInt(offsetParam as string) || 0, 0);
 
       const isPrivileged = ["admin", "manager"].includes(user.role);
       const conditions: any[] = [];
       if (!isPrivileged) conditions.push(eq(callLogs.userId, user.id));
+      if (dateFrom && !Number.isNaN(new Date(String(dateFrom)).getTime())) {
+        conditions.push(gte(callLogs.startedAt, new Date(String(dateFrom))));
+      }
+      if (dateTo && !Number.isNaN(new Date(String(dateTo)).getTime())) {
+        conditions.push(lte(callLogs.startedAt, new Date(String(dateTo))));
+      }
 
       const logs = await db.select({
         id: callLogs.id,
@@ -34517,7 +34537,8 @@ Respond ONLY with valid JSON in this exact format:
       }).from(callLogs)
         .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(desc(callLogs.createdAt))
-        .limit(limitNum);
+        .limit(limitNum)
+        .offset(offsetNum);
 
       const logIds = logs.map(l => l.id);
       let recordingMap: Record<string, any> = {};
@@ -34703,12 +34724,16 @@ Respond ONLY with valid JSON in this exact format:
     try {
       const log = await storage.getCallLog(req.params.id);
       if (!log) return res.status(404).json({ error: "Not found" });
-      console.log(`[Checklist] logId=${req.params.id} customerId=${log.customerId} campaignId=${log.campaignId} campaignContactId=${(log as any).campaignContactId}`);
+      const user = req.session.user;
+      if (!user) return res.status(401).json({ error: "Not authenticated" });
+      const isPrivileged = ["admin", "manager"].includes(user.role);
+      if (!isPrivileged && log.userId !== user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
       let contacts: { id: string }[] = [];
       if ((log as any).campaignContactId) {
         contacts = [{ id: (log as any).campaignContactId }];
       } else if (!log.customerId) {
-        console.log(`[Checklist] no customerId → returning null`);
         return res.json(null);
       } else if (log.campaignId) {
         contacts = await db.select({ id: campaignContacts.id })
@@ -34720,17 +34745,199 @@ Respond ONLY with valid JSON in this exact format:
           .where(eq(campaignContacts.customerId, log.customerId))
           .limit(50);
       }
-      console.log(`[Checklist] contacts found: ${contacts.length} → ids: ${contacts.map(c => c.id).join(", ")}`);
       if (!contacts.length) return res.json(null);
-      const contactIds = contacts.map(c => c.id);
-      const history = await db.select().from(campaignContactHistory)
-        .where(and(inArray(campaignContactHistory.campaignContactId, contactIds), eq(campaignContactHistory.action, "checklist_response")))
-        .orderBy(desc(campaignContactHistory.createdAt)).limit(1);
-      console.log(`[Checklist] history records found: ${history.length}`);
-      if (!history.length) return res.json(null);
-      const meta = (history[0].metadata as any) || {};
-      console.log(`[Checklist] sections: ${(meta.sections || []).length}`);
-      res.json({ sections: meta.sections || [], savedAt: history[0].createdAt });
+
+      const startedAt = new Date((log as any).startedAt || (log as any).createdAt);
+      const rawEndedAt = (log as any).endedAt
+        ? new Date((log as any).endedAt)
+        : new Date(startedAt.getTime() + Math.max(0, Number((log as any).durationSeconds || 0)) * 1000);
+      // Status-list choices are commonly saved in the wrap-up modal immediately
+      // after hangup, so include a short post-call window while still binding the
+      // result to this call and its agent.
+      let windowEnd = new Date(rawEndedAt.getTime() + 15 * 60 * 1000);
+      const nextCallConditions: any[] = [
+        eq(callLogs.userId, (log as any).userId),
+        ne(callLogs.id, (log as any).id),
+        gte(callLogs.startedAt, new Date(startedAt.getTime() + 1)),
+      ];
+      if ((log as any).campaignContactId) {
+        nextCallConditions.push(eq(callLogs.campaignContactId, (log as any).campaignContactId));
+      } else if ((log as any).customerId) {
+        nextCallConditions.push(eq(callLogs.customerId, (log as any).customerId));
+        if ((log as any).campaignId) nextCallConditions.push(eq(callLogs.campaignId, (log as any).campaignId));
+      }
+      if ((log as any).campaignContactId || (log as any).customerId) {
+        const [nextCall] = await db.select({ startedAt: callLogs.startedAt })
+          .from(callLogs)
+          .where(and(...nextCallConditions))
+          .orderBy(asc(callLogs.startedAt))
+          .limit(1);
+        if (nextCall?.startedAt && nextCall.startedAt < windowEnd) {
+          windowEnd = new Date(nextCall.startedAt.getTime() - 1);
+        }
+      }
+
+      let selectedContactId: string | null = (log as any).campaignContactId || null;
+      if (!selectedContactId) {
+        const candidateIds = contacts.map(c => c.id);
+        const matchingEvents = await db.select({
+          campaignContactId: campaignContactHistory.campaignContactId,
+        }).from(campaignContactHistory)
+          .where(and(
+            inArray(campaignContactHistory.campaignContactId, candidateIds),
+            eq(campaignContactHistory.userId, (log as any).userId),
+            or(
+              eq(campaignContactHistory.action, "checklist_response"),
+              eq(campaignContactHistory.action, "status_list_confirmation"),
+              eq(campaignContactHistory.action, "status_list_note_update"),
+            ),
+            gte(campaignContactHistory.createdAt, startedAt),
+            lte(campaignContactHistory.createdAt, windowEnd),
+          ))
+          .orderBy(desc(campaignContactHistory.createdAt));
+        const matchingContactIds = [...new Set(matchingEvents.map(event => event.campaignContactId))];
+        selectedContactId = matchingContactIds.length === 1 ? matchingContactIds[0] : null;
+      }
+      if (!selectedContactId) return res.json(null);
+
+      const callHistory = await db.select().from(campaignContactHistory)
+        .where(and(
+          eq(campaignContactHistory.campaignContactId, selectedContactId),
+          eq(campaignContactHistory.userId, (log as any).userId),
+          or(
+            eq(campaignContactHistory.action, "checklist_response"),
+            eq(campaignContactHistory.action, "status_list_confirmation"),
+            eq(campaignContactHistory.action, "status_list_note_update"),
+          ),
+          gte(campaignContactHistory.createdAt, startedAt),
+          lte(campaignContactHistory.createdAt, windowEnd),
+        ))
+        .orderBy(desc(campaignContactHistory.createdAt));
+
+      if (!callHistory.length) return res.json(null);
+
+      const resultItems: Array<{
+        id: string;
+        label: string;
+        section: string | null;
+        value: string | null;
+        note: string | null;
+        color: string | null;
+      }> = [];
+
+      // Legacy SOP/checklist snapshots contain the whole form. Compare the latest
+      // snapshot saved during this call with the pre-call snapshot and return only
+      // fields the agent actually filled or changed.
+      const checklistEntry = callHistory.find(h => h.action === "checklist_response");
+      if (checklistEntry) {
+        const [previousEntry] = await db.select().from(campaignContactHistory)
+          .where(and(
+            eq(campaignContactHistory.campaignContactId, selectedContactId),
+            eq(campaignContactHistory.action, "checklist_response"),
+            lte(campaignContactHistory.createdAt, new Date(startedAt.getTime() - 1)),
+          ))
+          .orderBy(desc(campaignContactHistory.createdAt))
+          .limit(1);
+
+        const flattenChecklist = (sections: any[]): Array<any> =>
+          (sections || []).flatMap((section: any, sectionIndex: number) => {
+            const sectionTitle = section?.title || null;
+            const direct = (section?.items || []).map((item: any, itemIndex: number) => ({
+              ...item,
+              __section: sectionTitle,
+              __key: item?.id || `${sectionIndex}:item:${itemIndex}:${item?.label || ""}`,
+            }));
+            const nested = (section?.subsections || []).flatMap((sub: any, subIndex: number) =>
+              (sub?.items || []).map((item: any, itemIndex: number) => ({
+                ...item,
+                __section: sub?.title || sectionTitle,
+                __key: item?.id || `${sectionIndex}:${subIndex}:${itemIndex}:${item?.label || ""}`,
+              })),
+            );
+            return [...direct, ...nested];
+          });
+        const itemValue = (item: any) => ({
+          checked: item?.checked === true,
+          answer: item?.answer ?? null,
+          value: typeof item?.value === "string" ? item.value.trim() : item?.value ?? null,
+          note: typeof item?.note === "string" ? item.note.trim() : item?.note ?? null,
+        });
+        const isFilled = (item: any) => {
+          const value = itemValue(item);
+          return value.checked || value.answer === "yes" || value.answer === "no" || Boolean(value.value) || Boolean(value.note);
+        };
+
+        const currentMeta = (checklistEntry.metadata as any) || {};
+        const previousMeta = (previousEntry?.metadata as any) || {};
+        const previousByKey = new Map(
+          flattenChecklist(previousMeta.sections || []).map((item: any) => [item.__key, JSON.stringify(itemValue(item))]),
+        );
+        for (const item of flattenChecklist(currentMeta.sections || [])) {
+          if (!isFilled(item)) continue;
+          if (previousByKey.get(item.__key) === JSON.stringify(itemValue(item))) continue;
+          const value = item?.value?.toString().trim() || (item?.answer === "no" ? "No" : null);
+          resultItems.push({
+            id: `checklist:${item.__key}`,
+            label: item?.label || "",
+            section: item.__section,
+            value,
+            note: item?.note?.toString().trim() || null,
+            color: null,
+          });
+        }
+      }
+
+      // The current Status List writes one history event per changed choice.
+      // Keep the newest event for each item and show only choices left confirmed.
+      const latestStatusEventByItem = new Map<string, any>();
+      const latestNoteByItem = new Map<string, string | null>();
+      for (const entry of callHistory) {
+        const metadata = (entry.metadata as any) || {};
+        const itemId = metadata.statusListItemId;
+        if (!itemId) continue;
+        if (entry.action === "status_list_confirmation" && !latestStatusEventByItem.has(itemId)) {
+          latestStatusEventByItem.set(itemId, entry);
+        }
+        if (
+          (entry.action === "status_list_note_update" || Object.prototype.hasOwnProperty.call(metadata, "itemNote")) &&
+          !latestNoteByItem.has(itemId)
+        ) {
+          latestNoteByItem.set(itemId, typeof metadata.itemNote === "string" ? metadata.itemNote : null);
+        }
+      }
+      const confirmedItemIds = [...new Set([
+        ...[...latestStatusEventByItem.entries()]
+          .filter(([, entry]) => ((entry.metadata as any) || {}).confirmed === true)
+          .map(([itemId]) => itemId),
+        ...[...latestNoteByItem.keys()]
+          .filter(itemId => ((latestStatusEventByItem.get(itemId)?.metadata as any) || {}).confirmed !== false),
+      ])];
+
+      if (confirmedItemIds.length > 0) {
+        const statusItems = await db.select({
+            id: campaignStatusListItems.id,
+            label: campaignStatusListItems.label,
+            color: campaignStatusListItems.color,
+            sortOrder: campaignStatusListItems.sortOrder,
+          }).from(campaignStatusListItems)
+            .where(inArray(campaignStatusListItems.id, confirmedItemIds));
+        for (const item of statusItems.sort((a, b) => a.sortOrder - b.sortOrder)) {
+          resultItems.push({
+            id: `status:${item.id}`,
+            label: item.label,
+            section: null,
+            value: null,
+            note: latestNoteByItem.get(item.id) || null,
+            color: item.color,
+          });
+        }
+      }
+
+      if (!resultItems.length) return res.json(null);
+      res.json({
+        items: resultItems,
+        savedAt: callHistory[0]?.createdAt || null,
+      });
     } catch (error: any) {
       console.error("Failed to fetch call log checklist response:", error);
       res.status(500).json({ error: "Failed to fetch checklist response" });

@@ -12,8 +12,6 @@ import { useI18n } from "@/i18n";
 import { CallRecordingPlayer, type PlaybackState } from "@/components/call-recording-player";
 
 const LOCALE_MAP: Record<string, string> = { en: 'en-US', sk: 'sk-SK', cs: 'cs-CZ', hu: 'hu-HU', ro: 'ro-RO', it: 'it-IT', de: 'de-DE' };
-const DAY_NAMES = ["Ne", "Po", "Ut", "St", "Št", "Pi", "So"];
-
 interface TranscriptResult {
   id: string; callLogId: string; customerId: string | null; customerName: string | null;
   agentName: string | null; campaignName: string | null; phoneNumber: string | null;
@@ -51,16 +49,10 @@ function formatDuration(seconds: number | null): string {
 }
 
 function toDateStr(d: Date): string {
-  return d.toISOString().split("T")[0];
-}
-
-function getWeekDays(weekOffset: number): Date[] {
-  const today = new Date();
-  const dow = today.getDay();
-  const mondayOff = dow === 0 ? -6 : 1 - dow;
-  const monday = new Date(today);
-  monday.setDate(today.getDate() + mondayOff + weekOffset * 7);
-  return Array.from({ length: 5 }, (_, i) => { const d = new Date(monday); d.setDate(monday.getDate() + i); return d; });
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function highlightText(text: string, query: string): JSX.Element {
@@ -158,125 +150,38 @@ function DonutChart({ value, max = 10, color, label, sub }: { value: number; max
   );
 }
 
-const CL_SECTION_PALETTE = [
-  { dot: "#6366f1", bg: "bg-indigo-50 dark:bg-indigo-950/20", text: "text-indigo-700 dark:text-indigo-300", pill: "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300" },
-  { dot: "#8b5cf6", bg: "bg-violet-50 dark:bg-violet-950/20", text: "text-violet-700 dark:text-violet-300", pill: "bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300" },
-  { dot: "#10b981", bg: "bg-emerald-50 dark:bg-emerald-950/20", text: "text-emerald-700 dark:text-emerald-300", pill: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300" },
-  { dot: "#f59e0b", bg: "bg-amber-50 dark:bg-amber-950/20", text: "text-amber-700 dark:text-amber-300", pill: "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300" },
-  { dot: "#0ea5e9", bg: "bg-sky-50 dark:bg-sky-950/20", text: "text-sky-700 dark:text-sky-300", pill: "bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300" },
-];
+interface CallStatusChange {
+  id: string;
+  label: string;
+  section?: string | null;
+  value?: string | null;
+  note?: string | null;
+  color?: string | null;
+}
 
-function ChecklistResponsePanel({ sections, ca }: { sections: any[]; ca: Record<string, any> }) {
-  const [filter, setFilter] = useState<"all" | "done" | "todo">("all");
-
-  const allFlatItems: Array<{ item: any; secIdx: number; secTitle: string }> = sections.flatMap((sec, si) => {
-    const items = [...(sec.items || []), ...(sec.subsections || []).flatMap((sub: any) => sub.items || [])];
-    return items.map(item => ({ item, secIdx: si, secTitle: sec.title || "" }));
-  });
-
-  if (!allFlatItems.length) return null;
-
-  const isDone = (item: any) => item.checked || item.answer === "yes" || (item.type === "text" && item.value?.trim());
-  const doneCount = allFlatItems.filter(({ item }) => isDone(item)).length;
-  const totalCount = allFlatItems.length;
-  const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
-
-  const secStats = sections.map((sec, si) => {
-    const items = [...(sec.items || []), ...(sec.subsections || []).flatMap((sub: any) => sub.items || [])];
-    const done = items.filter(i => isDone(i)).length;
-    return { title: sec.title || `Sekcia ${si + 1}`, done, total: items.length, idx: si };
-  });
-
-  const filtered = allFlatItems.filter(({ item }) => {
-    if (filter === "done") return isDone(item);
-    if (filter === "todo") return !isDone(item);
-    return true;
-  });
-
+function StatusListChangesPanel({ items, ca }: { items: CallStatusChange[]; ca: Record<string, any> }) {
+  if (!items.length) return null;
   return (
-    <div className="bg-background border border-border rounded-xl overflow-hidden" data-testid="section-checklist-response">
-      {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-border">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
-              <ClipboardCheck className="h-3 w-3 text-indigo-500" />
-            </div>
-            <span className="text-xs font-semibold">{ca.checklistLabel || "SOP Checklist"}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-lg font-black" style={{ color: pct >= 70 ? "#10b981" : pct >= 40 ? "#f59e0b" : "#6366f1" }}>{pct}%</span>
-            <span className="text-[10px] text-muted-foreground">{doneCount}/{totalCount}</span>
-          </div>
+    <div className="bg-background border border-border rounded-xl overflow-hidden" data-testid="section-status-list-changes">
+      <div className="px-3.5 py-2.5 border-b border-border flex items-center gap-2">
+        <div className="w-6 h-6 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
+          <ClipboardCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
         </div>
-        {/* Section pills */}
-        <div className="flex flex-wrap gap-1">
-          {secStats.map((s, i) => {
-            const pal = CL_SECTION_PALETTE[i % CL_SECTION_PALETTE.length];
-            return (
-              <span key={i} className={`text-[9px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 ${pal.pill}`}>
-                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: pal.dot }} />
-                {s.title}
-                <span className="opacity-60">{s.done}/{s.total}</span>
-              </span>
-            );
-          })}
-        </div>
+        <span className="text-xs font-semibold">{ca.statusListChanges}</span>
+        <Badge variant="secondary" className="ml-auto h-5 px-1.5 text-[9px]">{items.length}</Badge>
       </div>
-
-      {/* Filter tabs */}
-      <div className="flex border-b border-border">
-        {([["all", `Všetky (${totalCount})`], ["done", `✓ Splnené (${doneCount})`], ["todo", `○ Čakajú (${totalCount - doneCount})`]] as const).map(([f, label]) => (
-          <button key={f} onClick={() => setFilter(f)}
-            className={`flex-1 py-1.5 text-[10px] font-semibold transition-colors ${filter === f ? "bg-indigo-600 text-white" : "text-muted-foreground hover:bg-muted"}`}>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Items */}
       <div className="divide-y divide-border/60">
-        {filtered.map(({ item, secIdx, secTitle }, idx) => {
-          const pal = CL_SECTION_PALETTE[secIdx % CL_SECTION_PALETTE.length];
-          const isChecked = item.checked || item.answer === "yes";
-          const isNo = item.answer === "no";
-          const hasText = item.type === "text" && item.value?.trim();
-          return (
-            <div key={idx} className={`flex items-start gap-2.5 px-3 py-2.5 ${isChecked ? "bg-emerald-50/40 dark:bg-emerald-950/10" : ""}`} data-testid={`cl-item-${secIdx}-${idx}`}>
-              <span className="w-2 h-2 rounded-full shrink-0 mt-1" style={{ background: pal.dot }} />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
-                  <span className={`text-xs leading-relaxed ${isNo ? "line-through text-muted-foreground" : "text-foreground"}`}>{item.label}</span>
-                  {isChecked && (
-                    <span className="shrink-0 inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500 text-white">
-                      <CheckCircle2 className="h-2.5 w-2.5" />Splnené
-                    </span>
-                  )}
-                  {isNo && (
-                    <span className="shrink-0 inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-950/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800">
-                      <XCircle className="h-2.5 w-2.5" />Nie
-                    </span>
-                  )}
-                  {!isChecked && !isNo && hasText && (
-                    <span className="shrink-0 inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
-                      <MessageSquare className="h-2.5 w-2.5" />Poznámka
-                    </span>
-                  )}
-                </div>
-                {hasText && (
-                  <div className="mt-0.5 text-[10px] bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded italic inline-block">„{item.value}"</div>
-                )}
-                {item.note?.trim() && (
-                  <div className="mt-0.5 text-[10px] text-muted-foreground italic">📝 {item.note}</div>
-                )}
-                {secTitle && <div className={`text-[9px] mt-0.5 font-medium ${pal.text}`}>{secTitle}</div>}
-              </div>
+        {items.map((item) => (
+          <div key={item.id} className="flex items-start gap-2.5 px-3.5 py-2.5 bg-emerald-50/30 dark:bg-emerald-950/10">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-medium leading-relaxed text-foreground">{item.label}</div>
+              {item.section && <div className="text-[9px] text-muted-foreground mt-0.5">{item.section}</div>}
+              {item.value && <div className="mt-1 text-[10px] text-primary bg-primary/8 rounded-md px-2 py-1 w-fit">{item.value}</div>}
+              {item.note && <div className="mt-1 text-[10px] text-muted-foreground italic">{item.note}</div>}
             </div>
-          );
-        })}
-        {filtered.length === 0 && (
-          <div className="px-4 py-6 text-center text-xs text-muted-foreground">Žiadne položky</div>
-        )}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -357,7 +262,7 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
   const sentColor = rec?.sentiment ? (SENTIMENT_COLOR[rec.sentiment] ?? "#94a3b8") : "#94a3b8";
   const hasScores = rec?.qualityScore != null || rec?.scriptComplianceScore != null || sentScore != null;
 
-  const { data: checklistData } = useQuery<{ sections: any[]; savedAt: string } | null>({
+  const { data: checklistData } = useQuery<{ items: CallStatusChange[]; savedAt: string | null } | null>({
     queryKey: ["/api/call-logs", log.id, "checklist-response"],
     queryFn: async () => {
       const res = await fetch(`/api/call-logs/${log.id}/checklist-response`, { credentials: "include" });
@@ -490,27 +395,6 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
           );
         })()}
 
-        {/* Row 4: Disposition */}
-        {(log.dispositionCode || log.dispositionName) && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-2 bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-700 rounded-lg px-3 py-1.5">
-              <ClipboardCheck className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400 shrink-0" />
-              <div>
-                <div className="text-[9px] text-violet-500 dark:text-violet-400 leading-none">{ca.callResult || 'Výsledok hovoru'}</div>
-                <div className="text-[11px] font-bold text-violet-700 dark:text-violet-300 leading-tight">{log.dispositionName || log.dispositionCode}</div>
-              </div>
-            </div>
-            {log.dispositionSubstatuses && log.dispositionSubstatuses.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {log.dispositionSubstatuses.map((ss, i) => (
-                  <span key={i} className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-700">
-                    {ss}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* ── Player strip + Checklist (below header) ── */}
@@ -549,9 +433,9 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
         )}
 
         {/* ── Checklist (shown regardless of analysis status) ── */}
-        {checklistData?.sections && checklistData.sections.length > 0 && (
+        {checklistData?.items && checklistData.items.length > 0 && (
           <div className="pt-3">
-            <ChecklistResponsePanel sections={checklistData.sections} ca={ca} />
+            <StatusListChangesPanel items={checklistData.items} ca={ca} />
           </div>
         )}
       </div>
@@ -836,10 +720,10 @@ export function TranscriptSearchContent() {
   const { t, locale } = useI18n();
   const ca = t.callAnalysis;
 
-  /* Day navigation */
-  const [weekOffset, setWeekOffset] = useState(0);
-  const [selectedDate, setSelectedDate] = useState<string>(toDateStr(new Date()));
-  const weekDays = useMemo(() => getWeekDays(weekOffset), [weekOffset]);
+  /* Date range */
+  const [datePreset, setDatePreset] = useState<"today" | "yesterday" | "lastWeek" | "thisMonth" | "custom">("today");
+  const [dateFrom, setDateFrom] = useState<string>(toDateStr(new Date()));
+  const [dateTo, setDateTo] = useState<string>(toDateStr(new Date()));
 
   /* Browse filters */
   const [browseSearchText, setBrowseSearchText] = useState("");
@@ -876,11 +760,22 @@ export function TranscriptSearchContent() {
 
   /* Queries */
   const { data: callLogs = [], isLoading: logsLoading } = useQuery<CallLogEntry[]>({
-    queryKey: ["/api/call-logs/browse"],
+    queryKey: ["/api/call-logs/browse", dateFrom, dateTo],
     queryFn: async () => {
-      const res = await fetch("/api/call-logs/browse?limit=500", { credentials: "include" });
-      if (!res.ok) return [];
-      return res.json();
+      const pageSize = 500;
+      const allLogs: CallLogEntry[] = [];
+      const params = new URLSearchParams({ limit: String(pageSize) });
+      if (dateFrom) params.set("dateFrom", new Date(`${dateFrom}T00:00:00`).toISOString());
+      if (dateTo) params.set("dateTo", new Date(`${dateTo}T23:59:59.999`).toISOString());
+      for (let offset = 0; ; offset += pageSize) {
+        params.set("offset", String(offset));
+        const res = await fetch(`/api/call-logs/browse?${params}`, { credentials: "include" });
+        if (!res.ok) throw new Error(`Failed to load calls (${res.status})`);
+        const page: CallLogEntry[] = await res.json();
+        allLogs.push(...page);
+        if (page.length < pageSize) break;
+      }
+      return allLogs;
     },
     enabled: activeTab === "browse",
     refetchInterval: 15000,
@@ -911,6 +806,29 @@ export function TranscriptSearchContent() {
 
   const handleSearch = useCallback(() => { if (searchInput.trim().length >= 2) setSearchQuery(searchInput.trim()); }, [searchInput]);
 
+  const applyDatePreset = useCallback((preset: "today" | "yesterday" | "lastWeek" | "thisMonth") => {
+    const now = new Date();
+    let from = new Date(now);
+    let to = new Date(now);
+    if (preset === "yesterday") {
+      from.setDate(now.getDate() - 1);
+      to = new Date(from);
+    } else if (preset === "lastWeek") {
+      const day = now.getDay() || 7;
+      const thisMonday = new Date(now);
+      thisMonday.setDate(now.getDate() - day + 1);
+      from = new Date(thisMonday);
+      from.setDate(thisMonday.getDate() - 7);
+      to = new Date(thisMonday);
+      to.setDate(thisMonday.getDate() - 1);
+    } else if (preset === "thisMonth") {
+      from = new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+    setDatePreset(preset);
+    setDateFrom(toDateStr(from));
+    setDateTo(toDateStr(to));
+  }, []);
+
   const uniqueAgents = useMemo(() => { const s = new Set<string>(); callLogs.forEach(l => { if (l.recording?.agentName) s.add(l.recording.agentName); if (l.mobileAgentName) s.add(l.mobileAgentName); }); return Array.from(s).sort(); }, [callLogs]);
   const uniqueAgentUsers = useMemo(() => { const m = new Map<string, string>(); callLogs.forEach(l => { const name = (l.recording as any)?.agentName || l.mobileAgentName; if (l.userId && name) m.set(l.userId, name); }); return Array.from(m.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)); }, [callLogs]);
   const uniqueCampaigns = useMemo(() => { const m = new Map<string, string>(); callLogs.forEach(l => { if (l.campaignId && l.campaignName) m.set(l.campaignId, l.campaignName); }); return Array.from(m.entries()).map(([id, name]) => ({ id, name })); }, [callLogs]);
@@ -918,9 +836,11 @@ export function TranscriptSearchContent() {
 
   const filteredCallLogs = useMemo(() => {
     let f = [...callLogs];
-    /* Date filter (day navigation) */
-    if (selectedDate) {
-      f = f.filter(l => { const d = new Date(l.startedAt || l.createdAt); return toDateStr(d) === selectedDate; });
+    if (dateFrom || dateTo) {
+      f = f.filter(l => {
+        const date = toDateStr(new Date(l.startedAt || l.createdAt));
+        return (!dateFrom || date >= dateFrom) && (!dateTo || date <= dateTo);
+      });
     }
     if (browseSearchText) {
       const q = browseSearchText.toLowerCase();
@@ -941,7 +861,7 @@ export function TranscriptSearchContent() {
     if (browseMinQuality) { const minQ = parseInt(browseMinQuality); if (!isNaN(minQ)) f = f.filter(l => l.recording?.qualityScore != null && l.recording.qualityScore >= minQ); }
     if (browseImportantFilter) f = f.filter(l => l.isImportant);
     return f;
-  }, [callLogs, selectedDate, browseSearchText, browseCampaignFilter, browseDirectionFilter, browseQueueFilter, browseStatusFilter, browseRecordingFilter, browseSentimentFilter, browseAgentFilter, browseHasAlertsFilter, browseMobileFilter, browseMinQuality, browseImportantFilter]);
+  }, [callLogs, dateFrom, dateTo, browseSearchText, browseCampaignFilter, browseDirectionFilter, browseQueueFilter, browseStatusFilter, browseRecordingFilter, browseSentimentFilter, browseAgentFilter, browseHasAlertsFilter, browseMobileFilter, browseMinQuality, browseImportantFilter]);
 
   const stats = useMemo(() => {
     const all = filteredCallLogs;
@@ -1010,34 +930,31 @@ export function TranscriptSearchContent() {
 
         {activeTab === "browse" && (
           <>
-            {/* Week navigation strip */}
-            <div className="flex items-center gap-1 mx-auto">
-              <button onClick={() => setWeekOffset(w => w - 1)} data-testid="btn-week-prev"
-                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors">
-                <ChevronLeft className="h-3.5 w-3.5" />
-              </button>
-              {weekDays.map((d, i) => {
-                const ds = toDateStr(d);
-                const isToday = ds === toDateStr(new Date());
-                const isSelected = ds === selectedDate;
-                const dayCallCount = callLogs.filter(l => toDateStr(new Date(l.startedAt || l.createdAt)) === ds).length;
-                return (
-                  <button key={i} onClick={() => setSelectedDate(ds)} data-testid={`btn-day-${ds}`}
-                    className={`flex flex-col items-center px-2.5 py-1 rounded-xl transition-all ${isSelected ? "bg-primary text-primary-foreground shadow-sm" : "hover:bg-muted text-muted-foreground"}`}>
-                    <span className="text-[10px] font-medium">{DAY_NAMES[d.getDay()]}</span>
-                    <span className={`text-sm font-bold leading-tight ${isSelected ? "text-primary-foreground" : isToday ? "text-primary" : ""}`}>{d.getDate()}</span>
-                    <span className={`text-[9px] mt-0.5 ${isSelected ? "text-primary-foreground/70" : "text-muted-foreground/60"}`}>{dayCallCount || "–"}</span>
-                  </button>
-                );
-              })}
-              <button onClick={() => setWeekOffset(w => w + 1)} data-testid="btn-week-next"
-                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors">
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-              <button onClick={() => { setWeekOffset(0); setSelectedDate(toDateStr(new Date())); }} data-testid="btn-today"
-                className="ml-1 px-2.5 py-1 rounded-lg border border-border text-[10px] text-muted-foreground hover:bg-muted transition-colors flex items-center gap-1">
-                <Calendar className="h-3 w-3" />{ca.today || "Dnes"}
-              </button>
+            <div className="flex items-center gap-1 mx-auto min-w-0 overflow-x-auto">
+              {([
+                ["today", ca.today],
+                ["yesterday", ca.yesterday],
+                ["lastWeek", ca.lastWeek],
+                ["thisMonth", ca.thisMonth],
+              ] as const).map(([preset, label]) => (
+                <button key={preset} onClick={() => applyDatePreset(preset)}
+                  data-testid={`btn-date-${preset}`}
+                  className={`whitespace-nowrap px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-colors ${datePreset === preset ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground hover:bg-muted"}`}>
+                  {label}
+                </button>
+              ))}
+              <div className={`flex items-center gap-1 rounded-lg border px-1.5 py-0.5 ${datePreset === "custom" ? "border-primary bg-primary/5" : "border-border"}`}>
+                <Calendar className="h-3 w-3 text-muted-foreground shrink-0" />
+                <Input type="date" value={dateFrom} aria-label={ca.dateFrom}
+                  onChange={e => { setDatePreset("custom"); setDateFrom(e.target.value); }}
+                  className="h-6 w-[112px] border-0 bg-transparent p-1 text-[10px] shadow-none focus-visible:ring-0"
+                  data-testid="input-date-from" />
+                <span className="text-[9px] text-muted-foreground">–</span>
+                <Input type="date" value={dateTo} aria-label={ca.dateTo}
+                  onChange={e => { setDatePreset("custom"); setDateTo(e.target.value); }}
+                  className="h-6 w-[112px] border-0 bg-transparent p-1 text-[10px] shadow-none focus-visible:ring-0"
+                  data-testid="input-date-to" />
+              </div>
             </div>
 
             {/* Stats */}
@@ -1142,6 +1059,15 @@ export function TranscriptSearchContent() {
                         <SelectItem value="all">{ca.allCampaigns}</SelectItem>
                         <SelectItem value="__none__">{ca.noCampaign}</SelectItem>
                         {(uniqueCampaigns.length > 0 ? uniqueCampaigns : campaignsList).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {uniqueQueues.length > 0 && (
+                    <Select value={browseQueueFilter || "all"} onValueChange={v => setBrowseQueueFilter(v === "all" ? "" : v)}>
+                      <SelectTrigger className="h-7 text-[10px] w-full" data-testid="select-browse-queue"><SelectValue placeholder={ca.inboundQueue} /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{ca.allQueues}</SelectItem>
+                        {uniqueQueues.map(q => <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   )}

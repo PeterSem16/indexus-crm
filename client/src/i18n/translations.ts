@@ -6181,6 +6181,13 @@ export interface Translations {
   };
   callAnalysis: {
     pageTitle: string;
+    today: string;
+    yesterday: string;
+    lastWeek: string;
+    thisMonth: string;
+    inboundQueue: string;
+    allQueues: string;
+    statusListChanges: string;
     allCalls: string;
     searchTranscripts: string;
     searchInCalls: string;
@@ -14797,6 +14804,13 @@ export const translations: Record<Locale, Translations> = {
     },
     callAnalysis: {
       pageTitle: 'Calls & Transcripts',
+      today: 'Today',
+      yesterday: 'Yesterday',
+      lastWeek: 'Last week',
+      thisMonth: 'This month',
+      inboundQueue: 'Inbound queue',
+      allQueues: 'All inbound queues',
+      statusListChanges: 'Status list updates from this call',
       allCalls: 'All calls',
       searchTranscripts: 'Search transcripts',
       searchInCalls: 'Search in calls...',
@@ -22242,6 +22256,13 @@ export const translations: Record<Locale, Translations> = {
     },
     callAnalysis: {
       pageTitle: 'Hovory a prepisy',
+      today: 'Dnes',
+      yesterday: 'Včera',
+      lastWeek: 'Minulý týždeň',
+      thisMonth: 'Tento mesiac',
+      inboundQueue: 'Inbound fronta',
+      allQueues: 'Všetky inbound fronty',
+      statusListChanges: 'Zmeny v status liste z tohto hovoru',
       allCalls: 'Všetky hovory',
       searchTranscripts: 'Hľadať v prepisoch',
       searchInCalls: 'Hľadať v hovoroch...',
@@ -29613,6 +29634,13 @@ export const translations: Record<Locale, Translations> = {
     },
     callAnalysis: {
       pageTitle: 'Hovory a přepisy',
+      today: 'Dnes',
+      yesterday: 'Včera',
+      lastWeek: 'Minulý týden',
+      thisMonth: 'Tento měsíc',
+      inboundQueue: 'Příchozí fronta',
+      allQueues: 'Všechny příchozí fronty',
+      statusListChanges: 'Změny ve status listu z tohoto hovoru',
       allCalls: 'Všechny hovory',
       searchTranscripts: 'Hledat v přepisech',
       searchInCalls: 'Hledat v hovorech...',
@@ -36946,6 +36974,13 @@ export const translations: Record<Locale, Translations> = {
     },
     callAnalysis: {
       pageTitle: 'Hívások és átiratok',
+      today: 'Ma',
+      yesterday: 'Tegnap',
+      lastWeek: 'Múlt hét',
+      thisMonth: 'Ez a hónap',
+      inboundQueue: 'Bejövő hívási sor',
+      allQueues: 'Összes bejövő hívási sor',
+      statusListChanges: 'A hívás során módosított státuszok',
       allCalls: 'Összes hívás',
       searchTranscripts: 'Keresés az átiratokban',
       searchInCalls: 'Keresés a hívásokban...',
@@ -44199,6 +44234,13 @@ export const translations: Record<Locale, Translations> = {
     },
     callAnalysis: {
       pageTitle: 'Apeluri și transcrieri',
+      today: 'Astăzi',
+      yesterday: 'Ieri',
+      lastWeek: 'Săptămâna trecută',
+      thisMonth: 'Luna aceasta',
+      inboundQueue: 'Coadă de apeluri primite',
+      allQueues: 'Toate cozile de apeluri primite',
+      statusListChanges: 'Modificări în lista de status din acest apel',
       allCalls: 'Toate apelurile',
       searchTranscripts: 'Căutare în transcrieri',
       searchInCalls: 'Căutare în apeluri...',
@@ -51454,6 +51496,13 @@ export const translations: Record<Locale, Translations> = {
     },
     callAnalysis: {
       pageTitle: 'Chiamate e trascrizioni',
+      today: 'Oggi',
+      yesterday: 'Ieri',
+      lastWeek: 'Settimana scorsa',
+      thisMonth: 'Questo mese',
+      inboundQueue: 'Coda chiamate in entrata',
+      allQueues: 'Tutte le code in entrata',
+      statusListChanges: 'Modifiche alla lista di stato di questa chiamata',
       allCalls: 'Tutte le chiamate',
       searchTranscripts: 'Cerca nelle trascrizioni',
       searchInCalls: 'Cerca nelle chiamate...',
@@ -58696,6 +58745,13 @@ export const translations: Record<Locale, Translations> = {
     },
     callAnalysis: {
       pageTitle: 'Anrufe und Transkripte',
+      today: 'Heute',
+      yesterday: 'Gestern',
+      lastWeek: 'Letzte Woche',
+      thisMonth: 'Dieser Monat',
+      inboundQueue: 'Eingehende Warteschlange',
+      allQueues: 'Alle eingehenden Warteschlangen',
+      statusListChanges: 'Statuslisten-Änderungen aus diesem Anruf',
       allCalls: 'Alle Anrufe',
       searchTranscripts: 'In Transkripten suchen',
       searchInCalls: 'In Anrufen suchen...',
