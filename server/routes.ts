@@ -8216,7 +8216,12 @@ Return ONLY valid JSON, no markdown code blocks.`,
   app.get("/api/users/:userId/email-signatures/:mailboxEmail", requireAuth, async (req, res) => {
     try {
       const signature = await storage.getEmailSignature(req.params.userId, req.params.mailboxEmail);
-      res.json(signature || { htmlContent: "", isActive: false });
+      // Keep a missing mailbox row distinct from an explicitly inactive row.
+      // Both historically use HTTP 200, but only the missing case may fall
+      // back to the legacy user.signature value in compose.
+      res.json(signature
+        ? { ...signature, missing: false }
+        : { htmlContent: "", isActive: false, missing: true });
     } catch (error) {
       console.error("Error fetching email signature:", error);
       res.status(500).json({ error: "Failed to fetch email signature" });

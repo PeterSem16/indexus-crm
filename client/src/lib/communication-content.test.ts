@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   buildConfiguredEmailBody,
   htmlToPlainPreview,
+  reconcileEmailSignatureBody,
   sanitizeEmailHtml,
 } from "./sanitize-html";
 
@@ -30,12 +31,67 @@ assert.match(sanitized, /<img alt="photo">/);
 assert.match(sanitized, /<strong>Kept text<\/strong>/);
 assert.doesNotMatch(sanitized, /script|onclick|onerror|javascript/i);
 
-// A legacy profile signature is a fallback only for an explicit 404.  Empty,
-// inactive, failed, or not-yet-loaded responses must not silently resurrect it.
+// A legacy profile signature is a fallback only for an explicitly missing
+// mailbox row.  Empty, inactive, failed, or not-yet-loaded responses must not
+// silently resurrect it.
 const legacy = "Legacy Agent\nSupport";
 assert.match(buildConfiguredEmailBody({ missing: true }, legacy), /Legacy Agent<br>Support/);
 assert.equal(buildConfiguredEmailBody({ htmlContent: "", isActive: true }, legacy), "");
 assert.equal(buildConfiguredEmailBody({ htmlContent: "<p>Inactive</p>", isActive: false }, legacy), "");
+assert.match(buildConfiguredEmailBody({ htmlContent: "", isActive: false }, legacy), /Legacy Agent<br>Support/);
+assert.equal(buildConfiguredEmailBody({ htmlContent: "", isActive: false, missing: false }, legacy), "");
 assert.equal(buildConfiguredEmailBody(undefined, legacy), "");
+
+const signature = "<p><br></p><div class=\"email-signature\">Mailbox</div>";
+assert.equal(
+  reconcileEmailSignatureBody({
+    body: "",
+    nextSignature: signature,
+    previousAutoSignature: "",
+    userEdited: false,
+    templateSelected: false,
+  }).body,
+  signature,
+);
+assert.equal(
+  reconcileEmailSignatureBody({
+    body: "",
+    nextSignature: signature,
+    previousAutoSignature: "",
+    userEdited: true,
+    templateSelected: false,
+  }).body,
+  "",
+);
+assert.equal(
+  reconcileEmailSignatureBody({
+    body: signature,
+    nextSignature: signature,
+    previousAutoSignature: signature,
+    userEdited: false,
+    templateSelected: false,
+  }).body,
+  signature,
+);
+assert.equal(
+  reconcileEmailSignatureBody({
+    body: "<p>Typed message</p>",
+    nextSignature: signature,
+    previousAutoSignature: "",
+    userEdited: true,
+    templateSelected: false,
+  }).body,
+  "<p>Typed message</p>",
+);
+assert.equal(
+  reconcileEmailSignatureBody({
+    body: "<p>Template</p>",
+    nextSignature: signature,
+    previousAutoSignature: "",
+    userEdited: false,
+    templateSelected: true,
+  }).body,
+  "<p>Template</p>",
+);
 
 console.log("communication content regression tests passed");

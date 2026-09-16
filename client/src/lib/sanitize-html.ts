@@ -78,20 +78,30 @@ export function htmlToPlainPreview(raw?: string | null): string {
 export interface ConfiguredEmailSignature {
   htmlContent?: string;
   isActive?: boolean;
-  /** Set only when the signature endpoint explicitly returns HTTP 404. */
+  /** Set only when the signature endpoint confirms there is no mailbox row. */
   missing?: boolean;
 }
 
 /**
  * Build the compose-body signature.  The legacy user signature is a fallback
- * only for an explicitly missing mailbox signature (404), never for an API
- * failure or a successful inactive/empty signature response.
+ * only for an explicitly missing mailbox signature (or the legacy 200-empty
+ * response), never for an API failure or an explicitly inactive/empty row.
+ * The mailbox endpoint returns a 200 response for both a missing row and an
+ * inactive row, so the server adds `missing: true`/`false` to distinguish them.
  */
 export function buildConfiguredEmailBody(
   signature: ConfiguredEmailSignature | undefined,
   legacyUserSignature?: string | null,
 ): string {
-  const raw = signature?.missing
+  // Older deployments returned `{ htmlContent: "", isActive: false }` for a
+  // missing row.  Treat that legacy 200 shape as missing too, while honoring
+  // `missing: false` from the current endpoint for an explicitly inactive
+  // empty row.
+  const emptyLegacyResponse = signature
+    && signature.missing === undefined
+    && signature.isActive === false
+    && !signature.htmlContent?.trim();
+  const raw = signature?.missing || emptyLegacyResponse
     ? legacyUserSignature || ""
     : signature?.isActive === false
       ? ""
@@ -103,6 +113,43 @@ export function buildConfiguredEmailBody(
     ? safe
     : safe.replace(/\r?\n/g, "<br>");
   return `<p><br></p><div class="email-signature">${content}</div>`;
+}
+
+export interface EmailSignatureBodyReconciliation {
+  body: string;
+  autoSignature: string;
+}
+
+/**
+ * Keep an automatically inserted signature in sync without taking ownership of
+ * the editor after the agent starts typing.  The whole body is tracked as the
+ * auto-owned value rather than appending HTML fragments, which makes repeated
+ * renders/account changes idempotent and prevents duplicate signatures.
+ */
+export function reconcileEmailSignatureBody({
+  body,
+  nextSignature,
+  previousAutoSignature,
+  userEdited,
+  templateSelected,
+}: {
+  body: string;
+  nextSignature: string;
+  previousAutoSignature: string;
+  userEdited: boolean;
+  templateSelected: boolean;
+}): EmailSignatureBodyReconciliation {
+  if (templateSelected || userEdited) {
+    return { body, autoSignature: previousAutoSignature };
+  }
+
+  // An empty body is still safe to initialize, while a body that is no longer
+  // equal to the previous auto-inserted value belongs to the agent.
+  if (body.trim() && body !== previousAutoSignature) {
+    return { body, autoSignature: "" };
+  }
+
+  return { body: nextSignature, autoSignature: nextSignature };
 }
 
 /**

@@ -1,3 +1,8 @@
+## Non-template compose lifecycle
+An automatically inserted signature must initialize on opening Email and on asynchronous account/signature arrival, not only on Cancel. Reset the draft only after confirmed send success.
+**Why:** fixing Cancel alone left ordinary new emails and the next email after sending without a signature. Resolving an asynchronously loaded signature must not overwrite an agent's typed draft or an applied template.
+**How to apply:** track whether the body is still system-owned, reconcile signatures idempotently, and distinguish a missing signature from an explicitly disabled one using the endpoint contract rather than HTTP status assumptions.
+
 ---
 name: Campaign-authored HTML rendered to other agents
 description: Rules for per-campaign HTML reply signatures configured by managers but rendered/sent by agents.

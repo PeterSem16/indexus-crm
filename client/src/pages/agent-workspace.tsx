@@ -197,6 +197,7 @@ import {
   buildConfiguredEmailBody,
   decodeHtmlEntities,
   htmlToPlainPreview,
+  reconcileEmailSignatureBody,
   sanitizeEmailHtml,
   sanitizeSignatureHtml,
 } from "@/lib/sanitize-html";
@@ -2974,7 +2975,7 @@ function CommunicationCanvas({
   activeChannel: string;
   onChannelChange: (ch: string) => void;
   timeline: TimelineEntry[];
-  onSendEmail: (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; compositionDurationSeconds?: number | null }) => void;
+  onSendEmail: (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; compositionDurationSeconds?: number | null }) => Promise<boolean> | boolean | void;
   onSendSms: (data: { to: string[]; message: string; gateway?: "bulkgate" | "smstools"; compositionDurationSeconds?: number | null }) => void;
   isSendingEmail: boolean;
   isSendingSms: boolean;
@@ -3052,6 +3053,11 @@ function CommunicationCanvas({
   const [emailSubject, setEmailSubject] = useState("");
   const [emailMessage, setEmailMessage] = useState("");
   const [emailIsHtml, setEmailIsHtml] = useState(false);
+  // A signature is system-owned only until the agent edits the body.  Keeping
+  // this outside React state lets async mailbox/account responses reconcile an
+  // untouched compose without overwriting a draft.
+  const emailBodyDirtyRef = useRef(false);
+  const emailAutoSignatureRef = useRef("");
   const [smsMessage, setSmsMessage] = useState("");
   const [smsGateway, setSmsGateway] = useState<"default" | "bulkgate" | "smstools">("default");
   const campaignSmsProvider = useMemo<"bulkgate" | "smstools" | null>(() => {
@@ -3690,6 +3696,10 @@ function CommunicationCanvas({
     setEmailSubject("");
     setEmailMessage("");
     setEmailIsHtml(false);
+    emailBodyDirtyRef.current = false;
+    emailAutoSignatureRef.current = "";
+    setSelectedEmailTemplateName("");
+    setEmailHtmlEditMode(false);
     setSmsMessage("");
     setSelectedFromAccount("");
     setEmailAttachment(null);
@@ -3970,8 +3980,15 @@ function CommunicationCanvas({
     return "";
   }, [campaignEmailMode, campaignEmailAddress, allEmailAccounts, user?.email, selectedFromAccount, contact]);
 
+  // Personal signatures are stored under the stable "personal" mailbox key
+  // (shared mailboxes use their actual address).  Looking up the personal
+  // signature by its live Graph address silently misses the configured row.
   const signatureMailboxEmail = useMemo(
-    () => allEmailAccounts.find(a => (a.id || "personal") === activeFromAccount)?.email || "",
+    () => {
+      const account = allEmailAccounts.find(a => (a.id || "personal") === activeFromAccount);
+      if (!account) return "";
+      return account.type === "personal" ? "personal" : account.email;
+    },
     [allEmailAccounts, activeFromAccount],
   );
   const { data: configuredEmailSignature } = useQuery<{ htmlContent?: string; isActive?: boolean; missing?: boolean }>({
@@ -3992,6 +4009,27 @@ function CommunicationCanvas({
     () => buildConfiguredEmailBody(configuredEmailSignature, user?.signature),
     [configuredEmailSignature, user?.signature],
   );
+
+  // Initialize the plain/non-template composer when Email is first opened and
+  // when the mailbox signature arrives asynchronously.  Template application
+  // owns its body and therefore remains completely untouched here.
+  useEffect(() => {
+    if (activeChannel !== "email" || selectedEmailTemplateName) return;
+    setEmailMessage((currentBody) => {
+      const next = reconcileEmailSignatureBody({
+        body: currentBody,
+        nextSignature: configuredEmailBody,
+        previousAutoSignature: emailAutoSignatureRef.current,
+        userEdited: emailBodyDirtyRef.current,
+        templateSelected: false,
+      });
+      emailAutoSignatureRef.current = next.autoSignature;
+      return next.body;
+    });
+    if (configuredEmailBody && !emailBodyDirtyRef.current) {
+      setEmailIsHtml(true);
+    }
+  }, [activeChannel, contact?.id, configuredEmailBody, selectedEmailTemplateName]);
 
   const { data: templateCategories = [] } = useQuery<{ id: string; name: string; icon: string | null; color: string | null; isActive: boolean }[]>({
     queryKey: ["/api/template-categories"],
@@ -4116,6 +4154,8 @@ function CommunicationCanvas({
     setEmailSubject(subject);
     setEmailMessage(content);
     setEmailIsHtml(isHtml);
+    emailBodyDirtyRef.current = false;
+    emailAutoSignatureRef.current = "";
     setEmailHtmlEditMode(false);
     setSelectedEmailTemplateName(template.name);
     setEmailTemplateSearch("");
@@ -4238,25 +4278,37 @@ function CommunicationCanvas({
       pcAttachments.push({ name: ta.fileName, contentType: ta.mimeType, contentBase64: ta.contentBase64 });
     }
     const compositionDurationSeconds = emailOpenedAt ? Math.round((Date.now() - emailOpenedAt) / 1000) : null;
-    onSendEmail({
-      to: selectedEmails,
-      subject: emailSubject,
-      body: emailMessage,
-      mailboxId: activeFromAccount === "personal" ? null : activeFromAccount || null,
-      cc: emailCc.trim() || undefined,
-      documentIds: selectedDocuments.length > 0 ? selectedDocuments : undefined,
-      attachments: pcAttachments.length > 0 ? pcAttachments : undefined,
-      compositionDurationSeconds,
-    });
+    try {
+      const sent = await onSendEmail({
+        to: selectedEmails,
+        subject: emailSubject,
+        body: emailMessage,
+        mailboxId: activeFromAccount === "personal" ? null : activeFromAccount || null,
+        cc: emailCc.trim() || undefined,
+        documentIds: selectedDocuments.length > 0 ? selectedDocuments : undefined,
+        attachments: pcAttachments.length > 0 ? pcAttachments : undefined,
+        compositionDurationSeconds,
+      });
+      // Quota/contact guards return false without sending.  Keep the draft in
+      // that case; only a confirmed mutation resets the composer.
+      if (sent === false) return;
+    } catch {
+      // The mutation owns the error toast; preserve the draft for retry.
+      return;
+    }
     setEmailSubject("");
-    setEmailMessage("");
-    setEmailIsHtml(false);
+    setEmailMessage(configuredEmailBody);
+    setEmailIsHtml(!!configuredEmailBody);
+    emailBodyDirtyRef.current = false;
+    emailAutoSignatureRef.current = configuredEmailBody;
     setSelectedEmails([]);
     setEmailAttachment(null);
     setTemplateAttachments([]);
     setEmailCc("");
     setShowCcField(false);
     setSelectedDocuments([]);
+    setSelectedEmailTemplateName("");
+    setEmailHtmlEditMode(false);
     setEmailOpenedAt(null);
   };
 
@@ -5021,7 +5073,10 @@ function CommunicationCanvas({
                   <textarea
                     className="w-full h-full px-4 py-3 text-xs font-mono resize-none focus-visible:outline-none bg-slate-950 text-slate-200"
                     value={emailMessage}
-                    onChange={(e) => setEmailMessage(e.target.value)}
+                    onChange={(e) => {
+                      emailBodyDirtyRef.current = true;
+                      setEmailMessage(e.target.value);
+                    }}
                     spellCheck={false}
                     data-testid="textarea-email-html-edit"
                   />
@@ -5037,7 +5092,10 @@ function CommunicationCanvas({
                 <textarea
                   className="w-full h-full px-4 py-4 text-sm resize-none focus-visible:outline-none bg-white dark:bg-card text-foreground leading-relaxed"
                   value={emailMessage}
-                  onChange={(e) => setEmailMessage(e.target.value)}
+                  onChange={(e) => {
+                    emailBodyDirtyRef.current = true;
+                    setEmailMessage(e.target.value);
+                  }}
                   placeholder={t.customers?.details?.writeEmailPlaceholder || "Write your email..."}
                   disabled={isSendingEmail}
                   data-testid="textarea-email-message"
@@ -5057,6 +5115,8 @@ function CommunicationCanvas({
                   setEmailSubject("");
                   setEmailMessage(configuredEmailBody);
                   setEmailIsHtml(!!configuredEmailBody);
+                  emailBodyDirtyRef.current = false;
+                  emailAutoSignatureRef.current = configuredEmailBody;
                   setEmailHtmlEditMode(false);
                   // Cancel resets the template/content only. Recipient
                   // checkboxes are deliberate user state and must survive it.
@@ -5098,7 +5158,10 @@ function CommunicationCanvas({
                         <textarea
                           className="h-full w-full px-4 py-3 text-xs font-mono resize-none focus-visible:outline-none bg-[#1a1a1a] text-stone-300"
                           value={emailMessage}
-                          onChange={(e) => setEmailMessage(e.target.value)}
+                          onChange={(e) => {
+                            emailBodyDirtyRef.current = true;
+                            setEmailMessage(e.target.value);
+                          }}
                           spellCheck={false}
                         />
                       ) : (
@@ -13139,10 +13202,10 @@ function AgentWorkspacePageContent() {
     }
   };
 
-  const handleSendEmail = async (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; compositionDurationSeconds?: number | null }) => {
+  const handleSendEmail = async (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; compositionDurationSeconds?: number | null }): Promise<boolean> => {
     if (!currentContact) {
       toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.noContactSelected, variant: "destructive" });
-      return;
+      return false;
     }
     if (selectedCampaignId) {
       try {
@@ -13162,7 +13225,7 @@ function AgentWorkspacePageContent() {
               description: t.agentWorkspace?.emailQuotaReached || "You have reached your daily email limit for this campaign.",
               variant: "destructive",
             });
-            return;
+            return false;
           }
         }
       } catch {}
@@ -13173,10 +13236,10 @@ function AgentWorkspacePageContent() {
         description: t.agentWorkspace?.emailQuotaReached || "You have reached your daily email limit for this campaign.",
         variant: "destructive",
       });
-      return;
+      return false;
     }
     const effectiveMailboxId = campaignEmailMode === "system" ? undefined : data.mailboxId;
-    sendEmailMutation.mutate({
+    await sendEmailMutation.mutateAsync({
       to: data.to,
       subject: data.subject,
       body: data.body,
@@ -13190,6 +13253,7 @@ function AgentWorkspacePageContent() {
       contactType: currentContactType || "customer",
       compositionDurationSeconds: data.compositionDurationSeconds,
     });
+    return true;
   };
 
   const handleSendSms = async (data: { to: string[]; message: string; gateway?: "bulkgate" | "smstools"; compositionDurationSeconds?: number | null }) => {
