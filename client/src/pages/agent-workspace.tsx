@@ -193,7 +193,13 @@ import { Slider } from "@/components/ui/slider";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getInboundRingtonePreset } from "@/lib/inbound-ringtones";
-import { sanitizeSignatureHtml } from "@/lib/sanitize-html";
+import {
+  buildConfiguredEmailBody,
+  decodeHtmlEntities,
+  htmlToPlainPreview,
+  sanitizeEmailHtml,
+  sanitizeSignatureHtml,
+} from "@/lib/sanitize-html";
 import { PulseToastScope } from "@/hooks/use-toast";
 import { usePulseToast } from "@/hooks/use-pulse-toast";
 import { useSip } from "@/contexts/sip-context";
@@ -681,6 +687,10 @@ interface ContactHistory {
   fullContent?: string;
   recipientEmail?: string;
   recipientPhone?: string;
+  sender?: string | null;
+  externalId?: string | null;
+  mailboxEmail?: string | null;
+  isHtml?: boolean | null;
   sentiment?: "positive" | "neutral" | "negative" | "angry" | null;
   callLogId?: string | null;
   dispositionCode?: string | null;
@@ -709,55 +719,14 @@ interface TimelineEntry {
   htmlBody?: string;
   fullContent?: string;
   agentName?: string;
+  sender?: string | null;
   recipientEmail?: string;
   recipientPhone?: string;
   sentiment?: string | null;
   campaignId?: string;
-}
-
-function decodeHtmlEntitiesFallback(input: string): string {
-  const named: Record<string, string> = {
-    amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
-    ndash: "–", mdash: "—", hellip: "…", laquo: "«", raquo: "»",
-    ldquo: "“", rdquo: "”", lsquo: "‘", rsquo: "’", eacute: "é", egrave: "è",
-  };
-  return input.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (m, ent: string) => {
-    if (ent[0] === "#") {
-      const code = ent[1] === "x" || ent[1] === "X"
-        ? parseInt(ent.slice(2), 16)
-        : parseInt(ent.slice(1), 10);
-      return Number.isNaN(code) ? m : String.fromCodePoint(code);
-    }
-    return named[ent] ?? m;
-  });
-}
-
-function decodeHtmlEntities(input: string): string {
-  if (!input) return "";
-  if (typeof document !== "undefined" && !/<\/?textarea/i.test(input)) {
-    try {
-      const el = document.createElement("textarea");
-      el.innerHTML = input;
-      return el.value;
-    } catch {
-      return decodeHtmlEntitiesFallback(input);
-    }
-  }
-  return decodeHtmlEntitiesFallback(input);
-}
-
-function htmlToPlainPreview(raw?: string | null): string {
-  if (!raw) return "";
-  let s = String(raw);
-  s = s.replace(/<\s*br\s*\/?>/gi, "\n")
-       .replace(/<\/\s*(p|div|tr|li|h[1-6]|blockquote)\s*>/gi, "\n")
-       .replace(/<[^>]+>/g, " ");
-  s = decodeHtmlEntities(s);
-  s = s.replace(/[ \t\f\v]+/g, " ")
-       .replace(/ *\n */g, "\n")
-       .replace(/\n{3,}/g, "\n\n")
-       .trim();
-  return s;
+  externalId?: string | null;
+  mailboxEmail?: string | null;
+  isHtml?: boolean | null;
 }
 
 function localizeHistoryStatus(t: any, code?: string | null, fallback?: string | null): string {
@@ -4001,6 +3970,29 @@ function CommunicationCanvas({
     return "";
   }, [campaignEmailMode, campaignEmailAddress, allEmailAccounts, user?.email, selectedFromAccount, contact]);
 
+  const signatureMailboxEmail = useMemo(
+    () => allEmailAccounts.find(a => (a.id || "personal") === activeFromAccount)?.email || "",
+    [allEmailAccounts, activeFromAccount],
+  );
+  const { data: configuredEmailSignature } = useQuery<{ htmlContent?: string; isActive?: boolean; missing?: boolean }>({
+    queryKey: ["/api/users", user?.id, "email-signatures", signatureMailboxEmail],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/users/${user?.id}/email-signatures/${encodeURIComponent(signatureMailboxEmail)}`,
+        { credentials: "include" },
+      );
+      if (response.status === 404) return { missing: true };
+      if (!response.ok) throw new Error(`Failed to load email signature (${response.status})`);
+      return response.json();
+    },
+    enabled: !!user?.id && !!signatureMailboxEmail,
+    staleTime: 60_000,
+  });
+  const configuredEmailBody = useMemo(
+    () => buildConfiguredEmailBody(configuredEmailSignature, user?.signature),
+    [configuredEmailSignature, user?.signature],
+  );
+
   const { data: templateCategories = [] } = useQuery<{ id: string; name: string; icon: string | null; color: string | null; isActive: boolean }[]>({
     queryKey: ["/api/template-categories"],
     enabled: !!contact,
@@ -4591,11 +4583,6 @@ function CommunicationCanvas({
           >
             <Mail className="h-3.5 w-3.5" />
             EMAIL
-            {unreadEmailCount > 0 && activeChannel !== "email" && (
-              <span className="min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
-                {unreadEmailCount > 9 ? "9+" : unreadEmailCount}
-              </span>
-            )}
           </button>
           <button
             className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
@@ -4608,11 +4595,6 @@ function CommunicationCanvas({
           >
             <MessageSquare className="h-3.5 w-3.5" />
             SMS
-            {unreadSmsCount > 0 && activeChannel !== "sms" && (
-              <span className="min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
-                {unreadSmsCount > 9 ? "9+" : unreadSmsCount}
-              </span>
-            )}
           </button>
           {(dbStatusList.length > 0 || (internalChecklistConfig.enabled && internalChecklistConfig.sections.length > 0)) && (
             <button
@@ -4904,7 +4886,7 @@ function CommunicationCanvas({
                   <div className="flex items-center justify-between px-3 py-1.5 bg-white/70 dark:bg-stone-900/60 border-b border-stone-200 dark:border-stone-700 shrink-0">
                     <div className="flex items-center gap-1.5">
                       <Mail className="h-3 w-3 text-[#c2673a]" />
-                      <span className="text-[10px] font-semibold text-[#c2673a]">Email história</span>
+                      <span className="text-[10px] font-semibold text-[#c2673a]">{t.customers?.details?.emailHistoryTitle || "Email history"}</span>
                       {emailItems.length > 0 && <span className="text-[10px] text-muted-foreground">({emailItems.length})</span>}
                     </div>
                     {unreadEmailCount > 0 && (
@@ -4919,7 +4901,7 @@ function CommunicationCanvas({
                     {emailItems.length === 0 ? (
                       <div className="flex flex-col items-center justify-center h-full gap-1 text-stone-400 dark:text-stone-600 py-3">
                         <Mail className="h-5 w-5 opacity-25" />
-                        <p className="text-[10px]">Žiadne emaily</p>
+                        <p className="text-[10px]">{t.customers?.details?.noEmails || "No emails"}</p>
                       </div>
                     ) : emailItems.map((entry, idx) => {
                       const isOut = entry.direction !== "inbound";
@@ -5012,22 +4994,22 @@ function CommunicationCanvas({
                   {selectedEmails.length > 0 ? (
                     <span className="text-muted-foreground text-[11px] truncate">→ {selectedEmails.join(", ")}</span>
                   ) : (
-                    <span className="text-muted-foreground/60 text-[11px] italic">{t.customers?.details?.selectEmail || "No recipient selected"}</span>
+                    <span className="text-muted-foreground/60 text-[11px] italic">{t.customers?.details?.noRecipient || "No recipient selected"}</span>
                   )}
                   {selectedFromAccount && allEmailAccounts.find(a => (a.id || "personal") === selectedFromAccount) && (
                     <span className="text-muted-foreground/50 text-[10px] shrink-0">
-                      via {allEmailAccounts.find(a => (a.id || "personal") === selectedFromAccount)?.displayName}
+                      {t.customers?.details?.via || "via"} {allEmailAccounts.find(a => (a.id || "personal") === selectedFromAccount)?.displayName}
                     </span>
                   )}
                 </div>
               </div>
               {emailIsHtml && (
                 <div className="flex items-center gap-0.5 shrink-0 bg-muted rounded-lg p-0.5">
-                  <button type="button" onClick={() => setEmailHtmlEditMode(false)} className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${!emailHtmlEditMode ? "bg-[#c2673a] text-white shadow-sm" : "text-muted-foreground hover:bg-background hover:text-foreground"}`}>Preview</button>
-                  <button type="button" onClick={() => setEmailHtmlEditMode(true)} className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${emailHtmlEditMode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-background hover:text-foreground"}`}>Edit HTML</button>
+                  <button type="button" onClick={() => setEmailHtmlEditMode(false)} className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${!emailHtmlEditMode ? "bg-[#c2673a] text-white shadow-sm" : "text-muted-foreground hover:bg-background hover:text-foreground"}`}>{t.customers?.details?.preview || "Preview"}</button>
+                  <button type="button" onClick={() => setEmailHtmlEditMode(true)} className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${emailHtmlEditMode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-background hover:text-foreground"}`}>{t.customers?.details?.editHtml || "Edit HTML"}</button>
                 </div>
               )}
-              <button type="button" onClick={() => setEmailPreviewExpanded(true)} className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0" title="Zobraziť na celú obrazovku" data-testid="btn-email-preview-expand">
+              <button type="button" onClick={() => setEmailPreviewExpanded(true)} className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0" title={t.customers?.details?.fullscreen || "View fullscreen"} data-testid="btn-email-preview-expand">
                 <Maximize2 className="h-3.5 w-3.5" />
               </button>
             </div>
@@ -5066,12 +5048,25 @@ function CommunicationCanvas({
             {/* Bottom action bar */}
             <div className="shrink-0 border-t border-border bg-card px-4 py-2.5 flex items-center justify-between gap-3">
               <div className="text-[11px] space-y-0.5">
-                {selectedEmails.length === 0 && <div className="text-destructive">• {t.customers?.details?.selectEmail || "Vyberte aspoň jeden email"}</div>}
-                {!emailSubject && <div className="text-amber-600 dark:text-amber-500">• {t.customers?.details?.enterSubject || "Zadajte predmet"}</div>}
-                {!emailMessage && <div className="text-amber-600 dark:text-amber-500">• {t.customers?.details?.enterMessage || "Zadajte správu"}</div>}
+                {selectedEmails.length === 0 && <div className="text-destructive">• {t.customers?.details?.selectEmail || "Select at least one email"}</div>}
+                {!emailSubject && <div className="text-amber-600 dark:text-amber-500">• {t.customers?.details?.enterSubject || "Enter a subject"}</div>}
+                {!emailMessage && <div className="text-amber-600 dark:text-amber-500">• {t.customers?.details?.enterMessage || "Enter a message"}</div>}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => { setEmailSubject(""); setEmailMessage(""); setEmailIsHtml(false); setEmailHtmlEditMode(false); setSelectedEmails([]); setEmailAttachment(null); setTemplateAttachments([]); setEmailCc(""); setShowCcField(false); setSelectedDocuments([]); }} data-testid="button-cancel-email">
+                <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => {
+                  setEmailSubject("");
+                  setEmailMessage(configuredEmailBody);
+                  setEmailIsHtml(!!configuredEmailBody);
+                  setEmailHtmlEditMode(false);
+                  // Cancel resets the template/content only. Recipient
+                  // checkboxes are deliberate user state and must survive it.
+                  setEmailAttachment(null);
+                  setTemplateAttachments([]);
+                  setEmailCc("");
+                  setShowCcField(false);
+                  setSelectedDocuments([]);
+                  setSelectedEmailTemplateName("");
+                }} data-testid="button-cancel-email">
                   {t.common?.cancel || "Cancel"}
                 </Button>
                 <Button onClick={handleSendEmail} disabled={selectedEmails.length === 0 || !emailSubject || !emailMessage || isSendingEmail} className="h-8 px-4 text-xs font-semibold bg-[#c2673a] hover:bg-[#a8502a] text-white border-0 shadow-sm disabled:opacity-40" data-testid="btn-send-email">
@@ -5091,10 +5086,10 @@ function CommunicationCanvas({
                     <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#c2673a]/15 shrink-0">
                       <Mail className="h-3.5 w-3.5 text-[#c2673a]" />
                     </div>
-                    <span className="text-sm font-semibold flex-1 truncate text-foreground">{emailSubject || "Email preview"}</span>
+                <span className="text-sm font-semibold flex-1 truncate text-foreground">{emailSubject || t.customers?.details?.preview || "Email preview"}</span>
                     <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
-                      <button type="button" onClick={() => setEmailHtmlEditMode(false)} className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${!emailHtmlEditMode ? "bg-[#c2673a] text-white shadow-sm" : "text-muted-foreground hover:bg-background hover:text-foreground"}`}>Preview</button>
-                      <button type="button" onClick={() => setEmailHtmlEditMode(true)} className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${emailHtmlEditMode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-background hover:text-foreground"}`}>Edit HTML</button>
+                      <button type="button" onClick={() => setEmailHtmlEditMode(false)} className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${!emailHtmlEditMode ? "bg-[#c2673a] text-white shadow-sm" : "text-muted-foreground hover:bg-background hover:text-foreground"}`}>{t.customers?.details?.preview || "Preview"}</button>
+                      <button type="button" onClick={() => setEmailHtmlEditMode(true)} className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${emailHtmlEditMode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-background hover:text-foreground"}`}>{t.customers?.details?.editHtml || "Edit HTML"}</button>
                     </div>
                   </div>
                   <div className="flex-1 min-h-0 overflow-hidden bg-stone-100 dark:bg-stone-950 p-3">
@@ -5487,7 +5482,7 @@ function CommunicationCanvas({
                       type="text"
                       value={smsSearch}
                       onChange={e => setSmsSearch(e.target.value)}
-                      placeholder="Hľadať v správach..."
+                      placeholder={t.customers?.details?.searchMessagesPlaceholder || "Search messages..."}
                       className="w-full pl-9 pr-8 py-2 text-[12px] rounded-xl bg-white dark:bg-stone-800 border border-stone-300/70 dark:border-stone-700 shadow-sm outline-none focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400/60 placeholder:text-stone-400 dark:placeholder:text-stone-500 transition-all"
                       data-testid="input-sms-search"
                     />
@@ -5562,7 +5557,7 @@ function CommunicationCanvas({
                       return (
                         <div className="flex flex-col items-center justify-center h-full gap-2 text-stone-400 dark:text-stone-600">
                           <Search className="h-7 w-7 opacity-30" />
-                          <p className="text-[11px]">Žiadne správy nezodpovedajú hľadaniu</p>
+                          <p className="text-[11px]">{t.customers?.details?.noSearchResults || "No messages match your search"}</p>
                         </div>
                       );
                     }
@@ -5634,7 +5629,7 @@ function CommunicationCanvas({
                                 </div>
                               )}
                               {msg._draft && (
-                                <p className="text-[10px] font-medium text-blue-400 dark:text-blue-500 mt-0.5 italic">náhľad</p>
+                                <p className="text-[10px] font-medium text-blue-400 dark:text-blue-500 mt-0.5 italic">{t.customers?.details?.draftPreview || "preview"}</p>
                               )}
                             </div>
                             </div>
@@ -5694,7 +5689,13 @@ function CommunicationCanvas({
                     variant="outline"
                     size="sm"
                     className="text-xs h-9 rounded-lg"
-                    onClick={() => { setSmsMessage(""); setSelectedPhones([]); setSmsCc(""); setShowSmsCcField(false); }}
+                    onClick={() => {
+                      setSmsMessage("");
+                      // Keep selected recipient numbers when cancelling a
+                      // template/message reset.
+                      setSmsCc("");
+                      setShowSmsCcField(false);
+                    }}
                     data-testid="button-cancel-sms"
                   >
                     {t.common?.cancel || "Cancel"}
@@ -10529,6 +10530,14 @@ function AgentWorkspacePageContent() {
   const [disposedContactIds, setDisposedContactIds] = useState<Set<string>>(new Set());
   const [sessionLoginOpen, setSessionLoginOpen] = useState(true);
   const [activeChannel, setActiveChannel] = useState("phone");
+  // Missed-message reply opens the entity asynchronously. Keep the requested
+  // channel until the new contact has committed, then switch after one more
+  // task turn so CommunicationCanvas can remount with the right contact.
+  const [pendingMissedChannel, setPendingMissedChannel] = useState<{
+    contactId: string;
+    contactType: string;
+    channel: "email" | "sms";
+  } | null>(null);
   const [phoneSubTabOverride, setPhoneSubTabOverride] = useState<"card" | "details" | "documents" | "history" | null>(null);
   const [rightTab, setRightTab] = useState("actions");
   const [callNotes, setCallNotes] = useState("");
@@ -10625,6 +10634,94 @@ function AgentWorkspacePageContent() {
   const wrapUpTimerRef = useRef<NodeJS.Timeout | null>(null);
   const prevCallStateRef = useRef(callContext.callState);
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    if (!pendingMissedChannel || !currentContact?.id) return;
+    if (String(currentContact.id) !== pendingMissedChannel.contactId) return;
+    if (String(currentContactType || "") !== pendingMissedChannel.contactType) return;
+    const pending = pendingMissedChannel;
+    // Contact selection updates several independent states and the canvas
+    // unmounts/remounts as the channel changes. Deferring the channel switch
+    // prevents the old contact's canvas from consuming the request.
+    const timer = window.setTimeout(() => {
+      setActiveChannel(pending.channel);
+      setPendingMissedChannel(null);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [pendingMissedChannel, currentContact?.id, currentContactType]);
+
+  // Contact history stores the provider message id, while the database body
+  // may only contain a preview. Fetch the authoritative Graph body lazily
+  // when the viewer opens, without blocking the initial modal render.
+  useEffect(() => {
+    const entry = historyDetailModal as (TimelineEntry | ContactHistory | null) & {
+      externalId?: string | null;
+      mailboxEmail?: string | null;
+      remoteEmailFetched?: boolean;
+      remoteEmailLoading?: boolean;
+    };
+    const remoteEmailId = entry?.externalId;
+    if (
+      !entry ||
+      entry.type !== "email" ||
+      !remoteEmailId ||
+      !user?.id ||
+      entry.remoteEmailFetched ||
+      entry.remoteEmailLoading
+    ) return;
+
+    setHistoryDetailModal({ ...entry, remoteEmailLoading: true } as any);
+    let cancelled = false;
+    const mailboxQuery = entry.mailboxEmail
+      ? `?mailbox=${encodeURIComponent(entry.mailboxEmail)}`
+      : "";
+    fetch(`/api/users/${user.id}/ms365-email/${encodeURIComponent(remoteEmailId)}${mailboxQuery}`, {
+      credentials: "include",
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Email body request failed (${response.status})`);
+        return response.json();
+      })
+      .then((remoteEmail) => {
+        if (cancelled) return;
+        const remoteBody = typeof remoteEmail?.body?.content === "string"
+          ? remoteEmail.body.content
+          : typeof remoteEmail?.bodyPreview === "string"
+            ? remoteEmail.bodyPreview
+            : "";
+        if (!remoteBody) {
+          setHistoryDetailModal((current) => current
+            ? { ...current, remoteEmailFetched: true, remoteEmailLoading: false }
+            : current);
+          return;
+        }
+        setHistoryDetailModal((current) => current
+          ? {
+              ...current,
+              htmlBody: remoteBody,
+              details: remoteBody,
+              fullContent: htmlToPlainPreview(remoteBody),
+              isHtml: typeof remoteEmail?.body?.contentType === "string"
+                ? remoteEmail.body.contentType.toLowerCase() === "html"
+                : current.isHtml,
+              remoteEmailFetched: true,
+              remoteEmailLoading: false,
+            }
+          : current);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.warn("[AgentWS] Could not load full remote email body:", error);
+        // Keep the stored body visible when Graph is unavailable, but avoid
+        // retrying on every render of the same modal.
+        setHistoryDetailModal((current) => current
+          ? { ...current, remoteEmailFetched: true, remoteEmailLoading: false, remoteEmailError: true }
+          : current);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [historyDetailModal, user?.id]);
 
   const inboundPhone = callContext.callInfo?.direction === "inbound" ? callContext.callInfo?.phoneNumber : null;
   const { data: inboundPhoneMatches = [] } = useQuery<PhoneMatch[]>({
@@ -17407,7 +17504,54 @@ function AgentWorkspacePageContent() {
               );
               return <div className="space-y-2 p-4">{channelMessages.map((message: any) => {
                 const Icon = message.type === "email" ? Mail : MessageSquare;
-                return <div key={message.id} className="rounded-xl border bg-card p-3" data-testid={`missed-message-${message.id}`}>
+                const openEmailViewer = () => {
+                  if (message.type !== "email") return;
+                  let messageMetadata: Record<string, any> = {};
+                  try {
+                    messageMetadata = typeof message.metadata === "string"
+                      ? JSON.parse(message.metadata || "{}")
+                      : (message.metadata || {});
+                  } catch {
+                    messageMetadata = {};
+                  }
+                  setHistoryDetailModal({
+                    id: String(message.id),
+                    type: "email",
+                    direction: "inbound",
+                    timestamp: new Date(message.createdAt),
+                    content: message.subject || t.agentWorkspace.historyEmailTitle,
+                    details: String(message.content || ""),
+                    htmlBody: String(message.content || ""),
+                    fullContent: htmlToPlainPreview(String(message.content || "")),
+                    sender: message.sender,
+                    senderName: message.senderName || message.contactName,
+                    recipientEmail: message.sender,
+                    externalId: message.externalId || message.emailId || null,
+                    mailboxEmail: message.mailboxEmail || null,
+                    isHtml: typeof messageMetadata.isHtml === "boolean" ? messageMetadata.isHtml : null,
+                    metadata: messageMetadata,
+                    campaignId: message.campaignId,
+                    campaignContactId: message.campaignContactId,
+                    missedMessageId: String(message.id),
+                    missedHandledAt: message.handledAt,
+                    entityId: String(message.entityId),
+                    entityType: message.contactType,
+                  } as any);
+                };
+                return <div
+                  key={message.id}
+                  className={`rounded-xl border bg-card p-3 ${message.type === "email" ? "cursor-pointer hover:bg-muted/30 transition-colors" : ""}`}
+                  data-testid={`missed-message-${message.id}`}
+                  onClick={message.type === "email" ? openEmailViewer : undefined}
+                  onKeyDown={message.type === "email" ? (event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openEmailViewer();
+                    }
+                  } : undefined}
+                  role={message.type === "email" ? "button" : undefined}
+                  tabIndex={message.type === "email" ? 0 : undefined}
+                >
                   <div className="flex gap-3">
                     <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${message.handledAt ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300" : "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300"}`}>
                       <Icon className="h-4 w-4" />
@@ -17419,9 +17563,10 @@ function AgentWorkspacePageContent() {
                       </div>
                       <p className="text-[10px] text-muted-foreground truncate">{message.campaignName} · {message.sender}</p>
                       {message.subject && <p className="text-xs font-medium mt-1 truncate">{message.subject}</p>}
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{String(message.content || "").replace(/<[^>]*>/g, " ")}</p>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{htmlToPlainPreview(String(message.content || ""))}</p>
                       <div className="flex items-center gap-2 mt-2">
-                        {!message.handledAt && <Button size="sm" className="h-7 text-xs" onClick={async () => {
+                        {!message.handledAt && <Button size="sm" className="h-7 text-xs" onClick={async (event) => {
+                          event.stopPropagation();
                           const opened = await handleSelectInboundMatch({ entityType: message.contactType, id: message.entityId, name: message.contactName || "", phone: message.senderPhone || "" }, "card", undefined, { syncCall: false });
                           if (opened) {
                              try {
@@ -17431,10 +17576,16 @@ function AgentWorkspacePageContent() {
                                return;
                              }
                             setSelectedCampaignId(message.campaignId);
+                            setPendingMissedChannel({
+                              contactId: String(message.entityId),
+                              contactType: String(message.contactType || "customer"),
+                              channel: message.type === "email" ? "email" : "sms",
+                            });
                             setAbandonedCallsOpen(false);
                           }
                         }}>{t.agentWorkspace.replyBtn}</Button>}
-                        {!message.handledAt && <Button size="sm" variant="outline" className="h-7 text-xs" onClick={async () => {
+                        {!message.handledAt && <Button size="sm" variant="outline" className="h-7 text-xs" onClick={async (event) => {
+                           event.stopPropagation();
                            await markMissedMessageHandled(message.id);
                         }}>{t.agentWorkspace.markHandledBtn}</Button>}
                         {message.handledAt && <span className="text-[11px] text-green-600 flex items-center gap-1"><CheckCircle className="h-3 w-3" />{message.handledByUserName || t.agentWorkspace.handledBy}</span>}
@@ -17697,9 +17848,18 @@ function AgentWorkspacePageContent() {
             const direction = (entry as any).direction;
             const agentName = (entry as any).agentName;
             const status = (entry as any).status;
+            const sender = (entry as any).sender;
             const recipientEmail = (entry as any).recipientEmail;
             const recipientPhone = (entry as any).recipientPhone;
-            const subject = isEmail ? ((entry as any).content || "Email") : null;
+            const subject = isEmail ? ((entry as any).content || t.agentWorkspace.historyEmailTitle) : null;
+            const missedMessageId = (entry as any).missedMessageId;
+            const missedHandledAt = (entry as any).missedHandledAt;
+            const decodedHtmlBody = decodeHtmlEntities(htmlBody);
+            const explicitHtmlFlag = typeof (entry as any).isHtml === "boolean"
+              ? (entry as any).isHtml
+              : typeof (entry as any).metadata?.isHtml === "boolean"
+                ? (entry as any).metadata.isHtml
+                : null;
 
             return (
               <>
@@ -17719,7 +17879,7 @@ function AgentWorkspacePageContent() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-sm font-semibold leading-snug" data-testid="text-history-detail-title">
-                          {isEmail ? (subject || "Email") : t.agentWorkspace.historySmsTitle}
+                           {isEmail ? (subject || t.agentWorkspace.historyEmailTitle) : t.agentWorkspace.historySmsTitle}
                         </h3>
                         {status && (
                           <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">{localizeHistoryStatus(t, (entry as any).statusCode, status)}</Badge>
@@ -17736,10 +17896,10 @@ function AgentWorkspacePageContent() {
                             {agentName}
                           </span>
                         )}
-                        {isEmail && recipientEmail && (
+                        {isEmail && (sender || recipientEmail) && (
                           <span className="flex items-center gap-1">
                             <Mail className="h-3 w-3" />
-                            {recipientEmail}
+                            {sender || recipientEmail}
                           </span>
                         )}
                         {isSms && recipientPhone && (
@@ -17750,9 +17910,56 @@ function AgentWorkspacePageContent() {
                         )}
                       </div>
                     </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                    {isEmail && missedMessageId && !missedHandledAt && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs"
+                        onClick={async () => {
+                          try {
+                            await markMissedMessageHandled(String(missedMessageId));
+                            setHistoryDetailModal({
+                              ...entry,
+                              missedHandledAt: new Date().toISOString(),
+                            } as any);
+                          } catch (error) {
+                            console.error("Failed to mark missed message handled:", error);
+                          }
+                        }}
+                        data-testid="btn-mark-handled-email"
+                      >
+                        {t.agentWorkspace.markHandledBtn}
+                      </Button>
+                    )}
                     {isEmail && direction === "inbound" && (
                       <button
                         onClick={async () => {
+                          if (
+                            missedMessageId &&
+                            (
+                              String(currentContact?.id || "") !== String((entry as any).entityId || "") ||
+                              String(currentContactType || "") !== String((entry as any).entityType || "")
+                            )
+                          ) {
+                            const opened = await handleSelectInboundMatch({
+                              entityType: (entry as any).entityType,
+                              id: (entry as any).entityId,
+                              name: (entry as any).senderName || "",
+                              phone: "",
+                            }, "card", undefined, { syncCall: false });
+                            if (opened) {
+                              setSelectedCampaignId((entry as any).campaignId || null);
+                              setPendingMissedChannel({
+                                contactId: String((entry as any).entityId),
+                                contactType: String((entry as any).entityType || "customer"),
+                                channel: "email",
+                              });
+                              setHistoryDetailModal(null);
+                              setAbandonedCallsOpen(false);
+                            }
+                            return;
+                          }
                           if (emailReplyOpen) { setEmailReplyOpen(false); return; }
                           setEmailReplyOpen(true);
                           // Strip active content from campaign-manager-authored HTML (prevents stored XSS across agents)
@@ -17772,12 +17979,22 @@ function AgentWorkspacePageContent() {
                             if (cid) params.set("contactId", String(cid));
                             if (params.toString()) {
                               const cr = await fetch(`/api/reply-signature?${params.toString()}`, { credentials: "include" });
-                              if (cr.ok) {
+                              if (cr.status === 404) {
+                                campReplySig = "";
+                              } else if (!cr.ok) {
+                                throw new Error(`Failed to load campaign signature (${cr.status})`);
+                              } else {
                                 const data = await cr.json();
                                 campReplySig = (data?.signature || "").trim();
                               }
                             }
-                          } catch { campReplySig = ""; }
+                          } catch {
+                            // An unavailable signature service is not the
+                            // same as "no campaign signature"; do not fall
+                            // through to a potentially wrong personal sig.
+                            setEmailReplySignature("");
+                            return;
+                          }
                           if (campReplySig) {
                             let outSig = "";
                             try {
@@ -17805,7 +18022,12 @@ function AgentWorkspacePageContent() {
                           }
                           try {
                             const res = await fetch(`/api/users/${user?.id}/email-signatures/personal`, { credentials: "include" });
-                            const html = res.ok ? (((await res.json())?.htmlContent) || "") : "";
+                            if (res.status !== 404 && !res.ok) {
+                              throw new Error(`Failed to load personal signature (${res.status})`);
+                            }
+                            const html = res.status === 404
+                              ? ""
+                              : sanitizeSignatureHtml((((await res.json())?.htmlContent) || ""));
                             setPersonalReplySignature(html);
                             setEmailReplySignature(html);
                           } catch {
@@ -17820,10 +18042,16 @@ function AgentWorkspacePageContent() {
                         {t.agentWorkspace.emailReply || "Reply"}
                       </button>
                     )}
+                    </div>
                   </div>
                 </div>
 
                 <div className="flex-1 min-h-0 overflow-auto" style={{ maxHeight: emailReplyOpen ? "35vh" : "60vh" }}>
+                  {(entry as any).remoteEmailError && (
+                    <div className="mx-4 mt-3 rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
+                      {t.email?.loadError || "The full email could not be loaded; showing the saved preview."}
+                    </div>
+                  )}
                   {isEmail && htmlBody ? (
                     <div className="p-2 h-full">
                       <iframe
@@ -17844,16 +18072,16 @@ function AgentWorkspacePageContent() {
                           }
                         }}
                         srcDoc={(() => {
-                          const isHtmlContent = /<(p|div|br|table|tr|td|span|a|img|ul|ol|li|h[1-6]|strong|em|b|i|blockquote)\b[^>]*>/i.test(htmlBody);
-                          const safeBody = isHtmlContent
-                            ? htmlBody.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/on\w+\s*=/gi, 'data-blocked=')
-                            : decodeHtmlEntities(htmlBody).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>').replace(/  /g, '&nbsp; ');
+                           const isHtmlContent = explicitHtmlFlag ?? /<(p|div|br|table|tr|td|span|a|img|ul|ol|li|h[1-6]|strong|em|b|i|blockquote)\b[^>]*>/i.test(decodedHtmlBody);
+                           const safeBody = isHtmlContent
+                             ? sanitizeEmailHtml(decodedHtmlBody)
+                            : decodedHtmlBody.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>').replace(/  /g, '&nbsp; ');
                           return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;line-height:1.6;color:#333;margin:16px;word-wrap:break-word}img{max-width:100%;height:auto}a{color:#1a73e8;text-decoration:none}table{border-collapse:collapse;max-width:100%}td,th{padding:4px 8px}pre{white-space:pre-wrap;word-wrap:break-word}@media(prefers-color-scheme:dark){body{color:#e0e0e0;background:#0a0a0a}a{color:#8ab4f8}}</style></head><body>${safeBody}</body></html>`;
                         })()}
                         className="w-full border-0 rounded-md bg-white dark:bg-gray-950"
                         style={{ minHeight: "400px", width: "100%" }}
                         sandbox="allow-same-origin"
-                        title="Email obsah"
+                         title={t.customers?.details?.emailHistoryTitle || "Email content"}
                         data-testid="iframe-email-content"
                       />
                     </div>
@@ -17891,7 +18119,7 @@ function AgentWorkspacePageContent() {
                     {emailReplySignature && (
                       <div
                         className="px-4 pb-1 text-xs text-muted-foreground border-t border-dashed border-border/50 pt-2 max-h-[80px] overflow-y-auto"
-                        dangerouslySetInnerHTML={{ __html: emailReplySignature.replace(/<script[\s\S]*?<\/script>/gi, '') }}
+                            dangerouslySetInnerHTML={{ __html: sanitizeSignatureHtml(emailReplySignature) }}
                       />
                     )}
                     <div className="flex items-center gap-2 px-4 py-2.5 border-t bg-muted/10">
@@ -17901,11 +18129,13 @@ function AgentWorkspacePageContent() {
                         disabled={isSendingReply || !emailReplyText.trim()}
                         data-testid="btn-send-reply"
                         onClick={async () => {
-                          const contactEmail = (currentContact as any)?.email;
+                          const contactEmail = (currentContact as any)?.email
+                            || sender
+                            || (entry as any).recipientEmail;
                           if (!contactEmail || !emailReplyText.trim()) return;
                           setIsSendingReply(true);
                           try {
-                            const replyBodyHtml = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;line-height:1.6;">${emailReplyText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}</div>${emailReplySignature ? `<br>${emailReplySignature}` : ''}<br><hr style="border:none;border-top:1px solid #e0e0e0;margin:16px 0"><div style="color:#888;font-size:12px;margin-bottom:8px;">${t.agentWorkspace.emailReplyOriginal || "Original message:"}</div><div style="padding-left:12px;border-left:3px solid #ddd;color:#555;font-size:13px;">${htmlBody.replace(/<script[\s\S]*?<\/script>/gi,'')}</div>`;
+                           const replyBodyHtml = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;line-height:1.6;">${emailReplyText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}</div>${emailReplySignature ? `<br>${sanitizeSignatureHtml(emailReplySignature)}` : ''}<br><hr style="border:none;border-top:1px solid #e0e0e0;margin:16px 0"><div style="color:#888;font-size:12px;margin-bottom:8px;">${t.agentWorkspace.emailReplyOriginal || "Original message:"}</div><div style="padding-left:12px;border-left:3px solid #ddd;color:#555;font-size:13px;">${sanitizeEmailHtml(decodedHtmlBody)}</div>`;
                             await sendEmailMutation.mutateAsync({
                               to: [contactEmail],
                               subject: `Re: ${subject || ""}`,

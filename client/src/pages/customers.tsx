@@ -76,6 +76,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCountryFlag, getCountryName } from "@/lib/countries";
 import { cn } from "@/lib/utils";
+import { buildConfiguredEmailBody } from "@/lib/sanitize-html";
 import { getDocumentStatusLabel, getDocumentStatusVariant, getDocumentTypeLabel } from "@/lib/document-status";
 import type { Customer, Product, CustomerProduct, Invoice, BillingDetails, CustomerNote, ActivityLog, CommunicationMessage, CustomerPotentialCase, MarketProductInstance, CustomerEmailNotification } from "@shared/schema";
 import {
@@ -4253,13 +4254,13 @@ export function CustomerDetailsContent({
                     </div>
                     {isMs365Connected && availableMailboxes.length > 0 && (
                       <div>
-                        <Label className="text-xs">Odoslať z</Label>
+                        <Label className="text-xs">{t.customers.details.fromAccount}</Label>
                         <Select value={selectedMailboxId} onValueChange={setSelectedMailboxId}>
-                          <SelectTrigger data-testid="select-email-from-mailbox"><SelectValue placeholder="Vyberte schránku" /></SelectTrigger>
+                          <SelectTrigger data-testid="select-email-from-mailbox"><SelectValue placeholder={t.customers.details.selectAccount} /></SelectTrigger>
                           <SelectContent>
-                            {personalMailbox && <SelectItem value="personal">{personalMailbox.displayName} ({personalMailbox.email}) [Osobná]</SelectItem>}
+                            {personalMailbox && <SelectItem value="personal">{personalMailbox.displayName} ({personalMailbox.email}) [{t.customers.details.personalAccount}]</SelectItem>}
                             {availableMailboxes.filter(m => m.type === "shared").map((mailbox) => (
-                              <SelectItem key={mailbox.id || mailbox.email} value={mailbox.id || mailbox.email}>{mailbox.displayName} ({mailbox.email}) [Zdieľaná]{mailbox.isDefault ? " (Predvolená)" : ""}</SelectItem>
+                              <SelectItem key={mailbox.id || mailbox.email} value={mailbox.id || mailbox.email}>{mailbox.displayName} ({mailbox.email}) [{t.customers.details.sharedAccount}]{mailbox.isDefault ? ` (${t.customers.details.defaultAccount})` : ""}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -4267,7 +4268,7 @@ export function CustomerDetailsContent({
                     )}
                     {!isMs365Connected && (
                       <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
-                        <p className="text-sm text-amber-700 dark:text-amber-400">Pre odosielanie emailov cez Microsoft 365 si pripojte váš účet v nastaveniach používateľa.</p>
+                        <p className="text-sm text-amber-700 dark:text-amber-400">{t.customers.details.connectEmailAccountHint}</p>
                       </div>
                     )}
                     <div>
@@ -4430,20 +4431,20 @@ export function CustomerDetailsContent({
               </div>
               {isMs365Connected && availableMailboxes.length > 0 && (
                 <div>
-                  <Label className="text-xs">Odoslať z</Label>
+                  <Label className="text-xs">{t.customers.details.fromAccount}</Label>
                   <Select value={selectedMailboxId} onValueChange={setSelectedMailboxId}>
                     <SelectTrigger data-testid="select-email-from-mailbox">
-                      <SelectValue placeholder="Vyberte schránku" />
+                      <SelectValue placeholder={t.customers.details.selectAccount} />
                     </SelectTrigger>
                     <SelectContent>
                       {personalMailbox && (
                         <SelectItem value="personal">
-                          {personalMailbox.displayName} ({personalMailbox.email}) [Osobná]
+                          {personalMailbox.displayName} ({personalMailbox.email}) [{t.customers.details.personalAccount}]
                         </SelectItem>
                       )}
                       {availableMailboxes.filter(m => m.type === "shared").map((mailbox) => (
                         <SelectItem key={mailbox.id || mailbox.email} value={mailbox.id || mailbox.email}>
-                          {mailbox.displayName} ({mailbox.email}) [Zdieľaná]{mailbox.isDefault ? " (Predvolená)" : ""}
+                          {mailbox.displayName} ({mailbox.email}) [{t.customers.details.sharedAccount}]{mailbox.isDefault ? ` (${t.customers.details.defaultAccount})` : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -4453,7 +4454,7 @@ export function CustomerDetailsContent({
               {!isMs365Connected && (
                 <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
                   <p className="text-sm text-amber-700 dark:text-amber-400">
-                    Pre odosielanie emailov cez Microsoft 365 si pripojte váš účet v nastaveniach používateľa.
+                    {t.customers.details.connectEmailAccountHint}
                   </p>
                 </div>
               )}
@@ -6433,6 +6434,29 @@ export default function CustomersPage() {
     return accounts;
   }, [personalMs365, sharedMailboxes]);
 
+  const selectedMailboxEmail = useMemo(
+    () => allEmailAccounts.find(account => (account.id || "personal") === selectedFromAccount)?.email || "",
+    [allEmailAccounts, selectedFromAccount],
+  );
+  const { data: configuredEmailSignature } = useQuery<{ htmlContent?: string; isActive?: boolean; missing?: boolean }>({
+    queryKey: ["/api/users", user?.id, "email-signatures", selectedMailboxEmail],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/users/${user?.id}/email-signatures/${encodeURIComponent(selectedMailboxEmail)}`,
+        { credentials: "include" },
+      );
+      if (response.status === 404) return { missing: true };
+      if (!response.ok) throw new Error(`Failed to load email signature (${response.status})`);
+      return response.json();
+    },
+    enabled: !!user?.id && !!selectedMailboxEmail,
+    staleTime: 60_000,
+  });
+  const configuredEmailBody = useMemo(
+    () => buildConfiguredEmailBody(configuredEmailSignature, user?.signature),
+    [configuredEmailSignature, user?.signature],
+  );
+
   // Fetch customer documents (invoices, contracts) for attachment using unified endpoint
   // Fetch email templates for template selector - always enabled
   // Get customer language for template filtering
@@ -7948,10 +7972,8 @@ export default function CustomersPage() {
                     variant="outline"
                     onClick={() => {
                       setEmailDialogCustomer(null);
-                      setSelectedEmails([]);
                       setEmailSubject("");
-                      setEmailMessage("");
-                      setSelectedFromAccount("");
+                      setEmailMessage(configuredEmailBody);
                       setEmailAttachment(null);
                       setEmailCc("");
                       setShowCcField(false);
@@ -8042,9 +8064,9 @@ export default function CustomersPage() {
                 {/* Debug info for disabled button */}
                 {(selectedEmails.length === 0 || !emailSubject || !emailMessage) && (
                   <div className="text-xs text-destructive mt-2">
-                    {selectedEmails.length === 0 && <div>• {t.customers.details.selectEmail || "Vyberte aspoň jeden email"}</div>}
-                    {!emailSubject && <div>• {t.customers.details.enterSubject || "Zadajte predmet"}</div>}
-                    {!emailMessage && <div>• {t.customers.details.enterMessage || "Zadajte správu"}</div>}
+                    {selectedEmails.length === 0 && <div>• {t.customers.details.selectEmail}</div>}
+                    {!emailSubject && <div>• {t.customers.details.enterSubject}</div>}
+                    {!emailMessage && <div>• {t.customers.details.enterMessage}</div>}
                   </div>
                 )}
               </div>
@@ -8225,7 +8247,6 @@ export default function CustomersPage() {
                     variant="outline"
                     onClick={() => {
                       setSmsDialogCustomer(null);
-                      setSelectedPhones([]);
                       setSmsMessage("");
                       setSmsCc("");
                       setShowSmsCcField(false);

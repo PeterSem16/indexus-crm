@@ -13461,6 +13461,14 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
       for (const msg of messages) {
         const msgType = (msg as any).type === "sms" ? "sms" : "email";
+        const messageMetadata = (() => {
+          try {
+            const raw = (msg as any).metadata;
+            return typeof raw === "string" ? JSON.parse(raw || "{}") : (raw || {});
+          } catch {
+            return {};
+          }
+        })();
         historyItems.push({
           id: `msg-${msg.id}`,
           type: msgType,
@@ -13476,8 +13484,13 @@ Return ONLY valid JSON, no markdown code blocks.`,
           details: msgType === "email" ? (msg as any).content : null,
           htmlBody: msgType === "email" ? (msg as any).content : null,
           fullContent: msgType === "sms" ? ((msg as any).content || "").replace(/\s*\[R:[0-9a-f]+\]/gi, "").trim() : null,
+          sender: msgType === "email" ? (messageMetadata.from || messageMetadata.senderEmail || null) : (msg as any).senderPhone || null,
           recipientEmail: (msg as any).recipientEmail || null,
           recipientPhone: (msg as any).recipientPhone || null,
+          externalId: (msg as any).externalId || null,
+          mailboxEmail: messageMetadata.mailboxEmail || messageMetadata.fromMailbox || null,
+          isHtml: typeof messageMetadata.isHtml === "boolean" ? messageMetadata.isHtml : null,
+          metadata: messageMetadata,
           sentiment: (msg as any).aiSentiment || null,
         });
       }
@@ -26129,6 +26142,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         WITH matched AS (
           SELECT DISTINCT ON (cm.id)
             cm.id, cm.type, cm.subject, cm.content,
+            cm.external_id AS "externalId",
+            COALESCE(cm.metadata::jsonb ->> 'mailboxEmail', cm.metadata::jsonb ->> 'fromMailbox') AS "mailboxEmail",
+            cm.metadata AS metadata,
             cm.sender_phone AS "senderPhone",
             cm.customer_id AS "entityId",
             cm.created_at AS "createdAt",
