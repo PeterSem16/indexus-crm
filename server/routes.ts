@@ -3024,20 +3024,21 @@ export async function registerRoutes(
         return res.status(500).json({ error: "Microsoft 365 nie je nakonfigurovaný" });
       }
       
-      // OAuth callbacks must land on the production callback URL registered in
-      // Azure AD. Route the OAuth through production regardless of where the login
-      // was started, and remember the originating origin so production can hand
-      // the session back here afterwards.
-      const prodBase = (process.env.APP_BASE_URL || "https://indexus.cordbloodcenter.com").replace(/\/$/, "");
-      const redirectUri = `${prodBase}/api/auth/microsoft/callback`;
+      // Keep the login callback on the origin where the login started. The
+      // Replit development callback is registered in the existing M365 app
+      // configuration and is required for the dev preview login to complete.
+      // An explicitly configured redirect URI still wins for environments that
+      // use a fixed Azure callback (for example production).
+      const currentOrigin = `https://${req.get("host")}`;
+      const configuredRedirectUri = String(process.env.MS365_REDIRECT_URI || "").trim();
+      const redirectUri = configuredRedirectUri || `${currentOrigin}/api/auth/microsoft/callback`;
+      const redirectOrigin = new URL(redirectUri).origin;
       const scopes = ["openid", "profile", "email", "User.Read"];
       
-      // State: login:{userId} for same-origin (production) login, or a SIGNED
-      // state (login:v2:...) for cross-origin handoff so the production callback
-      // can trust the returnOrigin without it being forgeable.
-      const currentOrigin = `https://${req.get("host")}`;
+      // State: login:{userId} for same-origin login, or a SIGNED state
+      // (login:v2:...) when a fixed callback belongs to another origin.
       let stateParam: string;
-      if (currentOrigin !== prodBase) {
+      if (currentOrigin !== redirectOrigin) {
         // Only sign a cross-origin handoff for origins we explicitly trust, so a
         // spoofed Host header can't make us sign an attacker-controlled origin.
         if (!isAllowedLoginReturnOrigin(currentOrigin)) {
