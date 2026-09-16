@@ -1,4 +1,8 @@
 ## Non-template compose lifecycle
+Use the signature sanitizer for authored compose HTML, not the inbox-preview sanitizer that strips inline styles/classes.
+**Why:** using the preview sanitizer in the editable frame removed the Mission signature's fonts, red borders, spacing and link colors.
+**How to apply:** browser tests must check computed signature styles before and after typing and preserved draft HTML, not just text content.
+
 HTML compose must remain directly editable, with blank writing paragraphs above the signature; a read-only iframe is not a composer.
 **Why:** automatically selecting HTML for a signature exposed the old preview-only path and prevented agents from writing ordinary messages.
 **How to apply:** verify actual typing and draft synchronization in both normal and expanded HTML views, not just the visible signature.
