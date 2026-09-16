@@ -6181,6 +6181,8 @@ export interface Translations {
   };
   callAnalysis: {
     pageTitle: string;
+    customRange: string;
+    applyRange: string;
     today: string;
     yesterday: string;
     lastWeek: string;
@@ -14804,6 +14806,8 @@ export const translations: Record<Locale, Translations> = {
     },
     callAnalysis: {
       pageTitle: 'Calls & Transcripts',
+      customRange: 'Custom date and time',
+      applyRange: 'Apply range',
       today: 'Today',
       yesterday: 'Yesterday',
       lastWeek: 'Last week',
@@ -22256,6 +22260,8 @@ export const translations: Record<Locale, Translations> = {
     },
     callAnalysis: {
       pageTitle: 'Hovory a prepisy',
+      customRange: 'Vlastný dátum a čas',
+      applyRange: 'Použiť rozsah',
       today: 'Dnes',
       yesterday: 'Včera',
       lastWeek: 'Minulý týždeň',
@@ -29634,6 +29640,8 @@ export const translations: Record<Locale, Translations> = {
     },
     callAnalysis: {
       pageTitle: 'Hovory a přepisy',
+      customRange: 'Vlastní datum a čas',
+      applyRange: 'Použít rozsah',
       today: 'Dnes',
       yesterday: 'Včera',
       lastWeek: 'Minulý týden',
@@ -36974,6 +36982,8 @@ export const translations: Record<Locale, Translations> = {
     },
     callAnalysis: {
       pageTitle: 'Hívások és átiratok',
+      customRange: 'Egyéni dátum és idő',
+      applyRange: 'Tartomány alkalmazása',
       today: 'Ma',
       yesterday: 'Tegnap',
       lastWeek: 'Múlt hét',
@@ -44234,6 +44244,8 @@ export const translations: Record<Locale, Translations> = {
     },
     callAnalysis: {
       pageTitle: 'Apeluri și transcrieri',
+      customRange: 'Dată și oră personalizate',
+      applyRange: 'Aplică intervalul',
       today: 'Astăzi',
       yesterday: 'Ieri',
       lastWeek: 'Săptămâna trecută',
@@ -51496,6 +51508,8 @@ export const translations: Record<Locale, Translations> = {
     },
     callAnalysis: {
       pageTitle: 'Chiamate e trascrizioni',
+      customRange: 'Data e ora personalizzate',
+      applyRange: 'Applica intervallo',
       today: 'Oggi',
       yesterday: 'Ieri',
       lastWeek: 'Settimana scorsa',
@@ -58745,6 +58759,8 @@ export const translations: Record<Locale, Translations> = {
     },
     callAnalysis: {
       pageTitle: 'Anrufe und Transkripte',
+      customRange: 'Benutzerdefiniertes Datum und Uhrzeit',
+      applyRange: 'Zeitraum anwenden',
       today: 'Heute',
       yesterday: 'Gestern',
       lastWeek: 'Letzte Woche',

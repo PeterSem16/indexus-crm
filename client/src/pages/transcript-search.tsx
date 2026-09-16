@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Search, FileText, AlertTriangle, Download, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Loader2, Phone, Megaphone, Filter, X, PhoneIncoming, PhoneOutgoing, PhoneMissed, Mic, MicOff, Brain, Calendar, UserCircle, Tag, BarChart3, SlidersHorizontal, ListChecks, ClipboardList, CheckCircle2, ShieldAlert, ClipboardCheck, Sparkles, Star, StarOff, Smartphone, XCircle, MessageSquare, Circle, CheckSquare, PackageOpen } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
@@ -40,6 +42,7 @@ interface CallLogEntry {
 }
 
 interface CampaignBasic { id: string; name: string; }
+interface InboundQueueBasic { id: string; name: string; isActive?: boolean; }
 
 function formatDuration(seconds: number | null): string {
   if (!seconds) return "—";
@@ -53,6 +56,26 @@ function toDateStr(d: Date): string {
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function toDateTimeInput(d: Date): string {
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${toDateStr(d)}T${hours}:${minutes}`;
+}
+
+function setLocalTime(date: Date, hours: number, minutes: number): Date {
+  const next = new Date(date);
+  next.setHours(hours, minutes, 0, 0);
+  return next;
+}
+
+function replaceDatePart(value: string, date: Date): string {
+  return `${toDateStr(date)}T${value.slice(11, 16) || "00:00"}`;
+}
+
+function replaceTimePart(value: string, time: string): string {
+  return `${value.slice(0, 10)}T${time || "00:00"}`;
 }
 
 function highlightText(text: string, query: string): JSX.Element {
@@ -721,9 +744,13 @@ export function TranscriptSearchContent() {
   const ca = t.callAnalysis;
 
   /* Date range */
+  const initialToday = useMemo(() => new Date(), []);
   const [datePreset, setDatePreset] = useState<"today" | "yesterday" | "lastWeek" | "thisMonth" | "custom">("today");
-  const [dateFrom, setDateFrom] = useState<string>(toDateStr(new Date()));
-  const [dateTo, setDateTo] = useState<string>(toDateStr(new Date()));
+  const [dateFrom, setDateFrom] = useState<string>(() => toDateTimeInput(setLocalTime(initialToday, 0, 0)));
+  const [dateTo, setDateTo] = useState<string>(() => toDateTimeInput(setLocalTime(initialToday, 23, 59)));
+  const [draftDateFrom, setDraftDateFrom] = useState(dateFrom);
+  const [draftDateTo, setDraftDateTo] = useState(dateTo);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   /* Browse filters */
   const [browseSearchText, setBrowseSearchText] = useState("");
@@ -765,8 +792,8 @@ export function TranscriptSearchContent() {
       const pageSize = 500;
       const allLogs: CallLogEntry[] = [];
       const params = new URLSearchParams({ limit: String(pageSize) });
-      if (dateFrom) params.set("dateFrom", new Date(`${dateFrom}T00:00:00`).toISOString());
-      if (dateTo) params.set("dateTo", new Date(`${dateTo}T23:59:59.999`).toISOString());
+      if (dateFrom) params.set("dateFrom", new Date(dateFrom).toISOString());
+      if (dateTo) params.set("dateTo", new Date(new Date(dateTo).getTime() + 59_999).toISOString());
       for (let offset = 0; ; offset += pageSize) {
         params.set("offset", String(offset));
         const res = await fetch(`/api/call-logs/browse?${params}`, { credentials: "include" });
@@ -791,6 +818,10 @@ export function TranscriptSearchContent() {
     },
   });
 
+  const { data: configuredQueues = [] } = useQuery<InboundQueueBasic[]>({
+    queryKey: ["/api/inbound-queues"],
+  });
+
   const { data: results = [], isLoading, isFetching } = useQuery<TranscriptResult[]>({
     queryKey: ["/api/call-recordings/search/transcripts", { query: searchQuery, sentiment: sentimentFilter, hasAlerts: hasAlertsFilter }],
     queryFn: async () => {
@@ -808,38 +839,47 @@ export function TranscriptSearchContent() {
 
   const applyDatePreset = useCallback((preset: "today" | "yesterday" | "lastWeek" | "thisMonth") => {
     const now = new Date();
-    let from = new Date(now);
-    let to = new Date(now);
+    let from = setLocalTime(now, 0, 0);
+    let to = setLocalTime(now, 23, 59);
     if (preset === "yesterday") {
       from.setDate(now.getDate() - 1);
-      to = new Date(from);
+      to = setLocalTime(from, 23, 59);
     } else if (preset === "lastWeek") {
       const day = now.getDay() || 7;
       const thisMonday = new Date(now);
       thisMonday.setDate(now.getDate() - day + 1);
-      from = new Date(thisMonday);
+      from = setLocalTime(thisMonday, 0, 0);
       from.setDate(thisMonday.getDate() - 7);
-      to = new Date(thisMonday);
+      to = setLocalTime(thisMonday, 23, 59);
       to.setDate(thisMonday.getDate() - 1);
     } else if (preset === "thisMonth") {
-      from = new Date(now.getFullYear(), now.getMonth(), 1);
+      from = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
     }
     setDatePreset(preset);
-    setDateFrom(toDateStr(from));
-    setDateTo(toDateStr(to));
+    const nextFrom = toDateTimeInput(from);
+    const nextTo = toDateTimeInput(to);
+    setDateFrom(nextFrom);
+    setDateTo(nextTo);
+    setDraftDateFrom(nextFrom);
+    setDraftDateTo(nextTo);
   }, []);
 
   const uniqueAgents = useMemo(() => { const s = new Set<string>(); callLogs.forEach(l => { if (l.recording?.agentName) s.add(l.recording.agentName); if (l.mobileAgentName) s.add(l.mobileAgentName); }); return Array.from(s).sort(); }, [callLogs]);
   const uniqueAgentUsers = useMemo(() => { const m = new Map<string, string>(); callLogs.forEach(l => { const name = (l.recording as any)?.agentName || l.mobileAgentName; if (l.userId && name) m.set(l.userId, name); }); return Array.from(m.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)); }, [callLogs]);
   const uniqueCampaigns = useMemo(() => { const m = new Map<string, string>(); callLogs.forEach(l => { if (l.campaignId && l.campaignName) m.set(l.campaignId, l.campaignName); }); return Array.from(m.entries()).map(([id, name]) => ({ id, name })); }, [callLogs]);
-  const uniqueQueues = useMemo(() => { const m = new Map<string, string>(); callLogs.forEach(l => { const qId = (l as any).inboundQueueId, qName = (l as any).inboundQueueName; if (qId && qName) m.set(qId, qName); }); return Array.from(m.entries()).map(([id, name]) => ({ id, name })); }, [callLogs]);
+  const uniqueQueues = useMemo(() => {
+    const m = new Map<string, string>();
+    configuredQueues.forEach(q => { if (q.id && q.name) m.set(q.id, q.name); });
+    callLogs.forEach(l => { if (l.inboundQueueId && l.inboundQueueName) m.set(l.inboundQueueId, l.inboundQueueName); });
+    return Array.from(m.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [callLogs, configuredQueues]);
 
   const filteredCallLogs = useMemo(() => {
     let f = [...callLogs];
     if (dateFrom || dateTo) {
       f = f.filter(l => {
-        const date = toDateStr(new Date(l.startedAt || l.createdAt));
-        return (!dateFrom || date >= dateFrom) && (!dateTo || date <= dateTo);
+        const timestamp = new Date(l.startedAt || l.createdAt).getTime();
+        return (!dateFrom || timestamp >= new Date(dateFrom).getTime()) && (!dateTo || timestamp <= new Date(dateTo).getTime() + 59_999);
       });
     }
     if (browseSearchText) {
@@ -929,36 +969,7 @@ export function TranscriptSearchContent() {
         </div>
 
         {activeTab === "browse" && (
-          <>
-            <div className="flex items-center gap-1 mx-auto min-w-0 overflow-x-auto">
-              {([
-                ["today", ca.today],
-                ["yesterday", ca.yesterday],
-                ["lastWeek", ca.lastWeek],
-                ["thisMonth", ca.thisMonth],
-              ] as const).map(([preset, label]) => (
-                <button key={preset} onClick={() => applyDatePreset(preset)}
-                  data-testid={`btn-date-${preset}`}
-                  className={`whitespace-nowrap px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-colors ${datePreset === preset ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground hover:bg-muted"}`}>
-                  {label}
-                </button>
-              ))}
-              <div className={`flex items-center gap-1 rounded-lg border px-1.5 py-0.5 ${datePreset === "custom" ? "border-primary bg-primary/5" : "border-border"}`}>
-                <Calendar className="h-3 w-3 text-muted-foreground shrink-0" />
-                <Input type="date" value={dateFrom} aria-label={ca.dateFrom}
-                  onChange={e => { setDatePreset("custom"); setDateFrom(e.target.value); }}
-                  className="h-6 w-[112px] border-0 bg-transparent p-1 text-[10px] shadow-none focus-visible:ring-0"
-                  data-testid="input-date-from" />
-                <span className="text-[9px] text-muted-foreground">–</span>
-                <Input type="date" value={dateTo} aria-label={ca.dateTo}
-                  onChange={e => { setDatePreset("custom"); setDateTo(e.target.value); }}
-                  className="h-6 w-[112px] border-0 bg-transparent p-1 text-[10px] shadow-none focus-visible:ring-0"
-                  data-testid="input-date-to" />
-              </div>
-            </div>
-
-            {/* Stats */}
-            <div className="flex items-center gap-3 shrink-0 text-xs">
+          <div className="flex items-center gap-3 shrink-0 text-xs ml-auto">
               <span className="font-semibold">{stats.total}</span><span className="text-muted-foreground">{ca.calls || "hovorov"}</span>
               {stats.withAlerts > 0 && <span className="flex items-center gap-1 text-destructive font-medium"><AlertTriangle className="h-3 w-3" />{stats.withAlerts}</span>}
               {stats.avgQ && <span className="flex items-center gap-1 text-amber-500 font-medium"><Star className="h-3 w-3" />{stats.avgQ}</span>}
@@ -966,8 +977,7 @@ export function TranscriptSearchContent() {
                 className="ml-1 flex items-center gap-1 px-2 py-1 rounded-lg border border-border text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
                 <PackageOpen className="h-3 w-3" />{ca.bulkDownload || 'Hromadné stiahnutie'}
               </button>
-            </div>
-          </>
+          </div>
         )}
 
         {activeTab === "search" && (
@@ -984,6 +994,139 @@ export function TranscriptSearchContent() {
           </div>
         )}
       </div>
+
+      {activeTab === "browse" && (
+        <div className="bg-background/95 border-b px-4 py-3 shrink-0" data-testid="calls-filter-toolbar">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <Calendar className="h-4 w-4" />
+              </div>
+              <div className="leading-tight hidden xl:block">
+                <div className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground">{ca.dateFrom}</div>
+                <div className="text-xs font-medium">{ca.customRange}</div>
+              </div>
+            </div>
+
+            <Select value={datePreset} onValueChange={(value) => {
+              if (value === "custom") {
+                setDraftDateFrom(dateFrom);
+                setDraftDateTo(dateTo);
+                setDatePickerOpen(true);
+              } else {
+                applyDatePreset(value as "today" | "yesterday" | "lastWeek" | "thisMonth");
+              }
+            }}>
+              <SelectTrigger className="h-9 w-[150px] text-xs bg-muted/30" data-testid="select-date-preset">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">{ca.today}</SelectItem>
+                <SelectItem value="yesterday">{ca.yesterday}</SelectItem>
+                <SelectItem value="lastWeek">{ca.lastWeek}</SelectItem>
+                <SelectItem value="thisMonth">{ca.thisMonth}</SelectItem>
+                <SelectItem value="custom">{ca.customRange}</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Popover open={datePickerOpen} onOpenChange={(open) => {
+              setDatePickerOpen(open);
+              if (open) {
+                setDraftDateFrom(dateFrom);
+                setDraftDateTo(dateTo);
+              }
+            }}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={`h-9 min-w-[310px] justify-start gap-2 text-xs font-normal ${datePreset === "custom" ? "border-primary bg-primary/5" : ""}`} data-testid="btn-custom-date-range">
+                  <Calendar className="h-3.5 w-3.5 text-primary" />
+                  <span className="font-medium">
+                    {new Intl.DateTimeFormat(LOCALE_MAP[locale] || "en-US", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(dateFrom))}
+                  </span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className="font-medium">
+                    {new Intl.DateTimeFormat(LOCALE_MAP[locale] || "en-US", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(dateTo))}
+                  </span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-auto p-0 shadow-xl" sideOffset={8}>
+                <div className="px-4 py-3 border-b bg-muted/30">
+                  <div className="text-sm font-semibold">{ca.customRange}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{ca.dateFrom} – {ca.dateTo}</div>
+                </div>
+                <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x">
+                  <div className="p-3">
+                    <div className="text-xs font-semibold mb-2 px-1">{ca.dateFrom}</div>
+                    <CalendarPicker
+                      mode="single"
+                      selected={new Date(draftDateFrom)}
+                      onSelect={(date) => date && setDraftDateFrom(replaceDatePart(draftDateFrom, date))}
+                      initialFocus
+                    />
+                    <div className="flex items-center gap-2 px-1 pt-2 border-t">
+                      <span className="text-xs text-muted-foreground">{ca.timeFrom}</span>
+                      <Input type="time" step="60" value={draftDateFrom.slice(11, 16)}
+                        onChange={e => setDraftDateFrom(replaceTimePart(draftDateFrom, e.target.value))}
+                        className="h-9 flex-1" data-testid="input-time-from" />
+                    </div>
+                  </div>
+                  <div className="p-3">
+                    <div className="text-xs font-semibold mb-2 px-1">{ca.dateTo}</div>
+                    <CalendarPicker
+                      mode="single"
+                      selected={new Date(draftDateTo)}
+                      onSelect={(date) => date && setDraftDateTo(replaceDatePart(draftDateTo, date))}
+                    />
+                    <div className="flex items-center gap-2 px-1 pt-2 border-t">
+                      <span className="text-xs text-muted-foreground">{ca.timeTo}</span>
+                      <Input type="time" step="60" value={draftDateTo.slice(11, 16)}
+                        onChange={e => setDraftDateTo(replaceTimePart(draftDateTo, e.target.value))}
+                        className="h-9 flex-1" data-testid="input-time-to" />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 px-4 py-3 border-t bg-muted/20">
+                  <Button variant="ghost" size="sm" onClick={() => setDatePickerOpen(false)}>{ca.cancel}</Button>
+                  <Button size="sm" disabled={new Date(draftDateFrom) > new Date(draftDateTo)}
+                    onClick={() => {
+                      setDatePreset("custom");
+                      setDateFrom(draftDateFrom);
+                      setDateTo(draftDateTo);
+                      setDatePickerOpen(false);
+                    }}>
+                    {ca.applyRange}
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <div className="h-7 w-px bg-border hidden lg:block mx-0.5" />
+
+            <Select value={browseCampaignFilter || "all"} onValueChange={v => setBrowseCampaignFilter(v === "all" ? "" : v)}>
+              <SelectTrigger className="h-9 w-[190px] text-xs" data-testid="select-toolbar-campaign"><SelectValue placeholder={ca.campaign} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{ca.allCampaigns}</SelectItem>
+                <SelectItem value="__none__">{ca.noCampaign}</SelectItem>
+                {(uniqueCampaigns.length > 0 ? uniqueCampaigns : campaignsList).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+
+            <Select value={browseQueueFilter || "all"} onValueChange={v => setBrowseQueueFilter(v === "all" ? "" : v)}>
+              <SelectTrigger className="h-9 w-[190px] text-xs" data-testid="select-toolbar-queue"><SelectValue placeholder={ca.inboundQueue} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{ca.allQueues}</SelectItem>
+                {uniqueQueues.map(q => <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+
+            <Button variant={showFilters || activeFilterCount > 0 ? "secondary" : "outline"} size="sm"
+              className="h-9 gap-2 ml-auto" onClick={() => setShowFilters(!showFilters)} data-testid="btn-toolbar-more-filters">
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              {ca.filters}
+              {activeFilterCount > 0 && <Badge className="h-5 min-w-5 px-1.5">{activeFilterCount}</Badge>}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* ── Browse mode ── */}
       {activeTab === "browse" && (
@@ -1052,25 +1195,6 @@ export function TranscriptSearchContent() {
                       </SelectContent>
                     </Select>
                   </div>
-                  {(uniqueCampaigns.length > 0 || campaignsList.length > 0) && (
-                    <Select value={browseCampaignFilter || "all"} onValueChange={v => setBrowseCampaignFilter(v === "all" ? "" : v)}>
-                      <SelectTrigger className="h-7 text-[10px] w-full" data-testid="select-browse-campaign"><SelectValue placeholder={ca.campaign} /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">{ca.allCampaigns}</SelectItem>
-                        <SelectItem value="__none__">{ca.noCampaign}</SelectItem>
-                        {(uniqueCampaigns.length > 0 ? uniqueCampaigns : campaignsList).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  )}
-                  {uniqueQueues.length > 0 && (
-                    <Select value={browseQueueFilter || "all"} onValueChange={v => setBrowseQueueFilter(v === "all" ? "" : v)}>
-                      <SelectTrigger className="h-7 text-[10px] w-full" data-testid="select-browse-queue"><SelectValue placeholder={ca.inboundQueue} /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">{ca.allQueues}</SelectItem>
-                        {uniqueQueues.map(q => <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  )}
                   {uniqueAgents.length > 0 && (
                     <Select value={browseAgentFilter || "all"} onValueChange={v => setBrowseAgentFilter(v === "all" ? "" : v)}>
                       <SelectTrigger className="h-7 text-[10px] w-full" data-testid="select-browse-agent"><SelectValue placeholder={ca.agent} /></SelectTrigger>
