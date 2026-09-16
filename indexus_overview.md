@@ -1,27 +1,34 @@
-# INDEXUS CRM — Aktuálny prehľad a plán dokončenia
+# INDEXUS CRM — Manažérsky prehľad aktuálneho stavu
 
 > **Revízia:** 16. september 2026
-> **Rozsah:** revízia oproti májovému prehľadu; aktuálna implementácia CRM, Nexus Pulse, Mission, obchodno-laboratórneho procesu a kompletný plán migrácie ISCBC.
-> **Podklady:** aktuálny zdrojový kód, vykonané cielené regresné overenia a existujúce testovacie rutiny, stavový dokument Pricing Engine V2 a dokumentácia migrácie ISCBC → INDEXUS.
-> **Produkčné dáta:** v tejto revízii nebol vykonaný prístup na CORPCRM01 ani SQL dotazy proti produkcii. Staré počty nie sú aktuálnym stavom.
+> **Rozsah:** stav CRM, agentúrneho pracoviska, Healthcare Network, obchodno-laboratórneho reťazca a migrácie ISCBC → INDEXUS.
+> **Podklady:** aktuálny zdrojový kód, cielené regresné overenia, testovacie rutiny, migračná dokumentácia a anonymizovaný read-only výpis z produkcie.
+> **Produkčný stav:** agregovaný výpis bol vykonaný 16. 9. 2026 o 09:22:11 UTC; databáza bola v režime `read_only = on`.
 
 ## 1. Manažérsky súhrn
 
-INDEXUS už nie je iba evidencia zákazníkov a historických zmlúv. Obsahuje funkčné agentúrne pracovisko Nexus Pulse, riadenie práce cez Mission, prichádzajúce aj odchádzajúce volania, fronty, callbacky, nahrávanie a nadväzujúcu komunikáciu. **Nexus Pulse a Mission boli implementované; ich kľúčové mechanizmy boli overované sadou testovacích rutín.** Cielené vykonané regresné overenia, rozsah automatizovaných scenárov a limity testov sú uvedené v kapitole 12. Implementácia bola porovnaná s aktuálnym kódom.
+INDEXUS je funkčne rozsiahly CRM systém, nie iba evidencia historických zákazníkov. Má agentúrne pracovisko Nexus Pulse a Mission, telefonickú a SMS komunikáciu, Customers, Healthcare Network, Back Office, Pricing Engine V2, zmluvy, odbery, laboratórne výsledky a základ fakturácie. Kľúčové mechanizmy pracoviska a Priority Builder boli overené cielenými regresnými rutinami.
 
-Najnovšie opravy v repozitári však nie sú automaticky dôkazom ich nasadenia na produkciu. Tento dokument nie je záznamom nového produkčného akceptačného testu a neoznačuje všetky krajiny, brány či externých partnerov za nezávisle otestovaných.
+**Celkový stav k dnešnému dňu:** prevádzkové CRM a komunikačné jadro je implementované. Obchodno-finančný reťazec však ešte nie je uzavretý ako jeden auditovateľný proces. Najväčšia medzera je medzi cenou, zmluvou, odberom, výsledkom a faktúrou. Migrácia ISCBC má pripravené skripty a rozsah, ale nie je produkčne dokončená bez zdrojovo-cieľovej reconciliácie.
 
-**Nasledujúca hlavná etapa je obchodný a laboratórny reťazec:**
+Z produkčných agregácií vyplýva, že databáza obsahuje rozsiahlu historickú bázu, ale aj otvorené väzby: 165 463 zákazníkov, 10 080 kliník, 1 213 nemocníc, 198 167 odberov, 197 850 laboratórnych výsledkov, 236 935 zmlúv a 0 faktúr. Pricing V2 má cenníky a pravidlá, ale zatiaľ nemá priradenia zákazníkov.
 
-Nový cenník produktov a služieb → pridelenie verzie cenníka zákazníkovi → zmluva s uloženou cenou → odber → laboratórny výsledok → vyhodnotenie skutočne dodaných služieb → faktúra/splátky/skladné → úhrada a kontrola.
+### Priorita dokončenia
 
-Nový Pricing Engine V2, zmluvný modul, fakturačný modul a Laboratory Connect už majú implementované významné časti. **Ešte však nejde o jeden dokončený automatizovaný proces.** Prioritou nie je vytvoriť ďalšiu kalkulačku, ale prepojiť existujúce moduly tak, aby používali rovnaké identifikátory, pravidlá a nemenné cenové podklady.
+1. **Zjednotiť cenotvorbu:** Pricing Engine V2 musí byť autoritatívnym zdrojom ceny pre zákazníka, produkt, odber, zmluvu a faktúru; podpísané dokumenty musia mať nemenný cenový snapshot.
+2. **Uzavrieť obchodný reťazec:** prepojiť Customers, Contracts, Collections, Laboratory Connect a Invoicing na rovnaké identifikátory a pravidlá.
+3. **Dopracovať fakturáciu a ESO:** dokončiť export/API, DPH, položky, úhrady, storno, dobropisy a idempotentné opakovanie.
+4. **Dokončiť zmluvy a templates:** schválené krajinné a jazykové šablóny musia používať V2 snapshot.
+5. **Reconciliovať a riadiť migráciu ISCBC:** potvrdiť identity, historické väzby, prílohy, delta prenos, rollback a finančnú kontrolu.
+6. **Pilot a prepnutie:** overiť nový aj migrovaný prípad od zákazníka po úhradu, potom zaviesť riadený prechod s dočasným read-only režimom ISCBC.
+
+**Manažérsky záver:** projekt nie je pred novým vývojom CRM od začiatku. Je v etape integrácie, dátového čistenia, finančného napojenia a riadeného prechodu do plnej prevádzky. Za dokončený ho možno označiť až po úspešnom end-to-end pilote, reconciliácii a nacvičenej obnove.
 
 ### 1.1 Ako čítať stav
 
 | Označenie | Význam |
 |---|---|
-| Implementované a cielene testované | Funkcia existuje a jej konkrétne scenáre boli overené vykonanými testami; rozsah a výsledky sú uvedené v kapitole 12. Neznamená to univerzálnu produkčnú akceptáciu. |
+| Implementované a cielene testované | Funkcia existuje a jej konkrétne scenáre boli overené; nejde o univerzálnu produkčnú akceptáciu. |
 | Implementované | V repozitári je funkčný kód príslušnej časti; nasadenie a produkčné dáta môžu vyžadovať potvrdenie. |
 | Čiastočne prepojené | Moduly existujú, ale chýba spoločný proces, kontrola alebo automatické odovzdanie dát. |
 | Na dopracovanie / overenie | Konkrétna medzera v kóde alebo chýbajúci produkčný či obchodný dôkaz. |
@@ -30,80 +37,56 @@ Nový Pricing Engine V2, zmluvný modul, fakturačný modul a Laboratory Connect
 
 | Oblasť | Aktuálna etapa | Čo zostáva |
 |---|---|---|
-| Nexus Pulse + Mission | Implementované a cielene testované; podrobnosti v kapitole 12 | Prevádzkové monitorovanie, priebežné opravy, potvrdenie nasadenia posledných zmien. |
+| Nexus Pulse + Mission | Implementované a cielene testované | Prevádzkové monitorovanie a potvrdenie nasadenia posledných zmien. |
 | Hlasové trasy a SMS brány | Implementovaný výber podľa Mission a krajiny | Evidovať akceptáciu každej používanej kombinácie krajina/trasa/brána. |
 | Priority Builder a osobná fronta | Implementované | Prevádzkové overenie najnovších opráv uloženia a zobrazenia. |
-| Customers + Healthcare Network / Back Office | Implementované karty, evidencie, vzťahy a pracovné postupy; podrobnosti v kapitole 2 | Aktuálne produkčné počty a úplnosť väzieb treba získať z Ubuntu SQL výpisu; obchodné a finančné integrácie zostávajú samostatnou etapou. |
+| Customers + Healthcare Network / Back Office | Implementované karty, evidencie, vzťahy a pracovné postupy | Úplnosť väzieb a reprezentantskej histórie je v produkcii nízka; treba dokončiť obchodné integrácie. |
 | Pricing Engine V2 | Implementovaný cenník, pravidlá a výpočet | Produkčné verzie, historické priradenia a zapojenie do zákazníka/zmluvy/BO/fakturácie. |
 | Contracts | Existujúci modul a cenové snapshoty v modeli | Napojenie na autoritatívny V2 výpočet a cenovú verziu. |
 | Invoicing | Existujúce UI, dátový model a generovanie | Zmluvne viazaná V2 fakturácia, položky, meny, dane, splátky a bezpečné opakovanie. |
 | Laboratory Connect | Implementované interné formuláre aj externé API | Zjednotiť spracovanie, autorizáciu laboratória, históriu výsledkov a obchodné následky. |
-| Migrácia ISCBC | Implementované migračné skripty a mapovania; rozsah v kapitole 11 | Zjednotiť migračnú cestu, doplniť otvorené domény, vykonať reconciliáciu a riadené prepnutie. |
+| Migrácia ISCBC | Implementované migračné skripty a mapovania | Reconciliácia, otvorené domény, delta prenos a riadené prepnutie. |
 | Úplný obchodno-laboratórny proces | Integračná etapa pred dokončením | Akceptačný scenár od cenníka až po výsledok, faktúru a úhradu. |
 
 ## 2. Čo pribudlo alebo sa dokončilo od pôvodného prehľadu
 
 ### 2.1 Nexus Pulse — agentúrne pracovisko
 
-- Samostatné pracovisko agenta naviazané na prístupové práva, Mission a oprávnené kontakty.
-- Vstupná kontrola podporovaného prehliadača, bezpečného spojenia, siete, mikrofónu, reproduktora, SIP/ICE a pripojeného účtu Microsoft 365.
-- Mikrofónová skúška s kalibráciou okolitého hluku a detekciou reči; interaktívne potvrdenie reproduktora.
-- Meranie latencie a jitteru; hodnoty v milisekundách sú opäť súčasťou výsledkov kontroly.
-- Rýchla opätovná kontrola iba pri stále platnej pripravenosti; začatý úplný test nemožno obísť rýchlou cestou.
-- Zmena siete alebo zariadenia vyvolá povinnú opätovnú kontrolu. Predošlý výsledok nesmie oprávniť vstup po zmene prostredia. Opakované hlásenia tej istej zmeny nesmú cyklicky rušiť a spúšťať test.
-- Ochrana rozpracovaného hovoru, práce po hovore a prehrávania nahrávky; potrebná kontrola sa odkladá tak, aby pracovisko ani zákaznícka karta nezanikli. Dostupný zostáva návrat do INDEXUS.
-- Opravy zobrazovania úvodu, výsledkov a záverečnej obrazovky pripravenosti vrátane desktopového a mobilného zobrazenia.
+- Agentúrne pracovisko je napojené na Mission, oprávnenia, kontakty a readiness kontrolu.
+- Readiness overuje prehliadač, sieť, mikrofón, reproduktor, SIP/ICE, latenciu, účet Microsoft 365 a zmenu prostredia.
+- Pri zmene siete alebo zariadenia vyžaduje novú kontrolu; chráni aktívny hovor, prácu po hovore a návrat do INDEXUS.
+- Kľúčové mechanizmy boli pokryté cielenými regresnými rutinami; produkčné nasadenie každej kombinácie prostredia treba prevádzkovo monitorovať.
 
 ### 2.2 Mission — nastavenie a vykonávanie práce
 
-- Nastavenie Mission, kontaktov, agentov, pracovného postupu, skriptov a stavov; nadväzujúce voľby a automatizácie.
-- Stavové zoznamy a ich akcie: zmena výsledku kontaktu, callback, úloha Back Office, email alebo SMS podľa nakonfigurovaného pravidla.
-- FAQ spravované na úrovni Mission a používané v agentúrnom pracovisku.
-- Verzie a klonovanie nastavení Mission. Pri obnove sa majú meniť iba nastavenia patriace danému modulu, nie cudzia konfigurácia. Klonovanie má regresné pokrytie zachovania obsahu a nových identít.
-- Emailové šablóny, podpisy a Microsoft 365 integračné časti; pripojený účet agenta je súčasťou readiness. Konkrétne automatické odosielateľské pravidlá podľa krajiny zostávajú predmetom samostatných požiadaviek, nie dôkazom dokončenia každého emailového scenára.
-- Pracovná relácia, história komunikácie a počítadlá aktivity; relácia sa odlišuje od denných limitov a celodenných štatistík.
+- Mission riadi kontakty, agentov, pracovný postup, skripty, stavové zoznamy, automatizácie a FAQ.
+- Podporuje callbacky, Back Office úlohy, e-mail/SMS akcie, verzie, klonovanie a audit pracovnej relácie.
+- Klonovanie a obnova chránia nastavenia iných modulov; pripojený Microsoft 365 účet je súčasťou readiness.
 
 ### 2.3 Celý tok volania a výber hlasovej trasy
 
-1. Manažér nastaví Mission, dostupné kontakty, agentov, pracovný postup a hlasové parametre.
-2. Pre odchádzajúci hovor vyberie **globálnu trasu**, **existujúcu SK trasu** alebo **O2 IMS**; pri O2 vyberie povolené odchádzajúce Caller ID. Toto je výber operátorskej/SIP trasy, nie automatické zisťovanie mobilného operátora volaného čísla.
-3. Agent vstúpi cez readiness kontrolu. Zobrazí sa iba oprávnený výber Mission a kontaktov.
-4. Kontakt sa otvorí manuálne alebo cez spoločné poradie Contacts / Auto / Next. Presná identita kontaktu a Mission sa prenesie do vytáčania a histórie hovoru.
-5. SIP registrácia a príprava médií riešia pripojenie; nevydarená registrácia musí mať viditeľný výsledok. Odchádzajúce zvonenie rešpektuje nastavený časový limit.
-6. Prichádzajúci hovor sa podľa DID/trasy priradí do príslušného smerovania, IVR alebo fronty. Následne sa použijú členovia fronty, dostupnosť agentov a nastavené pravidlá overflow/no-agent/standing-forward.
-7. Agent vidí identitu volajúceho a vhodnú kontaktnú kartu. Zapamätanie výberu karty pri opakovanom čísle je súkromné pre agenta; neprepisuje automaticky identitu hovoru.
-8. Pri odpovedaní sa používa spoločná príprava ICE/TURN/DTLS; hovor má ovládanie ukončenia, podržania a príslušné možnosti smerovania. Stav médií a obnovovanie pripojenia rešpektujú bezpečnosť aktívneho hovoru.
-9. Povolenie nahrávania sa odvodzuje zo serverového kontextu Mission a konkrétneho hovoru. Ukončenie, história a nahrávanie sa finalizujú raz, aj keď príde viac udalostí ukončenia.
-10. Agent vyplní výsledok, požadované kroky a prípadný callback. Automatizácie môžu vytvoriť nadväzujúcu komunikáciu alebo Back Office úlohu.
-11. Callback sa vráti do plánovanej fronty podľa času Europe/Bratislava; nesmie sa stratiť len preto, že bol vytvorený v skorší deň.
-
-Výber trasy je previazaný s Mission a serverovým rozhodnutím o Caller ID. O2 identita sa nemá opierať o ľubovoľný údaj dodaný prehliadačom. Pri smerovaní na pracovný telefón alebo mobil sa zohľadňuje registrácia a živá prítomnosť agenta.
+- Odchádzajúce hovory používajú serverom povolenú trasu a Caller ID; vstupný kontakt a Mission sa zachovajú v histórii.
+- Prichádzajúce hovory sa smerujú cez DID, IVR/frontu, dostupnosť agenta a pravidlá overflow alebo forward.
+- Hovorový tok zahŕňa SIP registráciu, ICE/TURN/DTLS, nahrávanie odvodené zo serverového kontextu, ukončenie a jednotnú históriu.
+- Výsledok hovoru môže vytvoriť callback, komunikáciu alebo Back Office úlohu; čas callbacku sa riadi časovým pásmom Europe/Bratislava.
 
 ### 2.4 SMS brány a komunikačný kontext
 
-- Implementovaný výber medzi **BulkGate** a **SMSTOOLS** podľa dostupnej konfigurácie a krajiny; SMSTOOLS je v aktuálnej implementácii obmedzený na SK.
-- Mission môže určiť povinnú SMS bránu. Server kontroluje kontext Mission a nepovoľuje tiché obídenie tejto voľby inou bránou.
-- Pri manuálnom odosielaní sa overuje pracovná relácia a príslušnosť príjemcu ku kontextu, z ktorého sa odosiela.
-- Neznáma, vypnutá alebo nenakonfigurovaná brána má viesť k zrozumiteľnej chybe; nie k nepozorovanému odoslaniu cez inú službu.
-- Zostáva rozlišovať technicky implementované odosielanie, prijatie správy poskytovateľom a skutočné doručenie príjemcovi. Aktuálne doručenie na produkcii nebolo počas tejto revízie opätovne testované.
+- Výber SMS brány je viazaný na Mission a krajinu; podporované sú BulkGate a SMSTOOLS podľa konfigurácie.
+- Server overuje pracovnú reláciu, príslušnosť príjemcu a povinnú bránu; pri chýbajúcej konfigurácii vráti chybu.
+- Implementované odoslanie neznamená automaticky produkčne potvrdené doručenie každej správy.
 
 ### 2.5 Priority Builder, referrals, mestá a Queue
 
-- Osobné uložené pohľady a predvoľby vrátane **Referral + cities** ako počiatočného pohľadu pre nových agentov s dostupnými mestami Mission. Existujúce osobné nastavenia sa plošne neprepisujú.
-- Poradie: prvá vyhovujúca skupina → mesto → voliteľné uprednostnenie referral kontaktov → triedenie v skupine. Kontakt sa nezaraďuje duplicitne do viacerých skupín.
-- Nové referrals znamenajú nevolané odporúčania bez callbacku. Referral pôvod zostáva viditeľný aj po hovore alebo preplánovaní.
-- Voľba uprednostnenia referral kontaktov pre každú skupinu; badge Referral a badge mesta v zobrazeniach kontaktov a preplánovanej Queue.
-- Všetky mestá alebo explicitný výber miest; prázdny výber nesmie rozšíriť frontu na všetky kontakty. AI poradie miest je uložený orientačný snapshot, nie aktuálna štatistika obyvateľstva.
-- Desktop, mobil, Auto a Next používajú spoločnú autoritatívnu frontu. Neuložený alebo chybný pohľad nesmie potichu spustiť širší výber.
-- Najnovšia oprava: návrat na Referral + cities a Save view aktivujú a uložia existujúci pohľad bez duplikátu. Opravené aj rušenie požiadavky pri samotnom prepnutí na tento pohľad.
+- Priority Builder určuje osobné poradie podľa skupiny, mesta a voliteľnej priority referral kontaktov.
+- Autoritatívna fronta je spoločná pre desktop, mobil, Auto a Next; prázdny alebo chybný výber nesmie rozšíriť frontu.
+- Referral pôvod, mesto a uložený pohľad zostávajú viditeľné; cielené browser testy pokrývajú uloženie a reaktiváciu pohľadu.
 
 ### 2.6 Back Office a Healthcare Network
 
-- Back Office úlohy zo stavových automatizácií, spracovanie a odpovede agentov, odovzdanie úloh a ochrana proti súbežnému dokončeniu.
-- Viditeľnosť podľa krajiny a oprávnení; správne priradenie dokončenej práce riešiteľovi, nie automaticky pôvodnému adresátovi úlohy.
-- Otváranie plných kariet zákazníka, kliniky či nemocnice z nadväzujúcej práce; opravy obnovovania uložených údajov a opakovaných notifikácií.
-- Hromadné prideľovanie reprezentantov pre Clinics a Hospitals používa spoločné polia a filtre s AND/OR, rýchle filtre a uložené pohľady.
-- Náhľad aj potvrdenie pracujú s celým výberom, nie len stránkou. Zmena filtra, typu, režimu či reprezentanta zneplatní starý náhľad; potvrdenie je previazané s výberom a cieľom.
+- Back Office spracúva úlohy zo stavových automatizácií, odpovede agentov a odovzdanie práce s ochranou proti súbežnému dokončeniu.
+- Viditeľnosť je riadená krajinou a oprávneniami; dokončenie sa pripisuje skutočnému riešiteľovi.
+- Healthcare Network a bulk priradenie reprezentantov používajú spoločné filtre a úplný náhľad výberu, nie iba aktuálnu stránku.
 
 Otvorené drobné požiadavky, napríklad ďalšie správanie reprezentanta pri vytváraní kariet, badge úloh alebo nastavenia automatizácií, nie sú týmto dokumentom označené za dokončené.
 
@@ -297,97 +280,33 @@ ESO v tejto revízii označujeme ako plánovanú externú účtovú integráciu.
 
 Fakturačné jadro možno vyvíjať paralelne s laboratórnym konektorom po schválení cenového snapshotu a identít. Automatické účtovanie skutočného výsledku však závisí od oboch.
 
-## 8. Ostatné moduly a pôvodné kontrolné nálezy
+## 8. Súčasný stav projektu — produkčné agregácie
 
-Zákazníci, kliniky, nemocnice, spolupracovníci, komunikácia, zmluvy, odbery, oprávnenia, NexusPoint/SharePoint, AI/Lead Intelligence a web formuláre zostávajú súčasťou INDEXUS. Táto revízia ich neodstraňuje ani ich historický import neoznačuje za nový úspech posledného obdobia.
+Výpis bol vykonaný **16. 9. 2026 o 09:22:11 UTC** v read-only transakcii. Všetkých 42 kontrolovaných tabuliek existuje. Ide o agregovaný stav databázy `indexus_crm`, nie o produkčný akceptačný test aplikácie.
 
-Pôvodné údaje z mája boli: 205 tabuliek, 165 462 zákazníkov, 236 935 zmlúv, 198 066 odberov, 1 163 268 komunikačných správ, 0 faktúr a 15 fakturačných položiek. **Ide výhradne o historický snapshot.** Aktuálne počty, chýbajúce poisťovne, používateľské roly a väzby odberov treba znovu overiť. Ani počet prázdnych väzieb sám osebe neurčuje, že sa majú doplniť automaticky alebo záznamy zmazať.
-
-Staré tvrdenie o nefunkčnom ARI/telefónii sa nepoužíva ako aktuálny stav: nahrádza ho aktuálny popis implementácie Pulse/Mission a konkrétne regresné overenia v kapitole 12. Staré plány obsahujú aj rozhodnutia, ktoré sa odvtedy implementovali; nepreberajú sa bez porovnania.
-
-Úplný pôvodný text je zachovaný ako historická príloha v `docs/indexus-overview-2026-05-archive.md`, s odstráneným heslom z pôvodného prihlasovacieho príkazu. Archív nie je prevádzkový návod ani aktuálny backlog.
-
-## 9. Produkčné overenie — čo poslať späť
-
-Pripravený súbor: `docs/sql/indexus-overview-production-check.sql`. Používa iba read-only transakciu, SELECTy a klientské príkazy psql. Nevypisuje mená zákazníkov, kontakty, bankové účty, texty zmlúv, SMS, heslá ani kľúče. Chýbajúce tabuľky alebo stĺpce označí ako SKIPPED namiesto vykonania neplatného dotazu.
-
-Na Ubuntu produkcii použite schválené existujúce prihlásenie do databázy. Príklad s databázovým účtom a interaktívnym zadaním hesla, ak ho konfigurácia vyžaduje:
-
-```sh
-psql -X -h localhost -U indexus -d indexus_crm -W -v ON_ERROR_STOP=1 -f indexus-overview-production-check.sql > indexus-overview-production-check.txt
-```
-
-Súbor SQL musí byť najprv skopírovaný na server. Heslo zadajte iba do lokálnej výzvy psql; neposielajte ho do chatu ani do príkazu. Ak máte iný schválený read-only účet alebo existujúci bezpečný prihlasovací profil, použite ten. Skript nevyžaduje zmenu práv, schémy ani konfigurácie.
-
-Pošlite výsledný TXT. Z neho sa doplní dátovo overená príloha: pokrytie cenníkov, priradenia zákazníkov, stavy zmlúv, väzby odberov, laboratórne výsledky a reálne používanie fakturácie. SELECTy nepotvrdzujú nasadenú verziu aplikácie, úspešnosť konkrétnych hovorov či doručenie SMS; to má samostatný prevádzkový dôkaz.
-
-### 9.1 Prosba o aktuálny anonymizovaný výpis z Ubuntu
-
-Prosím, spusti tento SQL súbor na Ubuntu serveri nad aktuálnou databázou a pošli späť iba výsledný TXT:
-
-```sh
-psql -X -h localhost -U indexus -d indexus_crm -W -v ON_ERROR_STOP=1 \
-  -f indexus-overview-production-check.sql > indexus-overview-production-check.txt
-```
-
-Ak súbor nie je v aktuálnom adresári, najprv ho bezpečne skopíruj na server. Heslo zadaj iba do interaktívnej výzvy psql; neposielaj ho do chatu, do príkazu ani do výstupu.
-
-Výpis má obsahovať najmä:
-
-- aktuálny celkový počet zákazníkov a rozdelenie podľa krajiny, `status`, `client_status` a zdroja,
-- počet zákazníkov s klinikou, spolupracovníkom, zdravotnou poisťovňou a prideleným používateľom,
-- počet a stav zákazníckych produktov, poznámok, súhlasov, prípadov, dokumentov a pohľadávok,
-- všetky kliniky agregovane podľa krajiny a aktivity,
-- počet kliník s PZK/PZS kódom, ID ZZ, IČO, telefónom, e-mailom, GPS a reprezentantom,
-- kliniky rozdelené podľa počiatočného stavu, záujmu o spoluprácu, záujmu o zmluvu a stavu zmluvy,
-- nemocnice podľa krajiny/aktivity vrátane laboratória a reprezentanta,
-- počet reprezentantských priradení, histórie, referrals, nemocničných sietí, členov sietí, udalostí a stavov spolupráce,
-- spolupracovníkov podľa krajiny, aktivity a zdroja,
-- cenníky, cenové priradenia, zmluvy, odbery, laboratórne výsledky, faktúry, položky, splátky a väzby,
-- agregované počty záznamov označených ako import z ISCBC.
-
-Skript nečíta mená, telefóny, e-maily, rodné čísla, bankové účty, texty poznámok, dokumentov, výsledkov, API kľúče ani heslá. `SKIPPED` znamená chýbajúcu tabuľku alebo stĺpec, nie nulový počet. Po doručení TXT doplním do overview samostatnú dátovú prílohu s aktuálnymi počtami a zoznamom dátových medzier.
-
-### 9.2 Aktuálna produkčná dátová príloha — 16. september 2026
-
-Výpis bol vykonaný **16. 9. 2026 o 09:22:11 UTC** v read-only transakcii. Všetkých 42 kontrolovaných tabuliek existuje. Nasledujúce čísla sú aktuálny agregovaný stav databázy `indexus_crm`, nie historický májový odhad.
-
-| Oblasť | Aktuálny stav |
+| Oblasť | Stav |
 |---|---:|
-| Zákazníci | 165 463 |
-| Zákazníci s `data_source = 'iscbc'` | 165 448 |
-| Kliniky | 10 080, z toho 10 079 aktívnych |
-| Kliniky s PZK/PZS kódom, ID ZZ a IČO | 753 |
-| Kliniky s e-mailom / telefónom / GPS | 2 143 / 5 160 / 8 363 |
-| Nemocnice | 1 213, z toho 1 142 aktívnych |
-| Nemocnice s priradeným laboratóriom | 848 |
+| Zákazníci / ISCBC zdroj | 165 463 / 165 448 |
+| Kliniky / aktívne | 10 080 / 10 079 |
+| Kliniky s PZK/PZS, ID ZZ a IČO | 753 |
+| Nemocnice / aktívne | 1 213 / 1 142 |
 | Spolupracovníci | 20 136 |
-| Aktivity spolupracovníkov | 344 756 |
-| Dohody spolupracovníkov | 59 549 |
+| Odbery / laboratórne výsledky | 198 167 / 197 850 |
+| Zmluvy / faktúry | 236 935 / 0 |
 | Komunikačné správy | 1 163 531 |
-| Zákaznícke poznámky | 2 404 177 |
-| Zákaznícke dokumenty | 3 013 370 |
-| Potenciálne prípady | 165 647 |
-| Pohľadávkové záznamy | 183 778 |
-| Odbery | 198 167 |
-| Laboratórne výsledky | 197 850 |
-| Zmluvy | 236 935 |
-| Faktúry | 0 |
+| Zákaznícke poznámky / dokumenty | 2 404 177 / 3 013 370 |
 
-#### Dátové medzery, ktoré treba riešiť pred plnohodnotným CRM
+### Manažérske implikácie
 
-1. **Pricing V2 ešte nie je priradený zákazníkom:** existuje 12 cenových verzií, 82 cien odberov, 109 skladovacích cien, 131 pravidiel nekompletných odberov a 18 splátkových plánov, ale `pricing_customer_price_lists` má 0 priradení. `customer_products` má iba 12 záznamov.
-2. **Fakturácia nie je naplnená:** `invoices` má 0 záznamov a `scheduled_invoices` tiež 0. Súčasne existuje 15 `invoice_items` bez nadradenej faktúry. Pred ESO integráciou treba rozhodnúť, či ide o historické siroty, testovacie dáta alebo chybné importné zvyšky.
-3. **Odbery nemajú použiteľnú produktovú väzbu:** z 198 167 odberov je 197 718 bez `product_id` a 88 bez `contract_id`.
-4. **Zmluvné ID treba reconciliovať:** SQL našiel 198 079 odberov s `contract_id`, ktorý sa nenachádza v `contract_instances`. Ide o kritickú kontrolu pred prepojením odber → zmluva → cena → faktúra; nemusí ísť o fyzicky chýbajúce historické zmluvy, ale o nesúlad ID alebo importných väzieb.
-5. **Laboratórna história má otvorené väzby:** 55 výsledkov nemá existujúci odber. Pri 209 odberoch existuje viac výsledkov; to môže byť legitímna história opráv, ale musí sa označiť aktuálna verzia a auditná história.
-6. **Healthcare Network nemá aktívnu históriu reprezentantov:** tabuľky `clinic_representative_assignments` a `hospital_representative_assignments` majú 0 riadkov. Na samotných nemocniciach sú pritom 2 denormalizované reprezentantské väzby a na klinikách 0. Treba rozhodnúť, či sa majú tieto existujúce väzby spätne zapísať do historických assignment tabuliek.
-7. **Kliniky nie sú označené legacy ID:** všetkých 10 080 kliník má `legacy_id` NULL. Ak kliniky pochádzajú z ISCBC alebo iného starého zdroja, treba doplniť zdrojové mapovanie; bez neho sa nedá bezpečne vykonať idempotentná migrácia a reconciliácia kliník.
-8. **Customers má minimum nových väzieb:** iba 1 zákazník má `clinic_id`, 1 `collaborator_id`, 17 `health_insurance_id` a 0 `assigned_user_id`. To môže byť zámer pre historický import, ale pred novým predajom treba určiť, ktoré väzby sú povinné a ktoré sa dopĺňajú až počas procesu.
+- Pricing V2 má 12 cenových verzií a pravidlá, ale **0 priradení zákazníkov**.
+- **197 718 odberov nemá produkt** a 198 079 odberových `contract_id` nemá zhodu v `contract_instances`.
+- **Fakturácia ešte nie je naplnená**; existuje 0 faktúr a 15 fakturačných položiek bez nadradenej faktúry.
+- **55 výsledkov nemá existujúci odber**; pri 209 odberoch existuje viac výsledkov, čo treba rozlíšiť ako aktuálny výsledok alebo históriu.
+- Kliniky nemajú `legacy_id` a reprezentantská assignment história kliník aj nemocníc je prázdna.
 
-Tieto výsledky menia prioritu: najprv treba uzavrieť mapovanie historických zmlúv, produktov a kliník, potom zaviesť cenové priradenia a až následne bezpečne napojiť fakturáciu na ESO. Laboratórne výsledky už v databáze vo veľkom objeme existujú, ale ich obchodný následok zatiaľ nie je spojený s V2 cenou a fakturáciou.
+Tieto údaje potvrdzujú, že ďalšia etapa je dátová a integračná: najprv uzavrieť identity a väzby, potom priradiť cenové verzie a až následne spustiť fakturačný a ESO proces.
 
-## 10. Technické podklady revízie
+## 9. Technické podklady revízie
 
 | Oblasť | Hlavné podklady v repozitári |
 |---|---|
@@ -406,9 +325,9 @@ Tieto výsledky menia prioritu: najprv treba uzavrieť mapovanie historických z
 **Záver:** komunikačné a agentúrne jadro je funkčné. Cenový engine a obchodno-laboratórne moduly sú už významne implementované. Aktuálne sme pred dokončením ich spoločného, auditovateľného end-to-end procesu; najvyššou prioritou je cenová verzia a snapshot, bezpečné laboratórne spracovanie a fakturácia z rovnakého podkladu.
 
 
-## 11. Migrácia ISCBC → INDEXUS — rozsah a realizačný plán
+## 10. Migrácia ISCBC → INDEXUS — rozsah a realizačný plán
 
-### 11.1 Čo už máme pripravené
+### 10.1 Čo už máme pripravené
 
 Migrácia nie je nový projekt začínajúci analýzou od nuly. Existujú implementované importné skripty, mapovania identifikátorov, prevody stavov a kontrolné rutiny. Primárny prevádzkový podklad je docs/migration-iscbc-to-indexus.md (migračná vetva v20.5). Širšiu inventúru zdroja obsahuje script/migration/README-MIGRATION-ANALYSIS.md; postupy čistenia a obnovy sú v script/migration/MIGRATION-PROCEDURES.md.
 
@@ -416,7 +335,7 @@ Zdrojom je legacy ISCBC na Microsoft SQL Serveri, databáza CBC. Cieľom je exis
 
 **Rozlišujeme tri výsledky:** technický import dát, overenú zhodu so zdrojom a použiteľnosť dát v novom pracovnom procese. Až všetky tri znamenajú dokončenú migráciu. Dostupnosť importéra sama osebe nepotvrdzuje aktuálny obsah produkcie.
 
-### 11.2 Migračný katalóg — čo vieme preniesť
+### 10.2 Migračný katalóg — čo vieme preniesť
 
 | Doména | Implementovaná schopnosť / cieľ | Podmienka dokončenia |
 |---|---|---|
@@ -436,7 +355,7 @@ Zdrojom je legacy ISCBC na Microsoft SQL Serveri, databáza CBC. Cieľom je exis
 
 **Dôležité:** nevyhlasujeme, že každé pole každej legacy tabuľky už má aktívny ekvivalent v INDEXUS. Časť dát má implementovanú historickú reprezentáciu; ich zapojenie do nového obchodného procesu je samostatná integračná práca.
 
-### 11.3 Otvorené alebo samostatne riešené domény
+### 10.3 Otvorené alebo samostatne riešené domény
 
 - **Súbory, podpísané dokumenty a prílohy:** širšia analýza počíta so samostatným prenosom súborového úložiska. Databázový customer_documents/JSON nie je dôkaz prenosu PDF, skenov alebo binárnych príloh. Potrebný je manifest, kontrolný súčet, mapovanie vlastníka, prístupových práv a overenie otvorenia súboru.
 - **Odmeny spolupracovníkov, doprava a kuriéri:** uvedené v širšej analýze; kompletná vykonateľná cesta nebola v audite doložená. Pred zaradením do hotového rozsahu treba potvrdiť cieľový model, mapovanie a importér.
@@ -445,7 +364,7 @@ Zdrojom je legacy ISCBC na Microsoft SQL Serveri, databáza CBC. Cieľom je exis
 - **Účtovné integrácie a kompletné číselníky:** inventúra zdrojových tabuliek je širšia než preukázaný prevádzkový import. Každá doména dostane rozhodnutie: aktívne migrovať, zachovať iba v archíve alebo vedome neprenášať.
 - **Legacy používateľské rozhranie:** staré UI/BSP konfigurácie, lokalizácie, dashboardové widgety, testovacie/záložné tabuľky a prechodné odosielacie fronty sa nemigrujú ako aktívne údaje. Prístupy a roly sa nastavia podľa bezpečnostného modelu INDEXUS; staré prihlasovacie údaje sa nekopírujú do dokumentácie ani logov.
 
-### 11.4 Použiteľné nástroje a ich hranice
+### 10.4 Použiteľné nástroje a ich hranice
 
 Hlavná prevádzková vetva používa script/migration/test-migration-20.cjs. Napriek názvu obsahuje skutočné zápisy do cieľovej databázy — **nie je to read-only test**. Dokumentácia popisuje postupné kroky, dávkovanie, oddelený import zmlúv/faktúr a označenie prenesených záznamov pomocou legacy_id, data_source a podľa domény created_by.
 
@@ -453,7 +372,7 @@ Existuje aj fázová rodina: run-migration.sh, migrate-phase1-reference.cjs, mig
 
 verify-migration.cjs porovnáva počty vybraných zdrojových a cieľových evidencií. Nie je úplným dôkazom finančnej zhody, správnych väzieb ani bezpečnej opakovateľnosti importu. Obsahuje aj vzorky osobných údajov; jeho surový výstup sa neposiela do chatu. Zdieľajú sa iba anonymizované agregácie. Prehľadový SQL z kapitoly 9 nenahrádza samostatnú zdrojovo-cieľovú reconciliáciu ISCBC.
 
-### 11.5 Etapy riadenej migrácie
+### 10.5 Etapy riadenej migrácie
 
 **M0 — Inventúra a schválenie rozsahu.** Zaznamenať verziu aplikácie, zdrojovej a cieľovej schémy, krajiny, časový rozsah a dátový objem. Pre každú doménu uviesť zdroj, cieľ, transformačné pravidlá, vlastníka kontroly a spôsob akceptácie. Výstup: schválený migračný katalóg vrátane archívov a výnimiek.
 
@@ -473,7 +392,7 @@ verify-migration.cjs porovnáva počty vybraných zdrojových a cieľových evid
 
 **M8 — Stabilizácia a odovzdanie.** Monitorovať chyby, neúplné väzby, fronty, splatnosti a finančné zostatky. ISCBC ponechať dočasne read-only podľa schválenej retenčnej politiky. Odovzdať mapovania, výnimky, návody, prevádzkový dohľad a výsledky kontrol. Legacy vypnúť až po vyriešení závislostí a archívneho prístupu.
 
-### 11.6 Akceptačné podmienky a návrat
+### 10.6 Akceptačné podmienky a návrat
 
 | Kontrola | Podmienka prijatia |
 |---|---|
@@ -488,9 +407,9 @@ verify-migration.cjs porovnáva počty vybraných zdrojových a cieľových evid
 
 Pred prepnutím možno chybný import v izolovanom cieli zahodiť a obnoviť zálohu. V živej zmiešanej databáze sa nesmie použiť plošné čistenie ani mazanie iba podľa data_source; mohli pribudnúť ručné úpravy a nové väzby. Ani čiastočný cleanup nie je automaticky bezpečný. Po prepnutí treba najprv zastaviť zápisy, zachovať všetky nové INDEXUS zmeny a schváliť ich spätné prenesenie alebo dočasný read-only režim. Samotné obnovenie starej zálohy bez zachovania týchto zmien by spôsobilo stratu dát.
 
-## 12. Implementácie a testovacie rutiny — dôkazová mapa
+## 11. Implementácie a testovacie rutiny — dôkazová mapa
 
-### 12.1 Už vykonané cielené overenia
+### 11.1 Už vykonané cielené overenia
 
 Nasledujúce výsledky pochádzajú z predchádzajúcich vývojových overení zaznamenaných pri realizácii zmien. Pri tejto dokumentačnej revízii sa testy znovu nespúšťali; nejde o nový produkčný test ani o výsledok celej testovacej sady na aktuálnej verzii.
 
@@ -502,7 +421,7 @@ Nasledujúce výsledky pochádzajú z predchádzajúcich vývojových overení z
 
 Existujú aj manuálne formuláre komplexného testovania Pulse zo septembra 2026. Obsahujú úspešné, podmienené, neúspešné aj nevykonané scenáre. Preto sa nepoužívajú ako tvrdenie, že úplne všetky funkcie a prostredia prešli. Nálezy zo staršieho testu treba spárovať s následnou opravou a regresným scenárom; staré zlyhanie nie je automaticky dnešný stav a samotná oprava nie je univerzálnou akceptáciou.
 
-### 12.2 Dostupné automatizované rutiny a rozsah
+### 11.2 Dostupné automatizované rutiny a rozsah
 
 Táto tabuľka je katalóg existujúcich testov, nie dodatočne vytvorený zoznam úspešných behov. Kde nie je vyššie uvedený vykonaný výsledok, dokument potvrdzuje dostupnosť rutiny, nie jej dnešný PASS.
 
@@ -518,26 +437,10 @@ Táto tabuľka je katalóg existujúcich testov, nie dodatočne vytvorený zozna
 | Customers a Healthcare Network | client/src/components/customer-form.tsx; client/src/pages/customers.tsx; shared/medical-partner-filter.test.ts; client/src/components/agent/priority-city-queue.node.test.ts; server/representative-routes.ts. | Karta zákazníka, zdravotné/klinické väzby, spoločná logika filtrov a priradenie reprezentantov; aktuálna produkčná úplnosť sa overí agregovaným SQL výpisom. |
 | Migrácia | script/migration/test-mssql-connection.cjs; test-migration-20.cjs; verify-migration.cjs. | Spojenie, vykonateľný import a čiastkové porovnanie. Importná rutina zapisuje dáta; názov test nie je záruka bezpečného dry-run. |
 
-### 12.3 Čo ešte musí pokryť finálna akceptácia
+### 11.3 Čo ešte musí pokryť finálna akceptácia
 
 Pre Pricing V2, Contracts, Laboratory Connect a Invoicing existuje významná implementácia a stavová dokumentácia; v audite nebol doložený uzavretý úspešný end-to-end protokol celého reťazca. Cenový import so samokontrolou nie je náhradou nezávislých obchodných testov.
 
 Pred úplným prechodom treba vykonať maticu: krajina × produkt × historická/nová cena × úplný/neúplný odber × zľava × splátka × oprava výsledku. Overiť aj odmietnutie neoprávneného zápisu, opakovanú správu laboratória, súbežnú fakturáciu, nedostupnú bránu a obnovu po prerušení. Pre migráciu pribudnú finančná reconciliácia, prílohy, delta prenos a rollback.
 
 Každý finálny protokol má obsahovať verziu aplikácie, prostredie, dátum, použitú dátovú vzorku, príkaz alebo manuálny scenár, očakávaný/skutočný výsledok a otvorené výnimky. Tak možno stav „implementované a testované“ podložiť konkrétnym rozsahom namiesto všeobecného vyhlásenia.
-
-<!-- pagebreak -->
-
-## 13. Záverečné resumé — čo presne dokončiť pre plnohodnotný INDEXUS CRM
-
-INDEXUS už má implementované CRM evidencie, agentúrne pracovisko Nexus Pulse, Mission, hlasovú a SMS komunikáciu, Back Office, cenový engine, zmluvy, odbery, fakturačné funkcie a laboratórne API. Kľúčové opravy pracoviska boli cielene regresne otestované. Existuje aj rozsiahly migračný základ ISCBC. **Zostávajúca práca je najmä integrácia, overenie dát a riadený prechod — nie výstavba CRM od začiatku.**
-
-1. **Zjednotiť cenotvorbu a cenníkový modul:** dokončiť autoritatívny Pricing Engine V2 pre zákazníka, produkt, komponent, odber, skladné, zľavy, meny a splátky. Každá zmluva musí dostať konkrétnu cenovú verziu a nemenný položkový snapshot; až potom možno vypnúť legacy Products/Configurator.
-2. **Dopracovať fakturáciu a spoluprácu s ESO:** uzavrieť API/exportnú cestu, mapovanie zákazníkov, firiem, DPH, účtov, číselných radov, položiek, úhrad, storna a dobropisov. Opakované odoslanie musí byť idempotentné a auditovateľné.
-3. **Dopracovať tvorbu zmlúv a templates:** vytváranie zmluvy, jazykové a krajinné šablóny, podpisová verzia, placeholdery a fakturačné podmienky musia používať schválený V2 snapshot. Podpísané zmluvy a vydané faktúry sa nesmú spätne prepisovať.
-4. **Prepojiť laboratórny modul:** po autorizovanom výsledku zjednotiť internú a externú validáciu, vyhodnotiť skutočne dodanú službu cez rovnaký engine a vytvoriť schválený fakturačný podklad s históriou opráv.
-5. **Dokončiť a nacvičiť migráciu ISCBC:** schváliť katalóg, preniesť dáta aj prílohy, doplniť väzby a mapovania, otestovať opakovanie, vykonať zdrojovo-cieľovú reconciliáciu a pripraviť delta prenos.
-6. **Urobiť spoločný pilot:** overiť nový aj migrovaný prípad od Customers/Healthcare Network cez komunikáciu, zmluvu, odber, výsledok, faktúru a úhradu. Uzavrieť blokujúce nálezy a odovzdať protokol.
-7. **Riadené prepnutie a prevádzka:** povoliť jediný zapisujúci systém, zachovať ISCBC dočasne read-only, monitorovať väzby a financie a mať nacvičený rollback bez straty nových INDEXUS zmien.
-
-**Cieľový stav:** nový aj historický zákazník sa obslúži v INDEXUS bez paralelného ručného prepisovania do ISCBC. Každá zmluva, odber, výsledok, faktúra a úhrada má dohľadateľný pôvod, správne väzby a kontrolovanú históriu. Až úspešná procesná akceptácia spolu s dátovou reconciliáciou a nacvičenou obnovou umožní označiť prechod za dokončený.
