@@ -1,6 +1,6 @@
 # INDEXUS CRM — Aktuálny prehľad a plán dokončenia
 
-> **Revízia:** 14. september 2026
+> **Revízia:** 16. september 2026
 > **Rozsah:** revízia oproti májovému prehľadu; aktuálna implementácia CRM, Nexus Pulse, Mission, obchodno-laboratórneho procesu a kompletný plán migrácie ISCBC.
 > **Podklady:** aktuálny zdrojový kód, vykonané cielené regresné overenia a existujúce testovacie rutiny, stavový dokument Pricing Engine V2 a dokumentácia migrácie ISCBC → INDEXUS.
 > **Produkčné dáta:** v tejto revízii nebol vykonaný prístup na CORPCRM01 ani SQL dotazy proti produkcii. Staré počty nie sú aktuálnym stavom.
@@ -33,7 +33,7 @@ Nový Pricing Engine V2, zmluvný modul, fakturačný modul a Laboratory Connect
 | Nexus Pulse + Mission | Implementované a cielene testované; podrobnosti v kapitole 12 | Prevádzkové monitorovanie, priebežné opravy, potvrdenie nasadenia posledných zmien. |
 | Hlasové trasy a SMS brány | Implementovaný výber podľa Mission a krajiny | Evidovať akceptáciu každej používanej kombinácie krajina/trasa/brána. |
 | Priority Builder a osobná fronta | Implementované | Prevádzkové overenie najnovších opráv uloženia a zobrazenia. |
-| Healthcare Network / Back Office | Implementované rozšírenia | Samostatné menšie požiadavky zostávajú; nejde o blokovanie celého Pulse. |
+| Customers + Healthcare Network / Back Office | Implementované karty, evidencie, vzťahy a pracovné postupy; podrobnosti v kapitole 2 | Aktuálne produkčné počty a úplnosť väzieb treba získať z Ubuntu SQL výpisu; obchodné a finančné integrácie zostávajú samostatnou etapou. |
 | Pricing Engine V2 | Implementovaný cenník, pravidlá a výpočet | Produkčné verzie, historické priradenia a zapojenie do zákazníka/zmluvy/BO/fakturácie. |
 | Contracts | Existujúci modul a cenové snapshoty v modeli | Napojenie na autoritatívny V2 výpočet a cenovú verziu. |
 | Invoicing | Existujúce UI, dátový model a generovanie | Zmluvne viazaná V2 fakturácia, položky, meny, dane, splátky a bezpečné opakovanie. |
@@ -106,6 +106,34 @@ Výber trasy je previazaný s Mission a serverovým rozhodnutím o Caller ID. O2
 - Náhľad aj potvrdenie pracujú s celým výberom, nie len stránkou. Zmena filtra, typu, režimu či reprezentanta zneplatní starý náhľad; potvrdenie je previazané s výberom a cieľom.
 
 Otvorené drobné požiadavky, napríklad ďalšie správanie reprezentanta pri vytváraní kariet, badge úloh alebo nastavenia automatizácií, nie sú týmto dokumentom označené za dokončené.
+
+### 2.7 Customers — karta zákazníka a súvisiace evidencie
+
+Karta **Customers** je hlavná zákaznícka evidencia, nie iba zoznam mien. Implementovaný model a používateľské rozhranie pokrývajú tieto skupiny údajov:
+
+- **Identita a kontakty:** interné číslo, tituly, meno, priezvisko, rodné meno, telefón, mobil a ďalšie čísla, e-mailové adresy, rodné číslo, číslo občianskeho preukazu a dátum narodenia.
+- **Adresy:** trvalá adresa a voliteľná korešpondenčná adresa s krajinou, mestom, PSČ, regiónom a okresom.
+- **Stav a obchodný pipeline:** stav zákazníka `potential / acquired / terminated`, prevádzkový stav `active / pending / inactive`, lead status, lead score, dátum aktualizácie skóre, zdroj registrácie a dátum registrácie.
+- **Marketing a segmentácia:** newsletter, typ sťažnosti, typ spolupráce, VIP stav, tagy, poznámky, pridelený používateľ a zdroj leadu.
+- **Zdravotné a pôrodné väzby:** zdravotná poisťovňa, gynekológ, kontakt na gynekológa, predpokladaný termín pôrodu, nemocnica, vybraná klinika a konkrétny spolupracovník/lekár.
+- **Produkty a obchod:** zákaznícke produkty, stav služby, väzba na kampane a kontaktné entity, podklady pre zmluvu a faktúru. Táto existencia ešte neznamená, že každý predaj už prechádza výhradne cez Pricing Engine V2.
+- **Prevádzková história:** poznámky, súhlasy/GDPR, dokumenty, komunikácia, odbery, prípady, faktúry, úhrady, splátky a pohľadávky. Historické dáta treba odlíšiť od nových akcií agenta.
+
+Pri migrácii ISCBC sa zákazník skladá z `Clients`, `Persons`, `Contacts` a `MailAddresses`. Import zachováva `internal_id` a `data_source = 'iscbc'`; potenciálni klienti sa mapujú ako `client_status = 'potential'`. Pred zlúčením duplicít je potrebné porovnať interné číslo, legacy ID, dátumy, adresy a existujúce väzby. Spoločný telefón alebo e-mail sám o sebe nie je bezpečný dôvod na zlúčenie.
+
+### 2.8 Healthcare Network — kliniky, nemocnice a PZK/PZS sieť
+
+Healthcare Network je samostatná doména pre zdravotníckych partnerov a ich kontaktnú sieť:
+
+- **Kliniky/ambulancie:** názov, lekár a titul, meno lekára, kategória pozície, identifikátor ZZ, kód a názov PZS/PZK podľa zdrojového označenia, IČO, úplná adresa, tri telefónne a tri e-mailové polia, web, GPS, krajina, región, okres, aktivita a poznámky.
+- **Obchodný stav kliniky:** zdroj leadu, odporúčanie lekárom, konferencia, počiatočný stav, záujem o spoluprácu, záujem o zmluvu, stav zmluvy, výsledok a poznámka posledného hovoru, ďalší kontakt, odoslanie/vrátenie zmluvy a stav letákov.
+- **Nemocnice:** aktívny stav, názov, adresa, krajina, laboratórium, GPS, zodpovedná osoba, reprezentant, kontaktná osoba, telefón, e-mail, regionálne údaje a väzby na spolupracovníkov.
+- **Reprezentanti:** aktuálne priradenie, história platnosti priradení, zmena reprezentanta a hromadné priradenie pre kliniky aj nemocnice. Hromadná operácia pracuje s úplným náhľadom filtrovaného výberu, nie iba s aktuálnou stránkou.
+- **Sieťové väzby:** referrals medzi klinikami, nemocničné siete a ich členovia, spolupracovníci/lekári naviazaní na kliniky alebo nemocnice, kategórie partnerov a udalosti kliniky.
+- **Stavy spolupráce:** stavové záznamy kliniky sú oddelené od všeobecného `is_active`; zachovávajú fázu, stavový kľúč a časovú históriu, aby sa obchodný proces neprepisoval jedným aktuálnym flagom.
+- **Filtrovanie a Back Office:** rovnaká logika filtrov pre zoznam a bulk operáciu, vyhľadávanie podľa zdravotníckeho partnera, mesta, reprezentanta, kontaktov, GPS, kategórie, stavu a ďalších polí. Oprávnenia a krajiny sa kontrolujú aj na serveri.
+
+V produkčnom výpise potrebujeme osobitne zmerať počet všetkých kliník, aktívnych kliník, kliník s PZK/PZS kódom, kliník s ID ZZ, IČO, e-mailom, telefónom, GPS, zmluvným stavom a reprezentantom. Rovnakú maticu treba vyhodnotiť pre nemocnice. Výpis má obsahovať iba agregácie a rozdelenia podľa krajiny/stavu; nemá obsahovať mená lekárov, telefóny, e-maily ani kódy jednotlivých kliník.
 
 ## 3. Nový systém cien produktov a služieb — Pricing Engine V2
 
@@ -192,6 +220,17 @@ Tieto body sú podmienkami pred rozšírením ostrého externého prístupu. Rev
 ## 7. Postup dokončenia od cien po Laboratory Connect
 
 Poradie určuje závislosti, nie sľúbený termín. Odhady a dátumy sa majú stanoviť až po potvrdení produkčného stavu, pravidiel fakturácie a rozhrania laboratória.
+
+### 7.1 Zjednotený realizačný plán
+
+Na rozdiel od technického poradia jednotlivých podúloh je manažérsky postup nasledovný:
+
+1. **Zjednotiť cenotvorbu a cenníkový modul.** Pricing Engine V2 sa stane jediným autoritatívnym výpočtom pre nové produkty, komponenty, odbery, skladné, zľavy, nekompletné odbery, meny a splátky. Zákazník a zmluva musia dostať konkrétnu cenovú verziu a nemenný položkový snapshot. Legacy Products/Configurator sa vypne až po porovnaní výsledkov.
+2. **Dopracovať fakturáciu a spoluprácu s ESO účtovým systémom.** Treba uzavrieť, či ESO dostáva faktúry cez API, exportný súbor alebo inú schválenú integračnú cestu. Dohodnúť mapovanie zákazníka, firmy, meny, DPH, číselných radov, účtov, položiek, úhrad, storna a dobropisov. Synchronizácia musí byť idempotentná, auditovateľná a nesmie vytvoriť druhý doklad pri opakovaní.
+3. **Dopracovať vytváranie zmlúv a templates pre zmluvy a fakturáciu.** Zmluva musí používať schválený V2 snapshot, správnu krajinu, menu, produkt, splátky a podpisovú verziu. Templates majú mať verziovanie, jazyk, krajinné pravidlá, placeholdery, audit generovania a väzbu na fakturačné podmienky. Podpísaná zmluva a vydaná faktúra sa nesmú spätne prepísať novým cenníkom.
+4. **Na konci prepojiť laboratórny modul.** Laboratory Connect má po autorizovanom výsledku spustiť vyhodnotenie skutočne dodanej služby cez rovnaký engine, vytvoriť schválený podklad pre fakturáciu a zachovať históriu opráv. Interné a externé cesty musia mať rovnaké validačné a bezpečnostné pravidlá.
+
+ESO v tejto revízii označujeme ako plánovanú externú účtovú integráciu. V repozitári nebol nájdený dôkaz dokončenej produkčnej synchronizácie INDEXUS ↔ ESO; technické rozhranie, autentizácia, vlastníctvo číselných radov a pravidlá opráv treba potvrdiť samostatným integračným návrhom.
 
 ### Krok 0 — Potvrdiť východiskový stav
 
@@ -282,6 +321,33 @@ Súbor SQL musí byť najprv skopírovaný na server. Heslo zadajte iba do loká
 
 Pošlite výsledný TXT. Z neho sa doplní dátovo overená príloha: pokrytie cenníkov, priradenia zákazníkov, stavy zmlúv, väzby odberov, laboratórne výsledky a reálne používanie fakturácie. SELECTy nepotvrdzujú nasadenú verziu aplikácie, úspešnosť konkrétnych hovorov či doručenie SMS; to má samostatný prevádzkový dôkaz.
 
+### 9.1 Prosba o aktuálny anonymizovaný výpis z Ubuntu
+
+Prosím, spusti tento SQL súbor na Ubuntu serveri nad aktuálnou databázou a pošli späť iba výsledný TXT:
+
+```sh
+psql -X -h localhost -U indexus -d indexus_crm -W -v ON_ERROR_STOP=1 \
+  -f indexus-overview-production-check.sql > indexus-overview-production-check.txt
+```
+
+Ak súbor nie je v aktuálnom adresári, najprv ho bezpečne skopíruj na server. Heslo zadaj iba do interaktívnej výzvy psql; neposielaj ho do chatu, do príkazu ani do výstupu.
+
+Výpis má obsahovať najmä:
+
+- aktuálny celkový počet zákazníkov a rozdelenie podľa krajiny, `status`, `client_status` a zdroja,
+- počet zákazníkov s klinikou, spolupracovníkom, zdravotnou poisťovňou a prideleným používateľom,
+- počet a stav zákazníckych produktov, poznámok, súhlasov, prípadov, dokumentov a pohľadávok,
+- všetky kliniky agregovane podľa krajiny a aktivity,
+- počet kliník s PZK/PZS kódom, ID ZZ, IČO, telefónom, e-mailom, GPS a reprezentantom,
+- kliniky rozdelené podľa počiatočného stavu, záujmu o spoluprácu, záujmu o zmluvu a stavu zmluvy,
+- nemocnice podľa krajiny/aktivity vrátane laboratória a reprezentanta,
+- počet reprezentantských priradení, histórie, referrals, nemocničných sietí, členov sietí, udalostí a stavov spolupráce,
+- spolupracovníkov podľa krajiny, aktivity a zdroja,
+- cenníky, cenové priradenia, zmluvy, odbery, laboratórne výsledky, faktúry, položky, splátky a väzby,
+- agregované počty záznamov označených ako import z ISCBC.
+
+Skript nečíta mená, telefóny, e-maily, rodné čísla, bankové účty, texty poznámok, dokumentov, výsledkov, API kľúče ani heslá. `SKIPPED` znamená chýbajúcu tabuľku alebo stĺpec, nie nulový počet. Po doručení TXT doplním do overview samostatnú dátovú prílohu s aktuálnymi počtami a zoznamom dátových medzier.
+
 ## 10. Technické podklady revízie
 
 | Oblasť | Hlavné podklady v repozitári |
@@ -292,6 +358,8 @@ Pošlite výsledný TXT. Z neho sa doplní dátovo overená príloha: pokrytie c
 | Priority Builder / Queue | `client/src/components/agent/PriorityBuilder.tsx`, `priority-builder.ts`, `client/src/pages/agent-workspace.tsx`, `e2e/priority-builder.spec.ts`. |
 | Mission verzie / klonovanie / FAQ | `server/nexus-pulse-version-routes.ts`, `server/lib/clone-campaign.integration.test.ts`, `shared/mission-faq.ts`. |
 | Hromadné priradenie | `client/src/pages/bulk-assign.tsx`, `shared/medical-partner-filter.ts`, `server/representative-routes.ts`. |
+| Customers | `client/src/pages/customers.tsx`, `client/src/components/customer-form.tsx`, `client/src/components/customer-form-wizard.tsx`, zákaznícke endpointy v `server/routes.ts`, tabuľka `customers` v `shared/schema.ts`. |
+| Healthcare Network | `client/src/pages/medical-partner-network.tsx`, `client/src/pages/hospitals.tsx`, `client/src/pages/my-clinics.tsx`, `shared/medical-partner-filter.ts`, `server/representative-routes.ts`, tabuľky `clinics`, `hospitals`, siete a stavové tabuľky v `shared/schema.ts`. |
 | Pricing V2 | `docs/PRICING_ENGINE_V2_STATUS.md` (starší stavový podklad, nie dôkaz dnešného nasadenia), `server/pricing-engine.ts`, `server/pricing-routes.ts`, `client/src/pages/pricing.tsx`. |
 | Zmluvy a fakturácia | `shared/schema.ts`, `client/src/pages/contracts.tsx`, `client/src/pages/invoices.tsx`, fakturačné cesty v `server/routes.ts`. |
 | Laboratory Connect | `client/src/pages/collections.tsx`, interné `/api/collections/:id/lab-results` a externé `/api/v1/lab-results` cesty v `server/routes.ts`, laboratórne úložisko v `server/storage.ts`. |
@@ -408,6 +476,7 @@ Táto tabuľka je katalóg existujúcich testov, nie dodatočne vytvorený zozna
 | Priority a mestá | server/lib/priority-city-ranking.test.ts; server/lib/collaborator-priority-city.test.ts; shared/priority-city.test.ts; e2e/priority-builder.spec.ts. | Pravidlá osobného poradia, referral miest a správanie editora vrátane chybových stavov. |
 | Klonovanie Mission | server/lib/clone-campaign.test.ts; server/lib/clone-campaign.integration.test.ts; script/test-clone-campaign.sh. | Jednotkové a integračné porovnanie klonu, nových identít a väzieb. Integračný beh vyžaduje kontrolované testovacie dáta. |
 | Back Office a partneri | client/src/lib/back-office-alert.test.ts; shared/medical-partner-filter.test.ts. | Spracovanie upozornení a zhodná logika filtrov; nenahrádza úplnú akceptáciu všetkých rolí a úkonov BO. |
+| Customers a Healthcare Network | client/src/components/customer-form.tsx; client/src/pages/customers.tsx; shared/medical-partner-filter.test.ts; client/src/components/agent/priority-city-queue.node.test.ts; server/representative-routes.ts. | Karta zákazníka, zdravotné/klinické väzby, spoločná logika filtrov a priradenie reprezentantov; aktuálna produkčná úplnosť sa overí agregovaným SQL výpisom. |
 | Migrácia | script/migration/test-mssql-connection.cjs; test-migration-20.cjs; verify-migration.cjs. | Spojenie, vykonateľný import a čiastkové porovnanie. Importná rutina zapisuje dáta; názov test nie je záruka bezpečného dry-run. |
 
 ### 12.3 Čo ešte musí pokryť finálna akceptácia
@@ -424,12 +493,12 @@ Každý finálny protokol má obsahovať verziu aplikácie, prostredie, dátum, 
 
 INDEXUS už má implementované CRM evidencie, agentúrne pracovisko Nexus Pulse, Mission, hlasovú a SMS komunikáciu, Back Office, cenový engine, zmluvy, odbery, fakturačné funkcie a laboratórne API. Kľúčové opravy pracoviska boli cielene regresne otestované. Existuje aj rozsiahly migračný základ ISCBC. **Zostávajúca práca je najmä integrácia, overenie dát a riadený prechod — nie výstavba CRM od začiatku.**
 
-1. **Uzavrieť inventúru a rozhodnutia:** schváliť migračný katalóg, historické cenové pravidlá, otvorené domény a jednu autoritatívnu migračnú cestu. Získať aktuálne agregované údaje zo zdroja a cieľa.
-2. **Dokončiť obchodný základ:** priradiť V2 cenovú verziu zákazníkovi, uložiť záväzný cenový snapshot do zmluvy a zachovať historické ISCBC podmienky. Odstrániť závislosť nového predaja od legacy kalkulácie až po overení parity.
-3. **Prepojiť odber a laboratórium:** zjednotiť interné a externé spracovanie, identifikáciu odberu, autorizáciu, históriu a opravy výsledkov. Odovzdávať schválený výsledok do rovnakého cenového vyhodnotenia.
-4. **Dokončiť finančný cyklus:** vytvárať faktúry a položky zo schváleného zmluvného/výsledkového podkladu; zabezpečiť meny, dane, splátky, skladné, úhrady, opravné doklady a idempotenciu.
-5. **Dokončiť a nacvičiť migráciu:** preniesť schválené dáta aj súbory, doplniť väzby a chýbajúce mapovania, otestovať opakovanie importu a preukázať zhodu počtov, financií a historických podmienok.
-6. **Urobiť spoločný pilot:** overiť nový aj migrovaný prípad od kontaktu a hovoru cez zmluvu, odber a výsledok až po faktúru a úhradu. Uzavrieť blokujúce nálezy a odovzdať testovací protokol.
-7. **Riadené prepnutie a prevádzka:** vykonať finálny prenos zmien, povoliť jediný zapisujúci systém, pripraviť obnovu, monitoring, používateľské návody a dočasný read-only prístup k legacy archívu.
+1. **Zjednotiť cenotvorbu a cenníkový modul:** dokončiť autoritatívny Pricing Engine V2 pre zákazníka, produkt, komponent, odber, skladné, zľavy, meny a splátky. Každá zmluva musí dostať konkrétnu cenovú verziu a nemenný položkový snapshot; až potom možno vypnúť legacy Products/Configurator.
+2. **Dopracovať fakturáciu a spoluprácu s ESO:** uzavrieť API/exportnú cestu, mapovanie zákazníkov, firiem, DPH, účtov, číselných radov, položiek, úhrad, storna a dobropisov. Opakované odoslanie musí byť idempotentné a auditovateľné.
+3. **Dopracovať tvorbu zmlúv a templates:** vytváranie zmluvy, jazykové a krajinné šablóny, podpisová verzia, placeholdery a fakturačné podmienky musia používať schválený V2 snapshot. Podpísané zmluvy a vydané faktúry sa nesmú spätne prepisovať.
+4. **Prepojiť laboratórny modul:** po autorizovanom výsledku zjednotiť internú a externú validáciu, vyhodnotiť skutočne dodanú službu cez rovnaký engine a vytvoriť schválený fakturačný podklad s históriou opráv.
+5. **Dokončiť a nacvičiť migráciu ISCBC:** schváliť katalóg, preniesť dáta aj prílohy, doplniť väzby a mapovania, otestovať opakovanie, vykonať zdrojovo-cieľovú reconciliáciu a pripraviť delta prenos.
+6. **Urobiť spoločný pilot:** overiť nový aj migrovaný prípad od Customers/Healthcare Network cez komunikáciu, zmluvu, odber, výsledok, faktúru a úhradu. Uzavrieť blokujúce nálezy a odovzdať protokol.
+7. **Riadené prepnutie a prevádzka:** povoliť jediný zapisujúci systém, zachovať ISCBC dočasne read-only, monitorovať väzby a financie a mať nacvičený rollback bez straty nových INDEXUS zmien.
 
 **Cieľový stav:** nový aj historický zákazník sa obslúži v INDEXUS bez paralelného ručného prepisovania do ISCBC. Každá zmluva, odber, výsledok, faktúra a úhrada má dohľadateľný pôvod, správne väzby a kontrolovanú históriu. Až úspešná procesná akceptácia spolu s dátovou reconciliáciou a nacvičenou obnovou umožní označiť prechod za dokončený.

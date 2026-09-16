@@ -42,9 +42,9 @@ for (let i = 0; i < lines.length; i++) {
   children.push(new Paragraph({ children: runs(line.replace(/^(> |\- )/, "")), ...(bullet ? { bullet: { level: 0 } } : {}), ...(quote ? { shading: { fill: "F1F5F9" } } : {}), spacing: { after: 110, line: 265 } }));
 }
 const doc = new Document({
-  title: "INDEXUS CRM — aktuálny prehľad a plán dokončenia", creator: "INDEXUS", description: "Revízia 14. septembra 2026; produkčné počty čakajú na potvrdenie.",
+  title: "INDEXUS CRM — aktuálny prehľad a plán dokončenia", creator: "INDEXUS", description: "Revízia 16. septembra 2026; produkčné počty čakajú na anonymizovaný výpis.",
   styles: { default: { document: { run: { font: "Calibri", size: 21, color: "243247" } } }, paragraphStyles: [{ id: "TableText", name: "Table text", basedOn: "Normal", run: { size: 18 } }] },
-  sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1000, bottom: 1000, left: 950, right: 950 } } }, footers: { default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: "INDEXUS • 14. 9. 2026 | ", size: 16, color: "64748B" }), new TextRun({ children: [PageNumber.CURRENT], size: 16 })] })] }) }, children }],
+  sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1000, bottom: 1000, left: 950, right: 950 } } }, footers: { default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: "INDEXUS • 16. 9. 2026 | ", size: 16, color: "64748B" }), new TextRun({ children: [PageNumber.CURRENT], size: 16 })] })] }) }, children }],
 });
 fs.writeFileSync(output, await Packer.toBuffer(doc));
 console.log("Generated " + output + " from " + input);

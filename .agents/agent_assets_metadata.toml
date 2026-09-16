@@ -138,14 +138,14 @@ logical_id = "1e93d769-af4b-4c5c-8bbd-a6f0cd64a136"
 id = "OZhqIKwQSS6ETBL7RdCWX"
 uri = "file://indexus_overview.docx"
 type = "word_document"
-title = "INDEXUS Overview — rozšírená revízia s migráciou ISCBC"
-description = "17-stranový dokument: implementácie, konkrétne testovacie rutiny, migračný katalóg, plán prechodu a jednostranové záverečné resumé."
+title = "INDEXUS Overview — rozšírená revízia 16. 9. 2026"
+description = "Rozšírený dokument s kartou Customers, Healthcare Network, klinikami/PZK-PZS, migračným plánom ISCBC, testovacími rutinami a plánom Pricing → ESO → zmluvy → laboratórium."
 logical_id = "3fbfd68d-b912-4f80-9291-5a438c2aa053"
-content_hash = "sha256:ba1d3a210c817899c8e33b1805ce5f53f29b57e5ee3cf7cddd2277e30831b0b2"
-size = 35148
-mtime_ms = 1789416409798
-storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/3fbfd68d-b912-4f80-9291-5a438c2aa053/0be9557c-800d-429f-ba53-81ae907af1ab"
-storage_version_token = "1789416424315514"
+content_hash = "sha256:8dc7eb3a5e397d304e9158991107b94dc7ebc39e24f585b215fbc46f605c60b5"
+size = 39631
+mtime_ms = 1789549561268
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/3fbfd68d-b912-4f80-9291-5a438c2aa053/120029b5-0e9a-4fa6-a8af-41c05a082573"
+storage_version_token = "1789549613531523"
 content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 [[outputs]]
@@ -370,4 +370,18 @@ size = 175739
 mtime_ms = 1789416414078
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/af13482f-cee7-4085-95dc-00c060494c41/e1adf42f-3500-40d4-a10c-5ec0d832b0bd"
 storage_version_token = "1789416425196479"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "929EqqXIxQpPWr_F-iWdy"
+uri = "file://docs/deliverables/indexus-overview-2026-09-16.zip"
+type = "unspecified"
+title = "Aktualizovaný balík Overview + anonymizovaný SQL výpis"
+description = "Obsahuje DOCX, PDF, Markdown, read-only SQL a návod na získanie aktuálnych agregovaných údajov z Ubuntu servera."
+logical_id = "b893faea-eec5-40c0-b583-195bf547ae89"
+content_hash = "sha256:0e6939c507cd891c542355b4afb2d3603b7df5cd892f81bcefcb50e0bd6b49ff"
+size = 198721
+mtime_ms = 1789549607380
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/b893faea-eec5-40c0-b583-195bf547ae89/aa1ba6fa-f265-48c3-b8ce-8038e436f39f"
+storage_version_token = "1789549614265640"
 content_type = "application/octet-stream"
