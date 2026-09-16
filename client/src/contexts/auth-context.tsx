@@ -95,9 +95,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const loginWithMs365 = async (username: string) => {
-    const result = await ms365LoginMutation.mutateAsync(username);
-    if (result.authUrl) {
-      window.location.href = result.authUrl;
+    // Replit renders the app in a preview iframe, while Microsoft explicitly
+    // forbids its sign-in page from being embedded. Open a window synchronously
+    // while the click still counts as a user gesture so popup blockers allow it,
+    // then navigate that window after the API returns the authorization URL.
+    const isEmbedded = window.self !== window.top;
+    const authWindow = isEmbedded ? window.open("about:blank", "_blank") : null;
+
+    try {
+      const result = await ms365LoginMutation.mutateAsync(username);
+      if (result.authUrl) {
+        if (authWindow) {
+          authWindow.location.href = result.authUrl;
+        } else {
+          window.location.href = result.authUrl;
+        }
+      } else {
+        authWindow?.close();
+        throw new Error("Microsoft 365 login URL was not returned");
+      }
+    } catch (error) {
+      authWindow?.close();
+      throw error;
     }
   };
 
