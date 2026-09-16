@@ -1462,37 +1462,39 @@ function AgentWorkspaceAccessTab() {
 
 function InboundSubTabs() {
   const [subTab, setSubTab] = useState("did-routes");
+  const { t } = useI18n();
+  const ui = t.campaigns.inboundUi;
   return (
     <Tabs value={subTab} onValueChange={setSubTab} className="flex-1 flex flex-col overflow-hidden h-full">
       <div className="px-6 pt-4">
         <TabsList>
           <TabsTrigger value="did-routes" className="gap-2" data-testid="tab-inbound-did">
             <GitBranch className="h-4 w-4" />
-            DID Smerovanie
+            {ui.didRoutes}
           </TabsTrigger>
           <TabsTrigger value="inbound-queues" className="gap-2" data-testid="tab-inbound-queues">
             <Phone className="h-4 w-4" />
-            Inbound Queues
+            {ui.queues}
           </TabsTrigger>
           <TabsTrigger value="ivr-menus" className="gap-2" data-testid="tab-inbound-ivr-menus">
             <Phone className="h-4 w-4" />
-            IVR Menu
+            {ui.ivrMenus}
           </TabsTrigger>
           <TabsTrigger value="voicemails" className="gap-2" data-testid="tab-inbound-voicemails">
             <Voicemail className="h-4 w-4" />
-            Voicemails
+            {ui.voicemails}
           </TabsTrigger>
           <TabsTrigger value="virtual-agent" className="gap-2" data-testid="tab-inbound-virtual-agent">
             <Bot className="h-4 w-4" />
-            Virtuálny agent
+            {ui.virtualAgent}
           </TabsTrigger>
           <TabsTrigger value="ivr-messages" className="gap-2" data-testid="tab-inbound-ivr-messages">
             <Mic className="h-4 w-4" />
-            IVR Audio
+            {ui.audio}
           </TabsTrigger>
           <TabsTrigger value="inbound-reports" className="gap-2" data-testid="tab-inbound-reports">
             <BarChart3 className="h-4 w-4" />
-            Inbound Reporty
+            {ui.reports}
           </TabsTrigger>
         </TabsList>
       </div>
@@ -1522,7 +1524,8 @@ function InboundSubTabs() {
 }
 
 export default function CampaignsPage() {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
+  const inboundUi = t.campaigns.inboundUi;
   const { toast } = useToast();
   const { selectedCountries } = useCountryFilter();
   const [, setLocation] = useLocation();
@@ -1724,7 +1727,8 @@ export default function CampaignsPage() {
   const getTypeBadge = (type: string) => {
     const typeLabels = t.campaigns.types as Record<string, string>;
     return (
-      <Badge variant="outline">
+      <Badge variant="outline" className="gap-1 border-violet-200 text-violet-700 dark:border-violet-800 dark:text-violet-300">
+        <CircleDot className="h-3 w-3" />
         {typeLabels?.[type] || type}
       </Badge>
     );
@@ -1811,7 +1815,7 @@ export default function CampaignsPage() {
       header: t.campaigns.channel,
       cell: (campaign: Campaign) => {
         const channelConfig: Record<string, { icon: typeof Phone; label: string; color: string }> = {
-          phone: { icon: Phone, label: "Telefón", color: "text-blue-500" },
+          phone: { icon: Phone, label: t.campaigns.channels.phone, color: "text-blue-500" },
           email: { icon: Mail, label: "Email", color: "text-green-500" },
           sms: { icon: MessageSquare, label: "SMS", color: "text-orange-500" },
           mixed: { icon: Users, label: "Mix", color: "text-purple-500" },
@@ -1828,7 +1832,7 @@ export default function CampaignsPage() {
     },
     {
       key: "callerIdNumber",
-      header: "Caller ID",
+      header: t.campaigns.callerIdNumber,
       cell: (campaign: Campaign) => (
         getCampaignCallerId(campaign) ? (
           <span className="text-sm font-mono">{getCampaignCallerId(campaign)}</span>
@@ -1878,7 +1882,7 @@ export default function CampaignsPage() {
             size="icon"
             variant="ghost"
             onClick={(e) => { e.stopPropagation(); setAgentsDialogCampaign(campaign); }}
-            title="Priradiť agentov"
+            title={t.campaigns.agentsAssigned}
             data-testid={`button-assign-agents-${campaign.id}`}
           >
             <Users className="h-4 w-4" />
@@ -1910,7 +1914,7 @@ export default function CampaignsPage() {
               data-testid="button-compare-campaigns"
             >
               <BarChart3 className="h-4 w-4 mr-2" />
-              Porovnať kampane
+              {inboundUi.compareMissions}
             </Button>
             <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-campaign" data-tour="create-campaign">
               <Plus className="h-4 w-4 mr-2" />
@@ -1929,15 +1933,15 @@ export default function CampaignsPage() {
             </TabsTrigger>
             <TabsTrigger value="inbound" className="gap-2" data-testid="tab-inbound">
               <Phone className="h-4 w-4" />
-              Inbound
+              {inboundUi.inbound}
             </TabsTrigger>
             <TabsTrigger value="transcripts" className="gap-2" data-testid="tab-transcripts">
               <Mic className="h-4 w-4" />
-              {t.callAnalysis?.pageTitle || "Transcripts"}
+              {inboundUi.transcripts}
             </TabsTrigger>
             <TabsTrigger value="breaks" className="gap-2" data-testid="tab-breaks">
               <Coffee className="h-4 w-4" />
-              {locale === "sk" ? "Prestávky" : "Breaks"}
+              {inboundUi.breaks}
             </TabsTrigger>
             <TabsTrigger value="sop" className="gap-2" data-testid="tab-sop">
               <BookOpen className="h-4 w-4" />
@@ -1980,8 +1984,8 @@ export default function CampaignsPage() {
                 </Badge>
               </div>
             </div>
-          <Card>
-            <CardHeader className="pb-4 space-y-3">
+          <Card className="overflow-hidden border-violet-200/80 shadow-sm dark:border-violet-900/50">
+            <CardHeader className="space-y-3 border-b border-violet-100 bg-violet-50/45 pb-4 dark:border-violet-900/40 dark:bg-violet-950/15">
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div className="relative flex-1 max-w-sm">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -2001,7 +2005,7 @@ export default function CampaignsPage() {
                     data-testid="btn-toggle-campaign-filters"
                   >
                     <Filter className="h-4 w-4 mr-2" />
-                    Filtre
+                    {inboundUi.filters}
                     {activeFilterCount > 0 && (
                       <Badge variant="secondary" className="ml-1.5 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
                         {activeFilterCount}
@@ -2032,13 +2036,13 @@ export default function CampaignsPage() {
               {showFilters && (
                 <div className="flex items-end gap-3 flex-wrap p-3 bg-muted/30 rounded-lg">
                   <div className="space-y-1 min-w-[140px]">
-                    <Label className="text-xs text-muted-foreground">Status</Label>
+                    <Label className="text-xs text-muted-foreground">{t.campaigns.status}</Label>
                     <Select value={filterStatus} onValueChange={setFilterStatus}>
                       <SelectTrigger className="h-8 text-xs" data-testid="select-filter-status">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Všetky</SelectItem>
+                        <SelectItem value="all">{inboundUi.all}</SelectItem>
                         <SelectItem value="draft">{(t.campaigns.statuses as Record<string, string>).draft || "Draft"}</SelectItem>
                         <SelectItem value="active">{(t.campaigns.statuses as Record<string, string>).active || "Active"}</SelectItem>
                         <SelectItem value="paused">{(t.campaigns.statuses as Record<string, string>).paused || "Paused"}</SelectItem>
@@ -2054,7 +2058,7 @@ export default function CampaignsPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Všetky</SelectItem>
+                        <SelectItem value="all">{inboundUi.all}</SelectItem>
                         <SelectItem value="marketing">{(t.campaigns.types as Record<string, string>).marketing || "Marketing"}</SelectItem>
                         <SelectItem value="sales">{(t.campaigns.types as Record<string, string>).sales || "Sales"}</SelectItem>
                         <SelectItem value="follow_up">{(t.campaigns.types as Record<string, string>).follow_up || "Follow-up"}</SelectItem>
@@ -2071,7 +2075,7 @@ export default function CampaignsPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Všetky</SelectItem>
+                        <SelectItem value="all">{inboundUi.all}</SelectItem>
                         <SelectItem value="phone">{(t.campaigns.channels as Record<string, string>).phone || "Phone"}</SelectItem>
                         <SelectItem value="email">{(t.campaigns.channels as Record<string, string>).email || "Email"}</SelectItem>
                         <SelectItem value="sms">{(t.campaigns.channels as Record<string, string>).sms || "SMS"}</SelectItem>
@@ -2080,13 +2084,13 @@ export default function CampaignsPage() {
                     </Select>
                   </div>
                   <div className="space-y-1 min-w-[160px]">
-                    <Label className="text-xs text-muted-foreground">Vytvoril</Label>
+                    <Label className="text-xs text-muted-foreground">{inboundUi.createdBy}</Label>
                     <Select value={filterCreatedBy} onValueChange={setFilterCreatedBy}>
                       <SelectTrigger className="h-8 text-xs" data-testid="select-filter-createdby">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Všetci</SelectItem>
+                        <SelectItem value="all">{inboundUi.allUsers}</SelectItem>
                         {users.map(u => (
                           <SelectItem key={u.id} value={u.id}>{u.fullName}</SelectItem>
                         ))}
@@ -2102,25 +2106,28 @@ export default function CampaignsPage() {
                       data-testid="btn-clear-campaign-filters"
                     >
                       <X className="h-3.5 w-3.5 mr-1" />
-                      Zrušiť filtre
+                      {inboundUi.clearFilters}
                     </Button>
                   )}
                 </div>
               )}
 
               <div className="text-xs text-muted-foreground">
-                {filteredCampaigns.length} z {campaigns.length} kampaní
+                {filteredCampaigns.length} / {campaigns.length} {t.campaigns.title.toLowerCase()}
               </div>
             </CardHeader>
             <CardContent data-tour="campaign-list">
               {viewMode === "list" ? (
-                <DataTable
+          <DataTable
                   columns={columns}
                   data={filteredCampaigns}
                   isLoading={isLoading}
                   emptyMessage={t.campaigns.noCampaigns}
                   getRowKey={(campaign) => campaign.id}
                   onRowClick={(campaign) => setLocation(`/campaigns/${campaign.id}`)}
+            headerClassName="bg-violet-50/70 hover:bg-violet-50/70 dark:bg-violet-950/20 dark:hover:bg-violet-950/20"
+            tableClassName="border-violet-200/70 dark:border-violet-900/50"
+            rowClassName={() => "transition-colors hover:bg-violet-50/45 dark:hover:bg-violet-950/15"}
                 />
               ) : (
                 <CampaignCalendar 

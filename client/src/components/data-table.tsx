@@ -43,6 +43,8 @@ interface DataTableProps<T> {
   onRowDragStart?: (e: React.DragEvent, key: string) => void;
   onRowDragEnd?: (e: React.DragEvent) => void;
   rowClassName?: (key: string) => string | undefined;
+  headerClassName?: string;
+  tableClassName?: string;
 }
 
 export function DataTable<T>({ 
@@ -60,6 +62,8 @@ export function DataTable<T>({
   onRowDragStart,
   onRowDragEnd,
   rowClassName,
+  headerClassName,
+  tableClassName,
 }: DataTableProps<T>) {
   
   const handleSort = (column: Column<T>) => {
@@ -141,7 +145,7 @@ export function DataTable<T>({
   const someSelected = sortedData.some(item => selectedKeys.has(getRowKey(item)));
 
   const renderHeader = () => (
-    <TableRow>
+    <TableRow className={headerClassName}>
       {selectable && (
         <TableHead className="w-12">
           <Checkbox
@@ -173,7 +177,7 @@ export function DataTable<T>({
 
   if (isLoading) {
     return (
-      <div className="rounded-md border">
+      <div className={cn("rounded-md border", tableClassName)}>
         <Table>
           <TableHeader>{renderHeader()}</TableHeader>
           <TableBody>
@@ -199,7 +203,7 @@ export function DataTable<T>({
 
   if (data.length === 0) {
     return (
-      <div className="rounded-md border">
+      <div className={cn("rounded-md border", tableClassName)}>
         <Table>
           <TableHeader>{renderHeader()}</TableHeader>
           <TableBody>
@@ -218,7 +222,7 @@ export function DataTable<T>({
   }
 
   return (
-    <div className="rounded-md border">
+    <div className={cn("rounded-md border", tableClassName)}>
       <Table>
         <TableHeader>{renderHeader()}</TableHeader>
         <TableBody>

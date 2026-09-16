@@ -164,12 +164,28 @@ const defaultBoxForm: BoxFormData = {
 
 export function VoicemailsTab() {
   const { t } = useI18n();
-  const vm = (t as any).campaigns?.voicemails || {};
+  const vm = t.campaigns.inboundUi;
   const [activeTab, setActiveTab] = useState("messages");
 
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-      <div className="px-6 pt-4">
+    <div className="space-y-5">
+      <div className="relative overflow-hidden rounded-2xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-background to-violet-50 p-5 shadow-sm dark:border-sky-900/50 dark:from-sky-950/25 dark:to-violet-950/15">
+        <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-sky-300/20 blur-3xl dark:bg-sky-600/10" />
+        <div className="relative flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-500/15 text-sky-700 dark:text-sky-300">
+            <Voicemail className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-sky-700/80 dark:text-sky-300/80">
+              {vm.inbound}
+            </p>
+            <h2 className="text-xl font-semibold tracking-tight">{vm.voicemails}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{vm.voicemailDescription}</p>
+          </div>
+        </div>
+      </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col">
+      <div className="px-0">
         <TabsList>
           <TabsTrigger value="messages" className="gap-2" data-testid="tab-voicemail-messages">
             <Inbox className="h-4 w-4" />
@@ -188,12 +204,13 @@ export function VoicemailsTab() {
         <VoicemailBoxesManager />
       </TabsContent>
     </Tabs>
+    </div>
   );
 }
 
 function VoicemailInbox() {
   const { t } = useI18n();
-  const vm = (t as any).campaigns?.voicemails || {};
+  const vm = t.campaigns.inboundUi;
   const { toast } = useToast();
   const [filterBox, setFilterBox] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -327,8 +344,8 @@ function VoicemailInbox() {
   return (
     <div className="space-y-4">
       {stats && (
-        <div className="grid grid-cols-4 gap-4">
-          <Card data-testid="stat-total">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Card className="border-sky-200/80 shadow-sm dark:border-sky-900/50" data-testid="stat-total">
             <CardContent className="p-4 flex items-center gap-3">
               <div className="p-2 rounded-lg bg-primary/10">
                 <Voicemail className="h-5 w-5 text-primary" />
@@ -339,7 +356,7 @@ function VoicemailInbox() {
               </div>
             </CardContent>
           </Card>
-          <Card data-testid="stat-unread">
+          <Card className="border-red-200/80 shadow-sm dark:border-red-900/50" data-testid="stat-unread">
             <CardContent className="p-4 flex items-center gap-3">
               <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
                 <Mail className="h-5 w-5 text-red-600 dark:text-red-400" />
@@ -350,7 +367,7 @@ function VoicemailInbox() {
               </div>
             </CardContent>
           </Card>
-          <Card data-testid="stat-read">
+          <Card className="border-emerald-200/80 shadow-sm dark:border-emerald-900/50" data-testid="stat-read">
             <CardContent className="p-4 flex items-center gap-3">
               <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30">
                 <MailOpen className="h-5 w-5 text-green-600 dark:text-green-400" />
@@ -361,7 +378,7 @@ function VoicemailInbox() {
               </div>
             </CardContent>
           </Card>
-          <Card data-testid="stat-archived">
+          <Card className="border-slate-200/80 shadow-sm dark:border-slate-800" data-testid="stat-archived">
             <CardContent className="p-4 flex items-center gap-3">
               <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800">
                 <Archive className="h-5 w-5 text-gray-600 dark:text-gray-400" />
@@ -375,8 +392,8 @@ function VoicemailInbox() {
         </div>
       )}
 
-      <Card>
-        <CardHeader className="pb-4">
+      <Card className="overflow-hidden border-sky-200/80 shadow-sm dark:border-sky-900/50">
+        <CardHeader className="border-b border-sky-100 bg-sky-50/35 pb-4 dark:border-sky-900/40 dark:bg-sky-950/15">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3 flex-1">
               <div className="relative flex-1 max-w-sm">
@@ -451,7 +468,7 @@ function VoicemailInbox() {
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-sky-50/60 hover:bg-sky-50/60 dark:bg-sky-950/20 dark:hover:bg-sky-950/20">
                   <TableHead className="w-10">
                     <input
                       type="checkbox"
@@ -638,7 +655,7 @@ function GreetingCard({
   box: VoicemailBox;
 }) {
   const { t } = useI18n();
-  const vm = (t as any).campaigns?.voicemails || {};
+  const vm = t.campaigns.inboundUi;
   const { toast } = useToast();
   const [mode, setMode] = useState<"tts" | "upload">("tts");
   const [ttsText, setTtsText] = useState("");
@@ -876,7 +893,7 @@ function GreetingCard({
 
 function VoicemailBoxesManager() {
   const { t } = useI18n();
-  const vm = (t as any).campaigns?.voicemails || {};
+  const vm = t.campaigns.inboundUi;
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBox, setEditingBox] = useState<VoicemailBox | null>(null);

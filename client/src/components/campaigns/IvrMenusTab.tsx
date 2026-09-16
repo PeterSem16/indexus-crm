@@ -130,7 +130,7 @@ const defaultOption: IvrMenuOption = {
 
 export function IvrMenusTab() {
   const { t } = useI18n();
-  const im = (t as any).campaigns?.ivrMenus || {};
+  const im = t.campaigns.inboundUi;
   const ACTION_TYPES = getActionTypes(im);
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -330,24 +330,24 @@ export function IvrMenusTab() {
             </div>
             <div>
               <p className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-violet-700/80 dark:text-violet-300/80">
-                <AudioLines className="h-3 w-3" /> inbound logic
+                <AudioLines className="h-3 w-3" /> {t.campaigns.inboundUi.inbound}
               </p>
               <h3 className="text-xl font-semibold tracking-tight" data-testid="text-ivr-menus-title">
-            {im.title || "IVR Menus"}
+            {im.ivrMenus}
               </h3>
               <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            {im.description || "Manage IVR decision trees for inbound call routing"}
+            {im.menuDescription}
               </p>
             </div>
           </div>
           <Button onClick={openCreate} className="shrink-0 bg-violet-600 text-white shadow-sm hover:bg-violet-700" data-testid="btn-create-ivr-menu">
             <Plus className="h-4 w-4 mr-2" />
-            {im.createMenu || "Create Menu"}
+            {im.createMenu}
           </Button>
         </div>
         <div className="relative mt-4 flex flex-wrap gap-2">
-          <Badge variant="outline" className="border-violet-200 bg-background/70 px-3 py-1 text-violet-800 dark:border-violet-800 dark:text-violet-200"><GitBranch className="mr-1.5 h-3.5 w-3.5" /> {menus.length} menus</Badge>
-          <Badge variant="outline" className="border-amber-200 bg-background/70 px-3 py-1 text-amber-800 dark:border-amber-800 dark:text-amber-200"><Megaphone className="mr-1.5 h-3.5 w-3.5" /> voice prompts</Badge>
+          <Badge variant="outline" className="border-violet-200 bg-background/70 px-3 py-1 text-violet-800 dark:border-violet-800 dark:text-violet-200"><GitBranch className="mr-1.5 h-3.5 w-3.5" /> {menus.length} {im.menuCount}</Badge>
+          <Badge variant="outline" className="border-amber-200 bg-background/70 px-3 py-1 text-amber-800 dark:border-amber-800 dark:text-amber-200"><Megaphone className="mr-1.5 h-3.5 w-3.5" /> {im.voicePrompts}</Badge>
         </div>
       </div>
 
@@ -359,10 +359,10 @@ export function IvrMenusTab() {
         <Card>
             <CardContent className="flex flex-col items-center justify-center rounded-2xl border-violet-100 bg-violet-50/30 py-12 text-muted-foreground dark:border-violet-900/30 dark:bg-violet-950/10">
             <TreePine className="h-12 w-12 mb-3 opacity-30" />
-            <p>{im.noMenus || "No IVR menus configured yet"}</p>
+            <p>{im.noMenus}</p>
             <Button className="mt-4" onClick={openCreate} data-testid="btn-create-first-ivr-menu">
               <Plus className="h-4 w-4 mr-2" />
-              {im.createFirstMenu || "Create First Menu"}
+              {im.createFirstMenu}
             </Button>
           </CardContent>
         </Card>
@@ -640,7 +640,7 @@ function DtmfOptionRow({
   onMove: (dir: "up" | "down") => void;
 }) {
   const { t } = useI18n();
-  const im = (t as any).campaigns?.ivrMenus || {};
+  const im = t.campaigns.inboundUi;
   const ACTION_TYPES = getActionTypes(im);
   const availableKeys = DTMF_KEYS.filter((k) => !usedKeys.includes(k) || k === option.dtmfKey);
   const needsTarget = ["queue", "submenu", "transfer", "voicemail"].includes(option.action);
@@ -800,7 +800,7 @@ function MenuTreePreview({
   inboundQueues: InboundQueue[];
 }) {
   const { t } = useI18n();
-  const im = (t as any).campaigns?.ivrMenus || {};
+  const im = t.campaigns.inboundUi;
   const getTargetLabel = (option: IvrMenuOption) => {
     if (!option.targetId) return null;
     switch (option.action) {

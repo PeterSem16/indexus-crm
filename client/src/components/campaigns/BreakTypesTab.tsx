@@ -142,7 +142,8 @@ const defaultFormData: BreakTypeFormData = {
 };
 
 export function BreakTypesTab() {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
+  const ui = t.campaigns.inboundUi;
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -163,10 +164,10 @@ export function BreakTypesTab() {
     onSuccess: () => {
       invalidateAll();
       setDialogOpen(false);
-      toast({ title: locale === "sk" ? "Typ prestávky vytvorený" : "Break type created" });
+      toast({ title: ui.created });
     },
     onError: () => {
-      toast({ title: locale === "sk" ? "Chyba" : "Error", variant: "destructive" });
+      toast({ title: ui.error, variant: "destructive" });
     },
   });
 
@@ -176,10 +177,10 @@ export function BreakTypesTab() {
     onSuccess: () => {
       invalidateAll();
       setDialogOpen(false);
-      toast({ title: locale === "sk" ? "Typ prestávky aktualizovaný" : "Break type updated" });
+      toast({ title: ui.updated });
     },
     onError: () => {
-      toast({ title: locale === "sk" ? "Chyba" : "Error", variant: "destructive" });
+      toast({ title: ui.error, variant: "destructive" });
     },
   });
 
@@ -188,7 +189,7 @@ export function BreakTypesTab() {
     onSuccess: () => {
       invalidateAll();
       setDeleteConfirmId(null);
-      toast({ title: locale === "sk" ? "Typ prestávky odstránený" : "Break type deleted" });
+      toast({ title: ui.deleted });
     },
   });
 
@@ -216,7 +217,7 @@ export function BreakTypesTab() {
 
   const handleSave = () => {
     if (!formData.name.trim()) {
-      toast({ title: locale === "sk" ? "Vyplňte názov" : "Enter a name", variant: "destructive" });
+      toast({ title: ui.nameRequired, variant: "destructive" });
       return;
     }
     const payload = {
@@ -237,44 +238,59 @@ export function BreakTypesTab() {
   };
 
   const labels = {
-    title: locale === "sk" ? "Správa typov prestávok" : "Break Types Management",
-    subtitle: locale === "sk" ? "Globálne typy prestávok pre všetky kampane" : "Global break types for all campaigns",
-    addNew: locale === "sk" ? "Nový typ prestávky" : "New Break Type",
-    edit: locale === "sk" ? "Upraviť typ prestávky" : "Edit Break Type",
-    name: locale === "sk" ? "Názov (primárny)" : "Name (primary)",
-    icon: locale === "sk" ? "Ikona" : "Icon",
-    color: locale === "sk" ? "Farba" : "Color",
-    active: locale === "sk" ? "Aktívny" : "Active",
-    default: locale === "sk" ? "Predvolený" : "Default",
-    maxDuration: locale === "sk" ? "Max. trvanie (min)" : "Max Duration (min)",
-    expectedDuration: locale === "sk" ? "Očakávané trvanie (min)" : "Expected Duration (min)",
-    translations: locale === "sk" ? "Preklady názvu" : "Name Translations",
-    save: locale === "sk" ? "Uložiť" : "Save",
-    cancel: locale === "sk" ? "Zrušiť" : "Cancel",
-    delete: locale === "sk" ? "Odstrániť" : "Delete",
-    deleteConfirm: locale === "sk" ? "Naozaj chcete odstrániť tento typ prestávky?" : "Are you sure you want to delete this break type?",
-    noBreakTypes: locale === "sk" ? "Žiadne typy prestávok" : "No break types found",
-    status: locale === "sk" ? "Stav" : "Status",
-    duration: locale === "sk" ? "Trvanie" : "Duration",
-    actions: locale === "sk" ? "Akcie" : "Actions",
-    expectedDurationHint: locale === "sk"
-      ? "Ak je prestávka dlhšia, zobrazí sa vizuálne upozornenie"
-      : "Visual warning shown when break exceeds this duration",
+    title: t.campaigns.inboundUi.breaks,
+    subtitle: t.campaigns.inboundUi.breaksSubtitle,
+    addNew: t.campaigns.inboundUi.addNew,
+    edit: ui.editBreak,
+    name: t.campaigns.inboundUi.name,
+    icon: ui.icon,
+    color: ui.color,
+    active: ui.activeLabel,
+    default: t.campaigns.inboundUi.default,
+    maxDuration: ui.maxDurationMinutes,
+    expectedDuration: ui.expectedDurationMinutes,
+    translations: t.campaigns.inboundUi.translations,
+    save: ui.save,
+    cancel: ui.cancel,
+    delete: ui.delete,
+    deleteConfirm: ui.deleteConfirm,
+    noBreakTypes: t.campaigns.inboundUi.noBreakTypes,
+    status: t.campaigns.inboundUi.status,
+    duration: t.campaigns.inboundUi.duration,
+    actions: t.campaigns.inboundUi.actions,
+    expectedDurationHint: ui.expectedDurationHint,
   };
 
   const IconComponent = getIconComponent(formData.icon);
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold" data-testid="text-break-types-title">{labels.title}</h2>
-          <p className="text-sm text-muted-foreground">{labels.subtitle}</p>
+    <div className="space-y-5">
+      <div className="relative overflow-hidden rounded-2xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-background to-orange-50 p-5 shadow-sm dark:border-amber-900/50 dark:from-amber-950/25 dark:to-orange-950/15">
+        <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-amber-300/20 blur-3xl dark:bg-amber-600/10" />
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-700 dark:text-amber-300">
+              <Coffee className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-amber-700/80 dark:text-amber-300/80">{t.campaigns.title}</p>
+              <h2 className="text-xl font-semibold tracking-tight" data-testid="text-break-types-title">{labels.title}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{labels.subtitle}</p>
+            </div>
+          </div>
+          <Button onClick={openCreate} className="shrink-0 bg-amber-600 text-white shadow-sm hover:bg-amber-700" data-testid="button-add-break-type">
+            <Plus className="h-4 w-4" />
+            {labels.addNew}
+          </Button>
         </div>
-        <Button onClick={openCreate} className="gap-2" data-testid="button-add-break-type">
-          <Plus className="h-4 w-4" />
-          {labels.addNew}
-        </Button>
+        <div className="relative mt-4 flex flex-wrap gap-2">
+          <Badge variant="outline" className="border-amber-200 bg-background/70 px-3 py-1 text-amber-800 dark:border-amber-800 dark:text-amber-200">
+            <Coffee className="mr-1.5 h-3.5 w-3.5" /> {breakTypes.length} {t.campaigns.inboundUi.breaks}
+          </Badge>
+          <Badge variant="outline" className="border-emerald-200 bg-background/70 px-3 py-1 text-emerald-800 dark:border-emerald-800 dark:text-emerald-200">
+            {breakTypes.filter(bt => bt.isActive).length} {t.campaigns.inboundUi.active.toLowerCase()}
+          </Badge>
+        </div>
       </div>
 
       {isLoading ? (
@@ -289,10 +305,10 @@ export function BreakTypesTab() {
           </CardContent>
         </Card>
       ) : (
-        <div className="border rounded-lg">
+        <div className="overflow-hidden rounded-xl border border-amber-200/80 shadow-sm dark:border-amber-900/50">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-amber-50/60 hover:bg-amber-50/60 dark:bg-amber-950/20 dark:hover:bg-amber-950/20">
                 <TableHead className="w-12"></TableHead>
                 <TableHead>{labels.name}</TableHead>
                 <TableHead>{labels.translations}</TableHead>
@@ -344,13 +360,13 @@ export function BreakTypesTab() {
                         {bt.expectedDurationMinutes && (
                           <div className="flex items-center gap-1 text-muted-foreground">
                             <Timer className="h-3 w-3" />
-                            <span>{bt.expectedDurationMinutes}m</span>
+                            <span>{bt.expectedDurationMinutes} min</span>
                           </div>
                         )}
                         {bt.maxDurationMinutes && (
                           <div className="flex items-center gap-1 text-muted-foreground">
                             <AlertTriangle className="h-3 w-3" />
-                            <span>max {bt.maxDurationMinutes}m</span>
+                            <span>{t.campaigns.inboundUi.max} {bt.maxDurationMinutes} min</span>
                           </div>
                         )}
                         {!bt.expectedDurationMinutes && !bt.maxDurationMinutes && (
@@ -360,7 +376,7 @@ export function BreakTypesTab() {
                     </TableCell>
                     <TableCell>
                       <Badge variant={bt.isActive ? "default" : "secondary"} className={bt.isActive ? "bg-green-600" : ""}>
-                        {bt.isActive ? (locale === "sk" ? "Aktívny" : "Active") : (locale === "sk" ? "Neaktívny" : "Inactive")}
+                         {bt.isActive ? t.campaigns.inboundUi.active : t.campaigns.inboundUi.inactive}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -403,7 +419,7 @@ export function BreakTypesTab() {
               <Input
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder={locale === "sk" ? "Napr. Obed" : "e.g. Lunch"}
+                placeholder={ui.namePlaceholder}
                 data-testid="input-break-name"
               />
             </div>
@@ -550,7 +566,7 @@ export function BreakTypesTab() {
 
             <div className="border rounded-lg p-3 bg-muted/30">
               <Label className="text-xs text-muted-foreground mb-2 block">
-                {locale === "sk" ? "Náhľad" : "Preview"}
+                {ui.preview}
               </Label>
               <div className="flex items-center gap-2">
                 <div
