@@ -64,6 +64,12 @@ Dátum narodenia je zoradený logicky v susedných stĺpcoch
 `birth_day`, `birth_month`, `birth_year`. Kódy v `highest_education` sa
 nahrádzajú celým popisom dosiahnutého vzdelania.
 
+Rovnaké pravidlo platí aj pre ostatné známe kódové hodnoty. Export prekladá
+typ spolupracovníka, rodinný stav, odborné zaradenie, typ dohody, typ odmeny,
+CBC aktivity, jazyk, krajinu, zdroj údajov, režim nahrávania, typ adresy a
+stav kampane. Preklady sa používajú aj vo vnorených JSON stĺpcoch. Hodnoty,
+ktoré nie sú v známom číselníku, zostávajú bez zmeny.
+
 V hlavnom liste sa používajú farby:
 
 - žltá bunka — hodnota aktualizovaná cez kampaň,

@@ -70,6 +70,166 @@ const CARD_VALUE_TO_EDUCATION = Object.fromEntries(
   Object.entries(EDUCATION_TO_CARD_VALUE).map(([label, code]) => [code, label]),
 );
 
+const CODE_LABELS = {
+  collaborator_type: {
+    doctor: "Lekár",
+    nurse: "Sestra",
+    resident: "Rezident",
+    callCenter: "Call centrum",
+    headNurse: "Vrchná sestra",
+    bm: "B&M",
+    vedono: "Vedono",
+    external: "Externý spolupracovník",
+    representative: "Reprezentant",
+    other: "Iný",
+  },
+  marital_status: {
+    single: "Slobodný/-á",
+    married: "Ženatý/Vydatá",
+    divorced: "Rozvedený/-á",
+    widowed: "Vdovec/Vdova",
+  },
+  professional_classification: {
+    gynecology_specialists: "Lekári v gynekológii a pôrodníctve (špecialisti)",
+    general_practitioners: "Všeobecní lekári (lekári v príprave/absolventi)",
+    chief_physicians: "Primári v oblasti zdravotníctva",
+    medical_directors: "Vedúci lekári a riaditelia zdravotníckych zariadení",
+    specialized_midwives: "Pôrodné asistentky so špecializáciou",
+    charge_midwives: "Staničné sestry (pôrodné asistentky)",
+    midwives_no_specialization: "Pôrodné asistentky bez špecializácie",
+    head_nurses: "Vrchné a staničné sestry (všeobecné sestry)",
+    surgical_nurses: "Sestry pre starostlivosť v chirurgických odboroch",
+    general_nurses_no_spec: "Všeobecné sestry bez špecializácie",
+    internal_medicine_nurses: "Sestry pre starostlivosť v interných odboroch",
+    practical_nurses: "Praktické sestry",
+    healthcare_assistants: "Ošetrovatelia v zdravotníckych zariadeniach",
+  },
+  reward_type: {
+    fixed: "Fixná čiastka",
+    percentage: "Percentuálna sadzba",
+  },
+  fixed_reward_currency: {
+    EUR: "Euro (EUR)",
+    CZK: "Česká koruna (CZK)",
+    HUF: "Maďarský forint (HUF)",
+    RON: "Rumunský leu (RON)",
+  },
+  agreement_type: {
+    DOVP: "Dohoda o vykonaní práce",
+    ZOD: "Zmluva o dielo",
+    dpp: "Dohoda o vykonaní práce",
+    dpc: "Dohoda o pracovnej činnosti",
+  },
+  agreement_form: {
+    DOVP: "Dohoda o vykonaní práce",
+    ZOD: "Zmluva o dielo",
+    dohodaOVykonaniPrace: "Dohoda o vykonaní práce",
+    zmluvaODieloPodnikatel: "Zmluva o dielo (podnikateľ)",
+    zmluvaODieloFyzickaOsoba: "Zmluva o dielo (fyzická osoba)",
+  },
+  reward_types: {
+    recruitment: "Naverbovanie",
+    assistance: "Asistencia",
+    puk_collection: "Odber PUK",
+    plk_collection: "Odber PLK",
+    tpu_collection: "Odber TPU",
+    tpl_collection: "Odber TPL",
+    informing: "Informovanie",
+    emergency_grant: "Núdzový grant",
+    prophylaxis: "Profylaxia",
+    head_nurse: "Vrchná sestra",
+    lecture: "Prednáška",
+    management: "Vedenie",
+    disability_card: "ZŤP preukaz",
+    old_age_pension: "Starobný dôchodok",
+    widow_pension: "Vdovský dôchodok",
+    vip: "VIP",
+    dpa_signed: "DPA podpísané",
+    monthly_rewarding_signed: "Mesačné odmeny podpísané",
+    internal_employee: "Interný zamestnanec",
+    contact_person_reward: "Odmena kontaktnej osobe",
+    responsible_person_reward: "Odmena zodpovednej osobe",
+  },
+  cbc_activities: {
+    recruitment: "Naverbovanie",
+    assistance: "Asistencia",
+    puk_collection: "Odber PUK",
+    plk_collection: "Odber PLK",
+    tpu_collection: "Odber TPU",
+    tpl_collection: "Odber TPL",
+    informing: "Informovanie",
+    emergency_grant: "Núdzový grant",
+    prophylaxis: "Profylaxia",
+    head_nurse: "Vrchná sestra",
+    lecture: "Prednáška",
+    management: "Vedenie",
+    disability_card: "ZŤP preukaz",
+    old_age_pension: "Starobný dôchodok",
+    widow_pension: "Vdovský dôchodok",
+    vip: "VIP",
+    dpa_signed: "DPA podpísané",
+    monthly_rewarding_signed: "Mesačné odmeny podpísané",
+    internal_employee: "Interný zamestnanec",
+    contact_person_reward: "Odmena kontaktnej osobe",
+    responsible_person_reward: "Odmena zodpovednej osobe",
+  },
+  preferred_language: {
+    sk: "Slovenčina",
+    cs: "Čeština",
+    hu: "Maďarčina",
+    ro: "Rumunčina",
+    it: "Taliančina",
+    de: "Nemčina",
+    en: "Angličtina",
+  },
+  language: {
+    sk: "Slovenčina",
+    cs: "Čeština",
+    hu: "Maďarčina",
+    ro: "Rumunčina",
+    it: "Taliančina",
+    de: "Nemčina",
+    en: "Angličtina",
+  },
+  campaign_status: {
+    draft: "Koncept",
+    sent: "Odoslaná",
+    opened: "Otvorená",
+    submitted: "Odoslané údaje",
+    approved: "Schválená",
+    rejected: "Zamietnutá",
+    pending: "Čaká na kontrolu",
+  },
+  data_source: {
+    iscbc: "ISCBC – migrácia z pôvodného CBC",
+    indexus: "INDEXUS",
+  },
+  call_recording_mode: {
+    full: "Kompletná nahrávka",
+    transcription_only: "Iba prepis",
+    off: "Vypnuté",
+  },
+  address_type: {
+    permanent: "Trvalé bydlisko",
+    correspondence: "Korešpondenčná adresa",
+    work: "Pracovná adresa",
+    company: "Firemná adresa",
+  },
+  country_code: {
+    SK: "Slovensko",
+    CZ: "Česko",
+    HU: "Maďarsko",
+    RO: "Rumunsko",
+    IT: "Taliansko",
+    DE: "Nemecko",
+    AT: "Rakúsko",
+    CH: "Švajčiarsko",
+    PL: "Poľsko",
+    US: "Spojené štáty",
+    GB: "Spojené kráľovstvo",
+  },
+};
+
 const JMHZ_DESTINATIONS = {
   jmhz_educationHighest: {
     destination: "collaborators.highest_education",
@@ -141,6 +301,62 @@ function snakeCase(value) {
 function fullEducation(value) {
   const code = text(value).toUpperCase();
   return CARD_VALUE_TO_EDUCATION[code] || value;
+}
+
+function displayFieldKey(key) {
+  const normalized = snakeCase(key).replace(/^contact_/, "");
+  const withoutJmhz = normalized.replace(/^jmhz_/, "");
+  const aliases = {
+    education_highest: "highest_education",
+    birth_surname: "maiden_name",
+    is_leading_employee: "is_manager",
+  };
+  return aliases[withoutJmhz] || withoutJmhz;
+}
+
+function humanizeValue(key, value) {
+  if (value === null || value === undefined) return value;
+  const normalizedKey = displayFieldKey(key);
+  if (normalizedKey === "highest_education") return fullEducation(value);
+  if (Array.isArray(value)) {
+    const arrayKey = CODE_LABELS[normalizedKey] ? normalizedKey : normalizedKey.replace(/s$/, "");
+    return value.map(item => humanizeValue(arrayKey, item));
+  }
+  if (typeof value === "boolean") return value ? "Áno" : "Nie";
+  if (typeof value === "object") return humanizeObject(value);
+  const labelKey = normalizedKey.endsWith("_country_code")
+    ? "country_code"
+    : normalizedKey.endsWith("_address_type")
+      ? "address_type"
+      : normalizedKey;
+  const labels = CODE_LABELS[labelKey];
+  if (!labels) return value;
+  const stringValue = String(value);
+  return labels[stringValue] ||
+    labels[stringValue.toLowerCase()] ||
+    labels[stringValue.toUpperCase()] ||
+    value;
+}
+
+function humanizeObject(value) {
+  if (!value || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map(item => humanizeObject(item));
+  const output = {};
+  const fieldKey = value.field ? displayFieldKey(value.field) : null;
+  for (const [key, item] of Object.entries(value)) {
+    if (fieldKey && [
+      "original_value",
+      "submitted_new_value",
+      "value_written_on_approve",
+      "current_database_value",
+      "submitted_value",
+    ].includes(key)) {
+      output[key] = humanizeValue(fieldKey, item);
+    } else {
+      output[key] = humanizeValue(key, item);
+    }
+  }
+  return output;
 }
 
 function jsonString(value) {
@@ -455,12 +671,9 @@ function changeRowsForRequest(request, person, addresses) {
     const appliedValue = appliedValueFor(change.field, change.newValue);
     const approved = request.status === "approved";
     const requestOnly = Boolean(JMHZ_DESTINATIONS[change.field]?.requestOnly);
-    const currentForDisplay = JMHZ_DESTINATIONS[change.field]?.currentKey === "highest_education"
-      ? fullEducation(current)
-      : current;
-    const appliedForDisplay = JMHZ_DESTINATIONS[change.field]?.currentKey === "highest_education"
-      ? fullEducation(appliedValue)
-      : appliedValue;
+    const displayKey = JMHZ_DESTINATIONS[change.field]?.currentKey || change.field;
+    const currentForDisplay = humanizeValue(displayKey, current);
+    const appliedForDisplay = humanizeValue(displayKey, appliedValue);
     return {
       request_id: request.id,
       collaborator_id: request.collaborator_id,
@@ -554,7 +767,7 @@ function personRow(
   const row = {};
   for (const [key, value] of Object.entries(person || {})) {
     if (SECRET_KEY_RE.test(key) || RELATION_ID_KEYS.has(key)) continue;
-    row[key] = key === "highest_education" ? fullEducation(value) : value;
+    row[key] = humanizeValue(key, value);
   }
   row.collaborator_id = person?.id || row.collaborator_id || "";
   row.iscbc_legacy_id = person?.legacy_id || "";
@@ -567,21 +780,23 @@ function personRow(
     relationNames.representatives,
   );
   row.mobile_password_hash_present = person && person.mobile_password_hash ? "YES" : "NO";
-  row.addresses_json = addresses || [];
+  row.addresses_json = humanizeObject(addresses || []);
   for (const address of addresses || []) {
     const addressType = address.address_type || "unknown";
     for (const [key, value] of Object.entries(address)) {
       if (key === "collaborator_id" || key === "address_type" || SECRET_KEY_RE.test(key)) continue;
       const column = `address_${addressType}_${key}`;
-      if (!(column in row) || text(row[column]) === "") row[column] = value;
+      if (!(column in row) || text(row[column]) === "") row[column] = humanizeValue(key, value);
     }
   }
-  row.other_data_json = otherData || "";
-  row.agreements_json = agreements || [];
-  row.contact_field_snapshots_json = snapshots || [];
+  row.other_data_json = humanizeObject(otherData || "");
+  row.agreements_json = humanizeObject(agreements || []);
+  row.contact_field_snapshots_json = humanizeObject(snapshots || []);
   row.campaign_request_count = requestRows.length;
   row.campaign_request_ids = requestRows.map(request => request.id).join(", ");
-  row.campaign_statuses = [...new Set(requestRows.map(request => request.status))].join(", ");
+  row.campaign_statuses = [...new Set(
+    requestRows.map(request => humanizeValue("campaign_status", request.status)),
+  )].join(", ");
   row.campaign_emails = [...new Set(requestRows.map(request => request.email).filter(Boolean))].join(", ");
   row.campaign_sent_at = requestRows.map(request => request.sent_at).filter(Boolean).sort()[0] || "";
   row.campaign_opened_at = requestRows.map(request => request.opened_at).filter(Boolean).sort()[0] || "";
@@ -597,7 +812,7 @@ function personRow(
   row.campaign_updated_fields = [...new Set(
     fieldRows.filter(field => field.updated_by_this_campaign === "YES").map(field => field.field),
   )].join(", ");
-  row.campaign_requests_json = requestRows.map(request => ({
+  row.campaign_requests_json = requestRows.map(request => humanizeObject({
     request_id: request.id,
     email: request.email,
     language: request.language,
@@ -611,8 +826,8 @@ function personRow(
     submitted_data: request.submitted_data,
     changes: request.changes,
   }));
-  row.campaign_field_audit_json = fieldRows;
-  row.campaign_changes_json = changeRows;
+  row.campaign_field_audit_json = humanizeObject(fieldRows);
+  row.campaign_changes_json = humanizeObject(changeRows);
   const campaignCellStyles = {};
   for (const field of fieldRows) {
     const column = exportColumnForCampaignField(field.field);
@@ -768,7 +983,7 @@ async function main() {
     const summaryRows = [
       { metric: "campaign_id", value: campaign.id },
       { metric: "campaign_name", value: campaign.name },
-      { metric: "campaign_status", value: campaign.status },
+      { metric: "campaign_status", value: humanizeValue("campaign_status", campaign.status) },
       { metric: "campaign_form_type", value: campaign.form_type },
       { metric: "campaign_created_at", value: campaign.created_at },
       { metric: "campaign_send_started_at", value: campaign.send_started_at },
