@@ -348,6 +348,45 @@ Výpis má obsahovať najmä:
 
 Skript nečíta mená, telefóny, e-maily, rodné čísla, bankové účty, texty poznámok, dokumentov, výsledkov, API kľúče ani heslá. `SKIPPED` znamená chýbajúcu tabuľku alebo stĺpec, nie nulový počet. Po doručení TXT doplním do overview samostatnú dátovú prílohu s aktuálnymi počtami a zoznamom dátových medzier.
 
+### 9.2 Aktuálna produkčná dátová príloha — 16. september 2026
+
+Výpis bol vykonaný **16. 9. 2026 o 09:22:11 UTC** v read-only transakcii. Všetkých 42 kontrolovaných tabuliek existuje. Nasledujúce čísla sú aktuálny agregovaný stav databázy `indexus_crm`, nie historický májový odhad.
+
+| Oblasť | Aktuálny stav |
+|---|---:|
+| Zákazníci | 165 463 |
+| Zákazníci s `data_source = 'iscbc'` | 165 448 |
+| Kliniky | 10 080, z toho 10 079 aktívnych |
+| Kliniky s PZK/PZS kódom, ID ZZ a IČO | 753 |
+| Kliniky s e-mailom / telefónom / GPS | 2 143 / 5 160 / 8 363 |
+| Nemocnice | 1 213, z toho 1 142 aktívnych |
+| Nemocnice s priradeným laboratóriom | 848 |
+| Spolupracovníci | 20 136 |
+| Aktivity spolupracovníkov | 344 756 |
+| Dohody spolupracovníkov | 59 549 |
+| Komunikačné správy | 1 163 531 |
+| Zákaznícke poznámky | 2 404 177 |
+| Zákaznícke dokumenty | 3 013 370 |
+| Potenciálne prípady | 165 647 |
+| Pohľadávkové záznamy | 183 778 |
+| Odbery | 198 167 |
+| Laboratórne výsledky | 197 850 |
+| Zmluvy | 236 935 |
+| Faktúry | 0 |
+
+#### Dátové medzery, ktoré treba riešiť pred plnohodnotným CRM
+
+1. **Pricing V2 ešte nie je priradený zákazníkom:** existuje 12 cenových verzií, 82 cien odberov, 109 skladovacích cien, 131 pravidiel nekompletných odberov a 18 splátkových plánov, ale `pricing_customer_price_lists` má 0 priradení. `customer_products` má iba 12 záznamov.
+2. **Fakturácia nie je naplnená:** `invoices` má 0 záznamov a `scheduled_invoices` tiež 0. Súčasne existuje 15 `invoice_items` bez nadradenej faktúry. Pred ESO integráciou treba rozhodnúť, či ide o historické siroty, testovacie dáta alebo chybné importné zvyšky.
+3. **Odbery nemajú použiteľnú produktovú väzbu:** z 198 167 odberov je 197 718 bez `product_id` a 88 bez `contract_id`.
+4. **Zmluvné ID treba reconciliovať:** SQL našiel 198 079 odberov s `contract_id`, ktorý sa nenachádza v `contract_instances`. Ide o kritickú kontrolu pred prepojením odber → zmluva → cena → faktúra; nemusí ísť o fyzicky chýbajúce historické zmluvy, ale o nesúlad ID alebo importných väzieb.
+5. **Laboratórna história má otvorené väzby:** 55 výsledkov nemá existujúci odber. Pri 209 odberoch existuje viac výsledkov; to môže byť legitímna história opráv, ale musí sa označiť aktuálna verzia a auditná história.
+6. **Healthcare Network nemá aktívnu históriu reprezentantov:** tabuľky `clinic_representative_assignments` a `hospital_representative_assignments` majú 0 riadkov. Na samotných nemocniciach sú pritom 2 denormalizované reprezentantské väzby a na klinikách 0. Treba rozhodnúť, či sa majú tieto existujúce väzby spätne zapísať do historických assignment tabuliek.
+7. **Kliniky nie sú označené legacy ID:** všetkých 10 080 kliník má `legacy_id` NULL. Ak kliniky pochádzajú z ISCBC alebo iného starého zdroja, treba doplniť zdrojové mapovanie; bez neho sa nedá bezpečne vykonať idempotentná migrácia a reconciliácia kliník.
+8. **Customers má minimum nových väzieb:** iba 1 zákazník má `clinic_id`, 1 `collaborator_id`, 17 `health_insurance_id` a 0 `assigned_user_id`. To môže byť zámer pre historický import, ale pred novým predajom treba určiť, ktoré väzby sú povinné a ktoré sa dopĺňajú až počas procesu.
+
+Tieto výsledky menia prioritu: najprv treba uzavrieť mapovanie historických zmlúv, produktov a kliník, potom zaviesť cenové priradenia a až následne bezpečne napojiť fakturáciu na ESO. Laboratórne výsledky už v databáze vo veľkom objeme existujú, ale ich obchodný následok zatiaľ nie je spojený s V2 cenou a fakturáciou.
+
 ## 10. Technické podklady revízie
 
 | Oblasť | Hlavné podklady v repozitári |
