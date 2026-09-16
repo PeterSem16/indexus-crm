@@ -388,7 +388,7 @@ Hlavná prevádzková vetva používa script/migration/test-migration-20.cjs. Na
 
 Existuje aj fázová rodina: run-migration.sh, migrate-phase1-reference.cjs, migrate-phase2-core.cjs, migrate-phase3-collections.cjs a migrate-phase4-invoices.cjs v script/migration/. Tieto vetvy sa nesmú bez porovnania kombinovať nad rovnakými dátami. Pred produkčným použitím treba zvoliť jednu autoritatívnu cestu a zosúladiť jej výstupy s aktuálnou schémou, najmä pri zmluvách, fakturačných položkách a úhradách.
 
-verify-migration.cjs porovnáva počty vybraných zdrojových a cieľových evidencií. Nie je úplným dôkazom finančnej zhody, správnych väzieb ani bezpečnej opakovateľnosti importu. Obsahuje aj vzorky osobných údajov; jeho surový výstup sa neposiela do chatu. Zdieľajú sa iba anonymizované agregácie. Prehľadový SQL z kapitoly 9 nenahrádza samostatnú zdrojovo-cieľovú reconciliáciu ISCBC.
+verify-migration.cjs porovnáva počty vybraných zdrojových a cieľových evidencií. Nie je úplným dôkazom finančnej zhody, správnych väzieb ani bezpečnej opakovateľnosti importu. Obsahuje aj vzorky osobných údajov; jeho surový výstup sa neposiela do chatu. Zdieľajú sa iba anonymizované agregácie. Prehľadový SQL z kapitoly 8 nenahrádza samostatnú zdrojovo-cieľovú reconciliáciu ISCBC.
 
 ### 10.5 Etapy riadenej migrácie
 
