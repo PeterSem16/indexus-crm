@@ -11,4 +11,14 @@ if (!process.env.DATABASE_URL) {
 }
 
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+// PostgreSQL can terminate an idle connection during a database restart or
+// maintenance operation. node-postgres emits that event on the pool; without
+// a listener Node treats it as an unhandled EventEmitter error and exits the
+// whole application. The dead client is discarded by pg-pool and the next
+// query will establish a fresh connection.
+pool.on("error", (error) => {
+  console.error("[db] Idle PostgreSQL client error:", error.message);
+});
+
 export const db = drizzle(pool, { schema });
