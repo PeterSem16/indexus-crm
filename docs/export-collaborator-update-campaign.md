@@ -46,23 +46,18 @@ node scripts/export-collaborator-update-campaign.cjs \
 
 ## Obsah XLSX
 
-- `persons` — všetky netajné stĺpce z `collaborators`, údaje o adresách a
-  `collaborator_other_data` v JSON stĺpcoch a súhrnné príznaky kampane.
-- `campaign_requests` — jeden riadok na request, stav, email použitý v kampani,
-  dátumy odoslania/otvorenia/odovzdania/schválenia a odoslané dáta.
-- `field_audit` — každý formulárom odoslaný údaj. Obsahuje príznaky:
-  `obtained_in_campaign`, `changed_in_submission`,
-  `updated_by_this_campaign` a aktuálnu hodnotu v databáze.
-- `campaign_changes` — jeden riadok na pole, ktoré aplikácia pri odovzdaní
-  zaznamenala ako zmenené; obsahuje pôvodnú a novú hodnotu, cieľové pole,
-  hodnotu zapisovanú pri schválení a výsledok porovnania s databázou.
-- `field_snapshots` — read-only kontrola riadkov z `contact_field_snapshots`
-  pre `campaign_id` danej kampane. Ak je list prázdny, pre kampaň nebol nájdený
-  žiadny delta-tracking snapshot.
-- `addresses` — všetky adresné riadky osoby.
-- `other_data` — riadky z `collaborator_other_data`.
-- `summary` — počty a identifikácia kampane.
-- `README` — význam stĺpcov a limity exportu.
+Export má iba dva listy:
+
+- `persons` — vždy jeden riadok na jedného osloveného spolupracovníka.
+  Obsahuje aktuálne údaje z `collaborators`, explicitné `iscbc_legacy_id`,
+  údaje o kampani a JSON stĺpce s adresami, ostatnými údajmi, dohodami,
+  snapshotmi a detailmi kampanijných requestov.
+- `summary` — identifikácia kampane, počty requestov/osôb/zmien a kontrola
+  nájdených `contact_field_snapshots`.
+
+Stĺpce z hlavnej tabuľky, ktoré nemajú vyplnenú hodnotu ani pri jednom
+exportovanom spolupracovníkovi, sa do listu `persons` nezaradia. Tým zostane
+výsledný list kratší bez straty vyplnených údajov.
 
 JMHZ polia `birthCountry` a `educationRequired` sú označené ako
 `request_only`, pretože ich aktuálny schvaľovací flow uchováva iba v requeste a

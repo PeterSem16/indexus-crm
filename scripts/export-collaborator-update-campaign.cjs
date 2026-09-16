@@ -2,15 +2,12 @@
 /**
  * Read-only export of a collaborator Data Update campaign.
  *
- * The workbook contains:
- *   - persons: all non-secret columns from collaborators
- *   - campaign_requests: one row per campaign request
- *   - field_audit: every field submitted through the campaign
- *   - campaign_changes: only fields recorded as changed by the form
- *   - field_snapshots: contact_field_snapshots rows for this campaign
- *   - addresses: all collaborator address rows
- *   - other_data: collaborator_other_data rows
- *   - summary and README
+ * The workbook contains exactly two sheets:
+ *   - persons: one row per collaborator reached by the campaign
+ *   - summary: campaign totals and export notes
+ *
+ * One-to-many records (addresses, agreements and field snapshots) are kept in
+ * JSON columns in the same person row so that no person is split across sheets.
  *
  * It deliberately does not export request tokens or password hashes.
  *
@@ -159,7 +156,11 @@ function writeSheet(workbook, name, rows, truncationState, preferredColumns = []
   for (const row of normalizedRows) {
     for (const key of Object.keys(row)) keys.add(key);
   }
-  const columns = [...keys];
+  const columns = [...keys].filter(key =>
+    preferredColumns.includes(key) ||
+    normalizedRows.some(row => row[key] !== null && row[key] !== undefined &&
+      (typeof row[key] !== "string" || row[key].trim() !== "")),
+  );
   const sheet = xlsx.utils.json_to_sheet(
     normalizedRows.length > 0 ? normalizedRows : [{}],
     { header: columns },
@@ -237,6 +238,16 @@ function addressMap(addressRows) {
 
 function otherDataMap(rows) {
   return new Map(rows.map(row => [row.collaborator_id, row.other_data]));
+}
+
+function relatedRowsMap(rows, valueKey) {
+  const byCollaborator = new Map();
+  for (const row of rows) {
+    const list = byCollaborator.get(row.collaborator_id) || [];
+    list.push(row[valueKey]);
+    byCollaborator.set(row.collaborator_id, list);
+  }
+  return byCollaborator;
 }
 
 function addressFor(addresses, type) {
@@ -353,26 +364,62 @@ function submittedFieldRows(request, person, addresses) {
   return rows;
 }
 
-function personRow(person, addresses, otherData, requestRows, fieldRows, changeRows) {
+function personRow(
+  person,
+  addresses,
+  otherData,
+  agreements,
+  snapshots,
+  requestRows,
+  fieldRows,
+  changeRows,
+) {
   const row = {};
   for (const [key, value] of Object.entries(person || {})) {
     if (SECRET_KEY_RE.test(key)) continue;
     row[key] = value;
   }
+  row.collaborator_id = person?.id || row.collaborator_id || "";
+  row.iscbc_legacy_id = person?.legacy_id || "";
   row.mobile_password_hash_present = person && person.mobile_password_hash ? "YES" : "NO";
   row.addresses_json = addresses || [];
   row.other_data_json = otherData || "";
+  row.agreements_json = agreements || [];
+  row.contact_field_snapshots_json = snapshots || [];
   row.campaign_request_count = requestRows.length;
   row.campaign_request_ids = requestRows.map(request => request.id).join(", ");
   row.campaign_statuses = [...new Set(requestRows.map(request => request.status))].join(", ");
+  row.campaign_emails = [...new Set(requestRows.map(request => request.email).filter(Boolean))].join(", ");
+  row.campaign_sent_at = requestRows.map(request => request.sent_at).filter(Boolean).sort()[0] || "";
+  row.campaign_opened_at = requestRows.map(request => request.opened_at).filter(Boolean).sort()[0] || "";
+  row.campaign_submitted_at = requestRows.map(request => request.submitted_at).filter(Boolean).sort()[0] || "";
+  row.campaign_reviewed_at = requestRows.map(request => request.reviewed_at).filter(Boolean).sort()[0] || "";
   row.campaign_submitted = requestRows.some(request => request.submitted_at) ? "YES" : "NO";
   row.campaign_approved = requestRows.some(request => request.status === "approved") ? "YES" : "NO";
   row.campaign_changed_field_count = changeRows.length;
   row.campaign_updated_field_count = fieldRows.filter(field => field.updated_by_this_campaign === "YES").length;
+  row.campaign_obtained_field_count = fieldRows.length;
+  row.campaign_obtained_fields = [...new Set(fieldRows.map(field => field.field))].join(", ");
   row.campaign_changed_fields = [...new Set(changeRows.map(change => change.field))].join(", ");
   row.campaign_updated_fields = [...new Set(
     fieldRows.filter(field => field.updated_by_this_campaign === "YES").map(field => field.field),
   )].join(", ");
+  row.campaign_requests_json = requestRows.map(request => ({
+    request_id: request.id,
+    email: request.email,
+    language: request.language,
+    status: request.status,
+    sent_at: request.sent_at,
+    opened_at: request.opened_at,
+    submitted_at: request.submitted_at,
+    reviewed_by: request.reviewed_by,
+    reviewed_at: request.reviewed_at,
+    review_note: request.review_note,
+    submitted_data: request.submitted_data,
+    changes: request.changes,
+  }));
+  row.campaign_field_audit_json = fieldRows;
+  row.campaign_changes_json = changeRows;
   return row;
 }
 
@@ -417,6 +464,7 @@ async function main() {
 
     let addressRows = [];
     let otherRows = [];
+    let agreementRows = [];
     const snapshotsResult = await client.query(
       `SELECT contact_id, campaign_id, field_name, last_value, updated_at
          FROM contact_field_snapshots
@@ -425,7 +473,7 @@ async function main() {
       [campaign.id],
     );
     if (collaboratorIds.length > 0) {
-      const [addresses, otherData] = await Promise.all([
+      const [addresses, otherData, agreements] = await Promise.all([
         client.query(
           `SELECT collaborator_id, to_jsonb(a) AS address
              FROM collaborator_addresses a
@@ -439,21 +487,38 @@ async function main() {
             WHERE collaborator_id = ANY($1::text[])`,
           [collaboratorIds],
         ),
+        client.query(
+          `SELECT collaborator_id, to_jsonb(a) AS agreement
+             FROM collaborator_agreements a
+            WHERE collaborator_id = ANY($1::text[])
+            ORDER BY collaborator_id, id`,
+          [collaboratorIds],
+        ),
       ]);
       addressRows = addresses.rows;
       otherRows = otherData.rows;
+      agreementRows = agreements.rows;
     }
 
     await client.query("COMMIT");
 
     const addressesByCollaborator = addressMap(addressRows);
     const otherByCollaborator = otherDataMap(otherRows);
-    const snapshotExportRows = snapshotsResult.rows.map(row => ({
-      ...row,
+    const agreementsByCollaborator = relatedRowsMap(agreementRows, "agreement");
+    const snapshotRows = snapshotsResult.rows.map(row => ({
+      snapshot: {
+        contact_id: row.contact_id,
+        campaign_id: row.campaign_id,
+        field_name: row.field_name,
+        last_value: row.last_value,
+        updated_at: row.updated_at,
+      },
+      contact_id: row.contact_id,
       collaborator_in_campaign_export: requests.some(request => request.collaborator_id === row.contact_id)
         ? "YES"
         : "NO",
     }));
+    const snapshotsByCollaborator = relatedRowsMap(snapshotRows, "snapshot");
     const requestsByCollaborator = new Map();
     const allChangeRows = [];
     const allFieldRows = [];
@@ -471,8 +536,8 @@ async function main() {
 
     const personsById = new Map();
     for (const request of requests) {
-      if (!request.person || !request.collaborator_id) continue;
-      personsById.set(request.collaborator_id, request.person);
+      if (!request.collaborator_id) continue;
+      personsById.set(request.collaborator_id, request.person || { id: request.collaborator_id });
     }
 
     const personRows = [];
@@ -484,42 +549,14 @@ async function main() {
       personRows.push(personRow(
         person,
         addresses,
-        otherByCollaborator.get(collaboratorId)?.other_data || "",
+        otherByCollaborator.get(collaboratorId) || "",
+        agreementsByCollaborator.get(collaboratorId) || [],
+        snapshotsByCollaborator.get(collaboratorId) || [],
         requestsForPerson,
         fields,
         changes,
       ));
     }
-
-    const requestRows = requests.map(request => ({
-      request_id: request.id,
-      campaign_id: request.campaign_id,
-      collaborator_id: request.collaborator_id,
-      collaborator_legacy_id: request.person?.legacy_id || "",
-      collaborator_name: [
-        request.person?.title_before,
-        request.person?.first_name,
-        request.person?.last_name,
-        request.person?.title_after,
-      ].filter(Boolean).join(" "),
-      campaign_email: request.email,
-      language: request.language,
-      status: request.status,
-      send_error: request.send_error,
-      sent_at: request.sent_at,
-      reminded_at: request.reminded_at,
-      opened_at: request.opened_at,
-      submitted_at: request.submitted_at,
-      expires_at: request.expires_at,
-      reviewed_by: request.reviewed_by,
-      reviewed_at: request.reviewed_at,
-      review_note: request.review_note,
-      submitted_data_json: request.submitted_data,
-      change_count: Array.isArray(request.changes) ? request.changes.length : 0,
-    }));
-
-    const addressExportRows = addressRows.map(row => row.address);
-    const otherExportRows = otherRows.map(row => row.other_data);
     const summaryRows = [
       { metric: "campaign_id", value: campaign.id },
       { metric: "campaign_name", value: campaign.name },
@@ -538,34 +575,20 @@ async function main() {
       { metric: "submitted_field_rows", value: allFieldRows.length },
       { metric: "fields_marked_updated_by_campaign", value: allFieldRows.filter(row => row.updated_by_this_campaign === "YES").length },
       { metric: "fields_not_written_to_card", value: allFieldRows.filter(row => row.destination.startsWith("request_only.")).length },
-      { metric: "contact_field_snapshot_rows_for_campaign", value: snapshotExportRows.length },
-      { metric: "contact_field_snapshot_contacts_for_campaign", value: new Set(snapshotExportRows.map(row => row.contact_id)).size },
+      { metric: "contact_field_snapshot_rows_for_campaign", value: snapshotRows.length },
+      { metric: "contact_field_snapshot_contacts_for_campaign", value: new Set(snapshotRows.map(row => row.contact_id)).size },
+      { metric: "agreements_for_exported_persons", value: agreementRows.length },
       { metric: "exported_at_utc", value: new Date().toISOString() },
     ];
 
-    const readmeRows = [
-      { item: "Scope", value: "Read-only export of one collaborator Data Update campaign." },
-      { item: "Persons", value: "All non-secret columns from collaborators, plus campaign summary flags." },
-      { item: "Obtained in campaign", value: "field_audit.obtained_in_campaign = YES means the public form submitted that field." },
-      { item: "Changed in submission", value: "field_audit.changed_in_submission = YES means the application recorded a before/after change." },
-      { item: "Updated by campaign", value: "YES means the request was approved, the field is writable to the card, and the current database value matches the approved value." },
-      { item: "Field snapshots", value: "field_snapshots contains contact_field_snapshots rows with this campaign_id. An empty sheet means no delta-tracking snapshot was found for the campaign." },
-      { item: "Request-only", value: "JMHZ birthCountry and educationRequired are retained on the campaign request and are not written to the collaborator card by the current application." },
-      { item: "Sensitive fields", value: "Request tokens and mobile_password_hash are not exported. mobile_password_hash_present shows only whether a hash exists. Bank and personal data are included because the export is intended for a protected server-side audit." },
-      { item: "Important limitation", value: "For submitted fields with no recorded change, the application does not store a separate pre-submission snapshot; original_value is blank. Exact before/after values are available for rows in campaign_changes." },
-    ];
-
     const workbook = xlsx.utils.book_new();
-    writeSheet(workbook, "persons", personRows, truncationState);
-    writeSheet(workbook, "campaign_requests", requestRows, truncationState);
-    writeSheet(workbook, "field_audit", allFieldRows, truncationState);
-    writeSheet(workbook, "campaign_changes", allChangeRows, truncationState);
-    writeSheet(workbook, "field_snapshots", snapshotExportRows, truncationState);
-    writeSheet(workbook, "addresses", addressExportRows, truncationState);
-    writeSheet(workbook, "other_data", otherExportRows, truncationState);
+    writeSheet(workbook, "persons", personRows, truncationState, [
+      "collaborator_id", "iscbc_legacy_id", "first_name", "last_name",
+      "campaign_request_count", "campaign_statuses", "campaign_obtained_fields",
+      "campaign_changed_fields", "campaign_updated_fields",
+    ]);
     summaryRows.push({ metric: "truncated_excel_cells", value: truncationState.count });
     writeSheet(workbook, "summary", summaryRows, truncationState, ["metric", "value"]);
-    writeSheet(workbook, "README", readmeRows, truncationState, ["item", "value"]);
 
     fs.mkdirSync(path.dirname(path.resolve(outputPath)), { recursive: true });
     xlsx.writeFile(workbook, outputPath);
