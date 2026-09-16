@@ -3025,19 +3025,22 @@ export async function registerRoutes(
       }
       
       // OAuth callbacks must land on the production callback URL registered in
-      // Azure AD. Route the OAuth through production regardless of where the login
-      // was started, and remember the originating origin so production can hand
-      // the session back here afterwards.
+      // Azure AD in production. Replit development has its own registered callback,
+      // so keep that login on the originating Replit server where its session and
+      // user database live.
       const prodBase = (process.env.APP_BASE_URL || "https://indexus.cordbloodcenter.com").replace(/\/$/, "");
-      const redirectUri = `${prodBase}/api/auth/microsoft/callback`;
+      const currentOrigin = `https://${req.get("host")}`;
+      const isReplitDev = isAllowedLoginReturnOrigin(currentOrigin)
+        && new URL(currentOrigin).hostname.endsWith(".replit.dev");
+      const callbackBase = isReplitDev ? currentOrigin : prodBase;
+      const redirectUri = `${callbackBase}/api/auth/microsoft/callback`;
       const scopes = ["openid", "profile", "email", "User.Read"];
       
       // State: login:{userId} for same-origin (production) login, or a SIGNED
       // state (login:v2:...) for cross-origin handoff so the production callback
       // can trust the returnOrigin without it being forgeable.
-      const currentOrigin = `https://${req.get("host")}`;
       let stateParam: string;
-      if (currentOrigin !== prodBase) {
+      if (currentOrigin !== callbackBase) {
         // Only sign a cross-origin handoff for origins we explicitly trust, so a
         // spoofed Host header can't make us sign an attacker-controlled origin.
         if (!isAllowedLoginReturnOrigin(currentOrigin)) {
