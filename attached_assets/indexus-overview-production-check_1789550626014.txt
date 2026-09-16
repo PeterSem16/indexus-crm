@@ -1,0 +1,871 @@
+Pager usage is off.
+Timing is on.
+BEGIN
+Time: 0.139 ms
+SET
+Time: 0.079 ms
+SET
+Time: 0.046 ms
+          checked_at           | read_only 
+-------------------------------+-----------
+ 2026-09-16 09:22:11.107419+00 | on
+(1 row)
+
+Time: 0.395 ms
+             table_name              | exists_on_server 
+-------------------------------------+------------------
+ call_logs                           | t
+ campaign_contacts                   | t
+ campaigns                           | t
+ clinic_cooperation_statuses         | t
+ clinic_events                       | t
+ clinic_referrals                    | t
+ clinic_representative_assignments   | t
+ clinics                             | t
+ collaborator_activities             | t
+ collaborator_agreements             | t
+ collaborators                       | t
+ collection_lab_results              | t
+ collections                         | t
+ communication_messages              | t
+ contract_instance_products          | t
+ contract_instances                  | t
+ customer_consents                   | t
+ customer_debt_collection            | t
+ customer_documents                  | t
+ customer_notes                      | t
+ customer_potential_cases            | t
+ customer_products                   | t
+ customers                           | t
+ health_insurance_companies          | t
+ hospital_network_members            | t
+ hospital_networks                   | t
+ hospital_representative_assignments | t
+ hospitals                           | t
+ invoice_items                       | t
+ invoices                            | t
+ laboratories                        | t
+ partner_categories                  | t
+ pricing_collection_prices           | t
+ pricing_components                  | t
+ pricing_customer_price_lists        | t
+ pricing_incomplete_rules            | t
+ pricing_installment_plans           | t
+ pricing_price_lists                 | t
+ pricing_product_components          | t
+ pricing_products                    | t
+ pricing_storage_prices              | t
+ scheduled_invoices                  | t
+(42 rows)
+
+Time: 0.742 ms
+ table_name | row_count 
+------------+-----------
+ call_logs  |      1967
+(1 row)
+
+Time: 2.592 ms
+    table_name     | row_count 
+-------------------+-----------
+ campaign_contacts |       734
+(1 row)
+
+Time: 0.621 ms
+ table_name | row_count 
+------------+-----------
+ campaigns  |         5
+(1 row)
+
+Time: 0.240 ms
+         table_name          | row_count 
+-----------------------------+-----------
+ clinic_cooperation_statuses |       104
+(1 row)
+
+Time: 0.275 ms
+  table_name   | row_count 
+---------------+-----------
+ clinic_events |        81
+(1 row)
+
+Time: 0.228 ms
+    table_name    | row_count 
+------------------+-----------
+ clinic_referrals |         8
+(1 row)
+
+Time: 0.240 ms
+            table_name             | row_count 
+-----------------------------------+-----------
+ clinic_representative_assignments |         0
+(1 row)
+
+Time: 0.295 ms
+ table_name | row_count 
+------------+-----------
+ clinics    |     10080
+(1 row)
+
+Time: 0.953 ms
+       table_name        | row_count 
+-------------------------+-----------
+ collaborator_activities |    344756
+(1 row)
+
+Time: 16.651 ms
+       table_name        | row_count 
+-------------------------+-----------
+ collaborator_agreements |     59549
+(1 row)
+
+Time: 6.413 ms
+  table_name   | row_count 
+---------------+-----------
+ collaborators |     20136
+(1 row)
+
+Time: 1.692 ms
+       table_name       | row_count 
+------------------------+-----------
+ collection_lab_results |    197850
+(1 row)
+
+Time: 19.760 ms
+ table_name  | row_count 
+-------------+-----------
+ collections |    198167
+(1 row)
+
+Time: 11.884 ms
+       table_name       | row_count 
+------------------------+-----------
+ communication_messages |   1163531
+(1 row)
+
+Time: 27.395 ms
+         table_name         | row_count 
+----------------------------+-----------
+ contract_instance_products |         6
+(1 row)
+
+Time: 0.294 ms
+     table_name     | row_count 
+--------------------+-----------
+ contract_instances |    236935
+(1 row)
+
+Time: 17.135 ms
+    table_name     | row_count 
+-------------------+-----------
+ customer_consents |        12
+(1 row)
+
+Time: 0.301 ms
+        table_name        | row_count 
+--------------------------+-----------
+ customer_debt_collection |    183778
+(1 row)
+
+Time: 11.384 ms
+     table_name     | row_count 
+--------------------+-----------
+ customer_documents |   3013370
+(1 row)
+
+Time: 139.638 ms
+   table_name   | row_count 
+----------------+-----------
+ customer_notes |   2404177
+(1 row)
+
+Time: 88.238 ms
+        table_name        | row_count 
+--------------------------+-----------
+ customer_potential_cases |    165647
+(1 row)
+
+Time: 9.965 ms
+    table_name     | row_count 
+-------------------+-----------
+ customer_products |        12
+(1 row)
+
+Time: 0.270 ms
+ table_name | row_count 
+------------+-----------
+ customers  |    165463
+(1 row)
+
+Time: 12.250 ms
+         table_name         | row_count 
+----------------------------+-----------
+ health_insurance_companies |         4
+(1 row)
+
+Time: 0.248 ms
+        table_name        | row_count 
+--------------------------+-----------
+ hospital_network_members |         5
+(1 row)
+
+Time: 0.157 ms
+    table_name     | row_count 
+-------------------+-----------
+ hospital_networks |         1
+(1 row)
+
+Time: 0.184 ms
+             table_name              | row_count 
+-------------------------------------+-----------
+ hospital_representative_assignments |         0
+(1 row)
+
+Time: 0.240 ms
+ table_name | row_count 
+------------+-----------
+ hospitals  |      1213
+(1 row)
+
+Time: 0.357 ms
+  table_name   | row_count 
+---------------+-----------
+ invoice_items |        15
+(1 row)
+
+Time: 0.534 ms
+ table_name | row_count 
+------------+-----------
+ invoices   |         0
+(1 row)
+
+Time: 0.340 ms
+  table_name  | row_count 
+--------------+-----------
+ laboratories |         9
+(1 row)
+
+Time: 0.145 ms
+     table_name     | row_count 
+--------------------+-----------
+ partner_categories |        17
+(1 row)
+
+Time: 0.185 ms
+        table_name         | row_count 
+---------------------------+-----------
+ pricing_collection_prices |        82
+(1 row)
+
+Time: 0.257 ms
+     table_name     | row_count 
+--------------------+-----------
+ pricing_components |         5
+(1 row)
+
+Time: 0.147 ms
+          table_name          | row_count 
+------------------------------+-----------
+ pricing_customer_price_lists |         0
+(1 row)
+
+Time: 0.420 ms
+        table_name        | row_count 
+--------------------------+-----------
+ pricing_incomplete_rules |       131
+(1 row)
+
+Time: 0.212 ms
+        table_name         | row_count 
+---------------------------+-----------
+ pricing_installment_plans |        18
+(1 row)
+
+Time: 0.149 ms
+     table_name      | row_count 
+---------------------+-----------
+ pricing_price_lists |        12
+(1 row)
+
+Time: 0.210 ms
+         table_name         | row_count 
+----------------------------+-----------
+ pricing_product_components |        12
+(1 row)
+
+Time: 0.146 ms
+    table_name    | row_count 
+------------------+-----------
+ pricing_products |         5
+(1 row)
+
+Time: 0.142 ms
+       table_name       | row_count 
+------------------------+-----------
+ pricing_storage_prices |       109
+(1 row)
+
+Time: 0.211 ms
+     table_name     | row_count 
+--------------------+-----------
+ scheduled_invoices |         0
+(1 row)
+
+Time: 0.184 ms
+Time: 0.260 ms
+            check_name            
+----------------------------------
+ Zakaznici podla krajiny a stavov
+(1 row)
+
+ country | status  | client_status | data_source | customers 
+---------+---------+---------------+-------------+-----------
+ AR      | active  | acquired      | iscbc       |         1
+ AT      | active  | acquired      | iscbc       |       674
+ AT      | active  | in_process    | iscbc       |         4
+ AT      | active  | terminated    | iscbc       |        39
+ AU      | active  | acquired      | iscbc       |         1
+ BE      | active  | acquired      | iscbc       |         6
+ BG      | active  | acquired      | iscbc       |         1
+ BG      | active  | terminated    | iscbc       |         1
+ CA      | active  | acquired      | iscbc       |         2
+ CA      | active  | in_process    | iscbc       |         3
+ CF      | active  | acquired      | iscbc       |         1
+ CH      | active  | acquired      | iscbc       |        24
+ CH      | active  | in_process    | iscbc       |         1
+ CH      | active  | terminated    | iscbc       |         2
+ CY      | active  | acquired      | iscbc       |         1
+ CZ      | active  | acquired      | iscbc       |      8593
+ CZ      | active  | in_process    | iscbc       |        84
+ CZ      | active  | potential     |             |         1
+ CZ      | active  | terminated    | iscbc       |      1098
+ CZ      | pending | potential     |             |         1
+ DE      | active  | acquired      | iscbc       |        63
+ DE      | active  | in_process    | iscbc       |         7
+ DE      | active  | in_process    |             |         1
+ DE      | active  | terminated    | iscbc       |         1
+ DK      | active  | acquired      | iscbc       |         3
+ DK      | active  | terminated    | iscbc       |         1
+ ES      | active  | acquired      | iscbc       |        10
+ ES      | active  | terminated    | iscbc       |         1
+ FR      | active  | acquired      | iscbc       |        14
+ FR      | active  | in_process    | iscbc       |         1
+ GB      | active  | acquired      | iscbc       |        14
+ GB      | active  | in_process    | iscbc       |         3
+ HR      | active  | acquired      | iscbc       |         5
+ HU      | active  | acquired      | iscbc       |     15327
+ HU      | active  | in_process    | iscbc       |        47
+ HU      | active  | terminated    | iscbc       |      1587
+ IE      | active  | acquired      | iscbc       |         4
+ IN      | active  | acquired      | iscbc       |         1
+ IR      | active  | acquired      | iscbc       |         1
+ IT      | active  | acquired      | iscbc       |      1119
+ IT      | active  | in_process    | iscbc       |         1
+ IT      | active  | terminated    | iscbc       |        75
+ IT      | pending | potential     |             |         1
+ JO      | active  | acquired      | iscbc       |         2
+ KN      | active  | acquired      | iscbc       |         4
+ LU      | active  | acquired      | iscbc       |        11
+ LV      | active  | acquired      | iscbc       |         1
+ MD      | active  | acquired      | iscbc       |        36
+ MD      | active  | in_process    | iscbc       |         7
+ MT      | active  | acquired      | iscbc       |         1
+ MX      | active  | acquired      | iscbc       |         1
+ NL      | active  | acquired      | iscbc       |         8
+ NL      | active  | in_process    | iscbc       |         1
+ NO      | active  | acquired      | iscbc       |         3
+ NZ      | active  | acquired      | iscbc       |         1
+ PL      | active  | acquired      | iscbc       |         7
+ PL      | active  | in_process    | iscbc       |         1
+ PL      | active  | terminated    | iscbc       |         1
+ PT      | active  | acquired      | iscbc       |         2
+ PT      | active  | in_process    | iscbc       |         1
+ RO      | active  | acquired      | iscbc       |     44844
+ RO      | active  | in_process    | iscbc       |     32072
+ RO      | active  | terminated    | iscbc       |      1995
+ RO      | pending | potential     |             |         1
+ RS      | active  | acquired      | iscbc       |         9
+ RS      | active  | terminated    | iscbc       |         1
+ RU      | active  | acquired      | iscbc       |         3
+ SE      | active  | acquired      | iscbc       |         2
+ SE      | active  | in_process    | iscbc       |         2
+ SE      | active  | terminated    | iscbc       |         1
+ SI      | active  | acquired      | iscbc       |         3
+ SK      | active  | acquired      | iscbc       |     51969
+ SK      | active  | acquired      |             |         1
+ SK      | active  | in_process    | iscbc       |       300
+ SK      | active  | in_process    |             |         4
+ SK      | active  | potential     |             |         1
+ SK      | active  | terminated    | iscbc       |      5182
+ SK      | pending | in_process    |             |         1
+ SK      | pending | potential     |             |         3
+ SM      | active  | acquired      | iscbc       |         1
+ SZ      | active  | in_process    | iscbc       |         1
+ TR      | active  | acquired      | iscbc       |         2
+ UA      | active  | acquired      | iscbc       |       135
+ UA      | active  | in_process    | iscbc       |         2
+ UA      | active  | terminated    | iscbc       |         4
+ US      | active  | acquired      | iscbc       |         9
+ US      | active  | in_process    | iscbc       |         1
+ VN      | active  | acquired      | iscbc       |         1
+(88 rows)
+
+Time: 34.599 ms
+          check_name           
+-------------------------------
+ Zakaznici s klucovymi vazbami
+(1 row)
+
+ customers | with_clinic | with_collaborator | with_health_insurance | with_assigned_user 
+-----------+-------------+-------------------+-----------------------+--------------------
+    165463 |           1 |                 1 |                    17 |                  0
+(1 row)
+
+Time: 24.166 ms
+      check_name      
+----------------------
+ Zakaznicke artefakty
+(1 row)
+
+ customer_products | customer_notes | customer_consents | potential_cases | customer_documents | debt_collection_rows 
+-------------------+----------------+-------------------+-----------------+--------------------+----------------------
+                12 |        2404177 |                12 |          165647 |            3013370 |               183778
+(1 row)
+
+Time: 249.109 ms
+            check_name            
+----------------------------------
+ Kliniky podla krajiny a aktivity
+(1 row)
+
+ country_code | is_active | clinics 
+--------------+-----------+---------
+ AT           | t         |      18
+ CZ           | t         |     527
+ DE           | t         |    4531
+ HU           | t         |      89
+ IT           | t         |     490
+ RO           | t         |     439
+ SK           | f         |       1
+ SK           | t         |    1572
+ US           | t         |    2413
+(9 rows)
+
+Time: 3.353 ms
+       check_name        
+-------------------------
+ Pokrytie profilu klinik
+(1 row)
+
+ clinics | with_pzs_or_pzk_code | with_id_zz | with_ico | with_email | with_phone | with_gps | with_representative 
+---------+----------------------+------------+----------+------------+------------+----------+---------------------
+   10080 |                  753 |        753 |      753 |       2143 |       5160 |     8363 |                   0
+(1 row)
+
+Time: 4.521 ms
+           check_name            
+---------------------------------
+ Kliniky podla obchodnych stavov
+(1 row)
+
+    initial_status     | interest_cooperation | interest_contract | contract_status | clinics 
+-----------------------+----------------------+-------------------+-----------------+---------
+ initial:not_contacted |                      |                   |                 |     756
+ not_contacted         |                      |                   |                 |       1
+                       | no                   | no                | terminated      |       1
+                       | no                   | yes               | sent            |       1
+                       | no                   |                   |                 |       1
+                       | yes                  | no                | terminated      |       1
+                       | yes                  | yes               |                 |       3
+                       | yes                  |                   |                 |       4
+                       |                      | yes               | sent            |       1
+                       |                      |                   |                 |    9311
+(10 rows)
+
+Time: 2.789 ms
+             check_name             
+------------------------------------
+ Nemocnice podla krajiny a aktivity
+(1 row)
+
+ country_code | is_active | hospitals | with_representative | with_laboratory 
+--------------+-----------+-----------+---------------------+-----------------
+ ???          | t         |        22 |                   0 |              22
+ AT           | t         |        90 |                   0 |              88
+ BE           | t         |         1 |                   0 |               1
+ BG           | t         |         1 |                   0 |               1
+ CH           | t         |        13 |                   0 |               0
+ CZ           | f         |         2 |                   0 |               0
+ CZ           | t         |       172 |                   0 |             107
+ DE           | t         |        56 |                   0 |              14
+ FR           | t         |         1 |                   0 |               1
+ HU           | f         |        46 |                   0 |              43
+ HU           | t         |       119 |                   0 |              72
+ IE           | t         |         1 |                   0 |               1
+ IT           | f         |         2 |                   0 |               2
+ IT           | t         |       335 |                   1 |             299
+ MD           | t         |         6 |                   0 |               6
+ PL           | t         |         1 |                   0 |               1
+ RO           | f         |         1 |                   0 |               1
+ RO           | t         |       242 |                   0 |             199
+ SK           | f         |        20 |                   0 |              20
+ SK           | t         |        36 |                   1 |              36
+ US           | t         |        46 |                   0 |               0
+(21 rows)
+
+Time: 0.594 ms
+             check_name             
+------------------------------------
+ Healthcare Network a reprezentanti
+(1 row)
+
+ clinic_referrals | clinic_representative_history | hospital_representative_history | hospital_networks | hospital_network_members | clinic_events | partner_categories 
+------------------+-------------------------------+---------------------------------+-------------------+--------------------------+---------------+--------------------
+                8 |                             0 |                               0 |                 1 |                        5 |            81 |                 17
+(1 row)
+
+Time: 0.346 ms
+       check_name        
+-------------------------
+ Stavy spoluprace klinik
+(1 row)
+
+         status_key         |    phase    | clinic_status_rows | clinics 
+----------------------------+-------------+--------------------+---------
+ acquisition_contacted      | acquisition |                 17 |      12
+ acquisition_in_negotiation | acquisition |                  7 |       5
+ acquisition_interested     | acquisition |                 17 |       9
+ acquisition_not_interested | acquisition |                  6 |       4
+ contract_in_negotiation    | contract    |                  4 |       2
+ contract_rejected          | contract    |                 10 |       2
+ contract_sent              | contract    |                 21 |       4
+ contract_signed            | contract    |                 10 |       3
+ retention_leaflets_sent    | retention   |                  1 |       1
+ retention_materials_sent   | retention   |                  8 |       2
+ retention_posters_sent     | retention   |                  2 |       2
+ retention_pregbook_sent    | retention   |                  1 |       1
+(12 rows)
+
+Time: 0.456 ms
+           check_name           
+--------------------------------
+ Spolupracovnici a legacy povod
+(1 row)
+
+ country_code | is_active | data_source | collaborators 
+--------------+-----------+-------------+---------------
+ AT           | f         | iscbc       |           308
+ AT           | t         | iscbc       |           484
+ AT           | t         |             |             3
+ CZ           | f         | iscbc       |           694
+ CZ           | t         | iscbc       |          3857
+ DE           | t         | iscbc       |            26
+ HU           | f         | iscbc       |           600
+ HU           | t         | iscbc       |          1188
+ IT           | t         | iscbc       |           793
+ MD           | t         | iscbc       |            13
+ RO           | f         | iscbc       |           926
+ RO           | t         | iscbc       |          5296
+ RO           | t         |             |             2
+ SK           | f         | iscbc       |           776
+ SK           | f         |             |            63
+ SK           | t         | iscbc       |          4204
+ SK           | t         |             |           903
+(17 rows)
+
+Time: 11.417 ms
+          check_name           
+-------------------------------
+ Komunikacne a zdravotne vazby
+(1 row)
+
+ communication_messages | health_insurance_companies 
+------------------------+----------------------------
+                1163531 |                          4
+(1 row)
+
+Time: 33.537 ms
+        check_name         
+---------------------------
+ Legacy importne oznacenia
+(1 row)
+
+ iscbc_customers | clinics_with_legacy_id | iscbc_hospitals | iscbc_collaborators 
+-----------------+------------------------+-----------------+---------------------
+          165448 |                      0 |             939 |               19165
+(1 row)
+
+Time: 36.546 ms
+          check_name           
+-------------------------------
+ Cenniky podla krajiny a stavu
+(1 row)
+
+ country_code |  status  | price_lists 
+--------------+----------+-------------
+ AT           | active   |           1
+ AT           | archived |           1
+ CZ           | active   |           1
+ CZ           | archived |           1
+ HU           | active   |           1
+ HU           | archived |           1
+ IT           | active   |           1
+ IT           | archived |           1
+ RO           | active   |           1
+ RO           | archived |           1
+ SK           | active   |           1
+ SK           | archived |           1
+(12 rows)
+
+Time: 0.292 ms
+               check_name               
+----------------------------------------
+ Zakaznici s priradenou cenovou verziou
+(1 row)
+
+ assignments | assigned_customers | referenced_price_lists 
+-------------+--------------------+------------------------
+           0 |                  0 |                      0
+(1 row)
+
+Time: 0.148 ms
+      check_name      
+----------------------
+ Pokrytie cien odberu
+(1 row)
+
+ price_lists_with_collection_prices | price_rows 
+------------------------------------+------------
+                                 12 |         82
+(1 row)
+
+Time: 0.141 ms
+     check_name     
+--------------------
+ Pokrytie skladneho
+(1 row)
+
+ price_lists_with_storage_prices | price_rows 
+---------------------------------+------------
+                               6 |        109
+(1 row)
+
+Time: 0.128 ms
+   check_name    
+-----------------
+ Pokrytie matice
+(1 row)
+
+ price_lists_with_incomplete_rules | rules 
+-----------------------------------+-------
+                                 6 |   131
+(1 row)
+
+Time: 0.130 ms
+     check_name     
+--------------------
+ Zmluvy podla stavu
+(1 row)
+
+      status       | contracts 
+-------------------+-----------
+ cancelled         |     14118
+ completed         |    221467
+ draft             |         9
+ pending_signature |        25
+ sent              |       645
+ signed            |       671
+(6 rows)
+
+Time: 30.765 ms
+    check_name     
+-------------------
+ Zmluvy podla meny
+(1 row)
+
+ currency | contracts 
+----------+-----------
+ EUR      |    236935
+(1 row)
+
+Time: 31.166 ms
+       check_name       
+------------------------
+ Odbery chybajuce vazby
+(1 row)
+
+ collections | without_contract | without_product | without_lab 
+-------------+------------------+-----------------+-------------
+      198167 |               88 |          197718 |          12
+(1 row)
+
+Time: 37.290 ms
+         check_name         
+----------------------------
+ Odbery neexistujuca zmluva
+(1 row)
+
+ orphan_contract_links 
+-----------------------
+                198079
+(1 row)
+
+Time: 80.626 ms
+     check_name     
+--------------------
+ Odbery podla stavu
+(1 row)
+
+ status | collections 
+--------+-------------
+      0 |          59
+      1 |           5
+      2 |          79
+      3 |         315
+      4 |         445
+      5 |         410
+      6 |      187850
+      7 |          85
+      8 |        8662
+      9 |          14
+     10 |         239
+     11 |           2
+     12 |           1
+        |           1
+(14 rows)
+
+Time: 42.195 ms
+      check_name      
+----------------------
+ Laboratorne vysledky
+(1 row)
+
+ results | collections_with_results | without_external_result_id 
+---------+--------------------------+----------------------------
+  197850 |                   197641 |                          0
+(1 row)
+
+Time: 226.135 ms
+                          check_name                           
+---------------------------------------------------------------
+ Odbery s viacerymi vysledkami - moze ist o legitimnu historiu
+(1 row)
+
+ collections_with_multiple_results | additional_result_rows 
+-----------------------------------+------------------------
+                               209 |                    209
+(1 row)
+
+Time: 168.781 ms
+            check_name            
+----------------------------------
+ Vysledky bez existujuceho odberu
+(1 row)
+
+ orphan_lab_results 
+--------------------
+                 55
+(1 row)
+
+Time: 229.539 ms
+            check_name             
+-----------------------------------
+ Aktivne laboratoria podla krajiny
+(1 row)
+
+ country_code | is_active | laboratories 
+--------------+-----------+--------------
+ CZ           | t         |            2
+ DE           | t         |            1
+ IT           | t         |            1
+ RO           | t         |            3
+ SK           | t         |            2
+(5 rows)
+
+Time: 0.279 ms
+          check_name           
+-------------------------------
+ Faktury podla krajiny a stavu
+(1 row)
+
+ customer_country | status | invoices 
+------------------+--------+----------
+(0 rows)
+
+Time: 0.195 ms
+     check_name     
+--------------------
+ Faktury podla meny
+(1 row)
+
+ currency | invoices 
+----------+----------
+(0 rows)
+
+Time: 0.111 ms
+      check_name      
+----------------------
+ Faktury podla zdroja
+(1 row)
+
+ data_source | invoices 
+-------------+----------
+(0 rows)
+
+Time: 0.095 ms
+     check_name     
+--------------------
+ Faktury bez zmluvy
+(1 row)
+
+ invoices | without_contract 
+----------+------------------
+        0 |                0
+(1 row)
+
+Time: 0.122 ms
+      check_name      
+----------------------
+ Faktury bez poloziek
+(1 row)
+
+ invoices_without_items 
+------------------------
+                      0
+(1 row)
+
+Time: 0.172 ms
+     check_name      
+---------------------
+ Polozky bez faktury
+(1 row)
+
+ orphan_invoice_items 
+----------------------
+                   15
+(1 row)
+
+Time: 0.146 ms
+    check_name     
+-------------------
+ Planovane faktury
+(1 row)
+
+ status | scheduled 
+--------+-----------
+(0 rows)
+
+Time: 0.126 ms
+                   check_name                   
+------------------------------------------------
+ Planovane faktury oznacene created bez dokladu
+(1 row)
+
+ created_without_invoice_link 
+------------------------------
+                            0
+(1 row)
+
+Time: 0.107 ms
+Time: 15.824 ms
+COMMIT
+Time: 0.226 ms
