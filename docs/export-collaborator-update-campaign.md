@@ -51,13 +51,25 @@ Export má iba dva listy:
 - `persons` — vždy jeden riadok na jedného osloveného spolupracovníka.
   Obsahuje aktuálne údaje z `collaborators`, explicitné `iscbc_legacy_id`,
   údaje o kampani a JSON stĺpce s adresami, ostatnými údajmi, dohodami,
-  snapshotmi a detailmi kampanijných requestov.
+  snapshotmi a detailmi kampanijných requestov. ID nemocníc, kliník a
+  reprezentantov sú nahradené ich názvami.
 - `summary` — identifikácia kampane, počty requestov/osôb/zmien a kontrola
   nájdených `contact_field_snapshots`.
 
 Stĺpce z hlavnej tabuľky, ktoré nemajú vyplnenú hodnotu ani pri jednom
 exportovanom spolupracovníkovi, sa do listu `persons` nezaradia. Tým zostane
 výsledný list kratší bez straty vyplnených údajov.
+
+Dátum narodenia je zoradený logicky v susedných stĺpcoch
+`birth_day`, `birth_month`, `birth_year`. Kódy v `highest_education` sa
+nahrádzajú celým popisom dosiahnutého vzdelania.
+
+V hlavnom liste sa používajú farby:
+
+- žltá bunka — hodnota aktualizovaná cez kampaň,
+- zelená bunka — nová hodnota doplnená cez kampaň.
+
+Legenda je zároveň v liste `summary`.
 
 JMHZ polia `birthCountry` a `educationRequired` sú označené ako
 `request_only`, pretože ich aktuálny schvaľovací flow uchováva iba v requeste a

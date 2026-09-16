@@ -29,6 +29,7 @@
 const fs = require("fs");
 const path = require("path");
 const xlsx = require("xlsx");
+const AdmZip = require("adm-zip");
 const { Pool } = require("pg");
 
 const EDUCATION_TO_CARD_VALUE = {
@@ -64,6 +65,10 @@ const PROFESSION_TO_CARD_VALUE = {
   "Praktické sestry (dříve zdravotničtí asistenti)": "practical_nurses",
   "Ošetřovatelé ve zdravotnických zařízeních": "healthcare_assistants",
 };
+
+const CARD_VALUE_TO_EDUCATION = Object.fromEntries(
+  Object.entries(EDUCATION_TO_CARD_VALUE).map(([label, code]) => [code, label]),
+);
 
 const JMHZ_DESTINATIONS = {
   jmhz_educationHighest: {
@@ -105,6 +110,11 @@ const JMHZ_DESTINATIONS = {
 
 const ADDRESS_FIELD_RE = /^addr_(permanent|correspondence)_(streetNumber|city|postalCode)$/;
 const SECRET_KEY_RE = /(password|access_token|refresh_token|secret)/i;
+const RELATION_ID_KEYS = new Set([
+  "hospital_id", "hospital_ids",
+  "clinic_id", "clinic_ids",
+  "representative_id", "representative_ids",
+]);
 const EXCEL_CELL_LIMIT = 32767;
 
 function arg(name, fallback = null) {
@@ -126,6 +136,11 @@ function snakeCase(value) {
   return String(value)
     .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
     .toLowerCase();
+}
+
+function fullEducation(value) {
+  const code = text(value).toUpperCase();
+  return CARD_VALUE_TO_EDUCATION[code] || value;
 }
 
 function jsonString(value) {
@@ -171,6 +186,7 @@ function writeSheet(workbook, name, rows, truncationState, preferredColumns = []
   sheet["!autofilter"] = { ref: `A1:${columnName(columns.length)}${Math.max(1, normalizedRows.length + 1)}` };
   sheet["!freeze"] = { xSplit: 0, ySplit: 1 };
   xlsx.utils.book_append_sheet(workbook, sheet, name.slice(0, 31));
+  return columns;
 }
 
 function columnName(number) {
@@ -182,6 +198,91 @@ function columnName(number) {
     n = Math.floor((n - 1) / 26);
   }
   return result;
+}
+
+function setCellStyle(xml, cellRef, styleId) {
+  const expression = new RegExp(`(<c\\s+[^>]*\\br="${cellRef}"[^>]*)(>)`);
+  return xml.replace(expression, (_match, attributes, closing) => {
+    const withoutStyle = attributes.replace(/\s+s="\d+"/g, "");
+    return `${withoutStyle} s="${styleId}"${closing}`;
+  });
+}
+
+function addWorkbookStyles(filePath, personColumns, personRows, summaryRows) {
+  const zip = new AdmZip(filePath);
+  const stylesEntry = zip.getEntry("xl/styles.xml");
+  if (!stylesEntry) return;
+
+  let stylesXml = stylesEntry.getData().toString("utf8");
+  const fillsMatch = stylesXml.match(/<fills count="(\d+)">([\s\S]*?)<\/fills>/);
+  const cellXfsMatch = stylesXml.match(/<cellXfs count="(\d+)">([\s\S]*?)<\/cellXfs>/);
+  if (!fillsMatch || !cellXfsMatch) return;
+
+  const updatedFill =
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFFFE699"/><bgColor indexed="64"/></patternFill></fill>';
+  const newFill =
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFC6EFCE"/><bgColor indexed="64"/></patternFill></fill>';
+  const headerFill =
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFD9EAF7"/><bgColor indexed="64"/></patternFill></fill>';
+  const fillStart = Number(fillsMatch[1]);
+  stylesXml = stylesXml.replace(
+    fillsMatch[0],
+    `<fills count="${fillStart + 3}">${fillsMatch[2]}${updatedFill}${newFill}${headerFill}</fills>`,
+  );
+
+  const xfStart = Number(cellXfsMatch[1]);
+  const updatedStyle = xfStart;
+  const newStyle = xfStart + 1;
+  const headerStyle = xfStart + 2;
+  const styleXfs =
+    `<xf numFmtId="0" fontId="0" fillId="${fillStart}" borderId="0" xfId="0" applyFill="1"/>` +
+    `<xf numFmtId="0" fontId="0" fillId="${fillStart + 1}" borderId="0" xfId="0" applyFill="1"/>` +
+    `<xf numFmtId="0" fontId="0" fillId="${fillStart + 2}" borderId="0" xfId="0" applyFill="1"/>`;
+  stylesXml = stylesXml.replace(
+    cellXfsMatch[0],
+    `<cellXfs count="${xfStart + 3}">${cellXfsMatch[2]}${styleXfs}</cellXfs>`,
+  );
+  zip.updateFile("xl/styles.xml", Buffer.from(stylesXml, "utf8"));
+
+  const styleSheet = (sheetFile, columns, rows, bodyStyleForRow) => {
+    const entry = zip.getEntry(sheetFile);
+    if (!entry) return;
+    let xml = entry.getData().toString("utf8");
+    columns.forEach((_column, index) => {
+      xml = setCellStyle(xml, `${columnName(index + 1)}1`, headerStyle);
+    });
+    rows.forEach((row, rowIndex) => {
+      const styles = bodyStyleForRow(row) || {};
+      for (const [column, kind] of Object.entries(styles)) {
+        const index = columns.indexOf(column);
+        if (index < 0) continue;
+        xml = setCellStyle(
+          xml,
+          `${columnName(index + 1)}${rowIndex + 2}`,
+          kind === "updated" ? updatedStyle : newStyle,
+        );
+      }
+    });
+    zip.updateFile(sheetFile, Buffer.from(xml, "utf8"));
+  };
+
+  styleSheet(
+    "xl/worksheets/sheet1.xml",
+    personColumns,
+    personRows,
+    row => row.__campaignCellStyles,
+  );
+  styleSheet(
+    "xl/worksheets/sheet2.xml",
+    ["metric", "value"],
+    summaryRows,
+    row => {
+      if (row.metric === "legend_updated") return { value: "updated" };
+      if (row.metric === "legend_new") return { value: "new" };
+      return {};
+    },
+  );
+  zip.writeZip(filePath);
 }
 
 function readDatabaseUrl() {
@@ -250,6 +351,64 @@ function relatedRowsMap(rows, valueKey) {
   return byCollaborator;
 }
 
+function idsFromPerson(person, singularKey, pluralKey) {
+  const values = [];
+  if (person?.[singularKey]) values.push(person[singularKey]);
+  if (Array.isArray(person?.[pluralKey])) values.push(...person[pluralKey]);
+  return values.map(value => String(value)).filter(Boolean);
+}
+
+function relationNameList(person, singularKey, pluralKey, namesById) {
+  return [...new Set(idsFromPerson(person, singularKey, pluralKey)
+    .map(id => namesById.get(id) || id))]
+    .join(", ");
+}
+
+async function relationNameMaps(client, requests) {
+  const hospitalIds = new Set();
+  const clinicIds = new Set();
+  const representativeIds = new Set();
+  for (const request of requests) {
+    const person = request.person || {};
+    for (const id of idsFromPerson(person, "hospital_id", "hospital_ids")) hospitalIds.add(id);
+    for (const id of idsFromPerson(person, "clinic_id", "clinic_ids")) clinicIds.add(id);
+    for (const id of idsFromPerson(person, "representative_id", "representative_ids")) representativeIds.add(id);
+  }
+
+  const [hospitals, clinics, representatives] = await Promise.all([
+    hospitalIds.size
+      ? client.query(
+          `SELECT id, COALESCE(NULLIF(full_name, ''), name) AS display_name
+             FROM hospitals
+            WHERE id = ANY($1::text[])`,
+          [[...hospitalIds]],
+        )
+      : { rows: [] },
+    clinicIds.size
+      ? client.query(
+          `SELECT id, COALESCE(NULLIF(name, ''), doctor_name) AS display_name
+             FROM clinics
+            WHERE id = ANY($1::text[])`,
+          [[...clinicIds]],
+        )
+      : { rows: [] },
+    representativeIds.size
+      ? client.query(
+          `SELECT id, full_name AS display_name
+             FROM users
+            WHERE id = ANY($1::text[])`,
+          [[...representativeIds]],
+        )
+      : { rows: [] },
+  ]);
+
+  return {
+    hospitals: new Map(hospitals.rows.map(row => [row.id, row.display_name])),
+    clinics: new Map(clinics.rows.map(row => [row.id, row.display_name])),
+    representatives: new Map(representatives.rows.map(row => [row.id, row.display_name])),
+  };
+}
+
 function addressFor(addresses, type) {
   return (addresses || []).find(row => row.address_type === type) || {};
 }
@@ -273,6 +432,17 @@ function destinationFor(changeField) {
     `collaborators.${snakeCase(changeField)}`;
 }
 
+function exportColumnForCampaignField(field) {
+  const addressMatch = field.match(ADDRESS_FIELD_RE);
+  if (addressMatch) {
+    return `address_${addressMatch[1]}_${snakeCase(addressMatch[2])}`;
+  }
+  const destination = JMHZ_DESTINATIONS[field];
+  if (destination?.currentKey) return destination.currentKey;
+  if (destination?.requestOnly) return null;
+  return snakeCase(field);
+}
+
 function appliedValueFor(changeField, newValue) {
   const destination = JMHZ_DESTINATIONS[changeField];
   return destination?.transform ? destination.transform(newValue) : newValue;
@@ -285,6 +455,12 @@ function changeRowsForRequest(request, person, addresses) {
     const appliedValue = appliedValueFor(change.field, change.newValue);
     const approved = request.status === "approved";
     const requestOnly = Boolean(JMHZ_DESTINATIONS[change.field]?.requestOnly);
+    const currentForDisplay = JMHZ_DESTINATIONS[change.field]?.currentKey === "highest_education"
+      ? fullEducation(current)
+      : current;
+    const appliedForDisplay = JMHZ_DESTINATIONS[change.field]?.currentKey === "highest_education"
+      ? fullEducation(appliedValue)
+      : appliedValue;
     return {
       request_id: request.id,
       collaborator_id: request.collaborator_id,
@@ -293,8 +469,8 @@ function changeRowsForRequest(request, person, addresses) {
       destination: destinationFor(change.field),
       original_value: change.oldValue,
       submitted_new_value: change.newValue,
-      value_written_on_approve: appliedValue,
-      current_database_value: current,
+      value_written_on_approve: appliedForDisplay,
+      current_database_value: currentForDisplay,
       submitted_changed_field: "YES",
       approved: approved ? "YES" : "NO",
       writable_to_collaborator_card: requestOnly ? "NO" : "YES",
@@ -370,19 +546,36 @@ function personRow(
   otherData,
   agreements,
   snapshots,
+  relationNames,
   requestRows,
   fieldRows,
   changeRows,
 ) {
   const row = {};
   for (const [key, value] of Object.entries(person || {})) {
-    if (SECRET_KEY_RE.test(key)) continue;
-    row[key] = value;
+    if (SECRET_KEY_RE.test(key) || RELATION_ID_KEYS.has(key)) continue;
+    row[key] = key === "highest_education" ? fullEducation(value) : value;
   }
   row.collaborator_id = person?.id || row.collaborator_id || "";
   row.iscbc_legacy_id = person?.legacy_id || "";
+  row.hospital_names = relationNameList(person, "hospital_id", "hospital_ids", relationNames.hospitals);
+  row.clinic_names = relationNameList(person, "clinic_id", "clinic_ids", relationNames.clinics);
+  row.representative_names = relationNameList(
+    person,
+    "representative_id",
+    "representative_ids",
+    relationNames.representatives,
+  );
   row.mobile_password_hash_present = person && person.mobile_password_hash ? "YES" : "NO";
   row.addresses_json = addresses || [];
+  for (const address of addresses || []) {
+    const addressType = address.address_type || "unknown";
+    for (const [key, value] of Object.entries(address)) {
+      if (key === "collaborator_id" || key === "address_type" || SECRET_KEY_RE.test(key)) continue;
+      const column = `address_${addressType}_${key}`;
+      if (!(column in row) || text(row[column]) === "") row[column] = value;
+    }
+  }
   row.other_data_json = otherData || "";
   row.agreements_json = agreements || [];
   row.contact_field_snapshots_json = snapshots || [];
@@ -420,6 +613,19 @@ function personRow(
   }));
   row.campaign_field_audit_json = fieldRows;
   row.campaign_changes_json = changeRows;
+  const campaignCellStyles = {};
+  for (const field of fieldRows) {
+    const column = exportColumnForCampaignField(field.field);
+    if (!column) continue;
+    const isUpdated = field.updated_by_this_campaign === "YES";
+    const isNew = field.changed_in_submission === "YES" && !text(field.original_value);
+    if (isNew && campaignCellStyles[column] !== "updated") campaignCellStyles[column] = "new";
+    else if (isUpdated) campaignCellStyles[column] = "updated";
+  }
+  Object.defineProperty(row, "__campaignCellStyles", {
+    value: campaignCellStyles,
+    enumerable: false,
+  });
   return row;
 }
 
@@ -500,6 +706,7 @@ async function main() {
       agreementRows = agreements.rows;
     }
 
+    const relationNames = await relationNameMaps(client, requests);
     await client.query("COMMIT");
 
     const addressesByCollaborator = addressMap(addressRows);
@@ -552,6 +759,7 @@ async function main() {
         otherByCollaborator.get(collaboratorId) || "",
         agreementsByCollaborator.get(collaboratorId) || [],
         snapshotsByCollaborator.get(collaboratorId) || [],
+        relationNames,
         requestsForPerson,
         fields,
         changes,
@@ -578,12 +786,18 @@ async function main() {
       { metric: "contact_field_snapshot_rows_for_campaign", value: snapshotRows.length },
       { metric: "contact_field_snapshot_contacts_for_campaign", value: new Set(snapshotRows.map(row => row.contact_id)).size },
       { metric: "agreements_for_exported_persons", value: agreementRows.length },
+      { metric: "legend_updated", value: "ŽLTÁ bunka = hodnota aktualizovaná cez kampaň" },
+      { metric: "legend_new", value: "ZELENÁ bunka = nová hodnota doplnená cez kampaň" },
       { metric: "exported_at_utc", value: new Date().toISOString() },
     ];
 
     const workbook = xlsx.utils.book_new();
-    writeSheet(workbook, "persons", personRows, truncationState, [
-      "collaborator_id", "iscbc_legacy_id", "first_name", "last_name",
+    const personColumns = writeSheet(workbook, "persons", personRows, truncationState, [
+      "collaborator_id", "iscbc_legacy_id", "title_before", "first_name",
+      "middle_name", "last_name", "maiden_name", "title_after",
+      "birth_day", "birth_month", "birth_year", "birth_place",
+      "highest_education",
+      "hospital_names", "clinic_names", "representative_names",
       "campaign_request_count", "campaign_statuses", "campaign_obtained_fields",
       "campaign_changed_fields", "campaign_updated_fields",
     ]);
@@ -592,6 +806,7 @@ async function main() {
 
     fs.mkdirSync(path.dirname(path.resolve(outputPath)), { recursive: true });
     xlsx.writeFile(workbook, outputPath);
+    addWorkbookStyles(outputPath, personColumns, personRows, summaryRows);
 
     console.log("=== Collaborator campaign export ===");
     console.log(`Campaign: ${campaign.id} | ${campaign.name}`);
