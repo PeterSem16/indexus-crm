@@ -1,0 +1,33 @@
+@import url("https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap");
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 9%;
+  --border: 0 0% 91%;
+  --card: 0 0% 98%;
+  --card-foreground: 0 0% 9%;
+  --popover: 0 0% 94%;
+  --popover-foreground: 0 0% 9%;
+  --primary: 355 85% 42%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 355 8% 90%;
+  --secondary-foreground: 0 0% 9%;
+  --muted: 355 6% 92%;
+  --muted-foreground: 0 0% 35%;
+  --accent: 355 8% 93%;
+  --accent-foreground: 0 0% 9%;
+  --destructive: 0 84% 45%;
+  --destructive-foreground: 0 0% 98%;
+  --input: 0 0% 75%;
+  --ring: 355 85% 42%;
+  --radius: .5rem;
+  --font-sans: "Open Sans", sans-serif;
+}
+.dark {
+  --background: 0 0% 8%; --foreground: 0 0% 95%; --border: 0 0% 18%;
+  --card: 0 0% 10%; --card-foreground: 0 0% 95%; --popover: 0 0% 14%;
+  --popover-foreground: 0 0% 95%; --primary: 355 85% 42%; --primary-foreground: 0 0% 98%;
+  --secondary: 355 6% 18%; --secondary-foreground: 0 0% 95%; --muted: 355 5% 17%;
+  --muted-foreground: 0 0% 65%; --accent: 355 6% 15%; --accent-foreground: 0 0% 95%;
+  --destructive: 0 84% 40%; --destructive-foreground: 0 0% 98%; --input: 0 0% 30%; --ring: 355 85% 45%;
+}
