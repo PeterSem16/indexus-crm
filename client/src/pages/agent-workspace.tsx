@@ -4005,10 +4005,34 @@ function CommunicationCanvas({
     enabled: !!user?.id && !!signatureMailboxEmail,
     staleTime: 60_000,
   });
-  const configuredEmailBody = useMemo(
-    () => buildConfiguredEmailBody(configuredEmailSignature, user?.signature),
-    [configuredEmailSignature, user?.signature],
-  );
+  const { data: missionComposeSignature } = useQuery<{ signature: string | null }>({
+    queryKey: ["/api/reply-signature", { campaignId: campaign?.id }, campaign?.settings],
+    queryFn: async () => {
+      // Only this Mission: do not resolve a signature from another Mission
+      // that happens to contain the same contact.
+      const response = await fetch(`/api/reply-signature?campaignId=${encodeURIComponent(campaign!.id)}`, { credentials: "include" });
+      if (!response.ok) throw new Error(`Failed to load Mission signature (${response.status})`);
+      return response.json();
+    },
+    enabled: !!campaign?.id && activeChannel === "email",
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+  const configuredEmailBody = useMemo(() => {
+    // Wait for the Mission before considering a personal fallback.
+    if (campaign?.id && !missionComposeSignature) return "";
+    const missionSignature = missionComposeSignature?.signature;
+    const resolved = missionSignature ? applyTemplateVars(missionSignature, {
+      contact,
+      user,
+      clinic: clinicData,
+      hospital: hospitalData,
+      collaborator: collaboratorData,
+      fromEmail: allEmailAccounts.find(a => a.id === activeFromAccount)?.email,
+      lang: language,
+    }) : "";
+    return buildConfiguredEmailBody(configuredEmailSignature, user?.signature, resolved);
+  }, [campaign?.id, missionComposeSignature, configuredEmailSignature, user, contact, clinicData, hospitalData, collaboratorData, allEmailAccounts, activeFromAccount, language]);
 
   // Initialize the plain/non-template composer when Email is first opened and
   // when the mailbox signature arrives asynchronously.  Template application

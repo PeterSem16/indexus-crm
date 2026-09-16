@@ -1,4 +1,8 @@
 ## Non-template compose lifecycle
+Ordinary non-template emails must use the current Mission's configured HTML signature, not the mailbox signature. Personal signatures are fallback only when that Mission field is empty; resolve only the current Mission, never another membership.
+**Why:** the user explicitly requires the Mission settings signature for new emails as well as replies.
+**How to apply:** load Mission signature before considering personal fallback, resolve agent variables, and sanitize it through the same lifecycle used for open, Cancel, and successful-send reset.
+
 An automatically inserted signature must initialize on opening Email and on asynchronous account/signature arrival, not only on Cancel. Reset the draft only after confirmed send success.
 **Why:** fixing Cancel alone left ordinary new emails and the next email after sending without a signature. Resolving an asynchronously loaded signature must not overwrite an agent's typed draft or an applied template.
 **How to apply:** track whether the body is still system-owned, reconcile signatures idempotently, and distinguish a missing signature from an explicitly disabled one using the endpoint contract rather than HTTP status assumptions.

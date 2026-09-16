@@ -92,7 +92,11 @@ export interface ConfiguredEmailSignature {
 export function buildConfiguredEmailBody(
   signature: ConfiguredEmailSignature | undefined,
   legacyUserSignature?: string | null,
+  missionSignatureHtml?: string | null,
 ): string {
+  if (missionSignatureHtml?.trim()) {
+    return buildConfiguredEmailBody({ htmlContent: missionSignatureHtml, isActive: true });
+  }
   // Older deployments returned `{ htmlContent: "", isActive: false }` for a
   // missing row.  Treat that legacy 200 shape as missing too, while honoring
   // `missing: false` from the current endpoint for an explicitly inactive

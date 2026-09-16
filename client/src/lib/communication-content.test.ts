@@ -41,6 +41,14 @@ assert.equal(buildConfiguredEmailBody({ htmlContent: "<p>Inactive</p>", isActive
 assert.match(buildConfiguredEmailBody({ htmlContent: "", isActive: false }, legacy), /Legacy Agent<br>Support/);
 assert.equal(buildConfiguredEmailBody({ htmlContent: "", isActive: false, missing: false }, legacy), "");
 assert.equal(buildConfiguredEmailBody(undefined, legacy), "");
+// Mission settings take priority for ordinary emails, even before the
+// mailbox lookup completes or when the personal signature is disabled.
+const missionHtml = '<table><tr><td>Mission Agent</td></tr></table>';
+assert.match(buildConfiguredEmailBody(undefined, legacy, missionHtml), /Mission Agent/);
+assert.doesNotMatch(buildConfiguredEmailBody({ htmlContent: "Personal", isActive: true }, legacy, missionHtml), /Personal|Legacy/);
+assert.match(buildConfiguredEmailBody({ isActive: false, missing: false }, legacy, missionHtml), /Mission Agent/);
+assert.match(buildConfiguredEmailBody({ missing: true }, legacy, "  "), /Legacy Agent/);
+assert.doesNotMatch(buildConfiguredEmailBody(undefined, legacy, '<p onclick="bad()">Mission</p><script>bad()</script>'), /onclick|script/);
 
 const signature = "<p><br></p><div class=\"email-signature\">Mailbox</div>";
 assert.equal(
