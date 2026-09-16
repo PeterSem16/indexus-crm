@@ -17,7 +17,7 @@ Z produkčných agregácií vyplýva, že databáza obsahuje rozsiahlu historick
 
 1. **Zjednotiť cenotvorbu:** Pricing Engine V2 musí byť autoritatívnym zdrojom ceny pre zákazníka, produkt, odber, zmluvu a faktúru; podpísané dokumenty musia mať nemenný cenový snapshot.
 2. **Uzavrieť obchodný reťazec:** prepojiť Customers, Contracts, Collections, Laboratory Connect a Invoicing na rovnaké identifikátory a pravidlá.
-3. **Dopracovať fakturáciu a ESO:** dokončiť export/API, DPH, položky, úhrady, storno, dobropisy a idempotentné opakovanie.
+3. **Dopracovať ESO a elektronickú fakturáciu:** dokončiť cieľové napojenie na účtovnú platformu, štruktúrované e-faktúry, API/export, DPH, položky, úhrady, storno, dobropisy a idempotentné opakovanie.
 4. **Dokončiť zmluvy a templates:** schválené krajinné a jazykové šablóny musia používať V2 snapshot.
 5. **Reconciliovať a riadiť migráciu ISCBC:** potvrdiť identity, historické väzby, prílohy, delta prenos, rollback a finančnú kontrolu.
 6. **Pilot a prepnutie:** overiť nový aj migrovaný prípad od zákazníka po úhradu, potom zaviesť riadený prechod s dočasným read-only režimom ISCBC.
@@ -175,6 +175,22 @@ Splátky a opakované skladné musia vychádzať z uložených podmienok. Pláno
 
 Pred aktiváciou treba schváliť historické faktúry verzus nový začiatok, fakturačné firmy a účty, číslovanie, daňové pravidlá, krajinné PDF a platobné údaje/QR. Starý údaj „0 faktúr“ pochádza z mája a musí sa znovu zmerať, nie opakovať ako dnešný fakt.
 
+### ESO a elektronická fakturácia — podmienka dokončenia
+
+ESO je cieľová elektronická účtovná platforma pre účtovné spracovanie faktúr, platieb a opravných dokladov. V aktuálnej revízii nebol potvrdený hotový produkčný konektor; preto ESO nemožno považovať za dokončenú časť len na základe existujúceho fakturačného UI.
+
+Pre dokončenie projektu treba vykonať tieto kroky:
+
+1. **Potvrdiť cieľové rozhranie ESO:** rozhodnúť medzi API a bezpečným exportom, určiť vlastníka integrácie, krajiny, účtovné subjekty a testovacie prostredie.
+2. **Zjednotiť dátové mapovanie:** zákazník, fakturačný subjekt, IČ DPH, mena, číselný rad, položky, daň, splatnosť, platba, storno a dobropis musia mať jednoznačné mapovanie INDEXUS ↔ ESO.
+3. **Zaviesť elektronickú faktúru:** faktúra musí byť dostupná v právne a technicky požadovanom štruktúrovanom formáte, napríklad UBL/XML; samotné PDF nestačí. Požiadavky sa musia potvrdiť podľa príslušnej krajiny a aktuálneho režimu elektronickej fakturácie.
+4. **Pripojiť odoslanie a stavový cyklus:** odoslanie, prijatie, odmietnutie, doručenie, úhrada a chyba musia mať stav v INDEXUS; opakovanie nesmie vytvoriť duplicitný doklad.
+5. **Zabezpečiť audit a bezpečnosť:** ukladať odkaz na pôvodný cenový snapshot, XML/export, odpoveď ESO, čas odoslania, používateľa alebo automatizáciu a dôvod každej opravy.
+6. **Reconciliovať účtovníctvo:** pravidelne porovnávať faktúry, dobropisy, úhrady, otvorené zostatky a chyby medzi INDEXUS a ESO. Rozdiel nesmie zostať iba v manuálnej tabuľke.
+7. **Spustiť pilot:** overiť nový predaj, historickú cenu, splátku, skladné, čiastočný odber, opravu výsledku, storno, dobropis, odmietnutú e-faktúru a opakované odoslanie.
+
+Elektronická fakturácia preto nie je samostatný výstup na konci projektu. Je to kontrolný bod celého reťazca: cena → zmluva → odber → výsledok → faktúra → ESO → úhrada.
+
 ## 6. Collections a Laboratory Connect
 
 ### 6.1 Čo je implementované
@@ -263,13 +279,15 @@ ESO v tejto revízii označujeme ako plánovanú externú účtovú integráciu.
 
 - Zaviesť jednu službu, ktorá vytvorí doklad a položky z uloženého podkladu, nie z momentálneho cenníka alebo legacy override.
 - Zabezpečiť menu, dane, fakturačný subjekt, číslovací rad, PDF a platobné údaje.
-- Akceptácia: opakované potvrdenie nevytvorí druhú faktúru; súčet položiek sedí s dokladom a odsúhlaseným podkladom.
+- Pripraviť štruktúrovaný e-fakturačný formát a napojenie na ESO vrátane stavov odoslania a odmietnutia.
+- Akceptácia: opakované potvrdenie nevytvorí druhú faktúru; súčet položiek sedí s dokladom a odsúhlaseným podkladom; ESO prijme alebo jasne odmietne doklad.
 
 ### Krok 8 — Splátky, skladné, úhrady a opravy
 
 - Prepojiť harmonogramy na rovnakú fakturačnú službu a explicitné pravidlá splatnosti, zrušenia a opakovania.
 - Schváliť spracovanie platieb a opravných dokladov; existujúce vydané doklady neprepisovať podľa neskoršieho laboratórneho výsledku.
-- Akceptácia: splátka vznikne presne raz, úhrada má správny doklad a zostatok, oprava má auditnú väzbu.
+- Odosielať do ESO aj splátky, úhrady, storno a dobropisy a pravidelne reconciliovať otvorené zostatky.
+- Akceptácia: splátka vznikne presne raz, úhrada má správny doklad a zostatok, oprava má auditnú väzbu a opakované odoslanie do ESO nevytvorí duplicitu.
 
 ### Krok 9 — Pilot a úplné prepnutie
 
