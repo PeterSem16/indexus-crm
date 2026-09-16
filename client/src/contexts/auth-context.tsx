@@ -24,7 +24,7 @@ interface AuthContextType {
   user: SafeUser | null;
   isLoading: boolean;
   login: (username: string, password: string) => Promise<LoginResult>;
-  loginWithMs365: (username: string) => Promise<string>;
+  loginWithMs365: (username: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -96,10 +96,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginWithMs365 = async (username: string) => {
     const result = await ms365LoginMutation.mutateAsync(username);
-    if (!result.authUrl) {
-      throw new Error("Microsoft 365 authorization URL is missing");
+    if (result.authUrl) {
+      window.location.href = result.authUrl;
     }
-    return result.authUrl as string;
   };
 
   const logout = async () => {
