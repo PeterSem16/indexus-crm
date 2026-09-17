@@ -59,7 +59,7 @@ Never complete an incomplete AI city ranking by appending omitted cities in inpu
 
 For the live OpenAI provider, require every positional city ID as an explicit strict JSON-schema property mapped to a unique contiguous rank or null; free-form ranked/unknown arrays may silently omit IDs.
 
-**Why:** bounded repair of large free-form arrays still repeatedly omitted a location for one production agent.
+**Why:** bounded repair of large free-form arrays still repeatedly omitted a location for one production agent; the strict required-property schema was confirmed working in production.
 
 **How to apply:** convert the validated rank object back to rankedIds/unknownIds for the shared parser; reject duplicate/non-contiguous ranks and truncation.
 
