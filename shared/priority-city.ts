@@ -254,6 +254,38 @@ function normalizeCityKey(city: string): string {
     .trim();
 }
 
+const CITY_DISTRICT_MARKER = /\s+(?:mestska|mestske|mestskej|mestskej)\s+(?:cast|casti)\b/u;
+
+/**
+ * Collapse explicit city-district labels to their parent city. Do not split on
+ * punctuation alone: legitimate city names may contain hyphens.
+ */
+function parentCityName(city: string): string {
+  const folded = normalizeCityKey(city);
+  const marker = CITY_DISTRICT_MARKER.exec(folded);
+  if (!marker || marker.index === 0) return city;
+  const prefixWordCount = folded.slice(0, marker.index).split(" ").length;
+  const readablePrefix = city
+    .split(/\s+/u)
+    .slice(0, prefixWordCount)
+    .join(" ")
+    .replace(/\s*[-–—,:]\s*$/u, "")
+    .trim();
+  return readablePrefix || city;
+}
+
+/** Upgrade a previously persisted normalized city key without needing entity data. */
+export function canonicalizePriorityCityKey(key: string): string {
+  const separator = key.indexOf(":");
+  if (separator < 1) return key;
+  const country = key.slice(0, separator);
+  const normalized = key.slice(separator + 1);
+  const marker = CITY_DISTRICT_MARKER.exec(normalized);
+  if (!marker || marker.index === 0) return key;
+  const parent = normalized.slice(0, marker.index).trim();
+  return parent ? `${country}:${parent}` : key;
+}
+
 /**
  * Returns a stable, country-aware city location or null when the city is
  * missing.  Country is deliberately never inferred from the city name.
@@ -263,7 +295,7 @@ export function normalizeCityLocation(
   city: unknown,
 ): NormalizedCityLocation | null {
   if (typeof city !== "string") return null;
-  const readableCity = collapseWhitespace(city);
+  const readableCity = parentCityName(collapseWhitespace(city));
   if (!readableCity) return null;
 
   const normalizedCity = normalizeCityKey(readableCity);

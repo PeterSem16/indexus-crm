@@ -114,6 +114,28 @@ test("legacy city snapshots parse as all cities and new cities remain outside a 
   );
 });
 
+test("parent city and its districts share ordering and legacy selections are upgraded", () => {
+  const parentView = parsePriorityView({
+    ...view,
+    cityGrouping: {
+      enabled: true,
+      rankedKeys: ["SK:bratislava mestska cast ruzinov", "SK:bratislava"],
+      unknownKeys: ["SK:kosice mestska cast stare mesto"],
+      mode: "selected",
+      selectedKeys: ["SK:bratislava mestska cast ruzinov"],
+    },
+  })!;
+  assert.deepEqual(parentView.cityGrouping?.rankedKeys, ["SK:bratislava"]);
+  assert.deepEqual(parentView.cityGrouping?.unknownKeys, ["SK:kosice"]);
+  assert.deepEqual(parentView.cityGrouping?.selectedKeys, ["SK:bratislava"]);
+  const result = buildPriorityQueueWithFallback([
+    contact("center", "Bratislava"),
+    contact("ruzinov", "Bratislava - mestská časť Ružinov"),
+    contact("kosice", "Košice - mestská časť Staré Mesto"),
+  ], parentView, "agent", now);
+  assert.deepEqual(result.map(item => item.contact.id).sort(), ["center", "ruzinov"]);
+});
+
 test("referrals require an explicit zero attempt and leave the Referral group when scheduled", () => {
   const fresh = contact("fresh-referral", undefined, "SK", { hasReferral: true, attemptCount: 0 });
   const unknownCount = contact("unknown-count", undefined, "SK", { hasReferral: true, attemptCount: undefined });

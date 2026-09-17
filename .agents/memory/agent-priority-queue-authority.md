@@ -56,3 +56,9 @@ Never complete an incomplete AI city ranking by appending omitted cities in inpu
 **Why:** the resulting ranking controls actual Next/Auto dialing, so invented completion silently changes operational priority. A provider validation failure can appear user-specific because users make independent requests; it is not evidence that their authentication failed.
 
 **How to apply:** use bounded, explicitly instructed repair attempts, validate the complete permutation again, and retain a visible failure if repair fails. Only explicitly classified unknown locations belong in the unknown group.
+
+Explicit city-district labels belong to their parent city in selection, AI ranking, and queue grouping (for example, Bratislava and every “Bratislava – mestská časť …” value form one Bratislava group).
+
+**Why:** the user confirmed districts must never compete with their parent as separate cities.
+
+**How to apply:** collapse only recognized district markers, not arbitrary hyphens. Canonicalize legacy ranked, unknown, and selected keys on read so existing personal views keep matching.

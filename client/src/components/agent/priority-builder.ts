@@ -1,5 +1,5 @@
 import type { CampaignContact } from "@shared/schema";
-import { normalizeCityLocation, type NormalizedCityLocation } from "@shared/priority-city";
+import { canonicalizePriorityCityKey, normalizeCityLocation, type NormalizedCityLocation } from "@shared/priority-city";
 import { z } from "zod";
 import { getPriorityContactSearchMatches, type PrioritySearchField } from "./priority-contact-search";
 
@@ -190,7 +190,9 @@ export const DEFAULT_PRIORITY_VIEW = createReferralCitiesPriorityView();
 export function parsePriorityView(value: unknown): PriorityView | null {
   const result = priorityViewSchema.safeParse(value);
   if (!result.success) return null;
-  const rankedKeys = Array.from(new Set(result.data.cityGrouping?.rankedKeys || []));
+  const canonicalKeys = (keys: string[]) => Array.from(new Set(keys.map(key =>
+    key === PRIORITY_UNKNOWN_CITY_KEY ? key : canonicalizePriorityCityKey(key))));
+  const rankedKeys = canonicalKeys(result.data.cityGrouping?.rankedKeys || []);
   return {
     version: 1,
     name: result.data.name,
@@ -205,11 +207,11 @@ export function parsePriorityView(value: unknown): PriorityView | null {
       ? {
         enabled: result.data.cityGrouping.enabled,
         rankedKeys,
-        unknownKeys: Array.from(new Set(result.data.cityGrouping.unknownKeys)).filter(key => !rankedKeys.includes(key)),
+        unknownKeys: canonicalKeys(result.data.cityGrouping.unknownKeys).filter(key => !rankedKeys.includes(key)),
         // Before city selection existed, an enabled grouping always meant all
         // cities. Keep that meaning when old personal views are reopened.
         mode: result.data.cityGrouping.mode || "all",
-        selectedKeys: Array.from(new Set(result.data.cityGrouping.selectedKeys || [])),
+        selectedKeys: canonicalKeys(result.data.cityGrouping.selectedKeys || []),
       }
       : undefined,
   };

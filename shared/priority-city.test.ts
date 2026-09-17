@@ -50,3 +50,15 @@ test("returns null only when the city is missing or unusable", () => {
   assert.equal(normalizeCityLocation("SK", " \t "), null);
   assert.equal(normalizeCityLocation("SK", 42), null);
 });
+
+test("groups explicit city districts under their parent city without breaking hyphenated cities", () => {
+  assert.deepEqual(normalizeCityLocation("SK", "Bratislava - mestská časť Ružinov"), {
+    key: "SK:bratislava",
+    city: "Bratislava",
+    countryCode: "SK",
+  });
+  assert.equal(normalizeCityLocation("SK", "Košice – mestská časť Staré Mesto")?.key, "SK:kosice");
+  assert.equal(normalizeCityLocation("CZ", "Praha - městská část Praha 4")?.key, "CZ:praha");
+  assert.equal(normalizeCityLocation("DE", "Frankfurt-am-Main")?.key, "DE:frankfurt am main");
+  assert.equal(normalizeCityLocation("SK", "Nové Mesto nad Váhom")?.key, "SK:nove mesto nad vahom");
+});
