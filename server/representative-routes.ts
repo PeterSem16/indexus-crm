@@ -253,6 +253,7 @@ async function resolveBulkSelection(input: BulkSelectionInput): Promise<{
           hasPersonnel: personnelByEntity.has(id),
         });
       })
+      .map((row) => row.id)
       .sort(),
     rules,
     scope,
