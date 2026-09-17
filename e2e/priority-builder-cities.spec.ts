@@ -38,7 +38,7 @@ const persistedManyCitiesView: SavedView = {
   }),
 };
 
-async function installManyCitiesApis(page: Page) {
+async function installManyCitiesApis(page: Page, onRankingRequest?: (body: any) => void) {
   await page.route("**/api/saved-searches**", async route => {
     if (route.request().method() === "GET") {
       await route.fulfill({
@@ -50,19 +50,24 @@ async function installManyCitiesApis(page: Page) {
     await route.fulfill({ status: 204, body: "" });
   });
   await page.route("**/api/agent/priority-builder/city-ranking", async route => {
+    const requestBody = route.request().postDataJSON();
+    onRankingRequest?.(requestBody);
+    const rankedKeys = onRankingRequest
+      ? requestBody.cities.map((city: { key: string }) => city.key)
+      : cityRankingPayload.cities.map(city => city.key);
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({
-        rankedKeys: cityRankingPayload.cities.map(city => city.key),
+        rankedKeys,
         unknownKeys: [],
       }),
     });
   });
 }
 
-async function openManyCitiesFixture(page: Page, width: number, height: number) {
+async function openManyCitiesFixture(page: Page, width: number, height: number, extraQuery = "") {
   await page.setViewportSize({ width, height });
-  await page.goto("/test-fixtures/priority-builder.html?many-cities=1");
+  await page.goto(`/test-fixtures/priority-builder.html?many-cities=1${extraQuery}`);
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(page.getByRole("banner")).toBeVisible();
   await expect(page.getByTestId("toggle-priority-city-grouping")).toBeChecked();
@@ -168,4 +173,21 @@ test("city picker and footer remain visible on the mobile fullscreen ancestor", 
   await expect(options).toHaveJSProperty("scrollTop", 0);
   await expect(options.locator("input[type=checkbox]:checked")).toHaveCount(2);
   await page.screenshot({ path: "/tmp/pulse-city-picker-mobile.png", fullPage: true });
+});
+
+test("AI ranking uses the stable Mission city pool rather than the agent-visible queue", async ({ page }) => {
+  let requestBody: any = null;
+  await installManyCitiesApis(page, body => { requestBody = body; });
+  await openManyCitiesFixture(page, 1280, 720, "&stable-ranking=1");
+
+  await page.getByTestId("priority-city-mode-all").check();
+  await page.getByTestId("btn-priority-city-rerank").click();
+  await expect.poll(() => requestBody?.cities?.length).toBe(226);
+  expect(requestBody.cities).toContainEqual({
+    key: "SK:stable mission city",
+    city: "Stable Mission City",
+    countryCode: "SK",
+  });
+  // The additional location is ranking scope only, not a queue contact.
+  await expect(page.locator(".priority-builder-section-head .priority-builder-total")).toContainText("225 eligible contacts");
 });

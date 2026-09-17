@@ -288,6 +288,7 @@ const selectedFixtureContacts = new URLSearchParams(window.location.search).get(
   : contacts;
 const fixtureCountry = new URLSearchParams(window.location.search).get("country");
 const fixtureCountries = fixtureCountry ? [fixtureCountry] : [];
+const useStableRankingPool = new URLSearchParams(window.location.search).get("stable-ranking") === "1";
 
 function Fixture() {
   const [open, setOpen] = useState(true);
@@ -321,6 +322,11 @@ function Fixture() {
           <PriorityBuilder
             className="h-full min-h-0 flex-1 rounded-none border-0"
             contacts={fixtureContacts}
+            rankingContacts={useStableRankingPool ? [...selectedFixtureContacts, {
+              ...contacts[0],
+              id: "mission-ranking-only",
+              customer: { firstName: "Ranking", lastName: "Only", city: "Stable Mission City", country: "SK" },
+            }] : fixtureContacts}
             currentUserId="agent-fixture"
             onClose={() => setOpen(false)}
             isAutoMode={auto}

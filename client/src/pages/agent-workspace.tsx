@@ -12053,6 +12053,13 @@ function AgentWorkspacePageContent() {
     });
   }, [rawCampaignContacts, disposedContactIds]);
 
+  // City ranking is Mission-scoped. Agent-local disposed IDs must not make two
+  // users in the same Mission send different AI city sets or miss the shared cache.
+  const priorityRankingContacts = useMemo(() => rawCampaignContacts.filter((cc) => {
+    if (!(cc.customer || cc.hospital || cc.clinic || cc.collaborator)) return false;
+    return cc.status === "pending" || cc.status === "callback_scheduled";
+  }), [rawCampaignContacts]);
+
   const { data: savedPriorityViews = [], isPending: priorityViewsPending, isError: priorityViewsFailed, refetch: retryPriorityViews } = useQuery<SavedSearch[]>({
     queryKey: ["/api/saved-searches", PRIORITY_BUILDER_MODULE],
     queryFn: async () => {
@@ -12070,12 +12077,12 @@ function AgentWorkspacePageContent() {
   const prioritySeedAttemptRef = useRef<string | null>(null);
   const priorityInitialCities = useMemo(() => {
     const locations = new Map<string, { key: string; city: string; countryCode: string }>();
-    for (const contact of pendingCampaignContacts) {
+    for (const contact of priorityRankingContacts) {
       const location = getPriorityContactCityLocation(contact as any);
       if (location) locations.set(location.key, location);
     }
     return Array.from(locations.values());
-  }, [pendingCampaignContacts]);
+  }, [priorityRankingContacts]);
   const priorityInitialCitySignature = useMemo(
     () => priorityInitialCities.map(city => city.key).sort().join(","),
     [priorityInitialCities],
@@ -16143,6 +16150,7 @@ function AgentWorkspacePageContent() {
           <PriorityBuilder
             className="h-full min-h-0 flex-1 rounded-none border-0"
             contacts={sortedPendingContacts}
+            rankingContacts={priorityRankingContacts}
             currentUserId={user?.id}
             onClose={() => setContactsModalOpen(false)}
             isAutoMode={isAutoMode}

@@ -43,6 +43,8 @@ export const PRIORITY_BUILDER_DIALOG_CLASS_NAME = "priority-builder-dialog";
 interface PriorityBuilderProps {
   /** Already eligibility-filtered contacts. The parent remains the authoritative queue owner. */
   contacts: PriorityContact[];
+  /** Stable Mission pool used only for city options/ranking, before agent-local disposal filters. */
+  rankingContacts?: PriorityContact[];
   currentUserId?: string;
   onSelectContact: (contact: PriorityContact) => void;
   onClose?: () => void;
@@ -187,6 +189,7 @@ async function rankEligibleCities(contacts: PriorityContact[], signal: AbortSign
 /** Production personal contact ordering editor; data and call actions remain parent-owned. */
 export function PriorityBuilder({
   contacts,
+  rankingContacts = contacts,
   currentUserId,
   onSelectContact,
   onClose,
@@ -254,7 +257,10 @@ export function PriorityBuilder({
   }, []);
 
   const viewSignature = useMemo(() => JSON.stringify(view), [view]);
-  const contactsSignature = useMemo(() => JSON.stringify(eligibleCityKeys(contacts).sort()), [contacts]);
+  const contactsSignature = useMemo(
+    () => JSON.stringify(eligibleCityKeys(rankingContacts).sort()),
+    [rankingContacts],
+  );
   const cityRankingScopeRef = useRef<{ view: string; contacts: string } | null>(null);
   useEffect(() => {
     if (!cityRankingPending) return;
@@ -292,15 +298,15 @@ export function PriorityBuilder({
     // city there is nothing to rank yet, so the empty-mission editor may still
     // be inspected without claiming queue authority.
     const waitingForInitialSeed = !defaultEntry && usableSearches.length === 0
-      && !userSelectedRef.current && eligibleCityKeys(contacts).length > 0;
+      && !userSelectedRef.current && eligibleCityKeys(rankingContacts).length > 0;
     hydratedRef.current = !waitingForInitialSeed;
     if (!defaultEntry && !userSelectedRef.current) {
       setSaved(!waitingForInitialSeed && (usableSearches.length > 0 || searches.length === 0));
     }
-  }, [contacts, searches, searchesError, searchesLoading, usableSearches]);
+  }, [rankingContacts, searches, searchesError, searchesLoading, usableSearches]);
 
   const effectiveView = useMemo(() => snapshotCityGrouping(view, contacts), [contacts, view]);
-  const cityOptions = useMemo(() => eligibleCityOptions(contacts), [contacts]);
+  const cityOptions = useMemo(() => eligibleCityOptions(rankingContacts), [rankingContacts]);
   const cityGroupingMode: PriorityCitySelectionMode = getPriorityCitySelectionMode(view.cityGrouping);
   const selectedCityKeys = useMemo(
     () => new Set(view.cityGrouping?.selectedKeys || []),
@@ -350,7 +356,7 @@ export function PriorityBuilder({
     setCityRankingPending(true);
     setCityRankingError(null);
     try {
-      const result = await rankEligibleCities(contacts, abortController.signal, copy.cityRankingTooMany, copy.cityRankingError);
+      const result = await rankEligibleCities(rankingContacts, abortController.signal, copy.cityRankingTooMany, copy.cityRankingError);
       if (!mountedRef.current || requestId !== cityRankingRequestRef.current) return;
       setCityRankingPending(false);
       userSelectedRef.current = true;
@@ -527,7 +533,7 @@ export function PriorityBuilder({
   useEffect(() => {
     if (searchesLoading || searchesError || persistencePending || cityRankingPending || cityRankingError) return;
     if (searches.length > 0 || usableSearches.some(entry => entry.search.isDefault)) return;
-    if (eligibleCityKeys(contacts).length === 0 || userSelectedRef.current) return;
+    if (eligibleCityKeys(rankingContacts).length === 0 || userSelectedRef.current) return;
     void requestCityRanking(DEFAULT_PRIORITY_VIEW, true, undefined, true);
   }, [
     cityRankingError,
@@ -559,7 +565,7 @@ export function PriorityBuilder({
       (searches.length === 0
         && !usableSearches.some(entry => entry.search.isDefault)
         && !userSelectedRef.current
-        && eligibleCityKeys(contacts).length > 0)
+        && eligibleCityKeys(rankingContacts).length > 0)
       || (searches.length > 0 && usableSearches.length === 0)
     );
   const actionsLocked = searchesLoading || searchesError || initialSeedPending || !saved || persistencePending || cityRankingPending || !!cityRankingError;
@@ -612,7 +618,7 @@ export function PriorityBuilder({
     const persistedId = id || usableSearches.find(entry => entry.view.presetId === next.presetId)?.search.id;
     if (next.presetId === "referral_cities"
       && (next.cityGrouping?.rankedKeys.length || 0) === 0
-      && eligibleCityKeys(contacts).length > 0) {
+      && eligibleCityKeys(rankingContacts).length > 0) {
       // Explicit selection may reactivate an inactive preset. The initial
       // snapshot endpoint intentionally only updates an already-active view.
       void requestCityRanking(next, true, persistedId);
@@ -628,7 +634,7 @@ export function PriorityBuilder({
     setSavedId(persistedId || null);
     setSelectedId(DEFAULT_PRIORITY_VIEW.segments[0].id);
     setActiveName(DEFAULT_PRIORITY_VIEW.presetId!);
-    if (eligibleCityKeys(contacts).length > 0) {
+    if (eligibleCityKeys(rankingContacts).length > 0) {
       void requestCityRanking(DEFAULT_PRIORITY_VIEW, true, persistedId);
       return;
     }
@@ -817,7 +823,7 @@ export function PriorityBuilder({
                 searches.length === 0,
               )}>{copy.cityRankingRetry}</button></span>
               : view.cityGrouping?.enabled
-                ? <span>{copy.cityRankingReady} · {copy.cityRankingEstimated}: {eligibleCityKeys(contacts).length} {copy.cityRankingLocations}</span>
+                ? <span>{copy.cityRankingReady} · {copy.cityRankingEstimated}: {eligibleCityKeys(rankingContacts).length} {copy.cityRankingLocations}</span>
                 : <span>{copy.groupByCityHint}</span>}
         </div>
         {(searchesError || persistenceFailed) && <div className="priority-builder-persistence-error" role="alert">

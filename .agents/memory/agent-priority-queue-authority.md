@@ -62,3 +62,9 @@ Explicit city-district labels belong to their parent city in selection, AI ranki
 **Why:** the user confirmed districts must never compete with their parent as separate cities.
 
 **How to apply:** collapse only recognized district markers, not arbitrary hyphens. Canonicalize legacy ranked, unknown, and selected keys on read so existing personal views keep matching.
+
+AI city snapshots must use a stable Mission-wide eligible city pool before agent-local disposed-contact filtering; personal queue filters apply only after ranking.
+
+**Why:** otherwise agents in the same Mission send different AI payloads, miss the shared cache, and can see user-specific omission failures.
+
+**How to apply:** pass ranking contacts separately from the displayed/authoritative personal queue. Regression-test that an agent-hidden contact still contributes its city to the ranking request but not the queue.
