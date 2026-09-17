@@ -1,6 +1,7 @@
 import type { CampaignContact } from "@shared/schema";
 import { normalizeCityLocation, type NormalizedCityLocation } from "@shared/priority-city";
 import { z } from "zod";
+import { getPriorityContactSearchMatches, type PrioritySearchField } from "./priority-contact-search";
 
 export const PRIORITY_BUILDER_MODULE = "agent-priority-builder";
 
@@ -72,12 +73,27 @@ export type PriorityContact = Omit<CampaignContact, "attemptCount"> & {
   priorityCountryCode?: unknown;
   customer?: {
     firstName?: string | null; lastName?: string | null; name?: string | null;
+    phone?: string | null; mobile?: string | null; mobile2?: string | null; otherContact?: string | null;
+    email?: string | null; email2?: string | null; companyName?: string | null;
     city?: string | null; country?: unknown;
   } | null;
-  hospital?: { name?: string | null; city?: string | null; countryCode?: unknown } | null;
-  clinic?: { name?: string | null; city?: string | null; countryCode?: unknown } | null;
+  hospital?: {
+    name?: string | null; fullName?: string | null; contactPerson?: string | null;
+    phone?: string | null; email?: string | null; city?: string | null; countryCode?: unknown;
+  } | null;
+  clinic?: {
+    name?: string | null; doctorName?: string | null; doctorTitle?: string | null;
+    doctorFirstName?: string | null; doctorLastName?: string | null;
+    phone?: string | null; phone2?: string | null; phone3?: string | null;
+    email?: string | null; email2?: string | null; email3?: string | null;
+    city?: string | null; countryCode?: unknown;
+  } | null;
   collaborator?: {
-    firstName?: string | null; lastName?: string | null; name?: string | null;
+    titleBefore?: string | null; firstName?: string | null; middleName?: string | null;
+    lastName?: string | null; titleAfter?: string | null; name?: string | null;
+    workplaceName?: string | null;
+    phone?: string | null; mobile?: string | null; mobile2?: string | null; otherContact?: string | null;
+    email?: string | null;
     city?: string | null; countryCode?: unknown;
   } | null;
 };
@@ -530,22 +546,8 @@ export function buildPriorityQueueWithFallback(
 export function filterPriorityContacts(
   contacts: PriorityContact[],
   query: string,
-  field: "all" | "name" | "phone" | "email" | "city",
+  field: PrioritySearchField,
 ): PriorityContact[] {
-  const normalized = query.trim().toLocaleLowerCase();
-  if (!normalized) return contacts;
-  return contacts.filter(contact => {
-    const entity = contact.customer || contact.hospital || contact.clinic || contact.collaborator;
-    const values = [
-      getPriorityContactName(contact),
-      (entity as { phone?: string | null } | null)?.phone || "",
-      (entity as { email?: string | null } | null)?.email || "",
-      contact.priorityCity || (entity as { city?: string | null } | null)?.city || "",
-    ];
-    const index = field === "name" ? 0 : field === "phone" ? 1 : field === "email" ? 2 : field === "city" ? 3 : -1;
-    const searchable = index === -1
-      ? [...values, ...Object.values(entity || {}).filter(value => typeof value === "string") as string[]]
-      : [values[index]];
-    return searchable.some(value => value.toLocaleLowerCase().includes(normalized));
-  });
+  if (!query.trim()) return contacts;
+  return contacts.filter(contact => getPriorityContactSearchMatches(contact, query, field).length > 0);
 }

@@ -3892,6 +3892,22 @@ export interface Translations {
     priorityBuilderDeduplication: string;
     priorityBuilderLiveResults: string;
     priorityBuilderSearch: string;
+    priorityBuilderSearchResult: {
+      contactPerson: string;
+      missingName: string;
+      missingOrganization: string;
+      missingPhone: string;
+      missingEmail: string;
+      match: string;
+      name: string;
+      organization: string;
+      phone: string;
+      email: string;
+      city: string;
+      specialty: string;
+      resultsFor: string;
+      resultsCount: string;
+    };
     priorityBuilderNoResults: string;
     priorityBuilderViewName: string;
     priorityBuilderSave: string;
@@ -12510,6 +12526,22 @@ export const translations: Record<Locale, Translations> = {
       priorityBuilderDeduplication: 'Contacts appear once, in their highest matching group.',
       priorityBuilderLiveResults: 'Live results',
       priorityBuilderSearch: 'Search contacts',
+      priorityBuilderSearchResult: {
+        contactPerson: 'Contact person',
+        missingName: 'Contact name not provided',
+        missingOrganization: 'Organisation not provided',
+        missingPhone: 'Phone not provided',
+        missingEmail: 'Email not provided',
+        match: 'Match',
+        name: 'contact name',
+        organization: 'clinic / organisation',
+        phone: 'phone',
+        email: 'email',
+        city: 'city',
+        specialty: 'clinic / specialty',
+        resultsFor: 'Results for “{query}”',
+        resultsCount: '{shown} of {total}',
+      },
       priorityBuilderNoResults: 'No contacts match this view',
       priorityBuilderViewName: 'Saved view name',
       priorityBuilderSave: 'Save view',
@@ -19974,6 +20006,22 @@ export const translations: Record<Locale, Translations> = {
       priorityBuilderDeduplication: 'Kontakty sa zobrazia iba raz v najvyššej zhodnej skupine.',
       priorityBuilderLiveResults: 'Živé výsledky',
       priorityBuilderSearch: 'Hľadať kontakty',
+      priorityBuilderSearchResult: {
+        contactPerson: 'Kontaktná osoba',
+        missingName: 'Meno kontaktu sa neuvádza',
+        missingOrganization: 'Organizácia sa neuvádza',
+        missingPhone: 'Telefón sa neuvádza',
+        missingEmail: 'E-mail sa neuvádza',
+        match: 'Zhoda',
+        name: 'meno kontaktu',
+        organization: 'klinika / organizácia',
+        phone: 'telefón',
+        email: 'e-mail',
+        city: 'mesto',
+        specialty: 'klinika / špecializácia',
+        resultsFor: 'Výsledky pre „{query}“',
+        resultsCount: '{shown} z {total}',
+      },
       priorityBuilderNoResults: 'Tomuto zobrazeniu nezodpovedajú žiadne kontakty',
       priorityBuilderViewName: 'Názov uloženého zobrazenia',
       priorityBuilderSave: 'Uložiť zobrazenie',
@@ -27425,6 +27473,22 @@ export const translations: Record<Locale, Translations> = {
       priorityBuilderDeduplication: 'Kontakty se zobrazí pouze jednou v nejvyšší shodné skupině.',
       priorityBuilderLiveResults: 'Živé výsledky',
       priorityBuilderSearch: 'Hledat kontakty',
+      priorityBuilderSearchResult: {
+        contactPerson: 'Kontaktní osoba',
+        missingName: 'Jméno kontaktu není uvedeno',
+        missingOrganization: 'Organizace není uvedena',
+        missingPhone: 'Telefon není uveden',
+        missingEmail: 'E-mail není uveden',
+        match: 'Shoda',
+        name: 'jméno kontaktu',
+        organization: 'klinika / organizace',
+        phone: 'telefon',
+        email: 'e-mail',
+        city: 'město',
+        specialty: 'klinika / specializace',
+        resultsFor: 'Výsledky pro „{query}“',
+        resultsCount: '{shown} z {total}',
+      },
       priorityBuilderNoResults: 'Tomuto zobrazení neodpovídají žádné kontakty',
       priorityBuilderViewName: 'Název uloženého zobrazení',
       priorityBuilderSave: 'Uložit zobrazení',
@@ -34832,6 +34896,22 @@ export const translations: Record<Locale, Translations> = {
       priorityBuilderDeduplication: 'A kontaktok egyszer, a legmagasabb egyező csoportban jelennek meg.',
       priorityBuilderLiveResults: 'Élő eredmények',
       priorityBuilderSearch: 'Kontaktok keresése',
+      priorityBuilderSearchResult: {
+        contactPerson: 'Kapcsolattartó',
+        missingName: 'Kapcsolattartó neve nincs megadva',
+        missingOrganization: 'Szervezet nincs megadva',
+        missingPhone: 'Telefonszám nincs megadva',
+        missingEmail: 'E-mail nincs megadva',
+        match: 'Egyezés',
+        name: 'kapcsolattartó neve',
+        organization: 'klinika / szervezet',
+        phone: 'telefon',
+        email: 'e-mail',
+        city: 'város',
+        specialty: 'klinika / szakterület',
+        resultsFor: 'Találatok erre: „{query}“',
+        resultsCount: '{shown} / {total}',
+      },
       priorityBuilderNoResults: 'Nincs a nézetnek megfelelő kontakt',
       priorityBuilderViewName: 'Mentett nézet neve',
       priorityBuilderSave: 'Nézet mentése',
@@ -42128,6 +42208,22 @@ export const translations: Record<Locale, Translations> = {
       priorityBuilderDeduplication: 'Contactele apar o singură dată în cel mai important grup potrivit.',
       priorityBuilderLiveResults: 'Rezultate live',
       priorityBuilderSearch: 'Caută contacte',
+      priorityBuilderSearchResult: {
+        contactPerson: 'Persoană de contact',
+        missingName: 'Numele contactului nu este disponibil',
+        missingOrganization: 'Organizația nu este disponibilă',
+        missingPhone: 'Telefonul nu este disponibil',
+        missingEmail: 'E-mailul nu este disponibil',
+        match: 'Potrivire',
+        name: 'nume contact',
+        organization: 'clinică / organizație',
+        phone: 'telefon',
+        email: 'e-mail',
+        city: 'oraș',
+        specialty: 'clinică / specializare',
+        resultsFor: 'Rezultate pentru „{query}“',
+        resultsCount: '{shown} din {total}',
+      },
       priorityBuilderNoResults: 'Niciun contact nu corespunde acestei vizualizări',
       priorityBuilderViewName: 'Numele vizualizării salvate',
       priorityBuilderSave: 'Salvează vizualizarea',
@@ -49426,6 +49522,22 @@ export const translations: Record<Locale, Translations> = {
       priorityBuilderDeduplication: 'I contatti compaiono una volta nel gruppo corrispondente più importante.',
       priorityBuilderLiveResults: 'Risultati live',
       priorityBuilderSearch: 'Cerca contatti',
+      priorityBuilderSearchResult: {
+        contactPerson: 'Persona di contatto',
+        missingName: 'Nome del contatto non disponibile',
+        missingOrganization: 'Organizzazione non disponibile',
+        missingPhone: 'Telefono non disponibile',
+        missingEmail: 'Email non disponibile',
+        match: 'Corrispondenza',
+        name: 'nome del contatto',
+        organization: 'clinica / organizzazione',
+        phone: 'telefono',
+        email: 'email',
+        city: 'città',
+        specialty: 'clinica / specializzazione',
+        resultsFor: 'Risultati per “{query}”',
+        resultsCount: '{shown} di {total}',
+      },
       priorityBuilderNoResults: 'Nessun contatto corrisponde a questa vista',
       priorityBuilderViewName: 'Nome della vista salvata',
       priorityBuilderSave: 'Salva vista',
@@ -56724,6 +56836,22 @@ export const translations: Record<Locale, Translations> = {
       priorityBuilderDeduplication: 'Kontakte erscheinen einmal in ihrer höchsten passenden Gruppe.',
       priorityBuilderLiveResults: 'Live-Ergebnisse',
       priorityBuilderSearch: 'Kontakte suchen',
+      priorityBuilderSearchResult: {
+        contactPerson: 'Kontaktperson',
+        missingName: 'Kontaktname nicht angegeben',
+        missingOrganization: 'Organisation nicht angegeben',
+        missingPhone: 'Telefon nicht angegeben',
+        missingEmail: 'E-Mail nicht angegeben',
+        match: 'Übereinstimmung',
+        name: 'Kontaktname',
+        organization: 'Klinik / Organisation',
+        phone: 'Telefon',
+        email: 'E-Mail',
+        city: 'Stadt',
+        specialty: 'Klinik / Fachgebiet',
+        resultsFor: 'Ergebnisse für „{query}“',
+        resultsCount: '{shown} von {total}',
+      },
       priorityBuilderNoResults: 'Keine Kontakte entsprechen dieser Ansicht',
       priorityBuilderViewName: 'Name der gespeicherten Ansicht',
       priorityBuilderSave: 'Ansicht speichern',

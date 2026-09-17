@@ -19,7 +19,18 @@ todayAtNine.setHours(9, 0, 0, 0);
 const tomorrowAtNine = new Date(todayAtNine);
 tomorrowAtNine.setDate(tomorrowAtNine.getDate() + 1);
 
-const contacts: PriorityContact[] = [
+const contactDefaults = {
+  customerId: null, hospitalId: null, clinicId: null, collaboratorId: null,
+  notes: null, dispositionCode: null, dispositionChecklistCodes: null,
+  lastAttemptAt: null, callbackDate: null, callbackNote: null,
+  contactedAt: null, completedAt: null, currentScriptStepId: null,
+  callbackStatusListItemId: null,
+};
+function withContactDefaults(input: Array<Omit<PriorityContact, keyof typeof contactDefaults> & Partial<PriorityContact>>): PriorityContact[] {
+  return input.map(contact => ({ ...contactDefaults, ...contact }));
+}
+
+const contacts = withContactDefaults([
   {
     id: "referral-1",
     campaignId: "priority-fixture",
@@ -122,14 +133,125 @@ const contacts: PriorityContact[] = [
     updatedAt: new Date("2026-01-08T08:00:00.000Z"),
     customer: { firstName: "Tes Centrum", lastName: "Zena Plus", city: "Nitra", country: "SK" },
   },
-];
+]);
+
+// The original eight-contact pool above intentionally remains the fixture for
+// the existing queue regression suite. Rich search coverage opts in explicitly
+// with ?rich-search=1 so those assertions keep their stable data set.
+const richSearchContacts = withContactDefaults([
+  {
+    id: "rich-hospital-1",
+    campaignId: "priority-rich-search",
+    contactType: "hospital",
+    status: "pending",
+    assignedTo: null,
+    attemptCount: 0,
+    priorityScore: 110,
+    createdAt: new Date("2026-02-01T08:00:00.000Z"),
+    updatedAt: new Date("2026-02-01T08:00:00.000Z"),
+    hasReferral: true,
+    hospital: {
+      name: "Fakultná nemocnica Trnava",
+      contactPerson: "Jana Kováčová",
+      phone: "+421 33 551 4400",
+      email: "kontakt@fntrnava.example.org",
+      city: "Trnava",
+      countryCode: "SK",
+    },
+  },
+  {
+    id: "rich-clinic-semanova",
+    campaignId: "priority-rich-search",
+    contactType: "clinic",
+    status: "pending",
+    assignedTo: null,
+    attemptCount: 0,
+    priorityScore: 100,
+    createdAt: new Date("2026-02-04T08:00:00.000Z"),
+    updatedAt: new Date("2026-02-04T08:00:00.000Z"),
+    clinic: {
+      name: "ALLATURA",
+      doctorName: "MUDr. Eva Semanová",
+      doctorTitle: "MUDr.",
+      doctorFirstName: "Eva",
+      doctorLastName: "Semanová",
+      phone: "+421 33 555 1100",
+      phone2: "+421 33 555 2200",
+      phone3: "+421 33 555 3300",
+      email: "eva.semanova@allatura.example.org",
+      email2: "recepcia@allatura.example.org",
+      email3: "uctaren@allatura.example.org",
+      city: "Trnava",
+      countryCode: "SK",
+    },
+  },
+  {
+    id: "rich-customer-mobile2",
+    campaignId: "priority-rich-search",
+    contactType: "customer",
+    status: "pending",
+    assignedTo: null,
+    attemptCount: 0,
+    priorityScore: 90,
+    createdAt: new Date("2026-02-03T08:00:00.000Z"),
+    updatedAt: new Date("2026-02-03T08:00:00.000Z"),
+    customer: {
+      firstName: "Mária",
+      lastName: "Mobilová",
+      companyName: "Allatura Supplies",
+      phone: "+421 948 100 101",
+      mobile2: "+421 948 200 202",
+      email: "maria.mobilova@example.org",
+      email2: "office@example.org",
+      city: "Nitra",
+      country: "SK",
+    },
+  },
+  {
+    id: "rich-collaborator-1",
+    campaignId: "priority-rich-search",
+    contactType: "collaborator",
+    status: "callback_scheduled",
+    assignedTo: "agent-fixture",
+    attemptCount: 2,
+    priorityScore: 80,
+    callbackDate: tomorrowAtNine,
+    createdAt: new Date("2026-02-02T08:00:00.000Z"),
+    updatedAt: new Date("2026-02-02T08:00:00.000Z"),
+    collaborator: {
+      titleBefore: "PharmDr.",
+      firstName: "Tomáš",
+      middleName: "Ján",
+      lastName: "Spolupracovník",
+      titleAfter: "PhD.",
+      workplaceName: "Allatura Partner",
+      professionalClassification: "farmaceut",
+      phone: "+421 905 700 800",
+      mobile: "+421 905 700 801",
+      mobile2: "+421 905 700 802",
+      email: "tomas.spolupracovnik@example.org",
+      city: "Bratislava",
+      countryCode: "SK",
+      // Deliberately looks sensitive and unique, but is not part of the
+      // public contact-search projection.
+      mobilePasswordHash: "fixture-mobile-password-hash-do-not-search-7f4c",
+    } as PriorityContact["collaborator"] & { mobilePasswordHash: string },
+  },
+]);
+
+const selectedFixtureContacts = new URLSearchParams(window.location.search).get("rich-search") === "1"
+  ? richSearchContacts
+  : contacts;
+const fixtureCountry = new URLSearchParams(window.location.search).get("country");
+const fixtureCountries = fixtureCountry ? [fixtureCountry] : [];
 
 function Fixture() {
   const [open, setOpen] = useState(true);
-  const [fixtureContacts, setFixtureContacts] = useState(contacts);
+  const [fixtureContacts, setFixtureContacts] = useState(selectedFixtureContacts);
   const [auto, setAuto] = useState(false);
   const [nextCalls, setNextCalls] = useState(0);
   const [nextContactId, setNextContactId] = useState("");
+  const [selectedContactId, setSelectedContactId] = useState("");
 
   useEffect(() => {
     const fixtureWindow = window as Window & { priorityFixtureAddCity?: () => void };
@@ -168,20 +290,21 @@ function Fixture() {
               setNextCalls(value => value + 1);
               setNextContactId(next?.contact.id || "");
             }}
-            onSelectContact={() => undefined}
+            onSelectContact={contact => setSelectedContactId(contact.id)}
           />
         </DialogContent>
       </Dialog>
       <output data-testid="priority-fixture-next-calls">{nextCalls}</output>
       <output data-testid="priority-fixture-next-contact">{nextContactId}</output>
       <output data-testid="priority-fixture-auto">{String(auto)}</output>
+      <output data-testid="priority-fixture-selected-contact">{selectedContactId}</output>
     </>
   );
 }
 
 createRoot(document.getElementById("priority-builder-root")!).render(
   <QueryClientProvider client={queryClient}>
-    <I18nProvider userCountries={[]}>
+    <I18nProvider userCountries={fixtureCountries}>
       <Fixture />
     </I18nProvider>
   </QueryClientProvider>,

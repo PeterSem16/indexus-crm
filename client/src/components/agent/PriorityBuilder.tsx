@@ -16,7 +16,6 @@ import {
   filterPriorityContacts,
   getPriorityContactCityLocation,
   getPriorityCitySelectionMode,
-  getPriorityContactName,
   isPriorityReferral,
   matchesPrioritySegment,
   parsePriorityView,
@@ -34,6 +33,7 @@ import {
   type PriorityView,
 } from "./priority-builder";
 import { priorityBuilderCopy } from "./priority-builder-copy";
+import { PriorityContactIdentity } from "./PriorityContactIdentity";
 import "./priority-builder.css";
 
 /** Shared by the production dialog and the responsive browser fixture. */
@@ -677,13 +677,12 @@ export function PriorityBuilder({
     });
   }, [copy.cityCountrySeparator, copy.otherGroup, copy.unknownCity, filteredQueue, segmentNames, view.cityGrouping?.enabled]);
   const renderPreviewCard = ({ contact, segment, cityGroup }: PriorityQueueItem) => {
-    const name = getPriorityContactName(contact);
     const callbackDateTime = formatCallbackDateTime(contact.callbackDate, locale);
     const queuePosition = queuePositions.get(contact.id) || 0;
     const groupName = segment === "other" ? copy.otherGroup : segmentNames[segment];
     const attemptSummary = formatAttemptSummary(contact.attemptCount, copy);
     return <button type="button" className="priority-builder-card" key={contact.id} onClick={() => onSelectContact(contact)}>
-      <span className="priority-builder-card-row"><span className="priority-builder-avatar">{name.slice(0, 1).toUpperCase()}</span><strong className="priority-builder-card-name">{name}</strong></span>
+      <PriorityContactIdentity contact={contact} query={query} field={searchField} />
       <span className="priority-builder-card-chips">
         <span className="priority-builder-card-chip priority-builder-card-chip-position"><span className="priority-builder-card-chip-icon"><ListOrdered size={11} /></span>{queuePosition === 1 ? `${copy.nextUp} — ` : ""}{copy.queuePosition} {queuePosition}</span>
         <span className="priority-builder-card-chip priority-builder-card-chip-group"><span className="priority-builder-card-chip-icon"><Layers3 size={11} /></span>{copy.group}: {groupName}</span>
@@ -696,7 +695,7 @@ export function PriorityBuilder({
   };
 
   return (
-    <section className={`priority-builder ${className}`} aria-label={t.agentWorkspace.priorityBuilderTitle}>
+    <section className={`priority-builder ${query.trim() ? "priority-builder-search-active" : ""} ${className}`} aria-label={t.agentWorkspace.priorityBuilderTitle}>
       <aside className="priority-builder-sidebar">
         <div className="priority-builder-brand">INDEXUS</div>
         <div className="priority-builder-side-label">{t.agentWorkspace.contacts}</div>
@@ -904,7 +903,15 @@ export function PriorityBuilder({
             <div className="priority-builder-detail" style={{ display: "flex", alignItems: "center", gap: 5, margin: "12px 2px" }}><GripVertical size={13} />{copy.dragHint}</div>
           </section>
           <aside className="priority-builder-preview">
-            <div className="priority-builder-preview-head"><div><h2>{copy.liveResult}</h2><p>{copy.workNext}</p></div><strong style={{ color: "#b5622e", fontSize: 16 }}>{previewQueue.length}</strong></div>
+            <div className="priority-builder-preview-head">
+              <div>
+                <h2>{copy.liveResult}</h2>
+                <p>{query.trim() ? t.agentWorkspace.priorityBuilderSearchResult.resultsFor.replace("{query}", query.trim()) : copy.workNext}</p>
+              </div>
+              <strong style={{ color: "#b5622e", fontSize: 16 }} aria-live="polite">
+                {query.trim() ? t.agentWorkspace.priorityBuilderSearchResult.resultsCount.replace("{shown}", String(filteredQueue.length)).replace("{total}", String(previewQueue.length)) : previewQueue.length}
+              </strong>
+            </div>
             <div className="priority-builder-impact"><Check size={15} /><span><strong>{copy.dedupActive}</strong><br />{overlapCount} {copy.dedupDetail}</span></div>
             {view.cityGrouping?.enabled
               ? previewSegmentGroups.map(segment => <div key={segment.segment} className="priority-builder-preview-segment-group">

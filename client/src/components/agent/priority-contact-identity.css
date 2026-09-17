@@ -1,0 +1,25 @@
+.priority-builder-card:has(.priority-contact-identity) { padding: 13px 12px; }
+.priority-contact-identity { display: block; min-width: 0; }
+.priority-contact-main { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
+.priority-contact-main .priority-builder-avatar { width: 32px; height: 34px; border-radius: 9px; flex: 0 0 32px; }
+.priority-contact-person { display: grid; min-width: 0; gap: 2px; }
+.priority-contact-eyebrow { color: #7d6e62; font-size: 9px; font-weight: 500; }
+.priority-contact-person .priority-builder-card-name { color: #372d27; font-size: 14px; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
+.priority-contact-organization,
+.priority-contact-specialty { display: flex; align-items: center; gap: 7px; color: #615248; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.priority-contact-organization { font-weight: 700; }
+.priority-contact-specialty { color: #8c7c70; margin-top: 3px; font-size: 10px; }
+.priority-contact-channels { display: grid; gap: 6px; margin-top: 10px; color: #63544a; font-size: 11px; font-weight: 500; }
+.priority-contact-channel { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+.priority-contact-channel > span { min-width: 0; overflow-wrap: anywhere; }
+.priority-contact-identity svg { flex-shrink: 0; }
+.priority-contact-channel svg { align-self: flex-start; margin-top: 2px; }
+.priority-contact-channel.missing { color: #958579; font-style: italic; }
+.priority-contact-identity mark { border-radius: 3px; padding: 0 1px; background: #fbe1ad; color: #6b421b; font-weight: 800; }
+.priority-contact-match { display: flex; align-items: center; gap: 6px; margin-top: 10px; padding: 6px 8px; border-radius: 5px; background: #fbf1df; color: #8a6638; font-size: 10px; font-weight: 600; }
+.priority-contact-identity + .priority-builder-card-chips { border-top: 1px solid #eee6de; padding-top: 10px; margin-top: 10px; }
+.priority-builder-card:focus-visible { outline: 2px solid #b5622e; outline-offset: 2px; }
+@media (max-width: 800px) {
+  .priority-builder-search-active .priority-builder-editor { display: none; }
+  .priority-builder-search-active .priority-builder-preview { display: block; border-left: 0; }
+}
