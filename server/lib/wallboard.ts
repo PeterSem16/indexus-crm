@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, isNull, or } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lte, max, or, sql } from "drizzle-orm";
 import { db } from "../db";
 import { storage } from "../storage";
 import {
@@ -23,6 +23,12 @@ import { inboundCallWs } from "./inbound-call-ws";
 import { getWallboardPresence } from "./wallboard-presence";
 import type { WallboardSnapshot } from "@shared/wallboard";
 import type { WallboardQueueCall } from "./wallboard-queue";
+import {
+  startOfBratislavaDay,
+  selectNewestWallboardSession,
+  wallboardSessionMissionIds,
+  unionWallboardSessionSeconds,
+} from "./wallboard-time";
 
 type Viewer = { id: string; role?: string | null; roleId?: string | null };
 type CampaignRow = typeof campaigns.$inferSelect;
@@ -86,37 +92,6 @@ function callIsLive(call: { status: string; endedAt: Date | null }): boolean {
   return !call.endedAt && ["initiated", "ringing", "answered"].includes(call.status);
 }
 
-function startOfAppDay(value: Date): Date {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Europe/Bratislava",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(value);
-  const get = (type: string) => Number(parts.find((part) => part.type === type)?.value);
-  // Convert the Prague calendar midnight to UTC. The second formatting pass
-  // supplies the DST offset for that date without a dependency.
-  const calendarUtc = Date.UTC(get("year"), get("month") - 1, get("day"));
-  const offsetParts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Europe/Bratislava",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(new Date(calendarUtc));
-  const offsetDate = (type: string) => Number(offsetParts.find((part) => part.type === type)?.value);
-  const renderedUtc = Date.UTC(
-    offsetDate("year"),
-    offsetDate("month") - 1,
-    offsetDate("day"),
-    offsetDate("hour"),
-    offsetDate("minute"),
-  );
-  return new Date(calendarUtc - (renderedUtc - calendarUtc));
-}
-
 /**
  * Build a snapshot from bounded, access-filtered queries. `now` is injectable
  * for deterministic tests and is used only for elapsed wait calculations.
@@ -135,38 +110,127 @@ export async function buildWallboardSnapshot(
   // Inactive Missions can be opened by an authorized viewer, but must not
   // resurrect abandoned sessions or calls as a running Mission.
   const visibleIds = new Set(visible.filter((campaign) => campaign.status === "active").map((campaign) => campaign.id));
+  // Historical projection may still be useful for an authorized completed or
+  // paused Mission, but its open sessions must never become live state.
+  const historicalIds = new Set(visible.map((campaign) => campaign.id));
 
+  const historicalMissionIds = Array.from(historicalIds);
+  const scopedSessionCondition = historicalMissionIds.length
+    ? or(
+      inArray(agentSessions.campaignId, historicalMissionIds),
+      sql`${agentSessions.campaignIds} && ARRAY[${sql.join(
+        historicalMissionIds.map((id) => sql`${id}`), sql`, `,
+      )}]::text[]`,
+    )
+    : undefined;
+  // Historical cards use the current Mission roster.  This prevents an agent
+  // removed from a Mission from lingering forever while still allowing the
+  // live-session path below to preserve its explicit current-session scope.
+  const rosterRows = historicalMissionIds.length
+    ? await db.select({ userId: campaignAgents.userId })
+      .from(campaignAgents).where(inArray(campaignAgents.campaignId, historicalMissionIds))
+    : [];
+  const rosterUserIds = Array.from(new Set(rosterRows.map((row) => row.userId)));
+
+  const activeScope = scopedSessionCondition || sql`false`;
+  const activeUserCondition = rosterUserIds.length
+    ? or(activeScope, inArray(agentSessions.userId, rosterUserIds))
+    : activeScope;
   const activeSessionRows = await db.select().from(agentSessions)
-    .where(isNull(agentSessions.endedAt));
+    .where(and(isNull(agentSessions.endedAt), activeUserCondition));
   // There can be stale duplicate rows after a browser reconnect. Only the
   // newest still-open session with an authorized active Mission is
   // authoritative for a user.
   const sessionHasVisibleMission = (session: typeof activeSessionRows[number]): boolean => {
-    const ids = [
-      ...(session.campaignId ? [session.campaignId] : []),
-      ...(session.campaignIds || []),
-    ];
+    const ids = wallboardSessionMissionIds(session);
     return ids.some((id) => visibleIds.has(id));
   };
   const newestByUser = new Map<string, typeof activeSessionRows[number]>();
-  for (const session of activeSessionRows.sort((a, b) =>
-    b.startedAt.getTime() - a.startedAt.getTime() || b.id.localeCompare(a.id))) {
-    if (!newestByUser.has(session.userId)) newestByUser.set(session.userId, session);
+  for (const session of activeSessionRows) {
+    const previous = newestByUser.get(session.userId);
+    const newest = selectNewestWallboardSession(previous ? [previous, session] : [session]);
+    if (newest) newestByUser.set(session.userId, newest);
   }
-  const latestSessionRows = Array.from(newestByUser.values()).filter(sessionHasVisibleMission);
-  const userIds = Array.from(new Set(latestSessionRows.map((session) => session.userId)));
-  const userRows = userIds.length
-    ? await db.select({ id: users.id, fullName: users.fullName })
-      .from(users).where(and(inArray(users.id, userIds), eq(users.isActive, true)))
+  const latestLiveRows = Array.from(newestByUser.values()).filter(sessionHasVisibleMission);
+  const liveUserIds = Array.from(new Set(latestLiveRows.map((session) => session.userId)));
+
+  // One latest scoped row per current roster user is enough for the
+  // historical projection.  The max() subquery keeps this from dumping a
+  // user's complete session history into Node.
+  const latestScopedRows = rosterUserIds.length && scopedSessionCondition
+    ? (await (async () => {
+      const latestStarted = db.select({
+        userId: agentSessions.userId,
+        startedAt: max(agentSessions.startedAt).as("latest_started_at"),
+      }).from(agentSessions)
+        .where(and(inArray(agentSessions.userId, rosterUserIds), scopedSessionCondition))
+        .groupBy(agentSessions.userId)
+        .as("wallboard_latest_scoped_session");
+      return db.select({ session: agentSessions })
+        .from(agentSessions)
+        .innerJoin(latestStarted, and(
+          eq(agentSessions.userId, latestStarted.userId),
+          eq(agentSessions.startedAt, latestStarted.startedAt),
+        ))
+        .where(and(inArray(agentSessions.userId, rosterUserIds), scopedSessionCondition));
+    })())
+    : [];
+  const historicalByUser = new Map<string, typeof agentSessions.$inferSelect>();
+  for (const row of latestScopedRows) {
+    const session = "session" in row ? row.session : row;
+    if (session) {
+      const previous = historicalByUser.get(session.userId);
+      const newest = selectNewestWallboardSession(previous ? [previous, session] : [session]);
+      if (newest) historicalByUser.set(session.userId, newest);
+    }
+  }
+  const candidateUserIds = Array.from(new Set([...liveUserIds, ...Array.from(historicalByUser.keys())]));
+  const userRows = candidateUserIds.length
+    ? await db.select({ id: users.id, fullName: users.fullName, avatarUrl: users.avatarUrl })
+      .from(users).where(and(inArray(users.id, candidateUserIds), eq(users.isActive, true)))
     : [];
   const userById = new Map(userRows.map((user) => [user.id, user]));
-  const sessions = latestSessionRows.filter((session) => userById.has(session.userId));
-  const sessionIds = sessions.map((session) => session.id);
+  // A scoped live session is authoritative only if it is the user's newest
+  // open session globally.  An old scoped row may still render as offline,
+  // but can never resurrect live state.
+  const liveSessionByUser = new Map(
+    latestLiveRows
+      .filter((session) => userById.has(session.userId))
+      .map((session) => [session.userId, session]),
+  );
+  const historicalSessions = Array.from(historicalByUser.values())
+    .filter((session) => userById.has(session.userId));
+  const sessionIds = Array.from(new Set([
+    ...Array.from(liveSessionByUser.values()).map((session) => session.id),
+    ...historicalSessions.map((session) => session.id),
+  ]));
 
   const breaks = sessionIds.length
     ? await db.select().from(agentBreaks)
       .where(and(inArray(agentBreaks.sessionId, sessionIds), isNull(agentBreaks.endedAt)))
     : [];
+
+  // Only fetch intervals intersecting this app day.  The query is scoped to
+  // current roster users and explicit Mission membership; all-time history is
+  // never materialized in JavaScript.
+  const today = startOfBratislavaDay(now);
+  const nextDay = startOfBratislavaDay(new Date(today.getTime() + 36 * 60 * 60 * 1000));
+  const intervalUserIds = Array.from(new Set([
+    ...rosterUserIds,
+    ...liveUserIds,
+  ]));
+  const todaySessionRows = intervalUserIds.length && scopedSessionCondition
+    ? await db.select().from(agentSessions).where(and(
+      inArray(agentSessions.userId, intervalUserIds),
+      scopedSessionCondition,
+      lte(agentSessions.startedAt, nextDay),
+      or(isNull(agentSessions.endedAt), gte(agentSessions.endedAt, today)),
+    ))
+    : [];
+  const userIds = userRows.map((user) => user.id);
+  const sessions = userIds
+    .map((userId) => liveSessionByUser.get(userId) || historicalByUser.get(userId))
+    .filter((session): session is typeof agentSessions.$inferSelect => !!session);
 
   // Open calls are restricted to active-session users and are bounded by the
   // indexed user/status predicates. Historical logs cannot create live cards.
@@ -211,10 +275,9 @@ export async function buildWallboardSnapshot(
   const sessionCampaignIds = (userId: string): string[] => {
     const ids = new Set<string>();
     for (const session of sessions.filter((row) => row.userId === userId)) {
-      if (session.campaignId) ids.add(session.campaignId);
-      for (const id of session.campaignIds || []) ids.add(id);
+      for (const id of wallboardSessionMissionIds(session)) ids.add(id);
     }
-    return Array.from(ids).filter((id) => visibleIds.has(id)).sort();
+    return Array.from(ids).filter((id) => historicalIds.has(id)).sort();
   };
   // Every selected session has an explicit authorized Mission.
   const scopedSessions = sessions.filter((session) => sessionCampaignIds(session.userId).length > 0);
@@ -223,6 +286,7 @@ export async function buildWallboardSnapshot(
     (!campaignId || call.campaignId === campaignId));
   const agents: WallboardSnapshot["agents"] = [];
   const seenUsers = new Set<string>();
+  const todayEnd = new Date(Math.min(now.getTime(), nextDay.getTime()));
   for (const session of scopedSessions.sort((a, b) => a.userId.localeCompare(b.userId))) {
     if (seenUsers.has(session.userId)) continue;
     seenUsers.add(session.userId);
@@ -232,7 +296,8 @@ export async function buildWallboardSnapshot(
       // An unscoped session cannot safely be attributed to a Mission.
       continue;
     }
-    const connected = inboundCallWs.isAgentConnected(session.userId);
+    const currentScopedOpen = liveSessionByUser.get(session.userId);
+    const connected = !!currentScopedOpen && inboundCallWs.isAgentConnected(session.userId);
     const calls = visibleOpenCalls.filter((call) =>
       call.userId === session.userId && callIsLive(call) &&
       call.startedAt >= session.startedAt
@@ -274,12 +339,35 @@ export async function buildWallboardSnapshot(
     agents.push({
       id: user.id,
       name: user.fullName,
+      avatarUrl: user.avatarUrl,
       campaignIds,
       campaignNames: campaignIds.map((id) => byId.get(id)?.name).filter((name): name is string => !!name),
       state: derived.state,
       stateSince: derived.stateSince,
       direction: derived.direction,
       connected,
+      sessionStartedAt: connected ? dateValue(currentScopedOpen?.startedAt) : null,
+      lastMissionAt: connected
+        ? null
+        : dateValue(session.endedAt || session.lastActiveAt),
+      todayMissionSeconds: unionWallboardSessionSeconds(
+        todaySessionRows
+          .filter((row) => row.userId === session.userId)
+          .filter((row) => {
+            const rowCampaignIds = wallboardSessionMissionIds(row);
+            return !campaignId || rowCampaignIds.includes(campaignId);
+          })
+          .map((row) => ({
+            startedAt: row.startedAt,
+            endedAt: row.endedAt,
+            lastActiveAt: row.lastActiveAt,
+            accruing: connected && row.id === currentScopedOpen?.id,
+          })),
+        today,
+        todayEnd,
+        now,
+      ),
+      todayAccruing: connected,
     });
   }
 
@@ -298,7 +386,7 @@ export async function buildWallboardSnapshot(
       id: call.id,
       campaignId: exactCampaignId,
       queueName,
-      agentName: [...new Set([...(call.agentIds || []), ...(call.agentId ? [call.agentId] : [])])]
+      agentName: Array.from(new Set([...(call.agentIds || []), ...(call.agentId ? [call.agentId] : [])]))
         .map((id) => userById.get(id)?.fullName).filter(Boolean).join(", ") || null,
       status: call.status,
       since,
@@ -306,7 +394,6 @@ export async function buildWallboardSnapshot(
     });
   }
 
-  const today = startOfAppDay(now);
   const answeredTodayRows = await db.select({
     answeredAt: inboundCallLogs.answeredAt,
     waitDurationSeconds: inboundCallLogs.waitDurationSeconds,

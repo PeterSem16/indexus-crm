@@ -16,12 +16,21 @@ export interface WallboardSnapshot {
   agents: Array<{
     id: string;
     name: string;
+    avatarUrl: string | null;
     campaignIds: string[];
     campaignNames: string[];
     state: WallboardAgentState;
     stateSince: string | null;
     direction: "inbound" | "outbound" | null;
     connected: boolean;
+    /** The authoritative current scoped open session, but only while connected. */
+    sessionStartedAt: string | null;
+    /** End of the latest scoped ended session, or abandonment checkpoint. */
+    lastMissionAt: string | null;
+    /** Union of scoped session intervals clipped to the Bratislava calendar day. */
+    todayMissionSeconds: number;
+    /** True only for a connected, current scoped open session. */
+    todayAccruing: boolean;
   }>;
   inbound: Array<{
     id: string;

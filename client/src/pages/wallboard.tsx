@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { ChevronLeft, ChevronRight, Maximize2, MonitorUp, RefreshCw, X, ArrowLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight, Maximize2, MonitorUp, RefreshCw, X, ArrowLeft, UserRound } from "lucide-react";
 import type { WallboardSnapshot } from "@shared/wallboard";
 import { useI18n } from "@/i18n/I18nProvider";
 import { Link } from "wouter";
@@ -18,9 +18,18 @@ type WallboardPageProps = {
   campaignId?: string | null;
 };
 
+type WallboardAgent = WallboardSnapshot["agents"][number] & {
+  avatarUrl?: string | null;
+  sessionStartedAt?: string | null;
+  lastMissionAt?: string | null;
+  todayMissionSeconds?: number;
+  todayAccruing?: boolean;
+};
+
 const POLL_MS = 2_000;
 const STALE_AFTER_MS = 8_000;
 const REQUEST_TIMEOUT_MS = 10_000;
+const SHOW_OFFLINE_STORAGE_KEY = "wallboard-show-offline-agents";
 
 const stateColors: Record<WallboardState, string> = {
   calling: "#6fd3db",
@@ -45,8 +54,46 @@ function errorMessage(error: unknown, t: ReturnType<typeof useI18n>["t"]): strin
   return t.wallboard.reconnect;
 }
 
+function readShowOfflineAgents(): boolean {
+  try {
+    const stored = window.localStorage.getItem(SHOW_OFFLINE_STORAGE_KEY);
+    return stored === null ? true : stored === "true";
+  } catch {
+    return true;
+  }
+}
+
+function formatWallboardDateTime(
+  value: string | null | undefined,
+  locale: string,
+  timeOnlyIfToday = false,
+  referenceNow = Date.now(),
+): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "—";
+  const sameBratislavaDay = bratislavaDay(date.getTime()) === bratislavaDay(referenceNow);
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: "Europe/Bratislava",
+    ...(timeOnlyIfToday && sameBratislavaDay
+      ? { hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" as const }
+      : { dateStyle: "short" as const, timeStyle: "short" as const }),
+  }).format(date);
+}
+
+function bratislavaDay(value: number | string): string {
+  const date = typeof value === "number" ? new Date(value) : new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Bratislava",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
 export default function WallboardPage({ campaignId = null }: WallboardPageProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [snapshot, setSnapshot] = useState<WallboardSnapshot | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [loading, setLoading] = useState(true);
@@ -54,6 +101,8 @@ export default function WallboardPage({ campaignId = null }: WallboardPageProps)
   const [now, setNow] = useState(() => Date.now());
   const [page, setPage] = useState(0);
   const [presentation, setPresentation] = useState(false);
+  const [showOfflineAgents, setShowOfflineAgents] = useState(readShowOfflineAgents);
+  const [failedAvatars, setFailedAvatars] = useState<Record<string, boolean>>({});
   const requestRef = useRef<AbortController | null>(null);
   const generationRef = useRef(0);
 
@@ -142,10 +191,24 @@ export default function WallboardPage({ campaignId = null }: WallboardPageProps)
       now - lastFetchedAt > STALE_AFTER_MS,
   ) || Boolean(snapshot?.source.live === false) || Boolean(error && snapshot);
 
-  const agents = snapshot?.agents ?? [];
-  const pageCount = wallboardPageCount(agents.length);
+  const agents = (snapshot?.agents ?? []) as WallboardAgent[];
+  const filteredAgents = showOfflineAgents ? agents : agents.filter((agent) => agent.state !== "offline");
+  const pageCount = wallboardPageCount(filteredAgents.length);
   const currentPage = Math.min(page, pageCount - 1);
-  const visibleAgents = paginateWallboard(agents, currentPage);
+  const visibleAgents = paginateWallboard(filteredAgents, currentPage);
+
+  const toggleOfflineAgents = () => {
+    setShowOfflineAgents((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem(SHOW_OFFLINE_STORAGE_KEY, String(next));
+      } catch {
+        // Private browsing and blocked storage should not prevent using the filter.
+      }
+      return next;
+    });
+    setPage(0);
+  };
 
   useEffect(() => {
     if (pageCount <= 1) return;
@@ -172,6 +235,7 @@ export default function WallboardPage({ campaignId = null }: WallboardPageProps)
     ?? snapshot?.inbound.find((call) => call.status === "talking");
   const sourceLive = Boolean(snapshot?.source.live) && !stale;
   const title = snapshot?.scope.campaignName ?? t.wallboard.allMissions;
+  const signedInCount = agents.filter((agent) => agent.state !== "offline").length;
   const effectiveServerNow = snapshot
     ? getEffectiveWallboardServerTime(snapshot.generatedAt, lastFetchedAt, now, stale)
     : null;
@@ -193,6 +257,10 @@ export default function WallboardPage({ campaignId = null }: WallboardPageProps)
 
   const stateLabel = (state: WallboardState) => t.wallboard.states[state];
   const stateDetail = (state: WallboardState) => t.wallboard.details[state];
+  const snapshotDay = snapshot ? bratislavaDay(snapshot.generatedAt) : "";
+  // Compare with the receipt clock as well as the server timestamp so a stale
+  // yesterday snapshot cannot carry its totals through Bratislava midnight.
+  const todayIsCurrent = Boolean(snapshotDay && snapshotDay === bratislavaDay(now));
 
   return (
     <main className={`wb-shell${presentation ? " wb-present" : ""}`}>
@@ -213,7 +281,7 @@ export default function WallboardPage({ campaignId = null }: WallboardPageProps)
             <p className="wb-sub">
               {snapshot
                 ? snapshot.scope.campaignId
-                  ? interpolate(t.wallboard.agentsSignedIn, agents.length)
+                  ? interpolate(t.wallboard.agentsSignedIn, signedInCount)
                   : interpolate(t.wallboard.agentsAcrossMissions, snapshot.campaigns.length)
                 : t.wallboard.loading}
             </p>
@@ -226,6 +294,17 @@ export default function WallboardPage({ campaignId = null }: WallboardPageProps)
             <button className="wb-tool" type="button" onClick={() => void fetchSnapshot(false)}>
               <RefreshCw size={14} aria-hidden="true" />
               {t.wallboard.refresh}
+            </button>
+            <button
+              className="wb-tool wb-offline-toggle"
+              type="button"
+              role="switch"
+              aria-label={t.wallboard.showOfflineAgents}
+              aria-checked={showOfflineAgents}
+              onClick={toggleOfflineAgents}
+            >
+              <span className="wb-switch-track" aria-hidden="true"><span /></span>
+              {t.wallboard.showOfflineAgents}
             </button>
             {presentation ? (
               <button className="wb-tool" type="button" onClick={exitPresentation}>
@@ -279,13 +358,27 @@ export default function WallboardPage({ campaignId = null }: WallboardPageProps)
               <div className="wb-empty">
                 <div><b>{t.wallboard.noAgents}</b>{t.wallboard.noAgentsHint}</div>
               </div>
+            ) : filteredAgents.length === 0 ? (
+              <div className="wb-empty">
+                <div><b>{t.wallboard.noOnlineAgents}</b>{t.wallboard.noOnlineAgentsHint}</div>
+              </div>
             ) : (
               <div className="wb-agents">
                 {visibleAgents.map((agent) => {
-                  const elapsed = getWallboardElapsedSeconds(
-                    agent.stateSince,
-                    effectiveServerNow ?? Number.NaN,
-                  );
+                  const isOnline = agent.connected && agent.state !== "offline";
+                  const stateElapsed = isOnline
+                    ? getWallboardElapsedSeconds(agent.stateSince, effectiveServerNow ?? Number.NaN)
+                    : null;
+                  const sessionElapsed = isOnline
+                    ? getWallboardElapsedSeconds(agent.sessionStartedAt ?? null, effectiveServerNow ?? Number.NaN)
+                    : null;
+                  const todaySeconds = todayIsCurrent
+                    ? (agent.todayMissionSeconds ?? 0) + (
+                      !stale && agent.todayAccruing && effectiveServerNow !== null && snapshot
+                        ? Math.max(0, Math.floor((effectiveServerNow - Date.parse(snapshot.generatedAt)) / 1000))
+                        : 0
+                    )
+                    : 0;
                   return (
                     <article
                       className="wb-agent"
@@ -293,21 +386,44 @@ export default function WallboardPage({ campaignId = null }: WallboardPageProps)
                       style={{ "--wb-state": stateColors[agent.state] } as CSSProperties}
                     >
                       <div className="wb-agent-head">
-                        <div>
-                          <div className="wb-agent-id">{agent.id}</div>
-                          <div className="wb-agent-name">{agent.name}</div>
-                          <div className="wb-campaign">
-                            {agent.campaignNames.length > 0 ? agent.campaignNames.join(" · ") : t.wallboard.noMission}
+                        <div className="wb-agent-person">
+                          <div className="wb-avatar">
+                            {agent.avatarUrl && !failedAvatars[agent.id] ? (
+                              <img
+                                src={agent.avatarUrl}
+                                alt=""
+                                onError={() => setFailedAvatars((current) => ({ ...current, [agent.id]: true }))}
+                              />
+                            ) : <UserRound size={20} aria-hidden="true" />}
+                          </div>
+                          <div>
+                            <div className="wb-agent-name">{agent.name}</div>
+                            <div className="wb-campaign">
+                              {agent.campaignNames.length > 0 ? agent.campaignNames.join(" · ") : t.wallboard.noMission}
+                            </div>
                           </div>
                         </div>
                       </div>
                       <div>
                         <div className="wb-status">{stateLabel(agent.state)}</div>
-                        <div className="wb-timer">
-                          {elapsed === null ? t.wallboard.unknownTime : formatWallboardDuration(elapsed)}
+                        {isOnline && (
+                          <div className="wb-state-timer">
+                            {stateElapsed === null ? t.wallboard.unknownTime : formatWallboardDuration(stateElapsed)}
+                          </div>
+                        )}
+                        <div className="wb-details">
+                          {isOnline ? (
+                            <>
+                              <div><span>{t.wallboard.signedInAt}</span><b>{formatWallboardDateTime(agent.sessionStartedAt, locale, true, now)}</b></div>
+                              <div><span>{t.wallboard.currentSession}</span><b>{sessionElapsed === null ? t.wallboard.unknownTime : formatWallboardDuration(sessionElapsed)}</b></div>
+                            </>
+                          ) : (
+                            <div><span>{t.wallboard.lastInMission}</span><b>{formatWallboardDateTime(agent.lastMissionAt, locale)}</b></div>
+                          )}
+                          <div><span>{t.wallboard.todayInMission}</span><b>{formatWallboardDuration(todaySeconds)}</b></div>
                         </div>
                         <div className="wb-detail">
-                          {agent.connected ? stateDetail(agent.state) : t.wallboard.disconnected}
+                          {isOnline ? stateDetail(agent.state) : t.wallboard.disconnected}
                           {agent.direction ? ` · ${agent.direction === "inbound" ? t.wallboard.inbound : t.wallboard.outbound}` : ""}
                         </div>
                       </div>
@@ -317,7 +433,7 @@ export default function WallboardPage({ campaignId = null }: WallboardPageProps)
               </div>
             )}
 
-            {snapshot && agents.length > WALLBOARD_PAGE_SIZE && (
+            {snapshot && filteredAgents.length > WALLBOARD_PAGE_SIZE && (
               <div className="wb-pagination">
                 <span>{interpolate(t.wallboard.pageOf, `${currentPage + 1} / ${pageCount}`)}</span>
                 <div className="wb-pagination-controls">

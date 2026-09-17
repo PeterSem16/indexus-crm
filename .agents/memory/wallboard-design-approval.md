@@ -13,3 +13,9 @@ For projected Wallboards, disclose agent identity and operational state, but not
 **Why:** the display is intended for a room-sized audience, and broad queue or campaign-assignment fallbacks can expose unrelated Mission data.
 
 **How to apply:** require exact call attribution and current shift membership; omit ambiguous calls. Card-work presence is an expiring UI hint only, never authority for telephony or recording.
+
+Wallboard Mission time means logged-in session participation, including breaks, not productive work or foreground time in a particular contact. For a multi-Mission session, participation applies to its selected Missions; the all-Missions total must union overlapping intervals rather than add per-Mission totals.
+
+**Why:** session membership does not provide a historical Mission-switch ledger, so it cannot support claims of precise foreground time per Mission. The requested metric is time logged into Mission.
+
+**How to apply:** clip totals to the Bratislava calendar day. Keep ended sessions historical/offline, never live. A disconnected unclosed session can provide only its last recorded activity, not an exact disconnect timestamp; stop estimated accrual there rather than letting abandoned sessions accrue indefinitely.

@@ -34,7 +34,7 @@
   max-width: 1920px;
   margin: auto;
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: clamp(12px, 1.5vw, 22px);
 }
 
@@ -140,6 +140,38 @@
   outline-offset: 3px;
 }
 
+.wb-offline-toggle {
+  gap: 9px;
+}
+
+.wb-switch-track {
+  position: relative;
+  display: inline-flex;
+  width: 27px;
+  height: 16px;
+  align-items: center;
+  padding: 2px;
+  border: 1px solid var(--wb-muted);
+  border-radius: 999px;
+}
+
+.wb-switch-track span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--wb-muted);
+  transition: transform 120ms ease, background 120ms ease;
+}
+
+.wb-offline-toggle[aria-checked="true"] .wb-switch-track {
+  border-color: var(--wb-lime);
+}
+
+.wb-offline-toggle[aria-checked="true"] .wb-switch-track span {
+  background: var(--wb-lime);
+  transform: translateX(10px);
+}
+
 .wb-main {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(270px, 20.5%);
@@ -213,6 +245,51 @@
   background: var(--wb-panel);
 }
 
+.wb-present .wb-agent {
+  padding: 12px;
+}
+
+.wb-present .wb-agent-name {
+  font-size: 20px;
+}
+
+.wb-present .wb-campaign,
+.wb-present .wb-detail {
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.wb-present .wb-status {
+  margin-top: 8px;
+  font-size: 28px;
+}
+
+.wb-present .wb-state-timer {
+  margin-top: 4px;
+  font-size: 16px;
+}
+
+.wb-present .wb-details {
+  gap: 1px;
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.1;
+}
+
+.wb-present .wb-board {
+  height: calc(100dvh - 24px);
+  min-height: 0;
+}
+
+@media (min-width: 1400px) and (min-height: 1000px) {
+  .wb-present .wb-agent-name { font-size: 27px; }
+  .wb-present .wb-status { font-size: 39px; }
+  .wb-present .wb-state-timer { font-size: 21px; }
+  .wb-present .wb-details { font-size: 16px; line-height: 1.2; }
+  .wb-present .wb-campaign,
+  .wb-present .wb-detail { font-size: 15px; }
+}
+
 .wb-agent::before {
   position: absolute;
   inset: 0 auto 0 0;
@@ -228,18 +305,44 @@
   gap: 8px;
 }
 
-.wb-agent-id {
+.wb-agent-person {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.wb-avatar {
+  display: grid;
+  flex: 0 0 auto;
+  width: clamp(32px, 3vw, 46px);
+  height: clamp(32px, 3vw, 46px);
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--wb-line);
+  border-radius: 50%;
+  background: var(--wb-ink-2);
   color: var(--wb-muted);
-  font: 10px "DM Mono", monospace;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+}
+
+.wb-present .wb-avatar {
+  width: 40px;
+  height: 40px;
+}
+
+.wb-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .wb-agent-name {
-  margin-top: 5px;
+  overflow: hidden;
   font-size: clamp(17px, 1.7vw, 27px);
   font-weight: 600;
   line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .wb-campaign,
@@ -261,9 +364,35 @@
   letter-spacing: -0.055em;
 }
 
-.wb-timer {
-  margin-top: 8px;
+.wb-state-timer {
+  margin-top: 6px;
   font: 500 clamp(15px, 1.3vw, 21px) "DM Mono", monospace;
+}
+
+.wb-details {
+  display: grid;
+  gap: 3px;
+  margin-top: 8px;
+  color: var(--wb-muted);
+  font: 11px/1.2 "DM Mono", monospace;
+}
+
+.wb-details div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.wb-details span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wb-details b {
+  flex: 0 0 auto;
+  color: var(--wb-paper);
+  font-weight: 500;
 }
 
 .wb-detail {
@@ -499,6 +628,26 @@
 
   .wb-shell {
     min-height: auto;
+  }
+}
+
+@media (max-width: 1280px) and (min-width: 901px) {
+  .wb-agent {
+    padding: 12px;
+  }
+
+  .wb-avatar {
+    width: 34px;
+    height: 34px;
+  }
+
+  .wb-agent-name {
+    font-size: clamp(15px, 1.35vw, 21px);
+  }
+
+  .wb-status {
+    margin-top: 10px;
+    font-size: clamp(18px, 1.8vw, 28px);
   }
 }
 

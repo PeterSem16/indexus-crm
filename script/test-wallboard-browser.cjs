@@ -8,6 +8,7 @@ const CHROMIUM = process.env.CHROMIUM_PATH || "/repl/tools/bin/chromium";
 const BASE_URL = "http://wallboard.test/";
 const ALL_SCREENSHOT = "/tmp/wallboard-production-all.png";
 const MISSION_SCREENSHOT = "/tmp/wallboard-production-mission.png";
+const TEST_AVATAR = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#6fd3db"/><circle cx="32" cy="24" r="12" fill="#17202b"/><path d="M10 64v-8a22 22 0 0144 0v8" fill="#17202b"/></svg>')}`;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -41,6 +42,11 @@ function makeSnapshot(scopeId = null, phase = 0, source = { live: true, warning:
       stateSince: new Date(Date.now() - (phase > 0 && index === 0 ? 12 : 47) * 1000).toISOString(),
       direction,
       connected,
+      avatarUrl: index === 0 ? TEST_AVATAR : index === 1 ? "/broken-avatar.png" : null,
+      sessionStartedAt: connected ? new Date(Date.now() - 3_600_000).toISOString() : null,
+      lastMissionAt: new Date(Date.now() - (connected ? 0 : 7_200_000)).toISOString(),
+      todayMissionSeconds: connected ? 5_400 : 3_600,
+      todayAccruing: connected,
     })),
     inbound: [
       {
@@ -130,6 +136,8 @@ function installApiRoute(page, options = {}) {
     sourceWarning: Boolean(options.sourceWarning),
     raceDelay: options.raceDelay || 0,
     agentCount: options.agentCount || null,
+    onlyOffline: false,
+    extraAgents: false,
   };
   const routeHandler = async (route) => {
     const requestUrl = new URL(route.request().url());
@@ -157,10 +165,17 @@ function installApiRoute(page, options = {}) {
     const source = state.sourceWarning
       ? { live: false, warning: "Synthetic source warning" }
       : { live: true, warning: null };
+    const snapshot = makeSnapshot(campaignId ? "mission-atlas" : null, phase, source, state.agentCount);
+    if (state.onlyOffline) snapshot.agents = snapshot.agents.filter((agent) => !agent.connected);
+    if (state.extraAgents) snapshot.agents.push({
+      ...snapshot.agents[0],
+      id: "AG-007",
+      name: "Seventh Agent",
+    });
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(makeSnapshot(campaignId ? "mission-atlas" : null, phase, source, state.agentCount)),
+      body: JSON.stringify(snapshot),
     });
   };
   page.route("**/api/wallboard**", routeHandler);
@@ -175,7 +190,10 @@ async function assertNoScrollAndCardsVisible(page, expectedCount) {
     documentHeight: document.documentElement.scrollHeight,
     cards: [...document.querySelectorAll(".wb-agent")].map((element) => {
       const rect = element.getBoundingClientRect();
-      return { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right };
+      return {
+        top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right,
+        clipped: element.scrollHeight > element.clientHeight + 2,
+      };
     }),
   }));
   assert.ok(metrics.bodyHeight <= metrics.innerHeight, `body scrolls at ${metrics.innerWidth}x${metrics.innerHeight}`);
@@ -184,6 +202,7 @@ async function assertNoScrollAndCardsVisible(page, expectedCount) {
   for (const card of metrics.cards) {
     assert.ok(card.top >= 0 && card.bottom <= metrics.innerHeight, "agent card is outside the viewport");
     assert.ok(card.left >= 0 && card.right <= metrics.innerWidth, "agent card is outside the viewport width");
+    assert.equal(card.clipped, false, "agent card content is clipped");
   }
 }
 
@@ -317,6 +336,70 @@ async function testErrorEmptyAndSource(bundle) {
   }
 }
 
+async function testOfflineAvatarsAndTimes(bundle) {
+  const browser = testProductionViewport.browser;
+  const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  const api = installApiRoute(page);
+  await installHtmlRoute(page, bundle);
+  await page.route("**/broken-avatar.png", (route) => route.fulfill({ status: 404, body: "" }));
+  await page.goto(BASE_URL);
+  await waitForCards(page, 6);
+  assert.equal(await page.locator(".wb-agent-id").count(), 0, "agent IDs must not be shown");
+  assert.doesNotMatch(await page.locator(".wb-agents").innerText(), /AG-00/);
+  const avatar = page.locator(".wb-agent").filter({ hasText: "Mira Novak" }).locator("img");
+  await avatar.waitFor();
+  assert.equal(await avatar.evaluate((image) => image.complete && image.naturalWidth > 0), true);
+  await page.waitForFunction(() => {
+    const card = [...document.querySelectorAll(".wb-agent")].find((card) => card.textContent.includes("Jon Bell"));
+    return card && !card.querySelector("img");
+  });
+  const offline = page.locator(".wb-agent").filter({ hasText: "Lina Costa" });
+  assert.match(await offline.innerText(), /Last in Mission/i);
+  assert.doesNotMatch(await offline.innerText(), /Unknown|Signed in at/i);
+  assert.match(await offline.innerText(), /01:00:00/);
+  const online = page.locator(".wb-agent").filter({ hasText: "Mira Novak" });
+  assert.match(await online.innerText(), /Signed in at/i);
+  assert.match(await online.innerText(), /Current session/i);
+  assert.match(await online.innerText(), /Today in Mission/i);
+  assert.match(await online.innerText(), /01:30:\d{2}/);
+  assert.match(await page.locator(".wb-sub").innerText(), /5 agents signed in|active Missions/i);
+
+  const toggle = page.getByRole("switch", { name: /Show offline agents/i });
+  assert.equal(await toggle.isChecked(), true);
+  await toggle.click();
+  await waitForCards(page, 5);
+  assert.equal(await offline.count(), 0);
+  await page.reload();
+  await waitForCards(page, 5);
+  assert.equal(await toggle.isChecked(), false, "offline preference did not persist");
+  await toggle.click();
+  await waitForCards(page, 6);
+
+  // Filtering must operate before pagination and return to the first page.
+  api.extraAgents = true;
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await page.getByRole("button", { name: /Next page/i }).waitFor();
+  await page.getByRole("button", { name: /Next page/i }).click();
+  await waitForCards(page, 1);
+  await toggle.click();
+  await waitForCards(page, 6);
+  assert.equal(await offline.count(), 0);
+  assert.equal(await page.locator(".wb-pagination").count(), 0);
+
+  api.extraAgents = false;
+  api.onlyOffline = true;
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await page.locator(".wb-empty").waitFor();
+  assert.match(await page.locator(".wb-empty").innerText(), /No online agents/i);
+  await toggle.click();
+  await waitForCards(page, 1);
+  assert.match(await page.locator(".wb-agent").innerText(), /Lina Costa/);
+  assert.deepEqual(errors, [], "browser runtime errors");
+  await page.close();
+}
+
 (async () => {
   const bundle = await makeBundle();
   const browser = await chromium.launch({
@@ -336,6 +419,7 @@ async function testErrorEmptyAndSource(bundle) {
     await testStaleGeneration(bundle);
     await testAuthRevocation(bundle);
     await testErrorEmptyAndSource(bundle);
+    await testOfflineAvatarsAndTimes(bundle);
     console.log(`Wallboard browser verification passed: 1600x900, 1920x1080, 1280x720; exact 4/6 cards, polling, auth revocation, scope races, error/empty/source states, navigation, presentation/Escape.`);
     console.log(`Screenshots: ${ALL_SCREENSHOT} and ${MISSION_SCREENSHOT}`);
   } finally {

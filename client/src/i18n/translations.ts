@@ -7578,6 +7578,8 @@ export interface Translations {
     presentation: string; exitPresentation: string; agentsSignedIn: string; agentsAcrossMissions: string;
     agentStatus: string; noActiveMission: string; noActiveMissionHint: string; noAgents: string; noAgentsHint: string;
     noMission: string; unknownTime: string; disconnected: string; inbound: string; outbound: string;
+    showOfflineAgents: string; lastInMission: string; signedInAt: string; currentSession: string;
+    todayInMission: string; noOnlineAgents: string; noOnlineAgentsHint: string;
     incoming: string; assigned: string; unassigned: string; unknownCaller: string; callStatus: string;
     noIncoming: string; noIncomingHint: string; queue: string; waiting: string; longestWait: string;
     answeredToday: string; averageWait: string; generated: string; reconnect: string; unauthorized: string; tryAgain: string;
@@ -15752,6 +15754,9 @@ export const translations: Record<Locale, Translations> = {
       agentStatus: 'Agent status', noActiveMission: 'No active Mission', noActiveMissionHint: 'There is no active Mission to display.',
       noAgents: 'No agents signed in', noAgentsHint: 'This wallboard will update when an agent signs in.',
       noMission: 'No Mission', unknownTime: 'Unknown', disconnected: 'Disconnected', inbound: 'Inbound', outbound: 'Outbound',
+      showOfflineAgents: 'Show offline agents', lastInMission: 'Last in Mission', signedInAt: 'Signed in at',
+      currentSession: 'Current session', todayInMission: 'Today in Mission', noOnlineAgents: 'No online agents',
+      noOnlineAgentsHint: 'All agents are currently offline.',
       incoming: 'Incoming call', assigned: 'Assigned', unassigned: 'Unassigned', unknownCaller: 'Masked caller',
       callStatus: 'Status', noIncoming: 'No incoming call', noIncomingHint: 'Incoming calls appear in this reserved panel.',
       queue: 'Queue', waiting: 'Waiting', longestWait: 'Longest wait', answeredToday: 'Answered today', averageWait: 'Average wait',
@@ -23256,6 +23261,9 @@ export const translations: Record<Locale, Translations> = {
       agentStatus: 'Stav agentov', noActiveMission: 'Žiadna aktívna Mission', noActiveMissionHint: 'Nie je čo zobraziť.',
       noAgents: 'Nikto nie je prihlásený', noAgentsHint: 'Wallboard sa aktualizuje po prihlásení agenta.',
       noMission: 'Bez Mission', unknownTime: 'Neznáme', disconnected: 'Odpojený', inbound: 'Prichádzajúci', outbound: 'Odchádzajúci',
+      showOfflineAgents: 'Zobraziť offline agentov', lastInMission: 'Naposledy v Mission', signedInAt: 'Prihlásený od',
+      currentSession: 'Aktuálna relácia', todayInMission: 'Dnes v Mission', noOnlineAgents: 'Žiadni online agenti',
+      noOnlineAgentsHint: 'Všetci agenti sú momentálne offline.',
       incoming: 'Prichádzajúci hovor', assigned: 'Priradené', unassigned: 'Nepriradené', unknownCaller: 'Maskovaný volajúci',
       callStatus: 'Stav', noIncoming: 'Žiadny prichádzajúci hovor', noIncomingHint: 'Prichádzajúce hovory sa zobrazia v tomto paneli.',
       queue: 'Fronta', waiting: 'Čaká vo fronte', longestWait: 'Najdlhšie čakanie', answeredToday: 'Prijaté dnes', averageWait: 'Priemerné čakanie',
@@ -30686,6 +30694,9 @@ export const translations: Record<Locale, Translations> = {
       agentStatus: 'Stav agentů', noActiveMission: 'Žádná aktivní Mission', noActiveMissionHint: 'Není co zobrazit.',
       noAgents: 'Nikdo není přihlášen', noAgentsHint: 'Wallboard se aktualizuje po přihlášení agenta.',
       noMission: 'Bez Mission', unknownTime: 'Neznámé', disconnected: 'Odpojen', inbound: 'Příchozí', outbound: 'Odchozí',
+      showOfflineAgents: 'Zobrazit offline agenty', lastInMission: 'Naposledy v Mission', signedInAt: 'Přihlášen od',
+      currentSession: 'Aktuální relace', todayInMission: 'Dnes v Mission', noOnlineAgents: 'Žádní online agenti',
+      noOnlineAgentsHint: 'Všichni agenti jsou momentálně offline.',
       incoming: 'Příchozí hovor', assigned: 'Přiřazeno', unassigned: 'Nepřiřazeno', unknownCaller: 'Maskovaný volající',
       callStatus: 'Stav', noIncoming: 'Žádný příchozí hovor', noIncomingHint: 'Příchozí hovory se zobrazí v tomto panelu.',
       queue: 'Fronta', waiting: 'Čeká ve frontě', longestWait: 'Nejdelší čekání', answeredToday: 'Přijato dnes', averageWait: 'Průměrné čekání',
@@ -38078,6 +38089,9 @@ export const translations: Record<Locale, Translations> = {
       agentStatus: 'Ügynökállapot', noActiveMission: 'Nincs aktív Mission', noActiveMissionHint: 'Nincs megjeleníthető aktív Mission.',
       noAgents: 'Nincs bejelentkezett ügynök', noAgentsHint: 'A wallboard frissül, amikor egy ügynök bejelentkezik.',
       noMission: 'Nincs Mission', unknownTime: 'Ismeretlen', disconnected: 'Kapcsolat bontva', inbound: 'Bejövő', outbound: 'Kimenő',
+      showOfflineAgents: 'Offline ügynökök megjelenítése', lastInMission: 'Utoljára Missionben', signedInAt: 'Bejelentkezve',
+      currentSession: 'Jelenlegi munkamenet', todayInMission: 'Ma Missionben', noOnlineAgents: 'Nincsenek online ügynökök',
+      noOnlineAgentsHint: 'Jelenleg minden ügynök offline.',
       incoming: 'Bejövő hívás', assigned: 'Hozzárendelve', unassigned: 'Nincs hozzárendelve', unknownCaller: 'Maszkolt hívó',
       callStatus: 'Állapot', noIncoming: 'Nincs bejövő hívás', noIncomingHint: 'A bejövő hívások itt jelennek meg.',
       queue: 'Várólista', waiting: 'Várakozik', longestWait: 'Leghosszabb várakozás', answeredToday: 'Ma fogadva', averageWait: 'Átlagos várakozás',
@@ -45390,6 +45404,9 @@ export const translations: Record<Locale, Translations> = {
       agentStatus: 'Starea agenților', noActiveMission: 'Nicio Mission activă', noActiveMissionHint: 'Nu există o Mission activă de afișat.',
       noAgents: 'Niciun agent conectat', noAgentsHint: 'Wallboardul se va actualiza când se conectează un agent.',
       noMission: 'Fără Mission', unknownTime: 'Necunoscut', disconnected: 'Deconectat', inbound: 'Intrare', outbound: 'Ieșire',
+      showOfflineAgents: 'Afișează agenții offline', lastInMission: 'Ultima dată în Mission', signedInAt: 'Autentificat la',
+      currentSession: 'Sesiunea curentă', todayInMission: 'Astăzi în Mission', noOnlineAgents: 'Niciun agent online',
+      noOnlineAgentsHint: 'Toți agenții sunt offline momentan.',
       incoming: 'Apel primit', assigned: 'Alocat', unassigned: 'Nealocat', unknownCaller: 'Apelant mascat',
       callStatus: 'Stare', noIncoming: 'Niciun apel primit', noIncomingHint: 'Apelurile primite apar în acest panou.',
       queue: 'Coadă', waiting: 'În așteptare', longestWait: 'Cea mai lungă așteptare', answeredToday: 'Răspunse azi', averageWait: 'Așteptare medie',
@@ -52704,6 +52721,9 @@ export const translations: Record<Locale, Translations> = {
       agentStatus: 'Stato agenti', noActiveMission: 'Nessuna Mission attiva', noActiveMissionHint: 'Non c’è una Mission attiva da mostrare.',
       noAgents: 'Nessun agente connesso', noAgentsHint: 'Il wallboard si aggiornerà quando un agente effettua l’accesso.',
       noMission: 'Nessuna Mission', unknownTime: 'Sconosciuto', disconnected: 'Disconnesso', inbound: 'In entrata', outbound: 'In uscita',
+      showOfflineAgents: 'Mostra agenti offline', lastInMission: 'Ultimo in Mission', signedInAt: 'Accesso alle',
+      currentSession: 'Sessione corrente', todayInMission: 'Oggi in Mission', noOnlineAgents: 'Nessun agente online',
+      noOnlineAgentsHint: 'Al momento tutti gli agenti sono offline.',
       incoming: 'Chiamata in entrata', assigned: 'Assegnato', unassigned: 'Non assegnato', unknownCaller: 'Chiamante mascherato',
       callStatus: 'Stato', noIncoming: 'Nessuna chiamata in entrata', noIncomingHint: 'Le chiamate in entrata appaiono in questo pannello.',
       queue: 'Coda', waiting: 'In attesa', longestWait: 'Attesa più lunga', answeredToday: 'Risposte oggi', averageWait: 'Attesa media',
@@ -60004,6 +60024,9 @@ export const translations: Record<Locale, Translations> = {
       agentStatus: 'Agentenstatus', noActiveMission: 'Keine aktive Mission', noActiveMissionHint: 'Es gibt keine aktive Mission zum Anzeigen.',
       noAgents: 'Keine Agents angemeldet', noAgentsHint: 'Das Wallboard wird aktualisiert, sobald sich ein Agent anmeldet.',
       noMission: 'Keine Mission', unknownTime: 'Unbekannt', disconnected: 'Getrennt', inbound: 'Eingehend', outbound: 'Ausgehend',
+      showOfflineAgents: 'Offline-Agents anzeigen', lastInMission: 'Zuletzt in Mission', signedInAt: 'Angemeldet seit',
+      currentSession: 'Aktuelle Sitzung', todayInMission: 'Heute in Mission', noOnlineAgents: 'Keine Online-Agents',
+      noOnlineAgentsHint: 'Alle Agents sind derzeit offline.',
       incoming: 'Eingehender Anruf', assigned: 'Zugewiesen', unassigned: 'Nicht zugewiesen', unknownCaller: 'Maskierter Anrufer',
       callStatus: 'Status', noIncoming: 'Kein eingehender Anruf', noIncomingHint: 'Eingehende Anrufe erscheinen in diesem Bereich.',
       queue: 'Warteschlange', waiting: 'Wartend', longestWait: 'Längste Wartezeit', answeredToday: 'Heute beantwortet', averageWait: 'Durchschnittliche Wartezeit',
