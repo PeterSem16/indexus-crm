@@ -45,6 +45,7 @@ import {
   insertSopCategorySchema, insertSopArticleSchema,
   agentSessions, agentSessionActivities, agentBreaks, scheduledReports, agentQueueStatus,
   inboundCallLogs, inboundQueues, agentStandingForwards, ariSettings, sipExtensions, clinicReferrals, collaboratorReferrals, clinicEvents, hospitalNetworks, hospitalNetworkMembers,
+  clinicRepresentativeAssignments, hospitalRepresentativeAssignments,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog, type LeadScoringCriteria,
   type ServiceConfiguration, type InvoiceTemplate, type InvoiceLayout, type Role,
   type Campaign, type CampaignContact, type ContractInstance,
@@ -103,6 +104,13 @@ import {
   isEligibleScheduledCampaignCallback,
   normalizeLegacyScheduledCallbackStatus,
 } from "@shared/scheduled-callback";
+import {
+  contactMatchesRepresentative,
+  hasCampaignContactVisibilityChange,
+  isCampaignContactVisibleToAgent,
+  parseCampaignContactVisibility,
+  preserveCampaignContactVisibility,
+} from "./lib/campaign-contact-visibility";
 
 function recordingModeFromCallMetadata(metadata: unknown): "off" | "both" | "agent_only" | null {
   try {
@@ -25384,7 +25392,56 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       // id or from an unrelated customer's registration source.
       const queueRows = [...scheduledContacts, ...scheduledSessions] as Array<any>;
       const queueClinicIds = [...new Set(queueRows.map(row => row.ccClinicId).filter(Boolean))] as string[];
+      const queueHospitalIds = [...new Set(queueRows.map(row => row.ccHospitalId).filter(Boolean))] as string[];
       const queueCollaboratorIds = [...new Set(queueRows.map(row => row.ccCollaboratorId).filter(Boolean))] as string[];
+      const [queueClinicRepresentativeRows, queueHospitalRepresentativeRows, queueCollaboratorRepresentativeRows] = !(
+        user.role === "admin" || user.role === "manager"
+      ) ? await Promise.all([
+        queueClinicIds.length > 0
+          ? db.select({
+              entityId: clinicRepresentativeAssignments.clinicId,
+              userId: clinicRepresentativeAssignments.userId,
+            }).from(clinicRepresentativeAssignments).where(and(
+              inArray(clinicRepresentativeAssignments.clinicId, queueClinicIds),
+              isNull(clinicRepresentativeAssignments.validTo),
+            ))
+          : Promise.resolve([]),
+        queueHospitalIds.length > 0
+          ? db.select({
+              entityId: hospitalRepresentativeAssignments.hospitalId,
+              userId: hospitalRepresentativeAssignments.userId,
+            }).from(hospitalRepresentativeAssignments).where(and(
+              inArray(hospitalRepresentativeAssignments.hospitalId, queueHospitalIds),
+              isNull(hospitalRepresentativeAssignments.validTo),
+            ))
+          : Promise.resolve([]),
+        queueCollaboratorIds.length > 0
+          ? db.select({
+              id: collaborators.id,
+              representativeId: collaborators.representativeId,
+              representativeIds: collaborators.representativeIds,
+            }).from(collaborators).where(inArray(collaborators.id, queueCollaboratorIds))
+          : Promise.resolve([]),
+      ]) : [[], [], []];
+      const queueClinicRepresentativeById = new Map(queueClinicRepresentativeRows.map(row => [row.entityId, row.userId]));
+      const queueHospitalRepresentativeById = new Map(queueHospitalRepresentativeRows.map(row => [row.entityId, row.userId]));
+      const queueCollaboratorRepresentativeById = new Map(queueCollaboratorRepresentativeRows.map(row => [row.id, row]));
+      const isContactVisibleToAgent = (row: any) => {
+        if (user.role === "admin" || user.role === "manager") return true;
+        if (parseCampaignContactVisibility(row.campaignSettings) !== "assigned_representative") return true;
+        const contact = { contactType: row.ccContactType };
+        const representativeId = row.ccContactType === "clinic"
+          ? queueClinicRepresentativeById.get(row.ccClinicId)
+          : row.ccContactType === "hospital"
+            ? queueHospitalRepresentativeById.get(row.ccHospitalId)
+            : row.ccContactType === "collaborator"
+              ? queueCollaboratorRepresentativeById.get(row.ccCollaboratorId)?.representativeId
+              : null;
+        const collaborator = row.ccContactType === "collaborator"
+          ? queueCollaboratorRepresentativeById.get(row.ccCollaboratorId)
+          : undefined;
+        return contactMatchesRepresentative(contact, representativeId, user.id, collaborator?.representativeIds);
+      };
       const [queueClinicReferralRows, queueCollaboratorReferralRows, queueCollaboratorAddressRows] = await Promise.all([
         queueClinicIds.length > 0
           ? db.select({
@@ -25447,6 +25504,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           workspaceCountryCodes,
           campaignCountryCodes: row.campaignCountryCodes,
         })) continue;
+        if (!isContactVisibleToAgent(row)) continue;
         const key = `cc-${row.ccId}`;
         if (seenIds.has(key)) continue;
         seenIds.add(key);
@@ -25493,6 +25551,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           workspaceCountryCodes,
           campaignCountryCodes: row.campaignCountryCodes,
         })) continue;
+        if (!isContactVisibleToAgent(row)) continue;
         seenIds.add(key);
         const contact = resolveScheduledQueueContact(row, {
           clinic: queueClinicReferralIds,
@@ -27045,7 +27104,18 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         if (!nextSettings || typeof nextSettings !== "object" || Array.isArray(nextSettings)) {
           return res.status(400).json({ error: "Invalid campaign settings" });
         }
+        nextSettings = preserveCampaignContactVisibility(currentSettings, nextSettings);
         const canManageMissionFaq = ["admin", "manager"].includes(req.session.user!.role);
+        const contactVisibility = nextSettings.contactVisibility;
+        if (contactVisibility !== undefined && contactVisibility !== "all" && contactVisibility !== "assigned_representative") {
+          return res.status(400).json({ error: "Invalid Mission contact visibility" });
+        }
+        if (
+          hasCampaignContactVisibilityChange(currentSettings, nextSettings) &&
+          !["admin", "manager"].includes(req.session.user!.role)
+        ) {
+          return res.status(403).json({ error: "Only managers can change Mission contact visibility" });
+        }
         const faqWasExplicitlyChanged = (
           Object.prototype.hasOwnProperty.call(nextSettings, "faq")
           && JSON.stringify(currentSettings.faq ?? null) !== JSON.stringify(nextSettings.faq ?? null)
@@ -29525,9 +29595,45 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const paginated = !!(req.query.page || req.query.limit);
       const page = parseInt(req.query.page as string) || 1;
       const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
       let contacts;
       let total: number | undefined;
-      if (paginated) {
+      const sessionUser = req.session.user!;
+      const canManageAllMissions = sessionUser.role === "admin" || sessionUser.role === "manager";
+      const visibility = parseCampaignContactVisibility(campaign.settings);
+      if (!canManageAllMissions && visibility === "assigned_representative") {
+        const allContacts = await storage.getCampaignContacts(req.params.id);
+        const clinicIds = [...new Set(allContacts.map((c: any) => c.clinicId).filter(Boolean))];
+        const hospitalIds = [...new Set(allContacts.map((c: any) => c.hospitalId).filter(Boolean))];
+        const collaboratorIds = [...new Set(allContacts.map((c: any) => c.collaboratorId).filter(Boolean))];
+        const [clinicRows, hospitalRows, collaboratorRows] = await Promise.all([
+          clinicIds.length ? db.select({ entityId: clinicRepresentativeAssignments.clinicId, userId: clinicRepresentativeAssignments.userId })
+            .from(clinicRepresentativeAssignments)
+            .where(and(inArray(clinicRepresentativeAssignments.clinicId, clinicIds), isNull(clinicRepresentativeAssignments.validTo))) : [],
+          hospitalIds.length ? db.select({ entityId: hospitalRepresentativeAssignments.hospitalId, userId: hospitalRepresentativeAssignments.userId })
+            .from(hospitalRepresentativeAssignments)
+            .where(and(inArray(hospitalRepresentativeAssignments.hospitalId, hospitalIds), isNull(hospitalRepresentativeAssignments.validTo))) : [],
+          collaboratorIds.length ? db.select({ id: collaborators.id, representativeId: collaborators.representativeId, representativeIds: collaborators.representativeIds })
+            .from(collaborators).where(inArray(collaborators.id, collaboratorIds)) : [],
+        ]);
+        const clinicRep = new Map(clinicRows.map((row) => [row.entityId, row.userId]));
+        const hospitalRep = new Map(hospitalRows.map((row) => [row.entityId, row.userId]));
+        const collaboratorRep = new Map(collaboratorRows.map((row) => [row.id, row]));
+        contacts = allContacts.filter((contact: any) => {
+          const entity = contact.contactType === "clinic"
+            ? clinicRep.get(contact.clinicId)
+            : contact.contactType === "hospital"
+              ? hospitalRep.get(contact.hospitalId)
+              : contact.contactType === "collaborator"
+                ? collaboratorRep.get(contact.collaboratorId)?.representativeId
+                : null;
+          const collaborator = contact.contactType === "collaborator" ? collaboratorRep.get(contact.collaboratorId) : undefined;
+          return contactMatchesRepresentative(contact, entity, sessionUser.id, collaborator?.representativeIds);
+        });
+        total = contacts.length;
+        if (paginated) contacts = contacts.slice((page - 1) * limit, page * limit);
+      } else if (paginated) {
         const result = await storage.getCampaignContactsPaginated(req.params.id, page, limit);
         contacts = result.data;
         total = result.total;
@@ -29655,6 +29761,53 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const existingContact = await storage.getCampaignContact(req.params.contactId);
       if (!existingContact) {
         return res.status(404).json({ error: "Contact not found" });
+      }
+      if (existingContact.campaignId !== req.params.campaignId) {
+        return res.status(404).json({ error: "Contact not found in this Mission" });
+      }
+      const sessionUser = req.session.user!;
+      const canManageAllMissions = sessionUser.role === "admin" || sessionUser.role === "manager";
+      if (!canManageAllMissions) {
+        const campaign = await storage.getCampaign(req.params.campaignId);
+        if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+        const visibility = parseCampaignContactVisibility(campaign.settings);
+        if (visibility === "assigned_representative") {
+          let representativeId: string | null | undefined = null;
+          let collaboratorRepresentativeIds: unknown;
+          if (existingContact.contactType === "clinic" && existingContact.clinicId) {
+            const [assignment] = await db.select({
+              userId: clinicRepresentativeAssignments.userId,
+            }).from(clinicRepresentativeAssignments).where(and(
+              eq(clinicRepresentativeAssignments.clinicId, existingContact.clinicId),
+              isNull(clinicRepresentativeAssignments.validTo),
+            )).limit(1);
+            representativeId = assignment?.userId;
+          } else if (existingContact.contactType === "hospital" && existingContact.hospitalId) {
+            const [assignment] = await db.select({
+              userId: hospitalRepresentativeAssignments.userId,
+            }).from(hospitalRepresentativeAssignments).where(and(
+              eq(hospitalRepresentativeAssignments.hospitalId, existingContact.hospitalId),
+              isNull(hospitalRepresentativeAssignments.validTo),
+            )).limit(1);
+            representativeId = assignment?.userId;
+          } else if (existingContact.contactType === "collaborator" && existingContact.collaboratorId) {
+            const [collaborator] = await db.select({
+              representativeId: collaborators.representativeId,
+              representativeIds: collaborators.representativeIds,
+            }).from(collaborators).where(eq(collaborators.id, existingContact.collaboratorId)).limit(1);
+            representativeId = collaborator?.representativeId;
+            collaboratorRepresentativeIds = collaborator?.representativeIds;
+          }
+          if (!isCampaignContactVisibleToAgent({
+            settings: campaign.settings,
+            contact: existingContact,
+            userId: sessionUser.id,
+            representativeId,
+            collaboratorRepresentativeIds,
+          })) {
+            return res.status(403).json({ error: "Contact is outside your Mission representative scope" });
+          }
+        }
       }
       
       const previousStatus = existingContact.status;

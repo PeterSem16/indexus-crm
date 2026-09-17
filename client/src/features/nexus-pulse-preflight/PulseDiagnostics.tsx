@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useSip } from "@/contexts/sip-context";
 import { useI18n } from "@/i18n";
-import { classify, classifyIceResult, classifyLatencyQuality, gatherIce, hasCriticalFailure, hasVoiceLevel, isChromiumDesktop, isCompletePulseReadinessRun, isProbableSameHeadset, measureSameOriginLatency, rmsFromTimeDomain, type DiagnosticResult, type DiagnosticState } from "./diagnostics";
+import { classify, classifyIceResult, classifyLatencyQuality, createVoiceDetectionState, gatherIce, hasCriticalFailure, isChromiumDesktop, isCompletePulseReadinessRun, isProbableSameHeadset, measureSameOriginLatency, rmsFromTimeDomain, type DiagnosticResult, type DiagnosticState, updateVoiceDetection } from "./diagnostics";
 import { pulseCopy } from "./translations";
 import { getPulsePresentationState } from "./presentation-state";
 
@@ -123,20 +123,19 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     add("input", "critical", hasInput, hasInput ? `${t.availableInputs}: ${inputLabels.join(", ") || t.deviceLabelsUnavailable}` : t.inputDetail);
     add("output", "critical", hasOutput, hasOutput ? `${t.availableOutputs}: ${defaultOutput?.label || t.deviceLabelsUnavailable}; ${outputLabels.join(", ") || t.deviceLabelsUnavailable}` : t.outputDetail);
     let voiceDetected = false;
-    let voicedFrames = 0;
     if (stream) {
       let context: AudioContext | undefined;
       let frame: number | undefined;
       try {
         context = new AudioContext();
+        await context.resume();
         const analyser = context.createAnalyser();
         analyser.fftSize = 1024;
         analyser.smoothingTimeConstant = 0.72;
         context.createMediaStreamSource(stream).connect(analyser);
         const samples = new Uint8Array(analyser.fftSize);
         const frequencies = new Uint8Array(analyser.frequencyBinCount);
-        let baselineTotal = 0;
-        let baselineFrames = 0;
+        let voiceDetection = createVoiceDetectionState();
         setMicTesting(true); setMicRms(0); setMicBands(Array(14).fill(0)); setMicPhase("calibrating");
         await new Promise<void>((resolve) => {
           const started = performance.now();
@@ -145,15 +144,8 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
             analyser.getByteFrequencyData(frequencies);
             const level = rmsFromTimeDomain(samples);
             const elapsed = performance.now() - started;
-            if (elapsed < 800) {
-              baselineTotal += level;
-              baselineFrames += 1;
-            } else {
-              const noiseFloor = baselineFrames ? baselineTotal / baselineFrames : 0.01;
-              const threshold = Math.max(0.035, noiseFloor * 2.4 + 0.008);
-              if (level >= threshold) voicedFrames += 1;
-              voiceDetected ||= voicedFrames >= 24;
-            }
+            voiceDetection = updateVoiceDetection(voiceDetection, level, elapsed);
+            voiceDetected = voiceDetection.detected;
             if (generation === runGeneration.current) {
               setMicRms(level);
               setMicPhase(elapsed < 800 ? "calibrating" : "listening");
@@ -164,7 +156,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
                 return total / Math.max(1, bucketSize) / 255;
               }));
             }
-            if (elapsed >= 4000 || generation !== runGeneration.current) { resolve(); return; }
+            if (elapsed >= 2500 || generation !== runGeneration.current) { resolve(); return; }
             frame = requestAnimationFrame(update);
           };
           update();
@@ -343,15 +335,16 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   const runQuickMic = async () => {
     setActiveAudioTest("microphone");
     setQuickMicStatus("pending"); setMicTesting(true); setMicRms(0);
-    let stream: MediaStream | undefined; let context: AudioContext | undefined; let frame: number | undefined; let detected = false; let voicedFrames = 0;
+    let stream: MediaStream | undefined; let context: AudioContext | undefined; let frame: number | undefined; let detected = false;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
       context = new AudioContext();
+      await context.resume();
       const analyser = context.createAnalyser(); analyser.fftSize = 1024; analyser.smoothingTimeConstant = 0.72;
       context.createMediaStreamSource(stream).connect(analyser);
       const samples = new Uint8Array(analyser.fftSize);
       const frequencies = new Uint8Array(analyser.frequencyBinCount);
-      let baselineTotal = 0; let baselineFrames = 0;
+      let voiceDetection = createVoiceDetectionState();
       setMicBands(Array(14).fill(0)); setMicPhase("calibrating");
       await new Promise<void>((resolve) => {
         const started = performance.now();
@@ -360,15 +353,8 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
           analyser.getByteFrequencyData(frequencies);
           const level = rmsFromTimeDomain(samples);
           const elapsed = performance.now() - started;
-          if (elapsed < 800) {
-            baselineTotal += level;
-            baselineFrames += 1;
-          } else {
-            const noiseFloor = baselineFrames ? baselineTotal / baselineFrames : 0.01;
-            const threshold = Math.max(0.035, noiseFloor * 2.4 + 0.008);
-            if (level >= threshold) voicedFrames += 1;
-            detected ||= voicedFrames >= 24;
-          }
+          voiceDetection = updateVoiceDetection(voiceDetection, level, elapsed);
+          detected = voiceDetection.detected;
           setMicRms(level);
           setMicPhase(elapsed < 800 ? "calibrating" : "listening");
           const bucketSize = Math.floor(frequencies.length / 28);
@@ -377,7 +363,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
             for (let offset = 0; offset < bucketSize; offset += 1) total += frequencies[index * bucketSize + offset] || 0;
             return total / Math.max(1, bucketSize) / 255;
           }));
-          if (elapsed >= 4000) { resolve(); return; }
+          if (elapsed >= 2500) { resolve(); return; }
           frame = requestAnimationFrame(update);
         };
         update();
@@ -476,11 +462,11 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     return () => window.clearTimeout(timer);
   }, [canContinue, completionActionsDismissed, open, running]);
   return <Dialog open={open} onOpenChange={(v) => !required && !v && onClose()}>
-     <DialogContent hideCloseButton={required} className="max-w-2xl max-h-[92dvh] overflow-y-auto border-primary/15 bg-background/95 p-0 shadow-2xl shadow-primary/10 backdrop-blur" data-testid="nexus-pulse-dialog">
-       <div className="relative overflow-hidden rounded-[inherit]">
+      <DialogContent hideCloseButton={required} className="w-[calc(100vw-1rem)] max-w-2xl max-h-[92dvh] min-w-0 overflow-x-hidden overflow-y-auto border-primary/15 bg-background/95 p-0 shadow-2xl shadow-primary/10 backdrop-blur" data-testid="nexus-pulse-dialog">
+        <div className="relative min-w-0 overflow-hidden rounded-[inherit]">
          <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-primary/10 blur-3xl" />
          <div className="pointer-events-none absolute -left-20 top-24 h-32 w-32 rounded-full bg-amber-300/10 blur-3xl" />
-         <div className="relative space-y-5 p-5 sm:p-7">
+          <div className="relative min-w-0 space-y-5 p-5 sm:p-7">
             {presentation.showHeader && <DialogHeader><DialogTitle className="flex items-center gap-3 text-xl tracking-tight"><span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/15"><ShieldCheck className="h-5 w-5" /></span><span>{t.title}</span></DialogTitle><DialogDescription className="pl-13">{t.subtitle}</DialogDescription></DialogHeader>}
              {presentation.showStatusBanner && <div className="flex items-center justify-between rounded-2xl border border-primary/15 bg-primary/[0.06] p-4 transition-colors" aria-live="polite"><div><div className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary/70">NEXUS Pulse</div><span className="font-semibold">{statusText}</span></div><Badge className="rounded-full px-3 py-1" variant={finalState === "blocked" ? "destructive" : finalState === "ready" ? "default" : "secondary"}>{statusText}</Badge></div>}
              {isBeginning && <section className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.10] via-primary/[0.035] to-background px-5 py-8 text-center sm:px-10 sm:py-11" aria-labelledby="pulse-beginning-title">
@@ -591,7 +577,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{heard ? t.quickSpeakerPassed : soundPlayed ? t.soundPlayed : t.soundDetail}</p>
                      {!heard && <div className="mt-6 space-y-3">
                        <Button size="lg" className="h-12 w-full rounded-xl bg-amber-500 font-bold text-white shadow-lg shadow-amber-500/20 hover:bg-amber-600" onClick={() => void play()} disabled={quickSpeakerStatus === "pending"}>{quickSpeakerStatus === "pending" && !soundPlayed ? <Loader2 className="h-5 w-5 animate-spin" /> : <Play className="h-5 w-5 fill-current" />}{t.play}</Button>
-                       {soundPlayed && !soundError && <div className="rounded-xl border border-border/70 bg-muted/35 p-3"><div className="mb-2 text-[11px] font-semibold text-muted-foreground">{t.soundConfirmHint}</div><div className="flex flex-col gap-2 sm:flex-row sm:justify-center"><Button size="sm" variant="outline" className="h-10 rounded-lg border-destructive/25 px-4 text-xs font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={quickSpeakerStatus === "pending"} onClick={() => void confirmSpeaker(false)}><X className="h-4 w-4" />{t.didNotHear || t.quickSpeakerFailed}</Button><Button size="sm" className="h-10 rounded-lg bg-emerald-600 px-4 text-xs font-bold text-white shadow-sm hover:bg-emerald-700" disabled={quickSpeakerStatus === "pending"} onClick={() => void confirmSpeaker(true)}><CheckCircle2 className="h-4 w-4" />{quickSpeakerStatus === "pending" ? t.quickSpeakerPending : t.heard}</Button></div></div>}
+                       {soundPlayed && !soundError && <div className="min-w-0 rounded-xl border border-border/70 bg-muted/35 p-3"><div className="mb-2 break-words text-[11px] font-semibold text-muted-foreground">{t.soundConfirmHint}</div><div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:justify-center"><Button size="sm" variant="outline" className="h-auto min-w-0 flex-1 whitespace-normal break-words rounded-lg border-destructive/25 px-3 py-2 text-xs font-semibold leading-tight text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={quickSpeakerStatus === "pending"} onClick={() => void confirmSpeaker(false)}><X className="h-4 w-4 shrink-0" />{t.didNotHear || t.quickSpeakerFailed}</Button><Button size="sm" className="h-auto min-w-0 flex-1 whitespace-normal break-words rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold leading-tight text-white shadow-sm hover:bg-emerald-700" disabled={quickSpeakerStatus === "pending"} onClick={() => void confirmSpeaker(true)}><CheckCircle2 className="h-4 w-4 shrink-0" />{quickSpeakerStatus === "pending" ? t.quickSpeakerPending : t.heard}</Button></div></div>}
                      </div>}
                      {heard && <div className="mt-5 flex items-center justify-center gap-2 font-semibold text-emerald-600 animate-in zoom-in-75"><CheckCircle2 className="h-6 w-6" />{t.quickSpeakerPassed}</div>}
                    </> : activeAudioTest === "latency" ? <>

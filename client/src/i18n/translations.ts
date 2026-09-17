@@ -3049,6 +3049,10 @@ export interface Translations {
       queueDisplayModeLastStatus: string;
       defaultOnlyAssignedTitle: string;
       defaultOnlyAssignedDesc: string;
+      contactVisibilityTitle: string;
+      contactVisibilityDesc: string;
+      contactVisibilityAll: string;
+      contactVisibilityAssigned: string;
       assignedOperators: string;
       assignedOperatorsDesc: string;
       noOperatorsAvailable: string;
@@ -11678,6 +11682,10 @@ export const translations: Record<Locale, Translations> = {
         settingsGroupBasicDesc: "Core campaign details",
         settingsGroupAgent: "Agent workspace",
         settingsGroupAgentDesc: "What agents see and how the contact opens",
+        contactVisibilityTitle: "Contact visibility",
+        contactVisibilityDesc: "Choose whether agents see every contact or only contacts assigned to them as representative.",
+        contactVisibilityAll: "Show all contacts to all agents",
+        contactVisibilityAssigned: "Only contacts assigned to the logged-in agent",
         settingsGroupWorkflow: "Workflow & dispositions",
         settingsGroupWorkflowDesc: "How outcomes are recorded and the contact flow",
         settingsGroupCommunication: "Communication",
@@ -19227,6 +19235,10 @@ export const translations: Record<Locale, Translations> = {
         settingsGroupBasicDesc: "Hlavné údaje kampane",
         settingsGroupAgent: "Pracovný priestor agenta",
         settingsGroupAgentDesc: "Čo agenti vidia a ako sa kontakt otvára",
+        contactVisibilityTitle: "Viditeľnosť kontaktov",
+        contactVisibilityDesc: "Vyberte, či agenti uvidia všetky kontakty alebo iba kontakty, kde sú priradení ako reprezentanti.",
+        contactVisibilityAll: "Zobrazovať všetky kontakty všetkým agentom",
+        contactVisibilityAssigned: "Iba kontakty priradené prihlásenému agentovi",
         settingsGroupWorkflow: "Workflow a dispozície",
         settingsGroupWorkflowDesc: "Ako sa zaznamenávajú výsledky a tok kontaktu",
         settingsGroupCommunication: "Komunikácia",
@@ -26711,6 +26723,10 @@ export const translations: Record<Locale, Translations> = {
         settingsGroupBasicDesc: "Hlavní údaje kampaně",
         settingsGroupAgent: "Pracovní prostor agenta",
         settingsGroupAgentDesc: "Co agenti vidí a jak se kontakt otevírá",
+        contactVisibilityTitle: "Viditelnost kontaktů",
+        contactVisibilityDesc: "Zvolte, zda agenti uvidí všechny kontakty, nebo jen kontakty, u kterých jsou přiřazeni jako zástupci.",
+        contactVisibilityAll: "Zobrazovat všechny kontakty všem agentům",
+        contactVisibilityAssigned: "Pouze kontakty přiřazené přihlášenému agentovi",
         settingsGroupWorkflow: "Workflow a dispozice",
         settingsGroupWorkflowDesc: "Jak se zaznamenávají výsledky a tok kontaktu",
         settingsGroupCommunication: "Komunikace",
@@ -34149,6 +34165,10 @@ export const translations: Record<Locale, Translations> = {
         settingsGroupBasicDesc: "A kampány fő adatai",
         settingsGroupAgent: "Operátor munkaterülete",
         settingsGroupAgentDesc: "Mit látnak az operátorok és hogyan nyílik meg a kapcsolat",
+        contactVisibilityTitle: "Kapcsolatok láthatósága",
+        contactVisibilityDesc: "Válassza ki, hogy az operátorok minden kapcsolatot lássanak, vagy csak azokat, amelyeknél ők a képviselők.",
+        contactVisibilityAll: "Minden kapcsolat megjelenítése minden operátornak",
+        contactVisibilityAssigned: "Csak a bejelentkezett operátorhoz rendelt kapcsolatok",
         settingsGroupWorkflow: "Munkafolyamat és diszpozíciók",
         settingsGroupWorkflowDesc: "Hogyan rögzülnek az eredmények és a kapcsolat folyamata",
         settingsGroupCommunication: "Kommunikáció",
@@ -41472,6 +41492,10 @@ export const translations: Record<Locale, Translations> = {
         settingsGroupBasicDesc: "Detaliile principale ale campaniei",
         settingsGroupAgent: "Spațiul de lucru al agentului",
         settingsGroupAgentDesc: "Ce văd agenții și cum se deschide contactul",
+        contactVisibilityTitle: "Vizibilitatea contactelor",
+        contactVisibilityDesc: "Alegeți dacă agenții văd toate contactele sau doar contactele unde sunt reprezentanți atribuiți.",
+        contactVisibilityAll: "Afișează toate contactele tuturor agenților",
+        contactVisibilityAssigned: "Doar contactele atribuite agentului conectat",
         settingsGroupWorkflow: "Flux de lucru și dispoziții",
         settingsGroupWorkflowDesc: "Cum se înregistrează rezultatele și fluxul contactului",
         settingsGroupCommunication: "Comunicare",
@@ -48796,6 +48820,10 @@ export const translations: Record<Locale, Translations> = {
         settingsGroupBasicDesc: "Dettagli principali della campagna",
         settingsGroupAgent: "Spazio di lavoro operatore",
         settingsGroupAgentDesc: "Cosa vedono gli operatori e come si apre il contatto",
+        contactVisibilityTitle: "Visibilità dei contatti",
+        contactVisibilityDesc: "Scegli se gli operatori vedono tutti i contatti o solo quelli in cui sono rappresentanti assegnati.",
+        contactVisibilityAll: "Mostra tutti i contatti a tutti gli operatori",
+        contactVisibilityAssigned: "Solo i contatti assegnati all'operatore connesso",
         settingsGroupWorkflow: "Workflow e disposizioni",
         settingsGroupWorkflowDesc: "Come vengono registrati gli esiti e il flusso del contatto",
         settingsGroupCommunication: "Comunicazione",
@@ -56120,6 +56148,10 @@ export const translations: Record<Locale, Translations> = {
         settingsGroupBasicDesc: "Wichtigste Kampagnendetails",
         settingsGroupAgent: "Agenten-Arbeitsbereich",
         settingsGroupAgentDesc: "Was Agenten sehen und wie der Kontakt geöffnet wird",
+        contactVisibilityTitle: "Sichtbarkeit der Kontakte",
+        contactVisibilityDesc: "Wählen Sie, ob Agenten alle Kontakte oder nur Kontakte sehen, bei denen sie als Vertreter zugewiesen sind.",
+        contactVisibilityAll: "Alle Kontakte allen Agenten anzeigen",
+        contactVisibilityAssigned: "Nur dem angemeldeten Agenten zugewiesene Kontakte",
         settingsGroupWorkflow: "Workflow & Dispositionen",
         settingsGroupWorkflowDesc: "Wie Ergebnisse erfasst werden und der Kontaktfluss",
         settingsGroupCommunication: "Kommunikation",

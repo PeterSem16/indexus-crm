@@ -96,3 +96,4 @@
 - [Status-list note semantics](status-list-note-semantics.md) — note edits are independent of confirmation/automations; null-on-reconfirm preserves, explicit note clear removes; history uses event snapshots.
 - [Browser request test fidelity](browser-request-test-fidelity.md) — fetch logging wrappers can mask native receiver-binding failures; retain a native-request browser test.
 - [Wallboard alarm boundaries](wallboard-alarm-semantics.md) — personal monitoring preferences must not become shared Mission policy; unknown telemetry must not be interpreted as inactivity.
+- [Mission contact visibility boundaries](mission-contact-visibility-boundaries.md) — representative-only scope must cover every agent queue; omitted manager-owned settings must be preserved.

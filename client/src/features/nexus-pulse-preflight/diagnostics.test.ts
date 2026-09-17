@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { audioDeviceSnapshotsEqual, canUseQuickSoundVerification, classify, classifyIceResult, classifyLatencyQuality, hasCriticalFailure, hasVoiceLevel, isChromiumDesktop, isCompleteDiagnosticRun, isCompletePulseReadinessRun, isProbableSameHeadset, isPulseAgentWorkProtected, isPulseReadinessEnvironmentValid, isPulseSessionProtected, normalizeAudioDeviceLabel, normalizeAudioDeviceSnapshot, parseAudioDeviceSnapshot, pulseAudioDeviceBaselineStorageKey, pulseReadinessStorageKey, rmsFromTimeDomain, shouldPresentDeferredRecheck, shouldRetainStoredReadiness, summarizeLatency, type DiagnosticResult } from "./diagnostics";
+import { audioDeviceSnapshotsEqual, canUseQuickSoundVerification, classify, classifyIceResult, classifyLatencyQuality, createVoiceDetectionState, hasCriticalFailure, hasVoiceLevel, isChromiumDesktop, isCompleteDiagnosticRun, isCompletePulseReadinessRun, isProbableSameHeadset, isPulseAgentWorkProtected, isPulseReadinessEnvironmentValid, isPulseSessionProtected, normalizeAudioDeviceLabel, normalizeAudioDeviceSnapshot, parseAudioDeviceSnapshot, pulseAudioDeviceBaselineStorageKey, pulseReadinessStorageKey, rmsFromTimeDomain, shouldPresentDeferredRecheck, shouldRetainStoredReadiness, summarizeLatency, type DiagnosticResult, updateVoiceDetection } from "./diagnostics";
 
 describe("NEXUS Pulse preflight classification", () => {
   it("rejects mobile and non-Chromium browsers", () => {
@@ -64,6 +64,47 @@ describe("NEXUS Pulse preflight classification", () => {
     expect(rmsFromTimeDomain(new Uint8Array([128, 128, 128]))).toBe(0);
     expect(hasVoiceLevel(rmsFromTimeDomain(new Uint8Array([100, 156])))).toBe(true);
     expect(hasVoiceLevel(0.014)).toBe(false);
+  });
+  it("does not pass from speech that occurs during calibration", () => {
+    let state = createVoiceDetectionState();
+    state = updateVoiceDetection(state, 0.05, 0);
+    state = updateVoiceDetection(state, 0.05, 250);
+    state = updateVoiceDetection(state, 0.05, 500);
+    state = updateVoiceDetection(state, 0.001, 550);
+    expect(state.detected).toBe(false);
+    expect(state.voicedDurationMs).toBe(0);
+  });
+  it("does not credit a transient after a long throttled gap", () => {
+    let state = createVoiceDetectionState();
+    state = updateVoiceDetection(state, 0.004, 0);
+    state = updateVoiceDetection(state, 0.004, 500);
+    state = updateVoiceDetection(state, 0.001, 550);
+    state = updateVoiceDetection(state, 0.04, 3_000);
+    expect(state.detected).toBe(false);
+    expect(state.voicedDurationMs).toBe(50);
+  });
+  it("detects normally accumulated speech through pauses", () => {
+    let state = createVoiceDetectionState();
+    state = updateVoiceDetection(state, 0.004, 0);
+    state = updateVoiceDetection(state, 0.004, 500);
+    state = updateVoiceDetection(state, 0.04, 550);
+    state = updateVoiceDetection(state, 0.04, 600);
+    state = updateVoiceDetection(state, 0.001, 650);
+    state = updateVoiceDetection(state, 0.001, 700);
+    state = updateVoiceDetection(state, 0.04, 750);
+    state = updateVoiceDetection(state, 0.04, 800);
+    state = updateVoiceDetection(state, 0.04, 850);
+    state = updateVoiceDetection(state, 0.04, 900);
+    expect(state.detected).toBe(true);
+    expect(state.voicedDurationMs).toBe(250);
+  });
+  it("does not treat calibrated ambient noise as speech", () => {
+    let state = createVoiceDetectionState();
+    state = updateVoiceDetection(state, 0.012, 0);
+    state = updateVoiceDetection(state, 0.012, 500);
+    state = updateVoiceDetection(state, 0.014, 900);
+    expect(state.detected).toBe(false);
+    expect(state.voicedDurationMs).toBe(0);
   });
   it("summarizes practical request latency and jitter without failed samples", () => {
     expect(summarizeLatency([24, 30, 26, 40])).toEqual({ latency: 28, jitter: 16, samples: 4 });

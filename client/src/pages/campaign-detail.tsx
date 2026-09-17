@@ -6683,6 +6683,32 @@ export default function CampaignDetailPage() {
                           />
                         </CardContent>
                       </Card>
+                      <Card className="border-emerald-200/80 bg-emerald-50/25 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-emerald-900/60 dark:bg-emerald-950/10">
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"><UserCheck className="h-4 w-4" /></span>{t.campaigns.detail.contactVisibilityTitle}</CardTitle>
+                          <CardDescription>{t.campaigns.detail.contactVisibilityDesc}</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <Select
+                            value={(() => { try { const s = campaign.settings ? JSON.parse(campaign.settings) : {}; return s.contactVisibility === "assigned_representative" ? "assigned_representative" : "all"; } catch { return "all"; } })()}
+                            onValueChange={(value) => {
+                              let existing: any = {};
+                              try { if (campaign.settings) existing = JSON.parse(campaign.settings); } catch {}
+                              const merged = { ...existing, contactVisibility: value };
+                              apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { settings: JSON.stringify(merged) })
+                                .then(() => { toast({ title: t.campaigns.detail.settingsSaved }); queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] }); })
+                                .catch(() => toast({ title: t.campaigns.detail.error, variant: "destructive" }));
+                            }}
+                            data-testid="select-contact-visibility"
+                          >
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">{t.campaigns.detail.contactVisibilityAll}</SelectItem>
+                              <SelectItem value="assigned_representative">{t.campaigns.detail.contactVisibilityAssigned}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </CardContent>
+                      </Card>
                       <Card className="border-rose-200/80 bg-rose-50/25 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-rose-900/60 dark:bg-rose-950/10">
                         <CardHeader>
                           <CardTitle className="flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-md bg-rose-500/15 text-rose-700 dark:text-rose-300"><ScrollText className="h-4 w-4" /></span>{t.campaigns.detail.showScriptTitle}</CardTitle>

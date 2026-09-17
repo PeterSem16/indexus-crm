@@ -33,10 +33,16 @@ test("initial required readiness has one clear start action and a working exit o
 });
 
 test("starting the actual diagnostic run removes start and does not offer premature continuation", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
   await page.goto("/test-fixtures/pulse-readiness.html");
   await page.getByTestId("button-pulse-start").click();
   await expect(page.getByTestId("button-pulse-start")).toHaveCount(0);
   await expect(page.getByTestId("button-pulse-continue")).toHaveCount(0);
   await expect(page.getByTestId("button-pulse-retry")).toHaveCount(0);
+  const dialog = page.getByTestId("nexus-pulse-dialog");
+  const dialogBox = await dialog.boundingBox();
+  expect(dialogBox).not.toBeNull();
+  expect(dialogBox!.x + dialogBox!.width).toBeLessThanOrEqual(390);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: "/tmp/pulse-readiness-running.png" });
 });

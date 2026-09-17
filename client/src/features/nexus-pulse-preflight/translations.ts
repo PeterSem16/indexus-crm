@@ -139,6 +139,13 @@ Object.assign(hu, { readinessIntroEyebrow:"Az első hívás előtt", readinessIn
 Object.assign(ro, { readinessIntroEyebrow:"Înainte de primul apel", readinessIntroTitle:"Să verificăm dacă stația dumneavoastră este pregătită.", readinessIntroDetail:"NEXUS Pulse verifică browserul, căștile, conexiunea de apelare și contul Microsoft 365 înainte de apeluri.", readinessIntroPrivacy:"Microfonul este verificat local. Nimic nu este înregistrat.", readinessIntroDuration:"De obicei durează sub un minut" });
 Object.assign(it, { readinessIntroEyebrow:"Prima della prima chiamata", readinessIntroTitle:"Verifichiamo che la tua postazione sia pronta.", readinessIntroDetail:"NEXUS Pulse controlla browser, cuffie, connessione di chiamata e account Microsoft 365 prima delle chiamate.", readinessIntroPrivacy:"Il microfono viene controllato solo localmente. Nulla viene registrato.", readinessIntroDuration:"Di solito richiede meno di un minuto" });
 Object.assign(de, { readinessIntroEyebrow:"Vor dem ersten Anruf", readinessIntroTitle:"Prüfen wir, ob Ihr Arbeitsplatz bereit ist.", readinessIntroDetail:"NEXUS Pulse prüft Browser, Headset, Anrufverbindung und Microsoft-365-Konto vor Beginn der Anrufe.", readinessIntroPrivacy:"Das Mikrofon wird nur lokal geprüft. Es wird nichts aufgezeichnet.", readinessIntroDuration:"Dauert normalerweise weniger als eine Minute" });
+Object.assign(en, { voiceTesting:"Speak now for about 2 seconds — nothing is recorded", quickMicPending:"Listening locally (about 2 seconds)…" });
+Object.assign(sk, { voiceTesting:"Hovorte približne 2 sekundy — nič sa nenahráva", quickMicPending:"Počúvam lokálne (približne 2 sekundy)…" });
+Object.assign(cs, { voiceTesting:"Mluvte přibližně 2 sekundy — nic se nenahrává", quickMicPending:"Naslouchám lokálně (přibližně 2 sekundy)…" });
+Object.assign(hu, { voiceTesting:"Beszéljen körülbelül 2 másodpercig — semmit nem rögzítünk", quickMicPending:"Helyi hallgatás (körülbelül 2 másodperc)…" });
+Object.assign(ro, { voiceTesting:"Vorbiți aproximativ 2 secunde — nimic nu este înregistrat", quickMicPending:"Ascultare locală (aproximativ 2 secunde)…" });
+Object.assign(it, { voiceTesting:"Parla per circa 2 secondi — nulla viene registrato", quickMicPending:"Ascolto locale (circa 2 secondi)…" });
+Object.assign(de, { voiceTesting:"Sprechen Sie etwa 2 Sekunden — es wird nichts aufgezeichnet", quickMicPending:"Lokales Zuhören (etwa 2 Sekunden)…" });
 export function pulseCopy(locale?: string): PulseCopy {
   const selectedLocale = sets[locale as PulseLocale] ? locale as PulseLocale : "en";
   return { ...sets[selectedLocale], subtitle: subtitles[selectedLocale], continue: "NEXUS Pulse", m365Required: m365RequiredMessages[selectedLocale] };

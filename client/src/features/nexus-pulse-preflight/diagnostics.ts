@@ -167,6 +167,61 @@ export function hasVoiceLevel(rms: number, threshold = 0.015) {
   return rms >= threshold;
 }
 
+export type VoiceDetectionState = {
+  baselineTotal: number;
+  baselineFrames: number;
+  lastElapsedMs: number;
+  voicedDurationMs: number;
+  threshold: number;
+  detected: boolean;
+};
+
+export function createVoiceDetectionState(): VoiceDetectionState {
+  return {
+    baselineTotal: 0,
+    baselineFrames: 0,
+    lastElapsedMs: 0,
+    voicedDurationMs: 0,
+    threshold: 0.02,
+    detected: false,
+  };
+}
+
+/**
+ * Calibrates against the first half-second of ambient noise, then accumulates
+ * voiced time. Accumulated duration is intentionally used instead of
+ * consecutive animation frames so short pauses and variable frame rates do
+ * not turn a healthy microphone into a false negative.
+ */
+export function updateVoiceDetection(
+  state: VoiceDetectionState,
+  rms: number,
+  elapsedMs: number,
+  calibrationMs = 500,
+  requiredVoicedMs = 180,
+): VoiceDetectionState {
+  const next = { ...state };
+  if (elapsedMs <= calibrationMs) {
+    next.baselineTotal += rms;
+    next.baselineFrames += 1;
+    next.lastElapsedMs = elapsedMs;
+    return next;
+  }
+  const enteringListening = state.lastElapsedMs <= calibrationMs;
+  if (state.baselineFrames > 0 && enteringListening) {
+    next.threshold = Math.max(0.018, (state.baselineTotal / state.baselineFrames) * 2 + 0.006);
+  }
+  // RAF can be throttled while a tab is backgrounded. Never let one delayed
+  // sample credit an entire pause (or make one transient pass the test).
+  const deltaMs = enteringListening
+    ? 0
+    : Math.min(50, Math.max(0, elapsedMs - state.lastElapsedMs));
+  if (rms >= next.threshold) next.voicedDurationMs += deltaMs;
+  next.lastElapsedMs = elapsedMs;
+  next.detected = next.voicedDurationMs >= requiredVoicedMs;
+  return next;
+}
+
 export function summarizeLatency(samples: number[]) {
   const usable = samples.filter((sample) => Number.isFinite(sample) && sample >= 0);
   if (!usable.length) return null;
