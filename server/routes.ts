@@ -128,6 +128,12 @@ function inboundHangupAttribution(
   return null;
 }
 import { cloneCampaignWithConfiguration } from "./lib/clone-campaign";
+import {
+  createDrizzleStatusListNoteStore,
+  parseStatusListNoteBody,
+  persistStatusListNote,
+  StatusListNoteError,
+} from "./lib/status-list-note";
 import session from "express-session";
 import pgSession from "connect-pg-simple";
 import PDFDocument from "pdfkit";
@@ -6422,7 +6428,7 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
       const { parentFolderId, fileName, contentBase64 } = req.body;
       const content = Buffer.from(contentBase64, "base64");
       const result = await uploadSharePointFile(token, req.params.driveId, parentFolderId || null, fileName, content);
-      res.json(result);
+      res.json({ ok: result.ok, changed: result.changed, state: result.state });
     } catch (error) {
       console.error("[SharePoint] Error uploading file:", error);
       res.status(500).json({ error: "Failed to upload file" });
@@ -13528,10 +13534,15 @@ Return ONLY valid JSON, no markdown code blocks.`,
         }
       }));
 
-      // Batch-resolve status list item labels for status_list_confirmation history entries
+      // Batch-resolve status list item labels for status-list history entries.
+      // Note updates are included as well: a note-only event is still a step
+      // event and must not be rendered as an opaque raw action.
       const slConfirmItemIds = [...new Set(
         campaignHistory
-          .filter(h => h.action === "status_list_confirmation" && (h.metadata as any)?.statusListItemId)
+          .filter(h => (
+            (h.action === "status_list_confirmation" || h.action === "status_list_note_update") &&
+            (h.metadata as any)?.statusListItemId
+          ))
           .map(h => (h.metadata as any).statusListItemId as string)
       )];
       const slItemLabelMap = new Map<string, string>();
@@ -13653,11 +13664,32 @@ Return ONLY valid JSON, no markdown code blocks.`,
         }
         if (h.action === "status_list_confirmation") {
           const meta = (h.metadata as any) || {};
-          const itemLabel = slItemLabelMap.get(meta.statusListItemId) || meta.itemLabel || "—";
-          const itemDescription = slItemDescMap.get(meta.statusListItemId) ?? null;
+          // Prefer the snapshot captured with the event. Current item labels
+          // can change (or the item can be deleted) after this history row was
+          // written; old rows without snapshots still use the lookup fallback.
+          const hasItemLabelSnapshot = Object.prototype.hasOwnProperty.call(meta, "itemLabel");
+          const itemLabel = hasItemLabelSnapshot
+            ? (typeof meta.itemLabel === "string" ? meta.itemLabel : "—")
+            : (slItemLabelMap.get(meta.statusListItemId) || "—");
+          const hasItemDescriptionSnapshot = Object.prototype.hasOwnProperty.call(meta, "itemDescription");
+          const itemDescription = hasItemDescriptionSnapshot
+            ? (typeof meta.itemDescription === "string" ? meta.itemDescription : null)
+            : (slItemDescMap.get(meta.statusListItemId) ?? null);
           content = meta.confirmed === false
             ? `Krok odpotvrdený: ${itemLabel}`
             : `Krok potvrdený: ${itemLabel}`;
+          (h as any)._slAugmented = { itemLabel, itemDescription };
+        } else if (h.action === "status_list_note_update") {
+          const meta = (h.metadata as any) || {};
+          const hasItemLabelSnapshot = Object.prototype.hasOwnProperty.call(meta, "itemLabel");
+          const itemLabel = hasItemLabelSnapshot
+            ? (typeof meta.itemLabel === "string" ? meta.itemLabel : "—")
+            : (slItemLabelMap.get(meta.statusListItemId) || "—");
+          const hasItemDescriptionSnapshot = Object.prototype.hasOwnProperty.call(meta, "itemDescription");
+          const itemDescription = hasItemDescriptionSnapshot
+            ? (typeof meta.itemDescription === "string" ? meta.itemDescription : null)
+            : (slItemDescMap.get(meta.statusListItemId) ?? null);
+          content = `Poznámka ku kroku aktualizovaná: ${itemLabel}`;
           (h as any)._slAugmented = { itemLabel, itemDescription };
         }
 
@@ -13679,7 +13711,11 @@ Return ONLY valid JSON, no markdown code blocks.`,
           agentName,
           agentId: h.userId,
           content,
-          details: dispositionName ? null : notesVal,
+          details: dispositionName
+            ? null
+            : h.action === "status_list_note_update"
+              ? ((h.metadata as any)?.itemNote ?? "")
+              : notesVal,
           dispositionCode: notesVal,
           dispositionName,
           dispositionColor,
@@ -13689,7 +13725,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
           action: h.action,
           previousStatus: h.previousStatus,
           newStatus: h.newStatus,
-          metadata: h.action === "status_list_confirmation" && (h as any)._slAugmented
+          metadata: (h.action === "status_list_confirmation" || h.action === "status_list_note_update") && (h as any)._slAugmented
             ? { ...((h.metadata as any) || {}), ...(h as any)._slAugmented }
             : ((h.metadata as any) || null),
         });
@@ -32339,6 +32375,27 @@ Respond ONLY with valid JSON in this exact format:
 
       const userId = req.session.user!.id;
       const { confirm, contactCountry, overrideCallbackDate, overrideCallbackNote, skipAutomations, itemNote } = req.body as { confirm: boolean; contactCountry?: string; overrideCallbackDate?: string | null; overrideCallbackNote?: string | null; skipAutomations?: boolean; itemNote?: string | null };
+      // Bind both route resources before any state, automation, or history
+      // writes.  A valid id from another campaign must never be usable through
+      // this campaign-scoped endpoint.
+      const [routeContact] = await db.select({ campaignId: campaignContacts.campaignId })
+        .from(campaignContacts)
+        .where(eq(campaignContacts.id, campaignContactId))
+        .limit(1);
+      if (!routeContact || routeContact.campaignId !== campaignId) {
+        return res.status(404).json({ error: "Contact not found in campaign" });
+      }
+      const [itemRouteItem] = await db.select({
+        campaignId: campaignStatusListItems.campaignId,
+        label: campaignStatusListItems.label,
+        description: campaignStatusListItems.description,
+      })
+        .from(campaignStatusListItems)
+        .where(eq(campaignStatusListItems.id, itemId))
+        .limit(1);
+      if (!itemRouteItem || itemRouteItem.campaignId !== campaignId) {
+        return res.status(404).json({ error: "Status-list item not found in campaign" });
+      }
 
       if (confirm) {
         // Check if already confirmed
@@ -32922,7 +32979,14 @@ Respond ONLY with valid JSON in this exact format:
             campaignContactId,
             userId,
             action: "status_list_confirmation",
-            metadata: { statusListItemId: itemId, confirmed: true, campaignId, itemNote: itemNote ?? null },
+            metadata: {
+              statusListItemId: itemId,
+              confirmed: true,
+              campaignId,
+              itemNote: itemNote ?? null,
+              itemLabel: itemRouteItem?.label ?? null,
+              itemDescription: itemRouteItem?.description ?? null,
+            },
           });
         } else {
           // Item already confirmed — update itemNote ONLY when the caller supplies
@@ -32930,20 +32994,18 @@ Respond ONLY with valid JSON in this exact format:
           // so that a batch-save re-confirm (which sends itemNote:null for items the
           // agent didn't re-type) does NOT wipe a note previously saved via PATCH.
           if (itemNote) {
-            const [updated] = await db.update(campaignContactStatusListState)
-              .set({ itemNote, noteUpdatedAt: new Date() })
-              .where(and(
-                eq(campaignContactStatusListState.campaignContactId, campaignContactId),
-                eq(campaignContactStatusListState.statusListItemId, itemId)
-              ))
-              .returning();
-            stateRow = updated ?? existing[0];
-            await db.insert(campaignContactHistory).values({
+            // Reuse the locked, idempotent note path. The pre-read above only
+            // distinguishes an existing confirmation from a new one; this
+            // transaction owns the authoritative note comparison.
+            const noteResult = await persistStatusListNote({
+              store: createDrizzleStatusListNoteStore(db),
+              campaignId,
               campaignContactId,
+              statusListItemId: itemId,
               userId,
-              action: "status_list_note_update",
-              metadata: { statusListItemId: itemId, campaignId, itemNote },
+              note: itemNote,
             });
+            stateRow = noteResult.state;
           } else {
             stateRow = existing[0];
           }
@@ -32975,25 +33037,25 @@ Respond ONLY with valid JSON in this exact format:
 
   // PATCH /api/campaigns/:campaignId/contacts/:campaignContactId/status-list-state/:itemId/note
   // Update just the note on an existing confirmed status-list item (with timestamp).
+  // Response: { ok: true, changed: boolean, state: current state row }.
   app.patch("/api/campaigns/:campaignId/contacts/:campaignContactId/status-list-state/:itemId/note", requireAuth, async (req, res) => {
     try {
       const { campaignId, campaignContactId, itemId } = req.params;
       const userId = req.session.user!.id;
-      const { note } = req.body as { note?: string | null };
-      await db.update(campaignContactStatusListState)
-        .set({ itemNote: note ?? null, noteUpdatedAt: new Date() })
-        .where(and(
-          eq(campaignContactStatusListState.campaignContactId, campaignContactId),
-          eq(campaignContactStatusListState.statusListItemId, itemId)
-        ));
-      await db.insert(campaignContactHistory).values({
+      const { note } = parseStatusListNoteBody(req.body);
+      const result = await persistStatusListNote({
+        store: createDrizzleStatusListNoteStore(db),
+        campaignId,
         campaignContactId,
+        statusListItemId: itemId,
         userId,
-        action: "status_list_note_update",
-        metadata: { statusListItemId: itemId, campaignId, itemNote: note ?? null },
+        note,
       });
-      res.json({ ok: true });
+      res.json(result);
     } catch (error) {
+      if (error instanceof StatusListNoteError) {
+        return res.status(error.status).json({ error: error.message });
+      }
       console.error("Failed to update status list item note:", error);
       res.status(500).json({ error: "Failed to update note" });
     }

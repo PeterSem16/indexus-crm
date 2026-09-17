@@ -93,3 +93,4 @@
 - [Clone parity semantics](clone-parity-testing.md) — normalized equality alone can hide unchanged IDs; test persisted representations and fresh identities separately.
 - [Bulk filter parity](medical-partner-bulk-filter-parity.md) — sharing the drawer is insufficient; lists and bulk assignment must share matching semantics and bind confirmation to the complete preview.
 - [Priority search design](priority-search-design-approval.md) — approved identity-rich results explain the match while preserving every operational badge and full-queue context.
+- [Status-list note semantics](status-list-note-semantics.md) — note edits are independent of confirmation/automations; null-on-reconfirm preserves, explicit note clear removes; history uses event snapshots.

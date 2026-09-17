@@ -255,6 +255,10 @@ import {
 import { priorityBuilderCopy } from "@/components/agent/priority-builder-copy";
 import type { SavedSearch } from "@shared/schema";
 import { buildScheduledCallbackPatch } from "@shared/scheduled-callback";
+import {
+  mergeStatusListNoteDrafts,
+  statusListNotePayload,
+} from "@/lib/status-list-note-drafts";
 
 type AgentInboundQueueDid = {
   didNumber: string;
@@ -291,6 +295,10 @@ const SL_ACTION_T: Record<string, Record<string, string>> = {
   statusSet:     { sk: "Status nastavený", en: "Status set", cs: "Stav nastaven", hu: "Státusz beállítva", ro: "Status setat", it: "Stato impostato", de: "Status gesetzt" },
   callbackSet:   { sk: "Callback naplánovaný", en: "Callback scheduled", cs: "Callback naplánován", hu: "Visszahívás ütemezve", ro: "Callback programat", it: "Richiamo pianificato", de: "Rückruf geplant" },
   actionFailed:  { sk: "Akcia zlyhala", en: "Action failed", cs: "Akce selhala", hu: "A művelet sikertelen", ro: "Acțiunea a eșuat", it: "Azione fallita", de: "Aktion fehlgeschlagen" },
+  noteSaved:    { sk: "Poznámka uložená", en: "Note saved", cs: "Poznámka uložena", hu: "Megjegyzés mentve", ro: "Notă salvată", it: "Nota salvata", de: "Notiz gespeichert" },
+  noteSaveFailed:{ sk: "Poznámku sa nepodarilo uložiť", en: "Note could not be saved", cs: "Poznámku se nepodařilo uložit", hu: "A megjegyzést nem sikerült menteni", ro: "Nota nu a putut fi salvată", it: "Impossibile salvare la nota", de: "Notiz konnte nicht gespeichert werden" },
+  noteUpdated:  { sk: "Poznámka aktualizovaná", en: "Note updated", cs: "Poznámka aktualizována", hu: "Megjegyzés frissítve", ro: "Notă actualizată", it: "Nota aggiornata", de: "Notiz aktualisiert" },
+  noteCleared:  { sk: "Poznámka vymazaná", en: "Note cleared", cs: "Poznámka vymazána", hu: "Megjegyzés törölve", ro: "Notă ștearsă", it: "Nota cancellata", de: "Notiz gelöscht" },
   actionsTitle:  { sk: "Akcie", en: "Actions", cs: "Akce", hu: "Műveletek", ro: "Acțiuni", it: "Azioni", de: "Aktionen" },
   // ── Confirm dialog (rich "what happens" summary) ──────────────────
   cfmTitle:      { sk: "Potvrdenie kroku", en: "Confirm step", cs: "Potvrzení kroku", hu: "Lépés megerősítése", ro: "Confirmă pasul", it: "Conferma passaggio", de: "Schritt bestätigen" },
@@ -2910,7 +2918,7 @@ function ScriptViewer({ script, contact, campaignContactId, campaignId, initialS
   );
 }
 
-function CommunicationCanvas({
+export function CommunicationCanvas({
   contact,
   campaign,
   activeChannel,
@@ -3141,13 +3149,21 @@ function CommunicationCanvas({
   const [slBatchCallbackNote, setSlBatchCallbackNote] = useState("");
   // Per-item notes for confirmed items (populated from DB, editable for retention items)
   const [slItemNotes, setSlItemNotes] = useState<Record<string, string>>({});
+  const [slImmediateDirtyNoteIds, setSlImmediateDirtyNoteIds] = useState<Set<string>>(new Set());
+  const [batchSlDirtyNoteIds, setBatchSlDirtyNoteIds] = useState<Set<string>>(new Set());
+  const slSavedNoteAckRef = useRef<Record<string, string>>({});
+  const statusListScopeKey = `${campaign?.id ?? ""}:${campaignContactId ?? ""}`;
+  // Assigned during render so an old PATCH cannot win during the
+  // contact-switch render/effect gap.
+  const statusListScopeRef = useRef({ key: statusListScopeKey, generation: 0 });
+  if (statusListScopeRef.current.key !== statusListScopeKey) {
+    statusListScopeRef.current = {
+      key: statusListScopeKey,
+      generation: statusListScopeRef.current.generation + 1,
+    };
+  }
+  const statusListScopeToken = `${statusListScopeRef.current.key}:${statusListScopeRef.current.generation}`;
   const [slBatchBannerDismissed, setSlBatchBannerDismissed] = useState(false);
-
-  // Notify the parent workspace whenever the unsaved batch count changes so it
-  // can gate navigation away (contact-switch / card-close) with a confirmation dialog.
-  useEffect(() => {
-    onBatchUnsavedCountChange?.(batchSlSelections.size);
-  }, [batchSlSelections.size, onBatchUnsavedCountChange]);
 
   const statusListMode = useMemo(() => {
     try { return campaign?.settings ? (JSON.parse(campaign.settings).statusListMode || "immediate") : "immediate"; } catch { return "immediate"; }
@@ -3178,6 +3194,16 @@ function CommunicationCanvas({
     staleTime: 0,
     refetchOnMount: "always",
   });
+  // Query keys are contact-scoped, but keep this defensive filter for cache
+  // fixtures/legacy responses that may contain rows from another contact.
+  const currentStatusStateRows = useMemo(
+    () => !campaignContactId
+      ? []
+      : (dbSlState as any[]).filter((row: any) =>
+        row.campaignContactId == null || String(row.campaignContactId) === String(campaignContactId)
+      ),
+    [dbSlState, campaignContactId],
+  );
   // Resolve each status-list automation's disposition so the "Set status" button can
   // open a reschedule picker for callback-type dispositions (legacy table the builder
   // writes to and the server reads from).
@@ -3233,11 +3259,56 @@ function CommunicationCanvas({
   // Fast lookup: statusListItemId → full state row (for confirmedAt, itemNote, noteUpdatedAt)
   const slStateMap = useMemo(() => {
     const m = new Map<string, any>();
-    for (const row of (dbSlState as any[])) {
+    for (const row of currentStatusStateRows) {
       m.set(String(row.statusListItemId), row);
     }
     return m;
-  }, [dbSlState]);
+  }, [currentStatusStateRows]);
+
+  const slPersistedNotes = useMemo(() => {
+    const notes: Record<string, string | null> = {};
+    for (const row of currentStatusStateRows) {
+      notes[String(row.statusListItemId)] = row.itemNote ?? null;
+    }
+    return notes;
+  }, [currentStatusStateRows]);
+
+  // A note edit is a first-class batch draft, including edits to an already
+  // confirmed row.  This is deliberately separate from selections: editing a
+  // confirmed note must enable Save without re-confirming the step.
+  const batchNoteEligibleIds = useMemo(() => new Set<string>([
+    ...Array.from(dbSlChecked).map(String),
+    ...Array.from(batchSlSelections).map(String),
+  ]), [dbSlChecked, batchSlSelections]);
+  const batchDirtyNoteIds = useMemo(
+    () => new Set(Array.from(batchSlDirtyNoteIds).filter(id => batchNoteEligibleIds.has(id))),
+    [batchSlDirtyNoteIds, batchNoteEligibleIds],
+  );
+  const batchUnsavedIds = useMemo(() => new Set<string>([
+    ...Array.from(batchSlSelections).map(String),
+    ...Array.from(batchDirtyNoteIds).map(String),
+  ]), [batchSlSelections, batchDirtyNoteIds]);
+
+  // Notify the parent workspace whenever the unsaved batch count changes so it
+  // can gate navigation away (contact-switch / card-close) with a confirmation dialog.
+  useEffect(() => {
+    onBatchUnsavedCountChange?.(batchUnsavedIds.size);
+  }, [batchUnsavedIds.size, onBatchUnsavedCountChange]);
+
+  // Keep the query cache ahead of an invalidation refetch.  A refetch that was
+  // already in flight when a PATCH completed can otherwise briefly (or
+  // permanently, if its result wins) restore the old note.
+  const updateSlNoteCache = useCallback((itemId: string, note: string | null, noteUpdatedAt?: string | null) => {
+    if (!campaign?.id || !campaignContactId) return;
+    queryClient.setQueryData<any[]>(
+      ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"],
+      old => Array.isArray(old)
+        ? old.map(row => String(row.statusListItemId) === String(itemId)
+          ? { ...row, itemNote: note, noteUpdatedAt: noteUpdatedAt ?? row.noteUpdatedAt }
+          : row)
+        : old,
+    );
+  }, [campaign?.id, campaignContactId]);
 
   // ① RESET — defined BEFORE population so React runs it first when both deps change
   //    in the same render (cached data arrives together with a contact switch).
@@ -3246,14 +3317,21 @@ function CommunicationCanvas({
   useEffect(() => {
     setDbSlChecked(new Set());
     setSlItemNotes({});
-  }, [campaignContactId]);
+    setSlImmediateDirtyNoteIds(new Set());
+    setBatchSlSelections(new Set());
+    setBatchSlNotes({});
+    setBatchSlDirtyNoteIds(new Set());
+    setBatchSlDeletions(new Set());
+    slSavedNoteAckRef.current = {};
+  }, [campaign?.id, campaignContactId]);
 
   // ② POPULATE — fires after the reset above when they share a render cycle.
   useEffect(() => {
-    // All rows in dbSlState are confirmed (existence-based model)
-    if (dbSlState) {
+    // All rows in the current contact's state are confirmed (existence-based
+    // model). Rows from another contact are ignored defensively above.
+    if (currentStatusStateRows) {
       const confirmedIds = new Set<string>(
-        (dbSlState as any[]).map((s: any) => String(s.statusListItemId))
+        currentStatusStateRows.map((s: any) => String(s.statusListItemId))
       );
 
       // ── Auto-cleanup: enforce 1× (single-select) integrity on load ──────────
@@ -3261,7 +3339,7 @@ function CommunicationCanvas({
       // single-select parent, keep only the most recently confirmed one and
       // fire background DELETEs for the rest so the UI and DB stay in sync.
       const stateByItemId = new Map<string, any>();
-      for (const row of (dbSlState as any[])) stateByItemId.set(String(row.statusListItemId), row);
+      for (const row of currentStatusStateRows) stateByItemId.set(String(row.statusListItemId), row);
 
       if (Array.isArray(dbStatusList) && dbStatusList.length && campaign?.id && campaignContactId) {
         const parents = (dbStatusList as any[]).filter(
@@ -3293,14 +3371,23 @@ function CommunicationCanvas({
       // ────────────────────────────────────────────────────────────────────────
 
       setDbSlChecked(confirmedIds);
-      // Restore per-item notes from DB
+      // Restore per-item notes from DB.  Batch drafts are merged rather than
+      // replaced: a refetch during editing must not erase a local textarea.
       const notes: Record<string, string> = {};
-      for (const row of (dbSlState as any[])) {
-        if (row.itemNote) notes[String(row.statusListItemId)] = row.itemNote;
+      for (const row of currentStatusStateRows) {
+        const id = String(row.statusListItemId);
+        const serverNote = row.itemNote ?? "";
+        // Prefer an acknowledged PATCH result until the query catches up.
+        // Once the server snapshot matches, discard the acknowledgement.
+        if (id in slSavedNoteAckRef.current && slSavedNoteAckRef.current[id] === serverNote) {
+          delete slSavedNoteAckRef.current[id];
+        }
+        notes[id] = slSavedNoteAckRef.current[id] ?? serverNote;
       }
-      setSlItemNotes(notes);
+      setSlItemNotes(prev => mergeStatusListNoteDrafts(prev, notes, slImmediateDirtyNoteIds));
+      setBatchSlNotes(prev => mergeStatusListNoteDrafts(prev, notes, batchSlDirtyNoteIds));
     }
-  }, [dbSlState]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentStatusStateRows, slImmediateDirtyNoteIds, batchSlDirtyNoteIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Restore last active tab from localStorage when contact/campaign changes
   useEffect(() => {
@@ -3324,7 +3411,7 @@ function CommunicationCanvas({
   const slAutoRunRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!Array.isArray(dbStatusList) || !dbStatusList.length || !campaignContactId || !campaign?.id) return;
-    const confirmedIds = new Set<string>((dbSlState as any[]).map((s: any) => String(s.statusListItemId)));
+    const confirmedIds = new Set<string>(currentStatusStateRows.map((s: any) => String(s.statusListItemId)));
     const autoItems = (dbStatusList as any[]).filter((i: any) => i.confirmationType === "auto" && !i.isHidden);
     for (const autoItem of autoItems) {
       const key = `${campaign.id}:${campaignContactId}:${autoItem.id}`;
@@ -3339,7 +3426,7 @@ function CommunicationCanvas({
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campaign?.id, campaignContactId, dbStatusList, dbSlState]);
+  }, [campaign?.id, campaignContactId, dbStatusList, currentStatusStateRows]);
 
   // Declared here (before the useCallbacks that reference it in deps) to avoid TDZ in production Rollup build.
   const [slPendingCallback, setSlPendingCallback] = useState<{ itemId: string; itemLabel: string; allAutomations: any[]; cbAuto: any | null; dt: string; note: string } | null>(null);
@@ -3358,6 +3445,22 @@ function CommunicationCanvas({
         if (newChecked) { next.add(itemId); } else { next.delete(itemId); }
         return next;
       });
+      // A note on a row that is explicitly unchecked is not a save candidate.
+      // Drop it so a later Save cannot persist a note for an unconfirmed row.
+      if (!newChecked) {
+        setBatchSlNotes(prev => {
+          if (!(itemId in prev)) return prev;
+          const next = { ...prev };
+          delete next[itemId];
+          return next;
+        });
+        setBatchSlDirtyNoteIds(prev => {
+          if (!prev.has(itemId)) return prev;
+          const next = new Set(prev);
+          next.delete(itemId);
+          return next;
+        });
+      }
       return;
     }
 
@@ -3439,7 +3542,9 @@ function CommunicationCanvas({
   }, [slPendingCallback, campaign?.id, campaignContactId, contactCountry, dbStatusList, toast, locale]);
 
   const handleSlBatchSaveConfirm = useCallback(async () => {
-    if (!campaign?.id || !campaignContactId || batchSlSelections.size === 0) return;
+    if (!campaign?.id || !campaignContactId || batchUnsavedIds.size === 0) return;
+    const saveScopeToken = statusListScopeToken;
+    const scopeIsCurrent = () => `${statusListScopeRef.current.key}:${statusListScopeRef.current.generation}` === saveScopeToken;
     setSlBatchSaving(true);
     try {
       // First: remove siblings that were deselected for single-select groups.
@@ -3451,18 +3556,58 @@ function CommunicationCanvas({
             confirm: false,
             contactCountry: contactCountry ?? null,
           });
+          if (!scopeIsCurrent()) return;
         }
       }
       // Then: persist all staged items without firing automations
       for (const itemId of Array.from(batchSlSelections)) {
+        const itemNote = statusListNotePayload(batchSlNotes[itemId]);
         await apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${itemId}`, {
           confirm: true,
           contactCountry: contactCountry ?? null,
           skipAutomations: true,
-          itemNote: batchSlNotes[itemId] ?? null,
+          itemNote,
         });
+        if (!scopeIsCurrent()) return;
+        slSavedNoteAckRef.current[itemId] = itemNote ?? "";
+      }
+
+      // Existing confirmed rows are intentionally updated through the note
+      // endpoint only.  This must not re-confirm, run automations, reschedule,
+      // or participate in auto-close logic.
+      const noteOnlyIds = Array.from(batchDirtyNoteIds).filter(id => !batchSlSelections.has(id));
+      for (const itemId of noteOnlyIds) {
+        const note = statusListNotePayload(batchSlNotes[itemId]);
+        const response = await apiRequest("PATCH", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${itemId}/note`, { note });
+        const result = await response.json().catch(() => ({}));
+        if (!scopeIsCurrent()) return;
+        const savedNote = result?.state?.itemNote ?? note;
+        slSavedNoteAckRef.current[itemId] = savedNote ?? "";
+        updateSlNoteCache(itemId, savedNote, result?.state?.noteUpdatedAt);
       }
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/entity-history", contact?.id] });
+      if (!scopeIsCurrent()) return;
+
+      // A note-only save is complete after the PATCHes above.  Do not open the
+      // callback dialog or alter the contact status in that case.
+      if (batchSlSelections.size === 0) {
+        toast({ title: slt("noteSaved", locale) });
+        setBatchSlNotes(prev => {
+          const next = { ...prev };
+          for (const id of noteOnlyIds) delete next[id];
+          return next;
+        });
+        setBatchSlDirtyNoteIds(prev => {
+          const next = new Set(prev);
+          for (const id of noteOnlyIds) next.delete(id);
+          return next;
+        });
+        setSlBatchSaveOpen(false);
+        setSlBatchCallbackDt("");
+        setSlBatchCallbackNote("");
+        return;
+      }
 
       if (slBatchAction === "reschedule") {
         const selectedCallbackItem = Array.from(batchSlSelections)
@@ -3477,9 +3622,11 @@ function CommunicationCanvas({
           callbackStatusListItemId: selectedCallbackItem?.id ?? null,
           assignedTo: user?.id || null,
         });
+        if (!scopeIsCurrent()) return;
         queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts"] });
         queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
         await queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+        if (!scopeIsCurrent()) return;
         let dtLabel = "";
         try {
           const d = new Date(slBatchCallbackDt);
@@ -3505,7 +3652,7 @@ function CommunicationCanvas({
           }
           return !effectiveChecked.has(String(i.id));
         });
-        if (requiredMissing.length === 0) {
+        if (scopeIsCurrent() && requiredMissing.length === 0) {
           onCloseCallAfterStatusList?.();
         }
       } else {
@@ -3513,6 +3660,7 @@ function CommunicationCanvas({
           status: "do_not_call",
           callbackNote: slBatchCallbackNote || null,
         });
+        if (!scopeIsCurrent()) return;
         queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts"] });
         toast({ title: slt("batchSaved", locale) });
         onCloseCallAfterStatusList?.();
@@ -3520,15 +3668,71 @@ function CommunicationCanvas({
 
       setBatchSlSelections(new Set());
       setBatchSlNotes({});
+      setBatchSlDirtyNoteIds(new Set());
       setSlBatchSaveOpen(false);
       setSlBatchCallbackDt("");
       setSlBatchCallbackNote("");
     } catch {
-      toast({ title: slt("batchSaveFailed", locale), variant: "destructive" });
+      if (scopeIsCurrent()) {
+        toast({ title: slt("batchSaveFailed", locale), variant: "destructive" });
+      }
     } finally {
-      setSlBatchSaving(false);
+      if (scopeIsCurrent()) setSlBatchSaving(false);
     }
-  }, [campaign?.id, campaignContactId, batchSlSelections, batchSlNotes, slBatchAction, slBatchCallbackDt, slBatchCallbackNote, contactCountry, locale, onCloseCallAfterStatusList, toast, dbStatusList, dbSlChecked, user?.id]);
+  }, [campaign?.id, campaignContactId, statusListScopeToken, batchSlSelections, batchSlNotes, batchDirtyNoteIds, batchUnsavedIds, slBatchAction, slBatchCallbackDt, slBatchCallbackNote, contactCountry, locale, onCloseCallAfterStatusList, toast, dbStatusList, dbSlChecked, user?.id, contact?.id, updateSlNoteCache]);
+
+  const handleSlNoteChange = useCallback((itemId: string, value: string) => {
+    if (statusListMode === "batch") {
+      setBatchSlNotes(prev => ({ ...prev, [itemId]: value }));
+      setBatchSlDirtyNoteIds(prev => {
+        const isDirty = value !== (slPersistedNotes[itemId] ?? "");
+        const next = new Set(prev);
+        if (isDirty) next.add(itemId); else next.delete(itemId);
+        return next;
+      });
+    } else {
+      setSlItemNotes(prev => ({ ...prev, [itemId]: value }));
+      setSlImmediateDirtyNoteIds(prev => {
+        const isDirty = value !== (slPersistedNotes[itemId] ?? "");
+        const next = new Set(prev);
+        if (isDirty) next.add(itemId); else next.delete(itemId);
+        return next;
+      });
+    }
+  }, [statusListMode, slPersistedNotes]);
+
+  const handleSlNoteBlur = useCallback(async (itemId: string) => {
+    if (statusListMode === "batch" || !campaign?.id || !campaignContactId) return;
+    const saveScopeToken = statusListScopeToken;
+    const note = slItemNotes[itemId] ?? "";
+    try {
+      const payloadNote = statusListNotePayload(note);
+      const response = await apiRequest(
+        "PATCH",
+        `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${itemId}/note`,
+        { note: payloadNote },
+      );
+      const result = await response.json().catch(() => ({}));
+      if (`${statusListScopeRef.current.key}:${statusListScopeRef.current.generation}` !== saveScopeToken) return;
+      const savedNote = result?.state?.itemNote ?? payloadNote;
+      slSavedNoteAckRef.current[itemId] = savedNote ?? "";
+      setSlItemNotes(prev => ({ ...prev, [itemId]: savedNote ?? "" }));
+      setSlImmediateDirtyNoteIds(prev => {
+        const next = new Set(prev);
+        next.delete(itemId);
+        return next;
+      });
+      updateSlNoteCache(itemId, savedNote, result?.state?.noteUpdatedAt);
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/entity-history", contact?.id] });
+      toast({ title: slt(note ? "noteSaved" : "noteCleared", locale) });
+    } catch {
+      // Keep slItemNotes intact so a failed PATCH remains visible/editable.
+      if (`${statusListScopeRef.current.key}:${statusListScopeRef.current.generation}` === saveScopeToken) {
+        toast({ title: slt("noteSaveFailed", locale), variant: "destructive" });
+      }
+    }
+  }, [statusListMode, campaign?.id, campaignContactId, statusListScopeToken, slItemNotes, contact?.id, locale, toast, updateSlNoteCache]);
 
   // Manual ("run now") trigger for a single configured status-list automation.
   const [slRunningAuto, setSlRunningAuto] = useState<Set<string>>(new Set());
@@ -6744,9 +6948,9 @@ function CommunicationCanvas({
               Show for items explicitly tagged retention, OR for tab=null items currently
               viewed inside the retention tab (tab=null = show on all tabs). */}
                         {(item.tab === 'retention' || (!item.tab && slActiveTab === 'retention')) && (isChecked || (statusListMode === 'batch' && batchSlSelections.has(String(item.id)))) && (() => {
-                          const isBatch = statusListMode === 'batch' && !isChecked;
+                          const isBatch = statusListMode === 'batch';
                           const noteVal = isBatch
-                            ? (batchSlNotes[String(item.id)] ?? '')
+                            ? (batchSlNotes[String(item.id)] ?? slItemNotes[String(item.id)] ?? '')
                             : (slItemNotes[String(item.id)] ?? '');
                           const stateRow = slStateMap.get(String(item.id));
                           const noteTs = stateRow?.noteUpdatedAt;
@@ -6757,22 +6961,12 @@ function CommunicationCanvas({
                                 placeholder={locale === 'sk' ? 'Poznámka k tomuto kroku...' : locale === 'cs' ? 'Poznámka k tomuto kroku...' : locale === 'hu' ? 'Megjegyzés ehhez a lépéshez...' : locale === 'ro' ? 'Notă pentru acest pas...' : locale === 'de' ? 'Anmerkung zu diesem Schritt...' : locale === 'it' ? 'Nota per questo passaggio...' : 'Note for this step...'}
                                 value={noteVal}
                                 rows={2}
+                                data-testid={`sl-note-${item.id}`}
                                 onClick={e => e.stopPropagation()}
                                 onChange={e => {
-                                  const val = e.target.value;
-                                  if (isBatch) {
-                                    setBatchSlNotes(prev => ({ ...prev, [String(item.id)]: val }));
-                                  } else {
-                                    setSlItemNotes(prev => ({ ...prev, [String(item.id)]: val }));
-                                  }
+                                  handleSlNoteChange(String(item.id), e.target.value);
                                 }}
-                                onBlur={async e => {
-                                  if (isBatch || !campaign?.id || !campaignContactId) return;
-                                  try {
-                                    await apiRequest("PATCH", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${item.id}/note`, { note: e.target.value });
-                                    queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
-                                  } catch { /* no-op */ }
-                                }}
+                                onBlur={() => { void handleSlNoteBlur(String(item.id)); }}
                               />
                               {!isBatch && noteTs && (
                                 <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground/60">
@@ -6922,7 +7116,7 @@ function CommunicationCanvas({
                         );
                       })()}
                       {(() => {
-                        const itemState = (dbSlState as any[]).find((s: any) => String(s.statusListItemId) === String(item.id));
+                        const itemState = currentStatusStateRows.find((s: any) => String(s.statusListItemId) === String(item.id));
                         if (!itemState?.confirmedAt) return null;
                         const statusAuto = (item.automations || []).find((a: any) => a.actionType === "set_contact_status" && a.dispositionId);
                         const disp = statusAuto ? (slDispositions as any[]).find((d: any) => String(d.id) === String(statusAuto.dispositionId)) : null;
@@ -7071,9 +7265,9 @@ function CommunicationCanvas({
                             })()}
                             {/* Retention note — same as top-level items, keyed by child.id */}
                             {(item.tab === 'retention' || (!item.tab && slActiveTab === 'retention')) && (childChecked || (statusListMode === 'batch' && batchSlSelections.has(String(child.id)))) && (() => {
-                              const isBatch = statusListMode === 'batch' && !childChecked;
+                              const isBatch = statusListMode === 'batch';
                               const noteVal = isBatch
-                                ? (batchSlNotes[String(child.id)] ?? '')
+                                ? (batchSlNotes[String(child.id)] ?? slItemNotes[String(child.id)] ?? '')
                                 : (slItemNotes[String(child.id)] ?? '');
                               const childState = slStateMap.get(String(child.id));
                               const noteTs = childState?.noteUpdatedAt;
@@ -7084,22 +7278,12 @@ function CommunicationCanvas({
                                     placeholder={locale === 'sk' ? 'Poznámka k tomuto kroku...' : locale === 'cs' ? 'Poznámka k tomuto kroku...' : locale === 'hu' ? 'Megjegyzés ehhez a lépéshez...' : locale === 'ro' ? 'Notă pentru acest pas...' : locale === 'de' ? 'Anmerkung zu diesem Schritt...' : locale === 'it' ? 'Nota per questo passaggio...' : 'Note for this step...'}
                                     value={noteVal}
                                     rows={2}
+                                    data-testid={`sl-note-${child.id}`}
                                     onClick={e => e.stopPropagation()}
                                     onChange={e => {
-                                      const val = e.target.value;
-                                      if (isBatch) {
-                                        setBatchSlNotes(prev => ({ ...prev, [String(child.id)]: val }));
-                                      } else {
-                                        setSlItemNotes(prev => ({ ...prev, [String(child.id)]: val }));
-                                      }
+                                      handleSlNoteChange(String(child.id), e.target.value);
                                     }}
-                                    onBlur={async e => {
-                                      if (isBatch || !campaign?.id || !campaignContactId) return;
-                                      try {
-                                        await apiRequest("PATCH", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${child.id}/note`, { note: e.target.value });
-                                        queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
-                                      } catch { /* no-op */ }
-                                    }}
+                                    onBlur={() => { void handleSlNoteBlur(String(child.id)); }}
                                   />
                                   {!isBatch && noteTs && (
                                     <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground/60">
@@ -7125,21 +7309,27 @@ function CommunicationCanvas({
                 <div className="px-3 py-2 shrink-0">
                   <button
                     type="button"
-                    disabled={batchSlSelections.size === 0}
+                    disabled={batchUnsavedIds.size === 0 || slBatchSaving}
                     onClick={() => {
+                      // Note-only changes save immediately.  The callback/
+                      // reschedule dialog is only meaningful for new steps.
+                      if (batchSlSelections.size === 0) {
+                        void handleSlBatchSaveConfirm();
+                        return;
+                      }
                       setSlBatchAction("reschedule");
                       setSlBatchCallbackDt("");
                       setSlBatchCallbackNote("");
                       setSlBatchSaveOpen(true);
                     }}
-                    className={`w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-sm font-bold transition-all shadow-sm ${batchSlSelections.size > 0 ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200/50 dark:shadow-emerald-900/30" : "bg-muted text-muted-foreground border border-dashed border-border cursor-default opacity-60"}`}
+                    className={`w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-sm font-bold transition-all shadow-sm ${batchUnsavedIds.size > 0 ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200/50 dark:shadow-emerald-900/30" : "bg-muted text-muted-foreground border border-dashed border-border cursor-default opacity-60"}`}
                     data-testid="btn-sl-batch-save"
                   >
                     <Save className="h-4 w-4" />
                     {slt("batchSave", locale)}
-                    {batchSlSelections.size > 0 && (
+                    {batchUnsavedIds.size > 0 && (
                       <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-white/25 px-1 text-[11px] font-black">
-                        {batchSlSelections.size}
+                        {batchUnsavedIds.size}
                       </span>
                     )}
                     {pendingAutomationCount > 0 && (
@@ -7907,7 +8097,7 @@ function NoteCard({ note, canManage, onUpdate, onDelete, onOpen, t }: NoteCardPr
   );
 }
 
-function CustomerInfoPanel({
+export function CustomerInfoPanel({
   contact,
   phoneOverride,
   contactType,
@@ -8585,6 +8775,9 @@ function CustomerInfoPanel({
                 (item as any).recipientPhone,
                 (item as any).fullContent,
                 item.status,
+                (item as any).metadata?.itemLabel,
+                (item as any).metadata?.itemDescription,
+                (item as any).metadata?.itemNote,
               ].filter(Boolean).join(" ").toLowerCase();
               if (!searchable.includes(q)) return false;
             }
@@ -8846,11 +9039,41 @@ function CustomerInfoPanel({
                                   })}
                                 </div>
                               );
+                            })() : (item as any).action === "status_list_note_update" ? (() => {
+                              const meta = (item as any).metadata || {};
+                              const labelPart = meta.itemLabel || "—";
+                              const noteWasIncluded = Object.prototype.hasOwnProperty.call(meta, "itemNote");
+                              const notePart = meta.itemNote == null
+                                ? slt("noteCleared", locale)
+                                : String(meta.itemNote);
+                              return (
+                                <div className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-950/25 overflow-hidden">
+                                  <div className={`${isModal ? "p-2.5" : "p-2"}`}>
+                                    <div className="flex items-center gap-1.5">
+                                      <FileText className={`${isModal ? "h-4 w-4" : "h-3.5 w-3.5"} shrink-0 text-amber-600 dark:text-amber-400`} />
+                                      <span className={`${isModal ? "text-[10px]" : "text-[9px]"} font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400`}>
+                                        {slt("noteUpdated", locale)}
+                                      </span>
+                                    </div>
+                                    <p className={`${isModal ? "text-sm" : "text-[11px]"} font-semibold leading-snug text-foreground mt-0.5`}>
+                                      {highlightMatch(labelPart)}
+                                    </p>
+                                    {noteWasIncluded && (
+                                      <p className={`${isModal ? "text-sm" : "text-[11px]"} mt-1 leading-relaxed whitespace-pre-wrap text-foreground/90`}>
+                                        {notePart}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              );
                             })() : (item as any).action === "status_list_confirmation" ? (() => {
                               const meta = (item as any).metadata || {};
                               const confirmed = meta.confirmed !== false;
                               const labelPart = meta.itemLabel || contentText?.replace(/^Krok (potvrdený|odpotvrdený):\s*/i, "").trim() || "—";
                               const descPart = (meta.itemDescription as string | null) || null;
+                              const notePart = Object.prototype.hasOwnProperty.call(meta, "itemNote")
+                                ? (meta.itemNote == null ? slt("noteCleared", locale) : String(meta.itemNote))
+                                : null;
                               const isExpanded = expandedSlItems.has(item.id);
                               return (
                                 <div className="mt-1.5">
@@ -8900,6 +9123,13 @@ function CustomerInfoPanel({
                                       } ${isModal ? "px-3 py-2.5" : "px-2.5 py-2"}`}>
                                         <p className={`${isModal ? "text-xs" : "text-[10px]"} text-muted-foreground leading-relaxed whitespace-pre-wrap`}>
                                           {descPart}
+                                        </p>
+                                      </div>
+                                    )}
+                                    {notePart && (
+                                      <div className={`border-t ${confirmed ? "border-emerald-200 dark:border-emerald-800/50" : "border-stone-200 dark:border-stone-700"} ${isModal ? "px-3 py-2.5" : "px-2.5 py-2"}`}>
+                                        <p className={`${isModal ? "text-xs" : "text-[10px]"} leading-relaxed whitespace-pre-wrap text-foreground/90`}>
+                                          {notePart}
                                         </p>
                                       </div>
                                     )}
