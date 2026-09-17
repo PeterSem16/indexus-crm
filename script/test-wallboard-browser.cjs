@@ -254,14 +254,14 @@ async function testProductionViewport(bundle, width, height, expectedCount) {
     await page.evaluate(() => window.__setWallboardCampaign("mission-atlas"));
     await page.getByRole("heading", { name: "Mission Atlas" }).waitFor();
     await waitForCards(page, 4);
-    assert.equal(await page.locator("a.wb-tool").first().getAttribute("href"), "/wallboard", "mission back navigation");
+    assert.equal(await page.locator("a.wb-tool").first().getAttribute("href"), "/campaigns", "mission back navigation");
     await page.getByRole("button", { name: "Presentation" }).click();
     await page.locator(".wb-shell.wb-present").waitFor();
     await assertNoScrollAndCardsVisible(page, 4);
     await page.screenshot({ path: MISSION_SCREENSHOT, fullPage: false });
     await page.keyboard.press("Escape");
-    await page.getByRole("link", { name: /Back to all Missions/i }).click();
-    await page.waitForURL(/\/wallboard$/);
+    await page.getByRole("link", { name: /Back to Missions/i }).click();
+    await page.waitForURL(/\/campaigns$/);
   }
   await page.close();
 }

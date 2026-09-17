@@ -287,9 +287,9 @@ export default function WallboardPage({ campaignId = null }: WallboardPageProps)
             </p>
           </div>
           <div className="wb-tools">
-            <Link className="wb-tool" href={campaignId ? "/wallboard" : "/campaigns"}>
+            <Link className="wb-tool" href="/campaigns">
               <ArrowLeft size={14} aria-hidden="true" />
-              {campaignId ? t.wallboard.backToAllMissions : t.wallboard.backToMissions}
+              {t.wallboard.backToMissions}
             </Link>
             <button className="wb-tool" type="button" onClick={() => void fetchSnapshot(false)}>
               <RefreshCw size={14} aria-hidden="true" />
