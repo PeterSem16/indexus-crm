@@ -22,6 +22,10 @@ import { useCountryFilter } from "@/contexts/country-filter-context";
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay, subDays } from "date-fns";
 import { sk, cs, hu, ro, it, de, enUS, type Locale } from "date-fns/locale";
 import { CollaboratorReportsContent } from "@/pages/collaborator-reports";
+import CollaboratorUpdatesPage from "@/pages/collaborator-updates";
+import BulkAssignPage from "@/pages/bulk-assign";
+import { useAuth } from "@/contexts/auth-context";
+import { usePermissions } from "@/contexts/permissions-context";
 import type { VisitEvent, Collaborator } from "@shared/schema";
 import { VISIT_SUBJECTS, VISIT_PLACE_OPTIONS, COUNTRIES } from "@shared/schema";
 import { getCountryFlag } from "@/lib/countries";
@@ -1296,8 +1300,40 @@ function getLocalizedCategoryName(cat: PartnerCategory, locale: string): string 
 
 function SettingsTab() {
   const { t, locale } = useI18n();
+  const { user } = useAuth();
+  const { canAccessModule } = usePermissions();
   const { toast } = useToast();
-  const [settingsTab, setSettingsTab] = useState("categories");
+  const [settingsTab, setSettingsTab] = useState(() => new URLSearchParams(window.location.search).get("mpnSettingsTab") || "categories");
+  useEffect(() => {
+    const syncSettingsTab = () => {
+      const value = new URLSearchParams(window.location.search).get("mpnSettingsTab");
+      if (value === "categories" || value === "data-updates" || value === "bulk-assign") setSettingsTab(value);
+    };
+    window.addEventListener("popstate", syncSettingsTab);
+    return () => window.removeEventListener("popstate", syncSettingsTab);
+  }, []);
+  const canSeeBulkAssign = (user?.role === "admin" || user?.role === "manager") && canAccessModule("hospitals");
+  const canSeeDataUpdates = user?.role === "admin" && canAccessModule("collaborators");
+  const settingsTabs = [
+    { value: "categories", label: (t.mpn as any).positions || "Positions", visible: true },
+    { value: "data-updates", label: t.nav.collaboratorUpdates, visible: canSeeDataUpdates },
+    { value: "bulk-assign", label: t.representantPanel.bulkAssignTitle, visible: canSeeBulkAssign },
+  ].filter((tab) => tab.visible);
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("mpnSettingsTab");
+    if (requested && !settingsTabs.some((tab) => tab.value === requested)) {
+      setSettingsTab("categories");
+      const params = new URLSearchParams(window.location.search);
+      params.set("mpnSettingsTab", "categories");
+      window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
+    }
+  }, [canSeeDataUpdates, canSeeBulkAssign]);
+  const handleSettingsTabChange = (value: string) => {
+    setSettingsTab(value);
+    const params = new URLSearchParams(window.location.search);
+    params.set("mpnSettingsTab", value);
+    window.history.pushState({}, "", `${window.location.pathname}?${params.toString()}`);
+  };
   const [editCategory, setEditCategory] = useState<PartnerCategory | null>(null);
   const [addCategory, setAddCategory] = useState(false);
 
@@ -1344,11 +1380,21 @@ function SettingsTab() {
   });
 
   return (
-    <Tabs value={settingsTab} onValueChange={setSettingsTab}>
-      <TabsList className="mb-4">
+    <Tabs value={settingsTabs.some((tab) => tab.value === settingsTab) ? settingsTab : "categories"} onValueChange={handleSettingsTabChange}>
+      <TabsList className="mb-4 flex h-auto w-full flex-wrap justify-start gap-1">
         <TabsTrigger value="categories" data-testid="tab-categories">
           <Star className="h-4 w-4 mr-1" /> {(t.mpn as any).positions || "Positions"}
         </TabsTrigger>
+        {canSeeDataUpdates && (
+          <TabsTrigger value="data-updates" data-testid="tab-data-updates" className="max-w-full whitespace-normal text-left">
+            {t.nav.collaboratorUpdates}
+          </TabsTrigger>
+        )}
+        {canSeeBulkAssign && (
+          <TabsTrigger value="bulk-assign" data-testid="tab-bulk-assign" className="max-w-full whitespace-normal text-left">
+            {t.representantPanel.bulkAssignTitle}
+          </TabsTrigger>
+        )}
       </TabsList>
 
       <TabsContent value="categories">
@@ -1423,6 +1469,16 @@ function SettingsTab() {
           </CardContent>
         </Card>
       </TabsContent>
+      {canSeeDataUpdates && (
+        <TabsContent value="data-updates">
+          <CollaboratorUpdatesPage embedded />
+        </TabsContent>
+      )}
+      {canSeeBulkAssign && (
+        <TabsContent value="bulk-assign">
+          <BulkAssignPage embedded />
+        </TabsContent>
+      )}
 
       {(editCategory || addCategory) && (
         <CategoryFormDialog
@@ -3130,7 +3186,27 @@ function ActivityTab() {
 
 export default function MedicalPartnerNetworkPage() {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState("network");
+  const readMpnTab = () => {
+    const nested = new URLSearchParams(window.location.search).get("mpnSettingsTab");
+    return nested === "categories" || nested === "data-updates" || nested === "bulk-assign" ? "settings" : "network";
+  };
+  const [activeTab, setActiveTab] = useState(readMpnTab);
+  useEffect(() => {
+    const syncTopLevelTab = () => setActiveTab(readMpnTab());
+    window.addEventListener("popstate", syncTopLevelTab);
+    return () => window.removeEventListener("popstate", syncTopLevelTab);
+  }, []);
+  const handleTopLevelTabChange = (value: string) => {
+    setActiveTab(value);
+    const params = new URLSearchParams(window.location.search);
+    if (value === "settings") {
+      if (!params.has("mpnSettingsTab")) params.set("mpnSettingsTab", "categories");
+    } else {
+      params.delete("mpnSettingsTab");
+    }
+    const query = params.toString();
+    window.history.pushState({}, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+  };
   return (
     <div className="p-6 space-y-6" data-testid="mpn-page">
       <div>
@@ -3141,7 +3217,7 @@ export default function MedicalPartnerNetworkPage() {
         <p className="text-muted-foreground mt-1">{t.mpn.description}</p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={handleTopLevelTabChange}>
         <TabsList className="grid w-full max-w-2xl grid-cols-4" data-testid="mpn-tabs">
           <TabsTrigger value="network" className="gap-1" data-testid="tab-network">
             <Network className="h-4 w-4" />

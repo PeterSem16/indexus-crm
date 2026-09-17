@@ -54,7 +54,7 @@ function stableSelectionKey(value: unknown): string {
   return JSON.stringify(value);
 }
 
-export default function BulkAssignPage() {
+export default function BulkAssignPage({ embedded = false }: { embedded?: boolean }) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -277,44 +277,44 @@ export default function BulkAssignPage() {
   const canConfirm = canPreview && !!preview && preview.requestKey === selectionKey && !isPending;
 
   return (
-    <div className="h-full flex flex-col gap-0">
-      <div className="flex items-center justify-between gap-4 pb-4 border-b">
-        <div className="flex items-center gap-3">
+    <div className={`${embedded ? "" : "h-full "}flex flex-col gap-0`}>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b">
+        <div className="flex items-center gap-3 min-w-0">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 shrink-0">
             <UserCheck className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold leading-tight">
+            <h1 className="text-lg font-semibold leading-tight break-words">
               {mode === "bulk" ? p.bulkAssignTitle : p.swapTitle}
             </h1>
             <p className="text-xs text-muted-foreground">{p.bulkFilterTitle}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-md border overflow-hidden text-sm">
+        <div className="flex flex-wrap items-center gap-2 max-w-full">
+          <div className="flex flex-wrap rounded-md border overflow-hidden text-sm max-w-full">
             <button
               onClick={() => changeEntity("clinic")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 font-medium transition-colors ${entityType === "clinic" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" : "hover:bg-muted"}`}
+              className={`flex min-w-0 items-center gap-1.5 px-3 py-1.5 font-medium whitespace-normal text-left transition-colors ${entityType === "clinic" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" : "hover:bg-muted"}`}
             >
               <Building2 className="h-3.5 w-3.5" />{t.mpn.clinic}
             </button>
             <button
               onClick={() => changeEntity("hospital")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 font-medium transition-colors ${entityType === "hospital" ? "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300" : "hover:bg-muted"}`}
+              className={`flex min-w-0 items-center gap-1.5 px-3 py-1.5 font-medium whitespace-normal text-left transition-colors ${entityType === "hospital" ? "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300" : "hover:bg-muted"}`}
             >
               <Hospital className="h-3.5 w-3.5" />{t.mpn.hospital}
             </button>
           </div>
-          <div className="flex rounded-md border overflow-hidden text-sm">
+          <div className="flex flex-wrap rounded-md border overflow-hidden text-sm max-w-full">
             <button
               onClick={() => { setMode("bulk"); clearSelection(); }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 font-medium transition-colors ${mode === "bulk" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+              className={`flex min-w-0 items-center gap-1.5 px-3 py-1.5 font-medium whitespace-normal text-left transition-colors ${mode === "bulk" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
             >
               <UserCheck className="h-3.5 w-3.5" />{p.bulkAssignTitle}
             </button>
             <button
               onClick={() => { setMode("swap"); clearSelection(); }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 font-medium transition-colors ${mode === "swap" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+              className={`flex min-w-0 items-center gap-1.5 px-3 py-1.5 font-medium whitespace-normal text-left transition-colors ${mode === "swap" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
             >
               <ArrowRightLeft className="h-3.5 w-3.5" />{p.swapTitle}
             </button>

@@ -79,9 +79,13 @@ const AutomationsPage = lazy(() => import("@/pages/automations"));
 const ScrapingPage = lazy(() => import("@/pages/scraping"));
 const PublicFormPage = lazy(() => import("@/pages/public-form"));
 const CollaboratorUpdatePage = lazy(() => import("@/pages/collaborator-update"));
-const CollaboratorUpdatesAdminPage = lazy(() => import("@/pages/collaborator-updates"));
 const MyClinicsPage = lazy(() => import("@/pages/my-clinics"));
-const BulkAssignPage = lazy(() => import("@/pages/bulk-assign"));
+
+function LegacyMedicalPartnerSettingsRedirect({ tab }: { tab: "data-updates" | "bulk-assign" }) {
+  const params = new URLSearchParams(window.location.search);
+  params.set("mpnSettingsTab", tab);
+  return <Redirect to={`/medical-partner-network?${params.toString()}`} />;
+}
 const RepresentativeQualityPage = lazy(() => import("@/pages/representative-quality"));
 const VoiceNetworkIncidentsPage = lazy(() => import("@/pages/voice-network-incidents"));
 import { AgentSessionProvider } from "@/contexts/agent-session-context";
@@ -277,10 +281,14 @@ function AuthenticatedApp() {
                     <Route path="/invoices" component={InvoicesPage} />
                     <Route path="/hospitals" component={HospitalsPage} />
                     <Route path="/my-clinics" component={MyClinicsPage} />
-                    <Route path="/bulk-assign" component={BulkAssignPage} />
+                    <Route path="/bulk-assign">
+                      <LegacyMedicalPartnerSettingsRedirect tab="bulk-assign" />
+                    </Route>
                     <Route path="/visit-events" component={VisitEventsPage} />
                     <Route path="/collaborators" component={CollaboratorsPage} />
-                    <Route path="/collaborator-updates" component={CollaboratorUpdatesAdminPage} />
+                    <Route path="/collaborator-updates">
+                      <LegacyMedicalPartnerSettingsRedirect tab="data-updates" />
+                    </Route>
                     <Route path="/collaborator-reports" component={CollaboratorReportsPage} />
                     <Route path="/collections">{() => <CollectionsPage key="list" />}</Route>
                     <Route path="/collections/new">{() => <CollectionsPage key="new" />}</Route>

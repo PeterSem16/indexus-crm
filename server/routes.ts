@@ -4798,7 +4798,7 @@ export async function registerRoutes(
         const sessUserId = (req.session as any)?.user?.id || (req.session as any)?.userId || null;
         if (!sessUserId || (pkceData.userId && pkceData.userId !== sessUserId)) {
           await storage.deletePkceEntry(stateStr);
-          return res.redirect(`/collaborator-updates?sender_error=session_mismatch`);
+          return res.redirect(`/medical-partner-network?mpnSettingsTab=data-updates&sender_error=session_mismatch`);
         }
         const { acquireTokenByCode, getUserProfile } = await import("./lib/ms365");
         const { encryptTokenWithMarker } = await import("./lib/token-crypto");
@@ -4823,10 +4823,10 @@ export async function registerRoutes(
 
         if (updated.length === 0) {
           console.error(`[MS365] collab-sender callback: campaign ${campaignId} not found`);
-          return res.redirect(`/collaborator-updates?sender_error=campaign_not_found`);
+          return res.redirect(`/medical-partner-network?mpnSettingsTab=data-updates&sender_error=campaign_not_found`);
         }
         console.log(`[MS365] Campaign sender mailbox connected for ${campaignId}: ${profile.mail || profile.userPrincipalName}`);
-        return res.redirect(`/collaborator-updates?sender_connected=1&campaign=${campaignId}`);
+        return res.redirect(`/medical-partner-network?mpnSettingsTab=data-updates&sender_connected=1&campaign=${campaignId}`);
       }
 
       // Check if this is a system connection

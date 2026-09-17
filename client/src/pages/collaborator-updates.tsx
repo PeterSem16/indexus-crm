@@ -128,7 +128,7 @@ const JMHZ_EMAIL_TEMPLATE: { subject: string; body: string } = {
 
 const L: Record<string, Record<string, string>> = {
   en: {
-    pageTitle: "Collaborator Data Updates", pageDesc: "Email campaigns asking collaborators to update their personal data via a secure link.",
+    pageTitle: "Campaigns for data updates", pageDesc: "Email campaigns asking collaborators to update their personal data via a secure link.",
     newCampaign: "New campaign", name: "Campaign name", senderMailbox: "Sender mailbox", subject: "Email subject", body: "Email body (HTML)",
     bodyHint: "Available variables: {{firstName}}, {{lastName}}, {{fullName}}, {{titleBefore}}, {{link}}. If {{link}} is missing, the link is appended automatically.",
     validDays: "Link validity (days)", filter: "Recipient filter", countries: "Countries", collabType: "Collaborator type (optional)",
@@ -177,7 +177,7 @@ const L: Record<string, Record<string, string>> = {
     senderConnected: "Sender mailbox connected", senderNotConnected: "Mailbox not connected", connectSender: "Connect mailbox", sharedMailboxNone: "No shared mailbox is configured in your profile.",
   },
   sk: {
-    pageTitle: "Aktualizácie údajov spolupracovníkov", pageDesc: "E-mailové kampane so žiadosťou o aktualizáciu osobných údajov cez bezpečný odkaz.",
+    pageTitle: "Kampane pre update údajov", pageDesc: "E-mailové kampane so žiadosťou o aktualizáciu osobných údajov cez bezpečný odkaz.",
     newCampaign: "Nová kampaň", name: "Názov kampane", senderMailbox: "Odosielacia schránka", subject: "Predmet e-mailu", body: "Text e-mailu (HTML)",
     bodyHint: "Dostupné premenné: {{firstName}}, {{lastName}}, {{fullName}}, {{titleBefore}}, {{link}}. Ak {{link}} chýba, odkaz sa pridá automaticky na koniec.",
     validDays: "Platnosť odkazu (dni)", filter: "Filter príjemcov", countries: "Krajiny", collabType: "Typ spolupracovníka (voliteľné)",
@@ -226,7 +226,7 @@ const L: Record<string, Record<string, string>> = {
     senderConnected: "Odosielacia schránka pripojená", senderNotConnected: "Schránka nepripojená", connectSender: "Pripojiť schránku", sharedMailboxNone: "V profile nemáš nastavený žiadny shared mailbox.",
   },
   cs: {
-    pageTitle: "Aktualizace údajů spolupracovníků", pageDesc: "E-mailové kampaně se žádostí o aktualizaci osobních údajů přes bezpečný odkaz.",
+    pageTitle: "Kampaně pro aktualizaci údajů", pageDesc: "E-mailové kampaně se žádostí o aktualizaci osobních údajů přes bezpečný odkaz.",
     newCampaign: "Nová kampaň", name: "Název kampaně", senderMailbox: "Odesílací schránka", subject: "Předmět e-mailu", body: "Text e-mailu (HTML)",
     bodyHint: "Dostupné proměnné: {{firstName}}, {{lastName}}, {{fullName}}, {{titleBefore}}, {{link}}. Pokud {{link}} chybí, odkaz se přidá automaticky.",
     validDays: "Platnost odkazu (dny)", filter: "Filtr příjemců", countries: "Země", collabType: "Typ spolupracovníka (volitelné)",
@@ -275,7 +275,7 @@ const L: Record<string, Record<string, string>> = {
     senderConnected: "Odesílací schránka připojena", senderNotConnected: "Schránka nepřipojena", connectSender: "Připojit schránku", sharedMailboxNone: "V profilu nemáte nastavenou žádnou sdílenou schránku.",
   },
   hu: {
-    pageTitle: "Partneradatok frissítése", pageDesc: "E-mail kampányok, amelyekben biztonságos linken keresztül kérjük a partnerek adatainak frissítését.",
+    pageTitle: "Adatfrissítési kampányok", pageDesc: "E-mail kampányok, amelyekben biztonságos linken keresztül kérjük a partnerek adatainak frissítését.",
     newCampaign: "Új kampány", name: "Kampány neve", senderMailbox: "Küldő postafiók", subject: "E-mail tárgya", body: "E-mail szövege (HTML)",
     bodyHint: "Elérhető változók: {{firstName}}, {{lastName}}, {{fullName}}, {{titleBefore}}, {{link}}. Ha a {{link}} hiányzik, a link automatikusan hozzáadódik.",
     validDays: "Link érvényessége (nap)", filter: "Címzett szűrő", countries: "Országok", collabType: "Partner típusa (opcionális)",
@@ -324,7 +324,7 @@ const L: Record<string, Record<string, string>> = {
     senderConnected: "Feladó postafiók csatlakoztatva", senderNotConnected: "Postafiók nincs csatlakoztatva", connectSender: "Postafiók csatlakoztatása", sharedMailboxNone: "Nincs megosztott postafiók beállítva a profiljában.",
   },
   ro: {
-    pageTitle: "Actualizarea datelor colaboratorilor", pageDesc: "Campanii de e-mail prin care colaboratorii își actualizează datele printr-un link securizat.",
+    pageTitle: "Campanii pentru actualizarea datelor", pageDesc: "Campanii de e-mail prin care colaboratorii își actualizează datele printr-un link securizat.",
     newCampaign: "Campanie nouă", name: "Numele campaniei", senderMailbox: "Căsuța expeditoare", subject: "Subiectul e-mailului", body: "Corpul e-mailului (HTML)",
     bodyHint: "Variabile disponibile: {{firstName}}, {{lastName}}, {{fullName}}, {{titleBefore}}, {{link}}. Dacă {{link}} lipsește, linkul se adaugă automat.",
     validDays: "Valabilitatea linkului (zile)", filter: "Filtru destinatari", countries: "Țări", collabType: "Tip colaborator (opțional)",
@@ -373,7 +373,7 @@ const L: Record<string, Record<string, string>> = {
     senderConnected: "Căsuța expeditorului conectată", senderNotConnected: "Căsuță neconectată", connectSender: "Conectează căsuța", sharedMailboxNone: "Nu este configurată nicio căsuță partajată în profil.",
   },
   it: {
-    pageTitle: "Aggiornamento dati collaboratori", pageDesc: "Campagne e-mail per chiedere ai collaboratori di aggiornare i propri dati tramite link sicuro.",
+    pageTitle: "Campagne per aggiornamento dati", pageDesc: "Campagne e-mail per chiedere ai collaboratori di aggiornare i propri dati tramite link sicuro.",
     newCampaign: "Nuova campagna", name: "Nome campagna", senderMailbox: "Casella mittente", subject: "Oggetto e-mail", body: "Corpo e-mail (HTML)",
     bodyHint: "Variabili disponibili: {{firstName}}, {{lastName}}, {{fullName}}, {{titleBefore}}, {{link}}. Se manca {{link}}, il link viene aggiunto automaticamente.",
     validDays: "Validità del link (giorni)", filter: "Filtro destinatari", countries: "Paesi", collabType: "Tipo collaboratore (opzionale)",
@@ -422,7 +422,7 @@ const L: Record<string, Record<string, string>> = {
     senderConnected: "Casella mittente collegata", senderNotConnected: "Casella non collegata", connectSender: "Collega casella", sharedMailboxNone: "Nessuna casella condivisa è configurata nel profilo.",
   },
   de: {
-    pageTitle: "Aktualisierung der Partnerdaten", pageDesc: "E-Mail-Kampagnen, mit denen Partner über einen sicheren Link ihre Daten aktualisieren.",
+    pageTitle: "Kampagnen für Datenaktualisierungen", pageDesc: "E-Mail-Kampagnen, mit denen Partner über einen sicheren Link ihre Daten aktualisieren.",
     newCampaign: "Neue Kampagne", name: "Kampagnenname", senderMailbox: "Absender-Postfach", subject: "E-Mail-Betreff", body: "E-Mail-Text (HTML)",
     bodyHint: "Verfügbare Variablen: {{firstName}}, {{lastName}}, {{fullName}}, {{titleBefore}}, {{link}}. Fehlt {{link}}, wird der Link automatisch angehängt.",
     validDays: "Gültigkeit des Links (Tage)", filter: "Empfängerfilter", countries: "Länder", collabType: "Partnertyp (optional)",
@@ -482,7 +482,7 @@ const STATUS_COLORS: Record<string, string> = {
   rejected: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
 };
 
-export default function CollaboratorUpdatesPage() {
+export default function CollaboratorUpdatesPage({ embedded = false }: { embedded?: boolean }) {
   const { locale } = useI18n();
   const l = L[locale] || L.en;
   const { toast } = useToast();
@@ -494,13 +494,18 @@ export default function CollaboratorUpdatesPage() {
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
+    const clearSenderParams = () => {
+      ["sender_connected", "sender_error", "campaign"].forEach((key) => p.delete(key));
+      const query = p.toString();
+      window.history.replaceState({}, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+    };
     if (p.get("sender_connected")) {
       toast({ title: l.senderConnected });
       queryClient.invalidateQueries({ queryKey: ["/api/collaborator-update-campaigns"] });
-      window.history.replaceState({}, "", window.location.pathname);
+      clearSenderParams();
     } else if (p.get("sender_error")) {
       toast({ title: l.errorTitle, description: p.get("sender_error") || "", variant: "destructive" });
-      window.history.replaceState({}, "", window.location.pathname);
+      clearSenderParams();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -512,7 +517,7 @@ export default function CollaboratorUpdatesPage() {
   const selected = campaigns.find(c => c.id === selectedId);
 
   return (
-    <div className="p-6 space-y-6 max-w-6xl mx-auto">
+    <div className={embedded ? "space-y-6" : "p-6 space-y-6 max-w-6xl mx-auto"}>
       {!selected ? (
         <>
           <div className="flex items-center justify-between gap-4 flex-wrap">
