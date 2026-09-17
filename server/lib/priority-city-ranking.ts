@@ -327,12 +327,19 @@ async function defaultPriorityCityAiProvider(
     city,
     country: countryCode,
   }));
+  const requiredIds = requestLocations.map(location => location.id);
+  const rankProperties = Object.fromEntries(requiredIds.map(id => [id, {
+    anyOf: [
+      { type: "integer", minimum: 0, maximum: Math.max(0, locations.length - 1) },
+      { type: "null" },
+    ],
+  }]));
   const repairInstructions = repair
     ? [
       `A previous response was rejected. This is repair attempt ${repair.attempt}.`,
       `The response omitted or mishandled these positional ids: ${repair.missingIds.join(", ")}.`,
-      "Return a fresh complete permutation; do not copy a partial answer.",
-      "Every supplied id must occur exactly once across rankedIds and unknownIds.",
+      "Return a fresh complete rank object; do not copy a partial answer.",
+      "Every supplied id is a required object property.",
     ].join(" ")
     : "";
   const response = await client.chat.completions.create({
@@ -346,8 +353,9 @@ async function defaultPriorityCityAiProvider(
           "Use only the supplied city and country values. Do not invent keys.",
           "The id is an opaque positional identifier; never return city names or keys.",
           "If a location cannot be identified reliably, put its supplied id in unknownIds instead of guessing its rank.",
-          'Return only strict JSON with exactly this shape: {"rankedIds":["..."],"unknownIds":["..."]}.',
-          "rankedIds and unknownIds together must contain every supplied id exactly once.",
+          'Return one JSON object whose property names are the supplied ids.',
+          "Each identifiable location's value is its unique zero-based ordinal rank.",
+          "Ranks for identifiable locations must be contiguous from zero. Use null only for locations that cannot be identified reliably.",
           repairInstructions,
         ].join(" "),
       },
@@ -356,7 +364,19 @@ async function defaultPriorityCityAiProvider(
         content: JSON.stringify({ locations: requestLocations }),
       },
     ],
-    response_format: { type: "json_object" },
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "priority_city_ranking",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: rankProperties,
+          required: requiredIds,
+          additionalProperties: false,
+        },
+      },
+    },
     temperature: 0,
     // A complete JSON permutation is required. The old budget could truncate
     // a few-hundred-location answer before the final IDs.
@@ -370,9 +390,37 @@ async function defaultPriorityCityAiProvider(
       502,
     );
   }
+  const content = choice.message?.content;
+  if (!content) {
+    throw new PriorityCityRankingError("AI_INVALID_OUTPUT", "AI returned no ranking", 502, requiredIds);
+  }
+  let rankObject: unknown;
+  try {
+    rankObject = JSON.parse(content);
+  } catch {
+    throw new PriorityCityRankingError("AI_INVALID_OUTPUT", "AI returned invalid ranking JSON", 502, requiredIds);
+  }
+  if (!isRecord(rankObject)
+    || Object.keys(rankObject).length !== requiredIds.length
+    || requiredIds.some(id => !(id in rankObject))) {
+    throw new PriorityCityRankingError("AI_INVALID_OUTPUT", "AI omitted a location ID", 502, requiredIds);
+  }
+  const unknownIds = requiredIds.filter(id => rankObject[id] === null);
+  const rankedEntries = requiredIds
+    .filter(id => rankObject[id] !== null)
+    .map(id => ({ id, rank: rankObject[id] }));
+  if (rankedEntries.some(entry => !Number.isInteger(entry.rank) || (entry.rank as number) < 0)) {
+    throw new PriorityCityRankingError("AI_INVALID_OUTPUT", "AI returned an invalid rank", 502, requiredIds);
+  }
+  const ranks = rankedEntries.map(entry => entry.rank as number);
+  if (new Set(ranks).size !== ranks.length
+    || [...ranks].sort((a, b) => a - b).some((rank, index) => rank !== index)) {
+    throw new PriorityCityRankingError("AI_INVALID_OUTPUT", "AI returned duplicate or non-contiguous ranks", 502, requiredIds);
+  }
+  rankedEntries.sort((a, b) => (a.rank as number) - (b.rank as number));
   return {
-    content: choice.message?.content ?? null,
-    finishReason: choice.finish_reason,
+    rankedIds: rankedEntries.map(entry => entry.id),
+    unknownIds,
   };
 }
 

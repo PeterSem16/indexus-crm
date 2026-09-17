@@ -57,6 +57,12 @@ Never complete an incomplete AI city ranking by appending omitted cities in inpu
 
 **How to apply:** use bounded, explicitly instructed repair attempts, validate the complete permutation again, and retain a visible failure if repair fails. Only explicitly classified unknown locations belong in the unknown group.
 
+For the live OpenAI provider, require every positional city ID as an explicit strict JSON-schema property mapped to a unique contiguous rank or null; free-form ranked/unknown arrays may silently omit IDs.
+
+**Why:** bounded repair of large free-form arrays still repeatedly omitted a location for one production agent.
+
+**How to apply:** convert the validated rank object back to rankedIds/unknownIds for the shared parser; reject duplicate/non-contiguous ranks and truncation.
+
 Explicit city-district labels belong to their parent city in selection, AI ranking, and queue grouping (for example, Bratislava and every “Bratislava – mestská časť …” value form one Bratislava group).
 
 **Why:** the user confirmed districts must never compete with their parent as separate cities.
