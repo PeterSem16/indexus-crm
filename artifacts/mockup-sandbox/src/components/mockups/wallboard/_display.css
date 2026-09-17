@@ -1,0 +1,32 @@
+.wb-shell { height: 100dvh; overflow: hidden; }
+.wb-shell .wb-board { height: 100%; min-height: 0; }
+.wb-shell .wb-agent { min-height: 0; }
+.wb-shell .wb-agents { grid-auto-rows: minmax(0, 1fr); }
+.wb-shell .wb-brandline { font-size: 12px; flex-wrap: wrap; line-height: 1.4; }
+.wb-shell .wb-metric span { font-size: 13px; }
+.wb-shell .wb-metric b { font-size: clamp(28px, 2.6vw, 43px); }
+.wb-shell .wb-campaign, .wb-shell .wb-detail { font-size: clamp(12px, 1vw, 16px); }
+.wb-shell .wb-overline { font-size: 12px; }
+.wb-shell .wb-inbound p { font-size: 15px; }
+.wb-shell .wb-qrow { font-size: 16px; }
+.wb-shell .wb-footer { font-size: 11px; flex-wrap: wrap; }
+.wb-shell .wb-launch span { display: inline-flex; align-items: center; gap: 5px; }
+.wb-shell .wb-tools { max-width: 640px; }
+.wb-shell .wb-present { aspect-ratio: auto; }
+.wb-shell .wb-inbound { padding: 16px; }
+.wb-shell button:focus-visible { outline: 2px solid var(--paper); outline-offset: 3px; }
+@media (max-height: 780px) and (min-width: 761px) {
+  .wb-shell .wb-qrow { padding: 8px 0; }
+  .wb-shell .wb-status { margin-top: 10px; font-size: 27px; }
+  .wb-shell .wb-inbound h2 { font-size: 25px; }
+  .wb-shell .wb-inbound strong { margin-top: 10px; }
+  .wb-shell .wb-inbound p { font-size: 13px; }
+  .wb-shell .wb-inbound { padding: 12px; }
+  .wb-shell .wb-agent { padding: 16px; }
+}
+@media (max-width: 760px) {
+  .wb-shell { height: auto; overflow: visible; }
+  .wb-shell .wb-board { height: auto; }
+  .wb-shell .wb-agent { min-height: 190px; }
+  .wb-shell .wb-launch { flex-wrap: wrap; }
+}
