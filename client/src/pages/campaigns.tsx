@@ -14,6 +14,8 @@ import { InboundReportsTab } from "@/components/campaigns/InboundReportsTab";
 import { VirtualAgentTab } from "@/components/campaigns/VirtualAgentTab";
 import SopManagementPage from "@/pages/sop-management";
 import { useAuth } from "@/contexts/auth-context";
+import { MonitorUp } from "lucide-react";
+import { usePermissions } from "@/contexts/permissions-context";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1059,11 +1061,14 @@ function CampaignForm({
 
 function CampaignCalendar({ 
   campaigns, 
-  onCampaignClick 
+  onCampaignClick,
+  onWallboardClick,
 }: { 
   campaigns: Campaign[];
   onCampaignClick: (campaign: Campaign) => void;
+  onWallboardClick?: (campaign: Campaign) => void;
 }) {
+  const { t } = useI18n();
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const days = useMemo(() => {
@@ -1176,7 +1181,21 @@ function CampaignCalendar({
                         className={`text-xs px-1 py-0.5 rounded truncate cursor-pointer ${getStatusColor(campaign.status)}`}
                         data-testid={`calendar-campaign-${campaign.id}`}
                       >
-                        {campaign.name}
+                        <div className="flex items-center gap-1">
+                          <span className="truncate flex-1">{campaign.name}</span>
+                          {onWallboardClick && (
+                            <button
+                              type="button"
+                              className="shrink-0 p-1 rounded hover:bg-background/60"
+                              title={t.wallboard.openMission}
+                              aria-label={`${t.wallboard.openMission}: ${campaign.name}`}
+                              onClick={(event) => { event.stopPropagation(); onWallboardClick(campaign); }}
+                              data-testid={`calendar-wallboard-${campaign.id}`}
+                            >
+                              <MonitorUp className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -1525,6 +1544,9 @@ function InboundSubTabs() {
 
 export default function CampaignsPage() {
   const { t } = useI18n();
+  const { user } = useAuth();
+  const { canAccessModule } = usePermissions();
+  const canOpenWallboard = user?.role === "admin" || user?.role === "manager" || canAccessModule("campaigns");
   const inboundUi = t.campaigns.inboundUi;
   const { toast } = useToast();
   const { selectedCountries } = useCountryFilter();
@@ -1878,6 +1900,18 @@ export default function CampaignsPage() {
       header: "",
       cell: (campaign: Campaign) => (
         <div className="flex justify-end gap-1">
+          {canOpenWallboard && (
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={(event) => { event.stopPropagation(); setLocation(`/wallboard/${encodeURIComponent(campaign.id)}`); }}
+              title={t.wallboard.openMission}
+              aria-label={`${t.wallboard.openMission}: ${campaign.name}`}
+              data-testid={`button-wallboard-${campaign.id}`}
+            >
+              <MonitorUp className="h-4 w-4" />
+            </Button>
+          )}
           <Button
             size="icon"
             variant="ghost"
@@ -1943,6 +1977,19 @@ export default function CampaignsPage() {
               <Coffee className="h-4 w-4" />
               {inboundUi.breaks}
             </TabsTrigger>
+            {canOpenWallboard && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-8 gap-2 px-3 text-sm font-medium"
+                onClick={() => setLocation("/wallboard")}
+                title={t.wallboard.allMissions}
+                data-testid="tab-wallboard"
+              >
+                <MonitorUp className="h-4 w-4" />
+                {t.wallboard.title}
+              </Button>
+            )}
             <TabsTrigger value="sop" className="gap-2" data-testid="tab-sop">
               <BookOpen className="h-4 w-4" />
               {t.sop.title}
@@ -2133,6 +2180,7 @@ export default function CampaignsPage() {
                 <CampaignCalendar 
                   campaigns={filteredCampaigns} 
                   onCampaignClick={(campaign) => setLocation(`/campaigns/${campaign.id}`)}
+                  onWallboardClick={canOpenWallboard ? (campaign) => setLocation(`/wallboard/${encodeURIComponent(campaign.id)}`) : undefined}
                 />
               )}
             </CardContent>

@@ -209,6 +209,7 @@ import { useCall } from "@/contexts/call-context";
 import { format, addBusinessDays, startOfDay, addDays, startOfWeek } from "date-fns";
 import { sk } from "date-fns/locale";
 import { useAgentSession } from "@/contexts/agent-session-context";
+import { useWallboardPresence } from "@/hooks/use-wallboard-presence";
 import { CustomerDetailsContent } from "@/pages/customers";
 import { StatusBadge } from "@/components/status-badge";
 import { CallRecordingPlayer } from "@/components/call-recording-player";
@@ -12030,6 +12031,17 @@ function AgentWorkspacePageContent() {
   const selectedCampaign = useMemo(() => {
     return campaigns.find((c) => c.id === selectedCampaignId) || null;
   }, [campaigns, selectedCampaignId]);
+
+  useWallboardPresence({
+    sessionId: agentSession.session?.id,
+    isSessionActive: agentSession.isSessionActive,
+    campaignId: selectedCampaign?.id || selectedCampaignId,
+    currentCampaignContactId: effectiveCampaignContactId,
+    currentContact,
+    currentClinicData,
+    currentCollaboratorData,
+    enabled: !!hasModuleAccess && mainWorkspaceTab === "pulse" && !backOfficeModeActive,
+  });
 
   // Per-mission maximum ring duration (seconds) for outbound calls. 0 = no limit.
   const parseMaxRingSeconds = useCallback((settings?: string | null): number => {

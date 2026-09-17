@@ -43,6 +43,10 @@ import {
   type ResolvedOutboundRouting,
 } from "@shared/telephony-routing";
 import { resolveMissionRecordingPolicy, type MissionCallRecordingSnapshot } from "@shared/mission-recording";
+import {
+  projectWallboardQueueCalls,
+  type WallboardQueueCall,
+} from "./wallboard-queue";
 
 // Agent presence for desk/PJSIP routing is derived from the LIVE Nexus Pulse
 // WebSocket (inboundCallWs). The agent-workspace opens /ws/inbound-calls only while a
@@ -91,6 +95,7 @@ interface PendingAgentCall {
   waitDuration: number;
   queueName: string;
   enteredAt: Date;
+  campaignId?: string | null;
 }
 
 interface AssignedCall {
@@ -99,6 +104,17 @@ interface AssignedCall {
   queueId: string;
   queue: InboundQueue;
   assignedAt: Date;
+}
+
+interface ActiveBridge {
+  bridgeId: string;
+  callerChannelId: string;
+  agentChannelId: string;
+  callId: string;
+  agentId: string;
+  queueId: string;
+  campaignId: string | null;
+  createdAt: Date;
 }
 
 export class QueueEngine extends EventEmitter {
@@ -114,7 +130,7 @@ export class QueueEngine extends EventEmitter {
   private pendingWelcomeCallData: Map<string, { channelId: string; queueId: string; callerNumber: string; callerName: string; customerId: string | null; queueName: string; didNumber?: string; sourceTrunk?: string }> = new Map();
   private mohPlaybacks: Map<string, string> = new Map();
   private pendingAgentCalls: Map<string, PendingAgentCall> = new Map();
-  private activeBridges: Map<string, { bridgeId: string; callerChannelId: string; agentChannelId: string; callId: string; agentId: string }> = new Map();
+  private activeBridges: Map<string, ActiveBridge> = new Map();
   private assignedCalls: Map<string, AssignedCall> = new Map();
   private isProcessing: boolean = false;
   private lastAnnouncementTime: Map<string, number> = new Map();
@@ -4227,12 +4243,18 @@ export class QueueEngine extends EventEmitter {
         }
       })();
 
+      const bridgeCreatedAt = new Date();
+      const bridgeQueueId = assignedAtAnswer?.queueId || pending.queueId;
+      const bridgeCampaignId = assignedAtAnswer?.call.campaignId ?? pending.campaignId ?? null;
       this.activeBridges.set(pending.callerChannelId, {
         bridgeId: bridge.id,
         callerChannelId: pending.callerChannelId,
         agentChannelId,
         callId: pending.callId,
         agentId: pending.agentId,
+        queueId: bridgeQueueId,
+        campaignId: bridgeCampaignId,
+        createdAt: bridgeCreatedAt,
       });
       this.activeBridges.set(agentChannelId, {
         bridgeId: bridge.id,
@@ -4240,6 +4262,9 @@ export class QueueEngine extends EventEmitter {
         agentChannelId,
         callId: pending.callId,
         agentId: pending.agentId,
+        queueId: bridgeQueueId,
+        campaignId: bridgeCampaignId,
+        createdAt: bridgeCreatedAt,
       });
       // activeBridges is now the authoritative guard; release the ring-all claim Set entry.
       this.ringAllClaimedCallers.delete(pending.callerChannelId);
@@ -4970,6 +4995,7 @@ export class QueueEngine extends EventEmitter {
         agentId: "transfer-target",
         callId: waitingCall?.id || `transfer-${Date.now()}`,
         queueId: queue.id,
+        campaignId: waitingCall?.campaignId ?? null,
         callerNumber,
         callerName: waitingCall?.callerName || "",
         customerId: null,
@@ -5801,6 +5827,39 @@ export class QueueEngine extends EventEmitter {
 
   getWaitingCalls(): QueuedCall[] {
     return Array.from(this.waitingCalls.values());
+  }
+
+  /**
+   * Return a read-only projection of calls currently tracked by the queue
+   * engine. The projection deliberately omits caller/contact data and never
+   * exposes the mutable map entries themselves.
+   */
+  getWallboardCalls(): WallboardQueueCall[] {
+    return projectWallboardQueueCalls({
+      waitingCalls: Array.from(this.waitingCalls.values(), (call) => ({
+        id: call.id,
+        campaignId: call.campaignId,
+        queueId: call.queueId,
+        enteredAt: call.enteredAt,
+      })),
+      assignedCalls: Array.from(this.assignedCalls.entries(), ([callerChannelId, assigned]) => ({
+        id: assigned.call.id,
+        campaignId: assigned.call.campaignId,
+        queueId: assigned.queueId,
+        agentId: assigned.agentId,
+        agentIds: this.ringAllPending.has(callerChannelId)
+          ? Array.from(this.ringAllPending.get(callerChannelId)!.agentIds)
+          : undefined,
+        assignedAt: assigned.assignedAt,
+      })),
+      activeBridges: Array.from(this.activeBridges.values(), (bridge) => ({
+        callId: bridge.callId,
+        campaignId: bridge.campaignId,
+        queueId: bridge.queueId,
+        agentId: bridge.agentId,
+        createdAt: bridge.createdAt,
+      })),
+    });
   }
 
   getAgentState(userId: string): AgentState | undefined {

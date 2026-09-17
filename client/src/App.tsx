@@ -56,6 +56,7 @@ const CollaboratorReportsPage = lazy(() => import("@/pages/collaborator-reports"
 const ConfiguratorPage = lazy(() => import("@/pages/configurator"));
 const PricingPage = lazy(() => import("@/pages/pricing"));
 const CampaignsPage = lazy(() => import("@/pages/campaigns"));
+const WallboardPage = lazy(() => import("@/pages/wallboard"));
 const CampaignDetailPage = lazy(() => import("@/pages/campaign-detail"));
 const TasksPage = lazy(() => import("@/pages/tasks"));
 const TaskGroupsPage = lazy(() => import("@/pages/task-groups"));
@@ -285,6 +286,10 @@ function AuthenticatedApp() {
                     <Route path="/collections/new">{() => <CollectionsPage key="new" />}</Route>
                     <Route path="/collections/:id">{() => <CollectionsPage key="edit" />}</Route>
                     <Route path="/campaigns" component={CampaignsPage} />
+                    <Route path="/wallboard" component={WallboardPage} />
+                    <Route path="/wallboard/:campaignId">
+                      {(params) => <WallboardPage key={params.campaignId} campaignId={params.campaignId} />}
+                    </Route>
                     <Route path="/campaigns/:id" component={CampaignDetailPage} />
                     <Route path="/campaigns/:id/reports" component={CampaignReportsPage} />
                     <Route path="/representative-quality" component={RepresentativeQualityPage} />

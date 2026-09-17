@@ -12,6 +12,8 @@ import { db, pool } from "./db";
 import { evaluateAutomationCondition, updateFieldSnapshot } from "./lib/condition-evaluator";
 import { storage } from "./storage";
 import { registerPhoneCardPreferenceRoutes, type PhoneLookupMatch } from "./phone-card-preference-routes";
+import { registerWallboardRoutes } from "./wallboard-routes";
+import { registerWallboardPresenceRoutes } from "./wallboard-presence-routes";
 import { 
   numberRanges,
   insertUserSchema, insertCustomerSchema, updateUserSchema, loginSchema, userSessions, communicationMessages,
@@ -2597,6 +2599,11 @@ export async function registerRoutes(
     }
     next();
   };
+
+  // Wallboard is manager/admin (or an explicit custom-role campaigns reader)
+  // only; the route itself applies workspace-country filtering.
+  registerWallboardRoutes(app, requireAuth);
+  registerWallboardPresenceRoutes(app, requireAuth);
 
   // Coarse operational telemetry only. The deliberately tiny allowlist makes
   // it impossible for callers to submit call content, addresses, SDP or SIP

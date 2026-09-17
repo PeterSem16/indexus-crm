@@ -7556,6 +7556,20 @@ export interface Translations {
     confirmLock: string; confirmLockDesc: string; confirm: string; cancel: string;
     adminHint: string;
   };
+  wallboard: {
+    brand: string; title: string; allMissions: string; openMission: string;
+    live: string; stale: string; staleWarning: string; sourceWarning: string; loading: string; refresh: string;
+    presentation: string; exitPresentation: string; agentsSignedIn: string; agentsAcrossMissions: string;
+    agentStatus: string; noActiveMission: string; noActiveMissionHint: string; noAgents: string; noAgentsHint: string;
+    noMission: string; unknownTime: string; disconnected: string; inbound: string; outbound: string;
+    incoming: string; assigned: string; unassigned: string; unknownCaller: string; callStatus: string;
+    noIncoming: string; noIncomingHint: string; queue: string; waiting: string; longestWait: string;
+    answeredToday: string; averageWait: string; generated: string; reconnect: string; unauthorized: string; tryAgain: string;
+    pageOf: string; previousPage: string; nextPage: string; backToMissions: string; backToAllMissions: string;
+    states: Record<'calling' | 'ringing' | 'working' | 'available' | 'break' | 'offline', string>;
+    details: Record<'calling' | 'ringing' | 'working' | 'available' | 'break' | 'offline', string>;
+    callStatuses: Record<'waiting' | 'ringing' | 'talking', string>;
+  };
 }
 
 const inboundUiBase = {
@@ -15698,6 +15712,23 @@ export const translations: Record<Locale, Translations> = {
       confirm: 'Lock', cancel: 'Cancel',
       adminHint: 'Generating snapshots requires admin / manager role',
     },
+    wallboard: {
+      brand: 'INDEXUS · operations wallboard', title: 'Wallboard', allMissions: 'All Missions', openMission: 'Open Mission',
+      live: 'Live', stale: 'Stale data', staleWarning: 'The live connection is stale. Timers are paused.', sourceWarning: 'The live source reported a warning.',
+      loading: 'Loading…', refresh: 'Refresh', presentation: 'Presentation', exitPresentation: 'Exit · Esc',
+      agentsSignedIn: '{value} agents signed in', agentsAcrossMissions: 'All agents across {value} active Missions',
+      agentStatus: 'Agent status', noActiveMission: 'No active Mission', noActiveMissionHint: 'There is no active Mission to display.',
+      noAgents: 'No agents signed in', noAgentsHint: 'This wallboard will update when an agent signs in.',
+      noMission: 'No Mission', unknownTime: 'Unknown', disconnected: 'Disconnected', inbound: 'Inbound', outbound: 'Outbound',
+      incoming: 'Incoming call', assigned: 'Assigned', unassigned: 'Unassigned', unknownCaller: 'Masked caller',
+      callStatus: 'Status', noIncoming: 'No incoming call', noIncomingHint: 'Incoming calls appear in this reserved panel.',
+      queue: 'Queue', waiting: 'Waiting', longestWait: 'Longest wait', answeredToday: 'Answered today', averageWait: 'Average wait',
+      generated: 'Updated', reconnect: 'Connection lost. Reconnecting…', unauthorized: 'You are not authorized to view this wallboard.',
+      tryAgain: 'Try again', pageOf: 'Page {value}', previousPage: 'Previous page', nextPage: 'Next page', backToMissions: 'Back to Missions', backToAllMissions: 'Back to all Missions',
+      states: { calling: 'CALLING', ringing: 'RINGING', working: 'WORKING', available: 'AVAILABLE', break: 'BREAK', offline: 'OFFLINE' },
+      details: { calling: 'Active call', ringing: 'Ringing', working: 'Working in contact card', available: 'Ready for the next call', break: 'On break', offline: 'Offline' },
+      callStatuses: { waiting: 'Waiting', ringing: 'Ringing', talking: 'Talking' },
+    },
 
   },
   sk: {
@@ -23169,6 +23200,23 @@ export const translations: Record<Locale, Translations> = {
       confirm: 'Uzamknúť', cancel: 'Zrušiť',
       adminHint: 'Generovanie snapshotov vyžaduje rolu admin / manažér',
     },
+    wallboard: {
+      brand: 'INDEXUS · operačný wallboard', title: 'Wallboard', allMissions: 'Všetky Mission', openMission: 'Otvoriť Mission',
+      live: 'Živé dáta', stale: 'Zastarané dáta', staleWarning: 'Živé pripojenie je zastarané. Časovače sú pozastavené.', sourceWarning: 'Živý zdroj oznámil upozornenie.',
+      loading: 'Načítavam…', refresh: 'Obnoviť', presentation: 'Prezentácia', exitPresentation: 'Ukončiť · Esc',
+      agentsSignedIn: '{value} prihlásených agentov', agentsAcrossMissions: 'Všetci agenti naprieč {value} aktívnymi Mission',
+      agentStatus: 'Stav agentov', noActiveMission: 'Žiadna aktívna Mission', noActiveMissionHint: 'Nie je čo zobraziť.',
+      noAgents: 'Nikto nie je prihlásený', noAgentsHint: 'Wallboard sa aktualizuje po prihlásení agenta.',
+      noMission: 'Bez Mission', unknownTime: 'Neznáme', disconnected: 'Odpojený', inbound: 'Prichádzajúci', outbound: 'Odchádzajúci',
+      incoming: 'Prichádzajúci hovor', assigned: 'Priradené', unassigned: 'Nepriradené', unknownCaller: 'Maskovaný volajúci',
+      callStatus: 'Stav', noIncoming: 'Žiadny prichádzajúci hovor', noIncomingHint: 'Prichádzajúce hovory sa zobrazia v tomto paneli.',
+      queue: 'Fronta', waiting: 'Čaká vo fronte', longestWait: 'Najdlhšie čakanie', answeredToday: 'Prijaté dnes', averageWait: 'Priemerné čakanie',
+      generated: 'Aktualizované', reconnect: 'Pripojenie zlyhalo. Obnovujem…', unauthorized: 'Na zobrazenie wallboardu nemáte oprávnenie.',
+      tryAgain: 'Skúsiť znova', pageOf: 'Strana {value}', previousPage: 'Predchádzajúca strana', nextPage: 'Ďalšia strana', backToMissions: 'Späť na Mission', backToAllMissions: 'Späť na všetky Mission',
+      states: { calling: 'VOLÁ', ringing: 'ZVONÍ', working: 'SPRACÚVA', available: 'VOĽNÝ', break: 'PRESTÁVKA', offline: 'OFFLINE' },
+      details: { calling: 'Prebiehajúci hovor', ringing: 'Vyzváňanie', working: 'Práca v karte kontaktu', available: 'Pripravený na ďalší hovor', break: 'Na prestávke', offline: 'Offline' },
+      callStatuses: { waiting: 'Čaká', ringing: 'Zvoní', talking: 'Hovorí' },
+    },
 
   },
   cs: {
@@ -30566,6 +30614,23 @@ export const translations: Record<Locale, Translations> = {
       confirm: 'Uzamknout', cancel: 'Zrušit',
       adminHint: 'Generování snapshotů vyžaduje roli admin / manažer',
     },
+    wallboard: {
+      brand: 'INDEXUS · operační wallboard', title: 'Wallboard', allMissions: 'Všechny Mission', openMission: 'Otevřít Mission',
+      live: 'Živá data', stale: 'Zastaralá data', staleWarning: 'Živé připojení je zastaralé. Časovače jsou pozastaveny.', sourceWarning: 'Živý zdroj oznámil upozornění.',
+      loading: 'Načítám…', refresh: 'Obnovit', presentation: 'Prezentace', exitPresentation: 'Ukončit · Esc',
+      agentsSignedIn: '{value} přihlášených agentů', agentsAcrossMissions: 'Všichni agenti napříč {value} aktivními Mission',
+      agentStatus: 'Stav agentů', noActiveMission: 'Žádná aktivní Mission', noActiveMissionHint: 'Není co zobrazit.',
+      noAgents: 'Nikdo není přihlášen', noAgentsHint: 'Wallboard se aktualizuje po přihlášení agenta.',
+      noMission: 'Bez Mission', unknownTime: 'Neznámé', disconnected: 'Odpojen', inbound: 'Příchozí', outbound: 'Odchozí',
+      incoming: 'Příchozí hovor', assigned: 'Přiřazeno', unassigned: 'Nepřiřazeno', unknownCaller: 'Maskovaný volající',
+      callStatus: 'Stav', noIncoming: 'Žádný příchozí hovor', noIncomingHint: 'Příchozí hovory se zobrazí v tomto panelu.',
+      queue: 'Fronta', waiting: 'Čeká ve frontě', longestWait: 'Nejdelší čekání', answeredToday: 'Přijato dnes', averageWait: 'Průměrné čekání',
+      generated: 'Aktualizováno', reconnect: 'Připojení selhalo. Obnovuji…', unauthorized: 'K zobrazení wallboardu nemáte oprávnění.',
+      tryAgain: 'Zkusit znovu', pageOf: 'Strana {value}', previousPage: 'Předchozí strana', nextPage: 'Další strana', backToMissions: 'Zpět na Mission', backToAllMissions: 'Zpět na všechny Mission',
+      states: { calling: 'VOLÁ', ringing: 'ZVONÍ', working: 'ZPRACOVÁVÁ', available: 'VOLNÝ', break: 'PŘESTÁVKA', offline: 'OFFLINE' },
+      details: { calling: 'Probíhající hovor', ringing: 'Vyzvánění', working: 'Práce v kartě kontaktu', available: 'Připraven na další hovor', break: 'Na přestávce', offline: 'Offline' },
+      callStatuses: { waiting: 'Čeká', ringing: 'Zvoní', talking: 'Hovoří' },
+    },
 
   },
   hu: {
@@ -37925,6 +37990,23 @@ export const translations: Record<Locale, Translations> = {
       confirm: 'Zárolás', cancel: 'Mégse',
       adminHint: 'A pillanatképek generálásához admin / vezető szerepkör szükséges',
     },
+    wallboard: {
+      brand: 'INDEXUS · operációs wallboard', title: 'Wallboard', allMissions: 'Összes Mission', openMission: 'Mission megnyitása',
+      live: 'Élő adat', stale: 'Elavult adat', staleWarning: 'Az élő kapcsolat elavult. Az időzítők szünetelnek.', sourceWarning: 'Az élő forrás figyelmeztetést jelzett.',
+      loading: 'Betöltés…', refresh: 'Frissítés', presentation: 'Prezentáció', exitPresentation: 'Kilépés · Esc',
+      agentsSignedIn: '{value} bejelentkezett ügynök', agentsAcrossMissions: 'Összes ügynök {value} aktív Missionben',
+      agentStatus: 'Ügynökállapot', noActiveMission: 'Nincs aktív Mission', noActiveMissionHint: 'Nincs megjeleníthető aktív Mission.',
+      noAgents: 'Nincs bejelentkezett ügynök', noAgentsHint: 'A wallboard frissül, amikor egy ügynök bejelentkezik.',
+      noMission: 'Nincs Mission', unknownTime: 'Ismeretlen', disconnected: 'Kapcsolat bontva', inbound: 'Bejövő', outbound: 'Kimenő',
+      incoming: 'Bejövő hívás', assigned: 'Hozzárendelve', unassigned: 'Nincs hozzárendelve', unknownCaller: 'Maszkolt hívó',
+      callStatus: 'Állapot', noIncoming: 'Nincs bejövő hívás', noIncomingHint: 'A bejövő hívások itt jelennek meg.',
+      queue: 'Várólista', waiting: 'Várakozik', longestWait: 'Leghosszabb várakozás', answeredToday: 'Ma fogadva', averageWait: 'Átlagos várakozás',
+      generated: 'Frissítve', reconnect: 'A kapcsolat megszakadt. Újracsatlakozás…', unauthorized: 'Nincs jogosultsága a wallboard megtekintéséhez.',
+      tryAgain: 'Újra', pageOf: 'Oldal {value}', previousPage: 'Előző oldal', nextPage: 'Következő oldal', backToMissions: 'Vissza a Missionökhöz', backToAllMissions: 'Vissza az összes Missionhöz',
+      states: { calling: 'HÍVÁS', ringing: 'CSÖRÖG', working: 'DOLGOZIK', available: 'ELÉRHETŐ', break: 'SZÜNET', offline: 'OFFLINE' },
+      details: { calling: 'Aktív hívás', ringing: 'Csengés', working: 'Munka a kapcsolati adatlapon', available: 'Készen áll a következő hívásra', break: 'Szünetben', offline: 'Offline' },
+      callStatuses: { waiting: 'Várakozik', ringing: 'Csörög', talking: 'Beszél' },
+    },
 
   },
   ro: {
@@ -45203,6 +45285,23 @@ export const translations: Record<Locale, Translations> = {
       confirmLock: 'Blocare instantaneu pentru', confirmLockDesc: 'Aceasta va bloca valorile KPI pentru luna selectată. Instantaneul existent va fi suprascris.',
       confirm: 'Blocare', cancel: 'Anulare',
       adminHint: 'Generarea instantaneelor necesită rol de admin / manager',
+    },
+    wallboard: {
+      brand: 'INDEXUS · wallboard operațional', title: 'Wallboard', allMissions: 'Toate Mission', openMission: 'Deschide Mission',
+      live: 'Date live', stale: 'Date vechi', staleWarning: 'Conexiunea live este veche. Cronometrele sunt puse pe pauză.', sourceWarning: 'Sursa live a raportat o avertizare.',
+      loading: 'Se încarcă…', refresh: 'Reîmprospătează', presentation: 'Prezentare', exitPresentation: 'Ieșire · Esc',
+      agentsSignedIn: '{value} agenți conectați', agentsAcrossMissions: 'Toți agenții din {value} Mission active',
+      agentStatus: 'Starea agenților', noActiveMission: 'Nicio Mission activă', noActiveMissionHint: 'Nu există o Mission activă de afișat.',
+      noAgents: 'Niciun agent conectat', noAgentsHint: 'Wallboardul se va actualiza când se conectează un agent.',
+      noMission: 'Fără Mission', unknownTime: 'Necunoscut', disconnected: 'Deconectat', inbound: 'Intrare', outbound: 'Ieșire',
+      incoming: 'Apel primit', assigned: 'Alocat', unassigned: 'Nealocat', unknownCaller: 'Apelant mascat',
+      callStatus: 'Stare', noIncoming: 'Niciun apel primit', noIncomingHint: 'Apelurile primite apar în acest panou.',
+      queue: 'Coadă', waiting: 'În așteptare', longestWait: 'Cea mai lungă așteptare', answeredToday: 'Răspunse azi', averageWait: 'Așteptare medie',
+      generated: 'Actualizat', reconnect: 'Conexiunea a eșuat. Reconectare…', unauthorized: 'Nu aveți acces la acest wallboard.',
+      tryAgain: 'Încearcă din nou', pageOf: 'Pagina {value}', previousPage: 'Pagina anterioară', nextPage: 'Pagina următoare', backToMissions: 'Înapoi la Mission', backToAllMissions: 'Înapoi la toate Mission',
+      states: { calling: 'APELEAZĂ', ringing: 'SUNĂ', working: 'LUCREAZĂ', available: 'DISPONIBIL', break: 'PAUZĂ', offline: 'OFFLINE' },
+      details: { calling: 'Apel în curs', ringing: 'Sună', working: 'Lucrează în fișa contactului', available: 'Pregătit pentru următorul apel', break: 'În pauză', offline: 'Offline' },
+      callStatuses: { waiting: 'În așteptare', ringing: 'Sună', talking: 'Vorbește' },
     },
 
   },
@@ -52485,6 +52584,23 @@ export const translations: Record<Locale, Translations> = {
       confirm: 'Blocca', cancel: 'Annulla',
       adminHint: 'La generazione degli snapshot richiede il ruolo admin / manager',
     },
+    wallboard: {
+      brand: 'INDEXUS · wallboard operativo', title: 'Wallboard', allMissions: 'Tutte le Mission', openMission: 'Apri Mission',
+      live: 'Dati live', stale: 'Dati obsoleti', staleWarning: 'La connessione live è obsoleta. I timer sono in pausa.', sourceWarning: 'La sorgente live ha segnalato un avviso.',
+      loading: 'Caricamento…', refresh: 'Aggiorna', presentation: 'Presentazione', exitPresentation: 'Esci · Esc',
+      agentsSignedIn: '{value} agenti connessi', agentsAcrossMissions: 'Tutti gli agenti nelle {value} Mission attive',
+      agentStatus: 'Stato agenti', noActiveMission: 'Nessuna Mission attiva', noActiveMissionHint: 'Non c’è una Mission attiva da mostrare.',
+      noAgents: 'Nessun agente connesso', noAgentsHint: 'Il wallboard si aggiornerà quando un agente effettua l’accesso.',
+      noMission: 'Nessuna Mission', unknownTime: 'Sconosciuto', disconnected: 'Disconnesso', inbound: 'In entrata', outbound: 'In uscita',
+      incoming: 'Chiamata in entrata', assigned: 'Assegnato', unassigned: 'Non assegnato', unknownCaller: 'Chiamante mascherato',
+      callStatus: 'Stato', noIncoming: 'Nessuna chiamata in entrata', noIncomingHint: 'Le chiamate in entrata appaiono in questo pannello.',
+      queue: 'Coda', waiting: 'In attesa', longestWait: 'Attesa più lunga', answeredToday: 'Risposte oggi', averageWait: 'Attesa media',
+      generated: 'Aggiornato', reconnect: 'Connessione persa. Riconnessione…', unauthorized: 'Non hai l’autorizzazione per vedere questo wallboard.',
+      tryAgain: 'Riprova', pageOf: 'Pagina {value}', previousPage: 'Pagina precedente', nextPage: 'Pagina successiva', backToMissions: 'Torna alle Mission', backToAllMissions: 'Torna a tutte le Mission',
+      states: { calling: 'CHIAMATA', ringing: 'SQUILLA', working: 'AL LAVORO', available: 'DISPONIBILE', break: 'PAUSA', offline: 'OFFLINE' },
+      details: { calling: 'Chiamata in corso', ringing: 'Squillo', working: 'Lavoro nella scheda contatto', available: 'Pronto per la prossima chiamata', break: 'In pausa', offline: 'Offline' },
+      callStatuses: { waiting: 'In attesa', ringing: 'Squilla', talking: 'In conversazione' },
+    },
 
   },
   de: {
@@ -59751,6 +59867,23 @@ export const translations: Record<Locale, Translations> = {
       confirmLock: 'Snapshot sperren für', confirmLockDesc: 'Dadurch werden die KPI-Werte für den ausgewählten Monat eingefroren. Ein vorhandener Snapshot wird überschrieben.',
       confirm: 'Sperren', cancel: 'Abbrechen',
       adminHint: 'Das Generieren von Snapshots erfordert die Rolle Admin / Manager',
+    },
+    wallboard: {
+      brand: 'INDEXUS · Operations-Wallboard', title: 'Wallboard', allMissions: 'Alle Missionen', openMission: 'Mission öffnen',
+      live: 'Live-Daten', stale: 'Veraltete Daten', staleWarning: 'Die Live-Verbindung ist veraltet. Timer sind pausiert.', sourceWarning: 'Die Live-Quelle hat eine Warnung gemeldet.',
+      loading: 'Wird geladen…', refresh: 'Aktualisieren', presentation: 'Präsentation', exitPresentation: 'Beenden · Esc',
+      agentsSignedIn: '{value} angemeldete Agents', agentsAcrossMissions: 'Alle Agents über {value} aktive Missionen',
+      agentStatus: 'Agentenstatus', noActiveMission: 'Keine aktive Mission', noActiveMissionHint: 'Es gibt keine aktive Mission zum Anzeigen.',
+      noAgents: 'Keine Agents angemeldet', noAgentsHint: 'Das Wallboard wird aktualisiert, sobald sich ein Agent anmeldet.',
+      noMission: 'Keine Mission', unknownTime: 'Unbekannt', disconnected: 'Getrennt', inbound: 'Eingehend', outbound: 'Ausgehend',
+      incoming: 'Eingehender Anruf', assigned: 'Zugewiesen', unassigned: 'Nicht zugewiesen', unknownCaller: 'Maskierter Anrufer',
+      callStatus: 'Status', noIncoming: 'Kein eingehender Anruf', noIncomingHint: 'Eingehende Anrufe erscheinen in diesem Bereich.',
+      queue: 'Warteschlange', waiting: 'Wartend', longestWait: 'Längste Wartezeit', answeredToday: 'Heute beantwortet', averageWait: 'Durchschnittliche Wartezeit',
+      generated: 'Aktualisiert', reconnect: 'Verbindung verloren. Wiederherstellung…', unauthorized: 'Sie sind nicht berechtigt, dieses Wallboard zu sehen.',
+      tryAgain: 'Erneut versuchen', pageOf: 'Seite {value}', previousPage: 'Vorherige Seite', nextPage: 'Nächste Seite', backToMissions: 'Zurück zu Missionen', backToAllMissions: 'Zurück zu allen Missionen',
+      states: { calling: 'ANRUF', ringing: 'KLINGELT', working: 'IN ARBEIT', available: 'VERFÜGBAR', break: 'PAUSE', offline: 'OFFLINE' },
+      details: { calling: 'Aktiver Anruf', ringing: 'Klingelt', working: 'Arbeit in der Kontaktkarte', available: 'Bereit für den nächsten Anruf', break: 'In Pause', offline: 'Offline' },
+      callStatuses: { waiting: 'Wartend', ringing: 'Klingelt', talking: 'Im Gespräch' },
     },
 
   },

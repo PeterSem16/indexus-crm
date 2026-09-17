@@ -1,4 +1,4 @@
-- [Wallboard design approval](wallboard-design-approval.md) — user liked the dark large-display concept; retain it when work resumes, without treating design approval as implementation authorization.
+- [Wallboard scope and design](wallboard-design-approval.md) — preserve the approved dark large-display design; projected data requires exact Mission attribution and no contact identities.
 - [Clinic canonical cooperation statuses](clinic-canonical-statuses.md) — clinic_cooperation_statuses table + canonicalClinicStatusKey on campaign_status_list_items; write triggered on status-list confirmation when contactType=clinic.
 - [CORPCRM01 DB connection](corpcrm01-db-connection.md) — `PGPASSWORD=... psql -h localhost -U indexus -d indexus_crm -f script.sql`; always run locally on the server.
 - [MS365 cross-origin OAuth handoff](ms365-cross-origin-oauth.md) — dev login routes through prod's only registered callback, hands back a signed one-time token; DBs aren't shared.
