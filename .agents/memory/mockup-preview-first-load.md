@@ -8,3 +8,9 @@ An isolated mockup preview can briefly render an empty frame while its dynamic c
 **Why:** The sandbox's preview renderer starts without a selected component and resolves the requested component asynchronously.
 
 **How to apply:** Before changing a design iframe to a failed state, repeat the preview check after the module has loaded and inspect the browser DOM or console when available. Mark it failed only if the retry still reports a real rendering or import error.
+
+For shell-driven Playwright checks, check for a system Chromium executable before installing a missing managed browser.
+
+**Why:** This workspace can have Playwright installed without its matching downloaded headless shell, while system Chromium is already available. A default launch failure is not evidence that browser verification is unavailable.
+
+**How to apply:** Resolve Chromium with `command -v chromium` and supply the resulting path as Playwright's `executablePath` when the managed binary is absent.

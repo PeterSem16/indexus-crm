@@ -1,0 +1,28 @@
+.priority-search-enriched { width: 1180px; max-width: 100%; height: 760px; max-height: 100vh; }
+.priority-search-enriched .priority-search-sandbox { width: 100%; height: 100%; }
+.priority-search-enriched .priority-builder-preview { overflow: auto; }
+.priority-search-enriched .priority-builder-card { padding: 13px 12px; }
+.priority-search-enriched .enriched-card-main { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
+.priority-search-enriched .priority-builder-avatar { width: 32px; height: 34px; border-radius: 9px; flex: 0 0 32px; }
+.priority-search-enriched .enriched-card-ident { display: grid; min-width: 0; gap: 2px; }
+.priority-search-enriched .enriched-eyebrow { color: #7d6e62; font-size: 9px; font-weight: 500; }
+.priority-search-enriched .enriched-person { color: #372d27; font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+.priority-search-enriched .enriched-clinic,
+.priority-search-enriched .enriched-specialty { display: flex; align-items: center; gap: 7px; color: #615248; font-size: 11px; line-height: 1.5; }
+.priority-search-enriched .enriched-clinic { font-weight: 700; }
+.priority-search-enriched .enriched-specialty { color: #8c7c70; margin-top: 3px; font-size: 10px; }
+.priority-search-enriched .enriched-contact-grid { display: grid; gap: 6px; margin-top: 10px; color: #63544a; font-size: 11px; font-weight: 500; }
+.priority-search-enriched .enriched-contact-grid > span { display: block; overflow-wrap: anywhere; }
+.priority-search-enriched .enriched-contact-grid svg { display: inline; margin-right: 7px; vertical-align: -2px; }
+.priority-search-enriched svg { flex-shrink: 0; }
+.priority-search-enriched .enriched-contact-grid .missing { color: #958579; font-style: italic; }
+.priority-search-enriched mark { border-radius: 3px; padding: 0 1px; background: #fbe1ad; color: #6b421b; font-weight: 800; }
+.priority-search-enriched .enriched-match-line { display: flex; align-items: center; gap: 6px; margin-top: 10px; padding: 6px 8px; border-radius: 5px; background: #fbf1df; color: #8a6638; font-size: 10px; font-weight: 600; }
+.priority-search-enriched .priority-builder-card-chips { border-top: 1px solid #eee6de; padding-top: 10px; margin-top: 10px; }
+.priority-search-enriched .priority-builder-card:focus-visible { outline: 2px solid #b5622e; outline-offset: 2px; }
+@media (max-width: 800px) {
+  .priority-search-enriched .priority-builder-body { display: flex; flex-direction: column; overflow: auto; }
+  .priority-search-enriched .priority-builder-editor { display: none; }
+  .priority-search-enriched .priority-builder-preview { display: block; flex: 1; border-left: 0; }
+  .priority-search-enriched .priority-builder-top { flex-shrink: 0; }
+}

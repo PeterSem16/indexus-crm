@@ -1,0 +1,73 @@
+import type { PriorityContact } from "./_priority-builder";
+
+const fillerContacts: PriorityContact[] = Array.from({ length: 61 }, (_, index) => ({
+  id: `demo-referral-${String(index + 1).padStart(2, "0")}`,
+  status: "pending",
+  attemptCount: 0,
+  hasReferral: true,
+  priorityScore: 1000 - index,
+  contactType: "clinic",
+  createdAt: "2025-01-02T08:00:00.000Z",
+  clinic: {
+    name: `Trnavská partnerská klinika ${String(index + 1).padStart(2, "0")}`,
+    city: "Trnava",
+    countryCode: "SK",
+  },
+}));
+
+export const prioritySearchContacts: PriorityContact[] = [
+  ...fillerContacts,
+  {
+    id: "demo-eva-semanova",
+    status: "pending",
+    attemptCount: 0,
+    hasReferral: false,
+    priorityScore: 1,
+    contactType: "clinic",
+    doctorName: "MUDr. Eva Semanová",
+    role: "General practitioner",
+    phone: "+421 900 123 456",
+    email: "eva.semanova@example.org",
+    createdAt: "2025-01-08T08:00:00.000Z",
+    clinic: {
+      name: "ALLATURA s.r.o.",
+      city: "Trnava",
+      countryCode: "SK",
+      phone: "+421 900 123 456",
+      email: "eva.semanova@example.org",
+    },
+  },
+  {
+    id: "demo-search-clinic",
+    status: "pending",
+    attemptCount: 0,
+    hasReferral: false,
+    contactType: "clinic",
+    doctorName: "MUDr. Jana Kováčová",
+    phone: "+421 911 222 333",
+    email: "jana.kovacova@example.org",
+    clinic: { name: "Poliklinika Nivy", city: "Bratislava", countryCode: "SK" },
+  },
+  {
+    id: "demo-search-phone",
+    status: "pending",
+    attemptCount: 1,
+    hasReferral: false,
+    contactType: "clinic",
+    doctorName: "MUDr. Peter Novák",
+    phone: "+421 900 123 456 ext. 2",
+    email: "peter.novak@example.org",
+    clinic: { name: "Poliklinika Košice", city: "Košice", countryCode: "SK" },
+  },
+  {
+    id: "demo-search-email",
+    status: "pending",
+    attemptCount: 0,
+    hasReferral: false,
+    contactType: "clinic",
+    doctorName: "MUDr. Lucia Horváthová",
+    phone: "+421 948 444 555",
+    email: "eva.semanova@example.org",
+    clinic: { name: "Zdravie centrum", city: "Žilina", countryCode: "SK" },
+  },
+];
