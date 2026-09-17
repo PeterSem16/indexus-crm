@@ -1,0 +1,95 @@
+.wb-alarm-dialog {
+  z-index: 9996;
+  width: min(1100px, calc(100vw - 24px));
+  max-width: 1100px;
+  max-height: min(92vh, 900px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 8px;
+  background: #11161b;
+  color: #f2f0e9;
+  box-shadow: 0 24px 80px rgba(0,0,0,.55);
+}
+.wb-alarm-dialog [data-radix-dialog-close] { color: #a9b0b4; }
+.wb-alarm-dialog input, .wb-alarm-dialog select {
+  min-height: 34px; border: 1px solid #3a444a; border-radius: 4px; background: #171f24; color: inherit; padding: 6px 8px;
+}
+.wb-alarm-dialog label, .wb-alarm-dialog legend { color: #dce0dc; font: 500 12px/1.35 "DM Mono", monospace; letter-spacing: .02em; }
+.wb-alarm-dialog label > input:not([type="checkbox"]):not([type="radio"]), .wb-alarm-dialog label > select { display: block; width: 100%; margin-top: 5px; }
+.wb-alarm-settings-scroll { flex: 1 1 auto; max-height: calc(92vh - 180px); overflow: auto; min-height: 0; padding: 2px 3px 12px; }
+.wb-alarm-global { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 10px 0 18px; border-bottom: 1px solid #293237; }
+.wb-alarm-global small, .wb-alarm-schedule small, .wb-alarm-dialog small { display: block; color: #99a4a7; font-size: 11px; margin-top: 5px; }
+.wb-alarm-inline-input, .wb-alarm-volume { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
+.wb-alarm-inline-input input { width: 110px; }
+.wb-alarm-volume input { flex: 1; accent-color: #c6f36b; }
+.wb-alarm-volume output { min-width: 42px; text-align: right; color: #c6f36b; }
+.wb-alarm-section-heading { display: flex; align-items: center; gap: 10px; padding: 16px 0 10px; }
+.wb-alarm-section-heading h3, .wb-alarm-sound-controls h3 { margin: 0; font-size: 14px; letter-spacing: .02em; }
+.wb-alarm-section-heading > span { color: #8d989a; font: 11px "DM Mono", monospace; }
+.wb-alarm-section-heading .wb-alarm-button { margin-left: auto; }
+.wb-alarm-button, .wb-alarm-incident-actions button, .wb-alarm-sound-actions button { min-height: 34px; border: 1px solid #3a444a; border-radius: 4px; background: transparent; color: #f2f0e9; padding: 7px 12px; cursor: pointer; font: 500 11px "DM Mono", monospace; }
+.wb-alarm-button:hover:not(:disabled), .wb-alarm-incident-actions button:hover, .wb-alarm-sound-actions button:hover { border-color: #c6f36b; }
+.wb-alarm-button-primary { border-color: #c6f36b; background: #c6f36b; color: #101612; }
+.wb-alarm-button:disabled { opacity: .45; cursor: not-allowed; }
+.wb-alarm-rule { margin: 0 0 13px; padding: 14px; border: 1px solid #2d383d; border-radius: 6px; background: #151c20; }
+.wb-alarm-rule-heading { display: flex; align-items: center; gap: 14px; margin-bottom: 13px; }
+.wb-alarm-rule-heading strong { font-size: 13px; }
+.wb-alarm-check { display: inline-flex; align-items: center; gap: 6px; }
+.wb-alarm-check input, .wb-alarm-radio input, .wb-alarm-days input { accent-color: #c6f36b; }
+.wb-alarm-delete { margin-left: auto; border: 0; background: none; color: #ff9186; cursor: pointer; font: 500 11px "DM Mono", monospace; }
+.wb-alarm-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.wb-alarm-combo { display: flex; margin-top: 5px; }
+.wb-alarm-combo input { min-width: 0; width: 50%; border-radius: 4px 0 0 4px; }
+.wb-alarm-combo select, .wb-alarm-combo > span { min-width: 0; width: 50%; border-radius: 0 4px 4px 0; border-left: 0; display: flex; align-items: center; padding: 6px 8px; color: #a9b0b4; font-size: 10px; }
+.wb-alarm-grid fieldset { min-width: 0; border: 0; padding: 0; margin: 0; }
+.wb-alarm-grid fieldset legend { padding: 0; margin-bottom: 5px; }
+.wb-alarm-radio { display: block; margin: 7px 0; }
+.wb-alarm-schedule { border: 1px solid #293237; border-radius: 4px; padding: 10px; margin: 14px 0 0; }
+.wb-alarm-schedule legend { padding: 0 5px; }
+.wb-alarm-days { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; }
+.wb-alarm-days label { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; }
+.wb-alarm-times { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.wb-alarm-error { margin: 8px 0; padding: 8px 10px; border-left: 2px solid #ff9186; color: #ffb5ad; font-size: 12px; }
+.wb-alarm-empty { color: #99a4a7; font-size: 12px; }
+.wb-alarm-loading { min-height: 180px; display: grid; place-items: center; color: #c6f36b; }
+.wb-alarm-panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 14px; border: 1px solid #293237; border-radius: 6px; background: #11161b; color: #f2f0e9; }
+.wb-alarm-panel-header { display: flex; justify-content: space-between; gap: 10px; align-items: start; border-bottom: 1px solid #293237; padding-bottom: 10px; }
+.wb-alarm-kicker { margin: 0; color: #99a4a7; font: 10px "DM Mono", monospace; text-transform: uppercase; letter-spacing: .08em; }
+.wb-alarm-panel h2 { margin: 3px 0 0; font-size: 27px; line-height: 1; }
+.wb-alarm-panel h2 span { color: #99a4a7; font: 10px "DM Mono", monospace; text-transform: uppercase; }
+.wb-alarm-sound-flags { display: flex; flex-direction: column; align-items: end; gap: 4px; }
+.wb-alarm-flag, .wb-alarm-badges span { display: inline-block; padding: 3px 6px; border: 1px solid #475258; border-radius: 3px; color: #bac2c2; font: 9px "DM Mono", monospace; text-transform: uppercase; }
+.wb-alarm-flag-visual { border-color: #ffbd70; color: #ffbd70; }
+.wb-alarm-flag-sound-on { border-color: #c6f36b; color: #c6f36b; }
+.wb-alarm-flag-sound-off { border-color: #70797d; color: #9aa3a5; }
+.wb-alarm-suspension { display: flex; flex-direction: column; gap: 3px; padding: 9px; border-left: 3px solid #ffbd70; background: rgba(255,189,112,.08); font-size: 11px; }
+.wb-alarm-suspension span, .wb-alarm-grace, .wb-alarm-sound-controls small { color: #a9b0b4; font-size: 11px; }
+.wb-alarm-monitoring, .wb-alarm-partial { margin: 0; color: #8e9a9e; font-size: 10px; line-height: 1.4; }
+.wb-alarm-partial { color: #ffbd70; }
+.wb-alarm-grace { margin: 0; color: #ffbd70; }
+.wb-alarm-incidents { display: grid; gap: 9px; overflow: auto; }
+.wb-alarm-incident { padding: 11px; border: 1px solid #713b36; border-left: 3px solid #ff6b5c; border-radius: 4px; background: #1a1819; }
+.wb-alarm-incident.is-acknowledged { opacity: .78; border-left-color: #99a4a7; }
+.wb-alarm-incident-title { display: flex; gap: 8px; align-items: start; }
+.wb-alarm-severity { width: 7px; height: 7px; margin-top: 5px; border-radius: 50%; background: #ff6b5c; box-shadow: 0 0 0 4px rgba(255,107,92,.13); }
+.wb-alarm-incident-title div { display: grid; gap: 3px; min-width: 0; }
+.wb-alarm-incident-title strong { font-size: 13px; overflow-wrap: anywhere; }
+.wb-alarm-incident-title span:not(.wb-alarm-severity) { color: #a9b0b4; font: 10px "DM Mono", monospace; }
+.wb-alarm-values { display: flex; flex-wrap: wrap; gap: 12px; margin: 11px 0; color: #a9b0b4; font: 10px "DM Mono", monospace; }
+.wb-alarm-values b { color: #f2f0e9; }
+.wb-alarm-badges { display: flex; gap: 5px; margin-bottom: 9px; }
+.wb-alarm-incident-actions, .wb-alarm-sound-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.wb-alarm-incident-actions button:first-child { border-color: #c6f36b; color: #c6f36b; }
+.wb-alarm-sound-controls { margin-top: auto; padding-top: 11px; border-top: 1px solid #293237; }
+.wb-alarm-sound-controls h3 { margin-bottom: 8px; font-size: 11px; color: #c6f36b; text-transform: uppercase; }
+@media (max-width: 700px) {
+  .wb-alarm-global, .wb-alarm-times { grid-template-columns: 1fr; }
+  .wb-alarm-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 460px) {
+  .wb-alarm-grid { grid-template-columns: 1fr; }
+  .wb-alarm-rule-heading { align-items: start; flex-wrap: wrap; }
+  .wb-alarm-delete { margin-left: 0; }
+}

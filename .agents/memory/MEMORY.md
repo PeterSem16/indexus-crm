@@ -94,3 +94,4 @@
 - [Bulk filter parity](medical-partner-bulk-filter-parity.md) — sharing the drawer is insufficient; lists and bulk assignment must share matching semantics and bind confirmation to the complete preview.
 - [Priority search design](priority-search-design-approval.md) — approved identity-rich results explain the match while preserving every operational badge and full-queue context.
 - [Status-list note semantics](status-list-note-semantics.md) — note edits are independent of confirmation/automations; null-on-reconfirm preserves, explicit note clear removes; history uses event snapshots.
+- [Wallboard alarm boundaries](wallboard-alarm-semantics.md) — personal monitoring preferences must not become shared Mission policy; unknown telemetry must not be interpreted as inactivity.

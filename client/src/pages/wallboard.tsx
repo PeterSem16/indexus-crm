@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { ChevronLeft, ChevronRight, Maximize2, MonitorUp, RefreshCw, X, ArrowLeft, UserRound } from "lucide-react";
+import { ChevronLeft, ChevronRight, Maximize2, MonitorUp, RefreshCw, X, ArrowLeft, UserRound, Bell } from "lucide-react";
 import type { WallboardSnapshot } from "@shared/wallboard";
 import { useI18n } from "@/i18n/I18nProvider";
 import { Link } from "wouter";
@@ -13,6 +13,10 @@ import {
   WALLBOARD_PAGE_SIZE,
 } from "@/components/wallboard/wallboard";
 import "@/components/wallboard/Wallboard.css";
+import { defaultWallboardAlarmSettings } from "@shared/wallboard-alarms";
+import { WallboardAlarmSettings } from "@/components/wallboard/WallboardAlarmSettings";
+import { WallboardAlarmPanel } from "@/components/wallboard/WallboardAlarmPanel";
+import { useWallboardAlarms } from "@/components/wallboard/use-wallboard-alarms";
 
 type WallboardPageProps = {
   campaignId?: string | null;
@@ -101,6 +105,7 @@ export default function WallboardPage({ campaignId = null }: WallboardPageProps)
   const [now, setNow] = useState(() => Date.now());
   const [page, setPage] = useState(0);
   const [presentation, setPresentation] = useState(false);
+  const [alarmSettingsOpen, setAlarmSettingsOpen] = useState(false);
   const [showOfflineAgents, setShowOfflineAgents] = useState(readShowOfflineAgents);
   const [failedAvatars, setFailedAvatars] = useState<Record<string, boolean>>({});
   const requestRef = useRef<AbortController | null>(null);
@@ -239,6 +244,11 @@ export default function WallboardPage({ campaignId = null }: WallboardPageProps)
   const effectiveServerNow = snapshot
     ? getEffectiveWallboardServerTime(snapshot.generatedAt, lastFetchedAt, now, stale)
     : null;
+  const alarms = useWallboardAlarms(campaignId, snapshot, effectiveServerNow, stale);
+  const enabledAlarmCount = alarms.settings?.rules.filter((rule) => rule.enabled).length ?? 0;
+  const showAlarmPanel = Boolean(snapshot && (enabledAlarmCount || alarms.settingsError));
+  const highlightedAgents = new Set(alarms.incidents.flatMap((incident) => incident.agentIds));
+  useEffect(() => { setAlarmSettingsOpen(false); }, [campaignId]);
 
   const enterPresentation = () => {
     setPresentation(true);
@@ -295,6 +305,15 @@ export default function WallboardPage({ campaignId = null }: WallboardPageProps)
               <RefreshCw size={14} aria-hidden="true" />
               {t.wallboard.refresh}
             </button>
+            <button className="wb-tool" type="button" disabled={!snapshot}
+              onClick={() => {
+                setAlarmSettingsOpen(true);
+                if (alarms.settingsError) void alarms.reloadSettings();
+              }}>
+              <Bell size={14} aria-hidden="true" />
+              {t.wallboard.alarm.settings}
+              {alarms.incidents.length > 0 && <span className="wb-alarm-count">{alarms.incidents.length}</span>}
+            </button>
             <button
               className="wb-tool wb-offline-toggle"
               type="button"
@@ -330,9 +349,13 @@ export default function WallboardPage({ campaignId = null }: WallboardPageProps)
         <div className="wb-main">
           <section className="wb-stage" aria-label={t.wallboard.agentStatus}>
             {snapshot && (
-              <div className="wb-summary">
+              <div className="wb-summary" data-alarm={alarms.incidents.some((incident) => incident.type === "min_online") || undefined}>
                 {(["calling", "ringing", "working", "available", "break", "offline"] as WallboardState[]).map((state) => (
-                  <div className="wb-metric" key={state}>
+                  <div className="wb-metric" key={state} data-alarm={
+                    alarms.incidents.some((incident) =>
+                      (incident.type === "min_available" && state === "available") ||
+                      (["max_break", "long_break"].includes(incident.type) && state === "break")) || undefined
+                  }>
                     <span>{stateLabel(state)}</span>
                     <b>{String(totals[state]).padStart(2, "0")} <em>/ {String(agents.length).padStart(2, "0")}</em></b>
                   </div>
@@ -382,6 +405,7 @@ export default function WallboardPage({ campaignId = null }: WallboardPageProps)
                   return (
                     <article
                       className="wb-agent"
+                      data-alarm={highlightedAgents.has(agent.id) || undefined}
                       key={agent.id}
                       style={{ "--wb-state": stateColors[agent.state] } as CSSProperties}
                     >
@@ -460,7 +484,22 @@ export default function WallboardPage({ campaignId = null }: WallboardPageProps)
             )}
           </section>
 
-          <aside className="wb-rail">
+          <aside className={`wb-rail${showAlarmPanel ? " wb-rail-alarmed" : ""}`}>
+            {showAlarmPanel && <WallboardAlarmPanel
+              incidents={alarms.incidents}
+              onAcknowledge={alarms.acknowledge}
+              onMute={alarms.mute}
+              soundEnabled={alarms.soundEnabled}
+              onEnableSound={() => { void alarms.enableSound(); }}
+              onDisableSound={alarms.disableSound}
+              onTestSound={() => { void alarms.testSound(); }}
+              soundError={alarms.soundError}
+              suspended={alarms.suspended}
+              settingsError={alarms.settingsError}
+              graceRemainingSeconds={alarms.graceRemainingSeconds}
+              enabledRuleCount={enabledAlarmCount}
+              now={effectiveServerNow ?? now}
+            />}
             <section className="wb-inbound" aria-live="polite">
               <div className="wb-overline"><MonitorUp size={11} aria-hidden="true" /> {t.wallboard.incoming}</div>
               {activeInbound ? (
@@ -477,7 +516,7 @@ export default function WallboardPage({ campaignId = null }: WallboardPageProps)
                 </>
               )}
             </section>
-            <section className="wb-queue">
+            <section className="wb-queue" data-alarm={alarms.incidents.some((incident) => incident.type === "queue_wait") || undefined}>
               <h3>{t.wallboard.queue}</h3>
               <div className="wb-qrow"><span>{t.wallboard.waiting}</span><b>{snapshot?.queue.waiting ?? "—"}</b></div>
               <div className="wb-qrow"><span>{t.wallboard.longestWait}</span><b>{snapshot?.queue.longestWaitSeconds === null || snapshot?.queue.longestWaitSeconds === undefined ? "—" : formatWallboardDuration(snapshot.queue.longestWaitSeconds)}</b></div>
@@ -491,6 +530,13 @@ export default function WallboardPage({ campaignId = null }: WallboardPageProps)
           </aside>
         </div>
       </div>
+      {snapshot && <WallboardAlarmSettings
+        open={alarmSettingsOpen}
+        onOpenChange={setAlarmSettingsOpen}
+        settings={alarms.settings ?? defaultWallboardAlarmSettings()}
+        onSave={alarms.saveSettings}
+        loading={alarms.settingsLoading || !alarms.settings}
+      />}
     </main>
   );
 }

@@ -1,3 +1,5 @@
+import type { WallboardCallActivity } from "./wallboard-alarms";
+
 export type WallboardAgentState =
   | "calling"
   | "ringing"
@@ -8,6 +10,7 @@ export type WallboardAgentState =
 
 export interface WallboardSnapshot {
   generatedAt: string;
+  callActivity: WallboardCallActivity;
   scope: {
     campaignId: string | null;
     campaignName: string | null;

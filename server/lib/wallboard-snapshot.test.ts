@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 /**
- * This is deliberately a read-only integration check.  The wallboard builder
- * imports the application pool, so keep the import behind the environment
- * guard to let the pure test suite run without a provisioned database.
+ * The snapshot check is read-only; the aggregate regression uses a synthetic
+ * transaction that always rolls back. The wallboard builder imports the
+ * application pool, so keep the import behind the environment guard.
  */
 test("wallboard snapshot executes the latest-session aggregate join", async (t) => {
   if (!process.env.DATABASE_URL) {
@@ -12,7 +12,7 @@ test("wallboard snapshot executes the latest-session aggregate join", async (t) 
     return;
   }
 
-  const [{ db, pool }, { users, campaigns, campaignAgents }, { and, eq }] = await Promise.all([
+  const [{ db, pool }, { users, campaigns, campaignAgents, callLogs, inboundCallLogs }, { and, eq }] = await Promise.all([
     import("../db"),
     import("@shared/schema"),
     import("drizzle-orm"),
@@ -49,6 +49,12 @@ test("wallboard snapshot executes the latest-session aggregate join", async (t) 
     assert.equal(one.campaigns.length, 1);
     for (const snapshot of [all, one]) {
       assert.equal(typeof snapshot.generatedAt, "string");
+      assert.ok(snapshot.callActivity);
+      assert.ok(["inbound", "outbound"].every((direction) =>
+        [snapshot.callActivity[direction as "inbound" | "outbound"].startedAt,
+          snapshot.callActivity[direction as "inbound" | "outbound"].connectedAt]
+          .every((timestamp) => timestamp === null || typeof timestamp === "string"),
+      ));
       assert.equal(typeof snapshot.queue.answeredToday, "number");
       assert.equal(typeof snapshot.source.live, "boolean");
       assert.ok(snapshot.agents.every((agent) =>
@@ -56,6 +62,78 @@ test("wallboard snapshot executes the latest-session aggregate join", async (t) 
         typeof agent.todayMissionSeconds === "number" &&
         typeof agent.todayAccruing === "boolean",
       ));
+    }
+
+    // Rollback-only fixture: an ended/completed call must remain the last
+    // event clock for no-calls rules. This exercises the aggregate query,
+    // rather than merely checking the response shape.
+    const aggregateNow = new Date("2099-01-01T00:00:00.000Z");
+    const completedStartedAt = new Date("2098-12-31T23:00:00.000Z");
+    const completedAnsweredAt = new Date("2098-12-31T23:05:00.000Z");
+    const rollback = new Error("wallboard fixture rollback");
+    try {
+      await db.transaction(async (tx) => {
+        await tx.insert(callLogs).values({
+          userId: admin.id,
+          campaignId: activeCampaign.id,
+          phoneNumber: "synthetic-test-number",
+          direction: "outbound",
+          status: "completed",
+          startedAt: completedStartedAt,
+          answeredAt: completedAnsweredAt,
+          endedAt: new Date("2098-12-31T23:10:00.000Z"),
+        });
+        const [inboundLog] = await tx.insert(callLogs).values({
+          userId: admin.id,
+          campaignId: activeCampaign.id,
+          phoneNumber: "synthetic-inbound-number",
+          direction: "inbound",
+          status: "completed",
+          startedAt: new Date("2098-12-31T22:00:00.000Z"),
+          answeredAt: new Date("2098-12-31T22:10:00.000Z"),
+          endedAt: new Date("2098-12-31T22:15:00.000Z"),
+        }).returning({ id: callLogs.id });
+        await tx.insert(inboundCallLogs).values({
+          callLogId: inboundLog.id,
+          callerNumber: "synthetic-inbound-number",
+          status: "completed",
+          enteredQueueAt: new Date("2098-12-31T22:01:00.000Z"),
+          answeredAt: new Date("2098-12-31T22:09:00.000Z"),
+        });
+        // Null-campaign and future timestamps are deliberately excluded.
+        await tx.insert(callLogs).values({
+          userId: admin.id,
+          campaignId: null,
+          phoneNumber: "synthetic-null-campaign",
+          direction: "outbound",
+          status: "completed",
+          startedAt: new Date("2098-12-31T23:30:00.000Z"),
+          endedAt: new Date("2098-12-31T23:35:00.000Z"),
+        });
+        await tx.insert(callLogs).values({
+          userId: admin.id,
+          campaignId: activeCampaign.id,
+          phoneNumber: "synthetic-future",
+          direction: "outbound",
+          status: "completed",
+          startedAt: new Date("2099-01-01T00:01:00.000Z"),
+          endedAt: new Date("2099-01-01T00:02:00.000Z"),
+        });
+        const { aggregateWallboardCallActivity } = await import("./wallboard");
+        const activity = await aggregateWallboardCallActivity(
+          [activeCampaign.id],
+          aggregateNow,
+          tx,
+        );
+        assert.equal(activity.outbound.startedAt, completedStartedAt.toISOString());
+        assert.equal(activity.outbound.connectedAt, completedAnsweredAt.toISOString());
+        assert.equal(activity.inbound.startedAt, "2098-12-31T22:01:00.000Z");
+        assert.equal(activity.inbound.connectedAt, "2098-12-31T22:10:00.000Z");
+        throw rollback;
+      });
+      assert.fail("the fixture transaction should roll back");
+    } catch (error) {
+      assert.equal(error, rollback);
     }
   } finally {
     await pool.end();

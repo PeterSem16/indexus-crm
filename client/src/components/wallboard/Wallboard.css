@@ -105,6 +105,32 @@
   max-width: 640px;
 }
 
+.wb-tool:disabled { opacity: 0.5; cursor: not-allowed; }
+.wb-alarm-count {
+  min-width: 20px;
+  padding: 2px 5px;
+  border-radius: 12px;
+  background: var(--wb-amber);
+  color: var(--wb-ink);
+}
+.wb-agent[data-alarm],
+.wb-summary[data-alarm],
+.wb-metric[data-alarm],
+.wb-queue[data-alarm] {
+  outline: 2px solid var(--wb-amber);
+  outline-offset: -2px;
+}
+.wb-rail.wb-rail-alarmed { grid-template-rows: auto auto minmax(0, 1fr) auto; }
+.wb-rail-alarmed .wb-alarm-panel {
+  min-height: 0;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+.wb-rail-alarmed .wb-alarm-panel > * { flex-shrink: 0; }
+.wb-rail-alarmed .wb-alarm-incidents { overflow: visible; }
+.wb-rail-alarmed .wb-alarm-panel:has(.wb-alarm-incident) .wb-alarm-monitoring { display: none; }
+.wb-rail-alarmed .wb-queue { min-height: 0; overflow-y: auto; }
+
 .wb-tool,
 .wb-page-button {
   display: inline-flex;

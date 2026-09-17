@@ -2,6 +2,7 @@ import { sql, relations } from "drizzle-orm";
 import { pgTable, text, varchar, boolean, timestamp, decimal, integer, numeric, date, serial, jsonb, unique, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import type { WallboardAlarmSettings } from "./wallboard-alarms";
 
 // Country codes for the CRM system (operating countries)
 export const COUNTRIES = [
@@ -6462,6 +6463,27 @@ export const insertInboundCallLogSchema = createInsertSchema(inboundCallLogs).om
 });
 export type InsertInboundCallLog = z.infer<typeof insertInboundCallLogSchema>;
 export type InboundCallLog = typeof inboundCallLogs.$inferSelect;
+
+// Wallboard alarm rules are private to the viewer who configured them.  The
+// scope is either "all" or "campaign:<id>"; it is intentionally not a campaign
+// setting so readonly wallboard viewers can configure their own alarms.
+export const wallboardAlarmSettings = pgTable("wallboard_alarm_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  scope: text("scope").notNull(),
+  settings: jsonb("settings").$type<WallboardAlarmSettings>().notNull(),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+}, (table) => ({
+  userScopeUnique: uniqueIndex("wallboard_alarm_settings_user_scope_unique")
+    .on(table.userId, table.scope),
+}));
+
+export const insertWallboardAlarmSettingsSchema = createInsertSchema(wallboardAlarmSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+export type InsertWallboardAlarmSettings = z.infer<typeof insertWallboardAlarmSettingsSchema>;
+export type WallboardAlarmSettingsRow = typeof wallboardAlarmSettings.$inferSelect;
 
 // Last card an agent explicitly opened for a caller number. The entity is
 // polymorphic, so no entity foreign key is stored; callers must validate it

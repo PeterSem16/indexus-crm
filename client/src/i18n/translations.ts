@@ -7587,6 +7587,29 @@ export interface Translations {
     states: Record<'calling' | 'ringing' | 'working' | 'available' | 'break' | 'offline', string>;
     details: Record<'calling' | 'ringing' | 'working' | 'available' | 'break' | 'offline', string>;
     callStatuses: Record<'waiting' | 'ringing' | 'talking', string>;
+    alarm: {
+      settings: string; settingsTitle: string; settingsDescription: string; loading: string;
+      settingsLoadError: string; sourceUnavailable: string; save: string; cancel: string;
+      saveError: string; validationError: string; invalidSettings: string;
+      rules: string; addRule: string; maxRules: string; rule: string; name: string; enabled: string;
+      type: string; threshold: string; countUnit: string; seconds: string; minutes: string;
+      direction: string; inbound: string; outbound: string; both: string; event: string;
+      started: string; connected: string; delay: string; delayHelp: string; mode: string;
+      visual: string; visualSound: string; repeat: string; once: string; repeatEvery: string;
+      schedule: string; scheduleHelp: string; days: string; startTime: string; endTime: string;
+      overnight: string; timezone: string; sunday: string; monday: string; tuesday: string;
+      wednesday: string; thursday: string; friday: string; saturday: string;
+      startupGrace: string; startupGraceHelp: string; volume: string; delete: string;
+      deleteConfirm: string; typeNoCalls: string; typeMinOnline: string; typeMinAvailable: string;
+      typeMaxBreak: string; typeLongBreak: string; typeQueueWait: string;
+      incidentsTitle: string; activeIncidents: string; noIncidents: string; current: string;
+      thresholdLabel: string; acknowledge: string; mute: string; muteFiveMinutes: string;
+      acknowledged: string; muted: string; suspended: string; suspendedDescription: string;
+      grace: string; remaining: string; soundControls: string; enableSound: string;
+      disableSound: string; testSound: string; soundEnabled: string; soundRequired: string;
+      soundError: string;
+      monitoringHint: string; partialSourceWarning: string;
+    };
   };
 }
 
@@ -15765,6 +15788,23 @@ export const translations: Record<Locale, Translations> = {
       states: { calling: 'CALLING', ringing: 'RINGING', working: 'WORKING', available: 'AVAILABLE', break: 'BREAK', offline: 'OFFLINE' },
       details: { calling: 'Active call', ringing: 'Ringing', working: 'Working in contact card', available: 'Ready for the next call', break: 'On break', offline: 'Offline' },
       callStatuses: { waiting: 'Waiting', ringing: 'Ringing', talking: 'Talking' },
+      alarm: {
+        settings: 'Alarms', settingsTitle: 'Wallboard alarms', settingsDescription: 'Define visual and sound alerts for live wallboard conditions.', loading: 'Loading alarms…',
+        settingsLoadError: 'Alarm settings could not be loaded.', sourceUnavailable: 'Alarm source unavailable.', save: 'Save changes', cancel: 'Cancel',
+        saveError: 'Alarm settings could not be saved.', validationError: 'Please correct the highlighted alarm settings.', invalidSettings: 'The alarm settings are invalid.',
+        rules: 'Rules', addRule: 'Add rule', maxRules: 'Maximum of 30 rules', rule: 'Rule', name: 'Name', enabled: 'Enabled',
+        type: 'Condition', threshold: 'Threshold', countUnit: 'Count', seconds: 'Seconds', minutes: 'Minutes',
+        direction: 'Call direction', inbound: 'Inbound', outbound: 'Outbound', both: 'Both', event: 'Call event',
+        started: 'Started', connected: 'Connected', delay: 'Sustained for', delayHelp: 'The condition must remain true for this long.', mode: 'Alert mode',
+        visual: 'Visual only', visualSound: 'Visual + sound', repeat: 'Sound repetition', once: 'Once per incident', repeatEvery: 'Repeat every',
+        schedule: 'Schedule', scheduleHelp: 'Overnight windows use the starting day. Time zone: Europe/Bratislava.', days: 'Days', startTime: 'Start time', endTime: 'End time',
+        overnight: 'Overnight window', timezone: 'Europe/Bratislava', sunday: 'Sun', monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri', saturday: 'Sat',
+        startupGrace: 'Startup grace period', startupGraceHelp: 'Ignore alarms after the wallboard starts.', volume: 'Sound volume', delete: 'Delete',
+        deleteConfirm: 'Delete this alarm rule?', typeNoCalls: 'No calls', typeMinOnline: 'Minimum online agents', typeMinAvailable: 'Minimum available agents', typeMaxBreak: 'Too many agents on break', typeLongBreak: 'Long agent break', typeQueueWait: 'Queue wait duration',
+        incidentsTitle: 'Active alarms', activeIncidents: 'active', noIncidents: 'No active alarms', current: 'Current', thresholdLabel: 'Threshold', acknowledge: 'Acknowledge', mute: 'Mute',
+        muteFiveMinutes: 'Mute for 5 minutes', acknowledged: 'Acknowledged', muted: 'Muted', suspended: 'Alarm source suspended', suspendedDescription: 'Live alarm data is temporarily unavailable.',
+        grace: 'Grace period', remaining: 'remaining', soundControls: 'Sound controls', enableSound: 'Enable sound', disableSound: 'Disable sound', testSound: 'Test sound', soundEnabled: 'Sound enabled', soundRequired: 'Click Enable sound to hear alarms.', soundError: 'Sound could not be started.', monitoringHint: 'Monitoring runs while this wallboard is open. Sound requires a user gesture.', partialSourceWarning: 'Some alarms are paused while their data source is unavailable.',
+      },
     },
 
   },
@@ -23272,6 +23312,19 @@ export const translations: Record<Locale, Translations> = {
       states: { calling: 'VOLÁ', ringing: 'ZVONÍ', working: 'SPRACÚVA', available: 'VOĽNÝ', break: 'PRESTÁVKA', offline: 'OFFLINE' },
       details: { calling: 'Prebiehajúci hovor', ringing: 'Vyzváňanie', working: 'Práca v karte kontaktu', available: 'Pripravený na ďalší hovor', break: 'Na prestávke', offline: 'Offline' },
       callStatuses: { waiting: 'Čaká', ringing: 'Zvoní', talking: 'Hovorí' },
+      alarm: {
+        settings: 'Alarmy', settingsTitle: 'Alarmy wallboardu', settingsDescription: 'Definujte vizuálne a zvukové upozornenia pre živé podmienky wallboardu.', loading: 'Načítavam alarmy…',
+        settingsLoadError: 'Nastavenia alarmov sa nepodarilo načítať.', sourceUnavailable: 'Zdroj alarmov nie je dostupný.', save: 'Uložiť zmeny', cancel: 'Zrušiť',
+        saveError: 'Nastavenia alarmov sa nepodarilo uložiť.', validationError: 'Opravte zvýraznené nastavenia alarmov.', invalidSettings: 'Nastavenia alarmov nie sú platné.',
+        rules: 'Pravidlá', addRule: 'Pridať pravidlo', maxRules: 'Najviac 30 pravidiel', rule: 'Pravidlo', name: 'Názov', enabled: 'Zapnuté',
+        type: 'Podmienka', threshold: 'Prah', countUnit: 'Počet', seconds: 'Sekundy', minutes: 'Minúty', direction: 'Smer hovoru', inbound: 'Prichádzajúce', outbound: 'Odchádzajúce', both: 'Oboje', event: 'Udalosť hovoru', started: 'Začatý', connected: 'Spojený',
+        delay: 'Trvanie', delayHelp: 'Podmienka musí trvať takto dlho.', mode: 'Režim alarmu', visual: 'Iba vizuálne', visualSound: 'Vizuálne + zvuk', repeat: 'Opakovanie zvuku', once: 'Raz na incident', repeatEvery: 'Opakovať každých',
+        schedule: 'Rozvrh', scheduleHelp: 'Nočné okná používajú počiatočný deň. Časové pásmo: Europe/Bratislava.', days: 'Dni', startTime: 'Začiatok', endTime: 'Koniec', overnight: 'Nočné okno', timezone: 'Europe/Bratislava', sunday: 'Ne', monday: 'Po', tuesday: 'Ut', wednesday: 'St', thursday: 'Št', friday: 'Pi', saturday: 'So',
+        startupGrace: 'Úvodná ochranná lehota', startupGraceHelp: 'Po spustení wallboardu ignorovať alarmy.', volume: 'Hlasitosť', delete: 'Odstrániť', deleteConfirm: 'Odstrániť toto pravidlo alarmu?',
+        typeNoCalls: 'Žiadne hovory', typeMinOnline: 'Minimum online agentov', typeMinAvailable: 'Minimum dostupných agentov', typeMaxBreak: 'Príliš veľa agentov na prestávke', typeLongBreak: 'Dlhá prestávka agenta', typeQueueWait: 'Čakanie vo fronte',
+        incidentsTitle: 'Aktívne alarmy', activeIncidents: 'aktívne', noIncidents: 'Žiadne aktívne alarmy', current: 'Aktuálne', thresholdLabel: 'Prah', acknowledge: 'Potvrdiť', mute: 'Stíšiť', muteFiveMinutes: 'Stíšiť na 5 minút', acknowledged: 'Potvrdené', muted: 'Stíšené',
+        suspended: 'Zdroj alarmov pozastavený', suspendedDescription: 'Živé údaje alarmov sú dočasne nedostupné.', grace: 'Ochranná lehota', remaining: 'zostáva', soundControls: 'Ovládanie zvuku', enableSound: 'Zapnúť zvuk', disableSound: 'Vypnúť zvuk', testSound: 'Otestovať zvuk', soundEnabled: 'Zvuk zapnutý', soundRequired: 'Pre počúvanie alarmov kliknite na Zapnúť zvuk.', soundError: 'Zvuk sa nepodarilo spustiť.', monitoringHint: 'Monitorovanie prebieha, kým je wallboard otvorený. Zvuk vyžaduje kliknutie používateľa.', partialSourceWarning: 'Niektoré alarmy sú pozastavené, kým ich zdroj údajov nie je dostupný.',
+      },
     },
 
   },
@@ -30705,6 +30758,15 @@ export const translations: Record<Locale, Translations> = {
       states: { calling: 'VOLÁ', ringing: 'ZVONÍ', working: 'ZPRACOVÁVÁ', available: 'VOLNÝ', break: 'PŘESTÁVKA', offline: 'OFFLINE' },
       details: { calling: 'Probíhající hovor', ringing: 'Vyzvánění', working: 'Práce v kartě kontaktu', available: 'Připraven na další hovor', break: 'Na přestávce', offline: 'Offline' },
       callStatuses: { waiting: 'Čeká', ringing: 'Zvoní', talking: 'Hovoří' },
+      alarm: {
+        settings: 'Alarmy', settingsTitle: 'Alarmy wallboardu', settingsDescription: 'Definujte vizuální a zvuková upozornění pro živé podmínky wallboardu.', loading: 'Načítání alarmů…',
+        settingsLoadError: 'Nastavení alarmů se nepodařilo načíst.', sourceUnavailable: 'Zdroj alarmů není dostupný.', save: 'Uložit změny', cancel: 'Zrušit', saveError: 'Nastavení alarmů se nepodařilo uložit.', validationError: 'Opravte zvýrazněná nastavení alarmů.', invalidSettings: 'Nastavení alarmů není platné.',
+        rules: 'Pravidla', addRule: 'Přidat pravidlo', maxRules: 'Maximálně 30 pravidel', rule: 'Pravidlo', name: 'Název', enabled: 'Zapnuto', type: 'Podmínka', threshold: 'Práh', countUnit: 'Počet', seconds: 'Sekundy', minutes: 'Minuty',
+        direction: 'Směr hovoru', inbound: 'Příchozí', outbound: 'Odchozí', both: 'Oba', event: 'Událost hovoru', started: 'Zahájen', connected: 'Spojen', delay: 'Trvání', delayHelp: 'Podmínka musí trvat takto dlouho.', mode: 'Režim alarmu', visual: 'Pouze vizuální', visualSound: 'Vizuální + zvuk', repeat: 'Opakování zvuku', once: 'Jednou na incident', repeatEvery: 'Opakovat každých',
+        schedule: 'Rozvrh', scheduleHelp: 'Noční okna používají počáteční den. Časové pásmo: Europe/Bratislava.', days: 'Dny', startTime: 'Začátek', endTime: 'Konec', overnight: 'Noční okno', timezone: 'Europe/Bratislava', sunday: 'Ne', monday: 'Po', tuesday: 'Út', wednesday: 'St', thursday: 'Čt', friday: 'Pá', saturday: 'So',
+        startupGrace: 'Úvodní ochranná lhůta', startupGraceHelp: 'Po spuštění wallboardu ignorovat alarmy.', volume: 'Hlasitost', delete: 'Odstranit', deleteConfirm: 'Odstranit toto pravidlo alarmu?', typeNoCalls: 'Žádné hovory', typeMinOnline: 'Minimum online agentů', typeMinAvailable: 'Minimum dostupných agentů', typeMaxBreak: 'Příliš mnoho agentů na přestávce', typeLongBreak: 'Dlouhá přestávka agenta', typeQueueWait: 'Čekání ve frontě',
+        incidentsTitle: 'Aktivní alarmy', activeIncidents: 'aktivní', noIncidents: 'Žádné aktivní alarmy', current: 'Aktuálně', thresholdLabel: 'Práh', acknowledge: 'Potvrdit', mute: 'Ztlumit', muteFiveMinutes: 'Ztlumit na 5 minut', acknowledged: 'Potvrzeno', muted: 'Ztlumeno', suspended: 'Zdroj alarmů pozastaven', suspendedDescription: 'Živá data alarmů jsou dočasně nedostupná.', grace: 'Ochranná lhůta', remaining: 'zbývá', soundControls: 'Ovládání zvuku', enableSound: 'Zapnout zvuk', disableSound: 'Vypnout zvuk', testSound: 'Otestovat zvuk', soundEnabled: 'Zvuk zapnut', soundRequired: 'Pro poslech alarmů klikněte na Zapnout zvuk.', soundError: 'Zvuk se nepodařilo spustit.', monitoringHint: 'Monitorování běží, dokud je wallboard otevřený. Zvuk vyžaduje kliknutí uživatele.', partialSourceWarning: 'Některé alarmy jsou pozastaveny, dokud není jejich zdroj dat dostupný.',
+      },
     },
 
   },
@@ -38100,6 +38162,13 @@ export const translations: Record<Locale, Translations> = {
       states: { calling: 'HÍVÁS', ringing: 'CSÖRÖG', working: 'DOLGOZIK', available: 'ELÉRHETŐ', break: 'SZÜNET', offline: 'OFFLINE' },
       details: { calling: 'Aktív hívás', ringing: 'Csengés', working: 'Munka a kapcsolati adatlapon', available: 'Készen áll a következő hívásra', break: 'Szünetben', offline: 'Offline' },
       callStatuses: { waiting: 'Várakozik', ringing: 'Csörög', talking: 'Beszél' },
+      alarm: {
+        settings: 'Riasztások', settingsTitle: 'Wallboard-riasztások', settingsDescription: 'Vizuális és hangjelzések beállítása az élő wallboard-feltételekhez.', loading: 'Riasztások betöltése…', settingsLoadError: 'A riasztási beállítások nem tölthetők be.', sourceUnavailable: 'A riasztási forrás nem érhető el.', save: 'Módosítások mentése', cancel: 'Mégse', saveError: 'A riasztási beállítások nem menthetők.', validationError: 'Javítsa a kiemelt riasztási beállításokat.', invalidSettings: 'Érvénytelen riasztási beállítások.',
+        rules: 'Szabályok', addRule: 'Szabály hozzáadása', maxRules: 'Legfeljebb 30 szabály', rule: 'Szabály', name: 'Név', enabled: 'Engedélyezve', type: 'Feltétel', threshold: 'Küszöbérték', countUnit: 'Darab', seconds: 'Másodperc', minutes: 'Perc', direction: 'Hívásirány', inbound: 'Bejövő', outbound: 'Kimenő', both: 'Mindkettő', event: 'Hívásesemény', started: 'Elindult', connected: 'Kapcsolódott', delay: 'Időtartam', delayHelp: 'A feltételnek ennyi ideig fenn kell állnia.', mode: 'Riasztási mód', visual: 'Csak vizuális', visualSound: 'Vizuális + hang', repeat: 'Hangismétlés', once: 'Eseményenként egyszer', repeatEvery: 'Ismétlés enny másodpercenként',
+        schedule: 'Ütemezés', scheduleHelp: 'Az éjszakai ablakok a kezdőnapot használják. Időzóna: Europe/Bratislava.', days: 'Napok', startTime: 'Kezdés', endTime: 'Befejezés', overnight: 'Éjszakai ablak', timezone: 'Europe/Bratislava', sunday: 'V', monday: 'H', tuesday: 'K', wednesday: 'Sze', thursday: 'Cs', friday: 'P', saturday: 'Szo', startupGrace: 'Indítási türelmi idő', startupGraceHelp: 'A wallboard indítása után hagyja figyelmen kívül a riasztásokat.', volume: 'Hangerő', delete: 'Törlés', deleteConfirm: 'Törli ezt a riasztási szabályt?',
+        incidentsTitle: 'Aktív riasztások', activeIncidents: 'aktív', noIncidents: 'Nincs aktív riasztás', current: 'Jelenlegi', thresholdLabel: 'Küszöb', acknowledge: 'Nyugtázás', mute: 'Némítás', muteFiveMinutes: 'Némítás 5 percre', acknowledged: 'Nyugtázva', muted: 'Némítva', suspended: 'Riasztási forrás felfüggesztve', suspendedDescription: 'Az élő riasztási adatok ideiglenesen nem érhetők el.', grace: 'Türelmi idő', remaining: 'hátralévő', soundControls: 'Hangvezérlés', enableSound: 'Hang bekapcsolása', disableSound: 'Hang kikapcsolása', testSound: 'Hang tesztelése', soundEnabled: 'Hang bekapcsolva', soundRequired: 'A riasztások hallgatásához kattintson a Hang bekapcsolására.', soundError: 'A hang nem indítható el.', monitoringHint: 'A megfigyelés addig fut, amíg a wallboard nyitva van. A hanghoz felhasználói kattintás szükséges.', partialSourceWarning: 'Néhány riasztás szünetel, amíg az adatforrása nem érhető el.',
+        typeNoCalls: 'Nincs hívás', typeMinOnline: 'Minimum online ügynök', typeMinAvailable: 'Minimum elérhető ügynök', typeMaxBreak: 'Túl sok szünetelő ügynök', typeLongBreak: 'Hosszú ügynöki szünet', typeQueueWait: 'Várakozás a sorban',
+      },
     },
 
   },
@@ -45415,6 +45484,12 @@ export const translations: Record<Locale, Translations> = {
       states: { calling: 'APELEAZĂ', ringing: 'SUNĂ', working: 'LUCREAZĂ', available: 'DISPONIBIL', break: 'PAUZĂ', offline: 'OFFLINE' },
       details: { calling: 'Apel în curs', ringing: 'Sună', working: 'Lucrează în fișa contactului', available: 'Pregătit pentru următorul apel', break: 'În pauză', offline: 'Offline' },
       callStatuses: { waiting: 'În așteptare', ringing: 'Sună', talking: 'Vorbește' },
+      alarm: {
+        settings: 'Alerte', settingsTitle: 'Alerte wallboard', settingsDescription: 'Definiți alerte vizuale și sonore pentru condițiile live.', loading: 'Se încarcă alertele…', settingsLoadError: 'Setările alertelor nu au putut fi încărcate.', sourceUnavailable: 'Sursa alertelor nu este disponibilă.', save: 'Salvează modificările', cancel: 'Anulare', saveError: 'Setările alertelor nu au putut fi salvate.', validationError: 'Corectați setările evidențiate.', invalidSettings: 'Setări de alerte invalide.',
+        rules: 'Reguli', addRule: 'Adaugă regulă', maxRules: 'Maximum 30 de reguli', rule: 'Regulă', name: 'Nume', enabled: 'Activat', type: 'Condiție', threshold: 'Prag', countUnit: 'Număr', seconds: 'Secunde', minutes: 'Minute', direction: 'Direcția apelului', inbound: 'Intrare', outbound: 'Ieșire', both: 'Ambele', event: 'Eveniment apel', started: 'Început', connected: 'Conectat', delay: 'Durată', delayHelp: 'Condiția trebuie să rămână activă atât timp.', mode: 'Mod alertă', visual: 'Doar vizual', visualSound: 'Vizual + sunet', repeat: 'Repetare sunet', once: 'O dată per incident', repeatEvery: 'Repetă la fiecare',
+        schedule: 'Program', scheduleHelp: 'Intervalele peste noapte folosesc ziua de început. Fus orar: Europe/Bratislava.', days: 'Zile', startTime: 'Început', endTime: 'Sfârșit', startupGrace: 'Perioadă de grație la pornire', startupGraceHelp: 'Ignoră alertele după pornirea wallboardului.', volume: 'Volum', delete: 'Șterge', deleteConfirm: 'Ștergeți această regulă de alertă?', typeNoCalls: 'Fără apeluri', typeMinOnline: 'Minimum agenți online', typeMinAvailable: 'Minimum agenți disponibili', typeMaxBreak: 'Prea mulți agenți în pauză', typeLongBreak: 'Pauză lungă a agentului', typeQueueWait: 'Așteptare în coadă',
+        incidentsTitle: 'Alerte active', activeIncidents: 'active', noIncidents: 'Nu există alerte active', current: 'Curent', thresholdLabel: 'Prag', acknowledge: 'Confirmă', mute: 'Dezactivează sunetul', muteFiveMinutes: 'Dezactivează pentru 5 minute', acknowledged: 'Confirmat', muted: 'Dezactivat', suspended: 'Sursa alertelor suspendată', suspendedDescription: 'Datele live ale alertelor nu sunt disponibile temporar.', grace: 'Perioadă de grație', remaining: 'rămase', soundControls: 'Control sunet', enableSound: 'Activează sunetul', disableSound: 'Dezactivează sunetul', testSound: 'Testează sunetul', soundEnabled: 'Sunet activat', soundRequired: 'Apăsați Activează sunetul pentru a auzi alertele.', soundError: 'Sunetul nu a putut fi pornit.', monitoringHint: 'Monitorizarea rulează cât timp wallboardul este deschis. Sunetul necesită un clic al utilizatorului.', partialSourceWarning: 'Unele alerte sunt suspendate cât timp sursa datelor nu este disponibilă.',
+      },
     },
 
   },
@@ -52732,6 +52807,12 @@ export const translations: Record<Locale, Translations> = {
       states: { calling: 'CHIAMATA', ringing: 'SQUILLA', working: 'AL LAVORO', available: 'DISPONIBILE', break: 'PAUSA', offline: 'OFFLINE' },
       details: { calling: 'Chiamata in corso', ringing: 'Squillo', working: 'Lavoro nella scheda contatto', available: 'Pronto per la prossima chiamata', break: 'In pausa', offline: 'Offline' },
       callStatuses: { waiting: 'In attesa', ringing: 'Squilla', talking: 'In conversazione' },
+      alarm: {
+        settings: 'Allarmi', settingsTitle: 'Allarmi wallboard', settingsDescription: 'Definisci avvisi visivi e sonori per le condizioni live.', loading: 'Caricamento allarmi…', settingsLoadError: 'Impossibile caricare le impostazioni degli allarmi.', sourceUnavailable: 'Sorgente allarmi non disponibile.', save: 'Salva modifiche', cancel: 'Annulla', saveError: 'Impossibile salvare le impostazioni degli allarmi.', validationError: 'Correggi le impostazioni evidenziate.', invalidSettings: 'Impostazioni allarmi non valide.',
+        rules: 'Regole', addRule: 'Aggiungi regola', maxRules: 'Massimo 30 regole', rule: 'Regola', name: 'Nome', enabled: 'Abilitata', type: 'Condizione', threshold: 'Soglia', countUnit: 'Conteggio', seconds: 'Secondi', minutes: 'Minuti', direction: 'Direzione chiamata', inbound: 'In entrata', outbound: 'In uscita', both: 'Entrambe', event: 'Evento chiamata', started: 'Iniziata', connected: 'Connessa', delay: 'Durata', delayHelp: 'La condizione deve rimanere vera per questo tempo.', mode: 'Modalità avviso', visual: 'Solo visivo', visualSound: 'Visivo + suono', repeat: 'Ripetizione suono', once: 'Una volta per incidente', repeatEvery: 'Ripeti ogni',
+        schedule: 'Programmazione', scheduleHelp: 'Le fasce notturne usano il giorno iniziale. Fuso orario: Europe/Bratislava.', days: 'Giorni', startTime: 'Inizio', endTime: 'Fine', overnight: 'Fascia notturna', timezone: 'Europe/Bratislava', sunday: 'Dom', monday: 'Lun', tuesday: 'Mar', wednesday: 'Mer', thursday: 'Gio', friday: 'Ven', saturday: 'Sab', startupGrace: 'Periodo di tolleranza iniziale', startupGraceHelp: 'Ignora gli allarmi dopo l’avvio del wallboard.', volume: 'Volume', delete: 'Elimina', deleteConfirm: 'Eliminare questa regola di allarme?', typeNoCalls: 'Nessuna chiamata', typeMinOnline: 'Minimo agenti online', typeMinAvailable: 'Minimo agenti disponibili', typeMaxBreak: 'Troppi agenti in pausa', typeLongBreak: 'Pausa lunga dell’agente', typeQueueWait: 'Attesa in coda',
+        incidentsTitle: 'Allarmi attivi', activeIncidents: 'attivi', noIncidents: 'Nessun allarme attivo', current: 'Corrente', thresholdLabel: 'Soglia', acknowledge: 'Conferma', mute: 'Silenzia', muteFiveMinutes: 'Silenzia per 5 minuti', acknowledged: 'Confermato', muted: 'Silenziato', suspended: 'Sorgente allarmi sospesa', suspendedDescription: 'I dati live degli allarmi non sono temporaneamente disponibili.', grace: 'Tolleranza', remaining: 'rimanenti', soundControls: 'Controlli audio', enableSound: 'Abilita audio', disableSound: 'Disabilita audio', testSound: 'Prova audio', soundEnabled: 'Audio abilitato', soundRequired: 'Fai clic su Abilita audio per ascoltare gli allarmi.', soundError: 'Impossibile avviare l’audio.', monitoringHint: 'Il monitoraggio funziona mentre il wallboard è aperto. L’audio richiede un gesto dell’utente.', partialSourceWarning: 'Alcuni allarmi sono sospesi mentre la loro fonte dati non è disponibile.',
+      },
     },
 
   },
@@ -60035,6 +60116,12 @@ export const translations: Record<Locale, Translations> = {
       states: { calling: 'ANRUF', ringing: 'KLINGELT', working: 'IN ARBEIT', available: 'VERFÜGBAR', break: 'PAUSE', offline: 'OFFLINE' },
       details: { calling: 'Aktiver Anruf', ringing: 'Klingelt', working: 'Arbeit in der Kontaktkarte', available: 'Bereit für den nächsten Anruf', break: 'In Pause', offline: 'Offline' },
       callStatuses: { waiting: 'Wartend', ringing: 'Klingelt', talking: 'Im Gespräch' },
+      alarm: {
+        settings: 'Alarme', settingsTitle: 'Wallboard-Alarme', settingsDescription: 'Visuelle und akustische Warnungen für Live-Bedingungen festlegen.', loading: 'Alarme werden geladen…', settingsLoadError: 'Alarmeinstellungen konnten nicht geladen werden.', sourceUnavailable: 'Alarmquelle nicht verfügbar.', save: 'Änderungen speichern', cancel: 'Abbrechen', saveError: 'Alarmeinstellungen konnten nicht gespeichert werden.', validationError: 'Korrigieren Sie die markierten Einstellungen.', invalidSettings: 'Die Alarmeinstellungen sind ungültig.',
+        rules: 'Regeln', addRule: 'Regel hinzufügen', maxRules: 'Maximal 30 Regeln', rule: 'Regel', name: 'Name', enabled: 'Aktiviert', type: 'Bedingung', threshold: 'Schwellenwert', countUnit: 'Anzahl', seconds: 'Sekunden', minutes: 'Minuten', direction: 'Anrufrichtung', inbound: 'Eingehend', outbound: 'Ausgehend', both: 'Beide', event: 'Anrufereignis', started: 'Gestartet', connected: 'Verbunden', delay: 'Dauer', delayHelp: 'Die Bedingung muss so lange bestehen.', mode: 'Alarmmodus', visual: 'Nur visuell', visualSound: 'Visuell + Ton', repeat: 'Tonwiederholung', once: 'Einmal pro Vorfall', repeatEvery: 'Wiederholen alle',
+        schedule: 'Zeitplan', scheduleHelp: 'Übernacht-Zeitfenster verwenden den Starttag. Zeitzone: Europe/Bratislava.', days: 'Tage', startTime: 'Startzeit', endTime: 'Endzeit', overnight: 'Übernacht-Zeitfenster', timezone: 'Europe/Bratislava', sunday: 'So', monday: 'Mo', tuesday: 'Di', wednesday: 'Mi', thursday: 'Do', friday: 'Fr', saturday: 'Sa', startupGrace: 'Start-Toleranzzeit', startupGraceHelp: 'Alarme nach dem Wallboard-Start ignorieren.', volume: 'Lautstärke', delete: 'Löschen', deleteConfirm: 'Diese Alarmregel löschen?', typeNoCalls: 'Keine Anrufe', typeMinOnline: 'Mindestens Online-Agents', typeMinAvailable: 'Mindestens verfügbare Agents', typeMaxBreak: 'Zu viele Agents in Pause', typeLongBreak: 'Lange Agentenpause', typeQueueWait: 'Wartezeit in der Warteschlange',
+        incidentsTitle: 'Aktive Alarme', activeIncidents: 'aktiv', noIncidents: 'Keine aktiven Alarme', current: 'Aktuell', thresholdLabel: 'Schwelle', acknowledge: 'Bestätigen', mute: 'Stummschalten', muteFiveMinutes: '5 Minuten stummschalten', acknowledged: 'Bestätigt', muted: 'Stummgeschaltet', suspended: 'Alarmquelle pausiert', suspendedDescription: 'Live-Alarminformationen sind vorübergehend nicht verfügbar.', grace: 'Toleranzzeit', remaining: 'verbleibend', soundControls: 'Tonsteuerung', enableSound: 'Ton aktivieren', disableSound: 'Ton deaktivieren', testSound: 'Ton testen', soundEnabled: 'Ton aktiviert', soundRequired: 'Klicken Sie auf Ton aktivieren, um Alarme zu hören.', soundError: 'Ton konnte nicht gestartet werden.', monitoringHint: 'Die Überwachung läuft, solange dieses Wallboard geöffnet ist. Für Ton ist eine Benutzeraktion erforderlich.', partialSourceWarning: 'Einige Alarme sind pausiert, solange ihre Datenquelle nicht verfügbar ist.',
+      },
     },
 
   },

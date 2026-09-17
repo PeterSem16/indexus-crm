@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, isNull, lte, max, or, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lte, max, or, sql, desc } from "drizzle-orm";
 import { db } from "../db";
 import { storage } from "../storage";
 import {
@@ -10,6 +10,7 @@ import {
   campaignAgents,
   inboundCallLogs,
   inboundQueues,
+  wallboardAlarmSettings,
   users,
 } from "@shared/schema";
 import {
@@ -22,6 +23,11 @@ import { getQueueEngine } from "./queue-engine";
 import { inboundCallWs } from "./inbound-call-ws";
 import { getWallboardPresence } from "./wallboard-presence";
 import type { WallboardSnapshot } from "@shared/wallboard";
+import {
+  defaultWallboardAlarmSettings,
+  wallboardAlarmSettingsSchema,
+  type WallboardAlarmSettings,
+} from "@shared/wallboard-alarms";
 import type { WallboardQueueCall } from "./wallboard-queue";
 import {
   startOfBratislavaDay,
@@ -60,7 +66,12 @@ export async function canViewWallboard(viewer: Viewer): Promise<boolean> {
     !!(user?.assignedCountries?.length || workspace.length > 0);
 }
 
-async function readableCampaigns(viewer: Viewer, requestedCampaignId?: string | null): Promise<CampaignRow[]> {
+/**
+ * Return the exact campaign set a viewer may use for wallboard data or
+ * configuration.  Keep this separate from snapshot construction: alarm
+ * endpoints need the same authorization without building a live snapshot.
+ */
+export async function readableCampaigns(viewer: Viewer, requestedCampaignId?: string | null): Promise<CampaignRow[]> {
   const rows = await db.select().from(campaigns).where(requestedCampaignId
     ? or(eq(campaigns.status, "active"), eq(campaigns.id, requestedCampaignId))
     : eq(campaigns.status, "active"));
@@ -82,10 +93,146 @@ async function readableCampaigns(viewer: Viewer, requestedCampaignId?: string | 
   }));
 }
 
+export function wallboardAlarmScope(campaignId: string | null): string {
+  return campaignId ? `campaign:${campaignId}` : "all";
+}
+
+/**
+ * Read a viewer's private settings. A malformed persisted JSON document is a
+ * server error, never a reason to silently reset that viewer's alarms.
+ */
+export async function getWallboardAlarmSettings(
+  userId: string,
+  campaignId: string | null,
+  queryDb: any = db,
+): Promise<WallboardAlarmSettings> {
+  const [row] = await queryDb.select({ settings: wallboardAlarmSettings.settings })
+    .from(wallboardAlarmSettings)
+    .where(and(
+      eq(wallboardAlarmSettings.userId, userId),
+      eq(wallboardAlarmSettings.scope, wallboardAlarmScope(campaignId)),
+    ))
+    .orderBy(desc(wallboardAlarmSettings.updatedAt))
+    .limit(1);
+  if (!row) return defaultWallboardAlarmSettings();
+  const parsed = wallboardAlarmSettingsSchema.safeParse(row.settings);
+  if (!parsed.success) {
+    throw new Error("WALLBOARD_ALARM_SETTINGS_INVALID");
+  }
+  return parsed.data;
+}
+
+export async function saveWallboardAlarmSettings(
+  userId: string,
+  campaignId: string | null,
+  settings: WallboardAlarmSettings,
+  queryDb: any = db,
+): Promise<WallboardAlarmSettings> {
+  // Callers should validate too, but validating at the persistence boundary
+  // prevents an unsafe helper call from storing an invalid alarm document.
+  const parsed = wallboardAlarmSettingsSchema.safeParse(settings);
+  if (!parsed.success) throw new Error("WALLBOARD_ALARM_SETTINGS_INVALID");
+  const [row] = await queryDb.insert(wallboardAlarmSettings).values({
+    userId,
+    scope: wallboardAlarmScope(campaignId),
+    settings: parsed.data,
+  }).onConflictDoUpdate({
+    target: [wallboardAlarmSettings.userId, wallboardAlarmSettings.scope],
+    set: { settings: parsed.data, updatedAt: sql`now()` },
+  }).returning({ settings: wallboardAlarmSettings.settings });
+  if (!row) throw new Error("WALLBOARD_ALARM_SETTINGS_UNAVAILABLE");
+  const stored = wallboardAlarmSettingsSchema.safeParse(row.settings);
+  if (!stored.success) throw new Error("WALLBOARD_ALARM_SETTINGS_INVALID");
+  return stored.data;
+}
+
 function dateValue(value: Date | string | null | undefined): string | null {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function activityDate(value: Date | string | null | undefined, now: Date): string | null {
+  const date = value instanceof Date ? value : value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime()) || date.getTime() > now.getTime()) return null;
+  return date.toISOString();
+}
+
+function newestActivityTimestamp(
+  current: string | null,
+  candidate: Date | string | null | undefined,
+  now: Date,
+): string | null {
+  const next = activityDate(candidate, now);
+  if (!next) return current;
+  return !current || next > current ? next : current;
+}
+
+/**
+ * Read the last event clocks without materializing call history in Node.
+ * Campaign scope is the only attribution authority: queue rows are joined
+ * through their explicit call_logs FK, and shared/null-campaign calls never
+ * enter these aggregates. `queryDb` is injectable for rollback-only tests.
+ */
+export async function aggregateWallboardCallActivity(
+  visibleCampaignIds: readonly string[],
+  now = new Date(),
+  queryDb: any = db,
+): Promise<WallboardSnapshot["callActivity"]> {
+  const empty: WallboardSnapshot["callActivity"] = {
+    inbound: { startedAt: null, connectedAt: null },
+    outbound: { startedAt: null, connectedAt: null },
+  };
+  if (!visibleCampaignIds.length) return empty;
+
+  const [direct] = await queryDb.select({
+    inboundStartedAt: sql<Date | null>`max(${callLogs.startedAt}) FILTER (
+      WHERE ${callLogs.direction} = 'inbound' AND ${callLogs.startedAt} <= ${now}
+    )`,
+    inboundConnectedAt: sql<Date | null>`max(${callLogs.answeredAt}) FILTER (
+      WHERE ${callLogs.direction} = 'inbound'
+        AND ${callLogs.answeredAt} IS NOT NULL
+        AND ${callLogs.answeredAt} <= ${now}
+    )`,
+    outboundStartedAt: sql<Date | null>`max(${callLogs.startedAt}) FILTER (
+      WHERE ${callLogs.direction} = 'outbound' AND ${callLogs.startedAt} <= ${now}
+    )`,
+    outboundConnectedAt: sql<Date | null>`max(${callLogs.answeredAt}) FILTER (
+      WHERE ${callLogs.direction} = 'outbound'
+        AND ${callLogs.answeredAt} IS NOT NULL
+        AND ${callLogs.answeredAt} <= ${now}
+    )`,
+  }).from(callLogs).where(inArray(callLogs.campaignId, Array.from(visibleCampaignIds)));
+
+  // Queue timing is separate from direct call timing: enteredQueueAt is the
+  // inbound "started" event, and answeredAt is the inbound "connected" event.
+  // The explicit FK campaign join is required even when the queue itself is
+  // shared by multiple Missions.
+  const [queue] = await queryDb.select({
+    startedAt: sql<Date | null>`max(${inboundCallLogs.enteredQueueAt}) FILTER (
+      WHERE ${inboundCallLogs.enteredQueueAt} <= ${now}
+    )`,
+    connectedAt: sql<Date | null>`max(${inboundCallLogs.answeredAt}) FILTER (
+      WHERE ${inboundCallLogs.answeredAt} IS NOT NULL
+        AND ${inboundCallLogs.answeredAt} <= ${now}
+    )`,
+  }).from(inboundCallLogs)
+    .innerJoin(callLogs, eq(inboundCallLogs.callLogId, callLogs.id))
+    .where(and(
+      eq(callLogs.direction, "inbound"),
+      inArray(callLogs.campaignId, Array.from(visibleCampaignIds)),
+    ));
+
+  for (const [direction, startedAt, connectedAt] of [
+    ["inbound", direct?.inboundStartedAt, direct?.inboundConnectedAt],
+    ["outbound", direct?.outboundStartedAt, direct?.outboundConnectedAt],
+  ] as const) {
+    empty[direction].startedAt = newestActivityTimestamp(empty[direction].startedAt, startedAt, now);
+    empty[direction].connectedAt = newestActivityTimestamp(empty[direction].connectedAt, connectedAt, now);
+  }
+  empty.inbound.startedAt = newestActivityTimestamp(empty.inbound.startedAt, queue?.startedAt, now);
+  empty.inbound.connectedAt = newestActivityTimestamp(empty.inbound.connectedAt, queue?.connectedAt, now);
+  return empty;
 }
 
 function callIsLive(call: { status: string; endedAt: Date | null }): boolean {
@@ -267,7 +414,13 @@ export async function buildWallboardSnapshot(
     campaignId: callLogs.campaignId,
   }).from(inboundCallLogs)
     .leftJoin(callLogs, eq(inboundCallLogs.callLogId, callLogs.id))
-    .where(inArray(inboundCallLogs.status, ["queued", "ringing", "answered"]));
+    .where(and(
+      inArray(inboundCallLogs.status, ["queued", "ringing", "answered"]),
+      isNull(callLogs.endedAt),
+      inArray(callLogs.status, ["initiated", "ringing", "answered"]),
+      eq(callLogs.direction, "inbound"),
+      ...(visibleIds.size ? [inArray(callLogs.campaignId, Array.from(visibleIds))] : [sql`false`]),
+    ));
   const dbInboundById = new Map(activeInboundRows.map((call) => [call.id, call]));
   const activeInbound = selectAuthorizedWallboardQueueCalls(queueCalls, visibleIds, campaignId)
     .filter((call) => queueNames.has(call.queueId));
@@ -413,8 +566,32 @@ export async function buildWallboardSnapshot(
     .filter((value): value is number => typeof value === "number");
   const sourceLive = true; // DB call/activity telemetry remains live without ARI.
   const ambiguousQueueCalls = queueCalls.some((call) => !call.campaignId);
+  // Historical DB clocks deliberately include ended/completed calls so
+  // no-calls rules can measure time since the last event. Live queue telemetry
+  // fills the short persistence gap while a current call is not yet in DB.
+  const callActivity = await aggregateWallboardCallActivity(
+    Array.from(visibleIds),
+    now,
+  );
+  for (const call of activeInbound) {
+    if (!call.campaignId || !visibleIds.has(call.campaignId)) continue;
+    if (call.status === "talking") {
+      callActivity.inbound.connectedAt = newestActivityTimestamp(
+        callActivity.inbound.connectedAt,
+        call.since,
+        now,
+      );
+    } else {
+      callActivity.inbound.startedAt = newestActivityTimestamp(
+        callActivity.inbound.startedAt,
+        call.since,
+        now,
+      );
+    }
+  }
   return {
     generatedAt: now.toISOString(),
+    callActivity,
     scope: { campaignId, campaignName: selected?.name || null },
     campaigns: visible.map((campaign) => ({ id: campaign.id, name: campaign.name })),
     agents,

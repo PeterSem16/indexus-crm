@@ -121,6 +121,14 @@ app.use((req, res, next) => {
 app.use("/udid/callback", express.raw({ type: "*/*", limit: "1mb" }));
 
 app.use(
+  // Wallboard alarm payloads are small, strict settings documents. Register
+  // this parser before the broad legacy parser below so oversized/chunked
+  // requests are rejected by body-parser rather than after a 50 MB parse.
+  "/api/wallboard/alarms",
+  express.json({ limit: "128kb" }),
+);
+
+app.use(
   express.json({
     limit: '50mb',
     verify: (req, _res, buf) => {
@@ -1174,6 +1182,27 @@ app.use((req, res, next) => {
     console.log('[migration] agent_phone_entity_preferences ensured');
   } catch (e: any) {
     console.error('[migration] agent_phone_entity_preferences error:', e.message);
+  }
+
+  // Personal wallboard alarm rules. The scope is deliberately a string rather
+  // than a foreign key because "all" is a valid board scope; campaign access
+  // is checked by the route before either reading or writing this row.
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS wallboard_alarm_settings (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id varchar NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        scope text NOT NULL,
+        settings jsonb NOT NULL,
+        updated_at timestamp NOT NULL DEFAULT now(),
+        UNIQUE(user_id, scope)
+      );
+      CREATE INDEX IF NOT EXISTS wallboard_alarm_settings_user_scope_idx
+        ON wallboard_alarm_settings(user_id, scope);
+    `);
+    console.log('[migration] wallboard_alarm_settings ensured');
+  } catch (e: any) {
+    console.error('[migration] wallboard_alarm_settings error:', e.message);
   }
 
   await registerRoutes(httpServer, app);

@@ -65,9 +65,28 @@ function makeSnapshot(scopeId = null, phase = 0, source = { live: true, warning:
       answeredToday: 126,
       averageWaitSeconds: 18,
     },
+    // Alarm telemetry is deliberately part of the fixture rather than
+    // inferred from the visible inbound card.  Older snapshots in production
+    // may omit this field; the alarm engine suspends no-call rules safely.
+    callActivity: {
+      inbound: {
+        startedAt: new Date(Date.now() - 45_000).toISOString(),
+        connectedAt: new Date(Date.now() - 40_000).toISOString(),
+      },
+      outbound: {
+        startedAt: new Date(Date.now() - 75_000).toISOString(),
+        connectedAt: new Date(Date.now() - 70_000).toISOString(),
+      },
+    },
     source,
   };
 }
+
+const EMPTY_WALLBOARD_ALARM_SETTINGS = {
+  startupGraceSeconds: 0,
+  volume: 0.5,
+  rules: [],
+};
 
 const BUNDLE_SOURCE = `
   import React, { useEffect, useState } from "react";
@@ -143,6 +162,28 @@ function installApiRoute(page, options = {}) {
     const requestUrl = new URL(route.request().url());
     const campaignId = requestUrl.searchParams.get("campaignId");
     state.requests += 1;
+
+    // Keep this route in the existing catch-all mock as well as in the
+    // alarm-specific browser harness.  Otherwise a newly added settings GET
+    // would be interpreted as a wallboard snapshot and surface a config error
+    // in every pre-alarm visual regression test.
+    if (requestUrl.pathname === "/api/wallboard/alarms") {
+      if (route.request().method() === "PUT") {
+        const body = route.request().postDataJSON();
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(body || EMPTY_WALLBOARD_ALARM_SETTINGS),
+        });
+      } else {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(EMPTY_WALLBOARD_ALARM_SETTINGS),
+        });
+      }
+      return;
+    }
 
     if (state.raceDelay && !campaignId) await sleep(state.raceDelay);
     if (state.authStatus) {
