@@ -21,6 +21,13 @@ function payload(locations: PriorityCityLocation[]) {
   return { cities: locations };
 }
 
+function realisticLocations(count: number): PriorityCityLocation[] {
+  return Array.from({ length: count }, (_, index) => location(
+    index % 2 === 0 ? "SK" : "CZ",
+    `City ${index}`,
+  ));
+}
+
 test("recomputes keys and rejects forged, duplicate, and oversized locations", async () => {
   const service = createPriorityCityRankingService({
     provider: async (locations) => ({
@@ -97,20 +104,100 @@ test("retries malformed AI JSON once before reporting a strict-output failure", 
   assert.equal(calls, 2);
 });
 
+test("repairs a realistic 225-location omission without filling from input order", async () => {
+  const locations = realisticLocations(225);
+  let calls = 0;
+  let repairIds: ReadonlyArray<string> | undefined;
+  const service = createPriorityCityRankingService({
+    maxAttempts: 2,
+    provider: async (received, _signal, repair) => {
+      calls += 1;
+      if (!repair) {
+        return {
+          rankedIds: received.map((_, index) => String(index)).filter((id) => id !== "113"),
+          unknownIds: [],
+        };
+      }
+      repairIds = repair.missingIds;
+      return {
+        rankedIds: received.map((_, index) => String(received.length - index - 1)),
+        unknownIds: [],
+      };
+    },
+  });
+
+  const result = await service.rank("agent-1", payload(locations));
+  assert.equal(calls, 2);
+  assert.deepEqual(repairIds, ["113"]);
+  assert.equal(result.rankedKeys.length, 225);
+  assert.equal(result.rankedKeys[0], locations[224]!.key);
+  assert.deepEqual(result.unknownKeys, []);
+});
+
+test("repairs duplicate and unknown IDs, but never accepts either as a rank", async () => {
+  const locations = realisticLocations(225);
+  let calls = 0;
+  const service = createPriorityCityRankingService({
+    maxAttempts: 2,
+    provider: async (received, _signal, repair) => {
+      calls += 1;
+      if (!repair) {
+        return {
+          rankedIds: ["0", "0", "999"],
+          unknownIds: [],
+        };
+      }
+      return {
+        rankedIds: received.map((_, index) => String(index)),
+        unknownIds: [],
+      };
+    },
+  });
+
+  const result = await service.rank("agent-1", payload(locations));
+  assert.equal(calls, 2);
+  assert.equal(result.rankedKeys.length, locations.length);
+  assert.equal(new Set(result.rankedKeys).size, locations.length);
+});
+
 test("rejects an injectable truncated response instead of accepting partial IDs", async () => {
+  const locations = realisticLocations(225);
   const service = createPriorityCityRankingService({
     maxAttempts: 1,
     provider: async () => ({
-      content: { rankedIds: ["0"], unknownIds: ["1"] },
+      content: { rankedIds: Array.from({ length: 224 }, (_, index) => String(index)), unknownIds: [] },
       finishReason: "length",
     }),
   });
   await assert.rejects(
-    service.rank("agent-1", payload([bratislava, prague])),
+    service.rank("agent-1", payload(locations)),
     (error: unknown) => error instanceof PriorityCityRankingError
       && error.code === "AI_INVALID_OUTPUT"
       && error.status === 502,
   );
+});
+
+test("reports bounded failure after repeated incomplete 225-location outputs", async () => {
+  const locations = realisticLocations(225);
+  let calls = 0;
+  const service = createPriorityCityRankingService({
+    maxAttempts: 2,
+    provider: async (received) => {
+      calls += 1;
+      return {
+        rankedIds: received.map((_, index) => String(index)).slice(0, -1),
+        unknownIds: [],
+      };
+    },
+  });
+
+  await assert.rejects(
+    service.rank("agent-1", payload(locations)),
+    (error: unknown) => error instanceof PriorityCityRankingError
+      && error.code === "AI_INVALID_OUTPUT"
+      && error.status === 502,
+  );
+  assert.equal(calls, 2);
 });
 
 test("returns an explicit failure after timeout and never fabricates AI output", async () => {
@@ -176,4 +263,28 @@ test("enforces a per-user rate limit independently of the cache", async () => {
       && error.status === 429,
   );
   await service.rank("agent-2", payload([bratislava]));
+});
+
+test("allows concurrent different users to rank the same city set independently", async () => {
+  const locations = realisticLocations(225);
+  let calls = 0;
+  const service = createPriorityCityRankingService({
+    rateLimitMax: 1,
+    provider: async (received) => {
+      calls += 1;
+      await new Promise((resolve) => setImmediate(resolve));
+      return {
+        rankedIds: received.map((_, index) => String(index)),
+        unknownIds: [],
+      };
+    },
+  });
+
+  const [first, second] = await Promise.all([
+    service.rank("agent-1", payload(locations)),
+    service.rank("agent-2", payload(locations)),
+  ]);
+  assert.deepEqual(first.rankedKeys, second.rankedKeys);
+  assert.equal(first.rankedKeys.length, 225);
+  assert.equal(calls, 2);
 });

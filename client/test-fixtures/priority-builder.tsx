@@ -239,7 +239,51 @@ const richSearchContacts = withContactDefaults([
   },
 ]);
 
-const selectedFixtureContacts = new URLSearchParams(window.location.search).get("rich-search") === "1"
+const manyCityNames = [
+  "Bratislava", "Žilina", "Košice", "Banská Bystrica", "Prešov", "Nitra", "Trenčín", "Trnava", "Poprad", "Martin",
+  "Prague", "Brno", "Ostrava", "České Budějovice", "Karlovy Vary", "Hradec Králové", "Pardubice", "Olomouc", "Liberec", "Ústí nad Labem",
+  "Vienna", "Salzburg", "Innsbruck", "Klagenfurt", "Sankt Pölten", "Wels", "Dornbirn", "Wiener Neustadt", "Eisenstadt", "Bregenz",
+  "Budapest", "Debrecen", "Szeged", "Miskolc", "Pécs", "Győr", "Nyíregyháza", "Kecskemét", "Székesfehérvár", "Szombathely",
+  "Warsaw", "Kraków", "Łódź", "Wrocław", "Poznań", "Gdańsk", "Szczecin", "Bydgoszcz", "Lublin", "Białystok",
+  "Berlin", "Hamburg", "Munich", "Cologne", "Frankfurt am Main", "Stuttgart", "Düsseldorf", "Leipzig", "Dortmund", "Nuremberg",
+  "Paris", "Marseille", "Lyon", "Toulouse", "Nice", "Nantes", "Strasbourg", "Montpellier", "Bordeaux", "Saint-Étienne",
+  "Rome", "Milan", "Naples", "Turin", "Palermo", "Genoa", "Bologna", "Florence", "Bari", "Catania",
+  "Madrid", "Barcelona", "Valencia", "Seville", "Zaragoza", "Málaga", "Murcia", "Palma de Mallorca", "Las Palmas de Gran Canaria", "Santa Cruz de Tenerife",
+  "Lisbon", "Porto", "Amadora", "Braga", "Coimbra", "Funchal", "Setúbal", "Almada", "Aveiro", "Vila Nova de Gaia",
+  "Amsterdam", "Rotterdam", "The Hague", "Utrecht", "Eindhoven", "Groningen", "Tilburg", "Almere", "Breda", "Nijmegen",
+  "Brussels", "Antwerp", "Ghent", "Charleroi", "Liège", "Bruges", "Namur", "Leuven", "Mons", "Mechelen",
+  "Copenhagen", "Aarhus", "Odense", "Aalborg", "Esbjerg", "Randers", "Kolding", "Horsens", "Vejle", "Roskilde",
+  "Stockholm", "Gothenburg", "Malmö", "Uppsala", "Västerås", "Örebro", "Linköping", "Helsingborg", "Jönköping", "Norrköping",
+  "Oslo", "Bergen", "Trondheim", "Stavanger", "Drammen", "Fredrikstad", "Kristiansand", "Sandnes", "Tromsø", "Ålesund",
+  "Helsinki", "Espoo", "Tampere", "Vantaa", "Oulu", "Turku", "Jyväskylä", "Lahti", "Kuopio", "Pori",
+  "Dublin", "Cork", "Limerick", "Galway", "Waterford", "Drogheda", "Dundalk", "Swords", "Kilkenny", "Ennis",
+  "Athens", "Thessaloniki", "Patras", "Heraklion", "Larissa", "Volos", "Ioannina", "Chania", "Kalamata", "Rhodes",
+  "London", "Birmingham", "Liverpool", "Manchester", "Leeds", "Bristol", "Sheffield", "Edinburgh", "Glasgow", "Cardiff",
+  "Zagreb", "Split", "Rijeka", "Osijek", "Zadar", "Pula", "Dubrovnik", "Varaždin", "Šibenik", "Slavonski Brod",
+  "Ljubljana", "Maribor", "Celje", "Kranj", "Koper", "Novo Mesto", "Velenje", "Ptuj", "Kamnik", "Jesenice",
+  "Bucharest", "Cluj-Napoca", "Timișoara", "Iași", "Constanța", "Craiova", "Brașov", "Galați", "Ploiești", "Oradea",
+  "Sofia", "Plovdiv", "Varna", "Burgas", "Ruse", "Stara Zagora", "Pleven", "Sliven", "Dobrich", "Shumen",
+  "Istanbul", "Ankara", "Izmir", "Bursa", "Antalya", "Adana", "Konya", "Gaziantep", "Mersin", "Diyarbakır",
+  "Kyiv", "Lviv", "Odesa", "Kharkiv", "Dnipro", "Vinnytsia", "Poltava", "Chernihiv", "Chernivtsi", "Uzhhorod",
+  "Reykjavík", "Luxembourg", "San Marino", "Monaco", "Andorra la Vella",
+].slice(0, 225).map((city, index) => ({ city, country: ["SK", "CZ", "AT", "HU", "PL", "DE", "FR", "IT", "ES", "PT", "NL", "BE", "DK", "SE", "NO", "FI", "IE", "GR", "GB", "HR", "SI", "RO", "BG", "TR", "UA"][index % 25] }));
+
+const manyCityContacts = withContactDefaults(manyCityNames.map(({ city, country }, index) => ({
+  id: `many-city-${String(index + 1).padStart(3, "0")}`,
+  campaignId: "priority-many-cities",
+  contactType: "customer",
+  status: "pending",
+  assignedTo: null,
+  attemptCount: 0,
+  priorityScore: 300 - index,
+  createdAt: new Date(`2026-03-${String((index % 28) + 1).padStart(2, "0")}T08:00:00.000Z`),
+  updatedAt: new Date(`2026-03-${String((index % 28) + 1).padStart(2, "0")}T08:00:00.000Z`),
+  customer: { firstName: "City", lastName: `Contact ${index + 1}`, city, country },
+})));
+
+const selectedFixtureContacts = new URLSearchParams(window.location.search).get("many-cities") === "1"
+  ? manyCityContacts
+  : new URLSearchParams(window.location.search).get("rich-search") === "1"
   ? richSearchContacts
   : contacts;
 const fixtureCountry = new URLSearchParams(window.location.search).get("country");

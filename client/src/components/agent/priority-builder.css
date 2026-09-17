@@ -68,7 +68,7 @@
 .priority-builder-top-icon { width: 37px; height: 37px; display: grid; place-items: center; border-radius: 11px; color: #b5622e; background: #b5622e18; }
 .priority-builder-kicker { color: #9b897b; font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 .priority-builder-title { margin: 2px 0 0; font-size: 18px; font-weight: 700; letter-spacing: -.02em; }
-.priority-builder-toolbar { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; padding: 12px 21px; border-bottom: 1px solid #e6e0da; background: #fff; }
+.priority-builder-toolbar { display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 21px; border-bottom: 1px solid #e6e0da; background: #fff; }
 .priority-builder-city-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 9px; border: 1px solid #d9d1ca; border-radius: 9px; color: #594e46; font-size: 11px; font-weight: 700; white-space: nowrap; cursor: pointer; }
 .priority-builder-city-toggle input { accent-color: #b5622e; }
 .priority-builder-city-toggle:has(input:disabled) { opacity: .55; cursor: default; }
@@ -77,11 +77,24 @@
 .priority-builder-city-modes label, .priority-builder-city-option { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; }
 .priority-builder-city-modes input, .priority-builder-city-option input { accent-color: #b5622e; }
 .priority-builder-city-modes input:disabled, .priority-builder-city-option input:disabled { cursor: default; }
-.priority-builder-city-options { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 8px; flex-basis: 100%; padding: 5px 2px 1px; border-top: 1px solid #eee4dc; }
-.priority-builder-city-option { padding: 2px 4px; border-radius: 5px; }
+.priority-builder-city-picker { flex: 0 0 auto; min-height: 110px; display: flex; flex-direction: column; gap: 8px; padding: 10px 21px; border-bottom: 1px solid #e6e0da; background: #fffaf7; overflow: hidden; }
+.priority-builder-city-picker-tools { display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; gap: 8px; }
+.priority-builder-city-picker-tools .priority-builder-search { background: #fff; min-width: 140px; }
+.priority-builder-city-selected-count { color: #74675e; font-size: 11px; white-space: nowrap; }
+.priority-builder-city-bulk-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.priority-builder-city-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); align-content: start; gap: 4px 10px; flex: 0 0 auto; min-height: 44px; height: min(22vh, 210px); height: min(22dvh, 210px); padding: 5px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; border: 1px solid #e6ddd5; border-radius: 8px; background: #fff; }
+.priority-builder-city-option { min-height: 34px; min-width: 0; align-items: start; gap: 8px; padding: 7px; border-radius: 5px; white-space: normal; font-size: 12px; line-height: 1.4; color: #594e46; }
+.priority-builder-city-option input { flex: 0 0 auto; width: 15px; height: 15px; margin-top: 1px; }
+.priority-builder-city-option span { overflow-wrap: anywhere; }
+.priority-builder-city-option:has(input:checked) { background: #f7eee7; }
+.priority-builder-city-option:focus-within { outline: 2px solid #b5622e; outline-offset: -2px; }
 .priority-builder-city-option:hover { background: #f7eee7; }
 .priority-builder-city-empty, .priority-builder-city-hint { color: #998b81; font-size: 9px; }
-.priority-builder-city-hint { flex-basis: 100%; }
+.priority-builder-city-hint { flex: 0 0 auto; margin: 0; line-height: 1.4; }
+@media (max-width: 800px) {
+  .priority-builder-city-picker { padding: 10px 14px; }
+  .priority-builder-city-options { height: 100px; }
+}
 .priority-builder-city-status { display: flex; flex: 0 0 auto; align-items: center; min-height: 27px; padding: 0 21px; border-bottom: 1px solid #eee6e0; background: #fffaf7; color: #8f7462; font-size: 10px; }
 .priority-builder-city-status [role="alert"] { color: #a34e35; }
 .priority-builder-city-status button { margin-left: 6px; border: 0; background: transparent; color: inherit; font: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }

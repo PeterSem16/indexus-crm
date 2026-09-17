@@ -34,6 +34,7 @@ import {
 } from "./priority-builder";
 import { priorityBuilderCopy } from "./priority-builder-copy";
 import { PriorityContactIdentity } from "./PriorityContactIdentity";
+import { PriorityCityPicker } from "./PriorityCityPicker";
 import "./priority-builder.css";
 
 /** Shared by the production dialog and the responsive browser fixture. */
@@ -778,37 +779,6 @@ export function PriorityBuilder({
                   <span>{copy.onlySelectedCities}</span>
                 </label>
               </div>
-              {cityGroupingMode === "selected" && (
-                <div className="priority-builder-city-options" data-testid="priority-city-options">
-                  {cityOptions.map(option => {
-                    const isUnknown = option.key === PRIORITY_UNKNOWN_CITY_KEY;
-                    const label = isUnknown
-                      ? copy.unknownCity
-                      : `${option.city}${option.countryCode ? copy.cityCountrySeparator + option.countryCode : ""}`;
-                    return (
-                      <label key={option.key} className="priority-builder-city-option">
-                        <input
-                          type="checkbox"
-                          data-testid={`priority-city-option-${option.key}`}
-                          checked={selectedCityKeys.has(option.key)}
-                          onChange={() => {
-                            const next = new Set(selectedCityKeys);
-                            if (next.has(option.key)) next.delete(option.key); else next.add(option.key);
-                            updateCitySelection({ mode: "selected", selectedKeys: Array.from(next) });
-                          }}
-                          disabled={searchesLoading || !!searchesError || persistencePending || cityRankingPending}
-                        />
-                        <span>{label}</span>
-                      </label>
-                    );
-                  })}
-                  {cityOptions.length === 0 && <span className="priority-builder-city-empty">{copy.noSelectedCities}</span>}
-                  {cityOptions.length > 0 && selectedCityKeys.size === 0 && (
-                    <span className="priority-builder-city-empty">{copy.noSelectedCities}</span>
-                  )}
-                  <span className="priority-builder-city-hint">{copy.citySelectionHint}</span>
-                </div>
-              )}
             </div>
           )}
           {view.cityGrouping?.enabled && (
@@ -828,6 +798,14 @@ export function PriorityBuilder({
             </button>
           )}
         </div>
+        {view.cityGrouping?.enabled && cityGroupingMode === "selected" && (
+          <PriorityCityPicker
+            options={cityOptions}
+            selectedKeys={selectedCityKeys}
+            disabled={searchesLoading || !!searchesError || persistencePending || cityRankingPending}
+            onChange={selectedKeys => updateCitySelection({ mode: "selected", selectedKeys })}
+          />
+        )}
         <div className="priority-builder-city-status" role="status" data-testid="priority-city-status">
           {cityRankingPending
             ? <span>{copy.cityRankingPending}</span>

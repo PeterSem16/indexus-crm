@@ -50,3 +50,9 @@ Explicit preset reactivation must use ordinary persistence, not the initial snap
 **Why:** An intentionally reselected preset is inactive by definition after switching to another view; the initialization endpoint correctly rejects updating it. Ranking cancellation must compare against the requested target view, not mistake the initiating view change for a subsequent edit.
 
 **How to apply:** Keep automatic initialization protected, but allow explicit Referral + cities save/reactivation to update its existing record. Regression-test switching away, returning, saving, and reopening with the original identity.
+
+Never complete an incomplete AI city ranking by appending omitted cities in input or alphabetical order and calling it an AI result.
+
+**Why:** the resulting ranking controls actual Next/Auto dialing, so invented completion silently changes operational priority. A provider validation failure can appear user-specific because users make independent requests; it is not evidence that their authentication failed.
+
+**How to apply:** use bounded, explicitly instructed repair attempts, validate the complete permutation again, and retain a visible failure if repair fails. Only explicitly classified unknown locations belong in the unknown group.

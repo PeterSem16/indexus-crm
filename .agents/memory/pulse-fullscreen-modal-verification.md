@@ -14,3 +14,9 @@ Preserve the approved canvas source during graduation. If a user says the design
 **Why:** The original Priority Builder had a dark INDEXUS sidebar, colored groups and a detailed live-result panel. Its backing mockup was overwritten with a simpler pink modal during implementation, so comparisons to the current mockup falsely appeared to confirm fidelity.
 
 **How to apply:** Keep the original reference unchanged; compare rendered images at the same viewport and distinguish original, current canvas, and application screenshots explicitly.
+
+Bounded picker tests need both minimum readable height and maximum viewport bounds, with a realistically large populated list.
+
+**Why:** flex shrinking can reduce hundreds of options to a single visible row while every overflow/within-modal assertion still passes.
+
+**How to apply:** inspect the populated state, verify multiple visible rows, scroll to the final option, and keep Save and close controls reachable on mobile as well as desktop.

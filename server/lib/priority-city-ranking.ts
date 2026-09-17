@@ -14,10 +14,20 @@ export interface PriorityCityRankingInput {
   countryCode: string;
 }
 
+/**
+ * A failed response is retried with this context rather than silently
+ * completing the ranking from the input order.
+ */
+export interface PriorityCityAiRepairContext {
+  attempt: number;
+  missingIds: ReadonlyArray<string>;
+}
+
 export interface PriorityCityAiProvider {
   (
     locations: ReadonlyArray<PriorityCityLocation>,
     signal?: AbortSignal,
+    repair?: PriorityCityAiRepairContext,
   ): Promise<unknown>;
 }
 
@@ -54,16 +64,20 @@ type PriorityCityErrorCode =
 export class PriorityCityRankingError extends Error {
   readonly code: PriorityCityErrorCode;
   readonly status: 400 | 429 | 502 | 503;
+  /** Internal retry metadata; never serialized by the route. */
+  readonly repairMissingIds?: string[];
 
   constructor(
     code: PriorityCityErrorCode,
     message: string,
     status: 400 | 429 | 502 | 503,
+    repairMissingIds?: ReadonlyArray<string>,
   ) {
     super(message);
     this.name = "PriorityCityRankingError";
     this.code = code;
     this.status = status;
+    this.repairMissingIds = repairMissingIds ? [...repairMissingIds] : undefined;
   }
 }
 
@@ -166,12 +180,13 @@ function parseProviderResult(
   raw: unknown,
   locations: ReadonlyArray<PriorityCityLocation>,
 ): Pick<PriorityCityRankingResult, "rankedKeys" | "unknownKeys"> {
+  const allIds = locations.map((_, index) => String(index));
   let parsed: unknown = raw;
   const parseJson = (value: string): unknown => {
     try {
       return JSON.parse(value);
     } catch {
-      throw new PriorityCityRankingError("AI_INVALID_OUTPUT", "AI returned invalid JSON", 502);
+      throw new PriorityCityRankingError("AI_INVALID_OUTPUT", "AI returned invalid JSON", 502, allIds);
     }
   };
   if (typeof parsed === "string") parsed = parseJson(parsed);
@@ -183,6 +198,7 @@ function parseProviderResult(
         "AI_INVALID_OUTPUT",
         "AI response was truncated or incomplete",
         502,
+        allIds,
       );
     }
     parsed = parsed.content;
@@ -191,34 +207,59 @@ function parseProviderResult(
   if (!isRecord(parsed)
     || !Array.isArray(parsed.rankedIds)
     || !Array.isArray(parsed.unknownIds)) {
-    throw new PriorityCityRankingError("AI_INVALID_OUTPUT", "AI returned an invalid ranking shape", 502);
+    throw new PriorityCityRankingError(
+      "AI_INVALID_OUTPUT",
+      "AI returned an invalid ranking shape",
+      502,
+      allIds,
+    );
   }
   if (Object.keys(parsed).some((key) => key !== "rankedIds" && key !== "unknownIds")) {
-    throw new PriorityCityRankingError("AI_INVALID_OUTPUT", "AI returned extra fields", 502);
+    throw new PriorityCityRankingError("AI_INVALID_OUTPUT", "AI returned extra fields", 502, allIds);
   }
 
   const rankedIds = parsed.rankedIds.map(parseModelId);
   const unknownIds = parsed.unknownIds.map(parseModelId);
   if ([...rankedIds, ...unknownIds].some((id) => id === null)) {
-    throw new PriorityCityRankingError("AI_INVALID_OUTPUT", "AI returned invalid location IDs", 502);
+    throw new PriorityCityRankingError("AI_INVALID_OUTPUT", "AI returned invalid location IDs", 502, allIds);
   }
 
-  const acceptedIds = new Set(locations.map((_, index) => String(index)));
+  const acceptedIds = new Set(allIds);
   const rankedIdList = rankedIds as string[];
   const unknownIdList = unknownIds as string[];
   const rankedSet = new Set(rankedIdList);
   const unknownSet = new Set(unknownIdList);
   if (rankedSet.size !== rankedIdList.length || unknownSet.size !== unknownIdList.length) {
-    throw new PriorityCityRankingError("AI_INVALID_OUTPUT", "AI returned duplicate location IDs", 502);
+    throw new PriorityCityRankingError(
+      "AI_INVALID_OUTPUT",
+      "AI returned duplicate location IDs",
+      502,
+      allIds.filter((id) => !rankedSet.has(id) && !unknownSet.has(id)),
+    );
   }
   if (rankedIdList.some((id) => unknownSet.has(id))) {
-    throw new PriorityCityRankingError("AI_INVALID_OUTPUT", "AI returned overlapping location IDs", 502);
+    throw new PriorityCityRankingError(
+      "AI_INVALID_OUTPUT",
+      "AI returned overlapping location IDs",
+      502,
+      allIds.filter((id) => !rankedSet.has(id) && !unknownSet.has(id)),
+    );
   }
   if (![...rankedSet, ...unknownSet].every((id) => acceptedIds.has(id))) {
-    throw new PriorityCityRankingError("AI_INVALID_OUTPUT", "AI returned an unknown location ID", 502);
+    throw new PriorityCityRankingError(
+      "AI_INVALID_OUTPUT",
+      "AI returned an unknown location ID",
+      502,
+      allIds.filter((id) => !rankedSet.has(id) && !unknownSet.has(id)),
+    );
   }
   if (rankedSet.size + unknownSet.size !== acceptedIds.size) {
-    throw new PriorityCityRankingError("AI_INVALID_OUTPUT", "AI omitted a location ID", 502);
+    throw new PriorityCityRankingError(
+      "AI_INVALID_OUTPUT",
+      "AI omitted a location ID",
+      502,
+      allIds.filter((id) => !rankedSet.has(id) && !unknownSet.has(id)),
+    );
   }
 
   return {
@@ -262,6 +303,7 @@ async function withTimeout<T>(
 async function defaultPriorityCityAiProvider(
   locations: ReadonlyArray<PriorityCityLocation>,
   signal?: AbortSignal,
+  repair?: PriorityCityAiRepairContext,
 ): Promise<unknown> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -285,6 +327,14 @@ async function defaultPriorityCityAiProvider(
     city,
     country: countryCode,
   }));
+  const repairInstructions = repair
+    ? [
+      `A previous response was rejected. This is repair attempt ${repair.attempt}.`,
+      `The response omitted or mishandled these positional ids: ${repair.missingIds.join(", ")}.`,
+      "Return a fresh complete permutation; do not copy a partial answer.",
+      "Every supplied id must occur exactly once across rankedIds and unknownIds.",
+    ].join(" ")
+    : "";
   const response = await client.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
@@ -298,6 +348,7 @@ async function defaultPriorityCityAiProvider(
           "If a location cannot be identified reliably, put its supplied id in unknownIds instead of guessing its rank.",
           'Return only strict JSON with exactly this shape: {"rankedIds":["..."],"unknownIds":["..."]}.',
           "rankedIds and unknownIds together must contain every supplied id exactly once.",
+          repairInstructions,
         ].join(" "),
       },
       {
@@ -307,7 +358,9 @@ async function defaultPriorityCityAiProvider(
     ],
     response_format: { type: "json_object" },
     temperature: 0,
-    max_tokens: Math.min(8_000, Math.max(200, locations.length * 8)),
+    // A complete JSON permutation is required. The old budget could truncate
+    // a few-hundred-location answer before the final IDs.
+    max_tokens: Math.min(16_000, Math.max(400, locations.length * 16)),
   }, { signal });
   const choice = response.choices[0];
   if (!choice || choice.finish_reason !== "stop") {
@@ -411,15 +464,28 @@ export class PriorityCityRankingService {
   ): Promise<Pick<PriorityCityRankingResult, "rankedKeys" | "unknownKeys">> {
     const provider = this.provider ?? injectedProvider ?? defaultPriorityCityAiProvider;
     let lastError: unknown;
+    let repair: PriorityCityAiRepairContext | undefined;
     for (let attempt = 0; attempt < this.maxAttempts; attempt += 1) {
       try {
         const raw = await withTimeout(
-          (signal) => Promise.resolve(provider(locations, signal)),
+          (signal) => Promise.resolve(provider(locations, signal, repair)),
           this.timeoutMs,
         );
         return parseProviderResult(raw, locations);
       } catch (error) {
         lastError = error;
+        if (error instanceof PriorityCityRankingError
+          && error.code === "AI_INVALID_OUTPUT"
+          && attempt + 1 < this.maxAttempts) {
+          repair = {
+            attempt: attempt + 1,
+            missingIds: error.repairMissingIds
+              ? [...error.repairMissingIds]
+              : locations.map((_, index) => String(index)),
+          };
+        } else {
+          repair = undefined;
+        }
         if (attempt + 1 >= this.maxAttempts) break;
       }
     }
