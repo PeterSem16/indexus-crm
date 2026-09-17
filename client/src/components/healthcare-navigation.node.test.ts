@@ -7,11 +7,15 @@ const appSource = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
 const updatesSource = readFileSync(new URL("../pages/collaborator-updates.tsx", import.meta.url), "utf8");
 
 describe("Healthcare Network navigation structure", () => {
-  it("keeps Hospitals before Healthcare Network and removes moved pages from the sidebar", () => {
-    const hospitalsMenu = sidebarSource.indexOf('href="/hospitals"');
-    const healthcareMenu = sidebarSource.indexOf('href={item.url}', hospitalsMenu);
-    expect(hospitalsMenu).toBeGreaterThanOrEqual(0);
-    expect(healthcareMenu).toBeGreaterThan(hospitalsMenu);
+  it("keeps Hospitals as the first item inside Healthcare Network and removes moved pages", () => {
+    const subItemsStart = sidebarSource.indexOf("const mpnSubItems = [");
+    const hospitalsItem = sidebarSource.indexOf('url: "/hospitals"', subItemsStart);
+    const myClinicsItem = sidebarSource.indexOf('url: "/my-clinics"', subItemsStart);
+    const networkItem = sidebarSource.indexOf('url: "/medical-partner-network"', subItemsStart);
+    expect(hospitalsItem).toBeGreaterThan(subItemsStart);
+    expect(hospitalsItem).toBeLessThan(myClinicsItem);
+    expect(hospitalsItem).toBeLessThan(networkItem);
+    expect(sidebarSource).not.toContain('href="/hospitals"');
     expect(sidebarSource).not.toContain('url: "/collaborator-updates"');
     expect(sidebarSource).not.toContain('url: "/bulk-assign"');
   });

@@ -91,6 +91,7 @@ export function AppSidebar() {
   const isRepresentant = userRoleName && ['representant', 'representative'].includes(userRoleName.toLowerCase().replace(/\s+/g, ''));
 
   const mpnSubItems = [
+    { title: t.nav.hospitalsAndClinics, url: "/hospitals", testId: "hospitals", moduleKey: "hospitals" },
     ...(isRepresentant
       ? [{ title: t.representantPanel?.myClinicsTitle || "My Network", url: "/my-clinics", testId: "my-clinics", moduleKey: "hospitals", repOnly: true }]
       : []),
@@ -217,21 +218,10 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               </Collapsible>
 
-              {canAccessModule("hospitals") && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/hospitals"}>
-                    <Link href="/hospitals" data-testid="nav-hospitals">
-                      <Building2 className="h-4 w-4" />
-                      <span>{t.nav.hospitalsAndClinics}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-
-              <Collapsible defaultOpen={location === "/medical-partner-network" || location === "/my-clinics"} className="group/collapsible-mpn">
+              <Collapsible defaultOpen={location === "/medical-partner-network" || location === "/hospitals" || location === "/my-clinics"} className="group/collapsible-mpn">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
-                    <SidebarMenuButton isActive={location === "/medical-partner-network" || location === "/my-clinics"}>
+                    <SidebarMenuButton isActive={location === "/medical-partner-network" || location === "/hospitals" || location === "/my-clinics"}>
                       <HeartPulse className="h-4 w-4" />
                       <span>{t.nav.medicalPartnerNetwork}</span>
                       <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible-mpn:rotate-180" />
