@@ -2,11 +2,14 @@ import type { Express, NextFunction, Request, Response } from "express";
 import {
   buildWallboardSnapshot,
   canViewWallboard,
+  getWallboardAlarmHistory,
   getWallboardAlarmSettings,
   readableCampaigns,
   saveWallboardAlarmSettings,
+  saveWallboardAlarmHistory,
 } from "./lib/wallboard";
 import { wallboardAlarmSettingsSchema } from "@shared/wallboard-alarms";
+import { wallboardAlarmHistoryWriteSchema } from "@shared/wallboard-alarm-history";
 
 /** Query parsing shared by the snapshot and alarm endpoints. */
 export function parseWallboardCampaignId(req: Request): string | null {
@@ -21,7 +24,7 @@ export function parseWallboardCampaignId(req: Request): string | null {
 async function authorizeWallboardScope(
   viewer: NonNullable<Request["session"]["user"]>,
   campaignId: string | null,
-): Promise<void> {
+): Promise<string[]> {
   if (!(await canViewWallboard(viewer))) throw new Error("WALLBOARD_FORBIDDEN");
   // Do not call buildWallboardSnapshot merely to authorize an alarm scope:
   // this exact readable-campaign query is the single source of scope access.
@@ -29,16 +32,33 @@ async function authorizeWallboardScope(
   if (campaignId !== null && !readable.some((campaign) => campaign.id === campaignId)) {
     throw new Error("WALLBOARD_CAMPAIGN_FORBIDDEN");
   }
+  return readable.map((campaign) => campaign.id);
+}
+
+export function parseWallboardAlarmHistoryDays(req: Request): 1 | 7 | 30 {
+  const value = req.query.days;
+  if (value === "1" || value === "7" || value === "30") return Number(value) as 1 | 7 | 30;
+  throw new Error("WALLBOARD_INVALID_ALARM_HISTORY_DAYS");
 }
 
 function respondWallboardError(error: unknown, res: Response): void {
   const code = error instanceof Error ? error.message : "";
-  if (code === "WALLBOARD_FORBIDDEN" || code === "WALLBOARD_CAMPAIGN_FORBIDDEN") {
+  if ([
+    "WALLBOARD_FORBIDDEN",
+    "WALLBOARD_CAMPAIGN_FORBIDDEN",
+    "WALLBOARD_ALARM_HISTORY_SCOPE_CONFLICT",
+  ].includes(code)) {
     res.status(403).json({ error: code });
     return;
   }
   if (code === "WALLBOARD_ALARM_SETTINGS_INVALID") {
     res.status(500).json({ error: code });
+    return;
+  }
+  if (code === "WALLBOARD_ALARM_HISTORY_REVISION_CONFLICT" ||
+    code === "WALLBOARD_ALARM_HISTORY_IDENTITY_CONFLICT" ||
+    code === "WALLBOARD_ALARM_HISTORY_STATE_CONFLICT") {
+    res.status(409).json({ error: code });
     return;
   }
   console.error("[Wallboard] request failed:", error);
@@ -100,6 +120,55 @@ export function registerWallboardRoutes(
       return res.json(await saveWallboardAlarmSettings(viewer.id, campaignId, parsed.data));
     } catch (error) {
       if (error instanceof Error && error.message === "WALLBOARD_INVALID_CAMPAIGN_ID") {
+        return res.status(400).json({ error: error.message });
+      }
+      respondWallboardError(error, res);
+    }
+  });
+
+  app.get("/api/wallboard/alarm-history", requireAuth, async (req, res) => {
+    try {
+      const viewer = req.session.user;
+      if (!viewer) return res.status(401).json({ error: "Unauthorized" });
+      const campaignId = parseWallboardCampaignId(req);
+      const days = parseWallboardAlarmHistoryDays(req);
+      const readableMissionIds = await authorizeWallboardScope(viewer, campaignId);
+      return res.json(await getWallboardAlarmHistory(
+        viewer.id, campaignId, days, readableMissionIds,
+      ));
+    } catch (error) {
+      if (error instanceof Error && [
+        "WALLBOARD_INVALID_CAMPAIGN_ID",
+        "WALLBOARD_INVALID_ALARM_HISTORY_DAYS",
+      ].includes(error.message)) {
+        return res.status(400).json({ error: error.message });
+      }
+      respondWallboardError(error, res);
+    }
+  });
+
+  app.post("/api/wallboard/alarm-history", requireAuth, async (req, res) => {
+    try {
+      const viewer = req.session.user;
+      if (!viewer) return res.status(401).json({ error: "Unauthorized" });
+      const campaignId = parseWallboardCampaignId(req);
+      const parsed = wallboardAlarmHistoryWriteSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: "WALLBOARD_INVALID_ALARM_HISTORY",
+          details: parsed.error.flatten(),
+        });
+      }
+      const readableMissionIds = await authorizeWallboardScope(viewer, campaignId);
+      await saveWallboardAlarmHistory(
+        viewer.id, campaignId, parsed.data.entries, readableMissionIds,
+      );
+      return res.json({ ok: true });
+    } catch (error) {
+      if (error instanceof Error && [
+        "WALLBOARD_INVALID_CAMPAIGN_ID",
+        "WALLBOARD_ALARM_HISTORY_INVALID",
+      ].includes(error.message)) {
         return res.status(400).json({ error: error.message });
       }
       respondWallboardError(error, res);

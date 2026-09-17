@@ -5,7 +5,8 @@ import {
   type WallboardAlarmSettings,
   type WallboardAlarmIncident,
 } from "@shared/wallboard-alarms";
-import { advanceAlarms, alarmSoundDue, createAlarmRuntime, silenceAlarm } from "./alarm-engine";
+import { advanceAlarms, alarmScheduleActive, alarmSourceUnavailable, alarmSoundDue, createAlarmRuntime, silenceAlarm } from "./alarm-engine";
+import { AlarmHistoryRecorder, AlarmHistoryWriter, HISTORY_HEARTBEAT_MS } from "./alarm-history-recorder";
 
 export function useWallboardAlarms(
   campaignId: string | null,
@@ -21,6 +22,8 @@ export function useWallboardAlarms(
   const [graceRemainingSeconds, setGraceRemainingSeconds] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [soundError, setSoundError] = useState(false);
+  const [historyError, setHistoryError] = useState(false);
+  const history = useRef<{ recorder: AlarmHistoryRecorder; writer: AlarmHistoryWriter } | null>(null);
   const runtime = useRef(createAlarmRuntime());
   const generation = useRef(0);
   const settingsGeneration = useRef<number | null>(null);
@@ -58,6 +61,22 @@ export function useWallboardAlarms(
 
   useEffect(() => {
     generation.current++;
+    const currentGeneration = generation.current;
+    setHistoryError(false);
+    const historyEndpoint = `/api/wallboard/alarm-history${campaignId ? `?campaignId=${encodeURIComponent(campaignId)}` : ""}`;
+    const writer = new AlarmHistoryWriter(historyEndpoint, failed => {
+      if (generation.current === currentGeneration) setHistoryError(failed);
+    });
+    const recorder = new AlarmHistoryRecorder(entry => writer.enqueue(entry));
+    history.current = { recorder, writer };
+    const flushTimer = window.setInterval(() => { void writer.flush(); }, HISTORY_HEARTBEAT_MS);
+    const stopObservation = () => {
+      recorder.close();
+      void writer.flush(true);
+      // A bfcache return starts a new observation, never resumes an ended row.
+      runtime.current = createAlarmRuntime();
+    };
+    window.addEventListener("pagehide", stopObservation);
     settingsGeneration.current = null;
     setSettings(null);
     setSettingsError(false);
@@ -69,6 +88,11 @@ export function useWallboardAlarms(
     lastChime.current = null;
     void reloadSettings();
     return () => {
+      window.removeEventListener("pagehide", stopObservation);
+      window.clearInterval(flushTimer);
+      recorder.close();
+      writer.dispose();
+      if (history.current?.recorder === recorder) history.current = null;
       generation.current++;
       pendingLoad.current?.abort();
     };
@@ -103,11 +127,22 @@ export function useWallboardAlarms(
     if (!settings || !snapshot || now === null || settingsGeneration.current !== generation.current ||
       snapshot.scope.campaignId !== campaignId) {
       setIncidents([]);
+      history.current?.recorder.close();
+      void history.current?.writer.flush();
       // Data cannot silently accumulate pending-condition time while unavailable.
       runtime.current = { ...runtime.current, tracks: {} };
       return;
     }
     const result = advanceAlarms(runtime.current, settings, snapshot, now, stale);
+    const previous = runtime.current;
+    history.current?.recorder.observe(result.incidents, now, ruleId => {
+      const rule = settings.rules.find(item => item.id === ruleId);
+      if (!rule || previous.tracks[ruleId]?.fingerprint !== JSON.stringify(rule) ||
+        !rule.enabled || !alarmScheduleActive(rule, now)) return "rule_changed";
+      if (alarmSourceUnavailable(rule, snapshot, stale)) return "source_unavailable";
+      return "recovered";
+    });
+    void history.current?.writer.flush();
     runtime.current = result.runtime;
     setIncidents(result.incidents);
     setSuspended(result.suspended);
@@ -191,11 +226,13 @@ export function useWallboardAlarms(
   const silence = useCallback((ruleId: string, mute: boolean) => {
     if (now === null) return;
     runtime.current = silenceAlarm(runtime.current, ruleId, now, mute);
+    history.current?.recorder.silence(ruleId, now, mute);
+    void history.current?.writer.flush();
     setIncidents(Object.values(runtime.current.tracks).flatMap((track) => track.incident ? [track.incident] : []));
   }, [now]);
   return {
     settings, settingsLoading, settingsError, reloadSettings, saveSettings,
-    incidents, suspended, graceRemainingSeconds,
+    incidents, suspended, graceRemainingSeconds, historyError,
     soundEnabled, soundError, enableSound, disableSound, testSound,
     acknowledge: (ruleId: string) => silence(ruleId, false),
     mute: (ruleId: string) => silence(ruleId, true),

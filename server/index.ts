@@ -127,6 +127,10 @@ app.use(
   "/api/wallboard/alarms",
   express.json({ limit: "128kb" }),
 );
+app.use(
+  "/api/wallboard/alarm-history",
+  express.json({ limit: "128kb" }),
+);
 
 app.use(
   express.json({
@@ -138,7 +142,6 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
-
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -517,6 +520,7 @@ app.use((req, res, next) => {
     LIMIT 1
   `);
   const agentOnlyIndexDefinition = String(agentOnlyIndex.rows[0]?.definition || "");
+
   if (agentOnlyIndex.rows[0]?.indisunique !== true ||
       !agentOnlyIndexDefinition.includes("(call_log_id)") ||
       !agentOnlyIndexDefinition.includes("recording_mode")) {
@@ -1205,6 +1209,61 @@ app.use((req, res, next) => {
     console.error('[migration] wallboard_alarm_settings error:', e.message);
   }
 
+  // Private wallboard incident state contains operational alarm clocks only;
+  // it intentionally excludes rule labels and person/contact data.
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS wallboard_alarm_history (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id varchar NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        scope text NOT NULL,
+        incident_id varchar NOT NULL,
+        revision integer NOT NULL,
+        type text NOT NULL,
+        threshold numeric NOT NULL,
+        started_at timestamp NOT NULL,
+        last_observed_at timestamp NOT NULL,
+        ended_at timestamp,
+        end_reason text,
+        acknowledged_at timestamp,
+        muted_at timestamp,
+        muted_until timestamp,
+        authorized_mission_ids text[] NOT NULL,
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now(),
+        UNIQUE(user_id, scope, incident_id)
+      );
+      CREATE INDEX IF NOT EXISTS wallboard_alarm_history_user_scope_observed_idx
+        ON wallboard_alarm_history(user_id, scope, last_observed_at);
+      ALTER TABLE wallboard_alarm_history
+        ALTER COLUMN threshold TYPE numeric;
+    `);
+    console.log('[migration] wallboard_alarm_history ensured');
+  } catch (e: any) {
+    console.error('[migration] wallboard_alarm_history error:', e.message);
+  }
+
+  const cleanupWallboardAlarmHistory = async () => {
+    await pool.query(`
+      DELETE FROM wallboard_alarm_history
+      WHERE last_observed_at < now() - interval '30 days';
+      WITH ranked AS (
+        SELECT id, row_number() OVER (
+          PARTITION BY user_id ORDER BY last_observed_at DESC, updated_at DESC
+        ) AS position
+        FROM wallboard_alarm_history
+      )
+      DELETE FROM wallboard_alarm_history history
+      USING ranked
+      WHERE history.id = ranked.id AND ranked.position > 1000;
+    `);
+  };
+  try {
+    await cleanupWallboardAlarmHistory();
+  } catch (e: any) {
+    console.error('[migration] wallboard_alarm_history cleanup error:', e.message);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -1224,6 +1283,7 @@ app.use((req, res, next) => {
   }
 
   const port = parseInt(process.env.PORT || "5000", 10);
+
   httpServer.listen(
     {
       port,
@@ -1237,6 +1297,13 @@ app.use((req, res, next) => {
       startSessionCleanup();
       startScheduledReportRunner();
       startKpiSnapshotCron();
+
+      const wallboardHistoryCleanupTimer = setInterval(() => {
+        cleanupWallboardAlarmHistory().catch((error: unknown) =>
+          console.error("[wallboard] alarm history cleanup error:", error),
+        );
+      }, 6 * 60 * 60 * 1000);
+      wallboardHistoryCleanupTimer.unref();
 
       // Build performance indexes in the background (non-blocking, CONCURRENTLY).
       ensureIndexes().catch((err) =>

@@ -10,6 +10,7 @@ import {
   campaignAgents,
   inboundCallLogs,
   inboundQueues,
+  wallboardAlarmHistory,
   wallboardAlarmSettings,
   users,
 } from "@shared/schema";
@@ -28,6 +29,11 @@ import {
   wallboardAlarmSettingsSchema,
   type WallboardAlarmSettings,
 } from "@shared/wallboard-alarms";
+import {
+  WALLBOARD_ALARM_HISTORY_RETENTION_DAYS,
+  wallboardAlarmHistoryEntrySchema,
+  type WallboardAlarmHistoryEntry,
+} from "@shared/wallboard-alarm-history";
 import type { WallboardQueueCall } from "./wallboard-queue";
 import {
   startOfBratislavaDay,
@@ -35,7 +41,6 @@ import {
   wallboardSessionMissionIds,
   unionWallboardSessionSeconds,
 } from "./wallboard-time";
-
 type Viewer = { id: string; role?: string | null; roleId?: string | null };
 type CampaignRow = typeof campaigns.$inferSelect;
 
@@ -96,6 +101,8 @@ export async function readableCampaigns(viewer: Viewer, requestedCampaignId?: st
 export function wallboardAlarmScope(campaignId: string | null): string {
   return campaignId ? `campaign:${campaignId}` : "all";
 }
+
+const WALLBOARD_ALARM_HISTORY_FUTURE_SKEW_MS = 5 * 60 * 1000;
 
 /**
  * Read a viewer's private settings. A malformed persisted JSON document is a
@@ -611,5 +618,299 @@ export async function buildWallboardSnapshot(
           ? "INBOUND_AMBIGUOUS_ATTRIBUTION_OMITTED"
           : null,
     },
+  };
+}
+
+function hasCumulativeHistoryRegression(
+  current: WallboardAlarmHistoryEntry,
+  incoming: WallboardAlarmHistoryEntry,
+): boolean {
+  if (Date.parse(incoming.lastObservedAt) < Date.parse(current.lastObservedAt)) return true;
+  if (current.acknowledgedAt !== null && (
+    incoming.acknowledgedAt === null ||
+    Date.parse(incoming.acknowledgedAt) < Date.parse(current.acknowledgedAt)
+  )) return true;
+  if (current.mutedAt !== null && (
+    incoming.mutedAt === null ||
+    Date.parse(incoming.mutedAt) < Date.parse(current.mutedAt)
+  )) return true;
+  if (current.mutedUntil !== null && (
+    incoming.mutedUntil === null ||
+    Date.parse(incoming.mutedUntil) < Date.parse(current.mutedUntil)
+  )) return true;
+  // A closed incident remains closed. Revision updates may retain, but never
+  // clear or change, the terminal event.
+  return current.endedAt !== null && (
+    incoming.endedAt !== current.endedAt || incoming.endReason !== current.endReason
+  );
+}
+
+/**
+ * Validate and canonicalize a client entry at the persistence boundary.
+ * Observation timestamps have a very small future allowance.  mute expiry is
+ * an intentional future value, but remains bounded to one day.
+ */
+export function validateWallboardAlarmHistoryEntry(
+  value: unknown,
+  now = new Date(),
+): WallboardAlarmHistoryEntry {
+  const parsed = wallboardAlarmHistoryEntrySchema.safeParse(value);
+  if (!parsed.success) throw new Error("WALLBOARD_ALARM_HISTORY_INVALID");
+  const entry = parsed.data;
+  const nowMs = now.getTime();
+  const oldestAllowed = nowMs - WALLBOARD_ALARM_HISTORY_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  const observedDates = [
+    entry.startedAt,
+    entry.lastObservedAt,
+    entry.endedAt,
+    entry.acknowledgedAt,
+    entry.mutedAt,
+  ].filter((value): value is string => value !== null);
+  if (observedDates.some((value) => {
+    const ms = Date.parse(value);
+    return ms < oldestAllowed || ms > nowMs + WALLBOARD_ALARM_HISTORY_FUTURE_SKEW_MS;
+  })) {
+    throw new Error("WALLBOARD_ALARM_HISTORY_INVALID");
+  }
+  if (
+    entry.mutedUntil !== null &&
+    (Date.parse(entry.mutedUntil) < oldestAllowed ||
+      Date.parse(entry.mutedUntil) > nowMs + WALLBOARD_ALARM_HISTORY_MAX_MUTED_UNTIL_MS)
+  ) {
+    throw new Error("WALLBOARD_ALARM_HISTORY_INVALID");
+  }
+  return {
+    ...entry,
+    startedAt: historyDate(entry.startedAt),
+    lastObservedAt: historyDate(entry.lastObservedAt),
+    endedAt: entry.endedAt === null ? null : historyDate(entry.endedAt),
+    acknowledgedAt: entry.acknowledgedAt === null ? null : historyDate(entry.acknowledgedAt),
+    mutedAt: entry.mutedAt === null ? null : historyDate(entry.mutedAt),
+    mutedUntil: entry.mutedUntil === null ? null : historyDate(entry.mutedUntil),
+  };
+}
+
+function sameMissionSet(left: readonly string[], right: readonly string[]): boolean {
+  if (left.length !== right.length) return false;
+  const expected = new Set(left);
+  return right.every((missionId) => expected.has(missionId));
+}
+
+const WALLBOARD_ALARM_HISTORY_MAX_MUTED_UNTIL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Store a batch atomically.  Rows are owner/scope-bound by every query; an
+ * existing incident accepts only a strictly newer revision.  Exact retries are
+ * no-ops and changed immutable identity fields are rejected.
+ */
+export async function saveWallboardAlarmHistory(
+  userId: string,
+  campaignId: string | null,
+  entries: readonly unknown[],
+  readableMissionIds: readonly string[],
+  now = new Date(),
+  queryDb: any = db,
+): Promise<void> {
+  if (!Array.isArray(entries) || entries.length < 1 || entries.length > 100) {
+    throw new Error("WALLBOARD_ALARM_HISTORY_INVALID");
+  }
+  const normalized = entries.map((entry) => validateWallboardAlarmHistoryEntry(entry, now))
+    .sort((left, right) => left.incidentId.localeCompare(right.incidentId));
+  if (new Set(normalized.map((entry) => entry.incidentId)).size !== normalized.length) {
+    throw new Error("WALLBOARD_ALARM_HISTORY_INVALID");
+  }
+  const authorizedMissionIds = wallboardAlarmHistoryMissionIds(campaignId, readableMissionIds);
+  const scope = wallboardAlarmScope(campaignId);
+  const work = async (tx: any) => {
+    for (const entry of normalized) {
+      // SELECT FOR UPDATE locks an existing row only. This transaction-scoped
+      // advisory lock also serializes competing first inserts for this exact
+      // owner/scope/incident key. Sorted entries above prevent batch deadlocks.
+      await tx.execute(sql`
+        SELECT pg_advisory_xact_lock(
+          hashtext(${userId}),
+          hashtext(${JSON.stringify([scope, entry.incidentId])})
+        )
+      `);
+      const locked = await tx.execute(sql`
+        SELECT incident_id AS "incidentId", revision, type, threshold,
+          started_at AS "startedAt", last_observed_at AS "lastObservedAt",
+          ended_at AS "endedAt", end_reason AS "endReason",
+          acknowledged_at AS "acknowledgedAt", muted_at AS "mutedAt",
+          muted_until AS "mutedUntil",
+          authorized_mission_ids AS "authorizedMissionIds"
+        FROM wallboard_alarm_history
+        WHERE user_id = ${userId} AND scope = ${scope} AND incident_id = ${entry.incidentId}
+        FOR UPDATE
+      `);
+      const existing = locked.rows[0] ? historyEntryFromRow(locked.rows[0]) : undefined;
+      if (existing) {
+        // The client never supplies this set. For an aggregate incident, a
+        // changed current Mission set means a stale board snapshot cannot
+        // extend the incident with observations from newly gained/lost scope.
+        const storedScope = locked.rows[0].authorizedMissionIds;
+        if (campaignId === null &&
+          (!Array.isArray(storedScope) || !sameMissionSet(storedScope, authorizedMissionIds))) {
+          throw new Error("WALLBOARD_ALARM_HISTORY_SCOPE_CONFLICT");
+        }
+        if (!sameHistoryIdentity(existing, entry)) {
+          throw new Error("WALLBOARD_ALARM_HISTORY_IDENTITY_CONFLICT");
+        }
+        if (entry.revision > existing.revision && hasCumulativeHistoryRegression(existing, entry)) {
+          throw new Error("WALLBOARD_ALARM_HISTORY_STATE_CONFLICT");
+        }
+        if (entry.revision < existing.revision) continue;
+        if (entry.revision === existing.revision) {
+          if (!sameHistoryEntry(existing, entry)) {
+            throw new Error("WALLBOARD_ALARM_HISTORY_REVISION_CONFLICT");
+          }
+          continue;
+        }
+        await tx.update(wallboardAlarmHistory).set({
+          revision: entry.revision,
+          lastObservedAt: new Date(entry.lastObservedAt),
+          endedAt: entry.endedAt === null ? null : new Date(entry.endedAt),
+          endReason: entry.endReason,
+          acknowledgedAt: entry.acknowledgedAt === null ? null : new Date(entry.acknowledgedAt),
+          mutedAt: entry.mutedAt === null ? null : new Date(entry.mutedAt),
+          mutedUntil: entry.mutedUntil === null ? null : new Date(entry.mutedUntil),
+          updatedAt: new Date(),
+        }).where(and(
+          eq(wallboardAlarmHistory.userId, userId),
+          eq(wallboardAlarmHistory.scope, scope),
+          eq(wallboardAlarmHistory.incidentId, entry.incidentId),
+          eq(wallboardAlarmHistory.revision, existing.revision),
+        ));
+      } else {
+        await tx.insert(wallboardAlarmHistory).values({
+          userId,
+          scope,
+          incidentId: entry.incidentId,
+          revision: entry.revision,
+          type: entry.type,
+          threshold: String(entry.threshold),
+          startedAt: new Date(entry.startedAt),
+          lastObservedAt: new Date(entry.lastObservedAt),
+          endedAt: entry.endedAt === null ? null : new Date(entry.endedAt),
+          endReason: entry.endReason,
+          acknowledgedAt: entry.acknowledgedAt === null ? null : new Date(entry.acknowledgedAt),
+          mutedAt: entry.mutedAt === null ? null : new Date(entry.mutedAt),
+          mutedUntil: entry.mutedUntil === null ? null : new Date(entry.mutedUntil),
+          authorizedMissionIds,
+        });
+      }
+    }
+  };
+  if (typeof queryDb.transaction === "function") {
+    await queryDb.transaction(work);
+  } else {
+    await work(queryDb);
+  }
+}
+
+function sameHistoryEntry(
+  current: WallboardAlarmHistoryEntry,
+  incoming: WallboardAlarmHistoryEntry,
+): boolean {
+  return current.revision === incoming.revision &&
+    current.lastObservedAt === incoming.lastObservedAt &&
+    current.endedAt === incoming.endedAt &&
+    current.endReason === incoming.endReason &&
+    current.acknowledgedAt === incoming.acknowledgedAt &&
+    current.mutedAt === incoming.mutedAt &&
+    current.mutedUntil === incoming.mutedUntil &&
+    sameHistoryIdentity(current, incoming);
+}
+
+function historyDate(value: Date | string): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) throw new Error("WALLBOARD_ALARM_HISTORY_INVALID");
+  return date.toISOString();
+}
+
+export function wallboardAlarmHistoryMissionIds(
+  campaignId: string | null,
+  readableMissionIds: readonly string[],
+): string[] {
+  return campaignId === null
+    ? Array.from(new Set(readableMissionIds)).sort()
+    : [campaignId];
+}
+
+function wallboardAlarmHistoryVisibilityCondition(
+  campaignId: string | null,
+  readableMissionIds: readonly string[],
+) {
+  if (campaignId !== null) return undefined;
+  // PostgreSQL's <@ requires every historical Mission ID to still be in the
+  // current server-derived readable set. This filters inaccessible rows in the
+  // database rather than allowing one old row to block newer safe history.
+  const readable = Array.from(new Set(readableMissionIds));
+  return readable.length
+    ? sql`${wallboardAlarmHistory.authorizedMissionIds} <@ ARRAY[${sql.join(
+      readable.map((missionId) => sql`${missionId}`),
+      sql`, `,
+    )}]::text[]`
+    : sql`${wallboardAlarmHistory.authorizedMissionIds} <@ ARRAY[]::text[]`;
+}
+
+function sameHistoryIdentity(
+  current: WallboardAlarmHistoryEntry,
+  incoming: WallboardAlarmHistoryEntry,
+): boolean {
+  return current.incidentId === incoming.incidentId &&
+    current.type === incoming.type &&
+    current.threshold === incoming.threshold &&
+    current.startedAt === incoming.startedAt;
+}
+
+function historyEntryFromRow(row: any): WallboardAlarmHistoryEntry {
+  return {
+    incidentId: row.incidentId,
+    revision: row.revision,
+    type: row.type,
+    threshold: Number(row.threshold),
+    startedAt: historyDate(row.startedAt),
+    lastObservedAt: historyDate(row.lastObservedAt),
+    endedAt: row.endedAt === null ? null : historyDate(row.endedAt),
+    endReason: row.endReason,
+    acknowledgedAt: row.acknowledgedAt === null ? null : historyDate(row.acknowledgedAt),
+    mutedAt: row.mutedAt === null ? null : historyDate(row.mutedAt),
+    mutedUntil: row.mutedUntil === null ? null : historyDate(row.mutedUntil),
+  };
+}
+
+export async function getWallboardAlarmHistory(
+  userId: string,
+  campaignId: string | null,
+  days: 1 | 7 | 30,
+  readableMissionIds: readonly string[],
+  now = new Date(),
+  queryDb: any = db,
+): Promise<{
+  items: WallboardAlarmHistoryEntry[];
+  retentionDays: typeof WALLBOARD_ALARM_HISTORY_RETENTION_DAYS;
+  truncated: boolean;
+}> {
+  const retentionCutoff = new Date(
+    now.getTime() - WALLBOARD_ALARM_HISTORY_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+  );
+  const requestedCutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  const scope = wallboardAlarmScope(campaignId);
+  const where = and(
+    eq(wallboardAlarmHistory.userId, userId),
+    eq(wallboardAlarmHistory.scope, scope),
+    gte(wallboardAlarmHistory.lastObservedAt, requestedCutoff),
+    gte(wallboardAlarmHistory.lastObservedAt, retentionCutoff),
+    wallboardAlarmHistoryVisibilityCondition(campaignId, readableMissionIds),
+  );
+  const rows = await queryDb.select().from(wallboardAlarmHistory)
+    .where(where)
+    .orderBy(desc(wallboardAlarmHistory.lastObservedAt), desc(wallboardAlarmHistory.revision))
+    .limit(1_001);
+  return {
+    items: rows.slice(0, 1_000).map(historyEntryFromRow),
+    retentionDays: WALLBOARD_ALARM_HISTORY_RETENTION_DAYS,
+    truncated: rows.length > 1_000,
   };
 }

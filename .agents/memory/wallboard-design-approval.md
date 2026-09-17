@@ -19,3 +19,9 @@ Wallboard Mission time means logged-in session participation, including breaks, 
 **Why:** session membership does not provide a historical Mission-switch ledger, so it cannot support claims of precise foreground time per Mission. The requested metric is time logged into Mission.
 
 **How to apply:** clip totals to the Bratislava calendar day. Keep ended sessions historical/offline, never live. A disconnected unclosed session can provide only its last recorded activity, not an exact disconnect timestamp; stop estimated accrual there rather than letting abandoned sessions accrue indefinitely.
+
+Personal alarm history represents an open browser's observations, not a central incident monitor. Lost telemetry, sleeping browsers, and missing final writes cannot prove that an alarm recovered.
+
+**Why:** supervisors asked for retrospective observations without authorizing background monitoring. Extending durations beyond confirmed observation would misrepresent coverage.
+
+**How to apply:** preserve the distinction between recovery and observation stopping in future reports/exports. Historical aggregate Mission access must be checked against current permissions, not merely the permissions at collection time.

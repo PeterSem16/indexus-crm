@@ -6485,6 +6485,31 @@ export const insertWallboardAlarmSettingsSchema = createInsertSchema(wallboardAl
 export type InsertWallboardAlarmSettings = z.infer<typeof insertWallboardAlarmSettingsSchema>;
 export type WallboardAlarmSettingsRow = typeof wallboardAlarmSettings.$inferSelect;
 
+export const wallboardAlarmHistory = pgTable("wallboard_alarm_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  scope: text("scope").notNull(),
+  incidentId: varchar("incident_id").notNull(),
+  revision: integer("revision").notNull(),
+  type: text("type").notNull(),
+  threshold: numeric("threshold").notNull(),
+  startedAt: timestamp("started_at").notNull(),
+  lastObservedAt: timestamp("last_observed_at").notNull(),
+  endedAt: timestamp("ended_at"),
+  endReason: text("end_reason"),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  mutedAt: timestamp("muted_at"),
+  mutedUntil: timestamp("muted_until"),
+  authorizedMissionIds: text("authorized_mission_ids").array().notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+}, (table) => ({
+  userScopeIncidentUnique: uniqueIndex("wallboard_alarm_history_user_scope_incident_unique")
+    .on(table.userId, table.scope, table.incidentId),
+  userScopeObservedIdx: index("wallboard_alarm_history_user_scope_observed_idx")
+    .on(table.userId, table.scope, table.lastObservedAt),
+}));
+
 // Last card an agent explicitly opened for a caller number. The entity is
 // polymorphic, so no entity foreign key is stored; callers must validate it
 // against the current phone lookup before using it.
@@ -8544,3 +8569,5 @@ export type PricingComponent = typeof pricingComponents.$inferSelect;
 export type PricingProduct = typeof pricingProducts.$inferSelect;
 export type PricingPriceList = typeof pricingPriceLists.$inferSelect;
 export type PricingIncompleteRule = typeof pricingIncompleteRules.$inferSelect;
+
+export type WallboardAlarmHistoryRow = typeof wallboardAlarmHistory.$inferSelect;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { ChevronLeft, ChevronRight, Maximize2, MonitorUp, RefreshCw, X, ArrowLeft, UserRound, Bell } from "lucide-react";
+import { ChevronLeft, ChevronRight, Maximize2, MonitorUp, RefreshCw, X, ArrowLeft, UserRound, Bell, History, AlertTriangle } from "lucide-react";
 import type { WallboardSnapshot } from "@shared/wallboard";
 import { useI18n } from "@/i18n/I18nProvider";
 import { Link } from "wouter";
@@ -16,6 +16,7 @@ import "@/components/wallboard/Wallboard.css";
 import { defaultWallboardAlarmSettings } from "@shared/wallboard-alarms";
 import { WallboardAlarmSettings } from "@/components/wallboard/WallboardAlarmSettings";
 import { WallboardAlarmPanel } from "@/components/wallboard/WallboardAlarmPanel";
+import { WallboardAlarmHistory } from "@/components/wallboard/WallboardAlarmHistory";
 import { useWallboardAlarms } from "@/components/wallboard/use-wallboard-alarms";
 
 type WallboardPageProps = {
@@ -106,6 +107,7 @@ export default function WallboardPage({ campaignId = null }: WallboardPageProps)
   const [page, setPage] = useState(0);
   const [presentation, setPresentation] = useState(false);
   const [alarmSettingsOpen, setAlarmSettingsOpen] = useState(false);
+  const [alarmHistoryOpen, setAlarmHistoryOpen] = useState(false);
   const [showOfflineAgents, setShowOfflineAgents] = useState(readShowOfflineAgents);
   const [failedAvatars, setFailedAvatars] = useState<Record<string, boolean>>({});
   const requestRef = useRef<AbortController | null>(null);
@@ -248,7 +250,7 @@ export default function WallboardPage({ campaignId = null }: WallboardPageProps)
   const enabledAlarmCount = alarms.settings?.rules.filter((rule) => rule.enabled).length ?? 0;
   const showAlarmPanel = Boolean(snapshot && (enabledAlarmCount || alarms.settingsError));
   const highlightedAgents = new Set(alarms.incidents.flatMap((incident) => incident.agentIds));
-  useEffect(() => { setAlarmSettingsOpen(false); }, [campaignId]);
+  useEffect(() => { setAlarmSettingsOpen(false); setAlarmHistoryOpen(false); }, [campaignId]);
 
   const enterPresentation = () => {
     setPresentation(true);
@@ -313,6 +315,10 @@ export default function WallboardPage({ campaignId = null }: WallboardPageProps)
               <Bell size={14} aria-hidden="true" />
               {t.wallboard.alarm.settings}
               {alarms.incidents.length > 0 && <span className="wb-alarm-count">{alarms.incidents.length}</span>}
+            </button>
+            <button className="wb-tool" type="button" disabled={!snapshot} onClick={() => setAlarmHistoryOpen(true)} data-testid="wallboard-alarm-history-open">
+              <History size={14} aria-hidden="true" />
+              {t.wallboard.alarm.history.title}
             </button>
             <button
               className="wb-tool wb-offline-toggle"
@@ -500,6 +506,7 @@ export default function WallboardPage({ campaignId = null }: WallboardPageProps)
               enabledRuleCount={enabledAlarmCount}
               now={effectiveServerNow ?? now}
             />}
+            {alarms.historyError && <p className="wb-history-warning" role="alert" data-testid="wallboard-alarm-history-persistence-warning"><AlertTriangle size={14} aria-hidden="true" />{t.wallboard.alarm.history.persistenceWarning}</p>}
             <section className="wb-inbound" aria-live="polite">
               <div className="wb-overline"><MonitorUp size={11} aria-hidden="true" /> {t.wallboard.incoming}</div>
               {activeInbound ? (
@@ -537,6 +544,13 @@ export default function WallboardPage({ campaignId = null }: WallboardPageProps)
         onSave={alarms.saveSettings}
         loading={alarms.settingsLoading || !alarms.settings}
       />}
+      <WallboardAlarmHistory
+        key={campaignId ?? "all"}
+        open={alarmHistoryOpen}
+        onOpenChange={setAlarmHistoryOpen}
+        campaignId={campaignId}
+        persistenceError={alarms.historyError}
+      />
     </main>
   );
 }
