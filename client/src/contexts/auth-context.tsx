@@ -125,7 +125,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, loginWithMs365, logout }}>
+    // The query can finish one render before the effect copies its user.
+    // Keep routing pending in that gap instead of redirecting a valid session
+    // to /login and then losing the requested deep link to the landing page.
+    <AuthContext.Provider value={{ user, isLoading: isLoading || (!!data?.user && !user), login, loginWithMs365, logout }}>
       {children}
     </AuthContext.Provider>
   );

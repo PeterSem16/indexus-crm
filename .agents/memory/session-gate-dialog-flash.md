@@ -21,3 +21,15 @@ Radix `Dialog` does NOT call `onOpenChange` when `open` transitions true->false
 via the prop, so once the query resolves to "satisfied" the dialog closes
 silently with no navigation. Only genuinely-unsatisfied users see the gate
 after loading finishes, preserving the intended cancel behavior.
+
+Auth hydration is a separate source of a dashboard bounce: routing must not
+observe a finished auth query together with an unsynchronized empty user.
+
+**Why:** A full-page Pulse preview navigation exposed a one-render gap between
+the successful query and its user-copy effect. Routing sent the valid session
+through login to its role landing page before the workspace even mounted.
+Changing the shift dialog would not fix this case.
+
+**How to apply:** Trace navigation before changing dismiss handlers. Verify
+hard navigation and refresh using the real App and AuthProvider with mocked
+API responses; a fixture that stubs useAuth cannot catch hydration races.
