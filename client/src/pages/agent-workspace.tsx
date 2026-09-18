@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { EditableEmailFrame } from "@/components/editable-email-frame";
+import { MissedCommunicationsUnified as MissedUnifiedDialog } from "@/components/agent/MissedCommunicationsUnified";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useI18n } from "@/i18n";
@@ -22,6 +23,7 @@ import {
 } from "@/lib/phone-card-preference";
 import { PulseMainDialButton, PulseQuickDialButton } from "@/components/pulse-dial-button";
 import { SopPanel } from "@/components/agent/SopPanel";
+import { MyActivityPanel } from "@/components/agent/MyShiftUnified";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9789,496 +9791,6 @@ function ReschedulePopover({ item, onReschedule, t }: { item: ScheduledItem; onR
   );
 }
 
-function MyActivityPanel({
-  open,
-  onOpenChange,
-  stats,
-  abandonedCalls,
-  onMakeCall,
-  onCallFromShift,
-  onOpenEntity,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  stats: { calls: number; emails: number; sms: number };
-  abandonedCalls?: any[];
-  onMakeCall?: (phone: string) => void;
-  onCallFromShift?: (item: any) => void;
-  onOpenEntity?: (type: string, id: string, campaignContactId?: string | null, campaignId?: string | null) => void;
-}) {
-  const { t, locale } = useI18n();
-  const [filterType, setFilterType] = useState<"all" | "call" | "email" | "sms" | "missed" | "break" | "session">("all");
-  const [activitySearch, setActivitySearch] = useState("");
-  const [activitySearchField, setActivitySearchField] = useState<"all" | "name" | "phone" | "email">("all");
-  const [activitySort, setActivitySort] = useState<"date_desc" | "date_asc" | "name_asc">("date_desc");
-
-  const { data: items = [], isLoading, refetch } = useQuery<any[]>({
-    queryKey: ["/api/agent/today-activity"],
-    queryFn: async () => {
-      const res = await fetch("/api/agent/today-activity", { credentials: "include" });
-      return res.ok ? res.json() : [];
-    },
-    enabled: open,
-    refetchInterval: open ? 30000 : false,
-  });
-
-  const getCallInfo = (item: any) => {
-    const s = item.status;
-    const isIn = item.direction === "inbound";
-    if (s === "answered" || s === "completed") return { label: isIn ? t.agentWorkspace.todayCallsInboundBadge : t.agentWorkspace.todayCallsOutboundBadge, color: "text-green-600 dark:text-green-400", bg: "bg-green-100 dark:bg-green-900/30", icon: isIn ? <PhoneIncoming className="h-3 w-3" /> : <PhoneCall className="h-3 w-3" /> };
-    if (s === "no_answer") return { label: t.agentWorkspace.myShiftFilterMissed, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-100 dark:bg-amber-900/30", icon: <PhoneMissed className="h-3 w-3" /> };
-    if (s === "abandoned" || s === "timeout" || s === "overflow" || s === "no_agents") return { label: t.agentWorkspace.myShiftFilterMissed, color: "text-red-600 dark:text-red-400", bg: "bg-red-100 dark:bg-red-900/30", icon: <PhoneMissed className="h-3 w-3" /> };
-    if (s === "busy") return { label: "Busy", color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-100 dark:bg-orange-900/30", icon: <PhoneOff className="h-3 w-3" /> };
-    if (s === "failed" || s === "cancelled") return { label: isIn ? "Cancelled" : "Failed", color: "text-red-600 dark:text-red-400", bg: "bg-red-100 dark:bg-red-900/30", icon: <PhoneOff className="h-3 w-3" /> };
-    return { label: s || "—", color: "text-muted-foreground", bg: "bg-muted", icon: <Phone className="h-3 w-3" /> };
-  };
-
-  const formatDuration = (secs: number | null) => {
-    if (secs === null || secs === undefined || !Number.isFinite(secs)) return null;
-    const total = Math.max(0, Math.floor(secs));
-    const h = Math.floor(total / 3600);
-    const m = Math.floor((total % 3600) / 60);
-    const s = total % 60;
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  };
-
-  // Missed queue calls live in inbound_call_logs with NO agent userId, so the
-  // today-activity feed never included them. Merge today's missed calls (the same data
-  // shown in the "Missed calls" panel) into the shift feed so they're recorded here too.
-  const MISSED_QUEUE_STATUSES = ["abandoned", "timeout", "overflow", "no_agents"];
-  const shiftDayStart = startOfDay(new Date());
-  // Guard against a missed queue call ALSO showing up as an agent no_answer call_log:
-  // dedupe on last-9-digits of the number within the same ~5-minute bucket.
-  const existingMissedKeys = new Set(
-    items
-      .filter((i: any) => i.itemType === "call" && (i.status === "no_answer" || i.status === "busy") && i.phoneNumber)
-      .map((i: any) => `${String(i.phoneNumber).replace(/\D/g, "").slice(-9)}|${i.startedAt ? Math.floor(new Date(i.startedAt).getTime() / 300000) : ""}`)
-  );
-  const missedQueueItems = (abandonedCalls || [])
-    .filter((c: any) => {
-      const ts = c.enteredQueueAt || c.completedAt || c.createdAt;
-      if (!ts || new Date(ts) < shiftDayStart) return false;
-      const key = `${String(c.callerNumber || "").replace(/\D/g, "").slice(-9)}|${Math.floor(new Date(ts).getTime() / 300000)}`;
-      return !existingMissedKeys.has(key);
-    })
-    .map((c: any) => {
-      const ts = c.enteredQueueAt || c.completedAt || c.createdAt;
-      return {
-        id: `missed-${c.id}`,
-        itemType: "call" as const,
-        direction: "inbound" as const,
-        status: c.status || "abandoned",
-        phoneNumber: c.callerNumber,
-        durationSeconds: null,
-        startedAt: ts,
-        answeredAt: null,
-        endedAt: c.completedAt || null,
-        sortTime: ts,
-        customerName: c.customerName || null,
-        contactType: c.customerId ? "customer" : null,
-        entityId: c.customerId || null,
-        campaignContactId: null,
-        campaignId: null,
-        dispositionCode: null,
-        inboundQueueName: c.queueName || null,
-      };
-    });
-  const allItems = missedQueueItems.length
-    ? [...items, ...missedQueueItems].sort((a: any, b: any) =>
-        new Date(b.sortTime || b.startedAt || 0).getTime() - new Date(a.sortTime || a.startedAt || 0).getTime())
-    : items;
-
-  const callItems = allItems.filter(i => i.itemType === "call");
-  const emailItems = allItems.filter(i => i.itemType === "email");
-  const smsItems = allItems.filter(i => i.itemType === "sms");
-  const breakItems = allItems.filter(i => i.itemType === "break");
-  const sessionItems = allItems.filter(i => i.itemType === "session");
-  const missedItems = callItems.filter(i => i.status === "no_answer" || i.status === "busy" || MISSED_QUEUE_STATUSES.includes(i.status));
-  const answeredCalls = callItems.filter(i => i.status === "answered" || i.status === "completed");
-  const totalDur = answeredCalls.reduce((sum: number, c: any) => sum + (c.durationSeconds || 0), 0);
-
-  const typeFiltered = filterType === "all" ? allItems
-    : filterType === "call" ? callItems
-    : filterType === "email" ? emailItems
-    : filterType === "sms" ? smsItems
-    : filterType === "break" ? breakItems
-    : filterType === "session" ? sessionItems
-    : missedItems;
-  const searchValue = activitySearch.trim().toLowerCase();
-  const filtered = [...typeFiltered]
-    .filter((item: any) => {
-      if (!searchValue) return true;
-      const name = String(item.customerName || item.entityName || item.breakTypeName || "").toLowerCase();
-      const phone = String(item.phoneNumber || "").toLowerCase();
-      const email = String(item.email || item.sender || "").toLowerCase();
-      if (activitySearchField === "name") return name.includes(searchValue);
-      if (activitySearchField === "phone") return phone.includes(searchValue);
-      if (activitySearchField === "email") return email.includes(searchValue);
-      return [name, phone, email, String(item.inboundQueueName || ""), String(item.subject || ""), String(item.status || "")]
-        .some(value => value.includes(searchValue));
-    })
-    .sort((a: any, b: any) => {
-      if (activitySort === "name_asc") {
-        return String(a.customerName || a.entityName || a.breakTypeName || "").localeCompare(
-          String(b.customerName || b.entityName || b.breakTypeName || ""), locale === "sk" ? "sk" : undefined,
-        );
-      }
-      const aTime = new Date(a.sortTime || a.startedAt || 0).getTime();
-      const bTime = new Date(b.sortTime || b.startedAt || 0).getTime();
-      return activitySort === "date_asc" ? aTime - bTime : bTime - aTime;
-    });
-
-  const filterTabs: { key: typeof filterType; label: string; count: number }[] = [
-    { key: "all", label: t.agentWorkspace.myShiftFilterAll, count: allItems.length },
-    { key: "call", label: t.agentWorkspace.myShiftFilterCalls, count: callItems.length },
-    { key: "email", label: t.agentWorkspace.myShiftFilterEmail, count: emailItems.length },
-    { key: "sms", label: t.agentWorkspace.myShiftFilterSms, count: smsItems.length },
-    { key: "missed", label: t.agentWorkspace.myShiftFilterMissed, count: missedItems.length },
-    { key: "break", label: t.agentWorkspace.myShiftFilterBreak, count: breakItems.length },
-    { key: "session", label: t.agentWorkspace.myShiftFilterSessions, count: sessionItems.length },
-  ];
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent overlayClassName="!bg-slate-950/30 backdrop-blur-[1px]" className="!w-[calc(100vw-2rem)] !max-w-[calc(100vw-2rem)] !h-[calc(100vh-2rem)] !max-h-[calc(100vh-2rem)] sm:!w-[calc(100vw-3rem)] sm:!max-w-[calc(100vw-3rem)] sm:!h-[calc(100vh-3rem)] sm:!max-h-[calc(100vh-3rem)] lg:!w-[calc(100vw-4rem)] lg:!max-w-[calc(100vw-4rem)] lg:!h-[calc(100vh-4rem)] lg:!max-h-[calc(100vh-4rem)] !flex !flex-col overflow-hidden p-0 shadow-2xl ring-1 ring-black/10 dark:ring-white/10">
-        <div className="flex items-center gap-3 pl-5 pr-14 pt-5 pb-3 border-b flex-shrink-0">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: "#B5622E18" }}>
-            <History className="h-5 w-5" style={{ color: "#B5622E" }} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <DialogTitle className="text-base font-semibold">{t.agentWorkspace.todayCallsPanelTitle}</DialogTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">{format(new Date(), "EEEE d. MMMM yyyy", { locale: sk })}</p>
-          </div>
-          <button onClick={() => refetch()} className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted-foreground hover:bg-muted transition-colors mr-1" title={t.agentWorkspace.todayCallsRefresh} data-testid="btn-my-activity-refresh">
-            <RotateCcw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">{t.agentWorkspace.todayCallsRefresh}</span>
-          </button>
-        </div>
-
-        <div className="grid grid-cols-4 gap-3 px-5 py-3 border-b flex-shrink-0 bg-muted/20">
-          <div className="text-center">
-            <div className="text-xl font-bold text-foreground">{callItems.length}</div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{t.agentWorkspace.myShiftFilterCalls}</div>
-          </div>
-          <div className="text-center border-l">
-            <div className="text-xl font-bold" style={{ color: "#B5622E" }}>{missedItems.length}</div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{t.agentWorkspace.myShiftFilterMissed}</div>
-          </div>
-          <div className="text-center border-l">
-            <div className="text-xl font-bold" style={{ color: "#5E7A5A" }}>{emailItems.length}</div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{t.agentWorkspace.myShiftFilterEmail}</div>
-          </div>
-          <div className="text-center border-l">
-            <div className="text-xl font-bold" style={{ color: "#A0946A" }}>{formatDuration(totalDur) || "0s"}</div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{t.agentWorkspace.todayCallsDuration}</div>
-          </div>
-        </div>
-
-         <div className="px-4 py-3 border-b flex-shrink-0 bg-muted/10 space-y-2.5">
-           <div className="flex flex-col gap-2 lg:flex-row">
-             <div className="relative min-w-0 flex-1">
-               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-               <Input
-                 value={activitySearch}
-                 onChange={(event) => setActivitySearch(event.target.value)}
-                 placeholder={t.agentWorkspace.historySearchPlaceholder}
-                 className="h-9 rounded-xl pl-9 pr-8 text-xs"
-                 data-testid="input-my-activity-search"
-               />
-               {activitySearch && (
-                 <button type="button" onClick={() => setActivitySearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" aria-label={t.common.clear}>
-                   <X className="h-3.5 w-3.5" />
-                 </button>
-               )}
-             </div>
-             <Select value={activitySearchField} onValueChange={(value) => setActivitySearchField(value as typeof activitySearchField)}>
-               <SelectTrigger className="h-9 w-full rounded-xl text-xs lg:w-[130px]" data-testid="select-my-activity-search-field">
-                 <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-                 <SelectValue />
-               </SelectTrigger>
-               <SelectContent>
-                 <SelectItem value="all">{t.agentWorkspace.fieldPickerAllFields}</SelectItem>
-                 <SelectItem value="name">{t.agentWorkspace.fieldPickerName}</SelectItem>
-                 <SelectItem value="phone">{t.agentWorkspace.fieldPickerPhone}</SelectItem>
-                 <SelectItem value="email">{t.agentWorkspace.fieldPickerEmail}</SelectItem>
-               </SelectContent>
-             </Select>
-             <Select value={activitySort} onValueChange={(value) => setActivitySort(value as typeof activitySort)}>
-               <SelectTrigger className="h-9 w-full rounded-xl text-xs lg:w-[170px]" data-testid="select-my-activity-sort">
-                 <ArrowUpDown className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-                 <SelectValue />
-               </SelectTrigger>
-               <SelectContent>
-                 <SelectItem value="date_desc">{t.agentWorkspace.sortByDate} · {t.agentWorkspace.sortDesc}</SelectItem>
-                 <SelectItem value="date_asc">{t.agentWorkspace.sortByDate} · {t.agentWorkspace.sortAsc}</SelectItem>
-                 <SelectItem value="name_asc">{t.agentWorkspace.sortByName} · {t.agentWorkspace.sortAsc}</SelectItem>
-               </SelectContent>
-             </Select>
-           </div>
-           <div className="flex items-center gap-1.5 overflow-x-auto">
-          {filterTabs.map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setFilterType(tab.key)}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium whitespace-nowrap transition-colors"
-              style={filterType === tab.key
-                ? { background: "#B5622E", color: "#fff" }
-                : {}}
-              data-testid={`btn-shift-filter-${tab.key}`}
-            >
-              {tab.label}
-              {tab.count > 0 && (
-                <span className="px-1 rounded text-[10px]"
-                  style={filterType === tab.key
-                    ? { background: "rgba(255,255,255,0.22)", color: "#fff" }
-                    : {}}>
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          ))}
-             <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">{filtered.length} {t.agentWorkspace.resultsCount}</span>
-           </div>
-        </div>
-
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="text-center py-16 text-muted-foreground">
-              <History className="h-10 w-10 mx-auto mb-3 opacity-15" />
-              <p className="text-sm font-medium">{t.agentWorkspace.todayCallsEmpty}</p>
-              <p className="text-xs mt-1 opacity-70">{t.agentWorkspace.todayCallsEmptyHint}</p>
-            </div>
-          ) : (
-            <div>
-              {filtered.map((item) => {
-                const sortTime = item.startedAt || item.sortTime;
-                if (item.itemType === "call") {
-                  const info = getCallInfo(item);
-                  const dur = formatDuration(item.durationSeconds);
-                  const ringEnd = item.answeredAt || item.endedAt;
-                  const ringSecs = item.startedAt && ringEnd
-                    ? Math.max(0, Math.round((new Date(ringEnd).getTime() - new Date(item.startedAt).getTime()) / 1000))
-                    : 0;
-                  const ring = formatDuration(ringSecs);
-                  const isIn = item.direction === "inbound";
-                  const displayName = item.customerName || item.phoneNumber;
-                  const hasEntity = !!(onOpenEntity && item.entityId);
-                  return (
-                    <div
-                      key={item.id}
-                      data-testid={`my-shift-call-${item.id}`}
-                      className="flex items-start gap-3 px-5 py-3 border-b border-l-2 transition-colors hover:bg-muted/30"
-                      style={{ borderLeftColor: isIn ? "#5E7A5A" : "#B5622E" }}
-                    >
-                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${info.bg} ${info.color}`}>
-                        {isIn ? <PhoneIncoming className="h-4 w-4" /> : <PhoneOutgoing className="h-4 w-4" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        {hasEntity && item.customerName ? (
-                          <button
-                            type="button"
-                            onClick={() => { onOpenEntity?.(item.contactType || "customer", item.entityId, item.campaignContactId, item.campaignId); onOpenChange(false); }}
-                            className="block max-w-full text-sm font-semibold truncate text-left hover:underline hover:text-primary transition-colors"
-                            data-testid={`btn-shift-open-entity-${item.id}`}
-                            title={item.customerName}
-                          >
-                            {item.customerName}
-                          </button>
-                        ) : (
-                          <span className="block text-sm font-semibold truncate">{displayName || t.agentWorkspace.myShiftNoContact}</span>
-                        )}
-                        <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground min-w-0">
-                          <Phone className="h-3 w-3 opacity-60 shrink-0" />
-                          <span className="truncate">{item.phoneNumber || "—"}</span>
-                          <span className="opacity-40 shrink-0">·</span>
-                          <span className="shrink-0">{isIn ? t.agentWorkspace.todayCallsInboundBadge : t.agentWorkspace.todayCallsOutboundBadge}</span>
-                          {!hasEntity && item.phoneNumber && (
-                            <>
-                              <span className="opacity-40 shrink-0">·</span>
-                              <span className="shrink-0 opacity-80">{t.agentWorkspace.myShiftNoContact}</span>
-                            </>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${info.bg} ${info.color}`}>
-                            {info.icon}{info.label}
-                          </span>
-                          {ring && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400" title={t.agentWorkspace.myShiftRing}>
-                              {isIn ? <PhoneIncoming className="h-2.5 w-2.5" /> : <PhoneOutgoing className="h-2.5 w-2.5" />}{t.agentWorkspace.myShiftRing} {ring}
-                            </span>
-                          )}
-                          {dur && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">
-                              <Clock className="h-2.5 w-2.5" />{dur}
-                            </span>
-                          )}
-                          {isIn && item.inboundQueueName && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-muted-foreground bg-muted">
-                              <span className="opacity-60">{t.agentWorkspace.todayCallsQueue}</span> {item.inboundQueueName}
-                            </span>
-                          )}
-                          {item.workflowMode && item.outcomeBadges?.map((badge: any, index: number) => {
-                            const color = badge.color || (badge.kind === "callback" ? "#2563eb" : "#059669");
-                            const label = badge.kind === "callback"
-                              ? t.agentWorkspace.dispCbScheduledTitle
-                              : (badge.label || badge.code || "—");
-                            return (
-                              <span
-                                key={`${badge.kind}-${badge.code || index}`}
-                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border max-w-full truncate"
-                                style={{ backgroundColor: `${color}18`, color, borderColor: `${color}45` }}
-                                title={label}
-                              >
-                                {badge.kind === "callback"
-                                  ? <Calendar className="h-2.5 w-2.5 shrink-0" />
-                                  : <FileText className="h-2.5 w-2.5 shrink-0" />}
-                                {label}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-2 shrink-0">
-                        <div className="text-right leading-tight">
-                          <div className="text-xs font-semibold text-foreground">{format(new Date(sortTime), "HH:mm")}</div>
-                          <div className="text-[10px] text-muted-foreground mt-0.5">{format(new Date(sortTime), "dd.MM.yyyy")}</div>
-                        </div>
-                        {hasEntity && (
-                          <button
-                            type="button"
-                            onClick={() => { onOpenEntity?.(item.contactType || "customer", item.entityId, item.campaignContactId, item.campaignId); onOpenChange(false); }}
-                            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11px] font-medium border transition-colors hover:brightness-95"
-                            style={{ background: "#B5622E18", color: "#B5622E", borderColor: "#B5622E30" }}
-                            title={t.agentWorkspace.myShiftOpenCard}
-                            data-testid={`btn-shift-open-card-${item.id}`}
-                          >
-                            <User className="h-3 w-3" />
-                            {t.agentWorkspace.myShiftOpenCard}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                }
-                if (item.itemType === "email") {
-                  return (
-                    <div key={item.id} data-testid={`my-shift-email-${item.id}`} className="flex items-center gap-3 px-5 py-2.5 border-b border-l-2 transition-colors hover:bg-muted/30" style={{ borderLeftColor: "#A0946A" }}>
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                        <Mail className="h-4 w-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{item.entityName || "—"}</div>
-                        {item.subject && <div className="text-[11px] text-muted-foreground truncate mt-0.5">📧 {item.subject}</div>}
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="text-xs font-medium text-foreground">{format(new Date(sortTime), "HH:mm")}</div>
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-normal border-blue-300 text-blue-600 dark:text-blue-400 mt-0.5">Email</Badge>
-                      </div>
-                    </div>
-                  );
-                }
-                if (item.itemType === "sms") {
-                  return (
-                    <div key={item.id} data-testid={`my-shift-sms-${item.id}`} className="flex items-center gap-3 px-5 py-2.5 border-b border-l-2 transition-colors hover:bg-muted/30" style={{ borderLeftColor: "#5E7A5A" }}>
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
-                        <MessageSquare className="h-4 w-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{item.entityName || "—"}</div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="text-xs font-medium text-foreground">{format(new Date(sortTime), "HH:mm")}</div>
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-normal border-green-300 text-green-600 dark:text-green-400 mt-0.5">SMS</Badge>
-                      </div>
-                    </div>
-                  );
-                }
-                if (item.itemType === "break") {
-                  const isActive = !item.endedAt;
-                  const dur = item.durationSeconds ? formatDuration(item.durationSeconds) : null;
-                  return (
-                    <div key={item.id} data-testid={`my-shift-break-${item.id}`} className="flex items-center gap-3 px-5 py-2.5 border-b border-l-2 border-l-orange-300 transition-colors hover:bg-muted/30">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">
-                        <Coffee className="h-4 w-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{item.breakTypeName || t.agentWorkspace.myShiftBreakDefault}</div>
-                        {dur && <div className="text-[11px] text-muted-foreground mt-0.5">{dur}</div>}
-                        {isActive && <div className="text-[11px] text-orange-500 mt-0.5">{t.agentWorkspace.myShiftBreakActive}</div>}
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="text-xs font-medium text-foreground">{format(new Date(sortTime), "HH:mm")}</div>
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-normal border-orange-300 text-orange-600 dark:text-orange-400 mt-0.5">Break</Badge>
-                      </div>
-                    </div>
-                  );
-                }
-                if (item.itemType === "session") {
-                  const endMs = item.endedAt ? new Date(item.endedAt).getTime() : Date.now();
-                  const durSecs = item.startedAt
-                    ? Math.max(0, Math.round((endMs - new Date(item.startedAt).getTime()) / 1000))
-                    : 0;
-                  const dur = formatDuration(durSecs);
-                  return (
-                    <div key={item.id} data-testid={`my-shift-session-${item.id}`} className="flex items-center gap-3 px-5 py-2.5 border-b border-l-2 transition-colors hover:bg-muted/30" style={{ borderLeftColor: "#5E7A5A" }}>
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
-                        <LogIn className="h-4 w-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{t.agentWorkspace.myShiftSessionLabel}</div>
-                        <div className="flex items-center gap-x-2 gap-y-0.5 mt-0.5 text-xs text-muted-foreground flex-wrap">
-                          <span className="inline-flex items-center gap-1">
-                            <LogIn className="h-3 w-3 opacity-60" />
-                            {t.agentWorkspace.myShiftSessionLogin} {format(new Date(item.startedAt), "HH:mm")}
-                          </span>
-                          {item.endedAt ? (
-                            <span className="inline-flex items-center gap-1">
-                              <LogOut className="h-3 w-3 opacity-60" />
-                              {t.agentWorkspace.myShiftSessionLogout} {format(new Date(item.endedAt), "HH:mm")}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
-                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                              {t.agentWorkspace.myShiftSessionActive}
-                            </span>
-                          )}
-                          {dur && (
-                            <span className="inline-flex items-center gap-1">
-                              <Clock className="h-3 w-3 opacity-60" />{dur}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="text-xs font-medium text-foreground">{format(new Date(sortTime), "HH:mm")}</div>
-                        <div className="text-[10px] text-muted-foreground mt-0.5">{format(new Date(sortTime), "dd.MM.yyyy")}</div>
-                      </div>
-                    </div>
-                  );
-                }
-                return null;
-              })}
-            </div>
-          )}
-        </div>
-
-        <div className="px-5 py-2 border-t bg-muted/20 flex-shrink-0">
-          <p className="text-[11px] text-muted-foreground">
-            {callItems.length} {callItems.length === 1 ? t.agentWorkspace.todayCallsWord1 : callItems.length >= 2 && callItems.length <= 4 ? t.agentWorkspace.todayCallsWord234 : t.agentWorkspace.todayCallsWord5plus} · {answeredCalls.length} {t.agentWorkspace.todayCallsAnswered}
-            {emailItems.length > 0 && ` · ${emailItems.length} ${t.agentWorkspace.todayEmailsSent}`}
-            {smsItems.length > 0 && ` · ${smsItems.length} ${t.agentWorkspace.todaySmsSent}`}
-          </p>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 function ScheduledQueuePanel({
   open,
   onOpenChange,
@@ -10980,11 +10492,11 @@ function AgentWorkspacePageContent() {
   const [scheduledQueueOpen, setScheduledQueueOpen] = useState(false);
   const [abandonedCallsOpen, setAbandonedCallsOpen] = useState(false);
   const [myActivityOpen, setMyActivityOpen] = useState(false);
-  const [missedChannel, setMissedChannel] = useState<"calls" | "email" | "sms">("calls");
+  const [missedChannel, setMissedChannel] = useState<"all" | "calls" | "email" | "sms">("all");
   const [abandonedCallsFilter, setAbandonedCallsFilter] = useState<"all" | "pending" | "handled">("all");
   const [missedSearch, setMissedSearch] = useState("");
   const [missedSearchField, setMissedSearchField] = useState<"all" | "name" | "phone" | "email" | "queue">("all");
-  const [missedSort, setMissedSort] = useState<"date_desc" | "date_asc" | "name_asc">("date_desc");
+  const [missedSort, setMissedSort] = useState<"date_desc" | "date_asc" | "name_asc" | "unhandled">("date_desc");
   const [missedCallNotifs, setMissedCallNotifs] = useState<Array<{ id: number; title: string; description: string }>>([]);
   const pendingCallbackAbandonedIdRef = useRef<string | null>(null);
   const [historyDetailModal, setHistoryDetailModal] = useState<TimelineEntry | ContactHistory | null>(null);
@@ -11973,13 +11485,13 @@ function AgentWorkspacePageContent() {
     }
   }, [sessionLoginOpen, agentSession.isSessionActive]);
 
-  const { data: abandonedCalls = [] } = useQuery<any[]>({
+  const { data: abandonedCalls = [], isLoading: missedCallsLoading, error: missedCallsError, refetch: retryMissedCalls } = useQuery<any[]>({
     queryKey: ["/api/agent/abandoned-calls"],
     enabled: !!hasAccess && agentSession.isSessionActive,
     refetchInterval: 30000,
   });
 
-  const { data: missedMessages = [] } = useQuery<any[]>({
+  const { data: missedMessages = [], isLoading: missedMessagesLoading, error: missedMessagesError, refetch: retryMissedMessages } = useQuery<any[]>({
     queryKey: ["/api/agent/missed-messages"],
     enabled: !!hasAccess && agentSession.isSessionActive,
     refetchInterval: 30000,
@@ -17459,6 +16971,15 @@ function AgentWorkspacePageContent() {
         onOpenChange={setMyActivityOpen}
         stats={stats}
         abandonedCalls={abandonedCalls}
+        onOpenMissed={() => {
+          setMyActivityOpen(false);
+          setMissedChannel("all");
+          setAbandonedCallsFilter("all");
+          setMissedSearch("");
+          setMissedSearchField("all");
+          setMissedSort("date_desc");
+          setAbandonedCallsOpen(true);
+        }}
         onCallFromShift={async (item: any) => {
           setMyActivityOpen(false);
           if (item.campaignId && item.campaignContactId && item.entityId && item.contactType) {
@@ -17849,452 +17370,128 @@ function AgentWorkspacePageContent() {
         </SheetContent>
       </Sheet>
 
-      <Dialog open={abandonedCallsOpen} onOpenChange={(open) => { setAbandonedCallsOpen(open); if (!open) { setAbandonedCallsFilter("all"); setMissedChannel("calls"); setMissedSearch(""); setMissedSearchField("all"); setMissedSort("date_desc"); } }}>
-        <DialogContent
-          overlayClassName="!bg-slate-950/30 backdrop-blur-[1px]"
-          className="!w-[calc(100vw-2rem)] !max-w-[calc(100vw-2rem)] !h-[calc(100vh-2rem)] !max-h-[calc(100vh-2rem)] sm:!w-[calc(100vw-3rem)] sm:!max-w-[calc(100vw-3rem)] sm:!h-[calc(100vh-3rem)] sm:!max-h-[calc(100vh-3rem)] lg:!w-[calc(100vw-4rem)] lg:!max-w-[calc(100vw-4rem)] lg:!h-[calc(100vh-4rem)] lg:!max-h-[calc(100vh-4rem)] flex flex-col overflow-hidden p-0 gap-0 shadow-2xl ring-1 ring-black/10 dark:ring-white/10"
-          onInteractOutside={(e) => e.preventDefault()}
-          onPointerDownOutside={(e) => e.preventDefault()}
-          onFocusOutside={(e) => e.preventDefault()}
-        >
-          {/* Header */}
-          <div className="flex items-center gap-3 px-5 pt-4 pb-4 pr-12 shrink-0">
-            <div className="h-10 w-10 rounded-full flex items-center justify-center shrink-0" style={{ background: "#B5622E18" }}>
-              <PhoneOff className="h-5 w-5" style={{ color: "#B5622E" }} />
-            </div>
-            <div>
-              <DialogTitle className="text-lg font-bold leading-tight">{t.agentWorkspace.missedTitle}</DialogTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {(abandonedCalls.filter((c: any) => !c.calledBack).length + missedMessages.filter((m: any) => !m.handledAt).length)} {t.agentWorkspace.missedUnhandledCount}
-              </p>
-            </div>
-          </div>
-
-          <div className="px-5 pb-3 shrink-0 space-y-2.5 border-b">
-            <div className="flex flex-col gap-2 lg:flex-row">
-              <div className="relative min-w-0 flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                <Input
-                  value={missedSearch}
-                  onChange={(event) => setMissedSearch(event.target.value)}
-                  placeholder={t.agentWorkspace.historySearchPlaceholder}
-                  className="h-9 rounded-xl pl-9 pr-8 text-xs"
-                  data-testid="input-missed-search"
-                />
-                {missedSearch && (
-                  <button type="button" onClick={() => setMissedSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" aria-label={t.common.clear}>
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-              <Select value={missedSearchField} onValueChange={(value) => setMissedSearchField(value as typeof missedSearchField)}>
-                <SelectTrigger className="h-9 w-full rounded-xl text-xs lg:w-[140px]" data-testid="select-missed-search-field">
-                  <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t.agentWorkspace.fieldPickerAllFields}</SelectItem>
-                  <SelectItem value="name">{t.agentWorkspace.fieldPickerName}</SelectItem>
-                  <SelectItem value="phone">{t.agentWorkspace.fieldPickerPhone}</SelectItem>
-                  <SelectItem value="email">{t.agentWorkspace.fieldPickerEmail}</SelectItem>
-                  <SelectItem value="queue">{t.agentWorkspace.todayCallsQueue}</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={missedSort} onValueChange={(value) => setMissedSort(value as typeof missedSort)}>
-                <SelectTrigger className="h-9 w-full rounded-xl text-xs lg:w-[170px]" data-testid="select-missed-sort">
-                  <ArrowUpDown className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="date_desc">{t.agentWorkspace.sortByDate} · {t.agentWorkspace.sortDesc}</SelectItem>
-                  <SelectItem value="date_asc">{t.agentWorkspace.sortByDate} · {t.agentWorkspace.sortAsc}</SelectItem>
-                  <SelectItem value="name_asc">{t.agentWorkspace.sortByName} · {t.agentWorkspace.sortAsc}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-1.5 overflow-x-auto">
-            {([
-              ["calls", t.agentWorkspace.missedCallsTab, PhoneOff, abandonedCalls.filter((c: any) => !c.calledBack).length],
-              ["email", t.agentWorkspace.missedEmailsTab, Mail, missedMessages.filter((m: any) => m.type === "email" && !m.handledAt).length],
-              ["sms", t.agentWorkspace.missedSmsTab, MessageSquare, missedMessages.filter((m: any) => m.type === "sms" && !m.handledAt).length],
-            ] as const).map(([key, label, Icon, count]) => (
-              <button key={key} onClick={() => { setMissedChannel(key); setAbandonedCallsFilter("all"); }}
-                className={`flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-semibold transition-colors ${missedChannel === key ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted"}`}>
-                <Icon className="h-3.5 w-3.5" /> {label}
-                {count > 0 && <span className={`rounded-full px-1.5 text-[10px] ${missedChannel === key ? "bg-white/20" : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"}`}>{count}</span>}
-              </button>
-            ))}
-            </div>
-          </div>
-
-          {/* Filter tabs */}
-          <div className="flex items-center gap-1.5 px-5 py-2.5 border-b shrink-0 bg-muted/10 overflow-x-auto">
-            {(["all", "pending", "handled"] as const).map((f) => {
-              const labels = { all: t.agentWorkspace.filterAll, pending: t.agentWorkspace.filterPending, handled: t.agentWorkspace.filterHandled };
-              const channelItems = missedChannel === "calls" ? abandonedCalls : missedMessages.filter((m: any) => m.type === missedChannel);
-              const count = f === "all" ? channelItems.length : f === "pending"
-                ? channelItems.filter((item: any) => missedChannel === "calls" ? !item.calledBack : !item.handledAt).length
-                : channelItems.filter((item: any) => missedChannel === "calls" ? !!item.calledBack : !!item.handledAt).length;
-              return (
-                <button key={f} onClick={() => setAbandonedCallsFilter(f)}
-                  className="px-3 py-1 rounded-full text-xs font-medium transition-all border"
-                  style={abandonedCallsFilter === f
-                    ? { background: "#B5622E", color: "#fff", borderColor: "#B5622E" }
-                    : {}}
-                >
-                  {labels[f]}{count > 0 ? ` ${count}` : ""}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Sections */}
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            {missedChannel !== "calls" && (() => {
-               const query = missedSearch.trim().toLowerCase();
-               const channelMessages = missedMessages
-                 .filter((m: any) =>
-                   m.type === missedChannel && (abandonedCallsFilter === "all" ? true : abandonedCallsFilter === "pending" ? !m.handledAt : !!m.handledAt)
-                 )
-                 .filter((m: any) => {
-                   if (!query) return true;
-                   const name = String(m.contactName || m.senderName || "").toLowerCase();
-                   const email = String(m.sender || m.senderEmail || "").toLowerCase();
-                   const subject = String(m.subject || "").toLowerCase();
-                   const content = htmlToPlainPreview(String(m.content || "")).toLowerCase();
-                   const queue = String(m.campaignName || "").toLowerCase();
-                   if (missedSearchField === "name") return name.includes(query);
-                   if (missedSearchField === "email") return email.includes(query);
-                   if (missedSearchField === "queue") return queue.includes(query);
-                   return [name, email, subject, content, queue].some(value => value.includes(query));
-                 })
-                 .sort((a: any, b: any) => {
-                   if (missedSort === "name_asc") return String(a.contactName || a.senderName || "").localeCompare(String(b.contactName || b.senderName || ""), locale);
-                   const aTime = new Date(a.createdAt || 0).getTime();
-                   const bTime = new Date(b.createdAt || 0).getTime();
-                   return missedSort === "date_asc" ? aTime - bTime : bTime - aTime;
-                 });
-              if (channelMessages.length === 0) return (
-                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                  <CheckCircle className="h-12 w-12 mb-3 text-green-500/40" />
-                  <p className="font-medium text-sm">{t.agentWorkspace.noMissedMessages}</p>
-                   {missedSearch && <Button variant="outline" size="sm" className="mt-3" onClick={() => setMissedSearch("")}>{t.common.clear}</Button>}
-                </div>
-              );
-              return <div className="space-y-2 p-4">{channelMessages.map((message: any) => {
-                const Icon = message.type === "email" ? Mail : MessageSquare;
-                const openEmailViewer = () => {
-                  if (message.type !== "email") return;
-                  let messageMetadata: Record<string, any> = {};
-                  try {
-                    messageMetadata = typeof message.metadata === "string"
-                      ? JSON.parse(message.metadata || "{}")
-                      : (message.metadata || {});
-                  } catch {
-                    messageMetadata = {};
-                  }
-                  setHistoryDetailModal({
-                    id: String(message.id),
-                    type: "email",
-                    direction: "inbound",
-                    timestamp: new Date(message.createdAt),
-                    content: message.subject || t.agentWorkspace.historyEmailTitle,
-                    details: String(message.content || ""),
-                    htmlBody: String(message.content || ""),
-                    fullContent: htmlToPlainPreview(String(message.content || "")),
-                    sender: message.sender,
-                    senderName: message.senderName || message.contactName,
-                    recipientEmail: message.sender,
-                    externalId: message.externalId || message.emailId || null,
-                    mailboxEmail: message.mailboxEmail || null,
-                    isHtml: typeof messageMetadata.isHtml === "boolean" ? messageMetadata.isHtml : null,
-                    metadata: messageMetadata,
-                    campaignId: message.campaignId,
-                    campaignContactId: message.campaignContactId,
-                    missedMessageId: String(message.id),
-                    missedHandledAt: message.handledAt,
-                    entityId: String(message.entityId),
-                    entityType: message.contactType,
-                  } as any);
-                };
-                return <div
-                  key={message.id}
-                  className={`rounded-xl border bg-card p-3 ${message.type === "email" ? "cursor-pointer hover:bg-muted/30 transition-colors" : ""}`}
-                  data-testid={`missed-message-${message.id}`}
-                  onClick={message.type === "email" ? openEmailViewer : undefined}
-                  onKeyDown={message.type === "email" ? (event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      openEmailViewer();
-                    }
-                  } : undefined}
-                  role={message.type === "email" ? "button" : undefined}
-                  tabIndex={message.type === "email" ? 0 : undefined}
-                >
-                  <div className="flex gap-3">
-                    <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${message.handledAt ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300" : "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300"}`}>
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="font-semibold text-sm truncate">{message.contactName || message.sender}</p>
-                        <span className="text-[10px] text-muted-foreground shrink-0">{message.createdAt ? format(new Date(message.createdAt), "dd.MM. HH:mm") : ""}</span>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground truncate">{message.campaignName} · {message.sender}</p>
-                      {message.subject && <p className="text-xs font-medium mt-1 truncate">{message.subject}</p>}
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{htmlToPlainPreview(String(message.content || ""))}</p>
-                      <div className="flex items-center gap-2 mt-2">
-                        {!message.handledAt && <Button size="sm" className="h-7 text-xs" onClick={async (event) => {
-                          event.stopPropagation();
-                          const opened = await handleSelectInboundMatch({ entityType: message.contactType, id: message.entityId, name: message.contactName || "", phone: message.senderPhone || "" }, "card", undefined, { syncCall: false });
-                          if (opened) {
-                             try {
-                               await markMissedMessageHandled(message.id);
-                             } catch (error) {
-                               console.error("Failed to mark missed message handled after opening card:", error);
-                               return;
-                             }
-                            setSelectedCampaignId(message.campaignId);
-                            setPendingMissedChannel({
-                              contactId: String(message.entityId),
-                              contactType: String(message.contactType || "customer"),
-                              channel: message.type === "email" ? "email" : "sms",
-                            });
-                            setAbandonedCallsOpen(false);
-                          }
-                        }}>{t.agentWorkspace.replyBtn}</Button>}
-                        {!message.handledAt && <Button size="sm" variant="outline" className="h-7 text-xs" onClick={async (event) => {
-                           event.stopPropagation();
-                           await markMissedMessageHandled(message.id);
-                        }}>{t.agentWorkspace.markHandledBtn}</Button>}
-                        {message.handledAt && <span className="text-[11px] text-green-600 flex items-center gap-1"><CheckCircle className="h-3 w-3" />{message.handledByUserName || t.agentWorkspace.handledBy}</span>}
-                      </div>
-                    </div>
-                  </div>
-                </div>;
-              })}</div>;
-            })()}
-            {missedChannel === "calls" && (() => {
-               const query = missedSearch.trim().toLowerCase();
-               const allFiltered = abandonedCalls
-                 .filter((c: any) =>
-                   abandonedCallsFilter === "all" ? true
-                   : abandonedCallsFilter === "pending" ? !c.calledBack
-                   : !!c.calledBack
-                 )
-                 .filter((c: any) => {
-                   if (!query) return true;
-                   const name = String(c.customerName || c.callerName || "").toLowerCase();
-                   const phone = String(c.customerPhone || c.callerNumber || "").toLowerCase();
-                   const queue = String(c.queueName || "").toLowerCase();
-                   const status = String(c.status || c.abandonReason || "").toLowerCase();
-                   if (missedSearchField === "name") return name.includes(query);
-                   if (missedSearchField === "phone") return phone.includes(query);
-                   if (missedSearchField === "queue") return queue.includes(query);
-                   return [name, phone, queue, status].some(value => value.includes(query));
-                 })
-                 .sort((a: any, b: any) => {
-                   if (missedSort === "name_asc") return String(a.customerName || a.callerName || a.callerNumber || "").localeCompare(String(b.customerName || b.callerName || b.callerNumber || ""), locale);
-                   const aTime = new Date(a.completedAt || a.enteredQueueAt || a.createdAt || 0).getTime();
-                   const bTime = new Date(b.completedAt || b.enteredQueueAt || b.createdAt || 0).getTime();
-                   return missedSort === "date_asc" ? aTime - bTime : bTime - aTime;
-                 });
-              const pendingCalls = allFiltered.filter((c: any) => !c.calledBack);
-              const handledCalls = allFiltered.filter((c: any) => !!c.calledBack);
-
-              const renderCallRow = (call: any) => {
-                const isCalledBack = !!call.calledBack;
-                const waitSec = call.waitDurationSeconds || 0;
-                const waitStr = waitSec > 0 ? (waitSec >= 60 ? `${Math.floor(waitSec / 60)}m ${waitSec % 60}s` : `${waitSec}s`) : null;
-                const callTs = call.completedAt || call.enteredQueueAt || call.createdAt;
-                const missedTime = callTs ? (() => { try { return format(new Date(callTs), "HH:mm"); } catch { return ""; } })() : "";
-                const timeAgo = (() => {
-                  if (!callTs) return "";
-                  const diff = Date.now() - new Date(callTs).getTime();
-                  if (isNaN(diff) || diff < 0) return "";
-                  const mins = Math.floor(diff / 60000);
-                  if (mins < 60) return `${mins}${t.agentWorkspace.agoMinutes}`;
-                  return `${Math.floor(mins / 60)}${t.agentWorkspace.agoHours} ${mins % 60}${t.agentWorkspace.agoMinutes}`;
-                })();
-                return (
-                  <div
-                    key={call.id}
-                    className="flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-card hover:bg-muted/30 transition-colors"
-                    data-testid={`abandoned-call-${call.id}`}
-                  >
-                    <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${isCalledBack ? "bg-green-100 dark:bg-green-900/30" : "bg-red-50 dark:bg-red-900/20"}`}>
-                      {isCalledBack
-                        ? <PhoneForwarded className="h-3.5 w-3.5 text-green-500 dark:text-green-400" />
-                        : <PhoneOff className="h-3.5 w-3.5 text-red-400 dark:text-red-300" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-sm truncate leading-tight">
-                        {call.customerName || call.callerName || call.callerNumber}
-                      </div>
-                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                        <span className="text-xs text-muted-foreground font-mono shrink-0">{call.callerNumber}</span>
-                        {call.queueName && (
-                          <span className="text-[10px] text-muted-foreground/60 truncate">· {call.queueName}</span>
-                        )}
-                        {!isCalledBack && (() => {
-                          const s = call.status;
-                          const r = call.abandonReason;
-                          const label = s === "no_agents" ? t.agentWorkspace.noAgentsStatus
-                            : s === "timeout" ? t.agentWorkspace.timeoutStatus
-                            : s === "overflow" ? t.agentWorkspace.overflowStatus
-                            : r === "caller_hangup" ? t.agentWorkspace.callerHangup
-                            : t.agentWorkspace.missedStatus;
-                          const color = s === "no_agents" ? "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-                            : s === "timeout" || s === "overflow" ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300"
-                            : "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300";
-                          return (
-                            <span className={`inline-flex items-center text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${color}`}>
-                              {label}
-                            </span>
-                          );
-                        })()}
-                      </div>
-                      <MissedCallCardPreview call={call} />
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div className="text-right">
-                        <div className="text-xs font-mono tabular-nums text-foreground">{missedTime}</div>
-                        <div className="text-[10px] text-muted-foreground leading-tight">{timeAgo}</div>
-                      </div>
-                      {waitStr && (
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hidden sm:inline">
-                          {waitStr}
-                        </span>
-                      )}
-                      {isCalledBack ? (
-                        <span className="flex items-center gap-1 text-[11px] text-green-600 dark:text-green-400 font-medium shrink-0">
-                          <CheckCircle className="h-3.5 w-3.5" />
-                          {call.calledBackByUserName ? call.calledBackByUserName : t.agentWorkspace.handledBy}
-                        </span>
-                      ) : (
-                        <Button size="sm" variant="default" className="h-7 text-xs gap-1 px-2.5 shrink-0"
-                          disabled={openingMissedCallId === String(call.id)}
-                          onClick={async () => {
-                            const phoneNum = call.customerPhone || call.callerNumber;
-                            let opened = false;
-                            setOpeningMissedCallId(String(call.id));
-                            try {
-                              const persistedTarget = resolveMissedCallCardTarget(call.customerId, phoneNum || "", []);
-                              if (persistedTarget.kind === "match") {
-                                opened = await handleSelectInboundMatch(
-                                  persistedTarget.match,
-                                  "card",
-                                  undefined,
-                                  { syncCall: false, rememberPhone: phoneNum },
-                                );
-                              } else if (phoneNum) {
-                                 const cachedMatches = queryClient.getQueryData<PhoneMatch[]>(["/api/phone/lookup-all", phoneNum]);
-                                 const cachedPreference = queryClient.getQueryData<RememberedPhoneCard | null>(["/api/phone/preferences", phoneNum]);
-                                 const [matches, preference] = await Promise.all([
-                                   Array.isArray(cachedMatches)
-                                     ? Promise.resolve(cachedMatches)
-                                     : fetch(`/api/phone/lookup-all?phone=${encodeURIComponent(phoneNum)}`, { credentials: "include" })
-                                       .then(async response => response.ok ? response.json() : []),
-                                   cachedPreference !== undefined
-                                     ? Promise.resolve(cachedPreference)
-                                     : fetchRememberedPhoneCard(phoneNum),
-                                 ]);
-                                   const validMatches = Array.isArray(matches) ? matches : [];
-                                  const rememberedMatch = getRememberedPhoneCard(validMatches, preference);
-                                  const resolution = resolveMissedCallCardTarget(
-                                    call.customerId,
-                                    phoneNum,
-                                    validMatches,
-                                    rememberedMatch,
-                                  );
-                                    if (resolution.kind === "match") {
-                                    opened = await handleSelectInboundMatch(
-                                      resolution.match,
-                                      "card",
-                                      undefined,
-                                      { syncCall: false, rememberPhone: phoneNum },
-                                    );
-                                    } else if (resolution.kind === "ambiguous") {
-                                    setPendingInboundMatches({
-                                      phone: phoneNum,
-                                      matches: orderPhoneMatchesWithRememberedCard(resolution.matches, rememberedMatch),
-                                      preferredMatch: rememberedMatch,
-                                      missedCallId: String(call.id),
-                                    });
-                                      setOpeningMissedCallId(null);
-                                      return;
-                                  }
-                              }
-                            } catch (e) { console.error("Failed to open card for missed call:", e); }
-                            if (opened) {
-                               try {
-                                 await markMissedCallHandled(call.id);
-                               } catch (error) {
-                                 console.error("Failed to mark missed call handled after opening card:", error);
-                                 setOpeningMissedCallId(null);
-                                 return;
-                               }
-                              setCurrentCampaignContactId(null);
-                              setRightTab("actions");
-                              setAbandonedCallsOpen(false);
-                            } else {
-                              toast({ title: t.agentWorkspace.missedNoContactFound, variant: "destructive" });
-                            }
-                             setOpeningMissedCallId(null);
-                          }}
-                          data-testid={`btn-callback-${call.id}`}
-                        >
-                          {openingMissedCallId === String(call.id)
-                            ? <Loader2 className="h-3 w-3 animate-spin" />
-                            : <User className="h-3 w-3" />}
-                          {openingMissedCallId === String(call.id)
-                            ? t.agentWorkspace.openingCard
-                            : (t.agentWorkspace.openCardBtn || t.agentWorkspace.callBackBtn)}
-                        </Button>
-                      )}
-                       {!isCalledBack && (
-                         <Button
-                           size="sm"
-                           variant="outline"
-                           className="h-7 text-xs px-2.5 shrink-0"
-                           onClick={async () => {
-                             try {
-                               await markMissedCallHandled(call.id);
-                             } catch (error) {
-                               console.error("Failed to mark missed call handled:", error);
-                             }
-                           }}
-                           data-testid={`btn-mark-handled-call-${call.id}`}
-                         >
-                           {t.agentWorkspace.markHandledBtn}
-                         </Button>
-                       )}
-                    </div>
-                  </div>
+      <Dialog open={abandonedCallsOpen} onOpenChange={(open) => { setAbandonedCallsOpen(open); if (!open) { setAbandonedCallsFilter("all"); setMissedChannel("all"); setMissedSearch(""); setMissedSearchField("all"); setMissedSort("date_desc"); } }}>
+        <MissedUnifiedDialog
+          calls={abandonedCalls}
+          messages={missedMessages}
+          loading={missedCallsLoading || missedMessagesLoading}
+          errors={[missedCallsError, missedMessagesError].filter(Boolean)}
+          onRetry={() => { void retryMissedCalls(); void retryMissedMessages(); }}
+          channel={missedChannel}
+          onChannelChange={setMissedChannel}
+          status={abandonedCallsFilter}
+          onStatusChange={setAbandonedCallsFilter}
+          query={missedSearch}
+          onQueryChange={setMissedSearch}
+          searchField={missedSearchField}
+          onSearchFieldChange={setMissedSearchField}
+          sort={missedSort}
+          onSortChange={setMissedSort}
+          openingCallId={openingMissedCallId}
+          plainPreview={htmlToPlainPreview}
+          renderCallPreview={(call) => <MissedCallCardPreview call={call} />}
+          onMarkCallHandled={(call) => markMissedCallHandled(call.id)}
+          onMarkMessageHandled={(message) => markMissedMessageHandled(message.id)}
+          onViewEmail={(message) => {
+            if (message.type !== "email") return;
+            let messageMetadata: Record<string, any> = {};
+            try {
+              messageMetadata = typeof message.metadata === "string"
+                ? JSON.parse(message.metadata || "{}")
+                : (message.metadata || {});
+            } catch {
+              messageMetadata = {};
+            }
+            setHistoryDetailModal({
+              id: String(message.id),
+              type: "email",
+              direction: "inbound",
+              timestamp: new Date(message.createdAt),
+              content: message.subject || t.agentWorkspace.historyEmailTitle,
+              details: String(message.content || ""),
+              htmlBody: String(message.content || ""),
+              fullContent: htmlToPlainPreview(String(message.content || "")),
+              sender: message.sender,
+              senderName: message.senderName || message.contactName,
+              recipientEmail: message.sender,
+              externalId: message.externalId || message.emailId || null,
+              mailboxEmail: message.mailboxEmail || null,
+              isHtml: typeof messageMetadata.isHtml === "boolean" ? messageMetadata.isHtml : null,
+              metadata: messageMetadata,
+              campaignId: message.campaignId,
+              campaignContactId: message.campaignContactId,
+              missedMessageId: String(message.id),
+              missedHandledAt: message.handledAt,
+              entityId: String(message.entityId),
+              entityType: message.contactType,
+            } as any);
+          }}
+          onReplyMessage={async (message) => {
+            const opened = await handleSelectInboundMatch({ entityType: message.contactType, id: message.entityId, name: message.contactName || "", phone: message.senderPhone || "" }, "card", undefined, { syncCall: false });
+            if (!opened) throw new Error(t.agentWorkspace.missedNoContactFound);
+            if (!message.handledAt) await markMissedMessageHandled(message.id);
+            setSelectedCampaignId(message.campaignId);
+            setPendingMissedChannel({
+              contactId: String(message.entityId),
+              contactType: String(message.contactType || "customer"),
+              channel: message.type === "email" ? "email" : "sms",
+            });
+            setAbandonedCallsOpen(false);
+          }}
+          onOpenCall={async (call) => {
+            const phoneNum = call.customerPhone || call.callerNumber;
+            let opened = false;
+            setOpeningMissedCallId(String(call.id));
+            try {
+              const persistedTarget = resolveMissedCallCardTarget(call.customerId, phoneNum || "", []);
+              if (persistedTarget.kind === "match") {
+                opened = await handleSelectInboundMatch(
+                  persistedTarget.match, "card", undefined,
+                  { syncCall: false, rememberPhone: phoneNum },
                 );
-              };
-
-              if (allFiltered.length === 0) return (
-                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                  <CheckCircle className="h-12 w-12 mb-3 text-green-500/40" />
-                  <p className="font-medium text-sm">{abandonedCallsFilter === "handled" ? t.agentWorkspace.noHandledCalls : t.agentWorkspace.noMissedCalls}</p>
-                  <p className="text-xs mt-1 text-muted-foreground/70">{t.agentWorkspace.allCallsHandled}</p>
-                   {missedSearch && <Button variant="outline" size="sm" className="mt-3" onClick={() => setMissedSearch("")}>{t.common.clear}</Button>}
-                </div>
-              );
-
-               return (
-                 <div className="space-y-2 p-4">
-                   <div className="flex items-center justify-between px-1 pb-1 text-[11px] text-muted-foreground">
-                     <span>{allFiltered.length} {t.agentWorkspace.callsCount}</span>
-                     <span>{pendingCalls.length} {t.agentWorkspace.filterPending} · {handledCalls.length} {t.agentWorkspace.filterHandled}</span>
-                   </div>
-                   {allFiltered.map((call: any) => renderCallRow(call))}
-                 </div>
-               );
-            })()}
-          </div>
-        </DialogContent>
+              } else if (phoneNum) {
+                const cachedMatches = queryClient.getQueryData<PhoneMatch[]>(["/api/phone/lookup-all", phoneNum]);
+                const cachedPreference = queryClient.getQueryData<RememberedPhoneCard | null>(["/api/phone/preferences", phoneNum]);
+                const [matches, preference] = await Promise.all([
+                  Array.isArray(cachedMatches)
+                    ? Promise.resolve(cachedMatches)
+                    : fetch(`/api/phone/lookup-all?phone=${encodeURIComponent(phoneNum)}`, { credentials: "include" })
+                      .then(async response => {
+                        if (!response.ok) throw new Error(`${t.common.error}: ${response.status}`);
+                        return response.json();
+                      }),
+                  cachedPreference !== undefined
+                    ? Promise.resolve(cachedPreference)
+                    : fetchRememberedPhoneCard(phoneNum),
+                ]);
+                const validMatches = Array.isArray(matches) ? matches : [];
+                const rememberedMatch = getRememberedPhoneCard(validMatches, preference);
+                const resolution = resolveMissedCallCardTarget(call.customerId, phoneNum, validMatches, rememberedMatch);
+                if (resolution.kind === "match") {
+                  opened = await handleSelectInboundMatch(
+                    resolution.match, "card", undefined,
+                    { syncCall: false, rememberPhone: phoneNum },
+                  );
+                } else if (resolution.kind === "ambiguous") {
+                  setPendingInboundMatches({
+                    phone: phoneNum,
+                    matches: orderPhoneMatchesWithRememberedCard(resolution.matches, rememberedMatch),
+                    preferredMatch: rememberedMatch,
+                    missedCallId: String(call.id),
+                  });
+                  return;
+                }
+              }
+              if (!opened) throw new Error(t.agentWorkspace.missedNoContactFound);
+              await markMissedCallHandled(call.id);
+              setCurrentCampaignContactId(null);
+              setRightTab("actions");
+              setAbandonedCallsOpen(false);
+            } finally {
+              setOpeningMissedCallId(null);
+            }
+          }}
+        />
       </Dialog>
 
       <Dialog open={!!historyDetailModal} onOpenChange={(open) => { if (!open) { setHistoryDetailModal(null); setEmailReplyOpen(false); setEmailReplyText(""); setEmailReplySignature(null); } }}>

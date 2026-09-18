@@ -1,0 +1,224 @@
+/* Approved pulse-missed-exploration/Unified.tsx um-* styles.
+   The stage is a Radix portal; every rule is scoped to this light dialog. */
+.um-dialog[data-testid="missed-unified-dialog"] {
+  --um-ink: #18314d;
+  --um-muted: #69809a;
+  --um-soft: #edf5fb;
+  --um-line: #dce8f2;
+  --um-blue: #2d6fba;
+  --um-blue-dark: #1c568f;
+  --um-alert: #bf5c4f;
+  --um-alert-soft: #fff1ed;
+  --um-green: #3f826e;
+  --um-green-soft: #eaf6f1;
+  color-scheme: light;
+  color: var(--um-ink) !important;
+  font-family: "Open Sans", "Segoe UI", sans-serif;
+  width: min(1040px, calc(100vw - 68px)) !important;
+  max-width: 1040px !important;
+  top: calc((100dvh + var(--pulse-ui-preview-top, 0px)) / 2) !important;
+  height: min(760px, calc(100dvh - 68px - var(--pulse-ui-preview-top, 0px))) !important;
+  min-height: 0 !important;
+  max-height: calc(100dvh - 68px - var(--pulse-ui-preview-top, 0px)) !important;
+  display: flex !important;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0 !important;
+  gap: 0 !important;
+  background: #fbfdff !important;
+  border: 1px solid #caddeb !important;
+  border-radius: 18px !important;
+  box-shadow: 0 26px 70px rgba(28, 67, 103, .16) !important;
+}
+.um-dialog[data-testid="missed-unified-dialog"] *,
+.um-dialog[data-testid="missed-unified-dialog"] *::before,
+.um-dialog[data-testid="missed-unified-dialog"] *::after { box-sizing: border-box; }
+.um-dialog[data-testid="missed-unified-dialog"] button,
+.um-dialog[data-testid="missed-unified-dialog"] input,
+.um-dialog[data-testid="missed-unified-dialog"] select { font-family: inherit; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-header {
+  display: flex; align-items: center; gap: 13px; padding: 21px 25px 19px;
+  background: #f8fbfe; border-bottom: 1px solid var(--um-line); flex: none;
+}
+.um-dialog[data-testid="missed-unified-dialog"] .um-title-icon {
+  width: 42px; height: 42px; flex: none; display: grid; place-items: center;
+  color: var(--um-alert); background: var(--um-alert-soft);
+  border: 1px solid #f7d8d0; border-radius: 13px;
+}
+.um-dialog[data-testid="missed-unified-dialog"] .um-title-copy { min-width: 0; flex: 1; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-kicker {
+  margin: 0 0 3px; color: var(--um-blue); font-size: 10px; font-weight: 800;
+  letter-spacing: .1em; text-transform: uppercase;
+}
+.um-dialog[data-testid="missed-unified-dialog"] .um-title {
+  margin: 0; color: #173452; font-size: 20px; line-height: 1.15; letter-spacing: -.025em; font-weight: 700;
+}
+.um-dialog[data-testid="missed-unified-dialog"] .um-subtitle {
+  margin: 5px 0 0; color: var(--um-muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.um-dialog[data-testid="missed-unified-dialog"] .um-summary {
+  display: flex; align-items: center; gap: 7px; margin-right: 12px;
+  color: var(--um-alert); font-size: 11px; font-weight: 800; white-space: nowrap;
+}
+.um-dialog[data-testid="missed-unified-dialog"] .um-summary-dot { width: 7px; height: 7px; background: var(--um-alert); border-radius: 50%; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-close {
+  width: 30px; height: 30px; display: grid; place-items: center; flex: none;
+  color: #7690a6; background: transparent; border: 0; border-radius: 8px; cursor: pointer;
+}
+.um-dialog[data-testid="missed-unified-dialog"] .um-close:hover { color: var(--um-ink); background: var(--um-soft); }
+.um-dialog[data-testid="missed-unified-dialog"] .um-search-area { padding: 16px 25px 11px; background: #fff; flex: none; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-toolbar { display: flex; align-items: center; gap: 8px; position: relative; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-search {
+  min-width: 190px; height: 39px; display: flex; align-items: center; gap: 8px; flex: 1;
+  padding: 0 11px; color: #88a0b6; background: #fff;
+  border: 1px solid #c7d8e7; border-radius: 11px;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.um-dialog[data-testid="missed-unified-dialog"] .um-search:focus-within { border-color: #5a94ca; box-shadow: 0 0 0 3px rgba(45,111,186,.12); }
+.um-dialog[data-testid="missed-unified-dialog"] .um-search input { width: 100%; min-width: 0; color: var(--um-ink); background: transparent; border: 0; outline: 0; font-size: 12px; box-shadow: none; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-search input::placeholder { color: #8ba0b3; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-search-clear { display: grid; padding: 3px; color: #7891a6; background: transparent; border: 0; border-radius: 5px; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-search-clear:hover { background: var(--um-soft); color: var(--um-blue); }
+.um-dialog[data-testid="missed-unified-dialog"] .um-picker,
+.um-dialog[data-testid="missed-unified-dialog"] .um-sort {
+  height: 39px; display: inline-flex; align-items: center; gap: 7px; flex: none;
+  padding: 0 11px; color: #506b84; background: #fff;
+  border: 1px solid #c7d8e7; border-radius: 11px; font-size: 11px; font-weight: 700;
+}
+.um-dialog[data-testid="missed-unified-dialog"] .um-picker select,
+.um-dialog[data-testid="missed-unified-dialog"] .um-sort select { max-width: 113px; color: inherit; background: transparent; border: 0; outline: 0; font-size: 11px; font-weight: 700; cursor: pointer; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-picker option,
+.um-dialog[data-testid="missed-unified-dialog"] .um-sort option { color: var(--um-ink); background: #fff; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-suggestions {
+  position: absolute; z-index: 4; top: 46px; left: 0; width: min(430px, calc(100% - 250px));
+  padding: 5px; background: #fff; border: 1px solid #c8dbea; border-radius: 11px;
+  box-shadow: 0 12px 26px rgba(31, 75, 111, .14);
+}
+.um-dialog[data-testid="missed-unified-dialog"] .um-suggestion {
+  width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px;
+  color: var(--um-ink); text-align: left; background: transparent; border: 0; border-radius: 7px; cursor: pointer;
+}
+.um-dialog[data-testid="missed-unified-dialog"] .um-suggestion:hover,
+.um-dialog[data-testid="missed-unified-dialog"] .um-suggestion:focus-visible { background: var(--um-soft); outline: 0; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-suggestion-avatar { width: 24px; height: 24px; display: grid; place-items: center; color: var(--um-blue); background: #e5f0fa; border-radius: 7px; font-size: 9px; font-weight: 800; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-suggestion-copy { min-width: 0; flex: 1; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-suggestion-copy strong,
+.um-dialog[data-testid="missed-unified-dialog"] .um-suggestion-copy span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-suggestion-copy strong { font-size: 11px; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-suggestion-copy span { margin-top: 2px; color: var(--um-muted); font-size: 10px; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-suggestion-hint { color: #88a0b6; font-size: 9px; white-space: nowrap; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; padding: 0 25px 14px; border-bottom: 1px solid var(--um-line); background: #fff; flex: none; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-filter-group { display: flex; align-items: center; gap: 5px; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-filter-label { margin-right: 2px; color: #8ca0b3; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-chip {
+  height: 27px; display: inline-flex; align-items: center; gap: 5px; padding: 0 9px;
+  color: #637e96; background: #f0f5f9; border: 1px solid transparent; border-radius: 8px;
+  font-size: 10px; font-weight: 800; cursor: pointer; white-space: nowrap; flex: none;
+}
+.um-dialog[data-testid="missed-unified-dialog"] .um-chip:hover { border-color: #b7cee1; color: var(--um-blue-dark); }
+.um-dialog[data-testid="missed-unified-dialog"] .um-chip.active { color: #fff; background: var(--um-blue); box-shadow: 0 3px 8px rgba(45,111,186,.2); }
+.um-dialog[data-testid="missed-unified-dialog"] .um-chip-count { min-width: 17px; padding: 2px 4px; border-radius: 5px; color: #6f8da5; background: #dfeaf3; font-size: 9px; text-align: center; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-chip.active .um-chip-count { color: #e9f4ff; background: rgba(255,255,255,.2); }
+.um-dialog[data-testid="missed-unified-dialog"] .um-filter-divider { width: 1px; height: 18px; margin: 0 3px; background: var(--um-line); }
+.um-dialog[data-testid="missed-unified-dialog"] .um-list { min-height: 0; flex: 1; overflow: auto; padding: 15px 25px 21px; background: #f7fbfe; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-list-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 1px 9px; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-result-count { color: #294964; font-size: 12px; font-weight: 800; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-result-count span { color: #86a0b5; font-weight: 600; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-list-tools { display: flex; align-items: center; gap: 8px; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-list-tools span { color: #87a0b5; font-size: 10px; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-clear {
+  display: inline-flex; align-items: center; gap: 4px; padding: 4px 7px;
+  color: var(--um-blue); background: transparent; border: 0; border-radius: 6px;
+  font-size: 10px; font-weight: 800; cursor: pointer;
+}
+.um-dialog[data-testid="missed-unified-dialog"] .um-clear:hover { background: #e6f1fa; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-row {
+  display: flex; align-items: center; gap: 11px; margin: 7px 0; padding: 12px;
+  background: #fff; border: 1px solid #dce8f1; border-radius: 13px;
+  box-shadow: 0 2px 7px rgba(25, 66, 103, .045);
+  transition: border-color .15s ease, transform .15s ease;
+}
+.um-dialog[data-testid="missed-unified-dialog"] .um-row:hover { border-color: #a9c7df; transform: translateY(-1px); }
+.um-dialog[data-testid="missed-unified-dialog"] .um-avatar { width: 38px; height: 38px; display: grid; place-items: center; flex: none; border-radius: 11px; font-size: 10px; font-weight: 800; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-avatar.call { color: #ad5549; background: #fff0ec; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-avatar.email { color: #2b6fae; background: #eaf3fb; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-avatar.sms { color: #5d7e70; background: #edf6f1; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-row-main { min-width: 0; flex: 1; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-row-top { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-row-main strong { overflow: hidden; color: #1d3d5a; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-identity,
+.um-dialog[data-testid="missed-unified-dialog"] .um-context { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-identity { margin-top: 3px; color: #7089a0; font-size: 10px; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-context { margin-top: 5px; color: #57728a; font-size: 10px; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-context b { color: #345b7b; font-weight: 800; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-badge { display: inline-flex; align-items: center; gap: 4px; flex: none; padding: 3px 6px; border-radius: 6px; font-size: 9px; font-weight: 800; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-badge.unhandled { color: #ae5549; background: var(--um-alert-soft); }
+.um-dialog[data-testid="missed-unified-dialog"] .um-badge.handled { color: var(--um-green); background: var(--um-green-soft); }
+.um-dialog[data-testid="missed-unified-dialog"] .um-row-meta { min-width: 77px; text-align: right; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-row-meta strong,
+.um-dialog[data-testid="missed-unified-dialog"] .um-row-meta span { display: block; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-row-meta strong { color: #36556e; font-size: 11px; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-row-meta span { margin-top: 3px; color: #89a0b3; font-size: 9px; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-row-meta .um-wait { display: inline-flex; align-items: center; gap: 4px; margin-top: 5px; padding: 3px 5px; color: #527aa0; background: #edf5fb; border-radius: 5px; font-size: 9px; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; min-width: 151px; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-primary,
+.um-dialog[data-testid="missed-unified-dialog"] .um-secondary {
+  min-height: 29px; display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  padding: 0 9px; border-radius: 8px; font-size: 10px; font-weight: 800; white-space: nowrap; cursor: pointer;
+}
+.um-dialog[data-testid="missed-unified-dialog"] .um-primary { color: #fff; background: var(--um-blue); border: 1px solid var(--um-blue); }
+.um-dialog[data-testid="missed-unified-dialog"] .um-primary:hover { background: var(--um-blue-dark); border-color: var(--um-blue-dark); }
+.um-dialog[data-testid="missed-unified-dialog"] .um-secondary { color: #567188; background: #fff; border: 1px solid #cddde9; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-secondary:hover { color: var(--um-blue-dark); border-color: #9dbcd4; background: #f3f8fc; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-empty { min-height: 265px; display: grid; place-items: center; align-content: center; gap: 8px; color: #83a98f; text-align: center; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-empty strong { color: #34546c; font-size: 13px; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-empty span { max-width: 300px; color: #8098ab; font-size: 11px; line-height: 1.5; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-empty-reset { margin-top: 4px; color: var(--um-blue); background: #e8f3fb; border: 0; border-radius: 8px; padding: 8px 11px; font-size: 10px; font-weight: 800; cursor: pointer; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 25px; color: #8399ab; background: #fff; border-top: 1px solid var(--um-line); font-size: 10px; flex: none; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-footer-note { display: inline-flex; align-items: center; gap: 6px; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-footer-note svg { color: var(--um-blue); flex: none; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-footer-scope { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 45%; }
+.um-dialog[data-testid="missed-unified-dialog"] button:focus-visible { outline: 2px solid #6aa4d8; outline-offset: 2px; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-picker:focus-within,
+.um-dialog[data-testid="missed-unified-dialog"] .um-sort:focus-within { border-color: #5a94ca; box-shadow: 0 0 0 3px rgba(45,111,186,.12); }
+.um-dialog[data-testid="missed-unified-dialog"] button:disabled { opacity: .55; cursor: wait; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-email-row { cursor: pointer; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-email-row:focus-visible { outline: 2px solid #6aa4d8; outline-offset: 2px; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-handled-by { display: inline-flex; align-items: center; gap: 4px; margin-top: 5px; color: var(--um-green); font-size: 10px; }
+/* Keep the existing recognised/remembered-card resolver but flatten its legacy card styling. */
+.um-dialog[data-testid="missed-unified-dialog"] .um-card-preview > div { margin-top: 5px; padding: 0; border: 0; background: transparent; color: #57728a; border-radius: 0; gap: 5px; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-card-preview > div > span { width: 15px; height: 15px; background: transparent; color: #57728a; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-card-preview > div > div { display: flex; gap: 5px; align-items: center; overflow: hidden; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-card-preview > div > div > div { font-size: 10px; color: #57728a; text-transform: none; letter-spacing: normal; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-card-preview .text-foreground,
+.um-dialog[data-testid="missed-unified-dialog"] .um-card-preview .text-muted-foreground { color: #57728a; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-error { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; padding: 12px; margin: 7px 0; color: #ae5549; background: var(--um-alert-soft); border-radius: 11px; font-size: 11px; overflow-wrap: anywhere; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-loading { display: flex; justify-content: center; align-items: center; gap: 8px; padding: 25px; color: var(--um-muted); font-size: 12px; }
+.um-dialog[data-testid="missed-unified-dialog"] .um-spin { animation: missed-unified-spin 1s linear infinite; }
+@keyframes missed-unified-spin { to { transform: rotate(360deg); } }
+@media (max-width: 760px) {
+  .um-dialog[data-testid="missed-unified-dialog"] { width: calc(100vw - 18px) !important; max-width: calc(100vw - 18px) !important; height: min(760px, calc(100dvh - 18px - var(--pulse-ui-preview-top, 0px))) !important; max-height: calc(100dvh - 18px - var(--pulse-ui-preview-top, 0px)) !important; border-radius: 13px !important; }
+  .um-dialog[data-testid="missed-unified-dialog"] .um-header,
+  .um-dialog[data-testid="missed-unified-dialog"] .um-search-area,
+  .um-dialog[data-testid="missed-unified-dialog"] .um-list,
+  .um-dialog[data-testid="missed-unified-dialog"] .um-footer { padding-left: 14px; padding-right: 14px; }
+  .um-dialog[data-testid="missed-unified-dialog"] .um-filters { padding-left: 14px; padding-right: 14px; }
+  .um-dialog[data-testid="missed-unified-dialog"] .um-summary { display: none; }
+  .um-dialog[data-testid="missed-unified-dialog"] .um-toolbar { flex-wrap: wrap; }
+  .um-dialog[data-testid="missed-unified-dialog"] .um-search { flex-basis: 100%; }
+  .um-dialog[data-testid="missed-unified-dialog"] .um-picker,
+  .um-dialog[data-testid="missed-unified-dialog"] .um-sort { flex: 1; min-width: 0; justify-content: space-between; }
+  .um-dialog[data-testid="missed-unified-dialog"] .um-picker select,
+  .um-dialog[data-testid="missed-unified-dialog"] .um-sort select { max-width: calc(100% - 25px); }
+  .um-dialog[data-testid="missed-unified-dialog"] .um-suggestions { width: 100%; }
+  .um-dialog[data-testid="missed-unified-dialog"] .um-filter-divider { display: none; }
+  .um-dialog[data-testid="missed-unified-dialog"] .um-filter-group { width: 100%; overflow-x: auto; padding-bottom: 2px; }
+  .um-dialog[data-testid="missed-unified-dialog"] .um-row { align-items: flex-start; flex-wrap: wrap; }
+  .um-dialog[data-testid="missed-unified-dialog"] .um-row-main { min-width: calc(100% - 55px); }
+  .um-dialog[data-testid="missed-unified-dialog"] .um-row-top { flex-wrap: wrap; }
+  .um-dialog[data-testid="missed-unified-dialog"] .um-row-meta { margin-left: 49px; text-align: left; min-width: 74px; }
+  .um-dialog[data-testid="missed-unified-dialog"] .um-row-actions { min-width: 0; margin-left: 49px; justify-content: flex-start; flex-wrap: wrap; }
+  .um-dialog[data-testid="missed-unified-dialog"] .um-footer { align-items: flex-start; flex-direction: column; }
+  .um-dialog[data-testid="missed-unified-dialog"] .um-footer-scope { max-width: 100%; }
+  .um-dialog[data-testid="missed-unified-dialog"] .um-list-head { align-items: flex-start; flex-direction: column; gap: 5px; }
+}

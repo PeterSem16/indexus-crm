@@ -1,0 +1,160 @@
+/* Approved msu design, scoped to the production dialog (including fullscreen/dark hosts). */
+.msu-production.msu-dialog {
+  --msu-ink: #18314d;
+  --msu-muted: #69809a;
+  --msu-soft: #edf5fb;
+  --msu-line: #dce8f2;
+  --msu-blue: #2d6fba;
+  --msu-blue-dark: #1c568f;
+  --msu-alert: #bf5c4f;
+  --msu-alert-soft: #fff1ed;
+  --msu-green: #3f826e;
+  --msu-green-soft: #eaf6f1;
+  width: min(1040px, calc(100vw - 68px)) !important;
+  max-width: min(1040px, calc(100vw - 68px)) !important;
+  top: calc((100dvh + var(--pulse-ui-preview-top, 0px)) / 2) !important;
+  height: min(760px, calc(100dvh - 68px - var(--pulse-ui-preview-top, 0px))) !important;
+  max-height: calc(100dvh - 68px - var(--pulse-ui-preview-top, 0px)) !important;
+  min-height: 0;
+  display: flex !important;
+  flex-direction: column;
+  gap: 0;
+  padding: 0 !important;
+  overflow: hidden;
+  color: var(--msu-ink) !important;
+  background: #fbfdff !important;
+  border: 1px solid #caddeb !important;
+  border-radius: 18px !important;
+  box-shadow: 0 26px 70px rgba(28, 67, 103, .16);
+  font-family: "Plus Jakarta Sans", "Avenir Next", system-ui, sans-serif;
+  color-scheme: light;
+}
+.msu-production *, .msu-production *::before, .msu-production *::after { box-sizing: border-box; }
+.msu-production button, .msu-production input, .msu-production select { font-family: inherit; }
+.msu-production button:focus-visible, .msu-production select:focus-visible { outline: 2px solid #5a94ca; outline-offset: 2px; }
+.msu-production button:disabled { opacity: .5; cursor: wait; }
+.msu-production .msu-header {
+  display: flex; align-items: center; gap: 13px; padding: 21px 25px 19px;
+  background: #f8fbfe; border-bottom: 1px solid var(--msu-line); flex: none;
+}
+.msu-production .msu-title-icon {
+  width: 42px; height: 42px; flex: none; display: grid; place-items: center;
+  color: var(--msu-blue); background: #e5f0fa; border: 1px solid #c9deef; border-radius: 13px;
+}
+.msu-production .msu-title-copy { min-width: 0; flex: 1; }
+.msu-production .msu-title-copy .msu-kicker { margin: 0 0 3px; color: var(--msu-blue); font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.msu-production .msu-title-copy .msu-title { margin: 0; color: #173452; font-size: 20px; font-weight: 700; line-height: 1.15; letter-spacing: -.025em; }
+.msu-production .msu-title-copy p { margin: 5px 0 0; color: var(--msu-muted); font-size: 11px; }
+.msu-production .msu-summary { display: flex; align-items: center; gap: 7px; margin-right: 12px; color: #365b77; font-size: 11px; font-weight: 800; white-space: nowrap; }
+.msu-production .msu-summary-dot { width: 7px; height: 7px; background: var(--msu-blue); border-radius: 50%; }
+.msu-production .msu-close { width: 30px; height: 30px; display: grid; place-items: center; flex: none; color: #7690a6; background: transparent; border: 0; border-radius: 8px; cursor: pointer; }
+.msu-production .msu-close:hover { color: var(--msu-ink); background: var(--msu-soft); }
+.msu-production .msu-metrics { display: grid; grid-template-columns: repeat(4, 1fr); padding: 13px 25px; background: #fff; border-bottom: 1px solid var(--msu-line); flex: none; }
+.msu-production .msu-metric { padding: 0 15px; border-left: 1px solid var(--msu-line); }
+.msu-production .msu-metric:first-child { padding-left: 0; border-left: 0; }
+.msu-production .msu-metric strong, .msu-production .msu-metric span { display: block; }
+.msu-production .msu-metric strong { color: #294964; font-size: 18px; letter-spacing: -.03em; }
+.msu-production .msu-metric span { margin-top: 3px; color: #8096a8; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; }
+.msu-production .msu-metric.alert strong { color: var(--msu-alert); }
+.msu-production .msu-metric.green strong { color: var(--msu-green); }
+.msu-production .msu-search-area { padding: 16px 25px 11px; background: #fff; flex: none; }
+.msu-production .msu-toolbar { display: flex; align-items: center; gap: 8px; position: relative; }
+.msu-production .msu-search {
+  min-width: 190px; height: 39px; display: flex; align-items: center; gap: 8px; flex: 1;
+  padding: 0 11px; color: #88a0b6; background: #fff; border: 1px solid #c7d8e7; border-radius: 11px;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.msu-production .msu-search:focus-within { border-color: #5a94ca; box-shadow: 0 0 0 3px rgba(45,111,186,.12); }
+.msu-production .msu-search input { width: 100%; min-width: 0; padding: 0; color: var(--msu-ink); background: transparent; border: 0; outline: 0; box-shadow: none; font-size: 12px; }
+.msu-production .msu-search input::placeholder { color: #8ba0b3; }
+.msu-production .msu-clear-search { display: grid; padding: 3px; color: #7891a6; background: transparent; border: 0; border-radius: 5px; cursor: pointer; }
+.msu-production .msu-clear-search:hover { background: var(--msu-soft); color: var(--msu-blue); }
+.msu-production .msu-picker, .msu-production .msu-sort { height: 39px; display: inline-flex; align-items: center; gap: 7px; flex: none; padding: 0 11px; color: #506b84; background: #fff; border: 1px solid #c7d8e7; border-radius: 11px; font-size: 11px; font-weight: 700; }
+.msu-production .msu-picker select, .msu-production .msu-sort select { max-width: 122px; color: inherit; background: transparent; border: 0; outline: 0; appearance: none; font-size: 11px; font-weight: 700; cursor: pointer; }
+.msu-production .msu-picker option, .msu-production .msu-sort option { color: var(--msu-ink); background: #fff; }
+.msu-production .msu-suggestions { position: absolute; z-index: 4; top: 46px; left: 0; width: min(430px, calc(100% - 250px)); padding: 5px; background: #fff; border: 1px solid #c8dbea; border-radius: 11px; box-shadow: 0 12px 26px rgba(31, 75, 111, .14); }
+.msu-production .msu-suggestion { width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px; color: var(--msu-ink); text-align: left; background: transparent; border: 0; border-radius: 7px; cursor: pointer; }
+.msu-production .msu-suggestion:hover, .msu-production .msu-suggestion:focus-visible { background: var(--msu-soft); outline: 0; }
+.msu-production .msu-suggestion-avatar { width: 24px; height: 24px; display: grid; place-items: center; color: var(--msu-blue); background: #e5f0fa; border-radius: 7px; font-size: 9px; font-weight: 800; flex: none; }
+.msu-production .msu-suggestion-copy { min-width: 0; flex: 1; }
+.msu-production .msu-suggestion-copy strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.msu-production .msu-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; padding: 0 25px 14px; border-bottom: 1px solid var(--msu-line); background: #fff; flex: none; }
+.msu-production .msu-filter-label { margin-right: 2px; color: #8ca0b3; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+.msu-production .msu-chip { height: 27px; display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; color: #637e96; background: #f0f5f9; border: 1px solid transparent; border-radius: 8px; font-size: 10px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+.msu-production .msu-chip:hover { border-color: #b7cee1; color: var(--msu-blue-dark); }
+.msu-production .msu-chip.active { color: #fff; background: var(--msu-blue); box-shadow: 0 3px 8px rgba(45,111,186,.2); }
+.msu-production .msu-chip.missed.active { background: var(--msu-alert); box-shadow: 0 3px 8px rgba(191,92,79,.18); }
+.msu-production .msu-chip-count { min-width: 17px; padding: 2px 4px; border-radius: 5px; color: #6f8da5; background: #dfeaf3; font-size: 9px; text-align: center; }
+.msu-production .msu-chip.active .msu-chip-count { color: #e9f4ff; background: rgba(255,255,255,.2); }
+.msu-production .msu-list { min-height: 0; flex: 1; overflow: auto; padding: 15px 25px 21px; background: #f7fbfe; }
+.msu-production .msu-list-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 1px 9px; }
+.msu-production .msu-result-count { color: #294964; font-size: 12px; font-weight: 800; }
+.msu-production .msu-result-count span { color: #86a0b5; font-weight: 600; }
+.msu-production .msu-reset { display: inline-flex; align-items: center; gap: 4px; padding: 4px 7px; color: var(--msu-blue); background: transparent; border: 0; border-radius: 6px; font-size: 10px; font-weight: 800; cursor: pointer; }
+.msu-production .msu-reset:hover { background: #e6f1fa; }
+.msu-production .msu-row { display: flex; align-items: center; gap: 11px; margin: 7px 0; padding: 12px; background: #fff; border: 1px solid #dce8f1; border-radius: 13px; box-shadow: 0 2px 7px rgba(25, 66, 103, .045); transition: border-color .15s ease, transform .15s ease; }
+.msu-production .msu-row:hover { border-color: #a9c7df; transform: translateY(-1px); }
+.msu-production .msu-avatar { width: 38px; height: 38px; display: grid; place-items: center; flex: none; border-radius: 11px; font-size: 10px; font-weight: 800; }
+.msu-production .msu-avatar.call { color: #2d6fba; background: #eaf3fb; }
+.msu-production .msu-avatar.missed { color: #ad5549; background: #fff0ec; }
+.msu-production .msu-avatar.email { color: #4c73b3; background: #eef3ff; }
+.msu-production .msu-avatar.sms { color: #5d7e70; background: #edf6f1; }
+.msu-production .msu-avatar.break { color: #b77741; background: #fff4e8; }
+.msu-production .msu-avatar.session { color: #5d76a0; background: #edf1fa; }
+.msu-production .msu-row-main { min-width: 0; flex: 1; }
+.msu-production .msu-row-top { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.msu-production .msu-row-main strong { overflow: hidden; color: #1d3d5a; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.msu-production .msu-name { min-width: 0; display: flex; text-align: left; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.msu-production .msu-name:hover strong { color: var(--msu-blue); text-decoration: underline; }
+.msu-production .msu-identity, .msu-production .msu-context { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msu-production .msu-identity { margin-top: 3px; color: #7089a0; font-size: 10px; }
+.msu-production .msu-context { margin-top: 5px; color: #57728a; font-size: 10px; }
+.msu-production .msu-context svg { display: inline; vertical-align: middle; }
+.msu-production .msu-context b { color: #345b7b; font-weight: 800; }
+.msu-production .msu-badge { display: inline-flex; align-items: center; gap: 4px; flex: none; padding: 3px 6px; border-radius: 6px; font-size: 9px; font-weight: 800; }
+.msu-production .msu-badge.missed { color: #ae5549; background: var(--msu-alert-soft); }
+.msu-production .msu-badge.positive { color: var(--msu-green); background: var(--msu-green-soft); }
+.msu-production .msu-badge.neutral { color: #567188; background: #eef4f8; }
+.msu-production .msu-row-meta { min-width: 84px; text-align: right; }
+.msu-production .msu-row-meta strong, .msu-production .msu-row-meta span { display: block; }
+.msu-production .msu-row-meta strong { color: #36556e; font-size: 11px; }
+.msu-production .msu-row-meta span { margin-top: 3px; color: #89a0b3; font-size: 9px; }
+.msu-production .msu-row-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.msu-production .msu-meta-pill { display: inline-flex; align-items: center; gap: 4px; margin-top: 5px; padding: 3px 5px; color: #527aa0; background: #edf5fb; border-radius: 5px; font-size: 9px; white-space: nowrap; }
+.msu-production .msu-outcome-badge { display: inline-flex; align-items: center; gap: 4px; margin-top: 5px; padding: 3px 5px; border: 1px solid; border-radius: 5px; font-size: 9px; max-width: 100%; overflow-wrap: anywhere; }
+.msu-production .msu-outcome-badge svg { flex: none; }
+.msu-production .msu-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; min-width: 124px; flex-wrap: wrap; max-width: 260px; }
+.msu-production .msu-primary, .msu-production .msu-secondary { min-height: 29px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 0 9px; border-radius: 8px; font-size: 10px; font-weight: 800; white-space: nowrap; cursor: pointer; }
+.msu-production .msu-primary { color: #fff; background: var(--msu-blue); border: 1px solid var(--msu-blue); }
+.msu-production .msu-primary:hover { background: var(--msu-blue-dark); border-color: var(--msu-blue-dark); }
+.msu-production .msu-primary.alert { background: var(--msu-alert); border-color: var(--msu-alert); }
+.msu-production .msu-secondary { color: #567188; background: #fff; border: 1px solid #cddde9; }
+.msu-production .msu-secondary:hover { color: var(--msu-blue-dark); border-color: #9dbcd4; background: #f3f8fc; }
+.msu-production .msu-empty { min-height: 265px; display: grid; place-items: center; align-content: center; gap: 8px; color: #83a98f; text-align: center; }
+.msu-production .msu-empty strong { color: #34546c; font-size: 13px; }
+.msu-production .msu-empty span { max-width: 300px; color: #8098ab; font-size: 11px; line-height: 1.5; }
+.msu-production .msu-empty-reset { margin-top: 4px; color: var(--msu-blue); background: #e8f3fb; border: 0; border-radius: 8px; padding: 8px 11px; font-size: 10px; font-weight: 800; cursor: pointer; }
+.msu-production .msu-error { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px; border: 1px solid #f3d4ce; border-radius: 11px; color: var(--msu-alert); background: var(--msu-alert-soft); font-size: 12px; }
+.msu-production .msu-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 25px; color: #8399ab; background: #fff; border-top: 1px solid var(--msu-line); font-size: 10px; flex: none; }
+.msu-production .msu-footer-note { display: inline-flex; align-items: center; gap: 6px; }
+.msu-production .msu-footer-note svg { color: var(--msu-blue); flex: none; }
+@media (max-width: 760px) {
+  .msu-production.msu-dialog { width: calc(100vw - 18px) !important; max-width: calc(100vw - 18px) !important; height: calc(100dvh - 18px - var(--pulse-ui-preview-top, 0px)) !important; max-height: calc(100dvh - 18px - var(--pulse-ui-preview-top, 0px)) !important; border-radius: 13px !important; }
+  .msu-production .msu-header, .msu-production .msu-search-area, .msu-production .msu-list, .msu-production .msu-footer { padding-left: 14px; padding-right: 14px; }
+  .msu-production .msu-filters, .msu-production .msu-metrics { padding-left: 14px; padding-right: 14px; }
+  .msu-production .msu-summary { display: none; }
+  .msu-production .msu-metrics { grid-template-columns: repeat(2, 1fr); gap: 12px 0; }
+  .msu-production .msu-metric:nth-child(3) { padding-left: 0; border-left: 0; }
+  .msu-production .msu-toolbar { flex-wrap: wrap; }
+  .msu-production .msu-search { flex-basis: 100%; }
+  .msu-production .msu-picker, .msu-production .msu-sort { flex: 1; min-width: 0; justify-content: space-between; }
+  .msu-production .msu-picker select, .msu-production .msu-sort select { max-width: calc(100% - 25px); }
+  .msu-production .msu-suggestions { width: 100%; }
+  .msu-production .msu-row { align-items: flex-start; flex-wrap: wrap; }
+  .msu-production .msu-row-main { min-width: calc(100% - 55px); }
+  .msu-production .msu-row-top { flex-wrap: wrap; }
+  .msu-production .msu-row-meta { margin-left: 49px; text-align: left; min-width: 74px; }
+  .msu-production .msu-row-actions { min-width: 0; margin-left: 49px; justify-content: flex-start; flex-wrap: wrap; max-width: none; }
+  .msu-production .msu-footer { align-items: flex-start; flex-direction: column; }
+  .msu-production .msu-list-head { align-items: flex-start; flex-direction: column; gap: 5px; }
+}

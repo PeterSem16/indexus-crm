@@ -48,12 +48,34 @@ export function PulseGate({ children }: Props) {
   const [location] = useLocation();
   const preview = canUsePulseDevPreview(import.meta.env.DEV, window.location.hostname)
     && new URLSearchParams(window.location.search).get(PULSE_DEV_PREVIEW_PARAM) === "1";
+  const previewAllowed = preview && !!user && !isLoading && canAccessModule("nexusPulse");
+  const previewBannerRef = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const banner = previewBannerRef.current;
+    if (!previewAllowed || !banner) return;
+    const root = document.documentElement;
+    // The warning must remain visible without covering modal titles/close
+    // controls when its translated text wraps on a narrow preview.
+    const measure = () => root.style.setProperty("--pulse-ui-preview-top", `${Math.max(0, banner.getBoundingClientRect().bottom)}px`);
+    measure();
+    const resize = new ResizeObserver(measure);
+    resize.observe(banner);
+    const layout = new MutationObserver(measure);
+    layout.observe(root, { attributes: true, attributeFilter: ["data-agent-fullscreen", "class"] });
+    window.addEventListener("resize", measure);
+    return () => {
+      resize.disconnect();
+      layout.disconnect();
+      window.removeEventListener("resize", measure);
+      root.style.removeProperty("--pulse-ui-preview-top");
+    };
+  }, [previewAllowed, locale]);
   // No readiness flag/event is written. Unmount the real gate only for this
   // explicit development URL; leaving it restores the complete normal gate.
-  if (preview && user && !isLoading && canAccessModule("nexusPulse")) {
+  if (previewAllowed) {
     const copy = pulseDevPreviewCopy(locale);
     return <>
-      <aside role="status" data-testid="pulse-dev-preview-banner" className="relative z-[10036] flex flex-wrap items-center justify-between gap-2 border-b border-amber-400 bg-amber-100 px-4 py-2 text-xs text-amber-950">
+      <aside ref={previewBannerRef} role="status" data-testid="pulse-dev-preview-banner" className="relative z-[10036] flex flex-wrap items-center justify-between gap-2 border-b border-amber-400 bg-amber-100 px-4 py-2 text-xs text-amber-950">
         <span>{copy.notice}</span>
         <Button variant="outline" size="sm" className="shrink-0 bg-white text-amber-950" onClick={() => {
           const url = new URL(window.location.href);

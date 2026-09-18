@@ -20,3 +20,9 @@ Bounded picker tests need both minimum readable height and maximum viewport boun
 **Why:** flex shrinking can reduce hundreds of options to a single visible row while every overflow/within-modal assertion still passes.
 
 **How to apply:** inspect the populated state, verify multiple visible rows, scroll to the final option, and keep Save and close controls reachable on mobile as well as desktop.
+
+Graduation must preserve the entire approved shell, not merely add search and sorting to the legacy modal.
+
+**Why:** Functionally correct toolbar changes still left the wrong palette, dimensions, filter hierarchy and rows. Checking navigation alone missed that the user was seeing an unapproved design; an empty Calls tab also concealed pending messages.
+
+**How to apply:** Compare populated and genuinely empty production dialogs to the unchanged approved reference. Use real App/provider tests with intercepted APIs, check cross-channel defaults, and inspect screenshots for occlusion: an element can pass isVisible while a high-z-index preview notice covers its title.

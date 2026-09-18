@@ -385,3 +385,31 @@ mtime_ms = 1789552858120
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/b893faea-eec5-40c0-b583-195bf547ae89/7100148f-95f5-4918-8fe6-17a00ecd0744"
 storage_version_token = "1789552864964853"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "lzi0hYo1TKZMMchf2sdr4"
+uri = "file://screenshots/pulse-unified-missed-verified.png"
+type = "image"
+title = "Zmeškaná komunikácia — opravená aplikácia"
+description = "Snímka skutočného okna aplikácie s testovacími údajmi, nie návrh z plátna."
+logical_id = "e038325e-c06e-49a9-8126-4e2ebc4377c6"
+content_hash = "sha256:60cbbc3fb53eb00495f1a957719dfa5edbafac91566f6d5ffe6ce47b2557ae21"
+size = 156476
+mtime_ms = 1789726315181
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/e038325e-c06e-49a9-8126-4e2ebc4377c6/12129fc8-5518-4bb1-8d9a-74845f0a3bc3"
+storage_version_token = "1789726322682747"
+content_type = "image/png"
+
+[[outputs]]
+id = "vlEUvrUzynf_GPZYeBovy"
+uri = "file://screenshots/pulse-unified-shift-verified.png"
+type = "image"
+title = "Moja smena — opravená aplikácia"
+description = "Snímka skutočného okna aplikácie s testovacími údajmi, nie návrh z plátna."
+logical_id = "4ba79db5-19cc-4585-88ad-567598fb66e9"
+content_hash = "sha256:3204efd7237e9c1d8146b9883567dbeef8642b4f980be26ee6ab24851b6b339b"
+size = 154484
+mtime_ms = 1789726315184
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/4ba79db5-19cc-4585-88ad-567598fb66e9/06925e8b-7b1a-4be2-af3f-9f2486eee871"
+storage_version_token = "1789726323475950"
+content_type = "image/png"
