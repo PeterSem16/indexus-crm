@@ -1,0 +1,124 @@
+.agent-toolbar-unified {
+  flex: none;
+  width: 100%;
+  padding: 6px 10px;
+  background: #f4f8fc;
+  color: #18314d;
+  font-family: "Open Sans", sans-serif;
+}
+.agent-toolbar-unified *, .agent-toolbar-unified *::before, .agent-toolbar-unified *::after { box-sizing: border-box; }
+.agent-toolbar-unified .pta-surface { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; padding: 8px 10px; background: #fbfdff; border: 1px solid #dbe8f2; border-radius: 12px; box-shadow: 0 2px 8px #244e7008; }
+.agent-toolbar-unified .pta-control-row,
+.agent-toolbar-unified .pta-shortcuts { display: contents; }
+.agent-toolbar-unified .pta-control,
+.agent-toolbar-unified .pta-queue,
+.agent-toolbar-unified .pta-icon-control { min-height: 40px; display: inline-flex; align-items: center; gap: 7px; padding: 6px 9px; border: 1px solid #d1e0ed; border-radius: 9px; background: #fff; color: #18314d; font-family: inherit; cursor: pointer; text-align: left; transition: border-color .16s, background .16s, transform .16s; }
+.agent-toolbar-unified .pta-control:hover,
+.agent-toolbar-unified .pta-queue:hover,
+.agent-toolbar-unified .pta-icon-control:hover { border-color: #89b2d6; background: #f8fbfe; transform: translateY(-1px); }
+.agent-toolbar-unified button:focus-visible { outline: 3px solid #8bbce1; outline-offset: 2px; }
+.agent-toolbar-unified .pta-status { border-color: #bddbc9; background: #f8fdf9; }
+.agent-toolbar-unified .pta-status-icon { display: none; }
+.agent-toolbar-unified .pta-status-icon svg { width: 16px; height: 16px; }
+.agent-toolbar-unified .pta-status-dot { width: 9px; height: 9px; flex: none; background: #54ad76; border-radius: 50%; box-shadow: 0 0 0 4px #e8f6ed; }
+.agent-toolbar-unified .pta-status-busy { border-color: #ebc6c1; background: #fff9f8; }
+.agent-toolbar-unified .pta-status-busy .pta-status-dot { background: #c9584d; box-shadow: 0 0 0 4px #fae9e7; }
+.agent-toolbar-unified .pta-status-wrap-up { border-color: #c7dced; background: #f8fbfe; }
+.agent-toolbar-unified .pta-status-wrap-up .pta-status-dot { background: #4d8eba; box-shadow: 0 0 0 4px #e7f1f8; }
+.agent-toolbar-unified .pta-status-break .pta-status-dot { background: #d2a446; box-shadow: 0 0 0 4px #fbf1d8; }
+.agent-toolbar-unified .pta-status-offline .pta-status-dot { background: #8397a8; box-shadow: 0 0 0 4px #edf1f4; }
+.agent-toolbar-unified .pta-end { color: #a4574f; border-color: #f0d8d4; background: #fffaf9; }
+.agent-toolbar-unified .pta-end:hover { background: #fff3f0; border-color: #dfada6; }
+.agent-toolbar-unified .pta-icon-control { width: auto; min-width: 38px; justify-content: center; color: #647d93; }
+.agent-toolbar-unified .pta-ringtone-on { color: #42845d; border-color: #bddbc9; }
+.agent-toolbar-unified .pta-forwarding { color: #b26d43; border-color: #efcdb8; }
+.agent-toolbar-unified .pta-forwarding-number { max-width: 86px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 9px ui-monospace, monospace; }
+.agent-toolbar-unified .pta-divider { width: 1px; height: 32px; flex: none; background: #e1ebf3; }
+.agent-toolbar-unified .pta-control-copy { display: flex; flex-direction: column; gap: 2px; white-space: nowrap; }
+.agent-toolbar-unified .pta-control-copy strong { font-size: 12px; line-height: 15px; font-weight: 700; }
+.agent-toolbar-unified .pta-control-copy span { color: #8399ab; font-size: 9px; line-height: 12px; }
+.agent-toolbar-unified .pta-timer { display: inline-flex; align-items: center; gap: 6px; color: #5e7690; }
+.agent-toolbar-unified .pta-timer strong { color: #24415c; font-size: 13px; letter-spacing: .05em; font-variant-numeric: tabular-nums; }
+.agent-toolbar-unified .pta-timer span { color: #91a5b5; font-size: 9px; }
+.agent-toolbar-unified .pta-micro-counts { display: flex; align-items: center; gap: 4px; margin: 0; }
+.agent-toolbar-unified .pta-micro-counts > span { display: inline-flex; align-items: center; gap: 4px; padding: 7px 8px; color: #6990a9; background: #eef5fa; border-radius: 7px; font-size: 10px; }
+.agent-toolbar-unified .pta-micro-counts span svg { color: #4d8eba; }
+.agent-toolbar-unified .pta-micro-pending { color: #b26d43 !important; background: #fff1e8 !important; }
+.agent-toolbar-unified .pta-micro-pending svg { color: #c2784d !important; }
+.agent-toolbar-unified .pta-quota-blocked { color: #a4574f !important; opacity: .55; box-shadow: inset 0 0 0 1px #e7bdb7; }
+.agent-toolbar-unified .pta-queue { position: relative; }
+.agent-toolbar-unified .pta-queue > svg { color: #2d6fba; }
+.agent-toolbar-unified .pta-queue > b { min-width: 24px; padding: 3px 6px; color: #fff; background: #c9584d; border-radius: 9px; text-align: center; font-size: 10px; }
+.agent-toolbar-unified .pta-queue-overdue { border-color: #e7b5af; }
+.agent-toolbar-unified .pta-urgency-dot { position: absolute; width: 9px; height: 9px; right: -3px; top: -3px; border: 2px solid #fff; border-radius: 50%; background: #c9584d; animation: pta-urgency 1.5s ease-in-out infinite; }
+.agent-toolbar-unified .pta-button { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; max-width: 100%; padding: 5px 9px; color: #18314d; background: #fff; border: 1px solid #d1e0ed; border-radius: 9px; box-shadow: 0 2px 3px #244e7010; cursor: pointer; text-align: left; font-family: inherit; transition: border-color .16s, box-shadow .16s, transform .16s, background .16s; }
+.agent-toolbar-unified .pta-button:hover { border-color: #89b2d6; background: #fbfdff; box-shadow: 0 4px 14px #2d6fba15; transform: translateY(-1px); }
+.agent-toolbar-unified .pta-button:active { transform: translateY(0); }
+.agent-toolbar-unified .pta-symbol { width: 28px; height: 28px; flex: none; display: grid; place-items: center; background: #eaf3fc; border: 1px solid #dbeaf8; color: #2d6fba; border-radius: 8px; }
+.agent-toolbar-unified .pta-symbol svg { width: 17px; height: 17px; }
+.agent-toolbar-unified .pta-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.agent-toolbar-unified .pta-copy strong { font-size: 12px; font-weight: 700; letter-spacing: -.025em; line-height: 16px; }
+.agent-toolbar-unified .pta-copy > span { font-size: 10px; color: #7790a6; line-height: 14px; }
+.agent-toolbar-unified .pta-counts { display: flex; gap: 4px; padding-left: 8px; border-left: 1px solid #e4edf5; }
+.agent-toolbar-unified .pta-counter { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 25px; min-width: 30px; padding: 0 5px; border-radius: 6px; background: #f3f6f9; color: #8397a8; font-size: 11px; }
+.agent-toolbar-unified .pta-counter b { font-weight: 700; font-variant-numeric: tabular-nums; }
+.agent-toolbar-unified .pta-counter.pta-pending { color: #ab5437; background: #fff0e8; box-shadow: inset 0 0 0 1px #f5d9ca; }
+.agent-toolbar-unified .pta-open-indicator { display: none; }
+.agent-toolbar-unified .pta-active-break { display: inline-flex; align-items: center; gap: 6px; padding: 5px 7px; color: #856721; background: #fff8e5; border: 1px solid #ead59d; border-radius: 9px; font-size: 10px; white-space: nowrap; }
+.agent-toolbar-unified .pta-active-break b { font-family: ui-monospace, monospace; }
+.agent-toolbar-unified .pta-active-break button { display: inline-flex; align-items: center; gap: 3px; padding: 4px 6px; color: #536f87; background: #fff; border: 1px solid #d1e0ed; border-radius: 6px; cursor: pointer; }
+.agent-toolbar-unified .pta-break-exceeded { color: #a4574f; background: #fff3f0; border-color: #e5b8b2; }
+.agent-toolbar-unified .pta-exceeded-by { display: inline-flex; align-items: center; gap: 2px; font-weight: 700; }
+
+.pta-status-menu { font-family: "Open Sans", sans-serif; color: #18314d; background: #fbfdff; border-color: #d1e0ed; border-radius: 11px; box-shadow: 0 10px 30px #244e7020; }
+.pta-status-menu .pta-status-menu-item:focus, .pta-status-menu .pta-status-menu-item[data-highlighted] { background: #eaf3fc; color: #18314d; }
+.pta-status-menu .pta-menu-icon svg { width: 15px; height: 15px; }
+.pta-status-menu .pta-status-menu-item { display: flex; gap: 10px; padding: 8px 10px; font-size: 12px; }
+.pta-status-menu .pta-menu-dot { width: 9px; height: 9px; border-radius: 50%; background: #54ad76; }
+.pta-status-menu .pta-menu-dot-busy { background: #c9584d; }
+.pta-status-menu .pta-menu-dot-wrap-up { background: #4d8eba; }
+.pta-status-menu .pta-menu-dot-break { background: #d2a446; }
+.pta-status-menu .pta-menu-icon { width: 15px; height: 15px; color: #6e8d7b; }
+.pta-status-menu .pta-menu-heading { padding: 5px 10px 2px; color: #8399ab; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.pta-status-menu .pta-menu-duration { margin-left: auto; color: #8399ab; font-size: 9px; }
+
+@keyframes pta-urgency { 50% { box-shadow: 0 0 0 5px #c9584d33; } }
+@media (max-width: 1440px) {
+  .agent-toolbar-unified .pta-control-copy > span,
+  .agent-toolbar-unified .pta-copy > span,
+  .agent-toolbar-unified .pta-timer > span { display: none; }
+}
+@media (max-width: 1150px) {
+  .agent-toolbar-unified .pta-surface { gap: 6px; }
+  .agent-toolbar-unified .pta-divider,
+  .agent-toolbar-unified .pta-symbol { display: none; }
+}
+@media (max-width: 700px) {
+  .agent-toolbar-unified { padding: 5px 6px; }
+  .agent-toolbar-unified .pta-surface { padding: 8px; border-radius: 13px; }
+  .agent-toolbar-unified .pta-control, .agent-toolbar-unified .pta-queue, .agent-toolbar-unified .pta-icon-control { min-height: 40px; padding: 5px 8px; border-radius: 9px; }
+  .agent-toolbar-unified .pta-control-copy span { display: none; }
+  .agent-toolbar-unified .pta-divider { display: none; }
+  .agent-toolbar-unified .pta-timer { min-width: auto; }
+  .agent-toolbar-unified .pta-timer span { display: none; }
+  .agent-toolbar-unified .pta-micro-counts { width: auto; margin-left: 0; }
+  .agent-toolbar-unified .pta-micro-counts > span { padding: 5px 6px; }
+  .agent-toolbar-unified .pta-forwarding-number { display: none; }
+  .agent-toolbar-unified .pta-active-break { max-width: 100%; flex-wrap: wrap; white-space: normal; }
+  .agent-toolbar-unified .pta-button { min-width: 0; padding: 6px 8px; gap: 7px; }
+  .agent-toolbar-unified .pta-symbol { width: 29px; height: 29px; border-radius: 8px; }
+  .agent-toolbar-unified .pta-symbol svg { width: 17px; }
+  .agent-toolbar-unified .pta-copy > span, .agent-toolbar-unified .pta-open-indicator { display: none; }
+  .agent-toolbar-unified .pta-copy strong { font-size: 11px; white-space: normal; }
+  .agent-toolbar-unified .pta-counts { gap: 2px; margin-left: auto; padding-left: 5px; }
+  .agent-toolbar-unified .pta-counter { min-width: 26px; height: 23px; padding: 0 4px; gap: 2px; }
+  .agent-toolbar-unified .pta-counter svg { width: 11px; }
+  .agent-toolbar-unified .pta-shift .pta-copy { flex: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .agent-toolbar-unified .pta-control,
+  .agent-toolbar-unified .pta-queue,
+  .agent-toolbar-unified .pta-icon-control,
+  .agent-toolbar-unified .pta-button { transition: none; }
+  .agent-toolbar-unified .pta-urgency-dot { animation: none; }
+}
