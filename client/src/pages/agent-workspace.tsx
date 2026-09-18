@@ -9806,8 +9806,11 @@ function MyActivityPanel({
   onCallFromShift?: (item: any) => void;
   onOpenEntity?: (type: string, id: string, campaignContactId?: string | null, campaignId?: string | null) => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [filterType, setFilterType] = useState<"all" | "call" | "email" | "sms" | "missed" | "break" | "session">("all");
+  const [activitySearch, setActivitySearch] = useState("");
+  const [activitySearchField, setActivitySearchField] = useState<"all" | "name" | "phone" | "email">("all");
+  const [activitySort, setActivitySort] = useState<"date_desc" | "date_asc" | "name_asc">("date_desc");
 
   const { data: items = [], isLoading, refetch } = useQuery<any[]>({
     queryKey: ["/api/agent/today-activity"],
@@ -9894,13 +9897,36 @@ function MyActivityPanel({
   const answeredCalls = callItems.filter(i => i.status === "answered" || i.status === "completed");
   const totalDur = answeredCalls.reduce((sum: number, c: any) => sum + (c.durationSeconds || 0), 0);
 
-  const filtered = filterType === "all" ? allItems
+  const typeFiltered = filterType === "all" ? allItems
     : filterType === "call" ? callItems
     : filterType === "email" ? emailItems
     : filterType === "sms" ? smsItems
     : filterType === "break" ? breakItems
     : filterType === "session" ? sessionItems
     : missedItems;
+  const searchValue = activitySearch.trim().toLowerCase();
+  const filtered = [...typeFiltered]
+    .filter((item: any) => {
+      if (!searchValue) return true;
+      const name = String(item.customerName || item.entityName || item.breakTypeName || "").toLowerCase();
+      const phone = String(item.phoneNumber || "").toLowerCase();
+      const email = String(item.email || item.sender || "").toLowerCase();
+      if (activitySearchField === "name") return name.includes(searchValue);
+      if (activitySearchField === "phone") return phone.includes(searchValue);
+      if (activitySearchField === "email") return email.includes(searchValue);
+      return [name, phone, email, String(item.inboundQueueName || ""), String(item.subject || ""), String(item.status || "")]
+        .some(value => value.includes(searchValue));
+    })
+    .sort((a: any, b: any) => {
+      if (activitySort === "name_asc") {
+        return String(a.customerName || a.entityName || a.breakTypeName || "").localeCompare(
+          String(b.customerName || b.entityName || b.breakTypeName || ""), locale === "sk" ? "sk" : undefined,
+        );
+      }
+      const aTime = new Date(a.sortTime || a.startedAt || 0).getTime();
+      const bTime = new Date(b.sortTime || b.startedAt || 0).getTime();
+      return activitySort === "date_asc" ? aTime - bTime : bTime - aTime;
+    });
 
   const filterTabs: { key: typeof filterType; label: string; count: number }[] = [
     { key: "all", label: t.agentWorkspace.myShiftFilterAll, count: allItems.length },
@@ -9948,7 +9974,48 @@ function MyActivityPanel({
           </div>
         </div>
 
-        <div className="flex items-center gap-1 px-4 py-2 border-b flex-shrink-0 bg-muted/10 overflow-x-auto">
+         <div className="px-4 py-3 border-b flex-shrink-0 bg-muted/10 space-y-2.5">
+           <div className="flex flex-col gap-2 lg:flex-row">
+             <div className="relative min-w-0 flex-1">
+               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+               <Input
+                 value={activitySearch}
+                 onChange={(event) => setActivitySearch(event.target.value)}
+                 placeholder={t.agentWorkspace.historySearchPlaceholder}
+                 className="h-9 rounded-xl pl-9 pr-8 text-xs"
+                 data-testid="input-my-activity-search"
+               />
+               {activitySearch && (
+                 <button type="button" onClick={() => setActivitySearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" aria-label={t.common.clear}>
+                   <X className="h-3.5 w-3.5" />
+                 </button>
+               )}
+             </div>
+             <Select value={activitySearchField} onValueChange={(value) => setActivitySearchField(value as typeof activitySearchField)}>
+               <SelectTrigger className="h-9 w-full rounded-xl text-xs lg:w-[130px]" data-testid="select-my-activity-search-field">
+                 <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+                 <SelectValue />
+               </SelectTrigger>
+               <SelectContent>
+                 <SelectItem value="all">{t.agentWorkspace.fieldPickerAllFields}</SelectItem>
+                 <SelectItem value="name">{t.agentWorkspace.fieldPickerName}</SelectItem>
+                 <SelectItem value="phone">{t.agentWorkspace.fieldPickerPhone}</SelectItem>
+                 <SelectItem value="email">{t.agentWorkspace.fieldPickerEmail}</SelectItem>
+               </SelectContent>
+             </Select>
+             <Select value={activitySort} onValueChange={(value) => setActivitySort(value as typeof activitySort)}>
+               <SelectTrigger className="h-9 w-full rounded-xl text-xs lg:w-[170px]" data-testid="select-my-activity-sort">
+                 <ArrowUpDown className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+                 <SelectValue />
+               </SelectTrigger>
+               <SelectContent>
+                 <SelectItem value="date_desc">{t.agentWorkspace.sortByDate} · {t.agentWorkspace.sortDesc}</SelectItem>
+                 <SelectItem value="date_asc">{t.agentWorkspace.sortByDate} · {t.agentWorkspace.sortAsc}</SelectItem>
+                 <SelectItem value="name_asc">{t.agentWorkspace.sortByName} · {t.agentWorkspace.sortAsc}</SelectItem>
+               </SelectContent>
+             </Select>
+           </div>
+           <div className="flex items-center gap-1.5 overflow-x-auto">
           {filterTabs.map(tab => (
             <button
               key={tab.key}
@@ -9970,6 +10037,8 @@ function MyActivityPanel({
               )}
             </button>
           ))}
+             <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">{filtered.length} {t.agentWorkspace.resultsCount}</span>
+           </div>
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto">
@@ -10913,6 +10982,9 @@ function AgentWorkspacePageContent() {
   const [myActivityOpen, setMyActivityOpen] = useState(false);
   const [missedChannel, setMissedChannel] = useState<"calls" | "email" | "sms">("calls");
   const [abandonedCallsFilter, setAbandonedCallsFilter] = useState<"all" | "pending" | "handled">("all");
+  const [missedSearch, setMissedSearch] = useState("");
+  const [missedSearchField, setMissedSearchField] = useState<"all" | "name" | "phone" | "email" | "queue">("all");
+  const [missedSort, setMissedSort] = useState<"date_desc" | "date_asc" | "name_asc">("date_desc");
   const [missedCallNotifs, setMissedCallNotifs] = useState<Array<{ id: number; title: string; description: string }>>([]);
   const pendingCallbackAbandonedIdRef = useRef<string | null>(null);
   const [historyDetailModal, setHistoryDetailModal] = useState<TimelineEntry | ContactHistory | null>(null);
@@ -17777,7 +17849,7 @@ function AgentWorkspacePageContent() {
         </SheetContent>
       </Sheet>
 
-      <Dialog open={abandonedCallsOpen} onOpenChange={(open) => { setAbandonedCallsOpen(open); if (!open) { setAbandonedCallsFilter("all"); setMissedChannel("calls"); } }}>
+      <Dialog open={abandonedCallsOpen} onOpenChange={(open) => { setAbandonedCallsOpen(open); if (!open) { setAbandonedCallsFilter("all"); setMissedChannel("calls"); setMissedSearch(""); setMissedSearchField("all"); setMissedSort("date_desc"); } }}>
         <DialogContent
           overlayClassName="!bg-slate-950/30 backdrop-blur-[1px]"
           className="!w-[calc(100vw-2rem)] !max-w-[calc(100vw-2rem)] !h-[calc(100vh-2rem)] !max-h-[calc(100vh-2rem)] sm:!w-[calc(100vw-3rem)] sm:!max-w-[calc(100vw-3rem)] sm:!h-[calc(100vh-3rem)] sm:!max-h-[calc(100vh-3rem)] lg:!w-[calc(100vw-4rem)] lg:!max-w-[calc(100vw-4rem)] lg:!h-[calc(100vh-4rem)] lg:!max-h-[calc(100vh-4rem)] flex flex-col overflow-hidden p-0 gap-0 shadow-2xl ring-1 ring-black/10 dark:ring-white/10"
@@ -17798,7 +17870,49 @@ function AgentWorkspacePageContent() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-1 px-5 pb-3 shrink-0">
+          <div className="px-5 pb-3 shrink-0 space-y-2.5 border-b">
+            <div className="flex flex-col gap-2 lg:flex-row">
+              <div className="relative min-w-0 flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <Input
+                  value={missedSearch}
+                  onChange={(event) => setMissedSearch(event.target.value)}
+                  placeholder={t.agentWorkspace.historySearchPlaceholder}
+                  className="h-9 rounded-xl pl-9 pr-8 text-xs"
+                  data-testid="input-missed-search"
+                />
+                {missedSearch && (
+                  <button type="button" onClick={() => setMissedSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" aria-label={t.common.clear}>
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              <Select value={missedSearchField} onValueChange={(value) => setMissedSearchField(value as typeof missedSearchField)}>
+                <SelectTrigger className="h-9 w-full rounded-xl text-xs lg:w-[140px]" data-testid="select-missed-search-field">
+                  <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t.agentWorkspace.fieldPickerAllFields}</SelectItem>
+                  <SelectItem value="name">{t.agentWorkspace.fieldPickerName}</SelectItem>
+                  <SelectItem value="phone">{t.agentWorkspace.fieldPickerPhone}</SelectItem>
+                  <SelectItem value="email">{t.agentWorkspace.fieldPickerEmail}</SelectItem>
+                  <SelectItem value="queue">{t.agentWorkspace.todayCallsQueue}</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={missedSort} onValueChange={(value) => setMissedSort(value as typeof missedSort)}>
+                <SelectTrigger className="h-9 w-full rounded-xl text-xs lg:w-[170px]" data-testid="select-missed-sort">
+                  <ArrowUpDown className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date_desc">{t.agentWorkspace.sortByDate} · {t.agentWorkspace.sortDesc}</SelectItem>
+                  <SelectItem value="date_asc">{t.agentWorkspace.sortByDate} · {t.agentWorkspace.sortAsc}</SelectItem>
+                  <SelectItem value="name_asc">{t.agentWorkspace.sortByName} · {t.agentWorkspace.sortAsc}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-1.5 overflow-x-auto">
             {([
               ["calls", t.agentWorkspace.missedCallsTab, PhoneOff, abandonedCalls.filter((c: any) => !c.calledBack).length],
               ["email", t.agentWorkspace.missedEmailsTab, Mail, missedMessages.filter((m: any) => m.type === "email" && !m.handledAt).length],
@@ -17810,10 +17924,11 @@ function AgentWorkspacePageContent() {
                 {count > 0 && <span className={`rounded-full px-1.5 text-[10px] ${missedChannel === key ? "bg-white/20" : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"}`}>{count}</span>}
               </button>
             ))}
+            </div>
           </div>
 
           {/* Filter tabs */}
-          <div className="flex items-center gap-1.5 px-5 pb-3 border-b shrink-0">
+          <div className="flex items-center gap-1.5 px-5 py-2.5 border-b shrink-0 bg-muted/10 overflow-x-auto">
             {(["all", "pending", "handled"] as const).map((f) => {
               const labels = { all: t.agentWorkspace.filterAll, pending: t.agentWorkspace.filterPending, handled: t.agentWorkspace.filterHandled };
               const channelItems = missedChannel === "calls" ? abandonedCalls : missedMessages.filter((m: any) => m.type === missedChannel);
@@ -17836,13 +17951,34 @@ function AgentWorkspacePageContent() {
           {/* Sections */}
           <div className="flex-1 min-h-0 overflow-y-auto">
             {missedChannel !== "calls" && (() => {
-              const channelMessages = missedMessages.filter((m: any) =>
-                m.type === missedChannel && (abandonedCallsFilter === "all" ? true : abandonedCallsFilter === "pending" ? !m.handledAt : !!m.handledAt)
-              );
+               const query = missedSearch.trim().toLowerCase();
+               const channelMessages = missedMessages
+                 .filter((m: any) =>
+                   m.type === missedChannel && (abandonedCallsFilter === "all" ? true : abandonedCallsFilter === "pending" ? !m.handledAt : !!m.handledAt)
+                 )
+                 .filter((m: any) => {
+                   if (!query) return true;
+                   const name = String(m.contactName || m.senderName || "").toLowerCase();
+                   const email = String(m.sender || m.senderEmail || "").toLowerCase();
+                   const subject = String(m.subject || "").toLowerCase();
+                   const content = htmlToPlainPreview(String(m.content || "")).toLowerCase();
+                   const queue = String(m.campaignName || "").toLowerCase();
+                   if (missedSearchField === "name") return name.includes(query);
+                   if (missedSearchField === "email") return email.includes(query);
+                   if (missedSearchField === "queue") return queue.includes(query);
+                   return [name, email, subject, content, queue].some(value => value.includes(query));
+                 })
+                 .sort((a: any, b: any) => {
+                   if (missedSort === "name_asc") return String(a.contactName || a.senderName || "").localeCompare(String(b.contactName || b.senderName || ""), locale);
+                   const aTime = new Date(a.createdAt || 0).getTime();
+                   const bTime = new Date(b.createdAt || 0).getTime();
+                   return missedSort === "date_asc" ? aTime - bTime : bTime - aTime;
+                 });
               if (channelMessages.length === 0) return (
                 <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                   <CheckCircle className="h-12 w-12 mb-3 text-green-500/40" />
                   <p className="font-medium text-sm">{t.agentWorkspace.noMissedMessages}</p>
+                   {missedSearch && <Button variant="outline" size="sm" className="mt-3" onClick={() => setMissedSearch("")}>{t.common.clear}</Button>}
                 </div>
               );
               return <div className="space-y-2 p-4">{channelMessages.map((message: any) => {
@@ -17939,11 +18075,30 @@ function AgentWorkspacePageContent() {
               })}</div>;
             })()}
             {missedChannel === "calls" && (() => {
-              const allFiltered = abandonedCalls.filter((c: any) =>
-                abandonedCallsFilter === "all" ? true
-                : abandonedCallsFilter === "pending" ? !c.calledBack
-                : !!c.calledBack
-              );
+               const query = missedSearch.trim().toLowerCase();
+               const allFiltered = abandonedCalls
+                 .filter((c: any) =>
+                   abandonedCallsFilter === "all" ? true
+                   : abandonedCallsFilter === "pending" ? !c.calledBack
+                   : !!c.calledBack
+                 )
+                 .filter((c: any) => {
+                   if (!query) return true;
+                   const name = String(c.customerName || c.callerName || "").toLowerCase();
+                   const phone = String(c.customerPhone || c.callerNumber || "").toLowerCase();
+                   const queue = String(c.queueName || "").toLowerCase();
+                   const status = String(c.status || c.abandonReason || "").toLowerCase();
+                   if (missedSearchField === "name") return name.includes(query);
+                   if (missedSearchField === "phone") return phone.includes(query);
+                   if (missedSearchField === "queue") return queue.includes(query);
+                   return [name, phone, queue, status].some(value => value.includes(query));
+                 })
+                 .sort((a: any, b: any) => {
+                   if (missedSort === "name_asc") return String(a.customerName || a.callerName || a.callerNumber || "").localeCompare(String(b.customerName || b.callerName || b.callerNumber || ""), locale);
+                   const aTime = new Date(a.completedAt || a.enteredQueueAt || a.createdAt || 0).getTime();
+                   const bTime = new Date(b.completedAt || b.enteredQueueAt || b.createdAt || 0).getTime();
+                   return missedSort === "date_asc" ? aTime - bTime : bTime - aTime;
+                 });
               const pendingCalls = allFiltered.filter((c: any) => !c.calledBack);
               const handledCalls = allFiltered.filter((c: any) => !!c.calledBack);
 
@@ -18124,54 +18279,19 @@ function AgentWorkspacePageContent() {
                   <CheckCircle className="h-12 w-12 mb-3 text-green-500/40" />
                   <p className="font-medium text-sm">{abandonedCallsFilter === "handled" ? t.agentWorkspace.noHandledCalls : t.agentWorkspace.noMissedCalls}</p>
                   <p className="text-xs mt-1 text-muted-foreground/70">{t.agentWorkspace.allCallsHandled}</p>
+                   {missedSearch && <Button variant="outline" size="sm" className="mt-3" onClick={() => setMissedSearch("")}>{t.common.clear}</Button>}
                 </div>
               );
 
-              return (
-                <div className="pb-4">
-                  {/* Pending section */}
-                  {pendingCalls.length > 0 && (
-                    <>
-                      <div className="flex items-center gap-3 mx-4 mt-4 mb-2 p-3 rounded-xl" style={{ background: "#B5622E12" }}>
-                        <div className="h-9 w-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "#B5622E" }}>
-                          <PhoneOff className="h-4 w-4 text-white" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-sm" style={{ color: "#3D2E20" }}>{t.agentWorkspace.sectionUnhandled}</p>
-                          <p className="text-xs" style={{ color: "#9A8878" }}>{pendingCalls.length} {t.agentWorkspace.callsCount}</p>
-                        </div>
-                        <div className="h-7 w-7 rounded-full text-white text-xs font-bold flex items-center justify-center shrink-0" style={{ background: "#B5622E" }}>
-                          {pendingCalls.length}
-                        </div>
-                      </div>
-                      <div className="space-y-1.5 px-4">
-                        {pendingCalls.map((call: any) => renderCallRow(call))}
-                      </div>
-                    </>
-                  )}
-
-                  {/* Handled section */}
-                  {handledCalls.length > 0 && (
-                    <>
-                      <div className="flex items-center gap-3 mx-4 mt-4 mb-2 p-3 rounded-xl" style={{ background: "#5E7A5A12" }}>
-                        <div className="h-9 w-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "#5E7A5A" }}>
-                          <PhoneForwarded className="h-4 w-4 text-white" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-sm" style={{ color: "#3D2E20" }}>{t.agentWorkspace.sectionHandled}</p>
-                          <p className="text-xs" style={{ color: "#9A8878" }}>{handledCalls.length} {t.agentWorkspace.callsCount}</p>
-                        </div>
-                        <div className="h-7 w-7 rounded-full text-white text-xs font-bold flex items-center justify-center shrink-0" style={{ background: "#5E7A5A" }}>
-                          {handledCalls.length}
-                        </div>
-                      </div>
-                      <div className="space-y-1.5 px-4">
-                        {handledCalls.map((call: any) => renderCallRow(call))}
-                      </div>
-                    </>
-                  )}
-                </div>
-              );
+               return (
+                 <div className="space-y-2 p-4">
+                   <div className="flex items-center justify-between px-1 pb-1 text-[11px] text-muted-foreground">
+                     <span>{allFiltered.length} {t.agentWorkspace.callsCount}</span>
+                     <span>{pendingCalls.length} {t.agentWorkspace.filterPending} · {handledCalls.length} {t.agentWorkspace.filterHandled}</span>
+                   </div>
+                   {allFiltered.map((call: any) => renderCallRow(call))}
+                 </div>
+               );
             })()}
           </div>
         </DialogContent>

@@ -619,7 +619,7 @@ export function MyShiftUnified() {
         </section>
 
         <footer className="msu-footer">
-          <span className="msu-footer-note"><Search size={13} /> Same search, field picker, and sorting pattern as Missed communications</span>
+          <span className="msu-footer-note"><Search size={13} /> Same search, field picker, sorting, and card rhythm as Missed communications</span>
           {feedback && <span className="msu-feedback" role="status">{feedback}</span>}
           <span>Scope: today · all queues</span>
         </footer>
