@@ -7,6 +7,33 @@
 .pta-eyebrow { align-self: center; margin-bottom: 20px; font-size: 9px; font-weight: 800; letter-spacing: .12em; color: #557999; }
 .pta-eyebrow span { padding: 0 9px; color: #b1c6d9; }
 .pta-toolbar { display: flex; align-items: center; gap: 12px; max-width: 100%; }
+.pta-surface { width: min(1160px, 100%); padding: 18px; background: #fbfdff; border: 1px solid #dbe8f2; border-radius: 18px; box-shadow: 0 18px 40px #244e700b; }
+.pta-control-row { padding-bottom: 18px; border-bottom: 1px solid #e4edf5; }
+.pta-control, .pta-queue, .pta-icon-control { min-height: 49px; display: inline-flex; align-items: center; gap: 9px; padding: 8px 12px; border: 1px solid #d1e0ed; border-radius: 11px; background: #fff; color: #18314d; font-family: inherit; cursor: pointer; text-align: left; transition: border-color .16s, background .16s, transform .16s; }
+.pta-control:hover, .pta-queue:hover, .pta-icon-control:hover { border-color: #89b2d6; background: #f8fbfe; transform: translateY(-1px); }
+.pta-control:focus-visible, .pta-queue:focus-visible, .pta-icon-control:focus-visible { outline: 3px solid #8bbce1; outline-offset: 2px; }
+.pta-status { border-color: #bddbc9; background: #f8fdf9; }
+.pta-status > svg { color: #6e8d7b; }
+.pta-status-dot { width: 9px; height: 9px; background: #54ad76; border-radius: 50%; box-shadow: 0 0 0 4px #e8f6ed; }
+.pta-end { color: #a4574f; border-color: #f0d8d4; background: #fffaf9; }
+.pta-end:hover { background: #fff3f0; border-color: #dfada6; }
+.pta-icon-control { width: 45px; justify-content: center; color: #647d93; }
+.pta-divider { width: 1px; height: 32px; background: #e1ebf3; }
+.pta-control-copy { display: flex; flex-direction: column; gap: 2px; white-space: nowrap; }
+.pta-control-copy strong { font-size: 12px; line-height: 15px; font-weight: 700; }
+.pta-control-copy span { color: #8399ab; font-size: 9px; line-height: 12px; }
+.pta-timer { display: inline-flex; align-items: center; gap: 7px; min-width: 120px; color: #5e7690; }
+.pta-timer strong { color: #24415c; font-size: 13px; letter-spacing: .05em; font-variant-numeric: tabular-nums; }
+.pta-timer span { color: #91a5b5; font-size: 9px; }
+.pta-micro-counts { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.pta-micro-counts span { display: inline-flex; align-items: center; gap: 4px; padding: 7px 8px; color: #6990a9; background: #eef5fa; border-radius: 7px; font-size: 10px; }
+.pta-micro-counts span svg { color: #4d8eba; }
+.pta-micro-pending { color: #b26d43 !important; background: #fff1e8 !important; }
+.pta-micro-pending svg { color: #c2784d !important; }
+.pta-queue { margin-left: 2px; min-width: 142px; }
+.pta-queue > svg { color: #2d6fba; }
+.pta-queue > b { min-width: 24px; padding: 3px 6px; color: #fff; background: #c9584d; border-radius: 9px; text-align: center; font-size: 10px; }
+.pta-shortcuts { display: flex; align-items: stretch; justify-content: center; gap: 12px; padding-top: 18px; }
 .pta-button {
   display: inline-flex; align-items: center; gap: 12px; min-height: 62px; padding: 11px 14px;
   color: #18314d; background: #fff; border: 1px solid #d1e0ed; border-radius: 13px;
@@ -31,12 +58,20 @@
 .pta-counter.pta-pending { color: #ab5437; background: #fff0e8; box-shadow: inset 0 0 0 1px #f5d9ca; }
 .pta-arrow { color: #91a9bc; flex: none; transition: color .16s, transform .16s; }
 .pta-button:hover .pta-arrow { color: #2d6fba; transform: translate(1px, -1px); }
+.pta-open-indicator { padding-left: 10px; color: #86a3b8; border-left: 1px solid #e4edf5; font-size: 9px; font-weight: 700; }
 .pta-shift { gap: 11px; }
 .pta-shift .pta-arrow { margin-left: 12px; }
 .pta-explanation { margin-top: 21px; font-size: 11px; color: #66819a; line-height: 1.6; text-align: center; }
 .pta-explanation > span { display: block; margin-top: 5px; color: #99acbd; font-size: 9px; }
 @media (max-width: 700px) {
+  .pta-surface { padding: 12px; }
+  .pta-control-row { flex-wrap: wrap; }
   .pta-toolbar { flex-direction: column; align-items: stretch; width: 100%; max-width: 460px; }
+  .pta-control, .pta-queue { width: 100%; }
+  .pta-divider { display: none; }
+  .pta-timer { justify-content: center; width: 100%; }
+  .pta-micro-counts { margin-left: 0; justify-content: center; width: 100%; }
+  .pta-shortcuts { flex-direction: column; }
   .pta-button { width: 100%; }
   .pta-shift .pta-copy { flex: 1; }
   .pta-missed { flex-wrap: wrap; }
