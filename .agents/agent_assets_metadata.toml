@@ -427,3 +427,17 @@ mtime_ms = 1789729198298
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/c45f3dff-e777-4a5c-bc39-c3ce3be86faa/a67d987a-b822-4b68-9fa6-64742becc1ec"
 storage_version_token = "1789729242217316"
 content_type = "image/png"
+
+[[outputs]]
+id = "Lu1TWpIuXyCoukc-Qcxc-"
+uri = "file://screenshots/pulse-break-modal-desktop.png"
+type = "image"
+title = "Prestávka — implementované v aplikácii"
+description = "Overenie skutočného rozhrania s testovacími údajmi. Čas a ukončenie sú napojené na existujúcu prestávku."
+logical_id = "3a48354e-9db7-4506-9652-03c38b570066"
+content_hash = "sha256:2a6a01720df3b034871b2363468440092d0dafdb575f9758eb7c2e4a28f60ed7"
+size = 135242
+mtime_ms = 1789731406622
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/3a48354e-9db7-4506-9652-03c38b570066/a746b5cb-c9e1-4027-9d92-10f3de49bcfc"
+storage_version_token = "1789731459817555"
+content_type = "image/png"

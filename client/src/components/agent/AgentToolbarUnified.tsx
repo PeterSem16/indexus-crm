@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import type { AgentBreakType } from "@shared/schema";
 import { useAuth } from "@/contexts/auth-context";
 import {
-  AlertTriangle,
   CalendarClock,
   ChevronDown,
   Clock3,
@@ -17,7 +16,6 @@ import {
   PhoneForwarded,
   PhoneMissed,
   PhoneOff,
-  Play,
   Power,
   Volume2,
   VolumeX,
@@ -41,12 +39,9 @@ interface AgentToolbarUnifiedProps {
   isQuotaBlocked: (type: "calls" | "emails" | "sms") => boolean;
   workTime: string;
   breakTypes: AgentBreakType[];
-  activeBreakName: string | null;
-  activeBreakType: AgentBreakType | null;
-  breakTime: string;
-  breakElapsedSeconds: number;
   onStartBreak: (breakTypeId: string) => void;
-  onEndBreak: () => void;
+  onOpenBreak: () => void;
+  breakDialogOpen: boolean;
   isOnBreak: boolean;
   onEndSession: () => void;
   isSessionActive: boolean;
@@ -68,12 +63,9 @@ export function AgentToolbarUnified({
   isQuotaBlocked,
   workTime,
   breakTypes,
-  activeBreakName,
-  activeBreakType,
-  breakTime,
-  breakElapsedSeconds,
   onStartBreak,
-  onEndBreak,
+  onOpenBreak,
+  breakDialogOpen,
   isOnBreak,
   onEndSession,
   isSessionActive,
@@ -108,11 +100,8 @@ export function AgentToolbarUnified({
     wrap_up: { label: t.agentSession.statusWrapUp, hint: t.agentWorkspace.toolbar.wrapUpHint, icon: <FileText />, tone: "wrap-up" },
     offline: { label: t.agentSession.statusOffline, hint: t.agentWorkspace.toolbar.offlineHint, icon: <PhoneOff />, tone: "offline" },
   };
-  const currentStatus = statusConfig[status];
+  const currentStatus = statusConfig[isOnBreak ? "break" : status];
   const callForwardingActive = !!(fwdData?.enabled && fwdData.number);
-  const expectedMinutes = activeBreakType?.expectedDurationMinutes;
-  const breakExceeded = !!expectedMinutes && breakElapsedSeconds > expectedMinutes * 60;
-  const exceededBy = expectedMinutes ? Math.max(0, Math.floor((breakElapsedSeconds - expectedMinutes * 60) / 60)) : 0;
   const formatCount = (value: number, quota: number | null | undefined) =>
     quota === null || quota === undefined ? String(value) : `${value}/${quota}`;
 
@@ -120,7 +109,22 @@ export function AgentToolbarUnified({
     <div className="agent-toolbar-unified" data-testid="agent-toolbar-unified">
       <div className="pta-surface">
         <div className="pta-toolbar pta-control-row" role="group" aria-label={t.agentWorkspace.toolbar.agentControls}>
-          <DropdownMenu>
+          {isOnBreak ? (
+            <button
+              type="button"
+              className="pta-control pta-status pta-status-break"
+              data-testid="dropdown-agent-status"
+              onClick={onOpenBreak}
+              title={t.agentWorkspace.breakModal.open}
+              aria-label={`${currentStatus.label}: ${t.agentWorkspace.breakModal.open}`}
+              aria-haspopup="dialog"
+              aria-expanded={breakDialogOpen}
+            >
+              <span className="pta-status-dot" />
+              <span className="pta-control-copy"><strong>{currentStatus.label}</strong><span>{currentStatus.hint}</span></span>
+              <ChevronDown size={15} aria-hidden="true" />
+            </button>
+          ) : <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
@@ -172,7 +176,7 @@ export function AgentToolbarUnified({
                 </>
               )}
             </DropdownMenuContent>
-          </DropdownMenu>
+          </DropdownMenu>}
 
           {isSessionActive && (
             <button type="button" className="pta-control pta-end" onClick={onEndSession} data-testid="button-end-session">
@@ -200,22 +204,6 @@ export function AgentToolbarUnified({
               {callForwardingActive && <span className="pta-forwarding-number">{fwdData?.number}</span>}
               {inboundRingtoneEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
             </button>
-          )}
-
-          {isOnBreak && activeBreakName && (
-            <div className={`pta-active-break ${breakExceeded ? "pta-break-exceeded" : ""}`} data-testid="badge-break-active">
-              {breakExceeded ? <AlertTriangle size={14} /> : <Coffee size={14} />}
-              <span>{activeBreakName}</span>
-              <b>{breakTime}</b>
-              {breakExceeded && (
-                <span className="pta-exceeded-by" data-testid="badge-break-exceeded">
-                  <AlertTriangle size={12} /> +{exceededBy}m
-                </span>
-              )}
-              <button type="button" onClick={onEndBreak} data-testid="button-end-break">
-                <Play size={13} /> {t.agentSession.continueWork}
-              </button>
-            </div>
           )}
 
           <span className="pta-divider" aria-hidden="true" />

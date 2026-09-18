@@ -25,6 +25,7 @@ import { PulseMainDialButton, PulseQuickDialButton } from "@/components/pulse-di
 import { SopPanel } from "@/components/agent/SopPanel";
 import { MyActivityPanel } from "@/components/agent/MyShiftUnified";
 import { AgentToolbarUnified } from "@/components/agent/AgentToolbarUnified";
+import { AgentBreakDialog } from "@/components/agent/AgentBreakDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10102,6 +10103,14 @@ function AgentWorkspacePageContent() {
   const prevSidebarOpenRef = useRef(sidebarOpen);
 
   const agentSession = useAgentSession();
+  const [breakDialogOpen, setBreakDialogOpen] = useState(false);
+  const activeBreakId = agentSession.activeBreak?.id;
+  const activeBreakTypeId = agentSession.activeBreak?.breakTypeId;
+  useEffect(() => {
+    // Only user-selected breaks auto-open; system pauses (e.g. Back Office) do not.
+    // Stable identity also preserves a user's dismissal across timer ticks/refetches.
+    setBreakDialogOpen(!!activeBreakId && !!activeBreakTypeId && agentSession.isSessionActive);
+  }, [activeBreakId, activeBreakTypeId, agentSession.isSessionActive]);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [currentContact, setCurrentContact] = useState<Customer | null>(null);
   const [currentPhoneOverride, setCurrentPhoneOverride] = useState<string | null>(null);
@@ -12652,8 +12661,10 @@ function AgentWorkspacePageContent() {
       await agentSession.endBreak();
       refetchShiftData();
       toast({ title: t.agentSession.continueWork, description: t.agentSession.continueWork });
+      return true;
     } catch (error) {
       toast({ title: t.agentSession.shiftError, description: t.agentSession.breakEndError, variant: "destructive" });
+      return false;
     }
   };
 
@@ -14694,6 +14705,18 @@ function AgentWorkspacePageContent() {
         </DialogContent>
       </Dialog>
 
+      {agentSession.isSessionActive && activeBreakId && (
+        <AgentBreakDialog
+          key={activeBreakId}
+          open={breakDialogOpen}
+          onOpenChange={setBreakDialogOpen}
+          name={activeBreakName || t.agentSession.statusBreak}
+          elapsedSeconds={agentSession.breakElapsedSeconds}
+          expectedMinutes={activeBreakTypeObj?.expectedDurationMinutes}
+          onEndBreak={handleEndBreak}
+        />
+      )}
+
       {!isMobile && (
       <AgentToolbarUnified
         status={agentSession.status}
@@ -14703,12 +14726,9 @@ function AgentWorkspacePageContent() {
         isQuotaBlocked={isQuotaBlocked}
         workTime={agentSession.workTime}
         breakTypes={agentSession.breakTypes}
-        activeBreakName={activeBreakName}
-        activeBreakType={activeBreakTypeObj}
-        breakTime={agentSession.breakTime}
-        breakElapsedSeconds={agentSession.breakElapsedSeconds}
         onStartBreak={handleStartBreak}
-        onEndBreak={handleEndBreak}
+        onOpenBreak={() => setBreakDialogOpen(true)}
+        breakDialogOpen={breakDialogOpen}
         isOnBreak={!!agentSession.activeBreak}
         onEndSession={handleEndSession}
         isSessionActive={agentSession.isSessionActive}
@@ -14920,7 +14940,7 @@ function AgentWorkspacePageContent() {
               breakTypes={agentSession.breakTypes}
               onEndSession={handleEndSession}
               onStartBreak={handleStartBreak}
-              onEndBreak={handleEndBreak}
+              onEndBreak={() => setBreakDialogOpen(true)}
               contactType={currentContactType}
               onClearContact={() => guardedClearContact(() => {
                 pendingCcIdRef.current = null;

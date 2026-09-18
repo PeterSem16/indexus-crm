@@ -3879,6 +3879,24 @@ export interface Translations {
   };
   agentWorkspace: {
     queue: string;
+    breakModal: {
+      inProgress: string;
+      subtitle: string;
+      elapsed: string;
+      recommendedDuration: string;
+      minutes: string;
+      remaining: string;
+      exceeded: string;
+      exceededBy: string;
+      finish: string;
+      finishing: string;
+      hide: string;
+      continues: string;
+      footer: string;
+      open: string;
+      endError: string;
+      noRecommendation: string;
+    };
     toolbar: {
       agentControls: string;
       availableHint: string;
@@ -12590,6 +12608,24 @@ export const translations: Record<Locale, Translations> = {
     },
     agentWorkspace: {
       queue: 'Queue',
+      breakModal: {
+        inProgress: 'A break is in progress',
+        subtitle: 'Your break time.',
+        elapsed: 'Since break started',
+        recommendedDuration: 'Recommended duration',
+        minutes: '{count} minutes',
+        remaining: 'Until recommended end',
+        exceeded: 'Recommended time exceeded',
+        exceededBy: '{time} over · break continues.',
+        finish: 'Finish break and continue',
+        finishing: 'Finishing break…',
+        hide: 'Hide window',
+        continues: 'break continues',
+        footer: 'The break will end only after you confirm.',
+        open: 'Open break details',
+        endError: 'Could not end the break. Try again.',
+        noRecommendation: 'Recommended duration is not set.',
+      },
       toolbar: {
         agentControls: 'Agent controls', availableHint: 'Ready for contacts', busyHint: 'Currently unavailable',
         breakHint: 'Break in progress', wrapUpHint: 'Completing contact work', offlineHint: 'Session is inactive',
@@ -20126,6 +20162,24 @@ export const translations: Record<Locale, Translations> = {
     },
     agentWorkspace: {
       queue: 'Fronta',
+      breakModal: {
+        inProgress: 'Prestávka prebieha',
+        subtitle: 'Váš čas na prestávku.',
+        elapsed: 'Od začiatku prestávky',
+        recommendedDuration: 'Odporúčaná dĺžka',
+        minutes: '{count} minút',
+        remaining: 'Do odporúčaného konca',
+        exceeded: 'Odporúčaný čas bol prekročený',
+        exceededBy: 'O {time} · prestávka naďalej beží.',
+        finish: 'Ukončiť prestávku a pokračovať',
+        finishing: 'Ukončujem prestávku…',
+        hide: 'Skryť okno',
+        continues: 'prestávka pokračuje',
+        footer: 'Prestávka sa ukončí až vaším potvrdením.',
+        open: 'Otvoriť detail prestávky',
+        endError: 'Prestávku sa nepodarilo ukončiť. Skúste to znova.',
+        noRecommendation: 'Odporúčaná dĺžka nie je nastavená.',
+      },
       toolbar: {
         agentControls: 'Ovládanie agenta', availableHint: 'Pripravený na kontakty', busyHint: 'Momentálne nedostupný',
         breakHint: 'Prebieha prestávka', wrapUpHint: 'Dokončovanie práce s kontaktom', offlineHint: 'Relácia nie je aktívna',
@@ -27645,6 +27699,24 @@ export const translations: Record<Locale, Translations> = {
     },
     agentWorkspace: {
       queue: 'Fronta',
+      breakModal: {
+        inProgress: 'Probíhá přestávka',
+        subtitle: 'Váš čas na přestávku.',
+        elapsed: 'Od začátku přestávky',
+        recommendedDuration: 'Doporučená délka',
+        minutes: '{count} minut',
+        remaining: 'Do doporučeného konce',
+        exceeded: 'Doporučený čas byl překročen',
+        exceededBy: 'O {time} · přestávka stále probíhá.',
+        finish: 'Ukončit přestávku a pokračovat',
+        finishing: 'Ukončuji přestávku…',
+        hide: 'Skrýt okno',
+        continues: 'přestávka pokračuje',
+        footer: 'Přestávka skončí až po vašem potvrzení.',
+        open: 'Otevřít detail přestávky',
+        endError: 'Přestávku se nepodařilo ukončit. Zkuste to znovu.',
+        noRecommendation: 'Doporučená délka není nastavena.',
+      },
       toolbar: {
         agentControls: 'Ovládání agenta', availableHint: 'Připraven na kontakty', busyHint: 'Momentálně nedostupný',
         breakHint: 'Probíhá přestávka', wrapUpHint: 'Dokončování práce s kontaktem', offlineHint: 'Relace není aktivní',
@@ -35116,6 +35188,24 @@ export const translations: Record<Locale, Translations> = {
     },
     agentWorkspace: {
       queue: 'Várólista',
+      breakModal: {
+        inProgress: 'Szünet van folyamatban',
+        subtitle: 'Az Ön szünetideje.',
+        elapsed: 'A szünet kezdete óta',
+        recommendedDuration: 'Ajánlott időtartam',
+        minutes: '{count} perc',
+        remaining: 'Az ajánlott befejezésig',
+        exceeded: 'Az ajánlott időtartam túllépve',
+        exceededBy: '{time} túllépés · a szünet továbbra is tart.',
+        finish: 'Szünet befejezése és folytatás',
+        finishing: 'Szünet befejezése…',
+        hide: 'Ablak elrejtése',
+        continues: 'a szünet folytatódik',
+        footer: 'A szünet csak az Ön megerősítése után ér véget.',
+        open: 'Szünet részleteinek megnyitása',
+        endError: 'A szünetet nem sikerült befejezni. Próbálja újra.',
+        noRecommendation: 'Nincs beállítva ajánlott időtartam.',
+      },
       toolbar: {
         agentControls: 'Ügynöki vezérlők', availableHint: 'Kapcsolatok fogadására kész', busyHint: 'Jelenleg nem elérhető',
         breakHint: 'Szünet folyamatban', wrapUpHint: 'Kapcsolati munka befejezése', offlineHint: 'A munkamenet inaktív',
@@ -42475,6 +42565,24 @@ export const translations: Record<Locale, Translations> = {
     },
     agentWorkspace: {
       queue: 'Coadă',
+      breakModal: {
+        inProgress: 'Pauza este în desfășurare',
+        subtitle: 'Timpul dumneavoastră de pauză.',
+        elapsed: 'De la începutul pauzei',
+        recommendedDuration: 'Durata recomandată',
+        minutes: '{count} minute',
+        remaining: 'Până la sfârșitul recomandat',
+        exceeded: 'Timpul recomandat a fost depășit',
+        exceededBy: 'Cu {time} peste · pauza continuă.',
+        finish: 'Încheie pauza și continuă',
+        finishing: 'Se încheie pauza…',
+        hide: 'Ascunde fereastra',
+        continues: 'pauza continuă',
+        footer: 'Pauza se va încheia doar după confirmarea dumneavoastră.',
+        open: 'Deschide detaliile pauzei',
+        endError: 'Pauza nu a putut fi încheiată. Încercați din nou.',
+        noRecommendation: 'Durata recomandată nu este setată.',
+      },
       toolbar: {
         agentControls: 'Comenzi agent', availableHint: 'Pregătit pentru contacte', busyHint: 'Indisponibil momentan',
         breakHint: 'Pauză în desfășurare', wrapUpHint: 'Finalizarea lucrului cu contactul', offlineHint: 'Sesiunea este inactivă',
@@ -49835,6 +49943,24 @@ export const translations: Record<Locale, Translations> = {
     },
     agentWorkspace: {
       queue: 'Coda',
+      breakModal: {
+        inProgress: 'Pausa in corso',
+        subtitle: 'Il tuo tempo di pausa.',
+        elapsed: "Dall'inizio della pausa",
+        recommendedDuration: 'Durata consigliata',
+        minutes: '{count} minuti',
+        remaining: 'Fino alla fine consigliata',
+        exceeded: 'Tempo consigliato superato',
+        exceededBy: 'Di {time} oltre · la pausa continua.',
+        finish: 'Termina la pausa e continua',
+        finishing: 'Termino la pausa…',
+        hide: 'Nascondi finestra',
+        continues: 'la pausa continua',
+        footer: 'La pausa terminerà solo dopo la tua conferma.',
+        open: 'Apri dettagli pausa',
+        endError: 'Impossibile terminare la pausa. Riprova.',
+        noRecommendation: 'La durata consigliata non è impostata.',
+      },
       toolbar: {
         agentControls: 'Controlli agente', availableHint: 'Pronto per i contatti', busyHint: 'Al momento non disponibile',
         breakHint: 'Pausa in corso', wrapUpHint: 'Completamento del lavoro sul contatto', offlineHint: 'La sessione non è attiva',
@@ -57195,6 +57321,24 @@ export const translations: Record<Locale, Translations> = {
     },
     agentWorkspace: {
       queue: 'Warteschlange',
+      breakModal: {
+        inProgress: 'Eine Pause läuft',
+        subtitle: 'Ihre Pausenzeit.',
+        elapsed: 'Seit Beginn der Pause',
+        recommendedDuration: 'Empfohlene Dauer',
+        minutes: '{count} Minuten',
+        remaining: 'Bis zum empfohlenen Ende',
+        exceeded: 'Empfohlene Zeit überschritten',
+        exceededBy: '{time} überschritten · die Pause läuft weiter.',
+        finish: 'Pause beenden und fortfahren',
+        finishing: 'Pause wird beendet…',
+        hide: 'Fenster ausblenden',
+        continues: 'Pause läuft weiter',
+        footer: 'Die Pause endet erst nach Ihrer Bestätigung.',
+        open: 'Pausendetails öffnen',
+        endError: 'Die Pause konnte nicht beendet werden. Versuchen Sie es erneut.',
+        noRecommendation: 'Keine empfohlene Dauer festgelegt.',
+      },
       toolbar: {
         agentControls: 'Agentensteuerung', availableHint: 'Bereit für Kontakte', busyHint: 'Derzeit nicht verfügbar',
         breakHint: 'Pause läuft', wrapUpHint: 'Kontaktarbeit wird abgeschlossen', offlineHint: 'Sitzung ist inaktiv',

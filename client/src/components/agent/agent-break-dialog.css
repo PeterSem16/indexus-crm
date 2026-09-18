@@ -1,0 +1,51 @@
+.agent-break-dialog-overlay[data-state] { background:#253e5938; backdrop-filter:blur(3px); }
+/* Outrank the shared dialog's utility classes regardless of lazy CSS load order. */
+.agent-break-dialog[role="dialog"] { display:block; width:calc(100vw - 32px); max-width:440px; max-height:calc(100dvh - 32px); overflow:auto; padding:0; gap:0; border:1px solid #d3e2ec; border-radius:22px; background:#fbfdff; color:#18314d; box-shadow:0 24px 80px #193a5a26; font-family:"Open Sans",sans-serif; }
+.agent-break-dialog * { box-sizing:border-box; }
+.agent-break-dialog button { font-family:inherit; cursor:pointer; transition:background .16s; }
+.agent-break-dialog button:focus-visible { outline:3px solid #75aadb; outline-offset:2px; }
+.agent-break-dialog .abd-topline { display:flex; align-items:center; justify-content:space-between; padding:17px 19px 0 25px; color:#73613a; font-size:9px; font-weight:700; letter-spacing:.12em; }
+.agent-break-dialog .abd-topline > span { display:flex; align-items:center; gap:7px; text-transform:uppercase; }
+.agent-break-dialog .abd-topline i { flex:none; width:6px; height:6px; border-radius:50%; background:#bd9652; }
+.agent-break-dialog .abd-close { display:grid; place-items:center; flex:none; width:32px; height:32px; border:0; border-radius:8px; background:transparent; color:#637b90; }
+.agent-break-dialog .abd-close:hover { background:#eaf2f8; }
+.agent-break-dialog .abd-hero { display:flex; align-items:center; flex-direction:column; padding:8px 24px 24px; text-align:center; }
+.agent-break-dialog .abd-icon { display:grid; place-items:center; width:60px; height:60px; margin-bottom:14px; border:1px solid #eddfbd; border-radius:18px; background:#fbf3df; color:#94763b; }
+.agent-break-dialog .abd-title { margin:0; font-size:25px; font-weight:600; line-height:1.25; letter-spacing:normal; overflow-wrap:anywhere; }
+.agent-break-dialog .abd-description { margin:6px 0 23px; color:#62798c; font-size:12px; }
+.agent-break-dialog .abd-clock { color:#28445d; font-size:51px; font-weight:700; line-height:1.1; letter-spacing:.015em; font-variant-numeric:tabular-nums; }
+.agent-break-dialog .abd-clock-caption { margin-top:9px; color:#60788e; font-size:9px; letter-spacing:.14em; text-transform:uppercase; }
+.agent-break-dialog .abd-timing { margin:0 28px; padding:16px; border:1px solid #e1eaf1; border-radius:12px; background:#f2f7fb; }
+.agent-break-dialog .abd-time-row { display:flex; align-items:center; justify-content:space-between; gap:8px; color:#526d85; font-size:11px; }
+.agent-break-dialog .abd-time-row b { color:#294760; font-size:12px; flex:none; font-variant-numeric:tabular-nums; }
+.agent-break-dialog progress { display:block; width:100%; height:5px; margin:12px 0; border:0; border-radius:8px; background:#dce7ef; appearance:none; overflow:hidden; }
+.agent-break-dialog progress::-webkit-progress-bar { background:#dce7ef; border-radius:8px; }
+.agent-break-dialog progress::-webkit-progress-value { background:#789db8; border-radius:8px; }
+.agent-break-dialog progress::-moz-progress-bar { background:#789db8; border-radius:8px; }
+.agent-break-dialog .abd-remaining { font-size:10px; }
+.agent-break-dialog .abd-remaining b { font-size:11px; }
+.agent-break-dialog .abd-actions { display:flex; flex-direction:column; gap:9px; padding:23px 28px 0; }
+.agent-break-dialog .abd-primary { display:flex; align-items:center; justify-content:center; gap:9px; min-height:47px; padding:12px 10px; border:1px solid #285987; border-radius:10px; background:#2c628f; color:#fff; font-size:12px; font-weight:650; }
+.agent-break-dialog .abd-primary svg { flex:none; }
+.agent-break-dialog .abd-primary:hover { background:#214f77; }
+.agent-break-dialog .abd-primary:disabled { opacity:.65; cursor:wait; }
+.agent-break-dialog .abd-secondary { border:0; border-radius:8px; padding:10px 0; background:transparent; color:#395b77; font-size:10px; }
+.agent-break-dialog .abd-secondary span { color:#63798a; }
+.agent-break-dialog .abd-secondary:hover { background:#edf4f9; }
+.agent-break-dialog .abd-footnote { padding:9px 20px 21px; color:#677d8e; font-size:9px; text-align:center; }
+.agent-break-dialog .abd-no-recommendation { margin:0; color:#526d85; font-size:11px; }
+.agent-break-dialog .abd-warning { display:flex; align-items:flex-start; gap:9px; color:#a15843; font-size:10px; line-height:1.5; }
+.agent-break-dialog .abd-warning svg { flex:none; margin-top:2px; }
+.agent-break-dialog .abd-warning strong,.agent-break-dialog .abd-warning span { display:block; }
+.agent-break-dialog .abd-warning span { margin-top:3px; color:#89614f; font-variant-numeric:tabular-nums; }
+.agent-break-dialog .abd-error { margin:0; padding:10px; border:1px solid #ecc6bf; border-radius:8px; color:#994c40; background:#fff2ef; font-size:12px; }
+.agent-break-dialog--overdue .abd-timing { background:#fff6ef; border-color:#ecd8c9; }
+.agent-break-dialog--overdue .abd-clock { color:#a15843; }
+.agent-break-dialog--overdue progress::-webkit-progress-value { background:#c28164; }
+.agent-break-dialog--overdue progress::-moz-progress-bar { background:#c28164; }
+@media(max-width:520px) {
+  .agent-break-dialog .abd-clock { font-size:43px; }
+  .agent-break-dialog .abd-timing { margin:0 20px; }
+  .agent-break-dialog .abd-actions { padding-left:20px; padding-right:20px; }
+}
+@media(prefers-reduced-motion:reduce) { .agent-break-dialog button { transition:none; } }

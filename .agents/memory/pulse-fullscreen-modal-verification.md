@@ -5,6 +5,12 @@ description: Why approved canvas designs need real-component fullscreen browser 
 
 Verify graduated Pulse modals using the production component, production CSS, and the fullscreen ancestor attribute, not only the canvas or an unauthenticated login screenshot.
 
+Assert key computed visual properties as well as interaction and viewport bounds for approved modal designs. Measure bounds only after entrance animations settle.
+
+**Why:** Successful click tests can still hide a shared-dialog utility overriding the intended width, rounding, padding, or backdrop under lazy CSS loading. An in-progress entrance animation can also produce a false mobile overflow failure.
+
+**How to apply:** Include the approved width, surface color, rounding, and backdrop in the real-component verification; do not treat a passing interaction test alone as visual parity.
+
 **Why:** Broad fullscreen header hiding removed the Priority Builder title and Add group control while the standalone canvas looked correct. Dialog defaults and unconstrained button widths also changed the approved layout.
 
 **How to apply:** Exercise visible controls and preset hydration with intercepted API data in a test-only fixture, and verify desktop/mobile bounds. Distinguish fixture verification from inspection of a user's actual live callback.
