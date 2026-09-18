@@ -298,7 +298,7 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
   const handleExport = (fmt: string) => { if (rec?.id) window.open(`/api/call-recordings/${rec.id}/export-transcript?format=${fmt}`, "_blank"); };
 
   return (
-    <div className="flex flex-col h-full" data-testid={`analysis-detail-${log.id}`}>
+    <div className="flex w-full min-w-0 flex-col" data-testid={`analysis-detail-${log.id}`}>
 
       {/* ── Header ── */}
       <div className="px-5 pt-4 pb-3 border-b bg-background shrink-0 space-y-3">
@@ -479,7 +479,7 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
             </div>
           </div>
 
-          <ScrollArea className="flex-1">
+          <div data-testid={`analysis-content-${log.id}`}>
             <div className="px-5 py-4 space-y-3 pb-6">
               {tab === "analysis" && (
                 <>
@@ -651,7 +651,7 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
                 <div className="text-center py-8 text-muted-foreground text-sm">{ca.noTranscript || "Prepis nie je k dispozícii"}</div>
               )}
             </div>
-          </ScrollArea>
+          </div>
         </>
       ) : rec?.analysisStatus === "processing" ? (
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
@@ -955,17 +955,32 @@ export function TranscriptSearchContent() {
   useEffect(() => {
     const pane = detailPaneRef.current;
     if (!pane || !selectedCallLogId || !mobileDetailOpen) return;
-    pane.scrollTop = 0;
-    const frame = window.requestAnimationFrame(() => {
-      if (!window.matchMedia("(max-width: 767px)").matches) return;
-      pane.querySelector<HTMLElement>(`[data-testid="player-${selectedCallLogId}"]`)
-        ?.scrollIntoView({ block: "start", inline: "nearest" });
-    });
-    return () => window.cancelAnimationFrame(frame);
+    const player = pane.querySelector<HTMLElement>(`[data-testid="player-${selectedCallLogId}"]`);
+    if (!player) {
+      pane.scrollIntoView({ block: "start", inline: "nearest" });
+      return;
+    }
+    // Recording content loads asynchronously. Reveal its full size once ready,
+    // then leave scrolling under the user's control (including during polling).
+    let frame = 0;
+    const reveal = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        player.scrollIntoView({ block: "nearest", inline: "nearest" });
+        if (player.querySelector('[data-testid^="btn-play-recording-"]')) observer.disconnect();
+      });
+    };
+    const observer = new ResizeObserver(reveal);
+    observer.observe(player);
+    reveal();
+    return () => {
+      observer.disconnect();
+      window.cancelAnimationFrame(frame);
+    };
   }, [mobileDetailOpen, selectedCallLogId]);
 
   return (
-    <div className="flex h-[calc(100dvh-15rem)] min-h-0 w-full max-w-full flex-col overflow-hidden bg-muted/20 px-2 py-3 sm:px-4 sm:py-4" data-testid="calls-transcripts-page">
+    <div className={`flex ${activeTab === "browse" ? "min-h-[calc(100dvh-15rem)]" : "h-[calc(100dvh-15rem)] overflow-hidden"} w-full max-w-full flex-col bg-muted/20 px-2 py-3 sm:px-4 sm:py-4`} data-testid="calls-transcripts-page">
 
       {/* ── Top header ── */}
       <div className={`${mobileDetailOpen ? "hidden md:flex" : "flex"} flex-wrap items-center gap-3 overflow-hidden rounded-t-2xl border border-border bg-background px-3 py-3 shadow-sm sm:px-5`} data-testid="calls-header">
@@ -1189,11 +1204,11 @@ export function TranscriptSearchContent() {
 
       {/* ── Browse mode ── */}
       {activeTab === "browse" && (
-        <div className="flex flex-1 min-h-0 max-w-full overflow-hidden rounded-b-2xl border-x border-b border-border">
+        <div className="flex items-start min-w-0 max-w-full rounded-b-2xl border-x border-b border-border">
 
           {/* Left: list */}
           <div
-            className={`${mobileDetailOpen ? "hidden md:flex" : "flex"} w-full min-w-0 shrink-0 flex-col bg-background md:w-[300px] md:max-w-[42vw] md:border-r`}
+            className={`${mobileDetailOpen ? "hidden md:flex" : "flex"} sticky top-4 h-[calc(100dvh-20rem)] min-h-80 w-full min-w-0 shrink-0 flex-col rounded-bl-2xl bg-background md:w-[300px] md:max-w-[42vw] md:border-r`}
             data-testid="calls-list-pane"
           >
             {/* Search + filter */}
@@ -1238,7 +1253,7 @@ export function TranscriptSearchContent() {
           {/* Right: detail */}
           <div
             ref={detailPaneRef}
-            className={`${mobileDetailOpen ? "flex" : "hidden md:flex"} min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-contain bg-background md:overflow-hidden`}
+            className={`${mobileDetailOpen ? "flex" : "hidden md:flex"} min-w-0 flex-1 flex-col rounded-br-2xl bg-background`}
             data-testid="call-detail-pane"
           >
             <div className="sticky top-0 z-20 shrink-0 border-b bg-background px-2 py-1.5 md:hidden">

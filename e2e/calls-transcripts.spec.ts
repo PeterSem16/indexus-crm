@@ -179,11 +179,8 @@ test("calls refresh on reopen and focus while preserving selection and keeping d
   await expect(page.getByTestId("call-row-latest-call")).toHaveCount(1);
   await expect(page.getByTestId("analysis-detail-latest-call")).toBeVisible();
 
-  const paneFitsViewport = await page.getByTestId("call-detail-pane").evaluate(element => {
-    const rect = element.getBoundingClientRect();
-    return rect.top >= 0 && rect.bottom <= window.innerHeight + 1 && element.scrollWidth <= element.clientWidth + 1;
-  });
-  expect(paneFitsViewport).toBe(true);
+  expect(await page.getByTestId("call-detail-pane").evaluate(element =>
+    element.scrollWidth <= element.clientWidth + 1)).toBe(true);
   await page.screenshot({ path: "screenshots/calls-transcripts-desktop.png", animations: "disabled" });
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -202,5 +199,45 @@ test("calls refresh on reopen and focus while preserving selection and keeping d
   await page.getByTestId("button-mobile-call-list").click();
   await expect(page.getByTestId("calls-list-pane")).toBeVisible();
   await expect(page.getByTestId("call-detail-pane")).toBeHidden();
+  expect(fixture.errors).toEqual([]);
+});
+
+test("short desktop window exposes the entire player and transcript without clipped ancestors", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 636 });
+  const fixture = await openCalls(page);
+  await page.getByTestId("call-row-call-40").click();
+  await expect(page.getByTestId("btn-play-recording-recording-call-40")).toBeVisible();
+  const player = page.getByTestId("player-call-40");
+
+  const fullyVisible = () => player.evaluate(element => {
+    const box = element.getBoundingClientRect();
+    if (box.top < 0 || box.bottom > innerHeight + 1 || box.left < 0 || box.right > innerWidth + 1) return false;
+    for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+      const style = getComputedStyle(parent);
+      if (/(hidden|auto|scroll|clip)/.test(style.overflowY)) {
+        const clip = parent.getBoundingClientRect();
+        if (box.top < clip.top - 1 || box.bottom > clip.bottom + 1) return false;
+      }
+    }
+    return true;
+  });
+  await expect.poll(fullyVisible).toBe(true);
+  await page.screenshot({ path: "screenshots/calls-transcripts-short-desktop.png", animations: "disabled" });
+
+  const listOffset = await page.getByTestId("calls-list-scroll").evaluate(element => element.scrollTop);
+  expect(listOffset).toBeGreaterThan(0);
+  await page.getByTestId("tab-transcript-call-40").click();
+  const transcript = page.getByTestId("analysis-content-call-40");
+  await transcript.scrollIntoViewIfNeeded();
+  await expect(transcript).toContainText("Transcript for call-40.");
+  await expect(transcript).toBeInViewport({ ratio: 1 });
+  expect(await page.getByTestId("calls-list-scroll").evaluate(element => element.scrollTop)).toBe(listOffset);
+
+  await page.getByTestId("call-row-call-39").click();
+  await expect(page.getByTestId("btn-play-recording-recording-call-39")).toBeVisible();
+  await expect.poll(() => page.getByTestId("player-call-39").evaluate(element => {
+    const box = element.getBoundingClientRect();
+    return box.top >= 0 && box.bottom <= innerHeight + 1;
+  })).toBe(true);
   expect(fixture.errors).toEqual([]);
 });
