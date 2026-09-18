@@ -171,6 +171,7 @@ import { PDFDocument as PDFLibDocument, rgb, degrees, StandardFonts } from "pdf-
 import { notificationService } from "./lib/notification-service";
 import { normalizeCollaboratorPriorityCity } from "./lib/collaborator-priority-city";
 import { resolveScheduledQueueContact } from "./lib/scheduled-queue-metadata";
+import { addCampaignCallsToOperatorStats, callHandledContactIncrement, reportCallTalkSeconds, reportGroupKey } from "./lib/campaign-report-operator-stats";
 import { canAgentReadCampaignByWorkspaceCountry } from "./lib/agent-workspace-country-access";
 import {
   rankPriorityCities,
@@ -27319,6 +27320,67 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     return csvRows.join('\n');
   }
 
+  async function getExactCampaignCallAnalysis(
+    campaignId: string,
+    filters: { dateFrom?: string; dateTo?: string; agentId?: string },
+  ): Promise<any[]> {
+    const contacts = await db.select({ id: campaignContacts.id }).from(campaignContacts)
+      .where(eq(campaignContacts.campaignId, campaignId));
+    const conditions: any[] = [or(
+      eq(callLogs.campaignId, campaignId),
+      ...(contacts.length > 0
+        ? [and(isNull(callLogs.campaignId), inArray(callLogs.campaignContactId, contacts.map(contact => contact.id)))]
+        : []),
+    )];
+    if (filters.dateFrom) conditions.push(gte(callLogs.startedAt, new Date(filters.dateFrom)));
+    if (filters.dateTo) {
+      const end = new Date(filters.dateTo);
+      end.setHours(23, 59, 59, 999);
+      conditions.push(lte(callLogs.startedAt, end));
+    }
+    if (filters.agentId && filters.agentId !== "all") conditions.push(eq(callLogs.userId, filters.agentId));
+    const logs = await db.select().from(callLogs).where(and(...conditions)).orderBy(desc(callLogs.startedAt));
+    const recordings = logs.length
+      ? await db.select().from(callRecordings).where(inArray(callRecordings.callLogId, logs.map(log => log.id)))
+      : [];
+    const recordingByCall = new Map(recordings.map(recording => [recording.callLogId, recording]));
+    const referencedUserIds = [...new Set(logs.map(log => log.userId))];
+    const referencedCustomerIds = [...new Set(logs.map(log => log.customerId).filter(Boolean))] as string[];
+    const [allUsers, allCustomers, campaign] = await Promise.all([
+      referencedUserIds.length
+        ? db.select({ id: users.id, fullName: users.fullName, username: users.username })
+            .from(users).where(inArray(users.id, referencedUserIds))
+        : [],
+      referencedCustomerIds.length
+        ? db.select({ id: customers.id, firstName: customers.firstName, lastName: customers.lastName })
+            .from(customers).where(inArray(customers.id, referencedCustomerIds))
+        : [],
+      storage.getCampaign(campaignId),
+    ]);
+    const userMap = new Map(allUsers.map(user => [user.id, user]));
+    const customerMap = new Map(allCustomers.map(customer => [customer.id, customer]));
+    return logs.map(log => {
+      const rec = recordingByCall.get(log.id);
+      const user = userMap.get(log.userId);
+      const customer = log.customerId ? customerMap.get(log.customerId) : null;
+      const duration = rec?.durationSeconds || reportCallTalkSeconds(log);
+      return {
+        id: rec?.id || `unrecorded-${log.id}`, callLogId: log.id,
+        agent: rec?.agentName || user?.fullName || user?.username || log.userId,
+        customer: rec?.customerName || (customer ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() : ''),
+        campaign: rec?.campaignName || campaign?.name || '', phoneNumber: rec?.phoneNumber || log.phoneNumber || '',
+        durationSeconds: duration, durationFormatted: formatDuration(duration),
+        analysisStatus: rec?.analysisStatus || 'not_recorded', sentiment: rec?.sentiment || '',
+        qualityScore: rec?.qualityScore ?? null, scriptComplianceScore: rec?.scriptComplianceScore ?? null,
+        summary: rec?.summary || '', keyTopics: (rec?.keyTopics || []).join(', '),
+        actionItems: (rec?.actionItems || []).join(', '), alertKeywords: (rec?.alertKeywords || []).join(', '),
+        complianceNotes: rec?.complianceNotes || '', transcriptionText: rec?.transcriptionText || '',
+        createdAt: new Date(rec?.createdAt || log.startedAt).toISOString(),
+        analyzedAt: rec?.analyzedAt ? new Date(rec.analyzedAt).toISOString() : '',
+      };
+    });
+  }
+
   // 1. Operator Statistics Report - Enhanced with per-session daily breakdown
   app.get("/api/campaigns/:id/reports/operator-stats", requireAuth, async (req, res) => {
     try {
@@ -27355,26 +27417,29 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const contacts = await db.select().from(campaignContacts)
         .where(eq(campaignContacts.campaignId, campaignId));
       const campaignCustomerIds = contacts.map(c => c.customerId).filter(Boolean) as string[];
+      const campaignContactIds = contacts.map(c => c.id);
 
       const userIds = [...new Set(sessions.map(s => s.userId))];
       let allCallLogs: any[] = [];
       let allCommMsgs: any[] = [];
-      if (userIds.length > 0) {
-        const clConditions: any[] = [
-          or(
-            eq(callLogs.campaignId, campaignId),
-            ...(campaignCustomerIds.length > 0 ? [inArray(callLogs.customerId, campaignCustomerIds)] : [])
-          ),
-          inArray(callLogs.userId, userIds),
-        ];
-        if (dateFrom) clConditions.push(gte(callLogs.startedAt, new Date(dateFrom as string)));
-        if (dateTo) {
-          const endDate2 = new Date(dateTo as string);
-          endDate2.setHours(23, 59, 59, 999);
-          clConditions.push(lte(callLogs.startedAt, endDate2));
-        }
-        allCallLogs = await db.select().from(callLogs).where(and(...clConditions));
+      const clConditions: any[] = [
+        or(
+          eq(callLogs.campaignId, campaignId),
+          ...(campaignContactIds.length > 0
+            ? [and(isNull(callLogs.campaignId), inArray(callLogs.campaignContactId, campaignContactIds))]
+            : []),
+        ),
+      ];
+      if (dateFrom) clConditions.push(gte(callLogs.startedAt, new Date(dateFrom as string)));
+      if (dateTo) {
+        const endDate2 = new Date(dateTo as string);
+        endDate2.setHours(23, 59, 59, 999);
+        clConditions.push(lte(callLogs.startedAt, endDate2));
+      }
+      if (agentId && agentId !== 'all') clConditions.push(eq(callLogs.userId, agentId as string));
+      allCallLogs = await db.select().from(callLogs).where(and(...clConditions));
 
+      if (userIds.length > 0) {
         if (campaignCustomerIds.length > 0) {
           const cmConditions: any[] = [
             inArray(communicationMessages.customerId, campaignCustomerIds),
@@ -27405,6 +27470,38 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       };
 
       const operatorStats: Record<string, any> = {};
+      const createOperatorRow = (userId: string, groupKey: string) => {
+        const user = userMap.get(userId);
+        return {
+          operatorId: userId,
+          operator: user?.fullName || user?.username || userId,
+          operatorEmail: user?.email || '',
+          operatorRole: user?.role || '',
+          period: groupKey,
+          sessionsCount: 0,
+          firstLogin: null as string | null,
+          lastLogout: null as string | null,
+          totalLoginTime: 0,
+          totalWorkTime: 0,
+          totalBreakTime: 0,
+          totalCallTime: 0,
+          totalEmailTime: 0,
+          totalSmsTime: 0,
+          totalWrapUpTime: 0,
+          totalDispositionTime: 0,
+          totalFormDispositionTime: 0,
+          dispositionCount: 0,
+          formDispositionCount: 0,
+          contactsHandled: 0,
+          callCount: 0,
+          emailCount: 0,
+          smsCount: 0,
+          longestSession: 0,
+          shortestSession: Infinity,
+          breakDetails: {} as Record<string, { count: number; totalSeconds: number }>,
+          sessionDetails: [] as any[],
+        };
+      };
 
       for (const session of sessions) {
         const userId = session.userId;
@@ -27413,37 +27510,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         const groupKey = session.startedAt ? getGroupKey(new Date(session.startedAt)) : 'total';
         const compositeKey = `${userId}__${groupKey}`;
 
-        if (!operatorStats[compositeKey]) {
-          operatorStats[compositeKey] = {
-            operatorId: userId,
-            operator: operatorName,
-            operatorEmail: user?.email || '',
-            operatorRole: user?.role || '',
-            period: groupKey,
-            sessionsCount: 0,
-            firstLogin: null as string | null,
-            lastLogout: null as string | null,
-            totalLoginTime: 0,
-            totalWorkTime: 0,
-            totalBreakTime: 0,
-            totalCallTime: 0,
-            totalEmailTime: 0,
-            totalSmsTime: 0,
-            totalWrapUpTime: 0,
-            totalDispositionTime: 0,
-            totalFormDispositionTime: 0,
-            dispositionCount: 0,
-            formDispositionCount: 0,
-            contactsHandled: 0,
-            callCount: 0,
-            emailCount: 0,
-            smsCount: 0,
-            longestSession: 0,
-            shortestSession: Infinity,
-            breakDetails: {} as Record<string, { count: number; totalSeconds: number }>,
-            sessionDetails: [] as any[],
-          };
-        }
+        if (!operatorStats[compositeKey]) operatorStats[compositeKey] = createOperatorRow(userId, groupKey);
         const stats = operatorStats[compositeKey];
         stats.sessionsCount += 1;
 
@@ -27455,11 +27522,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         const sessionStart = session.startedAt ? new Date(session.startedAt).getTime() : 0;
         const sessionEnd = session.endedAt ? new Date(session.endedAt).getTime() : Date.now();
 
-        const sessionCalls = allCallLogs.filter(cl =>
-          cl.userId === userId && cl.startedAt &&
-          new Date(cl.startedAt).getTime() >= sessionStart &&
-          new Date(cl.startedAt).getTime() <= sessionEnd
-        );
+        // Canonical calls are added once, independently of login windows, below.
+        const sessionCalls: any[] = [];
         let callTime = 0;
         let dispositionTime = 0;
         let dispositionCount = 0;
@@ -27552,6 +27616,14 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         });
       }
 
+      addCampaignCallsToOperatorStats(
+        operatorStats,
+        allCallLogs,
+        sessions,
+        (groupBy as string) || 'total',
+        createOperatorRow,
+      );
+
       const result = Object.values(operatorStats).map((s: any) => {
         const totalActive = s.totalWorkTime - s.totalBreakTime;
         const utilization = s.totalWorkTime > 0 ? Math.round((totalActive / s.totalWorkTime) * 100) : 0;
@@ -27602,7 +27674,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   app.get("/api/campaigns/:id/reports/call-list", requireAuth, async (req, res) => {
     try {
       const campaignId = req.params.id;
-      const { dateFrom, dateTo, agentId } = req.query;
+      const { dateFrom, dateTo, agentId, direction } = req.query;
 
       const contacts = await db.select().from(campaignContacts)
         .where(eq(campaignContacts.campaignId, campaignId));
@@ -27633,11 +27705,14 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const callConditions: any[] = [
         or(
           eq(callLogs.campaignId, campaignId),
-          ...(allEntityIds.length > 0 ? [inArray(callLogs.customerId, allEntityIds)] : [])
+          ...(contacts.length > 0
+            ? [and(isNull(callLogs.campaignId), inArray(callLogs.campaignContactId, contacts.map(contact => contact.id)))]
+            : [])
         ),
         ...dateConditions(callLogs.startedAt),
       ];
       if (agentId && agentId !== 'all') callConditions.push(eq(callLogs.userId, agentId as string));
+      if (direction === 'inbound' || direction === 'outbound') callConditions.push(eq(callLogs.direction, direction));
 
       const [logs, allUsers, allCustomers, allHospitals, allClinics, allCollaborators, dispositions] = await Promise.all([
         db.select().from(callLogs).where(and(...callConditions)).orderBy(desc(callLogs.startedAt)),
@@ -27749,6 +27824,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         ...dateConditions(communicationMessages.createdAt),
       ];
       if (agentId && agentId !== 'all') commConditions.push(eq(communicationMessages.userId, agentId as string));
+      if (direction === 'inbound' || direction === 'outbound') commConditions.push(eq(communicationMessages.direction, direction));
 
       const comms = await db.select().from(communicationMessages)
         .where(and(...commConditions))
@@ -27801,44 +27877,11 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     try {
       const campaignId = req.params.id;
       const { dateFrom, dateTo, agentId } = req.query;
-
-      const conditions: any[] = [eq(callRecordings.campaignId, campaignId)];
-      if (dateFrom) conditions.push(gte(callRecordings.createdAt, new Date(dateFrom as string)));
-      if (dateTo) {
-        const endDateRec = new Date(dateTo as string);
-        endDateRec.setHours(23, 59, 59, 999);
-        conditions.push(lte(callRecordings.createdAt, endDateRec));
-      }
-      if (agentId && agentId !== 'all') conditions.push(eq(callRecordings.userId, agentId as string));
-
-      const recordings = await db.select().from(callRecordings)
-        .where(and(...conditions))
-        .orderBy(desc(callRecordings.createdAt));
-
-      const result = recordings.map(rec => ({
-        id: rec.id,
-        callLogId: rec.callLogId,
-        agent: rec.agentName || rec.userId,
-        customer: rec.customerName || '',
-        campaign: rec.campaignName || '',
-        phoneNumber: rec.phoneNumber || '',
-        durationSeconds: rec.durationSeconds || 0,
-        durationFormatted: formatDuration(rec.durationSeconds || 0),
-        analysisStatus: rec.analysisStatus || 'pending',
-        sentiment: rec.sentiment || '',
-        qualityScore: rec.qualityScore ?? null,
-        scriptComplianceScore: rec.scriptComplianceScore ?? null,
-        summary: rec.summary || '',
-        keyTopics: (rec.keyTopics || []).join(', '),
-        actionItems: (rec.actionItems || []).join(', '),
-        alertKeywords: (rec.alertKeywords || []).join(', '),
-        complianceNotes: rec.complianceNotes || '',
-        transcriptionText: rec.transcriptionText || '',
-        createdAt: rec.createdAt ? new Date(rec.createdAt).toISOString() : '',
-        analyzedAt: rec.analyzedAt ? new Date(rec.analyzedAt).toISOString() : '',
+      res.json(await getExactCampaignCallAnalysis(campaignId, {
+        dateFrom: dateFrom as string | undefined,
+        dateTo: dateTo as string | undefined,
+        agentId: agentId as string | undefined,
       }));
-
-      res.json(result);
     } catch (error) {
       console.error("Failed to get call analysis:", error);
       res.status(500).json({ error: "Failed to get call analysis" });
@@ -27848,7 +27891,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   // Export campaign report as CSV or XLSX
   app.post("/api/campaigns/:id/reports/export", requireAuth, async (req, res) => {
     try {
-      const { reportType, format: exportFormat, dateFrom, dateTo, agentId, groupBy: exportGroupBy } = req.body;
+      const { reportType, format: exportFormat, dateFrom, dateTo, agentId, direction, groupBy: exportGroupBy } = req.body;
       const campaignId = req.params.id;
 
       const campaign = await storage.getCampaign(campaignId);
@@ -27878,17 +27921,19 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
         const expContacts = await db.select().from(campaignContacts).where(eq(campaignContacts.campaignId, campaignId));
         const expCustIds = expContacts.map(c => c.customerId).filter(Boolean) as string[];
+        const expContactIds = expContacts.map(c => c.id);
         const expUserIds = [...new Set(sessions.map(s => s.userId))];
         let expCallLogs: any[] = [];
         let expCommMsgs: any[] = [];
+        const expClConds: any[] = [or(
+          eq(callLogs.campaignId, campaignId),
+          ...(expContactIds.length > 0 ? [and(isNull(callLogs.campaignId), inArray(callLogs.campaignContactId, expContactIds))] : []),
+        )];
+        if (dateFrom) expClConds.push(gte(callLogs.startedAt, new Date(dateFrom)));
+        if (dateTo) { const ed = new Date(dateTo); ed.setHours(23,59,59,999); expClConds.push(lte(callLogs.startedAt, ed)); }
+        if (agentId && agentId !== 'all') expClConds.push(eq(callLogs.userId, agentId));
+        expCallLogs = await db.select().from(callLogs).where(and(...expClConds));
         if (expUserIds.length > 0) {
-          const expClConds: any[] = [
-            or(eq(callLogs.campaignId, campaignId), ...(expCustIds.length > 0 ? [inArray(callLogs.customerId, expCustIds)] : [])),
-            inArray(callLogs.userId, expUserIds),
-          ];
-          if (dateFrom) expClConds.push(gte(callLogs.startedAt, new Date(dateFrom)));
-          if (dateTo) { const ed = new Date(dateTo); ed.setHours(23,59,59,999); expClConds.push(lte(callLogs.startedAt, ed)); }
-          expCallLogs = await db.select().from(callLogs).where(and(...expClConds));
           if (expCustIds.length > 0) {
             const expCmConds: any[] = [inArray(communicationMessages.customerId, expCustIds), inArray(communicationMessages.userId, expUserIds)];
             if (dateFrom) expCmConds.push(gte(communicationMessages.createdAt, new Date(dateFrom)));
@@ -27937,7 +27982,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           s._break += sesBreaks.reduce((sum: number, b: any) => sum + (b.durationSeconds || 0), 0);
           const sesStart = session.startedAt ? new Date(session.startedAt).getTime() : 0;
           const sesEnd = session.endedAt ? new Date(session.endedAt).getTime() : Date.now();
-          const sesCalls = expCallLogs.filter((cl: any) => cl.userId === userId && cl.startedAt && new Date(cl.startedAt).getTime() >= sesStart && new Date(cl.startedAt).getTime() <= sesEnd);
+          const sesCalls: any[] = [];
           let sesCallTime = 0;
           for (const cl of sesCalls) {
             if (cl.answeredAt && cl.endedAt) sesCallTime += diffSeconds(cl.answeredAt, cl.endedAt);
@@ -27951,6 +27996,26 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           s._sms += sesSms.length * 30;
           s._wrap += session.totalWrapUpTime || 0;
           s['Contacts Handled'] += (session.contactsHandled || 0) + sesCalls.length + sesEmails.length + sesSms.length;
+        }
+        const expClaimedSessionContacts = new Map<string, number>();
+        for (const call of expCallLogs) {
+          if (!call.startedAt) continue;
+          const gk = reportGroupKey(call.startedAt, exportGroupBy || 'total');
+          const ck = `${call.userId}__${gk}`;
+          if (!operatorStats[ck]) {
+            const user = userMap.get(call.userId);
+            operatorStats[ck] = {
+              Operator: user?.fullName || user?.username || call.userId,
+              Period: gk, Sessions: 0, 'Work Time': '', 'Break Time': '', 'Call Time': '',
+              'Email Time': '', 'SMS Time': '', 'Wrap-up Time': '', 'Contacts Handled': 0,
+              _work: 0, _break: 0, _call: 0, _email: 0, _sms: 0, _wrap: 0, _callCount: 0,
+            };
+          }
+          operatorStats[ck]._call += reportCallTalkSeconds(call);
+          operatorStats[ck]._callCount += 1;
+          operatorStats[ck]['Contacts Handled'] += callHandledContactIncrement(
+            call, sessions, expClaimedSessionContacts,
+          );
         }
         reportData = Object.values(operatorStats).map((s: any) => {
           const active = s._work - s._break;
@@ -27978,6 +28043,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           conditions.push(lte(callLogs.startedAt, endDCLE));
         }
         if (agentId && agentId !== 'all') conditions.push(eq(callLogs.userId, agentId));
+        if (direction === 'inbound' || direction === 'outbound') conditions.push(eq(callLogs.direction, direction));
         const logs = await db.select().from(callLogs).where(and(...conditions)).orderBy(desc(callLogs.startedAt));
         const allUsers = await db.select().from(users);
         const userMap = new Map(allUsers.map(u => [u.id, u]));
@@ -28018,25 +28084,14 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
       } else if (reportType === 'call-analysis') {
         sheetName = 'Call Analysis';
-        const conditions: any[] = [eq(callRecordings.campaignId, campaignId)];
-        if (dateFrom) conditions.push(gte(callRecordings.createdAt, new Date(dateFrom)));
-        if (dateTo) conditions.push(lte(callRecordings.createdAt, new Date(dateTo)));
-        if (agentId && agentId !== 'all') conditions.push(eq(callRecordings.userId, agentId));
-        const recordings = await db.select().from(callRecordings).where(and(...conditions)).orderBy(desc(callRecordings.createdAt));
-
-        reportData = recordings.map(rec => ({
-          Agent: rec.agentName || rec.userId,
-          Customer: rec.customerName || '',
-          'Phone Number': rec.phoneNumber || '',
-          Duration: formatDuration(rec.durationSeconds || 0),
-          Sentiment: rec.sentiment || '',
-          'Quality Score': rec.qualityScore ?? '',
-          'Script Compliance': rec.scriptComplianceScore ?? '',
-          Summary: rec.summary || '',
-          'Key Topics': (rec.keyTopics || []).join('; '),
-          'Action Items': (rec.actionItems || []).join('; '),
-          'Alert Keywords': (rec.alertKeywords || []).join('; '),
-          'Compliance Notes': rec.complianceNotes || '',
+        const analysis = await getExactCampaignCallAnalysis(campaignId, { dateFrom, dateTo, agentId });
+        reportData = analysis.map(rec => ({
+          Agent: rec.agent, Customer: rec.customer, 'Phone Number': rec.phoneNumber,
+          Duration: rec.durationFormatted, 'Analysis Status': rec.analysisStatus,
+          Sentiment: rec.sentiment, 'Quality Score': rec.qualityScore ?? '',
+          'Script Compliance': rec.scriptComplianceScore ?? '', Summary: rec.summary,
+          'Key Topics': rec.keyTopics, 'Action Items': rec.actionItems,
+          'Alert Keywords': rec.alertKeywords, 'Compliance Notes': rec.complianceNotes,
           'Created At': rec.createdAt ? new Date(rec.createdAt).toLocaleString() : '',
           'Analyzed At': rec.analyzedAt ? new Date(rec.analyzedAt).toLocaleString() : '',
         }));
@@ -28079,7 +28134,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
   app.post("/api/campaigns/:id/reports/send-email", internalOrAuth, async (req, res) => {
     try {
-      const { reportType, recipientEmail, recipientEmails, dateFrom, dateTo, agentId, groupBy: emailGroupBy } = req.body;
+      const { reportType, recipientEmail, recipientEmails, dateFrom, dateTo, agentId, direction, groupBy: emailGroupBy } = req.body;
       const campaignId = req.params.id;
 
       const allRecipients: string[] = [];
@@ -28112,14 +28167,19 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
         const emContacts = await db.select().from(campaignContacts).where(eq(campaignContacts.campaignId, campaignId));
         const emCustIds = emContacts.map(c => c.customerId).filter(Boolean) as string[];
+        const emContactIds = emContacts.map(c => c.id);
         const emUserIds = [...new Set(sessions.map(s => s.userId))];
         let emCallLogs: any[] = [];
         let emCommMsgs: any[] = [];
+        const emClC: any[] = [or(
+          eq(callLogs.campaignId, campaignId),
+          ...(emContactIds.length > 0 ? [and(isNull(callLogs.campaignId), inArray(callLogs.campaignContactId, emContactIds))] : []),
+        )];
+        if (dateFrom) emClC.push(gte(callLogs.startedAt, new Date(dateFrom)));
+        if (dateTo) { const ed = new Date(dateTo); ed.setHours(23,59,59,999); emClC.push(lte(callLogs.startedAt, ed)); }
+        if (agentId && agentId !== 'all') emClC.push(eq(callLogs.userId, agentId));
+        emCallLogs = await db.select().from(callLogs).where(and(...emClC));
         if (emUserIds.length > 0) {
-          const emClC: any[] = [or(eq(callLogs.campaignId, campaignId), ...(emCustIds.length > 0 ? [inArray(callLogs.customerId, emCustIds)] : [])), inArray(callLogs.userId, emUserIds)];
-          if (dateFrom) emClC.push(gte(callLogs.startedAt, new Date(dateFrom)));
-          if (dateTo) { const ed = new Date(dateTo); ed.setHours(23,59,59,999); emClC.push(lte(callLogs.startedAt, ed)); }
-          emCallLogs = await db.select().from(callLogs).where(and(...emClC));
           if (emCustIds.length > 0) {
             const emCmC: any[] = [inArray(communicationMessages.customerId, emCustIds), inArray(communicationMessages.userId, emUserIds)];
             if (dateFrom) emCmC.push(gte(communicationMessages.createdAt, new Date(dateFrom)));
@@ -28155,7 +28215,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           s._break += sb.reduce((sum: number, b: any) => sum + (b.durationSeconds || 0), 0);
           const ss = session.startedAt ? new Date(session.startedAt).getTime() : 0;
           const se = session.endedAt ? new Date(session.endedAt).getTime() : Date.now();
-          const sc = emCallLogs.filter((cl: any) => cl.userId === userId && cl.startedAt && new Date(cl.startedAt).getTime() >= ss && new Date(cl.startedAt).getTime() <= se);
+          const sc: any[] = [];
           let sct = 0;
           for (const cl of sc) { if (cl.answeredAt && cl.endedAt) sct += diffSeconds(cl.answeredAt, cl.endedAt); else if (cl.startedAt && cl.endedAt && cl.status === 'completed') sct += diffSeconds(cl.startedAt, cl.endedAt); }
           s._call += sct; s._callCount += sc.length;
@@ -28165,6 +28225,25 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           s._sms += ssm.length * 30;
           s._wrap += session.totalWrapUpTime || 0;
           s['Contacts Handled'] += (session.contactsHandled || 0) + sc.length + sem.length + ssm.length;
+        }
+        const emClaimedSessionContacts = new Map<string, number>();
+        for (const call of emCallLogs) {
+          if (!call.startedAt) continue;
+          const gk = reportGroupKey(call.startedAt, emailGroupBy || 'total');
+          const ck = `${call.userId}__${gk}`;
+          if (!operatorStats[ck]) {
+            const user = userMap.get(call.userId);
+            operatorStats[ck] = {
+              Operator: user?.fullName || user?.username || call.userId,
+              Period: gk, Sessions: 0, _work: 0, _break: 0, _call: 0,
+              _email: 0, _sms: 0, _wrap: 0, _callCount: 0, 'Contacts Handled': 0,
+            };
+          }
+          operatorStats[ck]._call += reportCallTalkSeconds(call);
+          operatorStats[ck]._callCount += 1;
+          operatorStats[ck]['Contacts Handled'] += callHandledContactIncrement(
+            call, sessions, emClaimedSessionContacts,
+          );
         }
         reportData = Object.values(operatorStats).map((s: any) => {
           const active = s._work - s._break;
@@ -28190,6 +28269,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           conditions.push(lte(callLogs.startedAt, endDCL2));
         }
         if (agentId && agentId !== 'all') conditions.push(eq(callLogs.userId, agentId));
+        if (direction === 'inbound' || direction === 'outbound') conditions.push(eq(callLogs.direction, direction));
         const logs = await db.select().from(callLogs).where(and(...conditions)).orderBy(desc(callLogs.startedAt));
         const allUsers = await db.select().from(users);
         const userMap = new Map(allUsers.map(u => [u.id, u]));
@@ -28219,19 +28299,12 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         });
       } else if (reportType === 'call-analysis') {
         sheetName = 'Call Analysis';
-        const conditions: any[] = [eq(callRecordings.campaignId, campaignId)];
-        if (dateFrom) conditions.push(gte(callRecordings.createdAt, new Date(dateFrom)));
-        if (dateTo) {
-          const endDCA = new Date(dateTo); endDCA.setHours(23, 59, 59, 999);
-          conditions.push(lte(callRecordings.createdAt, endDCA));
-        }
-        if (agentId && agentId !== 'all') conditions.push(eq(callRecordings.userId, agentId));
-        const recordings = await db.select().from(callRecordings).where(and(...conditions)).orderBy(desc(callRecordings.createdAt));
-        reportData = recordings.map(rec => ({
-          Agent: rec.agentName || rec.userId, Customer: rec.customerName || '', Duration: formatDuration(rec.durationSeconds || 0),
-          Sentiment: rec.sentiment || '', 'Quality Score': rec.qualityScore ?? '', 'Script Compliance': rec.scriptComplianceScore ?? '',
-          Summary: rec.summary || '', 'Key Topics': (rec.keyTopics || []).join('; '),
-          'Alert Keywords': (rec.alertKeywords || []).join('; '),
+        const analysis = await getExactCampaignCallAnalysis(campaignId, { dateFrom, dateTo, agentId });
+        reportData = analysis.map(rec => ({
+          Agent: rec.agent, Customer: rec.customer, Duration: rec.durationFormatted,
+          'Analysis Status': rec.analysisStatus, Sentiment: rec.sentiment,
+          'Quality Score': rec.qualityScore ?? '', 'Script Compliance': rec.scriptComplianceScore ?? '',
+          Summary: rec.summary, 'Key Topics': rec.keyTopics, 'Alert Keywords': rec.alertKeywords,
         }));
       }
 
@@ -34779,7 +34852,9 @@ Respond ONLY with valid JSON in this exact format:
         inboundQueueName: callLogs.inboundQueueName,
       }).from(callLogs)
         .where(conditions.length > 0 ? and(...conditions) : undefined)
-        .orderBy(desc(callLogs.createdAt))
+        // Recovery/import time is not the time of the call. Keep newest calls
+        // first and use a stable tie-breaker when several calls start together.
+        .orderBy(desc(callLogs.startedAt), desc(callLogs.id))
         .limit(limitNum)
         .offset(offsetNum);
 

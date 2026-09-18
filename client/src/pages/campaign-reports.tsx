@@ -160,6 +160,7 @@ export default function CampaignReportsPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [selectedAgent, setSelectedAgent] = useState("all");
+  const [selectedDirection, setSelectedDirection] = useState("all");
   const [groupBy, setGroupBy] = useState("total");
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [emailRecipient, setEmailRecipient] = useState("");
@@ -207,6 +208,7 @@ export default function CampaignReportsPage() {
     if (dateFrom) p.dateFrom = dateFrom;
     if (dateTo) p.dateTo = dateTo;
     if (selectedAgent && selectedAgent !== 'all') p.agentId = selectedAgent;
+    if (activeTab === 'call-list' && selectedDirection !== 'all') p.direction = selectedDirection;
     if (groupBy && groupBy !== 'total') p.groupBy = groupBy;
     return new URLSearchParams(p).toString();
   };
@@ -214,6 +216,10 @@ export default function CampaignReportsPage() {
   const { data: campaign } = useQuery<Campaign>({
     queryKey: ["/api/campaigns", campaignId],
     enabled: !!campaignId,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    refetchInterval: 15_000,
   });
 
   const { data: agents = [] } = useQuery<AgentOption[]>({
@@ -224,6 +230,10 @@ export default function CampaignReportsPage() {
       return res.json();
     },
     enabled: !!campaignId,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    refetchInterval: 15_000,
   });
 
   const { data: allUsers = [] } = useQuery<Array<{ id: string; email: string; fullName: string; firstName: string; lastName: string; role: string }>>({
@@ -330,6 +340,10 @@ export default function CampaignReportsPage() {
       return res.json();
     },
     enabled: !!campaignId && activeTab === "operator-stats",
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    refetchInterval: 15_000,
   });
 
   const { data: callList = [], isLoading: loadingCalls } = useQuery<CallListItem[]>({
@@ -340,6 +354,10 @@ export default function CampaignReportsPage() {
       return res.json();
     },
     enabled: !!campaignId && activeTab === "call-list",
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    refetchInterval: 15_000,
   });
 
   const { data: callAnalysis = [], isLoading: loadingAnalysis } = useQuery<CallAnalysisItem[]>({
@@ -350,6 +368,10 @@ export default function CampaignReportsPage() {
       return res.json();
     },
     enabled: !!campaignId && activeTab === "call-analysis",
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    refetchInterval: 15_000,
   });
 
   const handleExport = async (fmt: 'csv' | 'xlsx') => {
@@ -364,6 +386,7 @@ export default function CampaignReportsPage() {
           dateFrom: dateFrom || undefined,
           dateTo: dateTo || undefined,
           agentId: selectedAgent !== 'all' ? selectedAgent : undefined,
+           direction: activeTab === 'call-list' && selectedDirection !== 'all' ? selectedDirection : undefined,
           groupBy: activeTab === 'operator-stats' && groupBy !== 'total' ? groupBy : undefined,
         }),
       });
@@ -394,6 +417,7 @@ export default function CampaignReportsPage() {
         dateFrom: dateFrom || undefined,
         dateTo: dateTo || undefined,
         agentId: selectedAgent !== 'all' ? selectedAgent : undefined,
+        direction: activeTab === 'call-list' && selectedDirection !== 'all' ? selectedDirection : undefined,
         groupBy: activeTab === 'operator-stats' && groupBy !== 'total' ? groupBy : undefined,
       });
       return res.json();
@@ -677,6 +701,21 @@ export default function CampaignReportsPage() {
                       <SelectItem value="day">{cr?.groupDay || 'Day'}</SelectItem>
                       <SelectItem value="week">{cr?.groupWeek || 'Week'}</SelectItem>
                       <SelectItem value="month">{cr?.groupMonth || 'Month'}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {activeTab === 'call-list' && (
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">{t.callAnalysis.direction}</Label>
+                  <Select value={selectedDirection} onValueChange={setSelectedDirection}>
+                    <SelectTrigger className="w-[150px] h-9" data-testid="select-direction">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t.callAnalysis.allDirections}</SelectItem>
+                      <SelectItem value="inbound">{t.callAnalysis.inbound}</SelectItem>
+                      <SelectItem value="outbound">{t.callAnalysis.outbound}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1269,7 +1308,9 @@ export default function CampaignReportsPage() {
                             <td className="p-2 text-center font-mono text-xs">{rec.durationFormatted}</td>
                             <td className="p-2 text-center">
                               <Badge variant={rec.analysisStatus === 'completed' ? 'secondary' : 'outline'} className="text-[10px]">
-                                {rec.analysisStatus}
+                                {rec.analysisStatus === 'not_recorded'
+                                  ? t.callAnalysis.withoutRecording
+                                  : rec.analysisStatus}
                               </Badge>
                             </td>
                             <td className="p-2 text-center"><SentimentBadge sentiment={rec.sentiment} /></td>

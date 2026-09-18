@@ -99,3 +99,4 @@
 - [Wallboard alarm boundaries](wallboard-alarm-semantics.md) — personal monitoring preferences must not become shared Mission policy; unknown telemetry must not be interpreted as inactivity.
 - [Mission contact visibility boundaries](mission-contact-visibility-boundaries.md) — representative-only scope must cover every agent queue; omitted manager-owned settings must be preserved.
 - [Moving pages into nested settings tabs](nested-settings-page-moves.md) — preserve canonical tab URLs through legacy routes, OAuth callbacks, cleanup, permissions, and mobile embedding.
+- [Forwarded call history](forwarded-call-canonical-history.md) — mobile forwarding needs server-owned canonical history; reports cannot depend on sessions or recording, and caller Up is not callee answer.

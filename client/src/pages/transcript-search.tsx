@@ -777,6 +777,8 @@ export function TranscriptSearchContent() {
   const [bdImportantOnly, setBdImportantOnly] = useState(false);
   const [bdDownloading, setBdDownloading] = useState(false);
   const [selectedCallLogId, setSelectedCallLogId] = useState<string | null>(null);
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+  const detailPaneRef = useRef<HTMLDivElement>(null);
 
   /* Search tab */
   const [activeTab, setActiveTab] = useState<"browse" | "search">("browse");
@@ -805,6 +807,10 @@ export function TranscriptSearchContent() {
       return allLogs;
     },
     enabled: activeTab === "browse",
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
+    refetchOnReconnect: "always",
     refetchInterval: 15000,
     refetchIntervalInBackground: false,
   });
@@ -833,6 +839,10 @@ export function TranscriptSearchContent() {
       return res.json();
     },
     enabled: searchQuery.length >= 2 && activeTab === "search",
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
+    refetchOnReconnect: "always",
   });
 
   const handleSearch = useCallback(() => { if (searchInput.trim().length >= 2) setSearchQuery(searchInput.trim()); }, [searchInput]);
@@ -942,11 +952,23 @@ export function TranscriptSearchContent() {
 
   const selectedLog = selectedCallLogId ? filteredCallLogs.find(l => l.id === selectedCallLogId) ?? null : null;
 
+  useEffect(() => {
+    const pane = detailPaneRef.current;
+    if (!pane || !selectedCallLogId || !mobileDetailOpen) return;
+    pane.scrollTop = 0;
+    const frame = window.requestAnimationFrame(() => {
+      if (!window.matchMedia("(max-width: 767px)").matches) return;
+      pane.querySelector<HTMLElement>(`[data-testid="player-${selectedCallLogId}"]`)
+        ?.scrollIntoView({ block: "start", inline: "nearest" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [mobileDetailOpen, selectedCallLogId]);
+
   return (
-    <div className="flex min-h-0 h-full flex-col bg-muted/20 px-2 py-3 sm:px-4 sm:py-4">
+    <div className="flex h-[calc(100dvh-15rem)] min-h-0 w-full max-w-full flex-col overflow-hidden bg-muted/20 px-2 py-3 sm:px-4 sm:py-4" data-testid="calls-transcripts-page">
 
       {/* ── Top header ── */}
-      <div className="flex flex-wrap items-center gap-3 overflow-hidden rounded-t-2xl border border-border bg-background px-3 py-3 shadow-sm sm:px-5" data-testid="calls-header">
+      <div className={`${mobileDetailOpen ? "hidden md:flex" : "flex"} flex-wrap items-center gap-3 overflow-hidden rounded-t-2xl border border-border bg-background px-3 py-3 shadow-sm sm:px-5`} data-testid="calls-header">
         <div className="flex items-center gap-2.5 shrink-0">
           <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
             <Phone className="h-3.5 w-3.5 text-primary-foreground" />
@@ -996,7 +1018,7 @@ export function TranscriptSearchContent() {
       </div>
 
        {activeTab === "browse" && (
-        <div className="border-x border-b border-border bg-background/95 px-3 py-3 shrink-0 sm:px-5" data-testid="calls-filter-toolbar">
+        <div className={`${mobileDetailOpen ? "hidden md:block" : "block"} border-x border-b border-border bg-background/95 px-3 py-3 shrink-0 sm:px-5`} data-testid="calls-filter-toolbar">
           <div className="flex items-center gap-2.5 flex-wrap">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
@@ -1167,10 +1189,13 @@ export function TranscriptSearchContent() {
 
       {/* ── Browse mode ── */}
       {activeTab === "browse" && (
-        <div className="flex flex-1 min-h-0 overflow-hidden rounded-b-2xl border-x border-b border-border">
+        <div className="flex flex-1 min-h-0 max-w-full overflow-hidden rounded-b-2xl border-x border-b border-border">
 
           {/* Left: list */}
-          <div className="w-[300px] max-w-[42vw] shrink-0 bg-background border-r flex flex-col min-h-0">
+          <div
+            className={`${mobileDetailOpen ? "hidden md:flex" : "flex"} w-full min-w-0 shrink-0 flex-col bg-background md:w-[300px] md:max-w-[42vw] md:border-r`}
+            data-testid="calls-list-pane"
+          >
             {/* Search + filter */}
             <div className="px-3 py-2 border-b space-y-1.5 shrink-0">
               <div className="flex gap-1.5">
@@ -1186,7 +1211,7 @@ export function TranscriptSearchContent() {
             </div>
 
             {/* Call list */}
-            <div className="flex-1 overflow-y-auto divide-y divide-border/50">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain divide-y divide-border/50" data-testid="calls-list-scroll">
               {logsLoading && (
                 <div className="flex items-center justify-center py-12 text-muted-foreground">
                   <Loader2 className="h-5 w-5 animate-spin mr-2" /><span className="text-xs">{ca.loadingCalls}</span>
@@ -1205,13 +1230,28 @@ export function TranscriptSearchContent() {
               )}
               {!logsLoading && filteredCallLogs.map(log => (
                 <CallRowItem key={log.id} log={log} isSelected={selectedCallLogId === log.id}
-                  onClick={() => setSelectedCallLogId(log.id)} locale={locale} ca={ca} />
+                  onClick={() => { setSelectedCallLogId(log.id); setMobileDetailOpen(true); }} locale={locale} ca={ca} />
               ))}
             </div>
           </div>
 
           {/* Right: detail */}
-          <div className="flex-1 min-h-0 flex flex-col bg-background">
+          <div
+            ref={detailPaneRef}
+            className={`${mobileDetailOpen ? "flex" : "hidden md:flex"} min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-contain bg-background md:overflow-hidden`}
+            data-testid="call-detail-pane"
+          >
+            <div className="sticky top-0 z-20 shrink-0 border-b bg-background px-2 py-1.5 md:hidden">
+              <button
+                type="button"
+                onClick={() => setMobileDetailOpen(false)}
+                className="inline-flex h-8 max-w-full items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                data-testid="button-mobile-call-list"
+              >
+                <ChevronLeft className="h-4 w-4 shrink-0" />
+                <span className="truncate">{ca.allCalls || "Hovory"}</span>
+              </button>
+            </div>
             {selectedLog
               ? <AnalysisDetail key={selectedLog.id} log={selectedLog} ca={ca} locale={locale} searchText={browseSearchText} onImportantToggle={(id, val) => { /* optimistic update handled inside */ }} />
               : (

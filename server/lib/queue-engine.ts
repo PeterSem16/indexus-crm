@@ -2,7 +2,7 @@ import { EventEmitter } from "events";
 import * as fs from "fs";
 import * as path from "path";
 import { db } from "../db";
-import { eq, and, inArray, isNotNull, asc, desc, sql } from "drizzle-orm";
+import { eq, and, inArray, isNotNull, isNull, asc, desc, sql } from "drizzle-orm";
 import {
   inboundQueues,
   queueMembers,
@@ -47,6 +47,12 @@ import {
   projectWallboardQueueCalls,
   type WallboardQueueCall,
 } from "./wallboard-queue";
+import {
+  canonicalCampaignId,
+  completedCanonicalCallValues,
+  standingForwardUserId,
+  standingMixedRecordingAllowed,
+} from "./queue-call-lifecycle";
 
 // Agent presence for desk/PJSIP routing is derived from the LIVE Nexus Pulse
 // WebSocket (inboundCallWs). The agent-workspace opens /ws/inbound-calls only while a
@@ -115,6 +121,9 @@ interface ActiveBridge {
   queueId: string;
   campaignId: string | null;
   createdAt: Date;
+  canonicalCallLogId?: string | null;
+  recordingName?: string | null;
+  ready?: Promise<void>;
 }
 
 export class QueueEngine extends EventEmitter {
@@ -165,6 +174,7 @@ export class QueueEngine extends EventEmitter {
     customerId: string | null;
     callerNumber: string;
     callRecordingMode: string;
+    answeredAt: Date | null;
     campaignId?: string | null;
     recordingPolicySnapshot?: MissionCallRecordingSnapshot | null;
   }> = new Map();
@@ -180,6 +190,11 @@ export class QueueEngine extends EventEmitter {
   // channel-state-change(Up) can fire BEFORE StasisStart for Local channels, so we
   // only bridge once BOTH Up AND Stasis are confirmed.
   private standingBridgeSignals: Map<string, { upReady: boolean; stasisReady: boolean }> = new Map();
+  private standingRecordingTracking: Map<string, {
+    callLogId: string;
+    recordingPolicySnapshot: MissionCallRecordingSnapshot | null;
+  }> = new Map();
+  private mobileRecordingSavesInFlight: Set<string> = new Set();
 
   constructor(ariClient: AriClient) {
     super();
@@ -368,12 +383,21 @@ export class QueueEngine extends EventEmitter {
       }
     });
 
-    this.ariClient.on("recording-finished", (event: AriEvent) => {
+    const onMobileRecordingFinished = (event: AriEvent) => {
       const recName: string = event.recording?.name || "";
       if (!recName.startsWith("mobile_")) return;
+      if (this.mobileRecordingSavesInFlight.has(recName)) return;
+      this.mobileRecordingSavesInFlight.add(recName);
       this.handleMobileRecordingFinished(recName).catch(err => {
         console.error("[MobileRecording] Auto-save error:", err instanceof Error ? err.message : err);
-      });
+      }).finally(() => this.mobileRecordingSavesInFlight.delete(recName));
+    };
+    this.ariClient.on("recording-finished", onMobileRecordingFinished);
+    // AriClient forwards unclassified ARI messages through "event"; current
+    // clients do not have a dedicated RecordingFinished switch.
+    this.ariClient.on("event", (event: AriEvent) => {
+      if (event.type !== "RecordingFinished") return;
+      onMobileRecordingFinished(event);
     });
 
     this.ariClient.on("stasis-end", (event: AriEvent) => {
@@ -595,22 +619,13 @@ export class QueueEngine extends EventEmitter {
     console.log(`[QueueEngine]   Caller channel: ${call.channelId}`);
     console.log(`[QueueEngine]   Original caller: ${call.callerNumber}`);
 
-    // Update inbound call log to forwarded
-    db.update(inboundCallLogs)
-      .set({ status: "forwarded", transferredTo: forwardNumber, answeredAt: new Date() })
-      .where(eq(inboundCallLogs.id, call.id))
-      .catch(e => console.warn("[QueueEngine] handleForwardedAgentCall: call log update failed:", e instanceof Error ? e.message : e));
-
-    // Release agent assignment — call is being forwarded, agent stays available
-    this.assignedCalls.delete(call.channelId);
-    this.updateAgentStatus(agent.userId, "available", null);
-
     // Set INDEXUS_REC_NAME channel variable BEFORE continueDialplan so the dialplan
     // picks it up and runs MixMonitor on the call leg before dialling the external number.
-    let campaignId: string | null = null;
-    let campaignClassificationVerified = false;
+    let campaignId: string | null = call.campaignId ?? null;
+    let campaignClassificationVerified = !!campaignId;
     try {
-      campaignId = (await this.ariClient.getChannelVarStrict(call.channelId, "CBC_CAMPAIGN_ID")) || null;
+      const channelCampaignId = await this.ariClient.getChannelVarStrict(call.channelId, "CBC_CAMPAIGN_ID");
+      campaignId = canonicalCampaignId(campaignId, channelCampaignId);
       campaignClassificationVerified = true;
     } catch (error) {
       console.warn(
@@ -643,15 +658,44 @@ export class QueueEngine extends EventEmitter {
       }
     }
 
-    // Use the proven forwardToExternalNumber which routes via the correct trunk
-    await this.forwardToExternalNumber(call.channelId, forwardNumber, {
-      fallbackDid: queue.didNumber,
-      callerNumber: call.callerNumber,
-    });
+    // Persistence and hangup tracking must exist before the channel leaves Stasis.
+    const canonicalCallLogId = await this.setupQueueForwardedCallTracking(
+      call, agent.userId, agentUser, queue, forwardNumber, recordingName,
+      campaignId, recordingSnapshot, recordCalls,
+    );
 
-    // After handing off to dialplan: set up DB tracking + poll loop for recording/transcript
-    this.setupQueueForwardedCallTracking(call, agent.userId, agentUser, queue, forwardNumber, recordingName, campaignId, recordingSnapshot, recordCalls)
-      .catch(e => console.warn("[QueueForwardedRec] Tracking setup failed:", e instanceof Error ? e.message : e));
+    await db.update(inboundCallLogs)
+      .set({ status: "forwarded", transferredTo: forwardNumber })
+      .where(eq(inboundCallLogs.id, call.id));
+
+    // Use the proven forwardToExternalNumber which routes via the correct trunk.
+    try {
+      await this.forwardToExternalNumber(call.channelId, forwardNumber, {
+        fallbackDid: queue.didNumber,
+        callerNumber: call.callerNumber,
+      });
+    } catch (handoffError) {
+      this.forwardedCallTracking.delete(call.channelId);
+      const endedAt = new Date();
+      await Promise.all([
+        db.update(callLogs).set({ status: "failed", endedAt, durationSeconds: 0 })
+          .where(eq(callLogs.id, canonicalCallLogId)),
+        db.update(inboundCallLogs)
+          .set({ status: "queued", transferredTo: null, assignedAgentId: null })
+          .where(eq(inboundCallLogs.id, call.id)),
+      ]);
+      this.assignedCalls.delete(call.channelId);
+      call.position = this.getQueueSize(call.queueId) + 1;
+      this.waitingCalls.set(call.channelId, call);
+      this.recalculatePositions(call.queueId);
+      await this.updateAgentStatus(agent.userId, "available", null);
+      console.error("[QueueForwardedRec] Dialplan handoff failed; call requeued and tracking finalized:",
+        handoffError instanceof Error ? handoffError.message : handoffError);
+      return;
+    }
+
+    this.assignedCalls.delete(call.channelId);
+    await this.updateAgentStatus(agent.userId, "available", null);
   }
 
   private async setupQueueForwardedCallTracking(
@@ -664,49 +708,74 @@ export class QueueEngine extends EventEmitter {
     campaignId: string | null,
     recordingSnapshot: MissionCallRecordingSnapshot | null,
     recordCalls: boolean,
-  ): Promise<void> {
-    // 1. Create callLogs entry so the recording can be linked and shown in Missions
+  ): Promise<string> {
+    // 1. Create/link callLogs independently of recording policy.
     let callLogId: string | null = null;
     try {
-      const [callLog] = await db.insert(callLogs).values({
-        userId: agentUserId,
-        customerId: call.customerId || null,
-        campaignId: campaignId || null,
-        phoneNumber: call.callerNumber,
-        direction: "inbound",
-        status: "forwarded",
-        startedAt: new Date(),
-        isForwarded: true,
-        forwardedToNumber: forwardNumber,
-        inboundQueueId: queue.id,
-        inboundQueueName: queue.name,
-        inboundCallLogId: call.id,
-        sipCallId: call.channelId,
-        metadata: JSON.stringify({
-          queueForwarded: true,
-          agentName: agentUser.fullName,
-          ...(recordingSnapshot ? { recordingPolicySnapshot: recordingSnapshot } : {}),
-        }),
-      } as any).returning({ id: callLogs.id });
-      callLogId = callLog?.id || null;
+      const [existingInbound] = await db.select({ callLogId: inboundCallLogs.callLogId })
+        .from(inboundCallLogs).where(eq(inboundCallLogs.id, call.id)).limit(1);
+      callLogId = existingInbound?.callLogId || null;
       if (callLogId) {
-        console.log(`[QueueForwardedRec] callLogs entry created: ${callLogId}`);
-        // Back-link inboundCallLogs → callLogs so history queries can find recordings
-        db.update(inboundCallLogs)
-          .set({ callLogId })
-          .where(eq(inboundCallLogs.id, call.id))
-          .catch(() => {});
+        await db.update(callLogs).set({
+          userId: agentUserId,
+          campaignId,
+          status: "forwarded",
+          endedAt: null,
+          durationSeconds: 0,
+          isForwarded: true,
+          forwardedToNumber: forwardNumber,
+        }).where(eq(callLogs.id, callLogId));
+      }
+      if (!callLogId) {
+        const [callLog] = await db.insert(callLogs).values({
+          userId: agentUserId,
+          customerId: call.customerId || null,
+          campaignId: campaignId || null,
+          phoneNumber: call.callerNumber,
+          direction: "inbound",
+          status: "forwarded",
+          startedAt: call.enteredAt || new Date(),
+          isForwarded: true,
+          forwardedToNumber: forwardNumber,
+          inboundQueueId: queue.id,
+          inboundQueueName: queue.name,
+          inboundCallLogId: call.id,
+          sipCallId: call.channelId,
+          metadata: JSON.stringify({
+            queueForwarded: true,
+            agentName: agentUser.fullName,
+            ...(recordingSnapshot ? { recordingPolicySnapshot: recordingSnapshot } : {}),
+          }),
+        } as any).returning({ id: callLogs.id });
+        callLogId = callLog?.id || null;
+        if (callLogId) {
+          const insertedId = callLogId;
+          const [claimed] = await db.update(inboundCallLogs)
+            .set({ callLogId: insertedId })
+            .where(and(eq(inboundCallLogs.id, call.id), isNull(inboundCallLogs.callLogId)))
+            .returning({ id: inboundCallLogs.id });
+          if (!claimed) {
+            const [winner] = await db.select({ callLogId: inboundCallLogs.callLogId })
+              .from(inboundCallLogs).where(eq(inboundCallLogs.id, call.id)).limit(1);
+            await db.delete(callLogs).where(eq(callLogs.id, insertedId));
+            callLogId = winner?.callLogId || null;
+          }
+        }
       }
     } catch (err) {
-      console.warn("[QueueForwardedRec] Failed to create callLogs entry:", err instanceof Error ? err.message : err);
-      return;
+      throw new Error(`failed to persist forwarded call before handoff: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    if (!callLogId) return;
-    if (!recordCalls) return;
+    if (!callLogId) throw new Error("failed to persist forwarded call before handoff: no canonical call id");
 
-    // 2. Load ARI/SSH settings for post-call recording download
-    const [cfg] = await db.select().from(ariSettings).limit(1);
+    // 2. Load ARI/SSH settings only when recording is permitted.
+    const [cfg] = recordCalls
+      ? await db.select().from(ariSettings).limit(1).catch((error) => {
+          console.warn("[QueueForwardedRec] Recording transport settings unavailable; call tracking retained:",
+            error instanceof Error ? error.message : error);
+          return [];
+        })
+      : [];
     const sshInfo = (cfg?.host && cfg?.sshUsername && cfg?.sshPassword)
       ? {
           host: cfg.host,
@@ -731,13 +800,14 @@ export class QueueEngine extends EventEmitter {
       collaboratorId: agentUserId, // used as userId in callRecordings table
       customerId: call.customerId || null,
       callerNumber: call.callerNumber,
-      callRecordingMode: "full",
-        campaignId,
-        recordingPolicySnapshot: recordingSnapshot,
+      callRecordingMode: recordCalls ? "full" : "off",
+      answeredAt: null,
+      campaignId,
+      recordingPolicySnapshot: recordingSnapshot,
     };
     this.forwardedCallTracking.set(call.channelId, tracking);
 
-    // 4. Poll for channel hangup — continueDialplan exits Stasis so there is no
+    // 4. Poll for channel hangup even when recording is disabled — continueDialplan exits Stasis so there is no
     //    channel-destroyed event in ARI; polling getChannel is the reliable signal.
     const channelId = call.channelId;
     const pollForHangup = async () => {
@@ -769,6 +839,7 @@ export class QueueEngine extends EventEmitter {
 
     pollForHangup().catch(e => console.error(`[QueueForwardedRec] Poll fatal:`, e instanceof Error ? e.message : e));
     console.log(`[QueueForwardedRec] Tracking active: channelId=${channelId}, callLogId=${callLogId}, ami=${amiFilePath}.wav`);
+    return callLogId;
   }
 
   private async startMohForChannel(channelId: string, queueId: string): Promise<void> {
@@ -923,6 +994,19 @@ export class QueueEngine extends EventEmitter {
     if (parts.length < 3) return;
     const callLogId = parts[1];
     if (!callLogId) return;
+    const isStandingRecording = parts[2] === "standing";
+    const standingTracking = this.standingRecordingTracking.get(recordingName);
+    if (isStandingRecording) {
+      if (!standingTracking || standingTracking.callLogId !== callLogId) {
+        console.warn(`[MobileRecording] Ignoring untrusted standing recording event: ${recordingName}`);
+        return;
+      }
+      const policy = standingTracking.recordingPolicySnapshot;
+      if (policy && (!policy.active || policy.mode !== "both")) {
+        console.warn(`[MobileRecording] Ignoring standing recording outside trusted mixed-audio policy`);
+        return;
+      }
+    }
 
     console.log(`[MobileRecording] Recording finished: ${recordingName}, callLogId: ${callLogId}`);
 
@@ -930,6 +1014,12 @@ export class QueueEngine extends EventEmitter {
       const [callLog] = await db.select().from(callLogs).where(eq(callLogs.id, callLogId)).limit(1);
       if (!callLog) {
         console.warn(`[MobileRecording] Call log not found: ${callLogId}`);
+        return;
+      }
+      const [alreadySaved] = await db.select({ id: callRecordings.id })
+        .from(callRecordings).where(eq(callRecordings.filename, `${recordingName}.wav`)).limit(1);
+      if (alreadySaved) {
+        if (isStandingRecording) this.standingRecordingTracking.delete(recordingName);
         return;
       }
 
@@ -942,12 +1032,19 @@ export class QueueEngine extends EventEmitter {
       const now = new Date();
       const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
       const timeStr = now.toISOString().slice(11, 19).replace(/:/g, "");
-      const filename = `server_${dateStr}_${timeStr}_${callLogId.substring(0, 8)}.wav`;
+      const filename = isStandingRecording
+        ? `${recordingName}.wav`
+        : `server_${dateStr}_${timeStr}_${callLogId.substring(0, 8)}.wav`;
       const filePath = path.join(STORAGE_PATHS.callRecordings, filename);
 
       fs.mkdirSync(STORAGE_PATHS.callRecordings, { recursive: true });
       fs.writeFileSync(filePath, audioBuffer);
 
+      let recordingPolicySnapshot: MissionCallRecordingSnapshot | null = null;
+      try {
+        const metadata = callLog.metadata ? JSON.parse(callLog.metadata) : null;
+        recordingPolicySnapshot = metadata?.recordingPolicySnapshot || null;
+      } catch {}
       await db.insert(callRecordings).values({
         callLogId,
         userId: callLog.userId,
@@ -961,10 +1058,15 @@ export class QueueEngine extends EventEmitter {
         phoneNumber: callLog.phoneNumber || null,
         agentName: "Mobile Agent",
         direction: callLog.direction || "outbound",
+        inboundQueueId: callLog.inboundQueueId || null,
+        inboundQueueName: callLog.inboundQueueName || null,
+        recordingMode: recordingPolicySnapshot?.mode || null,
+        recordingPolicySnapshot,
         analysisStatus: "pending",
       });
 
       console.log(`[MobileRecording] Saved server-side recording: ${filename} (${audioBuffer.length} bytes)`);
+      if (isStandingRecording) this.standingRecordingTracking.delete(recordingName);
 
       // Clean up from Asterisk
       this.ariClient.deleteStoredRecording(recordingName).catch(() => {});
@@ -1399,10 +1501,11 @@ export class QueueEngine extends EventEmitter {
           console.warn(`[ForwardedRecording] Could not set INDEXUS_REC_NAME:`, varErr instanceof Error ? varErr.message : varErr);
         }
 
+        const trackingStartTime = new Date();
         const tracking = {
           callLogId,
           inboundChannelId: channel.id,
-          startTime: new Date(),
+          startTime: trackingStartTime,
           recordingName,
           amiFilePath,
           sshInfo,
@@ -1410,6 +1513,7 @@ export class QueueEngine extends EventEmitter {
           customerId: customerId || null,
           callerNumber,
           callRecordingMode,
+          answeredAt: trackingStartTime,
           campaignId,
           recordingPolicySnapshot: missionSnapshot,
         };
@@ -1944,6 +2048,7 @@ export class QueueEngine extends EventEmitter {
       customerId: string | null;
       callerNumber: string;
       callRecordingMode: string;
+      answeredAt: Date | null;
       campaignId?: string | null;
       recordingPolicySnapshot?: MissionCallRecordingSnapshot | null;
     },
@@ -1952,14 +2057,23 @@ export class QueueEngine extends EventEmitter {
     const endedAt = new Date();
     const recMode = tracking.callRecordingMode ?? "full";
 
-    // 1. Update call log with duration
+    // 1. Update call log. Poll elapsed time is not talk time unless this path
+    // observed a real answer.
     try {
+      const canonicalValues = completedCanonicalCallValues({
+        answeredAt: tracking.answeredAt,
+        endedAt,
+      });
       await db.update(callLogs)
-        .set({ durationSeconds, endedAt, answeredAt: tracking.startTime, status: "completed" })
+        .set(canonicalValues)
         .where(eq(callLogs.id, tracking.callLogId));
 
       await db.update(inboundCallLogs)
-        .set({ completedAt: endedAt, talkDurationSeconds: durationSeconds, status: "completed" })
+        .set({
+          completedAt: endedAt,
+          talkDurationSeconds: canonicalValues.durationSeconds,
+          ...(tracking.answeredAt ? { status: "completed" } : {}),
+        })
         .where(eq(inboundCallLogs.ariChannelId, tracking.inboundChannelId));
 
       console.log(`[ForwardedRecording] Updated call log ${tracking.callLogId} — duration: ${durationSeconds}s, mode: ${recMode}`);
@@ -2950,6 +3064,7 @@ export class QueueEngine extends EventEmitter {
         waitDuration,
         queueName: queue.name,
         enteredAt: call.enteredAt,
+        campaignId: call.campaignId ?? null,
       });
 
       setTimeout(async () => {
@@ -4144,6 +4259,53 @@ export class QueueEngine extends EventEmitter {
     };
   }
 
+  private async ensureStandingCanonicalCallLog(
+    pending: PendingAgentCall,
+    queue: InboundQueue,
+    campaignId: string | null,
+    answeredAt: Date,
+    recordingSnapshot: MissionCallRecordingSnapshot | null,
+  ): Promise<string> {
+    const [inbound] = await db.select({ callLogId: inboundCallLogs.callLogId })
+      .from(inboundCallLogs).where(eq(inboundCallLogs.id, pending.callId)).limit(1);
+    if (!inbound) throw new Error(`inbound call ${pending.callId} not found`);
+    if (inbound.callLogId) return inbound.callLogId;
+
+    const realUserId = standingForwardUserId(pending.agentId);
+    const [created] = await db.insert(callLogs).values({
+      userId: realUserId,
+      customerId: pending.customerId || null,
+      campaignId,
+      phoneNumber: pending.callerNumber,
+      direction: "inbound",
+      status: "answered",
+      startedAt: pending.enteredAt,
+      answeredAt,
+      sipCallId: pending.callerChannelId,
+      inboundQueueId: queue.id,
+      inboundQueueName: queue.name,
+      inboundCallLogId: pending.callId,
+      isForwarded: true,
+      metadata: JSON.stringify({
+        standingForward: true,
+        ...(recordingSnapshot ? { recordingPolicySnapshot: recordingSnapshot } : {}),
+      }),
+    } as any).returning({ id: callLogs.id });
+    if (!created?.id) throw new Error("canonical call insert returned no id");
+
+    const [claimed] = await db.update(inboundCallLogs)
+      .set({ callLogId: created.id, assignedAgentId: realUserId })
+      .where(and(eq(inboundCallLogs.id, pending.callId), isNull(inboundCallLogs.callLogId)))
+      .returning({ id: inboundCallLogs.id });
+    if (claimed) return created.id;
+
+    const [winner] = await db.select({ callLogId: inboundCallLogs.callLogId })
+      .from(inboundCallLogs).where(eq(inboundCallLogs.id, pending.callId)).limit(1);
+    await db.delete(callLogs).where(eq(callLogs.id, created.id));
+    if (!winner?.callLogId) throw new Error("canonical call backlink could not be claimed");
+    return winner.callLogId;
+  }
+
   private async handleAgentChannelAnswer(agentChannelId: string, pending: PendingAgentCall): Promise<void> {
     this.pendingAgentCalls.delete(agentChannelId);
     const isTransfer = pending.agentId === "transfer-target";
@@ -4201,6 +4363,8 @@ export class QueueEngine extends EventEmitter {
 
     console.log(`[QueueEngine] ${isTransfer ? "Transfer target" : "Agent"} answered! Bridging caller ${pending.callerChannelId} with channel ${agentChannelId}`);
 
+    let answerPersisted = false;
+    let markBridgeReady: () => void = () => {};
     try {
       await this.stopMohForChannel(pending.callerChannelId);
 
@@ -4246,6 +4410,9 @@ export class QueueEngine extends EventEmitter {
       const bridgeCreatedAt = new Date();
       const bridgeQueueId = assignedAtAnswer?.queueId || pending.queueId;
       const bridgeCampaignId = assignedAtAnswer?.call.campaignId ?? pending.campaignId ?? null;
+      const bridgeReady = new Promise<void>((resolve) => {
+        markBridgeReady = resolve;
+      });
       this.activeBridges.set(pending.callerChannelId, {
         bridgeId: bridge.id,
         callerChannelId: pending.callerChannelId,
@@ -4255,6 +4422,7 @@ export class QueueEngine extends EventEmitter {
         queueId: bridgeQueueId,
         campaignId: bridgeCampaignId,
         createdAt: bridgeCreatedAt,
+        ready: bridgeReady,
       });
       this.activeBridges.set(agentChannelId, {
         bridgeId: bridge.id,
@@ -4265,6 +4433,7 @@ export class QueueEngine extends EventEmitter {
         queueId: bridgeQueueId,
         campaignId: bridgeCampaignId,
         createdAt: bridgeCreatedAt,
+        ready: bridgeReady,
       });
       // activeBridges is now the authoritative guard; release the ring-all claim Set entry.
       this.ringAllClaimedCallers.delete(pending.callerChannelId);
@@ -4293,18 +4462,88 @@ export class QueueEngine extends EventEmitter {
           try { await this.ariClient.destroyBridge(bridge.id); } catch {}
           throw new Error(`call ${pending.callId} was no longer answerable`);
         }
+        answerPersisted = true;
       }
 
+      if (!isTransfer && this.isStandingId(pending.agentId)) {
+        try {
+          if (!assignedAtAnswer) throw new Error(`standing call ${pending.callId} lost its queue assignment`);
+          const recordingContext = await this.resolveQueuedCallRecordingContext(
+            assignedAtAnswer.call,
+            assignedAtAnswer.queue,
+          );
+          const canonicalCallLogId = await this.ensureStandingCanonicalCallLog(
+            pending,
+            assignedAtAnswer.queue,
+            bridgeCampaignId,
+            bridgeCreatedAt,
+            recordingContext.recordingSnapshot,
+          );
+          const active = this.activeBridges.get(pending.callerChannelId);
+          if (active) active.canonicalCallLogId = canonicalCallLogId;
+          const peerActive = this.activeBridges.get(agentChannelId);
+          if (peerActive) peerActive.canonicalCallLogId = canonicalCallLogId;
+
+          // ARI channel recording on a bridged caller leg is mixed audio. It is
+          // allowed only for non-Mission queue recording or Mission "both".
+          const mixedRecordingAllowed = standingMixedRecordingAllowed({
+            recordCalls: recordingContext.recordCalls,
+            campaignId: recordingContext.campaignId,
+            missionMode: recordingContext.recordingSnapshot?.mode || null,
+          });
+          if (mixedRecordingAllowed) {
+            if (!this.activeBridges.has(pending.callerChannelId)) {
+              console.log("[QueueRecording] Standing bridge ended during persistence; recording not started");
+            } else {
+            const recordingName = `mobile_${canonicalCallLogId}_standing_${Date.now()}`;
+            active!.recordingName = recordingName;
+            if (peerActive) peerActive.recordingName = recordingName;
+            this.standingRecordingTracking.set(recordingName, {
+              callLogId: canonicalCallLogId,
+              recordingPolicySnapshot: recordingContext.recordingSnapshot,
+            });
+            await this.ariClient.startRecordingAdvanced(pending.callerChannelId, {
+              name: recordingName,
+              format: "wav",
+              ifExists: "fail",
+            });
+            // If teardown won while ARI was starting, stop the now-live
+            // recording rather than leaving an untracked capture running.
+            if (!this.activeBridges.has(pending.callerChannelId)) {
+              try { await this.ariClient.stopRecording(recordingName); } catch {}
+            }
+            }
+          } else if (recordingContext.recordingSnapshot?.active &&
+                     recordingContext.recordingSnapshot.mode === "agent_only") {
+            console.warn("[QueueRecording] Agent-only Mission capture unavailable for standing mixed bridge; recording disabled");
+          }
+        } catch (trackingError) {
+          // The answer and bridge are real and already live. Persistence or
+          // optional recording failure must not tear down customer audio.
+          console.error("[QueueRecording] Standing answered call tracking failed; live bridge retained:",
+            trackingError instanceof Error ? trackingError.message : trackingError);
+          const failedActive = this.activeBridges.get(pending.callerChannelId);
+          if (failedActive?.recordingName) {
+            this.standingRecordingTracking.delete(failedActive.recordingName);
+            failedActive.recordingName = null;
+            const failedPeer = this.activeBridges.get(agentChannelId);
+            if (failedPeer) failedPeer.recordingName = null;
+          }
+        }
+      }
+
+      markBridgeReady();
       this.emit("call-answered", {
         callId: pending.callId,
         agentId: pending.agentId,
         callerNumber: pending.callerNumber,
       });
     } catch (err: any) {
+      markBridgeReady();
       console.error(`[QueueEngine] Failed to bridge channels:`, err.message);
       this.ringAllClaimedCallers.delete(pending.callerChannelId);
       try { await this.ariClient.hangupChannel(agentChannelId, "normal"); } catch {}
-      if (assignedAtAnswer && !isTransfer) {
+      if (assignedAtAnswer && !isTransfer && !answerPersisted) {
         const recoveredCall = assignedAtAnswer.call;
         recoveredCall.position = this.getQueueSize(recoveredCall.queueId) + 1;
         this.waitingCalls.set(recoveredCall.channelId, recoveredCall);
@@ -4384,20 +4623,34 @@ export class QueueEngine extends EventEmitter {
   }
 
   async agentCompletedCall(callId: string, agentId: string): Promise<void> {
-    const callLog = await db.select().from(inboundCallLogs).where(eq(inboundCallLogs.id, callId)).limit(1);
-    if (!callLog[0]) return;
-
-    const talkDuration = callLog[0].answeredAt
-      ? Math.floor((Date.now() - callLog[0].answeredAt.getTime()) / 1000)
-      : 0;
-
-    await db.update(inboundCallLogs)
+    const endedAt = new Date();
+    const [completedInbound] = await db.update(inboundCallLogs)
       .set({
         status: "completed",
-        completedAt: new Date(),
-        talkDurationSeconds: talkDuration,
+        completedAt: endedAt,
+        talkDurationSeconds: sql`GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (${endedAt}::timestamp - ${inboundCallLogs.answeredAt})))::integer)`,
       })
-      .where(eq(inboundCallLogs.id, callId));
+      .where(and(eq(inboundCallLogs.id, callId), eq(inboundCallLogs.status, "answered")))
+      .returning({
+        answeredAt: inboundCallLogs.answeredAt,
+        callLogId: inboundCallLogs.callLogId,
+        queueId: inboundCallLogs.queueId,
+      });
+    if (!completedInbound?.answeredAt) {
+      console.log(`[QueueEngine] agentCompletedCall: ${callId} already finalized or was never answered`);
+      return;
+    }
+    const talkDuration = Math.max(0,
+      Math.floor((endedAt.getTime() - completedInbound.answeredAt.getTime()) / 1000));
+
+    if (completedInbound.callLogId) {
+      await db.update(callLogs)
+        .set(completedCanonicalCallValues({ answeredAt: completedInbound.answeredAt, endedAt }))
+        .where(and(
+          eq(callLogs.id, completedInbound.callLogId),
+          inArray(callLogs.status, ["answered", "ringing", "initiated"]),
+        ));
+    }
 
     if (this.isStandingId(agentId)) {
       // Standing forward agent: no agentQueueStatus row → no wrap_up timer /
@@ -4408,8 +4661,8 @@ export class QueueEngine extends EventEmitter {
       return;
     }
 
-    const queue = callLog[0].queueId
-      ? (await db.select().from(inboundQueues).where(eq(inboundQueues.id, callLog[0].queueId)).limit(1))[0]
+    const queue = completedInbound.queueId
+      ? (await db.select().from(inboundQueues).where(eq(inboundQueues.id, completedInbound.queueId)).limit(1))[0]
       : null;
 
     const wrapUpTime = queue?.wrapUpTime || 30;
@@ -4509,7 +4762,7 @@ export class QueueEngine extends EventEmitter {
   // Shared hangup logic called from both channel-left-bridge (immediate) and channel-destroyed (fallback).
   // activeBridges deletion acts as a mutex — whichever event fires first "wins" and the second is a no-op.
   private async handleActiveBridgeHangup(
-    bridge: { bridgeId: string; callerChannelId: string; agentChannelId: string; callId: string; agentId: string },
+    bridge: ActiveBridge,
     hungUpSide: "caller" | "agent" = "caller"
   ): Promise<void> {
     // Guard: if already deleted (other event fired first), bail out
@@ -4525,7 +4778,13 @@ export class QueueEngine extends EventEmitter {
     try { await this.ariClient.hangupChannel(otherChannelId, "normal"); } catch {}
     try { await this.ariClient.destroyBridge(bridge.bridgeId); } catch {}
 
-    this.agentCompletedCall(bridge.callId, bridge.agentId);
+    // A fast BYE can race the awaited answer/backlink writes. Tear down media
+    // immediately, then wait before the exactly-once database finalizer.
+    if (bridge.ready) await bridge.ready;
+    if (bridge.recordingName) {
+      try { await this.ariClient.stopRecording(bridge.recordingName); } catch {}
+    }
+    await this.agentCompletedCall(bridge.callId, bridge.agentId);
 
     // Notify agent's browser immediately so "In Call" resets without waiting for SIP BYE
     if (hungUpSide === "caller") {
