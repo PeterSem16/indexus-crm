@@ -24,6 +24,7 @@ import {
 import { PulseMainDialButton, PulseQuickDialButton } from "@/components/pulse-dial-button";
 import { SopPanel } from "@/components/agent/SopPanel";
 import { MyActivityPanel } from "@/components/agent/MyShiftUnified";
+import { AgentToolbarUnified } from "@/components/agent/AgentToolbarUnified";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -131,7 +132,6 @@ import {
   UserCircle,
   Mic,
   MicOff,
-  LogOut,
   LogIn,
   Grid3X3,
   CalendarClock,
@@ -221,7 +221,7 @@ import { ClinicFormSheet } from "@/components/clinic-form-wizard";
 import { CollaboratorFormWizard } from "@/components/collaborator-form-wizard";
 import { InboundCallPopup, InboundQueueStatus } from "@/components/agent/InboundCallPopup";
 import { VoicemailNotifications } from "@/components/agent/VoicemailNotifications";
-import type { Campaign, Customer, CampaignContact, CampaignDisposition, AgentBreakType, Hospital, Clinic, Collaborator } from "@shared/schema";
+import type { Campaign, Customer, CampaignContact, CampaignDisposition, Hospital, Clinic, Collaborator } from "@shared/schema";
 import { DISPOSITION_NAME_TRANSLATIONS } from "@shared/schema";
 import {
   inferOutboundCountryCode,
@@ -1156,322 +1156,6 @@ interface ParsedScript {
   description?: string;
   startStepId?: string;
   steps: ScriptStep[];
-}
-
-function TopBar({
-  status,
-  onStatusChange,
-  stats,
-  quotas,
-  isQuotaBlocked,
-  workTime,
-  breakTypes,
-  activeBreakName,
-  activeBreakType,
-  breakTime,
-  breakElapsedSeconds,
-  onStartBreak,
-  onEndBreak,
-  isOnBreak,
-  onEndSession,
-  isSessionActive,
-  t,
-  onOpenScheduledQueue,
-  scheduledQueueCounts,
-  missedCommunicationCounts,
-  onOpenAbandonedCalls,
-  onOpenMyActivity,
-  inboundRingtoneEnabled,
-  onToggleInboundRingtone,
-}: {
-  status: AgentStatus;
-  onStatusChange: (status: AgentStatus) => void;
-  stats: { calls: number; emails: number; sms: number };
-  quotas: { calls: number | null; emails: number | null; sms: number | null } | null;
-  isQuotaBlocked: (type: "calls" | "emails" | "sms") => boolean;
-  workTime: string;
-  breakTypes: AgentBreakType[];
-  activeBreakName: string | null;
-  activeBreakType: AgentBreakType | null;
-  breakTime: string;
-  breakElapsedSeconds: number;
-  onStartBreak: (breakTypeId: string) => void;
-  onEndBreak: () => void;
-  isOnBreak: boolean;
-  onEndSession: () => void;
-  isSessionActive: boolean;
-  t: any;
-  onOpenScheduledQueue?: () => void;
-  scheduledQueueCounts?: { total: number; overdue: number };
-  missedCommunicationCounts?: { calls: number; emails: number; sms: number };
-  onOpenAbandonedCalls?: () => void;
-  onOpenMyActivity?: () => void;
-  inboundRingtoneEnabled?: boolean;
-  onToggleInboundRingtone?: () => void;
-}) {
-  const STATUS_CONFIG = getStatusConfig(t);
-  const config = STATUS_CONFIG[status];
-  const { user: topBarUser } = useAuth();
-  const { data: fwdData } = useQuery<{ enabled: boolean; number: string | null }>({
-    queryKey: ["/api/users", topBarUser?.id, "call-forwarding"],
-    queryFn: () => fetch(`/api/users/${topBarUser!.id}/call-forwarding`, { credentials: "include" }).then(r => r.json()),
-    enabled: !!topBarUser?.id && !!isSessionActive,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
-  });
-  const callForwardingActive = !!(fwdData?.enabled && fwdData?.number);
-
-  return (
-    <div className="shrink-0">
-      {/* Row 1: Agent status bar */}
-      <div className="h-12 border-b bg-card flex items-center justify-between px-4 gap-2">
-        <div className="flex items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
-                data-testid="dropdown-agent-status"
-              >
-                <span className={`h-2 w-2 rounded-full ${config.color} ${status === "available" ? "animate-pulse" : ""}`} />
-                {config.icon}
-                <span className="font-medium text-xs">{config.label}</span>
-                <ChevronDown className="h-3 w-3 opacity-50" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
-              {(["available", "busy", "wrap_up"] as AgentStatus[]).map((key) => {
-                const value = STATUS_CONFIG[key];
-                return (
-                  <DropdownMenuItem
-                    key={key}
-                    onClick={() => onStatusChange(key)}
-                    className="gap-3 py-2"
-                    data-testid={`menu-item-status-${key}`}
-                  >
-                    <span className={`h-2.5 w-2.5 rounded-full ${value.color}`} />
-                    {value.icon}
-                    <span className="font-medium">{value.label}</span>
-                  </DropdownMenuItem>
-                );
-              })}
-              <Separator className="my-1" />
-              {breakTypes.length > 0 && (
-                <>
-                  <div className="px-2 py-1 text-xs text-muted-foreground font-medium">{t.agentSession.breaks}</div>
-                  {breakTypes.map((bt) => (
-                    <DropdownMenuItem
-                      key={bt.id}
-                      onClick={() => onStartBreak(bt.id)}
-                      className="gap-3 py-2"
-                      data-testid={`menu-item-break-${bt.id}`}
-                    >
-                      <span className="h-2.5 w-2.5 rounded-full bg-yellow-500" />
-                      <Coffee className="h-4 w-4" />
-                      <span className="font-medium">{bt.name}</span>
-                      {bt.maxDurationMinutes && (
-                        <span className="ml-auto text-xs text-muted-foreground">{bt.maxDurationMinutes}m</span>
-                      )}
-                    </DropdownMenuItem>
-                  ))}
-                  <Separator className="my-1" />
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {isSessionActive && (
-            <Button variant="outline" size="sm" onClick={onEndSession} data-testid="button-end-session" className="text-destructive border-destructive/30 gap-1">
-              <LogOut className="h-3.5 w-3.5" />
-              <span className="text-xs hidden xl:inline">{t.agentSession.endShift}</span>
-            </Button>
-          )}
-
-          {isSessionActive && onToggleInboundRingtone && (
-            callForwardingActive ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onToggleInboundRingtone}
-                data-testid="button-toggle-inbound-ringtone"
-                aria-pressed={!!inboundRingtoneEnabled}
-                title={`${t.agentSession.callForwardingActive} → ${fwdData?.number} · ${inboundRingtoneEnabled ? t.agentWorkspace.inboundRingtoneOn : t.agentWorkspace.inboundRingtoneOff}`}
-                className="gap-1.5 text-orange-600 border-orange-400/60 dark:text-orange-400 dark:border-orange-500/40"
-              >
-                <PhoneForwarded className="h-3.5 w-3.5 shrink-0" />
-                <span className="text-[10px] font-mono leading-none max-w-[80px] truncate hidden sm:inline">{fwdData?.number}</span>
-                {inboundRingtoneEnabled
-                  ? <Volume2 className="h-3.5 w-3.5 shrink-0" />
-                  : <VolumeX className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onToggleInboundRingtone}
-                data-testid="button-toggle-inbound-ringtone"
-                aria-pressed={!!inboundRingtoneEnabled}
-                title={inboundRingtoneEnabled ? t.agentWorkspace.inboundRingtoneOn : t.agentWorkspace.inboundRingtoneOff}
-                className={`gap-1 ${inboundRingtoneEnabled ? "text-green-600 border-green-500/40 dark:text-green-400" : "text-muted-foreground"}`}
-              >
-                {inboundRingtoneEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
-              </Button>
-            )
-          )}
-
-          {isOnBreak && activeBreakName && (() => {
-            const expectedMin = activeBreakType?.expectedDurationMinutes;
-            const isExceeded = expectedMin ? breakElapsedSeconds > expectedMin * 60 : false;
-            const exceededBy = expectedMin ? Math.max(0, Math.floor((breakElapsedSeconds - expectedMin * 60) / 60)) : 0;
-            return (
-              <div className="flex items-center gap-1.5">
-                <Badge
-                  variant="secondary"
-                  className={`gap-1 ${isExceeded ? "text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 animate-pulse border border-red-300 dark:border-red-700" : "text-yellow-700 dark:text-yellow-300"}`}
-                  data-testid="badge-break-active"
-                >
-                  {isExceeded ? <AlertTriangle className="h-3 w-3" /> : <Coffee className="h-3 w-3" />}
-                  <span className="text-xs">{activeBreakName}</span>
-                  <span className="font-mono text-[10px]">{breakTime}</span>
-                </Badge>
-                {isExceeded && (
-                  <Badge variant="destructive" className="gap-1 text-[10px]" data-testid="badge-break-exceeded">
-                    <AlertTriangle className="h-3 w-3" />
-                    +{exceededBy}m
-                  </Badge>
-                )}
-                <Button variant="outline" size="sm" onClick={onEndBreak} data-testid="button-end-break">
-                  <Play className="h-3 w-3 mr-1" />
-                  <span className="text-xs">{t.agentSession.continueWork}</span>
-                </Button>
-              </div>
-            );
-          })()}
-
-          <Separator orientation="vertical" className="h-6 mx-1" />
-
-          <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-muted/50">
-            <Clock className="h-3 w-3 text-muted-foreground" />
-            <span className="font-mono text-[11px] font-semibold" data-testid="text-work-time">{workTime}</span>
-          </div>
-
-          <div className="flex items-center gap-2.5">
-            <div className={`flex items-center gap-1 text-xs ${isQuotaBlocked("calls") ? "opacity-50" : ""}`} data-testid="stat-calls">
-              <Phone className={`h-3 w-3 ${isQuotaBlocked("calls") ? "text-destructive" : "text-blue-500"}`} />
-              <span className={`font-bold ${isQuotaBlocked("calls") ? "text-destructive" : "text-blue-600 dark:text-blue-400"}`}>
-                {stats.calls}{quotas?.calls !== null && quotas?.calls !== undefined ? `/${quotas.calls}` : ""}
-              </span>
-            </div>
-            <div className={`flex items-center gap-1 text-xs ${isQuotaBlocked("emails") ? "opacity-50" : ""}`} data-testid="stat-emails">
-              <Mail className={`h-3 w-3 ${isQuotaBlocked("emails") ? "text-destructive" : "text-green-500"}`} />
-              <span className={`font-bold ${isQuotaBlocked("emails") ? "text-destructive" : "text-green-600 dark:text-green-400"}`}>
-                {stats.emails}{quotas?.emails !== null && quotas?.emails !== undefined ? `/${quotas.emails}` : ""}
-              </span>
-            </div>
-            <div className={`flex items-center gap-1 text-xs ${isQuotaBlocked("sms") ? "opacity-50" : ""}`} data-testid="stat-sms">
-              <MessageSquare className={`h-3 w-3 ${isQuotaBlocked("sms") ? "text-destructive" : "text-orange-500"}`} />
-              <span className={`font-bold ${isQuotaBlocked("sms") ? "text-destructive" : "text-orange-600 dark:text-orange-400"}`}>
-                {stats.sms}{quotas?.sms !== null && quotas?.sms !== undefined ? `/${quotas.sms}` : ""}
-              </span>
-            </div>
-          </div>
-
-          {onOpenScheduledQueue && (
-            <>
-              <Separator orientation="vertical" className="h-6 mx-1" />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onOpenScheduledQueue}
-                className="gap-1.5 relative"
-                data-testid="btn-open-scheduled-queue"
-              >
-                <CalendarClock className="h-3.5 w-3.5" />
-                <span className="text-xs hidden xl:inline">{t.agentWorkspace.queue}</span>
-                {scheduledQueueCounts && scheduledQueueCounts.total > 0 && (
-                  <Badge
-                    variant={scheduledQueueCounts.overdue > 0 ? "destructive" : "secondary"}
-                    className="text-[9px] h-4 min-w-[16px] px-1 ml-0.5"
-                    data-testid="badge-scheduled-total"
-                  >
-                    {scheduledQueueCounts.total}
-                  </Badge>
-                )}
-                {scheduledQueueCounts && scheduledQueueCounts.overdue > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive" />
-                  </span>
-                )}
-              </Button>
-            </>
-          )}
-
-          {onOpenAbandonedCalls && (
-            <>
-              <Separator orientation="vertical" className="h-6 mx-1" />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onOpenAbandonedCalls}
-                className="gap-1.5 relative"
-                data-testid="btn-open-abandoned-calls"
-              >
-                <PhoneOff className="h-3.5 w-3.5 text-destructive" />
-                <span className="text-xs hidden xl:inline">{t.agentWorkspace.missedLabel}</span>
-                <span className="flex items-center gap-0.5 ml-0.5" aria-label={t.agentWorkspace.missedLabel}>
-                  <Badge
-                    className="text-[9px] h-4 min-w-[18px] px-1 gap-0.5 border-0 bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-950/60 dark:text-red-300"
-                    title={t.agentWorkspace.missedCallsTab}
-                    aria-label={`${t.agentWorkspace.missedCallsTab}: ${missedCommunicationCounts?.calls || 0}`}
-                    data-testid="badge-missed-calls"
-                  >
-                    <PhoneOff className="h-2.5 w-2.5" />
-                    {missedCommunicationCounts?.calls || 0}
-                  </Badge>
-                  <Badge
-                    className="text-[9px] h-4 min-w-[18px] px-1 gap-0.5 border-0 bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-950/60 dark:text-green-300"
-                    title={t.agentWorkspace.missedEmailsTab}
-                    aria-label={`${t.agentWorkspace.missedEmailsTab}: ${missedCommunicationCounts?.emails || 0}`}
-                    data-testid="badge-missed-emails"
-                  >
-                    <Mail className="h-2.5 w-2.5" />
-                    {missedCommunicationCounts?.emails || 0}
-                  </Badge>
-                  <Badge
-                    className="text-[9px] h-4 min-w-[18px] px-1 gap-0.5 border-0 bg-orange-100 text-orange-700 hover:bg-orange-100 dark:bg-orange-950/60 dark:text-orange-300"
-                    title={t.agentWorkspace.missedSmsTab}
-                    aria-label={`${t.agentWorkspace.missedSmsTab}: ${missedCommunicationCounts?.sms || 0}`}
-                    data-testid="badge-missed-sms"
-                  >
-                    <MessageSquare className="h-2.5 w-2.5" />
-                    {missedCommunicationCounts?.sms || 0}
-                  </Badge>
-                </span>
-              </Button>
-            </>
-          )}
-          {onOpenMyActivity && (
-            <>
-              <Separator orientation="vertical" className="h-6 mx-1" />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onOpenMyActivity}
-                className="gap-1.5"
-                data-testid="btn-open-my-activity"
-              >
-                <History className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs hidden xl:inline">{t.agentWorkspace.todayCallsButtonLabel}</span>
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
-
-    </div>
-  );
 }
 
 function TaskListPanel({
@@ -15011,7 +14695,7 @@ function AgentWorkspacePageContent() {
       </Dialog>
 
       {!isMobile && (
-      <TopBar
+      <AgentToolbarUnified
         status={agentSession.status}
         onStatusChange={handleStatusChange}
         stats={stats}

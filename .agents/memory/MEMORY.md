@@ -90,6 +90,7 @@
 - [Agent priority queue authority](agent-priority-queue-authority.md) — personal priority ordering applies after campaign eligibility and must drive sidebar, mobile, Auto, and Next from one queue.
 - [Rescheduled inbound callback visibility](inbound-callback-visibility.md) — pending callback queries must not filter by creation day; day grouping uses Europe/Bratislava callback time.
 - [Pulse fullscreen modal verification](pulse-fullscreen-modal-verification.md) — verify real modal components under fullscreen ancestor styles; isolated canvas and login screenshots miss hidden controls.
+- [Pulse toolbar design approval](pulse-toolbar-design-approval.md) — the approved Unified toolbar is a light-blue two-row panel; adapt sample copy to real actions, not the other way around.
 - [Clone parity semantics](clone-parity-testing.md) — normalized equality alone can hide unchanged IDs; test persisted representations and fresh identities separately.
 - [Bulk filter parity](medical-partner-bulk-filter-parity.md) — sharing the drawer is insufficient; lists and bulk assignment must share matching semantics and bind confirmation to the complete preview.
 - [Priority search design](priority-search-design-approval.md) — approved identity-rich results explain the match while preserving every operational badge and full-queue context.

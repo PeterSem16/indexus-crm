@@ -3879,6 +3879,23 @@ export interface Translations {
   };
   agentWorkspace: {
     queue: string;
+    toolbar: {
+      agentControls: string;
+      availableHint: string;
+      busyHint: string;
+      breakHint: string;
+      wrapUpHint: string;
+      offlineHint: string;
+      endShiftHint: string;
+      onShift: string;
+      sessionActivity: string;
+      scheduledQueue: string;
+      overdue: string;
+      missedCommunications: string;
+      missedCommunicationsHint: string;
+      myShiftHint: string;
+      open: string;
+    };
     workspace: string;
     activeTasks: string;
     campaigns: string;
@@ -12573,6 +12590,14 @@ export const translations: Record<Locale, Translations> = {
     },
     agentWorkspace: {
       queue: 'Queue',
+      toolbar: {
+        agentControls: 'Agent controls', availableHint: 'Ready for contacts', busyHint: 'Currently unavailable',
+        breakHint: 'Break in progress', wrapUpHint: 'Completing contact work', offlineHint: 'Session is inactive',
+        endShiftHint: 'Close today’s session', onShift: 'on shift', sessionActivity: 'Current session activity',
+        scheduledQueue: 'Scheduled queue', overdue: 'Overdue scheduled items',
+        missedCommunications: 'Missed communications', missedCommunicationsHint: 'Calls, emails & SMS',
+        myShiftHint: 'Today’s activity', open: 'Open',
+      },
       workspace: 'NEXUS Pulse',
       activeTasks: 'Active tasks',
       campaigns: 'Missions',
@@ -20101,6 +20126,14 @@ export const translations: Record<Locale, Translations> = {
     },
     agentWorkspace: {
       queue: 'Fronta',
+      toolbar: {
+        agentControls: 'Ovládanie agenta', availableHint: 'Pripravený na kontakty', busyHint: 'Momentálne nedostupný',
+        breakHint: 'Prebieha prestávka', wrapUpHint: 'Dokončovanie práce s kontaktom', offlineHint: 'Relácia nie je aktívna',
+        endShiftHint: 'Ukončiť dnešnú reláciu', onShift: 'na zmene', sessionActivity: 'Aktivita aktuálnej relácie',
+        scheduledQueue: 'Naplánovaná fronta', overdue: 'Oneskorené naplánované položky',
+        missedCommunications: 'Zmeškané komunikácie', missedCommunicationsHint: 'Hovory, e-maily a SMS',
+        myShiftHint: 'Dnešná aktivita', open: 'Otvoriť',
+      },
       workspace: 'NEXUS Pulse',
       activeTasks: 'Aktívne úlohy',
       campaigns: 'Misie',
@@ -27612,6 +27645,14 @@ export const translations: Record<Locale, Translations> = {
     },
     agentWorkspace: {
       queue: 'Fronta',
+      toolbar: {
+        agentControls: 'Ovládání agenta', availableHint: 'Připraven na kontakty', busyHint: 'Momentálně nedostupný',
+        breakHint: 'Probíhá přestávka', wrapUpHint: 'Dokončování práce s kontaktem', offlineHint: 'Relace není aktivní',
+        endShiftHint: 'Ukončit dnešní relaci', onShift: 'na směně', sessionActivity: 'Aktivita aktuální relace',
+        scheduledQueue: 'Naplánovaná fronta', overdue: 'Zpožděné naplánované položky',
+        missedCommunications: 'Zmeškané komunikace', missedCommunicationsHint: 'Hovory, e-maily a SMS',
+        myShiftHint: 'Dnešní aktivita', open: 'Otevřít',
+      },
       workspace: 'NEXUS Pulse',
       activeTasks: 'Aktivní úkoly',
       campaigns: 'Mise',
@@ -35075,6 +35116,15 @@ export const translations: Record<Locale, Translations> = {
     },
     agentWorkspace: {
       queue: 'Várólista',
+      toolbar: {
+        agentControls: 'Ügynöki vezérlők', availableHint: 'Kapcsolatok fogadására kész', busyHint: 'Jelenleg nem elérhető',
+        breakHint: 'Szünet folyamatban', wrapUpHint: 'Kapcsolati munka befejezése', offlineHint: 'A munkamenet inaktív',
+        endShiftHint: 'Mai munkamenet bezárása', onShift: 'műszakban', sessionActivity: 'Aktuális munkamenet aktivitása',
+        scheduledQueue: 'Ütemezett várólista', overdue: 'Lejárt ütemezett elemek',
+        missedCommunications: 'Nem fogadott kommunikációk', missedCommunicationsHint: 'Hívások, e-mailek és SMS-ek',
+        myShiftHint: 'Mai aktivitás', open: 'Megnyitás',
+      },
+      todayCallsButtonLabel: 'Saját műszak',
       workspace: 'NEXUS Pulse',
       activeTasks: 'Aktív feladatok',
       campaigns: 'Missziók',
@@ -42425,6 +42475,15 @@ export const translations: Record<Locale, Translations> = {
     },
     agentWorkspace: {
       queue: 'Coadă',
+      toolbar: {
+        agentControls: 'Comenzi agent', availableHint: 'Pregătit pentru contacte', busyHint: 'Indisponibil momentan',
+        breakHint: 'Pauză în desfășurare', wrapUpHint: 'Finalizarea lucrului cu contactul', offlineHint: 'Sesiunea este inactivă',
+        endShiftHint: 'Închide sesiunea de azi', onShift: 'în tură', sessionActivity: 'Activitatea sesiunii curente',
+        scheduledQueue: 'Coadă programată', overdue: 'Elemente programate întârziate',
+        missedCommunications: 'Comunicări pierdute', missedCommunicationsHint: 'Apeluri, e-mailuri și SMS',
+        myShiftHint: 'Activitatea de azi', open: 'Deschide',
+      },
+      todayCallsButtonLabel: 'Tura mea',
       workspace: 'NEXUS Pulse',
       activeTasks: 'Sarcini active',
       campaigns: 'Misiuni',
@@ -49776,6 +49835,15 @@ export const translations: Record<Locale, Translations> = {
     },
     agentWorkspace: {
       queue: 'Coda',
+      toolbar: {
+        agentControls: 'Controlli agente', availableHint: 'Pronto per i contatti', busyHint: 'Al momento non disponibile',
+        breakHint: 'Pausa in corso', wrapUpHint: 'Completamento del lavoro sul contatto', offlineHint: 'La sessione non è attiva',
+        endShiftHint: 'Chiudi la sessione odierna', onShift: 'in turno', sessionActivity: 'Attività della sessione corrente',
+        scheduledQueue: 'Coda programmata', overdue: 'Elementi programmati scaduti',
+        missedCommunications: 'Comunicazioni perse', missedCommunicationsHint: 'Chiamate, e-mail e SMS',
+        myShiftHint: 'Attività di oggi', open: 'Apri',
+      },
+      todayCallsButtonLabel: 'Il mio turno',
       workspace: 'NEXUS Pulse',
       activeTasks: 'Attività attive',
       campaigns: 'Missioni',
@@ -57127,6 +57195,15 @@ export const translations: Record<Locale, Translations> = {
     },
     agentWorkspace: {
       queue: 'Warteschlange',
+      toolbar: {
+        agentControls: 'Agentensteuerung', availableHint: 'Bereit für Kontakte', busyHint: 'Derzeit nicht verfügbar',
+        breakHint: 'Pause läuft', wrapUpHint: 'Kontaktarbeit wird abgeschlossen', offlineHint: 'Sitzung ist inaktiv',
+        endShiftHint: 'Heutige Sitzung schließen', onShift: 'in der Schicht', sessionActivity: 'Aktivität der aktuellen Sitzung',
+        scheduledQueue: 'Geplante Warteschlange', overdue: 'Überfällige geplante Einträge',
+        missedCommunications: 'Verpasste Kommunikation', missedCommunicationsHint: 'Anrufe, E-Mails und SMS',
+        myShiftHint: 'Heutige Aktivität', open: 'Öffnen',
+      },
+      todayCallsButtonLabel: 'Meine Schicht',
       workspace: 'NEXUS Pulse',
       activeTasks: 'Aktive Aufgaben',
       campaigns: 'Missionen',

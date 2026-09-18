@@ -413,3 +413,17 @@ mtime_ms = 1789726315184
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/4ba79db5-19cc-4585-88ad-567598fb66e9/06925e8b-7b1a-4be2-af3f-9f2486eee871"
 storage_version_token = "1789726323475950"
 content_type = "image/png"
+
+[[outputs]]
+id = "8NEGUUuv0bD6RqC1y6mZB"
+uri = "file://screenshots/pulse-toolbar-desktop.png"
+type = "image"
+title = "Nová horná lišta v aplikácii"
+description = "Skutočné komponenty aplikácie pri overení s testovacími údajmi; schválený Unified dizajn."
+logical_id = "c45f3dff-e777-4a5c-bc39-c3ce3be86faa"
+content_hash = "sha256:9a76d120463b0ae7be4118df156cb3dbe9bc85ab4a59dc2b09a4ad506052e83a"
+size = 456808
+mtime_ms = 1789728836562
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/c45f3dff-e777-4a5c-bc39-c3ce3be86faa/09a19a69-4cb5-43c7-9b70-c07823c7412c"
+storage_version_token = "1789728939374713"
+content_type = "image/png"
