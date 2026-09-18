@@ -49,6 +49,7 @@ export const modules: ModuleMap = {
   "./components/mockups/pricing-configurator/PriceLists.tsx": () => import("../components/mockups/pricing-configurator/PriceLists.tsx"),
   "./components/mockups/priority-search/Current.tsx": () => import("../components/mockups/priority-search/Current.tsx"),
   "./components/mockups/priority-search/Enriched.tsx": () => import("../components/mockups/priority-search/Enriched.tsx"),
+  "./components/mockups/pulse-test-exploration/Current.tsx": () => import("../components/mockups/pulse-test-exploration/Current.tsx"),
   "./components/mockups/result-panels/CallResult.tsx": () => import("../components/mockups/result-panels/CallResult.tsx"),
   "./components/mockups/result-panels/EmailResult.tsx": () => import("../components/mockups/result-panels/EmailResult.tsx"),
   "./components/mockups/result-panels/SmsResult.tsx": () => import("../components/mockups/result-panels/SmsResult.tsx"),
