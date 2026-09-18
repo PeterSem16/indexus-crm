@@ -3,6 +3,12 @@ name: Pulse gate escape
 description: Product rule for mandatory NEXUS Pulse readiness checks.
 ---
 
+Temporary readiness bypass is authorized only for development UI review, not as an alternative agent onboarding flow.
+
+**Why:** Replit UI review can lack SIP registration, but inspecting My Shift and Missed communications must not certify telephony or weaken published readiness checks.
+
+**How to apply:** Keep preview entry explicit, development-only, authenticated and permission-scoped; never persist successful readiness or simulate SIP registration. Explain that CRM actions still affect real data.
+
 The NEXUS Pulse readiness check may block Agent Workspace before work starts, but it must never trap the user or interrupt a live call, post-call wrap-up, or recorded-call playback; always provide a clear route back to normal INDEXUS.
 
 Environment-triggered rechecks must discard old diagnostic completion state only once per pending recheck. Coalesce repeated device polling/focus/network reports until a successful run commits its new device baseline.

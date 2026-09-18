@@ -14,6 +14,7 @@ import { PulseDiagnostics } from "./PulseDiagnostics";
 import { audioDeviceSnapshotsEqual, isPulseReadinessEnvironmentValid, isPulseSessionProtected, normalizeAudioDeviceSnapshot, parseAudioDeviceSnapshot, pulseAudioDeviceBaselineStorageKey, pulseReadinessStorageKey, shouldPresentDeferredRecheck, shouldRetainStoredReadiness } from "./diagnostics";
 import { isPulseRecordingPlaybackActive } from "./recording-playback";
 import { pulseCopy } from "./translations";
+import { canUsePulseDevPreview, PULSE_DEV_PREVIEW_PARAM, pulseDevPreviewCopy } from "./dev-preview";
 
 type Props = { children: ReactNode };
 type Status = "checking" | "ready" | "warning" | "blocked";
@@ -41,6 +42,32 @@ async function readAudioDeviceSnapshot() {
 }
 
 export function PulseGate({ children }: Props) {
+  const { user } = useAuth();
+  const { canAccessModule, isLoading } = usePermissions();
+  const { locale } = useI18n();
+  const [location] = useLocation();
+  const preview = canUsePulseDevPreview(import.meta.env.DEV, window.location.hostname)
+    && new URLSearchParams(window.location.search).get(PULSE_DEV_PREVIEW_PARAM) === "1";
+  // No readiness flag/event is written. Unmount the real gate only for this
+  // explicit development URL; leaving it restores the complete normal gate.
+  if (preview && user && !isLoading && canAccessModule("nexusPulse")) {
+    const copy = pulseDevPreviewCopy(locale);
+    return <>
+      <aside role="status" data-testid="pulse-dev-preview-banner" className="relative z-[10036] flex flex-wrap items-center justify-between gap-2 border-b border-amber-400 bg-amber-100 px-4 py-2 text-xs text-amber-950">
+        <span>{copy.notice}</span>
+        <Button variant="outline" size="sm" className="shrink-0 bg-white text-amber-950" onClick={() => {
+          const url = new URL(window.location.href);
+          url.searchParams.delete(PULSE_DEV_PREVIEW_PARAM);
+          window.location.assign(url.pathname + url.search + url.hash);
+        }} data-testid="button-pulse-exit-ui-preview">{copy.exit}</Button>
+      </aside>
+      {children}
+    </>;
+  }
+  return <RequiredPulseGate key={location.split("?")[0]}>{children}</RequiredPulseGate>;
+}
+
+function RequiredPulseGate({ children }: Props) {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const { locale } = useI18n();
