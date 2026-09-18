@@ -114,6 +114,16 @@ test("unified toolbar keeps status, break, forwarding, ringtone and end-shift be
   await ringtone.click();
   await expect(ringtone).toHaveAttribute("aria-pressed", "false");
   await assertToolbarBounds(page);
+  // Desktop toolbar must be ONE row, with counters directly after the timer.
+  const rowControls = await Promise.all(
+    ["dropdown-agent-status", "button-end-session", "button-toggle-inbound-ringtone", "btn-open-scheduled-queue", "btn-open-abandoned-calls", "btn-open-my-activity"]
+      .map(id => page.getByTestId(id).boundingBox()),
+  );
+  const centers = rowControls.map(rect => rect!.y + rect!.height / 2);
+  expect(Math.max(...centers) - Math.min(...centers)).toBeLessThanOrEqual(2);
+  const timer = await page.locator(".agent-toolbar-unified .pta-timer").boundingBox();
+  const counters = await page.locator(".agent-toolbar-unified .pta-micro-counts").boundingBox();
+  expect(counters!.x - (timer!.x + timer!.width)).toBeLessThanOrEqual(10);
   await page.screenshot({ path: "screenshots/pulse-toolbar-desktop.png", fullPage: false });
   await status.click();
   await page.getByTestId("menu-item-status-busy").click();
