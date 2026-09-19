@@ -15,6 +15,20 @@ The inbound caller being Up (for queue greetings/music) does not prove that the 
 
 **How to apply:** Use observed callee answer/bridge evidence. If that evidence is unavailable on a dialplan handoff, preserve an explicit forwarded outcome rather than manufacture answer timestamps.
 
+Forwarding evidence must survive the CRM worker, and must remain bound to the
+same PBX even when transport credentials are refreshed.
+
+**Why:** ARI handoff leaves Stasis and neither an in-memory AMI listener nor
+channel polling can replay events missed during a restart. Asterisk unique IDs
+are not globally unique across different PBXs; accepting a replacement server's
+events can attribute another call's answer to the original caller.
+
+**How to apply:** Replay retained, server-read CEL evidence with exact external
+leg and bridge correlation. Keep unresolved calls explicit when the source is
+unavailable. Installing a CEL consumer on mediagtw and deploying CRM on
+CORPCRM01 are separate operator steps; a successful HTTPS response is not proof
+that either the collector or controlled-call verification has run.
+
 Historical recovery must use persisted call-time Mission metadata and skip ambiguous matches, never infer a Mission from today's queue membership or a shared customer.
 
 **Why:** Those assignments can change and can attribute one call to the wrong Mission or duplicate an existing call.

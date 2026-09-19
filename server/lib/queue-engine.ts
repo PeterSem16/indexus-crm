@@ -43,6 +43,7 @@ import {
   type ResolvedOutboundRouting,
 } from "@shared/telephony-routing";
 import { resolveMissionRecordingPolicy, type MissionCallRecordingSnapshot } from "@shared/mission-recording";
+import { cancelForwardedHandoff, ForwardedCallReconciler, persistForwardedHandoff } from "./forwarded-call-reconciliation";
 import {
   projectWallboardQueueCalls,
   type WallboardQueueCall,
@@ -178,6 +179,7 @@ export class QueueEngine extends EventEmitter {
     campaignId?: string | null;
     recordingPolicySnapshot?: MissionCallRecordingSnapshot | null;
   }> = new Map();
+  private directQueueForwardedRoots: Set<string> = new Set();
 
   // ── Standing forward (mobile fallback when no desk agent is logged in) ──────────
   // agentId sentinel is `standing:<userId>` so the shared pending/bridge/complete
@@ -195,6 +197,10 @@ export class QueueEngine extends EventEmitter {
     recordingPolicySnapshot: MissionCallRecordingSnapshot | null;
   }> = new Map();
   private mobileRecordingSavesInFlight: Set<string> = new Set();
+  private forwardedReconciler = new ForwardedCallReconciler(rootUniqueId => {
+    this.forwardedCallTracking.delete(rootUniqueId);
+    this.directQueueForwardedRoots.delete(rootUniqueId);
+  });
 
   constructor(ariClient: AriClient) {
     super();
@@ -648,7 +654,7 @@ export class QueueEngine extends EventEmitter {
     if (recordingSnapshot?.active && recordingSnapshot.mode === "agent_only") {
       console.warn("[QueueForwardedRec] Agent-only Mission capture unavailable on dialplan MixMonitor; recording disabled");
     }
-    const recordingName = `qfwd_${call.channelId.replace(/-/g, "_")}_${Date.now()}`;
+    const recordingName = `qfwd_${call.channelId.replace(/[^a-zA-Z0-9_]/g, "_")}_${Date.now()}`;
     if (recordCalls) {
       try {
         await this.ariClient.setChannelVariable(call.channelId, "INDEXUS_REC_NAME", recordingName);
@@ -664,10 +670,6 @@ export class QueueEngine extends EventEmitter {
       campaignId, recordingSnapshot, recordCalls,
     );
 
-    await db.update(inboundCallLogs)
-      .set({ status: "forwarded", transferredTo: forwardNumber })
-      .where(eq(inboundCallLogs.id, call.id));
-
     // Use the proven forwardToExternalNumber which routes via the correct trunk.
     try {
       await this.forwardToExternalNumber(call.channelId, forwardNumber, {
@@ -675,7 +677,9 @@ export class QueueEngine extends EventEmitter {
         callerNumber: call.callerNumber,
       });
     } catch (handoffError) {
+      await cancelForwardedHandoff(call.channelId);
       this.forwardedCallTracking.delete(call.channelId);
+      this.directQueueForwardedRoots.delete(call.channelId);
       const endedAt = new Date();
       await Promise.all([
         db.update(callLogs).set({ status: "failed", endedAt, durationSeconds: 0 })
@@ -709,74 +713,11 @@ export class QueueEngine extends EventEmitter {
     recordingSnapshot: MissionCallRecordingSnapshot | null,
     recordCalls: boolean,
   ): Promise<string> {
-    // 1. Create/link callLogs independently of recording policy.
-    let callLogId: string | null = null;
-    try {
-      const [existingInbound] = await db.select({ callLogId: inboundCallLogs.callLogId })
-        .from(inboundCallLogs).where(eq(inboundCallLogs.id, call.id)).limit(1);
-      callLogId = existingInbound?.callLogId || null;
-      if (callLogId) {
-        await db.update(callLogs).set({
-          userId: agentUserId,
-          campaignId,
-          status: "forwarded",
-          endedAt: null,
-          durationSeconds: 0,
-          isForwarded: true,
-          forwardedToNumber: forwardNumber,
-        }).where(eq(callLogs.id, callLogId));
-      }
-      if (!callLogId) {
-        const [callLog] = await db.insert(callLogs).values({
-          userId: agentUserId,
-          customerId: call.customerId || null,
-          campaignId: campaignId || null,
-          phoneNumber: call.callerNumber,
-          direction: "inbound",
-          status: "forwarded",
-          startedAt: call.enteredAt || new Date(),
-          isForwarded: true,
-          forwardedToNumber: forwardNumber,
-          inboundQueueId: queue.id,
-          inboundQueueName: queue.name,
-          inboundCallLogId: call.id,
-          sipCallId: call.channelId,
-          metadata: JSON.stringify({
-            queueForwarded: true,
-            agentName: agentUser.fullName,
-            ...(recordingSnapshot ? { recordingPolicySnapshot: recordingSnapshot } : {}),
-          }),
-        } as any).returning({ id: callLogs.id });
-        callLogId = callLog?.id || null;
-        if (callLogId) {
-          const insertedId = callLogId;
-          const [claimed] = await db.update(inboundCallLogs)
-            .set({ callLogId: insertedId })
-            .where(and(eq(inboundCallLogs.id, call.id), isNull(inboundCallLogs.callLogId)))
-            .returning({ id: inboundCallLogs.id });
-          if (!claimed) {
-            const [winner] = await db.select({ callLogId: inboundCallLogs.callLogId })
-              .from(inboundCallLogs).where(eq(inboundCallLogs.id, call.id)).limit(1);
-            await db.delete(callLogs).where(eq(callLogs.id, insertedId));
-            callLogId = winner?.callLogId || null;
-          }
-        }
-      }
-    } catch (err) {
-      throw new Error(`failed to persist forwarded call before handoff: ${err instanceof Error ? err.message : String(err)}`);
-    }
-
-    if (!callLogId) throw new Error("failed to persist forwarded call before handoff: no canonical call id");
-
-    // 2. Load ARI/SSH settings only when recording is permitted.
-    const [cfg] = recordCalls
-      ? await db.select().from(ariSettings).limit(1).catch((error) => {
-          console.warn("[QueueForwardedRec] Recording transport settings unavailable; call tracking retained:",
-            error instanceof Error ? error.message : error);
-          return [];
-        })
-      : [];
-    const sshInfo = (cfg?.host && cfg?.sshUsername && cfg?.sshPassword)
+    // Bind every handoff to the configured PBX, even when recording is off.
+    // Credentials remain process-local and may rotate without changing identity.
+    const [cfg] = await db.select().from(ariSettings).limit(1);
+    if (!cfg?.host) throw new Error("Cannot persist forwarding without a configured PBX identity");
+    const sshInfo = (recordCalls && cfg.host && cfg.sshUsername && cfg.sshPassword)
       ? {
           host: cfg.host,
           sshPort: cfg.sshPort || 22,
@@ -788,12 +729,63 @@ export class QueueEngine extends EventEmitter {
       : null;
 
     const amiFilePath = `/var/spool/asterisk/monitor/${recordingName}`;
+    const transferredAt = new Date();
+    const callLogId = await db.transaction(async tx => {
+      // A duplicate conflict rolls back ALL canonical changes. Never overwrite
+      // a completed handoff during duplicate/late queue delivery.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${call.channelId}))`);
+      const [inbound] = await tx.select().from(inboundCallLogs)
+        .where(eq(inboundCallLogs.id, call.id)).for("update");
+      if (!inbound) throw new Error("Cannot forward a call without its inbound log");
+      let id = inbound.callLogId;
+      const canonical = {
+        userId: agentUserId, campaignId, status: "forwarded", endedAt: null,
+        answeredAt: null, durationSeconds: 0, isForwarded: true,
+        forwardedToNumber: forwardNumber,
+      };
+      if (id) {
+        await tx.update(callLogs).set(canonical).where(eq(callLogs.id, id));
+      } else {
+        const [inserted] = await tx.insert(callLogs).values({
+          ...canonical,
+          customerId: call.customerId || null,
+          phoneNumber: call.callerNumber,
+          direction: "inbound",
+          startedAt: call.enteredAt || new Date(),
+          inboundQueueId: queue.id,
+          inboundQueueName: queue.name,
+          inboundCallLogId: call.id,
+          sipCallId: call.channelId,
+          metadata: JSON.stringify({
+            queueForwarded: true, agentName: agentUser.fullName,
+            ...(recordingSnapshot ? { recordingPolicySnapshot: recordingSnapshot } : {}),
+          }),
+        }).returning({ id: callLogs.id });
+        id = inserted.id;
+      }
+      await persistForwardedHandoff({
+        rootUniqueId: call.channelId, inboundCallLogId: call.id, callLogId: id,
+        pbxHost: cfg.host.trim().toLowerCase(), pbxSshPort: cfg.sshPort || 22,
+        transferredAt, status: "forwarded",
+        recordingAuthorized: recordCalls, recordingPolicySnapshot: recordingSnapshot,
+        recordingName, recordingPath: amiFilePath,
+        recordingState: recordCalls ? "pending" : "off",
+        userId: agentUserId, customerId: call.customerId || null,
+        campaignId, callerNumber: call.callerNumber,
+      }, tx);
+      await tx.update(inboundCallLogs).set({
+        callLogId: id, status: "forwarded", transferredTo: forwardNumber,
+        answeredAt: null, completedAt: null, talkDurationSeconds: 0,
+      }).where(eq(inboundCallLogs.id, call.id));
+      return id;
+    });
 
-    // 3. Register in forwardedCallTracking — reuses processForwardedCallRecordingAsync
+    // Process-local compatibility for the existing RO hairpin MixMonitor start.
+    // This map is NOT used as answer/completion evidence for queue handoffs.
     const tracking = {
       callLogId,
       inboundChannelId: call.channelId,
-      startTime: new Date(),
+      startTime: transferredAt,
       recordingName,
       amiFilePath,
       sshInfo,
@@ -806,39 +798,11 @@ export class QueueEngine extends EventEmitter {
       recordingPolicySnapshot: recordingSnapshot,
     };
     this.forwardedCallTracking.set(call.channelId, tracking);
+    this.directQueueForwardedRoots.add(call.channelId);
 
-    // 4. Poll for channel hangup even when recording is disabled — continueDialplan exits Stasis so there is no
-    //    channel-destroyed event in ARI; polling getChannel is the reliable signal.
-    const channelId = call.channelId;
-    const pollForHangup = async () => {
-      const maxMs = 4 * 60 * 60 * 1000; // 4-hour safety cap
-      while (Date.now() - tracking.startTime.getTime() < maxMs) {
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        try {
-          await this.ariClient.getChannel(channelId);
-          // Still alive — keep polling
-        } catch (err: any) {
-          const msg = String(err?.message || err);
-          if (msg.includes("404") || msg.includes("not found") || msg.toLowerCase().includes("channel not found")) {
-            const t = this.forwardedCallTracking.get(channelId);
-            if (!t) return;
-            this.forwardedCallTracking.delete(channelId);
-            const durationSeconds = Math.max(0, Math.round((Date.now() - t.startTime.getTime()) / 1000));
-            console.log(`[QueueForwardedRec] Channel ${channelId} gone, duration=${durationSeconds}s — starting recording processing`);
-            this.processForwardedCallRecordingAsync(t, durationSeconds).catch(e =>
-              console.error(`[QueueForwardedRec] Processing error:`, e instanceof Error ? e.message : e),
-            );
-            return;
-          }
-          // Transient ARI error — keep polling
-        }
-      }
-      console.warn(`[QueueForwardedRec] Poll timeout for channel ${channelId}, cleaning up`);
-      this.forwardedCallTracking.delete(channelId);
-    };
-
-    pollForHangup().catch(e => console.error(`[QueueForwardedRec] Poll fatal:`, e instanceof Error ? e.message : e));
-    console.log(`[QueueForwardedRec] Tracking active: channelId=${channelId}, callLogId=${callLogId}, ami=${amiFilePath}.wav`);
+    // ARI 404 / caller Up / Local Up are not evidence of an external answer.
+    // The durable CEL reconciler owns lifecycle and recording publication.
+    console.log(`[QueueForwardedRec] Durable tracking active: channelId=${call.channelId}, callLogId=${callLogId}`);
     return callLogId;
   }
 
@@ -892,6 +856,7 @@ export class QueueEngine extends EventEmitter {
 
   async start(): Promise<void> {
     await this.loadAgentStates();
+    this.forwardedReconciler.start();
     this.checkInterval = setInterval(async () => {
       if (this.isProcessing) return;
       this.isProcessing = true;
@@ -911,6 +876,7 @@ export class QueueEngine extends EventEmitter {
   }
 
   stop(): void {
+    this.forwardedReconciler.stop();
     if (this.checkInterval) {
       clearInterval(this.checkInterval);
       this.checkInterval = null;
@@ -4698,6 +4664,7 @@ export class QueueEngine extends EventEmitter {
   }
 
   private async handleChannelLeftStasis(channelId: string): Promise<void> {
+    if (this.directQueueForwardedRoots.has(channelId)) return;
     const waitingCall = this.waitingCalls.get(channelId);
     const assignedEntry = this.assignedCalls.get(channelId);
     const call = waitingCall || assignedEntry?.call;
@@ -4813,6 +4780,9 @@ export class QueueEngine extends EventEmitter {
       console.log(`[QueueEngine] RO hairpin originated channel ${channelId} destroyed before answer, hanging up parent ${pendingHairpin.parentChannelId}`);
       try { await this.ariClient.hangupChannel(pendingHairpin.parentChannelId, "normal"); } catch {}
     }
+
+    // Provisional ARI hangup must not finalize/delete durable CEL evidence.
+    if (this.directQueueForwardedRoots.has(channelId)) return;
 
     this.mohPlaybacks.delete(channelId);
     this.pendingWelcomeCallData.delete(channelId);

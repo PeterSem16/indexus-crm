@@ -3,6 +3,7 @@ import { registerInboundRoutes, autoConnectAri } from "./inbound-routes";
 import { registerCollaboratorUpdateRoutes } from "./collaborator-update-routes";
 import { registerNexusPulseVersionRoutes } from "./nexus-pulse-version-routes";
 import { getQueueEngine } from "./lib/queue-engine";
+import { setForwardedRecordingAnalyzer } from "./lib/forwarded-call-reconciliation";
 import { createServer, type Server } from "http";
 import crypto from "crypto";
 import { WebSocketServer, WebSocket } from "ws";
@@ -171,7 +172,14 @@ import { PDFDocument as PDFLibDocument, rgb, degrees, StandardFonts } from "pdf-
 import { notificationService } from "./lib/notification-service";
 import { normalizeCollaboratorPriorityCity } from "./lib/collaborator-priority-city";
 import { resolveScheduledQueueContact } from "./lib/scheduled-queue-metadata";
-import { addCampaignCallsToOperatorStats, callHandledContactIncrement, reportCallTalkSeconds, reportGroupKey } from "./lib/campaign-report-operator-stats";
+import {
+  addCampaignCallsToOperatorStats,
+  callHandledContactIncrement,
+  reportCallAnalysisSeconds,
+  reportCallListTalkSeconds,
+  reportCallTalkSeconds,
+  reportGroupKey,
+} from "./lib/campaign-report-operator-stats";
 import { canAgentReadCampaignByWorkspaceCountry } from "./lib/agent-workspace-country-access";
 import { normalizeSmsPhone, uniqueSmsEntity, type SmsEntityCandidate } from "./lib/sms-attribution";
 import {
@@ -27465,7 +27473,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const rec = recordingByCall.get(log.id);
       const user = userMap.get(log.userId);
       const customer = log.customerId ? customerMap.get(log.customerId) : null;
-      const duration = rec?.durationSeconds || reportCallTalkSeconds(log);
+      const duration = reportCallAnalysisSeconds(log, rec?.durationSeconds);
       return {
         id: rec?.id || `unrecorded-${log.id}`, callLogId: log.id,
         agent: rec?.agentName || user?.fullName || user?.username || log.userId,
@@ -27865,12 +27873,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         const { name: entityName, contact } = resolveEntityName(log.customerId);
         const totalSec = diffSeconds(log.startedAt, log.endedAt);
         let ringTimeSec = 0;
-        let talkTimeSec = 0;
+        const talkTimeSec = reportCallListTalkSeconds(log);
         if (log.answeredAt) {
           ringTimeSec = diffSeconds(log.startedAt, log.answeredAt);
-          talkTimeSec = diffSeconds(log.answeredAt, log.endedAt);
-        } else if (log.status === 'completed' && totalSec > 0) {
-          talkTimeSec = totalSec;
         }
 
         const dispCode = contact?.dispositionCode || '';
@@ -36719,7 +36724,14 @@ Respond ONLY with valid JSON in this exact format:
     US: { lang: "en", name: "English" },
   };
 
+  const activeRecordingAnalyses = new Set<string>();
+  setForwardedRecordingAnalyzer(processCallRecordingAnalysis);
+
   async function processCallRecordingAnalysis(recordingId: string, filePath: string) {
+    // Publication callbacks and UI auto-analysis can arrive together. Share the
+    // existing pipeline, but never start two same-process analyses of one file.
+    if (activeRecordingAnalyses.has(recordingId)) return;
+    activeRecordingAnalyses.add(recordingId);
     try {
       console.log(`[CallAnalysis] Starting transcription for recording ${recordingId}`);
       await db.update(callRecordings).set({ analysisStatus: "processing" }).where(eq(callRecordings.id, recordingId));
@@ -37039,6 +37051,8 @@ Rules:
         analysisStatus: "failed",
         analysisResult: { error: `Unexpected error: ${err.message}` },
       }).where(eq(callRecordings.id, recordingId));
+    } finally {
+      activeRecordingAnalyses.delete(recordingId);
     }
   }
 

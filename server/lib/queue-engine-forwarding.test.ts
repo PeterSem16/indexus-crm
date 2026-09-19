@@ -67,3 +67,19 @@ test("QueueEngine bridge teardown waits for persistence and finalizes once", asy
   assert.deepEqual(ari.destroyed, ["bridge-1"]);
   assert.deepEqual(ari.stopped, ["mobile_call-1_standing_1"]);
 });
+
+test("direct queue handoff ignores provisional ARI hangup and caller Up", async () => {
+  const ari = new FakeAri();
+  const engine = new QueueEngine(ari as any);
+  (engine as any).directQueueForwardedRoots.add("root");
+  const tracking = { answeredAt: null };
+  (engine as any).forwardedCallTracking.set("root", tracking);
+  (engine as any).assignedCalls.set("root", { agentId: "agent-1" });
+  await (engine as any).handleChannelLeftStasis("root");
+  await (engine as any).handleChannelDestroyed("root");
+  ari.emit("channel-state-change", { channel: { id: "root", state: "Up" } });
+  assert.equal(tracking.answeredAt, null);
+  assert.equal((engine as any).forwardedCallTracking.get("root"), tracking);
+  assert.equal((engine as any).directQueueForwardedRoots.has("root"), true);
+  assert.equal((engine as any).assignedCalls.has("root"), true);
+});

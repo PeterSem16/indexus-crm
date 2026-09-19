@@ -6471,9 +6471,32 @@ export const insertInboundCallLogSchema = createInsertSchema(inboundCallLogs).om
 export type InsertInboundCallLog = z.infer<typeof insertInboundCallLogSchema>;
 export type InboundCallLog = typeof inboundCallLogs.$inferSelect;
 
-// Wallboard alarm rules are private to the viewer who configured them.  The
-// scope is either "all" or "campaign:<id>"; it is intentionally not a campaign
-// setting so readonly wallboard viewers can configure their own alarms.
+export const queueForwardedCalls = pgTable("queue_forwarded_calls", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  rootUniqueId: text("root_unique_id").notNull(),
+  pbxHost: text("pbx_host").notNull(),
+  pbxSshPort: integer("pbx_ssh_port").notNull(),
+  inboundCallLogId: varchar("inbound_call_log_id").notNull().references(() => inboundCallLogs.id),
+  callLogId: varchar("call_log_id").notNull().references(() => callLogs.id),
+  transferredAt: timestamp("transferred_at").notNull(),
+  status: text("status").notNull().default("forwarded"),
+  evidence: jsonb("evidence").$type<import("../server/lib/forwarded-call-evidence").ForwardedCallEvidence>(),
+  recordingAuthorized: boolean("recording_authorized").notNull().default(false),
+  recordingPolicySnapshot: jsonb("recording_policy_snapshot").$type<import("./mission-recording").MissionCallRecordingSnapshot>(),
+  recordingName: text("recording_name").notNull(),
+  recordingPath: text("recording_path").notNull(),
+  recordingState: text("recording_state").notNull().default("off"),
+  userId: varchar("user_id").notNull(),
+  customerId: varchar("customer_id"),
+  campaignId: varchar("campaign_id"),
+  callerNumber: text("caller_number").notNull(),
+  lastError: text("last_error"),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+}, table => ({
+  rootUnique: uniqueIndex("queue_forwarded_calls_root_unique").on(table.rootUniqueId),
+  pendingIndex: index("queue_forwarded_calls_pending").on(table.status, table.recordingState),
+}));
+export type QueueForwardedCall = typeof queueForwardedCalls.$inferSelect;
 export const wallboardAlarmSettings = pgTable("wallboard_alarm_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
@@ -8578,3 +8601,5 @@ export type PricingPriceList = typeof pricingPriceLists.$inferSelect;
 export type PricingIncompleteRule = typeof pricingIncompleteRules.$inferSelect;
 
 export type WallboardAlarmHistoryRow = typeof wallboardAlarmHistory.$inferSelect;
+
+export type QueueForwardedCall = typeof queueForwardedCalls.$inferSelect;

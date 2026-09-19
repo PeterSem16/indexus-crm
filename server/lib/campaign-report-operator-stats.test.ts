@@ -3,6 +3,8 @@ import test from "node:test";
 import {
   addCampaignCallsToOperatorStats,
   callHandledContactIncrement,
+  reportCallAnalysisSeconds,
+  reportCallListTalkSeconds,
   reportCallTalkSeconds,
 } from "./campaign-report-operator-stats";
 
@@ -39,6 +41,125 @@ test("duplicate rows are counted once and timings use answered-to-ended", () => 
   assert.equal(rows["agent__2026-01-02"].callCount, 1);
   assert.equal(rows["agent__2026-01-02"].totalCallTime, 75);
   assert.equal(reportCallTalkSeconds(call), 75);
+});
+
+test("forwarded answered, no-answer, and busy attempts use answer evidence for talk time", () => {
+  const rows: Record<string, any> = {};
+  const calls = [
+    {
+      id: "answered", userId: "agent", status: "completed", isForwarded: true,
+      startedAt: "2026-01-02T10:00:00Z", answeredAt: "2026-01-02T10:00:17Z",
+      endedAt: "2026-01-02T10:01:02Z",
+    },
+    {
+      id: "completed-without-answer", userId: "agent", status: "completed", isForwarded: true,
+      startedAt: "2026-01-02T10:02:00Z", answeredAt: null,
+      endedAt: "2026-01-02T10:02:31Z",
+    },
+    {
+      id: "no-answer", userId: "agent", status: "no_answer", isForwarded: true,
+      startedAt: "2026-01-02T10:03:00Z", answeredAt: null,
+      endedAt: "2026-01-02T10:03:25Z",
+    },
+    {
+      id: "busy", userId: "agent", status: "busy", isForwarded: true,
+      startedAt: "2026-01-02T10:04:00Z", answeredAt: null,
+      endedAt: "2026-01-02T10:04:06Z",
+    },
+  ];
+
+  addCampaignCallsToOperatorStats(rows, calls, [], "total", createRow);
+
+  assert.equal(rows.agent__total.callCount, 4);
+  assert.equal(rows.agent__total.totalCallTime, 45);
+  assert.equal(reportCallTalkSeconds(calls[0]), 45);
+  assert.equal(reportCallTalkSeconds(calls[1]), 0);
+  assert.equal(reportCallTalkSeconds(calls[2]), 0);
+  assert.equal(reportCallTalkSeconds(calls[3]), 0);
+});
+
+test("operator aggregation retains completed non-forwarded calls without answer evidence", () => {
+  const rows: Record<string, any> = {};
+  const call = {
+    id: "completed-no-answer", userId: "agent", status: "completed", isForwarded: false,
+    startedAt: "2026-01-02T10:00:00Z", answeredAt: null,
+    endedAt: "2026-01-02T10:00:30Z",
+  };
+
+  addCampaignCallsToOperatorStats(rows, [call], [], "total", createRow);
+
+  assert.equal(rows.agent__total.callCount, 1);
+  assert.equal(rows.agent__total.totalCallTime, 30);
+  assert.equal(reportCallTalkSeconds(call), 30);
+});
+
+test("analysis and call-list integrations reject forwarded recording and elapsed durations", () => {
+  const unanswered = {
+    id: "unanswered", userId: "agent", status: "completed", isForwarded: true,
+    startedAt: "2026-01-02T10:00:00Z", answeredAt: null,
+    endedAt: "2026-01-02T10:01:20Z", durationSeconds: 80,
+  };
+  const answered = {
+    ...unanswered, id: "answered", answeredAt: "2026-01-02T10:00:25Z", durationSeconds: 55,
+  };
+
+  assert.equal(reportCallAnalysisSeconds(unanswered, 80), 0);
+  assert.equal(reportCallListTalkSeconds(unanswered), 0);
+  assert.equal(reportCallTalkSeconds(unanswered), 0);
+  assert.equal(reportCallAnalysisSeconds(answered, 80), 55);
+  assert.equal(reportCallListTalkSeconds(answered), 55);
+});
+
+test("forwarded fractional boundaries use canonical floor duration consistently", () => {
+  const canonical = {
+    id: "fractional", userId: "agent", status: "completed", isForwarded: true,
+    startedAt: "2026-01-02T10:00:00.000Z", answeredAt: "2026-01-02T10:00:00.100Z",
+    endedAt: "2026-01-02T10:00:01.999Z", durationSeconds: 1,
+  };
+  const legacy = { ...canonical, id: "fractional-legacy", durationSeconds: null };
+  const rows: Record<string, any> = {};
+
+  addCampaignCallsToOperatorStats(rows, [canonical], [], "total", createRow);
+
+  assert.equal(reportCallTalkSeconds(canonical), 1);
+  assert.equal(reportCallAnalysisSeconds(canonical, 99), 1);
+  assert.equal(reportCallListTalkSeconds(canonical), 1);
+  assert.equal(rows.agent__total.totalCallTime, 1);
+  assert.equal(reportCallTalkSeconds(legacy), 1);
+});
+
+test("focused forwarded integration preserves legacy non-forwarded report durations", () => {
+  const legacy = {
+    id: "legacy", userId: "agent", status: "completed", isForwarded: false,
+    startedAt: "2026-01-02T10:00:00Z", answeredAt: null,
+    endedAt: "2026-01-02T10:00:30Z",
+  };
+
+  assert.equal(reportCallAnalysisSeconds(legacy, 24), 24);
+  assert.equal(reportCallListTalkSeconds(legacy), 30);
+});
+
+test("updated duplicate canonical rows replace stale observations without merging timestamps", () => {
+  const stale = {
+    id: "canonical", userId: "agent", status: "ringing", isForwarded: true,
+    startedAt: "2026-01-01T23:59:50Z", answeredAt: null, endedAt: null,
+  };
+  const completed = {
+    id: "canonical", userId: "agent", status: "completed", isForwarded: true,
+    startedAt: "2026-01-02T00:00:00Z", answeredAt: "2026-01-02T00:00:12Z",
+    endedAt: "2026-01-02T00:00:52Z",
+    metadata: JSON.stringify({ dispositionDurationSeconds: 9 }),
+  };
+
+  for (const calls of [[stale, completed], [completed, stale]]) {
+    const rows: Record<string, any> = {};
+    addCampaignCallsToOperatorStats(rows, calls, [], "day", createRow);
+    assert.deepEqual(Object.keys(rows), ["agent__2026-01-02"]);
+    assert.equal(rows["agent__2026-01-02"].callCount, 1);
+    assert.equal(rows["agent__2026-01-02"].totalCallTime, 40);
+    assert.equal(rows["agent__2026-01-02"].totalDispositionTime, 9);
+    assert.equal(rows["agent__2026-01-02"].dispositionCount, 1);
+  }
 });
 
 test("session disposition contacts are not counted again by their call log", () => {
@@ -82,4 +203,50 @@ test("agent and date filtering inputs remain isolated before aggregation", () =>
   const rows: Record<string, any> = {};
   addCampaignCallsToOperatorStats(rows, selected, [], "total", createRow);
   assert.equal(rows.a__total.callCount, 1);
+});
+
+test("restart-overlapped session history updates only the resumed real session", () => {
+  const rows: Record<string, any> = {
+    agent__total: {
+      ...createRow("agent", "total"),
+      sessionsCount: 2,
+      totalLoginTime: 3600,
+      sessionDetails: [
+        {
+          sessionId: "before-restart", contactsHandled: 0, callCount: 0, callTime: 0,
+          emailCount: 0, smsCount: 0,
+        },
+        {
+          sessionId: "resumed", contactsHandled: 0, callCount: 0, callTime: 0,
+          emailCount: 0, smsCount: 0,
+        },
+      ],
+    },
+  };
+  const sessions = [
+    {
+      id: "before-restart", userId: "agent", status: "offline",
+      startedAt: "2026-01-02T10:00:00Z", endedAt: "2026-01-02T11:00:00Z",
+    },
+    {
+      id: "resumed", userId: "agent", status: "offline",
+      startedAt: "2026-01-02T10:30:00Z", endedAt: "2026-01-02T11:00:00Z",
+    },
+  ];
+  const call = {
+    id: "after-restart", userId: "agent", status: "completed", isForwarded: true,
+    startedAt: "2026-01-02T10:35:00Z", answeredAt: "2026-01-02T10:35:08Z",
+    endedAt: "2026-01-02T10:35:38Z",
+  };
+
+  addCampaignCallsToOperatorStats(rows, [call, call], sessions, "total", createRow);
+
+  assert.equal(rows.agent__total.sessionsCount, 2);
+  assert.equal(rows.agent__total.totalLoginTime, 3600);
+  assert.equal(rows.agent__total.totalCallTime, 30);
+  assert.equal(rows.agent__total.callCount, 1);
+  assert.equal(rows.agent__total.sessionDetails[0].callCount, 0);
+  assert.equal(rows.agent__total.sessionDetails[0].callTime, 0);
+  assert.equal(rows.agent__total.sessionDetails[1].callCount, 1);
+  assert.equal(rows.agent__total.sessionDetails[1].callTime, 30);
 });

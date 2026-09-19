@@ -180,6 +180,11 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Fail closed before route/queue initialization if durable handoffs cannot
+  // be stored. Production deploys do not run drizzle-kit/db:push.
+  const { ensureForwardedCallSchema } = await import("./lib/forwarded-call-schema");
+  await ensureForwardedCallSchema(pool);
+
   // Mission SMS routing depends on these columns for provider/reply isolation.
   // Unlike best-effort legacy migrations below, startup must stop if they are
   // unavailable; running without them can disclose a reply to another Mission.

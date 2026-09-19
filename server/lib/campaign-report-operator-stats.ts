@@ -17,6 +17,8 @@ export interface ReportCall {
   endedAt: Date | string | null;
   status: string;
   metadata?: string | null;
+  isForwarded?: boolean | null;
+  durationSeconds?: number | null;
 }
 
 export function reportGroupKey(value: Date | string, groupBy = "total"): string {
@@ -35,9 +37,86 @@ export function reportGroupKey(value: Date | string, groupBy = "total"): string 
 }
 
 export function reportCallTalkSeconds(call: ReportCall): number {
+  if (call.isForwarded) {
+    // A forwarded attempt may be completed by hangup after ringing without
+    // ever being answered. Only durable answer evidence proves talk time for
+    // the forwarded leg.
+    if (!call.answeredAt || !call.endedAt) return 0;
+    const answeredAt = new Date(call.answeredAt).getTime();
+    const endedAt = new Date(call.endedAt).getTime();
+    if (!Number.isFinite(answeredAt) || !Number.isFinite(endedAt)) return 0;
+    // CEL reconciliation computes this from the original microsecond
+    // timestamps before PostgreSQL converts them to millisecond Date values.
+    if (Number.isInteger(call.durationSeconds) && call.durationSeconds! >= 0) {
+      return call.durationSeconds!;
+    }
+    // Legacy forwarded rows may predate canonical duration persistence.
+    return Math.max(0, Math.floor((endedAt - answeredAt) / 1000));
+  }
+
+  // Preserve the historical completed-call fallback for non-forwarded calls:
+  // older rows can lack answeredAt even though startedAt and endedAt bracket
+  // the completed attempt.
+  return legacyCompletedCallSeconds(call);
+}
+
+function legacyCompletedCallSeconds(call: ReportCall): number {
   const start = call.answeredAt || (call.status === "completed" ? call.startedAt : null);
   if (!start || !call.endedAt) return 0;
-  return Math.max(0, Math.round((new Date(call.endedAt).getTime() - new Date(start).getTime()) / 1000));
+  const startedAt = new Date(start).getTime();
+  const endedAt = new Date(call.endedAt).getTime();
+  if (!Number.isFinite(startedAt) || !Number.isFinite(endedAt)) return 0;
+  return Math.max(0, Math.round((endedAt - startedAt) / 1000));
+}
+
+/**
+ * Duration shown by recording analysis reports. A recording file's duration is
+ * not proof that the forwarded external leg answered (it can contain ringing
+ * or queue audio), so forwarded calls always use canonical answer evidence.
+ * Preserve the legacy recording preference for unrelated call types.
+ */
+export function reportCallAnalysisSeconds(
+  call: ReportCall,
+  recordingDurationSeconds?: number | null,
+): number {
+  if (call.isForwarded) return reportCallTalkSeconds(call);
+  return recordingDurationSeconds || legacyCompletedCallSeconds(call);
+}
+
+/**
+ * Call-list talk time follows verified answer evidence for forwarded calls,
+ * while retaining the historical completed-call fallback for other call types.
+ */
+export function reportCallListTalkSeconds(call: ReportCall): number {
+  return call.isForwarded ? reportCallTalkSeconds(call) : legacyCompletedCallSeconds(call);
+}
+
+function canonicalCallEvidenceRank(call: ReportCall): number {
+  const hasStartedAt = !!call.startedAt && Number.isFinite(new Date(call.startedAt).getTime());
+  const hasAnsweredAt = !!call.answeredAt && Number.isFinite(new Date(call.answeredAt).getTime());
+  const hasEndedAt = !!call.endedAt && Number.isFinite(new Date(call.endedAt).getTime());
+  const isTerminal = ["completed", "failed", "no_answer", "busy", "cancelled"].includes(call.status);
+  return (hasStartedAt ? 1 : 0)
+    + (hasAnsweredAt ? 4 : 0)
+    + (hasEndedAt ? 2 : 0)
+    + (isTerminal ? 1 : 0);
+}
+
+/**
+ * A canonical call can be observed more than once while its durable row is
+ * updated (for example before and after a worker restart). Select one complete
+ * observation instead of combining timestamps from different observations;
+ * combining them could invent a longer call or move it to another period.
+ */
+function canonicalReportCalls(calls: ReportCall[]): ReportCall[] {
+  const byId = new Map<string, ReportCall>();
+  for (const call of calls) {
+    const current = byId.get(call.id);
+    if (!current || canonicalCallEvidenceRank(call) > canonicalCallEvidenceRank(current)) {
+      byId.set(call.id, call);
+    }
+  }
+  return [...byId.values()];
 }
 
 export function callHandledContactIncrement(
@@ -71,10 +150,8 @@ export function addCampaignCallsToOperatorStats(
   groupBy: string,
   createRow: (userId: string, period: string) => any,
 ): void {
-  const claimed = new Set<string>();
-  for (const call of calls) {
-    if (!call.startedAt || claimed.has(call.id)) continue;
-    claimed.add(call.id);
+  for (const call of canonicalReportCalls(calls)) {
+    if (!call.startedAt) continue;
     const period = reportGroupKey(call.startedAt, groupBy);
     const key = `${call.userId}__${period}`;
     const row = rows[key] || (rows[key] = createRow(call.userId, period));
