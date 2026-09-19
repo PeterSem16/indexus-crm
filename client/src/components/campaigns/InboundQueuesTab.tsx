@@ -61,6 +61,7 @@ import { INBOUND_RINGTONE_PRESETS, getInboundRingtonePreset } from "@/lib/inboun
 
 interface InboundQueue {
   id: string;
+  campaignId: string | null;
   name: string;
   description: string | null;
   countryCode: string | null;
@@ -154,6 +155,7 @@ const TIMEZONES = [
 const COUNTRIES = ["SK", "CZ", "AT", "HU", "RO", "IT", "DE", "US"];
 
 interface FormData {
+  campaignId: string;
   name: string;
   description: string;
   countryCode: string;
@@ -202,7 +204,7 @@ interface FormData {
 }
 
 const defaultFormData: FormData = {
-  name: "", description: "", countryCode: "SK",
+  campaignId: "", name: "", description: "", countryCode: "SK",
   strategy: "round-robin", maxWaitTime: 300, wrapUpTime: 30,
   maxQueueSize: 50, priority: 1, welcomeMessageId: null, holdMusicId: null,
   overflowAction: "voicemail", overflowTarget: "", overflowUserId: null, overflowVoicemailBoxId: null, overflowMessageId: null, overflowIvrMenuId: null,
@@ -239,6 +241,10 @@ export function InboundQueuesTab() {
   const { data: queues = [], isLoading } = useQuery<InboundQueue[]>({
     queryKey: ["/api/inbound-queues"],
     refetchInterval: 5000,
+  });
+
+  const { data: campaigns = [] } = useQuery<Array<{ id: string; name: string }>>({
+    queryKey: ["/api/campaigns"],
   });
 
   const { data: allUsers = [] } = useQuery<any[]>({
@@ -374,6 +380,7 @@ export function InboundQueuesTab() {
 
   const openEdit = (queue: InboundQueue) => {
     setFormData({
+      campaignId: queue.campaignId || "",
       name: queue.name,
       description: queue.description || "",
       countryCode: queue.countryCode || "SK",
@@ -701,6 +708,19 @@ export function InboundQueuesTab() {
 
              <TabsContent value="general" className="mt-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                  <div className="col-span-1 md:col-span-2 space-y-1.5">
+                    <Label className="text-sm">{t.campaigns.campaignName} <span className="text-destructive">*</span></Label>
+                    <Select value={formData.campaignId} onValueChange={campaignId => setFormData(f => ({ ...f, campaignId }))}>
+                      <SelectTrigger data-testid="select-queue-campaign">
+                        <SelectValue placeholder={t.campaigns.campaignName} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {campaigns.map(campaign => (
+                          <SelectItem key={campaign.id} value={campaign.id}>{campaign.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="col-span-1 md:col-span-2 space-y-1.5">
                     <Label className="text-sm">{iq.queueName} <span className="text-destructive">*</span></Label>
                     <Input value={formData.name} onChange={e => setFormData(f => ({ ...f, name: e.target.value }))} data-testid="input-queue-name" />

@@ -101,3 +101,4 @@
 - [Moving pages into nested settings tabs](nested-settings-page-moves.md) — preserve canonical tab URLs through legacy routes, OAuth callbacks, cleanup, permissions, and mobile embedding.
 - [Forwarded call history](forwarded-call-canonical-history.md) — mobile forwarding needs server-owned canonical history; reports cannot depend on sessions or recording, and caller Up is not callee answer.
 - [Call player visibility](call-player-visibility.md) — never trade full player access for fixed pane height; verify complete bounds and transcript access on short desktop windows.
+- [Missed inbound call Mission scope](missed-call-mission-scope.md) — scope badge, modal, and handled mutation by per-call Mission; queue membership alone is never sufficient.

@@ -10995,7 +10995,8 @@ function AgentWorkspacePageContent() {
       if (pendingCallbackAbandonedIdRef.current) {
         const abandonedId = pendingCallbackAbandonedIdRef.current;
         pendingCallbackAbandonedIdRef.current = null;
-        fetch(`/api/agent/abandoned-calls/${abandonedId}/called-back`, {
+        const campaignQuery = selectedCampaignId ? `?campaignId=${encodeURIComponent(selectedCampaignId)}` : "";
+        fetch(`/api/agent/abandoned-calls/${abandonedId}/called-back${campaignQuery}`, {
           method: "POST",
           credentials: "include",
         }).then(() => {
@@ -11019,7 +11020,8 @@ function AgentWorkspacePageContent() {
       if (pendingCallbackAbandonedIdRef.current) {
         const abandonedId = pendingCallbackAbandonedIdRef.current;
         pendingCallbackAbandonedIdRef.current = null;
-        fetch(`/api/agent/abandoned-calls/${abandonedId}/called-back`, {
+        const campaignQuery = selectedCampaignId ? `?campaignId=${encodeURIComponent(selectedCampaignId)}` : "";
+        fetch(`/api/agent/abandoned-calls/${abandonedId}/called-back${campaignQuery}`, {
           method: "POST",
           credentials: "include",
         }).then(() => {
@@ -11205,8 +11207,14 @@ function AgentWorkspacePageContent() {
   }, [sessionLoginOpen, agentSession.isSessionActive]);
 
   const { data: abandonedCalls = [], isLoading: missedCallsLoading, error: missedCallsError, refetch: retryMissedCalls } = useQuery<any[]>({
-    queryKey: ["/api/agent/abandoned-calls"],
-    enabled: !!hasAccess && agentSession.isSessionActive,
+    queryKey: ["/api/agent/abandoned-calls", selectedCampaignId || null],
+    queryFn: async () => {
+      if (!selectedCampaignId) return [];
+      const res = await fetch(`/api/agent/abandoned-calls?campaignId=${encodeURIComponent(selectedCampaignId)}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load missed calls");
+      return res.json();
+    },
+    enabled: !!hasAccess && !!selectedCampaignId && agentSession.isSessionActive,
     refetchInterval: 30000,
   });
 
@@ -11232,11 +11240,16 @@ function AgentWorkspacePageContent() {
   }, [queryClient, selectedCampaignId]);
 
   const markMissedCallHandled = useCallback(async (callId: string | number) => {
-    await apiRequest("POST", `/api/agent/abandoned-calls/${callId}/called-back`, {});
+    if (!selectedCampaignId) return;
+    await apiRequest(
+      "POST",
+      `/api/agent/abandoned-calls/${callId}/called-back?campaignId=${encodeURIComponent(selectedCampaignId)}`,
+      {},
+    );
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["/api/agent/abandoned-calls"] }),
     ]);
-  }, [queryClient]);
+  }, [queryClient, selectedCampaignId]);
 
   const { data: legacyCampaignDispositions = [] } = useQuery<CampaignDisposition[]>({
     queryKey: ["/api/campaigns", selectedCampaignId, "dispositions"],

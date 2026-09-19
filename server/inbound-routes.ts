@@ -11,6 +11,8 @@ import {
   inboundCallLogs,
   agentQueueStatus,
   agentSessions,
+  campaignAgents,
+  campaigns,
   users,
   customers,
   didRoutes, insertDidRouteSchema,
@@ -424,6 +426,10 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       }
 
       const data = { ...req.body };
+      if (!data.campaignId) return res.status(400).json({ error: "Mission is required" });
+      const [campaign] = await db.select({ id: campaigns.id }).from(campaigns)
+        .where(eq(campaigns.id, data.campaignId)).limit(1);
+      if (!campaign) return res.status(400).json({ error: "Invalid Mission" });
       if (data.welcomeMessageId === "") data.welcomeMessageId = null;
       if (data.holdMusicId === "") data.holdMusicId = null;
       if (data.activeFrom === "") data.activeFrom = null;
@@ -461,6 +467,10 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       }
 
       const data = { ...req.body };
+      if (!data.campaignId) return res.status(400).json({ error: "Mission is required" });
+      const [campaign] = await db.select({ id: campaigns.id }).from(campaigns)
+        .where(eq(campaigns.id, data.campaignId)).limit(1);
+      if (!campaign) return res.status(400).json({ error: "Invalid Mission" });
       if (data.welcomeMessageId === "") data.welcomeMessageId = null;
       if (data.holdMusicId === "") data.holdMusicId = null;
       if (data.activeFrom === "") data.activeFrom = null;
@@ -1612,10 +1622,41 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
     try {
       const user = (req.session as any)?.user;
       if (!user?.id) return res.status(401).json({ error: "Unauthorized" });
+      const campaignId = typeof req.query.campaignId === "string" ? req.query.campaignId.trim() : "";
+      if (!campaignId) return res.status(400).json({ error: "Mission is required" });
 
+      const [activeSession] = await db.select({
+        campaignId: agentSessions.campaignId,
+        campaignIds: agentSessions.campaignIds,
+        inboundQueueIds: agentSessions.inboundQueueIds,
+      }).from(agentSessions).where(and(
+        eq(agentSessions.userId, user.id),
+        sql`${agentSessions.endedAt} IS NULL`,
+      )).orderBy(desc(agentSessions.startedAt)).limit(1);
+      if (!activeSession) return res.status(403).json({ error: "Active shift is required" });
+      const activeCampaignIds = new Set([
+        activeSession.campaignId,
+        ...((activeSession.campaignIds as string[] | null) || []),
+      ].filter((id): id is string => Boolean(id)));
+      if (!activeCampaignIds.has(campaignId)) {
+        return res.status(403).json({ error: "Mission is not active in this shift" });
+      }
+      if (user.role !== "admin" && user.role !== "manager") {
+        const [assignment] = await db.select({ id: campaignAgents.id }).from(campaignAgents).where(and(
+          eq(campaignAgents.campaignId, campaignId),
+          eq(campaignAgents.userId, user.id),
+        )).limit(1);
+        if (!assignment) return res.status(403).json({ error: "Mission is not assigned" });
+      }
+
+      const selectedQueueIds = (activeSession.inboundQueueIds as string[] | null) || [];
       const memberQueues = await db.select({ queueId: queueMembers.queueId })
         .from(queueMembers)
-        .where(eq(queueMembers.userId, user.id));
+        .innerJoin(inboundQueues, eq(queueMembers.queueId, inboundQueues.id))
+        .where(and(
+          eq(queueMembers.userId, user.id),
+          ...(selectedQueueIds.length > 0 ? [inArray(queueMembers.queueId, selectedQueueIds)] : []),
+        ));
       
       const queueIds = memberQueues.map(m => m.queueId);
       if (queueIds.length === 0) return res.json([]);
@@ -1638,6 +1679,10 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         .leftJoin(calledBackUser, eq(inboundCallLogs.calledBackByUserId, calledBackUser.id))
         .where(and(
           inArray(inboundCallLogs.queueId, queueIds),
+          sql`COALESCE(
+            NULLIF(${inboundCallLogs.metadata}->>'campaignId', ''),
+            ${inboundQueues.campaignId}
+          ) = ${campaignId}`,
           inArray(inboundCallLogs.status, ["abandoned", "timeout", "overflow", "no_agents"]),
           gte(inboundCallLogs.enteredQueueAt, since),
         ))
@@ -1661,8 +1706,44 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
     try {
       const user = (req.session as any)?.user;
       if (!user?.id) return res.status(401).json({ error: "Unauthorized" });
+      const campaignId = typeof req.query.campaignId === "string" ? req.query.campaignId.trim() : "";
+      if (!campaignId) return res.status(400).json({ error: "Mission is required" });
 
-      await db.update(inboundCallLogs)
+      const [activeSession] = await db.select({
+        campaignId: agentSessions.campaignId,
+        campaignIds: agentSessions.campaignIds,
+        inboundQueueIds: agentSessions.inboundQueueIds,
+      }).from(agentSessions).where(and(
+        eq(agentSessions.userId, user.id),
+        sql`${agentSessions.endedAt} IS NULL`,
+      )).orderBy(desc(agentSessions.startedAt)).limit(1);
+      if (!activeSession) return res.status(403).json({ error: "Active shift is required" });
+      const activeCampaignIds = new Set([
+        activeSession.campaignId,
+        ...((activeSession.campaignIds as string[] | null) || []),
+      ].filter((id): id is string => Boolean(id)));
+      if (!activeCampaignIds.has(campaignId)) {
+        return res.status(403).json({ error: "Mission is not active in this shift" });
+      }
+      if (user.role !== "admin" && user.role !== "manager") {
+        const [assignment] = await db.select({ id: campaignAgents.id }).from(campaignAgents).where(and(
+          eq(campaignAgents.campaignId, campaignId),
+          eq(campaignAgents.userId, user.id),
+        )).limit(1);
+        if (!assignment) return res.status(403).json({ error: "Mission is not assigned" });
+      }
+      const selectedQueueIds = (activeSession.inboundQueueIds as string[] | null) || [];
+      const authorizedQueues = await db.select({ queueId: queueMembers.queueId })
+        .from(queueMembers)
+        .innerJoin(inboundQueues, eq(queueMembers.queueId, inboundQueues.id))
+        .where(and(
+          eq(queueMembers.userId, user.id),
+          ...(selectedQueueIds.length > 0 ? [inArray(queueMembers.queueId, selectedQueueIds)] : []),
+        ));
+      const queueIds = authorizedQueues.map(row => row.queueId);
+      if (queueIds.length === 0) return res.status(404).json({ error: "Call is not available in this Mission" });
+
+      const updated = await db.update(inboundCallLogs)
         .set({
           calledBack: true,
           calledBackAt: new Date(),
@@ -1670,9 +1751,15 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         })
         .where(and(
           eq(inboundCallLogs.id, req.params.callId),
+          inArray(inboundCallLogs.queueId, queueIds),
+          sql`COALESCE(
+            NULLIF(${inboundCallLogs.metadata}->>'campaignId', ''),
+            (SELECT ${inboundQueues.campaignId} FROM ${inboundQueues} WHERE ${inboundQueues.id} = ${inboundCallLogs.queueId})
+          ) = ${campaignId}`,
           inArray(inboundCallLogs.status, ["abandoned", "timeout", "overflow", "no_agents"]),
-        ));
+        )).returning({ id: inboundCallLogs.id });
 
+      if (updated.length === 0) return res.status(404).json({ error: "Call is not available in this Mission" });
       res.json({ success: true });
     } catch (error) {
       console.error("Error marking call as called back:", error);

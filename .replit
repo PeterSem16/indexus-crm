@@ -58,12 +58,12 @@ waitForPort = 5000
 name = "test"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx client/src/lib/back-office-alert.test.ts && npx tsx client/src/lib/phone-card-preference.test.ts && npx tsx client/src/lib/missed-call-card-resolver.node.test.ts && npx tsx shared/phone-preference-key.test.ts && npx tsx client/src/lib/repeated-inbound-card-flow.test.ts && npx tsx server/phone-card-preference-routes.test.ts"
-
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx client/src/lib/back-office-alert.test.ts && npx tsx client/src/lib/phone-card-preference.test.ts && npx tsx client/src/lib/missed-call-card-resolver.node.test.ts && npx tsx shared/phone-preference-key.test.ts && npx tsx client/src/lib/repeated-inbound-card-flow.test.ts && npx tsx server/phone-card-preference-routes.test.ts && npx tsx server/lib/missed-call-mission-scope.test.ts"
 
 [[workflows.workflow]]
 name = "clone-campaign"

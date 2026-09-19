@@ -213,6 +213,31 @@ app.use((req, res, next) => {
     process.exit(1);
   }
 
+  // Missed inbound calls are a Mission-scoped resource. Existing queue names
+  // use "Inbound <Mission name>", so backfill that historical convention once
+  // and persist the relationship for all later reads.
+  try {
+    const queueAttribution = await pool.query(`
+      ALTER TABLE inbound_queues
+        ADD COLUMN IF NOT EXISTS campaign_id varchar;
+      CREATE INDEX IF NOT EXISTS idx_inbound_queues_campaign
+        ON inbound_queues (campaign_id);
+      UPDATE inbound_queues q
+      SET campaign_id = c.id
+      FROM campaigns c
+      WHERE q.campaign_id IS NULL
+        AND regexp_replace(lower(trim(q.name)), '^inbound[[:space:]]+', '') = lower(trim(c.name));
+      SELECT count(*)::integer AS unassigned_count
+      FROM inbound_queues
+      WHERE campaign_id IS NULL;
+    `);
+    const unassignedCount = queueAttribution[queueAttribution.length - 1]?.rows?.[0]?.unassigned_count ?? 0;
+    console.log(`[migration] inbound queue Mission attribution ensured; unassigned=${unassignedCount}`);
+  } catch (error) {
+    console.error("[migration] fatal inbound queue Mission attribution error:", error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS voice_network_incidents (

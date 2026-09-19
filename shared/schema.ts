@@ -6267,6 +6267,7 @@ export type AriSettings = typeof ariSettings.$inferSelect;
 // Inbound Queues - call queue definitions managed from CRM
 export const inboundQueues = pgTable("inbound_queues", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id"),
   name: text("name").notNull(),
   description: text("description"),
   countryCode: text("country_code"), // SK, CZ, HU, etc.
