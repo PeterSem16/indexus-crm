@@ -1262,6 +1262,11 @@ export const TASK_STATUSES = [
 export const communicationMessages = pgTable("communication_messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   customerId: varchar("customer_id"),
+  // Mission attribution is intentionally separate from customerId: Mission contacts
+  // can be clinics, hospitals, or collaborators and must not be inferred by phone.
+  campaignId: varchar("campaign_id"),
+  entityType: text("entity_type"), // customer | clinic | hospital | collaborator
+  entityId: varchar("entity_id"),
   userId: varchar("user_id"), // who sent the message
   type: text("type").notNull(), // email, sms
   direction: text("direction").notNull().default("outbound"), // outbound, inbound
@@ -1294,6 +1299,8 @@ export const communicationMessages = pgTable("communication_messages", {
   aiAnalyzedAt: timestamp("ai_analyzed_at"),
 }, (table) => ({
   idxCommMessagesCustomer: index("idx_comm_messages_customer").on(table.customerId),
+  idxCommMessagesCampaign: index("idx_comm_messages_campaign").on(table.campaignId),
+  idxCommMessagesEntity: index("idx_comm_messages_entity").on(table.entityType, table.entityId),
   idxCommMessagesContract: index("idx_comm_messages_contract").on(table.contractId),
   idxCommMessagesExternal: index("idx_comm_messages_external").on(table.externalId),
   idxCommMessagesCreatedAt: index("idx_comm_messages_created_at").on(table.createdAt),

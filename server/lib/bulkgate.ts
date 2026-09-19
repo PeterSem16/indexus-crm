@@ -105,7 +105,9 @@ function getConfig() {
 export function verifyWebhookToken(token: string | undefined): boolean {
   const config = getConfig();
   if (!config.webhookToken) {
-    return true;
+    // A callback endpoint without authentication is unsafe in production.
+    // Keep local/test environments usable, but fail closed in deployed mode.
+    return process.env.NODE_ENV !== "production" && process.env.REPLIT_DEPLOYMENT !== "1";
   }
   return token === config.webhookToken;
 }

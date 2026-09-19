@@ -9479,12 +9479,14 @@ function ReschedulePopover({ item, onReschedule, t }: { item: ScheduledItem; onR
 function ScheduledQueuePanel({
   open,
   onOpenChange,
+  selectedCampaignId,
   onOpenContact,
   showOnlyAssigned,
   onToggleAssigned,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  selectedCampaignId?: string | null;
   onOpenContact?: (
     contactId: string,
     campaignId: string,
@@ -9509,13 +9511,17 @@ function ScheduledQueuePanel({
   const [onlyMine, setOnlyMine] = useState(false);
 
   const { data: scheduledItems = [], isLoading } = useQuery<ScheduledItem[]>({
-    queryKey: onlyMine ? ["/api/agent/scheduled-queue", true] : ["/api/agent/scheduled-queue"],
+    queryKey: ["/api/agent/scheduled-queue", selectedCampaignId || null, onlyMine],
     queryFn: async () => {
-      const url = `/api/agent/scheduled-queue${onlyMine ? "?onlyMine=true" : ""}`;
+      const params = new URLSearchParams();
+      if (selectedCampaignId) params.set("campaignId", selectedCampaignId);
+      if (onlyMine) params.set("onlyMine", "true");
+      const query = params.toString();
+      const url = `/api/agent/scheduled-queue${query ? `?${query}` : ""}`;
       const res = await fetch(url, { credentials: "include" });
       return res.ok ? res.json() : [];
     },
-    enabled: open,
+    enabled: open && !!selectedCampaignId,
     refetchInterval: open ? 15000 : false,
     staleTime: 0,
   });
@@ -9529,7 +9535,7 @@ function ScheduledQueuePanel({
       setSearchQuery("");
       setOnlyMine(false);
     }
-  }, [open]);
+  }, [open, selectedCampaignId]);
 
   const now = new Date();
   const nowTime = now.getTime();
@@ -10138,6 +10144,23 @@ function AgentWorkspacePageContent() {
   const [phoneSubTabOverride, setPhoneSubTabOverride] = useState<"card" | "details" | "documents" | "history" | null>(null);
   const [rightTab, setRightTab] = useState("actions");
   const [callNotes, setCallNotes] = useState("");
+  // Mission changes invalidate every contact-scoped view immediately; never
+  // leave the previous Mission's contact visible while the new query loads.
+  const previousMissionRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (previousMissionRef.current === selectedCampaignId) return;
+    previousMissionRef.current = selectedCampaignId;
+    setCurrentContact(null);
+    setCurrentCampaignContactId(null);
+    setCurrentHospitalData(null);
+    setCurrentClinicData(null);
+    setCurrentCollaboratorData(null);
+    setCurrentPhoneOverride(null);
+    setCallNotes("");
+    setPendingMissedChannel(null);
+    outsideMissionContactRef.current = null;
+    outsideMissionContactActiveRef.current = false;
+  }, [selectedCampaignId]);
   const [channelFilter, setChannelFilter] = useState("all");
   const [stats, setStats] = useState({ calls: 0, emails: 0, sms: 0 });
   const [quotas, setQuotas] = useState<{ calls: number | null; emails: number | null; sms: number | null } | null>(null);
@@ -10790,12 +10813,14 @@ function AgentWorkspacePageContent() {
   const hasAccess = user && hasModuleAccess;
 
   const { data: scheduledQueueItems = [] } = useQuery<ScheduledItem[]>({
-    queryKey: ["/api/agent/scheduled-queue"],
+    queryKey: ["/api/agent/scheduled-queue", selectedCampaignId || null, false],
     queryFn: async () => {
-      const res = await fetch("/api/agent/scheduled-queue", { credentials: "include" });
+      if (!selectedCampaignId) return [];
+      const url = `/api/agent/scheduled-queue?campaignId=${encodeURIComponent(selectedCampaignId)}`;
+      const res = await fetch(url, { credentials: "include" });
       return res.ok ? res.json() : [];
     },
-    enabled: !!hasAccess && agentSession.isSessionActive,
+    enabled: !!hasAccess && !!selectedCampaignId && agentSession.isSessionActive,
     refetchInterval: 15000,
     staleTime: 0,
   });
@@ -11090,7 +11115,7 @@ function AgentWorkspacePageContent() {
 
   const { data: allCampaigns = [] } = useQuery<Campaign[]>({
     queryKey: ["/api/campaigns"],
-    enabled: !!hasAccess,
+    enabled: !!hasAccess && !!selectedCampaignId,
   });
 
   const { data: assignedCampaigns = [] } = useQuery<Campaign[]>({
@@ -11143,6 +11168,7 @@ function AgentWorkspacePageContent() {
   const shiftDataCampaignIds = agentSession.isSessionActive
     ? ((((agentSession.session as any)?.campaignIds as string[]) || selectedLoginCampaignIds) || []).join(",")
     : loginCampaigns.map(c => c.id).join(",");
+  const scheduledForecastCampaignIds = selectedCampaignId || shiftDataCampaignIds;
   const { data: shiftData, refetch: refetchShiftData } = useQuery<{
     callerIdNumber: string | null;
     contactsHandled: number;
@@ -11163,8 +11189,8 @@ function AgentWorkspacePageContent() {
   });
 
   const { data: scheduledForecast, refetch: refetchForecast } = useQuery<{ byDate: Record<string, number> }>({
-    queryKey: [`/api/agent/scheduled-forecast?campaignIds=${shiftDataCampaignIds}`],
-    enabled: !!hasAccess,
+    queryKey: [`/api/agent/scheduled-forecast?campaignIds=${encodeURIComponent(scheduledForecastCampaignIds)}`],
+    enabled: !!hasAccess && !!selectedCampaignId,
     refetchOnMount: true,
     staleTime: 0,
   });
@@ -11185,15 +11211,25 @@ function AgentWorkspacePageContent() {
   });
 
   const { data: missedMessages = [], isLoading: missedMessagesLoading, error: missedMessagesError, refetch: retryMissedMessages } = useQuery<any[]>({
-    queryKey: ["/api/agent/missed-messages"],
-    enabled: !!hasAccess && agentSession.isSessionActive,
+    queryKey: ["/api/agent/missed-messages", selectedCampaignId || null],
+    queryFn: async () => {
+      if (!selectedCampaignId) return [];
+      const res = await fetch(`/api/agent/missed-messages?campaignId=${encodeURIComponent(selectedCampaignId)}`, { credentials: "include" });
+      return res.ok ? res.json() : [];
+    },
+    enabled: !!hasAccess && !!selectedCampaignId && agentSession.isSessionActive,
     refetchInterval: 30000,
   });
 
   const markMissedMessageHandled = useCallback(async (messageId: string) => {
-    await apiRequest("POST", `/api/agent/missed-messages/${messageId}/handled`, {});
+    if (!selectedCampaignId) return;
+    await apiRequest(
+      "POST",
+      `/api/agent/missed-messages/${messageId}/handled?campaignId=${encodeURIComponent(selectedCampaignId)}`,
+      {},
+    );
     await queryClient.invalidateQueries({ queryKey: ["/api/agent/missed-messages"] });
-  }, [queryClient]);
+  }, [queryClient, selectedCampaignId]);
 
   const markMissedCallHandled = useCallback(async (callId: string | number) => {
     await apiRequest("POST", `/api/agent/abandoned-calls/${callId}/called-back`, {});
@@ -16669,7 +16705,7 @@ function AgentWorkspacePageContent() {
         </SheetContent>
       </Sheet>
 
-      <ScheduledQueuePanel open={scheduledQueueOpen} onOpenChange={setScheduledQueueOpen} onOpenContact={handleOpenScheduledContact} showOnlyAssigned={showOnlyAssigned} onToggleAssigned={setShowOnlyAssigned} />
+      <ScheduledQueuePanel selectedCampaignId={selectedCampaignId} open={scheduledQueueOpen} onOpenChange={setScheduledQueueOpen} onOpenContact={handleOpenScheduledContact} showOnlyAssigned={showOnlyAssigned} onToggleAssigned={setShowOnlyAssigned} />
       <MyActivityPanel
         open={myActivityOpen}
         onOpenChange={setMyActivityOpen}

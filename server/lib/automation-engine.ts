@@ -436,31 +436,48 @@ async function actionSendSms(config: any, ctx: any): Promise<ActionResult> {
       ctx.event?.oldValues?.campaignId ||
       undefined;
 
+    const communication = await storage.createCommunicationMessage({
+      customerId: ctx.customer?.id || (ctx.contact?.type === "customer" ? ctx.contact?.id : null)
+        || (ctx.event?.entityType === "customer" ? ctx.event?.entityId : null) || ctx.event?.customerId || null,
+      campaignId: campaignId || undefined,
+      entityType: ctx.contact?.type || ctx.customer?.type || ctx.event?.entityType
+        || (ctx.customer || ctx.event?.customerId ? "customer" : undefined),
+      entityId: ctx.contact?.id || ctx.customer?.id || ctx.event?.entityId || ctx.event?.customerId || undefined,
+      userId: ctx.user?.id || ctx.actor?.id || ctx.event?.userId || null,
+      type: "sms",
+      direction: "outbound",
+      content: text,
+      recipientPhone: to,
+      status: "pending",
+      metadata: JSON.stringify({
+        source: "automation_engine",
+        ruleId: ctx.rule?.id || ctx.event?.ruleId || null,
+        campaignId: campaignId || null,
+      }),
+    });
     const { sendSmsViaProvider } = await import("./sms-provider");
     const result = await sendSmsViaProvider({
       number: to,
       text,
       country,
-      provider: rendered.gateway || rendered.provider || rendered.smsProvider,
+      // A Mission's configured provider is authoritative. Ignore stale
+      // action-level provider fields rather than allowing a switch.
+      provider: undefined,
       campaignId,
-      campaignProviderMode: "override",
+      // The campaign provider is authoritative; an action must not switch it.
+      campaignProviderMode: "reject-conflict",
       promotional,
       unicode: rendered.unicode === true,
-      tag: rendered.tag || `automation-rule`,
+      tag: communication.id,
     });
 
     try {
-      const communication = await storage.createCommunicationMessage({
-        customerId: ctx.customer?.id || ctx.contact?.id || ctx.event?.customerId || null,
-        userId: ctx.user?.id || ctx.actor?.id || ctx.event?.userId || null,
-        type: "sms",
-        direction: "outbound",
-        content: text,
-        recipientPhone: to,
+      await storage.updateCommunicationMessage(communication.id, {
         status: result.success ? "sent" : "failed",
         provider: result.provider,
         externalId: result.smsId,
         errorMessage: result.success ? undefined : result.error,
+        sentAt: result.success ? new Date() : undefined,
         metadata: JSON.stringify({
           batchId: result.batchId || null,
           source: "automation_engine",
@@ -468,9 +485,6 @@ async function actionSendSms(config: any, ctx: any): Promise<ActionResult> {
           campaignId: campaignId || null,
         }),
       });
-      if (result.success) {
-        await storage.updateCommunicationMessage(communication.id, { sentAt: new Date() });
-      }
     } catch (historyError) {
       console.error("[Automation] SMS communication history write failed:", historyError);
     }

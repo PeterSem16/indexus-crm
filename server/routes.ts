@@ -173,6 +173,7 @@ import { normalizeCollaboratorPriorityCity } from "./lib/collaborator-priority-c
 import { resolveScheduledQueueContact } from "./lib/scheduled-queue-metadata";
 import { addCampaignCallsToOperatorStats, callHandledContactIncrement, reportCallTalkSeconds, reportGroupKey } from "./lib/campaign-report-operator-stats";
 import { canAgentReadCampaignByWorkspaceCountry } from "./lib/agent-workspace-country-access";
+import { normalizeSmsPhone, uniqueSmsEntity, type SmsEntityCandidate } from "./lib/sms-attribution";
 import {
   rankPriorityCities,
   PriorityCityRankingError,
@@ -1260,29 +1261,45 @@ async function runStatusListContactSms(automation: any, ctx: StatusListActionCtx
         campaignSender = parseCampaignSmsSender(camp?.settings);
       } catch (e) { console.error("[status-list:contact_sms] campaign sender lookup failed:", e); }
     }
+    const communication = await storage.createCommunicationMessage({
+      customerId: ccRow.customerId || undefined,
+      campaignId: ctx.campaignId || undefined,
+      entityType: ccRow.contactType || (ccRow.customerId ? "customer" : undefined),
+      entityId: ccRow.customerId || ccRow.clinicId || ccRow.hospitalId || ccRow.collaboratorId || undefined,
+      userId: ctx.userId,
+      type: "sms",
+      direction: "outbound",
+      content: text,
+      recipientPhone: contactPhone,
+      status: "pending",
+      metadata: JSON.stringify({
+        campaignId: ctx.campaignId,
+        campaignContactId: ctx.campaignContactId,
+        automationId: automation.id,
+      }),
+    });
     const result = await sendSmsViaProvider({
       number: contactPhone,
       text,
       country: ctx.contactCountry ?? undefined,
-      provider: automation.smsProvider || automation.gateway || automation.provider,
+      // Mission provider is authoritative; stale action-level values are ignored.
+      provider: undefined,
       campaignId: ctx.campaignId,
-      campaignProviderMode: "override",
+      // A Mission's provider is authoritative.  Automation configuration may
+      // request a provider, but can never override the Mission setting.
+      campaignProviderMode: "reject-conflict",
+      tag: communication.id,
       ...(campaignSender ? { senderId: campaignSender.senderId, senderIdValue: campaignSender.senderIdValue, forceSender: true } : {}),
     });
     const ok = result.success;
     console.log(`[status-list:contact_sms] provider=${result.provider} sent=${ok} contact=${ctx.campaignContactId}`);
     try {
-      const communication = await storage.createCommunicationMessage({
-        customerId: ccRow.customerId || ccRow.clinicId || ccRow.hospitalId || ccRow.collaboratorId || undefined,
-        userId: ctx.userId,
-        type: "sms",
-        direction: "outbound",
-        content: text,
-        recipientPhone: contactPhone,
+      await storage.updateCommunicationMessage(communication.id, {
         status: ok ? "sent" : "failed",
         provider: result.provider,
         externalId: result.smsId,
         errorMessage: ok ? undefined : result.error,
+        sentAt: ok ? new Date() : undefined,
         metadata: JSON.stringify({
           batchId: result.batchId || null,
           campaignId: ctx.campaignId,
@@ -14186,26 +14203,14 @@ Return ONLY valid JSON, no markdown code blocks.`,
           if (!matchingCampaignIds.includes(effectiveCampaignId)) {
             return res.status(400).json({ error: "Kontakt nepatrí do zvolenej Mission" });
           }
-        } else if (matchingCampaignIds.length === 1) {
-          effectiveCampaignId = matchingCampaignIds[0];
         } else {
-          const activeCampaignRows = await db.select({ settings: campaigns.settings })
-            .from(campaigns)
-            .where(inArray(campaigns.id, sessionCampaignIds));
-          const hasFixedProvider = activeCampaignRows.some(row => {
-            try {
-              const value = row.settings ? JSON.parse(row.settings).smsProvider : null;
-              return value === "bulkgate" || value === "smstools";
-            } catch {
-              return false;
-            }
-          });
-          if (hasFixedProvider) {
-            const error = matchingCampaignIds.length === 0
+          // An active Mission makes this a Mission-originated send. Never
+          // infer a Mission from a phone/contact (duplicates are valid).
+          return res.status(400).json({
+            error: matchingCampaignIds.length === 0
               ? "Kontakt nepatrí do aktívnej Mission"
-              : "Pre SMS je potrebné jednoznačne vybrať Mission";
-            return res.status(400).json({ error });
-          }
+              : "Pre SMS je potrebné jednoznačne vybrať Mission",
+          });
         }
       }
       const gatewaySelection = await resolveSmsProviderForCampaign(
@@ -14225,6 +14230,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
         recipientPhone: customer.phone,
         status: "pending",
         provider: recordProvider,
+        campaignId: effectiveCampaignId || undefined,
+        entityType: "customer",
+        entityId: req.params.customerId,
       });
 
       // Try to send through the selected/default gateway. Preserve the old
@@ -14242,7 +14250,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
             country: customer.country || undefined,
             provider: requestedProvider,
             campaignId: effectiveCampaignId,
-            tag: `customer-${customer.id}`,
+            // BulkGate echoes this opaque row id on inbound replies. It is the
+            // only safe Mission correlation; phone ownership is not enough.
+            tag: message.id,
             ...(userSmsSenderId ? { senderId: "gText" as const, senderIdValue: userSmsSenderId } : {}),
           });
 
@@ -14337,39 +14347,8 @@ Return ONLY valid JSON, no markdown code blocks.`,
         if (effectiveCampaignId && !sessionCampaignIds.includes(effectiveCampaignId)) {
           return res.status(403).json({ error: "SMS Mission nie je súčasťou aktívnej agent session" });
         }
-        if (!effectiveCampaignId && sessionCampaignIds.length === 1) {
-          effectiveCampaignId = sessionCampaignIds[0];
-        }
-        if (!effectiveCampaignId && customerId) {
-          const contactField =
-            contactType === "clinic" ? campaignContacts.clinicId :
-            contactType === "hospital" ? campaignContacts.hospitalId :
-            contactType === "collaborator" ? campaignContacts.collaboratorId :
-            campaignContacts.customerId;
-          const matches = await db.select({ campaignId: campaignContacts.campaignId })
-            .from(campaignContacts)
-            .where(and(
-              inArray(campaignContacts.campaignId, sessionCampaignIds),
-              eq(contactField, customerId),
-            ));
-          const matchingCampaignIds = Array.from(new Set(matches.map(row => row.campaignId)));
-          if (matchingCampaignIds.length === 1) effectiveCampaignId = matchingCampaignIds[0];
-        }
         if (!effectiveCampaignId) {
-          const activeCampaignRows = await db.select({ id: campaigns.id, settings: campaigns.settings })
-            .from(campaigns)
-            .where(inArray(campaigns.id, sessionCampaignIds));
-          const hasFixedProvider = activeCampaignRows.some(row => {
-            try {
-              const value = row.settings ? JSON.parse(row.settings).smsProvider : null;
-              return value === "bulkgate" || value === "smstools";
-            } catch {
-              return false;
-            }
-          });
-          if (hasFixedProvider) {
-            return res.status(400).json({ error: "Pri aktívnej Mission je pre SMS povinný jednoznačný campaignId" });
-          }
+          return res.status(400).json({ error: "Pri aktívnej Mission je pre SMS povinný campaignId" });
         }
       }
 
@@ -14437,6 +14416,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
         // Create message record
         const messageRecord = await storage.createCommunicationMessage({
           customerId: customerId || null,
+          campaignId: effectiveCampaignId || undefined,
+          entityType: contactType || (customerId ? "customer" : undefined),
+          entityId: customerId || undefined,
           userId: user.id,
           type: "sms",
           direction: "outbound",
@@ -14458,7 +14440,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
               country: contactCountry,
               provider: requestedProvider,
               campaignId: effectiveCampaignId,
-              tag: customerId ? `customer-${customerId}` : undefined,
+              tag: messageRecord.id,
               ...(campaignSender
                 ? { senderId: campaignSender.senderId, senderIdValue: campaignSender.senderIdValue, forceSender: true }
                 : (userSmsSenderId ? { senderId: "gText" as const, senderIdValue: userSmsSenderId } : {})),
@@ -14755,39 +14737,72 @@ Return ONLY valid JSON, no markdown code blocks.`,
   // Send SMS via BulkGate (direct, without customer)
   app.post("/api/bulkgate/send", requireAuth, async (req, res) => {
     try {
-      const { number, text, country, senderId, senderIdValue, tag, customerId } = req.body;
+      const { number, text, country, senderId, senderIdValue, tag, customerId, campaignId } = req.body;
       
       if (!number || !text) {
         return res.status(400).json({ error: "Missing required fields: number, text" });
       }
       
-      const { sendTransactionalSms, isBulkGateConfigured } = await import("./lib/bulkgate");
+      const { isBulkGateConfigured } = await import("./lib/bulkgate");
       
-      if (!isBulkGateConfigured()) {
+      if (!isBulkGateConfigured() && !campaignId) {
         return res.status(400).json({ error: "BulkGate nie je nakonfigurovaný" });
       }
       
       const user = req.session.user!;
+      const activeSession = await storage.getActiveAgentSession(user.id);
+      const activeMissionIds = Array.from(new Set([
+        activeSession?.campaignId,
+        ...((activeSession?.campaignIds as string[] | null | undefined) || []),
+      ].filter((id): id is string => Boolean(id))));
+      const explicitlyLegacy = req.body?.legacy === true;
+      if (activeMissionIds.length > 0) {
+        if (!campaignId || !activeMissionIds.includes(campaignId)) {
+          return res.status(400).json({ error: "Pri aktívnej Mission je povinný platný campaignId" });
+        }
+        const [membership] = await db.select({ id: campaignContacts.id })
+          .from(campaignContacts)
+          .where(and(
+            eq(campaignContacts.campaignId, campaignId),
+            customerId ? eq(campaignContacts.customerId, customerId) : sql`false`,
+          )).limit(1);
+        if (!membership) return res.status(400).json({ error: "Kontakt nepatrí do zvolenej Mission" });
+        const selection = await (await import("./lib/sms-provider")).resolveSmsProviderForCampaign(
+          "bulkgate", country, campaignId,
+        );
+        if (!selection.provider) return res.status(400).json({ error: selection.error || "Mission SMS provider conflict" });
+      } else if (campaignId || customerId || !explicitlyLegacy) {
+        return res.status(400).json({
+          error: "Non-Mission BulkGate sends must explicitly set legacy=true and cannot include Mission contact context",
+        });
+      }
       
       // Create message record
       const message = await storage.createCommunicationMessage({
         userId: user.id,
         customerId: customerId || undefined,
+        campaignId: campaignId || undefined,
+        entityType: customerId ? "customer" : undefined,
+        entityId: customerId || undefined,
         type: "sms",
         direction: "outbound",
         content: text,
         recipientPhone: number,
         status: "pending",
-        provider: "bulkgate",
+        provider: campaignId ? undefined : "bulkgate",
       });
       
-      const result = await sendTransactionalSms({
+      const { sendSmsViaProvider } = await import("./lib/sms-provider");
+      const result = await sendSmsViaProvider({
         number,
         text,
         country,
-        senderId,
-        senderIdValue,
-        tag,
+        provider: campaignId ? undefined : "bulkgate",
+        campaignId: campaignId || undefined,
+        ...(senderId ? { senderId } : {}),
+        ...(senderIdValue ? { senderIdValue } : {}),
+        // Never trust a client/entity tag for Mission attribution.
+        tag: message.id,
       });
       
       if (result.success) {
@@ -14873,76 +14888,65 @@ Return ONLY valid JSON, no markdown code blocks.`,
           status: "received",
           provider: "bulkgate",
           externalId: webhookData.smsId,
-        });
+        }).returning();
+        if (!incomingMessage) {
+          return res.json({ received: true, duplicate: true });
+        }
         
         console.log(`[BulkGate DLR] Stored incoming SMS from ${webhookData.number}: ${incomingMessage.id}`);
         
         // Try to link to any entity (customer / hospital / clinic / collaborator)
-        // PRIMARY: use BulkGate tag (most reliable — sent back on every reply)
+        // PRIMARY: only correlate a tag to a persisted outbound external ID.
+        // Entity-only tags are not proof of a Mission conversation.
         let linkedCustomerId: string | undefined;
+        let linkedCampaignId: string | undefined;
         if (webhookData.tag) {
-          const tagMatch = (webhookData.tag as string).match(/^(customer|hospital|clinic|collaborator|person)-([0-9a-f-]{36})$/i);
-          if (tagMatch) {
-            const entityId = tagMatch[2];
-            await storage.updateCommunicationMessage(incomingMessage.id, { customerId: entityId });
-            linkedCustomerId = entityId;
-            console.log(`[BulkGate DLR] Linked incoming SMS via tag (${tagMatch[1]}): ${entityId}`);
+          const [outbound] = await db.select({
+            customerId: communicationMessages.customerId,
+            campaignId: communicationMessages.campaignId,
+            entityType: communicationMessages.entityType,
+            entityId: communicationMessages.entityId,
+          }).from(communicationMessages).where(and(
+            eq(communicationMessages.provider, "bulkgate"),
+            eq(communicationMessages.direction, "outbound"),
+            eq(communicationMessages.id, String(webhookData.tag)),
+          )).limit(1);
+          if (outbound) {
+            linkedCustomerId = outbound.entityId || outbound.customerId || undefined;
+            linkedCampaignId = outbound.campaignId || undefined;
+            await storage.updateCommunicationMessage(incomingMessage.id, {
+              customerId: outbound.customerId || undefined,
+              campaignId: outbound.campaignId || undefined,
+              entityType: outbound.entityType || undefined,
+              entityId: outbound.entityId || undefined,
+            });
           }
         }
 
         // SECONDARY: fallback — match by sender phone number
         if (!linkedCustomerId && webhookData.number) {
-          // Fallback: normalize phone and search all entity tables
+          // Fallback: normalize phone and search all entity tables. A phone
+          // match cannot establish Mission context; it is used only when
+          // exactly one entity owns the number.
           const normPhone = (p: string) => p.replace(/[\s\-\(\)]/g, "").replace(/^\+?421/, "").replace(/^\+?420/, "").replace(/^00/, "");
           const inNorm = normPhone(webhookData.number);
-
-          // 1. Try customers first
           const foundCustomers = await storage.findCustomersByPhone(webhookData.number);
-          if (foundCustomers.length > 0) {
-            linkedCustomerId = foundCustomers[0].id;
-            await storage.updateCommunicationMessage(incomingMessage.id, { customerId: foundCustomers[0].id });
-            console.log(`[BulkGate DLR] Linked incoming SMS to customer ${foundCustomers[0].firstName} ${foundCustomers[0].lastName}`);
-          }
-
-          // 2. Try hospitals
-          if (!linkedCustomerId) {
-            const allHospitals = await db.select({ id: hospitals.id, name: hospitals.name, phone: hospitals.phone }).from(hospitals);
-            const matchedHospital = allHospitals.find(h => h.phone && normPhone(h.phone) === inNorm);
-            if (matchedHospital) {
-              linkedCustomerId = matchedHospital.id;
-              await storage.updateCommunicationMessage(incomingMessage.id, { customerId: matchedHospital.id });
-              console.log(`[BulkGate DLR] Linked incoming SMS to hospital ${matchedHospital.name}`);
-            }
-          }
-
-          // 3. Try clinics (phone, phone2, phone3)
-          if (!linkedCustomerId) {
-            const allClinics = await db.select({ id: clinics.id, name: clinics.name, phone: clinics.phone, phone2: clinics.phone2, phone3: clinics.phone3 }).from(clinics);
-            const matchedClinic = allClinics.find(c =>
-              (c.phone && normPhone(c.phone) === inNorm) ||
-              (c.phone2 && normPhone(c.phone2) === inNorm) ||
-              (c.phone3 && normPhone(c.phone3) === inNorm)
-            );
-            if (matchedClinic) {
-              linkedCustomerId = matchedClinic.id;
-              await storage.updateCommunicationMessage(incomingMessage.id, { customerId: matchedClinic.id });
-              console.log(`[BulkGate DLR] Linked incoming SMS to clinic ${matchedClinic.name}`);
-            }
-          }
-
-          // 4. Try collaborators (phone, mobile, mobile2)
-          if (!linkedCustomerId) {
-            const allCollaborators = await db.select({ id: collaborators.id, firstName: collaborators.firstName, lastName: collaborators.lastName, phone: collaborators.phone, mobile: collaborators.mobile, mobile2: collaborators.mobile2 }).from(collaborators);
-            const matchedCollab = allCollaborators.find(c =>
-              (c.phone && normPhone(c.phone) === inNorm) ||
-              (c.mobile && normPhone(c.mobile) === inNorm) ||
-              (c.mobile2 && normPhone(c.mobile2) === inNorm)
-            );
-            if (matchedCollab) {
-              linkedCustomerId = matchedCollab.id;
-              await storage.updateCommunicationMessage(incomingMessage.id, { customerId: matchedCollab.id });
-              console.log(`[BulkGate DLR] Linked incoming SMS to collaborator ${matchedCollab.firstName} ${matchedCollab.lastName}`);
-            }
+          const allHospitals = await db.select({ id: hospitals.id, phone: hospitals.phone }).from(hospitals);
+          const allClinics = await db.select({ id: clinics.id, phone: clinics.phone, phone2: clinics.phone2, phone3: clinics.phone3 }).from(clinics);
+          const allCollaborators = await db.select({ id: collaborators.id, phone: collaborators.phone, mobile: collaborators.mobile, mobile2: collaborators.mobile2 }).from(collaborators);
+          const matches = [
+            ...foundCustomers.map(c => ({ id: c.id, type: "customer" })),
+            ...allHospitals.filter(h => h.phone && normPhone(h.phone) === inNorm).map(h => ({ id: h.id, type: "hospital" })),
+            ...allClinics.filter(c => [c.phone, c.phone2, c.phone3].some(p => p && normPhone(p) === inNorm)).map(c => ({ id: c.id, type: "clinic" })),
+            ...allCollaborators.filter(c => [c.phone, c.mobile, c.mobile2].some(p => p && normPhone(p) === inNorm)).map(c => ({ id: c.id, type: "collaborator" })),
+          ];
+          if (matches.length === 1) {
+            linkedCustomerId = matches[0].id;
+            await storage.updateCommunicationMessage(incomingMessage.id, {
+              customerId: matches[0].id,
+              entityType: matches[0].type,
+              entityId: matches[0].id,
+            });
           }
         } // end phone-fallback block
         
@@ -14958,8 +14962,16 @@ Return ONLY valid JSON, no markdown code blocks.`,
           }
           const smsDisplayName = smsContactName || webhookData.number || "Neznáme číslo";
           const allUsers = await storage.getAllUsers();
-          const activeUserIds = allUsers.filter((u: any) => u.isActive !== false).map((u: any) => u.id);
-          if (activeUserIds.length > 0) {
+          let activeUserIds = allUsers.filter((u: any) => u.isActive !== false).map((u: any) => u.id);
+          if (linkedCampaignId) {
+            const assigned = await db.select({ userId: campaignAgents.userId }).from(campaignAgents)
+              .where(eq(campaignAgents.campaignId, linkedCampaignId));
+            const allowed = new Set(assigned.map(row => row.userId));
+            activeUserIds = activeUserIds.filter(id => allowed.has(id));
+          }
+          // Without exact outbound correlation there is no authorized Mission
+          // audience. Keep the message unassigned instead of broadcasting it.
+          if (linkedCampaignId && activeUserIds.length > 0) {
             await notificationService.sendNotificationToUsers(activeUserIds, {
               type: "new_sms",
               title: `Nová SMS od ${smsDisplayName}`,
@@ -15001,7 +15013,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
               console.log(`[BulkGate DLR] AI analysis complete for SMS ${incomingMessage.id}: sentiment=${aiResult.sentiment}, alert=${aiResult.alertLevel}`);
               
               // Additional notification for negative sentiment (higher priority alert)
-              if (aiResult.sentiment === "negative" || aiResult.sentiment === "angry" || aiResult.hasAngryTone) {
+              if (linkedCampaignId && (aiResult.sentiment === "negative" || aiResult.sentiment === "angry" || aiResult.hasAngryTone)) {
                 try {
                   let customerName: string | null = null;
                   let countryCode: string | undefined;
@@ -15013,24 +15025,31 @@ Return ONLY valid JSON, no markdown code blocks.`,
                     }
                   }
                   
-                  await notificationService.triggerNotification("sentiment_negative", {
-                    title: `Negatívna SMS od ${customerName || webhookData.number}`,
-                    message: aiResult.note || `SMS obsahuje negatívny sentiment`,
-                    entityType: "sms",
-                    entityId: incomingMessage.id,
-                    countryCode: countryCode,
-                    priority: aiResult.alertLevel === "critical" ? "urgent" : aiResult.alertLevel === "warning" ? "high" : "normal",
-                    metadata: {
-                      sentiment: aiResult.sentiment,
-                      alertLevel: aiResult.alertLevel,
-                      hasAngryTone: aiResult.hasAngryTone,
-                      wantsToCancel: aiResult.wantsToCancel,
-                      customerName: customerName,
-                      senderPhone: webhookData.number,
-                      customerId: linkedCustomerId || null,
-                    }
-                  });
-                  console.log(`[BulkGate DLR] Notification triggered for negative sentiment SMS ${incomingMessage.id}`);
+                  const assigned = await db.select({ userId: campaignAgents.userId })
+                    .from(campaignAgents)
+                    .where(eq(campaignAgents.campaignId, linkedCampaignId));
+                  const assignedUserIds = [...new Set(assigned.map(row => row.userId))];
+                  if (assignedUserIds.length > 0) {
+                    await notificationService.sendNotificationToUsers(assignedUserIds, {
+                      type: "sentiment_negative",
+                      title: `Negatívna SMS od ${customerName || webhookData.number}`,
+                      message: aiResult.note || `SMS obsahuje negatívny sentiment`,
+                      entityType: "sms",
+                      entityId: incomingMessage.id,
+                      countryCode: countryCode,
+                      priority: aiResult.alertLevel === "critical" ? "urgent" : aiResult.alertLevel === "warning" ? "high" : "normal",
+                      metadata: {
+                        sentiment: aiResult.sentiment,
+                        alertLevel: aiResult.alertLevel,
+                        hasAngryTone: aiResult.hasAngryTone,
+                        wantsToCancel: aiResult.wantsToCancel,
+                        customerName: customerName,
+                        senderPhone: webhookData.number,
+                        customerId: linkedCustomerId || null,
+                      }
+                    });
+                    console.log(`[BulkGate DLR] Mission-scoped negative sentiment notification sent for SMS ${incomingMessage.id}`);
+                  }
                 } catch (notifError) {
                   console.error("[BulkGate DLR] Error triggering notification:", notifError);
                 }
@@ -15314,7 +15333,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
         let linkedEntityName: string | null = null;
         let linkedCountryCode: string | undefined;
         let linkedEntityType: "customer" | "hospital" | "clinic" | "collaborator" | undefined;
+        let linkedCampaignId: string | undefined;
         let linkedBy: "outbound-message" | "phone" | undefined;
+        let exactOutboundMatch = false;
 
         // The provider returns msg_id of the original outbound SMS. Prefer that
         // exact relationship over phone matching, which can be ambiguous when
@@ -15322,24 +15343,37 @@ Return ONLY valid JSON, no markdown code blocks.`,
         if (incoming.inReplyToMessageId) {
           const [outboundMessage] = await db.select({
             customerId: communicationMessages.customerId,
+            campaignId: communicationMessages.campaignId,
+            entityType: communicationMessages.entityType,
+            entityId: communicationMessages.entityId,
           }).from(communicationMessages)
             .where(and(
               eq(communicationMessages.provider, "smstools"),
               eq(communicationMessages.direction, "outbound"),
               eq(communicationMessages.externalId, incoming.inReplyToMessageId),
-              isNotNull(communicationMessages.customerId),
             ))
             .orderBy(desc(communicationMessages.createdAt))
             .limit(1);
-          if (outboundMessage?.customerId) {
-            linkedEntityId = outboundMessage.customerId;
+          if (outboundMessage) {
+            exactOutboundMatch = true;
+            linkedCampaignId = outboundMessage.campaignId || undefined;
+            await storage.updateCommunicationMessage(incomingMessage.id, {
+              campaignId: linkedCampaignId,
+              customerId: outboundMessage.customerId || undefined,
+              entityType: outboundMessage.entityType || undefined,
+              entityId: outboundMessage.entityId || undefined,
+            });
+          }
+          if (outboundMessage?.entityId || outboundMessage?.customerId) {
+            linkedEntityId = outboundMessage.entityId || outboundMessage.customerId!;
+            linkedEntityType = (outboundMessage.entityType as typeof linkedEntityType) || "customer";
             linkedBy = "outbound-message";
 
-            const [customer] = await db.select({
+            const [customer] = linkedEntityType === "customer" ? await db.select({
               firstName: customers.firstName,
               lastName: customers.lastName,
               country: customers.country,
-            }).from(customers).where(eq(customers.id, linkedEntityId)).limit(1);
+            }).from(customers).where(eq(customers.id, linkedEntityId)).limit(1) : [];
             if (customer) {
               linkedEntityType = "customer";
               linkedEntityName = `${customer.firstName || ""} ${customer.lastName || ""}`.trim() || null;
@@ -15371,90 +15405,84 @@ Return ONLY valid JSON, no markdown code blocks.`,
           }
         }
 
-        if (!linkedEntityId) {
+        if (!linkedEntityId && !exactOutboundMatch) {
+          const normalizedSender = normalizeSmsPhone(incoming.senderPhone);
           const foundCustomers = await storage.findCustomersByPhone(incoming.senderPhone);
-          if (foundCustomers.length > 0) {
-            const customer = foundCustomers[0];
-            linkedEntityId = customer.id;
-            linkedEntityName = `${customer.firstName || ""} ${customer.lastName || ""}`.trim() || null;
-            linkedCountryCode = customer.country;
-            linkedEntityType = "customer";
-            linkedBy = "phone";
-          }
-        }
-
-        if (!linkedEntityId) {
-          const normPhone = (phone: string | null | undefined) =>
-            (phone || "").replace(/[\s\-\(\)]/g, "").replace(/^\+?421/, "").replace(/^00421/, "").replace(/^0/, "");
-          const normalizedSender = normPhone(incoming.senderPhone);
-
           const allHospitals = await db.select({
             id: hospitals.id,
             name: hospitals.name,
             phone: hospitals.phone,
           }).from(hospitals);
-          const hospital = allHospitals.find(row => normPhone(row.phone) === normalizedSender);
-          if (hospital) {
-            linkedEntityId = hospital.id;
-            linkedEntityName = hospital.name;
-            linkedEntityType = "hospital";
+          const allClinics = await db.select({
+            id: clinics.id,
+            name: clinics.name,
+            phone: clinics.phone,
+            phone2: clinics.phone2,
+            phone3: clinics.phone3,
+          }).from(clinics);
+          const allCollaborators = await db.select({
+            id: collaborators.id,
+            firstName: collaborators.firstName,
+            lastName: collaborators.lastName,
+            phone: collaborators.phone,
+            mobile: collaborators.mobile,
+            mobile2: collaborators.mobile2,
+          }).from(collaborators);
+          const candidates: SmsEntityCandidate[] = [
+            ...foundCustomers.map(customer => ({
+              id: customer.id,
+              type: "customer" as const,
+              name: `${customer.firstName || ""} ${customer.lastName || ""}`.trim() || null,
+              country: customer.country,
+            })),
+            ...allHospitals
+              .filter(row => normalizeSmsPhone(row.phone) === normalizedSender)
+              .map(row => ({ id: row.id, type: "hospital" as const, name: row.name })),
+            ...allClinics
+              .filter(row => [row.phone, row.phone2, row.phone3].some(phone => normalizeSmsPhone(phone) === normalizedSender))
+              .map(row => ({ id: row.id, type: "clinic" as const, name: row.name })),
+            ...allCollaborators
+              .filter(row => [row.phone, row.mobile, row.mobile2].some(phone => normalizeSmsPhone(phone) === normalizedSender))
+              .map(row => ({
+                id: row.id,
+                type: "collaborator" as const,
+                name: `${row.firstName || ""} ${row.lastName || ""}`.trim() || null,
+              })),
+          ];
+          const unique = uniqueSmsEntity(candidates);
+          if (unique) {
+            linkedEntityId = unique.id;
+            linkedEntityType = unique.type;
+            linkedEntityName = unique.name || null;
+            linkedCountryCode = unique.country || undefined;
             linkedBy = "phone";
-          }
-
-          if (!linkedEntityId) {
-            const allClinics = await db.select({
-              id: clinics.id,
-              name: clinics.name,
-              phone: clinics.phone,
-              phone2: clinics.phone2,
-              phone3: clinics.phone3,
-            }).from(clinics);
-            const clinic = allClinics.find(row =>
-              normPhone(row.phone) === normalizedSender ||
-              normPhone(row.phone2) === normalizedSender ||
-              normPhone(row.phone3) === normalizedSender
-            );
-            if (clinic) {
-              linkedEntityId = clinic.id;
-              linkedEntityName = clinic.name;
-              linkedEntityType = "clinic";
-              linkedBy = "phone";
-            }
-          }
-
-          if (!linkedEntityId) {
-            const allCollaborators = await db.select({
-              id: collaborators.id,
-              firstName: collaborators.firstName,
-              lastName: collaborators.lastName,
-              phone: collaborators.phone,
-              mobile: collaborators.mobile,
-              mobile2: collaborators.mobile2,
-            }).from(collaborators);
-            const collaborator = allCollaborators.find(row =>
-              normPhone(row.phone) === normalizedSender ||
-              normPhone(row.mobile) === normalizedSender ||
-              normPhone(row.mobile2) === normalizedSender
-            );
-            if (collaborator) {
-              linkedEntityId = collaborator.id;
-              linkedEntityName = `${collaborator.firstName || ""} ${collaborator.lastName || ""}`.trim() || null;
-              linkedEntityType = "collaborator";
-              linkedBy = "phone";
-            }
           }
         }
 
         if (linkedEntityId) {
-          await storage.updateCommunicationMessage(incomingMessage.id, { customerId: linkedEntityId });
+          await storage.updateCommunicationMessage(incomingMessage.id, {
+            customerId: linkedEntityType === "customer" ? linkedEntityId : undefined,
+            campaignId: linkedCampaignId,
+            entityType: linkedEntityType,
+            entityId: linkedEntityId,
+          });
         }
 
         try {
           const allUsers = await storage.getAllUsers();
-          const activeUserIds = allUsers
+          let activeUserIds = allUsers
             .filter((user: any) => user.isActive !== false)
             .map((user: any) => user.id);
-          if (activeUserIds.length > 0) {
+          if (linkedCampaignId) {
+            const assigned = await db.select({ userId: campaignAgents.userId })
+              .from(campaignAgents)
+              .where(eq(campaignAgents.campaignId, linkedCampaignId));
+            const allowed = new Set(assigned.map(row => row.userId));
+            activeUserIds = activeUserIds.filter(id => allowed.has(id));
+          }
+          // Unresolved phone replies stay in the unassigned inbox. Never push
+          // their content globally because no Mission authorization is known.
+          if (linkedCampaignId && activeUserIds.length > 0) {
             await notificationService.sendNotificationToUsers(activeUserIds, {
               type: "new_sms",
               title: `Nová SMS od ${linkedEntityName || incoming.senderPhone}`,
@@ -25226,6 +25254,37 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const user = req.session.user!;
       const now = new Date();
       const onlyMine = req.query.onlyMine === "true";
+      const requestedCampaignId = typeof req.query.campaignId === "string" ? req.query.campaignId.trim() : "";
+      if (!requestedCampaignId) {
+        return res.status(400).json({ error: "Mission is required" });
+      }
+      // A selected Mission is an explicit scope, not merely a UI hint. Ordinary
+      // agents may request it only when it is readable in their workspace and
+      // they are assigned to it; managers/admins retain their existing access.
+      if (requestedCampaignId) {
+        const [requestedCampaign] = await db.select({
+          id: campaigns.id,
+          countryCodes: campaigns.countryCodes,
+        }).from(campaigns).where(eq(campaigns.id, requestedCampaignId)).limit(1);
+        if (!requestedCampaign) return res.status(404).json({ error: "Mission not found" });
+        const workspaceAccess = await storage.getAgentWorkspaceAccess(user.id);
+        const readable = canAgentReadCampaignByWorkspaceCountry({
+          role: user.role,
+          workspaceCountryCodes: workspaceAccess.map(access => access.countryCode),
+          campaignCountryCodes: requestedCampaign.countryCodes,
+        });
+        if (!readable) return res.status(403).json({ error: "Mission is not readable" });
+        if (user.role !== "admin" && user.role !== "manager") {
+          const [assignment] = await db.select({ id: campaignAgents.id })
+            .from(campaignAgents)
+            .where(and(
+              eq(campaignAgents.campaignId, requestedCampaignId),
+              eq(campaignAgents.userId, user.id),
+            ))
+            .limit(1);
+          if (!assignment) return res.status(403).json({ error: "Mission is not assigned" });
+        }
+      }
       const workspaceAccess = await storage.getAgentWorkspaceAccess(user.id);
       const workspaceCountryCodes = workspaceAccess.map(access => access.countryCode);
 
@@ -25288,6 +25347,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             ? and(
                 inArray(campaignContacts.status, SCHEDULED_CALLBACK_STATUSES),
                 isNotNull(campaignContacts.callbackDate),
+                ...(requestedCampaignId ? [eq(campaignContacts.campaignId, requestedCampaignId)] : []),
                 or(
                   eq(campaignContacts.assignedTo, user.id),
                   eq(campaignContacts.assignedTo, "all"),
@@ -25296,7 +25356,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
               )
             : and(
                 inArray(campaignContacts.status, SCHEDULED_CALLBACK_STATUSES),
-                isNotNull(campaignContacts.callbackDate)
+                isNotNull(campaignContacts.callbackDate),
+                ...(requestedCampaignId ? [eq(campaignContacts.campaignId, requestedCampaignId)] : [])
               )
         );
 
@@ -25358,6 +25419,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             eq(campaignContactSessions.callbackScheduled, true),
             isNotNull(campaignContactSessions.callbackDate),
             gte(campaignContactSessions.callbackDate, now),
+            ...(requestedCampaignId ? [eq(campaignContacts.campaignId, requestedCampaignId)] : []),
             or(
               eq(campaignContactSessions.userId, user.id),
               eq(campaignContacts.assignedTo, "all")
@@ -26232,19 +26294,27 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   // agent's current shift. Mission scope is always derived server-side.
   app.get("/api/agent/missed-messages", requireAuth, async (req, res) => {
     try {
-      const userId = req.session.user!.id;
-      const [session] = await db.select({
-        campaignId: agentSessions.campaignId,
-        campaignIds: agentSessions.campaignIds,
-      }).from(agentSessions)
-        .where(and(eq(agentSessions.userId, userId), isNull(agentSessions.endedAt)))
-        .orderBy(desc(agentSessions.startedAt))
-        .limit(1);
-      const missionIds = [...new Set([
-        ...(session?.campaignIds || []),
-        ...(session?.campaignId ? [session.campaignId] : []),
-      ])];
-      if (missionIds.length === 0) return res.json([]);
+      const user = req.session.user!;
+      const userId = user.id;
+      const requestedCampaignId = typeof req.query.campaignId === "string" ? req.query.campaignId.trim() : "";
+      if (!requestedCampaignId) return res.status(400).json({ error: "Mission is required" });
+      const [requestedCampaign] = await db.select({ id: campaigns.id, countryCodes: campaigns.countryCodes })
+        .from(campaigns).where(eq(campaigns.id, requestedCampaignId)).limit(1);
+      if (!requestedCampaign) return res.status(404).json({ error: "Mission not found" });
+      const workspaceAccess = await storage.getAgentWorkspaceAccess(userId);
+      if (!canAgentReadCampaignByWorkspaceCountry({
+        role: user.role,
+        workspaceCountryCodes: workspaceAccess.map(access => access.countryCode),
+        campaignCountryCodes: requestedCampaign.countryCodes,
+      })) return res.status(403).json({ error: "Mission is not readable" });
+      if (user.role !== "admin" && user.role !== "manager") {
+        const [assignment] = await db.select({ id: campaignAgents.id }).from(campaignAgents).where(and(
+          eq(campaignAgents.campaignId, requestedCampaignId),
+          eq(campaignAgents.userId, userId),
+        )).limit(1);
+        if (!assignment) return res.status(403).json({ error: "Mission is not assigned" });
+      }
+      const missionIds = [requestedCampaignId];
 
       const rows = await pool.query(`
         WITH matched AS (
@@ -26254,7 +26324,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             COALESCE(cm.metadata::jsonb ->> 'mailboxEmail', cm.metadata::jsonb ->> 'fromMailbox') AS "mailboxEmail",
             cm.metadata AS metadata,
             cm.sender_phone AS "senderPhone",
-            cm.customer_id AS "entityId",
+            COALESCE(cm.entity_id, cm.customer_id) AS "entityId",
             cm.created_at AS "createdAt",
             cm.handled_at AS "handledAt",
             cm.handled_by_user_id AS "handledByUserId",
@@ -26265,11 +26335,22 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             c.id AS "campaignId", c.name AS "campaignName"
           FROM communication_messages cm
           JOIN campaign_contacts cc ON cc.campaign_id = ANY($1::varchar[])
-            AND (cc.customer_id = cm.customer_id OR cc.clinic_id = cm.customer_id
-              OR cc.hospital_id = cm.customer_id OR cc.collaborator_id = cm.customer_id)
+            AND (
+              (cm.campaign_id = cc.campaign_id AND (
+                (cm.entity_type = 'customer' AND cc.customer_id = cm.entity_id)
+                OR (cm.entity_type = 'clinic' AND cc.clinic_id = cm.entity_id)
+                OR (cm.entity_type = 'hospital' AND cc.hospital_id = cm.entity_id)
+                OR (cm.entity_type = 'collaborator' AND cc.collaborator_id = cm.entity_id)
+              ))
+              OR (cm.campaign_id IS NULL AND (
+                cc.customer_id = cm.customer_id OR cc.clinic_id = cm.customer_id
+                OR cc.hospital_id = cm.customer_id OR cc.collaborator_id = cm.customer_id
+              ))
+            )
           JOIN campaigns c ON c.id = cc.campaign_id
           WHERE cm.direction = 'inbound' AND cm.type IN ('email', 'sms')
-            AND cm.customer_id IS NOT NULL
+            AND (cm.type <> 'sms' OR cm.campaign_id = cc.campaign_id)
+            AND COALESCE(cm.entity_id, cm.customer_id) IS NOT NULL
           ORDER BY cm.id, cm.created_at DESC, c.name
         )
         SELECT m.*, u.full_name AS "handledByUserName",
@@ -26297,26 +26378,31 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
   app.post("/api/agent/missed-messages/:messageId/handled", requireAuth, async (req, res) => {
     try {
+      const requestedCampaignId = typeof req.query.campaignId === "string" ? req.query.campaignId.trim() : "";
+      if (!requestedCampaignId) return res.status(400).json({ error: "Mission is required" });
       const result = await pool.query(`
         UPDATE communication_messages cm
         SET handled_at = now(), handled_by_user_id = $1
         WHERE cm.id = $2 AND cm.direction = 'inbound' AND cm.type IN ('email', 'sms')
+          AND (cm.campaign_id = $3 OR (cm.type = 'email' AND cm.campaign_id IS NULL))
           AND EXISTS (
             SELECT 1
-            FROM agent_sessions s
-            JOIN campaign_contacts cc
-              ON cc.campaign_id = ANY(
-                CASE WHEN cardinality(s.campaign_ids) > 0
-                  THEN s.campaign_ids
-                  ELSE ARRAY[s.campaign_id]::text[]
-                END
+            FROM campaign_agents ca
+            JOIN campaign_contacts cc ON cc.campaign_id = ca.campaign_id
+            WHERE ca.user_id = $1 AND ca.campaign_id = $3
+              AND (
+                (cm.entity_type = 'customer' AND cc.customer_id = cm.entity_id)
+                OR (cm.entity_type = 'clinic' AND cc.clinic_id = cm.entity_id)
+                OR (cm.entity_type = 'hospital' AND cc.hospital_id = cm.entity_id)
+                OR (cm.entity_type = 'collaborator' AND cc.collaborator_id = cm.entity_id)
+                OR (cm.entity_id IS NULL AND (
+                  cc.customer_id = cm.customer_id OR cc.clinic_id = cm.customer_id
+                  OR cc.hospital_id = cm.customer_id OR cc.collaborator_id = cm.customer_id
+                ))
               )
-            WHERE s.user_id = $1 AND s.ended_at IS NULL
-              AND (cc.customer_id = cm.customer_id OR cc.clinic_id = cm.customer_id
-                OR cc.hospital_id = cm.customer_id OR cc.collaborator_id = cm.customer_id)
           )
         RETURNING cm.id
-      `, [req.session.user!.id, req.params.messageId]);
+      `, [req.session.user!.id, req.params.messageId, requestedCampaignId]);
       if (result.rowCount === 0) return res.status(404).json({ error: "Message not found" });
       res.json({ success: true });
     } catch (error) {
@@ -26829,6 +26915,22 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
       const campaignIdsParam = (req.query.campaignIds as string) || "";
       const campaignIds = campaignIdsParam.split(",").filter(Boolean);
+      if (campaignIds.length !== 1) return res.status(400).json({ error: "Exactly one Mission is required" });
+      const [forecastCampaign] = await db.select({ id: campaigns.id, countryCodes: campaigns.countryCodes })
+        .from(campaigns).where(eq(campaigns.id, campaignIds[0])).limit(1);
+      if (!forecastCampaign) return res.status(404).json({ error: "Mission not found" });
+      const forecastAccess = await storage.getAgentWorkspaceAccess(user.id);
+      if (!canAgentReadCampaignByWorkspaceCountry({
+        role: user.role,
+        workspaceCountryCodes: forecastAccess.map(access => access.countryCode),
+        campaignCountryCodes: forecastCampaign.countryCodes,
+      })) return res.status(403).json({ error: "Mission is not readable" });
+      if (user.role !== "admin" && user.role !== "manager") {
+        const [forecastAssignment] = await db.select({ id: campaignAgents.id }).from(campaignAgents).where(and(
+          eq(campaignAgents.campaignId, campaignIds[0]), eq(campaignAgents.userId, user.id),
+        )).limit(1);
+        if (!forecastAssignment) return res.status(403).json({ error: "Mission is not assigned" });
+      }
 
       const conditions: any[] = [
         eq(campaignContacts.status, "callback_scheduled"),
@@ -29670,9 +29772,22 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
       const campaign = await storage.getCampaign(req.params.id);
       if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+      const sessionUser = req.session.user!;
+      const workspaceAccess = await storage.getAgentWorkspaceAccess(sessionUser.id);
+      if (!canAgentReadCampaignByWorkspaceCountry({
+        role: sessionUser.role,
+        workspaceCountryCodes: workspaceAccess.map(access => access.countryCode),
+        campaignCountryCodes: campaign.countryCodes,
+      })) return res.status(403).json({ error: "Mission is not readable" });
+      if (sessionUser.role !== "admin" && sessionUser.role !== "manager") {
+        const [assignment] = await db.select({ id: campaignAgents.id }).from(campaignAgents).where(and(
+          eq(campaignAgents.campaignId, req.params.id),
+          eq(campaignAgents.userId, sessionUser.id),
+        )).limit(1);
+        if (!assignment) return res.status(403).json({ error: "Mission is not assigned" });
+      }
       let contacts;
       let total: number | undefined;
-      const sessionUser = req.session.user!;
       const canManageAllMissions = sessionUser.role === "admin" || sessionUser.role === "manager";
       const visibility = parseCampaignContactVisibility(campaign.settings);
       if (!canManageAllMissions && visibility === "assigned_representative") {
@@ -30666,6 +30781,28 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
   app.patch("/api/campaigns/:campaignId/contacts/:contactId/sessions/:sessionId", requireAuth, async (req, res) => {
     try {
+      const sessionUser = req.session.user!;
+      const contact = await storage.getCampaignContact(req.params.contactId);
+      if (!contact || contact.campaignId !== req.params.campaignId) {
+        return res.status(404).json({ error: "Contact not found in this Mission" });
+      }
+      const [existingSession] = await db.select({ campaignContactId: campaignContactSessions.campaignContactId })
+        .from(campaignContactSessions)
+        .where(eq(campaignContactSessions.id, req.params.sessionId))
+        .limit(1);
+      if (!existingSession || existingSession.campaignContactId !== req.params.contactId) {
+        return res.status(404).json({ error: "Session not found for this contact" });
+      }
+      if (sessionUser.role !== "admin" && sessionUser.role !== "manager") {
+        const [assignment] = await db.select({ id: campaignAgents.id })
+          .from(campaignAgents)
+          .where(and(
+            eq(campaignAgents.campaignId, req.params.campaignId),
+            eq(campaignAgents.userId, sessionUser.id),
+          ))
+          .limit(1);
+        if (!assignment) return res.status(403).json({ error: "Mission is not assigned" });
+      }
       const session = await storage.updateContactSession(req.params.sessionId, req.body);
       if (!session) {
         return res.status(404).json({ error: "Session not found" });
@@ -33008,7 +33145,7 @@ Respond ONLY with valid JSON in this exact format:
                     } catch (e) { console.error("[assign_task] email channel error:", e); }
                   }
 
-                  // SMS — via the country default gateway. Best-effort: skip when no provider is configured.
+                  // SMS — the Mission provider is authoritative.
                   if (wantSms) {
                     try {
                       const { sendSmsViaProvider } = await import("./lib/sms-provider");
@@ -33017,26 +33154,37 @@ Respond ONLY with valid JSON in this exact format:
                       for (const r of smsRecipients) {
                         try {
                           const notificationText = `INDEXUS: Nová úloha - ${taskTitle}${smsCtx}`;
-                          const result = await sendSmsViaProvider({
-                            number: r.phone!,
-                            text: notificationText,
-                            country: contactCountry ?? undefined,
-                          });
                           const communication = await storage.createCommunicationMessage({
+                            campaignId: campaignId || undefined,
+                            entityType: ccRow?.contactType || undefined,
+                            entityId: contactId || undefined,
                             userId,
                             type: "sms",
                             direction: "outbound",
                             content: notificationText,
                             recipientPhone: r.phone!,
+                            status: "pending",
+                            metadata: JSON.stringify({
+                              purpose: "task_notification",
+                              campaignId: campaignId || null,
+                              entityId: contactId || null,
+                            }),
+                          });
+                          const result = await sendSmsViaProvider({
+                            number: r.phone!,
+                            text: notificationText,
+                            country: contactCountry ?? undefined,
+                            campaignId: campaignId || undefined,
+                            tag: communication.id,
+                          });
+                          await storage.updateCommunicationMessage(communication.id, {
                             status: result.success ? "sent" : "failed",
                             provider: result.provider,
                             externalId: result.smsId,
                             errorMessage: result.success ? undefined : result.error,
-                            metadata: JSON.stringify({ batchId: result.batchId || null, purpose: "task_notification" }),
+                            sentAt: result.success ? new Date() : undefined,
+                            metadata: JSON.stringify({ batchId: result.batchId || null, purpose: "task_notification", campaignId: campaignId || null, entityId: contactId || null }),
                           });
-                          if (result.success) {
-                            await storage.updateCommunicationMessage(communication.id, { sentAt: new Date() });
-                          }
                         } catch (e) { console.error("[assign_task] sms send failed for user", r.id, e instanceof Error ? e.message : String(e)); }
                       }
                       if (smsRecipients.length === 0) {

@@ -180,6 +180,34 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Mission SMS routing depends on these columns for provider/reply isolation.
+  // Unlike best-effort legacy migrations below, startup must stop if they are
+  // unavailable; running without them can disclose a reply to another Mission.
+  try {
+    await pool.query(`
+      ALTER TABLE communication_messages
+        ADD COLUMN IF NOT EXISTS campaign_id varchar,
+        ADD COLUMN IF NOT EXISTS entity_type text,
+        ADD COLUMN IF NOT EXISTS entity_id varchar;
+      CREATE INDEX IF NOT EXISTS idx_comm_messages_campaign
+        ON communication_messages (campaign_id);
+      CREATE INDEX IF NOT EXISTS idx_comm_messages_entity
+        ON communication_messages (entity_type, entity_id);
+    `);
+    const verified = await pool.query(`
+      SELECT count(*)::integer AS count
+      FROM information_schema.columns
+      WHERE table_schema = current_schema()
+        AND table_name = 'communication_messages'
+        AND column_name IN ('campaign_id', 'entity_type', 'entity_id')
+    `);
+    if (verified.rows[0]?.count !== 3) throw new Error("required attribution columns are missing");
+    console.log("[migration] Mission SMS attribution columns verified");
+  } catch (error) {
+    console.error("[migration] fatal Mission SMS attribution error:", error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS voice_network_incidents (
