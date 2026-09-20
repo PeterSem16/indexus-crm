@@ -497,3 +497,31 @@ mtime_ms = 1789884240763
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/a7e8b6c6-f947-4101-9677-b4417988aee1/e70247c4-8170-484e-aedd-ed304ecf9d26"
 storage_version_token = "1789884320878191"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "GxUMUDt0GvDYV3ipkimzf"
+uri = "file://screenshots/pulse-ordering-dark-variant.jpg"
+type = "image"
+title = "Contact ordering — Dark Pulse"
+description = "Tmavý navy/teal variant so zachovanou kompletnou funkcionalitou pôvodného Contact ordering."
+logical_id = "f2bb91e3-6f0d-41c8-945f-984e5a622f70"
+content_hash = "sha256:bbf946764d60c98bcae475aa9d0d7fee88e51f817ee9584034e8edd64803d75b"
+size = 100458
+mtime_ms = 1789884514479
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/f2bb91e3-6f0d-41c8-945f-984e5a622f70/bb0ce86d-4233-4146-9186-483f72f2e8ec"
+storage_version_token = "1789884526761479"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "Zc6xsslZvr-x3w2ugEpOi"
+uri = "file://screenshots/pulse-ordering-midnight-calm.jpg"
+type = "image"
+title = "Contact ordering — Soft Midnight"
+description = "Pokojnejší midnight variant s jemnejším kontrastom a zachovanou kompletnou funkcionalitou."
+logical_id = "ece6415a-cf40-4b4e-98df-20e91c7fbf32"
+content_hash = "sha256:efd1f110d2bfaa4a74c9d6b5c9ff20562c2bd73d19249b518b8db338d0932104"
+size = 97810
+mtime_ms = 1789884516051
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/ece6415a-cf40-4b4e-98df-20e91c7fbf32/adeeab8b-3e90-4119-8462-1937990faaad"
+storage_version_token = "1789884527429778"
+content_type = "image/jpeg"
