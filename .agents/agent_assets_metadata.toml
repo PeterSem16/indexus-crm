@@ -623,3 +623,17 @@ mtime_ms = 1789886930071
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/a9507b9d-0d51-4912-ac2f-e099ca5814a0/13d7b021-5ff2-42bc-8f72-e835125f90e7"
 storage_version_token = "1789886962288211"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "O8QEal6jgkKW84jFgNm8B"
+uri = "file://screenshots/scheduled-queue-reschedule-note-verified.jpg"
+type = "image"
+title = "Scheduled queue — poznámka k preplánovaniu"
+description = "Kompaktný Reschedule obsahuje voliteľnú poznámku. Po potvrdení sa v stĺpci Scheduled zobrazí výrazný NOTE badge s textom poznámky."
+logical_id = "b64205f5-6af4-4897-a4a0-4292d2caafc3"
+content_hash = "sha256:2e6a6ae7684c2bc36402d1d8a8f496dcf965b6dbd9c5ebd886f1ee6d77bbf40b"
+size = 49748
+mtime_ms = 1789887229254
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/b64205f5-6af4-4897-a4a0-4292d2caafc3/24c42b74-694d-4d86-8f95-e71cc0044b85"
+storage_version_token = "1789887252476756"
+content_type = "image/jpeg"
