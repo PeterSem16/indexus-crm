@@ -60,4 +60,16 @@ const oldCall = selectCallOutcomeBadges({
 });
 assert.deepEqual(oldCall, []);
 
-console.log("4 call outcome scenarios passed");
+const latestRecordedDisposition = selectCallOutcomeBadges({
+  events: [
+    event("2026-09-09T10:05:00Z", "status_change", { dispositionCode: "answered" }),
+    event("2026-09-09T11:15:00Z", "status_change", { dispositionCode: "send_sms" }),
+  ],
+  workflowMode: "disposition",
+  statusListMode: "immediate",
+  statusListItems,
+  dispositions,
+});
+assert.deepEqual(latestRecordedDisposition.map((badge) => badge.label), ["SMS odoslaná"]);
+
+console.log("5 call outcome scenarios passed");

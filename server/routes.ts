@@ -25414,6 +25414,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           ccCurrentStepId: campaignContacts.currentScriptStepId,
           ccDispositionCode: campaignContacts.dispositionCode,
           ccDispositionChecklistCodes: campaignContacts.dispositionChecklistCodes,
+          ccCallbackSlItemId: campaignContacts.callbackStatusListItemId,
         })
         .from(campaignContactSessions)
         .innerJoin(campaignContacts, eq(campaignContactSessions.campaignContactId, campaignContacts.id))
@@ -25653,6 +25654,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           stepIndex: sStepInfo.stepIndex,
           dispositionCode: row.ccDispositionCode || null,
           dispositionChecklistCodes: (row.ccDispositionChecklistCodes as string[] | null) || [],
+          callbackStatusListItemId: row.ccCallbackSlItemId || null,
           campaignQueueDisplayMode: (() => { try { return row.campaignSettings ? (JSON.parse(row.campaignSettings).queueDisplayMode || null) : null; } catch { return null; } })(),
           workflowMode: (() => { try { return row.campaignSettings && JSON.parse(row.campaignSettings).workflowMode === "status_list" ? "status_list" : "disposition"; } catch { return "disposition"; } })(),
           statusListMode: (() => { try { return row.campaignSettings && JSON.parse(row.campaignSettings).statusListMode === "batch" ? "batch" : "immediate"; } catch { return "immediate"; } })(),
@@ -25698,8 +25700,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         }
       }
 
-      // Use the exact same call-bound outcome rules as Communication history.
-      // Never derive the Queue Step column from the contact's current mutable status.
+      // Prefer the exact same call-bound outcome rules as Communication history.
+      // If no call-bound outcome exists, fall back to the contact's latest recorded
+      // disposition/status-list choice so the queue never loses the last workflow result.
       const queueContactIds = [...new Set((items as any[]).map(i => i.campaignContactId).filter(Boolean))] as string[];
       if (queueContactIds.length > 0) {
         const [queueHistory, queueCalls, queueStatusItems] = await Promise.all([
@@ -25735,6 +25738,19 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
         for (const item of items as any[]) {
           const contactHistory = queueHistory.filter(entry => entry.campaignContactId === item.campaignContactId);
+          const statusItemsForContact = new Map(queueStatusItemMap);
+          for (const entry of contactHistory) {
+            const metadata = (entry.metadata as Record<string, any> | null) || null;
+            const statusListItemId = metadata?.statusListItemId;
+            const itemLabel = metadata?.itemLabel;
+            if (statusListItemId && typeof itemLabel === "string" && itemLabel.trim()) {
+              const currentItem = statusItemsForContact.get(statusListItemId);
+              statusItemsForContact.set(statusListItemId, {
+                label: itemLabel,
+                color: currentItem?.color || null,
+              });
+            }
+          }
           const contactCalls = queueCalls
             .filter(call => call.campaignContactId === item.campaignContactId)
             .sort((a, b) => new Date(a.startedAt || a.createdAt).getTime() - new Date(b.startedAt || b.createdAt).getTime());
@@ -25753,7 +25769,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
               events: relevantEvents,
               workflowMode: item.workflowMode,
               statusListMode: item.statusListMode,
-              statusListItems: queueStatusItemMap,
+              statusListItems: statusItemsForContact,
               dispositions: queueDispositionMapByCampaign.get(item.campaignId) || new Map(),
             });
             if (badges.length > 0) {
@@ -25761,6 +25777,14 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
               break;
             }
           }
+          const latestRecordedBadges = selectCallOutcomeBadges({
+            events: contactHistory,
+            workflowMode: item.workflowMode,
+            statusListMode: item.statusListMode,
+            statusListItems: statusItemsForContact,
+            dispositions: queueDispositionMapByCampaign.get(item.campaignId) || new Map(),
+          });
+          if (latestRecordedBadges.length > 0) item.outcomeBadges = latestRecordedBadges;
         }
       }
 

@@ -9472,6 +9472,42 @@ function ReschedulePopover({ item, onReschedule, onInvalid, t, locale }: { item:
   const minute = timeVal.slice(3, 5);
   const setHour = (value: string) => setTimeVal(`${value}:${minute}`);
   const setMinute = (value: string) => setTimeVal(`${hour}:${value}`);
+  const fallbackDateParts = scheduleDateKey(new Date()).split("-").map(Number);
+  const parsedDateParts = dateVal.split("-").map(Number);
+  const selectedYear = parsedDateParts[0] || fallbackDateParts[0];
+  const selectedMonth = parsedDateParts[1] || fallbackDateParts[1];
+  const selectedDay = parsedDateParts[2] || fallbackDateParts[2];
+  const currentBratislavaYear = Number(scheduleDateKey(new Date()).slice(0, 4));
+  const yearOptions = Array.from(new Set([
+    ...Array.from({ length: 6 }, (_, offset) => currentBratislavaYear + offset),
+    selectedYear,
+  ])).filter(Number.isFinite).sort((a, b) => a - b);
+  const validDateKeysForMonth = (year: number, month: number) => {
+    if (!year || !month) return [];
+    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    return Array.from({ length: daysInMonth }, (_, index) => {
+      const day = index + 1;
+      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }).filter(key => isWeekday(key) && scheduleWallTimeToUtc(key, timeVal) > new Date());
+  };
+  const setDatePart = (part: "year" | "month" | "day", value: number) => {
+    const year = part === "year" ? value : selectedYear;
+    const month = part === "month" ? value : selectedMonth;
+    const requestedDay = part === "day" ? value : selectedDay;
+    const validKeys = validDateKeysForMonth(year, month);
+    const exactKey = `${year}-${String(month).padStart(2, "0")}-${String(requestedDay).padStart(2, "0")}`;
+    const nextKey = validKeys.includes(exactKey)
+      ? exactKey
+      : validKeys.find(key => Number(key.slice(-2)) >= requestedDay) || validKeys[validKeys.length - 1];
+    if (nextKey) setDateVal(nextKey);
+    else onInvalid?.();
+  };
+  const validDayKeys = validDateKeysForMonth(selectedYear, selectedMonth);
+  if (dateVal && isWeekday(dateVal) && !validDayKeys.includes(dateVal)) validDayKeys.unshift(dateVal);
+  const monthLabel = (month: number) => new Intl.DateTimeFormat(locale, {
+    timeZone: "UTC",
+    month: "short",
+  }).format(new Date(Date.UTC(2024, month - 1, 1)));
   const shortcuts = (() => {
     const dates: string[] = [];
     const cursor = new Date(`${scheduleDateKey(new Date())}T12:00:00`);
@@ -9506,9 +9542,46 @@ function ReschedulePopover({ item, onReschedule, onInvalid, t, locale }: { item:
             <p className="mb-1.5 text-[9px] font-extrabold uppercase tracking-[.1em] text-[#7891a5]">{t.agentWorkspace.rescheduleNewDate}</p>
             <div className="flex items-center gap-1">
               <Button type="button" variant="outline" size="icon" className="h-8 w-8 border-[#c7dbe9]" onClick={() => moveDate(-1)} aria-label={t.agentWorkspace.reschedulePreviousWeekday}><ChevronLeft className="h-4 w-4" /></Button>
-              <label className="relative flex h-10 flex-1 cursor-pointer flex-col items-center justify-center rounded-lg border border-[#9fc4dc] bg-[#eaf3fb] text-[#1c568f]" data-testid={`input-reschedule-datetime-${item.id}`}><span className="text-[9px]">{dateParts(dateVal)?.weekday}</span><strong className="text-sm">{dateParts(dateVal)?.date}</strong><input className="absolute inset-0 cursor-pointer opacity-0" type="date" value={dateVal} onChange={e => { if (isWeekday(e.target.value) && scheduleWallTimeToUtc(e.target.value, timeVal) > new Date()) setDateVal(e.target.value); else onInvalid?.(); }} aria-label={t.agentWorkspace.rescheduleChooseWeekday} data-testid={`input-reschedule-date-${item.id}`} /></label>
+              <div
+                className="flex h-10 min-w-0 flex-1 items-center gap-1.5 rounded-lg border border-[#9fc4dc] bg-[#eaf3fb] px-2 text-[#1c568f]"
+                data-testid={`input-reschedule-datetime-${item.id}`}
+              >
+                <Calendar className="h-3.5 w-3.5 shrink-0 text-[#2d6fba]" />
+                <select
+                  value={String(selectedDay).padStart(2, "0")}
+                  onChange={e => setDatePart("day", Number(e.target.value))}
+                  aria-label={`${t.agentWorkspace.rescheduleNewDate}: ${selectedDay}`}
+                  data-testid={`input-reschedule-date-${item.id}`}
+                  className="min-w-0 flex-1 bg-transparent text-center text-sm font-bold outline-none"
+                >
+                  {validDayKeys.map(key => <option key={key} value={key.slice(-2)}>{key.slice(-2)}</option>)}
+                </select>
+                <span className="h-5 w-px bg-[#b9d8ed]" />
+                <select
+                  value={selectedMonth}
+                  onChange={e => setDatePart("month", Number(e.target.value))}
+                  aria-label={`${t.agentWorkspace.rescheduleNewDate}: ${monthLabel(selectedMonth)}`}
+                  className="min-w-0 flex-[1.4] bg-transparent text-center text-sm font-bold outline-none"
+                >
+                  {Array.from({ length: 12 }, (_, index) => index + 1).map(month => (
+                    <option key={month} value={month} disabled={validDateKeysForMonth(selectedYear, month).length === 0}>
+                      {monthLabel(month)}
+                    </option>
+                  ))}
+                </select>
+                <span className="h-5 w-px bg-[#b9d8ed]" />
+                <select
+                  value={selectedYear}
+                  onChange={e => setDatePart("year", Number(e.target.value))}
+                  aria-label={`${t.agentWorkspace.rescheduleNewDate}: ${selectedYear}`}
+                  className="min-w-0 flex-1 bg-transparent text-center text-sm font-bold outline-none"
+                >
+                  {yearOptions.map(year => <option key={year} value={year}>{year}</option>)}
+                </select>
+              </div>
               <Button type="button" variant="outline" size="icon" className="h-8 w-8 border-[#c7dbe9]" onClick={() => moveDate(1)} aria-label={t.agentWorkspace.rescheduleNextWeekday}><ChevronRight className="h-4 w-4" /></Button>
             </div>
+            <p className="mt-1 text-center text-[9px] font-semibold text-[#7089a0]">{dateParts(dateVal)?.weekday} · {dateParts(dateVal)?.date}</p>
             <div className="mt-2 flex gap-1.5">
               {shortcuts.map(value => <button type="button" key={value} onClick={() => setDateVal(value)} className={`rounded-md border px-2 py-1 text-[10px] ${value === dateVal ? "border-[#9fc4dc] bg-[#eaf3fb] font-bold text-[#1c568f]" : "border-[#dce8f1] text-[#7089a0]"}`}>{dateParts(value)?.weekday} {dateParts(value)?.date}</button>)}
             </div>
@@ -9998,10 +10071,10 @@ function ScheduledQueuePanel({
                           )}
                         </div>
 
-                        <div className="flex items-center min-w-0 overflow-hidden">
-                          {item.workflowMode && item.outcomeBadges?.length ? (
-                            <div className="flex flex-col gap-0.5 items-start" data-testid={`text-scheduled-step-${item.id}`}>
-                              {item.outcomeBadges.map((badge, index) => {
+                        <div className="flex min-w-0 items-center overflow-hidden">
+                          <div className="flex min-w-0 flex-col items-start gap-1" data-testid={`text-scheduled-step-${item.id}`}>
+                            {item.outcomeBadges?.length ? (
+                              item.outcomeBadges.map((badge, index) => {
                                 const color = badge.color || (badge.kind === "callback" ? "#2563eb" : "#059669");
                                 const label = badge.kind === "callback"
                                   ? t.agentWorkspace.dispCbScheduledTitle
@@ -10017,59 +10090,40 @@ function ScheduledQueuePanel({
                                     {label}
                                   </span>
                                 );
-                              })}
-                            </div>
-                          ) : item.workflowMode ? (
-                            item.stepName ? (
-                              <span className="text-[11px] text-muted-foreground truncate" data-testid={`text-scheduled-step-${item.id}`}>
-                                {item.stepIndex ? `${item.stepIndex}. ` : ""}{item.stepName}
-                              </span>
-                            ) : <span className="text-[10px] text-muted-foreground/50">—</span>
-                          ) : item.callbackStatusListLabel ? (
-                            <div className="flex flex-col gap-0.5 items-start" data-testid={`text-scheduled-step-${item.id}`}>
-                                <span
-                                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 max-w-full truncate"
+                              })
+                            ) : item.callbackStatusListLabel ? (
+                              <span
+                                className="inline-flex max-w-full items-center truncate rounded border border-blue-200 bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
                                 title={item.callbackStatusListLabel}
                               >
                                 {item.callbackStatusListLabel}
                               </span>
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400">
-                                ↳ {item.dispositionName || item.dispositionCode || getTypeLabel(item.type)}
-                              </span>
-                            </div>
-                          ) : item.campaignQueueDisplayMode === "last_status" ? (
-                            item.dispositionCode ? (
-                              <div className="flex flex-col gap-0.5 items-start" data-testid={`text-scheduled-step-${item.id}`}>
+                            ) : (item.dispositionName || item.dispositionCode) ? (
+                              <>
                                 <span
-                                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
-                                  title={item.dispositionName || item.dispositionCode}
+                                  className="inline-flex max-w-full items-center truncate rounded border border-purple-200 bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold text-purple-800 dark:border-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
+                                  title={item.dispositionName || item.dispositionCode || undefined}
                                 >
                                   {item.dispositionName || item.dispositionCode}
                                 </span>
-                                {item.dispositionChecklistNames?.map((name, idx) => (
-                                  <span key={idx} className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400">
+                                {item.dispositionChecklistNames?.map((name, checklistIndex) => (
+                                  <span key={`${name}-${checklistIndex}`} className="inline-flex max-w-full items-center truncate rounded bg-purple-50 px-1.5 py-0.5 text-[9px] font-medium text-purple-700 dark:bg-purple-900/20 dark:text-purple-400">
                                     ↳ {name}
                                   </span>
                                 ))}
-                              </div>
-                            ) : (
+                              </>
+                            ) : null}
+                            {item.stepName ? (
+                              <span
+                                className="inline-flex max-w-full items-center truncate rounded bg-[#eaf3fb] px-1.5 py-0.5 text-[9px] font-medium text-[#2d6fba]"
+                                title={`${item.stepIndex ? `${item.stepIndex}. ` : ""}${item.stepName}`}
+                              >
+                                {item.stepIndex ? `${item.stepIndex}. ` : ""}{item.stepName}
+                              </span>
+                            ) : !item.outcomeBadges?.length && !item.callbackStatusListLabel && !item.dispositionName && !item.dispositionCode ? (
                               <span className="text-[10px] text-muted-foreground/50">—</span>
-                            )
-                          ) : item.stepName ? (
-                            <span
-                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium truncate"
-                              style={{
-                                backgroundColor: `hsl(${((item.stepIndex || 1) * 67) % 360}, 65%, 92%)`,
-                                color: `hsl(${((item.stepIndex || 1) * 67) % 360}, 70%, 30%)`,
-                              }}
-                              title={`${item.stepIndex}. ${item.stepName}`}
-                              data-testid={`text-scheduled-step-${item.id}`}
-                            >
-                              {item.stepIndex}. {item.stepName}
-                            </span>
-                          ) : (
-                            <span className="text-[10px] text-muted-foreground/50">—</span>
-                          )}
+                            ) : null}
+                          </div>
                         </div>
 
                           <div className="min-w-0 overflow-hidden text-[11px] text-[#567188]">
