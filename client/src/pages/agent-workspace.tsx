@@ -9426,17 +9426,26 @@ function ReschedulePopover({ item, onReschedule, t }: { item: ScheduledItem; onR
     <Popover open={popOpen} onOpenChange={setPopOpen}>
       <PopoverTrigger asChild>
         <Button
-          variant="ghost"
+          variant="outline"
           size="icon"
+          className="h-7 w-7 rounded-md border-[#cddde9] bg-white text-[#567188] hover:border-[#2d6fba] hover:bg-[#eaf3fb] hover:text-[#1c568f] dark:border-slate-700 dark:bg-slate-900"
           title={t.agentWorkspace.reschedule}
           data-testid={`btn-scheduled-reschedule-${item.id}`}
         >
-          <RotateCcw className="h-4 w-4 text-muted-foreground" />
+          <CalendarClock className="h-3.5 w-3.5" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-3" align="end">
-        <div className="space-y-3">
-          <p className="text-sm font-medium">{t.agentWorkspace.reschedule}</p>
+      <PopoverContent className="w-[260px] rounded-xl border-sky-200/80 bg-white p-3 shadow-[0_16px_36px_rgba(28,67,103,0.18)] dark:border-sky-900 dark:bg-slate-950" align="end">
+        <div className="space-y-2.5">
+          <div className="flex items-start gap-2">
+            <div className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+              <CalendarClock className="h-3.5 w-3.5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-slate-800 dark:text-slate-100">{t.agentWorkspace.reschedule}</p>
+              <p className="truncate text-[10px] text-slate-500 dark:text-slate-400">{item.contactName || t.agentWorkspace.unknownContact}</p>
+            </div>
+          </div>
           <DateTimePicker
             value={dateVal && timeVal ? `${dateVal}T${timeVal}` : ""}
             onChange={(val) => {
@@ -9450,10 +9459,19 @@ function ReschedulePopover({ item, onReschedule, t }: { item: ScheduledItem; onR
             minDate={new Date()}
             data-testid={`input-reschedule-datetime-${item.id}`}
           />
-          <div className="flex gap-2">
+          {item.notes && (
+            <div className="flex items-start gap-1.5 rounded-md border border-[#f0c8bc] bg-[#fff1ed] px-2 py-1.5 text-[10px] leading-snug text-[#a64e43] dark:border-rose-900/70 dark:bg-rose-950/30 dark:text-rose-300">
+              <MessageSquare className="mt-0.5 h-3 w-3 shrink-0" />
+              <span className="line-clamp-3">{item.notes}</span>
+            </div>
+          )}
+          <div className="flex justify-end gap-1.5 border-t border-slate-100 pt-2 dark:border-slate-800">
+            <Button size="sm" variant="ghost" className="h-7 px-2.5 text-[10px]" onClick={() => setPopOpen(false)}>
+              {t.common.cancel}
+            </Button>
             <Button
               size="sm"
-              className="flex-1"
+              className="h-7 bg-[#2d6fba] px-3 text-[10px] hover:bg-[#1c568f]"
               data-testid={`btn-confirm-reschedule-${item.id}`}
               onClick={() => {
                 if (dateVal && timeVal) {
@@ -9465,9 +9483,6 @@ function ReschedulePopover({ item, onReschedule, t }: { item: ScheduledItem; onR
             >
               <Check className="h-3 w-3 mr-1" />
               OK
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setPopOpen(false)}>
-              <X className="h-3 w-3" />
             </Button>
           </div>
         </div>
@@ -9649,20 +9664,20 @@ function ScheduledQueuePanel({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent overlayClassName="!bg-slate-950/30 backdrop-blur-[1px]" className="!w-[calc(100vw-2rem)] !max-w-[calc(100vw-2rem)] !h-[calc(100vh-2rem)] !max-h-[calc(100vh-2rem)] sm:!w-[calc(100vw-3rem)] sm:!max-w-[calc(100vw-3rem)] sm:!h-[calc(100vh-3rem)] sm:!max-h-[calc(100vh-3rem)] lg:!w-[calc(100vw-4rem)] lg:!max-w-[calc(100vw-4rem)] lg:!h-[calc(100vh-4rem)] lg:!max-h-[calc(100vh-4rem)] !flex !flex-col overflow-hidden p-0 shadow-2xl ring-1 ring-black/10 dark:ring-white/10">
-        <div className="flex items-center justify-between pl-5 pr-14 pt-5 pb-3 border-b flex-shrink-0">
+      <DialogContent overlayClassName="!bg-slate-950/30 backdrop-blur-[1px]" className="!w-[calc(100vw-2rem)] !max-w-[calc(100vw-2rem)] !h-[calc(100vh-2rem)] !max-h-[calc(100vh-2rem)] sm:!w-[calc(100vw-3rem)] sm:!max-w-[calc(100vw-3rem)] sm:!h-[calc(100vh-3rem)] sm:!max-h-[calc(100vh-3rem)] lg:!w-[calc(100vw-4rem)] lg:!max-w-[calc(100vw-4rem)] lg:!h-[calc(100vh-4rem)] lg:!max-h-[calc(100vh-4rem)] !flex !flex-col overflow-hidden border-[#caddeb] bg-[#fbfdff] p-0 shadow-[0_20px_52px_rgba(28,67,103,0.18)] ring-1 ring-black/5 dark:border-slate-700 dark:bg-slate-950 dark:ring-white/10">
+        <div className="flex min-h-[58px] flex-shrink-0 items-center justify-between border-b border-[#dce8f1] bg-[#f8fbfe] pl-5 pr-14 dark:border-slate-800 dark:bg-slate-950">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-              <CalendarClock className="h-5 w-5 text-primary" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#eaf3fb]">
+              <CalendarClock className="h-4 w-4 text-[#2d6fba]" />
             </div>
             <div>
-              <DialogTitle className="text-base font-semibold flex items-center gap-2" data-testid="text-scheduled-queue-title">
+              <DialogTitle className="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-[#1d3d5a] dark:text-slate-100" data-testid="text-scheduled-queue-title">
                 {t.agentWorkspace.scheduledQueueTitle}
-                <Badge variant="secondary" className="text-[10px] font-normal" data-testid="badge-scheduled-total">
+                <Badge variant="secondary" className="h-5 rounded px-1.5 text-[10px] font-medium text-[#647d91]" data-testid="badge-scheduled-total">
                   {scheduledItems.length}
                 </Badge>
               </DialogTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <p className="mt-0.5 text-[10px] text-[#7089a0]">
                 {counts.overdue > 0 && (
                   <span className="text-destructive font-medium">{counts.overdue} {t.agentWorkspace.scheduledOverdue}</span>
                 )}
@@ -9686,78 +9701,22 @@ function ScheduledQueuePanel({
           </div>
         </div>
 
-        <div className="flex flex-1 min-h-0 overflow-hidden">
-          <div className="w-48 border-r bg-muted/30 flex-shrink-0 flex flex-col py-2 px-2 overflow-y-auto">
-            <div className="space-y-0.5 mb-3">
-              {timeFilters.map(tf => {
-                const Icon = tf.icon;
-                const isActive = timeFilter === tf.key;
-                return (
-                  <button
-                    key={tf.key}
-                    onClick={() => setTimeFilter(tf.key)}
-                    className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors ${
-                      isActive ? "bg-primary text-primary-foreground font-medium" : "hover:bg-muted text-foreground"
-                    }`}
-                    data-testid={`btn-time-filter-${tf.key}`}
-                  >
-                    <Icon className={`h-3.5 w-3.5 ${isActive ? "" : tf.color}`} />
-                    <span className="flex-1 text-left truncate">{tf.label}</span>
-                    {tf.count > 0 && (
-                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-                        isActive ? "bg-primary-foreground/20 text-primary-foreground"
-                          : tf.key === "overdue" ? "bg-destructive/10 text-destructive"
-                          : "bg-muted-foreground/10 text-muted-foreground"
-                      }`}>
-                        {tf.count}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            <Separator className="mb-3" />
-            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-2.5 mb-1.5">{t.agentWorkspace.scheduledType}</p>
-            <div className="space-y-0.5">
-              {(["all", "callback", "email", "sms"] as const).map(type => {
-                const isActive = filterType === type;
-                const count = type === "all" ? scheduledItems.length : counts[type];
-                return (
-                  <button
-                    key={type}
-                    onClick={() => setFilterType(type)}
-                    className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors ${
-                      isActive ? "bg-accent font-medium" : "hover:bg-muted"
-                    }`}
-                    data-testid={`btn-scheduled-filter-${type}`}
-                  >
-                    {type === "all" ? <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" /> : getTypeIcon(type)}
-                    <span className="flex-1 text-left">
-                      {type === "all" ? t.agentWorkspace.scheduledAll : type === "callback" ? t.agentWorkspace.scheduledCalls : type === "email" ? t.agentWorkspace.scheduledEmails : t.agentWorkspace.scheduledSms}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">{count}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-2.5 border-b flex-shrink-0">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="flex flex-shrink-0 items-center gap-2 border-b border-[#dce8f1] bg-white px-4 py-2.5 dark:border-slate-800 dark:bg-slate-950">
               <div className="relative flex-1">
-                <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-[#7089a0]" />
                 <Input
                   placeholder={t.common.search || "Search..."}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 h-7 text-xs"
+                  className="h-8 border-[#dce8f1] bg-[#f7fbfe] pl-8 text-xs focus-visible:ring-[#2d6fba] dark:border-slate-700 dark:bg-slate-900"
                   data-testid="input-scheduled-search"
                 />
               </div>
-              <div className="flex items-center border rounded-md h-7 overflow-hidden">
+              <div className="flex h-8 items-center gap-1">
                 <button
                   onClick={() => toggleSort("date")}
-                  className={`px-2 h-full flex items-center gap-1 text-[10px] border-r transition-colors ${sortField === "date" ? "bg-accent font-medium" : "hover:bg-muted"}`}
+                  className={`flex h-8 items-center gap-1 rounded-md border px-2 text-[10px] transition-colors ${sortField === "date" ? "border-[#b9d8ed] bg-[#eaf3fb] font-semibold text-[#1c568f]" : "border-[#dce8f1] bg-white text-[#7089a0] hover:bg-[#f7fbfe]"}`}
                   data-testid="btn-sort-date"
                 >
                   {t.agentWorkspace.sortByDate}
@@ -9765,7 +9724,7 @@ function ScheduledQueuePanel({
                 </button>
                 <button
                   onClick={() => toggleSort("name")}
-                  className={`px-2 h-full flex items-center gap-1 text-[10px] border-r transition-colors ${sortField === "name" ? "bg-accent font-medium" : "hover:bg-muted"}`}
+                  className={`flex h-8 items-center gap-1 rounded-md border px-2 text-[10px] transition-colors ${sortField === "name" ? "border-[#b9d8ed] bg-[#eaf3fb] font-semibold text-[#1c568f]" : "border-[#dce8f1] bg-white text-[#7089a0] hover:bg-[#f7fbfe]"}`}
                   data-testid="btn-sort-name"
                 >
                   {t.agentWorkspace.sortByName}
@@ -9773,7 +9732,7 @@ function ScheduledQueuePanel({
                 </button>
                 <button
                   onClick={() => toggleSort("campaign")}
-                  className={`px-2 h-full flex items-center gap-1 text-[10px] transition-colors ${sortField === "campaign" ? "bg-accent font-medium" : "hover:bg-muted"}`}
+                  className={`flex h-8 items-center gap-1 rounded-md border px-2 text-[10px] transition-colors ${sortField === "campaign" ? "border-[#b9d8ed] bg-[#eaf3fb] font-semibold text-[#1c568f]" : "border-[#dce8f1] bg-white text-[#7089a0] hover:bg-[#f7fbfe]"}`}
                   data-testid="btn-sort-campaign"
                 >
                   {t.agentWorkspace.sortByCampaign}
@@ -9782,7 +9741,58 @@ function ScheduledQueuePanel({
               </div>
             </div>
 
-            <div className="hidden lg:grid lg:grid-cols-[minmax(210px,1.8fr)_minmax(100px,0.65fr)_minmax(145px,1.15fr)_minmax(130px,1fr)_96px] gap-2 px-4 py-1.5 border-b bg-muted/40 text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex-shrink-0">
+            <div className="flex flex-wrap items-center gap-1.5 border-b border-[#dce8f1] bg-white px-4 py-2 dark:border-slate-800 dark:bg-slate-950">
+              <span className="mr-0.5 text-[9px] font-bold uppercase tracking-wider text-[#7089a0]">{t.agentWorkspace.scheduledDate}</span>
+              {timeFilters.map(tf => {
+                const Icon = tf.icon;
+                const isActive = timeFilter === tf.key;
+                return (
+                  <button
+                    key={tf.key}
+                    onClick={() => setTimeFilter(tf.key)}
+                    className={`inline-flex h-6 items-center gap-1 rounded-md border px-2 text-[9px] font-medium transition-colors ${
+                      isActive
+                        ? "border-[#b9d8ed] bg-[#eaf3fb] text-[#1c568f]"
+                        : "border-[#dce8f1] bg-white text-[#7089a0] hover:bg-[#f7fbfe] dark:border-slate-700 dark:bg-slate-900"
+                    }`}
+                    data-testid={`btn-time-filter-${tf.key}`}
+                  >
+                    <Icon className={`h-3 w-3 ${tf.key === "overdue" && !isActive ? "text-[#bf5c4f]" : ""}`} />
+                    <span>{tf.label}</span>
+                    <span className={isActive ? "text-[#2d6fba]" : "text-[#7089a0]"}>{tf.count}</span>
+                  </button>
+                );
+              })}
+              <span className="mx-1 h-4 w-px bg-[#dce8f1]" />
+              <span className="mr-0.5 text-[9px] font-bold uppercase tracking-wider text-[#7089a0]">{t.agentWorkspace.scheduledType}</span>
+              {(["all", "callback", "email", "sms"] as const).map(type => {
+                const isActive = filterType === type;
+                const count = type === "all" ? scheduledItems.length : counts[type];
+                return (
+                  <button
+                    key={type}
+                    onClick={() => setFilterType(type)}
+                    className={`inline-flex h-6 items-center gap-1 rounded-md border px-2 text-[9px] font-medium transition-colors ${
+                      isActive
+                        ? "border-[#b9d8ed] bg-[#eaf3fb] text-[#1c568f]"
+                        : "border-[#dce8f1] bg-white text-[#7089a0] hover:bg-[#f7fbfe] dark:border-slate-700 dark:bg-slate-900"
+                    }`}
+                    data-testid={`btn-scheduled-filter-${type}`}
+                  >
+                    {type === "all" ? <CalendarClock className="h-3 w-3" /> : getTypeIcon(type)}
+                    <span>{type === "all" ? t.agentWorkspace.scheduledAll : type === "callback" ? t.agentWorkspace.scheduledCalls : type === "email" ? t.agentWorkspace.scheduledEmails : t.agentWorkspace.scheduledSms}</span>
+                    <span className={isActive ? "text-[#2d6fba]" : "text-[#7089a0]"}>{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex min-h-8 flex-shrink-0 items-center justify-between border-b border-[#dce8f1] bg-[#f7fbfe] px-4 text-[10px] text-[#7089a0] dark:border-slate-800 dark:bg-slate-900/60">
+              <span><strong className="text-[#1d3d5a] dark:text-slate-100">{filteredItems.length}</strong> / <strong className="text-[#1d3d5a] dark:text-slate-100">{scheduledItems.length}</strong> {t.agentWorkspace.scheduledTotal}</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-[#3f826e]" />{t.agentWorkspace.scheduledQueueTitle}</span>
+            </div>
+
+            <div className="hidden min-h-8 flex-shrink-0 border-b border-[#dce8f1] bg-[#f7fbfe] px-4 text-[9px] font-bold uppercase tracking-[0.1em] text-[#7089a0] dark:border-slate-800 dark:bg-slate-900/60 lg:grid lg:grid-cols-[minmax(240px,1.8fr)_minmax(110px,0.72fr)_minmax(155px,1.15fr)_minmax(150px,1fr)_105px] lg:items-center lg:gap-3">
               <span>{t.agentWorkspace.scheduledContact}</span>
               <span>{t.agentWorkspace.scheduledDate}</span>
               <span>{t.agentWorkspace.scheduledStep || "Step"}</span>
@@ -9823,20 +9833,20 @@ function ScheduledQueuePanel({
                       <div
                         key={item.id}
                         data-testid={`scheduled-item-${item.id}`}
-                        className={`grid grid-cols-1 lg:grid-cols-[minmax(210px,1.8fr)_minmax(100px,0.65fr)_minmax(145px,1.15fr)_minmax(130px,1fr)_96px] gap-x-2 gap-y-1.5 items-center px-4 py-2.5 border-b transition-colors hover:bg-muted/30 ${
-                          itemOverdue ? "bg-destructive/[0.03]" : idx % 2 === 0 ? "" : "bg-muted/20"
+                        className={`grid grid-cols-1 items-center gap-x-3 gap-y-1.5 border-b border-[#dce8f1] px-4 py-2.5 transition-colors hover:bg-[#f7fbfe] dark:border-slate-800 dark:hover:bg-slate-900/70 lg:min-h-[82px] lg:grid-cols-[minmax(240px,1.8fr)_minmax(110px,0.72fr)_minmax(155px,1.15fr)_minmax(150px,1fr)_105px] ${
+                          itemOverdue ? "bg-[#fff1ed]/50 dark:bg-rose-950/10" : idx % 2 === 0 ? "bg-white dark:bg-slate-950" : "bg-[#fbfdff] dark:bg-slate-950"
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs ${
-                            itemOverdue ? "bg-destructive/10 text-destructive" : getTypeColor(item.type)
+                            itemOverdue ? "bg-[#fff1ed] text-[#bf5c4f]" : getTypeColor(item.type)
                           }`}>
                             {itemOverdue ? <AlertTriangle className="h-3.5 w-3.5" /> : getTypeIcon(item.type)}
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-baseline gap-1.5">
                               <button
-                                className="text-sm font-medium line-clamp-2 break-words text-left hover:underline cursor-pointer leading-tight"
+                                className="line-clamp-2 cursor-pointer break-words text-left text-xs font-semibold leading-tight text-[#1d3d5a] hover:underline dark:text-slate-100"
                                 data-testid={`text-scheduled-name-${item.id}`}
                                 onClick={() => {
                                   if (onOpenContact) {
@@ -9848,7 +9858,7 @@ function ScheduledQueuePanel({
                               >
                                 {item.contactName || t.agentWorkspace.unknownContact}
                               </button>
-                              <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 shrink-0">
+                              <Badge variant="outline" className="h-4 shrink-0 border-[#dce8f1] px-1 py-0 text-[9px] font-medium text-[#1d3d5a] dark:border-slate-700 dark:text-slate-200">
                                 {getTypeLabel(item.type)}
                               </Badge>
                               {itemOverdue && (
@@ -9873,9 +9883,6 @@ function ScheduledQueuePanel({
                                 </span>
                               )}
                             </div>
-                            {item.notes && (
-                              <p className="text-[10px] text-muted-foreground/70 mt-0.5 line-clamp-1 italic">{item.notes}</p>
-                            )}
                           </div>
                         </div>
 
@@ -9894,6 +9901,15 @@ function ScheduledQueuePanel({
                             <Clock className="h-2.5 w-2.5 shrink-0" />
                             <span>{format(new Date(item.scheduledAt), "HH:mm")}</span>
                           </div>
+                          {item.notes && (
+                            <span
+                              className="mt-1.5 flex max-w-[128px] items-center gap-1 rounded border border-[#f0c8bc] bg-[#fff1ed] px-1.5 py-0.5 text-[9px] font-semibold leading-tight text-[#a64e43] dark:border-rose-900/70 dark:bg-rose-950/30 dark:text-rose-300"
+                              title={item.notes}
+                            >
+                              <span className="shrink-0 text-[8px] font-bold tracking-wider">NOTE</span>
+                              <span className="truncate">{item.notes}</span>
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex items-center min-w-0 overflow-hidden">
@@ -9970,15 +9986,15 @@ function ScheduledQueuePanel({
                           )}
                         </div>
 
-                          <div className="text-[11px] text-muted-foreground min-w-0 overflow-hidden">
+                          <div className="min-w-0 overflow-hidden text-[11px] text-[#567188]">
                           {item.isOutsideMission ? (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">
                               <PhoneIncoming className="h-2.5 w-2.5 shrink-0" />
                               {t.agentWorkspace.outsideMissionLabel}
                             </span>
                           ) : (
-                              <span className="flex items-center gap-1 min-w-0">
-                              <Megaphone className="h-3 w-3 shrink-0" />
+                              <span className="flex min-w-0 items-center gap-1">
+                              <Megaphone className="h-3 w-3 shrink-0 text-[#b77741]" />
                               <span className="truncate">{item.campaignName}</span>
                             </span>
                           )}
@@ -9987,9 +10003,9 @@ function ScheduledQueuePanel({
                         <div className="flex items-center justify-end gap-0.5 min-w-[96px]">
                           {item.type === "callback" && (
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="icon"
-                              className="h-7 w-7"
+                              className="h-7 w-7 rounded-md border-[#cddde9] bg-white text-[#2d6fba] hover:border-[#2d6fba] hover:bg-[#eaf3fb] dark:border-slate-700 dark:bg-slate-900"
                               title={t.agentWorkspace.callNow}
                               data-testid={`btn-scheduled-call-${item.id}`}
                               onClick={() => {
@@ -9999,14 +10015,14 @@ function ScheduledQueuePanel({
                                 }
                               }}
                             >
-                              <PhoneCall className="h-3.5 w-3.5 text-blue-500" />
+                              <PhoneCall className="h-3.5 w-3.5" />
                             </Button>
                           )}
                           {(item.type === "email" || item.type === "sms") && (
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="icon"
-                              className="h-7 w-7"
+                              className="h-7 w-7 rounded-md border-[#cddde9] bg-white text-[#3f826e] hover:border-[#3f826e] hover:bg-[#eaf6f1] dark:border-slate-700 dark:bg-slate-900"
                               title={t.agentWorkspace.sendNow}
                               data-testid={`btn-scheduled-send-${item.id}`}
                               onClick={() => {
@@ -10016,7 +10032,7 @@ function ScheduledQueuePanel({
                                 }
                               }}
                             >
-                              <Send className="h-3.5 w-3.5 text-green-500" />
+                              <Send className="h-3.5 w-3.5" />
                             </Button>
                           )}
                           <ReschedulePopover
@@ -10043,9 +10059,9 @@ function ScheduledQueuePanel({
                             }}
                           />
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="icon"
-                            className="h-7 w-7"
+                            className="h-7 w-7 rounded-md border-[#f3d4ce] bg-[#fff1ed] text-[#bf5c4f] hover:border-[#bf5c4f] hover:bg-[#ffe4de] dark:border-rose-900 dark:bg-rose-950/30"
                             title={t.agentWorkspace.cancelItem}
                             data-testid={`btn-scheduled-cancel-${item.id}`}
                             onClick={async () => {
@@ -10069,7 +10085,7 @@ function ScheduledQueuePanel({
                               }
                             }}
                           >
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                       </div>
@@ -10086,7 +10102,6 @@ function ScheduledQueuePanel({
                 {filterType !== "all" && <span className="ml-1">· {filterType === "callback" ? t.agentWorkspace.scheduledCalls : filterType === "email" ? t.agentWorkspace.scheduledEmails : t.agentWorkspace.scheduledSms}</span>}
               </p>
             </div>
-          </div>
         </div>
       </DialogContent>
     </Dialog>
