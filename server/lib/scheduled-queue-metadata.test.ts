@@ -141,10 +141,7 @@ test("keeps Mission-attributed inbound callbacks inside their original Mission",
   assert.equal(resolveInboundCallbackMission("fmo", { id: "medical", name: "Medical" }), null);
 });
 
-test("keeps truly unattributed inbound callbacks outside every Mission", () => {
-  assert.deepEqual(resolveInboundCallbackMission(null, { id: "medical", name: "Medical" }), {
-    campaignId: "",
-    campaignName: "Mimo misie",
-    isOutsideMission: true,
-  });
+test("excludes unattributed inbound callbacks from every Mission", () => {
+  assert.equal(resolveInboundCallbackMission(null, { id: "medical", name: "Medical" }), null);
+  assert.equal(resolveInboundCallbackMission("", { id: "medical", name: "Medical" }), null);
 });

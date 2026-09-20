@@ -25909,7 +25909,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         }
       }
 
-      // Include inbound callbacks (out-of-mission) in the queue
+      // Include only inbound callbacks attributed to this exact Mission.
       try {
         const inboundCbs = await db
           .select()
@@ -26269,7 +26269,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
-  // =================== Inbound Callbacks (out-of-mission) CRUD ===================
+  // =================== Inbound Callbacks CRUD ===================
   app.get("/api/agent/inbound-callbacks", requireAuth, async (req, res) => {
     try {
       const user = req.session.user!;

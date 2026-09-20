@@ -83,21 +83,15 @@ export function resolveScheduledQueueWorkflow(
 }
 
 /**
- * An inbound callback without a Mission remains globally visible as
- * out-of-Mission work. Once it carries a campaignId, it belongs exclusively
- * to that Mission and inherits that Mission's workflow settings.
+ * A Mission-scoped queue may contain only callbacks attributed to that exact
+ * Mission. Unattributed callbacks are excluded rather than repeated in every
+ * Mission as unusable "outside mission" work.
  */
 export function resolveInboundCallbackMission(
   callbackCampaignId: string | null | undefined,
   requestedCampaign: { id: string; name: string; settings?: string | null },
 ): ScheduledQueueMissionDetails | null {
-  if (!callbackCampaignId) {
-    return {
-      campaignId: "",
-      campaignName: "Mimo misie",
-      isOutsideMission: true,
-    };
-  }
+  if (!callbackCampaignId) return null;
   if (callbackCampaignId !== requestedCampaign.id) return null;
   return {
     campaignId: requestedCampaign.id,

@@ -15,14 +15,8 @@ The scheduled Queue's time filters are exclusive: a past-due call belongs to Ove
 
 **How to apply:** Check Overdue before changing callback visibility. Keep this separate from Priority Builder's first-match contact groups.
 
-Completed outside-Mission callbacks remain usable as contact entry points; calling again must not reopen the old callback.
+An inbound callback with a stored Mission id belongs exclusively to that Mission and inherits its workflow mode. Callbacks without a Mission id are not shown in Agent Workspace Mission views.
 
-**Why:** Completion describes the previous follow-up task, not whether the agent may contact that person again. The user explicitly rejected disabled, struck-through contacts.
+**Why:** Repeating unattributed callbacks as “Outside mission” under every selected Mission produced unusable cards that could not reliably be opened and had no meaningful Mission context.
 
-**How to apply:** Preserve completion history while allowing card opening and a fresh call, without inheriting the currently selected Mission's identity.
-
-An inbound callback with a stored Mission id belongs exclusively to that Mission and inherits its workflow mode. Only callbacks with no Mission id are shared as “Outside mission.”
-
-**Why:** Treating every inbound callback as outside-Mission made an FMO callback appear under Medical Mission and hid whether its next step was Disposition or Status List.
-
-**How to apply:** When building Mission-scoped scheduled queues, exclude callbacks attributed to other Missions, enrich matching callbacks from their stored Mission, and keep source-specific inbound dialing separate from the visible outside-Mission label.
+**How to apply:** Mission-scoped scheduled queues may include only exact campaign-id matches. Do not add a global “Outside mission” contact group to desktop or mobile Agent Workspace.

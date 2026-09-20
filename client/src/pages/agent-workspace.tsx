@@ -11025,16 +11025,6 @@ function AgentWorkspacePageContent() {
     return { total: scheduledQueueItems.length, overdue: overdue.length };
   }, [scheduledQueueItems]);
 
-  const { data: agentInboundCallbacks = [] } = useQuery<InboundCb[]>({
-    queryKey: ["/api/agent/inbound-callbacks"],
-    queryFn: async () => {
-      const res = await fetch("/api/agent/inbound-callbacks", { credentials: "include" });
-      return res.ok ? res.json() : [];
-    },
-    enabled: !!hasAccess && agentSession.isSessionActive,
-    refetchInterval: 30000,
-  });
-
   useEffect(() => {
     if (quotaCheckIntervalRef.current) {
       clearInterval(quotaCheckIntervalRef.current);
@@ -15076,7 +15066,7 @@ function AgentWorkspacePageContent() {
           contactsDisabled={createFromCallType !== null}
           callContactId={callActiveContactId}
           callIsActive={["active", "on_hold", "connecting", "ringing"].includes(callContext.callState)}
-          inboundCallbacks={agentInboundCallbacks}
+          inboundCallbacks={[]}
            onOpenInboundCallback={handleOpenInboundCallback}
            onCallInboundCallback={handleCallInboundCallback}
           onMarkInboundCallbackDone={async (id) => {
@@ -15128,7 +15118,7 @@ function AgentWorkspacePageContent() {
                allCampaignContacts={cityScopedCampaignContacts}
                priorityQueue={authoritativePriorityQueue as Array<PriorityQueueItem & { contact: EnrichedCampaignContact }>}
                cityGroupingEnabled={!!persistedPriorityView.cityGrouping?.enabled}
-               inboundCallbacks={agentInboundCallbacks}
+               inboundCallbacks={[]}
                onOpenInboundCallback={handleOpenInboundCallback}
                onCallInboundCallback={handleCallInboundCallback}
               currentCampaignContactId={effectiveCampaignContactId}
