@@ -3,8 +3,8 @@ name: Canvas redesign source fidelity
 description: Source-of-truth rule for visual redesigns of existing Agent Workspace surfaces.
 ---
 
-When redesigning an existing CRM window on Canvas, use the production component or its verified extracted `Current` copy as the source. Earlier `pulse-unified-*`, `pulse-faithful-*`, and other proposal files are not originals and must not be used as the baseline.
+When redesigning an existing CRM window on Canvas, use the production component or a user-provided screenshot of the live UI as the source. Earlier `pulse-unified-*`, `pulse-faithful-*`, `Current`, and other proposal/extraction files are not authoritative unless verified against the live UI.
 
-**Why:** Proposal-on-proposal redesigns preserved invented structures instead of the real Queue and PriorityBuilder controls, causing repeated mismatch with the user's request to change only the visual design.
+**Why:** The live Agent Workspace Queue is the full-screen **Scheduled queue** (time/type sidebar, sortable contact table, Only assigned, row actions), not the separate Mission contacts/Referral surface. Proposal-on-proposal redesigns repeatedly targeted the wrong window.
 
-**How to apply:** First identify the production mount and component, inventory every visible control and state, then create a separate visual variant that preserves that inventory. Compare the finished variant against the production source before presenting it.
+**How to apply:** For Queue work, verify against the Scheduled queue implementation and latest live screenshot. Inventory every visible control/state, then redesign without changing the information architecture. Compare the result against the screenshot before presenting it.

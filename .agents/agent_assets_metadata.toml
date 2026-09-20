@@ -539,3 +539,17 @@ mtime_ms = 1789884624427
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/ea8d2474-bd9e-40d5-b963-e68aca340e7f/41fb3241-871b-4efe-b2ff-1b3d967e3478"
 storage_version_token = "1789884636560529"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "ID1eAqRHObsiFrMRMiiAO"
+uri = "file://screenshots/scheduled-queue-pulse-redesign.jpg"
+type = "image"
+title = "Scheduled queue — Pulse redizajn"
+description = "Redizajn podľa aktuálne používanej Queue zo zaslanej snímky: časové a typové filtre, vyhľadávanie, radenie, tabuľka kontaktov, Only assigned a riadkové akcie."
+logical_id = "6784cf95-6c62-4108-b7f6-b501d1a7a434"
+content_hash = "sha256:22483113e8cdd26af898e1fd3d78ad53d466b334a9db6ee88707c7dbb31bd098"
+size = 47456
+mtime_ms = 1789884972711
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/6784cf95-6c62-4108-b7f6-b501d1a7a434/c492d6ce-0344-4313-bfe0-4fc72a60bbdd"
+storage_version_token = "1789884994884421"
+content_type = "image/jpeg"
