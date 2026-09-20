@@ -441,3 +441,31 @@ mtime_ms = 1789731406622
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/3a48354e-9db7-4506-9652-03c38b570066/a746b5cb-c9e1-4027-9d92-10f3de49bcfc"
 storage_version_token = "1789731459817555"
 content_type = "image/png"
+
+[[outputs]]
+id = "aZ7en3KgY900M7UhGELUr"
+uri = "file://screenshots/pulse-faithful-queue.jpg"
+type = "image"
+title = "Mission contacts / Queue — opravený návrh"
+description = "Všetky pôvodné filtre, Field, radenie, Referral skupina, termíny a pokusy — zmenený iba vizuál."
+logical_id = "816e22ff-af0a-4495-ad1f-1323fd8392a5"
+content_hash = "sha256:f3f2472988f08a0680b0c7cb7dadeeb6c20a200e823183db042794c6d17c884c"
+size = 51173
+mtime_ms = 1789883659598
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/816e22ff-af0a-4495-ad1f-1323fd8392a5/161861c0-53b8-449d-a8fe-dd0b6d8e9980"
+storage_version_token = "1789883828946985"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "BcpPJByHVZSRpOxfd-dCu"
+uri = "file://screenshots/pulse-faithful-ordering.jpg"
+type = "image"
+title = "Contact ordering — opravený návrh"
+description = "Pôvodné presety, Add group, presúvanie, vnútorné radenie, live výsledky, Save view a Duplicate."
+logical_id = "33a1d99e-5c11-4af3-b5f9-6c7c2354385d"
+content_hash = "sha256:87999b8474eb10bead4be3d7caedc1db849037767ed28ce83f657d9f94a8c1df"
+size = 64301
+mtime_ms = 1789883661158
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/33a1d99e-5c11-4af3-b5f9-6c7c2354385d/5e7de3ab-eb2e-49bf-a03e-4e75560186ea"
+storage_version_token = "1789883829794783"
+content_type = "image/jpeg"
