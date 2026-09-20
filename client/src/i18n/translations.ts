@@ -4085,6 +4085,16 @@ export interface Translations {
     overdueLabel: string;
     sendNow: string;
     reschedule: string;
+    rescheduleCurrent: string;
+    rescheduleNewDate: string;
+    rescheduleTime: string;
+    reschedule24Hour: string;
+    rescheduleNewAppointment: string;
+    rescheduleSave: string;
+    reschedulePreviousWeekday: string;
+    rescheduleNextWeekday: string;
+    rescheduleChooseWeekday: string;
+    rescheduleInvalidFutureWeekday: string;
     cancelItem: string;
     rescheduleCalendar: string;
     itemCancelled: string;
@@ -12805,6 +12815,10 @@ export const translations: Record<Locale, Translations> = {
       overdueLabel: 'Overdue',
       sendNow: 'Send now',
       reschedule: 'Reschedule',
+      rescheduleCurrent: 'Currently', rescheduleNewDate: 'New date', rescheduleTime: 'Time', reschedule24Hour: '24-hour time',
+      rescheduleNewAppointment: 'New appointment', rescheduleSave: 'Save change', reschedulePreviousWeekday: 'Previous weekday',
+      rescheduleNextWeekday: 'Next weekday', rescheduleChooseWeekday: 'Choose a weekday',
+      rescheduleInvalidFutureWeekday: 'Choose a future weekday and time.',
       cancelItem: 'Cancel',
       rescheduleCalendar: 'Open calendar to reschedule...',
       itemCancelled: 'Item was cancelled.',
@@ -20359,6 +20373,10 @@ export const translations: Record<Locale, Translations> = {
       overdueLabel: 'Po termíne',
       sendNow: 'Odoslať teraz',
       reschedule: 'Preplánovať',
+      rescheduleCurrent: 'Aktuálne', rescheduleNewDate: 'Nový dátum', rescheduleTime: 'Čas', reschedule24Hour: '24-hodinový čas',
+      rescheduleNewAppointment: 'Nové stretnutie', rescheduleSave: 'Uložiť zmenu', reschedulePreviousWeekday: 'Predchádzajúci pracovný deň',
+      rescheduleNextWeekday: 'Nasledujúci pracovný deň', rescheduleChooseWeekday: 'Vyberte pracovný deň',
+      rescheduleInvalidFutureWeekday: 'Vyberte budúci pracovný deň a čas.',
       cancelItem: 'Zrušiť',
       rescheduleCalendar: 'Otvorte kalendár pre preplánovanie...',
       itemCancelled: 'Položka bola zrušená.',
@@ -27896,6 +27914,10 @@ export const translations: Record<Locale, Translations> = {
       overdueLabel: 'Po termínu',
       sendNow: 'Odeslat nyní',
       reschedule: 'Přeplánovat',
+      rescheduleCurrent: 'Aktuálně', rescheduleNewDate: 'Nové datum', rescheduleTime: 'Čas', reschedule24Hour: '24hodinový čas',
+      rescheduleNewAppointment: 'Nová schůzka', rescheduleSave: 'Uložit změnu', reschedulePreviousWeekday: 'Předchozí pracovní den',
+      rescheduleNextWeekday: 'Následující pracovní den', rescheduleChooseWeekday: 'Vyberte pracovní den',
+      rescheduleInvalidFutureWeekday: 'Vyberte budoucí pracovní den a čas.',
       cancelItem: 'Zrušit',
       rescheduleCalendar: 'Otevřete kalendář pro přeplánování...',
       itemCancelled: 'Položka byla zrušena.',
@@ -35386,6 +35408,10 @@ export const translations: Record<Locale, Translations> = {
       overdueLabel: 'Lejárt',
       sendNow: 'Küldés most',
       reschedule: 'Átütemezés',
+      rescheduleCurrent: 'Jelenlegi időpont', rescheduleNewDate: 'Új dátum', rescheduleTime: 'Idő', reschedule24Hour: '24 órás idő',
+      rescheduleNewAppointment: 'Új időpont', rescheduleSave: 'Módosítás mentése', reschedulePreviousWeekday: 'Előző munkanap',
+      rescheduleNextWeekday: 'Következő munkanap', rescheduleChooseWeekday: 'Válasszon munkanapot',
+      rescheduleInvalidFutureWeekday: 'Válasszon jövőbeli munkanapot és időpontot.',
       cancelItem: 'Mégse',
       rescheduleCalendar: 'Nyissa meg a naptárat az átütemezéshez...',
       itemCancelled: 'Az elem törölve lett.',
@@ -42763,6 +42789,10 @@ export const translations: Record<Locale, Translations> = {
       overdueLabel: 'Întârziat',
       sendNow: 'Trimite acum',
       reschedule: 'Reprogramare',
+      rescheduleCurrent: 'Programare curentă', rescheduleNewDate: 'Dată nouă', rescheduleTime: 'Ora', reschedule24Hour: 'Format de 24 de ore',
+      rescheduleNewAppointment: 'Programare nouă', rescheduleSave: 'Salvează modificarea', reschedulePreviousWeekday: 'Zi lucrătoare anterioară',
+      rescheduleNextWeekday: 'Zi lucrătoare următoare', rescheduleChooseWeekday: 'Alegeți o zi lucrătoare',
+      rescheduleInvalidFutureWeekday: 'Alegeți o zi lucrătoare și o oră din viitor.',
       cancelItem: 'Anulare',
       rescheduleCalendar: 'Deschideți calendarul pentru reprogramare...',
       itemCancelled: 'Elementul a fost anulat.',
@@ -50141,6 +50171,10 @@ export const translations: Record<Locale, Translations> = {
       overdueLabel: 'Scaduto',
       sendNow: 'Invia ora',
       reschedule: 'Riprogramma',
+      rescheduleCurrent: 'Attualmente', rescheduleNewDate: 'Nuova data', rescheduleTime: 'Ora', reschedule24Hour: 'Formato 24 ore',
+      rescheduleNewAppointment: 'Nuovo appuntamento', rescheduleSave: 'Salva modifica', reschedulePreviousWeekday: 'Giorno lavorativo precedente',
+      rescheduleNextWeekday: 'Giorno lavorativo successivo', rescheduleChooseWeekday: 'Scegli un giorno lavorativo',
+      rescheduleInvalidFutureWeekday: 'Scegli un giorno lavorativo e un orario futuri.',
       cancelItem: 'Annulla',
       rescheduleCalendar: 'Apri il calendario per riprogrammare...',
       itemCancelled: 'Elemento annullato.',
@@ -57519,6 +57553,10 @@ export const translations: Record<Locale, Translations> = {
       overdueLabel: 'Überfällig',
       sendNow: 'Jetzt senden',
       reschedule: 'Umplanen',
+      rescheduleCurrent: 'Aktuell', rescheduleNewDate: 'Neues Datum', rescheduleTime: 'Uhrzeit', reschedule24Hour: '24-Stunden-Zeit',
+      rescheduleNewAppointment: 'Neuer Termin', rescheduleSave: 'Änderung speichern', reschedulePreviousWeekday: 'Vorheriger Werktag',
+      rescheduleNextWeekday: 'Nächster Werktag', rescheduleChooseWeekday: 'Werktag auswählen',
+      rescheduleInvalidFutureWeekday: 'Wählen Sie einen zukünftigen Werktag und eine Uhrzeit.',
       cancelItem: 'Abbrechen',
       rescheduleCalendar: 'Öffnen Sie den Kalender zum Umplanen...',
       itemCancelled: 'Eintrag wurde storniert.',

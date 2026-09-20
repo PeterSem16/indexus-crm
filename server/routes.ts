@@ -25586,6 +25586,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         const stepInfo = resolveStepInfo(row.campaignScript, row.ccCurrentStepId);
         items.push({
           id: row.ccId,
+           source: "campaignContact",
           campaignContactId: row.ccId,
           type: channelTypeMap[row.campaignChannel || "phone"] || "callback",
           contactId: contact.contactId,
@@ -25631,6 +25632,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         const sStepInfo = resolveStepInfo(row.campaignScript, row.ccCurrentStepId);
         items.push({
           id: row.sessionId,
+           source: "session",
+           sessionId: row.sessionId,
           campaignContactId: row.sessionCampaignContactId,
           type: channelTypeMap[row.campaignChannel || "phone"] || "callback",
           contactId: contact.contactId,
@@ -25780,6 +25783,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         for (const cb of inboundCbs) {
           items.push({
             id: `icb-${cb.id}`,
+            source: "inbound",
             campaignContactId: "",
             type: "callback",
             contactId: cb.customerId || "",

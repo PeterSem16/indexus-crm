@@ -9352,6 +9352,8 @@ export function CustomerInfoPanel({
 
 interface ScheduledItem {
   id: string;
+  source?: "campaignContact" | "session" | "inbound";
+  sessionId?: string;
   campaignContactId: string;
   type: "callback" | "email" | "sms";
   contactId: string;
@@ -9403,7 +9405,28 @@ interface InboundCb {
   createdAt: string;
 }
 
-function ReschedulePopover({ item, onReschedule, t }: { item: ScheduledItem; onReschedule: (id: string, campaignId: string, newDate: string) => void; t: any }) {
+const SCHEDULE_TIME_ZONE = "Europe/Bratislava";
+const scheduleParts = (date: Date, locale = "en") => new Intl.DateTimeFormat(locale, {
+  timeZone: SCHEDULE_TIME_ZONE, weekday: "short", day: "numeric", month: "short", year: "numeric",
+  hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+}).formatToParts(date);
+const scheduleDateKey = (date: Date) => {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: SCHEDULE_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date).map(p => [p.type, p.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+};
+const scheduleWallTimeToUtc = (dateKey: string, time: string) => {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const [hour, minute] = time.split(":").map(Number);
+  let guess = Date.UTC(year, month - 1, day, hour, minute);
+  for (let i = 0; i < 3; i++) {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: SCHEDULE_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(guess)).map(p => [p.type, p.value]));
+    const wall = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute));
+    guess += Date.UTC(year, month - 1, day, hour, minute) - wall;
+  }
+  return new Date(guess);
+};
+
+function ReschedulePopover({ item, onReschedule, onInvalid, t, locale }: { item: ScheduledItem; onReschedule: (id: string, campaignId: string, newDate: string) => void; onInvalid?: () => void; t: any; locale: string }) {
   const [popOpen, setPopOpen] = useState(false);
   const [dateVal, setDateVal] = useState("");
   const [timeVal, setTimeVal] = useState("09:00");
@@ -9411,16 +9434,53 @@ function ReschedulePopover({ item, onReschedule, t }: { item: ScheduledItem; onR
   useEffect(() => {
     if (popOpen) {
       const d = new Date(item.scheduledAt);
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const useDate = d > new Date() ? d : tomorrow;
-      const yyyy = useDate.getFullYear();
-      const mm = String(useDate.getMonth() + 1).padStart(2, "0");
-      const dd = String(useDate.getDate()).padStart(2, "0");
-      setDateVal(`${yyyy}-${mm}-${dd}`);
-      setTimeVal(useDate.getHours().toString().padStart(2, "0") + ":" + useDate.getMinutes().toString().padStart(2, "0"));
+      const useDate = d > new Date() ? d : new Date(Date.now() + 60_000);
+      let key = scheduleDateKey(useDate);
+      let parts = scheduleParts(useDate);
+      let candidate = scheduleWallTimeToUtc(key, `${parts.find(p => p.type === "hour")?.value || "09"}:${parts.find(p => p.type === "minute")?.value || "00"}`);
+      while (candidate <= new Date() || [0, 6].includes(new Date(`${key}T12:00:00`).getDay())) {
+        const next = new Date(`${key}T12:00:00`);
+        next.setDate(next.getDate() + 1);
+        key = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`;
+        candidate = scheduleWallTimeToUtc(key, "09:00");
+      }
+      setDateVal(key);
+      setTimeVal(`${parts.find(p => p.type === "hour")?.value || "09"}:${parts.find(p => p.type === "minute")?.value || "00"}`);
     }
   }, [popOpen, item.scheduledAt]);
+
+  const isWeekday = (value: string) => {
+    if (!value) return false;
+    const day = new Date(`${value}T12:00:00`).getDay();
+    return day > 0 && day < 6;
+  };
+  const moveDate = (amount: number) => {
+    const next = new Date(`${dateVal}T12:00:00`);
+    do next.setDate(next.getDate() + amount); while (next.getDay() === 0 || next.getDay() === 6);
+    const key = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`;
+    if (scheduleWallTimeToUtc(key, timeVal) > new Date()) setDateVal(key); else onInvalid?.();
+  };
+  const dateParts = (value: string) => {
+    if (!value) return { weekday: "", date: "" };
+    const parsed = scheduleWallTimeToUtc(value, "12:00");
+    const parts = Object.fromEntries(scheduleParts(parsed, locale).filter(p => ["weekday", "day", "month"].includes(p.type)).map(p => [p.type, p.value]));
+    return { weekday: parts.weekday || "", date: `${parts.day || ""} ${parts.month || ""}`.trim() };
+  };
+  const currentText = new Intl.DateTimeFormat(locale, { timeZone: SCHEDULE_TIME_ZONE, weekday: "long", day: "numeric", month: "long" }).format(new Date(item.scheduledAt));
+  const newText = dateParts(dateVal);
+  const hour = timeVal.slice(0, 2);
+  const minute = timeVal.slice(3, 5);
+  const setHour = (value: string) => setTimeVal(`${value}:${minute}`);
+  const setMinute = (value: string) => setTimeVal(`${hour}:${value}`);
+  const shortcuts = (() => {
+    const dates: string[] = [];
+    const cursor = new Date(`${scheduleDateKey(new Date())}T12:00:00`);
+    while (dates.length < 3) {
+      if (cursor.getDay() > 0 && cursor.getDay() < 6) dates.push(`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`);
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return dates;
+  })();
 
   return (
     <Popover open={popOpen} onOpenChange={setPopOpen}>
@@ -9435,36 +9495,42 @@ function ReschedulePopover({ item, onReschedule, t }: { item: ScheduledItem; onR
           <CalendarClock className="h-3.5 w-3.5" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[260px] rounded-xl border-sky-200/80 bg-white p-3 shadow-[0_16px_36px_rgba(28,67,103,0.18)] dark:border-sky-900 dark:bg-slate-950" align="end">
-        <div className="space-y-2.5">
-          <div className="flex items-start gap-2">
-            <div className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300">
-              <CalendarClock className="h-3.5 w-3.5" />
+      <PopoverContent className="w-[min(420px,calc(100vw-24px))] rounded-2xl border-[#c7dbe9] bg-[#fffffe] p-4 shadow-[0_18px_45px_rgba(28,67,103,0.18)] dark:border-sky-900 dark:bg-slate-950" align="end">
+        <div className="space-y-3">
+          <div className="flex items-start justify-between">
+            <div><p className="text-[9px] font-extrabold tracking-[.12em] text-[#7891a5]">{t.agentWorkspace.reschedule}</p><p className="mt-1 text-sm font-bold text-[#1d3d5a]">{item.contactName || t.agentWorkspace.unknownContact}</p></div>
+            <CalendarClock className="h-4 w-4 text-[#2d6fba]" />
+          </div>
+          <div className="flex items-center gap-2 rounded-lg bg-[#f0f6fa] px-3 py-2 text-[10px] text-[#7089a0]"><CalendarClock className="h-4 w-4 text-[#2d6fba]" /><span>{t.agentWorkspace.rescheduleCurrent} <strong className="text-[#45667f]">{currentText}</strong><br /><strong className="text-[#45667f]">{new Intl.DateTimeFormat(locale, { timeZone: SCHEDULE_TIME_ZONE, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(item.scheduledAt))}</strong></span></div>
+          <div>
+            <p className="mb-1.5 text-[9px] font-extrabold uppercase tracking-[.1em] text-[#7891a5]">{t.agentWorkspace.rescheduleNewDate}</p>
+            <div className="flex items-center gap-1">
+              <Button type="button" variant="outline" size="icon" className="h-8 w-8 border-[#c7dbe9]" onClick={() => moveDate(-1)} aria-label={t.agentWorkspace.reschedulePreviousWeekday}><ChevronLeft className="h-4 w-4" /></Button>
+              <label className="relative flex h-10 flex-1 cursor-pointer flex-col items-center justify-center rounded-lg border border-[#9fc4dc] bg-[#eaf3fb] text-[#1c568f]" data-testid={`input-reschedule-datetime-${item.id}`}><span className="text-[9px]">{dateParts(dateVal)?.weekday}</span><strong className="text-sm">{dateParts(dateVal)?.date}</strong><input className="absolute inset-0 cursor-pointer opacity-0" type="date" value={dateVal} onChange={e => { if (isWeekday(e.target.value) && scheduleWallTimeToUtc(e.target.value, timeVal) > new Date()) setDateVal(e.target.value); else onInvalid?.(); }} aria-label={t.agentWorkspace.rescheduleChooseWeekday} data-testid={`input-reschedule-date-${item.id}`} /></label>
+              <Button type="button" variant="outline" size="icon" className="h-8 w-8 border-[#c7dbe9]" onClick={() => moveDate(1)} aria-label={t.agentWorkspace.rescheduleNextWeekday}><ChevronRight className="h-4 w-4" /></Button>
             </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-slate-800 dark:text-slate-100">{t.agentWorkspace.reschedule}</p>
-              <p className="truncate text-[10px] text-slate-500 dark:text-slate-400">{item.contactName || t.agentWorkspace.unknownContact}</p>
+            <div className="mt-2 flex gap-1.5">
+              {shortcuts.map(value => <button type="button" key={value} onClick={() => setDateVal(value)} className={`rounded-md border px-2 py-1 text-[10px] ${value === dateVal ? "border-[#9fc4dc] bg-[#eaf3fb] font-bold text-[#1c568f]" : "border-[#dce8f1] text-[#7089a0]"}`}>{dateParts(value)?.weekday} {dateParts(value)?.date}</button>)}
             </div>
           </div>
-          <DateTimePicker
-            value={dateVal && timeVal ? `${dateVal}T${timeVal}` : ""}
-            onChange={(val) => {
-              if (val) {
-                const [dp, tp] = val.split("T");
-                setDateVal(dp);
-                setTimeVal((tp || "09:00").substring(0, 5));
-              }
-            }}
-            includeTime
-            minDate={new Date()}
-            data-testid={`input-reschedule-datetime-${item.id}`}
-          />
+          <div>
+            <p className="mb-1.5 text-[9px] font-extrabold uppercase tracking-[.1em] text-[#7891a5]">{t.agentWorkspace.rescheduleTime}</p>
+            <div className="flex items-center gap-2 rounded-lg border border-[#c7dbe9] bg-[#f7fbfe] px-3 py-2">
+              <Clock className="h-4 w-4 text-[#2d6fba]" />
+              <select aria-label={`${t.agentWorkspace.rescheduleTime} ${hour}`} value={hour} onChange={e => setHour(e.target.value)} className="bg-transparent text-sm font-bold text-[#1d3d5a] outline-none">{Array.from({ length: 24 }, (_, n) => <option key={n}>{String(n).padStart(2, "0")}</option>)}</select>
+              <span className="font-bold text-[#1d3d5a]">:</span>
+              <select aria-label={`${t.agentWorkspace.rescheduleTime} ${minute}`} value={minute} onChange={e => setMinute(e.target.value)} className="bg-transparent text-sm font-bold text-[#1d3d5a] outline-none">{Array.from({ length: 60 }, (_, n) => <option key={n}>{String(n).padStart(2, "0")}</option>)}</select>
+              <span className="ml-auto text-[9px] text-[#7891a5]">{t.agentWorkspace.reschedule24Hour}</span>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">{["09:00", "10:30", "13:00", "14:30", "16:00"].map(value => <button type="button" key={value} onClick={() => setTimeVal(value)} className={`rounded-md border px-2 py-1 text-[10px] ${value === timeVal ? "border-[#9fc4dc] bg-[#eaf3fb] font-bold text-[#1c568f]" : "border-[#dce8f1] text-[#7089a0]"}`}>{value}</button>)}</div>
+          </div>
           {item.notes && (
             <div className="flex items-start gap-1.5 rounded-md border border-[#f0c8bc] bg-[#fff1ed] px-2 py-1.5 text-[10px] leading-snug text-[#a64e43] dark:border-rose-900/70 dark:bg-rose-950/30 dark:text-rose-300">
               <MessageSquare className="mt-0.5 h-3 w-3 shrink-0" />
               <span className="line-clamp-3">{item.notes}</span>
             </div>
           )}
+          <div className="rounded-md bg-[#eaf3fb] px-2.5 py-2 text-[10px] text-[#567188]"><span>{t.agentWorkspace.rescheduleNewAppointment}</span><strong className="ml-2 text-[#1d3d5a]">{newText?.weekday} {newText?.date} · {timeVal}</strong></div>
           <div className="flex justify-end gap-1.5 border-t border-slate-100 pt-2 dark:border-slate-800">
             <Button size="sm" variant="ghost" className="h-7 px-2.5 text-[10px]" onClick={() => setPopOpen(false)}>
               {t.common.cancel}
@@ -9474,15 +9540,16 @@ function ReschedulePopover({ item, onReschedule, t }: { item: ScheduledItem; onR
               className="h-7 bg-[#2d6fba] px-3 text-[10px] hover:bg-[#1c568f]"
               data-testid={`btn-confirm-reschedule-${item.id}`}
               onClick={() => {
-                if (dateVal && timeVal) {
-                  const newDate = new Date(`${dateVal}T${timeVal}:00`).toISOString();
+                if (dateVal && timeVal && isWeekday(dateVal)) {
+                  const newDate = scheduleWallTimeToUtc(dateVal, timeVal).toISOString();
+                  if (new Date(newDate) <= new Date()) { onInvalid?.(); return; }
                   onReschedule(item.campaignContactId, item.campaignId, newDate);
                   setPopOpen(false);
                 }
               }}
             >
               <Check className="h-3 w-3 mr-1" />
-              OK
+              {t.agentWorkspace.rescheduleSave}
             </Button>
           </div>
         </div>
@@ -9623,6 +9690,15 @@ function ScheduledQueuePanel({
     return items;
   }, [scheduledItems, filterType, timeFilter, searchQuery, sortField, sortDir, nowTime, todayDayIndex, currentWeekStartDayIndex]);
 
+  const groupedItems = useMemo(() => filteredItems.reduce<Record<string, ScheduledItem[]>>((groups, item) => {
+    const bucket = getTimeBucket(item.scheduledAt);
+    (groups[bucket] ||= []).push(item);
+    return groups;
+  }, {}), [filteredItems, nowTime, todayDayIndex, currentWeekStartDayIndex]);
+  const bucketOrder = sortField === "date" && sortDir === "desc"
+    ? (["later", "nextWeek", "thisWeek", "today", "overdue"] as const)
+    : (["overdue", "today", "thisWeek", "nextWeek", "later"] as const);
+
   const isOverdue = (scheduledAt: string) => new Date(scheduledAt) < new Date();
 
   const getTypeIcon = (type: string) => {
@@ -9701,8 +9777,8 @@ function ScheduledQueuePanel({
           </div>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className="flex flex-shrink-0 items-center gap-2 border-b border-[#dce8f1] bg-white px-4 py-2.5 dark:border-slate-800 dark:bg-slate-950">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:grid lg:grid-cols-[182px_minmax(0,1fr)]">
+            <div className="flex flex-shrink-0 items-center gap-2 border-b border-[#dce8f1] bg-white px-4 py-2.5 dark:border-slate-800 dark:bg-slate-950 lg:col-start-2">
               <div className="relative flex-1">
                 <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-[#7089a0]" />
                 <Input
@@ -9741,7 +9817,7 @@ function ScheduledQueuePanel({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5 border-b border-[#dce8f1] bg-white px-4 py-2 dark:border-slate-800 dark:bg-slate-950">
+            <div className="flex flex-wrap items-center gap-1.5 border-b border-[#dce8f1] bg-white px-4 py-2 dark:border-slate-800 dark:bg-slate-950 lg:col-start-1 lg:row-start-1 lg:row-span-4 lg:flex-col lg:items-stretch lg:justify-start lg:gap-2 lg:border-r">
               <span className="mr-0.5 text-[9px] font-bold uppercase tracking-wider text-[#7089a0]">{t.agentWorkspace.scheduledDate}</span>
               {timeFilters.map(tf => {
                 const Icon = tf.icon;
@@ -9787,12 +9863,12 @@ function ScheduledQueuePanel({
               })}
             </div>
 
-            <div className="flex min-h-8 flex-shrink-0 items-center justify-between border-b border-[#dce8f1] bg-[#f7fbfe] px-4 text-[10px] text-[#7089a0] dark:border-slate-800 dark:bg-slate-900/60">
+            <div className="flex min-h-8 flex-shrink-0 items-center justify-between border-b border-[#dce8f1] bg-[#f7fbfe] px-4 text-[10px] text-[#7089a0] dark:border-slate-800 dark:bg-slate-900/60 lg:col-start-2">
               <span><strong className="text-[#1d3d5a] dark:text-slate-100">{filteredItems.length}</strong> / <strong className="text-[#1d3d5a] dark:text-slate-100">{scheduledItems.length}</strong> {t.agentWorkspace.scheduledTotal}</span>
               <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-[#3f826e]" />{t.agentWorkspace.scheduledQueueTitle}</span>
             </div>
 
-            <div className="hidden min-h-8 flex-shrink-0 border-b border-[#dce8f1] bg-[#f7fbfe] px-4 text-[9px] font-bold uppercase tracking-[0.1em] text-[#7089a0] dark:border-slate-800 dark:bg-slate-900/60 lg:grid lg:grid-cols-[minmax(240px,1.8fr)_minmax(110px,0.72fr)_minmax(155px,1.15fr)_minmax(150px,1fr)_105px] lg:items-center lg:gap-3">
+            <div className="hidden min-h-8 flex-shrink-0 border-b border-[#dce8f1] bg-[#f7fbfe] px-4 text-[9px] font-bold uppercase tracking-[0.1em] text-[#7089a0] dark:border-slate-800 dark:bg-slate-900/60 lg:col-start-2 lg:grid lg:grid-cols-[minmax(240px,1.8fr)_minmax(110px,0.72fr)_minmax(155px,1.15fr)_minmax(150px,1fr)_105px] lg:items-center lg:gap-3">
               <span>{t.agentWorkspace.scheduledContact}</span>
               <span>{t.agentWorkspace.scheduledDate}</span>
               <span>{t.agentWorkspace.scheduledStep || "Step"}</span>
@@ -9800,7 +9876,7 @@ function ScheduledQueuePanel({
               <span className="text-right">{t.agentWorkspace.scheduledActions}</span>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className="flex-1 min-h-0 overflow-y-auto lg:col-start-2">
               {isLoading ? (
                 <div className="flex items-center justify-center py-16">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -9826,15 +9902,25 @@ function ScheduledQueuePanel({
                   )}
                 </div>
               ) : (
-                <div>
-                  {filteredItems.map((item, idx) => {
+                <div className="space-y-5 p-4 md:p-5">
+                  {bucketOrder.filter(bucket => groupedItems[bucket]?.length).map(bucket => (
+                    <section key={bucket} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className={`h-2 w-2 rounded-full ${bucket === "overdue" ? "bg-[#bf5c4f]" : "bg-[#6ba7c8]"}`} />
+                          <div><h3 className="text-[13px] font-semibold text-[#1d3d5a]">{bucket === "overdue" ? t.agentWorkspace.scheduledOverdue : bucket === "today" ? t.agentWorkspace.scheduledToday : bucket === "thisWeek" ? t.agentWorkspace.scheduledThisWeek : bucket === "nextWeek" ? t.agentWorkspace.scheduledNextWeek : t.agentWorkspace.scheduledLater}</h3><p className="text-[10px] text-[#7089a0]">{bucket === "overdue" ? t.agentWorkspace.scheduledOverdue : bucket === "today" ? t.agentWorkspace.scheduledToday : bucket === "thisWeek" ? t.agentWorkspace.scheduledThisWeek : bucket === "nextWeek" ? t.agentWorkspace.scheduledNextWeek : t.agentWorkspace.scheduledLater}</p></div>
+                        </div>
+                        <Badge variant="secondary" className="bg-[#eaf3fb] text-[10px] text-[#567188]">{groupedItems[bucket].length}</Badge>
+                      </div>
+                      <div className="space-y-2">
+                  {groupedItems[bucket].map((item, idx) => {
                     const itemOverdue = isOverdue(item.scheduledAt);
                     return (
                       <div
                         key={item.id}
                         data-testid={`scheduled-item-${item.id}`}
-                        className={`grid grid-cols-1 items-center gap-x-3 gap-y-1.5 border-b border-[#dce8f1] px-4 py-2.5 transition-colors hover:bg-[#f7fbfe] dark:border-slate-800 dark:hover:bg-slate-900/70 lg:min-h-[82px] lg:grid-cols-[minmax(240px,1.8fr)_minmax(110px,0.72fr)_minmax(155px,1.15fr)_minmax(150px,1fr)_105px] ${
-                          itemOverdue ? "bg-[#fff1ed]/50 dark:bg-rose-950/10" : idx % 2 === 0 ? "bg-white dark:bg-slate-950" : "bg-[#fbfdff] dark:bg-slate-950"
+                        className={`grid grid-cols-1 gap-x-3 gap-y-2 rounded-xl border border-[#dce8f1] px-4 py-3 transition-colors hover:border-[#9fc4dc] hover:bg-[#f7fbfe] dark:border-slate-800 dark:hover:bg-slate-900/70 lg:grid-cols-[minmax(240px,1.8fr)_minmax(110px,0.72fr)_minmax(155px,1.15fr)_minmax(150px,1fr)_105px] ${
+                          itemOverdue ? "border-l-4 border-l-[#bf5c4f] bg-[#fff8f6] dark:bg-rose-950/10" : "bg-white dark:bg-slate-950"
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
@@ -9895,11 +9981,11 @@ function ScheduledQueuePanel({
                         <div className={`text-xs ${itemOverdue ? "text-destructive font-medium" : "text-foreground"}`}>
                           <div className="flex items-center gap-1">
                             <Calendar className="h-3 w-3 shrink-0" />
-                            <span>{format(new Date(item.scheduledAt), "d.M.yyyy", { locale: sk })}</span>
+                            <span>{new Intl.DateTimeFormat(locale, { timeZone: SCHEDULE_TIME_ZONE, day: "numeric", month: "numeric", year: "numeric" }).format(new Date(item.scheduledAt))}</span>
                           </div>
                           <div className="flex items-center gap-1 mt-0.5 text-[11px] text-muted-foreground">
                             <Clock className="h-2.5 w-2.5 shrink-0" />
-                            <span>{format(new Date(item.scheduledAt), "HH:mm")}</span>
+                            <span>{new Intl.DateTimeFormat(locale, { timeZone: SCHEDULE_TIME_ZONE, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(item.scheduledAt))}</span>
                           </div>
                           {item.notes && (
                             <span
@@ -10038,12 +10124,21 @@ function ScheduledQueuePanel({
                           <ReschedulePopover
                             item={item}
                             t={t}
+                            locale={locale}
+                            onInvalid={() => toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.rescheduleInvalidFutureWeekday, variant: "destructive" })}
                             onReschedule={async (contactId, campaignId, newDate) => {
                               try {
                                 if (item.isOutsideMission && item.inboundCallbackId) {
                                   await apiRequest("PATCH", `/api/agent/inbound-callbacks/${item.inboundCallbackId}`, { callbackDate: newDate });
                                   queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
                                   queryClient.invalidateQueries({ queryKey: ["/api/agent/inbound-callbacks"] });
+                                } else if (item.source === "session" && item.sessionId) {
+                                  await apiRequest("PATCH", `/api/campaigns/${campaignId}/contacts/${contactId}/sessions/${item.sessionId}`, {
+                                    callbackDate: newDate,
+                                    callbackScheduled: true,
+                                  });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "contacts"] });
                                 } else {
                                   await apiRequest("PATCH", `/api/campaigns/${campaignId}/contacts/${contactId}`, {
                                     callbackDate: newDate,
@@ -10070,6 +10165,13 @@ function ScheduledQueuePanel({
                                   await apiRequest("DELETE", `/api/agent/inbound-callbacks/${item.inboundCallbackId}`, {});
                                   queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
                                   queryClient.invalidateQueries({ queryKey: ["/api/agent/inbound-callbacks"] });
+                                } else if (item.source === "session" && item.sessionId) {
+                                  await apiRequest("PATCH", `/api/campaigns/${item.campaignId}/contacts/${item.campaignContactId}/sessions/${item.sessionId}`, {
+                                    callbackScheduled: false,
+                                    callbackDate: null,
+                                  });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/campaigns", item.campaignId, "contacts"] });
                                 } else {
                                   await apiRequest("PATCH", `/api/campaigns/${item.campaignId}/contacts/${item.id}`, {
                                     status: "pending",
@@ -10091,11 +10193,14 @@ function ScheduledQueuePanel({
                       </div>
                     );
                   })}
+                      </div>
+                    </section>
+                  ))}
                 </div>
               )}
             </div>
 
-            <div className="px-4 py-2 border-t bg-muted/20 flex-shrink-0">
+            <div className="px-4 py-2 border-t bg-muted/20 flex-shrink-0 lg:col-start-2">
               <p className="text-[11px] text-muted-foreground">
                 {filteredItems.length} / {scheduledItems.length} {t.agentWorkspace.scheduledTotal}
                 {timeFilter !== "all" && <span className="ml-1">· {timeFilters.find(f => f.key === timeFilter)?.label}</span>}
