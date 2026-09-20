@@ -581,3 +581,17 @@ mtime_ms = 1789886001899
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/a3ee7c88-9237-4363-96a0-6df50483495d/2be02648-0f98-41b1-b6c6-0a686c332a76"
 storage_version_token = "1789886026467534"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "0ni67YNc8DKgttymw6LC8"
+uri = "file://screenshots/scheduled-queue-my-shift-colors.jpg"
+type = "image"
+title = "Scheduled queue — My shift farby"
+description = "Maximum-density variant prefarbený do vizuálneho jazyka My shift a Missed communications: modrá hierarchia, zelené stavy a koralové urgentné akcie."
+logical_id = "304443c4-a382-4637-b5ff-096f942c6d3d"
+content_hash = "sha256:64cfeb4c2793ca86293f2f17ce96e783955155345b6b06ab1938640b39817421"
+size = 53208
+mtime_ms = 1789886214506
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/304443c4-a382-4637-b5ff-096f942c6d3d/59555615-dad0-4a3d-bdac-db817465b334"
+storage_version_token = "1789886246118919"
+content_type = "image/jpeg"

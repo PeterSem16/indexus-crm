@@ -19,7 +19,23 @@ const seed: QueueContact[] = [
 
 const timeFilters = ["All", "overdue", "today", "This week", "Next week", "Later"];
 const typeFilters: Array<"All" | Channel> = ["All", "Calls", "Emails", "SMS"];
-const colors = { ink: "#253237", muted: "#68787a", line: "#d9e4df", pale: "#f5f8f5", mint: "#dceee5", teal: "#0d776c", coral: "#dc755e", orange: "#ba7029" };
+// Shared Pulse language from My shift + Missed communications:
+// cool workspace blues, calm green completion states, and a deliberate coral
+// interruption signal for missed/urgent communication.
+const colors = {
+  ink: "#1d3d5a",
+  muted: "#7089a0",
+  line: "#dce8f1",
+  pale: "#f7fbfe",
+  mint: "#eaf3fb",
+  teal: "#2d6fba",
+  tealDark: "#1c568f",
+  coral: "#bf5c4f",
+  coralSoft: "#fff1ed",
+  green: "#3f826e",
+  greenSoft: "#eaf6f1",
+  orange: "#b77741",
+};
 
 export function PulseMaximumDensity() {
   const [contacts, setContacts] = useState(seed);
@@ -59,10 +75,10 @@ export function PulseMaximumDensity() {
   const action = (label: string, contact: QueueContact) => setNotice(`${label}: ${contact.name}`);
 
   return (
-    <main style={{ minHeight: "100vh", background: "#eaf1ed", color: colors.ink, fontFamily: "ui-sans-serif, system-ui, sans-serif", padding: 18 }}>
-      <section style={{ maxWidth: 1440, margin: "0 auto", background: "#fbfcfa", border: `1px solid ${colors.line}`, borderRadius: 10, boxShadow: "0 12px 32px rgba(37,50,55,.09)", overflow: "hidden" }}>
-        <header style={{ minHeight: 58, display: "flex", alignItems: "center", gap: 12, padding: "0 18px", borderBottom: `1px solid ${colors.line}`, background: "#f7faf7" }}>
-          <div style={{ width: 28, height: 28, borderRadius: 6, display: "grid", placeItems: "center", color: colors.teal, background: colors.mint }}><CalendarClock size={16} /></div>
+    <main style={{ minHeight: "100vh", background: "#eaf2f8", color: colors.ink, fontFamily: "Plus Jakarta Sans, Avenir Next, ui-sans-serif, system-ui, sans-serif", padding: 18 }}>
+      <section style={{ maxWidth: 1440, margin: "0 auto", background: "#fbfdff", border: `1px solid #caddeb`, borderRadius: 14, boxShadow: "0 20px 52px rgba(28,67,103,.14)", overflow: "hidden" }}>
+        <header style={{ minHeight: 58, display: "flex", alignItems: "center", gap: 12, padding: "0 18px", borderBottom: `1px solid ${colors.line}`, background: "#f8fbfe" }}>
+          <div style={{ width: 28, height: 28, borderRadius: 8, display: "grid", placeItems: "center", color: colors.teal, background: colors.mint }}><CalendarClock size={16} /></div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 230 }}><h1 style={{ fontSize: 17, margin: 0, letterSpacing: "-.02em" }}>Scheduled queue</h1><b style={{ fontSize: 12, color: colors.teal }}>2 ready</b></div>
           <div style={{ height: 22, width: 1, background: colors.line }} />
           <span style={{ fontSize: 11, color: colors.muted }}>Callbacks and follow-ups ready for your shift</span>
@@ -72,7 +88,7 @@ export function PulseMaximumDensity() {
           </div>
         </header>
         <div style={{ display: "grid", gridTemplateColumns: "150px 1fr", minHeight: 440 }}>
-          <aside style={{ padding: "17px 10px", borderRight: `1px solid ${colors.line}`, background: "#f6f9f6" }}>
+           <aside style={{ padding: "17px 10px", borderRight: `1px solid ${colors.line}`, background: "#f7fbfe" }}>
             <div style={{ fontSize: 9, letterSpacing: ".13em", color: colors.muted, fontWeight: 800, padding: "0 9px 8px" }}>TIME</div>
             {timeFilters.map((filter) => <button key={filter} type="button" onClick={() => setTimeFilter(filter)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, height: 29, padding: "0 9px", border: 0, borderRadius: 5, background: timeFilter === filter ? colors.mint : "transparent", color: timeFilter === filter ? colors.teal : colors.ink, fontSize: 11, fontWeight: timeFilter === filter ? 700 : 500, cursor: "pointer", textAlign: "left" }}><span style={{ width: 15, textAlign: "center", color: filter === "overdue" ? colors.coral : colors.muted }}>{filter === "All" ? "▦" : filter === "overdue" ? "!" : filter === "today" ? "◷" : "□"}</span>{filter}<em style={{ marginLeft: "auto", fontStyle: "normal", fontSize: 10, color: colors.muted }}>{countForTime(filter)}</em></button>)}
             <div style={{ fontSize: 9, letterSpacing: ".13em", color: colors.muted, fontWeight: 800, padding: "20px 9px 8px" }}>TYPE</div>
@@ -88,9 +104,9 @@ export function PulseMaximumDensity() {
             {visible.length > 0 ? <div>{visible.map((contact) => <article key={contact.id} style={{ display: "grid", gridTemplateColumns: "minmax(260px, 1.8fr) 125px 185px minmax(160px, 1fr) 105px", gap: 10, alignItems: "center", minHeight: 92, padding: "10px 16px", borderBottom: `1px solid ${colors.line}`, fontSize: 11 }}>
               <div style={{ display: "flex", alignItems: "flex-start", gap: 10, minWidth: 0 }}><div style={{ flex: "0 0 27px", width: 27, height: 27, display: "grid", placeItems: "center", borderRadius: 6, background: colors.mint, color: colors.teal }}><PhoneCall size={13} /></div><div style={{ minWidth: 0 }}><strong style={{ display: "block", fontSize: 11.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{contact.name} <small style={{ fontWeight: 500, color: colors.muted }}>({contact.organization})</small></strong><div style={{ display: "flex", gap: 6, marginTop: 3 }}><span style={{ color: colors.teal, fontSize: 10 }}>{contact.channel === "Calls" ? "Callback" : contact.channel}</span><span style={{ color: colors.orange, fontSize: 10 }}>Referral</span></div><small style={{ display: "block", color: colors.muted, marginTop: 4 }}>⌖ {contact.city}</small><small style={{ display: "block", color: colors.muted, marginTop: 2, whiteSpace: "nowrap" }}>{contact.phone} <span style={{ color: colors.line }}>·</span> {contact.email}</small></div></div>
               <div><strong style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11 }}><CalendarDays size={12} color={colors.teal} />{contact.scheduled}</strong><span style={{ display: "flex", alignItems: "center", gap: 5, color: colors.muted, marginTop: 5, fontSize: 10 }}><Clock3 size={11} />{contact.time}</span></div>
-              <div><span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 7px", borderRadius: 4, background: contact.step.startsWith("Not") ? "#edf1ef" : "#e4f2e9", color: contact.step.startsWith("Not") ? colors.muted : colors.teal, fontSize: 10, fontWeight: 650 }}>{contact.step}</span><small style={{ display: "block", marginTop: 7, color: colors.muted }}><Mail size={11} style={{ verticalAlign: "middle", marginRight: 4 }} />Email step</small></div>
+               <div><span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 7px", borderRadius: 5, background: contact.step.startsWith("Not") ? "#eef4f8" : colors.greenSoft, color: contact.step.startsWith("Not") ? "#567188" : colors.green, fontSize: 10, fontWeight: 650 }}>{contact.step}</span><small style={{ display: "block", marginTop: 7, color: colors.muted }}><Mail size={11} style={{ verticalAlign: "middle", marginRight: 4 }} />Email step</small></div>
               <div style={{ display: "flex", alignItems: "center", gap: 7, color: colors.ink, fontSize: 10 }}><Zap size={12} color={colors.orange} />{contact.campaign}<ChevronDown size={12} color={colors.muted} /></div>
-              <div style={{ display: "flex", gap: 5 }}><button type="button" title="Call" onClick={() => action("Calling", contact)} style={{ width: 28, height: 27, display: "grid", placeItems: "center", border: `1px solid ${colors.line}`, borderRadius: 4, background: "#fff", color: colors.teal, cursor: "pointer" }}><Phone size={13} /></button><button type="button" title="Reschedule" onClick={() => action("Reschedule opened", contact)} style={{ width: 28, height: 27, display: "grid", placeItems: "center", border: `1px solid ${colors.line}`, borderRadius: 4, background: "#fff", color: colors.muted, cursor: "pointer" }}><CalendarClock size={13} /></button><button type="button" title="Delete" onClick={() => { setContacts((items) => items.filter((item) => item.id !== contact.id)); setNotice(`${contact.name} removed from queue`); }} style={{ width: 28, height: 27, display: "grid", placeItems: "center", border: `1px solid #efd5ce`, borderRadius: 4, background: "#fff8f6", color: colors.coral, cursor: "pointer" }}><Trash2 size={13} /></button></div>
+               <div style={{ display: "flex", gap: 5 }}><button type="button" title="Call" onClick={() => action("Calling", contact)} style={{ width: 28, height: 27, display: "grid", placeItems: "center", border: `1px solid #cddde9`, borderRadius: 6, background: "#fff", color: colors.teal, cursor: "pointer" }}><Phone size={13} /></button><button type="button" title="Reschedule" onClick={() => action("Reschedule opened", contact)} style={{ width: 28, height: 27, display: "grid", placeItems: "center", border: `1px solid #cddde9`, borderRadius: 6, background: "#fff", color: "#567188", cursor: "pointer" }}><CalendarClock size={13} /></button><button type="button" title="Delete" onClick={() => { setContacts((items) => items.filter((item) => item.id !== contact.id)); setNotice(`${contact.name} removed from queue`); }} style={{ width: 28, height: 27, display: "grid", placeItems: "center", border: `1px solid #f3d4ce`, borderRadius: 6, background: colors.coralSoft, color: colors.coral, cursor: "pointer" }}><Trash2 size={13} /></button></div>
             </article>)}</div> : <div style={{ display: "grid", placeItems: "center", minHeight: 190, color: colors.muted, gap: 6 }}><Search size={20} /><strong style={{ color: colors.ink, fontSize: 12 }}>{query || timeFilter !== "All" || typeFilter !== "All" ? "No scheduled contacts match" : "Your scheduled queue is empty"}</strong><span style={{ fontSize: 11 }}>Try changing the filters or search term.</span></div>}
           </div>
         </div>
