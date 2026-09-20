@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Calendar, CalendarClock, Check,
-  ChevronDown, Clock, Mail, MailPlus, MapPin, Megaphone, MessageSquare,
+  ChevronDown, ChevronLeft, ChevronRight, Clock, Mail, MailPlus, MapPin, Megaphone, MessageSquare,
   MessageSquarePlus, Phone, PhoneCall, PhoneForwarded, Search, Send, Trash2, X
 } from "lucide-react";
 
@@ -33,20 +33,20 @@ const typeLabel = (t: QueueType) => t === "callback" ? "Callback" : t === "email
 const TypeIcon = ({ type }: { type: QueueType }) => type === "callback" ? <PhoneForwarded /> : type === "email" ? <MailPlus /> : <MessageSquarePlus />;
 
 function Scheduler({ item, onSave, onClose }: { item: Item; onSave: (id: string, value: string) => void; onClose: () => void }) {
-  const current = new Date(item.scheduledAt);
   const [day, setDay] = useState(item.scheduledAt.slice(0, 10));
   const [time, setTime] = useState(item.scheduledAt.slice(11, 16));
-  const dayChoices = (() => { const choices: Date[] = []; const d = new Date(); while (choices.length < 4) { if (d.getDay() > 0 && d.getDay() < 6) choices.push(new Date(d)); d.setDate(d.getDate() + 1); } return choices; })();
+  const weekdayChoices = (() => { const choices: Date[] = []; const d = new Date(); while (choices.length < 3) { if (d.getDay() > 0 && d.getDay() < 6) choices.push(new Date(d)); d.setDate(d.getDate() + 1); } return choices; })();
+  const selectedDate = new Date(`${day}T12:00:00`);
+  const moveDay = (amount: number) => { const next = new Date(selectedDate); do { next.setDate(next.getDate() + amount); } while (next.getDay() === 0 || next.getDay() === 6); setDay(localISO(next)); };
   const save = () => { const next = new Date(`${day}T${time}`); onSave(item.id, next.toISOString()); onClose(); };
-  return <div className="schedule-pop" role="dialog" aria-label={`Reschedule ${item.contactName}`}>
-    <div className="pop-head"><div><span className="eyebrow">MOVE APPOINTMENT</span><h3>{item.contactName}</h3></div><button className="close-pop" onClick={onClose} aria-label="Close"><X /></button></div>
-    <div className="current-time"><Clock /><span>Currently <strong>{fmtLong(item.scheduledAt)}</strong> at <strong>{fmtTime(item.scheduledAt)}</strong></span></div>
-    <div className="pop-label">Choose a day</div>
-     <div className="day-choices">{dayChoices.map(d => { const iso = localISO(d); const today = localISO(new Date()); const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); const label = iso === today ? "Today" : iso === localISO(tomorrow) ? "Tomorrow" : d.toLocaleDateString("en", { weekday: "short" }); return <button key={iso} className={day === iso ? "day-choice selected" : "day-choice"} onClick={() => setDay(iso)}><small>{label}</small><b>{d.getDate()}</b><span>{d.toLocaleDateString("en", { month: "short" })}</span></button>; })}<label className="custom-day"><Calendar /><input type="date" value={day} onChange={e => { if (isWeekday(e.target.value)) setDay(e.target.value); }} aria-label="Custom weekday date" /><span>Weekday</span></label></div>
-     <div className="pop-label time-label"><span>Time</span><span>or enter any time</span></div>
-     <div className="time-choices"><div className="time-presets">{["09:00", "10:30", "13:00", "14:30", "16:00", "17:30"].map(t => <button key={t} className={time === t ? "time-chip selected" : "time-chip"} onClick={() => setTime(t)}>{t}</button>)}</div><label className="custom-time"><Clock /><span>Exact</span><input type="time" value={time} onChange={e => setTime(e.target.value)} aria-label="Custom time" /></label></div>
+  return <div className="schedule-pop compact-scheduler" role="dialog" aria-label={`Reschedule ${item.contactName}`}>
+    <div className="pop-head"><div><span className="eyebrow">RESCHEDULE</span><h3>{item.contactName}</h3></div><button className="close-pop" onClick={onClose} aria-label="Close"><X /></button></div>
+    <div className="current-time"><CalendarClock /><span>Currently <strong>{fmtLong(item.scheduledAt)}</strong><br /><strong>{fmtTime(item.scheduledAt)}</strong></span></div>
+    <div className="schedule-section"><div className="pop-label">New date</div><div className="date-control"><button onClick={() => moveDay(-1)} aria-label="Previous weekday"><ChevronLeft /></button><label className="selected-date"><span>{selectedDate.toLocaleDateString("en", { weekday: "short" })}</span><strong>{selectedDate.getDate()} {selectedDate.toLocaleDateString("en", { month: "short" })}</strong><input type="date" value={day} onChange={e => { if (isWeekday(e.target.value)) setDay(e.target.value); }} aria-label="Choose a weekday" /></label><button onClick={() => moveDay(1)} aria-label="Next weekday"><ChevronRight /></button></div><div className="weekday-shortcuts">{weekdayChoices.map(d => { const iso = localISO(d); return <button key={iso} className={iso === day ? "selected" : ""} onClick={() => setDay(iso)}>{d.toLocaleDateString("en", { weekday: "short" })} {d.getDate()}</button>; })}<label className="date-input-link"><Calendar /><input type="date" value={day} onChange={e => { if (isWeekday(e.target.value)) setDay(e.target.value); }} aria-label="Choose another weekday" />Other weekday</label></div></div>
+    <div className="schedule-section"><div className="pop-label">Time</div><label className="time-field"><Clock /><input type="time" value={time} onChange={e => setTime(e.target.value)} aria-label="Choose any time" /><span>Any time</span></label><div className="time-presets">{["09:00", "10:30", "13:00", "14:30", "16:00"].map(t => <button key={t} className={time === t ? "selected" : ""} onClick={() => setTime(t)}>{t}</button>)}</div></div>
     {item.notes && <div className="pop-note"><MessageSquare />{item.notes}</div>}
-    <div className="pop-actions"><button onClick={onClose}>Cancel</button><button className="save" onClick={save}><Check /> Save for {fmtDate(`${day}T${time}`)}</button></div>
+    <div className="new-time-summary"><span>New appointment</span><strong>{fmtLong(`${day}T${time}`)} · {time}</strong></div>
+    <div className="pop-actions"><button onClick={onClose}>Cancel</button><button className="save" onClick={save}><Check /> Save change</button></div>
   </div>;
 }
 
@@ -148,6 +148,34 @@ const BLUE_OVERRIDES = `
   .pop-actions button{background:#edf3f7;color:#567188}
   .pop-actions .save{background:#2d6fba;color:#fff}
   .empty{color:#7089a0}.empty svg{color:#7fb0d2}.empty h2{color:#1d3d5a}
-  .empty button{border-color:#9fc4dc;background:#eaf3fb;color:#1c568f}
+   .empty button{border-color:#9fc4dc;background:#eaf3fb;color:#1c568f}
+   .compact-scheduler{width:min(352px,calc(100% - 24px));padding:15px;border-radius:12px}
+   .compact-scheduler .current-time{margin:11px 0 14px;padding:8px 9px;line-height:1.4}
+   .schedule-section{padding-top:12px;border-top:1px solid #e6eef4}
+   .schedule-section+.schedule-section{margin-top:13px}
+   .date-control{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:7px}
+   .date-control>button{display:grid;place-items:center;width:27px;height:32px;border:1px solid #c7dbe9;border-radius:7px;background:#fff;color:#567188;cursor:pointer}
+   .date-control>button:hover{border-color:#7fb0d2;background:#eaf3fb;color:#1c568f}
+   .date-control>button svg{width:15px}
+   .selected-date{position:relative;display:flex;flex:1;align-items:center;justify-content:center;gap:7px;height:38px;border:1px solid #9fc4dc;border-radius:8px;background:#eaf3fb;color:#1c568f;cursor:pointer}
+   .selected-date span{font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+   .selected-date strong{font-size:13px}
+   .selected-date input{position:absolute;inset:0;width:100%;opacity:0;cursor:pointer}
+   .weekday-shortcuts{display:flex;align-items:center;gap:5px;margin-top:7px;overflow:hidden}
+   .weekday-shortcuts button,.date-input-link{display:flex;align-items:center;justify-content:center;gap:3px;height:25px;padding:0 7px;border:1px solid #d3e2ec;border-radius:6px;background:#fff;color:#648098;font-size:9px;white-space:nowrap;cursor:pointer}
+   .weekday-shortcuts button:hover,.weekday-shortcuts button.selected{border-color:#7fb0d2;background:#eaf3fb;color:#1c568f;font-weight:700}
+   .date-input-link{position:relative;border-style:dashed}
+   .date-input-link svg{width:11px}
+   .date-input-link input{position:absolute;inset:0;width:100%;opacity:0;cursor:pointer}
+   .time-field{display:flex;align-items:center;gap:8px;height:42px;margin-top:7px;padding:0 10px;border:1px solid #9fc4dc;border-radius:8px;background:#f7fbfe;color:#2d6fba;cursor:text}
+   .time-field svg{width:15px}
+   .time-field input{width:75px;border:0;background:transparent;color:#1d3d5a;font-size:16px;font-weight:800;outline:0}
+   .time-field span{margin-left:auto;color:#7891a5;font-size:9px}
+   .compact-scheduler .time-presets{display:flex;gap:5px;margin-top:7px}
+   .compact-scheduler .time-presets button{height:24px;padding:0 7px;border:1px solid #d3e2ec;border-radius:6px;background:#fff;color:#648098;font-size:9px;cursor:pointer}
+   .compact-scheduler .time-presets button:hover,.compact-scheduler .time-presets button.selected{border-color:#7fb0d2;background:#eaf3fb;color:#1c568f;font-weight:700}
+   .new-time-summary{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;padding:8px 9px;border-radius:7px;background:#f1f6fa;color:#7891a5;font-size:9px}
+   .new-time-summary strong{color:#1d568f;font-size:10px;text-align:right}
+   .compact-scheduler .pop-actions{margin-top:12px;padding-top:10px}
   @media(max-width:850px){.agenda-content{padding:13px}.filter-rail{background:#e8f2f8;border-color:#dce8f1}.agenda-card{border-radius:10px}}
 `;
