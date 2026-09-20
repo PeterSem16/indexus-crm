@@ -9850,7 +9850,7 @@ function ScheduledQueuePanel({
           </div>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:grid lg:grid-cols-[182px_minmax(0,1fr)]">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:grid lg:grid-cols-[182px_minmax(0,1fr)] lg:grid-rows-[auto_auto_minmax(0,1fr)_auto]">
             <div className="flex flex-shrink-0 items-center gap-2 border-b border-[#dce8f1] bg-white px-4 py-2.5 dark:border-slate-800 dark:bg-slate-950 lg:col-start-2">
               <div className="relative flex-1">
                 <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-[#7089a0]" />
@@ -9936,12 +9936,7 @@ function ScheduledQueuePanel({
               })}
             </div>
 
-            <div className="flex min-h-8 flex-shrink-0 items-center justify-between border-b border-[#dce8f1] bg-[#f7fbfe] px-4 text-[10px] text-[#7089a0] dark:border-slate-800 dark:bg-slate-900/60 lg:col-start-2">
-              <span><strong className="text-[#1d3d5a] dark:text-slate-100">{filteredItems.length}</strong> / <strong className="text-[#1d3d5a] dark:text-slate-100">{scheduledItems.length}</strong> {t.agentWorkspace.scheduledTotal}</span>
-              <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-[#3f826e]" />{t.agentWorkspace.scheduledQueueTitle}</span>
-            </div>
-
-            <div className="hidden min-h-8 flex-shrink-0 border-b border-[#dce8f1] bg-[#f7fbfe] px-4 text-[9px] font-bold uppercase tracking-[0.1em] text-[#7089a0] dark:border-slate-800 dark:bg-slate-900/60 lg:col-start-2 lg:grid lg:grid-cols-[minmax(240px,1.8fr)_minmax(110px,0.72fr)_minmax(155px,1.15fr)_minmax(150px,1fr)_105px] lg:items-center lg:gap-3">
+            <div className="hidden h-7 flex-shrink-0 border-b border-[#dce8f1] bg-[#f7fbfe] px-4 text-[8px] font-bold uppercase tracking-[0.09em] text-[#7089a0] dark:border-slate-800 dark:bg-slate-900/60 lg:col-start-2 lg:grid lg:grid-cols-[minmax(240px,1.8fr)_minmax(110px,0.72fr)_minmax(155px,1.15fr)_minmax(150px,1fr)_105px] lg:items-center lg:gap-3">
               <span>{t.agentWorkspace.scheduledContact}</span>
               <span>{t.agentWorkspace.scheduledDate}</span>
               <span>{t.agentWorkspace.scheduledStep || "Step"}</span>

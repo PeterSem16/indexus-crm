@@ -9,6 +9,8 @@ The rescheduler must present date and time separately, show current and proposed
 
 STEP / STATUS must retain the current script step while also showing the latest recorded disposition or active Status List choice as a badge. A newer manual/history result outranks an older call-bound result.
 
+Keep the queue vertically compact: do not add a separate full-width count/status strip above the table. Counts belong in the title/footer, and column labels use a short header row.
+
 Queue actions must distinguish campaign-contact, contact-session, and inbound-callback records before rescheduling or cancelling. Schedule display, weekday checks, future-time validation, and UTC conversion must all use Europe/Bratislava wall time.
 
 **Why:** The user rejected green styling as inconsistent with the established modal system and found the old scheduling control unclear. Different queue sources use different mutation targets, and browser-local time can move appointments to a different day or hour.
