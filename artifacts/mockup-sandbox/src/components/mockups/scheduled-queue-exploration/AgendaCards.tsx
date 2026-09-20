@@ -43,7 +43,7 @@ function Scheduler({ item, onSave, onClose }: { item: Item; onSave: (id: string,
     <div className="pop-head"><div><span className="eyebrow">RESCHEDULE</span><h3>{item.contactName}</h3></div><button className="close-pop" onClick={onClose} aria-label="Close"><X /></button></div>
     <div className="current-time"><CalendarClock /><span>Currently <strong>{fmtLong(item.scheduledAt)}</strong><br /><strong>{fmtTime(item.scheduledAt)}</strong></span></div>
     <div className="schedule-section"><div className="pop-label">New date</div><div className="date-control"><button onClick={() => moveDay(-1)} aria-label="Previous weekday"><ChevronLeft /></button><label className="selected-date"><span>{selectedDate.toLocaleDateString("en", { weekday: "short" })}</span><strong>{selectedDate.getDate()} {selectedDate.toLocaleDateString("en", { month: "short" })}</strong><input type="date" value={day} onChange={e => { if (isWeekday(e.target.value)) setDay(e.target.value); }} aria-label="Choose a weekday" /></label><button onClick={() => moveDay(1)} aria-label="Next weekday"><ChevronRight /></button></div><div className="weekday-shortcuts">{weekdayChoices.map(d => { const iso = localISO(d); return <button key={iso} className={iso === day ? "selected" : ""} onClick={() => setDay(iso)}>{d.toLocaleDateString("en", { weekday: "short" })} {d.getDate()}</button>; })}<label className="date-input-link"><Calendar /><input type="date" value={day} onChange={e => { if (isWeekday(e.target.value)) setDay(e.target.value); }} aria-label="Choose another weekday" />Other weekday</label></div></div>
-    <div className="schedule-section"><div className="pop-label">Time</div><label className="time-field"><Clock /><input type="time" value={time} onChange={e => setTime(e.target.value)} aria-label="Choose any time" /><span>Any time</span></label><div className="time-presets">{["09:00", "10:30", "13:00", "14:30", "16:00"].map(t => <button key={t} className={time === t ? "selected" : ""} onClick={() => setTime(t)}>{t}</button>)}</div></div>
+    <div className="schedule-section"><div className="pop-label">Time</div><div className="time-field" aria-label="Choose any time"><Clock /><div className="time-select-wrap"><select className="time-select" value={time.slice(0, 2)} onChange={e => setTime(`${e.target.value}:${time.slice(3)}`)} aria-label="Hour">{Array.from({ length: 24 }, (_, h) => <option key={h} value={String(h).padStart(2, "0")}>{String(h).padStart(2, "0")}</option>)}</select><span className="time-colon">:</span><select className="time-select" value={time.slice(3, 5)} onChange={e => setTime(`${time.slice(0, 2)}:${e.target.value}`)} aria-label="Minute">{Array.from({ length: 60 }, (_, m) => <option key={m} value={String(m).padStart(2, "0")}>{String(m).padStart(2, "0")}</option>)}</select></div><span className="time-zone">24-hour time</span></div><div className="time-presets">{["09:00", "10:30", "13:00", "14:30", "16:00"].map(t => <button key={t} className={time === t ? "selected" : ""} onClick={() => setTime(t)}>{t}</button>)}</div></div>
     {item.notes && <div className="pop-note"><MessageSquare />{item.notes}</div>}
     <div className="new-time-summary"><span>New appointment</span><strong>{fmtLong(`${day}T${time}`)} · {time}</strong></div>
     <div className="pop-actions"><button onClick={onClose}>Cancel</button><button className="save" onClick={save}><Check /> Save change</button></div>
@@ -167,10 +167,13 @@ const BLUE_OVERRIDES = `
    .date-input-link{position:relative;border-style:dashed}
    .date-input-link svg{width:11px}
    .date-input-link input{position:absolute;inset:0;width:100%;opacity:0;cursor:pointer}
-   .time-field{display:flex;align-items:center;gap:8px;height:42px;margin-top:7px;padding:0 10px;border:1px solid #9fc4dc;border-radius:8px;background:#f7fbfe;color:#2d6fba;cursor:text}
-   .time-field svg{width:15px}
-   .time-field input{width:75px;border:0;background:transparent;color:#1d3d5a;font-size:16px;font-weight:800;outline:0}
-   .time-field span{margin-left:auto;color:#7891a5;font-size:9px}
+    .time-field{display:flex;align-items:center;gap:8px;height:48px;margin-top:7px;padding:0 10px;border:1px solid #9fc4dc;border-radius:8px;background:#f7fbfe;color:#2d6fba}
+    .time-field:focus-within{border-color:#2d6fba;box-shadow:0 0 0 3px #eaf3fb}
+    .time-field>svg{width:15px;flex:none}
+    .time-select-wrap{display:flex;align-items:center;height:32px;padding:0 3px;border:1px solid #c7dbe9;border-radius:6px;background:#fff}
+    .time-select{width:36px;height:30px;padding:0 2px;border:0;background:#fff;color:#1d3d5a;font-size:16px;font-weight:800;text-align:center;outline:0;cursor:pointer;appearance:none}
+    .time-colon{margin:0 1px;color:#7f9ab0;font-size:16px;font-weight:800}
+    .time-zone{margin-left:auto;color:#7891a5;font-size:9px;white-space:nowrap}
    .compact-scheduler .time-presets{display:flex;gap:5px;margin-top:7px}
    .compact-scheduler .time-presets button{height:24px;padding:0 7px;border:1px solid #d3e2ec;border-radius:6px;background:#fff;color:#648098;font-size:9px;cursor:pointer}
    .compact-scheduler .time-presets button:hover,.compact-scheduler .time-presets button.selected{border-color:#7fb0d2;background:#eaf3fb;color:#1c568f;font-weight:700}
