@@ -651,3 +651,17 @@ mtime_ms = 1789887433770
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/b4217985-3e7f-4ce9-b575-6a675fe2c49d/c9d3866f-dced-4d44-b5e6-4e065fa41e79"
 storage_version_token = "1789887448261471"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "9CSShv4iWv06EN3CUd3MX"
+uri = "file://screenshots/queue-filter-wireframes-final.jpg"
+type = "image"
+title = "Scheduled queue — Filter Wireframes štýl"
+description = "Queue prepracovaná podľa vybraného návrhu: kompaktný chip toolbar, jasnejšia tabuľková hierarchia a zachované všetky filtre, badges, poznámky a akcie."
+logical_id = "51dc705f-fc86-4810-8bfd-ea2c691d3a31"
+content_hash = "sha256:d8bf2799668b24f46b8001a7a2bdadef476574c696d8c2863f6aa50ed130e9eb"
+size = 55787
+mtime_ms = 1789887655682
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/51dc705f-fc86-4810-8bfd-ea2c691d3a31/289a2fed-65ef-4cd1-8258-bf9be4d87d00"
+storage_version_token = "1789887664972434"
+content_type = "image/jpeg"
