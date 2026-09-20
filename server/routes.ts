@@ -2183,6 +2183,24 @@ function verifyMs365LoginState(state: string): { userId: string; returnOrigin: s
   }
 }
 
+function decodeMs365LoginStatePayload(state: string): { userId: string; returnOrigin: string; email: string; expiry: number } | null {
+  try {
+    if (!state.startsWith("login:v2:")) return null;
+    const rest = state.substring("login:v2:".length);
+    const [payloadB64] = rest.split(".");
+    if (!payloadB64) return null;
+    const data = JSON.parse(Buffer.from(payloadB64, "base64url").toString());
+    const userId = String(data.u || "");
+    const returnOrigin = String(data.o || "");
+    const email = String(data.em || "");
+    const expiry = Number(data.e);
+    if (!userId || !returnOrigin || !email || !expiry || Date.now() > expiry) return null;
+    return { userId, returnOrigin, email, expiry };
+  } catch {
+    return null;
+  }
+}
+
 // Short-lived single-use handoff token consumed by /api/auth/ms365-complete on
 // the originating server. Carries a random jti so it can be invalidated after
 // first use (replay guard).
@@ -2213,6 +2231,29 @@ function signMs365LoginToken(userId: string, returnOrigin: string): string | nul
 type HandoffRedemption = { userId: string; returnOrigin: string; exp: number; firstAt: number };
 const consumedHandoffTokens = new Map<string, HandoffRedemption>();
 const HANDOFF_IDEMPOTENCY_WINDOW_MS = 10 * 1000;
+
+type RemoteHandoffCode = {
+  userId: string;
+  returnOrigin: string;
+  exp: number;
+  redeemedAt: number | null;
+};
+const remoteHandoffCodes = new Map<string, RemoteHandoffCode>();
+
+function issueRemoteHandoffCode(userId: string, returnOrigin: string): string {
+  const now = Date.now();
+  remoteHandoffCodes.forEach((record, code) => {
+    if (record.exp < now) remoteHandoffCodes.delete(code);
+  });
+  const code = crypto.randomBytes(32).toString("base64url");
+  remoteHandoffCodes.set(code, {
+    userId,
+    returnOrigin,
+    exp: now + 2 * 60 * 1000,
+    redeemedAt: null,
+  });
+  return code;
+}
 
 type HandoffVerifyResult =
   | { ok: true; userId: string; returnOrigin: string; duplicate: boolean }
@@ -3119,24 +3160,77 @@ export async function registerRoutes(
   // NOTE: MS365 callback is handled by a unified handler later in this file
   // This ensures both login (state=login) and connection flows (PKCE state) work correctly
 
-  // MS365 cross-origin login completion — receives the signed handoff token from
-  // the production callback and establishes a session on THIS server.
+  // Confirms a login state to the production callback using THIS origin's own
+  // secret. Azure app credentials can differ between environments, so production
+  // must not assume it can validate another server's HMAC locally.
+  app.post("/api/auth/ms365-state-verify", (req, res) => {
+    const state = String(req.body?.state || "");
+    const verified = verifyMs365LoginState(state);
+    const thisOrigin = `https://${req.get("host")}`;
+    if (!verified || verified.returnOrigin !== thisOrigin) {
+      return res.status(400).json({ ok: false });
+    }
+    return res.json({ ok: true });
+  });
+
+  // One-time server-to-server redemption of a production-issued handoff code.
+  app.post("/api/auth/ms365-handoff/redeem", (req, res) => {
+    const code = String(req.body?.code || "");
+    const returnOrigin = String(req.body?.returnOrigin || "");
+    const record = remoteHandoffCodes.get(code);
+    const now = Date.now();
+    if (!record || record.exp < now || record.returnOrigin !== returnOrigin) {
+      return res.status(400).json({ error: "invalid_handoff" });
+    }
+    if (record.redeemedAt && now - record.redeemedAt > HANDOFF_IDEMPOTENCY_WINDOW_MS) {
+      return res.status(409).json({ error: "handoff_replayed" });
+    }
+    if (!record.redeemedAt) record.redeemedAt = now;
+    return res.json({ userId: record.userId });
+  });
+
+  // MS365 cross-origin login completion — redeems a one-time production code
+  // (or a legacy signed token) and establishes a session on THIS server.
   app.get("/api/auth/ms365-complete", async (req, res) => {
     try {
-      const token = String(req.query.token || "");
-      const verified = verifyMs365LoginToken(token);
-      if (!verified.ok) {
-        console.error(`[MS365 Complete] handoff token rejected: reason=${verified.reason} tokenLen=${token.length}`);
-        return res.redirect(`/login?error=invalid_token&reason=${verified.reason}`);
-      }
-      const { userId, returnOrigin: tokenOrigin, duplicate } = verified;
-
-      // Origin binding: the token may ONLY be redeemed at the exact origin it was
-      // issued for. This neutralizes exfiltration to any other allowed origin.
       const thisOrigin = `https://${req.get("host")}`;
-      if (tokenOrigin && tokenOrigin !== thisOrigin) {
-        console.error(`[MS365 Complete] Token origin mismatch: token=${tokenOrigin} this=${thisOrigin}`);
-        return res.redirect("/login?error=invalid_token");
+      const code = String(req.query.code || "");
+      let userId = "";
+      let duplicate = false;
+
+      if (code) {
+        const configuredIssuer = (process.env.APP_BASE_URL || "https://indexus.cordbloodcenter.com").replace(/\/$/, "");
+        const issuer = String(req.query.issuer || "").replace(/\/$/, "");
+        if (issuer !== configuredIssuer) {
+          console.error(`[MS365 Complete] Rejected handoff issuer: ${issuer}`);
+          return res.redirect("/login?error=invalid_token");
+        }
+        const redeemResponse = await fetch(`${issuer}/api/auth/ms365-handoff/redeem`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code, returnOrigin: thisOrigin }),
+          signal: AbortSignal.timeout(10_000),
+        });
+        if (!redeemResponse.ok) {
+          console.error(`[MS365 Complete] Handoff code rejected: status=${redeemResponse.status}`);
+          return res.redirect("/login?error=invalid_token");
+        }
+        const redemption = await redeemResponse.json() as { userId?: string };
+        userId = String(redemption.userId || "");
+        if (!userId) return res.redirect("/login?error=invalid_token");
+      } else {
+        const token = String(req.query.token || "");
+        const verified = verifyMs365LoginToken(token);
+        if (!verified.ok) {
+          console.error(`[MS365 Complete] handoff token rejected: reason=${verified.reason} tokenLen=${token.length}`);
+          return res.redirect(`/login?error=invalid_token&reason=${verified.reason}`);
+        }
+        userId = verified.userId;
+        duplicate = verified.duplicate;
+        if (verified.returnOrigin && verified.returnOrigin !== thisOrigin) {
+          console.error(`[MS365 Complete] Token origin mismatch: token=${verified.returnOrigin} this=${thisOrigin}`);
+          return res.redirect("/login?error=invalid_token");
+        }
       }
 
       // Benign duplicate redemption (browser prefetch / proxy retry / refresh of
@@ -4628,7 +4722,32 @@ export async function registerRoutes(
         let returnOrigin = "";
         let stateEmail = "";
         if (stateStr.startsWith("login:v2:")) {
-          const verified = verifyMs365LoginState(stateStr);
+          let verified = verifyMs365LoginState(stateStr);
+          if (!verified) {
+            const decoded = decodeMs365LoginStatePayload(stateStr);
+            if (decoded && isAllowedLoginReturnOrigin(decoded.returnOrigin)) {
+              try {
+                const verificationResponse = await fetch(`${decoded.returnOrigin}/api/auth/ms365-state-verify`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ state: stateStr }),
+                  signal: AbortSignal.timeout(10_000),
+                });
+                if (verificationResponse.ok) {
+                  const result = await verificationResponse.json() as { ok?: boolean };
+                  if (result.ok) {
+                    verified = {
+                      userId: decoded.userId,
+                      returnOrigin: decoded.returnOrigin,
+                      email: decoded.email,
+                    };
+                  }
+                }
+              } catch (error) {
+                console.error("[MS365 Callback] Origin state verification failed:", error);
+              }
+            }
+          }
           if (!verified) {
             console.log("[MS365 Callback] ERROR: invalid/expired signed state");
             return res.redirect("/?error=invalid_state");
@@ -4712,13 +4831,9 @@ export async function registerRoutes(
             console.error(`[MS365 Callback] Email mismatch (handoff): MS365=${msEmail}, expected=${expectedEmail}`);
             return res.redirect("/?error=email_mismatch");
           }
-          const handoffToken = signMs365LoginToken(pendingUserId, returnOrigin);
-          if (!handoffToken) {
-            console.error("[MS365 Callback] Cannot sign handoff token (missing secret)");
-            return res.redirect("/?error=server_misconfig");
-          }
+          const handoffCode = issueRemoteHandoffCode(pendingUserId, returnOrigin);
           console.log("[MS365 Callback] Handing login back to origin:", returnOrigin);
-          return res.redirect(`${returnOrigin}/api/auth/ms365-complete?token=${encodeURIComponent(handoffToken)}`);
+          return res.redirect(`${returnOrigin}/api/auth/ms365-complete?code=${encodeURIComponent(handoffCode)}&issuer=${encodeURIComponent(thisOrigin)}`);
         }
         
         // SAME-ORIGIN (production) login: resolve the user in THIS database and
