@@ -525,3 +525,17 @@ mtime_ms = 1789884516051
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/ece6415a-cf40-4b4e-98df-20e91c7fbf32/adeeab8b-3e90-4119-8462-1937990faaad"
 storage_version_token = "1789884527429778"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "ZZIGAqXuD6QSy8wvQfkAM"
+uri = "file://screenshots/queue-current-original-redesign-final.jpg"
+type = "image"
+title = "Queue — redizajn aktuálne používaného pôvodného okna"
+description = "Pôvodné Mission contacts so zachovaným vyhľadávaním, Field a sort ovládaním, šiestimi filtrami, Referral skupinou, callback dátumami, pokusmi a call akciou."
+logical_id = "ea8d2474-bd9e-40d5-b963-e68aca340e7f"
+content_hash = "sha256:aa324ad841c67de258922eb09dce0e587d0c67c72fbdd79a794b7aa36adeb3f2"
+size = 55527
+mtime_ms = 1789884624427
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/ea8d2474-bd9e-40d5-b963-e68aca340e7f/41fb3241-871b-4efe-b2ff-1b3d967e3478"
+storage_version_token = "1789884636560529"
+content_type = "image/jpeg"
