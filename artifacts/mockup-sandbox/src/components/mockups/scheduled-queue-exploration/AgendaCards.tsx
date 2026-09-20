@@ -75,6 +75,8 @@ const CSS = `
 
 const BLUE_OVERRIDES = `
   :root{color-scheme:light}
+  .micro-label{font-size:0}
+  .micro-label::after{content:"STEP / STATUS";font-size:8px}
   body{background:#102b43;color:#1d3d5a}
   .agenda-shell{background:#f3f8fc;grid-template-rows:64px 58px 1fr 32px}
   .agenda-header,.control-strip,footer{background:#fbfdff;border-color:#dce8f1}
