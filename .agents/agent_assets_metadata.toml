@@ -637,3 +637,17 @@ mtime_ms = 1789887229254
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/b64205f5-6af4-4897-a4a0-4292d2caafc3/24c42b74-694d-4d86-8f95-e71cc0044b85"
 storage_version_token = "1789887252476756"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "0dztz-ibeVNNyQdSmkZqu"
+uri = "file://screenshots/scheduled-queue-readonly-note.jpg"
+type = "image"
+title = "Scheduled queue — read-only poznámka"
+description = "Existujúca poznámka preplánovaného hovoru je viditeľná v Scheduled stĺpci aj v Reschedule paneli, ale nedá sa pridať ani upraviť."
+logical_id = "b4217985-3e7f-4ce9-b575-6a675fe2c49d"
+content_hash = "sha256:847d6490897dbccfecbf06d9d72e2a61abe6b90a14037372ae86ac42083c4bab"
+size = 50608
+mtime_ms = 1789887433770
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/b4217985-3e7f-4ce9-b575-6a675fe2c49d/c9d3866f-dced-4d44-b5e6-4e065fa41e79"
+storage_version_token = "1789887448261471"
+content_type = "image/jpeg"

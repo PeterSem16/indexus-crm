@@ -14,7 +14,7 @@ type QueueContact = {
 };
 
 const seed: QueueContact[] = [
-  { id: 1, name: "Zoltán Pataky", organization: "MED-EZOP s.r.o.", city: "Kráľovský Chlmec, SK", phone: "+421 940 100 604", email: "zoltan.pataky@med-ezop.sk", scheduled: "24.9.2026", date: "2026-09-24", time: "10:25", step: "Offered — offer accepted", channel: "Calls", campaign: "Medical Partner Cooperation", assigned: true },
+  { id: 1, name: "Zoltán Pataky", organization: "MED-EZOP s.r.o.", city: "Kráľovský Chlmec, SK", phone: "+421 940 100 604", email: "zoltan.pataky@med-ezop.sk", scheduled: "24.9.2026", date: "2026-09-24", time: "10:25", step: "Offered — offer accepted", note: "Klient požiadal o presun po kontrole ponuky.", rescheduled: true, channel: "Calls", campaign: "Medical Partner Cooperation", assigned: true },
   { id: 2, name: "Melinda Baloghová", organization: "GYN-BMEL s.r.o.", city: "Kráľovský Chlmec, SK", phone: "+421 905 871 477", email: "melinda.baloghova@gmail.com", scheduled: "25.9.2026", date: "2026-09-25", time: "10:40", step: "Not offered yet", channel: "Calls", campaign: "Medical Partner Cooperation", assigned: true },
 ];
 
@@ -50,7 +50,6 @@ export function PulseMaximumDensity() {
   const [rescheduleId, setRescheduleId] = useState<number | null>(null);
   const [draftDate, setDraftDate] = useState("");
   const [draftTime, setDraftTime] = useState("");
-  const [draftNote, setDraftNote] = useState("");
   const popoverRef = useRef<HTMLDivElement>(null);
 
   const today = new Date().toISOString().slice(0, 10);
@@ -62,14 +61,12 @@ export function PulseMaximumDensity() {
     setRescheduleId(contact.id);
     setDraftDate(contact.date >= today ? contact.date : today);
     setDraftTime(contact.time);
-    setDraftNote(contact.note || "");
     setNotice(`Reschedule opened: ${contact.name}`);
   };
   const closeReschedule = () => {
     setRescheduleId(null);
     setDraftDate("");
     setDraftTime("");
-    setDraftNote("");
   };
   const confirmReschedule = (contact: QueueContact) => {
     if (!draftDate || !draftTime) return;
@@ -79,8 +76,6 @@ export function PulseMaximumDensity() {
           date: draftDate,
           time: draftTime,
           scheduled: formatScheduledDate(draftDate),
-          note: draftNote.trim() || "Follow up at the newly scheduled time.",
-          rescheduled: true,
         }
       : item));
     setNotice(`Rescheduled: ${contact.name}`);
@@ -177,7 +172,7 @@ export function PulseMaximumDensity() {
                       <label style={{ display: "grid", gap: 4, color: colors.muted, fontSize: 8, fontWeight: 700 }}>DATE<input className="pulse-focus" aria-label="Reschedule date" type="date" min={today} value={draftDate} onChange={(event) => setDraftDate(event.target.value)} style={{ width: "100%", height: 29, padding: "0 6px", border: `1px solid ${colors.line}`, borderRadius: 5, color: colors.ink, background: colors.pale, fontSize: 10, outlineColor: colors.teal }} /></label>
                       <label style={{ display: "grid", gap: 4, color: colors.muted, fontSize: 8, fontWeight: 700 }}>TIME<input className="pulse-focus" aria-label="Reschedule time" type="time" value={draftTime} onChange={(event) => setDraftTime(event.target.value)} style={{ width: "100%", height: 29, padding: "0 5px", border: `1px solid ${colors.line}`, borderRadius: 5, color: colors.ink, background: colors.pale, fontSize: 10, outlineColor: colors.teal }} /></label>
                     </div>
-                     <label style={{ display: "grid", gap: 4, marginTop: 9, color: colors.muted, fontSize: 8, fontWeight: 700 }}>NOTE <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>Optional handoff context</span><input className="pulse-focus" aria-label="Reschedule note" value={draftNote} onChange={(event) => setDraftNote(event.target.value)} placeholder="Why is this being moved?" maxLength={90} style={{ width: "100%", height: 29, padding: "0 7px", border: `1px solid ${colors.line}`, borderRadius: 5, color: colors.ink, background: colors.pale, fontSize: 10, outlineColor: colors.teal }} /></label>
+                     {contact.rescheduled && contact.note && <div style={{ display: "flex", gap: 6, alignItems: "flex-start", marginTop: 9, padding: "7px 8px", border: `1px solid #f0c8bc`, borderRadius: 5, background: colors.coralSoft, color: colors.coral, fontSize: 9, lineHeight: 1.3 }}><span style={{ flex: "0 0 auto", fontSize: 8, fontWeight: 800, letterSpacing: ".08em" }}>NOTE</span><span style={{ minWidth: 0 }}>{contact.note}</span></div>}
                     <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginTop: 11, paddingTop: 9, borderTop: `1px solid ${colors.line}` }}>
                       <button className="pulse-focus" type="button" onClick={closeReschedule} style={{ height: 27, padding: "0 9px", border: 0, borderRadius: 5, background: "transparent", color: colors.muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>Cancel</button>
                       <button className="pulse-focus" type="button" onClick={() => confirmReschedule(contact)} disabled={!draftDate || !draftTime} style={{ height: 27, padding: "0 11px", border: 0, borderRadius: 5, background: colors.teal, color: "#fff", fontSize: 10, fontWeight: 800, cursor: "pointer", opacity: !draftDate || !draftTime ? .5 : 1 }}>OK</button>
