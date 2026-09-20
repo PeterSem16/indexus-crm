@@ -176,6 +176,7 @@ import {
   resolveScheduledQueueContact,
   resolveScheduledQueueWorkflow,
 } from "./lib/scheduled-queue-metadata";
+import { activityBelongsToMission } from "./lib/my-shift-mission-scope";
 import {
   addCampaignCallsToOperatorStats,
   callHandledContactIncrement,
@@ -26648,6 +26649,26 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   app.get("/api/agent/today-activity", requireAuth, async (req, res) => {
     try {
       const user = req.session.user!;
+      const campaignId = typeof req.query.campaignId === "string" ? req.query.campaignId.trim() : "";
+      if (!campaignId) return res.status(400).json({ error: "Mission is required" });
+      const [activityCampaign] = await db.select({
+        id: campaigns.id,
+        countryCodes: campaigns.countryCodes,
+      }).from(campaigns).where(eq(campaigns.id, campaignId)).limit(1);
+      if (!activityCampaign) return res.status(404).json({ error: "Mission not found" });
+      const workspaceAccess = await storage.getAgentWorkspaceAccess(user.id);
+      if (!canAgentReadCampaignByWorkspaceCountry({
+        role: user.role,
+        workspaceCountryCodes: workspaceAccess.map(access => access.countryCode),
+        campaignCountryCodes: activityCampaign.countryCodes,
+      })) return res.status(403).json({ error: "Mission is not readable" });
+      if (user.role !== "admin" && user.role !== "manager") {
+        const [assignment] = await db.select({ id: campaignAgents.id }).from(campaignAgents).where(and(
+          eq(campaignAgents.campaignId, campaignId),
+          eq(campaignAgents.userId, user.id),
+        )).limit(1);
+        if (!assignment) return res.status(403).json({ error: "Mission is not assigned" });
+      }
       const todayStart = startOfDay(new Date());
       const todayEnd = endOfDay(new Date());
 
@@ -26668,7 +26689,12 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           inboundQueueName: callLogs.inboundQueueName,
         })
         .from(callLogs)
-        .where(and(eq(callLogs.userId, user.id), gte(callLogs.startedAt, todayStart), lte(callLogs.startedAt, todayEnd)))
+        .where(and(
+          eq(callLogs.userId, user.id),
+          eq(callLogs.campaignId, campaignId),
+          gte(callLogs.startedAt, todayStart),
+          lte(callLogs.startedAt, todayEnd),
+        ))
         .orderBy(desc(callLogs.startedAt))
         .limit(200);
 
@@ -27010,7 +27036,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         .orderBy(desc(activityLogsTable.createdAt))
         .limit(200);
 
-      const commItems = activities.map(a => {
+      const commItems = activities.filter(a => activityBelongsToMission(a.details, campaignId)).map(a => {
         let parsedDetails: any = null;
         try { parsedDetails = a.details ? JSON.parse(a.details) : null; } catch {}
         return {

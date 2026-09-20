@@ -16902,6 +16902,7 @@ function AgentWorkspacePageContent() {
       <MyActivityPanel
         open={myActivityOpen}
         onOpenChange={setMyActivityOpen}
+        selectedCampaignId={selectedCampaignId}
         stats={stats}
         abandonedCalls={abandonedCalls}
         onOpenMissed={() => {

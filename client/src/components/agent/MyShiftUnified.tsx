@@ -19,6 +19,7 @@ type SortKey = "newest" | "oldest" | "name" | "missed";
 export interface MyActivityPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  selectedCampaignId: string | null;
   stats: { calls: number; emails: number; sms: number };
   abandonedCalls?: any[];
   onMakeCall?: (phone: string) => void;
@@ -54,7 +55,7 @@ function ActivityIcon({ type, direction, size = 17 }: { type: string; direction?
 
 /** Production graduation of the approved, untouched MyShiftUnified mockup. */
 export function MyActivityPanel({
-  open, onOpenChange, abandonedCalls, onMakeCall, onCallFromShift, onOpenEntity, onOpenMissed,
+  open, onOpenChange, selectedCampaignId, abandonedCalls, onMakeCall, onCallFromShift, onOpenEntity, onOpenMissed,
 }: MyActivityPanelProps) {
   const { t, locale } = useI18n();
   const aw = t.agentWorkspace;
@@ -66,15 +67,16 @@ export function MyActivityPanel({
   const [activitySort, setActivitySort] = useState<SortKey>("newest");
   const [searchFocused, setSearchFocused] = useState(false);
   const { data: items = [], isLoading, isFetching, isError, error, refetch } = useQuery<any[]>({
-    queryKey: ["/api/agent/today-activity"],
+    queryKey: ["/api/agent/today-activity", selectedCampaignId],
     queryFn: async () => {
-      const response = await fetch("/api/agent/today-activity", { credentials: "include" });
+      if (!selectedCampaignId) return [];
+      const response = await fetch(`/api/agent/today-activity?campaignId=${encodeURIComponent(selectedCampaignId)}`, { credentials: "include" });
       if (!response.ok) throw new Error(`${t.common.error} (${response.status})`);
       const data = await response.json();
       if (!Array.isArray(data)) throw new Error(t.common.error);
       return data;
     },
-    enabled: open,
+    enabled: open && !!selectedCampaignId,
     refetchInterval: open ? 30000 : false,
   });
 
