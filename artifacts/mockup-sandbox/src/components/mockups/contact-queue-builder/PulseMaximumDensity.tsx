@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDown, ArrowUp, ArrowUpDown, CalendarDays, CalendarClock, ChevronDown,
   ChevronLeft, ChevronRight, Clock3, Mail, MessageSquare, Phone, PhoneCall,
@@ -46,6 +46,51 @@ export function PulseMaximumDensity() {
   const [sort, setSort] = useState<"Date" | "Name" | "Campaign">("Date");
   const [direction, setDirection] = useState<"up" | "down">("up");
   const [notice, setNotice] = useState("Queue synced just now");
+  const [rescheduleId, setRescheduleId] = useState<number | null>(null);
+  const [draftDate, setDraftDate] = useState("");
+  const [draftTime, setDraftTime] = useState("");
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const formatScheduledDate = (date: string) => {
+    const [year, month, day] = date.split("-");
+    return `${Number(day)}.${Number(month)}.${year}`;
+  };
+  const openReschedule = (contact: QueueContact) => {
+    setRescheduleId(contact.id);
+    setDraftDate(contact.date >= today ? contact.date : today);
+    setDraftTime(contact.time);
+    setNotice(`Reschedule opened: ${contact.name}`);
+  };
+  const closeReschedule = () => {
+    setRescheduleId(null);
+    setDraftDate("");
+    setDraftTime("");
+  };
+  const confirmReschedule = (contact: QueueContact) => {
+    if (!draftDate || !draftTime) return;
+    setContacts((items) => items.map((item) => item.id === contact.id
+      ? { ...item, date: draftDate, time: draftTime, scheduled: formatScheduledDate(draftDate) }
+      : item));
+    setNotice(`Rescheduled: ${contact.name}`);
+    closeReschedule();
+  };
+
+  useEffect(() => {
+    if (rescheduleId === null) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) closeReschedule();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeReschedule();
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [rescheduleId]);
 
   const counts = useMemo(() => ({
     overdue: 0, today: 0, week: 2, next: 0, later: 0,
@@ -76,6 +121,7 @@ export function PulseMaximumDensity() {
 
   return (
     <main style={{ minHeight: "100vh", background: "#eaf2f8", color: colors.ink, fontFamily: "Plus Jakarta Sans, Avenir Next, ui-sans-serif, system-ui, sans-serif", padding: 18 }}>
+      <style>{`.pulse-focus:focus-visible{outline:2px solid ${colors.teal};outline-offset:2px;}`}</style>
       <section style={{ maxWidth: 1440, margin: "0 auto", background: "#fbfdff", border: `1px solid #caddeb`, borderRadius: 14, boxShadow: "0 20px 52px rgba(28,67,103,.14)", overflow: "hidden" }}>
         <header style={{ minHeight: 58, display: "flex", alignItems: "center", gap: 12, padding: "0 18px", borderBottom: `1px solid ${colors.line}`, background: "#f8fbfe" }}>
           <div style={{ width: 28, height: 28, borderRadius: 8, display: "grid", placeItems: "center", color: colors.teal, background: colors.mint }}><CalendarClock size={16} /></div>
@@ -103,7 +149,25 @@ export function PulseMaximumDensity() {
               <div><strong style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11 }}><CalendarDays size={12} color={colors.teal} />{contact.scheduled}</strong><span style={{ display: "flex", alignItems: "center", gap: 5, color: colors.muted, marginTop: 5, fontSize: 10 }}><Clock3 size={11} />{contact.time}</span></div>
                 <div><span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 7px", borderRadius: 4, background: contact.step.startsWith("Not") ? "#eef4f8" : colors.greenSoft, color: contact.step.startsWith("Not") ? "#567188" : colors.green, fontSize: 9, fontWeight: 650 }}>{contact.step}</span><small style={{ display: "grid", placeItems: "center", width: 15, height: 13, marginTop: 6, border: "1px solid #cbdcf2", borderRadius: 3, color: "#6a99d0", background: "#edf4ff" }}><Mail size={9} /></small></div>
               <div style={{ display: "flex", alignItems: "center", gap: 7, color: colors.ink, fontSize: 10 }}><Zap size={12} color={colors.orange} />{contact.campaign}<ChevronDown size={12} color={colors.muted} /></div>
-               <div style={{ display: "flex", gap: 5 }}><button type="button" title="Call" onClick={() => action("Calling", contact)} style={{ width: 28, height: 27, display: "grid", placeItems: "center", border: `1px solid #cddde9`, borderRadius: 6, background: "#fff", color: colors.teal, cursor: "pointer" }}><Phone size={13} /></button><button type="button" title="Reschedule" onClick={() => action("Reschedule opened", contact)} style={{ width: 28, height: 27, display: "grid", placeItems: "center", border: `1px solid #cddde9`, borderRadius: 6, background: "#fff", color: "#567188", cursor: "pointer" }}><CalendarClock size={13} /></button><button type="button" title="Delete" onClick={() => { setContacts((items) => items.filter((item) => item.id !== contact.id)); setNotice(`${contact.name} removed from queue`); }} style={{ width: 28, height: 27, display: "grid", placeItems: "center", border: `1px solid #f3d4ce`, borderRadius: 6, background: colors.coralSoft, color: colors.coral, cursor: "pointer" }}><Trash2 size={13} /></button></div>
+                <div style={{ position: "relative", display: "flex", gap: 5 }}>
+                  <button type="button" aria-label={`Call ${contact.name}`} title="Call" onClick={() => action("Calling", contact)} style={{ width: 28, height: 27, display: "grid", placeItems: "center", border: `1px solid #cddde9`, borderRadius: 6, background: "#fff", color: colors.teal, cursor: "pointer" }}><Phone size={13} /></button>
+                  <button className="pulse-focus" type="button" aria-label={`Reschedule ${contact.name}`} title="Reschedule" onClick={() => openReschedule(contact)} style={{ width: 28, height: 27, display: "grid", placeItems: "center", border: `1px solid ${rescheduleId === contact.id ? colors.teal : "#cddde9"}`, borderRadius: 6, background: rescheduleId === contact.id ? colors.mint : "#fff", color: "#567188", cursor: "pointer", outline: "none" }}><CalendarClock size={13} /></button>
+                  <button type="button" aria-label={`Delete ${contact.name}`} title="Delete" onClick={() => { setContacts((items) => items.filter((item) => item.id !== contact.id)); setNotice(`${contact.name} removed from queue`); }} style={{ width: 28, height: 27, display: "grid", placeItems: "center", border: `1px solid #f3d4ce`, borderRadius: 6, background: colors.coralSoft, color: colors.coral, cursor: "pointer" }}><Trash2 size={13} /></button>
+                  {rescheduleId === contact.id && <div ref={popoverRef} role="dialog" aria-label={`Reschedule ${contact.name}`} style={{ position: "absolute", zIndex: 10, right: 0, top: 35, width: 244, padding: 12, border: `1px solid #c9dce9`, borderRadius: 9, background: "#ffffff", boxShadow: "0 14px 28px rgba(28,67,103,.18)" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
+                      <div><strong style={{ display: "block", fontSize: 11, color: colors.ink }}>Reschedule call</strong><span style={{ display: "block", maxWidth: 190, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: colors.muted, fontSize: 9 }}>{contact.name}</span></div>
+                      <button className="pulse-focus" type="button" aria-label="Close reschedule" onClick={closeReschedule} style={{ display: "grid", placeItems: "center", width: 22, height: 22, margin: -3, border: 0, borderRadius: 5, background: "transparent", color: colors.muted, cursor: "pointer" }}><X size={13} /></button>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1.15fr .85fr", gap: 7 }}>
+                      <label style={{ display: "grid", gap: 4, color: colors.muted, fontSize: 8, fontWeight: 700 }}>DATE<input className="pulse-focus" aria-label="Reschedule date" type="date" min={today} value={draftDate} onChange={(event) => setDraftDate(event.target.value)} style={{ width: "100%", height: 29, padding: "0 6px", border: `1px solid ${colors.line}`, borderRadius: 5, color: colors.ink, background: colors.pale, fontSize: 10, outlineColor: colors.teal }} /></label>
+                      <label style={{ display: "grid", gap: 4, color: colors.muted, fontSize: 8, fontWeight: 700 }}>TIME<input className="pulse-focus" aria-label="Reschedule time" type="time" value={draftTime} onChange={(event) => setDraftTime(event.target.value)} style={{ width: "100%", height: 29, padding: "0 5px", border: `1px solid ${colors.line}`, borderRadius: 5, color: colors.ink, background: colors.pale, fontSize: 10, outlineColor: colors.teal }} /></label>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginTop: 11, paddingTop: 9, borderTop: `1px solid ${colors.line}` }}>
+                      <button className="pulse-focus" type="button" onClick={closeReschedule} style={{ height: 27, padding: "0 9px", border: 0, borderRadius: 5, background: "transparent", color: colors.muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>Cancel</button>
+                      <button className="pulse-focus" type="button" onClick={() => confirmReschedule(contact)} disabled={!draftDate || !draftTime} style={{ height: 27, padding: "0 11px", border: 0, borderRadius: 5, background: colors.teal, color: "#fff", fontSize: 10, fontWeight: 800, cursor: "pointer", opacity: !draftDate || !draftTime ? .5 : 1 }}>OK</button>
+                    </div>
+                  </div>}
+                </div>
             </article>)}</div> : <div style={{ display: "grid", placeItems: "center", minHeight: 190, color: colors.muted, gap: 6 }}><Search size={20} /><strong style={{ color: colors.ink, fontSize: 12 }}>{query || timeFilter !== "All" || typeFilter !== "All" ? "No scheduled contacts match" : "Your scheduled queue is empty"}</strong><span style={{ fontSize: 11 }}>Try changing the filters or search term.</span></div>}
           </div>
         </div>

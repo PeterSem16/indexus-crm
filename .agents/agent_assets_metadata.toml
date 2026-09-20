@@ -609,3 +609,17 @@ mtime_ms = 1789886436065
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/0d6943da-a8e8-4ef6-8a42-520aeb782e2e/1a212fcc-4a4e-47db-ac59-10f0eb662871"
 storage_version_token = "1789886448422230"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "FjD1z3lnGXoCc_9emAJAH"
+uri = "file://screenshots/scheduled-queue-compact-reschedule.jpg"
+type = "image"
+title = "Scheduled queue — kompaktný Reschedule"
+description = "Reschedule sa otvára z kalendárovej ikony priamo pri riadku ako malý ukotvený panel s dátumom, časom, Cancel a OK."
+logical_id = "a9507b9d-0d51-4912-ac2f-e099ca5814a0"
+content_hash = "sha256:2e6a6ae7684c2bc36402d1d8a8f496dcf965b6dbd9c5ebd886f1ee6d77bbf40b"
+size = 49748
+mtime_ms = 1789886930071
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/a9507b9d-0d51-4912-ac2f-e099ca5814a0/13d7b021-5ff2-42bc-8f72-e835125f90e7"
+storage_version_token = "1789886962288211"
+content_type = "image/jpeg"
