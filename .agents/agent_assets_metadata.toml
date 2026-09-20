@@ -567,3 +567,17 @@ mtime_ms = 1789885122772
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/6705dd18-e84f-43b8-80a8-49f448a3d839/7213fecc-1a04-440f-bcfa-da0bbbbeb262"
 storage_version_token = "1789885131281801"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "BgodPFUosCrXsnTdVhoV3"
+uri = "file://screenshots/scheduled-queue-focus-workspace.jpg"
+type = "image"
+title = "Scheduled queue — Focus workspace"
+description = "Alternatívny pracovný model: jeden kontakt naraz, zoradený Up next panel, kontext aktuálneho kontaktu a postup po dokončení úlohy."
+logical_id = "a3ee7c88-9237-4363-96a0-6df50483495d"
+content_hash = "sha256:26aeee6194e7de6cd6c33e0ba0f5409df068fa243f8037686b91a94f279e63b7"
+size = 44589
+mtime_ms = 1789886001899
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/a3ee7c88-9237-4363-96a0-6df50483495d/2be02648-0f98-41b1-b6c6-0a686c332a76"
+storage_version_token = "1789886026467534"
+content_type = "image/jpeg"
