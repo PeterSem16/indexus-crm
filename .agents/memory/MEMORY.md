@@ -102,3 +102,4 @@
 - [Forwarded call history](forwarded-call-canonical-history.md) — mobile forwarding needs server-owned canonical history; reports cannot depend on sessions or recording, and caller Up is not callee answer.
 - [Call player visibility](call-player-visibility.md) — never trade full player access for fixed pane height; verify complete bounds and transcript access on short desktop windows.
 - [Missed inbound call Mission scope](missed-call-mission-scope.md) — scope badge, modal, and handled mutation by per-call Mission; queue membership alone is never sufficient.
+- [Canvas redesign source fidelity](canvas-redesign-source-fidelity.md) — redesign existing CRM windows from production components or extracted Current copies, never from earlier proposal mockups.

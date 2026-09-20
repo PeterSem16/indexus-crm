@@ -469,3 +469,31 @@ mtime_ms = 1789883661158
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/33a1d99e-5c11-4af3-b5f9-6c7c2354385d/5e7de3ab-eb2e-49bf-a03e-4e75560186ea"
 storage_version_token = "1789883829794783"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "fFoPwXNbA-i-Xd9pXSVC0"
+uri = "file://screenshots/pulse-original-queue-redesign-final.jpg"
+type = "image"
+title = "Queue — redizajn skutočného pôvodného okna"
+description = "Redizajn pôvodnej Agent Workspace Queue so zachovanými poliami, radením, filtrami, skupinami a metadátami kontaktov."
+logical_id = "36ee0f03-04c5-4e7d-bb63-715356f2bb2e"
+content_hash = "sha256:d616bf000aeb8e321ae24c90ea0c4afb396a0b25185c81e2eb452d744dc56706"
+size = 64588
+mtime_ms = 1789884267839
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/36ee0f03-04c5-4e7d-bb63-715356f2bb2e/89fbf36e-cc17-4405-baca-8aff91c05830"
+storage_version_token = "1789884320037683"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "iad-HrwkX7lrjyfruK9Id"
+uri = "file://screenshots/pulse-original-ordering-redesign-final.jpg"
+type = "image"
+title = "Contact ordering — redizajn skutočného pôvodného okna"
+description = "Redizajn reálneho PriorityBuildera so sidebarom, Auto/Next, uloženými pohľadmi, mestami, segmentmi a živým výsledkom."
+logical_id = "a7e8b6c6-f947-4101-9677-b4417988aee1"
+content_hash = "sha256:e8d7447a9ff0a2c6b329135aaee8fd220239adb60287f5367034e68c67f149e7"
+size = 99208
+mtime_ms = 1789884240763
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/a7e8b6c6-f947-4101-9677-b4417988aee1/e70247c4-8170-484e-aedd-ed304ecf9d26"
+storage_version_token = "1789884320878191"
+content_type = "image/jpeg"
