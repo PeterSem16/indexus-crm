@@ -104,3 +104,4 @@
 - [Missed inbound call Mission scope](missed-call-mission-scope.md) — scope badge, modal, and handled mutation by per-call Mission; queue membership alone is never sufficient.
 - [Canvas redesign source fidelity](canvas-redesign-source-fidelity.md) — redesign existing CRM windows from production components or extracted Current copies, never from earlier proposal mockups.
 - [Scheduled queue visual direction](scheduled-queue-visual-direction.md) — use compact blue agenda cards; rescheduling must be clear, separate date/time, and default to weekdays only.
+- [Ubuntu static asset delivery](ubuntu-static-asset-delivery.md) — nginx does not compress upstream bundles; keep Node Brotli/gzip and immutable caching for hashed assets.

@@ -10005,7 +10005,7 @@ function ScheduledQueuePanel({
                                 onClick={() => {
                                   if (onOpenContact) {
                                     const channel = item.type === "callback" ? "phone" : item.type;
-                                    onOpenContact(item.contactId, item.campaignId, item.campaignContactId, channel as "phone" | "email" | "sms", item.contactType, item.isOutsideMission ? item.contactPhone : undefined);
+                                    onOpenContact(item.contactId, item.campaignId, item.campaignContactId, channel as "phone" | "email" | "sms", item.contactType, item.source === "inbound" ? item.contactPhone : undefined, { outsideMission: item.source === "inbound" });
                                     onOpenChange(false);
                                   }
                                 }}
@@ -10068,6 +10068,17 @@ function ScheduledQueuePanel({
 
                         <div className="flex min-w-0 items-center overflow-hidden">
                           <div className="flex min-w-0 flex-col items-start gap-1" data-testid={`text-scheduled-step-${item.id}`}>
+                            {item.workflowMode && (
+                              <span className={`inline-flex max-w-full items-center truncate rounded border px-1.5 py-0.5 text-[10px] font-semibold ${
+                                item.workflowMode === "status_list"
+                                  ? "border-blue-200 bg-blue-100 text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                                  : "border-purple-200 bg-purple-100 text-purple-800 dark:border-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
+                              }`}>
+                                {item.workflowMode === "status_list"
+                                  ? t.campaigns.detail.workflowModeStatusList
+                                  : t.campaigns.detail.workflowModeDisposition}
+                              </span>
+                            )}
                             {item.outcomeBadges?.length ? (
                               item.outcomeBadges.map((badge, index) => {
                                 const color = badge.color || (badge.kind === "callback" ? "#2563eb" : "#059669");
@@ -10145,7 +10156,7 @@ function ScheduledQueuePanel({
                               data-testid={`btn-scheduled-call-${item.id}`}
                               onClick={() => {
                                 if (onOpenContact) {
-                                  onOpenContact(item.contactId, item.campaignId, item.campaignContactId, "phone", item.contactType, item.isOutsideMission ? item.contactPhone : undefined, { outsideMission: item.isOutsideMission });
+                                  onOpenContact(item.contactId, item.campaignId, item.campaignContactId, "phone", item.contactType, item.source === "inbound" ? item.contactPhone : undefined, { outsideMission: item.source === "inbound" });
                                   onOpenChange(false);
                                 }
                               }}
@@ -10162,7 +10173,7 @@ function ScheduledQueuePanel({
                               data-testid={`btn-scheduled-send-${item.id}`}
                               onClick={() => {
                                 if (onOpenContact) {
-                                  onOpenContact(item.contactId, item.campaignId, item.campaignContactId, item.type as "email" | "sms", item.contactType, item.isOutsideMission ? item.contactPhone : undefined, { outsideMission: item.isOutsideMission });
+                                  onOpenContact(item.contactId, item.campaignId, item.campaignContactId, item.type as "email" | "sms", item.contactType, item.source === "inbound" ? item.contactPhone : undefined, { outsideMission: item.source === "inbound" });
                                   onOpenChange(false);
                                 }
                               }}
@@ -10177,7 +10188,7 @@ function ScheduledQueuePanel({
                             onInvalid={() => toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.rescheduleInvalidFutureWeekday, variant: "destructive" })}
                             onReschedule={async (contactId, campaignId, newDate) => {
                               try {
-                                if (item.isOutsideMission && item.inboundCallbackId) {
+                                if (item.source === "inbound" && item.inboundCallbackId) {
                                   await apiRequest("PATCH", `/api/agent/inbound-callbacks/${item.inboundCallbackId}`, { callbackDate: newDate });
                                   queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
                                   queryClient.invalidateQueries({ queryKey: ["/api/agent/inbound-callbacks"] });
@@ -10210,7 +10221,7 @@ function ScheduledQueuePanel({
                             data-testid={`btn-scheduled-cancel-${item.id}`}
                             onClick={async () => {
                               try {
-                                if (item.isOutsideMission && item.inboundCallbackId) {
+                                if (item.source === "inbound" && item.inboundCallbackId) {
                                   await apiRequest("DELETE", `/api/agent/inbound-callbacks/${item.inboundCallbackId}`, {});
                                   queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
                                   queryClient.invalidateQueries({ queryKey: ["/api/agent/inbound-callbacks"] });

@@ -171,7 +171,11 @@ import QRCode from "qrcode";
 import { PDFDocument as PDFLibDocument, rgb, degrees, StandardFonts } from "pdf-lib";
 import { notificationService } from "./lib/notification-service";
 import { normalizeCollaboratorPriorityCity } from "./lib/collaborator-priority-city";
-import { resolveScheduledQueueContact } from "./lib/scheduled-queue-metadata";
+import {
+  resolveInboundCallbackMission,
+  resolveScheduledQueueContact,
+  resolveScheduledQueueWorkflow,
+} from "./lib/scheduled-queue-metadata";
 import {
   addCampaignCallsToOperatorStats,
   callHandledContactIncrement,
@@ -25381,12 +25385,15 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       if (!requestedCampaignId) {
         return res.status(400).json({ error: "Mission is required" });
       }
+      let requestedCampaign: { id: string; name: string; settings: string | null; countryCodes: string[] | null } | undefined;
       // A selected Mission is an explicit scope, not merely a UI hint. Ordinary
       // agents may request it only when it is readable in their workspace and
       // they are assigned to it; managers/admins retain their existing access.
       if (requestedCampaignId) {
-        const [requestedCampaign] = await db.select({
+        [requestedCampaign] = await db.select({
           id: campaigns.id,
+          name: campaigns.name,
+          settings: campaigns.settings,
           countryCodes: campaigns.countryCodes,
         }).from(campaigns).where(eq(campaigns.id, requestedCampaignId)).limit(1);
         if (!requestedCampaign) return res.status(404).json({ error: "Mission not found" });
@@ -25724,8 +25731,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           dispositionChecklistCodes: (row.ccDispositionChecklistCodes as string[] | null) || [],
           callbackStatusListItemId: row.ccCallbackSlItemId || null,
           campaignQueueDisplayMode: (() => { try { return row.campaignSettings ? (JSON.parse(row.campaignSettings).queueDisplayMode || null) : null; } catch { return null; } })(),
-          workflowMode: (() => { try { return row.campaignSettings && JSON.parse(row.campaignSettings).workflowMode === "status_list" ? "status_list" : "disposition"; } catch { return "disposition"; } })(),
-          statusListMode: (() => { try { return row.campaignSettings && JSON.parse(row.campaignSettings).statusListMode === "batch" ? "batch" : "immediate"; } catch { return "immediate"; } })(),
+           ...resolveScheduledQueueWorkflow(row.campaignSettings),
         });
       }
 
@@ -25771,8 +25777,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           dispositionChecklistCodes: (row.ccDispositionChecklistCodes as string[] | null) || [],
           callbackStatusListItemId: row.ccCallbackSlItemId || null,
           campaignQueueDisplayMode: (() => { try { return row.campaignSettings ? (JSON.parse(row.campaignSettings).queueDisplayMode || null) : null; } catch { return null; } })(),
-          workflowMode: (() => { try { return row.campaignSettings && JSON.parse(row.campaignSettings).workflowMode === "status_list" ? "status_list" : "disposition"; } catch { return "disposition"; } })(),
-          statusListMode: (() => { try { return row.campaignSettings && JSON.parse(row.campaignSettings).statusListMode === "batch" ? "batch" : "immediate"; } catch { return "immediate"; } })(),
+           ...resolveScheduledQueueWorkflow(row.campaignSettings),
         });
       }
 
@@ -25920,6 +25925,10 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             )
           );
         for (const cb of inboundCbs) {
+          const mission = requestedCampaign
+            ? resolveInboundCallbackMission(cb.campaignId, requestedCampaign)
+            : null;
+          if (!mission) continue;
           items.push({
             id: `icb-${cb.id}`,
             source: "inbound",
@@ -25930,8 +25939,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             contactPhone: cb.phone,
             contactEmail: "",
             contactType: "customer",
-            campaignId: cb.campaignId || "",
-            campaignName: "Mimo misie",
+            campaignId: mission.campaignId,
+            campaignName: mission.campaignName,
             scheduledAt: cb.callbackDate,
             notes: cb.notes || "",
             status: "pending",
@@ -25939,7 +25948,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             stepIndex: null,
             dispositionCode: null,
             dispositionChecklistCodes: [],
-            isOutsideMission: true,
+            isOutsideMission: mission.isOutsideMission,
+            workflowMode: mission.workflowMode,
+            statusListMode: mission.statusListMode,
             inboundCallbackId: cb.id,
             calledBack: cb.calledBack,
           });

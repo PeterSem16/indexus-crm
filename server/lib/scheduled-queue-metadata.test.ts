@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  resolveInboundCallbackMission,
   resolveScheduledQueueContact,
+  resolveScheduledQueueWorkflow,
   type ScheduledQueueContactRow,
 } from "./scheduled-queue-metadata";
 
@@ -109,4 +111,40 @@ test("does not invent name or city when the declared entity is missing", () => {
     assert.equal(result.priorityCountryCode, null);
     assert.equal(result.hasReferral, false);
   }
+});
+
+test("derives the scheduled-card workflow badge from Mission settings", () => {
+  assert.deepEqual(resolveScheduledQueueWorkflow(JSON.stringify({
+    workflowMode: "status_list",
+    statusListMode: "batch",
+  })), {
+    workflowMode: "status_list",
+    statusListMode: "batch",
+  });
+  assert.deepEqual(resolveScheduledQueueWorkflow(JSON.stringify({
+    workflowMode: "disposition",
+  })), {
+    workflowMode: "disposition",
+    statusListMode: "immediate",
+  });
+});
+
+test("keeps Mission-attributed inbound callbacks inside their original Mission", () => {
+  const fmo = { id: "fmo", name: "FMO", settings: JSON.stringify({ workflowMode: "disposition" }) };
+  assert.deepEqual(resolveInboundCallbackMission("fmo", fmo), {
+    campaignId: "fmo",
+    campaignName: "FMO",
+    isOutsideMission: false,
+    workflowMode: "disposition",
+    statusListMode: "immediate",
+  });
+  assert.equal(resolveInboundCallbackMission("fmo", { id: "medical", name: "Medical" }), null);
+});
+
+test("keeps truly unattributed inbound callbacks outside every Mission", () => {
+  assert.deepEqual(resolveInboundCallbackMission(null, { id: "medical", name: "Medical" }), {
+    campaignId: "",
+    campaignName: "Mimo misie",
+    isOutsideMission: true,
+  });
 });

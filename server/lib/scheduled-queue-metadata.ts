@@ -52,6 +52,61 @@ export interface ScheduledQueueContactDetails {
   priorityCountryCode: string | null;
 }
 
+export type ScheduledQueueWorkflowMode = "status_list" | "disposition";
+
+export interface ScheduledQueueMissionDetails {
+  campaignId: string;
+  campaignName: string;
+  isOutsideMission: boolean;
+  workflowMode?: ScheduledQueueWorkflowMode;
+  statusListMode?: "batch" | "immediate";
+}
+
+function parseCampaignSettings(settings: string | null | undefined): Record<string, unknown> {
+  if (!settings) return {};
+  try {
+    const parsed = JSON.parse(settings);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+export function resolveScheduledQueueWorkflow(
+  settings: string | null | undefined,
+): { workflowMode: ScheduledQueueWorkflowMode; statusListMode: "batch" | "immediate" } {
+  const parsed = parseCampaignSettings(settings);
+  return {
+    workflowMode: parsed.workflowMode === "status_list" ? "status_list" : "disposition",
+    statusListMode: parsed.statusListMode === "batch" ? "batch" : "immediate",
+  };
+}
+
+/**
+ * An inbound callback without a Mission remains globally visible as
+ * out-of-Mission work. Once it carries a campaignId, it belongs exclusively
+ * to that Mission and inherits that Mission's workflow settings.
+ */
+export function resolveInboundCallbackMission(
+  callbackCampaignId: string | null | undefined,
+  requestedCampaign: { id: string; name: string; settings?: string | null },
+): ScheduledQueueMissionDetails | null {
+  if (!callbackCampaignId) {
+    return {
+      campaignId: "",
+      campaignName: "Mimo misie",
+      isOutsideMission: true,
+    };
+  }
+  if (callbackCampaignId !== requestedCampaign.id) return null;
+  return {
+    campaignId: requestedCampaign.id,
+    campaignName: requestedCampaign.name,
+    isOutsideMission: false,
+    ...resolveScheduledQueueWorkflow(requestedCampaign.settings),
+  };
+}
+
 /**
  * Resolve the polymorphic entity explicitly named by a campaign contact.
  *
