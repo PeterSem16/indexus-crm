@@ -647,13 +647,14 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
 }
 
 /* ── ContactRow ─────────────────────────────────────────────────────── */
-function ContactRow({ cc, onSelect, isOverdue, isUpcoming, callbackDate, np, currentUserId, referralBadge, cityCountrySeparator }: {
+function ContactRow({ cc, onSelect, isOverdue, isUpcoming, callbackDate, np, currentUserId, referralBadge, cityCountrySeparator, unpaidRewardBadge }: {
   cc: any; onSelect: (cc: any) => void;
   isOverdue?: boolean; isUpcoming?: boolean;
   callbackDate?: string; np: any;
   currentUserId?: string;
   referralBadge?: string;
   cityCountrySeparator?: string;
+  unpaidRewardBadge?: string;
 }) {
   const name = ccName(cc);
   const phone = ccPhone(cc);
@@ -683,7 +684,7 @@ function ContactRow({ cc, onSelect, isOverdue, isUpcoming, callbackDate, np, cur
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold truncate">{name}</p>
         {phone && <p className="text-xs text-muted-foreground truncate">{phone}</p>}
-         <QueueMetadataBadges contact={cc} copy={{ referralBadge: referralBadge || "Referral", cityCountrySeparator: cityCountrySeparator || ", " }} />
+         <QueueMetadataBadges contact={cc} copy={{ referralBadge: referralBadge || "Referral", cityCountrySeparator: cityCountrySeparator || ", ", unpaidRewardBadge }} />
         {callbackDate && (
           <div className="flex items-center gap-1 mt-0.5">
             <Calendar className={`h-3 w-3 ${isOtherAgent ? "text-amber-500" : isOverdue ? "text-red-500" : "text-blue-500"}`} />
@@ -910,6 +911,9 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
 
   const np = t?.nexusPulse || {};
   const cityCopy = priorityBuilderCopy[(props.locale || "en") as keyof typeof priorityBuilderCopy] || priorityBuilderCopy.en;
+  const activeCampaignContact = [...(allCampaignContacts || []), ...campaignContacts]
+    .find((item: any) => item.id === currentCampaignContactId);
+  const activeUnpaidRewardCount = activeCampaignContact?.unpaidRewardPersonCount || 0;
 
   const [dtmfOpen, setDtmfOpen] = useState(false);
   const [breakMenuOpen, setBreakMenuOpen] = useState(false);
@@ -1365,11 +1369,23 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                   {contact.city}{contact.country ? `, ${contact.country}` : ""}
                 </p>
               )}
-              {contactType !== "customer" && (
-                <span className="inline-flex items-center gap-1 mt-1 text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium capitalize">
-                  <Building2 className="h-3 w-3" />{contactType}
-                </span>
-              )}
+              <div className="mt-1 flex flex-wrap items-center gap-1">
+                {activeCampaignContact?.status && (
+                  <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                    {activeCampaignContact.status}
+                  </span>
+                )}
+                {contactType !== "customer" && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium capitalize text-muted-foreground">
+                    <Building2 className="h-3 w-3" />{contactType}
+                  </span>
+                )}
+                {activeUnpaidRewardCount > 0 && (
+                  <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                    {cityCopy.unpaidRewardBadge}: {activeUnpaidRewardCount}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -1730,6 +1746,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                                currentUserId={currentUserId}
                                 referralBadge={cityCopy.referralBadge}
                                 cityCountrySeparator={cityCopy.cityCountrySeparator}
+                                unpaidRewardBadge={cityCopy.unpaidRewardBadge}
                              />
                            ))}
                          </div>
@@ -1750,7 +1767,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                   <div className="h-px flex-1 rounded" style={{ background: `${ST.terra}40` }} />
                 </div>
                 {filteredOverdue.map(cc => (
-                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} isOverdue callbackDate={cc.callbackDate} np={np} currentUserId={currentUserId} referralBadge={cityCopy.referralBadge} cityCountrySeparator={cityCopy.cityCountrySeparator} />
+                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} isOverdue callbackDate={cc.callbackDate} np={np} currentUserId={currentUserId} referralBadge={cityCopy.referralBadge} cityCountrySeparator={cityCopy.cityCountrySeparator} unpaidRewardBadge={cityCopy.unpaidRewardBadge} />
                 ))}
               </>
             )}
@@ -1764,7 +1781,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                   <div className="h-px flex-1 rounded" style={{ background: `${ST.sage}40` }} />
                 </div>
                 {filteredUpcoming.map(cc => (
-                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} isUpcoming callbackDate={cc.callbackDate} np={np} currentUserId={currentUserId} referralBadge={cityCopy.referralBadge} cityCountrySeparator={cityCopy.cityCountrySeparator} />
+                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} isUpcoming callbackDate={cc.callbackDate} np={np} currentUserId={currentUserId} referralBadge={cityCopy.referralBadge} cityCountrySeparator={cityCopy.cityCountrySeparator} unpaidRewardBadge={cityCopy.unpaidRewardBadge} />
                 ))}
               </>
             )}
@@ -1780,7 +1797,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                   </div>
                 )}
                 {filteredPending.map(cc => (
-                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} np={np} referralBadge={cityCopy.referralBadge} cityCountrySeparator={cityCopy.cityCountrySeparator} />
+                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} np={np} referralBadge={cityCopy.referralBadge} cityCountrySeparator={cityCopy.cityCountrySeparator} unpaidRewardBadge={cityCopy.unpaidRewardBadge} />
                 ))}
               </>
             )}
@@ -1794,7 +1811,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
                   <div className="h-px flex-1 bg-border" />
                 </div>
                 {filteredOthers.map(cc => (
-                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} np={np} referralBadge={cityCopy.referralBadge} cityCountrySeparator={cityCopy.cityCountrySeparator} />
+                  <ContactRow key={cc.id} cc={cc} onSelect={onSelectContact} np={np} referralBadge={cityCopy.referralBadge} cityCountrySeparator={cityCopy.cityCountrySeparator} unpaidRewardBadge={cityCopy.unpaidRewardBadge} />
                 ))}
               </>
             )}
