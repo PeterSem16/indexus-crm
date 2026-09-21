@@ -2633,6 +2633,7 @@ export function CommunicationCanvas({
   isSendingSms,
   onMakeCall,
   onClinicMakeCall,
+  onPersonnelMakeCall,
   isSipRegistered,
   onOpenScriptModal,
   onUpdateContact,
@@ -2694,6 +2695,7 @@ export function CommunicationCanvas({
   isSendingSms: boolean;
   onMakeCall?: (phoneNumber: string) => void;
   onClinicMakeCall?: (phoneNumber: string) => void;
+  onPersonnelMakeCall?: (phoneNumber: string, person: { id: string; name?: string }) => void;
   isSipRegistered?: boolean;
   onOpenScriptModal: () => void;
   onUpdateContact?: (data: CustomerFormData) => void;
@@ -4810,7 +4812,7 @@ export function CommunicationCanvas({
                       } catch {}
                     }}
                     onCallPhone={personnelDialingEnabled
-                      ? (phone, person) => handleMakeCall(phone, { dialedPerson: person })
+                      ? onPersonnelMakeCall
                       : undefined}
                   />
                 </div>
@@ -4828,7 +4830,7 @@ export function CommunicationCanvas({
                       } catch {}
                     }}
                     onPersonnelCallPhone={personnelDialingEnabled
-                      ? (phone, person) => handleMakeCall(phone, { dialedPerson: person })
+                      ? onPersonnelMakeCall
                       : undefined}
                     onPhoneChange={(p) => onPhoneOverrideChange?.(p || null)}
                     onCallPhone={onClinicMakeCall}
@@ -15967,6 +15969,9 @@ function AgentWorkspacePageContent() {
               isSendingSms={sendSmsMutation.isPending}
               onMakeCall={pulseDialEntryPoints.main}
               onClinicMakeCall={pulseDialEntryPoints.clinic}
+              onPersonnelMakeCall={(phone, person) => {
+                void handleMakeCall(phone, { dialedPerson: person });
+              }}
               isSipRegistered={isSipRegistered}
               onOpenScriptModal={() => setScriptModalOpen(true)}
               onUpdateContact={(data) => updateContactMutation.mutate(data)}
