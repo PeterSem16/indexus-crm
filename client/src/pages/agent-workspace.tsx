@@ -15002,7 +15002,7 @@ function AgentWorkspacePageContent() {
                     )}
                   </div>
                   <ScrollArea className="max-h-48">
-                    <div className="grid gap-2 xl:grid-cols-2 pr-1">
+                    <div className={`grid gap-2 pr-1 ${filteredShiftLoginCampaigns.length > 1 ? "xl:grid-cols-2" : "grid-cols-1"}`}>
                       {filteredShiftLoginCampaigns.length === 0 ? (
                         <div className="text-center py-5">
                           <Megaphone className="h-7 w-7 mx-auto text-muted-foreground/30 mb-2" />
@@ -15128,7 +15128,7 @@ function AgentWorkspacePageContent() {
                       )}
                     </div>
                     <ScrollArea className="max-h-36">
-                      <div className="grid gap-2 xl:grid-cols-2 pr-1">
+                      <div className={`grid gap-2 pr-1 ${filteredShiftLoginQueues.length > 1 ? "xl:grid-cols-2" : "grid-cols-1"}`}>
                         {filteredShiftLoginQueues.map((queue) => {
                           const isChecked = selectedLoginQueueIds.includes(queue.id);
                           const itemKey = `queue:${queue.id}`;
