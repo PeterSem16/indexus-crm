@@ -769,16 +769,6 @@ export function PriorityBuilder({
             />
             <span>{copy.groupByCity}</span>
           </label>
-                    <label className="priority-builder-referral-toggle" title={copy.unpaidRewardsLast}>
-                      <input
-                        type="checkbox"
-                        checked={segment.unpaidRewardsLast === true}
-                        disabled={viewControlsDisabled}
-                        onChange={event => makeDraft(view.segments.map(item => item.id === segment.id ? { ...item, unpaidRewardsLast: event.target.checked } : item))}
-                        aria-label={`${copy.unpaidRewardsLast}: ${segmentNames[segment.id]}`}
-                      />
-                      <span>{copy.unpaidRewardsLast}{segment.unpaidRewardsLast ? ` (${segmentUnpaidCounts.get(segment.id) || 0})` : ""}</span>
-                    </label>
           {view.cityGrouping?.enabled && (
             <div className="priority-builder-city-selection" data-testid="priority-city-selection">
               <div className="priority-builder-city-modes" role="radiogroup" aria-label={copy.groupByCity}>
@@ -891,6 +881,16 @@ export function PriorityBuilder({
                      />
                      <span>{copy.referralsFirst}</span>
                    </label>
+                    <label className="priority-builder-referral-toggle" title={copy.unpaidRewardsLast}>
+                      <input
+                        type="checkbox"
+                        checked={segment.unpaidRewardsLast === true}
+                        disabled={viewControlsDisabled}
+                        onChange={event => makeDraft(view.segments.map(item => item.id === segment.id ? { ...item, unpaidRewardsLast: event.target.checked } : item))}
+                        aria-label={`${copy.unpaidRewardsLast}: ${segmentNames[segment.id]}`}
+                      />
+                      <span>{copy.unpaidRewardsLast}{segment.unpaidRewardsLast ? ` (${segmentUnpaidCounts.get(segment.id) || 0})` : ""}</span>
+                    </label>
                   <span style={{ marginLeft: "auto", display: "flex" }}>
                     <button type="button" className="priority-builder-mini" onClick={() => move(index, -1)} disabled={viewControlsDisabled || index === 0} aria-label={t.agentWorkspace.priorityBuilderMoveUp}><ArrowUp size={14} /></button>
                     <button type="button" className="priority-builder-mini" onClick={() => move(index, 1)} disabled={viewControlsDisabled || index === view.segments.length - 1} aria-label={t.agentWorkspace.priorityBuilderMoveDown}><ArrowDown size={14} /></button>
