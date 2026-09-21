@@ -116,6 +116,7 @@ import {
   isCampaignContactVisibleToAgent,
   parseCampaignContactVisibility,
   preserveCampaignContactVisibility,
+  resolveCampaignContactEntityType,
 } from "./lib/campaign-contact-visibility";
 
 function recordingModeFromCallMetadata(metadata: unknown): "off" | "both" | "agent_only" | null {
@@ -25652,15 +25653,21 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const isContactVisibleToAgent = (row: any) => {
         if (user.role === "admin" || user.role === "manager") return true;
         if (parseCampaignContactVisibility(row.campaignSettings) !== "assigned_representative") return true;
-        const contact = { contactType: row.ccContactType };
-        const representativeId = row.ccContactType === "clinic"
+        const effectiveContactType = resolveCampaignContactEntityType({
+          contactType: row.ccContactType,
+          clinicId: row.ccClinicId,
+          hospitalId: row.ccHospitalId,
+          collaboratorId: row.ccCollaboratorId,
+        });
+        const contact = { contactType: effectiveContactType };
+        const representativeId = effectiveContactType === "clinic"
           ? queueClinicRepresentativeById.get(row.ccClinicId)
-          : row.ccContactType === "hospital"
+          : effectiveContactType === "hospital"
             ? queueHospitalRepresentativeById.get(row.ccHospitalId)
-            : row.ccContactType === "collaborator"
+            : effectiveContactType === "collaborator"
               ? queueCollaboratorRepresentativeById.get(row.ccCollaboratorId)?.representativeId
               : null;
-        const collaborator = row.ccContactType === "collaborator"
+        const collaborator = effectiveContactType === "collaborator"
           ? queueCollaboratorRepresentativeById.get(row.ccCollaboratorId)
           : undefined;
         return contactMatchesRepresentative(contact, representativeId, user.id, collaborator?.representativeIds);
@@ -30100,15 +30107,21 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         const hospitalRep = new Map(hospitalRows.map((row) => [row.entityId, row.userId]));
         const collaboratorRep = new Map(collaboratorRows.map((row) => [row.id, row]));
         contacts = allContacts.filter((contact: any) => {
-          const entity = contact.contactType === "clinic"
+          const effectiveContactType = resolveCampaignContactEntityType(contact);
+          const entity = effectiveContactType === "clinic"
             ? clinicRep.get(contact.clinicId)
-            : contact.contactType === "hospital"
+            : effectiveContactType === "hospital"
               ? hospitalRep.get(contact.hospitalId)
-              : contact.contactType === "collaborator"
+              : effectiveContactType === "collaborator"
                 ? collaboratorRep.get(contact.collaboratorId)?.representativeId
                 : null;
-          const collaborator = contact.contactType === "collaborator" ? collaboratorRep.get(contact.collaboratorId) : undefined;
-          return contactMatchesRepresentative(contact, entity, sessionUser.id, collaborator?.representativeIds);
+          const collaborator = effectiveContactType === "collaborator" ? collaboratorRep.get(contact.collaboratorId) : undefined;
+          return contactMatchesRepresentative(
+            { contactType: effectiveContactType },
+            entity,
+            sessionUser.id,
+            collaborator?.representativeIds,
+          );
         });
         total = contacts.length;
         if (paginated) contacts = contacts.slice((page - 1) * limit, page * limit);
@@ -30208,13 +30221,6 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           const priorityCity = contact.contactType === "collaborator" && contact.collaboratorId
             ? priorityCityByCollaborator.get(contact.collaboratorId)
             : null;
-          const unpaidRewardPersonCount = contact.clinicId
-            ? unpaidRewardCountByClinic.get(contact.clinicId) || 0
-            : contact.hospitalId
-              ? unpaidRewardCountByHospital.get(contact.hospitalId) || 0
-              : contact.collaboratorId && unpaidRewardCollaboratorIds.has(contact.collaboratorId)
-                ? 1
-                : 0;
           return {
             ...contact,
             customer,
@@ -30222,7 +30228,6 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             clinic,
             collaborator,
             hasReferral,
-            unpaidRewardPersonCount,
             ...(contact.contactType === "collaborator"
               ? {
                 priorityCity: priorityCity?.city ?? null,

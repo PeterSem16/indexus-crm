@@ -1,5 +1,17 @@
 export type CampaignContactVisibility = "all" | "assigned_representative";
 
+export function resolveCampaignContactEntityType(contact: {
+  contactType?: string | null;
+  clinicId?: string | null;
+  hospitalId?: string | null;
+  collaboratorId?: string | null;
+}): string | null | undefined {
+  if (contact.clinicId) return "clinic";
+  if (contact.hospitalId) return "hospital";
+  if (contact.collaboratorId) return "collaborator";
+  return contact.contactType;
+}
+
 export function parseCampaignContactVisibility(settings: unknown): CampaignContactVisibility {
   let value: unknown = settings;
   if (typeof settings === "string") {

@@ -9,7 +9,13 @@ Representative-only Mission visibility must be applied to every agent-facing sou
 
 **Why:** Filtering only the main list still exposed another representative's contacts through scheduled callbacks. A cached contact could also remain mutable after reassignment.
 
-**How to apply:** When adding another Agent Workspace queue or contact source, apply the same Mission visibility predicate server-side before returning records. Keep management views exempt unless product requirements change.
+**How to apply:** When adding another Agent Workspace queue or contact source, apply the same Mission visibility predicate server-side before returning records. Derive entity type from the actual clinic/hospital/collaborator ID first; legacy `contactType` can be stale or wrong. Keep management views exempt unless product requirements change.
+
+The Campaign Contacts page defaults failed query data to an empty array, so a server exception appears as a misleading `0 / 0` rather than a visible error.
+
+**Why:** An optional enrichment left a missing runtime variable in the main contacts route. The endpoint returned 500 while Overview still showed the real total, making it look like all contacts were deleted.
+
+**How to apply:** Keep optional enrichment fail-isolated from the base contacts response, and treat Overview-total-with-empty-Contacts as an endpoint failure before investigating data loss or filters.
 
 Generic campaign-settings updates must preserve manager-owned visibility keys when the incoming replacement object omits them.
 

@@ -5,6 +5,7 @@ import {
   isCampaignContactVisibleToAgent,
   parseCampaignContactVisibility,
   preserveCampaignContactVisibility,
+  resolveCampaignContactEntityType,
 } from "./campaign-contact-visibility";
 
 describe("campaign contact visibility", () => {
@@ -65,5 +66,11 @@ describe("campaign contact visibility", () => {
     expect(contactMatchesRepresentative({ contactType: "customer" }, null, "u1")).toBe(false);
     expect(contactMatchesRepresentative({ contactType: "collaborator" }, "u2", "u1", ["u1"])).toBe(true);
     expect(contactMatchesRepresentative({ contactType: "collaborator" }, null, "u1", [])).toBe(false);
+  });
+
+  it("uses the real linked entity when legacy contactType is wrong", () => {
+    expect(resolveCampaignContactEntityType({ contactType: "customer", clinicId: "clinic-1" })).toBe("clinic");
+    expect(resolveCampaignContactEntityType({ contactType: "customer", hospitalId: "hospital-1" })).toBe("hospital");
+    expect(resolveCampaignContactEntityType({ contactType: "clinic", collaboratorId: "person-1" })).toBe("collaborator");
   });
 });
