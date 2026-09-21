@@ -225,7 +225,24 @@ export function ScalableSelector() {
                 <button onClick={() => setBackOffice(!backOffice)} className="flex w-full items-center gap-3 p-3 text-left"><div className="h-9 w-1 rounded-full bg-[#7c5ac8]" /><IconBox color="#7c5ac8"><BriefcaseBusiness size={16} /></IconBox><div className="flex-1"><div className="text-sm font-semibold text-[#3d3158]">Back Office</div><div className="text-[11px] text-[#887b9e]">Spracovanie úloh a interných požiadaviek</div></div><span className="mr-2 text-[10px] text-[#887b9e]">Dostupné pre vašu rolu</span><Mark checked={backOffice} color="#7c5ac8" /></button>
               </div>
             </div>
-            <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e5e9ef] bg-[#fbfcfe] px-5 py-4 sm:px-6"><div className="flex items-center gap-2 text-xs text-[#718094]"><Users size={15} /><span><strong className="text-[#33445a]">{total}</strong> oblastí pripravených na zmenu</span></div><button disabled={total === 0} onClick={() => setStarted(true)} className="flex items-center gap-2 rounded-lg bg-[#c8102e] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_10px_rgba(200,16,46,.22)] transition hover:bg-[#ad0e29] disabled:cursor-not-allowed disabled:opacity-40">Začať zmenu <ArrowRight size={17} /></button></footer>
+              <footer className="flex flex-col gap-3 border-t border-[#e5e9ef] bg-[#fbfcfe] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                <div className="flex items-center gap-2 text-xs text-[#718094]">
+                  <Users size={15} />
+                  <span><strong className="text-[#33445a]">{total}</strong> oblastí pripravených na zmenu</span>
+                </div>
+                <button
+                  disabled={total === 0}
+                  onClick={() => setStarted(true)}
+                  className="group flex min-h-[54px] w-full items-center justify-center gap-3 rounded-xl bg-[#c8102e] px-7 py-3 text-base font-bold tracking-[-.01em] text-white shadow-[0_8px_18px_rgba(200,16,46,.24)] transition duration-200 hover:-translate-y-0.5 hover:bg-[#ad0e29] hover:shadow-[0_11px_24px_rgba(200,16,46,.3)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none sm:w-auto"
+                  aria-label={`Začať zmenu s ${total} vybranými oblasťami`}
+                >
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/15">
+                    <Headphones size={16} />
+                  </span>
+                  <span>Začať zmenu</span>
+                  <ArrowRight size={19} className="transition-transform duration-200 group-hover:translate-x-1" />
+                </button>
+              </footer>
           </main>
         </div>
       </div>
