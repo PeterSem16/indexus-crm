@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, type ReactNode } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -268,6 +268,7 @@ interface CollaboratorFormWizardProps {
   mode?: "inline";
   readOnly?: boolean;
   onCallPhone?: (phone: string) => void;
+  headerBadge?: ReactNode;
 }
 
 // Pending address for Add mode (before collaborator is saved)
@@ -3598,7 +3599,7 @@ function DocumentsPanel({ collaboratorId, t }: { collaboratorId: string; t: any 
   );
 }
 
-export function CollaboratorFormWizard({ initialData, onSuccess, onPhoneChange, onCancel, positionScopeFilter, hideSvetZdravia, prefillData, onCreated, mode, readOnly = false, onCallPhone }: CollaboratorFormWizardProps) {
+export function CollaboratorFormWizard({ initialData, onSuccess, onPhoneChange, onCancel, positionScopeFilter, hideSvetZdravia, prefillData, onCreated, mode, readOnly = false, onCallPhone, headerBadge }: CollaboratorFormWizardProps) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
   const { isHidden, isReadonly } = useModuleFieldPermissions("collaborators");
@@ -5692,6 +5693,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onPhoneChange, 
                   {netName}
                 </Badge>
               ))}
+              {headerBadge}
               {(() => {
                 const recBy = referrals.filter(r => r.referralType === "doctor_referral" || r.referralType === "doctor_suggests");
                 if (recBy.length === 0) return null;

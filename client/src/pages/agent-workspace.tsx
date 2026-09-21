@@ -4858,6 +4858,11 @@ export function CommunicationCanvas({
                     mode="inline"
                     readOnly={cardsReadOnly}
                     initialData={collaboratorData}
+                    headerBadge={unpaidRewardPersonCount > 0 ? (
+                      <Badge className="ml-2 border border-amber-200 bg-amber-50 text-[10px] font-semibold text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300" data-testid="badge-collaborator-unpaid-reward">
+                        {priorityBuilderCopy[locale]?.unpaidRewardBadge || priorityBuilderCopy.en.unpaidRewardBadge}: {unpaidRewardPersonCount}
+                      </Badge>
+                    ) : null}
                     onSuccess={async () => {
                       try {
                         const r = await fetch(`/api/collaborators/${contact.id}`, { credentials: "include" });
