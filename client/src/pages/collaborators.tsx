@@ -1253,6 +1253,14 @@ function ActionsTab({
     enabled: !!collaboratorId,
   });
 
+  const rewardMutation = useMutation({
+    mutationFn: ({ activityId, rewardPaid }: { activityId: string; rewardPaid: boolean }) =>
+      apiRequest("PUT", `/api/collaborators/${collaboratorId}/activities/${activityId}/reward`, { rewardPaid }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborators", collaboratorId, "activities"] });
+    },
+  });
+
   const formatDate = (date: string | Date | null) => {
     if (!date) return "-";
     const d = new Date(date);
@@ -1295,6 +1303,8 @@ function ActionsTab({
                   <th className="text-left p-2 font-medium">Dátum</th>
                   <th className="text-left p-2 font-medium">Info</th>
                   <th className="text-left p-2 font-medium">Hodnota</th>
+                  <th className="text-left p-2 font-medium">{t.collaborators.fields.rewardPaid}</th>
+                  <th className="text-left p-2 font-medium">{t.collaborators.fields.rewardPaidAt}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1331,6 +1341,25 @@ function ActionsTab({
                       ) : (
                         <span className="text-muted-foreground">-</span>
                       )}
+                    </td>
+                    <td className="p-2">
+                      {act.isCall ? (
+                        <span className="text-muted-foreground">-</span>
+                      ) : (
+                        <Switch
+                          checked={act.rewardPaid}
+                          onCheckedChange={(rewardPaid) => rewardMutation.mutate({ activityId: act.id, rewardPaid })}
+                          disabled={rewardMutation.isPending}
+                          data-testid={`switch-activity-reward-paid-${act.id}`}
+                        />
+                      )}
+                    </td>
+                    <td className="p-2 text-xs text-muted-foreground">
+                      {act.isCall
+                        ? "-"
+                        : act.rewardPaidAt
+                          ? new Date(act.rewardPaidAt).toLocaleString()
+                          : t.collaborators.fields.rewardNotPaid}
                     </td>
                   </tr>
                 ))}

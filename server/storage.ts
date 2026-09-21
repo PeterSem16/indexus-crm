@@ -526,6 +526,7 @@ export interface IStorage {
 
   // Collaborator Activities (Úkony)
   getCollaboratorActivities(collaboratorId: string): Promise<CollaboratorActivity[]>;
+  updateCollaboratorActivityReward(id: string, rewardPaid: boolean, rewardPaidAt: Date | null): Promise<CollaboratorActivity | undefined>;
 
   // INDEXUS Connect Mobile App - Collaborator Auth
   getCollaboratorByMobileUsername(username: string): Promise<Collaborator | undefined>;
@@ -3335,6 +3336,14 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(collaboratorActivities)
       .where(eq(collaboratorActivities.collaboratorId, collaboratorId))
       .orderBy(desc(collaboratorActivities.dueDate));
+  }
+
+  async updateCollaboratorActivityReward(id: string, rewardPaid: boolean, rewardPaidAt: Date | null): Promise<CollaboratorActivity | undefined> {
+    const [updated] = await db.update(collaboratorActivities)
+      .set({ rewardPaid, rewardPaidAt })
+      .where(eq(collaboratorActivities.id, id))
+      .returning();
+    return updated || undefined;
   }
 
   async getAllCollaboratorAgreements(): Promise<CollaboratorAgreement[]> {

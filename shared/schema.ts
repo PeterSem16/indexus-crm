@@ -2240,8 +2240,6 @@ export const collaborators = pgTable("collaborators", {
   
   // Other
   monthRewards: boolean("month_rewards").notNull().default(false),
-  rewardPaid: boolean("reward_paid").notNull().default(false),
-  rewardPaidAt: timestamp("reward_paid_at"),
   rewardType: text("reward_type"), // 'fixed' | 'percentage' | null
   fixedRewardAmount: text("fixed_reward_amount"),
   fixedRewardCurrency: text("fixed_reward_currency").default("EUR"),
@@ -2416,6 +2414,8 @@ export const collaboratorActivities = pgTable("collaborator_activities", {
   approvedAt: timestamp("approved_at"),
   approvedBy: text("approved_by"),
   paidAt: timestamp("paid_at"),
+  rewardPaid: boolean("reward_paid").notNull().default(false),
+  rewardPaidAt: timestamp("reward_paid_at"),
   cancelledAt: timestamp("cancelled_at"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });

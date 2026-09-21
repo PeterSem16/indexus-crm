@@ -1,10 +1,10 @@
 ---
-name: Person reward payment state
-description: Defines ownership and timestamp semantics for marking institution personnel rewards as paid.
+name: Action reward payment state
+description: Defines ownership and timestamp semantics for marking individual personnel Actions rewards as paid.
 ---
 
-Reward-paid state belongs to the shared person/collaborator record, not an institution assignment or an individual activity. Existing reward eligibility, amount, and percentage settings remain independent.
+Reward-paid state belongs to each individual collaborator activity (Actions row), not to the shared person/collaborator record. Existing reward amount and other person-level reward settings remain independent.
 
-**Why:** The same person can appear through hospital, clinic, midwife, and Nexus Pulse views. One canonical state prevents contradictory payment status between those surfaces.
+**Why:** A person can have multiple separately payable actions. A single person-level switch incorrectly marks every action as paid.
 
-**How to apply:** The server sets the payment timestamp only on the unpaid-to-paid transition, preserves it while paid, and clears it when marked unpaid. New and migrated records default to unpaid.
+**How to apply:** Extend every real Actions row with paid status and payment time. The server sets the timestamp only on unpaid-to-paid, preserves it while paid, and clears it when unpaid. New and migrated action rows default unpaid.
