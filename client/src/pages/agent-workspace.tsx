@@ -2744,6 +2744,13 @@ export function CommunicationCanvas({
   /** True only when the campaign contact status is callback_scheduled — prevents stale callbackDate from showing after a contact reset */
   slCallbackActive?: boolean;
 }) {
+  const personnelDialingEnabled = (() => {
+    try {
+      return JSON.parse(campaign?.settings || "{}").enablePersonnelDialing === true;
+    } catch {
+      return false;
+    }
+  })();
   const { t, locale } = useI18n();
   const { user } = useAuth();
   const { toast } = usePulseToast();
@@ -4772,6 +4779,9 @@ export function CommunicationCanvas({
                         if (r.ok) { const d = await r.json(); onPhoneOverrideChange?.(d.phone || null); onEntityRefetched?.("hospital", d); }
                       } catch {}
                     }}
+                    onCallPhone={personnelDialingEnabled
+                      ? (phone, person) => handleMakeCall(phone, { dialedPerson: person })
+                      : undefined}
                   />
                 </div>
               ) : contactType === "clinic" && clinicData ? (
@@ -4787,6 +4797,9 @@ export function CommunicationCanvas({
                         if (r.ok) { const d = await r.json(); onPhoneOverrideChange?.(d.phone || null); onEntityRefetched?.("clinic", d); }
                       } catch {}
                     }}
+                    onPersonnelCallPhone={personnelDialingEnabled
+                      ? (phone, person) => handleMakeCall(phone, { dialedPerson: person })
+                      : undefined}
                     onPhoneChange={(p) => onPhoneOverrideChange?.(p || null)}
                     onCallPhone={onClinicMakeCall}
                     mode="inline"
@@ -13625,13 +13638,19 @@ function AgentWorkspacePageContent() {
 
   const handleMakeCall = async (
     phoneNumber: string,
-    context?: { contactOverride?: Customer; outsideMission?: boolean },
+    context?: { contactOverride?: Customer; outsideMission?: boolean; dialedPerson?: { id: string; name?: string } },
   ) => {
     let stage = "validate";
     try {
       const normalizedPhone = phoneNumber.trim();
       const callContact = context?.contactOverride || outsideMissionContactRef.current || currentContact;
       const isOutsideMission = context?.outsideMission ?? outsideMissionContactActiveRef.current;
+      let personnelDialingEnabled = false;
+      try { personnelDialingEnabled = !!(selectedCampaign?.settings && JSON.parse(selectedCampaign.settings).enablePersonnelDialing === true); } catch {}
+      if (context?.dialedPerson && (!personnelDialingEnabled || isOutsideMission)) {
+        toast({ title: t.agentWorkspace.errorLabel, variant: "destructive" });
+        return;
+      }
       if (!normalizedPhone || !makeCall || !callContact) {
         toast({ title: t.agentWorkspace.errorLabel, variant: "destructive" });
         return;
@@ -13742,6 +13761,7 @@ function AgentWorkspacePageContent() {
         outboundCountry,
         maxRingSeconds: isOutsideMission ? undefined : (campaignMaxRingSeconds || undefined),
         recordingSnapshot,
+         dialedPerson: context?.dialedPerson,
       });
 
       agentSession.updateStatus("busy").catch(() => {});

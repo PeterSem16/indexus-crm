@@ -38,6 +38,7 @@ import {
   Users,
   Plus,
   Phone,
+  PhoneCall,
   Mail,
   Smartphone,
   Star,
@@ -728,7 +729,7 @@ export function InstitutionPersonnelPanel({
   );
 }
 
-export function InstitutionPersonnelManager({ entityType, entityId, entityName, countryCode, inlineMode }: { entityType: string; entityId: string; entityName: string; countryCode?: string; inlineMode?: boolean }) {
+export function InstitutionPersonnelManager({ entityType, entityId, entityName, countryCode, inlineMode, onCallPhone }: { entityType: string; entityId: string; entityName: string; countryCode?: string; inlineMode?: boolean; onCallPhone?: (phone: string, person?: { id: string; name?: string }) => void }) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
   const mpnT = (t as any).medicalPartnerNetwork || {};
@@ -1050,6 +1051,20 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
                   </div>
                 </div>
                 <div className="flex flex-col gap-1 shrink-0">
+                  {onCallPhone && p.person_id && (p.phone || p.mobile) && (
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-green-600"
+                      aria-label={t.call}
+                      title={t.call}
+                      onClick={() => onCallPhone(p.phone || p.mobile, { id: String(p.person_id), name: fullName })}
+                      data-testid={`button-call-primary-person-${p.person_id}`}
+                    >
+                      <PhoneCall className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                   <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive"
                     onClick={() => {
                       if (p.assignment_id) removeMutation.mutate(p.assignment_id);
@@ -1397,6 +1412,15 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
                       </Button>
                     )}
                   </div>
+                )}
+                {onCallPhone && p.person_id && (p.phone || p.mobile) && (
+                  <Button type="button" size="icon" variant="ghost" className="h-7 w-7 shrink-0 text-green-600"
+                    aria-label={t.call}
+                    title={t.call}
+                    onClick={() => onCallPhone(p.phone || p.mobile, { id: String(p.person_id), name: fullName })}
+                    data-testid={`button-call-person-${p.person_id}`}>
+                    <PhoneCall className="h-3.5 w-3.5" />
+                  </Button>
                 )}
                 {(() => {
                   const activityCodes: string[] = p.assignment_id

@@ -32,6 +32,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useModuleFieldPermissions } from "@/components/ui/permission-field";
 import { RepresentativePanel } from "@/components/clinic-representative-panel";
+import { InstitutionPersonnelManager } from "@/components/institution-personnel-panel";
 
 interface HospitalFormData {
   legacyId: string;
@@ -61,6 +62,7 @@ interface HospitalFormWizardProps {
   mode?: "inline";
   readOnly?: boolean;
   readOnlyExceptions?: { personnel?: boolean };
+  onCallPhone?: (phone: string, person?: { id: string; name?: string }) => void;
 }
 
 const WIZARD_STEPS = [
@@ -71,7 +73,7 @@ const WIZARD_STEPS = [
   { id: "review", icon: Check },
 ];
 
-export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCancel, mode, readOnly = false, readOnlyExceptions }: HospitalFormWizardProps) {
+export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCancel, mode, readOnly = false, readOnlyExceptions, onCallPhone }: HospitalFormWizardProps) {
   const roEx = readOnlyExceptions || {};
   const { t } = useI18n();
   const { toast } = useToast();
@@ -538,6 +540,10 @@ export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCanc
                 </div>
               )}
             </div>
+            {initialData?.id && (
+              <InstitutionPersonnelManager entityType="hospital" entityId={initialData.id} entityName={formData.name}
+                countryCode={formData.countryCode} inlineMode={mode === "inline"} onCallPhone={onCallPhone} />
+            )}
           </div>
         );
 

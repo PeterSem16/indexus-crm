@@ -63,6 +63,8 @@ export interface PendingCall {
   outboundCountry?: string;
   maxRingSeconds?: number;
   recordingSnapshot?: MissionCallRecordingSnapshot;
+  /** Optional assigned person being dialed; parent customer fields remain authoritative. */
+  dialedPerson?: { id: string; name?: string; phone?: string; entityType?: "collaborator" | "embedded" };
 }
 
 export interface IncomingCall {

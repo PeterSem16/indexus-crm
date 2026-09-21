@@ -6820,6 +6820,25 @@ export default function CampaignDetailPage() {
                         </div>
                         <div className="space-y-4">
                           <AutoModeCard campaign={campaign} />
+                          <Card className="border-orange-200/80 bg-orange-50/20 shadow-sm dark:border-orange-900/60 dark:bg-orange-950/10">
+                            <CardHeader>
+                              <CardTitle>{(t.campaigns.detail as any).personnelDialingTitle}</CardTitle>
+                              <CardDescription>{(t.campaigns.detail as any).personnelDialingDesc}</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              <Switch
+                                checked={(() => { try { return JSON.parse(campaign.settings || "{}").enablePersonnelDialing === true; } catch { return false; } })()}
+                                onCheckedChange={(v) => {
+                                  let existing: any = {};
+                                  try { existing = JSON.parse(campaign.settings || "{}"); } catch {}
+                                  apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { settings: JSON.stringify({ ...existing, enablePersonnelDialing: v }) })
+                                    .then(() => { toast({ title: t.campaigns.detail.settingsSaved }); queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] }); })
+                                    .catch(() => toast({ title: t.campaigns.detail.error, variant: "destructive" }));
+                                }}
+                                data-testid="switch-enable-personnel-dialing"
+                              />
+                            </CardContent>
+                          </Card>
                         </div>
                       </section>
                       <section className="space-y-3">

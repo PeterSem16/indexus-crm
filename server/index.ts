@@ -1271,6 +1271,21 @@ app.use((req, res, next) => {
     throw e;
   }
 
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS personnel_call_timeline_events (
+        call_log_id varchar NOT NULL,
+        action text NOT NULL,
+        created_at timestamp NOT NULL DEFAULT now(),
+        PRIMARY KEY (call_log_id, action)
+      );
+    `);
+    console.log('[migration] personnel_call_timeline_events ensured');
+  } catch (e: any) {
+    console.error('[migration] personnel_call_timeline_events error:', e.message);
+    throw e;
+  }
+
   // Personal wallboard alarm rules. The scope is deliberately a string rather
   // than a foreign key because "all" is a valid board scope; campaign access
   // is checked by the route before either reading or writing this row.

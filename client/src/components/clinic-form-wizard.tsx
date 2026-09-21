@@ -277,7 +277,8 @@ interface ClinicFormSheetProps {
   initialData?: Clinic | null;
   onSuccess: () => void;
   onPhoneChange?: (phone: string) => void;
-  onCallPhone?: (phone: string) => void;
+  onCallPhone?: (phone: string, person?: { id: string; name?: string }) => void;
+  onPersonnelCallPhone?: (phone: string, person: { id: string; name?: string }) => void;
   mode?: "sheet" | "inline";
   prefillData?: Partial<ClinicFormData>;
   onCreated?: (clinic: { id: string; name: string; doctorTitle?: string | null; doctorFirstName?: string | null; doctorLastName?: string | null; doctorName?: string | null }) => void | Promise<void>;
@@ -286,7 +287,7 @@ interface ClinicFormSheetProps {
   readOnlyExceptions?: { callButtons?: boolean; notes?: boolean; personnel?: boolean; referral?: boolean; contactType?: boolean; contactInfo?: boolean };
 }
 
-function ClinicPersonnelTab({ clinicId, clinicName }: { clinicId: string; clinicName: string }) {
+function ClinicPersonnelTab({ clinicId, clinicName, onCallPhone }: { clinicId: string; clinicName: string; onCallPhone?: (phone: string, person?: { id: string; name?: string }) => void }) {
   const { t, locale } = useI18n();
   const { data: personnelData, isLoading } = useQuery<any>({
     queryKey: ["/api/institutions", "clinic", clinicId, "personnel"],
@@ -409,6 +410,12 @@ function ClinicPersonnelTab({ clinicId, clinicName }: { clinicId: string; clinic
                       {row.mobile && <span>{row.mobile}</span>}
                     </div>
                   </div>
+                  {onCallPhone && (row.phone || row.mobile) && (
+                    <Button type="button" size="icon" variant="ghost" className="shrink-0 text-green-600" title="Call" data-testid={`btn-call-clinic-personnel-${row.person_id}`}
+                      onClick={() => onCallPhone(row.phone || row.mobile, { id: String(row.person_id), name: fullName })}>
+                      <PhoneCall className="h-4 w-4" />
+                    </Button>
+                  )}
                   <Badge variant={row.is_active !== false ? "default" : "secondary"} className="text-[10px] shrink-0">
                     {row.is_active !== false ? t.common.active : t.common.inactive}
                   </Badge>
@@ -445,7 +452,7 @@ export function ClinicFormWizard({ initialData, onSuccess, onCancel }: { initial
   );
 }
 
-export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, onPhoneChange, onCallPhone, mode = "sheet", prefillData, onCreated, sheetContentClassName, readOnly = false, readOnlyExceptions }: ClinicFormSheetProps) {
+export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, onPhoneChange, onCallPhone, onPersonnelCallPhone, mode = "sheet", prefillData, onCreated, sheetContentClassName, readOnly = false, readOnlyExceptions }: ClinicFormSheetProps) {
   const roEx = readOnlyExceptions || {};
   const callButtonsEnabled = !readOnly || !!roEx.callButtons;
   const { t } = useI18n();
@@ -2803,7 +2810,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
           )}
 
           {activeTab === "personnel" && initialData && (
-            <InstitutionPersonnelManager entityType="clinic" entityId={initialData.id} entityName={initialData.name} countryCode={initialData.countryCode} inlineMode={mode === "inline"} />
+            <InstitutionPersonnelManager entityType="clinic" entityId={initialData.id} entityName={initialData.name} countryCode={initialData.countryCode} inlineMode={mode === "inline"} onCallPhone={onPersonnelCallPhone} />
           )}
 
           {activeTab === "campaigns" && initialData && (

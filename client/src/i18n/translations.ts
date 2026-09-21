@@ -3035,6 +3035,8 @@ export interface Translations {
       nexusRestoreBlocked: string;
       settingsGroupDialer: string;
       settingsGroupDialerDesc: string;
+      personnelDialingTitle: string;
+      personnelDialingDesc: string;
       defaultTemplatesTitle: string;
       defaultTemplatesDesc: string;
       replyEmailSignatureTitle: string;
@@ -11791,6 +11793,8 @@ export const translations: Record<Locale, Translations> = {
         nexusRestoreBlocked: "Pause the active campaign before restoring a version.",
         settingsGroupDialer: "Dialer",
         settingsGroupDialerDesc: "Automatic dialing and contact dialing methods",
+        personnelDialingTitle: "Dial assigned personnel",
+        personnelDialingDesc: "Allow agents to call assigned clinic and hospital personnel while retaining the institution as the campaign contact.",
         defaultTemplatesTitle: "Default templates (Email / SMS)",
         defaultTemplatesDesc: "When an agent opens the Email or SMS tab, the selected category and template are preselected automatically.",
         replyEmailSignatureTitle: "Reply email signature (HTML)",
@@ -19410,6 +19414,8 @@ export const translations: Record<Locale, Translations> = {
         nexusRestoreBlocked: "Pred obnovením verzie pozastavte aktívnu kampaň.",
         settingsGroupDialer: "Vytáčanie",
         settingsGroupDialerDesc: "Automatické vytáčanie a metódy vytáčania kontaktov",
+        personnelDialingTitle: "Volať priradenému personálu",
+        personnelDialingDesc: "Povoľte agentom volať priradenému personálu kliník a nemocníc pri zachovaní inštitúcie ako kontaktu kampane.",
         defaultTemplatesTitle: "Predvolené šablóny (Email / SMS)",
         defaultTemplatesDesc: "Keď agent otvorí záložku Email alebo SMS, automaticky sa prednastaví vybraná kategória a šablóna.",
         replyEmailSignatureTitle: "Podpis pre odpovede na email (HTML)",
@@ -26964,6 +26970,8 @@ export const translations: Record<Locale, Translations> = {
         nexusRestoreBlocked: "Před obnovením verze pozastavte aktivní kampaň.",
         settingsGroupDialer: "Vytáčení",
         settingsGroupDialerDesc: "Automatické vytáčení a metody vytáčení kontaktů",
+        personnelDialingTitle: "Volat přiřazenému personálu",
+        personnelDialingDesc: "Povolte agentům volat přiřazenému personálu klinik a nemocnic při zachování instituce jako kontaktu kampaně.",
         defaultTemplatesTitle: "Výchozí šablony (Email / SMS)",
         defaultTemplatesDesc: "Když agent otevře záložku Email nebo SMS, automaticky se přednastaví vybraná kategorie a šablona.",
         replyEmailSignatureTitle: "Podpis pro odpovědi na email (HTML)",
@@ -34472,6 +34480,8 @@ export const translations: Record<Locale, Translations> = {
         nexusRestoreBlocked: "A visszaállítás előtt szüneteltesse az aktív kampányt.",
         settingsGroupDialer: "Tárcsázó",
         settingsGroupDialerDesc: "Automatikus tárcsázás és kapcsolattárcsázási módszerek",
+        personnelDialingTitle: "Hozzárendelt személyzet hívása",
+        personnelDialingDesc: "Engedélyezi az ügynököknek a klinikák és kórházak hozzárendelt személyzetének hívását, miközben az intézmény marad a kampánykapcsolat.",
         defaultTemplatesTitle: "Alapértelmezett sablonok (Email / SMS)",
         defaultTemplatesDesc: "Amikor egy ügynök megnyitja az Email vagy SMS fület, a kiválasztott kategória és sablon automatikusan előre kiválasztódik.",
         replyEmailSignatureTitle: "E-mail válasz aláírás (HTML)",
@@ -41866,6 +41876,8 @@ export const translations: Record<Locale, Translations> = {
         nexusRestoreBlocked: "Puneți campania activă în pauză înainte de restaurare.",
         settingsGroupDialer: "Apelare",
         settingsGroupDialerDesc: "Apelare automată și metode de apelare a contactelor",
+        personnelDialingTitle: "Apelarea personalului atribuit",
+        personnelDialingDesc: "Permite agenților să apeleze personalul atribuit clinicilor și spitalelor, păstrând instituția ca contact al campaniei.",
         defaultTemplatesTitle: "Șabloane implicite (Email / SMS)",
         defaultTemplatesDesc: "Când un agent deschide fila Email sau SMS, categoria și șablonul selectate sunt preselectate automat.",
         replyEmailSignatureTitle: "Semnătură pentru răspunsuri email (HTML)",
@@ -49261,6 +49273,8 @@ export const translations: Record<Locale, Translations> = {
         nexusRestoreBlocked: "Metti in pausa la campagna attiva prima del ripristino.",
         settingsGroupDialer: "Compositore",
         settingsGroupDialerDesc: "Composizione automatica e metodi di chiamata dei contatti",
+        personnelDialingTitle: "Chiama il personale assegnato",
+        personnelDialingDesc: "Consente agli agenti di chiamare il personale assegnato a cliniche e ospedali mantenendo l'istituzione come contatto della campagna.",
         defaultTemplatesTitle: "Modelli predefiniti (Email / SMS)",
         defaultTemplatesDesc: "Quando un agente apre la scheda Email o SMS, la categoria e il modello selezionati vengono preselezionati automaticamente.",
         replyEmailSignatureTitle: "Firma per le risposte email (HTML)",
@@ -56656,6 +56670,8 @@ export const translations: Record<Locale, Translations> = {
         nexusRestoreBlocked: "Pausieren Sie die aktive Kampagne vor der Wiederherstellung.",
         settingsGroupDialer: "Wähler",
         settingsGroupDialerDesc: "Automatische Anwahl und Kontakt-Wählmethoden",
+        personnelDialingTitle: "Zugewiesenes Personal anrufen",
+        personnelDialingDesc: "Erlaubt Agenten, zugewiesenes Klinik- und Krankenhauspersonal anzurufen, während die Einrichtung Kampagnenkontakt bleibt.",
         defaultTemplatesTitle: "Standardvorlagen (E-Mail / SMS)",
         defaultTemplatesDesc: "Wenn ein Agent die Registerkarte E-Mail oder SMS öffnet, werden die ausgewählte Kategorie und Vorlage automatisch vorausgewählt.",
         replyEmailSignatureTitle: "Signatur für E-Mail-Antworten (HTML)",

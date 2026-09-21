@@ -1645,6 +1645,7 @@ export function SipPhone({
           outboundTrunk: localOutboundTrunkRef.current,
           callerIdNumber: localCallerIdNumberRef.current || collaboratorCallerIdRef.current || null,
           recordingPolicySnapshot: recordingSnapshotRef.current || null,
+          dialedPerson: pendingCall?.dialedPerson || null,
         }),
       });
       if (localCampaignIdRef.current) {

@@ -108,3 +108,4 @@
 - [My Shift Mission scope](my-shift-mission-scope.md) — activity is scoped to the selected Mission on the server and in the client cache; never mix a user's day across Missions.
 - [Saved shift login sets](saved-shift-login-sets.md) — sets are agent-private conveniences; session start must re-authorize every Mission, queue, and Back Office scope.
 - [Shift login Variant A](shift-login-variant-a.md) — approved design requires literal palette and structure fidelity, not a theme-token approximation or isolated larger CTA.
+- [Personnel call attribution](personnel-call-attribution.md) — dial a person, but keep Mission ownership on the parent institution; lifecycle history needs DB-backed idempotency.

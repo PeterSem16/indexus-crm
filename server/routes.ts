@@ -102,6 +102,10 @@ import {
   type MissionCallRecordingSnapshot,
 } from "@shared/mission-recording";
 import {
+  isPersonnelDialingEnabled,
+  resolvePersonnelCallTimelineAction,
+} from "./lib/personnel-call-attribution";
+import {
   SCHEDULED_CALLBACK_STATUSES,
   isEligibleScheduledCampaignCallback,
   normalizeLegacyScheduledCallbackStatus,
@@ -27397,6 +27401,15 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         if (!nextSettings || typeof nextSettings !== "object" || Array.isArray(nextSettings)) {
           return res.status(400).json({ error: "Invalid campaign settings" });
         }
+        if (nextSettings.enablePersonnelDialing !== undefined && typeof nextSettings.enablePersonnelDialing !== "boolean") {
+          return res.status(400).json({ error: "enablePersonnelDialing must be a boolean" });
+        }
+        if (
+          currentSettings.enablePersonnelDialing !== nextSettings.enablePersonnelDialing
+          && !["admin", "manager"].includes(req.session.user!.role)
+        ) {
+          return res.status(403).json({ error: "Only managers can change personnel dialing" });
+        }
         nextSettings = preserveCampaignContactVisibility(currentSettings, nextSettings);
         const canManageMissionFaq = ["admin", "manager"].includes(req.session.user!.role);
         const contactVisibility = nextSettings.contactVisibility;
@@ -35612,6 +35625,9 @@ Respond ONLY with valid JSON in this exact format:
         }
       }
       const sessionUserId = req.session.user!.id;
+      const dialedPerson = metadata.dialedPerson && typeof metadata.dialedPerson === "object" && !Array.isArray(metadata.dialedPerson)
+        ? metadata.dialedPerson as Record<string, unknown> : null;
+      let trustedContactForCall: any = null;
       let trustedInboundRecordingSnapshot: MissionCallRecordingSnapshot | null = null;
       if (req.body?.direction === "inbound") {
         if (req.body?.inboundCallLogId) {
@@ -35640,6 +35656,15 @@ Respond ONLY with valid JSON in this exact format:
           eq(campaignContacts.campaignId, String(req.body.campaignId)),
         )).limit(1);
         if (!trustedContact) return res.status(403).json({ error: "Campaign contact does not belong to this Mission" });
+        trustedContactForCall = trustedContact;
+        const role = String(req.session.user!.role || "").toLowerCase();
+        if (role !== "admin" && role !== "manager") {
+          const [assignment] = await db.select({ id: campaignAgents.id }).from(campaignAgents).where(and(
+            eq(campaignAgents.campaignId, String(req.body.campaignId)),
+            eq(campaignAgents.userId, sessionUserId),
+          )).limit(1);
+          if (!assignment) return res.status(403).json({ error: "User is not assigned to this Mission" });
+        }
 
         let trustedPhones: Array<string | null | undefined> = [];
         if (trustedContact.contactType === "clinic" && trustedContact.clinicId) {
@@ -35661,9 +35686,52 @@ Respond ONLY with valid JSON in this exact format:
         }
         const normalizePhone = (value: unknown) => String(value || "").replace(/\D/g, "").slice(-9);
         const requestedPhone = normalizePhone(req.body.phoneNumber);
-        if (!requestedPhone || !trustedPhones.some(phone => normalizePhone(phone) === requestedPhone)) {
+        if (!dialedPerson && (!requestedPhone || !trustedPhones.some(phone => normalizePhone(phone) === requestedPhone))) {
           return res.status(403).json({ error: "Dialed number does not belong to this campaign contact" });
         }
+      }
+      // Personnel dialing is an explicit Mission capability. Keep the parent
+      // institution in customerId/contactType/campaignContactId and validate
+      // the separately supplied person against the institution assignment.
+      if (dialedPerson) {
+        const trustedType = trustedContactForCall?.contactType;
+        const trustedEntityId = trustedType === "clinic" ? trustedContactForCall?.clinicId
+          : trustedType === "hospital" ? trustedContactForCall?.hospitalId : null;
+        if (!req.body?.campaignId || !req.body?.customerId ||
+            !["clinic", "hospital"].includes(String(trustedType)) ||
+            String(req.body.customerId) !== String(trustedEntityId || "")) {
+          return res.status(400).json({ error: "Personnel dialing requires an institution campaign contact" });
+        }
+        const [mission] = await db.select({ settings: campaigns.settings })
+          .from(campaigns).where(eq(campaigns.id, String(req.body.campaignId))).limit(1);
+        if (!isPersonnelDialingEnabled(mission?.settings)) {
+          return res.status(403).json({ error: "Personnel dialing is disabled for this Mission" });
+        }
+        const personId = String(dialedPerson.id || "");
+        if (!personId || personId.startsWith("clinic-doctor-")) {
+          return res.status(400).json({ error: "This personnel record has no canonical person identity" });
+        }
+        const assignment = await db.execute(sql`
+          SELECT 1 FROM contact_assignments
+          WHERE entity_type = ${String(trustedType)}
+            AND entity_id = ${String(req.body.customerId)}
+            AND person_id = ${personId}
+          UNION ALL
+          SELECT 1 FROM collaborators c
+          WHERE c.id = ${personId}
+            AND ${String(trustedType)} = 'hospital'
+            AND (c.hospital_id = ${String(req.body.customerId)} OR ${String(req.body.customerId)} = ANY(c.hospital_ids))
+          LIMIT 1
+        `);
+        if (!assignment.rows?.length) return res.status(403).json({ error: "Person is not assigned to this institution" });
+        const [person] = await db.execute(sql`SELECT phone, mobile FROM collaborators WHERE id = ${personId} LIMIT 1`).then(r => (r.rows || []) as any[]);
+        const normalize = (v: unknown) => String(v || "").replace(/\D/g, "").slice(-9);
+        if (!person || ![person.phone, person.mobile].some((v: unknown) => normalize(v) === normalize(req.body.phoneNumber))) {
+          return res.status(403).json({ error: "Dialed number does not belong to the assigned person" });
+        }
+        metadata.dialedPerson = { id: personId, name: dialedPerson.name || null };
+        metadata.parentEntityType = trustedType;
+        metadata.parentEntityId = String(req.body.customerId);
       }
 
       if (req.body?.direction === "inbound") {
@@ -35704,6 +35772,23 @@ Respond ONLY with valid JSON in this exact format:
         userId: sessionUserId
       });
       const log = await storage.createCallLog(validated);
+      if (dialedPerson && trustedContactForCall && log.campaignId) {
+        const [person] = await db.select({ firstName: collaborators.firstName, lastName: collaborators.lastName })
+          .from(collaborators).where(eq(collaborators.id, String(dialedPerson.id))).limit(1);
+        const [mission] = await db.select({ name: campaigns.name }).from(campaigns).where(eq(campaigns.id, String(log.campaignId))).limit(1);
+        await storage.createEntityCampaignTimelineEntry({
+          entityType: "collaborator",
+          entityId: String(dialedPerson.id),
+          entityName: person ? `${person.firstName || ""} ${person.lastName || ""}`.trim() : String(dialedPerson.name || ""),
+          campaignId: String(log.campaignId),
+          campaignName: mission?.name || null,
+          campaignContactId: log.campaignContactId || null,
+          channel: "phone",
+          action: "call_made",
+          userId: sessionUserId,
+          metadata: { callLogId: log.id, parentEntityType: trustedContactForCall.contactType, parentEntityId: log.customerId },
+        });
+      }
 
       if (log.inboundCallLogId) {
         const updates: Record<string, any> = { callLogId: log.id };
@@ -35734,6 +35819,8 @@ Respond ONLY with valid JSON in this exact format:
       // Attribution and the policy lookup key are fixed when the call starts.
       delete req.body.userId;
       delete req.body.campaignId;
+      delete req.body.campaignContactId;
+      delete req.body.customerId;
       // Preserve the start-time recording snapshot across all later call-log writes.
       if (req.body?.metadata !== undefined) {
         let oldMetadata: Record<string, unknown> = {};
@@ -35767,11 +35854,46 @@ Respond ONLY with valid JSON in this exact format:
         } else {
           delete nextMetadata.agentOnlyRecordingContext;
         }
+        if (oldMetadata.dialedPerson) {
+          nextMetadata.dialedPerson = oldMetadata.dialedPerson;
+          nextMetadata.parentEntityType = oldMetadata.parentEntityType;
+          nextMetadata.parentEntityId = oldMetadata.parentEntityId;
+        } else {
+          delete nextMetadata.dialedPerson;
+        }
         req.body.metadata = JSON.stringify(nextMetadata);
       }
       const log = await storage.updateCallLog(req.params.id, req.body);
       if (!log) {
         return res.status(404).json({ error: "Call log not found" });
+      }
+      const personTimelineAction = resolvePersonnelCallTimelineAction(req.body.status);
+      if (personTimelineAction) {
+        let md: any = {};
+        try { md = log.metadata ? JSON.parse(log.metadata) : {}; } catch {}
+        const person = md.dialedPerson;
+        if (person?.id && log.campaignId) {
+          await db.transaction(async (tx) => {
+            const claim = await tx.execute(sql`
+              INSERT INTO personnel_call_timeline_events (call_log_id, action)
+              VALUES (${String(log.id)}, ${personTimelineAction})
+              ON CONFLICT (call_log_id, action) DO NOTHING
+              RETURNING action
+            `);
+            if (!claim.rows?.length) return;
+            const [collab] = await tx.select({ firstName: collaborators.firstName, lastName: collaborators.lastName }).from(collaborators).where(eq(collaborators.id, String(person.id))).limit(1);
+            const [mission] = await tx.select({ name: campaigns.name }).from(campaigns).where(eq(campaigns.id, String(log.campaignId))).limit(1);
+            await tx.insert(entityCampaignTimeline).values({
+              entityType: "collaborator", entityId: String(person.id),
+              entityName: collab ? `${collab.firstName || ""} ${collab.lastName || ""}`.trim() : String(person.name || ""),
+              campaignId: String(log.campaignId), campaignName: mission?.name || null,
+              campaignContactId: log.campaignContactId || null, channel: "phone", action: personTimelineAction,
+              status: String(req.body.status),
+              userId: log.userId || currentUser.id,
+              metadata: { callLogId: log.id, parentEntityType: md.parentEntityType || null, parentEntityId: md.parentEntityId || log.customerId },
+            });
+          });
+        }
       }
 
       if (log.inboundCallLogId && (req.body.customerId || req.body.status)) {
