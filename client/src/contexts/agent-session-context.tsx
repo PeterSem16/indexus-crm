@@ -24,7 +24,7 @@ interface AgentSessionContextType {
     totalBreakTime: number;
     totalWorkTime: number;
   };
-  startSession: (campaignId?: string | null, campaignIds?: string[], inboundQueueIds?: string[]) => Promise<void>;
+  startSession: (campaignId?: string | null, campaignIds?: string[], inboundQueueIds?: string[], backOffice?: boolean) => Promise<void>;
   endSession: () => Promise<void>;
   updateStatus: (status: AgentStatus) => Promise<void>;
   startBreak: (breakTypeId: string) => Promise<void>;
@@ -120,7 +120,7 @@ export function AgentSessionProvider({ children }: { children: React.ReactNode }
     return () => { if (breakTimerRef.current) clearInterval(breakTimerRef.current); };
   }, [activeBreak]);
 
-  const startSession = useCallback(async (campaignId?: string | null, campaignIds?: string[], inboundQueueIds?: string[]) => {
+  const startSession = useCallback(async (campaignId?: string | null, campaignIds?: string[], inboundQueueIds?: string[], backOffice = false) => {
     try {
       const ids = campaignIds || (campaignId ? [campaignId] : []);
       const res = await fetch("/api/agent-sessions/start", {
@@ -130,6 +130,7 @@ export function AgentSessionProvider({ children }: { children: React.ReactNode }
           campaignId: campaignId || (ids.length > 0 ? ids[0] : null),
           campaignIds: ids,
           inboundQueueIds: inboundQueueIds || [],
+          backOffice,
         }),
         credentials: "include",
       });

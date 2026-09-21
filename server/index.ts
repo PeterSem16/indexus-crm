@@ -1246,6 +1246,31 @@ app.use((req, res, next) => {
     console.error('[migration] agent_phone_entity_preferences error:', e.message);
   }
 
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS agent_shift_login_sets (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id varchar NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name text NOT NULL,
+        campaign_ids text[] NOT NULL DEFAULT '{}',
+        inbound_queue_ids text[] NOT NULL DEFAULT '{}',
+        back_office boolean NOT NULL DEFAULT false,
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now()
+      );
+      ALTER TABLE agent_shift_login_sets
+        DROP CONSTRAINT IF EXISTS agent_shift_login_sets_user_id_name_key;
+      CREATE UNIQUE INDEX IF NOT EXISTS agent_shift_login_sets_user_name_unique
+        ON agent_shift_login_sets(user_id, name);
+      CREATE INDEX IF NOT EXISTS agent_shift_login_sets_user_updated_idx
+        ON agent_shift_login_sets(user_id, updated_at DESC);
+    `);
+    console.log('[migration] agent_shift_login_sets ensured');
+  } catch (e: any) {
+    console.error('[migration] agent_shift_login_sets error:', e.message);
+    throw e;
+  }
+
   // Personal wallboard alarm rules. The scope is deliberately a string rather
   // than a foreign key because "all" is a valid board scope; campaign access
   // is checked by the route before either reading or writing this row.

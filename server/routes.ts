@@ -13,6 +13,7 @@ import { db, pool } from "./db";
 import { evaluateAutomationCondition, updateFieldSnapshot } from "./lib/condition-evaluator";
 import { storage } from "./storage";
 import { registerPhoneCardPreferenceRoutes, type PhoneLookupMatch } from "./phone-card-preference-routes";
+import { registerAgentShiftLoginSetRoutes, sanitizeAgentShiftScope } from "./agent-shift-login-set-routes";
 import { registerWallboardRoutes } from "./wallboard-routes";
 import { registerWallboardPresenceRoutes } from "./wallboard-presence-routes";
 import { 
@@ -4139,6 +4140,7 @@ export async function registerRoutes(
   });
 
   registerPhoneCardPreferenceRoutes(app, requireAuth, getPhoneLookupMatches);
+  registerAgentShiftLoginSetRoutes(app, requireAuth);
 
   app.get("/api/customers/lookup-phone", requireAuth, async (req, res) => {
     try {
@@ -53224,15 +53226,50 @@ Return ONLY the JSON object.`
         await persistAgentStatusToDb(req.session.user!.id, effectiveStatus);
         return res.status(409).json({ error: "Active session already exists", session: existing });
       }
+      const requestedCampaignIds = Array.isArray(req.body?.campaignIds)
+        ? req.body.campaignIds.filter((id: unknown): id is string => typeof id === "string").slice(0, 100)
+        : [];
+      const requestedQueueIds = Array.isArray(req.body?.inboundQueueIds)
+        ? req.body.inboundQueueIds.filter((id: unknown): id is string => typeof id === "string").slice(0, 100)
+        : [];
+      const authorizedScope = await sanitizeAgentShiftScope(
+        req.session.user!.id,
+        req.session.user!.role,
+        {
+          name: "active-session",
+          campaignIds: requestedCampaignIds,
+          inboundQueueIds: requestedQueueIds,
+          backOffice: req.body?.backOffice === true,
+        },
+      );
+      const uniqueRequestedCampaignIds = new Set(requestedCampaignIds);
+      const uniqueRequestedQueueIds = new Set(requestedQueueIds);
+      const scopeWasReduced =
+        authorizedScope.campaignIds.length !== uniqueRequestedCampaignIds.size
+        || authorizedScope.inboundQueueIds.length !== uniqueRequestedQueueIds.size
+        || (req.body?.backOffice === true && !authorizedScope.backOffice);
+      if (scopeWasReduced) {
+        return res.status(403).json({
+          error: "One or more selected shift areas are no longer authorized",
+        });
+      }
+      if (
+        authorizedScope.campaignIds.length === 0
+        && authorizedScope.inboundQueueIds.length === 0
+        && !authorizedScope.backOffice
+      ) {
+        return res.status(400).json({ error: "No currently authorized shift areas were selected" });
+      }
+
       const session = await storage.createAgentSession({
         userId: req.session.user!.id,
-        campaignId: req.body.campaignId || (req.body.campaignIds && req.body.campaignIds.length > 0 ? req.body.campaignIds[0] : null),
-        campaignIds: req.body.campaignIds || [],
-        inboundQueueIds: req.body.inboundQueueIds || [],
+        campaignId: authorizedScope.campaignIds[0] || null,
+        campaignIds: authorizedScope.campaignIds,
+        inboundQueueIds: authorizedScope.inboundQueueIds,
         status: "available",
       });
 
-      const sessionQueueIds = req.body.inboundQueueIds || [];
+      const sessionQueueIds = authorizedScope.inboundQueueIds;
       const engine = getQueueEngine();
       if (engine) {
         await engine.updateAgentStatus(req.session.user!.id, "available", null, sessionQueueIds);

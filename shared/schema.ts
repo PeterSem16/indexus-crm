@@ -6560,6 +6560,36 @@ export const agentPhoneEntityPreferences = pgTable("agent_phone_entity_preferenc
 
 export type AgentPhoneEntityPreference = typeof agentPhoneEntityPreferences.$inferSelect;
 
+// Private, reusable shift-login selections for one agent.
+export const agentShiftLoginSets = pgTable("agent_shift_login_sets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  campaignIds: text("campaign_ids").array().notNull().default(sql`'{}'::text[]`),
+  inboundQueueIds: text("inbound_queue_ids").array().notNull().default(sql`'{}'::text[]`),
+  backOffice: boolean("back_office").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+}, (table) => ({
+  uniqueAgentSetName: uniqueIndex("agent_shift_login_sets_user_name_unique").on(
+    table.userId,
+    table.name,
+  ),
+  agentUpdatedIdx: index("agent_shift_login_sets_user_updated_idx").on(
+    table.userId,
+    table.updatedAt,
+  ),
+}));
+
+export const insertAgentShiftLoginSetSchema = createInsertSchema(agentShiftLoginSets).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type AgentShiftLoginSet = typeof agentShiftLoginSets.$inferSelect;
+export type InsertAgentShiftLoginSet = z.infer<typeof insertAgentShiftLoginSetSchema>;
+
 // DID Routes - routing configuration for DID (Direct Inward Dialing) numbers
 export const didRoutes = pgTable("did_routes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

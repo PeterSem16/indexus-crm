@@ -21,6 +21,7 @@ import {
   orderPhoneMatchesWithRememberedCard,
   type RememberedPhoneCard,
 } from "@/lib/phone-card-preference";
+import { resolveShiftLoginCampaignIds } from "@/lib/shift-login-selection";
 import { PulseMainDialButton, PulseQuickDialButton } from "@/components/pulse-dial-button";
 import { SopPanel } from "@/components/agent/SopPanel";
 import { MyActivityPanel } from "@/components/agent/MyShiftUnified";
@@ -178,11 +179,23 @@ import {
   CheckCheck,
   ClipboardList,
   Save,
+  Bookmark,
+  Plus,
   CornerUpLeft,
   Sparkles,
   Lock,
 } from "lucide-react";
 import type { CSSProperties } from "react";
+
+type ShiftLoginSet = {
+  id: string;
+  name: string;
+  campaignIds: string[];
+  inboundQueueIds: string[];
+  backOffice: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
 import {
   Dialog,
   DialogClose,
@@ -10714,6 +10727,13 @@ function AgentWorkspacePageContent() {
   const [selectedLoginCampaignIds, setSelectedLoginCampaignIds] = useState<string[]>([]);
   const [selectedLoginQueueIds, setSelectedLoginQueueIds] = useState<string[]>([]);
   const [loginBackOffice, setLoginBackOffice] = useState(false);
+  const [activeLoginSetId, setActiveLoginSetId] = useState<string | null>(null);
+  const [savingLoginSet, setSavingLoginSet] = useState(false);
+  const [newLoginSetName, setNewLoginSetName] = useState("");
+  const { data: shiftLoginSets = [] } = useQuery<ShiftLoginSet[]>({
+    queryKey: ["/api/agent/shift-login-sets"],
+    enabled: !!user && sessionLoginOpen && !agentSession.isSessionActive,
+  });
   const [backOfficeModeActive, setBackOfficeModeActive] = useState(false);
   const [mainWorkspaceTab, setMainWorkspaceTab] = useState<"pulse" | "back_office">("pulse");
   const prevStatusBeforeBackOffice = useRef<AgentStatus | null>(null);
@@ -11285,12 +11305,12 @@ function AgentWorkspacePageContent() {
     }
   }, [wrapUpElapsed, mandatoryDisposition]);
 
-  const { data: allCampaigns = [] } = useQuery<Campaign[]>({
+  const { data: allCampaigns = [], isFetched: allCampaignsFetched } = useQuery<Campaign[]>({
     queryKey: ["/api/campaigns"],
-    enabled: !!hasAccess && !!selectedCampaignId,
+    enabled: !!hasAccess,
   });
 
-  const { data: assignedCampaigns = [] } = useQuery<Campaign[]>({
+  const { data: assignedCampaigns = [], isFetched: assignedCampaignsFetched } = useQuery<Campaign[]>({
     queryKey: ["/api/user/assigned-campaigns"],
     enabled: !!hasAccess,
   });
@@ -11323,7 +11343,7 @@ function AgentWorkspacePageContent() {
     return source.filter((c) => campaignFilters.isAvailable(c) && campaignFilters.countryFilter(c));
   }, [allCampaigns, assignedCampaigns, campaignFilters]);
 
-  const { data: myQueues = [] } = useQuery<Array<{
+  const { data: myQueues = [], isFetched: myQueuesFetched } = useQuery<Array<{
     id: string; name: string; description: string | null; countryCode: string | null;
     didNumber: string | null; strategy: string; isActive: boolean;
     dids: AgentInboundQueueDid[];
@@ -11336,6 +11356,106 @@ function AgentWorkspacePageContent() {
     enabled: !!hasAccess,
     refetchInterval: 10000,
   });
+  const loginAccessReady = allCampaignsFetched && assignedCampaignsFetched && myQueuesFetched;
+
+  const createShiftLoginSetMutation = useMutation({
+    mutationFn: async (payload: {
+      name: string;
+      campaignIds: string[];
+      inboundQueueIds: string[];
+      backOffice: boolean;
+    }) => {
+      const response = await apiRequest("POST", "/api/agent/shift-login-sets", payload);
+      return response.json() as Promise<ShiftLoginSet>;
+    },
+    onSuccess: (created) => {
+      queryClient.setQueryData<ShiftLoginSet[]>(
+        ["/api/agent/shift-login-sets"],
+        (current = []) => [created, ...current.filter((set) => set.id !== created.id)],
+      );
+      setActiveLoginSetId(created.id);
+      setNewLoginSetName("");
+      setSavingLoginSet(false);
+      toast({ title: t.agentSession.loginSetSaved, description: created.name });
+    },
+    onError: (error: Error) => {
+      toast({ title: t.agentSession.loginSetSaveError, description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteShiftLoginSetMutation = useMutation({
+    mutationFn: async (id: string) => apiRequest("DELETE", `/api/agent/shift-login-sets/${id}`, {}),
+    onSuccess: (_response, deletedId) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/shift-login-sets"] });
+      if (activeLoginSetId === deletedId) setActiveLoginSetId(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: t.agentSession.loginSetDeleteError, description: error.message, variant: "destructive" });
+    },
+  });
+
+  const applyShiftLoginSet = useCallback((set: ShiftLoginSet) => {
+    if (!loginAccessReady) return;
+    const allowedCampaignIds = new Set(loginCampaigns.map((campaign) => campaign.id));
+    const allowedQueueIds = new Set(myQueues.filter((queue) => queue.isActive).map((queue) => queue.id));
+    const campaignIds = set.campaignIds.filter((id) => allowedCampaignIds.has(id));
+    const inboundQueueIds = set.inboundQueueIds.filter((id) => allowedQueueIds.has(id));
+    const backOffice = canBackOfficeAgenda && set.backOffice;
+    setSelectedLoginCampaignIds(campaignIds);
+    setSelectedLoginQueueIds(inboundQueueIds);
+    setLoginBackOffice(backOffice);
+    setActiveLoginSetId(set.id);
+    if (campaignIds.length === 0 && inboundQueueIds.length === 0 && !backOffice) {
+      toast({ title: t.agentSession.loginSetUnavailable, variant: "destructive" });
+    }
+  }, [canBackOfficeAgenda, loginAccessReady, loginCampaigns, myQueues, t.agentSession.loginSetUnavailable, toast]);
+
+  useEffect(() => {
+    if (!loginAccessReady) return;
+    const allowedCampaignIds = new Set(loginCampaigns.map((campaign) => campaign.id));
+    const allowedQueueIds = new Set(myQueues.filter((queue) => queue.isActive).map((queue) => queue.id));
+    setSelectedLoginCampaignIds((current) => current.filter((id) => allowedCampaignIds.has(id)));
+    setSelectedLoginQueueIds((current) => current.filter((id) => allowedQueueIds.has(id)));
+    if (!canBackOfficeAgenda) setLoginBackOffice(false);
+  }, [canBackOfficeAgenda, loginAccessReady, loginCampaigns, myQueues]);
+
+  const saveCurrentShiftLoginSet = useCallback(() => {
+    const name = newLoginSetName.trim();
+    if (!name) return;
+    createShiftLoginSetMutation.mutate({
+      name,
+      campaignIds: selectedLoginCampaignIds,
+      inboundQueueIds: selectedLoginQueueIds,
+      backOffice: canBackOfficeAgenda && loginBackOffice,
+    });
+  }, [
+    canBackOfficeAgenda,
+    createShiftLoginSetMutation,
+    loginBackOffice,
+    newLoginSetName,
+    selectedLoginCampaignIds,
+    selectedLoginQueueIds,
+  ]);
+
+  useEffect(() => {
+    if (!activeLoginSetId) return;
+    const activeSet = shiftLoginSets.find((set) => set.id === activeLoginSetId);
+    if (!activeSet) {
+      setActiveLoginSetId(null);
+      return;
+    }
+    const sameCampaigns = [...activeSet.campaignIds].sort().join("|") === [...selectedLoginCampaignIds].sort().join("|");
+    const sameQueues = [...activeSet.inboundQueueIds].sort().join("|") === [...selectedLoginQueueIds].sort().join("|");
+    const sameBackOffice = (canBackOfficeAgenda && activeSet.backOffice) === loginBackOffice;
+    if (!sameCampaigns || !sameQueues || !sameBackOffice) setActiveLoginSetId(null);
+  }, [
+    activeLoginSetId,
+    canBackOfficeAgenda,
+    loginBackOffice,
+    selectedLoginCampaignIds,
+    selectedLoginQueueIds,
+    shiftLoginSets,
+  ]);
 
   const shiftDataCampaignIds = agentSession.isSessionActive
     ? ((((agentSession.session as any)?.campaignIds as string[]) || selectedLoginCampaignIds) || []).join(",")
@@ -12887,6 +13007,137 @@ function AgentWorkspacePageContent() {
     }
   };
 
+  const renderShiftLoginSets = (compact = false) => {
+    const totalSelected = selectedLoginCampaignIds.length
+      + selectedLoginQueueIds.length
+      + (loginBackOffice ? 1 : 0);
+    return (
+      <div className={compact ? "rounded-2xl border bg-muted/20 p-3" : "mt-3 pt-3 border-t border-border"}>
+        <div className="mb-2 flex items-start justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-1.5">
+              <Bookmark className="h-3.5 w-3.5 text-primary" />
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {t.agentSession.loginSetsTitle}
+              </span>
+            </div>
+            <p className="mt-0.5 text-[10px] text-muted-foreground">
+              {t.agentSession.loginSetsDescription}
+            </p>
+          </div>
+        </div>
+
+        {shiftLoginSets.length > 0 && (
+          <div className="space-y-1.5" data-testid="shift-login-sets-list">
+            {shiftLoginSets.map((set) => {
+              const isActive = activeLoginSetId === set.id;
+              const itemCount = set.campaignIds.length + set.inboundQueueIds.length + (set.backOffice ? 1 : 0);
+              return (
+                <div
+                  key={set.id}
+                  className={`group flex items-center gap-2 rounded-lg border px-2 py-1.5 transition ${
+                    isActive ? "border-primary/40 bg-primary/5" : "border-border bg-card hover:border-primary/25"
+                  }`}
+                  data-testid={`shift-login-set-${set.id}`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => applyShiftLoginSet(set)}
+                    disabled={!loginAccessReady}
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left disabled:cursor-wait disabled:opacity-50"
+                    aria-label={`${t.agentSession.applyLoginSet}: ${set.name}`}
+                  >
+                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${
+                      isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                    }`}>
+                      <Bookmark className="h-3 w-3" fill={isActive ? "currentColor" : "none"} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[11px] font-semibold text-foreground">{set.name}</span>
+                      <span className="block truncate text-[9px] text-muted-foreground">
+                        {set.campaignIds.length} {t.agentSession.loginSetMissions}
+                        {" · "}{set.inboundQueueIds.length} {t.agentSession.loginSetQueues}
+                        {set.backOffice ? ` · ${t.agentSession.backOfficeAgendaTitle}` : ""}
+                      </span>
+                    </span>
+                    <span className="text-[10px] font-semibold text-muted-foreground">{itemCount}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteShiftLoginSetMutation.mutate(set.id)}
+                    disabled={deleteShiftLoginSetMutation.isPending}
+                    className="rounded p-1 text-muted-foreground opacity-60 transition hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 disabled:opacity-30"
+                    aria-label={`${t.agentSession.deleteLoginSet}: ${set.name}`}
+                    data-testid={`delete-shift-login-set-${set.id}`}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {savingLoginSet ? (
+          <div className="mt-2 rounded-lg border bg-card p-2">
+            <Input
+              autoFocus
+              value={newLoginSetName}
+              onChange={(event) => setNewLoginSetName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") saveCurrentShiftLoginSet();
+                if (event.key === "Escape") {
+                  setSavingLoginSet(false);
+                  setNewLoginSetName("");
+                }
+              }}
+              placeholder={t.agentSession.loginSetNamePlaceholder}
+              className="h-8 text-xs"
+              maxLength={80}
+              data-testid="input-shift-login-set-name"
+            />
+            <div className="mt-2 flex justify-end gap-1.5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-[10px]"
+                onClick={() => {
+                  setSavingLoginSet(false);
+                  setNewLoginSetName("");
+                }}
+              >
+                {t.common.cancel}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="h-7 px-2.5 text-[10px]"
+                onClick={saveCurrentShiftLoginSet}
+                disabled={!newLoginSetName.trim() || totalSelected === 0 || createShiftLoginSetMutation.isPending}
+                data-testid="save-shift-login-set"
+              >
+                {createShiftLoginSetMutation.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                {t.agentSession.saveLoginSet}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setSavingLoginSet(true)}
+            disabled={totalSelected === 0 || !loginAccessReady}
+            className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border px-2 py-2 text-[10px] font-semibold text-muted-foreground transition hover:border-primary/40 hover:bg-primary/5 hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+            data-testid="open-save-shift-login-set"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            {t.agentSession.saveCurrentAsLoginSet}
+          </button>
+        )}
+      </div>
+    );
+  };
+
   const handleStartSession = async () => {
     try {
       if (callContext.callState !== "idle") {
@@ -12905,8 +13156,15 @@ function AgentWorkspacePageContent() {
       setCallNotes("");
       setStats({ calls: 0, emails: 0, sms: 0 });
 
-      const loginIds = selectedLoginCampaignIds.length > 0 ? selectedLoginCampaignIds : (selectedCampaignId ? [selectedCampaignId] : []);
-      await agentSession.startSession(loginIds.length > 0 ? loginIds[0] : null, loginIds, selectedLoginQueueIds);
+      // The login modal selection is authoritative. Queue-only and Back
+      // Office-only shifts must never inherit a Mission from a previous shift.
+      const loginIds = resolveShiftLoginCampaignIds(selectedLoginCampaignIds);
+      await agentSession.startSession(
+        loginIds.length > 0 ? loginIds[0] : null,
+        loginIds,
+        selectedLoginQueueIds,
+        loginBackOffice && canBackOfficeAgenda,
+      );
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       queryClient.invalidateQueries({ queryKey: ["/api/user/assigned-campaigns"] });
       if (loginIds.length > 0) {
@@ -14325,7 +14583,7 @@ function AgentWorkspacePageContent() {
                   <Headphones className="h-6 w-6 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-lg font-bold leading-tight">Prihlásiť sa na zmenu</p>
+                  <p className="text-lg font-bold leading-tight">{t.agentSession.shiftLogin}</p>
                   <p className="text-sm text-muted-foreground truncate">{(user as any)?.fullName || user?.username || ""}</p>
                 </div>
               </div>
@@ -14370,12 +14628,14 @@ function AgentWorkspacePageContent() {
           {isMobile ? (
             <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
               <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+                {renderShiftLoginSets(true)}
+
                 {/* Kampane */}
                 <div>
                   <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">{t.agentWorkspace.campaigns}</p>
                   <div className="space-y-2">
                     {loginCampaigns.length === 0 ? (
-                      <p className="text-sm text-muted-foreground px-1">Žiadne dostupné kampane</p>
+                      <p className="text-sm text-muted-foreground px-1">{t.agentWorkspace.noCampaigns}</p>
                     ) : loginCampaigns.map((campaign) => {
                       const isChecked = selectedLoginCampaignIds.includes(campaign.id);
                       return (
@@ -14445,21 +14705,47 @@ function AgentWorkspacePageContent() {
                     </div>
                   </div>
                 )}
+
+                {canBackOfficeAgenda && (
+                  <button
+                    type="button"
+                    onClick={() => setLoginBackOffice((value) => !value)}
+                    className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl border text-left transition-all active:scale-[0.98] ${
+                      loginBackOffice ? "bg-primary/5 border-primary/30" : "bg-card border-border"
+                    }`}
+                    data-testid="mobile-login-back-office-toggle"
+                  >
+                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
+                      loginBackOffice ? "bg-primary/10" : "bg-muted"
+                    }`}>
+                      <ClipboardList className={`h-5 w-5 ${loginBackOffice ? "text-primary" : "text-muted-foreground"}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-base font-semibold truncate">{t.agentSession.backOfficeAgendaTitle}</p>
+                      <p className="text-xs text-muted-foreground">{t.agentSession.backOfficeAgendaSubtitle}</p>
+                    </div>
+                    <div className={`h-6 w-6 rounded-lg border-2 flex items-center justify-center shrink-0 ${
+                      loginBackOffice ? "bg-primary border-primary" : "border-muted-foreground/30"
+                    }`}>
+                      {loginBackOffice && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+                    </div>
+                  </button>
+                )}
               </div>
 
               {/* Štart tlačidlo */}
               <div className="px-4 pb-6 pt-3 shrink-0 border-t bg-card/80">
                 <button
                   onClick={handleStartSession}
-                  disabled={selectedLoginCampaignIds.length === 0 && selectedLoginQueueIds.length === 0}
+                  disabled={selectedLoginCampaignIds.length === 0 && selectedLoginQueueIds.length === 0 && !loginBackOffice}
                   className="w-full h-16 rounded-2xl bg-primary text-primary-foreground font-bold text-lg flex items-center justify-center gap-3 shadow-xl shadow-primary/25 active:scale-[0.98] transition-all disabled:opacity-40"
                   data-testid="button-start-session"
                 >
                   <Headphones className="h-6 w-6" />
-                  Spustiť zmenu
+                  {t.agentSession.startShift}
                 </button>
-                {selectedLoginCampaignIds.length === 0 && selectedLoginQueueIds.length === 0 && (
-                  <p className="text-center text-sm mt-2 text-muted-foreground">Vyberte aspoň jednu misiu alebo frontu</p>
+                {selectedLoginCampaignIds.length === 0 && selectedLoginQueueIds.length === 0 && !loginBackOffice && (
+                  <p className="text-center text-sm mt-2 text-muted-foreground">{t.agentSession.selectAtLeastOne}</p>
                 )}
               </div>
             </div>
@@ -14468,6 +14754,8 @@ function AgentWorkspacePageContent() {
 
             {/* ─── Ľavý stĺpec: Today's Activities + Scheduled Calls ─── */}
             <div className="overflow-y-auto px-4 py-4 bg-muted/10 dark:bg-muted/5">
+              {renderShiftLoginSets()}
+
               {(() => {
                 const selectedCamps = loginCampaigns.filter(c => selectedLoginCampaignIds.includes(c.id));
                 const maxCallQuota = selectedCamps.length > 0
@@ -14905,14 +15193,17 @@ function AgentWorkspacePageContent() {
                 )}
 
                 <Button
-                  className="w-full gap-2 h-11 font-semibold"
+                  className="group w-full h-16 gap-3 rounded-2xl px-4 text-base font-bold shadow-[0_10px_24px_hsl(var(--primary)/0.28)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_30px_hsl(var(--primary)/0.34)]"
                   onClick={handleStartSession}
                   disabled={selectedLoginCampaignIds.length === 0 && selectedLoginQueueIds.length === 0 && !loginBackOffice}
                   data-testid="button-start-session"
+                  aria-label={`${t.agentSession.startShift}: ${selectedLoginCampaignIds.length + selectedLoginQueueIds.length + (loginBackOffice ? 1 : 0)}`}
                 >
-                  <Headphones className="h-4 w-4" />
-                  {t.agentSession.startShift}
-                  <ArrowRight className="h-4 w-4" />
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-foreground/15">
+                    <Headphones className="h-5 w-5" />
+                  </span>
+                  <span className="flex-1 text-left">{t.agentSession.startShift}</span>
+                  <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </Button>
                 {selectedLoginCampaignIds.length === 0 && selectedLoginQueueIds.length === 0 && !loginBackOffice && (
                   <p className="text-center text-[11px] mt-2 text-muted-foreground">{t.agentSession.selectAtLeastOne}</p>

@@ -106,3 +106,4 @@
 - [Scheduled queue visual direction](scheduled-queue-visual-direction.md) — use compact blue agenda cards; rescheduling must be clear, separate date/time, and default to weekdays only.
 - [Ubuntu static asset delivery](ubuntu-static-asset-delivery.md) — nginx does not compress upstream bundles; keep Node Brotli/gzip and immutable caching for hashed assets.
 - [My Shift Mission scope](my-shift-mission-scope.md) — activity is scoped to the selected Mission on the server and in the client cache; never mix a user's day across Missions.
+- [Saved shift login sets](saved-shift-login-sets.md) — sets are agent-private conveniences; session start must re-authorize every Mission, queue, and Back Office scope.
