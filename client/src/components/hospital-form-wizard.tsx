@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,6 +63,7 @@ interface HospitalFormWizardProps {
   readOnly?: boolean;
   readOnlyExceptions?: { personnel?: boolean };
   onCallPhone?: (phone: string, person?: { id: string; name?: string }) => void;
+  headerBadge?: ReactNode;
 }
 
 const WIZARD_STEPS = [
@@ -73,7 +74,7 @@ const WIZARD_STEPS = [
   { id: "review", icon: Check },
 ];
 
-export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCancel, mode, readOnly = false, readOnlyExceptions, onCallPhone }: HospitalFormWizardProps) {
+export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCancel, mode, readOnly = false, readOnlyExceptions, onCallPhone, headerBadge }: HospitalFormWizardProps) {
   const roEx = readOnlyExceptions || {};
   const { t } = useI18n();
   const { toast } = useToast();
@@ -754,6 +755,10 @@ export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCanc
 
           {/* Content + footer */}
           <div className="flex flex-col flex-1 overflow-hidden">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-5 py-3">
+              <h3 className="font-semibold text-foreground">{formData.name || t.hospitals?.title || "Nemocnica"}</h3>
+              {headerBadge}
+            </div>
             <fieldset disabled={readOnly && !(inlineTab === "contacts" && roEx.personnel)} className="flex-1 overflow-y-auto px-5 py-4 min-w-0" style={{ minInlineSize: 0 }}>
               {inlineTab === "representative" && initialData?.id ? (
                 <RepresentativePanel entityType="hospital" entityId={initialData.id} />

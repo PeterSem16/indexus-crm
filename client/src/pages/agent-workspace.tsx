@@ -2683,6 +2683,7 @@ export function CommunicationCanvas({
   onBatchUnsavedCountChange,
   slCallbackDate,
   slCallbackActive,
+  unpaidRewardPersonCount = 0,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -2746,6 +2747,7 @@ export function CommunicationCanvas({
   slCallbackDate?: string | null;
   /** True only when the campaign contact status is callback_scheduled — prevents stale callbackDate from showing after a contact reset */
   slCallbackActive?: boolean;
+  unpaidRewardPersonCount?: number;
 }) {
   const personnelDialingEnabled = (() => {
     try {
@@ -4805,6 +4807,11 @@ export function CommunicationCanvas({
                     readOnly={cardsReadOnly}
                     readOnlyExceptions={cardsReadOnlyExceptions}
                     initialData={hospitalData}
+                    headerBadge={unpaidRewardPersonCount > 0 ? (
+                      <Badge className="border border-amber-200 bg-amber-50 text-[10px] font-semibold text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300" data-testid="badge-hospital-unpaid-reward">
+                        {priorityBuilderCopy[locale]?.unpaidRewardBadge || priorityBuilderCopy.en.unpaidRewardBadge}: {unpaidRewardPersonCount}
+                      </Badge>
+                    ) : null}
                     onSuccess={async () => {
                       try {
                         const r = await fetch(`/api/hospitals/${contact.id}`, { credentials: "include" });
@@ -4823,6 +4830,11 @@ export function CommunicationCanvas({
                     open={true}
                     onOpenChange={() => {}}
                     initialData={clinicData}
+                    headerBadge={unpaidRewardPersonCount > 0 ? (
+                      <Badge className="border border-amber-200 bg-amber-50 text-[10px] font-semibold text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300" data-testid="badge-clinic-unpaid-reward">
+                        {priorityBuilderCopy[locale]?.unpaidRewardBadge || priorityBuilderCopy.en.unpaidRewardBadge}: {unpaidRewardPersonCount}
+                      </Badge>
+                    ) : null}
                     onSuccess={async () => {
                       try {
                         const r = await fetch(`/api/clinics/${contact.id}`, { credentials: "include" });
@@ -16033,6 +16045,7 @@ function AgentWorkspacePageContent() {
                 } as any) : prev);
               }}
               campaignContactId={effectiveCampaignContactId}
+              unpaidRewardPersonCount={currentCampaignContact?.unpaidRewardPersonCount || 0}
               initialScriptStepId={currentCampaignContact?.currentScriptStepId || null}
               pendingEmailTemplateId={pendingEmailTemplateId}
               onPendingEmailTemplateHandled={() => setPendingEmailTemplateId(null)}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, type ReactNode } from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -285,6 +285,7 @@ interface ClinicFormSheetProps {
   sheetContentClassName?: string;
   readOnly?: boolean;
   readOnlyExceptions?: { callButtons?: boolean; notes?: boolean; personnel?: boolean; referral?: boolean; contactType?: boolean; contactInfo?: boolean };
+  headerBadge?: ReactNode;
 }
 
 function ClinicPersonnelTab({ clinicId, clinicName, onCallPhone }: { clinicId: string; clinicName: string; onCallPhone?: (phone: string, person?: { id: string; name?: string }) => void }) {
@@ -452,7 +453,7 @@ export function ClinicFormWizard({ initialData, onSuccess, onCancel }: { initial
   );
 }
 
-export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, onPhoneChange, onCallPhone, onPersonnelCallPhone, mode = "sheet", prefillData, onCreated, sheetContentClassName, readOnly = false, readOnlyExceptions }: ClinicFormSheetProps) {
+export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, onPhoneChange, onCallPhone, onPersonnelCallPhone, mode = "sheet", prefillData, onCreated, sheetContentClassName, readOnly = false, readOnlyExceptions, headerBadge }: ClinicFormSheetProps) {
   const roEx = readOnlyExceptions || {};
   const callButtonsEnabled = !readOnly || !!roEx.callButtons;
   const { t } = useI18n();
@@ -1144,6 +1145,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                       {netName}
                     </Badge>
                   ))}
+                  {headerBadge}
                 </div>
                 {initialData && doctorFullName && (
                   <p className="text-xs text-muted-foreground font-normal truncate">{doctorFullName} • {initialData.name}</p>
