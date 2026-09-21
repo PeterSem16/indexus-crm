@@ -1909,6 +1909,9 @@ export interface Translations {
       companyIban: string;
       companySwift: string;
       monthRewards: string;
+      rewardPaid: string;
+      rewardPaidAt: string;
+      rewardNotPaid: string;
       rewardSettings: string;
       fixedAmount: string;
       percentageRate: string;
@@ -10782,6 +10785,9 @@ export const translations: Record<Locale, Translations> = {
         companyIban: 'Company IBAN',
         companySwift: 'Company SWIFT',
         monthRewards: 'Month Rewards',
+        rewardPaid: 'Reward paid',
+        rewardPaidAt: 'Payment date and time',
+        rewardNotPaid: 'Not paid',
         rewardSettings: 'Reward Settings',
         fixedAmount: 'Fixed Amount',
         percentageRate: 'Percentage Rate',
@@ -18399,6 +18405,9 @@ export const translations: Record<Locale, Translations> = {
         companyIban: 'IBAN spoločnosti',
         companySwift: 'SWIFT spoločnosti',
         monthRewards: 'Mesačné odmeny',
+        rewardPaid: 'Vyplatená odmena',
+        rewardPaidAt: 'Dátum a čas úhrady',
+        rewardNotPaid: 'Neuhradené',
         rewardSettings: 'Nastavenie odmien',
         fixedAmount: 'Fixná čiastka',
         percentageRate: 'Percentuálna sadzba',
@@ -25959,6 +25968,9 @@ export const translations: Record<Locale, Translations> = {
         companyIban: 'IBAN společnosti',
         companySwift: 'SWIFT společnosti',
         monthRewards: 'Měsíční odměny',
+        rewardPaid: 'Vyplacená odměna',
+        rewardPaidAt: 'Datum a čas úhrady',
+        rewardNotPaid: 'Neuhrazeno',
         rewardSettings: 'Nastavení odměn',
         fixedAmount: 'Fixní částka',
         percentageRate: 'Procentuální sazba',
@@ -33473,6 +33485,9 @@ export const translations: Record<Locale, Translations> = {
         companyIban: 'Céges IBAN',
         companySwift: 'Céges SWIFT',
         monthRewards: 'Havi jutalmak',
+        rewardPaid: 'Jutalom kifizetve',
+        rewardPaidAt: 'Kifizetés dátuma és időpontja',
+        rewardNotPaid: 'Nincs kifizetve',
         rewardSettings: 'Jutalom beállítások',
         fixedAmount: 'Fix összeg',
         percentageRate: 'Százalékos díj',
@@ -40873,6 +40888,9 @@ export const translations: Record<Locale, Translations> = {
         companyIban: 'IBAN companie',
         companySwift: 'SWIFT companie',
         monthRewards: 'Recompense lunare',
+        rewardPaid: 'Recompensă plătită',
+        rewardPaidAt: 'Data și ora plății',
+        rewardNotPaid: 'Neplătită',
         rewardSettings: 'Setări recompense',
         fixedAmount: 'Sumă fixă',
         percentageRate: 'Rată procentuală',
@@ -48274,6 +48292,9 @@ export const translations: Record<Locale, Translations> = {
         companyIban: 'IBAN aziendale',
         companySwift: 'SWIFT aziendale',
         monthRewards: 'Ricompense mensili',
+        rewardPaid: 'Compenso pagato',
+        rewardPaidAt: 'Data e ora del pagamento',
+        rewardNotPaid: 'Non pagato',
         rewardSettings: 'Impostazioni ricompense',
         fixedAmount: 'Importo fisso',
         percentageRate: 'Tasso percentuale',
@@ -55675,6 +55696,9 @@ export const translations: Record<Locale, Translations> = {
         companyIban: 'Firmen-IBAN',
         companySwift: 'Firmen-SWIFT',
         monthRewards: 'Monatliche Belohnungen',
+        rewardPaid: 'Prämie ausgezahlt',
+        rewardPaidAt: 'Zahlungsdatum und -uhrzeit',
+        rewardNotPaid: 'Nicht bezahlt',
         rewardSettings: 'Vergütungseinstellungen',
         fixedAmount: 'Fester Betrag',
         percentageRate: 'Prozentsatz',

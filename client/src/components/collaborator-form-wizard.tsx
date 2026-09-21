@@ -239,6 +239,8 @@ interface CollaboratorFormData {
   companyIban: string;
   companySwift: string;
   monthRewards: boolean;
+  rewardPaid: boolean;
+  rewardPaidAt: string | null;
   rewardType: string; // 'fixed' | 'percentage' | ''
   fixedRewardAmount: string;
   fixedRewardCurrency: string;
@@ -2086,7 +2088,23 @@ function AddressForm({ collaboratorId, addressType, existingAddress, collaborato
   );
 }
 
-function ActionsTabContent({ collaboratorId, t }: { collaboratorId: string; t: any }) {
+function ActionsTabContent({
+  collaboratorId,
+  rewardPaid,
+  rewardPaidAt,
+  onRewardPaidChange,
+  readOnly,
+  locale,
+  t,
+}: {
+  collaboratorId: string;
+  rewardPaid: boolean;
+  rewardPaidAt: string | null;
+  onRewardPaidChange: (paid: boolean) => void;
+  readOnly?: boolean;
+  locale: string;
+  t: any;
+}) {
   const { data: activities = [], isLoading } = useQuery<CollaboratorActivity[]>({
     queryKey: ["/api/collaborators", collaboratorId, "activities"],
     queryFn: async () => {
@@ -2114,7 +2132,36 @@ function ActionsTabContent({ collaboratorId, t }: { collaboratorId: string; t: a
   }
 
   return (
-    <div>
+    <div className="space-y-5">
+      <div className="rounded-lg border bg-muted/20 p-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <Switch
+              checked={rewardPaid}
+              onCheckedChange={onRewardPaidChange}
+              disabled={readOnly}
+              data-testid="wizard-switch-collaborator-reward-paid"
+            />
+            <div>
+              <Label>{t.collaborators.fields.rewardPaid}</Label>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {rewardPaidAt
+                  ? new Date(rewardPaidAt).toLocaleString(locale)
+                  : t.collaborators.fields.rewardNotPaid}
+              </p>
+            </div>
+          </div>
+          <div className="w-full space-y-2 sm:w-72">
+            <Label>{t.collaborators.fields.rewardPaidAt}</Label>
+            <Input
+              value={rewardPaidAt ? new Date(rewardPaidAt).toLocaleString(locale) : ""}
+              placeholder={t.collaborators.fields.rewardNotPaid}
+              readOnly
+              data-testid="wizard-input-collaborator-reward-paid-at"
+            />
+          </div>
+        </div>
+      </div>
       {activities.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground" data-testid="text-no-activities">{t.common.noData}</div>
       ) : (
@@ -3652,6 +3699,10 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onPhoneChange, 
           companyIban: initialData.companyIban || "",
           companySwift: initialData.companySwift || "",
           monthRewards: initialData.monthRewards,
+          rewardPaid: (initialData as any).rewardPaid ?? false,
+          rewardPaidAt: (initialData as any).rewardPaidAt
+            ? new Date((initialData as any).rewardPaidAt).toISOString()
+            : null,
           rewardType: (initialData as any).rewardType || "",
           fixedRewardAmount: (initialData as any).fixedRewardAmount || "",
           fixedRewardCurrency: (initialData as any).fixedRewardCurrency || "EUR",
@@ -3711,6 +3762,8 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onPhoneChange, 
           companyIban: "",
           companySwift: "",
           monthRewards: false,
+          rewardPaid: false,
+          rewardPaidAt: null,
           rewardType: "",
           fixedRewardAmount: "",
           fixedRewardCurrency: "EUR",
@@ -5361,7 +5414,19 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onPhoneChange, 
       
       case "actions":
         return initialData ? (
-          <ActionsTabContent collaboratorId={initialData.id} t={t} />
+          <ActionsTabContent
+            collaboratorId={initialData.id}
+            rewardPaid={formData.rewardPaid}
+            rewardPaidAt={formData.rewardPaidAt}
+            onRewardPaidChange={(paid) => setFormData((current) => ({
+              ...current,
+              rewardPaid: paid,
+              rewardPaidAt: paid ? new Date().toISOString() : null,
+            }))}
+            readOnly={readOnly}
+            locale={locale}
+            t={t}
+          />
         ) : (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <Activity className="h-12 w-12 text-muted-foreground mb-4" />

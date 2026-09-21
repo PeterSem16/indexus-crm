@@ -498,6 +498,13 @@ app.use((req, res, next) => {
     console.log('[migration] Hospital full_name synced');
 
     await pool.query(`
+      ALTER TABLE collaborators
+        ADD COLUMN IF NOT EXISTS reward_paid boolean NOT NULL DEFAULT false,
+        ADD COLUMN IF NOT EXISTS reward_paid_at timestamp;
+    `);
+    console.log('[migration] collaborator reward payment status ensured');
+
+    await pool.query(`
       UPDATE customers 
       SET client_status = 'in_process', 
           registration_source = 'web_form',

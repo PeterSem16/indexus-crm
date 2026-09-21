@@ -111,3 +111,4 @@
 - [Personnel call attribution](personnel-call-attribution.md) — dial a person, but keep Mission ownership on the parent institution; lifecycle history needs DB-backed idempotency.
 - [Inactive Mission contacts](inactive-mission-contact-calls.md) — inactive cards and history stay readable, but every outbound path must block before SIP with a calm Back Office notice.
 - [Break availability scope](break-availability-scope.md) — break types are global when unscoped; otherwise visible only when the shift matches an assigned Mission or inbound queue.
+- [Person reward payment state](person-reward-payment-state.md) — reward payment is person-level; server owns transition timestamps, separate from reward setup and activity payments.

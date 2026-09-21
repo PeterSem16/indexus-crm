@@ -19248,8 +19248,22 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       // Get old collaborator to compare changes
       const oldCollaborator = await storage.getCollaborator(req.params.id);
       if (!oldCollaborator) return res.status(404).json({ error: "Collaborator not found" });
-      
-      const collaborator = await storage.updateCollaborator(req.params.id, req.body);
+
+      const collaboratorUpdate = { ...req.body };
+      if (Object.prototype.hasOwnProperty.call(collaboratorUpdate, "rewardPaid")) {
+        if (collaboratorUpdate.rewardPaid === true) {
+          collaboratorUpdate.rewardPaidAt = oldCollaborator.rewardPaid
+            ? oldCollaborator.rewardPaidAt
+            : new Date();
+        } else {
+          collaboratorUpdate.rewardPaid = false;
+          collaboratorUpdate.rewardPaidAt = null;
+        }
+      } else {
+        delete collaboratorUpdate.rewardPaidAt;
+      }
+
+      const collaborator = await storage.updateCollaborator(req.params.id, collaboratorUpdate);
       if (!collaborator) return res.status(404).json({ error: "Collaborator not found" });
 
       try {
@@ -19263,7 +19277,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         'firstName', 'middleName', 'lastName', 'titleBefore', 'titleAfter', 'email', 'phone', 'mobile',
         'mobile2', 'collaboratorType', 'agreementType', 'isActive', 'countryCode', 'countryCodes',
         'bankAccountIban', 'swiftCode', 'companyName', 'ico', 'dic', 'icDph',
-        'companyIban', 'companySwift', 'monthRewards', 'clientContact', 'svetZdravia',
+        'companyIban', 'companySwift', 'monthRewards', 'rewardPaid', 'rewardPaidAt', 'clientContact', 'svetZdravia',
         'hospitalId', 'hospitalIds', 'representativeId', 'representativeIds', 'maritalStatus', 'birthPlace',
         'healthInsuranceId', 'note',
         'leadSource', 'leadSourceDate', 'leadSourceNotes', 'conferenceName', 'conferenceDate', 'isReferredByDoctor', 'isFromConference'
