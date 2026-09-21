@@ -2779,10 +2779,6 @@ export function CommunicationCanvas({
     staleTime: 0,
     refetchOnMount: "always",
   });
-  const visibleUnpaidRewardPersonCount = Math.max(
-    directRewardReadiness?.unpaidRewardPersonCount || 0,
-    unpaidRewardPersonCount,
-  );
   const { data: personnelRecipientData } = useQuery<any>({
     queryKey: ["/api/institutions", personnelEntityType, personnelEntityId, "personnel"],
     queryFn: async () => {
@@ -2790,8 +2786,39 @@ export function CommunicationCanvas({
       if (!response.ok) throw new Error("Failed to load assigned personnel");
       return response.json();
     },
-    enabled: personnelDialingEnabled && !!personnelEntityType && !!personnelEntityId,
+    enabled: !!personnelEntityType && !!personnelEntityId,
   });
+  const institutionRewardPersonIds = useMemo(() => {
+    const combined = [...(personnelRecipientData?.assigned || []), ...(personnelRecipientData?.legacy || [])];
+    return [...new Set(
+      combined
+        .filter((person: any) => person?.person_active !== false)
+        .map((person: any) => String(person?.person_id || ""))
+        .filter(Boolean),
+    )];
+  }, [personnelRecipientData]);
+  const { data: institutionRewardCount = 0 } = useQuery<number>({
+    queryKey: ["/api/institutions", personnelEntityType, personnelEntityId, "unpaid-reward-count", institutionRewardPersonIds],
+    queryFn: async () => {
+      const activityLists = await Promise.all(institutionRewardPersonIds.map(async (personId) => {
+        const response = await fetch(`/api/collaborators/${personId}/activities?includeCalls=false`, { credentials: "include" });
+        if (!response.ok) throw new Error("Failed to load personnel activities");
+        return response.json() as Promise<Array<{ rewardPaid?: boolean; rewardPaidAt?: string | null }>>;
+      }));
+      return activityLists.reduce((count, activities) => {
+        const latest = activities[0];
+        return latest && !(latest.rewardPaid && latest.rewardPaidAt) ? count + 1 : count;
+      }, 0);
+    },
+    enabled: !!personnelEntityType && institutionRewardPersonIds.length > 0,
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+  const visibleUnpaidRewardPersonCount = Math.max(
+    directRewardReadiness?.unpaidRewardPersonCount || 0,
+    unpaidRewardPersonCount,
+    institutionRewardCount,
+  );
   const personnelRecipients = useMemo(() => {
     if (!personnelDialingEnabled) return [];
     const combined = [...(personnelRecipientData?.assigned || []), ...(personnelRecipientData?.legacy || [])];
