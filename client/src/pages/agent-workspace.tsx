@@ -1691,9 +1691,21 @@ function TaskListPanel({
                           <TypeIcon className="h-3.5 w-3.5" style={{ color: ac }} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold truncate" style={{ color: "hsl(var(--foreground))" }}>
-                            {entityDisplay.name}
-                          </p>
+                          <div className="flex items-center gap-1 min-w-0">
+                            <p className="text-xs font-semibold truncate min-w-0" style={{ color: "hsl(var(--foreground))" }}>
+                              {entityDisplay.name}
+                            </p>
+                            {(cc.unpaidRewardPersonCount || 0) > 0 && (
+                              <span
+                                className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-300 shrink-0 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800"
+                                title={`${priorityCopy.unpaidRewardBadge}: ${cc.unpaidRewardPersonCount}`}
+                                data-testid={`badge-contact-list-unpaid-reward-${cc.id}`}
+                              >
+                                <DollarSign className="h-2.5 w-2.5" />
+                                {cc.unpaidRewardPersonCount}
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                             {callbackDateStr ? (
                               <>
