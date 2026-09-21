@@ -6132,6 +6132,8 @@ export const agentBreakTypes = pgTable("agent_break_types", {
   icon: varchar("icon", { length: 50 }),
   color: varchar("color", { length: 20 }),
   campaignId: varchar("campaign_id"),
+  campaignIds: text("campaign_ids").array().notNull().default(sql`ARRAY[]::text[]`),
+  inboundQueueIds: text("inbound_queue_ids").array().notNull().default(sql`ARRAY[]::text[]`),
   isDefault: boolean("is_default").default(false),
   isActive: boolean("is_active").default(true),
   maxDurationMinutes: integer("max_duration_minutes"),

@@ -1273,6 +1273,22 @@ app.use((req, res, next) => {
 
   try {
     await pool.query(`
+      ALTER TABLE agent_break_types
+        ADD COLUMN IF NOT EXISTS campaign_ids text[] NOT NULL DEFAULT '{}',
+        ADD COLUMN IF NOT EXISTS inbound_queue_ids text[] NOT NULL DEFAULT '{}';
+      UPDATE agent_break_types
+      SET campaign_ids = ARRAY[campaign_id]
+      WHERE campaign_id IS NOT NULL
+        AND COALESCE(cardinality(campaign_ids), 0) = 0;
+    `);
+    console.log('[migration] agent break Mission/inbound scope ensured');
+  } catch (e: any) {
+    console.error('[migration] agent break Mission/inbound scope error:', e.message);
+    throw e;
+  }
+
+  try {
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS personnel_call_timeline_events (
         call_log_id varchar NOT NULL,
         action text NOT NULL,

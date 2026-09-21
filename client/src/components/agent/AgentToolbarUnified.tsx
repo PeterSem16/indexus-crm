@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
 import "./agent-toolbar-unified.css";
+import { getAgentBreakIcon } from "@/lib/agent-break-icons";
 
 export type AgentToolbarStatus = "available" | "busy" | "break" | "wrap_up" | "offline";
 
@@ -160,19 +161,20 @@ export function AgentToolbarUnified({
                 <>
                   <Separator className="my-1" />
                   <div className="pta-menu-heading">{t.agentSession.breaks}</div>
-                  {breakTypes.map((breakType) => (
-                    <DropdownMenuItem
+                  {breakTypes.map((breakType) => {
+                    const BreakIcon = getAgentBreakIcon(breakType.icon);
+                    return <DropdownMenuItem
                       key={breakType.id}
                       onClick={() => onStartBreak(breakType.id)}
                       className="pta-status-menu-item"
                       data-testid={`menu-item-break-${breakType.id}`}
                     >
-                      <span className="pta-menu-dot pta-menu-dot-break" />
-                      <Coffee className="pta-menu-icon" />
+                      <span className="pta-menu-dot" style={{ backgroundColor: breakType.color || "#EAB308" }} />
+                      <BreakIcon className="pta-menu-icon" style={{ color: breakType.color || "#EAB308" }} />
                       <span>{breakType.name}</span>
                       {breakType.maxDurationMinutes ? <span className="pta-menu-duration">{breakType.maxDurationMinutes}m</span> : null}
-                    </DropdownMenuItem>
-                  ))}
+                    </DropdownMenuItem>;
+                  })}
                 </>
               )}
             </DropdownMenuContent>

@@ -57,7 +57,12 @@ export function AgentSessionProvider({ children }: { children: React.ReactNode }
   });
 
   const { data: breakTypes = [] } = useQuery<AgentBreakType[]>({
-    queryKey: ["/api/agent-break-types"],
+    queryKey: ["/api/agent-break-types", session?.id],
+    queryFn: async () => {
+      const response = await fetch("/api/agent-break-types", { credentials: "include" });
+      if (!response.ok) throw new Error(`Failed to load break types (${response.status})`);
+      return response.json();
+    },
     enabled: !!user,
   });
 
@@ -144,6 +149,7 @@ export function AgentSessionProvider({ children }: { children: React.ReactNode }
         throw new Error(text || "Failed to start session");
       }
       await queryClient.invalidateQueries({ queryKey: ["/api/agent-sessions/active"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/agent-break-types"] });
     } catch (error) {
       throw error;
     }

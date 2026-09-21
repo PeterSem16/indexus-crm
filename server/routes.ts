@@ -53546,9 +53546,25 @@ Return ONLY the JSON object.`
     try {
       const campaignId = req.query.campaignId as string | undefined;
       const includeAll = req.query.all === 'true';
-      const breakTypes = includeAll
+      let breakTypes = includeAll
         ? await storage.getAllAgentBreakTypes()
         : await storage.getAgentBreakTypes(campaignId);
+      if (!includeAll) {
+        const session = await storage.getActiveAgentSession(req.session.user!.id);
+        const sessionCampaignIds = new Set([
+          ...(session?.campaignIds || []),
+          ...(session?.campaignId ? [session.campaignId] : []),
+          ...(campaignId ? [campaignId] : []),
+        ]);
+        const sessionInboundQueueIds = new Set(session?.inboundQueueIds || []);
+        breakTypes = breakTypes.filter((breakType) => {
+          const campaignIds = breakType.campaignIds || [];
+          const inboundQueueIds = breakType.inboundQueueIds || [];
+          if (campaignIds.length === 0 && inboundQueueIds.length === 0) return true;
+          return campaignIds.some((id) => sessionCampaignIds.has(id))
+            || inboundQueueIds.some((id) => sessionInboundQueueIds.has(id));
+        });
+      }
       res.json(breakTypes);
     } catch (error) {
       console.error("Error fetching break types:", error);
@@ -53594,9 +53610,31 @@ Return ONLY the JSON object.`
       if (existing) {
         return res.status(409).json({ error: "Active break already exists", break: existing });
       }
-      const breakType = req.body.breakTypeId 
-        ? (await storage.getAgentBreakTypes()).find(bt => bt.id === req.body.breakTypeId) 
+      const breakType = req.body.breakTypeId
+        ? (await storage.getAllAgentBreakTypes()).find(bt => bt.id === req.body.breakTypeId && bt.isActive)
         : null;
+      if (req.body.breakTypeId && !breakType) {
+        return res.status(400).json({ error: "Break type is not active" });
+      }
+      if (breakType) {
+        const session = await storage.getAgentSession(req.params.sessionId);
+        if (!session || session.userId !== req.session.user!.id || session.endedAt) {
+          return res.status(404).json({ error: "Active agent session not found" });
+        }
+        const sessionCampaignIds = new Set([
+          ...(session.campaignIds || []),
+          ...(session.campaignId ? [session.campaignId] : []),
+        ]);
+        const sessionInboundQueueIds = new Set(session.inboundQueueIds || []);
+        const campaignIds = breakType.campaignIds || [];
+        const inboundQueueIds = breakType.inboundQueueIds || [];
+        const allowed = (campaignIds.length === 0 && inboundQueueIds.length === 0)
+          || campaignIds.some((id) => sessionCampaignIds.has(id))
+          || inboundQueueIds.some((id) => sessionInboundQueueIds.has(id));
+        if (!allowed) {
+          return res.status(403).json({ error: "Break type is not available for this session" });
+        }
+      }
       const brk = await storage.createAgentBreak({
         sessionId: req.params.sessionId,
         userId: req.session.user!.id,

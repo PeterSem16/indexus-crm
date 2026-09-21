@@ -13,6 +13,15 @@ import { PulseMobileDialButton } from "@/components/pulse-dial-button";
 import { priorityBuilderCopy } from "@/components/agent/priority-builder-copy";
 import { QueueMetadataBadges } from "@/components/agent/queue-metadata-badges";
 import { getPriorityContactCityLocation, isPriorityNewReferral, isPriorityReferral, type PriorityQueueItem, type PriorityQueueSegmentId } from "@/components/agent/priority-builder";
+import { getAgentBreakIcon } from "@/lib/agent-break-icons";
+
+type MobileBreakType = {
+  id: string;
+  name: string;
+  icon?: string | null;
+  color?: string | null;
+  maxDurationMinutes?: number | null;
+};
 
 /* ── helpers ────────────────────────────────────────────────────────── */
 const fmtDur = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -100,7 +109,7 @@ export interface MobileAgentWorkspaceProps {
   agentStatus: string;
   isOnBreak: boolean;
   workTime: string;
-  breakTypes: Array<{ id: string; name: string; maxDurationMinutes?: number }>;
+  breakTypes: MobileBreakType[];
   onEndSession: () => void;
   onStartBreak: (id: string) => void;
   onEndBreak: () => void;
@@ -126,7 +135,7 @@ export interface MobileAgentWorkspaceProps {
 function MobileHeader({ agentStatus, isOnBreak, workTime, breakTypes, onStartBreak, onEndBreak,
   breakMenuOpen, setBreakMenuOpen, onLogout, t }: {
   agentStatus: string; isOnBreak: boolean; workTime: string;
-  breakTypes: Array<{ id: string; name: string; maxDurationMinutes?: number }>;
+  breakTypes: MobileBreakType[];
   onStartBreak: (id: string) => void; onEndBreak: () => void;
   breakMenuOpen: boolean; setBreakMenuOpen: (v: boolean) => void;
   onLogout?: () => void;
@@ -178,7 +187,7 @@ function MobileHeader({ agentStatus, isOnBreak, workTime, breakTypes, onStartBre
 /* ── BreakMenu ──────────────────────────────────────────────────────── */
 function BreakMenu({ isOnBreak, breakTypes, onStartBreak, onEndBreak, setBreakMenuOpen, t }: {
   isOnBreak: boolean;
-  breakTypes: Array<{ id: string; name: string; maxDurationMinutes?: number }>;
+  breakTypes: MobileBreakType[];
   onStartBreak: (id: string) => void; onEndBreak: () => void;
   setBreakMenuOpen: (v: boolean) => void;
   t: any;
@@ -201,15 +210,21 @@ function BreakMenu({ isOnBreak, breakTypes, onStartBreak, onEndBreak, setBreakMe
           </div>
         </button>
       ) : (
-        breakTypes.map((bt) => (
+        breakTypes.map((bt) => {
+          const BreakIcon = getAgentBreakIcon(bt.icon);
+          const color = bt.color || "#EAB308";
+          return (
           <button
             key={bt.id}
             onClick={() => { onStartBreak(bt.id); setBreakMenuOpen(false); }}
             className="w-full flex items-center gap-3 px-5 py-4 text-left active:bg-muted border-t first:border-t-0"
             data-testid={`btn-mobile-break-${bt.id}`}
           >
-            <div className="h-10 w-10 rounded-full bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center shrink-0">
-              <Coffee className="h-5 w-5 text-yellow-600" />
+            <div
+              className="h-10 w-10 rounded-full flex items-center justify-center shrink-0"
+              style={{ backgroundColor: `${color}18`, border: `1px solid ${color}55` }}
+            >
+              <BreakIcon className="h-5 w-5" style={{ color }} />
             </div>
             <div>
               <p className="text-sm font-bold">{bt.name}</p>
@@ -218,7 +233,8 @@ function BreakMenu({ isOnBreak, breakTypes, onStartBreak, onEndBreak, setBreakMe
               )}
             </div>
           </button>
-        ))
+          );
+        })
       )}
     </div>
   );

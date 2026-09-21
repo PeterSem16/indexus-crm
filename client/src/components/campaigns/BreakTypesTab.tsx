@@ -2,13 +2,14 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useI18n } from "@/i18n";
-import type { AgentBreakType } from "@shared/schema";
+import type { AgentBreakType, Campaign, InboundQueue } from "@shared/schema";
 import type { Locale } from "@/i18n/translations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
@@ -68,33 +69,9 @@ import {
   Users,
   AlertTriangle,
 } from "lucide-react";
+import { AGENT_BREAK_ICON_OPTIONS, getAgentBreakIcon } from "@/lib/agent-break-icons";
 
-const ICON_OPTIONS: { name: string; icon: typeof Coffee }[] = [
-  { name: "Coffee", icon: Coffee },
-  { name: "Utensils", icon: Utensils },
-  { name: "Clock", icon: Clock },
-  { name: "Timer", icon: Timer },
-  { name: "BookOpen", icon: BookOpen },
-  { name: "Briefcase", icon: Briefcase },
-  { name: "Heart", icon: Heart },
-  { name: "Phone", icon: Phone },
-  { name: "MessageSquare", icon: MessageSquare },
-  { name: "Pause", icon: Pause },
-  { name: "Moon", icon: Moon },
-  { name: "Sun", icon: Sun },
-  { name: "Zap", icon: Zap },
-  { name: "Shield", icon: Shield },
-  { name: "Star", icon: Star },
-  { name: "Music", icon: Music },
-  { name: "Headphones", icon: Headphones },
-  { name: "Dumbbell", icon: Dumbbell },
-  { name: "Cigarette", icon: Cigarette },
-  { name: "Droplets", icon: Droplets },
-  { name: "Brain", icon: Brain },
-  { name: "Stethoscope", icon: Stethoscope },
-  { name: "GraduationCap", icon: GraduationCap },
-  { name: "Users", icon: Users },
-];
+const ICON_OPTIONS = AGENT_BREAK_ICON_OPTIONS;
 
 const COLOR_OPTIONS = [
   "#EAB308", "#F59E0B", "#F97316", "#EF4444", "#EC4899",
@@ -113,11 +90,7 @@ const SUPPORTED_LOCALES: { code: Locale; label: string }[] = [
   { code: "de", label: "Deutsch" },
 ];
 
-function getIconComponent(iconName: string | null | undefined) {
-  if (!iconName) return Coffee;
-  const found = ICON_OPTIONS.find((i) => i.name === iconName);
-  return found ? found.icon : Coffee;
-}
+const getIconComponent = getAgentBreakIcon;
 
 interface BreakTypeFormData {
   name: string;
@@ -128,6 +101,8 @@ interface BreakTypeFormData {
   maxDurationMinutes: number | null;
   expectedDurationMinutes: number | null;
   translations: Record<string, string>;
+  campaignIds: string[];
+  inboundQueueIds: string[];
 }
 
 const defaultFormData: BreakTypeFormData = {
@@ -139,6 +114,8 @@ const defaultFormData: BreakTypeFormData = {
   maxDurationMinutes: null,
   expectedDurationMinutes: null,
   translations: {},
+  campaignIds: [],
+  inboundQueueIds: [],
 };
 
 export function BreakTypesTab() {
@@ -153,6 +130,12 @@ export function BreakTypesTab() {
   const { data: breakTypes = [], isLoading } = useQuery<AgentBreakType[]>({
     queryKey: ["/api/agent-break-types", { all: true }],
     queryFn: () => fetch("/api/agent-break-types?all=true", { credentials: "include" }).then(r => r.json()),
+  });
+  const { data: campaigns = [] } = useQuery<Campaign[]>({
+    queryKey: ["/api/campaigns"],
+  });
+  const { data: inboundQueues = [] } = useQuery<InboundQueue[]>({
+    queryKey: ["/api/inbound-queues"],
   });
 
   const invalidateAll = () => {
@@ -211,6 +194,8 @@ export function BreakTypesTab() {
       maxDurationMinutes: bt.maxDurationMinutes ?? null,
       expectedDurationMinutes: bt.expectedDurationMinutes ?? null,
       translations: trans,
+      campaignIds: bt.campaignIds || (bt.campaignId ? [bt.campaignId] : []),
+      inboundQueueIds: bt.inboundQueueIds || [],
     });
     setDialogOpen(true);
   };
@@ -229,6 +214,9 @@ export function BreakTypesTab() {
       maxDurationMinutes: formData.maxDurationMinutes || null,
       expectedDurationMinutes: formData.expectedDurationMinutes || null,
       translations: formData.translations,
+      campaignIds: formData.campaignIds,
+      inboundQueueIds: formData.inboundQueueIds,
+      campaignId: null,
     };
     if (editingId) {
       updateMutation.mutate({ id: editingId, data: payload });
@@ -262,6 +250,21 @@ export function BreakTypesTab() {
   };
 
   const IconComponent = getIconComponent(formData.icon);
+  const scopeLabels = {
+    title: ui.breakScopeTitle,
+    hint: ui.breakScopeHint,
+    global: ui.breakScopeGlobal,
+    missions: ui.breakScopeMissions,
+    inbound: ui.breakScopeInbound,
+  };
+  const toggleScopeId = (field: "campaignIds" | "inboundQueueIds", id: string) => {
+    setFormData((current) => ({
+      ...current,
+      [field]: current[field].includes(id)
+        ? current[field].filter((value) => value !== id)
+        : [...current[field], id],
+    }));
+  };
 
   return (
     <div className="space-y-5">
@@ -322,6 +325,7 @@ export function BreakTypesTab() {
                 const Icon = getIconComponent(bt.icon);
                 const trans = (bt.translations as Record<string, string>) || {};
                 const translatedCount = Object.keys(trans).filter(k => trans[k]).length;
+                const scopeCount = (bt.campaignIds?.length || 0) + (bt.inboundQueueIds?.length || 0);
                 return (
                   <TableRow key={bt.id} data-testid={`row-break-type-${bt.id}`}>
                     <TableCell>
@@ -340,6 +344,9 @@ export function BreakTypesTab() {
                             {labels.default}
                           </Badge>
                         )}
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          {scopeCount === 0 ? scopeLabels.global : `${scopeCount} · ${scopeLabels.title}`}
+                        </p>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -536,6 +543,48 @@ export function BreakTypesTab() {
                   data-testid="switch-default"
                 />
                 <Label>{labels.default}</Label>
+              </div>
+            </div>
+
+            <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+              <div>
+                <Label>{scopeLabels.title}</Label>
+                <p className="mt-1 text-xs text-muted-foreground">{scopeLabels.hint}</p>
+              </div>
+              {formData.campaignIds.length === 0 && formData.inboundQueueIds.length === 0 && (
+                <Badge variant="secondary">{scopeLabels.global}</Badge>
+              )}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{scopeLabels.missions}</p>
+                  <div className="max-h-36 space-y-1 overflow-y-auto rounded-md border bg-background p-2">
+                    {campaigns.filter((campaign: any) => campaign.isActive !== false).map((campaign) => (
+                      <label key={campaign.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-muted">
+                        <Checkbox
+                          checked={formData.campaignIds.includes(campaign.id)}
+                          onCheckedChange={() => toggleScopeId("campaignIds", campaign.id)}
+                          data-testid={`break-mission-${campaign.id}`}
+                        />
+                        <span className="truncate">{campaign.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{scopeLabels.inbound}</p>
+                  <div className="max-h-36 space-y-1 overflow-y-auto rounded-md border bg-background p-2">
+                    {inboundQueues.filter((queue: any) => queue.isActive !== false).map((queue) => (
+                      <label key={queue.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-muted">
+                        <Checkbox
+                          checked={formData.inboundQueueIds.includes(queue.id)}
+                          onCheckedChange={() => toggleScopeId("inboundQueueIds", queue.id)}
+                          data-testid={`break-inbound-${queue.id}`}
+                        />
+                        <span className="truncate">{queue.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
 

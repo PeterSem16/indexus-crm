@@ -2278,6 +2278,11 @@ export interface Translations {
       maxDuration: string;
       expectedDuration: string;
       expectedDurationHint: string;
+      breakScopeTitle: string;
+      breakScopeHint: string;
+      breakScopeGlobal: string;
+      breakScopeMissions: string;
+      breakScopeInbound: string;
     };
     contactStatuses: {
       pending: string;
@@ -7779,6 +7784,11 @@ const inboundUiBase = {
   maxDuration: 'Max duration',
   expectedDuration: 'Expected duration',
   expectedDurationHint: 'Expected duration in minutes',
+  breakScopeTitle: 'Availability',
+  breakScopeHint: 'Select where this break is available. No selection means everywhere.',
+  breakScopeGlobal: 'All Missions and inbound queues',
+  breakScopeMissions: 'Missions',
+  breakScopeInbound: 'Inbound queues',
   editBreak: 'Edit break type',
   icon: 'Icon',
   color: 'Color',
@@ -7868,6 +7878,11 @@ const inboundUiByLocale = {
     maxDuration: 'Max. trvanie',
     expectedDuration: 'Očakávané trvanie',
     expectedDurationHint: 'Očakávané trvanie v minútach',
+    breakScopeTitle: 'Dostupnosť',
+    breakScopeHint: 'Vyberte, kde je prestávka dostupná. Bez výberu platí všade.',
+    breakScopeGlobal: 'Všetky Mission a inbound fronty',
+    breakScopeMissions: 'Mission',
+    breakScopeInbound: 'Inbound fronty',
     editBreak: 'Upraviť typ prestávky',
     icon: 'Ikona',
     color: 'Farba',
@@ -7954,6 +7969,11 @@ const inboundUiByLocale = {
     maxDuration: 'Max. délka',
     expectedDuration: 'Očekávaná délka',
     expectedDurationHint: 'Očekávaná délka v minutách',
+    breakScopeTitle: 'Dostupnost',
+    breakScopeHint: 'Vyberte, kde je přestávka dostupná. Bez výběru platí všude.',
+    breakScopeGlobal: 'Všechny Mission a inbound fronty',
+    breakScopeMissions: 'Mission',
+    breakScopeInbound: 'Inbound fronty',
     editBreak: 'Upravit typ přestávky',
     icon: 'Ikona',
     color: 'Barva',
@@ -8040,6 +8060,11 @@ const inboundUiByLocale = {
     maxDuration: 'Max. időtartam',
     expectedDuration: 'Várható időtartam',
     expectedDurationHint: 'Várható időtartam percben',
+    breakScopeTitle: 'Elérhetőség',
+    breakScopeHint: 'Válassza ki, hol legyen elérhető a szünet. Üresen mindenhol elérhető.',
+    breakScopeGlobal: 'Minden Mission és bejövő várólista',
+    breakScopeMissions: 'Mission',
+    breakScopeInbound: 'Bejövő várólisták',
     editBreak: 'Szünettípus szerkesztése',
     icon: 'Ikon',
     color: 'Szín',
@@ -8126,6 +8151,11 @@ const inboundUiByLocale = {
     maxDuration: 'Durată maximă',
     expectedDuration: 'Durată estimată',
     expectedDurationHint: 'Durata estimată în minute',
+    breakScopeTitle: 'Disponibilitate',
+    breakScopeHint: 'Selectați unde este disponibilă pauza. Fără selecție este disponibilă peste tot.',
+    breakScopeGlobal: 'Toate Mission și cozile inbound',
+    breakScopeMissions: 'Mission',
+    breakScopeInbound: 'Cozi inbound',
     editBreak: 'Editează tipul de pauză',
     icon: 'Pictogramă',
     color: 'Culoare',
@@ -8212,6 +8242,11 @@ const inboundUiByLocale = {
     maxDuration: 'Durata massima',
     expectedDuration: 'Durata prevista',
     expectedDurationHint: 'Durata prevista in minuti',
+    breakScopeTitle: 'Disponibilità',
+    breakScopeHint: 'Seleziona dove è disponibile la pausa. Nessuna selezione significa ovunque.',
+    breakScopeGlobal: 'Tutte le Mission e le code inbound',
+    breakScopeMissions: 'Mission',
+    breakScopeInbound: 'Code inbound',
     editBreak: 'Modifica tipo di pausa',
     icon: 'Icona',
     color: 'Colore',
@@ -8298,6 +8333,11 @@ const inboundUiByLocale = {
     maxDuration: 'Maximale Dauer',
     expectedDuration: 'Erwartete Dauer',
     expectedDurationHint: 'Erwartete Dauer in Minuten',
+    breakScopeTitle: 'Verfügbarkeit',
+    breakScopeHint: 'Wählen Sie, wo diese Pause verfügbar ist. Keine Auswahl bedeutet überall.',
+    breakScopeGlobal: 'Alle Mission und Inbound-Warteschlangen',
+    breakScopeMissions: 'Mission',
+    breakScopeInbound: 'Inbound-Warteschlangen',
     editBreak: 'Pausentyp bearbeiten',
     icon: 'Symbol',
     color: 'Farbe',
