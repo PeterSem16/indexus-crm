@@ -100,6 +100,35 @@ export function ScalableSelector() {
               <div className="flex items-center justify-between rounded-xl border border-[#dfe6ee] bg-white px-4 py-3"><span className="text-xs text-[#7b8797]">Inbound fronty</span><span className="text-sm font-semibold text-[#1a9b57]">{selectedQueues.length} / {queues.length}</span></div>
             </div>
             <div className="mt-7 rounded-xl border border-[#ead9d6] bg-[#fff8f6] p-4"><div className="flex gap-2 text-xs font-semibold text-[#9b3c38]"><Info size={15} /> Výber ovplyvní dostupné kontakty</div><p className="mt-2 text-[11px] leading-5 text-[#9b7772]">Misie môžete kombinovať. Pri frontách uvidíte stav čakania a dostupných agentov v reálnom čase.</p></div>
+            <div className="mt-5 border-t border-[#e1e7ef] pt-5">
+              <div className="mb-3 flex items-center justify-between"><span className="text-[11px] font-bold uppercase tracking-[.14em] text-[#8995a5]">Dnešný výkon</span><span className="text-[10px] text-[#8b98a8]">obnoviť ↻</span></div>
+              <div className="space-y-3">
+                <Progress label="Kontakty" value="18 / 40" percent={45} color="#397fe6" />
+                <Progress label="Hovory" value="12 / 30" percent={40} color="#c8102e" />
+                <Progress label="Konverzie" value="4 / 8" percent={50} color="#1a9b57" />
+                <Progress label="Konverzný pomer" value="22,2 %" percent={22} color="#7c5ac8" />
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <MiniStat label="Odpracované" value="2 h 46 m" />
+                <MiniStat label="Prestávka" value="12 min" />
+              </div>
+            </div>
+            <div className="mt-5 border-t border-[#e1e7ef] pt-5">
+              <div className="mb-3 flex items-center justify-between"><span className="text-[11px] font-bold uppercase tracking-[.14em] text-[#8995a5]">Plánovaná fronta</span><span className="text-[11px] font-semibold text-[#33445a]">27</span></div>
+              <div className="space-y-2">
+                <Forecast label="Dnes" value="12" percent={100} />
+                <Forecast label="Zajtra" value="9" percent={75} />
+                <Forecast label="St 25. 9." value="6" percent={50} />
+              </div>
+            </div>
+            <div className="mt-5 border-t border-[#e1e7ef] pt-5">
+              <div className="mb-3 flex items-center justify-between"><span className="text-[11px] font-bold uppercase tracking-[.14em] text-[#8995a5]">Back Office agenda</span><BriefcaseBusiness size={14} className="text-[#7c5ac8]" /></div>
+              <div className="grid grid-cols-3 gap-1.5">
+                <MiniStat label="Nové" value="4" accent="#397fe6" />
+                <MiniStat label="Čaká" value="7" accent="#d07a22" />
+                <MiniStat label="Týždeň" value="19" accent="#1a9b57" />
+              </div>
+            </div>
           </aside>
 
           <main className="flex min-h-0 flex-1 flex-col">
@@ -152,4 +181,16 @@ function Mark({ checked, color }: { checked: boolean; color: string }) {
 
 function SectionHeader({ label, count, color, onSelectAll }: { label: string; count: string; color: string; onSelectAll: () => void }) {
   return <div className="mb-2 mt-1 flex items-center justify-between"><div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[.12em] text-[#748193]"><span className="h-2 w-2 rounded-full" style={{ background: color }} />{label}<span className="normal-case tracking-normal text-[#a0aab8]">· {count}</span></div><button onClick={onSelectAll} className="text-[11px] font-medium text-[#4c75aa] hover:underline">Vybrať dostupné</button></div>;
+}
+
+function Progress({ label, value, percent, color }: { label: string; value: string; percent: number; color: string }) {
+  return <div><div className="mb-1 flex items-center justify-between text-[10px]"><span className="text-[#718094]">{label}</span><b className="text-[#33445a]">{value}</b></div><div className="h-1 rounded-full bg-[#e8edf3]"><div className="h-1 rounded-full" style={{ width: `${percent}%`, background: color }} /></div></div>;
+}
+
+function Forecast({ label, value, percent }: { label: string; value: string; percent: number }) {
+  return <div><div className="mb-1 flex items-center justify-between text-[10px]"><span className="text-[#718094]">{label}</span><b className="text-[#33445a]">{value}</b></div><div className="h-1 rounded-full bg-[#e8edf3]"><div className="h-1 rounded-full bg-[#397fe6]" style={{ width: `${percent}%` }} /></div></div>;
+}
+
+function MiniStat({ label, value, accent = "#33445a" }: { label: string; value: string; accent?: string }) {
+  return <div className="rounded-lg border border-[#e1e7ef] bg-white px-2.5 py-2"><div className="text-[9px] text-[#8b98a8]">{label}</div><div className="mt-0.5 text-sm font-bold" style={{ color: accent }}>{value}</div></div>;
 }
