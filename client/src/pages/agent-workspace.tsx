@@ -241,7 +241,7 @@ import {
   inferOutboundCountryCode,
   resolveMissionOutboundRouting,
 } from "@shared/telephony-routing";
-import type { MissionCallRecordingSnapshot } from "@shared/mission-recording";
+import { resolveMissionRecordingPolicy, type MissionCallRecordingSnapshot } from "@shared/mission-recording";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import { getCountryFlag } from "@/lib/countries";
@@ -10730,6 +10730,8 @@ function AgentWorkspacePageContent() {
   const [activeLoginSetId, setActiveLoginSetId] = useState<string | null>(null);
   const [savingLoginSet, setSavingLoginSet] = useState(false);
   const [newLoginSetName, setNewLoginSetName] = useState("");
+  const [shiftLoginSearch, setShiftLoginSearch] = useState("");
+  const [shiftLoginOnlyAvailable, setShiftLoginOnlyAvailable] = useState(false);
   const { data: shiftLoginSets = [] } = useQuery<ShiftLoginSet[]>({
     queryKey: ["/api/agent/shift-login-sets"],
     enabled: !!user && sessionLoginOpen && !agentSession.isSessionActive,
@@ -11357,6 +11359,24 @@ function AgentWorkspacePageContent() {
     refetchInterval: 10000,
   });
   const loginAccessReady = allCampaignsFetched && assignedCampaignsFetched && myQueuesFetched;
+  const filteredShiftLoginCampaigns = useMemo(() => {
+    const query = shiftLoginSearch.trim().toLocaleLowerCase();
+    return loginCampaigns.filter((campaign) => {
+      const matches = !query || `${campaign.name} ${campaign.channel} ${(campaign.countryCodes || []).join(" ")}`.toLocaleLowerCase().includes(query);
+      if (!matches) return false;
+      if (!shiftLoginOnlyAvailable) return true;
+      return !!campaign.isActive;
+    });
+  }, [loginCampaigns, shiftLoginOnlyAvailable, shiftLoginSearch]);
+  const filteredShiftLoginQueues = useMemo(() => {
+    const query = shiftLoginSearch.trim().toLocaleLowerCase();
+    return myQueues.filter((queue) => {
+      const matches = !query || `${queue.name} ${getAgentQueueDidNumbers(queue).join(" ")}`.toLocaleLowerCase().includes(query);
+      if (!matches) return false;
+      if (!shiftLoginOnlyAvailable) return true;
+      return queue.isActive;
+    });
+  }, [myQueues, shiftLoginOnlyAvailable, shiftLoginSearch]);
 
   const createShiftLoginSetMutation = useMutation({
     mutationFn: async (payload: {
@@ -14572,7 +14592,7 @@ function AgentWorkspacePageContent() {
         />
       )}
       <Dialog open={sessionLoginOpen && !agentSession.isSessionActive && !agentSession.isLoading} onOpenChange={(open) => { if (!open) { setSessionLoginOpen(false); setLocation("/"); } }}>
-        <DialogContent className={isMobile ? "w-full max-w-full h-full max-h-full rounded-none p-0 overflow-hidden gap-0 flex flex-col" : "sm:max-w-3xl p-0 overflow-hidden gap-0 flex flex-col max-h-[90vh]"} hideCloseButton>
+        <DialogContent className={isMobile ? "w-full max-w-full h-full max-h-full rounded-none p-0 overflow-hidden gap-0 flex flex-col" : "w-[calc(100vw-2rem)] max-w-[1180px] p-0 overflow-hidden gap-0 flex flex-col max-h-[92vh] rounded-2xl"} hideCloseButton>
           <DialogTitle className="sr-only">{t.agentSession.shiftLogin}</DialogTitle>
 
           {/* ── MOBILE: zjednodušená hlavička ── */}
@@ -14750,7 +14770,7 @@ function AgentWorkspacePageContent() {
               </div>
             </div>
           ) : (
-          <div className="grid grid-cols-2 flex-1 min-h-0 overflow-hidden divide-x divide-border">
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(280px,1fr)_minmax(0,2fr)] flex-1 min-h-0 overflow-hidden divide-y lg:divide-y-0 lg:divide-x divide-border">
 
             {/* ─── Ľavý stĺpec: Today's Activities + Scheduled Calls ─── */}
             <div className="overflow-y-auto px-4 py-4 bg-muted/10 dark:bg-muted/5">
@@ -14922,10 +14942,39 @@ function AgentWorkspacePageContent() {
             </div>
 
             {/* ─── Pravý stĺpec: Kampane + Inbound + Prihlásenie ─── */}
-            <div className="flex flex-col min-h-0">
+            <div className="flex flex-col min-h-0 bg-card">
 
               {/* Scrollovateľná časť */}
               <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+
+                <div className="sticky top-0 z-10 -mx-1 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card/95 p-2 shadow-sm backdrop-blur" role="search">
+                  <div className="relative min-w-[180px] flex-1">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                    <Input
+                      value={shiftLoginSearch}
+                      onChange={(event) => setShiftLoginSearch(event.target.value)}
+                      placeholder={t.common.search}
+                      aria-label={t.common.search}
+                      className="h-9 border-0 bg-muted/50 pl-9 text-xs shadow-none focus-visible:ring-1"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant={shiftLoginOnlyAvailable ? "secondary" : "outline"}
+                    size="sm"
+                    className="h-9 gap-1.5 text-xs"
+                    onClick={() => setShiftLoginOnlyAvailable((value) => !value)}
+                    aria-pressed={shiftLoginOnlyAvailable}
+                  >
+                    <SlidersHorizontal className="h-3.5 w-3.5" />
+                    {shiftLoginOnlyAvailable ? t.common.active : t.common.all}
+                  </Button>
+                  {(shiftLoginSearch || shiftLoginOnlyAvailable) && (
+                    <Button type="button" variant="ghost" size="icon" className="h-9 w-9" onClick={() => { setShiftLoginSearch(""); setShiftLoginOnlyAvailable(false); }} aria-label={t.common.clear}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
 
                 {/* Upozornenie na presmerovanie hovoru */}
                 {callForwardingActive && (
@@ -14952,13 +15001,13 @@ function AgentWorkspacePageContent() {
                   </div>
                   <ScrollArea className="max-h-56">
                     <div className="space-y-1.5 pr-1">
-                      {loginCampaigns.length === 0 ? (
+                      {filteredShiftLoginCampaigns.length === 0 ? (
                         <div className="text-center py-5">
                           <Megaphone className="h-7 w-7 mx-auto text-muted-foreground/30 mb-2" />
                           <p className="text-xs text-muted-foreground">{t.agentWorkspace.noCampaigns || "Žiadne kampane"}</p>
                         </div>
                       ) : (
-                        loginCampaigns.map((campaign) => {
+                        filteredShiftLoginCampaigns.map((campaign) => {
                           const chConfig = CHANNEL_CONFIG[campaign.channel as ChannelType] || CHANNEL_CONFIG.phone;
                           const ChIcon = chConfig.icon;
                           const isChecked = selectedLoginCampaignIds.includes(campaign.id);
@@ -15043,7 +15092,7 @@ function AgentWorkspacePageContent() {
                 </div>
 
                 {/* Inbound fronty */}
-                {myQueues.length > 0 && (
+                {filteredShiftLoginQueues.length > 0 && (
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{t.agentSession.inboundQueues}</span>
@@ -15055,7 +15104,7 @@ function AgentWorkspacePageContent() {
                     </div>
                     <ScrollArea className="max-h-44">
                       <div className="space-y-1.5 pr-1">
-                        {myQueues.map((queue) => {
+                        {filteredShiftLoginQueues.map((queue) => {
                           const isChecked = selectedLoginQueueIds.includes(queue.id);
                           const didNumbers = getAgentQueueDidNumbers(queue);
                           const isAfterHours = (() => {
@@ -15185,8 +15234,9 @@ function AgentWorkspacePageContent() {
                     </div>
                   </div>
                   {loginBackOffice && (
-                    <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-2 pl-9">
-                      ⚠ {t.agentSession.backOfficeModeWarning}
+                    <p className="mt-2 flex items-start gap-1.5 pl-9 text-[10px] text-amber-600 dark:text-amber-400">
+                      <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
+                      <span>{t.agentSession.backOfficeModeWarning}</span>
                     </p>
                   )}
                 </div>
