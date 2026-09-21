@@ -270,6 +270,7 @@ import {
 } from "@/components/agent/priority-builder";
 import { priorityBuilderCopy } from "@/components/agent/priority-builder-copy";
 import "@/components/agent/shift-login-variant-a.css";
+import { playShiftLoginSound } from "@/lib/shift-login-sounds";
 import type { SavedSearch } from "@shared/schema";
 import { buildScheduledCallbackPatch } from "@shared/scheduled-callback";
 import {
@@ -10734,62 +10735,23 @@ function AgentWorkspacePageContent() {
   const [shiftLoginSearch, setShiftLoginSearch] = useState("");
   const [shiftLoginOnlyAvailable, setShiftLoginOnlyAvailable] = useState(false);
   const [expandedShiftLoginItems, setExpandedShiftLoginItems] = useState<Set<string>>(new Set());
-  const shiftLoginAudioContextRef = useRef<AudioContext | null>(null);
-  const playShiftLoginSelectionSound = async (
-    kind: "mission" | "inbound" | "backOffice",
-    selected: boolean,
-  ) => {
-    try {
-      const AudioContextConstructor = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContextConstructor) return;
-      const context = shiftLoginAudioContextRef.current || new AudioContextConstructor();
-      shiftLoginAudioContextRef.current = context;
-      if (context.state === "suspended") await context.resume();
-
-      const now = context.currentTime;
-      const notes = kind === "mission"
-        ? (selected ? [523.25, 659.25] : [659.25, 523.25])
-        : kind === "inbound"
-          ? (selected ? [392, 523.25] : [523.25, 392])
-          : (selected ? [329.63, 415.3, 493.88] : [493.88, 415.3, 329.63]);
-      const waveform: OscillatorType = kind === "backOffice" ? "triangle" : "sine";
-      const noteDuration = kind === "backOffice" ? 0.105 : 0.09;
-
-      notes.forEach((frequency, index) => {
-        const start = now + index * (noteDuration * 0.72);
-        const end = start + noteDuration;
-        const oscillator = context.createOscillator();
-        const gain = context.createGain();
-        oscillator.type = waveform;
-        oscillator.frequency.setValueAtTime(frequency, start);
-        gain.gain.setValueAtTime(0.0001, start);
-        gain.gain.exponentialRampToValueAtTime(selected ? 0.032 : 0.022, start + 0.018);
-        gain.gain.exponentialRampToValueAtTime(0.0001, end);
-        oscillator.connect(gain);
-        gain.connect(context.destination);
-        oscillator.start(start);
-        oscillator.stop(end + 0.01);
-      });
-    } catch {
-      // Selection remains fully functional when browser audio is unavailable.
-    }
-  };
+  const shiftLoginWelcomePlayedRef = useRef(false);
   const toggleShiftLoginMission = (campaignId: string) => {
     const willSelect = !selectedLoginCampaignIds.includes(campaignId);
-    void playShiftLoginSelectionSound("mission", willSelect);
+    void playShiftLoginSound("mission", willSelect);
     setSelectedLoginCampaignIds((current) => current.includes(campaignId)
       ? current.filter((id) => id !== campaignId)
       : [...current, campaignId]);
   };
   const toggleShiftLoginInbound = (queueId: string) => {
     const willSelect = !selectedLoginQueueIds.includes(queueId);
-    void playShiftLoginSelectionSound("inbound", willSelect);
+    void playShiftLoginSound("inbound", willSelect);
     setSelectedLoginQueueIds((current) => current.includes(queueId)
       ? current.filter((id) => id !== queueId)
       : [...current, queueId]);
   };
   const toggleShiftLoginBackOffice = () => {
-    void playShiftLoginSelectionSound("backOffice", !loginBackOffice);
+    void playShiftLoginSound("backOffice", !loginBackOffice);
     setLoginBackOffice((current) => !current);
   };
   const { data: shiftLoginSets = [] } = useQuery<ShiftLoginSet[]>({
@@ -11449,6 +11411,7 @@ function AgentWorkspacePageContent() {
       return response.json() as Promise<ShiftLoginSet>;
     },
     onSuccess: (created) => {
+      void playShiftLoginSound("setCreate");
       queryClient.setQueryData<ShiftLoginSet[]>(
         ["/api/agent/shift-login-sets"],
         (current = []) => [created, ...current.filter((set) => set.id !== created.id)],
@@ -11481,6 +11444,7 @@ function AgentWorkspacePageContent() {
     const campaignIds = set.campaignIds.filter((id) => allowedCampaignIds.has(id));
     const inboundQueueIds = set.inboundQueueIds.filter((id) => allowedQueueIds.has(id));
     const backOffice = canBackOfficeAgenda && set.backOffice;
+    void playShiftLoginSound("setApply");
     setSelectedLoginCampaignIds(campaignIds);
     setSelectedLoginQueueIds(inboundQueueIds);
     setLoginBackOffice(backOffice);
@@ -11569,10 +11533,16 @@ function AgentWorkspacePageContent() {
 
   useEffect(() => {
     if (sessionLoginOpen && !agentSession.isSessionActive) {
+      if (!shiftLoginWelcomePlayedRef.current) {
+        shiftLoginWelcomePlayedRef.current = true;
+        void playShiftLoginSound("welcome");
+      }
       refetchShiftData();
       refetchForecast();
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       queryClient.invalidateQueries({ queryKey: ["/api/agent/my-queues"] });
+    } else {
+      shiftLoginWelcomePlayedRef.current = false;
     }
   }, [sessionLoginOpen, agentSession.isSessionActive]);
 
@@ -13219,6 +13189,7 @@ function AgentWorkspacePageContent() {
   };
 
   const handleStartSession = async () => {
+    void playShiftLoginSound("start");
     try {
       if (callContext.callState !== "idle") {
         callContext.forceResetCallFn.current?.();
