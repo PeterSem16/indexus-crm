@@ -9,7 +9,7 @@ Representative-only Mission visibility must be applied to every agent-facing sou
 
 **Why:** Filtering only the main list still exposed another representative's contacts through scheduled callbacks. A cached contact could also remain mutable after reassignment.
 
-**How to apply:** When adding another Agent Workspace queue or contact source, apply the same Mission visibility predicate server-side before returning records. Derive entity type from the actual clinic/hospital/collaborator ID first; legacy `contactType` can be stale or wrong. Keep management views exempt unless product requirements change.
+**How to apply:** When adding another Agent Workspace queue or contact source, apply the same Mission visibility predicate server-side before returning records. Derive entity type from the actual clinic/hospital/collaborator ID first; legacy `contactType` can be stale or wrong. Enforce it in Agent Workspace even when the logged-in account also has manager/admin privileges; exempt only explicit management views.
 
 The Campaign Contacts page defaults failed query data to an empty array, so a server exception appears as a misleading `0 / 0` rather than a visible error.
 

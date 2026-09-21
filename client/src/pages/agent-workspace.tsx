@@ -5369,9 +5369,10 @@ export function CommunicationCanvas({
                       if (person.email && !recipientEmails.has(person.email)) recipientEmails.set(person.email, person.name);
                     });
                     return Array.from(recipientEmails.entries()).map(([em, personName], i) => (
-                      <div key={em} className="flex items-center gap-2">
+                      <div key={em} className="flex min-w-0 items-start gap-2">
                         <Checkbox
                           id={`aw-email-${i}`}
+                           className="mt-0.5 shrink-0"
                           checked={selectedEmails.includes(em)}
                           onCheckedChange={(checked) => {
                             if (checked) setSelectedEmails([...selectedEmails, em]);
@@ -5379,7 +5380,7 @@ export function CommunicationCanvas({
                           }}
                           data-testid={`checkbox-email-${i}`}
                         />
-                        <Label htmlFor={`aw-email-${i}`} className="font-normal cursor-pointer text-xs truncate">
+                        <Label htmlFor={`aw-email-${i}`} className="min-w-0 flex-1 cursor-pointer whitespace-normal break-words text-xs font-normal leading-5">
                           {em}{personName ? ` — ${personName} (${t.agentWorkspace.personRecipientSuffix})` : ""}
                         </Label>
                       </div>
@@ -11772,6 +11773,13 @@ function AgentWorkspacePageContent() {
 
   const { data: rawCampaignContacts = [] } = useQuery<EnrichedCampaignContact[]>({
     queryKey: ["/api/campaigns", selectedCampaignId, "contacts"],
+    queryFn: async () => {
+      const response = await fetch(`/api/campaigns/${selectedCampaignId}/contacts?agentView=true`, {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Campaign contacts could not be loaded");
+      return response.json();
+    },
     enabled: !!selectedCampaignId && !!hasAccess,
     refetchInterval: 10000,
   });

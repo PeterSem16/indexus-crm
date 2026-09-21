@@ -25618,9 +25618,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const queueClinicIds = [...new Set(queueRows.map(row => row.ccClinicId).filter(Boolean))] as string[];
       const queueHospitalIds = [...new Set(queueRows.map(row => row.ccHospitalId).filter(Boolean))] as string[];
       const queueCollaboratorIds = [...new Set(queueRows.map(row => row.ccCollaboratorId).filter(Boolean))] as string[];
-      const [queueClinicRepresentativeRows, queueHospitalRepresentativeRows, queueCollaboratorRepresentativeRows] = !(
-        user.role === "admin" || user.role === "manager"
-      ) ? await Promise.all([
+      const [queueClinicRepresentativeRows, queueHospitalRepresentativeRows, queueCollaboratorRepresentativeRows] = await Promise.all([
         queueClinicIds.length > 0
           ? db.select({
               entityId: clinicRepresentativeAssignments.clinicId,
@@ -25646,12 +25644,11 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
               representativeIds: collaborators.representativeIds,
             }).from(collaborators).where(inArray(collaborators.id, queueCollaboratorIds))
           : Promise.resolve([]),
-      ]) : [[], [], []];
+      ]);
       const queueClinicRepresentativeById = new Map(queueClinicRepresentativeRows.map(row => [row.entityId, row.userId]));
       const queueHospitalRepresentativeById = new Map(queueHospitalRepresentativeRows.map(row => [row.entityId, row.userId]));
       const queueCollaboratorRepresentativeById = new Map(queueCollaboratorRepresentativeRows.map(row => [row.id, row]));
       const isContactVisibleToAgent = (row: any) => {
-        if (user.role === "admin" || user.role === "manager") return true;
         if (parseCampaignContactVisibility(row.campaignSettings) !== "assigned_representative") return true;
         const effectiveContactType = resolveCampaignContactEntityType({
           contactType: row.ccContactType,
@@ -30087,8 +30084,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       let contacts;
       let total: number | undefined;
       const canManageAllMissions = sessionUser.role === "admin" || sessionUser.role === "manager";
+      const isAgentWorkspaceRequest = req.query.agentView === "true";
       const visibility = parseCampaignContactVisibility(campaign.settings);
-      if (!canManageAllMissions && visibility === "assigned_representative") {
+      if (visibility === "assigned_representative" && (!canManageAllMissions || isAgentWorkspaceRequest)) {
         const allContacts = await storage.getCampaignContacts(req.params.id);
         const clinicIds = [...new Set(allContacts.map((c: any) => c.clinicId).filter(Boolean))];
         const hospitalIds = [...new Set(allContacts.map((c: any) => c.hospitalId).filter(Boolean))];
@@ -30131,6 +30129,62 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         total = result.total;
       } else {
         contacts = await storage.getCampaignContacts(req.params.id);
+      }
+
+      // Reward readiness is based on the newest Action of every person linked
+      // to the visible clinic/hospital/person. Keep it separate from the base
+      // contact fetch so optional ranking metadata cannot hide the queue.
+      const rewardClinicIds = [...new Set(contacts.map((contact: any) => contact.clinicId).filter(Boolean))] as string[];
+      const rewardHospitalIds = [...new Set(contacts.map((contact: any) => contact.hospitalId).filter(Boolean))] as string[];
+      const rewardCollaboratorIds = [...new Set(contacts.map((contact: any) => contact.collaboratorId).filter(Boolean))] as string[];
+      const rewardClinicIdArray = rewardClinicIds.length
+        ? sql`ARRAY[${sql.join(rewardClinicIds.map((id) => sql`${id}`), sql`, `)}]::text[]`
+        : null;
+      const rewardHospitalIdArray = rewardHospitalIds.length
+        ? sql`ARRAY[${sql.join(rewardHospitalIds.map((id) => sql`${id}`), sql`, `)}]::text[]`
+        : null;
+      const linkedRewardPeople = (rewardClinicIds.length || rewardHospitalIds.length || rewardCollaboratorIds.length)
+        ? await db.select({
+          id: collaborators.id,
+          clinicId: collaborators.clinicId,
+          clinicIds: collaborators.clinicIds,
+          hospitalId: collaborators.hospitalId,
+          hospitalIds: collaborators.hospitalIds,
+        }).from(collaborators).where(or(
+          rewardCollaboratorIds.length ? inArray(collaborators.id, rewardCollaboratorIds) : sql`false`,
+          rewardClinicIdArray ? sql`(${collaborators.clinicId} = ANY(${rewardClinicIdArray}) OR ${collaborators.clinicIds} && ${rewardClinicIdArray})` : sql`false`,
+          rewardHospitalIdArray ? sql`(${collaborators.hospitalId} = ANY(${rewardHospitalIdArray}) OR ${collaborators.hospitalIds} && ${rewardHospitalIdArray})` : sql`false`,
+        ))
+        : [];
+      const linkedRewardPersonIds = linkedRewardPeople.map((person) => person.id);
+      const latestRewardActivityByPerson = new Map<string, typeof collaboratorActivities.$inferSelect>();
+      if (linkedRewardPersonIds.length) {
+        const activityRows = await db.select().from(collaboratorActivities)
+          .where(inArray(collaboratorActivities.collaboratorId, linkedRewardPersonIds))
+          .orderBy(
+            sql`${collaboratorActivities.dueDate} DESC NULLS LAST`,
+            desc(collaboratorActivities.createdAt),
+            desc(collaboratorActivities.id),
+          );
+        for (const activity of activityRows) {
+          if (!latestRewardActivityByPerson.has(activity.collaboratorId)) {
+            latestRewardActivityByPerson.set(activity.collaboratorId, activity);
+          }
+        }
+      }
+      const unpaidRewardCountByClinic = new Map<string, number>();
+      const unpaidRewardCountByHospital = new Map<string, number>();
+      const unpaidRewardCollaboratorIds = new Set<string>();
+      for (const person of linkedRewardPeople) {
+        const latest = latestRewardActivityByPerson.get(person.id);
+        if (!latest || (latest.rewardPaid && latest.rewardPaidAt)) continue;
+        unpaidRewardCollaboratorIds.add(person.id);
+        for (const clinicId of new Set([person.clinicId, ...(person.clinicIds || [])].filter(Boolean) as string[])) {
+          unpaidRewardCountByClinic.set(clinicId, (unpaidRewardCountByClinic.get(clinicId) || 0) + 1);
+        }
+        for (const hospitalId of new Set([person.hospitalId, ...(person.hospitalIds || [])].filter(Boolean) as string[])) {
+          unpaidRewardCountByHospital.set(hospitalId, (unpaidRewardCountByHospital.get(hospitalId) || 0) + 1);
+        }
       }
 
       // Collaborators keep their city/country in collaborator_addresses rather
@@ -30223,6 +30277,13 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             : null;
           return {
             ...contact,
+            unpaidRewardPersonCount: contact.clinicId
+              ? unpaidRewardCountByClinic.get(contact.clinicId) || 0
+              : contact.hospitalId
+                ? unpaidRewardCountByHospital.get(contact.hospitalId) || 0
+                : contact.collaboratorId && unpaidRewardCollaboratorIds.has(contact.collaboratorId)
+                  ? 1
+                  : 0,
             customer,
             hospital,
             clinic,
