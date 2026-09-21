@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   ArrowRight,
+  Bookmark,
   BriefcaseBusiness,
   Check,
   ChevronDown,
@@ -9,8 +10,10 @@ import {
   Headphones,
   Info,
   Phone,
+  Plus,
   Search,
   SlidersHorizontal,
+  Trash2,
   Users,
   X,
 } from "lucide-react";
@@ -22,6 +25,10 @@ type Mission = {
 type Queue = {
   id: string; name: string; did: string; online: number; waiting: number;
   afterHours: boolean; hours: string;
+};
+type LoginSet = {
+  id: string; name: string; missions: string[]; queues: string[]; backOffice: boolean;
+  updated: string;
 };
 
 const missions: Mission[] = [
@@ -43,6 +50,11 @@ const queues: Queue[] = [
   { id: "q5", name: "CZ zákaznícka podpora", did: "+420 226 219 400", online: 0, waiting: 0, afterHours: true, hours: "09:00 – 17:00" },
   { id: "q6", name: "Retencia – prioritná linka", did: "02 208 440 66", online: 3, waiting: 5, afterHours: false, hours: "08:30 – 16:30" },
 ];
+const initialSets: LoginSet[] = [
+  { id: "set-morning", name: "Ranná linka", missions: ["m1", "m2"], queues: ["q1", "q2"], backOffice: false, updated: "Dnes 08:42" },
+  { id: "set-backoffice", name: "Misie + Back Office", missions: ["m2", "m4", "m8"], queues: [], backOffice: true, updated: "Včera 16:10" },
+  { id: "set-support", name: "Zákaznícka podpora SK", missions: ["m3", "m4"], queues: ["q3", "q4", "q6"], backOffice: false, updated: "19. 9. 2026" },
+];
 
 const IconBox = ({ children, color }: { children: React.ReactNode; color: string }) => (
   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg" style={{ background: `${color}13`, color }}>
@@ -58,12 +70,32 @@ export function ScalableSelector() {
   const [onlyAvailable, setOnlyAvailable] = useState(false);
   const [expanded, setExpanded] = useState<string[]>(["m2", "q2"]);
   const [started, setStarted] = useState(false);
+  const [loginSets, setLoginSets] = useState<LoginSet[]>(initialSets);
+  const [activeSetId, setActiveSetId] = useState<string | null>("set-morning");
+  const [savingSet, setSavingSet] = useState(false);
+  const [newSetName, setNewSetName] = useState("");
 
   const visibleMissions = useMemo(() => missions.filter((m) => m.name.toLowerCase().includes(query.toLowerCase()) && (!onlyAvailable || m.hours !== "—")), [query, onlyAvailable]);
   const visibleQueues = useMemo(() => queues.filter((q) => q.name.toLowerCase().includes(query.toLowerCase()) && (!onlyAvailable || !q.afterHours)), [query, onlyAvailable]);
   const toggle = (list: string[], set: (v: string[]) => void, id: string) => set(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
   const toggleExpand = (id: string) => setExpanded((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]);
   const total = selectedMissions.length + selectedQueues.length + (backOffice ? 1 : 0);
+  const applySet = (set: LoginSet) => {
+    setSelectedMissions(set.missions);
+    setSelectedQueues(set.queues);
+    setBackOffice(set.backOffice);
+    setActiveSetId(set.id);
+    setStarted(false);
+  };
+  const saveCurrentSet = () => {
+    const name = newSetName.trim();
+    if (!name || total === 0) return;
+    const next: LoginSet = { id: `set-${Date.now()}`, name, missions: selectedMissions, queues: selectedQueues, backOffice, updated: "Práve teraz" };
+    setLoginSets((previous) => [next, ...previous]);
+    setActiveSetId(next.id);
+    setNewSetName("");
+    setSavingSet(false);
+  };
 
   if (started) return (
     <div className="flex min-h-screen items-center justify-center bg-[#eef2f8] p-6 font-sans">
@@ -100,6 +132,32 @@ export function ScalableSelector() {
               <div className="flex items-center justify-between rounded-xl border border-[#dfe6ee] bg-white px-4 py-3"><span className="text-xs text-[#7b8797]">Inbound fronty</span><span className="text-sm font-semibold text-[#1a9b57]">{selectedQueues.length} / {queues.length}</span></div>
             </div>
             <div className="mt-7 rounded-xl border border-[#ead9d6] bg-[#fff8f6] p-4"><div className="flex gap-2 text-xs font-semibold text-[#9b3c38]"><Info size={15} /> Výber ovplyvní dostupné kontakty</div><p className="mt-2 text-[11px] leading-5 text-[#9b7772]">Misie môžete kombinovať. Pri frontách uvidíte stav čakania a dostupných agentov v reálnom čase.</p></div>
+            <div className="mt-5 border-t border-[#e1e7ef] pt-5">
+              <div className="mb-3 flex items-center justify-between">
+                <div><span className="text-[11px] font-bold uppercase tracking-[.14em] text-[#8995a5]">Moje sety prihlásenia</span><p className="mt-1 text-[10px] text-[#8b98a8]">Jedným kliknutím obnovíte uložený výber.</p></div>
+                <Bookmark size={15} className="text-[#c8102e]" />
+              </div>
+              <div className="space-y-2">
+                {loginSets.map((set) => (
+                  <div key={set.id} className={`group flex items-center gap-2 rounded-lg border px-2.5 py-2 transition ${activeSetId === set.id ? "border-[#c8102e]/35 bg-[#fff7f7]" : "border-[#e1e7ef] bg-white hover:border-[#c8d5e4]"}`}>
+                    <button onClick={() => applySet(set)} className="flex min-w-0 flex-1 items-center gap-2 text-left" title={`Použiť set ${set.name}`}>
+                      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${activeSetId === set.id ? "bg-[#c8102e] text-white" : "bg-[#f1f4f8] text-[#7d8999]"}`}><Bookmark size={12} fill={activeSetId === set.id ? "currentColor" : "none"} /></span>
+                      <span className="min-w-0"><span className="block truncate text-[11px] font-semibold text-[#33445a]">{set.name}</span><span className="block truncate text-[9px] text-[#8b98a8]">{set.missions.length} Misií · {set.queues.length} fronty{set.backOffice ? " · Back Office" : ""}</span></span>
+                    </button>
+                    <span className="hidden text-[9px] text-[#a0aab8] xl:block">{set.updated}</span>
+                    <button onClick={() => setLoginSets((previous) => previous.filter((item) => item.id !== set.id))} className="rounded p-1 text-[#a9b2bf] opacity-0 transition group-hover:opacity-100 hover:bg-[#fff0f0] hover:text-[#c8102e]" title="Odstrániť set"><Trash2 size={12} /></button>
+                  </div>
+                ))}
+              </div>
+              {savingSet ? (
+                <div className="mt-2 rounded-lg border border-[#d8e0ea] bg-white p-2">
+                  <input autoFocus value={newSetName} onChange={(event) => setNewSetName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") saveCurrentSet(); if (event.key === "Escape") setSavingSet(false); }} placeholder="Názov setu, napr. Ranná zmena" className="h-8 w-full rounded-md border border-[#d8e0ea] px-2 text-[11px] outline-none focus:border-[#c8102e]" />
+                  <div className="mt-2 flex justify-end gap-1.5"><button onClick={() => setSavingSet(false)} className="rounded-md px-2 py-1 text-[10px] text-[#7b8797] hover:bg-[#f1f4f8]">Zrušiť</button><button onClick={saveCurrentSet} disabled={!newSetName.trim() || total === 0} className="rounded-md bg-[#c8102e] px-2.5 py-1 text-[10px] font-semibold text-white disabled:opacity-40">Uložiť set</button></div>
+                </div>
+              ) : (
+                <button onClick={() => setSavingSet(true)} className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[#c8d5e4] px-2 py-2 text-[10px] font-semibold text-[#58729a] hover:border-[#c8102e]/50 hover:bg-[#fffafa]"><Plus size={13} /> Uložiť aktuálny výber ako set</button>
+              )}
+            </div>
             <div className="mt-5 border-t border-[#e1e7ef] pt-5">
               <div className="mb-3 flex items-center justify-between"><span className="text-[11px] font-bold uppercase tracking-[.14em] text-[#8995a5]">Dnešný výkon</span><span className="text-[10px] text-[#8b98a8]">obnoviť ↻</span></div>
               <div className="space-y-3">
