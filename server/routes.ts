@@ -57578,7 +57578,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
           ca.category_id, ca.cbc_activity_codes as assignment_cbc_activity_codes,
           pc.code as category_code, pc.name as category_name,
           c.id as person_id, c.title_before, c.first_name, c.last_name, c.title_after,
-          c.email, c.phone, c.mobile, c.mobile2, c.collaborator_type, c.is_active as person_active,
+          c.email, c.phone, c.mobile, c.mobile_2 as mobile2, c.collaborator_type, c.is_active as person_active,
           c.country_code, c.partner_category, c.cbc_activities
         FROM contact_assignments ca
         JOIN collaborators c ON c.id = ca.person_id
@@ -57629,7 +57629,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
               person_id: c.id,
               title_before: c.titleBefore, first_name: c.firstName,
               last_name: c.lastName, title_after: c.titleAfter,
-               email: c.email, phone: c.phone, mobile: c.mobile, mobile2: c.mobile2,
+              email: c.email, phone: c.phone, mobile: c.mobile, mobile2: c.mobile2,
               collaborator_type: c.collaboratorType,
               partner_category: c.partnerCategory,
               cbc_activities: c.cbcActivities,

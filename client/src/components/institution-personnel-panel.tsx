@@ -416,7 +416,11 @@ export function InstitutionPersonnelPanel({
 
   const personnelQuery = useQuery<any>({
     queryKey: ["/api/institutions", entityType, entityId, "personnel"],
-    queryFn: () => fetch(`/api/institutions/${entityType}/${entityId}/personnel`, { credentials: "include" }).then(r => r.json()),
+    queryFn: async () => {
+      const response = await fetch(`/api/institutions/${entityType}/${entityId}/personnel`, { credentials: "include" });
+      if (!response.ok) throw new Error(`Failed to load personnel (${response.status})`);
+      return response.json();
+    },
     enabled: open,
   });
 
@@ -772,7 +776,11 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
 
   const personnelQuery = useQuery<any>({
     queryKey: ["/api/institutions", entityType, entityId, "personnel"],
-    queryFn: () => fetch(`/api/institutions/${entityType}/${entityId}/personnel`, { credentials: "include" }).then(r => r.json()),
+    queryFn: async () => {
+      const response = await fetch(`/api/institutions/${entityType}/${entityId}/personnel`, { credentials: "include" });
+      if (!response.ok) throw new Error(`Failed to load personnel (${response.status})`);
+      return response.json();
+    },
   });
 
   const categoriesQuery = useQuery<any[]>({
