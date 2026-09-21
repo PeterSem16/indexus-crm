@@ -128,6 +128,41 @@
   box-shadow: 0 11px 24px rgba(200, 16, 46, .30);
 }
 
+/* Desktop selector density: keep the approved card rhythm while exposing more
+   operational areas before the user needs to scroll. Mobile retains its own
+   touch-sized layout. */
+@media (min-width: 768px) {
+  .shift-login-variant-a .shift-login-header {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+
+  .shift-login-variant-a .shift-login-summary {
+    padding-top: 0.875rem;
+    padding-bottom: 0.875rem;
+  }
+
+  .shift-login-variant-a .shift-login-scroll {
+    padding-top: 0.875rem;
+    padding-bottom: 0.875rem;
+  }
+
+  .shift-login-variant-a .shift-login-footer {
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+  }
+
+  .shift-login-variant-a .shift-login-start {
+    height: 2.5rem;
+    min-height: 2.5rem;
+  }
+
+  .shift-login-variant-a .shift-login-details b {
+    color: #52647b;
+    font-weight: 600;
+  }
+}
+
 @media (max-width: 767px) {
   .shift-login-variant-a > .shift-login-body > .shift-login-summary {
     background: #fff;

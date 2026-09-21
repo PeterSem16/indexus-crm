@@ -10733,6 +10733,7 @@ function AgentWorkspacePageContent() {
   const [newLoginSetName, setNewLoginSetName] = useState("");
   const [shiftLoginSearch, setShiftLoginSearch] = useState("");
   const [shiftLoginOnlyAvailable, setShiftLoginOnlyAvailable] = useState(false);
+  const [expandedShiftLoginItems, setExpandedShiftLoginItems] = useState<Set<string>>(new Set());
   const { data: shiftLoginSets = [] } = useQuery<ShiftLoginSet[]>({
     queryKey: ["/api/agent/shift-login-sets"],
     enabled: !!user && sessionLoginOpen && !agentSession.isSessionActive,
@@ -14946,7 +14947,7 @@ function AgentWorkspacePageContent() {
             <div className="shift-login-workspace flex flex-col min-h-0">
 
               {/* Scrollovateľná časť */}
-              <div className="shift-login-scroll flex-1 overflow-y-auto px-5 py-5 space-y-4">
+              <div className="shift-login-scroll flex-1 overflow-y-auto px-5 py-4 space-y-3">
 
                 <div className="shift-login-searchbar sticky top-0 z-10 -mx-1 flex flex-wrap items-center gap-2 rounded-xl p-2 shadow-sm backdrop-blur" role="search">
                   <div className="relative min-w-[180px] flex-1">
@@ -15000,7 +15001,7 @@ function AgentWorkspacePageContent() {
                       </span>
                     )}
                   </div>
-                  <ScrollArea className="max-h-56">
+                  <ScrollArea className="max-h-48">
                     <div className="grid gap-2 xl:grid-cols-2 pr-1">
                       {filteredShiftLoginCampaigns.length === 0 ? (
                         <div className="text-center py-5">
@@ -15012,12 +15013,19 @@ function AgentWorkspacePageContent() {
                           const chConfig = CHANNEL_CONFIG[campaign.channel as ChannelType] || CHANNEL_CONFIG.phone;
                           const ChIcon = chConfig.icon;
                           const isChecked = selectedLoginCampaignIds.includes(campaign.id);
+                          const itemKey = `mission:${campaign.id}`;
+                          const isExpanded = expandedShiftLoginItems.has(itemKey);
+                          const campaignData = shiftData?.campaignData?.[campaign.id];
+                          const workingHoursStart = campaignData?.workingHoursStart;
+                          const workingHoursEnd = campaignData?.workingHoursEnd;
+                          const dailyCallQuota = campaignData?.dailyCallQuota ?? null;
+                          const callerIdNumber = campaign.callerIdNumber ?? null;
                           const channelHex: Record<string, string> = { phone: "#3B82F6", email: "#22C55E", sms: "#F97316", mixed: "#A855F7" };
                           const barColor = channelHex[campaign.channel] || "#3B82F6";
                           return (
                             <div
                               key={campaign.id}
-                              className="shift-login-card mission-card flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-150"
+                              className="shift-login-card mission-card rounded-xl cursor-pointer transition-all duration-150"
                               data-selected={isChecked}
                               style={{
                                 background: isChecked ? "#f8fbff" : "#fff",
@@ -15027,15 +15035,19 @@ function AgentWorkspacePageContent() {
                               onClick={() => setSelectedLoginCampaignIds(prev => prev.includes(campaign.id) ? prev.filter(id => id !== campaign.id) : [...prev, campaign.id])}
                               data-testid={`login-campaign-${campaign.id}`}
                             >
-                              <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: isChecked ? "#c8102e" : barColor, minHeight: 28 }} />
-                              <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: isChecked ? "hsl(355 85% 42% / 0.10)" : "hsl(var(--muted))" }}>
-                                <ChIcon className="h-3.5 w-3.5" style={{ color: isChecked ? "hsl(355 85% 42%)" : barColor }} />
-                              </div>
-                              <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-3 px-3 py-2">
+                                <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: isChecked ? "#c8102e" : barColor, minHeight: 26 }} />
+                                <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: isChecked ? "hsl(355 85% 42% / 0.10)" : "hsl(var(--muted))" }}>
+                                  <ChIcon className="h-3.5 w-3.5" style={{ color: isChecked ? "hsl(355 85% 42%)" : barColor }} />
+                                </div>
+                                <div className="flex-1 min-w-0">
                                 <div className="flex items-start justify-between gap-2">
                                   <p className="text-sm font-semibold text-foreground leading-tight">{campaign.name}</p>
                                   <div className="flex items-center gap-1.5 shrink-0">
                                     <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full" style={{ background: isChecked ? "hsl(355 85% 42% / 0.10)" : "hsl(var(--muted))", color: isChecked ? "hsl(355 85% 42%)" : barColor }}>{chConfig.label}</span>
+                                    <button type="button" className="rounded p-0.5 text-muted-foreground hover:bg-muted" onClick={(event) => { event.stopPropagation(); setExpandedShiftLoginItems((current) => { const next = new Set(current); next.has(itemKey) ? next.delete(itemKey) : next.add(itemKey); return next; }); }} aria-expanded={isExpanded} aria-label={t.common.detail} data-testid={`expand-login-campaign-${campaign.id}`}>
+                                      {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                    </button>
                                     <div className="rounded flex items-center justify-center transition-colors" style={{ width: 18, height: 18, background: isChecked ? "hsl(355 85% 42%)" : "transparent", border: `2px solid ${isChecked ? "hsl(355 85% 42%)" : "hsl(var(--border))"}` }}
                                          data-testid={`checkbox-login-campaign-${campaign.id}`}>
                                       {isChecked && <Check className="h-2.5 w-2.5 text-white" />}
@@ -15046,8 +15058,8 @@ function AgentWorkspacePageContent() {
                                   {campaign.countryCodes && campaign.countryCodes.length > 0 && (
                                     <span className="text-[10px]">{campaign.countryCodes.map((code: string) => getCountryFlag(code)).join(" ")}</span>
                                   )}
-                                  {campaign.startDate && (
-                                    <span className="text-[10px] text-muted-foreground">{format(new Date(campaign.startDate), "dd.MM.yy")} – {campaign.endDate ? format(new Date(campaign.endDate), "dd.MM.yy") : "..."}</span>
+                                  {(campaign.startDate || campaign.endDate) && (
+                                    <span className="text-[10px] text-muted-foreground">{campaign.startDate && format(new Date(campaign.startDate), "dd.MM.yy")}{campaign.startDate && campaign.endDate ? " – " : ""}{campaign.endDate && format(new Date(campaign.endDate), "dd.MM.yy")}</span>
                                   )}
                                    {shiftData?.campaignData?.[campaign.id]?.activeVersionNumber != null && (
                                      <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300">
@@ -15056,17 +15068,17 @@ function AgentWorkspacePageContent() {
                                    )}
                                 </div>
                                 {(() => {
-                                  const cd = shiftData?.campaignData?.[campaign.id];
-                                  const wStart = cd?.workingHoursStart || "09:00";
-                                  const wEnd = cd?.workingHoursEnd || "17:00";
-                                  const quota = cd?.dailyCallQuota ?? null;
-                                  const callerId = campaign.callerIdNumber ?? null;
+                                  const cd = campaignData;
+                                  const wStart = cd?.workingHoursStart;
+                                  const wEnd = cd?.workingHoursEnd;
+                                  const quota = dailyCallQuota;
+                                  const callerId = callerIdNumber;
                                   return (
                                     <div className="flex items-center gap-2.5 mt-1.5 flex-wrap">
-                                      <div className="flex items-center gap-1">
+                                      {(wStart || wEnd) && <div className="flex items-center gap-1">
                                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                                        <span className="text-[10px] font-medium text-muted-foreground">{wStart} – {wEnd}</span>
-                                      </div>
+                                         <span className="text-[10px] font-medium text-muted-foreground">{wStart}{wStart && wEnd ? " – " : ""}{wEnd}</span>
+                                      </div>}
                                       {callerId && (
                                         <div className="flex items-center gap-1">
                                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.9a16 16 0 0 0 6.07 6.07l.96-.96a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
@@ -15084,7 +15096,18 @@ function AgentWorkspacePageContent() {
                                     </div>
                                   );
                                 })()}
+                                </div>
                               </div>
+                              {isExpanded && (
+                                <div className="shift-login-details border-t border-[#e7edf4] px-14 py-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[10px] text-muted-foreground" onClick={(event) => event.stopPropagation()}>
+                                  {(campaign.startDate || campaign.endDate) && <span><b>{t.campaigns.dates}:</b> {campaign.startDate && format(new Date(campaign.startDate), "dd.MM.yy")}{campaign.startDate && campaign.endDate ? " – " : ""}{campaign.endDate && format(new Date(campaign.endDate), "dd.MM.yy")}</span>}
+                                  {(workingHoursStart || workingHoursEnd) && <span><b>{t.agentSession.schedule}:</b> {workingHoursStart}{workingHoursStart && workingHoursEnd ? " – " : ""}{workingHoursEnd}</span>}
+                                  {callerIdNumber && <span><b>{t.agentSession.callerId}:</b> {callerIdNumber}</span>}
+                                  {dailyCallQuota !== null && <span><b>{t.agentSession.dailyQuota}:</b> {dailyCallQuota} {t.agentSession.calls}{t.agentSession.perDay}</span>}
+                                  {campaignData?.maxContactsPerDay != null && <span><b>{t.campaigns.contactsPerDay}:</b> {campaignData.maxContactsPerDay}</span>}
+                                  {campaignData?.activeVersionNumber != null && <span><b>{t.campaigns.detail.nexusActiveVersion}:</b> v{campaignData.activeVersionNumber}</span>}
+                                </div>
+                              )}
                             </div>
                           );
                         })
@@ -15104,10 +15127,12 @@ function AgentWorkspacePageContent() {
                         </span>
                       )}
                     </div>
-                    <ScrollArea className="max-h-44">
+                    <ScrollArea className="max-h-36">
                       <div className="grid gap-2 xl:grid-cols-2 pr-1">
                         {filteredShiftLoginQueues.map((queue) => {
                           const isChecked = selectedLoginQueueIds.includes(queue.id);
+                          const itemKey = `queue:${queue.id}`;
+                          const isExpanded = expandedShiftLoginItems.has(itemKey);
                           const didNumbers = getAgentQueueDidNumbers(queue);
                           const isAfterHours = (() => {
                             if (!queue.activeTo) return false;
@@ -15118,7 +15143,7 @@ function AgentWorkspacePageContent() {
                             return nowMin >= endMin;
                           })();
                           const afterHoursLabel = (() => {
-                            if (!isAfterHours || !queue.afterHoursAction) return null;
+                            if (!queue.afterHoursAction) return null;
                             if (queue.afterHoursAction === "voicemail") return queue.afterHoursVoicemailBoxName ? `${t.agentSession.afterHoursVoicemail} → ${queue.afterHoursVoicemailBoxName}` : t.agentSession.afterHoursVoicemail;
                             if (queue.afterHoursAction === "hangup") return t.agentSession.afterHoursHangup;
                             if (queue.afterHoursAction === "transfer") return queue.afterHoursTarget ? `${t.agentSession.afterHoursTransfer} → ${queue.afterHoursTarget}` : t.agentSession.afterHoursTransfer;
@@ -15128,7 +15153,7 @@ function AgentWorkspacePageContent() {
                           return (
                             <div
                               key={queue.id}
-                              className="shift-login-card queue-card flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-150"
+                              className="shift-login-card queue-card rounded-xl cursor-pointer transition-all duration-150"
                               data-selected={isChecked}
                               style={{
                                 background: isChecked ? (isAfterHours ? "#fff8e6" : "#f7fdf9") : "#fff",
@@ -15137,11 +15162,12 @@ function AgentWorkspacePageContent() {
                               onClick={() => setSelectedLoginQueueIds(prev => prev.includes(queue.id) ? prev.filter(id => id !== queue.id) : [...prev, queue.id])}
                               data-testid={`login-queue-${queue.id}`}
                             >
-                              <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: isAfterHours ? "#D97706" : "#16A34A", minHeight: 28 }} />
-                              <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isChecked ? (isAfterHours ? "bg-amber-100 dark:bg-amber-950/40" : "bg-green-100 dark:bg-green-950/40") : (isAfterHours ? "bg-amber-50 dark:bg-amber-950/20" : "bg-green-50 dark:bg-green-950/20")}`}>
-                                <PhoneIncoming className={`h-3.5 w-3.5 ${isAfterHours ? "text-amber-600" : "text-green-600"}`} />
-                              </div>
-                              <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-3 px-3 py-2">
+                                <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: isAfterHours ? "#D97706" : "#16A34A", minHeight: 26 }} />
+                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isChecked ? (isAfterHours ? "bg-amber-100 dark:bg-amber-950/40" : "bg-green-100 dark:bg-green-950/40") : (isAfterHours ? "bg-amber-50 dark:bg-amber-950/20" : "bg-green-50 dark:bg-green-950/20")}`}>
+                                  <PhoneIncoming className={`h-3.5 w-3.5 ${isAfterHours ? "text-amber-600" : "text-green-600"}`} />
+                                </div>
+                                <div className="flex-1 min-w-0">
                                 <p className="text-sm font-semibold truncate text-foreground">{queue.name}</p>
                                 <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-muted-foreground">
                                   {queue.activeFrom && queue.activeTo && <span>{queue.activeFrom} – {queue.activeTo}</span>}
@@ -15162,12 +15188,25 @@ function AgentWorkspacePageContent() {
                                 {queue.waiting > 0 && (
                                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400">{queue.waiting} {t.agentSession.waiting}</span>
                                 )}
+                                  <button type="button" className="rounded p-0.5 text-muted-foreground hover:bg-muted" onClick={(event) => { event.stopPropagation(); setExpandedShiftLoginItems((current) => { const next = new Set(current); next.has(itemKey) ? next.delete(itemKey) : next.add(itemKey); return next; }); }} aria-expanded={isExpanded} aria-label={t.common.detail} data-testid={`expand-login-queue-${queue.id}`}>
+                                    {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                  </button>
                                 <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isAfterHours ? "bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400" : "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400"}`}>{queue.activeAgents} {t.agentSession.online}</span>
                                 <div className="rounded flex items-center justify-center ml-0.5" style={{ width: 18, height: 18, background: isChecked ? (isAfterHours ? "#D97706" : "#16A34A") : "transparent", border: `2px solid ${isChecked ? (isAfterHours ? "#D97706" : "#16A34A") : "hsl(var(--border))"}` }}
                                      data-testid={`checkbox-login-queue-${queue.id}`}>
                                   {isChecked && <Check className="h-2.5 w-2.5 text-white" />}
                                 </div>
+                                </div>
                               </div>
+                              {isExpanded && (
+                                <div className="shift-login-details border-t border-[#e7edf4] px-14 py-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[10px] text-muted-foreground" onClick={(event) => event.stopPropagation()}>
+                                  {(queue.activeFrom || queue.activeTo) && <span><b>{t.agentSession.schedule}:</b> {queue.activeFrom}{queue.activeFrom && queue.activeTo ? " – " : ""}{queue.activeTo}</span>}
+                                  {didNumbers.length > 0 && <span><b>{t.agentSession.callerId}:</b> {didNumbers.join(" · ")}</span>}
+                                  <span><b>{t.agentSession.waiting}:</b> {queue.waiting}</span>
+                                  <span><b>{t.agentSession.online}:</b> {queue.activeAgents}</span>
+                                  {afterHoursLabel && <span className="col-span-2"><b>{t.agentSession.afterHoursBadge}:</b> {afterHoursLabel}</span>}
+                                </div>
+                              )}
                             </div>
                           );
                         })}
