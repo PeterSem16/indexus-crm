@@ -26148,6 +26148,23 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const rewardHospitalIdArray = rewardHospitalIds.length
         ? sql`ARRAY[${sql.join(rewardHospitalIds.map((id) => sql`${id}`), sql`, `)}]::text[]`
         : null;
+      const targetRewardAssignments = (rewardClinicIds.length || rewardHospitalIds.length)
+        ? await db.select({ personId: contactAssignments.personId })
+          .from(contactAssignments)
+          .where(and(
+            eq(contactAssignments.isActive, true),
+            or(
+              rewardClinicIds.length
+                ? and(eq(contactAssignments.entityType, "clinic"), inArray(contactAssignments.entityId, rewardClinicIds))
+                : sql`false`,
+              rewardHospitalIds.length
+                ? and(eq(contactAssignments.entityType, "hospital"), inArray(contactAssignments.entityId, rewardHospitalIds))
+                : sql`false`,
+            ),
+          ))
+        : [];
+      const assignmentRewardPersonIds = [...new Set(targetRewardAssignments.map((assignment) => assignment.personId))];
+      const directlyRelevantRewardPersonIds = [...new Set([...rewardCollaboratorIds, ...assignmentRewardPersonIds])];
       const linkedRewardPeople = (rewardClinicIds.length || rewardHospitalIds.length || rewardCollaboratorIds.length)
         ? await db.select({
           id: collaborators.id,
@@ -26156,12 +26173,29 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           hospitalId: collaborators.hospitalId,
           hospitalIds: collaborators.hospitalIds,
         }).from(collaborators).where(or(
-          rewardCollaboratorIds.length ? inArray(collaborators.id, rewardCollaboratorIds) : sql`false`,
+          directlyRelevantRewardPersonIds.length ? inArray(collaborators.id, directlyRelevantRewardPersonIds) : sql`false`,
           rewardClinicIdArray ? sql`(${collaborators.clinicId} = ANY(${rewardClinicIdArray}) OR ${collaborators.clinicIds} && ${rewardClinicIdArray})` : sql`false`,
           rewardHospitalIdArray ? sql`(${collaborators.hospitalId} = ANY(${rewardHospitalIdArray}) OR ${collaborators.hospitalIds} && ${rewardHospitalIdArray})` : sql`false`,
         ))
         : [];
       const linkedRewardPersonIds = linkedRewardPeople.map((person) => person.id);
+      const activeRewardAssignments = linkedRewardPersonIds.length
+        ? await db.select({
+          personId: contactAssignments.personId,
+          entityType: contactAssignments.entityType,
+          entityId: contactAssignments.entityId,
+        }).from(contactAssignments).where(and(
+          inArray(contactAssignments.personId, linkedRewardPersonIds),
+          eq(contactAssignments.isActive, true),
+          inArray(contactAssignments.entityType, ["clinic", "hospital"]),
+        ))
+        : [];
+      const rewardAssignmentsByPerson = new Map<string, Array<{ entityType: string; entityId: string }>>();
+      for (const assignment of activeRewardAssignments) {
+        const existing = rewardAssignmentsByPerson.get(assignment.personId) || [];
+        existing.push({ entityType: assignment.entityType, entityId: assignment.entityId });
+        rewardAssignmentsByPerson.set(assignment.personId, existing);
+      }
       const latestRewardActivityByPerson = new Map<string, typeof collaboratorActivities.$inferSelect>();
       if (linkedRewardPersonIds.length) {
         const activityRows = await db.select().from(collaboratorActivities)
@@ -26184,10 +26218,13 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         const latest = latestRewardActivityByPerson.get(person.id);
         if (!latest || (latest.rewardPaid && latest.rewardPaidAt)) continue;
         unpaidRewardCollaboratorIds.add(person.id);
-        for (const clinicId of new Set([person.clinicId, ...(person.clinicIds || [])].filter(Boolean) as string[])) {
+        const activeAssignments = rewardAssignmentsByPerson.get(person.id) || [];
+        const assignedClinicIds = activeAssignments.filter((assignment) => assignment.entityType === "clinic").map((assignment) => assignment.entityId);
+        const assignedHospitalIds = activeAssignments.filter((assignment) => assignment.entityType === "hospital").map((assignment) => assignment.entityId);
+        for (const clinicId of new Set([person.clinicId, ...(person.clinicIds || []), ...assignedClinicIds].filter(Boolean) as string[])) {
           unpaidRewardCountByClinic.set(clinicId, (unpaidRewardCountByClinic.get(clinicId) || 0) + 1);
         }
-        for (const hospitalId of new Set([person.hospitalId, ...(person.hospitalIds || [])].filter(Boolean) as string[])) {
+        for (const hospitalId of new Set([person.hospitalId, ...(person.hospitalIds || []), ...assignedHospitalIds].filter(Boolean) as string[])) {
           unpaidRewardCountByHospital.set(hospitalId, (unpaidRewardCountByHospital.get(hospitalId) || 0) + 1);
         }
       }
@@ -30143,6 +30180,23 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const rewardHospitalIdArray = rewardHospitalIds.length
         ? sql`ARRAY[${sql.join(rewardHospitalIds.map((id) => sql`${id}`), sql`, `)}]::text[]`
         : null;
+      const targetRewardAssignments = (rewardClinicIds.length || rewardHospitalIds.length)
+        ? await db.select({ personId: contactAssignments.personId })
+          .from(contactAssignments)
+          .where(and(
+            eq(contactAssignments.isActive, true),
+            or(
+              rewardClinicIds.length
+                ? and(eq(contactAssignments.entityType, "clinic"), inArray(contactAssignments.entityId, rewardClinicIds))
+                : sql`false`,
+              rewardHospitalIds.length
+                ? and(eq(contactAssignments.entityType, "hospital"), inArray(contactAssignments.entityId, rewardHospitalIds))
+                : sql`false`,
+            ),
+          ))
+        : [];
+      const assignmentRewardPersonIds = [...new Set(targetRewardAssignments.map((assignment) => assignment.personId))];
+      const directlyRelevantRewardPersonIds = [...new Set([...rewardCollaboratorIds, ...assignmentRewardPersonIds])];
       const linkedRewardPeople = (rewardClinicIds.length || rewardHospitalIds.length || rewardCollaboratorIds.length)
         ? await db.select({
           id: collaborators.id,
@@ -30151,12 +30205,29 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           hospitalId: collaborators.hospitalId,
           hospitalIds: collaborators.hospitalIds,
         }).from(collaborators).where(or(
-          rewardCollaboratorIds.length ? inArray(collaborators.id, rewardCollaboratorIds) : sql`false`,
+          directlyRelevantRewardPersonIds.length ? inArray(collaborators.id, directlyRelevantRewardPersonIds) : sql`false`,
           rewardClinicIdArray ? sql`(${collaborators.clinicId} = ANY(${rewardClinicIdArray}) OR ${collaborators.clinicIds} && ${rewardClinicIdArray})` : sql`false`,
           rewardHospitalIdArray ? sql`(${collaborators.hospitalId} = ANY(${rewardHospitalIdArray}) OR ${collaborators.hospitalIds} && ${rewardHospitalIdArray})` : sql`false`,
         ))
         : [];
       const linkedRewardPersonIds = linkedRewardPeople.map((person) => person.id);
+      const activeRewardAssignments = linkedRewardPersonIds.length
+        ? await db.select({
+          personId: contactAssignments.personId,
+          entityType: contactAssignments.entityType,
+          entityId: contactAssignments.entityId,
+        }).from(contactAssignments).where(and(
+          inArray(contactAssignments.personId, linkedRewardPersonIds),
+          eq(contactAssignments.isActive, true),
+          inArray(contactAssignments.entityType, ["clinic", "hospital"]),
+        ))
+        : [];
+      const rewardAssignmentsByPerson = new Map<string, Array<{ entityType: string; entityId: string }>>();
+      for (const assignment of activeRewardAssignments) {
+        const existing = rewardAssignmentsByPerson.get(assignment.personId) || [];
+        existing.push({ entityType: assignment.entityType, entityId: assignment.entityId });
+        rewardAssignmentsByPerson.set(assignment.personId, existing);
+      }
       const latestRewardActivityByPerson = new Map<string, typeof collaboratorActivities.$inferSelect>();
       if (linkedRewardPersonIds.length) {
         const activityRows = await db.select().from(collaboratorActivities)
@@ -30179,10 +30250,13 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         const latest = latestRewardActivityByPerson.get(person.id);
         if (!latest || (latest.rewardPaid && latest.rewardPaidAt)) continue;
         unpaidRewardCollaboratorIds.add(person.id);
-        for (const clinicId of new Set([person.clinicId, ...(person.clinicIds || [])].filter(Boolean) as string[])) {
+        const activeAssignments = rewardAssignmentsByPerson.get(person.id) || [];
+        const assignedClinicIds = activeAssignments.filter((assignment) => assignment.entityType === "clinic").map((assignment) => assignment.entityId);
+        const assignedHospitalIds = activeAssignments.filter((assignment) => assignment.entityType === "hospital").map((assignment) => assignment.entityId);
+        for (const clinicId of new Set([person.clinicId, ...(person.clinicIds || []), ...assignedClinicIds].filter(Boolean) as string[])) {
           unpaidRewardCountByClinic.set(clinicId, (unpaidRewardCountByClinic.get(clinicId) || 0) + 1);
         }
-        for (const hospitalId of new Set([person.hospitalId, ...(person.hospitalIds || [])].filter(Boolean) as string[])) {
+        for (const hospitalId of new Set([person.hospitalId, ...(person.hospitalIds || []), ...assignedHospitalIds].filter(Boolean) as string[])) {
           unpaidRewardCountByHospital.set(hospitalId, (unpaidRewardCountByHospital.get(hospitalId) || 0) + 1);
         }
       }
