@@ -45,7 +45,7 @@ import {
   insertLeadSourceSchema, insertLeadCampaignSchema, queryTemplates, insertQueryTemplateSchema, webhookConfigs, insertWebhookConfigSchema, leadSources,
   sourceLearningMetrics, contactScores, leadFeedback, feedbackPatterns, leadEntities, entityRelations, entityEvidences, leadLifecycle,
   insertSopCategorySchema, insertSopArticleSchema,
-  agentSessions, agentSessionActivities, agentBreaks, scheduledReports, agentQueueStatus,
+  agentSessions, agentSessionActivities, agentBreaks, agentBreakTypes, scheduledReports, agentQueueStatus,
   inboundCallLogs, inboundQueues, agentStandingForwards, ariSettings, sipExtensions, clinicReferrals, collaboratorReferrals, clinicEvents, hospitalNetworks, hospitalNetworkMembers,
   clinicRepresentativeAssignments, hospitalRepresentativeAssignments,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog, type LeadScoringCriteria,
@@ -27062,13 +27062,26 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const sessionIds = todaySessions.map(s => s.id);
       let breakItems: any[] = [];
       if (sessionIds.length > 0) {
-        const breaks = await db.select().from(agentBreaks)
+        const breaks = await db.select({
+          id: agentBreaks.id,
+          breakTypeId: agentBreaks.breakTypeId,
+          breakTypeName: agentBreaks.breakTypeName,
+          startedAt: agentBreaks.startedAt,
+          endedAt: agentBreaks.endedAt,
+          durationSeconds: agentBreaks.durationSeconds,
+          breakTypeIcon: agentBreakTypes.icon,
+          breakTypeColor: agentBreakTypes.color,
+        }).from(agentBreaks)
+          .leftJoin(agentBreakTypes, eq(agentBreaks.breakTypeId, agentBreakTypes.id))
           .where(inArray(agentBreaks.sessionId, sessionIds))
           .orderBy(desc(agentBreaks.startedAt));
         breakItems = breaks.map(b => ({
           id: b.id,
           itemType: "break" as const,
           breakTypeName: b.breakTypeName || "Prestávka",
+          breakTypeId: b.breakTypeId,
+          breakTypeIcon: b.breakTypeIcon,
+          breakTypeColor: b.breakTypeColor,
           startedAt: b.startedAt,
           endedAt: b.endedAt,
           durationSeconds: b.durationSeconds,

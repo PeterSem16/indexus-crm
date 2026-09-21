@@ -15456,6 +15456,8 @@ function AgentWorkspacePageContent() {
           open={breakDialogOpen}
           onOpenChange={setBreakDialogOpen}
           name={activeBreakName || t.agentSession.statusBreak}
+          icon={activeBreakTypeObj?.icon}
+          color={activeBreakTypeObj?.color}
           elapsedSeconds={agentSession.breakElapsedSeconds}
           expectedMinutes={activeBreakTypeObj?.expectedDurationMinutes}
           onEndBreak={handleEndBreak}

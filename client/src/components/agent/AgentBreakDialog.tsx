@@ -1,13 +1,16 @@
 import { useRef, useState } from "react";
-import { AlertTriangle, Coffee, Loader2, Play, X } from "lucide-react";
+import { AlertTriangle, Loader2, Play, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useI18n } from "@/i18n/I18nProvider";
+import { getAgentBreakIcon } from "@/lib/agent-break-icons";
 import "./agent-break-dialog.css";
 
 interface AgentBreakDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   name: string;
+  icon?: string | null;
+  color?: string | null;
   elapsedSeconds: number;
   expectedMinutes: number | null | undefined;
   onEndBreak: () => Promise<boolean>;
@@ -20,7 +23,7 @@ function formatTime(seconds: number) {
 }
 
 export function AgentBreakDialog({
-  open, onOpenChange, name, elapsedSeconds, expectedMinutes, onEndBreak,
+  open, onOpenChange, name, icon, color, elapsedSeconds, expectedMinutes, onEndBreak,
 }: AgentBreakDialogProps) {
   const { t } = useI18n();
   const copy = t.agentWorkspace.breakModal;
@@ -32,6 +35,8 @@ export function AgentBreakDialog({
   const expectedSeconds = expectedMinutes && expectedMinutes > 0 ? expectedMinutes * 60 : null;
   const exceeded = expectedSeconds !== null && seconds > expectedSeconds;
   const hideLabel = `${copy.hide} · ${copy.continues}`;
+  const BreakIcon = getAgentBreakIcon(icon);
+  const breakColor = color || "#EAB308";
 
   const finish = async () => {
     if (submitting.current) return;
@@ -76,7 +81,12 @@ export function AgentBreakDialog({
           </button>
         </div>
         <div className="abd-hero">
-          <div className="abd-icon"><Coffee size={27} aria-hidden="true" /></div>
+          <div
+            className="abd-icon"
+            style={{ backgroundColor: `${breakColor}18`, borderColor: `${breakColor}45`, color: breakColor }}
+          >
+            <BreakIcon size={27} aria-hidden="true" />
+          </div>
           <DialogTitle className="abd-title">{name}</DialogTitle>
           <DialogDescription className="abd-description">{copy.subtitle}</DialogDescription>
           <strong className="abd-clock" role="timer" aria-label={copy.elapsed} data-testid="text-break-time">{formatTime(seconds)}</strong>

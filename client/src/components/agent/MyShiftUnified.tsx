@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { startOfDay } from "date-fns";
 import {
-  ArrowDownUp, Calendar, CheckCircle2, ChevronDown, Clock, Coffee, FileText,
+  ArrowDownUp, Calendar, CheckCircle2, ChevronDown, Clock, FileText,
   History, Loader2, LogIn, LogOut, Mail, MessageSquare, PhoneCall,
   PhoneIncoming, PhoneMissed, PhoneOutgoing, RefreshCcw, Search,
   SlidersHorizontal, UserRound, X,
@@ -10,6 +10,7 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useI18n } from "@/i18n";
 import { htmlToPlainPreview } from "@/lib/sanitize-html";
+import { getAgentBreakIcon } from "@/lib/agent-break-icons";
 import "./my-shift-unified.css";
 
 type ActivityType = "all" | "call" | "email" | "sms" | "missed" | "break" | "session";
@@ -42,14 +43,17 @@ const formatDuration = (seconds: number | null | undefined) => {
     .map(value => String(value).padStart(2, "0")).join(":");
 };
 
-function ActivityIcon({ type, direction, size = 17 }: { type: string; direction?: string; size?: number }) {
+function ActivityIcon({ type, direction, size = 17, breakIcon }: { type: string; direction?: string; size?: number; breakIcon?: string | null }) {
   if (type === "missed") return <PhoneMissed size={size} aria-hidden="true" />;
   if (type === "call") return direction === "inbound"
     ? <PhoneIncoming size={size} aria-hidden="true" />
     : <PhoneOutgoing size={size} aria-hidden="true" />;
   if (type === "email") return <Mail size={size} aria-hidden="true" />;
   if (type === "sms") return <MessageSquare size={size} aria-hidden="true" />;
-  if (type === "break") return <Coffee size={size} aria-hidden="true" />;
+  if (type === "break") {
+    const BreakIcon = getAgentBreakIcon(breakIcon);
+    return <BreakIcon size={size} aria-hidden="true" />;
+  }
   return <History size={size} aria-hidden="true" />;
 }
 
@@ -282,6 +286,10 @@ export function MyActivityPanel({
               const isCall = item.itemType === "call";
               const isSession = item.itemType === "session";
               const isBreak = item.itemType === "break";
+              const breakColor = item.breakTypeColor || "#EAB308";
+              const breakStyle = isBreak
+                ? { color: breakColor, backgroundColor: `${breakColor}18` }
+                : undefined;
               const isActive = (isSession || isBreak) && !item.endedAt;
               const isIn = item.direction === "inbound";
               const statusLabel = isActive ? (isSession ? aw.myShiftSessionActive : aw.myShiftBreakActive)
@@ -296,15 +304,18 @@ export function MyActivityPanel({
                 ? formatDuration(Math.round((new Date(ringEnd).getTime() - new Date(item.startedAt).getTime()) / 1000)) : null;
               const body = item.htmlBody ? htmlToPlainPreview(item.htmlBody) : item.fullContent || item.content;
               return <div className="msu-row" key={`${item.itemType}-${item.id}`} data-testid={`my-shift-${item.itemType}-${item.id}`}>
-                <div className={`msu-avatar ${type}`} aria-hidden="true">{name && !isSession && !isBreak
+                <div className={`msu-avatar ${type}`} style={breakStyle} aria-hidden="true">{name && !isSession && !isBreak
                   ? name.split(/\s+/).slice(0, 2).map(part => part[0]).join("").toLocaleUpperCase(locale)
-                  : <ActivityIcon type={type} direction={item.direction} />}</div>
+                  : <ActivityIcon type={type} direction={item.direction} breakIcon={item.breakTypeIcon} />}</div>
                 <div className="msu-row-main">
                   <div className="msu-row-top">
                     {hasEntity ? <button className="msu-name" type="button" onClick={() => openEntity(item)} data-testid={`btn-shift-open-entity-${item.id}`} title={name}><strong>{name || identity || aw.myShiftNoContact}</strong></button>
                       : <strong title={name || identity}>{name || identity || aw.myShiftNoContact}</strong>}
-                    <span className={`msu-badge ${missed ? "missed" : isActive || ["answered", "completed", "sent"].includes(item.status) ? "positive" : "neutral"}`}>
-                      <ActivityIcon type={type} direction={item.direction} size={10} />{statusLabel}
+                    <span
+                      className={`msu-badge ${missed ? "missed" : isActive || ["answered", "completed", "sent"].includes(item.status) ? "positive" : "neutral"}`}
+                      style={breakStyle}
+                    >
+                      <ActivityIcon type={type} direction={item.direction} size={10} breakIcon={item.breakTypeIcon} />{statusLabel}
                     </span>
                   </div>
                   <span className="msu-identity">
