@@ -12001,11 +12001,6 @@ function AgentWorkspacePageContent() {
     } as Record<string, string>)[persistedPriorityView.presetId] || persistedPriorityView.name
     : persistedPriorityView.name;
 
-  const currentCampaignContact = useMemo(() => {
-    if (!currentCampaignContactId) return null;
-    return rawCampaignContacts.find(cc => cc.id === currentCampaignContactId) || null;
-  }, [rawCampaignContacts, currentCampaignContactId]);
-
   // When currentCampaignContactId is null (e.g. inbound call matched to a contact),
   // try to find the campaign contact by matching the current contact's ID against rawCampaignContacts.
   const effectiveCampaignContactId = useMemo(() => {
@@ -12031,6 +12026,11 @@ function AgentWorkspacePageContent() {
     }
     return matched?.id || null;
   }, [currentCampaignContactId, currentContact?.id, currentContactType, rawCampaignContacts, selectedCampaignId]);
+
+  const currentCampaignContact = useMemo(() => {
+    if (!effectiveCampaignContactId) return null;
+    return rawCampaignContacts.find(cc => cc.id === effectiveCampaignContactId) || null;
+  }, [rawCampaignContacts, effectiveCampaignContactId]);
 
   const selectedCampaign = useMemo(() => {
     return campaigns.find((c) => c.id === selectedCampaignId) || null;
