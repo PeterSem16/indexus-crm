@@ -10734,6 +10734,64 @@ function AgentWorkspacePageContent() {
   const [shiftLoginSearch, setShiftLoginSearch] = useState("");
   const [shiftLoginOnlyAvailable, setShiftLoginOnlyAvailable] = useState(false);
   const [expandedShiftLoginItems, setExpandedShiftLoginItems] = useState<Set<string>>(new Set());
+  const shiftLoginAudioContextRef = useRef<AudioContext | null>(null);
+  const playShiftLoginSelectionSound = async (
+    kind: "mission" | "inbound" | "backOffice",
+    selected: boolean,
+  ) => {
+    try {
+      const AudioContextConstructor = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextConstructor) return;
+      const context = shiftLoginAudioContextRef.current || new AudioContextConstructor();
+      shiftLoginAudioContextRef.current = context;
+      if (context.state === "suspended") await context.resume();
+
+      const now = context.currentTime;
+      const notes = kind === "mission"
+        ? (selected ? [523.25, 659.25] : [659.25, 523.25])
+        : kind === "inbound"
+          ? (selected ? [392, 523.25] : [523.25, 392])
+          : (selected ? [329.63, 415.3, 493.88] : [493.88, 415.3, 329.63]);
+      const waveform: OscillatorType = kind === "backOffice" ? "triangle" : "sine";
+      const noteDuration = kind === "backOffice" ? 0.105 : 0.09;
+
+      notes.forEach((frequency, index) => {
+        const start = now + index * (noteDuration * 0.72);
+        const end = start + noteDuration;
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.type = waveform;
+        oscillator.frequency.setValueAtTime(frequency, start);
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(selected ? 0.032 : 0.022, start + 0.018);
+        gain.gain.exponentialRampToValueAtTime(0.0001, end);
+        oscillator.connect(gain);
+        gain.connect(context.destination);
+        oscillator.start(start);
+        oscillator.stop(end + 0.01);
+      });
+    } catch {
+      // Selection remains fully functional when browser audio is unavailable.
+    }
+  };
+  const toggleShiftLoginMission = (campaignId: string) => {
+    const willSelect = !selectedLoginCampaignIds.includes(campaignId);
+    void playShiftLoginSelectionSound("mission", willSelect);
+    setSelectedLoginCampaignIds((current) => current.includes(campaignId)
+      ? current.filter((id) => id !== campaignId)
+      : [...current, campaignId]);
+  };
+  const toggleShiftLoginInbound = (queueId: string) => {
+    const willSelect = !selectedLoginQueueIds.includes(queueId);
+    void playShiftLoginSelectionSound("inbound", willSelect);
+    setSelectedLoginQueueIds((current) => current.includes(queueId)
+      ? current.filter((id) => id !== queueId)
+      : [...current, queueId]);
+  };
+  const toggleShiftLoginBackOffice = () => {
+    void playShiftLoginSelectionSound("backOffice", !loginBackOffice);
+    setLoginBackOffice((current) => !current);
+  };
   const { data: shiftLoginSets = [] } = useQuery<ShiftLoginSet[]>({
     queryKey: ["/api/agent/shift-login-sets"],
     enabled: !!user && sessionLoginOpen && !agentSession.isSessionActive,
@@ -14663,7 +14721,7 @@ function AgentWorkspacePageContent() {
                       return (
                         <button
                           key={campaign.id}
-                          onClick={() => setSelectedLoginCampaignIds(prev => prev.includes(campaign.id) ? prev.filter(id => id !== campaign.id) : [...prev, campaign.id])}
+                          onClick={() => toggleShiftLoginMission(campaign.id)}
                           className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl border text-left transition-all active:scale-[0.98] ${
                             isChecked ? "bg-primary/5 border-primary/30" : "bg-card border-border"
                           }`}
@@ -14705,7 +14763,7 @@ function AgentWorkspacePageContent() {
                         return (
                           <button
                             key={queue.id}
-                            onClick={() => setSelectedLoginQueueIds(prev => prev.includes(queue.id) ? prev.filter(id => id !== queue.id) : [...prev, queue.id])}
+                            onClick={() => toggleShiftLoginInbound(queue.id)}
                             className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl border text-left transition-all active:scale-[0.98] ${
                               isChecked ? "bg-green-500/5 border-green-500/30" : "bg-card border-border"
                             }`}
@@ -14731,7 +14789,7 @@ function AgentWorkspacePageContent() {
                 {canBackOfficeAgenda && (
                   <button
                     type="button"
-                    onClick={() => setLoginBackOffice((value) => !value)}
+                    onClick={toggleShiftLoginBackOffice}
                     className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl border text-left transition-all active:scale-[0.98] ${
                       loginBackOffice ? "bg-primary/5 border-primary/30" : "bg-card border-border"
                     }`}
@@ -15032,7 +15090,7 @@ function AgentWorkspacePageContent() {
                                 border: `1px solid ${isChecked ? "#a9c9f4" : "#e2e7ee"}`,
                                 boxShadow: isChecked ? "inset 0 0 0 1px #E8C8C840" : "none",
                               }}
-                              onClick={() => setSelectedLoginCampaignIds(prev => prev.includes(campaign.id) ? prev.filter(id => id !== campaign.id) : [...prev, campaign.id])}
+                              onClick={() => toggleShiftLoginMission(campaign.id)}
                               data-testid={`login-campaign-${campaign.id}`}
                             >
                               <div className="flex items-center gap-3 px-3 py-2">
@@ -15159,7 +15217,7 @@ function AgentWorkspacePageContent() {
                                 background: isChecked ? (isAfterHours ? "#fff8e6" : "#f7fdf9") : "#fff",
                                 border: `1px solid ${isChecked ? (isAfterHours ? "#e4b94f" : "#a9dfbd") : "#e2e7ee"}`,
                               }}
-                              onClick={() => setSelectedLoginQueueIds(prev => prev.includes(queue.id) ? prev.filter(id => id !== queue.id) : [...prev, queue.id])}
+                              onClick={() => toggleShiftLoginInbound(queue.id)}
                               data-testid={`login-queue-${queue.id}`}
                             >
                               <div className="flex items-center gap-3 px-3 py-2">
@@ -15219,7 +15277,7 @@ function AgentWorkspacePageContent() {
                 {canBackOfficeAgenda && (
                   <div
                     className={`shift-login-backoffice rounded-xl px-3 py-2.5 border cursor-pointer transition-all ${loginBackOffice ? "bg-primary/5 border-primary/30" : "bg-card border-border"}`}
-                    onClick={() => setLoginBackOffice(v => !v)}
+                    onClick={toggleShiftLoginBackOffice}
                     data-testid="login-back-office-toggle"
                   >
                     <div className="flex items-center gap-2.5">
