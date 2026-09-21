@@ -2078,6 +2078,10 @@ export function SipPhone({
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       console.error("[SIP] Call error:", errMsg, error);
+      const inactiveContactBlocked = errMsg === "CONTACT_INACTIVE";
+      if (inactiveContactBlocked) {
+        window.dispatchEvent(new CustomEvent("nexus-pulse-inactive-contact-call-blocked"));
+      }
       if (currentCallLogId) {
         updateCallLogMutation.mutate({
           id: currentCallLogId,
@@ -2089,11 +2093,13 @@ export function SipPhone({
         });
         setCurrentCallLogId(null);
       }
-      toast({
-        title: t.agentWorkspace.callErrorTitle,
-        description: t.agentWorkspace.callErrorDescription,
-        variant: "destructive"
-      });
+      if (!inactiveContactBlocked) {
+        toast({
+          title: t.agentWorkspace.callErrorTitle,
+          description: t.agentWorkspace.callErrorDescription,
+          variant: "destructive"
+        });
+      }
       setCallState("idle");
       makeCallGuardRef.current = false;
     }

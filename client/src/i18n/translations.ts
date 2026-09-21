@@ -4175,6 +4175,9 @@ export interface Translations {
     smsQuotaReached: string;
     noteSaveError: string;
     taskCancelled: string;
+    inactiveCallBlockedTitle: string;
+    inactiveCallBlockedDescription: string;
+    inactiveCallBlockedBackOffice: string;
     contactLoadError: string;
     missedCallLabel: string;
     callerHangupLabel: string;
@@ -12914,6 +12917,9 @@ export const translations: Record<Locale, Translations> = {
       smsQuotaReached: 'You have reached your daily SMS limit for this campaign.',
       noteSaveError: 'Failed to save note',
       taskCancelled: 'Task cancelled',
+      inactiveCallBlockedTitle: 'Calling is temporarily unavailable',
+      inactiveCallBlockedDescription: 'This contact is currently inactive, so a call cannot be started. The contact card and complete history remain available for review.',
+      inactiveCallBlockedBackOffice: 'If the call is necessary, please contact Back Office and ask them to review or reactivate the contact.',
       contactLoadError: 'Failed to load contact',
       missedCallLabel: 'Missed call',
       callerHangupLabel: 'Caller hung up',
@@ -20487,6 +20493,9 @@ export const translations: Record<Locale, Translations> = {
       smsQuotaReached: 'Dosiahli ste denný limit SMS pre túto kampaň.',
       noteSaveError: 'Nepodarilo sa uložiť poznámku',
       taskCancelled: 'Úloha zrušená',
+      inactiveCallBlockedTitle: 'Volanie je dočasne nedostupné',
+      inactiveCallBlockedDescription: 'Tento kontakt je momentálne neaktívny, preto nie je možné začať hovor. Karta kontaktu aj kompletná história zostávajú dostupné na nahliadnutie.',
+      inactiveCallBlockedBackOffice: 'Ak je hovor potrebný, kontaktujte Back Office so žiadosťou o preverenie alebo opätovnú aktiváciu kontaktu.',
       contactLoadError: 'Nepodarilo sa načítať kontakt',
       missedCallLabel: 'Zmeškaný hovor',
       callerHangupLabel: 'Volajúci zavesil',
@@ -28043,6 +28052,9 @@ export const translations: Record<Locale, Translations> = {
       smsQuotaReached: 'Dosáhli jste denního limitu SMS pro tuto kampaň.',
       noteSaveError: 'Nepodařilo se uložit poznámku',
       taskCancelled: 'Úkol zrušen',
+      inactiveCallBlockedTitle: 'Volání je dočasně nedostupné',
+      inactiveCallBlockedDescription: 'Tento kontakt je momentálně neaktivní, proto není možné zahájit hovor. Karta kontaktu i kompletní historie zůstávají dostupné.',
+      inactiveCallBlockedBackOffice: 'Pokud je hovor nutný, kontaktujte Back Office se žádostí o prověření nebo opětovnou aktivaci kontaktu.',
       contactLoadError: 'Nepodařilo se načíst kontakt',
       missedCallLabel: 'Zmeškaný hovor',
       callerHangupLabel: 'Volající zavěsil',
@@ -35555,6 +35567,9 @@ export const translations: Record<Locale, Translations> = {
       smsQuotaReached: 'Elérte a napi SMS limitet ehhez a kampányhoz.',
       noteSaveError: 'Nem sikerült menteni a jegyzetet',
       taskCancelled: 'Feladat törölve',
+      inactiveCallBlockedTitle: 'A hívás átmenetileg nem érhető el',
+      inactiveCallBlockedDescription: 'Ez a kapcsolat jelenleg inaktív, ezért hívás nem indítható. A kapcsolati kártya és a teljes előzmény továbbra is megtekinthető.',
+      inactiveCallBlockedBackOffice: 'Ha a hívás szükséges, kérje a Back Office segítségét a kapcsolat ellenőrzéséhez vagy újraaktiválásához.',
       contactLoadError: 'Nem sikerült betölteni a kapcsolatot',
       missedCallLabel: 'Nem fogadott hívás',
       callerHangupLabel: 'A hívó letette',
@@ -42951,6 +42966,9 @@ export const translations: Record<Locale, Translations> = {
       smsQuotaReached: 'Ați atins limita zilnică de SMS-uri pentru această campanie.',
       noteSaveError: 'Nu s-a putut salva nota',
       taskCancelled: 'Sarcină anulată',
+      inactiveCallBlockedTitle: 'Apelarea este temporar indisponibilă',
+      inactiveCallBlockedDescription: 'Acest contact este momentan inactiv, astfel că apelul nu poate fi inițiat. Fișa contactului și istoricul complet rămân disponibile.',
+      inactiveCallBlockedBackOffice: 'Dacă apelul este necesar, contactați Back Office pentru verificarea sau reactivarea contactului.',
       contactLoadError: 'Nu s-a putut încărca contactul',
       missedCallLabel: 'Apel pierdut',
       callerHangupLabel: 'Apelantul a închis',
@@ -50348,6 +50366,9 @@ export const translations: Record<Locale, Translations> = {
       smsQuotaReached: 'Hai raggiunto il limite giornaliero di SMS per questa campagna.',
       noteSaveError: 'Impossibile salvare la nota',
       taskCancelled: 'Attività annullata',
+      inactiveCallBlockedTitle: 'La chiamata è temporaneamente non disponibile',
+      inactiveCallBlockedDescription: 'Questo contatto è attualmente inattivo, quindi non è possibile avviare una chiamata. La scheda e la cronologia completa restano consultabili.',
+      inactiveCallBlockedBackOffice: 'Se la chiamata è necessaria, contatta il Back Office per verificare o riattivare il contatto.',
       contactLoadError: 'Impossibile caricare il contatto',
       missedCallLabel: 'Chiamata persa',
       callerHangupLabel: 'Il chiamante ha riattaccato',
@@ -57745,6 +57766,9 @@ export const translations: Record<Locale, Translations> = {
       smsQuotaReached: 'Sie haben Ihr tägliches SMS-Limit für diese Kampagne erreicht.',
       noteSaveError: 'Notiz konnte nicht gespeichert werden',
       taskCancelled: 'Aufgabe abgebrochen',
+      inactiveCallBlockedTitle: 'Anrufen ist vorübergehend nicht möglich',
+      inactiveCallBlockedDescription: 'Dieser Kontakt ist derzeit inaktiv, daher kann kein Anruf gestartet werden. Kontaktkarte und vollständiger Verlauf bleiben einsehbar.',
+      inactiveCallBlockedBackOffice: 'Wenn der Anruf erforderlich ist, wenden Sie sich bitte an das Back Office, um den Kontakt prüfen oder reaktivieren zu lassen.',
       contactLoadError: 'Kontakt konnte nicht geladen werden',
       missedCallLabel: 'Verpasster Anruf',
       callerHangupLabel: 'Anrufer hat aufgelegt',

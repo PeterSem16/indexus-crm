@@ -271,6 +271,7 @@ import {
 import { priorityBuilderCopy } from "@/components/agent/priority-builder-copy";
 import "@/components/agent/shift-login-variant-a.css";
 import { playShiftLoginSound } from "@/lib/shift-login-sounds";
+import { isMissionContactInactive } from "@/lib/inactive-contact-call";
 import type { SavedSearch } from "@shared/schema";
 import { buildScheduledCallbackPatch } from "@shared/scheduled-callback";
 import {
@@ -10746,6 +10747,18 @@ function AgentWorkspacePageContent() {
   const [savingLoginSet, setSavingLoginSet] = useState(false);
   const [newLoginSetName, setNewLoginSetName] = useState("");
   const [shiftLoginSearch, setShiftLoginSearch] = useState("");
+  const [inactiveCallBlockedOpen, setInactiveCallBlockedOpen] = useState(false);
+  const [inactiveCallBlockedName, setInactiveCallBlockedName] = useState("");
+  useEffect(() => {
+    const handleServerBlockedInactiveCall = () => {
+      const contact = currentContact;
+      setInactiveCallBlockedName(`${contact?.firstName || ""} ${contact?.lastName || ""}`.trim());
+      setInactiveCallBlockedOpen(true);
+      void playShiftLoginSound("backOffice");
+    };
+    window.addEventListener("nexus-pulse-inactive-contact-call-blocked", handleServerBlockedInactiveCall);
+    return () => window.removeEventListener("nexus-pulse-inactive-contact-call-blocked", handleServerBlockedInactiveCall);
+  }, [currentContact]);
   const [shiftLoginOnlyAvailable, setShiftLoginOnlyAvailable] = useState(false);
   const [expandedShiftLoginItems, setExpandedShiftLoginItems] = useState<Set<string>>(new Set());
   const shiftLoginWelcomePlayedRef = useRef(false);
@@ -13645,6 +13658,19 @@ function AgentWorkspacePageContent() {
       const normalizedPhone = phoneNumber.trim();
       const callContact = context?.contactOverride || outsideMissionContactRef.current || currentContact;
       const isOutsideMission = context?.outsideMission ?? outsideMissionContactActiveRef.current;
+      const activeEntity = currentContactType === "hospital"
+        ? currentHospitalData
+        : currentContactType === "clinic"
+        ? currentClinicData
+        : currentContactType === "collaborator"
+        ? currentCollaboratorData
+        : callContact;
+      if (!isOutsideMission && isMissionContactInactive(currentContactType, activeEntity as Record<string, unknown> | null)) {
+        setInactiveCallBlockedName(`${callContact?.firstName || ""} ${callContact?.lastName || ""}`.trim());
+        setInactiveCallBlockedOpen(true);
+        void playShiftLoginSound("backOffice");
+        return;
+      }
       let personnelDialingEnabled = false;
       try { personnelDialingEnabled = !!(selectedCampaign?.settings && JSON.parse(selectedCampaign.settings).enablePersonnelDialing === true); } catch {}
       if (context?.dialedPerson && (!personnelDialingEnabled || isOutsideMission)) {
@@ -14642,6 +14668,28 @@ function AgentWorkspacePageContent() {
           }}
         />
       )}
+      <Dialog open={inactiveCallBlockedOpen} onOpenChange={setInactiveCallBlockedOpen}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-md overflow-hidden border-amber-200 bg-background p-0 shadow-2xl dark:border-amber-900">
+          <div className="bg-gradient-to-br from-amber-50 via-background to-sky-50 px-6 pb-5 pt-6 dark:from-amber-950/35 dark:via-background dark:to-sky-950/25">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-200 bg-amber-100 text-amber-700 shadow-sm dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
+              <PhoneOff className="h-6 w-6" />
+            </div>
+            <DialogTitle className="text-xl">{t.agentWorkspace.inactiveCallBlockedTitle}</DialogTitle>
+            <DialogDescription className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              {inactiveCallBlockedName && <span className="font-semibold text-foreground">{inactiveCallBlockedName}. </span>}
+              {t.agentWorkspace.inactiveCallBlockedDescription}
+            </DialogDescription>
+          </div>
+          <div className="border-t bg-muted/20 px-6 py-4">
+            <p className="mb-4 text-xs leading-relaxed text-muted-foreground">
+              {t.agentWorkspace.inactiveCallBlockedBackOffice}
+            </p>
+            <Button className="w-full" onClick={() => setInactiveCallBlockedOpen(false)} data-testid="button-close-inactive-call-blocked">
+              {t.common.close}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <Dialog open={sessionLoginOpen && !agentSession.isSessionActive && !agentSession.isLoading} onOpenChange={(open) => { if (!open) { setSessionLoginOpen(false); setLocation("/"); } }}>
         <DialogContent className={`shift-login-variant-a ${isMobile ? "w-full max-w-full h-full max-h-full rounded-none p-0 overflow-hidden gap-0 flex flex-col" : "w-[calc(100vw-2rem)] max-w-[1180px] p-0 overflow-hidden gap-0 flex flex-col max-h-[92vh] rounded-2xl"}`} hideCloseButton>
           <DialogTitle className="sr-only">{t.agentSession.shiftLogin}</DialogTitle>

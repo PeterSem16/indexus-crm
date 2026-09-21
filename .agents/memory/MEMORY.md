@@ -109,3 +109,4 @@
 - [Saved shift login sets](saved-shift-login-sets.md) — sets are agent-private conveniences; session start must re-authorize every Mission, queue, and Back Office scope.
 - [Shift login Variant A](shift-login-variant-a.md) — approved design requires literal palette and structure fidelity, not a theme-token approximation or isolated larger CTA.
 - [Personnel call attribution](personnel-call-attribution.md) — dial a person, but keep Mission ownership on the parent institution; lifecycle history needs DB-backed idempotency.
+- [Inactive Mission contacts](inactive-mission-contact-calls.md) — inactive cards and history stay readable, but every outbound path must block before SIP with a calm Back Office notice.

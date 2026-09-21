@@ -35666,6 +35666,24 @@ Respond ONLY with valid JSON in this exact format:
           if (!assignment) return res.status(403).json({ error: "User is not assigned to this Mission" });
         }
 
+        let contactIsInactive = false;
+        if (trustedContact.contactType === "clinic" && trustedContact.clinicId) {
+          const [entity] = await db.select({ isActive: clinics.isActive }).from(clinics).where(eq(clinics.id, trustedContact.clinicId)).limit(1);
+          contactIsInactive = entity?.isActive === false;
+        } else if (trustedContact.contactType === "hospital" && trustedContact.hospitalId) {
+          const [entity] = await db.select({ isActive: hospitals.isActive }).from(hospitals).where(eq(hospitals.id, trustedContact.hospitalId)).limit(1);
+          contactIsInactive = entity?.isActive === false;
+        } else if (trustedContact.contactType === "collaborator" && trustedContact.collaboratorId) {
+          const [entity] = await db.select({ isActive: collaborators.isActive }).from(collaborators).where(eq(collaborators.id, trustedContact.collaboratorId)).limit(1);
+          contactIsInactive = entity?.isActive === false;
+        } else if (trustedContact.customerId) {
+          const [entity] = await db.select({ status: customers.status }).from(customers).where(eq(customers.id, trustedContact.customerId)).limit(1);
+          contactIsInactive = String(entity?.status || "").toLowerCase() === "inactive";
+        }
+        if (contactIsInactive) {
+          return res.status(409).json({ code: "CONTACT_INACTIVE", error: "CONTACT_INACTIVE" });
+        }
+
         let trustedPhones: Array<string | null | undefined> = [];
         if (trustedContact.contactType === "clinic" && trustedContact.clinicId) {
           const [entity] = await db.select({ phone: clinics.phone, phone2: clinics.phone2, phone3: clinics.phone3 })
