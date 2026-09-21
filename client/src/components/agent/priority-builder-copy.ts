@@ -37,14 +37,16 @@ const priorityCityCopy: Record<Locale, {
 const referralPriorityCopy: Record<Locale, {
   referralsFirst: string;
   referralBadge: string;
+  unpaidRewardsLast: string;
+  unpaidRewardBadge: string;
 }> = {
-  en: { referralsFirst: "Referral contacts first", referralBadge: "Referral" },
-  sk: { referralsFirst: "Odporúčané kontakty ako prvé", referralBadge: "Odporúčanie" },
-  cs: { referralsFirst: "Doporučené kontakty jako první", referralBadge: "Doporučení" },
-  hu: { referralsFirst: "Ajánlott kapcsolatok előre", referralBadge: "Ajánlás" },
-  ro: { referralsFirst: "Contactele recomandate primele", referralBadge: "Recomandare" },
-  it: { referralsFirst: "Prima i contatti referral", referralBadge: "Referral" },
-  de: { referralsFirst: "Empfehlungskontakte zuerst", referralBadge: "Empfehlung" },
+  en: { referralsFirst: "Referral contacts first", referralBadge: "Referral", unpaidRewardsLast: "Contacts with unpaid person rewards last", unpaidRewardBadge: "Unpaid person rewards" },
+  sk: { referralsFirst: "Odporúčané kontakty ako prvé", referralBadge: "Odporúčanie", unpaidRewardsLast: "Kontakty s nevyplatenou odmenou person ako posledné", unpaidRewardBadge: "Nevyplatené odmeny person" },
+  cs: { referralsFirst: "Doporučené kontakty jako první", referralBadge: "Doporučení", unpaidRewardsLast: "Kontakty s nevyplacenou odměnou osob jako poslední", unpaidRewardBadge: "Nevyplacené odměny osob" },
+  hu: { referralsFirst: "Ajánlott kapcsolatok előre", referralBadge: "Ajánlás", unpaidRewardsLast: "A ki nem fizetett személyi jutalmú kapcsolatok utoljára", unpaidRewardBadge: "Ki nem fizetett személyi jutalmak" },
+  ro: { referralsFirst: "Contactele recomandate primele", referralBadge: "Recomandare", unpaidRewardsLast: "Contactele cu recompense neplătite ale persoanelor la final", unpaidRewardBadge: "Recompense neplătite ale persoanelor" },
+  it: { referralsFirst: "Prima i contatti referral", referralBadge: "Referral", unpaidRewardsLast: "Contatti con premi persona non pagati per ultimi", unpaidRewardBadge: "Premi persona non pagati" },
+  de: { referralsFirst: "Empfehlungskontakte zuerst", referralBadge: "Empfehlung", unpaidRewardsLast: "Kontakte mit unbezahlten Personenprämien zuletzt", unpaidRewardBadge: "Unbezahlte Personenprämien" },
 };
 
 export const priorityBuilderCopy: Record<Locale, {
@@ -82,6 +84,8 @@ export const priorityBuilderCopy: Record<Locale, {
   group: string;
   referralsFirst: string;
   referralBadge: string;
+  unpaidRewardsLast: string;
+  unpaidRewardBadge: string;
   scheduledCallback: string;
   notScheduled: string;
   callAttempts: string;

@@ -94,6 +94,27 @@ describe("priority builder pure queue functions", () => {
     expect(sorted.map(item => item.id)).toEqual(["a", "b", "z"]);
   });
 
+  it("keeps configured order but moves contacts with unpaid latest person rewards to the end", () => {
+    const unpaid = contact("a-unpaid", { unpaidRewardPersonCount: 2, priorityScore: 100 });
+    const paid = contact("z-paid", { unpaidRewardPersonCount: 0, priorityScore: 10 });
+    const view = {
+      ...DEFAULT_PRIORITY_VIEW,
+      cityGrouping: undefined,
+      segments: [{ id: "new" as const, sort: "priority" as const, referralsFirst: false, unpaidRewardsLast: true }],
+    };
+    expect(buildPriorityQueue([unpaid, paid], view, "agent", now).map(item => item.contact.id))
+      .toEqual(["z-paid", "a-unpaid"]);
+  });
+
+  it("upgrades saved views without the unpaid-reward option to disabled", () => {
+    const parsed = parsePriorityView({
+      version: 1,
+      name: "Legacy",
+      segments: [{ id: "new", sort: "priority", referralsFirst: true }],
+    });
+    expect(parsed?.segments[0].unpaidRewardsLast).toBe(false);
+  });
+
   it("ships the localized-safe Referral + cities preset as the first-run default", () => {
     expect(PRIORITY_PRESETS).toHaveLength(5);
     expect(PRIORITY_PRESETS.every(preset => !!preset.presetId)).toBe(true);

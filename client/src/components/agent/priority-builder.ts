@@ -36,6 +36,8 @@ export interface PrioritySegment {
   sort: PrioritySort;
   /** Put referral-origin contacts before non-referrals within this group. */
   referralsFirst?: boolean;
+  /** Keep contacts with an unpaid newest person Action at the end of this group. */
+  unpaidRewardsLast?: boolean;
 }
 
 export interface PriorityView {
@@ -69,6 +71,7 @@ export type PriorityContact = Omit<CampaignContact, "attemptCount"> & {
   /** campaign_contacts defaults this to zero, but defensive UI paths may omit it. */
   attemptCount?: number | null;
   hasReferral?: boolean;
+  unpaidRewardPersonCount?: number;
   priorityCity?: string | null;
   priorityCountryCode?: unknown;
   customer?: {
@@ -113,6 +116,7 @@ const prioritySegmentSchema = z.object({
     "created_desc", "created_asc",
   ]),
   referralsFirst: z.boolean().default(true),
+  unpaidRewardsLast: z.boolean().default(false),
 });
 
 const priorityViewSchema = z.object({
@@ -201,6 +205,7 @@ export function parsePriorityView(value: unknown): PriorityView | null {
       // Views saved before referral partitioning are intentionally upgraded
       // on read so reopening an old view meets the new default.
       referralsFirst: segment.referralsFirst ?? true,
+      unpaidRewardsLast: segment.unpaidRewardsLast ?? false,
     })) as PrioritySegment[],
     presetId: result.data.presetId,
     cityGrouping: result.data.cityGrouping
@@ -399,11 +404,16 @@ function sortPriorityContactsWithinReferralPartitions(
   contacts: PriorityContact[],
   sort: PrioritySort,
   referralsFirst = true,
+  unpaidRewardsLast = false,
 ): PriorityContact[] {
-  if (!referralsFirst) return sortPriorityContacts(contacts, sort);
-  return [
+  const referralPartitioned = referralsFirst ? [
     ...sortPriorityContacts(contacts.filter(isPriorityReferral), sort),
     ...sortPriorityContacts(contacts.filter(contact => !isPriorityReferral(contact)), sort),
+  ] : sortPriorityContacts(contacts, sort);
+  if (!unpaidRewardsLast) return referralPartitioned;
+  return [
+    ...referralPartitioned.filter(contact => !(contact.unpaidRewardPersonCount && contact.unpaidRewardPersonCount > 0)),
+    ...referralPartitioned.filter(contact => !!contact.unpaidRewardPersonCount && contact.unpaidRewardPersonCount > 0),
   ];
 }
 
@@ -422,6 +432,7 @@ export function buildPriorityQueue(
       scopedContacts.filter(contact => !used.has(contact.id) && matchesPrioritySegment(contact, segment.id, currentUserId, now)),
       segment.sort,
       segment.referralsFirst !== false,
+      segment.unpaidRewardsLast === true,
     );
     for (const contact of matches) {
       used.add(contact.id);
@@ -493,6 +504,7 @@ export function buildPriorityQueueWithFallback(
       items: PriorityQueueItem[];
       sort: PrioritySort;
       referralsFirst: boolean;
+      unpaidRewardsLast: boolean;
       cities: Map<string, { location: PriorityCityLocation | null; items: PriorityQueueItem[]; contacts: PriorityContact[] }>;
     }>();
     for (const item of baseQueue) {
@@ -503,6 +515,7 @@ export function buildPriorityQueueWithFallback(
           items: [],
           sort: configuredSegment?.sort || "priority",
           referralsFirst: configuredSegment?.referralsFirst !== false,
+          unpaidRewardsLast: configuredSegment?.unpaidRewardsLast === true,
           cities: new Map(),
         };
         segmentGroups.set(item.segment, segment);
@@ -529,6 +542,7 @@ export function buildPriorityQueueWithFallback(
             city.contacts,
             segment.sort,
             segment.referralsFirst,
+            segment.unpaidRewardsLast,
           ).map(contact => {
             const item = city.items.find(candidate => candidate.contact.id === contact.id)!;
             return { ...item, cityGroup };

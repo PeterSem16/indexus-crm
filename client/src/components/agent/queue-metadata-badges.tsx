@@ -1,10 +1,11 @@
 import React from "react";
-import { MapPin } from "lucide-react";
+import { CircleDollarSign, MapPin } from "lucide-react";
 import { getPriorityContactCityLocation, isPriorityReferral, type PriorityContact } from "./priority-builder";
 
 export interface QueueMetadataBadgeCopy {
   referralBadge: string;
   cityCountrySeparator: string;
+  unpaidRewardBadge?: string;
 }
 
 interface QueueMetadataBadgesProps {
@@ -23,7 +24,8 @@ export function QueueMetadataBadges({ contact, copy, testIdSuffix }: QueueMetada
   const cityLabel = location
     ? `${location.city}${location.countryCode && location.countryCode !== "??" ? copy.cityCountrySeparator + location.countryCode : ""}`
     : null;
-  if (!isPriorityReferral(contact) && !cityLabel) return null;
+  const unpaidRewardCount = contact.unpaidRewardPersonCount || 0;
+  if (!isPriorityReferral(contact) && !cityLabel && unpaidRewardCount === 0) return null;
 
   return (
     <>
@@ -44,6 +46,15 @@ export function QueueMetadataBadges({ contact, copy, testIdSuffix }: QueueMetada
         >
           <MapPin className="h-2.5 w-2.5" />
           {cityLabel}
+        </span>
+      )}
+      {unpaidRewardCount > 0 && copy.unpaidRewardBadge && (
+        <span
+          className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shrink-0"
+          data-testid={testIdSuffix ? `badge-scheduled-unpaid-reward-${testIdSuffix}` : undefined}
+        >
+          <CircleDollarSign className="h-2.5 w-2.5" />
+          {copy.unpaidRewardBadge}: {unpaidRewardCount}
         </span>
       )}
     </>

@@ -325,6 +325,15 @@ export function PriorityBuilder({
     queue.forEach(item => counts.set(item.segment, (counts.get(item.segment) || 0) + 1));
     return counts;
   }, [queue]);
+  const segmentUnpaidCounts = useMemo(() => {
+    const counts = new Map<PrioritySegmentId, number>();
+    queue.forEach(item => {
+      if ((item.contact.unpaidRewardPersonCount || 0) > 0) {
+        counts.set(item.segment, (counts.get(item.segment) || 0) + 1);
+      }
+    });
+    return counts;
+  }, [queue]);
   const overlapCount = useMemo(
     () => filterPriorityContactsByCity(contacts, view).filter(
       contact => view.segments.filter(segment => matchesPrioritySegment(contact, segment.id, currentUserId)).length > 1,
@@ -694,6 +703,7 @@ export function PriorityBuilder({
         <span className="priority-builder-card-chip priority-builder-card-chip-position"><span className="priority-builder-card-chip-icon"><ListOrdered size={11} /></span>{queuePosition === 1 ? `${copy.nextUp} — ` : ""}{copy.queuePosition} {queuePosition}</span>
         <span className="priority-builder-card-chip priority-builder-card-chip-group"><span className="priority-builder-card-chip-icon"><Layers3 size={11} /></span>{copy.group}: {groupName}</span>
         {isPriorityReferral(contact) && <span className="priority-builder-card-chip priority-builder-card-chip-referral">{copy.referralBadge}</span>}
+        {(contact.unpaidRewardPersonCount || 0) > 0 && <span className="priority-builder-card-chip" style={{ background: "#fff1d6", color: "#9a5b00", borderColor: "#efcf91" }}>{copy.unpaidRewardBadge}: {contact.unpaidRewardPersonCount}</span>}
         {view.cityGrouping?.enabled && <span className="priority-builder-card-chip priority-builder-card-chip-city"><span className="priority-builder-card-chip-icon"><MapPin size={11} /></span>{cityGroup?.city || copy.unknownCity}{cityGroup?.countryCode ? `${copy.cityCountrySeparator}${cityGroup.countryCode}` : ""}</span>}
         <span className="priority-builder-card-chip priority-builder-card-chip-callback"><span className="priority-builder-card-chip-icon"><CalendarClock size={11} /></span>{copy.scheduledCallback}: {callbackDateTime || copy.notScheduled}</span>
         <span className="priority-builder-card-chip priority-builder-card-chip-attempts"><span className="priority-builder-card-chip-icon"><PhoneCall size={11} /></span>{attemptSummary}</span>
@@ -759,6 +769,16 @@ export function PriorityBuilder({
             />
             <span>{copy.groupByCity}</span>
           </label>
+                    <label className="priority-builder-referral-toggle" title={copy.unpaidRewardsLast}>
+                      <input
+                        type="checkbox"
+                        checked={segment.unpaidRewardsLast === true}
+                        disabled={viewControlsDisabled}
+                        onChange={event => makeDraft(view.segments.map(item => item.id === segment.id ? { ...item, unpaidRewardsLast: event.target.checked } : item))}
+                        aria-label={`${copy.unpaidRewardsLast}: ${segmentNames[segment.id]}`}
+                      />
+                      <span>{copy.unpaidRewardsLast}{segment.unpaidRewardsLast ? ` (${segmentUnpaidCounts.get(segment.id) || 0})` : ""}</span>
+                    </label>
           {view.cityGrouping?.enabled && (
             <div className="priority-builder-city-selection" data-testid="priority-city-selection">
               <div className="priority-builder-city-modes" role="radiogroup" aria-label={copy.groupByCity}>

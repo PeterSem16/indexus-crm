@@ -4084,7 +4084,7 @@ export function CustomerDetailsContent({
                     className="flex items-center justify-between p-2 rounded-md bg-muted/50"
                   >
                     <div className="flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-start gap-2">
                         <span className="text-sm">{getCountryFlag(customer.country)}</span>
                         <p className="font-medium text-sm">{cp.product.name}</p>
                         <Badge variant="outline" className="text-xs">{customer.country}</Badge>
@@ -7787,13 +7787,13 @@ export default function CustomersPage() {
                           }}
                           data-testid="checkbox-email-primary"
                         />
-                        <Label htmlFor="email1" className="font-normal cursor-pointer text-sm truncate">
+                        <Label htmlFor="email1" className="font-normal cursor-pointer text-sm whitespace-normal break-words min-w-0 leading-snug">
                           {emailDialogCustomer.email}
                         </Label>
                       </div>
                     )}
                     {emailDialogCustomer.email2 && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-start gap-2">
                         <Checkbox
                           id="email2"
                           checked={selectedEmails.includes(emailDialogCustomer.email2)}
@@ -7806,7 +7806,7 @@ export default function CustomersPage() {
                           }}
                           data-testid="checkbox-email-secondary"
                         />
-                        <Label htmlFor="email2" className="font-normal cursor-pointer text-sm truncate">
+                        <Label htmlFor="email2" className="font-normal cursor-pointer text-sm whitespace-normal break-words min-w-0 leading-snug">
                           {emailDialogCustomer.email2}
                         </Label>
                       </div>
