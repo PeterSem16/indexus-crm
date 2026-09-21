@@ -1492,6 +1492,12 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
                 initialData={drawerCollaborator}
                 onSuccess={closeCollaboratorDrawer}
                 onCancel={closeCollaboratorDrawer}
+                onCallPhone={onCallPhone && drawerCollaborator.id
+                  ? (phone) => onCallPhone(phone, {
+                      id: String(drawerCollaborator.id),
+                      name: [drawerCollaborator.titleBefore, drawerCollaborator.firstName, drawerCollaborator.lastName, drawerCollaborator.titleAfter].filter(Boolean).join(" "),
+                    })
+                  : undefined}
               />
             </div>
           </>

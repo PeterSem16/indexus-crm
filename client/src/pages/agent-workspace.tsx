@@ -2752,6 +2752,35 @@ export function CommunicationCanvas({
       return false;
     }
   })();
+  const personnelEntityType = contactType === "clinic" || contactType === "hospital" ? contactType : null;
+  const personnelEntityId = personnelEntityType === "clinic" ? clinicData?.id : personnelEntityType === "hospital" ? hospitalData?.id : null;
+  const { data: personnelRecipientData } = useQuery<any>({
+    queryKey: ["/api/institutions", personnelEntityType, personnelEntityId, "personnel"],
+    queryFn: async () => {
+      const response = await fetch(`/api/institutions/${personnelEntityType}/${personnelEntityId}/personnel`, { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to load assigned personnel");
+      return response.json();
+    },
+    enabled: personnelDialingEnabled && !!personnelEntityType && !!personnelEntityId,
+  });
+  const personnelRecipients = useMemo(() => {
+    if (!personnelDialingEnabled) return [];
+    const combined = [...(personnelRecipientData?.assigned || []), ...(personnelRecipientData?.legacy || [])];
+    const seen = new Set<string>();
+    return combined.filter((person: any) => {
+      const id = String(person?.person_id || "");
+      if (!id || seen.has(id) || person?.person_active === false) return false;
+      seen.add(id);
+      return true;
+    }).map((person: any) => ({
+      id: String(person.person_id),
+      name: [person.title_before, person.first_name, person.last_name, person.title_after].filter(Boolean).join(" "),
+      email: typeof person.email === "string" ? person.email.trim() : "",
+      phones: [person.phone, person.mobile, person.mobile2]
+        .filter((value: unknown): value is string => typeof value === "string" && value.trim() !== "")
+        .map((value: string) => value.trim()),
+    }));
+  }, [personnelDialingEnabled, personnelRecipientData]);
   const { t, locale } = useI18n();
   const { user } = useAuth();
   const { toast } = usePulseToast();
@@ -5317,8 +5346,8 @@ export function CommunicationCanvas({
                 </Label>
                 <div className="space-y-1.5">
                   {(() => {
-                    const availableEmails = Array.from(new Set(
-                      [
+                    const recipientEmails = new Map<string, string>();
+                    [
                         contact?.email,
                         (contact as any)?.email2,
                         (contact as any)?.email3,
@@ -5331,11 +5360,13 @@ export function CommunicationCanvas({
                         (collaboratorData as any)?.email,
                         (collaboratorData as any)?.email2,
                         (collaboratorData as any)?.email3,
-                      ]
-                        .filter((e): e is string => typeof e === "string" && e.trim() !== "")
-                        .map(e => e.trim())
-                    ));
-                    return availableEmails.map((em, i) => (
+                    ]
+                      .filter((e): e is string => typeof e === "string" && e.trim() !== "")
+                      .forEach(email => recipientEmails.set(email.trim(), ""));
+                    personnelRecipients.forEach(person => {
+                      if (person.email && !recipientEmails.has(person.email)) recipientEmails.set(person.email, person.name);
+                    });
+                    return Array.from(recipientEmails.entries()).map(([em, personName], i) => (
                       <div key={em} className="flex items-center gap-2">
                         <Checkbox
                           id={`aw-email-${i}`}
@@ -5346,7 +5377,9 @@ export function CommunicationCanvas({
                           }}
                           data-testid={`checkbox-email-${i}`}
                         />
-                        <Label htmlFor={`aw-email-${i}`} className="font-normal cursor-pointer text-xs truncate">{em}</Label>
+                        <Label htmlFor={`aw-email-${i}`} className="font-normal cursor-pointer text-xs truncate">
+                          {em}{personName ? ` — ${personName} (${t.agentWorkspace.personRecipientSuffix})` : ""}
+                        </Label>
                       </div>
                     ));
                   })()}
@@ -5832,8 +5865,8 @@ export function CommunicationCanvas({
                 </Label>
                 <div className="space-y-1.5">
                   {(() => {
-                    const availablePhones = Array.from(new Set(
-                      [
+                    const recipientPhones = new Map<string, string>();
+                    [
                         contact?.phone,
                         (contact as any)?.phone2,
                         (contact as any)?.phone3,
@@ -5848,14 +5881,18 @@ export function CommunicationCanvas({
                         (collaboratorData as any)?.phone,
                         (collaboratorData as any)?.mobile,
                         (collaboratorData as any)?.mobile2,
-                      ]
-                        .filter((p): p is string => typeof p === "string" && p.trim() !== "")
-                        .map(p => p.trim())
-                    ));
-                    if (availablePhones.length === 0) {
+                    ]
+                      .filter((p): p is string => typeof p === "string" && p.trim() !== "")
+                      .forEach(phone => recipientPhones.set(phone.trim(), ""));
+                    personnelRecipients.forEach(person => {
+                      person.phones.forEach(phone => {
+                        if (!recipientPhones.has(phone)) recipientPhones.set(phone, person.name);
+                      });
+                    });
+                    if (recipientPhones.size === 0) {
                       return <p className="text-[11px] text-muted-foreground italic">{t.customers?.details?.noPhone || "No phone number"}</p>;
                     }
-                    return availablePhones.map((ph, i) => (
+                    return Array.from(recipientPhones.entries()).map(([ph, personName], i) => (
                       <div key={ph} className="flex items-center gap-2">
                         <Checkbox
                           id={`aw-sms-phone-${i}`}
@@ -5868,6 +5905,7 @@ export function CommunicationCanvas({
                         />
                         <Label htmlFor={`aw-sms-phone-${i}`} className="font-normal cursor-pointer text-xs">
                           {getCountryFlag(contact?.country || "SK")} {ph}
+                          {personName ? ` — ${personName} (${t.agentWorkspace.personRecipientSuffix})` : ""}
                         </Label>
                       </div>
                     ));

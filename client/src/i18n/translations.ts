@@ -4178,6 +4178,7 @@ export interface Translations {
     inactiveCallBlockedTitle: string;
     inactiveCallBlockedDescription: string;
     inactiveCallBlockedBackOffice: string;
+    personRecipientSuffix: string;
     contactLoadError: string;
     missedCallLabel: string;
     callerHangupLabel: string;
@@ -12920,6 +12921,7 @@ export const translations: Record<Locale, Translations> = {
       inactiveCallBlockedTitle: 'Calling is temporarily unavailable',
       inactiveCallBlockedDescription: 'This contact is currently inactive, so a call cannot be started. The contact card and complete history remain available for review.',
       inactiveCallBlockedBackOffice: 'If the call is necessary, please contact Back Office and ask them to review or reactivate the contact.',
+      personRecipientSuffix: 'person',
       contactLoadError: 'Failed to load contact',
       missedCallLabel: 'Missed call',
       callerHangupLabel: 'Caller hung up',
@@ -20496,6 +20498,7 @@ export const translations: Record<Locale, Translations> = {
       inactiveCallBlockedTitle: 'Volanie je dočasne nedostupné',
       inactiveCallBlockedDescription: 'Tento kontakt je momentálne neaktívny, preto nie je možné začať hovor. Karta kontaktu aj kompletná história zostávajú dostupné na nahliadnutie.',
       inactiveCallBlockedBackOffice: 'Ak je hovor potrebný, kontaktujte Back Office so žiadosťou o preverenie alebo opätovnú aktiváciu kontaktu.',
+      personRecipientSuffix: 'osoba',
       contactLoadError: 'Nepodarilo sa načítať kontakt',
       missedCallLabel: 'Zmeškaný hovor',
       callerHangupLabel: 'Volajúci zavesil',
@@ -28055,6 +28058,7 @@ export const translations: Record<Locale, Translations> = {
       inactiveCallBlockedTitle: 'Volání je dočasně nedostupné',
       inactiveCallBlockedDescription: 'Tento kontakt je momentálně neaktivní, proto není možné zahájit hovor. Karta kontaktu i kompletní historie zůstávají dostupné.',
       inactiveCallBlockedBackOffice: 'Pokud je hovor nutný, kontaktujte Back Office se žádostí o prověření nebo opětovnou aktivaci kontaktu.',
+      personRecipientSuffix: 'osoba',
       contactLoadError: 'Nepodařilo se načíst kontakt',
       missedCallLabel: 'Zmeškaný hovor',
       callerHangupLabel: 'Volající zavěsil',
@@ -35570,6 +35574,7 @@ export const translations: Record<Locale, Translations> = {
       inactiveCallBlockedTitle: 'A hívás átmenetileg nem érhető el',
       inactiveCallBlockedDescription: 'Ez a kapcsolat jelenleg inaktív, ezért hívás nem indítható. A kapcsolati kártya és a teljes előzmény továbbra is megtekinthető.',
       inactiveCallBlockedBackOffice: 'Ha a hívás szükséges, kérje a Back Office segítségét a kapcsolat ellenőrzéséhez vagy újraaktiválásához.',
+      personRecipientSuffix: 'személy',
       contactLoadError: 'Nem sikerült betölteni a kapcsolatot',
       missedCallLabel: 'Nem fogadott hívás',
       callerHangupLabel: 'A hívó letette',
@@ -42969,6 +42974,7 @@ export const translations: Record<Locale, Translations> = {
       inactiveCallBlockedTitle: 'Apelarea este temporar indisponibilă',
       inactiveCallBlockedDescription: 'Acest contact este momentan inactiv, astfel că apelul nu poate fi inițiat. Fișa contactului și istoricul complet rămân disponibile.',
       inactiveCallBlockedBackOffice: 'Dacă apelul este necesar, contactați Back Office pentru verificarea sau reactivarea contactului.',
+      personRecipientSuffix: 'persoană',
       contactLoadError: 'Nu s-a putut încărca contactul',
       missedCallLabel: 'Apel pierdut',
       callerHangupLabel: 'Apelantul a închis',
@@ -50369,6 +50375,7 @@ export const translations: Record<Locale, Translations> = {
       inactiveCallBlockedTitle: 'La chiamata è temporaneamente non disponibile',
       inactiveCallBlockedDescription: 'Questo contatto è attualmente inattivo, quindi non è possibile avviare una chiamata. La scheda e la cronologia completa restano consultabili.',
       inactiveCallBlockedBackOffice: 'Se la chiamata è necessaria, contatta il Back Office per verificare o riattivare il contatto.',
+      personRecipientSuffix: 'persona',
       contactLoadError: 'Impossibile caricare il contatto',
       missedCallLabel: 'Chiamata persa',
       callerHangupLabel: 'Il chiamante ha riattaccato',
@@ -57769,6 +57776,7 @@ export const translations: Record<Locale, Translations> = {
       inactiveCallBlockedTitle: 'Anrufen ist vorübergehend nicht möglich',
       inactiveCallBlockedDescription: 'Dieser Kontakt ist derzeit inaktiv, daher kann kein Anruf gestartet werden. Kontaktkarte und vollständiger Verlauf bleiben einsehbar.',
       inactiveCallBlockedBackOffice: 'Wenn der Anruf erforderlich ist, wenden Sie sich bitte an das Back Office, um den Kontakt prüfen oder reaktivieren zu lassen.',
+      personRecipientSuffix: 'Person',
       contactLoadError: 'Kontakt konnte nicht geladen werden',
       missedCallLabel: 'Verpasster Anruf',
       callerHangupLabel: 'Anrufer hat aufgelegt',

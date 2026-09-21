@@ -267,6 +267,7 @@ interface CollaboratorFormWizardProps {
   onCreated?: (collab: { id: string }) => void | Promise<void>;
   mode?: "inline";
   readOnly?: boolean;
+  onCallPhone?: (phone: string) => void;
 }
 
 // Pending address for Add mode (before collaborator is saved)
@@ -3566,7 +3567,7 @@ function DocumentsPanel({ collaboratorId, t }: { collaboratorId: string; t: any 
   );
 }
 
-export function CollaboratorFormWizard({ initialData, onSuccess, onPhoneChange, onCancel, positionScopeFilter, hideSvetZdravia, prefillData, onCreated, mode, readOnly = false }: CollaboratorFormWizardProps) {
+export function CollaboratorFormWizard({ initialData, onSuccess, onPhoneChange, onCancel, positionScopeFilter, hideSvetZdravia, prefillData, onCreated, mode, readOnly = false, onCallPhone }: CollaboratorFormWizardProps) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
   const { isHidden, isReadonly } = useModuleFieldPermissions("collaborators");
@@ -4975,7 +4976,16 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onPhoneChange, 
             <div className="grid gap-4 sm:grid-cols-2">
               {!isHidden("phone") && (
                 <div className="space-y-2">
-                  <Label>{t.collaborators.fields.phone}</Label>
+                  <div className="flex items-center justify-between gap-2">
+                    <Label>{t.collaborators.fields.phone}</Label>
+                    {onCallPhone && formData.phone && (
+                      <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-green-600"
+                        onClick={() => onCallPhone(formData.phone)} aria-label={t.call} title={t.call}
+                        data-testid="button-call-collaborator-phone">
+                        <PhoneCall className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                   <PhoneNumberField
                     value={formData.phone}
                     onChange={(value) => { setFormData({ ...formData, phone: value }); onPhoneChange?.(value); }}
@@ -4987,7 +4997,16 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onPhoneChange, 
               )}
               {!isHidden("mobile") && (
                 <div className="space-y-2">
-                  <Label>{t.collaborators.fields.mobile}</Label>
+                  <div className="flex items-center justify-between gap-2">
+                    <Label>{t.collaborators.fields.mobile}</Label>
+                    {onCallPhone && formData.mobile && (
+                      <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-green-600"
+                        onClick={() => onCallPhone(formData.mobile)} aria-label={t.call} title={t.call}
+                        data-testid="button-call-collaborator-mobile">
+                        <PhoneCall className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                   <PhoneNumberField
                     value={formData.mobile}
                     onChange={(value) => setFormData({ ...formData, mobile: value })}
@@ -5001,7 +5020,16 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onPhoneChange, 
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>{t.collaborators.fields.mobile2}</Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label>{t.collaborators.fields.mobile2}</Label>
+                  {onCallPhone && formData.mobile2 && (
+                    <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-green-600"
+                      onClick={() => onCallPhone(formData.mobile2)} aria-label={t.call} title={t.call}
+                      data-testid="button-call-collaborator-mobile2">
+                      <PhoneCall className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
                 <PhoneNumberField
                   value={formData.mobile2}
                   onChange={(value) => setFormData({ ...formData, mobile2: value })}
