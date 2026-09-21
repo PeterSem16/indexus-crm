@@ -3607,21 +3607,24 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onPhoneChange, 
   const { isHidden, isReadonly } = useModuleFieldPermissions("collaborators");
   
   const isEditMode = !!initialData;
-  const { data: rewardReadiness } = useQuery<{ unpaidRewardPersonCount: number }>({
-    queryKey: ["/api/reward-readiness", "collaborator", initialData?.id],
+  const { data: headerActivities = [] } = useQuery<Array<CollaboratorActivity & { isCall?: boolean }>>({
+    queryKey: ["/api/collaborators", initialData?.id, "activities"],
     queryFn: async () => {
-      const response = await fetch(`/api/reward-readiness/collaborator/${initialData?.id}`, { credentials: "include" });
-      if (!response.ok) throw new Error("Failed to resolve reward readiness");
+      const response = await fetch(`/api/collaborators/${initialData?.id}/activities`, { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to load collaborator activities");
       return response.json();
     },
     enabled: isEditMode && !!initialData?.id,
     staleTime: 0,
     refetchOnMount: "always",
   });
+  const latestHeaderAction = headerActivities.find((activity) => !activity.isCall);
+  const hasUnpaidLatestAction = !!latestHeaderAction
+    && !(latestHeaderAction.rewardPaid && latestHeaderAction.rewardPaidAt);
   const resolvedHeaderBadge = headerBadge ?? (
-    (rewardReadiness?.unpaidRewardPersonCount || 0) > 0 ? (
+    hasUnpaidLatestAction ? (
       <Badge className="ml-2 border border-amber-200 bg-amber-50 text-[10px] font-semibold text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300" data-testid="badge-collaborator-unpaid-reward">
-        {priorityBuilderCopy[locale]?.unpaidRewardBadge || priorityBuilderCopy.en.unpaidRewardBadge}: {rewardReadiness?.unpaidRewardPersonCount}
+        {priorityBuilderCopy[locale]?.unpaidRewardBadge || priorityBuilderCopy.en.unpaidRewardBadge}: 1
       </Badge>
     ) : null
   );

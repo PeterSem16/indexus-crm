@@ -2779,7 +2779,10 @@ export function CommunicationCanvas({
     staleTime: 0,
     refetchOnMount: "always",
   });
-  const visibleUnpaidRewardPersonCount = directRewardReadiness?.unpaidRewardPersonCount ?? unpaidRewardPersonCount;
+  const visibleUnpaidRewardPersonCount = Math.max(
+    directRewardReadiness?.unpaidRewardPersonCount || 0,
+    unpaidRewardPersonCount,
+  );
   const { data: personnelRecipientData } = useQuery<any>({
     queryKey: ["/api/institutions", personnelEntityType, personnelEntityId, "personnel"],
     queryFn: async () => {
