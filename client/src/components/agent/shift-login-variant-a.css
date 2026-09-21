@@ -1,0 +1,135 @@
+/* Variant A is intentionally scoped to the production shift-login dialog.
+   These values mirror the approved selector artwork rather than the app token
+   palette so the operational entry point remains visually stable. */
+.shift-login-variant-a {
+  background: #fff;
+  color: #243247;
+  border: 1px solid #cfd8e5;
+  box-shadow: 0 24px 70px rgba(40, 57, 83, .18);
+}
+
+.shift-login-variant-a .shift-login-header {
+  background: linear-gradient(105deg, #fffaf8 0%, #f5f8fc 100%);
+  border-bottom: 1px solid #e5e9ef;
+}
+
+.shift-login-variant-a .shift-login-header .shift-login-brand {
+  background: #c8102e;
+  color: #fff;
+  border-color: #c8102e;
+}
+
+.shift-login-variant-a .shift-login-user {
+  background: #fff;
+  border: 1px solid #dfe5ed;
+}
+
+.shift-login-variant-a .shift-login-user .shift-login-online {
+  color: #249251;
+  background: #eefbf2;
+  border-color: #bce8cc;
+}
+
+.shift-login-variant-a > .shift-login-body {
+  background: #fff;
+}
+
+.shift-login-variant-a > .shift-login-body > .shift-login-summary {
+  background: #f8fafc;
+  border-color: #e5e9ef;
+}
+
+.shift-login-variant-a .shift-login-summary .border-border,
+.shift-login-variant-a .shift-login-summary [class*="border-border"] {
+  border-color: #e1e7ef;
+}
+
+.shift-login-variant-a .shift-login-summary .bg-card,
+.shift-login-variant-a .shift-login-summary [class*="bg-card"] {
+  background: #fff;
+}
+
+.shift-login-variant-a .shift-login-summary .text-foreground,
+.shift-login-variant-a .shift-login-workspace .text-foreground {
+  color: #243247;
+}
+
+.shift-login-variant-a .text-muted-foreground {
+  color: #718094;
+}
+
+.shift-login-variant-a .shift-login-workspace {
+  background: #fff;
+}
+
+.shift-login-variant-a .shift-login-workspace > .shift-login-scroll {
+  scrollbar-color: #cfd8e5 transparent;
+}
+
+.shift-login-variant-a .shift-login-searchbar {
+  background: #fff;
+  border: 1px solid #d8e0ea;
+}
+
+.shift-login-variant-a .shift-login-searchbar input {
+  background: #fafbfd;
+  color: #243247;
+}
+
+.shift-login-variant-a .shift-login-section-title {
+  color: #748193;
+}
+
+.shift-login-variant-a .shift-login-section-title .mission-dot {
+  background: #397fe6;
+}
+
+.shift-login-variant-a .shift-login-section-title .queue-dot {
+  background: #1a9b57;
+}
+
+.shift-login-variant-a .shift-login-card {
+  background: #fff;
+  border-color: #e2e7ee;
+}
+
+.shift-login-variant-a .shift-login-card:hover {
+  border-color: #c6d2e1;
+}
+
+.shift-login-variant-a .shift-login-card[data-selected="true"].mission-card {
+  background: #f8fbff;
+  border-color: #a9c9f4;
+}
+
+.shift-login-variant-a .shift-login-card[data-selected="true"].queue-card {
+  background: #f7fdf9;
+  border-color: #a9dfbd;
+}
+
+.shift-login-variant-a .shift-login-backoffice {
+  background: #fbfaff;
+  border-color: #ded8ed;
+}
+
+.shift-login-variant-a .shift-login-footer {
+  background: #fbfcfe;
+  border-top: 1px solid #e5e9ef;
+}
+
+.shift-login-variant-a .shift-login-start {
+  background: #c8102e;
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(200, 16, 46, .24);
+}
+
+.shift-login-variant-a .shift-login-start:hover {
+  background: #ad0e29;
+  box-shadow: 0 11px 24px rgba(200, 16, 46, .30);
+}
+
+@media (max-width: 767px) {
+  .shift-login-variant-a > .shift-login-body > .shift-login-summary {
+    background: #fff;
+  }
+}

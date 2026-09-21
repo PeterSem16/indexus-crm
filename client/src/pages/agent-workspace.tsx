@@ -269,6 +269,7 @@ import {
   type PriorityQueueSegmentId,
 } from "@/components/agent/priority-builder";
 import { priorityBuilderCopy } from "@/components/agent/priority-builder-copy";
+import "@/components/agent/shift-login-variant-a.css";
 import type { SavedSearch } from "@shared/schema";
 import { buildScheduledCallbackPatch } from "@shared/scheduled-callback";
 import {
@@ -14592,7 +14593,7 @@ function AgentWorkspacePageContent() {
         />
       )}
       <Dialog open={sessionLoginOpen && !agentSession.isSessionActive && !agentSession.isLoading} onOpenChange={(open) => { if (!open) { setSessionLoginOpen(false); setLocation("/"); } }}>
-        <DialogContent className={isMobile ? "w-full max-w-full h-full max-h-full rounded-none p-0 overflow-hidden gap-0 flex flex-col" : "w-[calc(100vw-2rem)] max-w-[1180px] p-0 overflow-hidden gap-0 flex flex-col max-h-[92vh] rounded-2xl"} hideCloseButton>
+        <DialogContent className={`shift-login-variant-a ${isMobile ? "w-full max-w-full h-full max-h-full rounded-none p-0 overflow-hidden gap-0 flex flex-col" : "w-[calc(100vw-2rem)] max-w-[1180px] p-0 overflow-hidden gap-0 flex flex-col max-h-[92vh] rounded-2xl"}`} hideCloseButton>
           <DialogTitle className="sr-only">{t.agentSession.shiftLogin}</DialogTitle>
 
           {/* ── MOBILE: zjednodušená hlavička ── */}
@@ -14609,18 +14610,18 @@ function AgentWorkspacePageContent() {
               </div>
             </div>
           ) : (
-          <div className="relative px-5 pt-4 pb-4 shrink-0 overflow-hidden bg-gradient-to-br from-card via-card to-muted/40 dark:from-card dark:to-muted/20">
+          <div className="shift-login-header relative px-5 pt-4 pb-4 shrink-0 overflow-hidden">
             <div className="absolute -top-10 -right-10 w-44 h-44 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, hsl(355 85% 42% / 0.08) 0%, transparent 70%)" }} />
             <div className="absolute bottom-0 left-0 w-36 h-20 pointer-events-none" style={{ background: "radial-gradient(ellipse, hsl(355 85% 42% / 0.05) 0%, transparent 70%)" }} />
             <div className="relative z-10 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm shrink-0 bg-card border border-border">
-                <Headphones className="h-5 w-5 text-primary" />
+              <div className="shift-login-brand w-10 h-10 rounded-xl flex items-center justify-center shadow-sm shrink-0 border">
+                <Headphones className="h-5 w-5 text-white" />
               </div>
               <div className="flex-1 min-w-0">
                 <h2 className="font-bold text-sm leading-tight text-foreground">{t.agentSession.shiftLogin}</h2>
                 <p className="text-[11px] mt-0.5 text-muted-foreground">{t.agentSession.shiftLoginDesc}</p>
               </div>
-              <div className="flex items-center gap-2.5 bg-card border border-border rounded-xl px-3 py-2 shrink-0">
+              <div className="shift-login-user flex items-center gap-2.5 rounded-xl px-3 py-2 shrink-0">
                 <div className="relative shrink-0">
                   <Avatar className="h-7 w-7 border border-border">
                     {user?.avatarUrl && <AvatarImage src={user.avatarUrl} alt={(user as any)?.fullName || user?.username || ""} />}
@@ -14634,7 +14635,7 @@ function AgentWorkspacePageContent() {
                   <p className="text-xs font-semibold text-foreground leading-tight truncate max-w-[140px]">{(user as any)?.fullName || user?.username || "—"}</p>
                   <p className="text-[10px] text-muted-foreground truncate max-w-[140px]">{user?.email || ""}</p>
                 </div>
-                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">{t.agentSession.onlineStatus}</span>
+                <span className="shift-login-online text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 border">{t.agentSession.onlineStatus}</span>
               </div>
               <DialogClose className="shrink-0 rounded-md p-1.5 opacity-70 hover:opacity-100 hover:bg-accent transition-opacity focus:outline-none focus:ring-2 focus:ring-ring">
                 <X className="h-4 w-4" />
@@ -14770,10 +14771,10 @@ function AgentWorkspacePageContent() {
               </div>
             </div>
           ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(280px,1fr)_minmax(0,2fr)] flex-1 min-h-0 overflow-hidden divide-y lg:divide-y-0 lg:divide-x divide-border">
+          <div className="shift-login-body grid grid-cols-1 lg:grid-cols-[minmax(280px,1fr)_minmax(0,2fr)] flex-1 min-h-0 overflow-hidden divide-y lg:divide-y-0 lg:divide-x divide-border">
 
             {/* ─── Ľavý stĺpec: Today's Activities + Scheduled Calls ─── */}
-            <div className="overflow-y-auto px-4 py-4 bg-muted/10 dark:bg-muted/5">
+            <div className="shift-login-summary overflow-y-auto px-5 py-5">
               {renderShiftLoginSets()}
 
               {(() => {
@@ -14942,12 +14943,12 @@ function AgentWorkspacePageContent() {
             </div>
 
             {/* ─── Pravý stĺpec: Kampane + Inbound + Prihlásenie ─── */}
-            <div className="flex flex-col min-h-0 bg-card">
+            <div className="shift-login-workspace flex flex-col min-h-0">
 
               {/* Scrollovateľná časť */}
-              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+              <div className="shift-login-scroll flex-1 overflow-y-auto px-5 py-5 space-y-4">
 
-                <div className="sticky top-0 z-10 -mx-1 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card/95 p-2 shadow-sm backdrop-blur" role="search">
+                <div className="shift-login-searchbar sticky top-0 z-10 -mx-1 flex flex-wrap items-center gap-2 rounded-xl p-2 shadow-sm backdrop-blur" role="search">
                   <div className="relative min-w-[180px] flex-1">
                     <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                     <Input
@@ -14991,7 +14992,7 @@ function AgentWorkspacePageContent() {
 
                 {/* Kampane */}
                 <div>
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="shift-login-section-title flex items-center justify-between mb-2">
                     <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{t.agentWorkspace.campaigns}</span>
                     {selectedLoginCampaignIds.length > 0 && (
                       <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ background: "hsl(355 85% 42% / 0.10)", color: "hsl(355 85% 42%)" }}>
@@ -15000,7 +15001,7 @@ function AgentWorkspacePageContent() {
                     )}
                   </div>
                   <ScrollArea className="max-h-56">
-                    <div className="space-y-1.5 pr-1">
+                    <div className="grid gap-2 xl:grid-cols-2 pr-1">
                       {filteredShiftLoginCampaigns.length === 0 ? (
                         <div className="text-center py-5">
                           <Megaphone className="h-7 w-7 mx-auto text-muted-foreground/30 mb-2" />
@@ -15016,16 +15017,17 @@ function AgentWorkspacePageContent() {
                           return (
                             <div
                               key={campaign.id}
-                              className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-150"
+                              className="shift-login-card mission-card flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-150"
+                              data-selected={isChecked}
                               style={{
-                                background: isChecked ? "hsl(var(--primary) / 0.06)" : "hsl(var(--card))",
-                                border: `1px solid ${isChecked ? "hsl(var(--primary) / 0.3)" : "hsl(var(--border))"}`,
+                                background: isChecked ? "#f8fbff" : "#fff",
+                                border: `1px solid ${isChecked ? "#a9c9f4" : "#e2e7ee"}`,
                                 boxShadow: isChecked ? "inset 0 0 0 1px #E8C8C840" : "none",
                               }}
                               onClick={() => setSelectedLoginCampaignIds(prev => prev.includes(campaign.id) ? prev.filter(id => id !== campaign.id) : [...prev, campaign.id])}
                               data-testid={`login-campaign-${campaign.id}`}
                             >
-                              <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: isChecked ? "hsl(355 85% 42%)" : barColor, minHeight: 28 }} />
+                              <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: isChecked ? "#c8102e" : barColor, minHeight: 28 }} />
                               <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: isChecked ? "hsl(355 85% 42% / 0.10)" : "hsl(var(--muted))" }}>
                                 <ChIcon className="h-3.5 w-3.5" style={{ color: isChecked ? "hsl(355 85% 42%)" : barColor }} />
                               </div>
@@ -15094,7 +15096,7 @@ function AgentWorkspacePageContent() {
                 {/* Inbound fronty */}
                 {filteredShiftLoginQueues.length > 0 && (
                   <div>
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="shift-login-section-title flex items-center justify-between mb-2">
                       <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{t.agentSession.inboundQueues}</span>
                       {selectedLoginQueueIds.length > 0 && (
                         <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400">
@@ -15103,7 +15105,7 @@ function AgentWorkspacePageContent() {
                       )}
                     </div>
                     <ScrollArea className="max-h-44">
-                      <div className="space-y-1.5 pr-1">
+                      <div className="grid gap-2 xl:grid-cols-2 pr-1">
                         {filteredShiftLoginQueues.map((queue) => {
                           const isChecked = selectedLoginQueueIds.includes(queue.id);
                           const didNumbers = getAgentQueueDidNumbers(queue);
@@ -15126,10 +15128,11 @@ function AgentWorkspacePageContent() {
                           return (
                             <div
                               key={queue.id}
-                              className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-150"
+                              className="shift-login-card queue-card flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-150"
+                              data-selected={isChecked}
                               style={{
-                                background: isChecked ? (isAfterHours ? "hsl(48 96% 53% / 0.12)" : "hsl(143 71% 52% / 0.08)") : "hsl(var(--card))",
-                                border: `1px solid ${isChecked ? (isAfterHours ? "hsl(48 96% 53% / 0.5)" : "hsl(143 71% 52% / 0.5)") : "hsl(var(--border))"}`,
+                                background: isChecked ? (isAfterHours ? "#fff8e6" : "#f7fdf9") : "#fff",
+                                border: `1px solid ${isChecked ? (isAfterHours ? "#e4b94f" : "#a9dfbd") : "#e2e7ee"}`,
                               }}
                               onClick={() => setSelectedLoginQueueIds(prev => prev.includes(queue.id) ? prev.filter(id => id !== queue.id) : [...prev, queue.id])}
                               data-testid={`login-queue-${queue.id}`}
@@ -15172,10 +15175,38 @@ function AgentWorkspacePageContent() {
                     </ScrollArea>
                   </div>
                 )}
+
+                {/* Back Office selectable area — kept in the scrollable selection workspace. */}
+                {canBackOfficeAgenda && (
+                  <div
+                    className={`shift-login-backoffice rounded-xl px-3 py-2.5 border cursor-pointer transition-all ${loginBackOffice ? "bg-primary/5 border-primary/30" : "bg-card border-border"}`}
+                    onClick={() => setLoginBackOffice(v => !v)}
+                    data-testid="login-back-office-toggle"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: loginBackOffice ? "#f1eaff" : "#f3f0fa" }}>
+                        <ClipboardList className="h-3.5 w-3.5" style={{ color: "#7c5ac8" }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold">{t.agentSession.backOfficeAgendaTitle}</p>
+                        <p className="text-[10px] text-muted-foreground">{t.agentSession.backOfficeAgendaSubtitle}</p>
+                      </div>
+                      <div className="rounded flex items-center justify-center" style={{ width: 18, height: 18, background: loginBackOffice ? "#7c5ac8" : "transparent", border: `2px solid ${loginBackOffice ? "#7c5ac8" : "#cbd5e1"}` }}>
+                        {loginBackOffice && <Check className="h-2.5 w-2.5 text-white" />}
+                      </div>
+                    </div>
+                    {loginBackOffice && (
+                      <p className="mt-2 flex items-start gap-1.5 pl-9 text-[10px] text-amber-600 dark:text-amber-400">
+                        <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
+                        <span>{t.agentSession.backOfficeModeWarning}</span>
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Fixná päta — upozornenie + prihlásenie */}
-              <div className="px-4 pb-4 pt-3 shrink-0 border-t border-border bg-card/60">
+              <div className="shift-login-footer px-5 pb-5 pt-3 shrink-0">
                 {(() => {
                   const parseHHMM = (s: string) => { const [h, m] = s.split(":").map(Number); return h * 60 + m; };
                   const now = new Date();
@@ -15214,49 +15245,27 @@ function AgentWorkspacePageContent() {
                   );
                 })()}
 
-                {/* Back Office sekcia — len pre role s povoleným modulom "Back Office Agenda" */}
-                {canBackOfficeAgenda && (
-                <div
-                  className={`rounded-xl px-3 py-2.5 mb-3 border cursor-pointer transition-all ${loginBackOffice ? "bg-primary/5 border-primary/30" : "bg-card border-border"}`}
-                  onClick={() => setLoginBackOffice(v => !v)}
-                  data-testid="login-back-office-toggle"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: loginBackOffice ? "hsl(var(--primary) / 0.10)" : "hsl(var(--muted))" }}>
-                      <ClipboardList className="h-3.5 w-3.5" style={{ color: loginBackOffice ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold">{t.agentSession.backOfficeAgendaTitle}</p>
-                      <p className="text-[10px] text-muted-foreground">{t.agentSession.backOfficeAgendaSubtitle}</p>
-                    </div>
-                    <div className="rounded flex items-center justify-center" style={{ width: 18, height: 18, background: loginBackOffice ? "hsl(var(--primary))" : "transparent", border: `2px solid ${loginBackOffice ? "hsl(var(--primary))" : "hsl(var(--border))"}` }}>
-                      {loginBackOffice && <Check className="h-2.5 w-2.5 text-white" />}
-                    </div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                    <Users className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span><strong className="text-[#33445a]">{selectedLoginCampaignIds.length + selectedLoginQueueIds.length + (loginBackOffice ? 1 : 0)}</strong> {t.agentSession.selected}</span>
                   </div>
-                  {loginBackOffice && (
-                    <p className="mt-2 flex items-start gap-1.5 pl-9 text-[10px] text-amber-600 dark:text-amber-400">
-                      <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
-                      <span>{t.agentSession.backOfficeModeWarning}</span>
-                    </p>
-                  )}
+                  <Button
+                    className="shift-login-start group h-12 w-auto min-w-[190px] shrink-0 gap-3 rounded-lg px-5 text-sm font-bold transition-all hover:-translate-y-0.5"
+                    onClick={handleStartSession}
+                    disabled={selectedLoginCampaignIds.length === 0 && selectedLoginQueueIds.length === 0 && !loginBackOffice}
+                    data-testid="button-start-session"
+                    aria-label={`${t.agentSession.startShift}: ${selectedLoginCampaignIds.length + selectedLoginQueueIds.length + (loginBackOffice ? 1 : 0)}`}
+                  >
+                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/15">
+                      <Headphones className="h-4 w-4" />
+                    </span>
+                    <span>{t.agentSession.startShift}</span>
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </Button>
                 </div>
-                )}
-
-                <Button
-                  className="group w-full h-16 gap-3 rounded-2xl px-4 text-base font-bold shadow-[0_10px_24px_hsl(var(--primary)/0.28)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_30px_hsl(var(--primary)/0.34)]"
-                  onClick={handleStartSession}
-                  disabled={selectedLoginCampaignIds.length === 0 && selectedLoginQueueIds.length === 0 && !loginBackOffice}
-                  data-testid="button-start-session"
-                  aria-label={`${t.agentSession.startShift}: ${selectedLoginCampaignIds.length + selectedLoginQueueIds.length + (loginBackOffice ? 1 : 0)}`}
-                >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-foreground/15">
-                    <Headphones className="h-5 w-5" />
-                  </span>
-                  <span className="flex-1 text-left">{t.agentSession.startShift}</span>
-                  <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-                </Button>
                 {selectedLoginCampaignIds.length === 0 && selectedLoginQueueIds.length === 0 && !loginBackOffice && (
-                  <p className="text-center text-[11px] mt-2 text-muted-foreground">{t.agentSession.selectAtLeastOne}</p>
+                  <p className="mt-2 text-center text-[11px] text-muted-foreground">{t.agentSession.selectAtLeastOne}</p>
                 )}
               </div>
             </div>

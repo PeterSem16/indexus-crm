@@ -163,7 +163,8 @@ export function registerAgentShiftLoginSetRoutes(
           (id, user_id, name, campaign_ids, inbound_queue_ids, back_office, created_at, updated_at)
         VALUES (
           gen_random_uuid(), ${userId}, ${payload.name},
-          ${payload.campaignIds}::text[], ${payload.inboundQueueIds}::text[],
+          ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(payload.campaignIds)}::jsonb)),
+          ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(payload.inboundQueueIds)}::jsonb)),
           ${payload.backOffice}, now(), now()
         )
         RETURNING id, name, campaign_ids, inbound_queue_ids, back_office, created_at, updated_at
