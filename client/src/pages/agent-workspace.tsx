@@ -2758,6 +2758,28 @@ export function CommunicationCanvas({
   })();
   const personnelEntityType = contactType === "clinic" || contactType === "hospital" ? contactType : null;
   const personnelEntityId = personnelEntityType === "clinic" ? clinicData?.id : personnelEntityType === "hospital" ? hospitalData?.id : null;
+  const rewardEntityType = contactType === "clinic" || contactType === "hospital" || contactType === "collaborator"
+    ? contactType
+    : null;
+  const rewardEntityId = rewardEntityType === "clinic"
+    ? clinicData?.id
+    : rewardEntityType === "hospital"
+      ? hospitalData?.id
+      : rewardEntityType === "collaborator"
+        ? collaboratorData?.id
+        : null;
+  const { data: directRewardReadiness } = useQuery<{ unpaidRewardPersonCount: number }>({
+    queryKey: ["/api/reward-readiness", rewardEntityType, rewardEntityId],
+    queryFn: async () => {
+      const response = await fetch(`/api/reward-readiness/${rewardEntityType}/${rewardEntityId}`, { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to resolve reward readiness");
+      return response.json();
+    },
+    enabled: !!rewardEntityType && !!rewardEntityId,
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+  const visibleUnpaidRewardPersonCount = directRewardReadiness?.unpaidRewardPersonCount ?? unpaidRewardPersonCount;
   const { data: personnelRecipientData } = useQuery<any>({
     queryKey: ["/api/institutions", personnelEntityType, personnelEntityId, "personnel"],
     queryFn: async () => {
@@ -4807,9 +4829,9 @@ export function CommunicationCanvas({
                     readOnly={cardsReadOnly}
                     readOnlyExceptions={cardsReadOnlyExceptions}
                     initialData={hospitalData}
-                    headerBadge={unpaidRewardPersonCount > 0 ? (
+                    headerBadge={visibleUnpaidRewardPersonCount > 0 ? (
                       <Badge className="border border-amber-200 bg-amber-50 text-[10px] font-semibold text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300" data-testid="badge-hospital-unpaid-reward">
-                        {priorityBuilderCopy[locale]?.unpaidRewardBadge || priorityBuilderCopy.en.unpaidRewardBadge}: {unpaidRewardPersonCount}
+                        {priorityBuilderCopy[locale]?.unpaidRewardBadge || priorityBuilderCopy.en.unpaidRewardBadge}: {visibleUnpaidRewardPersonCount}
                       </Badge>
                     ) : null}
                     onSuccess={async () => {
@@ -4830,9 +4852,9 @@ export function CommunicationCanvas({
                     open={true}
                     onOpenChange={() => {}}
                     initialData={clinicData}
-                    headerBadge={unpaidRewardPersonCount > 0 ? (
+                    headerBadge={visibleUnpaidRewardPersonCount > 0 ? (
                       <Badge className="border border-amber-200 bg-amber-50 text-[10px] font-semibold text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300" data-testid="badge-clinic-unpaid-reward">
-                        {priorityBuilderCopy[locale]?.unpaidRewardBadge || priorityBuilderCopy.en.unpaidRewardBadge}: {unpaidRewardPersonCount}
+                        {priorityBuilderCopy[locale]?.unpaidRewardBadge || priorityBuilderCopy.en.unpaidRewardBadge}: {visibleUnpaidRewardPersonCount}
                       </Badge>
                     ) : null}
                     onSuccess={async () => {
@@ -4858,9 +4880,9 @@ export function CommunicationCanvas({
                     mode="inline"
                     readOnly={cardsReadOnly}
                     initialData={collaboratorData}
-                    headerBadge={unpaidRewardPersonCount > 0 ? (
+                    headerBadge={visibleUnpaidRewardPersonCount > 0 ? (
                       <Badge className="ml-2 border border-amber-200 bg-amber-50 text-[10px] font-semibold text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300" data-testid="badge-collaborator-unpaid-reward">
-                        {priorityBuilderCopy[locale]?.unpaidRewardBadge || priorityBuilderCopy.en.unpaidRewardBadge}: {unpaidRewardPersonCount}
+                        {priorityBuilderCopy[locale]?.unpaidRewardBadge || priorityBuilderCopy.en.unpaidRewardBadge}: {visibleUnpaidRewardPersonCount}
                       </Badge>
                     ) : null}
                     onSuccess={async () => {

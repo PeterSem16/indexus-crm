@@ -38,6 +38,7 @@ import { SuggestRegionButton } from "@/components/suggest-region-button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useModuleFieldPermissions } from "@/components/ui/permission-field";
+import { priorityBuilderCopy } from "@/components/agent/priority-builder-copy";
 
 const COLLABORATOR_TYPES = [
   { value: "doctor", labelKey: "doctor" },
@@ -2113,6 +2114,7 @@ function ActionsTabContent({
       apiRequest("PUT", `/api/collaborators/${collaboratorId}/activities/${activityId}/reward`, { rewardPaid }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/collaborators", collaboratorId, "activities"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reward-readiness"] });
     },
   });
 
@@ -3605,6 +3607,24 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onPhoneChange, 
   const { isHidden, isReadonly } = useModuleFieldPermissions("collaborators");
   
   const isEditMode = !!initialData;
+  const { data: rewardReadiness } = useQuery<{ unpaidRewardPersonCount: number }>({
+    queryKey: ["/api/reward-readiness", "collaborator", initialData?.id],
+    queryFn: async () => {
+      const response = await fetch(`/api/reward-readiness/collaborator/${initialData?.id}`, { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to resolve reward readiness");
+      return response.json();
+    },
+    enabled: isEditMode && !!initialData?.id,
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+  const resolvedHeaderBadge = headerBadge ?? (
+    (rewardReadiness?.unpaidRewardPersonCount || 0) > 0 ? (
+      <Badge className="ml-2 border border-amber-200 bg-amber-50 text-[10px] font-semibold text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300" data-testid="badge-collaborator-unpaid-reward">
+        {priorityBuilderCopy[locale]?.unpaidRewardBadge || priorityBuilderCopy.en.unpaidRewardBadge}: {rewardReadiness?.unpaidRewardPersonCount}
+      </Badge>
+    ) : null
+  );
   
   const wizardSteps = isEditMode 
     ? WIZARD_STEPS 
@@ -5693,7 +5713,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onPhoneChange, 
                   {netName}
                 </Badge>
               ))}
-              {headerBadge}
+              {resolvedHeaderBadge}
               {(() => {
                 const recBy = referrals.filter(r => r.referralType === "doctor_referral" || r.referralType === "doctor_suggests");
                 if (recBy.length === 0) return null;

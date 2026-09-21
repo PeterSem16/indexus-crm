@@ -18827,6 +18827,69 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
+  // Resolve the warning for the entity that is actually open in the card.
+  // Do not rely on optional campaign-contact enrichment: personnel drawers can
+  // open independently and current Healthcare Facilities live in contact_assignments.
+  app.get("/api/reward-readiness/:entityType/:entityId", requireAuth, async (req, res) => {
+    try {
+      const entityType = req.params.entityType;
+      const entityId = req.params.entityId;
+      if (!["clinic", "hospital", "collaborator"].includes(entityType)) {
+        return res.status(400).json({ error: "Unsupported entity type" });
+      }
+
+      let personIds: string[] = [];
+      if (entityType === "collaborator") {
+        personIds = [entityId];
+      } else {
+        const assignmentRows = await db.select({ personId: contactAssignments.personId })
+          .from(contactAssignments)
+          .where(and(
+            eq(contactAssignments.entityType, entityType),
+            eq(contactAssignments.entityId, entityId),
+            eq(contactAssignments.isActive, true),
+          ));
+        const legacyRows = entityType === "clinic"
+          ? await db.select({ id: collaborators.id }).from(collaborators).where(or(
+              eq(collaborators.clinicId, entityId),
+              sql`${collaborators.clinicIds} @> ARRAY[${entityId}]::text[]`,
+            ))
+          : await db.select({ id: collaborators.id }).from(collaborators).where(or(
+              eq(collaborators.hospitalId, entityId),
+              sql`${collaborators.hospitalIds} @> ARRAY[${entityId}]::text[]`,
+            ));
+        personIds = [...new Set([
+          ...assignmentRows.map((row) => row.personId),
+          ...legacyRows.map((row) => row.id),
+        ])];
+      }
+
+      if (!personIds.length) return res.json({ unpaidRewardPersonCount: 0 });
+
+      const activityRows = await db.select().from(collaboratorActivities)
+        .where(inArray(collaboratorActivities.collaboratorId, personIds))
+        .orderBy(
+          sql`${collaboratorActivities.dueDate} DESC NULLS LAST`,
+          desc(collaboratorActivities.createdAt),
+          desc(collaboratorActivities.id),
+        );
+      const latestByPerson = new Map<string, typeof collaboratorActivities.$inferSelect>();
+      for (const activity of activityRows) {
+        if (!latestByPerson.has(activity.collaboratorId)) {
+          latestByPerson.set(activity.collaboratorId, activity);
+        }
+      }
+      const unpaidRewardPersonCount = personIds.reduce((count, personId) => {
+        const latest = latestByPerson.get(personId);
+        return latest && !(latest.rewardPaid && latest.rewardPaidAt) ? count + 1 : count;
+      }, 0);
+      res.json({ unpaidRewardPersonCount });
+    } catch (error: any) {
+      console.error("[RewardReadiness] resolve error:", error?.message || error);
+      res.status(500).json({ error: "Failed to resolve reward readiness" });
+    }
+  });
+
   app.put("/api/collaborators/:collaboratorId/activities/:activityId/reward", requireAuth, async (req, res) => {
     try {
       const activities = await storage.getCollaboratorActivities(req.params.collaboratorId);
