@@ -30,6 +30,10 @@ need redirecting. `--apply` is intentionally disabled until the production
 dry-run has been reviewed and every live reference and legacy-ID redirect has
 an approved policy. No production row can be changed by this version.
 
+When `--only-name` is supplied, `inspectionMatches` also lists matching active
+people and facilities even when differences in name or location prevent them
+from becoming a strict deduplication candidate.
+
 Run unit tests with:
 
 ```sh

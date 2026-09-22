@@ -1,0 +1,49 @@
+seman@CORPCRM01:/var/www/indexus-crm$ read -s -p "PostgreSQL password: " PGPASSWORD && echo
+
+export PGHOST=localhost
+export PGPORT=5432
+export PGDATABASE=indexus_crm
+export PGUSER=indexus
+export PGPASSWORD
+
+node script/migration/dedupe-collaborators-facilities.cjs \
+  --only-name="RADMA" \
+  > dedupe-radma-plan.json
+
+unset PGPASSWORD
+PostgreSQL password:
+(node:3624896) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+seman@CORPCRM01:/var/www/indexus-crm$ node -e '
+const fs = require("fs");
+const p = JSON.parse(fs.readFileSync("dedupe-radma-plan.json", "utf8"));
+console.log(JSON.stringify({
+  planHash: p.planHash,
+  operations: p.operations,
+  assignmentMerges: p.assignmentMerges,
+  autoApplicable: p.autoApplicable,
+  manualReview: p.manualReview
+}, null, 2));
+'
+{
+  "planHash": "d90ed2195496cbedbb497c0251a4b7fe91720459b2729daacd814b2f8a633a53",
+  "operations": [],
+  "assignmentMerges": [],
+  "autoApplicable": [],
+  "manualReview": []
+}
+seman@CORPCRM01:/var/www/indexus-crm$ node -e '
+const fs = require("fs");
+const p = JSON.parse(fs.readFileSync("dedupe-radma-plan.json", "utf8"));
+console.log(JSON.stringify({
+  planHash: p.planHash,
+  operations: p.operations,
+  assignmentMerges: p.assignmentMerges,
+  autoApplicable: p.autoApplicable,
+  manualReview: p.manualReview
+}, null, 2));
+' > dedupe-radma-summary.json
+seman@CORPCRM01:/var/www/indexus-crm$ grep -n "Promise.all" script/migration/dedupe-collaborators-facilities.cjs
+341:    const [people, facilities, assignments] = await Promise.all([
+343:      Promise.all([client.query("SELECT 'clinic' AS kind, clinics.* FROM clinics WHERE is_active = true ORDER BY id"), client.query("SELECT 'hospital' AS kind, hospitals.* FROM hospitals WHERE is_active = true ORDER BY id")]).then(([c, h]) => ({ rows: [...c.rows, ...h.rows] })),
+seman@CORPCRM01:/va

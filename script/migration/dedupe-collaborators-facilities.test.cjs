@@ -61,3 +61,11 @@ test("assignment plan includes only collisions caused by approved operations", (
   assert.equal(result.length, 1);
   assert.deepEqual(new Set([result[0].winnerId, ...result[0].duplicateIds]), new Set(["a", "b"]));
 });
+test("target inspection shows facilities even when strict dedupe grouping rejects them", () => {
+  const facilities = [
+    { id: "c1", kind: "clinic", name: "RADMA GYN", city: "Bratislava", country_code: "SK" },
+    { id: "c2", kind: "clinic", name: "RADMA-GYN s.r.o.", city: "Bratislava", country_code: "SK" },
+  ];
+  const result = d.inspectionMatches("RADMA", [], facilities);
+  assert.deepEqual(result.map((row) => row.id), ["c1", "c2"]);
+});

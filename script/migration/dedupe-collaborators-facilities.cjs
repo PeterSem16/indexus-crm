@@ -82,6 +82,20 @@ function matchEvidence(row, workplacesByPerson = {}) {
   };
 }
 
+function inspectionMatches(onlyName, people, facilities, workplacesByPerson = {}) {
+  const needle = normalize(onlyName);
+  if (!needle) return [];
+  return [...people, ...facilities]
+    .filter((row) => {
+      const candidate = row.kind === "clinic" || row.kind === "hospital"
+        ? facilityName(row)
+        : personName(row);
+      return candidate.includes(needle) || needle.includes(candidate);
+    })
+    .map((row) => matchEvidence(row, workplacesByPerson))
+    .sort((a, b) => `${a.kind}|${a.name}|${a.id}`.localeCompare(`${b.kind}|${b.name}|${b.id}`));
+}
+
 function facilityScore(f) {
   return (filled(f.id_zz) ? 100000 : 0) + (filled(f.pzs_code) ? 10000 : 0) +
     (filled(f.pzs_name) ? 1000 : 0) + completeness(f);
@@ -367,6 +381,9 @@ async function main() {
     const report = stablePlan({ operations, assignmentMerges });
     report.autoApplicable = operations.filter((x) => x.autoApplicable);
     report.manualReview = operations.filter((x) => !x.autoApplicable);
+    if (onlyName) {
+      report.inspectionMatches = inspectionMatches(onlyName, people.rows, facilities.rows, workplaces);
+    }
     if (!apply) { await client.query("ROLLBACK"); console.log(JSON.stringify(report, null, 2)); return; }
     if (planArg.slice(12) !== report.planHash) throw new Error("Plan hash does not match current database; refusing to apply");
     for (const op of operations.filter((x) => x.autoApplicable)) await applyOperation(client, op);
@@ -435,5 +452,5 @@ async function applyOperation(db, op) {
     await db.query(`UPDATE ${table} SET is_active=false, updated_at=now() WHERE id=$1`, [loserId]);
   }
 }
-module.exports = { normalize, normalizeEmail, normalizePhone, personName, facilityName, canonical, mergeFillOnly, mergeAssignment, assignmentMergePlan, plannedAssignmentMerges, findPeople, findFacilities, stablePlan };
+module.exports = { normalize, normalizeEmail, normalizePhone, personName, facilityName, canonical, mergeFillOnly, mergeAssignment, assignmentMergePlan, plannedAssignmentMerges, findPeople, findFacilities, inspectionMatches, stablePlan };
 if (require.main === module) main().catch((e) => { console.error(`FATAL: ${e.message}`); process.exitCode = 1; });
