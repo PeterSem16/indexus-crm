@@ -146,6 +146,19 @@ function fieldConflicts(rows) {
   return conflicts;
 }
 
+function automaticConflictBlockers(rows, conflicts = fieldConflicts(rows)) {
+  return conflicts
+    .filter((conflict) => {
+      if (conflict.field === "legacy_id") return false;
+      const sourceValues = rows
+        .map((row) => row[conflict.field])
+        .filter((value) => filled(value) || (Array.isArray(value) && value.length));
+      return !sourceValues.length || !sourceValues.every(Array.isArray);
+    })
+    .map((conflict) => conflict.field)
+    .sort();
+}
+
 function matchEvidence(row, workplacesByPerson = {}) {
   if (row.kind === "clinic" || row.kind === "hospital") {
     return {
@@ -959,6 +972,8 @@ async function main() {
       op.plannedPatch = reviewPatch(patch);
       op.matchEvidence = [winner, ...losers].map((row) => matchEvidence(row, workplaces));
       op.fieldConflicts = fieldConflicts([winner, ...losers]);
+      op.autoReviewBlockers = automaticConflictBlockers([winner, ...losers], op.fieldConflicts);
+      if (op.autoReviewBlockers.length) op.autoApplicable = false;
       op.sourceFingerprints = [winner, ...losers].map((row) => ({
         id: String(row.id),
         hash: crypto.createHash("sha256").update(JSON.stringify(row)).digest("hex"),
@@ -996,5 +1011,5 @@ async function main() {
     return;
   } catch (e) { await client.query("ROLLBACK"); throw e; } finally { client.release(); await pool.end(); }
 }
-module.exports = { normalize, normalizeEmail, normalizePhone, personName, facilityName, facilityLocationKey, canonicalize, canonical, mergeFillOnly, mergeAssignment, assignmentMergePlan, plannedAssignmentMerges, referencePolicy, referenceInventory, referenceInventories, findPeople, findFacilities, inspectionMatches, stablePlan, operationId, executionPlan, verifyExecutionPlan, readRestrictedPlan, databaseIdentity, applyExecutionPlan };
+module.exports = { normalize, normalizeEmail, normalizePhone, personName, facilityName, facilityLocationKey, canonicalize, canonical, mergeFillOnly, mergeAssignment, assignmentMergePlan, plannedAssignmentMerges, referencePolicy, referenceInventory, referenceInventories, fieldConflicts, automaticConflictBlockers, findPeople, findFacilities, inspectionMatches, stablePlan, operationId, executionPlan, verifyExecutionPlan, readRestrictedPlan, databaseIdentity, applyExecutionPlan };
 if (require.main === module) main().catch((e) => { console.error(`FATAL: ${e.message}`); process.exitCode = 1; });

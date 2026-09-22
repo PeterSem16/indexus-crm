@@ -15,6 +15,31 @@ test("facility canonical prefers registry identifiers", () => {
 test("fill-only merge never overwrites and unions arrays", () => {
   assert.deepEqual(d.mergeFillOnly({ email: "old", tags: ["a"] }, { email: "new", tags: ["a", "b"], phone: "1" }), { tags: ["a", "b"], phone: "1" });
 });
+test("automatic dedupe is blocked by scalar conflicts but not aliases or mergeable arrays", () => {
+  const rows = [
+    {
+      id: "winner",
+      legacy_id: "100",
+      email: "winner@example.test",
+      country_codes: ["SK"],
+    },
+    {
+      id: "loser",
+      legacy_id: "200",
+      email: "loser@example.test",
+      country_codes: ["CZ"],
+    },
+  ];
+  const conflicts = d.fieldConflicts(rows);
+  assert.deepEqual(d.automaticConflictBlockers(rows, conflicts), ["email"]);
+});
+test("automatic dedupe permits differing legacy IDs because aliases preserve them", () => {
+  const rows = [
+    { id: "winner", legacy_id: "100", email: "same@example.test" },
+    { id: "loser", legacy_id: "200", email: "same@example.test" },
+  ];
+  assert.deepEqual(d.automaticConflictBlockers(rows), []);
+});
 test("exact name on duplicate facilities is reported for manual review (Radmila Sládičeková/RADMA fixture)", () => {
   const facilities = [
     { id: "c1", kind: "clinic", name: "RADMA", city: "Bratislava", country_code: "SK" },
