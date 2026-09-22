@@ -1,0 +1,57 @@
+seman@CORPCRM01:~$ (
+  set -euo pipefail
+  cd /var/www/indexus-crm
+
+  echo "=== DEPLOY ==="
+  echo "HEAD=$(git rev-parse --short HEAD)"
+  echo "ORIGIN_MAIN=$(git rev-parse --short origin/main)"
+  pm2 status indexus-crm
+
+  echo "=== SUPPORT TABLES ==="
+  set -a
+  . ./.env
+  set +a
+
+  psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -Atc \
+    "SELECT to_regclass('public.dedupe_entity_aliases'),
+            to_regclass('public.dedupe_apply_ledger');"
+
+  echo "=== READ-ONLY DRY RUN ==="
+  BACKUP_ROOT=/var/backups/indexus-crm/dedupe
+  STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+  REPORT="$BACKUP_ROOT/audit-report-$STAMP.json"
+
+  mkdir -p "$BACKUP_ROOT"
+  chmod 700 "$BACKUP_ROOT"
+  umask 077
+
+  node script/migration/dedupe-collaborators-facilities.cjs > "$REPORT"
+  chmod 600 "$REPORT"
+
+  echo "Dry-run dokončený."
+  echo "REPORT_PATH=$REPORT"
+) || echo "Kontrola zlyhala, ale terminál zostáva otvorený. Chyba je uvedená vyššie."
+=== DEPLOY ===
+HEAD=f1977090
+ORIGIN_MAIN=f1977090
+┌────┬──────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name             │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼──────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 4  │ indexus-crm      │ default     │ 1.0.0   │ fork    │ 3629167  │ 5m     │ 938  │ online    │ 0%       │ 279.2mb  │ seman    │ disabled │
+└────┴──────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+Module
+┌────┬──────────────────────────────┬───────────────┬──────────┬──────────┬──────┬──────────┬──────────┬──────────┐
+│ id │ module                       │ version       │ pid      │ status   │ ↺    │ cpu      │ mem      │ user     │
+├────┼──────────────────────────────┼───────────────┼──────────┼──────────┼──────┼──────────┼──────────┼──────────┤
+│ 1  │ pm2-logrotate                │ 3.0.0         │ 27605    │ online   │ 3    │ 0%       │ 76.6mb   │ seman    │
+└────┴──────────────────────────────┴───────────────┴──────────┴──────────┴──────┴──────────┴──────────┴──────────┘
+=== SUPPORT TABLES ===
+dedupe_entity_aliases|dedupe_apply_ledger
+=== READ-ONLY DRY RUN ===
+mkdir: cannot create directory ‘/var/backups/indexus-crm’: Permission denied
+chmod: cannot access '/var/backups/indexus-crm/dedupe': No such file or directory
+-bash: /var/backups/indexus-crm/dedupe/audit-report-20260922T171824Z.json: No such file or directory
+chmod: cannot access '/var/backups/indexus-crm/dedupe/audit-report-20260922T171824Z.json': No such file or directory
+Dry-run dokončený.
+REPORT_PATH=/var/backups/indexus-crm/dedupe/audit-report-20260922T171824Z.json
+seman@CORPCRM01:~$
