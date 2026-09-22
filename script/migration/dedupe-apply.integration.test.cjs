@@ -33,7 +33,8 @@ async function unusedPort() {
 async function snapshot(pool) {
   const tables = [
     "collaborators", "contact_assignments", "agreements", "teams", "links",
-    "audit_history", "dedupe_entity_aliases", "dedupe_apply_ledger",
+    "audit_history", "clinic_representative_assignments",
+    "dedupe_entity_aliases", "dedupe_apply_ledger",
   ];
   const result = {};
   for (const table of tables) {
@@ -103,6 +104,17 @@ test("real PostgreSQL apply is atomic, redirects all supported references, and i
     CREATE TABLE teams (id varchar PRIMARY KEY, collaborator_ids text[]);
     CREATE TABLE links (id varchar PRIMARY KEY, entity_type varchar, entity_id varchar);
     CREATE TABLE audit_history (id varchar PRIMARY KEY, person_id varchar);
+    CREATE TABLE clinic_representative_assignments (
+      id varchar PRIMARY KEY,
+      clinic_id varchar NOT NULL,
+      user_id varchar NOT NULL,
+      valid_from timestamptz NOT NULL DEFAULT now(),
+      valid_to timestamptz,
+      assigned_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE UNIQUE INDEX uq_cra_clinic_active
+      ON clinic_representative_assignments (clinic_id)
+      WHERE valid_to IS NULL;
     CREATE TABLE dedupe_entity_aliases (
       id bigserial PRIMARY KEY,
       entity_kind varchar NOT NULL,
@@ -208,7 +220,12 @@ test("real PostgreSQL apply is atomic, redirects all supported references, and i
   await pool.query(`
     INSERT INTO clinics (id, legacy_id) VALUES
       ('clinic-winner', NULL),
-      ('clinic-loser', 'legacy-clinic')
+      ('clinic-loser', 'legacy-clinic');
+    INSERT INTO clinic_representative_assignments
+      (id, clinic_id, user_id, valid_from, assigned_at)
+    VALUES
+      ('representative-winner', 'clinic-winner', 'user-winner', '2026-01-01', '2026-01-01'),
+      ('representative-loser', 'clinic-loser', 'user-loser', '2026-02-01', '2026-02-01')
   `);
   const persistedClinicRows = (await pool.query(
     "SELECT * FROM clinics WHERE id=ANY($1::varchar[]) ORDER BY id",
@@ -237,5 +254,26 @@ test("real PostgreSQL apply is atomic, redirects all supported references, and i
   assert.equal(
     (await pool.query("SELECT is_active FROM clinics WHERE id='clinic-loser'")).rows[0].is_active,
     false
+  );
+  assert.deepEqual(
+    (await pool.query(`
+      SELECT id, clinic_id, user_id, valid_to IS NULL AS active
+      FROM clinic_representative_assignments
+      ORDER BY id
+    `)).rows,
+    [
+      {
+        id: "representative-loser",
+        clinic_id: "clinic-winner",
+        user_id: "user-loser",
+        active: false,
+      },
+      {
+        id: "representative-winner",
+        clinic_id: "clinic-winner",
+        user_id: "user-winner",
+        active: true,
+      },
+    ]
   );
 });

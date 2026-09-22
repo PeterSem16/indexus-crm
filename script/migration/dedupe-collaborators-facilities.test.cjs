@@ -192,6 +192,10 @@ test("execution plan fails closed on an unsupported live reference", () => {
 test("reference policy preserves audit/history and treats assignments specially", () => {
   assert.equal(d.referencePolicy("audit_events", "person_id"), "preserve_audit");
   assert.equal(d.referencePolicy("contact_assignments", "person_id"), "contact_assignment_special");
+  assert.equal(
+    d.referencePolicy("clinic_representative_assignments", "clinic_id"),
+    "clinic_representative_assignment_special"
+  );
   assert.equal(d.referencePolicy("campaign_contacts", "collaborator_id"), "redirect");
   assert.equal(d.referencePolicy("dedupe_entity_aliases", "loser_id"), "preserve_alias");
 });

@@ -342,6 +342,9 @@ function plannedAssignmentMerges(rows, operations) {
 
 function referencePolicy(table, column) {
   if (table === "contact_assignments") return "contact_assignment_special";
+  if (table === "clinic_representative_assignments" && column === "clinic_id") {
+    return "clinic_representative_assignment_special";
+  }
   if (table === "dedupe_entity_aliases" && column === "loser_id") return "preserve_alias";
   if (/(audit|snapshot|history|log)/i.test(`${table}.${column}`)) return "preserve_audit";
   return "redirect";
@@ -451,7 +454,11 @@ async function redirectReviewedReferences(db, operation) {
   const loserIds = operation.loserIds.map(String);
   const entityType = operation.kind === "person" ? "collaborator" : operation.entityKind;
   for (const reference of operation.references || []) {
-    if (reference.policy === "preserve_audit" || reference.policy === "contact_assignment_special") continue;
+    if (
+      reference.policy === "preserve_audit" ||
+      reference.policy === "contact_assignment_special" ||
+      reference.policy === "clinic_representative_assignment_special"
+    ) continue;
     const table = quoteIdentifier(reference.table);
     if (reference.policy === "redirect_array") {
       const column = quoteIdentifier(reference.column);
@@ -474,6 +481,60 @@ async function redirectReviewedReferences(db, operation) {
       await db.query(`UPDATE ${table} SET ${column}=$1 WHERE ${column}=ANY($2::varchar[])`, [winnerId, loserIds]);
     } else {
       throw new Error(`Unsupported reference policy ${reference.policy}`);
+    }
+  }
+}
+
+async function applyClinicRepresentativeRedirects(db, operations) {
+  for (const operation of operations) {
+    if (operation.kind !== "facility" || operation.entityKind !== "clinic") continue;
+    const hasReference = (operation.references || []).some((reference) =>
+      reference.table === "clinic_representative_assignments" &&
+      reference.column === "clinic_id" &&
+      reference.policy === "clinic_representative_assignment_special"
+    );
+    if (!hasReference) continue;
+
+    const winnerId = String(operation.winnerId);
+    const loserIds = operation.loserIds.map(String);
+    const ids = [winnerId, ...loserIds];
+    const rows = (await db.query(`
+      SELECT id, clinic_id, valid_from, valid_to, assigned_at
+      FROM clinic_representative_assignments
+      WHERE clinic_id=ANY($1::varchar[])
+      ORDER BY
+        (clinic_id=$2) DESC,
+        valid_from DESC,
+        assigned_at DESC,
+        id
+      FOR UPDATE
+    `, [ids, winnerId])).rows;
+
+    const active = rows.filter((row) => row.valid_to === null);
+    const keeper = active[0];
+    const closeIds = active.slice(1).map((row) => String(row.id));
+    if (closeIds.length) {
+      await db.query(`
+        UPDATE clinic_representative_assignments
+        SET valid_to=GREATEST(valid_from, now())
+        WHERE id=ANY($1::varchar[])
+      `, [closeIds]);
+    }
+    if (loserIds.length) {
+      await db.query(`
+        UPDATE clinic_representative_assignments
+        SET clinic_id=$1
+        WHERE clinic_id=ANY($2::varchar[])
+      `, [winnerId, loserIds]);
+    }
+
+    const remainingActive = (await db.query(`
+      SELECT id FROM clinic_representative_assignments
+      WHERE clinic_id=$1 AND valid_to IS NULL
+      ORDER BY id
+    `, [winnerId])).rows;
+    if (remainingActive.length > 1 || (keeper && remainingActive.length !== 1)) {
+      throw new Error(`Clinic representative assignment merge failed for ${operation.operationId}`);
     }
   }
 }
@@ -583,6 +644,7 @@ async function applyExecutionPlan(pool, plan, backup, options = {}) {
     for (const item of verified) {
       await redirectReviewedReferences(client, item.operation);
     }
+    await applyClinicRepresentativeRedirects(client, plan.operations);
     failAfter("references");
     await applyAssignmentRedirects(client, plan.operations, plan.assignmentMerges);
     failAfter("assignments");
@@ -599,6 +661,7 @@ async function applyExecutionPlan(pool, plan, backup, options = {}) {
       const remaining = remainingReferences.get(operation.operationId)
         .filter((reference) =>
           !["preserve_audit", "preserve_alias", "contact_assignment_special"].includes(reference.policy)
+          && reference.policy !== "clinic_representative_assignment_special"
         );
       if (remaining.length) throw new Error(`Mutable references remain for operation ${operation.operationId}`);
     }
