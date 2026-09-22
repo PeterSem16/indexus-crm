@@ -1,0 +1,186 @@
+node <<'NODE' > radma-clinics-inspection.json
+const { Pool } = require("pg");
+
+(async () => {
+  const pool = new Pool({
+    host: process.env.PGHOST,
+    port: Number(process.env.PGPORT),
+    database: process.env.PGDATABASE,
+    user: process.env.PGUSER,
+    password: process.env.PGPASSWORD,
+  });
+
+  const client = await pool.connect();
+
+  try {
+    await client.query(
+      "BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"
+    );
+
+    const clinics = await client.query(`
+      SELECT
+        id, legacy_id, name, pzs_name, id_zz, pzs_code, ico,
+        address, street, street_number, city, postal_code,
+        country_code, phone, email, representative_id, is_active
+      FROM clinics
+      WHERE name ILIKE '%RADMA%'
+         OR pzs_name ILIKE '%RADMA%'
+      ORDER BY name, city, id
+    `);
+
+    const ids = clinics.rows.map(row => row.id);
+
+    const assignments = ids.length
+      ? await client.query(`
+          SELECT
+            id, person_id, entity_type, entity_id,
+            category_id, department, position, role,
+            cbc_activity_codes, is_primary, is_active
+          FROM contact_assignments
+          WHERE entity_type = 'clinic'
+            AND entity_id = ANY($1::varchar[])
+          ORDER BY entity_id, person_id, id
+        `, [ids])
+unset PGPASSWORDde = 1; ${error.message}`);
+PostgreSQL password:
+seman@CORPCRM01:/var/www/indexus-crm$ node -e '
+const fs = require("fs");
+const p = JSON.parse(fs.readFileSync("radma-clinics-inspection.json", "utf8"));
+console.log(`Kliniky: ${p.clinics.length}, assignmenty: ${p.assignments.length}`);
+console.log(JSON.stringify(p, null, 2));
+'
+Kliniky: 2, assignmenty: 3
+{
+  "clinics": [
+    {
+      "id": "f0084bfc-eecd-4847-ab9c-d76b31b7b8f2",
+      "legacy_id": null,
+      "name": "RADMA GYN s. r. o.",
+      "pzs_name": "P13729009201 – gynekológia a pôrodníctvo; samostatná ambulancia / ambulantná starostlivosť; poradové číslo 01 | P13729247501 – ultrazvuk v gynekológii a pôrodníctve; pracovisko / doplnkový útvar; poradové číslo 01",
+      "id_zz": "61-44478852-A0001",
+      "pzs_code": "P13729009201",
+      "ico": "44478852",
+      "address": "Strečnianska 13, Bratislava - mestská časť Petržalka, Bratislava V, BA, SK",
+      "street": "Strečnianska",
+      "street_number": null,
+      "city": "Bratislava - mestská časť Petržalka",
+      "postal_code": "851 05",
+      "country_code": "SK",
+      "phone": "421221025226",
+      "email": null,
+      "representative_id": "a126578f-312f-4299-ba47-74957b719cb6",
+      "is_active": true
+    },
+    {
+      "id": "e2330806-7694-47da-a82a-f8787ee2f2f9",
+      "legacy_id": null,
+      "name": "RADMA GYN s.r.o.",
+      "pzs_name": null,
+      "id_zz": null,
+      "pzs_code": null,
+      "ico": null,
+      "address": "Strečnianska 13",
+      "street": null,
+      "street_number": null,
+      "city": "Petržalka",
+      "postal_code": "85105",
+      "country_code": "SK",
+      "phone": "+421221025226",
+      "email": "ambulancia@radmagyn.sk",
+      "representative_id": null,
+      "is_active": true
+    }
+  ],
+  "assignments": [
+    {
+      "id": "4bea2aa8-67ff-4875-b1e9-4775556fa6f8",
+      "person_id": "9917163e-751e-4a72-b2a0-57e6a825f4b4",
+      "entity_type": "clinic",
+      "entity_id": "e2330806-7694-47da-a82a-f8787ee2f2f9",
+      "category_id": "aff3c07c-b219-48be-a97a-bb3f76e984ce",
+      "department": "Gynekologické oddelenie",
+      "position": "Súkromný gynekológ",
+      "role": null,
+      "cbc_activity_codes": [],
+      "is_primary": true,
+      "is_active": true
+    },
+    {
+      "id": "6db4dfb9-3ca8-4b42-9b9a-e204bf4e5db0",
+      "person_id": "0487f220-425a-4062-929c-d0584bf477a8",
+      "entity_type": "clinic",
+      "entity_id": "f0084bfc-eecd-4847-ab9c-d76b31b7b8f2",
+      "category_id": null,
+      "department": null,
+      "position": null,
+      "role": null,
+      "cbc_activity_codes": [],
+      "is_primary": false,
+      "is_active": true
+    },
+    {
+      "id": "0fb58e7d-440a-472c-976d-2fd6e6d8e4b7",
+      "person_id": "9917163e-751e-4a72-b2a0-57e6a825f4b4",
+      "entity_type": "clinic",
+      "entity_id": "f0084bfc-eecd-4847-ab9c-d76b31b7b8f2",
+      "category_id": "053995ca-0e6f-4b7f-bb8d-0fe45b512ded",
+      "department": null,
+      "position": "Súkromný gynekológ",
+      "role": null,
+      "cbc_activity_codes": [],
+      "is_primary": true,
+      "is_active": true
+    }
+  ]
+}
+seman@CORPCRM01:/var/www/indexus-crm$ seman@CORPCRM01:/var/www/indexus-crm$ node -e '
+const fs = require("fs");
+const p = JSON.parse(fs.readFileSync("radma-clinics-inspection.json", "utf8"));
+console.log(`Kliniky: ${p.clinics.length}, assignmenty: ${p.assignments.length}`);
+console.log(JSON.stringify(p, null, 2));
+'
+Kliniky: 2, assignmenty: 3
+{
+  "clinics": [
+    {
+      "id": "f0084bfc-eecd-4847-ab9c-d76b31b7b8f2",
+      "legacy_id": null,
+      "name": "RADMA GYN s. r. o.",
+      "pzs_name": "P13729009201 – gynekológia a pôrodníctvo; samostatná ambulancia / ambulantná starostlivosť; poradové číslo 01 | P13729247501 – ultrazvuk v gynekológii a pôrodníctve; pracovisko / doplnkový útvar; poradové číslo 01",
+      "id_zz": "61-44478852-A0001",
+      "pzs_code": "P13729009201",
+      "ico": "44478852",
+      "address": "Strečnianska 13, Bratislava - mestská časť Petržalka, Bratislava V, BA, SK",
+      "street": "Strečnianska",
+      "street_number": null,
+      "city": "Bratislava - mestská časť Petržalka",
+      "postal_code": "851 05",
+      "country_code": "SK",
+      "phone": "421221025226",
+      "email": null,
+      "representative_id": "a126578f-312f-4299-ba47-74957b719cb6",
+      "is_active": true
+    },
+    {
+      "id": "e2330806-7694-47da-a82a-f8787ee2f2f9",
+      "legacy_id": null,
+      "name": "RADMA GYN s.r.o.",
+      "pzs_name": null,
+      "id_zz": null,
+      "pzs_code": null,
+      "ico": null,
+      "address": "Strečnianska 13",
+      "street": null,
+      "street_number": null,
+      "city": "Petržalka",
+      "postal_code": "85105",
+      "country_code": "SK",
+      "phone": "+421221025226",
+      "email": "ambulancia@radmagyn.sk",
+      "representative_id": null,
+      "is_active": true
+    }
+  ],
+  "assignments": [
+    {
+seman@CORPCRM01:/var/www/ind

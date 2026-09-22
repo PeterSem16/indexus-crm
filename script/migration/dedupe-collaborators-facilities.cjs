@@ -14,6 +14,7 @@ const normalize = (value) => String(value || "")
   .toLowerCase().replace(/[^a-z0-9]/g, "");
 const personName = (p) => normalize([p.first_name, p.middle_name, p.last_name].filter(Boolean).join(" "));
 const facilityName = (f) => normalize(f.name);
+const facilityLocationKey = (f) => normalize(f.postal_code) || normalize(f.city);
 const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
 const normalizePhone = (value) => String(value || "").replace(/\D/g, "");
 const filled = (v) => v !== null && v !== undefined && String(v).trim() !== "";
@@ -145,7 +146,9 @@ function mergeAssignment(primary, duplicate) {
 function assignmentMergePlan(rows) {
   const groups = new Map();
   for (const row of rows) {
-    const key = `${row.person_id}|${row.entity_type}|${row.entity_id}`;
+    // One person may legitimately have multiple roles/categories at the same
+    // facility. Only rows in the same category are safe merge candidates.
+    const key = `${row.person_id}|${row.entity_type}|${row.entity_id}|${row.category_id || ""}`;
     const list = groups.get(key) || []; list.push(row); groups.set(key, list);
   }
   return [...groups.values()].filter((g) => g.length > 1).map((g) => {
@@ -175,11 +178,13 @@ function plannedAssignmentMerges(rows, operations) {
   });
   const affectedKeys = new Set(remapped
     .filter((row) => row._dedupeRemapped)
-    .map((row) => `${row.person_id}|${row.entity_type}|${row.entity_id}`));
+    .map((row) => `${row.person_id}|${row.entity_type}|${row.entity_id}|${row.category_id || ""}`));
   return assignmentMergePlan(remapped)
     .filter((merge) => {
       const winner = remapped.find((row) => row.id === merge.winnerId);
-      return winner && affectedKeys.has(`${winner.person_id}|${winner.entity_type}|${winner.entity_id}`);
+      return winner && affectedKeys.has(
+        `${winner.person_id}|${winner.entity_type}|${winner.entity_id}|${winner.category_id || ""}`
+      );
     })
     .map((merge) => ({
       ...merge,
@@ -191,7 +196,7 @@ function matchingPeople(people, workplacesByPerson = {}, facilities = []) {
   const facilityCluster = new Map();
   const facilityGroups = new Map();
   for (const f of facilities) {
-    const key = `${f.kind}|${facilityName(f)}|${normalize(f.city)}|${normalize(f.country_code || "")}`;
+    const key = `${f.kind}|${facilityName(f)}|${facilityLocationKey(f)}|${normalize(f.country_code || "")}`;
     const group = facilityGroups.get(key) || []; group.push(f); facilityGroups.set(key, group);
   }
   for (const group of facilityGroups.values()) {
@@ -250,21 +255,26 @@ function findPeople(people, workplacesByPerson = {}, facilities = []) {
 function findFacilities(facilities) {
   const groups = new Map();
   for (const f of facilities) {
-    const key = `${f.kind}|${facilityName(f)}|${normalize(f.city)}|${normalize(f.country_code || "")}`;
+    const key = `${f.kind}|${facilityName(f)}|${facilityLocationKey(f)}|${normalize(f.country_code || "")}`;
     if (!facilityName(f) || !normalize(f.city) || !normalize(f.country_code)) continue;
     const rows = groups.get(key) || []; rows.push(f); groups.set(key, rows);
   }
   return [...groups.values()].filter((r) => r.length > 1).map((rows) => {
     const winner = canonical(rows, "facility");
-    const registryValues = new Set(rows.flatMap((row) => [row.id_zz, row.pzs_code].filter(filled).map(normalize)));
     const hasRegistryAnchor = rows[0].kind === "clinic" && filled(winner.id_zz) && filled(winner.pzs_code);
-    const exactRegistryMatch = registryValues.size > 0 && registryValues.size <= 2 &&
-      rows.every((row) => !filled(row.id_zz) && !filled(row.pzs_code) ||
-        normalize(row.id_zz) === normalize(winner.id_zz) || normalize(row.pzs_code) === normalize(winner.pzs_code));
+    const exactRegistryMatch = rows.some((row, index) => rows.slice(index + 1).some((other) =>
+      (filled(row.id_zz) && filled(other.id_zz) && normalize(row.id_zz) === normalize(other.id_zz)) ||
+      (filled(row.pzs_code) && filled(other.pzs_code) && normalize(row.pzs_code) === normalize(other.pzs_code))
+    ));
+    const locationReason = rows.every((row) => normalize(row.postal_code) === normalize(winner.postal_code))
+      ? "postal"
+      : "city";
     return {
       kind: "facility", winnerId: winner.id,
       loserIds: rows.filter((r) => r.id !== winner.id).map((r) => r.id).sort(),
-      reason: hasRegistryAnchor ? "exact_name_location_registry_anchor" : "exact_normalized_name_location",
+      reason: hasRegistryAnchor
+        ? `exact_name_${locationReason}_registry_anchor`
+        : `exact_normalized_name_${locationReason}`,
       confidence: exactRegistryMatch ? 1 : hasRegistryAnchor ? .9 : .6,
       autoApplicable: exactRegistryMatch,
     };
@@ -452,5 +462,5 @@ async function applyOperation(db, op) {
     await db.query(`UPDATE ${table} SET is_active=false, updated_at=now() WHERE id=$1`, [loserId]);
   }
 }
-module.exports = { normalize, normalizeEmail, normalizePhone, personName, facilityName, canonical, mergeFillOnly, mergeAssignment, assignmentMergePlan, plannedAssignmentMerges, findPeople, findFacilities, inspectionMatches, stablePlan };
+module.exports = { normalize, normalizeEmail, normalizePhone, personName, facilityName, facilityLocationKey, canonical, mergeFillOnly, mergeAssignment, assignmentMergePlan, plannedAssignmentMerges, findPeople, findFacilities, inspectionMatches, stablePlan };
 if (require.main === module) main().catch((e) => { console.error(`FATAL: ${e.message}`); process.exitCode = 1; });

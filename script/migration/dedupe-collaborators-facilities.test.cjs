@@ -34,6 +34,39 @@ test("plan hash is deterministic", () => {
 test("blank location facilities are manual/no candidates", () => {
   assert.equal(d.findFacilities([{ id: "1", kind: "clinic", name: "RADMA", city: null, country_code: "SK" }, { id: "2", kind: "clinic", name: "RADMA", city: null, country_code: "SK" }]).length, 0);
 });
+test("same normalized facility name and postal code tolerate equivalent city labels", () => {
+  const result = d.findFacilities([
+    {
+      id: "registry",
+      kind: "clinic",
+      name: "RADMA GYN s. r. o.",
+      city: "Bratislava - mestská časť Petržalka",
+      postal_code: "851 05",
+      country_code: "SK",
+      id_zz: "61-44478852-A0001",
+      pzs_code: "P13729009201",
+    },
+    {
+      id: "manual",
+      kind: "clinic",
+      name: "RADMA GYN s.r.o.",
+      city: "Petržalka",
+      postal_code: "85105",
+      country_code: "SK",
+    },
+  ]);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].winnerId, "registry");
+  assert.equal(result[0].reason, "exact_name_postal_registry_anchor");
+  assert.equal(result[0].autoApplicable, false);
+});
+test("facility registry match is automatic only when two records share the identifier", () => {
+  const rows = [
+    { id: "a", kind: "clinic", name: "X", city: "Y", postal_code: "1", country_code: "SK", id_zz: "same", pzs_code: "code" },
+    { id: "b", kind: "clinic", name: "X", city: "Y", postal_code: "1", country_code: "SK", id_zz: "same" },
+  ];
+  assert.equal(d.findFacilities(rows)[0].autoApplicable, true);
+});
 test("full facility rows contribute missing fields", () => {
   assert.deepEqual(d.mergeFillOnly({ name: "X", phone: null }, { name: "X", phone: "123", notes: "kept" }), { phone: "123", notes: "kept" });
 });
@@ -60,6 +93,16 @@ test("assignment plan includes only collisions caused by approved operations", (
   const result = d.plannedAssignmentMerges(rows, operations);
   assert.equal(result.length, 1);
   assert.deepEqual(new Set([result[0].winnerId, ...result[0].duplicateIds]), new Set(["a", "b"]));
+});
+test("assignment planning preserves distinct categories at a merged facility", () => {
+  const rows = [
+    { id: "a", person_id: "p", entity_type: "clinic", entity_id: "old", category_id: "gynecology", cbc_activity_codes: [] },
+    { id: "b", person_id: "p", entity_type: "clinic", entity_id: "canonical", category_id: "ultrasound", cbc_activity_codes: [] },
+  ];
+  const operations = [
+    { kind: "facility", entityKind: "clinic", winnerId: "canonical", loserIds: ["old"] },
+  ];
+  assert.deepEqual(d.plannedAssignmentMerges(rows, operations), []);
 });
 test("target inspection shows facilities even when strict dedupe grouping rejects them", () => {
   const facilities = [
