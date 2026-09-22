@@ -316,7 +316,22 @@ async function main() {
   if (apply && (!planArg || confirmation?.slice(10) !== "DEDUPLICATE_NO_DELETE")) {
     throw new Error("Apply requires --plan-hash=<hash> and --confirm=DEDUPLICATE_NO_DELETE");
   }
-  const pool = new Pool(); const client = await pool.connect();
+  const hasConnectionString = filled(process.env.DATABASE_URL);
+  const password = process.env.PGPASSWORD;
+  if (!hasConnectionString && typeof password !== "string") {
+    throw new Error(
+      "Database password is missing. Set PGPASSWORD in the shell (do not put it in the command history), " +
+      "or set DATABASE_URL, then run the read-only command again."
+    );
+  }
+  const pool = new Pool(hasConnectionString ? undefined : {
+    host: process.env.PGHOST || "localhost",
+    port: Number(process.env.PGPORT || 5432),
+    database: process.env.PGDATABASE || "indexus_crm",
+    user: process.env.PGUSER || "indexus",
+    password,
+  });
+  const client = await pool.connect();
   try {
     await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
     await client.query("SET LOCAL statement_timeout = '120s'");

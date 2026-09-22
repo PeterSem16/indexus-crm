@@ -13,9 +13,16 @@ node script/migration/dedupe-collaborators-facilities.cjs > dedupe-plan.json
 To target the reported case without scanning the full output:
 
 ```sh
+read -s -p "PostgreSQL password: " PGPASSWORD && echo
+export PGPASSWORD
 node script/migration/dedupe-collaborators-facilities.cjs \
   --only-name="Radmila Sládičeková" > dedupe-radmila-plan.json
+unset PGPASSWORD
 ```
+
+When `DATABASE_URL` is not set, the script defaults to the local production
+database (`localhost:5432`, database `indexus_crm`, user `indexus`). The hidden
+`read -s` prompt keeps the password out of shell history and the JSON report.
 
 The report includes the proposed canonical records, fill-only field patches,
 assignment collisions, and a schema-derived inventory of references that would
