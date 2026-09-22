@@ -154,7 +154,7 @@ const allFieldsTable=(candidate)=>{
   const rows=ids.map(id=>rowFor(candidate,id));
   const fields=[...new Set(rows.flatMap(row=>Object.keys(row)))].sort((a,b)=>a==="id"?-1:b==="id"?1:a.localeCompare(b));
   const table=el("table"), head=el("tr");head.append(el("th","","Pole"));
-  ids.forEach((id,index)=>head.append(el("th","",index===0?"WINNER":"LOSER "+index));table.append(head);
+  ids.forEach((id,index)=>head.append(el("th","",index===0?"WINNER":"LOSER "+index)));table.append(head);
   for(const field of fields){
     const row=el("tr");row.append(el("td","",field));
     for(const record of rows){const value=record[field];row.append(el("td",value&&value.redacted?"sensitive":"",text(value)))}

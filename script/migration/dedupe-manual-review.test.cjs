@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const vm = require("node:vm");
 const review = require("./dedupe-manual-review.cjs");
 
 function fixture() {
@@ -55,6 +56,9 @@ test("HTML embeds data safely and has no apply action", () => {
   assert.match(html, /persistenceAvailable/);
   assert.match(html, /Safari zablokoval lokálne uloženie/);
   assert.doesNotMatch(html, /--apply|DEDUPLICATE_NO_DELETE/);
+  const embeddedScript = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(embeddedScript);
+  assert.doesNotThrow(() => new vm.Script(embeddedScript));
 });
 
 test("generator requires private input and creates mode-0600 output", (t) => {
