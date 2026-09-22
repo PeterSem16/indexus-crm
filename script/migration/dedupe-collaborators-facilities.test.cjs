@@ -88,6 +88,45 @@ test("reference policy preserves audit/history and treats assignments specially"
   assert.equal(d.referencePolicy("campaign_contacts", "collaborator_id"), "redirect");
   assert.equal(d.referencePolicy("dedupe_entity_aliases", "loser_id"), "preserve_alias");
 });
+test("batch reference inventory scans each table once for all operations", async () => {
+  let customerNotesScans = 0;
+  const db = {
+    async query(sql) {
+      if (sql.includes("information_schema.columns")) {
+        return {
+          rows: [
+            { table_name: "customer_notes", column_name: "id", data_type: "character varying", udt_name: "varchar" },
+            { table_name: "customer_notes", column_name: "badge", data_type: "character varying", udt_name: "varchar" },
+          ],
+        };
+      }
+      if (sql.includes('FROM "customer_notes"')) {
+        customerNotesScans += 1;
+        return {
+          rows: [
+            { __s0: null, __s1: "loser-a" },
+            { __s0: null, __s1: "loser-b" },
+          ],
+        };
+      }
+      throw new Error(`Unexpected SQL: ${sql}`);
+    },
+  };
+  const operations = [
+    { kind: "person", winnerId: "winner-a", loserIds: ["loser-a"] },
+    { kind: "person", winnerId: "winner-b", loserIds: ["loser-b"] },
+  ];
+  const inventories = await d.referenceInventories(db, operations);
+  assert.equal(customerNotesScans, 1);
+  for (const operation of operations) {
+    assert.deepEqual(inventories.get(d.operationId(operation)), [{
+      table: "customer_notes",
+      column: "badge",
+      count: 1,
+      policy: "unsupported_block",
+    }]);
+  }
+});
 test("alias resolution prefers canonical active record", () => {
   const canonical = { id: "winner", is_active: true };
   assert.equal(sync.resolveCollaboratorAlias({ "393": { canonical_id: "winner" } }, "393", { id: "loser" }, { winner: canonical }), canonical);

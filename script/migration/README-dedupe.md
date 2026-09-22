@@ -105,14 +105,19 @@ database (`localhost:5432`, database `indexus_crm`, user `indexus`). The hidden
 
 The report includes the proposed canonical records, fill-only field patches,
 assignment collisions, and a schema-derived inventory of references that would
-need redirecting. Dry-run remains the default and never changes a row.
+need redirecting. Reference discovery batches all loser IDs and scans each
+database table at most once, avoiding repeated full-table scans per candidate.
+Dry-run remains the default and never changes a row.
 
 When `--only-name` is supplied, `inspectionMatches` also lists matching active
 people and facilities even when differences in name or location prevent them
 from becoming a strict deduplication candidate.
 
-Run unit tests with:
+Run unit, backup, and isolated PostgreSQL integration tests with:
 
 ```sh
-node --test script/migration/dedupe-collaborators-facilities.test.cjs
+node --test \
+  script/migration/dedupe-collaborators-facilities.test.cjs \
+  script/migration/dedupe-backup.test.cjs \
+  script/migration/dedupe-apply.integration.test.cjs
 ```

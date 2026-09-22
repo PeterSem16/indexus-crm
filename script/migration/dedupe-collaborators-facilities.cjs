@@ -326,7 +326,7 @@ function assertSame(label, actual, expected) {
   }
 }
 
-async function verifyOperationState(db, operation) {
+async function verifyOperationState(db, operation, observedReferences = undefined) {
   const table = tableForOperation(operation);
   const ids = [String(operation.winnerId), ...operation.loserIds.map(String)];
   const rows = (await db.query(
@@ -342,12 +342,14 @@ async function verifyOperationState(db, operation) {
     hash: crypto.createHash("sha256").update(JSON.stringify(row)).digest("hex"),
   })).sort((a, b) => a.id.localeCompare(b.id));
   assertSame(`Source fingerprint for operation ${operation.operationId}`, fingerprints, operation.sourceFingerprints);
-  const references = await referenceInventory(db, operation);
-  assertSame(
-    `Reference inventory for operation ${operation.operationId}`,
-    references.sort((a, b) => `${a.table}|${a.column}|${a.policy}`.localeCompare(`${b.table}|${b.column}|${b.policy}`)),
-    [...operation.references].sort((a, b) => `${a.table}|${a.column}|${a.policy}`.localeCompare(`${b.table}|${b.column}|${b.policy}`))
-  );
+  if (observedReferences !== null) {
+    const references = observedReferences || await referenceInventory(db, operation);
+    assertSame(
+      `Reference inventory for operation ${operation.operationId}`,
+      references.sort((a, b) => `${a.table}|${a.column}|${a.policy}`.localeCompare(`${b.table}|${b.column}|${b.policy}`)),
+      [...operation.references].sort((a, b) => `${a.table}|${a.column}|${a.policy}`.localeCompare(`${b.table}|${b.column}|${b.policy}`))
+    );
+  }
   return { table, rows };
 }
 
@@ -510,7 +512,17 @@ async function applyExecutionPlan(pool, plan, backup, options = {}) {
     assertSame("Database identity", await databaseIdentity(client), plan.database);
     const verified = [];
     for (const operation of plan.operations) {
-      verified.push({ operation, ...(await verifyOperationState(client, operation)) });
+      verified.push({ operation, ...(await verifyOperationState(client, operation, null)) });
+    }
+    const liveReferences = await referenceInventories(client, plan.operations);
+    for (const operation of plan.operations) {
+      assertSame(
+        `Reference inventory for operation ${operation.operationId}`,
+        liveReferences.get(operation.operationId),
+        [...operation.references].sort((a, b) =>
+          `${a.table}|${a.column}|${a.policy}`.localeCompare(`${b.table}|${b.column}|${b.policy}`)
+        )
+      );
     }
     await verifyAssignmentMerges(client, plan.assignmentMerges);
     for (const item of verified) {
@@ -535,8 +547,9 @@ async function applyExecutionPlan(pool, plan, backup, options = {}) {
       );
     }
     failAfter("deactivation");
+    const remainingReferences = await referenceInventories(client, plan.operations);
     for (const operation of plan.operations) {
-      const remaining = (await referenceInventory(client, operation))
+      const remaining = remainingReferences.get(operation.operationId)
         .filter((reference) =>
           !["preserve_audit", "preserve_alias", "contact_assignment_special"].includes(reference.policy)
         );
@@ -659,122 +672,158 @@ function findFacilities(facilities) {
     return { ...op, entityKind: row?.kind };
   }).sort((a, b) => String(a.winnerId).localeCompare(String(b.winnerId)));
 }
-async function referenceInventory(db, op) {
-  const ids = op.loserIds;
-  const suffix = op.kind === "person" ? ["collaborator_id", "person_id"] : [`${op.entityKind}_id`];
-  const semanticSuffixes = op.kind === "person"
-    ? ["%collaborator_id", "%person_id"]
-    : [`%${op.entityKind}_id`];
-  const columns = (await db.query(`
-    SELECT c.table_name, c.column_name
-    FROM information_schema.columns c
-    JOIN information_schema.tables t
-      ON t.table_schema=c.table_schema AND t.table_name=c.table_name
-    WHERE c.table_schema='public'
-      AND t.table_type='BASE TABLE'
-      AND c.data_type IN ('character varying', 'text')
-      AND (c.column_name = ANY($1::text[]) OR c.column_name LIKE ANY($2::text[]))
-    ORDER BY c.table_name, c.column_name
-  `, [suffix, semanticSuffixes])).rows;
-  const counts = [];
-  const covered = new Set();
-  for (const { table_name: table, column_name: column } of columns) {
-    covered.add(`${table}.${column}`);
-    const result = await db.query(`SELECT count(*)::int AS count FROM "${table}" WHERE "${column}" = ANY($1::varchar[])`, [ids]);
-    if (result.rows[0].count > 0) counts.push({ table, column, count: result.rows[0].count, policy: referencePolicy(table, column) });
-  }
-  const arrayNames = op.kind === "person"
-    ? ["collaborator_ids", "person_ids"]
-    : [`${op.entityKind}_ids`];
-  const arrayColumns = (await db.query(`
-    SELECT c.table_name, c.column_name
-    FROM information_schema.columns c
-    JOIN information_schema.tables t
-      ON t.table_schema=c.table_schema AND t.table_name=c.table_name
-    WHERE c.table_schema='public'
-      AND t.table_type='BASE TABLE'
-      AND c.data_type='ARRAY'
-      AND c.udt_name IN ('_text', '_varchar')
-      AND (c.column_name = ANY($1::text[]) OR c.column_name LIKE ANY($2::text[]))
-    ORDER BY c.table_name, c.column_name
-  `, [arrayNames, arrayNames.map((name) => `%${name}`)])).rows;
-  for (const { table_name: table, column_name: column } of arrayColumns) {
-    covered.add(`${table}.${column}`);
-    const result = await db.query(
-      `SELECT count(*)::int AS count FROM "${table}" WHERE "${column}" && $1::text[]`,
-      [ids]
-    );
-    if (result.rows[0].count > 0) {
-      counts.push({ table, column, count: result.rows[0].count, policy: "redirect_array" });
+const operationEntityType = (operation) =>
+  operation.kind === "person" ? "collaborator" : operation.entityKind;
+
+const isKnownScalarReference = (operation, column) =>
+  operation.kind === "person"
+    ? column.endsWith("collaborator_id") || column.endsWith("person_id")
+    : column.endsWith(`${operation.entityKind}_id`);
+
+const isKnownArrayReference = (operation, column) =>
+  operation.kind === "person"
+    ? column.endsWith("collaborator_ids") || column.endsWith("person_ids")
+    : column.endsWith(`${operation.entityKind}_ids`);
+
+function addReference(referenceMaps, operation, table, column, policy) {
+  const references = referenceMaps.get(operation.operationId);
+  const key = `${table}|${column}|${policy}`;
+  const current = references.get(key) || { table, column, count: 0, policy };
+  current.count += 1;
+  references.set(key, current);
+}
+
+async function referenceInventories(db, operations) {
+  const normalizedOperations = operations.map((operation) => ({
+    ...operation,
+    operationId: operation.operationId || operationId(operation),
+    loserIds: operation.loserIds.map(String),
+  }));
+  const referenceMaps = new Map(normalizedOperations.map((operation) => [
+    operation.operationId,
+    new Map(),
+  ]));
+  if (!normalizedOperations.length) return new Map();
+
+  const operationsByLoserId = new Map();
+  for (const operation of normalizedOperations) {
+    for (const loserId of operation.loserIds) {
+      const list = operationsByLoserId.get(loserId) || [];
+      list.push(operation);
+      operationsByLoserId.set(loserId, list);
     }
   }
-  const polymorphic = (await db.query(`
-    SELECT t.table_name
-    FROM information_schema.columns t
-    JOIN information_schema.columns i USING (table_schema, table_name)
-    JOIN information_schema.tables base
-      ON base.table_schema=t.table_schema AND base.table_name=t.table_name
-    WHERE t.table_schema='public'
-      AND base.table_type='BASE TABLE'
-      AND t.column_name='entity_type'
-      AND i.column_name='entity_id'
-    ORDER BY t.table_name
-  `)).rows;
-  const entityType = op.kind === "person" ? "collaborator" : op.entityKind;
-  for (const { table_name: table } of polymorphic) {
-    covered.add(`${table}.entity_id`);
-    const result = await db.query(`SELECT count(*)::int AS count FROM "${table}" WHERE entity_type=$1 AND entity_id = ANY($2::varchar[])`, [entityType, ids]);
-    if (result.rows[0].count > 0) counts.push({ table, column: "entity_type/entity_id", count: result.rows[0].count, policy: referencePolicy(table, "entity_type/entity_id") });
-  }
-  const allScalarColumns = (await db.query(`
-    SELECT c.table_name, c.column_name
+  const allLoserIds = [...operationsByLoserId.keys()].sort();
+  const schemaRows = (await db.query(`
+    SELECT c.table_name, c.column_name, c.data_type, c.udt_name
     FROM information_schema.columns c
     JOIN information_schema.tables t
       ON t.table_schema=c.table_schema AND t.table_name=c.table_name
     WHERE c.table_schema='public'
       AND t.table_type='BASE TABLE'
-      AND c.data_type IN ('character varying', 'text')
-    ORDER BY c.table_name, c.column_name
+      AND (
+        c.data_type IN ('character varying', 'text')
+        OR (c.data_type='ARRAY' AND c.udt_name IN ('_text', '_varchar'))
+      )
+    ORDER BY c.table_name, c.ordinal_position
   `)).rows;
-  const sourceTable = tableForOperation(op);
-  for (const { table_name: table, column_name: column } of allScalarColumns) {
-    if (covered.has(`${table}.${column}`) || (table === sourceTable && column === "id")) continue;
-    const result = await db.query(
-      `SELECT count(*)::int AS count FROM "${table}" WHERE "${column}" = ANY($1::varchar[])`,
-      [ids]
-    );
-    if (result.rows[0].count > 0) {
-      const policy = referencePolicy(table, column);
-      counts.push({
-        table,
-        column,
-        count: result.rows[0].count,
-        policy: policy === "preserve_alias" ? policy : "unsupported_block",
+  const byTable = new Map();
+  for (const column of schemaRows) {
+    const entry = byTable.get(column.table_name) || { scalar: [], arrays: [] };
+    if (column.data_type === "ARRAY") entry.arrays.push(column.column_name);
+    else entry.scalar.push(column.column_name);
+    byTable.set(column.table_name, entry);
+  }
+
+  for (const [table, columns] of byTable) {
+    const scalar = columns.scalar;
+    const arrays = columns.arrays;
+    const polymorphic = scalar.includes("entity_type") && scalar.includes("entity_id");
+    const select = [];
+    const predicates = [];
+    scalar.forEach((column, index) => {
+      if (polymorphic && column === "entity_id") return;
+      const identifier = quoteIdentifier(column);
+      select.push(`CASE WHEN ${identifier}::text=ANY($1::text[]) THEN ${identifier}::text END AS "__s${index}"`);
+      predicates.push(`${identifier}::text=ANY($1::text[])`);
+    });
+    arrays.forEach((column, index) => {
+      const identifier = quoteIdentifier(column);
+      select.push(`ARRAY(SELECT value FROM unnest(${identifier}::text[]) AS value WHERE value=ANY($1::text[])) AS "__a${index}"`);
+      predicates.push(`${identifier}::text[] && $1::text[]`);
+    });
+    if (polymorphic) {
+      select.push(
+        `CASE WHEN "entity_id"::text=ANY($1::text[]) THEN "entity_type"::text END AS "__entity_type"`,
+        `CASE WHEN "entity_id"::text=ANY($1::text[]) THEN "entity_id"::text END AS "__entity_id"`
+      );
+      predicates.push(`"entity_id"::text=ANY($1::text[])`);
+    }
+    if (!predicates.length) continue;
+    const rows = (await db.query(`
+      SELECT ${select.join(", ")}
+      FROM ${quoteIdentifier(table)}
+      WHERE ${predicates.join(" OR ")}
+    `, [allLoserIds])).rows;
+
+    for (const row of rows) {
+      scalar.forEach((column, index) => {
+        if (polymorphic && column === "entity_id") return;
+        const value = row[`__s${index}`];
+        if (!value) return;
+        for (const operation of operationsByLoserId.get(String(value)) || []) {
+          if (table === tableForOperation(operation) && column === "id") continue;
+          const known = isKnownScalarReference(operation, column);
+          const basePolicy = referencePolicy(table, column);
+          const policy = known
+            ? basePolicy
+            : basePolicy === "preserve_alias" ? basePolicy : "unsupported_block";
+          addReference(referenceMaps, operation, table, column, policy);
+        }
       });
+      arrays.forEach((column, index) => {
+        const matchedValues = new Set(array(row[`__a${index}`]).map(String));
+        const seenOperations = new Set();
+        for (const value of matchedValues) {
+          for (const operation of operationsByLoserId.get(value) || []) {
+            if (seenOperations.has(operation.operationId)) continue;
+            seenOperations.add(operation.operationId);
+            addReference(
+              referenceMaps,
+              operation,
+              table,
+              column,
+              isKnownArrayReference(operation, column) ? "redirect_array" : "unsupported_block"
+            );
+          }
+        }
+      });
+      if (polymorphic && row.__entity_id) {
+        for (const operation of operationsByLoserId.get(String(row.__entity_id)) || []) {
+          if (String(row.__entity_type) !== operationEntityType(operation)) continue;
+          addReference(
+            referenceMaps,
+            operation,
+            table,
+            "entity_type/entity_id",
+            referencePolicy(table, "entity_type/entity_id")
+          );
+        }
+      }
     }
   }
-  const allArrayColumns = (await db.query(`
-    SELECT c.table_name, c.column_name
-    FROM information_schema.columns c
-    JOIN information_schema.tables t
-      ON t.table_schema=c.table_schema AND t.table_name=c.table_name
-    WHERE c.table_schema='public'
-      AND t.table_type='BASE TABLE'
-      AND c.data_type='ARRAY'
-      AND c.udt_name IN ('_text', '_varchar')
-    ORDER BY c.table_name, c.column_name
-  `)).rows;
-  for (const { table_name: table, column_name: column } of allArrayColumns) {
-    if (covered.has(`${table}.${column}`)) continue;
-    const result = await db.query(
-      `SELECT count(*)::int AS count FROM "${table}" WHERE "${column}" && $1::text[]`,
-      [ids]
-    );
-    if (result.rows[0].count > 0) {
-      counts.push({ table, column, count: result.rows[0].count, policy: "unsupported_block" });
-    }
-  }
-  return counts;
+
+  return new Map(normalizedOperations.map((operation) => [
+    operation.operationId,
+    [...referenceMaps.get(operation.operationId).values()].sort((a, b) =>
+      `${a.table}|${a.column}|${a.policy}`.localeCompare(`${b.table}|${b.column}|${b.policy}`)
+    ),
+  ]));
+}
+
+async function referenceInventory(db, operation) {
+  const id = operation.operationId || operationId(operation);
+  return (await referenceInventories(db, [{ ...operation, operationId: id }])).get(id);
 }
 function stablePlan(plan) {
   const publicOperations = (plan.operations || [])
@@ -903,8 +952,9 @@ async function main() {
         id: String(row.id),
         hash: crypto.createHash("sha256").update(JSON.stringify(row)).digest("hex"),
       }));
-      op.references = await referenceInventory(client, op);
     }
+    const referencesByOperation = await referenceInventories(client, operations);
+    for (const op of operations) op.references = referencesByOperation.get(op.operationId);
     const assignmentMerges = plannedAssignmentMerges(assignments.rows, operations);
     const approvedSet = new Set(approvals);
     const approvedOperations = operations.filter((operation) =>
@@ -935,5 +985,5 @@ async function main() {
     return;
   } catch (e) { await client.query("ROLLBACK"); throw e; } finally { client.release(); await pool.end(); }
 }
-module.exports = { normalize, normalizeEmail, normalizePhone, personName, facilityName, facilityLocationKey, canonicalize, canonical, mergeFillOnly, mergeAssignment, assignmentMergePlan, plannedAssignmentMerges, referencePolicy, referenceInventory, findPeople, findFacilities, inspectionMatches, stablePlan, operationId, executionPlan, verifyExecutionPlan, readRestrictedPlan, databaseIdentity, applyExecutionPlan };
+module.exports = { normalize, normalizeEmail, normalizePhone, personName, facilityName, facilityLocationKey, canonicalize, canonical, mergeFillOnly, mergeAssignment, assignmentMergePlan, plannedAssignmentMerges, referencePolicy, referenceInventory, referenceInventories, findPeople, findFacilities, inspectionMatches, stablePlan, operationId, executionPlan, verifyExecutionPlan, readRestrictedPlan, databaseIdentity, applyExecutionPlan };
 if (require.main === module) main().catch((e) => { console.error(`FATAL: ${e.message}`); process.exitCode = 1; });
