@@ -53,6 +53,8 @@ test("HTML embeds data safely and has no apply action", () => {
   assert.match(html, /Exportovať rozhodnutia/);
   assert.match(html, /Všetky polia winnera a loserov/);
   assert.match(html, /Winner krajina SK/);
+  assert.match(html, /Označiť všetky zobrazené ako Zlúčiť/);
+  assert.match(html, /Skryté kandidáty nebudú zmenené/);
   assert.match(html, /persistenceAvailable/);
   assert.match(html, /Safari zablokoval lokálne uloženie/);
   assert.doesNotMatch(html, /--apply|DEDUPLICATE_NO_DELETE/);

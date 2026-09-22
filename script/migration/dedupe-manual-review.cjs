@@ -108,6 +108,7 @@ function renderHtml(model) {
       <option value="reconcile">Najprv upraviť</option>
       <option value="reject">Nezlúčiť</option>
     </select>
+    <button id="approve-visible">Označiť všetky zobrazené ako Zlúčiť</button>
     <button id="export" class="primary">Exportovať rozhodnutia</button>
     <button id="import">Importovať rozhodnutia</button>
     <input id="import-file" type="file" accept=".json,application/json" hidden>
@@ -125,6 +126,7 @@ let persistenceAvailable=true;
 let decisions={};
 try{decisions=JSON.parse(localStorage.getItem(KEY)||"{}")}catch(error){persistenceAvailable=false}
 const cards=document.getElementById("cards");
+let visibleOperationIds=[];
 const search=document.getElementById("search"), reason=document.getElementById("reason"), country=document.getElementById("country"), status=document.getElementById("status");
 const text=(value)=>value===null||value===undefined||value===""?"—":Array.isArray(value)?value.join(", "):typeof value==="object"?(value.redacted?"[citlivá hodnota; hash "+value.hash+"]":JSON.stringify(value)):String(value);
 const el=(name,cls,content)=>{const node=document.createElement(name);if(cls)node.className=cls;if(content!==undefined)node.textContent=content;return node};
@@ -169,6 +171,7 @@ const patchTable=(candidate)=>{
 };
 function render(){
   cards.textContent="";
+  visibleOperationIds=[];
   const query=search.value.trim().toLowerCase();let visible=0;
   for(const candidate of MODEL.candidates){
     const decision=decisions[candidate.operationId]||"unreviewed";
@@ -177,7 +180,7 @@ function render(){
     const winnerCountry=String(evidenceFor(candidate,candidate.winnerId).countryCode||"").toUpperCase();
     const countryMismatch=country.value==="SK"&&winnerCountry!=="SK"||country.value==="ALL_SK"&&(!evidenceCountries.length||evidenceCountries.some(value=>value!=="SK"));
     if(query&&!haystack.includes(query)||reason.value&&candidate.reason!==reason.value||countryMismatch||status.value&&decision!==status.value)continue;
-    visible++;const card=el("section","card");
+    visible++;visibleOperationIds.push(candidate.operationId);const card=el("section","card");
     const head=el("div","card-head");head.append(el("strong","",candidate.matchEvidence[0]?.name||candidate.operationId),el("span","tag",candidate.reason),el("span","id",candidate.operationId));
     if(candidate.hasAssignmentHandling)head.append(el("span","tag risk","assignment kontrola"));
     if(candidate.hasUnsupportedReference)head.append(el("span","tag risk","NEPODPOROVANÁ REFERENCIA"));
@@ -204,6 +207,13 @@ function render(){
 }
 for(const value of [...new Set(MODEL.candidates.map(c=>c.reason))].sort()){const option=el("option","",value);option.value=value;reason.append(option)}
 [search,reason,country,status].forEach(node=>node.addEventListener("input",render));
+document.getElementById("approve-visible").onclick=()=>{
+  if(!visibleOperationIds.length){alert("Aktuálne filtre nezobrazujú žiadne prípady.");return}
+  const label=country.options[country.selectedIndex]?.text||"aktuálny filter";
+  if(!confirm("Označiť všetkých "+visibleOperationIds.length+" zobrazených kandidátov ako Zlúčiť?\\n\\nRozsah: "+label+"\\nSkryté kandidáty nebudú zmenené."))return;
+  for(const operationId of visibleOperationIds)decisions[operationId]="approve";
+  saveDecisions();render()
+};
 document.getElementById("export").onclick=()=>{
   const approved=Object.entries(decisions).filter(([,decision])=>["approve","reconcile","reject"].includes(decision)).map(([operationId,decision])=>({operationId,decision}));
   const payload={format:1,sourceExecutionPlanHash:MODEL.sourceExecutionPlanHash,decisions:approved};

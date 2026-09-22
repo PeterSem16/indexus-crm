@@ -128,7 +128,9 @@ planned fill-only patch, conflict inspection, and
 numbers remain redacted but include hashes for equality checks. Decisions stay
 in browser local storage until exported. The exported JSON contains operation
 IDs and decisions only; it cannot apply database changes and is not an execution
-plan.
+plan. Reviewers may approve all currently visible candidates in one confirmed
+action; the action respects all active filters and never changes hidden
+candidates.
 
 When `--only-name` is supplied, `inspectionMatches` also lists matching active
 people and facilities even when differences in name or location prevent them
