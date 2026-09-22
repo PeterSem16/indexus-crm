@@ -1,0 +1,333 @@
+seman@CORPCRM01:/var/www/indexus-crm$ POST_AUDIT="/home/seman/indexus-dedupe/post-apply-audit-20260922T184857Z.json"
+REVIEW_PACK="$HOME/indexus-dedupe/manual-review-strongest-$(date -u +%Y%m%dT%H%M%SZ).json"
+
+umask 077
+
+node - "$POST_AUDIT" "$REVIEW_PACK" <<'NODE'
+const fs = require("node:fs");
+
+const reportPath = process.argv[2];
+const outputPath = process.argv[3];
+const report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
+
+const selected = (report.manualReview || []).filter(
+  operation => operation.reason === "strong_birth_number_email_phone"
+);
+
+if (selected.length !== 9) {
+  throw new Error(`Expected 9 candidates, found ${selected.length}`);
+}
+
+const pack = {
+  sourceAudit: reportPath,
+  sourceExecutionPlanHash: report.executionPlanHash,
+  selectionReason: "strong_birth_number_email_phone",
+  candidateCount: selected.length,
+  candidates: selected,
+};
+
+fs.writeFileSync(outputPath, JSON.stringify(pack, null, 2) + "\n", {
+  mode: 0o600,
+  flag: "wx",
+});
+
+console.log(`REVIEW_PACK=${outputPath}`);
+console.log(`CANDIDATES=${selected.length}`);
+
+for (const operation of selected) {
+  console.log(JSON.stringify({
+    operationId: operation.operationId,
+    kind: operation.kind,
+    entityKind: operation.entityKind || null,
+    winnerId: operation.winnerId,
+    loserIds: operation.loserIds,
+    reason: operation.reason,
+    conflictFields: (operation.autoReviewBlockers || []).map(blocker =>
+      typeof blocker === "string"
+        ? blocker
+        : blocker.field || blocker.reason || "unknown"
+    ),
+    references: (operation.references || []).map(reference => ({
+      table: reference.table,
+chmod 600 "$REVIEW_PACK"policy,
+REVIEW_PACK=/home/seman/indexus-dedupe/manual-review-strongest-20260922T185147Z.json
+CANDIDATES=9
+{
+  "operationId": "034ecc09bff51964df461fb8",
+  "kind": "person",
+  "entityKind": null,
+  "winnerId": "1ad06d99-2dea-4958-a174-3eb6688de839",
+  "loserIds": [
+    "2a5b1e32-4575-49dc-9b6b-88bd73123d27"
+  ],
+  "reason": "strong_birth_number_email_phone",
+  "conflictFields": [
+    "last_name",
+    "note"
+  ],
+  "references": [
+    {
+      "table": "collaborator_addresses",
+      "column": "collaborator_id",
+      "count": 2,
+      "policy": "redirect"
+    },
+    {
+      "table": "collaborator_agreements",
+      "column": "collaborator_id",
+      "count": 2,
+      "policy": "redirect"
+    }
+  ]
+}
+{
+  "operationId": "f78c19ef880b16963b26306b",
+  "kind": "person",
+  "entityKind": null,
+  "winnerId": "632b2d0c-3354-4928-9fed-ad7346e3b1ac",
+  "loserIds": [
+    "4d328463-bf31-4480-8cfa-389945793b7b"
+  ],
+  "reason": "strong_birth_number_email_phone",
+  "conflictFields": [
+    "country_code"
+  ],
+  "references": [
+    {
+      "table": "collaborator_addresses",
+      "column": "collaborator_id",
+      "count": 1,
+      "policy": "redirect"
+    }
+  ]
+}
+{
+  "operationId": "b820bb2b03eb78999ed17b78",
+  "kind": "person",
+  "entityKind": null,
+  "winnerId": "8104fc97-6678-4c93-a869-d4167a0d16fe",
+  "loserIds": [
+    "52d08245-a6f9-4181-a936-f69288de3f55"
+  ],
+  "reason": "strong_birth_number_email_phone",
+  "conflictFields": [
+    "first_name"
+  ],
+  "references": [
+    {
+      "table": "collaborator_activities",
+      "column": "collaborator_id",
+      "count": 1,
+      "policy": "redirect"
+    },
+    {
+      "table": "collaborator_addresses",
+      "column": "collaborator_id",
+      "count": 1,
+      "policy": "redirect"
+    },
+    {
+      "table": "collaborator_agreements",
+      "column": "collaborator_id",
+      "count": 2,
+      "policy": "redirect"
+    },
+    {
+      "table": "collections",
+      "column": "cord_blood_collector_id",
+      "count": 1,
+      "policy": "redirect"
+    },
+    {
+      "table": "contact_assignments",
+      "column": "person_id",
+      "count": 1,
+      "policy": "contact_assignment_special"
+    }
+  ]
+}
+{
+  "operationId": "3dc557a684b7a6a0d9d3875a",
+  "kind": "person",
+  "entityKind": null,
+  "winnerId": "aaf987e2-3a69-4c3c-ba29-126fbf2a5608",
+  "loserIds": [
+    "6709df5c-0ec2-4f7b-83f5-8fd90dd49505"
+  ],
+  "reason": "strong_birth_number_email_phone",
+  "conflictFields": [
+    "collaborator_type",
+    "last_name"
+  ],
+  "references": [
+    {
+      "table": "collaborator_addresses",
+      "column": "collaborator_id",
+      "count": 1,
+      "policy": "redirect"
+    },
+    {
+      "table": "collaborator_agreements",
+      "column": "collaborator_id",
+      "count": 3,
+      "policy": "redirect"
+    }
+  ]
+}
+{
+  "operationId": "07fc84a1dc76e4254e94029b",
+  "kind": "person",
+  "entityKind": null,
+  "winnerId": "a93c84b9-d53b-4784-9484-3bfd761041bf",
+  "loserIds": [
+    "83ba3a39-4993-4394-b77f-5fe044bc6449"
+  ],
+  "reason": "strong_birth_number_email_phone",
+  "conflictFields": [
+    "last_name"
+  ],
+  "references": [
+    {
+      "table": "collaborator_addresses",
+      "column": "collaborator_id",
+      "count": 1,
+      "policy": "redirect"
+    },
+    {
+      "table": "collaborator_agreements",
+      "column": "collaborator_id",
+      "count": 1,
+      "policy": "redirect"
+    }
+  ]
+}
+{
+  "operationId": "f09a814d0919bbcc47fe47f9",
+  "kind": "person",
+  "entityKind": null,
+  "winnerId": "a60b2b66-d71e-4a98-984b-6a0611b75161",
+  "loserIds": [
+    "aa4b3f15-d47c-4e98-8d95-fc56bb3fe1f8"
+  ],
+  "reason": "strong_birth_number_email_phone",
+  "conflictFields": [
+    "title_before"
+  ],
+  "references": [
+    {
+      "table": "collaborator_addresses",
+      "column": "collaborator_id",
+      "count": 2,
+      "policy": "redirect"
+    },
+    {
+      "table": "collaborator_agreements",
+      "column": "collaborator_id",
+      "count": 2,
+      "policy": "redirect"
+    }
+  ]
+}
+{
+  "operationId": "5541c4d876dcc87e04fb638c",
+  "kind": "person",
+  "entityKind": null,
+  "winnerId": "291aaa30-ff7d-40f6-a430-8a66cad26b58",
+  "loserIds": [
+    "bafe7628-6f06-4955-ba18-039d013c1a8a"
+  ],
+  "reason": "strong_birth_number_email_phone",
+  "conflictFields": [
+    "collaborator_type",
+    "country_code"
+  ],
+  "references": [
+    {
+      "table": "collaborator_addresses",
+      "column": "collaborator_id",
+      "count": 1,
+      "policy": "redirect"
+    }
+  ]
+}
+{
+  "operationId": "7945bae8a2cbac660c0411ca",
+  "kind": "person",
+  "entityKind": null,
+  "winnerId": "3fd573c6-4d97-4277-8fce-5eec812b6fe5",
+  "loserIds": [
+    "c17f25b2-880f-4f89-870a-154697813e86"
+  ],
+  "reason": "strong_birth_number_email_phone",
+  "conflictFields": [
+    "last_name"
+  ],
+  "references": [
+    {
+      "table": "collaborator_addresses",
+      "column": "collaborator_id",
+      "count": 1,
+      "policy": "redirect"
+    },
+    {
+      "table": "collaborator_agreements",
+      "column": "collaborator_id",
+      "count": 1,
+      "policy": "redirect"
+    }
+  ]
+}
+{
+  "operationId": "d9f87816042d39b9a42303b9",
+  "kind": "person",
+  "entityKind": null,
+  "winnerId": "aabd4f02-1d0e-418f-a95e-af6433c2fc22",
+  "loserIds": [
+    "c8c555fe-3e87-49b7-a154-e8357f5d5657"
+  ],
+  "reason": "strong_birth_number_email_phone",
+  "conflictFields": [
+    "first_name",
+    "last_name",
+    "note"
+  ],
+  "references": [
+    {
+      "table": "collaborator_activities",
+      "column": "collaborator_id",
+      "count": 2,
+      "policy": "redirect"
+    },
+    {
+      "table": "collaborator_addresses",
+      "column": "collaborator_id",
+      "count": 2,
+      "policy": "redirect"
+    },
+    {
+      "table": "collaborator_agreements",
+      "column": "collaborator_id",
+      "count": 3,
+      "policy": "redirect"
+    },
+    {
+      "table": "collections",
+      "column": "cord_blood_collector_id",
+      "count": 1,
+      "policy": "redirect"
+    },
+    {
+      "table": "collections",
+      "column": "tissue_collector_id",
+      "count": 1,
+      "policy": "redirect"
+    },
+    {
+      "table": "contact_assignments",
+      "column": "person_id",
+      "count": 1,
+      "policy": "contact_assignment_special"
+    }
+  ]
+}
+seman@CORP
