@@ -109,6 +109,23 @@ need redirecting. Reference discovery batches all loser IDs and scans each
 database table at most once, avoiding repeated full-table scans per candidate.
 Dry-run remains the default and never changes a row.
 
+## Manual-review workspace
+
+Generate a private, self-contained HTML workspace from a completed audit:
+
+```sh
+node script/migration/dedupe-manual-review.cjs \
+  --audit=/absolute/protected/path/post-apply-audit.json \
+  --output=/absolute/protected/path/manual-review.html
+```
+
+The audit must be mode `0600`; the HTML is also created as `0600` because it
+contains review evidence. Open it only on a trusted workstation. It supports
+searching, filtering, side-by-side winner/loser comparison, conflict inspection,
+and `merge / reconcile first / reject` decisions. Decisions stay in browser
+local storage until exported. The exported JSON contains operation IDs and
+decisions only; it cannot apply database changes and is not an execution plan.
+
 When `--only-name` is supplied, `inspectionMatches` also lists matching active
 people and facilities even when differences in name or location prevent them
 from becoming a strict deduplication candidate.
