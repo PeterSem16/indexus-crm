@@ -112,3 +112,4 @@
 - [Inactive Mission contacts](inactive-mission-contact-calls.md) — inactive cards and history stay readable, but every outbound path must block before SIP with a calm Back Office notice.
 - [Break availability scope](break-availability-scope.md) — break types are global when unscoped; otherwise visible only when the shift matches an assigned Mission or inbound queue.
 - [Action reward payment state](person-reward-payment-state.md) — reward payment belongs to each Actions row; server owns transition timestamps, separate from person-level reward settings.
+- [Person/facility dedup safety](person-facility-dedup-safety.md) — production dedup starts with a redacted read-only plan; apply stays disabled until references and legacy redirects are approved.

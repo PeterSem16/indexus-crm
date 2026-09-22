@@ -96,7 +96,7 @@ async function main() {
 
   // ---------- PG lookups ----------
   const existingCollab = {};
-  const pgC = await pgPool.query('SELECT id, legacy_id, email, mobile, birth_number FROM collaborators WHERE legacy_id IS NOT NULL');
+  const pgC = await pgPool.query('SELECT id, legacy_id, email, mobile, birth_number FROM collaborators WHERE legacy_id IS NOT NULL ORDER BY legacy_id, is_active ASC, updated_at ASC NULLS FIRST, id');
   for (const r of pgC.rows) existingCollab[r.legacy_id] = r;
   log(`INDEXUS: ${pgC.rows.length} spolupracovníkov s legacy_id`);
 
