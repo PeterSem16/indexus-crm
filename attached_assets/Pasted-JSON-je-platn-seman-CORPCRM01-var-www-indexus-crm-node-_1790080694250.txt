@@ -1,0 +1,276 @@
+JSON je platný
+seman@CORPCRM01:/var/www/indexus-crm$ node -e '
+const fs = require("fs");
+const p = JSON.parse(fs.readFileSync("dedupe-radmila-plan.json", "utf8"));
+console.log(JSON.stringify({
+  planHash: p.planHash,
+  operations: p.operations,
+  assignmentMerges: p.assignmentMerges,
+  autoApplicable: p.autoApplicable,
+  manualReview: p.manualReview
+}, null, 2));
+'
+{
+  "planHash": "5812112d82b1556bdff32114380717e779021444c373a3b059ce0424466fea2b",
+  "operations": [
+    {
+      "kind": "person",
+      "winnerId": "9917163e-751e-4a72-b2a0-57e6a825f4b4",
+      "loserIds": [
+        "7ae81a1b-ce28-47b2-8281-9f588860d9df"
+      ],
+      "reason": "ambiguous_exact_name",
+      "confidence": 0.5,
+      "autoApplicable": false,
+      "plannedPatch": {
+        "legacy_id": "393",
+        "maiden_name": "Rožková",
+        "birth_number": {
+          "redacted": true,
+          "present": true,
+          "hash": "940ded5264050fde"
+        },
+        "birth_day": 20,
+        "birth_month": 12,
+        "birth_year": 1967,
+        "mobile": "+421 911 234 418",
+        "other_contact": "sladicekova@gmail.com",
+        "email": "ambulancia@radmagyn.sk",
+        "representative_id": "Monika Bertok Fečová",
+        "dic": "2022722174",
+        "note": "VIP Zmluva\r\n1112000315\r\n\r\n5/2020 zmena z ZOS FO na ZOS PO\r\n\r\n11/5/21 info od rep...pain doktorka má nový mail služobný: ambulancia@radmagyn.sk",
+        "data_source": "iscbc"
+      },
+      "matchEvidence": [
+        {
+          "id": "9917163e-751e-4a72-b2a0-57e6a825f4b4",
+          "kind": "person",
+          "name": "MUDr. Radmila Sládičeková PhD., MPH",
+          "normalizedName": "radmilasladicekova",
+          "countryCode": "SK",
+          "dataSource": null,
+          "hasBirthNumber": false,
+          "hasEmail": false,
+          "phoneCount": 1,
+          "workplaces": [
+            {
+              "entityType": "clinic",
+              "entityId": "f0084bfc-eecd-4847-ab9c-d76b31b7b8f2"
+            },
+            {
+              "entityType": "clinic",
+              "entityId": "e2330806-7694-47da-a82a-f8787ee2f2f9"
+            }
+          ]
+        },
+        {
+          "id": "7ae81a1b-ce28-47b2-8281-9f588860d9df",
+          "kind": "person",
+          "name": "MUDr. Radmila Sládičeková MPH",
+          "normalizedName": "radmilasladicekova",
+          "countryCode": "SK",
+          "dataSource": "iscbc",
+          "hasBirthNumber": true,
+          "hasEmail": true,
+          "phoneCount": 1,
+          "workplaces": []
+        }
+      ],
+      "fieldConflicts": [
+        {
+          "field": "title_after",
+          "values": [
+            {
+              "id": "9917163e-751e-4a72-b2a0-57e6a825f4b4",
+              "value": "PhD., MPH"
+            },
+            {
+              "id": "7ae81a1b-ce28-47b2-8281-9f588860d9df",
+              "value": "MPH"
+            }
+          ]
+        },
+        {
+          "field": "client_contact",
+          "values": [
+            {
+              "id": "9917163e-751e-4a72-b2a0-57e6a825f4b4",
+              "value": false
+            },
+            {
+              "id": "7ae81a1b-ce28-47b2-8281-9f588860d9df",
+              "value": true
+            }
+          ]
+        },
+        {
+          "field": "month_rewards",
+          "values": [
+            {
+              "id": "9917163e-751e-4a72-b2a0-57e6a825f4b4",
+              "value": false
+            },
+            {
+              "id": "7ae81a1b-ce28-47b2-8281-9f588860d9df",
+              "value": true
+            }
+          ]
+        }
+      ],
+      "sourceFingerprints": [
+        {
+          "id": "9917163e-751e-4a72-b2a0-57e6a825f4b4",
+          "hash": "90e59b89b816c6f4a19aded6df2a59e26fd13c5d8eb312bc451041c94f7b7510"
+        },
+        {
+          "id": "7ae81a1b-ce28-47b2-8281-9f588860d9df",
+          "hash": "c401dcc154509eafb74261eac3e2c78ec61b5df44371ab0359465af58cf1b190"
+        }
+      ],
+      "references": [
+        {
+          "table": "collaborator_addresses",
+          "column": "collaborator_id",
+          "count": 2
+        },
+        {
+          "table": "collaborator_agreements",
+          "column": "collaborator_id",
+          "count": 21
+        }
+      ]
+    }
+  ],
+  "assignmentMerges": [],
+  "autoApplicable": [],
+  "manualReview": [
+    {
+      "kind": "person",
+      "winnerId": "9917163e-751e-4a72-b2a0-57e6a825f4b4",
+      "loserIds": [
+        "7ae81a1b-ce28-47b2-8281-9f588860d9df"
+      ],
+      "reason": "ambiguous_exact_name",
+      "confidence": 0.5,
+      "autoApplicable": false,
+      "plannedPatch": {
+        "legacy_id": "393",
+        "maiden_name": "Rožková",
+        "birth_number": {
+          "redacted": true,
+          "present": true,
+          "hash": "940ded5264050fde"
+        },
+        "birth_day": 20,
+        "birth_month": 12,
+        "birth_year": 1967,
+        "mobile": "+421 911 234 418",
+        "other_contact": "sladicekova@gmail.com",
+        "email": "ambulancia@radmagyn.sk",
+        "representative_id": "Monika Bertok Fečová",
+        "dic": "2022722174",
+        "note": "VIP Zmluva\r\n1112000315\r\n\r\n5/2020 zmena z ZOS FO na ZOS PO\r\n\r\n11/5/21 info od rep...pain doktorka má nový mail služobný: ambulancia@radmagyn.sk",
+        "data_source": "iscbc"
+      },
+      "matchEvidence": [
+        {
+          "id": "9917163e-751e-4a72-b2a0-57e6a825f4b4",
+          "kind": "person",
+          "name": "MUDr. Radmila Sládičeková PhD., MPH",
+          "normalizedName": "radmilasladicekova",
+          "countryCode": "SK",
+          "dataSource": null,
+          "hasBirthNumber": false,
+          "hasEmail": false,
+          "phoneCount": 1,
+          "workplaces": [
+            {
+              "entityType": "clinic",
+              "entityId": "f0084bfc-eecd-4847-ab9c-d76b31b7b8f2"
+            },
+            {
+              "entityType": "clinic",
+              "entityId": "e2330806-7694-47da-a82a-f8787ee2f2f9"
+            }
+          ]
+        },
+        {
+          "id": "7ae81a1b-ce28-47b2-8281-9f588860d9df",
+          "kind": "person",
+          "name": "MUDr. Radmila Sládičeková MPH",
+          "normalizedName": "radmilasladicekova",
+          "countryCode": "SK",
+          "dataSource": "iscbc",
+          "hasBirthNumber": true,
+          "hasEmail": true,
+          "phoneCount": 1,
+          "workplaces": []
+        }
+      ],
+      "fieldConflicts": [
+        {
+          "field": "title_after",
+          "values": [
+            {
+              "id": "9917163e-751e-4a72-b2a0-57e6a825f4b4",
+              "value": "PhD., MPH"
+            },
+            {
+              "id": "7ae81a1b-ce28-47b2-8281-9f588860d9df",
+              "value": "MPH"
+            }
+          ]
+        },
+        {
+          "field": "client_contact",
+          "values": [
+            {
+              "id": "9917163e-751e-4a72-b2a0-57e6a825f4b4",
+              "value": false
+            },
+            {
+              "id": "7ae81a1b-ce28-47b2-8281-9f588860d9df",
+              "value": true
+            }
+          ]
+        },
+        {
+          "field": "month_rewards",
+          "values": [
+            {
+              "id": "9917163e-751e-4a72-b2a0-57e6a825f4b4",
+              "value": false
+            },
+            {
+              "id": "7ae81a1b-ce28-47b2-8281-9f588860d9df",
+              "value": true
+            }
+          ]
+        }
+      ],
+      "sourceFingerprints": [
+        {
+          "id": "9917163e-751e-4a72-b2a0-57e6a825f4b4",
+          "hash": "90e59b89b816c6f4a19aded6df2a59e26fd13c5d8eb312bc451041c94f7b7510"
+        },
+        {
+          "id": "7ae81a1b-ce28-47b2-8281-9f588860d9df",
+          "hash": "c401dcc154509eafb74261eac3e2c78ec61b5df44371ab0359465af58cf1b190"
+        }
+      ],
+      "references": [
+        {
+          "table": "collaborator_addresses",
+          "column": "collaborator_id",
+          "count": 2
+        },
+        {
+          "table": "collaborator_agreements",
+          "column": "collaborator_id",
+          "count": 21
+        }
+      ]
+    }
+  ]
+}
+seman@CORPCRM0
