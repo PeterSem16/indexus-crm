@@ -133,6 +133,26 @@ function verifyExecutionPlan(plan, expectedHash, confirmation) {
   return true;
 }
 
+function parseApprovalArgs(argv) {
+  const prefix = "--approve-operation=";
+  return argv
+    .filter((argument) => argument.startsWith(prefix))
+    .map((argument) => argument.slice(prefix.length));
+}
+
+function operationsForWinnerCountry(operations, countryCode) {
+  const expected = String(countryCode || "").trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(expected)) {
+    throw new Error("--approve-winner-country must be a two-letter country code");
+  }
+  return operations.filter((operation) => {
+    const winner = (operation.matchEvidence || []).find(
+      (evidence) => String(evidence.id) === String(operation.winnerId)
+    );
+    return String(winner?.countryCode || "").trim().toUpperCase() === expected;
+  });
+}
+
 function fieldConflicts(rows) {
   const fields = new Set(rows.flatMap((row) => Object.keys(row)));
   const conflicts = [];
@@ -897,7 +917,10 @@ async function main() {
   const apply = args.has("--apply"), planArg = process.argv.find((x) => x.startsWith("--plan-hash="));
   const confirmation = process.argv.find((x) => x.startsWith("--confirm="));
   const planFile = process.argv.find((x) => x.startsWith("--plan-file="))?.slice(12);
-  const approvals = process.argv.filter((x) => x.startsWith("--approve-operation=")).map((x) => x.slice(21));
+  const approvals = parseApprovalArgs(process.argv);
+  const approveWinnerCountry = process.argv
+    .find((x) => x.startsWith("--approve-winner-country="))
+    ?.slice("--approve-winner-country=".length);
   const backupRoot = process.argv.find((x) => x.startsWith("--backup-dir="))?.slice(13);
   if (args.has("--backup")) {
     if (!backupRoot) throw new Error("--backup requires --backup-dir=/absolute/protected/path");
@@ -1001,7 +1024,14 @@ async function main() {
     const referencesByOperation = await referenceInventories(client, operations);
     for (const op of operations) op.references = referencesByOperation.get(op.operationId);
     const assignmentMerges = plannedAssignmentMerges(assignments.rows, operations);
-    const approvedSet = new Set(approvals);
+    const countryApprovedOperations = approveWinnerCountry
+      ? operationsForWinnerCountry(operations, approveWinnerCountry)
+      : [];
+    const effectiveApprovals = [
+      ...approvals,
+      ...countryApprovedOperations.map((operation) => operation.operationId),
+    ];
+    const approvedSet = new Set(effectiveApprovals);
     const approvedOperations = operations.filter((operation) =>
       operation.autoApplicable || approvedSet.has(operation.operationId)
     );
@@ -1010,7 +1040,7 @@ async function main() {
       database: await databaseIdentity(client),
       operations,
       assignmentMerges: approvedAssignmentMerges,
-    }, approvals);
+    }, effectiveApprovals);
     const report = stablePlan({ operations, assignmentMerges });
     if (planFile) {
       await writeRestrictedPlan(planFile, executablePlan);
@@ -1021,6 +1051,10 @@ async function main() {
     report.autoApplicable = operations.filter((x) => x.autoApplicable).map(publicOperation);
     report.manualReview = operations.filter((x) => !x.autoApplicable).map(publicOperation);
     report.approvedOperationIds = executablePlan.operations.map((operation) => operation.operationId);
+    report.bulkApproval = approveWinnerCountry ? {
+      winnerCountry: approveWinnerCountry.toUpperCase(),
+      operationCount: countryApprovedOperations.length,
+    } : null;
     report.executionPlanHash = executablePlan.planHash;
     if (onlyName) {
       report.inspectionMatches = inspectionMatches(onlyName, people.rows, facilities.rows, workplaces);
@@ -1030,5 +1064,5 @@ async function main() {
     return;
   } catch (e) { await client.query("ROLLBACK"); throw e; } finally { client.release(); await pool.end(); }
 }
-module.exports = { normalize, normalizeEmail, normalizePhone, personName, facilityName, facilityLocationKey, canonicalize, canonical, mergeFillOnly, mergeAssignment, assignmentMergePlan, plannedAssignmentMerges, referencePolicy, referenceInventory, referenceInventories, fieldConflicts, automaticConflictBlockers, findPeople, findFacilities, inspectionMatches, stablePlan, operationId, executionPlan, verifyExecutionPlan, readRestrictedPlan, databaseIdentity, applyExecutionPlan, reviewRow };
+module.exports = { normalize, normalizeEmail, normalizePhone, personName, facilityName, facilityLocationKey, canonicalize, canonical, mergeFillOnly, mergeAssignment, assignmentMergePlan, plannedAssignmentMerges, referencePolicy, referenceInventory, referenceInventories, fieldConflicts, automaticConflictBlockers, findPeople, findFacilities, inspectionMatches, stablePlan, operationId, executionPlan, verifyExecutionPlan, readRestrictedPlan, databaseIdentity, applyExecutionPlan, reviewRow, parseApprovalArgs, operationsForWinnerCountry };
 if (require.main === module) main().catch((e) => { console.error(`FATAL: ${e.message}`); process.exitCode = 1; });

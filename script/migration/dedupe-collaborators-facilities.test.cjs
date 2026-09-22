@@ -104,6 +104,44 @@ test("execution plan defaults to automatic operations and requires explicit manu
   assert.equal(approved.operations.length, 2);
   assert.equal(approved.operations[1].plannedPatch.email, "b@x.test");
 });
+test("manual approval CLI parsing preserves the complete operation ID", () => {
+  assert.deepEqual(
+    d.parseApprovalArgs([
+      "node",
+      "script",
+      "--approve-operation=034ecc09bff51964df461fb8",
+      "--other=value",
+    ]),
+    ["034ecc09bff51964df461fb8"]
+  );
+});
+test("bulk country approval selects only operations whose winner has that country", () => {
+  const operations = [
+    {
+      operationId: "sk",
+      winnerId: "winner-sk",
+      matchEvidence: [
+        { id: "winner-sk", countryCode: "sk" },
+        { id: "loser-cz", countryCode: "CZ" },
+      ],
+    },
+    {
+      operationId: "cz",
+      winnerId: "winner-cz",
+      matchEvidence: [{ id: "winner-cz", countryCode: "CZ" }],
+    },
+    {
+      operationId: "missing",
+      winnerId: "winner-missing",
+      matchEvidence: [{ id: "winner-missing", countryCode: null }],
+    },
+  ];
+  assert.deepEqual(
+    d.operationsForWinnerCountry(operations, "SK").map((operation) => operation.operationId),
+    ["sk"]
+  );
+  assert.throws(() => d.operationsForWinnerCountry(operations, "Slovakia"), /two-letter/);
+});
 test("execution plan rejects hash-bound confirmation mismatch", () => {
   const plan = d.executionPlan({ operations: [], assignmentMerges: [] });
   assert.throws(() => d.verifyExecutionPlan(plan, plan.planHash, "DEDUPLICATE_NO_DELETE"), /Confirmation/);

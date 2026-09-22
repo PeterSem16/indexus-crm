@@ -20,6 +20,21 @@ node script/migration/dedupe-collaborators-facilities.cjs \
   --approve-operation=<operation-id>
 ```
 
+For a deliberately authorized country-wide manual batch, select candidates by
+the canonical winner's two-letter country code:
+
+```sh
+node script/migration/dedupe-collaborators-facilities.cjs \
+  --plan-file=/absolute/protected/path/dedupe-execution-plan.json \
+  --approve-winner-country=SK \
+  > /absolute/protected/path/dedupe-plan-audit.json
+```
+
+This is a broad manual approval: it includes conflicting and ambiguous
+candidates whose winner has that country. The plan audit records the country and
+operation count. It still fails closed on unsupported references and requires
+the normal hash-bound apply confirmation and fresh verified backup.
+
 The executable plan contains unredacted fill-only values and must therefore
 remain mode `0600`; it is never printed to stdout. The audit report prints its
 hash. Keep the plan outside the repository and approve every manual operation
