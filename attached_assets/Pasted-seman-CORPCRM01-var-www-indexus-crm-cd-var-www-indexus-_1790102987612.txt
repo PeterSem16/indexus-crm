@@ -1,0 +1,131 @@
+seman@CORPCRM01:/var/www/indexus-crm$ cd /var/www/indexus-crm
+
+POST_AUDIT="$HOME/indexus-dedupe/post-apply-audit-$(date -u +%Y%m%dT%H%M%SZ).json"
+
+export PGHOST="localhost"
+export PGPORT="5432"
+export PGDATABASE="indexus_crm"
+export PGUSER="indexus"
+
+read -s -p "PostgreSQL password: " PGPASSWORD
+echo
+export PGPASSWORD
+
+echo "Vytváram post-apply audit..."
+
+node script/migration/dedupe-collaborators-facilities.cjs \
+  > "$POST_AUDIT"
+
+RESULT=$?
+unset PGPASSWORD PGHOST PGPORT PGDATABASE PGUSER
+
+if [ "$RESULT" -eq 0 ]; then
+  chmod 600 "$POST_AUDIT"
+  echo "POST_AUDIT_PATH=$POST_AUDIT"
+
+  node - "$POST_AUDIT" <<'NODE'
+const fs = require("node:fs");
+const report = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+
+const manualByReason = {};
+for (const operation of report.manualReview || []) {
+  const reason = operation.reason || "unknown";
+  manualByReason[reason] = (manualByReason[reason] || 0) + 1;
+}
+
+const blockers = {};
+for (const operation of report.manualReview || []) {
+  for (const blocker of operation.autoReviewBlockers || []) {
+    const key = typeof blocker === "string"
+      ? blocker
+      : blocker.field || blocker.reason || JSON.stringify(blocker);
+    blockers[key] = (blockers[key] || 0) + 1;
+  }
+}
+
+console.log(JSON.stringify({
+  automatic: (report.autoApplicable || []).length,
+  manual: (report.manualReview || []).length,
+  assignmentMerges: (report.assignmentMerges || []).length,
+  executionPlanHash: report.executionPlanHash,
+  manualByReason,
+fiecho "Post-apply audit zlyhal s kódom $RESULT."
+PostgreSQL password:
+Vytváram post-apply audit...
+POST_AUDIT_PATH=/home/seman/indexus-dedupe/post-apply-audit-20260922T184857Z.json
+{
+  "automatic": 0,
+  "manual": 757,
+  "assignmentMerges": 26,
+  "executionPlanHash": "4cc4547f65c788184f34898ff96389e94fffe4e8e8559dfeb538d021345f160a",
+  "manualByReason": {
+    "exact_normalized_name_postal": 21,
+    "exact_name_postal_registry_anchor": 24,
+    "strong_email_phone": 15,
+    "ambiguous_exact_name": 525,
+    "ambiguous_exact_name+strong_email_phone": 2,
+    "ambiguous_exact_name+strong_birth_number_email": 2,
+    "strong_phone": 70,
+    "exact_name_duplicate_workplace": 25,
+    "ambiguous_exact_name+strong_birth_number": 1,
+    "strong_birth_number_phone": 13,
+    "strong_email": 12,
+    "strong_birth_number_email": 7,
+    "ambiguous_exact_name+strong_phone": 10,
+    "ambiguous_exact_name+exact_name_duplicate_workplace": 3,
+    "strong_birth_number_email_phone": 9,
+    "ambiguous_exact_name+strong_email": 2,
+    "strong_birth_number": 15,
+    "ambiguous_exact_name+strong_birth_number_phone": 1
+  },
+  "blockers": {
+    "address": 36,
+    "city": 36,
+    "lead_source": 19,
+    "lead_source_date": 28,
+    "id_zz": 4,
+    "notes": 4,
+    "orientation_number": 3,
+    "phone": 186,
+    "pzs_code": 4,
+    "pzs_name": 4,
+    "street": 2,
+    "street_number": 4,
+    "name": 14,
+    "district": 6,
+    "doctor_name": 11,
+    "email": 137,
+    "latitude": 8,
+    "longitude": 8,
+    "postal_code": 10,
+    "website": 11,
+    "region": 5,
+    "phone2": 1,
+    "month_rewards": 130,
+    "collaborator_type": 220,
+    "first_name": 42,
+    "title_before": 61,
+    "last_name": 141,
+    "professional_classification": 17,
+    "birth_number": 29,
+    "mobile": 40,
+    "representative_id": 41,
+    "country_code": 97,
+    "birth_day": 14,
+    "birth_month": 13,
+    "birth_year": 11,
+    "is_referred_by_doctor": 3,
+    "clinic_id": 22,
+    "legacy_company": 5,
+    "client_contact": 21,
+    "note": 24,
+    "company_name": 1,
+    "ico": 9,
+    "svet_zdravia": 5,
+    "birth_place": 3,
+    "maiden_name": 3,
+    "title_after": 1,
+    "partner_category": 2
+  }
+}
+seman@CORPCRM01:/var/www
