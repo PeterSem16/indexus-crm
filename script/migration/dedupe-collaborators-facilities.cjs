@@ -623,8 +623,20 @@ function matchingPeople(people, workplacesByPerson = {}, facilities = []) {
         const normalized = normalizePhone(phone);
         return normalized.length >= 7 && [q.mobile, q.phone, q.mobile_2].some((other) => normalizePhone(other) === normalized);
       });
-      const strong = sameBirthNumber || sameEmail || samePhone;
-      if (strong || sameWorkplace) yieldCandidate(q, p, strong ? "strong_identifier" : "exact_name_duplicate_workplace", strong ? 1 : .8);
+      const matchedIdentifiers = [
+        sameBirthNumber ? "birth_number" : null,
+        sameEmail ? "email" : null,
+        samePhone ? "phone" : null,
+      ].filter(Boolean);
+      const strong = matchedIdentifiers.length > 0;
+      if (strong || sameWorkplace) {
+        yieldCandidate(
+          q,
+          p,
+          strong ? `strong_${matchedIdentifiers.join("_")}` : "exact_name_duplicate_workplace",
+          strong ? 1 : .8
+        );
+      }
       else yieldCandidate(q, p, "ambiguous_exact_name", .5);
     }
     if (!bucket.includes(p)) bucket.push(p);

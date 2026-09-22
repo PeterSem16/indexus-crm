@@ -40,6 +40,21 @@ test("automatic dedupe permits differing legacy IDs because aliases preserve the
   ];
   assert.deepEqual(d.automaticConflictBlockers(rows), []);
 });
+test("person match reason identifies strong evidence without exposing its value", () => {
+  const birthMatch = d.findPeople([
+    { id: "a", first_name: "Anna", last_name: "Novak", birth_number: "secret-a" },
+    { id: "b", first_name: "Anna", last_name: "Novak", birth_number: "secret-a" },
+  ], { a: [], b: [] }, []);
+  assert.equal(birthMatch[0].reason, "strong_birth_number");
+  assert.doesNotMatch(birthMatch[0].reason, /secret-a/);
+
+  const emailPhoneMatch = d.findPeople([
+    { id: "c", first_name: "Eva", last_name: "Kral", email: "eva@example.test", mobile: "+421900123456" },
+    { id: "d", first_name: "Eva", last_name: "Kral", email: "EVA@example.test", phone: "+421 900 123 456" },
+  ], { c: [], d: [] }, []);
+  assert.equal(emailPhoneMatch[0].reason, "strong_email_phone");
+  assert.doesNotMatch(emailPhoneMatch[0].reason, /example|123456/);
+});
 test("exact name on duplicate facilities is reported for manual review (Radmila Sládičeková/RADMA fixture)", () => {
   const facilities = [
     { id: "c1", kind: "clinic", name: "RADMA", city: "Bratislava", country_code: "SK" },
