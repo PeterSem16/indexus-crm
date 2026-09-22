@@ -127,6 +127,46 @@ test("batch reference inventory scans each table once for all operations", async
     }]);
   }
 });
+test("named collection staff and obstetrician columns are supported collaborator references", async () => {
+  const db = {
+    async query(sql) {
+      if (sql.includes("information_schema.columns")) {
+        return {
+          rows: [
+            { table_name: "collections", column_name: "id", data_type: "character varying", udt_name: "varchar" },
+            { table_name: "collections", column_name: "cord_blood_collector_id", data_type: "character varying", udt_name: "varchar" },
+            { table_name: "collections", column_name: "tissue_collector_id", data_type: "character varying", udt_name: "varchar" },
+            { table_name: "collections", column_name: "assistant_nurse_id", data_type: "character varying", udt_name: "varchar" },
+            { table_name: "customer_potential_cases", column_name: "id", data_type: "character varying", udt_name: "varchar" },
+            { table_name: "customer_potential_cases", column_name: "obstetrician_id", data_type: "character varying", udt_name: "varchar" },
+          ],
+        };
+      }
+      if (sql.includes('FROM "collections"')) {
+        return {
+          rows: [{
+            __s0: null,
+            __s1: "loser",
+            __s2: "loser",
+            __s3: "loser",
+          }],
+        };
+      }
+      if (sql.includes('FROM "customer_potential_cases"')) {
+        return { rows: [{ __s0: null, __s1: "loser" }] };
+      }
+      throw new Error(`Unexpected SQL: ${sql}`);
+    },
+  };
+  const operation = { kind: "person", winnerId: "winner", loserIds: ["loser"] };
+  const references = await d.referenceInventory(db, operation);
+  assert.deepEqual(references, [
+    { table: "collections", column: "assistant_nurse_id", count: 1, policy: "redirect" },
+    { table: "collections", column: "cord_blood_collector_id", count: 1, policy: "redirect" },
+    { table: "collections", column: "tissue_collector_id", count: 1, policy: "redirect" },
+    { table: "customer_potential_cases", column: "obstetrician_id", count: 1, policy: "redirect" },
+  ]);
+});
 test("alias resolution prefers canonical active record", () => {
   const canonical = { id: "winner", is_active: true };
   assert.equal(sync.resolveCollaboratorAlias({ "393": { canonical_id: "winner" } }, "393", { id: "loser" }, { winner: canonical }), canonical);

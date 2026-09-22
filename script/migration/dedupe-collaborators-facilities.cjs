@@ -675,9 +675,20 @@ function findFacilities(facilities) {
 const operationEntityType = (operation) =>
   operation.kind === "person" ? "collaborator" : operation.entityKind;
 
-const isKnownScalarReference = (operation, column) =>
+const KNOWN_PERSON_REFERENCE_COLUMNS = new Set([
+  "collections.cord_blood_collector_id",
+  "collections.tissue_collector_id",
+  "collections.placenta_collector_id",
+  "collections.assistant_nurse_id",
+  "collections.second_nurse_id",
+  "customer_potential_cases.obstetrician_id",
+]);
+
+const isKnownScalarReference = (operation, table, column) =>
   operation.kind === "person"
-    ? column.endsWith("collaborator_id") || column.endsWith("person_id")
+    ? column.endsWith("collaborator_id") ||
+      column.endsWith("person_id") ||
+      KNOWN_PERSON_REFERENCE_COLUMNS.has(`${table}.${column}`)
     : column.endsWith(`${operation.entityKind}_id`);
 
 const isKnownArrayReference = (operation, column) =>
@@ -773,7 +784,7 @@ async function referenceInventories(db, operations) {
         if (!value) return;
         for (const operation of operationsByLoserId.get(String(value)) || []) {
           if (table === tableForOperation(operation) && column === "id") continue;
-          const known = isKnownScalarReference(operation, column);
+          const known = isKnownScalarReference(operation, table, column);
           const basePolicy = referencePolicy(table, column);
           const policy = known
             ? basePolicy
