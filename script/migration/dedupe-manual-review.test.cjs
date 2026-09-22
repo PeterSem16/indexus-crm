@@ -20,6 +20,10 @@ function fixture() {
         { id: "winner", name: "Winner <script>alert(1)</script>", countryCode: "SK" },
         { id: "loser", name: "Loser", countryCode: "CZ" },
       ],
+      reviewRows: [
+        { id: "winner", legacy_id: "101", country_code: "SK" },
+        { id: "loser", legacy_id: "202", country_code: "CZ" },
+      ],
       fieldConflicts: [{
         field: "birth_number",
         values: [
@@ -38,6 +42,7 @@ test("review model keeps review evidence and flags assignment handling", () => {
   assert.equal(model.candidates.length, 1);
   assert.equal(model.candidates[0].hasAssignmentHandling, true);
   assert.equal(model.candidates[0].conflicts[0].values[0].value.redacted, true);
+  assert.equal(model.candidates[0].reviewRows[1].legacy_id, "202");
 });
 
 test("HTML embeds data safely and has no apply action", () => {
@@ -45,6 +50,8 @@ test("HTML embeds data safely and has no apply action", () => {
   assert.doesNotMatch(html, /Winner <script>/);
   assert.match(html, /Winner \\u003cscript\\u003ealert/);
   assert.match(html, /Exportovať rozhodnutia/);
+  assert.match(html, /Všetky polia winnera a loserov/);
+  assert.match(html, /Winner krajina SK/);
   assert.doesNotMatch(html, /--apply|DEDUPLICATE_NO_DELETE/);
 });
 

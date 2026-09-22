@@ -121,10 +121,14 @@ node script/migration/dedupe-manual-review.cjs \
 
 The audit must be mode `0600`; the HTML is also created as `0600` because it
 contains review evidence. Open it only on a trusted workstation. It supports
-searching, filtering, side-by-side winner/loser comparison, conflict inspection,
-and `merge / reconcile first / reject` decisions. Decisions stay in browser
-local storage until exported. The exported JSON contains operation IDs and
-decisions only; it cannot apply database changes and is not an execution plan.
+searching, country filtering (winner country `SK` by default), side-by-side
+winner/loser comparison, every reviewed source field including `legacy_id`, the
+planned fill-only patch, conflict inspection, and
+`merge / reconcile first / reject` decisions. Sensitive fields such as birth
+numbers remain redacted but include hashes for equality checks. Decisions stay
+in browser local storage until exported. The exported JSON contains operation
+IDs and decisions only; it cannot apply database changes and is not an execution
+plan.
 
 When `--only-name` is supplied, `inspectionMatches` also lists matching active
 people and facilities even when differences in name or location prevent them

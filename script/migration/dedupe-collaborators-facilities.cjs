@@ -34,6 +34,12 @@ function reviewPatch(patch) {
   return Object.fromEntries(Object.entries(patch).map(([field, value]) => [field, reviewValue(field, value)]));
 }
 
+function reviewRow(row) {
+  return Object.fromEntries(
+    Object.entries(row).map(([field, value]) => [field, reviewValue(field, value)])
+  );
+}
+
 function canonicalize(value) {
   if (value instanceof Date) return value.toISOString();
   if (Array.isArray(value)) return value.map(canonicalize);
@@ -983,6 +989,7 @@ async function main() {
       op.operationId = operationId(op);
       op.plannedPatch = reviewPatch(patch);
       op.matchEvidence = [winner, ...losers].map((row) => matchEvidence(row, workplaces));
+      op.reviewRows = [winner, ...losers].map(reviewRow);
       op.fieldConflicts = fieldConflicts([winner, ...losers]);
       op.autoReviewBlockers = automaticConflictBlockers([winner, ...losers], op.fieldConflicts);
       if (op.autoReviewBlockers.length) op.autoApplicable = false;
@@ -1023,5 +1030,5 @@ async function main() {
     return;
   } catch (e) { await client.query("ROLLBACK"); throw e; } finally { client.release(); await pool.end(); }
 }
-module.exports = { normalize, normalizeEmail, normalizePhone, personName, facilityName, facilityLocationKey, canonicalize, canonical, mergeFillOnly, mergeAssignment, assignmentMergePlan, plannedAssignmentMerges, referencePolicy, referenceInventory, referenceInventories, fieldConflicts, automaticConflictBlockers, findPeople, findFacilities, inspectionMatches, stablePlan, operationId, executionPlan, verifyExecutionPlan, readRestrictedPlan, databaseIdentity, applyExecutionPlan };
+module.exports = { normalize, normalizeEmail, normalizePhone, personName, facilityName, facilityLocationKey, canonicalize, canonical, mergeFillOnly, mergeAssignment, assignmentMergePlan, plannedAssignmentMerges, referencePolicy, referenceInventory, referenceInventories, fieldConflicts, automaticConflictBlockers, findPeople, findFacilities, inspectionMatches, stablePlan, operationId, executionPlan, verifyExecutionPlan, readRestrictedPlan, databaseIdentity, applyExecutionPlan, reviewRow };
 if (require.main === module) main().catch((e) => { console.error(`FATAL: ${e.message}`); process.exitCode = 1; });

@@ -40,6 +40,19 @@ test("automatic dedupe permits differing legacy IDs because aliases preserve the
   ];
   assert.deepEqual(d.automaticConflictBlockers(rows), []);
 });
+test("manual review rows show ordinary fields and redact sensitive values", () => {
+  const row = d.reviewRow({
+    id: "person-a",
+    legacy_id: "123",
+    email: "person@example.test",
+    birth_number: "sensitive-value",
+  });
+  assert.equal(row.legacy_id, "123");
+  assert.equal(row.email, "person@example.test");
+  assert.equal(row.birth_number.redacted, true);
+  assert.equal(row.birth_number.present, true);
+  assert.doesNotMatch(JSON.stringify(row), /sensitive-value/);
+});
 test("person match reason identifies strong evidence without exposing its value", () => {
   const birthMatch = d.findPeople([
     { id: "a", first_name: "Anna", last_name: "Novak", birth_number: "secret-a" },

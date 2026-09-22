@@ -36,6 +36,7 @@ function reviewModel(report, auditPath) {
     reason: operation.reason || "unknown",
     confidence: operation.confidence,
     matchEvidence: operation.matchEvidence || [],
+    reviewRows: operation.reviewRows || [],
     conflicts: operation.fieldConflicts || [],
     blockers: operation.autoReviewBlockers || [],
     plannedPatch: operation.plannedPatch || {},
@@ -80,6 +81,7 @@ function renderHtml(model) {
   .card-head strong{font-size:16px}.id{font:12px ui-monospace,monospace;color:#5d687a;word-break:break-all}.tag{font-size:12px;padding:3px 7px;border-radius:999px;background:#e8eef9}
   .risk{background:#ffe2dc;color:#8f2615}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px}
   .panel{border:1px solid #e0e5ec;border-radius:9px;padding:12px;min-width:0}.panel h3{margin:0 0 9px;font-size:14px}
+  .wide{grid-column:1/-1}.field-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:10px}
   dl{display:grid;grid-template-columns:minmax(110px,auto) 1fr;gap:5px 10px;margin:0}dt{color:#667186}dd{margin:0;overflow-wrap:anywhere}
   table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;vertical-align:top;border-bottom:1px solid #e6e9ef;padding:7px}
   .decisions{display:flex;gap:8px;padding:0 14px 14px;flex-wrap:wrap}.decision{border-width:2px}.decision.active{outline:3px solid #172033}
@@ -94,6 +96,11 @@ function renderHtml(model) {
   <div class="toolbar">
     <input id="search" type="search" placeholder="Hľadať meno, ID, dôvod alebo konflikt">
     <select id="reason"><option value="">Všetky dôvody</option></select>
+    <select id="country">
+      <option value="SK">Winner krajina SK</option>
+      <option value="ALL_SK">Všetky záznamy krajina SK</option>
+      <option value="">Všetky krajiny</option>
+    </select>
     <select id="status">
       <option value="">Všetky rozhodnutia</option>
       <option value="unreviewed">Neskontrolované</option>
@@ -116,10 +123,11 @@ const MODEL=${data};
 const KEY="dedupe-review:"+MODEL.sourceExecutionPlanHash;
 const decisions=JSON.parse(localStorage.getItem(KEY)||"{}");
 const cards=document.getElementById("cards");
-const search=document.getElementById("search"), reason=document.getElementById("reason"), status=document.getElementById("status");
+const search=document.getElementById("search"), reason=document.getElementById("reason"), country=document.getElementById("country"), status=document.getElementById("status");
 const text=(value)=>value===null||value===undefined||value===""?"—":Array.isArray(value)?value.join(", "):typeof value==="object"?(value.redacted?"[citlivá hodnota; hash "+value.hash+"]":JSON.stringify(value)):String(value);
 const el=(name,cls,content)=>{const node=document.createElement(name);if(cls)node.className=cls;if(content!==undefined)node.textContent=content;return node};
 const evidenceFor=(candidate,id)=>candidate.matchEvidence.find(item=>String(item.id)===String(id))||{id};
+const rowFor=(candidate,id)=>candidate.reviewRows.find(item=>String(item.id)===String(id))||{id};
 const detailList=(evidence)=>{
   const dl=el("dl");
   const entries=Object.entries(evidence).filter(([key])=>key!=="id"&&key!=="normalizedName");
@@ -135,13 +143,34 @@ const conflictTable=(candidate)=>{
   }
   return table;
 };
+const allFieldsTable=(candidate)=>{
+  const ids=[candidate.winnerId,...candidate.loserIds];
+  const rows=ids.map(id=>rowFor(candidate,id));
+  const fields=[...new Set(rows.flatMap(row=>Object.keys(row)))].sort((a,b)=>a==="id"?-1:b==="id"?1:a.localeCompare(b));
+  const table=el("table"), head=el("tr");head.append(el("th","","Pole"));
+  ids.forEach((id,index)=>head.append(el("th","",index===0?"WINNER":"LOSER "+index));table.append(head);
+  for(const field of fields){
+    const row=el("tr");row.append(el("td","",field));
+    for(const record of rows){const value=record[field];row.append(el("td",value&&value.redacted?"sensitive":"",text(value)))}
+    table.append(row)
+  }
+  return table;
+};
+const patchTable=(candidate)=>{
+  const entries=Object.entries(candidate.plannedPatch||{});
+  if(!entries.length)return el("p","empty","Winner sa nebude dopĺňať žiadnym novým poľom");
+  const table=el("table");for(const [field,value] of entries){const row=el("tr");row.append(el("td","",field),el("td",value&&value.redacted?"sensitive":"",text(value)));table.append(row)}return table;
+};
 function render(){
   cards.textContent="";
   const query=search.value.trim().toLowerCase();let visible=0;
   for(const candidate of MODEL.candidates){
     const decision=decisions[candidate.operationId]||"unreviewed";
-    const haystack=JSON.stringify([candidate.operationId,candidate.reason,candidate.blockers,candidate.matchEvidence]).toLowerCase();
-    if(query&&!haystack.includes(query)||reason.value&&candidate.reason!==reason.value||status.value&&decision!==status.value)continue;
+    const haystack=JSON.stringify([candidate.operationId,candidate.reason,candidate.blockers,candidate.matchEvidence,candidate.reviewRows]).toLowerCase();
+    const evidenceCountries=candidate.matchEvidence.map(item=>String(item.countryCode||"").toUpperCase()).filter(Boolean);
+    const winnerCountry=String(evidenceFor(candidate,candidate.winnerId).countryCode||"").toUpperCase();
+    const countryMismatch=country.value==="SK"&&winnerCountry!=="SK"||country.value==="ALL_SK"&&(!evidenceCountries.length||evidenceCountries.some(value=>value!=="SK"));
+    if(query&&!haystack.includes(query)||reason.value&&candidate.reason!==reason.value||countryMismatch||status.value&&decision!==status.value)continue;
     visible++;const card=el("section","card");
     const head=el("div","card-head");head.append(el("strong","",candidate.matchEvidence[0]?.name||candidate.operationId),el("span","tag",candidate.reason),el("span","id",candidate.operationId));
     if(candidate.hasAssignmentHandling)head.append(el("span","tag risk","assignment kontrola"));
@@ -153,7 +182,9 @@ function render(){
     const conflicts=el("div","panel");conflicts.append(el("h3","","Konfliktné hodnoty"),conflictTable(candidate));
     const refs=el("div","panel");refs.append(el("h3","","Referencie"));
     const refTable=el("table");for(const ref of candidate.references){const row=el("tr");row.append(el("td","",ref.table+"."+ref.column),el("td","",String(ref.count)),el("td",ref.policy==="unsupported_block"?"risk":"",ref.policy));refTable.append(row)}refs.append(refTable);
-    grid.append(winner,losers,conflicts,refs);card.append(grid);
+    const allFields=el("div","panel wide");allFields.append(el("h3","","Všetky polia winnera a loserov"),allFieldsTable(candidate));
+    const patch=el("div","panel wide");patch.append(el("h3","","Polia, ktoré sa doplnia do winnera"),patchTable(candidate));
+    grid.append(winner,losers,conflicts,refs,allFields,patch);card.append(grid);
     const actions=el("div","decisions");
     [["approve","Zlúčiť"],["reconcile","Najprv upraviť"],["reject","Nezlúčiť"]].forEach(([value,label])=>{
       const button=el("button","decision "+value+(decision===value?" active":""),label);
@@ -165,7 +196,7 @@ function render(){
   document.getElementById("stats").textContent=visible+" z "+MODEL.candidates.length+" · rozhodnuté "+done;
 }
 for(const value of [...new Set(MODEL.candidates.map(c=>c.reason))].sort()){const option=el("option","",value);option.value=value;reason.append(option)}
-[search,reason,status].forEach(node=>node.addEventListener("input",render));
+[search,reason,country,status].forEach(node=>node.addEventListener("input",render));
 document.getElementById("export").onclick=()=>{
   const approved=Object.entries(decisions).filter(([,decision])=>["approve","reconcile","reject"].includes(decision)).map(([operationId,decision])=>({operationId,decision}));
   const payload={format:1,sourceExecutionPlanHash:MODEL.sourceExecutionPlanHash,decisions:approved};
