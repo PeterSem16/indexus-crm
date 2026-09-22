@@ -142,6 +142,22 @@ test("bulk country approval selects only operations whose winner has that countr
   );
   assert.throws(() => d.operationsForWinnerCountry(operations, "Slovakia"), /two-letter/);
 });
+test("facility source fingerprint ignores the synthetic discovery kind field", () => {
+  const persisted = {
+    id: "clinic-a",
+    name: "Clinic",
+    country_code: "SK",
+    is_active: true,
+  };
+  assert.equal(
+    d.sourceRowFingerprint({ kind: "clinic", ...persisted }),
+    d.sourceRowFingerprint(persisted)
+  );
+  assert.equal(
+    d.sourceRowFingerprint({ kind: "hospital", ...persisted }),
+    d.sourceRowFingerprint(persisted)
+  );
+});
 test("execution plan rejects hash-bound confirmation mismatch", () => {
   const plan = d.executionPlan({ operations: [], assignmentMerges: [] });
   assert.throws(() => d.verifyExecutionPlan(plan, plan.planHash, "DEDUPLICATE_NO_DELETE"), /Confirmation/);

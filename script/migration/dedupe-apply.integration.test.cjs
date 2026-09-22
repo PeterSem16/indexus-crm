@@ -149,7 +149,7 @@ test("real PostgreSQL apply is atomic, redirects all supported references, and i
     executionPatch: { email: "person@example.test", legacy_id: "393" },
     sourceFingerprints: sourceRows.map((row) => ({
       id: String(row.id),
-      hash: crypto.createHash("sha256").update(JSON.stringify(row)).digest("hex"),
+      hash: d.sourceRowFingerprint(row),
     })),
   };
   operation.references = await d.referenceInventory(pool, operation);
@@ -204,4 +204,38 @@ test("real PostgreSQL apply is atomic, redirects all supported references, and i
   assert.equal(rerun.alreadyApplied, true);
   assert.equal((await pool.query("SELECT count(*)::int AS count FROM dedupe_apply_ledger")).rows[0].count, 1);
   trace("successful apply and rerun verified");
+
+  await pool.query(`
+    INSERT INTO clinics (id, legacy_id) VALUES
+      ('clinic-winner', NULL),
+      ('clinic-loser', 'legacy-clinic')
+  `);
+  const persistedClinicRows = (await pool.query(
+    "SELECT * FROM clinics WHERE id=ANY($1::varchar[]) ORDER BY id",
+    [["clinic-winner", "clinic-loser"]]
+  )).rows;
+  const facilityOperation = {
+    kind: "facility",
+    entityKind: "clinic",
+    winnerId: "clinic-winner",
+    loserIds: ["clinic-loser"],
+    autoApplicable: true,
+    executionPatch: { legacy_id: "legacy-clinic" },
+    sourceFingerprints: persistedClinicRows.map((row) => ({
+      id: String(row.id),
+      hash: d.sourceRowFingerprint({ kind: "clinic", ...row }),
+    })),
+  };
+  facilityOperation.references = await d.referenceInventory(pool, facilityOperation);
+  const facilityPlan = d.executionPlan({
+    database: await d.databaseIdentity(pool),
+    operations: [facilityOperation],
+    assignmentMerges: [],
+  });
+  const facilityApplied = await d.applyExecutionPlan(pool, facilityPlan, backup);
+  assert.equal(facilityApplied.applied, true);
+  assert.equal(
+    (await pool.query("SELECT is_active FROM clinics WHERE id='clinic-loser'")).rows[0].is_active,
+    false
+  );
 });

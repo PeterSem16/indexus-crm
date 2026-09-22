@@ -62,6 +62,14 @@ function operationId(operation) {
   })).digest("hex").slice(0, 24);
 }
 
+function sourceRowFingerprint(row) {
+  // Facility discovery adds a synthetic `kind` discriminator that is not a
+  // physical clinics/hospitals column. Fingerprint only persisted DB fields so
+  // the reviewed snapshot matches the row read back during apply.
+  const { kind, ...persisted } = row;
+  return crypto.createHash("sha256").update(stableJson(persisted)).digest("hex");
+}
+
 function executionPlan(report, selectedOperationIds = []) {
   const selected = new Set(selectedOperationIds);
   const operations = (report.operations || [])
@@ -378,7 +386,7 @@ async function verifyOperationState(db, operation, observedReferences = undefine
   }
   const fingerprints = rows.map((row) => ({
     id: String(row.id),
-    hash: crypto.createHash("sha256").update(JSON.stringify(row)).digest("hex"),
+    hash: sourceRowFingerprint(row),
   })).sort((a, b) => a.id.localeCompare(b.id));
   assertSame(`Source fingerprint for operation ${operation.operationId}`, fingerprints, operation.sourceFingerprints);
   if (observedReferences !== null) {
@@ -1018,7 +1026,7 @@ async function main() {
       if (op.autoReviewBlockers.length) op.autoApplicable = false;
       op.sourceFingerprints = [winner, ...losers].map((row) => ({
         id: String(row.id),
-        hash: crypto.createHash("sha256").update(JSON.stringify(row)).digest("hex"),
+        hash: sourceRowFingerprint(row),
       }));
     }
     const referencesByOperation = await referenceInventories(client, operations);
@@ -1064,5 +1072,5 @@ async function main() {
     return;
   } catch (e) { await client.query("ROLLBACK"); throw e; } finally { client.release(); await pool.end(); }
 }
-module.exports = { normalize, normalizeEmail, normalizePhone, personName, facilityName, facilityLocationKey, canonicalize, canonical, mergeFillOnly, mergeAssignment, assignmentMergePlan, plannedAssignmentMerges, referencePolicy, referenceInventory, referenceInventories, fieldConflicts, automaticConflictBlockers, findPeople, findFacilities, inspectionMatches, stablePlan, operationId, executionPlan, verifyExecutionPlan, readRestrictedPlan, databaseIdentity, applyExecutionPlan, reviewRow, parseApprovalArgs, operationsForWinnerCountry };
+module.exports = { normalize, normalizeEmail, normalizePhone, personName, facilityName, facilityLocationKey, canonicalize, canonical, mergeFillOnly, mergeAssignment, assignmentMergePlan, plannedAssignmentMerges, referencePolicy, referenceInventory, referenceInventories, fieldConflicts, automaticConflictBlockers, findPeople, findFacilities, inspectionMatches, stablePlan, operationId, executionPlan, verifyExecutionPlan, readRestrictedPlan, databaseIdentity, applyExecutionPlan, reviewRow, parseApprovalArgs, operationsForWinnerCountry, sourceRowFingerprint };
 if (require.main === module) main().catch((e) => { console.error(`FATAL: ${e.message}`); process.exitCode = 1; });

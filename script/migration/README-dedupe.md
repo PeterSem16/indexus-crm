@@ -35,6 +35,18 @@ candidates whose winner has that country. The plan audit records the country and
 operation count. It still fails closed on unsupported references and requires
 the normal hash-bound apply confirmation and fresh verified backup.
 
+For the authorized production SK batch, run the maintenance wrapper as the PM2
+application owner:
+
+```sh
+bash script/migration/run-sk-dedupe-maintenance.sh
+```
+
+It stops `indexus-crm`, generates and validates a fresh SK plan, requires the
+hash-bound human confirmation, creates and fully verifies a fresh backup,
+applies the plan, and starts the application again through an EXIT trap on both
+success and failure.
+
 The executable plan contains unredacted fill-only values and must therefore
 remain mode `0600`; it is never printed to stdout. The audit report prints its
 hash. Keep the plan outside the repository and approve every manual operation
