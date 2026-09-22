@@ -121,11 +121,17 @@ function renderHtml(model) {
 <script>
 const MODEL=${data};
 const KEY="dedupe-review:"+MODEL.sourceExecutionPlanHash;
-const decisions=JSON.parse(localStorage.getItem(KEY)||"{}");
+let persistenceAvailable=true;
+let decisions={};
+try{decisions=JSON.parse(localStorage.getItem(KEY)||"{}")}catch(error){persistenceAvailable=false}
 const cards=document.getElementById("cards");
 const search=document.getElementById("search"), reason=document.getElementById("reason"), country=document.getElementById("country"), status=document.getElementById("status");
 const text=(value)=>value===null||value===undefined||value===""?"—":Array.isArray(value)?value.join(", "):typeof value==="object"?(value.redacted?"[citlivá hodnota; hash "+value.hash+"]":JSON.stringify(value)):String(value);
 const el=(name,cls,content)=>{const node=document.createElement(name);if(cls)node.className=cls;if(content!==undefined)node.textContent=content;return node};
+const saveDecisions=()=>{
+  if(!persistenceAvailable)return;
+  try{localStorage.setItem(KEY,JSON.stringify(decisions))}catch(error){persistenceAvailable=false}
+};
 const evidenceFor=(candidate,id)=>candidate.matchEvidence.find(item=>String(item.id)===String(id))||{id};
 const rowFor=(candidate,id)=>candidate.reviewRows.find(item=>String(item.id)===String(id))||{id};
 const detailList=(evidence)=>{
@@ -188,12 +194,13 @@ function render(){
     const actions=el("div","decisions");
     [["approve","Zlúčiť"],["reconcile","Najprv upraviť"],["reject","Nezlúčiť"]].forEach(([value,label])=>{
       const button=el("button","decision "+value+(decision===value?" active":""),label);
-      button.onclick=()=>{decisions[candidate.operationId]=value;localStorage.setItem(KEY,JSON.stringify(decisions));render()};actions.append(button)
+      button.onclick=()=>{decisions[candidate.operationId]=value;saveDecisions();render()};actions.append(button)
     });
     card.append(actions);cards.append(card)
   }
   const done=Object.values(decisions).filter(v=>["approve","reconcile","reject"].includes(v)).length;
   document.getElementById("stats").textContent=visible+" z "+MODEL.candidates.length+" · rozhodnuté "+done;
+  if(!visible)cards.append(el("div","notice","Aktuálne filtre nenašli žiadne prípady. Zvoľte Všetky krajiny a Všetky rozhodnutia."));
 }
 for(const value of [...new Set(MODEL.candidates.map(c=>c.reason))].sort()){const option=el("option","",value);option.value=value;reason.append(option)}
 [search,reason,country,status].forEach(node=>node.addEventListener("input",render));
@@ -207,8 +214,12 @@ document.getElementById("import-file").onchange=async(event)=>{
   const payload=JSON.parse(await event.target.files[0].text());
   if(payload.sourceExecutionPlanHash!==MODEL.sourceExecutionPlanHash)throw new Error("Rozhodnutia patria k inému auditu");
   for(const item of payload.decisions||[])if(MODEL.candidates.some(c=>c.operationId===item.operationId)&&["approve","reconcile","reject"].includes(item.decision))decisions[item.operationId]=item.decision;
-  localStorage.setItem(KEY,JSON.stringify(decisions));render()
+  saveDecisions();render()
 };
+if(!persistenceAvailable){
+  const warning=el("div","notice","Safari zablokoval lokálne uloženie. Report funguje, ale pred zatvorením stránky exportujte rozhodnutia.");
+  document.querySelector("main").prepend(warning);
+}
 render();
 </script>
 </body>
