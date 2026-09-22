@@ -1,0 +1,161 @@
+const clean = value => String(value ?? "")
+operationId     kind    entityKind      reason  confidence      winnerId        winnerName      loserIds        loserNames      conflictFields  referenceCount
+00362c4c8c1071320ded7982        person          strong_identifier       1       64b343d5-2ade-4357-9205-eb65871036c7    MUDr. Zdenko Dragoun    c317f4f9-05cd-4a67-b1c6-3d2c>
+021fb908b53a8f15a0b46c11        person          strong_identifier       1       8da71779-bc97-4af9-a785-ae4e0a00b479    MUDr. Ivan Schmidt      ed6d9727-76a0-41ed-b849-7910>
+034ecc09bff51964df461fb8        person          strong_identifier       1       1ad06d99-2dea-4958-a174-3eb6688de839    MUDr. Jaroslav Straník  2a5b1e32-4575-49dc-9b6b-88bd>
+03ccab30edfb986f3180897e        person          strong_identifier       1       2c40cb5b-94ef-4f1d-ac42-b10daead0035    MUDr. Norbert Szúnyogh  c2ae8af6-c630-42a1-bed4-b6a3>
+03ee41d8064316a06978afc7        person          strong_identifier       1       885ecdb1-4811-4e52-b44b-ea4422819360    MUDr. Štefan Ruffini    b06b16fc-6a0d-46c3-8fec-6f11>
+042507387842539240392ae4        person          strong_identifier       1       3dcd4cca-2ab0-42c8-865e-737cf6cdfea8    MUDr. Magdaléna Krzyzankova     c5816e59-11ca-4d82-9>
+04f4b145d9eb7e21f6d223b2        person          strong_identifier       1       c2e9ea2e-6c79-4385-8bf6-dc2451c7ea3e    Dr. Florica Aljobory    0ec569e9-def5-4584-92b2-9aa3>
+07fc84a1dc76e4254e94029b        person          strong_identifier       1       a93c84b9-d53b-4784-9484-3bfd761041bf    Bc. Pavlína Štěpánová   83ba3a39-4993-4394-b77f-5fe0>
+0898036e3b15a256bc2ee0c9        person          strong_identifier       1       a0089b16-8b67-4fd5-ad26-1be6b09fdab5    MUDr. Zlata Dančová     85802a05-1a3d-4c8d-85e7-065a>
+092c9065e0cadd5b8500a278        person          strong_identifier       1       a0301684-50eb-41c5-a97f-891003ed67d5    MUDr. Světlana Pavličková       77116ab9-b323-4c58-a>
+09b39cb9a1b6c50d0ffe4afb        person          strong_identifier       1       c04a4e32-0cc5-469a-abab-ec99a7b2c8ca    Dr. Alina Sinca 35f20c04-4d6e-4ca8-a53c-8a0ee0b2d9e5>
+0b8476be7173d0e98255686e        person          strong_identifier       1       ef316795-afe5-4307-9600-c584fc70c55b    MUDr. Matej Medovarský  5d1708b4-9a4b-443c-a583-c0d5>
+0c56b94eddd71f00e16f0659        person          strong_identifier       1       079ff365-82d7-4a6e-b632-b1ff700fc547    MUDr. Peter Princzkel   1ab2a245-3520-49ee-8d6e-be85>
+0d5993d910648777f250359c        person          strong_identifier       1       cc695844-232a-407c-aa2a-eca3f7abb569    MUDr. Ján Adam  e8071bb7-1b70-4dae-8a98-411482417f94>
+0f54cd14157c511603b5133e        person          strong_identifier       1       665604be-2f59-4cdf-b198-accfdf27c526    MUDr. Jana Pijáková     76e1cba7-a801-4ca2-aacb-703b>
+1116cf182342e001308a4b06        person          strong_identifier       1       1413eac1-9602-447a-9dd2-bb1cb5f2b48d    MUDr. Peter Vávra       b68f8dde-9cb5-4187-a823-818d>
+11d64f329dacb1f8aa912812        person          strong_identifier       1       993c94f6-cefe-4264-a433-68c9f24f55b2    MUDr. Jozef Toman       539531e2-6139-458c-810c-0d8d>
+11ec08849e958041b8626efa        person          strong_identifier       1       a8d1ad54-a443-4dd4-9d8b-435f78684ff1    MUDr. Jela Kubalová     e76b4b81-1ba7-402c-8e2e-a65f>
+19162edb81b3b08f6fca084d        person          strong_identifier       1       5d19feed-96e9-4585-a37f-e1952686d92f    MUDr. Jaroslav Kardoš   4bc8bc85-afe6-4f0b-8176-ac31>
+1a56e77ae95731e597dfa6c8        person          strong_identifier       1       57ef439f-eac7-414c-b703-dc52d0491357    MUDr. Bohuslav Mičaník  3d51060c-cde3-40b7-9008-dfe7>
+1d89313c64f5e66a0a1d8682        person          strong_identifier       1       f439b098-c887-4f31-a61d-aa795ea73970    MUDr. Vladimír Dronin   b62c976a-67a3-4df6-a2c2-d8f1>
+1e5ebc3b06fc2a45637bbb69        person          strong_identifier       1       23052666-c4f9-4ce0-916b-9f0b4a7ccf76    MUDr. Jana Kulanová     f008e0e6-f6ce-4a09-9e22-9136>
+2329375f9d337db5e16a82a8        person          strong_identifier       1       64c7697d-c0e9-418d-a7fb-b9d85a1dbe78    MUDr. Klaudia Čuboňová  7af5d587-ef84-4414-b2c1-bd9c>
+2400534ab1268b5085c59943        person          strong_identifier       1       6f7bf0fe-85cf-424e-8f8d-8b75201b5bc2    MUDr. Miroslava Zahradníková    9a222004-f896-41ea-8>
+27066c1fc932a563e8e8d7ab        person          strong_identifier       1       0af79ba9-c5d1-4b2f-bcf7-f02d34d54638    Bc. Eva Čičelová        5335c59e-0bc3-4435-8000-d324>
+276082b8e52bd169932f667b        person          strong_identifier       1       c59d77d7-9809-4d65-b2ec-db139e0e7c1c    MUDr. Tatiana Kolková MBA       8ae2ddc7-c601-41d5-a>
+2af0b08e9a3bf65e05b48d97        person          strong_identifier       1       abdb1cb3-690d-4c45-91e7-d63b710bcf41    MUDr. Vladimír Baláž    c7505201-01eb-443b-8a0e-1d29>
+2ce67b7d2d7a9102092320bd        person          strong_identifier       1       b4a49eb3-2196-4626-b3fa-717207f8bf17    MUDr. Slavomír Dorko    dd825ef0-81ff-4344-ad70-e7dd>
+2f00aecac909531f474db509        person          strong_identifier       1       243a8dd3-6a23-40b4-ab4b-ef7ba0b3a529    MUDr. Adrián Teplica    53b3e022-4a4c-4820-a392-ca6b>
+2fdd8388b8df2eae35b27465        person          strong_identifier       1       51d03b1e-4b4d-49b4-a6c0-32c28cba574f    Mária Kiliková  95443b30-e5d7-4bc0-8283-fcb8a47f8c0c>
+30e691b3eb38fc84d952bf9a        person          strong_identifier       1       6b9bdc79-8533-4976-b945-5001d12f2ac4    MUDr. Štefan Nagy       b76bc41a-8172-4bc4-ad35-45de>
+33a334b7927aa8089241aa13        person          strong_identifier       1       5de59352-896e-4e1f-92a3-3fb87f108595    MUDr. Miroslav Belanský 5a8281d0-c2ce-4c62-af50-15a8>
+34172326232a3f3ca83b3b15        person          strong_identifier       1       acb72ba4-dbda-47e0-afe8-e667e71e2401    MUDr. Beatrix Jezná     20adad31-0533-415d-8b37-8282>
+34978ba641d2f5c2153665f4        person          strong_identifier       1       41fb22cd-0e46-402c-92c5-a01805ede655    MUDr. Elena Šuňalová    50a7e1da-b9fd-4998-aadc-db96>
+37b2ad2b698232a7f9e31915        person          strong_identifier       1       d2fb6d84-8f0a-42e3-a23f-90bcee51a5eb    MUDr. Ingrida Petričková        3fb74522-d6a9-4089-8>
+389934c3332f0e1fe95c8f75        person          strong_identifier       1       252f324e-c9f6-4991-9597-721adabf28cd    MUDr. Anton Nemčík      bd23edd7-6a4d-46fb-8045-2465>
+38a83013aba8ce0bc0b27164        person          strong_identifier       1       0d9abea0-3296-4cd8-8a56-4667118a440e    MUDr. Jozef Málik       2b86bf24-002a-49f5-a1bb-e16b>
+38e742f862f9a54fc006b262        person          strong_identifier       1       698eb25d-f8ca-4b38-bffd-e746d7dbe5c7    MUDr. Ivana Kleinová    50e90077-258d-4c1a-b9fd-1ed4>
+390afbdc32954fd9b64bf40f        person          strong_identifier       1       122bf9fa-6741-4b39-a003-7d075baca640    MUDr. Adela Šimurková   74e9eec0-f655-45b3-9f69-6c41>
+3b595d3157bda9b55cca9e86        person          strong_identifier       1       a47e7f2e-77cc-4c28-b2f5-3ab1e3e8062d    MUDr. Ľudovít Kováč     b57bba8c-4ee2-47e8-b1a2-7c14>
+3dc557a684b7a6a0d9d3875a        person          strong_identifier       1       aaf987e2-3a69-4c3c-ba29-126fbf2a5608    MUDr. Martin Vašíček    6709df5c-0ec2-4f7b-83f5-8fd9>
+3ee4ef3459488fc43f8225af        person          strong_identifier       1       10abaefc-b934-4da9-8fa1-75880598e45c    MUDr. Desana Brathová   e12e6712-bec5-4551-ac06-328e>
+449c8c0e4107982b9f63f26b        person          strong_identifier       1       1dbf24c8-fbc9-4b7c-a265-fdcb77898288    MUDr. Viktor Kunský     a9e6cb82-e142-406d-a209-5ef5>
+488a362fa73cdbfd37271f02        person          strong_identifier       1       0e54ea1e-ed2b-444b-b76e-94e07b6e2558    Oĺga Šušková    a1438788-3502-4cc8-a43d-d2196d04b42d>
+49d9ad618cc4634059597b86        person          strong_identifier       1       df5c0801-a841-4e70-8fde-fa4a9492b1d3    MUDr. Magda Adamkovičová        5f34c38c-3ff2-4c89-b>
+4dad8a74b3592a986a0da3c1        person          strong_identifier       1       9375f737-ea6c-4c82-9d74-160b87be8e29    MUDr. Peter Ilavský     44e4fcfb-4633-4bd8-9631-d4e6>
+4dfe840fe41d38caacae6495        person          strong_identifier       1       4f28406c-ce96-4b0f-8303-7bdec90fa275    MUDr. Milan Stripaj     0ea21385-da15-4b6e-9a3b-9276>
+4fe001120bcbed2cbdf38cdb        person          strong_identifier       1       6a6010ed-1e7b-40dd-b76e-cec3150636f7    MUDr. Ľuboš Mičko       f38dd54b-8f10-484d-8546-57c9>
+4ff190a38037cc9320617076        person          strong_identifier       1       31ce613e-7ca9-4968-b6f3-5235c175f0cf    MUDr. Ľuboš Ďurkech     a35597c8-b25d-4456-8745-d5e6>
+53e0ee243f8a766d674d2f71        person          strong_identifier       1       5ddac760-5b4e-4c48-a22c-69c681c2b32c    MUDr. Kateřina Rožničková       ebf28584-4cd4-4f0e-a>
+5541c4d876dcc87e04fb638c        person          strong_identifier       1       291aaa30-ff7d-40f6-a430-8a66cad26b58    MUDr. Marie Potyšová    bafe7628-6f06-4955-ba18-039d>
+5922485bb6d75cb02ca43a61        person          strong_identifier       1       0b65df38-a39d-4344-be55-bcdac74f831b    Dr. Ioan Coriolan Giurgiu       e8bb7b48-d675-457b-8>
+5c1b7de957cebe58fb342505        person          strong_identifier       1       ee906013-dd7d-494e-ad3b-d2370dd9767b    MUDr. Roman Lajš        9069f8cf-7283-477f-a608-7b1c>
+5db6e0099dfae0470363a2c0        person          strong_identifier       1       2516ba77-7d05-4d51-a4c4-a94e6a85fbcd    Dr. Alexandru Moldovan  e53cb013-cf27-4d00-ac00-2eb0>
+604fea123dde246b1eedcc7d        person          strong_identifier       1       fad9107b-716a-47c2-ba20-bcdee60f9f68    MUDr. Július Muránsky   de892ab3-0b30-4c59-a439-3e4e>
+65932d0e72913c95c267bd41        person          strong_identifier       1       450e0298-3d22-4777-b89d-acf808be2ab8    MUDr. Vladimír Zvarič   a83fe1a1-6f96-4f35-91ea-1778>
+65b89d60d161aa2201bade6d        person          strong_identifier       1       af8c0cc7-e9c9-42b1-91d3-7f287c90cecb    MUDr. Zuzana Petrovičová        cd31dadd-3515-4ae1-8>
+6b86625e6c194ff273f013e8        person          strong_identifier       1       a53b7131-90f7-42ca-be52-fc3d2c9cdde5    MUDr. Andrej Kovačovic  503b1667-dee7-4995-adc0-08c1>
+6ca3f43220132a6bf4c27a4b        person          strong_identifier       1       2d8ade41-96ae-45b3-bdcd-84d47192f92a    MUDr. Jozef Kašuba      3aa1dbae-4715-432c-8f01-cf07>
+71c739ab22c47fa1af8097f0        person          strong_identifier       1       3a9223de-e238-4e77-8204-baa59650bc61    MUDr. Jozef Bajcar      f7bb3f3f-b199-4b50-8e47-3e2b>
+74251127c4eccb53deb2d74f        person          strong_identifier       1       06df94a4-f227-40d2-8229-9a8311db8564    MUDr. Jozef Síleš       8a72768e-d39d-40fd-b980-cff5>
+785bf3c43e17d24ff822c12a        person          strong_identifier       1       7f4b808c-7063-4e87-b027-cc0ecd7e5144    MUDr. Valéria Mýtniková 18327ede-7d23-4f64-8ad9-d49e>
+7945bae8a2cbac660c0411ca        person          strong_identifier       1       3fd573c6-4d97-4277-8fce-5eec812b6fe5    Michaela Sklárčiková    c17f25b2-880f-4f89-870a-1546>
+7e0ee003fc5aed9a1b9e9c17        person          strong_identifier       1       6c32caac-427b-4bd7-9423-8c967a32a7a8    MUDr. Peter Korbáš      b01a69cf-a51a-4d65-a786-a625>
+7e43131c3d6a7e9858080109        person          strong_identifier       1       a49a34cb-701f-4d82-9e52-7de774089f43    MUDr. Anna Vilčinská    daeed714-7ea1-4cd0-836b-292d>
+7eae1fcfdb06a255e377b2d0        person          strong_identifier       1       38ba8a97-0d2f-4f76-8707-775d8fb3abfc    MUDr. Martin Hoppan     d15a3a3c-7d71-4fcc-ab97-3bd1>
+7f50add9df9f501b779beebe        person          strong_identifier       1       fc974680-6b76-487b-8cf5-0f7ea3bc452c    MUDr. Bohumil Rychtárech        12c82a4e-1690-413d-8>
+8035ce577ade5600790f1d22        person          strong_identifier       1       baa6a9f9-02d0-4db6-9167-52f6b9f68dce    MUDr. Bibiána Bajteková PhD.    f8a261a4-27d5-4c4a-9>
+803a3b55581ac325980a4756        person          strong_identifier       1       e6ece049-85a7-4a9e-ad94-79975480f764    MUDr. Alestar Chicevič  fc530e76-4803-4590-a559-2de0>
+803e8124f7515f60c3af68e6        person          strong_identifier       1       1219b325-fa46-47bb-bc3d-5b480bc899ec    MUDr. Monika Crkoňová   4537c578-c48f-4ee2-b514-d0bd>
+82220e13015d6b2dff0e1b42        person          strong_identifier       1       9b818de1-3e7f-4aee-8a3b-1423c93499b5    MUDr. Katarína Kotlebová        00d2388c-0cf4-47f0-9>
+825900e25311471d53a37113        person          strong_identifier       1       c3c36df5-7ad9-47d5-8647-09b263dfb12b    Hana Znebejánková       50aab4a8-10c0-4342-8024-cb90>
+82753b0690da31217039e979        person          strong_identifier       1       5b7b51b9-de09-49ed-93e7-50d6f3d6f9c9    Jana Džupková   25de0862-68dc-4225-b1b9-f32aef27d428>
+865b21a1758b40529bd73889        person          strong_identifier       1       64782456-b5ad-4d45-869f-e478fe544d76    MUDr. Silvia Rejtová.   309f1850-87ca-4e63-9181-4a2c>
+8723ac1bafb0bc385a2ec95f        person          strong_identifier       1       140d052a-1379-4c3b-a4fd-d7434fc3b770    MUDr. Ladislav Balík    11bccd88-00a9-414f-8310-60c9>
+8a24ab38b2ef6d8a88142525        person          strong_identifier       1       4c684115-a12e-4d03-8ad8-dc803d211f02    MUDr. Peter Turba       be0fc647-36a4-4517-baf3-f5e0>
+8a264c34457a81daf456d640        person          strong_identifier       1       720ef379-0c15-4216-9f7e-c8ba877c5e06    MUDr. Štefan Ander      561faff2-aa3b-435c-838c-23f2>
+8b09cbe477a82fb94ac128df        person          strong_identifier       1       d77daab8-ea08-404c-a398-5adf3cbb18a2    MUDr. Zlata Polgáryová  e3ab7c29-43b1-444d-9c42-35c2>
+8b3c9cfbb3d80985772444b5        person          strong_identifier       1       dc06e6ed-2771-43d6-bbf7-8d5f1108d1cb    MUDr. Zuzana Ančicová   219b1862-3672-49b1-b50e-425a>
+8b3fa6e2f3ab3bb85a2ff0e4        person          strong_identifier       1       4af2d4e1-ca56-4b8c-87d6-ce851b6c73a7    MUDr. Miroslav Fruš     0f971052-df9d-492e-9ef9-bbe5>
+8e0f10f99fd0bcda0f2e6502        person          strong_identifier       1       e5078f53-cf6b-44d3-bcb3-091c3c0e7aab    MUDr. Adnan Saade       0d604d3e-0530-4e42-a64f-6cc7>
+8f0de92b2cab4b63d5a0eb5b        person          strong_identifier       1       2a648689-a382-4fb0-9a89-1b1e5c218b78    MUDr. Klaudia Zuzčáková c1cbf103-4b24-4239-b684-db76>
+911ab7f32b615604964e01e5        person          strong_identifier       1       886e9238-dc13-41b1-b409-cb2e1822954d    MUDr. Radoslav Šraga    c29b95b4-208a-4923-8074-da0b>
+953919061657a3ce2c1b1371        person          strong_identifier       1       f918ecc1-26ea-44a5-b607-a018b189558d    MUDr. Soňa Blahutiaková bb9ac3e6-acb5-4bbb-b8e3-5b74>
+98f4da928c4d7240bddfb515        person          strong_identifier       1       6035a590-ac99-4179-8d49-05d441adcc4f    Adriana Solárová        ba7f3840-8b52-45ce-b816-cfd1>
+9be1e743afdee0bf1d80d39e        person          strong_identifier       1       6bcc9524-7fd5-43eb-9b5b-b86332bac16a    MUDr. Karol Amon        a903e100-e58c-4782-a438-a4ea>
+9c3640d301b9c13808cef61f        person          strong_identifier       1       ae6a6faf-61df-4128-8ff8-ef23d51f23e6    Bc. Danka Krišandová    36a88324-eb50-4e3a-a1e3-3a04>
+9fcd696560fdbc4057b420fd        person          strong_identifier       1       dfbeca22-8566-43f4-8886-ebbd2d55345e    MUDr. Ľubor Péči        273fbeaa-26f6-44c6-a9b8-2bf2>
+a15144815bf31542f4b43e2f        person          strong_identifier       1       78661d02-fe9d-48c2-b991-ab8574a3fd2b    Zuzana Kováříková       72b2d4ff-8d7e-444b-9d03-14a2>
+a363e663530b3f3d7ff4e850        person          strong_identifier       1       de05198a-8371-4d3c-99fd-d275fe98e67a    MUDr. Stela Muránska    5e6cf67e-c1d5-4e5b-995f-2bce>
+a474ccfeaf5ab26498f4e9db        person          strong_identifier       1       05a8eae8-f95a-4082-85e3-434fef17806b    MUDr. Milan Four        164ae9bc-bf2c-4afd-a467-6ae0>
+a51ee35e6ef85a5092eddedd        person          strong_identifier       1       f9f6aecd-bd9f-4a03-9ecb-9e196521ffb1    MUDr. Jozef Záhumenský  c4ff690e-5a49-4623-8c80-1899>
+a5ff9a24220180c4e8be0f06        person          strong_identifier       1       c514c27a-aa8b-41fc-a585-2ddc87c951c2    MUDr. Monika Zimanová   f8184f4f-d68d-44e9-8cb1-bc52>
+a651ff2fa12410100b440f62        person          strong_identifier       1       45340b94-ab3e-463d-b641-c78581a43396    MUDr. Dezider Timko     fb88827f-076c-46ce-9901-3264>
+a9f1920a4089d08aac62387e        person          strong_identifier       1       7d9adf34-d2e7-45dc-adcc-2b16e02f6260    MUDr. Peter Kotleba     ee2f3d92-f9d7-4eee-8159-5ff5>
+ac7fac0f1a4e2aab87bf2420        person          strong_identifier       1       a81aefff-ae77-49a5-b9f3-9a057687c654    MUDr. Daniela Kudrová   1fa18b26-67fe-4f12-9886-6063>
+add2a8d87870a12b13196f1b        person          strong_identifier       1       a0e069b9-7210-45bb-8574-0410693c19a4    MUDr. Iveta Bachňáková  9afbaa5e-2351-495f-934d-0116>
+ae772248d6bd89dc4096629c        person          strong_identifier       1       cf380583-a362-40ba-977b-b4d679f8871e    MUDr. Eva Gogová        de99a4cc-d7fc-4636-ae44-5127>
+b29685b42b42f24a66042225        person          strong_identifier       1       94a550e5-60e2-4c9b-a639-3f12d173ca92    Gabriela Žáčková        a8273448-dc3a-4a41-adbe-23d7>
+b3565fc1e4965e2982516894        person          strong_identifier       1       88e1cc6a-a35d-4164-8055-f9bd43f3caee    Mgr. Erika Mesárošová   652c7d8e-65a5-4a20-8b1c-1518>
+b3599195aaa14dc86add4ba4        person          strong_identifier       1       d4c85f37-4692-4393-9b93-a577e9227cc4    MUDr. Ľubor Lauda       3a313bf0-9dd9-4cc9-847f-fd64>
+b35bee237dd2a18ac50da252        person          strong_identifier       1       6b7c871d-9da9-4ff7-89eb-48853b085a84    MUDr. Dagmar Rúžičková  b00bba15-1730-422e-a833-3e2f>
+b3d0ce47a25d5ebeb5988333        person          strong_identifier       1       6c6465f3-e9f9-401d-b9af-deaefdc7b8cb    MUDr. Gabriela Ikrényiová       0bd8e6ec-ab47-427d-8>
+b435a6074b1d90f27fb8f7b0        person          strong_identifier       1       49a134e8-3ad8-4933-ad0e-fbc1682eb77e    MUDr. Dušan Macala      6de7e28a-62e3-4314-b001-17a1>
+b55607094bff75975b3a7e14        person          strong_identifier       1       cca4a5b3-7479-4a93-950b-8efe2846a4ff    MUDr. Dominik Mízner    e462be57-941d-4ec9-b3be-93aa>
+b820bb2b03eb78999ed17b78        person          strong_identifier       1       8104fc97-6678-4c93-a869-d4167a0d16fe    Emílía Pešlová  52d08245-a6f9-4181-a936-f69288de3f55>
+b86dcdb6877a72e6ab425ebc        person          strong_identifier       1       faef6759-bf31-453a-a33e-e484d693e6ee    MUDr. Rastislav Šindler 01281c8f-d0fd-4f11-9dd1-4ff3>
+b9aba028ea71854b04f554fd        person          strong_identifier       1       98c53179-bdd6-4711-aaee-49c7922ca730    MUDr. Daniela Hríbiková 0004c038-094b-4f6d-aa95-73cc>
+ba532bd4475e240faa2ff874        person          strong_identifier       1       e4f30e42-a73c-4b28-9508-95606679f866    MUDr. Albert Lorincz    6e35bee5-9670-4f46-8f9d-aba0>
+ba7546e2fcd3632f5d60592c        person          strong_identifier       1       dab18c10-2aa5-4612-931b-e63f6481ee5b    MUDr. Jana Kováčová     e8a5e633-2996-4ce1-a97a-7065>
+bde0b85eff9a8879c3d9ec69        person          strong_identifier       1       4cc8b9f6-4caa-421e-aa18-ac311848b8b2    Markéta Kozáková        5f6b7572-0558-48ba-9d21-67ae>
+c030966ffccc56c88ff9a21d        person          strong_identifier       1       1f62b0cb-c56a-4a0b-aa36-c916e1ab2a14    Denisa Šebestová        21ebaa4d-3c76-4c31-951c-34d9>
+c1b8d8d75878b3f45614294c        person          strong_identifier       1       e2a77521-2088-4947-a8ed-83ad003ae25e    MUDr. Lenka Vaňová      f5a87875-0dd3-4b29-b92a-60b3>
+c30f396c9aa0283006633665        person          strong_identifier       1       94a9b472-2bf7-4ed2-ae97-8e45fc7790d0    MUDr. Dalibor Kušnír    4851ab98-00ea-4331-86d4-478a>
+c52f69bfd82d2b670c2e3867        person          strong_identifier       1       7f45687e-311b-4e26-bd7f-9c5dd3c0cf83    MUDr. Katarína Demková  eb28aaf3-d2f4-40c4-8975-957d>
+c532cfe90994176a1315552f        person          strong_identifier       1       7ba75551-3cfa-4362-a111-dd3e127d85da    MUDr. Jana Popluhárová  e9bd7f82-48bb-439c-885d-67ad>
+c9d32610c5c166d80261cde7        person          strong_identifier       1       c8e82d88-7a49-4165-aaee-da411f341075    MUDr. Zuzana Vejběrová  f20b82eb-4de3-45a6-8637-2385>
+ca25cb2198fa8223938513bd        person          strong_identifier       1       54af8862-3a1a-42c7-9946-13b0ea3e9d42    MUDr. Renata Hrnčiarová c301e9e7-1347-42a2-89b4-8377>
+cc5c0a89d59da39ff5ee403b        person          strong_identifier       1       87038386-d33e-43ca-ac5c-c634417f68d0    Anna Najmiková  2aebbb71-7454-4ce2-bd37-c17a79e64178>
+cccd289e6230f2ec0587d17d        person          strong_identifier       1       4c40c620-f541-4772-ba68-f4154ef409ef    MUDr. Eva Lompartová    f6cc0f83-e7fa-4848-a6cc-d471>
+cf236eea7010ebb76a2a8699        person          strong_identifier       1       ea3ad6cd-ff79-4c3d-b39b-81cb953a21e2    MUDr. Alexander Suhányi e91498c1-42d1-4edc-b436-f417>
+cff05596670c000bf8dc790b        person          strong_identifier       1       2ff14957-3674-44a7-9c34-b8bcac0fe774    MUDr. Karol Zeleník     cfaee745-7525-4c70-aaee-e61e>
+cff567bbdb546afd0e6a536d        person          strong_identifier       1       03ab9184-0ecf-4cdb-823e-ed998291db15    MUDr. Zora Vasiľová     c6d62c10-b475-4da1-bf30-56b8>
+d19b97b707c8bbe964fce014        person          strong_identifier       1       e4969fcf-ca1d-4eea-91d1-5dad21c25564    MUDr. Jaroslav Hlavačka bcea7abc-fa0a-4e11-b523-b3c7>
+d2467f6f02cee2f79e6e00fd        person          strong_identifier       1       c3b7b84c-72d1-44a5-8481-dab2c56acc77    MUDr. Ľubica Levčík Poláková    9740d498-3acf-4703-a>
+d4cf772816b2da01faef8df5        person          strong_identifier       1       6276662a-62f6-474d-ba7d-75044509842c    Anna Lašová     607eae8c-afb9-4941-a3ca-c58c209cbbbd>
+d54ae9e7cc130b8915b0f85c        person          strong_identifier       1       0ce3ff3d-8376-4d4b-aec7-e357616ec9ce    MUDr. Iveta Hőrmannová  84a4c221-f328-4579-9436-94fc>
+d59c42c22fcc17df068e7edb        person          strong_identifier       1       3f627995-2b74-4a04-86ed-d56a6e5d4226    MUDr. Ľubomír Petráš    8f5c8585-7a4f-45d3-8554-7797>
+d766d6df4e45c7f1fd0f1d42        person          strong_identifier       1       3c69f3b4-d116-4897-bfc2-da880fde36e4    MUDr. Jana Slaziníková  cb519ef4-bea4-4edf-a526-4b19>
+d80eaba6bef479e36afe4bed        person          strong_identifier       1       09faadb9-2c02-4f95-8cbd-9052149faec3    Božena Kotuľáková       f9e0803e-89d0-440c-8b17-db2e>
+d99adb7b5b3c6a2f2ecb4aaf        person          strong_identifier       1       e26ce9cc-572d-4064-aaa5-4c3be9022450    MUDr. Peter Roch        834d7459-2334-4e4b-bf25-550e>
+d9ebe2ba4146ae8a59fa6c86        person          strong_identifier       1       fd825d5c-283e-4ba8-8bdd-177b3d458470    MUDr. Miroslav Halapin  139ad5b8-54d2-4dec-acc5-5911>
+d9f87816042d39b9a42303b9        person          strong_identifier       1       aabd4f02-1d0e-418f-a95e-af6433c2fc22    MUDr. Juliana Pavlíčková        c8c555fe-3e87-49b7-a>
+dae42717253fed6002395e33        person          strong_identifier       1       0229c052-d90d-4456-90b2-310057585a2d    MUDr. Miroslav Klein    37b74b21-672a-4b2c-91b2-ceb0>
+db33e023c3b595d71011cca8        person          strong_identifier       1       820b1079-a97b-4422-a952-df9d7b032464    MUDr. Miloslav Hajdušek 7d810897-5979-433e-9aa2-4e7c>
+dbe5b0a8d6f2172c3044f494        person          strong_identifier       1       bf28a079-e491-4ac4-8101-02d92a79ab46    Bc. Eva Skřepková       08f8e604-bcd1-4adf-a8f0-7189>
+dc49cd366d4be7223342ce8d        person          strong_identifier       1       62dfffed-5d81-4990-8c38-07a1dfa4dc67    MUDr. Eva Bystrická     2c3334e5-08d7-458c-b66e-c360>
+dd025c171c4865c5bd96818c        person          strong_identifier       1       537ca24b-5d48-4deb-9e0d-620c08df7940    Svatava Bálková edbc0b06-9a4e-4a3c-9336-9492d952541a>
+e35dd09431719eebfcff1930        person          strong_identifier       1       6596abd6-8d5a-4419-89ba-9b2eed76f227    MUDr. Juraj Orság       4c4f07d0-6fec-41c9-99cf-5cb3>
+e5dde3c7aee15a112eb096fb        person          strong_identifier       1       266b2695-3d17-4ce3-adaa-f34f88acc79b    MUDr. Imrich Hlavička   8ce844f7-7571-4cca-a628-4709>
+e61c276ea137b4b2ec8d4fbf        person          strong_identifier       1       95b48e1d-9baa-432a-88c6-848968c9e334    MUDr. Dagmar Kapralčíková       2b371128-d4da-4967-b>
+e6d8f9b916c4006ba07d7521        person          strong_identifier       1       02a96d8c-cbf6-44e1-bc6c-051bf8421796    Bc. Eva Myslikovjanova  a722f84d-985f-4540-8b82-6373>
+e7575cda67651ad8a7ccf6b5        person          strong_identifier       1       351cd781-4de0-4ea5-8551-60c71e472b21    MUDr. Richard Kočkovský c5bc6561-8cd3-4e3c-8932-fb32>
+ed646ecf43ff72f1230570e0        person          strong_identifier       1       03389585-e95b-495f-b072-935b7ec30681    MUDr. Iveta Trnovská MPH        62e0bf55-2744-4dbe-9>
+ed6810b540ef416322bfda4a        person          strong_identifier       1       08c0410c-1647-4ebc-aae1-4858a98ccc7b    MUDr. Zuzana Vaníčková  8bceb7a8-1b26-49b9-9ec5-49b5>
+ed928b48873641a14a997e65        person          strong_identifier       1       ddf8b79a-fedb-4a5d-b370-8318ee417ceb    MUDr. Anna Moresová     adbcdc76-5ce7-4e4c-809b-18dc>
+ef635093b68be1b327237257        person          strong_identifier       1       3b27c34d-eb7f-4ecf-9ddc-e6f65ec98938    MUDr. Stanislav Köszegy 657a2961-a770-4a53-83d0-f146>
+f09a814d0919bbcc47fe47f9        person          strong_identifier       1       a60b2b66-d71e-4a98-984b-6a0611b75161    MUDr. Josef Čepelík     aa4b3f15-d47c-4e98-8d95-fc56>
+f0eadf0c0db4888bddbedd80        person          strong_identifier       1       350a6e08-9b2f-4568-ae78-1c7ca3467950    MUDr. Ján Kmeťko        4457a4d2-f23f-4b09-9ec9-81cd>
+f4d0948230c820be292cbd45        person          strong_identifier       1       bd8c4a46-082a-4085-922c-fcd62d11e463    MUDr. Dagmar Psalmanová PhD., MBA       0873517d-01f>
+f54af41fc471d0a314f319b2        person          strong_identifier       1       c119879e-9207-4a8e-b0b3-71cf3bcd31c0    MUDr. Mária Farkašová   cc63b74f-5db9-4637-8436-ac81>
+f70f4d91cd18043594653256        person          strong_identifier       1       0ef31f4b-3e82-4606-b137-2cf1e035d668    MUDr. Viktor Križan     f2eaaacd-ca1a-48ff-a2f1-7c4b>
+f72c8cd9f67e5c153cdc68f0        person          strong_identifier       1       c0a33e23-67c2-4d19-84f3-60cae27c8726    MUDr. Karol Krak        87409473-f3aa-45df-bfbd-9835>
+f78c19ef880b16963b26306b        person          strong_identifier       1       632b2d0c-3354-4928-9fed-ad7346e3b1ac    Bc. Adéla Veverová      4d328463-bf31-4480-8cfa-3899>
+f7f80486bd69e3b5fc927d0a        person          strong_identifier       1       c44c8a36-a38b-407a-8c55-332aea612a76    MUDr. Ján Cifrák        12c32f89-730c-4cb6-b109-5e98>
+fada8b1c171c8c945c5fe827        person          strong_identifier       1       4bcd5903-b730-46ca-a935-e531b3dbc0fb    MUDr. Eva Pelachová     d8588260-1440-4459-b8f6-625e>
+fd8467497a1d5a6db831b08f        person          strong_identifier       1       fdbf8a5c-a95f-43ab-9fb9-fcea3ddd98ef    MUDr. Jaroslav Dura     ccd1348a-e982-44b1-944e-5afb>
+fdda03710d4ad4a9f667bed4        person          strong_identifier       1       4d1c7599-5539-42ee-8629-5f23b6ff8e63    MUDr. Ján Sviežený      6fc20541-3f22-40be-ac32-8fd5>
+(END)
