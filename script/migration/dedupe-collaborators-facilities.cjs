@@ -338,11 +338,13 @@ async function main() {
     await client.query("SET LOCAL lock_timeout = '5s'");
     await client.query("SET LOCAL idle_in_transaction_session_timeout = '180s'");
     await client.query("SELECT pg_advisory_xact_lock(hashtext('indexus:dedupe:v1'))");
-    const [people, facilities, assignments] = await Promise.all([
-      client.query("SELECT * FROM collaborators WHERE is_active = true ORDER BY id"),
-      Promise.all([client.query("SELECT 'clinic' AS kind, clinics.* FROM clinics WHERE is_active = true ORDER BY id"), client.query("SELECT 'hospital' AS kind, hospitals.* FROM hospitals WHERE is_active = true ORDER BY id")]).then(([c, h]) => ({ rows: [...c.rows, ...h.rows] })),
-      client.query("SELECT * FROM contact_assignments WHERE is_active = true ORDER BY id"),
-    ]);
+    // A single pg Client executes one query at a time. Keep these sequential so
+    // the repeatable-read snapshot remains compatible with pg@9 and later.
+    const people = await client.query("SELECT * FROM collaborators WHERE is_active = true ORDER BY id");
+    const clinics = await client.query("SELECT 'clinic' AS kind, clinics.* FROM clinics WHERE is_active = true ORDER BY id");
+    const hospitals = await client.query("SELECT 'hospital' AS kind, hospitals.* FROM hospitals WHERE is_active = true ORDER BY id");
+    const facilities = { rows: [...clinics.rows, ...hospitals.rows] };
+    const assignments = await client.query("SELECT * FROM contact_assignments WHERE is_active = true ORDER BY id");
     const workplaces = {}; for (const a of assignments.rows) (workplaces[a.person_id] ||= []).push(a);
     const operations = [...findFacilities(facilities.rows), ...findPeople(people.rows, workplaces, facilities.rows)]
       .filter((x) => !onlyName || x.loserIds.some((id) => normalize((people.rows.find((p) => p.id === id) || facilities.rows.find((f) => f.id === id) || {}).name || personName(people.rows.find((p) => p.id === id) || {})).includes(normalize(onlyName))))
