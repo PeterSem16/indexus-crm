@@ -7,7 +7,9 @@
  * review and --apply.
  */
 const crypto = require("node:crypto");
+const path = require("node:path");
 const { Pool } = require("pg");
+const { createVerifiedBackup } = require("./dedupe-backup.cjs");
 
 const normalize = (value) => String(value || "")
   .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -30,6 +32,99 @@ function reviewValue(field, value) {
 
 function reviewPatch(patch) {
   return Object.fromEntries(Object.entries(patch).map(([field, value]) => [field, reviewValue(field, value)]));
+}
+
+function canonicalize(value) {
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]));
+  }
+  return value;
+}
+
+function stableJson(value) {
+  return JSON.stringify(canonicalize(value));
+}
+
+function operationId(operation) {
+  return crypto.createHash("sha256").update(stableJson({
+    kind: operation.kind,
+    entityKind: operation.entityKind || null,
+    winnerId: String(operation.winnerId),
+    loserIds: [...operation.loserIds].map(String).sort(),
+  })).digest("hex").slice(0, 24);
+}
+
+function executionPlan(report, selectedOperationIds = []) {
+  const selected = new Set(selectedOperationIds);
+  const operations = (report.operations || [])
+    .map((operation) => ({ ...operation, operationId: operation.operationId || operationId(operation) }))
+    .filter((operation) => operation.autoApplicable || selected.has(operation.operationId))
+    .sort((a, b) => a.operationId.localeCompare(b.operationId));
+  const unsupported = operations.flatMap((operation) =>
+    (operation.references || [])
+      .filter((reference) => reference.policy === "unsupported_block")
+      .map((reference) => `${reference.table}.${reference.column}`)
+  );
+  if (unsupported.length) {
+    throw new Error(`Selected operations contain unsupported references: ${[...new Set(unsupported)].join(", ")}`);
+  }
+  const assignmentMerges = [...(report.assignmentMerges || [])]
+    .sort((a, b) => String(a.winnerId).localeCompare(String(b.winnerId)));
+  const content = {
+    format: 2,
+    generatedBy: "dedupe-collaborators-facilities",
+    database: report.database,
+    operations: operations.map((operation) => ({
+      operationId: operation.operationId,
+      kind: operation.kind,
+      entityKind: operation.entityKind || null,
+      winnerId: String(operation.winnerId),
+      loserIds: [...operation.loserIds].map(String).sort(),
+      plannedPatch: operation.executionPatch || {},
+      references: [...(operation.references || [])].sort((a, b) =>
+        `${a.table}|${a.column}|${a.policy}`.localeCompare(`${b.table}|${b.column}|${b.policy}`)
+      ),
+      sourceFingerprints: [...(operation.sourceFingerprints || [])].sort((a, b) =>
+        String(a.id).localeCompare(String(b.id))
+      ),
+    })),
+    assignmentMerges,
+  };
+  return {
+    ...content,
+    planHash: crypto.createHash("sha256").update(stableJson(content)).digest("hex"),
+  };
+}
+
+async function writeRestrictedPlan(filePath, plan) {
+  if (!filePath || !path.isAbsolute(filePath)) throw new Error("--plan-file must be an absolute path");
+  const fs = require("node:fs/promises");
+  await fs.writeFile(filePath, `${JSON.stringify(plan, null, 2)}\n`, { mode: 0o600, flag: "wx" });
+  await fs.chmod(filePath, 0o600);
+}
+
+async function readRestrictedPlan(filePath) {
+  if (!filePath || !path.isAbsolute(filePath)) throw new Error("--plan-file must be an absolute path");
+  const fs = require("node:fs/promises");
+  const stat = await fs.stat(filePath);
+  if (!stat.isFile()) throw new Error("--plan-file is not a regular file");
+  if ((stat.mode & 0o077) !== 0) throw new Error("--plan-file must have mode 0600");
+  return JSON.parse(await fs.readFile(filePath, "utf8"));
+}
+
+function verifyExecutionPlan(plan, expectedHash, confirmation) {
+  if (!plan || plan.format !== 2 || !plan.planHash) throw new Error("Invalid execution plan");
+  const { planHash, ...content } = plan;
+  const actualHash = crypto.createHash("sha256").update(stableJson(content)).digest("hex");
+  if (actualHash !== planHash || (expectedHash && expectedHash !== planHash)) {
+    throw new Error("Execution plan hash mismatch");
+  }
+  if (confirmation !== `DEDUPLICATE_NO_DELETE:${planHash}`) {
+    throw new Error("Confirmation must be DEDUPLICATE_NO_DELETE:<planHash>");
+  }
+  return true;
 }
 
 function fieldConflicts(rows) {
@@ -174,6 +269,7 @@ function plannedAssignmentMerges(rows, operations) {
       person_id: personId,
       entity_id: entityId,
       _dedupeRemapped: personId !== String(row.person_id) || entityId !== String(row.entity_id),
+      _sourceFingerprint: crypto.createHash("sha256").update(JSON.stringify(row)).digest("hex"),
     };
   });
   const affectedKeys = new Set(remapped
@@ -189,7 +285,287 @@ function plannedAssignmentMerges(rows, operations) {
     .map((merge) => ({
       ...merge,
       patch: Object.fromEntries(Object.entries(merge.patch).filter(([key]) => key !== "_dedupeRemapped")),
+      sourceFingerprints: [merge.winnerId, ...merge.duplicateIds].map((id) => {
+        const row = remapped.find((candidate) => String(candidate.id) === String(id));
+        return { id: String(id), hash: row?._sourceFingerprint };
+      }).sort((a, b) => a.id.localeCompare(b.id)),
+      expectedCategoryId: remapped.find((row) => String(row.id) === String(merge.winnerId))?.category_id || null,
     }));
+}
+
+function referencePolicy(table, column) {
+  if (table === "contact_assignments") return "contact_assignment_special";
+  if (table === "dedupe_entity_aliases" && column === "loser_id") return "preserve_alias";
+  if (/(audit|snapshot|history|log)/i.test(`${table}.${column}`)) return "preserve_audit";
+  return "redirect";
+}
+
+const quoteIdentifier = (value) => {
+  if (!/^[a-z_][a-z0-9_]*$/i.test(String(value))) throw new Error(`Unsafe SQL identifier: ${value}`);
+  return `"${String(value).replace(/"/g, '""')}"`;
+};
+
+const tableForOperation = (operation) =>
+  operation.kind === "person"
+    ? "collaborators"
+    : operation.entityKind === "hospital" ? "hospitals" : "clinics";
+
+async function databaseIdentity(db) {
+  const result = await db.query(`
+    SELECT current_database() AS database,
+           current_user AS "user",
+           current_setting('server_version_num') AS "serverVersion",
+           (SELECT oid::text FROM pg_database WHERE datname=current_database()) AS "databaseOid"
+  `);
+  return result.rows[0];
+}
+
+function assertSame(label, actual, expected) {
+  if (stableJson(actual) !== stableJson(expected)) {
+    throw new Error(`${label} changed since the reviewed plan; refusing to apply`);
+  }
+}
+
+async function verifyOperationState(db, operation) {
+  const table = tableForOperation(operation);
+  const ids = [String(operation.winnerId), ...operation.loserIds.map(String)];
+  const rows = (await db.query(
+    `SELECT * FROM ${quoteIdentifier(table)} WHERE id=ANY($1::varchar[]) ORDER BY id FOR UPDATE`,
+    [ids]
+  )).rows;
+  if (rows.length !== ids.length) throw new Error(`Missing source row for operation ${operation.operationId}`);
+  if (rows.some((row) => row.is_active !== true)) {
+    throw new Error(`Inactive source row for operation ${operation.operationId}`);
+  }
+  const fingerprints = rows.map((row) => ({
+    id: String(row.id),
+    hash: crypto.createHash("sha256").update(JSON.stringify(row)).digest("hex"),
+  })).sort((a, b) => a.id.localeCompare(b.id));
+  assertSame(`Source fingerprint for operation ${operation.operationId}`, fingerprints, operation.sourceFingerprints);
+  const references = await referenceInventory(db, operation);
+  assertSame(
+    `Reference inventory for operation ${operation.operationId}`,
+    references.sort((a, b) => `${a.table}|${a.column}|${a.policy}`.localeCompare(`${b.table}|${b.column}|${b.policy}`)),
+    [...operation.references].sort((a, b) => `${a.table}|${a.column}|${a.policy}`.localeCompare(`${b.table}|${b.column}|${b.policy}`))
+  );
+  return { table, rows };
+}
+
+async function applyReviewedPatch(db, operation, table) {
+  const patch = operation.plannedPatch || {};
+  const forbidden = new Set(["id", "kind", "is_active", "created_at", "updated_at"]);
+  const columns = (await db.query(`
+    SELECT column_name FROM information_schema.columns
+    WHERE table_schema='public' AND table_name=$1
+  `, [table])).rows.map((row) => row.column_name);
+  const allowed = new Set(columns);
+  const keys = Object.keys(patch);
+  for (const key of keys) {
+    if (forbidden.has(key) || !allowed.has(key)) throw new Error(`Unsafe planned patch field ${table}.${key}`);
+  }
+  if (!keys.length) return;
+  await db.query(
+    `UPDATE ${quoteIdentifier(table)}
+     SET ${keys.map((key, index) => `${quoteIdentifier(key)}=$${index + 2}`).join(", ")},
+         updated_at=now()
+     WHERE id=$1`,
+    [operation.winnerId, ...keys.map((key) => patch[key])]
+  );
+}
+
+async function insertLegacyAliases(db, operation, rows, planHash) {
+  const winnerId = String(operation.winnerId);
+  for (const row of rows.filter((candidate) => String(candidate.id) !== winnerId && filled(candidate.legacy_id))) {
+    const source = operation.kind === "person" ? String(row.data_source || "legacy") : "legacy";
+    await db.query(`
+      INSERT INTO dedupe_entity_aliases
+        (entity_kind, source, legacy_id, loser_id, canonical_id, plan_hash)
+      VALUES ($1,$2,$3,$4,$5,$6)
+      ON CONFLICT (entity_kind, source, legacy_id) DO UPDATE SET
+        loser_id=EXCLUDED.loser_id,
+        canonical_id=EXCLUDED.canonical_id,
+        plan_hash=EXCLUDED.plan_hash
+      WHERE dedupe_entity_aliases.canonical_id=EXCLUDED.canonical_id
+    `, [operation.kind === "person" ? "person" : operation.entityKind, source, String(row.legacy_id), String(row.id), winnerId, planHash]);
+    const alias = (await db.query(`
+      SELECT canonical_id FROM dedupe_entity_aliases
+      WHERE entity_kind=$1 AND source=$2 AND legacy_id=$3
+    `, [operation.kind === "person" ? "person" : operation.entityKind, source, String(row.legacy_id)])).rows[0];
+    if (!alias || String(alias.canonical_id) !== winnerId) {
+      throw new Error(`Legacy alias conflict for ${operation.operationId}`);
+    }
+  }
+}
+
+async function redirectReviewedReferences(db, operation) {
+  const winnerId = String(operation.winnerId);
+  const loserIds = operation.loserIds.map(String);
+  const entityType = operation.kind === "person" ? "collaborator" : operation.entityKind;
+  for (const reference of operation.references || []) {
+    if (reference.policy === "preserve_audit" || reference.policy === "contact_assignment_special") continue;
+    const table = quoteIdentifier(reference.table);
+    if (reference.policy === "redirect_array") {
+      const column = quoteIdentifier(reference.column);
+      await db.query(`
+        UPDATE ${table}
+        SET ${column}=ARRAY(
+          SELECT DISTINCT CASE WHEN value=ANY($2::text[]) THEN $1 ELSE value END
+          FROM unnest(${column}) AS value
+          ORDER BY 1
+        )
+        WHERE ${column} && $2::text[]
+      `, [winnerId, loserIds]);
+    } else if (reference.column === "entity_type/entity_id") {
+      await db.query(
+        `UPDATE ${table} SET entity_id=$1 WHERE entity_type=$2 AND entity_id=ANY($3::varchar[])`,
+        [winnerId, entityType, loserIds]
+      );
+    } else if (reference.policy === "redirect") {
+      const column = quoteIdentifier(reference.column);
+      await db.query(`UPDATE ${table} SET ${column}=$1 WHERE ${column}=ANY($2::varchar[])`, [winnerId, loserIds]);
+    } else {
+      throw new Error(`Unsupported reference policy ${reference.policy}`);
+    }
+  }
+}
+
+async function applyAssignmentRedirects(db, operations, assignmentMerges) {
+  for (const operation of operations) {
+    if (operation.kind === "person") {
+      await db.query(
+        "UPDATE contact_assignments SET person_id=$1, updated_at=now() WHERE person_id=ANY($2::varchar[])",
+        [operation.winnerId, operation.loserIds]
+      );
+    } else {
+      await db.query(
+        "UPDATE contact_assignments SET entity_id=$1, updated_at=now() WHERE entity_type=$2 AND entity_id=ANY($3::varchar[])",
+        [operation.winnerId, operation.entityKind, operation.loserIds]
+      );
+    }
+  }
+  for (const merge of assignmentMerges || []) {
+    const ids = [String(merge.winnerId), ...merge.duplicateIds.map(String)];
+    const rows = (await db.query(
+      "SELECT * FROM contact_assignments WHERE id=ANY($1::varchar[]) ORDER BY id FOR UPDATE",
+      [ids]
+    )).rows;
+    if (rows.length !== ids.length) throw new Error(`Assignment merge source changed for ${merge.winnerId}`);
+    const keys = Object.keys(merge.patch || {}).filter((key) =>
+      !["id", "person_id", "entity_type", "entity_id", "category_id", "is_active", "created_at", "updated_at"].includes(key)
+    );
+    if (keys.length) {
+      await db.query(
+        `UPDATE contact_assignments SET ${keys.map((key, index) => `${quoteIdentifier(key)}=$${index + 2}`).join(", ")}, updated_at=now() WHERE id=$1`,
+        [merge.winnerId, ...keys.map((key) => merge.patch[key])]
+      );
+    }
+    await db.query(
+      "UPDATE contact_assignments SET is_active=false, updated_at=now() WHERE id=ANY($1::varchar[])",
+      [merge.duplicateIds]
+    );
+  }
+}
+
+async function verifyAssignmentMerges(db, assignmentMerges) {
+  for (const merge of assignmentMerges || []) {
+    const ids = [String(merge.winnerId), ...merge.duplicateIds.map(String)];
+    const rows = (await db.query(
+      "SELECT * FROM contact_assignments WHERE id=ANY($1::varchar[]) ORDER BY id FOR UPDATE",
+      [ids]
+    )).rows;
+    if (rows.length !== ids.length || rows.some((row) => row.is_active !== true)) {
+      throw new Error(`Assignment merge source changed for ${merge.winnerId}`);
+    }
+    const fingerprints = rows.map((row) => ({
+      id: String(row.id),
+      hash: crypto.createHash("sha256").update(JSON.stringify(row)).digest("hex"),
+    })).sort((a, b) => a.id.localeCompare(b.id));
+    assertSame(`Assignment fingerprints for ${merge.winnerId}`, fingerprints, merge.sourceFingerprints);
+    const categories = new Set(rows.map((row) => row.category_id || null));
+    if (categories.size !== 1 || !categories.has(merge.expectedCategoryId || null)) {
+      throw new Error(`Assignment category changed for ${merge.winnerId}`);
+    }
+  }
+}
+
+async function applyExecutionPlan(pool, plan, backup, options = {}) {
+  const client = await pool.connect();
+  const failAfter = (phase) => {
+    if (options.faultAfterPhase === phase) throw new Error(`Injected dedupe failure after ${phase}`);
+  };
+  try {
+    await client.query("BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE");
+    await client.query("SET LOCAL statement_timeout = '10min'");
+    await client.query("SET LOCAL lock_timeout = '10s'");
+    await client.query("SET LOCAL idle_in_transaction_session_timeout = '12min'");
+    await client.query("SELECT pg_advisory_xact_lock(hashtext('indexus:dedupe:v2'))");
+    const prior = (await client.query(
+      "SELECT status FROM dedupe_apply_ledger WHERE plan_hash=$1 FOR UPDATE",
+      [plan.planHash]
+    )).rows[0];
+    if (prior?.status === "applied") {
+      await client.query("ROLLBACK");
+      return { alreadyApplied: true, planHash: plan.planHash };
+    }
+    assertSame("Database identity", await databaseIdentity(client), plan.database);
+    const verified = [];
+    for (const operation of plan.operations) {
+      verified.push({ operation, ...(await verifyOperationState(client, operation)) });
+    }
+    await verifyAssignmentMerges(client, plan.assignmentMerges);
+    for (const item of verified) {
+      await applyReviewedPatch(client, item.operation, item.table);
+    }
+    failAfter("patches");
+    for (const item of verified) {
+      await insertLegacyAliases(client, item.operation, item.rows, plan.planHash);
+    }
+    failAfter("aliases");
+    for (const item of verified) {
+      await redirectReviewedReferences(client, item.operation);
+    }
+    failAfter("references");
+    await applyAssignmentRedirects(client, plan.operations, plan.assignmentMerges);
+    failAfter("assignments");
+    for (const item of verified) {
+      await client.query(
+        `UPDATE ${quoteIdentifier(item.table)} SET is_active=false, updated_at=now()
+         WHERE id=ANY($1::varchar[])`,
+        [item.operation.loserIds]
+      );
+    }
+    failAfter("deactivation");
+    for (const operation of plan.operations) {
+      const remaining = (await referenceInventory(client, operation))
+        .filter((reference) =>
+          !["preserve_audit", "preserve_alias", "contact_assignment_special"].includes(reference.policy)
+        );
+      if (remaining.length) throw new Error(`Mutable references remain for operation ${operation.operationId}`);
+    }
+    await client.query(`
+      INSERT INTO dedupe_apply_ledger
+        (plan_hash, status, backup_manifest_path, operation_count, details)
+      VALUES ($1,'applied',$2,$3,$4::jsonb)
+    `, [
+      plan.planHash,
+      backup.manifestPath,
+      plan.operations.length,
+      JSON.stringify({ backupSha256: backup.manifest.dump.sha256 }),
+    ]);
+    failAfter("ledger");
+    await client.query("COMMIT");
+    return {
+      applied: true,
+      planHash: plan.planHash,
+      operationCount: plan.operations.length,
+      backupManifestPath: backup.manifestPath,
+    };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 function matchingPeople(people, workplacesByPerson = {}, facilities = []) {
@@ -286,47 +662,142 @@ function findFacilities(facilities) {
 async function referenceInventory(db, op) {
   const ids = op.loserIds;
   const suffix = op.kind === "person" ? ["collaborator_id", "person_id"] : [`${op.entityKind}_id`];
-  const semanticSuffix = op.kind === "person" ? "%collaborator_id" : `%${op.entityKind}_id`;
+  const semanticSuffixes = op.kind === "person"
+    ? ["%collaborator_id", "%person_id"]
+    : [`%${op.entityKind}_id`];
   const columns = (await db.query(`
-    SELECT table_name, column_name
-    FROM information_schema.columns
-    WHERE table_schema='public'
-      AND (column_name = ANY($1::text[]) OR column_name LIKE $2)
-    ORDER BY table_name, column_name
-  `, [suffix, semanticSuffix])).rows;
+    SELECT c.table_name, c.column_name
+    FROM information_schema.columns c
+    JOIN information_schema.tables t
+      ON t.table_schema=c.table_schema AND t.table_name=c.table_name
+    WHERE c.table_schema='public'
+      AND t.table_type='BASE TABLE'
+      AND c.data_type IN ('character varying', 'text')
+      AND (c.column_name = ANY($1::text[]) OR c.column_name LIKE ANY($2::text[]))
+    ORDER BY c.table_name, c.column_name
+  `, [suffix, semanticSuffixes])).rows;
   const counts = [];
+  const covered = new Set();
   for (const { table_name: table, column_name: column } of columns) {
+    covered.add(`${table}.${column}`);
     const result = await db.query(`SELECT count(*)::int AS count FROM "${table}" WHERE "${column}" = ANY($1::varchar[])`, [ids]);
-    if (result.rows[0].count > 0) counts.push({ table, column, count: result.rows[0].count });
+    if (result.rows[0].count > 0) counts.push({ table, column, count: result.rows[0].count, policy: referencePolicy(table, column) });
   }
-  if (op.kind === "facility") {
-    const arrayColumn = op.entityKind === "clinic" ? "clinic_ids" : "hospital_ids";
-    const result = await db.query(`SELECT count(*)::int AS count FROM collaborators WHERE "${arrayColumn}" && $1::text[]`, [ids]);
-    if (result.rows[0].count > 0) counts.push({ table: "collaborators", column: arrayColumn, count: result.rows[0].count });
+  const arrayNames = op.kind === "person"
+    ? ["collaborator_ids", "person_ids"]
+    : [`${op.entityKind}_ids`];
+  const arrayColumns = (await db.query(`
+    SELECT c.table_name, c.column_name
+    FROM information_schema.columns c
+    JOIN information_schema.tables t
+      ON t.table_schema=c.table_schema AND t.table_name=c.table_name
+    WHERE c.table_schema='public'
+      AND t.table_type='BASE TABLE'
+      AND c.data_type='ARRAY'
+      AND c.udt_name IN ('_text', '_varchar')
+      AND (c.column_name = ANY($1::text[]) OR c.column_name LIKE ANY($2::text[]))
+    ORDER BY c.table_name, c.column_name
+  `, [arrayNames, arrayNames.map((name) => `%${name}`)])).rows;
+  for (const { table_name: table, column_name: column } of arrayColumns) {
+    covered.add(`${table}.${column}`);
+    const result = await db.query(
+      `SELECT count(*)::int AS count FROM "${table}" WHERE "${column}" && $1::text[]`,
+      [ids]
+    );
+    if (result.rows[0].count > 0) {
+      counts.push({ table, column, count: result.rows[0].count, policy: "redirect_array" });
+    }
   }
   const polymorphic = (await db.query(`
     SELECT t.table_name
     FROM information_schema.columns t
     JOIN information_schema.columns i USING (table_schema, table_name)
-    WHERE t.table_schema='public' AND t.column_name='entity_type' AND i.column_name='entity_id'
+    JOIN information_schema.tables base
+      ON base.table_schema=t.table_schema AND base.table_name=t.table_name
+    WHERE t.table_schema='public'
+      AND base.table_type='BASE TABLE'
+      AND t.column_name='entity_type'
+      AND i.column_name='entity_id'
     ORDER BY t.table_name
   `)).rows;
   const entityType = op.kind === "person" ? "collaborator" : op.entityKind;
   for (const { table_name: table } of polymorphic) {
+    covered.add(`${table}.entity_id`);
     const result = await db.query(`SELECT count(*)::int AS count FROM "${table}" WHERE entity_type=$1 AND entity_id = ANY($2::varchar[])`, [entityType, ids]);
-    if (result.rows[0].count > 0) counts.push({ table, column: "entity_type/entity_id", count: result.rows[0].count });
+    if (result.rows[0].count > 0) counts.push({ table, column: "entity_type/entity_id", count: result.rows[0].count, policy: referencePolicy(table, "entity_type/entity_id") });
+  }
+  const allScalarColumns = (await db.query(`
+    SELECT c.table_name, c.column_name
+    FROM information_schema.columns c
+    JOIN information_schema.tables t
+      ON t.table_schema=c.table_schema AND t.table_name=c.table_name
+    WHERE c.table_schema='public'
+      AND t.table_type='BASE TABLE'
+      AND c.data_type IN ('character varying', 'text')
+    ORDER BY c.table_name, c.column_name
+  `)).rows;
+  const sourceTable = tableForOperation(op);
+  for (const { table_name: table, column_name: column } of allScalarColumns) {
+    if (covered.has(`${table}.${column}`) || (table === sourceTable && column === "id")) continue;
+    const result = await db.query(
+      `SELECT count(*)::int AS count FROM "${table}" WHERE "${column}" = ANY($1::varchar[])`,
+      [ids]
+    );
+    if (result.rows[0].count > 0) {
+      const policy = referencePolicy(table, column);
+      counts.push({
+        table,
+        column,
+        count: result.rows[0].count,
+        policy: policy === "preserve_alias" ? policy : "unsupported_block",
+      });
+    }
+  }
+  const allArrayColumns = (await db.query(`
+    SELECT c.table_name, c.column_name
+    FROM information_schema.columns c
+    JOIN information_schema.tables t
+      ON t.table_schema=c.table_schema AND t.table_name=c.table_name
+    WHERE c.table_schema='public'
+      AND t.table_type='BASE TABLE'
+      AND c.data_type='ARRAY'
+      AND c.udt_name IN ('_text', '_varchar')
+    ORDER BY c.table_name, c.column_name
+  `)).rows;
+  for (const { table_name: table, column_name: column } of allArrayColumns) {
+    if (covered.has(`${table}.${column}`)) continue;
+    const result = await db.query(
+      `SELECT count(*)::int AS count FROM "${table}" WHERE "${column}" && $1::text[]`,
+      [ids]
+    );
+    if (result.rows[0].count > 0) {
+      counts.push({ table, column, count: result.rows[0].count, policy: "unsupported_block" });
+    }
   }
   return counts;
 }
 function stablePlan(plan) {
+  const publicOperations = (plan.operations || [])
+    .map(({ executionPatch, ...operation }) => operation)
+    .map((operation) => ({
+      ...operation,
+      operationId: operation.operationId || operationId(operation),
+      loserIds: [...operation.loserIds].map(String).sort(),
+    }))
+    .sort((a, b) => a.operationId.localeCompare(b.operationId));
   const normalized = {
     version: 1,
     generatedBy: "dedupe-collaborators-facilities",
-    operations: plan.operations || [],
-    assignmentMerges: plan.assignmentMerges || [],
+    operations: publicOperations,
+    assignmentMerges: [...(plan.assignmentMerges || [])].sort((a, b) => String(a.winnerId).localeCompare(String(b.winnerId))),
   };
   const json = JSON.stringify(normalized);
   return { ...normalized, planHash: crypto.createHash("sha256").update(json).digest("hex") };
+}
+
+function publicOperation(operation) {
+  const { executionPatch, ...publicData } = operation;
+  return publicData;
 }
 
 async function main() {
@@ -334,11 +805,19 @@ async function main() {
   const onlyName = process.argv.find((x) => x.startsWith("--only-name="))?.slice(12);
   const apply = args.has("--apply"), planArg = process.argv.find((x) => x.startsWith("--plan-hash="));
   const confirmation = process.argv.find((x) => x.startsWith("--confirm="));
-  if (apply) {
-    throw new Error("Apply is intentionally disabled. Review the production dry-run report and reference inventory first.");
+  const planFile = process.argv.find((x) => x.startsWith("--plan-file="))?.slice(12);
+  const approvals = process.argv.filter((x) => x.startsWith("--approve-operation=")).map((x) => x.slice(21));
+  const backupRoot = process.argv.find((x) => x.startsWith("--backup-dir="))?.slice(13);
+  if (args.has("--backup")) {
+    if (!backupRoot) throw new Error("--backup requires --backup-dir=/absolute/protected/path");
+    const backup = await createVerifiedBackup({ backupRoot });
+    console.log(JSON.stringify(backup.manifest, null, 2));
+    return;
   }
-  if (apply && (!planArg || confirmation?.slice(10) !== "DEDUPLICATE_NO_DELETE")) {
-    throw new Error("Apply requires --plan-hash=<hash> and --confirm=DEDUPLICATE_NO_DELETE");
+  if (apply) {
+    if (!planFile || !planArg || !confirmation || !backupRoot) {
+      throw new Error("Apply requires --plan-file, --plan-hash, --confirm, and --backup-dir");
+    }
   }
   const hasConnectionString = filled(process.env.DATABASE_URL);
   const password = process.env.PGPASSWORD;
@@ -355,6 +834,43 @@ async function main() {
     user: process.env.PGUSER || "indexus",
     password,
   });
+  if (apply) {
+    try {
+      const plan = await readRestrictedPlan(planFile);
+      verifyExecutionPlan(plan, planArg.slice(12), confirmation.slice(10));
+      const preflight = await pool.connect();
+      try {
+        const support = (await preflight.query(`
+          SELECT to_regclass('public.dedupe_entity_aliases') AS aliases,
+                 to_regclass('public.dedupe_apply_ledger') AS ledger
+        `)).rows[0];
+        if (!support.aliases || !support.ledger) {
+          throw new Error("Dedupe support tables are missing; deploy and restart the application before apply");
+        }
+        const prior = (await preflight.query(
+          "SELECT status, backup_manifest_path FROM dedupe_apply_ledger WHERE plan_hash=$1",
+          [plan.planHash]
+        )).rows[0];
+        if (prior?.status === "applied") {
+          console.log(JSON.stringify({
+            alreadyApplied: true,
+            planHash: plan.planHash,
+            backupManifestPath: prior.backup_manifest_path,
+          }, null, 2));
+          return;
+        }
+        assertSame("Database identity", await databaseIdentity(preflight), plan.database);
+      } finally {
+        preflight.release();
+      }
+      const backup = await createVerifiedBackup({ backupRoot });
+      const result = await applyExecutionPlan(pool, plan, backup);
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    } finally {
+      await pool.end();
+    }
+  }
   const client = await pool.connect();
   try {
     await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
@@ -378,6 +894,8 @@ async function main() {
       const winner = allRows.get(String(op.winnerId));
       const losers = op.loserIds.map((id) => allRows.get(String(id))).filter(Boolean);
       const patch = losers.reduce((acc, loser) => Object.assign(acc, mergeFillOnly({ ...winner, ...acc }, loser)), {});
+      op.executionPatch = patch;
+      op.operationId = operationId(op);
       op.plannedPatch = reviewPatch(patch);
       op.matchEvidence = [winner, ...losers].map((row) => matchEvidence(row, workplaces));
       op.fieldConflicts = fieldConflicts([winner, ...losers]);
@@ -388,79 +906,34 @@ async function main() {
       op.references = await referenceInventory(client, op);
     }
     const assignmentMerges = plannedAssignmentMerges(assignments.rows, operations);
+    const approvedSet = new Set(approvals);
+    const approvedOperations = operations.filter((operation) =>
+      operation.autoApplicable || approvedSet.has(operation.operationId)
+    );
+    const approvedAssignmentMerges = plannedAssignmentMerges(assignments.rows, approvedOperations);
+    const executablePlan = executionPlan({
+      database: await databaseIdentity(client),
+      operations,
+      assignmentMerges: approvedAssignmentMerges,
+    }, approvals);
     const report = stablePlan({ operations, assignmentMerges });
-    report.autoApplicable = operations.filter((x) => x.autoApplicable);
-    report.manualReview = operations.filter((x) => !x.autoApplicable);
+    if (planFile) {
+      await writeRestrictedPlan(planFile, executablePlan);
+      report.planFile = planFile;
+    }
+    delete report.executionPatch;
+    report.operations.forEach((operation) => delete operation.executionPatch);
+    report.autoApplicable = operations.filter((x) => x.autoApplicable).map(publicOperation);
+    report.manualReview = operations.filter((x) => !x.autoApplicable).map(publicOperation);
+    report.approvedOperationIds = executablePlan.operations.map((operation) => operation.operationId);
+    report.executionPlanHash = executablePlan.planHash;
     if (onlyName) {
       report.inspectionMatches = inspectionMatches(onlyName, people.rows, facilities.rows, workplaces);
     }
-    if (!apply) { await client.query("ROLLBACK"); console.log(JSON.stringify(report, null, 2)); return; }
-    if (planArg.slice(12) !== report.planHash) throw new Error("Plan hash does not match current database; refusing to apply");
-    for (const op of operations.filter((x) => x.autoApplicable)) await applyOperation(client, op);
-    for (const merge of report.assignmentMerges) {
-      const current = (await client.query("SELECT * FROM contact_assignments WHERE id=$1 FOR UPDATE", [merge.winnerId])).rows[0];
-      // Metadata is merged before deactivation; duplicate rows are retained for audit.
-      let merged = { ...current };
-      for (const id of merge.duplicateIds) merged = { ...merged, ...mergeAssignment(merged, (await client.query("SELECT * FROM contact_assignments WHERE id=$1", [id])).rows[0] || {}) };
-      const setKeys = Object.keys(merged).filter((k) => !["id", "person_id", "entity_type", "entity_id"].includes(k));
-      if (setKeys.length) await client.query(`UPDATE contact_assignments SET ${setKeys.map((k, i) => `"${k}"=$${i + 2}`).join(", ")}, updated_at=now() WHERE id=$1`, [merge.winnerId, ...setKeys.map((k) => merged[k])]);
-      await client.query("UPDATE contact_assignments SET is_active=false, updated_at=now() WHERE id=ANY($1::varchar[])", [merge.duplicateIds]);
-    }
-    await client.query("COMMIT");
-    console.log(JSON.stringify({ ...report, applied: true }, null, 2));
+    await client.query("ROLLBACK");
+    console.log(JSON.stringify(report, null, 2));
+    return;
   } catch (e) { await client.query("ROLLBACK"); throw e; } finally { client.release(); await pool.end(); }
 }
-async function applyOperation(db, op) {
-  const person = op.kind === "person", table = person ? "collaborators" : (op.entityKind === "hospital" ? "hospitals" : "clinics");
-  for (const loserId of op.loserIds) {
-    const winner = op.winnerId || (await db.query(`SELECT id FROM ${table} WHERE is_active=true ORDER BY id LIMIT 1`)).rows[0]?.id;
-    if (!winner || winner === loserId) continue;
-    const loser = (await db.query(`SELECT * FROM ${table} WHERE id=$1`, [loserId])).rows[0];
-    const current = (await db.query(`SELECT * FROM ${table} WHERE id=$1 FOR UPDATE`, [winner])).rows[0];
-    const patch = mergeFillOnly(current, loser);
-    const keys = Object.keys(patch);
-    if (keys.length) await db.query(`UPDATE ${table} SET ${keys.map((k, i) => `"${k}"=$${i + 2}`).join(", ")}, updated_at=now() WHERE id=$1`, [winner, ...keys.map((k) => patch[k])]);
-    if (person) {
-      const refs = (await db.query(`SELECT table_name, column_name FROM information_schema.columns
-        WHERE table_schema='public' AND data_type IN ('character varying','text')
-          AND column_name IN ('collaborator_id','person_id')`)).rows;
-      for (const ref of refs) {
-        if (["collaborator_agreements", "collaborator_activities", "collaborator_documents", "collaborator_addresses", "contact_assignments", "collaborator_other_data"].includes(ref.table_name)) continue;
-        if (/(audit|snapshot|history|log)/i.test(ref.table_name)) {
-          const found = await db.query(`SELECT 1 FROM "${ref.table_name}" WHERE "${ref.column_name}"=$1 LIMIT 1`, [loserId]);
-          if (found.rowCount) throw new Error(`BLOCKED person ${loserId}: unsupported audit/snapshot reference ${ref.table_name}.${ref.column_name}`);
-          continue;
-        }
-        await db.query(`UPDATE "${ref.table_name}" SET "${ref.column_name}"=$1 WHERE "${ref.column_name}"=$2`, [winner, loserId]);
-      }
-      await db.query("UPDATE collaborator_agreements SET collaborator_id=$1 WHERE collaborator_id=$2", [winner, loserId]);
-      await db.query("UPDATE collaborator_activities SET collaborator_id=$1 WHERE collaborator_id=$2", [winner, loserId]);
-      await db.query("UPDATE collaborator_documents SET collaborator_id=$1 WHERE collaborator_id=$2", [winner, loserId]);
-      await db.query("UPDATE collaborator_addresses SET collaborator_id=$1 WHERE collaborator_id=$2", [winner, loserId]);
-      const other = (await db.query("SELECT * FROM collaborator_other_data WHERE collaborator_id=$1", [loserId])).rows[0];
-      if (other) {
-        const currentOther = (await db.query("SELECT * FROM collaborator_other_data WHERE collaborator_id=$1", [winner])).rows[0];
-        if (!currentOther) await db.query("UPDATE collaborator_other_data SET collaborator_id=$1 WHERE collaborator_id=$2", [winner, loserId]);
-        else throw new Error(`BLOCKED ${op.kind} ${loserId}: collaborator_other_data exists for both records; no-delete policy requires manual merge`);
-      }
-      await db.query("UPDATE contact_assignments SET person_id=$1 WHERE person_id=$2", [winner, loserId]);
-    } else {
-      const entityType = op.entityKind;
-      await db.query("UPDATE contact_assignments SET entity_id=$1 WHERE entity_id=$2 AND entity_type=$3", [winner, loserId, entityType]);
-      if (entityType === "clinic") {
-        await db.query("UPDATE collaborators SET clinic_id=$1 WHERE clinic_id=$2", [winner, loserId]);
-        await db.query("UPDATE collaborators SET clinic_ids=(SELECT array_agg(DISTINCT CASE WHEN x=$2 THEN $1 ELSE x END) FROM unnest(clinic_ids) x) WHERE $2=ANY(clinic_ids)", [winner, loserId]);
-        for (const [table, column] of [["clinic_referrals", "clinic_id"], ["clinic_referrals", "referring_clinic_id"], ["clinic_events", "clinic_id"], ["hospital_network_members", "clinic_id"], ["campaign_contacts", "clinic_id"]])
-          await db.query(`UPDATE ${table} SET ${column}=$1 WHERE ${column}=$2`, [winner, loserId]);
-      } else if (entityType === "hospital") {
-        await db.query("UPDATE collaborators SET hospital_id=$1 WHERE hospital_id=$2", [winner, loserId]);
-        await db.query("UPDATE collaborators SET hospital_ids=(SELECT array_agg(DISTINCT CASE WHEN x=$2 THEN $1 ELSE x END) FROM unnest(hospital_ids) x) WHERE $2=ANY(hospital_ids)", [winner, loserId]);
-        for (const [table, column] of [["collections", "hospital_id"], ["collaborator_activities", "hospital_id"], ["hospital_network_members", "hospital_id"], ["hospital_representative_assignments", "hospital_id"], ["campaign_contacts", "hospital_id"]])
-          await db.query(`UPDATE ${table} SET ${column}=$1 WHERE ${column}=$2`, [winner, loserId]);
-      }
-    }
-    await db.query(`UPDATE ${table} SET is_active=false, updated_at=now() WHERE id=$1`, [loserId]);
-  }
-}
-module.exports = { normalize, normalizeEmail, normalizePhone, personName, facilityName, facilityLocationKey, canonical, mergeFillOnly, mergeAssignment, assignmentMergePlan, plannedAssignmentMerges, findPeople, findFacilities, inspectionMatches, stablePlan };
+module.exports = { normalize, normalizeEmail, normalizePhone, personName, facilityName, facilityLocationKey, canonicalize, canonical, mergeFillOnly, mergeAssignment, assignmentMergePlan, plannedAssignmentMerges, referencePolicy, referenceInventory, findPeople, findFacilities, inspectionMatches, stablePlan, operationId, executionPlan, verifyExecutionPlan, readRestrictedPlan, databaseIdentity, applyExecutionPlan };
 if (require.main === module) main().catch((e) => { console.error(`FATAL: ${e.message}`); process.exitCode = 1; });

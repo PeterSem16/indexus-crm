@@ -14,6 +14,7 @@
 const sql = require('mssql');
 const { Pool } = require('pg');
 const { normalizePhone, normalizeEmail, normalizeName, normalizeNationalId, normalizePostalCode, normalizeCity } = require('./consolidate-contacts.cjs');
+const { resolveCollaboratorAlias } = require('./dedupe-iscbc-alias.cjs');
 
 const COMMIT = process.argv.includes('--commit');
 const SKIP_AGREEMENTS = process.argv.includes('--skip-agreements');
@@ -31,7 +32,7 @@ if (ONLY_DOC_ID && SKIP_AGREEMENTS) {
 
 const MSSQL_CONFIG = {
   user: 'cbcuser',
-  password: 'XqU0nNND',
+  password: process.env.CBC_DB_PASSWORD,
   server: '10.1.2.2',
   port: 1433,
   database: 'CBC',
@@ -45,8 +46,38 @@ const PG_CONFIG = {
   port: 5432,
   database: 'indexus_crm',
   user: 'indexus',
-  password: 'HanyurIfKisck',
+  password: process.env.PGPASSWORD,
 };
+
+async function loadCollaboratorAliases(pgPool, recordsById) {
+  const aliases = {};
+  const result = await pgPool.query(`
+    SELECT legacy_id, canonical_id
+    FROM dedupe_entity_aliases
+    WHERE entity_kind='person' AND source='iscbc'
+  `);
+  for (const row of result.rows) aliases[String(row.legacy_id)] = row;
+  const canonicalIds = [...new Set(result.rows.map((row) => String(row.canonical_id)))];
+  if (canonicalIds.length) {
+    const canonicalRows = await pgPool.query(`
+      SELECT id, legacy_id, email, mobile, birth_number, is_active
+      FROM collaborators
+      WHERE id=ANY($1::varchar[])
+    `, [canonicalIds]);
+    for (const row of canonicalRows.rows) recordsById[String(row.id)] = row;
+  }
+  return { aliases, recordsById };
+}
+
+async function applyHospitalAliases(pgPool, hospitalLookup) {
+  const result = await pgPool.query(`
+    SELECT a.legacy_id, h.id AS canonical_id
+    FROM dedupe_entity_aliases a
+    JOIN hospitals h ON h.id=a.canonical_id AND h.is_active=true
+    WHERE a.entity_kind='hospital'
+  `);
+  for (const row of result.rows) hospitalLookup[String(row.legacy_id)] = row.canonical_id;
+}
 
 function log(msg) { console.log(`[${new Date().toISOString()}] ${msg}`); }
 
@@ -96,8 +127,16 @@ async function main() {
 
   // ---------- PG lookups ----------
   const existingCollab = {};
-  const pgC = await pgPool.query('SELECT id, legacy_id, email, mobile, birth_number FROM collaborators WHERE legacy_id IS NOT NULL ORDER BY legacy_id, is_active ASC, updated_at ASC NULLS FIRST, id');
-  for (const r of pgC.rows) existingCollab[r.legacy_id] = r;
+  const pgC = await pgPool.query('SELECT id, legacy_id, email, mobile, birth_number, is_active FROM collaborators WHERE legacy_id IS NOT NULL ORDER BY legacy_id, is_active DESC, updated_at ASC NULLS FIRST, id');
+  const collabById = {};
+  for (const r of pgC.rows) {
+    collabById[String(r.id)] = r;
+    if (!existingCollab[r.legacy_id]) existingCollab[r.legacy_id] = r;
+  }
+  const aliasLookup = await loadCollaboratorAliases(pgPool, collabById);
+  for (const legacyId of Object.keys(aliasLookup.aliases)) {
+    existingCollab[legacyId] = resolveCollaboratorAlias(aliasLookup.aliases, legacyId, existingCollab[legacyId], collabById);
+  }
   log(`INDEXUS: ${pgC.rows.length} spolupracovníkov s legacy_id`);
 
   const existingAgr = new Set();
@@ -106,8 +145,9 @@ async function main() {
   log(`INDEXUS: ${existingAgr.size} dohôd s legacy_id`);
 
   const hospitalLookup = {};
-  const pgH = await pgPool.query('SELECT id, legacy_id FROM hospitals WHERE legacy_id IS NOT NULL');
+  const pgH = await pgPool.query('SELECT id, legacy_id FROM hospitals WHERE legacy_id IS NOT NULL AND is_active=true');
   for (const r of pgH.rows) hospitalLookup[r.legacy_id] = r.id;
+  await applyHospitalAliases(pgPool, hospitalLookup);
 
   const healthInsLookup = {};
   try {
@@ -325,8 +365,17 @@ async function main() {
   // ---------- 2. Agreements: insert chýbajúcich ----------
   // refresh collabLookup (po insertoch)
   const collabLookup = {};
-  const pgC2 = await pgPool.query('SELECT id, legacy_id FROM collaborators WHERE legacy_id IS NOT NULL');
-  for (const r of pgC2.rows) collabLookup[r.legacy_id] = r.id;
+  const pgC2 = await pgPool.query('SELECT id, legacy_id, is_active FROM collaborators WHERE legacy_id IS NOT NULL ORDER BY legacy_id, is_active DESC, id');
+  const collabById2 = {};
+  for (const r of pgC2.rows) {
+    collabById2[String(r.id)] = r;
+    if (!collabLookup[r.legacy_id]) collabLookup[r.legacy_id] = r.id;
+  }
+  const aliasLookup2 = await loadCollaboratorAliases(pgPool, collabById2);
+  for (const legacyId of Object.keys(aliasLookup2.aliases)) {
+    const resolved = resolveCollaboratorAlias(aliasLookup2.aliases, legacyId, { id: collabLookup[legacyId] }, collabById2);
+    if (resolved?.id) collabLookup[legacyId] = resolved.id;
+  }
 
   const agreementFilter = ONLY_DOC_ID ? `WHERE ca.doc_id = ${ONLY_DOC_ID}` : '';
   const agreements = await mssqlPool.request().query(`
@@ -402,4 +451,5 @@ async function main() {
   await pgPool.end();
 }
 
-main().catch(err => { console.error(err); process.exit(1); });
+if (require.main === module) main().catch(err => { console.error(err); process.exit(1); });
+module.exports = { resolveCollaboratorAlias };

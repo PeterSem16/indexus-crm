@@ -297,6 +297,27 @@ app.use((req, res, next) => {
         inbound_queue_id varchar NOT NULL REFERENCES inbound_queues(id) ON DELETE CASCADE,
         created_at timestamp NOT NULL DEFAULT now()
       );
+      CREATE TABLE IF NOT EXISTS dedupe_entity_aliases (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        entity_kind text NOT NULL,
+        source text NOT NULL,
+        legacy_id text NOT NULL,
+        loser_id varchar NOT NULL,
+        canonical_id varchar NOT NULL,
+        plan_hash text NOT NULL,
+        created_at timestamp NOT NULL DEFAULT now(),
+        CONSTRAINT uq_dedupe_entity_alias UNIQUE (entity_kind, source, legacy_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_dedupe_entity_alias_canonical
+        ON dedupe_entity_aliases (entity_kind, canonical_id);
+      CREATE TABLE IF NOT EXISTS dedupe_apply_ledger (
+        plan_hash text PRIMARY KEY,
+        status text NOT NULL,
+        backup_manifest_path text NOT NULL,
+        operation_count integer NOT NULL DEFAULT 0,
+        applied_at timestamp NOT NULL DEFAULT now(),
+        details jsonb
+      );
     `);
     console.log('[migration] Customer columns ensured');
 

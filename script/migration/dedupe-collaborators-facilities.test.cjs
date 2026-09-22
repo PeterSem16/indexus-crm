@@ -1,6 +1,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
 const d = require("./dedupe-collaborators-facilities.cjs");
+const sync = require("./dedupe-iscbc-alias.cjs");
 
 test("normalization is accent, case and punctuation insensitive", () => {
   assert.equal(d.normalize(" RADMILA, ŠÚR "), "radmilasur");
@@ -30,6 +32,81 @@ test("plan hash is deterministic", () => {
   const a = d.stablePlan({ operations: [{ kind: "person", winnerId: "1", loserIds: ["2"] }] });
   const b = d.stablePlan({ operations: [{ kind: "person", winnerId: "1", loserIds: ["2"] }] });
   assert.equal(a.planHash, b.planHash);
+});
+test("plan hash is stable when operation input order is shuffled", () => {
+  const operations = [
+    { kind: "person", winnerId: "2", loserIds: ["4", "3"], operationId: "b" },
+    { kind: "facility", entityKind: "clinic", winnerId: "1", loserIds: ["9"], operationId: "a" },
+  ];
+  assert.equal(d.stablePlan({ operations }).planHash, d.stablePlan({ operations: operations.reverse() }).planHash);
+});
+test("execution plan defaults to automatic operations and requires explicit manual approval", () => {
+  const operations = [
+    { kind: "person", winnerId: "1", loserIds: ["2"], autoApplicable: true, executionPatch: { email: "a@x.test" }, references: [] },
+    { kind: "person", winnerId: "3", loserIds: ["4"], autoApplicable: false, executionPatch: { email: "b@x.test" }, references: [] },
+  ];
+  const automatic = d.executionPlan({ operations, assignmentMerges: [] });
+  assert.equal(automatic.operations.length, 1);
+  const approved = d.executionPlan({ operations, assignmentMerges: [] }, [d.operationId(operations[1])]);
+  assert.equal(approved.operations.length, 2);
+  assert.equal(approved.operations[1].plannedPatch.email, "b@x.test");
+});
+test("execution plan rejects hash-bound confirmation mismatch", () => {
+  const plan = d.executionPlan({ operations: [], assignmentMerges: [] });
+  assert.throws(() => d.verifyExecutionPlan(plan, plan.planHash, "DEDUPLICATE_NO_DELETE"), /Confirmation/);
+  assert.equal(d.verifyExecutionPlan(plan, plan.planHash, `DEDUPLICATE_NO_DELETE:${plan.planHash}`), true);
+});
+test("execution plan hash survives Date JSON serialization", () => {
+  const plan = d.executionPlan({
+    operations: [],
+    assignmentMerges: [{
+      winnerId: "a",
+      duplicateIds: ["b"],
+      patch: { start_date: new Date("2026-01-02T03:04:05.000Z") },
+    }],
+  });
+  const reloaded = JSON.parse(JSON.stringify(plan));
+  assert.equal(
+    d.verifyExecutionPlan(reloaded, plan.planHash, `DEDUPLICATE_NO_DELETE:${plan.planHash}`),
+    true
+  );
+});
+test("execution plan fails closed on an unsupported live reference", () => {
+  const operation = {
+    kind: "person",
+    winnerId: "1",
+    loserIds: ["2"],
+    autoApplicable: true,
+    executionPatch: {},
+    references: [{ table: "mystery", column: "opaque_owner", count: 1, policy: "unsupported_block" }],
+  };
+  assert.throws(() => d.executionPlan({ operations: [operation], assignmentMerges: [] }), /unsupported references/);
+});
+test("reference policy preserves audit/history and treats assignments specially", () => {
+  assert.equal(d.referencePolicy("audit_events", "person_id"), "preserve_audit");
+  assert.equal(d.referencePolicy("contact_assignments", "person_id"), "contact_assignment_special");
+  assert.equal(d.referencePolicy("campaign_contacts", "collaborator_id"), "redirect");
+  assert.equal(d.referencePolicy("dedupe_entity_aliases", "loser_id"), "preserve_alias");
+});
+test("alias resolution prefers canonical active record", () => {
+  const canonical = { id: "winner", is_active: true };
+  assert.equal(sync.resolveCollaboratorAlias({ "393": { canonical_id: "winner" } }, "393", { id: "loser" }, { winner: canonical }), canonical);
+  assert.throws(() =>
+    sync.resolveCollaboratorAlias({ "393": { canonical_id: "winner" } }, "393", { id: "loser" }, { winner: { id: "winner", is_active: false } }),
+  /missing or inactive/);
+  assert.throws(() =>
+    sync.resolveCollaboratorAlias({ "393": { canonical_id: "missing" } }, "393", { id: "loser" }, {}),
+  /missing or inactive/);
+  assert.deepEqual(sync.resolveCollaboratorAlias({}, "393", { id: "direct" }, {}), { id: "direct" });
+});
+test("apply path contains no DELETE and requires reviewed plan, confirmation, backup and serializable transaction", () => {
+  const source = fs.readFileSync(require.resolve("./dedupe-collaborators-facilities.cjs"), "utf8");
+  assert.doesNotMatch(source, /\bDELETE\s+FROM\b/i);
+  assert.match(source, /Apply requires --plan-file, --plan-hash, --confirm, and --backup-dir/);
+  assert.match(source, /createVerifiedBackup/);
+  assert.match(source, /DEDUPLICATE_NO_DELETE:\$\{planHash\}/);
+  assert.match(source, /ISOLATION LEVEL SERIALIZABLE/);
+  assert.match(source, /verifyOperationState/);
 });
 test("blank location facilities are manual/no candidates", () => {
   assert.equal(d.findFacilities([{ id: "1", kind: "clinic", name: "RADMA", city: null, country_code: "SK" }, { id: "2", kind: "clinic", name: "RADMA", city: null, country_code: "SK" }]).length, 0);

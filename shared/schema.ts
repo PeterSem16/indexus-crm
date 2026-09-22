@@ -7654,6 +7654,32 @@ export const insertContactAssignmentSchema = createInsertSchema(contactAssignmen
 export type InsertContactAssignment = z.infer<typeof insertContactAssignmentSchema>;
 export type ContactAssignment = typeof contactAssignments.$inferSelect;
 
+// Durable aliases created by reviewed duplicate consolidation. These are
+// intentionally polymorphic because legacy IDs come from several sources and
+// point to collaborators, clinics, or hospitals.
+export const dedupeEntityAliases = pgTable("dedupe_entity_aliases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  entityKind: text("entity_kind").notNull(),
+  source: text("source").notNull(),
+  legacyId: text("legacy_id").notNull(),
+  loserId: varchar("loser_id").notNull(),
+  canonicalId: varchar("canonical_id").notNull(),
+  planHash: text("plan_hash").notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+}, (table) => ({
+  dedupeEntityAliasKey: unique("uq_dedupe_entity_alias").on(table.entityKind, table.source, table.legacyId),
+  dedupeEntityAliasCanonical: index("idx_dedupe_entity_alias_canonical").on(table.entityKind, table.canonicalId),
+}));
+
+export const dedupeApplyLedger = pgTable("dedupe_apply_ledger", {
+  planHash: text("plan_hash").primaryKey(),
+  status: text("status").notNull(),
+  backupManifestPath: text("backup_manifest_path").notNull(),
+  operationCount: integer("operation_count").notNull().default(0),
+  appliedAt: timestamp("applied_at").notNull().default(sql`now()`),
+  details: jsonb("details"),
+});
+
 export const cbcActivityDefinitions = pgTable("cbc_activity_definitions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   code: text("code").notNull().unique(),
