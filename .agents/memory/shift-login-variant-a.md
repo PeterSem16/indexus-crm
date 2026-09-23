@@ -9,8 +9,8 @@ The approved Variant A must be implemented literally: its explicit light surface
 
 **How to apply:** Compare production directly with the approved Variant A component. Preserve real dashboard behavior and mobile support, but do not substitute the existing modal's theme styling or structural placement for the approved design. Keep the modal dense enough to scan several cards while allowing expanded operational details.
 
-The user explicitly approved the spectral stereo ambient audio-test sound and requested that same character for NEXUS shift login.
+The user explicitly approved the audio-test sound, then the richer spectral login previews with broader stereo motion, floating upper harmonics and deeper reverb, and requested those exact login sounds be integrated.
 
 **Why:** They want the login cues to sound as pleasing as the approved headphone test, not generic beeps.
 
-**How to apply:** Keep welcome/start spacious and harmonic; make selection cues shorter and restrained in the same style. Preserve existing triggers and never turn these cues into continuous background music.
+**How to apply:** Preserve the approved richer spectral login sound character without further unsolicited retuning. Keep welcome/start spacious and harmonic; make selection cues shorter and restrained in the same style. Preserve existing triggers and never turn these cues into continuous background music.
