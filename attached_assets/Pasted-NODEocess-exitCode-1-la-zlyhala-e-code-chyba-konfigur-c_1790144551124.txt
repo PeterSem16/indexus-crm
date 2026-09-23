@@ -1,0 +1,50 @@
+NODEocess.exitCode = 1;la zlyhala:", e.code || "chyba konfigurácie alebo dotazu");
+┌─────────┬───────────────┬───────────────────────┬─────────┬────────────┬──────────────────────────┬─────────────────┐
+│ (index) │ ID zo zoznamu │ Osoba                 │ Krajina │ Počet zhôd │ Dátum poslednej Akcie    │ Stav            │
+├─────────┼───────────────┼───────────────────────┼─────────┼────────────┼──────────────────────────┼─────────────────┤
+│ 0       │ '377'         │ 'Dušan Táborský'      │ 'SK'    │ '1'        │ 2006-11-30T12:14:00.000Z │ 'PRÍZNAK UŽ MÁ' │
+│ 1       │ '393'         │ 'Radmila Sládičeková' │ 'SK'    │ '2'        │ null                     │ 'BEZ AKCIE'     │
+│ 2       │ '393'         │ 'Radmila Sládičeková' │ 'SK'    │ '2'        │ null                     │ 'BEZ AKCIE'     │
+│ 3       │ '398'         │ 'Martin Gažo'         │ 'SK'    │ '1'        │ 2024-02-27T00:13:00.000Z │ 'PRÍZNAK UŽ MÁ' │
+│ 4       │ '2724'        │ 'Boris Hudec'         │ 'SK'    │ '1'        │ 2026-03-13T21:27:00.000Z │ 'PRÍZNAK UŽ MÁ' │
+│ 5       │ '2759'        │ 'Rafik Al Khoury'     │ 'SK'    │ '1'        │ 2013-03-17T00:00:00.000Z │ 'PRÍZNAK UŽ MÁ' │
+│ 6       │ '2772'        │ 'Jozef Tholt'         │ 'SK'    │ '1'        │ 2024-08-03T00:50:00.000Z │ 'PRÍZNAK UŽ MÁ' │
+│ 7       │ '2805'        │ 'Jela Kubalová'       │ 'SK'    │ '2'        │ null                     │ 'BEZ AKCIE'     │
+│ 8       │ '2805'        │ 'Jela Kubalová'       │ 'SK'    │ '2'        │ null                     │ 'BEZ AKCIE'     │
+│ 9       │ '2911'        │ 'Vladimír Klacik'     │ 'SK'    │ '1'        │ 2024-07-26T21:10:00.000Z │ 'PRÍZNAK UŽ MÁ' │
+│ 10      │ '2946'        │ 'Mária Oravcová'      │ 'SK'    │ '2'        │ null                     │ 'BEZ AKCIE'     │
+│ 11      │ '2946'        │ 'Mária Oravcová'      │ 'SK'    │ '2'        │ null                     │ 'BEZ AKCIE'     │
+│ 12      │ '3050'        │ 'Karol Javorka'       │ 'SK'    │ '1'        │ 2022-10-24T00:05:00.000Z │ 'PRÍZNAK UŽ MÁ' │
+│ 13      │ '3061'        │ 'Stela Muránska'      │ 'SK'    │ '2'        │ null                     │ 'BEZ AKCIE'     │
+│ 14      │ '3061'        │ 'Stela Muránska'      │ 'SK'    │ '2'        │ null                     │ 'BEZ AKCIE'     │
+│ 15      │ '3078'        │ 'Marián Raučina'      │ 'SK'    │ '1'        │ 2024-06-11T16:45:00.000Z │ 'PRÍZNAK UŽ MÁ' │
+│ 16      │ '3082'        │ 'Ján Baláž'           │ 'SK'    │ '2'        │ null                     │ 'BEZ AKCIE'     │
+│ 17      │ '3082'        │ 'Ján Baláž'           │ 'SK'    │ '2'        │ null                     │ 'BEZ AKCIE'     │
+│ 18      │ '3096'        │ 'Júlia Frívaldská'    │ 'SK'    │ '1'        │ 2025-12-29T01:22:00.000Z │ 'PRÍZNAK UŽ MÁ' │
+│ 19      │ '3116'        │ 'Michal Dandár'       │ 'SK'    │ '1'        │ null                     │ 'BEZ AKCIE'     │
+│ 20      │ '3141'        │ 'Ján Kováč'           │ 'SK'    │ '2'        │ null                     │ 'BEZ AKCIE'     │
+│ 21      │ '3141'        │ 'Ján Kováč'           │ 'SK'    │ '2'        │ null                     │ 'BEZ AKCIE'     │
+│ 22      │ '3160'        │ 'Tatiana Ivanovová'   │ 'SK'    │ '1'        │ 2014-09-17T21:15:00.000Z │ 'PRÍZNAK UŽ MÁ' │
+│ 23      │ '3166'        │ 'Ľubomír Krajňák'     │ 'SK'    │ '1'        │ 2014-11-30T02:20:00.000Z │ 'PRÍZNAK UŽ MÁ' │
+│ 24      │ '3239'        │ 'Ivan Dečkov'         │ 'SK'    │ '1'        │ 2024-09-06T10:53:00.000Z │ 'PRÍZNAK UŽ MÁ' │
+│ 25      │ '3260'        │ 'Pavol Kopka'         │ 'SK'    │ '1'        │ 2025-12-04T09:32:00.000Z │ 'PRÍZNAK UŽ MÁ' │
+│ 26      │ '3277'        │ 'Ružena Bugárová'     │ 'SK'    │ '1'        │ 2024-10-09T14:00:00.000Z │ 'PRÍZNAK UŽ MÁ' │
+│ 27      │ '3279'        │ 'Pavol Hartel'        │ 'SK'    │ '1'        │ 2013-12-12T08:20:00.000Z │ 'PRÍZNAK UŽ MÁ' │
+│ 28      │ '3327'        │ 'Daniel Olejár'       │ 'SK'    │ '1'        │ 2025-11-18T09:50:00.000Z │ 'PRÍZNAK UŽ MÁ' │
+│ 29      │ '3329'        │ 'Zuzana Melichová'    │ 'SK'    │ '1'        │ 2025-08-15T08:34:00.000Z │ 'PRÍZNAK UŽ MÁ' │
+│ 30      │ '3352'        │ 'Dagmar Kapralčíková' │ 'SK'    │ '2'        │ null                     │ 'BEZ AKCIE'     │
+│ 31      │ '3352'        │ 'Dagmar Kapralčíková' │ 'SK'    │ '2'        │ null                     │ 'BEZ AKCIE'     │
+│ 32      │ '3408'        │ 'Branislav Murín'     │ 'SK'    │ '1'        │ 2024-07-25T13:00:00.000Z │ 'PRÍZNAK UŽ MÁ' │
+│ 33      │ '3460'        │ 'Jana Paučinová'      │ 'SK'    │ '1'        │ null                     │ 'BEZ AKCIE'     │
+│ 34      │ '3481'        │ 'Gabriel Mančík'      │ 'SK'    │ '1'        │ 2025-11-17T22:15:00.000Z │ 'PRÍZNAK UŽ MÁ' │
+│ 35      │ '3504'        │ 'Klaudia Zuzčáková'   │ 'SK'    │ '2'        │ null                     │ 'BEZ AKCIE'     │
+│ 36      │ '3504'        │ 'Klaudia Zuzčáková'   │ 'SK'    │ '2'        │ null                     │ 'BEZ AKCIE'     │
+│ 37      │ '3611'        │ 'Alžbeta Vargová'     │ 'SK'    │ '2'        │ null                     │ 'BEZ AKCIE'     │
+│ 38      │ '3611'        │ 'Alžbeta Vargová'     │ 'SK'    │ '2'        │ null                     │ 'BEZ AKCIE'     │
+│ 39      │ '3961'        │ 'Iva Urválková'       │ 'SK'    │ '1'        │ 2012-01-18T05:26:00.000Z │ 'PRÍZNAK UŽ MÁ' │
+│ 40      │ '15538'       │ 'Peter Linkesch ml.'  │ 'SK'    │ '1'        │ 2024-11-01T18:48:00.000Z │ 'PRÍZNAK UŽ MÁ' │
+│ 41      │ '15737'       │ 'Mária Hudecová'      │ 'SK'    │ '1'        │ 2022-06-23T01:27:00.000Z │ 'PRÍZNAK UŽ MÁ' │
+│ 42      │ '15925'       │ 'Ivana Kleinová'      │ 'SK'    │ '2'        │ null                     │ 'BEZ AKCIE'     │
+│ 43      │ '15925'       │ 'Ivana Kleinová'      │ 'SK'    │ '2'        │ null                     │ 'BEZ AKCIE'     │
+└─────────┴───────────────┴───────────────────────┴─────────┴────────────┴──────────────────────────┴─────────────────┘
+seman@CORPCRM01:/var/www/indexus-crm$
