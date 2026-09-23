@@ -9,6 +9,7 @@ import { useSip } from "@/contexts/sip-context";
 import { useI18n } from "@/i18n";
 import { classify, classifyIceResult, classifyLatencyQuality, createVoiceDetectionState, gatherIce, hasCriticalFailure, isChromiumDesktop, isCompletePulseReadinessRun, isProbableSameHeadset, measureSameOriginLatency, rmsFromTimeDomain, type DiagnosticResult, type DiagnosticState, updateVoiceDetection } from "./diagnostics";
 import { pulseCopy } from "./translations";
+import { renderAmbientTestSound } from "./ambient-test-sound";
 import { getPulsePresentationState } from "./presentation-state";
 import { canUsePulseDevPreview, PULSE_DEV_PREVIEW_PARAM, pulseDevPreviewCopy } from "./dev-preview";
 
@@ -23,6 +24,12 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   const [heard, setHeard] = useState(false);
   const [soundPlayed, setSoundPlayed] = useState(false);
   const [soundError, setSoundError] = useState(false);
+  const outputSoundRef = useRef<AudioContext | null>(null);
+  const stopOutputSound = useCallback(() => {
+    const context = outputSoundRef.current;
+    outputSoundRef.current = null;
+    if (context && context.state !== "closed") void context.close().catch(() => {});
+  }, []);
   const [running, setRunning] = useState(false);
   const [runCompleted, setRunCompleted] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -37,6 +44,7 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
   const [quickLatencyStatus, setQuickLatencyStatus] = useState<"idle" | "pending" | "pass" | "warn" | "fail">("idle");
   const [quickLatencySamples, setQuickLatencySamples] = useState<number[]>([]);
   const [activeAudioTest, setActiveAudioTest] = useState<"browser" | "microphone" | "output" | "latency" | "progress" | null>(null);
+  useEffect(() => () => stopOutputSound(), [open, activeAudioTest, stopOutputSound]);
   const [showCompletionActions, setShowCompletionActions] = useState(false);
   const [completionActionsDismissed, setCompletionActionsDismissed] = useState(false);
   const successSoundPlayed = useRef(false);
@@ -303,19 +311,34 @@ export function PulseDiagnostics({ open, required = false, keepWakeLock = false,
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [acquireWakeLock, keepWakeLock, open, state]);
   const play = async () => {
+    stopOutputSound();
     heardRef.current = false;
     setSoundPlayed(false); setSoundError(false); setHeard(false); setQuickSpeakerStatus("pending");
     let ctx: AudioContext | undefined;
     try {
       ctx = new AudioContext();
+      outputSoundRef.current = ctx;
       await ctx.resume();
-      const osc = ctx.createOscillator(); const gain = ctx.createGain();
-      osc.frequency.value = 660; gain.gain.value = 0.08; osc.connect(gain).connect(ctx.destination);
-      osc.onended = () => { void ctx?.close(); };
-      osc.start(); osc.stop(ctx.currentTime + .22);
-      await new Promise((resolve) => window.setTimeout(resolve, 320));
-      setSoundPlayed(true); setQuickSpeakerStatus("idle");
-    } catch { setSoundError(true); setQuickSpeakerStatus("fail"); if (ctx) void ctx.close(); }
+      if (outputSoundRef.current !== ctx) return;
+      const channels = renderAmbientTestSound(ctx.sampleRate);
+      const buffer = ctx.createBuffer(2, channels[0].length, ctx.sampleRate);
+      buffer.getChannelData(0).set(channels[0]);
+      buffer.getChannelData(1).set(channels[1]);
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      source.onended = () => {
+        if (outputSoundRef.current !== ctx) return;
+        setSoundPlayed(true); setQuickSpeakerStatus("idle");
+        stopOutputSound();
+      };
+      source.start();
+    } catch {
+      if (!ctx || outputSoundRef.current === ctx) {
+        setSoundError(true); setQuickSpeakerStatus("fail");
+        stopOutputSound();
+      }
+    }
   };
   const playConfirmation = async () => {
     let ctx: AudioContext | undefined;

@@ -665,3 +665,17 @@ mtime_ms = 1789887655682
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/51dc705f-fc86-4810-8bfd-ea2c691d3a31/289a2fed-65ef-4cd1-8258-bf9be4d87d00"
 storage_version_token = "1789887664972434"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "w2Cmcb3Ha4_c_3qbZYyUS"
+uri = "file://attached_assets/pulse-ambient-test.wav"
+type = "audio"
+title = "NEXUS Pulse — ambientný test slúchadiel"
+description = "Ukážka nového 4,2-sekundového stereo zvuku: jemné harmonické vrstvy, priestorový pohyb a dozvuk."
+logical_id = "b090c212-c9bb-47ae-b5ee-5804d451fc3d"
+content_hash = "sha256:f3f7fb769d3b4ad43f9bd1062ece266e5ad6b4d5c6237d39d92c799503dbb3ba"
+size = 740924
+mtime_ms = 1790143454736
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/b090c212-c9bb-47ae-b5ee-5804d451fc3d/60ef87ea-d895-4f71-97b8-479cd40499c8"
+storage_version_token = "1790143495677217"
+content_type = "audio/wav"
