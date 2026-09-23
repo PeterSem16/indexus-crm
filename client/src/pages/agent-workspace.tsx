@@ -10440,7 +10440,7 @@ function AgentWorkspacePageContent() {
   const { t, locale } = useI18n();
   const priorityCopy = priorityBuilderCopy[locale];
   const { user, logout } = useAuth();
-  const { toast } = usePulseToast();
+  const { toast, rawToast } = usePulseToast();
   const nContacts = (n: number) => {
     const s = n === 1 ? t.agentWorkspace.contactSingular : (n >= 2 && n <= 4) ? t.agentWorkspace.contactFew : t.agentWorkspace.contactPlural;
     return `${n} ${s}`;
@@ -13205,8 +13205,10 @@ function AgentWorkspacePageContent() {
 
   const handleStartBreak = async (breakTypeId: string) => {
     try {
+      if (!agentSession.isSessionActive || agentSession.activeBreak) throw new Error("Break unavailable");
       await agentSession.startBreak(breakTypeId);
-      toast({ title: t.agentSession.statusBreak, description: t.agentSession.statusBreak });
+      void playShiftLoginSound("breakStart");
+      rawToast({ title: t.agentSession.statusBreak, description: t.agentSession.statusBreak, variant: "pulse", pulseState: "success" });
     } catch (error) {
       toast({ title: t.agentSession.shiftError, description: t.agentSession.breakError, variant: "destructive" });
     }
@@ -13214,9 +13216,11 @@ function AgentWorkspacePageContent() {
 
   const handleEndBreak = async () => {
     try {
+      if (!agentSession.activeBreak?.id) throw new Error("No active break");
       await agentSession.endBreak();
       refetchShiftData();
-      toast({ title: t.agentSession.continueWork, description: t.agentSession.continueWork });
+      void playShiftLoginSound("breakEnd");
+      rawToast({ title: t.agentSession.continueWork, description: t.agentSession.continueWork, variant: "pulse", pulseState: "success" });
       return true;
     } catch (error) {
       toast({ title: t.agentSession.shiftError, description: t.agentSession.breakEndError, variant: "destructive" });

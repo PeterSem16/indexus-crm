@@ -7,7 +7,9 @@ type ShiftLoginSound =
   | "backOffice"
   | "setApply"
   | "setCreate"
-  | "start";
+  | "start"
+  | "breakStart"
+  | "breakEnd";
 
 type AudioGraph = {
   context: AudioContext;
@@ -249,6 +251,26 @@ export async function playShiftLoginSound(sound: ShiftLoginSound, selected = tru
       const notes = selected ? [349.23, 440, 523.25] : [440, 349.23];
       chord(audio, notes, now, selected ? 0.56 : 0.32, selected ? 0.009 : 0.0055, 0.03, 2200);
       ambientVoice(audio, selected ? 174.61 : 220, now, 0.52, 0.006, { attack: 0.06, brightness: 950 });
+      return;
+    }
+
+    if (sound === "breakStart") {
+      // Settle gently from the workday into a soft, descending spectral pad.
+      ambientVoice(audio, 392, now, 0.62, 0.005, {
+        attack: 0.07, endFrequency: 293.66, brightness: 1900, pan: -0.45,
+      });
+      chord(audio, [349.23, 293.66, 220], now + 0.075, 0.75, 0.006, 0.085, 2000);
+      shimmer(audio, now + 0.12, 0.28, 0.0016, 4800);
+      return;
+    }
+
+    if (sound === "breakEnd") {
+      // A distinct, lightly ascending cue for returning to the shift.
+      ambientVoice(audio, 220, now, 0.55, 0.005, {
+        attack: 0.06, endFrequency: 329.63, brightness: 2300, pan: 0.4,
+      });
+      chord(audio, [329.63, 440, 554.37, 659.25], now + 0.07, 0.62, 0.0065, 0.065, 3200);
+      shimmer(audio, now + 0.12, 0.38, 0.0028, 5600);
       return;
     }
 
