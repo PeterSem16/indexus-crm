@@ -959,3 +959,17 @@ mtime_ms = 1790144055392
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/ee2047e3-08bc-450c-9dc2-9526bf1ede47/c89e8265-db75-4cc3-91b1-11c3413a91f8"
 storage_version_token = "1790144083354216"
 content_type = "audio/wav"
+
+[[outputs]]
+id = "-DNmGUGoIBPxkJCt44zrm"
+uri = "file://attached_assets/medical-partner-cooperation-navrh.xlsx"
+type = "table"
+title = "Medical Partner Cooperation – návrh doplnenia"
+description = "Excel s 13 odporúčanými ambulanciami, možnými duplicitami, dôvodmi vyradenia, telefónmi a osobami. Obsahuje aj kontrolu aktuálnych kontaktov Mission. Bez zmien v produkcii."
+logical_id = "4cf60754-5af6-4457-97d7-fb0f324c379b"
+content_hash = "sha256:ce78e0d5c4d690dc741f79eb65d14f324465e4f0e10acc1dd7c3d1b7f1e65fd2"
+size = 6704941
+mtime_ms = 1790145721268
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/4cf60754-5af6-4457-97d7-fb0f324c379b/29ea0e02-7bad-4992-94e7-5166b73f689c"
+storage_version_token = "1790145745075263"
+content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
