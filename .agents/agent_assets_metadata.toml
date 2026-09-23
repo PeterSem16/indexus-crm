@@ -987,3 +987,17 @@ mtime_ms = 1790147937348
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/3f77e2ba-9383-4a62-a296-209a255cbd8a/c894725f-a899-446e-8181-67c52137419a"
 storage_version_token = "1790147969265178"
 content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+[[outputs]]
+id = "xuUk2p9pBORrK-E2Ciw2_"
+uri = "file://attached_assets/medical-partner-import-17-a-cistenie.xlsx"
+type = "table"
+title = "Import 17 ambulancií a bezpečné čistenie"
+description = "Schválených 13 + 4, zoznam 313 chybných emailov, ďalšie preverenie 9 záznamov, 19 podozrivých názvov na kontrolu a postup spustenia. Produkčné zmeny zatiaľ nevykonané."
+logical_id = "194eaebe-490e-4de8-a685-7c06179f9963"
+content_hash = "sha256:0dc7e50714d9b759031819780d7106e8412b231b59814e4a4b4be29fe9adc7c9"
+size = 40461
+mtime_ms = 1790148780214
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/194eaebe-490e-4de8-a685-7c06179f9963/fa2f78b0-5c64-4bc9-84da-6408598c73c6"
+storage_version_token = "1790148901472670"
+content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

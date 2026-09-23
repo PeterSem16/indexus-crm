@@ -19,6 +19,10 @@ const approved = [
   ["9d5407e0-a731-4603-b483-44728c7de272", "Sanatórium Helios"],
   ["11aacd59-e6ce-4638-866f-98029c2a324e", "M-CENTRUM, s.r.o., gynekologická ambulancia"],
   ["7f194e16-93d2-4753-8926-29c339f53ef6", "Sonoclinic s.r.o., Prof. MUDr Dankovčík, PhD, MPH"],
+  ["e0eccebe-041f-49d5-98b3-0ff883d16f18", "Gynekologická ambulancia"],
+  ["2e0498ad-0cc0-44d6-9851-6d794048950c", "Gynekologická ambulancia"],
+  ["d314072a-dc48-48cd-b8e5-8bd9494566af", "Gynekológia"],
+  ["108a09c5-d52d-47df-b31e-b3ef451edd90", "Gynekologicko-pôrodnícka ambulancia VEGAFEM s. r. o."],
 ];
 
 function validPhone(value) {
@@ -119,8 +123,8 @@ async function applyReviewed(db, apply) {
            campaign_contact_id,channel,action,status,notes,metadata)
           VALUES ($1,'clinic',$2,$3,$4,$5,$6,'phone','contact_added','pending',$7,$8::jsonb)`,
           [randomUUID(), id, name, missionId, mission.name, contactId,
-            "Manuálne schválené doplnenie 13 ambulancií na základe porovnania exportu.",
-            JSON.stringify({ source: "reviewed_manual_import", cohort: "approved-13-2026-09-23" })]);
+            `Manuálne schválené doplnenie ${approved.length} ambulancií na základe porovnania exportu.`,
+            JSON.stringify({ source: "reviewed_manual_import", cohort: "approved-17-2026-09-23" })]);
       }
       result.push({ ambulancia: name, vysledok: apply ? "Pridaná" : "Navrhnutá na pridanie" });
     }
@@ -128,7 +132,7 @@ async function applyReviewed(db, apply) {
       const verified = (await db.query(`SELECT clinic_id, count(*)::int AS count
         FROM campaign_contacts WHERE campaign_id=$1 AND clinic_id=ANY($2::text[])
         GROUP BY clinic_id`, [missionId, approved.map(([id]) => id)])).rows;
-      if (verified.length !== 13 || verified.some(r => r.count !== 1))
+      if (verified.length !== approved.length || verified.some(r => r.count !== 1))
         throw new Error("Záverečné overenie členstva zlyhalo");
     }
     const total = (await db.query("SELECT count(*)::int AS total FROM campaign_contacts WHERE campaign_id=$1", [missionId])).rows[0].total;
@@ -150,7 +154,7 @@ async function main() {
   try {
     const outcome = await applyReviewed(db, process.argv.includes("--apply"));
     console.table(outcome.result);
-    console.log(outcome.applied ? "COMMIT — overených 13 členstiev." : "READ ONLY — bez zápisu.");
+    console.log(outcome.applied ? `COMMIT — overených ${approved.length} členstiev.` : "READ ONLY — bez zápisu.");
     console.log("Celkový počet kontaktov Mission:", outcome.total);
   } finally {
     await db.end();

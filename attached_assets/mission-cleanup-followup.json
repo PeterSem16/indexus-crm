@@ -1,0 +1,296 @@
+{
+  "generatedAt": "2026-09-23",
+  "scope": {
+    "recordsReviewed": 9,
+    "selection": "Bounded follow-up of high-value records from the prior public research: suspected closures, address changes, malformed imported addresses, and records carrying the shared directory email info@zzz.sk.",
+    "productionActionsTaken": false,
+    "importantRule": "A directory-owned email, an absent search result, or an inactive directory profile is not evidence that a provider or workplace closed."
+  },
+  "summary": {
+    "confirmedExactWorkplaceClosures": 1,
+    "confirmedActiveExactWorkplaces": 1,
+    "currentWorkplaceAtDifferentAddress": 1,
+    "ambiguousHistoricalVersusSuccessorWorkplace": 1,
+    "unresolvedNoClosureEvidence": 5,
+    "recordsWithContaminatedDirectoryEmail": 8
+  },
+  "records": [
+    {
+      "clinicId": "6e9b3848-06b5-40b8-8550-d4bc68ef661b",
+      "name": "Gynekologicko-pôrodnícka ambulancia MUDr. Mária Mihálová s.r.o.",
+      "doctorName": "MUDr. Mária Mihálová s.r.o.",
+      "inputAddress": "Janka Kráľa 15, 97201 Bojnice",
+      "inputEmail": "info@zzz.sk",
+      "directoryEmailContaminated": true,
+      "status": "confirmed_exact_workplace_closed",
+      "confidence": "high",
+      "closureType": "workplace_closure",
+      "providerClosureVerified": false,
+      "closureDate": "2024-08-31",
+      "verifiedWorkplace": {
+        "officialName": "Primárna gynekologicko-pôrodnícka ambulancia, MUDr. Mária Mihálová, Bojnice",
+        "address": "Janka Kráľa 15, 97201 Bojnice",
+        "idZz": "63-36684279-A0001",
+        "provider": "TMM SLOVAKIA s.r.o.",
+        "ico": "36684279"
+      },
+      "sourceUrls": [
+        "https://www.e-vuc.sk/e-vuc/poskytovatelia/tmm-slovakia.html?page_id=106643",
+        "https://www.e-vuc.sk/tsk/zdravotnictvo/ambulantne-zdravotnicke-zariadenia/prievidza/primarna-gynekologicko-porodnicka-ambulancia-mudr.-maria-mihalova-bojnice-tmm-slovakia.html?page_id=63418"
+      ],
+      "evidence": [
+        "The e-VÚC provider page ties MUDr. Mária Mihálová to ID ZZ 63-36684279-A0001 and the exact Mission address Janka Kráľa 15, 97201 Bojnice.",
+        "The same official row explicitly states that this workplace was cancelled on 31.08.2024.",
+        "This verifies closure of the identified ambulatory workplace. It does not by itself prove dissolution or closure of the legal provider TMM SLOVAKIA s.r.o."
+      ],
+      "recommendedSafeAction": {
+        "clinic": "After human confirmation, mark this exact clinic workplace inactive and retain the official closure date and ID ZZ in audit history.",
+        "email": "Remove or quarantine info@zzz.sk as a non-provider directory email.",
+        "doNot": "Do not infer that the provider company closed, and do not apply this closure to another clinic at the same building."
+      }
+    },
+    {
+      "clinicId": "0f2d2a61-6b79-4d2a-adf1-e3d50cd21874",
+      "name": "Gynekologická ambulancia ProCare",
+      "doctorName": "MUDr. Peter Hrúzik",
+      "inputAddress": "Jelačičova 7, 82108 Ružinov",
+      "inputEmail": "info@zzz.sk",
+      "directoryEmailContaminated": true,
+      "status": "ambiguous_historical_vs_successor_workplace",
+      "confidence": "high",
+      "closureType": "one_specific_workplace_id_closed_with_successor_present",
+      "providerClosureVerified": false,
+      "closureDate": null,
+      "verifiedWorkplace": {
+        "address": "Poliklinika ProCare Central, Jelačičova 17983/7, 82108 Bratislava-Ružinov",
+        "historicalIdZz": "61-35875704-A0015",
+        "historicalClosureDate": "2024-12-31",
+        "currentIdZz": "51-35875704-A0032",
+        "provider": "PRO SANUS, a.s.",
+        "ico": "35875704"
+      },
+      "sourceUrls": [
+        "https://www.e-vuc.sk/e-vuc/poskytovatelia/pro-sanus-a.s..html?page_id=110462"
+      ],
+      "evidence": [
+        "The official provider listing identifies a gynecology workplace for MUDr. Peter Hrúzik at Jelačičova 17983/7 under ID ZZ 61-35875704-A0015 and marks that specific workplace closed on 31.12.2024.",
+        "The same official listing also shows a current primary gynecology workplace for MUDr. Peter Hrúzik at the same address under a different ID ZZ, 51-35875704-A0032.",
+        "The Mission record has no ID ZZ, so it cannot safely be assigned to the historical closed workplace rather than the current successor."
+      ],
+      "recommendedSafeAction": {
+        "clinic": "Keep active pending ID resolution. Ask an operator to map the record to current ID ZZ 51-35875704-A0032 or archive it only if internal provenance proves it represents historical ID ZZ 61-35875704-A0015.",
+        "email": "Remove or quarantine info@zzz.sk as a non-provider directory email and obtain a provider-owned contact.",
+        "doNot": "Do not deactivate the Mission record merely because one same-address predecessor ID closed."
+      }
+    },
+    {
+      "clinicId": "573011bb-d8e6-475f-9ab6-f1cbb70e24ae",
+      "name": "Gynekologická ambulancia",
+      "doctorName": "MUDr. Mária Farkašová",
+      "inputAddress": "Sklárska 580/33, 98701 Poltár",
+      "inputEmail": "farkasova.mudr.maria@centrum.sk",
+      "directoryEmailContaminated": false,
+      "status": "confirmed_active_exact_workplace",
+      "confidence": "high",
+      "closureType": "none_verified",
+      "providerClosureVerified": false,
+      "closureDate": null,
+      "verifiedWorkplace": {
+        "officialName": "Primárna gynekologicko-pôrodnícka ambulancia, MUDr. Mária Farkašová, Poltár",
+        "address": "Sklárska 580/33, 98701 Poltár",
+        "idZz": "66-35662964-A0001",
+        "provider": "MUDr. Mária Farkašová",
+        "ico": "35662964"
+      },
+      "sourceUrls": [
+        "https://www.e-vuc.sk/bbsk/zdravotnictvo/ambulantne-zdravotnicke-zariadenia/poltar.html?page_id=93311",
+        "https://www.e-vuc.sk/bbsk/zdravotnictvo/ambulantne-zdravotnicke-zariadenia/poltar/primarna-gynekologicko-porodnicka-ambulancia-mudr.-maria-farkasova-poltar-mudr.-maria-farkasova.html?page_id=95213"
+      ],
+      "evidence": [
+        "e-VÚC currently lists MUDr. Mária Farkašová at the exact Mission address under ID ZZ 66-35662964-A0001 and displays current office hours.",
+        "The closure dated 31.08.2024 on the Poltár list belongs to MUDr. Igor Vološin, ID ZZ 66-10900845-A0004, at Sklárska 766/86. It must not be transferred to this record."
+      ],
+      "recommendedSafeAction": {
+        "clinic": "Keep active and enrich with ID ZZ 66-35662964-A0001 after normal operator review.",
+        "email": "No shared-directory-email contamination found in this record.",
+        "doNot": "Do not deactivate based on the closure of a different doctor at a different street number."
+      }
+    },
+    {
+      "clinicId": "64f11b7e-d0b1-4e8a-bfb5-cec9e1dff430",
+      "name": "Gynekologická ambulancia",
+      "doctorName": "MUDr. Ľudovít Gonda",
+      "inputAddress": "Svätotrojičné námestie 1, 963 01 Krupina",
+      "inputEmail": "info@zzz.sk",
+      "directoryEmailContaminated": true,
+      "status": "current_workplace_found_at_different_address",
+      "confidence": "high",
+      "closureType": "old_workplace_closure_not_verified",
+      "providerClosureVerified": false,
+      "closureDate": null,
+      "verifiedWorkplace": {
+        "officialName": "Primárna gynekologicko-pôrodnícka ambulancia, Krupina, (GynVi s.r.o.)",
+        "address": "Sládkovičova 43/12, 96301 Krupina",
+        "idZz": "66-47996005-A0001",
+        "provider": "GynVi s.r.o.",
+        "ico": "47996005",
+        "doctor": "MUDr. Ľudovít Gonda"
+      },
+      "sourceUrls": [
+        "https://krupina.sk/ambulancie",
+        "https://www.e-vuc.sk/bbsk/zdravotnictvo/ambulantne-zdravotnicke-zariadenia/krupina.html?page_id=93254",
+        "https://www.e-vuc.sk/bbsk/zdravotnictvo/ambulantne-zdravotnicke-zariadenia/krupina/primarna-gynekologicko-porodnicka-ambulancia-krupina-gynvi.html?page_id=96959"
+      ],
+      "evidence": [
+        "The official Krupina municipal clinic list names MUDr. Ľudovít Gonda with GynVi s.r.o. at Sládkovičova 43.",
+        "e-VÚC lists the current GynVi gynecology workplace at Sládkovičova 43/12 under ID ZZ 66-47996005-A0001.",
+        "No authoritative source reviewed explicitly states that the input workplace at Svätotrojičné námestie 1 closed or gives a closure date."
+      ],
+      "recommendedSafeAction": {
+        "clinic": "Queue an address/provider update review to Sládkovičova 43/12 and ID ZZ 66-47996005-A0001. Preserve the old address in history.",
+        "email": "Remove or quarantine info@zzz.sk and obtain a provider-owned contact.",
+        "doNot": "Do not mark the provider or old workplace closed without an explicit permit/history record."
+      }
+    },
+    {
+      "clinicId": "a84505a0-7d3f-4a76-a8ba-9db73b57a9bb",
+      "name": "Gynekologicko-pôrodnícka ambulancia / MUDr. Jana Pijáková, spol. s.r.o.",
+      "doctorName": "MUDr. Jana Pijáková",
+      "inputAddress": "Palárikova 2, Čadca",
+      "inputEmail": "info@zzz.sk",
+      "directoryEmailContaminated": true,
+      "status": "unresolved_no_closure_evidence",
+      "confidence": "medium",
+      "closureType": "none_verified",
+      "providerClosureVerified": false,
+      "closureDate": null,
+      "verifiedWorkplace": null,
+      "sourceUrls": [
+        "https://www.e-vuc.sk/zsk/zdravotnictvo/ambulantne-zdravotnicke-zariadenia/cadca/primarna-gynekologicko-porodnicka-ambulancia-cadca-femina-gyn.html?page_id=54476",
+        "https://www.e-vuc.sk/zsk/zdravotnictvo/ambulantne-zdravotnicke-zariadenia/cadca.html?iframe=1&iframe=1%3F1570752000000&page=2&page_id=54441"
+      ],
+      "evidence": [
+        "The current e-VÚC result found in Čadca is FEMINA GYN s.r.o., IČO 36609251, at Hollého 2; it does not name Jana Pijáková and does not match the Mission provider/address.",
+        "No fetched official source explicitly closes or replaces the Jana Pijáková workplace at Palárikova 2."
+      ],
+      "recommendedSafeAction": {
+        "clinic": "Keep unresolved and active pending permit-level confirmation or direct provider contact.",
+        "email": "Remove or quarantine info@zzz.sk as directory-owned contact data.",
+        "doNot": "Do not treat the different FEMINA GYN listing, or absence from current results, as proof of closure."
+      }
+    },
+    {
+      "clinicId": "6f63e08d-3621-4714-8c30-53262661b092",
+      "name": "Gynekologická ambulancia",
+      "doctorName": "MUDr. Mária Gašparová",
+      "inputAddress": "Administratívna budova 1, Šaľa",
+      "inputEmail": "info@zzz.sk",
+      "directoryEmailContaminated": true,
+      "status": "unresolved_malformed_address_no_closure_evidence",
+      "confidence": "low",
+      "closureType": "none_verified",
+      "providerClosureVerified": false,
+      "closureDate": null,
+      "verifiedWorkplace": null,
+      "sourceUrls": [
+        "https://www.e-vuc.sk/nsk/zdravotnictvo/ambulantne-zdravotnicke-zariadenia/sala/primarna-gynekologicko-porodnicka-ambulancia-mudr.-juliana-zimmermannova-sala-vissegyn.html?page_id=89340"
+      ],
+      "evidence": [
+        "Targeted searches did not locate an official current or closed workplace for MUDr. Mária Gašparová in Šaľa.",
+        "The current official Šaľa gynecology result found is for MUDr. Juliana Zimmermannová, VISSEGYN s.r.o., at Hlavná 2191/6. It is a different person and provider.",
+        "The exported city and postal fields are visibly malformed ('7 03 Šaľa', '236 92'), but bad formatting is not closure evidence."
+      ],
+      "recommendedSafeAction": {
+        "clinic": "Send to manual identity/address remediation and direct-contact verification; keep active while unresolved.",
+        "email": "Remove or quarantine info@zzz.sk as a non-provider directory email.",
+        "doNot": "Do not deactivate because the exact record was absent from search results."
+      }
+    },
+    {
+      "clinicId": "276c7a03-4dff-4e9d-95fc-88c8f31b4ed8",
+      "name": "Gynekologicko-pôrodnícka ambulancia",
+      "doctorName": "MUDr. Adela Šimurková",
+      "inputAddress": "Hlavná 49, 97226 Nitrianske Rudno",
+      "inputEmail": "info@zzz.sk",
+      "directoryEmailContaminated": true,
+      "status": "unresolved_no_closure_evidence",
+      "confidence": "low",
+      "closureType": "none_verified",
+      "providerClosureVerified": false,
+      "closureDate": null,
+      "verifiedWorkplace": null,
+      "sourceUrls": [
+        "https://www.e-vuc.sk/e-vuc/vyhladavanie.html?page_id=2293&search=Adela%20%C5%A0imurkov%C3%A1"
+      ],
+      "evidence": [
+        "Targeted searches by doctor name, municipality, address, specialty, and e-VÚC domain did not return a matching authoritative workplace or explicit closure.",
+        "This negative search result is insufficient to establish inactivity or closure."
+      ],
+      "recommendedSafeAction": {
+        "clinic": "Keep unresolved and active pending direct verification or an exact official permit record.",
+        "email": "Remove or quarantine info@zzz.sk as a non-provider directory email.",
+        "doNot": "Do not deactivate from directory inactivity or absence from search."
+      }
+    },
+    {
+      "clinicId": "60bec643-182c-4acb-af9a-c33b32845859",
+      "name": "Gynekologická ambulancia, MUDr. Július Štefanovič, Pezinok, (Psychiatrická nemocnica Philippa Pinela)",
+      "doctorName": "MUDr. Július Štefanovič",
+      "inputAddress": "Malacká cesta 63, 90218 Pezinok",
+      "inputEmail": "info@zzz.sk",
+      "directoryEmailContaminated": true,
+      "status": "unresolved_facility_exists_but_workplace_not_verified",
+      "confidence": "medium",
+      "closureType": "none_verified",
+      "providerClosureVerified": false,
+      "closureDate": null,
+      "verifiedWorkplace": null,
+      "sourceUrls": [
+        "https://www.e-vuc.sk/buxus/generate_page.php?page_id=62089"
+      ],
+      "evidence": [
+        "e-VÚC confirms the Psychiatrická nemocnica Philippa Pinela facility at Malacká cesta 2192/63, Pezinok, ID ZZ 51-30801397-A0001.",
+        "The fetched official facility entry describes psychiatric specialties and does not verify this named gynecology workplace or an explicit closure.",
+        "Existence of the host facility does not establish that the imported sub-workplace is currently operating."
+      ],
+      "recommendedSafeAction": {
+        "clinic": "Keep unresolved; request direct confirmation from the host facility or locate an exact historical permit before changing status.",
+        "email": "Remove or quarantine info@zzz.sk as directory-owned contact data.",
+        "doNot": "Do not close the clinic merely because the hospital's current public page does not list it."
+      }
+    },
+    {
+      "clinicId": "22ff391f-d853-4ba8-9cad-9c5f9cedccbb",
+      "name": "Gynekologická ambulancia, MUDr. Zuzana Petrovičová, (FAMILIA SANA, s. r. o.)",
+      "doctorName": "MUDr. Zuzana Petrovičová",
+      "inputAddress": "Lazovná ulica 7, 97404 Banská Bystrica",
+      "inputEmail": "info@zzz.sk",
+      "directoryEmailContaminated": true,
+      "status": "unresolved_no_closure_evidence",
+      "confidence": "low",
+      "closureType": "none_verified",
+      "providerClosureVerified": false,
+      "closureDate": null,
+      "verifiedWorkplace": null,
+      "sourceUrls": [
+        "https://www.e-vuc.sk/e-vuc/vyhladavanie.html?page_id=2293&search=Zuzana%20Petrovi%C4%8Dov%C3%A1",
+        "https://www.e-vuc.sk/e-vuc/poskytovatelia.html?page_id=105702"
+      ],
+      "evidence": [
+        "Targeted searches for the doctor, FAMILIA SANA, specialty, and Lazovná address did not yield an exact official workplace or explicit closure.",
+        "Current Banská Bystrica gynecology search results found other providers; those records cannot be used to infer closure of this one."
+      ],
+      "recommendedSafeAction": {
+        "clinic": "Keep unresolved and active pending direct verification or an exact permit/history match.",
+        "email": "Remove or quarantine info@zzz.sk as a non-provider directory email.",
+        "doNot": "Do not deactivate based on absence from the current public list."
+      }
+    }
+  ],
+  "globalRecommendations": [
+    "Treat info@zzz.sk as imported directory contact contamination, not as a clinic-owned mailbox. Quarantine it from outreach and seek an official provider contact.",
+    "Only the exact Mária Mihálová workplace is safe to queue for inactivation from this follow-up.",
+    "For Peter Hrúzik/ProCare, resolve the Mission record to an ID ZZ before any status change because an old workplace ID closed while a successor ID at the same address remains listed.",
+    "Preserve the distinction between closure of a particular workplace permit and closure of the provider/legal entity."
+  ]
+}
