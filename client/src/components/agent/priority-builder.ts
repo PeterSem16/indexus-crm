@@ -74,6 +74,13 @@ export type PriorityContact = Omit<CampaignContact, "attemptCount"> & {
   unpaidRewardPersonCount?: number;
   priorityCity?: string | null;
   priorityCountryCode?: unknown;
+  personnelSearch?: Array<{
+    name: string;
+    phone?: string | null;
+    mobile?: string | null;
+    mobile2?: string | null;
+    email?: string | null;
+  }>;
   customer?: {
     firstName?: string | null; lastName?: string | null; name?: string | null;
     phone?: string | null; mobile?: string | null; mobile2?: string | null; otherContact?: string | null;

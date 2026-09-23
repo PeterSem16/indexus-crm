@@ -41,6 +41,10 @@ export function PriorityContactIdentity({ contact, query, field }: {
     values.filter((value, index) => index === 0 || matches.some(match => match.field === kind && match.value === value));
   const phones = visibleValues(details.phones, "phone");
   const emails = visibleValues(details.emails, "email");
+  const matchedPersonnel = details.personnel.filter(person =>
+    matches.some(match => match.field === "personnel" && (
+      match.value === person.name || person.phones.includes(match.value) || person.emails.includes(match.value)
+    )));
 
   return <span className="priority-contact-identity">
     <span className="priority-contact-main">
@@ -60,6 +64,15 @@ export function PriorityContactIdentity({ contact, query, field }: {
       <Stethoscope size={13} aria-hidden="true" />
       <span><Highlight value={details.specialty} query={fieldQuery("specialty")} /></span>
     </span>}
+    {matchedPersonnel.map((person, index) => <span key={`${person.name}-${index}`} className="priority-contact-organization">
+      <UserRound size={13} aria-hidden="true" />
+      <span>{copy.personnel}: <Highlight value={person.name} query={field === "all" || field === "name" ? query : ""} />
+        {person.phones.filter(phone => matches.some(match => match.field === "personnel" && match.value === phone)).map(phone =>
+          <span key={phone}> · <Highlight value={phone} query={query} phone /></span>)}
+        {person.emails.filter(email => matches.some(match => match.field === "personnel" && match.value === email)).map(email =>
+          <span key={email}> · <Highlight value={email} query={query} /></span>)}
+      </span>
+    </span>)}
     <span className="priority-contact-channels">
       {phones.length ? phones.map(phone => <span key={phone} className="priority-contact-channel">
         <Phone size={13} aria-hidden="true" /><span><Highlight value={phone} query={fieldQuery("phone")} phone /></span>

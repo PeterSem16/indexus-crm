@@ -3945,6 +3945,7 @@ export interface Translations {
     priorityBuilderSearch: string;
     priorityBuilderSearchResult: {
       contactPerson: string;
+      personnel: string;
       missingName: string;
       missingOrganization: string;
       missingPhone: string;
@@ -12734,6 +12735,7 @@ export const translations: Record<Locale, Translations> = {
       priorityBuilderSearch: 'Search contacts',
       priorityBuilderSearchResult: {
         contactPerson: 'Contact person',
+        personnel: 'Personnel',
         missingName: 'Contact name not provided',
         missingOrganization: 'Organisation not provided',
         missingPhone: 'Phone not provided',
@@ -20316,6 +20318,7 @@ export const translations: Record<Locale, Translations> = {
       priorityBuilderSearch: 'Hľadať kontakty',
       priorityBuilderSearchResult: {
         contactPerson: 'Kontaktná osoba',
+        personnel: 'Personál',
         missingName: 'Meno kontaktu sa neuvádza',
         missingOrganization: 'Organizácia sa neuvádza',
         missingPhone: 'Telefón sa neuvádza',
@@ -27881,6 +27884,7 @@ export const translations: Record<Locale, Translations> = {
       priorityBuilderSearch: 'Hledat kontakty',
       priorityBuilderSearchResult: {
         contactPerson: 'Kontaktní osoba',
+        personnel: 'Personál',
         missingName: 'Jméno kontaktu není uvedeno',
         missingOrganization: 'Organizace není uvedena',
         missingPhone: 'Telefon není uveden',
@@ -35399,6 +35403,7 @@ export const translations: Record<Locale, Translations> = {
       priorityBuilderSearch: 'Kontaktok keresése',
       priorityBuilderSearchResult: {
         contactPerson: 'Kapcsolattartó',
+        personnel: 'Személyzet',
         missingName: 'Kapcsolattartó neve nincs megadva',
         missingOrganization: 'Szervezet nincs megadva',
         missingPhone: 'Telefonszám nincs megadva',
@@ -42804,6 +42809,7 @@ export const translations: Record<Locale, Translations> = {
       priorityBuilderSearch: 'Caută contacte',
       priorityBuilderSearchResult: {
         contactPerson: 'Persoană de contact',
+        personnel: 'Personal',
         missingName: 'Numele contactului nu este disponibil',
         missingOrganization: 'Organizația nu este disponibilă',
         missingPhone: 'Telefonul nu este disponibil',
@@ -50210,6 +50216,7 @@ export const translations: Record<Locale, Translations> = {
       priorityBuilderSearch: 'Cerca contatti',
       priorityBuilderSearchResult: {
         contactPerson: 'Persona di contatto',
+        personnel: 'Personale',
         missingName: 'Nome del contatto non disponibile',
         missingOrganization: 'Organizzazione non disponibile',
         missingPhone: 'Telefono non disponibile',
@@ -57616,6 +57623,7 @@ export const translations: Record<Locale, Translations> = {
       priorityBuilderSearch: 'Kontakte suchen',
       priorityBuilderSearchResult: {
         contactPerson: 'Kontaktperson',
+        personnel: 'Personal',
         missingName: 'Kontaktname nicht angegeben',
         missingOrganization: 'Organisation nicht angegeben',
         missingPhone: 'Telefon nicht angegeben',

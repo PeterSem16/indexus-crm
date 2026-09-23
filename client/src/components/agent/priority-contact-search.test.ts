@@ -74,6 +74,34 @@ describe("priority contact search data", () => {
     expect(getPriorityContactSearchMatches(hospital, "nagy", "name")).toHaveLength(1);
   });
 
+  it("finds clinic and hospital personnel by name, phone, or email and keeps results on the facility contact", () => {
+    for (const facilityType of ["clinic", "hospital"] as const) {
+      const facility = contact(facilityType, {
+        [facilityType]: { name: "Unrelated institution" },
+        personnelSearch: [
+          { name: "MUDr. Žofia Šimková", mobile: "+421 905 123 456", email: "zofia@example.org" },
+          { name: "Other person", phone: "+421 900 000 000" },
+        ],
+      });
+      expect(getPriorityContactSearchMatches(facility, "simkova", "name")).toMatchObject([
+        { field: "personnel", value: "MUDr. Žofia Šimková" },
+      ]);
+      expect(getPriorityContactSearchMatches(facility, "905123", "phone")).toMatchObject([
+        { field: "personnel", value: "+421 905 123 456" },
+      ]);
+      expect(getPriorityContactSearchMatches(facility, "zofia@example.org", "email")).toMatchObject([
+        { field: "personnel", value: "zofia@example.org" },
+      ]);
+      expect(getPriorityContactSearchMatches(facility, "simkova", "all")).toHaveLength(1);
+      expect(getPriorityContactSearchMatches(facility, "simkova", "city")).toEqual([]);
+    }
+    const unrelated = contact("customer", {
+      customer: { firstName: "Eva" },
+      personnelSearch: [{ name: "MUDr. Žofia Šimková" }],
+    });
+    expect(getPriorityContactSearchMatches(unrelated, "simkova", "all")).toEqual([]);
+  });
+
   it("maps customers and collaborators while excluding unrelated and sensitive fields", () => {
     const customer = contact("customer", {
       customer: {

@@ -3,6 +3,7 @@ import type { PriorityContact } from "./priority-builder";
 export type PrioritySearchField = "all" | "name" | "phone" | "email" | "city";
 export type PrioritySearchMatchField =
   | "name"
+  | "personnel"
   | "organization"
   | "specialty"
   | "phone"
@@ -11,6 +12,7 @@ export type PrioritySearchMatchField =
 
 export interface PriorityContactSearchDetails {
   name: string;
+  personnel: Array<{ name: string; phones: string[]; emails: string[] }>;
   organization: string;
   specialty: string;
   phones: string[];
@@ -189,9 +191,16 @@ function getSearchEntity(contact: PriorityContact): { type: PriorityContactType;
 export function getPriorityContactSearchDetails(contact: PriorityContact): PriorityContactSearchDetails {
   const source = getSearchEntity(contact);
   if (!source) {
-    return { name: "", organization: "", specialty: "", phones: [], emails: [], city: "" };
+    return { name: "", personnel: [], organization: "", specialty: "", phones: [], emails: [], city: "" };
   }
 
+  const personnel = source.type === "clinic" || source.type === "hospital"
+    ? (contact.personnelSearch || []).filter(person => Boolean(nonEmpty(person.name))).map(person => ({
+        name: nonEmpty(person.name),
+        phones: values(person.phone, person.mobile, person.mobile2),
+        emails: values(person.email),
+      }))
+    : [];
   switch (source.type) {
     case "clinic": {
       const clinic = source.entity as SearchClinic;
@@ -201,6 +210,7 @@ export function getPriorityContactSearchDetails(contact: PriorityContact): Prior
       );
       return {
         name: doctor,
+        personnel,
         organization: nonEmpty(clinic.name),
         specialty: "",
         phones: values(clinic.phone, clinic.phone2, clinic.phone3),
@@ -213,6 +223,7 @@ export function getPriorityContactSearchDetails(contact: PriorityContact): Prior
       const organization = firstNonEmpty(hospital.name, hospital.fullName);
       return {
         name: nonEmpty(hospital.contactPerson),
+        personnel,
         organization,
         specialty: "",
         phones: values(hospital.phone),
@@ -230,6 +241,7 @@ export function getPriorityContactSearchDetails(contact: PriorityContact): Prior
           collaborator.lastName,
           collaborator.titleAfter,
         ]),
+        personnel,
         organization: nonEmpty(collaborator.workplaceName),
         specialty: "",
         phones: values(
@@ -249,6 +261,7 @@ export function getPriorityContactSearchDetails(contact: PriorityContact): Prior
       const customer = source.entity as SearchCustomer;
       return {
         name: joinedName([customer.firstName, customer.lastName]),
+        personnel,
         organization: nonEmpty(customer.companyName),
         specialty: "",
         phones: values(
@@ -399,6 +412,13 @@ export function getPriorityContactSearchMatches(
   const include = (candidate: PrioritySearchField): boolean => field === "all" || field === candidate;
 
   if (include("name")) addMatch(matches, "name", details.name, query);
+  if (field === "all" || field === "name" || field === "phone" || field === "email") {
+    for (const person of details.personnel) {
+      if (include("name")) addMatch(matches, "personnel", person.name, query);
+      if (include("phone")) for (const phone of person.phones) addMatch(matches, "personnel", phone, query, true);
+      if (include("email")) for (const email of person.emails) addMatch(matches, "personnel", email, query);
+    }
+  }
   if (field === "all") {
     addMatch(matches, "organization", details.organization, query);
     addMatch(matches, "specialty", details.specialty, query);

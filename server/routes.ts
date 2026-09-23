@@ -26303,6 +26303,16 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const linkedRewardPeople = (rewardClinicIds.length || rewardHospitalIds.length || rewardCollaboratorIds.length)
         ? await db.select({
           id: collaborators.id,
+          isActive: collaborators.isActive,
+          titleBefore: collaborators.titleBefore,
+          firstName: collaborators.firstName,
+          middleName: collaborators.middleName,
+          lastName: collaborators.lastName,
+          titleAfter: collaborators.titleAfter,
+          phone: collaborators.phone,
+          mobile: collaborators.mobile,
+          mobile2: collaborators.mobile2,
+          email: collaborators.email,
           clinicId: collaborators.clinicId,
           clinicIds: collaborators.clinicIds,
           hospitalId: collaborators.hospitalId,
@@ -26361,6 +26371,36 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         }
         for (const hospitalId of new Set([person.hospitalId, ...(person.hospitalIds || []), ...assignedHospitalIds].filter(Boolean) as string[])) {
           unpaidRewardCountByHospital.set(hospitalId, (unpaidRewardCountByHospital.get(hospitalId) || 0) + 1);
+        }
+      }
+
+      // Search only personnel belonging to facilities already visible in this
+      // Mission. Never expose the full collaborator row to the browser.
+      const searchablePersonnelByFacility = new Map<string, Array<{
+        name: string; phone: string | null; mobile: string | null; mobile2: string | null; email: string | null;
+      }>>();
+      for (const person of linkedRewardPeople) {
+        if (!person.isActive) continue;
+        const name = [person.titleBefore, person.firstName, person.middleName, person.lastName, person.titleAfter]
+          .filter(Boolean).join(" ").trim();
+        if (!name) continue;
+        const activeAssignments = rewardAssignmentsByPerson.get(person.id) || [];
+        const clinicIds = activeAssignments.filter(a => a.entityType === "clinic").map(a => a.entityId);
+        const hospitalIds = [
+          person.hospitalId, ...(person.hospitalIds || []),
+          ...activeAssignments.filter(a => a.entityType === "hospital").map(a => a.entityId),
+        ];
+        for (const [type, ids, visible] of [
+          ["clinic", clinicIds, rewardClinicIds],
+          ["hospital", hospitalIds, rewardHospitalIds],
+        ] as const) {
+          for (const id of new Set(ids)) {
+            if (!id || !visible.includes(id)) continue;
+            const key = `${type}:${id}`;
+            const entries = searchablePersonnelByFacility.get(key) || [];
+            entries.push({ name, phone: person.phone, mobile: person.mobile, mobile2: person.mobile2, email: person.email });
+            searchablePersonnelByFacility.set(key, entries);
+          }
         }
       }
       if (customerIds2.length > 0) {
@@ -30513,6 +30553,11 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             : null;
           return {
             ...contact,
+            personnelSearch: contact.contactType === "clinic" && contact.clinicId
+              ? searchablePersonnelByFacility.get(`clinic:${contact.clinicId}`) || []
+              : contact.contactType === "hospital" && contact.hospitalId
+                ? searchablePersonnelByFacility.get(`hospital:${contact.hospitalId}`) || []
+                : [],
             unpaidRewardPersonCount: contact.clinicId
               ? unpaidRewardCountByClinic.get(contact.clinicId) || 0
               : contact.hospitalId

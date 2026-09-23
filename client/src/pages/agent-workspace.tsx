@@ -269,6 +269,7 @@ import {
   type PriorityQueueSegmentId,
 } from "@/components/agent/priority-builder";
 import { priorityBuilderCopy } from "@/components/agent/priority-builder-copy";
+import { getPriorityContactSearchMatches, getPriorityContactSearchDetails } from "@/components/agent/priority-contact-search";
 import "@/components/agent/shift-login-variant-a.css";
 import { playShiftLoginSound } from "@/lib/shift-login-sounds";
 import { isMissionContactInactive } from "@/lib/inactive-contact-call";
@@ -675,6 +676,7 @@ interface EnrichedCampaignContact extends CampaignContact {
   clinic?: Clinic | null;
   collaborator?: Collaborator | null;
   hasReferral?: boolean;
+  personnelSearch?: Array<{ name: string; phone?: string | null; mobile?: string | null; mobile2?: string | null; email?: string | null }>;
 }
 
 interface TaskItem {
@@ -16348,10 +16350,11 @@ function AgentWorkspacePageContent() {
                 {showSearchSuggestions && modalSearchField !== "all" && modalSearch.trim() && (() => {
                   const q = modalSearch.trim().toLowerCase().replace(/\s/g,"");
                   const extractField = (cc: any): string[] => {
+                    const people = getPriorityContactSearchDetails(cc).personnel;
                     switch (modalSearchField) {
-                      case "name": return [(getEntityDisplayInfo(cc)?.name || "")].filter(Boolean);
-                      case "phone": return collectContactPhones(cc);
-                      case "email": return collectContactEmails(cc);
+                      case "name": return [(getEntityDisplayInfo(cc)?.name || ""), ...people.map(person => person.name)].filter(Boolean);
+                      case "phone": return [...collectContactPhones(cc), ...people.flatMap(person => person.phones)];
+                      case "email": return [...collectContactEmails(cc), ...people.flatMap(person => person.emails)];
                       case "city": return [cc.customer?.city, cc.hospital?.city, cc.clinic?.city, cc.collaborator?.city].filter(Boolean);
                       case "address": return [cc.customer?.address, cc.hospital?.address, cc.clinic?.address].filter(Boolean);
                       case "zip": return [cc.customer?.zip, cc.hospital?.zip, cc.clinic?.zip].filter(Boolean);
@@ -16485,6 +16488,12 @@ function AgentWorkspacePageContent() {
               const renderModalCard = (cc: typeof sortedPendingContacts[0], ac: string) => {
                 const entityInfo = getEntityDisplayInfo(cc);
                 if (!entityInfo) return null;
+                const personMatch = modalSearch.trim() && ["all", "name", "phone", "email"].includes(modalSearchField)
+                  ? getPriorityContactSearchMatches(cc, modalSearch, modalSearchField as "all" | "name" | "phone" | "email")
+                    .find(match => match.field === "personnel")
+                  : null;
+                const matchingPerson = personMatch && getPriorityContactSearchDetails(cc).personnel.find(person =>
+                  person.name === personMatch.value || person.phones.includes(personMatch.value) || person.emails.includes(personMatch.value));
                 const callbackDateStr = cc.callbackDate ? format(new Date(cc.callbackDate), "dd.MM.yyyy HH:mm") : null;
                 const mCfg = modalCtConfig[entityInfo.type] || modalCtConfig.customer;
                 const MIcon = mCfg.icon;
@@ -16518,6 +16527,10 @@ function AgentWorkspacePageContent() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold truncate text-foreground">{entityInfo.name}</p>
+                      {matchingPerson && <p className="text-xs truncate text-muted-foreground">
+                        {t.agentWorkspace.priorityBuilderSearchResult.personnel}: {matchingPerson.name}
+                        {personMatch?.value !== matchingPerson.name && ` · ${personMatch?.value}`}
+                      </p>}
                        <div className="flex items-center gap-1">
                          <p className="text-xs truncate text-muted-foreground">{entityInfo.subtitle}</p>
                          {isPriorityReferral(cc) && (
@@ -16647,10 +16660,14 @@ function AgentWorkspacePageContent() {
                 if (modalSearch) {
                   const q = modalSearch.toLowerCase();
                   const ql = q.replace(/\s/g, "");
+                  const personnelMatches = ["all", "name", "phone", "email"].includes(modalSearchField)
+                    ? getPriorityContactSearchMatches(cc, modalSearch, modalSearchField as "all" | "name" | "phone" | "email")
+                      .some(match => match.field === "personnel")
+                    : false;
                   const fieldChecks: Record<string, boolean> = {
-                    name:    (entityInfo?.name || "").toLowerCase().includes(q),
-                    phone:   [...collectContactPhones(cc), (entityInfo?.subtitle||"")].some(p => p.replace(/\s/g,"").includes(ql)),
-                    email:   collectContactEmails(cc).some(e => e.toLowerCase().includes(q)),
+                    name:    (entityInfo?.name || "").toLowerCase().includes(q) || (["all", "name"].includes(modalSearchField) && personnelMatches),
+                    phone:   [...collectContactPhones(cc), (entityInfo?.subtitle||"")].some(p => p.replace(/\s/g,"").includes(ql)) || (["all", "phone"].includes(modalSearchField) && personnelMatches),
+                    email:   collectContactEmails(cc).some(e => e.toLowerCase().includes(q)) || (["all", "email"].includes(modalSearchField) && personnelMatches),
                     city:    (cc.customer?.city||cc.hospital?.city||cc.clinic?.city||cc.collaborator?.city||"").toLowerCase().includes(q),
                     address: (cc.customer?.address||cc.hospital?.address||cc.clinic?.address||"").toLowerCase().includes(q),
                     zip:      (cc.customer?.zip||cc.hospital?.zip||cc.clinic?.zip||"").toLowerCase().includes(q),
