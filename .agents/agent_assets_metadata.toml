@@ -819,3 +819,143 @@ mtime_ms = 1790143860364
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/9c9e23de-595b-47d5-bd83-1d0536b9505c/3dbfc78b-08da-47d1-a7ac-cb0932b680a2"
 storage_version_token = "1790143880649513"
 content_type = "audio/wav"
+
+[[outputs]]
+id = "0WowXF8HJRmZ-qvb7saT5"
+uri = "file://attached_assets/nexus-spectral-welcome.wav"
+type = "audio"
+title = "1. Privítanie — spektrálna verzia"
+description = "Nová verzia s bohatšími harmonickými vrstvami, pohybom v stereu a hlbším dozvukom. Hlasitosť zodpovedá aplikácii."
+logical_id = "c8ca7609-69ae-4e77-b139-0add87f2d9cd"
+content_hash = "sha256:9256a8367e25879db4933b3bf30b15c56b537ef4f218e4670bbe0acc8cc9c3a1"
+size = 1234844
+mtime_ms = 1790144053068
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/c8ca7609-69ae-4e77-b139-0add87f2d9cd/04644ebb-2ed3-4f79-8a49-bffc411206ac"
+storage_version_token = "1790144075110236"
+content_type = "audio/wav"
+
+[[outputs]]
+id = "anEUZMhae2MoaSnVZlJJX"
+uri = "file://attached_assets/nexus-spectral-mission.wav"
+type = "audio"
+title = "2. Mission — spektrálna verzia"
+description = "Nová verzia s bohatšími harmonickými vrstvami, pohybom v stereu a hlbším dozvukom. Hlasitosť zodpovedá aplikácii."
+logical_id = "7c094c40-0bd6-42ab-8ecf-d55d003235b7"
+content_hash = "sha256:4f43702580a5e0a8f2883f4e6deb26645bf832df21474303bbf8201af2da978b"
+size = 705644
+mtime_ms = 1790144053400
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/7c094c40-0bd6-42ab-8ecf-d55d003235b7/858eb5d7-f92c-4e1e-abdf-33a7c67cd090"
+storage_version_token = "1790144075952317"
+content_type = "audio/wav"
+
+[[outputs]]
+id = "aTgFTI0sKThu_0SmIgw-Q"
+uri = "file://attached_assets/nexus-spectral-inbound.wav"
+type = "audio"
+title = "3. Inbound — spektrálna verzia"
+description = "Nová verzia s bohatšími harmonickými vrstvami, pohybom v stereu a hlbším dozvukom. Hlasitosť zodpovedá aplikácii."
+logical_id = "f242c106-7769-45bc-98b5-58b496755c5e"
+content_hash = "sha256:4a4397567610fb14a193ad74d85da002812b7581982c695e91ca4a215a2bd8db"
+size = 705644
+mtime_ms = 1790144053588
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/f242c106-7769-45bc-98b5-58b496755c5e/a89494c4-fad6-435d-9ad0-197864b228de"
+storage_version_token = "1790144076932539"
+content_type = "audio/wav"
+
+[[outputs]]
+id = "GvRTBswXCrG0Shlf5E1rq"
+uri = "file://attached_assets/nexus-spectral-backOffice.wav"
+type = "audio"
+title = "4. Back Office — spektrálna verzia"
+description = "Nová verzia s bohatšími harmonickými vrstvami, pohybom v stereu a hlbším dozvukom. Hlasitosť zodpovedá aplikácii."
+logical_id = "b4ba7aab-c91f-44da-b7b4-59534bb66ebd"
+content_hash = "sha256:f9f33774918b2bd5f6485b5749b371fbfebec90b5c017fefafd4b9afad2f4734"
+size = 705644
+mtime_ms = 1790144053820
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/b4ba7aab-c91f-44da-b7b4-59534bb66ebd/14230a41-6ef9-42ab-adc1-689194c76b19"
+storage_version_token = "1790144077887046"
+content_type = "audio/wav"
+
+[[outputs]]
+id = "YkDorHFOZGx8iV7-Ao2OP"
+uri = "file://attached_assets/nexus-spectral-setApply.wav"
+type = "audio"
+title = "5. Načítanie zostavy — spektrálna verzia"
+description = "Nová verzia s bohatšími harmonickými vrstvami, pohybom v stereu a hlbším dozvukom. Hlasitosť zodpovedá aplikácii."
+logical_id = "4a480bb7-fb48-46a3-a764-57e22e38f36b"
+content_hash = "sha256:175774551c46be6c9cbd47dbd5c785130896684ffb968ff096244e5897ea02a1"
+size = 705644
+mtime_ms = 1790144053984
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/4a480bb7-fb48-46a3-a764-57e22e38f36b/77736c44-01a9-4a9f-b8d6-d9a07913241f"
+storage_version_token = "1790144078663788"
+content_type = "audio/wav"
+
+[[outputs]]
+id = "7y2_USaDZRAfgPCQ5f-EK"
+uri = "file://attached_assets/nexus-spectral-setCreate.wav"
+type = "audio"
+title = "6. Uloženie zostavy — spektrálna verzia"
+description = "Nová verzia s bohatšími harmonickými vrstvami, pohybom v stereu a hlbším dozvukom. Hlasitosť zodpovedá aplikácii."
+logical_id = "e8805924-1d0f-415a-8782-2cddae6a68c0"
+content_hash = "sha256:3ade921ec401a5042bbce810f6c89e60b3d3ad251d8a2f24fa5df6221eda10b0"
+size = 705644
+mtime_ms = 1790144054224
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/e8805924-1d0f-415a-8782-2cddae6a68c0/02158e19-2988-4973-a493-ab65ad8b8edc"
+storage_version_token = "1790144080089378"
+content_type = "audio/wav"
+
+[[outputs]]
+id = "WBTr39FNz6vGeaS9OgDOx"
+uri = "file://attached_assets/nexus-spectral-start.wav"
+type = "audio"
+title = "7. Štart zmeny — spektrálna verzia"
+description = "Nová verzia s bohatšími harmonickými vrstvami, pohybom v stereu a hlbším dozvukom. Hlasitosť zodpovedá aplikácii."
+logical_id = "caa236e3-0441-4ffe-83e1-2dd7bf236ca9"
+content_hash = "sha256:099b7a19a0b46cecb509cd48aeb665bb5969c91abf84d4a3b89fb69f65560121"
+size = 1234844
+mtime_ms = 1790144054816
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/caa236e3-0441-4ffe-83e1-2dd7bf236ca9/7ba78aa2-65a7-4901-9bd9-278fb7ab2e94"
+storage_version_token = "1790144080976530"
+content_type = "audio/wav"
+
+[[outputs]]
+id = "89SVpcuP-coTwJ1c3_2pU"
+uri = "file://attached_assets/nexus-spectral-mission-off.wav"
+type = "audio"
+title = "8. Odznačenie Mission"
+description = "Nová verzia s bohatšími harmonickými vrstvami, pohybom v stereu a hlbším dozvukom. Hlasitosť zodpovedá aplikácii."
+logical_id = "104e21c3-5f8c-4883-9044-357b47b69e7f"
+content_hash = "sha256:59aeb39effd05a8e349c4b5391ccc27bdfc425923802c70ad5994b8da3f421fd"
+size = 705644
+mtime_ms = 1790144055092
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/104e21c3-5f8c-4883-9044-357b47b69e7f/aef82f08-28a4-49cd-bd73-73c388dabcaf"
+storage_version_token = "1790144081800911"
+content_type = "audio/wav"
+
+[[outputs]]
+id = "RG7YFnaDI9M_ZqtGnAOVR"
+uri = "file://attached_assets/nexus-spectral-inbound-off.wav"
+type = "audio"
+title = "9. Odznačenie inbound"
+description = "Nová verzia s bohatšími harmonickými vrstvami, pohybom v stereu a hlbším dozvukom. Hlasitosť zodpovedá aplikácii."
+logical_id = "4a8cd55f-50d2-4199-aaf7-495b118c5260"
+content_hash = "sha256:e229ecc8f31e9f72b3ad04bd2ab3e9fe75a7567df06d21f657eafac0fbd66d6d"
+size = 705644
+mtime_ms = 1790144055236
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/4a8cd55f-50d2-4199-aaf7-495b118c5260/d9d8efbe-1b96-4427-8fb7-5eee7c01a435"
+storage_version_token = "1790144082618818"
+content_type = "audio/wav"
+
+[[outputs]]
+id = "2aIGjeQPGCqD7htff3I2Z"
+uri = "file://attached_assets/nexus-spectral-backOffice-off.wav"
+type = "audio"
+title = "10. Odznačenie Back Office"
+description = "Nová verzia s bohatšími harmonickými vrstvami, pohybom v stereu a hlbším dozvukom. Hlasitosť zodpovedá aplikácii."
+logical_id = "ee2047e3-08bc-450c-9dc2-9526bf1ede47"
+content_hash = "sha256:483cdbc353818e0d029343c515501460f933afc5d3ad3127e5b8025ae1da8fc5"
+size = 705644
+mtime_ms = 1790144055392
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/ee2047e3-08bc-450c-9dc2-9526bf1ede47/c89e8265-db75-4cc3-91b1-11c3413a91f8"
+storage_version_token = "1790144083354216"
+content_type = "audio/wav"

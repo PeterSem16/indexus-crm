@@ -19,7 +19,7 @@ let activeEnvelope: GainNode | null = null;
 let requestId = 0;
 let ambientBuffer: AudioBuffer | null = null;
 
-function createImpulse(context: AudioContext, duration = 1.35, decay = 3.2) {
+function createImpulse(context: AudioContext, duration = 2.6, decay = 2.8) {
   const length = Math.floor(context.sampleRate * duration);
   const impulse = context.createBuffer(2, length, context.sampleRate);
   for (let channel = 0; channel < impulse.numberOfChannels; channel += 1) {
@@ -45,9 +45,9 @@ function getAudioGraph(): AudioGraph | null {
   const compressor = context.createDynamicsCompressor();
   const output = context.createGain();
 
-  dry.gain.value = 0.78;
-  wet.gain.value = 0.22;
-  output.gain.value = 0.72;
+  dry.gain.value = 0.7;
+  wet.gain.value = 0.35;
+  output.gain.value = 0.65;
   reverb.buffer = createImpulse(context);
   compressor.threshold.value = -22;
   compressor.knee.value = 18;
@@ -57,6 +57,20 @@ function getAudioGraph(): AudioGraph | null {
 
   input.connect(dry);
   input.connect(reverb);
+  // Quiet lateral early reflections put the clear direct sound in a larger
+  // space. No feedback loop or phase inversion: the cues remain mono-safe.
+  for (const [seconds, pan, level] of [[0.137, -0.9, 0.15], [0.223, 0.9, 0.12], [0.367, -0.55, 0.07]]) {
+    const delay = context.createDelay(1);
+    const reflection = context.createGain();
+    const position = context.createStereoPanner();
+    const damping = context.createBiquadFilter();
+    delay.delayTime.value = seconds;
+    reflection.gain.value = level;
+    position.pan.value = pan;
+    damping.type = "lowpass";
+    damping.frequency.value = 2800;
+    input.connect(delay).connect(damping).connect(position).connect(reflection).connect(compressor);
+  }
   reverb.connect(wet);
   dry.connect(compressor);
   wet.connect(compressor);
@@ -96,13 +110,20 @@ function ambientVoice(
   panner.connect(input);
   const pan = options.pan ?? 0;
   panner.pan.setValueAtTime(pan, start);
-  panner.pan.linearRampToValueAtTime(-pan * 0.6, start + duration);
+  panner.pan.linearRampToValueAtTime(-pan * 0.95, start + duration * 0.65);
+  panner.pan.linearRampToValueAtTime(pan * 0.3, start + duration);
+
+  const spectrum = context.createPeriodicWave(
+    new Float32Array(6),
+    new Float32Array([0, 1, 0.24, 0.09, 0.025, 0.035]),
+  );
 
   [-detune, detune].forEach((cents, index) => {
     const oscillator = context.createOscillator();
-    oscillator.type = index === 0 ? "sine" : "sine";
+    oscillator.setPeriodicWave(spectrum);
     oscillator.frequency.setValueAtTime(frequency, start);
     oscillator.detune.setValueAtTime(cents, start);
+    oscillator.detune.linearRampToValueAtTime(-cents * 0.6, start + duration);
     if (options.endFrequency) {
       oscillator.frequency.exponentialRampToValueAtTime(options.endFrequency, start + duration);
     }
@@ -166,7 +187,7 @@ export async function playShiftLoginSound(sound: ShiftLoginSound, selected = tru
     window.setTimeout(() => {
       envelope.disconnect();
       if (activeEnvelope === envelope) activeEnvelope = null;
-    }, 6000);
+    }, 8000);
     const now = context.currentTime + 0.018;
 
     if (sound === "welcome" || sound === "start") {
@@ -183,6 +204,30 @@ export async function playShiftLoginSound(sound: ShiftLoginSound, selected = tru
       source.connect(envelope);
       source.onended = () => source.disconnect();
       source.start(context.currentTime + 0.018);
+      // Floating octave/fifth partials travel independently above the pad.
+      // These are deliberately much quieter than the original sound.
+      for (const [ratio, pan, offset, level] of [[2, -0.85, 0.14, 0.11], [3, 0.85, 0.34, 0.055]]) {
+        const overtone = context.createBufferSource();
+        const glow = context.createGain();
+        const position = context.createStereoPanner();
+        const filter = context.createBiquadFilter();
+        overtone.buffer = ambientBuffer;
+        overtone.playbackRate.value = source.playbackRate.value * ratio;
+        const begin = context.currentTime + offset;
+        const end = begin + ambientBuffer.duration / overtone.playbackRate.value;
+        glow.gain.setValueAtTime(0, begin);
+        glow.gain.linearRampToValueAtTime(level, begin + 0.28);
+        glow.gain.linearRampToValueAtTime(0, end);
+        position.pan.setValueAtTime(pan, begin);
+        position.pan.linearRampToValueAtTime(-pan, end);
+        filter.type = "lowpass";
+        filter.frequency.value = 3600;
+        overtone.connect(filter).connect(glow).connect(position).connect(envelope);
+        overtone.onended = () => {
+          overtone.disconnect(); filter.disconnect(); glow.disconnect(); position.disconnect();
+        };
+        overtone.start(begin);
+      }
       return;
     }
 
