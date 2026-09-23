@@ -6709,6 +6709,32 @@ export default function CampaignDetailPage() {
                           </Select>
                         </CardContent>
                       </Card>
+                      <Card className="border-violet-200/80 bg-violet-50/25 shadow-sm dark:border-violet-900/60 dark:bg-violet-950/10">
+                        <CardHeader>
+                          <CardTitle>{t.campaigns.detail.includePersonReferralsTitle}</CardTitle>
+                          <CardDescription>{t.campaigns.detail.includePersonReferralsDesc}</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <Switch
+                            checked={(() => { try { return JSON.parse(campaign.settings || "{}").includePersonReferrals === true; } catch { return false; } })()}
+                            onCheckedChange={(enabled) => {
+                              let existing: Record<string, unknown> = {};
+                              try { existing = JSON.parse(campaign.settings || "{}"); } catch {}
+                              apiRequest("PATCH", `/api/campaigns/${campaign.id}`, {
+                                settings: JSON.stringify({ ...existing, includePersonReferrals: enabled }),
+                              })
+                                .then(() => {
+                                  toast({ title: t.campaigns.detail.settingsSaved });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts"] });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+                                })
+                                .catch(() => toast({ title: t.campaigns.detail.error, variant: "destructive" }));
+                            }}
+                            data-testid="switch-include-person-referrals"
+                          />
+                        </CardContent>
+                      </Card>
                       <Card className="border-rose-200/80 bg-rose-50/25 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-rose-900/60 dark:bg-rose-950/10">
                         <CardHeader>
                           <CardTitle className="flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-md bg-rose-500/15 text-rose-700 dark:text-rose-300"><ScrollText className="h-4 w-4" /></span>{t.campaigns.detail.showScriptTitle}</CardTitle>

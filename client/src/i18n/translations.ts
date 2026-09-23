@@ -3060,6 +3060,8 @@ export interface Translations {
       defaultOnlyAssignedTitle: string;
       defaultOnlyAssignedDesc: string;
       contactVisibilityTitle: string;
+      includePersonReferralsTitle: string;
+      includePersonReferralsDesc: string;
       contactVisibilityDesc: string;
       contactVisibilityAll: string;
       contactVisibilityAssigned: string;
@@ -11816,6 +11818,8 @@ export const translations: Record<Locale, Translations> = {
         settingsGroupAgent: "Agent workspace",
         settingsGroupAgentDesc: "What agents see and how the contact opens",
         contactVisibilityTitle: "Contact visibility",
+        includePersonReferralsTitle: "Include referrals from assigned people",
+        includePersonReferralsDesc: "Count a clinic or hospital as a referral when an actively assigned person has a referral. Show the badge and include it in referral ordering.",
         contactVisibilityDesc: "Choose whether agents see every contact or only contacts assigned to them as representative.",
         contactVisibilityAll: "Show all contacts to all agents",
         contactVisibilityAssigned: "Only contacts assigned to the logged-in agent",
@@ -19444,6 +19448,8 @@ export const translations: Record<Locale, Translations> = {
         settingsGroupAgent: "Pracovný priestor agenta",
         settingsGroupAgentDesc: "Čo agenti vidia a ako sa kontakt otvára",
         contactVisibilityTitle: "Viditeľnosť kontaktov",
+        includePersonReferralsTitle: "Započítať odporúčania priradených osôb",
+        includePersonReferralsDesc: "Klinika alebo nemocnica sa počíta ako referral, ak má aktívne priradená osoba odporúčanie. Zobrazí sa badge a kontakt sa zaradí medzi referraly.",
         contactVisibilityDesc: "Vyberte, či agenti uvidia všetky kontakty alebo iba kontakty, kde sú priradení ako reprezentanti.",
         contactVisibilityAll: "Zobrazovať všetky kontakty všetkým agentom",
         contactVisibilityAssigned: "Iba kontakty priradené prihlásenému agentovi",
@@ -27007,6 +27013,8 @@ export const translations: Record<Locale, Translations> = {
         settingsGroupAgent: "Pracovní prostor agenta",
         settingsGroupAgentDesc: "Co agenti vidí a jak se kontakt otevírá",
         contactVisibilityTitle: "Viditelnost kontaktů",
+        includePersonReferralsTitle: "Započítat doporučení přiřazených osob",
+        includePersonReferralsDesc: "Klinika nebo nemocnice se počítá jako doporučení, pokud má aktivně přiřazená osoba doporučení. Zobrazí se označení a kontakt se zařadí mezi doporučení.",
         contactVisibilityDesc: "Zvolte, zda agenti uvidí všechny kontakty, nebo jen kontakty, u kterých jsou přiřazeni jako zástupci.",
         contactVisibilityAll: "Zobrazovat všechny kontakty všem agentům",
         contactVisibilityAssigned: "Pouze kontakty přiřazené přihlášenému agentovi",
@@ -34524,6 +34532,8 @@ export const translations: Record<Locale, Translations> = {
         settingsGroupAgent: "Operátor munkaterülete",
         settingsGroupAgentDesc: "Mit látnak az operátorok és hogyan nyílik meg a kapcsolat",
         contactVisibilityTitle: "Kapcsolatok láthatósága",
+        includePersonReferralsTitle: "Hozzárendelt személyek ajánlásainak beszámítása",
+        includePersonReferralsDesc: "A klinika vagy kórház ajánlásnak számít, ha egy aktívan hozzárendelt személynek van ajánlása. Az ajánlás jelvénye és sorrendje is érvényesül.",
         contactVisibilityDesc: "Válassza ki, hogy az operátorok minden kapcsolatot lássanak, vagy csak azokat, amelyeknél ők a képviselők.",
         contactVisibilityAll: "Minden kapcsolat megjelenítése minden operátornak",
         contactVisibilityAssigned: "Csak a bejelentkezett operátorhoz rendelt kapcsolatok",
@@ -41927,6 +41937,8 @@ export const translations: Record<Locale, Translations> = {
         settingsGroupAgent: "Spațiul de lucru al agentului",
         settingsGroupAgentDesc: "Ce văd agenții și cum se deschide contactul",
         contactVisibilityTitle: "Vizibilitatea contactelor",
+        includePersonReferralsTitle: "Include recomandările persoanelor asociate",
+        includePersonReferralsDesc: "O clinică sau un spital este considerat recomandat dacă o persoană asociată activ are o recomandare. Apare insigna și se aplică ordinea recomandărilor.",
         contactVisibilityDesc: "Alegeți dacă agenții văd toate contactele sau doar contactele unde sunt reprezentanți atribuiți.",
         contactVisibilityAll: "Afișează toate contactele tuturor agenților",
         contactVisibilityAssigned: "Doar contactele atribuite agentului conectat",
@@ -49331,6 +49343,8 @@ export const translations: Record<Locale, Translations> = {
         settingsGroupAgent: "Spazio di lavoro operatore",
         settingsGroupAgentDesc: "Cosa vedono gli operatori e come si apre il contatto",
         contactVisibilityTitle: "Visibilità dei contatti",
+        includePersonReferralsTitle: "Includi i referral delle persone associate",
+        includePersonReferralsDesc: "Una clinica o un ospedale conta come referral se una persona associata attiva ha un referral. Mostra il badge e segue l'ordine dei referral.",
         contactVisibilityDesc: "Scegli se gli operatori vedono tutti i contatti o solo quelli in cui sono rappresentanti assegnati.",
         contactVisibilityAll: "Mostra tutti i contatti a tutti gli operatori",
         contactVisibilityAssigned: "Solo i contatti assegnati all'operatore connesso",
@@ -56735,6 +56749,8 @@ export const translations: Record<Locale, Translations> = {
         settingsGroupAgent: "Agenten-Arbeitsbereich",
         settingsGroupAgentDesc: "Was Agenten sehen und wie der Kontakt geöffnet wird",
         contactVisibilityTitle: "Sichtbarkeit der Kontakte",
+        includePersonReferralsTitle: "Empfehlungen zugeordneter Personen einbeziehen",
+        includePersonReferralsDesc: "Eine Klinik oder ein Krankenhaus zählt als Empfehlung, wenn eine aktiv zugeordnete Person eine Empfehlung hat. Badge und Empfehlungsreihenfolge gelten ebenfalls.",
         contactVisibilityDesc: "Wählen Sie, ob Agenten alle Kontakte oder nur Kontakte sehen, bei denen sie als Vertreter zugewiesen sind.",
         contactVisibilityAll: "Alle Kontakte allen Agenten anzeigen",
         contactVisibilityAssigned: "Nur dem angemeldeten Agenten zugewiesene Kontakte",

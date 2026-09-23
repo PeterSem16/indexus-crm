@@ -183,6 +183,7 @@ import {
   resolveScheduledQueueWorkflow,
 } from "./lib/scheduled-queue-metadata";
 import { activityBelongsToMission } from "./lib/my-shift-mission-scope";
+import { facilityPersonReferralIds, includePersonReferrals } from "./lib/mission-person-referrals";
 import {
   addCampaignCallsToOperatorStats,
   callHandledContactIncrement,
@@ -201,6 +202,64 @@ import * as mailchimpApi from "./lib/mailchimp";
 import { sendAmiActionViaSshTunnel, sendAmiListActionViaSshTunnel, downloadFileViaSsh, runSshCommand } from "./lib/ami-client";
 import * as XLSX from "xlsx";
 import { STORAGE_PATHS, ensureAllDirectoriesExist, getPublicUrl, getRelativePath, getAbsolutePath, DATA_ROOT } from "./config/storage-paths";
+
+async function loadFacilityPersonReferralIds(clinicIds: string[], hospitalIds: string[]) {
+  const empty = { clinic: new Set<string>(), hospital: new Set<string>() };
+  if (!clinicIds.length && !hospitalIds.length) return empty;
+  const conditions = [
+    ...(clinicIds.length ? [and(eq(contactAssignments.entityType, "clinic"), inArray(contactAssignments.entityId, clinicIds))] : []),
+    ...(hospitalIds.length ? [and(eq(contactAssignments.entityType, "hospital"), inArray(contactAssignments.entityId, hospitalIds))] : []),
+  ];
+  const assignments = await db.select({
+    personId: contactAssignments.personId,
+    entityType: contactAssignments.entityType,
+    entityId: contactAssignments.entityId,
+  }).from(contactAssignments)
+    .innerJoin(collaborators, eq(contactAssignments.personId, collaborators.id))
+    .where(and(eq(contactAssignments.isActive, true), eq(collaborators.isActive, true), or(...conditions)));
+  const legacyConditions = [
+    ...(clinicIds.length ? [
+      inArray(collaborators.clinicId, clinicIds),
+      sql`${collaborators.clinicIds} && ${clinicIds}::text[]`,
+    ] : []),
+    ...(hospitalIds.length ? [
+      inArray(collaborators.hospitalId, hospitalIds),
+      sql`${collaborators.hospitalIds} && ${hospitalIds}::text[]`,
+    ] : []),
+  ];
+  const legacyPeople = await db.select({
+    id: collaborators.id,
+    clinicId: collaborators.clinicId,
+    clinicIds: collaborators.clinicIds,
+    hospitalId: collaborators.hospitalId,
+    hospitalIds: collaborators.hospitalIds,
+  }).from(collaborators).where(and(eq(collaborators.isActive, true), or(...legacyConditions)));
+  const clinicSet = new Set(clinicIds);
+  const hospitalSet = new Set(hospitalIds);
+  for (const person of legacyPeople) {
+    for (const id of new Set([person.clinicId, ...(person.clinicIds || [])])) {
+      if (id && clinicSet.has(id)) assignments.push({ personId: person.id, entityType: "clinic", entityId: id });
+    }
+    for (const id of new Set([person.hospitalId, ...(person.hospitalIds || [])])) {
+      if (id && hospitalSet.has(id)) assignments.push({ personId: person.id, entityType: "hospital", entityId: id });
+    }
+  }
+  const personIds = [...new Set(assignments.map(row => row.personId))];
+  if (!personIds.length) return empty;
+  const referrals = await db.select({
+    collaboratorId: collaboratorReferrals.collaboratorId,
+    referringCollaboratorId: collaboratorReferrals.referringCollaboratorId,
+  }).from(collaboratorReferrals).where(or(
+    inArray(collaboratorReferrals.collaboratorId, personIds),
+    inArray(collaboratorReferrals.referringCollaboratorId, personIds),
+  ));
+  const referred = new Set<string>();
+  for (const row of referrals) {
+    referred.add(row.collaboratorId);
+    referred.add(row.referringCollaboratorId);
+  }
+  return facilityPersonReferralIds(assignments, referred);
+}
 
 interface MobileRecordingInfo {
   recordingName: string;
@@ -25681,6 +25740,11 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const queueClinicIds = [...new Set(queueRows.map(row => row.ccClinicId).filter(Boolean))] as string[];
       const queueHospitalIds = [...new Set(queueRows.map(row => row.ccHospitalId).filter(Boolean))] as string[];
       const queueCollaboratorIds = [...new Set(queueRows.map(row => row.ccCollaboratorId).filter(Boolean))] as string[];
+      const queuePersonReferralRows = queueRows.filter(row => includePersonReferrals(row.campaignSettings));
+      const queuePersonReferrals = await loadFacilityPersonReferralIds(
+        [...new Set(queuePersonReferralRows.map(row => row.ccClinicId).filter(Boolean))] as string[],
+        [...new Set(queuePersonReferralRows.map(row => row.ccHospitalId).filter(Boolean))] as string[],
+      );
       const [queueClinicRepresentativeRows, queueHospitalRepresentativeRows, queueCollaboratorRepresentativeRows] = await Promise.all([
         queueClinicIds.length > 0
           ? db.select({
@@ -25802,6 +25866,10 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           clinic: queueClinicReferralIds,
           collaborator: queueCollaboratorReferralIds,
         }, priorityCityByCollaborator);
+        const hasReferral = contact.hasReferral || (includePersonReferrals(row.campaignSettings) && (
+          (contact.contactType === "clinic" && queuePersonReferrals.clinic.has(row.ccClinicId)) ||
+          (contact.contactType === "hospital" && queuePersonReferrals.hospital.has(row.ccHospitalId))
+        ));
         const stepInfo = resolveStepInfo(row.campaignScript, row.ccCurrentStepId);
         items.push({
           id: row.ccId,
@@ -25818,7 +25886,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           scheduledAt: row.ccCallbackDate,
           notes: row.ccCallbackNote || row.ccNotes || "",
           status: "pending",
-          hasReferral: contact.hasReferral,
+          hasReferral,
           priorityCity: contact.priorityCity,
           priorityCountryCode: contact.priorityCountryCode,
           stepName: stepInfo.stepName,
@@ -25847,6 +25915,10 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           clinic: queueClinicReferralIds,
           collaborator: queueCollaboratorReferralIds,
         }, priorityCityByCollaborator);
+        const hasReferral = contact.hasReferral || (includePersonReferrals(row.campaignSettings) && (
+          (contact.contactType === "clinic" && queuePersonReferrals.clinic.has(row.ccClinicId)) ||
+          (contact.contactType === "hospital" && queuePersonReferrals.hospital.has(row.ccHospitalId))
+        ));
         const sStepInfo = resolveStepInfo(row.campaignScript, row.ccCurrentStepId);
         items.push({
           id: row.sessionId,
@@ -25864,7 +25936,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           scheduledAt: row.sessionCallbackDate,
           notes: row.sessionNotes || "",
           status: "pending",
-          hasReferral: contact.hasReferral,
+          hasReferral,
           priorityCity: contact.priorityCity,
           priorityCountryCode: contact.priorityCountryCode,
           stepName: sStepInfo.stepName,
@@ -27442,6 +27514,14 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         if (smsProvider && !["admin", "manager"].includes(req.session.user!.role)) {
           return res.status(403).json({ error: "Only managers can set the Mission SMS provider" });
         }
+        if (parsedSettings?.includePersonReferrals !== undefined) {
+          if (typeof parsedSettings.includePersonReferrals !== "boolean") {
+            return res.status(400).json({ error: "includePersonReferrals must be a boolean" });
+          }
+          if (!["admin", "manager"].includes(req.session.user!.role)) {
+            return res.status(403).json({ error: "Only managers can change person referral inclusion" });
+          }
+        }
         const outboundRoutingError = validateMissionOutboundSettings(parsedSettings);
         if (outboundRoutingError) return res.status(400).json({ error: outboundRoutingError });
         const recordingPolicyError = validateMissionRecordingSettings(parsedSettings);
@@ -27596,8 +27676,21 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         if (!nextSettings || typeof nextSettings !== "object" || Array.isArray(nextSettings)) {
           return res.status(400).json({ error: "Invalid campaign settings" });
         }
+        if (!Object.prototype.hasOwnProperty.call(nextSettings, "includePersonReferrals")
+          && Object.prototype.hasOwnProperty.call(currentSettings, "includePersonReferrals")) {
+          nextSettings.includePersonReferrals = currentSettings.includePersonReferrals;
+        }
         if (nextSettings.enablePersonnelDialing !== undefined && typeof nextSettings.enablePersonnelDialing !== "boolean") {
           return res.status(400).json({ error: "enablePersonnelDialing must be a boolean" });
+        }
+        if (nextSettings.includePersonReferrals !== undefined && typeof nextSettings.includePersonReferrals !== "boolean") {
+          return res.status(400).json({ error: "includePersonReferrals must be a boolean" });
+        }
+        if (
+          currentSettings.includePersonReferrals !== nextSettings.includePersonReferrals
+          && !["admin", "manager"].includes(req.session.user!.role)
+        ) {
+          return res.status(403).json({ error: "Only managers can change person referral inclusion" });
         }
         if (
           currentSettings.enablePersonnelDialing !== nextSettings.enablePersonnelDialing
@@ -30362,7 +30455,11 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       // the referring entity. This keeps the Mission contacts filter fast and
       // avoids one referral query per contact.
       const clinicContactIds = contacts.map((contact: any) => contact.clinicId).filter(Boolean);
+      const hospitalContactIds = contacts.map((contact: any) => contact.hospitalId).filter(Boolean);
       const collaboratorContactIds = contacts.map((contact: any) => contact.collaboratorId).filter(Boolean);
+      const personReferrals = includePersonReferrals(campaign.settings)
+        ? await loadFacilityPersonReferralIds(clinicContactIds, hospitalContactIds)
+        : { clinic: new Set<string>(), hospital: new Set<string>() };
       const clinicReferralIds = new Set<string>();
       const collaboratorReferralIds = new Set<string>();
       if (clinicContactIds.length > 0) {
@@ -30405,7 +30502,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             customer = await storage.getCustomer(contact.customerId);
           }
           const hasReferral = contact.clinicId
-            ? clinicReferralIds.has(contact.clinicId)
+            ? clinicReferralIds.has(contact.clinicId) || personReferrals.clinic.has(contact.clinicId)
+            : contact.hospitalId
+              ? personReferrals.hospital.has(contact.hospitalId)
             : contact.collaboratorId
               ? collaboratorReferralIds.has(contact.collaboratorId)
               : false;
