@@ -220,11 +220,11 @@ async function loadFacilityPersonReferralIds(clinicIds: string[], hospitalIds: s
   const legacyConditions = [
     ...(clinicIds.length ? [
       inArray(collaborators.clinicId, clinicIds),
-      sql`${collaborators.clinicIds} && ${clinicIds}::text[]`,
+      sql`${collaborators.clinicIds} && ARRAY[${sql.join(clinicIds.map(id => sql`${id}`), sql`, `)}]::text[]`,
     ] : []),
     ...(hospitalIds.length ? [
       inArray(collaborators.hospitalId, hospitalIds),
-      sql`${collaborators.hospitalIds} && ${hospitalIds}::text[]`,
+      sql`${collaborators.hospitalIds} && ARRAY[${sql.join(hospitalIds.map(id => sql`${id}`), sql`, `)}]::text[]`,
     ] : []),
   ];
   const legacyPeople = await db.select({
@@ -26364,60 +26364,6 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         }
       }
 
-      // Search only personnel belonging to facilities already visible in this
-      // Mission. Never expose the full collaborator row to the browser.
-      // This is optional metadata: a missing legacy column must not prevent
-      // the Mission's base contacts from loading.
-      const searchablePersonnelPeople = linkedRewardPersonIds.length
-        ? await (async () => {
-            try {
-              return await db.select({
-                id: collaborators.id,
-                isActive: collaborators.isActive,
-                titleBefore: collaborators.titleBefore,
-                firstName: collaborators.firstName,
-                lastName: collaborators.lastName,
-                titleAfter: collaborators.titleAfter,
-                phone: collaborators.phone,
-                mobile: collaborators.mobile,
-                mobile2: collaborators.mobile2,
-                email: collaborators.email,
-              }).from(collaborators).where(inArray(collaborators.id, linkedRewardPersonIds));
-            } catch (error) {
-              console.error("Optional personnel search metadata could not be loaded:", error);
-              return [];
-            }
-          })()
-        : [];
-      const searchablePersonnelByFacility = new Map<string, Array<{
-        name: string; phone: string | null; mobile: string | null; mobile2: string | null; email: string | null;
-      }>>();
-      const associationsByPerson = new Map(linkedRewardPeople.map(person => [person.id, person]));
-      for (const person of searchablePersonnelPeople) {
-        if (!person.isActive) continue;
-        const name = [person.titleBefore, person.firstName, person.lastName, person.titleAfter]
-          .filter(Boolean).join(" ").trim();
-        if (!name) continue;
-        const activeAssignments = rewardAssignmentsByPerson.get(person.id) || [];
-        const clinicIds = activeAssignments.filter(a => a.entityType === "clinic").map(a => a.entityId);
-        const association = associationsByPerson.get(person.id);
-        const hospitalIds = [
-          association?.hospitalId, ...(association?.hospitalIds || []),
-          ...activeAssignments.filter(a => a.entityType === "hospital").map(a => a.entityId),
-        ];
-        for (const [type, ids, visible] of [
-          ["clinic", clinicIds, rewardClinicIds],
-          ["hospital", hospitalIds, rewardHospitalIds],
-        ] as const) {
-          for (const id of new Set(ids)) {
-            if (!id || !visible.includes(id)) continue;
-            const key = `${type}:${id}`;
-            const entries = searchablePersonnelByFacility.get(key) || [];
-            entries.push({ name, phone: person.phone, mobile: person.mobile, mobile2: person.mobile2, email: person.email });
-            searchablePersonnelByFacility.set(key, entries);
-          }
-        }
-      }
       if (customerIds2.length > 0) {
         try {
           const r = await pool.query(`SELECT id, first_name, last_name, phone FROM customers WHERE id = ANY($1::text[])`, [customerIds2]);
@@ -30502,6 +30448,59 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             collaboratorId,
             normalizeCollaboratorPriorityCity(addressesByCollaborator.get(collaboratorId) || []),
           );
+        }
+      }
+
+      // Build personnel search metadata in the same contacts handler that
+      // consumes it. The reporting handler has separate reward variables.
+      const searchablePersonnelPeople = linkedRewardPersonIds.length
+        ? await (async () => {
+            try {
+              return await db.select({
+                id: collaborators.id,
+                isActive: collaborators.isActive,
+                titleBefore: collaborators.titleBefore,
+                firstName: collaborators.firstName,
+                lastName: collaborators.lastName,
+                titleAfter: collaborators.titleAfter,
+                phone: collaborators.phone,
+                mobile: collaborators.mobile,
+                mobile2: collaborators.mobile2,
+                email: collaborators.email,
+              }).from(collaborators).where(inArray(collaborators.id, linkedRewardPersonIds));
+            } catch (error) {
+              console.error("Optional personnel search metadata could not be loaded:", error);
+              return [];
+            }
+          })()
+        : [];
+      const searchablePersonnelByFacility = new Map<string, Array<{
+        name: string; phone: string | null; mobile: string | null; mobile2: string | null; email: string | null;
+      }>>();
+      const associationsByPerson = new Map(linkedRewardPeople.map(person => [person.id, person]));
+      for (const person of searchablePersonnelPeople) {
+        if (!person.isActive) continue;
+        const name = [person.titleBefore, person.firstName, person.lastName, person.titleAfter]
+          .filter(Boolean).join(" ").trim();
+        if (!name) continue;
+        const activeAssignments = rewardAssignmentsByPerson.get(person.id) || [];
+        const clinicIds = activeAssignments.filter(a => a.entityType === "clinic").map(a => a.entityId);
+        const association = associationsByPerson.get(person.id);
+        const hospitalIds = [
+          association?.hospitalId, ...(association?.hospitalIds || []),
+          ...activeAssignments.filter(a => a.entityType === "hospital").map(a => a.entityId),
+        ];
+        for (const [type, ids, visible] of [
+          ["clinic", clinicIds, rewardClinicIds],
+          ["hospital", hospitalIds, rewardHospitalIds],
+        ] as const) {
+          for (const id of new Set(ids)) {
+            if (!id || !visible.includes(id)) continue;
+            const key = `${type}:${id}`;
+            const entries = searchablePersonnelByFacility.get(key) || [];
+            entries.push({ name, phone: person.phone, mobile: person.mobile, mobile2: person.mobile2, email: person.email });
+            searchablePersonnelByFacility.set(key, entries);
+          }
         }
       }
 

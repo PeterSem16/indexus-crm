@@ -24,3 +24,9 @@ in deps).
 For a focused regression when full-repo typechecking is impractical, use TypeScript symbol binding with `noResolve` to verify each affected identifier resolves in its component scope.
 
 **Why:** Isolated modal fixtures do not execute references in the full workspace parent, and successful production builds do not detect unbound translation variables.
+
+The same rule applies to Express route closures, especially when reporting and contact-list handlers contain similar enrichment code. Match the exact route before inserting logic.
+
+**Why:** A successful build can ship a contacts handler referencing a map declared only inside reporting; every nonempty facility list then returns HTTP 500 and the UI looks empty.
+
+**How to apply:** Execute the actual extracted route handler with facility fixtures for both admin and agent paths, including optional-metadata failures. Do not substitute a login-page screenshot or a passing enrichment-helper test for this check.
