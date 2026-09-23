@@ -116,3 +116,4 @@
 - [Dedupe source fingerprints](dedupe-source-fingerprints.md) — fingerprint only persisted DB fields; facility discovery adds synthetic `kind`, which is absent during apply reads.
 - [Clinic dedupe representative history](clinic-dedupe-representatives.md) — preserve one active representative before redirecting clinic history, or the partial unique index aborts apply.
 - [Directory contact contamination](clinic-directory-contact-contamination.md) — imported portal contacts are not clinic identities; verify high-frequency shared values before deduplication.
+- [Mission phase import parity](mission-phase-import-parity.md) — an active phase can contain legacy orphan rows while no live Mission contact is enrolled; inspect actual joins before importing.

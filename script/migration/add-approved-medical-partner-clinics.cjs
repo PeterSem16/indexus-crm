@@ -53,9 +53,25 @@ async function applyReviewed(db, apply) {
         (mission.country_codes?.length && !mission.country_codes.includes("SK")))
       throw new Error("Mission nezodpovedá schválenému cieľu");
     const activePhases = (await db.query(
-      "SELECT id FROM campaign_phases WHERE campaign_id=$1 AND status='active'", [missionId]
+      "SELECT id, phase_number, type FROM campaign_phases WHERE campaign_id=$1 AND status='active'", [missionId]
     )).rows;
-    if (activePhases.length) throw new Error("Mission používa aktívne fázy; najprv treba určiť cieľovú fázu. Bez zápisu.");
+    // Production review: phase 1 contains legacy phase rows, but none of the
+    // 753 current Mission contacts is enrolled in any phase. New contacts must
+    // follow the existing Mission membership model, not be enrolled uniquely
+    // into an email phase. Refuse to proceed if that model has since changed.
+    if (activePhases.length &&
+        (activePhases.length !== 1 ||
+         activePhases[0].id !== "c7c3f67f-8b0c-4f06-90e5-fcf0bbbc769c" ||
+         activePhases[0].phase_number !== 1 ||
+         activePhases[0].type !== "email"))
+      throw new Error("Aktívna fáza Mission sa zmenila; bez zápisu.");
+    const enrolled = (await db.query(`SELECT count(*)::int AS total
+      FROM campaign_contact_phases cp
+      JOIN campaign_phases p ON p.id=cp.phase_id AND p.campaign_id=$1
+      JOIN campaign_contacts cc ON cc.id=cp.contact_id AND cc.campaign_id=cp.campaign_id
+      WHERE cc.campaign_id=$1`, [missionId])).rows[0];
+    if (!enrolled || Number(enrolled.total) !== 0)
+      throw new Error("Kontakty Mission sú už zaradené vo fázach; bez zápisu.");
 
     // Canonical person aliases are resolved recursively, both for explicit and
     // legacy workplace memberships. Explicit inactive assignments win.

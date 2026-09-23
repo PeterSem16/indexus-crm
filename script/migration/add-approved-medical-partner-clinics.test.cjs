@@ -24,7 +24,18 @@ function database(options = {}) {
         name: options.wrongMission ? "Other Mission" : "Medical Partner Cooperation",
         status: "active", country_codes: ["SK"],
       }]);
-      if (q.startsWith("SELECT id FROM campaign_phases")) return result(options.phase ? [{ id: "phase" }] : []);
+      if (q.startsWith("SELECT id, phase_number, type FROM campaign_phases")) return result(
+        options.phase === "unexpected" ? [{ id: "unexpected", phase_number: 1, type: "email" }] :
+        options.phase === "multiple" ? [
+          { id: "c7c3f67f-8b0c-4f06-90e5-fcf0bbbc769c", phase_number: 1, type: "email" },
+          { id: "other", phase_number: 2, type: "phone" },
+        ] : options.phase === "observed" ? [
+          { id: "c7c3f67f-8b0c-4f06-90e5-fcf0bbbc769c", phase_number: 1, type: "email" },
+        ] : []
+      );
+      if (q.startsWith("SELECT count(*)::int AS total FROM campaign_contact_phases")) {
+        return result([{ total: options.enrolled || 0 }]);
+      }
       if (q.startsWith("WITH RECURSIVE")) return result(
         approved.filter((_, i) => !options.missingPerson || i !== 5).map(([id]) => ({ clinic_id: id }))
       );
@@ -86,7 +97,7 @@ test("repeat application skips existing members and does not add audit duplicate
   assert.ok(!db.calls.some(q => q.startsWith("INSERT")));
 });
 test("adds four newly approved clinics when the original thirteen already exist", async () => {
-  const db = database({ existingIds: approved.slice(0, -4).map(([id]) => id) });
+  const db = database({ existingIds: approved.slice(0, -4).map(([id]) => id), phase: "observed" });
   const result = await applyReviewed(db, true);
   assert.equal(result.total, 753 + approved.length);
   assert.equal(db.contacts.size, approved.length);
@@ -96,7 +107,23 @@ test("adds four newly approved clinics when the original thirteen already exist"
     ...Array.from({ length: 4 }, () => "Pridaná"),
   ]);
   assert.equal(db.calls.at(-1), "COMMIT");
+  assert.ok(db.calls.some(q => q.startsWith("SELECT count(*)::int AS total FROM campaign_contact_phases")));
+  assert.ok(!db.calls.some(q => q.startsWith("INSERT INTO campaign_contact_phases")));
 });
+test("known active email phase with orphan assignments does not enroll new contacts", async () => {
+  const db = database({ phase: "observed" });
+  await applyReviewed(db, true);
+  assert.equal(db.contacts.size, 17);
+  assert.ok(!db.calls.some(q => q.startsWith("INSERT INTO campaign_contact_phases")));
+});
+for (const option of [{ phase: "unexpected" }, { phase: "multiple" }, { enrolled: 1, phase: "observed" }]) {
+  test(`rejects changed phase setup ${JSON.stringify(option)}`, async () => {
+    const db = database(option);
+    await assert.rejects(applyReviewed(db, true));
+    assert.equal(db.contacts.size, 0);
+    assert.equal(db.calls.at(-1), "ROLLBACK");
+  });
+}
 test("read-only preview never writes or locks", async () => {
   const db = database();
   await applyReviewed(db, false);
@@ -111,7 +138,7 @@ test("partial insert failure rolls back all inserted rows", async () => {
   assert.equal(db.timelines, 0);
   assert.equal(db.calls.at(-1), "ROLLBACK");
 });
-for (const guard of ["wrongMission", "phase", "wrongCountry", "missingPerson", "redirect", "duplicate"]) {
+for (const guard of ["wrongMission", "wrongCountry", "missingPerson", "redirect", "duplicate"]) {
   test(`fails closed for ${guard}`, async () => {
     const db = database({ [guard]: true });
     await assert.rejects(applyReviewed(db, true));
