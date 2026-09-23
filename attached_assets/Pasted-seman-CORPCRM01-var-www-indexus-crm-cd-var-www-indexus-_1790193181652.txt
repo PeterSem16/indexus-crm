@@ -1,0 +1,27 @@
+seman@CORPCRM01:/var/www/indexus-crm$ cd /var/www/indexus-crm &&
+grep -q 'Kontakty Mission sú už zaradené vo fázach' script/migration/add-approved-medical-partner-clinics.cjs &&
+node script/migration/add-approved-medical-partner-clinics.cjs --apply
+┌─────────┬───────────────────────────────────────────────────────────────────────┬───────────┐
+│ (index) │ ambulancia                                                            │ vysledok  │
+├─────────┼───────────────────────────────────────────────────────────────────────┼───────────┤
+│ 0       │ 'Gynekologická ambulancia'                                            │ 'Pridaná' │
+│ 1       │ 'Gynekologicko-pôrodnícka ambulancia Akupunktúra s.r.o.'              │ 'Pridaná' │
+│ 2       │ 'Gynekologická ambulancia, MUDr. Jana Kolejáková, (gynfet, s. r. o.)' │ 'Pridaná' │
+│ 3       │ 'Health Medical Centre'                                               │ 'Pridaná' │
+│ 4       │ 'MUDr. Ľubomír Barák CSc.'                                            │ 'Pridaná' │
+│ 5       │ 'MUDr. Ľubomír Cajchan'                                               │ 'Pridaná' │
+│ 6       │ 'MUDr. Zdenka Betáková'                                               │ 'Pridaná' │
+│ 7       │ 'Gynekológia'                                                         │ 'Pridaná' │
+│ 8       │ 'GYNOD s.r.o.'                                                        │ 'Pridaná' │
+│ 9       │ 'MUDr. Ľubica Benková'                                                │ 'Pridaná' │
+│ 10      │ 'Sanatórium Helios'                                                   │ 'Pridaná' │
+│ 11      │ 'M-CENTRUM, s.r.o., gynekologická ambulancia'                         │ 'Pridaná' │
+│ 12      │ 'Sonoclinic s.r.o., Prof. MUDr Dankovčík, PhD, MPH'                   │ 'Pridaná' │
+│ 13      │ 'Gynekologická ambulancia'                                            │ 'Pridaná' │
+│ 14      │ 'Gynekologická ambulancia'                                            │ 'Pridaná' │
+│ 15      │ 'Gynekológia'                                                         │ 'Pridaná' │
+│ 16      │ 'Gynekologicko-pôrodnícka ambulancia VEGAFEM s. r. o.'                │ 'Pridaná' │
+└─────────┴───────────────────────────────────────────────────────────────────────┴───────────┘
+COMMIT — overených 17 členstiev.
+Celkový počet kontaktov Mission: 770
+seman@CORPCRM01:/var/www/indexus-crm$
