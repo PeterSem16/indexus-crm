@@ -1,0 +1,36 @@
+[
+  {
+    "clinicId": "f0987a94-1fd7-4991-982b-59362ed6e9f2",
+    "status": "confirmed_same",
+    "confidence": "high",
+    "comparedClinicIds": [
+      "e7d122ec-ad62-4790-b2e3-dce7a8e7cf81"
+    ],
+    "explanation": "e-VÚC potvrdzuje MUDr. Stanislava Köszegyho, GYNFEM, Stavbárov 54/3 a ID ZZ 63-36674290-A0001. Tento presný ID ZZ má ambulancia GYNFEM už v Mission; nepridávať ďalší záznam toho istého pracoviska.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/e-vuc/poskytovatelia/gynfem.html?page_id=106262",
+        "title": "GYNFEM – e-VÚC",
+        "evidence": "Zhodné pracovisko, lekár, adresa a ID ZZ 63-36674290-A0001.",
+        "fetched": true
+      }
+    ]
+  },
+  {
+    "clinicId": "8340b0d0-7f23-44ff-9ef9-cec2da21d619",
+    "status": "confirmed_same",
+    "confidence": "high",
+    "comparedClinicIds": [
+      "1bc13876-6f88-4957-8f82-2808532070e0"
+    ],
+    "explanation": "e-VÚC potvrdzuje LEVSKA, Poštovú 2 v Zlatých Klasoch a ID ZZ 62-50295764-A0001. Tento presný ID ZZ je už na ambulancii LEVSKA v Mission; nepridávať ďalší záznam toho istého pracoviska.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/ttsk/zdravotnictvo/ambulantne-zdravotnicke-zariadenia/dunajska-streda/primarna-gynekologicko-porodnicka-ambulancia-zlate-klasy-levska.html?page_id=120342",
+        "title": "LEVSKA Zlaté Klasy – e-VÚC",
+        "evidence": "Zhodná adresa, poskytovateľ a ID ZZ 62-50295764-A0001.",
+        "fetched": true
+      }
+    ]
+  }
+]

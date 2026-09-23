@@ -1,0 +1,2064 @@
+[
+  {
+    "clinicId": "276c7a03-4dff-4e9d-95fc-88c8f31b4ed8",
+    "name": "Gynekologicko-pôrodnícka ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "6f63e08d-3621-4714-8c30-53262661b092",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "e0eccebe-041f-49d5-98b3-0ff883d16f18",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "e8ef202b-d927-4766-802c-2fdc2a248823",
+    "name": "Ambulancia reprodukčnej medicíny ISCARE, a.s.",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "4c268be5-785c-4272-a98a-5a3830625a01"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "b42ec901-938f-482c-a307-dce1c8293b85",
+    "name": "Gynekologická ambulancia Medicomplex s.r.o.",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Zoltán Jány",
+    "verifiedAddress": "Námestie SNP 5, Stupava",
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "8d0d204f-e1bd-49c6-9254-886b0c1640d6"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://trisomytest.sk/",
+        "title": "Homepage - TRISOMYtest",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Zoltán Jány spolu s lokalitou Námestie SNP 5, Stupava.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia."
+    ]
+  },
+  {
+    "clinicId": "16377222-f574-4448-b0f7-436322968bb5",
+    "name": "Gynekologická ambulancia, MUDr. Ondrej Šefara, (GYPOS, s. r. o.)",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "cdd61486-f7c8-4d64-9e43-be566c4eedfa"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "96a1d961-464a-4a9f-8b77-27ef09f4e38d",
+    "name": "Gynekologicko – pôrodnícka príjmová a konziliárna ambulancia (Nemocnica sv. Cyrila a Metoda)",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "5127c78b-3636-4ec6-9a34-f28ee06cf7e7",
+      "5a0e48fa-0fd6-4db9-b54e-8cdba22b74de"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (2) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "163e764a-8693-4f12-8b92-f4102cc8a4fb",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "62225769-800f-4b11-a735-facbca95b8e9",
+      "9864ce9e-610d-47f6-975a-5802cfb26419"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (2) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "f9034315-ae60-40b3-ad29-821ac10404fa",
+    "name": "Privátna gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "aa4784b3-96bd-4dab-8098-7cc9bca6303a",
+      "c4701115-0194-404b-93b6-f40aa09894b9"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (2) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "4fa62931-b7cf-47f9-b10d-85f4e424700e",
+    "name": "Neštátna gynekologicko",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "92ce70bc-0fc6-422c-8a1b-d43e267f5392",
+      "c6496d55-5a34-45ad-b35c-d29f8f5f0b6b",
+      "fbbe89a2-32c6-464b-a23c-aa9e227a1a25"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (3) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "fa606a96-2aae-427b-bfce-503c4167e578",
+    "name": "Gynekologická ambulancia I.",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "98a6446c-2d1d-4fa8-9b1e-8a4848c984cd",
+      "ba0d4b70-538d-494c-b160-33371d120aae",
+      "bc7edded-aa00-473f-bf85-0fc40afa36cc",
+      "e234eb80-9f4b-44e0-8b65-82cafde84cb1"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (4) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "bc7edded-aa00-473f-bf85-0fc40afa36cc",
+    "name": "Gynekologický ultrazvuk",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "98a6446c-2d1d-4fa8-9b1e-8a4848c984cd",
+      "b9a1975a-3453-41a7-901d-5824a241d249",
+      "ba0d4b70-538d-494c-b160-33371d120aae",
+      "e234eb80-9f4b-44e0-8b65-82cafde84cb1",
+      "fa606a96-2aae-427b-bfce-503c4167e578"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (5) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "b21cf9b6-7382-45d3-bb9c-babd8908ed3f",
+    "name": "Tes Ambulancia Aurora",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "07ea3b4f-9d35-4a5a-ad1c-6f4ad6e6ec02",
+      "0ca9487c-ba1c-4795-9b4d-6921b8642c2a",
+      "1c3dd0ac-0ec6-483e-9903-ad99d6d304f9",
+      "bb6503f8-e51c-4632-8cc8-2e0a551c5ec9",
+      "e8613989-405b-49db-8278-83b44c09afc0"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (5) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "e8613989-405b-49db-8278-83b44c09afc0",
+    "name": "Tes Ordinácia Salus",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "07ea3b4f-9d35-4a5a-ad1c-6f4ad6e6ec02",
+      "0ca9487c-ba1c-4795-9b4d-6921b8642c2a",
+      "1c3dd0ac-0ec6-483e-9903-ad99d6d304f9",
+      "b21cf9b6-7382-45d3-bb9c-babd8908ed3f",
+      "bb6503f8-e51c-4632-8cc8-2e0a551c5ec9"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (5) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "f823baac-1279-4d96-baad-caac89a71866",
+    "name": "Tes Klinika Medifem X",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "026991d5-09ed-4a62-859b-023cdeec0b86",
+      "25a3b776-add2-49f6-8374-96c4358e502c",
+      "7f66e219-2611-42e5-8832-57d7540a8357",
+      "91fdbbf9-ce88-46ac-8173-19ac3eb1e402",
+      "bc4e21b0-1802-492b-9792-d5e926e13d71",
+      "f1cd201e-322d-4e80-a0b5-b1b0b56e6b65"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (6) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "01d5beb3-3b96-446e-9416-8e7974b84a1e",
+    "name": "Ambulancia pre choroby prsníkov",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "019ce3fc-6674-463c-b3b9-ef95f27fd24c",
+      "01acca9b-7dcc-4014-9154-e1c4e18760e0",
+      "3fe81be9-c076-4f0a-9ae3-98ad97fd8405",
+      "4d3d2d35-d230-4a70-a9f0-7da8abbc4e4b",
+      "4dd6e6f8-7a27-42d8-9699-ca90c40dcec9",
+      "8437635c-c36d-4e86-8929-351ef716bbb3",
+      "d11d65bb-6805-43e1-8e97-35692826ffe7",
+      "e0e013c0-68c2-4ab0-b1d9-80dec1bc5987",
+      "eb7397fc-4b00-46f7-b753-c4d30f50ae67"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (9) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "a13c28ef-aab4-4540-bf9b-3cdba9b3e6c1",
+    "name": "Tes Ambulancia CityMed",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "12bc7c72-b02e-4b72-8961-a42417ced02a",
+      "1c3dd0ac-0ec6-483e-9903-ad99d6d304f9",
+      "8e9355fb-0b9a-43a7-b84a-060dd8850389",
+      "91fdbbf9-ce88-46ac-8173-19ac3eb1e402",
+      "a40539e3-1c5a-4677-9f19-22d611a706f7",
+      "aae91fa1-03b1-4152-997e-09ada0f9452b",
+      "abbf75ab-f725-4bf8-b1a7-5255009b4cbb",
+      "bc4e21b0-1802-492b-9792-d5e926e13d71",
+      "e4059692-a34b-4deb-85fc-9a6089ac7693"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (9) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "aae91fa1-03b1-4152-997e-09ada0f9452b",
+    "name": "Tes Poliklinika Lilium",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "12bc7c72-b02e-4b72-8961-a42417ced02a",
+      "1c3dd0ac-0ec6-483e-9903-ad99d6d304f9",
+      "8e9355fb-0b9a-43a7-b84a-060dd8850389",
+      "91fdbbf9-ce88-46ac-8173-19ac3eb1e402",
+      "a13c28ef-aab4-4540-bf9b-3cdba9b3e6c1",
+      "a40539e3-1c5a-4677-9f19-22d611a706f7",
+      "abbf75ab-f725-4bf8-b1a7-5255009b4cbb",
+      "bc4e21b0-1802-492b-9792-d5e926e13d71",
+      "e4059692-a34b-4deb-85fc-9a6089ac7693"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (9) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "91fdbbf9-ce88-46ac-8173-19ac3eb1e402",
+    "name": "Tes AmbuMed Partner",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "026991d5-09ed-4a62-859b-023cdeec0b86",
+      "12bc7c72-b02e-4b72-8961-a42417ced02a",
+      "1c3dd0ac-0ec6-483e-9903-ad99d6d304f9",
+      "25a3b776-add2-49f6-8374-96c4358e502c",
+      "7f66e219-2611-42e5-8832-57d7540a8357",
+      "8e9355fb-0b9a-43a7-b84a-060dd8850389",
+      "a13c28ef-aab4-4540-bf9b-3cdba9b3e6c1",
+      "a40539e3-1c5a-4677-9f19-22d611a706f7",
+      "aae91fa1-03b1-4152-997e-09ada0f9452b",
+      "abbf75ab-f725-4bf8-b1a7-5255009b4cbb",
+      "bc4e21b0-1802-492b-9792-d5e926e13d71",
+      "e4059692-a34b-4deb-85fc-9a6089ac7693",
+      "f1cd201e-322d-4e80-a0b5-b1b0b56e6b65",
+      "f823baac-1279-4d96-baad-caac89a71866"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (14) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "eabe531e-ac3d-4db5-9af0-7d0f8fc6fb9f",
+    "name": "CDZ, s.r.o. , gynekologická ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Drahomír Kianička",
+    "verifiedAddress": "Horný Val 37, Žilina",
+    "verifiedPhone": "+421417635485",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "ae561edd-0f5e-40d6-8d84-52e6da09c8d1"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://mudr-drahomir-kianicka.modernylekar.sk/",
+        "title": "MUDr. Drahomír Kianička - Gynekológia - Žilina - modernylekar.sk",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Drahomír Kianička spolu s lokalitou Horný Val 37, Žilina.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia."
+    ]
+  },
+  {
+    "clinicId": "66947c27-7381-4cb4-a7cb-c9b34a1917af",
+    "name": "Galipea s.r.o.,gynekologická ambulancia,ultrazvuk v gynekológii a pôrodníctve",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "89cba63d-ef7e-4208-92f2-bed6c4b6541e"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "ed17666c-8595-44be-b7f6-217d167fe1d0",
+    "name": "Gynekologicko",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "70516a72-5c88-4f8d-bbea-a8f0827dc52e"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "f76d9961-0d34-43ec-a473-ab2f33f5bbfe",
+    "name": "Gynekologicko-pôrodnícka ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "49f6c921-58f8-44d2-8665-0adf237cc481"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "50510baf-691a-4fed-bfa7-d0dbeefdb6da",
+    "name": "Gynekologicko-pôrodnícka ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "a67b7d6e-6a03-49d4-beea-72a7391d9478"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "3dd0f04d-0df0-4485-931c-4fc14dd03899",
+    "name": "Gynekologicko-pôrodnícka ambulancia / GYNAMA s.r.o.",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Miloš Paškala",
+    "verifiedAddress": "Piešťanská  1165/4, Nové Mesto nad Váhom",
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "98e69a96-c6f3-4887-8e78-65e842d48dac"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/tsk/zdravotnictvo/ambulantne-zdravotnicke-zariadenia/nove-mesto-nad-vahom.html?page=3&page_id=723",
+        "title": "Nové Mesto nad Váhom - stránka č. 3, Ambulantné zdravotnícke zariadenia, Zdravotníctvo, Trenčiansky samosprávny kraj, e-VÚC - samospráva občanom",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Miloš Paškala spolu s lokalitou Piešťanská  1165/4, Nové Mesto nad Váhom.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia."
+    ]
+  },
+  {
+    "clinicId": "956d0f6e-715a-4273-89b4-1717b8596932",
+    "name": "Gynekologicko-pôrodnícka ambulancia GYN-PRAKTIK s.r.o.",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "abbffd88-f5da-45e5-b2f5-4b43aa8ec4b6"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "4346ac15-f5d2-4c21-994f-e492585fdfae",
+    "name": "Gynekologická  ambulancia Pulse s r.o.",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "fa577c78-174a-4c03-9f5f-754157ecbfa5"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "58400a1b-ccb0-48be-a173-73bf3210718b",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "b8ecbb9e-6df1-4a24-907c-b8469325241d"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "b11609aa-61bc-40e6-a634-4bd060c70266",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "e8825589-93bc-4258-bda5-b83642816aeb"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "dbf9a6c5-39c2-4d1d-86d0-249ad0331da7",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "972f9fbf-2f65-40cf-b8bf-949a19ac3e92"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "8f79226e-b897-429a-bd8b-40f2f47acbe1",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Emil Havránek",
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "25d47d11-f24d-40cb-ab0f-315e60802fe7"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://www.navstevalekara.sk/lekari/gynekolog-gynekologia-s11003/trnavsky-kraj-k301/galanta-o509.html",
+        "title": "Zoznam lekárov | Gynekológ - gynekológia, Galanta",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Emil Havránek spolu s lokalitou Galanta; presná adresa nebola potvrdená.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Zdroj potvrdzuje osobu a mesto/lokalitu, nie presnú adresu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "cf79b296-b522-4d7f-a922-044729984310",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "8c5fd19e-7a3d-48fe-8118-62c68400db72"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "2bed839e-1832-4f8f-98fb-3f480c3107b4",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Matej Medovarský",
+    "verifiedAddress": "Bratislavská 1, Žilina",
+    "verifiedPhone": "+421417649407",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "b8e641de-94dd-4917-8292-e880f17fdc1e"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://gynamb.webnode.sk/",
+        "title": "MUDr. Matej Medovarský  gynekologická ambulancia",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Matej Medovarský spolu s lokalitou Bratislavská 1, Žilina.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia."
+    ]
+  },
+  {
+    "clinicId": "e3a1a593-8182-419e-8b22-d49714af24f3",
+    "name": "Gynekologická ambulancia (GYN BIELIK, s.r.o.)",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Peter Bielik",
+    "verifiedAddress": "Spojová 25, Banská Bystrica",
+    "verifiedPhone": "+421940115832",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "b5485b3c-2af6-42da-8212-84839e4d3d22"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://doleok.sk/gynekologia-banska-bystrica/",
+        "title": "Gynekológia Banská Bystrica - doleok.sk",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Peter Bielik spolu s lokalitou Spojová 25, Banská Bystrica.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia."
+    ]
+  },
+  {
+    "clinicId": "77f3dc0f-5559-431b-85a9-b3176c885562",
+    "name": "Gynekologická ambulancia, ALYBODY s.r.o.",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "d1d255f8-67eb-48b8-8e03-8795f575ea6e"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "d50a4ffc-4014-4248-92e9-0db4d4d65adc",
+    "name": "Gynekologická ambulancia, Gyneta, s.r.o.",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "125deb58-16bd-42a6-b7b1-9b8725b374f5"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "92327956-b685-4162-92dc-d552c747cfa8",
+    "name": "Gynekologická ambulancia, MUDr. Emese Jániová (KOMA-MED, s.r.o.)",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Emese Jániová",
+    "verifiedAddress": "Saratovská 24, Dúbravka",
+    "verifiedPhone": "+421950547431",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "fadbb81c-4d83-415b-a3fb-7d7d3906c84e"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://www.navstevalekara.sk/lekari/gynekolog-gynekologia-s11003/bratislavsky-kraj-k300/bratislava-4-o503/dubravka-m1009/mudr-emese-janiova-d12810.html",
+        "title": "MUDr. Jániová Emese, gynekológ, Dúbravka | NávštevaLekára",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Emese Jániová spolu s lokalitou Saratovská 24, Dúbravka.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia."
+    ]
+  },
+  {
+    "clinicId": "c65f7ce9-0723-48f1-a4e8-180e45da26ef",
+    "name": "Gynekologická ambulancia, MUDr. Iveta Kamenská, (Kamenská, s.r.o.)",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "38d8cb8c-86f7-40ea-b99b-e3dd3bd5df21"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "5b57e653-5476-4125-bf32-1620f692bfaa",
+    "name": "Gynekologická ambulancia, MUDr. Natália Benovičová, (SAMITA spol. s r.o.)",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Natália Benovičová",
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "12f020b6-74ad-4b19-b046-b8c012311337"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://gynsenec.sk/",
+        "title": "Gynekologická ambulancia Senec |",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Natália Benovičová spolu s lokalitou Senec; presná adresa nebola potvrdená.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Zdroj potvrdzuje osobu a mesto/lokalitu, nie presnú adresu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "0d58dc3e-d4e5-409e-ac9f-3b93d09a2746",
+    "name": "Gynekologická ambulancia, detská gynekológia, sonografia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Stanislav Polievka",
+    "verifiedAddress": null,
+    "verifiedPhone": "+421475632246",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "4d20488f-3785-45f6-a102-8e2334159706"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://www.navstevalekara.sk/lekari/gynekolog-gynekologia-s11003/banskobystricky-kraj-k305/rimavska-sobota-o550/rimavska-sobota-m3588/mudr-stanislav-polievka-d9136.html",
+        "title": "MUDr. Stanislav Polievka - Rimavská Sobota",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Stanislav Polievka spolu s lokalitou Rimavská Sobota; presná adresa nebola potvrdená.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Zdroj potvrdzuje osobu a mesto/lokalitu, nie presnú adresu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "3aa3f13d-cf49-4ea9-8c43-6871128cb404",
+    "name": "HAR-MED, s.r.o., Gynekologická ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Martin Harčár",
+    "verifiedAddress": "Námestie sv. Martina 9, Lipany",
+    "verifiedPhone": "+421514572075",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "d216d6df-c365-4f3e-bd8d-752a35581b26"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://www.lipany.sk/11004/lekari",
+        "title": "Poliklinika Lipany - Lekári",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Martin Harčár spolu s lokalitou Námestie sv. Martina 9, Lipany.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia."
+    ]
+  },
+  {
+    "clinicId": "e1042791-0a10-40d0-a480-d18412f7f8dd",
+    "name": "Neogyn s.r.o. Neštátne zdravotnícke zariadenie",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Ján Chlapečka",
+    "verifiedAddress": "Soblahovská ul.7, 101 Trenčín",
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "8566dffd-ec03-4e6a-a698-a37ff3fad3c4"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://www.orlymediciny.eu/county-18-trencin/2024",
+        "title": "Lekáreň, Gynekológia, ORL Trenčín - Orly Medicíny 2024",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Ján Chlapečka spolu s lokalitou Soblahovská ul.7, 101 Trenčín.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (1) podľa samostatnej adresy alebo kódu zariadenia."
+    ]
+  },
+  {
+    "clinicId": "bad47f23-3457-456e-b6a8-33fbab4306c2",
+    "name": "Ambulancia zubného lekárstva",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Daniela Cabajová",
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "df174b9d-fded-45d2-a066-3b75a1b8c242",
+      "ff7ae6bf-1eb4-4325-8bc0-0529219957ee"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://www.navstevalekara.sk/lekari/zilinsky-kraj-k304/bytca-o531/bytca-m2500.html",
+        "title": "Zoznam lekárov | Bytča",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Daniela Cabajová spolu s lokalitou Bytča; presná adresa nebola potvrdená.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (2) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Zdroj potvrdzuje osobu a mesto/lokalitu, nie presnú adresu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "77736fbc-1537-47d0-9be9-8fca659283f7",
+    "name": "Gynekologicko",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Milan Vanko",
+    "verifiedAddress": "Šafárikova  65, Senec",
+    "verifiedPhone": "+421245923246",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "4e2937f9-3e90-4131-a2e4-172306cb88fc",
+      "7d096755-47b8-40c5-b407-88d96112e2ed"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/buxus/generate_page.php?page_id=60625",
+        "title": "Gyn-Reh,medicínske  centrum, Senec, (Gyn - Reh, s.r.o.), Senec, Ambulantné zdravotnícke zariadenia, Zdravotníctvo, Bratislavský samosprávny kraj, e-VÚC - samospráva občanom",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Milan Vanko spolu s lokalitou Šafárikova  65, Senec.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (2) podľa samostatnej adresy alebo kódu zariadenia."
+    ]
+  },
+  {
+    "clinicId": "13e93da8-80f0-4e1e-9f11-630c0e69b758",
+    "name": "Gynekologicko-pôrodnícka ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "76c014c4-4953-4d1b-8c4a-d3183a27af4f",
+      "ac507a56-098e-4b7d-9e77-d0cc818e74c1"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (2) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "9c47c3db-9415-4144-9108-fd2bffb879d5",
+    "name": "Gynekologicko-pôrodnícka ambulancia GYNMED Žilina, s.r.o.",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Peter Durmis",
+    "verifiedAddress": null,
+    "verifiedPhone": "+421911399535",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "5b3d1857-a9cf-425d-b0fa-32b43b578cc0",
+      "de48e155-0e3d-4390-bf31-8c89f63e5a73"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://gynmed.sk/4-nasi-lekari",
+        "title": "GYNMED | Naši lekári",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Peter Durmis spolu s lokalitou Žilina; presná adresa nebola potvrdená.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (2) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Zdroj potvrdzuje osobu a mesto/lokalitu, nie presnú adresu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "a9c3dee1-1d47-440a-8ed9-0e0617977752",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Mária Pilišová",
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "3eeef114-530e-4e27-bc0d-3b98b75191c9",
+      "865d8900-98c9-4aa4-877f-7ff74f48790d"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://www.navstevalekara.sk/lekari/gynekolog-gynekologia-s11003/banskobystricky-kraj-k305/rimavska-sobota-o550.html",
+        "title": "Zoznam lekárov | Gynekológ - gynekológia, Rimavská Sobota",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Mária Pilišová spolu s lokalitou 101 Hnúšťa; presná adresa nebola potvrdená.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (2) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Zdroj potvrdzuje osobu a mesto/lokalitu, nie presnú adresu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "27389590-02c1-4edf-82c3-f9c2c73945e4",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "19f8f2e9-c221-44cc-bc70-4ab4f7b5b54f",
+      "93fab769-07c8-4bf7-bdfb-f81602e0ec2e"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (2) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "9d5ce38f-6104-49da-9870-ccc8963db596",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "166c6fc8-ef47-4a90-b467-d3d72ca04136",
+      "90b5d941-b426-42b8-8fbf-7908abfb02f4"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (2) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "8238fcfc-4578-4103-9c6d-23d1365a9fbf",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "733cea83-f0a3-40e7-9449-600756ee098c",
+      "978ff168-7167-4e37-964e-f4fb770e36c7"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (2) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "0a8aea0d-1a67-4688-a3e5-c5d747dcf868",
+    "name": "Gynekologická ambulancia GYNJA s.r.o.",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Miroslava Dubčáková",
+    "verifiedAddress": "Mýtna  5, Staré Mesto",
+    "verifiedPhone": "+421257786218",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "5f683e63-73a3-4273-a968-e2cbfdf7a289",
+      "fa7e4334-8ffb-4f8a-a26b-a97ce9c0b9b6"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/buxus/generate_page.php?page_id=60779",
+        "title": "Gynekologická ambulancia, MUDr. Miroslava Dubčáková, Bratislava-Staré Mesto, (Gynja s. r. o.), Bratislava I, Ambulantné zdravotnícke zariadenia, Zdravotníctvo, Bratislavský samosprávny kraj, e-VÚC - samospráva občanom",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Miroslava Dubčáková spolu s lokalitou Mýtna  5, Staré Mesto.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (2) podľa samostatnej adresy alebo kódu zariadenia."
+    ]
+  },
+  {
+    "clinicId": "615bdded-06d0-4b3e-958f-e2f54c69b6b6",
+    "name": "Gynekologická ambulancia, FEMINA",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "41907851-8b58-4ab0-bc92-93a3ee4e02fd",
+      "7b4ad330-98d6-487a-9f3f-b659c23a2350"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (2) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "6ae555fd-17f6-460c-894c-630c42092e3d",
+    "name": "Gynekologická ambulancia, MUDr. Pavol Garaj, (FemiMed, s.r.o.)",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Pavol Garaj",
+    "verifiedAddress": null,
+    "verifiedPhone": "+421346242084",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "94711834-52b2-44f6-b1fb-30ed9c13208c",
+      "a920cbbe-fe22-4bf7-96da-3955fdcf846e"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://mapalekarov.sk/lekar/mudr-pavol-garaj",
+        "title": "MUDr. Pavol Garaj Brezová pod Bradlom – recenzie a ordinačné hodiny",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Pavol Garaj spolu s lokalitou Brezová pod Bradlom; presná adresa nebola potvrdená.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (2) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Zdroj potvrdzuje osobu a mesto/lokalitu, nie presnú adresu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "83456f5a-a1d0-4d28-bbb6-ba283353518b",
+    "name": "HIPOKRATES DS s.r.o. Gynekologická ambulancia pre deti a dospelých",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "5733be7c-7341-4872-bf47-cf57065a5b0e",
+      "7128c66c-4017-405d-b04a-e343d460b8d3"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (2) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "1c996520-12b4-469e-b825-e1cc88a15327",
+    "name": "Súkromná gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "7a377317-3c2d-468d-929f-964efb707fbc",
+      "ea765b8a-3a39-48b9-ba02-2715d87dd25f"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (2) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "ba6dfa2f-2ead-4b11-9ec6-4e10853d69e9",
+    "name": "Gynekologicko-pôrodnícka ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "09994a73-7aa6-4d18-be9e-85544ba2ed77",
+      "3c36474f-f1b3-450a-9c94-0dce67dd9a6a",
+      "5a78fe7c-8533-47c7-867e-c1b5aef04664"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (3) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "ea89d7c8-af7d-4078-bcce-3a80cf6f205d",
+    "name": "Gynekologicko-pôrodnícka ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "03479798-65bc-4a6b-b8c7-1c9eb6e18a70",
+      "0cc35e00-5fa1-461f-bfb5-cfd27c12f58c",
+      "38b020fa-8009-4fd0-ac3f-711caf2ca0fb"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (3) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "7f271b61-e792-4c0a-8625-67c582846b8b",
+    "name": "Gynekologicko-pôrodnícka ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "75a6c847-e19e-4ffc-9583-b21c6f59a3ad",
+      "e710be62-164a-44e4-a775-7e4f73097ca7",
+      "fff69342-082e-482a-bfab-434c5bbfd9c5"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (3) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "02684a1a-8fc4-41eb-9684-90340dfa5b5b",
+    "name": "Gynekologická a ultrazvuková ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "ba0d4b70-538d-494c-b160-33371d120aae",
+      "d11d65bb-6805-43e1-8e97-35692826ffe7",
+      "e3a57d6c-a7b1-40da-940e-8ffd90ecf43d"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (3) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "b1348246-5710-4de1-9976-e165d9ee9178",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Gabriela Mészárosová",
+    "verifiedAddress": "Hollého 2, Pezinok",
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "88e645d2-cc29-4534-9f0d-324c910f0262",
+      "be5a37dc-312a-4f48-8156-f46ec14e3dbd",
+      "c3af8ba8-eba9-4fc0-ab2a-98ba5327f021"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://www.navstevalekara.sk/zdravotnicke-zariadenia/bratislavsky-kraj-k300/pezinok-o506/pezinok-m1055/poliklinika-pezinok-zz151.html",
+        "title": "Poliklinika Pezinok | Zoznam lekárov",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Gabriela Mészárosová spolu s lokalitou Hollého 2, Pezinok.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (3) podľa samostatnej adresy alebo kódu zariadenia."
+    ]
+  },
+  {
+    "clinicId": "7e3ce076-3c9f-48a8-933a-deaf405253c5",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "35700d8e-0b74-4942-9280-5a84a7bc90c5",
+      "6b5a2663-a38d-4381-a11f-1e7894b05611",
+      "b5904f47-6fa0-4ef0-8da1-aada00f975c1"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (3) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "3ded4438-5f19-4084-8e02-343af767d399",
+    "name": "Gynekologická ambulancia Gyn Iv., spol. s r. o.",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "0086f6cb-6e93-4fa9-98d5-67981098fb38",
+      "bd2258e0-386b-4e96-9938-049dae0368fb",
+      "c12bc4f0-1d13-451b-a2d8-1563e2c5fa3b"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (3) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "3bf1a379-fc72-4d73-91d4-60a436fc581d",
+    "name": "Gynekologická ambulancia, MUDr. Helena Múdra, (wesper, a.s.)",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "16b7c6a3-7587-4dd7-9db5-f84a0856dca9",
+      "65a0cc07-f2b1-470d-b0e5-0bcb8e95aeac",
+      "c9a0a721-8b96-47c8-b4e9-d5a5e00f4c8e"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (3) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "d8b66bfc-2f88-465c-9f4e-70b180385d7c",
+    "name": "Gynekologická ambulancia, MUDr. Peter Kotleba, Nemšová, (K2 MEDIC s.r.o.)",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "a05ec1b8-4d18-44e0-9dac-456454db83c8",
+      "cd5173a2-bbd1-4676-b13d-06bf6bf6a3b0",
+      "d98421c0-3e4b-488e-870c-243cec7a3fdd"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (3) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "5a0e48fa-0fd6-4db9-b54e-8cdba22b74de",
+    "name": "I. ženská gynekologická ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Marian Kollár",
+    "verifiedAddress": "Antolská 11, Petržalka",
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "5127c78b-3636-4ec6-9a34-f28ee06cf7e7",
+      "96a1d961-464a-4a9f-8b77-27ef09f4e38d",
+      "978ff71a-9adb-4c66-993a-fc113e7e388e"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/bsk/zdravotnictvo/ambulantne-zdravotnicke-zariadenia/bratislava-v.html?page=7&page_id=60152",
+        "title": "Bratislava V - stránka č. 7, Ambulantné zdravotnícke zariadenia, Zdravotníctvo, Bratislavský samosprávny kraj, e-VÚC - samospráva občanom",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Marian Kollár spolu s lokalitou Antolská 11, Petržalka.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (3) podľa samostatnej adresy alebo kódu zariadenia."
+    ]
+  },
+  {
+    "clinicId": "c8b8a5e5-4d90-4958-b7ac-7f9363f720eb",
+    "name": "Poradňa pre rizikovo tehotné (Nemocnica Poprad, a. s.)",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "04042d04-a0a4-427b-baa9-34f276c2bda4",
+      "8a641492-efd0-4bb6-b44c-73e68697ac36",
+      "96991c80-2ef5-4b95-8e48-c800c8c5f45a"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [
+      {
+        "url": "https://www.nemocnicapp.sk/ambulancie-oddelenia/lozkove-oddelenie/gynekologicko-porodnicke-oddelenie/personal",
+        "title": "Gynekologicko-pôrodnícke oddelenie - Personál :: Nemocnica Poprad",
+        "evidence": "Výsledok vyhľadávania spája MUDr. Vladimír Böhmer s lokalitou Poprad; stránka nebola úspešne overená načítaním.",
+        "fetched": false
+      },
+      {
+        "url": "https://zdravoteka.sk/lekari/mudr-vladimir-b-hmer",
+        "title": "MUDr. Vladimír Böhmer -  Banícka 803/28, 05845 Poprad  - Zdravoteka.sk",
+        "evidence": "Výsledok vyhľadávania spája MUDr. Vladimír Böhmer s lokalitou Poprad; stránka nebola úspešne overená načítaním.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (3) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite.",
+      "Dostupná zhoda pochádza iba z výsledku vyhľadávania; úryvok nie je rozhodujúci dôkaz."
+    ]
+  },
+  {
+    "clinicId": "d07f02f2-6c53-4984-a135-ec272b8b4058",
+    "name": "GYNEK. AMB. s.r.o., Gynekologická ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Miroslava Vargová PhD.",
+    "verifiedAddress": "Ružinovská 10, Ružinov",
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "815236f5-92c0-4676-870e-bc1502dde7c9",
+      "a4e011b9-7637-41b2-bf4b-0978c056c880",
+      "c6496d55-5a34-45ad-b35c-d29f8f5f0b6b",
+      "eb1fef7b-395a-4a90-a1c9-c71735e8f7f3"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/buxus/generate_page.php?page_id=61489",
+        "title": "Gynline sro Diagnostické centrum neplodnosti a gynekologicko-pôrodnícka ambulancia, Bratislava-Ružinov, (GYNLINE s.r.o.), Bratislava II, Ambulantné zdravotnícke zariadenia, Zdravotníctvo, Bratislavský samosprávny kraj, e-VÚC - samospráva občanom",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Miroslava Vargová PhD. spolu s lokalitou Ružinovská 10, Ružinov.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (4) podľa samostatnej adresy alebo kódu zariadenia."
+    ]
+  },
+  {
+    "clinicId": "8ae37ca5-c719-45a1-b1f6-9d037b470cfc",
+    "name": "Gynekologicko-pôrodnícka ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Pavol Tallo",
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "043af295-00f1-468e-9a82-0e1269ed347d",
+      "899867cc-055a-40b6-bf92-f3c70a5ec361",
+      "96c5b019-951f-43e5-bc4d-8d9138327f57",
+      "ac10f075-b3af-4af8-a312-797b295fc5b0"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/tsk/zdravotnictvo/ambulantne-zdravotnicke-zariadenia/myjava/primarna-gynekologicko-porodnicka-ambulancia-mudr.-pavol-tallo-myjava-parthenos.html?page_id=132244",
+        "title": "Primárna gynekologicko-pôrodnícka ambulancia, MUDr. Pavol Tallo, Myjava, (Parthenos s.r.o.), Myjava, Ambulantné zdravotnícke zariadenia, Zdravotníctvo, Trenčiansky samosprávny kraj, e-VÚC - samospráva občanom",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Pavol Tallo spolu s lokalitou Myjava; presná adresa nebola potvrdená.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (4) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Zdroj potvrdzuje osobu a mesto/lokalitu, nie presnú adresu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "b924bc76-d2d6-4768-bc50-ca39be149794",
+    "name": "Gynekologická ambulancia FEMINA LM s.r.o.",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Michal Luníček",
+    "verifiedAddress": "Mostová 6, Ružomberok",
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "682a3bbd-f271-4c8a-8a1a-377149aad66e",
+      "ab1b64ee-0065-40d3-9b5d-e7a1eb7380a7",
+      "caf58e75-e7de-4b7a-9516-5ea1a57b43f2",
+      "d94cd17c-38aa-41e2-89f6-fb977f48aa5e"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://gynekologie-mudr-michal-lunicek.modernylekar.sk/",
+        "title": "Gynekologická ambulancia - MUDr. Michal Luníček - Gynekológia - Liptovský Mikuláš - modernylekar.sk",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Michal Luníček spolu s lokalitou Mostová 6, Ružomberok.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (4) podľa samostatnej adresy alebo kódu zariadenia."
+    ]
+  },
+  {
+    "clinicId": "a4e011b9-7637-41b2-bf4b-0978c056c880",
+    "name": "GYNLINE s.r.o. Gynekologická ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Lenka Rybánska",
+    "verifiedAddress": "Ružinovská 10, Ružinov",
+    "verifiedPhone": "+421248279474",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "6a7fe1b8-09a0-4bda-875e-cc4cd08b23f5",
+      "809f30b3-3682-44a9-81c6-95b8357820a9",
+      "815236f5-92c0-4676-870e-bc1502dde7c9",
+      "c6496d55-5a34-45ad-b35c-d29f8f5f0b6b",
+      "d07f02f2-6c53-4984-a135-ec272b8b4058"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/buxus/generate_page.php?page_id=61489",
+        "title": "Gynline sro Diagnostické centrum neplodnosti a gynekologicko-pôrodnícka ambulancia, Bratislava-Ružinov, (GYNLINE s.r.o.), Bratislava II, Ambulantné zdravotnícke zariadenia, Zdravotníctvo, Bratislavský samosprávny kraj, e-VÚC - samospráva občanom",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Lenka Rybánska spolu s lokalitou Ružinovská 10, Ružinov.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (5) podľa samostatnej adresy alebo kódu zariadenia."
+    ]
+  },
+  {
+    "clinicId": "3ddae6e7-14b0-4acb-8292-34abc509c977",
+    "name": "NZZ Gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "062f9657-bb5a-4546-ba33-112c64d70434",
+      "071b9f5e-06d4-4464-b531-695d4d67528a",
+      "27e20668-447b-4022-b8eb-a74aa14e33b4",
+      "86726462-128a-443d-bc83-1e49d8ae8bfd",
+      "98e50a3b-b323-428b-8ec2-7a510efb357c"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (5) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "e9716815-4b18-4bae-a6c0-5d80df8f1d09",
+    "name": "Gynekologicko-pôrodnícka ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "048d32da-88d4-4b65-90a2-009261636fe6",
+      "54d892cb-f499-4d42-bf7e-2982a62898c0",
+      "6d569335-e46a-4167-bfeb-bc32a2694da0",
+      "e8b057e6-1d7a-4bf6-98b6-fec9d239df38",
+      "ece6673b-bb21-4d00-a680-b9e8edeea2aa",
+      "f7d60e5b-a7d7-47c1-b495-80a291dd4fff"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (6) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "c5d72c0e-5097-4ec9-8fb7-0d1fe7a81e5a",
+    "name": "Gynekologicko-pôrodnícka ÚPS",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "0a162f75-5379-4938-a950-6d1af539a579",
+      "37da3a79-4472-4004-9793-69c907d7e37b",
+      "624b30da-1854-41c5-b4c4-46cdd27ffdcc",
+      "6654b90f-957d-48e1-8cf8-01c466e70cde",
+      "98a6bea5-06be-400f-a03c-86d47bbef4b6",
+      "e6b2fb81-170d-4b27-a96a-afd265149b60"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (6) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "3df8d23f-adf1-44d7-b6a3-f8ca49bf9c4b",
+    "name": "GYNCENTRUM",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Ľudovít Janek",
+    "verifiedAddress": "Einsteinova 25, Okres Bratislava",
+    "verifiedPhone": "+421905838986",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "034d2e33-6a01-480a-9f1c-9ffde1958067",
+      "06f5da74-b286-4923-bb14-f429e4694252",
+      "48c3a3df-5014-4bbd-821c-81ee5e1985b2",
+      "4e4b0d48-356e-46ba-a920-ef71f52c7db5",
+      "6b67b41f-dc54-4ccd-a864-390317fdda19",
+      "8b8615dd-bad0-46b3-b018-5446a035797e",
+      "ae9f8647-fc54-4c2a-af41-00681fd45ffb"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://mapalekarov.sk/lekar/mudr-ludovit-janek",
+        "title": "MUDr. Ľudovít Janek Bratislava-Petržalka – recenzie a ordinačné hodiny",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Ľudovít Janek spolu s lokalitou Einsteinova 25, Okres Bratislava.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (7) podľa samostatnej adresy alebo kódu zariadenia."
+    ]
+  },
+  {
+    "clinicId": "815236f5-92c0-4676-870e-bc1502dde7c9",
+    "name": "GPN s.r.o.- gynekologické ambulancie",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "04c37fc8-4448-4575-9a8e-1572c6e0a659",
+      "2713c2e8-f92c-434c-bb51-072cfe1bb1c0",
+      "55abc321-38fb-4460-9f16-e539f7b0e965",
+      "a4e011b9-7637-41b2-bf4b-0978c056c880",
+      "abd4fee6-5c09-4a21-955d-a5d2f01d75c2",
+      "c6496d55-5a34-45ad-b35c-d29f8f5f0b6b",
+      "d07f02f2-6c53-4984-a135-ec272b8b4058",
+      "d301edf6-cd1c-4dc1-a2fe-30606b6b3c01"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (8) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  },
+  {
+    "clinicId": "eed00659-8276-49e6-8236-b3d2df6ff050",
+    "name": "Gynekologicko-pôrodnícka ambulancia GYN",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Miroslav Korbeľ",
+    "verifiedAddress": "Budmerice 42, Budmerice",
+    "verifiedPhone": "+421336448449",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "18e81e66-e23b-4329-9ab9-311b4021be87",
+      "360424d3-0c1b-4137-a80a-9863f21e703b",
+      "49006a90-5848-4b74-90e4-cf9f9ceac38c",
+      "5127c78b-3636-4ec6-9a34-f28ee06cf7e7",
+      "543001f4-0dd4-495f-bf12-c65266b3547a",
+      "68c899cd-2400-4ce9-89e9-07a180665b4b",
+      "7067bcbd-5810-43a9-9f31-f75b7872e214",
+      "7f3c5b32-db6a-4aa5-b79d-a5b0d060f756",
+      "88e645d2-cc29-4534-9f0d-324c910f0262",
+      "b766c1df-af0c-4165-99fd-26fd623fcbd5"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://www.navstevalekara.sk/lekari/gynekolog-gynekologia-s11003/bratislavsky-kraj-k300/pezinok-o506/budmerice-m1045/mudr-miroslav-korbel-csc-d1041.html",
+        "title": "MUDr. Korbeľ Miroslav CSc., gynekológ, Budmerice | NávštevaLekára",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Miroslav Korbeľ spolu s lokalitou Budmerice 42, Budmerice.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (10) podľa samostatnej adresy alebo kódu zariadenia."
+    ]
+  },
+  {
+    "clinicId": "957295db-9d49-444d-9747-61bc0d4ea464",
+    "name": "Gynekologicko-pôrodnícka ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Turba Peter",
+    "verifiedAddress": "Poliklinika Chrenová, Fatranská  12, Nitra",
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "1278749b-85ab-4f91-9d02-4892d9811d61",
+      "78e9e59d-cd51-4925-911b-2a5198c0dd5b",
+      "792a8768-48b2-4d59-9ae8-1bd4010580d0",
+      "7c693c1d-138f-4a0c-a5b8-a9caf1ab9b5a",
+      "80260de9-5bc8-4637-b827-44e071831001",
+      "94ab9234-cdb1-4a38-978e-7a799d87d6f2",
+      "97fd454c-0ecd-402f-9e76-066a9fda0ffd",
+      "a3fe1e11-662e-4bf7-b1e1-f8f6fbcf9565",
+      "c067b4d4-8cb7-41b8-afd0-c31886475cad",
+      "cf539d86-aa00-48ca-9020-5b4774e4bba7",
+      "d875296f-56ef-4efb-839a-96e33cc959fc",
+      "ea46f9ef-ee6b-43f9-8bba-129a6f5f44ce"
+    ],
+    "explanation": "Načítaný verejný zdroj potvrdzuje identitu kandidáta a lokalitu, ale neposkytuje dosť dôkazov na rozlíšenie všetkých porovnávaných záznamov.",
+    "sources": [
+      {
+        "url": "https://www.navstevalekara.sk/zdravotnicke-zariadenia/nitriansky-kraj-k302/nitra-o526/nitra-m2244/poliklinika-chrenova-zz992.html",
+        "title": "Poliklinika Chrenová | Zoznam lekárov",
+        "evidence": "Na načítanej stránke sa nachádza identita MUDr. Turba Peter spolu s lokalitou Poliklinika Chrenová, Fatranská  12, Nitra.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (12) podľa samostatnej adresy alebo kódu zariadenia."
+    ]
+  },
+  {
+    "clinicId": "4dd6e6f8-7a27-42d8-9699-ca90c40dcec9",
+    "name": "Gynekologická ambulancia II.",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "019ce3fc-6674-463c-b3b9-ef95f27fd24c",
+      "01acca9b-7dcc-4014-9154-e1c4e18760e0",
+      "01d5beb3-3b96-446e-9416-8e7974b84a1e",
+      "0791f005-b2cd-4d3f-979e-1cab197d73ea",
+      "0f10291a-8ddb-44c7-ae55-7b184e88edae",
+      "0f2d2a61-6b79-4d2a-adf1-e3d50cd21874",
+      "3fe81be9-c076-4f0a-9ae3-98ad97fd8405",
+      "4d3d2d35-d230-4a70-a9f0-7da8abbc4e4b",
+      "5ac77714-1026-4721-840a-0409a34f522a",
+      "67bba074-6069-4fc7-9cb0-92f12c8afc85",
+      "6aaa4b1c-cc6b-4473-9408-71ca5dadaefc",
+      "832ee4ec-a7ab-4c1d-96a1-2874bda02a54",
+      "8437635c-c36d-4e86-8929-351ef716bbb3",
+      "84a2543c-9ac8-4278-af1c-95000dd354c2",
+      "98a6446c-2d1d-4fa8-9b1e-8a4848c984cd",
+      "a5bc9b55-1425-4f99-b980-0172268b22e8",
+      "b40f8976-39a9-4fa8-895e-9cec787fb8ba",
+      "bdf6cdd1-37fe-47e6-93b4-cfea89e49e73",
+      "d11d65bb-6805-43e1-8e97-35692826ffe7",
+      "e0e013c0-68c2-4ab0-b1d9-80dec1bc5987",
+      "eb7397fc-4b00-46f7-b753-c4d30f50ae67"
+    ],
+    "explanation": "Cielené verejné vyhľadávanie neprinieslo načítaný dôkaz dostatočný na bezpečné potvrdenie identity alebo rozlíšenie pracovísk.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Verejné zdroje nerozlíšili všetky kolízne záznamy (21) podľa samostatnej adresy alebo kódu zariadenia.",
+      "Nepodarilo sa načítať relevantný autoritatívny záznam zhodný zároveň v identite a lokalite."
+    ]
+  }
+]

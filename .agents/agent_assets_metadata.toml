@@ -973,3 +973,17 @@ mtime_ms = 1790145721268
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/4cf60754-5af6-4457-97d7-fb0f324c379b/29ea0e02-7bad-4992-94e7-5166b73f689c"
 storage_version_token = "1790145745075263"
 content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+[[outputs]]
+id = "Zz-glwkZv1vUuKAI-v6hi"
+uri = "file://attached_assets/medical-partner-cooperation-verejne-overenie.xlsx"
+type = "table"
+title = "Medical Partner Cooperation – verejné overenie a nový návrh"
+description = "Výsledky vyhľadávania pre 309 ambulancií, zdrojové odkazy, návrhy doplnenia údajov, opakované porovnanie a 4 ďalšie kandidátky. Pôvodných 13 schválených je oddelených; produkčný zápis zatiaľ nepotvrdený."
+logical_id = "3f77e2ba-9383-4a62-a296-209a255cbd8a"
+content_hash = "sha256:db9f48b7ee74c5056e30c9a2ece245f976fdddf14acf65688f8ad12b39fe1c66"
+size = 143359
+mtime_ms = 1790147937348
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/3f77e2ba-9383-4a62-a296-209a255cbd8a/c894725f-a899-446e-8181-67c52137419a"
+storage_version_token = "1790147969265178"
+content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

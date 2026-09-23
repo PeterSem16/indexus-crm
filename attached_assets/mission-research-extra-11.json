@@ -1,0 +1,222 @@
+[
+  {
+    "clinic": {
+      "id": "276c7a03-4dff-4e9d-95fc-88c8f31b4ed8",
+      "name": "Gynekologicko-pôrodnícka ambulancia",
+      "city": "Nitrianske Rudno",
+      "address": "Hlavná  49",
+      "street": null,
+      "street_number": null,
+      "ico": null,
+      "id_zz": null,
+      "pzs_code": null,
+      "doctor_name": "MUDr. Adela Šimurková",
+      "phone": "+421465455215",
+      "phone2": null,
+      "phone3": null
+    },
+    "people": "Adela Šimurková",
+    "newGroup": "Odporúčané",
+    "matches": []
+  },
+  {
+    "clinic": {
+      "id": "6f63e08d-3621-4714-8c30-53262661b092",
+      "name": "Gynekologická ambulancia",
+      "city": "7 03 Šaľa",
+      "address": "Administratívna budova 1",
+      "street": null,
+      "street_number": null,
+      "ico": null,
+      "id_zz": null,
+      "pzs_code": null,
+      "doctor_name": "MUDr. Mária Gašparová",
+      "phone": "+421317754403",
+      "phone2": null,
+      "phone3": null
+    },
+    "people": "Mária Gašparová",
+    "newGroup": "Odporúčané",
+    "matches": []
+  },
+  {
+    "clinic": {
+      "id": "e0eccebe-041f-49d5-98b3-0ff883d16f18",
+      "name": "Gynekologická ambulancia",
+      "city": "Zlaté Moravce",
+      "address": "Andreja Hlinku 28",
+      "street": null,
+      "street_number": null,
+      "ico": null,
+      "id_zz": null,
+      "pzs_code": null,
+      "doctor_name": "MUDr. Ladislav Janovský",
+      "phone": "+421905340307",
+      "phone2": null,
+      "phone3": null
+    },
+    "people": "Ladislav Janovský",
+    "newGroup": "Odporúčané",
+    "matches": []
+  },
+  {
+    "clinic": {
+      "id": "4e78e8cc-33ba-4aba-9db1-30f5c19fe7e9",
+      "name": "Gynekologicko-pôrodnícka ambulancia",
+      "city": "Šaľa",
+      "address": "Nemocničná  933/13",
+      "street": null,
+      "street_number": null,
+      "ico": null,
+      "id_zz": null,
+      "pzs_code": null,
+      "doctor_name": "MUDr. Laluha Adrián",
+      "phone": "+421317899942",
+      "phone2": null,
+      "phone3": null
+    },
+    "people": "Laluha Adrián",
+    "newGroup": "Odporúčané",
+    "matches": []
+  },
+  {
+    "clinic": {
+      "id": "2e0498ad-0cc0-44d6-9851-6d794048950c",
+      "name": "Gynekologická ambulancia",
+      "city": "932 Štítnik",
+      "address": "Ochtinská",
+      "street": null,
+      "street_number": null,
+      "ico": null,
+      "id_zz": null,
+      "pzs_code": null,
+      "doctor_name": "MUDr. Katarína Demková",
+      "phone": "+421587931120",
+      "phone2": null,
+      "phone3": null
+    },
+    "people": "Katarína Demková",
+    "newGroup": "Odporúčané",
+    "matches": []
+  },
+  {
+    "clinic": {
+      "id": "60bec643-182c-4acb-af9a-c33b32845859",
+      "name": "Gynekologická ambulancia, MUDr. Július Štefanovič, Pezinok, (Psychiatrická nemocnica Philippa Pinela)",
+      "city": "Pezinok",
+      "address": "Malacká cesta  63",
+      "street": null,
+      "street_number": null,
+      "ico": null,
+      "id_zz": null,
+      "pzs_code": null,
+      "doctor_name": "MUDr. Július Štefanovič",
+      "phone": "+421336482143",
+      "phone2": null,
+      "phone3": null
+    },
+    "people": "Július Štefanovič",
+    "newGroup": "Odporúčané",
+    "matches": []
+  },
+  {
+    "clinic": {
+      "id": "a84505a0-7d3f-4a76-a8ba-9db73b57a9bb",
+      "name": "Gynekologicko-pôrodnícka ambulancia  / MUDr. Jana Pijáková, spol. s.r.o.",
+      "city": "201 Čadca",
+      "address": "Palárikova  2",
+      "street": null,
+      "street_number": null,
+      "ico": null,
+      "id_zz": null,
+      "pzs_code": null,
+      "doctor_name": "MUDr. Jana Pijáková",
+      "phone": "+421414604446",
+      "phone2": null,
+      "phone3": null
+    },
+    "people": "Jana Pijáková",
+    "newGroup": "Odporúčané",
+    "matches": []
+  },
+  {
+    "clinic": {
+      "id": "64f11b7e-d0b1-4e8a-bfb5-cec9e1dff430",
+      "name": "Gynekologická ambulancia",
+      "city": "Krupina",
+      "address": "Svätotrojičné námestie 1",
+      "street": null,
+      "street_number": null,
+      "ico": null,
+      "id_zz": null,
+      "pzs_code": null,
+      "doctor_name": "MUDr. Ľudovít Gonda",
+      "phone": "+421455522249",
+      "phone2": null,
+      "phone3": null
+    },
+    "people": "Ľudovít Gonda",
+    "newGroup": "Odporúčané",
+    "matches": []
+  },
+  {
+    "clinic": {
+      "id": "22ff391f-d853-4ba8-9cad-9c5f9cedccbb",
+      "name": "Gynekologická ambulancia, MUDr. Zuzana Petrovičová, (FAMILIA SANA, s. r. o.)",
+      "city": "Banská Bystrica",
+      "address": "Lazovná ulica  7",
+      "street": null,
+      "street_number": null,
+      "ico": null,
+      "id_zz": null,
+      "pzs_code": null,
+      "doctor_name": "MUDr. Zuzana Petrovičová",
+      "phone": "+421484145132",
+      "phone2": null,
+      "phone3": null
+    },
+    "people": "Zuzana Petrovičová",
+    "newGroup": "Odporúčané",
+    "matches": []
+  },
+  {
+    "clinic": {
+      "id": "108a09c5-d52d-47df-b31e-b3ef451edd90",
+      "name": "Gynekologicko-pôrodnícka ambulancia VEGAFEM s. r. o.",
+      "city": "Karlova Ves",
+      "address": "Líščie údolie 57",
+      "street": null,
+      "street_number": null,
+      "ico": null,
+      "id_zz": null,
+      "pzs_code": null,
+      "doctor_name": "MUDr. Veronika Gáboriková",
+      "phone": "+421260264143",
+      "phone2": null,
+      "phone3": null
+    },
+    "people": "Veronika Gáboriková",
+    "newGroup": "Odporúčané",
+    "matches": []
+  },
+  {
+    "clinic": {
+      "id": "fca7a005-d105-4b87-a950-8d556ff1cac7",
+      "name": "Gynekologická ambulancia",
+      "city": "Likavka",
+      "address": "J. Kačku  4",
+      "street": null,
+      "street_number": null,
+      "ico": null,
+      "id_zz": null,
+      "pzs_code": null,
+      "doctor_name": "MUDr. Peter Očko",
+      "phone": "+421444303227",
+      "phone2": null,
+      "phone3": null
+    },
+    "people": "Peter Očko",
+    "newGroup": "Odporúčané",
+    "matches": []
+  }
+]

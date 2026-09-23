@@ -1,0 +1,2227 @@
+[
+  {
+    "clinicId": "108a09c5-d52d-47df-b31e-b3ef451edd90",
+    "name": "Gynekologicko-pôrodnícka ambulancia VEGAFEM s. r. o.",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "Gynekologicko-pôrodnícka ambulancia VEGAFEM s. r. o.",
+    "verifiedAddress": "Líščie údolie 57, Karlova Ves",
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta aj uvádzanú adresu alebo ulicu. Keďže vstup neobsahuje kolízny cieľ, výsledok je len overenie identity pracoviska.",
+    "sources": [
+      {
+        "url": "https://www.navstevalekara.sk/zdravotnicke-zariadenia/bratislavsky-kraj-k300/bratislava-4-o503/karlova-ves-m1010/poliklinika-karlova-ves-zz27.html",
+        "title": "Poliklinika Karlova Ves | Zoznam lekárov",
+        "evidence": "Načítaná stránka uvádza MUDr. Veronika Gáboriková a pracovisko v lokalite Karlova Ves, Líščie údolie 57.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": []
+  },
+  {
+    "clinicId": "fca7a005-d105-4b87-a950-8d556ff1cac7",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "5498b4f1-4e0e-4aa5-991a-cf4c2c228022",
+    "name": "Ambulancia gynekologickej onkológie",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "9e275a47-10eb-4a0a-a446-ccc61cd3114d"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale načítaný obsah neoveril zároveň presnú profesionálnu identitu aj adresu tohto kandidáta.",
+    "sources": [
+      {
+        "url": "https://fnnitra.sk/oddelenie/oddelenie-centralnych-operacnych-sal-centralnej-sterilizacie-a-dekontaminacie",
+        "title": "Oddelenie centrálnych operačných sál, centrálnej sterilizácie a dekontaminácie - Fakultná nemocnica Nitra",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Marián Matejka s odbornou lokalitou, ale bez načítaného potvrdenia presnej identity a adresy kandidáta.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: FN  Nitra (9e275a47-10eb-4a0a-a446-ccc61cd3114d). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "c7cf3035-410d-41de-9417-cdcfe3bc0682",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "c2a52f71-2dae-48ea-8a12-2ed2452961a2"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/bbsk/zdravotnictvo/ambulantne-zdravotnicke-zariadenia/revuca/dispecing-dopravnej-zdravotnej-sluzby-revuca-nemocnica-s-poliklinikou-n.o.-revuca.html?page_id=132774",
+        "title": "Dispečing dopravnej zdravotnej služby, Revúca, (Nemocnica s poliklinikou, n.o. Revúca), Revúca, Ambulantné zdravotnícke zariadenia, Zdravotníctvo, Banskobystrický samosprávny kraj, e-VÚC - samospráva občanom",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. FILKOR Stanislav s uvedenou odbornou lokalitou; obsah nebol použitý na rozhodujúci záver.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: NsP Revúca (c2a52f71-2dae-48ea-8a12-2ed2452961a2). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "cdd61486-f7c8-4d64-9e43-be566c4eedfa",
+    "name": "Gynekologická ambulancia, MUDr. Ondrej Šefara, (GYPOS, s. r. o.)",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "16377222-f574-4448-b0f7-436322968bb5"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Gynekologická ambulancia, MUDr. Ondrej Šefara, (GYPOS, s. r. o.) (16377222-f574-4448-b0f7-436322968bb5). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "cceeba68-1269-4038-a7f4-cea133ce6c98",
+    "name": "Ambulancia pre patologickú graviditu",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "2647e158-e94a-4ae9-b846-1cf8cb70328d",
+      "f978d5aa-e81c-4784-9e03-c5f5f9af739b"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Ambulancia pre sterilné manželstvá (2647e158-e94a-4ae9-b846-1cf8cb70328d); Mammárna ambulancia (f978d5aa-e81c-4784-9e03-c5f5f9af739b). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "7812c8f7-05ff-454b-a9d3-9374afbcf44b",
+    "name": "Gynekologická a mamologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "82e3342f-8436-4f91-a68c-3c83fa6f83bc",
+      "dd015b42-4d1d-4499-95fe-300a052320d5"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [
+      {
+        "url": "https://www.fmed.uniba.sk/studium/doktorandske-studium/gynekologia-a-porodnictvo/prof-mudr-kamil-pohlodek-phd",
+        "title": "prof. MUDr. Kamil Pohlodek, PhD.",
+        "evidence": "Výsledok verejného vyhľadávania spája meno Prof. MUDr. Kamil Pohlodek s uvedenou odbornou lokalitou; obsah nebol použitý na rozhodujúci záver.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Pracovisko MUDr. Pavol Feitscher (82e3342f-8436-4f91-a68c-3c83fa6f83bc); Gynekologická a mamologická ambulancia (dd015b42-4d1d-4499-95fe-300a052320d5). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "d7ec71c3-5364-4233-a59c-9b889331fdf0",
+    "name": "Gynekologická ambulancia, ultrazvuková diagnostika v gynekológii a pôrodníctve",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "1e4a66ed-3746-4efb-abde-f0084af93525",
+      "88ed66cc-eccc-4f3f-9584-e742f8fec00e"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/ksk/ambulantne-zdravotnicke-zariadenia/roznava.html?page=2&page_id=80191",
+        "title": "Rožňava - stránka č. 2, Ambulantné zdravotnícke zariadenia, Košický samosprávny kraj, e-VÚC - samospráva občanom",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Milan Stripaj s uvedenou odbornou lokalitou; obsah nebol použitý na rozhodujúci záver.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Gynekologická ambulancia (1e4a66ed-3746-4efb-abde-f0084af93525); NsP sv. Barbory, a.s. (88ed66cc-eccc-4f3f-9584-e742f8fec00e). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "a1acd4f5-d233-4a5a-9532-a07f6e0db773",
+    "name": "Ambulancia pre rizikovú a patologickú tehotnosť",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "Ambulancia pre rizikovú a patologickú tehotnosť",
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": "51-17335825-A0057",
+    "ico": null,
+    "comparedClinicIds": [
+      "3f985b95-5ff7-4e68-8ed5-1f044c29b48e",
+      "597d7218-e976-4fc7-b59e-f41baa63990f",
+      "89b803e7-a083-4773-afc3-29bde2e7a6d5"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/e-vuc/poskytovatelia/fakultna-nemocnica-s-poliklinikou-zilina.html?page_id=115480",
+        "title": "Poskytovatelia, e-VÚC - samospráva občanom",
+        "evidence": "Načítaná stránka uvádza MUDr. Pavol Babjak v lokalite Žilina.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: NsP Žilina (3f985b95-5ff7-4e68-8ed5-1f044c29b48e); Onkogynekologická ambulancia (597d7218-e976-4fc7-b59e-f41baa63990f); Ambulancia pre plánované rodičovstvo a antikoncepciu (89b803e7-a083-4773-afc3-29bde2e7a6d5). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  },
+  {
+    "clinicId": "e234eb80-9f4b-44e0-8b65-82cafde84cb1",
+    "name": "Gynekologicko",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "98a6446c-2d1d-4fa8-9b1e-8a4848c984cd",
+      "ba0d4b70-538d-494c-b160-33371d120aae",
+      "bc7edded-aa00-473f-bf85-0fc40afa36cc",
+      "fa606a96-2aae-427b-bfce-503c4167e578"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/buxus/generate_page.php?page_id=61968",
+        "title": "Špecializovaná nemocnica, Heydukova, Bratislava-Staré Mesto, (Onkologický ústav sv. Alžbety, s.r.o.), Bratislava I, Ústavné zdravotnícke zariadenia, Zdravotníctvo, Bratislavský samosprávny kraj, e-VÚC - samospráva občanom",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Jozefa Sílešová s uvedenou odbornou lokalitou; obsah nebol použitý na rozhodujúci záver.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Gynekologická ambulancia II. (98a6446c-2d1d-4fa8-9b1e-8a4848c984cd); Ultrazvuková ambulancia (ba0d4b70-538d-494c-b160-33371d120aae); Gynekologický ultrazvuk (bc7edded-aa00-473f-bf85-0fc40afa36cc); Gynekologická ambulancia I. (fa606a96-2aae-427b-bfce-503c4167e578). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "98a6446c-2d1d-4fa8-9b1e-8a4848c984cd",
+    "name": "Gynekologická ambulancia II.",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "4dd6e6f8-7a27-42d8-9699-ca90c40dcec9",
+      "ba0d4b70-538d-494c-b160-33371d120aae",
+      "bc7edded-aa00-473f-bf85-0fc40afa36cc",
+      "e234eb80-9f4b-44e0-8b65-82cafde84cb1",
+      "fa606a96-2aae-427b-bfce-503c4167e578"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/buxus/generate_page.php?page_id=61968",
+        "title": "Špecializovaná nemocnica, Heydukova, Bratislava-Staré Mesto, (Onkologický ústav sv. Alžbety, s.r.o.), Bratislava I, Ústavné zdravotnícke zariadenia, Zdravotníctvo, Bratislavský samosprávny kraj, e-VÚC - samospráva občanom",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Ladislav Masák s uvedenou odbornou lokalitou; obsah nebol použitý na rozhodujúci záver.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Gynekologická ambulancia II. (4dd6e6f8-7a27-42d8-9699-ca90c40dcec9); Ultrazvuková ambulancia (ba0d4b70-538d-494c-b160-33371d120aae); Gynekologický ultrazvuk (bc7edded-aa00-473f-bf85-0fc40afa36cc); Gynekologicko (e234eb80-9f4b-44e0-8b65-82cafde84cb1); Gynekologická ambulancia I. (fa606a96-2aae-427b-bfce-503c4167e578). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "c6496d55-5a34-45ad-b35c-d29f8f5f0b6b",
+    "name": "Neštátna gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "4fa62931-b7cf-47f9-b10d-85f4e424700e",
+      "815236f5-92c0-4676-870e-bc1502dde7c9",
+      "92ce70bc-0fc6-422c-8a1b-d43e267f5392",
+      "a4e011b9-7637-41b2-bf4b-0978c056c880",
+      "d07f02f2-6c53-4984-a135-ec272b8b4058"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/e-vuc/poskytovatelia/ruzinovska-poliklinika-a.s..html?page_id=108855",
+        "title": "Poskytovatelia, e-VÚC - samospráva občanom",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Eduard Duda s uvedenou odbornou lokalitou; obsah nebol použitý na rozhodujúci záver.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Neštátna gynekologicko (4fa62931-b7cf-47f9-b10d-85f4e424700e); GPN s.r.o.- gynekologické ambulancie (815236f5-92c0-4676-870e-bc1502dde7c9); Neštátna gynekologická ambulancia (92ce70bc-0fc6-422c-8a1b-d43e267f5392); GYNLINE s.r.o. Gynekologická ambulancia (a4e011b9-7637-41b2-bf4b-0978c056c880); GYNEK. AMB. s.r.o., Gynekologická ambulancia (d07f02f2-6c53-4984-a135-ec272b8b4058). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "bb6503f8-e51c-4632-8cc8-2e0a551c5ec9",
+    "name": "Tes Centrum Žena Plus",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "07ea3b4f-9d35-4a5a-ad1c-6f4ad6e6ec02",
+      "0ca9487c-ba1c-4795-9b4d-6921b8642c2a",
+      "1c3dd0ac-0ec6-483e-9903-ad99d6d304f9",
+      "b21cf9b6-7382-45d3-bb9c-babd8908ed3f",
+      "e8613989-405b-49db-8278-83b44c09afc0"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [
+      {
+        "url": "https://npiregistry.cms.hhs.gov/provider-view/1134214893",
+        "title": "Provider Information for 1134214893",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Zohdy Hamid s uvedenou odbornou lokalitou; obsah nebol použitý na rozhodujúci záver.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Tes Ambulancia Medis (07ea3b4f-9d35-4a5a-ad1c-6f4ad6e6ec02); Tes Ambulancia Eterna (0ca9487c-ba1c-4795-9b4d-6921b8642c2a); Tes Ambulancia Comfort (1c3dd0ac-0ec6-483e-9903-ad99d6d304f9); Tes Ambulancia Aurora (b21cf9b6-7382-45d3-bb9c-babd8908ed3f); Tes Ordinácia Salus (e8613989-405b-49db-8278-83b44c09afc0). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "25a3b776-add2-49f6-8374-96c4358e502c",
+    "name": "Tes Ambulancia Vitalis",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "026991d5-09ed-4a62-859b-023cdeec0b86",
+      "7f66e219-2611-42e5-8832-57d7540a8357",
+      "91fdbbf9-ce88-46ac-8173-19ac3eb1e402",
+      "bc4e21b0-1802-492b-9792-d5e926e13d71",
+      "f1cd201e-322d-4e80-a0b5-b1b0b56e6b65",
+      "f823baac-1279-4d96-baad-caac89a71866"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Tes Klinika Novum (026991d5-09ed-4a62-859b-023cdeec0b86); Tes Ambulancia Floris (7f66e219-2611-42e5-8832-57d7540a8357); Tes AmbuMed Partner (91fdbbf9-ce88-46ac-8173-19ac3eb1e402); Tes Zdravotné centrum Iris (bc4e21b0-1802-492b-9792-d5e926e13d71); Tes Ambulancia Femina (f1cd201e-322d-4e80-a0b5-b1b0b56e6b65); Tes Klinika Medifem X (f823baac-1279-4d96-baad-caac89a71866). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "ba0d4b70-538d-494c-b160-33371d120aae",
+    "name": "Ultrazvuková ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "02684a1a-8fc4-41eb-9684-90340dfa5b5b",
+      "8f41b984-9c6c-42ac-9f9e-2a3857c8fa5e",
+      "98a6446c-2d1d-4fa8-9b1e-8a4848c984cd",
+      "bc7edded-aa00-473f-bf85-0fc40afa36cc",
+      "d11d65bb-6805-43e1-8e97-35692826ffe7",
+      "e234eb80-9f4b-44e0-8b65-82cafde84cb1",
+      "fa606a96-2aae-427b-bfce-503c4167e578"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/e-vuc/poskytovatelia/mediconet-slovakia.html?page_id=109644",
+        "title": "Poskytovatelia, e-VÚC - samospráva občanom",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Stanislav Kutlák s uvedenou odbornou lokalitou; obsah nebol použitý na rozhodujúci záver.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Gynekologická a ultrazvuková ambulancia (02684a1a-8fc4-41eb-9684-90340dfa5b5b); Onk. ústav sv. Alžbety (8f41b984-9c6c-42ac-9f9e-2a3857c8fa5e); Gynekologická ambulancia II. (98a6446c-2d1d-4fa8-9b1e-8a4848c984cd); Gynekologický ultrazvuk (bc7edded-aa00-473f-bf85-0fc40afa36cc); Gynekologická ultrazvuková ambulancia (d11d65bb-6805-43e1-8e97-35692826ffe7); Gynekologicko (e234eb80-9f4b-44e0-8b65-82cafde84cb1); Gynekologická ambulancia I. (fa606a96-2aae-427b-bfce-503c4167e578). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "8437635c-c36d-4e86-8929-351ef716bbb3",
+    "name": "Poradňa pre poruchy klimaktéria a postmenopauzy",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "019ce3fc-6674-463c-b3b9-ef95f27fd24c",
+      "01acca9b-7dcc-4014-9154-e1c4e18760e0",
+      "01d5beb3-3b96-446e-9416-8e7974b84a1e",
+      "3fe81be9-c076-4f0a-9ae3-98ad97fd8405",
+      "4d3d2d35-d230-4a70-a9f0-7da8abbc4e4b",
+      "4dd6e6f8-7a27-42d8-9699-ca90c40dcec9",
+      "d11d65bb-6805-43e1-8e97-35692826ffe7",
+      "e0e013c0-68c2-4ab0-b1d9-80dec1bc5987",
+      "eb7397fc-4b00-46f7-b753-c4d30f50ae67"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale načítaný obsah neoveril zároveň presnú profesionálnu identitu aj adresu tohto kandidáta.",
+    "sources": [
+      {
+        "url": "https://banm.sk/28547/prof-mudr-jan-stencl-csc",
+        "title": "Prof. MUDr. Ján Štencl, CSc., rektor Slovenskej zdravotníckej univerzity, lekár - Bratislava-Nové Mesto",
+        "evidence": "Výsledok verejného vyhľadávania spája meno Prof. MUDr. Ján Štencl s odbornou lokalitou, ale bez načítaného potvrdenia presnej identity a adresy kandidáta.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Poradňa pre antikoncepciu a plánované rodičovstvo (019ce3fc-6674-463c-b3b9-ef95f27fd24c); Gynekologicko-pôrodnícka ambulancia (01acca9b-7dcc-4014-9154-e1c4e18760e0); Ambulancia pre choroby prsníkov (01d5beb3-3b96-446e-9416-8e7974b84a1e); Gynekologická ambulancia (Proferax s.r.o.), (3fe81be9-c076-4f0a-9ae3-98ad97fd8405); Gynekologická ambulancia (FEMA-GYN, s.r.o.) (4d3d2d35-d230-4a70-a9f0-7da8abbc4e4b); Gynekologická ambulancia II. (4dd6e6f8-7a27-42d8-9699-ca90c40dcec9); Gynekologická ultrazvuková ambulancia (d11d65bb-6805-43e1-8e97-35692826ffe7); Ambulancia rizikovej gravidity (e0e013c0-68c2-4ab0-b1d9-80dec1bc5987); Ambulancia detskej gynekológie (eb7397fc-4b00-46f7-b753-c4d30f50ae67). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "8e9355fb-0b9a-43a7-b84a-060dd8850389",
+    "name": "Tes Med Centrum Bella",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "12bc7c72-b02e-4b72-8961-a42417ced02a",
+      "1c3dd0ac-0ec6-483e-9903-ad99d6d304f9",
+      "91fdbbf9-ce88-46ac-8173-19ac3eb1e402",
+      "a13c28ef-aab4-4540-bf9b-3cdba9b3e6c1",
+      "a40539e3-1c5a-4677-9f19-22d611a706f7",
+      "aae91fa1-03b1-4152-997e-09ada0f9452b",
+      "abbf75ab-f725-4bf8-b1a7-5255009b4cbb",
+      "bc4e21b0-1802-492b-9792-d5e926e13d71",
+      "e4059692-a34b-4deb-85fc-9a6089ac7693"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Tes Centrum CarePoint (12bc7c72-b02e-4b72-8961-a42417ced02a); Tes Ambulancia Comfort (1c3dd0ac-0ec6-483e-9903-ad99d6d304f9); Tes AmbuMed Partner (91fdbbf9-ce88-46ac-8173-19ac3eb1e402); Tes Ambulancia CityMed (a13c28ef-aab4-4540-bf9b-3cdba9b3e6c1); Tes Ambulancia Harmónia (a40539e3-1c5a-4677-9f19-22d611a706f7); Tes Poliklinika Lilium (aae91fa1-03b1-4152-997e-09ada0f9452b); Melichar SRO (abbf75ab-f725-4bf8-b1a7-5255009b4cbb); Tes Zdravotné centrum Iris (bc4e21b0-1802-492b-9792-d5e926e13d71); Tes Klinika Viva (e4059692-a34b-4deb-85fc-9a6089ac7693). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "e0e013c0-68c2-4ab0-b1d9-80dec1bc5987",
+    "name": "Ambulancia rizikovej gravidity",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "019ce3fc-6674-463c-b3b9-ef95f27fd24c",
+      "01acca9b-7dcc-4014-9154-e1c4e18760e0",
+      "01d5beb3-3b96-446e-9416-8e7974b84a1e",
+      "3fe81be9-c076-4f0a-9ae3-98ad97fd8405",
+      "4d3d2d35-d230-4a70-a9f0-7da8abbc4e4b",
+      "4dd6e6f8-7a27-42d8-9699-ca90c40dcec9",
+      "62b3d4c4-478a-474c-91af-8ede8d66ec7b",
+      "6654b90f-957d-48e1-8cf8-01c466e70cde",
+      "8437635c-c36d-4e86-8929-351ef716bbb3",
+      "d11d65bb-6805-43e1-8e97-35692826ffe7",
+      "eb7397fc-4b00-46f7-b753-c4d30f50ae67",
+      "f824c24e-cbcc-47ed-a0f1-a6d372f8ab34"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/buxus/generate_page.php?page_id=61738",
+        "title": "Poliklinika Slovenskej zdravotníckej univerzity v Bratislave, Limbová, Bratislava-Nové Mesto, (Slovenská zdravotnícka univerzita v Bratislave), Bratislava III, Ambulantné zdravotnícke zariadenia, Zdravotníctvo, Bratislavský samosprávny kraj, e-VÚC - samospráva občanom",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Karol Plank s uvedenou odbornou lokalitou; obsah nebol použitý na rozhodujúci záver.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Poradňa pre antikoncepciu a plánované rodičovstvo (019ce3fc-6674-463c-b3b9-ef95f27fd24c); Gynekologicko-pôrodnícka ambulancia (01acca9b-7dcc-4014-9154-e1c4e18760e0); Ambulancia pre choroby prsníkov (01d5beb3-3b96-446e-9416-8e7974b84a1e); Gynekologická ambulancia (Proferax s.r.o.), (3fe81be9-c076-4f0a-9ae3-98ad97fd8405); Gynekologická ambulancia (FEMA-GYN, s.r.o.) (4d3d2d35-d230-4a70-a9f0-7da8abbc4e4b); Gynekologická ambulancia II. (4dd6e6f8-7a27-42d8-9699-ca90c40dcec9); Ambulancia rizikovej gravidity (62b3d4c4-478a-474c-91af-8ede8d66ec7b); Ambulancia rizikovej gravidity (6654b90f-957d-48e1-8cf8-01c466e70cde); Poradňa pre poruchy klimaktéria a postmenopauzy (8437635c-c36d-4e86-8929-351ef716bbb3); Gynekologická ultrazvuková ambulancia (d11d65bb-6805-43e1-8e97-35692826ffe7); Ambulancia detskej gynekológie (eb7397fc-4b00-46f7-b753-c4d30f50ae67); Gynekologická ambulancia (f824c24e-cbcc-47ed-a0f1-a6d372f8ab34). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "29ddd021-e08a-413c-b7b4-61fb26980ced",
+    "name": "Ambulancia gynekológia a pôrodníctvo",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "22609d7a-ecbb-4e59-aa8b-4196b458b4e0"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: HUMENLEK, s.r.o., (22609d7a-ecbb-4e59-aa8b-4196b458b4e0). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "9ebef728-0c20-42f1-ae1c-61ecfdc26a8a",
+    "name": "GYN-VIA, s.r.o.",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "6022b94a-fc1e-4df7-889d-a60141696fb8"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [
+      {
+        "url": "http://www.gynvia.sk/",
+        "title": "MUDr. Lenka Ladecká Tomková | GYN-VIA gynekologicko - pôrodnícka ambulancia Trenčín",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Lenka Ladecká Tomková s uvedenou odbornou lokalitou; obsah nebol použitý na rozhodujúci záver.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: GYN-VIA, s.r.o. (6022b94a-fc1e-4df7-889d-a60141696fb8). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "ad1c87c5-515e-4ddd-ad26-2f9d2b91d5bd",
+    "name": "Gynekologicko",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "1e71a346-983d-4294-b40a-6ad8e7e28c98"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: GYNTAV, s.r.o. (1e71a346-983d-4294-b40a-6ad8e7e28c98). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "2b5b4990-1e09-4d3c-90d6-434f2eda1867",
+    "name": "Gynekologicko-pôrodnícka ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "Gynekologicko-pôrodnícka ambulancia",
+    "verifiedAddress": "Nitrianska cesta 1",
+    "verifiedPhone": "+421387497898",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "38383445-b36d-47c2-8e26-a042aed53b89"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta aj uvádzanú adresu alebo ulicu. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/tsk/zdravotnictvo/ambulantne-zdravotnicke-zariadenia/partizanske/primarna-gynekologicko-porodnicka-ambulancia-mudr.-vladimir-zvaric-partizanske-mudr.-zvaric-vladimir.html?page_id=104236",
+        "title": "Primárna gynekologicko-pôrodnícka ambulancia, MUDr. Vladimír Zvarič, Partizánske, (MUDr. Zvarič Vladimír, s.r.o.), Partizánske, Ambulantné zdravotnícke zariadenia, Zdravotníctvo, Trenčiansky samosprávny kraj, e-VÚC - samospráva občanom",
+        "evidence": "Načítaná stránka uvádza MUDr. Zvarič Vladimír na ulici Nitrianska cesta 1.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: MUDr. Zvarič Vladimír, s.r.o. (38383445-b36d-47c2-8e26-a042aed53b89). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  },
+  {
+    "clinicId": "2d36479c-25f3-4fec-8aaf-d8daf97f725b",
+    "name": "Gynekologicko-pôrodnícka ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "d4cd9d7b-cdd5-42b7-a406-1731d30cc318"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: MALGYN s. r. o. (d4cd9d7b-cdd5-42b7-a406-1731d30cc318). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "4d56dda3-39b8-4d0e-bfb9-0d172637be65",
+    "name": "Gynekologicko-pôrodnícka ambulancia / ELUMED s.r.o.",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "05ce1728-8b6b-4520-ba05-286425d41d5d"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/tsk/zdravotnictvo/ambulantne-zdravotnicke-zariadenia/banovce-nad-bebravou/vseobecna-ambulancia-pre-deti-a-dorast-mudr.-renata-jackova-banovce-nad-bebravou-mudr.-renata-jackova.html?page_id=64073",
+        "title": "Všeobecná ambulancia pre deti a dorast, MUDr. Renata Jačková, Bánovce nad Bebravou, (MUDr. Renata Jačková), Bánovce nad Bebravou, Ambulantné zdravotnícke zariadenia, Zdravotníctvo, Trenčiansky samosprávny kraj, e-VÚC - samospráva občanom",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Ľubomír Paul s uvedenou odbornou lokalitou; obsah nebol použitý na rozhodujúci záver.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Elumed s.r.o. (05ce1728-8b6b-4520-ba05-286425d41d5d). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "73aaabd1-bdac-4e6f-b0f1-10ba56b2e981",
+    "name": "Gynekologicko-pôrodnícka ambulancia CeGyS, s. r. o.",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "4eb4986b-a8f3-4729-be8d-c9eb1879ae53"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [
+      {
+        "url": "https://cegys.sk/pracovnici",
+        "title": "https://cegys.sk/pracovnici",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Martin Hlaváčik s uvedenou odbornou lokalitou; obsah nebol použitý na rozhodujúci záver.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: CeGyS, s. r. o. (4eb4986b-a8f3-4729-be8d-c9eb1879ae53). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "135e23e0-82c1-4125-a1e6-a029b9c20757",
+    "name": "Gynekologicko-pôrodnícka ambulancia SaluD s.r.o.",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "high",
+    "verifiedName": "Gynekologicko-pôrodnícka ambulancia SaluD s.r.o.",
+    "verifiedAddress": "Kpt. Nálepku 11, Nové Mesto nad Váhom",
+    "verifiedPhone": null,
+    "providerCode": "63-36342114-A0001",
+    "ico": null,
+    "comparedClinicIds": [
+      "8f0aa44a-5738-48b6-a75d-8bf304b2578a"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta aj uvádzanú adresu alebo ulicu. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/tsk/zdravotnictvo/ambulantne-zdravotnicke-zariadenia/nove-mesto-nad-vahom.html?page=3&page_id=723",
+        "title": "Nové Mesto nad Váhom - stránka č. 3, Ambulantné zdravotnícke zariadenia, Zdravotníctvo, Trenčiansky samosprávny kraj, e-VÚC - samospráva občanom",
+        "evidence": "Načítaná stránka uvádza MUDr. Pavol Durdík a pracovisko v lokalite Nové Mesto nad Váhom, Kpt. Nálepku 11.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: SaluD s.r.o. (8f0aa44a-5738-48b6-a75d-8bf304b2578a). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  },
+  {
+    "clinicId": "6a29e8c8-000c-45ec-8269-9677711f2138",
+    "name": "Gynekologická ambualncia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "d5e01aed-4c0a-4e6a-866d-11566e4a5bd8"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [
+      {
+        "url": "https://mapalekarov.sk/kosice/gynekologia",
+        "title": "Gynekológ Košice – lekári, recenzie a kontakt",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Jozef Janovský s uvedenou odbornou lokalitou; obsah nebol použitý na rozhodujúci záver.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: DERMAGYN s.r.o. (d5e01aed-4c0a-4e6a-866d-11566e4a5bd8). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "63113846-ea6f-44a9-b8dc-687a3ed6796a",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "Gynekologická ambulancia",
+    "verifiedAddress": "Partizánska ul. 3",
+    "verifiedPhone": "+421326494673",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "903161f4-ac9c-41fd-8e6e-d32a86e6d38e"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta aj uvádzanú adresu alebo ulicu. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "http://gynekologia.szm.com/",
+        "title": "Mudr. Dezider Orlovský",
+        "evidence": "Načítaná stránka uvádza MUDr. Dezider Orlovský na ulici Partizánska ul. 3.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: MeGyn, s.r.o. (903161f4-ac9c-41fd-8e6e-d32a86e6d38e). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  },
+  {
+    "clinicId": "64e2b2ef-bd5d-4602-9fac-bc44a3492dce",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "Gynekologická ambulancia",
+    "verifiedAddress": "Nemocničná 1",
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": "36854549",
+    "comparedClinicIds": [
+      "1ebdf735-d1ba-493a-969e-8d38356f9b41"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta aj uvádzanú adresu alebo ulicu. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "https://www.donsp.sk/donsp/zmluvy/zmluvy-od-r-2013",
+        "title": "ZMLUVY ROK 2013  - Dolnooravská nemocnica s poliklinikou L. N. Jégého",
+        "evidence": "Načítaná stránka uvádza MUDr. Dagmar Kapralčíková na ulici Nemocničná 1.",
+        "fetched": true
+      },
+      {
+        "url": "https://www.navstevalekara.sk/zdravotnicke-zariadenia/zilinsky-kraj-k304/dolny-kubin-o533/dolny-kubin-m2626/dolnooravska-nsp-l-n-jegeho-zz949.html",
+        "title": "Dolnooravská NsP L. N. Jégého | Zoznam lekárov",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Dagmar Kapralčíková s uvedenou odbornou lokalitou; obsah nebol použitý na rozhodujúci záver.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: GYNEKODK s.r.o. (1ebdf735-d1ba-493a-969e-8d38356f9b41). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  },
+  {
+    "clinicId": "f7af0303-22d0-4edb-a671-565627fb0c6d",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "Gynekologická ambulancia",
+    "verifiedAddress": "Aleja Slobody 1905/7, Dolný Kubín",
+    "verifiedPhone": "+421435864100",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "a7a2e569-9f07-4411-ad81-ff9d92a37b92"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta aj uvádzanú adresu alebo ulicu. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "https://www.mudrpetlakovahasprova.sk/",
+        "title": "MUDr. Eva Petláková Hasprová | Gynekologicko-pôrodnícka ambulancia Dolný Kubín",
+        "evidence": "Načítaná stránka uvádza MUDr. Eva Petláková Hasprová a pracovisko v lokalite Dolný Kubín, Aleja Slobody 1905/7.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: H+PARTNERS, spol. s r. o. (a7a2e569-9f07-4411-ad81-ff9d92a37b92). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  },
+  {
+    "clinicId": "4141578b-480e-4347-99df-69c08cfad830",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "2f3707cb-38d0-4df6-8196-8a7230e3a140"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale načítaný obsah neoveril zároveň presnú profesionálnu identitu aj adresu tohto kandidáta.",
+    "sources": [
+      {
+        "url": "https://ordinacne-hodiny.eu/zariadenie/poprad/gynekologicke-ambulancie/gynekologicka-ambulancia--mudr-m-adamkovicova/MjQyMzQ1",
+        "title": "Ordinačné hodiny Gynekologická ambulancia - MUDr. M. Adamkovičová, Poprad",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Magda Adamkovičová s odbornou lokalitou, ale bez načítaného potvrdenia presnej identity a adresy kandidáta.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: AGYND, s.r.o. (2f3707cb-38d0-4df6-8196-8a7230e3a140). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "9ef4c049-f975-4ade-9d9f-a6f6da7ca346",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "0ec060d2-cbc4-4f72-9b04-cd5227a6e693"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: ERF, s.r.o (0ec060d2-cbc4-4f72-9b04-cd5227a6e693). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "345c77f7-2358-4770-94ff-7fa51a3966e4",
+    "name": "Gynekologická ambulancia (EL-Gynda s.r.o.)",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "Gynekologická ambulancia (EL-Gynda s.r.o.)",
+    "verifiedAddress": "Tehelná 26",
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "7ea2b73f-35f4-4092-9dcf-122fbb51599a"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta aj uvádzanú adresu alebo ulicu. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "https://www.poliklinikatehelna.sk/ambulancie",
+        "title": "Ambulancie – Poliklinika Tehelná",
+        "evidence": "Načítaná stránka uvádza MUDr. Ľubor Lauda na ulici Tehelná 26.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: EL-Gynda s.r.o. (7ea2b73f-35f4-4092-9dcf-122fbb51599a). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  },
+  {
+    "clinicId": "2eaa7ea9-f812-42f1-a1fd-ed4aa65fbc10",
+    "name": "Gynekologická ambulancia, 4D ultrazvuk, 3D ultrazvuk",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "Gynekologická ambulancia, 4D ultrazvuk, 3D ultrazvuk",
+    "verifiedAddress": "Dominika Tatarku 4717/ 18, Poprad",
+    "verifiedPhone": "+421527721321",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "84fe9a22-c7c6-44e1-afd8-0e9ea3c390c1"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta aj uvádzanú adresu alebo ulicu. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "https://vysetrenie.zoznam.sk/ambulancia/213/mudr-stefan-vojtassak",
+        "title": "MUDr. Štefan Vojtaššák - gynekológia | Vysetrenie.sk",
+        "evidence": "Načítaná stránka uvádza MUDr. Štefan Vojtaššák a pracovisko v lokalite Poprad, Dominika Tatarku 4717/ 18.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: ZDRAVIE TATRY - SLOVAKIA, s.r.o. (84fe9a22-c7c6-44e1-afd8-0e9ea3c390c1). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  },
+  {
+    "clinicId": "6dacca4a-5469-4d6f-a0dd-51d4b031a0f9",
+    "name": "Gynekologická ambulancia, GYNA MS",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "54b2e803-b7f1-4866-a94c-4ee31bccbc42"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [
+      {
+        "url": "https://gynams.sk/",
+        "title": "GYNA MS gynekologicko - pôrodnícka ambulancia Stará Turá",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Zuzana Oravcová s uvedenou odbornou lokalitou; obsah nebol použitý na rozhodujúci záver.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: GYNA MS, s.r.o. (54b2e803-b7f1-4866-a94c-4ee31bccbc42). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "7dc28b16-2028-4457-8a46-b55619b76ec6",
+    "name": "Gynekologická ambulancia, MAMO-GYN, s.r.o.",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "Gynekologická ambulancia, MAMO-GYN, s.r.o.",
+    "verifiedAddress": "Tehelná 26, Nové Mesto",
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "2b1c65b0-b929-4df3-bd60-7140b9907826"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta aj uvádzanú adresu alebo ulicu. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "https://www.navstevalekara.sk/zdravotnicke-zariadenia/bratislavsky-kraj-k300/bratislava-3-o502/nove-mesto-m1004/poliklinika-tehelna-zz16.html",
+        "title": "Poliklinika Tehelná | Zoznam lekárov",
+        "evidence": "Načítaná stránka uvádza MUDr. Jaroslav Šorf a pracovisko v lokalite Nové Mesto, Tehelná 26.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: MAMO-GYN, s. r. o. (2b1c65b0-b929-4df3-bd60-7140b9907826). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  },
+  {
+    "clinicId": "139bf2a0-0f57-49f9-a0d8-811eab661ad9",
+    "name": "Gynekologická ambulancia, MUDr. Eva Lompartová , (Gyn Medic, s.r.o.)",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "b232b171-260d-41de-9769-26b0da269936"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Gyn Medic, s.r.o. (b232b171-260d-41de-9769-26b0da269936). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "48ae9c86-28f5-4f3b-8108-da73eef3092b",
+    "name": "Gynekologická ambulancia, MUDr. Miroslava Blahová, (BELAMEDIK s.r.o.)",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "601fe2ca-eeb0-4b96-a12d-798e88873f17"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: BELAMEDIK s.r.o. (601fe2ca-eeb0-4b96-a12d-798e88873f17). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "71ae68e6-56d9-4bf5-bb41-d0de4fbf7ecd",
+    "name": "Gynekologická ambulancia, PED-GYN, s.r.o.",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "0ca692eb-3e7e-4208-b309-b8aaca311e53"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale načítaný obsah neoveril zároveň presnú profesionálnu identitu aj adresu tohto kandidáta.",
+    "sources": [
+      {
+        "url": "https://ordinacne-hodiny.eu/zariadenie/lendak/vseobecny-lekar--deti-a-dorast/ambulancia-vseobecneho-lekara-pre-deti-a-dorast-pedgyn-sro--mudr-iveta-janikova/MjcwMTA0",
+        "title": "Ordinačné hodiny Ambulancia všeobecného lekára pre deti a dorast, PED-GYN, s.r.o. - MUDr. Iveta Janíková, Lendak",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Ján Janík s odbornou lokalitou, ale bez načítaného potvrdenia presnej identity a adresy kandidáta.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: PED-GYN, s.r.o. (0ca692eb-3e7e-4208-b309-b8aaca311e53). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "27905b40-9850-4aee-a558-dd1bc5ec6a49",
+    "name": "Gynekologická amulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "high",
+    "verifiedName": "Gynekologická amulancia",
+    "verifiedAddress": "Belanského, 401 Kysucké Nové Mesto",
+    "verifiedPhone": null,
+    "providerCode": "65-47233290-A0005",
+    "ico": null,
+    "comparedClinicIds": [
+      "6f955208-dbc9-4f4f-b06e-ef4cc53a0f00"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta aj uvádzanú adresu alebo ulicu. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/zsk/zdravotnictvo/ambulantne-zdravotnicke-zariadenia/kysucke-nove-mesto.html?page_id=54540",
+        "title": "Kysucké Nové Mesto, Ambulantné zdravotnícke zariadenia, Zdravotníctvo, Žilinský samosprávny kraj, e-VÚC - samospráva občanom",
+        "evidence": "Načítaná stránka uvádza MUDr. Tibor Ševčík a pracovisko v lokalite 401 Kysucké Nové Mesto, Belanského.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: GYN-ŠEV s. r. o. (6f955208-dbc9-4f4f-b06e-ef4cc53a0f00). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  },
+  {
+    "clinicId": "7c2909f7-b8e5-4f3a-8226-d277e8e4057a",
+    "name": "MUDr. Richard Lani, gynekologicka ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "f8108078-79e0-4681-bb38-11fd1c76ffbc"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [
+      {
+        "url": "https://lekari.sk/zilina",
+        "title": "Lekari.sk - Zoznam lekárov",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Richard Lani s uvedenou odbornou lokalitou; obsah nebol použitý na rozhodujúci záver.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: BALMORAL ARF, s. r. o. (f8108078-79e0-4681-bb38-11fd1c76ffbc). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "16911ed6-b895-4091-80f6-64e894347ec0",
+    "name": "Súkromná gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "ef544d60-432a-48f9-b938-42ba3b99f5fe"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/tsk/zdravotnictvo/ambulantne-zdravotnicke-zariadenia/povazska-bystrica/ortopedicka-ambulancia-ii.-povazska-bystrica-nemocnica-s-poliklinikou-povazska-bystrica-so-sidlom-v-povazskej-bystrici.html?page_id=104152",
+        "title": "Ortopedická ambulancia II., Považská Bystrica, (Nemocnica s poliklinikou Považská Bystrica so sídlom v Považskej Bystrici), Považská Bystrica, Ambulantné zdravotnícke zariadenia, Zdravotníctvo, Trenčiansky samosprávny kraj, e-VÚC - samospráva občanom",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Jaroslav Kardoš s uvedenou odbornou lokalitou; obsah nebol použitý na rozhodujúci záver.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Nemocnica s poliklinikou Považská Bystrica so sídlom v Považskej Bystrici (ef544d60-432a-48f9-b938-42ba3b99f5fe). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "aa02701d-3c37-49d3-bab1-f7dadc7aa799",
+    "name": "Gynekologicko",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "Gynekologicko",
+    "verifiedAddress": "Hollého 200 Poliklinika, Rajec",
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "332de678-bcef-49d2-ba92-63b5d5235662",
+      "39641bb1-479c-46de-be72-47e491c3401c"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta aj uvádzanú adresu alebo ulicu. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "https://www.navstevalekara.sk/lekari/zilinsky-kraj-k304/zilina-o541/rajec-m3017.html",
+        "title": "Zoznam lekárov | Rajec",
+        "evidence": "Načítaná stránka uvádza MUDr. Spišáková Monika a pracovisko v lokalite Rajec, Hollého 200 Poliklinika.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: LadyGyn s.r.o. (332de678-bcef-49d2-ba92-63b5d5235662); Gynekologická ambulancia, MUDr. Monika Molnárová, (LadyGyn s.r.o.) (39641bb1-479c-46de-be72-47e491c3401c). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  },
+  {
+    "clinicId": "53483b02-9397-4b2a-8f95-548b4ae12910",
+    "name": "Gynekologicko-pôrodnícka ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "259038cc-5597-43ec-9e04-25d6f68a9601",
+      "67d7b868-c876-4f19-a94b-8d50596bbb4e"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: PrimaGyn, s.r.o. (259038cc-5597-43ec-9e04-25d6f68a9601); PrimaGyn s.r.o.   gynekologická ambulancia, detská gynekológia, ultrazvuk v gynekológii a pôrodníctve 3D/4D (67d7b868-c876-4f19-a94b-8d50596bbb4e). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "eea39ae6-94c2-4cb3-b938-1edeef33e958",
+    "name": "Gynekologicko-pôrodnícka ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "Gynekologicko-pôrodnícka ambulancia",
+    "verifiedAddress": "Tehelná 26 - ZS",
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "52cae0d9-2938-4140-96bd-bf33446d4f16",
+      "e3ad76a0-422f-4c51-865f-75f0ff1590b9"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta aj uvádzanú adresu alebo ulicu. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "https://www.navstevalekara.sk/zdravotnicke-zariadenia/bratislavsky-kraj-k300/bratislava-3-o502/nove-mesto-m1004/poliklinika-tehelna-zz16.html",
+        "title": "Poliklinika Tehelná | Zoznam lekárov",
+        "evidence": "Načítaná stránka uvádza MUDr. Valéria Sadáková na ulici Tehelná 26 - ZS.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: GYNESA, spol. s r. o. (52cae0d9-2938-4140-96bd-bf33446d4f16); GYNESA (e3ad76a0-422f-4c51-865f-75f0ff1590b9). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  },
+  {
+    "clinicId": "1c88b245-0fcc-4cc3-ae9d-c4f7abc7aa5c",
+    "name": "Gynekologická ambualncia, Helping Hands, s.r.o.",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "Gynekologická ambualncia, Helping Hands, s.r.o.",
+    "verifiedAddress": "Komenského 27",
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "62106ad9-423b-481a-a5d5-671b7ff05a87",
+      "a9df03fe-f4ed-4f26-ad65-b4ddc0a7382a"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta aj uvádzanú adresu alebo ulicu. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "https://tvojaambulancia.sk/zeliezovce/",
+        "title": "MUDr. Juraj Orság | Tvoja ambulancia",
+        "evidence": "Načítaná stránka uvádza MUDr. Juraj Orság na ulici Komenského 27.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Súkr. Gyn. Abm. (62106ad9-423b-481a-a5d5-671b7ff05a87); HELPING HANDS, s.r.o. (a9df03fe-f4ed-4f26-ad65-b4ddc0a7382a). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  },
+  {
+    "clinicId": "bc8f55a4-9d1e-4ae6-8ab5-820b84bf3bfb",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "Gynekologická ambulancia",
+    "verifiedAddress": "Malokarpatské námestie 2",
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "543001f4-0dd4-495f-bf12-c65266b3547a",
+      "fa9a3f30-9932-41f9-80ff-b7ebd0b02d90"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta aj uvádzanú adresu alebo ulicu. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "https://agyn.sk/",
+        "title": "A GYN - gynekologická ambulancia",
+        "evidence": "Načítaná stránka uvádza MUDr. Dagmar Psalmanová na ulici Malokarpatské námestie 2.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: A GYN s. r. o. (543001f4-0dd4-495f-bf12-c65266b3547a); Gynekologicko-pôrodnícka ambulancia (fa9a3f30-9932-41f9-80ff-b7ebd0b02d90). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  },
+  {
+    "clinicId": "20a4d071-f33d-483b-a114-5bef8079e3f1",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "eda10a4d-6bd0-4f77-a5cb-a3cb679a7f17",
+      "eff46993-d360-4239-99fc-236c60aae9bc"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Gynekologická ambulancia G & D Care s.r.o. (eda10a4d-6bd0-4f77-a5cb-a3cb679a7f17); G&D Care s.r.o. (eff46993-d360-4239-99fc-236c60aae9bc). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "06ce023a-f5ba-4c3d-b806-3e2f93462207",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "c461acec-43b0-4c20-99bb-2fd39b578435",
+      "d94cd17c-38aa-41e2-89f6-fb977f48aa5e"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/e-vuc/poskytovatelia/ustredna-vojenska-nemocnica-snp-ruzomberok-fakultna-nemocnica.html?page_id=106982",
+        "title": "Ústredná vojenská nemocnica SNP Ružomberok - FN",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Bohumil Kuchyňa s uvedenou odbornou lokalitou; obsah nebol použitý na rozhodujúci záver.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Praktik Duo, spol. s.r.o. (c461acec-43b0-4c20-99bb-2fd39b578435); MP - GYN, s.r.o. (d94cd17c-38aa-41e2-89f6-fb977f48aa5e). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "38cff90f-348a-403b-99d5-29ec32f97a5b",
+    "name": "Gynekologická ambulancia (pediatrická), GYNET s.r.o.",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "289b7f2d-08ec-46ed-8ee1-cc96472019bc",
+      "67d6008f-68d5-4e64-9d71-ccb2ca2ddd16"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: GYNET s.r.o. (289b7f2d-08ec-46ed-8ee1-cc96472019bc); Gynekologicko-pôrodnícka ambulancia / \tultrazvuk v gynekológii a pôrodníctve -\tMUDr. Ďurovská Iveta, GYNET s.r.o. (67d6008f-68d5-4e64-9d71-ccb2ca2ddd16). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "54d892cb-f499-4d42-bf7e-2982a62898c0",
+    "name": "Gynekologická ambulancia s 3D sono",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "e9716815-4b18-4bae-a6c0-5d80df8f1d09",
+      "ece6673b-bb21-4d00-a680-b9e8edeea2aa"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Gynekologicko-pôrodnícka ambulancia (e9716815-4b18-4bae-a6c0-5d80df8f1d09); Gyn - san s.r.o. (ece6673b-bb21-4d00-a680-b9e8edeea2aa). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "02cb7a92-61f0-4382-ba2f-18488036ffdd",
+    "name": "Gynekologická ambulancia, MUDr. Dušan Macala",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "5e59fc52-5408-4b34-8cdb-44d572f3e891",
+      "b8b50d7a-07b7-4886-a338-6668d36f31ca"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale načítaný obsah neoveril zároveň presnú profesionálnu identitu aj adresu tohto kandidáta.",
+    "sources": [
+      {
+        "url": "https://www.zborov.sk/zivot-v-obci/sluzby-v-obci/zdravotne-sluzby-788sk.html",
+        "title": "Zdravotné služby  - Oficiálne stránky obce Zborov",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Dušan Macala s odbornou lokalitou, ale bez načítaného potvrdenia presnej identity a adresy kandidáta.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: GYN-MAC, s. r. o. (5e59fc52-5408-4b34-8cdb-44d572f3e891); MEDIGYNEA s.r.o. (b8b50d7a-07b7-4886-a338-6668d36f31ca). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "cf539d86-aa00-48ca-9020-5b4774e4bba7",
+    "name": "Gynekologické centrum Nitra s. r. o.",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "792a8768-48b2-4d59-9ae8-1bd4010580d0",
+      "957295db-9d49-444d-9747-61bc0d4ea464"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale načítaný obsah neoveril zároveň presnú profesionálnu identitu aj adresu tohto kandidáta.",
+    "sources": [
+      {
+        "url": "https://www.gynekolognitra.sk/",
+        "title": "Gynekológ Nitra",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Peter Uharček s odbornou lokalitou, ale bez načítaného potvrdenia presnej identity a adresy kandidáta.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Gyncentrum Nitra s.r.o. (792a8768-48b2-4d59-9ae8-1bd4010580d0); Gynekologicko-pôrodnícka ambulancia (957295db-9d49-444d-9747-61bc0d4ea464). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "5c1a4193-c13e-4b30-8be7-9a8812222343",
+    "name": "SEGYN, s.r.o.",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "SEGYN, s.r.o.",
+    "verifiedAddress": "Sotinská 1, 501 Senica",
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "6bc72dbb-74e4-45ec-adf4-aebdeac25564",
+      "fd8a6690-3d27-449f-813e-51a463764b34"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta aj uvádzanú adresu alebo ulicu. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "https://www.objednatvysetrenie.sk/vyhladat-ambulanciu.html?iframe&page_id=84262&search=senica",
+        "title": "Vyhľadať ambulanciu, Objednávanie vyšetrenia k lekárovi - www.objednatvysetrenie.sk",
+        "evidence": "Načítaná stránka uvádza MUDr. Andrej Živica a pracovisko v lokalite 501 Senica, Sotinská 1.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Gynekologická ambulancia (6bc72dbb-74e4-45ec-adf4-aebdeac25564); SEGYN, s.r.o. (fd8a6690-3d27-449f-813e-51a463764b34). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  },
+  {
+    "clinicId": "36fc0933-c6e2-4b2a-b127-9c36169e427c",
+    "name": "Elgyn s.r.o.",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "adf6125d-baae-4706-9ec3-6c734d08ccb2",
+      "c3a2650e-48db-4eab-8d0c-2709dc850a17",
+      "f51aa28a-f054-44f6-9196-a28997262f7f"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [
+      {
+        "url": "https://zdravoteka.sk/lekari/mudr-radoslav-sraga-1",
+        "title": "MUDr. Radoslav Šraga -          - Zdravoteka.sk",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Radoslav Šraga s uvedenou odbornou lokalitou; obsah nebol použitý na rozhodujúci záver.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: ELGYN, s.r.o. (adf6125d-baae-4706-9ec3-6c734d08ccb2); Gynekologická ambulancia (c3a2650e-48db-4eab-8d0c-2709dc850a17); ELGYN, s.r.o. (f51aa28a-f054-44f6-9196-a28997262f7f). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "6ae7bd7c-948e-4680-bb14-29917c9c190b",
+    "name": "Gynekologicko-pôrodnícka ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "Gynekologicko-pôrodnícka ambulancia",
+    "verifiedAddress": null,
+    "verifiedPhone": "+421455512191",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "0848e507-5a80-436b-aa68-705f3179a739",
+      "103fe791-9553-459f-a779-34db581e4282",
+      "9b54710a-e3a5-4786-9108-d5333b8fb12b"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "https://krupina.sk/ambulancie",
+        "title": "Ambulancie | Krupina - oficiálna stránka mesta",
+        "evidence": "Načítaná stránka uvádza MUDr. Igor Bornay v lokalite Krupina.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Bornay, s.r.o. (0848e507-5a80-436b-aa68-705f3179a739); GynVi s.r.o. (103fe791-9553-459f-a779-34db581e4282); Gynekologická ambulancia (9b54710a-e3a5-4786-9108-d5333b8fb12b). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  },
+  {
+    "clinicId": "6d9b950d-756e-4375-a279-995fe0c29644",
+    "name": "Gynekologicko-pôrodnícka ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "Gynekologicko-pôrodnícka ambulancia",
+    "verifiedAddress": "Parková 12, Topoľčianky",
+    "verifiedPhone": "+421376301084",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "7cc79841-18b5-41b2-b2b5-d8cd4606f816",
+      "938bcc42-2b2f-4c8f-85d1-4c9f0e45ddcd",
+      "a3077c4c-4cb8-4c9f-99e8-995382f128b1"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta aj uvádzanú adresu alebo ulicu. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "https://www.topolcianky.sk/obec-1/infrastruktura/cizs-1",
+        "title": "CIZS - Oficiálna stránka obce Topoľčianky",
+        "evidence": "Načítaná stránka uvádza MUDr. Oto Balco a pracovisko v lokalite Topoľčianky, Parková 12.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Bons offices, s.r.o. (7cc79841-18b5-41b2-b2b5-d8cd4606f816); Bons offices, s.r.o. (938bcc42-2b2f-4c8f-85d1-4c9f0e45ddcd); Gynekologicko-pôrodnícka ambulancia (a3077c4c-4cb8-4c9f-99e8-995382f128b1). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  },
+  {
+    "clinicId": "a0f757a1-f551-456f-8fd9-3160c1def1c0",
+    "name": "Gynekologicko-pôrodnícka ambulancia, 3/4D ultrazvuk",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "2e19c6a6-5ee3-4253-a418-fe500cea4366",
+      "91b50839-f0b1-4c69-9a11-40190e0158d3",
+      "bd1b49ee-d511-4aa4-a81d-75984747d992"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Gynekologicko-pôrodnícka ambulancia (2e19c6a6-5ee3-4253-a418-fe500cea4366); Gynekologicko-pôrodnícka ambulancia /Gynekológia Paučinová, s.r.o., (91b50839-f0b1-4c69-9a11-40190e0158d3); GYNEKOLÓGIA KNM, s.r.o. (bd1b49ee-d511-4aa4-a81d-75984747d992). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "c4701115-0194-404b-93b6-f40aa09894b9",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "Gynekologická ambulancia",
+    "verifiedAddress": "Gercenova 8/E, Petržalka",
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "98c85d83-a263-4684-8301-8caaac6f8f0a",
+      "aa4784b3-96bd-4dab-8098-7cc9bca6303a",
+      "f9034315-ae60-40b3-ad29-821ac10404fa"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta aj uvádzanú adresu alebo ulicu. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "https://www.topdoktor.sk/search/gynekolog-/bratislavsky-kraj/mesto-bratislava-petrzalka",
+        "title": "Gynekológ - gynekológia, Bratislava - Petržalka - TopDoktor",
+        "evidence": "Načítaná stránka uvádza MUDr. Marián Oros a pracovisko v lokalite Petržalka, Gercenova 8/E.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: ĎUBEKOVÁ IVONA MUDr., s. r. o. (98c85d83-a263-4684-8301-8caaac6f8f0a); Gyn. ambulancia, MUDr. Peter Hrabčák (aa4784b3-96bd-4dab-8098-7cc9bca6303a); Privátna gynekologická ambulancia (f9034315-ae60-40b3-ad29-821ac10404fa). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  },
+  {
+    "clinicId": "c3a2650e-48db-4eab-8d0c-2709dc850a17",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "36fc0933-c6e2-4b2a-b127-9c36169e427c",
+      "adf6125d-baae-4706-9ec3-6c734d08ccb2",
+      "f51aa28a-f054-44f6-9196-a28997262f7f"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Elgyn s.r.o. (36fc0933-c6e2-4b2a-b127-9c36169e427c); ELGYN, s.r.o. (adf6125d-baae-4706-9ec3-6c734d08ccb2); ELGYN, s.r.o. (f51aa28a-f054-44f6-9196-a28997262f7f). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "aa616a2c-826b-417a-8fbd-87ec67fdd585",
+    "name": "Gynekologická ambulancia GYNARIN s.r.o.",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "Gynekologická ambulancia GYNARIN s.r.o.",
+    "verifiedAddress": "Biskupická 32 98 601 Fiľakovo, Fiľakovo",
+    "verifiedPhone": "+421474382722",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "483dc30a-40ad-4272-bde7-b9da27b72dd8",
+      "75a77879-9280-4706-b695-4db344a9bf6d",
+      "94c6b8cb-a231-47b9-ab11-800e92498af1"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta aj uvádzanú adresu alebo ulicu. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "https://mapalekarov.sk/filakovo/gynekologia",
+        "title": "Gynekológ Fiľakovo – lekári, recenzie a kontakt",
+        "evidence": "Načítaná stránka uvádza MUDr.Patrik Horváth a pracovisko v lokalite Fiľakovo, Biskupická 32 98 601 Fiľakovo.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: GYNARIN s.r.o., MUDr. Patrik Horváth (483dc30a-40ad-4272-bde7-b9da27b72dd8); Gynekologická ambulancia, GYNARIN s.r.o MUDr.Patrik Horváth (75a77879-9280-4706-b695-4db344a9bf6d); GYNARIN, s.r.o. (94c6b8cb-a231-47b9-ab11-800e92498af1). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  },
+  {
+    "clinicId": "75a77879-9280-4706-b695-4db344a9bf6d",
+    "name": "Gynekologická ambulancia, GYNARIN s.r.o MUDr.Patrik Horváth",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "Gynekologická ambulancia, GYNARIN s.r.o MUDr.Patrik Horváth",
+    "verifiedAddress": "Biskupická 32, Fiľakovo",
+    "verifiedPhone": "+421474382722",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "483dc30a-40ad-4272-bde7-b9da27b72dd8",
+      "94c6b8cb-a231-47b9-ab11-800e92498af1",
+      "aa616a2c-826b-417a-8fbd-87ec67fdd585"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta aj uvádzanú adresu alebo ulicu. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "https://mapalekarov.sk/filakovo/gynekologia",
+        "title": "Gynekológ Fiľakovo – lekári, recenzie a kontakt",
+        "evidence": "Načítaná stránka uvádza MUDr.Patrik Horváth a pracovisko v lokalite Fiľakovo, Biskupická 32.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: GYNARIN s.r.o., MUDr. Patrik Horváth (483dc30a-40ad-4272-bde7-b9da27b72dd8); GYNARIN, s.r.o. (94c6b8cb-a231-47b9-ab11-800e92498af1); Gynekologická ambulancia GYNARIN s.r.o. (aa616a2c-826b-417a-8fbd-87ec67fdd585). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  },
+  {
+    "clinicId": "6d569335-e46a-4167-bfeb-bc32a2694da0",
+    "name": "Gynekologická ambulancia, MUDr. Marek Frühwald, (MF medico, s.r.o.)",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "Gynekologická ambulancia, MUDr. Marek Frühwald, (MF medico, s.r.o.)",
+    "verifiedAddress": "Bernolákova  14/A, Banská Bystrica",
+    "verifiedPhone": "+421484145500",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "048d32da-88d4-4b65-90a2-009261636fe6",
+      "e8b057e6-1d7a-4bf6-98b6-fec9d239df38",
+      "e9716815-4b18-4bae-a6c0-5d80df8f1d09"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta aj uvádzanú adresu alebo ulicu. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "https://www.cylex.sk/banska-bystrica/novamed%2Bs.r.o-11082225.html",
+        "title": "▷ NovaMed s.r.o. | Lekár, Banská Bystrica",
+        "evidence": "Načítaná stránka uvádza MUDr. Marek Frühwald a pracovisko v lokalite Banská Bystrica, Bernolákova  14/A.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: DEBRA s.r.o. (048d32da-88d4-4b65-90a2-009261636fe6); MF medico, s.r.o. (e8b057e6-1d7a-4bf6-98b6-fec9d239df38); Gynekologicko-pôrodnícka ambulancia (e9716815-4b18-4bae-a6c0-5d80df8f1d09). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  },
+  {
+    "clinicId": "e45241e8-866d-4131-a9ea-69a4f841e99a",
+    "name": "Gynekologická príjmová ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "05ce1728-8b6b-4520-ba05-286425d41d5d",
+      "05e50144-2b67-4479-9c92-80de5b54fc4c",
+      "81212ffc-6c37-4faf-96dc-53735b336e98"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/tsk/zdravotnictvo/ambulantne-zdravotnicke-zariadenia/banovce-nad-bebravou/geriatricka-ambulancia-mudr.-mina-bobocka-banovce-nad-bebravou-nemocnica-agel-banovce.html?page_id=73434",
+        "title": "Geriatrická ambulancia, MUDr. Mina Bobocká, Bánovce nad Bebravou, (Nemocnica AGEL Bánovce s.r.o.), Bánovce nad Bebravou, Ambulantné zdravotnícke zariadenia, Zdravotníctvo, Trenčiansky samosprávny kraj, e-VÚC - samospráva občanom",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. J. Nemeček s uvedenou odbornou lokalitou; obsah nebol použitý na rozhodujúci záver.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Elumed s.r.o. (05ce1728-8b6b-4520-ba05-286425d41d5d); Príjmová ambulancia (05e50144-2b67-4479-9c92-80de5b54fc4c); Gynekologicko-pôrodnícka ambulancia (81212ffc-6c37-4faf-96dc-53735b336e98). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "c0596a93-1563-4ee9-879a-1f985dafd1ce",
+    "name": "PRO FEMINA s.r.o.",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "PRO FEMINA s.r.o.",
+    "verifiedAddress": "Tbiliská 6, Rača",
+    "verifiedPhone": "+421903536343",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "632c1c78-f22b-484b-b323-d03f07e255b8",
+      "9dbb1665-b7e5-44cf-a117-4274352db9fe",
+      "cc4c4549-bc7d-4216-95d6-6cfe9a74ed39"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta aj uvádzanú adresu alebo ulicu. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "https://profemina.sk/",
+        "title": "Domov - PRO FEMINA",
+        "evidence": "Načítaná stránka uvádza MUDr. Ľubica Šablová a pracovisko v lokalite Rača, Tbiliská 6.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Gynekologická ambulancia (632c1c78-f22b-484b-b323-d03f07e255b8); Gynekologická ambulancia, Women´s Health s.r.o (9dbb1665-b7e5-44cf-a117-4274352db9fe); PRO FEMINA s.r.o. (cc4c4549-bc7d-4216-95d6-6cfe9a74ed39). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  },
+  {
+    "clinicId": "4112ce78-9f3a-4972-99de-2b22abdb7ea1",
+    "name": "Detská gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "199584d1-4558-49a1-bde2-2a956306b5c5",
+      "29277af2-de16-4792-9043-98eeee2137f2",
+      "83c7fa70-108b-428f-b922-5f426af5d42b",
+      "b675be7c-7785-42c8-8759-61e3abc1f869"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Gynekologicko-pôrodnícka ambulancia (199584d1-4558-49a1-bde2-2a956306b5c5); Nemocnica AGEL Zvolen a.s. (29277af2-de16-4792-9043-98eeee2137f2); gynekologická ambulancia poliklinika 1 posch (83c7fa70-108b-428f-b922-5f426af5d42b); Detská gynekologická ambulancia (b675be7c-7785-42c8-8759-61e3abc1f869). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "47f0325a-a190-4527-a670-ad09cff70796",
+    "name": "Gynekologicko-pôrodnícka ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "12ad1e10-3443-4f10-9b3b-56dea70aef52",
+      "1a08b03e-3091-4460-a775-153c918e6ac5",
+      "2038dd28-8b83-4b53-ab3a-19554c0eed57",
+      "adb8e396-ba67-468e-b10a-838da84a985a"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: PRO – FEMME s.r.o. (12ad1e10-3443-4f10-9b3b-56dea70aef52); Gynekologicko-pôrodnícka ambulancia (1a08b03e-3091-4460-a775-153c918e6ac5); TRITIUM, s.r.o. (2038dd28-8b83-4b53-ab3a-19554c0eed57); GYNO - ARNO, s.r.o. (adb8e396-ba67-468e-b10a-838da84a985a). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "1e4a66ed-3746-4efb-abde-f0084af93525",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "6e7b7251-484d-47e7-9843-876d643e0aa0",
+      "88ed66cc-eccc-4f3f-9584-e742f8fec00e",
+      "d7ec71c3-5364-4233-a59c-9b889331fdf0",
+      "e2a05178-c854-48dc-b71b-bce181ea450f"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [
+      {
+        "url": "https://www.navstevalekara.sk/lekari/video454482.html?page=700",
+        "title": "Zoznam lekárov | ",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Mária Krepsová s uvedenou odbornou lokalitou; obsah nebol použitý na rozhodujúci záver.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: ANGYN s.r.o. (6e7b7251-484d-47e7-9843-876d643e0aa0); NsP sv. Barbory, a.s. (88ed66cc-eccc-4f3f-9584-e742f8fec00e); Gynekologická ambulancia, ultrazvuková diagnostika v gynekológii a pôrodníctve (d7ec71c3-5364-4233-a59c-9b889331fdf0); PROFESGYN s.r.o. (e2a05178-c854-48dc-b71b-bce181ea450f). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "9f852e51-c98c-431b-bc17-636fcafe2183",
+    "name": "Ambulancia gynekologickej urológie",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "16baa876-a06e-45b5-9895-e19589d22c80",
+      "3ccddcfb-a3bc-442c-b864-45172716a634",
+      "3e704510-b8b5-4478-a32c-444fc9e75cb5",
+      "50ffaafb-6c9d-45ed-8d27-824742b47a58",
+      "ad6a1b90-f3fd-4ebd-86a5-6ad8bd7bf480"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [
+      {
+        "url": "https://www.cylex.sk/nove-zamky/b.b.derma+s.r.o-11121731.html",
+        "title": "▷ B.B.DERMA s.r.o. | Lekár, Nové Zámky",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Tomáš Danys s uvedenou odbornou lokalitou; obsah nebol použitý na rozhodujúci záver.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Gynekologická ambulancia (16baa876-a06e-45b5-9895-e19589d22c80); Gynekologicko-pôrodnícka ambulancia (3ccddcfb-a3bc-442c-b864-45172716a634); GYN. CENTRUM, spol. s r.o. (3e704510-b8b5-4478-a32c-444fc9e75cb5); GYNDANYS, s.r.o. (50ffaafb-6c9d-45ed-8d27-824742b47a58); Gynekologicko-pôrodnícka ambulancia (ad6a1b90-f3fd-4ebd-86a5-6ad8bd7bf480). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "27e20668-447b-4022-b8eb-a74aa14e33b4",
+    "name": "NZZ",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "062f9657-bb5a-4546-ba33-112c64d70434",
+      "071b9f5e-06d4-4464-b531-695d4d67528a",
+      "3ddae6e7-14b0-4acb-8292-34abc509c977",
+      "68024190-3fa6-4e49-b7b8-c87e290793f4",
+      "98e50a3b-b323-428b-8ec2-7a510efb357c"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/psk/zdravotnictvo/ambulantne-zdravotnicke-zariadenia/bardejov/ambulancia-klinickej-psychologie-bardejov-psychologicka-ambulancia-stabilitas.html?page_id=97146",
+        "title": "Ambulancia klinickej psychológie, Bardejov, (Psychologická ambulancia STABILITAS s.r.o.), Bardejov, Ambulantné zdravotnícke zariadenia, Zdravotníctvo, Prešovský samosprávny kraj, e-VÚC - samospráva občanom",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Marcel Vyšný s uvedenou odbornou lokalitou; obsah nebol použitý na rozhodujúci záver.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Gynekologická ambulancia, NZZ (062f9657-bb5a-4546-ba33-112c64d70434); NZZ Gynekologická ambulancia (071b9f5e-06d4-4464-b531-695d4d67528a); NZZ Gynekologická ambulancia (3ddae6e7-14b0-4acb-8292-34abc509c977); GYN MEDICAL BJ s.r.o. (68024190-3fa6-4e49-b7b8-c87e290793f4); Gynekologicko-pôrodnícka ambulancia NZZ (98e50a3b-b323-428b-8ec2-7a510efb357c). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "4e4b0d48-356e-46ba-a920-ef71f52c7db5",
+    "name": "Gynekologicko",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "Gynekologicko",
+    "verifiedAddress": "Hlavná ul. 51, Šamorín",
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "034d2e33-6a01-480a-9f1c-9ffde1958067",
+      "3df8d23f-adf1-44d7-b6a3-f8ca49bf9c4b",
+      "48c3a3df-5014-4bbd-821c-81ee5e1985b2",
+      "6b67b41f-dc54-4ccd-a864-390317fdda19",
+      "8b8615dd-bad0-46b3-b018-5446a035797e",
+      "ae9f8647-fc54-4c2a-af41-00681fd45ffb"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta aj uvádzanú adresu alebo ulicu. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "https://www.afk.sk/samorin",
+        "title": "Šamorín – AFK s.r.o.",
+        "evidence": "Načítaná stránka uvádza MUDr. Ľudovít Janek a pracovisko v lokalite Šamorín, Hlavná ul. 51.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: CARE, spol. s r.o. (034d2e33-6a01-480a-9f1c-9ffde1958067); GYNCENTRUM (3df8d23f-adf1-44d7-b6a3-f8ca49bf9c4b); CARE, s.r.o. gynekologická ambulancia (48c3a3df-5014-4bbd-821c-81ee5e1985b2); Gyncentrum (6b67b41f-dc54-4ccd-a864-390317fdda19); CARE, s.r.o. gynekologická ambulancia (8b8615dd-bad0-46b3-b018-5446a035797e); Gyncentrum Bratislava, s. r. o. (ae9f8647-fc54-4c2a-af41-00681fd45ffb). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  },
+  {
+    "clinicId": "0a162f75-5379-4938-a950-6d1af539a579",
+    "name": "Gynekologicko-pôrodnícka ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "37da3a79-4472-4004-9793-69c907d7e37b",
+      "624b30da-1854-41c5-b4c4-46cdd27ffdcc",
+      "6654b90f-957d-48e1-8cf8-01c466e70cde",
+      "98a6bea5-06be-400f-a03c-86d47bbef4b6",
+      "c5d72c0e-5097-4ec9-8fb7-0d1fe7a81e5a",
+      "e6b2fb81-170d-4b27-a96a-afd265149b60"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale dostupné výsledky alebo načítané stránky neposkytli dostatočne relevantné overenie kandidáta.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Vranovská nemocncia n.o. (37da3a79-4472-4004-9793-69c907d7e37b); Mammárna poradňa (624b30da-1854-41c5-b4c4-46cdd27ffdcc); Ambulancia rizikovej gravidity (6654b90f-957d-48e1-8cf8-01c466e70cde); JAS (98a6bea5-06be-400f-a03c-86d47bbef4b6); Gynekologicko-pôrodnícka ÚPS (c5d72c0e-5097-4ec9-8fb7-0d1fe7a81e5a); Nemocnica A. Leňa Humenné, a.s. (e6b2fb81-170d-4b27-a96a-afd265149b60). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "51a3363c-d40a-4f25-9a3c-91b10c7a3ae5",
+    "name": "MUDr. Božena Jancová",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "1eb84784-f155-443e-9659-0e7bdfcf582a",
+      "429408f1-de6c-40e7-ba86-1deff06aaebe",
+      "97d382df-da7d-4f73-b7df-9dd8e2475522",
+      "adb30304-bccb-4da4-8795-326c4abe3386",
+      "ed441255-ed20-437c-b96b-f003776754e5",
+      "f6409578-cbc5-4df2-83a9-d466cdfcae3d"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale načítaný obsah neoveril zároveň presnú profesionálnu identitu aj adresu tohto kandidáta.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/tsk/zdravotnictvo/ambulantne-zdravotnicke-zariadenia/puchov.html?page_id=1383",
+        "title": "Púchov, Ambulantné zdravotnícke zariadenia, Zdravotníctvo, Trenčiansky samosprávny kraj, e-VÚC - samospráva občanom",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Božena Jancová - gynekologická ambulancia s.r.o. s odbornou lokalitou, ale bez načítaného potvrdenia presnej identity a adresy kandidáta.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: GYNECARE, spol. s r.o. (1eb84784-f155-443e-9659-0e7bdfcf582a); Gynops, s.r.o. (429408f1-de6c-40e7-ba86-1deff06aaebe); Gynekologická ambulancia (97d382df-da7d-4f73-b7df-9dd8e2475522); GYNEZUL, s.r.o. (adb30304-bccb-4da4-8795-326c4abe3386); KORBAŠ, s. r. o. (ed441255-ed20-437c-b96b-f003776754e5); MUDr. Božena Jancová - gynekologická ambulancia s.r.o. (f6409578-cbc5-4df2-83a9-d466cdfcae3d). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "febc2723-92bc-4652-9f2f-bc5462a36f46",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "5ee1340a-6dab-4605-918f-7ffbc1bb85a3",
+      "ba7aa001-358e-4298-b435-5cfec055a2c9",
+      "bd44df9c-bf4c-4c37-9ceb-aa4c135a6d50",
+      "cc3fe179-b9ba-4334-9e31-eeda6d2d11b5",
+      "d7804a02-1bef-4e54-b1d8-be0cec52322f",
+      "e6291201-6c1c-4642-99d2-aeeec4536153",
+      "e95dc850-2d5b-4d0f-9493-f9f27c54343a"
+    ],
+    "explanation": "Špecifické verejné vyhľadávanie bolo vykonané, ale načítaný obsah neoveril zároveň presnú profesionálnu identitu aj adresu tohto kandidáta.",
+    "sources": [
+      {
+        "url": "https://www.navstevalekara.sk/lekari/gynekolog-gynekologia-s11003/kosicky-kraj-k307/spisska-nova-ves-o577.html",
+        "title": "Zoznam lekárov | Gynekológ - gynekológia, Spišská Nová Ves",
+        "evidence": "Výsledok verejného vyhľadávania spája meno MUDr. Jiří Kozel s odbornou lokalitou, ale bez načítaného potvrdenia presnej identity a adresy kandidáta.",
+        "fetched": false
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: NsP Spišská Nová Ves a.s. (5ee1340a-6dab-4605-918f-7ffbc1bb85a3); GYNAML, s.r.o. (ba7aa001-358e-4298-b435-5cfec055a2c9); Slavkovská s.r.o. (bd44df9c-bf4c-4c37-9ceb-aa4c135a6d50); MUDr. Marián Kern (cc3fe179-b9ba-4334-9e31-eeda6d2d11b5); NsP Spišská Nová Ves (d7804a02-1bef-4e54-b1d8-be0cec52322f); Ambulancia gynekológie a pôrodníctva (e6291201-6c1c-4642-99d2-aeeec4536153); GYNOS, s.r.o. (e95dc850-2d5b-4d0f-9493-f9f27c54343a). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie.",
+      "Nenašiel sa načítaný relevantný verejný zdroj, ktorý by súčasne overil profesionálnu identitu a lokalitu kandidáta."
+    ]
+  },
+  {
+    "clinicId": "12759691-cbd6-4040-af47-df89d16f06ec",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "Gynekologická ambulancia",
+    "verifiedAddress": "Hroncova 5",
+    "verifiedPhone": "+421556333623",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "106369d3-da38-4919-9b2e-ffa5f6c67722",
+      "181de411-ce19-4221-8782-37f24cf523e5",
+      "315598de-d43d-4cd4-95da-0f89eace36b8",
+      "55ecc7e7-b0a1-4075-8f04-7bb39813e25d",
+      "598ac2e3-5777-4015-aa60-40826286c56f",
+      "a79a4a48-d7ca-4a17-b04b-6cda45afbda7",
+      "b5107652-a509-4a65-a3ed-9efe41c575f8",
+      "da2a9009-63d2-437d-93f3-150722a16c35",
+      "da9cf451-3ff0-478e-a58d-59adef6185ae"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta aj uvádzanú adresu alebo ulicu. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "http://gyneko.sk/?lang=en",
+        "title": "Gyneko.sk - Private Gynekological Clinic in Kosice",
+        "evidence": "Načítaná stránka uvádza MUDr. Marcel Lupták na ulici Hroncova 5.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: TETRAO s. r. o. (106369d3-da38-4919-9b2e-ffa5f6c67722); SKS Slovensko, s.r.o. (181de411-ce19-4221-8782-37f24cf523e5); LP + AP s.r.o. (315598de-d43d-4cd4-95da-0f89eace36b8); FNLP Rastislavova (55ecc7e7-b0a1-4075-8f04-7bb39813e25d); GYNEKO, s.r.o. (598ac2e3-5777-4015-aa60-40826286c56f); GYNKOR s.r.o. (a79a4a48-d7ca-4a17-b04b-6cda45afbda7); SUN 4M6, s.r.o. (b5107652-a509-4a65-a3ed-9efe41c575f8); Gynekológia Jeleneková s.r.o. (da2a9009-63d2-437d-93f3-150722a16c35); FN L. Pasteura Košice (da9cf451-3ff0-478e-a58d-59adef6185ae). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  },
+  {
+    "clinicId": "5fb722cf-ce65-40fe-b47b-c7aee180e99e",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "Gynekologická ambulancia",
+    "verifiedAddress": "Radlinského 27, Staré Mesto",
+    "verifiedPhone": "+421220868777",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [
+      "013b7c66-8334-4370-913f-f7659ec2d99a",
+      "15bd5c64-5ea1-400b-b9b2-b47ee2b7af88",
+      "29ca474a-87d9-46c2-9fd5-bb3aae067a45",
+      "2dc2f929-3825-4f44-a0a1-479f15204dba",
+      "3d638458-90f3-4af8-b3d7-6bb1749853fc",
+      "6a0a5766-3a8b-4bcb-bd56-1c72277da0fc",
+      "6b1e49ab-aba7-4c7b-9154-ec8d3633aaef",
+      "6ecde537-e496-4b29-8504-342d35f2579a",
+      "97fb6f44-16c7-4d16-9337-3b2aedd3e533",
+      "b35c56ee-424a-4b46-ac89-f22b28e054b6",
+      "b9c5d6f5-3dec-45fd-8480-dc77b1990b7f"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta aj uvádzanú adresu alebo ulicu. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "https://www.navstevalekara.sk/lekari/gynekolog-gynekologia-s11003/bratislavsky-kraj-k300/bratislava-1-o500/stare-mesto-m1000/mudr-ludmila-tazberikova-d15939.html",
+        "title": "MUDr. Tazberíková Ľudmila, gynekológ, Staré Mesto | NávštevaLekára",
+        "evidence": "Načítaná stránka uvádza MUDr. Ľudmila Tazberíková a pracovisko v lokalite Staré Mesto, Radlinského 27.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: RS - TRADE s.r.o. (013b7c66-8334-4370-913f-f7659ec2d99a); MDclinic a.s. (15bd5c64-5ea1-400b-b9b2-b47ee2b7af88); Health and Beauty Clinic MUDr. Stela Muránska, s.r.o. (29ca474a-87d9-46c2-9fd5-bb3aae067a45); GYNSOLE s.r.o. (2dc2f929-3825-4f44-a0a1-479f15204dba); Centrum pre asistovanú reprodukciu GYNCARE, s.r.o. Košice (3d638458-90f3-4af8-b3d7-6bb1749853fc); GynKE s.r.o. (6a0a5766-3a8b-4bcb-bd56-1c72277da0fc); GYNEDAN s.r.o. (6b1e49ab-aba7-4c7b-9154-ec8d3633aaef); DERMAGYN s.r.o (6ecde537-e496-4b29-8504-342d35f2579a); RS (97fb6f44-16c7-4d16-9337-3b2aedd3e533); SN GYN s. r. o. (b35c56ee-424a-4b46-ac89-f22b28e054b6); Univerzitná nemocnica s poliklinikou Milosrdní bratia, spol. s r.o. (b9c5d6f5-3dec-45fd-8480-dc77b1990b7f). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  },
+  {
+    "clinicId": "b40f8976-39a9-4fa8-895e-9cec787fb8ba",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "high",
+    "verifiedName": "Gynekologická ambulancia",
+    "verifiedAddress": "Jána Pavla II. č. 5, Sídlisko KVP",
+    "verifiedPhone": null,
+    "providerCode": "68-50011472-A0010",
+    "ico": null,
+    "comparedClinicIds": [
+      "0791f005-b2cd-4d3f-979e-1cab197d73ea",
+      "0f10291a-8ddb-44c7-ae55-7b184e88edae",
+      "0f2d2a61-6b79-4d2a-adf1-e3d50cd21874",
+      "3de3ad43-94ea-403d-bbbb-c92e877c9227",
+      "4dd6e6f8-7a27-42d8-9699-ca90c40dcec9",
+      "5ac77714-1026-4721-840a-0409a34f522a",
+      "5d7e505d-1ffe-4518-94cd-2268e3b77046",
+      "67bba074-6069-4fc7-9cb0-92f12c8afc85",
+      "832ee4ec-a7ab-4c1d-96a1-2874bda02a54",
+      "84a2543c-9ac8-4278-af1c-95000dd354c2",
+      "a5bc9b55-1425-4f99-b980-0172268b22e8",
+      "bdf6cdd1-37fe-47e6-93b4-cfea89e49e73",
+      "e620d209-647b-4774-aea3-86601f888103"
+    ],
+    "explanation": "Verejný zdroj overuje profesionálnu identitu kandidáta aj uvádzanú adresu alebo ulicu. Neobsahuje však dostatočné dôkazy na rozlíšenie všetkých porovnávacích pracovísk, preto nejde o záver o duplicite.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/e-vuc/poskytovatelia/poliklinika-procare-kosice.html?page_id=112167",
+        "title": "Poskytovatelia, e-VÚC - samospráva občanom",
+        "evidence": "Načítaná stránka uvádza MUDr. Martin Zborovjan a pracovisko v lokalite Sídlisko KVP, Jána Pavla II. č. 5.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Nevyriešené porovnanie so všetkými významnými kolíznymi cieľmi: Medicínske centrum Nitra, spol. s r.o. (0791f005-b2cd-4d3f-979e-1cab197d73ea); Gynekologická ambulancia (0f10291a-8ddb-44c7-ae55-7b184e88edae); Gynekologická ambulancia ProCare (0f2d2a61-6b79-4d2a-adf1-e3d50cd21874); GYNMED Košice s.r.o. (3de3ad43-94ea-403d-bbbb-c92e877c9227); Gynekologická ambulancia II. (4dd6e6f8-7a27-42d8-9699-ca90c40dcec9); Gynekologicko-pôrodnícka ambulancia (5ac77714-1026-4721-840a-0409a34f522a); GYN DZÚR, s.r.o. (5d7e505d-1ffe-4518-94cd-2268e3b77046); Mestská poliklinika Sereď, s.r.o. (67bba074-6069-4fc7-9cb0-92f12c8afc85); Poliklinika ProCare Košice s.r.o. (832ee4ec-a7ab-4c1d-96a1-2874bda02a54); PRO SANUS, a.s. (84a2543c-9ac8-4278-af1c-95000dd354c2); GYN PK s.r.o (a5bc9b55-1425-4f99-b980-0172268b22e8); Priemyselné zdravotnícke centrum ProCare, a. s. (bdf6cdd1-37fe-47e6-93b4-cfea89e49e73); MVitae s.r.o. (e620d209-647b-4774-aea3-86601f888103). Samotná zhoda osoby, telefónu, IČO alebo budovy nestačí na zlúčenie."
+    ]
+  }
+]

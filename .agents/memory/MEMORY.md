@@ -115,3 +115,4 @@
 - [Person/facility dedup safety](person-facility-dedup-safety.md) — production dedup starts with a redacted read-only plan; apply stays disabled until references and legacy redirects are approved.
 - [Dedupe source fingerprints](dedupe-source-fingerprints.md) — fingerprint only persisted DB fields; facility discovery adds synthetic `kind`, which is absent during apply reads.
 - [Clinic dedupe representative history](clinic-dedupe-representatives.md) — preserve one active representative before redirecting clinic history, or the partial unique index aborts apply.
+- [Directory contact contamination](clinic-directory-contact-contamination.md) — imported portal contacts are not clinic identities; verify high-frequency shared values before deduplication.

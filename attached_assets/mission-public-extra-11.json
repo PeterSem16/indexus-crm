@@ -1,0 +1,256 @@
+[
+  {
+    "clinicId": "276c7a03-4dff-4e9d-95fc-88c8f31b4ed8",
+    "name": "Gynekologicko-pôrodnícka ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [],
+    "explanation": "Cielené vyhľadávania v oboch poradiach mena, podľa mesta, adresy a názvu zariadenia nepriniesli načítaný zdroj, ktorý by súčasne potvrdil lekára aj adresu kandidáta.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Aktuálna existencia ani ukončenie tejto konkrétnej ambulancie neboli autoritatívne potvrdené."
+    ]
+  },
+  {
+    "clinicId": "6f63e08d-3621-4714-8c30-53262661b092",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [],
+    "explanation": "Cielené vyhľadávania v oboch poradiach mena, podľa mesta, adresy a názvu zariadenia nepriniesli načítaný zdroj, ktorý by súčasne potvrdil lekára aj adresu kandidáta.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Aktuálna existencia ani ukončenie tejto konkrétnej ambulancie neboli autoritatívne potvrdené."
+    ]
+  },
+  {
+    "clinicId": "e0eccebe-041f-49d5-98b3-0ff883d16f18",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Ladislav Janovský",
+    "verifiedAddress": "Andreja Hlinku 28, 953 01 Zlaté Moravce",
+    "verifiedPhone": "+421905340307",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [],
+    "explanation": "Načítaná stránka konkrétnej ambulancie uvádza zhodné meno lekára, presnú adresu aj mobil kandidáta; nejde však o úradný register.",
+    "sources": [
+      {
+        "url": "https://www.zzz.sk/zariadenie/2664-gynekologicka-ambulancia-mudr-ladislav-janovsky",
+        "title": "Gynekologická ambulancia - MUDr. Ladislav Janovský",
+        "evidence": "„Gynekologická ambulancia - MUDr. Ladislav Janovský“; „Adresa: Andreja Hlinku 28 - 95301, Zlaté Moravce“; „Mobil: +421 905 340 307“.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Zdroj je profil konkrétnej ambulancie v zdravotníckom adresári, nie aktuálna stránka e‑VÚC ani web poskytovateľa."
+    ]
+  },
+  {
+    "clinicId": "4e78e8cc-33ba-4aba-9db1-30f5c19fe7e9",
+    "name": "Gynekologicko-pôrodnícka ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [],
+    "explanation": "Oficiálny web polikliniky potvrdzuje lekára a zhodný telefón, ale uvádza spoločnú adresu polikliniky Nemocničná 1, nie adresu kandidáta Nemocničná 933/13.",
+    "sources": [
+      {
+        "url": "https://www.poliklinikansksala.sk/lekari",
+        "title": "Lekári | Poliklinika NSK Šaľa",
+        "evidence": "„MUDr. Adrián Laluha — Gynekologická ambulancia“; kontakt „+421 31 78 999 42“. Päta stránky uvádza „Poliklinika ... Nemocničná 1, 927 01 Šaľa“.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Presná adresa Nemocničná 933/13 nebola v načítanom oficiálnom zdroji potvrdená.",
+      "Aktuálna existencia ambulancie je podporená webom polikliniky, no identita pracoviska vo vstupnej adrese zostáva nejasná."
+    ]
+  },
+  {
+    "clinicId": "2e0498ad-0cc0-44d6-9851-6d794048950c",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Katarína Demková",
+    "verifiedAddress": "Ochtinská 29, 049 32 Štítnik",
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [],
+    "explanation": "Načítaná stránka lokálneho mapového adresára spája presné meno lekárky, gynekologickú ambulanciu a konkrétnu adresu na Ochtinskej ulici.",
+    "sources": [
+      {
+        "url": "https://stitnik.oma.sk/zdravotnictvo/ordinacia",
+        "title": "Ordinácia, Štítnik - oma.sk",
+        "evidence": "„MUDr. Katarína Demková ... Gynekologická ambulancia, MUDr. Katarína Demková, Štítnik, Ochtinská 29, 049 32 Štítnik“.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Zdroj je mapový adresár, nie e‑VÚC ani oficiálny web poskytovateľa; telefón a kód zariadenia sa nepodarilo overiť."
+    ]
+  },
+  {
+    "clinicId": "60bec643-182c-4acb-af9a-c33b32845859",
+    "name": "Gynekologická ambulancia, MUDr. Július Štefanovič, Pezinok, (Psychiatrická nemocnica Philippa Pinela)",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [],
+    "explanation": "Cielené vyhľadávania v oboch poradiach mena, podľa mesta, adresy a názvu zariadenia nepriniesli načítaný zdroj, ktorý by súčasne potvrdil lekára aj adresu kandidáta.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Aktuálna existencia ani ukončenie tejto konkrétnej ambulancie neboli autoritatívne potvrdené."
+    ]
+  },
+  {
+    "clinicId": "a84505a0-7d3f-4a76-a8ba-9db73b57a9bb",
+    "name": "Gynekologicko-pôrodnícka ambulancia  / MUDr. Jana Pijáková, spol. s.r.o.",
+    "searched": true,
+    "fetched": true,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [],
+    "explanation": "Presná oficiálna stránka e‑VÚC pre aktuálne zariadenie FEMINA GYN v Čadci uvádza inú adresu a neuvádza Janu Pijákovú; preto nepotvrdzuje kandidáta.",
+    "sources": [
+      {
+        "url": "https://www.e-vuc.sk/zsk/zdravotnictvo/ambulantne-zdravotnicke-zariadenia/cadca/primarna-gynekologicko-porodnicka-ambulancia-cadca-femina-gyn.html?page_id=54476",
+        "title": "Primárna gynekologicko-pôrodnícka ambulancia, Čadca, (FEMINA GYN,s.r.o.)",
+        "evidence": "e‑VÚC uvádza identifikátor „65-36609251-A0001“, poskytovateľa „FEMINA GYN,s.r.o.“, IČO „36609251“ a miesto „Hollého 2, 02201 Čadca“; meno MUDr. Jana Pijáková na stránke nie je.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Oficiálny záznam sa nezhoduje s názvom poskytovateľa ani adresou kandidáta Palárikova 2.",
+      "Bez explicitného oznámenia nemožno usúdiť, že pôvodná ambulancia bola zrušená alebo nahradená."
+    ]
+  },
+  {
+    "clinicId": "64f11b7e-d0b1-4e8a-bfb5-cec9e1dff430",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": true,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [],
+    "explanation": "Oficiálny web mesta potvrdzuje MUDr. Ľudovíta Gondu v Krupine, ale na inej adrese a s iným telefónom než kandidát; vstupné pracovisko preto nie je overené.",
+    "sources": [
+      {
+        "url": "https://krupina.sk/ambulancie",
+        "title": "Ambulancie | Krupina - oficiálna stránka mesta",
+        "evidence": "„MUDr. Ľudovít GONDA“; „adresa: M.R. Štefánika 834/27, 963 01 Krupina“; „tel.: 0911 123 896“.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Zdroj nepotvrdzuje adresu kandidáta Svätotrojičné námestie 1 ani jeho telefón.",
+      "Rozdiel môže znamenať presťahovanie alebo zastaraný vstup, ale oficiálne ukončenie pôvodnej ambulancie sa nenašlo."
+    ]
+  },
+  {
+    "clinicId": "22ff391f-d853-4ba8-9cad-9c5f9cedccbb",
+    "name": "Gynekologická ambulancia, MUDr. Zuzana Petrovičová, (FAMILIA SANA, s. r. o.)",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [],
+    "explanation": "Cielené vyhľadávania v oboch poradiach mena, podľa mesta, adresy a názvu zariadenia nepriniesli načítaný zdroj, ktorý by súčasne potvrdil lekára aj adresu kandidáta.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Aktuálna existencia ani ukončenie tejto konkrétnej ambulancie neboli autoritatívne potvrdené."
+    ]
+  },
+  {
+    "clinicId": "108a09c5-d52d-47df-b31e-b3ef451edd90",
+    "name": "Gynekologicko-pôrodnícka ambulancia VEGAFEM s. r. o.",
+    "searched": true,
+    "fetched": true,
+    "status": "identity_verified",
+    "confidence": "medium",
+    "verifiedName": "MUDr. Veronika Gáboriková",
+    "verifiedAddress": "Líščie údolie 57, 841 04 Karlova Ves, Bratislava",
+    "verifiedPhone": "+421260264143",
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [],
+    "explanation": "Načítaná stránka konkrétneho zariadenia uvádza zhodný názov VEGAFEM, lekárku, presnú adresu a telefón kandidáta; nejde však o úradný register.",
+    "sources": [
+      {
+        "url": "https://www.zzz.sk/zariadenie/10655-gynekologicko-porodnicka-ambulancia-vegafem-s-r-o-mudr-veronika-gaborikova",
+        "title": "Gynekologicko-pôrodnícka ambulancia VEGAFEM s. r. o. - MUDr. Veronika Gáboriková",
+        "evidence": "„Gynekologicko-pôrodnícka ambulancia VEGAFEM s. r. o. - MUDr. Veronika Gáboriková“; „Adresa: Líščie údolie 57 - 84104, Karlova Ves“; „Telefón: +421 2 6026 4143“.",
+        "fetched": true
+      }
+    ],
+    "unresolvedRisks": [
+      "Zdroj je profil konkrétnej ambulancie v zdravotníckom adresári, nie aktuálna stránka e‑VÚC ani oficiálny web poskytovateľa."
+    ]
+  },
+  {
+    "clinicId": "fca7a005-d105-4b87-a950-8d556ff1cac7",
+    "name": "Gynekologická ambulancia",
+    "searched": true,
+    "fetched": false,
+    "status": "unresolved",
+    "confidence": "low",
+    "verifiedName": null,
+    "verifiedAddress": null,
+    "verifiedPhone": null,
+    "providerCode": null,
+    "ico": null,
+    "comparedClinicIds": [],
+    "explanation": "Cielené vyhľadávania v oboch poradiach mena, podľa mesta, adresy a názvu zariadenia nepriniesli načítaný zdroj, ktorý by súčasne potvrdil lekára aj adresu kandidáta.",
+    "sources": [],
+    "unresolvedRisks": [
+      "Aktuálna existencia ani ukončenie tejto konkrétnej ambulancie neboli autoritatívne potvrdené."
+    ]
+  }
+]
