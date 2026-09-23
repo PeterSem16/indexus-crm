@@ -1,3 +1,5 @@
+import { renderAmbientTestSound } from "../features/nexus-pulse-preflight/ambient-test-sound";
+
 type ShiftLoginSound =
   | "welcome"
   | "mission"
@@ -13,6 +15,9 @@ type AudioGraph = {
 };
 
 let graph: AudioGraph | null = null;
+let activeEnvelope: GainNode | null = null;
+let requestId = 0;
+let ambientBuffer: AudioBuffer | null = null;
 
 function createImpulse(context: AudioContext, duration = 1.35, decay = 3.2) {
   const length = Math.floor(context.sampleRate * duration);
@@ -67,11 +72,12 @@ function ambientVoice(
   start: number,
   duration: number,
   volume: number,
-  options: { attack?: number; detune?: number; endFrequency?: number; brightness?: number } = {},
+  options: { attack?: number; detune?: number; endFrequency?: number; brightness?: number; pan?: number } = {},
 ) {
   const { context, input } = audio;
   const gain = context.createGain();
   const filter = context.createBiquadFilter();
+  const panner = context.createStereoPanner();
   const attack = options.attack ?? Math.min(0.055, duration * 0.24);
   const detune = options.detune ?? 6;
   const brightness = options.brightness ?? 2600;
@@ -86,7 +92,11 @@ function ambientVoice(
   gain.gain.setValueAtTime(volume, start + Math.max(attack, duration * 0.42));
   gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
   filter.connect(gain);
-  gain.connect(input);
+  gain.connect(panner);
+  panner.connect(input);
+  const pan = options.pan ?? 0;
+  panner.pan.setValueAtTime(pan, start);
+  panner.pan.linearRampToValueAtTime(-pan * 0.6, start + duration);
 
   [-detune, detune].forEach((cents, index) => {
     const oscillator = context.createOscillator();
@@ -97,33 +107,23 @@ function ambientVoice(
       oscillator.frequency.exponentialRampToValueAtTime(options.endFrequency, start + duration);
     }
     oscillator.connect(filter);
+    oscillator.onended = () => {
+      oscillator.disconnect();
+      if (index === 1) { filter.disconnect(); gain.disconnect(); panner.disconnect(); }
+    };
     oscillator.start(start);
     oscillator.stop(start + duration + 0.03);
   });
 }
 
 function shimmer(audio: AudioGraph, start: number, duration: number, volume: number, center = 4200) {
-  const { context, input } = audio;
-  const buffer = context.createBuffer(1, Math.ceil(context.sampleRate * duration), context.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let index = 0; index < data.length; index += 1) {
-    data[index] = Math.random() * 2 - 1;
-  }
-  const source = context.createBufferSource();
-  const filter = context.createBiquadFilter();
-  const gain = context.createGain();
-  source.buffer = buffer;
-  filter.type = "bandpass";
-  filter.frequency.value = center;
-  filter.Q.value = 1.1;
-  gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(volume, start + duration * 0.28);
-  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-  source.connect(filter);
-  filter.connect(gain);
-  gain.connect(input);
-  source.start(start);
-  source.stop(start + duration);
+  const fundamental = center >= 5600 ? 659.25 : 587.33;
+  [1, 1.5, 2].forEach((ratio, index) => {
+    ambientVoice(audio, fundamental * ratio, start + index * 0.025, duration, volume * 0.42, {
+      attack: Math.min(0.1, duration * 0.25), detune: 2,
+      brightness: 3200, pan: (index - 1) * 0.7,
+    });
+  });
 }
 
 function chord(
@@ -140,22 +140,49 @@ function chord(
       attack: Math.min(0.06, duration * 0.2),
       detune: 5 + index,
       brightness: brightness + index * 240,
+      pan: frequencies.length > 1 ? (index / (frequencies.length - 1) - 0.5) * 1.3 : 0,
     });
   });
 }
 
 export async function playShiftLoginSound(sound: ShiftLoginSound, selected = true): Promise<void> {
+  const request = ++requestId;
   try {
-    const audio = getAudioGraph();
-    if (!audio) return;
-    const { context } = audio;
+    const shared = getAudioGraph();
+    if (!shared) return;
+    const { context } = shared;
     if (context.state === "suspended") await context.resume();
+    if (request !== requestId) return;
+    // Rapid selections gently replace the preceding cue rather than piling up.
+    if (activeEnvelope) {
+      activeEnvelope.gain.cancelScheduledValues(context.currentTime);
+      activeEnvelope.gain.setValueAtTime(activeEnvelope.gain.value, context.currentTime);
+      activeEnvelope.gain.linearRampToValueAtTime(0, context.currentTime + 0.035);
+    }
+    const envelope = context.createGain();
+    envelope.connect(shared.input);
+    activeEnvelope = envelope;
+    const audio = { context, input: envelope };
+    window.setTimeout(() => {
+      envelope.disconnect();
+      if (activeEnvelope === envelope) activeEnvelope = null;
+    }, 6000);
     const now = context.currentTime + 0.018;
 
-    if (sound === "welcome") {
-      chord(audio, [293.66, 369.99, 440, 554.37], now, 1.12, 0.009, 0.045, 2300);
-      ambientVoice(audio, 146.83, now, 1.18, 0.012, { attack: 0.12, endFrequency: 220, brightness: 1100 });
-      shimmer(audio, now + 0.08, 0.92, 0.006, 5200);
+    if (sound === "welcome" || sound === "start") {
+      if (!ambientBuffer) {
+        const channels = renderAmbientTestSound(context.sampleRate);
+        ambientBuffer = context.createBuffer(2, channels[0].length, context.sampleRate);
+        ambientBuffer.getChannelData(0).set(channels[0]);
+        ambientBuffer.getChannelData(1).set(channels[1]);
+      }
+      const source = context.createBufferSource();
+      source.buffer = ambientBuffer;
+      source.playbackRate.value = sound === "start" ? 1.12246 : 1;
+      envelope.gain.value = sound === "start" ? 0.5 : 0.42;
+      source.connect(envelope);
+      source.onended = () => source.disconnect();
+      source.start(context.currentTime + 0.018);
       return;
     }
 
@@ -193,9 +220,6 @@ export async function playShiftLoginSound(sound: ShiftLoginSound, selected = tru
       return;
     }
 
-    ambientVoice(audio, 130.81, now, 1.0, 0.014, { attack: 0.1, endFrequency: 261.63, brightness: 1200 });
-    chord(audio, [392, 493.88, 587.33, 783.99], now + 0.06, 0.9, 0.01, 0.05, 3000);
-    shimmer(audio, now + 0.16, 0.72, 0.006, 5800);
   } catch {
     // Audio feedback is progressive enhancement; shift login must always remain usable.
   }
