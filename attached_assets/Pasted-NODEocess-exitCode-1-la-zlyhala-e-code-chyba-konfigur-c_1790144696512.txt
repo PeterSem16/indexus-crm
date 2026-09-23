@@ -1,0 +1,31 @@
+NODEocess.exitCode = 1;la zlyhala:", e.code || "chyba konfigurácie alebo dotazu");
+┌─────────┬────────────┬────────────────────────────────────────┬───────────────────────┬─────────┬─────────┬────────────────────────────────────────┬─────────────┬─────────────────┐
+│ (index) │ Pôvodné ID │ UUID osoby                             │ Osoba                 │ Krajina │ Aktívna │ Presmerovaná na UUID                   │ Počet Akcií │ Stav            │
+├─────────┼────────────┼────────────────────────────────────────┼───────────────────────┼─────────┼─────────┼────────────────────────────────────────┼─────────────┼─────────────────┤
+│ 0       │ '361'      │ '42901b7c-7e2c-4b19-bed4-d7f10d20f62f' │ 'Dagmar Gavorníková'  │ 'SK'    │ true    │ null                                   │ '0'         │ 'BEZ AKCIE'     │
+│ 1       │ '361'      │ '88d710b2-a3cb-4754-909a-6babf3ad4cf7' │ 'Dagmar Gavorníková'  │ 'SK'    │ false   │ '42901b7c-7e2c-4b19-bed4-d7f10d20f62f' │ '0'         │ 'BEZ AKCIE'     │
+│ 2       │ '393'      │ '7ae81a1b-ce28-47b2-8281-9f588860d9df' │ 'Radmila Sládičeková' │ 'SK'    │ false   │ '9917163e-751e-4a72-b2a0-57e6a825f4b4' │ '0'         │ 'BEZ AKCIE'     │
+│ 3       │ '393'      │ '9917163e-751e-4a72-b2a0-57e6a825f4b4' │ 'Radmila Sládičeková' │ 'SK'    │ true    │ null                                   │ '0'         │ 'BEZ AKCIE'     │
+│ 4       │ '2805'     │ 'a8d1ad54-a443-4dd4-9d8b-435f78684ff1' │ 'Jela Kubalová'       │ 'SK'    │ true    │ null                                   │ '0'         │ 'BEZ AKCIE'     │
+│ 5       │ '2805'     │ 'e76b4b81-1ba7-402c-8e2e-a65f73a6fabc' │ 'Jela Kubalová'       │ 'SK'    │ false   │ 'a8d1ad54-a443-4dd4-9d8b-435f78684ff1' │ '0'         │ 'BEZ AKCIE'     │
+│ 6       │ '2946'     │ 'cb5f8219-a926-493a-b5b9-ffeee178f847' │ 'Mária Oravcová'      │ 'SK'    │ true    │ null                                   │ '0'         │ 'BEZ AKCIE'     │
+│ 7       │ '2946'     │ 'eae47fe4-ca96-4e10-a3a7-4813857438b3' │ 'Mária Oravcová'      │ 'SK'    │ false   │ 'cb5f8219-a926-493a-b5b9-ffeee178f847' │ '0'         │ 'BEZ AKCIE'     │
+│ 8       │ '3061'     │ '5e6cf67e-c1d5-4e5b-995f-2bce917d11b5' │ 'Stela Muránska'      │ 'SK'    │ false   │ 'de05198a-8371-4d3c-99fd-d275fe98e67a' │ '0'         │ 'BEZ AKCIE'     │
+│ 9       │ '3061'     │ 'de05198a-8371-4d3c-99fd-d275fe98e67a' │ 'Stela Muránska'      │ 'SK'    │ true    │ null                                   │ '0'         │ 'BEZ AKCIE'     │
+│ 10      │ '3082'     │ '3b1aa2a4-d28c-4932-af94-8075063fe8ab' │ 'Ján Baláž'           │ 'SK'    │ false   │ 'd79dd162-526a-4def-939a-d689b6476cd5' │ '0'         │ 'BEZ AKCIE'     │
+│ 11      │ '3082'     │ 'd79dd162-526a-4def-939a-d689b6476cd5' │ 'Ján Baláž'           │ 'SK'    │ true    │ null                                   │ '0'         │ 'BEZ AKCIE'     │
+│ 12      │ '3116'     │ '871ccdf5-8686-4096-8e92-7ed7e60ee911' │ 'Michal Dandár'       │ 'SK'    │ true    │ null                                   │ '0'         │ 'BEZ AKCIE'     │
+│ 13      │ '3141'     │ '3a46254a-c390-4cf5-ab5c-21ad46a781b4' │ 'Ján Kováč'           │ 'SK'    │ false   │ 'edded607-03c9-4252-9f74-3e51741be185' │ '0'         │ 'BEZ AKCIE'     │
+│ 14      │ '3141'     │ 'edded607-03c9-4252-9f74-3e51741be185' │ 'Ján Kováč'           │ 'SK'    │ true    │ null                                   │ '0'         │ 'BEZ AKCIE'     │
+│ 15      │ '3161'     │ '9a1014d9-52ac-44d2-9b95-6f0c41fb0155' │ 'Ján Pružinský'       │ 'SK'    │ true    │ null                                   │ '47'        │ 'PRÍZNAK UŽ MÁ' │
+│ 16      │ '3352'     │ '2b371128-d4da-4967-b187-27957fa986de' │ 'Dagmar Kapralčíková' │ 'SK'    │ false   │ '95b48e1d-9baa-432a-88c6-848968c9e334' │ '0'         │ 'BEZ AKCIE'     │
+│ 17      │ '3352'     │ '95b48e1d-9baa-432a-88c6-848968c9e334' │ 'Dagmar Kapralčíková' │ 'SK'    │ true    │ null                                   │ '0'         │ 'BEZ AKCIE'     │
+│ 18      │ '3460'     │ 'e80b5667-2e5b-48e6-a795-4a7e03ff92e2' │ 'Jana Paučinová'      │ 'SK'    │ true    │ null                                   │ '0'         │ 'BEZ AKCIE'     │
+│ 19      │ '3504'     │ '2a648689-a382-4fb0-9a89-1b1e5c218b78' │ 'Klaudia Zuzčáková'   │ 'SK'    │ true    │ null                                   │ '0'         │ 'BEZ AKCIE'     │
+│ 20      │ '3504'     │ 'c1cbf103-4b24-4239-b684-db767e509082' │ 'Klaudia Zuzčáková'   │ 'SK'    │ false   │ '2a648689-a382-4fb0-9a89-1b1e5c218b78' │ '0'         │ 'BEZ AKCIE'     │
+│ 21      │ '3611'     │ '09351c39-ffdc-4d01-9f83-2bd957612cc0' │ 'Alžbeta Vargová'     │ 'SK'    │ true    │ null                                   │ '0'         │ 'BEZ AKCIE'     │
+│ 22      │ '3611'     │ '74096cb6-687d-48d5-bdd3-f2270ca619cb' │ 'Alžbeta Vargová'     │ 'SK'    │ false   │ '09351c39-ffdc-4d01-9f83-2bd957612cc0' │ '0'         │ 'BEZ AKCIE'     │
+│ 23      │ '15925'    │ '50e90077-258d-4c1a-b9fd-1ed4fa0bd5f7' │ 'Ivana Kleinová'      │ 'SK'    │ false   │ '698eb25d-f8ca-4b38-bffd-e746d7dbe5c7' │ '0'         │ 'BEZ AKCIE'     │
+│ 24      │ '15925'    │ '698eb25d-f8ca-4b38-bffd-e746d7dbe5c7' │ 'Ivana Kleinová'      │ 'SK'    │ true    │ null                                   │ '0'         │ 'BEZ AKCIE'     │
+└─────────┴────────────┴────────────────────────────────────────┴───────────────────────┴─────────┴─────────┴────────────────────────────────────────┴─────────────┴─────────────────┘
+seman@COR
