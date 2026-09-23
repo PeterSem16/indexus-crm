@@ -679,3 +679,143 @@ mtime_ms = 1790143454736
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/b090c212-c9bb-47ae-b5ee-5804d451fc3d/60ef87ea-d895-4f71-97b8-479cd40499c8"
 storage_version_token = "1790143495677217"
 content_type = "audio/wav"
+
+[[outputs]]
+id = "BrQYniQpZ_Lcgy99rRciT"
+uri = "file://attached_assets/nexus-welcome.wav"
+type = "audio"
+title = "1. Privítanie v NEXUS"
+description = "Priestorový ambient pri otvorení prihlasovania."
+logical_id = "3df951f8-3c7f-41ca-b833-26b17846b052"
+content_hash = "sha256:ff8e85f391404588ed09980a1059a9988649408ea2be40db6ab0c643cbe0f967"
+size = 1023164
+mtime_ms = 1790143859024
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/3df951f8-3c7f-41ca-b833-26b17846b052/47ff9935-15c1-4477-a237-d70997d3609e"
+storage_version_token = "1790143872330266"
+content_type = "audio/wav"
+
+[[outputs]]
+id = "h9PlkSM9582n97kIJW5cD"
+uri = "file://attached_assets/nexus-mission.wav"
+type = "audio"
+title = "2. Výber Mission"
+description = "Krátky svetlý stereo akord."
+logical_id = "5ef2d795-bcd8-4188-aa60-f1edb4d449ac"
+content_hash = "sha256:dcf327b455768ff30c68a82ee0e692a28c0ec5af7a5ed6757409e708d8bb3f81"
+size = 493964
+mtime_ms = 1790143859160
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/5ef2d795-bcd8-4188-aa60-f1edb4d449ac/55a874d6-d383-4f5c-bdd9-bedc0e0461a1"
+storage_version_token = "1790143873875094"
+content_type = "audio/wav"
+
+[[outputs]]
+id = "-TAsQV0MRdaCdQItj45tL"
+uri = "file://attached_assets/nexus-inbound.wav"
+type = "audio"
+title = "3. Výber inbound fronty"
+description = "Jemné harmonické potvrdenie."
+logical_id = "2745f422-846c-4ac9-9c88-604c064803e7"
+content_hash = "sha256:160c84f176d6e101b88bebd519e50238e7c10ea1145eb5d73bd2db98cf380ace"
+size = 493964
+mtime_ms = 1790143859316
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/2745f422-846c-4ac9-9c88-604c064803e7/40a20b48-d42c-462b-a1c6-a36a89e965c0"
+storage_version_token = "1790143874667945"
+content_type = "audio/wav"
+
+[[outputs]]
+id = "Idh6j95Wq8Om96x4Ut3hU"
+uri = "file://attached_assets/nexus-backOffice.wav"
+type = "audio"
+title = "4. Výber Back Office"
+description = "Mäkší, teplejší akord."
+logical_id = "390273ec-6b1a-4dac-9f83-0850330f6427"
+content_hash = "sha256:7b30fecced62fc231723f448dfaf4919f9a0ae49d8c43fa5e6d45d4c7e705f50"
+size = 493964
+mtime_ms = 1790143859472
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/390273ec-6b1a-4dac-9f83-0850330f6427/95e46bfc-93a5-4f45-a13e-af645ab9fe42"
+storage_version_token = "1790143875629882"
+content_type = "audio/wav"
+
+[[outputs]]
+id = "-AQg-hOgdQ2jW9NPze6AS"
+uri = "file://attached_assets/nexus-setApply.wav"
+type = "audio"
+title = "5. Načítanie uloženej zostavy"
+description = "Plynulé harmonické potvrdenie výberu."
+logical_id = "ea2fc1ef-5ae4-4084-aa77-db5f1b9055f6"
+content_hash = "sha256:52bd3078a51b2ed1c214ea924a893ae8758c84df1060af0200d453840d761c10"
+size = 493964
+mtime_ms = 1790143859560
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/ea2fc1ef-5ae4-4084-aa77-db5f1b9055f6/8e742c46-6728-4773-a12d-c038012a53b1"
+storage_version_token = "1790143876775484"
+content_type = "audio/wav"
+
+[[outputs]]
+id = "jBPi0jM9KhX-hmUi788LK"
+uri = "file://attached_assets/nexus-setCreate.wav"
+type = "audio"
+title = "6. Uloženie novej zostavy"
+description = "Trblietavé potvrdenie uloženia."
+logical_id = "3cfdab43-167b-4888-b996-89cbc1fd4d4e"
+content_hash = "sha256:281b28b15b9d75e6d3bf8a408009f136b0609524f78c888c7db86c8ba41cabd6"
+size = 493964
+mtime_ms = 1790143859708
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/3cfdab43-167b-4888-b996-89cbc1fd4d4e/8ad89308-0f7e-4aab-aee4-88f264ddb528"
+storage_version_token = "1790143877512818"
+content_type = "audio/wav"
+
+[[outputs]]
+id = "IJhvmzJye4SaSE_2-Ri5K"
+uri = "file://attached_assets/nexus-start.wav"
+type = "audio"
+title = "7. Štart zmeny"
+description = "Výraznejší priestorový ambient pri vstupe do pracoviska."
+logical_id = "1bc1e0f1-b1a4-4569-88de-d6fe201a93df"
+content_hash = "sha256:821067cbdca0b10bed8ebfba20d83ff3933ca6a66da090700f038daf1f2b90ad"
+size = 934964
+mtime_ms = 1790143860072
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/1bc1e0f1-b1a4-4569-88de-d6fe201a93df/0eecbc1a-78d8-4774-8a15-a8096b7da586"
+storage_version_token = "1790143878267815"
+content_type = "audio/wav"
+
+[[outputs]]
+id = "xbtOITFDAAFp0h9_150ku"
+uri = "file://attached_assets/nexus-mission-off.wav"
+type = "audio"
+title = "8. Zrušenie výberu Mission"
+description = "Tichší krátky zostupný motív."
+logical_id = "dad68e72-528c-4ceb-b9c5-d48df7b2e6e5"
+content_hash = "sha256:dce498ad39f3bbcfdb81c6c9a19577a489686ba2732e85d9e499fe62698e7251"
+size = 493964
+mtime_ms = 1790143860152
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/dad68e72-528c-4ceb-b9c5-d48df7b2e6e5/1a9a1727-97c4-4616-a46c-88f476d4b1ce"
+storage_version_token = "1790143879156655"
+content_type = "audio/wav"
+
+[[outputs]]
+id = "-3lADIWTNU9OiOpY1nFao"
+uri = "file://attached_assets/nexus-inbound-off.wav"
+type = "audio"
+title = "9. Zrušenie výberu inbound fronty"
+description = "Jemné potvrdenie odznačenia."
+logical_id = "5f5267ac-335f-4930-82a7-7af0b056a413"
+content_hash = "sha256:767cda51809f8bdf3a4214ba49b100b84f8bce57860e39a44775d9ddd0c9d017"
+size = 493964
+mtime_ms = 1790143860240
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/5f5267ac-335f-4930-82a7-7af0b056a413/3f3976b3-ef1f-42a0-ba01-9824c3453a11"
+storage_version_token = "1790143879954000"
+content_type = "audio/wav"
+
+[[outputs]]
+id = "9hFR1vdHrw8Hka0FPrUQv"
+uri = "file://attached_assets/nexus-backOffice-off.wav"
+type = "audio"
+title = "10. Zrušenie výberu Back Office"
+description = "Mäkké krátke potvrdenie odznačenia."
+logical_id = "9c9e23de-595b-47d5-bd83-1d0536b9505c"
+content_hash = "sha256:2792c0313a03e73b94a71837005e66bd52868555afff268604e6527500c7a659"
+size = 493964
+mtime_ms = 1790143860364
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/9c9e23de-595b-47d5-bd83-1d0536b9505c/3dbfc78b-08da-47d1-a7ac-cb0932b680a2"
+storage_version_token = "1790143880649513"
+content_type = "audio/wav"
