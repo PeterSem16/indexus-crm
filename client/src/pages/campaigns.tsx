@@ -1958,7 +1958,7 @@ export default function CampaignsPage() {
         )}
       </PageHeader>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className={`flex-1 flex flex-col ${activeTab === "transcripts" ? "overflow-visible" : "overflow-hidden"}`}>
         <div className="px-6 pt-4 overflow-x-auto">
           <TabsList className="w-auto inline-flex flex-nowrap">
             <TabsTrigger value="campaigns" className="gap-2" data-testid="tab-campaigns">
@@ -2188,7 +2188,7 @@ export default function CampaignsPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="transcripts" className="flex-1 min-h-0 overflow-hidden mt-4 px-2 sm:px-4">
+        <TabsContent value="transcripts" className="flex-1 min-h-0 mt-4 px-2 sm:px-4">
           <TranscriptSearchContent />
         </TabsContent>
 

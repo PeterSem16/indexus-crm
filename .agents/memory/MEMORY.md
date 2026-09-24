@@ -101,6 +101,7 @@
 - [Moving pages into nested settings tabs](nested-settings-page-moves.md) — preserve canonical tab URLs through legacy routes, OAuth callbacks, cleanup, permissions, and mobile embedding.
 - [Forwarded call history](forwarded-call-canonical-history.md) — mobile forwarding needs server-owned canonical history; reports cannot depend on sessions or recording, and caller Up is not callee answer.
 - [Call player visibility](call-player-visibility.md) — never trade full player access for fixed pane height; verify complete bounds and transcript access on short desktop windows.
+- [Sticky call-list scrolling](sticky-call-list-scrolling.md) — visible overflow on intervening tabs is required for a call list to stick inside the app's scrollport.
 - [Call-review event provenance](call-review-event-provenance.md) — show call-scoped confirmed steps/options and callback changes; legacy attribution needs a unique saved Mission+entity match.
 - [Call-review result hierarchy](call-review-result-hierarchy.md) — put confirmed choices, action times, and callback first; subordinate contact fields so the outcome fits the initial viewport.
 - [Missed inbound call Mission scope](missed-call-mission-scope.md) — scope badge, modal, and handled mutation by per-call Mission; queue membership alone is never sufficient.
