@@ -1001,3 +1001,17 @@ mtime_ms = 1790148780214
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/194eaebe-490e-4de8-a685-7c06179f9963/fa2f78b0-5c64-4bc9-84da-6408598c73c6"
 storage_version_token = "1790148901472670"
 content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+[[outputs]]
+id = "-BKQLfmqubtlNt65tcdnC"
+uri = "file://docs/indexus-ai-status-list-automation-proposal.md"
+type = "text"
+title = "INDEXUS AI Status List automation proposal"
+description = "Slovak proposal with architecture, safety model, staged implementation plan, and Mission/Back Office examples."
+logical_id = "74bc2131-a102-42a7-87ea-f5b14ca8e309"
+content_hash = "sha256:76dd8ca1f4eedec26e71867c266c653f209b7974c9a5db06ac4ef04f41c40bee"
+size = 19170
+mtime_ms = 1790233498675
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:fc828d39-61cd-41d5-ba8d-20e8af9db227/74bc2131-a102-42a7-87ea-f5b14ca8e309/ffbbc8e0-e6c5-4281-8e16-ae550a4116ac"
+storage_version_token = "1790233523228865"
+content_type = "text/markdown"
