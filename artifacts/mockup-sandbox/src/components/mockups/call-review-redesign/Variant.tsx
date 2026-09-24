@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CalendarClock, Check, ChevronDown, ClipboardCheck, Clock3, FileText, UserRound, X } from "lucide-react";
+import { CalendarClock, Check, ChevronDown, ClipboardCheck, Clock3, FileText, Mail, MapPin, Phone, UserRound, X } from "lucide-react";
 import "./_group.css";
 
 interface SelectedOption {
@@ -230,6 +230,101 @@ export function Variant() {
         .call-review-current .cr-player-controls button {
           box-shadow: 0 5px 12px rgb(120 77 153 / 18%);
         }
+        .call-review-current .contact-identity {
+          display: grid;
+          grid-template-columns: 38px minmax(0, 1fr) auto;
+          gap: 10px;
+          align-items: center;
+          margin: -2px 0 2px;
+          padding: 10px 11px;
+          border: 1px solid #e1dce7;
+          border-radius: 12px;
+          background: linear-gradient(135deg, #fff 0%, #faf7fc 100%);
+          box-shadow: 0 5px 15px rgb(78 55 96 / 5%);
+        }
+        .call-review-current .contact-avatar {
+          display: grid;
+          width: 38px;
+          height: 38px;
+          place-items: center;
+          border-radius: 11px;
+          color: #76538f;
+          background: #eee7f5;
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: .02em;
+        }
+        .call-review-current .contact-kicker {
+          margin: 0 0 2px;
+          color: #938b99;
+          font-size: 8px;
+          font-weight: 800;
+          letter-spacing: .13em;
+          text-transform: uppercase;
+        }
+        .call-review-current .contact-name {
+          margin: 0;
+          color: #302b34;
+          font-size: 15px;
+          font-weight: 800;
+          letter-spacing: -.025em;
+          line-height: 1.15;
+        }
+        .call-review-current .contact-type {
+          align-self: start;
+          padding: 4px 7px;
+          border: 1px solid #dfd1e9;
+          border-radius: 999px;
+          color: #76538f;
+          background: #f6f0fa;
+          font-size: 8px;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+        .call-review-current .contact-facts {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin: 8px 0 13px 48px;
+        }
+        .call-review-current .contact-fact {
+          display: inline-flex;
+          min-width: 0;
+          align-items: center;
+          gap: 4px;
+          padding: 4px 7px;
+          border: 1px solid #e5e2e7;
+          border-radius: 6px;
+          color: #69636e;
+          background: #fff;
+          font-size: 9px;
+          line-height: 1.2;
+        }
+        .call-review-current .contact-fact svg {
+          flex: none;
+          color: #9678aa;
+        }
+        .call-review-current .contact-details {
+          overflow: hidden;
+          border: 1px solid #e1dfe3;
+          border-radius: 10px;
+          background: #fff;
+        }
+        .call-review-current .contact-details summary {
+          padding: 10px 11px;
+          background: #faf9fb;
+        }
+        .call-review-current .contact-details .contact-details-label {
+          color: #655d6b;
+          letter-spacing: .13em;
+        }
+        .call-review-current .contact-details .contact-details-body {
+          padding: 0 10px 10px;
+        }
+        .call-review-current .contact-details .contact-field {
+          border-color: #e8e5e9;
+          background: #fcfbfc;
+        }
         @media (max-width: 700px) {
           .call-review-current .cr-player-context { border-right: 0; border-bottom: 1px solid #dfdde2; }
         }
@@ -311,10 +406,19 @@ export function Variant() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{ca.reviewContactDetails}</p>
-                    <h3 className="mt-1 break-words text-xl font-bold leading-tight tracking-tight">{data.name}</h3>
-                  </div>
+                   <div className="contact-identity">
+                     <div className="contact-avatar" aria-hidden="true">DD</div>
+                     <div className="min-w-0">
+                       <p className="contact-kicker">{ca.reviewContactDetails}</p>
+                       <h3 className="contact-name break-words">{data.name}</h3>
+                     </div>
+                     <span className="contact-type">Zákazníčka</span>
+                   </div>
+                   <div className="contact-facts" aria-label="Rýchle údaje o kontakte">
+                     <span className="contact-fact"><Phone size={10} aria-hidden="true" />{data.fields.phone}</span>
+                     <span className="contact-fact"><Mail size={10} aria-hidden="true" />{data.fields.email}</span>
+                     <span className="contact-fact"><MapPin size={10} aria-hidden="true" />{data.fields.city}</span>
+                   </div>
 
                   <section data-testid="review-selected-options" className="overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50/70 dark:border-emerald-900 dark:bg-emerald-950/25">
                     <div className="flex items-center gap-2 border-b border-emerald-200 px-3.5 py-2.5 text-emerald-900 dark:border-emerald-900 dark:text-emerald-200">
@@ -359,18 +463,18 @@ export function Variant() {
                     </section>
                   )}
 
-                  <details className="group border-t border-zinc-200 pt-1 dark:border-zinc-700" data-testid="review-contact-fields">
-                    <summary className="flex cursor-pointer list-none items-center gap-2 py-2 text-xs font-bold uppercase tracking-wider text-zinc-600 marker:hidden hover:text-foreground focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-zinc-300 [&::-webkit-details-marker]:hidden">
+                   <details className="contact-details group" data-testid="review-contact-fields">
+                     <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-bold uppercase tracking-wider marker:hidden hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-zinc-300 [&::-webkit-details-marker]:hidden">
                       <UserRound className="h-4 w-4" aria-hidden="true" />
-                      {ca.reviewContactDetails}
+                       <span className="contact-details-label">{ca.reviewContactDetails}</span>
                       <ChevronDown className="ml-auto h-4 w-4 transition-transform group-open:rotate-180" aria-hidden="true" />
                     </summary>
                     {fieldEntries.length === 0 ? (
-                      <p className="py-3 text-sm text-muted-foreground">{t.common.noData}</p>
+                       <p className="px-3 pb-3 text-sm text-muted-foreground">{t.common.noData}</p>
                     ) : (
-                      <div className="grid grid-cols-1 gap-2 pb-3 sm:grid-cols-2">
+                       <div className="contact-details-body grid grid-cols-1 gap-2 sm:grid-cols-2">
                         {fieldEntries.map(([key, value]) => (
-                          <div key={key} className="min-w-0 rounded-lg border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800">
+                           <div key={key} className="contact-field min-w-0 rounded-lg border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800">
                             <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{labels[key] || key}</div>
                             <div className="mt-1 break-words whitespace-pre-wrap text-sm">{value || "—"}</div>
                           </div>
