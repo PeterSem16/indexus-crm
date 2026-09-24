@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { useEffect, useRef } from "react";
-import { CalendarDays, Check, ClipboardCheck, FileText, UserRound, X } from "lucide-react";
+import { CalendarClock, Check, ChevronDown, ClipboardCheck, Clock3, FileText, UserRound, X } from "lucide-react";
 
 interface SelectedOption {
   id: string;
@@ -13,6 +13,7 @@ interface SelectedOption {
 interface Reschedule {
   date: string;
   note: string | null;
+  setAt: string;
 }
 
 interface ReviewContact {
@@ -83,108 +84,109 @@ export function CallContactReviewPanel({ callLogId, onClose }: {
     });
   };
   const fieldEntries = Object.entries(data?.fields ?? {}).filter(
-    ([key]) => key !== "name" && key !== "firstName" && key !== "lastName",
+    ([key]) => key !== "name" && key !== "firstName" && key !== "lastName" && key !== "fullName",
   );
 
   return (
     <aside role="dialog" aria-label={ca.reviewContactTitle} aria-modal="false"
-      className="fixed inset-0 z-[9994] flex min-w-0 flex-col overflow-hidden border-l border-border/80 bg-background shadow-2xl shadow-slate-950/10 lg:sticky lg:top-2 lg:z-auto lg:h-[calc(100dvh-1rem)] lg:w-[45%] lg:shrink-0 lg:self-start lg:rounded-l-2xl lg:shadow-none"
+      className="fixed inset-0 z-[9994] flex min-w-0 flex-col overflow-hidden border-l border-zinc-200 bg-[#fbfbfa] text-zinc-900 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 lg:sticky lg:top-2 lg:z-auto lg:h-[calc(100dvh-1rem)] lg:w-[45%] lg:shrink-0 lg:self-start lg:rounded-l-xl lg:shadow-none"
       data-testid="call-contact-review-drawer">
-      <header className="shrink-0 border-b border-border/70 bg-muted/20 px-5 py-4">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
-            <UserRound className="h-5 w-5" aria-hidden="true" />
+      <header className="shrink-0 border-b border-zinc-200 bg-white px-5 py-3.5 dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <UserRound className="h-4 w-4" aria-hidden="true" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-sm font-semibold tracking-tight">{ca.reviewContactTitle}</h2>
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{ca.reviewReadOnly}</p>
+            <h2 className="text-sm font-bold tracking-tight">{ca.reviewContactTitle}</h2>
+            <p className="mt-0.5 text-xs leading-snug text-muted-foreground">{ca.reviewReadOnly}</p>
           </div>
           <button ref={closeRef} type="button" onClick={onClose} aria-label={t.common.close}
-            className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-zinc-100 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:hover:bg-zinc-800"
             data-testid="close-call-contact-review">
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       </header>
-      <div className="flex-1 overflow-y-auto px-5 py-5">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
         {isLoading ? (
-          <div className="space-y-6" aria-busy="true" aria-label={ca.reviewContactTitle}>
-            <div className="space-y-2">
-              <div className="h-6 w-2/3 animate-pulse rounded-md bg-muted" />
-              <div className="h-3 w-1/3 animate-pulse rounded bg-muted" />
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {[1, 2, 3, 4].map((item) => <div key={item} className="h-[68px] animate-pulse rounded-xl bg-muted/70" />)}
-            </div>
-            <div className="h-32 animate-pulse rounded-xl bg-muted/60" />
+          <div className="space-y-3" aria-busy="true" aria-label={ca.reviewContactTitle}>
+            <div className="h-8 w-2/3 animate-pulse rounded bg-muted" />
+            <div className="h-48 animate-pulse rounded-xl bg-muted/70" />
+            <div className="h-28 animate-pulse rounded-xl bg-muted/70" />
           </div>
-          ) : isError || !data ? (
-          <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-5 text-sm text-muted-foreground" role="alert">
+        ) : isError || !data ? (
+          <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-5 text-sm text-foreground" role="alert">
             <p>{ca.reviewUnavailable}</p>
           </div>
-          ) : (
-          <div className="space-y-7">
-            <section className="space-y-3" data-testid="review-contact-fields">
-              <div className="flex items-end justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{ca.reviewContactDetails}</p>
-                  <h3 className="mt-1 truncate text-xl font-semibold tracking-tight">{data.name}</h3>
-                </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{ca.reviewContactDetails}</p>
+              <h3 className="mt-1 break-words text-xl font-bold leading-tight tracking-tight">{data.name}</h3>
+            </div>
+
+            <section data-testid="review-selected-options" className="overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50/70 dark:border-emerald-900 dark:bg-emerald-950/25">
+              <div className="flex items-center gap-2 border-b border-emerald-200 px-3.5 py-2.5 text-emerald-900 dark:border-emerald-900 dark:text-emerald-200">
+                <ClipboardCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <h3 className="flex-1 text-sm font-bold">{ca.reviewSelectedOptions}</h3>
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold dark:bg-emerald-900">{data.selectedOptions.length}</span>
               </div>
-              {fieldEntries.length === 0 ? (
-                <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">{t.common.noData}</p>
+              {data.selectedOptions.length === 0 ? (
+                <p className="px-3.5 py-4 text-sm leading-relaxed text-muted-foreground">
+                  {data.campaignContactId ? ca.reviewNoOptions : ca.reviewNoStatus}
+                </p>
               ) : (
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <ol className="divide-y divide-emerald-200 dark:divide-emerald-900">
+                  {data.selectedOptions.map((option) => (
+                    <li key={option.id} className="flex gap-2.5 px-3.5 py-3">
+                      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white dark:bg-emerald-500 dark:text-zinc-950">
+                        <Check className="h-3 w-3" aria-hidden="true" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="break-words text-sm font-semibold leading-snug">{option.label}</p>
+                        {option.note && <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-snug text-emerald-950/70 dark:text-emerald-100/70">{option.note}</p>}
+                        <time dateTime={option.selectedAt} className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-emerald-800 dark:text-emerald-300">
+                          <Clock3 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                          {ca.reviewPickedAt}: {formatDate(option.selectedAt)}
+                        </time>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </section>
+
+            {data.reschedule && (
+              <section data-testid="review-reschedule" className="rounded-xl border border-l-4 border-amber-300 border-l-amber-500 bg-amber-50 p-3.5 text-amber-950 dark:border-amber-800 dark:border-l-amber-400 dark:bg-amber-950/30 dark:text-amber-100">
+                <div className="flex items-center gap-2">
+                  <CalendarClock className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden="true" />
+                  <h3 className="text-sm font-bold">{ca.reviewReschedule}</h3>
+                </div>
+                <time dateTime={data.reschedule.date} className="mt-2 block break-words text-lg font-extrabold leading-tight tracking-tight">{formatDate(data.reschedule.date)}</time>
+                <p className="mt-2 text-xs font-medium text-amber-800 dark:text-amber-200">{ca.reviewSetAt}: <time dateTime={data.reschedule.setAt}>{formatDate(data.reschedule.setAt)}</time></p>
+                {data.reschedule.note && <p className="mt-2 flex gap-1.5 whitespace-pre-wrap break-words text-xs leading-relaxed text-amber-950/80 dark:text-amber-100/80"><FileText className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" /><span>{data.reschedule.note}</span></p>}
+              </section>
+            )}
+
+            <details className="group border-t border-zinc-200 pt-1 dark:border-zinc-700" data-testid="review-contact-fields">
+              <summary className="flex cursor-pointer list-none items-center gap-2 py-2 text-xs font-bold uppercase tracking-wider text-zinc-600 marker:hidden hover:text-foreground focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-zinc-300 [&::-webkit-details-marker]:hidden">
+                <UserRound className="h-4 w-4" aria-hidden="true" />
+                {ca.reviewContactDetails}
+                <ChevronDown className="ml-auto h-4 w-4 transition-transform group-open:rotate-180" aria-hidden="true" />
+              </summary>
+              {fieldEntries.length === 0 ? (
+                <p className="py-3 text-sm text-muted-foreground">{t.common.noData}</p>
+              ) : (
+                <div className="grid grid-cols-1 gap-2 pb-3 sm:grid-cols-2">
                   {fieldEntries.map(([key, value]) => (
-                    <div key={key} className="min-w-0 rounded-xl border border-border/70 bg-muted/20 px-3.5 py-3">
-                      <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">{labels[key] || key}</div>
+                    <div key={key} className="min-w-0 rounded-lg border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{labels[key] || key}</div>
                       <div className="mt-1 break-words whitespace-pre-wrap text-sm">{value || "—"}</div>
                     </div>
                   ))}
                 </div>
               )}
-            </section>
-
-            <section data-testid="review-selected-options" className="space-y-3">
-              <div className="flex items-center gap-2">
-                <ClipboardCheck className="h-4 w-4 text-primary" aria-hidden="true" />
-                <h3 className="text-sm font-semibold">{ca.reviewSelectedOptions}</h3>
-                {data.selectedOptions.length > 0 && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">{data.selectedOptions.length}</span>}
-              </div>
-              {data.selectedOptions.length === 0 ? (
-                <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
-                  {data.campaignContactId ? ca.reviewNoOptions : ca.reviewNoStatus}
-                </p>
-              ) : (
-                <div className="overflow-hidden rounded-xl border border-border/70">
-                  {data.selectedOptions.map((option, index) => (
-                    <div key={option.id} className={`flex gap-3 bg-emerald-50/40 px-4 py-3.5 dark:bg-emerald-950/10 ${index ? "border-t border-border/60" : ""}`}>
-                      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                        <Check className="h-3 w-3" aria-hidden="true" />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium leading-snug">{option.label}</p>
-                        <p className="mt-1 text-[11px] text-muted-foreground">{ca.reviewDuringCall} · {formatDate(option.selectedAt)}</p>
-                        {option.note && <p className="mt-2 whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground/80"><span className="font-medium">{ca.reviewAgentNote}:</span> {option.note}</p>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            {data.reschedule && (
-              <section data-testid="review-reschedule" className="rounded-xl border border-amber-200/80 bg-amber-50/50 p-4 dark:border-amber-900/50 dark:bg-amber-950/15">
-                <div className="flex gap-3">
-                  <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" aria-hidden="true" />
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-semibold">{ca.reviewReschedule}</h3>
-                    <p className="mt-1 text-sm font-medium">{formatDate(data.reschedule.date)}</p>
-                    {data.reschedule.note && <p className="mt-2 flex gap-1.5 whitespace-pre-wrap break-words text-xs leading-relaxed text-muted-foreground"><FileText className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" /><span><span className="font-medium text-foreground/80">{ca.reviewAgentNote}:</span> {data.reschedule.note}</span></p>}
-                  </div>
-                </div>
-              </section>
-            )}
+            </details>
           </div>
         )}
       </div>

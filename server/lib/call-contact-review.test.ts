@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { callbackDateChanged, resolveCallReviewContact, summarizeCallReviewEvents, type ReviewContactLink } from "./call-contact-review";
+import { callbackDateChanged, resolveCallReviewContact, resolveUniqueCallReviewContact, summarizeCallReviewEvents, type ReviewContactLink } from "./call-contact-review";
 
 const contact: ReviewContactLink = {
   id: "contact-1", campaignId: "mission-1", contactType: "clinic",
@@ -39,7 +39,17 @@ test("review does not infer a contact from a missing exact link", () => {
   }, contact), null);
 });
 
-test("review shows confirmed option choices, not ordinary status steps or undone choices", () => {
+test("legacy call recovers only a unique saved Mission and entity link", () => {
+  const call = { customerId: "person-1", campaignId: "mission-1", campaignContactId: null };
+  assert.deepEqual(resolveUniqueCallReviewContact(call, [contact]), {
+    type: "clinic", entityId: "clinic-1", campaignId: "mission-1", campaignContactId: "contact-1",
+  });
+  assert.equal(resolveUniqueCallReviewContact(call, [contact, { ...contact, id: "contact-2" }]), null);
+  assert.equal(resolveUniqueCallReviewContact({ ...call, campaignId: "mission-2" }, [contact]), null);
+  assert.equal(resolveUniqueCallReviewContact({ ...call, campaignId: null }, [contact]), null);
+});
+
+test("review shows confirmed status-list results, not undone choices", () => {
   const now = new Date("2026-09-24T11:00:00Z");
   const result = summarizeCallReviewEvents([
     { action: "status_list_confirmation", metadata: { statusListItemId: "b", confirmed: false }, createdAt: now },
@@ -47,9 +57,10 @@ test("review shows confirmed option choices, not ordinary status steps or undone
     { action: "status_list_confirmation", metadata: { statusListItemId: "a", confirmed: true, itemLabel: "Má záujem" }, createdAt: now },
     { action: "status_list_confirmation", metadata: { statusListItemId: "b", confirmed: true }, createdAt: now },
     { action: "status_list_confirmation", metadata: { statusListItemId: "step", confirmed: true }, createdAt: now },
-  ], [{ id: "a", label: "Záujem" }, { id: "b", label: "Bez záujmu" }]);
+  ], [{ id: "a", label: "Záujem" }, { id: "b", label: "Bez záujmu" }, { id: "step", label: "Materiály odoslané" }]);
   assert.deepEqual(result.selectedOptions, [
     { id: "a", label: "Má záujem", note: "Späť zavolať", selectedAt: "2026-09-24T11:00:00.000Z" },
+    { id: "step", label: "Materiály odoslané", note: null, selectedAt: "2026-09-24T11:00:00.000Z" },
   ]);
 });
 
@@ -59,7 +70,7 @@ test("review shows only the newest callback action and a later clear removes it"
     { action: "callback_change", metadata: { callbackDate: "2026-09-28T08:00:00Z", callbackNote: "Ráno" }, createdAt: now },
     { action: "status_list_action", metadata: { actionType: "set_callback", callbackDate: "2026-09-25T08:00:00Z" }, createdAt: now },
   ];
-  assert.deepEqual(summarizeCallReviewEvents(events, []).reschedule, { date: "2026-09-28T08:00:00.000Z", note: "Ráno" });
+  assert.deepEqual(summarizeCallReviewEvents(events, []).reschedule, { date: "2026-09-28T08:00:00.000Z", note: "Ráno", setAt: "2026-09-24T11:00:00.000Z" });
   assert.equal(summarizeCallReviewEvents([
     { action: "callback_change", metadata: { callbackDate: null }, createdAt: now }, ...events,
   ], []).reschedule, null);
@@ -69,7 +80,7 @@ test("review shows only the newest callback action and a later clear removes it"
   assert.deepEqual(summarizeCallReviewEvents([
     { action: "status_list_action", metadata: { actionType: "set_contact_status", callbackDate: null }, createdAt: now },
     ...events,
-  ], []).reschedule, { date: "2026-09-28T08:00:00.000Z", note: "Ráno" });
+  ], []).reschedule, { date: "2026-09-28T08:00:00.000Z", note: "Ráno", setAt: "2026-09-24T11:00:00.000Z" });
 });
 
 test("a call-time option snapshot survives deletion or later relabeling", () => {
@@ -80,7 +91,8 @@ test("a call-time option snapshot survives deletion or later relabeling", () => 
   };
   assert.equal(summarizeCallReviewEvents([event], []).selectedOptions[0]?.label, "Dohodnuté");
   assert.equal(summarizeCallReviewEvents([event], [{ id: "deleted-option", label: "Nový názov" }]).selectedOptions[0]?.label, "Dohodnuté");
-  assert.deepEqual(summarizeCallReviewEvents([{ ...event, metadata: { ...event.metadata, itemType: "step" } }], []).selectedOptions, []);
+  assert.equal(summarizeCallReviewEvents([{ ...event, metadata: { ...event.metadata, itemType: "step" } }], []).selectedOptions[0]?.label, "Dohodnuté");
+  assert.deepEqual(summarizeCallReviewEvents([{ ...event, metadata: { ...event.metadata, itemType: "question" } }], []).selectedOptions, []);
 });
 
 test("note-only edits and unchanged callback dates do not create scheduling evidence", () => {

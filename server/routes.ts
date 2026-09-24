@@ -202,7 +202,7 @@ import {
   resolveCallRecordingCustomer,
   type CallRecordingEntity,
 } from "./lib/call-recording-identity";
-import { callbackDateChanged, resolveCallReviewContact, summarizeCallReviewEvents } from "./lib/call-contact-review";
+import { callbackDateChanged, resolveCallReviewContact, resolveUniqueCallReviewContact, summarizeCallReviewEvents } from "./lib/call-contact-review";
 import {
   createCallRecordingUploadCleanup,
   createCallRecordingUploadFilename,
@@ -35800,6 +35800,36 @@ Respond ONLY with valid JSON in this exact format:
         campaignId = resolved.campaignId;
         campaignContactId = resolved.campaignContactId;
       } else if (call.customerId) {
+        if (call.campaignId) {
+          // A historical call may have persisted its Mission and entity but not
+          // campaignContactId. Restore that link only when the saved Mission has
+          // exactly one contact containing the recorded entity ID.
+          const candidates = await db.select({
+            id: campaignContacts.id,
+            campaignId: campaignContacts.campaignId,
+            contactType: campaignContacts.contactType,
+            customerId: campaignContacts.customerId,
+            clinicId: campaignContacts.clinicId,
+            hospitalId: campaignContacts.hospitalId,
+            collaboratorId: campaignContacts.collaboratorId,
+          }).from(campaignContacts).where(and(
+            eq(campaignContacts.campaignId, call.campaignId),
+            or(
+              eq(campaignContacts.customerId, call.customerId),
+              eq(campaignContacts.clinicId, call.customerId),
+              eq(campaignContacts.hospitalId, call.customerId),
+              eq(campaignContacts.collaboratorId, call.customerId),
+            ),
+          )).limit(2);
+          const linked = resolveUniqueCallReviewContact(call, candidates);
+          if (linked) {
+            type = linked.type;
+            entityId = linked.entityId;
+            campaignId = linked.campaignId;
+            campaignContactId = linked.campaignContactId;
+          }
+        }
+        if (!type) {
         // Historical logs sometimes have only a polymorphic entity ID. Require
         // exactly one existing entity; never take the first matching table.
         const [customer, clinic, hospital, collaborator] = await Promise.all([
@@ -35813,6 +35843,7 @@ Respond ONLY with valid JSON in this exact format:
         if (matches.length !== 1) return res.status(404).json({ error: "Call contact identity is ambiguous" });
         type = matches[0][0];
         entityId = call.customerId;
+        }
       } else {
         return res.status(404).json({ error: "No contact linked to this call" });
       }
@@ -35864,14 +35895,14 @@ Respond ONLY with valid JSON in this exact format:
         fields = e;
       }
 
-      const optionItems = campaignId && campaignContactId
+      const confirmedItemDefinitions = campaignId && campaignContactId
         ? await db.select({
             id: campaignStatusListItems.id,
             label: campaignStatusListItems.label,
           }).from(campaignStatusListItems)
             .where(and(
               eq(campaignStatusListItems.campaignId, campaignId),
-              eq(campaignStatusListItems.itemType, "option"),
+              inArray(campaignStatusListItems.itemType, ["option", "step"]),
             ))
             .orderBy(campaignStatusListItems.sortOrder)
         : [];
@@ -35910,7 +35941,7 @@ Respond ONLY with valid JSON in this exact format:
               lte(campaignContactHistory.createdAt, windowEnd),
             ))
             .orderBy(desc(campaignContactHistory.createdAt));
-          ({ selectedOptions, reschedule } = summarizeCallReviewEvents(history, optionItems));
+          ({ selectedOptions, reschedule } = summarizeCallReviewEvents(history, confirmedItemDefinitions));
         }
       }
       res.json({ type, name, fields, campaignId, campaignContactId, selectedOptions, reschedule });

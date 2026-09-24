@@ -32,6 +32,16 @@ export function resolveCallReviewContact(
   return { type, entityId, campaignId: contact.campaignId, campaignContactId: contact.id };
 }
 
+// Legacy logs can omit campaignContactId, but a saved Mission + entity link
+// can still be authoritative if it resolves to exactly one contact row.
+export function resolveUniqueCallReviewContact(
+  call: { customerId: string | null; campaignId: string | null; campaignContactId: string | null },
+  candidates: ReviewContactLink[],
+): ReturnType<typeof resolveCallReviewContact> {
+  if (call.campaignContactId || !call.campaignId || !call.customerId || candidates.length !== 1) return null;
+  return resolveCallReviewContact({ ...call, campaignContactId: candidates[0].id }, candidates[0]);
+}
+
 export interface CallReviewEvent {
   action: string;
   metadata: unknown;
@@ -55,11 +65,11 @@ export function callbackDateChanged(
 
 export function summarizeCallReviewEvents(
   eventsNewestFirst: CallReviewEvent[],
-  options: Array<{ id: string; label: string }>,
-): { selectedOptions: CallReviewOption[]; reschedule: { date: string; note: string | null } | null } {
+  items: Array<{ id: string; label: string }>,
+): { selectedOptions: CallReviewOption[]; reschedule: { date: string; note: string | null; setAt: string } | null } {
   const latestConfirmation = new Map<string, { confirmed: boolean; label?: string; itemType?: string; selectedAt: string; note: string | null }>();
   const latestNotes = new Map<string, string | null>();
-  let reschedule: { date: string; note: string | null } | null = null;
+  let reschedule: { date: string; note: string | null; setAt: string } | null = null;
   let callbackSeen = false;
 
   for (const event of eventsNewestFirst) {
@@ -90,26 +100,25 @@ export function summarizeCallReviewEvents(
         reschedule = {
           date: new Date(rawDate).toISOString(),
           note: typeof meta.callbackNote === "string" && meta.callbackNote.trim() ? meta.callbackNote.trim() : null,
+          setAt: event.createdAt.toISOString(),
         };
       }
     }
   }
 
-  const optionById = new Map(options.map(option => [option.id, option]));
+  const itemById = new Map(items.map(item => [item.id, item]));
   const selectedOptions = [...latestConfirmation.entries()].flatMap(([id, confirmation]) => {
-    if (!confirmation.confirmed || (confirmation.itemType && confirmation.itemType !== "option") ||
-        (!optionById.has(id) && confirmation.itemType !== "option")) return [];
+    if (!confirmation.confirmed || (confirmation.itemType && !["option", "step"].includes(confirmation.itemType)) ||
+        (!itemById.has(id) && !confirmation.label)) return [];
+    const label = confirmation.label || itemById.get(id)?.label;
+    if (!label) return [];
     return [{
       id,
-      label: confirmation.label || optionById.get(id)?.label || "",
+      label,
       note: latestNotes.has(id) ? latestNotes.get(id)! : confirmation.note,
       selectedAt: confirmation.selectedAt,
     }];
-  }).sort((a, b) => {
-    const ai = options.findIndex(option => option.id === a.id);
-    const bi = options.findIndex(option => option.id === b.id);
-    return (ai < 0 ? options.length : ai) - (bi < 0 ? options.length : bi);
-  });
+  }).sort((a, b) => a.selectedAt.localeCompare(b.selectedAt));
   return {
     selectedOptions,
     reschedule,
