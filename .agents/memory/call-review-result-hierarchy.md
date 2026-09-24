@@ -22,3 +22,9 @@ Contact and outcome notes should be visible and clearly distinguished: the curre
 **Why:** After making notes more prominent in the mockup, the callback fell below the first screen; the compact revision restored its visibility without hiding notes.
 
 **How to apply:** Check a 1280×720 viewport whenever adding height to the contact header, per-result notes, or the callback section.
+
+Clicking the displayed customer, clinic, or hospital name in call review should open that entity's full record in a drawer, not reopen the call-specific "Kontrola kontaktu" panel.
+
+**Why:** The user explicitly distinguished these two destinations after a mockup wired the name to the review panel instead.
+
+**How to apply:** Resolve the saved call contact to its entity type and ID, preserve the review and playback context, and open the corresponding real entity drawer. Do not use the phone number or displayed name to guess the record.
