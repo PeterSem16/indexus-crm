@@ -171,6 +171,69 @@ export function Variant() {
 
   return (
     <main className="call-review-current">
+      <style>{`
+        /* The player is intentionally kept as the same player surface; this
+           preview uses a softer review-room treatment instead of the old black
+           block so the transcript can be read at a glance. */
+        .call-review-current .cr-workspace { background: #f1f0f2; }
+        .call-review-current .cr-player-context {
+          color: #26262c;
+          background: #f1f0f2;
+          border-right: 1px solid #dfdde2;
+        }
+        .call-review-current .cr-eyebrow { color: #86828d; }
+        .call-review-current .cr-player-meta { color: #77737e; }
+        .call-review-current .cr-player-meta span { color: #b7b3bb; }
+        .call-review-current .cr-waveform {
+          border-color: #dfdce3;
+          background: #e9e7eb;
+        }
+        .call-review-current .cr-waveform i { background: #9274bd; }
+        .call-review-current .cr-waveform i:nth-child(n + 27) { background: #c4becb; }
+        .call-review-current .cr-player-controls { color: #6d6874; }
+        .call-review-current .cr-player-controls .cr-muted { color: #aaa5ae; }
+        .call-review-current .cr-transcript {
+          border-color: #dedbe2;
+          color: #5c5863;
+          background: #faf9fa;
+          box-shadow: 0 8px 22px rgb(59 48 70 / 5%);
+        }
+        .call-review-current .cr-transcript-title { color: #393540; }
+        .call-review-current .cr-transcript-title svg { color: #8665ae; }
+        .call-review-current .cr-transcript p {
+          display: grid;
+          grid-template-columns: 66px 1fr;
+          gap: 8px;
+          align-items: start;
+          padding: 8px 9px;
+        }
+        .call-review-current .cr-transcript p b {
+          display: inline-flex;
+          width: fit-content;
+          margin: 0;
+          padding: 2px 6px;
+          border-radius: 5px;
+          color: #6f567f;
+          background: #eee8f4;
+          font-size: 9px;
+          letter-spacing: .01em;
+        }
+        .call-review-current .cr-transcript .cr-transcript-active {
+          border-left-color: #8665ae;
+          color: #34303a;
+          background: #f1ebf7;
+        }
+        .call-review-current .cr-transcript .cr-transcript-active b {
+          color: #995b48;
+          background: #f9e9e2;
+        }
+        .call-review-current .cr-player-controls button {
+          box-shadow: 0 5px 12px rgb(120 77 153 / 18%);
+        }
+        @media (max-width: 700px) {
+          .call-review-current .cr-player-context { border-right: 0; border-bottom: 1px solid #dfdde2; }
+        }
+      `}</style>
       <section className="cr-desktop-frame" aria-label="Review contact panel beside call player">
         <header className="cr-appbar">
           <span className="cr-appmark"><ClipboardCheck size={15} /></span>
@@ -210,9 +273,9 @@ export function Variant() {
             </div>
             <div className="cr-transcript">
               <div className="cr-transcript-title"><FileText size={14} /> Prepis hovoru</div>
-              <p><b>Agent</b> Dobrý deň, volám vám ohľadom našej ponuky.</p>
-              <p className="cr-transcript-active"><b>Zákazníčka</b> Áno, ďakujem. Mala by som záujem o ďalšie informácie.</p>
-              <p><b>Agent</b> Rád vám pošlem podrobnosti a môžeme si dohodnúť konzultáciu.</p>
+              <p><b>Agent</b><span>Dobrý deň, volám vám ohľadom našej ponuky.</span></p>
+              <p className="cr-transcript-active"><b>Zákazníčka</b><span>Áno, ďakujem. Mala by som záujem o ďalšie informácie.</span></p>
+              <p><b>Agent</b><span>Rád vám pošlem podrobnosti a môžeme si dohodnúť konzultáciu.</span></p>
             </div>
           </section>
 
