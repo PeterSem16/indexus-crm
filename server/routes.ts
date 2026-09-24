@@ -35716,19 +35716,28 @@ Respond ONLY with valid JSON in this exact format:
       // Lookup campaign contacts for disposition + entity info
       const ccIds = [...new Set(logs.filter(l => l.campaignContactId).map(l => l.campaignContactId!))];
       // Key: logId → cc data
-      let ccMap: Record<string, { dispositionCode: string | null; dispositionChecklistCodes: string[] | null; contactType: string | null; clinicId: string | null; hospitalId: string | null }> = {};
+      let ccMap: Record<string, { customerId: string | null; dispositionCode: string | null; dispositionChecklistCodes: string[] | null; contactType: string | null; clinicId: string | null; hospitalId: string | null }> = {};
       // Map: campaignContactId → cc data (for logs with campaignContactId)
       let ccById: typeof ccMap = {};
       if (ccIds.length > 0) {
-        const ccRows = await db.select({ id: campaignContacts.id, dispositionCode: campaignContacts.dispositionCode, dispositionChecklistCodes: campaignContacts.dispositionChecklistCodes, contactType: campaignContacts.contactType, clinicId: campaignContacts.clinicId, hospitalId: campaignContacts.hospitalId })
+        const ccRows = await db.select({ id: campaignContacts.id, customerId: campaignContacts.customerId, dispositionCode: campaignContacts.dispositionCode, dispositionChecklistCodes: campaignContacts.dispositionChecklistCodes, contactType: campaignContacts.contactType, clinicId: campaignContacts.clinicId, hospitalId: campaignContacts.hospitalId })
           .from(campaignContacts).where(inArray(campaignContacts.id, ccIds));
-        for (const cc of ccRows) ccById[cc.id] = { dispositionCode: cc.dispositionCode, dispositionChecklistCodes: cc.dispositionChecklistCodes, contactType: cc.contactType, clinicId: cc.clinicId, hospitalId: cc.hospitalId };
+        for (const cc of ccRows) ccById[cc.id] = { customerId: cc.customerId, dispositionCode: cc.dispositionCode, dispositionChecklistCodes: cc.dispositionChecklistCodes, contactType: cc.contactType, clinicId: cc.clinicId, hospitalId: cc.hospitalId };
+      }
+      // A call can have a campaign-contact link even when its polymorphic
+      // customerId was never populated (for example an unanswered attempt).
+      const missingCustomerIds = [...new Set(Object.values(ccById)
+        .map(cc => cc.customerId).filter((id): id is string => !!id && !customerMap[id]))];
+      if (missingCustomerIds.length > 0) {
+        const rows = await db.select({ id: customers.id, firstName: customers.firstName, lastName: customers.lastName })
+          .from(customers).where(inArray(customers.id, missingCustomerIds));
+        for (const row of rows) customerMap[row.id] = `${row.firstName || ""} ${row.lastName || ""}`.trim();
       }
 
       // Fallback 2: logs without campaignContactId but WITH campaignId + customerId
       const fallbackPairs = logs.filter(l => !l.campaignContactId && l.campaignId && l.customerId);
       // key: `${campaignId}::${customerId}` → cc data + campaignId
-      let fallbackMap: Record<string, { dispositionCode: string | null; dispositionChecklistCodes: string[] | null; contactType: string | null; clinicId: string | null; hospitalId: string | null; ccCampaignId: string }> = {};
+      let fallbackMap: Record<string, { customerId: string | null; dispositionCode: string | null; dispositionChecklistCodes: string[] | null; contactType: string | null; clinicId: string | null; hospitalId: string | null; ccCampaignId: string }> = {};
       if (fallbackPairs.length > 0) {
         const uniquePairs = [...new Set(fallbackPairs.map(l => `${l.campaignId}::${l.customerId}`))];
         const orConditions = uniquePairs.map(p => {
@@ -35739,14 +35748,14 @@ Respond ONLY with valid JSON in this exact format:
           .from(campaignContacts).where(or(...orConditions)).orderBy(desc(campaignContacts.updatedAt));
         for (const row of fbRows) {
           const key = `${row.campaignId}::${row.customerId}`;
-          if (!fallbackMap[key]) fallbackMap[key] = { dispositionCode: row.dispositionCode, dispositionChecklistCodes: row.dispositionChecklistCodes, contactType: row.contactType, clinicId: row.clinicId, hospitalId: row.hospitalId, ccCampaignId: row.campaignId };
+          if (!fallbackMap[key]) fallbackMap[key] = { customerId: row.customerId, dispositionCode: row.dispositionCode, dispositionChecklistCodes: row.dispositionChecklistCodes, contactType: row.contactType, clinicId: row.clinicId, hospitalId: row.hospitalId, ccCampaignId: row.campaignId };
         }
       }
 
       // Fallback 3: logs with customerId only (no campaignId, no campaignContactId)
       const noCampaignLogs = logs.filter(l => !l.campaignContactId && !l.campaignId && l.customerId);
       // key: customerId → cc data + campaignId of the found contact
-      let noCampaignMap: Record<string, { dispositionCode: string | null; dispositionChecklistCodes: string[] | null; contactType: string | null; clinicId: string | null; hospitalId: string | null; ccCampaignId: string }> = {};
+      let noCampaignMap: Record<string, { customerId: string | null; dispositionCode: string | null; dispositionChecklistCodes: string[] | null; contactType: string | null; clinicId: string | null; hospitalId: string | null; ccCampaignId: string }> = {};
       if (noCampaignLogs.length > 0) {
         const uniqueCustomerIds = [...new Set(noCampaignLogs.map(l => l.customerId!))];
         const ncRows = await db.select({ campaignId: campaignContacts.campaignId, customerId: campaignContacts.customerId, dispositionCode: campaignContacts.dispositionCode, dispositionChecklistCodes: campaignContacts.dispositionChecklistCodes, contactType: campaignContacts.contactType, clinicId: campaignContacts.clinicId, hospitalId: campaignContacts.hospitalId, updatedAt: campaignContacts.updatedAt })
@@ -35755,7 +35764,7 @@ Respond ONLY with valid JSON in this exact format:
           .orderBy(desc(campaignContacts.updatedAt));
         for (const row of ncRows) {
           const key = row.customerId!;
-          if (!noCampaignMap[key]) noCampaignMap[key] = { dispositionCode: row.dispositionCode, dispositionChecklistCodes: row.dispositionChecklistCodes, contactType: row.contactType, clinicId: row.clinicId, hospitalId: row.hospitalId, ccCampaignId: row.campaignId };
+          if (!noCampaignMap[key]) noCampaignMap[key] = { customerId: row.customerId, dispositionCode: row.dispositionCode, dispositionChecklistCodes: row.dispositionChecklistCodes, contactType: row.contactType, clinicId: row.clinicId, hospitalId: row.hospitalId, ccCampaignId: row.campaignId };
         }
       }
 
@@ -35774,8 +35783,9 @@ Respond ONLY with valid JSON in this exact format:
 
       // Collect all clinic/hospital ids from all cc sources
       const allCcValues = [...Object.values(ccById), ...Object.values(fallbackMap), ...Object.values(noCampaignMap)];
-      const clinicIds = [...new Set(allCcValues.filter(c => c.clinicId).map(c => c.clinicId!))];
-      const hospitalIds = [...new Set(allCcValues.filter(c => c.hospitalId).map(c => c.hospitalId!))];
+      // Legacy logs may have only the institution ID in customerId.
+      const clinicIds = [...new Set([...allCcValues.map(c => c.clinicId), ...customerIds].filter((id): id is string => !!id))];
+      const hospitalIds = [...new Set([...allCcValues.map(c => c.hospitalId), ...customerIds].filter((id): id is string => !!id))];
       let clinicNameMap: Record<string, string> = {};
       let hospitalNameMap: Record<string, string> = {};
       if (clinicIds.length > 0) {
@@ -35799,10 +35809,19 @@ Respond ONLY with valid JSON in this exact format:
         let entityType: string | null = cc?.contactType || null;
         if (cc?.clinicId && clinicNameMap[cc.clinicId]) entityName = clinicNameMap[cc.clinicId];
         else if (cc?.hospitalId && hospitalNameMap[cc.hospitalId]) entityName = hospitalNameMap[cc.hospitalId];
+        else if (!cc && log.customerId && !customerMap[log.customerId]) {
+          if (clinicNameMap[log.customerId]) {
+            entityName = clinicNameMap[log.customerId];
+            entityType = "clinic";
+          } else if (hospitalNameMap[log.customerId]) {
+            entityName = hospitalNameMap[log.customerId];
+            entityType = "hospital";
+          }
+        }
         return {
           ...log,
           ringTimeSeconds: reportCallRingSeconds(log),
-          customerName: customerMap[log.customerId || ""] || recordingMap[log.id]?.customerName || null,
+          customerName: customerMap[cc?.customerId || log.customerId || ""] || (!entityName ? recordingMap[log.id]?.customerName : null) || null,
           campaignName: campaignMap[log.campaignId || ""] || recordingMap[log.id]?.campaignName || null,
           hasRecording: !!recordingMap[log.id],
           recording: recordingMap[log.id] || null,

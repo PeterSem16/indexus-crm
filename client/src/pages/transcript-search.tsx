@@ -12,6 +12,7 @@ import { Search, FileText, AlertTriangle, Download, ChevronDown, ChevronUp, Chev
 import { useAuth } from "@/contexts/auth-context";
 import { useI18n } from "@/i18n";
 import { CallRecordingPlayer, type PlaybackState } from "@/components/call-recording-player";
+import { callBrowseDisplayName } from "@/lib/call-browse-identity";
 
 const LOCALE_MAP: Record<string, string> = { en: 'en-US', sk: 'sk-SK', cs: 'cs-CZ', hu: 'hu-HU', ro: 'ro-RO', it: 'it-IT', de: 'de-DE' };
 interface TranscriptResult {
@@ -254,8 +255,8 @@ function CallRowItem({ log, isSelected, onClick, locale, ca }: { log: CallLogEnt
           {sc && <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />}
         </div>
       </div>
-      <div className="text-xs font-medium truncate">{log.customerName || log.phoneNumber}</div>
-      {log.customerName && <div className="text-[10px] text-muted-foreground truncate">{log.phoneNumber}</div>}
+      <div className="text-xs font-medium truncate">{callBrowseDisplayName(log)}</div>
+      {(log.entityName || log.customerName) && <div className="text-[10px] text-muted-foreground truncate">{log.phoneNumber}</div>}
       {rec?.summary && <div className="text-[10px] text-muted-foreground truncate mt-0.5 italic">{rec.summary.slice(0, 58)}…</div>}
       <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
         <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium capitalize ${statusBadgeClass(log.status)}`} data-testid={`call-status-${log.id}`}>
@@ -324,9 +325,9 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
           <div className="flex-1 min-w-0">
             {/* Name + phone */}
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-bold truncate">{log.entityName || log.customerName || log.phoneNumber}</span>
+              <span className="text-sm font-bold truncate">{callBrowseDisplayName(log)}</span>
               {log.entityName && log.customerName && <span className="text-[10px] text-muted-foreground">({log.customerName})</span>}
-              {log.customerName && !log.entityName && <span className="text-[10px] text-muted-foreground">{log.phoneNumber}</span>}
+              {(log.customerName || log.entityName) && <span className="text-[10px] text-muted-foreground">{log.phoneNumber}</span>}
               <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${log.direction === "inbound" ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400" : "bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400"}`}>
                 {log.direction === "inbound" ? <PhoneIncoming className="h-2.5 w-2.5" /> : <PhoneOutgoing className="h-2.5 w-2.5" />}
                 {log.direction === "inbound" ? ca.inbound : ca.outbound}
@@ -915,7 +916,7 @@ export function TranscriptSearchContent() {
     }
     if (browseSearchText) {
       const q = browseSearchText.toLowerCase();
-      f = f.filter(l => l.phoneNumber?.toLowerCase().includes(q) || l.customerName?.toLowerCase().includes(q) || l.campaignName?.toLowerCase().includes(q) || l.recording?.agentName?.toLowerCase().includes(q) || l.mobileAgentName?.toLowerCase().includes(q) || l.recording?.summary?.toLowerCase().includes(q));
+      f = f.filter(l => l.phoneNumber?.toLowerCase().includes(q) || l.customerName?.toLowerCase().includes(q) || l.entityName?.toLowerCase().includes(q) || l.campaignName?.toLowerCase().includes(q) || l.recording?.agentName?.toLowerCase().includes(q) || l.mobileAgentName?.toLowerCase().includes(q) || l.recording?.summary?.toLowerCase().includes(q));
     }
     if (browseCampaignFilter) f = browseCampaignFilter === "__none__" ? f.filter(l => !l.campaignId) : f.filter(l => l.campaignId === browseCampaignFilter);
     if (browseDirectionFilter) f = f.filter(l => l.direction === browseDirectionFilter);
