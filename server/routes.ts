@@ -189,6 +189,7 @@ import {
   callHandledContactIncrement,
   reportCallAnalysisSeconds,
   reportCallListTalkSeconds,
+  reportCallRingSeconds,
   reportCallTalkSeconds,
   reportGroupKey,
 } from "./lib/campaign-report-operator-stats";
@@ -28268,7 +28269,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   app.get("/api/campaigns/:id/reports/call-list", requireAuth, async (req, res) => {
     try {
       const campaignId = req.params.id;
-      const { dateFrom, dateTo, agentId, direction } = req.query;
+      const { dateFrom, dateTo, agentId, direction, status } = req.query;
 
       const contacts = await db.select().from(campaignContacts)
         .where(eq(campaignContacts.campaignId, campaignId));
@@ -28307,6 +28308,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       ];
       if (agentId && agentId !== 'all') callConditions.push(eq(callLogs.userId, agentId as string));
       if (direction === 'inbound' || direction === 'outbound') callConditions.push(eq(callLogs.direction, direction));
+      if (status && status !== 'all') callConditions.push(eq(callLogs.status, status as string));
 
       const [logs, allUsers, allCustomers, allHospitals, allClinics, allCollaborators, dispositions] = await Promise.all([
         db.select().from(callLogs).where(and(...callConditions)).orderBy(desc(callLogs.startedAt)),
@@ -28356,11 +28358,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         const user = userMap.get(log.userId);
         const { name: entityName, contact } = resolveEntityName(log.customerId);
         const totalSec = diffSeconds(log.startedAt, log.endedAt);
-        let ringTimeSec = 0;
+        const ringTimeSec = reportCallRingSeconds(log);
         const talkTimeSec = reportCallListTalkSeconds(log);
-        if (log.answeredAt) {
-          ringTimeSec = diffSeconds(log.startedAt, log.answeredAt);
-        }
 
         const dispCode = contact?.dispositionCode || '';
         const dispObj = dispCode ? dispositionMap.get(dispCode) : null;
@@ -35802,6 +35801,7 @@ Respond ONLY with valid JSON in this exact format:
         else if (cc?.hospitalId && hospitalNameMap[cc.hospitalId]) entityName = hospitalNameMap[cc.hospitalId];
         return {
           ...log,
+          ringTimeSeconds: reportCallRingSeconds(log),
           customerName: customerMap[log.customerId || ""] || recordingMap[log.id]?.customerName || null,
           campaignName: campaignMap[log.campaignId || ""] || recordingMap[log.id]?.campaignName || null,
           hasRecording: !!recordingMap[log.id],

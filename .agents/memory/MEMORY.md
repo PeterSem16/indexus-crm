@@ -117,3 +117,4 @@
 - [Clinic dedupe representative history](clinic-dedupe-representatives.md) — preserve one active representative before redirecting clinic history, or the partial unique index aborts apply.
 - [Directory contact contamination](clinic-directory-contact-contamination.md) — imported portal contacts are not clinic identities; verify high-frequency shared values before deduplication.
 - [Mission phase import parity](mission-phase-import-parity.md) — an active phase can contain legacy orphan rows while no live Mission contact is enrolled; inspect actual joins before importing.
+- [Call ring-time semantics](call-ring-time-semantics.md) — unanswered attempts use start→end; cap only with the trusted per-call Mission snapshot, never current settings.

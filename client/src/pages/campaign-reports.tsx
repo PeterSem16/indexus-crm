@@ -161,6 +161,7 @@ export default function CampaignReportsPage() {
   const [dateTo, setDateTo] = useState("");
   const [selectedAgent, setSelectedAgent] = useState("all");
   const [selectedDirection, setSelectedDirection] = useState("all");
+  const [selectedCallStatus, setSelectedCallStatus] = useState("all");
   const [groupBy, setGroupBy] = useState("total");
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [emailRecipient, setEmailRecipient] = useState("");
@@ -209,6 +210,7 @@ export default function CampaignReportsPage() {
     if (dateTo) p.dateTo = dateTo;
     if (selectedAgent && selectedAgent !== 'all') p.agentId = selectedAgent;
     if (activeTab === 'call-list' && selectedDirection !== 'all') p.direction = selectedDirection;
+    if (activeTab === 'call-list' && selectedCallStatus !== 'all') p.status = selectedCallStatus;
     if (groupBy && groupBy !== 'total') p.groupBy = groupBy;
     return new URLSearchParams(p).toString();
   };
@@ -706,19 +708,41 @@ export default function CampaignReportsPage() {
                 </div>
               )}
               {activeTab === 'call-list' && (
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium">{t.callAnalysis.direction}</Label>
-                  <Select value={selectedDirection} onValueChange={setSelectedDirection}>
-                    <SelectTrigger className="w-[150px] h-9" data-testid="select-direction">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">{t.callAnalysis.allDirections}</SelectItem>
-                      <SelectItem value="inbound">{t.callAnalysis.inbound}</SelectItem>
-                      <SelectItem value="outbound">{t.callAnalysis.outbound}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium">{t.callAnalysis.direction}</Label>
+                    <Select value={selectedDirection} onValueChange={setSelectedDirection}>
+                      <SelectTrigger className="w-[150px] h-9" data-testid="select-direction">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{t.callAnalysis.allDirections}</SelectItem>
+                        <SelectItem value="inbound">{t.callAnalysis.inbound}</SelectItem>
+                        <SelectItem value="outbound">{t.callAnalysis.outbound}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium">{t.callAnalysis.status}</Label>
+                    <Select value={selectedCallStatus} onValueChange={setSelectedCallStatus}>
+                      <SelectTrigger className="w-[150px] h-9 capitalize" data-testid="select-call-status">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{t.callAnalysis.allStatuses}</SelectItem>
+                        <SelectItem value="completed">{t.callAnalysis.statusCompleted}</SelectItem>
+                        <SelectItem value="answered">answered</SelectItem>
+                        <SelectItem value="no_answer">{t.callAnalysis.statusNoAnswer}</SelectItem>
+                        <SelectItem value="busy">{t.callAnalysis.statusBusy}</SelectItem>
+                        <SelectItem value="failed">{t.callAnalysis.statusFailed}</SelectItem>
+                        <SelectItem value="cancelled">cancelled</SelectItem>
+                        <SelectItem value="timeout">timeout</SelectItem>
+                        <SelectItem value="abandoned">abandoned</SelectItem>
+                        <SelectItem value="forwarded">forwarded</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
               )}
               {(dateFrom || dateTo) && (
                 <Button

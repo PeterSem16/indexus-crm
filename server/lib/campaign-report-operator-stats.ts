@@ -21,6 +21,38 @@ export interface ReportCall {
   durationSeconds?: number | null;
 }
 
+function parseCallMetadata(metadata: string | null | undefined): Record<string, unknown> {
+  if (!metadata) return {};
+  try {
+    const parsed = JSON.parse(metadata);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Ring time is start-to-answer for answered calls and start-to-end for attempts
+ * that never produced answer evidence. The per-call Mission limit is a trusted
+ * call-time snapshot and prevents delayed cleanup from inflating either value.
+ */
+export function reportCallRingSeconds(call: ReportCall): number {
+  if (!call.startedAt) return 0;
+  const startedAt = new Date(call.startedAt).getTime();
+  const ringEndedAtValue = call.answeredAt || call.endedAt;
+  if (!ringEndedAtValue) return 0;
+  const ringEndedAt = new Date(ringEndedAtValue).getTime();
+  if (!Number.isFinite(startedAt) || !Number.isFinite(ringEndedAt)) return 0;
+
+  let seconds = Math.max(0, Math.floor((ringEndedAt - startedAt) / 1000));
+  const metadata = parseCallMetadata(call.metadata);
+  const maxRingSeconds = Number(metadata.maxRingSeconds);
+  if (Number.isFinite(maxRingSeconds) && maxRingSeconds > 0) {
+    seconds = Math.min(seconds, Math.floor(maxRingSeconds));
+  }
+  return seconds;
+}
+
 export function reportGroupKey(value: Date | string, groupBy = "total"): string {
   const date = new Date(value);
   if (groupBy === "day") return date.toISOString().split("T")[0];

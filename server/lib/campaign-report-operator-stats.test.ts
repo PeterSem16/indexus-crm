@@ -5,6 +5,7 @@ import {
   callHandledContactIncrement,
   reportCallAnalysisSeconds,
   reportCallListTalkSeconds,
+  reportCallRingSeconds,
   reportCallTalkSeconds,
 } from "./campaign-report-operator-stats";
 
@@ -41,6 +42,36 @@ test("duplicate rows are counted once and timings use answered-to-ended", () => 
   assert.equal(rows["agent__2026-01-02"].callCount, 1);
   assert.equal(rows["agent__2026-01-02"].totalCallTime, 75);
   assert.equal(reportCallTalkSeconds(call), 75);
+});
+
+test("ring time covers answered and unanswered attempts and respects the call-time limit", () => {
+  assert.equal(reportCallRingSeconds({
+    id: "answered", userId: "agent", status: "completed",
+    startedAt: "2026-01-02T10:00:00Z", answeredAt: "2026-01-02T10:00:12.900Z",
+    endedAt: "2026-01-02T10:01:00Z", metadata: JSON.stringify({ maxRingSeconds: 30 }),
+  }), 12);
+  assert.equal(reportCallRingSeconds({
+    id: "late-answer", userId: "agent", status: "completed",
+    startedAt: "2026-01-02T10:00:00Z", answeredAt: "2026-01-02T10:00:44Z",
+    endedAt: "2026-01-02T10:01:00Z", metadata: JSON.stringify({ maxRingSeconds: 30 }),
+  }), 30);
+  assert.equal(reportCallRingSeconds({
+    id: "no-answer", userId: "agent", status: "no_answer",
+    startedAt: "2026-01-02T10:00:00Z", answeredAt: null,
+    endedAt: "2026-01-02T10:00:31Z", metadata: JSON.stringify({ maxRingSeconds: 30 }),
+  }), 30);
+});
+
+test("ring time fails closed for missing or invalid timestamps without inventing live elapsed time", () => {
+  assert.equal(reportCallRingSeconds({
+    id: "still-ringing", userId: "agent", status: "ringing",
+    startedAt: "2026-01-02T10:00:00Z", answeredAt: null, endedAt: null,
+  }), 0);
+  assert.equal(reportCallRingSeconds({
+    id: "clock-skew", userId: "agent", status: "failed",
+    startedAt: "2026-01-02T10:00:10Z", answeredAt: null,
+    endedAt: "2026-01-02T10:00:00Z", metadata: "{invalid",
+  }), 0);
 });
 
 test("forwarded answered, no-answer, and busy attempts use answer evidence for talk time", () => {

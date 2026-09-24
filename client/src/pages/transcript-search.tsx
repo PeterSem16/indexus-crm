@@ -30,6 +30,7 @@ interface CallLogEntry {
   customerName: string | null; campaignName: string | null; hasRecording: boolean; isMobile: boolean;
   mobileAgentName: string | null; mobileOutboundCallerId: string | null; isImportant: boolean;
   campaignContactId: string | null; answeredAt: string | null; endedAt: string | null;
+  ringTimeSeconds: number;
   hungUpBy: string | null; inboundQueueId: string | null; inboundQueueName: string | null;
   dispositionCode: string | null; dispositionName: string | null; dispositionSubstatuses: string[] | null; contactType: string | null; entityName: string | null;
   recording: {
@@ -45,7 +46,7 @@ interface CampaignBasic { id: string; name: string; }
 interface InboundQueueBasic { id: string; name: string; isActive?: boolean; }
 
 function formatDuration(seconds: number | null): string {
-  if (!seconds) return "—";
+  if (seconds == null || seconds < 0) return "—";
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}:${String(s).padStart(2, "0")}`;
@@ -223,6 +224,18 @@ function DirectionIcon({ direction, status }: { direction: string; status: strin
   return <PhoneOutgoing className="h-4 w-4 text-sky-600 dark:text-sky-400" />;
 }
 
+function statusBadgeClass(status: string): string {
+  if (["completed", "answered"].includes(status)) return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/35 dark:text-emerald-300";
+  if (["no_answer", "busy", "timeout", "abandoned", "no_agents"].includes(status)) return "bg-amber-100 text-amber-700 dark:bg-amber-900/35 dark:text-amber-300";
+  if (["failed", "cancelled"].includes(status)) return "bg-destructive/10 text-destructive";
+  if (["initiated", "queued", "ringing", "forwarded"].includes(status)) return "bg-sky-100 text-sky-700 dark:bg-sky-900/35 dark:text-sky-300";
+  return "bg-muted text-muted-foreground";
+}
+
+function formatCallStatus(status: string): string {
+  return status.replaceAll("_", " ");
+}
+
 function CallRowItem({ log, isSelected, onClick, locale, ca }: { log: CallLogEntry; isSelected: boolean; onClick: () => void; locale: string; ca: Record<string, any> }) {
   const rec = log.recording;
   const sc = rec?.sentiment ? SENTIMENT_CFG[rec.sentiment] : null;
@@ -245,8 +258,12 @@ function CallRowItem({ log, isSelected, onClick, locale, ca }: { log: CallLogEnt
       {log.customerName && <div className="text-[10px] text-muted-foreground truncate">{log.phoneNumber}</div>}
       {rec?.summary && <div className="text-[10px] text-muted-foreground truncate mt-0.5 italic">{rec.summary.slice(0, 58)}…</div>}
       <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-        {log.status === "no_answer" && <span className="text-[9px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">{ca.statusNoAnswer}</span>}
-        {log.status === "failed" && <span className="text-[9px] bg-destructive/10 text-destructive px-1.5 py-0.5 rounded-full">{ca.statusFailed}</span>}
+        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium capitalize ${statusBadgeClass(log.status)}`} data-testid={`call-status-${log.id}`}>
+          {formatCallStatus(log.status)}
+        </span>
+        <span className="text-[9px] bg-amber-50 text-amber-700 dark:bg-amber-900/25 dark:text-amber-300 px-1.5 py-0.5 rounded-full tabular-nums">
+          {ca.waiting}: {formatDuration(log.ringTimeSeconds)}
+        </span>
         {log.isMobile && <span className="text-[9px] bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><Smartphone className="h-2 w-2" />{log.mobileAgentName || "Mobile"}</span>}
         {log.hasRecording && <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><Mic className="h-2 w-2" /></span>}
         {log.isImportant && <span className="text-[9px] bg-amber-100 dark:bg-amber-900/30 text-amber-500 px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><Star className="h-2 w-2 fill-amber-400" /></span>}
@@ -314,6 +331,9 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
                 {log.direction === "inbound" ? <PhoneIncoming className="h-2.5 w-2.5" /> : <PhoneOutgoing className="h-2.5 w-2.5" />}
                 {log.direction === "inbound" ? ca.inbound : ca.outbound}
               </span>
+              <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize ${statusBadgeClass(log.status)}`}>
+                {formatCallStatus(log.status)}
+              </span>
               {log.isMobile && <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400"><Smartphone className="h-2.5 w-2.5" />Connect</span>}
             </div>
             <div className="text-[10px] text-muted-foreground mt-0.5">{dateStr}</div>
@@ -368,10 +388,10 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
 
         {/* Row 3: Timing breakdown */}
         {(() => {
-          const ringS = log.answeredAt && log.startedAt ? Math.max(0, Math.round((new Date(log.answeredAt).getTime() - new Date(log.startedAt).getTime()) / 1000)) : null;
+          const ringS = log.ringTimeSeconds;
           const talkS = log.endedAt && log.answeredAt ? Math.max(0, Math.round((new Date(log.endedAt).getTime() - new Date(log.answeredAt).getTime()) / 1000)) : null;
           const totalS = log.durationSeconds;
-          const hasAny = ringS != null || talkS != null || totalS;
+          const hasAny = ringS != null || talkS != null || totalS != null;
           if (!hasAny) return null;
           return (
             <div className="flex items-center gap-2 flex-wrap">
@@ -883,6 +903,7 @@ export function TranscriptSearchContent() {
     callLogs.forEach(l => { if (l.inboundQueueId && l.inboundQueueName) m.set(l.inboundQueueId, l.inboundQueueName); });
     return Array.from(m.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
   }, [callLogs, configuredQueues]);
+  const uniqueStatuses = useMemo(() => [...new Set(callLogs.map(l => l.status).filter(Boolean))].sort(), [callLogs]);
 
   const filteredCallLogs = useMemo(() => {
     let f = [...callLogs];
@@ -1177,7 +1198,10 @@ export function TranscriptSearchContent() {
                </Select>
                <Select value={browseStatusFilter || "all"} onValueChange={v => setBrowseStatusFilter(v === "all" ? "" : v)}>
                  <SelectTrigger className="h-8 w-[135px] text-[10px]" data-testid="select-browse-status"><SelectValue placeholder={ca.status} /></SelectTrigger>
-                 <SelectContent><SelectItem value="all">{ca.allStatuses}</SelectItem><SelectItem value="completed">{ca.statusCompleted}</SelectItem><SelectItem value="no_answer">{ca.statusNoAnswer}</SelectItem><SelectItem value="failed">{ca.statusFailed}</SelectItem><SelectItem value="busy">{ca.statusBusy}</SelectItem></SelectContent>
+                  <SelectContent>
+                    <SelectItem value="all">{ca.allStatuses}</SelectItem>
+                    {uniqueStatuses.map(status => <SelectItem key={status} value={status} className="capitalize">{formatCallStatus(status)}</SelectItem>)}
+                  </SelectContent>
                </Select>
                <Select value={browseSentimentFilter || "all"} onValueChange={v => setBrowseSentimentFilter(v === "all" ? "" : v)}>
                  <SelectTrigger className="h-8 w-[135px] text-[10px]" data-testid="select-browse-sentiment"><SelectValue placeholder={ca.sentiment} /></SelectTrigger>
