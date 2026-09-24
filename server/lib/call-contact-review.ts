@@ -31,3 +31,87 @@ export function resolveCallReviewContact(
   ].includes(call.customerId)) return null;
   return { type, entityId, campaignId: contact.campaignId, campaignContactId: contact.id };
 }
+
+export interface CallReviewEvent {
+  action: string;
+  metadata: unknown;
+  createdAt: Date;
+}
+
+export interface CallReviewOption {
+  id: string;
+  label: string;
+  note: string | null;
+  selectedAt: string;
+}
+
+export function callbackDateChanged(
+  previous: Date | null,
+  current: Date | null,
+  dateWasSupplied: boolean,
+): boolean {
+  return dateWasSupplied && (previous?.getTime() ?? null) !== (current?.getTime() ?? null);
+}
+
+export function summarizeCallReviewEvents(
+  eventsNewestFirst: CallReviewEvent[],
+  options: Array<{ id: string; label: string }>,
+): { selectedOptions: CallReviewOption[]; reschedule: { date: string; note: string | null } | null } {
+  const latestConfirmation = new Map<string, { confirmed: boolean; label?: string; itemType?: string; selectedAt: string; note: string | null }>();
+  const latestNotes = new Map<string, string | null>();
+  let reschedule: { date: string; note: string | null } | null = null;
+  let callbackSeen = false;
+
+  for (const event of eventsNewestFirst) {
+    const meta = event.metadata && typeof event.metadata === "object" && !Array.isArray(event.metadata)
+      ? event.metadata as Record<string, unknown> : {};
+    if (event.action === "status_list_note_update" && typeof meta.statusListItemId === "string" &&
+        !latestNotes.has(meta.statusListItemId)) {
+      latestNotes.set(meta.statusListItemId, typeof meta.itemNote === "string" ? meta.itemNote : null);
+    }
+    if (event.action === "status_list_confirmation" && typeof meta.statusListItemId === "string" &&
+        !latestConfirmation.has(meta.statusListItemId)) {
+      latestConfirmation.set(meta.statusListItemId, {
+        confirmed: meta.confirmed === true,
+        label: typeof meta.itemLabel === "string" ? meta.itemLabel : undefined,
+        itemType: typeof meta.itemType === "string" ? meta.itemType : undefined,
+        selectedAt: event.createdAt.toISOString(),
+        note: typeof meta.itemNote === "string" ? meta.itemNote : null,
+      });
+    }
+    const isCallbackAction = event.action === "callback_change" ||
+      (event.action === "status_list_action" &&
+       (meta.actionType === "set_callback" || meta.actionType === "set_contact_status") &&
+       typeof meta.callbackDate === "string");
+    if (isCallbackAction && !callbackSeen) {
+      callbackSeen = true;
+      const rawDate = meta.callbackDate;
+      if (typeof rawDate === "string" && Number.isFinite(Date.parse(rawDate))) {
+        reschedule = {
+          date: new Date(rawDate).toISOString(),
+          note: typeof meta.callbackNote === "string" && meta.callbackNote.trim() ? meta.callbackNote.trim() : null,
+        };
+      }
+    }
+  }
+
+  const optionById = new Map(options.map(option => [option.id, option]));
+  const selectedOptions = [...latestConfirmation.entries()].flatMap(([id, confirmation]) => {
+    if (!confirmation.confirmed || (confirmation.itemType && confirmation.itemType !== "option") ||
+        (!optionById.has(id) && confirmation.itemType !== "option")) return [];
+    return [{
+      id,
+      label: confirmation.label || optionById.get(id)?.label || "",
+      note: latestNotes.has(id) ? latestNotes.get(id)! : confirmation.note,
+      selectedAt: confirmation.selectedAt,
+    }];
+  }).sort((a, b) => {
+    const ai = options.findIndex(option => option.id === a.id);
+    const bi = options.findIndex(option => option.id === b.id);
+    return (ai < 0 ? options.length : ai) - (bi < 0 ? options.length : bi);
+  });
+  return {
+    selectedOptions,
+    reschedule,
+  };
+}

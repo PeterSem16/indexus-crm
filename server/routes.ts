@@ -202,7 +202,7 @@ import {
   resolveCallRecordingCustomer,
   type CallRecordingEntity,
 } from "./lib/call-recording-identity";
-import { resolveCallReviewContact } from "./lib/call-contact-review";
+import { callbackDateChanged, resolveCallReviewContact, summarizeCallReviewEvents } from "./lib/call-contact-review";
 import {
   createCallRecordingUploadCleanup,
   createCallRecordingUploadFilename,
@@ -1498,7 +1498,7 @@ async function runStatusListSetCallback(automation: any, ctx: StatusListActionCt
       campaignContactId: ctx.campaignContactId,
       userId: ctx.userId,
       action: "status_list_action",
-      metadata: { actionType: "set_callback", automationId: automation.id, callbackDate: cb.toISOString(), campaignId: ctx.campaignId },
+      metadata: { actionType: "set_callback", automationId: automation.id, callbackDate: cb.toISOString(), callbackNote: callbackNote?.trim() || null, campaignId: ctx.campaignId },
     });
   } catch (e) { console.error("[status-list:set_callback] history log failed:", e); }
   return { ok: true, callbackDate: cb.toISOString() };
@@ -30869,9 +30869,33 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       console.log(`[Disposition] Contact ${req.params.contactId}: status=${updatePayload.status}, dispositionCode=${updatePayload.dispositionCode}, callbackDate=${updatePayload.callbackDate}, assignedTo=${updatePayload.assignedTo}`);
       
       const contact = await storage.updateCampaignContact(req.params.contactId, updatePayload);
+      if (!contact) return res.status(404).json({ error: "Contact not found" });
+
+      // Keep a snapshot of an actual callback change for later call review.
+      // The contact's current date/note may change again after this call.
+      if (callbackDateChanged(
+        existingContact.callbackDate,
+        contact.callbackDate,
+        updatePayload.callbackDate !== undefined,
+      )) {
+        try {
+          await db.insert(campaignContactHistory).values({
+            campaignContactId: req.params.contactId,
+            userId: req.session.user!.id,
+            action: "callback_change",
+            metadata: {
+              campaignId: existingContact.campaignId,
+              callbackDate: contact.callbackDate?.toISOString() ?? null,
+              callbackNote: contact.callbackNote ?? null,
+            },
+          });
+        } catch (historyError) {
+          console.error("Failed to record callback review history:", historyError);
+        }
+      }
       
       // Get customer and campaign info for logging
-      const customer = await storage.getCustomer(existingContact.customerId);
+      const customer = existingContact.customerId ? await storage.getCustomer(existingContact.customerId) : null;
       const campaign = await storage.getCampaign(existingContact.campaignId);
       
       const campaignChannel = campaign?.channel || "phone";
@@ -33531,6 +33555,7 @@ Respond ONLY with valid JSON in this exact format:
         campaignId: campaignStatusListItems.campaignId,
         label: campaignStatusListItems.label,
         description: campaignStatusListItems.description,
+        itemType: campaignStatusListItems.itemType,
       })
         .from(campaignStatusListItems)
         .where(eq(campaignStatusListItems.id, itemId))
@@ -34139,6 +34164,7 @@ Respond ONLY with valid JSON in this exact format:
               itemNote: itemNote ?? null,
               itemLabel: itemRouteItem?.label ?? null,
               itemDescription: itemRouteItem?.description ?? null,
+              itemType: itemRouteItem?.itemType ?? null,
             },
           });
         } else {
@@ -35750,6 +35776,11 @@ Respond ONLY with valid JSON in this exact format:
         customerId: callLogs.customerId,
         campaignId: callLogs.campaignId,
         campaignContactId: callLogs.campaignContactId,
+        userId: callLogs.userId,
+        startedAt: callLogs.startedAt,
+        endedAt: callLogs.endedAt,
+        createdAt: callLogs.createdAt,
+        durationSeconds: callLogs.durationSeconds,
       }).from(callLogs).where(eq(callLogs.id, req.params.id)).limit(1);
       if (!call) return res.status(404).json({ error: "Call not found" });
 
@@ -35824,8 +35855,8 @@ Respond ONLY with valid JSON in this exact format:
       } else {
         const [e] = await db.select({
           firstName: collaborators.firstName, lastName: collaborators.lastName,
-          phone: collaborators.phone, email: collaborators.email,
-          city: collaborators.city, postalCode: collaborators.postalCode,
+          phone: collaborators.phone, mobile: collaborators.mobile, mobile2: collaborators.mobile2,
+          email: collaborators.email,
           country: collaborators.countryCode,
         }).from(collaborators).where(eq(collaborators.id, entityId!)).limit(1);
         if (!e) return res.status(404).json({ error: "Contact no longer exists" });
@@ -35833,28 +35864,56 @@ Respond ONLY with valid JSON in this exact format:
         fields = e;
       }
 
-      const statusItems = campaignId && campaignContactId
+      const optionItems = campaignId && campaignContactId
         ? await db.select({
-            id: campaignStatusListItems.id, label: campaignStatusListItems.label,
-            description: campaignStatusListItems.description,
-            parentId: campaignStatusListItems.parentId, itemType: campaignStatusListItems.itemType,
-            isHidden: campaignStatusListItems.isHidden, required: campaignStatusListItems.required,
-            sortOrder: campaignStatusListItems.sortOrder,
+            id: campaignStatusListItems.id,
+            label: campaignStatusListItems.label,
           }).from(campaignStatusListItems)
-            .where(eq(campaignStatusListItems.campaignId, campaignId))
+            .where(and(
+              eq(campaignStatusListItems.campaignId, campaignId),
+              eq(campaignStatusListItems.itemType, "option"),
+            ))
             .orderBy(campaignStatusListItems.sortOrder)
         : [];
-      const statusState = campaignContactId
-        ? await db.select({
-            statusListItemId: campaignContactStatusListState.statusListItemId,
-            confirmedAt: campaignContactStatusListState.confirmedAt,
-            itemNote: campaignContactStatusListState.itemNote,
-            confirmedByName: users.fullName,
-          }).from(campaignContactStatusListState)
-            .leftJoin(users, eq(users.id, campaignContactStatusListState.confirmedByUserId))
-            .where(eq(campaignContactStatusListState.campaignContactId, campaignContactId))
-        : [];
-      res.json({ type, name, fields, campaignId, campaignContactId, statusItems, statusState });
+
+      let selectedOptions: ReturnType<typeof summarizeCallReviewEvents>["selectedOptions"] = [];
+      let reschedule: ReturnType<typeof summarizeCallReviewEvents>["reschedule"] = null;
+      if (campaignContactId && call.userId && (call.startedAt || call.createdAt)) {
+        const startedAt = call.startedAt || call.createdAt;
+        const endedAt = call.endedAt ||
+          new Date(startedAt.getTime() + Math.max(0, Number(call.durationSeconds || 0)) * 1000);
+        let windowEnd = new Date(endedAt.getTime() + 15 * 60 * 1000);
+        const [nextCall] = await db.select({ startedAt: callLogs.startedAt }).from(callLogs)
+          .where(and(
+            eq(callLogs.userId, call.userId),
+            ne(callLogs.id, req.params.id),
+            gte(callLogs.startedAt, new Date(startedAt.getTime() + 1)),
+          ))
+          .orderBy(asc(callLogs.startedAt))
+          .limit(1);
+        if (nextCall?.startedAt && nextCall.startedAt < windowEnd) {
+          windowEnd = new Date(nextCall.startedAt.getTime() - 1);
+        }
+        if (windowEnd >= startedAt) {
+          const history = await db.select({
+            action: campaignContactHistory.action,
+            metadata: campaignContactHistory.metadata,
+            createdAt: campaignContactHistory.createdAt,
+          }).from(campaignContactHistory)
+            .where(and(
+              eq(campaignContactHistory.campaignContactId, campaignContactId),
+              eq(campaignContactHistory.userId, call.userId),
+              inArray(campaignContactHistory.action, [
+                "status_list_confirmation", "status_list_note_update", "status_list_action", "callback_change",
+              ]),
+              gte(campaignContactHistory.createdAt, startedAt),
+              lte(campaignContactHistory.createdAt, windowEnd),
+            ))
+            .orderBy(desc(campaignContactHistory.createdAt));
+          ({ selectedOptions, reschedule } = summarizeCallReviewEvents(history, optionItems));
+        }
+      }
+      res.json({ type, name, fields, campaignId, campaignContactId, selectedOptions, reschedule });
     } catch (error) {
       console.error("Failed to load call contact review:", error);
       res.status(500).json({ error: "Failed to load call contact review" });
