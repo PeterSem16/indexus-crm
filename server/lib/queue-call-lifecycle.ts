@@ -1,4 +1,5 @@
 import type { MissionCallRecordingSnapshot } from "@shared/mission-recording";
+import { markRetryableQueueHandoffFailure } from "./mission-call-list-scope";
 
 export interface CompletedCanonicalCallValuesInput {
   answeredAt: Date | null;
@@ -9,6 +10,9 @@ export function canonicalCampaignId(
   queuedCampaignId: string | null | undefined,
   channelCampaignId: string | null | undefined,
 ): string | null {
+  if (queuedCampaignId && channelCampaignId && queuedCampaignId !== channelCampaignId) {
+    throw new Error("Inbound queue and PBX Mission IDs conflict");
+  }
   return queuedCampaignId || channelCampaignId || null;
 }
 
@@ -23,9 +27,31 @@ export function inboundQueueForwardedRecordingAllowed(input: {
   recordCalls: boolean;
   campaignId: string | null;
   recordingPolicySnapshot: MissionCallRecordingSnapshot | null;
+  classificationVerified?: boolean;
 }): boolean {
-  return input.recordCalls && (!input.campaignId ||
+  return input.classificationVerified !== false && input.recordCalls && (!input.campaignId ||
     !!input.recordingPolicySnapshot?.active && input.recordingPolicySnapshot.mode === "both");
+}
+
+export function failedQueueForwardHandoffReset(metadata: unknown, endedAt: Date) {
+  return {
+    callLog: {
+      status: "failed",
+      endedAt,
+      durationSeconds: 0,
+      inboundCallLogId: null,
+      metadata: markRetryableQueueHandoffFailure(metadata),
+    },
+    inboundCall: {
+      callLogId: null,
+      status: "queued",
+      transferredTo: null,
+      assignedAgentId: null,
+      answeredAt: null,
+      completedAt: null,
+      talkDurationSeconds: 0,
+    },
+  };
 }
 
 export interface StandingRecordingIdentity {

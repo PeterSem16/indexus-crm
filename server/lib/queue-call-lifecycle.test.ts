@@ -4,6 +4,7 @@ import {
   canonicalCampaignId,
   canClaimStandingRecordingRecovery,
   completedCanonicalCallValues,
+  failedQueueForwardHandoffReset,
   finalizeCanonicalLifecycle,
   standingForwardUserId,
   inboundQueueForwardedRecordingAllowed,
@@ -12,11 +13,47 @@ import {
   shouldRecoverStandingRecording,
 } from "./queue-call-lifecycle";
 import { resolveMissionRecordingPolicy } from "@shared/mission-recording";
+import { isMissionCanonicalCall, isMissionInboundOnlyCall } from "./mission-call-list-scope";
 
 test("standing answer attributes the real user and preserves queued Mission", () => {
   assert.equal(standingForwardUserId("standing:user-42"), "user-42");
   assert.equal(canonicalCampaignId("mission-7", null), "mission-7");
   assert.equal(canonicalCampaignId(undefined, "mission-channel"), "mission-channel");
+  assert.throws(() => canonicalCampaignId("mission-7", "mission-other"), /Mission IDs conflict/);
+});
+
+test("failed external handoff detaches retryable attempt and reports later abandon/timeout", () => {
+  const reset = failedQueueForwardHandoffReset(
+    { campaignId: "mission-7", queueForwarded: true },
+    new Date("2026-09-24T10:00:05.000Z"),
+  );
+  assert.equal(reset.callLog.status, "failed");
+  assert.equal(reset.callLog.inboundCallLogId, null);
+  assert.equal(reset.inboundCall.callLogId, null);
+  assert.equal(reset.inboundCall.status, "queued");
+  assert.equal(isMissionCanonicalCall({
+    campaignId: "mission-7",
+    campaignContactId: "contact-1",
+    campaignContactIds: new Set(["contact-1"]),
+    requestedCampaignId: "mission-7",
+    metadata: reset.callLog.metadata,
+  }), false);
+
+  for (const status of ["abandoned", "timeout"]) {
+    assert.equal(isMissionInboundOnlyCall({
+      inbound: {
+        campaignId: null,
+        callLogId: reset.inboundCall.callLogId,
+        inboundCallLogId: "inbound-1",
+        startedAt: new Date("2026-09-24T10:00:00.000Z"),
+        assignedAgentId: null,
+        status,
+        metadata: { campaignId: "mission-7" },
+      },
+      canonicalCallLogIds: new Set(),
+      filters: { campaignId: "mission-7", status },
+    }), true);
+  }
 });
 
 test("queue recording off still permits canonical lifecycle", () => {
@@ -56,6 +93,11 @@ test("inbound queue setting authorizes non-Mission recording and Mission mixed c
   assert.equal(inboundQueueForwardedRecordingAllowed({
     recordCalls: true, campaignId: "mission-7", recordingPolicySnapshot: missionBoth,
   }), true);
+  // A later null ARI read cannot turn an earlier classification failure into
+  // proof that a queue with a Mission-specific policy is non-Mission.
+  assert.equal(inboundQueueForwardedRecordingAllowed({
+    recordCalls: true, campaignId: null, recordingPolicySnapshot: null, classificationVerified: false,
+  }), false);
   assert.equal(inboundQueueForwardedRecordingAllowed({
     recordCalls: false, campaignId: "mission-7", recordingPolicySnapshot: missionBoth,
   }), false);

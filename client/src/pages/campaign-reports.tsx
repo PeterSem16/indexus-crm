@@ -95,6 +95,7 @@ interface OperatorStat {
 interface CallListItem {
   id: string;
   type: string;
+  isForwarded: boolean;
   agent: string;
   customer: string;
   phoneNumber: string;
@@ -389,6 +390,7 @@ export default function CampaignReportsPage() {
           dateTo: dateTo || undefined,
           agentId: selectedAgent !== 'all' ? selectedAgent : undefined,
            direction: activeTab === 'call-list' && selectedDirection !== 'all' ? selectedDirection : undefined,
+          status: activeTab === 'call-list' && selectedCallStatus !== 'all' ? selectedCallStatus : undefined,
           groupBy: activeTab === 'operator-stats' && groupBy !== 'total' ? groupBy : undefined,
         }),
       });
@@ -420,6 +422,7 @@ export default function CampaignReportsPage() {
         dateTo: dateTo || undefined,
         agentId: selectedAgent !== 'all' ? selectedAgent : undefined,
         direction: activeTab === 'call-list' && selectedDirection !== 'all' ? selectedDirection : undefined,
+        status: activeTab === 'call-list' && selectedCallStatus !== 'all' ? selectedCallStatus : undefined,
         groupBy: activeTab === 'operator-stats' && groupBy !== 'total' ? groupBy : undefined,
       });
       return res.json();
@@ -1204,9 +1207,22 @@ export default function CampaignReportsPage() {
                           <td className="p-2 font-medium text-xs">{call.customer || '-'}</td>
                           <td className="p-2 font-mono text-xs">{call.phoneNumber || call.recipient || '-'}</td>
                           <td className="p-2 text-center">
-                            <Badge variant={call.direction === 'inbound' ? 'secondary' : 'outline'} className="text-[10px]">
-                              {call.direction === 'inbound' ? (cr.inbound || 'In') : (cr.outbound || 'Out')}
-                            </Badge>
+                            <div className="flex items-center justify-center gap-1">
+                              <Badge variant={call.direction === 'inbound' ? 'secondary' : 'outline'} className="text-[10px]">
+                                {call.direction === 'inbound' ? (cr.inbound || 'In') : (cr.outbound || 'Out')}
+                              </Badge>
+                              {call.type === 'call' && call.isForwarded && (
+                                <Badge
+                                  variant="outline"
+                                  className="border-sky-300 bg-sky-50 text-[10px] text-sky-700 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300"
+                                  aria-label={cr.forwardedCallAccessible}
+                                  title={cr.forwardedCallAccessible}
+                                  data-testid={`report-call-forwarded-${call.id}`}
+                                >
+                                  {cr.forwardedCall}
+                                </Badge>
+                              )}
+                            </div>
                           </td>
                           <td className="p-2 text-center"><StatusBadge status={call.status} /></td>
                           <td className="p-2 text-center text-xs tabular-nums">{formatDateTime(call.startedAt)}</td>

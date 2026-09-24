@@ -8,7 +8,7 @@ import { createServer, type Server } from "http";
 import crypto from "crypto";
 import { WebSocketServer, WebSocket } from "ws";
 import { startOfDay, endOfDay, subDays } from "date-fns";
-import { eq, ne, desc, and, gte, lte, inArray, isNotNull, isNull, or, count, sql, asc } from "drizzle-orm";
+import { eq, ne, desc, and, gte, lte, lt, inArray, isNotNull, isNull, or, count, sql, asc, exists, notExists } from "drizzle-orm";
 import { db, pool } from "./db";
 import { evaluateAutomationCondition, updateFieldSnapshot } from "./lib/condition-evaluator";
 import { storage } from "./storage";
@@ -193,7 +193,20 @@ import {
   reportCallTalkSeconds,
   reportGroupKey,
 } from "./lib/campaign-report-operator-stats";
+import { campaignCallListEventsToExportRows } from "./lib/campaign-call-list-export";
 import { canAgentReadCampaignByWorkspaceCountry } from "./lib/agent-workspace-country-access";
+import { hasForwardedCallEvidence, isMissionCanonicalCall, isMissionInboundOnlyCall } from "./lib/mission-call-list-scope";
+import {
+  callRecordingPhoneMatches,
+  callRecordingUploadConflict,
+  resolveCallRecordingCustomer,
+  type CallRecordingEntity,
+} from "./lib/call-recording-identity";
+import {
+  createCallRecordingUploadCleanup,
+  createCallRecordingUploadFilename,
+} from "./lib/call-recording-upload-filename";
+import { missionCallListDateBounds } from "./lib/mission-call-list-dates";
 import { normalizeSmsPhone, uniqueSmsEntity, type SmsEntityCandidate } from "./lib/sms-attribution";
 import {
   buildUnambiguousCallBrowsePhoneIndex,
@@ -28271,11 +28284,16 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
-  // 2. Complete Call List Report
-  app.get("/api/campaigns/:id/reports/call-list", requireAuth, async (req, res) => {
-    try {
-      const campaignId = req.params.id;
-      const { dateFrom, dateTo, agentId, direction, status } = req.query;
+  const getCampaignCallListEvents = async (
+    campaignId: string,
+    filters: {
+      dateBounds: ReturnType<typeof missionCallListDateBounds>;
+      agentId?: string;
+      direction?: string;
+      status?: string;
+    },
+  ) => {
+      const { dateBounds: reportDateBounds, agentId, direction, status } = filters;
 
       const contacts = await db.select().from(campaignContacts)
         .where(eq(campaignContacts.campaignId, campaignId));
@@ -28285,30 +28303,33 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const contactByClinicId = new Map(contacts.filter(c => c.clinicId).map(c => [c.clinicId!, c]));
       const contactByCollaboratorId = new Map(contacts.filter(c => c.collaboratorId).map(c => [c.collaboratorId!, c]));
 
-      const allEntityIds = [
-        ...contacts.map(c => c.customerId).filter(Boolean),
-        ...contacts.map(c => c.hospitalId).filter(Boolean),
-        ...contacts.map(c => c.clinicId).filter(Boolean),
-        ...contacts.map(c => c.collaboratorId).filter(Boolean),
-      ] as string[];
-
       const dateConditions = (dateCol: any) => {
         const conds: any[] = [];
-        if (dateFrom) conds.push(gte(dateCol, new Date(dateFrom as string)));
-        if (dateTo) {
-          const endDate = new Date(dateTo as string);
-          endDate.setHours(23, 59, 59, 999);
-          conds.push(lte(dateCol, endDate));
-        }
+        if (reportDateBounds.dateFrom) conds.push(gte(dateCol, reportDateBounds.dateFrom));
+        if (reportDateBounds.dateToExclusive) conds.push(lt(dateCol, reportDateBounds.dateToExclusive));
         return conds;
       };
 
       const callConditions: any[] = [
         or(
           eq(callLogs.campaignId, campaignId),
-          ...(contacts.length > 0
-            ? [and(isNull(callLogs.campaignId), inArray(callLogs.campaignContactId, contacts.map(contact => contact.id)))]
-            : [])
+          and(
+            isNull(callLogs.campaignId),
+            exists(db.select({ id: campaignContacts.id }).from(campaignContacts).where(and(
+              eq(campaignContacts.id, callLogs.campaignContactId),
+              eq(campaignContacts.campaignId, campaignId),
+            ))),
+          ),
+          and(
+            isNull(callLogs.campaignId),
+            exists(db.select({ id: inboundCallLogs.id }).from(inboundCallLogs).where(and(
+              or(
+                eq(inboundCallLogs.id, callLogs.inboundCallLogId),
+                eq(inboundCallLogs.callLogId, callLogs.id),
+              ),
+              sql`${inboundCallLogs.metadata} ->> 'campaignId' = ${campaignId}`,
+            ))),
+          ),
         ),
         ...dateConditions(callLogs.startedAt),
       ];
@@ -28316,8 +28337,21 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       if (direction === 'inbound' || direction === 'outbound') callConditions.push(eq(callLogs.direction, direction));
       if (status && status !== 'all') callConditions.push(eq(callLogs.status, status as string));
 
-      const [logs, allUsers, allCustomers, allHospitals, allClinics, allCollaborators, dispositions] = await Promise.all([
+      const inboundOnlyConditions: any[] = [
+        sql`${inboundCallLogs.metadata} ->> 'campaignId' = ${campaignId}`,
+        notExists(db.select({ id: callLogs.id }).from(callLogs).where(or(
+          eq(callLogs.inboundCallLogId, inboundCallLogs.id),
+          eq(callLogs.id, inboundCallLogs.callLogId),
+        ))),
+      ];
+      if (direction === 'outbound') inboundOnlyConditions.push(sql`1=0`);
+      if (status && status !== 'all') inboundOnlyConditions.push(eq(inboundCallLogs.status, status as string));
+      if (agentId && agentId !== 'all') inboundOnlyConditions.push(eq(inboundCallLogs.assignedAgentId, agentId as string));
+      inboundOnlyConditions.push(...dateConditions(inboundCallLogs.enteredQueueAt));
+
+      const [logs, inboundOnlyRows, allUsers, allCustomers, allHospitals, allClinics, allCollaborators, dispositions] = await Promise.all([
         db.select().from(callLogs).where(and(...callConditions)).orderBy(desc(callLogs.startedAt)),
+        db.select().from(inboundCallLogs).where(and(...inboundOnlyConditions)).orderBy(desc(inboundCallLogs.enteredQueueAt)),
         db.select().from(users),
         db.select().from(customers),
         db.select({ id: hospitals.id, name: hospitals.name, fullName: hospitals.fullName }).from(hospitals),
@@ -28326,12 +28360,42 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         db.select().from(campaignDispositions).where(eq(campaignDispositions.campaignId, campaignId)),
       ]);
 
+      const linkedInboundRows = await db.select().from(inboundCallLogs).where(
+        exists(db.select({ id: callLogs.id }).from(callLogs).where(and(
+          ...callConditions,
+          or(
+            eq(callLogs.inboundCallLogId, inboundCallLogs.id),
+            eq(inboundCallLogs.callLogId, callLogs.id),
+          ),
+        ))),
+      );
+
       const userMap = new Map(allUsers.map(u => [u.id, u]));
       const customerMap = new Map(allCustomers.map(c => [c.id, c]));
       const hospitalMap = new Map(allHospitals.map(h => [h.id, h]));
       const clinicMap = new Map(allClinics.map(c => [c.id, c]));
       const collaboratorMap = new Map(allCollaborators.map(c => [c.id, c]));
       const dispositionMap = new Map(dispositions.map(d => [d.code, d]));
+      const linkedInboundByCanonicalId = new Map<string, typeof linkedInboundRows[number]>();
+      const linkedInboundByInboundId = new Map(linkedInboundRows.map(row => [row.id, row]));
+      for (const inbound of linkedInboundRows) {
+        if (inbound.callLogId) linkedInboundByCanonicalId.set(inbound.callLogId, inbound);
+      }
+      const campaignContactIds = new Set(contacts.map(contact => contact.id));
+      const scopedLogs = logs.filter(log => {
+        const linkedInbound = (log.inboundCallLogId
+          ? linkedInboundByInboundId.get(log.inboundCallLogId)
+          : undefined) || linkedInboundByCanonicalId.get(log.id);
+        return isMissionCanonicalCall({
+          campaignId: log.campaignId,
+          campaignContactId: log.campaignContactId,
+          linkedInboundCampaignId: (linkedInbound?.metadata as any)?.campaignId || null,
+          linkedInboundExists: !!linkedInbound,
+          campaignContactIds,
+          requestedCampaignId: campaignId,
+          metadata: log.metadata,
+        });
+      });
 
       const resolveEntityName = (entityId: string | null): { name: string; contact: typeof contacts[0] | null } => {
         if (!entityId) return { name: '', contact: null };
@@ -28360,7 +28424,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         return { name: entityId, contact: null };
       };
 
-      const callResults = logs.map(log => {
+      const callResults = scopedLogs.map(log => {
         const user = userMap.get(log.userId);
         const { name: entityName, contact } = resolveEntityName(log.customerId);
         const totalSec = diffSeconds(log.startedAt, log.endedAt);
@@ -28381,6 +28445,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         try { logMeta = log.metadata ? JSON.parse(log.metadata) : {}; } catch {}
         const dispositionDurationSec: number | null = logMeta.dispositionDurationSeconds ?? null;
         const dispositionFormDurationSec: number | null = logMeta.dispositionFormDurationSeconds ?? null;
+        const linkedInbound = (log.inboundCallLogId
+          ? linkedInboundByInboundId.get(log.inboundCallLogId)
+          : undefined) || linkedInboundByCanonicalId.get(log.id);
 
         return {
           id: `call-${log.id}`,
@@ -28409,14 +28476,98 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           dispositionChecklistNames,
           hungUpBy: log.hungUpBy || '',
           notes: log.notes || '',
+          isForwarded: hasForwardedCallEvidence({
+            isForwarded: log.isForwarded,
+            status: log.status,
+            metadata: log.metadata,
+            inboundStatus: linkedInbound?.status,
+            inboundTransferredTo: linkedInbound?.transferredTo,
+            inboundMetadata: linkedInbound?.metadata,
+          }),
           subject: '',
           recipient: '',
         };
       });
 
-      const campaignCustomerIds = contacts.map(c => c.customerId).filter(Boolean) as string[];
+      const filteredInboundOnlyRows = inboundOnlyRows.filter(inbound => isMissionInboundOnlyCall({
+        inbound: {
+          campaignId: (inbound.metadata as any)?.campaignId ?? null,
+          callLogId: inbound.callLogId,
+          inboundCallLogId: inbound.id,
+          startedAt: inbound.enteredQueueAt,
+          assignedAgentId: inbound.assignedAgentId,
+          status: inbound.status,
+          metadata: inbound.metadata,
+        },
+        canonicalCallLogIds: new Set(),
+        filters: {
+          campaignId,
+          direction: direction as string | undefined,
+          status: status as string | undefined,
+          agentId: agentId as string | undefined,
+          dateFrom: reportDateBounds.dateFrom,
+          dateToExclusive: reportDateBounds.dateToExclusive,
+        },
+      }));
+      const inboundOnlyResults = filteredInboundOnlyRows.map(inbound => {
+        const user = inbound.assignedAgentId ? userMap.get(inbound.assignedAgentId) : null;
+        const { name: entityName } = resolveEntityName(inbound.customerId);
+        const startedAt = inbound.enteredQueueAt;
+        const answeredAt = inbound.answeredAt;
+        const endedAt = inbound.completedAt;
+        const totalSec = endedAt ? diffSeconds(startedAt, endedAt) : 0;
+        // Keep only persisted answer/talk evidence. Never infer a successful
+        // answer from transfer, channel-up, or a non-zero wall-clock duration.
+        const answered = !!answeredAt && !!endedAt;
+        const talkTimeSec = answered ? Math.max(0, Number(inbound.talkDurationSeconds) || 0) : 0;
+        return {
+          id: `inbound-${inbound.id}`,
+          type: 'call' as const,
+          agent: user?.fullName || user?.username || inbound.assignedAgentId || '',
+          customer: entityName || inbound.customerId || '',
+          phoneNumber: inbound.callerNumber,
+          direction: 'inbound',
+          status: inbound.status,
+          startedAt: startedAt ? new Date(startedAt).toISOString() : '',
+          answeredAt: answeredAt ? new Date(answeredAt).toISOString() : '',
+          endedAt: endedAt ? new Date(endedAt).toISOString() : '',
+          ringTimeSec: Math.max(0, Number(inbound.waitDurationSeconds) || 0),
+          ringTimeFormatted: formatDuration(Math.max(0, Number(inbound.waitDurationSeconds) || 0)),
+          talkTimeSec,
+          talkTimeFormatted: formatDuration(talkTimeSec),
+          totalDurationSec: totalSec,
+          totalDurationFormatted: formatDuration(totalSec),
+          dispositionDurationSec: null,
+          dispositionDurationFormatted: '',
+          dispositionFormDurationSec: null,
+          dispositionFormDurationFormatted: '',
+          disposition: '',
+          dispositionName: '',
+          dispositionColor: '',
+          dispositionChecklistNames: [] as Array<{ name: string; color: string }>,
+          hungUpBy: '',
+          notes: inbound.abandonReason || '',
+          isForwarded: hasForwardedCallEvidence({
+            status: inbound.status,
+            inboundStatus: inbound.status,
+            inboundTransferredTo: inbound.transferredTo,
+            inboundMetadata: inbound.metadata,
+          }),
+          subject: '',
+          recipient: '',
+        };
+      });
+
       const commConditions: any[] = [
-        ...(allEntityIds.length > 0 ? [inArray(communicationMessages.customerId, allEntityIds)] : [sql`1=0`]),
+        exists(db.select({ id: campaignContacts.id }).from(campaignContacts).where(and(
+          eq(campaignContacts.campaignId, campaignId),
+          or(
+            eq(campaignContacts.customerId, communicationMessages.customerId),
+            eq(campaignContacts.hospitalId, communicationMessages.customerId),
+            eq(campaignContacts.clinicId, communicationMessages.customerId),
+            eq(campaignContacts.collaboratorId, communicationMessages.customerId),
+          ),
+        ))),
         ...dateConditions(communicationMessages.createdAt),
       ];
       if (agentId && agentId !== 'all') commConditions.push(eq(communicationMessages.userId, agentId as string));
@@ -28458,10 +28609,30 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         };
       });
 
-      const allEvents = [...callResults, ...commResults]
+      const allEvents = [...callResults, ...inboundOnlyResults, ...commResults]
         .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
 
-      res.json(allEvents);
+      return allEvents;
+  };
+
+  // 2. Complete Call List Report
+  app.get("/api/campaigns/:id/reports/call-list", requireAuth, async (req, res) => {
+    try {
+      let dateBounds: ReturnType<typeof missionCallListDateBounds>;
+      try {
+        dateBounds = missionCallListDateBounds(req.query.dateFrom, req.query.dateTo);
+      } catch (error) {
+        return res.status(400).json({
+          error: error instanceof Error ? error.message : "dateFrom and dateTo must be valid YYYY-MM-DD dates",
+        });
+      }
+      const events = await getCampaignCallListEvents(req.params.id, {
+        dateBounds,
+        agentId: req.query.agentId as string | undefined,
+        direction: req.query.direction as string | undefined,
+        status: req.query.status as string | undefined,
+      });
+      res.json(events);
     } catch (error) {
       console.error("Failed to get call list:", error);
       res.status(500).json({ error: "Failed to get call list" });
@@ -28487,7 +28658,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   // Export campaign report as CSV or XLSX
   app.post("/api/campaigns/:id/reports/export", requireAuth, async (req, res) => {
     try {
-      const { reportType, format: exportFormat, dateFrom, dateTo, agentId, direction, groupBy: exportGroupBy } = req.body;
+      const { reportType, format: exportFormat, dateFrom, dateTo, agentId, direction, status, groupBy: exportGroupBy } = req.body;
       const campaignId = req.params.id;
 
       const campaign = await storage.getCampaign(campaignId);
@@ -28632,51 +28803,14 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
       } else if (reportType === 'call-list') {
         sheetName = 'Call List';
-        const conditions: any[] = [eq(callLogs.campaignId, campaignId)];
-        if (dateFrom) conditions.push(gte(callLogs.startedAt, new Date(dateFrom)));
-        if (dateTo) {
-          const endDCLE = new Date(dateTo); endDCLE.setHours(23, 59, 59, 999);
-          conditions.push(lte(callLogs.startedAt, endDCLE));
-        }
-        if (agentId && agentId !== 'all') conditions.push(eq(callLogs.userId, agentId));
-        if (direction === 'inbound' || direction === 'outbound') conditions.push(eq(callLogs.direction, direction));
-        const logs = await db.select().from(callLogs).where(and(...conditions)).orderBy(desc(callLogs.startedAt));
-        const allUsers = await db.select().from(users);
-        const userMap = new Map(allUsers.map(u => [u.id, u]));
-        const allCustomers = await db.select().from(customers);
-        const customerMap = new Map(allCustomers.map(c => [c.id, c]));
-        const contacts = await db.select().from(campaignContacts).where(eq(campaignContacts.campaignId, campaignId));
-        const contactByCustomer = new Map(contacts.map(c => [c.customerId, c]));
-
-        reportData = logs.map(log => {
-          const user = userMap.get(log.userId);
-          const customer = log.customerId ? customerMap.get(log.customerId) : null;
-          const contact = log.customerId ? contactByCustomer.get(log.customerId) : null;
-          const totSecE = diffSeconds(log.startedAt, log.endedAt);
-          let ringSecE = 0, talkSecE = 0;
-          if (log.answeredAt) {
-            ringSecE = diffSeconds(log.startedAt, log.answeredAt);
-            talkSecE = diffSeconds(log.answeredAt, log.endedAt);
-          } else if (log.status === 'completed' && totSecE > 0) {
-            talkSecE = totSecE;
-          }
-          return {
-            Agent: user?.fullName || user?.username || log.userId,
-            Customer: customer ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() : '',
-            'Phone Number': log.phoneNumber,
-            Direction: log.direction,
-            Status: log.status,
-            'Started At': log.startedAt ? new Date(log.startedAt).toLocaleString() : '',
-            'Answered At': log.answeredAt ? new Date(log.answeredAt).toLocaleString() : '',
-            'Ended At': log.endedAt ? new Date(log.endedAt).toLocaleString() : '',
-            'Ring Time': formatDuration(ringSecE),
-            'Talk Time': formatDuration(talkSecE),
-            'Total Duration': formatDuration(totSecE),
-            Disposition: contact?.dispositionCode || '',
-            'Hung Up By': log.hungUpBy || '',
-            Notes: log.notes || '',
-          };
+        const dateBounds = missionCallListDateBounds(dateFrom, dateTo);
+        const events = await getCampaignCallListEvents(campaignId, {
+          dateBounds,
+          agentId: agentId as string | undefined,
+          direction: direction as string | undefined,
+          status: status as string | undefined,
         });
+        reportData = campaignCallListEventsToExportRows(events);
 
       } else if (reportType === 'call-analysis') {
         sheetName = 'Call Analysis';
@@ -28716,6 +28850,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       }
     } catch (error) {
       console.error("Failed to export campaign report:", error);
+      if (error instanceof Error && error.message.endsWith("must be a valid YYYY-MM-DD date")) {
+        return res.status(400).json({ error: error.message });
+      }
       res.status(500).json({ error: "Failed to export campaign report" });
     }
   });
@@ -28730,7 +28867,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
   app.post("/api/campaigns/:id/reports/send-email", internalOrAuth, async (req, res) => {
     try {
-      const { reportType, recipientEmail, recipientEmails, dateFrom, dateTo, agentId, direction, groupBy: emailGroupBy } = req.body;
+      const { reportType, recipientEmail, recipientEmails, dateFrom, dateTo, agentId, direction, status, groupBy: emailGroupBy } = req.body;
       const campaignId = req.params.id;
 
       const allRecipients: string[] = [];
@@ -28858,41 +28995,14 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         });
       } else if (reportType === 'call-list') {
         sheetName = 'Call List';
-        const conditions: any[] = [eq(callLogs.campaignId, campaignId)];
-        if (dateFrom) conditions.push(gte(callLogs.startedAt, new Date(dateFrom)));
-        if (dateTo) {
-          const endDCL2 = new Date(dateTo); endDCL2.setHours(23, 59, 59, 999);
-          conditions.push(lte(callLogs.startedAt, endDCL2));
-        }
-        if (agentId && agentId !== 'all') conditions.push(eq(callLogs.userId, agentId));
-        if (direction === 'inbound' || direction === 'outbound') conditions.push(eq(callLogs.direction, direction));
-        const logs = await db.select().from(callLogs).where(and(...conditions)).orderBy(desc(callLogs.startedAt));
-        const allUsers = await db.select().from(users);
-        const userMap = new Map(allUsers.map(u => [u.id, u]));
-        const allCustomers = await db.select().from(customers);
-        const customerMap = new Map(allCustomers.map(c => [c.id, c]));
-        reportData = logs.map(log => {
-          const user = userMap.get(log.userId);
-          const customer = log.customerId ? customerMap.get(log.customerId) : null;
-          const totSecM = diffSeconds(log.startedAt, log.endedAt);
-          let ringSecM = 0, talkSecM = 0;
-          if (log.answeredAt) {
-            ringSecM = diffSeconds(log.startedAt, log.answeredAt);
-            talkSecM = diffSeconds(log.answeredAt, log.endedAt);
-          } else if (log.status === 'completed' && totSecM > 0) {
-            talkSecM = totSecM;
-          }
-          return {
-            Agent: user?.fullName || user?.username || log.userId,
-            Customer: customer ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() : '',
-            'Phone Number': log.phoneNumber, Direction: log.direction, Status: log.status,
-            'Started At': log.startedAt ? new Date(log.startedAt).toLocaleString() : '',
-            'Ring Time': formatDuration(ringSecM),
-            'Talk Time': formatDuration(talkSecM),
-            'Total Duration': formatDuration(totSecM),
-            Notes: log.notes || '',
-          };
+        const dateBounds = missionCallListDateBounds(dateFrom, dateTo);
+        const events = await getCampaignCallListEvents(campaignId, {
+          dateBounds,
+          agentId: agentId as string | undefined,
+          direction: direction as string | undefined,
+          status: status as string | undefined,
         });
+        reportData = campaignCallListEventsToExportRows(events);
       } else if (reportType === 'call-analysis') {
         sheetName = 'Call Analysis';
         const analysis = await getExactCampaignCallAnalysis(campaignId, { dateFrom, dateTo, agentId });
@@ -29011,6 +29121,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       }
     } catch (error) {
       console.error("Failed to send campaign report email:", error);
+      if (error instanceof Error && error.message.endsWith("must be a valid YYYY-MM-DD date")) {
+        return res.status(400).json({ error: error.message });
+      }
       res.status(500).json({ error: "Failed to generate and send report" });
     }
   });
@@ -37616,17 +37729,8 @@ Respond ONLY with valid JSON in this exact format:
     destination: (req, file, cb) => {
       cb(null, STORAGE_PATHS.callRecordings);
     },
-    filename: (req, file, cb) => {
-      const sanitize = (s: string) => (s || "").replace(/[^a-zA-Z0-9áčďéíľĺňóôŕšťúýžÁČĎÉÍĽĹŇÓÔŔŠŤÚÝŽ_-]/g, "_").substring(0, 50);
-      const customerName = sanitize(req.body.customerName || "neznamy_klient");
-      const agentName = sanitize(req.body.agentName || "agent");
-      const campaignName = sanitize(req.body.campaignName || "bez_kampane");
-      const now = new Date();
-      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
-      const timeStr = now.toISOString().slice(11, 19).replace(/:/g, "");
-      const ext = file.mimetype === "audio/webm" ? "webm" : file.mimetype === "audio/ogg" ? "ogg" : "webm";
-      const filename = `${customerName}_${dateStr}_${timeStr}_${campaignName}_${agentName}.${ext}`;
-      cb(null, filename);
+    filename: (_req, file, cb) => {
+      cb(null, createCallRecordingUploadFilename(file.mimetype));
     },
   });
 
@@ -37993,146 +38097,260 @@ Rules:
   }
 
   app.post("/api/call-recordings", requireAuth, uploadRecording.single("recording"), async (req, res) => {
+    const uploadCleanup = createCallRecordingUploadCleanup(filePath => {
+      try {
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      } catch (error) {
+        console.warn("[Recording] Could not remove rejected upload tempfile:", error);
+      }
+    });
+    if (req.file?.path) uploadCleanup.track(req.file.path);
     try {
       const user = req.session.user;
       if (!user) return res.status(401).json({ error: "Not authenticated" });
 
       if (!req.file) return res.status(400).json({ error: "No recording file uploaded" });
 
-      const { callLogId, customerId, campaignId, customerName, agentName, campaignName, phoneNumber, durationSeconds, direction, inboundQueueId, inboundQueueName } = req.body;
+      const {
+        callLogId,
+        phoneNumber,
+        durationSeconds,
+        direction,
+        inboundQueueId,
+        inboundQueueName,
+      } = req.body;
 
       if (!callLogId) return res.status(400).json({ error: "callLogId is required" });
-      const discardUpload = () => {
-        try { if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); } catch {}
-      };
-      const [callLog] = await db.select().from(callLogs).where(eq(callLogs.id, String(callLogId))).limit(1);
-      if (!callLog) {
-        discardUpload();
-        return res.status(404).json({ error: "Call log not found" });
-      }
-      if (callLog.userId !== user.id && !["admin", "manager"].includes(user.role)) {
-        discardUpload();
-        return res.status(403).json({ error: "Access denied" });
-      }
-      if (!["admin", "manager"].includes(user.role) && callLog.userId !== user.id) {
-        discardUpload();
-        return res.status(403).json({ error: "Access denied" });
-      }
-      // Campaign identity and policy always come from the call log, never multipart
-      // fields supplied by the browser.
-      const effectiveCampaignId = callLog.campaignId || null;
-      let recordingSnapshot: MissionCallRecordingSnapshot | null = null;
-      if (effectiveCampaignId) {
-        try {
-          const metadata = callLog.metadata ? JSON.parse(callLog.metadata) : {};
-          recordingSnapshot = metadata?.recordingPolicySnapshot || null;
-        } catch {}
-        if (!recordingSnapshot || !recordingSnapshot.active) {
-          discardUpload();
-          return res.status(403).json({ error: "Recording was not authorized when this call started" });
+      const result = await db.transaction(async tx => {
+        // Serialize uploads for the same call before checking for an existing
+        // recording. A retry must never replace an earlier audio file.
+        const [callLog] = await tx.select().from(callLogs)
+          .where(eq(callLogs.id, String(callLogId)))
+          .for("update");
+        if (!callLog) return { status: 404 as const, error: "Call log not found" };
+        if (callLog.userId !== user.id && !["admin", "manager"].includes(user.role)) {
+          return { status: 403 as const, error: "Access denied" };
         }
-        if (recordingSnapshot.mode === "agent_only") {
-          discardUpload();
-          return res.status(403).json({ error: "Agent-only recordings must use trusted server capture" });
+        if (!["admin", "manager"].includes(user.role) && callLog.userId !== user.id) {
+          return { status: 403 as const, error: "Access denied" };
         }
-      }
-      let customerActivitySegments: Array<{ startSeconds: number; endSeconds: number }> | null = null;
-      if (recordingSnapshot?.mode === "agent_only" && req.body.customerActivitySegments !== undefined) {
-        try {
-          const parsed = typeof req.body.customerActivitySegments === "string"
-            ? JSON.parse(req.body.customerActivitySegments) : req.body.customerActivitySegments;
-          if (!Array.isArray(parsed) || parsed.length > 1000 || parsed.some(segment =>
-            !segment || typeof segment !== "object" || Array.isArray(segment) ||
-            !Number.isFinite(segment.startedAtMs) || !Number.isFinite(segment.endedAtMs) ||
-            segment.endedAtMs < segment.startedAtMs
-          )) {
-            throw new Error("invalid segments");
+
+        const [existingRecording] = await tx.select({ id: callRecordings.id })
+          .from(callRecordings)
+          .where(eq(callRecordings.callLogId, callLog.id))
+          .limit(1);
+        if (callRecordingUploadConflict(existingRecording?.id)) {
+          return { status: 409 as const, error: "A recording already exists for this call" };
+        }
+
+        const effectiveCampaignId = callLog.campaignId || null;
+        const effectiveCampaignContactId = callLog.campaignContactId || null;
+        const [campaignContact] = effectiveCampaignContactId
+          ? await tx.select({
+              id: campaignContacts.id,
+              campaignId: campaignContacts.campaignId,
+              contactType: campaignContacts.contactType,
+              customerId: campaignContacts.customerId,
+              clinicId: campaignContacts.clinicId,
+              hospitalId: campaignContacts.hospitalId,
+              collaboratorId: campaignContacts.collaboratorId,
+            }).from(campaignContacts)
+              .where(eq(campaignContacts.id, effectiveCampaignContactId))
+              .limit(1)
+          : [undefined];
+
+        const candidateEntityIds = Array.from(new Set([
+          callLog.customerId,
+          campaignContact?.customerId,
+          campaignContact?.clinicId,
+          campaignContact?.hospitalId,
+          campaignContact?.collaboratorId,
+        ].filter((id): id is string => !!id)));
+        const [
+          customerRows,
+          clinicRows,
+          hospitalRows,
+          collaboratorRows,
+          campaign,
+          recordingAgent,
+          inboundQueue,
+        ] = await Promise.all([
+          candidateEntityIds.length
+            ? tx.select({ id: customers.id, firstName: customers.firstName, lastName: customers.lastName })
+                .from(customers).where(inArray(customers.id, candidateEntityIds))
+            : Promise.resolve([]),
+          candidateEntityIds.length
+            ? tx.select({ id: clinics.id, name: clinics.name })
+                .from(clinics).where(inArray(clinics.id, candidateEntityIds))
+            : Promise.resolve([]),
+          candidateEntityIds.length
+            ? tx.select({ id: hospitals.id, name: hospitals.name, fullName: hospitals.fullName })
+                .from(hospitals).where(inArray(hospitals.id, candidateEntityIds))
+            : Promise.resolve([]),
+          candidateEntityIds.length
+            ? tx.select({ id: collaborators.id, firstName: collaborators.firstName, lastName: collaborators.lastName })
+                .from(collaborators).where(inArray(collaborators.id, candidateEntityIds))
+            : Promise.resolve([]),
+          effectiveCampaignId
+            ? tx.select({ name: campaigns.name, countryCodes: campaigns.countryCodes })
+                .from(campaigns).where(eq(campaigns.id, effectiveCampaignId)).limit(1).then(rows => rows[0])
+            : Promise.resolve(undefined),
+          tx.select({ id: users.id, fullName: users.fullName, username: users.username })
+            .from(users).where(eq(users.id, callLog.userId)).limit(1).then(rows => rows[0]),
+          callLog.inboundQueueId
+            ? tx.select({ countryCode: inboundQueues.countryCode })
+                .from(inboundQueues).where(eq(inboundQueues.id, callLog.inboundQueueId)).limit(1).then(rows => rows[0])
+            : Promise.resolve(undefined),
+        ]);
+
+        const entities: CallRecordingEntity[] = [
+          ...customerRows.map(row => ({
+            id: row.id,
+            type: "customer" as const,
+            name: `${row.firstName || ""} ${row.lastName || ""}`.trim() || null,
+          })),
+          ...clinicRows.map(row => ({ id: row.id, type: "clinic" as const, name: row.name })),
+          ...hospitalRows.map(row => ({
+            id: row.id,
+            type: "hospital" as const,
+            name: row.fullName || row.name,
+          })),
+          ...collaboratorRows.map(row => ({
+            id: row.id,
+            type: "collaborator" as const,
+            name: `${row.firstName || ""} ${row.lastName || ""}`.trim() || null,
+          })),
+        ];
+        const customerIdentity = resolveCallRecordingCustomer({
+          callLogCustomerId: callLog.customerId || null,
+          callLogCampaignId: effectiveCampaignId,
+          callLogCampaignContactId: effectiveCampaignContactId,
+          campaignContact: campaignContact || null,
+          entities,
+        });
+        const countryCode = campaign?.countryCodes?.[0] || inboundQueue?.countryCode || null;
+        if (!callRecordingPhoneMatches(callLog.phoneNumber, phoneNumber, countryCode)) {
+          return { status: 409 as const, error: "Recording phone does not match the selected call" };
+        }
+
+        // Campaign identity and recording policy are call-time values from the
+        // locked call log. Never trust multipart display/identity fields.
+        let recordingSnapshot: MissionCallRecordingSnapshot | null = null;
+        if (effectiveCampaignId) {
+          try {
+            const metadata = callLog.metadata ? JSON.parse(callLog.metadata) : {};
+            recordingSnapshot = metadata?.recordingPolicySnapshot || null;
+          } catch {}
+          if (!recordingSnapshot || !recordingSnapshot.active) {
+            return { status: 403 as const, error: "Recording was not authorized when this call started" };
           }
-          const baseTime = (callLog.answeredAt || callLog.startedAt).getTime();
-          const maxDuration = Math.max(0, Number(durationSeconds) || callLog.durationSeconds || 0);
-          customerActivitySegments = parsed.map(segment => ({
-            startSeconds: Math.max(0, (segment.startedAtMs - baseTime) / 1000),
-            endSeconds: Math.max(0, (segment.endedAtMs - baseTime) / 1000),
-          })).filter(segment =>
-            segment.endSeconds >= segment.startSeconds &&
-            (!maxDuration || segment.startSeconds <= maxDuration + 5)
-          ).map(segment => ({
-            startSeconds: Number(segment.startSeconds.toFixed(2)),
-            endSeconds: Number(Math.min(segment.endSeconds, maxDuration || segment.endSeconds).toFixed(2)),
-          }));
-        } catch {
-          discardUpload();
-          return res.status(400).json({ error: "Invalid customer activity segments" });
-        }
-      }
-
-      let resolvedCampaignName = campaignName || null;
-      if (!resolvedCampaignName && effectiveCampaignId) {
-        try {
-          const [campaign] = await db.select({ name: campaigns.name }).from(campaigns).where(eq(campaigns.id, effectiveCampaignId));
-          if (campaign?.name) {
-            resolvedCampaignName = campaign.name;
+          if (recordingSnapshot.mode === "agent_only") {
+            return { status: 403 as const, error: "Agent-only recordings must use trusted server capture" };
           }
-        } catch (e) {
-          console.warn("[Recording] Could not resolve campaign name for id:", campaignId);
         }
-      }
 
-      const sanitizeFn = (s: string) => (s || "").replace(/[^a-zA-Z0-9áčďéíľĺňóôŕšťúýžÁČĎÉÍĽĹŇÓÔŔŠŤÚÝŽ_-]/g, "_").substring(0, 50);
-      const now = new Date();
-      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
-      const timeStr = now.toISOString().slice(11, 19).replace(/:/g, "");
-      const extForRename = req.file.mimetype === "audio/ogg" ? "ogg" : "webm";
-      const correctFilename = `${sanitizeFn(customerName || "neznamy_klient")}_${dateStr}_${timeStr}_${sanitizeFn(resolvedCampaignName || "bez_kampane")}_${sanitizeFn(agentName || "agent")}.${extForRename}`;
-
-      if (req.file.filename !== correctFilename) {
-        const oldPath = req.file.path;
-        const newPath = path.join(path.dirname(oldPath), correctFilename);
-        try {
-          const fsSync = await import("fs");
-          fsSync.renameSync(oldPath, newPath);
-          req.file.filename = correctFilename;
-          req.file.path = newPath;
-        } catch (e) {
-          console.warn("[Recording] Could not rename file:", e);
+        let customerActivitySegments: Array<{ startSeconds: number; endSeconds: number }> | null = null;
+        if (recordingSnapshot?.mode === "agent_only" && req.body.customerActivitySegments !== undefined) {
+          try {
+            const parsed = typeof req.body.customerActivitySegments === "string"
+              ? JSON.parse(req.body.customerActivitySegments) : req.body.customerActivitySegments;
+            if (!Array.isArray(parsed) || parsed.length > 1000 || parsed.some(segment =>
+              !segment || typeof segment !== "object" || Array.isArray(segment) ||
+              !Number.isFinite(segment.startedAtMs) || !Number.isFinite(segment.endedAtMs) ||
+              segment.endedAtMs < segment.startedAtMs
+            )) {
+              throw new Error("invalid segments");
+            }
+            const baseTime = (callLog.answeredAt || callLog.startedAt).getTime();
+            const maxDuration = Math.max(0, Number(durationSeconds) || callLog.durationSeconds || 0);
+            customerActivitySegments = parsed.map(segment => ({
+              startSeconds: Math.max(0, (segment.startedAtMs - baseTime) / 1000),
+              endSeconds: Math.max(0, (segment.endedAtMs - baseTime) / 1000),
+            })).filter(segment =>
+              segment.endSeconds >= segment.startSeconds &&
+              (!maxDuration || segment.startSeconds <= maxDuration + 5)
+            ).map(segment => ({
+              startSeconds: Number(segment.startSeconds.toFixed(2)),
+              endSeconds: Number(Math.min(segment.endSeconds, maxDuration || segment.endSeconds).toFixed(2)),
+            }));
+          } catch {
+            return { status: 400 as const, error: "Invalid customer activity segments" };
+          }
         }
+
+        const campaignName = campaign?.name || null;
+        const agentName = recordingAgent?.fullName || recordingAgent?.username || null;
+        const sanitizeFn = (value: string | null) => (value || "")
+          .replace(/[^a-zA-Z0-9áčďéíľĺňóôŕšťúýžÁČĎÉÍĽĹŇÓÔŔŠŤÚÝŽ_-]/g, "_")
+          .substring(0, 50);
+        const now = new Date();
+        const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
+        const timeStr = now.toISOString().slice(11, 19).replace(/:/g, "");
+        const extForRename = req.file!.mimetype === "audio/ogg" ? "ogg" : "webm";
+        const uniqueSuffix = crypto.randomUUID();
+        const filename = [
+          sanitizeFn(customerIdentity.customerName) || "neznamy_klient",
+          dateStr,
+          timeStr,
+          sanitizeFn(campaignName) || "bez_kampane",
+          sanitizeFn(agentName) || "agent",
+          callLog.id.replace(/[^a-zA-Z0-9_-]/g, "_"),
+          uniqueSuffix,
+        ].join("_") + `.${extForRename}`;
+        const recordingPath = path.join(path.dirname(req.file!.path), filename);
+        const fsSync = await import("fs");
+        // linkSync fails with EEXIST rather than replacing an older audio file
+        // if a generated destination name ever collides.
+        fsSync.linkSync(req.file!.path, recordingPath);
+        uploadCleanup.track(recordingPath);
+        fsSync.unlinkSync(req.file!.path);
+        req.file!.filename = filename;
+        req.file!.path = recordingPath;
+
+        const recordingData = {
+          callLogId: callLog.id,
+          userId: callLog.userId,
+          customerId: customerIdentity.customerId,
+          campaignId: effectiveCampaignId,
+          filename,
+          filePath: recordingPath,
+          mimeType: req.file!.mimetype,
+          fileSizeBytes: req.file!.size,
+          durationSeconds: durationSeconds ? parseInt(durationSeconds) : null,
+          customerName: customerIdentity.customerName,
+          agentName,
+          campaignName,
+          phoneNumber: callLog.phoneNumber || null,
+          analysisStatus: "pending",
+          direction: callLog.direction || "outbound",
+          inboundQueueId: callLog.inboundQueueId || null,
+          inboundQueueName: callLog.inboundQueueName || null,
+          recordingMode: recordingSnapshot?.mode || null,
+          recordingPolicySnapshot: recordingSnapshot,
+          customerActivitySegments,
+        };
+
+        const [recording] = await tx.insert(callRecordings).values(recordingData).returning();
+        return { status: 201 as const, recording, recordingPath };
+      });
+
+      if (result.status !== 201) {
+        return res.status(result.status).json({ error: result.error });
       }
-
-      const recordingData = {
-        callLogId: String(callLogId),
-        userId: user.id,
-        customerId: callLog.customerId || customerId || null,
-        campaignId: effectiveCampaignId,
-        filename: req.file.filename,
-        filePath: req.file.path,
-        mimeType: req.file.mimetype,
-        fileSizeBytes: req.file.size,
-        durationSeconds: durationSeconds ? parseInt(durationSeconds) : null,
-        customerName: customerName || null,
-        agentName: agentName || null,
-        campaignName: resolvedCampaignName,
-        phoneNumber: callLog.phoneNumber || phoneNumber || null,
-        analysisStatus: "pending",
-        direction: callLog.direction || direction || "outbound",
-        inboundQueueId: callLog.inboundQueueId || inboundQueueId || null,
-        inboundQueueName: callLog.inboundQueueName || inboundQueueName || null,
-        recordingMode: recordingSnapshot?.mode || null,
-        recordingPolicySnapshot: recordingSnapshot,
-        customerActivitySegments,
-      };
-
-      const [recording] = await db.insert(callRecordings).values(recordingData).returning();
+      uploadCleanup.markPersisted();
 
       if (process.env.OPENAI_API_KEY) {
-        processCallRecordingAnalysis(recording.id, req.file!.path).catch(err => {
+        processCallRecordingAnalysis(result.recording.id, result.recordingPath).catch(err => {
           console.error(`[CallAnalysis] Background processing failed:`, err.message);
         });
       }
 
-      res.status(201).json(recording);
+      res.status(201).json(result.recording);
     } catch (error: any) {
       console.error("Failed to upload call recording:", error);
-      res.status(500).json({ error: error.message || "Failed to upload recording" });
+      res.status(500).json({ error: "Failed to upload recording" });
+    } finally {
+      uploadCleanup.cleanup();
     }
   });
 

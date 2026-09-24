@@ -18,7 +18,7 @@ export interface CallInfo {
   outboundTrunk?: OutboundTrunkSelection;
   outboundCallerId?: string;
   direction: "inbound" | "outbound";
-  callLogId?: number;
+  callLogId?: string | number;
   leadScore?: number;
   clientStatus?: string;
   recordingSnapshot?: MissionCallRecordingSnapshot;

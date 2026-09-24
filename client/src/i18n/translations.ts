@@ -6540,6 +6540,8 @@ export interface Translations {
     reports: string;
     inbound: string;
     outbound: string;
+    forwardedCall: string;
+    forwardedCallAccessible: string;
     campaign: string;
     backToCampaign: string;
     emailSubject: string;
@@ -15363,6 +15365,8 @@ export const translations: Record<Locale, Translations> = {
       reports: 'Reports',
       inbound: 'Inbound',
       outbound: 'Outbound',
+      forwardedCall: 'Forwarded',
+      forwardedCallAccessible: 'Forwarded call',
       campaign: 'Mission',
       backToCampaign: 'Back to Mission',
       emailSubject: 'Mission Report',
@@ -22971,6 +22975,8 @@ export const translations: Record<Locale, Translations> = {
       reports: 'Reporty',
       inbound: 'Prichádzajúci',
       outbound: 'Odchádzajúci',
+      forwardedCall: 'Presmerovaný',
+      forwardedCallAccessible: 'Presmerovaný hovor',
       campaign: 'Misia',
       backToCampaign: 'Späť na misiu',
       emailSubject: 'Report kampane',
@@ -30501,6 +30507,8 @@ export const translations: Record<Locale, Translations> = {
       reports: 'Reporty',
       inbound: 'Příchozí',
       outbound: 'Odchozí',
+      forwardedCall: 'Přesměrovaný',
+      forwardedCallAccessible: 'Přesměrovaný hovor',
       campaign: 'Misia',
       backToCampaign: 'Zpět na misi',
       emailSubject: 'Report kampaně',
@@ -37990,6 +37998,8 @@ export const translations: Record<Locale, Translations> = {
       reports: 'Jelentések',
       inbound: 'Bejövő',
       outbound: 'Kimenő',
+      forwardedCall: 'Átirányított',
+      forwardedCallAccessible: 'Átirányított hívás',
       campaign: 'Misszió',
       backToCampaign: 'Vissza a kampányhoz',
       emailSubject: 'Kampányjelentés',
@@ -45397,6 +45407,8 @@ export const translations: Record<Locale, Translations> = {
       reports: 'Rapoarte',
       inbound: 'Intrare',
       outbound: 'Ieșire',
+      forwardedCall: 'Redirecționat',
+      forwardedCallAccessible: 'Apel redirecționat',
       campaign: 'Misiune',
       backToCampaign: 'Înapoi la campanie',
       emailSubject: 'Raport campanie',
@@ -52805,6 +52817,8 @@ export const translations: Record<Locale, Translations> = {
       reports: 'Report',
       inbound: 'In entrata',
       outbound: 'In uscita',
+      forwardedCall: 'Inoltrata',
+      forwardedCallAccessible: 'Chiamata inoltrata',
       campaign: 'Missione',
       backToCampaign: 'Torna alla missione',
       emailSubject: 'Report campagna',
@@ -60199,6 +60213,8 @@ export const translations: Record<Locale, Translations> = {
       reports: 'Berichte',
       inbound: 'Eingehend',
       outbound: 'Ausgehend',
+      forwardedCall: 'Weitergeleitet',
+      forwardedCallAccessible: 'Weitergeleiteter Anruf',
       campaign: 'Mission',
       backToCampaign: 'Zurück zur Mission',
       emailSubject: 'Kampagnenbericht',

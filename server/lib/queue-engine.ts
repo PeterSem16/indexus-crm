@@ -52,6 +52,7 @@ import {
 import {
   canonicalCampaignId,
   completedCanonicalCallValues,
+  failedQueueForwardHandoffReset,
   inboundQueueForwardedRecordingAllowed,
   canClaimStandingRecordingRecovery,
   isTrustedStandingRecording,
@@ -63,6 +64,10 @@ import {
   claimStandingRecordingForSave,
   loadStandingRecordingRecoveryCandidates,
 } from "./standing-recording-store";
+import {
+  resolveInboundQueueMission,
+  resolveInboundQueueOverflowMission,
+} from "./inbound-queue-mission";
 
 // Agent presence for desk/PJSIP routing is derived from the LIVE Nexus Pulse
 // WebSocket (inboundCallWs). The agent-workspace opens /ws/inbound-calls only while a
@@ -79,6 +84,8 @@ export interface QueuedCall {
   queueId: string;
   customerId: string | null;
   campaignId?: string | null;
+  campaignClassificationConflict?: boolean;
+  campaignClassificationUnverified?: boolean;
   didNumber?: string;
   sourceTrunk?: string;
   enteredAt: Date;
@@ -112,6 +119,8 @@ interface PendingAgentCall {
   queueName: string;
   enteredAt: Date;
   campaignId?: string | null;
+  campaignClassificationConflict?: boolean;
+  campaignClassificationUnverified?: boolean;
 }
 
 interface AssignedCall {
@@ -634,17 +643,25 @@ export class QueueEngine extends EventEmitter {
 
     // Set INDEXUS_REC_NAME channel variable BEFORE continueDialplan so the dialplan
     // picks it up and runs MixMonitor on the call leg before dialling the external number.
-    let campaignId: string | null = call.campaignId ?? null;
-    let campaignClassificationVerified = !!campaignId;
-    try {
-      const channelCampaignId = await this.ariClient.getChannelVarStrict(call.channelId, "CBC_CAMPAIGN_ID");
-      campaignId = canonicalCampaignId(campaignId, channelCampaignId);
-      campaignClassificationVerified = true;
-    } catch (error) {
-      console.warn(
-        `[QueueForwardedRec] Could not classify call ${call.channelId} as Mission/non-Mission; recording disabled:`,
-        error instanceof Error ? error.message : error,
-      );
+    let campaignId: string | null = call.campaignClassificationConflict || call.campaignClassificationUnverified
+      ? null
+      : call.campaignId ?? null;
+    let campaignClassificationVerified = !call.campaignClassificationConflict && !call.campaignClassificationUnverified;
+    if (call.campaignClassificationConflict || call.campaignClassificationUnverified) {
+      console.warn(`[QueueForwardedRec] Skipping Mission classification for unverified inbound call ${call.id}`);
+    } else {
+      try {
+        const channelCampaignId = await this.ariClient.getChannelVarStrict(call.channelId, "CBC_CAMPAIGN_ID");
+        campaignId = canonicalCampaignId(campaignId, channelCampaignId);
+        campaignClassificationVerified = true;
+      } catch (error) {
+        campaignId = null;
+        campaignClassificationVerified = false;
+        console.warn(
+          `[QueueForwardedRec] Could not classify call ${call.channelId} as Mission/non-Mission; recording disabled:`,
+          error instanceof Error ? error.message : error,
+        );
+      }
     }
     let recordingSnapshot: MissionCallRecordingSnapshot | null = null;
     if (campaignId) {
@@ -653,10 +670,12 @@ export class QueueEngine extends EventEmitter {
     }
     // The dialplan's plain MixMonitor produces mixed audio. There is no verified
     // directional configuration on this path, so Mission agent-only fails closed.
-    const recordCalls = campaignClassificationVerified && inboundQueueForwardedRecordingAllowed({
+    const recordCalls = campaignClassificationVerified && !call.campaignClassificationConflict &&
+      inboundQueueForwardedRecordingAllowed({
       recordCalls: queue.recordCalls !== false,
       campaignId,
       recordingPolicySnapshot: recordingSnapshot,
+      classificationVerified: campaignClassificationVerified,
     });
     if (campaignId && !recordingSnapshot) {
       console.warn(`[QueueForwardedRec] Mission ${campaignId} could not be resolved; recording disabled`);
@@ -694,13 +713,13 @@ export class QueueEngine extends EventEmitter {
       this.forwardedCallTracking.delete(call.channelId);
       this.directQueueForwardedRoots.delete(call.channelId);
       const endedAt = new Date();
-      await Promise.all([
-        db.update(callLogs).set({ status: "failed", endedAt, durationSeconds: 0 })
-          .where(eq(callLogs.id, canonicalCallLogId)),
-        db.update(inboundCallLogs)
-          .set({ status: "queued", transferredTo: null, assignedAgentId: null })
-          .where(eq(inboundCallLogs.id, call.id)),
-      ]);
+      await db.transaction(async tx => {
+        const [failedAttempt] = await tx.select({ metadata: callLogs.metadata })
+          .from(callLogs).where(eq(callLogs.id, canonicalCallLogId)).for("update");
+        const reset = failedQueueForwardHandoffReset(failedAttempt?.metadata, endedAt);
+        await tx.update(callLogs).set(reset.callLog).where(eq(callLogs.id, canonicalCallLogId));
+        await tx.update(inboundCallLogs).set(reset.inboundCall).where(eq(inboundCallLogs.id, call.id));
+      });
       this.assignedCalls.delete(call.channelId);
       call.position = this.getQueueSize(call.queueId) + 1;
       this.waitingCalls.set(call.channelId, call);
@@ -1389,6 +1408,7 @@ export class QueueEngine extends EventEmitter {
       if (!hasAgents) {
         console.log(`[QueueEngine] No agents logged in for queue "${queue.name}", action: ${noAgentsAction}`);
         const customerId = await this.lookupCustomer(callerNumber);
+        const missionContext = await this.resolveInboundQueueMission(channel.id, queue.id);
         const [noAgentLog] = await db.insert(inboundCallLogs).values({
           queueId: queue.id,
           callerNumber,
@@ -1399,6 +1419,11 @@ export class QueueEngine extends EventEmitter {
           status: "no_agents",
           abandonReason: "no_agents",
           completedAt: new Date(),
+          metadata: {
+            campaignId: missionContext.campaignId,
+            ...(missionContext.conflict ? { campaignClassificationConflict: true } : {}),
+            ...(!missionContext.verified ? { campaignClassificationVerified: false } : {}),
+          },
         } as any).returning();
         this.emit("call-abandoned", { callId: noAgentLog?.id, queueId: queue.id, callerNumber, callerName, queueName: queue.name, reason: "no_agents" });
         await this.handleNoAgents(channel.id, queue, callerNumber, callerName);
@@ -1484,6 +1509,47 @@ export class QueueEngine extends EventEmitter {
     }
   }
 
+  private async resolveInboundQueueMission(
+    channelId: string,
+    queueId: string,
+  ): Promise<{ campaignId: string | null; conflict: boolean; verified: boolean }> {
+    let queueCampaignId: string | null = null;
+    let queueReadVerified = false;
+    try {
+      const [queue] = await db.select({ campaignId: inboundQueues.campaignId })
+        .from(inboundQueues).where(eq(inboundQueues.id, queueId)).limit(1);
+      queueCampaignId = queue?.campaignId || null;
+      queueReadVerified = true;
+    } catch (error) {
+      console.warn(
+        `[QueueEngine] Could not read inbound queue Mission for ${queueId}; continuing without queue attribution:`,
+        error instanceof Error ? error.message : error,
+      );
+    }
+    let channelCampaignId: string | null;
+    try {
+      channelCampaignId = await this.ariClient.getChannelVarStrict(channelId, "CBC_CAMPAIGN_ID");
+    } catch (error) {
+      console.warn(
+        `[QueueEngine] Could not establish Mission context for inbound call ${channelId}; refusing queue fallback:`,
+        error instanceof Error ? error.message : error,
+      );
+      return { campaignId: null, conflict: false, verified: false };
+    }
+    if (!queueReadVerified) {
+      return { campaignId: null, conflict: false, verified: false };
+    }
+
+    const resolved = resolveInboundQueueMission({
+      queueCampaignId,
+      channelCampaignId,
+    });
+    if (resolved.conflict) {
+      console.warn(`[QueueEngine] Queue/PBX Mission conflict for inbound call ${channelId}; attribution failed closed`);
+    }
+    return { ...resolved, verified: true };
+  }
+
   private async addCallToQueue(
     channelId: string,
     queueId: string,
@@ -1496,20 +1562,14 @@ export class QueueEngine extends EventEmitter {
     // IVR, overflow, and no-agent transfers can enter here without passing through
     // routeCallToQueue. Recover inherited dialplan metadata so those paths do not
     // lose the original O2 DID/trunk identity.
-    const [channelDid, channelSourceTrunk, channelCampaignId] = await Promise.all([
+    const [channelDid, channelSourceTrunk, missionContext] = await Promise.all([
       context.didNumber
         ? Promise.resolve(null)
         : this.ariClient.getChannelVar(channelId, "CBC_DID").catch(() => null),
       context.sourceTrunk
         ? Promise.resolve(null)
         : this.ariClient.getChannelVar(channelId, "CBC_SOURCE_TRUNK").catch(() => null),
-      this.ariClient.getChannelVarStrict(channelId, "CBC_CAMPAIGN_ID").catch(error => {
-        console.warn(
-          `[QueueEngine] Could not establish Mission context for inbound call ${channelId}:`,
-          error instanceof Error ? error.message : error,
-        );
-        return null;
-      }),
+      this.resolveInboundQueueMission(channelId, queueId),
     ]);
     const callContext = {
       didNumber: context.didNumber || resolveInboundDid({ channelVariable: channelDid }) || undefined,
@@ -1526,7 +1586,9 @@ export class QueueEngine extends EventEmitter {
       didNumber: callContext.didNumber || null,
       metadata: {
         sourceTrunk: callContext.sourceTrunk || null,
-        campaignId: channelCampaignId || null,
+        campaignId: missionContext.campaignId,
+        ...(missionContext.conflict ? { campaignClassificationConflict: true } : {}),
+        ...(!missionContext.verified ? { campaignClassificationVerified: false } : {}),
       },
       status: "queued",
       enteredQueueAt,
@@ -1540,7 +1602,9 @@ export class QueueEngine extends EventEmitter {
       callerName,
       queueId,
       customerId,
-      campaignId: channelCampaignId || null,
+      campaignId: missionContext.campaignId,
+      campaignClassificationConflict: missionContext.conflict,
+      campaignClassificationUnverified: !missionContext.verified,
       didNumber: callContext.didNumber,
       sourceTrunk: callContext.sourceTrunk,
       enteredAt: enteredQueueAt,
@@ -3261,6 +3325,8 @@ export class QueueEngine extends EventEmitter {
         queueName: queue.name,
         enteredAt: call.enteredAt,
         campaignId: call.campaignId ?? null,
+        campaignClassificationConflict: call.campaignClassificationConflict,
+        campaignClassificationUnverified: call.campaignClassificationUnverified,
       });
 
       setTimeout(async () => {
@@ -3317,6 +3383,9 @@ export class QueueEngine extends EventEmitter {
       callerName: pending.callerName,
       queueId: pending.queueId,
       customerId: pending.customerId,
+      campaignId: pending.campaignId,
+      campaignClassificationConflict: pending.campaignClassificationConflict,
+      campaignClassificationUnverified: pending.campaignClassificationUnverified,
       didNumber: pending.didNumber,
       sourceTrunk: pending.sourceTrunk,
       enteredAt: originalEnteredAt,
@@ -3495,6 +3564,7 @@ export class QueueEngine extends EventEmitter {
       if (!hasAgents) {
         console.log(`[QueueEngine] No agents logged in (DB check) for queue "${queue.name}", action: ${noAgentsAction}`);
         const customerId = await this.lookupCustomer(callerNumber);
+        const missionContext = await this.resolveInboundQueueMission(channel.id, queue.id);
         const [noAgentLog] = await db.insert(inboundCallLogs).values({
           queueId: queue.id,
           callerNumber,
@@ -3502,7 +3572,12 @@ export class QueueEngine extends EventEmitter {
           customerId: customerId || null,
           ariChannelId: channel.id,
           didNumber,
-          metadata: { sourceTrunk: sourceTrunk || null },
+          metadata: {
+            sourceTrunk: sourceTrunk || null,
+            campaignId: missionContext.campaignId,
+            ...(missionContext.conflict ? { campaignClassificationConflict: true } : {}),
+            ...(!missionContext.verified ? { campaignClassificationVerified: false } : {}),
+          },
           status: "no_agents",
           abandonReason: "no_agents",
           completedAt: new Date(),
@@ -4149,6 +4224,9 @@ export class QueueEngine extends EventEmitter {
           waitDuration,
           queueName: queue.name,
           enteredAt: call.enteredAt,
+          campaignId: call.campaignId ?? null,
+          campaignClassificationConflict: call.campaignClassificationConflict,
+          campaignClassificationUnverified: call.campaignClassificationUnverified,
         });
       } catch (err: any) {
         console.error(`[QueueEngine] RING-ALL: Failed to originate to ${agentUser.fullName}:`, err.message);
@@ -4340,6 +4418,9 @@ export class QueueEngine extends EventEmitter {
         waitDuration,
         queueName: queue.name,
         enteredAt: call.enteredAt,
+        campaignId: call.campaignId ?? null,
+        campaignClassificationConflict: call.campaignClassificationConflict,
+        campaignClassificationUnverified: call.campaignClassificationUnverified,
       });
 
       setTimeout(async () => {
@@ -4414,6 +4495,9 @@ export class QueueEngine extends EventEmitter {
     recordCalls: boolean;
   }> {
     const campaignId = call.campaignId || null;
+    if (call.campaignClassificationConflict || call.campaignClassificationUnverified) {
+      return { campaignId: null, recordingSnapshot: null, recordCalls: false };
+    }
     if (!campaignId) {
       return {
         campaignId: null,
@@ -5111,6 +5195,9 @@ export class QueueEngine extends EventEmitter {
               callerName: pending.callerName,
               queueId: pending.queueId,
               customerId: pending.customerId,
+              campaignId: pending.campaignId,
+              campaignClassificationConflict: pending.campaignClassificationConflict,
+              campaignClassificationUnverified: pending.campaignClassificationUnverified,
               enteredAt: pending.enteredAt,
               position: this.getQueueSize(pending.queueId) + 1,
               originateFailures: 0,
@@ -5154,6 +5241,9 @@ export class QueueEngine extends EventEmitter {
         callerName: pending.callerName,
         queueId: pending.queueId,
         customerId: pending.customerId,
+        campaignId: pending.campaignId,
+        campaignClassificationConflict: pending.campaignClassificationConflict,
+        campaignClassificationUnverified: pending.campaignClassificationUnverified,
         enteredAt: originalEnteredAt,
         position: this.getQueueSize(pending.queueId) + 1,
         originateFailures: prevFailures,
@@ -5495,6 +5585,8 @@ export class QueueEngine extends EventEmitter {
         callId: waitingCall?.id || `transfer-${Date.now()}`,
         queueId: queue.id,
         campaignId: waitingCall?.campaignId ?? null,
+        campaignClassificationConflict: waitingCall?.campaignClassificationConflict,
+        campaignClassificationUnverified: waitingCall?.campaignClassificationUnverified,
         callerNumber,
         callerName: waitingCall?.callerName || "",
         customerId: null,
@@ -5554,39 +5646,89 @@ export class QueueEngine extends EventEmitter {
             const call = this.waitingCalls.get(channelId) || preservedCall;
             if (call) {
               const oldQueueId = call.queueId;
-              this.waitingCalls.delete(channelId);
-              this.lastAnnouncementTime.delete(channelId);
-              this.recalculatePositions(oldQueueId);
-              call.queueId = queue.overflowTarget;
-              call.position = this.getQueueSize(queue.overflowTarget) + 1;
+              const [targetQueue] = await db.select({
+                id: inboundQueues.id,
+                name: inboundQueues.name,
+                campaignId: inboundQueues.campaignId,
+              }).from(inboundQueues).where(eq(inboundQueues.id, queue.overflowTarget)).limit(1);
+              if (!targetQueue) throw new Error(`overflow target queue ${queue.overflowTarget} was not found`);
+
+              let channelCampaignId: string | null = null;
+              let targetClassificationVerified = true;
+              try {
+                channelCampaignId = await this.ariClient.getChannelVarStrict(channelId, "CBC_CAMPAIGN_ID");
+              } catch (error) {
+                targetClassificationVerified = false;
+                console.warn(
+                  `[QueueEngine] Could not verify Mission during queue overflow for ${channelId}; preserving source attribution and disabling recording:`,
+                  error instanceof Error ? error.message : error,
+                );
+              }
+              const missionContext = resolveInboundQueueOverflowMission({
+                sourceCampaignId: call.campaignId,
+                sourceConflict: call.campaignClassificationConflict,
+                sourceUnverified: call.campaignClassificationUnverified,
+                targetQueueCampaignId: targetQueue.campaignId,
+                channelCampaignId,
+                targetClassificationVerified,
+              });
+              if (missionContext.conflict) {
+                console.warn(
+                  `[QueueEngine] Queue overflow Mission conflicts with source call ${call.id}; keeping source Mission and disabling recording`,
+                );
+              }
+
+              const requeuedPosition = this.getQueueSize(queue.overflowTarget) + 1;
               const requeuedAt = new Date();
               const [requeued] = await db.update(inboundCallLogs)
                 .set({
                   queueId: queue.overflowTarget,
                   status: "queued",
                   enteredQueueAt: requeuedAt,
-                  queuePosition: call.position,
+                  queuePosition: requeuedPosition,
                   assignedAgentId: null,
                   answeredAt: null,
                   completedAt: null,
                   abandonReason: null,
                   waitDurationSeconds: 0,
                   talkDurationSeconds: 0,
+                  metadata: sql`COALESCE(${inboundCallLogs.metadata}, '{}'::jsonb) || ${JSON.stringify({
+                    campaignId: missionContext.campaignId,
+                    campaignClassificationConflict: missionContext.conflict,
+                    campaignClassificationUnverified: missionContext.unverified,
+                    campaignClassificationVerified: !missionContext.unverified,
+                  })}::jsonb`,
                 })
                 .where(and(
                   eq(inboundCallLogs.id, call.id),
                   eq(inboundCallLogs.status, "timeout"),
+                  eq(inboundCallLogs.queueId, oldQueueId),
                 ))
                 .returning({ id: inboundCallLogs.id });
               if (!requeued) {
                 throw new Error(`queue overflow return failed for call ${call.id}`);
               }
+
+              // Update process-local state only after the durable queue and
+              // Mission transition has succeeded; an update failure must not
+              // leave the caller attributed to a queue it never entered.
+              call.campaignId = missionContext.campaignId;
+              call.campaignClassificationConflict = missionContext.conflict;
+              call.campaignClassificationUnverified = missionContext.unverified;
+              call.queueId = queue.overflowTarget;
+              call.position = requeuedPosition;
               call.enteredAt = requeuedAt;
+              this.waitingCalls.delete(channelId);
+              this.lastAnnouncementTime.delete(channelId);
+              this.recalculatePositions(oldQueueId);
               this.waitingCalls.set(channelId, call);
-              await this.startMohForChannel(channelId, queue.overflowTarget);
+              await this.startMohForChannel(channelId, targetQueue.id);
             } else {
               const customerId = await this.lookupCustomer(callerNumber);
-              const [targetQueue] = await db.select().from(inboundQueues).where(eq(inboundQueues.id, queue.overflowTarget)).limit(1);
+              const [targetQueue] = await db.select({
+                id: inboundQueues.id,
+                name: inboundQueues.name,
+              }).from(inboundQueues).where(eq(inboundQueues.id, queue.overflowTarget)).limit(1);
               const targetName = targetQueue?.name || queue.name;
               await this.addCallToQueue(channelId, queue.overflowTarget, targetName, callerNumber, callerName, customerId);
               await this.startMohForChannel(channelId, queue.overflowTarget);

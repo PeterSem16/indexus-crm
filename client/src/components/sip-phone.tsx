@@ -4,6 +4,19 @@ import { UserAgent, Registerer, RegistererState, Inviter, Session, SessionState 
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient, getQueryFn } from "@/lib/queryClient";
 import {
+  appendCallRecordingChunk,
+  bindCallRecordingLog,
+  createSequentialCallLogPatchQueue,
+  createCallRecordingBinding,
+  isCurrentCallSession,
+  recordingBindingMatchesCall,
+  resolveForceResetCallLogId,
+  resolveSessionRecordingAuthority,
+  type CallRecordingBinding,
+  type CallRecordingIdentity,
+  type SessionCallRecordingAuthority,
+} from "@/lib/call-recording-identity";
+import {
   endSessionBounded,
   holdToggle as sipHoldToggle,
   isHeld as sipIsHeld,
@@ -58,6 +71,19 @@ import { audioRtpDelta, classifyAudioRtpStats, nextMediaFailureAction, shouldAtt
 import { reportVoiceIncident, setVoiceIncidentCallContext } from "@/lib/voice-incident-logger";
 import { isCorrelatedInboundHangup, shouldApplyEstablishedSessionEffects, shouldCancelAfterRingGrace } from "@/lib/sip-session-guards";
 import { classifyOutboundTermination, classifyOutboundTerminationWithDeferredResponse } from "@/lib/sip-outbound-outcome";
+
+type ActiveCallRecording = CallRecordingBinding & {
+  session?: Session;
+  recorder?: MediaRecorder;
+  audioContext?: AudioContext;
+  destination?: MediaStreamAudioDestinationNode;
+  analyserTimer?: ReturnType<typeof setInterval> | null;
+  analyserNodes?: AudioNode[];
+  sourceNodes?: MediaStreamAudioSourceNode[];
+  customerSpeechActive?: boolean;
+  customerSpeechStartedAt?: number | null;
+  vadStartedAt?: number;
+};
 
 function filterSdpCandidates(description: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit> {
   if (!description.sdp) return Promise.resolve(description);
@@ -135,8 +161,8 @@ export interface SipConfig {
 interface SipPhoneProps {
   config?: SipConfig;
   initialNumber?: string;
-  onCallStart?: (number: string, callLogId?: number) => void;
-  onCallEnd?: (duration: number, status: string, callLogId?: number) => void;
+  onCallStart?: (number: string, callLogId?: string | number) => void;
+  onCallEnd?: (duration: number, status: string, callLogId?: string | number) => void;
   compact?: boolean;
   userId?: string;
   customerId?: string;
@@ -176,6 +202,8 @@ export function SipPhone({
   const localOutboundCountryRef = useRef<string | undefined>(undefined);
   const [localCampaignName, setLocalCampaignName] = useState<string | undefined>(undefined);
   const [localCustomerName, setLocalCustomerName] = useState(customerName);
+  const localCampaignNameRef = useRef<string | undefined>(undefined);
+  const localCustomerNameRef = useRef(customerName);
   const [localLeadScore, setLocalLeadScore] = useState<number | undefined>(undefined);
   const [localClientStatus, setLocalClientStatus] = useState<string | undefined>(undefined);
   const [localCallerIdNumber, setLocalCallerIdNumber] = useState<string>("");
@@ -213,8 +241,8 @@ export function SipPhone({
   const [micVolume, setMicVolume] = useState(100);
   const [callDuration, setCallDuration] = useState(0);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
-  const [currentCallLogId, setCurrentCallLogId] = useState<number | null>(null);
-  const currentCallLogIdRef = useRef<number | null>(null);
+  const [currentCallLogId, setCurrentCallLogId] = useState<string | number | null>(null);
+  const currentCallLogIdRef = useRef<string | number | null>(null);
   useEffect(() => {
     currentCallLogIdRef.current = currentCallLogId;
     setVoiceIncidentCallContext(currentCallLogId);
@@ -306,25 +334,41 @@ export function SipPhone({
   } | null>(null);
   const hangupPollRef = useRef<NodeJS.Timeout | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordingChunksRef = useRef<Blob[]>([]);
+  const recordingBindingsBySessionRef = useRef(new WeakMap<object, ActiveCallRecording>());
+  const recordingBindingsByCallLogIdRef = useRef(new Map<string, ActiveCallRecording>());
+  const recordingIdentitiesBySessionRef = useRef(new WeakMap<object, CallRecordingIdentity>());
+  const recordingAuthoritiesBySessionRef = useRef(new WeakMap<object, SessionCallRecordingAuthority>());
   const recordingContextRef = useRef<AudioContext | null>(null);
   const isRecordingRef = useRef<boolean>(false);
   const recordingDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
   const recordingSourceNodesRef = useRef<MediaStreamAudioSourceNode[]>([]);
   const pauseToneNodesRef = useRef<{ oscillators: OscillatorNode[]; gains: GainNode[] } | null>(null);
   const recordingSnapshotRef = useRef<MissionCallRecordingSnapshot | undefined>(undefined);
-  const customerActivitySegmentsRef = useRef<Array<{ startMs: number; endMs: number }>>([]);
-  const customerSpeechStartedAtRef = useRef<number | null>(null);
-  const recordingVadStartedAtRef = useRef(0);
-  const customerSpeechActiveRef = useRef(false);
-  const remoteAnalyserTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const remoteAnalyserNodesRef = useRef<AudioNode[]>([]);
   const recordingPausedRef = useRef(false);
   const trustedAgentRecordingStartAttemptsRef = useRef<Set<string>>(new Set());
   const trustedAgentRecordingStartedRef = useRef<Set<string>>(new Set());
   const trustedAgentRecordingFinalizedRef = useRef<Set<string>>(new Set());
   const callContextRef = useRef(callContext);
   callContextRef.current = callContext;
+
+  const bindSessionRecordingToCallLog = useCallback((session: Session, callLogId: string | number) => {
+    const key = String(callLogId);
+    const authority = recordingAuthoritiesBySessionRef.current.get(session);
+    if (authority?.callLogId && String(authority.callLogId) !== key) {
+      console.error("[Recording] Refusing to bind session authority to another call log");
+      return false;
+    }
+    if (authority) authority.callLogId = callLogId;
+    const binding = recordingBindingsBySessionRef.current.get(session);
+    if (binding) {
+      if (!bindCallRecordingLog(binding, key)) {
+        console.error("[Recording] Refusing to relink a recorder to another call log");
+        return false;
+      }
+      recordingBindingsByCallLogIdRef.current.set(key, binding);
+    }
+    return true;
+  }, []);
 
   useEffect(() => {
     callContextRef.current.setMediaHealth(audioHealth);
@@ -385,7 +429,7 @@ export function SipPhone({
   });
 
   const updateCallLogMutation = useMutation({
-    mutationFn: async ({ id, data, customerId }: { id: number; data: { status?: string; endedAt?: string; answeredAt?: string; duration?: number; durationSeconds?: number; notes?: string; hungUpBy?: string; customerId?: string }; customerId?: string }) => {
+    mutationFn: async ({ id, data, customerId }: { id: string | number; data: { status?: string; endedAt?: string; answeredAt?: string; duration?: number; durationSeconds?: number; notes?: string; hungUpBy?: string; customerId?: string }; customerId?: string }) => {
       const res = await apiRequest("PATCH", `/api/call-logs/${id}`, data);
       return res.json();
     },
@@ -400,60 +444,88 @@ export function SipPhone({
     }
   });
 
-  const cleanupRecordingAnalysis = useCallback(() => {
-    if (remoteAnalyserTimerRef.current) {
-      clearInterval(remoteAnalyserTimerRef.current);
-      remoteAnalyserTimerRef.current = null;
+  const cleanupRecordingAnalysis = useCallback((binding?: ActiveCallRecording) => {
+    const activeBinding = binding || (sessionRef.current
+      ? recordingBindingsBySessionRef.current.get(sessionRef.current)
+      : undefined);
+    if (!activeBinding) return;
+    if (activeBinding.analyserTimer) {
+      clearInterval(activeBinding.analyserTimer);
+      activeBinding.analyserTimer = null;
     }
-    if (customerSpeechActiveRef.current && customerSpeechStartedAtRef.current !== null) {
-      customerActivitySegmentsRef.current.push({
-        startMs: Math.max(0, customerSpeechStartedAtRef.current - recordingVadStartedAtRef.current),
-        endMs: Math.max(0, Date.now() - recordingVadStartedAtRef.current),
+    if (activeBinding.customerSpeechActive && activeBinding.customerSpeechStartedAt !== null && activeBinding.customerSpeechStartedAt !== undefined) {
+      activeBinding.customerActivitySegments.push({
+        startMs: Math.max(0, activeBinding.customerSpeechStartedAt - (activeBinding.vadStartedAt || 0)),
+        endMs: Math.max(0, Date.now() - (activeBinding.vadStartedAt || 0)),
       });
     }
-    customerSpeechActiveRef.current = false;
-    customerSpeechStartedAtRef.current = null;
-    for (const node of remoteAnalyserNodesRef.current) {
+    activeBinding.customerSpeechActive = false;
+    activeBinding.customerSpeechStartedAt = null;
+    for (const node of activeBinding.analyserNodes || []) {
       try { node.disconnect(); } catch {}
     }
-    remoteAnalyserNodesRef.current = [];
+    activeBinding.analyserNodes = [];
   }, []);
 
-  const discardLocalRecording = useCallback(() => {
-    cleanupRecordingAnalysis();
-    recordingPausedRef.current = false;
-    if (pauseToneNodesRef.current) {
-      for (const oscillator of pauseToneNodesRef.current.oscillators) {
-        try { oscillator.stop(); oscillator.disconnect(); } catch {}
-      }
-      for (const gain of pauseToneNodesRef.current.gains) {
-        try { gain.disconnect(); } catch {}
-      }
-      pauseToneNodesRef.current = null;
-    }
-    const recorder = mediaRecorderRef.current;
-    mediaRecorderRef.current = null;
-    if (recorder && recorder.state !== "inactive") {
+  const discardLocalRecording = useCallback((callLogId?: string | number) => {
+    const binding = callLogId !== undefined
+      ? recordingBindingsByCallLogIdRef.current.get(String(callLogId))
+      : (sessionRef.current ? recordingBindingsBySessionRef.current.get(sessionRef.current) : undefined);
+    if (callLogId !== undefined && !binding) return;
+    const wasCurrentRecording = !binding || mediaRecorderRef.current === binding.recorder;
+    cleanupRecordingAnalysis(binding);
+    const recorder = binding?.recorder || (!binding ? mediaRecorderRef.current : null);
+    if (recorder) {
       recorder.ondataavailable = null;
       recorder.onstop = null;
-      try { recorder.stop(); } catch {}
+      if (recorder.state !== "inactive") {
+        try { recorder.stop(); } catch {}
+      }
+      if (mediaRecorderRef.current === recorder) mediaRecorderRef.current = null;
     }
-    recordingChunksRef.current = [];
-    recordingDestinationRef.current = null;
-    recordingSourceNodesRef.current = [];
-    isRecordingRef.current = false;
-    callContextRef.current.setIsRecording(false);
-    callContextRef.current.setIsRecordingPaused(false);
-    if (recordingContextRef.current && recordingContextRef.current.state !== "closed") {
-      try { recordingContextRef.current.close(); } catch {}
+    if (binding) {
+      binding.acceptingChunks = false;
+      if (binding.callLogId) recordingBindingsByCallLogIdRef.current.delete(binding.callLogId);
+      if (binding.session) recordingBindingsBySessionRef.current.delete(binding.session);
+      if (binding.audioContext && binding.audioContext.state !== "closed") {
+        try { binding.audioContext.close(); } catch {}
+      }
     }
-    recordingContextRef.current = null;
+    if (wasCurrentRecording) {
+      recordingPausedRef.current = false;
+      if (pauseToneNodesRef.current) {
+        for (const oscillator of pauseToneNodesRef.current.oscillators) {
+          try { oscillator.stop(); oscillator.disconnect(); } catch {}
+        }
+        for (const gain of pauseToneNodesRef.current.gains) {
+          try { gain.disconnect(); } catch {}
+        }
+        pauseToneNodesRef.current = null;
+      }
+      recordingDestinationRef.current = null;
+      recordingSourceNodesRef.current = [];
+      recordingContextRef.current = null;
+      isRecordingRef.current = false;
+      callContextRef.current.setIsRecording(false);
+      callContextRef.current.setIsRecordingPaused(false);
+    }
   }, [cleanupRecordingAnalysis]);
 
-  const startRecording = useCallback((session: Session, recordingSnapshot?: MissionCallRecordingSnapshot) => {
+  const startRecording = useCallback((
+    session: Session,
+    recordingSnapshot?: MissionCallRecordingSnapshot,
+    callIdentity?: CallRecordingIdentity,
+  ) => {
     try {
       if (recordingSnapshot && !recordingSnapshot.active) {
         console.log("[Recording] Mission policy is inactive; recording not started");
+        return;
+      }
+      const currentBinding = recordingBindingsBySessionRef.current.get(session);
+      if (currentBinding?.recorder && currentBinding.recorder.state !== "inactive") return;
+      const identity = callIdentity || recordingIdentitiesBySessionRef.current.get(session);
+      if (!identity) {
+        console.warn("[Recording] Refusing to start without an exact-call identity snapshot");
         return;
       }
       console.log("[Recording] startRecording called, session state:", (session as any)?.state);
@@ -463,16 +535,24 @@ export function SipPhone({
       if (!pc) { console.warn("[Recording] No peerConnection - cannot record"); return; }
       console.log("[Recording] PC state:", pc.connectionState, "senders:", pc.getSenders().length, "receivers:", pc.getReceivers().length);
 
+      const binding = createCallRecordingBinding(identity) as ActiveCallRecording;
+      binding.session = session;
+      binding.sourceNodes = [];
+      binding.analyserNodes = [];
+      binding.customerSpeechActive = false;
+      binding.customerSpeechStartedAt = null;
+      binding.vadStartedAt = Date.now();
+      recordingBindingsBySessionRef.current.set(session, binding);
+      if (binding.callLogId) recordingBindingsByCallLogIdRef.current.set(binding.callLogId, binding);
+
       const recCtx = new AudioContext();
+      binding.audioContext = recCtx;
       recordingContextRef.current = recCtx;
       const destination = recCtx.createMediaStreamDestination();
+      binding.destination = destination;
       recordingDestinationRef.current = destination;
       recordingSourceNodesRef.current = [];
       recordingSnapshotRef.current = recordingSnapshot;
-      recordingVadStartedAtRef.current = Date.now();
-      customerActivitySegmentsRef.current = [];
-      customerSpeechActiveRef.current = false;
-      customerSpeechStartedAtRef.current = null;
 
       const localSenders = pc.getSenders();
       const localAudioSender = localSenders.find(s => s.track?.kind === "audio");
@@ -495,7 +575,7 @@ export function SipPhone({
               analyser.fftSize = 1024;
               analyser.smoothingTimeConstant = 0.6;
               remoteSource.connect(analyser);
-              remoteAnalyserNodesRef.current.push(remoteSource, analyser);
+              binding.analyserNodes?.push(remoteSource, analyser);
               const samples = new Uint8Array(analyser.fftSize);
               let lastSpeechAt = 0;
               const injectSoftTone = () => {
@@ -513,8 +593,8 @@ export function SipPhone({
                 osc.stop(now + 0.13);
                 osc.onended = () => { try { osc.disconnect(); gain.disconnect(); } catch {} };
               };
-              if (!remoteAnalyserTimerRef.current) {
-                remoteAnalyserTimerRef.current = setInterval(() => {
+              if (!binding.analyserTimer) {
+                binding.analyserTimer = setInterval(() => {
                   if (recCtx.state === "closed") return;
                   analyser.getByteTimeDomainData(samples);
                   let sum = 0;
@@ -527,18 +607,18 @@ export function SipPhone({
                   const now = Date.now();
                   if (speaking) {
                     lastSpeechAt = now;
-                    if (!customerSpeechActiveRef.current) {
-                      customerSpeechActiveRef.current = true;
-                      customerSpeechStartedAtRef.current = now;
+                    if (!binding.customerSpeechActive) {
+                      binding.customerSpeechActive = true;
+                      binding.customerSpeechStartedAt = now;
                       injectSoftTone();
                     }
-                  } else if (customerSpeechActiveRef.current && now - lastSpeechAt > 500) {
-                    customerActivitySegmentsRef.current.push({
-                      startMs: Math.max(0, (customerSpeechStartedAtRef.current || now) - recordingVadStartedAtRef.current),
-                      endMs: Math.max(0, lastSpeechAt - recordingVadStartedAtRef.current),
+                  } else if (binding.customerSpeechActive && now - lastSpeechAt > 500) {
+                    binding.customerActivitySegments.push({
+                      startMs: Math.max(0, (binding.customerSpeechStartedAt || now) - (binding.vadStartedAt || now)),
+                      endMs: Math.max(0, lastSpeechAt - (binding.vadStartedAt || now)),
                     });
-                    customerSpeechActiveRef.current = false;
-                    customerSpeechStartedAtRef.current = null;
+                    binding.customerSpeechActive = false;
+                    binding.customerSpeechStartedAt = null;
                   }
                 }, 100);
               }
@@ -573,13 +653,15 @@ export function SipPhone({
           ? "audio/webm"
           : "audio/ogg";
 
-      recordingChunksRef.current = [];
       const recorder = new MediaRecorder(destination.stream, { mimeType });
+      binding.recorder = recorder;
 
       recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          recordingChunksRef.current.push(e.data);
-        }
+        appendCallRecordingChunk(binding, e.data);
+      };
+
+      recorder.onstop = () => {
+        binding.acceptingChunks = false;
       };
 
       recorder.start(1000);
@@ -597,6 +679,7 @@ export function SipPhone({
     callLogId: string | number,
     session: Session,
     snapshot: MissionCallRecordingSnapshot,
+    callIdentity?: CallRecordingIdentity,
   ) => {
     if (!snapshot.active || snapshot.mode !== "agent_only") return false;
     const key = String(callLogId);
@@ -618,7 +701,7 @@ export function SipPhone({
             activeFinalizer?.session === session &&
             String(session.state) !== "Terminated"
           ) {
-            startRecording(session, snapshot);
+            startRecording(session, snapshot, callIdentity);
           } else {
             console.log("[Recording] Skipping local recording start for a finalized call");
           }
@@ -637,22 +720,25 @@ export function SipPhone({
       }
     } catch (error) {
       console.error("[Recording] Trusted agent-only recording failed to start:", error);
-      discardLocalRecording();
+      discardLocalRecording(key);
       return false;
     }
   }, [discardLocalRecording, startRecording]);
 
-  const finalizeTrustedAgentRecording = useCallback(async (callLogId: string | number) => {
-    const snapshot = recordingSnapshotRef.current;
+  const finalizeTrustedAgentRecording = useCallback(async (
+    callLogId: string | number,
+    snapshot?: MissionCallRecordingSnapshot,
+  ) => {
     if (!snapshot?.active || snapshot.mode !== "agent_only") return false;
     const key = String(callLogId);
     if (trustedAgentRecordingFinalizedRef.current.has(key)) return true;
     trustedAgentRecordingFinalizedRef.current.add(key);
-    cleanupRecordingAnalysis();
-    const customerActivitySegments = [...customerActivitySegmentsRef.current];
+    const binding = recordingBindingsByCallLogIdRef.current.get(key);
+    if (binding) cleanupRecordingAnalysis(binding);
+    const customerActivitySegments = [...(binding?.customerActivitySegments || [])];
     // Browser audio is only a transient VAD source in this mode. Discard it
     // before any asynchronous work so no path can upload the local blob.
-    discardLocalRecording();
+    discardLocalRecording(key);
     try {
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
@@ -785,53 +871,40 @@ export function SipPhone({
 
   const manualStartRecording = useCallback(() => {
     if (isRecordingRef.current) return;
-    const snapshot = recordingSnapshotRef.current;
+    const session = sessionRef.current;
+    const identity = session ? recordingIdentitiesBySessionRef.current.get(session) : undefined;
+    const snapshot = identity?.recordingSnapshot as MissionCallRecordingSnapshot | undefined;
     if (snapshot && !snapshot.active) {
       console.warn("[Recording] Manual recording blocked by inactive Mission policy");
       return;
     }
-    const session = sessionRef.current;
     if (session) {
       if (snapshot?.mode === "agent_only") {
         if (currentCallLogIdRef.current) {
-          void startTrustedAgentRecording(currentCallLogIdRef.current, session, snapshot);
+          void startTrustedAgentRecording(currentCallLogIdRef.current, session, snapshot, identity);
         }
         return;
       }
-      startRecording(session, snapshot);
+      startRecording(session, snapshot, identity);
     }
   }, [startRecording, startTrustedAgentRecording]);
 
   const manualStopRecording = useCallback(() => {
-    if (recordingSnapshotRef.current?.active && recordingSnapshotRef.current.mode === "agent_only") {
-      if (currentCallLogIdRef.current) {
-        void finalizeTrustedAgentRecording(currentCallLogIdRef.current);
+    const session = sessionRef.current;
+    const binding = session ? recordingBindingsBySessionRef.current.get(session) : undefined;
+    const snapshot = binding?.identity.recordingSnapshot as MissionCallRecordingSnapshot | undefined
+      || (session ? recordingIdentitiesBySessionRef.current.get(session)?.recordingSnapshot as MissionCallRecordingSnapshot | undefined : undefined);
+    if (snapshot?.active && snapshot.mode === "agent_only") {
+      if (binding?.callLogId) {
+        void finalizeTrustedAgentRecording(binding.callLogId, snapshot);
       } else {
         discardLocalRecording();
       }
       return;
     }
-    if (!isRecordingRef.current || !mediaRecorderRef.current) return;
-    isRecordingRef.current = false;
-    callContextRef.current.setIsRecording(false);
-    callContextRef.current.setIsRecordingPaused(false);
-    recordingPausedRef.current = false;
-    cleanupRecordingAnalysis();
-    if (pauseToneNodesRef.current) {
-      for (const o of pauseToneNodesRef.current.oscillators) { try { o.stop(); o.disconnect(); } catch (e) {} }
-      for (const g of pauseToneNodesRef.current.gains) { try { g.disconnect(); } catch (e) {} }
-      pauseToneNodesRef.current = null;
-    }
-    try { mediaRecorderRef.current.stop(); } catch (e) {}
-    mediaRecorderRef.current = null;
-    recordingChunksRef.current = [];
-    recordingDestinationRef.current = null;
-    recordingSourceNodesRef.current = [];
-    if (recordingContextRef.current && recordingContextRef.current.state !== "closed") {
-      try { recordingContextRef.current.close(); } catch (e) {}
-      recordingContextRef.current = null;
-    }
-  }, [cleanupRecordingAnalysis, discardLocalRecording, finalizeTrustedAgentRecording]);
+    if (binding?.callLogId) discardLocalRecording(binding.callLogId);
+    else discardLocalRecording();
+  }, [discardLocalRecording, finalizeTrustedAgentRecording]);
 
   useEffect(() => {
     const ctx = callContextRef.current;
@@ -847,95 +920,118 @@ export function SipPhone({
     };
   }, [pauseRecording, resumeRecording, manualStartRecording, manualStopRecording]);
 
-  const stopRecordingAndUpload = useCallback((callLogId: string | number, duration: number) => {
-    if (recordingSnapshotRef.current?.active && recordingSnapshotRef.current.mode === "agent_only") {
-      void finalizeTrustedAgentRecording(callLogId);
+  const stopRecordingAndUpload = useCallback((
+    callLogId: string | number,
+    duration: number,
+    recordingSnapshotOverride?: MissionCallRecordingSnapshot,
+  ) => {
+    const key = String(callLogId);
+    const binding = recordingBindingsByCallLogIdRef.current.get(key);
+    const snapshot = binding?.identity.recordingSnapshot as MissionCallRecordingSnapshot | undefined
+      || recordingSnapshotOverride;
+    if (snapshot?.active && snapshot.mode === "agent_only") {
+      void finalizeTrustedAgentRecording(callLogId, snapshot);
       return;
     }
-    if (!mediaRecorderRef.current || !isRecordingRef.current) return;
-    isRecordingRef.current = false;
-    callContextRef.current.setIsRecording(false);
-    callContextRef.current.setIsRecordingPaused(false);
-    recordingPausedRef.current = false;
-    cleanupRecordingAnalysis();
-    if (pauseToneNodesRef.current) {
-      for (const o of pauseToneNodesRef.current.oscillators) { try { o.stop(); o.disconnect(); } catch (e) {} }
-      for (const g of pauseToneNodesRef.current.gains) { try { g.disconnect(); } catch (e) {} }
-      pauseToneNodesRef.current = null;
+    if (!recordingBindingMatchesCall(binding, key)) {
+      console.warn("[Recording] Refusing to upload audio without a recorder bound to this call log");
+      return;
     }
-    recordingDestinationRef.current = null;
-    recordingSourceNodesRef.current = [];
-
-    const recorder = mediaRecorderRef.current;
-    mediaRecorderRef.current = null;
+    const recorder = binding.recorder;
+    if (!recorder || binding.stopping || recorder.state === "inactive") return;
+    binding.stopping = true;
+    cleanupRecordingAnalysis(binding);
+    const wasCurrentRecording = mediaRecorderRef.current === recorder;
+    if (wasCurrentRecording) {
+      isRecordingRef.current = false;
+      callContextRef.current.setIsRecording(false);
+      callContextRef.current.setIsRecordingPaused(false);
+      recordingPausedRef.current = false;
+      if (pauseToneNodesRef.current) {
+        for (const oscillator of pauseToneNodesRef.current.oscillators) { try { oscillator.stop(); oscillator.disconnect(); } catch {} }
+        for (const gain of pauseToneNodesRef.current.gains) { try { gain.disconnect(); } catch {} }
+        pauseToneNodesRef.current = null;
+      }
+      mediaRecorderRef.current = null;
+      recordingDestinationRef.current = null;
+      recordingSourceNodesRef.current = [];
+    }
 
     recorder.onstop = () => {
-      const chunks = recordingChunksRef.current;
-      recordingChunksRef.current = [];
-
+      binding.acceptingChunks = false;
+      if (!recordingBindingMatchesCall(binding, key)) {
+        console.error("[Recording] Recorder call binding changed before upload; discarding audio");
+        return;
+      }
+      const chunks = [...binding.chunks];
+      binding.chunks.length = 0;
       if (chunks.length === 0) {
-        console.warn("[Recording] No data recorded");
+        console.warn("[Recording] No data recorded for call", key);
+        recordingBindingsByCallLogIdRef.current.delete(key);
+        if (binding.session) recordingBindingsBySessionRef.current.delete(binding.session);
         return;
       }
 
+      const identity = binding.identity;
       const mimeType = recorder.mimeType || "audio/webm";
       const blob = new Blob(chunks, { type: mimeType });
-      console.log(`[Recording] Blob ready: ${(blob.size / 1024).toFixed(1)} KB`);
+      console.log(`[Recording] Blob ready for ${key}: ${(blob.size / 1024).toFixed(1)} KB`);
 
       const formData = new FormData();
       const ext = mimeType.includes("ogg") ? "ogg" : "webm";
       formData.append("recording", blob, `recording.${ext}`);
-      formData.append("callLogId", String(callLogId));
-      formData.append("customerId", localCustomerId || "");
-      formData.append("campaignId", localCampaignId || "");
-      formData.append("customerName", localCustomerName || "");
-      formData.append("agentName", currentUser?.fullName || currentUser?.username || "");
-      formData.append("campaignName", localCampaignName || "");
-      formData.append("phoneNumber", phoneNumber);
+      formData.append("callLogId", key);
+      formData.append("customerId", identity.customerId || "");
+      formData.append("campaignId", identity.campaignId || "");
+      formData.append("customerName", identity.customerName || "");
+      formData.append("agentName", identity.agentName || "");
+      formData.append("campaignName", identity.campaignName || "");
+      formData.append("phoneNumber", identity.phoneNumber);
       formData.append("durationSeconds", String(duration));
-      if (recordingSnapshotRef.current) {
-        formData.append("recordingSnapshot", JSON.stringify(recordingSnapshotRef.current));
-        formData.append("recordingMode", recordingSnapshotRef.current.mode);
-        formData.append("customerActivitySegments", JSON.stringify(customerActivitySegmentsRef.current));
+      if (identity.recordingSnapshot) {
+        formData.append("recordingSnapshot", JSON.stringify(identity.recordingSnapshot));
+        formData.append("recordingMode", String(identity.recordingSnapshot.mode || ""));
+        formData.append("customerActivitySegments", JSON.stringify(binding.customerActivitySegments));
       }
-      if (activeInboundMetaRef.current?.direction) {
-        formData.append("direction", activeInboundMetaRef.current.direction);
-      }
-      if (activeInboundMetaRef.current?.queueId) {
-        formData.append("inboundQueueId", activeInboundMetaRef.current.queueId);
-      }
-      if (activeInboundMetaRef.current?.queueName) {
-        formData.append("inboundQueueName", activeInboundMetaRef.current.queueName);
-      }
+      if (identity.direction === "inbound") formData.append("direction", identity.direction);
+      if (identity.inboundQueueId) formData.append("inboundQueueId", identity.inboundQueueId);
+      if (identity.inboundQueueName) formData.append("inboundQueueName", identity.inboundQueueName);
 
       fetch("/api/call-recordings", {
         method: "POST",
         body: formData,
         credentials: "include",
       })
-        .then(res => res.json())
+        .then(async res => {
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || `Recording upload failed (${res.status})`);
+          return data;
+        })
         .then(data => {
-          console.log("[Recording] Uploaded successfully:", data.id);
+          console.log("[Recording] Uploaded successfully:", data.id, "for call", key);
           queryClient.invalidateQueries({ queryKey: ["/api/call-recordings"] });
         })
         .catch(err => {
-          console.error("[Recording] Upload failed:", err);
+          console.error("[Recording] Upload failed for call", key, err);
+        })
+        .finally(() => {
+          recordingBindingsByCallLogIdRef.current.delete(key);
+          if (binding.session) recordingBindingsBySessionRef.current.delete(binding.session);
         });
     };
 
     try {
       recorder.stop();
     } catch (e) {
+      binding.stopping = false;
       console.error("[Recording] Error stopping recorder:", e);
     }
 
-    if (recordingContextRef.current) {
-      try {
-        recordingContextRef.current.close();
-      } catch (e) {}
-      recordingContextRef.current = null;
+    if (binding.audioContext && binding.audioContext.state !== "closed") {
+      try { binding.audioContext.close(); } catch {}
     }
-  }, [localCustomerId, localCampaignId, localCampaignName, localCustomerName, currentUser, phoneNumber, cleanupRecordingAnalysis, finalizeTrustedAgentRecording]);
+    if (recordingContextRef.current === binding.audioContext) recordingContextRef.current = null;
+  }, [cleanupRecordingAnalysis, finalizeTrustedAgentRecording]);
 
   const isSipConfigured = Boolean(
     globalSipSettings?.server && 
@@ -1128,11 +1224,30 @@ export function SipPhone({
       inboundTerminatedListenerRef.current = null;
     }
 
+    setCurrentCallLogId(null);
+    currentCallLogIdRef.current = null;
     sessionRef.current = session;
     serverConfirmedRemoteHangupSessionRef.current = null;
     recordingSnapshotRef.current = options.recordingSnapshot;
-    customerActivitySegmentsRef.current = [];
     const callerNumber = session._inboundCallerNumber || "Unknown";
+    const inboundRecordingIdentity: CallRecordingIdentity = {
+      customerId: session._inboundCustomerId ? String(session._inboundCustomerId) : undefined,
+      campaignId: session._inboundCampaignId ? String(session._inboundCampaignId) : undefined,
+      customerName: session._inboundCallerName || callerNumber,
+      campaignName: session._inboundCampaignName || undefined,
+      agentName: currentUser?.fullName || currentUser?.username || "",
+      phoneNumber: callerNumber,
+      direction: "inbound",
+      recordingSnapshot: options.recordingSnapshot as Record<string, unknown> | undefined,
+      inboundQueueId: session._inboundQueueId ? String(session._inboundQueueId) : undefined,
+      inboundQueueName: session._inboundQueueName || undefined,
+    };
+    recordingIdentitiesBySessionRef.current.set(session, inboundRecordingIdentity);
+    recordingAuthoritiesBySessionRef.current.set(session, {
+      callLogId: null,
+      recordingSnapshot: inboundRecordingIdentity.recordingSnapshot,
+      identity: inboundRecordingIdentity,
+    });
     setPhoneNumber(callerNumber);
     setCallState("active");
     ctx.setCallDirection("inbound");
@@ -1220,7 +1335,8 @@ export function SipPhone({
         return;
       }
       console.log("[SIP-INBOUND] PC state:", pc.connectionState, "senders:", pc.getSenders().length, "receivers:", pc.getReceivers().length);
-      startRecording(session, options.recordingSnapshot);
+      const callIdentity = recordingIdentitiesBySessionRef.current.get(session) || inboundRecordingIdentity;
+      startRecording(session, options.recordingSnapshot, callIdentity);
     };
 
     if (options.autoRecord && options.recordingSnapshot?.mode !== "agent_only") {
@@ -1232,9 +1348,12 @@ export function SipPhone({
       console.log("[SIP-INBOUND] Auto-recording NOT enabled for this call");
     }
 
-    const inboundCallLogIdRef = { current: null as number | null };
+    const inboundCallLogIdRef = { current: null as string | number | null };
     // Stores end metadata if call terminates before createCallLogMutation resolves (race condition)
     const pendingEndMetaRef = { current: null as { duration: number; hungUpBy: string; endedAt: string; customerId?: string } | null };
+    const enqueueInboundCallLogPatch = createSequentialCallLogPatchQueue(
+      (patch: Parameters<typeof updateCallLogMutation.mutateAsync>[0]) => updateCallLogMutation.mutateAsync(patch),
+    );
 
     let terminatedHandled = false;
     const onTerminated = (state: any) => {
@@ -1281,23 +1400,26 @@ export function SipPhone({
       if (inboundCallLogIdRef.current) {
         // Call log already created — update duration/status/hungUpBy immediately
         // Use localCustomerIdRef (not closure) to get the identity the agent currently has open
-        updateCallLogMutation.mutate({
+        void enqueueInboundCallLogPatch({
           id: inboundCallLogIdRef.current,
           data: {
             status: duration > 0 ? "completed" : "failed",
             endedAt,
             durationSeconds: duration,
             hungUpBy,
-            ...(localCustomerIdRef.current ? { customerId: localCustomerIdRef.current } : {}),
+            ...(inboundRecordingIdentity.customerId ? { customerId: inboundRecordingIdentity.customerId } : {}),
           },
-        });
+        }).catch(error => console.error("[SIP-INBOUND] Failed to persist terminal call state:", error));
         if (duration > 0) {
           console.log("[SIP-INBOUND] Stopping recording and uploading, callLogId:", inboundCallLogIdRef.current);
-          stopRecordingAndUpload(inboundCallLogIdRef.current, duration);
+          stopRecordingAndUpload(inboundCallLogIdRef.current, duration, options.recordingSnapshot);
         } else {
           if (options.recordingSnapshot?.active && options.recordingSnapshot.mode === "agent_only") {
-            stopRecordingAndUpload(inboundCallLogIdRef.current, 0);
-          } else if (mediaRecorderRef.current) { cleanupRecordingAnalysis(); try { mediaRecorderRef.current.stop(); } catch {} mediaRecorderRef.current = null; isRecordingRef.current = false; ctxNow.setIsRecording(false); ctxNow.setIsRecordingPaused(false); recordingChunksRef.current = []; }
+            stopRecordingAndUpload(inboundCallLogIdRef.current, 0, options.recordingSnapshot);
+          } else if (recordingBindingsBySessionRef.current.has(session)) {
+            if (inboundCallLogIdRef.current) discardLocalRecording(inboundCallLogIdRef.current);
+            else discardLocalRecording();
+          }
         }
       } else {
         // Race condition: call log not yet created — store metadata for deferred update
@@ -1306,7 +1428,7 @@ export function SipPhone({
         if (duration > 0) {
           console.log("[SIP-INBOUND] Will stop recording, but cannot upload until call log ID is known");
         } else {
-          if (mediaRecorderRef.current) { cleanupRecordingAnalysis(); try { mediaRecorderRef.current.stop(); } catch {} mediaRecorderRef.current = null; isRecordingRef.current = false; ctxNow.setIsRecording(false); ctxNow.setIsRecordingPaused(false); recordingChunksRef.current = []; }
+          if (recordingBindingsBySessionRef.current.has(session)) { discardLocalRecording(); }
         }
       }
       ctxNow.setAutoRecord(true);
@@ -1458,33 +1580,70 @@ export function SipPhone({
         recordingPolicySnapshot: options.recordingSnapshot || null,
       }),
     }).then(async (callLogData) => {
-      setCurrentCallLogId(callLogData.id);
-      currentCallLogIdRef.current = callLogData.id;
       inboundCallLogIdRef.current = callLogData.id;
+      const exactInboundRecordingIdentity: CallRecordingIdentity = {
+        ...inboundRecordingIdentity,
+        callLogId: String(callLogData.id),
+      };
+      recordingIdentitiesBySessionRef.current.set(session, exactInboundRecordingIdentity);
+      recordingAuthoritiesBySessionRef.current.set(session, {
+        callLogId: callLogData.id,
+        recordingSnapshot: options.recordingSnapshot as Record<string, unknown> | undefined,
+        identity: exactInboundRecordingIdentity,
+      });
+      bindSessionRecordingToCallLog(session, callLogData.id);
+      const sessionStillCurrent = isCurrentCallSession(session, sessionRef.current);
+      if (sessionStillCurrent) {
+        setCurrentCallLogId(callLogData.id);
+        currentCallLogIdRef.current = callLogData.id;
+      }
       console.log("[SIP-INBOUND] Call log created, id:", callLogData.id);
       if (options.recordingSnapshot?.active && options.recordingSnapshot.mode === "agent_only") {
-        await startTrustedAgentRecording(callLogData.id, session, options.recordingSnapshot);
+        await startTrustedAgentRecording(callLogData.id, session, options.recordingSnapshot, exactInboundRecordingIdentity);
       }
 
       // Resolve the actual caller's customerId and update both the callLog and local state
       const resolvedCustomerId = await resolveInboundCustomerId(callerNumber);
       if (resolvedCustomerId) {
-        setLocalCustomerId(resolvedCustomerId);
-        localCustomerIdRef.current = resolvedCustomerId;
+        if (isCurrentCallSession(session, sessionRef.current)) {
+          setLocalCustomerId(resolvedCustomerId);
+          localCustomerIdRef.current = resolvedCustomerId;
+        }
+        const identityWithResolvedCustomer = {
+          ...exactInboundRecordingIdentity,
+          customerId: resolvedCustomerId,
+        };
+        recordingIdentitiesBySessionRef.current.set(session, identityWithResolvedCustomer);
+        const authority = recordingAuthoritiesBySessionRef.current.get(session);
+        if (authority) authority.identity = identityWithResolvedCustomer;
       }
 
-      updateCallLogMutation.mutate({
-        id: callLogData.id,
-        data: { status: "answered", answeredAt: new Date().toISOString(), ...(resolvedCustomerId ? { customerId: resolvedCustomerId } : {}) },
-        customerId: resolvedCustomerId
-      });
+      if (!terminatedHandled && !pendingEndMetaRef.current) {
+        await enqueueInboundCallLogPatch({
+          id: callLogData.id,
+          data: {
+            status: "answered",
+            answeredAt: new Date().toISOString(),
+            ...(resolvedCustomerId ? { customerId: resolvedCustomerId } : {}),
+          },
+          customerId: resolvedCustomerId,
+        });
+      } else if (resolvedCustomerId) {
+        // The terminal status may already have been persisted by onTerminated.
+        // Enrich customer association without issuing a stale "answered" status.
+        await enqueueInboundCallLogPatch({
+          id: callLogData.id,
+          data: { customerId: resolvedCustomerId },
+          customerId: resolvedCustomerId,
+        });
+      }
 
       // Race condition: call already ended before log was created — apply deferred end metadata
       if (pendingEndMetaRef.current) {
         const m = pendingEndMetaRef.current;
         pendingEndMetaRef.current = null;
         console.log("[SIP-INBOUND] Applying deferred end meta to call log:", callLogData.id, "duration:", m.duration);
-        updateCallLogMutation.mutate({
+        await enqueueInboundCallLogPatch({
           id: callLogData.id,
           data: {
             status: m.duration > 0 ? "completed" : "failed",
@@ -1496,15 +1655,15 @@ export function SipPhone({
           customerId: m.customerId || resolvedCustomerId,
         });
         if (m.duration > 0 || (options.recordingSnapshot?.active && options.recordingSnapshot.mode === "agent_only")) {
-          stopRecordingAndUpload(callLogData.id, m.duration);
+          stopRecordingAndUpload(callLogData.id, m.duration, options.recordingSnapshot);
         }
       }
 
-      onCallStart?.(callerNumber, callLogData.id);
+      if (isCurrentCallSession(session, sessionRef.current)) onCallStart?.(callerNumber, callLogData.id);
     }).catch((err) => {
       console.error("[SIP-INBOUND] Failed to create call log:", err);
     });
-  }, [startRecording, startTrustedAgentRecording, stopRecordingAndUpload, cleanupRecordingAnalysis, onCallStart, onCallEnd, schedulePostCallRegistrationRecovery]);
+  }, [startRecording, startTrustedAgentRecording, stopRecordingAndUpload, cleanupRecordingAnalysis, bindSessionRecordingToCallLog, onCallStart, onCallEnd, schedulePostCallRegistrationRecovery]);
 
   const handleInboundAnsweredRef = useRef(handleInboundAnswered);
   handleInboundAnsweredRef.current = handleInboundAnswered;
@@ -1608,6 +1767,16 @@ export function SipPhone({
       makeCallGuardRef.current = false;
       return;
     }
+    const requestedIdentity: CallRecordingIdentity = {
+      customerId: localCustomerIdRef.current,
+      campaignId: localCampaignIdRef.current,
+      customerName: localCustomerNameRef.current,
+      campaignName: localCampaignNameRef.current,
+      agentName: currentUser?.fullName || currentUser?.username || "",
+      phoneNumber: currentPhone,
+      direction: "outbound",
+      recordingSnapshot: recordingSnapshotRef.current as Record<string, unknown> | undefined,
+    };
 
     setCallState("connecting");
 
@@ -1632,23 +1801,24 @@ export function SipPhone({
         direction: "outbound",
         status: "initiated",
         userId: userId || currentUser?.id,
-        customerId: localCustomerIdRef.current,
+        customerId: requestedIdentity.customerId,
         // pendingCall updates state and refs immediately before dialing. The state
         // value in this callback can still belong to the previous render, while
         // the ref already contains the Mission selected for this exact call.
-        campaignId: localCampaignIdRef.current,
+        campaignId: requestedIdentity.campaignId,
         campaignContactId: localCampaignContactIdRef.current,
-        customerName: localCustomerName,
+        customerName: requestedIdentity.customerName,
         metadata: JSON.stringify({
           contactType: localContactTypeRef.current || null,
           provider: localProviderRef.current || null,
           outboundTrunk: localOutboundTrunkRef.current,
           callerIdNumber: localCallerIdNumberRef.current || collaboratorCallerIdRef.current || null,
-          recordingPolicySnapshot: recordingSnapshotRef.current || null,
+          recordingPolicySnapshot: requestedIdentity.recordingSnapshot || null,
           dialedPerson: pendingCall?.dialedPerson || null,
         }),
       });
-      if (localCampaignIdRef.current) {
+      let exactRecordingSnapshot = requestedIdentity.recordingSnapshot as MissionCallRecordingSnapshot | undefined;
+      if (requestedIdentity.campaignId) {
         // The server resolves the immutable Mission policy from persisted
         // settings when it creates the call log. Use that authoritative
         // snapshot for the actual call instead of a possibly stale campaign
@@ -1669,10 +1839,16 @@ export function SipPhone({
         } catch (error) {
           console.error("[Recording] Invalid server recording policy snapshot:", error);
         }
-        recordingSnapshotRef.current = serverRecordingSnapshot;
+        if (serverRecordingSnapshot) exactRecordingSnapshot = serverRecordingSnapshot;
+        recordingSnapshotRef.current = exactRecordingSnapshot;
       }
       setCurrentCallLogId(callLogData.id);
       currentCallLogIdRef.current = callLogData.id;
+      const exactCallRecordingIdentity: CallRecordingIdentity = {
+        ...requestedIdentity,
+        callLogId: String(callLogData.id),
+        recordingSnapshot: exactRecordingSnapshot as Record<string, unknown> | undefined,
+      };
       
       const realm = sipConfig.realm || sipConfig.server;
       const cleanedPhone = currentPhone.replace(/[\s\-\(\)]/g, "");
@@ -1736,7 +1912,7 @@ export function SipPhone({
             body: JSON.stringify({
               sipExtension: sipConfig.username,
               callerIdNumber: effectiveCallerId,
-              campaignId: localCampaignIdRef.current,
+              campaignId: requestedIdentity.campaignId,
               outboundTrunk: localOutboundTrunkRef.current,
               outboundCountry: localOutboundCountryRef.current,
             }),
@@ -1755,8 +1931,8 @@ export function SipPhone({
         extraHeaders.push("X-Provider: O2-IMS");
       }
       extraHeaders.push(`X-Indexus-Outbound-Trunk: ${localOutboundTrunkRef.current}`);
-      if (localCampaignIdRef.current) {
-        extraHeaders.push(`X-Campaign-ID: ${localCampaignIdRef.current}`);
+      if (requestedIdentity.campaignId) {
+        extraHeaders.push(`X-Campaign-ID: ${requestedIdentity.campaignId}`);
       }
       if (localCampaignContactIdRef.current) {
         extraHeaders.push(`X-Campaign-Contact-ID: ${localCampaignContactIdRef.current}`);
@@ -1771,6 +1947,12 @@ export function SipPhone({
         inviterOptions.extraHeaders = extraHeaders;
       }
       const inviter = new Inviter(userAgentRef.current, targetUri, inviterOptions);
+      recordingIdentitiesBySessionRef.current.set(inviter, exactCallRecordingIdentity);
+      recordingAuthoritiesBySessionRef.current.set(inviter, {
+        callLogId: callLogData.id,
+        recordingSnapshot: exactRecordingSnapshot as Record<string, unknown> | undefined,
+        identity: exactCallRecordingIdentity,
+      });
 
       activeInboundMetaRef.current = null;
       sessionRef.current = inviter;
@@ -1788,7 +1970,7 @@ export function SipPhone({
             updateCallLogMutation.mutate({
               id: callLogId,
               data: { status: "ringing" },
-              customerId: localCustomerIdRef.current
+              customerId: requestedIdentity.customerId
             });
             ringTimedOutRef.current = false;
             if (maxRingTimerRef.current) {
@@ -1876,7 +2058,7 @@ export function SipPhone({
             updateCallLogMutation.mutate({
               id: callLogId,
               data: { status: "answered", answeredAt: new Date().toISOString() },
-              customerId: localCustomerIdRef.current
+              customerId: requestedIdentity.customerId
             });
             onCallStart?.(phoneNumber, callLogId);
             setupAudio(inviter, "outbound");
@@ -1898,9 +2080,9 @@ export function SipPhone({
                 }
               }
             }, 1000);
-            const recordingSnapshot = recordingSnapshotRef.current;
+            const recordingSnapshot = exactRecordingSnapshot;
             if (recordingSnapshot?.active && recordingSnapshot.mode === "agent_only") {
-              void startTrustedAgentRecording(callLogId, inviter, recordingSnapshot);
+              void startTrustedAgentRecording(callLogId, inviter, recordingSnapshot, exactCallRecordingIdentity);
             } else if (recordingSnapshot ? recordingSnapshot.active : callContextRef.current.autoRecord) {
               setTimeout(() => {
                 const activeFinalizer = activeSessionFinalizeRef.current;
@@ -1909,7 +2091,7 @@ export function SipPhone({
                   activeFinalizer?.session === inviter &&
                   String(inviter.state) !== "Terminated"
                 ) {
-                  startRecording(inviter, recordingSnapshot);
+                  startRecording(inviter, recordingSnapshot, exactCallRecordingIdentity);
                 } else {
                   console.log("[Recording] Skipping delayed recording start for a finalized outbound call");
                 }
@@ -1978,7 +2160,7 @@ export function SipPhone({
                   durationSeconds: finalOutcome.duration,
                   hungUpBy: finalOutcome.hungUpBy,
                 },
-                customerId: localCustomerIdRef.current,
+                customerId: requestedIdentity.customerId,
               });
               onCallEnd?.(finalOutcome.duration, finalOutcome.status, callLogId);
             };
@@ -2011,21 +2193,12 @@ export function SipPhone({
               persistOutcome(outcome);
             }
             if (duration > 0) {
-              stopRecordingAndUpload(callLogId, duration);
+              stopRecordingAndUpload(callLogId, duration, exactRecordingSnapshot);
             } else {
-              if (recordingSnapshotRef.current?.active && recordingSnapshotRef.current.mode === "agent_only") {
-                stopRecordingAndUpload(callLogId, 0);
-              } else if (mediaRecorderRef.current) {
-                cleanupRecordingAnalysis();
-                if (pauseToneNodesRef.current) { for (const o of pauseToneNodesRef.current.oscillators) { try { o.stop(); o.disconnect(); } catch (e) {} } for (const g of pauseToneNodesRef.current.gains) { try { g.disconnect(); } catch (e) {} } pauseToneNodesRef.current = null; }
-                try { mediaRecorderRef.current.stop(); } catch (e) {}
-                mediaRecorderRef.current = null;
-                isRecordingRef.current = false;
-                callContextRef.current.setIsRecording(false);
-                callContextRef.current.setIsRecordingPaused(false);
-                recordingChunksRef.current = [];
-                recordingDestinationRef.current = null;
-                recordingSourceNodesRef.current = [];
+              if (exactRecordingSnapshot?.active && exactRecordingSnapshot.mode === "agent_only") {
+                stopRecordingAndUpload(callLogId, 0, exactRecordingSnapshot);
+              } else if (recordingBindingsByCallLogIdRef.current.has(String(callLogId))) {
+                discardLocalRecording(callLogId);
               }
             }
             callContextRef.current.setAutoRecord(true);
@@ -2089,7 +2262,7 @@ export function SipPhone({
             status: "failed",
             endedAt: new Date().toISOString()
           },
-          customerId: localCustomerIdRef.current
+          customerId: requestedIdentity.customerId
         });
         setCurrentCallLogId(null);
       }
@@ -2150,7 +2323,9 @@ export function SipPhone({
       localOutboundCountryRef.current = callData.outboundCountry;
       recordingSnapshotRef.current = callData.recordingSnapshot;
       setLocalCampaignName(callData.campaignName);
+      localCampaignNameRef.current = callData.campaignName;
       setLocalCustomerName(callData.customerName);
+      localCustomerNameRef.current = callData.customerName;
       setLocalLeadScore(callData.leadScore);
       setLocalClientStatus(callData.clientStatus);
       const cid = callData.callerIdNumber || "";
@@ -3270,37 +3445,46 @@ export function SipPhone({
       maxRingTimerRef.current = null;
     }
     const resetSession = sessionRef.current;
+    const resetBinding = resetSession
+      ? recordingBindingsBySessionRef.current.get(resetSession)
+      : undefined;
+    const recordingAuthority = resetSession
+      ? resolveSessionRecordingAuthority(
+          recordingAuthoritiesBySessionRef.current.get(resetSession),
+          resetBinding,
+        )
+      : { callLogId: currentCallLogIdRef.current ?? currentCallLogId ?? null, recordingSnapshot: undefined, identity: undefined };
+    const resetCallLogId = resolveForceResetCallLogId(
+      resetSession ? recordingAuthoritiesBySessionRef.current.get(resetSession) : undefined,
+      resetBinding,
+      resetSession && isCurrentCallSession(resetSession, sessionRef.current)
+        ? currentCallLogIdRef.current ?? currentCallLogId ?? null
+        : null,
+    );
 
-    if (currentCallLogId) {
+    if (resetCallLogId !== null) {
       const duration = callStartTimeRef.current 
         ? Math.floor((Date.now() - callStartTimeRef.current) / 1000) 
         : 0;
+      const recordingSnapshot = recordingAuthority.recordingSnapshot as MissionCallRecordingSnapshot | undefined;
       if (duration > 0) {
-        stopRecordingAndUpload(currentCallLogId, duration);
+        stopRecordingAndUpload(resetCallLogId, duration, recordingSnapshot);
       } else {
-        if (recordingSnapshotRef.current?.active && recordingSnapshotRef.current.mode === "agent_only") {
-          stopRecordingAndUpload(currentCallLogId, 0);
-        } else if (mediaRecorderRef.current) {
-          if (pauseToneNodesRef.current) { for (const o of pauseToneNodesRef.current.oscillators) { try { o.stop(); o.disconnect(); } catch (e) {} } for (const g of pauseToneNodesRef.current.gains) { try { g.disconnect(); } catch (e) {} } pauseToneNodesRef.current = null; }
-          try { mediaRecorderRef.current.stop(); } catch (e) {}
-          mediaRecorderRef.current = null;
-          isRecordingRef.current = false;
-          callContextRef.current.setIsRecording(false);
-          callContextRef.current.setIsRecordingPaused(false);
-          recordingChunksRef.current = [];
-          recordingDestinationRef.current = null;
-          recordingSourceNodesRef.current = [];
+        if (recordingSnapshot?.active && recordingSnapshot.mode === "agent_only") {
+          stopRecordingAndUpload(resetCallLogId, 0, recordingSnapshot);
+        } else if (resetBinding) {
+          discardLocalRecording(resetCallLogId);
         }
       }
       updateCallLogMutation.mutate({
-        id: currentCallLogId,
+        id: resetCallLogId,
         data: { 
           status: duration > 0 ? "completed" : "cancelled",
           endedAt: new Date().toISOString(),
           durationSeconds: duration,
           hungUpBy: "user"
         },
-        customerId: localCustomerIdRef.current
+        customerId: recordingAuthority.identity?.customerId
       });
     }
 
@@ -3337,7 +3521,7 @@ export function SipPhone({
     callContextRef.current.setIsMuted(false);
     callContextRef.current.setIsOnHold(false);
     schedulePostCallRegistrationRecovery(resetSession);
-  }, [currentCallLogId, updateCallLogMutation, localCustomerId, clearMediaHealthMonitoring, releaseMicrophonePipeline, schedulePostCallRegistrationRecovery]);
+  }, [currentCallLogId, updateCallLogMutation, clearMediaHealthMonitoring, releaseMicrophonePipeline, schedulePostCallRegistrationRecovery, discardLocalRecording, stopRecordingAndUpload]);
 
   const toggleMute = useCallback(() => {
     if (!sessionRef.current) return;

@@ -119,3 +119,5 @@
 - [Mission phase import parity](mission-phase-import-parity.md) — an active phase can contain legacy orphan rows while no live Mission contact is enrolled; inspect actual joins before importing.
 - [Call ring-time semantics](call-ring-time-semantics.md) — unanswered attempts use start→end; cap only with the trusted per-call Mission snapshot, never current settings.
 - [Dev proxy port mapping](dev-proxy-port-mapping.md) — a healthy local server can still yield 502 if external port 80 points to an inactive local port.
+- [Mission call report parity](mission-call-report-parity.md) — preserve ingress Mission across queue overflow; share display/export/email scope and fail closed on recording conflicts.
+- [Call recording identity boundary](call-recording-identity-boundary.md) — bind each audio stream to its SIP session; persist labels from the call log, and allocate unique temp paths before writing.

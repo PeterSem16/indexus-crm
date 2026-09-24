@@ -112,6 +112,8 @@ const INDEXES: IndexDef[] = [
   { name: "idx_inbound_call_logs_customer", table: "inbound_call_logs", columns: "customer_id" },
   { name: "idx_inbound_call_logs_queue", table: "inbound_call_logs", columns: "queue_id" },
   { name: "idx_inbound_call_logs_status", table: "inbound_call_logs", columns: "status" },
+  { name: "idx_inbound_call_logs_call_log_id", table: "inbound_call_logs", columns: "call_log_id" },
+  { name: "idx_inbound_call_logs_mission_entered", table: "inbound_call_logs", columns: "(metadata ->> 'campaignId'), entered_queue_at" },
 
   // web_form_submissions
   { name: "idx_web_form_submissions_form", table: "web_form_submissions", columns: "form_id" },
