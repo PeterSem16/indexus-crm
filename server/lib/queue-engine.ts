@@ -1,8 +1,9 @@
 import { EventEmitter } from "events";
+import { randomUUID } from "crypto";
 import * as fs from "fs";
 import * as path from "path";
 import { db } from "../db";
-import { eq, and, inArray, isNotNull, isNull, asc, desc, sql } from "drizzle-orm";
+import { eq, and, inArray, isNotNull, isNull, asc, desc, or, sql } from "drizzle-orm";
 import {
   inboundQueues,
   queueMembers,
@@ -51,9 +52,17 @@ import {
 import {
   canonicalCampaignId,
   completedCanonicalCallValues,
+  inboundQueueForwardedRecordingAllowed,
+  canClaimStandingRecordingRecovery,
+  isTrustedStandingRecording,
+  standingRecordingRecoveryDelayMs,
   standingForwardUserId,
-  standingMixedRecordingAllowed,
+  type StandingRecordingAuthorization,
 } from "./queue-call-lifecycle";
+import {
+  claimStandingRecordingForSave,
+  loadStandingRecordingRecoveryCandidates,
+} from "./standing-recording-store";
 
 // Agent presence for desk/PJSIP routing is derived from the LIVE Nexus Pulse
 // WebSocket (inboundCallWs). The agent-workspace opens /ws/inbound-calls only while a
@@ -134,6 +143,8 @@ export class QueueEngine extends EventEmitter {
   private roundRobinIndex: Map<string, number> = new Map();
   private wrapUpTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private checkInterval: ReturnType<typeof setInterval> | null = null;
+  private standingRecordingRecoveryInterval: ReturnType<typeof setInterval> | null = null;
+  private standingRecordingRecoveryRunning = false;
   private lastChannelCheck: number = 0;
   private cachedLiveChannels: Set<string> | null = null;
   private pendingWelcome: Map<string, { channelId: string; queueId: string }> = new Map();
@@ -192,10 +203,6 @@ export class QueueEngine extends EventEmitter {
   // channel-state-change(Up) can fire BEFORE StasisStart for Local channels, so we
   // only bridge once BOTH Up AND Stasis are confirmed.
   private standingBridgeSignals: Map<string, { upReady: boolean; stasisReady: boolean }> = new Map();
-  private standingRecordingTracking: Map<string, {
-    callLogId: string;
-    recordingPolicySnapshot: MissionCallRecordingSnapshot | null;
-  }> = new Map();
   private mobileRecordingSavesInFlight: Set<string> = new Set();
   private forwardedReconciler = new ForwardedCallReconciler(rootUniqueId => {
     this.forwardedCallTracking.delete(rootUniqueId);
@@ -646,8 +653,11 @@ export class QueueEngine extends EventEmitter {
     }
     // The dialplan's plain MixMonitor produces mixed audio. There is no verified
     // directional configuration on this path, so Mission agent-only fails closed.
-    const recordCalls = campaignClassificationVerified && queue.recordCalls !== false &&
-      (!campaignId || !!recordingSnapshot && recordingSnapshot.active && recordingSnapshot.mode === "both");
+    const recordCalls = campaignClassificationVerified && inboundQueueForwardedRecordingAllowed({
+      recordCalls: queue.recordCalls !== false,
+      campaignId,
+      recordingPolicySnapshot: recordingSnapshot,
+    });
     if (campaignId && !recordingSnapshot) {
       console.warn(`[QueueForwardedRec] Mission ${campaignId} could not be resolved; recording disabled`);
     }
@@ -655,11 +665,14 @@ export class QueueEngine extends EventEmitter {
       console.warn("[QueueForwardedRec] Agent-only Mission capture unavailable on dialplan MixMonitor; recording disabled");
     }
     const recordingName = `qfwd_${call.channelId.replace(/[^a-zA-Z0-9_]/g, "_")}_${Date.now()}`;
+    let recordingNameSet = !recordCalls;
     if (recordCalls) {
       try {
         await this.ariClient.setChannelVariable(call.channelId, "INDEXUS_REC_NAME", recordingName);
+        recordingNameSet = true;
         console.log(`[QueueForwardedRec] INDEXUS_REC_NAME=${recordingName} set on ${call.channelId}`);
       } catch (varErr) {
+        recordingNameSet = false;
         console.warn(`[QueueForwardedRec] Could not set INDEXUS_REC_NAME:`, varErr instanceof Error ? varErr.message : varErr);
       }
     }
@@ -667,7 +680,7 @@ export class QueueEngine extends EventEmitter {
     // Persistence and hangup tracking must exist before the channel leaves Stasis.
     const canonicalCallLogId = await this.setupQueueForwardedCallTracking(
       call, agent.userId, agentUser, queue, forwardNumber, recordingName,
-      campaignId, recordingSnapshot, recordCalls,
+      campaignId, recordingSnapshot, recordCalls, recordingNameSet,
     );
 
     // Use the proven forwardToExternalNumber which routes via the correct trunk.
@@ -712,6 +725,7 @@ export class QueueEngine extends EventEmitter {
     campaignId: string | null,
     recordingSnapshot: MissionCallRecordingSnapshot | null,
     recordCalls: boolean,
+    recordingNameSet: boolean,
   ): Promise<string> {
     // Bind every handoff to the configured PBX, even when recording is off.
     // Credentials remain process-local and may rotate without changing identity.
@@ -769,7 +783,8 @@ export class QueueEngine extends EventEmitter {
         transferredAt, status: "forwarded",
         recordingAuthorized: recordCalls, recordingPolicySnapshot: recordingSnapshot,
         recordingName, recordingPath: amiFilePath,
-        recordingState: recordCalls ? "pending" : "off",
+        recordingState: recordCalls ? recordingNameSet ? "pending" : "failed_start" : "off",
+        lastError: recordCalls && !recordingNameSet ? "Recording channel variable could not be set before handoff" : null,
         userId: agentUserId, customerId: call.customerId || null,
         campaignId, callerNumber: call.callerNumber,
       }, tx);
@@ -857,6 +872,11 @@ export class QueueEngine extends EventEmitter {
   async start(): Promise<void> {
     await this.loadAgentStates();
     this.forwardedReconciler.start();
+    void this.recoverCompletedStandingRecordings();
+    this.standingRecordingRecoveryInterval = setInterval(() => {
+      void this.recoverCompletedStandingRecordings();
+    }, 15_000);
+    this.standingRecordingRecoveryInterval.unref();
     this.checkInterval = setInterval(async () => {
       if (this.isProcessing) return;
       this.isProcessing = true;
@@ -877,6 +897,10 @@ export class QueueEngine extends EventEmitter {
 
   stop(): void {
     this.forwardedReconciler.stop();
+    if (this.standingRecordingRecoveryInterval) {
+      clearInterval(this.standingRecordingRecoveryInterval);
+      this.standingRecordingRecoveryInterval = null;
+    }
     if (this.checkInterval) {
       clearInterval(this.checkInterval);
       this.checkInterval = null;
@@ -955,56 +979,140 @@ export class QueueEngine extends EventEmitter {
   }
 
   async handleMobileRecordingFinished(recordingName: string): Promise<void> {
-    // Format: mobile_${callLogId}_${timestamp}
+    const standingMatch = /^mobile_(.+)_standing_(\d+)$/.exec(recordingName);
+    const isStandingName = /^mobile_.+_standing(?:_|$)/.test(recordingName);
+    if (isStandingName && !standingMatch) {
+      console.warn(`[MobileRecording] Ignoring malformed standing recording event: ${recordingName}`);
+      return;
+    }
     const parts = recordingName.split("_");
-    if (parts.length < 3) return;
-    const callLogId = parts[1];
+    if (!standingMatch && parts.length < 3) return;
+    const callLogId = standingMatch?.[1] || parts[1];
     if (!callLogId) return;
-    const isStandingRecording = parts[2] === "standing";
-    const standingTracking = this.standingRecordingTracking.get(recordingName);
+    const isStandingRecording = !!standingMatch;
     if (isStandingRecording) {
-      if (!standingTracking || standingTracking.callLogId !== callLogId) {
+      const [standingCallLog] = await db.select({
+        inboundCallLogId: callLogs.inboundCallLogId,
+        isForwarded: callLogs.isForwarded,
+      }).from(callLogs)
+        .where(eq(callLogs.id, callLogId)).limit(1);
+      if (!standingCallLog?.isForwarded || !standingCallLog.inboundCallLogId) {
         console.warn(`[MobileRecording] Ignoring untrusted standing recording event: ${recordingName}`);
         return;
       }
-      const policy = standingTracking.recordingPolicySnapshot;
-      if (policy && (!policy.active || policy.mode !== "both")) {
-        console.warn(`[MobileRecording] Ignoring standing recording outside trusted mixed-audio policy`);
+      const [inboundLog] = await db.select({ metadata: inboundCallLogs.metadata })
+        .from(inboundCallLogs).where(and(
+          eq(inboundCallLogs.id, standingCallLog.inboundCallLogId),
+          eq(inboundCallLogs.callLogId, callLogId),
+        )).limit(1);
+      const standingMetadata = (inboundLog?.metadata || {}) as Record<string, any>;
+      const standingAuthorization = standingMetadata.standingForwardRecording as StandingRecordingAuthorization | undefined;
+      const recordingPbxIdentity = this.ariClient.getRecordingPbxIdentity();
+      if (!recordingPbxIdentity || !standingAuthorization || !isTrustedStandingRecording({
+        callLogId,
+        recordingName,
+        standingForward: standingMetadata.standingForward === true,
+        authorization: standingAuthorization,
+        currentPbxIdentity: recordingPbxIdentity,
+      })) {
+        console.warn(`[MobileRecording] Ignoring untrusted standing recording event: ${recordingName}`);
         return;
       }
+      const claimToken = randomUUID();
+      const recoveryAttempts = standingAuthorization.recoveryAttempts || 0;
+      const claimed = await claimStandingRecordingForSave({
+        inboundCallLogId: standingCallLog.inboundCallLogId,
+        callLogId,
+        recordingName,
+        pbxIdentity: recordingPbxIdentity,
+        claimToken,
+        recoveryAttempts,
+        nextRecoveryAt: new Date(Date.now() + standingRecordingRecoveryDelayMs(recoveryAttempts)).toISOString(),
+        claimUntil: new Date(Date.now() + 15 * 60_000).toISOString(),
+        recovery: false,
+      });
+      if (!claimed) return;
+      await this.saveMobileRecording({
+        recordingName,
+        callLogId,
+        standing: true,
+        inboundCallLogId: standingCallLog.inboundCallLogId,
+        claimToken,
+        recoveryAttempts,
+      });
+      return;
     }
 
-    console.log(`[MobileRecording] Recording finished: ${recordingName}, callLogId: ${callLogId}`);
+    await this.saveMobileRecording({ recordingName, callLogId, standing: false });
+  }
 
+  private async saveMobileRecording(input: {
+    recordingName: string;
+    callLogId: string;
+    standing: boolean;
+    inboundCallLogId?: string;
+    claimToken?: string;
+    recoveryAttempts?: number;
+  }): Promise<void> {
+    const { recordingName, callLogId, standing, inboundCallLogId, claimToken, recoveryAttempts = 0 } = input;
+    const stableRecordingId = standing ? `standing_${callLogId}` : null;
+    console.log(`[MobileRecording] Recording finished: ${recordingName}, callLogId: ${callLogId}`);
     try {
       const [callLog] = await db.select().from(callLogs).where(eq(callLogs.id, callLogId)).limit(1);
       if (!callLog) {
-        console.warn(`[MobileRecording] Call log not found: ${callLogId}`);
-        return;
+        throw new Error(`Call log not found: ${callLogId}`);
       }
-      const [alreadySaved] = await db.select({ id: callRecordings.id })
-        .from(callRecordings).where(eq(callRecordings.filename, `${recordingName}.wav`)).limit(1);
+      const [alreadySaved] = await db.select({ id: callRecordings.id, filePath: callRecordings.filePath })
+        .from(callRecordings)
+        .where(stableRecordingId
+          ? or(eq(callRecordings.id, stableRecordingId), eq(callRecordings.filename, `${recordingName}.wav`))!
+          : eq(callRecordings.filename, `${recordingName}.wav`))
+        .limit(1);
       if (alreadySaved) {
-        if (isStandingRecording) this.standingRecordingTracking.delete(recordingName);
+        if (!fs.existsSync(alreadySaved.filePath)) {
+          throw new Error("Published recording metadata exists but its audio file is missing");
+        }
+        if (standing && inboundCallLogId && claimToken) {
+          await this.updateStandingRecordingState(inboundCallLogId, callLogId, recordingName, {
+            state: "saved",
+            claimToken: null,
+            claimUntil: null,
+            nextRecoveryAt: null,
+            savedAt: new Date().toISOString(),
+          }, claimToken);
+        }
+        await this.ariClient.deleteStoredRecording(recordingName).catch(() => {});
         return;
       }
 
       const audioBuffer = await this.ariClient.downloadStoredRecording(recordingName);
       if (!audioBuffer || audioBuffer.length < 100) {
-        console.warn(`[MobileRecording] Empty or too small recording: ${audioBuffer?.length} bytes`);
-        return;
+        throw new Error(`Empty or too small recording: ${audioBuffer?.length} bytes`);
       }
 
       const now = new Date();
       const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
       const timeStr = now.toISOString().slice(11, 19).replace(/:/g, "");
-      const filename = isStandingRecording
+      const filename = standing
         ? `${recordingName}.wav`
         : `server_${dateStr}_${timeStr}_${callLogId.substring(0, 8)}.wav`;
       const filePath = path.join(STORAGE_PATHS.callRecordings, filename);
 
       fs.mkdirSync(STORAGE_PATHS.callRecordings, { recursive: true });
-      fs.writeFileSync(filePath, audioBuffer);
+      const temporaryPath = `${filePath}.${randomUUID()}.tmp`;
+      try {
+        fs.writeFileSync(temporaryPath, audioBuffer);
+        try {
+          // Hard-link publication is atomic and fails if a final path already
+          // exists, unlike rename which can clobber an already-published file.
+          fs.linkSync(temporaryPath, filePath);
+        } catch (err) {
+          const code = (err as NodeJS.ErrnoException).code;
+          if (code !== "EEXIST" || !fs.readFileSync(filePath).equals(audioBuffer)) throw err;
+        }
+      } finally {
+        if (fs.existsSync(temporaryPath)) fs.unlinkSync(temporaryPath);
+      }
 
       let recordingPolicySnapshot: MissionCallRecordingSnapshot | null = null;
       try {
@@ -1012,6 +1120,7 @@ export class QueueEngine extends EventEmitter {
         recordingPolicySnapshot = metadata?.recordingPolicySnapshot || null;
       } catch {}
       await db.insert(callRecordings).values({
+        ...(stableRecordingId ? { id: stableRecordingId } : {}),
         callLogId,
         userId: callLog.userId,
         customerId: callLog.customerId || null,
@@ -1029,15 +1138,136 @@ export class QueueEngine extends EventEmitter {
         recordingMode: recordingPolicySnapshot?.mode || null,
         recordingPolicySnapshot,
         analysisStatus: "pending",
-      });
+      }).onConflictDoNothing({ target: callRecordings.id });
 
       console.log(`[MobileRecording] Saved server-side recording: ${filename} (${audioBuffer.length} bytes)`);
-      if (isStandingRecording) this.standingRecordingTracking.delete(recordingName);
+      if (standing && inboundCallLogId && claimToken) {
+        await this.updateStandingRecordingState(inboundCallLogId, callLogId, recordingName, {
+          state: "saved",
+          claimToken: null,
+          claimUntil: null,
+          nextRecoveryAt: null,
+          savedAt: new Date().toISOString(),
+        }, claimToken);
+      }
 
       // Clean up from Asterisk
-      this.ariClient.deleteStoredRecording(recordingName).catch(() => {});
+      await this.ariClient.deleteStoredRecording(recordingName).catch(() => {});
     } catch (err) {
+      if (standing && inboundCallLogId && claimToken) {
+        const retryAt = new Date(Date.now() + standingRecordingRecoveryDelayMs(recoveryAttempts)).toISOString();
+        await this.updateStandingRecordingState(inboundCallLogId, callLogId, recordingName, {
+          state: "stop_requested",
+          claimToken: null,
+          claimUntil: null,
+          nextRecoveryAt: retryAt,
+        }, claimToken).catch(() => {});
+      }
       console.error(`[MobileRecording] Failed to save recording ${recordingName}:`, err instanceof Error ? err.message : err);
+    }
+  }
+
+  private async updateStandingRecordingState(
+    inboundCallLogId: string,
+    callLogId: string,
+    recordingName: string,
+    patch: Partial<StandingRecordingAuthorization>,
+    claimToken?: string,
+  ): Promise<void> {
+    const base = sql`COALESCE(${inboundCallLogs.metadata}, '{}'::jsonb)`;
+    const nested = sql`COALESCE(${base} -> 'standingForwardRecording', '{}'::jsonb)`;
+    const claimGuard = claimToken
+      ? sql`${nested} ->> 'claimToken' = ${claimToken}`
+      : sql`(${nested} ->> 'state' <> 'saving' OR COALESCE(NULLIF(${nested} ->> 'claimUntil', '')::timestamptz, '-infinity'::timestamptz) <= NOW())`;
+    await db.update(inboundCallLogs).set({
+      metadata: sql`(${base} || jsonb_build_object(
+        'standingForwardRecording',
+        ${nested} || ${JSON.stringify(patch)}::jsonb
+      ))`,
+    }).where(and(
+      eq(inboundCallLogs.id, inboundCallLogId),
+      eq(inboundCallLogs.callLogId, callLogId),
+      sql`${nested} ->> 'recordingName' = ${recordingName}`,
+      claimGuard,
+    ));
+  }
+
+  private async persistStandingRecordingAuthorization(
+    inboundCallLogId: string,
+    callLogId: string,
+    authorization: StandingRecordingAuthorization,
+  ): Promise<void> {
+    const base = sql`COALESCE(${inboundCallLogs.metadata}, '{}'::jsonb)`;
+    const [updated] = await db.update(inboundCallLogs).set({
+      metadata: sql`(${base} || jsonb_build_object(
+        'standingForward',
+        true,
+        'standingForwardRecording',
+        ${JSON.stringify(authorization)}::jsonb
+      ))`,
+    }).where(and(
+      eq(inboundCallLogs.id, inboundCallLogId),
+      eq(inboundCallLogs.callLogId, callLogId),
+    )).returning({ id: inboundCallLogs.id });
+    if (!updated) throw new Error("Standing recording authorization could not be persisted");
+  }
+
+  private async recoverCompletedStandingRecordings(): Promise<void> {
+    if (this.standingRecordingRecoveryRunning) return;
+    this.standingRecordingRecoveryRunning = true;
+    try {
+      const rows = await loadStandingRecordingRecoveryCandidates();
+      const identity = this.ariClient.getRecordingPbxIdentity();
+      if (!identity) return;
+      for (const row of rows) {
+        const metadata = (row.metadata || {}) as Record<string, any>;
+        const authorization = metadata.standingForwardRecording as StandingRecordingAuthorization | undefined;
+        if (!authorization || !canClaimStandingRecordingRecovery({
+          callStatus: row.status,
+          endedAt: row.endedAt,
+          authorization,
+        })) continue;
+        if (!isTrustedStandingRecording({
+          callLogId: row.callLogId,
+          recordingName: authorization.recordingName || "",
+          standingForward: metadata.standingForward === true,
+          authorization,
+          currentPbxIdentity: identity,
+        })) continue;
+        const recordingName = authorization.recordingName!;
+        const claimToken = randomUUID();
+        const recoveryAttempts = (authorization.recoveryAttempts || 0) + 1;
+        const now = Date.now();
+        const claimed = await claimStandingRecordingForSave({
+          inboundCallLogId: row.inboundCallLogId,
+          callLogId: row.callLogId,
+          recordingName,
+          pbxIdentity: identity,
+          claimToken,
+          recoveryAttempts,
+          nextRecoveryAt: new Date(now + standingRecordingRecoveryDelayMs(recoveryAttempts)).toISOString(),
+          claimUntil: new Date(now + 15 * 60_000).toISOString(),
+          recovery: true,
+        });
+        if (!claimed) continue;
+        // A completed canonical call proves this recording must no longer be live.
+        // Stopping the exact, call-time-persisted name is safe and makes a missed
+        // RecordingFinished event recoverable after reconnect or worker restart.
+        await this.ariClient.stopRecording(recordingName).catch(() => {});
+        await this.saveMobileRecording({
+          recordingName,
+          callLogId: row.callLogId,
+          standing: true,
+          inboundCallLogId: row.inboundCallLogId,
+          claimToken,
+          recoveryAttempts,
+        });
+      }
+    } catch (err) {
+      console.warn("[MobileRecording] Standing recording recovery sweep failed; will retry:",
+        err instanceof Error ? err.message : err);
+    } finally {
+      this.standingRecordingRecoveryRunning = false;
     }
   }
 
@@ -4221,7 +4451,7 @@ export class QueueEngine extends EventEmitter {
     return {
       campaignId,
       recordingSnapshot,
-      recordCalls: recordingSnapshot.active,
+      recordCalls: queue.recordCalls !== false && recordingSnapshot.active,
     };
   }
 
@@ -4235,9 +4465,29 @@ export class QueueEngine extends EventEmitter {
     const [inbound] = await db.select({ callLogId: inboundCallLogs.callLogId })
       .from(inboundCallLogs).where(eq(inboundCallLogs.id, pending.callId)).limit(1);
     if (!inbound) throw new Error(`inbound call ${pending.callId} not found`);
-    if (inbound.callLogId) return inbound.callLogId;
-
     const realUserId = standingForwardUserId(pending.agentId);
+    if (inbound.callLogId) {
+      const [existing] = await db.select({ metadata: callLogs.metadata })
+        .from(callLogs).where(eq(callLogs.id, inbound.callLogId)).limit(1);
+      let metadata: Record<string, unknown> = {};
+      try { if (existing?.metadata) metadata = JSON.parse(existing.metadata); } catch {}
+      await db.update(callLogs).set({
+        userId: realUserId,
+        campaignId,
+        direction: "inbound",
+        inboundQueueId: queue.id,
+        inboundQueueName: queue.name,
+        inboundCallLogId: pending.callId,
+        isForwarded: true,
+        metadata: JSON.stringify({
+          ...metadata,
+          standingForward: true,
+          ...(recordingSnapshot ? { recordingPolicySnapshot: recordingSnapshot } : {}),
+        }),
+      }).where(eq(callLogs.id, inbound.callLogId));
+      return inbound.callLogId;
+    }
+
     const [created] = await db.insert(callLogs).values({
       userId: realUserId,
       customerId: pending.customerId || null,
@@ -4452,32 +4702,48 @@ export class QueueEngine extends EventEmitter {
 
           // ARI channel recording on a bridged caller leg is mixed audio. It is
           // allowed only for non-Mission queue recording or Mission "both".
-          const mixedRecordingAllowed = standingMixedRecordingAllowed({
+          const recordingPbxIdentity = this.ariClient.getRecordingPbxIdentity();
+          const mixedRecordingPolicyAllowed = inboundQueueForwardedRecordingAllowed({
             recordCalls: recordingContext.recordCalls,
             campaignId: recordingContext.campaignId,
-            missionMode: recordingContext.recordingSnapshot?.mode || null,
+            recordingPolicySnapshot: recordingContext.recordingSnapshot,
+          });
+          const mixedRecordingAllowed = mixedRecordingPolicyAllowed && !!recordingPbxIdentity;
+          if (mixedRecordingPolicyAllowed && !recordingPbxIdentity) {
+            console.warn("[QueueRecording] PBX identity unavailable; standing recording disabled");
+          }
+          const recordingName = mixedRecordingAllowed
+            ? `mobile_${canonicalCallLogId}_standing_${Date.now()}`
+            : undefined;
+          await this.persistStandingRecordingAuthorization(pending.callId, canonicalCallLogId, {
+            authorized: mixedRecordingAllowed,
+            ...(recordingName ? { recordingName } : {}),
+            state: mixedRecordingAllowed ? "starting" : "off",
+            campaignId: recordingContext.campaignId,
+            recordingPolicySnapshot: recordingContext.recordingSnapshot,
+            inboundCallLogId: pending.callId,
+            pbxIdentity: recordingPbxIdentity,
+            recoveryAttempts: 0,
           });
           if (mixedRecordingAllowed) {
             if (!this.activeBridges.has(pending.callerChannelId)) {
+              await this.updateStandingRecordingState(pending.callId, canonicalCallLogId, recordingName!, { state: "failed" });
               console.log("[QueueRecording] Standing bridge ended during persistence; recording not started");
             } else {
-            const recordingName = `mobile_${canonicalCallLogId}_standing_${Date.now()}`;
-            active!.recordingName = recordingName;
-            if (peerActive) peerActive.recordingName = recordingName;
-            this.standingRecordingTracking.set(recordingName, {
-              callLogId: canonicalCallLogId,
-              recordingPolicySnapshot: recordingContext.recordingSnapshot,
-            });
-            await this.ariClient.startRecordingAdvanced(pending.callerChannelId, {
-              name: recordingName,
-              format: "wav",
-              ifExists: "fail",
-            });
-            // If teardown won while ARI was starting, stop the now-live
-            // recording rather than leaving an untracked capture running.
-            if (!this.activeBridges.has(pending.callerChannelId)) {
-              try { await this.ariClient.stopRecording(recordingName); } catch {}
-            }
+              active!.recordingName = recordingName!;
+              if (peerActive) peerActive.recordingName = recordingName!;
+              await this.ariClient.startRecordingAdvanced(pending.callerChannelId, {
+                name: recordingName!,
+                format: "wav",
+                ifExists: "fail",
+              });
+              await this.updateStandingRecordingState(pending.callId, canonicalCallLogId, recordingName!, { state: "recording" });
+              // If teardown won while ARI was starting, stop the now-live
+              // recording rather than leaving an untracked capture running.
+              if (!this.activeBridges.has(pending.callerChannelId)) {
+                await this.updateStandingRecordingState(pending.callId, canonicalCallLogId, recordingName!, { state: "stop_requested" });
+                try { await this.ariClient.stopRecording(recordingName!); } catch {}
+              }
             }
           } else if (recordingContext.recordingSnapshot?.active &&
                      recordingContext.recordingSnapshot.mode === "agent_only") {
@@ -4488,13 +4754,9 @@ export class QueueEngine extends EventEmitter {
           // optional recording failure must not tear down customer audio.
           console.error("[QueueRecording] Standing answered call tracking failed; live bridge retained:",
             trackingError instanceof Error ? trackingError.message : trackingError);
-          const failedActive = this.activeBridges.get(pending.callerChannelId);
-          if (failedActive?.recordingName) {
-            this.standingRecordingTracking.delete(failedActive.recordingName);
-            failedActive.recordingName = null;
-            const failedPeer = this.activeBridges.get(agentChannelId);
-            if (failedPeer) failedPeer.recordingName = null;
-          }
+          // Keep any attempted recording name on the bridge. The ARI request
+          // may have succeeded even if the follow-up status write failed, so
+          // normal teardown must still stop it and durable recovery can verify it.
         }
       }
 
@@ -4749,6 +5011,14 @@ export class QueueEngine extends EventEmitter {
     // immediately, then wait before the exactly-once database finalizer.
     if (bridge.ready) await bridge.ready;
     if (bridge.recordingName) {
+      if (bridge.canonicalCallLogId) {
+        await this.updateStandingRecordingState(
+          bridge.callId,
+          bridge.canonicalCallLogId,
+          bridge.recordingName,
+          { state: "stop_requested" },
+        ).catch(err => console.warn("[MobileRecording] Could not persist stop request:", err instanceof Error ? err.message : err));
+      }
       try { await this.ariClient.stopRecording(bridge.recordingName); } catch {}
     }
     await this.agentCompletedCall(bridge.callId, bridge.agentId);

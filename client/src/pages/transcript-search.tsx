@@ -28,7 +28,7 @@ interface CallLogEntry {
   id: string; userId: string; customerId: string | null; campaignId: string | null;
   phoneNumber: string; direction: string; status: string; startedAt: string;
   durationSeconds: number | null; notes: string | null; createdAt: string;
-  customerName: string | null; campaignName: string | null; hasRecording: boolean; isMobile: boolean;
+  customerName: string | null; campaignName: string | null; hasRecording: boolean; isMobile: boolean; isForwarded: boolean;
   mobileAgentName: string | null; mobileOutboundCallerId: string | null; isImportant: boolean;
   campaignContactId: string | null; answeredAt: string | null; endedAt: string | null;
   ringTimeSeconds: number;
@@ -266,6 +266,7 @@ function CallRowItem({ log, isSelected, onClick, locale, ca }: { log: CallLogEnt
           {ca.waiting}: {formatDuration(log.ringTimeSeconds)}
         </span>
         {log.isMobile && <span className="text-[9px] bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><Smartphone className="h-2 w-2" />{log.mobileAgentName || "Mobile"}</span>}
+        {log.isForwarded && <span data-testid={`call-forwarded-${log.id}`} className="text-[9px] bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300 px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><PhoneOutgoing className="h-2 w-2" />{ca.forwardedCall}</span>}
         {log.hasRecording && <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><Mic className="h-2 w-2" /></span>}
         {log.isImportant && <span className="text-[9px] bg-amber-100 dark:bg-amber-900/30 text-amber-500 px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><Star className="h-2 w-2 fill-amber-400" /></span>}
         {rec?.qualityScore != null && <span className="text-[9px] bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded-full">★ {rec.qualityScore}</span>}
@@ -327,7 +328,7 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-bold truncate">{callBrowseDisplayName(log)}</span>
               {log.entityName && log.customerName && <span className="text-[10px] text-muted-foreground">({log.customerName})</span>}
-              {(log.customerName || log.entityName) && <span className="text-[10px] text-muted-foreground">{log.phoneNumber}</span>}
+              {callBrowseDisplayName(log) !== log.phoneNumber && <span className="text-[10px] text-muted-foreground">{log.phoneNumber}</span>}
               <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${log.direction === "inbound" ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400" : "bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400"}`}>
                 {log.direction === "inbound" ? <PhoneIncoming className="h-2.5 w-2.5" /> : <PhoneOutgoing className="h-2.5 w-2.5" />}
                 {log.direction === "inbound" ? ca.inbound : ca.outbound}
@@ -335,6 +336,7 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
               <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize ${statusBadgeClass(log.status)}`}>
                 {formatCallStatus(log.status)}
               </span>
+              {log.isForwarded && <span data-testid={`detail-call-forwarded-${log.id}`} className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300"><PhoneOutgoing className="h-2.5 w-2.5" />{ca.forwardedCall}</span>}
               {log.isMobile && <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400"><Smartphone className="h-2.5 w-2.5" />Connect</span>}
             </div>
             <div className="text-[10px] text-muted-foreground mt-0.5">{dateStr}</div>

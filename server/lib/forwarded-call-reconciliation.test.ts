@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assertForwardedPbxIdentity, createForwardedAnalysisDispatcher, runForwardedSweep } from "./forwarded-call-reconciliation";
+import {
+  assertForwardedPbxIdentity,
+  createForwardedAnalysisDispatcher,
+  forwardedRecordingPolicyAllowsMixed,
+  runForwardedSweep,
+} from "./forwarded-call-reconciliation";
 import { resolveMissionRecordingPolicy } from "@shared/mission-recording";
 import { reconcileForwardedEvidence, type ForwardedCallEvidence } from "./forwarded-call-evidence";
 import type { ForwardedCelEvent } from "./forwarded-cel-source";
@@ -11,6 +16,30 @@ test("PBX identity permits fresh credentials but rejects host/port changes and u
   assert.throws(() => assertForwardedPbxIdentity(row, { host: "other.example", sshPort: 22 }), /identity/);
   assert.throws(() => assertForwardedPbxIdentity(row, { host: "pbx.example", sshPort: 2222 }), /identity/);
   assert.throws(() => assertForwardedPbxIdentity({ pbxHost: null, pbxSshPort: null }, { host: "pbx.example", sshPort: 22 }), /identity/);
+});
+
+test("durable dialplan forwarding follows queue recording authorization and Mission mixed policy", () => {
+  const missionBoth = resolveMissionRecordingPolicy({ callRecordingPolicy: { enabled: true, mode: "both" } });
+  const missionAgentOnly = resolveMissionRecordingPolicy({ callRecordingPolicy: { enabled: true, mode: "agent_only" } });
+  const missionOff = resolveMissionRecordingPolicy({ callRecordingPolicy: { enabled: false, mode: "both" } });
+  assert.equal(forwardedRecordingPolicyAllowsMixed({
+    recordingAuthorized: true, campaignId: null, recordingPolicySnapshot: null,
+  }), true);
+  assert.equal(forwardedRecordingPolicyAllowsMixed({
+    recordingAuthorized: false, campaignId: null, recordingPolicySnapshot: null,
+  }), false);
+  assert.equal(forwardedRecordingPolicyAllowsMixed({
+    recordingAuthorized: true, campaignId: "mission-1", recordingPolicySnapshot: null,
+  }), false);
+  assert.equal(forwardedRecordingPolicyAllowsMixed({
+    recordingAuthorized: true, campaignId: "mission-1", recordingPolicySnapshot: missionOff,
+  }), false);
+  assert.equal(forwardedRecordingPolicyAllowsMixed({
+    recordingAuthorized: true, campaignId: "mission-1", recordingPolicySnapshot: missionAgentOnly,
+  }), false);
+  assert.equal(forwardedRecordingPolicyAllowsMixed({
+    recordingAuthorized: true, campaignId: "mission-1", recordingPolicySnapshot: missionBoth,
+  }), true);
 });
 
 test("empty durable backlog performs no SSH reads", async () => {

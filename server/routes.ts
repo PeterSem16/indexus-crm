@@ -196,6 +196,12 @@ import {
 import { canAgentReadCampaignByWorkspaceCountry } from "./lib/agent-workspace-country-access";
 import { normalizeSmsPhone, uniqueSmsEntity, type SmsEntityCandidate } from "./lib/sms-attribution";
 import {
+  buildUnambiguousCallBrowsePhoneIndex,
+  getCallBrowsePhoneCandidateSuffixes,
+  normalizeCallBrowsePhone,
+  type CallBrowsePhoneOwner,
+} from "./lib/call-browse-phone";
+import {
   rankPriorityCities,
   PriorityCityRankingError,
 } from "./lib/priority-city-ranking";
@@ -35655,6 +35661,7 @@ Respond ONLY with valid JSON in this exact format:
         createdAt: callLogs.createdAt,
         metadata: callLogs.metadata,
         isImportant: callLogs.isImportant,
+        isForwarded: callLogs.isForwarded,
         inboundQueueId: callLogs.inboundQueueId,
         inboundQueueName: callLogs.inboundQueueName,
       }).from(callLogs)
@@ -35705,11 +35712,13 @@ Respond ONLY with valid JSON in this exact format:
 
       const campaignIds = [...new Set(logs.filter(l => l.campaignId).map(l => l.campaignId!))];
       let campaignMap: Record<string, string> = {};
+      let campaignCountryMap: Record<string, string[]> = {};
       if (campaignIds.length > 0) {
-        const camps = await db.select({ id: campaigns.id, name: campaigns.name })
+        const camps = await db.select({ id: campaigns.id, name: campaigns.name, countryCodes: campaigns.countryCodes })
           .from(campaigns).where(inArray(campaigns.id, campaignIds));
         for (const c of camps) {
           campaignMap[c.id] = c.name;
+          campaignCountryMap[c.id] = c.countryCodes || [];
         }
       }
 
@@ -35825,6 +35834,9 @@ Respond ONLY with valid JSON in this exact format:
           campaignName: campaignMap[log.campaignId || ""] || recordingMap[log.id]?.campaignName || null,
           hasRecording: !!recordingMap[log.id],
           recording: recordingMap[log.id] || null,
+          isForwarded: log.isForwarded || log.status === "forwarded" || (() => {
+            try { return JSON.parse(log.metadata || "{}").standingForward === true; } catch { return false; }
+          })(),
           isMobile: (() => { try { return JSON.parse(log.metadata || "{}").source === "mobile"; } catch { return false; } })(),
           mobileAgentName: (() => { try { const m = JSON.parse(log.metadata || "{}"); return m.source === "mobile" ? (m.agentName || null) : null; } catch { return null; } })(),
           mobileOutboundCallerId: (() => { try { const m = JSON.parse(log.metadata || "{}"); return m.source === "mobile" ? (m.outboundCallerId || null) : null; } catch { return null; } })(),
@@ -35843,6 +35855,129 @@ Respond ONLY with valid JSON in this exact format:
           entityName,
         };
       });
+
+      // Resolve missing call identities by phone only when no explicit customer
+      // or campaign-contact relationship exists. Use country to read only the
+      // indexed country partitions; phone canonicalization happens in memory,
+      // never as a regexp over every row. Unknown local-country context is not
+      // guessed, and country-qualified canonical keys prevent cross-country hits.
+      const phoneFallbackLogs = logs.filter(log => !log.customerId && !log.campaignContactId);
+      const queueIdsForPhoneLookup = [...new Set(phoneFallbackLogs
+        .map(log => log.inboundQueueId).filter((id): id is string => !!id))];
+      const queueCountryMap: Record<string, string | null> = {};
+      const queueDidCountryMap: Record<string, string | null> = {};
+      if (queueIdsForPhoneLookup.length > 0) {
+        const queueRows = await db.select({ id: inboundQueues.id, countryCode: inboundQueues.countryCode, didNumber: inboundQueues.didNumber })
+          .from(inboundQueues).where(inArray(inboundQueues.id, queueIdsForPhoneLookup));
+        for (const queue of queueRows) {
+          queueCountryMap[queue.id] = queue.countryCode;
+          queueDidCountryMap[queue.id] = normalizeCallBrowsePhone(queue.didNumber)?.split(":")[0] || null;
+        }
+      }
+
+      const phoneFallbackCallIds = new Set(phoneFallbackLogs.map(log => log.id));
+      const phoneByCallId = new Map<string, string>();
+      for (const log of phoneFallbackLogs) {
+        const queueCountry = log.inboundQueueId ? queueCountryMap[log.inboundQueueId] : null;
+        const queueDidCountry = log.inboundQueueId ? queueDidCountryMap[log.inboundQueueId] : null;
+        const campaignCountries = log.campaignId ? campaignCountryMap[log.campaignId] || [] : [];
+        const countryContext = queueCountry || queueDidCountry || (campaignCountries.length === 1 ? campaignCountries[0] : null);
+        const normalizedPhone = normalizeCallBrowsePhone(log.phoneNumber, countryContext);
+        if (normalizedPhone) phoneByCallId.set(log.id, normalizedPhone);
+      }
+      const phoneFallbackKeys = [...new Set(result
+        .filter(log => phoneFallbackCallIds.has(log.id) && !log.customerName && !log.entityName)
+        .map(log => phoneByCallId.get(log.id))
+        .filter((phone): phone is string => !!phone))];
+      const phoneFallbackCountries = [...new Set(phoneFallbackKeys.map(phone => phone.split(":")[0]))];
+      if (phoneFallbackCountries.length > 0) {
+        // customers(country, client_status), clinics(country_code), and
+        // hospitals(country_code) have country-leading btree indexes. Query
+        // each country partition with suffix predicates for only that
+        // country's requested keys. Strip punctuation in SQL solely to
+        // prefilter candidates; the strict normalizer below makes final matches.
+        const phoneDigitSuffixPredicate = (columns: any[], suffixes: string[]) => or(
+          ...columns.flatMap(column => suffixes.map(suffix =>
+            sql`right(regexp_replace(coalesce(${column}, ''), '[^0-9]', '', 'g'), ${suffix.length}) = ${suffix}`,
+          )),
+        )!;
+        const contactRowsByCountry = await Promise.all(phoneFallbackCountries.map(async countryCode => {
+          const candidateSuffixes = getCallBrowsePhoneCandidateSuffixes(phoneFallbackKeys, countryCode);
+          const [customerRows, clinicRows, hospitalRows] = await Promise.all([
+            db.select({
+              id: customers.id,
+              firstName: customers.firstName,
+              lastName: customers.lastName,
+              country: customers.country,
+              phone: customers.phone,
+              mobile: customers.mobile,
+              mobile2: customers.mobile2,
+            }).from(customers).where(and(
+              eq(customers.country, countryCode),
+              phoneDigitSuffixPredicate([customers.phone, customers.mobile, customers.mobile2], candidateSuffixes),
+            )),
+            db.select({
+              id: clinics.id,
+              name: clinics.name,
+              countryCode: clinics.countryCode,
+              phone: clinics.phone,
+              phone2: clinics.phone2,
+              phone3: clinics.phone3,
+            }).from(clinics).where(and(
+              eq(clinics.countryCode, countryCode),
+              phoneDigitSuffixPredicate([clinics.phone, clinics.phone2, clinics.phone3], candidateSuffixes),
+            )),
+            db.select({
+              id: hospitals.id,
+              name: hospitals.name,
+              countryCode: hospitals.countryCode,
+              phone: hospitals.phone,
+            }).from(hospitals).where(and(
+              eq(hospitals.countryCode, countryCode),
+              phoneDigitSuffixPredicate([hospitals.phone], candidateSuffixes),
+            )),
+          ]);
+          return { customerRows, clinicRows, hospitalRows };
+        }));
+        const customerRows = contactRowsByCountry.flatMap(rows => rows.customerRows);
+        const clinicRows = contactRowsByCountry.flatMap(rows => rows.clinicRows);
+        const hospitalRows = contactRowsByCountry.flatMap(rows => rows.hospitalRows);
+        const phoneOwners: CallBrowsePhoneOwner[] = [
+          ...customerRows.map(row => ({
+            id: row.id,
+            type: "customer" as const,
+            name: `${row.firstName || ""} ${row.lastName || ""}`.trim(),
+            countryCode: row.country,
+            phones: [row.phone, row.mobile, row.mobile2],
+          })),
+          ...clinicRows.map(row => ({
+            id: row.id,
+            type: "clinic" as const,
+            name: row.name,
+            countryCode: row.countryCode,
+            phones: [row.phone, row.phone2, row.phone3],
+          })),
+          ...hospitalRows.map(row => ({
+            id: row.id,
+            type: "hospital" as const,
+            name: row.name,
+            countryCode: row.countryCode,
+            phones: [row.phone],
+          })),
+        ];
+        const phoneIdentityMap = buildUnambiguousCallBrowsePhoneIndex(phoneOwners);
+        for (const log of result) {
+          if (!phoneFallbackCallIds.has(log.id) || log.customerName || log.entityName) continue;
+          const identity = phoneIdentityMap.get(phoneByCallId.get(log.id) || "");
+          if (!identity) continue;
+          if (identity.type === "customer") {
+            log.customerName = identity.name || null;
+          } else {
+            log.entityName = identity.name || null;
+            log.contactType = identity.type;
+          }
+        }
+      }
 
       res.json(result);
     } catch (error) {

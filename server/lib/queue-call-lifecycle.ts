@@ -1,3 +1,5 @@
+import type { MissionCallRecordingSnapshot } from "@shared/mission-recording";
+
 export interface CompletedCanonicalCallValuesInput {
   answeredAt: Date | null;
   endedAt: Date;
@@ -17,12 +19,93 @@ export function standingForwardUserId(agentId: string): string {
   return agentId.slice("standing:".length);
 }
 
-export function standingMixedRecordingAllowed(input: {
+export function inboundQueueForwardedRecordingAllowed(input: {
   recordCalls: boolean;
   campaignId: string | null;
-  missionMode: "both" | "agent_only" | null;
+  recordingPolicySnapshot: MissionCallRecordingSnapshot | null;
 }): boolean {
-  return input.recordCalls && (!input.campaignId || input.missionMode === "both");
+  return input.recordCalls && (!input.campaignId ||
+    !!input.recordingPolicySnapshot?.active && input.recordingPolicySnapshot.mode === "both");
+}
+
+export interface StandingRecordingIdentity {
+  host: string;
+  port: number;
+}
+
+export interface StandingRecordingAuthorization {
+  authorized: boolean;
+  recordingName?: string;
+  state: "off" | "starting" | "recording" | "stop_requested" | "saving" | "saved" | "failed";
+  campaignId: string | null;
+  recordingPolicySnapshot: MissionCallRecordingSnapshot | null;
+  inboundCallLogId?: string;
+  pbxIdentity?: StandingRecordingIdentity | null;
+  recoveryAttempts?: number;
+  nextRecoveryAt?: string | null;
+  claimToken?: string | null;
+  claimUntil?: string | null;
+  savedAt?: string;
+}
+
+export function standingRecordingRecoveryDelayMs(recoveryAttempts: number): number {
+  const attempts = Math.max(0, Math.floor(recoveryAttempts));
+  return Math.min(5 * 60_000, 15_000 * (2 ** Math.min(attempts, 5)));
+}
+
+export function shouldRecoverStandingRecording(input: {
+  callStatus: string;
+  endedAt: Date | null;
+  recordingState: string;
+  now?: Date;
+}): boolean {
+  if (input.callStatus !== "completed" || !input.endedAt ||
+      !["starting", "recording", "stop_requested", "saving"].includes(input.recordingState)) return false;
+  const ageMs = (input.now || new Date()).getTime() - input.endedAt.getTime();
+  return ageMs >= 0 && ageMs <= 7 * 24 * 60 * 60 * 1000;
+}
+
+export function canClaimStandingRecordingRecovery(input: {
+  callStatus: string;
+  endedAt: Date | null;
+  authorization: StandingRecordingAuthorization;
+  now?: Date;
+}): boolean {
+  const now = input.now || new Date();
+  if (!input.authorization.authorized || !shouldRecoverStandingRecording({
+    callStatus: input.callStatus,
+    endedAt: input.endedAt,
+    recordingState: input.authorization.state,
+    now,
+  })) return false;
+  const claimUntil = input.authorization.claimUntil ? Date.parse(input.authorization.claimUntil) : 0;
+  const nextRecoveryAt = input.authorization.nextRecoveryAt ? Date.parse(input.authorization.nextRecoveryAt) : 0;
+  if (input.authorization.claimUntil && (!Number.isFinite(claimUntil) || claimUntil > now.getTime())) return false;
+  if (input.authorization.nextRecoveryAt && (!Number.isFinite(nextRecoveryAt) || nextRecoveryAt > now.getTime())) return false;
+  return true;
+}
+
+export function isTrustedStandingRecording(input: {
+  callLogId: string;
+  recordingName: string;
+  standingForward: boolean;
+  authorization: StandingRecordingAuthorization | null | undefined;
+  currentPbxIdentity: StandingRecordingIdentity | null;
+}): boolean {
+  const { authorization } = input;
+  if (!input.standingForward || !authorization?.authorized ||
+      !["starting", "recording", "stop_requested", "saving"].includes(authorization.state) ||
+      !authorization.recordingName || authorization.recordingName !== input.recordingName ||
+      !new RegExp(`^mobile_${input.callLogId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}_standing_\\d+$`).test(input.recordingName) ||
+      !authorization.pbxIdentity || !input.currentPbxIdentity ||
+      authorization.pbxIdentity.host.trim().toLowerCase() !== input.currentPbxIdentity.host.trim().toLowerCase() ||
+      authorization.pbxIdentity.port !== input.currentPbxIdentity.port) {
+    return false;
+  }
+  if (authorization.campaignId && !authorization.recordingPolicySnapshot) return false;
+  if (authorization.recordingPolicySnapshot &&
+      (!authorization.recordingPolicySnapshot.active || authorization.recordingPolicySnapshot.mode !== "both")) return false;
+  return true;
 }
 
 export interface CanonicalLifecycleState {

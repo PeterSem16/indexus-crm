@@ -34,3 +34,9 @@ Historical recovery must use persisted call-time Mission metadata and skip ambig
 **Why:** Those assignments can change and can attribute one call to the wrong Mission or duplicate an existing call.
 
 **How to apply:** Audit first, recover only unambiguous records transactionally, and keep existing links, timestamps, and duplicate guards intact. No historical audio or transcript can be recreated merely by recovering a call-history row.
+
+Forwarded recording recovery must use a server-persisted call-time authorization and PBX identity, not current queue or Mission settings. The queue's recording opt-out and Mission's mixed-audio policy both have to allow the capture.
+
+**Why:** ARI completion events can be lost across a worker restart, while settings may change after the call. Retrying from memory or re-evaluating today's policy can silently lose audio or record a call without permission.
+
+**How to apply:** Persist authorization before starting the PBX capture; replay only matching finished calls with an atomic save claim and bounded backoff. Keep a published file until the database links it, never overwrite it on duplicate completion, and never let optional recording failure end the live call.

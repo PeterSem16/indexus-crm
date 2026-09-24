@@ -73,6 +73,13 @@ export class AriClient extends EventEmitter {
     return this._isConnected;
   }
 
+  getRecordingPbxIdentity(): { host: string; port: number } {
+    return {
+      host: this.config.host.trim().toLowerCase(),
+      port: this.config.port,
+    };
+  }
+
   private get baseUrl(): string {
     return `${this.config.protocol}://${this.config.host}:${this.config.port}`;
   }

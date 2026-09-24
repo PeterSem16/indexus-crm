@@ -18,3 +18,9 @@ forms as equivalent, but never remove country prefixes. An unqualified local
 number must remain separate unless a country context makes conversion
 unambiguous. Use a remembered match to rank an ambiguous live-call choice and
 to resolve an otherwise ambiguous missed call; retain all alternative matches.
+
+The same country-qualified, unambiguous matching rule applies when showing a name on a call-history row that has no linked contact. Phone lookup is advisory, not proof of identity.
+
+**Why:** Two countries can share national digits and institutions can share numbers; a guessed display name misattributes a call. Loading every contact in a country for each page also scales poorly.
+
+**How to apply:** Prefer explicit call-to-contact links. For fallback lookup, constrain database candidates by the call's known country and number, then attribute only when exactly one owner remains after full normalization. With no reliable country for a local number, show the number alone.

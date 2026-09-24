@@ -135,6 +135,15 @@ export function assertForwardedPbxIdentity(
   }
 }
 
+export function forwardedRecordingPolicyAllowsMixed(input: {
+  recordingAuthorized: boolean;
+  campaignId: string | null;
+  recordingPolicySnapshot: QueueForwardedCall["recordingPolicySnapshot"];
+}): boolean {
+  return input.recordingAuthorized && (!input.campaignId ||
+    !!input.recordingPolicySnapshot?.active && input.recordingPolicySnapshot.mode === "both");
+}
+
 export async function persistForwardedHandoff(
   values: typeof queueForwardedCalls.$inferInsert,
   connection: Pick<typeof db, "insert"> = db,
@@ -196,8 +205,11 @@ async function saveVerifiedRecording(row: QueueForwardedCall): Promise<void> {
   // Only a flush grace period, never evidence or a lifecycle timestamp.
   if (Date.now() - Date.parse(row.evidence.endedAt) < 4000) return;
   // Recheck the immutable authorization snapshot, never current campaign policy.
-  if ((row.campaignId && !row.recordingPolicySnapshot) ||
-      (row.recordingPolicySnapshot && (!row.recordingPolicySnapshot.active || row.recordingPolicySnapshot.mode !== "both"))) {
+  if (!forwardedRecordingPolicyAllowsMixed({
+    recordingAuthorized: row.recordingAuthorized,
+    campaignId: row.campaignId,
+    recordingPolicySnapshot: row.recordingPolicySnapshot,
+  })) {
     throw new Error("Forwarded mixed recording is not authorized by the handoff snapshot");
   }
   if (!/^[a-zA-Z0-9_-]+$/.test(row.recordingName) ||

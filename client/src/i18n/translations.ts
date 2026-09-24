@@ -6348,6 +6348,7 @@ export interface Translations {
     allDirections: string;
     outbound: string;
     inbound: string;
+    forwardedCall: string;
     recording: string;
     allRecordings: string;
     withRecording: string;
@@ -15170,6 +15171,7 @@ export const translations: Record<Locale, Translations> = {
       allDirections: 'All directions',
       outbound: 'Outbound',
       inbound: 'Inbound',
+      forwardedCall: 'Forwarded',
       recording: 'Recording',
       allRecordings: 'All',
       withRecording: 'With recording',
@@ -22777,6 +22779,7 @@ export const translations: Record<Locale, Translations> = {
       allDirections: 'Všetky smery',
       outbound: 'Odchádzajúce',
       inbound: 'Prichádzajúce',
+      forwardedCall: 'Presmerovaný',
       recording: 'Nahrávka',
       allRecordings: 'Všetky',
       withRecording: 'S nahrávkou',
@@ -30306,6 +30309,7 @@ export const translations: Record<Locale, Translations> = {
       allDirections: 'Všechny směry',
       outbound: 'Odchozí',
       inbound: 'Příchozí',
+      forwardedCall: 'Přesměrovaný',
       recording: 'Nahrávka',
       allRecordings: 'Všechny',
       withRecording: 'S nahrávkou',
@@ -37794,6 +37798,7 @@ export const translations: Record<Locale, Translations> = {
       allDirections: 'Összes irány',
       outbound: 'Kimenő',
       inbound: 'Bejövő',
+      forwardedCall: 'Átirányított',
       recording: 'Felvétel',
       allRecordings: 'Összes',
       withRecording: 'Felvétellel',
@@ -45200,6 +45205,7 @@ export const translations: Record<Locale, Translations> = {
       allDirections: 'Toate direcțiile',
       outbound: 'Ieșire',
       inbound: 'Intrare',
+      forwardedCall: 'Redirecționat',
       recording: 'Înregistrare',
       allRecordings: 'Toate',
       withRecording: 'Cu înregistrare',
@@ -52607,6 +52613,7 @@ export const translations: Record<Locale, Translations> = {
       allDirections: 'Tutte le direzioni',
       outbound: 'In uscita',
       inbound: 'In entrata',
+      forwardedCall: 'Inoltrata',
       recording: 'Registrazione',
       allRecordings: 'Tutte',
       withRecording: 'Con registrazione',
@@ -60001,6 +60008,7 @@ export const translations: Record<Locale, Translations> = {
       allDirections: 'Alle Richtungen',
       outbound: 'Ausgehend',
       inbound: 'Eingehend',
+      forwardedCall: 'Weitergeleitet',
       recording: 'Aufnahme',
       allRecordings: 'Alle',
       withRecording: 'Mit Aufnahme',
