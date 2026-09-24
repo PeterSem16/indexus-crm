@@ -202,6 +202,7 @@ import {
   resolveCallRecordingCustomer,
   type CallRecordingEntity,
 } from "./lib/call-recording-identity";
+import { resolveCallReviewContact } from "./lib/call-contact-review";
 import {
   createCallRecordingUploadCleanup,
   createCallRecordingUploadFilename,
@@ -35734,6 +35735,129 @@ Respond ONLY with valid JSON in this exact format:
     } catch (error) {
       console.error("Failed to fetch call logs:", error);
       res.status(500).json({ error: "Failed to fetch call logs" });
+    }
+  });
+
+  // Manager quality review: the call ID, not the displayed name/phone, is the
+  // authority for opening a contact. Never infer a Mission contact by phone.
+  app.get("/api/call-logs/:id/review-contact", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !["admin", "manager"].includes(user.role)) {
+        return res.status(403).json({ error: "Manager access required" });
+      }
+      const [call] = await db.select({
+        customerId: callLogs.customerId,
+        campaignId: callLogs.campaignId,
+        campaignContactId: callLogs.campaignContactId,
+      }).from(callLogs).where(eq(callLogs.id, req.params.id)).limit(1);
+      if (!call) return res.status(404).json({ error: "Call not found" });
+
+      type ReviewType = "customer" | "clinic" | "hospital" | "collaborator";
+      let type: ReviewType | null = null;
+      let entityId: string | null = null;
+      let campaignId: string | null = null;
+      let campaignContactId: string | null = null;
+      if (call.campaignContactId) {
+        const contact = await storage.getCampaignContact(call.campaignContactId);
+        const resolved = resolveCallReviewContact(call, contact);
+        if (!resolved) {
+          return res.status(404).json({ error: "Call contact identity is ambiguous" });
+        }
+        type = resolved.type;
+        entityId = resolved.entityId;
+        campaignId = resolved.campaignId;
+        campaignContactId = resolved.campaignContactId;
+      } else if (call.customerId) {
+        // Historical logs sometimes have only a polymorphic entity ID. Require
+        // exactly one existing entity; never take the first matching table.
+        const [customer, clinic, hospital, collaborator] = await Promise.all([
+          db.select({ id: customers.id }).from(customers).where(eq(customers.id, call.customerId)).limit(1),
+          db.select({ id: clinics.id }).from(clinics).where(eq(clinics.id, call.customerId)).limit(1),
+          db.select({ id: hospitals.id }).from(hospitals).where(eq(hospitals.id, call.customerId)).limit(1),
+          db.select({ id: collaborators.id }).from(collaborators).where(eq(collaborators.id, call.customerId)).limit(1),
+        ]);
+        const matches = ([["customer", customer], ["clinic", clinic], ["hospital", hospital], ["collaborator", collaborator]] as const)
+          .filter(([, rows]) => rows.length === 1);
+        if (matches.length !== 1) return res.status(404).json({ error: "Call contact identity is ambiguous" });
+        type = matches[0][0];
+        entityId = call.customerId;
+      } else {
+        return res.status(404).json({ error: "No contact linked to this call" });
+      }
+
+      let name = "";
+      let fields: Record<string, string | null> = {};
+      if (type === "customer") {
+        const [e] = await db.select({
+          firstName: customers.firstName, lastName: customers.lastName,
+          phone: customers.phone, mobile: customers.mobile, mobile2: customers.mobile2,
+          email: customers.email, email2: customers.email2,
+          address: customers.address, city: customers.city,
+          postalCode: customers.postalCode, country: customers.country,
+          notes: customers.notes, status: customers.clientStatus,
+        }).from(customers).where(eq(customers.id, entityId!)).limit(1);
+        if (!e) return res.status(404).json({ error: "Contact no longer exists" });
+        name = `${e.firstName} ${e.lastName}`.trim();
+        fields = e;
+      } else if (type === "clinic") {
+        const [e] = await db.select({
+          name: clinics.name, doctorName: clinics.doctorName,
+          phone: clinics.phone, phone2: clinics.phone2, phone3: clinics.phone3,
+          email: clinics.email, email2: clinics.email2, email3: clinics.email3,
+          address: clinics.address, city: clinics.city, postalCode: clinics.postalCode,
+          country: clinics.countryCode, notes: clinics.notes, status: clinics.contractStatus,
+        }).from(clinics).where(eq(clinics.id, entityId!)).limit(1);
+        if (!e) return res.status(404).json({ error: "Contact no longer exists" });
+        name = e.name;
+        fields = e;
+      } else if (type === "hospital") {
+        const [e] = await db.select({
+          name: hospitals.name, fullName: hospitals.fullName,
+          phone: hospitals.phone, email: hospitals.email, contactPerson: hospitals.contactPerson,
+          address: hospitals.streetNumber, city: hospitals.city,
+          postalCode: hospitals.postalCode, country: hospitals.countryCode,
+        }).from(hospitals).where(eq(hospitals.id, entityId!)).limit(1);
+        if (!e) return res.status(404).json({ error: "Contact no longer exists" });
+        name = e.fullName || e.name;
+        fields = e;
+      } else {
+        const [e] = await db.select({
+          firstName: collaborators.firstName, lastName: collaborators.lastName,
+          phone: collaborators.phone, email: collaborators.email,
+          city: collaborators.city, postalCode: collaborators.postalCode,
+          country: collaborators.countryCode,
+        }).from(collaborators).where(eq(collaborators.id, entityId!)).limit(1);
+        if (!e) return res.status(404).json({ error: "Contact no longer exists" });
+        name = `${e.firstName} ${e.lastName}`.trim();
+        fields = e;
+      }
+
+      const statusItems = campaignId && campaignContactId
+        ? await db.select({
+            id: campaignStatusListItems.id, label: campaignStatusListItems.label,
+            description: campaignStatusListItems.description,
+            parentId: campaignStatusListItems.parentId, itemType: campaignStatusListItems.itemType,
+            isHidden: campaignStatusListItems.isHidden, required: campaignStatusListItems.required,
+            sortOrder: campaignStatusListItems.sortOrder,
+          }).from(campaignStatusListItems)
+            .where(eq(campaignStatusListItems.campaignId, campaignId))
+            .orderBy(campaignStatusListItems.sortOrder)
+        : [];
+      const statusState = campaignContactId
+        ? await db.select({
+            statusListItemId: campaignContactStatusListState.statusListItemId,
+            confirmedAt: campaignContactStatusListState.confirmedAt,
+            itemNote: campaignContactStatusListState.itemNote,
+            confirmedByName: users.fullName,
+          }).from(campaignContactStatusListState)
+            .leftJoin(users, eq(users.id, campaignContactStatusListState.confirmedByUserId))
+            .where(eq(campaignContactStatusListState.campaignContactId, campaignContactId))
+        : [];
+      res.json({ type, name, fields, campaignId, campaignContactId, statusItems, statusState });
+    } catch (error) {
+      console.error("Failed to load call contact review:", error);
+      res.status(500).json({ error: "Failed to load call contact review" });
     }
   });
 

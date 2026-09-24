@@ -12,6 +12,7 @@ import { Search, FileText, AlertTriangle, Download, ChevronDown, ChevronUp, Chev
 import { useAuth } from "@/contexts/auth-context";
 import { useI18n } from "@/i18n";
 import { CallRecordingPlayer, type PlaybackState } from "@/components/call-recording-player";
+import { CallContactReviewPanel } from "@/components/call-contact-review-drawer";
 import { callBrowseDisplayName } from "@/lib/call-browse-identity";
 
 const LOCALE_MAP: Record<string, string> = { en: 'en-US', sk: 'sk-SK', cs: 'cs-CZ', hu: 'hu-HU', ro: 'ro-RO', it: 'it-IT', de: 'de-DE' };
@@ -280,6 +281,8 @@ const SENTIMENT_SCORE: Record<string, number> = { positive: 9, neutral: 6, negat
 const SENTIMENT_COLOR: Record<string, string> = { positive: "#10b981", neutral: "#0ea5e9", negative: "#f59e0b", angry: "#ef4444" };
 
 function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { log: CallLogEntry; ca: Record<string, any>; locale: string; searchText?: string; onImportantToggle?: (id: string, val: boolean) => void }) {
+  const { user } = useAuth();
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [tab, setTab] = useState<"analysis" | "transcript">("analysis");
   const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
   const [isImportant, setIsImportant] = useState(log.isImportant);
@@ -317,7 +320,8 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
   const handleExport = (fmt: string) => { if (rec?.id) window.open(`/api/call-recordings/${rec.id}/export-transcript?format=${fmt}`, "_blank"); };
 
   return (
-    <div className="flex w-full min-w-0 flex-col" data-testid={`analysis-detail-${log.id}`}>
+    <div className="relative flex w-full min-w-0 items-start" data-testid={`analysis-detail-${log.id}`}>
+      <div className="flex min-w-0 flex-1 flex-col">
 
       {/* ── Header ── */}
       <div className="px-5 pt-4 pb-3 border-b bg-background shrink-0 space-y-3">
@@ -348,6 +352,13 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
                 <div className={`text-xs font-bold ${sc.text}`}>{sentimentLabels[rec.sentiment] || rec.sentiment}</div>
                 <div className="text-[9px] text-muted-foreground mt-0.5">{ca.sentiment}</div>
               </div>
+            )}
+            {(user?.role === "manager" || user?.role === "admin") && (
+              <Button variant="outline" size="sm" className="shrink-0 gap-1.5"
+                data-testid={`open-call-contact-${log.id}`}
+                onClick={() => setReviewOpen(true)}>
+                <UserCircle className="h-3.5 w-3.5" />{ca.openContactCard}
+              </Button>
             )}
             <button onClick={toggleImportant} disabled={togglingImportant}
               title={isImportant ? "Odznačiť ako dôležitý" : "Označiť ako dôležitý"}
@@ -687,6 +698,8 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
           {log.notes && <p className="text-xs mt-2 text-center max-w-xs italic">{log.notes}</p>}
         </div>
       )}
+      </div>
+      {reviewOpen && <CallContactReviewPanel callLogId={log.id} onClose={() => setReviewOpen(false)} />}
     </div>
   );
 }
