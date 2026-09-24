@@ -270,6 +270,26 @@ export function Variant() {
           letter-spacing: -.025em;
           line-height: 1.15;
         }
+        .call-review-current .player-contact-name {
+          display: inline;
+          padding: 0;
+          border: 0;
+          color: inherit;
+          background: transparent;
+          font: inherit;
+          text-align: left;
+          cursor: pointer;
+        }
+        .call-review-current .player-contact-name:hover {
+          color: #76538f;
+          text-decoration: underline;
+          text-underline-offset: 3px;
+        }
+        .call-review-current .player-contact-name:focus-visible {
+          outline: 2px solid #8665ae;
+          outline-offset: 3px;
+          border-radius: 3px;
+        }
         .call-review-current .contact-type {
           align-self: start;
           padding: 4px 7px;
@@ -410,7 +430,16 @@ export function Variant() {
             <div className="cr-player-heading">
               <div>
                 <p className="cr-eyebrow">PREHRÁVAČ HOVORU</p>
-                <h1>{contact.name}</h1>
+                <h1>
+                  <button
+                    type="button"
+                    className="player-contact-name"
+                    onClick={() => setReviewOpen(true)}
+                    aria-label={`Otvoriť kartu kontaktu: ${contact.name}`}
+                  >
+                    {contact.name}
+                  </button>
+                </h1>
                 <p className="cr-player-meta">+421 918 751 470 <span>·</span> 17. jan 2025 <span>·</span> 04:38</p>
               </div>
               <div className="flex items-center gap-2">
