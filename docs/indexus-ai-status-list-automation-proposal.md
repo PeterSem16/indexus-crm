@@ -35,9 +35,15 @@ Status List už podporuje automatizácie pripojené ku kroku a prípadne k otáz
 
 Konfigurácia je uložená v `campaign_status_list_automations`. Pri potvrdení položky Status Listu server načíta priradené pravidlá, vyhodnotí podmienky a zavolá konkrétne implementované akcie.
 
+V kóde sú aj tri preddefinované šablóny Status Listu: **CLA (21 položiek), CLB (8) a MPN (69)**. Builder umožňuje vybrať, ktoré kroky a ktoré z ich navrhnutých automatizácií sa majú skopírovať do konkrétnej Mission. Nie sú preto dôkazom, že každá živá Mission má rovnaký Status List alebo rovnaké aktívne pravidlá.
+
+Pri interpretácii šablón treba navyše rozlišovať medzi ich textovým opisom a vykonateľnou konfiguráciou: podmienky a časovanie sa pri vložení ukladajú aj ako popis kroku; samostatné záznamy automatizácií vzniknú len pre používateľom vybrané automatizácie. AI nesmie opis v šablóne považovať za strojovo vynucovanú podmienku bez overenia konkrétnej implementácie.
+
 ### Ďalší automatizačný systém
 
 Projekt obsahuje aj samostatný Workflow Automation Engine s udalosťami, podmienkami, definovanými akciami, testovacím spustením a históriou behov. Zatiaľ ide o oddelenú cestu od vykonávania automatizácií Status Listu.
+
+Jeho katalóg dnes uvádza moduly `customer`, `task`, `contract`, `hospital`, `clinic`, `invoice` a `call`; medzi všeobecné spúšťače patria vytvorenie, zmena, zmena statusu, dokončená/expirovaná úloha, plánovaný tick a udalosti prichádzajúceho hovoru. Katalóg akcií zahŕňa okrem iného úlohu, notifikáciu, email, SMS, webhook a obmedzenú zmenu povolených polí. Prítomnosť modulu v katalógu však sama osebe nedokazuje, že všetky jeho vstupné a aktualizačné cesty posielajú udalosti do enginu.
 
 **Odporúčanie:** nezačínať vytvorením ďalšieho, tretieho automatizačného jadra. Prvá verzia AI má vytvárať návrhy, ktoré sa dajú uložiť ako existujúce automatizácie Status Listu. Neskôr možno vyhodnotiť spoločný katalóg a vykonávaciu vrstvu pre oba systémy.
 
@@ -344,3 +350,114 @@ Prvý implementačný cieľ má byť **asistent na návrh a bezpečný náhľad 
 - `shared/schema.ts` — `campaign_status_list_automations` a existujúce polia pravidiel.
 - `server/routes.ts` — podmienky a vykonávanie akcií pri potvrdení Status Listu.
 - `server/lib/automation-engine.ts` a `server/lib/automation-routes.ts` — samostatný generický Workflow Automation Engine a jeho správa/testovanie.
+
+## 13. Inventár šablón a uskutočniteľná automatizácia ďalších modulov
+
+Táto časť dopĺňa pôvodný návrh o stav zistený v zdrojovom kóde. „Existuje v šablóne“ znamená predvolený záznam v klientskom kóde, nie potvrdenie, že záznam už je v produkčnej Mission alebo že jeho textový opis vykonáva pravidlo.
+
+### 13.1 Ako čítať predvolené Status List šablóny
+
+Status List builder vytvára vybrané položky cez API konkrétnej kampane a vytvára aj vybrané záznamy automatizácií. Podmienka `conditionIf`, text akcie `actionThen` a časovanie `callbackTiming` sa pritom skladajú do textového popisu kroku. Sú to užitočné procesné poznámky, ale samy osebe nie sú podmienkou vykonávania v automate.
+
+Šablóna MPN navyše obsahuje dve automatizácie s typom `create_bo_task`. Tento typ sa nenašiel medzi aktuálnymi akciami editora a vetvami vykonávača Status Listu. Kým sa nepodporí a neotestuje, treba ho označiť ako **predvolený návrh v šablóne, nie ako overenú vykonateľnú akciu**.
+
+Skratky rolí v tabuľkách: **KO** = koordinátor, **BO** = Back Office, **SYS** = systémový/informačný krok, **DB Admin** = správca databázy, **HP** = Healthcare Provider. Označenia rolí **KO+OR** sú ponechané tak, ako sú uložené v šablóne; zdroj im nepriraďuje slovné vysvetlenie. V MPN sú názvy uložené v angličtine; slovenská verzia ich v tejto šablóne neprekladá.
+
+### 13.2 CLA — 21 predvolených krokov
+
+| ID | Rola | Krok v šablóne | Predvolená automatizácia v šablóne |
+|---|---|---|---|
+| CLA-01 | DB Admin | Healthcare Provider pridelenie koordinátorovi | AT-SYS-01a: notifikácia role koordinátora, +24 h, stredná priorita |
+| CLA-02 | KO | Call č. 1 — nadviazanie kontaktu | AT-08: úloha pre admina po 10× „Unreachable“, +24 h, vysoká |
+| CLA-03 | KO | Call č. 2 — kvalifikácia a záujem o spoluprácu | AT-01: Email-01 ihneď; AT-02: Email-02 s opisom „+3 pracovné dni“ |
+| CLA-03b | KO | Skratka — HP ihneď potvrdí záujem o podpis pri CLA-03 | AT-01-03b: Email-01; AT-03-03b: BO úloha na odoslanie Listu č. 2, +24 h, vysoká |
+| CLA-04 | SYS | Auto-odoslanie Email-01 | — |
+| CLA-05 | SYS | Auto-odoslanie Email-02 — informačné materiály | — |
+| CLA-06 | KO | Call č. 3 — potvrdenie záujmu o zmluvu | — |
+| CLA-07 | KO | Koordinátor označí „Odoslať zmluvu“ (F10) | AT-03: BO úloha na odoslanie Listu č. 2, +24 h, vysoká |
+| CLA-08 | BO | Back Office odosiela List č. 2 (fyzický list so zmluvou) | AT-06: callback koordinátora po 7 dňoch, stredná |
+| CLA-09 | KO | Call č. 4.0 — základná kontrola doručenia zmluvy | — |
+| CLA-09a | KO | Call 4.1 — zmluva doručená, ešte nezaslaná späť | AT-09a-cb: callback po týždni; AT-17: eskalácia manažérovi po 4 opakovaniach, urgentná úloha |
+| CLA-09b | KO | Call 4.2 — HP zmluvu odoslal späť, je v tranzite | AT-16: notifikácia koordinátora pri F14 → Yes |
+| CLA-09c | KO | Call 4.3 — zmluva nebola doručená | AT-09: eskalácia manažérovi po 3 nedoručeniach, urgentná úloha |
+| CLA-09d | KO | Call 4.a — zmluva sa stratila pri spätnom odoslaní | AT-09d-bo: BO úloha na náhradný originál Listu č. 3a |
+| CLA-09e | KO | Doplnenie chýbajúcich údajov po neúspešnej validácii | AT-09e-bo: BO úloha na doplnenie údajov do zmluvy |
+| CLA-10 | BO | Back Office validácia podpísanej zmluvy (BO5) | AT-07: zmena F06/F10 a callback koordinátora podľa textu šablóny |
+| CLA-10b | KO | Call č. 4.b — informovanie HP o nových kópiách nepodpísanej zmluvy | AT-10b-bo: BO úloha na List č. 3b |
+| CLA-11 | KO | Call č. 5 — potvrdenie zmluvy a materiály do čakárne | AT-04: BO úloha na odoslanie prvého balíka (BAL-1) |
+| CLA-12 | BO | Back Office odosiela prvý balík gynekológovi | AT-15: callback koordinátora po týždni |
+| CLA-13 | KO | Call č. 6 — overenie doručenia materiálov | AT-13: opis hovorí o rutinnom callbacku po 3 mesiacoch |
+| CLA-DEC | KO | Healthcare Provider odmietol spoluprácu | AT-DEC-cb: opis callbacku po 6 mesiacoch, prípadne po 3 mesiacoch pri referral |
+
+### 13.3 CLB — 8 predvolených krokov
+
+| ID | Rola | Krok v šablóne | Predvolená automatizácia v šablóne |
+|---|---|---|---|
+| CLB-01 | KO | Rutinný callback (každé 3 mesiace) | AT-13-clb: callback koordinátora |
+| CLB-02 | KO | Healthcare Provider ukončil spoluprácu | AT-14: notifikácia manažéra koordinátorov |
+| CLB-03 | SYS | Priority Outreach — systémový trigger | AT-10: urgentná úloha koordinátorovi |
+| CLB-04 | KO | Priority Outreach — koordinátor kontaktuje HP | AT-11: urgentná úloha koordinátorovi pri odmietnutí HP |
+| CLB-05 | SYS | Invoice Follow-up — systémový trigger | V šablóne bez pripojenej automatizácie |
+| CLB-06 | KO | Invoice Follow-up — koordinátor kontaktuje HP | V šablóne bez pripojenej automatizácie |
+| CLB-07 | KO | Koordinátor oznámi potrebu doplnenia materiálov | AT-05: BO úloha na odoslanie štandardného balíka |
+| CLB-08 | BO | Back Office odosiela štandardný balík (Replenishment) | — |
+
+CLB-05 opisuje kontrolu 30 dní po zaslaní výsledkov a odkazuje na „AT-12“, ale daný krok nemá v zozname pripojenú automatizáciu. Nemožno ho teda prezentovať ako už fungujúce vynucované sledovanie faktúr.
+
+### 13.4 MPN — 69 položiek (16 hlavných krokov a ich voliteľné odpovede)
+
+Každý hlavný krok a jeho odpovede sú vypísané spolu; počet položiek v tejto šablóne je 69 vrátane 16 hlavných krokov.
+
+| ID hlavného kroku / rola | Krok a odpovede predvolené v šablóne |
+|---|---|
+| MPN-01 — DB Admin | **Assigned Healthcare Provider**; MPN-01a: Unassigned to a medical representative; MPN-01b: Assigned to a medical representative |
+| MPN-02 — DB Admin | **HP Assignment — To Whom**; MPN-02a: None (0 — not assigned); MPN-02b: Assigned to coordinator of collections |
+| MPN-03 — DB Admin | **Healthcare Provider Reachability Status**; MPN-03a: Not defined yet; MPN-03b: Unreachable; MPN-03c: Reachable. Predvolená akcia: MPN-03-AT1 `create_bo_task`, DB Admin, +72 h, vysoká priorita (vykonateľnosť treba najprv potvrdiť). |
+| MPN-04 — KO+OR | **Qualified or Unqualified Medical Partner**; MPN-04a: Unknown yet; MPN-04b: Qualified — provides healthcare to pregnant women; MPN-04c: Unqualified — does not provide healthcare to pregnant women |
+| MPN-05 — KO+OR | **Willingness to Provide Ordered Services**; MPN-05a: Cooperation not offered yet; MPN-05b: Cooperation offered — considering; MPN-05c: Cooperation offered — agreed; MPN-05d: Cooperation offered — disagreed |
+| MPN-06 — KO+OR | **Contract Proposal with HP**; MPN-06a: Contract is not necessary; MPN-06b: Contract proposal not offered yet; MPN-06c: Contract proposal offered — considering; MPN-06d: Contract proposal offered — accepted; MPN-06e: Contract proposal offered — unaccepted |
+| MPN-07 — DB Admin | **Contract Proposal Sent via Email**; MPN-07a: Contract proposal not sent; MPN-07b: Contract proposal sent |
+| MPN-08 — KO+BO | **Contract for Signing — Sent**; MPN-08a: Contract for signing not sent; MPN-08b: Contract for signing sent. Predvolená akcia: MPN-08-AT1 `create_bo_task`, Back Office, +48 h, vysoká priorita (vykonateľnosť treba najprv potvrdiť). |
+| MPN-09 — BO | **Contract Sending Count** (informačný krok) |
+| MPN-10 — KO+OR | **Contract Received by Partner**; MPN-10a: Unknown whether received; MPN-10b: Contract not received by partner; MPN-10c: Contract received by partner |
+| MPN-11 — BO | **Signed Contract Received by CBC**; MPN-11a: Yes — signed contract received; MPN-11b: No — signed contract not yet received |
+| MPN-12 — BO | **Signed Contract Validated**; MPN-12a: Not validated yet — signed contract returned, awaiting validation; MPN-12b: Contract did not pass validation; MPN-12c: Contract not resent; MPN-12d: Contract resent by HP; MPN-12e: Contract validated ✓ |
+| MPN-13 — KO+OR | **Information Materials — Cord Blood Banking**; MPN-13a: Not offered yet; MPN-13b: Offered — offer accepted; MPN-13c: → Accepted: Not sent yet; MPN-13d: → Accepted: Sent — resend when new version released; MPN-13e: Offered — offer not accepted |
+| MPN-14 — KO+OR | **Waiting Room Leaflets**; MPN-14a: Not offered yet; MPN-14b: Offered — offer accepted; MPN-14c: → Accepted: Not sent yet; MPN-14d: → Accepted: Sent — check at routine callback; MPN-14e: Offered — offer not accepted |
+| MPN-15 — KO+OR | **Pregnancy Booklets**; MPN-15a: Not offered yet; MPN-15b: Offered — offer accepted; MPN-15c: → Accepted: Not sent yet; MPN-15d: → Accepted: Sent — check at routine callback; MPN-15e: Offered — offer not accepted |
+| MPN-16 — KO+OR | **A3 Waiting Room Poster**; MPN-16a: Not offered yet; MPN-16b: Offered — offer accepted; MPN-16c: → Accepted: Not sent yet; MPN-16d: → Accepted: Sent — resend when new version released; MPN-16e: Offered — offer not accepted |
+
+### 13.5 Zistené rozpory, ktoré musí AI odhaliť
+
+- CLA-03 opisuje Email-02 po **3 pracovných dňoch**, no štruktúrovaný offset v predvoľbe je `+3d`. To nie je dôkaz pracovného kalendára ani bezpečne naplánovaného odoslania.
+- CLA-13, CLA-DEC a CLB-01 hovoria o callbacku o **3 až 6 mesiacov**, ale uložený `taskDeadlineOffset` je pri týchto položkách `+14d`. Pole sa volá termín úlohy; nesmie sa bez overenia vydávať za plánovaný čas budúceho spustenia.
+- Podmienky ako „po 10× Unreachable“, „po 4 opakovaniach“ či „po 3 nedoručeniach“ sú v textoch predvolieb. Treba overiť, či pre ne existuje samostatná počítacia a podmieňovacia logika, skôr než ich AI označí za automaticky vynucované.
+- CLB-05/06, MPN `create_bo_task` a rozdiel medzi popísaným a štruktúrovaným časovaním majú byť validačné upozornenia asistenta; nesúlad sa nesmie potichu „opraviť“ odhadom.
+
+### 13.6 Pripravenosť ďalších modulov a bezpečné úrovne automatizácie
+
+Navrhované úrovne:
+
+1. **Úroveň 0 — vysvetliť a navrhnúť:** AI sumarizuje stav alebo navrhne pravidlo; nič nezapisuje ani neodosiela.
+2. **Úroveň 1 — človekom schválená interná akcia:** po schválení vytvoriť úlohu alebo interné upozornenie cez existujúci engine.
+3. **Úroveň 2 — deterministické spúšťanie:** povoliť automatické interné pravidlá len pre moduly s overenými udalosťami, oprávneniami, idempotenciou a auditom.
+4. **Úroveň 3 — externá komunikácia alebo závažný dôsledok:** pridať až po samostatnom pilote, s povolenými šablónami, príjemcami a ľudským schválením. Platba, podpis, klinické rozhodnutie či právna zmena nesmú byť rozhodnutím modelu.
+
+| Modul | Čo je dnes doložené v kóde | Bezpečné rozšírenie | Chýbajúce alebo rizikové časti |
+|---|---|---|---|
+| **Faktúry** | Modul `invoice` a jeho polia sú v katalógu Workflow Engine. Bežné vytvorenie a aktualizácia faktúry odosielajú udalosti `created`/`updated`; aktualizácia môže vyvolať aj `status_changed`. Faktúry majú status, sumu, zaplatenú sumu, dátum splatnosti a platby. | Najprv úloha alebo interné upozornenie pri nezaplatenej/splatnej faktúre; následne návrh upomienky z odsúhlasenej šablóny a kontrola človekom. | Treba zjednotiť pokrytie všetkých ciest vrátane platieb, hromadného vytvárania a integrácií. Schéma faktúry používa `generated`, `sent`, `paid`, `partially_paid`, `overdue`, `cancelled`, kým katalóg pravidiel ponúka aj odlišnú hodnotu `pending` a neuvádza `generated`/`partially_paid`. Pred AI návrhmi na zmenu statusu treba zosúladiť enumy. AI nesmie meniť sumy, párovať platby ani označiť faktúru za zaplatenú. |
+| **Zmluvy** | Modul `contract` je v katalógu. Štandardné create/update cesty a samostatné dokončenie/zrušenie posielajú udalosti. Zmluvy majú statusy a dátumy podpisu, dokončenia a platnosti. | Po overenom podpise vytvoriť internú úlohu; pri blížiacej sa platnosti navrhnúť obnovu alebo upozorniť zodpovednú osobu. | Treba osobitne overiť, či e-podpis a všetky importované/automatizované prechody statusu emitujú udalosť. Schéma má `draft`, `sent`, `pending_signature`, `signed`, `completed`, `cancelled`, `expired`; katalóg obsahuje navyše `active` a vynecháva `sent`. AI nesmie označovať podpis, meniť právne podmienky ani upravovať podpísaný obsah. |
+| **Laboratóriá a výsledky** | Existujú konfigurovateľné laboratóriá podľa krajiny, API pre zápis/výber laboratórnych výsledkov, API oprávnenia a idempotencia cez `clientResultId`. Import výsledku môže zmeniť stav odberu. Existuje aj AI analýza laboratórnych výsledkov; tá sama osebe nie je napojením na Workflow Engine. | Pridať explicitné, auditované udalosti pre výsledok prijatý/opravený a deterministické interné úlohy pri chýbajúcich údajoch alebo vopred definovaných prevádzkových výnimkách. AI môže pripraviť zrozumiteľné zhrnutie pre odbornú kontrolu. | `laboratory`/`lab_result` nie sú v katalógu modulov ani polí Workflow Engine. Najprv treba určiť zdroj pravdy pre stav, validáciu, opravy a duplicity. AI nesmie diagnózovať, schvaľovať klinický výsledok, rozhodovať o použiteľnosti vzorky ani sama informovať klienta o zdravotnom náleze; odborné rozhodnutie zostáva človeku. |
+| **Kliniky a nemocnice** | Obe sú v katalógu a ich bežné vytvorenie/aktualizácia posielajú udalosti. Existujú polia pre status, zodpovednú osobu/reprezentanta a ďalší kontakt. | Vytvárať interné úlohy pri zmenách stavu, chýbajúcom priradení alebo termíne kontaktu; AI môže pripraviť pravidlo v kontexte konkrétnej Mission. | Odlišovať globálnu udalosť záznamu od workflow konkrétnej Mission. AI nesmie sama rozšíriť viditeľnosť kontaktu, zmeniť vlastníctvo ani obísť country/Mission oprávnenia. |
+| **Úlohy a prichádzajúce hovory** | Katalóg obsahuje `task.completed`, `task.overdue` a udalosti hovoru (priradenie, prijatie, dokončenie, opustenie, timeout). | Použiť ich na interné notifikácie, nadväzujúce úlohy a zrozumiteľné vysvetlenie, prečo sa pravidlo spustilo. | Pravidlá musia byť idempotentné, viazané na správnu Mission a nesmú meniť call/recording oprávnenia ani odosielať osobné údaje cez externé kanály. |
+
+**Poradie rozšírenia:** po Status List pilote najprv overiť eventy a enumy faktúr a zmlúv; až potom aktivovať interné workflow. Laboratórne výsledky zaradiť po definovaní autorizovaných stavových prechodov a odborného schvaľovania. Bez týchto predpokladov môže AI len vysvetľovať a pripravovať návrh pre človeka.
+
+### 13.7 Zdrojové miesta overenia
+
+- `client/src/data/cla-template.ts` — predvolené CLA/CLB/MPN kroky, roly a navrhnuté automatizácie.
+- `client/src/components/campaign-status-list-builder.tsx` — výber a vloženie šablón do konkrétnej kampane.
+- `server/lib/automation-routes.ts` — katalóg modulov, udalostí, akcií a polí Workflow Engine.
+- `server/lib/event-bus.ts` — generické udalosti vytvorenia, aktualizácie a zmeny statusu.
+- `server/routes.ts` — event emitters pre faktúry a zmluvy a API laboratórnych výsledkov.
+- `shared/schema.ts` — statusy faktúr, zmlúv, laboratórií a súvisiacich záznamov.
