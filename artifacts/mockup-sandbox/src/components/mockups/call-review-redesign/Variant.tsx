@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CalendarClock, Check, ChevronDown, ClipboardCheck, Clock3, FileText, UserRound, X } from "lucide-react";
 import "./_group.css";
 
@@ -115,9 +115,10 @@ function useQuery<T>(_options: unknown): { data: T | undefined; isLoading: boole
 export function Variant() {
   const { t, locale } = useI18n();
   const ca = t.callAnalysis;
+  const [reviewOpen, setReviewOpen] = useState(true);
   const closeRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(() => {});
-  const onClose = () => {};
+  const onClose = () => setReviewOpen(false);
   onCloseRef.current = onClose;
   const { data, isLoading, isError } = useQuery<ReviewContact>({
     queryKey: ["/api/call-logs", "mock-call-log", "review-contact"],
@@ -185,7 +186,17 @@ export function Variant() {
                 <h1>{contact.name}</h1>
                 <p className="cr-player-meta">+421 918 751 470 <span>·</span> 17. jan 2025 <span>·</span> 04:38</p>
               </div>
-              <span className="cr-call-status">Dokončený</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setReviewOpen(true)}
+                  className="rounded-md border border-white/15 bg-white/5 px-2 py-1 text-[9px] font-semibold text-zinc-200 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  aria-label="Otvoriť kartu kontaktu"
+                >
+                  Otvoriť kartu kontaktu
+                </button>
+                <span className="cr-call-status">Dokončený</span>
+              </div>
             </div>
             <div className="cr-waveform" aria-hidden="true">
               {Array.from({ length: 64 }, (_, index) => (
@@ -205,7 +216,7 @@ export function Variant() {
             </div>
           </section>
 
-          <aside role="dialog" aria-label={ca.reviewContactTitle} aria-modal="false"
+          {reviewOpen && <aside role="dialog" aria-label={ca.reviewContactTitle} aria-modal="false"
             className="fixed inset-0 z-[9994] flex min-w-0 flex-col overflow-hidden border-l border-zinc-200 bg-[#fbfbfa] text-zinc-900 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 lg:sticky lg:top-2 lg:z-auto lg:h-[calc(100dvh-1rem)] lg:w-[45%] lg:shrink-0 lg:self-start lg:rounded-l-xl lg:shadow-none"
             data-testid="call-contact-review-drawer">
             <header className="shrink-0 border-b border-zinc-200 bg-white px-5 py-3.5 dark:border-zinc-700 dark:bg-zinc-900">
@@ -307,7 +318,7 @@ export function Variant() {
                 </div>
               )}
             </div>
-          </aside>
+          </aside>}
         </div>
       </section>
     </main>
