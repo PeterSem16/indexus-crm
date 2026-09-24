@@ -389,10 +389,15 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
               </div>
             )}
             {(user?.role === "manager" || user?.role === "admin") && (
-              <Button variant="outline" size="sm" className="shrink-0 gap-1.5"
+              <Button variant="outline" size="sm"
+                className="group h-9 shrink-0 gap-2 rounded-xl border-primary/25 bg-primary/5 pl-1.5 pr-3 text-primary shadow-sm transition-all duration-200 hover:border-primary/50 hover:bg-primary/10 hover:text-primary hover:shadow-md focus-visible:ring-2 focus-visible:ring-primary dark:bg-primary/10 dark:hover:bg-primary/20"
                 data-testid={`open-call-contact-${log.id}`}
                 onClick={() => setReviewOpen(true)}>
-                <UserCircle className="h-3.5 w-3.5" />{ca.openContactCard}
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+                  <UserCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                </span>
+                <span className="font-semibold tracking-tight">{ca.openContactCard}</span>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
               </Button>
             )}
             <button onClick={toggleImportant} disabled={togglingImportant}
