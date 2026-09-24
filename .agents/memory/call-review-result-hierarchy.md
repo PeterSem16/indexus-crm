@@ -16,3 +16,9 @@ For the review card, make the lower expandable contact details visually consiste
 **Why:** The user asked for the two contact-data areas to feel like one coherent interface after approving the outcome-first review.
 
 **How to apply:** Do not move the full contact field grid above the results to achieve consistency; keep its disclosure below them.
+
+Contact and outcome notes should be visible and clearly distinguished: the current contact note belongs with the contact summary, while each recorded status-list note belongs with its confirmed result. Keep all selected result times and the scheduled callback target and setting time in the initial short-desktop viewport even when notes are present.
+
+**Why:** After making notes more prominent in the mockup, the callback fell below the first screen; the compact revision restored its visibility without hiding notes.
+
+**How to apply:** Check a 1280×720 viewport whenever adding height to the contact header, per-result notes, or the callback section.

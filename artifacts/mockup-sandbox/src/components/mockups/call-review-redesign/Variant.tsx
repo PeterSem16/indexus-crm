@@ -235,8 +235,8 @@ export function Variant() {
           grid-template-columns: 38px minmax(0, 1fr) auto;
           gap: 10px;
           align-items: center;
-          margin: -2px 0 2px;
-          padding: 10px 11px;
+          margin: -2px 0 1px;
+          padding: 7px 10px;
           border: 1px solid #e1dce7;
           border-radius: 12px;
           background: linear-gradient(135deg, #fff 0%, #faf7fc 100%);
@@ -244,13 +244,13 @@ export function Variant() {
         }
         .call-review-current .contact-avatar {
           display: grid;
-          width: 38px;
-          height: 38px;
+          width: 32px;
+          height: 32px;
           place-items: center;
           border-radius: 11px;
           color: #76538f;
           background: #eee7f5;
-          font-size: 12px;
+          font-size: 10px;
           font-weight: 800;
           letter-spacing: .02em;
         }
@@ -265,7 +265,7 @@ export function Variant() {
         .call-review-current .contact-name {
           margin: 0;
           color: #302b34;
-          font-size: 15px;
+          font-size: 14px;
           font-weight: 800;
           letter-spacing: -.025em;
           line-height: 1.15;
@@ -284,20 +284,20 @@ export function Variant() {
         .call-review-current .contact-facts {
           display: flex;
           flex-wrap: wrap;
-          gap: 6px;
-          margin: 8px 0 13px 48px;
+          gap: 5px;
+          margin: 5px 0 7px 42px;
         }
         .call-review-current .contact-fact {
           display: inline-flex;
           min-width: 0;
           align-items: center;
           gap: 4px;
-          padding: 4px 7px;
+          padding: 3px 6px;
           border: 1px solid #e5e2e7;
           border-radius: 6px;
           color: #69636e;
           background: #fff;
-          font-size: 9px;
+          font-size: 8px;
           line-height: 1.2;
         }
         .call-review-current .contact-fact svg {
@@ -306,24 +306,93 @@ export function Variant() {
         }
         .call-review-current .contact-details {
           overflow: hidden;
-          border: 1px solid #e1dfe3;
-          border-radius: 10px;
-          background: #fff;
+          border: 1px solid #ded7e6;
+          border-radius: 12px;
+          background: linear-gradient(180deg, #fff 0%, #faf8fc 100%);
+          box-shadow: 0 5px 15px rgb(78 55 96 / 4%);
         }
         .call-review-current .contact-details summary {
-          padding: 10px 11px;
-          background: #faf9fb;
+          padding: 12px 13px;
+          background: #f7f2fa;
+          color: #5d496a;
+          transition: background .2s ease;
+        }
+        .call-review-current .contact-details summary:hover {
+          background: #f1eaf6;
         }
         .call-review-current .contact-details .contact-details-label {
           color: #655d6b;
           letter-spacing: .13em;
         }
         .call-review-current .contact-details .contact-details-body {
-          padding: 0 10px 10px;
+          padding: 10px;
+          background: #fcfbfd;
         }
         .call-review-current .contact-details .contact-field {
-          border-color: #e8e5e9;
-          background: #fcfbfc;
+          border-color: #e7e1eb;
+          background: #fff;
+          box-shadow: 0 2px 6px rgb(78 55 96 / 3%);
+        }
+        .call-review-current .contact-details .contact-field-label {
+          color: #9b8da4;
+          font-size: 9px;
+          font-weight: 800;
+          letter-spacing: .1em;
+          text-transform: uppercase;
+        }
+        .call-review-current .contact-details .contact-field-value {
+          color: #38313d;
+          font-weight: 600;
+        }
+        .call-review-current .result-note {
+          display: flex;
+          align-items: flex-start;
+          gap: 5px;
+          margin-top: 4px;
+          padding: 4px 6px;
+          border: 1px solid #dfe8df;
+          border-radius: 6px;
+          color: #526258;
+          background: #f7fbf7;
+          font-size: 9px;
+          line-height: 1.35;
+        }
+        .call-review-current .result-note svg {
+          flex: none;
+          margin-top: 1px;
+          color: #699176;
+        }
+        .call-review-current .result-note-label {
+          margin-right: 3px;
+          color: #46644f;
+          font-weight: 800;
+        }
+        .call-review-current .contact-note {
+          display: flex;
+          align-items: flex-start;
+          gap: 7px;
+          margin: 0 0 1px 42px;
+          padding: 5px 7px;
+          border: 1px solid #e5ddec;
+          border-radius: 8px;
+          color: #665674;
+          background: #faf7fc;
+          font-size: 9px;
+          line-height: 1.35;
+        }
+        .call-review-current .contact-note svg {
+          flex: none;
+          margin-top: 1px;
+          color: #9678aa;
+        }
+        .call-review-current .contact-note-label {
+          display: block;
+          margin-bottom: 2px;
+          color: #8c759a;
+          font-size: 8px;
+          font-weight: 800;
+          letter-spacing: .1em;
+          text-transform: uppercase;
         }
         @media (max-width: 700px) {
           .call-review-current .cr-player-context { border-right: 0; border-bottom: 1px solid #dfdde2; }
@@ -419,6 +488,12 @@ export function Variant() {
                      <span className="contact-fact"><Mail size={10} aria-hidden="true" />{data.fields.email}</span>
                      <span className="contact-fact"><MapPin size={10} aria-hidden="true" />{data.fields.city}</span>
                    </div>
+                    {data.fields.notes && (
+                      <div className="contact-note" aria-label="Poznámka ku kontaktu">
+                        <FileText size={12} aria-hidden="true" />
+                        <span><span className="contact-note-label">Poznámka ku kontaktu</span>{data.fields.notes}</span>
+                      </div>
+                    )}
 
                   <section data-testid="review-selected-options" className="overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50/70 dark:border-emerald-900 dark:bg-emerald-950/25">
                     <div className="flex items-center gap-2 border-b border-emerald-200 px-3.5 py-2.5 text-emerald-900 dark:border-emerald-900 dark:text-emerald-200">
@@ -433,15 +508,15 @@ export function Variant() {
                     ) : (
                       <ol className="divide-y divide-emerald-200 dark:divide-emerald-900">
                         {data.selectedOptions.map((option) => (
-                          <li key={option.id} className="flex gap-2.5 px-3.5 py-3">
+                           <li key={option.id} className="flex gap-2 px-3.5 py-2">
                             <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white dark:bg-emerald-500 dark:text-zinc-950">
                               <Check className="h-3 w-3" aria-hidden="true" />
                             </span>
                             <div className="min-w-0 flex-1">
-                              <p className="break-words text-sm font-semibold leading-snug">{option.label}</p>
-                              {option.note && <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-snug text-emerald-950/70 dark:text-emerald-100/70">{option.note}</p>}
-                              <time dateTime={option.selectedAt} className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-emerald-800 dark:text-emerald-300">
-                                <Clock3 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                              <p className="break-words text-[13px] font-semibold leading-snug">{option.label}</p>
+                              {option.note && <p className="result-note"><FileText size={11} aria-hidden="true" /><span><span className="result-note-label">Poznámka:</span>{option.note}</span></p>}
+                              <time dateTime={option.selectedAt} className="mt-1 flex items-center gap-1 text-[11px] font-medium text-emerald-800 dark:text-emerald-300">
+                                <Clock3 className="h-3 w-3 shrink-0" aria-hidden="true" />
                                 {ca.reviewPickedAt}: {formatDate(option.selectedAt)}
                               </time>
                             </div>
@@ -475,8 +550,8 @@ export function Variant() {
                        <div className="contact-details-body grid grid-cols-1 gap-2 sm:grid-cols-2">
                         {fieldEntries.map(([key, value]) => (
                            <div key={key} className="contact-field min-w-0 rounded-lg border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800">
-                            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{labels[key] || key}</div>
-                            <div className="mt-1 break-words whitespace-pre-wrap text-sm">{value || "—"}</div>
+                            <div className="contact-field-label">{labels[key] || key}</div>
+                            <div className="contact-field-value mt-1 break-words whitespace-pre-wrap text-sm">{value || "—"}</div>
                           </div>
                         ))}
                       </div>
