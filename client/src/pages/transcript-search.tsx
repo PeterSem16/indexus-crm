@@ -1294,7 +1294,7 @@ export function TranscriptSearchContent() {
 
           {/* Left: list */}
           <div
-            className={`${mobileDetailOpen ? "hidden md:flex" : "flex"} sticky top-4 h-[calc(100dvh-20rem)] min-h-80 w-full min-w-0 shrink-0 flex-col rounded-bl-2xl bg-background md:w-[300px] md:max-w-[42vw] md:border-r`}
+            className={`${mobileDetailOpen ? "hidden md:flex" : "flex"} sticky top-4 h-[calc(100dvh-9rem)] min-h-80 w-full min-w-0 shrink-0 flex-col rounded-bl-2xl bg-background md:h-[calc(100dvh-2rem)] md:w-[300px] md:max-w-[42vw] md:border-r`}
             data-testid="calls-list-pane"
           >
             {/* Search + filter */}
