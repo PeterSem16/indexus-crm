@@ -6346,6 +6346,10 @@ export interface Translations {
     reviewDuringCall: string;
     reviewAgentNote: string;
     reviewReschedule: string;
+    reviewCurrentReschedule: string;
+    reviewCurrentRescheduleDisclaimer: string;
+    reviewRescheduleNote: string;
+    reviewNoRescheduleNote: string;
     allCalls: string;
     searchTranscripts: string;
     searchInCalls: string;
@@ -15192,6 +15196,10 @@ export const translations: Record<Locale, Translations> = {
       reviewDuringCall: 'Recorded for this call',
       reviewAgentNote: 'Agent note',
       reviewReschedule: 'Follow-up scheduled',
+      reviewCurrentReschedule: 'Current scheduled callback',
+      reviewCurrentRescheduleDisclaimer: 'This is the contact’s current schedule; it may differ from what was agreed during this call.',
+      reviewRescheduleNote: 'Scheduling note',
+      reviewNoRescheduleNote: 'No scheduling note recorded.',
       allCalls: 'All calls',
       searchTranscripts: 'Search transcripts',
       searchInCalls: 'Search in calls...',
@@ -22823,6 +22831,10 @@ export const translations: Record<Locale, Translations> = {
       reviewDuringCall: 'Zaznamenané k hovoru',
       reviewAgentNote: 'Poznámka agenta',
       reviewReschedule: 'Dohodnuté spätné volanie',
+      reviewCurrentReschedule: 'Aktuálne naplánované spätné volanie',
+      reviewCurrentRescheduleDisclaimer: 'Toto je aktuálny termín kontaktu; môže sa líšiť od dohody pri tomto hovore.',
+      reviewRescheduleNote: 'Poznámka k preplánovaniu',
+      reviewNoRescheduleNote: 'Poznámka nebola zaznamenaná.',
       allCalls: 'Všetky hovory',
       searchTranscripts: 'Hľadať v prepisoch',
       searchInCalls: 'Hľadať v hovoroch...',
@@ -30376,6 +30388,10 @@ export const translations: Record<Locale, Translations> = {
       reviewDuringCall: 'Zaznamenáno k hovoru',
       reviewAgentNote: 'Poznámka agenta',
       reviewReschedule: 'Domluvené zpětné volání',
+      reviewCurrentReschedule: 'Aktuálně naplánované zpětné volání',
+      reviewCurrentRescheduleDisclaimer: 'Toto je aktuální termín kontaktu; může se lišit od dohody při tomto hovoru.',
+      reviewRescheduleNote: 'Poznámka k přeplánování',
+      reviewNoRescheduleNote: 'Poznámka nebyla zaznamenána.',
       allCalls: 'Všechny hovory',
       searchTranscripts: 'Hledat v přepisech',
       searchInCalls: 'Hledat v hovorech...',
@@ -37888,6 +37904,10 @@ export const translations: Record<Locale, Translations> = {
       reviewDuringCall: 'A híváshoz rögzítve',
       reviewAgentNote: 'Ügynöki megjegyzés',
       reviewReschedule: 'Egyeztetett visszahívás',
+      reviewCurrentReschedule: 'Jelenleg ütemezett visszahívás',
+      reviewCurrentRescheduleDisclaimer: 'Ez a kapcsolat jelenlegi időpontja; eltérhet a hívás során egyeztetett időponttól.',
+      reviewRescheduleNote: 'Átütemezési megjegyzés',
+      reviewNoRescheduleNote: 'Nincs rögzített átütemezési megjegyzés.',
       allCalls: 'Összes hívás',
       searchTranscripts: 'Keresés az átiratokban',
       searchInCalls: 'Keresés a hívásokban...',
@@ -45318,6 +45338,10 @@ export const translations: Record<Locale, Translations> = {
       reviewDuringCall: 'Înregistrată pentru acest apel',
       reviewAgentNote: 'Nota agentului',
       reviewReschedule: 'Apel de revenire stabilit',
+      reviewCurrentReschedule: 'Apel de revenire programat în prezent',
+      reviewCurrentRescheduleDisclaimer: 'Acesta este termenul actual al contactului; poate diferi de cel convenit în timpul acestui apel.',
+      reviewRescheduleNote: 'Notă privind reprogramarea',
+      reviewNoRescheduleNote: 'Nu a fost înregistrată nicio notă privind reprogramarea.',
       allCalls: 'Toate apelurile',
       searchTranscripts: 'Căutare în transcrieri',
       searchInCalls: 'Căutare în apeluri...',
@@ -52749,6 +52773,10 @@ export const translations: Record<Locale, Translations> = {
       reviewDuringCall: 'Registrata per questa chiamata',
       reviewAgentNote: "Nota dell'agente",
       reviewReschedule: 'Richiamata concordata',
+      reviewCurrentReschedule: 'Richiamata attualmente programmata',
+      reviewCurrentRescheduleDisclaimer: 'Questo è l’appuntamento attuale del contatto; potrebbe differire da quello concordato durante la chiamata.',
+      reviewRescheduleNote: 'Nota sulla riprogrammazione',
+      reviewNoRescheduleNote: 'Nessuna nota sulla riprogrammazione registrata.',
       allCalls: 'Tutte le chiamate',
       searchTranscripts: 'Cerca nelle trascrizioni',
       searchInCalls: 'Cerca nelle chiamate...',
@@ -60167,6 +60195,10 @@ export const translations: Record<Locale, Translations> = {
       reviewDuringCall: 'Für diesen Anruf erfasst',
       reviewAgentNote: 'Notiz des Agenten',
       reviewReschedule: 'Vereinbarter Rückruf',
+      reviewCurrentReschedule: 'Aktuell geplanter Rückruf',
+      reviewCurrentRescheduleDisclaimer: 'Dies ist der aktuelle Termin des Kontakts; er kann von der Vereinbarung in diesem Anruf abweichen.',
+      reviewRescheduleNote: 'Notiz zur Neuplanung',
+      reviewNoRescheduleNote: 'Keine Notiz zur Neuplanung erfasst.',
       allCalls: 'Alle Anrufe',
       searchTranscripts: 'In Transkripten suchen',
       searchInCalls: 'In Anrufen suchen...',

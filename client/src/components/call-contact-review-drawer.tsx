@@ -26,6 +26,7 @@ export interface ReviewContact {
   campaignContactId: string | null;
   selectedOptions: SelectedOption[];
   reschedule: Reschedule | null;
+  currentReschedule: Pick<Reschedule, "date" | "note"> | null;
 }
 
 export async function fetchCallReviewContact(callLogId: string): Promise<ReviewContact> {
@@ -93,6 +94,8 @@ export function CallContactReviewPanel({ callLogId, onClose, onOpenEntity }: {
     ([key]) => key !== "name" && key !== "firstName" && key !== "lastName" && key !== "fullName",
   );
   const fullCardEntity = data ? fullCardEntityFromReview(data) : null;
+  const displayedReschedule = data?.reschedule ?? data?.currentReschedule;
+  const isCurrentReschedule = !data?.reschedule && !!data?.currentReschedule;
 
   return (
     <aside role="dialog" aria-label={ca.reviewContactTitle} aria-modal="false"
@@ -170,19 +173,30 @@ export function CallContactReviewPanel({ callLogId, onClose, onOpenEntity }: {
                   ))}
                 </ol>
               )}
+                {displayedReschedule && (
+                  <div data-testid="review-reschedule" className="border-t border-amber-200 bg-amber-50 px-3.5 py-3 text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+                    <div className="flex items-center gap-2">
+                      <CalendarClock className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden="true" />
+                      <h3 className="text-sm font-bold">{isCurrentReschedule ? ca.reviewCurrentReschedule : ca.reviewReschedule}</h3>
+                    </div>
+                    <time dateTime={displayedReschedule.date} className="mt-1.5 block break-words text-base font-extrabold leading-tight tracking-tight">{formatDate(displayedReschedule.date)}</time>
+                    {data.reschedule && (
+                      <p className="mt-1 text-xs font-medium text-amber-800 dark:text-amber-200">
+                        {ca.reviewSetAt}: <time dateTime={data.reschedule.setAt}>{formatDate(data.reschedule.setAt)}</time>
+                      </p>
+                    )}
+                    <p className="mt-2 flex gap-1.5 break-words text-xs leading-relaxed text-amber-950/80 dark:text-amber-100/80">
+                      <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      <span><span className="font-semibold">{ca.reviewRescheduleNote}: </span>
+                        {displayedReschedule.note
+                          ? <span className="whitespace-pre-wrap">{displayedReschedule.note}</span>
+                          : ca.reviewNoRescheduleNote}
+                      </span>
+                    </p>
+                    {isCurrentReschedule && <p className="mt-1.5 text-[11px] leading-snug text-amber-800 dark:text-amber-200">{ca.reviewCurrentRescheduleDisclaimer}</p>}
+                  </div>
+                )}
             </section>
-
-            {data.reschedule && (
-              <section data-testid="review-reschedule" className="rounded-xl border border-l-4 border-amber-300 border-l-amber-500 bg-amber-50 p-3.5 text-amber-950 dark:border-amber-800 dark:border-l-amber-400 dark:bg-amber-950/30 dark:text-amber-100">
-                <div className="flex items-center gap-2">
-                  <CalendarClock className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden="true" />
-                  <h3 className="text-sm font-bold">{ca.reviewReschedule}</h3>
-                </div>
-                <time dateTime={data.reschedule.date} className="mt-2 block break-words text-lg font-extrabold leading-tight tracking-tight">{formatDate(data.reschedule.date)}</time>
-                <p className="mt-2 text-xs font-medium text-amber-800 dark:text-amber-200">{ca.reviewSetAt}: <time dateTime={data.reschedule.setAt}>{formatDate(data.reschedule.setAt)}</time></p>
-                {data.reschedule.note && <p className="mt-2 flex gap-1.5 whitespace-pre-wrap break-words text-xs leading-relaxed text-amber-950/80 dark:text-amber-100/80"><FileText className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" /><span>{data.reschedule.note}</span></p>}
-              </section>
-            )}
 
             <details className="group border-t border-zinc-200 pt-1 dark:border-zinc-700" data-testid="review-contact-fields">
               <summary className="flex cursor-pointer list-none items-center gap-2 py-2 text-xs font-bold uppercase tracking-wider text-zinc-600 marker:hidden hover:text-foreground focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-zinc-300 [&::-webkit-details-marker]:hidden">

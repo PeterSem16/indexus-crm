@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { callbackDateChanged, resolveCallReviewContact, resolveUniqueCallReviewContact, summarizeCallReviewEvents, type ReviewContactLink } from "./call-contact-review";
+import { callbackDateChanged, currentCallbackMatchingCallOption, resolveCallReviewContact, resolveUniqueCallReviewContact, summarizeCallReviewEvents, type ReviewContactLink } from "./call-contact-review";
 
 const contact: ReviewContactLink = {
   id: "contact-1", campaignId: "mission-1", contactType: "clinic",
@@ -101,4 +101,35 @@ test("note-only edits and unchanged callback dates do not create scheduling evid
   assert.equal(callbackDateChanged(sameDate, new Date(sameDate), true), false);
   assert.equal(callbackDateChanged(sameDate, null, true), true);
   assert.equal(callbackDateChanged(null, sameDate, true), true);
+});
+
+test("current callback fallback is labeled separately and requires this call's exact confirmed option", () => {
+  const current = {
+    status: "callback_scheduled",
+    callbackDate: new Date("2026-09-29T08:30:00Z"),
+    callbackNote: " Zavolať po 10:00 ",
+    callbackStatusListItemId: "reschedule",
+  };
+  const selectedOptions = [{ id: "reschedule", label: "Preplánovať hovor", note: null, selectedAt: "2026-09-24T09:22:00.000Z" }];
+  assert.deepEqual(currentCallbackMatchingCallOption(current, selectedOptions), {
+    date: "2026-09-29T08:30:00.000Z",
+    note: "Zavolať po 10:00",
+  });
+  assert.equal(currentCallbackMatchingCallOption(current, [{ ...selectedOptions[0], id: "other" }]), null);
+  assert.equal(currentCallbackMatchingCallOption({ ...current, status: "completed" }, selectedOptions), null);
+  assert.equal(currentCallbackMatchingCallOption({ ...current, callbackDate: null }, selectedOptions), null);
+  assert.equal(currentCallbackMatchingCallOption({ ...current, callbackStatusListItemId: null }, selectedOptions), null);
+});
+
+test("a recorded callback event retains its own date and note instead of the later current schedule", () => {
+  const event = {
+    action: "status_list_action",
+    metadata: { actionType: "set_contact_status", callbackDate: "2026-09-25T08:00:00Z", callbackNote: "Po dovolenke" },
+    createdAt: new Date("2026-09-24T09:22:00Z"),
+  };
+  assert.deepEqual(summarizeCallReviewEvents([event], []).reschedule, {
+    date: "2026-09-25T08:00:00.000Z",
+    note: "Po dovolenke",
+    setAt: "2026-09-24T09:22:00.000Z",
+  });
 });

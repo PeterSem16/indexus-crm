@@ -202,7 +202,7 @@ import {
   resolveCallRecordingCustomer,
   type CallRecordingEntity,
 } from "./lib/call-recording-identity";
-import { callbackDateChanged, resolveCallReviewContact, resolveUniqueCallReviewContact, summarizeCallReviewEvents } from "./lib/call-contact-review";
+import { callbackDateChanged, currentCallbackMatchingCallOption, resolveCallReviewContact, resolveUniqueCallReviewContact, summarizeCallReviewEvents } from "./lib/call-contact-review";
 import {
   createCallRecordingUploadCleanup,
   createCallRecordingUploadFilename,
@@ -1421,7 +1421,7 @@ async function runStatusListContactSms(automation: any, ctx: StatusListActionCtx
 }
 
 // Apply the configured disposition to the contact (status + dispositionCode).
-async function runStatusListSetStatus(automation: any, ctx: StatusListActionCtx, overrideCallbackDate?: string | null): Promise<{ ok: boolean; callbackDate?: string }> {
+async function runStatusListSetStatus(automation: any, ctx: StatusListActionCtx, overrideCallbackDate?: string | null, callbackNote?: string | null): Promise<{ ok: boolean; callbackDate?: string }> {
   if (!automation.dispositionId) {
     console.warn("[status-list:set_status] no disposition configured");
     return { ok: false };
@@ -1463,6 +1463,7 @@ async function runStatusListSetStatus(automation: any, ctx: StatusListActionCtx,
     // Assign to the agent who scheduled the callback so it appears in their queue.
     update.assignedTo = ctx.userId;
     scheduledCb = cb.toISOString();
+    if (callbackNote?.trim()) update.callbackNote = callbackNote.trim();
   }
 
   await db.update(campaignContacts).set(update).where(eq(campaignContacts.id, ctx.campaignContactId));
@@ -1472,7 +1473,7 @@ async function runStatusListSetStatus(automation: any, ctx: StatusListActionCtx,
       campaignContactId: ctx.campaignContactId,
       userId: ctx.userId,
       action: "status_list_action",
-      metadata: { actionType: "set_contact_status", automationId: automation.id, dispositionCode: disp.code, status: update.status ?? null, callbackDate: scheduledCb ?? null, campaignId: ctx.campaignId },
+      metadata: { actionType: "set_contact_status", automationId: automation.id, dispositionCode: disp.code, status: update.status ?? null, callbackDate: scheduledCb ?? null, callbackNote: scheduledCb ? callbackNote?.trim() || null : null, campaignId: ctx.campaignId },
     });
   } catch (e) { console.error("[status-list:set_status] history log failed:", e); }
   return { ok: true, callbackDate: scheduledCb };
@@ -34006,7 +34007,7 @@ Respond ONLY with valid JSON in this exact format:
               } catch (e) { console.error("[status-list:email_group] firing failed:", e); }
             } else if (automation.actionType === "set_contact_status") {
               try {
-                await runStatusListSetStatus(automation, { campaignContactId, campaignId: campaignId ?? null, contactCountry: contactCountry ?? null, userId, itemId }, overrideCallbackDate ?? null);
+                await runStatusListSetStatus(automation, { campaignContactId, campaignId: campaignId ?? null, contactCountry: contactCountry ?? null, userId, itemId }, overrideCallbackDate ?? null, overrideCallbackNote ?? null);
               } catch (e) { console.error("[status-list:set_status] firing failed:", e); }
             } else if (automation.actionType === "set_callback") {
               try {
@@ -34293,7 +34294,7 @@ Respond ONLY with valid JSON in this exact format:
         const r = await runStatusListEmailGroup(automation, ctx);
         return res.json({ ok: r.ok, actionType: automation.actionType, sent: r.sent, provider: r.provider });
       } else if (automation.actionType === "set_contact_status") {
-        const r = await runStatusListSetStatus(automation, ctx, callbackDate ?? null);
+        const r = await runStatusListSetStatus(automation, ctx, callbackDate ?? null, callbackNote ?? null);
         return res.json({ ok: r.ok, actionType: automation.actionType, callbackDate: r.callbackDate ?? null });
       } else if (automation.actionType === "set_callback") {
         const r = await runStatusListSetCallback(automation, ctx, callbackDate ?? null, callbackNote ?? null);
@@ -35944,7 +35945,20 @@ Respond ONLY with valid JSON in this exact format:
           ({ selectedOptions, reschedule } = summarizeCallReviewEvents(history, confirmedItemDefinitions));
         }
       }
-      res.json({ type, entityId, name, fields, campaignId, campaignContactId, selectedOptions, reschedule });
+      // The contact's present callback is not proof of what was agreed in an
+      // earlier call. Expose it separately, only when its triggering status-list
+      // item was confirmed in this call, and label it as current on the client.
+      let currentReschedule: { date: string; note: string | null } | null = null;
+      if (!reschedule && campaignContactId && selectedOptions.length) {
+        const [current] = await db.select({
+          status: campaignContacts.status,
+          callbackDate: campaignContacts.callbackDate,
+          callbackNote: campaignContacts.callbackNote,
+          callbackStatusListItemId: campaignContacts.callbackStatusListItemId,
+        }).from(campaignContacts).where(eq(campaignContacts.id, campaignContactId)).limit(1);
+        currentReschedule = currentCallbackMatchingCallOption(current, selectedOptions);
+      }
+      res.json({ type, entityId, name, fields, campaignId, campaignContactId, selectedOptions, reschedule, currentReschedule });
     } catch (error) {
       console.error("Failed to load call contact review:", error);
       res.status(500).json({ error: "Failed to load call contact review" });

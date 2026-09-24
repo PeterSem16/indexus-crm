@@ -55,6 +55,26 @@ export interface CallReviewOption {
   selectedAt: string;
 }
 
+// This is only a current-state fallback, never evidence of what was scheduled
+// during the historical call. Require the exact option selected in that call.
+export function currentCallbackMatchingCallOption(
+  contact: {
+    status: string | null;
+    callbackDate: Date | null;
+    callbackNote: string | null;
+    callbackStatusListItemId: string | null;
+  } | null | undefined,
+  selectedOptions: CallReviewOption[],
+): { date: string; note: string | null } | null {
+  if (contact?.status !== "callback_scheduled" || !contact.callbackDate ||
+      !Number.isFinite(contact.callbackDate.getTime()) || !contact.callbackStatusListItemId ||
+      !selectedOptions.some(option => option.id === contact.callbackStatusListItemId)) return null;
+  return {
+    date: contact.callbackDate.toISOString(),
+    note: contact.callbackNote?.trim() || null,
+  };
+}
+
 export function callbackDateChanged(
   previous: Date | null,
   current: Date | null,
