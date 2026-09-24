@@ -94,6 +94,6 @@ export const modules: ModuleMap = {
   "./components/mockups/substatus-variants/TogglePills.tsx": () => import("../components/mockups/substatus-variants/TogglePills.tsx"),
   "./components/mockups/wallboard/AllMissions.tsx": () => import("../components/mockups/wallboard/AllMissions.tsx"),
   "./components/mockups/wallboard/Mission.tsx": () => import("../components/mockups/wallboard/Mission.tsx"),
-  "./components/mockups/templates/EditorialCybersecurityLaunchEmail-sj9g_3/App.tsx": () => import("../components/mockups/templates/EditorialCybersecurityLaunchEmail-sj9g_3/App.tsx"),
-  "./components/mockups/templates/VintageIceCreamNewsletter-Ixaez0/App.tsx": () => import("../components/mockups/templates/VintageIceCreamNewsletter-Ixaez0/App.tsx")
+  "./components/mockups/templates/VintageIceCreamNewsletter-Ixaez0/App.tsx": () => import("../components/mockups/templates/VintageIceCreamNewsletter-Ixaez0/App.tsx"),
+  "./components/mockups/templates/EditorialCybersecurityLaunchEmail-sj9g_3/App.tsx": () => import("../components/mockups/templates/EditorialCybersecurityLaunchEmail-sj9g_3/App.tsx")
 };
