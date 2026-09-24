@@ -6329,6 +6329,8 @@ export interface Translations {
     reviewContactTitle: string;
     reviewReadOnly: string;
     reviewUnavailable: string;
+    reviewOpenFullCard: string;
+    reviewFullCardUnavailable: string;
     reviewCurrentStatus: string;
     reviewNoStatus: string;
     reviewConfirmed: string;
@@ -15173,6 +15175,8 @@ export const translations: Record<Locale, Translations> = {
       reviewContactTitle: 'Contact card',
       reviewReadOnly: 'Recorded call outcomes · read only',
       reviewUnavailable: 'No unambiguous contact is linked to this call.',
+      reviewOpenFullCard: 'Open full contact card',
+      reviewFullCardUnavailable: 'The full contact card is not available for this call.',
       reviewCurrentStatus: 'Current status list',
       reviewNoStatus: 'No verified Mission contact is linked to this call; choices cannot be attributed.',
       reviewConfirmed: 'Confirmed',
@@ -22802,6 +22806,8 @@ export const translations: Record<Locale, Translations> = {
       reviewContactTitle: 'Karta kontaktu',
       reviewReadOnly: 'Zaznamenané výsledky hovoru · iba na čítanie',
       reviewUnavailable: 'K tomuto hovoru nie je jednoznačne priradený kontakt.',
+      reviewOpenFullCard: 'Otvoriť plnú kartu kontaktu',
+      reviewFullCardUnavailable: 'Plnú kartu kontaktu sa pre tento hovor nepodarilo otvoriť.',
       reviewCurrentStatus: 'Aktuálny status list',
       reviewNoStatus: 'Hovor nemá overenú väzbu na kontakt Mission; voľby nemožno priradiť.',
       reviewConfirmed: 'Potvrdené',
@@ -30353,6 +30359,8 @@ export const translations: Record<Locale, Translations> = {
       reviewContactTitle: 'Karta kontaktu',
       reviewReadOnly: 'Zaznamenané výsledky hovoru · pouze ke čtení',
       reviewUnavailable: 'K tomuto hovoru není jednoznačně přiřazen kontakt.',
+      reviewOpenFullCard: 'Otevřít úplnou kartu kontaktu',
+      reviewFullCardUnavailable: 'Úplnou kartu kontaktu se pro tento hovor nepodařilo otevřít.',
       reviewCurrentStatus: 'Aktuální status list',
       reviewNoStatus: 'Hovor nemá ověřenou vazbu na kontakt Mission; volby nelze přiřadit.',
       reviewConfirmed: 'Potvrzeno',
@@ -37863,6 +37871,8 @@ export const translations: Record<Locale, Translations> = {
       reviewContactTitle: 'Kapcsolati adatlap',
       reviewReadOnly: 'Rögzített hívási eredmények · csak olvasható',
       reviewUnavailable: 'Ehhez a híváshoz nem tartozik egyértelmű kapcsolat.',
+      reviewOpenFullCard: 'Teljes kapcsolati adatlap megnyitása',
+      reviewFullCardUnavailable: 'A teljes kapcsolati adatlap ehhez a híváshoz nem érhető el.',
       reviewCurrentStatus: 'Aktuális státuszlista',
       reviewNoStatus: 'A híváshoz nincs ellenőrzött Mission-kapcsolat; az opciók nem rendelhetők hozzá.',
       reviewConfirmed: 'Megerősítve',
@@ -45291,6 +45301,8 @@ export const translations: Record<Locale, Translations> = {
       reviewContactTitle: 'Fișa contactului',
       reviewReadOnly: 'Rezultatele înregistrate ale apelului · doar citire',
       reviewUnavailable: 'Acest apel nu are un contact asociat fără ambiguitate.',
+      reviewOpenFullCard: 'Deschide fișa completă a contactului',
+      reviewFullCardUnavailable: 'Fișa completă a contactului nu poate fi deschisă pentru acest apel.',
       reviewCurrentStatus: 'Lista de status curentă',
       reviewNoStatus: 'Apelul nu are un contact Mission verificat; opțiunile nu pot fi atribuite.',
       reviewConfirmed: 'Confirmat',
@@ -52720,6 +52732,8 @@ export const translations: Record<Locale, Translations> = {
       reviewContactTitle: 'Scheda contatto',
       reviewReadOnly: 'Esiti registrati della chiamata · sola lettura',
       reviewUnavailable: 'Nessun contatto è associato in modo univoco a questa chiamata.',
+      reviewOpenFullCard: 'Apri la scheda completa del contatto',
+      reviewFullCardUnavailable: 'La scheda completa del contatto non è disponibile per questa chiamata.',
       reviewCurrentStatus: 'Lista di stato attuale',
       reviewNoStatus: 'La chiamata non ha un contatto Mission verificato; le opzioni non possono essere attribuite.',
       reviewConfirmed: 'Confermato',
@@ -60136,6 +60150,8 @@ export const translations: Record<Locale, Translations> = {
       reviewContactTitle: 'Kontaktkarte',
       reviewReadOnly: 'Erfasste Anrufergebnisse · nur lesen',
       reviewUnavailable: 'Diesem Anruf ist kein eindeutiger Kontakt zugeordnet.',
+      reviewOpenFullCard: 'Vollständige Kontaktkarte öffnen',
+      reviewFullCardUnavailable: 'Die vollständige Kontaktkarte ist für diesen Anruf nicht verfügbar.',
       reviewCurrentStatus: 'Aktuelle Statusliste',
       reviewNoStatus: 'Kein verifizierter Mission-Kontakt zu diesem Anruf; Optionen können nicht zugeordnet werden.',
       reviewConfirmed: 'Bestätigt',

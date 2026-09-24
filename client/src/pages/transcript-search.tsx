@@ -12,7 +12,9 @@ import { Search, FileText, AlertTriangle, Download, ChevronDown, ChevronUp, Chev
 import { useAuth } from "@/contexts/auth-context";
 import { useI18n } from "@/i18n";
 import { CallRecordingPlayer, type PlaybackState } from "@/components/call-recording-player";
-import { CallContactReviewPanel } from "@/components/call-contact-review-drawer";
+import { CallContactReviewPanel, fetchCallReviewContact, type ReviewContact } from "@/components/call-contact-review-drawer";
+import { EntityDetailDrawer, type EntityRef } from "@/components/entity-detail-drawer";
+import { fullCardEntityFromReview } from "@/lib/call-review-entity";
 import { callBrowseDisplayName } from "@/lib/call-browse-identity";
 
 const LOCALE_MAP: Record<string, string> = { en: 'en-US', sk: 'sk-SK', cs: 'cs-CZ', hu: 'hu-HU', ro: 'ro-RO', it: 'it-IT', de: 'de-DE' };
@@ -282,11 +284,35 @@ const SENTIMENT_COLOR: Record<string, string> = { positive: "#10b981", neutral: 
 
 function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { log: CallLogEntry; ca: Record<string, any>; locale: string; searchText?: string; onImportantToggle?: (id: string, val: boolean) => void }) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [detailEntity, setDetailEntity] = useState<EntityRef | null>(null);
+  const [openingFullCard, setOpeningFullCard] = useState(false);
+  const [fullCardError, setFullCardError] = useState(false);
   const [tab, setTab] = useState<"analysis" | "transcript">("analysis");
   const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
   const [isImportant, setIsImportant] = useState(log.isImportant);
   const [togglingImportant, setTogglingImportant] = useState(false);
+  const canOpenFullCard = user?.role === "manager" || user?.role === "admin";
+  const openFullEntity = async () => {
+    if (!canOpenFullCard || openingFullCard) return;
+    setOpeningFullCard(true);
+    setFullCardError(false);
+    try {
+      const review = await queryClient.fetchQuery<ReviewContact>({
+        queryKey: ["/api/call-logs", log.id, "review-contact"],
+        staleTime: 0,
+        queryFn: () => fetchCallReviewContact(log.id),
+      });
+      const entity = fullCardEntityFromReview(review);
+      if (!entity) throw new Error("No full card for this call contact");
+      setDetailEntity(entity);
+    } catch {
+      setFullCardError(true);
+    } finally {
+      setOpeningFullCard(false);
+    }
+  };
   const toggleImportant = async () => {
     setTogglingImportant(true);
     const next = !isImportant;
@@ -330,7 +356,15 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
           <div className="flex-1 min-w-0">
             {/* Name + phone */}
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-bold truncate">{callBrowseDisplayName(log)}</span>
+              {canOpenFullCard && (log.entityName || log.customerName) ? (
+                <button type="button" onClick={openFullEntity} disabled={openingFullCard}
+                  aria-label={`${ca.reviewOpenFullCard}: ${callBrowseDisplayName(log)}`}
+                  className="max-w-full truncate rounded text-left text-sm font-bold underline decoration-primary/40 underline-offset-4 transition-colors hover:text-primary hover:decoration-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
+                  data-testid={`open-full-entity-${log.id}`}>
+                  {callBrowseDisplayName(log)}
+                </button>
+              ) : <span className="text-sm font-bold truncate">{callBrowseDisplayName(log)}</span>}
+              {openingFullCard && <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" aria-hidden="true" />}
               {log.entityName && log.customerName && <span className="text-[10px] text-muted-foreground">({log.customerName})</span>}
               {callBrowseDisplayName(log) !== log.phoneNumber && <span className="text-[10px] text-muted-foreground">{log.phoneNumber}</span>}
               <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${log.direction === "inbound" ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400" : "bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400"}`}>
@@ -343,6 +377,7 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
               {log.isForwarded && <span data-testid={`detail-call-forwarded-${log.id}`} className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300"><PhoneOutgoing className="h-2.5 w-2.5" />{ca.forwardedCall}</span>}
               {log.isMobile && <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400"><Smartphone className="h-2.5 w-2.5" />Connect</span>}
             </div>
+            {fullCardError && <p role="alert" className="text-xs text-destructive">{ca.reviewFullCardUnavailable}</p>}
             <div className="text-[10px] text-muted-foreground mt-0.5">{dateStr}</div>
           </div>
           {/* Sentiment + star */}
@@ -387,7 +422,12 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
             {log.entityName && (
               <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 border ${log.contactType === "clinic" ? "bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-700" : "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-700"}`}>
                 <Tag className={`h-3 w-3 shrink-0 ${log.contactType === "clinic" ? "text-teal-600 dark:text-teal-400" : "text-indigo-600 dark:text-indigo-400"}`} />
-                <span className={`text-[11px] font-medium ${log.contactType === "clinic" ? "text-teal-700 dark:text-teal-300" : "text-indigo-700 dark:text-indigo-300"}`}>{log.entityName}</span>
+                {canOpenFullCard ? (
+                  <button type="button" onClick={openFullEntity} disabled={openingFullCard}
+                    aria-label={`${ca.reviewOpenFullCard}: ${log.entityName}`}
+                    className={`rounded text-left text-[11px] font-medium underline decoration-current/40 underline-offset-2 hover:decoration-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60 ${log.contactType === "clinic" ? "text-teal-700 dark:text-teal-300" : "text-indigo-700 dark:text-indigo-300"}`}
+                    data-testid={`open-full-entity-chip-${log.id}`}>{log.entityName}</button>
+                ) : <span className={`text-[11px] font-medium ${log.contactType === "clinic" ? "text-teal-700 dark:text-teal-300" : "text-indigo-700 dark:text-indigo-300"}`}>{log.entityName}</span>}
                 <span className={`text-[9px] ${log.contactType === "clinic" ? "text-teal-500" : "text-indigo-400"}`}>{log.contactType === "clinic" ? "Ambulancia" : "Nemocnica"}</span>
               </div>
             )}
@@ -699,7 +739,8 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
         </div>
       )}
       </div>
-      {reviewOpen && <CallContactReviewPanel callLogId={log.id} onClose={() => setReviewOpen(false)} />}
+      {reviewOpen && !detailEntity && <CallContactReviewPanel callLogId={log.id} onClose={() => setReviewOpen(false)} onOpenEntity={(entity) => { setFullCardError(false); setDetailEntity(entity); }} />}
+      <EntityDetailDrawer entity={detailEntity} onClose={() => setDetailEntity(null)} />
     </div>
   );
 }

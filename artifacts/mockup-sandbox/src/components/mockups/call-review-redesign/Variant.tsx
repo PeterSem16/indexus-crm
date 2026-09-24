@@ -116,6 +116,7 @@ export function Variant() {
   const { t, locale } = useI18n();
   const ca = t.callAnalysis;
   const [reviewOpen, setReviewOpen] = useState(true);
+  const [entityOpen, setEntityOpen] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(() => {});
   const onClose = () => setReviewOpen(false);
@@ -285,6 +286,124 @@ export function Variant() {
           text-decoration: underline;
           text-underline-offset: 3px;
         }
+        .call-review-current .entity-drawer-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 10000;
+          display: flex;
+          justify-content: flex-end;
+          background: rgb(32 25 38 / 24%);
+        }
+        .call-review-current .entity-drawer {
+          width: min(430px, 100%);
+          height: 100%;
+          overflow-y: auto;
+          padding: 20px;
+          color: #302b34;
+          background: #fff;
+          box-shadow: -18px 0 42px rgb(42 28 54 / 18%);
+        }
+        .call-review-current .entity-drawer-head {
+          display: flex;
+          align-items: flex-start;
+          gap: 11px;
+          padding-bottom: 16px;
+          border-bottom: 1px solid #e7e1eb;
+        }
+        .call-review-current .entity-drawer-avatar {
+          display: grid;
+          width: 42px;
+          height: 42px;
+          flex: none;
+          place-items: center;
+          border-radius: 13px;
+          color: #76538f;
+          background: #eee7f5;
+          font-size: 12px;
+          font-weight: 800;
+        }
+        .call-review-current .entity-drawer-kicker {
+          margin: 0 0 3px;
+          color: #967fa2;
+          font-size: 9px;
+          font-weight: 800;
+          letter-spacing: .13em;
+          text-transform: uppercase;
+        }
+        .call-review-current .entity-drawer-title {
+          margin: 0;
+          color: #302b34;
+          font-size: 19px;
+          font-weight: 800;
+          letter-spacing: -.035em;
+          line-height: 1.1;
+        }
+        .call-review-current .entity-drawer-close {
+          margin-left: auto;
+          padding: 7px;
+          border: 1px solid #e3dce8;
+          border-radius: 8px;
+          color: #776d7d;
+          background: #faf8fc;
+          cursor: pointer;
+        }
+        .call-review-current .entity-drawer-close:hover { background: #f1eaf6; color: #4d3e58; }
+        .call-review-current .entity-drawer-section {
+          margin-top: 17px;
+        }
+        .call-review-current .entity-drawer-section h4 {
+          margin: 0 0 8px;
+          color: #776b80;
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: .13em;
+          text-transform: uppercase;
+        }
+        .call-review-current .entity-record-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+        }
+        .call-review-current .entity-record-field {
+          min-width: 0;
+          padding: 10px;
+          border: 1px solid #e7e1eb;
+          border-radius: 9px;
+          background: #fcfbfd;
+        }
+        .call-review-current .entity-record-field-wide { grid-column: 1 / -1; }
+        .call-review-current .entity-record-label {
+          color: #9b8da4;
+          font-size: 8px;
+          font-weight: 800;
+          letter-spacing: .1em;
+          text-transform: uppercase;
+        }
+        .call-review-current .entity-record-value {
+          margin-top: 4px;
+          overflow-wrap: anywhere;
+          color: #38313d;
+          font-size: 12px;
+          font-weight: 600;
+          line-height: 1.35;
+        }
+        .call-review-current .entity-drawer-note {
+          padding: 11px 12px;
+          border: 1px solid #e5ddec;
+          border-radius: 10px;
+          color: #665674;
+          background: #faf7fc;
+          font-size: 11px;
+          line-height: 1.45;
+        }
+        .call-review-current .entity-drawer-note strong {
+          display: block;
+          margin-bottom: 3px;
+          color: #8c759a;
+          font-size: 8px;
+          letter-spacing: .1em;
+          text-transform: uppercase;
+        }
         .call-review-current .player-contact-name:focus-visible {
           outline: 2px solid #8665ae;
           outline-offset: 3px;
@@ -434,8 +553,8 @@ export function Variant() {
                   <button
                     type="button"
                     className="player-contact-name"
-                    onClick={() => setReviewOpen(true)}
-                    aria-label={`Otvoriť kartu kontaktu: ${contact.name}`}
+                    onClick={() => setEntityOpen(true)}
+                    aria-label={`Otvoriť úplnú kartu kontaktu: ${contact.name}`}
                   >
                     {contact.name}
                   </button>
@@ -472,7 +591,7 @@ export function Variant() {
             </div>
           </section>
 
-          {reviewOpen && <aside role="dialog" aria-label={ca.reviewContactTitle} aria-modal="false"
+           {reviewOpen && <aside role="dialog" aria-label={ca.reviewContactTitle} aria-modal="false"
             className="fixed inset-0 z-[9994] flex min-w-0 flex-col overflow-hidden border-l border-zinc-200 bg-[#fbfbfa] text-zinc-900 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 lg:sticky lg:top-2 lg:z-auto lg:h-[calc(100dvh-1rem)] lg:w-[45%] lg:shrink-0 lg:self-start lg:rounded-l-xl lg:shadow-none"
             data-testid="call-contact-review-drawer">
             <header className="shrink-0 border-b border-zinc-200 bg-white px-5 py-3.5 dark:border-zinc-700 dark:bg-zinc-900">
@@ -589,7 +708,46 @@ export function Variant() {
                 </div>
               )}
             </div>
-          </aside>}
+           </aside>}
+          {entityOpen && (
+            <div className="entity-drawer-backdrop" role="presentation">
+              <aside className="entity-drawer" role="dialog" aria-modal="true" aria-label={`Úplná karta kontaktu: ${contact.name}`}>
+                <div className="entity-drawer-head">
+                  <div className="entity-drawer-avatar" aria-hidden="true">DD</div>
+                  <div className="min-w-0">
+                    <p className="entity-drawer-kicker">ÚPLNÁ KARTA ZÁKAZNÍČKY</p>
+                    <h2 className="entity-drawer-title">{contact.name}</h2>
+                  </div>
+                  <button type="button" className="entity-drawer-close" onClick={() => setEntityOpen(false)} aria-label="Zavrieť úplnú kartu kontaktu">
+                    <X size={16} aria-hidden="true" />
+                  </button>
+                </div>
+                <section className="entity-drawer-section">
+                  <h4>Základné údaje</h4>
+                  <div className="entity-record-grid">
+                    <div className="entity-record-field"><div className="entity-record-label">Meno</div><div className="entity-record-value">{data?.fields.firstName || "—"}</div></div>
+                    <div className="entity-record-field"><div className="entity-record-label">Priezvisko</div><div className="entity-record-value">{data?.fields.lastName || "—"}</div></div>
+                    <div className="entity-record-field"><div className="entity-record-label">Telefón</div><div className="entity-record-value">{data?.fields.phone || "—"}</div></div>
+                    <div className="entity-record-field"><div className="entity-record-label">E-mail</div><div className="entity-record-value">{data?.fields.email || "—"}</div></div>
+                  </div>
+                </section>
+                <section className="entity-drawer-section">
+                  <h4>Adresa</h4>
+                  <div className="entity-record-grid">
+                    <div className="entity-record-field entity-record-field-wide"><div className="entity-record-label">Ulica</div><div className="entity-record-value">{data?.fields.address || "—"}</div></div>
+                    <div className="entity-record-field"><div className="entity-record-label">Mesto</div><div className="entity-record-value">{data?.fields.city || "—"}</div></div>
+                    <div className="entity-record-field"><div className="entity-record-label">PSČ</div><div className="entity-record-value">{data?.fields.postalCode || "—"}</div></div>
+                  </div>
+                </section>
+                {data?.fields.notes && (
+                  <section className="entity-drawer-section">
+                    <h4>Poznámky</h4>
+                    <div className="entity-drawer-note"><strong>Poznámka ku kontaktu</strong>{data.fields.notes}</div>
+                  </section>
+                )}
+              </aside>
+            </div>
+          )}
         </div>
       </section>
     </main>

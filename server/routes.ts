@@ -35944,7 +35944,7 @@ Respond ONLY with valid JSON in this exact format:
           ({ selectedOptions, reschedule } = summarizeCallReviewEvents(history, confirmedItemDefinitions));
         }
       }
-      res.json({ type, name, fields, campaignId, campaignContactId, selectedOptions, reschedule });
+      res.json({ type, entityId, name, fields, campaignId, campaignContactId, selectedOptions, reschedule });
     } catch (error) {
       console.error("Failed to load call contact review:", error);
       res.status(500).json({ error: "Failed to load call contact review" });

@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { useEffect, useRef } from "react";
-import { CalendarClock, Check, ChevronDown, ClipboardCheck, Clock3, FileText, UserRound, X } from "lucide-react";
+import { CalendarClock, Check, ChevronDown, ClipboardCheck, Clock3, ExternalLink, FileText, UserRound, X } from "lucide-react";
+import { fullCardEntityFromReview } from "@/lib/call-review-entity";
+import type { EntityRef } from "@/components/entity-detail-drawer";
 
 interface SelectedOption {
   id: string;
@@ -16,8 +18,9 @@ interface Reschedule {
   setAt: string;
 }
 
-interface ReviewContact {
+export interface ReviewContact {
   type: "customer" | "clinic" | "hospital" | "collaborator";
+  entityId: string;
   name: string;
   fields: Record<string, string | null>;
   campaignContactId: string | null;
@@ -25,9 +28,16 @@ interface ReviewContact {
   reschedule: Reschedule | null;
 }
 
-export function CallContactReviewPanel({ callLogId, onClose }: {
+export async function fetchCallReviewContact(callLogId: string): Promise<ReviewContact> {
+  const response = await fetch(`/api/call-logs/${callLogId}/review-contact`, { credentials: "include" });
+  if (!response.ok) throw new Error(`Contact review unavailable (${response.status})`);
+  return response.json();
+}
+
+export function CallContactReviewPanel({ callLogId, onClose, onOpenEntity }: {
   callLogId: string;
   onClose: () => void;
+  onOpenEntity: (entity: EntityRef) => void;
 }) {
   const { t, locale } = useI18n();
   const ca = t.callAnalysis;
@@ -38,11 +48,7 @@ export function CallContactReviewPanel({ callLogId, onClose }: {
     queryKey: ["/api/call-logs", callLogId, "review-contact"],
     staleTime: 0,
     refetchOnMount: "always",
-    queryFn: async () => {
-      const response = await fetch(`/api/call-logs/${callLogId}/review-contact`, { credentials: "include" });
-      if (!response.ok) throw new Error(`Contact review unavailable (${response.status})`);
-      return response.json();
-    },
+    queryFn: () => fetchCallReviewContact(callLogId),
   });
 
   useEffect(() => {
@@ -86,6 +92,7 @@ export function CallContactReviewPanel({ callLogId, onClose }: {
   const fieldEntries = Object.entries(data?.fields ?? {}).filter(
     ([key]) => key !== "name" && key !== "firstName" && key !== "lastName" && key !== "fullName",
   );
+  const fullCardEntity = data ? fullCardEntityFromReview(data) : null;
 
   return (
     <aside role="dialog" aria-label={ca.reviewContactTitle} aria-modal="false"
@@ -122,7 +129,16 @@ export function CallContactReviewPanel({ callLogId, onClose }: {
           <div className="space-y-4">
             <div className="min-w-0">
               <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{ca.reviewContactDetails}</p>
-              <h3 className="mt-1 break-words text-xl font-bold leading-tight tracking-tight">{data.name}</h3>
+              <h3 className="mt-1 break-words text-xl font-bold leading-tight tracking-tight">
+                {fullCardEntity ? (
+                  <button type="button" onClick={() => onOpenEntity(fullCardEntity)}
+                    aria-label={`${ca.reviewOpenFullCard}: ${data.name}`}
+                    className="inline-flex items-center gap-1.5 rounded text-left text-inherit underline decoration-primary/40 underline-offset-4 transition-colors hover:text-primary hover:decoration-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    data-testid="open-review-entity-full-card">
+                    {data.name}<ExternalLink className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                  </button>
+                ) : data.name}
+              </h3>
             </div>
 
             <section data-testid="review-selected-options" className="overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50/70 dark:border-emerald-900 dark:bg-emerald-950/25">

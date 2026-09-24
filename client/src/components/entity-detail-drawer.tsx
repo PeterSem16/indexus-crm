@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useI18n } from "@/i18n";
@@ -9,6 +10,9 @@ import { ClinicFormSheet } from "@/components/clinic-form-wizard";
 import { queryClient } from "@/lib/queryClient";
 
 export type EntityRef = { type: "hospital" | "clinic" | "customer"; id: string };
+type InstitutionRef = { type: "hospital" | "clinic"; id: string };
+
+let institutionOpenSequence = 0;
 
 // Hospital / clinic: open the SAME full detail card used on the Hospitals / MPN pages
 // (HospitalEditDrawer / ClinicFormSheet), so the agent can fully work with the entity
@@ -18,21 +22,36 @@ export type EntityRef = { type: "hospital" | "clinic" | "customer"; id: string }
 // (content z-[9991]) but BELOW their own portalled popups (Dialog z-[9996], Popover
 // z-[9999], Select z-[10000]) so every dropdown/dialog inside the card stays clickable.
 // Do NOT raise this above 9995 or the card's selects/dialogs will hide behind it.
-function InstitutionDetailDrawer({ entity, onClose }: { entity: EntityRef | null; onClose: () => void }) {
-  const { data, isLoading } = useQuery<any>({
-    queryKey: ["/api/entity-detail", entity?.type, entity?.id],
+function InstitutionDetailDrawer({ entity, onClose }: { entity: InstitutionRef; onClose: () => void }) {
+  const { t } = useI18n();
+  // Every opening gets a fresh query key: editable forms initialize from their
+  // first record and must not receive a previously cached version of that record.
+  const [openSequence] = useState(() => ++institutionOpenSequence);
+  const { data, isLoading, isError } = useQuery<any>({
+    queryKey: ["/api/entity-detail", entity.type, entity.id, openSequence],
     queryFn: async () => {
-      if (!entity) return null;
       const endpoint = entity.type === "hospital" ? "hospitals" : "clinics";
       const res = await fetch(`/api/${endpoint}/${entity.id}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load entity");
       return res.json();
     },
-    enabled: !!entity,
   });
 
+  useEffect(() => {
+    if (entity.type !== "hospital") return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      // The hospital editor is custom (not a Radix Sheet). Let an open nested
+      // dialog, select, popover or the initial loading Sheet handle Escape first.
+      if (document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], [role="listbox"][data-state="open"], [data-radix-popper-content-wrapper] [data-state="open"]')) return;
+      onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [entity.type, onClose]);
+
   // While the full record loads, show a lightweight elevated sheet for instant feedback.
-  if (entity && (isLoading || !data)) {
+  if (isLoading || isError || !data) {
     return (
       <Sheet open onOpenChange={(o) => { if (!o) onClose(); }}>
         <SheetContent
@@ -45,18 +64,16 @@ function InstitutionDetailDrawer({ entity, onClose }: { entity: EntityRef | null
               {entity.type === "hospital"
                 ? <Hospital className="h-5 w-5 text-blue-600 shrink-0" />
                 : <Stethoscope className="h-5 w-5 text-emerald-600 shrink-0" />}
-              <span className="truncate">…</span>
+              <span className="truncate">{isError ? t.callAnalysis.reviewOpenFullCard : "…"}</span>
             </SheetTitle>
           </SheetHeader>
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          </div>
+          {isError
+            ? <p role="alert" className="py-8 text-sm text-destructive">{t.callAnalysis.reviewFullCardUnavailable}</p>
+            : <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}
         </SheetContent>
       </Sheet>
     );
   }
-
-  if (!entity || !data) return null;
 
   if (entity.type === "hospital") {
     return (
@@ -149,7 +166,7 @@ export function EntityDetailDrawer({ entity, onClose }: { entity: EntityRef | nu
   const customerId = entity && entity.type === "customer" ? entity.id : null;
   return (
     <>
-      <InstitutionDetailDrawer entity={institutionEntity} onClose={onClose} />
+      {institutionEntity && <InstitutionDetailDrawer entity={institutionEntity} onClose={onClose} />}
       <CustomerFullCardDrawer customerId={customerId} onClose={onClose} />
     </>
   );
