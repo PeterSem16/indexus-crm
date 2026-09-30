@@ -1,0 +1,804 @@
+/* NEXUS Signal task workspace. Every rule is scoped to the task view or its
+   explicitly opt-in tabs/sidebar hooks so other Nexus tabs remain unchanged. */
+.nexus-signal-tasks {
+  --signal-crimson: hsl(var(--primary));
+  --signal-crimson-deep: hsl(var(--primary));
+  --signal-ink: hsl(var(--foreground));
+  --signal-muted: hsl(var(--muted-foreground));
+  --signal-citrus: hsl(var(--ring));
+  --signal-shell: hsl(var(--background));
+  --signal-surface: hsl(var(--card));
+  --signal-line: hsl(var(--border));
+  --signal-soft: hsl(var(--muted) / 0.35);
+  --signal-rose: hsl(var(--primary) / 0.08);
+  --signal-body: hsl(var(--foreground));
+  color: var(--signal-ink);
+  background: var(--signal-shell);
+  min-width: 0;
+  min-height: 0;
+  font-family: inherit;
+}
+
+.dark .nexus-signal-tasks,
+.nexus-signal-tasks.dark {
+  --signal-soft: hsl(var(--muted) / 0.35);
+  --signal-rose: hsl(var(--primary) / 0.14);
+  background: var(--signal-shell);
+  color: var(--signal-ink);
+}
+
+.nexus-signal-tasks > div:first-child {
+  flex: none;
+  background: transparent;
+  color: var(--signal-ink);
+}
+
+.nexus-signal-tasks > div:first-child h1 {
+  color: var(--signal-ink);
+  font-family: inherit;
+}
+
+.nexus-signal-tasks > div:first-child button[data-testid="button-smart-search"] {
+  border-color: hsl(var(--primary) / 0.3);
+  background: hsl(var(--primary) / 0.08);
+  color: var(--signal-crimson);
+}
+
+.nexus-signal-tabs,
+.nexus-signal-sidebar {
+  --signal-crimson: hsl(var(--primary));
+  --signal-crimson-deep: hsl(var(--primary));
+  --signal-ink: hsl(var(--foreground));
+  --signal-citrus: hsl(var(--ring));
+}
+
+.dark .nexus-signal-tabs,
+.dark .nexus-signal-sidebar {
+  --signal-ink: hsl(var(--foreground));
+  background-color: hsl(var(--card));
+  border-color: hsl(var(--border));
+}
+
+.nexus-signal-tasks *,
+.nexus-signal-tabs *,
+.nexus-signal-sidebar * {
+  box-sizing: border-box;
+}
+
+/* The tabs have their own hook because they may sit just outside the task root. */
+.nexus-signal-tabs {
+  min-width: 0;
+  background: hsl(var(--muted) / 0.55);
+  border-color: hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+}
+
+.nexus-signal-tabs > button {
+  min-height: 2rem;
+  border-radius: 0.45rem;
+  color: inherit;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.nexus-signal-tabs > button:hover {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+.nexus-signal-tabs > button.selected,
+.nexus-signal-tabs > button[aria-selected="true"],
+.nexus-signal-tabs > button[data-state="active"] {
+  background: hsl(var(--background));
+  color: hsl(var(--primary));
+  font-weight: 700;
+  box-shadow: inset 0 -2px hsl(var(--primary));
+}
+
+.nexus-signal-tabs .nexus-signal-status,
+.nexus-signal-tabs [class*="count"] {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.nexus-signal-tabs .nexus-signal-tab-badge {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.nexus-signal-sidebar {
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--border));
+  min-height: 0;
+}
+
+.nexus-signal-sidebar button {
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.nexus-signal-sidebar .text-muted-foreground {
+  color: hsl(var(--muted-foreground));
+}
+
+.nexus-signal-sidebar button:hover {
+  background-color: hsl(var(--primary) / 0.07);
+  color: hsl(var(--primary));
+}
+
+.nexus-signal-sidebar button[aria-current="page"],
+.nexus-signal-sidebar button[aria-pressed="true"],
+.nexus-signal-sidebar button[data-active="true"] {
+  background: hsl(var(--primary) / 0.1);
+  color: hsl(var(--primary));
+  box-shadow: inset 3px 0 hsl(var(--primary));
+}
+
+.nexus-signal-sidebar button[data-active="true"] span {
+  color: hsl(var(--primary));
+}
+
+.nexus-signal-sidebar button[data-testid^="task-filter-"]:not([data-active="true"]) {
+  color: hsl(var(--foreground));
+}
+
+.nexus-signal-sidebar button[data-testid^="task-filter-"]:not([data-active="true"]):hover {
+  background: hsl(var(--primary) / 0.07);
+  color: hsl(var(--primary));
+}
+
+.nexus-task-layout {
+  min-width: 0;
+  min-height: 0;
+  gap: 10px;
+}
+
+.nexus-signal-tasks .nexus-signal-queue,
+.nexus-signal-tasks .nexus-signal-detail {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--signal-line);
+  border-radius: 12px;
+  background: var(--signal-surface);
+  color: var(--signal-ink);
+  box-shadow: 0 2px 8px hsl(var(--foreground) / 0.04);
+}
+
+.nexus-signal-tasks .nexus-signal-queue {
+  display: flex;
+  flex-direction: column;
+}
+
+.nexus-signal-tasks .nexus-signal-queue-header {
+  flex: none;
+  padding: 12px 13px 10px;
+  border-bottom: 1px solid var(--signal-line);
+  background: var(--signal-surface);
+}
+
+.nexus-signal-queue-header h2,
+.nexus-signal-queue-header h3 {
+  color: var(--signal-ink);
+}
+
+.nexus-signal-queue-header svg {
+  color: var(--signal-crimson);
+}
+
+.nexus-signal-queue-header button {
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.nexus-signal-queue-header button:hover {
+  background: var(--signal-rose);
+  color: var(--signal-crimson-deep);
+}
+
+.nexus-signal-queue-header .nexus-signal-queue-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  min-width: 0;
+  margin-top: 8px;
+  padding: 0 9px;
+  border: 1px solid var(--signal-line);
+  border-radius: 7px;
+  background: var(--signal-soft);
+  color: var(--signal-muted);
+}
+
+.nexus-signal-queue-search:focus-within {
+  border-color: var(--signal-crimson);
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.12);
+}
+
+.nexus-signal-queue-search input {
+  height: 28px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 11px;
+}
+
+.nexus-signal-tasks .nexus-signal-queue > :not(.nexus-signal-queue-header) {
+  min-height: 0;
+}
+
+.nexus-signal-task-row {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-bottom: 1px solid var(--signal-line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--signal-ink);
+  text-align: left;
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.nexus-signal-task-row:hover {
+  background: hsl(var(--primary) / 0.04);
+}
+
+.nexus-signal-task-row.is-selected {
+  background: var(--signal-rose);
+  color: var(--signal-ink);
+  box-shadow: inset 3px 0 var(--signal-crimson);
+}
+
+.nexus-signal-task-row.is-selected .font-medium {
+  color: var(--signal-crimson-deep);
+}
+
+.nexus-signal-task-row .text-muted-foreground {
+  color: var(--signal-muted);
+}
+
+.nexus-signal-task-row.is-selected .text-muted-foreground {
+  color: var(--signal-muted);
+}
+
+.nexus-signal-task-row.is-selected [data-slot="avatar-fallback"],
+.nexus-signal-task-row.is-selected .rounded-full {
+  border-color: #fff;
+}
+
+.nexus-signal-priority {
+  border-color: #f36c56;
+  background: #fff0ec;
+  color: #a83c31;
+}
+
+.nexus-signal-priority[data-priority="low"],
+.nexus-signal-priority[data-priority="medium"] {
+  border-color: var(--signal-line);
+  background: var(--signal-soft);
+  color: var(--signal-body);
+}
+
+.nexus-signal-priority[data-priority="high"] {
+  border-color: #f0d98b;
+  background: #fff5d7;
+  color: #75540b;
+}
+
+.nexus-signal-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid var(--signal-line);
+  border-radius: 0.4rem;
+  font-weight: 700;
+}
+
+.nexus-signal-status svg,
+.nexus-signal-priority svg {
+  flex: none;
+}
+
+.nexus-signal-status[data-status="pending"] {
+  border-color: #eddda7;
+  background: #fff5d7;
+  color: #75540b;
+}
+
+.nexus-signal-status[data-status="in_progress"] {
+  border-color: #c9e9df;
+  background: #e2f4ef;
+  color: #08736d;
+}
+
+.nexus-signal-status[data-status="completed"] {
+  border-color: #cfe4cd;
+  background: #e8f4e7;
+  color: #3d743e;
+}
+
+.nexus-signal-detail {
+  display: flex;
+  flex-direction: column;
+}
+
+.nexus-signal-detail-header {
+  flex: none;
+  max-height: 46%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 15px 20px 13px;
+  border-top: 2px solid var(--signal-crimson);
+  border-bottom: 1px solid var(--signal-line);
+  background: var(--signal-surface);
+}
+
+.dark .nexus-signal-tasks .nexus-signal-detail-header {
+  background: var(--signal-surface);
+}
+
+.nexus-signal-eyebrow {
+  color: var(--signal-muted);
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.nexus-signal-eyebrow svg {
+  color: var(--signal-crimson);
+}
+
+.nexus-signal-eyebrow::after {
+  content: none;
+}
+
+.nexus-signal-detail-header h1,
+.nexus-signal-detail-header h2 {
+  font-family: inherit;
+  font-weight: 700;
+  color: var(--signal-ink);
+  line-height: 1.28;
+  overflow-wrap: anywhere;
+}
+
+.nexus-signal-meta {
+  color: var(--signal-muted);
+}
+
+.nexus-signal-meta strong {
+  color: var(--signal-ink);
+}
+
+.nexus-signal-meta svg {
+  flex: none;
+}
+
+.nexus-signal-source {
+  max-width: 100%;
+  border-color: hsl(var(--primary) / 0.25);
+  background: hsl(var(--primary) / 0.07);
+  color: var(--signal-crimson);
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.nexus-signal-source:hover {
+  border-color: hsl(var(--primary) / 0.5);
+  background: hsl(var(--primary) / 0.12);
+}
+
+.nexus-signal-source > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nexus-signal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.nexus-signal-actions button {
+  min-height: 32px;
+  font-weight: 700;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.nexus-signal-actions button:hover {
+  border-color: hsl(var(--primary) / 0.45);
+}
+
+.nexus-signal-actions button[data-testid="task-resolve-btn"] {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.nexus-signal-actions button[data-testid="task-resolve-btn"]:hover {
+  background: hsl(var(--primary) / 0.88);
+}
+
+.nexus-signal-actions button[data-testid="task-reassign-btn"] {
+  border-color: hsl(var(--primary) / 0.45);
+  background: var(--signal-surface);
+  color: hsl(var(--primary));
+}
+
+.nexus-signal-detail-body {
+  display: grid;
+  grid-template-columns: minmax(0, 0.43fr) minmax(0, 1fr);
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.nexus-signal-context {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  border-right: 1px solid var(--signal-line);
+  padding: 16px;
+  background: var(--signal-soft);
+  overscroll-behavior: contain;
+}
+
+.nexus-signal-brief {
+  position: relative;
+  border: 1px solid var(--signal-line);
+  border-radius: 9px;
+  padding: 13px 14px 14px;
+  background: var(--signal-surface);
+  color: var(--signal-body);
+}
+
+.nexus-signal-brief::before {
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 0;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--signal-crimson);
+  content: "";
+}
+
+.nexus-signal-section-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  color: var(--signal-crimson-deep);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.nexus-signal-brief p {
+  margin: 0;
+  color: var(--signal-body);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.nexus-signal-brief h3,
+.nexus-signal-brief [data-slot="label"] {
+  color: var(--signal-crimson);
+}
+
+.nexus-signal-checklist {
+  min-width: 0;
+  margin-top: 17px;
+  color: var(--signal-body);
+}
+
+.nexus-signal-checklist input[type="checkbox"] {
+  accent-color: var(--signal-crimson);
+}
+
+.nexus-signal-checklist input:not([type="checkbox"]) {
+  min-width: 0;
+  border-color: var(--signal-line);
+  background: var(--signal-surface);
+  color: var(--signal-ink);
+}
+
+.nexus-signal-thread {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 18px 14px;
+  background: var(--signal-surface);
+}
+
+.nexus-signal-thread > :first-child {
+  flex: none;
+  border-bottom: 1px solid var(--signal-line);
+  padding: 12px 0;
+  margin-bottom: 12px;
+}
+
+.nexus-signal-thread > :nth-child(2) {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.nexus-signal-comment {
+  min-width: 0;
+  margin-bottom: 0.9rem;
+  animation: nexus-signal-enter 220ms ease-out both;
+}
+
+.nexus-signal-comment p {
+  overflow-wrap: anywhere;
+  display: inline-block;
+  max-width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--signal-line);
+  border-radius: 9px;
+  background: var(--signal-soft);
+  color: var(--signal-body);
+  line-height: 1.55;
+}
+
+.nexus-signal-comment [data-testid^="delete-comment-"] {
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.nexus-signal-comment:hover [data-testid^="delete-comment-"],
+.nexus-signal-comment:focus-within [data-testid^="delete-comment-"] {
+  opacity: 1;
+}
+
+.nexus-signal-composer {
+  flex: none;
+  min-width: 0;
+  border: 1px solid var(--signal-line);
+  border-radius: 10px;
+  background: var(--signal-surface);
+  box-shadow: 0 2px 8px hsl(var(--foreground) / 0.04);
+  padding: 7px;
+}
+
+.nexus-signal-composer textarea {
+  display: block;
+  min-height: 48px;
+  resize: vertical;
+  padding: 5px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+}
+
+.nexus-signal-composer:focus-within {
+  border-color: var(--signal-crimson);
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.12);
+}
+
+.nexus-signal-composer input,
+.nexus-signal-composer textarea {
+  min-width: 0;
+  color: var(--signal-ink);
+}
+
+.nexus-signal-composer input::placeholder,
+.nexus-signal-composer textarea::placeholder {
+  color: var(--signal-muted);
+}
+
+.nexus-signal-composer button[type="submit"],
+.nexus-signal-composer [data-testid="button-add-comment"] {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.nexus-signal-composer button[type="submit"]:hover:not(:disabled),
+.nexus-signal-composer [data-testid="button-add-comment"]:hover:not(:disabled) {
+  background: hsl(var(--primary) / 0.88);
+}
+
+.dark .nexus-signal-tasks .nexus-signal-task-row {
+  border-color: var(--signal-line);
+}
+
+.dark .nexus-signal-tasks .nexus-signal-task-row:hover {
+  background: hsl(var(--primary) / 0.08);
+}
+
+.dark .nexus-signal-tasks .nexus-signal-task-row.is-selected {
+  background: var(--signal-rose);
+}
+
+.dark .nexus-signal-tasks .nexus-signal-task-row.is-selected .text-muted-foreground {
+  color: var(--signal-muted);
+}
+
+.dark .nexus-signal-tasks .nexus-signal-priority {
+  border-color: #9d5049;
+  background: #472d31;
+  color: #ffb2a5;
+}
+
+.dark .nexus-signal-tasks .nexus-signal-status {
+  border-color: #594a55;
+  background: #352e37;
+  color: #eee6ed;
+}
+
+.dark .nexus-signal-tasks .nexus-signal-status[data-status="pending"] {
+  border-color: #80652e;
+  background: #453a26;
+  color: #f5d886;
+}
+
+.dark .nexus-signal-tasks .nexus-signal-status[data-status="in_progress"] {
+  border-color: #397c76;
+  background: #203d3b;
+  color: #a4e2d7;
+}
+
+.dark .nexus-signal-tasks .nexus-signal-status[data-status="completed"] {
+  border-color: #47764a;
+  background: #293c2a;
+  color: #b8e3b2;
+}
+
+.dark .nexus-signal-tasks .nexus-signal-status[data-status="cancelled"] {
+  border-color: #625a64;
+  background: #38343b;
+  color: #d0c8d1;
+}
+
+.dark .nexus-signal-tasks .nexus-signal-source {
+  border-color: hsl(var(--primary) / 0.45);
+  background: hsl(var(--primary) / 0.12);
+  color: hsl(var(--primary));
+}
+
+.dark .nexus-signal-tasks .nexus-signal-source:hover {
+  background: hsl(var(--primary) / 0.18);
+}
+
+.dark .nexus-signal-tasks .nexus-signal-brief {
+  border-color: var(--signal-line);
+  background: var(--signal-surface);
+  color: var(--signal-body);
+}
+
+.dark .nexus-signal-tasks .nexus-signal-brief h3,
+.dark .nexus-signal-tasks .nexus-signal-brief [data-slot="label"] {
+  color: hsl(var(--primary));
+}
+
+.dark .nexus-signal-tasks .nexus-signal-composer button[type="submit"],
+.dark .nexus-signal-tasks .nexus-signal-composer [data-testid="button-add-comment"] {
+  color: hsl(var(--primary-foreground));
+}
+
+.dark .nexus-signal-tasks .nexus-signal-actions button[data-testid="task-reassign-btn"] {
+  border-color: hsl(var(--primary) / 0.45);
+  background: var(--signal-surface);
+  color: hsl(var(--primary));
+}
+
+.nexus-signal-tasks :is(button, a, input, textarea, select, [tabindex]):focus-visible,
+.nexus-signal-tabs :is(button, a, [tabindex]):focus-visible,
+.nexus-signal-sidebar :is(button, a, [tabindex]):focus-visible {
+  outline: 3px solid var(--signal-citrus);
+  outline-offset: 2px;
+}
+
+@keyframes nexus-signal-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 1050px) {
+  .nexus-signal-tasks .nexus-signal-detail-header {
+    padding: 13px 15px 12px;
+    border-top-width: 2px;
+  }
+
+  .nexus-signal-context {
+    padding: 13px;
+  }
+
+  .nexus-signal-thread {
+    padding-right: 13px;
+    padding-left: 13px;
+  }
+}
+
+@media (max-width: 767px) {
+  .nexus-signal-tasks .nexus-signal-queue.hidden,
+  .nexus-signal-tasks .nexus-signal-detail.hidden {
+    display: none;
+  }
+
+  .nexus-task-layout {
+    gap: 7px;
+  }
+
+  .nexus-signal-tasks .nexus-signal-queue,
+  .nexus-signal-tasks .nexus-signal-detail {
+    border-radius: 10px;
+  }
+
+  .nexus-signal-detail-body {
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .nexus-signal-context {
+    flex: none;
+    overflow: visible;
+    border-right: 0;
+    border-bottom: 1px solid var(--signal-line);
+    padding: 13px;
+  }
+
+  .nexus-signal-thread {
+    flex: 1 0 320px;
+    min-height: 320px;
+    overflow: hidden;
+    padding: 0 13px 12px;
+  }
+
+  .nexus-signal-thread > :nth-child(2) {
+    min-height: 110px;
+  }
+
+  .nexus-signal-detail-header {
+    padding: 12px;
+  }
+
+  .nexus-signal-detail-header h1,
+  .nexus-signal-detail-header h2 {
+    font-size: 1.125rem;
+  }
+
+  .nexus-signal-meta {
+    gap: 0.5rem;
+    font-size: 0.7rem;
+  }
+
+  .nexus-signal-source {
+    max-width: 100%;
+  }
+
+  .nexus-signal-queue-header {
+    padding: 10px;
+  }
+
+  .nexus-signal-task-row {
+    padding: 10px;
+  }
+
+  .nexus-signal-comment [data-testid^="delete-comment-"] {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nexus-signal-tasks *,
+  .nexus-signal-tabs *,
+  .nexus-signal-sidebar * {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from "date-fns";
 import { Link, useSearch, useLocation } from "wouter";
 import { useI18n } from "@/i18n/I18nProvider";
+import "@/components/nexus/nexus-signal-tasks.css";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -3192,8 +3193,15 @@ export default function EmailClientPage() {
   const [searchPanelExpanded, setSearchPanelExpanded] = useState(false);
   const [listPanelExpanded, setListPanelExpanded] = useState(false);
   const [nexusFullscreen, setNexusFullscreen] = useState(false);
+  const [taskQueueSearch, setTaskQueueSearch] = useState("");
+  const [taskMobileDetailOpen, setTaskMobileDetailOpen] = useState(false);
   const [localPage, setLocalPage] = useState(0);
   const localPageSize = 25;
+  const handleTaskFilterChange = (filter: TaskFilter) => {
+    setTaskFilter(filter);
+    setTaskMobileDetailOpen(false);
+    setLocalPage(0);
+  };
 
   const [isSidebarHidden, setIsSidebarHidden] = useState(() => {
     const saved = localStorage.getItem("nexus-sidebar-hidden");
@@ -3898,6 +3906,11 @@ export default function EmailClientPage() {
     else matchesTab = (task.tags || []).some((tag: string) => tag === `group_id:${taskSubTab}`);
     return matchesStatus && matchesTab;
   });
+  const normalizedTaskSearch = taskQueueSearch.trim().toLocaleLowerCase();
+  const visibleTasks = normalizedTaskSearch
+    ? filteredTasks.filter(task =>
+        `${task.title || ""} ${task.description || ""}`.toLocaleLowerCase().includes(normalizedTaskSearch))
+    : filteredTasks;
 
   const currentFolderName = (() => {
     const folder = folders.find(f => f.id === selectedFolderId);
@@ -3968,11 +3981,12 @@ export default function EmailClientPage() {
   const smsPage = filteredSms.slice(localPage * localPageSize, (localPage + 1) * localPageSize);
   const totalSmsPages = Math.ceil(filteredSms.length / localPageSize);
 
-  const tasksPage = filteredTasks.slice(localPage * localPageSize, (localPage + 1) * localPageSize);
-  const totalTaskPages = Math.ceil(filteredTasks.length / localPageSize);
+  const tasksPage = visibleTasks.slice(localPage * localPageSize, (localPage + 1) * localPageSize);
+  const totalTaskPages = Math.ceil(visibleTasks.length / localPageSize);
 
   useEffect(() => {
     setLocalPage(0);
+    setTaskMobileDetailOpen(false);
   }, [activeTab, selectedFolderId, smsFilter, taskFilter]);
 
   useEffect(() => {
@@ -4195,6 +4209,7 @@ export default function EmailClientPage() {
       setTaskResolveDialogOpen(false);
       setTaskResolutionText("");
       setSelectedTask(null);
+      setTaskMobileDetailOpen(false);
     } catch { toast({ title: t.nexusOmni.common.error, variant: "destructive" }); }
   };
 
@@ -4207,6 +4222,7 @@ export default function EmailClientPage() {
       setTaskReassignDialogOpen(false);
       setTaskReassignUserId("");
       setSelectedTask(null);
+      setTaskMobileDetailOpen(false);
     } catch { toast({ title: t.nexusOmni.common.error, variant: "destructive" }); }
   };
 
@@ -4218,6 +4234,7 @@ export default function EmailClientPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       setTaskEditDialogOpen(false);
       setSelectedTask(null);
+      setTaskMobileDetailOpen(false);
     } catch { toast({ title: t.nexusOmni.common.error, variant: "destructive" }); }
   };
 
@@ -5040,6 +5057,7 @@ export default function EmailClientPage() {
 
   return (
     <div className={cn(
+      activeTab === "tasks" && "nexus-signal-tasks",
       nexusFullscreen
         ? "fixed inset-0 z-50 bg-background flex flex-col p-3 pt-1 gap-2 overflow-hidden"
         : "flex flex-col h-[calc(100vh-56px)] overflow-hidden gap-2 px-2 pt-1 pb-0"
@@ -5098,14 +5116,14 @@ export default function EmailClientPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border" data-testid="nexus-tabs">
+      <div className={cn("flex items-center gap-1 bg-muted/50 p-1 rounded-lg border", activeTab === "tasks" && "nexus-signal-tabs")} data-testid="nexus-tabs">
         {tabConfig.map(tab => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
               activeTab === tab.key
-                ? "bg-background shadow-sm text-foreground"
+                ? "selected bg-background shadow-sm text-foreground"
                 : "text-muted-foreground hover:text-foreground hover:bg-background/50"
             }`}
             data-testid={`tab-${tab.key}`}
@@ -5113,7 +5131,7 @@ export default function EmailClientPage() {
             <span className={activeTab === tab.key ? typeColors[tab.key].accent : ""}>{tab.icon}</span>
             <span>{tab.label}</span>
             {tab.badge !== undefined && tab.badge > 0 && (
-              <Badge className={`${tab.badgeColor} text-white text-[10px] h-5 min-w-[20px] px-1.5`}>
+              <Badge className={`${tab.badgeColor} ${tab.key === "tasks" && activeTab === "tasks" ? "nexus-signal-tab-badge" : ""} text-white text-[10px] h-5 min-w-[20px] px-1.5`}>
                 {tab.badge}
               </Badge>
             )}
@@ -5121,10 +5139,11 @@ export default function EmailClientPage() {
         ))}
       </div>
 
-      <div className={cn("flex gap-2 transition-all duration-300", "flex-1 min-h-0")}>
+      <div className={cn("flex gap-2 transition-all duration-300", "flex-1 min-h-0", activeTab === "tasks" && "nexus-task-layout")}>
         {activeTab !== "training-room" && (
         <NexusSidebar
           activeTab={activeTab}
+          className={activeTab === "tasks" ? "max-md:hidden nexus-signal-sidebar" : ""}
           selectedFolderId={selectedFolderId}
           onSelectFolder={handleSelectFolder}
           folders={folders}
@@ -5132,7 +5151,7 @@ export default function EmailClientPage() {
           smsFilter={smsFilter}
           onSmsFilterChange={setSmsFilter}
           taskFilter={taskFilter}
-          onTaskFilterChange={setTaskFilter}
+          onTaskFilterChange={handleTaskFilterChange}
           smsData={smsData}
           tasksData={tasksData}
           chatsData={internalConversations.map((conv: any) => ({
@@ -5764,15 +5783,32 @@ export default function EmailClientPage() {
 
         {activeTab === "tasks" && (
           <>
-            <Card className="transition-all duration-300 w-[30%] min-w-[320px] max-w-[420px] shrink-0 flex flex-col">
-              <CardHeader className="py-2 px-3 border-b shrink-0">
+            <Card className={cn(
+              "nexus-signal-queue transition-all duration-300 shrink-0 flex flex-col",
+              taskMobileDetailOpen
+                ? "hidden md:flex md:w-[30%] md:min-w-[300px] md:max-w-[420px]"
+                : "flex-1 w-full min-w-0 md:flex-none md:w-[30%] md:min-w-[300px] md:max-w-[420px]",
+            )}>
+              <CardHeader className="nexus-signal-queue-header py-2 px-3 border-b shrink-0">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <ListTodo className="h-4 w-4 text-amber-600" />
                     <span className="text-sm font-semibold">{taskFilter === "all" ? t.tasks.allTasks : taskFilter === "pending" ? t.tasks.pending : taskFilter === "in_progress" ? t.tasks.inProgress : taskFilter === "completed" ? t.tasks.completed : t.tasks.cancelled}</span>
-                    <Badge variant="secondary" className="text-[10px]">{filteredTasks.length}</Badge>
+                    <Badge variant="secondary" className="text-[10px]">{visibleTasks.length}</Badge>
                   </div>
                   <div className="flex items-center gap-0.5">
+                    <Select value={taskFilter} onValueChange={(value: TaskFilter) => handleTaskFilterChange(value)}>
+                      <SelectTrigger className="h-7 w-[120px] text-[11px] md:hidden" data-testid="task-status-filter">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{t.tasks.allTasks}</SelectItem>
+                        <SelectItem value="pending">{t.tasks.pending}</SelectItem>
+                        <SelectItem value="in_progress">{t.tasks.inProgress}</SelectItem>
+                        <SelectItem value="completed">{t.tasks.completed}</SelectItem>
+                        <SelectItem value="cancelled">{t.tasks.cancelled}</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <Button variant="ghost" size="icon" className="h-7 w-7" disabled={localPage === 0} onClick={() => setLocalPage(p => p - 1)} data-testid="task-page-prev">
                       <ChevronLeft className="h-3.5 w-3.5" />
                     </Button>
@@ -5788,10 +5824,10 @@ export default function EmailClientPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                  <Button variant={taskSubTab === "my" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" onClick={() => { setTaskSubTab("my"); setLocalPage(0); }} data-testid="task-subtab-my">
+                  <Button variant={taskSubTab === "my" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" onClick={() => { setTaskSubTab("my"); setLocalPage(0); setTaskMobileDetailOpen(false); }} data-testid="task-subtab-my">
                     {t.tasks.myTasks}
                   </Button>
-                  <Button variant={taskSubTab === "all" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" onClick={() => { setTaskSubTab("all"); setLocalPage(0); }} data-testid="task-subtab-all">
+                  <Button variant={taskSubTab === "all" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" onClick={() => { setTaskSubTab("all"); setLocalPage(0); setTaskMobileDetailOpen(false); }} data-testid="task-subtab-all">
                     {t.tasks.allTasks}
                   </Button>
                   {taskGroupsList
@@ -5807,7 +5843,7 @@ export default function EmailClientPage() {
                           variant={taskSubTab === g.id ? "default" : "ghost"}
                           size="sm"
                           className="h-6 text-[11px] px-2 gap-1"
-                          onClick={() => { setTaskSubTab(g.id); setLocalPage(0); }}
+                          onClick={() => { setTaskSubTab(g.id); setLocalPage(0); setTaskMobileDetailOpen(false); }}
                           data-testid={`task-subtab-group-${g.id}`}
                         >
                           <ListChecks className="h-3 w-3" />
@@ -5831,7 +5867,7 @@ export default function EmailClientPage() {
                         variant={taskSubTab === "back_office" ? "default" : "ghost"}
                         size="sm"
                         className="h-6 text-[11px] px-2 gap-1"
-                        onClick={() => { setTaskSubTab("back_office"); setLocalPage(0); }}
+                        onClick={() => { setTaskSubTab("back_office"); setLocalPage(0); setTaskMobileDetailOpen(false); }}
                         data-testid="task-subtab-back-office"
                       >
                         <span className="text-[10px]">🏢</span>
@@ -5849,11 +5885,26 @@ export default function EmailClientPage() {
                     {t.tasks.reporting}
                   </Button>
                 </div>
+                <label className="nexus-signal-queue-search">
+                  <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  <Input
+                    value={taskQueueSearch}
+                    onChange={event => {
+                      setTaskQueueSearch(event.target.value);
+                      setLocalPage(0);
+                      setSelectedTask(null);
+                      setTaskMobileDetailOpen(false);
+                    }}
+                    placeholder={t.tasks.searchPlaceholder}
+                    aria-label={t.tasks.searchPlaceholder}
+                    data-testid="task-queue-search"
+                  />
+                </label>
               </CardHeader>
               <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
                 {tasksLoading ? (
                   <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
-                ) : tasksPage.length === 0 ? (
+                ) : visibleTasks.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                     <ListTodo className="h-8 w-8 mb-2 opacity-50" />
                     <span className="text-sm">{t.tasks.noTasks}</span>
@@ -5864,12 +5915,14 @@ export default function EmailClientPage() {
                       {tasksPage.map(task => {
                         const assignedUser = getSystemUser(task.assignedUserId);
                         return (
-                          <div
+                          <button
+                            type="button"
                             key={task.id}
-                            className={`w-full text-left px-3 py-2.5 transition-all hover:bg-accent/50 cursor-pointer ${
-                              selectedTask?.id === task.id ? "bg-accent" : ""
+                            className={`nexus-signal-task-row w-full text-left px-3 py-2.5 transition-all hover:bg-accent/50 cursor-pointer ${
+                              selectedTask?.id === task.id ? "is-selected bg-accent" : ""
                             } ${task.status === "pending" ? "font-medium" : ""}`}
-                            onClick={() => { setSelectedTask(task); setSelectedEmail(null); setSelectedSms(null); _setSelectedChat(null); }}
+                            onClick={() => { setSelectedTask(task); setSelectedEmail(null); setSelectedSms(null); _setSelectedChat(null); setTaskMobileDetailOpen(true); }}
+                            aria-current={selectedTask?.id === task.id ? "true" : undefined}
                             data-testid={`task-item-${task.id}`}
                           >
                             <div className="flex items-start gap-2.5">
@@ -5894,12 +5947,12 @@ export default function EmailClientPage() {
                                 <p className="text-[11px] text-muted-foreground truncate">{task.description || t.tasks.noDescription}</p>
                                 <div className="flex items-center gap-1 mt-0.5">
                                   {task.priority && (
-                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 gap-0.5">
+                                    <Badge variant="outline" className="nexus-signal-priority text-[10px] px-1 py-0 h-4 gap-0.5" data-priority={task.priority}>
                                       {priorityIcons[task.priority]}
                                       {t.tasks.priorities?.[task.priority as keyof typeof t.tasks.priorities] || task.priority}
                                     </Badge>
                                   )}
-                                  <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 gap-0.5">
+                                  <Badge variant="outline" className="nexus-signal-status text-[10px] px-1 py-0 h-4 gap-0.5" data-status={task.status}>
                                     {t.tasks.statuses?.[task.status as keyof typeof t.tasks.statuses] || task.status}
                                   </Badge>
                                   {task.dueDate && (
@@ -5914,7 +5967,7 @@ export default function EmailClientPage() {
                                 </div>
                               </div>
                             </div>
-                          </div>
+                          </button>
                         );
                       })}
                     </div>
@@ -5922,7 +5975,10 @@ export default function EmailClientPage() {
                 )}
               </CardContent>
             </Card>
-            <Card className="transition-all duration-300 flex-1 min-w-0 flex flex-col">
+            <Card className={cn(
+              "nexus-signal-detail transition-all duration-300 flex-1 min-w-0 flex flex-col",
+              taskMobileDetailOpen ? "flex w-full md:flex-1" : "hidden md:flex",
+            )}>
               <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
                 {renderTaskDetail()}
               </CardContent>
@@ -6809,7 +6865,7 @@ export default function EmailClientPage() {
                               {matchedTasks.map(task => (
                                 <button
                                   key={task.id}
-                                  onClick={() => { setActiveTab("tasks"); setSelectedTask(task); setSmartSearchOpen(false); setSmartSearchQuery(""); }}
+                                  onClick={() => { setActiveTab("tasks"); setSelectedTask(task); setTaskMobileDetailOpen(true); setSmartSearchOpen(false); setSmartSearchQuery(""); }}
                                   className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-accent transition-all text-left group"
                                   data-testid={`search-task-${task.id}`}
                                 >
@@ -7685,7 +7741,7 @@ export default function EmailClientPage() {
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setTaskResolveDialogOpen(false)}>{t.nexusOmni.email.cancel}</Button>
+            <Button variant="outline" onClick={() => setTaskResolveDialogOpen(false)}>{t.nexusOmni.common.cancel}</Button>
             <Button onClick={handleTaskResolve} disabled={!taskResolutionText.trim()} data-testid="resolve-confirm">
               <CheckCircle2 className="h-4 w-4 mr-2" />{t.tasks.resolve}
             </Button>
@@ -7723,7 +7779,7 @@ export default function EmailClientPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setTaskReassignDialogOpen(false)}>{t.nexusOmni.email.cancel}</Button>
+            <Button variant="outline" onClick={() => setTaskReassignDialogOpen(false)}>{t.nexusOmni.common.cancel}</Button>
             <Button onClick={handleTaskReassign} disabled={!taskReassignUserId} data-testid="reassign-confirm">
               <UserPlus className="h-4 w-4 mr-2" />{t.tasks.reassign}
             </Button>
@@ -7878,7 +7934,7 @@ export default function EmailClientPage() {
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setTaskEditDialogOpen(false)}>{t.nexusOmni.email.cancel}</Button>
+            <Button variant="outline" onClick={() => setTaskEditDialogOpen(false)}>{t.nexusOmni.common.cancel}</Button>
             <Button onClick={handleTaskEditSave} disabled={!taskEditForm.title.trim()} data-testid="edit-task-save">
               <Edit className="h-4 w-4 mr-2" />{t.tasks.save || "Save"}
             </Button>
@@ -8605,28 +8661,38 @@ export default function EmailClientPage() {
     const isActive = selectedTask.status !== "completed" && selectedTask.status !== "cancelled";
     return (
       <div className="flex flex-col h-full">
-        <div className="p-4 border-b space-y-3">
+        <div className="nexus-signal-detail-header p-4 border-b space-y-3">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 -ml-2 md:hidden"
+            onClick={() => setTaskMobileDetailOpen(false)}
+            data-testid="task-detail-back-mobile"
+          >
+            <ChevronLeft className="h-4 w-4 mr-1" />{t.tasks.title}
+          </Button>
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge className={`${typeColors.task.bg} ${typeColors.task.text}`}>
+              <Badge className="nexus-signal-eyebrow">
                 <ListTodo className="h-3 w-3 mr-1" />{t.tasks.task}
               </Badge>
               <h2 className="text-lg font-semibold">{selectedTask.title}</h2>
             </div>
             <div className="flex items-center gap-2">
               {selectedTask.priority && (
-                <Badge variant="outline" className="gap-1">
+                <Badge variant="outline" className="nexus-signal-priority gap-1" data-priority={selectedTask.priority}>
                   {priorityIcons[selectedTask.priority]}
                   {t.tasks.priorities?.[selectedTask.priority as keyof typeof t.tasks.priorities] || selectedTask.priority}
                 </Badge>
               )}
-              <Badge variant="outline" className="gap-1">
+              <Badge variant="outline" className="nexus-signal-status gap-1" data-status={selectedTask.status}>
                 {statusIcons[selectedTask.status]}
                 {t.tasks.statuses?.[selectedTask.status as keyof typeof t.tasks.statuses] || selectedTask.status}
               </Badge>
             </div>
           </div>
-          <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+          <div className="nexus-signal-meta flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
             {assignedUser && (
               <div className="flex items-center gap-1.5">
                 <Avatar className="h-5 w-5">
@@ -8668,13 +8734,13 @@ export default function EmailClientPage() {
               </div>
             )}
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="nexus-signal-actions flex items-center gap-2 flex-wrap">
             {isActive && (
               <>
-                <Button variant="outline" size="sm" className="h-7 text-xs border-green-300 text-green-600 dark:border-green-700 dark:text-green-400" onClick={() => openTaskResolveDialog(selectedTask)} data-testid="task-resolve-btn">
+                <Button variant="outline" size="sm" className="nexus-signal-resolve h-7 text-xs border-green-300 text-green-600 dark:border-green-700 dark:text-green-400" onClick={() => openTaskResolveDialog(selectedTask)} data-testid="task-resolve-btn">
                   <CheckCircle2 className="h-3 w-3 mr-1" />{t.tasks.resolve}
                 </Button>
-                <Button variant="outline" size="sm" className="h-7 text-xs border-amber-300 text-amber-600 dark:border-amber-700 dark:text-amber-400" onClick={() => openTaskReassignDialog(selectedTask)} data-testid="task-reassign-btn">
+                <Button variant="outline" size="sm" className="nexus-signal-reassign h-7 text-xs border-amber-300 text-amber-600 dark:border-amber-700 dark:text-amber-400" onClick={() => openTaskReassignDialog(selectedTask)} data-testid="task-reassign-btn">
                   <UserPlus className="h-3 w-3 mr-1" />{t.tasks.reassign}
                 </Button>
               </>
@@ -8714,14 +8780,19 @@ export default function EmailClientPage() {
             </div>
           )}
         </div>
-        <div className="flex-1 min-h-0 flex flex-col overflow-auto">
-          <div className="p-4 border-b">
-            <p className="text-sm whitespace-pre-wrap" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>{selectedTask.description || t.tasks.noDescription}</p>
+        <div className="nexus-signal-detail-body flex-1 min-h-0">
+          <div className="nexus-signal-context">
+            <div className="nexus-signal-brief">
+              <div className="nexus-signal-section-label"><ListTodo className="h-3.5 w-3.5" />{t.tasks.description}</div>
+              <p className="text-sm whitespace-pre-wrap" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>
+                {selectedTask.description || t.tasks.noDescription}
+              </p>
+            </div>
+            <div className="nexus-signal-checklist">
+              <ChecklistSection taskId={selectedTask.id} canEdit={isActive} />
+            </div>
           </div>
-          <div className="p-4 border-b">
-            <ChecklistSection taskId={selectedTask.id} canEdit={isActive} />
-          </div>
-          <div className="p-4 flex-1 flex flex-col min-h-0">
+          <div className="nexus-signal-thread p-4 flex-1 flex flex-col min-h-0">
             <div className="flex items-center gap-2 mb-3">
               <MessagesSquare className="h-4 w-4 text-amber-600" />
               <span className="text-sm font-semibold">{t.tasks.comments}</span>
@@ -8739,7 +8810,7 @@ export default function EmailClientPage() {
                 taskComments.map((comment: any) => {
                   const commentUser = getSystemUser(comment.userId) || comment.user;
                   return (
-                    <div key={comment.id} className="flex gap-2.5 group" data-testid={`task-comment-${comment.id}`}>
+                    <div key={comment.id} className="nexus-signal-comment flex gap-2.5 group" data-testid={`task-comment-${comment.id}`}>
                       <Avatar className="h-7 w-7 shrink-0 mt-0.5">
                         <AvatarImage src={commentUser?.avatarUrl || undefined} className="object-cover" />
                         <AvatarFallback className={cn("text-white text-[10px] font-semibold", getAvatarColorStatic(commentUser?.fullName || "?"))}>
@@ -8751,7 +8822,7 @@ export default function EmailClientPage() {
                           <span className="text-xs font-medium">{commentUser?.fullName || comment.userId}</span>
                           <span className="text-[10px] text-muted-foreground">{format(new Date(comment.createdAt), "d.M. HH:mm")}</span>
                           {comment.userId === user?.id && (
-                            <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => deleteTaskComment(comment.id)} data-testid={`delete-comment-${comment.id}`}>
+                            <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity" onClick={() => deleteTaskComment(comment.id)} aria-label={t.tasks.deleteComment} data-testid={`delete-comment-${comment.id}`}>
                               <Trash2 className="h-3 w-3 text-destructive" />
                             </Button>
                           )}
@@ -8763,16 +8834,18 @@ export default function EmailClientPage() {
                 })
               )}
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Input
+            <div className="nexus-signal-composer flex items-center gap-2 shrink-0">
+              <textarea
                 value={taskCommentInput}
                 onChange={(e) => setTaskCommentInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addTaskComment(); } }}
                 placeholder={t.tasks.commentPlaceholder}
-                className="flex-1 text-sm h-8"
+                aria-label={t.tasks.commentPlaceholder}
+                rows={2}
+                className="flex-1 text-sm"
                 data-testid="input-task-comment"
               />
-              <Button size="sm" className="h-8 px-3" onClick={addTaskComment} disabled={!taskCommentInput.trim()} data-testid="button-add-comment">
+              <Button size="sm" className="h-8 px-3" onClick={addTaskComment} disabled={!taskCommentInput.trim()} aria-label={t.tasks.addComment} data-testid="button-add-comment">
                 <Send className="h-3.5 w-3.5" />
               </Button>
             </div>

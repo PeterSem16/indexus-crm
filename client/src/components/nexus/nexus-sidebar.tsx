@@ -142,6 +142,7 @@ interface NexusSidebarProps {
   onTeamsSidebarFilterChange?: (filter: "all" | "activity" | "channels" | "chats" | "meetings" | "calendar") => void;
   calendarSidebarFilter?: "today" | "week" | "month";
   onCalendarSidebarFilterChange?: (filter: "today" | "week" | "month") => void;
+  className?: string;
 }
 
 function getWellKnownFolders(t: any): Record<string, { icon: React.ReactNode; iconCollapsed: React.ReactNode; label: string; order: number }> {
@@ -194,6 +195,7 @@ export default function NexusSidebar({
   onTeamsSidebarFilterChange,
   calendarSidebarFilter,
   onCalendarSidebarFilterChange,
+  className,
 }: NexusSidebarProps) {
   const { t } = useI18n();
   const [showOtherFolders, setShowOtherFolders] = useState(false);
@@ -232,7 +234,7 @@ export default function NexusSidebar({
 
   if (collapsed) {
     return (
-      <div className="flex flex-col h-full bg-card rounded-lg border w-[48px] shrink-0 items-center py-2 gap-1">
+      <div className={`flex flex-col h-full bg-card rounded-lg border w-[48px] shrink-0 items-center py-2 gap-1 ${className || ""}`}>
         <TooltipProvider delayDuration={200}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -610,7 +612,7 @@ export default function NexusSidebar({
   }
 
   return (
-    <div className="flex flex-col h-full bg-card rounded-lg border w-[220px] min-w-[200px] max-w-[240px] shrink-0">
+    <div className={`flex flex-col h-full bg-card rounded-lg border w-[220px] min-w-[200px] max-w-[240px] shrink-0 ${className || ""}`}>
       <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/30">
         <div className="flex items-center gap-1.5">
           {tabConfig[activeTab].icon}
@@ -960,6 +962,7 @@ function SidebarItem({ icon, label, badge, badgeVariant = "muted", count, active
         }
       `}
       data-testid={testId}
+      data-active={active ? "true" : undefined}
     >
       <div className="flex items-center gap-2 min-w-0">
         <span className={`shrink-0 ${active ? "text-primary" : "text-muted-foreground"}`}>{icon}</span>
