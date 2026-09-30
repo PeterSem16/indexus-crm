@@ -9796,15 +9796,13 @@ function ReschedulePopover({ item, onReschedule, onInvalid, t, locale }: { item:
 }
 
 function ScheduledQueuePanel({
-  open,
-  onOpenChange,
+  openQueueRef,
   selectedCampaignId,
   onOpenContact,
   showOnlyAssigned,
   onToggleAssigned,
 }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  openQueueRef: { current: () => void };
   selectedCampaignId?: string | null;
   onOpenContact?: (
     contactId: string,
@@ -9818,6 +9816,14 @@ function ScheduledQueuePanel({
   showOnlyAssigned?: boolean;
   onToggleAssigned?: (v: boolean) => void;
 }) {
+  // The toolbar opens this panel through a ref so opening/closing it does not
+  // re-render the entire Agent Workspace and its other live panels.
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    openQueueRef.current = () => setOpen(true);
+    return () => { openQueueRef.current = () => {}; };
+  }, [openQueueRef]);
+  const onOpenChange = setOpen;
   const [filterType, setFilterType] = useState<"all" | "callback" | "email" | "sms">("all");
   const [timeFilter, setTimeFilter] = useState<"all" | "overdue" | "today" | "thisWeek" | "nextWeek" | "later">("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -10563,7 +10569,7 @@ function AgentWorkspacePageContent() {
   const [pulseWrapUpProtected, setPulseWrapUpProtected] = useState(false);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [isAutoMode, setIsAutoMode] = useState(false);
-  const [scheduledQueueOpen, setScheduledQueueOpen] = useState(false);
+  const scheduledQueueOpenRef = useRef<() => void>(() => {});
   const [abandonedCallsOpen, setAbandonedCallsOpen] = useState(false);
   const [myActivityOpen, setMyActivityOpen] = useState(false);
   const [missedChannel, setMissedChannel] = useState<"all" | "calls" | "email" | "sms">("all");
@@ -15596,7 +15602,7 @@ function AgentWorkspacePageContent() {
         onEndSession={handleEndSession}
         isSessionActive={agentSession.isSessionActive}
         t={t}
-        onOpenScheduledQueue={() => setScheduledQueueOpen(true)}
+        onOpenScheduledQueue={() => scheduledQueueOpenRef.current()}
         scheduledQueueCounts={scheduledQueueCounts}
         missedCommunicationCounts={{
           calls: abandonedCalls.filter((c: any) => !c.calledBack).length,
@@ -17552,7 +17558,7 @@ function AgentWorkspacePageContent() {
         </SheetContent>
       </Sheet>
 
-      <ScheduledQueuePanel selectedCampaignId={selectedCampaignId} open={scheduledQueueOpen} onOpenChange={setScheduledQueueOpen} onOpenContact={handleOpenScheduledContact} showOnlyAssigned={showOnlyAssigned} onToggleAssigned={setShowOnlyAssigned} />
+      <ScheduledQueuePanel selectedCampaignId={selectedCampaignId} openQueueRef={scheduledQueueOpenRef} onOpenContact={handleOpenScheduledContact} showOnlyAssigned={showOnlyAssigned} onToggleAssigned={setShowOnlyAssigned} />
       <MyActivityPanel
         open={myActivityOpen}
         onOpenChange={setMyActivityOpen}
