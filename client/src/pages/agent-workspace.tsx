@@ -9630,18 +9630,20 @@ function ReschedulePopover({ item, onReschedule, onInvalid, t, locale }: { item:
     const parts = Object.fromEntries(scheduleParts(parsed, locale).filter(p => ["weekday", "day", "month"].includes(p.type)).map(p => [p.type, p.value]));
     return { weekday: parts.weekday || "", date: `${parts.day || ""} ${parts.month || ""}`.trim() };
   };
-  const currentText = new Intl.DateTimeFormat(locale, { timeZone: SCHEDULE_TIME_ZONE, weekday: "long", day: "numeric", month: "long" }).format(new Date(item.scheduledAt));
-  const newText = dateParts(dateVal);
+  const currentText = popOpen
+    ? new Intl.DateTimeFormat(locale, { timeZone: SCHEDULE_TIME_ZONE, weekday: "long", day: "numeric", month: "long" }).format(new Date(item.scheduledAt))
+    : "";
+  const newText = popOpen ? dateParts(dateVal) : { weekday: "", date: "" };
   const hour = timeVal.slice(0, 2);
   const minute = timeVal.slice(3, 5);
   const setHour = (value: string) => setTimeVal(`${value}:${minute}`);
   const setMinute = (value: string) => setTimeVal(`${hour}:${value}`);
-  const fallbackDateParts = scheduleDateKey(new Date()).split("-").map(Number);
+  const fallbackDateParts = popOpen ? scheduleDateKey(new Date()).split("-").map(Number) : [];
   const parsedDateParts = dateVal.split("-").map(Number);
   const selectedYear = parsedDateParts[0] || fallbackDateParts[0];
   const selectedMonth = parsedDateParts[1] || fallbackDateParts[1];
   const selectedDay = parsedDateParts[2] || fallbackDateParts[2];
-  const currentBratislavaYear = Number(scheduleDateKey(new Date()).slice(0, 4));
+  const currentBratislavaYear = popOpen ? Number(scheduleDateKey(new Date()).slice(0, 4)) : 0;
   const yearOptions = Array.from(new Set([
     ...Array.from({ length: 6 }, (_, offset) => currentBratislavaYear + offset),
     selectedYear,
@@ -9666,13 +9668,13 @@ function ReschedulePopover({ item, onReschedule, onInvalid, t, locale }: { item:
     if (nextKey) setDateVal(nextKey);
     else onInvalid?.();
   };
-  const validDayKeys = validDateKeysForMonth(selectedYear, selectedMonth);
+  const validDayKeys = popOpen ? validDateKeysForMonth(selectedYear, selectedMonth) : [];
   if (dateVal && isWeekday(dateVal) && !validDayKeys.includes(dateVal)) validDayKeys.unshift(dateVal);
   const monthLabel = (month: number) => new Intl.DateTimeFormat(locale, {
     timeZone: "UTC",
     month: "short",
   }).format(new Date(Date.UTC(2024, month - 1, 1)));
-  const shortcuts = (() => {
+  const shortcuts = popOpen ? (() => {
     const dates: string[] = [];
     const cursor = new Date(`${scheduleDateKey(new Date())}T12:00:00`);
     while (dates.length < 3) {
@@ -9680,7 +9682,7 @@ function ReschedulePopover({ item, onReschedule, onInvalid, t, locale }: { item:
       cursor.setDate(cursor.getDate() + 1);
     }
     return dates;
-  })();
+  })() : [];
 
   return (
     <Popover open={popOpen} onOpenChange={setPopOpen}>
@@ -9695,7 +9697,7 @@ function ReschedulePopover({ item, onReschedule, onInvalid, t, locale }: { item:
           <CalendarClock className="h-3.5 w-3.5" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[min(420px,calc(100vw-24px))] rounded-2xl border-[#c7dbe9] bg-[#fffffe] p-4 shadow-[0_18px_45px_rgba(28,67,103,0.18)] dark:border-sky-900 dark:bg-slate-950" align="end">
+      {popOpen && <PopoverContent className="w-[min(420px,calc(100vw-24px))] rounded-2xl border-[#c7dbe9] bg-[#fffffe] p-4 shadow-[0_18px_45px_rgba(28,67,103,0.18)] dark:border-sky-900 dark:bg-slate-950" align="end">
         <div className="space-y-3">
           <div className="flex items-start justify-between">
             <div><p className="text-[9px] font-extrabold tracking-[.12em] text-[#7891a5]">{t.agentWorkspace.reschedule}</p><p className="mt-1 text-sm font-bold text-[#1d3d5a]">{item.contactName || t.agentWorkspace.unknownContact}</p></div>
@@ -9790,7 +9792,7 @@ function ReschedulePopover({ item, onReschedule, onInvalid, t, locale }: { item:
             </Button>
           </div>
         </div>
-      </PopoverContent>
+      </PopoverContent>}
     </Popover>
   );
 }
